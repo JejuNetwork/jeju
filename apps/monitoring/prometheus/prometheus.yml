@@ -1,0 +1,79 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'jeju-network'
+    environment: 'dev'
+
+# Load alert rules
+rule_files:
+  - '/etc/prometheus/alerts/*.yaml'
+  - '/etc/prometheus/*.yaml'
+
+# Scrape configurations
+scrape_configs:
+  # OP Stack Components
+  - job_name: 'op-node'
+    static_configs:
+      - targets: ['host.docker.internal:7300']
+        labels:
+          component: 'sequencer'
+
+  - job_name: 'op-batcher'
+    static_configs:
+      - targets: ['host.docker.internal:7301']
+        labels:
+          component: 'batcher'
+
+  - job_name: 'op-proposer'
+    static_configs:
+      - targets: ['host.docker.internal:7302']
+        labels:
+          component: 'proposer'
+
+  # Reth Execution Layer
+  - job_name: 'reth'
+    static_configs:
+      - targets: ['host.docker.internal:9001']
+        labels:
+          component: 'execution-layer'
+
+  # Subsquid Indexer
+  - job_name: 'subsquid-processor'
+    static_configs:
+      - targets: ['host.docker.internal:4350']
+        labels:
+          component: 'indexer'
+
+  - job_name: 'subsquid-api'
+    static_configs:
+      - targets: ['host.docker.internal:4350']
+        labels:
+          component: 'graphql-api'
+
+  # Node Explorer
+  - job_name: 'node-explorer-api'
+    static_configs:
+      - targets: ['host.docker.internal:4002']
+        labels:
+          component: 'monitoring'
+  
+  - job_name: 'node-explorer-ui'
+    static_configs:
+      - targets: ['host.docker.internal:4003']
+        labels:
+          component: 'monitoring'
+
+  # EigenDA
+  - job_name: 'eigenda'
+    static_configs:
+      - targets: ['disperser-holesky.eigenda.xyz:443']
+        labels:
+          component: 'data-availability'
+    scheme: https
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+

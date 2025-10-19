@@ -2,9 +2,10 @@
 pragma solidity ^0.8.26;
 
 import "forge-std/Test.sol";
-import {CreditPurchaseContract} from "../src/cloud/CreditPurchaseContract.sol";
-import {IElizaOSToken} from "../src/cloud/CreditPurchaseContract.sol";
-import {IPriceOracle} from "../src/cloud/CreditPurchaseContract.sol";
+import {CreditPurchaseContract} from "../src/services/CreditPurchaseContract.sol";
+import {PriceOracle} from "../src/oracle/PriceOracle.sol";
+import {IElizaOSToken} from "../src/services/CreditPurchaseContract.sol";
+import {IPriceOracle} from "../src/services/CreditPurchaseContract.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
@@ -15,7 +16,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract CreditPurchaseContractTest is Test {
     CreditPurchaseContract public purchase;
     MockElizaOSToken public elizaToken;
-    MockPriceOracle public oracle;
+    PriceOracle public oracle;
     MockERC20 public usdc;
     
     address public owner = address(this);
@@ -28,19 +29,19 @@ contract CreditPurchaseContractTest is Test {
     
     function setUp() public {
         elizaToken = new MockElizaOSToken();
-        oracle = new MockPriceOracle();
+        oracle = new PriceOracle();
         usdc = new MockERC20("USD Coin", "USDC", 6);
         
         purchase = new CreditPurchaseContract(
             elizaToken,
-            oracle,
+            IPriceOracle(address(oracle)),
             treasury
         );
         
-        // Setup oracle prices
-        oracle.setPrice(address(0), 2000 * 1e8, 8); // ETH = $2000
-        oracle.setPrice(address(elizaToken), 10 * 1e6, 6); // elizaOS = $0.10
-        oracle.setPrice(address(usdc), 1 * 1e8, 8); // USDC = $1.00
+        // Setup oracle prices (using 18 decimals to match constructor defaults)
+        oracle.setPrice(address(0), 2000 * 1e18, 18); // ETH = $2000
+        oracle.setPrice(address(elizaToken), 10 * 1e16, 18); // elizaOS = $0.10
+        oracle.setPrice(address(usdc), 1 * 1e18, 18); // USDC = $1.00
         
         // Enable USDC
         purchase.setTokenSupport(address(usdc), true, 6);
@@ -53,7 +54,7 @@ contract CreditPurchaseContractTest is Test {
     // ============ Constructor - MUST set EXACT values ============
     
     function testConstructor_SetsAddresses() public view {
-        assertEq(address(purchase.elizaOSToken()), address(elizaToken));
+        assertEq(address(purchase.ElizaOSToken()), address(elizaToken));
         assertEq(address(purchase.priceOracle()), address(oracle));
         assertEq(purchase.treasury(), treasury);
     }
@@ -74,7 +75,7 @@ contract CreditPurchaseContractTest is Test {
         vm.expectRevert(CreditPurchaseContract.InvalidElizaOSToken.selector);
         new CreditPurchaseContract(
             MockElizaOSToken(address(0)),
-            oracle,
+            IPriceOracle(address(oracle)),
             treasury
         );
     }
@@ -83,7 +84,7 @@ contract CreditPurchaseContractTest is Test {
         vm.expectRevert(CreditPurchaseContract.InvalidPriceOracle.selector);
         new CreditPurchaseContract(
             elizaToken,
-            MockPriceOracle(address(0)),
+            IPriceOracle(address(0)),
             treasury
         );
     }
@@ -92,7 +93,7 @@ contract CreditPurchaseContractTest is Test {
         vm.expectRevert(CreditPurchaseContract.InvalidTreasury.selector);
         new CreditPurchaseContract(
             elizaToken,
-            oracle,
+            IPriceOracle(address(oracle)),
             address(0)
         );
     }
@@ -102,14 +103,14 @@ contract CreditPurchaseContractTest is Test {
     function testGetQuote_CalculatesCorrectCredits() public view {
         // Paying 100 USDC ($100)
         // Platform fee 3% = $97 net
-        // elizaOS at $0.10 (10 * 1e6 with 6 decimals) = 970 elizaOS
-        // Formula: netUsdValue * (10 ** elizaDecimals) / elizaPriceUSD
-        // = 97 * 1e18 * 1e6 / (10 * 1e6) = 97 * 1e18 / 10 = 9.7 * 1e18
-        
+        // elizaOS at $0.10 = 970 elizaOS tokens
+        // Formula: netUsdValue * 1e18 / elizaPriceUSD
+        // = 97e18 * 1e18 / 0.1e18 = 970e18
+
         (uint256 creditsOut, , , uint256 usdValue) = purchase.getQuote(address(usdc), 100 * 1e6);
-        
+
         assertEq(usdValue, 100 * 1e18); // MUST be $100
-        assertEq(creditsOut, 9.7 * 1e18); // MUST be exact (97 / 10)
+        assertEq(creditsOut, 970 * 1e18); // MUST be 970 elizaOS tokens
     }
     
     function testGetQuote_RevertsOnUnsupportedToken() public {
@@ -138,8 +139,9 @@ contract CreditPurchaseContractTest is Test {
         // Verify credits minted
         assertEq(elizaToken.balanceOf(user), creditsReceived);
         
-        // Verify ETH transferred to treasury
-        assertGt(treasury.balance, 0);
+        // Verify exact ETH amount transferred to treasury (after 3% platform fee)
+        uint256 expectedTreasuryAmount = (paymentAmount * 97) / 100;
+        assertEq(treasury.balance, expectedTreasuryAmount, "Treasury should receive payment minus platform fee");
     }
     
     function testPurchaseCredits_WithUSDC() public {
@@ -159,8 +161,9 @@ contract CreditPurchaseContractTest is Test {
         // Verify credits minted
         assertEq(elizaToken.balanceOf(user), creditsReceived);
         
-        // Verify USDC transferred
-        assertGt(usdc.balanceOf(treasury), 0);
+        // Verify exact USDC amount transferred to treasury (after 3% platform fee)
+        uint256 expectedTreasuryAmount = (paymentAmount * 97) / 100;
+        assertEq(usdc.balanceOf(treasury), expectedTreasuryAmount, "Treasury should receive payment minus platform fee");
     }
     
     function testPurchaseCredits_RevertsOnSlippageExceeded() public {
@@ -201,9 +204,9 @@ contract CreditPurchaseContractTest is Test {
     // ============ Admin Functions ============
     
     function testSetPriceOracle_Updates() public {
-        MockPriceOracle newOracle = new MockPriceOracle();
+        PriceOracle newOracle = new PriceOracle();
         
-        purchase.setPriceOracle(newOracle);
+        purchase.setPriceOracle(IPriceOracle(address(newOracle)));
         
         assertEq(address(purchase.priceOracle()), address(newOracle));
     }
@@ -242,12 +245,16 @@ contract CreditPurchaseContractTest is Test {
 contract MockElizaOSToken is IElizaOSToken {
     mapping(address => uint256) public balanceOf;
     
+    function decimals() external pure returns (uint8) {
+        return 18;
+    }
+    
     function mint(address to, uint256 amount) external override {
         balanceOf[to] += amount;
     }
 }
 
-contract MockPriceOracle is IPriceOracle {
+contract MockPriceOracleForTest is IPriceOracle {
     struct PriceData {
         uint256 price;
         uint256 decimals;

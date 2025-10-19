@@ -39,6 +39,7 @@ interface NodePerformance {
   uptimeScore: number; // 0-10000 (100.00%)
   requestsServed: number;
   avgResponseTime: number;
+  rpcVerified: boolean; // Whether RPC endpoint actually responds
 }
 
 async function fetchNodePerformance(): Promise<NodePerformance[]> {
@@ -53,12 +54,24 @@ async function fetchNodePerformance(): Promise<NodePerformance[]> {
       // Calculate uptime score based on heartbeat consistency
       const uptimeScore = calculateUptimeScore(node);
       
+      // CRITICAL: Verify RPC endpoint actually responds
+      const rpcVerified = await verifyRPCEndpoint(node.rpc_url);
+      
+      // Only credit nodes with verified RPCs
+      // Nodes with failed verification get 0 uptime score
+      const finalUptimeScore = rpcVerified ? uptimeScore : 0;
+      
       performance.push({
         nodeId: node.id,
-        uptimeScore,
+        uptimeScore: finalUptimeScore,
         requestsServed: node.total_requests || 0,
         avgResponseTime: await getAvgResponseTime(node.id),
+        rpcVerified,
       });
+      
+      if (!rpcVerified) {
+        console.log(`⚠️  Node ${node.id} RPC verification failed: ${node.rpc_url}`);
+      }
     }
     
     return performance;
@@ -106,6 +119,40 @@ async function getAvgResponseTime(nodeId: string): Promise<number> {
   }
 }
 
+/**
+ * Verify RPC endpoint is actually responding to requests
+ * Makes real eth_blockNumber call to ensure node is live
+ */
+async function verifyRPCEndpoint(rpcUrl: string): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+    
+    const response = await fetch(rpcUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_blockNumber',
+        params: [],
+        id: 1,
+      }),
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) return false;
+    
+    const data = await response.json();
+    
+    // Must return valid block number
+    return data.result && typeof data.result === 'string' && data.result.startsWith('0x');
+  } catch {
+    return false;
+  }
+}
+
 // ============ Oracle Updater ============
 
 class RewardsOracle {
@@ -139,17 +186,23 @@ class RewardsOracle {
       let updated = 0;
       let failed = 0;
       
-      for (const nodeId of nodeIds) {
-        const perf = performanceMap.get(nodeId);
-        
-        if (!perf) {
-          console.log(`⚠️  No performance data for ${nodeId}`);
-          continue;
-        }
-        
-        try {
-          // Check if update is needed
-          const [, currentPerf] = await this.contract.getNodeInfo(nodeId);
+    for (const nodeId of nodeIds) {
+      const perf = performanceMap.get(nodeId);
+      
+      if (!perf) {
+        console.log(`⚠️  No performance data for ${nodeId}`);
+        continue;
+      }
+      
+      // Skip nodes that failed RPC verification
+      if (!perf.rpcVerified) {
+        console.log(`⚠️  Node ${nodeId.slice(0, 10)}... failed RPC verification - skipping update`);
+        continue;
+      }
+      
+      try {
+        // Check if update is needed
+        const [, currentPerf] = await this.contract.getNodeInfo(nodeId);
           
           const shouldUpdate = 
             Math.abs(currentPerf.uptimeScore - perf.uptimeScore) > 100 || // 1% change

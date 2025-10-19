@@ -1,0 +1,482 @@
+{
+  "uid": "jeju-contracts-defi",
+  "title": "Jeju - Contracts & DeFi Activity",
+  "tags": [
+    "contracts",
+    "defi",
+    "jeju"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "10s",
+  "editable": true,
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Total Contracts",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM contract",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "green"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "ERC20 Tokens",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM contract WHERE is_erc20 = true",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "blue"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "ERC721 NFTs",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM contract WHERE is_erc721 = true",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "purple"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Proxy Contracts",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM contract WHERE is_proxy = true",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "orange"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Verified Contracts",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM contract WHERE verified = true",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "yellow"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "New Contracts (24h)",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM contract WHERE first_seen_at > NOW() - INTERVAL '24 hours'",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "red"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Contract Deployments Over Time",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 4
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  DATE_TRUNC('hour', first_seen_at) as time,\n  COUNT(*) as \"New Contracts\"\nFROM contract\nWHERE $__timeFilter(first_seen_at)\nGROUP BY time\nORDER BY time",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 50
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "Contract Type Distribution",
+      "type": "piechart",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  COALESCE(contract_type, 'UNKNOWN') as metric,\n  COUNT(*) as value\nFROM contract\nGROUP BY contract_type",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "pieType": "donut",
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value",
+            "percent"
+          ]
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "Most Active Contracts (by interactions)",
+      "type": "table",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  LEFT(c.address, 10) || '...' as \"Contract\",\n  c.contract_type as \"Type\",\n  COUNT(DISTINCT ci.caller_id) as \"Unique Users\",\n  SUM(ci.interaction_count) as \"Total Interactions\",\n  MAX(ci.last_interaction) as \"Last Active\"\nFROM contract c\nJOIN contract_interaction ci ON c.id = ci.contract_id\nGROUP BY c.address, c.contract_type\nORDER BY \"Total Interactions\" DESC\nLIMIT 20",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Total Interactions",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
+      "id": 10,
+      "title": "Protocol Activity by Day",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  pa.date as time,\n  pa.event_name as metric,\n  pa.event_count as value\nFROM protocol_activity pa\nWHERE $__timeFilter(pa.date)\nORDER BY time",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "stacking": {
+              "mode": "normal"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum",
+            "mean",
+            "lastNotNull"
+          ]
+        }
+      }
+    },
+    {
+      "id": 11,
+      "title": "Token Standards Breakdown",
+      "type": "barchart",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 32
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  'ERC20' as metric,\n  COUNT(*) as value\nFROM contract WHERE is_erc20 = true\nUNION ALL\nSELECT \n  'ERC721' as metric,\n  COUNT(*) as value\nFROM contract WHERE is_erc721 = true\nUNION ALL\nSELECT \n  'ERC1155' as metric,\n  COUNT(*) as value\nFROM contract WHERE is_erc1155 = true",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "orientation": "vertical",
+        "xTickLabelRotation": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      }
+    },
+    {
+      "id": 12,
+      "title": "Recent Contract Deployments",
+      "type": "table",
+      "gridPos": {
+        "h": 8,
+        "w": 16,
+        "x": 8,
+        "y": 32
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  LEFT(c.address, 10) || '...' as \"Address\",\n  c.contract_type as \"Type\",\n  CASE \n    WHEN c.is_erc20 THEN 'ERC20'\n    WHEN c.is_erc721 THEN 'ERC721'\n    WHEN c.is_erc1155 THEN 'ERC1155'\n    ELSE '-'\n  END as \"Standard\",\n  c.verified as \"Verified\",\n  c.is_proxy as \"Proxy\",\n  c.first_seen_at as \"Deployed At\"\nFROM contract c\nORDER BY c.first_seen_at DESC\nLIMIT 30",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Deployed At",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
+      "id": 13,
+      "title": "Contract Interaction Heatmap (by hour)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 40
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  DATE_TRUNC('hour', b.timestamp) as time,\n  LEFT(l.address_id, 10) || '...' as metric,\n  COUNT(*) as value\nFROM log l\nJOIN block b ON l.block_id = b.id\nJOIN contract c ON l.address_id = c.id\nWHERE $__timeFilter(b.timestamp)\n  AND c.contract_type IN ('UNISWAP_V4_POOL', 'COMPOUND_V3_COMET', 'SYNTHETIX_V3_CORE')\nGROUP BY time, l.address_id\nORDER BY time",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 20
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "sum",
+            "lastNotNull"
+          ]
+        }
+      }
+    }
+  ]
+}

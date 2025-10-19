@@ -25,7 +25,7 @@
  * bun run localnet:start
  * 
  * # Terminal 2: Start indexer
- * cd indexer && npm run dev
+ * cd apps/indexer && npm run dev
  * 
  * # Terminal 3: Run tests
  * bun test tests/integration/runtime-full-stack.test.ts
@@ -63,17 +63,17 @@ interface RuntimeConfig {
 
 const CONFIG: RuntimeConfig = {
   l1: {
-    rpcUrl: 'http://127.0.0.1:8545',
+    rpcUrl: process.env.L1_RPC_URL || `http://127.0.0.1:${process.env.L1_RPC_PORT || '8545'}`,
     chainId: 1337,
   },
   l2: {
-    rpcUrl: 'http://127.0.0.1:9545',
-    wsUrl: 'ws://127.0.0.1:9546',
+    rpcUrl: process.env.L2_RPC_URL || process.env.JEJU_RPC_URL || `http://127.0.0.1:${process.env.L2_RPC_PORT || '9545'}`,
+    wsUrl: process.env.L2_WS_URL || `ws://127.0.0.1:${process.env.L2_WS_PORT || '9546'}`,
     chainId: 1337,
   },
   indexer: {
-    graphqlUrl: 'http://localhost:4350/graphql',
-    databaseUrl: 'postgresql://postgres:postgres@localhost:23798/indexer',
+    graphqlUrl: process.env.INDEXER_GRAPHQL_URL || `http://localhost:${process.env.INDEXER_GRAPHQL_PORT || '4350'}/graphql`,
+    databaseUrl: process.env.INDEXER_DATABASE_URL || `postgresql://postgres:postgres@localhost:${process.env.INDEXER_DB_PORT || '23798'}/indexer`,
   },
   timeouts: {
     blockProduction: 5000, // 5s for block to be produced
@@ -244,7 +244,7 @@ describe('Runtime Full Stack Integration', () => {
     it('should check if indexer is running', () => {
       if (!serviceStatus.indexer) {
         console.log('   ⏭️  Indexer not running - skipping indexer tests');
-        console.log('   ℹ️  Start with: cd indexer && npm run dev');
+        console.log('   ℹ️  Start with: cd apps/indexer && npm run dev');
         return;
       }
       

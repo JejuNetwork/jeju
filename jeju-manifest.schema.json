@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Jeju App Manifest",
+  "description": "Manifest file for Jeju applications (both core apps and vendor apps)",
+  "type": "object",
+  "required": ["name", "displayName", "version", "type"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$",
+      "description": "Unique identifier (kebab-case)"
+    },
+    "displayName": {
+      "type": "string",
+      "description": "Human-readable name"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-z0-9.]+)?$",
+      "description": "Semantic version"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["core", "vendor"],
+      "description": "App type: core (apps/) or vendor (vendor/)"
+    },
+    "description": {
+      "type": "string",
+      "description": "Brief description of the app"
+    },
+    "commands": {
+      "type": "object",
+      "description": "Available commands for this app",
+      "properties": {
+        "dev": { "type": "string" },
+        "build": { "type": "string" },
+        "test": { "type": "string" },
+        "start": { "type": "string" }
+      }
+    },
+    "ports": {
+      "type": "object",
+      "description": "Port configuration",
+      "properties": {
+        "main": { "type": "number" },
+        "api": { "type": "number" },
+        "ui": { "type": "number" },
+        "game": { "type": "number" },
+        "auth": { "type": "number" }
+      }
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["contracts", "config", "shared", "scripts", "indexer", "localnet"]
+      },
+      "description": "Required Jeju dependencies"
+    },
+    "optional": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this app is optional (won't fail dev if missing)"
+    },
+    "enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this app should be started"
+    },
+    "autoStart": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether to auto-start with 'bun run dev'"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Category tags (defi, gaming, monitoring, etc.)"
+    },
+    "healthCheck": {
+      "type": "object",
+      "properties": {
+        "url": { "type": "string" },
+        "interval": { "type": "number" }
+      }
+    }
+  }
+}
+

@@ -1,0 +1,70 @@
+{
+  "version": "1.0.0",
+  "network": "jeju",
+  "chainId": 420691,
+  "lastUpdated": "2025-10-19",
+  "tokens": {
+    "ETH": {
+      "address": "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
+      "name": "Ether",
+      "symbol": "ETH",
+      "decimals": 18,
+      "isNative": true,
+      "logoUrl": "/tokens/eth.svg",
+      "tags": ["Native", "Gas"]
+    },
+    "WETH": {
+      "address": "0x4200000000000000000000000000000000000006",
+      "name": "Wrapped Ether",
+      "symbol": "WETH",
+      "decimals": 18,
+      "logoUrl": "/tokens/weth.svg",
+      "tags": ["Wrapped", "DeFi"]
+    },
+    "elizaOS": {
+      "address": "TBD_DEPLOY_ELIZA_TOKEN",
+      "name": "elizaOS Token",
+      "symbol": "elizaOS",
+      "decimals": 18,
+      "description": "Primary fee payment token in the Jeju ecosystem",
+      "logoUrl": "/tokens/eliza.svg",
+      "tags": ["Native", "Jeju", "Fee"],
+      "isNative": false
+    },
+    "USDC": {
+      "address": "TBD_DEPLOY_USDC",
+      "name": "USD Coin",
+      "symbol": "USDC",
+      "decimals": 6,
+      "logoUrl": "/tokens/usdc.svg",
+      "tags": ["Stablecoin"]
+    },
+    "CLANKER": {
+      "address": "TBD_BRIDGE_OR_DEPLOY",
+      "name": "tokenbot",
+      "symbol": "CLANKER",
+      "decimals": 18,
+      "description": "AI agent token",
+      "logoUrl": "/tokens/clanker.svg",
+      "tags": ["AI", "Agent"]
+    },
+    "VIRTUAL": {
+      "address": "TBD_BRIDGE_OR_DEPLOY",
+      "name": "Virtuals Protocol",
+      "symbol": "VIRTUAL",
+      "decimals": 18,
+      "logoUrl": "/tokens/virtual.svg",
+      "tags": ["AI", "Protocol"]
+    },
+    "CLANKERMON": {
+      "address": "TBD_BRIDGE_OR_DEPLOY",
+      "name": "Clankermon",
+      "symbol": "CLANKERMON",
+      "decimals": 18,
+      "logoUrl": "/tokens/clankermon.svg",
+      "tags": ["Gaming", "AI"]
+    }
+  },
+  "note": "Token addresses will be updated after deployment to Jeju. Use TBD_* values as placeholders."
+}
+

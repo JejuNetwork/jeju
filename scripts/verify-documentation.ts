@@ -146,7 +146,7 @@ function verifyTypeScript() {
   const dirs = [
     'config',
     'scripts/shared',
-    'indexer/src',
+    'apps/indexer/src',
   ];
   
   for (const dir of dirs) {
@@ -186,11 +186,11 @@ function verifyREADMEs() {
     'README.md',
     'config/README.md',
     'contracts/README.md',
-    'documentation/README.md',
-    'indexer/README.md',
+    'apps/documentation/README.md',
+    'apps/indexer/README.md',
     'kubernetes/helm/README.md',
     'kurtosis/README.md',
-    'node-explorer/README.md',
+    'apps/node-explorer/README.md',
     'TESTING.md',
     'DOCUMENTATION_SUMMARY.md',
   ];

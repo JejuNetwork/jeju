@@ -53,8 +53,8 @@ interface IPriceOracle {
 contract LiquidityPaymaster is BasePaymaster, Pausable {
     // ============ State Variables ============
     
-    /// @notice elizaOS token contract - used for fee payments
-    IERC20 public immutable elizaOS;
+    /// @notice Payment token contract - used for fee payments
+    IERC20 public immutable paymentToken;
     
     /// @notice Vault holding ETH and elizaOS liquidity from LPs
     ILiquidityVault public immutable liquidityVault;
@@ -66,8 +66,17 @@ contract LiquidityPaymaster is BasePaymaster, Pausable {
     IPriceOracle public priceOracle;
     
     /// @notice Additional fee margin added to cover price volatility (in basis points)
-    /// @dev Default 10% = 1000 basis points. Configurable by owner.
+    /// @dev Default 10% = 1000 basis points. Changes have 24h timelock for user protection.
     uint256 public feeMargin = 1000;
+    
+    /// @notice Pending fee margin change (timelock system)
+    uint256 public pendingFeeMargin;
+    
+    /// @notice Timestamp when pending fee change can be executed
+    uint256 public feeMarginUnlockTime;
+    
+    /// @notice Timelock duration for fee changes (24 hours)
+    uint256 public constant FEE_CHANGE_TIMELOCK = 24 hours;
     
     /// @notice Basis points denominator for percentage calculations
     uint256 public constant BASIS_POINTS = 10000;
@@ -90,8 +99,9 @@ contract LiquidityPaymaster is BasePaymaster, Pausable {
         address indexed user,
         address indexed app,
         uint256 gasCost,
-        uint256 elizaOSCharged
+        uint256 tokensCharged
     );
+    event FeeMarginChangeProposed(uint256 currentMargin, uint256 proposedMargin, uint256 unlockTime);
     event FeeMarginUpdated(uint256 oldMargin, uint256 newMargin);
     event PriceOracleUpdated(address indexed newOracle);
     event EntryPointFunded(uint256 amount);
@@ -99,20 +109,22 @@ contract LiquidityPaymaster is BasePaymaster, Pausable {
     // ============ Errors ============
     
     error InvalidPaymasterData();
-    error InsufficientElizaOSBalance();
-    error InsufficientElizaOSAllowance();
+    error InsufficientTokenBalance(uint256 required, uint256 available);
+    error InsufficientTokenAllowance(uint256 required, uint256 available);
     error InsufficientLiquidity();
     error GasCostTooHigh();
     error FeeBelowMinimum();
     error StaleOraclePrice();
     error PaymentFailed();
+    error TimelockActive(uint256 unlockTime);
+    error NoProposedChange();
     
     // ============ Constructor ============
     
     /**
      * @notice Constructs the LiquidityPaymaster with required dependencies
      * @param _entryPoint ERC-4337 EntryPoint contract address (v0.7)
-     * @param _elizaOS elizaOS token contract address
+     * @param _paymentToken Payment token contract address
      * @param _liquidityVault Liquidity vault contract address
      * @param _feeDistributor Fee distributor contract address
      * @param _priceOracle Price oracle contract address
@@ -121,17 +133,17 @@ contract LiquidityPaymaster is BasePaymaster, Pausable {
      */
     constructor(
         IEntryPoint _entryPoint,
-        address _elizaOS,
+        address _paymentToken,
         address _liquidityVault,
         address _feeDistributor,
         address _priceOracle
     ) BasePaymaster(_entryPoint) {
-        require(_elizaOS != address(0), "Invalid elizaOS");
+        require(_paymentToken != address(0), "Invalid payment token");
         require(_liquidityVault != address(0), "Invalid vault");
         require(_feeDistributor != address(0), "Invalid distributor");
         require(_priceOracle != address(0), "Invalid oracle");
         
-        elizaOS = IERC20(_elizaOS);
+        paymentToken = IERC20(_paymentToken);
         liquidityVault = ILiquidityVault(_liquidityVault);
         feeDistributor = IFeeDistributor(_feeDistributor);
         priceOracle = IPriceOracle(_priceOracle);
@@ -184,17 +196,19 @@ contract LiquidityPaymaster is BasePaymaster, Pausable {
         // Check gas cost limit
         if (maxCost > maxGasCost) revert GasCostTooHigh();
         
-        // Calculate required elizaOS tokens
-        uint256 requiredElizaOS = calculateElizaOSAmount(maxCost);
-        if (requiredElizaOS < minFee) revert FeeBelowMinimum();
+        // Calculate required payment tokens
+        uint256 requiredTokens = calculateElizaOSAmount(maxCost);
+        if (requiredTokens < minFee) revert FeeBelowMinimum();
         
-        // Verify user has enough elizaOS
+        // Verify user has enough payment tokens
         address sender = userOp.sender;
-        if (elizaOS.balanceOf(sender) < requiredElizaOS) {
-            revert InsufficientElizaOSBalance();
+        uint256 userBalance = paymentToken.balanceOf(sender);
+        if (userBalance < requiredTokens) {
+            revert InsufficientTokenBalance(requiredTokens, userBalance);
         }
-        if (elizaOS.allowance(sender, address(this)) < requiredElizaOS) {
-            revert InsufficientElizaOSAllowance();
+        uint256 userAllowance = paymentToken.allowance(sender, address(this));
+        if (userAllowance < requiredTokens) {
+            revert InsufficientTokenAllowance(requiredTokens, userAllowance);
         }
         
         // Verify liquidity vault has enough ETH
@@ -209,21 +223,21 @@ contract LiquidityPaymaster is BasePaymaster, Pausable {
         }
         
         // Pack context for postOp
-        context = abi.encode(sender, appAddress, requiredElizaOS);
+        context = abi.encode(sender, appAddress, requiredTokens);
         validationData = 0; // Accept
     }
     
     /**
      * @notice Post-operation callback to collect fees after transaction execution
      * @param mode Execution result (opSucceeded, opReverted, or postOpReverted)
-     * @param context Data from validation phase (user, app, maxElizaOS)
+     * @param context Data from validation phase (user, app, maxTokens)
      * @param actualGasCost Actual gas cost in ETH used by the transaction
      * @dev Called by EntryPoint after user operation execution
      * 
      * Fee collection process:
-     * 1. Calculate actual elizaOS cost based on actual gas used
+     * 1. Calculate actual token cost based on actual gas used
      * 2. Cap at maximum to prevent overcharging
-     * 3. Transfer elizaOS from user to paymaster
+     * 3. Transfer payment tokens from user to paymaster
      * 4. Approve fee distributor to spend tokens
      * 5. Distribute fees (50% to app, 50% to LPs)
      * 
@@ -238,60 +252,60 @@ contract LiquidityPaymaster is BasePaymaster, Pausable {
     ) internal override whenNotPaused {
         // Only process if operation succeeded or reverted (user still pays)
         if (mode == PostOpMode.opSucceeded || mode == PostOpMode.opReverted) {
-            (address sender, address appAddress, uint256 maxElizaOS) = abi.decode(
+            (address sender, address appAddress, uint256 maxTokens) = abi.decode(
                 context,
                 (address, address, uint256)
             );
             
-            // Calculate actual elizaOS to charge based on actual gas used
-            uint256 actualElizaOS = calculateElizaOSAmount(actualGasCost);
+            // Calculate actual tokens to charge based on actual gas used
+            uint256 actualTokens = calculateElizaOSAmount(actualGasCost);
             
             // Don't overcharge - cap at estimate
-            if (actualElizaOS > maxElizaOS) {
-                actualElizaOS = maxElizaOS;
+            if (actualTokens > maxTokens) {
+                actualTokens = maxTokens;
             }
             
-            // Collect elizaOS from user
-            bool success = elizaOS.transferFrom(sender, address(this), actualElizaOS);
+            // Collect payment tokens from user
+            bool success = paymentToken.transferFrom(sender, address(this), actualTokens);
             if (!success) revert PaymentFailed();
             
             // Approve fee distributor
-            require(elizaOS.approve(address(feeDistributor), actualElizaOS), "Approval failed");
+            require(paymentToken.approve(address(feeDistributor), actualTokens), "Approval failed");
             
             // Distribute: 50% to app, 50% to LPs (via distributor)
-            feeDistributor.distributeFees(actualElizaOS, appAddress);
+            feeDistributor.distributeFees(actualTokens, appAddress);
             
-            emit TransactionSponsored(sender, appAddress, actualGasCost, actualElizaOS);
+            emit TransactionSponsored(sender, appAddress, actualGasCost, actualTokens);
         }
     }
     
     // ============ Helper Functions ============
     
     /**
-     * @notice Calculate elizaOS tokens required for a given gas cost in ETH
+     * @notice Calculate payment tokens required for a given gas cost in ETH
      * @param gasCostInETH Gas cost in wei (1e18 = 1 ETH)
-     * @return Amount of elizaOS tokens needed (18 decimals, includes fee margin)
+     * @return Amount of payment tokens needed (includes fee margin)
      * @dev Fetches current exchange rate from oracle and adds configured margin
      * 
      * Calculation:
-     * 1. Get elizaOS per ETH rate from oracle
-     * 2. Convert gas cost: (gasCostInETH * elizaPerETH) / 1 ether
+     * 1. Get tokens per ETH rate from oracle
+     * 2. Convert gas cost: (gasCostInETH * tokensPerETH) / 1 ether
      * 3. Add margin: baseAmount + (baseAmount * feeMargin / BASIS_POINTS)
      * 
-     * Example: 0.001 ETH gas at 30,000 elizaOS/ETH with 10% margin:
-     * - Base: (0.001 * 30000) = 30 elizaOS
-     * - Margin: 30 * 0.10 = 3 elizaOS
-     * - Total: 33 elizaOS
+     * Example: 0.001 ETH gas at 30,000 tokens/ETH with 10% margin:
+     * - Base: (0.001 * 30000) = 30 tokens
+     * - Margin: 30 * 0.10 = 3 tokens
+     * - Total: 33 tokens
      * 
      * @custom:security Margin provides buffer for price volatility and sustainability
      */
     function calculateElizaOSAmount(uint256 gasCostInETH) public view returns (uint256) {
-        // Get exchange rate from oracle (elizaOS per ETH)
-        uint256 elizaPerETH = priceOracle.getElizaOSPerETH();
-        require(elizaPerETH > 0, "Invalid exchange rate");
+        // Get exchange rate from oracle (payment tokens per ETH)
+        uint256 tokensPerETH = priceOracle.getElizaOSPerETH();
+        require(tokensPerETH > 0, "Invalid exchange rate");
         
         // Calculate base amount
-        uint256 baseAmount = (gasCostInETH * elizaPerETH) / 1 ether;
+        uint256 baseAmount = (gasCostInETH * tokensPerETH) / 1 ether;
         
         // Add margin for sustainability
         uint256 margin = (baseAmount * feeMargin) / BASIS_POINTS;
@@ -300,10 +314,10 @@ contract LiquidityPaymaster is BasePaymaster, Pausable {
     }
     
     /**
-     * @notice Preview elizaOS cost for a transaction before execution
+     * @notice Preview payment token cost for a transaction before execution
      * @param estimatedGas Estimated gas units for the transaction
      * @param gasPrice Gas price in wei per unit
-     * @return Total elizaOS tokens required (includes fee margin)
+     * @return Total payment tokens required (includes fee margin)
      * @dev Helper function for frontends to show users the cost before submitting
      */
     function previewCost(uint256 estimatedGas, uint256 gasPrice) external view returns (uint256) {
@@ -399,13 +413,48 @@ contract LiquidityPaymaster is BasePaymaster, Pausable {
     // ============ Admin Functions ============
     
     /**
-     * @notice Update the fee margin added to gas costs
+     * @notice Propose a fee margin change (step 1 of timelock process)
      * @param newMargin New margin in basis points (1000 = 10%)
-     * @dev Only callable by owner. Maximum allowed is 20% (2000 basis points).
-     *      Margin provides buffer for price volatility and system sustainability.
+     * @dev Only callable by owner. Starts 24h timelock before change can be executed.
+     *      Maximum allowed is 20% (2000 basis points).
+     *      Protects users from sudden fee increases.
      */
-    function setFeeMargin(uint256 newMargin) external onlyOwner {
+    function proposeFeeMarginChange(uint256 newMargin) external onlyOwner {
         require(newMargin <= 2000, "Margin too high"); // Max 20%
+        
+        pendingFeeMargin = newMargin;
+        feeMarginUnlockTime = block.timestamp + FEE_CHANGE_TIMELOCK;
+        
+        emit FeeMarginChangeProposed(feeMargin, newMargin, feeMarginUnlockTime);
+    }
+    
+    /**
+     * @notice Execute pending fee margin change (step 2 of timelock process)
+     * @dev Can only be called after 24h timelock expires.
+     *      Provides user protection by giving advance notice of fee changes.
+     */
+    function executeFeeMarginChange() external onlyOwner {
+        if (feeMarginUnlockTime == 0) revert NoProposedChange();
+        if (block.timestamp < feeMarginUnlockTime) revert TimelockActive(feeMarginUnlockTime);
+        
+        uint256 oldMargin = feeMargin;
+        feeMargin = pendingFeeMargin;
+        
+        // Reset timelock
+        pendingFeeMargin = 0;
+        feeMarginUnlockTime = 0;
+        
+        emit FeeMarginUpdated(oldMargin, feeMargin);
+    }
+    
+    /**
+     * @notice Emergency set fee margin (bypasses timelock)
+     * @param newMargin New margin in basis points
+     * @dev Only use in emergencies (oracle failure, extreme volatility).
+     *      Requires owner to be trusted. Consider using multi-sig for production.
+     */
+    function emergencySetFeeMargin(uint256 newMargin) external onlyOwner {
+        require(newMargin <= 2000, "Margin too high");
         uint256 oldMargin = feeMargin;
         feeMargin = newMargin;
         emit FeeMarginUpdated(oldMargin, newMargin);

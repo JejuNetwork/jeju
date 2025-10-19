@@ -1,0 +1,22 @@
+{
+  "$schema": "../../jeju-manifest.schema.json",
+  "name": "predimarket",
+  "displayName": "Predimarket",
+  "version": "1.0.0",
+  "type": "core",
+  "description": "Prediction markets for Hyperscape game events",
+  "commands": {
+    "dev": "bun run dev",
+    "build": "bun run build",
+    "start": "bun run start"
+  },
+  "ports": {
+    "main": 4005
+  },
+  "dependencies": ["contracts", "indexer"],
+  "optional": true,
+  "enabled": true,
+  "autoStart": true,
+  "tags": ["gaming", "prediction-markets", "hyperscape"]
+}
+

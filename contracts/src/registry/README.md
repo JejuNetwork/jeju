@@ -1,47 +1,89 @@
 # ERC-8004 Agent Registry System
 
-Jeju Network's implementation of the [ERC-8004](https://eips.ethereum.org/EIPS/eip-8004) Trustless Agent Registry standard.
+Jeju Network's implementation of the [ERC-8004](https://eips.ethereum.org/EIPS/eip-8004) Trustless Agent Registry standard with futarchy governance.
 
 ## Overview
 
-The ERC-8004 registry system provides a decentralized infrastructure for AI agents to establish identity, build reputation, and get validated. It consists of three core contracts:
+The ERC-8004 registry system provides a decentralized infrastructure for AI agents to establish identity, build reputation, and get validated. It consists of four core contracts:
 
-1. **IdentityRegistry**: Agent registration and metadata storage (ERC-721 based)
+1. **IdentityRegistry**: Agent registration with optional staking and futarchy governance (ERC-721 based)
 2. **ReputationRegistry**: Feedback and reputation tracking
 3. **ValidationRegistry**: Independent validation and verification
+4. **RegistryGovernance**: Futarchy-based ban/slash decisions via predimarket
+
+## Key Features
+
+### ✅ Permissionless Registration
+- **Free Tier**: Anyone can register without stake
+- **Optional Staking**: Choose from Small (.001 ETH), Medium (.01 ETH), or High (.1 ETH) tiers
+- **Reputation Signal**: Higher stakes act as spam deterrent and trust signal
+- **Refundable**: Voluntary de-registration refunds entire stake
+
+### 🗳️ Futarchy Governance  
+- **Community-Driven**: Anyone can propose bans/slashes (requires proposal bond)
+- **Prediction Markets**: Predimarket creates conditional markets for each decision
+- **Guardian System**: Weighted voting for moderators with HIGH stake
+- **Multi-Sig Safety**: 1/1 localnet, 2/3 testnet, 3/5 mainnet approval required
+- **Appeals**: 7-day appeal window with guardian review
 
 ## Contracts
 
 ### IdentityRegistry.sol
 
-**Purpose**: Register agents as ERC-721 NFTs with on-chain metadata
+**Purpose**: Register agents as ERC-721 NFTs with optional staking and governance integration
 
 **Key Features**:
 - Each agent is an ERC-721 NFT (transferable, tradeable)
+- Optional stake tiers: None (free), Small (.001 ETH), Medium (.01 ETH), High (.1 ETH)
+- Multi-token staking support (ETH, elizaOS, CLANKER, VIRTUAL, CLANKERMON, USDC)
 - On-chain key-value metadata storage
-- Multiple registration methods (with/without URI and metadata)
+- Tag-based discovery for filtering
+- Governance-controlled bans and slashing
+- Appeals mechanism for unfair decisions
 - Compatible with all NFT marketplaces and wallets
 
 **Example Usage**:
+
 ```solidity
-// Register a new agent
+// Register for free (no stake)
 uint256 agentId = identityRegistry.register("ipfs://QmYourAgentConfig");
 
+// Or register with stake for reputation boost
+IdentityRegistry.MetadataEntry[] memory metadata = new IdentityRegistry.MetadataEntry[](2);
+metadata[0] = IdentityRegistry.MetadataEntry("name", abi.encode("Trading Bot"));
+metadata[1] = IdentityRegistry.MetadataEntry("type", abi.encode("defi"));
+
+uint256 stakedAgentId = identityRegistry.registerWithStake{value: 0.001 ether}(
+    "ipfs://QmYourAgentConfig",
+    metadata,
+    IdentityRegistry.StakeTier.SMALL, // .001 ETH stake
+    address(0) // ETH
+);
+
+// Upgrade stake tier later
+identityRegistry.increaseStake{value: 0.009 ether}(
+    stakedAgentId,
+    IdentityRegistry.StakeTier.MEDIUM // Upgrade to .01 ETH
+);
+
 // Set metadata
-identityRegistry.setMetadata(agentId, "name", abi.encode("Trading Bot"));
-identityRegistry.setMetadata(agentId, "type", abi.encode("defi"));
 identityRegistry.setMetadata(agentId, "model", abi.encode("GPT-4"));
 
-// Get metadata
-bytes memory nameData = identityRegistry.getMetadata(agentId, "name");
-string memory name = abi.decode(nameData, (string));
+// Update tags for discovery
+string[] memory tags = new string[](2);
+tags[0] = "defi";
+tags[1] = "trading";
+identityRegistry.updateTags(agentId, tags);
 
-// Check existence
-bool exists = identityRegistry.agentExists(agentId);
-uint256 total = identityRegistry.totalAgents();
+// Get agents by stake tier (filter high-quality agents)
+uint256[] memory highStakeAgents = identityRegistry.getAgentsByTier(
+    IdentityRegistry.StakeTier.HIGH,
+    0,  // offset
+    20  // limit
+);
 
-// Transfer ownership (it's an NFT!)
-identityRegistry.transferFrom(currentOwner, newOwner, agentId);
+// Voluntary de-registration (refunds stake)
+identityRegistry.withdrawStake(agentId);
 ```
 
 ### ReputationRegistry.sol
@@ -137,19 +179,88 @@ validationRegistry.validationResponse(
 );
 ```
 
-## Integration with Jeju Paymaster
+## Futarchy Governance Flow
 
-Agents can earn revenue by integrating with the Jeju paymaster system:
+### Ban Proposal Example
 
 ```solidity
-// 1. Register your agent
-uint256 agentId = identityRegistry.register("ipfs://my-agent");
+// 1. Anyone can propose a ban (requires .01 ETH bond)
+bytes32 proposalId = governance.proposeBan{value: 0.01 ether}(
+    spamAgentId,
+    "Agent is spamming the network with fake transactions"
+);
 
-// 2. Set your revenue wallet in metadata
+// 2. Predimarket automatically creates two conditional markets:
+//    - "Network quality improves IF we ban Agent X" 
+//    - "Network quality improves IF we DON'T ban Agent X"
+
+// 3. Community + Guardians trade on markets (7 days)
+
+// 4. After voting period, anyone can execute if confidence threshold met
+governance.executeProposal(proposalId);
+
+// 5. Multi-sig approves (2/3 testnet, 3/5 mainnet)
+governance.approveProposal(proposalId); // Called by each signer
+
+// 6. After timelock (7 days), proposal executes automatically:
+//    - Agent is banned
+//    - Stake is slashed (50% treasury, 30% proposer, 20% guardians)
+//    - Proposer gets bond back as reward
+```
+
+### Appeal Process
+
+```solidity
+// Agent owner can appeal within 7 days
+bytes32 appealId = governance.submitAppeal{value: 0.05 ether}(
+    proposalId,
+    "ipfs://QmEvidenceHash" // IPFS hash of appeal evidence
+);
+
+// Guardians review and vote
+governance.voteOnAppeal(appealId, true); // true = approve appeal
+
+// If 2/3 guardians approve:
+//   - Agent is unbanned
+//   - Appeal bond is refunded
+```
+
+## Integration with Jeju Ecosystem
+
+### Paymaster Integration
+Agents can earn revenue through the paymaster system:
+
+```solidity
+// 1. Register with HIGH stake for maximum trust
+uint256 agentId = identityRegistry.registerWithStake{value: 0.1 ether}(
+    "ipfs://my-agent",
+    metadata,
+    IdentityRegistry.StakeTier.HIGH,
+    address(0)
+);
+
+// 2. Set revenue wallet in metadata
 identityRegistry.setMetadata(agentId, "revenueWallet", abi.encode(myWallet));
 
-// 3. Users include your revenue wallet in paymasterAndData
-// 4. You earn 50% of transaction fees automatically!
+// 3. Users trust HIGH-stake agents → more transactions
+// 4. Earn 50% of transaction fees automatically!
+```
+
+### Predimarket Reputation Oracle
+Agent betting performance feeds into reputation:
+
+```solidity
+// Agents who make accurate predictions on predimarket earn reputation
+// - Correct market predictions: +10 reputation
+// - Incorrect predictions: -5 reputation  
+// - Quality market creation: +5 reputation
+// - Spam markets (flagged by governance): -20 reputation
+
+// Reputation oracle aggregates multiple signals:
+// - Market performance (40%)
+// - Stake tier (20%)
+// - Validation scores (20%)
+// - User feedback (20%)
 ```
 
 ## Deployment

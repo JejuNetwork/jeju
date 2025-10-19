@@ -1,0 +1,128 @@
+{
+  "version": "1.0.0",
+  "description": "Protocol tokens with paymaster support - these tokens can be used for gas payments and earn LP rewards",
+  "lastUpdated": "2025-10-19",
+  "tokens": [
+    {
+      "symbol": "elizaOS",
+      "name": "elizaOS Token",
+      "address": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+      "decimals": 18,
+      "isNative": true,
+      "description": "Native fee payment token for Jeju ecosystem",
+      "priceUSD": 0.10,
+      "hasPaymaster": true,
+      "bridged": false,
+      "originChain": "jeju",
+      "logoUrl": "https://assets.jeju.network/eliza-logo.png",
+      "deployedContracts": {
+        "vault": "",
+        "distributor": "",
+        "paymaster": ""
+      }
+    },
+    {
+      "symbol": "CLANKER",
+      "name": "tokenbot",
+      "address": "0x1bc0c42215582d5a085795f4badbac3ff36d1bcb",
+      "decimals": 18,
+      "isNative": false,
+      "description": "AI agent token created via Clanker protocol",
+      "priceUSD": 26.14,
+      "hasPaymaster": true,
+      "bridged": true,
+      "originChain": "base",
+      "baseAddress": "0x1bc0c42215582d5a085795f4badbac3ff36d1bcb",
+      "logoUrl": "https://assets.coinmarketcap.com/clanker-logo.png",
+      "website": "https://coinmarketcap.com/currencies/tokenbot-2/",
+      "tags": ["AI", "Agent", "Clanker"],
+      "deployedContracts": {
+        "vault": "",
+        "distributor": "",
+        "paymaster": ""
+      },
+      "bridge": {
+        "enabled": true,
+        "minAmount": "0.1",
+        "estimatedTime": 120
+      }
+    },
+    {
+      "symbol": "VIRTUAL",
+      "name": "Virtuals Protocol",
+      "address": "0x44ff8620b8cA30902395A7bD3F2407e1A091BF73",
+      "decimals": 18,
+      "isNative": false,
+      "description": "Decentralized AI agent protocol token",
+      "priceUSD": 1.85,
+      "hasPaymaster": true,
+      "bridged": true,
+      "originChain": "base",
+      "baseAddress": "0x44ff8620b8cA30902395A7bD3F2407e1A091BF73",
+      "logoUrl": "https://assets.virtuals.io/logo.png",
+      "website": "https://virtuals.io",
+      "tags": ["AI", "Protocol"],
+      "deployedContracts": {
+        "vault": "",
+        "distributor": "",
+        "paymaster": ""
+      },
+      "bridge": {
+        "enabled": true,
+        "minAmount": "1",
+        "estimatedTime": 120
+      }
+    },
+    {
+      "symbol": "CLANKERMON",
+      "name": "Clankermon",
+      "address": "0x1cDbB57b12f732cFb4DC06f690ACeF476485B2a5",
+      "decimals": 18,
+      "isNative": false,
+      "description": "Clanker-based gaming token",
+      "priceUSD": 0.15,
+      "hasPaymaster": true,
+      "bridged": true,
+      "originChain": "base",
+      "baseAddress": "0x1cDbB57b12f732cFb4DC06f690ACeF476485B2a5",
+      "logoUrl": "https://assets.clankermon.xyz/logo.png",
+      "website": "https://clankermon.xyz",
+      "tags": ["Gaming", "Clanker"],
+      "deployedContracts": {
+        "vault": "",
+        "distributor": "",
+        "paymaster": ""
+      },
+      "bridge": {
+        "enabled": true,
+        "minAmount": "10",
+        "estimatedTime": 120
+      }
+    }
+  ],
+  "eligibility": {
+    "description": "Only tokens with deployed paymasters are eligible for LP rewards",
+    "requirements": [
+      "Token must have deployed paymaster infrastructure (vault + distributor + paymaster)",
+      "Token must be listed in this config file",
+      "Token must have active Uniswap V4 pool for price discovery",
+      "Oracle must have active price feed"
+    ]
+  },
+  "lpRewards": {
+    "description": "ETH LPs earn fees in the protocol tokens",
+    "feeDistribution": {
+      "appShare": 50,
+      "lpShare": 50,
+      "ethLPShare": 70,
+      "tokenLPShare": 30
+    },
+    "example": {
+      "userPays": "100 CLANKER for gas",
+      "appEarns": "50 CLANKER",
+      "ethLPsEarn": "35 CLANKER (70% of LP share)",
+      "tokenLPsEarn": "15 CLANKER (30% of LP share)"
+    }
+  }
+}
+

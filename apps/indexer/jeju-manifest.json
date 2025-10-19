@@ -1,0 +1,23 @@
+{
+  "$schema": "../../jeju-manifest.schema.json",
+  "name": "indexer",
+  "displayName": "Subsquid Indexer",
+  "version": "1.0.0",
+  "type": "core",
+  "description": "Blockchain indexer with GraphQL API",
+  "commands": {
+    "dev": "npm run dev",
+    "build": "npm run build",
+    "start": "npm run start"
+  },
+  "ports": {
+    "main": 4350,
+    "api": 4350
+  },
+  "dependencies": ["localnet"],
+  "optional": false,
+  "enabled": true,
+  "autoStart": true,
+  "tags": ["indexer", "graphql", "data"]
+}
+

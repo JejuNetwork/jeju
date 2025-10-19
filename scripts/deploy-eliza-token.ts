@@ -28,7 +28,7 @@ const privateKey = process.env.PRIVATE_KEY || DEFAULT_PRIVATE_KEY;
 
 // Token parameters
 const TOKEN_NAME = "ElizaOS Token";
-const TOKEN_SYMBOL = "ELIZA";
+const TOKEN_SYMBOL = "elizaOS";
 const INITIAL_SUPPLY = "1000000000"; // 1 billion tokens (will be multiplied by 10^18)
 
 console.log("======================================================================");
@@ -76,7 +76,7 @@ async function deployToken(deployerAddress: string): Promise<string> {
 	console.log("1. Deploying ElizaOS Token...");
 	console.log("");
 
-	// Deploy the existing elizaOSToken contract
+	// Deploy the existing ElizaOSToken contract
 	// Constructor: (address initialOwner)
 	const output = await runForge([
 		"create",
@@ -85,7 +85,7 @@ async function deployToken(deployerAddress: string): Promise<string> {
 		"--private-key",
 		privateKey,
 		"--broadcast",
-		"src/token/elizaOSToken.sol:elizaOSToken",
+		"src/token/ElizaOSToken.sol:ElizaOSToken",
 		"--constructor-args",
 		deployerAddress, // initial owner
 	]);
@@ -161,7 +161,7 @@ function printNextSteps(token: string) {
 	console.log("");
 	console.log("2. Create initial liquidity pair with Uniswap:");
 	console.log("   - Open Uniswap Interface");
-	console.log("   - Create ELIZA/ETH pair");
+	console.log("   - Create elizaOS/ETH pair");
 	console.log("   - Add initial liquidity");
 	console.log("");
 	console.log("3. Verify the token contract:");

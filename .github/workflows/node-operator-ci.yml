@@ -46,15 +46,15 @@ jobs:
           bun-version: latest
       
       - name: Install dependencies
-        working-directory: node-explorer
+        working-directory: apps/node-explorer
         run: bun install
       
       - name: Type check
-        working-directory: node-explorer
+        working-directory: apps/node-explorer
         run: bun run typecheck || echo "Type check not configured"
       
       - name: Start API server
-        working-directory: node-explorer
+        working-directory: apps/node-explorer
         run: |
           bun run src/api/server.ts &
           sleep 5
@@ -92,14 +92,14 @@ jobs:
         uses: docker/setup-buildx-action@v3
       
       - name: Build node-explorer images
-        working-directory: node-explorer
+        working-directory: apps/node-explorer
         run: |
           docker build -f Dockerfile -t jeju-explorer-frontend .
           docker build -f Dockerfile.api -t jeju-explorer-api .
           docker build -f Dockerfile.collector -t jeju-explorer-collector .
       
       - name: Test docker-compose
-        working-directory: node-explorer
+        working-directory: apps/node-explorer
         run: |
           docker-compose config
 

@@ -26,7 +26,7 @@ contract ReputationRegistryTest is Test {
     function setUp() public {
         // Deploy registries
         identityRegistry = new IdentityRegistry();
-        reputationRegistry = new ReputationRegistry(address(identityRegistry));
+        reputationRegistry = new ReputationRegistry(payable(address(identityRegistry)));
         
         // Register a service
         vm.prank(serviceOwner);

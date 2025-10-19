@@ -86,6 +86,9 @@ temp/
 # Generated files
 generated/
 *.generated.*
+*.tsbuildinfo
+*.d.ts.map
+*.js.map
 
 # AWS
 .aws/
@@ -95,13 +98,17 @@ prometheus-data/
 grafana-data/
 loki-data/
 
+# Local reference files
+.port-assignments.md
+.contracts-lib-setup.md
+
 # Node modules
 **/node_modules/
 
 # Documentation build artifacts
-documentation/.vitepress/cache/
-documentation/.vitepress/dist/
-documentation/node_modules/
+apps/documentation/.vitepress/cache/
+apps/documentation/.vitepress/dist/
+apps/documentation/node_modules/
 
 # Indexer build artifacts
 indexer/lib/
@@ -115,7 +122,16 @@ registry/broadcast/
 
 # Root lib directory (duplicate - use contracts/lib or registry/lib instead)
 /lib/
-contracts/lib
+# NOTE: contracts/lib contains git submodules (Foundry libs)
+# Do NOT ignore - git tracks submodule references while ignoring their contents
 cache/
+
+# Submodule contract libraries (vendored dependencies)
+apps/*/contracts/lib/
+apps/*/node_modules/
+
+# Vendor apps (third-party submodules) - ignore all except .gitkeep
+vendor/*
+!vendor/tests
 
 contracts/src/**/deploys/**

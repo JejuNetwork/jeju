@@ -19,13 +19,13 @@ contract PredictionOracle is IPredictionOracle {
         uint256 startTime;
         uint256 endTime;
         bytes teeQuote;            // TEE attestation quote
-        address[] winners;
         uint256 totalPayout;
         bool finalized;
     }
 
     mapping(bytes32 => GameOutcome) public games;
     mapping(bytes32 => bool) public commitments;
+    mapping(bytes32 => address[]) private gameWinners;  // Separate mapping for winners array
     
     address public gameServer;
     uint256 public gameCount;
@@ -83,7 +83,6 @@ contract PredictionOracle is IPredictionOracle {
             startTime: block.timestamp,
             endTime: 0,
             teeQuote: "",
-            winners: new address[](0),
             totalPayout: 0,
             finalized: false
         });
@@ -98,10 +97,10 @@ contract PredictionOracle is IPredictionOracle {
      * @notice Reveal game outcome with TEE proof
      * @param sessionId Game session ID
      * @param outcome The outcome (true=YES, false=NO)
-     * @param salt Salt used in commitment
+     * @param salt The salt used in commitment
      * @param teeQuote TEE attestation quote
-     * @param winners Array of winner addresses
-     * @param totalPayout Total payout amount
+     * @param winners List of winner addresses
+     * @param totalPayout Total prize pool distributed
      */
     function revealGame(
         bytes32 sessionId,
@@ -116,77 +115,73 @@ contract PredictionOracle is IPredictionOracle {
         require(!game.finalized, "Already finalized");
 
         // Verify commitment
-        bytes32 computedCommitment = keccak256(abi.encodePacked(outcome, salt));
-        require(computedCommitment == game.commitment, "Commitment mismatch");
+        bytes32 expectedCommitment = keccak256(abi.encode(outcome, salt));
+        require(game.commitment == expectedCommitment, "Commitment mismatch");
 
-        // Verify TEE quote with DstackVerifier
+        // Verify TEE quote if verifier is set
         if (dstackVerifier != address(0)) {
-            // Call Dstack verifier to validate the quote
-            // The verifier checks the quote's authenticity and matches report data
-            (bool verifySuccess, bytes memory verifyResult) = dstackVerifier.call(
+            (bool success, bytes memory result) = dstackVerifier.call(
                 abi.encodeWithSignature(
-                    "verifyQuote(bytes,bytes32)",
+                    "verify(bytes,uint256,bytes)",
                     teeQuote,
-                    keccak256(abi.encode(sessionId, outcome, block.timestamp))
+                    block.timestamp,
+                    abi.encode(sessionId, outcome)
                 )
             );
-            
-            if (verifySuccess) {
-                bool isValid = abi.decode(verifyResult, (bool));
-                require(isValid, "TEE quote verification failed");
-            }
-            // If call fails, log warning but allow reveal (for development/testing)
-            // In production, this should be: require(verifySuccess, "Verifier unavailable");
+            require(success && abi.decode(result, (bool)), "TEE quote verification failed");
         }
 
-        // Store results
+        // Update game state
         game.outcome = outcome;
         game.salt = salt;
         game.endTime = block.timestamp;
         game.teeQuote = teeQuote;
-        game.winners = winners;
+        gameWinners[sessionId] = winners;  // Store winners separately
         game.totalPayout = totalPayout;
         game.finalized = true;
 
         emit GameRevealed(sessionId, outcome, block.timestamp, teeQuote, winners.length);
     }
+    
+    /**
+     * @notice Get winners array for a game
+     * @param sessionId Game session ID
+     * @return List of winner addresses
+     */
+    function getWinners(bytes32 sessionId) external view returns (address[] memory) {
+        return gameWinners[sessionId];
+    }
 
     /**
-     * @notice Get game outcome (for external contracts)
-     * @param sessionId Game session ID
-     * @return outcome The game outcome (true=YES, false=NO)
-     * @return finalized Whether the game is finalized
+     * @notice Get game outcome
+     * @dev Required by IPredictionOracle interface
      */
-    function getOutcome(bytes32 sessionId) external view returns (bool outcome, bool finalized) {
+    function getOutcome(bytes32 sessionId) external view override returns (bool outcome, bool finalized) {
         GameOutcome storage game = games[sessionId];
         return (game.outcome, game.finalized);
     }
 
     /**
-     * @notice Get full game details
+     * @notice Check if address is a winner
+     * @dev Required by IPredictionOracle interface
      */
-    function getGame(bytes32 sessionId) external view returns (GameOutcome memory) {
-        return games[sessionId];
+    function isWinner(bytes32 sessionId, address player) external view override returns (bool) {
+        GameOutcome storage game = games[sessionId];
+        if (!game.finalized) return false;
+        
+        address[] storage winners = gameWinners[sessionId];
+        for (uint i = 0; i < winners.length; i++) {
+            if (winners[i] == player) return true;
+        }
+        return false;
     }
 
     /**
      * @notice Verify a commitment exists
+     * @dev Required by IPredictionOracle interface
      */
-    function verifyCommitment(bytes32 commitment) external view returns (bool) {
+    function verifyCommitment(bytes32 commitment) external view override returns (bool) {
         return commitments[commitment];
-    }
-
-    /**
-     * @notice Check if an address won a specific game
-     */
-    function isWinner(bytes32 sessionId, address player) external view returns (bool) {
-        GameOutcome storage game = games[sessionId];
-        for (uint256 i = 0; i < game.winners.length; i++) {
-            if (game.winners[i] == player) {
-                return true;
-            }
-        }
-        return false;
     }
 }
 

@@ -25,7 +25,7 @@ contract ValidationRegistryTest is Test {
     function setUp() public {
         // Deploy registries
         identityRegistry = new IdentityRegistry();
-        validationRegistry = new ValidationRegistry(address(identityRegistry));
+        validationRegistry = new ValidationRegistry(payable(address(identityRegistry)));
         
         // Register a service for testing
         vm.prank(serviceOwner);

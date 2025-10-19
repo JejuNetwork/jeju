@@ -1,0 +1,26 @@
+{
+  "$schema": "../../jeju-manifest.schema.json",
+  "name": "bazaar",
+  "displayName": "Bazaar",
+  "version": "1.0.0",
+  "type": "core",
+  "description": "Unified DeFi + NFT + Token Launchpad - Uniswap V4 swaps, liquidity pools, NFT trading, and multi-chain token creation",
+  "commands": {
+    "dev": "bun run dev",
+    "build": "bun run build",
+    "start": "bun run start",
+    "test": "bun run test"
+  },
+  "ports": {
+    "main": 4006
+  },
+  "dependencies": ["contracts", "config"],
+  "optional": false,
+  "enabled": true,
+  "autoStart": true,
+  "tags": ["defi", "nft", "marketplace", "uniswap-v4", "launchpad", "multi-chain", "core"],
+  "healthCheck": {
+    "url": "http://localhost:4006",
+    "interval": 30000
+  }
+}

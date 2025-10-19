@@ -2,7 +2,7 @@
 pragma solidity ^0.8.26;
 
 import "forge-std/Script.sol";
-import "../src/token/elizaOSToken.sol";
+import "../src/tokens/ElizaOSToken.sol";
 
 /**
  * Deploy all contracts to localnet
@@ -24,7 +24,7 @@ contract DeployLocalnet is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // Deploy ElizaOS Token
-        elizaOSToken elizaOS = new elizaOSToken(deployer);
+        ElizaOSToken elizaOS = new ElizaOSToken(deployer);
         console.log("ElizaOS Token deployed to:", address(elizaOS));
 
         // Could deploy more contracts here...

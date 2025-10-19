@@ -90,6 +90,8 @@ contract ManualPriceOracle is Ownable {
     error PriceDeviationTooLarge();
     error NotAuthorized();
     error StalePriceData();
+    error InvalidAddress();
+    error InvalidPrice();
     
     // ============ Constructor ============
     
@@ -262,7 +264,7 @@ contract ManualPriceOracle is Ownable {
      * @custom:security Ensure updater has secure key management
      */
     function setPriceUpdater(address _updater) external onlyOwner {
-        require(_updater != address(0), "Invalid updater");
+        if (_updater == address(0)) revert InvalidAddress();
         priceUpdater = _updater;
         emit PriceUpdaterSet(_updater);
     }

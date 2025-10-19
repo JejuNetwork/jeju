@@ -6,7 +6,7 @@
  * and that all apps will connect to the right chain.
  */
 
-import { RpcDetector } from '../shared/rpcDetector';
+import { RpcDetector } from './rpcDetector';
 
 async function main() {
   console.log('\n╔═══════════════════════════════════════════════════════════╗');

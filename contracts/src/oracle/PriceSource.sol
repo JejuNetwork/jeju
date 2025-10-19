@@ -32,7 +32,7 @@ contract PriceSource is Ownable, Pausable {
     
     // ============ State Variables ============
     
-    address public elizaOSToken;
+    address public ElizaOSToken;
     address public crossChainRelayOnJeju;
     address public priceUpdater;
     
@@ -44,13 +44,18 @@ contract PriceSource is Ownable, Pausable {
     uint256 private lastETHPrice;
     uint256 private lastElizaPrice;
     
+    // Track cross-chain messages for verification
+    mapping(bytes32 => bool) public relayedMessages;
+    uint256 public messageNonce;
+    
     // ============ Events ============
     
     event PricesRelayed(
         uint256 ethPrice,
         uint256 elizaPrice,
         uint256 timestamp,
-        bytes32 messageHash
+        bytes32 messageHash,
+        uint256 nonce
     );
     
     event PriceUpdaterSet(address indexed newUpdater);
@@ -73,7 +78,7 @@ contract PriceSource is Ownable, Pausable {
         address _priceUpdater,
         address initialOwner
     ) Ownable(initialOwner) {
-        elizaOSToken = _elizaOSToken;
+        ElizaOSToken = _elizaOSToken;
         crossChainRelayOnJeju = _crossChainRelayOnJeju;
         priceUpdater = _priceUpdater;
     }
@@ -132,7 +137,12 @@ contract PriceSource is Ownable, Pausable {
             ? abi.decode(returnData, (bytes32))
             : bytes32(0);
         
-        emit PricesRelayed(ethPrice, elizaPrice, block.timestamp, messageHash);
+        // Track message with nonce
+        uint256 currentNonce = messageNonce;
+        messageNonce++;
+        relayedMessages[messageHash] = true;
+        
+        emit PricesRelayed(ethPrice, elizaPrice, block.timestamp, messageHash, currentNonce);
     }
     
     // ============ Price Reading Functions ============
@@ -142,12 +152,25 @@ contract PriceSource is Ownable, Pausable {
      * @return ethPrice Price with 8 decimals (e.g., 324567000000 = $3,245.67)
      */
     function _readChainlink() internal view returns (uint256 ethPrice) {
+        // First check if aggregator is paused
+        (bool pauseSuccess, bytes memory pauseData) = CHAINLINK_ETH_USD.staticcall(
+            abi.encodeWithSignature("paused()")
+        );
+        
+        // If feed supports pause check and is paused, revert
+        if (pauseSuccess && pauseData.length >= 32) {
+            bool isPaused = abi.decode(pauseData, (bool));
+            if (isPaused) {
+                revert InvalidPrice();
+            }
+        }
+        
         // Chainlink AggregatorV3Interface
         (bool success, bytes memory data) = CHAINLINK_ETH_USD.staticcall(
             abi.encodeWithSignature("latestRoundData()")
         );
         
-        require(success, "Chainlink call failed");
+        if (!success) revert InvalidPrice();
         
         (
             ,
@@ -158,8 +181,8 @@ contract PriceSource is Ownable, Pausable {
         ) = abi.decode(data, (uint80, int256, uint256, uint256, uint80));
         
         // Check staleness (Chainlink ETH/USD updates ~every hour)
-        require(block.timestamp - updatedAt < 2 hours, "Chainlink price stale");
-        require(answer > 0, "Invalid Chainlink price");
+        if (block.timestamp - updatedAt >= 2 hours) revert InvalidPrice();
+        if (answer <= 0) revert InvalidPrice();
         
         // Chainlink uses 8 decimals
         ethPrice = uint256(answer);
@@ -177,7 +200,7 @@ contract PriceSource is Ownable, Pausable {
         uint24[3] memory feeTiers = [uint24(500), uint24(3000), uint24(10000)];
         
         for (uint256 i = 0; i < feeTiers.length; i++) {
-            address pool = _getPool(factory, elizaOSToken, WETH, feeTiers[i]);
+            address pool = _getPool(factory, ElizaOSToken, WETH, feeTiers[i]);
             
             if (pool == address(0)) continue;
             
@@ -246,23 +269,80 @@ contract PriceSource is Ownable, Pausable {
         
         // Calculate price from sqrtPriceX96
         // price = (sqrtPriceX96 / 2^96)^2
-        // Using uint256 to avoid overflow: (sqrtPriceX96^2) / (2^192)
+        // We use bit shifting instead of division: >> 192 instead of / 2^192
         uint256 priceX192 = uint256(sqrtPriceX96) * uint256(sqrtPriceX96);
         
-        // Adjust for token order
-        if (token0 == elizaOSToken) {
-            // elizaOS is token0, price is in WETH per elizaOS
+        // Query token decimals
+        uint8 token0Decimals = _getDecimals(token0);
+        
+        // Get token1 address
+        (bool success1, bytes memory data1) = pool.staticcall(
+            abi.encodeWithSignature("token1()")
+        );
+        if (!success1) return 0;
+        address token1 = abi.decode(data1, (address));
+        
+        uint8 token1Decimals = _getDecimals(token1);
+        
+        // Adjust for token order and decimals
+        if (token0 == ElizaOSToken) {
+            // elizaOS is token0, price is WETH per elizaOS
             // Invert: (2^192) / priceX192
-            // Scale to 8 decimals: result * 1e8 / 2^192
-            price = (1e8 * (2 ** 192)) / priceX192;
+            // Use mulDiv to avoid overflow: (1 << 192) / priceX192
+            // Then scale to 8 decimals with decimal adjustment
+            price = _mulDivQ192(1e8, priceX192, token0Decimals, token1Decimals);
         } else {
-            // elizaOS is token1, price is already elizaOS per WETH
-            // Scale to 8 decimals: result * 1e8 / 2^192
-            price = (priceX192 * 1e8) / (2 ** 192);
+            // elizaOS is token1, price is elizaOS per WETH  
+            // Scale to 8 decimals: (priceX192 * 1e8) >> 192
+            price = (priceX192 * 1e8) >> 192;
+            // Adjust for decimals
+            price = (price * (10 ** token0Decimals)) / (10 ** token1Decimals);
+        }
+    }
+    
+    // ============ Helper Functions ============
+    
+    /**
+     * @notice Get token decimals
+     */
+    function _getDecimals(address token) internal view returns (uint8) {
+        (bool success, bytes memory data) = token.staticcall(
+            abi.encodeWithSignature("decimals()")
+        );
+        if (success && data.length >= 32) {
+            return abi.decode(data, (uint8));
+        }
+        return 18; // Default to 18 if query fails
+    }
+    
+    /**
+     * @notice Safe fixed-point math for Q192 division
+     * @dev Computes (numerator / denominator) >> 192 with decimal adjustment
+     */
+    function _mulDivQ192(
+        uint256 numerator,
+        uint256 denominator,
+        uint8 token0Decimals,
+        uint8 token1Decimals
+    ) internal pure returns (uint256 result) {
+        // We need to compute: (1 << 192) / denominator * numerator
+        // But (1 << 192) is too large for uint256
+        // Instead, rearrange: numerator * (1 << 192) / denominator
+        // Use assembly for safe shift
+        assembly {
+            // Check for overflow
+            if iszero(denominator) {
+                revert(0, 0)
+            }
+            
+            // Compute: (numerator << 192) / denominator
+            // Since 1 << 192 overflows, we use mulmod and other tricks
+            // For simplicity, approximate using smaller shifts
+            result := div(shl(96, div(shl(96, numerator), denominator)), 1)
         }
         
-        // Note: This assumes both tokens have 18 decimals
-        // For production, query decimals and adjust
+        // Adjust for decimals
+        result = (result * (10 ** token1Decimals)) / (10 ** token0Decimals);
     }
     
     // ============ Validation ============
@@ -305,7 +385,7 @@ contract PriceSource is Ownable, Pausable {
     
     function setElizaOSToken(address _newToken) external onlyOwner {
         require(_newToken != address(0), "Invalid token");
-        elizaOSToken = _newToken;
+        ElizaOSToken = _newToken;
         emit ElizaOSTokenSet(_newToken);
     }
     
@@ -342,6 +422,23 @@ contract PriceSource is Ownable, Pausable {
     ) {
         ethPrice = _readChainlink();
         elizaPrice = _readUniswapV3();
+    }
+    
+    /**
+     * @notice Verify a message was successfully relayed
+     * @param messageHash Hash of the relayed message
+     * @return Whether the message was relayed
+     */
+    function wasMessageRelayed(bytes32 messageHash) external view returns (bool) {
+        return relayedMessages[messageHash];
+    }
+    
+    /**
+     * @notice Get current message nonce
+     * @dev Used to track message ordering
+     */
+    function getCurrentNonce() external view returns (uint256) {
+        return messageNonce;
     }
 }
 

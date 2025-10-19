@@ -3,11 +3,11 @@ pragma solidity ^0.8.26;
 
 import "forge-std/Test.sol";
 import {LiquidityVault} from "../src/liquidity/LiquidityVault.sol";
-import {elizaOSToken} from "../src/token/elizaOSToken.sol";
+import {ElizaOSToken} from "../src/tokens/ElizaOSToken.sol";
 
 contract LiquidityVaultTest is Test {
     LiquidityVault public vault;
-    elizaOSToken public eliza;
+    ElizaOSToken public rewardToken;
     
     address public owner = address(this);
     address public paymaster = address(0x123);
@@ -16,23 +16,23 @@ contract LiquidityVaultTest is Test {
     
     function setUp() public {
         // Deploy token and vault
-        eliza = new elizaOSToken(owner);
-        vault = new LiquidityVault(address(eliza), owner);
+        rewardToken = new ElizaOSToken(owner);
+        vault = new LiquidityVault(address(rewardToken), owner);
         vault.setPaymaster(paymaster); // For funding tests
         vault.setFeeDistributor(paymaster); // For fee distribution tests (paymaster simulates distributor)
         
         // Fund test accounts
         vm.deal(lp1, 100 ether);
         vm.deal(lp2, 100 ether);
-        eliza.transfer(lp1, 1000000e18);
-        eliza.transfer(lp2, 1000000e18);
+        rewardToken.transfer(lp1, 1000000e18);
+        rewardToken.transfer(lp2, 1000000e18);
     }
     
     // ============ ETH Liquidity Tests ============
     
     function testAddETHLiquidity_FirstDeposit() public {
         vm.prank(lp1);
-        vault.addETHLiquidity{value: 10 ether}();
+        vault.addETHLiquidity{value: 10 ether}(0);
         
         assertEq(vault.ethShares(lp1), 10 ether);
         assertEq(vault.totalETHLiquidity(), 10 ether);
@@ -42,11 +42,11 @@ contract LiquidityVaultTest is Test {
     function testAddETHLiquidity_SubsequentDeposits() public {
         // LP1 deposits 10 ETH
         vm.prank(lp1);
-        vault.addETHLiquidity{value: 10 ether}();
+        vault.addETHLiquidity{value: 10 ether}(0);
         
         // LP2 deposits 5 ETH (should get 5 shares since pool is 1:1)
         vm.prank(lp2);
-        vault.addETHLiquidity{value: 5 ether}();
+        vault.addETHLiquidity{value: 5 ether}(0);
         
         assertEq(vault.ethShares(lp2), 5 ether);
         assertEq(vault.totalETHLiquidity(), 15 ether);
@@ -55,7 +55,7 @@ contract LiquidityVaultTest is Test {
     
     function testRemoveETHLiquidity() public {
         vm.prank(lp1);
-        vault.addETHLiquidity{value: 20 ether}();
+        vault.addETHLiquidity{value: 20 ether}(0);
         
         uint256 lp1BalanceBefore = lp1.balance;
         
@@ -68,7 +68,7 @@ contract LiquidityVaultTest is Test {
     
     function testCannotRemoveMoreThanOwned() public {
         vm.prank(lp1);
-        vault.addETHLiquidity{value: 10 ether}();
+        vault.addETHLiquidity{value: 10 ether}(0);
         
         vm.prank(lp1);
         vm.expectRevert(LiquidityVault.InsufficientLiquidity.selector);
@@ -81,8 +81,8 @@ contract LiquidityVaultTest is Test {
         uint256 amount = 1000e18;
         
         vm.startPrank(lp1);
-        eliza.approve(address(vault), amount);
-        vault.addElizaLiquidity(amount);
+        rewardToken.approve(address(vault), amount);
+        vault.addElizaLiquidity(amount, 0); // amount, minShares
         vm.stopPrank();
         
         assertEq(vault.elizaShares(lp1), amount);
@@ -93,15 +93,15 @@ contract LiquidityVaultTest is Test {
         uint256 amount = 1000e18;
         
         vm.startPrank(lp1);
-        eliza.approve(address(vault), amount);
-        vault.addElizaLiquidity(amount);
+        rewardToken.approve(address(vault), amount);
+        vault.addElizaLiquidity(amount, 0); // amount, minShares
         
-        uint256 balanceBefore = eliza.balanceOf(lp1);
+        uint256 balanceBefore = rewardToken.balanceOf(lp1);
         vault.removeElizaLiquidity(amount / 2);
         vm.stopPrank();
         
         assertEq(vault.elizaShares(lp1), amount / 2);
-        assertEq(eliza.balanceOf(lp1), balanceBefore + amount / 2);
+        assertEq(rewardToken.balanceOf(lp1), balanceBefore + amount / 2);
     }
     
     // ============ Fee Distribution Tests ============
@@ -109,62 +109,68 @@ contract LiquidityVaultTest is Test {
     function testDistributeFees() public {
         // Setup: LP1 provides liquidity
         vm.prank(lp1);
-        vault.addETHLiquidity{value: 10 ether}();
+        vault.addETHLiquidity{value: 10 ether}(0);
         
         // Distribute fees
         uint256 ethFees = 100e18;
-        uint256 elizaFees = 50e18;
-        uint256 totalFees = ethFees + elizaFees;
+        uint256 tokenFees = 50e18;
+        uint256 totalFees = ethFees + tokenFees;
         
         // Give paymaster tokens
-        eliza.transfer(paymaster, totalFees);
+        rewardToken.transfer(paymaster, totalFees);
         
         // Paymaster distributes
         vm.startPrank(paymaster);
-        eliza.approve(address(vault), totalFees);
-        vault.distributeFees(ethFees, elizaFees);
+        rewardToken.approve(address(vault), totalFees);
+        vault.distributeFees(ethFees, tokenFees);
         vm.stopPrank();
         
-        // Verify fees were distributed
-        assertGt(vault.ethFeesPerShare(), 0);
-        assertGt(vault.pendingFees(lp1), 0);
+        // Verify fees were distributed with exact calculations
+        // LP1 has 10 ETH shares, totalShares = 10 ETH
+        // ethFees = 50e18, so ethFeesPerShare = 50e18 * 1e18 / 10e18 = 5e18
+        uint256 expectedFeesPerShare = (ethFees * 1e18) / (10 ether);
+        assertEq(vault.ethFeesPerShare(), expectedFeesPerShare, "Fees per share mismatch");
+        
+        // LP1's pending fees = shares * feesPerShare / 1e18 = 10e18 * 5e18 / 1e18 = 50e18
+        assertEq(vault.pendingFees(lp1), ethFees, "LP1 should have all fees (only LP)");
     }
     
     function testClaimFees() public {
         // Setup liquidity
         vm.prank(lp1);
-        vault.addETHLiquidity{value: 10 ether}();
+        vault.addETHLiquidity{value: 10 ether}(0);
         
         // Distribute fees
         uint256 fees = 100e18;
-        eliza.transfer(paymaster, fees);
+        rewardToken.transfer(paymaster, fees);
         vm.startPrank(paymaster);
-        eliza.approve(address(vault), fees);
+        rewardToken.approve(address(vault), fees);
         vault.distributeFees(fees, 0);
         vm.stopPrank();
         
         // LP1 claims
-        uint256 balanceBefore = eliza.balanceOf(lp1);
+        uint256 balanceBefore = rewardToken.balanceOf(lp1);
         vm.prank(lp1);
         vault.claimFees();
         
-        assertGt(eliza.balanceOf(lp1), balanceBefore);
-        assertEq(vault.pendingFees(lp1), 0);
+        // Verify exact fee amount claimed (LP1 has all shares, gets all fees)
+        assertEq(rewardToken.balanceOf(lp1), balanceBefore + fees, "LP1 should receive exact fee amount");
+        assertEq(vault.pendingFees(lp1), 0, "Pending fees should be zero after claim");
     }
     
     function testProportionalFeeDistribution() public {
         // LP1 deposits 10 ETH, LP2 deposits 5 ETH
         vm.prank(lp1);
-        vault.addETHLiquidity{value: 10 ether}();
+        vault.addETHLiquidity{value: 10 ether}(0);
         
         vm.prank(lp2);
-        vault.addETHLiquidity{value: 5 ether}();
+        vault.addETHLiquidity{value: 5 ether}(0);
         
         // Distribute 150 tokens
         uint256 totalFees = 150e18;
-        eliza.transfer(paymaster, totalFees);
+        rewardToken.transfer(paymaster, totalFees);
         vm.startPrank(paymaster);
-        eliza.approve(address(vault), totalFees);
+        rewardToken.approve(address(vault), totalFees);
         vault.distributeFees(totalFees, 0);
         vm.stopPrank();
         
@@ -181,7 +187,7 @@ contract LiquidityVaultTest is Test {
     function testProvideETHForGas() public {
         // Add enough liquidity (need >10 ether minimum)
         vm.prank(lp1);
-        vault.addETHLiquidity{value: 20 ether}();
+        vault.addETHLiquidity{value: 20 ether}(0);
         
         uint256 paymasterBalanceBefore = paymaster.balance;
         uint256 available = vault.availableETH();
@@ -197,7 +203,7 @@ contract LiquidityVaultTest is Test {
     
     function testCannotProvideMoreThanAvailable() public {
         vm.prank(lp1);
-        vault.addETHLiquidity{value: 10 ether}();
+        vault.addETHLiquidity{value: 10 ether}(0);
         
         // Available is 80% of balance minus minimum
         uint256 available = vault.availableETH();
@@ -211,7 +217,7 @@ contract LiquidityVaultTest is Test {
     
     function testMinimumLiquidityEnforced() public {
         vm.prank(lp1);
-        vault.addETHLiquidity{value: 11 ether}();
+        vault.addETHLiquidity{value: 11 ether}(0);
         
         // Try to withdraw all but 1 ETH (below 10 ETH minimum)
         vm.prank(lp1);
@@ -224,12 +230,12 @@ contract LiquidityVaultTest is Test {
         
         vm.prank(lp1);
         vm.expectRevert();
-        vault.addETHLiquidity{value: 1 ether}();
+        vault.addETHLiquidity{value: 1 ether}(0);
     }
     
     function testPauseDoesNotBlockWithdrawals() public {
         vm.prank(lp1);
-        vault.addETHLiquidity{value: 20 ether}();
+        vault.addETHLiquidity{value: 20 ether}(0);
         
         vault.pause();
         
@@ -241,10 +247,10 @@ contract LiquidityVaultTest is Test {
     }
     
     function testOnlyFeeDistributorCanDistributeFees() public {
-        eliza.transfer(lp1, 100e18);
+        rewardToken.transfer(lp1, 100e18);
         
         vm.startPrank(lp1);
-        eliza.approve(address(vault), 100e18);
+        rewardToken.approve(address(vault), 100e18);
         vm.expectRevert("Only fee distributor");
         vault.distributeFees(100e18, 0);
         vm.stopPrank();

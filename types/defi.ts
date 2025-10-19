@@ -148,4 +148,55 @@ export const DeFiProtocolConfigSchema = z.object({
 });
 export type DeFiProtocolConfig = z.infer<typeof DeFiProtocolConfigSchema>;
 
+export const PaymasterDeploymentSchema = z.object({
+  token: AddressSchema,
+  tokenSymbol: z.string(),
+  tokenName: z.string(),
+  vault: AddressSchema,
+  distributor: AddressSchema,
+  paymaster: AddressSchema,
+  deployedAt: z.number(),
+  deployer: AddressSchema,
+  network: z.string(),
+});
+export type PaymasterDeployment = z.infer<typeof PaymasterDeploymentSchema>;
+
+export const MultiTokenSystemSchema = z.object({
+  oracle: AddressSchema,
+  entryPoint: AddressSchema,
+  deployments: z.record(z.string(), PaymasterDeploymentSchema),
+  network: z.string(),
+  chainId: z.number(),
+  deployedAt: z.number(),
+});
+export type MultiTokenSystem = z.infer<typeof MultiTokenSystemSchema>;
+
+export const LPPositionSchema = z.object({
+  vault: AddressSchema,
+  token: AddressSchema,
+  tokenSymbol: z.string(),
+  ethShares: z.string(),
+  ethValue: z.string(),
+  tokenShares: z.string(),
+  tokenValue: z.string(),
+  pendingFees: z.string(),
+  sharePercentage: z.number(),
+});
+export type LPPosition = z.infer<typeof LPPositionSchema>;
+
+export const PaymasterStatsSchema = z.object({
+  paymaster: AddressSchema,
+  token: AddressSchema,
+  tokenSymbol: z.string(),
+  entryPointBalance: z.string(),
+  vaultLiquidity: z.string(),
+  totalTransactions: z.number(),
+  totalVolumeToken: z.string(),
+  totalFeesCollected: z.string(),
+  isOperational: z.boolean(),
+  oracleFresh: z.boolean(),
+  lastUpdate: z.number(),
+});
+export type PaymasterStats = z.infer<typeof PaymasterStatsSchema>;
+
 

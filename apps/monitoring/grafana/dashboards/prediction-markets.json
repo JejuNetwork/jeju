@@ -1,0 +1,544 @@
+{
+  "uid": "jeju-prediction-markets",
+  "title": "Jeju - Prediction Markets",
+  "tags": [
+    "prediction-markets",
+    "jeju",
+    "oracle"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "10s",
+  "editable": true,
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Total Markets",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM prediction_market",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "green"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Active Markets",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM prediction_market WHERE resolved = false",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "blue"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Resolved Markets",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM prediction_market WHERE resolved = true",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "purple"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Total Volume (24h)",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COALESCE(SUM(total_volume), 0) as total FROM prediction_market WHERE created_at > NOW() - INTERVAL '24 hours'",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "orange"
+              }
+            ]
+          },
+          "unit": "short",
+          "decimals": 0
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Unique Traders (24h)",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(DISTINCT trader_id) as total FROM market_trade mt JOIN block b ON mt.block_id = b.id WHERE b.timestamp > NOW() - INTERVAL '24 hours'",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "yellow"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Total Trades (24h)",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM market_trade mt JOIN block b ON mt.block_id = b.id WHERE b.timestamp > NOW() - INTERVAL '24 hours'",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "red"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Trading Volume Over Time",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 4
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  DATE_TRUNC('hour', mt.timestamp) as time,\n  SUM(mt.cost::numeric / 1e18) as \"Volume (Tokens)\"\nFROM market_trade mt\nWHERE $__timeFilter(mt.timestamp)\nGROUP BY time\nORDER BY time",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 50
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "Trades Per Market",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  DATE_TRUNC('hour', mt.timestamp) as time,\n  pm.question as metric,\n  COUNT(*) as value\nFROM market_trade mt\nJOIN prediction_market pm ON mt.market_id = pm.id\nWHERE $__timeFilter(mt.timestamp)\nGROUP BY time, pm.question\nORDER BY time",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum",
+            "lastNotNull"
+          ]
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "Buy vs Sell Trades",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  DATE_TRUNC('hour', timestamp) as time,\n  CASE WHEN is_buy THEN 'Buy' ELSE 'Sell' END as metric,\n  COUNT(*) as value\nFROM market_trade\nWHERE $__timeFilter(timestamp)\nGROUP BY time, is_buy\nORDER BY time",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 20,
+            "stacking": {
+              "mode": "normal"
+            }
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Sell"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 10,
+      "title": "Top Markets by Volume",
+      "type": "table",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  pm.question as \"Question\",\n  LEFT(pm.session_id, 10) || '...' as \"Session ID\",\n  (pm.total_volume::numeric / 1e18) as \"Total Volume\",\n  (pm.liquidity_b::numeric / 1e18) as \"Liquidity\",\n  pm.resolved as \"Resolved\",\n  pm.outcome as \"Outcome\",\n  pm.created_at as \"Created At\"\nFROM prediction_market pm\nORDER BY pm.total_volume DESC\nLIMIT 30",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Total Volume",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
+      "id": 11,
+      "title": "YES vs NO Outcome Distribution",
+      "type": "piechart",
+      "gridPos": {
+        "h": 10,
+        "w": 8,
+        "x": 0,
+        "y": 32
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  CASE WHEN outcome THEN 'YES' ELSE 'NO' END as metric,\n  COUNT(*) as value\nFROM prediction_market\nWHERE resolved = true AND outcome IS NOT NULL\nGROUP BY outcome",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "pieType": "donut",
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value",
+            "percent"
+          ]
+        }
+      }
+    },
+    {
+      "id": 12,
+      "title": "Market Stats - Daily Metrics",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 10,
+        "w": 16,
+        "x": 8,
+        "y": 32
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  date as time,\n  market_count as \"Markets Created\"\nFROM market_stats\nWHERE $__timeFilter(date)\nORDER BY time",
+          "format": "time_series",
+          "refId": "A"
+        },
+        {
+          "rawSql": "SELECT \n  date as time,\n  unique_traders as \"Unique Traders\"\nFROM market_stats\nWHERE $__timeFilter(date)\nORDER BY time",
+          "format": "time_series",
+          "refId": "B"
+        },
+        {
+          "rawSql": "SELECT \n  date as time,\n  trade_count as \"Total Trades\"\nFROM market_stats\nWHERE $__timeFilter(date)\nORDER BY time",
+          "format": "time_series",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum",
+            "mean",
+            "lastNotNull"
+          ]
+        }
+      }
+    },
+    {
+      "id": 13,
+      "title": "Recent Trades",
+      "type": "table",
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 42
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  LEFT(pm.question, 50) || '...' as \"Market\",\n  LEFT(mt.trader_id, 10) || '...' as \"Trader\",\n  CASE WHEN mt.outcome THEN 'YES' ELSE 'NO' END as \"Outcome\",\n  CASE WHEN mt.is_buy THEN 'BUY' ELSE 'SELL' END as \"Action\",\n  (mt.shares::numeric / 1e18) as \"Shares\",\n  (mt.cost::numeric / 1e18) as \"Cost\",\n  (mt.price_after::numeric / 1e18) as \"Price After\",\n  mt.timestamp as \"Time\"\nFROM market_trade mt\nJOIN prediction_market pm ON mt.market_id = pm.id\nORDER BY mt.timestamp DESC\nLIMIT 50",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Time",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
+      "id": 14,
+      "title": "Oracle Game Activity",
+      "type": "table",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 54
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  og.question as \"Question\",\n  LEFT(og.session_id, 10) || '...' as \"Session ID\",\n  og.finalized as \"Finalized\",\n  og.outcome as \"Outcome\",\n  og.committed_at as \"Committed At\",\n  og.revealed_at as \"Revealed At\",\n  (og.total_payout::numeric / 1e18) as \"Total Payout\"\nFROM oracle_game og\nORDER BY og.committed_at DESC\nLIMIT 30",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Committed At",
+            "desc": true
+          }
+        ]
+      }
+    }
+  ]
+}

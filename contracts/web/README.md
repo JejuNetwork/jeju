@@ -37,8 +37,9 @@ Web-based viewer for the ERC-8004 Agent Registry system on Jeju Network.
 
 The viewer supports three networks:
 
-### Localnet (Chain ID: 31337)
-- RPC: `http://localhost:8545`
+### Localnet (Chain ID: 1337)
+- L2 RPC: `http://127.0.0.1:9545` (STATIC - use for wallets)
+- L1 RPC: `http://127.0.0.1:8545` (L1 only)
 - For local development and testing
 
 ### Testnet (Chain ID: 16602)

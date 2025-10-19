@@ -1,0 +1,22 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+
+  - name: PostgreSQL
+    type: postgres
+    uid: postgres-indexer
+    access: proxy
+    url: squid-db-1:5432
+    database: indexer
+    user: postgres
+    secureJsonData:
+      password: 'postgres'
+    jsonData:
+      sslmode: 'disable'
+      postgresVersion: 1500

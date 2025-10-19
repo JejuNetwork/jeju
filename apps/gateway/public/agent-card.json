@@ -1,0 +1,58 @@
+{
+  "protocolVersion": "0.3.0",
+  "name": "Gateway Portal - Protocol Infrastructure Hub",
+  "description": "Multi-token paymaster system, node staking, app registry, and protocol infrastructure",
+  "url": "http://localhost:4001/api/a2a",
+  "preferredTransport": "http",
+  "provider": {
+    "organization": "Jeju Network",
+    "url": "https://jeju.network"
+  },
+  "version": "1.0.0",
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false,
+    "stateTransitionHistory": false
+  },
+  "defaultInputModes": ["text", "data"],
+  "defaultOutputModes": ["text", "data"],
+  "skills": [
+    {
+      "id": "list-protocol-tokens",
+      "name": "List Protocol Tokens",
+      "description": "Get all tokens with deployed paymasters",
+      "tags": ["query", "tokens", "paymaster"],
+      "examples": ["Show protocol tokens", "Which tokens can pay gas?", "List paymaster tokens"]
+    },
+    {
+      "id": "get-node-stats",
+      "name": "Get Node Statistics",
+      "description": "Get network node statistics and health",
+      "tags": ["query", "nodes", "network"],
+      "examples": ["Show node stats", "Network health", "How many nodes are running?"]
+    },
+    {
+      "id": "list-nodes",
+      "name": "List Registered Nodes",
+      "description": "Get all registered node operators",
+      "tags": ["query", "nodes"],
+      "examples": ["Show nodes", "List node operators", "Who is running nodes?"]
+    },
+    {
+      "id": "list-registered-apps",
+      "name": "List Registered Apps",
+      "description": "Get all apps registered in the ERC-8004 registry",
+      "tags": ["query", "registry", "apps"],
+      "examples": ["Show registered apps", "What apps are available?", "List apps"]
+    },
+    {
+      "id": "get-app-by-tag",
+      "name": "Get Apps by Tag",
+      "description": "Find apps by category tag (game, marketplace, defi, etc.)",
+      "tags": ["query", "registry", "discovery"],
+      "examples": ["Show me games", "List marketplaces", "Find DeFi apps"]
+    }
+  ]
+}
+
+

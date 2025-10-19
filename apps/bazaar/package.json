@@ -1,0 +1,63 @@
+{
+  "name": "bazaar",
+  "version": "1.0.0",
+  "description": "Unified DeFi + NFT Marketplace for Jeju - Uniswap V4 Swaps, Liquidity, and NFT Trading",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 4006",
+    "build": "next build",
+    "start": "next start -p 4006",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui"
+  },
+  "dependencies": {
+    "next": "^14.2.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "viem": "^2.30.5",
+    "wagmi": "^2.15.5",
+    "@tanstack/react-query": "^5.77.2",
+    "@uniswap/sdk-core": "^7.7.2",
+    "@uniswap/v4-sdk": "^1.21.2",
+    "sonner": "^1.7.2",
+    "clsx": "^2.1.0",
+    "tailwind-merge": "^2.2.0",
+    "@radix-ui/react-icons": "^1.3.0",
+    "@radix-ui/react-dialog": "^1.1.1",
+    "@radix-ui/react-tabs": "^1.1.1",
+    "@radix-ui/react-select": "^2.1.2",
+    "@radix-ui/react-label": "^2.1.0",
+    "@radix-ui/react-slot": "^1.1.0",
+    "@solana/web3.js": "^1.98.2",
+    "@solana/wallet-adapter-react": "^0.15.38",
+    "@solana/wallet-adapter-react-ui": "^0.9.38",
+    "@solana/wallet-adapter-base": "^0.9.26",
+    "class-variance-authority": "^0.7.1",
+    "lucide-react": "^0.511.0",
+    "react-hook-form": "^7.56.4",
+    "bs58": "^6.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@tenkeylabs/dappwright": "^2.11.3",
+    "@types/node": "^22.13.1",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.1",
+    "@typescript-eslint/eslint-plugin": "^6.20.0",
+    "@typescript-eslint/parser": "^6.20.0",
+    "autoprefixer": "^10.4.17",
+    "eslint": "^8.55.0",
+    "eslint-config-next": "^14.2.0",
+    "playwright-core": "^1.56.1",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "bun": ">=1.2.0"
+  }
+}

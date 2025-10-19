@@ -24,8 +24,8 @@ contract RegistryIntegrationTest is Test {
     function setUp() public {
         // Deploy all registries
         identityRegistry = new IdentityRegistry();
-        reputationRegistry = new ReputationRegistry(address(identityRegistry));
-        validationRegistry = new ValidationRegistry(address(identityRegistry));
+        reputationRegistry = new ReputationRegistry(payable(address(identityRegistry)));
+        validationRegistry = new ValidationRegistry(payable(address(identityRegistry)));
         
         // Register a test agent
         vm.prank(agentOwner);

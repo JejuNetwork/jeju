@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>eHorse - On-Chain State Viewer</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Monaco', 'Menlo', monospace;
+      background: #0a0e1a;
+      color: #e2e8f0;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      padding: 20px 0 40px;
+      border-bottom: 2px solid #1e293b;
+    }
+
+    h1 {
+      font-size: 2em;
+      color: #22c55e;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      color: #64748b;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 20px;
+      margin-top: 30px;
+    }
+
+    .panel {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 20px;
+    }
+
+    .panel-title {
+      font-size: 1.2em;
+      color: #60a5fa;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #334155;
+    }
+
+    .data-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    .data-label {
+      color: #94a3b8;
+      font-size: 0.9em;
+    }
+
+    .data-value {
+      color: #e2e8f0;
+      font-weight: bold;
+      font-size: 0.9em;
+      font-family: monospace;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.8em;
+      font-weight: bold;
+    }
+
+    .status-pending { background: #1e40af; color: #dbeafe; }
+    .status-running { background: #15803d; color: #dcfce7; }
+    .status-finished { background: #991b1b; color: #fecaca; }
+    .status-yes { background: #15803d; color: #dcfce7; }
+    .status-no { background: #991b1b; color: #fecaca; }
+    .status-enabled { background: #059669; color: #d1fae5; }
+    .status-disabled { background: #475569; color: #cbd5e1; }
+
+    .hash {
+      font-size: 0.75em;
+      color: #64748b;
+      word-break: break-all;
+    }
+
+    .timestamp {
+      color: #94a3b8;
+      font-size: 0.85em;
+    }
+
+    .events-list {
+      max-height: 300px;
+      overflow-y: auto;
+      margin-top: 10px;
+    }
+
+    .event-item {
+      background: #0f172a;
+      padding: 10px;
+      margin-bottom: 8px;
+      border-radius: 4px;
+      border-left: 3px solid #3b82f6;
+    }
+
+    .event-name {
+      color: #60a5fa;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .refresh-btn {
+      background: #15803d;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9em;
+      margin-top: 10px;
+    }
+
+    .refresh-btn:hover {
+      background: #166534;
+    }
+
+    .error {
+      background: #7f1d1d;
+      color: #fecaca;
+      padding: 10px;
+      border-radius: 4px;
+      margin: 10px 0;
+    }
+
+    .loading {
+      text-align: center;
+      color: #64748b;
+      padding: 20px;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .loading {
+      animation: pulse 1.5s infinite;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🔍 eHorse On-Chain State Viewer</h1>
+      <p class="subtitle">Real-time blockchain verification for prediction markets</p>
+    </header>
+
+    <div class="grid">
+      <!-- Current Race Panel -->
+      <div class="panel">
+        <div class="panel-title">🐴 Current Race (Off-Chain)</div>
+        <div id="race-data" class="loading">Loading...</div>
+      </div>
+
+      <!-- Oracle State Panel -->
+      <div class="panel">
+        <div class="panel-title">🔮 Oracle State (On-Chain)</div>
+        <div id="oracle-data" class="loading">Loading...</div>
+      </div>
+
+      <!-- Market State Panel -->
+      <div class="panel">
+        <div class="panel-title">📊 Predimarket State (On-Chain)</div>
+        <div id="market-data" class="loading">Loading...</div>
+      </div>
+
+      <!-- Recent Events Panel -->
+      <div class="panel">
+        <div class="panel-title">📡 Recent Events (On-Chain)</div>
+        <div id="events-data" class="loading">Loading...</div>
+        <button class="refresh-btn" onclick="fetchEvents()">Refresh Events</button>
+      </div>
+
+      <!-- Configuration Panel -->
+      <div class="panel">
+        <div class="panel-title">⚙️ Configuration</div>
+        <div id="config-data" class="loading">Loading...</div>
+      </div>
+
+      <!-- Health Panel -->
+      <div class="panel">
+        <div class="panel-title">💚 Health Status</div>
+        <div id="health-data" class="loading">Loading...</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
+  <script>
+    const RPC_URL = 'http://localhost:8545';
+    const EHORSE_URL = window.location.origin;
+    
+    let provider, oracle, predimarket, config;
+    
+    async function init() {
+      // Load config
+      const healthRes = await fetch('/health');
+      const health = await healthRes.json();
+      
+      // Initialize ethers
+      provider = new ethers.providers.JsonRpcProvider(RPC_URL);
+      
+      // Try to load test config for addresses
+      try {
+        const configRes = await fetch('/tests/test-config.json');
+        config = await configRes.json();
+        initContracts();
+      } catch (e) {
+        console.log('Test config not found, will use env vars');
+      }
+      
+      fetchAll();
+      setInterval(fetchAll, 5000);
+    }
+
+    function initContracts() {
+      if (!config?.addresses) return;
+      
+      const oracleAbi = [
+        'function games(bytes32) view returns (bytes32, string, bool, bytes32, bytes32, uint256, uint256, bytes, address[], uint256, bool)',
+        'function getOutcome(bytes32) view returns (bool, bool)',
+        'event GameCommitted(bytes32 indexed sessionId, string question, bytes32 commitment, uint256 startTime)',
+        'event GameRevealed(bytes32 indexed sessionId, bool outcome, uint256 endTime, bytes teeQuote, uint256 winnersCount)'
+      ];
+      
+      const predimarketAbi = [
+        'function markets(bytes32) view returns (bytes32, string, uint256, uint256, uint256, uint256, uint256, bool, bool)',
+        'event MarketCreated(bytes32 indexed sessionId, string question, uint256 liquidity)',
+        'event SharesPurchased(bytes32 indexed sessionId, address indexed trader, bool outcome, uint256 shares, uint256 cost, address paymentToken)'
+      ];
+      
+      oracle = new ethers.Contract(config.addresses.predictionOracle, oracleAbi, provider);
+      predimarket = new ethers.Contract(config.addresses.predimarket, predimarketAbi, provider);
+    }
+
+    async function fetchAll() {
+      await Promise.all([
+        fetchRace(),
+        fetchOracle(),
+        fetchMarket(),
+        fetchConfig(),
+        fetchHealth()
+      ]);
+    }
+
+    async function fetchRace() {
+      const el = document.getElementById('race-data');
+      
+      const res = await fetch('/api/race');
+      const race = await res.json();
+      
+      el.innerHTML = `
+        <div class="data-row">
+          <span class="data-label">Race ID</span>
+          <span class="data-value hash">${race.id.slice(0, 20)}...</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">Status</span>
+          <span class="status-badge status-${race.status}">${race.status.toUpperCase()}</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">Winner</span>
+          <span class="data-value">${race.winner ? `Horse #${race.winner}` : 'TBD'}</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">Horses</span>
+          <span class="data-value">${race.horses.map(h => h.name).join(', ')}</span>
+        </div>
+        ${race.startTime ? `<div class="data-row">
+          <span class="data-label">Started</span>
+          <span class="timestamp">${new Date(race.startTime).toLocaleTimeString()}</span>
+        </div>` : ''}
+        ${race.endTime ? `<div class="data-row">
+          <span class="data-label">Ended</span>
+          <span class="timestamp">${new Date(race.endTime).toLocaleTimeString()}</span>
+        </div>` : ''}
+      `;
+    }
+
+    async function fetchOracle() {
+      const el = document.getElementById('oracle-data');
+      
+      if (!oracle || !config) {
+        el.innerHTML = '<div class="error">Oracle not configured (blockchain mode disabled)</div>';
+        return;
+      }
+      
+      const res = await fetch('/api/race');
+      const race = await res.json();
+      
+      if (race.status === 'pending') {
+        el.innerHTML = '<div class="data-row"><span class="data-label">Status</span><span class="data-value">Waiting for race to start...</span></div>';
+        return;
+      }
+      
+      const sessionId = ethers.utils.id(race.id);
+      
+      const gameData = await oracle.games(sessionId);
+      const [outcome, finalized] = await oracle.getOutcome(sessionId);
+      
+      el.innerHTML = `
+        <div class="data-row">
+          <span class="data-label">Session ID</span>
+          <span class="data-value hash">${sessionId.slice(0, 10)}...${sessionId.slice(-8)}</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">Question</span>
+          <span class="data-value">${gameData[1]}</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">Commitment</span>
+          <span class="data-value hash">${gameData[3].slice(0, 10)}...${gameData[3].slice(-8)}</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">Start Block Time</span>
+          <span class="timestamp">${gameData[5] > 0 ? new Date(Number(gameData[5]) * 1000).toLocaleTimeString() : 'Not started'}</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">Outcome</span>
+          <span class="status-badge status-${outcome ? 'yes' : 'no'}">${finalized ? (outcome ? 'YES' : 'NO') : 'PENDING'}</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">Finalized</span>
+          <span class="data-value">${finalized ? '✅ YES' : '⏳ NO'}</span>
+        </div>
+        ${gameData[6] > 0 ? `<div class="data-row">
+          <span class="data-label">End Block Time</span>
+          <span class="timestamp">${new Date(Number(gameData[6]) * 1000).toLocaleTimeString()}</span>
+        </div>` : ''}
+      `;
+    }
+
+    async function fetchMarket() {
+      const el = document.getElementById('market-data');
+      
+      if (!predimarket || !config) {
+        el.innerHTML = '<div class="error">Predimarket not configured</div>';
+        return;
+      }
+      
+      const res = await fetch('/api/race');
+      const race = await res.json();
+      
+      if (race.status === 'pending') {
+        el.innerHTML = '<div class="data-row"><span class="data-label">Status</span><span class="data-value">No market yet (race pending)</span></div>';
+        return;
+      }
+      
+      const sessionId = ethers.utils.id(race.id);
+      
+      const marketData = await predimarket.markets(sessionId);
+      
+      if (marketData[6] === 0) { // createdAt
+        el.innerHTML = '<div class="data-row"><span class="data-label">Status</span><span class="data-value">Market not yet created</span></div>';
+        return;
+      }
+      
+      const yesShares = marketData[2];
+      const noShares = marketData[3];
+      const totalShares = yesShares.add(noShares);
+      const yesPercent = totalShares.gt(0) ? yesShares.mul(100).div(totalShares) : 50;
+      const noPercent = totalShares.gt(0) ? noShares.mul(100).div(totalShares) : 50;
+      
+      el.innerHTML = `
+        <div class="data-row">
+          <span class="data-label">Question</span>
+          <span class="data-value">${marketData[1]}</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">YES Shares</span>
+          <span class="data-value">${ethers.utils.formatEther(yesShares)} (${yesPercent}%)</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">NO Shares</span>
+          <span class="data-value">${ethers.utils.formatEther(noShares)} (${noPercent}%)</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">Total Volume</span>
+          <span class="data-value">${ethers.utils.formatEther(marketData[5])} tokens</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">Liquidity Parameter</span>
+          <span class="data-value">${ethers.utils.formatEther(marketData[4])}</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">Resolved</span>
+          <span class="data-value">${marketData[7] ? '✅ YES' : '⏳ NO'}</span>
+        </div>
+        ${marketData[7] ? `<div class="data-row">
+          <span class="data-label">Final Outcome</span>
+          <span class="status-badge status-${marketData[8] ? 'yes' : 'no'}">${marketData[8] ? 'YES' : 'NO'}</span>
+        </div>` : ''}
+        <div class="data-row">
+          <span class="data-label">Created</span>
+          <span class="timestamp">${new Date(Number(marketData[6]) * 1000).toLocaleString()}</span>
+        </div>
+      `;
+    }
+
+    async function fetchEvents() {
+      const el = document.getElementById('events-data');
+      
+      if (!oracle || !predimarket || !config) {
+        el.innerHTML = '<div class="error">Blockchain not configured</div>';
+        return;
+      }
+      
+      el.innerHTML = '<div class="loading">Loading events...</div>';
+      
+      const currentBlock = await provider.getBlockNumber();
+      const fromBlock = Math.max(0, currentBlock - 50);
+      
+      const events = [];
+      
+      // Oracle events
+      const commitFilter = oracle.filters.GameCommitted();
+      const commitEvents = await oracle.queryFilter(commitFilter, fromBlock, currentBlock);
+      for (const event of commitEvents) {
+        events.push({
+          type: 'GameCommitted',
+          args: event.args,
+          blockNumber: event.blockNumber,
+          transactionHash: event.transactionHash
+        });
+      }
+      
+      const revealFilter = oracle.filters.GameRevealed();
+      const revealEvents = await oracle.queryFilter(revealFilter, fromBlock, currentBlock);
+      for (const event of revealEvents) {
+        events.push({
+          type: 'GameRevealed',
+          args: event.args,
+          blockNumber: event.blockNumber,
+          transactionHash: event.transactionHash
+        });
+      }
+      
+      // Market events
+      const marketFilter = predimarket.filters.MarketCreated();
+      const marketEvents = await predimarket.queryFilter(marketFilter, fromBlock, currentBlock);
+      for (const event of marketEvents) {
+        events.push({
+          type: 'MarketCreated',
+          args: event.args,
+          blockNumber: event.blockNumber,
+          transactionHash: event.transactionHash
+        });
+      }
+      
+      // Sort by block number
+      events.sort((a, b) => b.blockNumber - a.blockNumber);
+      
+      if (events.length === 0) {
+        el.innerHTML = '<div class="data-row"><span class="data-value">No events in last 50 blocks</span></div>';
+        return;
+      }
+      
+      el.innerHTML = `<div class="events-list">` + events.map(event => `
+        <div class="event-item">
+          <div class="event-name">${event.type}</div>
+          <div class="data-row">
+            <span class="data-label">Block</span>
+            <span class="data-value">#${event.blockNumber}</span>
+          </div>
+          <div class="data-row">
+            <span class="data-label">Tx</span>
+            <span class="hash">${event.transactionHash.slice(0, 20)}...</span>
+          </div>
+        </div>
+      `).join('') + `</div>`;
+    }
+
+    async function fetchConfig() {
+      const el = document.getElementById('config-data');
+      
+      if (!config) {
+        el.innerHTML = '<div class="error">Config not loaded (run setup-test-env.ts first)</div>';
+        return;
+      }
+      
+      el.innerHTML = `
+        <div class="data-row">
+          <span class="data-label">Chain ID</span>
+          <span class="data-value">${config.chainId}</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">RPC URL</span>
+          <span class="data-value">${config.rpcUrl}</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">Oracle</span>
+          <span class="hash">${config.addresses?.predictionOracle || 'Not configured'}</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">Predimarket</span>
+          <span class="hash">${config.addresses?.predimarket || 'Not configured'}</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">MarketFactory</span>
+          <span class="hash">${config.addresses?.marketFactory || 'Not configured'}</span>
+        </div>
+      `;
+    }
+
+    async function fetchHealth() {
+      const el = document.getElementById('health-data');
+      
+      const res = await fetch('/health');
+      const health = await res.json();
+      
+      el.innerHTML = `
+        <div class="data-row">
+          <span class="data-label">Server</span>
+          <span class="status-badge status-enabled">ONLINE</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">Oracle Publisher</span>
+          <span class="status-badge status-${health.oracle ? 'enabled' : 'disabled'}">${health.oracle ? 'ENABLED' : 'DISABLED'}</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">ERC-8004 Registry</span>
+          <span class="status-badge status-${health.registry ? 'enabled' : 'disabled'}">${health.registry ? 'ENABLED' : 'DISABLED'}</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">Market Creator</span>
+          <span class="status-badge status-${health.marketCreator ? 'enabled' : 'disabled'}">${health.marketCreator ? 'ENABLED' : 'DISABLED'}</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">Current Race</span>
+          <span class="data-value hash">${health.race || 'None'}</span>
+        </div>
+      `;
+    }
+
+    // Initialize
+    init();
+  </script>
+</body>
+</html>
+
+
+

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.26;
 
 import "forge-std/Script.sol";
-import {elizaOSToken} from "../src/token/elizaOSToken.sol";
+import {ElizaOSToken} from "../src/tokens/ElizaOSToken.sol";
 import {LiquidityVault} from "../src/liquidity/LiquidityVault.sol";
 import {FeeDistributor} from "../src/distributor/FeeDistributor.sol";
 import {LiquidityPaymaster} from "../src/paymaster/LiquidityPaymaster.sol";
@@ -96,7 +96,7 @@ contract DeployLiquiditySystem is Script {
         address elizaOSAddress = address(0); // Always deploy for localnet
         if (elizaOSAddress == address(0)) {
             console.log("\n[1/5] Deploying elizaOS Token...");
-            elizaOSToken eliza = new elizaOSToken(deployer);
+            ElizaOSToken eliza = new ElizaOSToken(deployer);
             addresses.elizaOS = address(eliza);
             console.log("   Address:", addresses.elizaOS);
         } else {
@@ -156,11 +156,11 @@ contract DeployLiquiditySystem is Script {
         console.log("   Identity Registry:", addresses.identityRegistry);
         
         console.log("\n[7/8] Deploying Reputation & Validation Registries...");
-        ReputationRegistry reputationRegistry = new ReputationRegistry(addresses.identityRegistry);
+        ReputationRegistry reputationRegistry = new ReputationRegistry(payable(addresses.identityRegistry));
         addresses.reputationRegistry = address(reputationRegistry);
         console.log("   Reputation Registry:", addresses.reputationRegistry);
         
-        ValidationRegistry validationRegistry = new ValidationRegistry(addresses.identityRegistry);
+        ValidationRegistry validationRegistry = new ValidationRegistry(payable(addresses.identityRegistry));
         addresses.validationRegistry = address(validationRegistry);
         console.log("   Validation Registry:", addresses.validationRegistry);
         

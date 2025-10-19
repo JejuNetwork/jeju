@@ -35,9 +35,9 @@ const execAsync = promisify(exec);
 
 /** Test configuration */
 const TEST_CONFIG = {
-  l1RpcUrl: 'http://127.0.0.1:8545',
-  l2RpcUrl: 'http://127.0.0.1:9545',
-  indexerGraphQL: 'http://localhost:4350/graphql',
+  l1RpcUrl: process.env.L1_RPC_URL || `http://127.0.0.1:${process.env.L1_RPC_PORT || '8545'}`,
+  l2RpcUrl: process.env.L2_RPC_URL || process.env.JEJU_RPC_URL || `http://127.0.0.1:${process.env.L2_RPC_PORT || '9545'}`,
+  indexerGraphQL: process.env.INDEXER_GRAPHQL_URL || `http://localhost:${process.env.INDEXER_GRAPHQL_PORT || '4350'}/graphql`,
   timeout: 60000, // 60 seconds for blockchain operations
 } as const;
 
@@ -216,7 +216,7 @@ describe('Localnet Full System Integration', () => {
           console.log('   ⚠️  GraphQL endpoint not yet running (expected if indexer not started)');
         }
       } catch (error) {
-        console.log('   ℹ️  Indexer not running (start with: cd indexer && npm run dev)');
+        console.log('   ℹ️  Indexer not running (start with: cd apps/indexer && npm run dev)');
       }
     });
 
@@ -395,8 +395,8 @@ describe('Service Interaction Tests', () => {
   describe('RPC → Indexer Flow', () => {
     it('should verify transactions appear in indexer', async () => {
       console.log('   ℹ️  This test requires indexer to be running');
-      console.log('   ℹ️  Start with: cd indexer && npm run dev');
-      console.log('   ℹ️  See indexer/test-localnet.sh for automated testing');
+      console.log('   ℹ️  Start with: cd apps/indexer && npm run dev');
+      console.log('   ℹ️  See apps/indexer/test-localnet.sh for automated testing');
       
       // In a full implementation, we'd:
       // 1. Send a transaction on L2
@@ -440,13 +440,13 @@ describe('Service Interaction Tests', () => {
 
   describe('Node Operator Rewards Flow', () => {
     it('should verify node registration and rewards', async () => {
-      console.log('   ℹ️  Node rewards integration test');
+      console.log('   ℹ️  Node staking integration test (multi-token)');
       console.log('   ℹ️  See scripts/test-node-rewards-system.ts');
       
       // In a full implementation, we'd:
-      // 1. Deploy NodeOperatorRewards
-      // 2. Deploy rewards token
-      // 3. Register a node
+      // 1. Deploy NodeStakingManager (multi-token)
+      // 2. Deploy TokenRegistry, PaymasterFactory, PriceOracle
+      // 3. Register a node (stake ANY token, earn ANY token)
       // 4. Update performance data
       // 5. Calculate rewards
       // 6. Claim rewards

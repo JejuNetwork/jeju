@@ -37,7 +37,7 @@ service:
   http:
     port: 80
   ws:
-    port: 8080
+    port: 8546
   metrics:
     port: 9113
 

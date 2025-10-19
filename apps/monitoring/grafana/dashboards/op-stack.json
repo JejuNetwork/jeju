@@ -1,0 +1,209 @@
+{
+  "uid": "jeju-op-stack",
+  "title": "Jeju - OP Stack Overview",
+  "tags": [
+    "op-stack",
+    "l2",
+    "jeju"
+  ],
+  "timezone": "browser",
+  "refresh": "30s",
+  "editable": true,
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "title": "Chain Health",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "up{job='op-node'}",
+          "legendFormat": "Sequencer Status"
+        }
+      ]
+    },
+    {
+      "title": "Block Production Rate",
+      "type": "graph",
+      "gridPos": {
+        "x": 4,
+        "y": 0,
+        "w": 8,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "rate(op_node_l2_blocks_total[1m])",
+          "legendFormat": "Blocks/sec"
+        }
+      ]
+    },
+    {
+      "title": "Flashblocks Sub-Block Latency",
+      "type": "graph",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 8,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(op_node_flashblocks_subblock_latency_ms_bucket[5m]))",
+          "legendFormat": "P95 Sub-Block Latency (ms)"
+        },
+        {
+          "expr": "histogram_quantile(0.50, rate(op_node_flashblocks_subblock_latency_ms_bucket[5m]))",
+          "legendFormat": "P50 Sub-Block Latency (ms)"
+        }
+      ],
+      "yaxes": [
+        {
+          "label": "Latency (ms)",
+          "min": 0,
+          "max": 500
+        }
+      ]
+    },
+    {
+      "title": "Batcher Status",
+      "type": "graph",
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "time() - op_batcher_last_batch_timestamp",
+          "legendFormat": "Time Since Last Batch (s)"
+        },
+        {
+          "expr": "op_batcher_pending_transactions",
+          "legendFormat": "Pending Transactions"
+        }
+      ]
+    },
+    {
+      "title": "Proposer Output Roots",
+      "type": "graph",
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "op_proposer_latest_l2_block - op_proposer_latest_proposed_block",
+          "legendFormat": "Blocks Behind"
+        },
+        {
+          "expr": "rate(op_proposer_proposals_total[5m])",
+          "legendFormat": "Proposals/sec"
+        }
+      ]
+    },
+    {
+      "title": "Challenger Activity",
+      "type": "graph",
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "op_challenger_disputes_total",
+          "legendFormat": "Total Disputes"
+        },
+        {
+          "expr": "op_challenger_games_won",
+          "legendFormat": "Games Won"
+        },
+        {
+          "expr": "op_challenger_games_lost",
+          "legendFormat": "Games Lost"
+        }
+      ]
+    },
+    {
+      "title": "P2P Network",
+      "type": "graph",
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "op_node_p2p_peer_count",
+          "legendFormat": "Peer Count"
+        },
+        {
+          "expr": "rate(op_node_p2p_messages_sent_total[1m])",
+          "legendFormat": "Messages Sent/sec"
+        },
+        {
+          "expr": "rate(op_node_p2p_messages_received_total[1m])",
+          "legendFormat": "Messages Received/sec"
+        }
+      ]
+    },
+    {
+      "title": "EigenDA Performance",
+      "type": "graph",
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "rate(eigenda_dispersal_success_total[5m])",
+          "legendFormat": "Successful Dispersals/sec"
+        },
+        {
+          "expr": "rate(eigenda_dispersal_failures_total[5m])",
+          "legendFormat": "Failed Dispersals/sec"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(eigenda_dispersal_duration_seconds_bucket[5m]))",
+          "legendFormat": "P95 Dispersal Latency (s)"
+        }
+      ]
+    },
+    {
+      "title": "Gas Usage",
+      "type": "graph",
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "rate(reth_gas_used_total[5m])",
+          "legendFormat": "Gas Used/sec"
+        },
+        {
+          "expr": "avg(reth_gas_price_gwei)",
+          "legendFormat": "Avg Gas Price (gwei)"
+        }
+      ]
+    }
+  ]
+}

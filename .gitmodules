@@ -14,39 +14,14 @@
 	path = contracts/lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts.git
 
-[submodule "apps/caliguland"]
-	path = apps/caliguland
-	url = https://github.com/your-org/caliguland.git
-	branch = main
-
-[submodule "apps/cloud"]
-	path = apps/cloud
-	url = https://github.com/your-org/cloud.git
-	branch = main
-
-[submodule "apps/hyperscape"]
-	path = apps/hyperscape
-	url = https://github.com/your-org/hyperscape.git
-	branch = main
-
-[submodule "apps/launchpad"]
-	path = apps/launchpad
-	url = https://github.com/your-org/launchpad.git
-	branch = main
-
-[submodule "apps/otc-agent"]
-	path = apps/otc-agent
-	url = https://github.com/your-org/otc-agent.git
-	branch = main
-[submodule "contracts/lib/v2-core"]
-	path = contracts/lib/v2-core
-	url = https://github.com/uniswap/v2-core
-[submodule "contracts/lib/v2-periphery"]
-	path = contracts/lib/v2-periphery
-	url = https://github.com/uniswap/v2-periphery
 [submodule "contracts/lib/v4-core"]
 	path = contracts/lib/v4-core
 	url = https://github.com/Uniswap/v4-core
+	
 [submodule "contracts/lib/v4-periphery"]
 	path = contracts/lib/v4-periphery
 	url = https://github.com/Uniswap/v4-periphery
+
+[submodule "contracts/lib/solidity-lib"]
+	path = contracts/lib/solidity-lib
+	url = https://github.com/uniswap/solidity-lib

@@ -4,12 +4,12 @@ pragma solidity ^0.8.26;
 import "forge-std/Test.sol";
 import {FeeDistributor} from "../src/distributor/FeeDistributor.sol";
 import {LiquidityVault} from "../src/liquidity/LiquidityVault.sol";
-import {elizaOSToken} from "../src/token/elizaOSToken.sol";
+import {ElizaOSToken} from "../src/tokens/ElizaOSToken.sol";
 
 contract FeeDistributorTest is Test {
     FeeDistributor public distributor;
     LiquidityVault public vault;
-    elizaOSToken public eliza;
+    ElizaOSToken public rewardToken;
     
     address public owner = address(this);
     address public paymaster = address(0x123);
@@ -17,22 +17,22 @@ contract FeeDistributorTest is Test {
     address public app2 = address(0xA2);
     
     function setUp() public {
-        eliza = new elizaOSToken(owner);
-        vault = new LiquidityVault(address(eliza), owner);
-        distributor = new FeeDistributor(address(eliza), address(vault), owner);
+        rewardToken = new ElizaOSToken(owner);
+        vault = new LiquidityVault(address(rewardToken), owner);
+        distributor = new FeeDistributor(address(rewardToken), address(vault), owner);
         
         distributor.setPaymaster(paymaster);
         vault.setFeeDistributor(address(distributor));
         
         // Fund paymaster
-        eliza.transfer(paymaster, 1000000e18);
+        rewardToken.transfer(paymaster, 1000000e18);
     }
     
     function testDistributeFees_50_50Split() public {
         uint256 totalFees = 100e18;
         
         vm.startPrank(paymaster);
-        eliza.approve(address(distributor), totalFees);
+        rewardToken.approve(address(distributor), totalFees);
         distributor.distributeFees(totalFees, app1);
         vm.stopPrank();
         
@@ -47,12 +47,12 @@ contract FeeDistributorTest is Test {
         uint256 totalFees = 100e18;
         
         vm.startPrank(paymaster);
-        eliza.approve(address(distributor), totalFees);
+        rewardToken.approve(address(distributor), totalFees);
         distributor.distributeFees(totalFees, app1);
         vm.stopPrank();
         
-        // 50 elizaOS to LPs, split 70/30
-        // ETH LPs get 35, elizaOS LPs get 15
+        // 50 tokens to LPs, split 70/30
+        // ETH LPs get 35, token LPs get 15
         
         // Check via preview function
         (uint256 appAmt, uint256 ethLPAmt, uint256 elizaLPAmt) = 
@@ -67,29 +67,29 @@ contract FeeDistributorTest is Test {
         uint256 fees = 100e18;
         
         vm.startPrank(paymaster);
-        eliza.approve(address(distributor), fees);
+        rewardToken.approve(address(distributor), fees);
         distributor.distributeFees(fees, app1);
         vm.stopPrank();
         
-        uint256 app1BalanceBefore = eliza.balanceOf(app1);
+        uint256 app1BalanceBefore = rewardToken.balanceOf(app1);
         
         vm.prank(app1);
         distributor.claimEarnings();
         
-        assertEq(eliza.balanceOf(app1), app1BalanceBefore + 50e18);
+        assertEq(rewardToken.balanceOf(app1), app1BalanceBefore + 50e18);
         assertEq(distributor.appEarnings(app1), 0);
     }
     
     function testMultipleAppsEarnSeparately() public {
         // App1 generates 100 fees
         vm.startPrank(paymaster);
-        eliza.approve(address(distributor), 100e18);
+        rewardToken.approve(address(distributor), 100e18);
         distributor.distributeFees(100e18, app1);
         vm.stopPrank();
         
         // App2 generates 200 fees
         vm.startPrank(paymaster);
-        eliza.approve(address(distributor), 200e18);
+        rewardToken.approve(address(distributor), 200e18);
         distributor.distributeFees(200e18, app2);
         vm.stopPrank();
         
@@ -105,7 +105,7 @@ contract FeeDistributorTest is Test {
     
     function testGetEarnings() public {
         vm.startPrank(paymaster);
-        eliza.approve(address(distributor), 100e18);
+        rewardToken.approve(address(distributor), 100e18);
         distributor.distributeFees(100e18, app1);
         vm.stopPrank();
         

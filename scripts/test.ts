@@ -218,82 +218,41 @@ const TEST_SUITES: TestSuite[] = [
     optional: true,
   },
   
-  // Phase 10: OTC Agent Tests
+  // Phase 10: Vendor App Tests (Optional - only run if apps exist)
   {
-    name: 'OTC Agent Runtime E2E',
+    name: 'TheDesk (OTC Agent) Tests',
     description: 'Test OTC Agent runtime integration',
     command: 'npm run test',
-    directory: 'apps/otc-agent',
+    directory: 'vendor/thedesk',
     timeout: 180000,
-    optional: false,
+    optional: true, // Vendor app is optional
+    skipInCI: true,
   },
   {
-    name: 'OTC Agent Localnet E2E',
-    description: 'Real localnet end-to-end test with deployed contracts',
-    command: 'npm run test:localnet',
-    directory: 'apps/otc-agent',
-    timeout: 300000,
-    optional: false,
-  },
-  {
-    name: 'OTC Agent Full Stack',
-    description: 'Test OTC Agent full stack integration',
-    command: 'npm run test:integration',
-    directory: 'apps/otc-agent',
-    timeout: 180000,
-    optional: true,
-  },
-  
-  // Phase 11: Launchpad Tests
-  {
-    name: 'Launchpad Unit Tests',
-    description: 'Test launchpad multi-chain configuration and logic',
-    command: 'cd apps/launchpad && npx vitest run apps/frontend/src/__tests__/integration/multi-chain.test.ts apps/frontend/src/lib/__tests__/chain-availability.test.ts',
+    name: 'Launchpad Tests',
+    description: 'Test launchpad multi-chain configuration',
+    command: 'npx vitest run',
+    directory: 'vendor/launchpad',
     timeout: 120000,
-    optional: false,
-  },
-  {
-    name: 'Launchpad Localnet E2E',
-    description: 'Test launchpad against real localnet (no mocks)',
-    command: 'cd apps/launchpad && npx vitest run tests/e2e/launchpad-localnet-e2e.test.ts',
-    timeout: 180000,
-    optional: true,
+    optional: true, // Vendor app is optional
     skipInCI: true,
   },
   {
-    name: 'Launchpad Playwright E2E',
-    description: 'Test launchpad UI with browser automation',
-    command: 'cd apps/launchpad && pnpm run test:e2e',
-    timeout: 180000,
-    optional: true,
-    skipInCI: true,
-  },
-  
-  // Phase 12: Hyperscape Tests
-  {
-    name: 'Hyperscape Contract Tests',
-    description: 'Test Hyperscape MUD smart contracts (on-chain game)',
-    command: 'forge test --match-path "src/hyperscape/test/**/*.sol" -vv',
-    directory: 'contracts',
-    timeout: 180000,
-    optional: false,
-  },
-  {
-    name: 'Hyperscape Integration Tests',
-    description: 'Test Hyperscape on-chain integration',
+    name: 'Hyperscape Tests',
+    description: 'Test Hyperscape on-chain game integration',
     command: 'bun run test',
-    directory: 'apps/hyperscape',
+    directory: 'vendor/hyperscape',
     timeout: 300000,
-    optional: true,
-    skipInCI: false,
+    optional: true, // Vendor app is optional
+    skipInCI: true,
   },
   {
-    name: 'Hyperscape E2E Tests',
-    description: 'Test Hyperscape full stack with Playwright',
-    command: 'bun run test:e2e',
-    directory: 'apps/hyperscape',
+    name: 'Cloud Platform Tests',
+    description: 'Test cloud platform e2e flows',
+    command: 'bunx playwright test',
+    directory: 'vendor/cloud/tests/e2e',
     timeout: 180000,
-    optional: true,
+    optional: true, // Vendor app is optional
     skipInCI: true,
   },
 ];

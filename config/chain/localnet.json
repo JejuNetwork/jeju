@@ -8,6 +8,7 @@
   "l1ChainId": 1337,
   "l1RpcUrl": "http://127.0.0.1:8545",
   "l1Name": "Local",
+  "note": "STATIC ports via automatic forwarding: L1=8545, L2=9545. Dev environment handles Kurtosis dynamic ports automatically.",
   "flashblocksEnabled": true,
   "flashblocksSubBlockTime": 200,
   "blockTime": 2000,

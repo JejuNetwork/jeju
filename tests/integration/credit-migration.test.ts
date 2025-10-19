@@ -24,7 +24,7 @@ const TEST_CONFIG = {
   rpcUrl: process.env.JEJU_RPC_URL || 'http://localhost:8545',
   chainId: 420691,
   contracts: {
-    elizaOSToken: process.env.ELIZAOS_TOKEN_ADDRESS as Address
+    ElizaOSToken: process.env.ELIZAOS_TOKEN_ADDRESS as Address
   },
   adminAccount: privateKeyToAccount(
     (process.env.MIGRATION_ADMIN_PRIVATE_KEY || process.env.DEPLOYER_PRIVATE_KEY || '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80') as \`0x\${string}\`
@@ -67,7 +67,7 @@ describe('Credit Migration Integration', () => {
     const erc20Abi = parseAbi(['function balanceOf(address) external view returns (uint256)']);
 
     initialElizaOSBalance = await publicClient.readContract({
-      address: TEST_CONFIG.contracts.elizaOSToken,
+      address: TEST_CONFIG.contracts.ElizaOSToken,
       abi: erc20Abi,
       functionName: 'balanceOf',
       args: [TEST_CONFIG.userAccount.address]
@@ -99,13 +99,13 @@ describe('Credit Migration Integration', () => {
     try {
       // Check if contract uses AccessControl with MINTER_ROLE
       const minterRole = await publicClient.readContract({
-        address: TEST_CONFIG.contracts.elizaOSToken,
+        address: TEST_CONFIG.contracts.ElizaOSToken,
         abi: erc20Abi,
         functionName: 'MINTER_ROLE'
       });
 
       const hasRole = await publicClient.readContract({
-        address: TEST_CONFIG.contracts.elizaOSToken,
+        address: TEST_CONFIG.contracts.ElizaOSToken,
         abi: erc20Abi,
         functionName: 'hasRole',
         args: [minterRole, TEST_CONFIG.adminAccount.address]
@@ -128,7 +128,7 @@ describe('Credit Migration Integration', () => {
 
     // Execute migration (mint tokens to user)
     const mintTx = await adminWalletClient.writeContract({
-      address: TEST_CONFIG.contracts.elizaOSToken,
+      address: TEST_CONFIG.contracts.ElizaOSToken,
       abi: erc20Abi,
       functionName: 'mint',
       args: [TEST_CONFIG.userAccount.address, expectedMintAmount]
@@ -144,13 +144,13 @@ describe('Credit Migration Integration', () => {
 
     // Verify Transfer event was emitted
     const transferEvent = receipt.logs.find(log => 
-      log.address.toLowerCase() === TEST_CONFIG.contracts.elizaOSToken.toLowerCase()
+      log.address.toLowerCase() === TEST_CONFIG.contracts.ElizaOSToken.toLowerCase()
     );
     expect(transferEvent).toBeDefined();
 
     // Verify balance increased
     const newBalance = await publicClient.readContract({
-      address: TEST_CONFIG.contracts.elizaOSToken,
+      address: TEST_CONFIG.contracts.ElizaOSToken,
       abi: erc20Abi,
       functionName: 'balanceOf',
       args: [TEST_CONFIG.userAccount.address]
@@ -165,7 +165,7 @@ describe('Credit Migration Integration', () => {
     const erc20Abi = parseAbi(['function totalSupply() external view returns (uint256)']);
 
     const totalSupply = await publicClient.readContract({
-      address: TEST_CONFIG.contracts.elizaOSToken,
+      address: TEST_CONFIG.contracts.ElizaOSToken,
       abi: erc20Abi,
       functionName: 'totalSupply'
     });
@@ -190,7 +190,7 @@ describe('Credit Migration Integration', () => {
     const transferAmount = parseEther('1'); // Transfer 1 elizaOS
 
     const balanceBefore = await publicClient.readContract({
-      address: TEST_CONFIG.contracts.elizaOSToken,
+      address: TEST_CONFIG.contracts.ElizaOSToken,
       abi: erc20Abi,
       functionName: 'balanceOf',
       args: [TEST_CONFIG.userAccount.address]
@@ -198,7 +198,7 @@ describe('Credit Migration Integration', () => {
 
     if (balanceBefore >= transferAmount) {
       const transferTx = await userWalletClient.writeContract({
-        address: TEST_CONFIG.contracts.elizaOSToken,
+        address: TEST_CONFIG.contracts.ElizaOSToken,
         abi: erc20Abi,
         functionName: 'transfer',
         args: [TEST_CONFIG.adminAccount.address, transferAmount]
@@ -208,7 +208,7 @@ describe('Credit Migration Integration', () => {
       expect(receipt.status).toBe('success');
 
       const balanceAfter = await publicClient.readContract({
-        address: TEST_CONFIG.contracts.elizaOSToken,
+        address: TEST_CONFIG.contracts.ElizaOSToken,
         abi: erc20Abi,
         functionName: 'balanceOf',
         args: [TEST_CONFIG.userAccount.address]

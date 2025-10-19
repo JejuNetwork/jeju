@@ -1,0 +1,388 @@
+{
+  "uid": "jeju-events-logs",
+  "title": "Jeju - Events & Logs Explorer",
+  "tags": [
+    "events",
+    "logs",
+    "jeju"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "10s",
+  "editable": true,
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Total Events (Last Hour)",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM decoded_event de JOIN block b ON de.block_id = b.id WHERE b.timestamp > NOW() - INTERVAL '1 hour'",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "green"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Unique Event Types (Last Hour)",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(DISTINCT event_name) as types FROM decoded_event de JOIN block b ON de.block_id = b.id WHERE b.timestamp > NOW() - INTERVAL '1 hour'",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "blue"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Active Contracts Emitting Events",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(DISTINCT address_id) as contracts FROM decoded_event de JOIN block b ON de.block_id = b.id WHERE b.timestamp > NOW() - INTERVAL '1 hour'",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "purple"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Total Logs (Last Hour)",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM log l JOIN block b ON l.block_id = b.id WHERE b.timestamp > NOW() - INTERVAL '1 hour'",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "orange"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Events Per Minute by Type",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 4
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  DATE_TRUNC('minute', de.timestamp) as time,\n  de.event_name as metric,\n  COUNT(*) as value\nFROM decoded_event de\nWHERE $__timeFilter(de.timestamp)\nGROUP BY time, de.event_name\nORDER BY time",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "stacking": {
+              "mode": "normal"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "sum",
+            "lastNotNull"
+          ]
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Top 10 Event Types (Last Hour)",
+      "type": "barchart",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  event_name as metric,\n  COUNT(*) as value\nFROM decoded_event de\nJOIN block b ON de.block_id = b.id\nWHERE b.timestamp > NOW() - INTERVAL '1 hour'\nGROUP BY event_name\nORDER BY value DESC\nLIMIT 10",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "xTickLabelRotation": 0,
+        "legend": {
+          "displayMode": "hidden"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Top 10 Contracts by Event Count",
+      "type": "barchart",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  LEFT(de.address_id, 10) || '...' as metric,\n  COUNT(*) as value\nFROM decoded_event de\nJOIN block b ON de.block_id = b.id\nWHERE b.timestamp > NOW() - INTERVAL '1 hour'\nGROUP BY de.address_id\nORDER BY value DESC\nLIMIT 10",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "xTickLabelRotation": 0,
+        "legend": {
+          "displayMode": "hidden"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "Recent Decoded Events",
+      "type": "table",
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  de.event_name as \"Event\",\n  LEFT(de.address_id, 10) || '...' as \"Contract\",\n  LEFT(de.transaction_id, 10) || '...' as \"Tx Hash\",\n  b.number as \"Block\",\n  de.timestamp as \"Time\",\n  de.args::text as \"Arguments\"\nFROM decoded_event de\nJOIN block b ON de.block_id = b.id\nORDER BY de.timestamp DESC\nLIMIT 100",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Time",
+            "desc": true
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {
+              "Event": 0,
+              "Contract": 1,
+              "Tx Hash": 2,
+              "Block": 3,
+              "Time": 4,
+              "Arguments": 5
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Event Signatures Distribution",
+      "type": "piechart",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 36
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  event_signature as metric,\n  COUNT(*) as value\nFROM decoded_event de\nJOIN block b ON de.block_id = b.id\nWHERE b.timestamp > NOW() - INTERVAL '1 hour'\nGROUP BY event_signature\nORDER BY value DESC\nLIMIT 15",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "pieType": "donut",
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value",
+            "percent"
+          ]
+        }
+      }
+    },
+    {
+      "id": 10,
+      "title": "Logs by Topic0 (Event Signature)",
+      "type": "table",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 36
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  topic0 as \"Topic0 (Event Signature)\",\n  COUNT(*) as \"Count\",\n  COUNT(DISTINCT address_id) as \"Unique Contracts\"\nFROM log l\nJOIN block b ON l.block_id = b.id\nWHERE b.timestamp > NOW() - INTERVAL '1 hour' AND topic0 IS NOT NULL\nGROUP BY topic0\nORDER BY \"Count\" DESC\nLIMIT 20",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Count",
+            "desc": true
+          }
+        ]
+      }
+    }
+  ]
+}

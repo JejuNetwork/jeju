@@ -12,14 +12,20 @@ export class FailoverProvider {
   private providers: ethers.JsonRpcProvider[];
   private currentIndex: number = 0;
   private name: string;
+  private onFailover?: () => void;
   
-  constructor(urls: string[] | string, name: string = 'RPC') {
+  constructor(urls: string[] | string, name: string = 'RPC', onFailover?: () => void) {
     const urlArray = typeof urls === 'string' ? urls.split(',').map(u => u.trim()) : urls;
     this.name = name;
     this.providers = urlArray.map(url => new ethers.JsonRpcProvider(url));
+    this.onFailover = onFailover;
     
     if (this.providers.length === 0) {
       throw new Error('At least one RPC URL required');
+    }
+    
+    if (this.providers.length > 1) {
+      console.log(`✅ ${name} provider initialized with ${urls.length} RPC endpoint(s)`);
     }
   }
   
@@ -30,6 +36,11 @@ export class FailoverProvider {
       return this.providers[this.currentIndex];
     } catch (error) {
       console.warn(`⚠️  ${this.name} RPC ${this.currentIndex} failed, trying fallback...`);
+      
+      // Notify failover callback
+      if (this.onFailover) {
+        this.onFailover();
+      }
       
       // Try other providers
       for (let i = 0; i < this.providers.length; i++) {

@@ -1,0 +1,34 @@
+{
+  "name": "@jeju/ehorse",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "build": "bun build src/index.ts --outdir dist",
+    "start": "bun run dist/index.js",
+    "deploy": "bash scripts/manual-deploy.sh",
+    "agent": "bun run scripts/example-agent.ts",
+    "test": "bun run scripts/test-runner.ts",
+    "test:quick": "bun run scripts/test-runner.ts quick",
+    "test:e2e": "bun run scripts/test-runner.ts e2e",
+    "test:all": "bun run scripts/test-runner.ts all",
+    "test:setup": "bun run scripts/setup-test-env.ts",
+    "test:complete": "bash scripts/run-complete-test.sh"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "ethers": "^6.13.4",
+    "uuid": "^11.0.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@tenkeylabs/dappwright": "^2.11.3",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.16.0",
+    "@types/uuid": "^10.0.0",
+    "playwright-core": "^1.56.1",
+    "typescript": "^5.6.0"
+  }
+}
