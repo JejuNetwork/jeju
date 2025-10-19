@@ -1,0 +1,6 @@
+# Ignore build output
+dist/
+node_modules/
+
+# Ignore intentionally broken test scenarios
+src/__tests__/test-scenarios/ 

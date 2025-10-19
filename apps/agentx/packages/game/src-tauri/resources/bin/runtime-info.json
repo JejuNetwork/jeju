@@ -1,0 +1,7 @@
+{
+  "version": "4.8.3",
+  "platform": "darwin-arm64",
+  "downloadedAt": "2025-07-23T06:48:06.949Z",
+  "url": "https://github.com/containers/podman/releases/download/v4.8.3/podman-remote-release-darwin_arm64.zip",
+  "executable": "/Users/shawwalters/eliza-dev/packages/game/src-tauri/resources/bin/podman"
+}

@@ -1,0 +1,302 @@
+name: App Store Deployment
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: 'Platforms to deploy (comma-separated: steam,windows,mac,snap,flatpak)'
+        required: true
+        default: 'steam,windows,mac,snap,flatpak'
+      release_tag:
+        description: 'Release tag to deploy'
+        required: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Steam Deployment
+  deploy-steam:
+    if: contains(github.event.inputs.platforms, 'steam') || github.event_name == 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.release_tag || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build for Steam
+        run: |
+          cd deployment/steam
+          chmod +x scripts/build_steam.sh
+          ./scripts/build_steam.sh
+        env:
+          STEAM_APP_ID: ${{ secrets.STEAM_APP_ID }}
+
+      - name: Deploy to Steam
+        uses: game-ci/steam-deploy@v3
+        with:
+          username: ${{ secrets.STEAM_USERNAME }}
+          configVdf: ${{ secrets.STEAM_CONFIG_VDF }}
+          appId: ${{ secrets.STEAM_APP_ID }}
+          buildDescription: v${{ github.event.inputs.release_tag || github.event.release.tag_name }}
+          rootPath: deployment/steam/build
+          depot1Path: .
+          releaseBranch: prerelease
+
+  # Microsoft Store Deployment
+  deploy-windows-store:
+    if: contains(github.event.inputs.platforms, 'windows') || github.event_name == 'release'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.release_tag || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Windows SDK
+        uses: ChristopheLav/windows-sdk-install@v1
+        with:
+          version-sdk: '22621'
+          features: 'OptionId.WindowsPerformanceToolkit OptionId.WindowsDesktopDebuggers OptionId.AvrfExternal OptionId.NetFxSoftwareDevelopmentKit'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build MSIX Package
+        run: |
+          cd deployment/microsoft-store
+          .\scripts\build_msix.ps1
+        env:
+          MS_PACKAGE_NAME: ${{ secrets.MS_PACKAGE_NAME }}
+          MS_PUBLISHER: ${{ secrets.MS_PUBLISHER }}
+          MS_PUBLISHER_DISPLAY: ${{ secrets.MS_PUBLISHER_DISPLAY }}
+          MS_CERTIFICATE_PATH: ${{ secrets.MS_CERTIFICATE_PATH }}
+          MS_CERTIFICATE_PASSWORD: ${{ secrets.MS_CERTIFICATE_PASSWORD }}
+
+      - name: Run Windows App Certification
+        run: |
+          & "${env:ProgramFiles(x86)}\Windows Kits\10\App Certification Kit\appcert.exe" test `
+            -appxpackagepath ".\deployment\microsoft-store\output\*.msix" `
+            -reportoutputpath ".\cert_report.xml"
+
+      - name: Setup MSStore CLI
+        uses: microsoft/setup-msstore-cli@v1
+
+      - name: Configure MSStore CLI
+        run: |
+          msstore reconfigure \
+            --tenantId ${{ secrets.MS_TENANT_ID }} \
+            --sellerId ${{ secrets.MS_SELLER_ID }} \
+            --clientId ${{ secrets.MS_CLIENT_ID }} \
+            --clientSecret ${{ secrets.MS_CLIENT_SECRET }}
+
+      - name: Upload to Partner Center
+        run: |
+          # Find the MSIX file
+          $msixFile = Get-ChildItem -Path ".\deployment\microsoft-store\output" -Filter "*.msix" | Select-Object -First 1
+
+          if ($msixFile) {
+            Write-Host "Uploading $($msixFile.FullName) to Partner Center..."
+            
+            # Create a new submission
+            msstore submission create --productId ${{ secrets.MS_PRODUCT_ID }}
+            
+            # Upload the package
+            msstore submission package upload --productId ${{ secrets.MS_PRODUCT_ID }} --package $msixFile.FullName
+            
+            # Commit the submission
+            msstore submission commit --productId ${{ secrets.MS_PRODUCT_ID }}
+            
+            Write-Host "Successfully submitted to Microsoft Store"
+          } else {
+            Write-Error "No MSIX file found in deployment/microsoft-store/output"
+            exit 1
+          }
+
+  # Mac App Store Deployment
+  deploy-mac-store:
+    if: contains(github.event.inputs.platforms, 'mac') || github.event_name == 'release'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.release_tag || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Import certificates
+        uses: apple-actions/import-codesign-certs@v2
+        with:
+          p12-file-base64: ${{ secrets.APPLE_CERTIFICATES_P12 }}
+          p12-password: ${{ secrets.APPLE_CERTIFICATES_PASSWORD }}
+
+      - name: Download provisioning profile
+        run: |
+          echo "${{ secrets.APPLE_PROVISIONING_PROFILE }}" | base64 --decode > embedded.provisionprofile
+          cp embedded.provisionprofile deployment/mac-app-store/
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build for Mac App Store
+        run: |
+          cd deployment/mac-app-store
+          chmod +x scripts/build_mas.sh
+          ./scripts/build_mas.sh
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Validate package
+        run: |
+          # Using Transporter for App Store submission (altool is deprecated)
+          # First, validate the package
+          xcrun productbuild --check-signature "deployment/mac-app-store/build/ELIZA.pkg"
+
+      - name: Upload to App Store Connect
+        run: |
+          # Install Transporter CLI
+          curl -L https://github.com/itunes-connect-transporter/transporter/releases/latest/download/iTMSTransporter_macos.zip -o transporter.zip
+          unzip transporter.zip
+
+          # Upload to App Store Connect
+          ./iTMSTransporter/bin/iTMSTransporter \
+            -m upload \
+            -assetFile "deployment/mac-app-store/build/ELIZA.pkg" \
+            -u "${{ secrets.APPLE_ID }}" \
+            -p "${{ secrets.APPLE_APP_PASSWORD }}" \
+            -k 100000
+
+  # Snap Store Deployment
+  deploy-snap:
+    if: contains(github.event.inputs.platforms, 'snap') || github.event_name == 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.release_tag || github.ref }}
+
+      - name: Install Snapcraft
+        run: |
+          sudo snap install snapcraft --classic
+          sudo snap install lxd --channel=latest/stable
+          sudo lxd init --auto
+
+      - name: Build Snap
+        run: |
+          cd deployment/linux-stores/snap
+          sudo snapcraft --use-lxd
+
+      - name: Upload to Snap Store
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        run: |
+          # Login is automatic with SNAPCRAFT_STORE_CREDENTIALS env var
+          cd deployment/linux-stores/snap
+          snapcraft upload --release=stable *.snap
+
+  # Flathub Deployment
+  deploy-flatpak:
+    if: contains(github.event.inputs.platforms, 'flatpak') || github.event_name == 'release'
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub/flatpak-builder-base:freedesktop-23.08
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.release_tag || github.ref }}
+
+      - name: Install Flatpak Builder
+        run: |
+          dnf install -y flatpak-builder
+
+      - name: Build Flatpak
+        run: |
+          cd deployment/linux-stores/flatpak
+          flatpak-builder --repo=repo build-dir com.elizaos.Game.yml --force-clean
+
+      - name: Create Flatpak bundle
+        run: |
+          cd deployment/linux-stores/flatpak
+          flatpak build-bundle repo elizaos.flatpak com.elizaos.Game
+
+      - name: Upload bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: flatpak-bundle
+          path: deployment/linux-stores/flatpak/elizaos.flatpak
+
+      # Note: Actual Flathub submission requires manual PR to flathub/flathub repo
+
+  # Create deployment summary
+  deployment-summary:
+    needs: [deploy-steam, deploy-windows-store, deploy-mac-store, deploy-snap, deploy-flatpak]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create deployment summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const platforms = {
+              'deploy-steam': 'Steam',
+              'deploy-windows-store': 'Microsoft Store',
+              'deploy-mac-store': 'Mac App Store',
+              'deploy-snap': 'Snap Store',
+              'deploy-flatpak': 'Flathub'
+            };
+
+            let summary = '# 📦 App Store Deployment Summary\n\n';
+            summary += `**Version**: ${context.payload.inputs?.release_tag || context.payload.release?.tag_name || 'Unknown'}\n\n`;
+            summary += '**Note**: This shows which platforms were targeted for deployment. Check individual job logs for actual results.\n\n';
+            summary += '| Platform | Status |\n|----------|--------|\n';
+
+            for (const [job, platform] of Object.entries(platforms)) {
+              // In a workflow, we can check if a job was skipped by checking needs context
+              // Since we're in a summary job, we'll just note which platforms were attempted
+              const wasRun = context.payload.inputs?.platforms?.includes(job.replace('deploy-', '')) || context.event_name === 'release';
+              const status = wasRun ? 'attempted' : 'skipped';
+              const emoji = wasRun ? '🚀' : '⏭️';
+              summary += `| ${platform} | ${emoji} ${status} |\n`;
+            }
+
+            // Update release notes with deployment summary
+            if (context.event_name === 'release' && context.payload.release) {
+              try {
+                await github.rest.repos.updateRelease({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  release_id: context.payload.release.id,
+                  body: context.payload.release.body + '\n\n---\n\n' + summary
+                });
+              } catch (error) {
+                console.log('Could not update release notes:', error.message);
+              }
+            }
+
+            // Update job summary
+            await core.summary.addRaw(summary).write();

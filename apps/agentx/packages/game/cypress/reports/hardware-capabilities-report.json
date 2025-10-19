@@ -1,0 +1,195 @@
+{
+  "results": {
+    "startTime": 1753119217971,
+    "endTime": 1753119229593,
+    "categories": {
+      "vision": {
+        "name": "vision",
+        "tests": [
+          {
+            "name": "Camera Device Detection",
+            "test": "camera_detection",
+            "startTime": 1753119218019,
+            "endTime": 1753119218198,
+            "success": true,
+            "error": null,
+            "data": {
+              "success": true,
+              "cameras": [
+                {
+                  "id": "MacBook Pro Camera",
+                  "name": "MacBook Pro Camera",
+                  "connected": true
+                },
+                {
+                  "id": "VCam - CameraExtension [2]",
+                  "name": "VCam - CameraExtension [2]",
+                  "connected": true
+                },
+                {
+                  "id": "OBSBOT Virtual Camera",
+                  "name": "OBSBOT Virtual Camera",
+                  "connected": true
+                },
+                {
+                  "id": "OBS Virtual Camera",
+                  "name": "OBS Virtual Camera",
+                  "connected": true
+                }
+              ]
+            }
+          },
+          {
+            "name": "Screen Capture Test",
+            "test": "screen_capture",
+            "startTime": 1753119218198,
+            "endTime": 1753119218510,
+            "success": true,
+            "error": null,
+            "data": {
+              "success": true,
+              "fileSize": 13297807
+            }
+          },
+          {
+            "name": "Vision Processing Pipeline",
+            "test": "vision_pipeline",
+            "startTime": 1753119218510,
+            "endTime": 1753119218543,
+            "success": true,
+            "error": null,
+            "data": {
+              "success": true,
+              "agentId": "ad3d62bc-4ba8-0d7a-b761-da4345304feb",
+              "visionCapabilities": 0
+            }
+          }
+        ],
+        "passed": 3,
+        "failed": 0,
+        "total": 3
+      },
+      "audio": {
+        "name": "audio",
+        "tests": [
+          {
+            "name": "Microphone Input Test",
+            "test": "microphone_input",
+            "startTime": 1753119218543,
+            "endTime": 1753119220692,
+            "success": true,
+            "error": null,
+            "data": {
+              "success": true,
+              "fileSize": 64044,
+              "duration": 2
+            }
+          },
+          {
+            "name": "Speaker Output Test",
+            "test": "speaker_output",
+            "startTime": 1753119220692,
+            "endTime": 1753119222877,
+            "success": true,
+            "error": null,
+            "data": {
+              "success": true,
+              "platform": "darwin",
+              "method": "tts"
+            }
+          },
+          {
+            "name": "Audio Bidirectional Flow",
+            "test": "audio_bidirectional",
+            "startTime": 1753119222877,
+            "endTime": 1753119227224,
+            "success": true,
+            "error": null,
+            "data": {
+              "success": true,
+              "outputMethod": "darwin",
+              "processingLatency": 101,
+              "bidirectionalCapable": true
+            }
+          }
+        ],
+        "passed": 3,
+        "failed": 0,
+        "total": 3
+      },
+      "integration": {
+        "name": "integration",
+        "tests": [
+          {
+            "name": "Hardware Bridge Integration",
+            "test": "hardware_bridge",
+            "startTime": 1753119227224,
+            "endTime": 1753119227226,
+            "success": true,
+            "error": null,
+            "data": {
+              "success": true,
+              "available": false,
+              "reason": "Not in container mode"
+            }
+          },
+          {
+            "name": "Container Sandbox Audio/Video",
+            "test": "container_av",
+            "startTime": 1753119227226,
+            "endTime": 1753119229439,
+            "success": true,
+            "error": null,
+            "data": {
+              "success": true,
+              "containerType": "direct",
+              "hardwareAccess": {
+                "camera": true,
+                "audio": true
+              },
+              "sandboxMode": false
+            }
+          },
+          {
+            "name": "Real-time Streaming",
+            "test": "realtime_streaming",
+            "startTime": 1753119229439,
+            "endTime": 1753119229593,
+            "success": true,
+            "error": null,
+            "data": {
+              "success": true,
+              "platform": "darwin",
+              "capabilities": {
+                "screenCapture": true,
+                "audioStreaming": true,
+                "networkStreaming": true
+              },
+              "realtimeCapable": true
+            }
+          }
+        ],
+        "passed": 3,
+        "failed": 0,
+        "total": 3
+      }
+    },
+    "summary": {
+      "total": 9,
+      "passed": 9,
+      "failed": 0
+    }
+  },
+  "prerequisites": {
+    "available": [
+      "imagesnap (macOS camera)",
+      "screencapture (macOS)",
+      "sox (audio processing)",
+      "ffmpeg (cross-platform)",
+      "podman",
+      "docker"
+    ],
+    "missing": [],
+    "optional": []
+  }
+}

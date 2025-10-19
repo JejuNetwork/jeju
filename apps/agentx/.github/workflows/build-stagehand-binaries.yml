@@ -1,0 +1,133 @@
+name: Build Stagehand Binaries
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'packages/plugin-stagehand/**'
+  pull_request:
+    paths:
+      - 'packages/plugin-stagehand/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            arch: x64
+          - os: macos-latest
+            platform: darwin
+            arch: x64
+          - os: macos-latest
+            platform: darwin
+            arch: arm64
+          - os: windows-latest
+            platform: win32
+            arch: x64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.18.1'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: |
+          cd packages/plugin-stagehand/stagehand-server
+          npm install
+
+      - name: Build TypeScript
+        run: |
+          cd packages/plugin-stagehand/stagehand-server
+          npm run build
+
+      - name: Build binary
+        env:
+          BUILD_ALL_PLATFORMS: 'true'
+        run: |
+          cd packages/plugin-stagehand/stagehand-server
+          npm run build:sea
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: stagehand-binary-${{ matrix.platform }}-${{ matrix.arch }}
+          path: packages/plugin-stagehand/stagehand-server/binaries/stagehand-server-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.platform == 'win32' && '.exe' || '' }}
+
+  collect-binaries:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.18.1'
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+
+      - name: Organize binaries
+        run: |
+          mkdir -p packages/plugin-stagehand/stagehand-server/binaries
+          cp artifacts/stagehand-binary-*/* packages/plugin-stagehand/stagehand-server/binaries/
+          ls -la packages/plugin-stagehand/stagehand-server/binaries/
+
+      - name: Create compatibility symlinks
+        run: |
+          cd packages/plugin-stagehand/stagehand-server/binaries
+          # Create platform-only symlinks for backward compatibility
+          if [ -f "stagehand-server-linux-x64" ]; then
+            cp stagehand-server-linux-x64 stagehand-server-linux
+          fi
+          if [ -f "stagehand-server-darwin-x64" ] || [ -f "stagehand-server-darwin-arm64" ]; then
+            # Use arm64 on macOS if available, otherwise x64
+            if [ -f "stagehand-server-darwin-arm64" ]; then
+              cp stagehand-server-darwin-arm64 stagehand-server-darwin
+            else
+              cp stagehand-server-darwin-x64 stagehand-server-darwin
+            fi
+          fi
+          if [ -f "stagehand-server-win32-x64.exe" ]; then
+            cp stagehand-server-win32-x64.exe stagehand-server-win32.exe
+          fi
+
+      - name: Upload combined binaries
+        uses: actions/upload-artifact@v3
+        with:
+          name: stagehand-binaries-all
+          path: packages/plugin-stagehand/stagehand-server/binaries/
+
+      - name: Create release (if on main)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: stagehand-binaries-${{ github.sha }}
+          name: Stagehand Binaries ${{ github.sha }}
+          files: packages/plugin-stagehand/stagehand-server/binaries/*
+          body: |
+            Automated build of Stagehand server binaries for all platforms.
+
+            Platforms included:
+            - Linux x64
+            - macOS x64
+            - macOS arm64
+            - Windows x64

@@ -1,0 +1,81 @@
+{
+  "name": "eliza",
+  "version": "1.2.6",
+  "module": "index.ts",
+  "type": "module",
+  "engines": {
+    "node": "23.3.0"
+  },
+  "scripts": {
+    "start": "turbo run start --filter=./packages/game",
+    "dev": "turbo run dev --filter=./packages/game",
+    "build": "CI=true turbo run build --filter=!@elizaos/game",
+    "test": "turbo run test --concurrency 3",
+    "lint": "turbo run lint --filter=./packages/* && prettier --check .",
+    "lint:fix": "turbo run lint:fix --filter=./packages/* && prettier --write .",
+    "format": "turbo run format --filter=./packages/* && prettier --write .",
+    "format:check": "turbo run format:check --filter=./packages/* && prettier --check .",
+    "clean": "bun run clean:all && bun install && bun run build",
+    "clean:all": "bun run clean:artifacts && bun run clean:dependencies && bun run clean:turbo",
+    "clean:artifacts": "rm -rf dist .turbo .turbo-tsconfig.json tsconfig.tsbuildinfo bun.lock* .eliza .elizadb && find packages -name 'dist' -type d -exec rm -rf {} + 2>/dev/null || true && find packages -name 'dist-*' -type d -exec rm -rf {} + 2>/dev/null || true",
+    "clean:dependencies": "rm -rf node_modules && find packages -name 'node_modules' -type d -exec rm -rf {} + 2>/dev/null || true",
+    "clean:turbo": "npx turbo run clean --filter=./packages/* 2>/dev/null || true",
+    "release": "lerna version --no-private --force-publish --no-push --no-git-tag-version && bun run build && bun lint && lerna publish from-package --no-private --force-publish && bun lint",
+    "release:beta": "lerna publish prerelease --preid beta --dist-tag beta --no-private --force-publish --loglevel verbose",
+    "migrate": "turbo run migrate --filter=./packages/plugin-sql --force",
+    "migrate:generate": "turbo run migrate:generate --filter=./packages/plugin-sql"
+  },
+  "packageManager": "bun@1.2.15",
+  "workspaces": [
+    "packages/*"
+  ],
+  "devDependencies": {
+    "@elizaos/config": "workspace:*",
+    "@types/adm-zip": "^0.5.7",
+    "@types/bun": "latest",
+    "@types/node": "^22.15.3",
+    "@types/uuid": "^10.0.0",
+    "bun": "^1.2.15",
+    "lerna": "8.1.4",
+    "tsup": "8.5.0",
+    "turbo": "^2.5.5",
+    "typescript": "5.8.2"
+  },
+  "resolutions": {
+    "@nrwl/devkit": "19.8.4",
+    "@nrwl/tao": "19.8.4",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "@types/react": "19.1.5",
+    "typedoc-plugin-markdown": "4.2.10",
+    "typedoc": "0.27.9",
+    "@elizaos/core": "workspace:*",
+    "canvas": "3.1.2",
+    "@tensorflow/tfjs-core": "4.22.0",
+    "@tensorflow/tfjs-converter": "4.22.0"
+  },
+  "peerDependencies": {
+    "@elizaos/core": "workspace:*"
+  },
+  "trustedDependencies": [
+    "@swc/core",
+    "bigint-buffer",
+    "bufferutil",
+    "bun",
+    "canvas",
+    "esbuild",
+    "node-llama-cpp",
+    "protobufjs",
+    "sharp",
+    "utf-8-validate"
+  ],
+  "dependencies": {
+    "canvas": "3.1.2",
+    "helmet": "^8.1.0",
+    "node-fetch": "^3.3.2",
+    "openai": "^5.11.0",
+    "socket.io-client": "^4.8.1",
+    "uuid": "^11.1.0",
+    "ws": "^8.18.3"
+  }
+}

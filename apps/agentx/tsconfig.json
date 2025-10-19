@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "lib": ["ES2022", "ES2021.String", "DOM"],
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": "."
+  },
+  "include": ["packages/*/src/**/*", "packages/*/test/**/*", "packages/*/tests/**/*"]
+}

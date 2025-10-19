@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "baseUrl": ".",
+    "lib": ["ESNext", "DOM"],
+    "target": "ESNext",
+    "module": "Preserve",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "allowImportingTsExtensions": true,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "resolveJsonModule": true,
+    "moduleDetection": "force",
+    "allowArbitraryExtensions": true,
+    "jsx": "react-jsx",
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
+}

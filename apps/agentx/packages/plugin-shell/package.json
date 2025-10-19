@@ -1,0 +1,84 @@
+{
+  "name": "@elizaos/plugin-shell",
+  "description": "Shell plugin for ElizaOS",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "packageType": "plugin",
+  "platform": "node",
+  "license": "UNLICENSED",
+  "author": "ElizaOS",
+  "keywords": [
+    "plugin",
+    "elizaos"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/elizaos-plugins/plugin-shell"
+  },
+  "homepage": "https://elizaos.ai",
+  "bugs": {
+    "url": "https://github.com/elizaos-plugins/plugin-shell/issues"
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    ".npmignore",
+    "package.json",
+    "tsup.config.ts"
+  ],
+  "dependencies": {
+    "@elizaos/core": "workspace:*",
+    "zod": "3.25.67"
+  },
+  "peerDependencies": {},
+  "devDependencies": {
+    "@elizaos/cli": "workspace:*",
+    "@typescript-eslint/eslint-plugin": "^8.35.0",
+    "@typescript-eslint/parser": "^8.35.0",
+    "dotenv": "16.4.5",
+    "eslint": "^9.29.0",
+    "eslint-config-prettier": "^10.1.5",
+    "eslint-plugin-prettier": "^5.5.0",
+    "prettier": "3.5.3",
+    "tsx": "^4.7.0",
+    "typescript": "5.8.3"
+  },
+  "scripts": {
+    "build": "bun run build.ts",
+    "dev": "bun run build.ts --watch",
+    "start": "echo 'Plugin package, use with ElizaOS'",
+    "test": "bun test",
+    "lint": "eslint src --fix && prettier --write ./src",
+    "clean": "rm -rf dist && rm -rf .turbo",
+    "typecheck": "tsc --noEmit"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "resolutions": {
+    "zod": "3.25.67"
+  },
+  "agentConfig": {
+    "pluginType": "elizaos:plugin:1.0.0",
+    "pluginParameters": {
+      "API_KEY": {
+        "type": "string",
+        "description": "API key for the service"
+      }
+    }
+  },
+  "gitHead": "d5bd5c43bfebeb7ac02f9e029f924cb6cd5c2ec7"
+}

@@ -1,0 +1,755 @@
+name: Build and Release Tauri App
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g., v1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.create-release.outputs.result }}
+      upload_url: ${{ steps.create-release.outputs.upload_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create Release
+        id: create-release
+        uses: actions/github-script@v7
+        with:
+          result-encoding: string
+          script: |
+            const tag = context.payload.inputs?.tag || context.ref.replace('refs/tags/', '');
+
+            try {
+              const release = await github.rest.repos.createRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag_name: tag,
+                name: `Elizagotchi ${tag}`,
+                body: `## Elizagotchi ${tag}\n\n**Your Personal AI Companion**\n\n### System Requirements:\n- 64-bit operating system\n- 4GB RAM minimum (8GB recommended)\n- Network connection for cloud services\n- Docker or Podman (for desktop local agents)\n\n### Installation:\n1. Download the appropriate build for your system\n2. Run the installer with administrator privileges\n3. Follow the setup wizard\n4. Choose between local agent (container) or cloud connection\n\n### What is Elizagotchi?\nElizagotchi is an autonomous AI agent interface that discovers and connects to decentralized services through ERC-8004. Your AI companion can explore services, play games, and interact with the decentralized web.\n\n### Features:\n- 🤖 Autonomous AI agent with continuous thinking\n- 🔌 ERC-8004 service discovery and connection\n- 🎮 Gaming and interactive experiences\n- 🐳 Local containerized agents (desktop)\n- ☁️ Cloud-connected agents (mobile)\n- 🔐 Sandboxed execution environment\n\n---\n*BUILD STATUS: STABLE*\n*VERSION: ${tag}*`,
+                draft: false,
+                prerelease: false
+              });
+              
+              core.setOutput('upload_url', release.data.upload_url);
+              return release.data.id.toString();
+            } catch (error) {
+              if (error.status === 422) {
+                // Release already exists, get it
+                const releases = await github.rest.repos.listReleases({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                });
+                const existingRelease = releases.data.find(r => r.tag_name === tag);
+                if (existingRelease) {
+                  core.setOutput('upload_url', existingRelease.upload_url);
+                  return existingRelease.id.toString();
+                }
+              }
+              throw error;
+            }
+
+  publish-tauri:
+    needs: create-release
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'macos-latest' # for Arm based macs (M1 and above).
+            args: '--target aarch64-apple-darwin'
+          - platform: 'macos-latest' # for Intel based macs.
+            args: '--target x86_64-apple-darwin'
+          - platform: 'ubuntu-22.04'
+            args: ''
+          - platform: 'windows-latest'
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 'latest'
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          # Those targets are only used on macos runners so it's in an `if` to slightly speed up windows and linux builds.
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Install dependencies (ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.0-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install frontend dependencies
+        run: |
+          # Install root dependencies first
+          bun install --frozen-lockfile || bun install
+          # Then install game package dependencies
+          cd packages/game
+          bun install --frozen-lockfile || bun install
+
+      - name: Build frontend
+        run: |
+          cd packages/game
+          bun run build:frontend || bun run build
+
+      - name: Build Tauri App
+        id: tauri-build
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Code signing for macOS
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Code signing for Windows
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          # When releaseId is provided, don't provide tag/release creation params
+          releaseId: ${{ needs.create-release.outputs.release_id }}
+          args: ${{ matrix.args }}
+          projectPath: packages/game
+          tauriScript: bunx tauri
+          includeDebug: false
+          includeRelease: true
+
+      # Debug: List built artifacts
+      - name: List Built Artifacts
+        if: always()
+        run: |
+          echo "Searching for built artifacts..."
+          echo "=== All files in bundle directories ==="
+          find packages/game/src-tauri/target -name "bundle" -type d -exec find {} -type f \; 2>/dev/null || true
+          echo "=== Summary of release artifacts ==="
+          find packages/game/src-tauri/target -name "*.deb" -o -name "*.AppImage" -o -name "*.dmg" -o -name "*.msi" -o -name "*.exe" | grep -E "(deb|AppImage|dmg|msi|exe)$" || echo "No artifacts found"
+
+      # Fallback: Manually upload artifacts if tauri-action didn't upload them
+      - name: Upload Release Assets
+        if: success() || (failure() && steps.tauri-build.outcome == 'success')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const glob = require('@actions/glob');
+            
+            const releaseId = '${{ needs.create-release.outputs.release_id }}';
+            
+            // Get existing assets to avoid duplicates
+            const { data: release } = await github.rest.repos.getRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: releaseId
+            });
+            
+            const existingAssets = release.assets.map(a => a.name);
+            console.log('Existing assets:', existingAssets);
+            
+            // Find built artifacts
+            const patterns = {
+              'ubuntu-22.04': [
+                'packages/game/src-tauri/target/release/bundle/deb/*.deb',
+                'packages/game/src-tauri/target/release/bundle/appimage/*.AppImage'
+              ],
+              'windows-latest': [
+                'packages/game/src-tauri/target/release/bundle/msi/*.msi',
+                'packages/game/src-tauri/target/release/bundle/nsis/*.exe'
+              ],
+              'macos-latest': [
+                'packages/game/src-tauri/target/*/release/bundle/dmg/*.dmg',
+                'packages/game/src-tauri/target/*/release/bundle/macos/*.app.tar.gz'
+              ]
+            };
+            
+            const platform = '${{ matrix.platform }}';
+            const searchPatterns = patterns[platform] || [];
+            
+            for (const pattern of searchPatterns) {
+              const globber = await glob.create(pattern);
+              const files = await globber.glob();
+              console.log(`Found ${files.length} files matching ${pattern}`);
+              
+              for (const file of files) {
+                const fileName = path.basename(file);
+                
+                // Skip if already uploaded
+                if (existingAssets.includes(fileName)) {
+                  console.log(`Skipping ${fileName} - already uploaded`);
+                  continue;
+                }
+                
+                console.log(`Uploading ${fileName}...`);
+                const data = fs.readFileSync(file);
+                
+                try {
+                  await github.rest.repos.uploadReleaseAsset({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    release_id: releaseId,
+                    name: fileName,
+                    data: data
+                  });
+                  console.log(`Successfully uploaded ${fileName}`);
+                } catch (error) {
+                  console.error(`Failed to upload ${fileName}:`, error.message);
+                }
+              }
+            }
+
+  trigger-lander-update:
+    needs: [create-release, publish-tauri]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Lander Rebuild
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Trigger the lander deployment to pick up new releases
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'deploy-lander.yml',
+              ref: 'main'
+            });
+
+  deploy-to-steam:
+    needs: [create-release, publish-tauri]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get release tag
+        id: get-tag
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Deploying tag: $TAG"
+
+      - name: Download release artifacts
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            // Create directories for Steam depots
+            const depotDirs = {
+              windows: 'steam-depots/windows',
+              linux: 'steam-depots/linux',
+              macos: 'steam-depots/macos'
+            };
+
+            for (const dir of Object.values(depotDirs)) {
+              fs.mkdirSync(dir, { recursive: true });
+            }
+
+            // Get the release
+            const tag = '${{ steps.get-tag.outputs.tag }}';
+            const release = await github.rest.repos.getReleaseByTag({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag: tag
+            });
+
+            console.log(`Found ${release.data.assets.length} assets in release ${tag}`);
+
+            // Download each asset
+            for (const asset of release.data.assets) {
+              console.log(`Downloading ${asset.name}...`);
+              
+              const download = await github.rest.repos.getReleaseAsset({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                asset_id: asset.id,
+                headers: {
+                  Accept: 'application/octet-stream'
+                }
+              });
+              
+              // Determine target directory based on file extension
+              let targetDir;
+              if (asset.name.endsWith('.exe') || asset.name.endsWith('.msi')) {
+                targetDir = depotDirs.windows;
+              } else if (asset.name.endsWith('.AppImage') || asset.name.endsWith('.deb')) {
+                targetDir = depotDirs.linux;
+              } else if (asset.name.endsWith('.dmg') || asset.name.endsWith('.app.tar.gz')) {
+                targetDir = depotDirs.macos;
+              } else {
+                console.log(`Skipping unknown asset type: ${asset.name}`);
+                continue;
+              }
+              
+              const filePath = path.join(targetDir, asset.name);
+              fs.writeFileSync(filePath, Buffer.from(download.data));
+              console.log(`Saved to ${filePath}`);
+            }
+
+      - name: Prepare Steam build
+        run: |
+          # Extract macOS app bundles if present
+          if ls steam-depots/macos/*.app.tar.gz 1> /dev/null 2>&1; then
+            echo "Extracting macOS app bundles..."
+            cd steam-depots/macos
+            for archive in *.app.tar.gz; do
+              tar -xzf "$archive"
+              rm "$archive"
+            done
+            cd ../..
+          fi
+
+          # Copy install scripts if they exist
+          if [ -f "packages/game/steam/install_script_windows.vdf" ]; then
+            echo "Copying Windows install script..."
+            cp packages/game/steam/install_script_windows.vdf steam-depots/windows/install_script.vdf
+          fi
+
+          # List all files for verification
+          echo "Steam depot contents:"
+          find steam-depots -type f -ls
+
+      - name: Generate TOTP (if using TOTP auth)
+        uses: CyberAndrii/steam-totp@v1
+        id: steam-totp
+        with:
+          shared_secret: ${{ secrets.STEAM_SHARED_SECRET }}
+        continue-on-error: true
+
+      - name: Deploy to Steam
+        uses: game-ci/steam-deploy@v3
+        with:
+          username: ${{ secrets.STEAM_USERNAME }}
+          # Use either TOTP or config.vdf authentication
+          totp: ${{ steps.steam-totp.outputs.code || '' }}
+          configVdf: ${{ secrets.STEAM_CONFIG_VDF || '' }}
+          appId: ${{ secrets.STEAM_APP_ID }}
+          buildDescription: 'Elizagotchi ${{ steps.get-tag.outputs.tag }}'
+          rootPath: steam-depots
+          depot1Path: windows
+          depot1InstallScriptPath: windows/install_script.vdf
+          depot2Path: linux
+          depot3Path: macos
+          releaseBranch: ${{ contains(steps.get-tag.outputs.tag, '-') && 'beta' || 'release' }}
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -rf steam-depots/
+
+  deploy-to-mac-app-store:
+    needs: [create-release, publish-tauri]
+    runs-on: macos-latest
+    if: startsWith(github.ref, 'refs/tags/') && !contains(github.ref, '-')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 'latest'
+
+      - name: Rust setup
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Install Certificates
+        run: |
+          MAC_APP_CERT_PATH=$RUNNER_TEMP/mac_app.p12
+          MAC_INSTALLER_CERT_PATH=$RUNNER_TEMP/mac_installer.p12
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+
+          echo -n "$MAC_APP_CERT" | base64 --decode -o $MAC_APP_CERT_PATH
+          echo -n "$MAC_INSTALLER_CERT" | base64 --decode -o $MAC_INSTALLER_CERT_PATH
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          security import $MAC_APP_CERT_PATH -P "$MAC_APP_CERT_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security import $MAC_INSTALLER_CERT_PATH -P "$MAC_INSTALLER_CERT_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+          # Install provisioning profile
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo -n "$MAC_PROVISIONING_PROFILE" | \
+            base64 --decode -o ~/Library/MobileDevice/Provisioning\ Profiles/eliza.provisionprofile
+        env:
+          MAC_APP_CERT: ${{ secrets.MAC_APP_CERT }}
+          MAC_APP_CERT_PASSWORD: ${{ secrets.MAC_APP_CERT_PASSWORD }}
+          MAC_INSTALLER_CERT: ${{ secrets.MAC_INSTALLER_CERT }}
+          MAC_INSTALLER_CERT_PASSWORD: ${{ secrets.MAC_INSTALLER_CERT_PASSWORD }}
+          MAC_PROVISIONING_PROFILE: ${{ secrets.MAC_PROVISIONING_PROFILE }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+
+      - name: Install dependencies
+        run: |
+          bun install --frozen-lockfile || bun install
+          cd packages/game
+          bun install --frozen-lockfile || bun install
+
+      - name: Build frontend
+        run: |
+          cd packages/game
+          bun run build:frontend || bun run build
+
+      - name: Verify Tauri Configuration
+        run: |
+          cd packages/game
+
+          # Check if bundle identifier is set correctly
+          BUNDLE_ID=$(cat src-tauri/tauri.conf.json | jq -r '.identifier')
+          if [ "$BUNDLE_ID" != "com.elizagotchi.eliza" ]; then
+            echo "Warning: Bundle identifier is '$BUNDLE_ID', expected 'com.elizagotchi.eliza'"
+            echo "Current identifier will be used: $BUNDLE_ID"
+          fi
+
+          # Check if macOS configuration exists
+          if ! cat src-tauri/tauri.conf.json | jq -e '.bundle.macOS' > /dev/null; then
+            echo "Note: macOS configuration already exists in tauri.conf.json"
+          fi
+
+      - name: Build for Mac App Store
+        run: |
+          cd packages/game
+
+          # Create export options for Mac App Store
+          cat > MASExportOptions.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>teamID</key>
+            <string>${{ secrets.APPLE_TEAM_ID }}</string>
+            <key>uploadSymbols</key>
+            <true/>
+          </dict>
+          </plist>
+          EOF
+
+          # Build universal binary for Mac App Store
+          bunx tauri build --target universal-apple-darwin
+
+          # Find the generated Xcode project
+          XCODE_PROJECT=$(find src-tauri/gen/apple -name "*.xcodeproj" | head -1)
+          if [ -z "$XCODE_PROJECT" ]; then
+            echo "Error: No Xcode project found"
+            exit 1
+          fi
+
+          # Get the scheme name from the project
+          SCHEME_NAME=$(xcodebuild -project "$XCODE_PROJECT" -list | grep -A 1 "Schemes:" | tail -1 | xargs)
+          echo "Found Xcode project: $XCODE_PROJECT"
+          echo "Using scheme: $SCHEME_NAME"
+
+          # Create archive
+          xcodebuild -project "$XCODE_PROJECT" \
+            -scheme "$SCHEME_NAME" \
+            -configuration Release \
+            -derivedDataPath build \
+            -destination 'platform=macOS' \
+            archive -archivePath Elizagotchi.xcarchive
+
+          # Export for Mac App Store
+          xcodebuild -exportArchive \
+            -archivePath Elizagotchi.xcarchive \
+            -exportOptionsPlist MASExportOptions.plist \
+            -exportPath export
+
+      - name: Upload to App Store Connect
+        run: |
+          cd packages/game
+
+          # Note: altool is being deprecated. Consider migrating to:
+          # xcrun notarytool submit export/*.pkg --apple-id ... --team-id ...
+          # For now, altool still works for App Store uploads
+
+          xcrun altool \
+            --upload-package export/*.pkg \
+            --type macos \
+            --asc-public-id '${{ secrets.APPLE_ASC_PUBLIC_ID }}' \
+            --apple-id '${{ secrets.APPLE_APP_ID }}' \
+            --bundle-id 'com.elizagotchi.eliza' \
+            --bundle-short-version-string "${{ github.ref_name }}" \
+            --bundle-version "$(date +%Y%m%d%H%M%S)" \
+            --username '${{ secrets.APPLE_ID }}' \
+            --password '${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}'
+
+  deploy-to-windows-store:
+    needs: [create-release, publish-tauri]
+    runs-on: windows-latest
+    if: startsWith(github.ref, 'refs/tags/') && !contains(github.ref, '-')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 'latest'
+
+      - name: Rust setup
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: |
+          bun install --frozen-lockfile || bun install
+          cd packages/game
+          bun install --frozen-lockfile || bun install
+
+      - name: Build frontend
+        run: |
+          cd packages/game
+          bun run build:frontend || bun run build
+
+      - name: Build MSIX for Windows Store
+        run: |
+          cd packages/game
+
+          # Configure for Windows Store
+          $tauriConf = Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json
+          $tauriConf.tauri.bundle.windows.certificateThumbprint = "${{ secrets.WINDOWS_CERT_THUMBPRINT }}"
+          $tauriConf.tauri.bundle.windows.digestAlgorithm = "sha256"
+          $tauriConf.tauri.bundle.windows.timestampUrl = "http://timestamp.digicert.com"
+          $tauriConf | ConvertTo-Json -Depth 100 | Set-Content src-tauri/tauri.conf.json
+
+          # Build MSIX
+          bunx tauri build --target x86_64-pc-windows-msvc
+
+          # Copy MSIX to upload directory
+          New-Item -ItemType Directory -Force -Path "../../store-upload"
+
+          # Find and copy MSIX files (they can be in different locations)
+          $msixFiles = Get-ChildItem -Path "src-tauri/target/release/bundle" -Recurse -Filter "*.msix"
+          if ($msixFiles.Count -eq 0) {
+            Write-Error "No MSIX files found"
+            exit 1
+          }
+
+          foreach ($file in $msixFiles) {
+            Write-Host "Found MSIX: $($file.FullName)"
+            Copy-Item -Path $file.FullName -Destination "../../store-upload/"
+          }
+
+      - name: Publish to Microsoft Store
+        shell: pwsh
+        run: |
+          # Install StoreBroker module
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module -Name StoreBroker -Force -Scope CurrentUser -SkipPublisherCheck
+          Import-Module StoreBroker
+
+          # Configure StoreBroker
+          $configPath = New-TemporaryFile
+          @{
+            tenantId = "${{ secrets.AZURE_AD_TENANT_ID }}"
+            clientId = "${{ secrets.AZURE_AD_CLIENT_ID }}"
+            clientSecret = "${{ secrets.AZURE_AD_CLIENT_SECRET }}"
+            appId = "${{ secrets.WINDOWS_STORE_APP_ID }}"
+          } | ConvertTo-Json | Out-File -FilePath $configPath
+
+          # Authenticate with Partner Center
+          $authContext = Get-StoreBrokerAuthentication -TenantId "${{ secrets.AZURE_AD_TENANT_ID }}" `
+            -ClientId "${{ secrets.AZURE_AD_CLIENT_ID }}" `
+            -ClientSecret "${{ secrets.AZURE_AD_CLIENT_SECRET }}"
+
+          # Find MSIX package
+          $packagePath = Get-ChildItem -Path "store-upload" -Filter "*.msix" | Select-Object -First 1
+
+          if ($packagePath) {
+            Write-Host "Found MSIX package: $($packagePath.FullName)"
+            
+            try {
+              # Get app info
+              $appId = "${{ secrets.WINDOWS_STORE_APP_ID }}"
+              
+              # Create a new submission
+              Write-Host "Creating new submission for app $appId..."
+              $submission = New-ApplicationSubmission -AppId $appId
+              
+              # Upload the package
+              Write-Host "Uploading package..."
+              $submissionPackage = @{
+                PackagePath = $packagePath.FullName
+                PackageFileName = $packagePath.Name
+              }
+              
+              Update-ApplicationSubmissionPackage -AppId $appId `
+                -SubmissionId $submission.id `
+                -PackagePath $packagePath.FullName
+              
+              # Commit the submission
+              Write-Host "Committing submission..."
+              Complete-ApplicationSubmission -AppId $appId -SubmissionId $submission.id
+              
+              Write-Host "Successfully submitted to Windows Store"
+              Write-Host "Submission ID: $($submission.id)"
+            }
+            catch {
+              Write-Error "Failed to submit to Windows Store: $_"
+              exit 1
+            }
+          } else {
+            Write-Error "No MSIX package found to upload"
+            exit 1
+          }
+
+  deploy-to-snap-store:
+    needs: [create-release, publish-tauri]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update snapcraft.yaml version
+        run: |
+          # Copy snapcraft.yaml if it exists
+          if [ -f "packages/game/snap/snapcraft.yaml" ]; then
+            mkdir -p snap
+            cp packages/game/snap/snapcraft.yaml snap/snapcraft.yaml
+          else
+            echo "Error: snapcraft.yaml not found in packages/game/snap/"
+            exit 1
+          fi
+
+          # Set grade based on tag type
+          if [[ "${{ github.ref_name }}" == *"-"* ]]; then
+            sed -i 's/grade: stable/grade: devel/' snap/snapcraft.yaml
+          fi
+
+          # Update the download URL to use the current release
+          sed -i "s|https://github.com/elizaos/eliza/releases/latest/download/|https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/|g" snap/snapcraft.yaml
+
+      - name: Download AppImage from release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            // Get the release
+            const tag = '${{ github.ref_name }}';
+            const release = await github.rest.repos.getReleaseByTag({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag: tag
+            });
+
+            console.log(`Found ${release.data.assets.length} assets in release ${tag}`);
+
+            // Log all assets for debugging
+            release.data.assets.forEach(asset => {
+              console.log(`- ${asset.name} (${asset.size} bytes)`);
+            });
+
+            // Find AppImage assets for both architectures
+            const amd64Asset = release.data.assets.find(asset => 
+              asset.name.includes('.AppImage') && 
+              (asset.name.includes('amd64') || asset.name.includes('x86_64'))
+            );
+
+            const arm64Asset = release.data.assets.find(asset => 
+              asset.name.includes('.AppImage') && 
+              (asset.name.includes('arm64') || asset.name.includes('aarch64'))
+            );
+
+            if (amd64Asset) {
+              console.log(`Found amd64 AppImage: ${amd64Asset.name}`);
+              fs.writeFileSync('.appimage-amd64-name', amd64Asset.name);
+            }
+
+            if (arm64Asset) {
+              console.log(`Found arm64 AppImage: ${arm64Asset.name}`);
+              fs.writeFileSync('.appimage-arm64-name', arm64Asset.name);
+            }
+
+            if (!amd64Asset && !arm64Asset) {
+              throw new Error('No AppImage assets found in release');
+            }
+
+      - name: Update snapcraft.yaml with asset names
+        run: |
+          # Read asset names if they exist
+          AMD64_NAME=""
+          ARM64_NAME=""
+
+          if [ -f ".appimage-amd64-name" ]; then
+            AMD64_NAME=$(cat .appimage-amd64-name)
+            echo "AMD64 AppImage: $AMD64_NAME"
+          fi
+
+          if [ -f ".appimage-arm64-name" ]; then
+            ARM64_NAME=$(cat .appimage-arm64-name)
+            echo "ARM64 AppImage: $ARM64_NAME"
+          fi
+
+          # Update snapcraft.yaml with actual asset names
+          if [ -n "$AMD64_NAME" ]; then
+            sed -i "s|ElizaOS-Terminal_\${ARCH_SUFFIX}.AppImage|$AMD64_NAME|g" snap/snapcraft.yaml
+            sed -i "s|elizaos-terminal_\${SNAPCRAFT_TARGET_ARCH}.AppImage|$AMD64_NAME|g" snap/snapcraft.yaml
+          fi
+
+      - name: Build snap
+        uses: snapcore/action-build@v1
+        id: build-snap
+
+      - name: Test snap
+        run: |
+          sudo snap install --dangerous ${{ steps.build-snap.outputs.snap }}
+          # Basic smoke test
+          snap run elizagotchi --version || echo "Version check not implemented"
+
+      - name: Publish to Snap Store
+        uses: snapcore/action-publish@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        with:
+          snap: ${{ steps.build-snap.outputs.snap }}
+          release: ${{ contains(github.ref, '-') && 'edge' || 'stable' }}

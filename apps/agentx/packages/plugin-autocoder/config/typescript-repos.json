@@ -1,0 +1,84 @@
+{
+  "repositories": [
+    {
+      "name": "microsoft/TypeScript",
+      "url": "https://github.com/microsoft/TypeScript.git",
+      "language": "TypeScript",
+      "description": "TypeScript compiler and language service",
+      "test_command": "npm test",
+      "build_command": "npm run build"
+    },
+    {
+      "name": "facebook/react",
+      "url": "https://github.com/facebook/react.git",
+      "language": "JavaScript",
+      "description": "React library for building user interfaces",
+      "test_command": "npm test",
+      "build_command": "npm run build"
+    },
+    {
+      "name": "vuejs/vue",
+      "url": "https://github.com/vuejs/vue.git",
+      "language": "TypeScript",
+      "description": "Vue.js framework",
+      "test_command": "npm test",
+      "build_command": "npm run build"
+    },
+    {
+      "name": "angular/angular",
+      "url": "https://github.com/angular/angular.git",
+      "language": "TypeScript",
+      "description": "Angular framework",
+      "test_command": "npm test",
+      "build_command": "npm run build"
+    },
+    {
+      "name": "vercel/next.js",
+      "url": "https://github.com/vercel/next.js.git",
+      "language": "TypeScript",
+      "description": "Next.js React framework",
+      "test_command": "npm test",
+      "build_command": "npm run build"
+    },
+    {
+      "name": "nestjs/nest",
+      "url": "https://github.com/nestjs/nest.git",
+      "language": "TypeScript",
+      "description": "NestJS server-side framework",
+      "test_command": "npm test",
+      "build_command": "npm run build"
+    },
+    {
+      "name": "expressjs/express",
+      "url": "https://github.com/expressjs/express.git",
+      "language": "JavaScript",
+      "description": "Express.js web framework",
+      "test_command": "npm test",
+      "build_command": "npm run build"
+    },
+    {
+      "name": "nodejs/node",
+      "url": "https://github.com/nodejs/node.git",
+      "language": "JavaScript",
+      "description": "Node.js JavaScript runtime",
+      "test_command": "make test",
+      "build_command": "make"
+    },
+    {
+      "name": "sveltejs/svelte",
+      "url": "https://github.com/sveltejs/svelte.git",
+      "language": "TypeScript",
+      "description": "Svelte compiler",
+      "test_command": "npm test",
+      "build_command": "npm run build"
+    },
+    {
+      "name": "remix-run/remix",
+      "url": "https://github.com/remix-run/remix.git",
+      "language": "TypeScript",
+      "description": "Remix web framework",
+      "test_command": "npm test",
+      "build_command": "npm run build"
+    }
+  ]
+}

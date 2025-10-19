@@ -1,0 +1,113 @@
+{
+  "name": "@elizaos/plugin-elizaos-services",
+  "description": "ElizaOS hosted AI inference and storage services. OpenAI-compatible API with multi-provider support and integrated R2 storage.",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "packageType": "plugin",
+  "platform": "node",
+  "license": "UNLICENSED",
+  "author": "${GITHUB_USERNAME}",
+  "keywords": [
+    "plugin",
+    "elizaos"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "${REPO_URL}"
+  },
+  "homepage": "https://elizaos.ai",
+  "bugs": {
+    "url": "https://github.com/${GITHUB_USERNAME}/${PLUGINNAME}/issues"
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    ".npmignore",
+    "package.json",
+    "tsup.config.ts"
+  ],
+  "dependencies": {
+    "@elizaos/core": "workspace:*",
+    "@tanstack/react-query": "^5.80.7",
+    "clsx": "^2.1.1",
+    "tailwindcss": "^4.1.10",
+    "tailwind-merge": "^3.3.1",
+    "vite": "^6.3.5",
+    "zod": "^3.25.67",
+    "undici": "^6.21.0",
+    "mime-types": "^2.1.35",
+    "@aws-sdk/client-s3": "^3.700.0",
+    "@aws-sdk/s3-request-presigner": "^3.700.0"
+  },
+  "peerDependencies": {},
+  "devDependencies": {
+    "@elizaos/cli": "workspace:*",
+    "@tailwindcss/vite": "^4.1.10",
+    "@types/mime-types": "^3.0.1",
+    "@vitejs/plugin-react-swc": "^3.10.2",
+    "cypress": "^14.5.0",
+    "dotenv": "16.4.5",
+    "prettier": "3.5.3",
+    "tailwindcss-animate": "^1.0.7",
+    "typescript": "5.8.3"
+  },
+  "scripts": {
+    "build": "bun run build.ts",
+    "dev": "bun run build.ts --watch",
+    "clean": "rm -rf dist && rm -rf .turbo",
+    "lint": "eslint src --fix && prettier --write ./src",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "resolutions": {
+    "zod": "3.25.67"
+  },
+  "agentConfig": {
+    "pluginType": "elizaos:plugin:1.0.0",
+    "pluginParameters": {
+      "ELIZAOS_API_URL": {
+        "type": "string",
+        "description": "ElizaOS API base URL",
+        "default": "https://api.elizaos.ai"
+      },
+      "ELIZAOS_API_KEY": {
+        "type": "string",
+        "description": "ElizaOS API key for authentication",
+        "required": true
+      },
+      "ELIZAOS_STORAGE_ENDPOINT": {
+        "type": "string",
+        "description": "Storage endpoint URL (S3-compatible)"
+      },
+      "ELIZAOS_STORAGE_BUCKET": {
+        "type": "string",
+        "description": "Storage bucket name"
+      },
+      "ELIZAOS_STORAGE_ACCESS_KEY": {
+        "type": "string",
+        "description": "Storage access key"
+      },
+      "ELIZAOS_STORAGE_SECRET_KEY": {
+        "type": "string",
+        "description": "Storage secret key"
+      }
+    }
+  },
+  "gitHead": "d5bd5c43bfebeb7ac02f9e029f924cb6cd5c2ec7"
+}

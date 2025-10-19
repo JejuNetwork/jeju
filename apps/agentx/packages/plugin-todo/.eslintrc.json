@@ -1,0 +1,157 @@
+{
+  "root": true,
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": "latest",
+    "sourceType": "module",
+    "ecmaFeatures": {
+      "jsx": true
+    },
+    "project": ["./tsconfig.json"]
+  },
+  "plugins": ["@typescript-eslint", "react", "react-hooks", "import"],
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:react/recommended",
+    "plugin:react-hooks/recommended",
+    "plugin:import/errors",
+    "plugin:import/warnings",
+    "plugin:import/typescript",
+    "prettier"
+  ],
+  "settings": {
+    "react": {
+      "version": "detect"
+    },
+    "import/resolver": {
+      "typescript": {
+        "alwaysTryTypes": true,
+        "project": "./tsconfig.json"
+      }
+    }
+  },
+  "env": {
+    "es2021": true,
+    "node": true
+  },
+  "globals": {
+    "NodeJS": "readonly"
+  },
+  "rules": {
+    // TypeScript specific rules
+    "@typescript-eslint/no-unused-vars": [
+      "error",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_"
+      }
+    ],
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/explicit-module-boundary-types": "off",
+    "@typescript-eslint/no-non-null-assertion": "off",
+    "@typescript-eslint/no-empty-function": [
+      "error",
+      {
+        "allow": ["arrowFunctions", "methods"]
+      }
+    ],
+    "@typescript-eslint/ban-ts-comment": [
+      "error",
+      {
+        "ts-expect-error": "allow-with-description",
+        "ts-ignore": "allow-with-description",
+        "ts-nocheck": "allow-with-description",
+        "ts-check": false
+      }
+    ],
+
+    // React specific rules
+    "react/react-in-jsx-scope": "off",
+    "react/prop-types": "off",
+    "react/jsx-uses-react": "off",
+
+    // Import rules
+    "import/order": [
+      "error",
+      {
+        "groups": ["builtin", "external", "internal", "parent", "sibling", "index"],
+        "newlines-between": "always",
+        "alphabetize": {
+          "order": "asc",
+          "caseInsensitive": true
+        }
+      }
+    ],
+    "import/no-unresolved": "error",
+    "import/no-cycle": "error",
+
+    // General rules
+    "no-console": "off",
+    "no-debugger": "error",
+    "prefer-const": "error",
+    "no-var": "error",
+    "eqeqeq": ["error", "always", { "null": "ignore" }],
+    "curly": ["error", "all"],
+    "no-throw-literal": "error",
+    "no-unused-vars": "off",
+    "no-useless-escape": "off"
+  },
+  "overrides": [
+    {
+      "files": ["*.test.ts", "*.test.tsx", "**/__tests__/**/*", "**/tests/**/*"],
+      "env": {
+        "jest": true
+      },
+      "globals": {
+        "describe": "readonly",
+        "it": "readonly",
+        "expect": "readonly",
+        "beforeEach": "readonly",
+        "afterEach": "readonly",
+        "beforeAll": "readonly",
+        "afterAll": "readonly"
+      },
+      "rules": {
+        "@typescript-eslint/no-explicit-any": "off",
+        "no-console": "off"
+      }
+    },
+    {
+      "files": ["src/frontend/*.tsx", "src/frontend/*.ts", "src/frontend/**/*.tsx", "src/frontend/**/*.ts"],
+      "env": {
+        "browser": true
+      },
+      "globals": {
+        "window": "readonly",
+        "document": "readonly",
+        "alert": "readonly",
+        "confirm": "readonly",
+        "prompt": "readonly",
+        "console": "readonly",
+        "fetch": "readonly",
+        "HTMLElement": "readonly",
+        "HTMLInputElement": "readonly"
+      },
+      "rules": {
+        "no-alert": "off",
+        "no-undef": "off"
+      }
+    },
+    {
+      "files": ["src/scripts/**/*.ts"],
+      "rules": {
+        "no-console": "off",
+        "@typescript-eslint/no-explicit-any": "off"
+      }
+    },
+    {
+      "files": ["*.js", "*.cjs"],
+      "rules": {
+        "@typescript-eslint/no-var-requires": "off"
+      }
+    }
+  ],
+  "ignorePatterns": ["dist/", "node_modules/", "coverage/", "*.config.js", "*.config.ts", "cypress/", "scripts/*.js"]
+}

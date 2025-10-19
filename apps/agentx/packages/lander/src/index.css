@@ -1,0 +1,126 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply bg-black text-white antialiased;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-gray-900;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-primary-600 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-primary-500;
+  }
+}
+
+@layer components {
+  .terminal-glow {
+    @apply border border-terminal-border bg-terminal-bg/50 backdrop-blur-sm;
+    box-shadow:
+      0 0 20px rgba(0, 255, 0, 0.1),
+      inset 0 0 20px rgba(0, 255, 0, 0.05);
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-lg px-6 py-3 font-medium transition-all duration-200;
+    @apply bg-primary-600 text-white hover:bg-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-black;
+    @apply shadow-lg hover:shadow-xl hover:shadow-primary-500/20;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-lg px-6 py-3 font-medium transition-all duration-200;
+    @apply bg-gray-800 text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-black;
+    @apply border border-gray-600 hover:border-gray-500;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-primary-400 via-accent-400 to-primary-400 bg-clip-text text-transparent;
+  }
+
+  .matrix-bg {
+    background-image:
+      radial-gradient(circle at 25% 25%, rgba(0, 255, 0, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 75% 75%, rgba(0, 100, 255, 0.1) 0%, transparent 50%);
+  }
+}
+
+/* Matrix rain effect */
+@keyframes matrix-rain {
+  0% {
+    transform: translateY(-100vh);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh);
+    opacity: 0;
+  }
+}
+
+.matrix-char {
+  animation: matrix-rain linear infinite;
+  color: #00ff00;
+  font-family: 'JetBrains Mono', monospace;
+  text-shadow: 0 0 5px #00ff00;
+}
+
+/* Typing animation */
+@keyframes typing {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes blink-caret {
+  from,
+  to {
+    border-color: transparent;
+  }
+  50% {
+    border-color: #00ff00;
+  }
+}
+
+.typewriter {
+  overflow: hidden;
+  border-right: 2px solid #00ff00;
+  white-space: nowrap;
+  animation:
+    typing 3.5s steps(40, end),
+    blink-caret 0.75s step-end infinite;
+}
+
+/* Scanline animation */
+@keyframes scanline {
+  0% {
+    top: 0%;
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
+}

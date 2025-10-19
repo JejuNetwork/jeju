@@ -1,0 +1,81 @@
+{
+  "$schema": "../../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "ELIZA",
+  "version": "../package.json",
+  "identifier": "com.elizagotchi.eliza",
+  "build": {
+    "beforeDevCommand": "cd .. && npx vite dev --host 0.0.0.0 --port 5173",
+    "beforeBuildCommand": "cd ../agentserver && bun run build:backend && cd ../game && bun vite build",
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173"
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": ["../init-scripts/*"],
+    "category": "Utility",
+    "shortDescription": "Elizagotchi - Your Personal AI Companion",
+    "longDescription": "Elizagotchi is an autonomous AI agent interface that connects to services and enables interactive experiences. Deploy local agents in containers or connect to cloud services. Your AI companion for exploring decentralized services.",
+    "macOS": {
+      "frameworks": [],
+      "minimumSystemVersion": "10.13",
+      "entitlements": "src-tauri/entitlements.plist",
+      "exceptionDomain": "",
+      "signingIdentity": "${APPLE_SIGNING_IDENTITY}",
+      "providerShortName": "${APPLE_PROVIDER_SHORT_NAME}",
+      "hardenedRuntime": true
+    },
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "http://timestamp.sectigo.com",
+      "signCommand": {
+        "cmd": "signtool",
+        "args": [
+          "sign",
+          "/fd",
+          "sha256",
+          "/t",
+          "http://timestamp.sectigo.com",
+          "/f",
+          "${WINDOWS_CERTIFICATE_PATH}",
+          "/p",
+          "${WINDOWS_CERTIFICATE_PASSWORD}",
+          "${pathToSign}"
+        ]
+      },
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      }
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.0-37", "libgtk-3-0", "libayatana-appindicator3-1"]
+      },
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    }
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Elizagotchi",
+        "width": 1200,
+        "height": 800,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: http: https:; font-src 'self' data:;"
+    }
+  }
+}

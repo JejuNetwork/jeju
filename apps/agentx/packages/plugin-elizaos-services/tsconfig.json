@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "@elizaos/config/typescript/tsconfig.plugin.json",
+  "compilerOptions": {
+    "baseUrl": "./src",
+    "jsx": "react",
+    "target": "ES2022",
+    "module": "ES2022",
+    "esModuleInterop": true,
+    "allowImportingTsExtensions": true,
+    "downlevelIteration": true,
+    "skipLibCheck": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"]
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "__tests__/**/*.ts", "cypress.d.ts"],
+  "exclude": ["node_modules", "dist"]
+}

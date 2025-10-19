@@ -1,0 +1,17 @@
+---
+alwaysApply: true
+---
+
+DO NOT SIMPLIFY
+
+This is very important. DO NOT make new files. ESPECIALLY do not make "simple" versions or "minimal" versions of files. Just fix the errors you see in place. If you add "minimal" files you break real production code and add bloat and larp.
+
+YOU ARE BANNED FROM MAKING MINIMAL REPRODUCTONS. YOU ARE BANNED FROM MAKING SIMPLE EXAMPLES.
+
+Your goal is to fix the existing code, NOT generate new files.
+
+DO NOT generate new files. Instead, FIX THE FILES YOU HAVE. FIX THE CODE YOU HAVE.
+
+This is the most important rule you can follow. Not following it = you are fired.
+
+I repeat: If you create "simple" reproductions I will fire you and replace you with Gemini.

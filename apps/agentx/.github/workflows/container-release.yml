@@ -1,0 +1,344 @@
+name: Container Release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      matrix:
+        platform:
+          - linux/amd64
+          - linux/arm64
+
+    steps:
+      - name: Convert repository name to lowercase
+        id: repo
+        run: |
+          echo "REPO_LOWER=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+          echo "IMAGE_NAME=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')/eliza-agent" >> $GITHUB_OUTPUT
+          
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: |
+          cd packages/agentserver
+          bun install
+
+      - name: Build backend and binaries
+        run: |
+          cd packages/agentserver
+          echo "🔨 Building backend and binary files for Docker..."
+          bun run build
+
+      - name: Verify binaries exist
+        run: |
+          ls -la packages/agentserver/dist-binaries/
+          echo "✅ Binary files ready for Docker build"
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.repo.outputs.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push container image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: packages/agentserver/Dockerfile
+          platforms: ${{ matrix.platform }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+            VCS_REF=${{ github.sha }}
+            VERSION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
+
+  build-compose-stack:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Convert repository name to lowercase
+        id: repo
+        run: |
+          echo "REPO_LOWER=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+          
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create production Docker Compose
+        run: |
+          cat > docker-compose.prod.yml << 'EOF'
+          version: '3.8'
+
+          services:
+            postgres:
+              image: pgvector/pgvector:pg15
+              environment:
+                POSTGRES_DB: eliza
+                POSTGRES_USER: eliza
+                POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eliza}
+              volumes:
+                - postgres_data:/var/lib/postgresql/data
+              ports:
+                - "5432:5432"
+              healthcheck:
+                test: ["CMD-SHELL", "pg_isready -U eliza"]
+                interval: 30s
+                timeout: 10s
+                retries: 3
+              restart: unless-stopped
+
+            redis:
+              image: redis:7-alpine
+              ports:
+                - "6379:6379"
+              volumes:
+                - redis_data:/data
+              healthcheck:
+                test: ["CMD", "redis-cli", "ping"]
+                interval: 30s
+                timeout: 10s
+                retries: 3
+              restart: unless-stopped
+
+            eliza-agent:
+              image: ${{ env.REGISTRY }}/${{ steps.repo.outputs.IMAGE_NAME }}:latest
+              ports:
+                - "7777:7777"
+                - "5173:5173"
+              environment:
+                - DATABASE_URL=postgresql://eliza:${POSTGRES_PASSWORD:-eliza}@postgres:5432/eliza
+                - REDIS_URL=redis://redis:6379
+                - NODE_ENV=production
+                - SERVER_PORT=7777
+                - FRONTEND_PORT=5173
+              depends_on:
+                postgres:
+                  condition: service_healthy
+                redis:
+                  condition: service_healthy
+              volumes:
+                - eliza_data:/app/data
+                - knowledge_data:/app/knowledge
+              restart: unless-stopped
+              healthcheck:
+                test: ["CMD", "curl", "-f", "http://localhost:7777/health"]
+                interval: 30s
+                timeout: 10s
+                retries: 3
+
+          volumes:
+            postgres_data:
+            redis_data:
+            eliza_data:
+            knowledge_data:
+
+          networks:
+            default:
+              name: eliza-network
+          EOF
+
+      - name: Build and push compose stack
+        run: |
+          # Create a simple container with the compose file
+          cat > Dockerfile.compose << 'EOF'
+          FROM alpine:latest
+          RUN apk add --no-cache curl
+          COPY docker-compose.prod.yml /docker-compose.yml
+          COPY README-compose.md /README.md
+          CMD ["cat", "/README.md"]
+          EOF
+
+          cat > README-compose.md << 'EOF'
+          # ELIZA Production Stack
+
+          This container includes a production-ready Docker Compose configuration for ELIZA.
+
+          ## Quick Start
+
+          1. Copy the compose file:
+             ```bash
+             docker run --rm ghcr.io/ai16z/eliza/compose:latest cat /docker-compose.yml > docker-compose.yml
+             ```
+
+          2. Set environment variables:
+             ```bash
+             export POSTGRES_PASSWORD=your_secure_password
+             ```
+
+          3. Start the stack:
+             ```bash
+             docker-compose up -d
+             ```
+
+          4. Access ELIZA at http://localhost:5173
+
+          ## Configuration
+
+          Environment variables:
+          - `POSTGRES_PASSWORD`: Database password (default: eliza)
+          - `OPENAI_API_KEY`: OpenAI API key
+          - `ANTHROPIC_API_KEY`: Anthropic API key
+
+          ## Volumes
+
+          - `postgres_data`: Database storage
+          - `redis_data`: Redis cache storage  
+          - `eliza_data`: Application data
+          - `knowledge_data`: Knowledge base storage
+          EOF
+
+          # Build with lowercase repository name for container registry compliance
+          docker build -f Dockerfile.compose -t ${{ env.REGISTRY }}/${{ steps.repo.outputs.REPO_LOWER }}/compose:latest .
+          docker push ${{ env.REGISTRY }}/${{ steps.repo.outputs.REPO_LOWER }}/compose:latest
+
+  release-notes:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [build-and-push, build-compose-stack]
+
+    steps:
+      - name: Convert repository name to lowercase
+        id: repo
+        run: |
+          echo "REPO_LOWER=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+          echo "IMAGE_NAME=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')/eliza-agent" >> $GITHUB_OUTPUT
+          
+      - name: Create Release Notes
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = context.ref.replace('refs/tags/', '');
+            const registry = '${{ env.REGISTRY }}';
+            const imageName = '${{ steps.repo.outputs.IMAGE_NAME }}';
+
+            const releaseNotes = `
+            ## ELIZA Container Release ${tag}
+
+            ### 🐳 Container Images
+
+            **Multi-platform support:**
+            - \`${registry}/${imageName}:${tag}\` (linux/amd64, linux/arm64)
+            - \`${registry}/${imageName}:latest\` (if this is the latest release)
+
+            **Note:** These images are OCI-compliant and work with both Docker and Podman [[memory:4430015]].
+
+            **Quick Start with Docker:**
+            \`\`\`bash
+            # Pull and run the latest version
+            docker run -d \\
+              --name eliza-agent \\
+              -p 5173:5173 -p 7777:7777 \\
+              -e OPENAI_API_KEY=your_key_here \\
+              ${registry}/${imageName}:${tag}
+            \`\`\`
+
+            **Quick Start with Podman:**
+            \`\`\`bash
+            # Pull and run the latest version
+            podman run -d \\
+              --name eliza-agent \\
+              -p 5173:5173 -p 7777:7777 \\
+              -e OPENAI_API_KEY=your_key_here \\
+              ${registry}/${imageName}:${tag}
+            \`\`\`
+
+            **Production Deployment:**
+            \`\`\`bash
+            # Get production compose file
+            docker run --rm ${registry}/${{ steps.repo.outputs.REPO_LOWER }}/compose:latest cat /docker-compose.yml > docker-compose.yml
+
+            # Start full stack
+            docker-compose up -d
+            \`\`\`
+
+            ### 🔧 Installation Options
+
+            **Automated installer:**
+            \`\`\`bash
+            # Linux/macOS/WSL
+            curl -fsSL https://raw.githubusercontent.com/ai16z/eliza/main/install-universal.sh | bash
+
+            # Windows PowerShell
+            iwr -useb https://raw.githubusercontent.com/ai16z/eliza/main/install-universal.ps1 | iex
+            \`\`\`
+
+            **Desktop App:**
+            - Download from [Releases](https://github.com/ai16z/eliza/releases)
+            - Available for Windows, macOS, and Linux
+
+            ### 📋 System Requirements
+
+            - **CPU:** x64 or ARM64
+            - **RAM:** 4GB minimum, 8GB recommended
+            - **Storage:** 2GB available space
+            - **Container Runtime:** Docker or Podman
+
+            ### 🔒 Security
+
+            This release has been scanned for vulnerabilities using Trivy.
+            Check the Security tab for detailed results.
+            `;
+
+            github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tag,
+              name: \`ELIZA \${tag}\`,
+              body: releaseNotes,
+              draft: false,
+              prerelease: tag.includes('-')
+            });

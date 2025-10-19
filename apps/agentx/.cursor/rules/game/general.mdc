@@ -1,0 +1,25 @@
+---
+alwaysApply: true
+---
+
+# General Development Rules
+
+Please follow these carefully
+
+- Always plan your actions. Don't just start doing-- review the code, assert you have real, complete understanding of the problem, and then implement your changes
+
+- You often say "I understand now!" but you don't. Be extremely critical, especially of yourself and your own conclusions. Unless you've tested your conclusions, you just don't know
+
+- Clean up after yourself. Don't leave `test-*.mjs` or `fix-*.ts` around. That's so bad. If you make files you don't need, delete them after. Better yet, don't make new files for stuff that isn't going to stay in core. You can just run code or shell instead.
+
+- Always make sure you're using the actual elizaos runtime and building the actual game and not shortcutting with other systems if you run into trouble
+
+- KEEP IT SIMPLE. Plugins should never have more than a couple of services, a few actions and providers. Don't make an "EnhancedActionService" when you already have an ActionService. Just use the ActionService and fix it.
+
+- BE CONCISE. Always ask yourself-- is there a simpler solution that is production ready? Is there something I'm not missing that's causing me to write code that may be duplicate? Try to solve every problem with the least amount of new code and changes necessary
+
+- TEST EVERYTHING WITH CYPRESS-- Every aspect of the game has to be tested with Cypress. We want screenshots, and we want to validate with OCR (character recognition) that things we expect do appearon screen.
+
+-- ALWAYS FIX EVERYTHING. Any error in the backend or frontend is unacceptable. Always set up testing so you can see all of the errors at once at the end and handle them. Never believe you are error-free unless you can see confirmation of all tests passing.
+
+--  PRODUCITON CODE ONLY. No LARP, no stub, no hardcode, no "will fix later". Always take the time to write out the complete implementation, even if it has errors we'll fix them. Better to be thorough.

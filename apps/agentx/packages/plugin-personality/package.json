@@ -1,0 +1,45 @@
+{
+  "name": "@elizaos/plugin-personality",
+  "version": "1.0.0",
+  "description": "ElizaOS plugin for agent self-modification and character evolution",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "bun run build.ts",
+    "dev": "bun run build.ts --watch",
+    "test": "bun test",
+    "lint": "prettier --write ./src",
+    "clean": "rm -rf dist && rm -rf .turbo",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@elizaos/core": "workspace:*",
+    "fs-extra": "^11.2.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^20.11.5",
+    "typescript": "5.8.3"
+  },
+  "keywords": [
+    "elizaos",
+    "plugin",
+    "self-modification",
+    "character-evolution",
+    "agi"
+  ],
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ]
+}

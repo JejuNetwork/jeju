@@ -1,0 +1,11 @@
+This is a test document for file upload testing in ELIZA game.
+
+It contains sample content that can be used to test:
+- File upload functionality
+- Knowledge base integration
+- File processing capabilities
+- Search and retrieval features
+
+The document has multiple paragraphs to test text processing and contains some technical terms like JavaScript, Python, machine learning, and artificial intelligence that can be used for knowledge extraction testing.
+
+This content is specifically designed to be safe for testing environments and does not contain any sensitive information.

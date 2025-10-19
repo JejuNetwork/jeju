@@ -1,0 +1,150 @@
+name: Test Workflows
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-workflows:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install act
+        run: |
+          curl -s https://api.github.com/repos/nektos/act/releases/latest | \
+          grep "browser_download_url.*Linux_x86_64.tar.gz" | \
+          cut -d '"' -f 4 | \
+          wget -qi - -O act.tar.gz
+          tar -xzf act.tar.gz
+          sudo mv act /usr/local/bin/
+          act --version
+
+      - name: Validate workflow syntax
+        run: |
+          echo "🧪 Validating workflow files..."
+
+          # List all workflow files
+          workflows=$(find .github/workflows -name "*.yml" -o -name "*.yaml" | grep -v test-workflows.yml)
+
+          for workflow in $workflows; do
+            echo "📋 Validating: $workflow"
+            
+            # Basic YAML syntax check
+            python3 -c "import yaml; yaml.safe_load(open('$workflow'))" || {
+              echo "❌ Invalid YAML syntax in $workflow"
+              exit 1
+            }
+            
+            # Check for common required fields
+            if ! grep -q "name:" "$workflow"; then
+              echo "❌ Missing 'name' field in $workflow"
+              exit 1
+            fi
+            
+            if ! grep -q "on:" "$workflow"; then
+              echo "❌ Missing 'on' field in $workflow"  
+              exit 1
+            fi
+            
+            echo "✅ $workflow is valid"
+          done
+
+          echo "🎉 All workflow files are valid!"
+
+      - name: Test workflow syntax with act (dry-run)
+        run: |
+          echo "🔍 Testing workflow syntax with act..."
+
+          # Create minimal env file for testing
+          echo "GITHUB_TOKEN=fake_token" > .env.test
+
+          # Test each workflow's syntax
+          for workflow in .github/workflows/*.yml; do
+            workflow_name=$(basename "$workflow")
+            
+            # Skip self-referential test
+            if [ "$workflow_name" = "test-workflows.yml" ]; then
+              continue
+            fi
+            
+            echo "Testing syntax: $workflow_name"
+            
+            # Use act to validate syntax (dry run)
+            if act workflow_dispatch --dryrun -W "$workflow" --env-file .env.test >/dev/null 2>&1; then
+              echo "✅ $workflow_name syntax OK"
+            else
+              echo "⚠️  $workflow_name may have issues (checking manually triggered events)"
+              
+              # Try with different events
+              for event in push pull_request schedule; do
+                if act "$event" --dryrun -W "$workflow" --env-file .env.test >/dev/null 2>&1; then
+                  echo "✅ $workflow_name syntax OK (with $event event)"
+                  break
+                fi
+              done
+            fi
+          done
+
+  check-workflow-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check workflow dependencies
+        run: |
+          echo "🔗 Checking workflow dependencies..."
+
+          # Check if workflows reference correct paths
+          if grep -r "packages/lander" .github/workflows/ >/dev/null; then
+            if [ -d "packages/lander" ]; then
+              echo "✅ Lander package exists"
+            else
+              echo "❌ Workflows reference packages/lander but it doesn't exist"
+              exit 1
+            fi
+          fi
+
+          if grep -r "packages/game" .github/workflows/ >/dev/null; then
+            if [ -d "packages/game" ]; then
+              echo "✅ Game package exists"
+            else
+              echo "❌ Workflows reference packages/game but it doesn't exist"
+              exit 1
+            fi
+          fi
+
+          # Check for required files
+          required_files=(
+            "packages/lander/package.json"
+            "packages/lander/vite.config.ts"
+            "packages/game/package.json"
+            "packages/game/src-tauri/tauri.conf.json"
+          )
+
+          for file in "${required_files[@]}"; do
+            if [ -f "$file" ]; then
+              echo "✅ $file exists"
+            else
+              echo "❌ Required file missing: $file"
+              exit 1
+            fi
+          done
+
+          echo "🎉 All dependencies check passed!"

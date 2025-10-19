@@ -1,0 +1,45 @@
+{
+  "dataset": "multi-swe-bench",
+  "language_filter": ["TypeScript", "JavaScript"],
+  "cache_dir": ".swe-bench-cache",
+  "work_dir": ".swe-bench-work",
+  "docker_enabled": false,
+  "max_parallel_instances": 1,
+  "timeout_per_instance": 300000,
+  "cleanup_after_run": true,
+  "evaluation": {
+    "python_path": "python3",
+    "use_mock_evaluation": true,
+    "save_artifacts": true,
+    "output_format": "json"
+  },
+  "repositories": {
+    "whitelist": [
+      "microsoft/TypeScript",
+      "facebook/react",
+      "vuejs/vue",
+      "angular/angular",
+      "vercel/next.js",
+      "nestjs/nest",
+      "expressjs/express",
+      "nodejs/node",
+      "denoland/deno",
+      "sveltejs/svelte"
+    ],
+    "max_repo_size_mb": 500,
+    "clone_timeout": 600000
+  },
+  "autocoder": {
+    "max_iterations": 5,
+    "temperature": 0.2,
+    "max_tokens": 4000,
+    "use_hints": true,
+    "use_test_patch": true
+  },
+  "reporting": {
+    "generate_markdown": true,
+    "generate_json": true,
+    "include_patches": true,
+    "include_logs": false
+  }
+}

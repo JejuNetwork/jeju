@@ -1,0 +1,370 @@
+/* First Run Setup Styles */
+.first-run-setup {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 50%, #0f0f0f 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  font-family: 'Courier New', monospace;
+  color: #00ff00;
+  overflow-y: auto;
+}
+
+.setup-container {
+  background: rgba(0, 0, 0, 0.9);
+  border: 2px solid #00ff00;
+  border-radius: 8px;
+  padding: 40px;
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
+  animation: setupGlow 2s ease-in-out infinite alternate;
+}
+
+@keyframes setupGlow {
+  from {
+    box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
+  }
+  to {
+    box-shadow: 0 0 40px rgba(0, 255, 0, 0.5);
+  }
+}
+
+/* Welcome Screen */
+.welcome-screen h1 {
+  text-align: center;
+  font-size: 2.5rem;
+  margin-bottom: 30px;
+  text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+  animation: titlePulse 3s ease-in-out infinite;
+}
+
+@keyframes titlePulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.welcome-content {
+  line-height: 1.6;
+  margin-bottom: 30px;
+}
+
+.welcome-content p {
+  margin-bottom: 20px;
+}
+
+.feature-list,
+.getting-started {
+  margin-bottom: 25px;
+}
+
+.feature-list h3,
+.getting-started h3 {
+  color: #00ffff;
+  margin-bottom: 15px;
+  font-size: 1.3rem;
+}
+
+.feature-list ul,
+.getting-started ol {
+  margin-left: 20px;
+}
+
+.feature-list li,
+.getting-started li {
+  margin-bottom: 8px;
+}
+
+.role-description {
+  background: rgba(0, 255, 255, 0.1);
+  padding: 15px;
+  border-left: 4px solid #00ffff;
+  margin-top: 20px;
+}
+
+/* Configuration Screen */
+.config-screen h2 {
+  text-align: center;
+  color: #00ffff;
+  margin-bottom: 30px;
+  font-size: 2rem;
+}
+
+.setup-form {
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+}
+
+.provider-options {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.provider-option {
+  border: 1px solid #333;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.provider-option:hover {
+  border-color: #00ff00;
+  box-shadow: 0 0 15px rgba(0, 255, 0, 0.2);
+}
+
+.provider-option label {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+  padding: 20px;
+  cursor: pointer;
+}
+
+.provider-option input[type='radio'] {
+  margin-top: 5px;
+  transform: scale(1.2);
+}
+
+.provider-info h3 {
+  color: #00ffff;
+  margin-bottom: 10px;
+  font-size: 1.2rem;
+}
+
+.provider-info p {
+  margin-bottom: 12px;
+  opacity: 0.9;
+}
+
+.provider-info ul {
+  margin-left: 20px;
+}
+
+.provider-info li {
+  margin-bottom: 5px;
+  font-size: 0.9rem;
+}
+
+.api-keys-section {
+  background: rgba(0, 255, 255, 0.05);
+  border: 1px solid #00ffff;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.api-keys-section h3 {
+  color: #00ffff;
+  margin-bottom: 20px;
+}
+
+.input-group {
+  margin-bottom: 20px;
+}
+
+.input-group label {
+  display: block;
+  margin-bottom: 8px;
+  color: #00ff00;
+  font-weight: bold;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid #333;
+  border-radius: 4px;
+  color: #00ff00;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+}
+
+.input-group input:focus {
+  outline: none;
+  border-color: #00ff00;
+  box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+}
+
+.input-group small {
+  display: block;
+  margin-top: 5px;
+  color: #888;
+  font-size: 0.8rem;
+}
+
+.input-group small a {
+  color: #00ffff;
+  text-decoration: none;
+}
+
+.input-group small a:hover {
+  text-decoration: underline;
+}
+
+/* Form Actions */
+.form-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  margin-top: 30px;
+}
+
+.continue-btn,
+.setup-btn,
+.back-btn {
+  padding: 12px 30px;
+  background: transparent;
+  border: 2px solid #00ff00;
+  color: #00ff00;
+  font-family: 'Courier New', monospace;
+  font-size: 1rem;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.continue-btn:hover,
+.setup-btn:hover {
+  background: #00ff00;
+  color: #000;
+  box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+}
+
+.back-btn {
+  border-color: #666;
+  color: #666;
+}
+
+.back-btn:hover {
+  border-color: #999;
+  color: #999;
+}
+
+.setup-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: #333;
+  color: #333;
+}
+
+.setup-btn:disabled:hover {
+  background: transparent;
+  color: #333;
+  box-shadow: none;
+}
+
+/* Complete Screen */
+.complete-screen {
+  text-align: center;
+}
+
+.success-icon {
+  font-size: 4rem;
+  margin-bottom: 20px;
+  animation: successPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes successPulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.complete-screen h2 {
+  color: #00ff00;
+  margin-bottom: 20px;
+  font-size: 2rem;
+}
+
+.next-steps {
+  background: rgba(0, 255, 0, 0.1);
+  border: 1px solid #00ff00;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 30px 0;
+  text-align: left;
+}
+
+.next-steps h3 {
+  color: #00ffff;
+  margin-bottom: 15px;
+}
+
+.next-steps ul {
+  margin-left: 20px;
+}
+
+.next-steps li {
+  margin-bottom: 10px;
+}
+
+/* Loading */
+.loading {
+  text-align: center;
+  padding: 40px;
+}
+
+.spinner {
+  border: 4px solid rgba(0, 255, 0, 0.1);
+  border-left: 4px solid #00ff00;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .setup-container {
+    padding: 20px;
+    margin: 10px;
+    max-width: 95vw;
+  }
+
+  .welcome-screen h1 {
+    font-size: 2rem;
+  }
+
+  .config-screen h2 {
+    font-size: 1.5rem;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .continue-btn,
+  .setup-btn,
+  .back-btn {
+    padding: 10px 20px;
+    font-size: 0.9rem;
+  }
+}

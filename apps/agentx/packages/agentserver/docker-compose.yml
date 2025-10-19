@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: eliza-postgres
+    environment:
+      POSTGRES_USER: eliza
+      POSTGRES_PASSWORD: eliza_secure_pass
+      POSTGRES_DB: eliza
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U eliza -d eliza']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: eliza-ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - '11434:11434'
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -f http://localhost:11434/api/version || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  eliza-agent:
+    build:
+      context: ../..
+      dockerfile: packages/agentserver/Dockerfile
+    container_name: eliza-agent
+    depends_on:
+      - postgres
+      - ollama
+    ports:
+      - '7777:7777'
+      - '5900:5900' # VNC port for agent desktop viewing (mapped to 5900 to avoid conflict)
+    environment:
+      - NODE_ENV=production
+      - PORT=7777
+      - LOG_LEVEL=info
+      - POSTGRES_URL=postgresql://eliza:eliza_secure_pass@eliza-postgres:5432/eliza
+      - DATABASE_URL=postgresql://eliza:eliza_secure_pass@eliza-postgres:5432/eliza
+      - OLLAMA_BASE_URL=http://eliza-ollama:11434
+      - OLLAMA_API_ENDPOINT=http://eliza-ollama:11434/api
+      - RESET_DB=false
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - BROWSERBASE_API_KEY=${BROWSERBASE_API_KEY}
+      - BROWSERBASE_PROJECT_ID=${BROWSERBASE_PROJECT_ID}
+      - CAPSOLVER_API_KEY=${CAPSOLVER_API_KEY}
+      - BROWSER_HEADLESS=false
+      - DISPLAY=:99
+      - ENABLE_VISION=true
+      - VISION_SCREEN_ENABLED=true
+      - AUTO_START_VNC_CAPTURE=true
+    volumes:
+      - ./knowledge:/app/knowledge
+      - ./data:/app/data
+      - ./downloads:/app/downloads
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -f http://localhost:7777/health || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+volumes:
+  postgres_data:
+  ollama_data:

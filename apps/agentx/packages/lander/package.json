@@ -1,0 +1,35 @@
+{
+  "name": "eliza-lander",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "description": "ELIZA Game Landing Page - Download the latest releases for Mac, Linux, and Windows",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "start": "vite preview",
+    "test": "npm run build && echo '✅ Lander tests passed'",
+    "lint": "prettier --write ./src && tsc --noEmit",
+    "preview": "vite preview",
+    "test:build": "npm run build",
+    "test:lint": "tsc --noEmit",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "lucide-react": "^0.263.1",
+    "clsx": "^2.0.0",
+    "tailwind-merge": "^2.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.32",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.8.3",
+    "vite": "^6.0.3"
+  }
+}

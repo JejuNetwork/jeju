@@ -1,0 +1,157 @@
+{
+  "languages": {
+    "typescript": {
+      "name": "TypeScript",
+      "extensions": [".ts", ".tsx"],
+      "container": "node",
+      "buildTools": ["npm", "yarn", "pnpm", "bun"],
+      "testFrameworks": ["jest", "bun", "mocha", "jasmine"],
+      "compilers": ["tsc", "tsx", "ts-node"],
+      "linters": ["eslint", "tslint"],
+      "defaultBuildCommand": "npm run build",
+      "defaultTestCommand": "npm test"
+    },
+    "javascript": {
+      "name": "JavaScript",
+      "extensions": [".js", ".jsx", ".mjs", ".cjs"],
+      "container": "node",
+      "buildTools": ["npm", "yarn", "pnpm", "bun"],
+      "testFrameworks": ["jest", "bun", "mocha", "jasmine", "ava"],
+      "linters": ["eslint", "jshint"],
+      "defaultBuildCommand": "npm run build",
+      "defaultTestCommand": "npm test"
+    },
+    "java": {
+      "name": "Java",
+      "extensions": [".java"],
+      "container": "jvm",
+      "buildTools": ["maven", "gradle", "ant"],
+      "testFrameworks": ["junit4", "junit5", "testng", "mockito"],
+      "compilers": ["javac"],
+      "linters": ["checkstyle", "spotbugs", "pmd"],
+      "defaultBuildCommand": "mvn compile",
+      "defaultTestCommand": "mvn test",
+      "versions": ["8", "11", "17", "21"]
+    },
+    "go": {
+      "name": "Go",
+      "extensions": [".go"],
+      "container": "compiled",
+      "buildTools": ["go"],
+      "testFrameworks": ["testing", "testify", "ginkgo"],
+      "compilers": ["go"],
+      "linters": ["golangci-lint", "gofmt", "govet"],
+      "defaultBuildCommand": "go build",
+      "defaultTestCommand": "go test ./..."
+    },
+    "rust": {
+      "name": "Rust",
+      "extensions": [".rs"],
+      "container": "compiled",
+      "buildTools": ["cargo"],
+      "testFrameworks": ["cargo test"],
+      "compilers": ["rustc"],
+      "linters": ["clippy", "rustfmt"],
+      "defaultBuildCommand": "cargo build",
+      "defaultTestCommand": "cargo test"
+    },
+    "c": {
+      "name": "C",
+      "extensions": [".c", ".h"],
+      "container": "compiled",
+      "buildTools": ["make", "cmake", "gcc", "clang"],
+      "testFrameworks": ["unity", "cmocka", "check"],
+      "compilers": ["gcc", "clang"],
+      "linters": ["cppcheck", "clang-tidy"],
+      "defaultBuildCommand": "make",
+      "defaultTestCommand": "make test"
+    },
+    "cpp": {
+      "name": "C++",
+      "extensions": [".cpp", ".cxx", ".cc", ".hpp", ".hxx", ".h"],
+      "container": "compiled",
+      "buildTools": ["make", "cmake", "ninja", "g++", "clang++"],
+      "testFrameworks": ["gtest", "catch2", "boost.test"],
+      "compilers": ["g++", "clang++"],
+      "linters": ["cppcheck", "cpplint", "clang-tidy"],
+      "defaultBuildCommand": "make",
+      "defaultTestCommand": "make test"
+    }
+  },
+  "containerMapping": {
+    "node": {
+      "image": "plugin-autocoder-node:latest",
+      "languages": ["typescript", "javascript"],
+      "resources": {
+        "memory": "4G",
+        "cpus": "2"
+      }
+    },
+    "compiled": {
+      "image": "plugin-autocoder-compiled:latest",
+      "languages": ["go", "rust", "c", "cpp"],
+      "resources": {
+        "memory": "4G",
+        "cpus": "2"
+      }
+    },
+    "jvm": {
+      "image": "plugin-autocoder-jvm:latest",
+      "languages": ["java"],
+      "resources": {
+        "memory": "6G",
+        "cpus": "2"
+      }
+    }
+  },
+  "buildPatterns": {
+    "npm": {
+      "lockFile": "package-lock.json",
+      "installCommand": "npm ci",
+      "buildCommand": "npm run build",
+      "testCommand": "npm test"
+    },
+    "yarn": {
+      "lockFile": "yarn.lock",
+      "installCommand": "yarn install --frozen-lockfile",
+      "buildCommand": "yarn build",
+      "testCommand": "yarn test"
+    },
+    "pnpm": {
+      "lockFile": "pnpm-lock.yaml",
+      "installCommand": "pnpm install --frozen-lockfile",
+      "buildCommand": "pnpm build",
+      "testCommand": "pnpm test"
+    },
+    "maven": {
+      "configFile": "pom.xml",
+      "installCommand": "mvn dependency:go-offline",
+      "buildCommand": "mvn compile",
+      "testCommand": "mvn test"
+    },
+    "gradle": {
+      "configFile": "build.gradle",
+      "installCommand": "gradle dependencies",
+      "buildCommand": "gradle build",
+      "testCommand": "gradle test"
+    },
+    "cargo": {
+      "configFile": "Cargo.toml",
+      "installCommand": "cargo fetch",
+      "buildCommand": "cargo build",
+      "testCommand": "cargo test"
+    },
+    "go": {
+      "configFile": "go.mod",
+      "installCommand": "go mod download",
+      "buildCommand": "go build",
+      "testCommand": "go test ./..."
+    },
+    "cmake": {
+      "configFile": "CMakeLists.txt",
+      "installCommand": "cmake -B build",
+      "buildCommand": "cmake --build build",
+      "testCommand": "ctest --test-dir build"
+    }
+  }
+}

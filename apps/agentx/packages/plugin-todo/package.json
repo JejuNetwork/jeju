@@ -1,0 +1,93 @@
+{
+  "name": "@elizaos/plugin-todo",
+  "description": "Todo list plugin for ElizaOS",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "packageType": "plugin",
+  "platform": "node",
+  "license": "UNLICENSED",
+  "author": "ElizaOS",
+  "keywords": [
+    "plugin",
+    "elizaos"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/elizaos/eliza"
+  },
+  "homepage": "https://elizaos.ai",
+  "bugs": {
+    "url": "https://github.com/elizaos/eliza/issues"
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    ".npmignore",
+    "package.json",
+    "tsup.config.ts"
+  ],
+  "dependencies": {
+    "@elizaos/core": "workspace:*",
+    "@elizaos/plugin-sql": "workspace:*",
+    "drizzle-orm": "^0.44.2",
+    "start-server-and-test": "^2.0.5",
+    "zod": "3.25.67"
+  },
+  "peerDependencies": {},
+  "devDependencies": {
+    "@elizaos/cli": "workspace:*",
+    "@eslint/js": "^8.57.0",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "cypress": "^13.6.3",
+    "dotenv": "16.4.5",
+    "drizzle-kit": "^0.30.4",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-import-resolver-typescript": "^3.6.1",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-react": "^7.33.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "prettier": "3.5.3",
+    "react": "^18.2.0",
+    "ts-node": "^10.9.2",
+    "typescript": "5.8.3"
+  },
+  "scripts": {
+    "build": "bun run build.ts",
+    "dev": "bun run build.ts --watch",
+    "test": "NODE_ENV=test elizaos test",
+    "lint": "eslint . --fix && prettier --write .",
+    "clean": "rm -rf dist .turbo",
+    "typecheck": "tsc --noEmit"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "resolutions": {
+    "zod": "3.25.67"
+  },
+  "agentConfig": {
+    "pluginType": "elizaos:plugin:1.0.0",
+    "pluginParameters": {
+      "API_KEY": {
+        "type": "string",
+        "description": "API key for the service"
+      }
+    }
+  },
+  "gitHead": "d5bd5c43bfebeb7ac02f9e029f924cb6cd5c2ec7"
+}

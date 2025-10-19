@@ -1,0 +1,69 @@
+# Docker ignore file for ElizaOS Agent Server
+
+# Build outputs
+dist/
+dist/
+build/
+target/
+# Keep dist-binaries for containerization
+!dist-binaries/
+
+# Dependencies
+node_modules/
+.turbo/
+
+# Development files
+.env*
+.git/
+.github/
+*.log
+logs/
+
+# Development tools
+cypress/
+cypress.config.*
+.cypress/
+
+# Documentation
+README.md
+*.md
+docs/
+
+# Test files
+tests/
+test/
+__tests__/
+*.test.*
+*.spec.*
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+server
+server.exe
+
+# Keep these files for the build
+!package.json
+!bun.lockb
+!build-binary.js
+!server.ts
+!terminal-character.ts
+!game-api-plugin.ts
+!security/
+!knowledge/

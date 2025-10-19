@@ -1,0 +1,64 @@
+"InstallScript"
+{
+    "Registry"
+    {
+        "HKEY_LOCAL_MACHINE\\Software\\ElizaOS"
+        {
+            "string"
+            {
+                "InstallPath"    "%INSTALLDIR%"
+                "Version"        "%VERSION%"
+            }
+        }
+    }
+    
+    "Run Process"
+    {
+        "DirectX"
+        {
+            "HasRunKey"        "HKEY_LOCAL_MACHINE\\Software\\ElizaOS\\DirectX"
+            "process 1"        "%INSTALLDIR%\\redist\\DirectX\\DXSETUP.exe"
+            "command 1"        "/silent"
+        }
+        
+        "Visual C++ Redist 2022"
+        {
+            "HasRunKey"        "HKEY_LOCAL_MACHINE\\Software\\ElizaOS\\VCRedist2022"
+            "process 1"        "%INSTALLDIR%\\redist\\vcredist\\vc_redist.x64.exe"
+            "command 1"        "/quiet /norestart"
+        }
+    }
+    
+    "Shortcuts"
+    {
+        "Desktop"
+        {
+            "ElizaOS Terminal"
+            {
+                "exe"            "%INSTALLDIR%\\ElizaOS Terminal.exe"
+                "StartIn"        "%INSTALLDIR%"
+                "Icon"           "%INSTALLDIR%\\ElizaOS Terminal.exe"
+                "Description"    "Launch ElizaOS Terminal"
+            }
+        }
+        
+        "Start Menu\\Programs\\ElizaOS"
+        {
+            "ElizaOS Terminal"
+            {
+                "exe"            "%INSTALLDIR%\\ElizaOS Terminal.exe"
+                "StartIn"        "%INSTALLDIR%"
+                "Icon"           "%INSTALLDIR%\\ElizaOS Terminal.exe"
+                "Description"    "Launch ElizaOS Terminal"
+            }
+            
+            "Uninstall ElizaOS"
+            {
+                "exe"            "%INSTALLDIR%\\uninstall.exe"
+                "StartIn"        "%INSTALLDIR%"
+                "Icon"           "%INSTALLDIR%\\uninstall.exe"
+                "Description"    "Uninstall ElizaOS Terminal"
+            }
+        }
+    }
+}

@@ -1,0 +1,26 @@
+---
+alwaysApply: true
+---
+
+# One build, one dev, one start, one test
+
+It is very important that when we run 'npm run build' we get ALL build steps. No npm run build:*
+
+Same with start, test and dev
+
+EVERY TEST SHOULD RUN WITH 'bun run test'
+
+EVERYTHING SHOULD START WHEN RUNNING 'bun run start'
+
+EVERYTHING SHOULD START IN WATCH MODE WHEN RUNNING 'bun run dev'
+
+EVERYTHING SHOULD BUILD, ALL SERVERS AND CONTAINERS AND APPS AND EVERYTHING when running 'bun run build'
+
+ONE SCRIPT = ONE ACTION
+
+Each package.json MUST contain 'dev', 'start', 'build', 'test' and 'lint' and ONLY those
+
+All binary compilation etc must be encapsulated
+
+No tauri:dev -- just dev
+No build:server -- just build

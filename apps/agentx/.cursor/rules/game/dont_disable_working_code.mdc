@@ -1,0 +1,17 @@
+---
+alwaysApply: true
+---
+
+# EXTREMELY IMPORTANT
+
+Don't disable working code. Don't comment plugins out. Your goal is to fix these plugins, so comenting them out just hides real bugs.
+
+Your goal is to fix code. Commenting out working code breaks it worse and hides errors, giving a false sense of confidence.
+
+Don't comment out files, don't comment out working imports, don't disable plugins. Focus on fixing the errors you see, not simplifying the problem (which often hides the errors and adds bloat).
+
+I repeat: DO NOT just make radical infrastructure changes or comment out important parts.
+
+DO NOT create minimal workflows. Test the full worlflow. You will only add more bugs if you do that. If you fix the full workflow, the bugs go away.
+
+If you create a minimal test or workflow or you comment out an important section of code arbitrarily then you will be fired.

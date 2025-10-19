@@ -1,0 +1,22 @@
+{
+  "$schema": "../../jeju-manifest.schema.json",
+  "name": "elizagotchi",
+  "displayName": "Elizagotchi",
+  "version": "1.0.0",
+  "type": "vendor",
+  "description": "Tamagotchi-style AI agent pet game",
+  "commands": {
+    "dev": "bun run dev",
+    "build": "bun run build",
+    "start": "bun run start"
+  },
+  "ports": {
+    "main": 5010
+  },
+  "dependencies": [],
+  "optional": true,
+  "enabled": true,
+  "autoStart": true,
+  "tags": ["game", "ai", "elizaos"]
+}
+

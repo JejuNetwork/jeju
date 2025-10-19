@@ -1,0 +1,14 @@
+src-tauri/target
+src-tauri/WixTools
+src-tauri/icons
+node_modules
+dist
+build
+.next
+.cache
+*.log
+cypress
+tests
+__tests__
+.env*
+!.env.example

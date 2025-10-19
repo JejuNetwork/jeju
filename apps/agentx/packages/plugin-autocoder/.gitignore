@@ -1,0 +1,98 @@
+# Build outputs
+dist/
+node_modules/
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.staging
+.env.development
+.env.bak
+*.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Cache directories
+.cache/
+.npm/
+.eslintcache
+
+# Temporary folders
+tmp/
+temp/
+
+# Database files
+*.db
+*.pglite
+*.pglite3
+
+# ElizaOS specific
+.eliza/
+.elizadb/
+pglite/
+cache/
+
+test-data/
+test-plugins/
+test-single-plugin/
+data/
+.eliza*
+docs/
+.cursor/
+# SWE-bench
+.swe-bench-cache/
+.swe-bench-work/
+.swe-bench-repos/
+.swe-bench-eval/
+*.patch
+test-results.json
+
+.test-*
+.eslint-*
+benchmarks/
+.turbo/
+multi-swe-bench/
+
+.swe-*
+.syntax-*
+generated-plugins
+mcp-projects
+.validation-checkpoints
+.claude
+AGENTS.md
+.cursor/rules/elizaos
+CLAUDE.md
+.cursorignore
+
+# TypeScript
+*.tsbuildinfo
+
+# E2B Templates
+e2b-templates/**/node_modules/
+e2b-templates/**/.e2b/
+e2b-templates/**/dist/
+e2b-templates/**/build/

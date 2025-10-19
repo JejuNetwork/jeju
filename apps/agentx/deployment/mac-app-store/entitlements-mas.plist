@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Mac App Store Sandbox Requirements -->
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+    
+    <!-- Network access for AI APIs -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+    
+    <!-- File access for user documents -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+    
+    <!-- Allow opening documents -->
+    <key>com.apple.security.files.downloads.read-write</key>
+    <true/>
+    
+    <!-- Audio/Video for future features -->
+    <key>com.apple.security.device.audio-input</key>
+    <false/>
+    <key>com.apple.security.device.camera</key>
+    <false/>
+    
+    <!-- Print support -->
+    <key>com.apple.security.print</key>
+    <true/>
+    
+    <!-- Required for some Tauri features -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <false/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <false/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <false/>
+    
+    <!-- Hardened Runtime (required for notarization) -->
+    <key>com.apple.security.runtime</key>
+    <true/>
+</dict>
+</plist>

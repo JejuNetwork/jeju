@@ -1,0 +1,30 @@
+ELIZA Game Knowledge Test Document
+
+This is a test document for the ELIZA game knowledge base upload functionality.
+
+Key Information:
+- Document Type: Test Knowledge File
+- Purpose: Verify file upload and processing
+- Content: Sample text for testing knowledge base integration
+- Format: Plain text (.txt)
+
+Test Scenarios:
+1. Upload verification
+2. File listing display
+3. File metadata extraction
+4. Knowledge base integration
+5. File deletion functionality
+
+Technical Details:
+- File size: Small test file
+- Encoding: UTF-8
+- Content type: text/plain
+- Special characters: áéíóú, 中文, 日本語, русский
+
+This document contains various types of content to test the knowledge base processing:
+- Structured information
+- Lists and bullet points
+- International characters
+- Technical terminology
+
+End of test document.

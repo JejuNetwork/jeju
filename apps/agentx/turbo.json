@@ -1,0 +1,45 @@
+{
+  "$schema": "https://turborepo.org/schema.json",
+  "ui": "stream",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "env": ["LOG_LEVEL"],
+      "outputs": ["dist/**", "dist/**", "dist-binaries/**"]
+    },
+    "build:binary": {
+      "dependsOn": ["build"],
+      "env": ["LOG_LEVEL"],
+      "outputs": ["dist-binaries/**"]
+    },
+    "lint": {
+      "outputs": []
+    },
+    "format": {
+      "outputs": []
+    },
+    "format:check": {
+      "outputs": []
+    },
+    "start": {
+      "env": ["LOG_LEVEL"],
+      "persistent": true
+    },
+    "dev": {
+      "persistent": true
+    },
+    "test": {
+      "outputs": ["coverage/**"],
+      "inputs": ["src/**/*.ts", "src/**/*.js", "__tests__/**/*", "*.test.*"]
+    },
+    "migrate": {
+      "cache": false
+    },
+    "migrate:generate": {
+      "cache": false
+    },
+    "clean": {
+      "cache": false
+    }
+  }
+}

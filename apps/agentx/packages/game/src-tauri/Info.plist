@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- App Store Information -->
+    <key>CFBundleName</key>
+    <string>ELIZA</string>
+    <key>CFBundleDisplayName</key>
+    <string>ELIZA</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.elizagotchi.eliza</string>
+    <key>CFBundleVersion</key>
+    <string>1.0.0</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0.0</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    
+    <!-- App Store Categories -->
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.developer-tools</string>
+    
+    <!-- System Requirements -->
+    <key>LSMinimumSystemVersion</key>
+    <string>11.0</string>
+    <key>LSRequiresNativeExecution</key>
+    <true/>
+    
+    <!-- Supported Architectures -->
+    <key>LSArchitecturePriority</key>
+    <array>
+        <string>arm64</string>
+        <string>x86_64</string>
+    </array>
+    
+    <!-- Privacy Usage Descriptions -->
+    <key>NSCameraUsageDescription</key>
+    <string>ELIZA uses camera access to enable visual AI capabilities and image analysis features.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>ELIZA uses microphone access to enable voice interaction and speech recognition features.</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>ELIZA may use location data to provide location-aware AI responses and services.</string>
+    <key>NSContactsUsageDescription</key>
+    <string>ELIZA can access contacts to enable personalized interactions and contact management features.</string>
+    <key>NSCalendarsUsageDescription</key>
+    <string>ELIZA can access calendar data to help with scheduling and time management features.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>ELIZA can access photos to enable image analysis and visual AI capabilities.</string>
+    
+    <!-- Network Settings -->
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <true/>
+        <key>NSExceptionDomains</key>
+        <dict>
+            <key>localhost</key>
+            <dict>
+                <key>NSExceptionAllowsInsecureHTTPLoads</key>
+                <true/>
+            </dict>
+        </dict>
+    </dict>
+    
+    <!-- Document Types (for file associations) -->
+    <key>CFBundleDocumentTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>ELIZA Character File</string>
+            <key>CFBundleTypeExtensions</key>
+            <array>
+                <string>json</string>
+            </array>
+            <key>CFBundleTypeRole</key>
+            <string>Editor</string>
+            <key>LSHandlerRank</key>
+            <string>Alternate</string>
+        </dict>
+    </array>
+    
+    <!-- URL Schemes -->
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>ELIZA Protocol</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>eliza</string>
+            </array>
+        </dict>
+    </array>
+    
+    <!-- Sandbox Entitlements (for Mac App Store) -->
+    <key>com.apple.security.app-sandbox</key>
+    <false/>
+    
+    <!-- High Resolution Capable -->
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    
+    <!-- Background Modes -->
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>background-processing</string>
+    </array>
+    
+    <!-- App Store Marketing -->
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
+</dict>
+</plist>

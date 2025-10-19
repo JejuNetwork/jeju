@@ -1,0 +1,858 @@
+<!doctype html>
+<html>
+  <head>
+    <title>ElizaOS Messaging with Media Streaming</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+      h2 {
+        color: #333;
+        margin-bottom: 20px;
+      }
+      .main-grid {
+        display: grid;
+        grid-template-columns: 1fr 400px;
+        gap: 20px;
+        margin-bottom: 20px;
+      }
+      .panel {
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      #messages {
+        height: 500px;
+        overflow-y: auto;
+        padding: 15px;
+        margin-bottom: 15px;
+        background: #fafafa;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+      }
+      .message {
+        margin: 8px 0;
+        padding: 8px 12px;
+        border-radius: 4px;
+        word-wrap: break-word;
+      }
+      .sent {
+        background: #e3f2fd;
+        color: #1976d2;
+        margin-left: 20%;
+      }
+      .received {
+        background: #e8f5e9;
+        color: #388e3c;
+        margin-right: 20%;
+      }
+      .error {
+        background: #ffebee;
+        color: #c62828;
+      }
+      .status {
+        color: #666;
+        font-style: italic;
+        font-size: 0.9em;
+        text-align: center;
+      }
+      .input-group {
+        display: flex;
+        gap: 10px;
+      }
+      #input {
+        flex: 1;
+        padding: 10px;
+        font-size: 14px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+      button {
+        padding: 10px 20px;
+        font-size: 14px;
+        cursor: pointer;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background: white;
+        transition: all 0.2s;
+      }
+      button:hover:not(:disabled) {
+        background: #f0f0f0;
+        border-color: #999;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      button.active {
+        background: #4caf50;
+        color: white;
+        border-color: #45a049;
+      }
+      button.active:hover {
+        background: #45a049;
+      }
+      .connection-status {
+        padding: 10px;
+        margin-bottom: 15px;
+        border-radius: 4px;
+        text-align: center;
+        font-weight: bold;
+      }
+      .connected {
+        background: #e8f5e9;
+        color: #2e7d32;
+      }
+      .disconnected {
+        background: #ffebee;
+        color: #c62828;
+      }
+      .media-controls {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
+      }
+      .media-button {
+        padding: 8px 16px;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .video-container {
+        position: relative;
+        margin-bottom: 15px;
+      }
+      video,
+      canvas {
+        width: 100%;
+        height: auto;
+        background: #000;
+        border-radius: 4px;
+      }
+      .video-label {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+      }
+      .stream-indicators {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+      }
+      .indicator {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        background: #e0e0e0;
+      }
+      .indicator.active {
+        background: #4caf50;
+        color: white;
+      }
+      .audio-visualizer {
+        height: 60px;
+        background: #333;
+        border-radius: 4px;
+        position: relative;
+        overflow: hidden;
+        margin-top: 10px;
+      }
+      .audio-bar {
+        position: absolute;
+        bottom: 0;
+        width: 4px;
+        background: #4caf50;
+        transition: height 0.1s;
+      }
+      h3 {
+        margin-top: 0;
+        margin-bottom: 15px;
+        color: #555;
+      }
+      @media (max-width: 968px) {
+        .main-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>🤖 ElizaOS Messaging with Media Streaming</h2>
+
+      <div class="main-grid">
+        <!-- Chat Panel -->
+        <div class="panel">
+          <h3>💬 Chat</h3>
+          <div id="connectionStatus" class="connection-status disconnected">Disconnected</div>
+
+          <div id="messages"></div>
+
+          <div class="input-group">
+            <input type="text" id="input" placeholder="Type your message..." autofocus />
+            <button onclick="sendMessage()">Send</button>
+          </div>
+
+          <div style="margin-top: 10px; display: flex; gap: 10px">
+            <button onclick="connect()">Connect</button>
+            <button onclick="disconnect()">Disconnect</button>
+          </div>
+        </div>
+
+        <!-- Media Panel -->
+        <div class="panel">
+          <h3>📹 Media Streaming</h3>
+
+          <div class="media-controls">
+            <button id="cameraBtn" class="media-button" onclick="toggleCamera()">
+              <span>📷</span> Camera
+            </button>
+            <button id="screenBtn" class="media-button" onclick="toggleScreen()">
+              <span>🖥️</span> Screen
+            </button>
+            <button id="micBtn" class="media-button" onclick="toggleMicrophone()">
+              <span>🎤</span> Microphone
+            </button>
+            <button id="agentScreenBtn" class="media-button" onclick="toggleAgentScreen()">
+              <span>🤖</span> Agent Screen
+            </button>
+          </div>
+
+          <!-- User Camera -->
+          <div id="cameraContainer" class="video-container" style="display: none">
+            <video id="cameraVideo" autoplay muted></video>
+            <div class="video-label">Camera</div>
+          </div>
+
+          <!-- User Screen -->
+          <div id="screenContainer" class="video-container" style="display: none">
+            <video id="screenVideo" autoplay muted></video>
+            <div class="video-label">Screen Share</div>
+          </div>
+
+          <!-- Agent Screen -->
+          <div id="agentScreenContainer" class="video-container" style="display: none">
+            <canvas id="agentScreenCanvas"></canvas>
+            <div class="video-label">Agent Virtual Screen</div>
+          </div>
+
+          <!-- Audio Visualizer -->
+          <div id="audioContainer" style="display: none">
+            <h4>🎵 Audio Input</h4>
+            <div class="audio-visualizer" id="audioVisualizer"></div>
+          </div>
+
+          <!-- Stream Indicators -->
+          <div class="stream-indicators">
+            <div id="cameraIndicator" class="indicator">📷 Camera</div>
+            <div id="screenIndicator" class="indicator">🖥️ Screen</div>
+            <div id="micIndicator" class="indicator">🎤 Mic</div>
+            <div id="agentIndicator" class="indicator">🤖 Agent</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // WebSocket connection
+      let ws = null;
+      let agentId = '2fbc0c27-50f4-09f2-9fe4-9dd27d76d46f'; // Default agent ID
+
+      // Media streams
+      let cameraStream = null;
+      let screenStream = null;
+      let microphoneStream = null;
+      let agentScreenActive = false;
+
+      // Audio processing
+      let audioContext = null;
+      let audioAnalyser = null;
+      let microphoneSource = null;
+      let audioProcessor = null;
+
+      // DOM elements
+      const messagesDiv = document.getElementById('messages');
+      const input = document.getElementById('input');
+      const statusDiv = document.getElementById('connectionStatus');
+
+      function updateConnectionStatus(connected) {
+        statusDiv.textContent = connected ? '🟢 Connected' : '🔴 Disconnected';
+        statusDiv.className = 'connection-status ' + (connected ? 'connected' : 'disconnected');
+      }
+
+      function addMessage(text, className) {
+        const div = document.createElement('div');
+        div.className = 'message ' + className;
+        const time = new Date().toLocaleTimeString();
+        div.innerHTML = `<strong>[${time}]</strong> ${text}`;
+        messagesDiv.appendChild(div);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      }
+
+      function connect() {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          addMessage('Already connected', 'status');
+          return;
+        }
+
+        addMessage('Connecting to WebSocket...', 'status');
+
+        try {
+          // Use the current host instead of hardcoded localhost
+          const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+          const host = window.location.hostname;
+          const port =
+            window.location.port || (window.location.protocol === 'https:' ? '443' : '7777');
+          const wsUrl = `${protocol}//${host}:${port}/ws`;
+
+          addMessage(`Connecting to ${wsUrl}...`, 'status');
+          ws = new WebSocket(wsUrl);
+
+          ws.onopen = () => {
+            updateConnectionStatus(true);
+            addMessage('Connected! Sending initial connection message...', 'status');
+
+            // Send initial connection message
+            const connectMsg = {
+              type: 'connect',
+              agent_id: agentId,
+              channel_id: 'web-ui-media',
+              client_type: 'web_media',
+              timestamp: Date.now(),
+            };
+            ws.send(JSON.stringify(connectMsg));
+          };
+
+          ws.onmessage = async (event) => {
+            try {
+              const data = JSON.parse(event.data);
+
+              switch (data.type) {
+                case 'connection_ack':
+                  addMessage('Connection acknowledged by server', 'status');
+                  break;
+
+                case 'agent_message':
+                case 'agent_response':
+                  addMessage(`ELIZA: ${data.content}`, 'received');
+                  break;
+
+                case 'agent_screen_frame':
+                  displayAgentScreen(data);
+                  break;
+
+                case 'media_stream_ack':
+                  console.log('Media stream acknowledged:', data);
+                  break;
+
+                default:
+                  console.log('Received:', data);
+              }
+            } catch (e) {
+              addMessage(`Received: ${event.data}`, 'received');
+            }
+          };
+
+          ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+            addMessage('WebSocket error occurred - check console for details', 'error');
+            addMessage(
+              'Common issues: CORS, SSL/TLS mismatch, or firewall blocking WebSocket',
+              'error'
+            );
+            updateConnectionStatus(false);
+          };
+
+          ws.onclose = (event) => {
+            let closeReason = 'Unknown reason';
+
+            // Provide more detailed close reasons
+            switch (event.code) {
+              case 1000:
+                closeReason = 'Normal closure';
+                break;
+              case 1001:
+                closeReason = 'Endpoint going away';
+                break;
+              case 1002:
+                closeReason = 'Protocol error';
+                break;
+              case 1003:
+                closeReason = 'Unsupported data';
+                break;
+              case 1006:
+                closeReason = 'Abnormal closure - no close frame received';
+                break;
+              case 1007:
+                closeReason = 'Invalid frame payload data';
+                break;
+              case 1008:
+                closeReason = 'Policy violation';
+                break;
+              case 1009:
+                closeReason = 'Message too big';
+                break;
+              case 1010:
+                closeReason = 'Mandatory extension';
+                break;
+              case 1011:
+                closeReason = 'Internal server error';
+                break;
+              case 1015:
+                closeReason = 'TLS handshake failure';
+                break;
+              default:
+                closeReason = `Code ${event.code}`;
+            }
+
+            addMessage(`Disconnected: ${closeReason}`, 'status');
+            if (event.reason) {
+              addMessage(`Reason: ${event.reason}`, 'status');
+            }
+            updateConnectionStatus(false);
+            ws = null;
+          };
+        } catch (error) {
+          addMessage(`Failed to connect: ${error.message}`, 'error');
+          updateConnectionStatus(false);
+        }
+      }
+
+      function disconnect() {
+        if (ws) {
+          ws.close();
+          addMessage('Disconnecting...', 'status');
+        } else {
+          addMessage('Not connected', 'status');
+        }
+      }
+
+      function sendMessage() {
+        const message = input.value.trim();
+        if (!message) return;
+
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          addMessage('Not connected!', 'error');
+          return;
+        }
+
+        const msgObj = {
+          type: 'message',
+          content: message,
+          channel_id: 'web-ui-media',
+          agent_id: agentId,
+          author: 'User',
+          timestamp: Date.now(),
+        };
+
+        try {
+          ws.send(JSON.stringify(msgObj));
+          addMessage(`You: ${message}`, 'sent');
+          input.value = '';
+        } catch (error) {
+          addMessage(`Failed to send: ${error.message}`, 'error');
+        }
+      }
+
+      // Media streaming functions
+      async function toggleCamera() {
+        if (cameraStream) {
+          stopCamera();
+        } else {
+          await startCamera();
+        }
+      }
+
+      async function startCamera() {
+        try {
+          cameraStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: 640, height: 480, frameRate: 30 },
+            audio: false,
+          });
+
+          const video = document.getElementById('cameraVideo');
+          video.srcObject = cameraStream;
+
+          document.getElementById('cameraContainer').style.display = 'block';
+          document.getElementById('cameraBtn').classList.add('active');
+          document.getElementById('cameraIndicator').classList.add('active');
+
+          // Start streaming frames
+          startVideoStreaming('camera', video);
+
+          addMessage('Camera started', 'status');
+        } catch (error) {
+          addMessage(`Failed to start camera: ${error.message}`, 'error');
+        }
+      }
+
+      function stopCamera() {
+        if (cameraStream) {
+          cameraStream.getTracks().forEach((track) => track.stop());
+          cameraStream = null;
+
+          document.getElementById('cameraContainer').style.display = 'none';
+          document.getElementById('cameraBtn').classList.remove('active');
+          document.getElementById('cameraIndicator').classList.remove('active');
+
+          addMessage('Camera stopped', 'status');
+        }
+      }
+
+      async function toggleScreen() {
+        if (screenStream) {
+          stopScreen();
+        } else {
+          await startScreen();
+        }
+      }
+
+      async function startScreen() {
+        try {
+          screenStream = await navigator.mediaDevices.getDisplayMedia({
+            video: { width: 1280, height: 720, frameRate: 30 },
+            audio: false,
+          });
+
+          const video = document.getElementById('screenVideo');
+          video.srcObject = screenStream;
+
+          document.getElementById('screenContainer').style.display = 'block';
+          document.getElementById('screenBtn').classList.add('active');
+          document.getElementById('screenIndicator').classList.add('active');
+
+          // Start streaming frames
+          startVideoStreaming('screen', video);
+
+          // Handle stream end
+          screenStream.getVideoTracks()[0].onended = () => {
+            stopScreen();
+          };
+
+          addMessage('Screen sharing started', 'status');
+        } catch (error) {
+          addMessage(`Failed to start screen sharing: ${error.message}`, 'error');
+        }
+      }
+
+      function stopScreen() {
+        if (screenStream) {
+          screenStream.getTracks().forEach((track) => track.stop());
+          screenStream = null;
+
+          document.getElementById('screenContainer').style.display = 'none';
+          document.getElementById('screenBtn').classList.remove('active');
+          document.getElementById('screenIndicator').classList.remove('active');
+
+          addMessage('Screen sharing stopped', 'status');
+        }
+      }
+
+      async function toggleMicrophone() {
+        if (microphoneStream) {
+          stopMicrophone();
+        } else {
+          await startMicrophone();
+        }
+      }
+
+      async function startMicrophone() {
+        try {
+          microphoneStream = await navigator.mediaDevices.getUserMedia({
+            video: false,
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              sampleRate: 44100,
+            },
+          });
+
+          document.getElementById('audioContainer').style.display = 'block';
+          document.getElementById('micBtn').classList.add('active');
+          document.getElementById('micIndicator').classList.add('active');
+
+          // Initialize audio processing
+          initializeAudioProcessing();
+
+          addMessage('Microphone started', 'status');
+        } catch (error) {
+          addMessage(`Failed to start microphone: ${error.message}`, 'error');
+        }
+      }
+
+      function stopMicrophone() {
+        if (microphoneStream) {
+          microphoneStream.getTracks().forEach((track) => track.stop());
+          microphoneStream = null;
+
+          if (audioContext) {
+            audioContext.close();
+            audioContext = null;
+          }
+
+          document.getElementById('audioContainer').style.display = 'none';
+          document.getElementById('micBtn').classList.remove('active');
+          document.getElementById('micIndicator').classList.remove('active');
+
+          addMessage('Microphone stopped', 'status');
+        }
+      }
+
+      function initializeAudioProcessing() {
+        audioContext = new AudioContext();
+        audioAnalyser = audioContext.createAnalyser();
+        audioAnalyser.fftSize = 256;
+
+        microphoneSource = audioContext.createMediaStreamSource(microphoneStream);
+        audioProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+
+        microphoneSource.connect(audioAnalyser);
+        audioAnalyser.connect(audioProcessor);
+        audioProcessor.connect(audioContext.destination);
+
+        // Visualize audio
+        visualizeAudio();
+
+        // Process and stream audio
+        audioProcessor.onaudioprocess = (event) => {
+          if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+          const inputData = event.inputBuffer.getChannelData(0);
+          const pcmData = new Int16Array(inputData.length);
+
+          // Convert float32 to int16
+          for (let i = 0; i < inputData.length; i++) {
+            const s = Math.max(-1, Math.min(1, inputData[i]));
+            pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+          }
+
+          // Send audio data
+          const audioMessage = {
+            type: 'media_stream',
+            media_type: 'audio',
+            data: btoa(String.fromCharCode(...new Uint8Array(pcmData.buffer))),
+            timestamp: Date.now(),
+            encoding: 'pcm16',
+            sample_rate: 44100,
+            channels: 1,
+            agent_id: agentId,
+          };
+
+          ws.send(JSON.stringify(audioMessage));
+        };
+      }
+
+      function visualizeAudio() {
+        const visualizer = document.getElementById('audioVisualizer');
+        const bufferLength = audioAnalyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        // Create bars
+        visualizer.innerHTML = '';
+        const barCount = 32;
+        const bars = [];
+        for (let i = 0; i < barCount; i++) {
+          const bar = document.createElement('div');
+          bar.className = 'audio-bar';
+          bar.style.left = (i * 100) / barCount + '%';
+          bar.style.width = 100 / barCount - 0.5 + '%';
+          visualizer.appendChild(bar);
+          bars.push(bar);
+        }
+
+        function draw() {
+          if (!audioContext) return;
+
+          requestAnimationFrame(draw);
+          audioAnalyser.getByteFrequencyData(dataArray);
+
+          for (let i = 0; i < barCount; i++) {
+            const barIndex = Math.floor((i * bufferLength) / barCount);
+            const barHeight = (dataArray[barIndex] / 255) * 100;
+            bars[i].style.height = barHeight + '%';
+          }
+        }
+
+        draw();
+      }
+
+      async function toggleAgentScreen() {
+        if (agentScreenActive) {
+          await stopAgentScreen();
+        } else {
+          await startAgentScreen();
+        }
+      }
+
+      async function startAgentScreen() {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          addMessage('Connect to WebSocket first!', 'error');
+          return;
+        }
+
+        try {
+          // Use relative URL or construct from current host
+          const protocol = window.location.protocol;
+          const host = window.location.hostname;
+          const port =
+            window.location.port || (window.location.protocol === 'https:' ? '443' : '7777');
+          const apiUrl = `${protocol}//${host}:${port}/api/agents/${agentId}/screen/start`;
+
+          // Send request to start agent screen capture
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+          });
+
+          if (response.ok) {
+            agentScreenActive = true;
+            document.getElementById('agentScreenContainer').style.display = 'block';
+            document.getElementById('agentScreenBtn').classList.add('active');
+            document.getElementById('agentIndicator').classList.add('active');
+            addMessage('Agent screen capture started', 'status');
+          } else {
+            throw new Error('Failed to start agent screen capture');
+          }
+        } catch (error) {
+          addMessage(`Failed to start agent screen: ${error.message}`, 'error');
+        }
+      }
+
+      async function stopAgentScreen() {
+        try {
+          // Use relative URL or construct from current host
+          const protocol = window.location.protocol;
+          const host = window.location.hostname;
+          const port =
+            window.location.port || (window.location.protocol === 'https:' ? '443' : '7777');
+          const apiUrl = `${protocol}//${host}:${port}/api/agents/${agentId}/screen/stop`;
+
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+          });
+
+          if (response.ok) {
+            agentScreenActive = false;
+            document.getElementById('agentScreenContainer').style.display = 'none';
+            document.getElementById('agentScreenBtn').classList.remove('active');
+            document.getElementById('agentIndicator').classList.remove('active');
+            addMessage('Agent screen capture stopped', 'status');
+          }
+        } catch (error) {
+          addMessage(`Failed to stop agent screen: ${error.message}`, 'error');
+        }
+      }
+
+      function displayAgentScreen(data) {
+        if (!agentScreenActive) return;
+
+        const canvas = document.getElementById('agentScreenCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Set canvas dimensions
+        canvas.width = data.width || 1280;
+        canvas.height = data.height || 720;
+
+        // Convert frame data to image
+        const frameData = new Uint8Array(data.frameData);
+        const blob = new Blob([frameData], { type: 'image/jpeg' });
+        const url = URL.createObjectURL(blob);
+
+        const img = new Image();
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          URL.revokeObjectURL(url);
+        };
+        img.src = url;
+      }
+
+      function startVideoStreaming(type, videoElement) {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        function captureFrame() {
+          if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+          if ((type === 'camera' && !cameraStream) || (type === 'screen' && !screenStream)) {
+            return;
+          }
+
+          canvas.width = videoElement.videoWidth;
+          canvas.height = videoElement.videoHeight;
+          ctx.drawImage(videoElement, 0, 0);
+
+          canvas.toBlob(
+            async (blob) => {
+              if (blob) {
+                const arrayBuffer = await blob.arrayBuffer();
+                const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+
+                const frameMessage = {
+                  type: 'media_stream',
+                  media_type: 'video',
+                  stream_type: type,
+                  data: base64,
+                  timestamp: Date.now(),
+                  encoding: 'jpeg',
+                  agent_id: agentId,
+                };
+
+                ws.send(JSON.stringify(frameMessage));
+              }
+            },
+            'image/jpeg',
+            0.8
+          );
+
+          // Capture at 10 FPS
+          setTimeout(captureFrame, 100);
+        }
+
+        // Start capturing after video is ready
+        videoElement.onloadedmetadata = () => {
+          captureFrame();
+        };
+      }
+
+      // Keyboard shortcuts
+      input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          sendMessage();
+        }
+      });
+
+      // Auto-connect on page load
+      window.addEventListener('load', () => {
+        connect();
+      });
+
+      // Cleanup on page unload
+      window.addEventListener('beforeunload', () => {
+        stopCamera();
+        stopScreen();
+        stopMicrophone();
+        disconnect();
+      });
+    </script>
+  </body>
+</html>

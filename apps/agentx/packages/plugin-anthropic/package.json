@@ -1,0 +1,82 @@
+{
+  "name": "@elizaos/plugin-anthropic",
+  "version": "1.0.4",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elizaos-plugins/plugin-anthropic.git"
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@ai-sdk/anthropic": "^1.2.11",
+    "@ai-sdk/ui-utils": "^1.2.11",
+    "@elizaos/core": "workspace:*",
+    "ai": "4.3.15",
+    "jsonrepair": "^3.12.0"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "clean": "rm -rf dist .turbo node_modules .turbo-tsconfig.json tsconfig.tsbuildinfo",
+    "format": "prettier --write ./src",
+    "format:check": "prettier --check ./src",
+    "lint": "prettier --write ./src",
+    "test": "vitest run"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "agentConfig": {
+    "pluginType": "elizaos:plugin:1.0.0",
+    "pluginParameters": {
+      "ANTHROPIC_API_KEY": {
+        "type": "string",
+        "description": "API key used to authenticate requests to Anthropic services",
+        "required": true,
+        "sensitive": true
+      },
+      "ANTHROPIC_SMALL_MODEL": {
+        "type": "string",
+        "description": "Override the default Anthropic small model identifier used by the plugin",
+        "required": false,
+        "default": "claude-3-haiku-20240307",
+        "sensitive": false
+      },
+      "ANTHROPIC_LARGE_MODEL": {
+        "type": "string",
+        "description": "Override the default Anthropic large model identifier used by the plugin",
+        "required": false,
+        "default": "claude-3-5-sonnet-latest",
+        "sensitive": false
+      },
+      "ANTHROPIC_EXPERIMENTAL_TELEMETRY": {
+        "type": "boolean",
+        "description": "Enable experimental telemetry features for enhanced debugging and usage analytics.",
+        "required": false,
+        "default": false,
+        "sensitive": false
+      }
+    }
+  },
+  "gitHead": "646c632924826e2b75c2304a75ee56959fe4a460",
+  "devDependencies": {
+    "prettier": "3.5.3",
+    "vitest": "^3.1.3",
+    "tsup": "8.4.0",
+    "typescript": "5.8.3"
+  }
+}

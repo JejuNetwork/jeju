@@ -1,0 +1,186 @@
+name: elizaos-terminal
+base: core22
+adopt-info: elizaos
+summary: ELIZA Autonomous AI Terminal
+description: |
+  ELIZA is an autonomous AI system providing an advanced terminal interface
+  for interacting with various AI models and managing autonomous agents.
+
+  Features:
+  - Multi-model AI support (OpenAI, Anthropic, local models)
+  - Agent orchestration and management
+  - Plugin ecosystem for extended functionality
+  - Secure local data storage
+  - Cross-platform desktop application
+
+grade: stable
+confinement: strict
+compression: lzo
+
+architectures:
+  - build-on: [amd64]
+    build-for: [amd64]
+  - build-on: [arm64]
+    build-for: [arm64]
+
+apps:
+  elizaos-terminal:
+    command: elizaos-terminal
+    common-id: io.elizaos.terminal
+    desktop: share/applications/elizaos-terminal.desktop
+    extensions: [gnome]
+    environment:
+      TMPDIR: $XDG_RUNTIME_DIR
+      LD_LIBRARY_PATH: $SNAP/usr/lib/$SNAPCRAFT_ARCH_TRIPLET:$LD_LIBRARY_PATH
+    plugs:
+      - network
+      - network-bind
+      - network-observe
+      - home
+      - removable-media
+      - audio-playback
+      - audio-record
+      - desktop
+      - desktop-legacy
+      - wayland
+      - x11
+      - opengl
+      - browser-support
+      - unity7
+      - gsettings
+      - password-manager-service
+
+parts:
+  elizaos:
+    plugin: nil
+    source: .
+    override-pull: |
+      snapcraftctl pull
+      # Set version from git tag or commit
+      if [ -n "$(git describe --tags --exact-match 2>/dev/null)" ]; then
+        VERSION=$(git describe --tags --exact-match)
+      else
+        VERSION=$(git rev-parse --short HEAD)
+      fi
+      snapcraftctl set-version "${VERSION#v}"
+
+    override-build: |
+      # Determine architecture
+      if [ "$SNAPCRAFT_TARGET_ARCH" = "amd64" ]; then
+        ARCH_SUFFIX="x86_64"
+      elif [ "$SNAPCRAFT_TARGET_ARCH" = "arm64" ]; then
+        ARCH_SUFFIX="aarch64"
+      else
+        echo "Unsupported architecture: $SNAPCRAFT_TARGET_ARCH"
+        exit 1
+      fi
+
+      # Download the appropriate AppImage from GitHub releases
+      DOWNLOAD_URL="https://github.com/elizaos/eliza/releases/latest/download/ElizaOS-Terminal_${ARCH_SUFFIX}.AppImage"
+
+      echo "Downloading from: $DOWNLOAD_URL"
+      curl -L "$DOWNLOAD_URL" -o elizaos-terminal.AppImage || {
+        echo "Failed to download AppImage, trying alternative naming..."
+        DOWNLOAD_URL="https://github.com/elizaos/eliza/releases/latest/download/elizaos-terminal_${SNAPCRAFT_TARGET_ARCH}.AppImage"
+        curl -L "$DOWNLOAD_URL" -o elizaos-terminal.AppImage
+      }
+
+      chmod +x elizaos-terminal.AppImage
+
+      # Extract AppImage
+      ./elizaos-terminal.AppImage --appimage-extract
+
+      # Move files to install directory
+      cp -r squashfs-root/* $SNAPCRAFT_PART_INSTALL/
+
+      # Create desktop file
+      mkdir -p $SNAPCRAFT_PART_INSTALL/share/applications
+      cat > $SNAPCRAFT_PART_INSTALL/share/applications/elizaos-terminal.desktop << 'EOF'
+      [Desktop Entry]
+      Name=ElizaOS Terminal
+      Comment=Autonomous AI Terminal Interface
+      Exec=elizaos-terminal %U
+      Icon=${SNAP}/share/icons/hicolor/512x512/apps/elizaos-terminal.png
+      Terminal=false
+      Type=Application
+      Categories=Development;Utility;
+      StartupNotify=true
+      StartupWMClass=ElizaOS Terminal
+      EOF
+
+      # Create wrapper script
+      cat > $SNAPCRAFT_PART_INSTALL/elizaos-terminal << 'EOF'
+      #!/bin/bash
+      export TMPDIR="$XDG_RUNTIME_DIR"
+      export WEBKIT_DISABLE_COMPOSITING_MODE=1
+      export WEBKIT_DISABLE_DMABUF_RENDERER=1
+
+      # Wayland support
+      if [ "$XDG_SESSION_TYPE" = "wayland" ]; then
+        export GDK_BACKEND=wayland
+      fi
+
+      # Execute the actual binary
+      exec "$SNAP/elizaos-terminal.bin" "$@"
+      EOF
+
+      chmod +x $SNAPCRAFT_PART_INSTALL/elizaos-terminal
+
+      # Rename original binary
+      if [ -f "$SNAPCRAFT_PART_INSTALL/elizaos-terminal" ]; then
+        mv $SNAPCRAFT_PART_INSTALL/elizaos-terminal $SNAPCRAFT_PART_INSTALL/elizaos-terminal.bin
+      fi
+
+      # Copy icons
+      for size in 16 32 48 64 128 256 512; do
+        mkdir -p $SNAPCRAFT_PART_INSTALL/share/icons/hicolor/${size}x${size}/apps
+        if [ -f "squashfs-root/usr/share/icons/hicolor/${size}x${size}/apps/elizaos-terminal.png" ]; then
+          cp squashfs-root/usr/share/icons/hicolor/${size}x${size}/apps/elizaos-terminal.png \
+             $SNAPCRAFT_PART_INSTALL/share/icons/hicolor/${size}x${size}/apps/
+        fi
+      done
+
+      # Clean up
+      rm -rf squashfs-root elizaos-terminal.AppImage
+
+    build-packages:
+      - curl
+      - squashfs-tools
+      - git
+
+    stage-packages:
+      - libwebkit2gtk-4.0-37
+      - libjavascriptcoregtk-4.0-18
+      - libglib2.0-0
+      - libgtk-3-0
+      - libsoup2.4-1
+      - libappindicator3-1
+      - libayatana-appindicator3-1
+      - libnotify4
+      - libnss3
+      - libnspr4
+      - libxss1
+      - libxtst6
+      - libasound2
+      - libdrm2
+      - libgbm1
+      - libxkbcommon0
+      - libxdamage1
+      - libxfixes3
+      - libxrandr2
+      - libxcomposite1
+      - libxcursor1
+      - libxi6
+      - libatk1.0-0
+      - libatk-bridge2.0-0
+      - libcups2
+      - libpango-1.0-0
+      - libcairo2
+      - libgl1
+      - libegl1
+      - libgles2
+      - freeglut3
+
+layout:
+  /usr/share/elizaos:
+    bind: $SNAP/usr/share/elizaos

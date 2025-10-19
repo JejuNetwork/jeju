@@ -1,0 +1,202 @@
+.agent-logs {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(0, 255, 0, 0.3);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.logs-header {
+  padding: 12px;
+  border-bottom: 1px solid rgba(0, 255, 0, 0.2);
+  background: rgba(0, 0, 0, 0.9);
+}
+
+.logs-header h3 {
+  margin: 0 0 8px 0;
+  color: #00ff00;
+  font-size: 14px;
+  font-weight: normal;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.logs-controls {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #888;
+}
+
+.filter-group label {
+  color: #888;
+}
+
+.filter-group select {
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(0, 255, 0, 0.3);
+  color: #00ff00;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.filter-group input[type='checkbox'] {
+  cursor: pointer;
+}
+
+.refresh-logs-btn {
+  background: rgba(0, 100, 0, 0.8);
+  border: 1px solid rgba(0, 255, 0, 0.5);
+  color: #00ff00;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.2s;
+}
+
+.refresh-logs-btn:hover:not(:disabled) {
+  background: rgba(0, 150, 0, 0.8);
+  border-color: #00ff00;
+}
+
+.refresh-logs-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.logs-error {
+  padding: 8px 12px;
+  background: rgba(255, 0, 0, 0.1);
+  border: 1px solid rgba(255, 0, 0, 0.3);
+  color: #ff6666;
+  font-size: 12px;
+  margin: 8px;
+}
+
+.logs-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+}
+
+.no-logs {
+  text-align: center;
+  color: #666;
+  padding: 20px;
+  font-style: italic;
+}
+
+.log-entry {
+  padding: 4px 8px;
+  margin-bottom: 2px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border-radius: 2px;
+  transition: background 0.1s;
+}
+
+.log-entry:hover {
+  background: rgba(0, 255, 0, 0.05);
+}
+
+.log-timestamp {
+  color: #666;
+  font-size: 11px;
+  min-width: 70px;
+  flex-shrink: 0;
+}
+
+.log-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.log-type {
+  color: #888;
+  font-size: 11px;
+  min-width: 60px;
+  flex-shrink: 0;
+}
+
+.log-message {
+  flex: 1;
+  color: #ccc;
+  word-wrap: break-word;
+}
+
+.log-metadata {
+  cursor: help;
+  font-size: 11px;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+/* Log level colors */
+.log-error {
+  background: rgba(255, 0, 0, 0.1);
+}
+
+.log-error .log-message {
+  color: #ff6666;
+}
+
+.log-warn {
+  background: rgba(255, 165, 0, 0.1);
+}
+
+.log-warn .log-message {
+  color: #ffaa44;
+}
+
+.log-info .log-message {
+  color: #88ccff;
+}
+
+.log-debug .log-message {
+  color: #666;
+  font-size: 11px;
+}
+
+/* Log type colors */
+.log-agent {
+  border-left: 2px solid #00ff00;
+}
+
+.log-system {
+  border-left: 2px solid #0088ff;
+}
+
+/* Scrollbar styling */
+.logs-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.logs-container::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.logs-container::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 0, 0.3);
+  border-radius: 4px;
+}
+
+.logs-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 0, 0.5);
+}

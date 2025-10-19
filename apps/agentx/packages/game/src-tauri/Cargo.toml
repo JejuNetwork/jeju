@@ -1,0 +1,79 @@
+[package]
+name = "app"
+version = "0.1.0"
+description = "ElizaOS Game - High-performance Rust backend"
+authors = ["ElizaOS Team"]
+license = ""
+repository = ""
+default-run = "app"
+edition = "2021"
+rust-version = "1.64"
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+# Tauri build paths
+[build-dependencies]
+tauri-build = { version = "2.0.0", features = [] }
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+tauri = { version = "2.0.0", features = [] }
+tauri-plugin-opener = "2.0.0"
+tauri-plugin-shell = "2.2.1"
+once_cell = "1.19.0"
+
+# Rust backend dependencies
+tokio = { version = "1.0", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+dashmap = "5.5"
+thiserror = "1.0"
+rand = "0.8"
+
+# HTTP server dependencies
+axum = { version = "0.7", features = ["ws", "macros"] }
+tower = { version = "0.4", features = ["util"] }
+tower-http = { version = "0.5", features = ["cors"] }
+
+# Container runtime dependencies
+bollard = "0.16"
+reqwest = { version = "0.11", features = ["json", "multipart"] }
+base64 = "0.21"
+tempfile = "3.8"
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres"] }
+
+# Async utilities
+futures = "0.3"
+futures-util = "0.3"
+
+# Native WebSocket client (App Store friendly)
+tokio-tungstenite = { version = "0.21", features = ["native-tls"] }
+
+# Socket.IO removed - using native WebSocket instead
+
+# File system utilities
+walkdir = "2"
+
+# Text processing
+regex = "1.10"
+
+# System information
+sysinfo = "0.31"
+
+# Directory utilities
+dirs = "5.0"
+
+# Backup and compression dependencies
+flate2 = "1.0"
+sha2 = "0.10"
+zip = { version = "0.6", default-features = false, features = ["deflate"] }
+async-trait = "0.1"
+tauri-plugin-dialog = "2"

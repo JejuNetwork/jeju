@@ -1,0 +1,28 @@
+{
+  "name": "@elizaos/plugin-registry",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "ERC-8004 registry integration - discover and connect to apps, games, and services",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "test": "echo 'Tests via elizaos test'",
+    "lint": "eslint . --fix"
+  },
+  "dependencies": {
+    "@elizaos/core": "workspace:*",
+    "viem": "^2.38.3",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.1",
+    "tsup": "^8.3.5",
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "@elizaos/core": "*"
+  }
+}
+

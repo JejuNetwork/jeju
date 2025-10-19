@@ -1,0 +1,72 @@
+{
+  "name": "@elizaos/plugin-inference",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elizaos-plugins/plugin-inference.git"
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@elizaos/core": "workspace:*",
+    "@elizaos/plugin-openai": "workspace:*",
+    "@elizaos/plugin-anthropic": "workspace:*",
+    "@elizaos/plugin-ollama": "workspace:*",
+    "@elizaos/plugin-elizaos-services": "workspace:*",
+    "@elizaos/plugin-groq": "workspace:*",
+    "@elizaos/plugin-local-embedding": "workspace:*",
+    "tsup": "8.5.0"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "prettier --write ./src",
+    "clean": "rm -rf dist .turbo node_modules .turbo-tsconfig.json tsconfig.tsbuildinfo",
+    "format": "prettier --write ./src",
+    "format:check": "prettier --check ./src",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "agentConfig": {
+    "pluginType": "elizaos:plugin:1.0.0",
+    "pluginParameters": {
+      "INFERENCE_PREFERENCES": {
+        "type": "string",
+        "description": "Comma-separated list of provider preferences in order",
+        "required": false,
+        "default": "elizaos,anthropic,openai,ollama"
+      },
+      "SELECTED_PROVIDER": {
+        "type": "string",
+        "description": "Explicitly selected provider to use",
+        "required": false
+      }
+    }
+  },
+  "gitHead": "646c632924826e2b75c2304a75ee56959fe4a460",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "prettier": "3.5.3",
+    "typescript": "^5.8.2",
+    "vitest": "^1.6.0",
+    "@vitest/coverage-v8": "^1.6.0"
+  }
+}
