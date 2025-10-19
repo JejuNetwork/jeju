@@ -1,5 +1,5 @@
 import express from 'express';
-import { createEnvironmentRouter } from './environment';
+import { createEnvironmentRouter } from './environment.js';
 import { createVersionRouter } from './version.js';
 
 /**

@@ -1356,7 +1356,7 @@ export {
   loadCharacterTryPath,
   hasValidRemoteUrls,
   loadCharacters,
-} from './loader';
+} from './loader.js';
 
 // Export types
-export * from './types';
+export * from './types.js';

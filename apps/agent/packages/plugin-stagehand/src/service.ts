@@ -1,7 +1,7 @@
 import type { IAgentRuntime } from '@elizaos/core';
 import { Service, logger } from '@elizaos/core';
 import { StagehandProcessManager } from './process-manager.js';
-import { StagehandServiceType } from './types';
+import { StagehandServiceType } from './types.js';
 import { StagehandWebSocketClient } from './websocket-client.js';
 
 export class BrowserSession {

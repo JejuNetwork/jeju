@@ -1,7 +1,7 @@
 // FIXME: @elizaos/core/test-utils not properly exported in build - commenting out imports until core issue is resolved
 import type { IAgentRuntime, UUID } from '@elizaos/core';
 import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test';
-import { createMockRuntime } from './test-utils';
+import { createMockRuntime } from './test-utils.ts';
 import { todosTable, todoTagsTable } from '../schema.ts';
 import { createTodoDataService, TodoDataManager } from '../services/todoService.ts';
 

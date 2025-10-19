@@ -1,7 +1,7 @@
 import { bunExecInherit } from '../../../utils/bun-exec.js';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { PackageJson } from '../types';
+import { PackageJson } from '../types.js';
 
 /**
  * Build and publish package to npm

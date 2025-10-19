@@ -3,7 +3,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as clack from '@clack/prompts';
-import { performCliUpdate } from '../../update';
+import { performCliUpdate } from '../../update/index.js';
 
 /**
  * Check if the current CLI version is up to date

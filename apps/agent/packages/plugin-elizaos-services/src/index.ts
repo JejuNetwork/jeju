@@ -16,10 +16,10 @@ import {
   QuickAuthSetup,
 } from './auth/index';
 // Removed multi-provider imports - now using ElizaOS API service directly
-import { ElizaOSServicesTestSuite } from './tests.js';
-import { RealIntegrationTestSuite } from './tests/real-integration.test.js';
-import { StorageIntegrationTestSuite } from './tests/storage-integration.test.js';
-import { ValidationSummaryTestSuite } from './tests/validation-summary.test.js';
+import { ElizaOSServicesTestSuite } from './tests.js.js';
+import { RealIntegrationTestSuite } from './tests/real-integration.test.js.js';
+import { StorageIntegrationTestSuite } from './tests/storage-integration.test.js.js';
+import { ValidationSummaryTestSuite } from './tests/validation-summary.test.js.js';
 import {
   makeElizaOSRequest,
   getModelForType,

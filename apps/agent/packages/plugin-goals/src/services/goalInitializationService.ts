@@ -1,5 +1,5 @@
 import { type IAgentRuntime, logger, Service } from '@elizaos/core';
-import { GoalDataManager } from './goalService';
+import { GoalDataManager } from './goalService.js';
 
 /**
  * Service to handle initialization of default goals after database is ready

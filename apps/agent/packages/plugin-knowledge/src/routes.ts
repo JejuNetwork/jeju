@@ -1,10 +1,10 @@
 import type { IAgentRuntime, Route, UUID, Memory, KnowledgeItem } from '@elizaos/core';
 import { MemoryType, createUniqueUuid, logger, ModelType } from '@elizaos/core';
-import { KnowledgeService } from './service';
+import { KnowledgeService } from './service.ts';
 import fs from 'node:fs'; // For file operations in upload
 import path from 'node:path'; // For path operations
 import multer from 'multer'; // For handling multipart uploads
-import { fetchUrlContent, normalizeS3Url } from './utils'; // Import utils functions
+import { fetchUrlContent, normalizeS3Url } from './utils.ts'; // Import utils functions
 
 // Create multer configuration function that uses runtime settings
 const createUploadMiddleware = (runtime: IAgentRuntime) => {

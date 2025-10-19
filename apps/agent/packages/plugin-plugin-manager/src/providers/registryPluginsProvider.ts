@@ -1,5 +1,5 @@
 import type { IAgentRuntime, Provider, ProviderResult } from '@elizaos/core';
-import { PluginManagerService } from '../services/pluginManagerService';
+import { PluginManagerService } from '../services/pluginManagerService.js';
 import { getAllPlugins } from '../services/pluginRegistryService.js';
 
 export const registryPluginsProvider: Provider = {

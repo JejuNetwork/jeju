@@ -1,6 +1,6 @@
 import { Action, HandlerCallback, IAgentRuntime, Memory, State, elizaLogger } from '@elizaos/core';
 import * as path from 'node:path';
-import { PluginManagerService } from '../services/pluginManagerService';
+import { PluginManagerService } from '../services/pluginManagerService.js';
 import { clonePlugin } from '../services/pluginRegistryService.js';
 
 export const clonePluginAction: Action = {

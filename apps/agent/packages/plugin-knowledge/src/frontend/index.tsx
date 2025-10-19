@@ -96,4 +96,4 @@ export const panels: AgentPanel[] = [
   },
 ];
 
-export * from './utils';
+export * from './utils.ts';

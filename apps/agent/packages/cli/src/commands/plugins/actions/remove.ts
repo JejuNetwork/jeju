@@ -4,8 +4,8 @@ import { logger } from '@elizaos/core';
 import { bunExecInherit } from '../../../utils/bun-exec.js';
 import { existsSync, rmSync } from 'node:fs';
 import path from 'node:path';
-import { findPluginPackageName } from '../utils/naming';
-import { getDependenciesFromDirectory } from '../utils/directory';
+import { findPluginPackageName } from '../utils/naming.js';
+import { getDependenciesFromDirectory } from '../utils/directory.js';
 // Character updater imports removed - reverting to project-scoped plugins
 
 /**

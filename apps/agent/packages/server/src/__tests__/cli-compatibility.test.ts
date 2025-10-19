@@ -88,7 +88,7 @@ mock.module('node:fs', () => ({
 describe('CLI Compatibility Tests', () => {
   describe('AgentServer API Compatibility', () => {
     it('should export AgentServer class with expected interface', async () => {
-      const { AgentServer } = await import('../');
+      const { AgentServer } = await import('..');
 
       expect(AgentServer).toBeDefined();
       expect(typeof AgentServer).toBe('function');
@@ -108,7 +108,7 @@ describe('CLI Compatibility Tests', () => {
     });
 
     it('should allow CLI to extend server with custom methods', async () => {
-      const { AgentServer } = await import('../');
+      const { AgentServer } = await import('..');
 
       const server = new AgentServer();
 
@@ -133,14 +133,14 @@ describe('CLI Compatibility Tests', () => {
 
   describe('Loader Function Exports', () => {
     it('should export loadCharacterTryPath function', async () => {
-      const { loadCharacterTryPath } = await import('../');
+      const { loadCharacterTryPath } = await import('..');
 
       expect(loadCharacterTryPath).toBeDefined();
       expect(typeof loadCharacterTryPath).toBe('function');
     });
 
     it('should export jsonToCharacter function', async () => {
-      const { jsonToCharacter } = await import('../');
+      const { jsonToCharacter } = await import('..');
 
       expect(jsonToCharacter).toBeDefined();
       expect(typeof jsonToCharacter).toBe('function');
@@ -153,7 +153,7 @@ describe('CLI Compatibility Tests', () => {
         loadCharacter,
         hasValidRemoteUrls,
         loadCharacters,
-      } = await import('../');
+      } = await import('..');
 
       expect(tryLoadFile).toBeDefined();
       expect(loadCharactersFromUrl).toBeDefined();
@@ -165,14 +165,14 @@ describe('CLI Compatibility Tests', () => {
 
   describe('Utility Function Exports', () => {
     it('should export expandTildePath function', async () => {
-      const { expandTildePath } = await import('../');
+      const { expandTildePath } = await import('..');
 
       expect(expandTildePath).toBeDefined();
       expect(typeof expandTildePath).toBe('function');
     });
 
     it('should export resolvePgliteDir function', async () => {
-      const { resolvePgliteDir } = await import('../');
+      const { resolvePgliteDir } = await import('..');
 
       expect(resolvePgliteDir).toBeDefined();
       expect(typeof resolvePgliteDir).toBe('function');
@@ -181,7 +181,7 @@ describe('CLI Compatibility Tests', () => {
 
   describe('Type Exports', () => {
     it('should export ServerOptions interface', async () => {
-      const module = await import('../');
+      const module = await import('..');
 
       // TypeScript interfaces don't exist at runtime, but we can check
       // that the module exports what we expect by testing usage patterns
@@ -199,7 +199,7 @@ describe('CLI Compatibility Tests', () => {
     });
 
     it('should export ServerMiddleware type compatibility', async () => {
-      const module = await import('../');
+      const module = await import('..');
 
       // Test that middleware function signature is compatible
       const testMiddleware = (_req: any, _res: any, next: any) => {
@@ -216,7 +216,7 @@ describe('CLI Compatibility Tests', () => {
 
   describe('CLI Usage Patterns', () => {
     it('should support CLI initialization pattern', async () => {
-      const { AgentServer } = await import('../');
+      const { AgentServer } = await import('..');
 
       // Simulate CLI's server creation pattern
       const server = new AgentServer();
@@ -234,7 +234,7 @@ describe('CLI Compatibility Tests', () => {
     });
 
     it('should support CLI server startup pattern', async () => {
-      const { AgentServer } = await import('../');
+      const { AgentServer } = await import('..');
 
       const server = new AgentServer();
       await server.initialize();
@@ -257,7 +257,7 @@ describe('CLI Compatibility Tests', () => {
     });
 
     it('should support CLI agent registration pattern', async () => {
-      const { AgentServer } = await import('../');
+      const { AgentServer } = await import('..');
 
       const server = new AgentServer();
       await server.initialize();
@@ -288,7 +288,7 @@ describe('CLI Compatibility Tests', () => {
 
   describe('Error Handling Compatibility', () => {
     it('should handle invalid agent registration gracefully', async () => {
-      const { AgentServer } = await import('../');
+      const { AgentServer } = await import('..');
 
       const server = new AgentServer();
       await server.initialize();
@@ -301,7 +301,7 @@ describe('CLI Compatibility Tests', () => {
     });
 
     it('should handle invalid server startup gracefully', async () => {
-      const { AgentServer } = await import('../');
+      const { AgentServer } = await import('..');
 
       const server = new AgentServer();
       await server.initialize();

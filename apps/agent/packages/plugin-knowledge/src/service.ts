@@ -21,10 +21,10 @@ import {
   extractTextFromDocument,
   processFragmentsSynchronously,
 } from './document-processor.ts';
-import { validateModelConfig } from './config';
+import { validateModelConfig } from './config.ts';
 import { AddKnowledgeOptions, KnowledgeServiceType } from './types.ts';
-import type { KnowledgeConfig, LoadResult } from './types';
-import { loadDocsFromPath } from './docs-loader';
+import type { KnowledgeConfig, LoadResult } from './types.ts';
+import { loadDocsFromPath } from './docs-loader.ts';
 import { isBinaryContentType, looksLikeBase64, generateContentBasedId } from './utils.ts';
 
 const parseBooleanEnv = (value: any): boolean => {

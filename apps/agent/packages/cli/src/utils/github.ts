@@ -3,7 +3,7 @@ import path from 'node:path';
 import { logger } from '@elizaos/core';
 import { existsSync } from 'node:fs';
 import { bunExecSimple, bunExec } from './bun-exec.js';
-import { UserEnvironment } from './user-environment';
+import { UserEnvironment } from './user-environment.js';
 import * as clack from '@clack/prompts';
 
 const GITHUB_API_URL = 'https://api.github.com';
@@ -559,7 +559,7 @@ export async function getGitHubCredentials(): Promise<{
   }
 
   // If not in process.env, try to load from .env file
-  const { getGitHubToken } = await import('./registry');
+  const { getGitHubToken } = await import('./registry/index.js');
   const token = (await getGitHubToken()) || undefined;
 
   // If we have a token, validate it and try to get username if missing

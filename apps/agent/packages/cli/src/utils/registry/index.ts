@@ -6,7 +6,7 @@ import { bunExecSimple } from '../bun-exec.js';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { existsSync, promises as fs } from 'node:fs';
 import path from 'node:path';
-import { REGISTRY_ORG, REGISTRY_REPO, REGISTRY_URL, RAW_REGISTRY_URL } from './constants';
+import { REGISTRY_ORG, REGISTRY_REPO, REGISTRY_URL, RAW_REGISTRY_URL } from './constants.js';
 
 const ELIZA_DIR = path.join(process.cwd(), '.eliza');
 const REGISTRY_SETTINGS_FILE = path.join(ELIZA_DIR, 'registrysettings.json');
