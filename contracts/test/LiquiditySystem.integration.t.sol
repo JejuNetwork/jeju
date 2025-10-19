@@ -2,7 +2,7 @@
 pragma solidity ^0.8.26;
 
 import "forge-std/Test.sol";
-import {elizaOSToken} from "../src/token/elizaOSToken.sol";
+import {ElizaOSToken} from "../src/tokens/ElizaOSToken.sol";
 import {LiquidityVault} from "../src/liquidity/LiquidityVault.sol";
 import {FeeDistributor} from "../src/distributor/FeeDistributor.sol";
 import {LiquidityPaymaster} from "../src/paymaster/LiquidityPaymaster.sol";
@@ -15,7 +15,7 @@ import {PackedUserOperation} from "@account-abstraction/contracts/interfaces/Pac
  * @notice End-to-end tests for complete liquidity paymaster system
  */
 contract LiquiditySystemIntegrationTest is Test {
-    elizaOSToken public eliza;
+    ElizaOSToken public rewardToken;
     LiquidityVault public vault;
     FeeDistributor public distributor;
     LiquidityPaymaster public paymaster;
@@ -28,21 +28,21 @@ contract LiquiditySystemIntegrationTest is Test {
     address public app = address(0xA);
     
     uint256 constant INITIAL_ETH_PRICE = 300000000000; // $3,000
-    uint256 constant INITIAL_ELIZA_PRICE = 10000000;   // $0.10
+    uint256 constant INITIAL_TOKEN_PRICE = 10000000;   // $0.10
     
     function setUp() public {
         // Deploy all contracts
-        eliza = new elizaOSToken(owner);
-        oracle = new ManualPriceOracle(INITIAL_ETH_PRICE, INITIAL_ELIZA_PRICE, owner);
-        vault = new LiquidityVault(address(eliza), owner);
-        distributor = new FeeDistributor(address(eliza), address(vault), owner);
+        rewardToken = new ElizaOSToken(owner);
+        oracle = new ManualPriceOracle(INITIAL_ETH_PRICE, INITIAL_TOKEN_PRICE, owner);
+        vault = new LiquidityVault(address(rewardToken), owner);
+        distributor = new FeeDistributor(address(rewardToken), address(vault), owner);
         
         // Deploy mock EntryPoint
         entryPoint = new MockEntryPoint();
         
         paymaster = new LiquidityPaymaster(
             IEntryPoint(address(entryPoint)),
-            address(eliza),
+            address(rewardToken),
             address(vault),
             address(distributor),
             address(oracle)
@@ -57,16 +57,16 @@ contract LiquiditySystemIntegrationTest is Test {
         // Fund accounts
         vm.deal(lp1, 100 ether);
         vm.deal(user, 10 ether);
-        eliza.transfer(lp1, 1000000e18);
-        eliza.transfer(user, 10000e18);
+        rewardToken.transfer(lp1, 1000000e18);
+        rewardToken.transfer(user, 10000e18);
     }
     
     function testCompleteFlow() public {
         // Step 1: LP provides liquidity
         vm.startPrank(lp1);
-        vault.addETHLiquidity{value: 20 ether}();
-        eliza.approve(address(vault), 100000e18);
-        vault.addElizaLiquidity(100000e18);
+        vault.addETHLiquidity{value: 20 ether}(0);
+        rewardToken.approve(address(vault), 100000e18);
+        vault.addElizaLiquidity(100000e18, 0);
         vm.stopPrank();
         
         assertEq(vault.ethShares(lp1), 20 ether);
@@ -86,14 +86,14 @@ contract LiquiditySystemIntegrationTest is Test {
         
         assertEq(entryPoint.balanceOf(address(paymaster)), 5 ether);
         
-        // Step 3: User approves elizaOS spending
+        // Step 3: User approves payment token spending
         vm.prank(user);
-        eliza.approve(address(paymaster), type(uint256).max);
+        rewardToken.approve(address(paymaster), type(uint256).max);
         
         // Step 4: Simulate transaction (paymaster collects fees)
         uint256 gasCost = 0.001 ether; // 0.001 ETH gas
-        uint256 expectedElizaCost = oracle.previewConversion(gasCost);
-        uint256 withMargin = (expectedElizaCost * 11000) / 10000; // +10% margin
+        uint256 expectedTokenCost = oracle.previewConversion(gasCost);
+        uint256 withMargin = (expectedTokenCost * 11000) / 10000; // +10% margin
         
         uint256 appEarningsBefore = distributor.appEarnings(app);
         uint256 lpFeesBefore = vault.pendingFees(lp1);
@@ -105,11 +105,11 @@ contract LiquiditySystemIntegrationTest is Test {
         
         // Simulate fee collection and distribution manually
         vm.startPrank(user);
-        eliza.transfer(address(paymaster), withMargin);
+        rewardToken.transfer(address(paymaster), withMargin);
         vm.stopPrank();
         
         vm.startPrank(address(paymaster));
-        eliza.approve(address(distributor), withMargin);
+        rewardToken.approve(address(distributor), withMargin);
         distributor.distributeFees(withMargin, app);
         vm.stopPrank();
         
@@ -120,39 +120,39 @@ contract LiquiditySystemIntegrationTest is Test {
         assertGt(vault.pendingFees(lp1), lpFeesBefore); // LP earned something
         
         // Step 6: App claims earnings
-        uint256 appBalanceBefore = eliza.balanceOf(app);
+        uint256 appBalanceBefore = rewardToken.balanceOf(app);
         vm.prank(app);
         distributor.claimEarnings();
         
-        assertEq(eliza.balanceOf(app), appBalanceBefore + expectedAppEarning);
+        assertEq(rewardToken.balanceOf(app), appBalanceBefore + expectedAppEarning);
         assertEq(distributor.appEarnings(app), 0);
         
         // Step 7: LP claims fees
-        uint256 lp1BalanceBefore = eliza.balanceOf(lp1);
+        uint256 lp1BalanceBefore = rewardToken.balanceOf(lp1);
         vm.prank(lp1);
         vault.claimFees();
         
-        assertGt(eliza.balanceOf(lp1), lp1BalanceBefore);
+        assertGt(rewardToken.balanceOf(lp1), lp1BalanceBefore);
     }
     
     function testMultipleLPsProportionalEarnings() public {
         address lp2 = address(0x3);
         vm.deal(lp2, 100 ether);
-        eliza.transfer(lp2, 100000e18);
+        rewardToken.transfer(lp2, 100000e18);
         
         // LP1: 10 ETH, LP2: 5 ETH (2:1 ratio)
         vm.prank(lp1);
-        vault.addETHLiquidity{value: 10 ether}();
+        vault.addETHLiquidity{value: 10 ether}(0);
         
         vm.prank(lp2);
-        vault.addETHLiquidity{value: 5 ether}();
+        vault.addETHLiquidity{value: 5 ether}(0);
         
         // Distribute fees
         uint256 fees = 150e18;
-        eliza.transfer(address(paymaster), fees);
+        rewardToken.transfer(address(paymaster), fees);
         
         vm.startPrank(address(paymaster));
-        eliza.approve(address(distributor), fees);
+        rewardToken.approve(address(distributor), fees);
         distributor.distributeFees(fees, app);
         vm.stopPrank();
         
@@ -171,7 +171,7 @@ contract LiquiditySystemIntegrationTest is Test {
     function testSystemHealth() public {
         // Add liquidity
         vm.prank(lp1);
-        vault.addETHLiquidity{value: 20 ether}();
+        vault.addETHLiquidity{value: 20 ether}(0);
         
         // Fund paymaster manually
         vault.setPaymaster(owner);
@@ -196,7 +196,7 @@ contract LiquiditySystemIntegrationTest is Test {
     function testAutoRefill() public {
         // Add liquidity
         vm.prank(lp1);
-        vault.addETHLiquidity{value: 20 ether}();
+        vault.addETHLiquidity{value: 20 ether}(0);
         
         // Fund paymaster with less than minimum manually
         entryPoint.depositTo{value: 0.5 ether}(address(paymaster));

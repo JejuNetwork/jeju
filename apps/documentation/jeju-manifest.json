@@ -1,0 +1,22 @@
+{
+  "$schema": "../../jeju-manifest.schema.json",
+  "name": "documentation",
+  "displayName": "Documentation",
+  "version": "1.0.0",
+  "type": "core",
+  "description": "VitePress documentation site",
+  "commands": {
+    "dev": "bun run dev",
+    "build": "bun run build",
+    "start": "bun run preview"
+  },
+  "ports": {
+    "main": 4004
+  },
+  "dependencies": [],
+  "optional": true,
+  "enabled": true,
+  "autoStart": true,
+  "tags": ["docs"]
+}
+

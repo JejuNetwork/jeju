@@ -5,14 +5,14 @@ on:
     branches: [main, develop]
     paths:
       - "apps/launchpad/**"
-      - "apps/otc-agent/**"
+      - "apps/thedesk/**"
       - "packages/**"
       - ".github/workflows/multi-chain-tests.yml"
   pull_request:
     branches: [main, develop]
     paths:
       - "apps/launchpad/**"
-      - "apps/otc-agent/**"
+      - "apps/thedesk/**"
       - "packages/**"
 
 env:
@@ -49,7 +49,7 @@ jobs:
 
       - name: Run OTC agent unit tests
         run: |
-          cd apps/otc-agent
+          cd apps/thedesk
           bun run test
 
   integration-tests:
@@ -175,7 +175,7 @@ jobs:
 
       - name: Type check OTC agent
         run: |
-          cd apps/otc-agent
+          cd apps/thedesk
           bun run type-check || npx tsc --noEmit
 
   lint:
@@ -200,5 +200,5 @@ jobs:
 
       - name: Lint OTC agent
         run: |
-          cd apps/otc-agent
+          cd apps/thedesk
           bun run lint

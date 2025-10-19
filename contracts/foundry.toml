@@ -17,15 +17,24 @@ exclude = [
     "lib/openzeppelin-contracts/lib/**",
     "lib/openzeppelin-contracts-upgradeable/test/**",
     "lib/openzeppelin-contracts-upgradeable/lib/**",
+    "lib/v2-core/**",
+    "lib/v2-periphery/**",
+    "lib/solidity-lib/**",
+    "lib/v4-core/lib/openzeppelin-contracts/lib/**",
+    "lib/v4-core/lib/openzeppelin-contracts/test/**",
+    "lib/v4-periphery/lib/**/test/**",
+    "lib/v4-periphery/lib/**/lib/**",
     "src/paymaster/CloudPaymaster.sol",
     "src/prediction/JejuMarket.sol",
+    "src/uniswap-v2/**",
     "src/uniswap-v4/**",
-    "src/hyperscape/src/test/**",
-    "src/hyperscape/src/systems/**",
-    "src/hyperscape/src/codegen/**"
+    "src/games/mmo/src/systems/**",
+    "src/games/mmo/src/codegen/**",
+    "src/games/mmo/src/libraries/**"
 ]
 
 # Test settings
+# Note: Hyperscape tests require MUD World deployment - run separately with: cd apps/hyperscape && pnpm test
 verbosity = 2
 fuzz_runs = 256
 fs_permissions = [{ access = "read-write", path = "./deployments" }, { access = "read", path = "./" }]
@@ -38,10 +47,9 @@ remappings = [
     "forge-std/=lib/forge-std/src/",
     "@eth-optimism-bedrock/=lib/optimism/packages/contracts-bedrock/src/",
     "account-abstraction/=lib/account-abstraction/contracts/",
-    "@latticexyz/store/=src/hyperscape/node_modules/@latticexyz/store/",
-    "@latticexyz/world/=src/hyperscape/node_modules/@latticexyz/world/",
-    "@latticexyz/schema-type/=src/hyperscape/node_modules/@latticexyz/schema-type/",
-    "@latticexyz/config/=src/hyperscape/node_modules/@latticexyz/config/",
+    "@uniswap/lib/contracts/=lib/solidity-lib/contracts/",
+    "@uniswap/v4-core/=lib/v4-core/",
+    "@uniswap/v4-periphery/=lib/v4-periphery/",
 ]
 
 # RPC endpoints (override with env vars)

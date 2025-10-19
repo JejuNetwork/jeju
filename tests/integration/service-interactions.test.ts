@@ -21,7 +21,7 @@
  * cd contracts && forge script script/DeployLiquiditySystem.s.sol --broadcast --rpc-url http://localhost:9545
  * 
  * # Start indexer (in separate terminal)
- * cd indexer && npm run dev
+ * cd apps/indexer && npm run dev
  * 
  * # Run service interaction tests
  * bun test tests/integration/service-interactions.test.ts
@@ -31,8 +31,13 @@
 import { describe, it, expect } from 'bun:test';
 import { ethers } from 'ethers';
 
-const RPC_URL = process.env.RPC_ETH_HTTP || 'http://127.0.0.1:9545';
-const GRAPHQL_URL = process.env.GRAPHQL_URL || 'http://localhost:4350/graphql';
+const RPC_URL = process.env.RPC_ETH_HTTP || 
+                process.env.L2_RPC_URL || 
+                process.env.JEJU_RPC_URL || 
+                `http://127.0.0.1:${process.env.L2_RPC_PORT || '9545'}`;
+const GRAPHQL_URL = process.env.GRAPHQL_URL || 
+                    process.env.INDEXER_GRAPHQL_URL || 
+                    `http://localhost:${process.env.INDEXER_GRAPHQL_PORT || '4350'}/graphql`;
 const TIMEOUT = 30000; // 30 seconds
 
 /**
@@ -103,7 +108,7 @@ describe('Service Interaction Tests', () => {
       console.log('✅ Indexer detected and available\n');
     } catch (error) {
       console.log('⚠️  Indexer not available - skipping indexer tests\n');
-      console.log('   Start indexer with: cd indexer && npm run dev\n');
+      console.log('   Start indexer with: cd apps/indexer && npm run dev\n');
     }
   }, TIMEOUT);
 
@@ -297,10 +302,10 @@ describe('System Health and Monitoring', () => {
     console.log('\n📋 Manual Testing Checklist:\n');
     console.log('   □ Start localnet: bun run localnet:start');
     console.log('   □ Deploy contracts: cd contracts && forge script script/DeployLiquiditySystem.s.sol --broadcast --rpc-url http://localhost:9545');
-    console.log('   □ Start indexer: cd indexer && npm run dev');
+    console.log('   □ Start indexer: cd apps/indexer && npm run dev');
     console.log('   □ Deploy oracle bot: bun run scripts/oracle-updater.ts');
     console.log('   □ Test oracle integration: bun run scripts/verify-oracle-integration.ts');
-    console.log('   □ Test node rewards: bun run scripts/test-node-rewards-system.ts');
+    console.log('   □ Test node staking: bun run scripts/test-node-rewards-system.ts');
     console.log('   □ Run full system test: bun run scripts/test-complete-node-system.ts');
     console.log('');
   });

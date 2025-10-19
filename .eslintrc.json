@@ -24,13 +24,9 @@
     "apps",
     "caliguland",
     "caliguland2",
-    "indexer",
     "contracts",
-    "node-explorer",
-    "documentation",
     "kubernetes",
     "terraform",
-    "monitoring",
     "*.config.js",
     "*.config.ts"
   ],

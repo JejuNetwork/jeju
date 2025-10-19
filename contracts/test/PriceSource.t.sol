@@ -22,7 +22,7 @@ contract PriceSourceTest is Test {
     }
     
     function testDeployment() public view {
-        assertEq(priceSource.elizaOSToken(), elizaToken);
+        assertEq(priceSource.ElizaOSToken(), elizaToken);
         assertEq(priceSource.crossChainRelayOnJeju(), crossChainRelay);
         assertEq(priceSource.priceUpdater(), updater);
         assertEq(priceSource.owner(), owner);
@@ -41,7 +41,7 @@ contract PriceSourceTest is Test {
         
         priceSource.setElizaOSToken(newToken);
         
-        assertEq(priceSource.elizaOSToken(), newToken);
+        assertEq(priceSource.ElizaOSToken(), newToken);
     }
     
     function testSetCrossChainRelay() public {

@@ -15,9 +15,13 @@
  */
 
 import { spawn, type Subprocess } from "bun";
+import { join } from "path";
 
 const processes: Subprocess[] = [];
 const services: { name: string; process: Subprocess; port?: number }[] = [];
+
+// Get workspace root
+const WORKSPACE_ROOT = process.cwd();
 
 // Cleanup handler
 let isShuttingDown = false;
@@ -61,20 +65,28 @@ console.log(`
 console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
 // Step 1: Start Indexer
+const indexerGraphQLPort = parseInt(process.env.INDEXER_GRAPHQL_PORT || '4350');
+const indexerDBPort = parseInt(process.env.INDEXER_DB_PORT || '23798');
+
 console.log("1️⃣  Starting Subsquid Indexer...");
 console.log("   🔄 Setting up database and starting GraphQL server...");
 console.log("   ⏳ This may take 10-15 seconds...");
 const indexerProc = spawn(["npm", "run", "dev"], {
-  cwd: "/Users/shawwalters/jeju/indexer",
+  cwd: join(WORKSPACE_ROOT, "apps/indexer"),
   stdout: "inherit",
   stderr: "inherit",
-  env: { ...process.env, NODE_ENV: process.env.NODE_ENV || "development" },
+  env: { 
+    ...process.env, 
+    NODE_ENV: process.env.NODE_ENV || "development",
+    GQL_PORT: indexerGraphQLPort.toString(),
+    DB_PORT: indexerDBPort.toString(),
+  },
 });
 processes.push(indexerProc);
 services.push({ 
   name: "Indexer (GraphQL)", 
   process: indexerProc,
-  port: 4350 
+  port: indexerGraphQLPort
 });
 
 await new Promise(resolve => setTimeout(resolve, 8000));
@@ -83,16 +95,20 @@ console.log("   ✅ Indexer started (GraphQL API should be available soon)\n");
 // Step 2: Start Node Explorer API
 console.log("2️⃣  Starting Node Explorer API...");
 const explorerAPIProc = spawn(["bun", "run", "src/api/server.ts"], {
-  cwd: "/Users/shawwalters/jeju/node-explorer",
+  cwd: join(WORKSPACE_ROOT, "apps/node-explorer"),
   stdout: "inherit",
   stderr: "inherit",
-  env: { ...process.env, PORT: "4002" },
+  env: { 
+    ...process.env, 
+    NODE_EXPLORER_API_PORT: explorerAPIPort,
+    PORT: explorerAPIPort,
+  },
 });
 processes.push(explorerAPIProc);
 services.push({ 
   name: "Explorer API", 
   process: explorerAPIProc,
-  port: 4002 
+  port: parseInt(explorerAPIPort)
 });
 
 await new Promise(resolve => setTimeout(resolve, 2000));
@@ -101,16 +117,21 @@ console.log("   ✅ Started\n");
 // Step 3: Start Node Explorer UI
 console.log("3️⃣  Starting Node Explorer UI...");
 const explorerUIProc = spawn(["bun", "run", "dev"], {
-  cwd: "/Users/shawwalters/jeju/node-explorer",
+  cwd: join(WORKSPACE_ROOT, "apps/node-explorer"),
   stdout: "inherit",
   stderr: "inherit",
-  env: { ...process.env, PORT: "3011" },
+  env: { 
+    ...process.env, 
+    NODE_EXPLORER_UI_PORT: explorerUIPort,
+    PORT: explorerUIPort,
+    NEXT_PUBLIC_NODE_EXPLORER_API_URL: `http://localhost:${explorerAPIPort}`,
+  },
 });
 processes.push(explorerUIProc);
 services.push({ 
   name: "Explorer UI", 
   process: explorerUIProc,
-  port: 3011 
+  port: parseInt(explorerUIPort)
 });
 
 await new Promise(resolve => setTimeout(resolve, 2000));
@@ -119,7 +140,7 @@ console.log("   ✅ Started\n");
 // Step 4: Start Node Collector
 console.log("4️⃣  Starting Node Data Collector...");
 const collectorProc = spawn(["bun", "run", "src/collector/node-collector.ts"], {
-  cwd: "/Users/shawwalters/jeju/node-explorer",
+  cwd: join(WORKSPACE_ROOT, "apps/node-explorer"),
   stdout: "inherit",
   stderr: "inherit",
 });
@@ -135,7 +156,7 @@ console.log("   ✅ Started\n");
 // Step 5: Start Oracle
 console.log("5️⃣  Starting Oracle Price Feeds...");
 const oracleProc = spawn(["bun", "run", "scripts/oracle-updater.ts"], {
-  cwd: "/Users/shawwalters/jeju",
+  cwd: WORKSPACE_ROOT,
   stdout: "inherit",
   stderr: "inherit",
   env: { ...process.env, BASE_RPC_URL: "https://mainnet.base.org" },
@@ -152,7 +173,7 @@ console.log("   ✅ Started\n");
 // Step 6: Start Rewards Oracle
 console.log("6️⃣  Starting Node Rewards Oracle...");
 const rewardsProc = spawn(["bun", "run", "scripts/rewards/rewards-oracle.ts"], {
-  cwd: "/Users/shawwalters/jeju",
+  cwd: WORKSPACE_ROOT,
   stdout: "inherit",
   stderr: "inherit",
 });
@@ -168,7 +189,7 @@ console.log("   ✅ Started\n");
 // Step 7: Start Heartbeat Monitor
 console.log("7️⃣  Starting Heartbeat Monitor...");
 const heartbeatProc = spawn(["bun", "run", "scripts/monitoring/heartbeat.ts"], {
-  cwd: "/Users/shawwalters/jeju",
+  cwd: WORKSPACE_ROOT,
   stdout: "inherit",
   stderr: "inherit",
 });
@@ -184,7 +205,7 @@ console.log("   ✅ Started\n");
 // Step 8: Start Documentation
 console.log("8️⃣  Starting Documentation (VitePress)...");
 const docsProc = spawn(["bun", "run", "dev"], {
-  cwd: "/Users/shawwalters/jeju/documentation",
+  cwd: join(WORKSPACE_ROOT, "apps/documentation"),
   stdout: "inherit",
   stderr: "inherit",
 });
@@ -201,10 +222,14 @@ console.log("   ✅ Started\n");
 console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 console.log("✅ All services started\n");
 
+const explorerUIPort = process.env.NODE_EXPLORER_UI_PORT || '4003';
+const explorerAPIPort = process.env.NODE_EXPLORER_API_PORT || '4002';
+const graphqlPort = process.env.INDEXER_GRAPHQL_PORT || '4350';
+
 console.log("🌐 Endpoints:");
-console.log("   Explorer:  http://localhost:3011");
-console.log("   API:       http://localhost:4002");
-console.log("   GraphQL:   http://localhost:4350/graphql");
+console.log(`   Explorer:  http://localhost:${explorerUIPort}`);
+console.log(`   API:       http://localhost:${explorerAPIPort}`);
+console.log(`   GraphQL:   http://localhost:${graphqlPort}/graphql`);
 console.log("\n💡 Press Ctrl+C to stop\n");
 console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 

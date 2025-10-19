@@ -33,7 +33,7 @@ contract DeployPriceSourceOnBase is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
         
-        address elizaOSToken = vm.envAddress("ELIZAOS_TOKEN_BASE");
+        address ElizaOSToken = vm.envAddress("ELIZAOS_TOKEN_BASE");
         address crossChainRelayOnJeju = vm.envOr("CROSS_CHAIN_RELAY_JEJU", address(0));
         address priceUpdater = vm.envOr("PRICE_UPDATER", deployer);
         
@@ -42,7 +42,7 @@ contract DeployPriceSourceOnBase is Script {
         console.log("============================================================");
         console.log("Deployer:", deployer);
         console.log("Chain ID:", block.chainid);
-        console.log("elizaOS Token:", elizaOSToken);
+        console.log("elizaOS Token:", ElizaOSToken);
         console.log("Cross-Chain Relay (Jeju):", crossChainRelayOnJeju);
         console.log("Price Updater:", priceUpdater);
         console.log("");
@@ -50,7 +50,7 @@ contract DeployPriceSourceOnBase is Script {
         vm.startBroadcast(deployerPrivateKey);
         
         PriceSource priceSource = new PriceSource(
-            elizaOSToken,
+            ElizaOSToken,
             crossChainRelayOnJeju,
             priceUpdater,
             deployer
@@ -72,7 +72,7 @@ contract DeployPriceSourceOnBase is Script {
         // Save deployment
         string memory json = "deployment";
         vm.serializeAddress(json, "priceSource", address(priceSource));
-        vm.serializeAddress(json, "elizaOSToken", elizaOSToken);
+        vm.serializeAddress(json, "ElizaOSToken", ElizaOSToken);
         vm.serializeAddress(json, "priceUpdater", priceUpdater);
         string memory finalJson = vm.serializeUint(json, "chainId", block.chainid);
         

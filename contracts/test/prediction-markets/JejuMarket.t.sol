@@ -2,9 +2,9 @@
 pragma solidity ^0.8.26;
 
 import {Test, console2} from "forge-std/Test.sol";
-import {JejuMarket} from "../../src/prediction-markets/JejuMarket.sol";
+import {Predimarket} from "../../src/prediction-markets/Predimarket.sol";
 import {MarketFactory} from "../../src/prediction-markets/MarketFactory.sol";
-import {elizaOSToken} from "../../src/token/elizaOSToken.sol";
+import {ElizaOSToken} from "../../src/tokens/ElizaOSToken.sol";
 
 contract MockOracle {
     struct GameOutcome {
@@ -80,11 +80,11 @@ contract MockOracle {
     }
 }
 
-contract JejuMarketTest is Test {
-    JejuMarket public market;
+contract PredimarketTest is Test {
+    Predimarket public market;
     MarketFactory public factory;
     MockOracle public oracle;
-    elizaOSToken public token;
+    ElizaOSToken public token;
     
     address public owner;
     address public treasury;
@@ -105,14 +105,24 @@ contract JejuMarketTest is Test {
         trader2 = makeAddr("trader2");
         trader3 = makeAddr("trader3");
         
-        token = new elizaOSToken(owner);
+        token = new ElizaOSToken(owner);
         oracle = new MockOracle();
-        market = new JejuMarket(address(token), address(oracle), treasury, owner);
+        market = new Predimarket(address(token), address(oracle), treasury, owner);
         factory = new MarketFactory(address(market), address(oracle), DEFAULT_LIQUIDITY, owner);
         
         token.mint(trader1, INITIAL_BALANCE);
         token.mint(trader2, INITIAL_BALANCE);
         token.mint(trader3, INITIAL_BALANCE);
+        
+        // Approve predimarket to spend tokens
+        vm.prank(trader1);
+        token.approve(address(market), type(uint256).max);
+        
+        vm.prank(trader2);
+        token.approve(address(market), type(uint256).max);
+        
+        vm.prank(trader3);
+        token.approve(address(market), type(uint256).max);
         
         sessionId1 = keccak256("session1");
         sessionId2 = keccak256("session2");
@@ -124,7 +134,7 @@ contract JejuMarketTest is Test {
     function test_CreateMarket() public {
         market.createMarket(sessionId1, "Will Team A win?", DEFAULT_LIQUIDITY);
         
-        JejuMarket.Market memory m = market.getMarket(sessionId1);
+        Predimarket.Market memory m = market.getMarket(sessionId1);
         
         assertEq(m.sessionId, sessionId1);
         assertEq(m.question, "Will Team A win?");
@@ -140,7 +150,7 @@ contract JejuMarketTest is Test {
     function test_CreateMarket_RevertIfExists() public {
         market.createMarket(sessionId1, "Will Team A win?", DEFAULT_LIQUIDITY);
         
-        vm.expectRevert(JejuMarket.MarketExists.selector);
+        vm.expectRevert(Predimarket.MarketExists.selector);
         market.createMarket(sessionId1, "Will Team A win?", DEFAULT_LIQUIDITY);
     }
     
@@ -156,11 +166,11 @@ contract JejuMarketTest is Test {
         
         assertGt(shares, 0);
         
-        JejuMarket.Market memory m = market.getMarket(sessionId1);
+        Predimarket.Market memory m = market.getMarket(sessionId1);
         assertEq(m.yesShares, shares);
         assertEq(m.noShares, 0);
         
-        JejuMarket.Position memory pos = market.getPosition(sessionId1, trader1);
+        Predimarket.Position memory pos = market.getPosition(sessionId1, trader1);
         assertEq(pos.yesShares, shares);
         assertEq(pos.noShares, 0);
         assertEq(pos.totalSpent, spendAmount);
@@ -178,7 +188,7 @@ contract JejuMarketTest is Test {
         
         assertGt(shares, 0);
         
-        JejuMarket.Market memory m = market.getMarket(sessionId1);
+        Predimarket.Market memory m = market.getMarket(sessionId1);
         assertEq(m.yesShares, 0);
         assertEq(m.noShares, shares);
     }
@@ -199,7 +209,7 @@ contract JejuMarketTest is Test {
         uint256 shares2 = market.buy(sessionId1, false, amount2, 0);
         vm.stopPrank();
         
-        JejuMarket.Market memory m = market.getMarket(sessionId1);
+        Predimarket.Market memory m = market.getMarket(sessionId1);
         assertEq(m.yesShares, shares1);
         assertEq(m.noShares, shares2);
     }
@@ -211,7 +221,7 @@ contract JejuMarketTest is Test {
         
         vm.startPrank(trader1);
         token.approve(address(market), 100 * 1e18);
-        vm.expectRevert(JejuMarket.MarketAlreadyResolved.selector);
+        vm.expectRevert(Predimarket.MarketAlreadyResolved.selector);
         market.buy(sessionId1, true, 100 * 1e18, 0);
         vm.stopPrank();
     }
@@ -234,7 +244,7 @@ contract JejuMarketTest is Test {
         assertEq(balanceAfter - balanceBefore, payout);
         assertGt(payout, 0);
         
-        JejuMarket.Position memory pos = market.getPosition(sessionId1, trader1);
+        Predimarket.Position memory pos = market.getPosition(sessionId1, trader1);
         assertEq(pos.yesShares, sharesBought - sharesToSell);
     }
     
@@ -242,7 +252,7 @@ contract JejuMarketTest is Test {
         market.createMarket(sessionId1, "Will Team A win?", DEFAULT_LIQUIDITY);
         
         vm.startPrank(trader1);
-        vm.expectRevert(JejuMarket.InsufficientShares.selector);
+        vm.expectRevert(Predimarket.InsufficientShares.selector);
         market.sell(sessionId1, true, 100 * 1e18, 0);
         vm.stopPrank();
     }
@@ -253,7 +263,7 @@ contract JejuMarketTest is Test {
         oracle.finalizeGame(sessionId1, true);
         market.resolveMarket(sessionId1);
         
-        JejuMarket.Market memory m = market.getMarket(sessionId1);
+        Predimarket.Market memory m = market.getMarket(sessionId1);
         assertEq(m.resolved, true);
         assertEq(m.outcome, true);
     }
@@ -264,7 +274,7 @@ contract JejuMarketTest is Test {
         oracle.finalizeGame(sessionId1, true);
         market.resolveMarket(sessionId1);
         
-        vm.expectRevert(JejuMarket.MarketAlreadyResolved.selector);
+        vm.expectRevert(Predimarket.MarketAlreadyResolved.selector);
         market.resolveMarket(sessionId1);
     }
     
@@ -313,7 +323,7 @@ contract JejuMarketTest is Test {
         market.resolveMarket(sessionId1);
         
         vm.prank(trader2);
-        vm.expectRevert(JejuMarket.NoWinningShares.selector);
+        vm.expectRevert(Predimarket.NoWinningShares.selector);
         market.claimPayout(sessionId1);
     }
     
@@ -331,7 +341,7 @@ contract JejuMarketTest is Test {
         vm.startPrank(trader1);
         market.claimPayout(sessionId1);
         
-        vm.expectRevert(JejuMarket.AlreadyClaimed.selector);
+        vm.expectRevert(Predimarket.AlreadyClaimed.selector);
         market.claimPayout(sessionId1);
         vm.stopPrank();
     }
@@ -405,7 +415,7 @@ contract JejuMarketTest is Test {
         
         factory.createMarketFromOracle(sessionId1, "Will Team A win?");
         
-        JejuMarket.Market memory m = market.getMarket(sessionId1);
+        Predimarket.Market memory m = market.getMarket(sessionId1);
         assertEq(m.sessionId, sessionId1);
         
         assertTrue(factory.marketCreated(sessionId1));

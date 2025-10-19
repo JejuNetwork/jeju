@@ -20,8 +20,8 @@ def run(plan, args={}):
         config=ServiceConfig(
             image="ethereum/client-go:latest",
             ports={
-                "rpc": PortSpec(number=8545, transport_protocol="TCP"),
-                "ws": PortSpec(number=8546, transport_protocol="TCP"),
+                "rpc": PortSpec(number=8545, transport_protocol="TCP", application_protocol="http"),
+                "ws": PortSpec(number=8546, transport_protocol="TCP", application_protocol="ws"),
             },
             cmd=[
                 "--dev",
@@ -50,8 +50,8 @@ def run(plan, args={}):
         config=ServiceConfig(
             image="us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:latest",
             ports={
-                "rpc": PortSpec(number=9545, transport_protocol="TCP"),
-                "ws": PortSpec(number=9546, transport_protocol="TCP"),
+                "rpc": PortSpec(number=9545, transport_protocol="TCP", application_protocol="http"),
+                "ws": PortSpec(number=9546, transport_protocol="TCP", application_protocol="ws"),
                 # Skipping authrpc - not needed for basic dev mode
             },
             cmd=[

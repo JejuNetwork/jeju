@@ -18,7 +18,7 @@ import {IIdentityRegistry} from "../src/registry/interfaces/IIdentityRegistry.so
 contract RegisterAgent is Script {
     function run() external {
         // Get parameters
-        address registryAddress = vm.envOr("IDENTITY_REGISTRY", address(0));
+        address payable registryAddress = payable(vm.envOr("IDENTITY_REGISTRY", address(0)));
         string memory agentUri = vm.envOr("AGENT_URI", string("ipfs://QmDefaultAgent"));
         string memory agentName = vm.envOr("AGENT_NAME", string("My AI Agent"));
         string memory agentType = vm.envOr("AGENT_TYPE", string("general"));
@@ -46,7 +46,7 @@ contract RegisterAgent is Script {
             string memory path = string.concat("deployments/", network, "/liquidity-system.json");
             
             try vm.readFile(path) returns (string memory json) {
-                registryAddress = vm.parseJsonAddress(json, ".identityRegistry");
+                registryAddress = payable(vm.parseJsonAddress(json, ".identityRegistry"));
                 console.log("Loaded registry from deployment:", registryAddress);
             } catch {
                 revert("Registry address not found. Set IDENTITY_REGISTRY env var.");
@@ -99,7 +99,7 @@ contract RegisterAgent is Script {
  */
 contract QueryAgent is Script {
     function run() external view {
-        address registryAddress = vm.envAddress("IDENTITY_REGISTRY");
+        address payable registryAddress = payable(vm.envAddress("IDENTITY_REGISTRY"));
         uint256 agentId = vm.envUint("AGENT_ID");
         
         IdentityRegistry registry = IdentityRegistry(registryAddress);

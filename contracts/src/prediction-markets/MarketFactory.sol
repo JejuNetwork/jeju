@@ -4,7 +4,7 @@ pragma solidity ^0.8.26;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
-interface IJejuMarket {
+interface IPredimarket {
     function createMarket(bytes32 sessionId, string calldata question, uint256 liquidityParameter) external;
 }
 
@@ -30,7 +30,7 @@ interface IPredictionOracle {
  * @dev Listens to PredictionOracle GameCommitted events and creates corresponding markets
  */
 contract MarketFactory is Ownable, Pausable {
-    IJejuMarket public immutable jejuMarket;
+    IPredimarket public immutable predimarket;
     IPredictionOracle public immutable oracle;
     
     uint256 public defaultLiquidity;
@@ -44,16 +44,16 @@ contract MarketFactory is Ownable, Pausable {
     error InvalidLiquidity();
 
     constructor(
-        address _jejuMarket,
+        address _predimarket,
         address _oracle,
         uint256 _defaultLiquidity,
         address _owner
     ) Ownable(_owner) {
-        require(_jejuMarket != address(0), "Invalid market");
+        require(_predimarket != address(0), "Invalid market");
         require(_oracle != address(0), "Invalid oracle");
         require(_defaultLiquidity > 0, "Invalid liquidity");
         
-        jejuMarket = IJejuMarket(_jejuMarket);
+        predimarket = IPredimarket(_predimarket);
         oracle = IPredictionOracle(_oracle);
         defaultLiquidity = _defaultLiquidity;
     }
@@ -85,7 +85,7 @@ contract MarketFactory is Ownable, Pausable {
         require(startTime > 0, "Game not committed");
 
         // Create market
-        jejuMarket.createMarket(sessionId, question, defaultLiquidity);
+        predimarket.createMarket(sessionId, question, defaultLiquidity);
         marketCreated[sessionId] = true;
 
         emit MarketAutoCreated(sessionId, question);
@@ -123,7 +123,7 @@ contract MarketFactory is Ownable, Pausable {
 
             if (startTime == 0) continue;
 
-            jejuMarket.createMarket(sessionId, questions[i], defaultLiquidity);
+            predimarket.createMarket(sessionId, questions[i], defaultLiquidity);
             marketCreated[sessionId] = true;
 
             emit MarketAutoCreated(sessionId, questions[i]);

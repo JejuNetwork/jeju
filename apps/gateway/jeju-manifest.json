@@ -1,0 +1,23 @@
+{
+  "$schema": "../../jeju-manifest.schema.json",
+  "name": "gateway",
+  "displayName": "Gateway Portal - Protocol Infrastructure Hub",
+  "version": "1.0.0",
+  "type": "core",
+  "description": "Protocol Infrastructure Hub: Bridge tokens, deploy paymasters, provide ETH liquidity, run nodes, earn rewards. Supports elizaOS, CLANKER, VIRTUAL, CLANKERMON + any ERC20. Protocol power = paymaster + liquidity.",
+  "commands": {
+    "dev": "bun run dev",
+    "build": "bun run build",
+    "start": "bun run preview"
+  },
+  "ports": {
+    "main": 4001,
+    "nodeApi": 4002
+  },
+  "dependencies": ["contracts", "config"],
+  "optional": false,
+  "enabled": true,
+  "autoStart": true,
+  "tags": ["protocol", "infrastructure", "paymaster", "nodes", "staking", "liquidity", "elizaOS", "multi-token"]
+}
+

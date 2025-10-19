@@ -52,7 +52,7 @@ if (typecheckResult.exitCode !== 0) {
 
 // Step 3: Build Indexer
 console.log("3️⃣  Building Indexer (Subsquid)...\n");
-const indexerResult = await $`cd indexer && npm run build`.nothrow();
+const indexerResult = await $`cd apps/indexer && npm run build`.nothrow();
 
 if (indexerResult.exitCode !== 0) {
   console.warn("⚠️  Indexer build failed (continuing)\n");
@@ -62,7 +62,7 @@ if (indexerResult.exitCode !== 0) {
 
 // Step 4: Build Node Explorer
 console.log("4️⃣  Building Node Explorer...\n");
-const explorerResult = await $`cd node-explorer && bun run build`.nothrow();
+const explorerResult = await $`cd apps/node-explorer && bun run build`.nothrow();
 
 if (explorerResult.exitCode !== 0) {
   console.warn("⚠️  Node Explorer build failed (continuing)\n");
@@ -72,7 +72,7 @@ if (explorerResult.exitCode !== 0) {
 
 // Step 5: Build Documentation
 console.log("5️⃣  Building Documentation (VitePress)...\n");
-const docsResult = await $`vitepress build documentation`.nothrow();
+const docsResult = await $`vitepress build apps/documentation`.nothrow();
 
 if (docsResult.exitCode !== 0) {
   console.warn("⚠️  Documentation build failed (continuing)\n");

@@ -1,0 +1,817 @@
+# Comprehensive Jeju Chain Schema
+# Auto-generates TypeScript entities and GraphQL API
+
+type Block @entity {
+  id: ID!
+  number: Int! @index
+  hash: String! @unique
+  parentHash: String!
+  timestamp: DateTime! @index
+  miner: String! @index
+  gasUsed: BigInt!
+  gasLimit: BigInt!
+  baseFeePerGas: BigInt
+  difficulty: BigInt
+  size: Int
+  transactions: [Transaction!]! @derivedFrom(field: "block")
+  logs: [Log!]! @derivedFrom(field: "block")
+  transactionCount: Int!
+}
+
+type Transaction @entity {
+  id: ID!
+  hash: String! @unique @index
+  block: Block!
+  transactionIndex: Int!
+  from: Account! @index
+  to: Account @index
+  value: BigInt!
+  gasPrice: BigInt
+  gasLimit: BigInt!
+  gasUsed: BigInt
+  input: String
+  nonce: Int!
+  status: TransactionStatus! @index
+  contractAddress: Contract
+  type: Int
+  maxFeePerGas: BigInt
+  maxPriorityFeePerGas: BigInt
+  logs: [Log!]! @derivedFrom(field: "transaction")
+  traces: [Trace!]! @derivedFrom(field: "transaction")
+  tokenTransfers: [TokenTransfer!]! @derivedFrom(field: "transaction")
+}
+
+enum TransactionStatus {
+  SUCCESS
+  FAILED
+}
+
+type Log @entity {
+  id: ID!
+  block: Block!
+  transaction: Transaction!
+  logIndex: Int!
+  address: Contract! @index
+  topic0: String @index
+  topic1: String @index
+  topic2: String @index
+  topic3: String @index
+  data: String
+  decodedEvent: DecodedEvent
+}
+
+type DecodedEvent @entity {
+  id: ID!
+  log: Log! @unique
+  block: Block!
+  transaction: Transaction!
+  address: Contract! @index
+  eventSignature: String! @index
+  eventName: String! @index
+  args: JSON!
+  timestamp: DateTime! @index
+}
+
+type Contract @entity {
+  id: ID!
+  address: String! @unique @index
+  creator: Account
+  creationTransaction: Transaction
+  creationBlock: Block
+  bytecode: String
+  contractType: ContractType
+  isERC20: Boolean!
+  isERC721: Boolean!
+  isERC1155: Boolean!
+  isProxy: Boolean!
+  implementationAddress: String
+  verified: Boolean!
+  firstSeenAt: DateTime! @index
+  lastSeenAt: DateTime! @index
+  logs: [Log!]! @derivedFrom(field: "address")
+  decodedEvents: [DecodedEvent!]! @derivedFrom(field: "address")
+}
+
+enum ContractType {
+  ERC20
+  ERC721
+  ERC1155
+  UNISWAP_V4_POOL
+  COMPOUND_V3_COMET
+  SYNTHETIX_V3_CORE
+  PROXY_EIP1967
+  MULTISIG
+  UNKNOWN
+}
+
+type Trace @entity {
+  id: ID!
+  transaction: Transaction!
+  traceAddress: [Int!]!
+  subtraces: Int!
+  traceType: TraceType! @index
+  callType: String
+  from: Account @index
+  to: Account @index
+  value: BigInt
+  gas: BigInt
+  gasUsed: BigInt
+  input: String
+  output: String
+  error: String
+  block: Block!
+}
+
+enum TraceType {
+  CALL
+  CREATE
+  SUICIDE
+  REWARD
+}
+
+type Account @entity {
+  id: ID!
+  address: String! @unique @index
+  isContract: Boolean! @index
+  contract: Contract
+  firstSeenBlock: Int! @index
+  lastSeenBlock: Int! @index
+  transactionCount: Int!
+  totalValueSent: BigInt!
+  totalValueReceived: BigInt!
+  labels: [String!]!
+  transactionsFrom: [Transaction!]! @derivedFrom(field: "from")
+  transactionsTo: [Transaction!]! @derivedFrom(field: "to")
+  tokenBalances: [TokenBalance!]! @derivedFrom(field: "account")
+  nftOwnerships: [NFTOwnership!]! @derivedFrom(field: "owner")
+}
+
+type TokenTransfer @entity {
+  id: ID!
+  block: Block!
+  transaction: Transaction!
+  logIndex: Int!
+  token: Contract! @index
+  tokenStandard: TokenStandard! @index
+  from: Account @index
+  to: Account @index
+  value: BigInt
+  tokenId: BigInt
+  operator: Account
+  timestamp: DateTime! @index
+}
+
+enum TokenStandard {
+  ERC20
+  ERC721
+  ERC1155
+}
+
+type TokenBalance @entity {
+  id: ID!
+  token: Contract! @index
+  account: Account! @index
+  balance: BigInt!
+  transferCount: Int!
+  lastUpdated: DateTime! @index
+}
+
+type NFTOwnership @entity {
+  id: ID!
+  token: Contract! @index
+  tokenId: BigInt! @index
+  owner: Account! @index
+  acquiredAtBlock: Int!
+  acquiredAt: DateTime!
+}
+
+type Relationship @entity {
+  id: ID!
+  fromEntityType: EntityType! @index
+  fromEntityId: String! @index
+  toEntityType: EntityType! @index
+  toEntityId: String! @index
+  relationshipType: String! @index
+  transaction: Transaction
+  block: Block!
+  weight: Int!
+  metadata: JSON
+  firstSeenAt: DateTime!
+  lastSeenAt: DateTime!
+}
+
+enum EntityType {
+  ADDRESS
+  CONTRACT
+  TOKEN
+  BLOCK
+  TRANSACTION
+}
+
+type DailyActivity @entity {
+  id: ID!
+  date: DateTime! @unique @index
+  transactionCount: Int!
+  uniqueSenders: Int!
+  uniqueReceivers: Int!
+  contractDeployments: Int!
+  totalValueTransferred: BigInt!
+  totalGasSpent: BigInt!
+  avgGasUsed: Float!
+  blockCount: Int!
+}
+
+type ContractInteraction @entity {
+  id: ID!
+  contract: Contract! @index
+  caller: Account! @index
+  interactionCount: Int!
+  totalValueSent: BigInt!
+  firstInteraction: DateTime!
+  lastInteraction: DateTime!
+  activeDays: Int!
+}
+
+type ProtocolActivity @entity {
+  id: ID!
+  protocol: Contract! @index
+  eventName: String! @index
+  date: DateTime! @index
+  eventCount: Int!
+  uniqueTransactions: Int!
+  activeHours: Int!
+}
+
+# ============ Hyperscape Economy Types ============
+
+type HyperscapeGoldClaim @entity {
+  id: ID!
+  player: Account! @index
+  amount: BigInt!
+  nonce: Int!
+  transaction: Transaction!
+  timestamp: DateTime! @index
+}
+
+type HyperscapeItem @entity {
+  id: ID!
+  tokenId: BigInt! @unique @index
+  contract: Contract! @index
+  owner: Account! @index
+  itemId: String! @index
+  instanceId: String! @unique @index
+  attack: Int!
+  defense: Int!
+  strength: Int!
+  rarity: Int! @index
+  mintedAt: DateTime! @index
+  mintTransaction: Transaction!
+  tokenURI: String
+  lastTransferAt: DateTime!
+  currentListing: MarketplaceListing
+  tradeHistory: [ItemTradeEvent!]! @derivedFrom(field: "item")
+}
+
+type MarketplaceListing @entity {
+  id: ID!
+  listingId: BigInt! @unique @index
+  marketplace: Contract! @index
+  seller: Account! @index
+  nftContract: Contract! @index
+  tokenId: BigInt! @index
+  item: HyperscapeItem @index
+  currency: MarketplaceCurrency! @index
+  price: BigInt!
+  listingType: MarketplaceListingType! @index
+  status: MarketplaceListingStatus! @index
+  createdAt: DateTime! @index
+  expiresAt: DateTime
+  soldAt: DateTime
+  cancelledAt: DateTime
+  buyer: Account
+  creationTransaction: Transaction!
+  saleTransaction: Transaction
+}
+
+enum MarketplaceCurrency {
+  ETH
+  HG
+  USDC
+}
+
+enum MarketplaceListingType {
+  DIRECT
+  AUCTION
+}
+
+enum MarketplaceListingStatus {
+  ACTIVE
+  SOLD
+  CANCELLED
+  EXPIRED
+}
+
+type PlayerTrade @entity {
+  id: ID!
+  tradeId: BigInt! @unique @index
+  escrow: Contract! @index
+  playerA: Account! @index
+  playerB: Account! @index
+  status: TradeStatus! @index
+  createdAt: DateTime! @index
+  completedAt: DateTime
+  cancelledAt: DateTime
+  itemsA: [TradeItemEntry!]! @derivedFrom(field: "tradeForPlayerA")
+  itemsB: [TradeItemEntry!]! @derivedFrom(field: "tradeForPlayerB")
+  events: [TradeEvent!]! @derivedFrom(field: "trade")
+}
+
+enum TradeStatus {
+  CREATED
+  DEPOSITED_A
+  DEPOSITED_B
+  DEPOSITED_BOTH
+  CONFIRMED_A
+  CONFIRMED_B
+  EXECUTED
+  CANCELLED
+  EXPIRED
+}
+
+type TradeItemEntry @entity {
+  id: ID!
+  tradeForPlayerA: PlayerTrade @index
+  tradeForPlayerB: PlayerTrade @index
+  tokenContract: Contract! @index
+  tokenId: BigInt
+  amount: BigInt
+  isERC20: Boolean!
+}
+
+type TradeEvent @entity {
+  id: ID!
+  trade: PlayerTrade! @index
+  eventType: TradeEventType! @index
+  player: Account! @index
+  transaction: Transaction!
+  timestamp: DateTime! @index
+}
+
+enum TradeEventType {
+  CREATED
+  DEPOSITED
+  CONFIRMED
+  EXECUTED
+  CANCELLED
+}
+
+type ItemTradeEvent @entity {
+  id: ID!
+  item: HyperscapeItem! @index
+  from: Account! @index
+  to: Account! @index
+  transaction: Transaction!
+  timestamp: DateTime! @index
+  tradeType: ItemTradeType! @index
+  trade: PlayerTrade
+  listing: MarketplaceListing
+}
+
+enum ItemTradeType {
+  MINT
+  BURN
+  TRANSFER
+  ESCROW_TRADE
+  MARKETPLACE_SALE
+}
+
+type HyperscapeGoldBalance @entity {
+  id: ID!
+  owner: Account! @unique @index
+  balance: BigInt!
+  totalClaimed: BigInt!
+  totalSpent: BigInt!
+  lastUpdate: DateTime! @index
+}
+
+type HyperscapeEconomyStats @entity {
+  id: ID!
+  date: DateTime! @unique @index
+  totalGoldClaimed: BigInt!
+  totalItemsMinted: BigInt!
+  totalItemsBurned: BigInt!
+  activeTrades: Int!
+  completedTrades: Int!
+  activeListings: Int!
+  completedSales: Int!
+  totalMarketplaceVolume: BigInt!
+  uniqueBuyers: Int!
+  uniqueSellers: Int!
+}
+
+
+# Bazaar Token Launchpad Schema Extension
+# Tracks tokens created through Bazaar and their trading activity
+
+type BazaarToken @entity {
+  id: ID!
+  contract: Contract! @unique @index
+  name: String!
+  symbol: String!
+  decimals: Int!
+  totalSupply: BigInt!
+  creator: Account! @index
+  createdAt: DateTime! @index
+  creationTransaction: Transaction!
+  creationBlock: Block!
+  
+  # Metadata
+  description: String
+  imageUrl: String
+  website: String
+  twitter: String
+  telegram: String
+  discord: String
+  
+  # Status
+  verified: Boolean! @index
+  scamWarning: Boolean!
+  
+  # Trading stats
+  bondingCurveEnabled: Boolean!
+  graduated: Boolean! @index
+  graduatedAt: DateTime
+  
+  # Metrics
+  marketCap: BigInt
+  priceUsd: Float
+  price24hChange: Float
+  volume24h: BigInt
+  holders: Int
+  totalTrades: Int
+  
+  # Relationships
+  trades: [BazaarTokenTrade!]! @derivedFrom(field: "token")
+  liquidityEvents: [BazaarLiquidityEvent!]! @derivedFrom(field: "token")
+}
+
+type BazaarTokenTrade @entity {
+  id: ID!
+  token: BazaarToken! @index
+  trader: Account! @index
+  isBuy: Boolean! @index
+  tokenAmount: BigInt!
+  ethAmount: BigInt!
+  pricePerToken: BigInt!
+  timestamp: DateTime! @index
+  transaction: Transaction!
+  block: Block!
+  bondingCurveReservesBefore: BigInt
+  bondingCurveReservesAfter: BigInt
+}
+
+type BazaarLiquidityEvent @entity {
+  id: ID!
+  token: BazaarToken! @index
+  eventType: LiquidityEventType! @index
+  liquidityProvider: Account! @index
+  tokenAmount: BigInt!
+  ethAmount: BigInt!
+  liquidity: BigInt!
+  timestamp: DateTime! @index
+  transaction: Transaction!
+  block: Block!
+}
+
+enum LiquidityEventType {
+  ADD
+  REMOVE
+  GRADUATION
+}
+
+type BazaarTokenStats @entity {
+  id: ID!
+  date: DateTime! @unique @index
+  totalTokensCreated: Int!
+  totalGraduated: Int!
+  totalVolume: BigInt!
+  uniqueTraders: Int!
+  totalTrades: Int!
+  avgTokenAge: Int!
+}
+
+
+
+# JejuMarket Prediction Markets Schema Extension
+# Add this to the main schema.graphql
+
+type PredictionMarket @entity {
+  id: ID!                              # Oracle session ID
+  sessionId: String! @unique @index
+  question: String!
+  liquidityB: BigInt!
+  yesShares: BigInt!
+  noShares: BigInt!
+  totalVolume: BigInt!
+  createdAt: DateTime! @index
+  resolvedAt: DateTime
+  outcome: Boolean
+  resolved: Boolean! @index
+  creator: Account
+  creationTransaction: Transaction
+  trades: [MarketTrade!]! @derivedFrom(field: "market")
+  positions: [MarketPosition!]! @derivedFrom(field: "market")
+}
+
+type MarketTrade @entity {
+  id: ID!
+  market: PredictionMarket! @index
+  trader: Account! @index
+  outcome: Boolean!                    # true=YES, false=NO
+  isBuy: Boolean!                      # true=buy, false=sell
+  shares: BigInt!
+  cost: BigInt!                        # Tokens spent (buy) or received (sell)
+  priceAfter: BigInt!                  # Price after trade (18 decimals)
+  timestamp: DateTime! @index
+  transaction: Transaction!
+  block: Block!
+}
+
+type MarketPosition @entity {
+  id: ID!                              # market-trader
+  market: PredictionMarket! @index
+  trader: Account! @index
+  yesShares: BigInt!
+  noShares: BigInt!
+  totalSpent: BigInt!
+  totalReceived: BigInt!
+  hasClaimed: Boolean!
+  lastUpdated: DateTime!
+}
+
+type OracleGame @entity {
+  id: ID!                              # Oracle session ID
+  sessionId: String! @unique @index
+  question: String!
+  commitment: String!
+  committedAt: DateTime! @index
+  revealedAt: DateTime
+  outcome: Boolean
+  finalized: Boolean! @index
+  teeQuote: String
+  winners: [String!]!
+  totalPayout: BigInt
+  market: PredictionMarket
+  commitTransaction: Transaction!
+  revealTransaction: Transaction
+  block: Block!
+}
+
+type MarketStats @entity {
+  id: ID!                              # "daily-YYYY-MM-DD" or "market-{sessionId}"
+  date: DateTime! @index
+  marketCount: Int!
+  totalVolume: BigInt!
+  uniqueTraders: Int!
+  tradeCount: Int!
+  avgLiquidity: BigInt!
+  resolvedMarkets: Int!
+}
+
+# Prediction Markets Schema
+# Indexes events from GameFeedOracle and HyperscapeOracle contracts
+
+type GameFeedPost @entity {
+  id: ID!
+  sessionId: String! @index
+  postId: String! @index
+  author: String! @index
+  content: String!
+  gameDay: Int!
+  timestamp: DateTime!
+  isSystemMessage: Boolean!
+  blockNumber: BigInt!
+  transactionHash: String!
+}
+
+type GameMarketUpdate @entity {
+  id: ID!
+  sessionId: String! @index
+  yesOdds: Int!
+  noOdds: Int!
+  totalVolume: BigInt!
+  gameDay: Int!
+  timestamp: DateTime!
+  blockNumber: BigInt!
+  transactionHash: String!
+}
+
+type GamePhaseChange @entity {
+  id: ID!
+  sessionId: String! @index
+  phase: String!
+  day: Int!
+  timestamp: DateTime!
+  blockNumber: BigInt!
+  transactionHash: String!
+}
+
+type PlayerSkillEvent @entity {
+  id: ID!
+  player: String! @index
+  skillName: String! @index
+  newLevel: Int!
+  totalXp: BigInt!
+  timestamp: DateTime!
+  blockNumber: BigInt!
+  transactionHash: String!
+}
+
+type PlayerDeathEvent @entity {
+  id: ID!
+  player: String! @index
+  killer: String @index
+  location: String!
+  timestamp: DateTime!
+  blockNumber: BigInt!
+  transactionHash: String!
+}
+
+type PlayerKillEvent @entity {
+  id: ID!
+  killer: String! @index
+  victim: String! @index
+  method: String!
+  timestamp: DateTime!
+  blockNumber: BigInt!
+  transactionHash: String!
+}
+
+type PlayerAchievement @entity {
+  id: ID!
+  player: String! @index
+  achievementId: String! @index
+  achievementType: String!
+  value: BigInt!
+  timestamp: DateTime!
+  blockNumber: BigInt!
+  transactionHash: String!
+}
+
+# Aggregated player statistics
+type PlayerStats @entity {
+  id: ID!  # player address
+  player: String! @unique @index
+  totalSkillEvents: Int!
+  totalDeaths: Int!
+  totalKills: Int!
+  totalAchievements: Int!
+  highestSkillLevel: Int!
+  highestSkillName: String
+  lastActive: DateTime!
+}
+
+# Note: Hyperscape prediction markets use the main PredictionMarket entity
+# from schema-markets.graphql, linked via sessionId field
+
+# Node Staking Indexer Schema
+# V2 Feature: GraphQL API for historical node staking data
+
+type NodeStake @entity {
+  id: ID! # nodeId (bytes32)
+  nodeId: Bytes!
+  operator: Bytes!
+  
+  # Staking details
+  stakedToken: Bytes!
+  stakedAmount: BigInt!
+  stakedValueUSD: BigInt!
+  
+  # Reward details
+  rewardToken: Bytes!
+  totalRewardsClaimed: BigInt!
+  lastClaimTime: BigInt!
+  
+  # Infrastructure
+  rpcUrl: String!
+  geographicRegion: Int!
+  
+  # Status
+  registrationTime: BigInt!
+  isActive: Boolean!
+  isSlashed: Boolean!
+  
+  # Relations
+  performanceUpdates: [PerformanceUpdate!] @derivedFrom(field: "node")
+  rewardClaims: [RewardClaim!] @derivedFrom(field: "node")
+  
+  # Computed (from latest performance update)
+  currentUptimeScore: BigInt
+  currentRequestsServed: BigInt
+  currentAvgResponseTime: BigInt
+}
+
+type PerformanceUpdate @entity {
+  id: ID!
+  node: NodeStake!
+  
+  uptimeScore: BigInt!
+  requestsServed: BigInt!
+  avgResponseTime: BigInt!
+  
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+type RewardClaim @entity {
+  id: ID!
+  node: NodeStake!
+  
+  operator: Bytes!
+  rewardToken: Bytes!
+  rewardAmount: BigInt!
+  paymasterFeesETH: BigInt!
+  
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+type OperatorStats @entity {
+  id: ID! # operator address
+  operator: Bytes!
+  
+  totalNodesActive: Int!
+  totalStakedUSD: BigInt!
+  lifetimeRewardsUSD: BigInt!
+  
+
+
+}
+
+type TokenDistribution @entity {
+  id: ID! # token address
+  token: Bytes!
+  
+  totalStaked: BigInt!
+  totalStakedUSD: BigInt!
+  nodeCount: Int!
+  percentageOfNetwork: BigInt!
+  
+
+}
+
+type NetworkSnapshot @entity {
+  id: ID! # timestamp
+  timestamp: BigInt!
+  
+  totalNodesActive: Int!
+  totalStakedUSD: BigInt!
+  totalRewardsClaimedUSD: BigInt!
+  
+  # Token distribution snapshot
+  elizaOSPercentage: BigInt!
+  clankerPercentage: BigInt!
+  virtualPercentage: BigInt!
+  clankermonPercentage: BigInt!
+}
+
+# V2: Governance proposals (futarchy)
+type GovernanceProposal @entity {
+  id: ID! # proposalId
+  proposalId: Bytes!
+  
+  parameter: String!
+  currentValue: BigInt!
+  proposedValue: BigInt!
+  
+  changeMarketId: Bytes!
+  statusQuoMarketId: Bytes!
+  
+  createdAt: BigInt!
+  votingEnds: BigInt!
+  executeAfter: BigInt!
+  
+  executed: Boolean!
+  vetoed: Boolean!
+  proposer: Bytes!
+  
+  # Relations
+  events: [GovernanceEvent!] @derivedFrom(field: "proposal")
+}
+
+type GovernanceEvent @entity {
+  id: ID!
+  proposal: GovernanceProposal!
+  
+  eventType: String! # "created", "executed", "rejected", "vetoed"
+  actor: Bytes
+  reason: String
+  
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+

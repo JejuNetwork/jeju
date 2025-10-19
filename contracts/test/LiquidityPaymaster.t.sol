@@ -3,7 +3,7 @@ pragma solidity ^0.8.26;
 
 import "forge-std/Test.sol";
 import {LiquidityPaymaster} from "../src/paymaster/LiquidityPaymaster.sol";
-import {elizaOSToken} from "../src/token/elizaOSToken.sol";
+import {ElizaOSToken} from "../src/tokens/ElizaOSToken.sol";
 import {LiquidityVault} from "../src/liquidity/LiquidityVault.sol";
 import {FeeDistributor} from "../src/distributor/FeeDistributor.sol";
 import {ManualPriceOracle} from "../src/oracle/ManualPriceOracle.sol";
@@ -16,7 +16,7 @@ import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint
  */
 contract LiquidityPaymasterTest is Test {
     LiquidityPaymaster public paymaster;
-    elizaOSToken public eliza;
+    ElizaOSToken public paymentToken;
     LiquidityVault public vault;
     FeeDistributor public distributor;
     ManualPriceOracle public oracle;
@@ -28,19 +28,19 @@ contract LiquidityPaymasterTest is Test {
     address public attacker = address(0x666);
     
     uint256 constant INITIAL_ETH_PRICE = 300000000000; // $3,000
-    uint256 constant INITIAL_ELIZA_PRICE = 10000000;   // $0.10
+    uint256 constant INITIAL_TOKEN_PRICE = 10000000;   // $0.10
     
     function setUp() public {
         // Deploy all contracts
         entryPoint = new MockEntryPoint();
-        eliza = new elizaOSToken(owner);
-        oracle = new ManualPriceOracle(INITIAL_ETH_PRICE, INITIAL_ELIZA_PRICE, owner);
-        vault = new LiquidityVault(address(eliza), owner);
-        distributor = new FeeDistributor(address(eliza), address(vault), owner);
+        paymentToken = new ElizaOSToken(owner);
+        oracle = new ManualPriceOracle(INITIAL_ETH_PRICE, INITIAL_TOKEN_PRICE, owner);
+        vault = new LiquidityVault(address(paymentToken), owner);
+        distributor = new FeeDistributor(address(paymentToken), address(vault), owner);
         
         paymaster = new LiquidityPaymaster(
             IEntryPoint(address(entryPoint)),
-            address(eliza),
+            address(paymentToken),
             address(vault),
             address(distributor),
             address(oracle)
@@ -53,7 +53,7 @@ contract LiquidityPaymasterTest is Test {
         
         // Fund vault
         vm.deal(owner, 100 ether);
-        vault.addETHLiquidity{value: 20 ether}();
+        vault.addETHLiquidity{value: 20 ether}(0); // minShares = 0 (accept any amount)
     }
     
     // ============ Constructor Tests - MUST verify EXACT setup ============
@@ -73,10 +73,10 @@ contract LiquidityPaymasterTest is Test {
     }
     
     function testConstructor_RevertsOnZeroAddresses() public {
-        vm.expectRevert("Invalid elizaOS");
+        vm.expectRevert("Invalid payment token");
         new LiquidityPaymaster(
             IEntryPoint(address(entryPoint)),
-            address(0), // Zero elizaOS
+            address(0), // Zero payment token
             address(vault),
             address(distributor),
             address(oracle)
@@ -85,7 +85,7 @@ contract LiquidityPaymasterTest is Test {
         vm.expectRevert("Invalid vault");
         new LiquidityPaymaster(
             IEntryPoint(address(entryPoint)),
-            address(eliza),
+            address(paymentToken),
             address(0), // Zero vault
             address(distributor),
             address(oracle)
@@ -97,10 +97,10 @@ contract LiquidityPaymasterTest is Test {
     function testCalculateElizaOSAmount_WithDefaultMargin() public view {
         uint256 gasCost = 0.001 ether; // 0.001 ETH
         
-        // At $3000 ETH and $0.10 elizaOS:
-        // 1 ETH = 30,000 elizaOS
-        // 0.001 ETH = 30 elizaOS
-        // +10% margin = 33 elizaOS
+        // At $3000 ETH and $0.10 token:
+        // 1 ETH = 30,000 tokens
+        // 0.001 ETH = 30 tokens
+        // +10% margin = 33 tokens
         uint256 expected = 33e18;
         
         uint256 actual = paymaster.calculateElizaOSAmount(gasCost);
@@ -109,15 +109,15 @@ contract LiquidityPaymasterTest is Test {
     }
     
     function testCalculateElizaOSAmount_WithDifferentPrices() public {
-        // Update prices within deviation limit: ETH=$2000, elizaOS=$0.11 (10% change)
+        // Update prices within deviation limit: ETH=$2000, token=$0.11 (10% change)
         oracle.updatePrices(200000000000, 11000000);
         
         uint256 gasCost = 0.001 ether;
         
-        // At $2000 ETH and $0.11 elizaOS:
-        // 1 ETH = ~18,181.818... elizaOS
-        // 0.001 ETH = ~18.182 elizaOS
-        // +10% margin = ~19.999... elizaOS
+        // At $2000 ETH and $0.11 token:
+        // 1 ETH = ~18,181.818... tokens
+        // 0.001 ETH = ~18.182 tokens
+        // +10% margin = ~19.999... tokens
         uint256 expected = 19999999999999999999; // Exact calculated value
         
         uint256 actual = paymaster.calculateElizaOSAmount(gasCost);
@@ -201,9 +201,9 @@ contract LiquidityPaymasterTest is Test {
         uint256 gasPrice = 10 gwei;
         
         // Gas cost = 100000 * 10 gwei = 0.001 ETH
-        // At $3000 ETH and $0.10 elizaOS = 30,000 elizaOS/ETH
-        // 0.001 ETH = 30 elizaOS
-        // +10% margin = 33 elizaOS
+        // At $3000 ETH and $0.10 token = 30,000 tokens/ETH
+        // 0.001 ETH = 30 tokens
+        // +10% margin = 33 tokens
         uint256 expected = 33e18;
         
         uint256 actual = paymaster.previewCost(estimatedGas, gasPrice);
@@ -219,26 +219,26 @@ contract LiquidityPaymasterTest is Test {
         vm.expectEmit(true, true, true, true);
         emit FeeMarginUpdated(1000, newMargin);
         
-        paymaster.setFeeMargin(newMargin);
+        paymaster.emergencySetFeeMargin(newMargin);
         
         assertEq(paymaster.feeMargin(), newMargin); // MUST be exact
     }
     
     function testSetFeeMargin_RevertsIfTooHigh() public {
         vm.expectRevert("Margin too high");
-        paymaster.setFeeMargin(2001); // >20% not allowed
+        paymaster.emergencySetFeeMargin(2001); // >20% not allowed
     }
     
     function testSetFeeMargin_RevertsIfNotOwner() public {
         vm.prank(attacker);
         vm.expectRevert(); // Ownable: caller is not the owner
-        paymaster.setFeeMargin(1500);
+        paymaster.emergencySetFeeMargin(1500);
     }
     
     // ============ setPriceOracle - MUST update correctly ============
     
     function testSetPriceOracle_UpdatesAddress() public {
-        ManualPriceOracle newOracle = new ManualPriceOracle(INITIAL_ETH_PRICE, INITIAL_ELIZA_PRICE, owner);
+        ManualPriceOracle newOracle = new ManualPriceOracle(INITIAL_ETH_PRICE, INITIAL_TOKEN_PRICE, owner);
         
         vm.expectEmit(true, false, false, false);
         emit PriceOracleUpdated(address(newOracle));
@@ -407,10 +407,10 @@ contract LiquidityPaymasterTest is Test {
     // ============ Edge Cases - MUST handle correctly ============
     
     function testCalculateElizaOSAmount_WithZeroMargin() public {
-        paymaster.setFeeMargin(0); // No margin
+        paymaster.emergencySetFeeMargin(0); // No margin
         
         uint256 gasCost = 0.001 ether;
-        // 0.001 ETH = 30 elizaOS, no margin = 30 elizaOS
+        // 0.001 ETH = 30 tokens, no margin = 30 tokens
         uint256 expected = 30e18;
         
         uint256 actual = paymaster.calculateElizaOSAmount(gasCost);
@@ -419,10 +419,10 @@ contract LiquidityPaymasterTest is Test {
     }
     
     function testCalculateElizaOSAmount_WithMaxMargin() public {
-        paymaster.setFeeMargin(2000); // 20% max margin
+        paymaster.emergencySetFeeMargin(2000); // 20% max margin
         
         uint256 gasCost = 0.001 ether;
-        // 0.001 ETH = 30 elizaOS, +20% margin = 36 elizaOS
+        // 0.001 ETH = 30 tokens, +20% margin = 36 tokens
         uint256 expected = 36e18;
         
         uint256 actual = paymaster.calculateElizaOSAmount(gasCost);

@@ -1,0 +1,16 @@
+{
+  "name": "@jeju/documentation",
+  "version": "1.0.0",
+  "description": "Jeju documentation site powered by VitePress",
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev --port ${DOCUMENTATION_PORT:-4004}",
+    "build": "vitepress build",
+    "preview": "vitepress preview --port ${DOCUMENTATION_PORT:-4004}"
+  },
+  "devDependencies": {
+    "vitepress": "^1.0.0"
+  }
+}
+
+

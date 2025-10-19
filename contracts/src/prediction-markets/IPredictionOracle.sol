@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 /**
  * @title IPredictionOracle
  * @notice Generic interface for prediction game oracles
- * @dev External contracts (like JejuMarket) use this interface to query game outcomes
+ * @dev External contracts (like Predimarket) use this interface to query game outcomes
  * 
  * This allows ANY prediction market contract to trustlessly access game results
  * without needing to know the game's internal logic.
@@ -36,9 +36,9 @@ interface IPredictionOracle {
 
 /**
  * @notice Example external betting contract using IPredictionOracle
- * @dev This shows how JejuMarket or any other contract can bet on Caliguland games
+ * @dev This shows how Predimarket or any other contract can bet on Caliguland games
  */
-contract ExampleBettingContract {
+contract ExamplePredictionContract {
     IPredictionOracle public oracle;
 
     struct Bet {

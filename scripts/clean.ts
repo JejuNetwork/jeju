@@ -44,12 +44,12 @@ console.log("2️⃣  Removing Build Artifacts...");
 const pathsToClean = [
   "contracts/out",
   "contracts/cache",
-  "indexer/lib",
-  "indexer/.sqd",
-  "node-explorer/dist",
-  "node-explorer/.next",
-  "documentation/.vitepress/dist",
-  "documentation/.vitepress/cache",
+  "apps/indexer/lib",
+  "apps/indexer/.sqd",
+  "apps/node-explorer/dist",
+  "apps/node-explorer/.next",
+  "apps/documentation/.vitepress/dist",
+  "apps/documentation/.vitepress/cache",
   ".cache",
   "dist",
 ];
@@ -75,8 +75,8 @@ if (deepClean) {
   
   const nodeModulesPaths = [
     "node_modules",
-    "indexer/node_modules",
-    "node-explorer/node_modules",
+    "apps/indexer/node_modules",
+    "apps/node-explorer/node_modules",
   ];
   
   let cleanedModules = 0;

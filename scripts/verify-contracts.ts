@@ -147,10 +147,11 @@ function getContractPath(name: string): string | null {
     'liquidityVault': 'src/liquidity/LiquidityVault.sol:LiquidityVault',
     'feeDistributor': 'src/distributor/FeeDistributor.sol:FeeDistributor',
     
-    // Rewards system
-    'rewardsContract': 'src/node-rewards/NodeOperatorRewards.sol:NodeOperatorRewards',
-    'jejuToken': 'src/token/elizaOSToken.sol:elizaOSToken',
-    'elizaOSToken': 'src/token/elizaOSToken.sol:elizaOSToken',
+    // Node staking system (multi-token)
+    'nodeStakingManager': 'src/node-staking/NodeStakingManager.sol:NodeStakingManager',
+    'rewardsContract': 'src/node-staking/NodeStakingManager.sol:NodeStakingManager', // Legacy alias
+    'jejuToken': 'src/token/ElizaOSToken.sol:ElizaOSToken',
+    'ElizaOSToken': 'src/token/ElizaOSToken.sol:ElizaOSToken',
     
     // Oracle
     'crossChainRelay': 'src/oracle/CrossChainPriceRelay.sol:CrossChainPriceRelay',

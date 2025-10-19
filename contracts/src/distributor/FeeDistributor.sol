@@ -41,8 +41,8 @@ interface ILiquidityVault {
 contract FeeDistributor is ReentrancyGuard, Ownable {
     // ============ State Variables ============
     
-    /// @notice elizaOS token contract
-    IERC20 public immutable elizaOS;
+    /// @notice Reward token contract (used for fee payments)
+    IERC20 public immutable rewardToken;
     
     /// @notice Liquidity vault that receives LP portion of fees
     ILiquidityVault public immutable liquidityVault;
@@ -59,11 +59,11 @@ contract FeeDistributor is ReentrancyGuard, Ownable {
     uint256 public constant LP_SHARE = 5000;
     
     /// @notice ETH LP share of LP portion (70% = 7000 basis points)
-    /// @dev Higher than elizaOS LPs because they provide riskier asset (ETH)
+    /// @dev Higher than token LPs because they provide riskier asset (ETH)
     uint256 public constant ETH_LP_SHARE = 7000;
     
-    /// @notice elizaOS LP share of LP portion (30% = 3000 basis points)
-    uint256 public constant ELIZA_LP_SHARE = 3000;
+    /// @notice Token LP share of LP portion (30% = 3000 basis points)
+    uint256 public constant TOKEN_LP_SHARE = 3000;
     
     // ============ Accounting ============
     
@@ -104,20 +104,20 @@ contract FeeDistributor is ReentrancyGuard, Ownable {
     
     /**
      * @notice Constructs the FeeDistributor with required dependencies
-     * @param _elizaOS Address of the elizaOS token contract
+     * @param _rewardToken Address of the reward token contract
      * @param _liquidityVault Address of the liquidity vault contract
      * @param initialOwner Address that will own the contract
      * @dev Validates addresses are non-zero before setting immutable variables
      */
     constructor(
-        address _elizaOS,
+        address _rewardToken,
         address _liquidityVault,
         address initialOwner
     ) Ownable(initialOwner) {
-        if (_elizaOS == address(0)) revert InvalidAddress();
+        if (_rewardToken == address(0)) revert InvalidAddress();
         if (_liquidityVault == address(0)) revert InvalidAddress();
         
-        elizaOS = IERC20(_elizaOS);
+        rewardToken = IERC20(_rewardToken);
         liquidityVault = ILiquidityVault(_liquidityVault);
     }
     
@@ -125,7 +125,7 @@ contract FeeDistributor is ReentrancyGuard, Ownable {
     
     /**
      * @notice Distribute transaction fees between app and liquidity providers
-     * @param amount Total elizaOS tokens collected from user as fees
+     * @param amount Total reward tokens collected from user as fees
      * @param appAddress Wallet address that will receive the app's share
      * @dev Only callable by authorized paymaster contract after a transaction.
      * 
@@ -133,13 +133,13 @@ contract FeeDistributor is ReentrancyGuard, Ownable {
      * 1. Transfer tokens from paymaster to this contract
      * 2. Calculate 50/50 split: appAmount and lpAmount
      * 3. Credit app's share to their claimable earnings
-     * 4. Split LP portion: 70% ETH LPs, 30% elizaOS LPs
+     * 4. Split LP portion: 70% ETH LPs, 30% token LPs
      * 5. Transfer LP portion to vault for per-share distribution
      * 
-     * Example: 100 elizaOS total fees:
-     * - App gets: 50 elizaOS (claimable)
-     * - ETH LPs get: 35 elizaOS (70% of 50)
-     * - elizaOS LPs get: 15 elizaOS (30% of 50)
+     * Example: 100 tokens total fees:
+     * - App gets: 50 tokens (claimable)
+     * - ETH LPs get: 35 tokens (70% of 50)
+     * - Token LPs get: 15 tokens (30% of 50)
      * 
      * @custom:security Only paymaster can call to prevent unauthorized distributions
      * @custom:security Requires paymaster to approve this contract first
@@ -153,7 +153,7 @@ contract FeeDistributor is ReentrancyGuard, Ownable {
         if (appAddress == address(0)) revert InvalidAddress();
         
         // Transfer tokens from paymaster to this contract
-        bool received = elizaOS.transferFrom(msg.sender, address(this), amount);
+        bool received = rewardToken.transferFrom(msg.sender, address(this), amount);
         if (!received) revert TransferFailed();
         
         // Calculate splits
@@ -164,16 +164,16 @@ contract FeeDistributor is ReentrancyGuard, Ownable {
         appEarnings[appAddress] += appAmount;
         totalAppEarnings += appAmount;
         
-        // Split LP portion between ETH and elizaOS LPs
+        // Split LP portion between ETH and token LPs
         uint256 ethLPAmount = (lpAmount * ETH_LP_SHARE) / 10000;
-        uint256 elizaLPAmount = lpAmount - ethLPAmount;
+        uint256 tokenLPAmount = lpAmount - ethLPAmount;
         totalLPEarnings += lpAmount;
         
         // Approve liquidity vault to pull LP rewards
-        require(elizaOS.approve(address(liquidityVault), lpAmount), "Approval failed");
+        require(rewardToken.approve(address(liquidityVault), lpAmount), "Approval failed");
         
         // Send to liquidity vault for distribution to LPs
-        liquidityVault.distributeFees(ethLPAmount, elizaLPAmount);
+        liquidityVault.distributeFees(ethLPAmount, tokenLPAmount);
         
         totalDistributed += amount;
         
@@ -182,14 +182,14 @@ contract FeeDistributor is ReentrancyGuard, Ownable {
             appAmount, 
             lpAmount, 
             ethLPAmount, 
-            elizaLPAmount, 
+            tokenLPAmount, 
             block.timestamp
         );
     }
     
     /**
      * @notice Claim accumulated earnings to caller's address
-     * @dev Transfers all claimable elizaOS tokens to msg.sender.
+     * @dev Transfers all claimable reward tokens to msg.sender.
      *      Reverts if no earnings available. Protected against reentrancy.
      * 
      * @custom:security Pull pattern (not push) prevents griefing attacks
@@ -200,7 +200,7 @@ contract FeeDistributor is ReentrancyGuard, Ownable {
         
         appEarnings[msg.sender] = 0;
         
-        bool sent = elizaOS.transfer(msg.sender, amount);
+        bool sent = rewardToken.transfer(msg.sender, amount);
         if (!sent) revert TransferFailed();
         
         emit AppClaimed(msg.sender, amount);
@@ -222,7 +222,7 @@ contract FeeDistributor is ReentrancyGuard, Ownable {
         
         appEarnings[msg.sender] = 0;
         
-        bool sent = elizaOS.transfer(recipient, amount);
+        bool sent = rewardToken.transfer(recipient, amount);
         if (!sent) revert TransferFailed();
         
         emit AppClaimed(msg.sender, amount);
@@ -233,7 +233,7 @@ contract FeeDistributor is ReentrancyGuard, Ownable {
     /**
      * @notice Get claimable earnings for an app address
      * @param app Address of the application
-     * @return Amount of elizaOS tokens available to claim
+     * @return Amount of reward tokens available to claim
      * @dev Convenience function for frontends to display earnings
      */
     function getEarnings(address app) external view returns (uint256) {
@@ -245,18 +245,18 @@ contract FeeDistributor is ReentrancyGuard, Ownable {
      * @param amount Total fee amount to simulate distribution for
      * @return appAmount Amount that would go to the app (50%)
      * @return ethLPAmount Amount that would go to ETH LPs (35%)
-     * @return elizaLPAmount Amount that would go to elizaOS LPs (15%)
+     * @return tokenLPAmount Amount that would go to token LPs (15%)
      * @dev Pure function useful for frontends to show expected distributions
      */
     function previewDistribution(uint256 amount) external pure returns (
         uint256 appAmount,
         uint256 ethLPAmount,
-        uint256 elizaLPAmount
+        uint256 tokenLPAmount
     ) {
         appAmount = (amount * APP_SHARE) / 10000;
         uint256 lpAmount = amount - appAmount;
         ethLPAmount = (lpAmount * ETH_LP_SHARE) / 10000;
-        elizaLPAmount = lpAmount - ethLPAmount;
+        tokenLPAmount = lpAmount - ethLPAmount;
     }
     
     /**
@@ -279,7 +279,7 @@ contract FeeDistributor is ReentrancyGuard, Ownable {
         
         // Sum all pending app claims
         // Note: This is gas-intensive, use off-chain for large-scale
-        pendingAppClaims = elizaOS.balanceOf(address(this));
+        pendingAppClaims = rewardToken.balanceOf(address(this));
     }
     
     // ============ Admin Functions ============

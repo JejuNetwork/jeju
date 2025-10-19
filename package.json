@@ -5,13 +5,23 @@
   "type": "module",
   "scripts": {
     "postinstall": "bun run scripts/setup-apps.ts || echo 'Setup apps completed with warnings'",
-    "dev": "bun run scripts/dev.ts",
+    "preflight": "bun run scripts/preflight-check.ts",
+    "dev": "bun run scripts/preflight-check.ts && bun run scripts/dev.ts",
+    "dev:skip-check": "bun run scripts/dev.ts",
+    "dev:vendor": "bun run scripts/dev-with-vendor.ts",
+    "apps:list": "bun run scripts/list-apps.ts",
+    "apps:validate": "bun run scripts/validate-manifests.ts",
+    "vendor:list": "bun run scripts/list-apps.ts",
+    "wallet": "bun run scripts/show-wallet-config.ts",
+    "ports": "bun run scripts/check-ports.ts",
+    "cleanup": "bun run scripts/cleanup-processes.ts",
     "build": "bun run scripts/build.ts",
     "test": "bun run scripts/test.ts",
     "clean": "bun run scripts/clean.ts",
     "start": "bun run scripts/start.ts",
     "deploy:testnet": "bun run scripts/deploy.ts --network testnet",
-    "deploy:mainnet": "bun run scripts/deploy.ts --network mainnet"
+    "deploy:mainnet": "bun run scripts/deploy.ts --network mainnet",
+    "deploy:cloud": "bun run scripts/deploy-cloud-integration.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.911.0",

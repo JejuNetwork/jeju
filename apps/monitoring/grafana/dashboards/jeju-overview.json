@@ -1,0 +1,780 @@
+{
+  "uid": "jeju-overview",
+  "title": "Jeju - Complete Overview",
+  "tags": [
+    "overview",
+    "jeju",
+    "summary"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "editable": true,
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "System Health",
+      "type": "stat",
+      "gridPos": {
+        "h": 3,
+        "w": 3,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "up{job='op-node'}",
+          "legendFormat": "Node Status"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "value": "1",
+              "text": "Healthy"
+            },
+            {
+              "value": "0",
+              "text": "Down"
+            }
+          ],
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "red"
+              },
+              {
+                "value": 1,
+                "color": "green"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Latest Block",
+      "type": "stat",
+      "gridPos": {
+        "h": 3,
+        "w": 3,
+        "x": 3,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT MAX(number) as block FROM block",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "blue"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Total Transactions",
+      "type": "stat",
+      "gridPos": {
+        "h": 3,
+        "w": 3,
+        "x": 6,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM transaction",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "purple"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Total Accounts",
+      "type": "stat",
+      "gridPos": {
+        "h": 3,
+        "w": 3,
+        "x": 9,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM account",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "orange"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Total Contracts",
+      "type": "stat",
+      "gridPos": {
+        "h": 3,
+        "w": 3,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM contract",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "yellow"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Total Events",
+      "type": "stat",
+      "gridPos": {
+        "h": 3,
+        "w": 3,
+        "x": 15,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM decoded_event",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "red"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Prediction Markets",
+      "type": "stat",
+      "gridPos": {
+        "h": 3,
+        "w": 3,
+        "x": 18,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM prediction_market",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "green"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "Token Transfers",
+      "type": "stat",
+      "gridPos": {
+        "h": 3,
+        "w": 3,
+        "x": 21,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM token_transfer",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "blue"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "Chain Activity - Last 24 Hours",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 3
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  DATE_TRUNC('hour', b.timestamp) as time,\n  COUNT(DISTINCT t.hash) as \"Transactions\"\nFROM transaction t\nJOIN block b ON t.block_id = b.id\nWHERE b.timestamp > NOW() - INTERVAL '24 hours'\nGROUP BY time\nORDER BY time",
+          "format": "time_series",
+          "refId": "A"
+        },
+        {
+          "rawSql": "SELECT \n  DATE_TRUNC('hour', timestamp) as time,\n  COUNT(*) as \"Blocks\"\nFROM block\nWHERE timestamp > NOW() - INTERVAL '24 hours'\nGROUP BY time\nORDER BY time",
+          "format": "time_series",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      }
+    },
+    {
+      "id": 10,
+      "title": "Block Production & Gas Usage",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 3
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  DATE_TRUNC('hour', timestamp) as time,\n  AVG(gas_used) as \"Avg Gas Used\"\nFROM block\nWHERE timestamp > NOW() - INTERVAL '24 hours'\nGROUP BY time\nORDER BY time",
+          "format": "time_series",
+          "refId": "A"
+        },
+        {
+          "rawSql": "SELECT \n  DATE_TRUNC('hour', timestamp) as time,\n  AVG(transaction_count) as \"Avg Tx per Block\"\nFROM block\nWHERE timestamp > NOW() - INTERVAL '24 hours'\nGROUP BY time\nORDER BY time",
+          "format": "time_series",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      }
+    },
+    {
+      "id": 11,
+      "title": "Top Event Types (24h)",
+      "type": "piechart",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 11
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  event_name as metric,\n  COUNT(*) as value\nFROM decoded_event de\nWHERE timestamp > NOW() - INTERVAL '24 hours'\nGROUP BY event_name\nORDER BY value DESC\nLIMIT 10",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "pieType": "donut",
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value",
+            "percent"
+          ]
+        }
+      }
+    },
+    {
+      "id": 12,
+      "title": "Contract Activity Distribution",
+      "type": "piechart",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 11
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  COALESCE(contract_type, 'UNKNOWN') as metric,\n  COUNT(*) as value\nFROM contract\nWHERE last_seen_at > NOW() - INTERVAL '24 hours'\nGROUP BY contract_type\nORDER BY value DESC",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "pieType": "donut",
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value",
+            "percent"
+          ]
+        }
+      }
+    },
+    {
+      "id": 13,
+      "title": "Token Standard Activity",
+      "type": "piechart",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 11
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  token_standard as metric,\n  COUNT(*) as value\nFROM token_transfer\nWHERE timestamp > NOW() - INTERVAL '24 hours'\nGROUP BY token_standard",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "pieType": "donut",
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value",
+            "percent"
+          ]
+        }
+      }
+    },
+    {
+      "id": 14,
+      "title": "Prediction Markets Activity",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 19
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  DATE_TRUNC('hour', mt.timestamp) as time,\n  COUNT(*) as \"Trades\"\nFROM market_trade mt\nWHERE $__timeFilter(mt.timestamp)\nGROUP BY time\nORDER BY time",
+          "format": "time_series",
+          "refId": "A"
+        },
+        {
+          "rawSql": "SELECT \n  DATE_TRUNC('hour', created_at) as time,\n  COUNT(*) as \"New Markets\"\nFROM prediction_market\nWHERE $__timeFilter(created_at)\nGROUP BY time\nORDER BY time",
+          "format": "time_series",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      }
+    },
+    {
+      "id": 15,
+      "title": "Active Users & Contracts",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 19
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  DATE_TRUNC('hour', b.timestamp) as time,\n  COUNT(DISTINCT t.from_id) as \"Unique Senders\"\nFROM transaction t\nJOIN block b ON t.block_id = b.id\nWHERE $__timeFilter(b.timestamp)\nGROUP BY time\nORDER BY time",
+          "format": "time_series",
+          "refId": "A"
+        },
+        {
+          "rawSql": "SELECT \n  DATE_TRUNC('hour', b.timestamp) as time,\n  COUNT(DISTINCT l.address_id) as \"Active Contracts\"\nFROM log l\nJOIN block b ON l.block_id = b.id\nWHERE $__timeFilter(b.timestamp)\nGROUP BY time\nORDER BY time",
+          "format": "time_series",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      }
+    },
+    {
+      "id": 16,
+      "title": "Recent Activity Summary",
+      "type": "table",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 27
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "WITH recent_activity AS (\n  SELECT \n    'Transaction' as \"Type\",\n    LEFT(t.hash, 15) || '...' as \"ID\",\n    'From: ' || LEFT(t.from_id, 10) || '... To: ' || COALESCE(LEFT(t.to_id, 10), 'Contract Creation') || '...' as \"Details\",\n    b.timestamp as \"Time\"\n  FROM transaction t\n  JOIN block b ON t.block_id = b.id\n  WHERE b.timestamp > NOW() - INTERVAL '1 hour'\n  ORDER BY b.timestamp DESC\n  LIMIT 10\n)\nSELECT * FROM recent_activity\nORDER BY \"Time\" DESC",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Time",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
+      "id": 17,
+      "title": "Indexer Processing Status",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 37
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "subsquid_last_processed_block",
+          "legendFormat": "Last Processed Block"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "green"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 18,
+      "title": "Database Lag",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 37
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "subsquid:database_lag:blocks",
+          "legendFormat": "Blocks Behind"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "green"
+              },
+              {
+                "value": 100,
+                "color": "yellow"
+              },
+              {
+                "value": 1000,
+                "color": "red"
+              }
+            ]
+          },
+          "unit": "blocks"
+        }
+      }
+    },
+    {
+      "id": 19,
+      "title": "P2P Peers",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 37
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "op_node_p2p_peer_count",
+          "legendFormat": "Connected Peers"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "red"
+              },
+              {
+                "value": 1,
+                "color": "yellow"
+              },
+              {
+                "value": 5,
+                "color": "green"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20,
+      "title": "Flashblocks Latency (P95)",
+      "type": "gauge",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 37
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(op_node_flashblocks_subblock_latency_ms_bucket[5m]))",
+          "legendFormat": "P95 Latency (ms)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "green"
+              },
+              {
+                "value": 100,
+                "color": "yellow"
+              },
+              {
+                "value": 250,
+                "color": "red"
+              }
+            ]
+          },
+          "unit": "ms",
+          "max": 500,
+          "min": 0
+        }
+      },
+      "options": {
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true
+      }
+    }
+  ]
+}

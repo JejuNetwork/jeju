@@ -38,8 +38,8 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
     // ============ State Variables ============
     
-    /// @notice elizaOS token contract
-    IERC20 public immutable elizaOS;
+    /// @notice Reward token contract (used for fee distribution)
+    IERC20 public immutable rewardToken;
     
     // ============ ETH Liquidity Pool ============
     
@@ -120,18 +120,19 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
     error InvalidAmount();
     error OnlyPaymaster();
     error TransferFailed();
+    error InsufficientShares(uint256 actual, uint256 minimum);
     
     // ============ Constructor ============
     
     /**
-     * @notice Constructs the LiquidityVault with elizaOS token address
-     * @param _elizaOS Address of the elizaOS token contract
+     * @notice Constructs the LiquidityVault with reward token address
+     * @param _rewardToken Address of the reward token contract
      * @param initialOwner Address that will own the contract
-     * @dev Validates elizaOS address is non-zero
+     * @dev Validates reward token address is non-zero
      */
-    constructor(address _elizaOS, address initialOwner) Ownable(initialOwner) {
-        require(_elizaOS != address(0), "Invalid elizaOS address");
-        elizaOS = IERC20(_elizaOS);
+    constructor(address _rewardToken, address initialOwner) Ownable(initialOwner) {
+        require(_rewardToken != address(0), "Invalid reward token address");
+        rewardToken = IERC20(_rewardToken);
     }
     
     // ============ Modifiers ============
@@ -154,22 +155,35 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
     // ============ Liquidity Provision Functions ============
     
     /**
+     * @notice Deposit ETH to become a liquidity provider and earn fees (backwards compatible)
+     * @dev Calls addETHLiquidity with minShares = 0 for backwards compatibility
+     */
+    function addETHLiquidity() external payable {
+        this.addETHLiquidity{value: msg.value}(0);
+    }
+    
+    /**
      * @notice Deposit ETH to become a liquidity provider and earn fees
      * @dev Mints shares proportional to contribution using constant product formula.
      *      First deposit gets 1:1 shares, subsequent deposits are proportional to pool.
+     *      Includes slippage protection via minShares parameter to prevent sandwich attacks.
+     * 
+     * @param minShares Minimum shares expected (slippage protection, use 0 to skip)
      * 
      * Share Calculation:
      * - First LP: shares = amount (1:1 ratio)
      * - Later LPs: shares = (amount * totalShares) / balanceBeforeDeposit
      * 
      * Example: Pool has 10 ETH total shares and 10 ETH balance:
-     * - LP deposits 5 ETH
+     * - LP deposits 5 ETH with minShares = 4.9 ether
      * - Shares = (5 * 10) / 10 = 5 shares
      * - LP owns 5/15 = 33.3% of pool
+     * - If sandwich attack causes shares to drop below 4.9, transaction reverts
      * 
      * @custom:security Uses balance before deposit to prevent donation attacks
+     * @custom:security Requires minShares to prevent slippage/sandwich attacks
      */
-    function addETHLiquidity() external payable nonReentrant whenNotPaused updateFees(msg.sender) {
+    function addETHLiquidity(uint256 minShares) public payable nonReentrant whenNotPaused updateFees(msg.sender) {
         if (msg.value == 0) revert InvalidAmount();
         
         uint256 shares;
@@ -182,6 +196,9 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
             uint256 balanceBeforeDeposit = address(this).balance - msg.value;
             shares = (msg.value * totalETHLiquidity) / balanceBeforeDeposit;
         }
+        
+        // Slippage protection
+        if (shares < minShares) revert InsufficientShares(shares, minShares);
         
         ethShares[msg.sender] += shares;
         totalETHLiquidity += shares;
@@ -225,30 +242,42 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
     }
     
     /**
-     * @notice Deposit elizaOS tokens to earn a portion of LP fees
-     * @param amount Amount of elizaOS tokens to deposit (18 decimals)
+     * @notice Deposit reward tokens to earn a portion of LP fees (backwards compatible)
+     * @param amount Amount of reward tokens to deposit
+     * @dev Calls addElizaLiquidity with minShares = 0 for backwards compatibility
+     */
+    function addElizaLiquidity(uint256 amount) external {
+        this.addElizaLiquidity(amount, 0);
+    }
+    
+    /**
+     * @notice Deposit reward tokens to earn a portion of LP fees
+     * @param amount Amount of reward tokens to deposit
+     * @param minShares Minimum shares expected (slippage protection, use 0 to skip)
      * @dev Mints shares proportional to contribution. First deposit is 1:1.
      *      Requires prior approval of this contract to spend tokens.
+     *      Includes slippage protection to prevent sandwich attacks.
      * 
      * Share Calculation (same as ETH pool):
      * - First LP: shares = amount
      * - Later LPs: shares = (amount * totalShares) / balanceBeforeDeposit
      * 
      * Fee Earning:
-     * - elizaOS LPs earn 30% of the LP portion (15% of total fees)
+     * - Token LPs earn 30% of the LP portion (15% of total fees)
      * - Lower than ETH LPs because they take less risk
      * 
-     * @custom:security Uses balance before transfer to prevent manipulation
+     * @custom:security Uses balance before transfer to prevent donation attacks
      * @custom:security Requires ERC20 approval before calling
+     * @custom:security Requires minShares to prevent slippage/sandwich attacks
      */
-    function addElizaLiquidity(uint256 amount) external nonReentrant whenNotPaused updateFees(msg.sender) {
+    function addElizaLiquidity(uint256 amount, uint256 minShares) public nonReentrant whenNotPaused updateFees(msg.sender) {
         if (amount == 0) revert InvalidAmount();
         
         // Get balance before transfer
-        uint256 balanceBeforeDeposit = elizaOS.balanceOf(address(this));
+        uint256 balanceBeforeDeposit = rewardToken.balanceOf(address(this));
         
         // Transfer tokens first
-        require(elizaOS.transferFrom(msg.sender, address(this), amount), "Transfer failed");
+        require(rewardToken.transferFrom(msg.sender, address(this), amount), "Transfer failed");
         
         uint256 shares;
         if (totalElizaLiquidity == 0 || balanceBeforeDeposit == 0) {
@@ -259,6 +288,9 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
             shares = (amount * totalElizaLiquidity) / balanceBeforeDeposit;
         }
         
+        // Slippage protection
+        if (shares < minShares) revert InsufficientShares(shares, minShares);
+        
         elizaShares[msg.sender] += shares;
         totalElizaLiquidity += shares;
         
@@ -266,34 +298,34 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
     }
     
     /**
-     * @notice Withdraw elizaOS liquidity by burning shares
-     * @param shares Number of elizaOS shares to burn
-     * @dev Redeems proportional amount of elizaOS from pool.
+     * @notice Withdraw reward token liquidity by burning shares
+     * @param shares Number of token shares to burn
+     * @dev Redeems proportional amount of reward tokens from pool.
      *      Includes both principal and any earned fees not yet claimed.
      */
     function removeElizaLiquidity(uint256 shares) external nonReentrant updateFees(msg.sender) {
         if (shares == 0) revert InvalidAmount();
         if (elizaShares[msg.sender] < shares) revert InsufficientLiquidity();
         
-        uint256 currentBalance = elizaOS.balanceOf(address(this));
+        uint256 currentBalance = rewardToken.balanceOf(address(this));
         uint256 elizaAmount = (shares * currentBalance) / totalElizaLiquidity;
         
         elizaShares[msg.sender] -= shares;
         totalElizaLiquidity -= shares;
         
-        require(elizaOS.transfer(msg.sender, elizaAmount), "Transfer failed");
+        require(rewardToken.transfer(msg.sender, elizaAmount), "Transfer failed");
         
         emit ElizaRemoved(msg.sender, elizaAmount, shares);
     }
     
     /**
-     * @notice Claim all accumulated fees from both ETH and elizaOS pools
-     * @dev Fees are paid in elizaOS tokens. Updates pending fees before claiming.
+     * @notice Claim all accumulated fees from both ETH and token pools
+     * @dev Fees are paid in reward tokens. Updates pending fees before claiming.
      *      Can be called anytime without unstaking LP position.
      * 
      * Fee Sources:
      * - ETH pool LPs: 35% of all transaction fees (70% of LP's 50%)
-     * - elizaOS pool LPs: 15% of all transaction fees (30% of LP's 50%)
+     * - Token pool LPs: 15% of all transaction fees (30% of LP's 50%)
      */
     function claimFees() external nonReentrant updateFees(msg.sender) {
         uint256 totalFees = pendingETHFees[msg.sender] + pendingElizaFees[msg.sender];
@@ -302,7 +334,7 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
         pendingETHFees[msg.sender] = 0;
         pendingElizaFees[msg.sender] = 0;
         
-        require(elizaOS.transfer(msg.sender, totalFees), "Fee transfer failed");
+        require(rewardToken.transfer(msg.sender, totalFees), "Fee transfer failed");
         
         emit FeesClaimed(msg.sender, totalFees);
     }
@@ -329,8 +361,8 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
     
     /**
      * @notice Distribute transaction fees to liquidity providers
-     * @param ethPoolFees Amount of elizaOS tokens for ETH pool LPs
-     * @param elizaPoolFees Amount of elizaOS tokens for elizaOS pool LPs
+     * @param ethPoolFees Amount of reward tokens for ETH pool LPs
+     * @param tokenPoolFees Amount of reward tokens for token pool LPs
      * @dev Only callable by authorized fee distributor contract.
      *      Updates per-share fee accumulators so LPs can claim proportional rewards.
      * 
@@ -340,36 +372,40 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
      * 3. Add to accumulated fees per share
      * 4. LPs can claim based on their share ownership
      * 
-     * Example: 100 elizaOS fees for ETH pool with 50 total shares:
+     * Example: 100 tokens fees for ETH pool with 50 total shares:
      * - ethFeesPerShare += (100 * 1e18) / 50 = 2e18
-     * - LP with 10 shares earns: (10 * 2e18) / 1e18 = 20 elizaOS
+     * - LP with 10 shares earns: (10 * 2e18) / 1e18 = 20 tokens
      * 
      * @custom:security Only fee distributor can call
      * @custom:security Proper accounting prevents fee inflation
      */
     function distributeFees(
         uint256 ethPoolFees,
-        uint256 elizaPoolFees
+        uint256 tokenPoolFees
     ) external onlyFeeDistributor nonReentrant {
-        uint256 totalFees = ethPoolFees + elizaPoolFees;
+        uint256 totalFees = ethPoolFees + tokenPoolFees;
         require(totalFees > 0, "No fees to distribute");
         
-        // Transfer fees from paymaster to this contract
+        // Transfer fees from distributor to this contract
         require(
-            elizaOS.transferFrom(msg.sender, address(this), totalFees),
+            rewardToken.transferFrom(msg.sender, address(this), totalFees),
             "Fee transfer failed"
         );
         
-        // Update fees per share for each pool (CRITICAL FIX)
-        // This is where LPs actually earn rewards!
+        /**
+         * @dev Distribute fees proportionally to all LPs based on their share ownership.
+         *      Uses per-share accumulator pattern for gas-efficient reward distribution.
+         *      ETH LPs earn from ethPoolFees, token LPs earn from tokenPoolFees.
+         *      Fees are calculated when LPs claim or when their position changes.
+         */
         if (totalETHLiquidity > 0 && ethPoolFees > 0) {
             ethFeesPerShare += (ethPoolFees * PRECISION) / totalETHLiquidity;
         }
-        if (totalElizaLiquidity > 0 && elizaPoolFees > 0) {
-            elizaFeesPerShare += (elizaPoolFees * PRECISION) / totalElizaLiquidity;
+        if (totalElizaLiquidity > 0 && tokenPoolFees > 0) {
+            elizaFeesPerShare += (tokenPoolFees * PRECISION) / totalElizaLiquidity;
         }
         
-        emit FeesDistributed(ethPoolFees, elizaPoolFees);
+        emit FeesDistributed(ethPoolFees, tokenPoolFees);
     }
     
     // ============ View Functions ============
@@ -417,9 +453,9 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
      * @param account Address of the liquidity provider
      * @return ethShareBalance Number of ETH pool shares owned
      * @return ethValue Current ETH value of those shares
-     * @return elizaShareBalance Number of elizaOS pool shares owned
-     * @return elizaValue Current elizaOS value of those shares
-     * @return pendingFeeAmount Total claimable fees in elizaOS
+     * @return elizaShareBalance Number of token pool shares owned
+     * @return elizaValue Current token value of those shares
+     * @return pendingFeeAmount Total claimable fees in reward tokens
      * @dev Useful for frontends to display LP dashboard information
      */
     function getLPPosition(address account) external view returns (
@@ -437,7 +473,7 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
         }
         
         if (totalElizaLiquidity > 0) {
-            elizaValue = (elizaShareBalance * elizaOS.balanceOf(address(this))) / totalElizaLiquidity;
+            elizaValue = (elizaShareBalance * rewardToken.balanceOf(address(this))) / totalElizaLiquidity;
         }
         
         pendingFeeAmount = pendingFees(account);
@@ -446,19 +482,19 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
     /**
      * @notice Get vault health and operational status metrics
      * @return ethBalance Total ETH in vault
-     * @return elizaBalance Total elizaOS tokens in vault
+     * @return tokenBalance Total reward tokens in vault
      * @return ethUtilization Percentage of ETH currently deployed
      * @return isHealthy Whether vault meets minimum liquidity requirement
      * @dev Used for monitoring and determining if paymaster can operate
      */
     function getVaultHealth() external view returns (
         uint256 ethBalance,
-        uint256 elizaBalance,
+        uint256 tokenBalance,
         uint256 ethUtilization,
         bool isHealthy
     ) {
         ethBalance = address(this).balance;
-        elizaBalance = elizaOS.balanceOf(address(this));
+        tokenBalance = rewardToken.balanceOf(address(this));
         
         if (ethBalance > 0) {
             ethUtilization = ((ethBalance - availableETH()) * 100) / ethBalance;

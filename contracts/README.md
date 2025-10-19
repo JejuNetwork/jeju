@@ -22,7 +22,7 @@ make deploy-local
 ## Contract System
 
 ### Paymaster System
-- **elizaOSToken**: ERC-20 fee payment token (with 10B supply cap)
+- **ElizaOSToken**: ERC-20 fee payment token (with 10B supply cap)
 - **LiquidityPaymaster**: ERC-4337 paymaster for gasless transactions
 - **LiquidityVault**: Dual-pool liquidity management (ETH + elizaOS)
 - **FeeDistributor**: 50/50 fee split (apps + LPs)

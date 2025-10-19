@@ -2,9 +2,9 @@
 pragma solidity ^0.8.26;
 
 import "forge-std/Script.sol";
-import "../src/prediction-markets/JejuMarket.sol";
+import "../src/prediction-markets/Predimarket.sol";
 
-contract DeployJejuMarket is Script {
+contract DeployPredimarket is Script {
     function run() external returns (address) {
         uint256 deployerPrivateKey = vm.envOr("DEPLOYER_PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
         address deployer = vm.addr(deployerPrivateKey);
@@ -15,7 +15,7 @@ contract DeployJejuMarket is Script {
         address treasury = deployer; // Use deployer as treasury for localnet
 
         console.log("==========================================");
-        console.log("Deploying JejuMarket");
+        console.log("Deploying Predimarket");
         console.log("==========================================");
         console.log("Deployer:", deployer);
         console.log("ElizaOS Token:", elizaOS);
@@ -24,7 +24,7 @@ contract DeployJejuMarket is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        JejuMarket market = new JejuMarket(
+        Predimarket market = new Predimarket(
             elizaOS,
             oracle,
             treasury,
@@ -34,7 +34,7 @@ contract DeployJejuMarket is Script {
         vm.stopBroadcast();
 
         console.log("\n==========================================");
-        console.log("JejuMarket deployed at:", address(market));
+        console.log("Predimarket deployed at:", address(market));
         console.log("==========================================\n");
 
         return address(market);

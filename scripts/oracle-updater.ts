@@ -16,6 +16,7 @@
  */
 
 import { ethers } from 'ethers';
+import { FailoverProvider as BaseFailoverProvider } from './shared/rpc';
 
 // ============ Configuration ============
 
@@ -103,62 +104,18 @@ const ERC20_ABI = [
 // ============ Price Fetchers ============
 
 // ============ RPC Failover ============
-
-class FailoverProvider {
-  private providers: ethers.JsonRpcProvider[];
-  private currentIndex: number = 0;
-  private name: string;
-  private onFailover?: () => void;
-
-  constructor(urls: string[], name: string, onFailover?: () => void) {
-    this.name = name;
-    this.providers = urls.map(url => new ethers.JsonRpcProvider(url));
-    this.onFailover = onFailover;
-    console.log(`✅ ${name} provider initialized with ${urls.length} RPC endpoint(s)`);
-  }
-
-  async getProvider(): Promise<ethers.Provider> {
-    // Try current provider first
-    try {
-      await this.providers[this.currentIndex].getBlockNumber();
-      return this.providers[this.currentIndex];
-    } catch (error) {
-      console.warn(`⚠️  ${this.name} RPC ${this.currentIndex} failed, trying fallback...`);
-
-      // Notify failover callback
-      if (this.onFailover) {
-        this.onFailover();
-      }
-
-      // Try other providers
-      for (let i = 0; i < this.providers.length; i++) {
-        if (i === this.currentIndex) continue;
-
-        try {
-          await this.providers[i].getBlockNumber();
-          this.currentIndex = i;
-          console.log(`✅ ${this.name} switched to RPC ${i}`);
-          return this.providers[i];
-        } catch (err) {
-          console.warn(`⚠️  ${this.name} RPC ${i} also failed`);
-        }
-      }
-
-      throw new Error(`All ${this.name} RPC endpoints failed`);
-    }
-  }
-}
+// Using shared FailoverProvider from scripts/shared/rpc.ts
 
 class PriceFetcher {
-  private baseProviderFailover: FailoverProvider;
-  private jejuProviderFailover: FailoverProvider;
+  private baseProviderFailover: BaseFailoverProvider;
+  private jejuProviderFailover: BaseFailoverProvider;
   private lastETHPrice: number = 0;
   private lastElizaPrice: number = 0;
   private consecutiveFailures: number = 0;
 
   constructor(onRpcFailover?: () => void) {
-    this.baseProviderFailover = new FailoverProvider(CONFIG.BASE_RPCS, 'Base', onRpcFailover);
-    this.jejuProviderFailover = new FailoverProvider(CONFIG.JEJU_RPCS, 'Jeju', onRpcFailover);
+    this.baseProviderFailover = new BaseFailoverProvider(CONFIG.BASE_RPCS, 'Base', onRpcFailover);
+    this.jejuProviderFailover = new BaseFailoverProvider(CONFIG.JEJU_RPCS, 'Jeju', onRpcFailover);
   }
   
   async getBaseProvider(): Promise<ethers.Provider> {

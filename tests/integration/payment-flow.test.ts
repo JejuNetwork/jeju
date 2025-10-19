@@ -5,11 +5,11 @@
  * 1. User requests service (chat-completion)
  * 2. Paymaster charges user (gasless or direct token)
  * 3. Balance is updated correctly
- * 4. Usage is recorded in CloudServiceRegistry
+ * 4. Usage is recorded in ServiceRegistry
  * 5. Events are emitted properly
  * 
  * Tests both payment methods:
- * - Gasless (via CloudPaymaster + ERC-4337)
+ * - Gasless (via ServicePaymaster + ERC-4337)
  * - Direct token payment
  */
 
@@ -21,7 +21,7 @@ const TEST_CONFIG = {
   rpcUrl: process.env.JEJU_RPC_URL || 'http://localhost:8545',
   chainId: 420691,
   contracts: {
-    elizaOSToken: process.env.ELIZAOS_TOKEN_ADDRESS as Address,
+    ElizaOSToken: process.env.ELIZAOS_TOKEN_ADDRESS as Address,
     cloudServiceRegistry: process.env.CLOUD_SERVICE_REGISTRY_ADDRESS as Address,
     cloudPaymaster: process.env.CLOUD_PAYMASTER_ADDRESS as Address
   },
@@ -57,7 +57,7 @@ describe('Payment Flow Integration', () => {
     const erc20Abi = parseAbi(['function balanceOf(address) external view returns (uint256)']);
     
     initialBalance = await publicClient.readContract({
-      address: TEST_CONFIG.contracts.elizaOSToken,
+      address: TEST_CONFIG.contracts.ElizaOSToken,
       abi: erc20Abi,
       functionName: 'balanceOf',
       args: [TEST_CONFIG.testAccount.address]
@@ -97,14 +97,14 @@ describe('Payment Flow Integration', () => {
   });
 
   test('Should record service usage with direct payment', async () => {
-    // First, approve CloudServiceRegistry to spend elizaOS tokens
+    // First, approve ServiceRegistry to spend elizaOS tokens
     const erc20Abi = parseAbi([
       'function approve(address spender, uint256 amount) external returns (bool)',
       'function balanceOf(address) external view returns (uint256)'
     ]);
 
     const approveTx = await walletClient.writeContract({
-      address: TEST_CONFIG.contracts.elizaOSToken,
+      address: TEST_CONFIG.contracts.ElizaOSToken,
       abi: erc20Abi,
       functionName: 'approve',
       args: [TEST_CONFIG.contracts.cloudServiceRegistry, serviceCost * 2n] // Approve 2x cost
@@ -121,7 +121,7 @@ describe('Payment Flow Integration', () => {
     const sessionId = \`0x\${Date.now().toString(16).padStart(64, '0')}\` as \`0x\${string}\`;
 
     // Note: This will fail if we're not an authorized caller
-    // In real usage, CloudPaymaster would call this
+    // In real usage, ServicePaymaster would call this
     try {
       const usageTx = await walletClient.writeContract({
         address: TEST_CONFIG.contracts.cloudServiceRegistry,
@@ -138,7 +138,7 @@ describe('Payment Flow Integration', () => {
 
       // Check balance was debited
       const newBalance = await publicClient.readContract({
-        address: TEST_CONFIG.contracts.elizaOSToken,
+        address: TEST_CONFIG.contracts.ElizaOSToken,
         abi: erc20Abi,
         functionName: 'balanceOf',
         args: [TEST_CONFIG.testAccount.address]

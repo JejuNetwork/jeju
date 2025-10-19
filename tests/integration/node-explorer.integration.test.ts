@@ -5,11 +5,13 @@ import { ethers } from 'ethers';
  * Integration tests for Node Explorer
  * 
  * Prerequisites:
- * - Node explorer API running on localhost:3002
+ * - Node explorer API running (default: localhost:4002)
  * - Node explorer collector running
  */
 
-const API_URL = process.env.API_URL || 'http://localhost:3002';
+const API_URL = process.env.NODE_EXPLORER_API_URL || 
+                process.env.API_URL || 
+                `http://localhost:${process.env.NODE_EXPLORER_API_PORT || '4002'}`;
 
 describe("Node Explorer Integration Tests", () => {
   let testWallet: ethers.HDNodeWallet;

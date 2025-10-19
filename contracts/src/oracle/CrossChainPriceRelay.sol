@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title ICrossDomainMessenger
@@ -39,7 +40,7 @@ interface ICrossDomainMessenger {
  * 
  * Trade-off: More decentralized but more expensive
  */
-contract CrossChainPriceRelay is Ownable {
+contract CrossChainPriceRelay is Ownable, ReentrancyGuard {
     // ============ State Variables ============
     
     /// @notice Address of CrossDomainMessenger (OP Stack predeploy)
@@ -92,11 +93,12 @@ contract CrossChainPriceRelay is Ownable {
      * @param ethPrice ETH/USD price (8 decimals)
      * @param elizaPrice elizaOS/USD price (8 decimals)
      * @dev Only callable by CrossDomainMessenger with authorized sender
+     * @dev Protected against reentrancy attacks
      */
     function receivePriceUpdate(
         uint256 ethPrice,
         uint256 elizaPrice
-    ) external {
+    ) external nonReentrant {
         // Verify caller is CrossDomainMessenger
         if (msg.sender != L2_CROSS_DOMAIN_MESSENGER) {
             revert OnlyCrossChainMessenger();
@@ -109,8 +111,11 @@ contract CrossChainPriceRelay is Ownable {
             revert InvalidCaller();
         }
         
-        // Update oracle
-        (bool success, ) = targetOracle.call(
+        // Store last update timestamp before external call
+        uint256 timestamp = block.timestamp;
+        
+        // Update oracle with proper interface call
+        (bool success, bytes memory returnData) = targetOracle.call(
             abi.encodeWithSignature(
                 "updatePrices(uint256,uint256)",
                 ethPrice,
@@ -119,7 +124,25 @@ contract CrossChainPriceRelay is Ownable {
         );
         
         if (!success) {
+            // Extract revert reason if available
+            if (returnData.length > 0) {
+                assembly {
+                    let returnDataSize := mload(returnData)
+                    revert(add(32, returnData), returnDataSize)
+                }
+            }
             revert OracleUpdateFailed();
+        }
+        
+        // Verify oracle was actually updated by checking its timestamp
+        (bool checkSuccess, bytes memory checkData) = targetOracle.staticcall(
+            abi.encodeWithSignature("lastUpdateTime()")
+        );
+        if (checkSuccess && checkData.length >= 32) {
+            uint256 oracleTimestamp = abi.decode(checkData, (uint256));
+            if (oracleTimestamp < timestamp) {
+                revert OracleUpdateFailed();
+            }
         }
         
         lastUpdateTime = block.timestamp;
@@ -130,11 +153,13 @@ contract CrossChainPriceRelay is Ownable {
     
     // ============ Admin Functions ============
     
+    error InvalidAddress();
+    
     /**
      * @notice Update authorized PriceSource on Base
      */
     function setPriceSource(address _newSource) external onlyOwner {
-        require(_newSource != address(0), "Invalid source");
+        if (_newSource == address(0)) revert InvalidAddress();
         priceSourceOnBase = _newSource;
         emit PriceSourceUpdated(_newSource);
     }
@@ -143,7 +168,7 @@ contract CrossChainPriceRelay is Ownable {
      * @notice Update target oracle address
      */
     function setTargetOracle(address _newOracle) external onlyOwner {
-        require(_newOracle != address(0), "Invalid oracle");
+        if (_newOracle == address(0)) revert InvalidAddress();
         targetOracle = _newOracle;
         emit TargetOracleUpdated(_newOracle);
     }

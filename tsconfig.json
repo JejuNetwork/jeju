@@ -24,7 +24,7 @@
       "@scripts/*": ["./scripts/*"],
       "@contracts/*": ["./contracts/*"],
       "@config/*": ["./config/*"],
-      "@indexer/*": ["./indexer/*"]
+      "@indexer/*": ["./apps/indexer/*"]
     }
   },
   "include": [
@@ -36,14 +36,10 @@
     "dist",
     "build",
     ".terraform",
-    "indexer",
     "contracts",
     "lib",
-    "node-explorer",
-    "documentation/node_modules",
     "kubernetes",
     "terraform",
-    "monitoring",
     "apps",
     "mud/**/*",
     "**/*.test.ts",

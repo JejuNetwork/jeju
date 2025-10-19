@@ -77,7 +77,7 @@ contract ValidationRegistry is IValidationRegistry {
      * @dev Constructor sets the identity registry reference
      * @param _identityRegistry Address of the IdentityRegistry contract
      */
-    constructor(address _identityRegistry) {
+    constructor(address payable _identityRegistry) {
         require(_identityRegistry != address(0), "Invalid registry address");
         identityRegistry = IdentityRegistry(_identityRegistry);
     }
