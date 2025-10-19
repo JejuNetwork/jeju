@@ -1,13 +1,14 @@
 #!/usr/bin/env bun
 /**
  * @title Node Operator Economics Model
- * @notice Validates token economics for the node rewards system
+ * @notice Validates token economics for the node staking system (multi-token)
  * 
  * Calculates:
- * - Expected monthly rewards distribution
+ * - Expected monthly rewards distribution (USD-denominated)
  * - Token supply requirements
  * - Inflation rates
  * - Sustainability analysis
+ * - Multi-token staking scenarios
  */
 
 interface EconomicsParams {
@@ -91,7 +92,7 @@ async function main() {
   console.log(`
 ╔═══════════════════════════════════════════════════════════════╗
 ║                                                               ║
-║   📊 Jeju Node Operator Economics Analysis                ║
+║   📊 Jeju Node Staking Economics Analysis (Multi-Token)   ║
 ║                                                               ║
 ╚═══════════════════════════════════════════════════════════════╝
 `);

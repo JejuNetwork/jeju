@@ -12,7 +12,7 @@
  * - Restores the SQLite database from diffable format
  */
 
-import { Command } from "@commander-js/extra-typings";
+import { Command } from "node_modules/@commander-js/extra-typings";
 import { createLogger, LogLevel } from "@/lib/logger";
 import chalk from "chalk";
 import { exec, execSync } from "child_process";

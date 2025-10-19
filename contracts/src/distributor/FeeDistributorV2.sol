@@ -30,7 +30,7 @@ interface ILiquidityVault {
  * 3. Monthly: Oracle submits snapshot with contributor allocations
  * 4. Contributors claim their share from pool
  * 
- * Contributor Distribution (borrowed from NodeOperatorRewards + LiquidityVault patterns):
+ * Contributor Distribution (borrowed from NodeStakingManager + LiquidityVault patterns):
  * - Monthly snapshots with contributor addresses and pro-rata shares
  * - Per-share accounting for gas-efficient distribution
  * - Pull-based claiming (contributors initiate)

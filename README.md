@@ -20,15 +20,6 @@ Jeju is a high-performance Layer 2 blockchain built for the next generation of o
 
 Jeju supports multiple tokens for gas payments and protocol interactions:
 
-### Supported Protocol Tokens
-
-| Token | Symbol | Price | Origin | Features |
-|-------|--------|-------|--------|----------|
-| **elizaOS** | elizaOS | $0.10 | Native | Gas, Fees, Governance |
-| **CLANKER** | CLANKER | $26.14 | Base | Gas, Prediction Markets, Games |
-| **VIRTUAL** | VIRTUAL | $1.85 | Base | Gas, AI Services, DeFi |
-| **CLANKERMON** | CLANKERMON | $0.15 | Base | Gas, Gaming, NFTs |
-
 ### How It Works
 
 1. **Bridge from Base** - Use the Gateway Portal to bridge your tokens

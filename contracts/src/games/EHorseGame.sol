@@ -17,6 +17,16 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
  * - Integrates with Predimarket for betting
  * - Discoverable via IdentityRegistry
  * - Fully on-chain state
+ * 
+ * ERC-8004 Metadata:
+ * {
+ *   "type": "oracle-game",
+ *   "subtype": "racing",
+ *   "name": "eHorse Racing",
+ *   "category": "contest",
+ *   "modes": ["single-winner", "top-3", "full-ranking"],
+ *   "version": "1.0.0"
+ * }
  */
 contract EHorseGame is IPredictionOracle, IContestOracle, Ownable, Pausable {
     
@@ -48,6 +58,11 @@ contract EHorseGame is IPredictionOracle, IContestOracle, Ownable, Pausable {
     bytes32 public currentRaceId;
     uint256 public raceCount;
     address public raceKeeper; // Authorized to create/finalize races
+    
+    // ERC-8004 Game Metadata
+    string public constant GAME_NAME = "eHorse Racing";
+    string public constant GAME_VERSION = "1.0.0";
+    string public constant GAME_CATEGORY = "racing";
     
     // ============ Events ============
     
@@ -267,6 +282,14 @@ contract EHorseGame is IPredictionOracle, IContestOracle, Ownable, Pausable {
     
     function getHorseNames() external pure returns (string[] memory) {
         return _getHorseNames();
+    }
+    
+    /**
+     * @notice Get game metadata for ERC-8004 discovery
+     * @return Game metadata as JSON string
+     */
+    function getGameMetadata() external pure returns (string memory) {
+        return '{"type":"oracle-game","subtype":"racing","name":"eHorse Racing","category":"contest","modes":["single-winner","top-3","full-ranking"],"version":"1.0.0"}';
     }
     
     // ============ Admin Functions ============

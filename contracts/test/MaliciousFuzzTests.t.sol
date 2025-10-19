@@ -6,7 +6,8 @@ import {ElizaOSToken} from "../src/tokens/ElizaOSToken.sol";
 import {LiquidityVault} from "../src/liquidity/LiquidityVault.sol";
 import {FeeDistributor} from "../src/distributor/FeeDistributor.sol";
 import {ManualPriceOracle} from "../src/oracle/ManualPriceOracle.sol";
-import {NodeOperatorRewards} from "../src/node-rewards/NodeOperatorRewards.sol";
+import {NodeStakingManager} from "../src/node-staking/NodeStakingManager.sol";
+import {INodeStakingManager} from "../src/node-staking/INodeStakingManager.sol";
 import {IdentityRegistry} from "../src/registry/IdentityRegistry.sol";
 
 /**
@@ -19,7 +20,9 @@ contract MaliciousFuzzTestsTest is Test {
     LiquidityVault public vault;
     FeeDistributor public distributor;
     ManualPriceOracle public oracle;
-    NodeOperatorRewards public rewards;
+    NodeStakingManager public staking;
+    MockTokenRegistry public tokenRegistry;
+    MockPaymasterFactory public paymasterFactory;
     IdentityRegistry public registry;
     
     address public owner = address(this);
@@ -29,7 +32,21 @@ contract MaliciousFuzzTestsTest is Test {
         vault = new LiquidityVault(address(token), owner);
         distributor = new FeeDistributor(address(token), address(vault), owner);
         oracle = new ManualPriceOracle(2000_00000000, 10_00000000, owner);
-        rewards = new NodeOperatorRewards(address(token), owner, owner);
+        
+        // Setup mocks for NodeStakingManager
+        tokenRegistry = new MockTokenRegistry();
+        paymasterFactory = new MockPaymasterFactory();
+        tokenRegistry.register(address(token));
+        paymasterFactory.setPaymaster(address(token), address(0x100));
+        oracle.setPrice(address(token), 1e18); // $1 per token
+        
+        staking = new NodeStakingManager(
+            address(tokenRegistry),
+            address(paymasterFactory),
+            address(oracle),
+            owner,
+            owner
+        );
         registry = new IdentityRegistry();
         
         vault.setPaymaster(owner);
@@ -253,17 +270,52 @@ contract MaliciousFuzzTestsTest is Test {
     function testUpdatePerformanceWithZeroValues() public {
         token.mint(address(0x1), 1000e18);
         vm.startPrank(address(0x1));
-        token.approve(address(rewards), 1000e18);
-        bytes32 nodeId = rewards.registerNode("https://test.com", "North America", 1000e18);
+        token.approve(address(staking), 1000e18);
+        bytes32 nodeId = staking.registerNode(
+            address(token),
+            1000e18,
+            address(token),
+            "https://test.com",
+            INodeStakingManager.Region.NorthAmerica
+        );
         vm.stopPrank();
         
         // Update with zeros - system may have defaults
-        rewards.updatePerformance(nodeId, 0, 0, 0);
+        staking.updatePerformance(nodeId, 0, 0, 0);
         
         // Verify it was updated (may have default uptime score)
-        (,NodeOperatorRewards.PerformanceData memory perf,) = rewards.getNodeInfo(nodeId);
+        (,INodeStakingManager.PerformanceMetrics memory perf,) = staking.getNodeInfo(nodeId);
         assertEq(perf.requestsServed, 0);
         assertEq(perf.avgResponseTime, 0);
     }
 }
 
+// ============ Mock Contracts ============
+
+contract MockTokenRegistry {
+    mapping(address => bool) public registered;
+    
+    function register(address token) external {
+        registered[token] = true;
+    }
+    
+    function isRegistered(address token) external view returns (bool) {
+        return registered[token];
+    }
+}
+
+contract MockPaymasterFactory {
+    mapping(address => address) public paymasters;
+    
+    function setPaymaster(address token, address paymaster) external {
+        paymasters[token] = paymaster;
+    }
+    
+    function hasPaymaster(address token) external view returns (bool) {
+        return paymasters[token] != address(0);
+    }
+    
+    function getPaymaster(address token) external view returns (address) {
+        return paymasters[token];
+    }
+}

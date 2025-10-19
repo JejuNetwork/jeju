@@ -244,7 +244,7 @@ contract IdentityRegistryTest is Test {
     // ============ Version Test ============
     
     function testVersion() public view {
-        assertEq(registry.version(), "1.0.0");
+        assertEq(registry.version(), "2.0.0-governance");
     }
     
     // ============ Complex Scenario Tests ============

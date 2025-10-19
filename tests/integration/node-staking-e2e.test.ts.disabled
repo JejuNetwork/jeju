@@ -1,15 +1,15 @@
 #!/usr/bin/env bun
 /**
- * @title Node Rewards End-to-End Test
- * @notice Comprehensive test of the complete node operator rewards system
+ * @title Node Staking End-to-End Test
+ * @notice Comprehensive test of the complete multi-token node staking system
  * 
  * Test Flow:
- * 1. Deploy all contracts
- * 2. Register multiple nodes
+ * 1. Deploy all contracts (TokenRegistry, PaymasterFactory, PriceOracle, NodeStakingManager)
+ * 2. Register multiple nodes (multi-token staking)
  * 3. Run oracle to update performance
  * 4. Verify RPC endpoints
- * 5. Claim rewards
- * 6. Verify balances
+ * 5. Claim rewards (in chosen reward token)
+ * 6. Verify balances and paymaster fees
  * 7. Test slashing
  * 8. Test metadata updates
  */
@@ -18,15 +18,19 @@ import { expect } from 'bun:test';
 import { $ } from 'bun';
 import { ethers } from 'ethers';
 
-describe('Node Rewards System E2E', () => {
+describe('Node Staking System E2E (Multi-Token)', () => {
   let provider: ethers.Provider;
   let deployer: ethers.Wallet;
   let operator1: ethers.Wallet;
   let operator2: ethers.Wallet;
   let oracle: ethers.Wallet;
   
-  let rewardToken: ethers.Contract;
-  let rewardsContract: ethers.Contract;
+  let elizaToken: ethers.Contract;
+  let usdcToken: ethers.Contract;
+  let stakingManager: ethers.Contract;
+  let tokenRegistry: ethers.Contract;
+  let paymasterFactory: ethers.Contract;
+  let priceOracle: ethers.Contract;
   
   let node1Id: string;
   let node2Id: string;

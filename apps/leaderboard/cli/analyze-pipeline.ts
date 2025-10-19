@@ -28,7 +28,7 @@ if (missingEnvVars.length > 0) {
   process.exit(1);
 }
 
-import { Command } from "@commander-js/extra-typings";
+import { Command } from "node_modules/@commander-js/extra-typings";
 import { PipelineConfigSchema } from "@/lib/pipelines/pipelineConfig";
 import chalk from "chalk";
 import { generateRepositoryStats } from "@/lib/pipelines/export";

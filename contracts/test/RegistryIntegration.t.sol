@@ -94,7 +94,7 @@ contract RegistryIntegrationTest is Test {
     }
     
     function testVersions() public view {
-        assertEq(identityRegistry.version(), "1.0.0");
+        assertEq(identityRegistry.version(), "2.0.0-governance");
         assertEq(reputationRegistry.version(), "1.0.0");
         assertEq(validationRegistry.version(), "1.0.0");
     }
