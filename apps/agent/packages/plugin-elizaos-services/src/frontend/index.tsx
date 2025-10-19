@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQuery } from '.bun/@tanstack+react-query@5.90.5+4bcfe187168658ad/node_modules/@tanstack/react-query/build/modern';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import React from 'react';

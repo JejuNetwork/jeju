@@ -8,7 +8,7 @@ import type {
   TextEmbeddingParams,
 } from '@elizaos/core';
 import { logger, ModelType, Service } from '@elizaos/core';
-import { z } from 'zod';
+import { z } from '.bun/zod@3.25.76/node_modules/zod/index.cjs';
 import {
   AgentAuthService,
   authPluginIntegration,
@@ -16,10 +16,10 @@ import {
   QuickAuthSetup,
 } from './auth/index';
 // Removed multi-provider imports - now using ElizaOS API service directly
-import { ElizaOSServicesTestSuite } from './tests';
-import { RealIntegrationTestSuite } from './tests/real-integration.test';
-import { StorageIntegrationTestSuite } from './tests/storage-integration.test';
-import { ValidationSummaryTestSuite } from './tests/validation-summary.test';
+import { ElizaOSServicesTestSuite } from './tests.js';
+import { RealIntegrationTestSuite } from './tests/real-integration.test.js';
+import { StorageIntegrationTestSuite } from './tests/storage-integration.test.js';
+import { ValidationSummaryTestSuite } from './tests/validation-summary.test.js';
 import {
   makeElizaOSRequest,
   getModelForType,
@@ -32,9 +32,9 @@ import {
 async function importAWSSDK() {
   
     // Use dynamic imports that will be resolved at runtime
-    const s3Module = await import('@aws-sdk/client-s3').catch(() => null);
-    const presignerModule = await import('@aws-sdk/s3-request-presigner').catch(() => null);
-    const mimeModule = await import('mime-types').catch(() => null);
+    const s3Module = await import('.bun/@aws-sdk+client-s3@3.913.0/node_modules/@aws-sdk/client-s3/dist-types/index.js').catch(() => null);
+    const presignerModule = await import('.bun/@aws-sdk+s3-request-presigner@3.913.0/node_modules/@aws-sdk/s3-request-presigner/dist-types/index.js').catch(() => null);
+    const mimeModule = await import('.bun/@types+mime-types@3.0.1/node_modules/@types/mime-types').catch(() => null);
 
     if (!s3Module || !presignerModule || !mimeModule) {
       throw new Error('AWS SDK modules not available');

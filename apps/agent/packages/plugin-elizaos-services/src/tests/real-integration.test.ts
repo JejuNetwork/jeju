@@ -7,7 +7,7 @@
 
 import type { IAgentRuntime } from '@elizaos/core';
 import { ModelType } from '@elizaos/core';
-import * as dotenv from 'dotenv';
+import * as dotenv from '.bun/dotenv@16.4.5/node_modules/dotenv/lib/main';
 
 // Load environment variables
 dotenv.config({ path: '../../../../.env' });

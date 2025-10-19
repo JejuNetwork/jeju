@@ -1,7 +1,7 @@
 import { describe, expect, it, spyOn, beforeEach, afterEach, beforeAll, afterAll } from 'bun:test';
 import { elizaOSServicesPlugin, ElizaOSService } from '../index';
 import { ModelType, logger } from '@elizaos/core';
-import * as dotenv from 'dotenv';
+import * as dotenv from '.bun/dotenv@16.4.5/node_modules/dotenv/lib/main';
 
 // Setup environment variables
 dotenv.config();

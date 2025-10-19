@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "@elizaos/config/typescript/tsconfig.plugin.json",
+  "compilerOptions": {
+    "baseUrl": "../../../agentx/packages/plugin-elizaos-services/src",
+    "jsx": "react",
+    "target": "ES2022",
+    "module": "ES2022",
+    "esModuleInterop": true,
+    "allowImportingTsExtensions": true,
+    "downlevelIteration": true,
+    "skipLibCheck": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"]
+  },
+  "include": ["../../../agentx/packages/plugin-elizaos-services/src/**/*.ts", "../../../agentx/packages/plugin-elizaos-services/src/**/*.tsx", "../../../agentx/packages/plugin-elizaos-services/__tests__/**/*.ts", "../../../agentx/packages/plugin-elizaos-services/cypress.d.ts"],
+  "exclude": ["../../../agentx/packages/plugin-elizaos-services/node_modules", "../../../agentx/packages/plugin-elizaos-services/dist"]
+}

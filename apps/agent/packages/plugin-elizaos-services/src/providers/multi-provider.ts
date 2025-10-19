@@ -5,7 +5,7 @@
 
 import type { IAgentRuntime, ModelTypeName } from '@elizaos/core';
 import { ModelType, logger } from '@elizaos/core';
-import { fetch } from 'undici';
+import { fetch } from '.bun/undici@6.22.0/node_modules/undici';
 
 /**
  * Provider configuration for different AI services
