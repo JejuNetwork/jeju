@@ -59,23 +59,30 @@ echo ""
 
 # Test 4: Check API
 echo "4️⃣  Testing GraphQL API..."
-bun run api > /tmp/api_test.log 2>&1 &
-API_PID=$!
-sleep 3
 
-if ps -p $API_PID > /dev/null; then
-    echo "   ✅ API server started"
-    
-    if curl -s http://localhost:4350/graphql > /dev/null 2>&1; then
-        echo "   ✅ API is responding"
-    else
-        echo "   ⚠️  API may still be starting"
-    fi
-    
-    kill $API_PID 2>/dev/null || true
+# Check if API is already running
+if curl -s http://localhost:4350/graphql > /dev/null 2>&1; then
+    echo "   ✅ API is already running and responding"
 else
-    echo "   ❌ API failed to start"
-    exit 1
+    # Try to start API
+    bun run api > /tmp/api_test.log 2>&1 &
+    API_PID=$!
+    sleep 3
+
+    if ps -p $API_PID > /dev/null; then
+        echo "   ✅ API server started"
+        
+        if curl -s http://localhost:4350/graphql > /dev/null 2>&1; then
+            echo "   ✅ API is responding"
+        else
+            echo "   ⚠️  API may still be starting"
+        fi
+        
+        kill $API_PID 2>/dev/null || true
+    else
+        echo "   ❌ API failed to start"
+        exit 1
+    fi
 fi
 
 echo ""

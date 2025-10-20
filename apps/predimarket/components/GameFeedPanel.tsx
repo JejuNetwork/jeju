@@ -61,7 +61,7 @@ export function GameFeedPanel({ sessionId, className = '' }: GameFeedPanelProps)
             </div>
           </div>
           <div className="mt-2 text-center text-xs text-gray-500">
-            Day {marketUpdates[0].gameDay} • Volume: {Number(marketUpdates[0].totalVolume) / 1e18} elizaOS
+            Day {marketUpdates[0].gameDay} • Volume: {Number(marketUpdates[0].totalVolume) / 1e18} ETH
           </div>
         </div>
       )}

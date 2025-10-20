@@ -15,9 +15,9 @@
     "api": 4350
   },
   "dependencies": ["localnet"],
-  "optional": false,
-  "enabled": true,
-  "autoStart": true,
+  "optional": true,
+  "enabled": false,
+  "autoStart": false,
   "tags": ["indexer", "graphql", "data"]
 }
 

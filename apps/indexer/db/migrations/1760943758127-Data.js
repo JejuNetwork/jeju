@@ -1,5 +1,5 @@
-module.exports = class Data1760941995807 {
-    name = 'Data1760941995807'
+module.exports = class Data1760943758127 {
+    name = 'Data1760943758127'
 
     async up(db) {
         await db.query(`CREATE TABLE "decoded_event" ("id" character varying NOT NULL, "event_signature" text NOT NULL, "event_name" text NOT NULL, "args" jsonb NOT NULL, "timestamp" TIMESTAMP WITH TIME ZONE NOT NULL, "address_id" character varying, "block_id" character varying, "transaction_id" character varying, "log_id" character varying, CONSTRAINT "REL_2c0a8c5038675238221fadb96c" UNIQUE ("log_id"), CONSTRAINT "PK_604623cb9fbf5848619c658ed70" PRIMARY KEY ("id"))`)
@@ -84,6 +84,25 @@ module.exports = class Data1760941995807 {
         await db.query(`CREATE INDEX "IDX_e88fb4c20b766a0882bc41686e" ON "ipfs_file" ("agent_profile_id") `)
         await db.query(`CREATE INDEX "IDX_87c421c5e713a95945a0f95478" ON "ipfs_file" ("contest_result_id") `)
         await db.query(`CREATE TABLE "storage_stats" ("id" character varying NOT NULL, "date" TIMESTAMP WITH TIME ZONE NOT NULL, "total_files" numeric NOT NULL, "total_size_bytes" numeric NOT NULL, "total_revenue" numeric NOT NULL, "active_users" numeric NOT NULL, "evidence_files" numeric NOT NULL, "attestation_files" numeric NOT NULL, "asset_files" numeric NOT NULL, "metadata_files" numeric NOT NULL, CONSTRAINT "PK_8a714fe62648c7dc502f0855d40" PRIMARY KEY ("id"))`)
+        await db.query(`CREATE TABLE "market_trade" ("id" character varying NOT NULL, "outcome" boolean NOT NULL, "is_buy" boolean NOT NULL, "shares" numeric NOT NULL, "cost" numeric NOT NULL, "price_after" numeric NOT NULL, "timestamp" TIMESTAMP WITH TIME ZONE NOT NULL, "market_id" character varying, "trader_id" character varying, CONSTRAINT "PK_a8217fcd91584c8dcb238b755a9" PRIMARY KEY ("id"))`)
+        await db.query(`CREATE INDEX "IDX_14f2c5aa45084d1417ecc74c76" ON "market_trade" ("market_id") `)
+        await db.query(`CREATE INDEX "IDX_954e0a989b7a085a09a4b087cb" ON "market_trade" ("trader_id") `)
+        await db.query(`CREATE INDEX "IDX_8901863bae809412c8f50a0b74" ON "market_trade" ("timestamp") `)
+        await db.query(`CREATE TABLE "market_position" ("id" character varying NOT NULL, "yes_shares" numeric NOT NULL, "no_shares" numeric NOT NULL, "total_spent" numeric NOT NULL, "total_received" numeric NOT NULL, "has_claimed" boolean NOT NULL, "last_updated" TIMESTAMP WITH TIME ZONE NOT NULL, "market_id" character varying, "trader_id" character varying, CONSTRAINT "PK_1a27b3cc8468d5014e7bd5ac141" PRIMARY KEY ("id"))`)
+        await db.query(`CREATE INDEX "IDX_fd2ca99ba61da5163e5260f41a" ON "market_position" ("market_id") `)
+        await db.query(`CREATE INDEX "IDX_32e5e448f5760b8f7ba1f1752f" ON "market_position" ("trader_id") `)
+        await db.query(`CREATE INDEX "IDX_96b0f686a0079dbc0702a07305" ON "market_position" ("last_updated") `)
+        await db.query(`CREATE TABLE "prediction_market" ("id" character varying NOT NULL, "session_id" text NOT NULL, "question" text NOT NULL, "liquidity_b" numeric NOT NULL, "yes_shares" numeric NOT NULL, "no_shares" numeric NOT NULL, "total_volume" numeric NOT NULL, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL, "resolved" boolean NOT NULL, "outcome" boolean, CONSTRAINT "PK_a2672c3248a0ae67c25c91886b5" PRIMARY KEY ("id"))`)
+        await db.query(`CREATE UNIQUE INDEX "IDX_842d8c5916d8296345c4e7a575" ON "prediction_market" ("session_id") `)
+        await db.query(`CREATE INDEX "IDX_44b7012944f400b552c8763620" ON "prediction_market" ("created_at") `)
+        await db.query(`CREATE INDEX "IDX_102ef1e009156291d7475d2d4d" ON "prediction_market" ("resolved") `)
+        await db.query(`CREATE TABLE "oracle_game" ("id" character varying NOT NULL, "session_id" text NOT NULL, "question" text NOT NULL, "commitment" text NOT NULL, "committed_at" TIMESTAMP WITH TIME ZONE NOT NULL, "finalized" boolean NOT NULL, "revealed_at" TIMESTAMP WITH TIME ZONE, "outcome" boolean, "winners" text array NOT NULL, "total_payout" numeric NOT NULL, "market_id" character varying, CONSTRAINT "PK_34e1d32f70b6efe63934086318f" PRIMARY KEY ("id"))`)
+        await db.query(`CREATE UNIQUE INDEX "IDX_2519b92c134d79fb25472c7d75" ON "oracle_game" ("session_id") `)
+        await db.query(`CREATE INDEX "IDX_fd0c0af5d12ed15649c6d3785e" ON "oracle_game" ("committed_at") `)
+        await db.query(`CREATE INDEX "IDX_e467e7d59baff54f223e68853d" ON "oracle_game" ("finalized") `)
+        await db.query(`CREATE INDEX "IDX_58e0b1aaede1774661c015561e" ON "oracle_game" ("market_id") `)
+        await db.query(`CREATE TABLE "market_stats" ("id" character varying NOT NULL, "date" TIMESTAMP WITH TIME ZONE NOT NULL, "total_markets" numeric NOT NULL, "active_markets" numeric NOT NULL, "resolved_markets" numeric NOT NULL, "total_volume" numeric NOT NULL, "total_trades" numeric NOT NULL, "unique_traders" numeric NOT NULL, CONSTRAINT "PK_4c04ba6c86e713426cc9937a7c0" PRIMARY KEY ("id"))`)
+        await db.query(`CREATE INDEX "IDX_7414c3e693fc3cb552ac7153d9" ON "market_stats" ("date") `)
         await db.query(`ALTER TABLE "decoded_event" ADD CONSTRAINT "FK_77185105499f321fd0e795bbca5" FOREIGN KEY ("address_id") REFERENCES "account"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
         await db.query(`ALTER TABLE "decoded_event" ADD CONSTRAINT "FK_bf5e2622f23b99b17d38e22f364" FOREIGN KEY ("block_id") REFERENCES "block"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
         await db.query(`ALTER TABLE "decoded_event" ADD CONSTRAINT "FK_b0e68ea8c23a70dece29731f5e8" FOREIGN KEY ("transaction_id") REFERENCES "transaction"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
@@ -122,6 +141,11 @@ module.exports = class Data1760941995807 {
         await db.query(`ALTER TABLE "ipfs_file" ADD CONSTRAINT "FK_606118e273f8adb3cbb986dc443" FOREIGN KEY ("nft_metadata_id") REFERENCES "nft_metadata"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
         await db.query(`ALTER TABLE "ipfs_file" ADD CONSTRAINT "FK_e88fb4c20b766a0882bc41686e1" FOREIGN KEY ("agent_profile_id") REFERENCES "agent_profile"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
         await db.query(`ALTER TABLE "ipfs_file" ADD CONSTRAINT "FK_87c421c5e713a95945a0f954787" FOREIGN KEY ("contest_result_id") REFERENCES "contest_result"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
+        await db.query(`ALTER TABLE "market_trade" ADD CONSTRAINT "FK_14f2c5aa45084d1417ecc74c761" FOREIGN KEY ("market_id") REFERENCES "prediction_market"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
+        await db.query(`ALTER TABLE "market_trade" ADD CONSTRAINT "FK_954e0a989b7a085a09a4b087cba" FOREIGN KEY ("trader_id") REFERENCES "account"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
+        await db.query(`ALTER TABLE "market_position" ADD CONSTRAINT "FK_fd2ca99ba61da5163e5260f41a2" FOREIGN KEY ("market_id") REFERENCES "prediction_market"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
+        await db.query(`ALTER TABLE "market_position" ADD CONSTRAINT "FK_32e5e448f5760b8f7ba1f1752fd" FOREIGN KEY ("trader_id") REFERENCES "account"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
+        await db.query(`ALTER TABLE "oracle_game" ADD CONSTRAINT "FK_58e0b1aaede1774661c015561e9" FOREIGN KEY ("market_id") REFERENCES "prediction_market"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
     }
 
     async down(db) {
@@ -207,6 +231,25 @@ module.exports = class Data1760941995807 {
         await db.query(`DROP INDEX "public"."IDX_e88fb4c20b766a0882bc41686e"`)
         await db.query(`DROP INDEX "public"."IDX_87c421c5e713a95945a0f95478"`)
         await db.query(`DROP TABLE "storage_stats"`)
+        await db.query(`DROP TABLE "market_trade"`)
+        await db.query(`DROP INDEX "public"."IDX_14f2c5aa45084d1417ecc74c76"`)
+        await db.query(`DROP INDEX "public"."IDX_954e0a989b7a085a09a4b087cb"`)
+        await db.query(`DROP INDEX "public"."IDX_8901863bae809412c8f50a0b74"`)
+        await db.query(`DROP TABLE "market_position"`)
+        await db.query(`DROP INDEX "public"."IDX_fd2ca99ba61da5163e5260f41a"`)
+        await db.query(`DROP INDEX "public"."IDX_32e5e448f5760b8f7ba1f1752f"`)
+        await db.query(`DROP INDEX "public"."IDX_96b0f686a0079dbc0702a07305"`)
+        await db.query(`DROP TABLE "prediction_market"`)
+        await db.query(`DROP INDEX "public"."IDX_842d8c5916d8296345c4e7a575"`)
+        await db.query(`DROP INDEX "public"."IDX_44b7012944f400b552c8763620"`)
+        await db.query(`DROP INDEX "public"."IDX_102ef1e009156291d7475d2d4d"`)
+        await db.query(`DROP TABLE "oracle_game"`)
+        await db.query(`DROP INDEX "public"."IDX_2519b92c134d79fb25472c7d75"`)
+        await db.query(`DROP INDEX "public"."IDX_fd0c0af5d12ed15649c6d3785e"`)
+        await db.query(`DROP INDEX "public"."IDX_e467e7d59baff54f223e68853d"`)
+        await db.query(`DROP INDEX "public"."IDX_58e0b1aaede1774661c015561e"`)
+        await db.query(`DROP TABLE "market_stats"`)
+        await db.query(`DROP INDEX "public"."IDX_7414c3e693fc3cb552ac7153d9"`)
         await db.query(`ALTER TABLE "decoded_event" DROP CONSTRAINT "FK_77185105499f321fd0e795bbca5"`)
         await db.query(`ALTER TABLE "decoded_event" DROP CONSTRAINT "FK_bf5e2622f23b99b17d38e22f364"`)
         await db.query(`ALTER TABLE "decoded_event" DROP CONSTRAINT "FK_b0e68ea8c23a70dece29731f5e8"`)
@@ -245,5 +288,10 @@ module.exports = class Data1760941995807 {
         await db.query(`ALTER TABLE "ipfs_file" DROP CONSTRAINT "FK_606118e273f8adb3cbb986dc443"`)
         await db.query(`ALTER TABLE "ipfs_file" DROP CONSTRAINT "FK_e88fb4c20b766a0882bc41686e1"`)
         await db.query(`ALTER TABLE "ipfs_file" DROP CONSTRAINT "FK_87c421c5e713a95945a0f954787"`)
+        await db.query(`ALTER TABLE "market_trade" DROP CONSTRAINT "FK_14f2c5aa45084d1417ecc74c761"`)
+        await db.query(`ALTER TABLE "market_trade" DROP CONSTRAINT "FK_954e0a989b7a085a09a4b087cba"`)
+        await db.query(`ALTER TABLE "market_position" DROP CONSTRAINT "FK_fd2ca99ba61da5163e5260f41a2"`)
+        await db.query(`ALTER TABLE "market_position" DROP CONSTRAINT "FK_32e5e448f5760b8f7ba1f1752fd"`)
+        await db.query(`ALTER TABLE "oracle_game" DROP CONSTRAINT "FK_58e0b1aaede1774661c015561e9"`)
     }
 }

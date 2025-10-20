@@ -106,7 +106,7 @@ export function TradingInterface({ market }: { market: Market }) {
           spenderAddress={PREDIMARKET_ADDRESS}
           amount={amount}
           onApproved={() => setIsApproved(true)}
-          tokenSymbol="elizaOS"
+          tokenSymbol="ETH"
         />
       )} */}
 
@@ -121,7 +121,7 @@ export function TradingInterface({ market }: { market: Market }) {
 
       {/* {!isApproved && isConnected && (
         <p className="mt-2 text-xs text-gray-400 text-center">
-          You need to approve elizaOS spending before buying shares
+          You need to approve ETH spending before buying shares
         </p>
       )} */}
     </div>

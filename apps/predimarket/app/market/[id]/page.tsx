@@ -76,7 +76,7 @@ function RecentTrades({ marketId }: { marketId: string }) {
             </span>
           </div>
           <div className="text-right">
-            <div className="text-white font-medium">{(Number(trade.amount) / 1e18).toFixed(2)} elizaOS</div>
+            <div className="text-white font-medium">{(Number(trade.amount) / 1e18).toFixed(2)} ETH</div>
             <div className="text-gray-500 text-xs">{formatDistanceToNow(new Date(trade.timestamp), { addSuffix: true })}</div>
           </div>
         </div>
@@ -146,7 +146,7 @@ export default function MarketPage({ params }: { params: Promise<{ id: string }>
           <div className="flex gap-6 text-sm text-gray-400">
             <span>Created {formatDistanceToNow(market.createdAt, { addSuffix: true })}</span>
             <span>•</span>
-            <span>Volume: {(Number(market.totalVolume) / 1e18).toLocaleString()} elizaOS</span>
+            <span>Volume: {(Number(market.totalVolume) / 1e18).toLocaleString()} ETH</span>
             {market.resolved && market.outcome !== undefined && (
               <>
                 <span>•</span>

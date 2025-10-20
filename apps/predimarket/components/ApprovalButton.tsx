@@ -40,7 +40,7 @@ export function ApprovalButton({
   spenderAddress, 
   amount,
   onApproved,
-  tokenSymbol = 'elizaOS'
+  tokenSymbol = 'ETH'
 }: ApprovalButtonProps) {
   const { address } = useAccount();
   const { writeContract, data: hash, isPending } = useWriteContract();

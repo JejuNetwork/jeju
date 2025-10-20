@@ -327,3 +327,71 @@ type StorageStats @entity {
   assetFiles: BigInt!
   metadataFiles: BigInt!
 }
+
+# ============ Prediction Market Entities ============
+
+type PredictionMarket @entity {
+  id: ID! # sessionId (bytes32)
+  sessionId: String! @unique @index
+  question: String!
+  liquidityB: BigInt!
+  yesShares: BigInt!
+  noShares: BigInt!
+  totalVolume: BigInt!
+  createdAt: DateTime! @index
+  resolved: Boolean! @index
+  outcome: Boolean
+  
+  # Relations
+  trades: [MarketTrade!]! @derivedFrom(field: "market")
+  positions: [MarketPosition!]! @derivedFrom(field: "market")
+}
+
+type MarketTrade @entity {
+  id: ID! # txHash-logIndex
+  market: PredictionMarket!
+  trader: Account!
+  outcome: Boolean!
+  isBuy: Boolean!
+  shares: BigInt!
+  cost: BigInt!
+  priceAfter: BigInt!
+  timestamp: DateTime! @index
+}
+
+type MarketPosition @entity {
+  id: ID! # marketId-traderId
+  market: PredictionMarket!
+  trader: Account!
+  yesShares: BigInt!
+  noShares: BigInt!
+  totalSpent: BigInt!
+  totalReceived: BigInt!
+  hasClaimed: Boolean!
+  lastUpdated: DateTime! @index
+}
+
+type OracleGame @entity {
+  id: ID! # sessionId (bytes32)
+  sessionId: String! @unique @index
+  question: String!
+  commitment: String!
+  committedAt: DateTime! @index
+  finalized: Boolean! @index
+  revealedAt: DateTime
+  outcome: Boolean
+  winners: [String!]!
+  totalPayout: BigInt!
+  market: PredictionMarket
+}
+
+type MarketStats @entity {
+  id: ID! # Date string
+  date: DateTime! @index
+  totalMarkets: BigInt!
+  activeMarkets: BigInt!
+  resolvedMarkets: BigInt!
+  totalVolume: BigInt!
+  totalTrades: BigInt!
+  uniqueTraders: BigInt!
+}

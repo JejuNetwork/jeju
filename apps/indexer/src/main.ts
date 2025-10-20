@@ -35,7 +35,7 @@ import {
     ContractType, TraceType
 } from './model'
 import {processor} from './processor'
-// import {processMarketEvents} from './market-processor'
+import {processMarketEvents} from './market-processor'
 // import {processGameFeedEvents} from './game-feed-processor'
 // import {processNodeStakingEvents} from './node-staking-processor'
 
@@ -440,8 +440,8 @@ processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx) => {
         await ctx.store.insert(traces)  // 8. Traces (depend on transactions)
     }
     
-    // Process specialized event types (disabled until schemas are created)
-    // await processMarketEvents(ctx)  // 9. Prediction market events
+    // Process specialized event types
+    await processMarketEvents(ctx)  // 9. Prediction market events
     // await processGameFeedEvents(ctx)  // 10. Game feed and player events
     // await processNodeStakingEvents(ctx)  // 11. Node staking and governance
 })

@@ -66,7 +66,7 @@ export function MarketCard({ market }: { market: Market }) {
           <div className="flex justify-between text-sm">
             <span className="text-gray-400">Volume</span>
             <span className="text-white font-medium">
-              {(Number(market.totalVolume) / 1e18).toLocaleString()} elizaOS
+              {(Number(market.totalVolume) / 1e18).toLocaleString()} ETH
             </span>
           </div>
         </div>

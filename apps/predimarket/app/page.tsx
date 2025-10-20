@@ -59,7 +59,7 @@ export default function Home() {
             <div className="px-4 py-2 bg-gray-800 rounded-lg">
               <div className="text-sm text-gray-400">Total Volume</div>
               <div className="text-2xl font-bold text-white">
-                {markets.reduce((sum, m) => sum + Number(m.totalVolume), 0).toLocaleString()} elizaOS
+                {(markets.reduce((sum, m) => sum + Number(m.totalVolume), 0) / 1e18).toLocaleString()} ETH
               </div>
             </div>
             <div className="px-4 py-2 bg-gray-800 rounded-lg">
@@ -143,7 +143,7 @@ export default function Home() {
       <footer className="border-t border-gray-800 mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center text-gray-500 text-sm">
-            <p>Powered by Jeju Network • TEE Oracles • elizaOS</p>
+            <p>Powered by Jeju Network • TEE Oracles</p>
             <p className="mt-2">Gasless trading via LiquidityPaymaster</p>
           </div>
         </div>

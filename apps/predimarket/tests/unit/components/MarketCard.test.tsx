@@ -17,7 +17,7 @@ describe('MarketCard', () => {
     noPrice: 400000000000000000n, // 40%
     yesShares: 1000000000000000000n,
     noShares: 1000000000000000000n,
-    totalVolume: 10000000000000000000n, // 10 elizaOS
+    totalVolume: 10000000000000000000n, // 10 ETH
     createdAt: new Date('2025-01-01T00:00:00Z'),
     resolved: false,
   };
@@ -57,10 +57,10 @@ describe('MarketCard', () => {
     expect(noElements.length).toBeGreaterThan(0);
   });
 
-  it('should display volume in elizaOS', () => {
+  it('should display volume in ETH', () => {
     render(<MarketCard market={mockMarket} />);
     
-    const volumeElements = screen.getAllByText(/10.*elizaOS/);
+    const volumeElements = screen.getAllByText(/10.*ETH/);
     expect(volumeElements.length).toBeGreaterThan(0);
   });
 

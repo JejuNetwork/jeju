@@ -68,3 +68,5 @@ contracts/deployments/*
 .cache-synpress/
 vendor_examples/
 vendor/
+playwright-report/
+test-results
