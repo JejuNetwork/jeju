@@ -1,6 +1,6 @@
 apiVersion: v2
 name: rpc-gateway
-description: Nginx-based RPC gateway with rate limiting for Jeju L3
+description: Nginx-based RPC gateway with rate limiting for Jeju
 type: application
 version: 1.0.0
 appVersion: "1.25"

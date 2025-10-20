@@ -1,0 +1,6 @@
+---
+description: Don't create new markdown files
+alwaysApply: true
+---
+
+Don't create new markdon for reports, reviews, etc. Just dot he review, then apply your thoughts and fix things based on the review immediately. Write markdowns is a waste of time and we don't read them. Only valid markdown are README and documentation.

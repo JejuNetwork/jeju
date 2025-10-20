@@ -1,5 +1,5 @@
 import { loadChainConfig } from '../config';
-import type { NetworkType } from '../types/config';
+import type { NetworkType } from '../types/chain';
 
 const networks: NetworkType[] = ['mainnet', 'testnet', 'localnet'];
 

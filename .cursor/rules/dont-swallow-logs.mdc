@@ -1,0 +1,6 @@
+---
+description: Show logs, dont send to dev null or & > 1
+alwaysApply: true
+---
+
+It helps if we can see the logs. Don't hide them. I am reading the console and can only help if I can see them. Just run 'bun run dev" instead of, for example, driving it into a file or dev/null

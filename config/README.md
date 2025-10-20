@@ -1,208 +1,183 @@
-# Configuration Files
+# Jeju Configuration
 
-This directory contains network configuration files that are used throughout the project, including in the documentation.
+Centralized configuration for the Jeju network, including chain configs, port allocation, and network settings.
 
-## Structure
+## Files
 
-```
-config/
-├── base-networks.json      # Base L2 network configurations (Sepolia & Mainnet)
-└── chain/
-    ├── mainnet.json        # Jeju mainnet configuration
-    ├── testnet.json        # Jeju testnet configuration
-    └── localnet.json       # Local development configuration
-```
+### Port Configuration
+- **`ports.ts`** - Centralized port allocation with environment variable support
+  - Core apps: 4000-4999
+  - Vendor apps: 5000-5999
+  - Infrastructure: 8000-9999
+  - Type-safe getters with env var override support
 
-## Configuration Format
+### Chain Configuration
+- **`index.ts`** - Chain configuration loader (mainnet, testnet, localnet)
+- **`jeju-defaults.ts`** - Default values and constants
+- **`chain/`** - Network-specific configs (JSON files)
+  - `mainnet.json` - Production network config
+  - `testnet.json` - Test network config
+  - `localnet.json` - Local development config
 
-Each chain configuration file (`mainnet.json`, `testnet.json`) follows this structure:
+### Network Configuration
+- **`base-networks.json`** - Base (L1) network configurations
+- **`localnet-config.json`** - Localnet-specific settings
 
-```json
-{
-  "chainId": 8888,
-  "networkId": 8888,
-  "name": "Jeju",
-  "rpcUrl": "https://rpc.jeju.network",
-  "wsUrl": "wss://ws.jeju.network",
-  "explorerUrl": "https://explorer.jeju.network",
-  "l1ChainId": 8453,
-  "l1RpcUrl": "https://mainnet.base.org",
-  "l1Name": "Base",
-  "flashblocksEnabled": true,
-  "flashblocksSubBlockTime": 200,
-  "blockTime": 2000,
-  "gasToken": {
-    "name": "Ether",
-    "symbol": "ETH",
-    "decimals": 18
-  },
-  "contracts": {
-    "l2": {
-      "L2CrossDomainMessenger": "0x4200000000000000000000000000000000000007",
-      "L2StandardBridge": "0x4200000000000000000000000000000000000010",
-      "L2ToL1MessagePasser": "0x4200000000000000000000000000000000000016",
-      "L2ERC721Bridge": "0x4200000000000000000000000000000000000014",
-      "GasPriceOracle": "0x420000000000000000000000000000000000000F",
-      "L1Block": "0x4200000000000000000000000000000000000015",
-      "WETH": "0x4200000000000000000000000000000000000006"
-    },
-    "l1": {
-      "OptimismPortal": "",
-      "L2OutputOracle": "",
-      "L1CrossDomainMessenger": "",
-      "L1StandardBridge": "",
-      "SystemConfig": ""
-    }
-  }
-}
+### Deployment Configuration
+- **`deploy-configs/`** - Deployment-specific configurations
+- **`genesis/`** - Genesis block configurations
+- **`rollup/`** - Rollup configuration files
+
+## Usage
+
+### Port Configuration
+
+```typescript
+import { CORE_PORTS, getCoreAppUrl } from './config/ports';
+
+// Get port with environment override
+const port = CORE_PORTS.NODE_EXPLORER_API.get();
+// Returns: process.env.NODE_EXPLORER_API_PORT || 4002
+
+// Get full URL with environment override
+const apiUrl = getCoreAppUrl('NODE_EXPLORER_API');
+// Returns: process.env.NODE_EXPLORER_API_URL || http://localhost:{port}
 ```
 
-## Setting Contract Addresses
+### Chain Configuration
 
-### L2 Contracts (Predeploys)
+```typescript
+import { getChainConfig, getRpcUrl } from './config';
 
-L2 contracts are **predeploys** at fixed addresses on all OP-Stack chains. These addresses are the same across mainnet, testnet, and localnet:
+// Load chain config (respects JEJU_NETWORK env var)
+const config = getChainConfig('mainnet');
 
-- `L2CrossDomainMessenger`: `0x4200000000000000000000000000000000000007`
-- `L2StandardBridge`: `0x4200000000000000000000000000000000000010`
-- `L2ToL1MessagePasser`: `0x4200000000000000000000000000000000000016`
-- `L2ERC721Bridge`: `0x4200000000000000000000000000000000000014`
-- `GasPriceOracle`: `0x420000000000000000000000000000000000000F`
-- `L1Block`: `0x4200000000000000000000000000000000000015`
-- `WETH`: `0x4200000000000000000000000000000000000006`
-
-### L1 Contracts (Deployment-specific)
-
-L1 contracts are deployed on Base (L1) during chain deployment. After deploying to mainnet or testnet, update these addresses:
-
-1. Deploy your OP-Stack contracts to Base using the deployment script
-2. Copy the deployed contract addresses
-3. Update the `contracts.l1` section in the appropriate config file:
-
-**For testnet:**
-```bash
-# After testnet deployment
-vim config/chain/testnet.json
-# Update contracts.l1 addresses
+// Get RPC URL with env var override
+const rpcUrl = getRpcUrl('testnet');
+// Returns: process.env.JEJU_RPC_URL || config.rpcUrl
 ```
 
-**For mainnet:**
-```bash
-# After mainnet deployment
-vim config/chain/mainnet.json
-# Update contracts.l1 addresses
+### Default Values
+
+```typescript
+import { JejuConfig } from './config/jeju-defaults';
+
+// Get default network
+const network = JejuConfig.getDefaultNetwork();
+// Returns: process.env.JEJU_NETWORK || 'localnet'
+
+// Get chain ID
+const chainId = JejuConfig.getChainId();
+// Returns appropriate chain ID based on network
 ```
 
 ## Environment Variables
 
-You can also override configuration values using environment variables:
+### Port Configuration
+
+All ports can be overridden via environment variables:
 
 ```bash
-# Network URLs
-export JEJU_RPC_URL="https://rpc.jeju.network"
-export JEJU_WS_URL="wss://ws.jeju.network"
-export JEJU_EXPLORER_URL="https://explorer.jeju.network"
+# Core apps (use app-specific prefix)
+NODE_EXPLORER_API_PORT=5002
+PREDIMARKET_PORT=5005
+INDEXER_GRAPHQL_PORT=5350
 
-# L1 Settlement
-export JEJU_L1_RPC_URL="https://mainnet.base.org"
+# Vendor apps (use VENDOR_ prefix)
+VENDOR_HYPERSCAPE_CLIENT_PORT=6001
+VENDOR_CALIGULAND_GAME_PORT=6008
 
-# Contract Addresses (L1)
-export JEJU_L1_OPTIMISM_PORTAL="0x..."
-export JEJU_L1_L2_OUTPUT_ORACLE="0x..."
-export JEJU_L1_CROSS_DOMAIN_MESSENGER="0x..."
-export JEJU_L1_STANDARD_BRIDGE="0x..."
-export JEJU_L1_SYSTEM_CONFIG="0x..."
+# Infrastructure
+L2_RPC_PORT=9545
+PROMETHEUS_PORT=9090
 ```
 
-## Deployment Workflow
+### URL Overrides
 
-### 1. Deploy Testnet
+Full URLs can also be overridden:
 
 ```bash
-# Deploy OP-Stack contracts to Base Sepolia
-bun run scripts/deploy/testnet.ts
+# Override full URL (takes precedence over port)
+NODE_EXPLORER_API_URL=https://api.example.com
+INDEXER_GRAPHQL_URL=https://indexer.example.com/graphql
 
-# Copy output addresses to config
-vim config/chain/testnet.json
-# Update contracts.l1 section with deployed addresses
-
-# Documentation will automatically display the new addresses
+# Point to remote services
+JEJU_RPC_URL=https://rpc.jeju.network
 ```
 
-### 2. Deploy Mainnet
+### Chain Configuration
 
 ```bash
-# Deploy OP-Stack contracts to Base Mainnet
-bun run scripts/deploy/mainnet.ts
+# Network selection
+JEJU_NETWORK=localnet|testnet|mainnet
 
-# Update mainnet config
-vim config/chain/mainnet.json
-# Update contracts.l1 section with deployed addresses
+# RPC overrides
+JEJU_RPC_URL=http://localhost:9545
+JEJU_WS_URL=ws://localhost:9546
+JEJU_EXPLORER_URL=http://localhost:4000
 
-# Rebuild documentation to show mainnet addresses
-cd documentation
-bun run docs:build
+# L1 (Base) configuration
+JEJU_L1_RPC_URL=http://localhost:8545
 ```
-
-## Documentation Integration
-
-The configuration files are automatically loaded into the documentation using VitePress data loaders:
-
-- **File**: `documentation/.vitepress/data/chainConfig.data.ts`
-- **Components**: 
-  - `ContractAddresses.vue` - Displays contract addresses with copy buttons
-  - `NetworkInfo.vue` - Displays network details
-  - `NetworkSwitcher.vue` - Switches between mainnet/testnet
-
-When you update the JSON config files, the documentation will automatically reflect the changes on the next build.
-
-## Adding New Contracts
-
-To add new contract addresses to the documentation:
-
-1. Add the contract to the appropriate section in the config file:
-
-```json
-{
-  "contracts": {
-    "l2": {
-      // ... existing contracts
-      "NewContract": "0x..."
-    }
-  }
-}
-```
-
-2. The `ContractAddresses` component will automatically display it.
-
-For DeFi protocols and custom contracts, consider creating a separate `config/contracts/` directory with protocol-specific configs.
 
 ## Validation
 
-Before committing changes, validate your JSON files:
-
+### Check Port Configuration
 ```bash
-# Check JSON syntax
-bun run scripts/validate-config.ts
-
-# Or manually
-cat config/chain/mainnet.json | jq '.'
+bun run ports
 ```
 
-## Best Practices
+Shows:
+- All allocated ports
+- Environment variable overrides (if any)
+- Port conflicts (if any)
+- Port range validation
 
-1. **Never commit private keys or secrets** to config files
-2. **Empty strings for undeployed contracts** - Use `""` for L1 contracts that haven't been deployed yet
-3. **Use environment variables** for sensitive data
-4. **Test changes locally** before deploying
-5. **Keep testnet and mainnet configs in sync** (except for addresses and URLs)
-6. **Document custom fields** if you add new configuration options
+### Run Config Tests
+```bash
+bun test config/index.test.ts
+```
 
-## Support
+Tests:
+- Configuration loading
+- Environment variable overrides
+- Contract address resolution
+- URL getters
+- Validation
 
-For questions about configuration:
-- Discord: #dev-support
-- GitHub: Open an issue
-- Docs: https://docs.jeju.network
+## Design Principles
 
+1. **Environment First** - All values configurable via env vars
+2. **Sensible Defaults** - Works out of the box
+3. **Type Safety** - TypeScript for correctness
+4. **Clear Naming** - Prefixes prevent collisions
+5. **Flexible Override** - Support both ports and full URLs
+6. **Backward Compatible** - Falls back to generic vars
+
+## Port Ranges Explained
+
+### Why 4000-4999 for Core Apps?
+- Avoids common dev ports (3000, 8000, 8080)
+- Room for 1000 core services
+- Clear separation from vendor apps
+- No conflicts with infrastructure
+
+### Why 5000-5999 for Vendor Apps?
+- Isolated from core infrastructure
+- Vendors can't conflict with critical services
+- Easy to identify third-party services
+- Clear ownership boundary
+
+### Why 8000-9999 for Infrastructure?
+- RPC standard ports (8545, 9545)
+- Monitoring tools (9090, 4010)
+- System services
+- Critical infrastructure separation
+
+## See Also
+
+- **`../ENV_VARS.md`** - Complete environment variable reference
+- **`../PORT_ALLOCATION.md`** - Detailed port allocation guide
+- **`../DYNAMIC_PORTS_MIGRATION.md`** - Migration guide
+- **`../QUICK_PORT_REFERENCE.md`** - Quick reference card
 

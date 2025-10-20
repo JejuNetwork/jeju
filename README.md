@@ -1,343 +1,298 @@
-# Jeju L3
-
-OP-Stack L3 blockchain settling on Base with Flashblocks, EigenDA, and Subsquid indexer.
-
-✅ **All Helm templates complete** - See [COMPLETE.md](COMPLETE.md)
-
----
-
-## 🚀 Quick Start (3 Commands)
-
-```bash
-# 1. Install dependencies (root + indexer automatically)
-bun install
-
-# 2. Start development environment (L1 + L2)
-bun run dev
-
-# 3. Run comprehensive test suite (tests EVERYTHING)
-bun run test
-```
-
-**That's it!** ✅ Your L3 is running locally.
-
-> **Note**: `bun install` automatically installs dependencies for both the root project and the indexer subdirectory.
+<div align="center">
+  <img src="apps/documentation/JejuLogo.jpg" alt="Jeju Network" width="400"/>
+  
+  # Jeju Network
+  
+  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+  [![Built with Bun](https://img.shields.io/badge/Built%20with-Bun-black)](https://bun.sh)
+  [![Powered by OP Stack](https://img.shields.io/badge/Powered%20by-OP%20Stack-red)](https://optimism.io)
+</div>
 
 ---
 
-## 📦 Installation
+## 🌴 Welcome to Jeju
 
-### macOS
+Jeju is a high-performance Layer 2 blockchain built for the next generation of onchain applications. We're bringing together AI agents, 3D multiplayer games, DeFi protocols, and instant payment systems—all in one unified ecosystem.
+
+## 🪙 Multi-Token Support
+
+**Bring Your Token. Power the Chain.**
+
+Jeju supports multiple tokens for gas payments and protocol interactions:
+
+### How It Works
+
+1. **Bridge from Base** - Use the Gateway Portal to bridge your tokens
+2. **Deploy Paymaster** - Each token has its own paymaster system
+3. **Provide ETH Liquidity** - Earn fees in the token users spend
+4. **Use Your Tokens** - Pay for gas, bet on markets, play games
+
 ```bash
-brew install --cask docker
-brew install kurtosis-tech/tap/kurtosis-cli
-curl -fsSL https://bun.sh/install | bash
+# Bridge CLANKER from Base to Jeju
+bun run scripts/bridge-multi-tokens.ts CLANKER 1000
+
+# Deploy paymaster for a new token
+bun run scripts/deploy-per-token-paymaster.ts <TOKEN_ADDRESS>
+
+# Initialize pools
+bun run scripts/init-multi-token-pools.ts
 ```
 
-### Linux
-```bash
-# Install Docker from docker.com
-curl -fsSL https://bun.sh/install | bash
-# Install Kurtosis from github.com/kurtosis-tech/kurtosis
-```
+### For Token Holders
 
-### Windows
-```bash
-# Install Docker Desktop
-# Install WSL2: wsl --install
-# In WSL2:
-curl -fsSL https://bun.sh/install | bash
-# Install Kurtosis in WSL2
-```
+If you hold CLANKER, VIRTUAL, or CLANKERMON on Base:
 
-### Verify Installation
-```bash
-docker ps && kurtosis version && bun --version
-```
+1. **Bridge** to Jeju (2 minutes, Standard Bridge)
+2. **Use everywhere** - Pay gas, place bets, use services
+3. **Earn rewards** - Provide liquidity, earn protocol fees
+
+### For Liquidity Providers
+
+Provide ETH, earn fees in ANY protocol token:
+
+- **CLANKER LPs**: Earn CLANKER when users pay gas with CLANKER
+- **VIRTUAL LPs**: Earn VIRTUAL when users pay gas with VIRTUAL
+- **Multi-token LPs**: Provide ETH to all vaults, earn all tokens
+
+See [BRIDGING_GUIDE.md](./docs/BRIDGING_GUIDE.md) and [LP_REWARDS_GUIDE.md](./docs/LP_REWARDS_GUIDE.md).
 
 ---
 
-## 💻 Development Commands
-
-### Primary Commands
-
-```bash
-bun run dev          # Start localnet (L1 + L2)
-bun run dev --indexer # Start localnet + Subsquid indexer
-bun run test         # Run comprehensive test suite (tests EVERYTHING)
-bun run start        # Deploy to testnet (requires AWS)
-```
-
-### Development Helpers
-
-```bash
-# Localnet management
-bun run localnet:start    # Start L1 + L2
-bun run localnet:stop     # Stop localnet
-bun run localnet:reset    # Reset and restart
-bun run localnet:logs     # View logs
-
-# Indexer (Subsquid)
-bun run indexer:dev       # Start indexer
-bun run indexer:build     # Build TypeScript
-bun run indexer:test      # Test with real data
-bun run indexer:migrate   # Run migrations
-
-# Testing
-bun run test              # Comprehensive test suite
-bun run test:unit         # Unit tests only
-bun run test:integration  # Integration tests
-bun run test:e2e          # E2E tests
-
-# Quality
-bun run typecheck         # TypeScript check
-bun run config:validate   # Validate configs
-
-# Documentation
-bun run docs:dev          # Dev server
-bun run docs:build        # Build docs
-```
-
-### Kubernetes Deployment
-
-```bash
-bun run k8s:testnet      # Deploy to testnet
-bun run k8s:mainnet      # Deploy to mainnet  
-bun run k8s:diff         # Preview changes
-```
-
----
-
-## 🧪 Comprehensive Test Suite
-
-The `bun run test` command validates EVERYTHING:
-
-**What Gets Tested**:
-- ✅ Configuration validation (all environments)
-- ✅ TypeScript compilation (zero errors)
-- ✅ Kurtosis localnet startup (L1 + L2)
-- ✅ L2 RPC availability (endpoints responding)
-- ✅ Transaction sending (can submit & confirm)
-- ✅ Subsquid indexer build & tests (8/8 passing)
-- ✅ Integration tests (chain functionality)
-- ✅ E2E tests (DeFi protocols)
-- ✅ Kubernetes configs (Helmfile validation)
-- ✅ Terraform configs (all environments)
-- ✅ Documentation build (no broken links)
-- ✅ Cleanup (stops all services)
-
-**Expected Output**:
-```
-📊 TEST RESULTS SUMMARY
-==================================================
-1. ✅ PASS Configuration Validation (1.23s)
-2. ✅ PASS TypeScript Compilation (3.45s)
-3. ✅ PASS Clean Slate (0.52s)
-4. ✅ PASS Kurtosis Localnet Startup (45.12s)
-5. ✅ PASS L2 RPC Availability (0.34s)
-6. ✅ PASS L2 Chain Functionality (1.89s)
-7. ✅ PASS Subsquid Indexer - Dependencies (2.34s)
-8. ✅ PASS Subsquid Indexer - Build (5.67s)
-9. ✅ PASS Subsquid Indexer - Tests (12.34s)
-10. ✅ PASS Integration Tests (8.45s)
-11. ✅ PASS E2E Tests (15.23s)
-12. ✅ PASS Kubernetes Configs (2.11s)
-13. ✅ PASS Terraform Configs (3.78s)
-14. ✅ PASS Documentation Build (6.89s)
-15. ✅ PASS Cleanup (1.23s)
-
-TOTAL: 15 tests | ✅ 15 passed | ❌ 0 failed
-TIME: 110.59s (1.8 minutes)
-
-✅ ALL TESTS PASSED!
-🎉 Your Jeju L3 stack is fully functional!
-```
-
-**Time**: ~2 minutes
-
----
-
-## 🎯 What You Get Locally
-
-### L1 + L2 Blockchain
-- **L1**: Geth (dev mode, auto-mining)
-- **L2**: op-geth (dev mode, 2s blocks)
-- **RPC**: http://127.0.0.1:<dynamic-port>
-- **Pre-funded Account**: 10^49 ETH
-
-### Subsquid Indexer (Optional)
-- **GraphQL API**: http://localhost:4350/graphql
-- **Indexes**: Blocks, transactions, logs, events, tokens, contracts
-- **Real-time**: Processes new blocks automatically
-
-### Development Tools
-- Configuration validation
-- TypeScript type checking
-- Comprehensive test suite
-- Documentation server
-
----
-
-## 🌐 Testnet Deployment
+## 🚀 Getting Started
 
 ### Prerequisites
-- AWS account
-- Base Sepolia RPC access
-- kubectl, helm, helmfile, terraform
 
-### Deploy
+- [Bun](https://bun.sh) v1.0+ (our preferred runtime)
+- [Docker](https://docker.com) (for infrastructure services)
+- [Foundry](https://getfoundry.sh) (for smart contracts)
+
+### Quick Start
+
+**Launch the entire Jeju ecosystem in one command:**
 
 ```bash
-# Deploy infrastructure + services
-bun run start
-
-# This will:
-# 1. Validate configuration
-# 2. Check AWS access
-# 3. Deploy Terraform (EKS, VPC, RDS)
-# 4. Deploy Kubernetes services
-# 5. Verify deployment
+bun run dev
 ```
 
-**Endpoints**:
-- RPC: https://testnet-rpc.jeju.network
-- WS: wss://testnet-ws.jeju.network
-- Indexer: https://testnet-indexer.jeju.network/graphql
+This starts:
+- ✅ Kurtosis Localnet (L1 + L2 blockchain)
+- ✅ Subsquid Indexer + GraphQL API
+- ✅ Node Explorer (network monitoring)
+- ✅ Vendor Apps (dynamically discovered from `/vendor`)
+- ✅ Monitoring: Prometheus + Grafana
+- ✅ Documentation site
 
----
+### 📦 Vendor Apps (Optional)
 
-## 📖 Detailed Guides
+Third-party applications are in `/vendor` as git submodules. They're **completely optional** and **dynamically discovered**.
 
-### For Development
-- [Getting Started](./documentation/getting-started/quick-start.md)
-- [Running RPC Node](./documentation/developers/run-rpc-node.md)
+```bash
+# List available vendor apps
+bun run vendor:list
 
-### For Deployment
-- [Deployment Overview](./documentation/deployment/overview.md)
-- [RPC Deployment Guide](./RPC_DEPLOYMENT.md)
-- [Infrastructure Review](./DEPLOYMENT_READINESS_REPORT.md)
+# Migrate existing apps to vendor
+bun run vendor:migrate
 
-### For Operations
-- [RPC Quick Reference](./kubernetes/RPC_QUICK_REFERENCE.md)
-- [Missing Templates](./kubernetes/helm/MISSING_TEMPLATES.md)
-
----
-
-## 📊 What's Included
-
-### ✅ Complete & Working
-- **Infrastructure**: Terraform for AWS (EKS, VPC, RDS, WAF)
-- **Kubernetes**: Helm charts (reth, op-node, rpc-gateway, subsquid)
-- **Indexer**: Subsquid (100% complete, 8/8 tests passing)
-- **Localnet**: Kurtosis (L1 + L2 in 2 minutes)
-- **Configuration**: Type-safe multi-environment configs
-- **Monitoring**: Prometheus + Grafana configs
-- **Documentation**: Complete guides
-- **Tests**: Comprehensive suite
-
-### ⚠️ Partial (Values but No K8s Templates)
-- op-batcher, op-proposer, op-challenger, eigenda, bundler
-- See `kubernetes/helm/MISSING_TEMPLATES.md`
-
-### ❌ Not Included (Needs Setup)
-- Smart contracts (L1 deployment contracts)
-- See `DEPLOYMENT_READINESS_REPORT.md`
-
----
-
-## Architecture
-
-### Layers
-
-```
-Ethereum L1 (security)
-    ↓
-Base L2 (settlement) ← You post here
-    ↓
-Jeju L3 (application) ← Your chain
+# Start only vendor apps
+bun run dev:vendor
 ```
 
-### Settlement (Base)
-- **Chain ID**: 8453 (mainnet) / 84532 (testnet)
-- **RPC**: https://mainnet.base.org
-- **Purpose**: State validation, fault proofs
-- **Config**: `l1ChainId`, `l1RpcUrl`
+See [VENDOR_MIGRATION_GUIDE.md](./VENDOR_MIGRATION_GUIDE.md) for details.
 
-### Data Availability (EigenDA)  
-- **Purpose**: Transaction data storage
-- **Alternative**: Calldata (more expensive)
-- **Config**: `dataAvailability` in op-batcher Helm values
+### 🦊 Wallet Setup (MetaMask)
 
-See [docs/ARCHITECTURE_EXPLAINED.md](./docs/ARCHITECTURE_EXPLAINED.md)
+After starting the dev environment, you'll see a **WALLET SETUP** section at the bottom with the exact RPC URL.
 
----
+**Quick Setup:**
 
-## Configuration
+1. Open MetaMask
+2. Click **Networks** → **Add Network** → **Add a network manually**
+3. Enter these **STATIC** values (never change):
+   - **Network Name:** `Jeju Localnet`
+   - **RPC URL:** `http://127.0.0.1:9545` ← **L2 - STATIC PORT**
+   - **Chain ID:** `1337`
+   - **Currency Symbol:** `ETH`
+4. Click **Save**
 
-### Localnet
-- **L1**: Local Geth (1337)
-- **L2**: op-geth (1337)
+**✅ DONE!** This network configuration is permanent. The dev environment automatically forwards port 9545 to Kurtosis's dynamic L2 port, so you **never** need to change your MetaMask config!
 
-### Testnet
-- **Settlement**: Base Sepolia (84532)
-- **Chain**: Jeju Testnet (420690)
-
-### Mainnet
-- **Settlement**: Base (8453)
-- **Chain**: Jeju (8888)
-
----
-
-## Project Structure
-
+**🔍 Need to see it again?** Run this anytime:
+```bash
+bun run wallet
 ```
-terraform/
-  modules/          # VPC, EKS, RDS, KMS, Vault, WAF
-  environments/     # local, testnet, mainnet
 
-kubernetes/
-  helmfile/         # Unified deployment (helmfile)
-    helmfile.yaml   # Master deployment file
-    environments/   # Per-environment configs
-  helm/
-    op-node/        # Consensus ✅
-    op-batcher/     # Batcher ✅
-    op-proposer/    # Proposer ✅
-    op-challenger/  # Challenger ✅
-    reth/           # Execution (sequencer, rpc, archive) ✅
-    eigenda/        # Data availability ✅
-    bundler/        # ERC-4337 ✅
-    rpc-gateway/    # Rate-limiting gateway ✅
-    subsquid/       # Blockchain indexer ✅
-    metabase/       # Analytics dashboard ✅
+**💰 Import Test Account:**
 
-indexer/            # Subsquid indexer (complete) ✅
+Use this pre-funded account to interact with contracts:
+- **Private Key:** `0xb71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291`
+- **Address:** `0x71562b71999873DB5b286dF957af199Ec94617F7`
+- **Balance:** Unlimited ETH
 
-kurtosis/main.star  # Localnet (basic L1+L2)
+In MetaMask: **Import Account** → Paste the private key above.
 
-scripts/
-  localnet/         # Start, stop, reset ✅
-  deploy/           # Deployment scripts ⚠️ (partial)
+### Quick Test
 
-monitoring/
-  prometheus/alerts/     ✅
-  grafana/dashboards/    ✅
+Verify everything is working:
 
-tests/
-  integration/      ✅
-  e2e/              ✅
+```bash
+# Check network connectivity
+bun run scripts/test-jeju-detection.ts
+
+# Verify ERC-8004 agent registry
+bun scripts/verify-erc8004.ts
+
+# Run smoke tests
+bun run scripts/smoke-runtime.ts
 ```
 
 ---
 
-## 📜 License
+## 🔨 Building
 
-MIT
+### Install Dependencies
+
+```bash
+bun install
+bun run build
+```
+
+### Build Smart Contracts
+
+```bash
+cd contracts
+forge build
+```
+
+### Deploy Contracts Locally
+
+```bash
+# Bootstrap complete localnet with all contracts
+bun run scripts/bootstrap-localnet-complete.ts
+
+# Or deploy specific systems
+bun run scripts/deploy-uniswap-v4.ts
+bun run scripts/deploy-paymaster-system.ts
+```
 
 ---
 
-## 📚 Additional Resources
+## 🧪 Testing
 
-- [RPC Infrastructure Guide](./RPC_DEPLOYMENT.md)
-- [Deployment Readiness Report](./DEPLOYMENT_READINESS_REPORT.md)
-- [Architecture Docs](./documentation/architecture.md)
+### Run Contract Tests
+
+```bash
+cd contracts
+forge test
+```
+
+### Run Integration Tests
+
+```bash
+# Full test suite
+bun run scripts/test-all.sh
+
+# Specific test suites
+cd packages/plugin-x402 && bun test
+cd contracts && forge test --match-contract "*USDC*|*Credit*|*Paymaster*"
+```
+
+### Runtime E2E Tests
+
+```bash
+# Start services
+bun run dev
+
+# In another terminal, run E2E tests
+bun run scripts/smoke-runtime.ts
+```
+
+---
+
+## 🚢 Deployment
+
+### Deploy to Testnet
+
+```bash
+# Set environment variables
+export JEJU_NETWORK=testnet
+export DEPLOYER_PRIVATE_KEY=0x...
+export JEJU_RPC_URL=https://testnet-rpc.jeju.network
+
+# Deploy contracts
+cd contracts
+forge script script/Deploy.s.sol --broadcast --verify
+```
+
+### Deploy to Mainnet
+
+```bash
+# Set environment variables
+export JEJU_NETWORK=mainnet
+export DEPLOYER_PRIVATE_KEY=0x...
+export JEJU_RPC_URL=https://rpc.jeju.network
+
+# Deploy with verification
+cd contracts
+forge script script/Deploy.s.sol --broadcast --verify --slow
+```
+
+## 📖 Network Information
+
+### Quick Reference: Jeju Localnet
+
+**🦊 MetaMask Configuration (Copy These Values):**
+
+```
+Network Name:   Jeju Localnet
+RPC URL:        http://127.0.0.1:9545  ← L2 - STATIC PORT
+Chain ID:       1337
+Currency:       ETH
+```
+
+**💰 Test Account (Import to MetaMask):**
+```
+Private Key: 0xb71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291
+Address:     0x71562b71999873DB5b286dF957af199Ec94617F7
+```
+
+### All Networks
+
+| Network | Chain ID | RPC URL | Notes |
+|---------|----------|---------|-------|
+| **Mainnet** | 420691 | https://rpc.jeju.network | Production |
+| **Testnet** | 420690 | https://testnet-rpc.jeju.network | Public testnet |
+| **Localnet (L2)** | 1337 | **http://127.0.0.1:9545** | **STATIC - Never changes!** |
+| **Localnet (L1)** | 1337 | http://127.0.0.1:8545 | For L1 contracts only |
+
+### Port Architecture
+
+**STATIC PORTS (configured by `bun run dev`):**
+
+- **L2 RPC:** `9545` ← **Use this for wallets & apps**
+- **L1 RPC:** `8545` (L1 only)
+- Port forwarding: `socat` automatically forwards to Kurtosis dynamic ports
+- **Result:** Set up your wallet once, works forever!
+
+**Core App Ports (4000-4999):**
+- Paymaster Dashboard: `4001`
+- Node Explorer API: `4002`
+- Node Explorer UI: `4003`
+- Documentation: `4004`
+- Indexer GraphQL: `4350`
+
+**Vendor App Ports (4005+, 5000-5999):**
+- Predimarket: `4005`
+- Hyperscape: `5001` (API: `5002`)
+- Launchpad: `5003`
+- TheDesk: `5004` (API: `5005`)
+- Cloud: `5006`
+- Caliguland: `5007` (Game: `5008`, Auth: `5009`)
+- redteam: `5010`
+
+### Key Contracts (Localnet)
+
+| Contract | Address |
+|----------|---------|
+| PoolManager (Uniswap V4) | `0x5FbDB2315678afecb367f032d93F642f64180aa3` |
+| elizaOS Token | `0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512` |
+| WETH (L2 Bridge) | `0x4200000000000000000000000000000000000006` |

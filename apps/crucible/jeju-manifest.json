@@ -1,0 +1,39 @@
+{
+  "$schema": "../../jeju-manifest.schema.json",
+  "name": "crucible",
+  "displayName": "Crucible",
+  "version": "1.0.0",
+  "type": "app",
+  "description": "Multi-agent security testing platform - hackers, scammers, citizens, and guardians testing Jeju Network",
+  "commands": {
+    "dev": "bun run src/index.ts",
+    "build": "bun run build",
+    "start": "bun run start",
+    "test": "bun test",
+    "lint": "bun run lint"
+  },
+  "ports": {
+    "main": 7777,
+    "dashboard": 5010
+  },
+  "dependencies": [],
+  "optional": true,
+  "enabled": true,
+  "autoStart": false,
+  "tags": ["security", "testing", "multi-agent", "elizaos"],
+  "container": {
+    "runtime": ["docker", "podman"],
+    "required": false,
+    "image": "jeju/crucible:latest",
+    "notes": "Can run locally with 'bun run dev' or in container with 'docker-compose up'"
+  },
+  "setup": {
+    "required": ["OPENAI_API_KEY or ANTHROPIC_API_KEY in .env"],
+    "scripts": {
+      "deploy": "bun run scripts/deploy-localnet.ts",
+      "fund": "bun run fund"
+    },
+    "notes": "Run 'bun run deploy' to auto-setup, then add AI API key to .env"
+  }
+}
+

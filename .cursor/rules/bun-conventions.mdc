@@ -1,0 +1,27 @@
+---
+description: Bun runtime conventions for Jeju
+alwaysApply: true
+---
+
+# Bun Conventions
+
+**Use Bun for all operations, not npm/npx:**
+- Run: `bun run dev` or `bun scripts/deploy.ts`
+- Install: `bun install ethers`
+- TypeScript runs directly, no transpilation
+- `.env` auto-loaded, no dotenv package needed
+
+**File operations:**
+```typescript
+const file = Bun.file('config.json');
+const config = await file.json();
+await Bun.write('output.json', JSON.stringify(data, null, 2));
+```
+
+**Import patterns:**
+```typescript
+import { ethers } from 'ethers';
+import { ChainConfig } from '../types';
+
+const rpcUrl = process.env.RPC_URL; // Direct env access
+```

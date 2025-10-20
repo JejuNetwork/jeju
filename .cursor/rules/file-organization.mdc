@@ -1,0 +1,40 @@
+---
+description: File organization and project structure for Jeju
+alwaysApply: true
+---
+
+# File Organization & Structure
+
+**NEVER create new files unnecessarily:**
+- Search existing code first (grep/search in [scripts/shared/](mdc:scripts/shared/), [types/](mdc:types/))
+- Extend existing files when functionality fits
+- Only create for genuinely new concepts or >500 line files
+
+**NEVER use "Unified" or "Consolidated" in file names**
+
+**Code locations:**
+- Utilities → [scripts/shared/](mdc:scripts/shared/)
+- Types → [types/](mdc:types/) (barrel export from [index.ts](mdc:types/index.ts))
+- Deployment → [scripts/](mdc:scripts/)
+- Config → [config/](mdc:config/)
+- Contracts → [contracts/src/](mdc:contracts/src/)
+- Apps → [apps/{app-name}/](mdc:apps/)
+
+**Monorepo structure:**
+```
+jeju/
+├── apps/          # agent, bazaar, gateway, indexer, leaderboard
+├── config/        # base-networks.json, jeju-tokens.json, chain/
+├── contracts/     # src/, script/, test/
+├── scripts/       # deploy-*.ts, shared/
+├── types/         # chain.ts, contracts.ts, defi.ts, infrastructure.ts
+└── vendor/
+```
+
+**Import patterns:**
+```typescript
+import { ChainConfig, NetworkType } from '../types'; // Central types
+import { Logger, FailoverProvider } from './shared'; // Barrel exports
+```
+
+**Networks:** localnet (8545), testnet (Base Sepolia), mainnet (Base)

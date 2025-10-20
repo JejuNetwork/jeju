@@ -1,0 +1,152 @@
+groups:
+  - name: subsquid_indexer
+    interval: 30s
+    rules:
+      # Processor Health
+      - alert: SubsquidProcessorDown
+        expr: up{job="subsquid-processor"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          component: indexer
+        annotations:
+          summary: "Subsquid processor is down"
+          description: "Subsquid processor has been down for more than 5 minutes"
+
+      # Processing Speed
+      - alert: SubsquidSlowProcessing
+        expr: rate(subsquid_blocks_processed_total[5m]) < 10
+        for: 10m
+        labels:
+          severity: warning
+          component: indexer
+        annotations:
+          summary: "Subsquid processing speed is slow"
+          description: "Processing fewer than 10 blocks per second for 10 minutes"
+
+      # Database Lag
+      - alert: SubsquidHighDatabaseLag
+        expr: (subsquid_chain_height - subsquid_last_processed_block) > 1000
+        for: 15m
+        labels:
+          severity: warning
+          component: indexer
+        annotations:
+          summary: "Subsquid database is lagging behind chain"
+          description: "Database is more than 1000 blocks behind chain head"
+
+      # API Health
+      - alert: SubsquidAPIDown
+        expr: up{job="subsquid-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "Subsquid API is down"
+          description: "API has been unreachable for 2 minutes"
+
+      # API Response Time
+      - alert: SubsquidSlowAPI
+        expr: histogram_quantile(0.95, rate(subsquid_graphql_request_duration_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "Subsquid API response time is high"
+          description: "95th percentile response time is above 5 seconds"
+
+      # API Error Rate
+      - alert: SubsquidHighAPIErrorRate
+        expr: rate(subsquid_graphql_errors_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "High API error rate detected"
+          description: "Error rate is above 5% for 5 minutes"
+
+      # Database Connections
+      - alert: SubsquidHighDatabaseConnections
+        expr: pg_stat_database_numbackends{datname="indexer"} > 150
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "High number of database connections"
+          description: "More than 150 active connections to database"
+
+      # Database Size
+      - alert: SubsquidDatabaseSizeHigh
+        expr: pg_database_size_bytes{datname="indexer"} > 900e9
+        for: 1h
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "Database size approaching limit"
+          description: "Database size is over 900GB"
+
+      # Memory Usage
+      - alert: SubsquidHighMemoryUsage
+        expr: container_memory_usage_bytes{pod=~"subsquid.*"} / container_spec_memory_limit_bytes{pod=~"subsquid.*"} > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is above 90%"
+
+      # CPU Usage
+      - alert: SubsquidHighCPUUsage
+        expr: rate(container_cpu_usage_seconds_total{pod=~"subsquid.*"}[5m]) > 1.5
+        for: 10m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is consistently high"
+
+      # Rate Limiting
+      - alert: SubsquidHighRateLimitHits
+        expr: rate(nginx_http_requests_total{status="429"}[5m]) > 10
+        for: 5m
+        labels:
+          severity: info
+          component: api
+        annotations:
+          summary: "High rate of rate limit hits"
+          description: "More than 10 requests per second are being rate limited"
+
+  - name: subsquid_recording_rules
+    interval: 30s
+    rules:
+      # Processing Rate
+      - record: subsquid:blocks_processed:rate5m
+        expr: rate(subsquid_blocks_processed_total[5m])
+
+      # API Request Rate
+      - record: subsquid:api_requests:rate5m
+        expr: rate(subsquid_graphql_requests_total[5m])
+
+      # API Error Rate
+      - record: subsquid:api_errors:rate5m
+        expr: rate(subsquid_graphql_errors_total[5m])
+
+      # API P95 Latency
+      - record: subsquid:api_latency:p95
+        expr: histogram_quantile(0.95, rate(subsquid_graphql_request_duration_seconds_bucket[5m]))
+
+      # API P99 Latency
+      - record: subsquid:api_latency:p99
+        expr: histogram_quantile(0.99, rate(subsquid_graphql_request_duration_seconds_bucket[5m]))
+
+      # Database Lag
+      - record: subsquid:database_lag:blocks
+        expr: subsquid_chain_height - subsquid_last_processed_block
+

@@ -1,0 +1,548 @@
+{
+  "uid": "jeju-contract-activity",
+  "title": "Jeju - Contract Activity by Category",
+  "tags": [
+    "contracts",
+    "events",
+    "jeju",
+    "category"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "10s",
+  "editable": true,
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Paymaster Events (24h)",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM decoded_event WHERE event_name IN ('TransactionSponsored', 'FeesDistributed', 'AppClaimed', 'ETHAdded', 'ETHRemoved', 'FeesClaimed') AND timestamp > NOW() - INTERVAL '24 hours'",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "green"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Game Events (24h)",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 3,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM decoded_event WHERE event_name IN ('PlayerRegistered', 'PlayerMoved', 'LevelUp', 'XPGained', 'MobKilled', 'ItemEquipped') AND timestamp > NOW() - INTERVAL '24 hours'",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "blue"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Marketplace Events (24h)",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 6,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM decoded_event WHERE event_name IN ('ListingCreated', 'ListingSold', 'ListingCancelled', 'TradeExecuted') AND timestamp > NOW() - INTERVAL '24 hours'",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "purple"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Prediction Events (24h)",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 9,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM decoded_event WHERE event_name IN ('MarketCreated', 'SharesPurchased', 'SharesSold', 'MarketResolved') AND timestamp > NOW() - INTERVAL '24 hours'",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "orange"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Cloud Events (24h)",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM decoded_event WHERE event_name IN ('ServiceRegistered', 'ServiceUsageRecorded', 'CreditDeposited', 'CreditsPurchased') AND timestamp > NOW() - INTERVAL '24 hours'",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "yellow"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Registry Events (24h)",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 15,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM decoded_event WHERE event_name IN ('Registered', 'MetadataSet', 'NewFeedback', 'ValidationRequest') AND timestamp > NOW() - INTERVAL '24 hours'",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "red"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Oracle Events (24h)",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 18,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM decoded_event WHERE event_name IN ('PricesUpdated', 'FeedPostPublished', 'SkillLevelUp') AND timestamp > NOW() - INTERVAL '24 hours'",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "green"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "Node Events (24h)",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 21,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM decoded_event WHERE event_name IN ('NodeRegistered', 'PerformanceUpdated', 'RewardsClaimed') AND timestamp > NOW() - INTERVAL '24 hours'",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "blue"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "Events by Category Over Time",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 4
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  DATE_TRUNC('hour', timestamp) as time,\n  CASE \n    WHEN event_name IN ('TransactionSponsored', 'FeesDistributed', 'ETHAdded', 'FeesClaimed') THEN 'Paymaster'\n    WHEN event_name IN ('PlayerRegistered', 'LevelUp', 'MobKilled', 'ItemEquipped') THEN 'Game'\n    WHEN event_name IN ('ListingCreated', 'ListingSold', 'TradeExecuted') THEN 'Marketplace'\n    WHEN event_name IN ('MarketCreated', 'SharesPurchased', 'MarketResolved') THEN 'Predictions'\n    WHEN event_name IN ('ServiceUsageRecorded', 'CreditDeposited') THEN 'Cloud'\n    WHEN event_name IN ('Registered', 'NewFeedback', 'ValidationRequest') THEN 'Registry'\n    WHEN event_name IN ('NodeRegistered', 'PerformanceUpdated') THEN 'Node'\n    WHEN event_name IN ('PricesUpdated', 'FeedPostPublished') THEN 'Oracle'\n    WHEN event_name = 'Transfer' THEN 'Token'\n    ELSE 'Other'\n  END as metric,\n  COUNT(*) as value\nFROM decoded_event\nWHERE $__timeFilter(timestamp)\nGROUP BY time, metric\nORDER BY time",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "stacking": {
+              "mode": "normal"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum",
+            "mean",
+            "lastNotNull"
+          ]
+        }
+      }
+    },
+    {
+      "id": 10,
+      "title": "Top Contracts by Event Volume",
+      "type": "barchart",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  LEFT(c.address, 10) || '...' as metric,\n  COUNT(*) as value\nFROM decoded_event de\nJOIN contract c ON de.address_id = c.id\nWHERE de.timestamp > NOW() - INTERVAL '24 hours'\nGROUP BY c.address\nORDER BY value DESC\nLIMIT 15",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "legend": {
+          "displayMode": "hidden"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      }
+    },
+    {
+      "id": 11,
+      "title": "Event Distribution by Category",
+      "type": "piechart",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  CASE \n    WHEN event_name IN ('TransactionSponsored', 'FeesDistributed', 'ETHAdded', 'FeesClaimed', 'PaymasterDeployed') THEN 'Paymaster'\n    WHEN event_name IN ('PlayerRegistered', 'LevelUp', 'MobKilled', 'GoldClaimed', 'ItemMinted') THEN 'Hyperscape'\n    WHEN event_name IN ('ListingCreated', 'ListingSold', 'TradeExecuted') THEN 'Marketplace'\n    WHEN event_name IN ('MarketCreated', 'SharesPurchased', 'SharesSold', 'MarketResolved') THEN 'Predictions'\n    WHEN event_name IN ('ServiceRegistered', 'ServiceUsageRecorded', 'CreditDeposited', 'CreditsPurchased') THEN 'Cloud'\n    WHEN event_name IN ('Registered', 'NewFeedback', 'ValidationRequest', 'ValidationResponse') THEN 'Registry'\n    WHEN event_name IN ('NodeRegistered', 'PerformanceUpdated', 'RewardsClaimed') THEN 'Node'\n    WHEN event_name IN ('PricesUpdated', 'FeedPostPublished', 'SkillLevelUp') THEN 'Oracle'\n    WHEN event_name IN ('Transfer', 'Approval') THEN 'Token'\n    ELSE 'Other'\n  END as metric,\n  COUNT(*) as value\nFROM decoded_event\nWHERE timestamp > NOW() - INTERVAL '24 hours'\nGROUP BY metric\nORDER BY value DESC",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "pieType": "donut",
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value",
+            "percent"
+          ]
+        }
+      }
+    },
+    {
+      "id": 12,
+      "title": "Recent Contract Events by Category",
+      "type": "table",
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  CASE \n    WHEN de.event_name IN ('TransactionSponsored', 'FeesDistributed') THEN 'Paymaster'\n    WHEN de.event_name IN ('PlayerRegistered', 'LevelUp', 'MobKilled') THEN 'Game'\n    WHEN de.event_name IN ('ListingCreated', 'ListingSold') THEN 'Marketplace'\n    WHEN de.event_name IN ('MarketCreated', 'SharesPurchased') THEN 'Predictions'\n    WHEN de.event_name IN ('ServiceUsageRecorded', 'CreditDeposited') THEN 'Cloud'\n    WHEN de.event_name IN ('Registered', 'NewFeedback') THEN 'Registry'\n    WHEN de.event_name = 'Transfer' THEN 'Token'\n    ELSE 'Other'\n  END as \"Category\",\n  de.event_name as \"Event\",\n  LEFT(c.address, 10) || '...' as \"Contract\",\n  LEFT(de.transaction_id, 10) || '...' as \"Tx\",\n  de.timestamp as \"Time\",\n  LEFT(de.args::text, 100) || '...' as \"Args\"\nFROM decoded_event de\nJOIN contract c ON de.address_id = c.id\nORDER BY de.timestamp DESC\nLIMIT 100",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Time",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
+      "id": 13,
+      "title": "Paymaster Activity Timeline",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 36
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  DATE_TRUNC('hour', timestamp) as time,\n  event_name as metric,\n  COUNT(*) as value\nFROM decoded_event\nWHERE event_name IN ('TransactionSponsored', 'FeesDistributed', 'AppClaimed', 'ETHAdded', 'ETHRemoved', 'FeesClaimed')\n  AND $__timeFilter(timestamp)\nGROUP BY time, event_name\nORDER BY time",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      }
+    },
+    {
+      "id": 14,
+      "title": "Game Activity Timeline",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 36
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  DATE_TRUNC('hour', timestamp) as time,\n  event_name as metric,\n  COUNT(*) as value\nFROM decoded_event\nWHERE event_name IN ('PlayerRegistered', 'PlayerMoved', 'LevelUp', 'XPGained', 'MobKilled', 'GoldClaimed', 'ItemMinted')\n  AND $__timeFilter(timestamp)\nGROUP BY time, event_name\nORDER BY time",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      }
+    },
+    {
+      "id": 15,
+      "title": "All Contract Event Types (Last 24h)",
+      "type": "table",
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 44
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  event_name as \"Event Name\",\n  COUNT(*) as \"Count\",\n  COUNT(DISTINCT address_id) as \"Unique Contracts\",\n  COUNT(DISTINCT transaction_id) as \"Unique Transactions\",\n  MAX(timestamp) as \"Last Seen\"\nFROM decoded_event\nWHERE timestamp > NOW() - INTERVAL '24 hours'\nGROUP BY event_name\nORDER BY \"Count\" DESC",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Count",
+            "desc": true
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "timestamp": "2025-10-18T20:53:08.652Z",
+  "scenarios": {
+    "early": {
+      "params": {
+        "expectedNodes": 100
+      },
+      "results": {
+        "monthlyTotal": 13500,
+        "yearlyTotal": 162000,
+        "inflationRate": 0.16199999999999998,
+        "sustainable": true,
+        "yearsOfRunway": 617.283950617284
+      }
+    },
+    "growth": {
+      "params": {
+        "expectedNodes": 500
+      },
+      "results": {
+        "monthlyTotal": 76500,
+        "yearlyTotal": 918000,
+        "inflationRate": 0.918,
+        "sustainable": true,
+        "yearsOfRunway": 108.93246187363835
+      }
+    },
+    "mature": {
+      "params": {
+        "expectedNodes": 1000
+      },
+      "results": {
+        "monthlyTotal": 170000,
+        "yearlyTotal": 2040000,
+        "inflationRate": 2.04,
+        "sustainable": true,
+        "yearsOfRunway": 49.01960784313726
+      }
+    }
+  },
+  "recommendations": [
+    "Monitor inflation rate",
+    "Consider token buyback from fees"
+  ]
+}

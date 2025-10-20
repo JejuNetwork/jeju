@@ -20,7 +20,7 @@ tolerations: []
 config:
   network: "localnet"
   l1ChainId: 1337
-  l2ChainId: 8888
+  l2ChainId: 1337
   l1:
     rpcUrl: "http://l1-geth:8545"
     rpcKind: "basic"

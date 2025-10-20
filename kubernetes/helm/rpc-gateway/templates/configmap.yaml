@@ -151,7 +151,7 @@ data:
 
       # WebSocket Server
       server {
-        listen 8080;
+        listen 8546;
         server_name _;
 
         {{- if .Values.rateLimit.enabled }}

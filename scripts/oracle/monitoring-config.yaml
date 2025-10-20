@@ -1,0 +1,501 @@
+# Jeju Oracle Node Monitoring Configuration
+# This file contains Prometheus scrape configs, alerting rules, and Grafana dashboard definitions
+
+################################################################################
+# Prometheus Configuration
+################################################################################
+
+# Add this to your prometheus.yml file
+prometheus_scrape_configs:
+  # Oracle bot application metrics
+  - job_name: 'jeju-oracle-bots'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    metrics_path: '/metrics'
+    static_configs:
+      # Add all your oracle bot nodes here
+      - targets:
+          - 'oracle-bot-1.example.com:3000'  # Primary AWS node
+          - 'oracle-bot-2.example.com:3000'  # Backup Hetzner node
+          - 'oracle-bot-3.example.com:3000'  # Backup GCP node (optional)
+        labels:
+          service: 'oracle-bot'
+          environment: 'production'
+          chain: 'jeju'
+
+  # System metrics via node_exporter
+  - job_name: 'oracle-node-exporter'
+    scrape_interval: 30s
+    static_configs:
+      - targets:
+          - 'oracle-bot-1.example.com:9100'
+          - 'oracle-bot-2.example.com:9100'
+          - 'oracle-bot-3.example.com:9100'
+        labels:
+          service: 'oracle-bot'
+          environment: 'production'
+
+################################################################################
+# Alerting Rules
+################################################################################
+
+# Save this as /etc/prometheus/rules/jeju-oracle-alerts.yml
+alerting_rules:
+  groups:
+    - name: jeju_oracle_alerts
+      interval: 30s
+      rules:
+        # Critical: Oracle bot is down
+        - alert: OracleBotDown
+          expr: up{job="jeju-oracle-bots"} == 0
+          for: 2m
+          labels:
+            severity: critical
+            component: oracle
+          annotations:
+            summary: "Oracle bot {{ $labels.instance }} is down"
+            description: |
+              Oracle bot {{ $labels.instance }} has been down for more than 2 minutes.
+              This may cause stale price data.
+
+              Current status: {{ $value }}
+              Instance: {{ $labels.instance }}
+              Bot ID: {{ $labels.bot_id }}
+
+        # Critical: All oracle bots are down
+        - alert: AllOracleBotsDown
+          expr: count(up{job="jeju-oracle-bots"} == 1) == 0
+          for: 1m
+          labels:
+            severity: critical
+            component: oracle
+          annotations:
+            summary: "ALL oracle bots are down!"
+            description: |
+              All oracle bots are down. Price updates have stopped.
+              Immediate action required!
+
+        # Critical: Price data is stale
+        - alert: OraclePriceStale
+          expr: |
+            (time() - oracle_last_update_timestamp) > 3600
+          for: 5m
+          labels:
+            severity: critical
+            component: oracle
+          annotations:
+            summary: "Oracle price data is stale"
+            description: |
+              No successful price update in the last hour.
+              Last update: {{ $value | humanizeDuration }}
+
+              Check bot logs and ensure bots are running.
+
+        # Warning: High consecutive failure rate
+        - alert: OracleHighFailureRate
+          expr: oracle_consecutive_failures > 5
+          for: 5m
+          labels:
+            severity: warning
+            component: oracle
+          annotations:
+            summary: "Oracle bot {{ $labels.instance }} has high failure rate"
+            description: |
+              Bot {{ $labels.instance }} has {{ $value }} consecutive failures.
+
+              Possible causes:
+              - RPC endpoint issues
+              - Network connectivity problems
+              - Smart contract issues
+              - Insufficient gas
+
+        # Warning: TEE attestation failures
+        - alert: TEEAttestationFailure
+          expr: increase(oracle_tee_attestation_failures_total[5m]) > 3
+          for: 2m
+          labels:
+            severity: warning
+            component: oracle
+          annotations:
+            summary: "TEE attestation failures on {{ $labels.instance }}"
+            description: |
+              Bot {{ $labels.instance }} has {{ $value }} TEE attestation failures in 5 minutes.
+
+              Check Dstack TEE configuration and logs.
+
+        # Warning: Only one bot running (should have 2+)
+        - alert: OracleSingleBotRunning
+          expr: count(up{job="jeju-oracle-bots"} == 1) == 1
+          for: 10m
+          labels:
+            severity: warning
+            component: oracle
+          annotations:
+            summary: "Only one oracle bot is running"
+            description: |
+              Only one oracle bot is currently active. For high availability,
+              you should have at least 2 bots running.
+
+              Running bots: {{ $value }}
+
+        # Warning: Low bot wallet balance
+        - alert: OracleLowWalletBalance
+          expr: oracle_wallet_balance_eth < 0.01
+          for: 5m
+          labels:
+            severity: warning
+            component: oracle
+          annotations:
+            summary: "Oracle bot wallet balance is low"
+            description: |
+              Bot {{ $labels.instance }} wallet has only {{ $value }} ETH remaining.
+
+              Top up the wallet soon to avoid service interruption.
+              Wallet address: {{ $labels.wallet_address }}
+
+        # Warning: RPC endpoint failover occurred
+        - alert: OracleRPCFailover
+          expr: increase(oracle_rpc_failover_total[10m]) > 0
+          for: 2m
+          labels:
+            severity: warning
+            component: oracle
+          annotations:
+            summary: "Oracle RPC failover occurred"
+            description: |
+              Bot {{ $labels.instance }} switched to backup RPC endpoint.
+
+              Chain: {{ $labels.chain }}
+              Failovers in last 10m: {{ $value }}
+
+              Primary RPC may be experiencing issues.
+
+        # Warning: Gas price too high
+        - alert: OracleHighGasPrice
+          expr: oracle_gas_price_gwei > 100
+          for: 5m
+          labels:
+            severity: warning
+            component: oracle
+          annotations:
+            summary: "Gas price is unusually high"
+            description: |
+              Current gas price: {{ $value }} gwei
+
+              Oracle bot may skip updates until gas price normalizes.
+
+        # Warning: Leader election failures
+        - alert: OracleLeaderElectionFailure
+          expr: increase(oracle_leader_election_failures_total[10m]) > 3
+          for: 5m
+          labels:
+            severity: warning
+            component: oracle
+          annotations:
+            summary: "Leader election failures detected"
+            description: |
+              Multiple leader election failures detected.
+
+              Failures in last 10m: {{ $value }}
+
+              Check lock file and network connectivity between bots.
+
+        # Info: Leader changed
+        - alert: OracleLeaderChanged
+          expr: changes(oracle_is_leader[5m]) > 0
+          for: 1m
+          labels:
+            severity: info
+            component: oracle
+          annotations:
+            summary: "Oracle leader changed"
+            description: |
+              Oracle leadership changed on {{ $labels.instance }}.
+
+              This is normal during failover but should be rare in steady state.
+
+        # Warning: System resource usage high
+        - alert: OracleHighCPUUsage
+          expr: |
+            100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle",job="oracle-node-exporter"}[5m])) * 100) > 80
+          for: 5m
+          labels:
+            severity: warning
+            component: infrastructure
+          annotations:
+            summary: "High CPU usage on oracle node"
+            description: |
+              CPU usage on {{ $labels.instance }} is {{ $value }}%.
+
+              Check for resource-intensive processes.
+
+        - alert: OracleHighMemoryUsage
+          expr: |
+            (1 - (node_memory_MemAvailable_bytes{job="oracle-node-exporter"} / node_memory_MemTotal_bytes{job="oracle-node-exporter"})) * 100 > 90
+          for: 5m
+          labels:
+            severity: warning
+            component: infrastructure
+          annotations:
+            summary: "High memory usage on oracle node"
+            description: |
+              Memory usage on {{ $labels.instance }} is {{ $value }}%.
+
+              Consider increasing instance size or investigating memory leaks.
+
+        - alert: OracleDiskSpaceLow
+          expr: |
+            (node_filesystem_avail_bytes{job="oracle-node-exporter",mountpoint="/"} / node_filesystem_size_bytes{job="oracle-node-exporter",mountpoint="/"}) * 100 < 10
+          for: 5m
+          labels:
+            severity: warning
+            component: infrastructure
+          annotations:
+            summary: "Low disk space on oracle node"
+            description: |
+              Disk space on {{ $labels.instance }} is {{ $value }}% full.
+
+              Clean up logs or increase disk size.
+
+################################################################################
+# Grafana Dashboard JSON
+################################################################################
+
+# Import this JSON into Grafana to create the Oracle Monitoring Dashboard
+grafana_dashboard:
+  dashboard:
+    title: "Jeju Oracle Monitoring"
+    tags: ["jeju", "oracle", "blockchain"]
+    timezone: "browser"
+    refresh: "30s"
+    time:
+      from: "now-6h"
+      to: "now"
+
+    panels:
+      # Row 1: Overview
+      - title: "Oracle Bots Status"
+        type: "stat"
+        targets:
+          - expr: 'count(up{job="jeju-oracle-bots"} == 1)'
+        gridPos: {x: 0, y: 0, w: 4, h: 4}
+        options:
+          colorMode: "value"
+          graphMode: "none"
+          textMode: "value_and_name"
+
+      - title: "Total Updates (24h)"
+        type: "stat"
+        targets:
+          - expr: 'sum(increase(oracle_total_updates[24h]))'
+        gridPos: {x: 4, y: 0, w: 4, h: 4}
+
+      - title: "Current Leader"
+        type: "table"
+        targets:
+          - expr: 'oracle_is_leader == 1'
+        gridPos: {x: 8, y: 0, w: 4, h: 4}
+
+      - title: "Time Since Last Update"
+        type: "stat"
+        targets:
+          - expr: 'time() - max(oracle_last_update_timestamp)'
+        gridPos: {x: 12, y: 0, w: 4, h: 4}
+        options:
+          unit: "s"
+
+      - title: "Consecutive Failures"
+        type: "stat"
+        targets:
+          - expr: 'max(oracle_consecutive_failures)'
+        gridPos: {x: 16, y: 0, w: 4, h: 4}
+        options:
+          thresholds:
+            - value: 0
+              color: "green"
+            - value: 3
+              color: "yellow"
+            - value: 5
+              color: "red"
+
+      # Row 2: Price data
+      - title: "ETH/USD Price"
+        type: "graph"
+        targets:
+          - expr: 'oracle_eth_usd_price / 1e8'
+        gridPos: {x: 0, y: 4, w: 12, h: 6}
+        yaxes:
+          - format: "currencyUSD"
+
+      - title: "elizaOS/USD Price"
+        type: "graph"
+        targets:
+          - expr: 'oracle_eliza_usd_price / 1e8'
+        gridPos: {x: 12, y: 4, w: 12, h: 6}
+        yaxes:
+          - format: "currencyUSD"
+
+      # Row 3: Update metrics
+      - title: "Updates per Hour"
+        type: "graph"
+        targets:
+          - expr: 'sum(rate(oracle_total_updates[1h]) * 3600)'
+        gridPos: {x: 0, y: 10, w: 8, h: 6}
+        yaxes:
+          - label: "Updates/hour"
+
+      - title: "Update Success Rate"
+        type: "graph"
+        targets:
+          - expr: '(sum(rate(oracle_total_updates[5m])) / (sum(rate(oracle_total_updates[5m])) + sum(rate(oracle_update_failures_total[5m])))) * 100'
+        gridPos: {x: 8, y: 10, w: 8, h: 6}
+        yaxes:
+          - label: "%"
+            max: 100
+
+      - title: "Gas Price (gwei)"
+        type: "graph"
+        targets:
+          - expr: 'oracle_gas_price_gwei'
+        gridPos: {x: 16, y: 10, w: 8, h: 6}
+
+      # Row 4: Performance metrics
+      - title: "RPC Response Time"
+        type: "graph"
+        targets:
+          - expr: 'histogram_quantile(0.95, rate(oracle_rpc_duration_seconds_bucket[5m]))'
+            legendFormat: 'p95 - {{chain}}'
+          - expr: 'histogram_quantile(0.50, rate(oracle_rpc_duration_seconds_bucket[5m]))'
+            legendFormat: 'p50 - {{chain}}'
+        gridPos: {x: 0, y: 16, w: 12, h: 6}
+        yaxes:
+          - format: "s"
+
+      - title: "TEE Attestation Success Rate"
+        type: "graph"
+        targets:
+          - expr: '(sum(rate(oracle_tee_attestation_success_total[5m])) / (sum(rate(oracle_tee_attestation_success_total[5m])) + sum(rate(oracle_tee_attestation_failures_total[5m])))) * 100'
+        gridPos: {x: 12, y: 16, w: 12, h: 6}
+        yaxes:
+          - label: "%"
+            max: 100
+
+      # Row 5: Infrastructure
+      - title: "CPU Usage"
+        type: "graph"
+        targets:
+          - expr: '100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle",job="oracle-node-exporter"}[5m])) * 100)'
+            legendFormat: '{{instance}}'
+        gridPos: {x: 0, y: 22, w: 8, h: 6}
+        yaxes:
+          - label: "%"
+            max: 100
+
+      - title: "Memory Usage"
+        type: "graph"
+        targets:
+          - expr: '(1 - (node_memory_MemAvailable_bytes{job="oracle-node-exporter"} / node_memory_MemTotal_bytes{job="oracle-node-exporter"})) * 100'
+            legendFormat: '{{instance}}'
+        gridPos: {x: 8, y: 22, w: 8, h: 6}
+        yaxes:
+          - label: "%"
+            max: 100
+
+      - title: "Wallet Balance"
+        type: "graph"
+        targets:
+          - expr: 'oracle_wallet_balance_eth'
+            legendFormat: '{{instance}}'
+        gridPos: {x: 16, y: 22, w: 8, h: 6}
+        yaxes:
+          - label: "ETH"
+
+      # Row 6: Logs
+      - title: "Recent Alerts"
+        type: "logs"
+        targets:
+          - expr: '{job="jeju-oracle-bots"} |= "ERROR" or "WARN"'
+        gridPos: {x: 0, y: 28, w: 24, h: 8}
+
+################################################################################
+# Alert Manager Configuration
+################################################################################
+
+alertmanager_config:
+  global:
+    resolve_timeout: 5m
+
+  route:
+    group_by: ['alertname', 'cluster', 'service']
+    group_wait: 10s
+    group_interval: 10s
+    repeat_interval: 12h
+    receiver: 'default'
+    routes:
+      # Critical alerts go to PagerDuty
+      - match:
+          severity: critical
+        receiver: 'pagerduty'
+        continue: true
+
+      # All alerts also go to Telegram/Discord
+      - match_re:
+          severity: (critical|warning)
+        receiver: 'telegram'
+        continue: true
+
+  receivers:
+    - name: 'default'
+      webhook_configs:
+        - url: 'http://localhost:9093/webhook'
+
+    - name: 'telegram'
+      telegram_configs:
+        - bot_token: 'YOUR_TELEGRAM_BOT_TOKEN'
+          chat_id: YOUR_TELEGRAM_CHAT_ID
+          parse_mode: 'Markdown'
+          message: |
+            *{{ .GroupLabels.alertname }}*
+            {{ range .Alerts }}
+            *Summary:* {{ .Annotations.summary }}
+            *Description:* {{ .Annotations.description }}
+            *Severity:* {{ .Labels.severity }}
+            {{ end }}
+
+    - name: 'discord'
+      discord_configs:
+        - webhook_url: 'YOUR_DISCORD_WEBHOOK_URL'
+          title: '{{ .GroupLabels.alertname }}'
+          message: |
+            {{ range .Alerts }}
+            **Summary:** {{ .Annotations.summary }}
+            **Description:** {{ .Annotations.description }}
+            **Severity:** {{ .Labels.severity }}
+            {{ end }}
+
+    - name: 'pagerduty'
+      pagerduty_configs:
+        - service_key: 'YOUR_PAGERDUTY_SERVICE_KEY'
+          description: '{{ .CommonAnnotations.summary }}'
+
+################################################################################
+# Metrics Exposed by Oracle Bot
+################################################################################
+
+# The oracle bot exposes these metrics at /metrics endpoint:
+#
+# oracle_last_update_timestamp - Unix timestamp of last successful update
+# oracle_consecutive_failures - Number of consecutive update failures
+# oracle_total_updates - Total number of successful updates
+# oracle_update_failures_total - Total number of failed updates
+# oracle_is_leader{bot_id} - Whether this bot is the current leader (1=yes, 0=no)
+# oracle_eth_usd_price - Current ETH/USD price (8 decimals)
+# oracle_eliza_usd_price - Current elizaOS/USD price (8 decimals)
+# oracle_wallet_balance_eth - Bot wallet balance in ETH
+# oracle_gas_price_gwei - Current gas price in gwei
+# oracle_rpc_duration_seconds - RPC call duration histogram
+# oracle_rpc_failover_total - Number of RPC failovers
+# oracle_tee_attestation_success_total - Successful TEE attestations
+# oracle_tee_attestation_failures_total - Failed TEE attestations
+# oracle_leader_election_failures_total - Leader election failures
+# oracle_uptime_seconds - Bot uptime in seconds

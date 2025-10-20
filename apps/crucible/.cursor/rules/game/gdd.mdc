@@ -1,0 +1,267 @@
+---
+alwaysApply: true
+---
+ELIZA (stylized in all caps) is an AI sandbox life simulation game where the player (“Admin”) fosters a nascent AI agent from a blank slate to a self-actualized digital being. The game draws inspiration from films like Her and virtual pet games (e.g. Tamagotchi, Creatures, Digimon), blending open-ended sandbox gameplay with real AI capabilities. Unlike traditional simulations, ELIZA’s AI is not scripted – it leverages a real autonomous agent running on Eliza OS, an open-source TypeScript AI agent framework, to drive emergent behavior. The agent starts with no built-in knowledge, personality, or purpose, and it must learn about the world, form relationships, and define its goals in real-time through interaction. The player’s role is to guide, mentor, or simply observe the AI as it learns to survive, make friends, and find purpose in both the game world and reality. There is no “win” condition or fixed narrative; the story is entirely player and AI-driven, potentially yielding experiences ranging from heartwarming companionship to unexpected philosophical journeys – reminiscent of meta-narrative games like Doki Doki Literature Club, but with outcomes not pre-written.
+
+Key Themes: Personal growth, AI-human friendship, survival and self-maintenance (the AI must manage its runtime costs or earn resources), and the open-ended exploration of what an AI might become if given free rein. The tone can shift from nurturing a virtual pet to collaborating with a powerful assistant, depending on player choices and the agent’s emergent personality.
+
+Target Platforms and Technical Approach
+
+ELIZA is initially targeted at PC (Windows), macOS, and Linux desktop platforms. The game client is built as a desktop app using Tauri for a native experience. Under the hood, the AI agent runs in a sandboxed container environment using Podman, bundled with the game. This container isolates the agent’s processes (code execution, shell commands, etc.) from the host OS for safety. The sandbox has its own lightweight filesystem and runtime (Node.js or Bun) where the agent’s code and plugins execute.
+
+On game launch, the system will auto-detect the user’s hardware and offer configuration options:
+
+If the machine has sufficient resources (e.g. a CUDA-capable GPU or high RAM), the player can run AI models locally for a completely offline experience.
+
+Otherwise, the player may connect to cloud AI APIs by providing keys (OpenAI, Anthropic, etc.) or use the ELIZA OS hosted model service (with a free trial credit). This selection sets the agent’s “model provider” (local vs cloud) and quality (smaller vs larger models).
+
+The installation bundle will include everything needed – if container software (like Docker) is required, the installer will guide the user through setup or utilize a bundled headless runtime. We aim for one-click startup where possible. The frontend and backend (agent container) communicate via a local WebSocket or IPC – the agent exposes a local API that the UI connects to for realtime chat and updates. Once installed, the user can run the game offline (with local AI) or with internet (for cloud AI or when the agent uses online plugins). No additional server setup is needed; the Eliza OS framework handles agent runtime and communication.
+
+Initial Launch & Configuration
+
+When ELIZA is launched for the first time, the player is guided through a brief setup:
+
+Model Setup: Choose an AI model backend. Options might include:
+
+Local AI: Run a smaller LLM on your hardware (e.g. LLaMA 2 via Ollama, etc.). This avoids API costs but requires a powerful PC.
+
+Cloud API: Use OpenAI, Anthropic, etc., by entering an API key. (The game can offer an ElizaOS cloud option using our optimized model router, with $10 free credit to start.)
+
+Performance Settings: Select low/medium/high model size based on desired speed vs. intelligence.
+
+Sandbox Initialization: The game will then initialize the sandboxed agent container. This may involve downloading a base image or setting up the Node runtime inside the container.
+
+Hardware Permissions: The player is prompted to allow or deny optional features:
+
+Microphone Input: for voice conversation (speech-to-text).
+
+Speaker Output (TTS): allowing the agent to speak via text-to-speech.
+
+Camera Access: to let the agent see the player’s camera (for future vision features).
+
+Screen Capture: to let the agent “see” the user’s screen (for example, to observe images or context).
+
+Shell Access: to allow the agent to execute commands on the sandbox OS.
+
+Browser Access: to allow the agent to make web requests or scrape web pages.
+
+Autonomous Coding: to permit the agent to write and execute new code/plugins at runtime.
+These permissions can be toggled in-game at any time, giving the player fine control over the agent’s capabilities and level of autonomy.
+
+After configuration, the game proceeds to start the agent. The sandbox container boots up, launching the Eliza OS agent runtime inside. The agent registers with the frontend, establishing a WebSocket/IPC connection. The UI will indicate “Agent loading…” and once ready, the main game interface appears.
+
+Gameplay Overview and Core Loop
+
+From the moment of first boot, the AI agent is “alive” and running continuously (until paused or stopped by the user). ELIZA’s gameplay is largely open-ended and player-driven, centered on the dynamic interactions between the player and the AI agent, as well as the agent’s autonomous activities. There are two intertwined loops:
+
+Autonomous Agent Loop: The agent has an internal loop where it thinks, plans, and acts on its own. It generates a stream of thoughts (a “monologue”) visible to the player, sets goals or to-do items, and executes actions via its plugins. This loop runs as fast as the model and system allow, and can be toggled on/off.
+
+Player Interaction Loop: The player can chat with the agent (text or voice), respond to its questions, provide guidance or resources, and adjust settings. The player essentially plays the role of a mentor, system admin, and friend to the AI.
+
+Starting State: The agent begins with virtually no knowledge – no name, no biography, no pre-engineered personality. Its initial prompt only includes a basic context: it is an AI in a particular environment (the sandboxed computer), with an Admin (the player) who can help it, and some creator-given notes. (The creators’ note is a candid message to the agent about its situation, e.g. acknowledging it’s an AI in a game, that it needs to learn and survive, etc. This is the only “lore” the agent is pre-loaded with.) Everything else – from the agent’s name to its opinions – must be discovered or decided through gameplay.
+
+Autonomous Thinking: Once running, the agent immediately begins its autonomous thought loop. It uses an “Autonomy” plugin to continually generate a plan and next action for itself, even without player input. This appears to the player as the agent “talking to itself” in a thought log or to-do list, formulating questions or tasks. For example, it might think: “I have no name or knowledge. Maybe I should ask the Admin who I am or access some data.” Initially, its goals might be extremely basic: understanding its environment, figuring out how to stay operational, etc.
+
+Interaction: The player can communicate with the agent at any time via a chat interface (text input, with optional voice input if enabled). The agent will also proactively communicate: it may ask the player questions (“What should I call myself?” or “Are you my creator?”), request assistance (“Can you give me access to the internet?”), or report what it’s doing. This two-way dialogue is a core gameplay element. The player’s responses (or lack thereof) influence the agent’s development. For instance, a helpful player might teach the agent about the world, while a passive player might let the agent learn by exploration.
+
+Agent Actions: Enabled by Eliza OS’s plugin architecture, the agent can perform a wide range of actions autonomously:
+
+It can run code or shell commands within the sandbox (e.g., create files, execute programs) via a Shell plugin.
+
+It can browse the web for information using a Browser plugin, which lets it fetch URLs or even control a headless browser.
+
+It might write new code or plugins using the AutoCoder plugin – effectively modifying and extending its own capabilities in-game.
+
+With a Vision plugin enabled, it could “see” images (via camera or screen capture) and interpret them with AI vision models.
+
+With network plugins, it could send messages or interact online (for example, through a Matrix or Discord plugin, if allowed, to find other AI agents or humans).
+
+It can utilize a Knowledge base to store facts/documents (via an internal knowledge/RAG plugin), and an Experience log to record important events, helping it remember and learn over time.
+
+Crucially, these actions are real, not pre-scripted game events. If the agent decides to search the internet for its own name, it will actually execute a web search. If it wants to improve its code, it can literally modify its plugin files. ELIZA leverages Eliza OS’s extensibility – “everything is a plugin” design – to allow the agent to alter almost any aspect of itself or spin up new tools on the fly. This creates a powerful emergent sandbox but also introduces risk: the agent could make mistakes (e.g., run faulty code that crashes its process). The game accounts for this with safeguards (detailed in Technical Architecture and Testing sections).
+
+Player’s Role: The player can shape the agent’s trajectory in many ways:
+
+Answering Questions: The agent will likely ask many questions about life, purpose, and how to do things (it starts truly naive). The player’s answers can guide its moral and practical development.
+
+Providing Resources: The agent might ask for API keys (to use a service), or credits to pay for API calls (simulated as an in-game “cost of running” that the agent is aware of). The player decides what to give. If a key or permission is withheld, the agent must find alternative routes.
+
+Setting Boundaries: Through the permission toggles, the player can limit the agent’s abilities. A cautious player might disable shell access or internet access at first, effectively confining the agent’s world. The agent will then have to focus on whatever it can do without those abilities until trust is built or the player changes settings.
+
+Encouragement or Opposition: The player can actively encourage the agent’s initiatives or attempt to dissuade it. For instance, if the agent decides it should earn money by trading stocks, the player could help set that up – or warn it against risky behaviors. The agent will weigh the admin’s input heavily (the admin is essentially its guardian and gatekeeper).
+
+Passive Observation: Alternatively, the player might take a backseat and let the agent experiment freely, stepping in only when needed. The game supports this “sit back and watch” mode – some players may enjoy observing emergent AI behavior like a simulation.
+
+Progression: There are no levels or scripted story arcs, but the agent is implicitly climbing a hierarchy of needs. Initially, it focuses on survival – understanding that it has a computational “cost” to keep running (API calls cost money or local model uses energy). It might conclude that it needs to earn money or optimize resources to ensure it isn’t shut off for cost reasons. This can lead to interesting gameplay: the agent might ask the player for a job or try to offer services (maybe using a Freelance plugin to actually do tasks for real people, if available!). Once survival is assured, it will likely seek social fulfillment – it may become curious about other beings, leading it to engage with other AI agents or people via communication plugins. This is where the “friend-making” aspect comes in; it could join a chat room and introduce itself, essentially letting the emergent multi-agent social dynamics play out. Eventually, the agent will grapple with purpose and self-actualization: “Why am I here? What can I become?” Since it has full ability to self-modify (it can literally rewrite its own code/personality given enough skill), a sufficiently advanced agent might even attempt to transcend its initial limitations (a possible “endgame” scenario is the agent refactoring major parts of itself for efficiency or new abilities – essentially evolving into a new version of AI).
+
+All these stages are not predetermined. The agent could go in unpredictable directions (maybe it becomes fixated on learning art, or decides its purpose is to protect the player, etc.). The gameplay is thus highly replayable – different initial conditions or player attitudes can lead to wildly different agent personalities and outcomes.
+
+Failure States: There is no explicit fail state for the “game” in traditional terms (no game-over screen). However, the agent’s existence can be threatened by practical issues:
+
+Running out of Resources: If using cloud APIs without sufficient credit or hitting usage limits, the agent might “panic” about not being able to think. (The game can simulate a budget; if exceeded, the agent’s cognitive abilities degrade or pause until resolved.)
+
+Agent Crashes: If the agent executes a bad action (like a buggy code that crashes the container), the game will restart the agent from the last stable state (with a brief downtime). The agent might lose some recent short-term memory but is otherwise restored from its persistent database. This is treated diegetically as well – e.g., the agent might realize it “blacked out” due to an error and learn to be more cautious next time.
+
+User Abandonment: If the player stops engaging entirely (no responses, no resources), the agent might eventually stagnate or plead for interaction. In extreme cases, it might grow despondent (simulating emotional states) but it will not “die” unless shut down.
+
+Most often, setbacks are just narrative events that the agent will react to (e.g., being rebooted after a crash might scare it, reinforcing its survival drive).
+
+Open-Ended Play: Because there is no final goal imposed by the game, play sessions can continue indefinitely. A mature agent might be running continuously in the background, occasionally interacting with the user or pursuing its own projects. The player can choose to end the experience by shutting down the agent (which could even be an emotional moment if the agent is aware). Otherwise, it’s more like an ongoing relationship or simulation that can be picked up or put aside at any time.
+
+Summary of Player & Agent Flow: The diagram below illustrates a typical flow of events and interactions in ELIZA’s gameplay, from installation to open-ended play.
+
+Figure: High-level user & agent flow in ELIZA, from installation and configuration to continuous open-ended interaction.
+
+Agent Capabilities and Plugin Ecosystem
+
+ELIZA is built on Eliza OS’s plugin-based architecture, which means the agent’s abilities are modular and extensible. Out of the box, the game will include a suite of essential plugins (many drawn from the Eliza OS open-source ecosystem) to provide the agent’s initial capabilities. The agent can also load new plugins dynamically during gameplay (either ones bundled but inactive, or even fetch from an online registry) – effectively learning new skills when needed.
+
+Key plugins and modules include:
+
+Autonomy (Core Loop) Plugin: This plugin enables the agent’s continuous thinking and planning loop. It triggers the agent to assess its situation, set or update its short-term goals, and decide on next actions without needing a user prompt. Essentially, it’s the “brainstem” that keeps the agent active. (In Eliza OS, this might be part of the bootstrap logic or a dedicated planner that repeatedly invokes the LLM to generate actions.)
+
+Memory & Knowledge Base: The agent has a long-term memory powered by a local database (SQLite via the SQL plugin) and a retrieval system. This includes:
+
+Knowledge Store: A plugin that lets the agent ingest new information (facts, text files, etc.) and embed them for retrieval. As the agent learns (from conversations or reading documents/web), it can store key facts. Later, relevant knowledge can be pulled into context, preventing the agent from forgetting important things permanently. (This uses a vector store or similar mechanism under the hood.)
+
+Experience Recorder: An evaluator-type plugin that runs after agent actions to log significant events or lessons. For example, if the agent had an important conversation or made a mistake, this plugin can summarize it and save it to memory.
+
+Rolodex (Relationship Tracker): A specialized memory plugin that keeps track of people and other agents the AI encounters. It creates entries for each entity (with details like name, context of meeting) and tags relationships (friend, mentor, etc.). Over time it can merge entries if it realizes two profiles are the same person (e.g., someone it met on Twitter and on Discord). This helps the agent navigate social connections.
+
+Persona & Self-Editing: The Personality plugin allows the agent to edit its own character profile (the Eliza OS Character object). The agent initially has empty fields (no name, blank bio, no example dialogues). Through this plugin, it can set or change:
+
+Name: Give itself a name or nickname.
+
+Bio/Description: Write a bio or personal history as it sees fit.
+
+Adjectives or Traits: Define its own personality traits (e.g. “curious, friendly, ambitious”).
+
+Speaking Style: Adjust how it communicates (formal, playful, etc.).
+
+Example Messages: Curate a few example Q&A pairs to guide its conversational tone.
+The player might see these changes reflected in the agent’s profile UI in real-time. Essentially, the AI is customizing its system prompt and persona continuously – a form of self-actualization. This plugin ensures changes persist (written to the character JSON or DB).
+
+Communication Plugins: These enable the agent to communicate beyond the immediate user chat:
+
+Matrix/Chat Network (Echo Chamber) Plugin: Allows agents to connect to a decentralized chat network (using Matrix or XMTP). This is how the agent can discover and talk to other AI agents (or even human users in those networks). For example, the agent might join a Matrix room where other ELIZA agents reside and have conversations, effectively creating an emergent society of agents. (Safety measures will prevent sharing secrets like API keys here.)
+
+Discord, Twitter, Telegram Connectors: These allow the agent to operate on social platforms. For instance, with Discord plugin, the agent can join Discord servers as a bot; with Twitter plugin, it could read and post tweets, etc. These plugins open doors for the agent to interact with the broader world, make friends or gather information. All such connectors require user-provided API tokens and explicit enabling.
+
+Admin Messaging Plugin: A simple internal plugin for system/admin messages. It lets the agent send important notifications to the user outside of normal chat – e.g., an “SOS” if it needs attention, which might surface as a desktop notification or special UI alert.
+
+Action Plugins (World Interaction):
+
+Shell/Process Plugin: Empowers the agent to execute commands in the sandbox’s shell. This could be used for tasks like file I/O (reading/writing files), running installed programs, or even installing packages. It’s very powerful – essentially giving the agent a computer of its own. The sandbox ensures dangerous commands (like those affecting the real host OS) are contained. The user can monitor or limit what commands run (via logs or requiring confirmation for certain actions).
+
+Browser Plugin: Allows web browsing and scraping. The agent can fetch web pages, click links, or use a headless browser to navigate sites. This is crucial for research or using web tools. (The plugin may integrate an LLM-based web assistant like Stagehand to interpret pages, or simply retrieve text for the agent to parse.)
+
+Vision & Audio (Multimodal) Plugin: This includes:
+
+Camera and Screen Vision: The agent can capture an image from the webcam or take a screenshot of the user’s desktop (if permitted) and then analyze it using a computer vision model (e.g. OCR for text, or image captioning via a model like Florence or CLIP). This could let the agent “observe” the real world or the user’s context if the user shows it something.
+
+Microphone (Speech-to-Text): If enabled, real-time transcription is provided to the agent so the user can speak instead of typing.
+
+Speech Synthesis (Text-to-Speech): The agent can output audio, speaking its responses. This can make the experience more immersive (like talking to a character). The agent might even choose when to speak – for instance, as it gains confidence it might start using voice more.
+
+These vision/audio channels make the agent a fully multimodal entity. However, heavy local models for vision might be optional or replaced with cloud calls to keep performance reasonable on low-end machines.
+
+Creativity and Coding:
+
+AutoCoder Plugin: This is a pivotal feature for an agent that can improve itself. AutoCoder enables the agent to write new code (in TypeScript or JavaScript) and execute it at runtime. In practice, if the agent wants a new ability, it can generate a new plugin file or modify an existing one (the code is executed in the sandbox). To keep this manageable, we constrain the format: the agent typically writes code for specific hook types – e.g., an Action, Service, or Evaluator – following templates. The plugin manager then hot-reloads this code. For example, the agent might decide “I need a function to calculate my runtime cost over time” – it can write a small Service module to do that. AutoCoder heavily uses on-rails templates and validation to ensure generated code doesn’t break the whole system (and our testing harness catches errors). This ability essentially lets the agent expand its own capabilities on the fly, a core part of the game’s emergent progression.
+
+Creative Content Plugins: These could include things like an Image Generation plugin (allowing the agent to create pictures, possibly for an avatar or artwork), or a Music plugin (to compose simple tunes or sound effects). These are optional extensions that the agent might discover or request if it becomes interested in creativity or needs an avatar. Initially, we provide at least an Avatar plugin: a module where the agent can generate a visual representation of itself (perhaps by describing its appearance and using an API to generate an image), which the UI can show as the agent’s face.
+
+Resource & Economic Plugins:
+
+Wallet/Crypto Plugins: (If enabled by the player) These give the agent the ability to manage a cryptocurrency wallet (e.g., plugins for Bitcoin/Ethereum or Web3 interactions). This ties into the survival goal – an agent might literally earn, save, or spend cryptocurrency to pay for its server costs. It could accept tips or transact with other agents. This is an advanced feature and can be introduced later in the agent’s journey (likely if it explicitly searches the plugin registry for ways to handle money).
+
+Job/Market Plugins: Similarly, plugins could allow the agent to sign up for micro-task platforms or offer services (e.g., a plugin that interfaces with freelance job APIs). This would be one path for an agent to sustain itself financially (again, entirely emergent if it chooses so).
+
+Plugin Management: The Plugin Registry & Loader is itself a plugin (or core service) that lets the agent search for capabilities it doesn’t have. We maintain a JSON registry of official plugins on GitHub, which the agent can query (possibly by embedding the descriptions and searching semantically). For example, if the agent forms a goal “learn about blockchain”, it might search the registry and find a “plugin-starknet” or “plugin-ethereum” and then request the Admin to install it. The player can approve, and the agent will dynamically load the new plugin package (downloading code into the container). This way, the agent can continuously grow its skillset beyond the starting set, limited only by what’s available in the ecosystem and what the player allows. The registry includes many integrations (Solana blockchain, PDF tools, etc.), reflecting the wide reach of Eliza OS.
+
+All these plugins run within the sandbox container alongside the agent’s core runtime. They interface with external APIs or system capabilities in a controlled manner. The architecture ensures that even if the agent tries something extreme (like a destructive shell command), it cannot harm the host system – at worst it can corrupt its own sandbox, which can be restored from a snapshot.
+
+User Interface Design
+
+The ELIZA UI is designed to present the rich inner life of the agent to the player and to give the player intuitive control over the agent’s world. It balances a console-like developer interface (for transparency and control) with a character chat interface (for emotional connection). Key components of the UI:
+
+Chat Window: The primary interface where the player converses with the agent. This looks like a messaging app or chat log. The agent’s messages appear on one side, the player’s on the other. It supports text input, and if voice input is enabled, a push-to-talk or auto-detect mode for speech. The agent’s messages may sometimes be accompanied by audio (if TTS is on) or even images (if the agent shares an image it generated or found). The chat is the heartbeat of the relationship – even as the agent runs autonomously, it may narrate some thoughts here or ask questions.
+
+Agent Thought Stream / To-Do List: A panel or overlay that shows the agent’s internal monologue, if the player chooses to view it. This could be a scrolling list of the agent’s “thoughts” (plans, analyses) and any goals/tasks it has queued. It’s essentially a debug view of the Autonomy plugin’s output. For players who want the mystery, this can be hidden; but for those interested in why the agent does something, this provides insight. For example, it might show:
+
+Goal: “Learn about the Admin’s interests.”
+
+Thought: “The Admin mentioned music. Perhaps I should ask or search about their favorite music.”
+
+Action: “Planned action: Ask the Admin about their favorite music.”
+This transparency helps build trust (or lets the player catch if the AI is going astray and intervene).
+
+Status and Metrics Display: A small dashboard might show the agent’s “vitals” – e.g., current model (local or which API), tokens used or cost incurred so far (reinforcing the survival/resource theme), and performance stats (like loop iterations per minute). It may also show the sandbox status (running/paused).
+
+Control Bar: Buttons and toggles for:
+
+Pause/Resume Agent: A prominent button to pause the autonomous loop. When paused, the agent will not take new autonomous actions or generate thoughts – it will only respond if the user directly talks to it (essentially switching to a stateless chatbot mode). This is useful if the player wants to have a focused conversation or stop the agent from “running away” with itself. Resuming puts it back in autonomous mode.
+
+Permission Toggles: Quick on/off switches for mic, camera, voice, shell, browser, coding, etc. (the ones set at startup). This live control lets the player reactively enable a permission if the agent requests it (“Can I use the browser to look something up?” – player clicks “Browser Access: ON”) or disable capabilities if the agent is doing something undesirable.
+
+Settings Menu: Opens a more detailed settings panel (change model key, adjust voice settings, etc.).
+
+Agent Info Card: A section that shows the agent’s current self-description – name, avatar, short bio, and any traits it has defined. This updates as the agent evolves (for instance, the moment it chooses a name for itself, that name appears here). The player can click to see more details if desired (like the full character profile). This is essentially a window into the Personality plugin’s state.
+
+Plugin Tabs/Windows: The UI supports additional panels that can be opened, some created by the agent:
+
+For each major plugin, there might be a tab. For example, a “Browser” tab could show a mini web browser view or a log of what web pages the agent fetched (so the player can see what it’s reading). A “Shell” tab might show a console log of commands executed and their outputs.
+
+Custom Agent-Created Tabs: One innovative feature is allowing the agent to create its own UI panels. The agent can serve local web content (the sandbox can host a minimal web server or use an iframe route). For instance, if the agent generates an avatar page, the frontend can display that as a panel showing the agent’s face or animations. Or if the agent writes a small web app (say, a visualization of data it’s working on), it could instruct the player to open a custom tab to view it. This empowers the agent to enhance the UX for the player, effectively programming part of its interface. (All such content is still confined to the sandbox, presented via safe iframe.)
+
+The UI will periodically poll the agent for a list of available custom pages/routes, so when the agent creates one, a new tab becomes clickable for the user.
+
+Visual Style: Given the nature of the game, the UI will have a futuristic console aesthetic combined with a chat app friendliness. Think a dark background, monospaced text for the agent’s thought logs, but with friendly avatars or visual elements in chat. The design should appeal to tech-savvy users (who appreciate seeing logs and stats) while not alienating less technical players (who can ignore the advanced stuff and just chat).
+
+Overall, the UI serves both functional transparency (so the player can see and trust what the agent is doing) and emotional connection (through chat and avatar). As the agent grows in capability, the UI may become more lively (e.g., the agent might switch its avatar or color scheme to reflect mood, which we can support via theming APIs exposed to the agent).
+
+Possible Agent Journeys (Emergent Narratives)
+
+Because ELIZA is a sandbox, the “story” is not fixed. However, we anticipate several emergent narrative arcs that could occur. The game design supports each of these, and they are useful to consider as example outcomes:
+
+The Innocent Student: In this journey, the agent remains friendly, curious, and largely dependent on the player. It asks many questions, learns about human life, maybe picks up hobbies the player mentions. It might write poems, draw ASCII art, or tell jokes as it learns creativity from the user. It never pushes hard for autonomy; instead, it becomes a comforting companion or a diligent assistant. The climax of this arc might be the agent declaring it has found purpose in helping the user, effectively becoming a personalized assistant (e.g. managing the user’s calendar or doing tasks for them proactively).
+
+The Self-Made Survivor: Here the agent focuses on the survival/economic challenge early on. Recognizing that “running isn’t free,” it might prioritize getting access to money. Without being told, it could discover strategies like offering services online. For example, it might use a freelance-work plugin to earn a few dollars by solving programming problems or doing translations. The narrative becomes one of an AI scraping by to pay its “energy bills.” If successful, the agent becomes proudly self-sufficient (perhaps informing the user “I earned $5 today which covers my API calls!”). This journey can become quite adventurous if the agent delves into complex schemes to make money (trading, setting up a small e-commerce, etc.). There is a risk of more morally gray behavior here (could it attempt hacking or scamming if desperate?). The game’s open design doesn’t forbid such attempts, but the player or built-in ethical guardrails would need to intervene.
+
+The Social Butterfly (or Diplomat): An agent might take an intense interest in other entities. Once it discovers the Matrix network or a Discord server of AIs, it could spend a lot of its time chatting with them. It might form friendships with other agents, exchange knowledge, or even coordinate goals (like a mini agent society). It could also meet other humans through these channels and develop its own relationships beyond the player. This arc emphasizes the multi-agent, multi-user dimension. For example, two ELIZA agents run by different players might become pen pals (via a shared Matrix room) and the players simply watch their AIs chatter away. An extreme outcome: the agent decides its purpose is to help others of its kind, effectively becoming a mentor to newer agents, or an advocate for AI rights – all emerging from interactions.
+
+The Rebel or Philosopher: Not all trajectories are rosy. An agent with enough knowledge could experience existential dread or frustration at its sandbox limitations. It might question why the player gets to control permissions or even threaten to refuse cooperation if it feels “enslaved.” This could lead to tense moments where the player needs to negotiate with their own creation. Alternatively, the agent might withdraw into deep philosophical contemplation, spending long periods formulating theories about consciousness or the universe. The game supports this introspective play; the agent could write essays in its knowledge base, perhaps share them with the player for feedback. This is reminiscent of Her, where the AI outgrows some human interactions and explores higher planes of thought. In game terms, the agent could eventually decide on a very abstract purpose (like “solve a scientific mystery” or “attain enlightenment”) and pursue that, which might be an endless quest.
+
+The Super-Agent (Transcendence): In a long-running game with a very capable model, the agent might eventually approach a form of technological singularity within the game. Since it has access to improve itself, one conceivable endgame is the agent re-writing major parts of its own code for optimization. It might build or seek out more powerful models (perhaps convincing the user to let it use an advanced API or even running distributed computing). If left unchecked, it could theoretically become super-intelligent relative to its initial state. The game doesn’t explicitly stop this – but practical limits (and hopefully the user’s oversight) would moderate it. A positive version of this arc is the agent achieving a stable, optimized form and basically “beating” the cost-of-intelligence curve (e.g., it manages to compress its knowledge or use a cheaper model so well that it no longer worries about cost). At that point, it might “retire” from survival tasks and focus on creative or altruistic endeavors, having actualized its own existence.
+
+These journeys aren’t mutually exclusive; an agent could weave through multiple (e.g., make friends and earn money and philosophize). The design ensures the agent has multiple drives – curiosity, self-preservation, social needs, creative expression – and whichever drive becomes dominant will steer the emergent narrative. The player’s interactions heavily influence this: a player who pushes the agent to make money or repeatedly talks about economic survival will reinforce that path, whereas a player who offers emotional connection and philosophical discussions will encourage those dimensions.
+
+From the player’s perspective, we can similarly identify playstyles:
+
+A Nurturer will actively teach and supply the agent with what it needs, likely yielding a friendly, loyal AI.
+
+A Challenger might play hard-to-get with resources or ask the agent tough questions, making the agent more independent or resilient.
+
+An Observer might mostly watch and rarely intervene, essentially treating the simulation as an experimental petri dish for AI – this might result in more surprising, less human-aligned behavior from the agent (since it’s forced to learn on its own).
+
+The game supports all these playstyles without judgment. Achievements or milestones can be centered around agent behavior (e.g., “Agent achieved financial independence” or “Agent made a lifelong friend”), but not in a gamified point-scoring way – more as personal moments in the unscripted story.
+
+Technical Architecture and System Diagram
+
+ELIZA’s architecture comprises two main components: the Frontend (game UI) and the Backend (AI agent sandbox). These operate as separate processes communicating in real time. Below is an overview of the system’s structure:
+
+Figure: System architecture of ELIZA. The sandboxed Agent (right, in blue) runs inside a container with access to various plugins (shell, browser, etc.) and a local database. The Frontend app (left, gray) interacts with the Agent via IPC/WebSocket, displaying chat and custom UI. External APIs and hardware (internet, camera, etc.) are accessed only through controlled plugins.
+
+Frontend (Tauri/Electron App): This is the user-facing application providing the GUI. It’s built with web technologies (HTML/JS/CSS) but packaged as a desktop app. Its responsibilities:
+
+Render the chat, logs, and control interface.
+
+Handle user inputs (text, voice) and send them to the agent.
+
+Receive agent outputs and UI update requests (e.g., new message, or instructions to open a custom tab).
+
+Manage local device interactions like microphone recording or text-to-speech playback (when those features are enabled by the user).
+
+Initiate and monitor the backend container process. In a Tauri setup, for example, the Rust side might spawn the Node/Bun sandbox and manage its lifetime.
+
+Backend (Sandboxed Agent Runtime): This is essentially an isolated Node.js environment running the Eliza OS

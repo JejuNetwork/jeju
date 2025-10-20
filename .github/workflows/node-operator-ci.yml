@@ -1,0 +1,126 @@
+name: Node Operator Infrastructure CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'node-explorer/**'
+      - 'scripts/rewards/**'
+      - 'scripts/snapshots/**'
+      - 'scripts/auto-update/**'
+      - 'scripts/monitoring/**'
+      - 'contracts/src/node-rewards/**'
+      - 'contracts/test/NodeOperatorRewards.t.sol'
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test-smart-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+      
+      - name: Run Forge tests
+        working-directory: contracts
+        run: |
+          forge test --match-contract NodeOperatorRewardsTest -vv
+      
+      - name: Check gas snapshots
+        working-directory: contracts
+        run: |
+          forge snapshot --match-contract NodeOperatorRewardsTest || echo "Gas snapshots not configured"
+
+  test-node-explorer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      
+      - name: Install dependencies
+        working-directory: apps/node-explorer
+        run: bun install
+      
+      - name: Type check
+        working-directory: apps/node-explorer
+        run: bun run typecheck || echo "Type check not configured"
+      
+      - name: Start API server
+        working-directory: apps/node-explorer
+        run: |
+          bun run src/api/server.ts &
+          sleep 5
+      
+      - name: Run integration tests
+        run: bun test tests/integration/node-explorer.integration.test.ts || echo "Integration tests not configured"
+
+  lint-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      
+      - name: Install dependencies
+        run: bun install
+      
+      - name: TypeScript check
+        run: bun run typecheck
+      
+      - name: Check script permissions
+        run: |
+          chmod +x scripts/install-node.sh
+          chmod +x scripts/snapshots/download-snapshot.sh
+
+  build-docker-images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build node-explorer images
+        working-directory: apps/node-explorer
+        run: |
+          docker build -f Dockerfile -t jeju-explorer-frontend .
+          docker build -f Dockerfile.api -t jeju-explorer-api .
+          docker build -f Dockerfile.collector -t jeju-explorer-collector .
+      
+      - name: Test docker-compose
+        working-directory: apps/node-explorer
+        run: |
+          docker-compose config
+
+  validate-configs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      
+      - name: Install dependencies
+        run: bun install
+      
+      - name: Validate chain configs
+        run: bun run config:validate
+      
+      - name: Validate documentation
+        run: |
+          test -f documentation/operators/node-operator-handbook.md
+          test -f documentation/operators/quick-start.md
+

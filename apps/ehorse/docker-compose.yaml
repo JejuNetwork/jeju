@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  # ==========================================
+  # eHorse TEE Service
+  # ==========================================
+  ehorse-tee:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ehorse-tee
+    ports:
+      - "5700:5700"  # eHorse API
+    environment:
+      # Server Configuration
+      - EHORSE_PORT=5700
+      - EHORSE_SERVER_URL=http://localhost:5700
+      
+      # Blockchain Configuration
+      - RPC_URL=${RPC_URL:-http://host.docker.internal:8545}
+      - PRIVATE_KEY=${PRIVATE_KEY}
+      
+      # Contract Addresses
+      - CONTEST_ADDRESS=${CONTEST_ADDRESS}
+      - MARKET_FACTORY_ADDRESS=${MARKET_FACTORY_ADDRESS}
+      - PREDIMARKET_ADDRESS=${PREDIMARKET_ADDRESS}
+      - ELIZAOS_ADDRESS=${ELIZAOS_ADDRESS}
+      
+      # TEE Configuration
+      - DSTACK_SOCKET_PATH=/var/run/dstack.sock
+      - TEE_CONTAINER_IMAGE=ehorse-tee:v1.0.0
+      - TEE_ENABLED=true
+      
+      # Node Environment
+      - NODE_ENV=${NODE_ENV:-production}
+    volumes:
+      # Mount Dstack socket for TEE attestation
+      - /var/run/dstack.sock:/var/run/dstack.sock
+      # Mount workspace for persistence
+      - ehorse_data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5700/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - ehorse-network
+
+  # ==========================================
+  # Local Blockchain (Anvil) - Development Only
+  # ==========================================
+  anvil:
+    image: ghcr.io/foundry-rs/foundry:latest
+    container_name: anvil
+    command: anvil --host 0.0.0.0 --block-time 2
+    ports:
+      - "8545:8545"
+    networks:
+      - ehorse-network
+    profiles:
+      - dev
+
+volumes:
+  ehorse_data:
+
+networks:
+  ehorse-network:
+    driver: bridge
+

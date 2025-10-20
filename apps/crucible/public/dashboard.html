@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crucible Security Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+            padding: 20px;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #ff6b6b, #ff8e53);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle { color: #888; margin-bottom: 30px; }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+        .card h2 {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            color: #fff;
+        }
+        .stat {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #ff6b6b;
+            margin: 10px 0;
+        }
+        .agent-list {
+            display: grid;
+            gap: 10px;
+        }
+        .agent {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid;
+        }
+        .agent.hacker { border-left-color: #ff6b6b; }
+        .agent.scammer { border-left-color: #ffd93d; }
+        .agent.citizen { border-left-color: #6bcf7f; }
+        .agent.guardian { border-left-color: #4ecdc4; }
+        .agent-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .agent-name { font-weight: bold; color: #fff; }
+        .agent-type {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .type-hacker { background: rgba(255, 107, 107, 0.2); color: #ff6b6b; }
+        .type-scammer { background: rgba(255, 217, 61, 0.2); color: #ffd93d; }
+        .type-citizen { background: rgba(107, 207, 127, 0.2); color: #6bcf7f; }
+        .type-guardian { background: rgba(78, 205, 196, 0.2); color: #4ecdc4; }
+        .agent-wallet {
+            font-family: monospace;
+            font-size: 0.85rem;
+            color: #888;
+        }
+        .button {
+            background: linear-gradient(135deg, #ff6b6b, #ff8e53);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 15px;
+        }
+        .button:hover { opacity: 0.9; }
+        .loading { text-align: center; padding: 40px; color: #888; }
+        .error {
+            background: rgba(255, 107, 107, 0.1);
+            border: 1px solid rgba(255, 107, 107, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+            color: #ff6b6b;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            margin-left: 8px;
+        }
+        .status-online { background: rgba(107, 207, 127, 0.2); color: #6bcf7f; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔥 Crucible Security Dashboard</h1>
+        <p class="subtitle">Multi-Agent Security Testing Platform</p>
+
+        <div id="stats-grid" class="grid">
+            <div class="card">
+                <h2>Active Agents</h2>
+                <div class="stat" id="total-agents">-</div>
+                <p style="color: #888; font-size: 0.9rem;">Running security tests</p>
+            </div>
+            <div class="card">
+                <h2>Vulnerabilities Found</h2>
+                <div class="stat" id="vulns-found">-</div>
+                <p style="color: #888; font-size: 0.9rem;">Critical issues discovered</p>
+            </div>
+            <div class="card">
+                <h2>Reports Submitted</h2>
+                <div class="stat" id="reports-count">-</div>
+                <p style="color: #888; font-size: 0.9rem;">By citizen agents</p>
+            </div>
+            <div class="card">
+                <h2>Funds Recovered</h2>
+                <div class="stat" id="funds-recovered">-</div>
+                <p style="color: #888; font-size: 0.9rem;">Automatically returned</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Agent Swarm <span class="status-badge status-online">● ACTIVE</span></h2>
+            <div id="agent-list" class="agent-list">
+                <div class="loading">Loading agents...</div>
+            </div>
+            <button class="button" onclick="refreshAgents()">Refresh Agents</button>
+        </div>
+
+        <div class="card" style="margin-top: 20px;">
+            <h2>Platform Statistics</h2>
+            <div id="detailed-stats" style="color: #888; font-size: 0.9rem;">
+                <p>Loading...</p>
+            </div>
+        </div>
+        
+        <div class="card" style="margin-top: 20px;">
+            <h2>Recent Activity</h2>
+            <div id="activity-log" style="font-family: monospace; font-size: 0.85rem; max-height: 400px; overflow-y: auto;">
+                <p style="color: #888;">Loading activity...</p>
+            </div>
+        </div>
+        
+        <div class="card" style="margin-top: 20px;">
+            <h2>Performance Metrics</h2>
+            <div id="metrics-display" style="font-size: 0.9rem;">
+                <p style="color: #888;">Loading metrics...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:7777';
+        const activityLog = [];
+
+        async function fetchAgents() {
+            try {
+                const response = await fetch(`${API_BASE}/api/agents`);
+                const agents = await response.json();
+                
+                const listEl = document.getElementById('agent-list');
+                if (!agents || agents.length === 0) {
+                    listEl.innerHTML = '<div class="loading">No agents running</div>';
+                    return;
+                }
+
+                listEl.innerHTML = agents.map(agent => `
+                    <div class="agent ${agent.type}">
+                        <div class="agent-header">
+                            <span class="agent-name">${agent.name}</span>
+                            <span class="agent-type type-${agent.type}">${agent.type.toUpperCase()}</span>
+                        </div>
+                        <div class="agent-wallet">${agent.wallet ? agent.wallet.slice(0, 10) + '...' + agent.wallet.slice(-8) : 'No wallet'}</div>
+                    </div>
+                `).join('');
+
+                document.getElementById('total-agents').textContent = agents.length;
+            } catch (error) {
+                console.error('Failed to fetch agents:', error);
+                document.getElementById('agent-list').innerHTML = 
+                    '<div class="error">Failed to load agents. Is Crucible running?</div>';
+            }
+        }
+
+        async function fetchStats() {
+            try {
+                const response = await fetch(`${API_BASE}/api/crucible/stats`);
+                const stats = await response.json();
+                
+                document.getElementById('vulns-found').textContent = stats.vulnerabilitiesFound || 0;
+                document.getElementById('reports-count').textContent = stats.reportsSubmitted || 0;
+                document.getElementById('funds-recovered').textContent = stats.fundsRecovered || '0 ETH';
+
+                const detailedStats = document.getElementById('detailed-stats');
+                detailedStats.innerHTML = `
+                    <p><strong>Agent Breakdown:</strong></p>
+                    <p>• Hackers: ${stats.byType?.hacker || 0}</p>
+                    <p>• Scammers: ${stats.byType?.scammer || 0}</p>
+                    <p>• Citizens: ${stats.byType?.citizen || 0}</p>
+                    <p>• Guardians: ${stats.byType?.guardian || 0}</p>
+                `;
+            } catch (error) {
+                console.error('Failed to fetch stats:', error);
+            }
+        }
+        
+        async function fetchMetrics() {
+            try {
+                const response = await fetch(`${API_BASE}/api/crucible/metrics`);
+                const data = await response.json();
+                
+                const metricsEl = document.getElementById('metrics-display');
+                
+                if (!data.agents || data.agents.length === 0) {
+                    metricsEl.innerHTML = '<p style="color: #888;">No metrics available yet</p>';
+                    return;
+                }
+                
+                const metricsHtml = data.agents.map(agent => {
+                    const stats = agent.stats;
+                    return `
+                        <div style="margin-bottom: 15px; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 6px;">
+                            <p style="color: #fff; font-weight: bold;">${agent.agent} (${agent.type})</p>
+                            <p>• Total Actions: ${stats.totalActions || 0}</p>
+                            <p>• Success Rate: ${(stats.successRate || 0).toFixed(1)}%</p>
+                            <p>• Avg Duration: ${stats.averageDuration || 0}ms</p>
+                        </div>
+                    `;
+                }).join('');
+                
+                metricsEl.innerHTML = metricsHtml;
+            } catch (error) {
+                console.error('Failed to fetch metrics:', error);
+            }
+        }
+        
+        function addActivityLogEntry(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#ff6b6b' : type === 'success' ? '#6bcf7f' : '#888';
+            
+            activityLog.unshift({ timestamp, message, color });
+            
+            // Keep last 50 entries
+            if (activityLog.length > 50) {
+                activityLog.pop();
+            }
+            
+            const logEl = document.getElementById('activity-log');
+            logEl.innerHTML = activityLog.map(entry => 
+                `<div style="color: ${entry.color}; margin-bottom: 4px;">[${entry.timestamp}] ${entry.message}</div>`
+            ).join('');
+        }
+
+        async function refreshAgents() {
+            await Promise.all([fetchAgents(), fetchStats(), fetchMetrics()]);
+            addActivityLogEntry('Dashboard refreshed', 'info');
+        }
+
+        // Initial load
+        refreshAgents();
+        addActivityLogEntry('Dashboard initialized', 'success');
+
+        // Auto-refresh every 5 seconds
+        setInterval(refreshAgents, 5000);
+    </script>
+</body>
+</html>
+

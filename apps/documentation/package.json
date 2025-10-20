@@ -1,0 +1,28 @@
+{
+  "name": "@jeju/documentation",
+  "version": "1.0.0",
+  "description": "Jeju documentation site powered by VitePress",
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev --port ${DOCUMENTATION_PORT:-4004}",
+    "a2a": "bun run server/a2a-server.ts",
+    "build": "vitepress build",
+    "preview": "vitepress preview --port ${DOCUMENTATION_PORT:-4004}",
+    "test": "bun run test:e2e && bun run test:unit",
+    "test:unit": "bun test tests/unit/",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@synthetixio/synpress": "^4.1.1",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "playwright-core": "^1.56.1",
+    "vitepress": "^1.0.0"
+  }
+}

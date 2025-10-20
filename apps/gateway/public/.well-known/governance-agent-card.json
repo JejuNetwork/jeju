@@ -1,0 +1,85 @@
+{
+  "id": "jeju-futarchy-governance",
+  "name": "Jeju Futarchy Governance",
+  "description": "Market-based governance using prediction markets for parameter decisions",
+  "version": "1.0.0",
+  "protocol": "a2a",
+  "protocolVersion": "0.3.0",
+  "capabilities": {
+    "governance": true,
+    "futarchy": true,
+    "predictionMarkets": true
+  },
+  "skills": [
+    {
+      "id": "get-active-quests",
+      "name": "Get Active Governance Quests",
+      "description": "Returns all active futarchy governance quests with their prediction markets",
+      "inputs": [],
+      "outputs": {
+        "quests": "array"
+      },
+      "endpoint": "/a2a/governance"
+    },
+    {
+      "id": "get-voting-power",
+      "name": "Get Voting Power",
+      "description": "Calculate voting power from node stakes, LP positions, and governance locks",
+      "inputs": [
+        {
+          "name": "address",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "outputs": {
+        "breakdown": "object"
+      },
+      "endpoint": "/a2a/governance"
+    },
+    {
+      "id": "create-quest",
+      "name": "Create Governance Quest",
+      "description": "Propose new governance change with futarchy markets",
+      "inputs": [
+        {"name": "title", "type": "string", "required": true},
+        {"name": "objective", "type": "string", "required": true},
+        {"name": "targetContract", "type": "string", "required": true},
+        {"name": "calldata", "type": "string", "required": true}
+      ],
+      "outputs": {
+        "questId": "string",
+        "yesMarketId": "string",
+        "noMarketId": "string"
+      },
+      "endpoint": "/a2a/governance"
+    },
+    {
+      "id": "vote-on-quest",
+      "name": "Vote on Quest",
+      "description": "Trade on governance prediction markets using voting power",
+      "inputs": [
+        {"name": "questId", "type": "string", "required": true},
+        {"name": "supportChange", "type": "boolean", "required": true},
+        {"name": "amount", "type": "number", "required": true}
+      ],
+      "outputs": {
+        "success": "boolean",
+        "transactionHash": "string"
+      },
+      "endpoint": "/a2a/governance"
+    }
+  ],
+  "endpoints": {
+    "jsonrpc": "http://localhost:4001/a2a/governance",
+    "rest": "http://localhost:4001/api/governance"
+  },
+  "metadata": {
+    "governance_type": "futarchy",
+    "voting_mechanism": "stake_weighted",
+    "supported_tokens": ["elizaOS", "CLANKER", "VIRTUAL", "CLANKERMON"],
+    "min_voting_period": "7 days",
+    "timelock_period": "7 days"
+  }
+}
+

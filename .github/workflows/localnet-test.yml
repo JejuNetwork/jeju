@@ -37,32 +37,17 @@ jobs:
       - name: Start Kurtosis engine
         run: kurtosis engine start
       
-      - name: Start localnet
-        run: bun run localnet:start
-        timeout-minutes: 30
-      
-      - name: Wait for services
-        run: |
-          sleep 15
-          echo "Getting L2 RPC port..."
-          L2_PORT=$(kurtosis port print jeju-localnet op-geth rpc | awk '{print $NF}' | cut -d: -f2)
-          echo "L2 RPC port: $L2_PORT"
-          timeout 300 bash -c "until curl -s http://127.0.0.1:\$L2_PORT > /dev/null; do sleep 5; done"
-          echo "L2 RPC is ready at port $L2_PORT"
-      
-      - name: Run integration tests
-        run: bun run test:integration
-        timeout-minutes: 15
-      
-      - name: Run E2E tests
-        run: bun run test:e2e
-        timeout-minutes: 15
+      - name: Run comprehensive test suite
+        run: CI=true bun run test
+        timeout-minutes: 45
+        # Note: bun run test automatically manages localnet lifecycle
+        # Sets up localnet, runs all tests, and tears down automatically
       
       - name: Collect logs on failure
         if: failure()
         run: |
           mkdir -p logs
-          kurtosis service logs jeju-localnet > logs/kurtosis.log
+          kurtosis service logs jeju-localnet > logs/kurtosis.log || true
           kubectl logs -n op-stack --all-containers=true > logs/k8s.log || true
       
       - name: Upload logs
@@ -72,9 +57,9 @@ jobs:
           name: test-logs
           path: logs/
       
-      - name: Stop localnet
+      - name: Cleanup
         if: always()
-        run: bun run localnet:stop
+        run: kurtosis enclave rm -f jeju-localnet || true
 
   type-check:
     name: TypeScript Type Check
@@ -86,6 +71,8 @@ jobs:
       
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
       
       - name: Install dependencies
         run: bun install
@@ -103,6 +90,8 @@ jobs:
       
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
       
       - name: Install dependencies
         run: bun install

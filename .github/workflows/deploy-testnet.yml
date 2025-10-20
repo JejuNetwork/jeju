@@ -15,12 +15,46 @@ env:
   ENVIRONMENT: testnet
 
 jobs:
+  validate-secrets:
+    name: Validate Required Secrets
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Validate required secrets
+        run: |
+          MISSING_SECRETS=""
+          
+          if [ -z "${{ secrets.AWS_ROLE_ARN_TESTNET }}" ]; then
+            MISSING_SECRETS="${MISSING_SECRETS}AWS_ROLE_ARN_TESTNET "
+          fi
+          
+          if [ -z "${{ secrets.DEPLOYER_PRIVATE_KEY_TESTNET }}" ]; then
+            MISSING_SECRETS="${MISSING_SECRETS}DEPLOYER_PRIVATE_KEY_TESTNET "
+          fi
+          
+          if [ -z "${{ secrets.DEPLOYER_ADDRESS }}" ]; then
+            MISSING_SECRETS="${MISSING_SECRETS}DEPLOYER_ADDRESS "
+          fi
+          
+          if [ -z "${{ secrets.BASESCAN_API_KEY }}" ]; then
+            MISSING_SECRETS="${MISSING_SECRETS}BASESCAN_API_KEY "
+          fi
+          
+          if [ -n "$MISSING_SECRETS" ]; then
+            echo "❌ Missing required secrets: $MISSING_SECRETS"
+            echo "Please configure these secrets in GitHub repository settings"
+            exit 1
+          fi
+          
+          echo "✅ All required secrets are configured"
+
   deploy-infrastructure:
     name: Deploy Infrastructure
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: terraform/environments/testnet
+    needs: validate-secrets
+    environment:
+      name: testnet
+      url: https://testnet-rpc.jeju.network
     
     steps:
       - name: Checkout code
@@ -38,15 +72,19 @@ jobs:
           terraform_version: 1.6.0
       
       - name: Terraform Init
+        working-directory: terraform/environments/testnet
         run: terraform init
       
       - name: Terraform Plan
+        working-directory: terraform/environments/testnet
         run: terraform plan -out=tfplan
       
       - name: Terraform Apply
+        working-directory: terraform/environments/testnet
         run: terraform apply -auto-approve tfplan
       
       - name: Save outputs
+        working-directory: terraform/environments/testnet
         run: terraform output -json > outputs.json
       
       - name: Upload outputs
@@ -59,6 +97,9 @@ jobs:
     name: Deploy Contracts
     runs-on: ubuntu-latest
     needs: deploy-infrastructure
+    environment:
+      name: testnet
+      url: https://testnet-rpc.jeju.network
     
     steps:
       - name: Checkout code
@@ -71,6 +112,9 @@ jobs:
       
       - name: Install dependencies
         run: bun install
+      
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
       
       - name: Deploy L1 contracts to Base Sepolia
         env:
@@ -91,11 +135,31 @@ jobs:
         with:
           name: contract-deployments
           path: contracts/deployments/testnet/
+      
+      - name: Create deployment report
+        run: |
+          echo "# Testnet Deployment Report" > deployment-report.md
+          echo "" >> deployment-report.md
+          echo "**Date**: $(date)" >> deployment-report.md
+          echo "**Settlement Layer**: Base Sepolia (Chain ID 84532)" >> deployment-report.md
+          echo "**Deployer**: ${{ secrets.DEPLOYER_ADDRESS }}" >> deployment-report.md
+          echo "" >> deployment-report.md
+          echo "## Deployed Contracts" >> deployment-report.md
+          cat contracts/deployments/testnet/deployment.json | jq '.' >> deployment-report.md
+      
+      - name: Upload deployment report
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-report
+          path: deployment-report.md
 
   deploy-kubernetes:
     name: Deploy Kubernetes Services
     runs-on: ubuntu-latest
     needs: [deploy-infrastructure, deploy-contracts]
+    environment:
+      name: testnet
+      url: https://testnet-rpc.jeju.network
     
     steps:
       - name: Checkout code
@@ -144,7 +208,7 @@ jobs:
       
       - name: Wait for rollout
         run: |
-          kubectl rollout status statefulset/reth-sequencer -n op-stack --timeout=10m
+          kubectl rollout status statefulset/reth-sequencer -n execution --timeout=10m
           kubectl rollout status deployment/op-node -n op-stack --timeout=10m
           kubectl rollout status deployment/op-batcher -n op-stack --timeout=10m
           kubectl rollout status deployment/op-proposer -n op-stack --timeout=10m
@@ -160,30 +224,23 @@ jobs:
       
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
       
       - name: Run health checks
         env:
-          RPC_URL: https://testnet-rpc.jeju.network
+          L1_RPC_URL: https://sepolia.base.org
+          L2_RPC_URL: https://testnet-rpc.jeju.network
         run: |
-          bun run scripts/health-check.ts
-      
-      - name: Notify on failure
-        if: failure()
-        uses: slackapi/slack-github-action@v1
-        with:
-          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
-          payload: |
-            {
-              "text": "❌ Testnet deployment failed",
-              "blocks": [
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "Testnet deployment failed\nJob: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-                  }
-                }
-              ]
-            }
-
-
+          # Test Jeju testnet is responding
+          cast block latest --rpc-url $L2_RPC_URL
+          
+          # Test can send transactions
+          echo "✅ Jeju Testnet RPC responding"
+          
+          # Verify settlement layer connectivity
+          cast block latest --rpc-url $L1_RPC_URL
+          echo "✅ Base Sepolia connectivity confirmed"

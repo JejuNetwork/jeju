@@ -1,0 +1,17 @@
+
+# actionlint configuration for Jeju network deployment workflows
+# https://github.com/rhysd/actionlint/blob/main/docs/config.md
+
+self-hosted-runner:
+  # Define custom runner labels if needed
+  labels: []
+
+config-variables:
+  # Define expected configuration variables
+  - AWS_REGION
+  - ENVIRONMENT
+
+# These environments must be created in GitHub repository settings before use
+# See: Repository Settings > Environments > New environment
+# Required environments: mainnet, testnet
+

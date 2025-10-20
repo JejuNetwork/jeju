@@ -1,6 +1,6 @@
 apiVersion: v2
 name: subsquid
-description: Comprehensive blockchain indexer for Jeju L2 using Subsquid
+description: Comprehensive blockchain indexer for Jeju using Subsquid
 type: application
 version: 1.0.0
 appVersion: "1.0.0"

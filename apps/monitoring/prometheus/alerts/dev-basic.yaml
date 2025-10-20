@@ -1,0 +1,55 @@
+groups:
+  - name: dev_services
+    interval: 30s
+    rules:
+      # Note: Dev alerts are informational only
+      # Services may not expose metrics endpoints, which is OK for dev
+      
+      # Indexer Health (if metrics available)
+      - alert: SubsquidProcessorDown
+        expr: up{job="subsquid-processor"} == 0
+        for: 10m
+        labels:
+          severity: info
+          component: indexer
+          environment: dev
+        annotations:
+          summary: "Subsquid processor metrics unavailable in dev"
+          description: "Processor metrics have been unavailable for 10+ minutes (may not expose metrics endpoint)"
+
+      # API Health (if metrics available)
+      - alert: SubsquidAPIDown
+        expr: up{job="subsquid-api"} == 0
+        for: 10m
+        labels:
+          severity: info
+          component: api
+          environment: dev
+        annotations:
+          summary: "Subsquid API metrics unavailable in dev"
+          description: "API metrics unavailable for 10+ minutes (may not expose metrics endpoint)"
+
+      # Node Explorer Health (if metrics available)
+      - alert: NodeExplorerDown
+        expr: up{job="node-explorer-api"} == 0
+        for: 10m
+        labels:
+          severity: info
+          component: monitoring
+          environment: dev
+        annotations:
+          summary: "Node Explorer metrics unavailable in dev"
+          description: "Explorer metrics unavailable for 10+ minutes (may not expose metrics endpoint)"
+
+      # Prometheus Health (this one IS critical)
+      - alert: PrometheusDown
+        expr: up{job="prometheus"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: monitoring
+          environment: dev
+        annotations:
+          summary: "Prometheus is down"
+          description: "Prometheus has been down for 2 minutes"
+

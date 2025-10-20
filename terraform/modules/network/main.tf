@@ -1,4 +1,4 @@
-# VPC and Network Infrastructure for Jeju L2
+# VPC and Network Infrastructure for Jeju
 
 variable "environment" {
   description = "Environment name (localnet, testnet, mainnet)"

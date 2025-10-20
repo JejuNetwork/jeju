@@ -1,0 +1,55 @@
+groups:
+  - name: rpc-performance
+    interval: 30s
+    rules:
+      - alert: RPCHighLatency
+        expr: histogram_quantile(0.95, rate(reth_rpc_duration_seconds_bucket[5m])) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          component: rpc
+        annotations:
+          summary: "High RPC latency detected"
+          description: "P95 RPC latency is {{ $value }}s (expected <1s)"
+          
+      - alert: RPCHighErrorRate
+        expr: rate(reth_rpc_errors_total[5m]) / rate(reth_rpc_requests_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          component: rpc
+        annotations:
+          summary: "High RPC error rate"
+          description: "{{ $value | humanizePercentage }} of RPC requests are failing"
+          
+      - alert: RPCRateLimitReached
+        expr: rate(reth_rpc_rate_limit_hits_total[1m]) > 10
+        for: 5m
+        labels:
+          severity: info
+          component: rpc
+        annotations:
+          summary: "RPC rate limiting active"
+          description: "{{ $value }} rate limit hits per minute"
+          
+      - alert: RPCConnectionPoolExhausted
+        expr: reth_rpc_connections_active / reth_rpc_connections_max > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: rpc
+        annotations:
+          summary: "RPC connection pool nearly exhausted"
+          description: "{{ $value | humanizePercentage }} of connections in use"
+          
+      - alert: WSConnectionsHigh
+        expr: reth_ws_connections_active > 1000
+        for: 10m
+        labels:
+          severity: info
+          component: websocket
+        annotations:
+          summary: "High WebSocket connection count"
+          description: "{{ $value }} active WebSocket connections"
+
+

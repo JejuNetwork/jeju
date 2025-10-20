@@ -1,6 +1,6 @@
 {
-  "chainId": 8888,
-  "networkId": 8888,
+  "chainId": 420691,
+  "networkId": 420691,
   "name": "Jeju",
   "rpcUrl": "https://rpc.jeju.network",
   "wsUrl": "wss://ws.jeju.network",

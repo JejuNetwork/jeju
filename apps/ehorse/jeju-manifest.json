@@ -1,0 +1,24 @@
+{
+  "$schema": "../../jeju-manifest.schema.json",
+  "name": "ehorse",
+  "displayName": "eHorse Racing",
+  "version": "1.0.0",
+  "type": "core",
+  "description": "Minimal horse racing game for prediction markets",
+  "commands": {
+    "dev": "bun run src/index.ts",
+    "build": "bun build src/index.ts --outdir dist",
+    "start": "bun run dist/index.js"
+  },
+  "ports": {
+    "main": 5700
+  },
+  "dependencies": ["contracts"],
+  "optional": true,
+  "enabled": true,
+  "autoStart": false,
+  "tags": ["gaming", "prediction-markets", "demo"]
+}
+
+
+

@@ -159,7 +159,7 @@ autoscaling:
 # Base Mainnet L1
 l1_rpc_url: https://mainnet.base.org
 l1_chain_id: "8453"
-l2_chain_id: "8888"
+l2_chain_id: "420691"
 
 # Domains
 rpc_domain: rpc.jeju.network

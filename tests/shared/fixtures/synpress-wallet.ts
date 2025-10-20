@@ -1,0 +1,236 @@
+import { test as base, type BrowserContext } from '@playwright/test';
+import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
+import { JEJU_NETWORK, JEJU_TEST_WALLET } from '../synpress.config.base';
+
+/**
+ * Synpress wallet fixtures for Jeju network testing
+ *
+ * This replaces the old Dappwright fixtures with modern Synpress.
+ *
+ * Usage:
+ * ```typescript
+ * import { test, expect } from '../../../tests/shared/fixtures/synpress-wallet';
+ *
+ * test('should connect wallet and trade', async ({ page, metamask }) => {
+ *   await page.goto('/');
+ *   await page.click('button:has-text("Connect Wallet")');
+ *
+ *   // Connect wallet
+ *   await metamask.connectToDapp();
+ *
+ *   // Interact with dApp
+ *   await page.click('button:has-text("Swap")');
+ *
+ *   // Approve transaction in MetaMask
+ *   await metamask.confirmTransaction();
+ *
+ *   // Verify success
+ *   await expect(page.getByText('Swap successful')).toBeVisible();
+ * });
+ * ```
+ */
+
+// Export base test with MetaMask fixtures
+export const test = base.extend(metaMaskFixtures);
+
+// Re-export expect for convenience
+export { expect } from '@playwright/test';
+
+/**
+ * Helper function to connect wallet to dApp
+ *
+ * This handles the common flow of clicking connect button and approving in MetaMask.
+ *
+ * Usage:
+ * ```typescript
+ * await connectWallet(page, metamask);
+ * ```
+ */
+export async function connectWallet(
+  page: any,
+  metamask: MetaMask,
+  options?: {
+    connectButtonText?: string;
+    walletOptionText?: string;
+    timeout?: number;
+  }
+) {
+  const {
+    connectButtonText = 'Connect Wallet',
+    walletOptionText = 'MetaMask',
+    timeout = 10000,
+  } = options || {};
+
+  try {
+    // Click connect button
+    const connectButton = page.locator(`button:has-text("${connectButtonText}")`);
+    await connectButton.click({ timeout });
+
+    // Wait for wallet selection modal
+    await page.waitForTimeout(500);
+
+    // Select MetaMask
+    const metamaskOption = page.locator(`text="${walletOptionText}"`);
+    if (await metamaskOption.isVisible()) {
+      await metamaskOption.click();
+    }
+
+    // Connect in MetaMask popup
+    await metamask.connectToDapp();
+
+    console.log('✅ Wallet connected successfully');
+  } catch (error) {
+    console.warn('Connect wallet flow failed:', error);
+    throw error;
+  }
+}
+
+/**
+ * Helper function to approve transaction in MetaMask
+ *
+ * Usage:
+ * ```typescript
+ * await approveTransaction(metamask);
+ * ```
+ */
+export async function approveTransaction(metamask: MetaMask) {
+  try {
+    await metamask.confirmTransaction();
+    console.log('✅ Transaction approved');
+  } catch (error) {
+    console.error('Failed to approve transaction:', error);
+    throw error;
+  }
+}
+
+/**
+ * Helper function to sign message in MetaMask
+ *
+ * Usage:
+ * ```typescript
+ * await signMessage(metamask);
+ * ```
+ */
+export async function signMessage(metamask: MetaMask) {
+  try {
+    await metamask.confirmSignature();
+    console.log('✅ Message signed');
+  } catch (error) {
+    console.error('Failed to sign message:', error);
+    throw error;
+  }
+}
+
+/**
+ * Helper function to reject transaction in MetaMask
+ *
+ * Usage:
+ * ```typescript
+ * await rejectTransaction(metamask);
+ * ```
+ */
+export async function rejectTransaction(metamask: MetaMask) {
+  try {
+    await metamask.rejectTransaction();
+    console.log('✅ Transaction rejected');
+  } catch (error) {
+    console.error('Failed to reject transaction:', error);
+    throw error;
+  }
+}
+
+/**
+ * Helper function to switch network in MetaMask
+ *
+ * Usage:
+ * ```typescript
+ * await switchNetwork(metamask, 'Ethereum Mainnet');
+ * ```
+ */
+export async function switchNetwork(metamask: MetaMask, networkName: string) {
+  try {
+    await metamask.switchNetwork(networkName);
+    console.log(`✅ Switched to network: ${networkName}`);
+  } catch (error) {
+    console.error(`Failed to switch to network ${networkName}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Helper function to add token to MetaMask
+ *
+ * Usage:
+ * ```typescript
+ * await addToken(metamask, '0x...', 'TOKEN', 18);
+ * ```
+ */
+export async function addToken(
+  metamask: MetaMask,
+  tokenAddress: string,
+  symbol: string,
+  decimals: number = 18
+) {
+  try {
+    await metamask.addToken(tokenAddress, symbol, decimals);
+    console.log(`✅ Added token: ${symbol} (${tokenAddress})`);
+  } catch (error) {
+    console.error(`Failed to add token ${symbol}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Helper to get wallet address from MetaMask
+ *
+ * Usage:
+ * ```typescript
+ * const address = await getWalletAddress(page);
+ * expect(address).toBe('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266');
+ * ```
+ */
+export async function getWalletAddress(page: any): Promise<string> {
+  try {
+    // Look for address display (common patterns)
+    const addressSelector = [
+      '[data-testid="wallet-address"]',
+      'button:has-text(/0x[a-fA-F0-9]{40}/)',
+      'span:has-text(/0x[a-fA-F0-9]{40}/)',
+      'div:has-text(/0x[a-fA-F0-9]{40}/)',
+    ].join(', ');
+
+    const addressElement = page.locator(addressSelector).first();
+    const text = await addressElement.textContent({ timeout: 5000 });
+
+    const match = text?.match(/0x[a-fA-F0-9]{40}/);
+    if (match) {
+      return match[0];
+    }
+
+    throw new Error('Could not find wallet address in page');
+  } catch (error) {
+    console.error('Failed to get wallet address:', error);
+    throw error;
+  }
+}
+
+/**
+ * Helper to verify wallet is connected
+ *
+ * Usage:
+ * ```typescript
+ * await verifyWalletConnected(page);
+ * ```
+ */
+export async function verifyWalletConnected(page: any, expectedAddress?: string) {
+  const address = await getWalletAddress(page);
+
+  if (expectedAddress) {
+    if (address.toLowerCase() !== expectedAddress.toLowerCase()) {
+      throw new Error(`Expected address ${expectedAddress} but got ${address}`);
+    }
+  }
+
+  console.log(`✅ Wallet verified: ${address}`);
+  return address;
+}

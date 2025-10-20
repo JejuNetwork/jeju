@@ -1,0 +1,43 @@
+# Cursor IDE ignore patterns
+# Exclude vendored libraries and submodule dependencies from security scans
+
+# Forge standard library (contains example RPC URLs)
+**/lib/forge-std/**
+contracts/lib/**
+
+# Submodule app dependencies  
+apps/*/contracts/lib/**
+apps/*/node_modules/**
+
+# Other vendored contract libraries
+contracts/lib/account-abstraction/**
+contracts/lib/chainlink/**
+contracts/lib/openzeppelin-contracts/**
+contracts/lib/v2-core/**
+contracts/lib/v2-periphery/**
+contracts/lib/v4-core/**
+contracts/lib/v4-periphery/**
+
+# Node modules (duplicate patterns for safety)
+**/node_modules/**
+
+# Build artifacts
+**/out/**
+**/cache/**
+**/artifacts/**
+**/broadcast/**
+
+# Generated files
+**/*.generated.*
+**/generated/**
+
+# Test data and snapshots
+**/snapshots/**
+**/*.snap
+
+# Logs and temp files
+**/*.log
+**/logs/**
+**/tmp/**
+**/temp/**
+

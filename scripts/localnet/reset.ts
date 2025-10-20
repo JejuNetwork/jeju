@@ -8,7 +8,7 @@ const ENCLAVE_NAME = "jeju-localnet";
 const OUTPUT_DIR = join(process.cwd(), ".kurtosis");
 
 async function main() {
-  console.log("🔄 Resetting Jeju L2 Localnet...");
+  console.log("🔄 Resetting Jeju Localnet...");
   
   // Remove the enclave
   console.log("🧹 Removing existing enclave...");
@@ -21,8 +21,9 @@ async function main() {
   }
   
   console.log("✅ Reset complete!");
-  console.log("\n💡 To start a fresh localnet:");
-  console.log("   bun run localnet:start");
+  console.log("\n💡 Localnet lifecycle is managed by:");
+  console.log("   bun run dev              # Starts everything including localnet");
+  console.log("   bun run dev -- --minimal # Starts only localnet");
 }
 
 main();

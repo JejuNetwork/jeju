@@ -1,0 +1,40 @@
+---
+description: Code simplicity principles
+globs: *.ts,*.tsx,*.sol
+alwaysApply: true
+---
+
+# Code Simplicity
+
+**Linear code paths:**
+- Early returns, avoid nested conditionals
+- One clear execution path per function
+
+**Avoid polymorphism:**
+- Use discriminated unions over class hierarchies
+- Functions over methods
+```typescript
+type Network = 
+  | { type: 'localnet'; port: number }
+  | { type: 'testnet'; chainId: number };
+
+function getNetworkRPC(network: Network): string {
+  if (network.type === 'localnet') return `http://localhost:${network.port}`;
+  return `https://testnet-rpc.example.com`;
+}
+```
+
+**Direct function calls:**
+- No unnecessary wrappers or abstractions
+- Keep call stacks shallow
+
+**Avoid over-engineering:**
+- Solve the problem at hand
+- No "framework" code unless reused 3+ times
+
+**Function size:**
+- 20-50 lines per function
+- One clear purpose
+
+**Clear variable names:**
+- `provider` not `prov`, `tokenAddress` not `addr`

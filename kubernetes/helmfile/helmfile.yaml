@@ -1,4 +1,4 @@
-# Helmfile for deploying Jeju L3 infrastructure across environments
+# Helmfile for deploying Jeju infrastructure across environments
 # Usage: helmfile -e <environment> sync
 
 # Available environments: localnet, testnet, mainnet

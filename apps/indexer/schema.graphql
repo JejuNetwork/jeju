@@ -1,0 +1,329 @@
+# Subsquid Schema for Jeju Network
+# Core blockchain indexing entities
+
+# ============ Core Blockchain Entities ============
+
+type Block @entity {
+  id: ID!
+  number: Int! @index
+  hash: String!
+  parentHash: String!
+  timestamp: DateTime! @index
+  transactionCount: Int!
+  gasUsed: BigInt!
+  gasLimit: BigInt!
+  baseFeePerGas: BigInt
+  size: Int!
+  miner: Account
+  transactions: [Transaction!]! @derivedFrom(field: "block")
+  logs: [Log!]! @derivedFrom(field: "block")
+}
+
+type Transaction @entity {
+  id: ID!
+  hash: String! @unique @index
+  from: Account!
+  to: Account
+  block: Block!
+  blockNumber: Int! @index
+  transactionIndex: Int!
+  value: BigInt!
+  gasPrice: BigInt
+  gasLimit: BigInt!
+  gasUsed: BigInt
+  input: String
+  nonce: Int!
+  status: TransactionStatus!
+  type: Int
+  maxFeePerGas: BigInt
+  maxPriorityFeePerGas: BigInt
+  contractAddress: Account
+  logs: [Log!]! @derivedFrom(field: "transaction")
+  traces: [Trace!]! @derivedFrom(field: "transaction")
+}
+
+enum TransactionStatus {
+  SUCCESS
+  FAILURE
+  PENDING
+}
+
+type Account @entity {
+  id: ID!
+  address: String! @unique @index
+  isContract: Boolean!
+  firstSeenBlock: Int! @index
+  lastSeenBlock: Int! @index
+  transactionCount: Int!
+  totalValueSent: BigInt!
+  totalValueReceived: BigInt!
+  labels: [String!]!
+  contract: Contract
+  firstSeenAt: DateTime! @index
+  lastSeenAt: DateTime! @index
+  sentTransactions: [Transaction!]! @derivedFrom(field: "from")
+  receivedTransactions: [Transaction!]! @derivedFrom(field: "to")
+  tokenBalances: [TokenBalance!]! @derivedFrom(field: "account")
+  createdContracts: [Contract!]! @derivedFrom(field: "creator")
+  tokenTransfersFrom: [TokenTransfer!]! @derivedFrom(field: "from")
+  tokenTransfersTo: [TokenTransfer!]! @derivedFrom(field: "to")
+}
+
+type Contract @entity {
+  id: ID!
+  address: String! @unique @index
+  bytecode: String
+  contractType: ContractType
+  isERC20: Boolean!
+  isERC721: Boolean!
+  isERC1155: Boolean!
+  isProxy: Boolean!
+  implementationAddress: String
+  verified: Boolean!
+  firstSeenAt: DateTime! @index
+  lastSeenAt: DateTime! @index
+  creator: Account
+  creationTransaction: Transaction
+  creationBlock: Block
+  tokenTransfers: [TokenTransfer!]! @derivedFrom(field: "token")
+}
+
+enum ContractType {
+  UNKNOWN
+  ERC20
+  ERC721
+  ERC1155
+  PROXY
+  MULTISIG
+  DEX
+  LENDING
+  NFT_MARKETPLACE
+  GAME
+  PREDICTION_MARKET
+  GOVERNANCE
+}
+
+type Log @entity {
+  id: ID!
+  address: Account!
+  data: String!
+  topic0: String @index
+  topic1: String @index
+  topic2: String @index
+  topic3: String @index
+  block: Block!
+  transaction: Transaction!
+  logIndex: Int!
+  transactionIndex: Int!
+  removed: Boolean!
+  decodedEvent: DecodedEvent
+}
+
+type DecodedEvent @entity {
+  id: ID!
+  eventSignature: String!
+  eventName: String! @index
+  args: JSON!
+  address: Account!
+  block: Block!
+  transaction: Transaction!
+  log: Log! @unique
+  timestamp: DateTime! @index
+}
+
+type Trace @entity {
+  id: ID!
+  type: TraceType!
+  from: Account!
+  to: Account
+  value: BigInt
+  gas: BigInt
+  gasUsed: BigInt
+  input: String
+  output: String
+  error: String
+  transaction: Transaction!
+  traceAddress: [Int!]!
+}
+
+enum TraceType {
+  CALL
+  DELEGATECALL
+  STATICCALL
+  CREATE
+  CREATE2
+  SELFDESTRUCT
+}
+
+enum EventCategory {
+  TOKEN
+  NFT
+  DEFI
+  GAME
+  GOVERNANCE
+  UNKNOWN
+}
+
+type TokenTransfer @entity {
+  id: ID!
+  logIndex: Int!
+  tokenStandard: TokenStandard! @index
+  from: Account!
+  to: Account!
+  operator: Account
+  token: Contract
+  value: BigInt
+  tokenId: String
+  block: Block!
+  transaction: Transaction!
+  timestamp: DateTime! @index
+}
+
+enum TokenStandard {
+  ERC20
+  ERC721
+  ERC1155
+}
+
+type TokenBalance @entity {
+  id: ID!
+  account: Account!
+  token: Contract!
+  balance: BigInt!
+  transferCount: Int!
+  lastUpdated: DateTime! @index
+}
+
+# ============ IPFS & Cross-Service Integration ============
+
+type IPFSFile @entity {
+  id: ID! # CID (bytes32 as string)
+  cid: String! @index
+  owner: Bytes! @index
+  sizeBytes: BigInt!
+  paidAmount: BigInt!
+  paymentToken: Bytes!
+  createdAt: DateTime! @index
+  expiresAt: DateTime! @index
+  isPinned: Boolean!
+  
+  # Categorization
+  category: FileCategory! @index
+  relatedContract: Bytes @index
+  relatedEntityId: String @index
+  
+  # Metadata
+  filename: String
+  mimeType: String
+  
+  # Relations
+  moderationReport: ModerationReport
+  teeAttestation: TEEAttestation
+  nftMetadata: NFTMetadata
+  agentProfile: AgentProfile
+  contestResult: ContestResult
+}
+
+enum FileCategory {
+  MODERATION_EVIDENCE
+  TEE_ATTESTATION
+  GAME_ASSET
+  NFT_METADATA
+  AGENT_PROFILE
+  CONTEST_RESULT
+  ORACLE_DATA
+  USER_CONTENT
+}
+
+type ModerationReport @entity {
+  id: ID!
+  reportId: BigInt!
+  targetAgentId: BigInt!
+  reporter: Bytes!
+  reportType: ReportType!
+  severity: ReportSeverity!
+  evidenceIPFS: IPFSFile # Link to IPFS file
+  details: String!
+  status: ReportStatus!
+  createdAt: DateTime!
+}
+
+enum ReportType {
+  NETWORK_BAN
+  APP_BAN
+  LABEL_HACKER
+  LABEL_SCAMMER
+}
+
+enum ReportSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ReportStatus {
+  PENDING
+  RESOLVED_YES
+  RESOLVED_NO
+  EXECUTED
+}
+
+type TEEAttestation @entity {
+  id: ID!
+  sessionId: Bytes!
+  attestationIPFS: IPFSFile # TEE quote stored on IPFS
+  contentHash: Bytes! # For verification
+  gameType: GameType!
+  timestamp: DateTime!
+  verified: Boolean!
+}
+
+enum GameType {
+  CALIGULAND
+  EHORSE
+  HYPERSCAPE
+  GENERIC
+}
+
+type AgentProfile @entity {
+  id: ID!
+  agentId: BigInt!
+  owner: Bytes!
+  profileIPFS: IPFSFile # Profile JSON on IPFS
+  stakeTier: Int!
+  registered: DateTime!
+  isBanned: Boolean!
+}
+
+type NFTMetadata @entity {
+  id: ID!
+  tokenId: BigInt!
+  contract: Bytes!
+  metadataIPFS: IPFSFile # Metadata JSON on IPFS
+  owner: Bytes!
+  mintedAt: DateTime!
+}
+
+type ContestResult @entity {
+  id: ID!
+  contestId: Bytes!
+  resultsIPFS: IPFSFile # Full rankings on IPFS
+  winner: Int!
+  finalized: DateTime!
+}
+
+type StorageStats @entity {
+  id: ID! # Date string
+  date: DateTime!
+  totalFiles: BigInt!
+  totalSizeBytes: BigInt!
+  totalRevenue: BigInt!
+  activeUsers: BigInt!
+  
+  # By category
+  evidenceFiles: BigInt!
+  attestationFiles: BigInt!
+  assetFiles: BigInt!
+  metadataFiles: BigInt!
+}

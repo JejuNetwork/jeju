@@ -1,0 +1,55 @@
+[
+  {
+    "anonymous": false,
+    "inputs": [
+      {"indexed": true, "name": "sessionId", "type": "bytes32"},
+      {"indexed": false, "name": "question", "type": "string"},
+      {"indexed": false, "name": "commitment", "type": "bytes32"},
+      {"indexed": false, "name": "startTime", "type": "uint256"}
+    ],
+    "name": "GameCommitted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {"indexed": true, "name": "sessionId", "type": "bytes32"},
+      {"indexed": false, "name": "outcome", "type": "bool"},
+      {"indexed": false, "name": "endTime", "type": "uint256"},
+      {"indexed": false, "name": "teeQuote", "type": "bytes"},
+      {"indexed": false, "name": "winnersCount", "type": "uint256"}
+    ],
+    "name": "GameRevealed",
+    "type": "event"
+  },
+  {
+    "inputs": [{"name": "sessionId", "type": "bytes32"}],
+    "name": "getOutcome",
+    "outputs": [
+      {"name": "outcome", "type": "bool"},
+      {"name": "finalized", "type": "bool"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "sessionId", "type": "bytes32"}],
+    "name": "getGame",
+    "outputs": [
+      {"name": "sessionId", "type": "bytes32"},
+      {"name": "question", "type": "string"},
+      {"name": "outcome", "type": "bool"},
+      {"name": "commitment", "type": "bytes32"},
+      {"name": "salt", "type": "bytes32"},
+      {"name": "startTime", "type": "uint256"},
+      {"name": "endTime", "type": "uint256"},
+      {"name": "teeQuote", "type": "bytes"},
+      {"name": "winners", "type": "address[]"},
+      {"name": "totalPayout", "type": "uint256"},
+      {"name": "finalized", "type": "bool"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]
+

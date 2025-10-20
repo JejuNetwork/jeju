@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  oracle-updater:
+    build:
+      context: ..
+      dockerfile: scripts/oracle-updater.Dockerfile
+    container_name: jeju-oracle-updater
+    restart: unless-stopped
+    env_file:
+      - ../.env.oracle
+    environment:
+      - NODE_ENV=production
+    networks:
+      - jeju-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Optional: Expose health check endpoint
+    # ports:
+    #   - "3000:3000"
+    
+  # Optional: Prometheus metrics exporter
+  oracle-metrics:
+    image: prom/node-exporter:latest
+    container_name: jeju-oracle-metrics
+    restart: unless-stopped
+    networks:
+      - jeju-network
+    ports:
+      - "9100:9100"
+
+networks:
+  jeju-network:
+    name: jeju-network
+    driver: bridge
+

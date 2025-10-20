@@ -1,0 +1,68 @@
+name: Smart Contracts CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'contracts/**'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'contracts/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+      
+      - name: Run Forge build
+        working-directory: contracts
+        run: forge build
+      
+      - name: Run tests
+        working-directory: contracts
+        run: forge test -vv
+      
+      - name: Gas report
+        working-directory: contracts
+        run: forge test --gas-report
+      
+      - name: Coverage
+        working-directory: contracts
+        run: forge coverage --report summary
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+      
+      - name: Check formatting
+        working-directory: contracts
+        run: forge fmt --check
+
+  slither:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Run Slither
+        uses: crytic/slither-action@v0.3.0
+        with:
+          target: 'contracts/src'
+          slither-args: '--filter-paths "contracts/lib" --exclude naming-convention,external-function'
+          fail-on: medium
+        continue-on-error: true
+

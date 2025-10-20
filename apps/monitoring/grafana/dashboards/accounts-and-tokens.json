@@ -1,0 +1,599 @@
+{
+  "uid": "jeju-accounts-tokens",
+  "title": "Jeju - Accounts & Token Transfers",
+  "tags": [
+    "accounts",
+    "tokens",
+    "transfers",
+    "jeju"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "10s",
+  "editable": true,
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Total Accounts",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM account",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "green"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Contract Accounts",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM account WHERE is_contract = true",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "blue"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "EOA Accounts",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM account WHERE is_contract = false",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "purple"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Active Accounts (24h)",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(DISTINCT address) as total FROM account WHERE last_seen_block > (SELECT MAX(number) - 7200 FROM block)",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "orange"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Token Transfers (24h)",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as total FROM token_transfer WHERE timestamp > NOW() - INTERVAL '24 hours'",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "yellow"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Unique Token Holders",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 0
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(DISTINCT account_id) as total FROM token_balance WHERE balance > 0",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "red"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "New Accounts Over Time",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  DATE_TRUNC('hour', b.timestamp) as time,\n  COUNT(DISTINCT a.address) as \"New Accounts\"\nFROM account a\nJOIN block b ON a.first_seen_block = b.number\nWHERE $__timeFilter(b.timestamp)\nGROUP BY time\nORDER BY time",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 50
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "Active Accounts Over Time",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  DATE_TRUNC('hour', b.timestamp) as time,\n  COUNT(DISTINCT COALESCE(t.from_id, t.to_id)) as \"Active Addresses\"\nFROM transaction t\nJOIN block b ON t.block_id = b.id\nWHERE $__timeFilter(b.timestamp)\nGROUP BY time\nORDER BY time",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 20
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "Token Transfers by Standard",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 12
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  DATE_TRUNC('hour', timestamp) as time,\n  token_standard as metric,\n  COUNT(*) as value\nFROM token_transfer\nWHERE $__timeFilter(timestamp)\nGROUP BY time, token_standard\nORDER BY time",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "stacking": {
+              "mode": "normal"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum",
+            "lastNotNull"
+          ]
+        }
+      }
+    },
+    {
+      "id": 10,
+      "title": "Top Token Holders",
+      "type": "table",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 22
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  LEFT(tb.account_id, 10) || '...' as \"Account\",\n  LEFT(c.address, 10) || '...' as \"Token\",\n  (tb.balance::numeric / 1e18) as \"Balance\",\n  tb.transfer_count as \"Transfer Count\",\n  tb.last_updated as \"Last Updated\"\nFROM token_balance tb\nJOIN contract c ON tb.token_id = c.id\nWHERE c.is_erc20 = true AND tb.balance > 0\nORDER BY tb.balance DESC\nLIMIT 30",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Balance",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
+      "id": 11,
+      "title": "Most Active Accounts",
+      "type": "table",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 22
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  LEFT(address, 10) || '...' as \"Address\",\n  is_contract as \"Is Contract\",\n  transaction_count as \"Tx Count\",\n  (total_value_sent::numeric / 1e18) as \"Total Sent (ETH)\",\n  (total_value_received::numeric / 1e18) as \"Total Received (ETH)\",\n  last_seen_block as \"Last Seen Block\"\nFROM account\nORDER BY transaction_count DESC\nLIMIT 30",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Tx Count",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
+      "id": 12,
+      "title": "Recent Token Transfers",
+      "type": "table",
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  tt.token_standard as \"Standard\",\n  LEFT(c.address, 10) || '...' as \"Token\",\n  LEFT(tt.from_id, 10) || '...' as \"From\",\n  LEFT(tt.to_id, 10) || '...' as \"To\",\n  CASE \n    WHEN tt.token_standard = 'ERC20' THEN (tt.value::numeric / 1e18)::text\n    WHEN tt.token_standard IN ('ERC721', 'ERC1155') THEN 'Token ID: ' || tt.token_id::text\n    ELSE '-'\n  END as \"Amount/Token ID\",\n  LEFT(tt.transaction_id, 10) || '...' as \"Tx Hash\",\n  tt.timestamp as \"Time\"\nFROM token_transfer tt\nJOIN contract c ON tt.token_id = c.id\nORDER BY tt.timestamp DESC\nLIMIT 100",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Time",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
+      "id": 13,
+      "title": "NFT Ownership Distribution",
+      "type": "barchart",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 44
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  LEFT(c.address, 10) || '...' as metric,\n  COUNT(*) as value\nFROM nft_ownership no\nJOIN contract c ON no.token_id = c.id\nGROUP BY c.address\nORDER BY value DESC\nLIMIT 15",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "xTickLabelRotation": 0,
+        "legend": {
+          "displayMode": "hidden"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      }
+    },
+    {
+      "id": 14,
+      "title": "Account Relationships",
+      "type": "table",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 44
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  r.relationship_type as \"Type\",\n  r.from_entity_type as \"From Type\",\n  LEFT(r.from_entity_id, 10) || '...' as \"From\",\n  r.to_entity_type as \"To Type\",\n  LEFT(r.to_entity_id, 10) || '...' as \"To\",\n  r.weight as \"Weight\",\n  r.last_seen_at as \"Last Seen\"\nFROM relationship r\nORDER BY r.last_seen_at DESC\nLIMIT 30",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Last Seen",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
+      "id": 15,
+      "title": "Token Transfer Volume (ETH equivalent)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 54
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  DATE_TRUNC('hour', tt.timestamp) as time,\n  SUM(tt.value::numeric / 1e18) as \"Transfer Volume\"\nFROM token_transfer tt\nWHERE $__timeFilter(tt.timestamp) AND tt.token_standard = 'ERC20' AND tt.value IS NOT NULL\nGROUP BY time\nORDER BY time",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 20
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 16,
+      "title": "Account Labels Distribution",
+      "type": "piechart",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 64
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  unnest(labels) as metric,\n  COUNT(*) as value\nFROM account\nWHERE array_length(labels, 1) > 0\nGROUP BY metric\nORDER BY value DESC\nLIMIT 20",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "pieType": "donut",
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value",
+            "percent"
+          ]
+        }
+      }
+    },
+    {
+      "id": 17,
+      "title": "Top NFT Collectors",
+      "type": "table",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 64
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-indexer"
+      },
+      "targets": [
+        {
+          "rawSql": "SELECT \n  LEFT(owner_id, 10) || '...' as \"Owner\",\n  COUNT(DISTINCT token_id) as \"Collections\",\n  COUNT(*) as \"Total NFTs\",\n  MAX(acquired_at) as \"Last Acquired\"\nFROM nft_ownership\nGROUP BY owner_id\nORDER BY \"Total NFTs\" DESC\nLIMIT 30",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Total NFTs",
+            "desc": true
+          }
+        ]
+      }
+    }
+  ]
+}

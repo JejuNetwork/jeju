@@ -1,0 +1,77 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'jeju-network'
+    environment: 'dev'
+
+# Load alert rules (dev mode only)
+rule_files:
+  - '/etc/prometheus/alerts/dev-*.yaml'
+
+# Scrape configurations for LOCAL DEV
+scrape_configs:
+  # Note: Application services don't expose Prometheus metrics by default
+  # Using basic HTTP health checks instead via blackbox exporter pattern
+  # To enable metrics, services need to add prometheus-client libraries
+  
+  # Subsquid Indexer - Has built-in metrics on port 4350
+  - job_name: 'subsquid-processor'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['host.docker.internal:4350']
+        labels:
+          component: 'indexer'
+    # Relabel to mark as optional for dev
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - target_label: environment
+        replacement: dev
+
+  - job_name: 'subsquid-api'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['host.docker.internal:4350']
+        labels:
+          component: 'graphql-api'
+    relabel_configs:
+      - target_label: environment
+        replacement: dev
+
+  # Node Explorer - Check if metrics endpoint exists
+  - job_name: 'node-explorer-api'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['host.docker.internal:4002']
+        labels:
+          component: 'monitoring'
+    relabel_configs:
+      - target_label: environment
+        replacement: dev
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Kurtosis-managed services (when enclave is running)
+  # Note: Ports are dynamic, update after starting enclave with:
+  #   kurtosis port print jeju-localnet geth-l1 rpc
+  #   kurtosis port print jeju-localnet op-geth rpc
+  # - job_name: 'geth-l1'
+  #   static_configs:
+  #     - targets: ['host.docker.internal:PORT_FROM_KURTOSIS']
+  #       labels:
+  #         component: 'l1-execution'
+  # 
+  # - job_name: 'op-geth'
+  #   static_configs:
+  #     - targets: ['host.docker.internal:PORT_FROM_KURTOSIS']
+  #       labels:
+  #         component: 'l2-execution'
+
+# Note: OP Stack services (op-node, op-batcher, op-proposer) and EigenDA
+# are not part of the simplified Kurtosis dev setup.
+# For production monitoring, use prometheus.yml instead.
+

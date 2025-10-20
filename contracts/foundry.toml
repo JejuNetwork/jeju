@@ -2,15 +2,42 @@
 src = "src"
 out = "out"
 libs = ["lib"]
-solc_version = "0.8.25"
+solc_version = "0.8.28"
+auto_detect_solc = true
 optimizer = true
 optimizer_runs = 999999
 via_ir = true
 evm_version = "cancun"
 
+# Exclude incomplete contracts and problematic dependencies
+deny_warnings = false
+exclude = [
+    "lib/account-abstraction/**",
+    "lib/openzeppelin-contracts/test/**",
+    "lib/openzeppelin-contracts/lib/**",
+    "lib/openzeppelin-contracts-upgradeable/test/**",
+    "lib/openzeppelin-contracts-upgradeable/lib/**",
+    "lib/v2-core/**",
+    "lib/v2-periphery/**",
+    "lib/solidity-lib/**",
+    "lib/v4-core/lib/openzeppelin-contracts/lib/**",
+    "lib/v4-core/lib/openzeppelin-contracts/test/**",
+    "lib/v4-periphery/lib/**/test/**",
+    "lib/v4-periphery/lib/**/lib/**",
+    "src/paymaster/CloudPaymaster.sol",
+    "src/prediction/JejuMarket.sol",
+    "src/uniswap-v2/**",
+    "src/uniswap-v4/**",
+    "src/games/mmo/src/systems/**",
+    "src/games/mmo/src/codegen/**",
+    "src/games/mmo/src/libraries/**"
+]
+
 # Test settings
+# Note: Hyperscape tests require MUD World deployment - run separately with: cd apps/hyperscape && pnpm test
 verbosity = 2
 fuzz_runs = 256
+fs_permissions = [{ access = "read-write", path = "./deployments" }, { access = "read", path = "./" }]
 
 # Remappings
 remappings = [
@@ -18,7 +45,11 @@ remappings = [
     "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/",
     "@optimism/=lib/optimism/packages/contracts-bedrock/src/",
     "forge-std/=lib/forge-std/src/",
-    "@eth-optimism-bedrock/=lib/optimism/packages/contracts-bedrock/src/"
+    "@eth-optimism-bedrock/=lib/optimism/packages/contracts-bedrock/src/",
+    "account-abstraction/=lib/account-abstraction/contracts/",
+    "@uniswap/lib/contracts/=lib/solidity-lib/contracts/",
+    "@uniswap/v4-core/=lib/v4-core/",
+    "@uniswap/v4-periphery/=lib/v4-periphery/",
 ]
 
 # RPC endpoints (override with env vars)

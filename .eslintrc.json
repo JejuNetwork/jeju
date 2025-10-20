@@ -1,0 +1,41 @@
+{
+  "env": {
+    "node": true,
+    "es2022": true
+  },
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended"
+  ],
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "module"
+  },
+  "plugins": ["@typescript-eslint"],
+  "ignorePatterns": [
+    "node_modules",
+    "dist",
+    "build",
+    "out",
+    "lib",
+    ".next",
+    ".cache",
+    "apps",
+    "caliguland",
+    "caliguland2",
+    "contracts",
+    "kubernetes",
+    "terraform",
+    "*.config.js",
+    "*.config.ts"
+  ],
+  "rules": {
+    "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+    "@typescript-eslint/no-explicit-any": "warn",
+    "@typescript-eslint/no-var-requires": "off",
+    "no-console": "off"
+  }
+}
+
+

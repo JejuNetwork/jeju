@@ -1,0 +1,12 @@
+{
+  "marketplace": "0x537e697c7AB75A26f9ECF0Ce810e3154dFcaaf44",
+  "goldToken": "0x3A220f351252089D385b29beca14e27F204c296A",
+  "usdcToken": "0xdB7d6AB1f17c6b31909aE466702703dAEf9269Cf",
+  "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "feeRecipient": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "chainId": 1337,
+  "network": "localnet",
+  "timestamp": 1760938000000,
+  "deployedAt": "2025-10-20T05:26:40.000Z"
+}
+

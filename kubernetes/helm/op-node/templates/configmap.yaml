@@ -29,7 +29,7 @@ data:
       "seq_window_size": 3600,
       "channel_timeout": 300,
       "l1_chain_id": {{ .Values.config.l1ChainId | default 1 }},
-      "l2_chain_id": {{ .Values.config.l2ChainId | default 8888 }},
+      "l2_chain_id": {{ .Values.config.l2ChainId | default 420691 }},
       "regolith_time": 0,
       "canyon_time": 0,
       "delta_time": 0,

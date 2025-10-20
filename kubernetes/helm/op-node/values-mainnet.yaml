@@ -26,7 +26,7 @@ tolerations:
 config:
   network: "mainnet"
   l1ChainId: 8453
-  l2ChainId: 8888
+  l2ChainId: 420691
   l1:
     rpcUrl: "https://mainnet.base.org"
     rpcKind: "alchemy"

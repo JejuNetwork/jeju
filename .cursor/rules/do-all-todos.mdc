@@ -1,0 +1,6 @@
+---
+description: Do all todos
+alwaysApply: true
+---
+
+Always do all of your TODOs. Don't wait. Don't take the simple approach or prioritize critical path. Don't stop or claim success when there are still minor issues. Unless all tests pass at 100% and all lint errors are resolved and everything runs, you aren't done. Always add TODOs to test, run dev and start, lint and critically review for any unfinished or obviously bad code.

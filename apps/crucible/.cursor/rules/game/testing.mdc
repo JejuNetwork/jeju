@@ -1,0 +1,15 @@
+---
+alwaysApply: true
+---
+
+# e2e Testing Is The Most Important Aspect of this Project
+
+For testing, we use Cypress. Testing architecture is very important to us, and this is a big focus of the game package. Everything must be testable. We don't like unit tests-- instead, we try build a testing harness that captures errors from the backend and frontend while running through real scripts and scenarios between our user and the agent/console.
+
+If it doesn't have a real test, with real API keys, a real agent runime, in a real browser in the real application-- it's not testing anything. Those are the requirements. We don't use mocks. Instead, we build and test real scenarios using our actual code.
+
+Our testing focus is 100% on Cypress and end-to-end testing. Since errors can get swallowed, make sure we have good error logging and the errors are always repeated back and the end of a testing log. Also make sure that we have reasonable timeouts on testing so we don't get stuck.
+
+It's very important that our project is CLI-friendly, doesn't hang or wait too much, and ends the process on failure with clear error logs so our Cursor and Claude agents can rapidly iterate.
+
+To be clear: NO MOCKS. NO HARDCODE. NO LARP. Always test the real thing, under real conditions, even if it uses API keys or costs money. API keys are available in the .env at the project root. Use dotenv.

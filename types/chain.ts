@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-export const NetworkSchema = z.enum(['local', 'testnet', 'mainnet']);
-export type Network = z.infer<typeof NetworkSchema>;
+export const NetworkSchema = z.enum(['localnet', 'testnet', 'mainnet']);
+export type NetworkType = z.infer<typeof NetworkSchema>;
 
 const GasTokenSchema = z.object({
   name: z.string(),
@@ -47,6 +47,35 @@ export const ChainConfigSchema = z.object({
   }),
 });
 export type ChainConfig = z.infer<typeof ChainConfigSchema>;
+
+export const BaseNetworkConfigSchema = z.object({
+  chainId: z.number(),
+  name: z.string(),
+  rpcUrl: z.string(),
+  wsUrl: z.string(),
+  explorerUrl: z.string(),
+  faucetUrl: z.string().optional(),
+  bridgeUrl: z.string().optional(),
+  isTestnet: z.boolean(),
+  nativeCurrency: GasTokenSchema,
+  blockTime: z.number(),
+  gasPrice: z.object({
+    average: z.string(),
+    fast: z.string(),
+  }).optional(),
+  tvl: z.string().optional(),
+  operator: z.string().optional(),
+  superchain: z.boolean().optional(),
+  costPerTransaction: z.string().optional(),
+  notes: z.string().optional(),
+});
+export type BaseNetworkConfig = z.infer<typeof BaseNetworkConfigSchema>;
+
+export const BaseNetworksSchema = z.object({
+  'base-sepolia': BaseNetworkConfigSchema,
+  'base-mainnet': BaseNetworkConfigSchema,
+});
+export type BaseNetworks = z.infer<typeof BaseNetworksSchema>;
 
 export const OPStackConfigSchema = z.object({
   opNode: z.object({

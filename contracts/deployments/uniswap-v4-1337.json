@@ -1,0 +1,10 @@
+{
+  "poolManager": "0x0000000000000000000000000000000000000000",
+  "weth": "0x4200000000000000000000000000000000000006",
+  "swapRouter": null,
+  "positionManager": null,
+  "quoterV4": null,
+  "stateView": null,
+  "timestamp": "2025-01-20T00:00:00.000Z",
+  "note": "This file is automatically updated during localnet bootstrap. Run 'bun run dev' to deploy all contracts."
+}

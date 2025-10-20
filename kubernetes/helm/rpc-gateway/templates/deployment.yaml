@@ -35,7 +35,7 @@ spec:
           containerPort: 80
           protocol: TCP
         - name: ws
-          containerPort: 8080
+          containerPort: 8546
           protocol: TCP
         livenessProbe:
           httpGet:

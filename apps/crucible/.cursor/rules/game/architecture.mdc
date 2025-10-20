@@ -1,0 +1,9 @@
+---
+alwaysApply: true
+---
+
+The game package is Vite+React application running with Tauri. When it starts up, it runs 'elizaos start' in the background, which starts up the elizaos server with a default agent.
+
+New functionality can be added to the agent through plugins. This includes backend routes, frontend tab pages as well as agent actions, services, context providers ("providers") and action evaluators ("evaluators").
+
+We import as much as we can from elizaos, the agent framework we are building on. The game's api-client uses @elizaos/api-client to connect to the CLI server.

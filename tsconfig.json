@@ -24,7 +24,7 @@
       "@scripts/*": ["./scripts/*"],
       "@contracts/*": ["./contracts/*"],
       "@config/*": ["./config/*"],
-      "@indexer/*": ["./indexer/*"]
+      "@indexer/*": ["./apps/indexer/*"]
     }
   },
   "include": [
@@ -36,7 +36,18 @@
     "dist",
     "build",
     ".terraform",
-    "indexer"
+    "contracts",
+    "lib",
+    "kubernetes",
+    "terraform",
+    "apps",
+    "mud/**/*",
+    "**/*.test.ts",
+    "tests/**/*",
+    "scripts/deploy-cloud-integration.ts",
+    "scripts/test-cloud-integration.ts",
+    "scripts/setup-localnet-cloud.ts",
+    "scripts/monitor-cloud-integration.ts"
   ]
 }
 

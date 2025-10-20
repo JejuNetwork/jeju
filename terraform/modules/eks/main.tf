@@ -1,4 +1,4 @@
-# EKS Cluster for Jeju L2
+# EKS Cluster for Jeju
 
 variable "environment" {
   description = "Environment name"

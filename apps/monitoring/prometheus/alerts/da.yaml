@@ -1,0 +1,55 @@
+groups:
+  - name: eigenda
+    interval: 30s
+    rules:
+      - alert: EigenDADisperserDown
+        expr: up{job="eigenda"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          component: data-availability
+        annotations:
+          summary: "EigenDA disperser is unreachable"
+          description: "EigenDA service has been down for more than 5 minutes"
+          
+      - alert: EigenDAHighFailureRate
+        expr: rate(eigenda_dispersal_failures_total[5m]) / rate(eigenda_dispersal_attempts_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          component: data-availability
+        annotations:
+          summary: "High EigenDA dispersal failure rate"
+          description: "{{ $value | humanizePercentage }} of EigenDA dispersals are failing"
+          
+      - alert: EigenDAAttestationTimeout
+        expr: eigenda_attestation_timeout_total > 0
+        for: 1m
+        labels:
+          severity: warning
+          component: data-availability
+        annotations:
+          summary: "EigenDA attestation timeouts detected"
+          description: "{{ $value }} attestation timeouts in the last minute"
+          
+      - alert: EigenDAHighLatency
+        expr: histogram_quantile(0.95, rate(eigenda_dispersal_duration_seconds_bucket[5m])) > 30
+        for: 10m
+        labels:
+          severity: warning
+          component: data-availability
+        annotations:
+          summary: "High EigenDA dispersal latency"
+          description: "P95 dispersal latency is {{ $value }}s (expected <30s)"
+          
+      - alert: BatcherDASwitchToCalldata
+        expr: op_batcher_da_type == 0
+        for: 5m
+        labels:
+          severity: warning
+          component: data-availability
+        annotations:
+          summary: "Batcher fell back to calldata DA"
+          description: "Batcher is using calldata instead of EigenDA"
+
+

@@ -1,0 +1,62 @@
+import { defineConfig, devices } from '@playwright/test';
+
+const GATEWAY_PORT = process.env.GATEWAY_PORT || '4001';
+const BASE_URL = process.env.GATEWAY_URL || `http://localhost:${GATEWAY_PORT}`;
+const A2A_PORT = process.env.A2A_PORT || '4003';
+
+export default defineConfig({
+  testDir: './tests/e2e',
+  fullyParallel: false,
+  workers: 1,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+
+  reporter: [
+    ['html', { outputFolder: 'playwright-report' }],
+    ['list'],
+    ['json', { outputFile: 'test-results/results.json' }],
+  ],
+
+  timeout: 120000, // 2 minutes for blockchain ops
+
+  expect: {
+    timeout: 15000,
+  },
+
+  use: {
+    baseURL: BASE_URL,
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+    viewport: { width: 1280, height: 720 },
+    ignoreHTTPSErrors: true,
+    actionTimeout: 15000,
+    headless: false, // Required for MetaMask/Dappwright
+  },
+
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        headless: false, // MetaMask requires headful mode
+      },
+    },
+  ],
+
+  webServer: process.env.CI ? undefined : [
+    {
+      command: 'bun run dev:ui',
+      url: BASE_URL,
+      reuseExistingServer: true,
+      timeout: 60000,
+    },
+    {
+      command: 'bun run dev:a2a',
+      url: `http://localhost:${A2A_PORT}`,
+      reuseExistingServer: true,
+      timeout: 30000,
+    },
+  ],
+});
+

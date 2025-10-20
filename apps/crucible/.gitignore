@@ -1,0 +1,40 @@
+node_modules/
+dist/
+data/
+logs/
+
+.env
+.env.local
+.env.production
+
+*.log
+npm-debug.log*
+bun-debug.log*
+
+.DS_Store
+Thumbs.db
+
+# ElizaOS runtime
+characters/**/secrets.json
+characters/**/*.env
+characters/**/private/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Build artifacts
+tsconfig.tsbuildinfo
+*.tsbuildinfo
+
+# Test artifacts
+test-results/
+playwright-report/
+screenshots/
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/

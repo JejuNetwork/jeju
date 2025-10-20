@@ -1,0 +1,74 @@
+groups:
+  - name: op-stack-chain
+    interval: 30s
+    rules:
+      - alert: SequencerDown
+        expr: up{job="op-node"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: sequencer
+        annotations:
+          summary: "OP-Node sequencer is down"
+          description: "OP-Node has been down for more than 2 minutes"
+          
+      - alert: BatcherLag
+        expr: (time() - op_batcher_last_batch_timestamp) > 120
+        for: 2m
+        labels:
+          severity: critical
+          component: batcher
+        annotations:
+          summary: "Batcher submission lag detected"
+          description: "Batcher has not submitted a batch in over 2 minutes. Current lag: {{ $value }}s"
+          
+      - alert: ProposerGap
+        expr: (op_proposer_latest_l2_block - op_proposer_latest_proposed_block) > 1000
+        for: 5m
+        labels:
+          severity: warning
+          component: proposer
+        annotations:
+          summary: "Large gap between L2 head and proposed outputs"
+          description: "Proposer is behind by {{ $value }} blocks"
+          
+      - alert: RethSyncStalled
+        expr: rate(reth_sync_blocks_synced[5m]) == 0 and reth_sync_is_syncing == 1
+        for: 10m
+        labels:
+          severity: warning
+          component: execution-layer
+        annotations:
+          summary: "Reth sync appears stalled"
+          description: "No blocks synced in the last 10 minutes"
+          
+      - alert: HighBlockProcessingTime
+        expr: histogram_quantile(0.95, rate(reth_exec_block_processing_duration_seconds_bucket[5m])) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          component: execution-layer
+        annotations:
+          summary: "High block processing time"
+          description: "P95 block processing time is {{ $value }}s"
+          
+      - alert: ChallengerDisputeDetected
+        expr: increase(op_challenger_disputes_total[5m]) > 0
+        labels:
+          severity: critical
+          component: challenger
+        annotations:
+          summary: "Fault proof dispute detected"
+          description: "Challenger has initiated {{ $value }} disputes in the last 5 minutes"
+          
+      - alert: P2PPeerCountLow
+        expr: op_node_p2p_peer_count < 5
+        for: 10m
+        labels:
+          severity: warning
+          component: p2p
+        annotations:
+          summary: "Low P2P peer count"
+          description: "OP-Node has only {{ $value }} peers (expected >10)"
+
+

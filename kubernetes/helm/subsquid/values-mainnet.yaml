@@ -2,8 +2,8 @@
 
 processor:
   image:
-    repository: ghcr.io/jeju-l3/subsquid-processor  # TODO: Build and push image
-    tag: "latest"
+    repository: ghcr.io/jeju-l3/subsquid-processor
+    tag: "latest"  # Update with specific version tag when deploying
 
   replicaCount: 1  # Single processor for consistency
 
@@ -21,7 +21,7 @@ processor:
     - name: START_BLOCK
       value: "0"
     - name: CHAIN_ID
-      value: "8888"
+      value: "420691"
     - name: DB_HOST
       value: "subsquid-postgres"
     - name: DB_PORT

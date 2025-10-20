@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>eHorse Racing - Minimal Prediction Game</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      color: #fff;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      padding: 40px 0;
+      border-bottom: 2px solid #334155;
+      margin-bottom: 40px;
+    }
+
+    h1 {
+      font-size: 3em;
+      margin-bottom: 10px;
+      background: linear-gradient(90deg, #ef4444, #3b82f6, #10b981, #f59e0b);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      color: #94a3b8;
+      font-size: 1.1em;
+    }
+
+    .status-card {
+      background: #1e293b;
+      border: 2px solid #334155;
+      border-radius: 12px;
+      padding: 30px;
+      margin-bottom: 30px;
+    }
+
+    .race-status {
+      text-align: center;
+      font-size: 1.5em;
+      margin-bottom: 20px;
+      padding: 15px;
+      border-radius: 8px;
+    }
+
+    .status-pending { background: #1e40af; }
+    .status-running { background: #15803d; }
+    .status-finished { background: #991b1b; }
+
+    .horses-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+      margin-top: 30px;
+    }
+
+    .horse-card {
+      background: #334155;
+      padding: 25px;
+      border-radius: 10px;
+      text-align: center;
+      border: 3px solid transparent;
+      transition: all 0.3s;
+    }
+
+    .horse-card:hover {
+      transform: translateY(-2px);
+      border-color: #60a5fa;
+    }
+
+    .horse-card.winner {
+      border-color: #fbbf24;
+      background: linear-gradient(135deg, #78350f 0%, #451a03 100%);
+    }
+
+    .horse-emoji {
+      font-size: 4em;
+      margin-bottom: 10px;
+    }
+
+    .horse-name {
+      font-size: 1.5em;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .horse-id {
+      color: #94a3b8;
+      font-size: 0.9em;
+    }
+
+    .winner-badge {
+      display: inline-block;
+      background: #fbbf24;
+      color: #000;
+      padding: 5px 15px;
+      border-radius: 20px;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+
+    .history {
+      margin-top: 40px;
+    }
+
+    .history h2 {
+      font-size: 1.8em;
+      margin-bottom: 20px;
+      color: #e2e8f0;
+    }
+
+    .history-item {
+      background: #1e293b;
+      border: 1px solid #334155;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .bet-info {
+      background: #0f172a;
+      border: 2px solid #3b82f6;
+      border-radius: 10px;
+      padding: 20px;
+      margin-top: 30px;
+      text-align: center;
+    }
+
+    .bet-info h3 {
+      color: #60a5fa;
+      margin-bottom: 10px;
+    }
+
+    .bet-link {
+      color: #22c55e;
+      text-decoration: none;
+      font-weight: bold;
+      font-size: 1.1em;
+    }
+
+    .bet-link:hover {
+      text-decoration: underline;
+    }
+
+    .info-box {
+      background: #1e293b;
+      border: 1px solid #475569;
+      border-radius: 8px;
+      padding: 15px;
+      margin-top: 20px;
+    }
+
+    .info-box h4 {
+      color: #60a5fa;
+      margin-bottom: 8px;
+      font-size: 1em;
+    }
+
+    .info-box p {
+      color: #94a3b8;
+      font-size: 0.9em;
+      line-height: 1.5;
+    }
+
+    .oracle-status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.8em;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+
+    .oracle-enabled { background: #059669; }
+    .oracle-disabled { background: #6b7280; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    .status-running {
+      animation: pulse 2s infinite;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🐴 eHorse Racing</h1>
+      <p class="subtitle">Minimal Horse Racing for Prediction Markets</p>
+      <p style="margin-top: 10px;">
+        <a href="/state" style="color: #60a5fa; text-decoration: none; font-size: 0.9em;">
+          🔍 View On-Chain State →
+        </a>
+      </p>
+    </header>
+
+    <div class="status-card">
+      <div id="race-status" class="race-status">Loading...</div>
+      
+      <div class="horses-grid" id="horses-grid">
+        <!-- Horses populated by JS -->
+      </div>
+    </div>
+
+    <div class="bet-info">
+      <h3>Want to bet on the races?</h3>
+      <p style="color: #94a3b8; margin-bottom: 15px;">
+        Visit Predimarket to place predictions on which horse will win!
+      </p>
+      <a href="http://localhost:4005" class="bet-link" target="_blank">
+        Open Predimarket →
+      </a>
+      
+      <div class="info-box">
+        <h4>How Betting Works</h4>
+        <p>
+          <strong>Horses 1-2 (Thunder, Lightning)</strong> → Bet <span style="color: #ef4444;">NO</span><br>
+          <strong>Horses 3-4 (Storm, Blaze)</strong> → Bet <span style="color: #22c55e;">YES</span>
+        </p>
+        <div id="oracle-status" class="oracle-status oracle-disabled">
+          Oracle: Checking...
+        </div>
+      </div>
+    </div>
+
+    <div class="history">
+      <h2>Recent Races</h2>
+      <div id="history-list">
+        <!-- History populated by JS -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const HORSES = [
+      { id: 1, name: 'Thunder', emoji: '🔴' },
+      { id: 2, name: 'Lightning', emoji: '🔵' },
+      { id: 3, name: 'Storm', emoji: '🟢' },
+      { id: 4, name: 'Blaze', emoji: '🟡' }
+    ];
+
+    let currentRace = null;
+
+    async function fetchRace() {
+      const res = await fetch('/api/race');
+      const race = await res.json();
+      currentRace = race;
+      renderRace(race);
+    }
+
+    async function fetchHistory() {
+      const res = await fetch('/api/history');
+      const data = await res.json();
+      renderHistory(data.races);
+    }
+
+    async function checkOracleStatus() {
+      try {
+        const res = await fetch('/health');
+        const health = await res.json();
+        const statusEl = document.getElementById('oracle-status');
+        
+        if (health.oracle) {
+          statusEl.textContent = 'Oracle: Enabled ✓';
+          statusEl.className = 'oracle-status oracle-enabled';
+        } else {
+          statusEl.textContent = 'Oracle: Disabled (standalone mode)';
+          statusEl.className = 'oracle-status oracle-disabled';
+        }
+      } catch {
+        // Ignore
+      }
+    }
+
+    function renderRace(race) {
+      // Status
+      const statusEl = document.getElementById('race-status');
+      const statusClass = `status-${race.status}`;
+      statusEl.className = `race-status ${statusClass}`;
+      
+      let statusText = '';
+      if (race.status === 'pending') {
+        statusText = '⏳ Next race starting soon...';
+      } else if (race.status === 'running') {
+        statusText = '🏁 Race in progress!';
+      } else if (race.status === 'finished') {
+        const winner = HORSES.find(h => h.id === race.winner);
+        statusText = `🏆 Winner: ${winner?.name}!`;
+      }
+      
+      statusEl.textContent = statusText;
+
+      // Horses
+      const horsesGrid = document.getElementById('horses-grid');
+      horsesGrid.innerHTML = '';
+      
+      HORSES.forEach(horse => {
+        const isWinner = race.status === 'finished' && race.winner === horse.id;
+        
+        const card = document.createElement('div');
+        card.className = `horse-card ${isWinner ? 'winner' : ''}`;
+        card.innerHTML = `
+          <div class="horse-emoji">${horse.emoji}</div>
+          <div class="horse-name">${horse.name}</div>
+          <div class="horse-id">Horse #${horse.id}</div>
+          ${isWinner ? '<div class="winner-badge">🏆 WINNER</div>' : ''}
+        `;
+        
+        horsesGrid.appendChild(card);
+      });
+    }
+
+    function renderHistory(races) {
+      const historyList = document.getElementById('history-list');
+      historyList.innerHTML = '';
+      
+      if (races.length === 0) {
+        historyList.innerHTML = '<p style="color: #64748b; text-align: center;">No races yet</p>';
+        return;
+      }
+      
+      races.slice(-10).reverse().forEach(race => {
+        const winner = HORSES.find(h => h.id === race.winner);
+        const time = new Date(race.endTime).toLocaleTimeString();
+        
+        const item = document.createElement('div');
+        item.className = 'history-item';
+        item.innerHTML = `
+          <div>
+            <strong>${winner?.emoji} ${winner?.name}</strong>
+            <span style="color: #64748b; margin-left: 10px;">Race ${race.id}</span>
+          </div>
+          <div style="color: #94a3b8;">${time}</div>
+        `;
+        
+        historyList.appendChild(item);
+      });
+    }
+
+    // Poll for updates
+    fetchRace();
+    fetchHistory();
+    checkOracleStatus();
+    
+    setInterval(fetchRace, 2000);
+    setInterval(fetchHistory, 5000);
+    setInterval(checkOracleStatus, 10000);
+  </script>
+</body>
+</html>
+

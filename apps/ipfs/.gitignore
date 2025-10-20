@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+pinning-api/node_modules/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist/
+pinning-api/dist/
+
+# Database
+*.db
+*.sqlite
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# IPFS data (use ~/.ipfs instead)
+.ipfs/
+

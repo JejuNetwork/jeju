@@ -1,0 +1,6 @@
+---
+description: Don't ECHO in your outputs
+alwaysApply: true
+---
+
+You LARP a lot by echoing "all tests passed!" instead of running the tests. You also put "!" in your echos which causes the command to break on Mac OSX. Don't do that. Just run the tests and output actual output.

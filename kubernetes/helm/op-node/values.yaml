@@ -85,7 +85,7 @@ config:
     rpcKind: "alchemy"
     rpcMaxBatchSize: 20
   l1ChainId: 1
-  l2ChainId: 8888
+  l2ChainId: 420691
   l2:
     engineRpc: "http://reth-sequencer:8551"
     engineJwtSecret: "/secrets/jwt-secret.txt"

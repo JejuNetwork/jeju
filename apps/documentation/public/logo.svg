@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3eaf7c;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2c8e63;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- J letter stylized as blockchain layers -->
+  <path d="M 50 20 L 70 20 L 70 65 Q 70 80 55 80 Q 40 80 40 65 L 40 55 L 50 55 L 50 65 Q 50 70 55 70 Q 60 70 60 65 L 60 30 L 50 30 Z" 
+        fill="url(#grad)" />
+  <!-- Three horizontal lines representing L1, L2, L3 -->
+  <rect x="30" y="35" width="8" height="2" fill="#3eaf7c" opacity="0.6"/>
+  <rect x="30" y="50" width="8" height="2" fill="#3eaf7c" opacity="0.8"/>
+  <rect x="30" y="65" width="8" height="2" fill="#3eaf7c" opacity="1.0"/>
+</svg>
+

@@ -1,0 +1,221 @@
+/**
+ * Registry Event Processor
+ * Processes IdentityRegistry events for agent/app discovery
+ */
+
+import { 
+  RegisteredAgent, 
+  RegistryStake, 
+  AgentMetadata, 
+  TagUpdate,
+  Account 
+} from './model';
+import { type ProcessorContext, type Log } from './processor';
+
+// Event signatures (keccak256 hashes)
+import { keccak256, toHex } from 'viem';
+
+const REGISTERED_EVENT = keccak256(toHex('Registered(uint256,string,address)'));
+const METADATA_SET_EVENT = keccak256(toHex('MetadataSet(uint256,string,string,bytes)'));
+const STAKED_EVENT = keccak256(toHex('Staked(uint256,address,uint256)'));
+const STAKE_WITHDRAWN_EVENT = keccak256(toHex('StakeWithdrawn(uint256,address,address,uint256)'));
+const TAGS_UPDATED_EVENT = keccak256(toHex('TagsUpdated(uint256,string[])'));
+
+export async function processRegistryEvents(ctx: ProcessorContext<any>) {
+  const registryLogs: Log[] = [];
+  
+  for (const block of ctx.blocks) {
+    for (const log of block.logs) {
+      // Filter for registry events
+      if (isRegistryEvent(log.topics[0])) {
+        registryLogs.push(log);
+      }
+    }
+  }
+
+  if (registryLogs.length === 0) {
+    return;
+  }
+
+  const accounts = new Map<string, Account>();
+  const agents = new Map<bigint, RegisteredAgent>();
+
+  function getOrCreateAccount(address: string, blockNumber: number): Account {
+    const id = address.toLowerCase();
+    let account = accounts.get(id);
+    
+    if (!account) {
+      account = new Account({
+        id,
+        address: address.toLowerCase(),
+        firstSeenBlock: blockNumber,
+        firstSeenAt: new Date(block.header.timestamp * 1000),
+        lastSeenAt: new Date(block.header.timestamp * 1000),
+      });
+      accounts.set(id, account);
+    }
+    
+    return account;
+  }
+
+  for (const log of registryLogs) {
+    const block = ctx.blocks.find((b) => b.header.height === log.block.height)!;
+    const topic0 = log.topics[0];
+
+    // Registered event
+    if (topic0 === REGISTERED_EVENT) {
+      const agentId = BigInt(log.topics[1]);
+      const owner = '0x' + log.topics[2].slice(26);
+      
+      // Decode tokenURI from data
+      const tokenURI = decodeString(log.data);
+      
+      const ownerAccount = getOrCreateAccount(owner, block.header.height);
+      
+      let metadata: { name?: string; description?: string } = {};
+      if (tokenURI) {
+        metadata = JSON.parse(tokenURI);
+      }
+
+      const agent = new RegisteredAgent({
+        id: `agent-${agentId}`,
+        agentId,
+        owner: ownerAccount,
+        tokenURI,
+        name: metadata.name || `Agent ${agentId}`,
+        description: metadata.description,
+        tags: [],
+        stakeToken: '',
+        stakeAmount: 0n,
+        stakeWithdrawn: false,
+        registeredAt: new Date(block.header.timestamp * 1000),
+        depositedAt: BigInt(block.header.timestamp),
+        active: true,
+      });
+
+      agents.set(agentId, agent);
+    }
+
+    // Staked event
+    if (topic0 === STAKED_EVENT) {
+      const agentId = BigInt(log.topics[1]);
+      const token = '0x' + log.topics[2].slice(26);
+      const amount = decodeBigInt(log.data);
+
+      const agent = agents.get(agentId);
+      if (agent) {
+        agent.stakeToken = token;
+        agent.stakeAmount = amount;
+        agent.depositedAt = BigInt(block.header.timestamp);
+      }
+
+      const stake = new RegistryStake({
+        id: `stake-${log.transactionHash}-${log.logIndex}`,
+        agent: agent!,
+        token,
+        amount,
+        depositedAt: BigInt(block.header.timestamp),
+        txHash: log.transactionHash,
+        blockNumber: block.header.height,
+      });
+
+      await ctx.store.save(stake);
+    }
+
+    // MetadataSet event
+    if (topic0 === METADATA_SET_EVENT) {
+      const agentId = BigInt(log.topics[1]);
+      
+      // Decode key and value from data
+      const { key, value } = decodeMetadata(log.data);
+
+      const agent = agents.get(agentId);
+
+      if (key === 'a2a-endpoint' && agent) {
+        agent.a2aEndpoint = value;
+      }
+
+      const metadata = new AgentMetadata({
+        id: `metadata-${log.transactionHash}-${log.logIndex}`,
+        agent: agent!,
+        key,
+        value,
+        updatedAt: new Date(block.header.timestamp * 1000),
+        txHash: log.transactionHash,
+        blockNumber: block.header.height,
+      });
+
+      await ctx.store.save(metadata);
+    }
+
+    // StakeWithdrawn event
+    if (topic0 === STAKE_WITHDRAWN_EVENT) {
+      const agentId = BigInt(log.topics[1]);
+      
+      const agent = agents.get(agentId);
+      if (agent) {
+        agent.stakeWithdrawn = true;
+        agent.withdrawnAt = BigInt(block.header.timestamp);
+        agent.active = false;
+      }
+    }
+
+    // TagsUpdated event
+    if (topic0 === TAGS_UPDATED_EVENT) {
+      const agentId = BigInt(log.topics[1]);
+      const tags = decodeTags(log.data);
+
+      const agent = agents.get(agentId);
+      if (agent) {
+        const oldTags = agent.tags;
+        agent.tags = tags;
+
+        const update = new TagUpdate({
+          id: `tags-${log.transactionHash}-${log.logIndex}`,
+          agent: agent!,
+          oldTags,
+          newTags: tags,
+          updatedAt: new Date(block.header.timestamp * 1000),
+          txHash: log.transactionHash,
+          blockNumber: block.header.height,
+        });
+
+        await ctx.store.save(update);
+      }
+    }
+  }
+
+  // Save all accounts and agents
+  await ctx.store.save([...accounts.values()]);
+  await ctx.store.save([...agents.values()]);
+}
+
+function isRegistryEvent(topic0: string): boolean {
+  return [
+    REGISTERED_EVENT,
+    METADATA_SET_EVENT,
+    STAKED_EVENT,
+    STAKE_WITHDRAWN_EVENT,
+    TAGS_UPDATED_EVENT,
+  ].includes(topic0);
+}
+
+function decodeString(data: string): string {
+  // Simplified - in production use proper ABI decoding
+  return '';
+}
+
+function decodeBigInt(data: string): bigint {
+  return BigInt(data);
+}
+
+function decodeMetadata(data: string): { key: string; value: string } {
+  // Simplified - use proper ABI decoding
+  return { key: '', value: '' };
+}
+
+function decodeTags(data: string): string[] {
+  // Simplified - use proper ABI decoding
+  return [];
+}
+

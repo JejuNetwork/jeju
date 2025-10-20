@@ -1,0 +1,101 @@
+groups:
+  - name: chainlink-oracles
+    interval: 30s
+    rules:
+      - alert: ChainlinkFeedStale
+        expr: (time() - chainlink_feed_last_update_timestamp) > (chainlink_feed_heartbeat * 2)
+        for: 1m
+        labels:
+          severity: critical
+          component: oracle
+        annotations:
+          summary: "Chainlink feed is stale"
+          description: "Feed {{ $labels.pair }} has not updated in {{ $value }}s (heartbeat: {{ $labels.heartbeat }}s)"
+          
+      - alert: ChainlinkFeedDeviation
+        expr: abs((chainlink_feed_current_price - chainlink_feed_previous_price) / chainlink_feed_previous_price) > 0.1
+        labels:
+          severity: warning
+          component: oracle
+        annotations:
+          summary: "Large price deviation detected"
+          description: "Feed {{ $labels.pair }} price changed by {{ $value | humanizePercentage }}"
+          
+  - name: uniswap-v4
+    interval: 1m
+    rules:
+      - alert: UniswapV4LowLiquidity
+        expr: uniswap_v4_pool_liquidity{pool_id=~"ETH.*"} < 1000000
+        for: 30m
+        labels:
+          severity: warning
+          component: dex
+        annotations:
+          summary: "Low liquidity in major pool"
+          description: "Pool {{ $labels.pool_id }} has only {{ $value }} liquidity"
+          
+      - alert: UniswapV4HighSlippage
+        expr: uniswap_v4_swap_slippage_percent > 5
+        labels:
+          severity: warning
+          component: dex
+        annotations:
+          summary: "High slippage detected"
+          description: "Swap had {{ $value }}% slippage"
+          
+  - name: synthetix-v3
+    interval: 1m
+    rules:
+      - alert: SynthetixMarketSkewHigh
+        expr: abs(synthetix_v3_market_skew) / synthetix_v3_market_size > 0.8
+        for: 15m
+        labels:
+          severity: warning
+          component: perps
+        annotations:
+          summary: "High market skew detected"
+          description: "Market {{ $labels.market_id }} has {{ $value | humanizePercentage }} skew"
+          
+      - alert: SynthetixFundingRateExtreme
+        expr: abs(synthetix_v3_funding_rate) > 0.1
+        for: 1h
+        labels:
+          severity: info
+          component: perps
+        annotations:
+          summary: "Extreme funding rate"
+          description: "Market {{ $labels.market_id }} funding rate: {{ $value | humanizePercentage }}/day"
+          
+      - alert: SynthetixKeeperFailing
+        expr: rate(synthetix_v3_keeper_errors_total[5m]) > 0.1
+        for: 10m
+        labels:
+          severity: critical
+          component: perps
+        annotations:
+          summary: "Synthetix keeper is failing"
+          description: "{{ $value }} keeper errors per second"
+          
+  - name: compound-v3
+    interval: 1m
+    rules:
+      - alert: CompoundV3UtilizationHigh
+        expr: compound_v3_market_utilization > 0.95
+        for: 30m
+        labels:
+          severity: warning
+          component: lending
+        annotations:
+          summary: "High utilization in Compound market"
+          description: "Market {{ $labels.market }} utilization: {{ $value | humanizePercentage }}"
+          
+      - alert: CompoundV3CollateralFactorLow
+        expr: compound_v3_account_health_factor < 1.2
+        labels:
+          severity: warning
+          component: lending
+        annotations:
+          summary: "Account approaching liquidation"
+          description: "Account {{ $labels.account }} health factor: {{ $value }}"
+
+

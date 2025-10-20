@@ -33,7 +33,7 @@ securityContext:
 service:
   type: ClusterIP
   port: 4337
-  metricsPort: 8080
+  metricsPort: 9090
 
 resources:
   limits:
@@ -77,7 +77,7 @@ config:
   maxBatchSize: 10
   maxOpsPerBatch: 10
   port: 4337
-  metricsPort: 8080
+  metricsPort: 9090
   debugMode: false
   userOpMempool: "p2p"  # or "local"
   p2p:

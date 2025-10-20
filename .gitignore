@@ -1,113 +1,70 @@
 # Dependencies
 node_modules/
-.pnp
-.pnp.js
+vendor/*/node_modules/
 
-# Testing
-coverage/
-*.lcov
-
-# Production
-build/
+# Build outputs
 dist/
+build/
 out/
+.next/
+.turbo/
 
-# Environment variables
+# Environment
 .env
 .env.local
 .env.*.local
-*.env
-
-# Secrets
-secrets/
-*.key
-*.pem
-*.p12
-*.pfx
-
-# Terraform
-**/.terraform/
-*.tfstate
-*.tfstate.*
-*.tfvars
-.terraform.lock.hcl
-crash.log
-override.tf
-override.tf.json
-*_override.tf
-*_override.tf.json
-
-# Kubernetes
-*.kubeconfig
-kubeconfig*
-
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-# OS
-.DS_Store
-Thumbs.db
-*~
-*.swp
-*.swo
 
 # IDE
 .vscode/
 .idea/
-*.sublime-*
-*.code-workspace
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+logs/
+
+# Test coverage
+coverage/
+
+# Temporary files
+tmp/
+temp/
+
+# Forge/Foundry
+contracts/cache/
+contracts/out/
+contracts/broadcast/
+contracts/lib/
 
 # Kurtosis
 .kurtosis/
-kurtosis-data/
 
-# Contract artifacts
-contracts/**/artifacts/
-contracts/**/cache/
-contracts/**/typechain/
-contracts/**/deployments/local/
+# Generated contract deployment files (except templates)
+contracts/deployments/*
+!contracts/deployments/.gitkeep
 
-# Database
+# Keep specific template files
+!contracts/deployments/uniswap-v4-1337.json
+!contracts/deployments/erc20-factory-1337.json
+!contracts/deployments/bazaar-marketplace-1337.json
+
+# Database files
 *.db
-*.sqlite
-*.sqlite3
+*.db-shm
+*.db-wal
 
-# Temp files
-tmp/
-temp/
-*.tmp
+# Docker
+.docker/
 
-# Generated files
-generated/
-*.generated.*
-
-# Snapshots
-snapshots/
-*.snapshot
-
-# AWS
-.aws/
-
-# Monitoring data
-prometheus-data/
-grafana-data/
-loki-data/
-
-# Node modules
-node_modules/
-node_modules
-
-# Documentation build artifacts
-documentation/.vitepress/cache/
-documentation/.vitepress/dist/
-documentation/node_modules/
-
-# Indexer build artifacts
-indexer/lib/
-indexer/node_modules/
+# Misc
+.cache/
+.cache-synpress/
+vendor_examples/
+vendor/
