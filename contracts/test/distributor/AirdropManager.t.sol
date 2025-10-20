@@ -3,14 +3,14 @@ pragma solidity ^0.8.26;
 
 import {Test} from "forge-std/Test.sol";
 import {AirdropManager} from "../../src/distributor/AirdropManager.sol";
-import {FeeDistributorV2} from "../../src/distributor/FeeDistributorV2.sol";
+import {FeeDistributor} from "../../src/distributor/FeeDistributor.sol";
 import {MockElizaOS} from "../../src/tokens/MockElizaOS.sol";
 import {MockJejuUSDC} from "../../src/tokens/MockJejuUSDC.sol";
 import {LiquidityVault} from "../../src/liquidity/LiquidityVault.sol";
 
 contract AirdropManagerTest is Test {
     AirdropManager public manager;
-    FeeDistributorV2 public distributor;
+    FeeDistributor public distributor;
     MockElizaOS public token;
     MockJejuUSDC public usdc;
     LiquidityVault public vault;
@@ -29,7 +29,7 @@ contract AirdropManagerTest is Test {
         
         // Deploy infrastructure
         vault = new LiquidityVault(address(token), owner);
-        distributor = new FeeDistributorV2(address(token), address(vault), owner);
+        distributor = new FeeDistributor(address(token), address(vault), owner);
         manager = new AirdropManager(address(distributor), owner);
         
         // Set reasonable minimum for USDC (6 decimals)
@@ -106,8 +106,9 @@ contract AirdropManagerTest is Test {
     function test_createAirdrop_belowMinimum() public {
         uint256 smallAmount = 50e6; // Below 100 USDC minimum
         
-        vm.startPrank(airdropCreator);
         usdc.mint(airdropCreator, smallAmount);
+        
+        vm.startPrank(airdropCreator);
         usdc.approve(address(manager), smallAmount);
         
         vm.expectRevert();
@@ -158,7 +159,7 @@ contract AirdropManagerTest is Test {
         vm.stopPrank();
     }
     
-    function test_version() public {
+    function test_version() public view {
         assertEq(manager.version(), "1.0.0");
     }
 }

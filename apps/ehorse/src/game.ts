@@ -12,9 +12,10 @@ export interface Horse {
 export interface Race {
   id: string;
   horses: Horse[];
-  status: 'pending' | 'running' | 'finished';
+  status: 'pending' | 'running' | 'grace-period' | 'finished';
   winner: number | null;
   startTime: Date | null;
+  gracePeriodStart: Date | null;
   endTime: Date | null;
 }
 
@@ -25,35 +26,46 @@ export const HORSES: Horse[] = [
   { id: 4, name: 'Blaze', color: '#f59e0b' }
 ];
 
+export interface RaceCallbacks {
+  onAnnounce?: (raceId: string, predeterminedWinner: number) => Promise<void>;
+  onStart?: (raceId: string) => Promise<void>;
+  onGracePeriod?: (raceId: string) => Promise<void>;
+  onFinish?: (raceId: string, winner: number) => Promise<void>;
+}
+
 export class RaceEngine {
   private currentRace: Race | null = null;
   private raceHistory: Race[] = [];
   private raceTimer: NodeJS.Timeout | null = null;
+  private graceTimer: NodeJS.Timeout | null = null;
   private readonly RACE_DURATION_MS = 60000; // 1 minute per race
+  private readonly GRACE_PERIOD_MS = 30000; // 30 seconds grace period
   private predeterminedWinner: number | null = null;
-  private onRaceStart?: (raceId: string, predeterminedWinner: number) => Promise<void>;
-  private onRaceFinish?: (raceId: string, winner: number) => Promise<void>;
+  private callbacks: RaceCallbacks = {};
 
   constructor() {
-    this.startNewRace();
+    // Don't start race yet - wait for callbacks to be set
   }
 
-  setRaceCallbacks(
-    onStart?: (raceId: string, predeterminedWinner: number) => Promise<void>,
-    onFinish?: (raceId: string, winner: number) => Promise<void>
-  ): void {
-    this.onRaceStart = onStart;
-    this.onRaceFinish = onFinish;
+  setRaceCallbacks(callbacks: RaceCallbacks): void {
+    this.callbacks = callbacks;
+    // Start first race now that callbacks are configured
+    if (!this.currentRace) {
+      this.startNewRace();
+    }
   }
 
   startNewRace(): Race {
     if (this.raceTimer) {
       clearTimeout(this.raceTimer);
     }
+    if (this.graceTimer) {
+      clearTimeout(this.graceTimer);
+    }
 
     const raceId = `race-${Date.now()}`;
     
-    // Pre-determine winner for oracle commitment
+    // Pre-determine winner (TEE logic)
     this.predeterminedWinner = Math.floor(Math.random() * 4) + 1;
     
     this.currentRace = {
@@ -62,14 +74,31 @@ export class RaceEngine {
       status: 'pending',
       winner: null,
       startTime: null,
+      gracePeriodStart: null,
       endTime: null
     };
 
     console.log(`🐴 New race created: ${raceId}`);
-    console.log(`🎲 Predetermined winner: ${HORSES.find(h => h.id === this.predeterminedWinner)?.name} (kept secret)`);
+    console.log(`🎲 Predetermined winner: ${HORSES.find(h => h.id === this.predeterminedWinner)?.name} (kept secret in TEE)`);
     
-    // Auto-start race after 30 seconds
-    setTimeout(() => this.runRace(), 30000);
+    // Announce to Contest.sol (must complete before starting race)
+    if (this.callbacks.onAnnounce && this.predeterminedWinner) {
+      this.callbacks.onAnnounce(this.currentRace.id, this.predeterminedWinner)
+        .then(() => {
+          console.log('✅ Contest announced successfully, scheduling race start in 30s...');
+          // Auto-start race after 30 seconds
+          setTimeout(() => this.runRace(), 30000);
+        })
+        .catch(err => {
+          console.error('❌ Failed to announce contest:', err.message);
+          console.log('⚠️  Race cancelled - will create new one in 5s');
+          setTimeout(() => this.startNewRace(), 5000);
+        });
+    } else {
+      // No oracle, just start race normally
+      console.log('⚠️  No oracle configured, starting race without on-chain announcement');
+      setTimeout(() => this.runRace(), 30000);
+    }
 
     return this.currentRace;
   }
@@ -81,16 +110,37 @@ export class RaceEngine {
     this.currentRace.startTime = new Date();
 
     console.log(`🏁 Race ${this.currentRace.id} started!`);
+    console.log(`   Trading ACTIVE for 60 seconds`);
 
-    // Call oracle commit callback
-    if (this.onRaceStart) {
-      await this.onRaceStart(this.currentRace.id, this.predeterminedWinner);
+    // Start contest on-chain (trading begins)
+    if (this.callbacks.onStart) {
+      await this.callbacks.onStart(this.currentRace.id);
     }
 
-    // Race finishes after RACE_DURATION_MS
+    // After race duration, start grace period
     this.raceTimer = setTimeout(() => {
-      this.finishRace();
+      this.startGracePeriod();
     }, this.RACE_DURATION_MS);
+  }
+
+  private async startGracePeriod(): Promise<void> {
+    if (!this.currentRace) return;
+
+    this.currentRace.status = 'grace-period';
+    this.currentRace.gracePeriodStart = new Date();
+
+    console.log(`⏸️  Grace period started for race ${this.currentRace.id}`);
+    console.log(`   Trading FROZEN for 30 seconds (prevents MEV)`);
+
+    // Call grace period callback
+    if (this.callbacks.onGracePeriod) {
+      await this.callbacks.onGracePeriod(this.currentRace.id);
+    }
+
+    // After grace period, finalize results
+    this.graceTimer = setTimeout(() => {
+      this.finishRace();
+    }, this.GRACE_PERIOD_MS);
   }
 
   private async finishRace(): Promise<void> {
@@ -105,10 +155,11 @@ export class RaceEngine {
 
     const winningHorse = HORSES.find(h => h.id === winner);
     console.log(`🏆 Race ${this.currentRace.id} finished! Winner: ${winningHorse?.name} (#${winner})`);
+    console.log(`   Publishing results with TEE attestation...`);
 
-    // Call oracle reveal callback
-    if (this.onRaceFinish) {
-      await this.onRaceFinish(this.currentRace.id, winner);
+    // Publish results to Contest.sol with TEE attestation
+    if (this.callbacks.onFinish) {
+      await this.callbacks.onFinish(this.currentRace.id, winner);
     }
 
     // Save to history
@@ -143,6 +194,10 @@ export class RaceEngine {
     if (this.raceTimer) {
       clearTimeout(this.raceTimer);
       this.raceTimer = null;
+    }
+    if (this.graceTimer) {
+      clearTimeout(this.graceTimer);
+      this.graceTimer = null;
     }
   }
 }

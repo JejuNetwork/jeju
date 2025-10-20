@@ -4,17 +4,17 @@
  * 
  * Ensures all protocol tokens (elizaOS, CLANKER, VIRTUAL, CLANKERMON)
  * are treated equally throughout the UI
+import { captureScreenshot, captureUserFlow } from '../../../../tests/shared/helpers/screenshots';
  */
 
-import { test, expect, setupMetaMask, importTestAccount, connectWallet } from '../fixtures/wallet';
-import { assertAllProtocolTokens, selectToken } from '../helpers/assertions';
+import { testWithWallet as test, expect } from '../fixtures/wallet';
+import { connectWallet } from '../../../../tests/shared/helpers/contracts';
+import { assertAllProtocolTokens } from '../helpers/assertions';
 
 test.describe('Multi-Token Equality Tests', () => {
-  test.beforeEach(async ({ page }) => {
-    await setupMetaMask(metamask);
-    await importTestAccount(metamask);
-    await page.goto('/');
-    await connectWallet(page);
+  test.beforeEach(async ({ page, wallet }) => {
+    await page.goto('http://localhost:4001');
+    await connectWallet(page, wallet);
   });
 
   test('should display all 4 protocol tokens in balance view', async ({ page }) => {
@@ -172,11 +172,9 @@ test.describe('Multi-Token Equality Tests', () => {
 });
 
 test.describe('Token-Specific Price Validation', () => {
-  test.beforeEach(async ({ page }) => {
-    await setupMetaMask(metamask);
-    await importTestAccount(metamask);
-    await page.goto('/');
-    await connectWallet(page);
+  test.beforeEach(async ({ page, wallet }) => {
+    await page.goto('http://localhost:4001');
+    await connectWallet(page, wallet);
   });
 
   test('elizaOS should show $0.10 price', async ({ page }) => {
@@ -199,4 +197,5 @@ test.describe('Token-Specific Price Validation', () => {
     await expect(clankermonCard.getByText('$0.15')).toBeVisible();
   });
 });
+
 

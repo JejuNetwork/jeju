@@ -31,7 +31,7 @@ echo "1️⃣  SETUP PHASE"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 echo "   Starting database..."
-npm run db:up > /dev/null 2>&1 &
+bun run db:up > /dev/null 2>&1 &
 DB_PID=$!
 sleep 5
 
@@ -47,7 +47,7 @@ docker exec squid-db-1 psql -U postgres -c "CREATE DATABASE indexer;" > /dev/nul
 echo "   ✅ Database created"
 
 echo "   Running migrations..."
-npm run db:migrate > /dev/null 2>&1
+bun run db:migrate > /dev/null 2>&1
 if [ $? -ne 0 ]; then
     echo "   ❌ FAIL: Migrations failed"
     exit 1
@@ -55,7 +55,7 @@ fi
 echo "   ✅ Migrations applied"
 
 echo "   Building project..."
-npm run build > /dev/null 2>&1
+bun run build > /dev/null 2>&1
 if [ $? -ne 0 ]; then
     echo "   ❌ FAIL: Build failed"
     exit 1
@@ -68,7 +68,7 @@ echo "2️⃣  INDEXING PHASE"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 echo "   Starting processor (60 second test run)..."
-timeout 60 npm run process > /tmp/e2e_processor.log 2>&1 || true
+timeout 60 bun run process > /tmp/e2e_processor.log 2>&1 || true
 
 if grep -q "Processed blocks" /tmp/e2e_processor.log; then
     PROCESSED=$(grep "Processed blocks" /tmp/e2e_processor.log | tail -1 | grep -o "Processed blocks.*")

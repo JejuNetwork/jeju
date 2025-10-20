@@ -4,8 +4,7 @@
  */
 
 import { expect, test, describe } from 'bun:test';
-import { getPublicClient, getWalletClient, getContractAddresses } from '../fixtures/contracts';
-import { parseEther } from 'viem';
+import { getPublicClient, getContractAddresses } from '../fixtures/contracts';
 
 describe('PaymasterFactory Contract', () => {
   const publicClient = getPublicClient();
@@ -133,4 +132,5 @@ describe('PaymasterFactory Contract', () => {
     }
   });
 });
+
 

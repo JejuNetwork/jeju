@@ -16,17 +16,17 @@ import {AirdropManager} from "../src/distributor/AirdropManager.sol";
  *     --verify
  * 
  * Required env vars:
- *   - FEE_DISTRIBUTOR_V2_ADDRESS (deployed FeeDistributorV2 address)
+ *   - FEE_DISTRIBUTOR_ADDRESS (deployed FeeDistributor address)
  *   - DEPLOYER_PRIVATE_KEY (for deployment)
  */
 contract DeployAirdropManager is Script {
     function run() external {
-        address feeDistributor = vm.envAddress("FEE_DISTRIBUTOR_V2_ADDRESS");
+        address feeDistributor = vm.envAddress("FEE_DISTRIBUTOR_ADDRESS");
         address deployer = vm.addr(vm.envUint("DEPLOYER_PRIVATE_KEY"));
         
         console.log("Deploying AirdropManager...");
         console.log("  Deployer:", deployer);
-        console.log("  FeeDistributorV2:", feeDistributor);
+        console.log("  FeeDistributor:", feeDistributor);
         
         vm.startBroadcast();
         

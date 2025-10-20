@@ -104,20 +104,20 @@ async function validateConfiguration(): Promise<void> {
   // Check all contracts configured
   for (const [name, address] of Object.entries(MONITOR_CONFIG.contracts)) {
     if (!address) {
-      throw new Error(\`Missing contract address: \${name}\`);
+      throw new Error(`Missing contract address: ${name}`);
     }
   }
 
   // Verify RPC connection
   const blockNumber = await publicClient.getBlockNumber();
   state.lastBlockNumber = blockNumber;
-  console.log(\`✅ Connected to chain (block: \${blockNumber})\`);
+  console.log(`✅ Connected to chain (block: ${blockNumber})`);
 
   // Check contracts are deployed
   for (const [name, address] of Object.entries(MONITOR_CONFIG.contracts)) {
-    const code = await publicClient.getBytecode({ address: address as \`0x\${string}\` });
+    const code = await publicClient.getBytecode({ address: address as `0x${string}` });
     if (!code || code === '0x') {
-      throw new Error(\`Contract \${name} not deployed at \${address}\`);
+      throw new Error(`Contract ${name} not deployed at ${address}`);
     }
   }
   console.log('✅ All contracts deployed and accessible');
@@ -132,7 +132,7 @@ function startEventWatchers(): void {
   ]);
 
   watchContractEvent(publicClient, {
-    address: MONITOR_CONFIG.contracts.creditPurchaseContract as \`0x\${string}\`,
+    address: MONITOR_CONFIG.contracts.creditPurchaseContract as `0x${string}`,
     abi: creditPurchaseAbi,
     eventName: 'CreditsPurchased',
     onLogs: (logs) => {
@@ -148,7 +148,7 @@ function startEventWatchers(): void {
           creditsReceived: formatUnits(creditsReceived || 0n, 18)
         });
 
-        console.log(\`💰 Credit Purchase: \${formatUnits(creditsReceived || 0n, 18)} elizaOS\`);
+        console.log(`💰 Credit Purchase: ${formatUnits(creditsReceived || 0n, 18)} elizaOS`);
       }
     }
   });
@@ -159,7 +159,7 @@ function startEventWatchers(): void {
   ]);
 
   watchContractEvent(publicClient, {
-    address: MONITOR_CONFIG.contracts.cloudServiceRegistry as \`0x\${string}\`,
+    address: MONITOR_CONFIG.contracts.cloudServiceRegistry as `0x${string}`,
     abi: registryAbi,
     eventName: 'ServiceUsageRecorded',
     onLogs: (logs) => {
@@ -181,7 +181,7 @@ function startEventWatchers(): void {
           discount: volumeDiscount?.toString()
         });
 
-        console.log(\`🔧 Service Used: \${serviceName} - \${formatUnits(cost || 0n, 18)} elizaOS\`);
+        console.log(`🔧 Service Used: ${serviceName} - ${formatUnits(cost || 0n, 18)} elizaOS`);
       }
     }
   });
@@ -197,7 +197,7 @@ async function startHealthChecks(): Promise<void> {
       await performHealthCheck();
     } catch (error) {
       logger.error('Health check failed', error);
-      state.alerts.push(\`Health check error: \${error.message}\`);
+      state.alerts.push(`Health check error: ${error.message}`);
     }
   }, MONITOR_CONFIG.refreshInterval);
 
@@ -212,12 +212,12 @@ async function performHealthCheck(): Promise<void> {
   // Check treasury balance
   if (MONITOR_CONFIG.treasury) {
     const treasuryBalance = await publicClient.getBalance({
-      address: MONITOR_CONFIG.treasury as \`0x\${string}\`
+      address: MONITOR_CONFIG.treasury as `0x${string}`
     });
 
     const balanceEth = formatEther(treasuryBalance);
     if (Number(balanceEth) < Number(MONITOR_CONFIG.alertThresholds.lowBalance)) {
-      const alert = \`⚠️ Low treasury ETH balance: \${balanceEth}\`;
+      const alert = `⚠️ Low treasury ETH balance: ${balanceEth}`;
       if (!state.alerts.includes(alert)) {
         state.alerts.push(alert);
         console.log(alert);
@@ -226,10 +226,10 @@ async function performHealthCheck(): Promise<void> {
 
     // Check elizaOS token balance
     const tokenBalance = await publicClient.readContract({
-      address: MONITOR_CONFIG.contracts.ElizaOSToken as \`0x\${string}\`,
+      address: MONITOR_CONFIG.contracts.ElizaOSToken as `0x${string}`,
       abi: erc20Abi,
       functionName: 'balanceOf',
-      args: [MONITOR_CONFIG.treasury as \`0x\${string}\`]
+      args: [MONITOR_CONFIG.treasury as `0x${string}`]
     });
 
     logger.debug('Treasury balances', {
@@ -244,14 +244,14 @@ async function performHealthCheck(): Promise<void> {
   ]);
 
   const paymasterDeposit = await publicClient.readContract({
-    address: MONITOR_CONFIG.contracts.cloudPaymaster as \`0x\${string}\`,
+    address: MONITOR_CONFIG.contracts.cloudPaymaster as `0x${string}`,
     abi: paymasterAbi,
     functionName: 'getDeposit'
   });
 
   const depositEth = formatEther(paymasterDeposit);
   if (Number(depositEth) < Number(MONITOR_CONFIG.alertThresholds.lowBalance)) {
-    const alert = \`⚠️ Low paymaster deposit: \${depositEth} ETH\`;
+    const alert = `⚠️ Low paymaster deposit: ${depositEth} ETH`;
     if (!state.alerts.includes(alert)) {
       state.alerts.push(alert);
       console.log(alert);
@@ -276,16 +276,16 @@ async function startDashboardDisplay(): Promise<void> {
 function displayDashboard(): void {
   console.clear();
   console.log(banner);
-  console.log(\`🕐 \${new Date().toISOString()}\`);
-  console.log(\`📦 Block: \${state.lastBlockNumber.toString()}\n\`);
+  console.log(`🕐 ${new Date().toISOString()}`);
+  console.log(`📦 Block: ${state.lastBlockNumber.toString()}\n`);
 
   console.log('='.repeat(60));
   console.log('📊 SYSTEM METRICS');
   console.log('='.repeat(60));
-  console.log(\`Total Revenue:          \${formatUnits(state.totalRevenue, 18)} elizaOS\`);
-  console.log(\`Total Usage Count:      \${state.totalUsageCount.toLocaleString()}\`);
-  console.log(\`Credits Purchased:      \${state.creditsPurchased.toLocaleString()}\`);
-  console.log(\`Migrations Completed:   \${state.migrationsCompleted.toLocaleString()}\`);
+  console.log(`Total Revenue:          ${formatUnits(state.totalRevenue, 18)} elizaOS`);
+  console.log(`Total Usage Count:      ${state.totalUsageCount.toLocaleString()}`);
+  console.log(`Credits Purchased:      ${state.creditsPurchased.toLocaleString()}`);
+  console.log(`Migrations Completed:   ${state.migrationsCompleted.toLocaleString()}`);
   console.log('');
 
   if (Object.keys(state.serviceMetrics).length > 0) {
@@ -293,9 +293,9 @@ function displayDashboard(): void {
     console.log('🔧 SERVICE BREAKDOWN');
     console.log('='.repeat(60));
     for (const [service, metrics] of Object.entries(state.serviceMetrics)) {
-      console.log(\`\${service}:\`);
-      console.log(\`  Requests:  \${metrics.count.toLocaleString()}\`);
-      console.log(\`  Revenue:   \${formatUnits(metrics.revenue, 18)} elizaOS\`);
+      console.log(`${service}:`);
+      console.log(`  Requests:  ${metrics.count.toLocaleString()}`);
+      console.log(`  Revenue:   ${formatUnits(metrics.revenue, 18)} elizaOS`);
     }
     console.log('');
   }

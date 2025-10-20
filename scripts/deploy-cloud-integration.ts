@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 import { ethers } from 'ethers';
 import { Logger } from './shared/logger';
-import { FailoverProvider } from './shared/failover-provider';
 import { 
   CloudIntegration, 
   defaultCloudServices, 
@@ -155,8 +154,12 @@ async function main() {
   const privateKey = process.env.PRIVATE_KEY || 
     '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'; // Anvil default
   
-  const provider = new FailoverProvider([rpcUrl]);
+  const provider = new ethers.JsonRpcProvider(rpcUrl);
   const signer = new ethers.Wallet(privateKey, provider);
+  const cloudAgentSigner = new ethers.Wallet(
+    process.env.CLOUD_AGENT_KEY || '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a',
+    provider
+  );
   
   logger.info(`\nDeploying from: ${await signer.getAddress()}`);
   logger.info(`Network: ${(await provider.getNetwork()).name} (${(await provider.getNetwork()).chainId})\n`);
@@ -187,7 +190,9 @@ async function main() {
     serviceRegistryAddress: addresses.serviceRegistry,
     creditManagerAddress: addresses.creditManager,
     provider,
-    logger
+    logger,
+    cloudAgentSigner,
+    chainId: (await provider.getNetwork()).chainId
   };
   
   const integration = new CloudIntegration(config);

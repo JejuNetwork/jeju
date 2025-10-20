@@ -49,21 +49,23 @@ export class NetworkBanCache {
     this.provider = new ethers.JsonRpcProvider(config.rpcUrl);
     this.appId = config.appId;
     
-    // Load contract ABIs (simplified for now)
+    // Load contract ABIs - matching BanManager.sol and ReputationLabelManager.sol
     const banManagerABI = [
-      'event NetworkBanApplied(uint256 indexed agentId, string reason, address indexed bannedBy)',
-      'event NetworkBanRemoved(uint256 indexed agentId, address indexed removedBy)',
-      'event AppBanApplied(uint256 indexed agentId, bytes32 indexed appId, string reason, address indexed bannedBy)',
-      'event AppBanRemoved(uint256 indexed agentId, bytes32 indexed appId, address indexed removedBy)',
+      'event NetworkBanApplied(uint256 indexed agentId, string reason, bytes32 indexed proposalId, uint256 timestamp)',
+      'event NetworkBanRemoved(uint256 indexed agentId, uint256 timestamp)',
+      'event AppBanApplied(uint256 indexed agentId, bytes32 indexed appId, string reason, bytes32 indexed proposalId, uint256 timestamp)',
+      'event AppBanRemoved(uint256 indexed agentId, bytes32 indexed appId, uint256 timestamp)',
       'function isAccessAllowed(uint256 agentId, bytes32 appId) view returns (bool)',
       'function isNetworkBanned(uint256 agentId) view returns (bool)',
-      'function getNetworkBanInfo(uint256) view returns (bool, string, uint256)'
+      'function getNetworkBan(uint256 agentId) view returns (tuple(bool isBanned, uint256 bannedAt, string reason, bytes32 proposalId))',
+      'function getAppBan(uint256 agentId, bytes32 appId) view returns (tuple(bool isBanned, uint256 bannedAt, string reason, bytes32 proposalId))'
     ];
     
     const labelManagerABI = [
-      'event LabelApplied(uint256 indexed targetAgentId, uint8 indexed label, uint256 proposalId)',
-      'event LabelRemoved(uint256 indexed targetAgentId, uint8 indexed label, uint256 proposalId)',
-      'function getLabels(uint256 agentId) view returns (uint8[])'
+      'event LabelApplied(uint256 indexed agentId, uint8 label, bytes32 indexed proposalId, uint256 timestamp)',
+      'event LabelRemoved(uint256 indexed agentId, uint8 label, uint256 timestamp)',
+      'function getLabels(uint256 agentId) view returns (uint8[])',
+      'function hasLabel(uint256 agentId, uint8 label) view returns (bool)'
     ];
     
     this.banManager = new Contract(config.banManagerAddress, banManagerABI, this.provider);
@@ -152,47 +154,49 @@ export class NetworkBanCache {
   startListening(): void {
     logger.info('Starting event listeners...');
     
-    // Network bans
-    this.banManager.on('NetworkBanApplied', (agentId: bigint, reason: string) => {
+    // Network bans - Updated event signature
+    this.banManager.on('NetworkBanApplied', (agentId: bigint, reason: string, proposalId: string, timestamp: bigint) => {
       const id = Number(agentId);
       this.networkBanned.add(id);
       this.banReasons.set(id, reason);
-      logger.warn(`Network ban applied: Agent #${id}`);
+      this.bannedTimestamps.set(id, Number(timestamp));
+      logger.warn(`Network ban applied: Agent #${id} (Proposal: ${proposalId})`);
       this.notifyBan(id);
     });
     
-    this.banManager.on('NetworkBanRemoved', (agentId: bigint) => {
+    this.banManager.on('NetworkBanRemoved', (agentId: bigint, timestamp: bigint) => {
       const id = Number(agentId);
       this.networkBanned.delete(id);
       this.banReasons.delete(id);
+      this.bannedTimestamps.delete(id);
       logger.info(`Network ban removed: Agent #${id}`);
     });
     
-    // App bans
-    this.banManager.on('AppBanApplied', (agentId: bigint, appId: string, reason: string) => {
+    // App bans - Updated event signature
+    this.banManager.on('AppBanApplied', (agentId: bigint, appId: string, reason: string, proposalId: string, timestamp: bigint) => {
       if (appId === this.appId) {
         this.addAppBan(appId, Number(agentId));
-        logger.warn(`App ban applied: Agent #${agentId} from ${appId}`);
+        logger.warn(`App ban applied: Agent #${agentId} from ${appId} (Proposal: ${proposalId})`);
         this.notifyBan(Number(agentId));
       }
     });
     
-    this.banManager.on('AppBanRemoved', (agentId: bigint, appId: string) => {
+    this.banManager.on('AppBanRemoved', (agentId: bigint, appId: string, timestamp: bigint) => {
       if (appId === this.appId) {
         this.removeAppBan(appId, Number(agentId));
         logger.info(`App ban removed: Agent #${agentId}`);
       }
     });
     
-    // Labels
-    this.labelManager.on('LabelApplied', (agentId: bigint, label: number) => {
+    // Labels - Updated event signature
+    this.labelManager.on('LabelApplied', (agentId: bigint, label: number, proposalId: string, timestamp: bigint) => {
       this.addLabel(Number(agentId), this.labelToString(label));
-      logger.info(`Label applied: Agent #${agentId} => ${this.labelToString(label)}`);
+      logger.info(`Label applied: Agent #${agentId} => ${this.labelToString(label)} (Proposal: ${proposalId})`);
     });
     
-    this.labelManager.on('LabelRemoved', (agentId: bigint, label: number) => {
+    this.labelManager.on('LabelRemoved', (agentId: bigint, label: number, timestamp: bigint) => {
       this.removeLabel(Number(agentId), this.labelToString(label));
-      logger.info(`Label removed: Agent #${agentId}`);
+      logger.info(`Label removed: Agent #${agentId} => ${this.labelToString(label)}`);
     });
     
     logger.success('Event listeners active');
@@ -269,7 +273,13 @@ export class NetworkBanCache {
   }
   
   private notifyBan(agentId: number): void {
-    // TODO: WebSocket notification to kick user if online
+    // FUTURE: WebSocket notification to kick user if online
+    // Implementation plan:
+    //   1. Maintain WebSocket connections map: userId -> ws[]
+    //   2. On ban event, broadcast to all user's connections
+    //   3. Force disconnect and clear session tokens
+    //   4. Add reconnection prevention (check ban status on auth)
+    // For now: Users are banned on next request/page load via banCheck middleware
     // Could emit event that game servers listen to
   }
   
@@ -287,4 +297,5 @@ export class NetworkBanCache {
     }
   }
 }
+
 

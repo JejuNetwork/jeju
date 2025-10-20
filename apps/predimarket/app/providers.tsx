@@ -41,13 +41,18 @@ const jejuChain = {
   testnet: true,
 };
 
+const walletConnectProjectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
+
 const config = getDefaultConfig({
   appName: 'Predimarket',
-  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'predimarket',
+  // Use a valid WalletConnect project ID to enable WalletConnect features
+  // Get a free project ID at https://cloud.walletconnect.com
+  projectId: walletConnectProjectId || 'placeholder-id-for-development',
   chains: [jejuChain as any],
   transports: {
     [jejuChain.id]: http(jejuChain.rpcUrls.default.http[0]),
   },
+  ssr: true,
 });
 
 const queryClient = new QueryClient();

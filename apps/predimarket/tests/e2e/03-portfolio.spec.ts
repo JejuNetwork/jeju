@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { captureScreenshot, captureUserFlow } from '../../../../tests/shared/helpers/screenshots';
 
 test.describe('Portfolio Page', () => {
   test('should navigate to portfolio', async ({ page }) => {
@@ -19,7 +20,8 @@ test.describe('Portfolio Page', () => {
   test('should have connect button on portfolio page', async ({ page }) => {
     await page.goto('/portfolio');
     
-    await expect(page.getByRole('button', { name: /Connect/i })).toBeVisible();
+    // Use first() since there might be multiple connect buttons (header + main content)
+    await expect(page.getByRole('button', { name: /Connect/i }).first()).toBeVisible();
   });
 
   test('should show stats sections', async ({ page }) => {

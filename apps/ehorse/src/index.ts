@@ -7,7 +7,7 @@ import express from 'express';
 import cors from 'cors';
 import { RaceEngine } from './game.js';
 import { A2AServer } from './a2a.js';
-import { OraclePublisher } from './oracle.js';
+import { ContestPublisher } from './oracle.js';
 import { RegistryClient } from './registry.js';
 import { MarketCreator } from './market-creator.js';
 
@@ -15,7 +15,7 @@ const PORT = parseInt(process.env.EHORSE_PORT || '5700');
 const SERVER_URL = process.env.EHORSE_SERVER_URL || `http://localhost:${PORT}`;
 const RPC_URL = process.env.RPC_URL || 'http://localhost:8545';
 const PRIVATE_KEY = process.env.EHORSE_PRIVATE_KEY || process.env.PRIVATE_KEY || '';
-const ORACLE_ADDRESS = process.env.PREDICTION_ORACLE_ADDRESS || '';
+const CONTEST_ADDRESS = process.env.CONTEST_ADDRESS || process.env.EHORSE_GAME_ADDRESS || '';
 const MARKET_FACTORY_ADDRESS = process.env.MARKET_FACTORY_ADDRESS || '';
 
 const app = express();
@@ -29,48 +29,82 @@ app.use(express.static('public'));
 const raceEngine = new RaceEngine();
 const a2aServer = new A2AServer(raceEngine, SERVER_URL);
 
-let oraclePublisher: OraclePublisher | null = null;
-let registryClient: RegistryClient | null = null;
+let contestPublisher: ContestPublisher | null = null;
+let registryClient: RegistryClient | null = null as RegistryClient | null;
 let marketCreator: MarketCreator | null = null;
 
-// Optional: Oracle integration
-if (ORACLE_ADDRESS && PRIVATE_KEY) {
-  oraclePublisher = new OraclePublisher({
+// Optional: Contest.sol integration (TEE oracle)
+if (CONTEST_ADDRESS && PRIVATE_KEY) {
+  contestPublisher = new ContestPublisher({
     rpcUrl: RPC_URL,
-    oracleAddress: ORACLE_ADDRESS,
+    contestAddress: CONTEST_ADDRESS,
     privateKey: PRIVATE_KEY
   });
-  console.log('✅ Oracle publisher enabled');
+  console.log('✅ Contest publisher enabled (TEE mode)');
 
-  // Set up race callbacks for oracle publishing
-  raceEngine.setRaceCallbacks(
-    async (raceId: string, predeterminedWinner: number) => {
-      // Commit race when it starts
-      await oraclePublisher!.commitRace(raceId, predeterminedWinner);
+  // Set up race callbacks for TEE contest flow
+  raceEngine.setRaceCallbacks({
+    // 1. Announce contest when race created (PENDING)
+    onAnnounce: async (raceId: string, predeterminedWinner: number) => {
+      try {
+        await contestPublisher!.announceRace(raceId, predeterminedWinner);
+        // Success logged in announceRace already
+      } catch (err: any) {
+        console.error(`❌ Failed to announce contest for race ${raceId}:`, err.message);
+        // Rethrow to let game.ts handle cancellation
+        throw err;
+      }
     },
-    async (raceId: string, winner: number) => {
-      // Reveal race when it finishes
-      await oraclePublisher!.revealRace(raceId, winner);
+    // 2. Start contest when race starts (ACTIVE - trading begins)
+    onStart: async (raceId: string) => {
+      try {
+        await contestPublisher!.startRace(raceId);
+      } catch (err: any) {
+        console.error(`❌ Failed to start contest for race ${raceId}:`, err.message);
+      }
+    },
+    // 3. Start grace period after race (GRACE_PERIOD - trading frozen)
+    onGracePeriod: async (raceId: string) => {
+      try {
+        await contestPublisher!.startGracePeriod(raceId);
+      } catch (err: any) {
+        console.error(`❌ Failed to start grace period for race ${raceId}:`, err.message);
+      }
+    },
+    // 4. Publish results with TEE attestation (FINISHED)
+    onFinish: async (raceId: string, winner: number) => {
+      try {
+        await contestPublisher!.revealRace(raceId, winner);
+      } catch (err: any) {
+        console.error(`❌ Failed to publish results for race ${raceId}:`, err.message);
+      }
     }
-  );
+  });
 }
 
-// Optional: ERC-8004 registration (disabled for now)
-// if (PRIVATE_KEY) {
-//   registryClient = new RegistryClient(RPC_URL, PRIVATE_KEY);
-//   registryClient.initialize().then(() => {
-//     if (registryClient?.isEnabled()) {
-//       registryClient.registerGame('ehorse', SERVER_URL);
-//     }
-//   });
-// }
+// Optional: ERC-8004 registration
+const IDENTITY_REGISTRY_ADDRESS = process.env.IDENTITY_REGISTRY_ADDRESS || '';
+if (IDENTITY_REGISTRY_ADDRESS && PRIVATE_KEY) {
+  registryClient = new RegistryClient(RPC_URL, PRIVATE_KEY, IDENTITY_REGISTRY_ADDRESS);
+  registryClient.initialize().then(() => {
+    if (registryClient?.isEnabled()) {
+      registryClient.registerGame('ehorse', SERVER_URL).then(() => {
+        console.log('✅ Registered to ERC-8004 registry');
+      }).catch(err => {
+        console.error('⚠️  Registry registration failed:', err.message);
+      });
+    }
+  }).catch(err => {
+    console.error('⚠️  Registry client failed to initialize:', err.message);
+  });
+}
 
 // Optional: Market creator (auto-creates markets on Predimarket)
-if (MARKET_FACTORY_ADDRESS && ORACLE_ADDRESS && PRIVATE_KEY) {
+if (MARKET_FACTORY_ADDRESS && CONTEST_ADDRESS && PRIVATE_KEY) {
   marketCreator = new MarketCreator({
     rpcUrl: RPC_URL,
     marketFactoryAddress: MARKET_FACTORY_ADDRESS,
-    oracleAddress: ORACLE_ADDRESS,
+    oracleAddress: CONTEST_ADDRESS, // Contest.sol implements IPredictionOracle
     privateKey: PRIVATE_KEY
   });
   
@@ -107,11 +141,13 @@ app.get('/state', (_req, res) => {
 app.get('/health', (_req, res) => {
   res.json({
     status: 'ok',
-    service: 'ehorse',
+    service: 'ehorse-tee',
+    mode: 'tee',
     race: raceEngine.getCurrentRace()?.id,
-    oracle: oraclePublisher?.isEnabled() || false,
+    contest: contestPublisher?.isEnabled() || false,
     registry: registryClient?.isEnabled() || false,
-    marketCreator: marketCreator !== null
+    marketCreator: marketCreator !== null,
+    containerHash: contestPublisher?.getContainerHash()
   });
 });
 
@@ -122,22 +158,24 @@ app.listen(PORT, () => {
   console.log('');
   console.log('╔══════════════════════════════════════════════════════════════╗');
   console.log('║                                                              ║');
-  console.log('║   🐴 eHorse Racing Game                                      ║');
-  console.log('║   Minimal horse racing for prediction markets                ║');
+  console.log('║   🐴 eHorse Racing Game (TEE Mode)                          ║');
+  console.log('║   Off-chain game in TEE → On-chain oracle                    ║');
   console.log('║                                                              ║');
   console.log('╚══════════════════════════════════════════════════════════════╝');
   console.log('');
   console.log(`🌐 Server: ${SERVER_URL}`);
   console.log(`🎮 A2A Agent Card: ${SERVER_URL}/.well-known/agent-card.json`);
   console.log(`📊 REST API: ${SERVER_URL}/api/race`);
-  console.log(`🏁 Races: Auto-starting every 90 seconds`);
+  console.log(`🏁 Mode: TEE (game runs off-chain, results on-chain)`);
   console.log('');
   
-  if (oraclePublisher) {
-    console.log(`🔮 Oracle: ${ORACLE_ADDRESS}`);
-    console.log(`   Publishing race results on-chain`);
+  if (contestPublisher) {
+    console.log(`🔒 Contest Oracle: ${CONTEST_ADDRESS}`);
+    console.log(`   Publishing with TEE attestation`);
+    console.log(`   Container: ${contestPublisher.getContainerHash().slice(0, 20)}...`);
+    console.log(`   Flow: PENDING → ACTIVE (60s) → GRACE (30s) → FINISHED`);
   } else {
-    console.log(`⚠️  Oracle not configured (set PREDICTION_ORACLE_ADDRESS)`);
+    console.log(`⚠️  Contest not configured (set CONTEST_ADDRESS)`);
   }
   
   if (marketCreator) {
@@ -155,6 +193,8 @@ app.listen(PORT, () => {
   
   console.log('');
   console.log(`🐴 Horses: Thunder, Lightning, Storm, Blaze`);
+  console.log(`⚡ Game logic runs in TEE (off-chain)`);
+  console.log(`📜 Results published on-chain with attestation`);
   console.log('');
 });
 
@@ -168,5 +208,5 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
-export { raceEngine, a2aServer, oraclePublisher, marketCreator };
+export { raceEngine, a2aServer, contestPublisher, marketCreator };
 

@@ -549,8 +549,8 @@ contract PaymasterFactoryTest is Test {
         
         console2.log("Gas used for deployPaymaster():", gasUsed);
 
-        // Should be expensive (deploys 3 contracts + wiring) but reasonable
-        assertLt(gasUsed, 6000000); // <6M gas
+        // Should be expensive (deploys 3 contracts + wiring + contributor oracle config) but reasonable
+        assertLt(gasUsed, 7300000); // <7.3M gas (increased for contributor features)
     }
     
     // ============ Edge Cases ============

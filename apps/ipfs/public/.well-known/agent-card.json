@@ -1,0 +1,64 @@
+{
+  "protocolVersion": "0.3.0",
+  "name": "Jeju IPFS Storage Service",
+  "description": "Decentralized file storage with x402 micropayments. Upload, pin, and retrieve files from local IPFS nodes.",
+  "url": "http://localhost:3100/a2a",
+  "preferredTransport": "http",
+  "provider": {
+    "organization": "Jeju Network",
+    "url": "https://jeju.network"
+  },
+  "version": "1.0.0",
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false,
+    "stateTransitionHistory": true
+  },
+  "defaultInputModes": ["text", "data", "binary"],
+  "defaultOutputModes": ["text", "data", "binary"],
+  "skills": [
+    {
+      "id": "upload-file",
+      "name": "Upload File to IPFS",
+      "description": "Upload and pin a file to Jeju IPFS network with optional x402 payment",
+      "tags": ["storage", "upload", "ipfs"],
+      "examples": ["Upload this image", "Store this file for 6 months"]
+    },
+    {
+      "id": "pin-existing-cid",
+      "name": "Pin Existing CID",
+      "description": "Pin an existing IPFS CID to Jeju network",
+      "tags": ["storage", "pin", "ipfs"],
+      "examples": ["Pin this CID", "Keep this hash available"]
+    },
+    {
+      "id": "retrieve-file",
+      "name": "Retrieve File from IPFS",
+      "description": "Fetch file contents from IPFS by CID",
+      "tags": ["storage", "retrieve", "ipfs"],
+      "examples": ["Get file QmXxx", "Retrieve this CID"]
+    },
+    {
+      "id": "list-pins",
+      "name": "List My Pinned Files",
+      "description": "Get list of files pinned by owner address or agent",
+      "tags": ["storage", "query", "ipfs"],
+      "examples": ["Show my files", "List pinned content"]
+    },
+    {
+      "id": "calculate-cost",
+      "name": "Calculate Storage Cost",
+      "description": "Estimate cost for storing a file with given size and duration",
+      "tags": ["storage", "pricing", "info"],
+      "examples": ["How much for 10MB for 3 months?", "Storage cost estimate"]
+    },
+    {
+      "id": "get-storage-stats",
+      "name": "Get Storage Statistics",
+      "description": "Get network-wide storage statistics and health",
+      "tags": ["storage", "stats", "info"],
+      "examples": ["Storage stats", "How many files stored?"]
+    }
+  ]
+}
+

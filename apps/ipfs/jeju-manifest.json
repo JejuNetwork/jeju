@@ -1,0 +1,25 @@
+{
+  "$schema": "../../jeju-manifest.schema.json",
+  "name": "ipfs",
+  "displayName": "Jeju IPFS Storage Service",
+  "version": "1.0.0",
+  "type": "core",
+  "description": "Decentralized file storage with local IPFS nodes, x402 micropayments, and A2A agent integration. Replace Pinata/Infura with self-hosted infrastructure.",
+  "commands": {
+    "dev": "bun run pinning-api/src/index.ts",
+    "build": "cd pinning-api && bun run build",
+    "start": "bun run pinning-api/dist/index.js"
+  },
+  "ports": {
+    "main": 3100,
+    "ipfsNode": 4100,
+    "ipfsGateway": 8080,
+    "ipfsSwarm": 4101
+  },
+  "dependencies": ["contracts", "config"],
+  "optional": true,
+  "enabled": true,
+  "autoStart": false,
+  "tags": ["storage", "ipfs", "files", "x402", "micropayments", "infrastructure", "a2a"]
+}
+

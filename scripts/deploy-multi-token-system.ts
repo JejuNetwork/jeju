@@ -17,8 +17,6 @@
  */
 
 import { execSync } from 'child_process';
-import { writeFileSync } from 'fs';
-import { join } from 'path';
 
 class MultiTokenDeployer {
   private rpcUrl: string;

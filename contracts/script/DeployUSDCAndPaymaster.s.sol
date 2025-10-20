@@ -3,7 +3,7 @@ pragma solidity ^0.8.26;
 
 import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
-import {JejuUSDC} from "../src/tokens/JejuUSDC.sol";
+import {MockJejuUSDC} from "../src/tokens/MockJejuUSDC.sol";
 import {CloudPaymaster} from "../src/services/ServicePaymaster.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 
@@ -57,11 +57,12 @@ contract DeployUSDCAndPaymaster is Script {
         uint256 initialSupply = isTestnet ? 1_000_000 * 1e6 : 0; // 1M USDC on testnet, 0 on mainnet
         bool enableFaucet = isTestnet; // Only enable faucet on testnet
         
-        JejuUSDC usdc = new JejuUSDC(
-            treasury,
-            initialSupply,
-            enableFaucet
-        );
+        MockJejuUSDC usdc = new MockJejuUSDC(treasury);
+        
+        // Mint initial supply if needed
+        if (initialSupply > 0) {
+            usdc.mint(treasury, initialSupply);
+        }
         
         console2.log("  USDC deployed at:", address(usdc));
         console2.log("  Initial supply:", initialSupply / 1e6, "USDC");
@@ -100,13 +101,7 @@ contract DeployUSDCAndPaymaster is Script {
             console2.log("  Deposited:", initialDeposit / 1e18, "ETH to EntryPoint");
             console2.log("");
 
-            // ============ Step 4: Grant minting permissions (testnet only) ============
-            if (isTestnet) {
-                console2.log("Step 4: Configuring testnet faucet...");
-                usdc.configureFaucet(true, 100 * 1e6, 24 hours); // 100 USDC, 24h cooldown
-                console2.log("  Faucet configured: 100 USDC per 24 hours");
-                console2.log("");
-            }
+            // Faucet is always available in MockJejuUSDC (no configuration needed)
 
             // ============ Output Addresses ============
             console2.log("=== DEPLOYMENT COMPLETE ===");

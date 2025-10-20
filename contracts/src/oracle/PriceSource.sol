@@ -107,11 +107,12 @@ contract PriceSource is Ownable, Pausable {
         // 3. Validate prices
         _validatePrices(ethPrice, elizaPrice);
         
-        // 4. Send via CrossDomainMessenger
+        // 4. Send via CrossDomainMessenger with timestamp
         bytes memory message = abi.encodeWithSignature(
-            "receivePriceUpdate(uint256,uint256)",
+            "receivePriceUpdate(uint256,uint256,uint256)",
             ethPrice,
-            elizaPrice
+            elizaPrice,
+            block.timestamp
         );
         
         // Call CrossDomainMessenger to send message to Jeju

@@ -237,8 +237,9 @@ contract PredimarketTest is Test {
         
         uint256 sharesToSell = sharesBought / 2;
         uint256 balanceBefore = token.balanceOf(trader1);
-        uint256 payout = market.sell(sessionId1, true, sharesToSell, 0);
+        market.sell(sessionId1, true, sharesToSell, 0);
         uint256 balanceAfter = token.balanceOf(trader1);
+        uint256 payout = balanceAfter - balanceBefore;
         vm.stopPrank();
         
         assertEq(balanceAfter - balanceBefore, payout);

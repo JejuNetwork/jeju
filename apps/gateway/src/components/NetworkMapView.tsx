@@ -2,20 +2,40 @@
  * @fileoverview V2 Feature: Network map visualization with Leaflet
  * @module gateway/components/NetworkMapView
  * 
- * Shows:
- * - All active nodes on world map
- * - Color-coded by performance (green=good, yellow=ok, red=poor)
- * - Clustered when zoomed out
- * - Interactive popups with node details
+ * CURRENT: Placeholder with feature description
+ * 
+ * TO MAKE REAL:
+ * ```
+ * import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+ * import 'leaflet/dist/leaflet.css';
+ * 
+ * // Query node locations from contract
+ * const nodes = useReadContracts({
+ *   contracts: nodeIds.map(id => ({
+ *     address: NODE_STAKING_MANAGER,
+ *     functionName: 'getNodeInfo',
+ *     args: [id]
+ *   }))
+ * });
+ * 
+ * return (
+ *   <MapContainer center={[20, 0]} zoom={2}>
+ *     <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+ *     {nodes.map(node => (
+ *       <Marker position={[node.lat, node.lng]}>
+ *         <Popup>{node.rpcUrl}</Popup>
+ *       </Marker>
+ *     ))}
+ *   </MapContainer>
+ * );
+ * ```
+ * 
+ * REASON: Marked as V2 feature, not critical for MVP
+ * IMPACT: None on core node staking functionality
  */
 
 import { useEffect, useRef } from 'react';
 import { useNodeStaking } from '../hooks/useNodeStaking';
-
-// NOTE: Leaflet integration requires:
-// 1. npm install leaflet react-leaflet
-// 2. Import CSS in layout
-// 3. Dynamic import (SSR issues)
 
 export default function NetworkMapView() {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -24,12 +44,9 @@ export default function NetworkMapView() {
   useEffect(() => {
     if (!mapRef.current) return;
     
-    // V2: Full Leaflet implementation when ready
-    // For now, show node count and locations in list view
+    // PLACEHOLDER - V2 feature
     const nodeCount = operatorNodeIds?.length || 0;
-    console.log('Network map: Nodes to display:', nodeCount);
-    
-    // Future: Initialize Leaflet, add markers, clustering
+    console.log('Network map (V2): Nodes to display:', nodeCount);
   }, [operatorNodeIds]);
   
   return (

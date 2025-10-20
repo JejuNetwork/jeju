@@ -1,17 +1,10 @@
 {
-  "poolManager": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+  "poolManager": "0x0000000000000000000000000000000000000000",
   "weth": "0x4200000000000000000000000000000000000006",
-  "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-  "chainId": 1337,
-  "network": "localnet",
-  "timestamp": 1760759690934,
-  "deployedAt": "2025-10-18T03:54:50.934Z",
-  "version": "v4",
-  "features": {
-    "singleton": true,
-    "hooks": true,
-    "flashAccounting": true,
-    "nativeETH": true
-  },
-  "notes": "Uniswap V4 PoolManager - Singleton architecture for all liquidity pools"
+  "swapRouter": null,
+  "positionManager": null,
+  "quoterV4": null,
+  "stateView": null,
+  "timestamp": "2025-01-20T00:00:00.000Z",
+  "note": "This file is automatically updated during localnet bootstrap. Run 'bun run dev' to deploy all contracts."
 }

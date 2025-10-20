@@ -5,11 +5,11 @@
  * Calculates weighted scores, stores in database, prepares for blockchain.
  */
 
-import { db } from "@/lib/data/db";
+import { db } from "../data/db";
 import {
   contributorSnapshots,
   contributorAllocations,
-} from "@/lib/data/schema";
+} from "../data/schema";
 import {
   calculateWeightedScores,
   convertScoresToShares,
@@ -18,9 +18,9 @@ import {
   type ContributorScore,
 } from "./scoreWeighting";
 import { UTCDate } from "@date-fns/utc";
-import { toDateString } from "@/lib/date-utils";
+import { toDateString } from "../date-utils";
 import { subMonths, startOfMonth, endOfMonth } from "date-fns";
-import { eq } from "drizzle-orm";
+import { eq, desc, asc } from "drizzle-orm";
 
 export interface SnapshotData {
   snapshotId: string;
@@ -69,7 +69,7 @@ export async function generateMonthlySnapshot(
   }
   
   // Convert scores to shares
-  const { contributors, shares, totalShares } = convertScoresToShares(scores);
+  const { contributors, shares } = convertScoresToShares(scores);
   
   // Get wallet addresses
   const walletMap = await getContributorWalletAddresses(contributors);
@@ -144,7 +144,7 @@ export async function generateMonthlySnapshot(
 async function saveSnapshotToDatabase(snapshot: SnapshotData): Promise<void> {
   // Check if snapshot already exists
   const existing = await db.query.contributorSnapshots.findFirst({
-    where: (snapshots, { eq }) => eq(snapshots.period, snapshot.period),
+    where: (snapshots) => eq(snapshots.period, snapshot.period),
   });
   
   if (existing) {
@@ -198,10 +198,10 @@ async function saveSnapshotToDatabase(snapshot: SnapshotData): Promise<void> {
  */
 export async function getLatestSnapshot(): Promise<SnapshotData | null> {
   const snapshot = await db.query.contributorSnapshots.findFirst({
-    orderBy: (snapshots, { desc }) => [desc(snapshots.period)],
+    orderBy: (snapshots) => [desc(snapshots.period)],
     with: {
       allocations: {
-        orderBy: (allocations, { asc }) => [asc(allocations.rank)],
+        orderBy: (allocations) => [asc(allocations.rank)],
       },
     },
   });
@@ -210,7 +210,7 @@ export async function getLatestSnapshot(): Promise<SnapshotData | null> {
     return null;
   }
   
-  const scores: ContributorScore[] = snapshot.allocations.map((alloc) => ({
+  const scores: ContributorScore[] = snapshot.allocations.map((alloc: { username: string; score: number; rank: number }) => ({
     username: alloc.username,
     allTimeScore: 0, // Not stored separately, would need recalculation
     sixMonthScore: 0,

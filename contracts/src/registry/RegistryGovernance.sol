@@ -374,14 +374,14 @@ contract RegistryGovernance is Ownable, Pausable, ReentrancyGuard {
             emit ProposalStatusChanged(proposalId, ProposalStatus.PENDING, ProposalStatus.PASSED);
         } else {
             // Market doesn't show confidence
+            // CEI PATTERN: State changes BEFORE external calls
             proposal.status = ProposalStatus.REJECTED;
-            
-            // Refund bond to proposer
-            (bool success, ) = proposal.proposer.call{value: proposal.proposalBond}("");
-            require(success, "Bond refund failed");
-            
             emit ProposalRejected(proposalId, "Insufficient market confidence");
             emit ProposalStatusChanged(proposalId, ProposalStatus.PENDING, ProposalStatus.REJECTED);
+            
+            // External call LAST (reentrancy safe)
+            (bool success, ) = proposal.proposer.call{value: proposal.proposalBond}("");
+            require(success, "Bond refund failed");
         }
     }
     
@@ -441,10 +441,6 @@ contract RegistryGovernance is Ownable, Pausable, ReentrancyGuard {
                 );
             }
             
-            // Reward proposer with bond back
-            (bool success, ) = proposal.proposer.call{value: proposal.proposalBond}("");
-            require(success, "Bond refund failed");
-            
         } else if (proposal.proposalType == ProposalType.SLASH_STAKE) {
             // Slash only
             if (agent.stakedAmount > 0) {
@@ -467,15 +463,16 @@ contract RegistryGovernance is Ownable, Pausable, ReentrancyGuard {
                     percentages
                 );
             }
-            
-            // Reward proposer
-            (bool success, ) = proposal.proposer.call{value: proposal.proposalBond}("");
-            require(success, "Bond refund failed");
         }
         
+        // CEI PATTERN: State changes BEFORE external calls
         proposal.status = ProposalStatus.EXECUTED;
         emit ProposalStatusChanged(proposal.proposalId, ProposalStatus.PASSED, ProposalStatus.EXECUTED);
         emit ProposalExecuted(proposal.proposalId, proposal.targetAgentId);
+        
+        // External call LAST (reentrancy safe)
+        (bool success, ) = proposal.proposer.call{value: proposal.proposalBond}("");
+        require(success, "Bond refund failed");
     }
     
     /**
@@ -488,14 +485,15 @@ contract RegistryGovernance is Ownable, Pausable, ReentrancyGuard {
             revert ProposalNotReady();
         }
         
+        // CEI PATTERN: State changes BEFORE external calls
+        ProposalStatus oldStatus = proposal.status;
         proposal.status = ProposalStatus.VETOED;
+        emit ProposalVetoed(proposalId, msg.sender);
+        emit ProposalStatusChanged(proposalId, oldStatus, ProposalStatus.VETOED);
         
-        // Refund bond
+        // External call LAST (reentrancy safe)
         (bool success, ) = proposal.proposer.call{value: proposal.proposalBond}("");
         require(success, "Bond refund failed");
-        
-        emit ProposalVetoed(proposalId, msg.sender);
-        emit ProposalStatusChanged(proposalId, proposal.status, ProposalStatus.VETOED);
     }
     
     // ============ Guardian Management ============
@@ -536,10 +534,11 @@ contract RegistryGovernance is Ownable, Pausable, ReentrancyGuard {
         
         guardians[guardian].isActive = false;
         
-        // Remove from array
-        for (uint256 i = 0; i < allGuardians.length; i++) {
+        // Remove from array (gas optimized)
+        uint256 length = allGuardians.length;
+        for (uint256 i = 0; i < length; i++) {
             if (allGuardians[i] == guardian) {
-                allGuardians[i] = allGuardians[allGuardians.length - 1];
+                allGuardians[i] = allGuardians[length - 1];
                 allGuardians.pop();
                 break;
             }
@@ -620,6 +619,7 @@ contract RegistryGovernance is Ownable, Pausable, ReentrancyGuard {
      * @dev Execute appeal decision
      */
     function _executeAppeal(Appeal storage appeal) internal {
+        // CEI PATTERN: State changes BEFORE external calls
         appeal.reviewed = true;
         
         // Require 2/3 approval
@@ -627,17 +627,17 @@ contract RegistryGovernance is Ownable, Pausable, ReentrancyGuard {
         appeal.approved = approved;
         
         if (approved) {
-            // Unban agent
-            registry.unbanAgent(appeal.agentId);
-            
-            // Refund appeal bond
-            (bool success, ) = appeal.appellant.call{value: appeal.appealBond}("");
-            require(success, "Bond refund failed");
-            
-            // Update proposal status
+            // Update ALL state first
             GovernanceProposal storage proposal = proposals[appeal.proposalId];
             proposal.status = ProposalStatus.REJECTED;
             emit ProposalStatusChanged(appeal.proposalId, ProposalStatus.APPEALED, ProposalStatus.REJECTED);
+            
+            // Then external calls (reentrancy safe)
+            registry.unbanAgent(appeal.agentId);
+            
+            // Refund appeal bond LAST
+            (bool success, ) = appeal.appellant.call{value: appeal.appealBond}("");
+            require(success, "Bond refund failed");
         }
         
         emit AppealReviewed(appeal.proposalId, approved);

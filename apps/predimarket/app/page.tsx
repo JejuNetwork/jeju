@@ -125,7 +125,7 @@ export default function Home() {
         )}
 
         {!loading && !error && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" data-testid="markets-grid">
             {filteredMarkets.map((market) => (
               <MarketCard key={market.id} market={market} />
             ))}

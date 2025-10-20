@@ -3,6 +3,20 @@ const nextConfig = {
   reactStrictMode: true,
   webpack: (config) => {
     config.externals.push('pino-pretty', 'lokijs', 'encoding');
+    
+    // Fix MetaMask SDK React Native dependencies for web
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      '@react-native-async-storage/async-storage': false,
+      'react-native': false,
+    };
+    
+    // Ignore React Native modules in MetaMask SDK
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@react-native-async-storage/async-storage': false,
+    };
+    
     return config;
   },
   env: {

@@ -3,12 +3,12 @@ pragma solidity ^0.8.26;
 
 import {Test, console2} from "forge-std/Test.sol";
 import {CreditManager} from "../src/services/CreditManager.sol";
-import {JejuUSDC} from "../src/tokens/JejuUSDC.sol";
+import {MockJejuUSDC} from "../src/tokens/MockJejuUSDC.sol";
 import {ElizaOSToken} from "../src/tokens/ElizaOSToken.sol";
 
 contract CreditManagerTest is Test {
     CreditManager public creditManager;
-    JejuUSDC public usdc;
+    MockJejuUSDC public usdc;
     ElizaOSToken public elizaOS;
 
     address owner = address(this);
@@ -25,7 +25,8 @@ contract CreditManagerTest is Test {
 
     function setUp() public {
         // Deploy tokens
-        usdc = new JejuUSDC(owner, 10000000 * 1e6, true);
+        usdc = new MockJejuUSDC(owner);
+        usdc.mint(owner, 10000000 * 1e6);
         elizaOS = new ElizaOSToken(owner);
 
         // Deploy credit manager

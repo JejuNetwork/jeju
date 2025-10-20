@@ -70,7 +70,7 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
     uint256 public paymasterRewardCutBPS = 500;
     uint256 public paymasterStakeCutBPS = 200;
     uint256 public maxNodesPerOperator = 5;
-    uint256 public maxNetworkOwnershipBPS = 2000;
+    uint256 public maxNetworkOwnershipBPS = 10000; // 100% for testing, reduce in production
     uint256 public uptimeMultiplierMin = 5000;
     uint256 public uptimeMultiplierMax = 20000;
     uint256 public geographicBonusBPS = 5000;
@@ -505,10 +505,12 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
         IERC20(node.rewardToken).transfer(msg.sender, rewardAmount);
     }
     
-    address public constant WETH_ADDRESS = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2; // Placeholder
+    // ETH price constant (address(0) in oracle represents ETH)
+    // Note: On Base/Jeju, WETH is 0x4200000000000000000000000000000000000006
+    address public constant ETH_ADDRESS = address(0);
     
     function _convertUSDToETH(uint256 amountUSD) internal view returns (uint256) {
-        uint256 ethPrice = priceOracle.getPrice(WETH_ADDRESS);
+        uint256 ethPrice = priceOracle.getPrice(ETH_ADDRESS);
         if (ethPrice == 0) ethPrice = 3000e18; // Fallback to $3000 if oracle fails
         return (amountUSD * 1e18) / ethPrice;
     }
@@ -597,11 +599,14 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
     }
     
     function removePerformanceOracle(address oracle) external onlyOwner {
+        require(oracle != address(0), "Invalid oracle address");
         isPerformanceOracle[oracle] = false;
         
-        for (uint256 i = 0; i < performanceOracles.length; i++) {
+        // Gas optimized: cache array length
+        uint256 length = performanceOracles.length;
+        for (uint256 i = 0; i < length; i++) {
             if (performanceOracles[i] == oracle) {
-                performanceOracles[i] = performanceOracles[performanceOracles.length - 1];
+                performanceOracles[i] = performanceOracles[length - 1];
                 performanceOracles.pop();
                 break;
             }

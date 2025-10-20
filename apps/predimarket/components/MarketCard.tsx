@@ -9,7 +9,7 @@ export function MarketCard({ market }: { market: Market }) {
   const noPercent = Number(market.noPrice) / 1e16;
   
   return (
-    <Link href={`/market/${market.sessionId}`}>
+    <Link href={`/market/${market.sessionId}`} data-testid="market-card">
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 hover:border-green-600 transition cursor-pointer group">
         {/* Status Badge */}
         <div className="flex items-center justify-between mb-4">

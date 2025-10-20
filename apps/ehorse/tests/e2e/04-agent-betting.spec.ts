@@ -1,4 +1,5 @@
 import { expect } from '@playwright/test';
+import { captureScreenshot, captureUserFlow } from '../../../../tests/shared/helpers/screenshots';
 import { testWithCustomWallet as test } from '../../../../tests/shared/fixtures/wallet';
 import { connectWallet } from '../../../../tests/shared/helpers/contracts';
 import { readFileSync } from 'fs';

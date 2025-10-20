@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: Jeju
-  text: Fast, Cheap Ethereum L3 Appchain
-  tagline: Built by Eliza Labs, maintainers of ElizaOS. OP-Stack settling on Base with sub-second blocks.
+  text: Fast, Cheap Ethereum Stack
+  tagline: OP-Stack settling on Base with sub-second blocks.
   image:
     src: /logo.svg
     alt: Jeju

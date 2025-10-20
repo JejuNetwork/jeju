@@ -139,33 +139,29 @@ export const testWithConnectedWallet = testWithWallet.extend({
  * ```typescript
  * import { testWithCustomWallet as test } from '@/tests/shared/fixtures/wallet';
  *
+ * test.use({ customPrivateKey: '0x...' });
  * test('agent should place bet', async ({ wallet, page }) => {
  *   // Use wallet fixture with custom account
  * });
  * ```
  */
 export const testWithCustomWallet = base.extend<
-  { wallet: Dappwright; customAccount: { address: string; privateKey: string } },
+  { wallet: Dappwright; customPrivateKey: string },
   { walletContext: BrowserContext }
 >({
-  customAccount: async ({}, use) => {
+  customPrivateKey: async ({}, use) => {
     // Override this in your test file
-    await use({ address: '', privateKey: '' });
+    await use('');
   },
 
   walletContext: [
-    async ({ customAccount }, use) => {
+    async ({}, use) => {
       const [wallet, _, context] = await bootstrap("", {
         wallet: "metamask",
         version: "11.16.17",
-        seed: "", // Will use private key instead
+        seed: JEJU_TEST_WALLET.seed,
         headless: false,
       });
-
-      // Import custom account if provided
-      if (customAccount.privateKey) {
-        await wallet.importPK(customAccount.privateKey);
-      }
 
       // Add Jeju network
       await wallet.addNetwork({
@@ -183,12 +179,18 @@ export const testWithCustomWallet = base.extend<
     { scope: 'worker' },
   ],
 
-  context: async ({ walletContext }, use) => {
+  context: async ({ walletContext }: { walletContext: BrowserContext }, use) => {
     await use(walletContext);
   },
 
-  wallet: async ({ walletContext }, use) => {
+  wallet: async ({ walletContext, customPrivateKey }: { walletContext: BrowserContext; customPrivateKey: string }, use) => {
     const wallet = await getWallet("metamask", walletContext);
+    
+    // Import custom account if provided
+    if (customPrivateKey) {
+      await wallet.importPK(customPrivateKey);
+    }
+    
     await use(wallet);
   },
 });

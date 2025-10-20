@@ -149,7 +149,7 @@ contract LiquidityPaymasterTest is Test {
         assertFalse(operational); // MUST be false when paused
     }
     
-    function testIsOperational_ReturnsFalseWhenLowBalance() public {
+    function testIsOperational_ReturnsFalseWhenLowBalance() public view {
         // Don't fund EntryPoint
         
         bool operational = paymaster.isOperational();

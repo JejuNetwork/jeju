@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from '@playwright/test';
+import { captureScreenshot, captureUserFlow } from '../../../../tests/shared/helpers/screenshots';
 
 test.describe('Tokens Listing Page', () => {
   test('should display tokens page', async ({ page }) => {

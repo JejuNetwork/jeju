@@ -1,4 +1,4 @@
-import { db } from "@/lib/data/db";
+import { db as defaultDb } from "@/lib/data/db";
 import { users, userDailyScores } from "@/lib/data/schema";
 import { eq, and, sql, asc, desc } from "drizzle-orm";
 import {
@@ -9,6 +9,8 @@ import { AggregationPeriod } from "./types";
 import { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import { getUserDailyScores } from "./storage";
 import { generateDaysInRange } from "../date-utils";
+import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import * as schema from "@/lib/data/schema";
 
 /**
  * Generate SQL expressions for common score aggregation fields
@@ -56,6 +58,7 @@ export async function getUserAggregatedScore(
   username: string,
   startDate?: string,
   endDate?: string,
+  db: BunSQLiteDatabase<typeof schema> = defaultDb,
 ) {
   // Start with the basic conditions
   const conditions = [
@@ -102,6 +105,7 @@ export async function getScoresByTimePeriod(
   startDate?: string,
   endDate?: string,
   limit = 100,
+  db: BunSQLiteDatabase<typeof schema> = defaultDb,
 ): Promise<
   {
     periodLabel: string;
@@ -176,6 +180,7 @@ export async function getUserScoreTrend(
   startDate?: string,
   endDate?: string,
   limit = 100,
+  db: BunSQLiteDatabase<typeof schema> = defaultDb,
 ) {
   // Get scores by time period for this user
   const periodScores = await getScoresByTimePeriod(
@@ -184,6 +189,7 @@ export async function getUserScoreTrend(
     startDate,
     endDate,
     limit,
+    db,
   );
 
   // Calculate cumulative scores
@@ -303,6 +309,7 @@ export async function getTopUsersByScore(
   startDate?: string,
   endDate?: string,
   limit?: number | null,
+  db: BunSQLiteDatabase<typeof schema> = defaultDb,
 ) {
   // Start with base conditions
   const conditions = [

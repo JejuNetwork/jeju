@@ -3,14 +3,13 @@
  * @module gateway/tests/integration/full-flow
  */
 
-import { test, expect, setupMetaMask, importTestAccount, connectWallet } from '../fixtures/wallet';
+import { testWithWallet as test, expect } from '../fixtures/wallet';
+import { connectWallet } from '../../../../tests/shared/helpers/contracts';
 
 test.describe('Complete Protocol Flow', () => {
-  test('full token lifecycle: register → deploy → add liquidity → earn fees', async ({ page }) => {
-    await setupMetaMask(metamask);
-    await importTestAccount(metamask);
-    await page.goto('/');
-    await connectWallet(page);
+  test('full token lifecycle: register → deploy → add liquidity → earn fees', async ({ page, wallet }) => {
+    await page.goto('http://localhost:4001');
+    await connectWallet(page, wallet);
     
     // Step 1: View token balances
     await expect(page.getByText('Token Balances')).toBeVisible();
@@ -33,11 +32,9 @@ test.describe('Complete Protocol Flow', () => {
     await expect(page.getByText('My LP Positions')).toBeVisible();
   });
 
-  test('bridge → deploy → liquidity → earnings flow', async ({ page }) => {
-    await setupMetaMask(metamask);
-    await importTestAccount(metamask);
-    await page.goto('/');
-    await connectWallet(page);
+  test('bridge → deploy → liquidity → earnings flow', async ({ page, wallet }) => {
+    await page.goto('http://localhost:4001');
+    await connectWallet(page, wallet);
     
     // Step 1: Bridge token from Base
     await page.getByRole('button', { name: /Bridge from Base/i }).click();
@@ -60,11 +57,9 @@ test.describe('Complete Protocol Flow', () => {
     await page.getByRole('button', { name: /My Earnings/i }).click();
   });
 
-  test('node staking complete flow: stake → register → monitor → claim', async ({ page }) => {
-    await setupMetaMask(metamask);
-    await importTestAccount(metamask);
-    await page.goto('/');
-    await connectWallet(page);
+  test('node staking complete flow: stake → register → monitor → claim', async ({ page, wallet }) => {
+    await page.goto('http://localhost:4001');
+    await connectWallet(page, wallet);
     
     // Navigate to Node Operators
     await page.getByRole('button', { name: /Node Operators/i }).click();
@@ -81,11 +76,9 @@ test.describe('Complete Protocol Flow', () => {
     await expect(page.getByText('Register New Node')).toBeVisible();
   });
 
-  test('app registry complete flow: browse → register → discover', async ({ page }) => {
-    await setupMetaMask(metamask);
-    await importTestAccount(metamask);
-    await page.goto('/');
-    await connectWallet(page);
+  test('app registry complete flow: browse → register → discover', async ({ page, wallet }) => {
+    await page.goto('http://localhost:4001');
+    await connectWallet(page, wallet);
     
     // Navigate to App Registry
     await page.getByRole('button', { name: /App Registry/i }).click();
@@ -104,4 +97,5 @@ test.describe('Complete Protocol Flow', () => {
     await expect(page.getByText('Register New App')).toBeVisible();
   });
 });
+
 

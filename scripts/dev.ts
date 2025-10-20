@@ -23,12 +23,15 @@
 import { $ } from "bun";
 import { spawn, type Subprocess } from "bun";
 import { existsSync } from "fs";
+import { join } from "path";
 import { discoverAllApps, displayAppsSummary, getAutoStartApps, type JejuApp } from "./shared/discover-apps";
 import { CORE_PORTS, INFRA_PORTS } from "../config/ports";
 
 // Configuration
 const minimal = process.argv.includes("--minimal");
 const noApps = process.argv.includes("--no-apps");
+const maxAppsArg = process.argv.find(arg => arg.startsWith("--max-apps="));
+const maxApps = maxAppsArg ? parseInt(maxAppsArg.split("=")[1]) : undefined;
 
 const processes: Subprocess[] = [];
 const services: Map<string, ServiceInfo> = new Map();
@@ -490,7 +493,8 @@ async function startJejuApp(app: JejuApp, l2RpcPort: string): Promise<void> {
     process: proc,
   });
   
-  // Track stdout
+  // Track stdout - log ALL output
+  let isReady = false;
   (async () => {
     if (proc.stdout) {
       const stdout = proc.stdout as unknown as AsyncIterable<Uint8Array>;
@@ -499,17 +503,28 @@ async function startJejuApp(app: JejuApp, l2RpcPort: string): Promise<void> {
         if (!text) continue;
         const lowerText = text.toLowerCase();
         
+        // Always log output for visibility
         if (lowerText.includes('listening') || 
             lowerText.includes('ready') || 
-            lowerText.includes('compiled successfully')) {
-          console.log(`${COLORS.GREEN}[${app.manifest.displayName || app.name} ✓]${COLORS.RESET} ${text}`);
-          updateServiceStatus(serviceId, "running");
+            lowerText.includes('compiled successfully') ||
+            lowerText.includes('local:') ||  // VitePress
+            lowerText.includes('server running')) {  // Generic
+          if (!isReady) {
+            console.log(`${COLORS.GREEN}[${app.manifest.displayName || app.name} ✓]${COLORS.RESET} ${text}`);
+            updateServiceStatus(serviceId, "running");
+            isReady = true;
+          }
+        } else if (lowerText.includes('error')) {
+          console.log(`${COLORS.RED}[${app.manifest.displayName || app.name} ERROR]${COLORS.RESET} ${text}`);
+        } else {
+          // Log other output in dimmed color to not overwhelm
+          console.log(`${COLORS.DIM}[${app.manifest.displayName || app.name}]${COLORS.RESET} ${text}`);
         }
       }
     }
   })();
   
-  // Track stderr
+  // Track stderr - log ALL output, not just errors
   (async () => {
     if (proc.stderr) {
       const stderr = proc.stderr as unknown as AsyncIterable<Uint8Array>;
@@ -517,16 +532,47 @@ async function startJejuApp(app: JejuApp, l2RpcPort: string): Promise<void> {
         const text = new TextDecoder().decode(chunk).trim();
         if (!text) continue;
         
-        if (text.toLowerCase().includes('error')) {
+        // Log all stderr output with appropriate colors
+        if (text.toLowerCase().includes('error') || text.toLowerCase().includes('fatal')) {
           console.log(`${COLORS.RED}[${app.manifest.displayName || app.name} ERROR]${COLORS.RESET} ${text}`);
         } else if (text.toLowerCase().includes('warn')) {
-          console.log(`${COLORS.YELLOW}[${app.manifest.displayName || app.name}]${COLORS.RESET} ${text}`);
+          console.log(`${COLORS.YELLOW}[${app.manifest.displayName || app.name} WARN]${COLORS.RESET} ${text}`);
+        } else {
+          // Log all other stderr output (some tools use stderr for normal output)
+          console.log(`${COLORS.CYAN}[${app.manifest.displayName || app.name}]${COLORS.RESET} ${text}`);
         }
       }
     }
   })();
   
   console.log(`${COLORS.GREEN}✅ ${app.manifest.displayName || app.name} starting${mainPort ? ` on port ${mainPort}` : ''}${COLORS.RESET}`);
+  
+  // Wait for app to be ready (or timeout after 45 seconds)
+  const startTime = Date.now();
+  const timeout = 45000; // 45 seconds
+  while (!isReady && (Date.now() - startTime) < timeout) {
+    // Check if process is still alive
+    if (proc.exitCode !== null) {
+      console.log(`${COLORS.RED}❌ ${app.manifest.displayName || app.name} exited unexpectedly with code ${proc.exitCode}${COLORS.RESET}`);
+      updateServiceStatus(serviceId, "error");
+      return;
+    }
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+  
+  if (!isReady) {
+    console.log(`${COLORS.YELLOW}⚠️  ${app.manifest.displayName || app.name} took longer than expected to start${COLORS.RESET}`);
+    console.log(`${COLORS.YELLOW}   Process is still running, continuing anyway...${COLORS.RESET}`);
+  }
+  
+  // Monitor for crashes after startup
+  (async () => {
+    const exitCode = await proc.exited;
+    if (exitCode !== 0) {
+      console.log(`${COLORS.RED}❌ ${app.manifest.displayName || app.name} crashed with exit code ${exitCode}${COLORS.RESET}`);
+      updateServiceStatus(serviceId, "error");
+    }
+  })();
 }
 
 /**
@@ -537,12 +583,25 @@ async function main() {
 
   // Show startup options
   if (!minimal && !noApps) {
-    console.log(`${COLORS.YELLOW}💡 Starting full development environment with all apps${COLORS.RESET}`);
+    console.log(`${COLORS.YELLOW}💡 Starting full development environment${maxApps ? ` (max ${maxApps} apps)` : ' with all apps'}${COLORS.RESET}`);
     console.log(`${COLORS.YELLOW}   This may use significant memory (8-16GB)${COLORS.RESET}`);
-    console.log(`${COLORS.YELLOW}   For lighter startup, use: bun run dev -- --minimal${COLORS.RESET}\n`);
+    console.log(`${COLORS.YELLOW}   For lighter startup, use:${COLORS.RESET}`);
+    console.log(`${COLORS.YELLOW}     bun run dev -- --minimal           ${COLORS.DIM}# Only localnet${COLORS.RESET}`);
+    console.log(`${COLORS.YELLOW}     bun run dev -- --max-apps=4        ${COLORS.DIM}# Limit to 4 apps${COLORS.RESET}`);
+    console.log(`${COLORS.YELLOW}     bun run dev -- --no-apps           ${COLORS.DIM}# Skip all apps${COLORS.RESET}\n`);
   }
 
   try {
+    // ============================================================
+    // PHASE -1: Check for resource-hungry processes
+    // ============================================================
+    const psCheck = await $`ps aux | grep -E '(synpress|playwright)' | grep -v grep`.nothrow().quiet();
+    if (psCheck.exitCode === 0 && psCheck.stdout.toString().trim()) {
+      console.log(`${COLORS.YELLOW}⚠️  Warning: Found running test processes (synpress/playwright)${COLORS.RESET}`);
+      console.log(`${COLORS.YELLOW}   These may consume significant CPU/memory during app startup${COLORS.RESET}`);
+      console.log(`${COLORS.YELLOW}   Consider stopping them first if you experience issues${COLORS.RESET}\n`);
+    }
+    
     // ============================================================
     // PHASE 0: Docker Readiness Check
     // ============================================================
@@ -708,6 +767,38 @@ async function main() {
 
     console.log(`${COLORS.GREEN}✅ Localnet started${COLORS.RESET}`);
 
+    // ============================================================
+    // PHASE 2.5: Bootstrap Localnet (Auto-Deploy Contracts)
+    // ============================================================
+    console.log(`\n${COLORS.CYAN}━━━ Phase 2.5: Checking Bootstrap Status ━━━${COLORS.RESET}\n`);
+    
+    const bootstrapFile = join(process.cwd(), 'contracts', 'deployments', 'localnet-complete.json');
+    if (!existsSync(bootstrapFile)) {
+      console.log(`${COLORS.YELLOW}⚠️  Bootstrap not detected - running complete bootstrap...${COLORS.RESET}`);
+      console.log(`${COLORS.CYAN}   This deploys all contracts, tokens, and paymaster system${COLORS.RESET}`);
+      console.log(`${COLORS.CYAN}   First run may take 2-3 minutes...${COLORS.RESET}\n`);
+      
+      try {
+        await $`bun run scripts/bootstrap-localnet-complete.ts`.env({
+          ...process.env,
+          JEJU_RPC_URL: l2RpcUrl,
+          L2_RPC_URL: l2RpcUrl,
+        });
+        console.log(`${COLORS.GREEN}✅ Bootstrap complete${COLORS.RESET}\n`);
+      } catch (error) {
+        console.log(`${COLORS.YELLOW}⚠️  Bootstrap failed (continuing anyway)${COLORS.RESET}`);
+        console.log(`${COLORS.YELLOW}   You can run manually: bun run scripts/bootstrap-localnet-complete.ts${COLORS.RESET}\n`);
+      }
+    } else {
+      console.log(`${COLORS.GREEN}✅ Bootstrap already completed${COLORS.RESET}`);
+      const bootstrap = await Bun.file(bootstrapFile).json();
+      console.log(`${COLORS.DIM}   Tokens: ${bootstrap.contracts.usdc}, ${bootstrap.contracts.elizaOS}${COLORS.RESET}`);
+      if (bootstrap.contracts.tokenRegistry) {
+        console.log(`${COLORS.DIM}   Paymaster: ${bootstrap.contracts.tokenRegistry}${COLORS.RESET}`);
+      }
+      console.log('');
+    }
+
     if (minimal) {
       await printDashboard();
       console.log(`\n${COLORS.YELLOW}Running in minimal mode - only localnet started${COLORS.RESET}\n`);
@@ -726,10 +817,8 @@ async function main() {
       category: "indexer",
     });
 
-    // Build indexer first
-    console.log(`${COLORS.CYAN}📦 Building indexer...${COLORS.RESET}`);
-    await $`cd apps/indexer && npm run build`.quiet();
-    console.log(`${COLORS.GREEN}✅ Indexer built${COLORS.RESET}`);
+    // Skip explicit build - the dev command handles it
+    console.log(`${COLORS.CYAN}📦 Indexer will build during startup...${COLORS.RESET}`);
 
     // Start indexer process (this runs predev which sets up DB, then starts processor and GraphQL)
     // Pass the L2 RPC URL to the indexer (already defined above)
@@ -739,7 +828,7 @@ async function main() {
     const indexerDBPort = CORE_PORTS.INDEXER_DATABASE.get();
     
     const indexerProc = spawn({
-      cmd: ["npm", "run", "dev"],
+      cmd: ["bun", "run", "dev"],
       cwd: process.cwd() + "/apps/indexer",
       stdout: "pipe",
       stderr: "pipe",
@@ -936,23 +1025,66 @@ async function main() {
       } else {
         displayAppsSummary();
         
+        // Apply max apps limit if specified (total across both core and vendor)
+        let appsToActuallyStart = filteredApps;
+        if (maxApps && maxApps > 0) {
+          appsToActuallyStart = filteredApps.slice(0, maxApps);
+          const skippedCount = filteredApps.length - appsToActuallyStart.length;
+          console.log(`${COLORS.YELLOW}📊 Starting ${maxApps} app(s) out of ${filteredApps.length} available${skippedCount > 0 ? ` (skipping ${skippedCount})` : ''}${COLORS.RESET}\n`);
+          
+          // Show which apps are being started
+          const startingNames = appsToActuallyStart.map(a => a.manifest.displayName || a.name).join(', ');
+          console.log(`${COLORS.CYAN}   Apps to start: ${startingNames}${COLORS.RESET}\n`);
+        }
+        
         // Group by type for better organization
-        const coreApps = filteredApps.filter(a => a.type === 'core');
-        const vendorApps = filteredApps.filter(a => a.type === 'vendor');
+        const coreApps = appsToActuallyStart.filter(a => a.type === 'core');
+        const vendorApps = appsToActuallyStart.filter(a => a.type === 'vendor');
         
         if (coreApps.length > 0) {
           console.log(`${COLORS.CYAN}Starting ${coreApps.length} core app(s)...${COLORS.RESET}\n`);
-          for (const app of coreApps) {
+          
+          // Separate Next.js apps from others for staggered startup
+          const nextJsApps = coreApps.filter(app => {
+            const devCmd = app.manifest.commands?.dev || '';
+            return devCmd.includes('next dev');
+          });
+          const otherApps = coreApps.filter(app => !nextJsApps.includes(app));
+          
+          // Start non-Next.js apps first (faster startup, less resource intensive)
+          for (const app of otherApps) {
             await startJejuApp(app, l2RpcPort);
-            await new Promise(r => setTimeout(r, 2000));
+          }
+          
+          // Start Next.js apps one at a time with extra delay for compilation
+          for (const app of nextJsApps) {
+            console.log(`${COLORS.YELLOW}   ⏳ Starting Next.js app (requires compilation)...${COLORS.RESET}`);
+            await startJejuApp(app, l2RpcPort);
+            // Extra delay after Next.js apps to let compilation finish
+            await new Promise(r => setTimeout(r, 3000));
           }
         }
         
         if (vendorApps.length > 0) {
           console.log(`\n${COLORS.CYAN}Starting ${vendorApps.length} vendor app(s)...${COLORS.RESET}\n`);
-          for (const app of vendorApps) {
+          
+          // Separate Next.js apps from others
+          const nextJsApps = vendorApps.filter(app => {
+            const devCmd = app.manifest.commands?.dev || '';
+            return devCmd.includes('next dev');
+          });
+          const otherApps = vendorApps.filter(app => !nextJsApps.includes(app));
+          
+          // Start non-Next.js apps first
+          for (const app of otherApps) {
             await startJejuApp(app, l2RpcPort);
-            await new Promise(r => setTimeout(r, 2000));
+          }
+          
+          // Start Next.js apps one at a time with extra delay
+          for (const app of nextJsApps) {
+            console.log(`${COLORS.YELLOW}   ⏳ Starting Next.js app (requires compilation)...${COLORS.RESET}`);
+            await startJejuApp(app, l2RpcPort);
+            await new Promise(r => setTimeout(r, 3000));
           }
         }
         

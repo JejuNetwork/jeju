@@ -183,5 +183,44 @@ contract PredictionOracle is IPredictionOracle {
     function verifyCommitment(bytes32 commitment) external view override returns (bool) {
         return commitments[commitment];
     }
+    
+    // ============ Contest Oracle Methods (Not Supported) ============
+    // PredictionOracle doesn't support contest-specific features
+    // These return empty/default values for interface compliance
+    
+    function getContestInfo(bytes32 /* contestId */) external pure returns (
+        ContestState state,
+        ContestMode mode,
+        uint256 startTime,
+        uint256 endTime,
+        uint256 optionCount
+    ) {
+        return (ContestState.PENDING, ContestMode.SINGLE_WINNER, 0, 0, 0);
+    }
+    
+    function getOptions(bytes32 /* contestId */) external pure returns (string[] memory) {
+        return new string[](0);
+    }
+    
+    function getWinner(bytes32 /* contestId */) external pure returns (uint256, bool) {
+        return (0, false);
+    }
+    
+    function getTop3(bytes32 /* contestId */) external pure returns (uint256[3] memory, bool) {
+        return ([uint256(0), 0, 0], false);
+    }
+    
+    function getFullRanking(bytes32 /* contestId */) external pure returns (uint256[] memory, bool) {
+        return (new uint256[](0), false);
+    }
+    
+    function getBinaryOutcome(bytes32 sessionId, bytes memory /* outcomeDefinition */) external view returns (bool outcome, bool finalized) {
+        // Just delegate to getOutcome for non-contest oracles
+        return this.getOutcome(sessionId);
+    }
+    
+    function isWinningOption(bytes32 /* contestId */, uint256 /* optionIndex */) external pure returns (bool) {
+        return false;
+    }
 }
 

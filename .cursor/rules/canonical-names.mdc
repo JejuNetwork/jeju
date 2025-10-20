@@ -1,0 +1,6 @@
+---
+description: Use canonical names
+alwaysApply: true
+---
+
+Always try to update existing files instead of making new ones, and NEVER make a "V2" of a script, or add "Unified" to the beginning of a name. Always use the best, simplest, canonical name for all files and things, and update those files and things.

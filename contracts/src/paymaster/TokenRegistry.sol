@@ -350,9 +350,9 @@ contract TokenRegistry is Ownable, Pausable, ReentrancyGuard {
             revert TokenNotRegistered(tokenAddress);
         }
         
-        // Only allow factory or owner to update stats
-        // TODO: Add factory address check in production
-        require(msg.sender == owner(), "Only owner or factory");
+        // Only allow owner to update stats (factory pattern not yet implemented)
+        // Note: In future versions, PaymasterFactory could be granted update privileges
+        require(msg.sender == owner(), "Only owner");
         
         config.totalVolume += volumeIncrease;
         config.totalTransactions += 1;

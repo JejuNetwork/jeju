@@ -50,7 +50,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 if ! docker ps | grep -q squid-db-1; then
     echo "   Starting database..."
-    npm run db:up > /dev/null 2>&1
+    bun run db:up > /dev/null 2>&1
     sleep 5
 fi
 
@@ -60,7 +60,7 @@ docker exec squid-db-1 psql -U postgres -c "CREATE DATABASE indexer;" > /dev/nul
 echo "   ✅ Database ready"
 
 # Build and migrate
-npm run build > /dev/null 2>&1
+bun run build > /dev/null 2>&1
 sqd migration:apply > /dev/null 2>&1
 
 echo "   ✅ Migrations applied"
@@ -70,7 +70,7 @@ echo ""
 echo "4️⃣  INDEXER STARTUP"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-npm run process > /tmp/localnet_indexer.log 2>&1 &
+bun run process > /tmp/localnet_indexer.log 2>&1 &
 INDEXER_PID=$!
 
 echo "   ✅ Indexer started (PID: $INDEXER_PID)"

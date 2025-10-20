@@ -139,3 +139,4 @@ if [ "$RPC_RUNNING" = false ] || [ "$UI_RUNNING" = false ] || [ "$A2A_RUNNING" =
   echo ""
 fi
 
+

@@ -8,7 +8,7 @@ import { useAccount } from 'wagmi';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import TokenSelector, { TokenOption } from './TokenSelector';
 import { useProtocolTokens } from '../hooks/useProtocolTokens';
-import { useRegistry } from '../hooks/useRegistry';
+import { useRegistry, useRequiredStake } from '../hooks/useRegistry';
 import { formatTokenAmount } from '../lib/tokenUtils';
 
 const AVAILABLE_TAGS = [
@@ -24,7 +24,7 @@ const AVAILABLE_TAGS = [
 export default function RegisterAppForm() {
   const { address } = useAccount();
   const { tokens } = useProtocolTokens();
-  const { registerApp, getRequiredStake } = useRegistry();
+  const { registerApp } = useRegistry();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -35,9 +35,7 @@ export default function RegisterAppForm() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const requiredStake = selectedToken 
-    ? getRequiredStake(selectedToken.address as `0x${string}`)
-    : null;
+  const requiredStake = useRequiredStake(selectedToken?.address as `0x${string}` | undefined);
 
   const handleTagToggle = (tag: string) => {
     setSelectedTags((prev) =>

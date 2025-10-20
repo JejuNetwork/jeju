@@ -1,0 +1,28 @@
+{
+  "name": "@jeju/ipfs",
+  "version": "1.0.0",
+  "description": "Jeju IPFS Storage Service - Self-hosted decentralized storage with x402 payments and A2A integration",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run pinning-api/src/index.ts",
+    "build": "cd pinning-api && bun run build",
+    "start": "bun run pinning-api/dist/index.js",
+    "test": "cd pinning-api && bun test",
+    "ipfs:init": "ipfs init",
+    "ipfs:start": "ipfs daemon"
+  },
+  "workspaces": [
+    "pinning-api"
+  ],
+  "keywords": [
+    "ipfs",
+    "storage",
+    "x402",
+    "micropayments",
+    "pinning",
+    "decentralized",
+    "file-storage",
+    "a2a"
+  ]
+}
+

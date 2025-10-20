@@ -24,6 +24,11 @@ export async function assertAllProtocolTokens(page: Page) {
 }
 
 /**
+ * Select token from dropdown (avoid duplicate export warning)
+ */
+export { selectToken };
+
+/**
  * Assert success message is shown
  */
 export async function assertSuccessMessage(page: Page, message: string) {
@@ -116,4 +121,5 @@ export async function navigateToTab(page: Page, tabName: string) {
   await page.getByRole('button', { name: new RegExp(tabName, 'i') }).click();
   await page.waitForTimeout(500); // Wait for tab transition
 }
+
 

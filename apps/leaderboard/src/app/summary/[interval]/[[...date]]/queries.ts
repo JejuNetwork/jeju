@@ -9,13 +9,15 @@ import {
   parseIntervalDate,
   toDateString,
 } from "@/lib/date-utils";
-import { db } from "@/lib/data/db";
+import { db as defaultDb } from "@/lib/data/db";
 import { desc } from "drizzle-orm";
 import { rawPullRequests } from "@/lib/data/schema";
 import { and, eq } from "drizzle-orm";
 import { overallSummaries } from "@/lib/data/schema";
+import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import * as schema from "@/lib/data/schema";
 
-export async function getLatestAvailableDate() {
+export async function getLatestAvailableDate(db: BunSQLiteDatabase<typeof schema> = defaultDb) {
   const date = await db
     .select({
       max: rawPullRequests.updatedAt,
@@ -24,6 +26,11 @@ export async function getLatestAvailableDate() {
     .orderBy(desc(rawPullRequests.updatedAt))
     .limit(1);
 
+  // Return today's date if no data exists
+  if (!date[0] || !date[0].max) {
+    return toDateString(new Date());
+  }
+
   return toDateString(date[0].max);
 }
 
@@ -31,11 +38,13 @@ export async function getLatestAvailableDate() {
  * Get metrics for repositories for a specific interval
  * @param date - Date string in format based on interval type
  * @param intervalType - Type of interval (day, week, month)
+ * @param db - Optional database instance for testing
  * @returns Object with metrics for the specified interval
  */
 export async function getMetricsForInterval(
   date: string,
   intervalType: IntervalType,
+  db: BunSQLiteDatabase<typeof schema> = defaultDb,
 ) {
   // Parse date based on interval type
   const interval = parseIntervalDate(date, intervalType);
@@ -53,7 +62,7 @@ export async function getMetricsForInterval(
       startDate,
       endDate,
     },
-  });
+  }, db);
 
   const topIssues = await getTopIssues(
     {
@@ -63,6 +72,7 @@ export async function getMetricsForInterval(
       },
     },
     100,
+    db,
   );
 
   const topPullRequests = await getTopPullRequests(
@@ -73,6 +83,7 @@ export async function getMetricsForInterval(
       },
     },
     100,
+    db,
   );
 
   // deduplicate PRs that are both merged and new
@@ -162,11 +173,13 @@ export type DailyMetrics = Awaited<ReturnType<typeof getDailyMetrics>>;
  * Retrieves the content of a markdown summary file for a given date and interval type.
  * @param dateStr - The date string, formatted as YYYY-MM-DD for day/week, YYYY-MM for month.
  * @param intervalType - The type of interval (day, week, month).
+ * @param db - Optional database instance for testing
  * @returns The markdown content as a string, or null if the file is not found or an error occurs.
  */
 export async function getIntervalSummaryContent(
   dateStr: string,
   intervalType: IntervalType,
+  db: BunSQLiteDatabase<typeof schema> = defaultDb,
 ): Promise<string | null> {
   try {
     let queryDate: string;

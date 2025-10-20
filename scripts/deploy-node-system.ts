@@ -163,7 +163,7 @@ Missing required addresses. Set environment variables:
   const registryAddr = await staking.tokenRegistry();
   const factoryAddr = await staking.paymasterFactory();
   const oracleAddr = await staking.priceOracle();
-  const [totalNodes, totalStaked, totalRewards] = await staking.getNetworkStats();
+  const [totalNodes, totalStaked] = await staking.getNetworkStats();
   const allNodes = await staking.getAllNodes();
 
   console.log('📊 Contract State:');

@@ -1,5 +1,6 @@
 import { ethers } from 'ethers';
 import type { Logger } from './logger';
+import { createSignedFeedbackAuth } from './cloud-signing';
 
 /**
  * Cloud service integration with ERC-8004 registry and services contracts
@@ -19,6 +20,8 @@ export interface CloudConfig {
   creditManagerAddress: string;
   provider: ethers.Provider;
   logger: Logger;
+  cloudAgentSigner?: ethers.Signer; // Cloud agent's signer for feedback authorization
+  chainId?: bigint;
 }
 
 export interface AgentMetadata {
@@ -91,11 +94,12 @@ export class CloudIntegration {
       config.cloudReputationProviderAddress,
       [
         'function registerCloudAgent(string calldata tokenURI, tuple(string key, bytes value)[] calldata metadata) external returns (uint256 agentId)',
-        'function setReputation(uint256 agentId, uint8 score, bytes32 tag1, bytes32 tag2, string calldata reason) external',
+        'function setReputation(uint256 agentId, uint8 score, bytes32 tag1, bytes32 tag2, string calldata reason, bytes calldata signedAuth) external',
         'function recordViolation(uint256 agentId, uint8 violationType, uint8 severityScore, string calldata evidence) external',
         'function proposeBan(uint256 agentId, uint8 reason, string calldata evidence) external returns (bytes32 proposalId)',
         'function approveBan(bytes32 proposalId) external',
-        'function getAgentViolations(uint256 agentId) external view returns (tuple(uint256 agentId, uint8 violationType, uint8 severityScore, string evidence, uint256 timestamp, address reporter)[])',
+        'function getAgentViolations(uint256 agentId, uint256 offset, uint256 limit) external view returns (tuple(uint256 agentId, uint8 violationType, uint8 severityScore, string evidence, uint256 timestamp, address reporter)[])',
+        'function getAgentViolationCount(uint256 agentId) external view returns (uint256)',
         'function cloudAgentId() external view returns (uint256)'
       ],
       config.provider
@@ -211,13 +215,27 @@ export class CloudIntegration {
     
     this.config.logger.info(`Setting reputation for agent ${agentId}: ${score}/100`);
     
+    // Create signed feedback authorization
+    if (!this.config.cloudAgentSigner) {
+      throw new Error('Cloud agent signer not configured in CloudConfig');
+    }
+    
+    const signedAuth = await createSignedFeedbackAuth(
+      this.config.cloudAgentSigner,
+      agentId,
+      await signer.getAddress(), // Client is the operator calling setReputation
+      this.config.reputationRegistryAddress,
+      this.config.chainId || 31337n
+    );
+    
     const contract = this.cloudReputationProvider.connect(signer);
     const tx = await contract.setReputation(
       agentId,
       score,
       tag1,
       tag2,
-      reason // IPFS hash in production
+      reason, // IPFS hash in production
+      signedAuth
     );
     
     await tx.wait();
@@ -352,10 +370,21 @@ export class CloudIntegration {
   }
   
   /**
-   * Get agent's violation history
+   * Get agent's violation history (paginated)
    */
-  async getAgentViolations(agentId: bigint) {
-    return await this.cloudReputationProvider.getAgentViolations(agentId);
+  async getAgentViolations(
+    agentId: bigint,
+    offset: number = 0,
+    limit: number = 100
+  ) {
+    return await this.cloudReputationProvider.getAgentViolations(agentId, offset, limit);
+  }
+  
+  /**
+   * Get total violation count for an agent
+   */
+  async getAgentViolationCount(agentId: bigint): Promise<bigint> {
+    return await this.cloudReputationProvider.getAgentViolationCount(agentId);
   }
   
   /**

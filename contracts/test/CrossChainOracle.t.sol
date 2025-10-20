@@ -71,7 +71,7 @@ contract CrossChainOracleTest is Test {
             abi.encode(address(priceSource))
         );
         
-        relay.receivePriceUpdate(ethPrice, elizaPrice);
+        relay.receivePriceUpdate(ethPrice, elizaPrice, block.timestamp);
         
         // Verify oracle was updated
         (uint256 storedEth, uint256 storedEliza, , bool fresh) = oracle.getPrices();
@@ -87,7 +87,7 @@ contract CrossChainOracleTest is Test {
         
         // Try to call directly (should fail)
         vm.expectRevert(CrossChainPriceRelay.OnlyCrossChainMessenger.selector);
-        relay.receivePriceUpdate(ethPrice, elizaPrice);
+        relay.receivePriceUpdate(ethPrice, elizaPrice, block.timestamp);
     }
     
     function testOnlyAuthorizedSource() public {
@@ -105,7 +105,7 @@ contract CrossChainOracleTest is Test {
         );
         
         vm.expectRevert(CrossChainPriceRelay.InvalidCaller.selector);
-        relay.receivePriceUpdate(ethPrice, elizaPrice);
+        relay.receivePriceUpdate(ethPrice, elizaPrice, block.timestamp);
     }
     
     function testSetPriceSource() public {
@@ -113,7 +113,7 @@ contract CrossChainOracleTest is Test {
         
         relay.setPriceSource(newSource);
         
-        (address storedSource, , , ) = relay.getRelayInfo();
+        (address storedSource, , , , , , ) = relay.getRelayInfo();
         assertEq(storedSource, newSource);
     }
 }

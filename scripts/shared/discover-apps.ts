@@ -173,7 +173,6 @@ export function displayAppsSummary(rootDir: string = process.cwd()): void {
   }
 
   console.log('\n📦 Jeju Apps Discovered:');
-  console.log('━'.repeat(60));
 
   if (coreApps.length > 0) {
     console.log('\n🏢 Core Apps:');
@@ -228,8 +227,7 @@ export function displayAppsSummary(rootDir: string = process.cwd()): void {
   const total = coreApps.length + vendorApps.length;
   const enabled = [...coreApps, ...vendorApps].filter(a => a.exists).length;
   
-  console.log('\n━'.repeat(60));
-  console.log(`  Total: ${total} app(s) | Enabled: ${enabled} | Core: ${coreApps.length} | Vendor: ${vendorApps.length}\n`);
+  console.log(`\n  Total: ${total} app(s) | Enabled: ${enabled} | Core: ${coreApps.length} | Vendor: ${vendorApps.length}\n`);
 }
 
 /**

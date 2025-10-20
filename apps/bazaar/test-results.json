@@ -1,0 +1,1306 @@
+{
+  "config": {
+    "configFile": "/Users/shawwalters/jeju/apps/bazaar/playwright.config.ts",
+    "rootDir": "/Users/shawwalters/jeju/apps/bazaar/tests/e2e",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {},
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "line",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "/Users/shawwalters/jeju/apps/bazaar/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/Users/shawwalters/jeju/apps/bazaar/tests/e2e",
+        "testIgnore": [
+          "**/e2e/*wallet*.spec.ts"
+        ],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 90000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.56.1",
+    "workers": 1,
+    "webServer": {
+      "command": "bun run dev",
+      "url": "http://localhost:4006",
+      "reuseExistingServer": true,
+      "timeout": 120000
+    }
+  },
+  "suites": [
+    {
+      "title": "01-homepage.spec.ts",
+      "file": "01-homepage.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Bazaar Homepage",
+          "file": "01-homepage.spec.ts",
+          "line": 3,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should display homepage with all features",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "9992779f7716d889cb78-7c6e798d8bd67158bf3f",
+              "file": "01-homepage.spec.ts",
+              "line": 4,
+              "column": 7
+            },
+            {
+              "title": "should navigate to tokens page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "9992779f7716d889cb78-b277e1521f208d7c9b6a",
+              "file": "01-homepage.spec.ts",
+              "line": 17,
+              "column": 7
+            },
+            {
+              "title": "should display navigation menu",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "9992779f7716d889cb78-0744d734f96556a2dca8",
+              "file": "01-homepage.spec.ts",
+              "line": 28,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "02-tokens-listing.spec.ts",
+      "file": "02-tokens-listing.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Tokens Listing Page",
+          "file": "02-tokens-listing.spec.ts",
+          "line": 3,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should display tokens page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "e7371a03257dfc2ede50-545a18321fe6c427b59d",
+              "file": "02-tokens-listing.spec.ts",
+              "line": 4,
+              "column": 7
+            },
+            {
+              "title": "should show create token button",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "e7371a03257dfc2ede50-9e99c0d60525eed2df28",
+              "file": "02-tokens-listing.spec.ts",
+              "line": 11,
+              "column": 7
+            },
+            {
+              "title": "should have filter buttons",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "e7371a03257dfc2ede50-34e9383b2b9adccaee5e",
+              "file": "02-tokens-listing.spec.ts",
+              "line": 19,
+              "column": 7
+            },
+            {
+              "title": "should switch between filters",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "e7371a03257dfc2ede50-ec91358a332f54c82e95",
+              "file": "02-tokens-listing.spec.ts",
+              "line": 27,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "03-token-creation.spec.ts",
+      "file": "03-token-creation.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Token Creation Page",
+          "file": "03-token-creation.spec.ts",
+          "line": 3,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should display create token form",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "5a63e99ac86855f457bc-6bea833a8fcd245d8c2f",
+              "file": "03-token-creation.spec.ts",
+              "line": 4,
+              "column": 7
+            },
+            {
+              "title": "should have all required form fields",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "5a63e99ac86855f457bc-3d6ad9c8d8992aa0fc12",
+              "file": "03-token-creation.spec.ts",
+              "line": 11,
+              "column": 7
+            },
+            {
+              "title": "should show wallet connection requirement",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "5a63e99ac86855f457bc-05146895f37e02e0da85",
+              "file": "03-token-creation.spec.ts",
+              "line": 21,
+              "column": 7
+            },
+            {
+              "title": "should display how it works section",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "5a63e99ac86855f457bc-eaca0ab951d7118ab6c2",
+              "file": "03-token-creation.spec.ts",
+              "line": 28,
+              "column": 7
+            },
+            {
+              "title": "should validate form inputs",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "5a63e99ac86855f457bc-b47dcd2c8492a0bf9081",
+              "file": "03-token-creation.spec.ts",
+              "line": 38,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "04-token-detail.spec.ts",
+      "file": "04-token-detail.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Token Detail Page",
+          "file": "04-token-detail.spec.ts",
+          "line": 8,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should navigate to token detail page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "36dc6e5716eabcd5480c-df154cade52338d528f3",
+              "file": "04-token-detail.spec.ts",
+              "line": 13,
+              "column": 7
+            },
+            {
+              "title": "should display token information",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "36dc6e5716eabcd5480c-e2d342fb7987c64ec57a",
+              "file": "04-token-detail.spec.ts",
+              "line": 35,
+              "column": 7
+            },
+            {
+              "title": "should display token stats section",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "36dc6e5716eabcd5480c-02d2617bb01fcf346476",
+              "file": "04-token-detail.spec.ts",
+              "line": 48,
+              "column": 7
+            },
+            {
+              "title": "should have navigable UI structure",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "36dc6e5716eabcd5480c-e14d3196f917d18d07dd",
+              "file": "04-token-detail.spec.ts",
+              "line": 62,
+              "column": 7
+            },
+            {
+              "title": "should display page without errors",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "36dc6e5716eabcd5480c-d19c3aa1e930e8623cf2",
+              "file": "04-token-detail.spec.ts",
+              "line": 75,
+              "column": 7
+            },
+            {
+              "title": "should have valid HTML structure",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "36dc6e5716eabcd5480c-1bf0ae9950e6f7473478",
+              "file": "04-token-detail.spec.ts",
+              "line": 88,
+              "column": 7
+            },
+            {
+              "title": "should show back navigation to tokens list",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "36dc6e5716eabcd5480c-3a0741a15c0b8e227c99",
+              "file": "04-token-detail.spec.ts",
+              "line": 98,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "05-liquidity-page.spec.ts",
+      "file": "05-liquidity-page.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Liquidity Page",
+          "file": "05-liquidity-page.spec.ts",
+          "line": 8,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should display liquidity page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a2ddd355e6ea2ebb764a-f80ec4d674e620080c0f",
+              "file": "05-liquidity-page.spec.ts",
+              "line": 13,
+              "column": 7
+            },
+            {
+              "title": "should show add liquidity interface",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a2ddd355e6ea2ebb764a-6a475a3bddcca4643826",
+              "file": "05-liquidity-page.spec.ts",
+              "line": 22,
+              "column": 7
+            },
+            {
+              "title": "should display pool selection",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a2ddd355e6ea2ebb764a-21388f2a3f3542b2f49e",
+              "file": "05-liquidity-page.spec.ts",
+              "line": 29,
+              "column": 7
+            },
+            {
+              "title": "should show amount input fields",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a2ddd355e6ea2ebb764a-ea4f88df5872d25bbb94",
+              "file": "05-liquidity-page.spec.ts",
+              "line": 37,
+              "column": 7
+            },
+            {
+              "title": "should have proper page structure",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a2ddd355e6ea2ebb764a-315b6c0bbf2819a552f6",
+              "file": "05-liquidity-page.spec.ts",
+              "line": 46,
+              "column": 7
+            },
+            {
+              "title": "should display navigation elements",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a2ddd355e6ea2ebb764a-5887c20c58571710cf25",
+              "file": "05-liquidity-page.spec.ts",
+              "line": 52,
+              "column": 7
+            },
+            {
+              "title": "should render without critical errors",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a2ddd355e6ea2ebb764a-f892d4b84090f445fbe9",
+              "file": "05-liquidity-page.spec.ts",
+              "line": 58,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "08-pools-page.spec.ts",
+      "file": "08-pools-page.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Pools Page",
+          "file": "08-pools-page.spec.ts",
+          "line": 8,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should display pools page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "20f227336a547bd8c53a-be790250da885ddbfd9a",
+              "file": "08-pools-page.spec.ts",
+              "line": 13,
+              "column": 7
+            },
+            {
+              "title": "should show page title and description",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "20f227336a547bd8c53a-5bf64057a520acf4799c",
+              "file": "08-pools-page.spec.ts",
+              "line": 21,
+              "column": 7
+            },
+            {
+              "title": "should display pool cards or empty state",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "20f227336a547bd8c53a-d1118939a2f5350b95da",
+              "file": "08-pools-page.spec.ts",
+              "line": 28,
+              "column": 7
+            },
+            {
+              "title": "should show create pool button",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "20f227336a547bd8c53a-d4a60f4135cf5c1f0647",
+              "file": "08-pools-page.spec.ts",
+              "line": 37,
+              "column": 7
+            },
+            {
+              "title": "should display pool analytics if pools exist",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "20f227336a547bd8c53a-0b2e7ba939681c9b368c",
+              "file": "08-pools-page.spec.ts",
+              "line": 43,
+              "column": 7
+            },
+            {
+              "title": "should allow filtering pools",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "20f227336a547bd8c53a-b37ed60c7d1d96e64730",
+              "file": "08-pools-page.spec.ts",
+              "line": 51,
+              "column": 7
+            },
+            {
+              "title": "should render page without errors",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "20f227336a547bd8c53a-f94790156b32ac80a86d",
+              "file": "08-pools-page.spec.ts",
+              "line": 61,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "09-my-nfts-page.spec.ts",
+      "file": "09-my-nfts-page.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "My NFTs Page",
+          "file": "09-my-nfts-page.spec.ts",
+          "line": 8,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should display my NFTs page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "680390f6437cdccdd8b9-7b0bc87bdc4ad94fb41f",
+              "file": "09-my-nfts-page.spec.ts",
+              "line": 13,
+              "column": 7
+            },
+            {
+              "title": "should show wallet connection requirement if not connected",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "680390f6437cdccdd8b9-b94bbf5aae7fee3a3b48",
+              "file": "09-my-nfts-page.spec.ts",
+              "line": 20,
+              "column": 7
+            },
+            {
+              "title": "should display owned NFTs or empty state",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "680390f6437cdccdd8b9-0c9db9984631f3faf194",
+              "file": "09-my-nfts-page.spec.ts",
+              "line": 27,
+              "column": 7
+            },
+            {
+              "title": "should show NFT details for owned items",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "680390f6437cdccdd8b9-f1885c8a7972f416c3fa",
+              "file": "09-my-nfts-page.spec.ts",
+              "line": 36,
+              "column": 7
+            },
+            {
+              "title": "should display list for sale option",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "680390f6437cdccdd8b9-e0a8217b4a57b8e3da46",
+              "file": "09-my-nfts-page.spec.ts",
+              "line": 52,
+              "column": 7
+            },
+            {
+              "title": "should show manage listings section if user has active listings",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "680390f6437cdccdd8b9-cdfe74f9a25953ec305b",
+              "file": "09-my-nfts-page.spec.ts",
+              "line": 60,
+              "column": 7
+            },
+            {
+              "title": "should allow transfer of owned NFTs",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "680390f6437cdccdd8b9-aa01e7326c5762437171",
+              "file": "09-my-nfts-page.spec.ts",
+              "line": 68,
+              "column": 7
+            },
+            {
+              "title": "should display NFT collection grouping",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "680390f6437cdccdd8b9-fabf64d854f6b85c97b8",
+              "file": "09-my-nfts-page.spec.ts",
+              "line": 76,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "10-games-page.spec.ts",
+      "file": "10-games-page.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Games Page",
+          "file": "10-games-page.spec.ts",
+          "line": 8,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should display games page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "e1c00a3eb8860e097af8-3c4bb68c1c24a6ad4502",
+              "file": "10-games-page.spec.ts",
+              "line": 13,
+              "column": 7
+            },
+            {
+              "title": "should show page title and description",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "e1c00a3eb8860e097af8-81b91af937185ec5a2ef",
+              "file": "10-games-page.spec.ts",
+              "line": 20,
+              "column": 7
+            },
+            {
+              "title": "should display registered games from ERC-8004 registry",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "e1c00a3eb8860e097af8-4c13b6eeaf2bcaffbce0",
+              "file": "10-games-page.spec.ts",
+              "line": 27,
+              "column": 7
+            },
+            {
+              "title": "should display game information in cards",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "e1c00a3eb8860e097af8-a7ba995d36055420ace2",
+              "file": "10-games-page.spec.ts",
+              "line": 36,
+              "column": 7
+            },
+            {
+              "title": "should show game categories or tags",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "e1c00a3eb8860e097af8-85bc73205196dbde07c7",
+              "file": "10-games-page.spec.ts",
+              "line": 55,
+              "column": 7
+            },
+            {
+              "title": "should allow filtering games by category",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "e1c00a3eb8860e097af8-7b0129c074789d5b0d1e",
+              "file": "10-games-page.spec.ts",
+              "line": 63,
+              "column": 7
+            },
+            {
+              "title": "should display game stats (players, bets, etc)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "e1c00a3eb8860e097af8-3c8d255d1a938f6355ba",
+              "file": "10-games-page.spec.ts",
+              "line": 73,
+              "column": 7
+            },
+            {
+              "title": "should allow navigation to game detail/play",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "e1c00a3eb8860e097af8-e052594a156a37cde3e7",
+              "file": "10-games-page.spec.ts",
+              "line": 81,
+              "column": 7
+            },
+            {
+              "title": "should display A2A integration status for games",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "e1c00a3eb8860e097af8-3a3afe33fece6f6b34fe",
+              "file": "10-games-page.spec.ts",
+              "line": 89,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "moderation/01-ban-enforcement.spec.ts",
+      "file": "moderation/01-ban-enforcement.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Ban Enforcement in Bazaar",
+          "file": "moderation/01-ban-enforcement.spec.ts",
+          "line": 8,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should load homepage",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "7f91be06143b392cfe6d-d3c7a8f18af4af81cab2",
+              "file": "moderation/01-ban-enforcement.spec.ts",
+              "line": 9,
+              "column": 7
+            },
+            {
+              "title": "should have ReputationBadge component available",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "7f91be06143b392cfe6d-7abf0edaf1240f5bc710",
+              "file": "moderation/01-ban-enforcement.spec.ts",
+              "line": 16,
+              "column": 7
+            },
+            {
+              "title": "should have ReportButton component available",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "7f91be06143b392cfe6d-4a43723dd58cccf5e826",
+              "file": "moderation/01-ban-enforcement.spec.ts",
+              "line": 26,
+              "column": 7
+            },
+            {
+              "title": "should load without moderation errors",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "7f91be06143b392cfe6d-ef096b2a1128960838c7",
+              "file": "moderation/01-ban-enforcement.spec.ts",
+              "line": 36,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2025-10-20T02:39:17.396Z",
+    "duration": 23.855000000000018,
+    "expected": 0,
+    "skipped": 54,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

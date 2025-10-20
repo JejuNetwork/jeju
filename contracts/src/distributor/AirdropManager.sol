@@ -6,7 +6,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
-interface IFeeDistributorV2 {
+interface IFeeDistributor {
     function getSnapshot(uint256 period) external view returns (
         uint256 totalPool,
         uint256 totalShares,
@@ -26,7 +26,7 @@ interface IFeeDistributorV2 {
  * @title AirdropManager
  * @author Jeju Network
  * @notice Enables anyone to airdrop tokens to contributors based on leaderboard scores
- * @dev Reads contributor snapshots from FeeDistributorV2 and distributes tokens pro-rata.
+ * @dev Reads contributor snapshots from FeeDistributor and distributes tokens pro-rata.
  *      Uses weighted scoring: 50% all-time, 30% 6-month, 20% 1-month.
  * 
  * Features:
@@ -54,7 +54,7 @@ contract AirdropManager is ReentrancyGuard, Ownable, Pausable {
     // ============ State Variables ============
     
     /// @notice FeeDistributor contract that maintains contributor snapshots
-    IFeeDistributorV2 public immutable feeDistributor;
+    IFeeDistributor public immutable feeDistributor;
     
     /// @notice Next airdrop ID
     uint256 public nextAirdropId = 1;
@@ -135,7 +135,7 @@ contract AirdropManager is ReentrancyGuard, Ownable, Pausable {
     
     /**
      * @notice Constructs the AirdropManager
-     * @param _feeDistributor Address of FeeDistributorV2 contract
+     * @param _feeDistributor Address of FeeDistributor contract
      * @param initialOwner Owner address
      */
     constructor(
@@ -143,7 +143,7 @@ contract AirdropManager is ReentrancyGuard, Ownable, Pausable {
         address initialOwner
     ) Ownable(initialOwner) {
         if (_feeDistributor == address(0)) revert InvalidAddress();
-        feeDistributor = IFeeDistributorV2(_feeDistributor);
+        feeDistributor = IFeeDistributor(_feeDistributor);
     }
     
     // ============ Core Functions ============

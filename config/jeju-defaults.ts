@@ -96,7 +96,7 @@ export function getJejuRpcUrl(): string {
  * Check if a chain ID is a valid Jeju chain
  */
 export function isJejuChainId(chainId: number): boolean {
-	return Object.values(JEJU_CHAIN_IDS).includes(chainId);
+	return (Object.values(JEJU_CHAIN_IDS) as number[]).includes(chainId);
 }
 
 /**

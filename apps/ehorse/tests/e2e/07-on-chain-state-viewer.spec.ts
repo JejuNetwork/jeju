@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { captureScreenshot, captureUserFlow } from '../../../../tests/shared/helpers/screenshots';
 
 const EHORSE_URL = process.env.EHORSE_URL || 'http://localhost:5700';
 
@@ -19,7 +20,7 @@ test.describe('On-Chain State Viewer UI', () => {
     await expect(page.getByText('Current Race')).toBeVisible();
     
     // Should show race ID
-    await expect(page.locator('#race-data')).not.toContain Text('Loading...');
+    await expect(page.locator('#race-data')).not.toContainText('Loading...');
   });
 
   test('should show oracle state when configured', async ({ page }) => {

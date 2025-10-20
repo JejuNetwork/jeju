@@ -223,7 +223,7 @@ const TEST_SUITES: TestSuite[] = [
     name: 'TheDesk (OTC Agent) Tests',
     description: 'Test OTC Agent runtime integration',
     command: 'npm run test',
-    directory: 'vendor/thedesk',
+    directory: 'vendor/otc-desk',
     timeout: 180000,
     optional: true, // Vendor app is optional
     skipInCI: true,

@@ -6,24 +6,26 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
  * @title MockJejuUSDC
- * @notice Mock USDC for localnet L1/L2 testing
- * @dev Simplified version of JejuUSDC for testing - treated like any other protocol token
+ * @notice Mock USDC for localnet and testnet testing
+ * @dev Simple ERC20 implementation for development/testing
  * 
  * Token Info:
  * - Name: USD Coin
  * - Symbol: USDC
  * - Price: $1.00 (stable)
  * - Decimals: 6 (matching real USDC)
- * - Max Supply: Unlimited (stablecoin)
+ * - Max Supply: Unlimited (mint on demand)
  * 
  * Deployment Flow:
  * 1. Deploy on L1 (localnet)
  * 2. Bridge to L2 via Standard Bridge
- * 3. Deploy paymaster on L2
- * 4. Initialize LP pools
- * 5. Distribute to test wallets
+ * 3. Use for paymaster, pools, and testing
  * 
- * Treated identically to CLANKER, VIRTUAL, elizaOS.
+ * Production Usage:
+ * - For production, bridge real USDC from Base instead of deploying this
+ * - This contract is for testing only
+ * 
+ * Treated identically to other protocol tokens (CLANKER, VIRTUAL, elizaOS).
  * No special privileges.
  */
 contract MockJejuUSDC is ERC20, Ownable {

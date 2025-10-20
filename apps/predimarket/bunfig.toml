@@ -1,0 +1,18 @@
+[test]
+preload = ["./tests/setup.ts"]
+
+# Only run unit tests, not e2e
+root = "."
+include = [
+  "**/__tests__/**/*.test.ts",
+  "**/__tests__/**/*.test.tsx",
+  "tests/unit/**/*.test.ts",
+  "tests/unit/**/*.test.tsx"
+]
+exclude = [
+  "**/node_modules/**",
+  "**/.next/**",
+  "**/tests/e2e/**",
+  "**/*.spec.ts"
+]
+

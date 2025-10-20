@@ -3,14 +3,14 @@
  * @module gateway/tests/e2e/app-registry
  */
 
-import { test, expect, setupMetaMask, importTestAccount, connectWallet } from '../fixtures/wallet';
+import { testWithWallet as test, expect } from '../fixtures/wallet';
+import { captureScreenshot, captureUserFlow } from '../../../../tests/shared/helpers/screenshots';
+import { connectWallet } from '../../../../tests/shared/helpers/contracts';
 
 test.describe('App Registry Flow', () => {
-  test.beforeEach(async ({ page }) => {
-    await setupMetaMask(metamask);
-    await importTestAccount(metamask);
-    await page.goto('/');
-    await connectWallet(page);
+  test.beforeEach(async ({ page, wallet }) => {
+    await page.goto('http://localhost:4001');
+    await connectWallet(page, wallet);
     
     // Navigate to App Registry tab
     await page.getByRole('button', { name: /App Registry/i }).click();
@@ -97,11 +97,9 @@ test.describe('App Registry Flow', () => {
 });
 
 test.describe('Register New App Flow', () => {
-  test.beforeEach(async ({ page }) => {
-    await setupMetaMask(metamask);
-    await importTestAccount(metamask);
-    await page.goto('/');
-    await connectWallet(page);
+  test.beforeEach(async ({ page, wallet }) => {
+    await page.goto('http://localhost:4001');
+    await connectWallet(page, wallet);
     
     await page.getByRole('button', { name: /App Registry/i }).click();
     await page.getByRole('button', { name: /Register App/i }).click();
@@ -195,4 +193,5 @@ test.describe('Register New App Flow', () => {
     await expect(page.getByText(/withdraw it anytime/i)).toBeVisible();
   });
 });
+
 

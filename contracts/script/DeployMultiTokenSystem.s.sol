@@ -19,7 +19,7 @@ import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint
  * 
  * For each token, deploys:
  * - LiquidityVault (ETH + token pools)
- * - FeeDistributor (50/50 fee split)
+ * - FeeDistributor (45% apps, 45% LPs, 10% contributors)
  * - LiquidityPaymaster (ERC-4337 gas sponsorship)
  * 
  * Also deploys:

@@ -1,4 +1,4 @@
-import { describe, expect, it, mock, beforeEach } from "bun:test";
+import { describe, expect, it, beforeEach } from "bun:test";
 import { setupTestDb } from "@/__testing__/helpers/db";
 import { getMetricsForInterval } from "./queries";
 import { IntervalType } from "@/lib/date-utils";
@@ -170,16 +170,15 @@ describe.each([
 ])(
   "getMetricsForInterval for $intervalType",
   ({ intervalType, date, seeder, expectedMetrics }) => {
-    let db: ReturnType<typeof setupTestDb>;
+    let testDb: ReturnType<typeof setupTestDb>;
 
     beforeEach(async () => {
-      db = setupTestDb();
-      mock.module("../../../lib/data/db", () => ({ db }));
-      await seeder(db, date);
+      testDb = setupTestDb();
+      await seeder(testDb, date);
     });
 
     it("should correctly aggregate pull request metrics", async () => {
-      const metrics = await getMetricsForInterval(date, intervalType);
+      const metrics = await getMetricsForInterval(date, intervalType, testDb);
       expect(metrics.pullRequests.new).toBe(expectedMetrics.pullRequests.new);
       expect(metrics.pullRequests.merged).toBe(
         expectedMetrics.pullRequests.merged,
@@ -190,14 +189,14 @@ describe.each([
     });
 
     it("should correctly aggregate issue metrics", async () => {
-      const metrics = await getMetricsForInterval(date, intervalType);
+      const metrics = await getMetricsForInterval(date, intervalType, testDb);
       expect(metrics.issues.new).toBe(expectedMetrics.issues.new);
       expect(metrics.issues.closed).toBe(expectedMetrics.issues.closed);
       expect(metrics.issues.total).toBe(expectedMetrics.issues.total);
     });
 
     it("should correctly count active contributors", async () => {
-      const metrics = await getMetricsForInterval(date, intervalType);
+      const metrics = await getMetricsForInterval(date, intervalType, testDb);
       expect(metrics.activeContributors).toBe(
         expectedMetrics.activeContributors,
       );
@@ -206,22 +205,21 @@ describe.each([
 );
 
 describe("getMetricsForInterval edge cases", () => {
-  let db: ReturnType<typeof setupTestDb>;
+  let testDb: ReturnType<typeof setupTestDb>;
 
   beforeEach(async () => {
-    db = setupTestDb();
-    mock.module("../../../lib/data/db", () => ({ db }));
+    testDb = setupTestDb();
   });
 
   it("should throw an error when an invalid date string is provided", async () => {
     const invalidDate = "2024-99-99";
-    await expect(getMetricsForInterval(invalidDate, "day")).rejects.toThrow(
+    await expect(getMetricsForInterval(invalidDate, "day", testDb)).rejects.toThrow(
       "Invalid date format for day interval. Expected YYYY-MM-DD",
     );
   });
 
   it("should return zero for all metrics when no activity occurred in the interval", async () => {
-    const metrics = await getMetricsForInterval("2000-01-01", "day");
+    const metrics = await getMetricsForInterval("2000-01-01", "day", testDb);
     expect(metrics.pullRequests.new).toBe(0);
     expect(metrics.issues.total).toBe(0);
     expect(metrics.activeContributors).toBe(0);

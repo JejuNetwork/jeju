@@ -114,7 +114,7 @@ contract LiquiditySystemIntegrationTest is Test {
         vm.stopPrank();
         
         // Step 5: Verify distributions
-        uint256 expectedAppEarning = withMargin / 2; // 50%
+        uint256 expectedAppEarning = (withMargin * 45) / 100; // 45%
         
         assertEq(distributor.appEarnings(app), appEarningsBefore + expectedAppEarning);
         assertGt(vault.pendingFees(lp1), lpFeesBefore); // LP earned something
@@ -156,10 +156,10 @@ contract LiquiditySystemIntegrationTest is Test {
         distributor.distributeFees(fees, app);
         vm.stopPrank();
         
-        // LPs get 75 total (50% of 150)
-        // 70% of 75 = 52.5 goes to ETH LPs
-        // LP1 should get 2/3 of 52.5 = 35
-        // LP2 should get 1/3 of 52.5 = 17.5
+        // LPs get 67.5 total (45% of 150)
+        // 70% of 67.5 = 47.25 goes to ETH LPs
+        // LP1 should get 2/3 of 47.25 = 31.5
+        // LP2 should get 1/3 of 47.25 = 15.75
         
         uint256 lp1Fees = vault.pendingFees(lp1);
         uint256 lp2Fees = vault.pendingFees(lp2);

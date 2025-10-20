@@ -148,7 +148,7 @@ async function deployRPGGame(
   const deployment: DeployedContracts = {
     gameId: config.gameId,
     network,
-    chainId: (await provider.getNetwork()).chainId,
+    chainId: Number((await provider.getNetwork()).chainId),
     deployedAt: new Date().toISOString(),
     mudWorld,
     goldToken,
@@ -179,7 +179,7 @@ async function deployRPGGame(
   );
 }
 
-async function deployMUDWorld(namespace: string, wallet: ethers.Wallet): Promise<string> {
+async function deployMUDWorld(_namespace: string, wallet: ethers.Wallet): Promise<string> {
   // MUD deployment happens via CLI: mud deploy
   // This is a placeholder - actual deployment uses MUD tooling
   logger.warn('MUD World deployment requires: cd to game dir and run "mud deploy"');
@@ -362,4 +362,5 @@ deployRPGGame(gameName, network as 'localnet' | 'testnet' | 'mainnet')
     logger.error('Deployment failed:', error);
     process.exit(1);
   });
+
 

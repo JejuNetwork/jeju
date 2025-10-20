@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html><head><title>Jeju Indexer - GraphQL Playground</title>
+<style>body{margin:0;font-family:system-ui}#root{height:100vh}</style>
+<script src="https://unpkg.com/graphiql@3/graphiql.min.js" crossorigin></script>
+<link href="https://unpkg.com/graphiql@3/graphiql.min.css" rel="stylesheet" />
+</head><body><div id="root"></div>
+<script>
+const fetcher = GraphiQL.createFetcher({ url: '/graphql' });
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(React.createElement(GraphiQL, { fetcher }));
+</script></body></html>
+

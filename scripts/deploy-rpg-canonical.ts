@@ -191,7 +191,7 @@ async function deployRPGCrossGameEscrow(
 
 async function configureEscrows(
   escrow: string,
-  crossGameEscrow: string,
+  _crossGameEscrow: string,
   goldToken: string,
   itemsToken: string,
   wallet: ethers.Wallet
@@ -207,11 +207,11 @@ async function configureEscrows(
   await escrowContract.setApprovedContract(itemsToken, true);
 }
 
-async function getIdentityRegistryAddress(network: string): Promise<string> {
-  const deploymentPath = join(process.cwd(), 'contracts/deployments', `identity-registry-${network}.json`);
+async function getIdentityRegistryAddress(_network: string): Promise<string> {
+  const deploymentPath = join(process.cwd(), 'contracts/deployments', `identity-registry-${_network}.json`);
   
   if (!existsSync(deploymentPath)) {
-    throw new Error(`IdentityRegistry not deployed on ${network}. Deploy it first.`);
+    throw new Error(`IdentityRegistry not deployed on ${_network}. Deploy it first.`);
   }
   
   const deployment = JSON.parse(readFileSync(deploymentPath, 'utf-8'));
@@ -277,4 +277,5 @@ deployCanonicalRPGContracts(network)
     logger.error('❌ Deployment failed:', error);
     process.exit(1);
   });
+
 

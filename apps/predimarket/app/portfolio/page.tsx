@@ -43,13 +43,13 @@ export default function PortfolioPage() {
               <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
                 <div className="text-sm text-gray-400 mb-1">Total Value</div>
                 <div className="text-3xl font-bold text-white">
-                  {(totalValue / 1e18).toLocaleString()} elizaOS
+                  {(Number(totalValue) / 1e18).toLocaleString()} elizaOS
                 </div>
               </div>
               <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
                 <div className="text-sm text-gray-400 mb-1">Total P&L</div>
-                <div className={`text-3xl font-bold ${totalPnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  {totalPnL >= 0 ? '+' : ''}{(totalPnL / 1e18).toLocaleString()} elizaOS
+                <div className={`text-3xl font-bold ${totalPnL >= 0n ? 'text-green-400' : 'text-red-400'}`}>
+                  {totalPnL >= 0n ? '+' : ''}{(Number(totalPnL) / 1e18).toLocaleString()} elizaOS
                 </div>
               </div>
               <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">

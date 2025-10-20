@@ -9,11 +9,11 @@
  * This rewards both long-term contributors and recent activity.
  */
 
-import { db } from "@/lib/data/db";
-import { userDailyScores } from "@/lib/data/schema";
-import { sql } from "drizzle-orm";
+import { db } from "../data/db";
+import { userDailyScores } from "../data/schema";
+import { sql, and, eq, inArray } from "drizzle-orm";
 import { UTCDate } from "@date-fns/utc";
-import { toDateString } from "@/lib/date-utils";
+import { toDateString } from "../date-utils";
 import { subMonths } from "date-fns";
 
 export interface ContributorScore {
@@ -183,7 +183,7 @@ export async function getContributorWalletAddress(
   username: string,
 ): Promise<string | null> {
   const walletResult = await db.query.walletAddresses.findFirst({
-    where: (walletAddresses, { and, eq }) =>
+    where: (walletAddresses) =>
       and(
         eq(walletAddresses.userId, username),
         eq(walletAddresses.isPrimary, true),
@@ -206,7 +206,7 @@ export async function getContributorWalletAddresses(
   const walletMap = new Map<string, string>();
   
   const wallets = await db.query.walletAddresses.findMany({
-    where: (walletAddresses, { and, eq, inArray }) =>
+    where: (walletAddresses) =>
       and(
         inArray(walletAddresses.userId, usernames),
         eq(walletAddresses.isPrimary, true),

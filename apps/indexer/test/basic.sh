@@ -36,7 +36,7 @@ echo ""
 
 # Test 2: Check build
 echo "2️⃣  Testing TypeScript build..."
-if npm run build > /dev/null 2>&1; then
+if bun run build > /dev/null 2>&1; then
     echo "   ✅ Build successful"
 else
     echo "   ❌ Build failed"
@@ -47,7 +47,7 @@ echo ""
 
 # Test 3: Check processor
 echo "3️⃣  Testing processor..."
-timeout 5 npm run process > /tmp/processor_test.log 2>&1 || true
+timeout 5 bun run process > /tmp/processor_test.log 2>&1 || true
 if grep -q "processing blocks" /tmp/processor_test.log; then
     echo "   ✅ Processor starts correctly"
 else
@@ -59,7 +59,7 @@ echo ""
 
 # Test 4: Check API
 echo "4️⃣  Testing GraphQL API..."
-npm run api > /tmp/api_test.log 2>&1 &
+bun run api > /tmp/api_test.log 2>&1 &
 API_PID=$!
 sleep 3
 
@@ -83,7 +83,7 @@ echo "=================================="
 echo "✅ All tests passed!"
 echo ""
 echo "To start the indexer:"
-echo "  npm run dev     (or: bun run dev)"
+echo "  bun run dev"
 echo ""
 echo "To start with script:"
 echo "  ./start.sh"

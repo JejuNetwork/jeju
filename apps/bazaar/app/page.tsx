@@ -8,7 +8,7 @@ export default function Home() {
         Welcome to Bazaar
       </h1>
       <p className="text-xl text-slate-300 mb-8 max-w-2xl">
-        The unified DeFi + NFT + Token Launchpad on Jeju L3. 
+        The unified DeFi + NFT + Token Launchpad on Jeju. 
         Create and trade tokens, swap with Uniswap V4, provide liquidity, trade NFTs - all in one place.
       </p>
       
@@ -75,7 +75,7 @@ export default function Home() {
       </div>
 
       <div className="mt-16 text-slate-400">
-        <p>Powered by Uniswap V4 on Jeju L3</p>
+        <p>Powered by Uniswap V4 on Jeju</p>
       </div>
     </div>
   )

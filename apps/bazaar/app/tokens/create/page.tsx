@@ -1,19 +1,29 @@
 'use client'
 
 import { useState } from 'react'
-import { useAccount } from 'wagmi'
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { JEJU_CHAIN_ID } from '@/config/chains'
+import { getTokenFactoryContracts, hasTokenFactory } from '@/config/contracts'
 import { toast } from 'sonner'
+import { parseEther } from 'viem'
+import factoryAbi from '@/lib/abis/SimpleERC20Factory.json'
 
 export default function CreateTokenPage() {
-  const { isConnected, chain } = useAccount()
+  const { isConnected, chain, address } = useAccount()
   const [name, setName] = useState('')
   const [symbol, setSymbol] = useState('')
   const [description, setDescription] = useState('')
   const [initialSupply, setInitialSupply] = useState('1000000')
-  const [isCreating, setIsCreating] = useState(false)
+  const [decimals, setDecimals] = useState('18')
 
-  const isCorrectChain = chain?.id === JEJU_CHAIN_ID
+  const isCorrectChain = chain?.id === JEJU_CHAIN_ID || chain?.id === 1337
+  const factoryContracts = getTokenFactoryContracts(chain?.id || JEJU_CHAIN_ID)
+  const hasFactory = hasTokenFactory(chain?.id || JEJU_CHAIN_ID)
+
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const handleCreate = async () => {
     if (!isConnected) {
@@ -22,7 +32,7 @@ export default function CreateTokenPage() {
     }
 
     if (!isCorrectChain) {
-      toast.error(`Please switch to Jeju network (Chain ID: ${JEJU_CHAIN_ID})`)
+      toast.error(`Please switch to Jeju network`)
       return
     }
 
@@ -31,25 +41,51 @@ export default function CreateTokenPage() {
       return
     }
 
-    setIsCreating(true)
+    if (!hasFactory || !factoryContracts) {
+      toast.error('Token factory not deployed on this network')
+      return
+    }
 
-    // TODO: Implement token creation with ERC20 factory contract
-    toast.promise(
-      new Promise((resolve, reject) => {
-        setTimeout(() => {
-          // Simulate token creation
-          resolve({ name, symbol })
-        }, 2000)
-      }),
-      {
-        loading: 'Creating token...',
-        success: `Token ${symbol} created successfully!`,
-        error: 'Failed to create token',
-      }
-    )
-
-    setIsCreating(false)
+    try {
+      const supply = parseEther(initialSupply || '0')
+      
+      writeContract({
+        address: factoryContracts.erc20Factory,
+        abi: factoryAbi,
+        functionName: 'createToken',
+        args: [name, symbol, parseInt(decimals), supply],
+      })
+      
+      toast.success(`Creating token ${symbol}...`, {
+        description: 'Please confirm the transaction in your wallet',
+      })
+    } catch (err: any) {
+      console.error('Token creation error:', err)
+      toast.error('Failed to create token', {
+        description: err.message || 'Unknown error',
+      })
+    }
   }
+
+  // Handle successful transaction
+  if (isSuccess && hash) {
+    toast.success(`Token ${symbol} created successfully!`, {
+      description: 'Your token will appear in the tokens list shortly',
+      action: {
+        label: 'View Tokens',
+        onClick: () => window.location.href = '/tokens',
+      },
+    })
+  }
+
+  // Handle transaction error
+  if (error) {
+    toast.error('Transaction failed', {
+      description: error.message,
+    })
+  }
+
+  const isCreating = isPending || isConfirming
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -126,7 +162,26 @@ export default function CreateTokenPage() {
               className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500"
             />
             <p className="text-sm text-slate-400 mt-1">
-              Number of tokens to mint (will use 18 decimals)
+              Number of tokens to mint (full tokens, will use {decimals} decimals)
+            </p>
+          </div>
+
+          {/* Decimals */}
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Decimals
+            </label>
+            <select
+              value={decimals}
+              onChange={(e) => setDecimals(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500"
+            >
+              <option value="6">6 (like USDC)</option>
+              <option value="8">8 (like Bitcoin)</option>
+              <option value="18">18 (standard)</option>
+            </select>
+            <p className="text-sm text-slate-400 mt-1">
+              Standard is 18 decimals (like ETH)
             </p>
           </div>
 

@@ -24,7 +24,7 @@ interface BridgeTransfer {
   from: Address;
   to: Address;
   amount: bigint;
-  sourceT xHash: string;
+  sourceTxHash: string;
   destinationTxHash?: string;
   status: 'initiated' | 'finalized' | 'failed';
   initiatedAt: number;

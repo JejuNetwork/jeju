@@ -4,12 +4,16 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createPaymentRequirement, checkPayment, PAYMENT_TIERS } from '@/lib/x402';
+import { Address } from 'viem';
+
+const PAYMENT_RECIPIENT = (process.env.NEXT_PUBLIC_PREDIMARKET_PAYMENT_RECIPIENT || '0x0000000000000000000000000000000000000000') as Address;
 
 // CORS headers for A2A cross-origin requests
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, X-Payment',
 };
 
 export async function OPTIONS() {
@@ -51,7 +55,7 @@ interface A2AResponse {
   };
 }
 
-async function executeSkill(skillId: string): Promise<{ message: string; data: Record<string, unknown> }> {
+async function executeSkill(skillId: string, params: Record<string, unknown>, paymentHeader: string | null): Promise<{ message: string; data: Record<string, unknown>; requiresPayment?: any }> {
   const indexerUrl = process.env.NEXT_PUBLIC_INDEXER_URL || 'http://localhost:4350/graphql';
 
   switch (skillId) {
@@ -100,6 +104,38 @@ async function executeSkill(skillId: string): Promise<{ message: string; data: R
       };
     }
 
+    case 'create-market': {
+      const paymentCheck = await checkPayment(paymentHeader, PAYMENT_TIERS.MARKET_CREATION, PAYMENT_RECIPIENT);
+      if (!paymentCheck.paid) {
+        return {
+          message: 'Payment required',
+          data: {},
+          requiresPayment: createPaymentRequirement('/api/a2a', PAYMENT_TIERS.MARKET_CREATION, 'Market creation fee', PAYMENT_RECIPIENT),
+        };
+      }
+      return {
+        message: 'Market creation authorized',
+        data: { question: params.question, fee: PAYMENT_TIERS.MARKET_CREATION.toString() },
+      };
+    }
+
+    case 'place-bet': {
+      const betAmount = BigInt((params.amount as string) || '0');
+      const tradingFee = (betAmount * BigInt(PAYMENT_TIERS.TRADING_FEE)) / BigInt(10000);
+      const paymentCheck = await checkPayment(paymentHeader, tradingFee, PAYMENT_RECIPIENT);
+      if (!paymentCheck.paid) {
+        return {
+          message: 'Payment required',
+          data: {},
+          requiresPayment: createPaymentRequirement('/api/a2a', tradingFee, 'Trading fee (0.5%)', PAYMENT_RECIPIENT),
+        };
+      }
+      return {
+        message: 'Bet placed',
+        data: { marketId: params.marketId, amount: params.amount, fee: tradingFee.toString() },
+      };
+    }
+
     default:
       return {
         message: 'Unknown skill',
@@ -138,6 +174,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<A2ARespon
   }
 
   const skillId = dataPart.data.skillId;
+  const skillParams = (typeof dataPart.data.params === 'object' && dataPart.data.params !== null ? dataPart.data.params : {}) as Record<string, unknown>;
+  const paymentHeader = request.headers.get('X-Payment');
+
   if (!skillId) {
     return NextResponse.json({
       jsonrpc: '2.0',
@@ -146,21 +185,44 @@ export async function POST(request: NextRequest): Promise<NextResponse<A2ARespon
     });
   }
 
-  const result = await executeSkill(skillId);
+  try {
+    const result = await executeSkill(skillId, skillParams, paymentHeader);
 
-  return NextResponse.json({
-    jsonrpc: '2.0',
-    id: body.id,
-    result: {
-      role: 'agent',
-      parts: [
-        { kind: 'text', text: result.message },
-        { kind: 'data', data: result.data },
-      ],
-      messageId: message.messageId,
-      kind: 'message',
-    },
-  }, { headers: CORS_HEADERS });
+    if (result.requiresPayment) {
+      return NextResponse.json({
+        jsonrpc: '2.0',
+        id: body.id,
+        error: {
+          code: 402,
+          message: 'Payment Required',
+          data: result.requiresPayment,
+        },
+      }, { status: 402, headers: CORS_HEADERS });
+    }
+
+    return NextResponse.json({
+      jsonrpc: '2.0',
+      id: body.id,
+      result: {
+        role: 'agent',
+        parts: [
+          { kind: 'text', text: result.message },
+          { kind: 'data', data: result.data },
+        ],
+        messageId: message.messageId,
+        kind: 'message',
+      },
+    }, { headers: CORS_HEADERS });
+  } catch (error) {
+    return NextResponse.json({
+      jsonrpc: '2.0',
+      id: body.id,
+      error: {
+        code: -32603,
+        message: error instanceof Error ? error.message : 'Internal error',
+      },
+    }, { headers: CORS_HEADERS });
+  }
 }
 
 

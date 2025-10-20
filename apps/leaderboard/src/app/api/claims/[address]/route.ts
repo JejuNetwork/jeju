@@ -21,49 +21,57 @@ export async function GET(
     );
   }
 
-  const client = createBlockchainClientFromEnv();
+  try {
+    const client = createBlockchainClientFromEnv();
 
-  // Get current period from contract
-  const currentPeriod = 0; // TODO: Get from contract or config
+    // Get current period from contract
+    const currentPeriod = 0; // TODO: Get from contract or config
 
-  // Get claimable rewards for each period
-  const claimableRewards: {
-    period: number;
-    reward: string;
-    claimed: boolean;
-    finalized: boolean;
-  }[] = [];
+    // Get claimable rewards for each period
+    const claimableRewards: {
+      period: number;
+      reward: string;
+      claimed: boolean;
+      finalized: boolean;
+    }[] = [];
 
-  // Check last 12 periods (1 year)
-  for (let period = Math.max(0, currentPeriod - 12); period <= currentPeriod; period++) {
-    const rewardInfo = await client.getContributorReward(
-      address as Address,
-      period,
-    );
-
-    if (rewardInfo.reward > 0n || rewardInfo.finalized) {
-      claimableRewards.push({
+    // Check last 12 periods (1 year)
+    for (let period = Math.max(0, currentPeriod - 12); period <= currentPeriod; period++) {
+      const rewardInfo = await client.getContributorReward(
+        address as Address,
         period,
-        reward: rewardInfo.reward.toString(),
-        claimed: rewardInfo.claimed,
-        finalized: rewardInfo.finalized,
-      });
+      );
+
+      if (rewardInfo.reward > 0n || rewardInfo.finalized) {
+        claimableRewards.push({
+          period,
+          reward: rewardInfo.reward.toString(),
+          claimed: rewardInfo.claimed,
+          finalized: rewardInfo.finalized,
+        });
+      }
     }
-  }
 
-  // Calculate total claimable
-  const totalClaimable = claimableRewards
-    .filter((r) => !r.claimed && r.finalized)
-    .reduce((sum, r) => sum + BigInt(r.reward), 0n);
-
-  return NextResponse.json({
-    address,
-    totalClaimable: totalClaimable.toString(),
-    periods: claimableRewards,
-    unclaimedPeriods: claimableRewards
+    // Calculate total claimable
+    const totalClaimable = claimableRewards
       .filter((r) => !r.claimed && r.finalized)
-      .map((r) => r.period),
-  });
+      .reduce((sum, r) => sum + BigInt(r.reward), 0n);
+
+    return NextResponse.json({
+      address,
+      totalClaimable: totalClaimable.toString(),
+      periods: claimableRewards,
+      unclaimedPeriods: claimableRewards
+        .filter((r) => !r.claimed && r.finalized)
+        .map((r) => r.period),
+    });
+  } catch (error) {
+    console.error("Error fetching claims:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch claims from blockchain" },
+      { status: 500 },
+    );
+  }
 }
 
 

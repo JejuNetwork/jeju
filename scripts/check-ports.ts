@@ -18,8 +18,7 @@ import {
   checkPortConflicts,
   printPortAllocation,
   getAllCorePorts,
-  getAllVendorPorts,
-  getAllInfraPorts
+  getAllVendorPorts
 } from '../config/ports';
 
 const COLORS = {

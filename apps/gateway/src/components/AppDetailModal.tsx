@@ -7,7 +7,6 @@ import { useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
 import { X, ExternalLink, Trash2, Edit } from 'lucide-react';
 import { useRegistryAppDetails, useRegistry } from '../hooks/useRegistry';
-import { formatTokenAmount } from '../lib/tokenUtils';
 
 interface AppDetailModalProps {
   agentId: bigint;
@@ -16,7 +15,7 @@ interface AppDetailModalProps {
 
 export default function AppDetailModal({ agentId, onClose }: AppDetailModalProps) {
   const { address } = useAccount();
-  const { app, isLoading, refetch } = useRegistryAppDetails(agentId);
+  const { app, isLoading } = useRegistryAppDetails(agentId);
   const { withdrawStake } = useRegistry();
   const [isWithdrawing, setIsWithdrawing] = useState(false);
 
@@ -210,7 +209,7 @@ export default function AppDetailModal({ agentId, onClose }: AppDetailModalProps
               <div style={{
                 padding: '1rem',
                 background: '#fef3c7',
-                border: '1px solid '#f59e0b',
+                border: '1px solid #f59e0b',
                 borderRadius: '8px',
                 marginBottom: '1rem',
               }}>

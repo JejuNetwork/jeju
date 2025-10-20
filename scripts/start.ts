@@ -71,7 +71,7 @@ const indexerDBPort = parseInt(process.env.INDEXER_DB_PORT || '23798');
 console.log("1️⃣  Starting Subsquid Indexer...");
 console.log("   🔄 Setting up database and starting GraphQL server...");
 console.log("   ⏳ This may take 10-15 seconds...");
-const indexerProc = spawn(["npm", "run", "dev"], {
+const indexerProc = spawn(["bun", "run", "dev"], {
   cwd: join(WORKSPACE_ROOT, "apps/indexer"),
   stdout: "inherit",
   stderr: "inherit",

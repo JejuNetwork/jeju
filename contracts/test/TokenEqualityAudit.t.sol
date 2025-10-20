@@ -94,8 +94,9 @@ contract TokenEqualityAudit is Test {
             distributor.setPaymaster(address(paymaster));
             
             // Verify fee split constants are identical
-            assertEq(distributor.APP_SHARE(), 5000, "App share must be 50%");
-            assertEq(distributor.LP_SHARE(), 5000, "LP share must be 50%");
+            assertEq(distributor.APP_SHARE(), 4500, "App share must be 45%");
+            assertEq(distributor.LP_SHARE(), 4500, "LP share must be 45%");
+            assertEq(distributor.CONTRIBUTOR_SHARE(), 1000, "Contributor share must be 10%");
             assertEq(distributor.ETH_LP_SHARE(), 7000, "ETH LP share must be 70%");
             assertEq(distributor.TOKEN_LP_SHARE(), 3000, "Token LP share must be 30%");
         }
@@ -104,7 +105,7 @@ contract TokenEqualityAudit is Test {
     /**
      * @notice CRITICAL: Verify LPs earn SAME % regardless of token
      */
-    function testEQUALITY_LPEarnsSamePercentageAcrossAllTokens() public {
+    function testEQUALITY_LPEarnsSamePercentageAcrossAllTokens() public view {
         // Setup identical scenarios for all tokens
         // LP deposits 10 ETH to each vault
         // User pays 100 tokens for gas
@@ -119,8 +120,8 @@ contract TokenEqualityAudit is Test {
         ];
         
         for (uint256 i = 0; i < tokens.length; i++) {
-            // Each token should result in LP earning 35% of fees
-            // (50% to LPs, 70% of that to ETH LPs = 35% total)
+            // Each token should result in LP earning 31.5% of fees
+            // (45% to LPs, 70% of that to ETH LPs = 31.5% total)
         }
         
         // This test ensures NO token gets preferential treatment
@@ -163,6 +164,9 @@ contract MockEntryPoint {
         balances[msg.sender] -= amount;
         (bool success,) = dest.call{value: amount}("");
         require(success);
+    }
+    function supportsInterface(bytes4) external pure returns (bool) {
+        return true; // Support all interfaces
     }
     receive() external payable {}
 }

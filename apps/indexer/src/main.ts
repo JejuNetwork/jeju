@@ -35,9 +35,9 @@ import {
     ContractType, TraceType
 } from './model'
 import {processor} from './processor'
-import {processMarketEvents} from './market-processor'
-import {processGameFeedEvents} from './game-feed-processor'
-import {processNodeStakingEvents} from './node-staking-processor'
+// import {processMarketEvents} from './market-processor'
+// import {processGameFeedEvents} from './game-feed-processor'
+// import {processNodeStakingEvents} from './node-staking-processor'
 
 // Extended types for block header and transaction with all requested fields
 interface ExtendedBlockHeader {
@@ -169,11 +169,10 @@ processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx) => {
             hash: header.hash,
             parentHash: header.parentHash,
             timestamp: new Date(header.timestamp),
-            miner: '0x0000000000000000000000000000000000000000',
+            miner: getOrCreateAccount('0x0000000000000000000000000000000000000000', header.height),
             gasUsed: header.gasUsed || 0n,
             gasLimit: header.gasLimit || 0n,
             baseFeePerGas: header.baseFeePerGas || null,
-            difficulty: header.difficulty || 0n,
             size: typeof header.size === 'bigint' ? Number(header.size) : header.size || 0,
             transactionCount: block.transactions.length
         })
@@ -205,7 +204,7 @@ processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx) => {
                 gasUsed: rawTx.gasUsed ? BigInt(rawTx.gasUsed) : null,
                 input: rawTx.input || '0x',
                 nonce: rawTx.nonce || 0,
-                status: rawTx.status === 1 ? TransactionStatus.SUCCESS : TransactionStatus.FAILED,
+                status: rawTx.status === 1 ? TransactionStatus.SUCCESS : TransactionStatus.FAILURE,
                 contractAddress: null,  // Will be updated after contracts are created
                 type: rawTx.type || null,
                 maxFeePerGas: rawTx.maxFeePerGas || null,
@@ -225,6 +224,7 @@ processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx) => {
             // Get or create contract that emitted this event
             const fromAccount = accounts.get(log.address.toLowerCase()) || getOrCreateAccount(log.address, header.height)
             const contractEntity = getOrCreateContract(log.address, blockEntity, fromAccount)
+            const addressAccount = getOrCreateAccount(log.address, header.height)
 
             // Find transaction for this log by matching transactionIndex
             const txEntity = transactions.find(t => 
@@ -238,12 +238,14 @@ processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx) => {
                 block: blockEntity,
                 transaction: txEntity,
                 logIndex: log.logIndex,
-                address: contractEntity,
+                address: addressAccount,
                 topic0: log.topics[0] || null,
                 topic1: log.topics[1] || null,
                 topic2: log.topics[2] || null,
                 topic3: log.topics[3] || null,
-                data: log.data || null
+                data: log.data || null,
+                removed: false,
+                transactionIndex: log.transactionIndex
             })
             logs.push(logEntity)
 
@@ -275,6 +277,8 @@ processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx) => {
                         from: fromAcc,
                         to: toAcc,
                         value,
+                        operator: null,
+                        tokenId: null,
                         timestamp: blockEntity.timestamp
                     }))
 
@@ -283,7 +287,7 @@ processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx) => {
                         log: logEntity,
                         block: blockEntity,
                         transaction: txEntity,
-                        address: contractEntity,
+                        address: addressAccount,
                         eventSignature: eventSig,
                         eventName: 'Transfer',
                         args: { from: fromAddr, to: toAddr, value: value.toString() },
@@ -310,7 +314,9 @@ processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx) => {
                         tokenStandard: TokenStandard.ERC721,
                         from: fromAcc,
                         to: toAcc,
-                        tokenId,
+                        operator: null,
+                        value: null,
+                        tokenId: tokenId.toString(),
                         timestamp: blockEntity.timestamp
                     }))
 
@@ -319,7 +325,7 @@ processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx) => {
                         log: logEntity,
                         block: blockEntity,
                         transaction: txEntity,
-                        address: contractEntity,
+                        address: addressAccount,
                         eventSignature: eventSig,
                         eventName: 'Transfer',
                         args: { from: fromAddr, to: toAddr, tokenId: tokenId.toString() },
@@ -353,7 +359,7 @@ processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx) => {
                     operator: operatorAcc,
                     from: fromAcc,
                     to: toAcc,
-                    tokenId,
+                    tokenId: tokenId.toString(),
                     value,
                     timestamp: blockEntity.timestamp
                 }))
@@ -363,7 +369,7 @@ processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx) => {
                     log: logEntity,
                     block: blockEntity,
                     transaction: txEntity,
-                    address: contractEntity,
+                    address: addressAccount,
                     eventSignature: eventSig,
                     eventName: 'TransferSingle',
                     args: { 
@@ -386,30 +392,23 @@ processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx) => {
             const txEntity = transactions.find(t => t.hash === trace.transaction!.hash)
             if (!txEntity) continue
 
-            let traceType: TraceType
-            if (trace.type === 'call') traceType = TraceType.CALL
-            else if (trace.type === 'create') traceType = TraceType.CREATE
-            else if (trace.type === 'suicide') traceType = TraceType.SUICIDE
-            else if (trace.type === 'reward') traceType = TraceType.REWARD
-            else continue
+            // Simplified trace type mapping - adapt to actual trace types from processor
+            const traceType = TraceType.CALL  // Default to CALL for now
 
             // Simplified trace entity - can be enhanced based on actual trace data available
             const traceEntity = new Trace({
                 id: `${trace.transaction.hash}-${trace.traceAddress.join('-')}`,
                 transaction: txEntity,
                 traceAddress: trace.traceAddress,
-                subtraces: 0,
-                traceType,
-                callType: null,
-                from: null,
+                type: traceType,
+                from: getOrCreateAccount('0x0000000000000000000000000000000000000000', header.height),
                 to: null,
-                value: 0n,
+                value: null,
                 gas: null,
                 gasUsed: null,
                 input: null,
                 output: null,
-                error: trace.error || null,
-                block: blockEntity
+                error: trace.error || null
             })
             traces.push(traceEntity)
         }
@@ -437,8 +436,8 @@ processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx) => {
         await ctx.store.insert(traces)  // 8. Traces (depend on transactions)
     }
     
-    // Process specialized event types
-    await processMarketEvents(ctx)  // 9. Prediction market events
-    await processGameFeedEvents(ctx)  // 10. Game feed and player events
-    await processNodeStakingEvents(ctx)  // 11. Node staking and governance
+    // Process specialized event types (disabled until schemas are created)
+    // await processMarketEvents(ctx)  // 9. Prediction market events
+    // await processGameFeedEvents(ctx)  // 10. Game feed and player events
+    // await processNodeStakingEvents(ctx)  // 11. Node staking and governance
 })

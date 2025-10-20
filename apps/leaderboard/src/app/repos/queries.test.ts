@@ -203,7 +203,8 @@ describe("Repository queries", () => {
 
       // Dates and Activity
       expect(repo2?.lastUpdated).toBe(format(oldDate, "yyyy-MM-dd"));
-      expect(repo2?.weeklyCommitCounts.length).toBeGreaterThan(0);
+      // weeklyCommitCounts only includes commits from last 90 days, repo2 only has old commits
+      expect(repo2?.weeklyCommitCounts.length).toBe(0);
     });
   });
 });

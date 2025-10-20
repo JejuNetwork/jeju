@@ -3,8 +3,12 @@
  * Shows agent reputation, stake, labels, bans
  */
 
+'use client';
+
 import { useState, useEffect } from 'react';
-import { Shield, AlertTriangle, Award } from 'lucide-react';
+import { useReadContract } from 'wagmi';
+import { Shield, AlertTriangle } from 'lucide-react';
+import { MODERATION_CONTRACTS } from '../../config/moderation';
 
 interface ReputationViewerProps {
   agentId: bigint;
@@ -19,14 +23,130 @@ interface ReputationData {
   banReason?: string;
 }
 
+const IDENTITY_REGISTRY_ABI = [
+  {
+    name: 'getAgent',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'agentId', type: 'uint256' }],
+    outputs: [
+      {
+        type: 'tuple',
+        components: [
+          { name: 'agentId', type: 'uint256' },
+          { name: 'owner', type: 'address' },
+          { name: 'tier', type: 'uint8' },
+          { name: 'stakedToken', type: 'address' },
+          { name: 'stakedAmount', type: 'uint256' },
+          { name: 'registeredAt', type: 'uint256' },
+          { name: 'lastActivityAt', type: 'uint256' },
+          { name: 'isBanned', type: 'bool' },
+          { name: 'isSlashed', type: 'bool' },
+        ],
+      },
+    ],
+  },
+] as const;
+
+const BAN_MANAGER_ABI = [
+  {
+    name: 'isNetworkBanned',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'agentId', type: 'uint256' }],
+    outputs: [{ name: '', type: 'bool' }],
+  },
+  {
+    name: 'getAppBans',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'agentId', type: 'uint256' }],
+    outputs: [{ name: '', type: 'bytes32[]' }],
+  },
+  {
+    name: 'getBanReason',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'agentId', type: 'uint256' },
+      { name: 'appId', type: 'bytes32' },
+    ],
+    outputs: [{ name: 'reason', type: 'string' }],
+  },
+] as const;
+
+const LABEL_MANAGER_ABI = [
+  {
+    name: 'getLabels',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'agentId', type: 'uint256' }],
+    outputs: [{ name: '', type: 'uint8[]' }],
+  },
+] as const;
+
 export default function ReputationViewer({ agentId }: ReputationViewerProps) {
   const [reputation, setReputation] = useState<ReputationData | null>(null);
-  const [loading, setLoading] = useState(true);
   
+  // Query agent data from IdentityRegistry
+  const { data: agentData, isLoading: loadingAgent } = useReadContract({
+    address: MODERATION_CONTRACTS.IdentityRegistry as `0x${string}`,
+    abi: IDENTITY_REGISTRY_ABI,
+    functionName: 'getAgent',
+    args: [agentId],
+  });
+  
+  // Query ban status
+  const { data: isNetworkBanned, isLoading: loadingBan } = useReadContract({
+    address: MODERATION_CONTRACTS.BanManager as `0x${string}`,
+    abi: BAN_MANAGER_ABI,
+    functionName: 'isNetworkBanned',
+    args: [agentId],
+  });
+  
+  // Query app bans
+  const { data: appBans, isLoading: loadingAppBans } = useReadContract({
+    address: MODERATION_CONTRACTS.BanManager as `0x${string}`,
+    abi: BAN_MANAGER_ABI,
+    functionName: 'getAppBans',
+    args: [agentId],
+  });
+  
+  // Query labels
+  const { data: labelIds, isLoading: loadingLabels } = useReadContract({
+    address: MODERATION_CONTRACTS.ReputationLabelManager as `0x${string}`,
+    abi: LABEL_MANAGER_ABI,
+    functionName: 'getLabels',
+    args: [agentId],
+  });
+  
+  // Query ban reason if banned
+  const { data: banReason } = useReadContract({
+    address: MODERATION_CONTRACTS.BanManager as `0x${string}`,
+    abi: BAN_MANAGER_ABI,
+    functionName: 'getBanReason',
+    args: [agentId, '0x0000000000000000000000000000000000000000000000000000000000000000'],
+    query: { enabled: !!isNetworkBanned },
+  });
+  
+  // Build reputation data
   useEffect(() => {
-    // TODO: Query IdentityRegistry, BanManager, LabelManager
-    setLoading(false);
-  }, [agentId]);
+    if (agentData && typeof isNetworkBanned === 'boolean') {
+      const labels = (labelIds || []).map(id => getLabelName(Number(id)));
+      const appBanNames = (appBans || []).map(bytes32ToAppName);
+      
+      setReputation({
+        stakeTier: agentData.tier,
+        stakeAmount: agentData.stakedAmount,
+        networkBanned: isNetworkBanned,
+        appBans: appBanNames,
+        labels,
+        banReason: banReason as string | undefined,
+      });
+    }
+  }, [agentData, isNetworkBanned, appBans, labelIds, banReason]);
+  
+  const loading = loadingAgent || loadingBan || loadingAppBans || loadingLabels;
   
   if (loading) {
     return <div className="animate-pulse">Loading reputation...</div>;
@@ -104,6 +224,22 @@ function getLabelColor(label: string): string {
   if (label === 'HACKER') return 'bg-red-600 text-white';
   if (label === 'SCAMMER') return 'bg-orange-600 text-white';
   if (label === 'TRUSTED') return 'bg-green-600 text-white';
+  if (label === 'SPAM_BOT') return 'bg-yellow-600 text-white';
   return 'bg-gray-600 text-white';
 }
+
+function getLabelName(labelId: number): string {
+  const labels = ['NONE', 'HACKER', 'SCAMMER', 'SPAM_BOT', 'TRUSTED'];
+  return labels[labelId] || 'UNKNOWN';
+}
+
+function bytes32ToAppName(bytes32: string): string {
+  // Convert bytes32 back to app name
+  // Simplified - in production would have mapping
+  if (bytes32.includes('hyperscape')) return 'Hyperscape';
+  if (bytes32.includes('bazaar')) return 'Bazaar';
+  if (bytes32.includes('gateway')) return 'Gateway';
+  return bytes32.substring(0, 10) + '...';
+}
+
 

@@ -25,10 +25,50 @@ interface IPredictionOracle {
 
 /**
  * @title Predimarket
- * @notice LMSR-based prediction market for Caliguland game outcomes
+ * @notice LMSR-based prediction market for oracle-based games
  * @dev Implements Logarithmic Market Scoring Rule for continuous automated market making
+ * 
+ * Current Implementation: Binary Markets (YES/NO)
+ * - Works with any IPredictionOracle implementation
+ * - Maps contest results to binary outcomes
+ * - Example: "Will Storm or Blaze win?" (horses 2-3 = YES, horses 0-1 = NO)
+ * 
+ * Future Enhancement: Multi-Option Markets
+ * - Add support for "Who will win?" with N options
+ * - Implement LMSR across all options simultaneously
+ * - Example: Thunder | Lightning | Storm | Blaze (4 separate betting pools)
+ * - See docs/enhancements/multi-option-lmsr.md for specification
+ * 
+ * Supported Oracle Types:
+ * - PredictionOracle.sol (Caliguland)
+ * - Contest.sol (eHorse, contests) - maps rankings to binary
+ * - Any IPredictionOracle implementation
  */
 contract Predimarket is ReentrancyGuard, Pausable, Ownable {
+    enum GameType {
+        GENERIC,          // Generic prediction market
+        CALIGULAND,       // Caliguland social deduction game
+        CONTEST,          // Contest oracle (eHorse, tournaments, etc.)
+        HYPERSCAPE,       // Hyperscape RPG battles
+        CUSTOM            // Custom oracle game
+    }
+    
+    enum MarketCategory {
+        GENERAL,
+        MODERATION_NETWORK_BAN,
+        MODERATION_APP_BAN,
+        MODERATION_LABEL_HACKER,
+        MODERATION_LABEL_SCAMMER,
+        MODERATION_APPEAL
+    }
+    
+    struct ModerationMetadata {
+        uint256 targetAgentId;
+        bytes32 evidenceHash;
+        address reporter;
+        uint256 reportId;
+    }
+    
     struct Market {
         bytes32 sessionId;
         string question;
@@ -39,7 +79,13 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
         uint256 createdAt;
         bool resolved;
         bool outcome;
+        GameType gameType;      // Type of game for this market
+        address gameContract;   // Address of game contract (oracle)
+        MarketCategory category; // Moderation category
     }
+    
+    /// @notice Track deposits per market per token (fixes multi-market payout bug)
+    mapping(bytes32 => mapping(address => uint256)) public marketTokenDeposits;
 
     struct Position {
         uint256 yesShares;
@@ -63,9 +109,15 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
     /// @notice Supported payment tokens (elizaOS, CLANKER, VIRTUAL, CLANKERMON)
     mapping(address => bool) public supportedTokens;
     
+    /// @notice Authorized market creators (for moderation system)
+    mapping(address => bool) public authorizedCreators;
+    
+    /// @notice Moderation metadata per market
+    mapping(bytes32 => ModerationMetadata) public moderationMetadata;
+    
     bytes32[] public allMarketIds;
 
-    event MarketCreated(bytes32 indexed sessionId, string question, uint256 liquidity);
+    event MarketCreated(bytes32 indexed sessionId, string question, uint256 liquidity, GameType gameType, address indexed gameContract);
     event SharesPurchased(bytes32 indexed sessionId, address indexed trader, bool outcome, uint256 shares, uint256 cost, address paymentToken);
     event SharesSold(bytes32 indexed sessionId, address indexed trader, bool outcome, uint256 shares, uint256 payout, address paymentToken);
     event MarketResolved(bytes32 indexed sessionId, bool outcome);
@@ -81,6 +133,7 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
     error NoWinningShares();
     error AlreadyClaimed();
     error UnsupportedPaymentToken();
+    error NotAuthorizedCreator();
 
     constructor(
         address _defaultToken,
@@ -106,6 +159,7 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
      * @param supported Whether token should be accepted
      */
     function setTokenSupport(address token, bool supported) external onlyOwner {
+        require(token != address(0), "Invalid token address");
         supportedTokens[token] = supported;
         emit TokenSupportUpdated(token, supported);
     }
@@ -128,6 +182,47 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
         string calldata question,
         uint256 liquidityParameter
     ) external onlyOwner {
+        _createMarketWithType(sessionId, question, liquidityParameter, GameType.GENERIC, address(oracle), MarketCategory.GENERAL);
+    }
+    
+    /**
+     * @notice Create moderation market (authorized creators only)
+     * @param sessionId Market ID
+     * @param question Market question
+     * @param liquidityParameter LMSR liquidity parameter
+     * @param category Moderation category
+     * @param metadata Moderation metadata
+     */
+    function createModerationMarket(
+        bytes32 sessionId,
+        string calldata question,
+        uint256 liquidityParameter,
+        MarketCategory category,
+        ModerationMetadata calldata metadata
+    ) external {
+        if (!authorizedCreators[msg.sender]) revert NotAuthorizedCreator();
+        _createMarketWithType(sessionId, question, liquidityParameter, GameType.GENERIC, address(oracle), category);
+        moderationMetadata[sessionId] = metadata;
+    }
+    
+    function createMarketWithType(
+        bytes32 sessionId,
+        string calldata question,
+        uint256 liquidityParameter,
+        GameType gameType,
+        address gameContract
+    ) external onlyOwner {
+        _createMarketWithType(sessionId, question, liquidityParameter, gameType, gameContract, MarketCategory.GENERAL);
+    }
+    
+    function _createMarketWithType(
+        bytes32 sessionId,
+        string calldata question,
+        uint256 liquidityParameter,
+        GameType gameType,
+        address gameContract,
+        MarketCategory category
+    ) private {
         if (markets[sessionId].createdAt != 0) revert MarketExists();
         if (liquidityParameter == 0) {
             liquidityParameter = DEFAULT_LIQUIDITY;
@@ -142,11 +237,14 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
             totalVolume: 0,
             createdAt: block.timestamp,
             resolved: false,
-            outcome: false
+            outcome: false,
+            gameType: gameType,
+            gameContract: gameContract,
+            category: category
         });
 
         allMarketIds.push(sessionId);
-        emit MarketCreated(sessionId, question, liquidityParameter);
+        emit MarketCreated(sessionId, question, liquidityParameter, gameType, gameContract);
     }
 
     /**
@@ -177,6 +275,9 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
         // Transfer tokens from user
         require(IERC20(token).transferFrom(msg.sender, address(this), tokenAmount), "Transfer failed");
 
+        // Track deposits per market per token
+        marketTokenDeposits[sessionId][token] += tokenAmount;
+
         // Update market state
         if (outcome) {
             market.yesShares += shares;
@@ -198,15 +299,49 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
     }
     
     /**
-     * @notice Buy shares with default payment token (backwards compatibility)
+     * @notice Buy shares with default payment token (simple 4-param version)
      */
     function buy(
         bytes32 sessionId,
         bool outcome,
         uint256 tokenAmount,
         uint256 minShares
-    ) external returns (uint256 shares) {
-        return this.buy(sessionId, outcome, tokenAmount, minShares, address(paymentToken));
+    ) external nonReentrant whenNotPaused returns (uint256 shares) {
+        Market storage market = markets[sessionId];
+        if (market.createdAt == 0) revert MarketNotFound();
+        if (market.resolved) revert MarketAlreadyResolved();
+        
+        // Use default payment token
+        address token = address(paymentToken);
+
+        // Calculate shares received
+        shares = calculateSharesReceived(sessionId, outcome, tokenAmount);
+        if (shares < minShares) revert SlippageTooHigh();
+
+        // Transfer tokens from user
+        require(IERC20(token).transferFrom(msg.sender, address(this), tokenAmount), "Transfer failed");
+
+        // Track deposits per market per token
+        marketTokenDeposits[sessionId][token] += tokenAmount;
+
+        // Update market state
+        if (outcome) {
+            market.yesShares += shares;
+        } else {
+            market.noShares += shares;
+        }
+        market.totalVolume += tokenAmount;
+
+        // Update user position
+        Position storage position = positions[sessionId][msg.sender];
+        if (outcome) {
+            position.yesShares += shares;
+        } else {
+            position.noShares += shares;
+        }
+        position.totalSpent += tokenAmount;
+
+        emit SharesPurchased(sessionId, msg.sender, outcome, shares, tokenAmount, token);
     }
 
     /**
@@ -216,6 +351,7 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
      * @param shareAmount Number of shares to sell
      * @param minPayout Minimum payout to receive (slippage protection)
      * @param token Token to receive payout in
+     * @param deadline Transaction must execute before this timestamp (anti-MEV)
      * @return payout Amount of tokens received
      */
     function sell(
@@ -223,8 +359,11 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
         bool outcome,
         uint256 shareAmount,
         uint256 minPayout,
-        address token
+        address token,
+        uint256 deadline
     ) external nonReentrant whenNotPaused returns (uint256 payout) {
+        require(block.timestamp <= deadline, "Transaction expired");
+        
         Market storage market = markets[sessionId];
         if (market.createdAt == 0) revert MarketNotFound();
         if (market.resolved) revert MarketAlreadyResolved();
@@ -255,6 +394,9 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
         }
         position.totalReceived += payout;
 
+        // Update market deposits (track withdrawals)
+        marketTokenDeposits[sessionId][token] -= payout;
+
         // Transfer payout in requested token
         require(IERC20(token).transfer(msg.sender, payout), "Transfer failed");
 
@@ -262,15 +404,53 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
     }
     
     /**
-     * @notice Sell shares with default payment token (backwards compatibility)
+     * @notice Sell shares with default payment token (simple 4-param version)
      */
     function sell(
         bytes32 sessionId,
         bool outcome,
         uint256 shareAmount,
         uint256 minPayout
-    ) external returns (uint256 payout) {
-        return this.sell(sessionId, outcome, shareAmount, minPayout, address(paymentToken));
+    ) external nonReentrant whenNotPaused returns (uint256 payout) {
+        Market storage market = markets[sessionId];
+        if (market.createdAt == 0) revert MarketNotFound();
+        if (market.resolved) revert MarketAlreadyResolved();
+        
+        // Use default payment token
+        address token = address(paymentToken);
+
+        Position storage position = positions[sessionId][msg.sender];
+        
+        // Check user has enough shares
+        if (outcome && position.yesShares < shareAmount) revert InsufficientShares();
+        if (!outcome && position.noShares < shareAmount) revert InsufficientShares();
+
+        // Calculate payout
+        payout = calculatePayout(sessionId, outcome, shareAmount);
+        if (payout < minPayout) revert SlippageTooHigh();
+
+        // Update market state
+        if (outcome) {
+            market.yesShares -= shareAmount;
+        } else {
+            market.noShares -= shareAmount;
+        }
+
+        // Update user position
+        if (outcome) {
+            position.yesShares -= shareAmount;
+        } else {
+            position.noShares -= shareAmount;
+        }
+        position.totalReceived += payout;
+
+        // Update market deposits (track withdrawals)
+        marketTokenDeposits[sessionId][token] -= payout;
+
+        // Transfer payout to user
+        require(IERC20(token).transfer(msg.sender, payout), "Transfer failed");
+
+        emit SharesSold(sessionId, msg.sender, outcome, shareAmount, payout, token);
     }
 
     /**
@@ -311,13 +491,16 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
 
         uint256 totalWinningShares = market.outcome ? market.yesShares : market.noShares;
         
-        // Proportional payout from pool (minus platform fee)
-        uint256 totalPool = IERC20(token).balanceOf(address(this));
-        uint256 platformFeeAmount = (totalPool * PLATFORM_FEE) / BASIS_POINTS;
-        uint256 payoutPool = totalPool - platformFeeAmount;
+        // Use market-specific pool instead of entire contract balance
+        uint256 marketPool = marketTokenDeposits[sessionId][token];
+        uint256 platformFeeAmount = (marketPool * PLATFORM_FEE) / BASIS_POINTS;
+        uint256 payoutPool = marketPool - platformFeeAmount;
         
         payout = (payoutPool * winningShares) / totalWinningShares;
         position.hasClaimed = true;
+
+        // Update market deposits
+        marketTokenDeposits[sessionId][token] -= (payout + platformFeeAmount);
 
         // Transfer platform fee to treasury
         require(IERC20(token).transfer(treasury, platformFeeAmount), "Transfer failed");
@@ -331,8 +514,40 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
     /**
      * @notice Claim with default payment token (backwards compatibility)
      */
-    function claimPayout(bytes32 sessionId) external returns (uint256 payout) {
-        return this.claimPayout(sessionId, address(paymentToken));
+    function claimPayout(bytes32 sessionId) external nonReentrant returns (uint256 payout) {
+        Market storage market = markets[sessionId];
+        if (!market.resolved) revert MarketNotResolved();
+
+        // Use default payment token
+        address token = address(paymentToken);
+
+        Position storage position = positions[sessionId][msg.sender];
+        if (position.hasClaimed) revert AlreadyClaimed();
+
+        // Calculate payout based on winning shares
+        uint256 winningShares = market.outcome ? position.yesShares : position.noShares;
+        if (winningShares == 0) revert NoWinningShares();
+
+        uint256 totalWinningShares = market.outcome ? market.yesShares : market.noShares;
+        
+        // Use market-specific pool instead of entire contract balance
+        uint256 marketPool = marketTokenDeposits[sessionId][token];
+        uint256 platformFeeAmount = (marketPool * PLATFORM_FEE) / BASIS_POINTS;
+        uint256 payoutPool = marketPool - platformFeeAmount;
+        
+        payout = (payoutPool * winningShares) / totalWinningShares;
+        position.hasClaimed = true;
+
+        // Update market deposits
+        marketTokenDeposits[sessionId][token] -= (payout + platformFeeAmount);
+
+        // Transfer platform fee to treasury
+        require(IERC20(token).transfer(treasury, platformFeeAmount), "Transfer failed");
+        
+        // Transfer payout to user
+        require(IERC20(token).transfer(msg.sender, payout), "Transfer failed");
+
+        emit PayoutClaimed(sessionId, msg.sender, payout);
     }
 
     /**
@@ -537,5 +752,105 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
     function version() external pure returns (string memory) {
         return "1.0.0";
     }
+    
+    /**
+     * @notice Get markets filtered by game type
+     * @param gameType The game type to filter by
+     * @return Market IDs matching the game type
+     */
+    function getMarketsByGameType(GameType gameType) external view returns (bytes32[] memory) {
+        uint256 count = 0;
+        // Gas optimized: cache array length and market
+        uint256 length = allMarketIds.length;
+        for (uint256 i = 0; i < length; i++) {
+            if (markets[allMarketIds[i]].gameType == gameType) {
+                count++;
+            }
+        }
+        
+        bytes32[] memory filtered = new bytes32[](count);
+        uint256 index = 0;
+        for (uint256 i = 0; i < allMarketIds.length; i++) {
+            if (markets[allMarketIds[i]].gameType == gameType) {
+                filtered[index++] = allMarketIds[i];
+            }
+        }
+        
+        return filtered;
+    }
+    
+    /**
+     * @notice Get markets for a specific game contract
+     * @param gameContract Address of the game contract
+     * @return Market IDs for this game
+     */
+    function getMarketsByGame(address gameContract) external view returns (bytes32[] memory) {
+        uint256 count = 0;
+        for (uint256 i = 0; i < allMarketIds.length; i++) {
+            if (markets[allMarketIds[i]].gameContract == gameContract) {
+                count++;
+            }
+        }
+        
+        bytes32[] memory filtered = new bytes32[](count);
+        uint256 index = 0;
+        for (uint256 i = 0; i < allMarketIds.length; i++) {
+            if (markets[allMarketIds[i]].gameContract == gameContract) {
+                filtered[index++] = allMarketIds[i];
+            }
+        }
+        
+        return filtered;
+    }
+    
+    /**
+     * @notice Get markets by category (e.g., all moderation markets)
+     * @param category Market category
+     * @return Market IDs matching category
+     */
+    function getMarketsByCategory(MarketCategory category) external view returns (bytes32[] memory) {
+        uint256 count = 0;
+        for (uint256 i = 0; i < allMarketIds.length; i++) {
+            if (markets[allMarketIds[i]].category == category) {
+                count++;
+            }
+        }
+        
+        bytes32[] memory filtered = new bytes32[](count);
+        uint256 index = 0;
+        for (uint256 i = 0; i < allMarketIds.length; i++) {
+            if (markets[allMarketIds[i]].category == category) {
+                filtered[index++] = allMarketIds[i];
+            }
+        }
+        
+        return filtered;
+    }
+    
+    /**
+     * @notice Add authorized market creator (for moderation system)
+     * @param creator Address to authorize
+     */
+    function addAuthorizedCreator(address creator) external onlyOwner {
+        authorizedCreators[creator] = true;
+    }
+    
+    /**
+     * @notice Remove authorized market creator
+     * @param creator Address to remove
+     */
+    function removeAuthorizedCreator(address creator) external onlyOwner {
+        authorizedCreators[creator] = false;
+    }
+    
+    /**
+     * @notice Get moderation metadata for a market
+     * @param sessionId Market ID
+     * @return Moderation metadata
+     */
+    function getModerationMetadata(bytes32 sessionId) external view returns (ModerationMetadata memory) {
+        return moderationMetadata[sessionId];
+    }
 }
+
 

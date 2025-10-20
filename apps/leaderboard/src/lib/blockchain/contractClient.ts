@@ -243,6 +243,7 @@ export class BlockchainClient {
       abi: FEE_DISTRIBUTOR_V2_ABI,
       functionName: "submitMonthlySnapshot",
       args: [BigInt(period), contributors, shares],
+      account: this.walletClient.account!,
       chain: null,
     });
 
@@ -259,6 +260,7 @@ export class BlockchainClient {
       abi: FEE_DISTRIBUTOR_V2_ABI,
       functionName: "finalizeSnapshot",
       args: [BigInt(period)],
+      account: this.walletClient.account!,
       chain: null,
     });
 

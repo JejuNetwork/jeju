@@ -141,6 +141,7 @@ describe("Scoring queries", () => {
         user.username,
         "2024-07-15",
         "2024-07-17",
+        db,
       );
       expect(result.totalScore).toBe(150);
       expect(result.prScore).toBe(75);
@@ -156,6 +157,7 @@ describe("Scoring queries", () => {
         user.username,
         "2024-07-15",
         "2024-07-16",
+        db,
       );
       expect(result.totalScore).toBe(0);
       expect(result.prScore).toBe(0);
@@ -188,6 +190,8 @@ describe("Scoring queries", () => {
           period as "daily" | "weekly" | "monthly",
           "2024-07-10",
           "2024-07-20",
+          100,
+          db,
         );
 
         if (period === "daily") {
@@ -219,6 +223,8 @@ describe("Scoring queries", () => {
         "daily",
         "2024-07-15",
         "2024-07-18",
+        100,
+        db,
       );
       expect(result.length).toBe(3);
       expect(result[0].cumulativeScore).toBe(100);

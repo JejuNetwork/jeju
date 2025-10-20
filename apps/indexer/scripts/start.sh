@@ -9,7 +9,7 @@ echo ""
 if ! docker ps | grep -q squid-db-1; then
     echo "📊 Starting PostgreSQL database..."
     cd "$(dirname "$0")"
-    npm run db:up
+    bun run db:up
     sleep 5
     
     # Check if database exists
@@ -19,25 +19,25 @@ if ! docker ps | grep -q squid-db-1; then
     fi
     
     echo "🔄 Running migrations..."
-    npm run db:migrate
+    bun run db:migrate
 else
     echo "✅ Database already running"
 fi
 
 echo ""
 echo "🏗️  Building project..."
-npm run build
+bun run build
 
 echo ""
 echo "✅ Setup complete!"
 echo ""
 echo "Starting services..."
 echo "  - Processor: Indexing blockchain data"
-echo "  - GraphQL API: http://localhost:4350/graphql"
+  - GraphQL API: http://localhost:4350/graphql"
 echo ""
 echo "Press Ctrl+C to stop all services"
 echo ""
 
 # Start processor and API in parallel
-npm run dev
+bun run dev
 

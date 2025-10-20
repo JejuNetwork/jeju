@@ -3,7 +3,17 @@
  * @title Node Staking End-to-End Test
  * @notice Comprehensive test of the complete multi-token node staking system
  * 
- * Test Flow:
+ * ⚠️  DISABLED: This file needs complete rewrite for multi-token system
+ * 
+ * The old NodeOperatorRewards has been replaced with NodeStakingManager.
+ * This test file needs to be updated to:
+ * - Deploy TokenRegistry, PaymasterFactory, PriceOracle
+ * - Test multi-token staking (stake ELIZA, earn USDC, etc.)
+ * - Verify paymaster fee distribution
+ * - Test USD-denominated minimums
+ * - Test anti-Sybil protections
+ * 
+ * Original Test Flow (needs updating):
  * 1. Deploy all contracts (TokenRegistry, PaymasterFactory, PriceOracle, NodeStakingManager)
  * 2. Register multiple nodes (multi-token staking)
  * 3. Run oracle to update performance

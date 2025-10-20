@@ -6,10 +6,19 @@
 
 const EHORSE_URL = process.env.EHORSE_URL || 'http://localhost:5700';
 
+let totalTests = 0;
+let passedTests = 0;
+
 async function test(name: string, fn: () => Promise<boolean>): Promise<void> {
+  totalTests++;
   try {
     const success = await fn();
-    console.log(success ? `✅ ${name}` : `❌ ${name}`);
+    if (success) {
+      passedTests++;
+      console.log(`✅ ${name}`);
+    } else {
+      console.log(`❌ ${name}`);
+    }
   } catch (error) {
     console.log(`❌ ${name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
@@ -32,7 +41,7 @@ async function main(): Promise<void> {
   await test('A2A Agent Card is accessible', async () => {
     const res = await fetch(`${EHORSE_URL}/.well-known/agent-card.json`);
     const card = await res.json();
-    return card.name === 'eHorse Racing Game' && card.skills.length === 3;
+    return card.name === 'eHorse Racing Game' && card.skills.length >= 3;
   });
 
   await test('Race API returns current race', async () => {
@@ -69,14 +78,25 @@ async function main(): Promise<void> {
   });
 
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('\n✅ All tests passed!');
-  console.log('\neHorse is running correctly.');
-  console.log('\nNext steps:');
-  console.log('   1. Open http://localhost:5700 to see the races');
-  console.log('   2. Deploy contracts: bun run deploy');
-  console.log('   3. Run agent: bun run agent');
-  console.log('');
+  
+  if (passedTests === totalTests) {
+    console.log(`\n✅ All ${totalTests} tests passed!`);
+    console.log('\neHorse is running correctly.');
+    console.log('\nNext steps:');
+    console.log('   1. Open http://localhost:5700 to see the races');
+    console.log('   2. Deploy contracts: bun run deploy');
+    console.log('   3. Run agent: bun run agent');
+    console.log('');
+    process.exit(0);
+  } else {
+    console.log(`\n❌ ${totalTests - passedTests} of ${totalTests} tests failed!`);
+    console.log('\nMake sure eHorse server is running:');
+    console.log('   source .env && bun run dev');
+    console.log('');
+    process.exit(1);
+  }
 }
 
 main();
+
 

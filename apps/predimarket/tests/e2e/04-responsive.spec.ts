@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { captureScreenshot, captureUserFlow } from '../../../../tests/shared/helpers/screenshots';
 
 test.describe('Responsive Design', () => {
   test('should work on mobile viewport', async ({ page }) => {

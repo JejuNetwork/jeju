@@ -9,6 +9,10 @@ interface IPredimarket {
 }
 
 interface IPredictionOracle {
+    function getOutcome(bytes32 sessionId) external view returns (bool outcome, bool finalized);
+    function verifyCommitment(bytes32 commitment) external view returns (bool);
+    
+    // Optional struct for oracle metadata (PredictionOracle.sol and Contest.sol both support this)
     function games(bytes32 sessionId) external view returns (
         bytes32 _sessionId,
         string memory question,
@@ -26,8 +30,13 @@ interface IPredictionOracle {
 
 /**
  * @title MarketFactory
- * @notice Automatically creates prediction markets when oracle commits new games
- * @dev Listens to PredictionOracle GameCommitted events and creates corresponding markets
+ * @notice Automatically creates prediction markets for any IPredictionOracle implementation
+ * @dev Works with PredictionOracle.sol (Caliguland), Contest.sol (eHorse/contests), or custom oracles
+ * 
+ * Supported Oracle Types:
+ * - PredictionOracle.sol: Generic game oracle with commit-reveal
+ * - Contest.sol: TEE-based contest oracle with attestation
+ * - Custom: Any contract implementing IPredictionOracle
  */
 contract MarketFactory is Ownable, Pausable {
     IPredimarket public immutable predimarket;

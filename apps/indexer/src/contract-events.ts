@@ -157,8 +157,8 @@ export const EVENT_REGISTRY: Record<string, EventCategory> = {
   [ITEM_MINTED]: { signature: ITEM_MINTED, name: 'ItemMinted', category: 'game', contract: 'HyperscapeItems' },
   
   // Marketplace events
-  [LISTING_CREATED]: { signature: LISTING_CREATED, name: 'ListingCreated', category: 'marketplace', contract: 'JejuBazaar' },
-  [LISTING_SOLD]: { signature: LISTING_SOLD, name: 'ListingSold', category: 'marketplace', contract: 'JejuBazaar' },
+  [LISTING_CREATED]: { signature: LISTING_CREATED, name: 'ListingCreated', category: 'marketplace', contract: 'Bazaar' },
+  [LISTING_SOLD]: { signature: LISTING_SOLD, name: 'ListingSold', category: 'marketplace', contract: 'Bazaar' },
   [TRADE_EXECUTED]: { signature: TRADE_EXECUTED, name: 'TradeExecuted', category: 'marketplace', contract: 'PlayerTradeEscrow' },
   
   // Prediction market events

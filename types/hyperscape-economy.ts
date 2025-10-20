@@ -118,15 +118,18 @@ export enum TradeStatus {
   EXPIRED = 'expired'
 }
 
-// ============ JejuBazaar Types ============
+// ============ Bazaar Types ============
 
-export interface JejuBazaarConfig {
+export interface BazaarConfig {
   address: Address;
   hyperscapeGold: Address;
   usdc: Address;
   feeRecipient: Address;
   platformFeeBps: number;
 }
+
+// @deprecated Use BazaarConfig instead
+export type JejuBazaarConfig = BazaarConfig;
 
 export enum MarketplaceCurrency {
   ETH = 0,
@@ -344,20 +347,23 @@ export interface PlayerTradeEscrowContract {
   };
 }
 
-export interface JejuBazaarContract {
+export interface BazaarContract {
   address: Address;
   abi: readonly unknown[];
   read: {
     listings: (listingId: bigint) => Promise<MarketplaceListing>;
     getListing: (listingId: bigint) => Promise<MarketplaceListing>;
-    getTokenListing: (nftContract: Address, tokenId: bigint) => Promise<bigint>;
+    getTokenListing: (assetContract: Address, tokenId: bigint) => Promise<bigint>;
     platformFeeBps: () => Promise<bigint>;
   };
   write: {
     createListing: (
-      nftContract: Address,
+      assetType: number, // AssetType enum
+      assetContract: Address,
       tokenId: bigint,
+      amount: bigint,
       currency: MarketplaceCurrency,
+      customCurrencyAddress: Address,
       price: bigint,
       duration: number
     ) => Promise<bigint>;
@@ -365,6 +371,9 @@ export interface JejuBazaarContract {
     cancelListing: (listingId: bigint) => Promise<Hash>;
   };
 }
+
+// @deprecated Use BazaarContract instead
+export type JejuBazaarContract = BazaarContract;
 
 // ============ UI State Types ============
 

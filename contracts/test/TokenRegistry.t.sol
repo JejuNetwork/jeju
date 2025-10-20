@@ -503,7 +503,7 @@ contract TokenRegistryTest is Test {
         registry.registerToken{value: 0.1 ether}(address(tokenA), address(oracle), 0, 200);
         
         vm.prank(attacker);
-        vm.expectRevert("Only owner or factory");
+        vm.expectRevert("Only owner");
         registry.updateTokenVolume(address(tokenA), 1 ether);
     }
     

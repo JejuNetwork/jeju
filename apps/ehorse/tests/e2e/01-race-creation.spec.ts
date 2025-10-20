@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { captureScreenshot, captureUserFlow } from '../../../../tests/shared/helpers/screenshots';
 
 const EHORSE_URL = process.env.EHORSE_URL || 'http://localhost:5700';
 

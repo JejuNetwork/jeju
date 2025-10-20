@@ -14,10 +14,34 @@ interface BridgeTransfer {
   txHash?: string;
 }
 
+/**
+ * Bridge History Component
+ * 
+ * CURRENT: Returns empty array (no transfers shown)
+ * 
+ * TO MAKE REAL: Query Subsquid indexer:
+ * ```
+ * const { data: transfers } = useQuery({
+ *   queryKey: ['bridgeTransfers', address],
+ *   queryFn: async () => {
+ *     const response = await fetch('http://localhost:4350/graphql', {
+ *       method: 'POST',
+ *       body: JSON.stringify({
+ *         query: `query { bridgeTransfers(where: {user: "${address}"}) { ... } }`
+ *       })
+ *     });
+ *     return (await response.json()).data.bridgeTransfers;
+ *   }
+ * });
+ * ```
+ * 
+ * REASON: Requires indexer integration
+ * IMPACT: None on core bridging functionality (just history display)
+ */
 export default function BridgeHistory() {
   const { getToken } = useProtocolTokens();
 
-  // Mock data - would come from indexer/events in production
+  // MOCK - Returns empty array. See comment above for real implementation.
   const transfers: BridgeTransfer[] = useMemo(() => [], []);
 
   if (transfers.length === 0) {

@@ -4,10 +4,10 @@
   "description": "Comprehensive blockchain indexer for Jeju",
   "scripts": {
     "build": "rm -rf lib && tsc",
-    "predev": "npm run db:cleanup && npm run db:up && npm run db:wait && npm run db:create && npm run db:migrate",
+    "predev": "bun run db:cleanup && bun run db:up && bun run db:wait && bun run db:create && bun run db:migrate",
     "dev": "concurrently --kill-others \"sqd process:dev\" \"sqd serve\"",
     "dev:skip-setup": "concurrently --kill-others \"sqd process:dev\" \"sqd serve\"",
-    "start": "npm run process",
+    "start": "bun run process",
     "start:script": "chmod +x scripts/start.sh && ./scripts/start.sh",
     "db:cleanup": "docker rm -f squid-db-1 2>/dev/null || true",
     "db:up": "sqd up",
@@ -15,7 +15,7 @@
     "db:wait": "until docker exec squid-db-1 pg_isready -U postgres 2>/dev/null; do echo 'Waiting for database...'; sleep 1; done",
     "db:create": "docker exec squid-db-1 psql -U postgres -c 'CREATE DATABASE indexer;' || docker exec squid-db-1 psql -U postgres -c 'SELECT 1' > /dev/null",
     "db:migrate": "sqd migration:apply",
-    "db:reset": "npm run db:down && npm run db:up && npm run db:wait && npm run db:create && npm run db:migrate",
+    "db:reset": "bun run db:down && bun run db:up && bun run db:wait && bun run db:create && bun run db:migrate",
     "process": "sqd process",
     "api": "sqd serve",
     "codegen": "sqd codegen",
@@ -28,8 +28,8 @@
     "test:contracts": "chmod +x test/contract-interaction.sh && ./test/contract-interaction.sh",
     "test:e2e": "chmod +x test/e2e.test.sh && ./test/e2e.test.sh",
     "test:integration": "bun test/integration.test.ts",
-    "test:all": "npm run test && npm run test:data && npm run test:e2e",
-    "verify": "npm run test:data"
+    "test:all": "bun run test && bun run test:data && bun run test:e2e",
+    "verify": "bun run test:data"
   },
   "dependencies": {
     "@subsquid/evm-abi": "^0.3.0",

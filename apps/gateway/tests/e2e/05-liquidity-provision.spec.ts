@@ -3,14 +3,14 @@
  * @module gateway/tests/e2e/liquidity-provision
  */
 
-import { test, expect, setupMetaMask, importTestAccount, connectWallet } from '../fixtures/wallet';
+import { testWithWallet as test, expect } from '../fixtures/wallet';
+import { captureScreenshot, captureUserFlow } from '../../../../tests/shared/helpers/screenshots';
+import { connectWallet } from '../../../../tests/shared/helpers/contracts';
 
 test.describe('Add Liquidity Flow', () => {
-  test.beforeEach(async ({ page }) => {
-    await setupMetaMask(metamask);
-    await importTestAccount(metamask);
-    await page.goto('/');
-    await connectWallet(page);
+  test.beforeEach(async ({ page, wallet }) => {
+    await page.goto('http://localhost:4001');
+    await connectWallet(page, wallet);
     
     // Navigate to Liquidity tab
     await page.getByRole('button', { name: /Add Liquidity/i }).click();
@@ -145,4 +145,5 @@ test.describe('LP Dashboard Flow', () => {
     expect(claimCount >= 0).toBe(true);
   });
 });
+
 

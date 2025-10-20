@@ -66,6 +66,20 @@ export const CORE_PORTS = {
     get: () => parseInt(process.env.BAZAAR_PORT || '4006')
   },
 
+  /** IPFS Storage Service - Decentralized file storage with x402 payments */
+  IPFS: {
+    DEFAULT: 3100,
+    ENV_VAR: 'IPFS_PORT',
+    get: () => parseInt(process.env.IPFS_PORT || '3100')
+  },
+
+  /** IPFS Node (Kubo) - IPFS daemon API */
+  IPFS_NODE: {
+    DEFAULT: 4100,
+    ENV_VAR: 'IPFS_NODE_PORT',
+    get: () => parseInt(process.env.IPFS_NODE_PORT || '4100')
+  },
+
   /** Indexer GraphQL - Subsquid data indexing */
   INDEXER_GRAPHQL: {
     DEFAULT: 4350,
@@ -114,11 +128,25 @@ export const VENDOR_PORTS = {
     get: () => parseInt(process.env.VENDOR_LAUNCHPAD_BACKEND_PORT || '5004')
   },
 
-  /** TheDesk - OTC trading agent */
-  THEDESK: {
+  /** OTC Trading Desk (TheDesk) - AI-powered OTC trading agent */
+  OTC_DESK: {
     DEFAULT: 5005,
-    ENV_VAR: 'VENDOR_THEDESK_PORT',
-    get: () => parseInt(process.env.VENDOR_THEDESK_PORT || '5005')
+    ENV_VAR: 'VENDOR_OTC_DESK_PORT',
+    get: () => parseInt(process.env.VENDOR_OTC_DESK_PORT || process.env.VENDOR_THEDESK_PORT || '5005')
+  },
+
+  /** OTC Trading Desk Database (PostgreSQL) */
+  OTC_DESK_DB: {
+    DEFAULT: 5439,
+    ENV_VAR: 'VENDOR_OTC_DESK_DB_PORT',
+    get: () => parseInt(process.env.VENDOR_OTC_DESK_DB_PORT || '5439')
+  },
+
+  /** OTC Trading Desk Worker */
+  OTC_DESK_WORKER: {
+    DEFAULT: 3137,
+    ENV_VAR: 'VENDOR_OTC_DESK_WORKER_PORT',
+    get: () => parseInt(process.env.VENDOR_OTC_DESK_WORKER_PORT || '3137')
   },
 
   /** Cloud - Jeju cloud dashboard */
@@ -149,7 +177,7 @@ export const VENDOR_PORTS = {
     get: () => parseInt(process.env.VENDOR_CALIGULAND_AUTH_PORT || '5009')
   },
 
-  /** Elizagotchi */
+  /** redteam */
   ELIZAGOTCHI: {
     DEFAULT: 5010,
     ENV_VAR: 'VENDOR_ELIZAGOTCHI_PORT',

@@ -41,7 +41,7 @@ async function main() {
     5005, // TheDesk
     5006, // Cloud
     5007, 5008, 5009, // Caliguland
-    5010, // Elizagotchi
+    5010, // redteam
     8545, 9545, // RPC
     9090, // Prometheus
   ];

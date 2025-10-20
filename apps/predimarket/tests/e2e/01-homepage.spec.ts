@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { captureScreenshot, captureUserFlow } from '../../../../tests/shared/helpers/screenshots';
 
 test.describe('Predimarket Homepage', () => {
   test.beforeEach(async ({ page }) => {

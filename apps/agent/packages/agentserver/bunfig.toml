@@ -1,4 +1,0 @@
-[test]
-preload = ["./test-setup.ts"]
-# Run only unit tests by default, skip integration tests
-pattern = ["src/__tests__/*.test.ts", "!src/__tests__/integration/**"]

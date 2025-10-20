@@ -3,14 +3,14 @@
  * @module gateway/tests/e2e/bridge-tokens
  */
 
-import { test, expect, setupMetaMask, importTestAccount, connectWallet } from '../fixtures/wallet';
+import { testWithWallet as test, expect } from '../fixtures/wallet';
+import { captureScreenshot, captureUserFlow } from '../../../../tests/shared/helpers/screenshots';
+import { connectWallet } from '../../../../tests/shared/helpers/contracts';
 
 test.describe('Bridge from Base Flow', () => {
-  test.beforeEach(async ({ page }) => {
-    await setupMetaMask(metamask);
-    await importTestAccount(metamask);
-    await page.goto('/');
-    await connectWallet(page);
+  test.beforeEach(async ({ page, wallet }) => {
+    await page.goto('http://localhost:4001');
+    await connectWallet(page, wallet);
     
     // Navigate to Bridge tab
     await page.getByRole('button', { name: /Bridge from Base/i }).click();
@@ -110,4 +110,5 @@ test.describe('Bridge from Base Flow', () => {
     await expect(bridgeButton).toBeDisabled();
   });
 });
+
 

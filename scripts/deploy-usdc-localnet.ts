@@ -2,8 +2,8 @@
 /**
  * Deploy USDC to Jeju Localnet
  * 
- * Deploys JejuUSDC with x402 EIP-3009 support to local Jeju chain
- * Automatically configures for local development with faucet enabled
+ * Deploys MockJejuUSDC (simple USDC mock) to local Jeju chain
+ * Automatically provides faucet for local development
  */
 
 import { execSync } from 'child_process';
@@ -54,19 +54,17 @@ async function deployUSDCLocalnet(): Promise<DeploymentAddresses> {
   }
 
   console.log('');
-  console.log('📝 Step 1: Deploying JejuUSDC...');
+  console.log('📝 Step 1: Deploying MockJejuUSDC...');
   
-  // Deploy USDC with:
-  // - Treasury = deployer (for simplicity)
-  // - Initial supply = 1,000,000 USDC
-  // - Faucet enabled = true
-  const initialSupply = '1000000000000'; // 1M USDC (6 decimals)
+  // Deploy MockJejuUSDC with:
+  // - Initial owner = deployer
+  // - Initial supply = 100M USDC (minted on deployment)
   
   const usdcDeploy = execSync(
-    `cd contracts && forge create src/tokens/JejuUSDC.sol:JejuUSDC \
+    `cd contracts && forge create src/tokens/MockJejuUSDC.sol:MockJejuUSDC \
       --rpc-url ${rpcUrl} \
       --private-key ${deployerKey} \
-      --constructor-args ${deployerAddress} ${initialSupply} true \
+      --constructor-args ${deployerAddress} \
       --json`,
     { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 }
   );
@@ -75,8 +73,8 @@ async function deployUSDCLocalnet(): Promise<DeploymentAddresses> {
   const usdcAddress = usdcResult.deployedTo;
 
   console.log('✅ USDC deployed at:', usdcAddress);
-  console.log('   Deployer balance: 1,000,000 USDC');
-  console.log('   Faucet: Enabled (100 USDC per 24 hours)');
+  console.log('   Initial supply: 100,000,000 USDC minted to deployer');
+  console.log('   Faucet: Available (100,000 USDC per call)');
   console.log('');
 
   // Test faucet
@@ -98,7 +96,7 @@ async function deployUSDCLocalnet(): Promise<DeploymentAddresses> {
     const balanceNum = parseInt(balance, 16) / 1e6;
     console.log(`✅ Faucet claimed successfully! Balance: ${balanceNum} USDC`);
   } catch (error) {
-    console.log('⚠️  Faucet claim skipped (already claimed recently)');
+    console.log('⚠️  Faucet test failed (non-critical)');
   }
   console.log('');
 
@@ -133,11 +131,8 @@ async function deployUSDCLocalnet(): Promise<DeploymentAddresses> {
   console.log('2. Get testnet USDC via faucet:');
   console.log(`   cast send ${usdcAddress} "faucet()" --rpc-url ${rpcUrl} --private-key $YOUR_KEY`);
   console.log('');
-  console.log('3. Deploy facilitator:');
-  console.log('   bun run scripts/deploy-jeju-facilitator.ts');
-  console.log('');
-  console.log('4. Test x402 payments:');
-  console.log('   cd mcp-gateway && bun test tests/jeju-localnet-payment.test.ts');
+  console.log('3. Bridge USDC from L1 to L2 for testing:');
+  console.log('   bun run scripts/bridge-multi-tokens.ts');
   console.log('');
 
   return deployment;

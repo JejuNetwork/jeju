@@ -1,0 +1,8 @@
+export enum TraceType {
+    CALL = "CALL",
+    DELEGATECALL = "DELEGATECALL",
+    STATICCALL = "STATICCALL",
+    CREATE = "CREATE",
+    CREATE2 = "CREATE2",
+    SELFDESTRUCT = "SELFDESTRUCT",
+}

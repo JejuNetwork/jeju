@@ -1,5 +1,5 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
-import { db } from "@/lib/data/db";
+import { db as defaultDb } from "@/lib/data/db";
 import {
   QueryParams,
   buildCommonWhereConditions,
@@ -17,12 +17,14 @@ import { categorizeWorkItem } from "@/lib/pipelines/codeAreaHelpers";
 import { getActiveContributors } from "../getActiveContributors";
 import { getTopUsersByScore } from "@/lib/scoring/queries";
 import { getIntervalTypeFromDateRange } from "@/lib/date-utils";
+import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import * as schema from "@/lib/data/schema";
 
 /**
  * Get top pull requests for a repository in a time period
  */
 
-export async function getTopPullRequests(params: QueryParams = {}, limit = 5) {
+export async function getTopPullRequests(params: QueryParams = {}, limit = 5, db: BunSQLiteDatabase<typeof schema> = defaultDb) {
   const whereConditions = buildCommonWhereConditions(params, rawPullRequests, [
     "createdAt",
     "mergedAt",
@@ -53,7 +55,7 @@ export async function getTopPullRequests(params: QueryParams = {}, limit = 5) {
  * Get top issues for a repository in a time period
  */
 
-export async function getTopIssues(params: QueryParams = {}, limit = 5) {
+export async function getTopIssues(params: QueryParams = {}, limit = 5, db: BunSQLiteDatabase<typeof schema> = defaultDb) {
   const whereConditions = [
     // Include issues that are either:
     // 1. Currently open, or
@@ -111,7 +113,7 @@ export async function getTopIssues(params: QueryParams = {}, limit = 5) {
  * Get top contributors ranked by activity score
  */
 
-export async function getTopContributors(params: QueryParams = {}, limit = 5) {
+export async function getTopContributors(params: QueryParams = {}, limit = 5, db: BunSQLiteDatabase<typeof schema> = defaultDb) {
   const { dateRange } = params;
 
   try {
@@ -119,6 +121,7 @@ export async function getTopContributors(params: QueryParams = {}, limit = 5) {
       dateRange?.startDate,
       dateRange?.endDate,
       limit,
+      db,
     );
 
     if (!topUsers || topUsers.length === 0) {
@@ -167,7 +170,7 @@ export async function getTopContributors(params: QueryParams = {}, limit = 5) {
  * Get project metrics for a specific time interval
  */
 
-export async function getRepoMetrics(params: QueryParams = {}) {
+export async function getRepoMetrics(params: QueryParams = {}, db: BunSQLiteDatabase<typeof schema> = defaultDb) {
   const { repository, dateRange } = params;
   const prCreatedConditions = buildCommonWhereConditions(
     params,
@@ -273,7 +276,7 @@ export async function getRepoMetrics(params: QueryParams = {}) {
   const activeContributors = await getActiveContributors({
     repository,
     dateRange: dateRange || { startDate: "1970-01-01", endDate: "2100-01-01" },
-  });
+  }, db);
 
   const uniqueContributors = activeContributors.length;
 
@@ -301,6 +304,7 @@ export async function getRepoMetrics(params: QueryParams = {}) {
       dateRange,
     },
     100,
+    db,
   );
 
   // Get PR files for merged PRs in this period

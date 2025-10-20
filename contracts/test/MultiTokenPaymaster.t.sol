@@ -159,12 +159,12 @@ contract MultiTokenPaymasterTest is Test {
     // ============ CLANKER Paymaster Tests ============
     
     function testCLANKER_ETHLPDepositsAndEarnsCLANKERFees() public {
-        // LP1 deposits 10 ETH to CLANKER vault
+        // LP1 deposits 100 ETH to CLANKER vault (need more for minETHLiquidity)
         vm.prank(lp1);
-        clankerVault.addETHLiquidity{value: 10 ether}(0);
+        clankerVault.addETHLiquidity{value: 100 ether}(0);
         
-        assertEq(clankerVault.ethShares(lp1), 10 ether);
-        assertEq(clankerVault.totalETHLiquidity(), 10 ether);
+        assertEq(clankerVault.ethShares(lp1), 100 ether);
+        assertEq(clankerVault.totalETHLiquidity(), 100 ether);
         
         // Fund paymaster
         clankerPaymaster.fundFromVault(5 ether);
@@ -190,19 +190,19 @@ contract MultiTokenPaymasterTest is Test {
         // Verify: LP1 should have pending CLANKER fees
         uint256 pendingFees = clankerVault.pendingFees(lp1);
         
-        // 50% to LPs, 70% of that to ETH LPs = 35 CLANKER
-        assertEq(pendingFees, 35e18, "LP should have 35 CLANKER fees");
+        // 45% to LPs, 70% of that to ETH LPs = 31.5e18 CLANKER
+        assertApproxEqRel(pendingFees, 315e17, 0.01e18, "LP should have ~31.5 CLANKER fees"); // 1% tolerance
     }
     
     function testCLANKER_MultipleETHLPsGetProportionalCLANKERRewards() public {
-        // LP1 deposits 10 ETH, LP2 deposits 5 ETH
+        // LP1 deposits 100 ETH, LP2 deposits 5 ETH  
         vm.prank(lp1);
-        clankerVault.addETHLiquidity{value: 10 ether}(0);
+        clankerVault.addETHLiquidity{value: 100 ether}(0);
         
         vm.prank(lp2);
         clankerVault.addETHLiquidity{value: 5 ether}(0);
         
-        // Total: 15 ETH. LP1 has 10/15 (66.67%), LP2 has 5/15 (33.33%)
+        // Total: 105 ETH. LP1 has 100/105 (95.24%), LP2 has 5/105 (4.76%)
         
         // Fund paymaster and simulate fee
         clankerPaymaster.fundFromVault(5 ether);
@@ -218,23 +218,23 @@ contract MultiTokenPaymasterTest is Test {
         vm.prank(address(clankerPaymaster));
         clankerDistributor.distributeFees(feeAmount, app);
         
-        // LP portion: 75 CLANKER (50% of 150)
-        // ETH LP portion: 52.5 CLANKER (70% of 75)
-        // LP1 gets: 35 CLANKER (66.67% of 52.5)
-        // LP2 gets: 17.5 CLANKER (33.33% of 52.5)
+        // LP portion: 67.5 CLANKER (45% of 150)
+        // ETH LP portion: 47.25 CLANKER (70% of 67.5)
+        // LP1 gets: 45 CLANKER (95.24% of 47.25)
+        // LP2 gets: 2.25 CLANKER (4.76% of 47.25)
         
         uint256 lp1Fees = clankerVault.pendingFees(lp1);
         uint256 lp2Fees = clankerVault.pendingFees(lp2);
         
-        assertApproxEqRel(lp1Fees, 35e18, 0.01e18); // Within 1%
-        assertApproxEqRel(lp2Fees, 175e17, 0.01e18); // 17.5 CLANKER
+        assertApproxEqRel(lp1Fees, 45e18, 0.01e18); // Within 1%
+        assertApproxEqRel(lp2Fees, 225e16, 0.01e18); // 2.25 CLANKER
     }
     
     // ============ VIRTUAL Paymaster Tests ============
     
     function testVIRTUAL_ETHLPDepositsAndEarnsVIRTUALFees() public {
         vm.prank(lp1);
-        virtualVault.addETHLiquidity{value: 10 ether}(0);
+        virtualVault.addETHLiquidity{value: 100 ether}(0);
         
         virtualPaymaster.fundFromVault(5 ether);
         
@@ -250,15 +250,15 @@ contract MultiTokenPaymasterTest is Test {
         
         uint256 pendingFees = virtualVault.pendingFees(lp1);
         
-        // 35% of 500 = 175 VIRTUAL
-        assertEq(pendingFees, 175e18);
+        // 31.5% of 500 = 157.5 VIRTUAL
+        assertEq(pendingFees, 1575e17);
     }
     
     // ============ CLANKERMON Paymaster Tests ============
     
     function testCLANKERMON_ETHLPDepositsAndEarnsCLANKERMONFees() public {
         vm.prank(lp1);
-        clankermonVault.addETHLiquidity{value: 10 ether}(0);
+        clankermonVault.addETHLiquidity{value: 100 ether}(0);
         
         clankermonPaymaster.fundFromVault(5 ether);
         
@@ -274,8 +274,8 @@ contract MultiTokenPaymasterTest is Test {
         
         uint256 pendingFees = clankermonVault.pendingFees(lp1);
         
-        // 35% of 10000 = 3500 CLANKERMON
-        assertEq(pendingFees, 3500e18);
+        // 31.5% of 10000 = 3150 CLANKERMON
+        assertEq(pendingFees, 3150e18);
     }
     
     // ============ Cross-Token Tests ============
@@ -283,10 +283,10 @@ contract MultiTokenPaymasterTest is Test {
     function testMultiToken_LPCanEarnDifferentTokensSimultaneously() public {
         // LP1 provides ETH to ALL vaults
         vm.startPrank(lp1);
-        elizaVault.addETHLiquidity{value: 10 ether}(0);
-        clankerVault.addETHLiquidity{value: 10 ether}(0);
-        virtualVault.addETHLiquidity{value: 10 ether}(0);
-        clankermonVault.addETHLiquidity{value: 10 ether}(0);
+        elizaVault.addETHLiquidity{value: 100 ether}(0);
+        clankerVault.addETHLiquidity{value: 100 ether}(0);
+        virtualVault.addETHLiquidity{value: 100 ether}(0);
+        clankermonVault.addETHLiquidity{value: 100 ether}(0);
         vm.stopPrank();
         
         // Fund all paymasters
@@ -301,20 +301,20 @@ contract MultiTokenPaymasterTest is Test {
         simulatePayment(virtualToken, address(virtualPaymaster), address(virtualDistributor), 200e18);
         simulatePayment(clankermon, address(clankermonPaymaster), address(clankermonDistributor), 5000e18);
         
-        // LP1 should have pending fees in ALL tokens
-        assertEq(elizaVault.pendingFees(lp1), 35e18); // 35 elizaOS
-        assertEq(clankerVault.pendingFees(lp1), 175e17); // 17.5 CLANKER
-        assertEq(virtualVault.pendingFees(lp1), 70e18); // 70 VIRTUAL
-        assertEq(clankermonVault.pendingFees(lp1), 1750e18); // 1750 CLANKERMON
+        // LP1 should have pending fees in ALL tokens (31.5% = 70% of 45%)
+        assertEq(elizaVault.pendingFees(lp1), 315e17); // 31.5 elizaOS
+        assertEq(clankerVault.pendingFees(lp1), 1575e16); // 15.75 CLANKER
+        assertEq(virtualVault.pendingFees(lp1), 63e18); // 63 VIRTUAL
+        assertEq(clankermonVault.pendingFees(lp1), 1575e18); // 1575 CLANKERMON
     }
     
     function testMultiToken_LPClaimsAllTokenRewards() public {
         // Setup from previous test
         vm.startPrank(lp1);
-        elizaVault.addETHLiquidity{value: 10 ether}(0);
-        clankerVault.addETHLiquidity{value: 10 ether}(0);
-        virtualVault.addETHLiquidity{value: 10 ether}(0);
-        clankermonVault.addETHLiquidity{value: 10 ether}(0);
+        elizaVault.addETHLiquidity{value: 100 ether}(0);
+        clankerVault.addETHLiquidity{value: 100 ether}(0);
+        virtualVault.addETHLiquidity{value: 100 ether}(0);
+        clankermonVault.addETHLiquidity{value: 100 ether}(0);
         vm.stopPrank();
         
         elizaPaymaster.fundFromVault(5 ether);
@@ -341,11 +341,11 @@ contract MultiTokenPaymasterTest is Test {
         clankermonVault.claimFees();
         vm.stopPrank();
         
-        // Verify LP1 received tokens
-        assertEq(elizaOS.balanceOf(lp1), elizaBefore + 35e18);
-        assertEq(clanker.balanceOf(lp1), clankerBefore + 35e18);
-        assertEq(virtualToken.balanceOf(lp1), virtualBefore + 35e18);
-        assertEq(clankermon.balanceOf(lp1), clankermonBefore + 3500e18);
+        // Verify LP1 received tokens (31.5% of fees)
+        assertEq(elizaOS.balanceOf(lp1), elizaBefore + 315e17);
+        assertEq(clanker.balanceOf(lp1), clankerBefore + 315e17);
+        assertEq(virtualToken.balanceOf(lp1), virtualBefore + 315e17);
+        assertEq(clankermon.balanceOf(lp1), clankermonBefore + 3150e18);
     }
     
     // ============ Helper Functions ============

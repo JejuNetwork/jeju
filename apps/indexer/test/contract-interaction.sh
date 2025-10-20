@@ -36,7 +36,7 @@ echo ""
 
 # Start indexer
 echo "🔄 Starting indexer..."
-npm run process > /tmp/contract_test_indexer.log 2>&1 &
+bun run process > /tmp/contract_test_indexer.log 2>&1 &
 INDEXER_PID=$!
 sleep 10
 

@@ -4,12 +4,10 @@
  */
 
 import { expect, test, describe } from 'bun:test';
-import { getPublicClient, getWalletClient, getContractAddresses } from '../fixtures/contracts';
-import { parseEther, encodeFunctionData } from 'viem';
+import { getPublicClient, getContractAddresses } from '../fixtures/contracts';
 
 describe('TokenRegistry Contract', () => {
   const publicClient = getPublicClient();
-  const walletClient = getWalletClient();
   
   test('should read registration fee', async () => {
     const addresses = await getContractAddresses();
@@ -154,4 +152,5 @@ describe('TokenRegistry Contract', () => {
     }
   });
 });
+
 

@@ -1,0 +1,23 @@
+{
+  "name": "@crucible/plugin",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Security testing plugins for Jeju Crucible",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target node",
+    "dev": "bun run src/index.ts",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@elizaos/core": "latest",
+    "ethers": "^6.13.0",
+    "viem": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "bun-types": "latest"
+  }
+}
+

@@ -9,9 +9,16 @@
     "start": "next start -p 4006",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "playwright test",
-    "test:headed": "playwright test --headed",
-    "test:ui": "playwright test --ui"
+    "test": "SKIP_INDEXER_TESTS=true bun run test:unit && bun run test:e2e",
+    "test:unit": "SKIP_INDEXER_TESTS=true bun test lib/__tests__/*.test.ts config/__tests__/*.test.ts",
+    "test:e2e": "playwright test tests/e2e --reporter=dot",
+    "test:e2e:headed": "playwright test tests/e2e --headed --reporter=dot",
+    "test:e2e:ui": "playwright test tests/e2e --ui",
+    "test:wallet": "playwright test tests/wallet --config=synpress.config.ts --reporter=list",
+    "test:wallet:build-cache": "npx synpress --force",
+    "test:wallet:run": "playwright test tests/wallet --config=synpress.config.ts --reporter=list",
+    "test:coverage": "bun test --coverage lib/__tests__/*.test.ts config/__tests__/*.test.ts",
+    "test:all": "bun run test:unit && bun run test:e2e"
   },
   "dependencies": {
     "next": "^14.2.0",
@@ -42,7 +49,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1",
-    "@tenkeylabs/dappwright": "^2.11.3",
+    "@synthetixio/synpress": "^4.1.1",
     "@types/node": "^22.13.1",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.1",

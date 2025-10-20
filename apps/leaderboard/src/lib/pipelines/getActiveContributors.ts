@@ -1,4 +1,4 @@
-import { db } from "@/lib/data/db";
+import { db as defaultDb } from "@/lib/data/db";
 import {
   rawPullRequests,
   rawIssues,
@@ -10,8 +10,10 @@ import { and, eq, inArray } from "drizzle-orm";
 import { QueryParams, buildCommonWhereConditions } from "./queryHelpers";
 import { TimeInterval, toDateString } from "../date-utils";
 import { createStep, RepoPipelineContext } from "./types";
+import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import * as schema from "@/lib/data/schema";
 
-export async function getActiveContributors(params: QueryParams = {}) {
+export async function getActiveContributors(params: QueryParams = {}, db: BunSQLiteDatabase<typeof schema> = defaultDb) {
   // Find contributors with any activity in the time range
   const activeUsernames = new Set<string>();
   // PRs

@@ -22,10 +22,10 @@
  *   bun run scripts/bridge-multi-tokens.ts CLANKERMON 5000 0x...
  */
 
-import { createPublicClient, createWalletClient, http, parseEther, parseUnits, type Address } from 'viem';
+import { createPublicClient, createWalletClient, http, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base } from 'viem/chains';
-import { STANDARD_BRIDGE_ABI, OP_STACK_PREDEPLOYS, estimateBridgeTime, estimateBridgeGas } from './shared/bridge-helpers';
+import { STANDARD_BRIDGE_ABI, OP_STACK_PREDEPLOYS, estimateBridgeTime } from './shared/bridge-helpers';
 import { getAllSupportedTokens, parseTokenAmount, formatTokenAmount } from './shared/token-utils';
 
 interface BridgeOptions {

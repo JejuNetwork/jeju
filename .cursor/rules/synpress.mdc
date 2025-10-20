@@ -1,0 +1,116 @@
+---
+description: Use synpress
+alwaysApply: true
+---
+
+Use synpress for all frontend testing. Make sure we have tests for all user flows -- everything a user can do should have a test
+
+Setup with Playwright
+This guide provides a quick setup process for Playwright with Synpress to automate tests for Web3 dapps. Note that this is a basic configuration, and Synpress offers many more advanced functions and features for comprehensive testing.
+​
+npm init playwright@latest
+Follow the prompts to complete the installation.
+Install Synpress as a dev dependency:
+
+npm install --save-dev @synthetixio/synpress
+​
+Setup
+Create or update your Playwright configuration file (e.g., playwright.config.ts):
+
+// Import necessary Playwright and Synpress modules
+import { defineConfig, devices } from '@playwright/test'
+
+// Define Playwright configuration
+export default defineConfig({
+  testDir: './tests',
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  reporter: 'html',
+  use: {
+    // Set base URL for tests
+    baseURL: 'http://localhost:3000',
+    trace: 'on-first-retry',
+  },
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+  ],
+  // Additional Synpress-specific configuration can be added here
+})
+Create a basic wallet setup file (e.g., wallet-setup/basic.setup.ts):
+
+// Import necessary Synpress modules
+import { defineWalletSetup } from '@synthetixio/synpress'
+import { MetaMask } from '@synthetixio/synpress/playwright'
+
+// Define a test seed phrase and password
+const SEED_PHRASE = 'test test test test test test test test test test test junk'
+const PASSWORD = 'Tester@1234'
+
+// Define the basic wallet setup
+export default defineWalletSetup(PASSWORD, async (context, walletPage) => {
+  // Create a new MetaMask instance
+  const metamask = new MetaMask(context, walletPage, PASSWORD)
+
+  // Import the wallet using the seed phrase
+  await metamask.importWallet(SEED_PHRASE)
+
+  // Additional setup steps can be added here, such as:
+  // - Adding custom networks
+  // - Importing tokens
+  // - Setting up specific account states
+})
+
+// Import necessary Synpress modules and setup
+import { testWithSynpress } from '@synthetixio/synpress'
+import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'
+import basicSetup from '../wallet-setup/basic.setup'
+
+// Create a test instance with Synpress and MetaMask fixtures
+const test = testWithSynpress(metaMaskFixtures(basicSetup))
+
+// Extract expect function from test
+const { expect } = test
+
+// Define a basic test case
+test('should connect wallet to the MetaMask Test Dapp', async ({
+  context,
+  page,
+  metamaskPage,
+  extensionId,
+}) => {
+  // Create a new MetaMask instance
+  const metamask = new MetaMask(
+    context,
+    metamaskPage,
+    basicSetup.walletPassword,
+    extensionId
+  )
+
+  // Navigate to the homepage
+  await page.goto('/')
+
+  // Click the connect button
+  await page.locator('#connectButton').click()
+
+  // Connect MetaMask to the dapp
+  await metamask.connectToDapp()
+
+  // Verify the connected account address
+  await expect(page.locator('#accounts')).toHaveText(
+    '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'
+  )
+
+  // Additional test steps can be added here, such as:
+  // - Sending transactions
+  // - Interacting with smart contracts
+  // - Testing dapp-specific functionality
+})
+​
+Running Tests
+To run your Playwright tests with Synpress:
+Start your local development server (if testing against a local app).

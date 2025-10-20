@@ -1,6 +1,6 @@
 # Jeju Scripts
 
-Comprehensive collection of deployment, development, and utility scripts for the Jeju L3 ecosystem.
+Comprehensive collection of deployment, development, and utility scripts for the Jeju ecosystem.
 
 ## Quick Start
 

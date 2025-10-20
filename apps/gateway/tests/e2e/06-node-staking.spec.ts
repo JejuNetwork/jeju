@@ -3,14 +3,14 @@
  * @module gateway/tests/e2e/node-staking
  */
 
-import { test, expect, setupMetaMask, importTestAccount, connectWallet } from '../fixtures/wallet';
+import { testWithWallet as test, expect } from '../fixtures/wallet';
+import { captureScreenshot, captureUserFlow } from '../../../../tests/shared/helpers/screenshots';
+import { connectWallet } from '../../../../tests/shared/helpers/contracts';
 
 test.describe('Node Staking Flow', () => {
-  test.beforeEach(async ({ page }) => {
-    await setupMetaMask(metamask);
-    await importTestAccount(metamask);
-    await page.goto('/');
-    await connectWallet(page);
+  test.beforeEach(async ({ page, wallet }) => {
+    await page.goto('http://localhost:4001');
+    await connectWallet(page, wallet);
     
     // Navigate to Node Operators tab
     await page.getByRole('button', { name: /Node Operators/i }).click();
@@ -161,11 +161,9 @@ test.describe('Node Staking Flow', () => {
 });
 
 test.describe('My Nodes Management', () => {
-  test.beforeEach(async ({ page }) => {
-    await setupMetaMask(metamask);
-    await importTestAccount(metamask);
-    await page.goto('/');
-    await connectWallet(page);
+  test.beforeEach(async ({ page, wallet }) => {
+    await page.goto('http://localhost:4001');
+    await connectWallet(page, wallet);
     
     await page.getByRole('button', { name: /Node Operators/i }).click();
     await page.getByRole('button', { name: /My Nodes/i }).click();
@@ -218,10 +216,9 @@ test.describe('My Nodes Management', () => {
       const deregisterButton = page.getByRole('button', { name: /Deregister/i }).first();
       await expect(deregisterButton).toBeVisible();
       
-      // Check for timing warning if within 7 days
-      const timingWarning = page.getByText(/Can deregister in/i);
-      // This might or might not be visible depending on node age
+      // Timing warning shown if within 7 days (node age dependent)
     }
   });
 });
+
 

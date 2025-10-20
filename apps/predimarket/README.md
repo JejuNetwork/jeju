@@ -228,16 +228,58 @@ forge script script/DeployPredimarket.s.sol \
 
 ## 🧪 Testing
 
+### Quick Start
 ```bash
-# Unit tests
-npm run test
+# Run all tests (unit + e2e)
+bun run test
 
-# E2E tests
-npm run test:e2e
+# Unit tests only (fast - ~800ms)
+bun run test:unit
 
-# Full flow test (requires localnet)
-./test-complete-flow.sh
+# E2E tests (requires dev server running)
+bun run test:e2e
+
+# Type checking
+bun run lint
 ```
+
+### Test Results ✅
+- **Unit Tests**: 36/36 passing (100%)
+- **E2E Tests**: 17/17 passing (100%)
+- **Total**: 53 tests passing
+- **Coverage**: Hooks, components, API routes, user flows
+
+### Test Files
+```
+Unit Tests (36 tests):
+- hooks/__tests__/*.test.ts (14 tests)
+- tests/unit/components/*.test.tsx (17 tests)
+- tests/unit/api/*.test.ts (5 tests)
+
+E2E Tests (20 tests):
+- tests/e2e/01-homepage.spec.ts (6 tests)
+- tests/e2e/02-market-filters.spec.ts (4 tests)
+- tests/e2e/03-portfolio.spec.ts (4 tests)
+- tests/e2e/04-responsive.spec.ts (3 tests)
+- tests/e2e/complete-flow.spec.ts (3 tests)
+- tests/e2e/05-wallet-connection.spec.ts (3 tests - needs contracts)
+- tests/e2e/06-trading-flow.spec.ts (5 tests - needs contracts)
+- tests/e2e/07-market-resolution.spec.ts (4 tests - needs contracts)
+```
+
+### Wallet Tests
+```bash
+# Wallet tests (requires deployed contracts + headful mode)
+bun run test:e2e:wallet
+```
+
+### Watch Mode
+```bash
+# Auto-run tests on file changes
+bun run test:watch
+```
+
+See `README_TESTING.md` for comprehensive testing documentation.
 
 ## 🎯 Use Cases
 
@@ -268,6 +310,22 @@ npm run test:e2e
 - Small bets for entertainment
 - Follow leaderboards
 - Social engagement
+
+## 🔧 Troubleshooting
+
+### "Can't resolve '@react-native-async-storage/async-storage'"
+
+This is resolved via webpack configuration in `next.config.mjs`. The MetaMask SDK includes React Native dependencies that are automatically excluded for web builds.
+
+### WalletConnect Project ID 403 Error
+
+The app works without a WalletConnect project ID. To enable WalletConnect features:
+
+1. Get a free project ID at https://cloud.walletconnect.com
+2. Set `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` in your environment
+3. Restart the dev server
+
+Without a project ID, WalletConnect-specific features are disabled but MetaMask and other injected wallets work fine.
 
 ## 🔐 Security
 

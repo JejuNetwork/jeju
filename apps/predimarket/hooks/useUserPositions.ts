@@ -35,6 +35,8 @@ export function useUserPositions(address?: `0x${string}`) {
     }
 
     async function fetchPositions() {
+      if (!address) return;
+      
       const endpoint = process.env.NEXT_PUBLIC_GRAPHQL_URL || 
                        process.env.PREDIMARKET_GRAPHQL_URL || 
                        `http://localhost:${process.env.INDEXER_GRAPHQL_PORT || '4350'}/graphql`;

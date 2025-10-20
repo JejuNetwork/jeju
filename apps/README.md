@@ -9,10 +9,15 @@ Each app has its own `jeju-manifest.json`:
 ```
 apps/
 ├── README.md
-├── bazaar/          # Marketplace app
-├── caliguland/      # Complex social prediction game
-├── ehorse/          # Minimal horse racing demo
-├── gateway/         # API gateway
+├── bazaar/          # Unified DeFi + NFT marketplace
+├── crucible/        # Cross-chain asset forge
+├── documentation/   # VitePress documentation site
+├── ehorse/          # Horse racing prediction game
+├── gateway/         # Protocol infrastructure hub
+├── indexer/         # Subsquid blockchain indexer
+├── ipfs/            # Decentralized file storage (x402 payments, A2A agent)
+├── leaderboard/     # Leaderboard + TEE verification
+├── monitoring/      # Prometheus + Grafana stack
 ├── predimarket/     # Prediction market platform
 └── ...
 ```

@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 /**
  * @title ICrossDomainMessenger
@@ -40,7 +41,7 @@ interface ICrossDomainMessenger {
  * 
  * Trade-off: More decentralized but more expensive
  */
-contract CrossChainPriceRelay is Ownable, ReentrancyGuard {
+contract CrossChainPriceRelay is Ownable, ReentrancyGuard, Pausable {
     // ============ State Variables ============
     
     /// @notice Address of CrossDomainMessenger (OP Stack predeploy)
@@ -59,12 +60,34 @@ contract CrossChainPriceRelay is Ownable, ReentrancyGuard {
     /// @notice Total number of price updates received
     uint256 public updateCount;
     
+    /// @notice Last known ETH price (for validation)
+    uint256 public lastETHPrice;
+    
+    /// @notice Last known elizaOS price (for validation)
+    uint256 public lastElizaPrice;
+    
+    /// @notice Maximum allowed staleness of source data (10 minutes)
+    uint256 public constant MAX_SOURCE_STALENESS = 10 minutes;
+    
+    /// @notice Minimum allowed ETH price: $500 (8 decimals)
+    uint256 public constant MIN_ETH_PRICE = 50000000000;
+    
+    /// @notice Maximum allowed ETH price: $10,000 (8 decimals)
+    uint256 public constant MAX_ETH_PRICE = 1000000000000;
+    
+    /// @notice Minimum allowed elizaOS price: $0.000001 (8 decimals)
+    uint256 public constant MIN_ELIZA_PRICE = 100;
+    
+    /// @notice Maximum allowed elizaOS price: $10,000 (8 decimals)
+    uint256 public constant MAX_ELIZA_PRICE = 1000000000000;
+    
     // ============ Events ============
     
     event PriceReceived(
         uint256 ethPrice,
         uint256 elizaPrice,
-        uint256 timestamp
+        uint256 sourceTimestamp,
+        uint256 relayTimestamp
     );
     event PriceSourceUpdated(address indexed newSource);
     event TargetOracleUpdated(address indexed newOracle);
@@ -74,6 +97,9 @@ contract CrossChainPriceRelay is Ownable, ReentrancyGuard {
     error OnlyCrossChainMessenger();
     error InvalidCaller();
     error OracleUpdateFailed();
+    error StalePriceData();
+    error InvalidPrice();
+    error PriceOutOfBounds();
     
     // ============ Constructor ============
     
@@ -92,13 +118,16 @@ contract CrossChainPriceRelay is Ownable, ReentrancyGuard {
      * @notice Receive price update from Base via CrossDomainMessenger
      * @param ethPrice ETH/USD price (8 decimals)
      * @param elizaPrice elizaOS/USD price (8 decimals)
+     * @param sourceTimestamp Timestamp when prices were read on Base
      * @dev Only callable by CrossDomainMessenger with authorized sender
-     * @dev Protected against reentrancy attacks
+     * @dev Protected against reentrancy attacks and pausing
+     * @dev Validates price bounds and staleness
      */
     function receivePriceUpdate(
         uint256 ethPrice,
-        uint256 elizaPrice
-    ) external nonReentrant {
+        uint256 elizaPrice,
+        uint256 sourceTimestamp
+    ) external nonReentrant whenNotPaused {
         // Verify caller is CrossDomainMessenger
         if (msg.sender != L2_CROSS_DOMAIN_MESSENGER) {
             revert OnlyCrossChainMessenger();
@@ -111,7 +140,15 @@ contract CrossChainPriceRelay is Ownable, ReentrancyGuard {
             revert InvalidCaller();
         }
         
-        // Store last update timestamp before external call
+        // Validate source timestamp isn't stale (accounting for relay time)
+        if (block.timestamp - sourceTimestamp > MAX_SOURCE_STALENESS) {
+            revert StalePriceData();
+        }
+        
+        // Validate prices are within reasonable bounds
+        _validatePrices(ethPrice, elizaPrice);
+        
+        // Store current timestamp
         uint256 timestamp = block.timestamp;
         
         // Update oracle with proper interface call
@@ -145,10 +182,37 @@ contract CrossChainPriceRelay is Ownable, ReentrancyGuard {
             }
         }
         
+        // Update state
         lastUpdateTime = block.timestamp;
         updateCount++;
+        lastETHPrice = ethPrice;
+        lastElizaPrice = elizaPrice;
         
-        emit PriceReceived(ethPrice, elizaPrice, block.timestamp);
+        emit PriceReceived(ethPrice, elizaPrice, sourceTimestamp, block.timestamp);
+    }
+    
+    // ============ Internal Functions ============
+    
+    /**
+     * @notice Validate prices are within acceptable bounds
+     * @param ethPrice ETH/USD price to validate
+     * @param elizaPrice elizaOS/USD price to validate
+     */
+    function _validatePrices(uint256 ethPrice, uint256 elizaPrice) internal pure {
+        // Validate ETH price bounds
+        if (ethPrice < MIN_ETH_PRICE || ethPrice > MAX_ETH_PRICE) {
+            revert PriceOutOfBounds();
+        }
+        
+        // Validate elizaOS price bounds
+        if (elizaPrice < MIN_ELIZA_PRICE || elizaPrice > MAX_ELIZA_PRICE) {
+            revert PriceOutOfBounds();
+        }
+        
+        // Ensure prices are non-zero
+        if (ethPrice == 0 || elizaPrice == 0) {
+            revert InvalidPrice();
+        }
     }
     
     // ============ Admin Functions ============
@@ -173,6 +237,21 @@ contract CrossChainPriceRelay is Ownable, ReentrancyGuard {
         emit TargetOracleUpdated(_newOracle);
     }
     
+    /**
+     * @notice Pause price relaying (emergency)
+     * @dev Prevents receiving and processing price updates
+     */
+    function pause() external onlyOwner {
+        _pause();
+    }
+    
+    /**
+     * @notice Unpause price relaying
+     */
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+    
     // ============ View Functions ============
     
     /**
@@ -182,13 +261,30 @@ contract CrossChainPriceRelay is Ownable, ReentrancyGuard {
         address _priceSourceOnBase,
         address _targetOracle,
         uint256 _lastUpdateTime,
-        uint256 _updateCount
+        uint256 _updateCount,
+        uint256 _lastETHPrice,
+        uint256 _lastElizaPrice,
+        bool _paused
     ) {
         return (
             priceSourceOnBase,
             targetOracle,
             lastUpdateTime,
-            updateCount
+            updateCount,
+            lastETHPrice,
+            lastElizaPrice,
+            paused()
         );
+    }
+    
+    /**
+     * @notice Get last received prices
+     */
+    function getLastPrices() external view returns (
+        uint256 _ethPrice,
+        uint256 _elizaPrice,
+        uint256 _timestamp
+    ) {
+        return (lastETHPrice, lastElizaPrice, lastUpdateTime);
     }
 }

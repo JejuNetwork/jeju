@@ -2,12 +2,14 @@
 /**
  * Deploy USDC to Jeju Network
  * 
- * Deploys JejuUSDC with EIP-3009 support for x402 payments
+ * Deploys MockJejuUSDC for testing
  * Optionally deploys ServicePaymaster for multi-token gas sponsorship
+ * 
+ * Note: In production, bridge real USDC from Base instead of deploying this
  */
 
 import { execSync } from 'child_process';
-import { writeFileSync, existsSync, readFileSync } from 'fs';
+import { writeFileSync } from 'fs';
 import { join } from 'path';
 
 interface DeploymentResult {
@@ -55,7 +57,7 @@ class JejuUSDCDeployer {
     console.log('');
 
     // Step 1: Deploy USDC
-    console.log('📝 Step 1: Deploying JejuUSDC contract...');
+    console.log('📝 Step 1: Deploying MockJejuUSDC contract...');
     const usdcAddress = await this.deployUSDC();
     console.log('✅ USDC deployed at:', usdcAddress);
     console.log('');
@@ -98,14 +100,10 @@ class JejuUSDCDeployer {
   }
 
   private async deployUSDC(): Promise<string> {
-    const isTestnet = this.network === 'testnet';
-    const initialSupply = isTestnet ? 1000000 : 0; // 1M USDC on testnet
-    const enableFaucet = isTestnet;
-
-    const cmd = `forge create src/tokens/JejuUSDC.sol:JejuUSDC \
+    const cmd = `forge create src/tokens/MockJejuUSDC.sol:MockJejuUSDC \
       --rpc-url ${this.rpcUrl} \
       --private-key ${this.deployerKey} \
-      --constructor-args ${this.treasury} ${initialSupply}000000 ${enableFaucet} \
+      --constructor-args ${this.treasury} \
       --json`;
 
     try {
@@ -113,8 +111,15 @@ class JejuUSDCDeployer {
       const result = JSON.parse(output);
       return result.deployedTo;
     } catch (error) {
-      console.error('❌ USDC deployment failed:', error);
-      throw error;
+      console.error('');
+      console.error('❌ ============================================');
+      console.error('   USDC DEPLOYMENT FAILED');
+      console.error('   ============================================');
+      console.error('');
+      console.error('Error:', error);
+      console.error('');
+      console.error('This is a CRITICAL failure. Do not continue.');
+      process.exit(1);
     }
   }
 
@@ -136,7 +141,8 @@ class JejuUSDCDeployer {
       
       console.log(`  Faucet claimed: ${balanceNum} USDC`);
     } catch (error) {
-      console.error('  ⚠️  Faucet test failed (non-critical):', error);
+      console.warn('  ⚠️  Faucet test failed (non-critical):', error);
+      console.warn('  This is expected if faucet was already claimed');
     }
   }
 
@@ -169,8 +175,15 @@ class JejuUSDCDeployer {
       
       return result.deployedTo;
     } catch (error) {
-      console.error('❌ ServicePaymaster deployment failed:', error);
-      throw error;
+      console.error('');
+      console.error('❌ ============================================');
+      console.error('   SERVICE PAYMASTER DEPLOYMENT FAILED');
+      console.error('   ============================================');
+      console.error('');
+      console.error('Error:', error);
+      console.error('');
+      console.error('This is a CRITICAL failure. Do not continue.');
+      process.exit(1);
     }
   }
 
@@ -185,9 +198,13 @@ class JejuUSDCDeployer {
   private getDeployerAddress(): string {
     const cmd = `cast wallet address ${this.deployerKey}`;
     try {
-      return execSync(cmd, { encoding: 'utf-8' }).trim();
-    } catch {
-      return '0x...'; // Fallback
+      const result = execSync(cmd, { encoding: 'utf-8' }).trim();
+      return validateCommandResult(result, 'get deployer address');
+    } catch (error) {
+      handleError(error, {
+        context: 'Failed to get deployer address',
+        shouldExit: true
+      });
     }
   }
 
@@ -230,12 +247,8 @@ class JejuUSDCDeployer {
     console.log('2. Test with faucet (testnet only):');
     console.log(`   cast send ${result.usdc} "faucet()" --rpc-url ${this.rpcUrl} --private-key $YOUR_KEY`);
     console.log('');
-    console.log('3. Configure facilitator for Jeju:');
-    console.log('   export X402_FACILITATOR_URL=https://facilitator.jeju.network');
-    console.log('   # Or deploy your own using: scripts/deploy-jeju-facilitator.ts');
-    console.log('');
-    console.log('4. Test x402 payment flow:');
-    console.log('   cd mcp-gateway && bun test tests/jeju-x402-integration.test.ts');
+    console.log('3. NOTE: For production, bridge real USDC from Base instead:');
+    console.log('   bun run scripts/bridge-multi-tokens.ts');
     console.log('');
   }
 }

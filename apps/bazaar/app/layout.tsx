@@ -9,7 +9,7 @@ const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'Bazaar - Jeju DeFi + NFT + Token Launchpad',
-  description: 'Unified token launchpad, Uniswap V4 swaps, liquidity pools, and NFT marketplace on Jeju L3',
+  description: 'Unified token launchpad, Uniswap V4 swaps, liquidity pools, and NFT marketplace on Jeju',
 }
 
 export default function RootLayout({

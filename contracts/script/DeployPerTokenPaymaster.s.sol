@@ -15,7 +15,7 @@ import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint
  * 
  * Deploys:
  * 1. LiquidityVault (ETH + token pools for LPs)
- * 2. FeeDistributor (50/50 split: apps vs LPs)
+ * 2. FeeDistributor (45% apps, 45% LPs, 10% contributors)
  * 3. LiquidityPaymaster (ERC-4337 gas sponsorship)
  * 
  * Usage:

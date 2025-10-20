@@ -1,6 +1,5 @@
 'use client'
 
-import { use } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getContractDetails, getTokenTransfers, getTokenHolders } from '@/lib/indexer-client'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
@@ -9,33 +8,32 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 
 interface PageProps {
-  params: Promise<{
+  params: {
     chainId: string
     address: string
-  }>
+  }
 }
 
 export default function TokenDetailPage({ params }: PageProps) {
-  const resolvedParams = use(params)
   const { isConnected } = useAccount()
   const [buyAmount, setBuyAmount] = useState('')
   const [sellAmount, setSellAmount] = useState('')
 
   const { data: tokenData, isLoading: isLoadingToken } = useQuery({
-    queryKey: ['token-details', resolvedParams.address],
-    queryFn: () => getContractDetails(resolvedParams.address),
+    queryKey: ['token-details', params.address],
+    queryFn: () => getContractDetails(params.address),
     refetchInterval: 10000,
   })
 
   const { data: transfers, isLoading: isLoadingTransfers } = useQuery({
-    queryKey: ['token-transfers', resolvedParams.address],
-    queryFn: () => getTokenTransfers(resolvedParams.address, 20),
+    queryKey: ['token-transfers', params.address],
+    queryFn: () => getTokenTransfers(params.address, 20),
     refetchInterval: 10000,
   })
 
   const { data: holders, isLoading: isLoadingHolders } = useQuery({
-    queryKey: ['token-holders', resolvedParams.address],
-    queryFn: () => getTokenHolders(resolvedParams.address, 20),
+    queryKey: ['token-holders', params.address],
+    queryFn: () => getTokenHolders(params.address, 20),
     refetchInterval: 10000,
   })
 

@@ -69,3 +69,4 @@ export async function processRegistryEvents(ctx: any): Promise<void> {
   // await ctx.store.upsert(Array.from(games.values()));
 }
 
+

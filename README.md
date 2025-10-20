@@ -56,25 +56,6 @@ Provide ETH, earn fees in ANY protocol token:
 
 See [BRIDGING_GUIDE.md](./docs/BRIDGING_GUIDE.md) and [LP_REWARDS_GUIDE.md](./docs/LP_REWARDS_GUIDE.md).
 
-## 📦 Vendor Apps
-
-Third-party applications are in `/vendor` as optional git submodules. They're **dynamically discovered** and **completely optional**.
-
-```bash
-# List available vendor apps
-bun run vendor:list
-
-# Start development (auto-discovers vendor apps)
-bun run dev
-
-# Migrate existing apps
-bun run vendor:migrate
-```
-
-**Current Vendor Apps**: Caliguland, Hyperscape, Cloud, Launchpad, OTC Desk, Elizagotchi
-
-See [VENDOR_MIGRATION_GUIDE.md](./VENDOR_MIGRATION_GUIDE.md) and [docs/VENDOR_APPS.md](./docs/VENDOR_APPS.md) for details.
-
 ---
 
 ## 🚀 Getting Started
@@ -306,7 +287,7 @@ Address:     0x71562b71999873DB5b286dF957af199Ec94617F7
 - TheDesk: `5004` (API: `5005`)
 - Cloud: `5006`
 - Caliguland: `5007` (Game: `5008`, Auth: `5009`)
-- Elizagotchi: `5010`
+- redteam: `5010`
 
 ### Key Contracts (Localnet)
 

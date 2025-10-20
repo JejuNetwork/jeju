@@ -1,0 +1,302 @@
+{
+  "config": {
+    "configFile": "/Users/shawwalters/jeju/apps/bazaar/synpress.config.ts",
+    "rootDir": "/Users/shawwalters/jeju/apps/bazaar/tests/wallet",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results-synpress.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "/Users/shawwalters/jeju/apps/bazaar/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/Users/shawwalters/jeju/apps/bazaar/tests/wallet",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 180000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.56.1",
+    "workers": 1,
+    "webServer": {
+      "command": "bun run dev",
+      "url": "http://localhost:4006",
+      "reuseExistingServer": true,
+      "timeout": 120000
+    }
+  },
+  "suites": [
+    {
+      "title": "01-wallet-connection-synpress.spec.ts",
+      "file": "01-wallet-connection-synpress.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Bazaar - Wallet Connection with Synpress",
+          "file": "01-wallet-connection-synpress.spec.ts",
+          "line": 48,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should connect MetaMask wallet to Bazaar",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 27,
+                      "error": {
+                        "message": "Error: Cache for 4fd36d4f7435b4cb7d78 does not exist. Create it first!",
+                        "stack": "Error: Cache for 4fd36d4f7435b4cb7d78 does not exist. Create it first!\n    at Object.context (/Users/shawwalters/jeju/apps/bazaar/node_modules/@synthetixio/synpress-metamask/src/playwright/fixture-actions/getExtensionId.ts:46:1)"
+                      },
+                      "errors": [
+                        {
+                          "message": "Error: Cache for 4fd36d4f7435b4cb7d78 does not exist. Create it first!\n    at Object.context (/Users/shawwalters/jeju/apps/bazaar/node_modules/@synthetixio/synpress-metamask/src/playwright/fixture-actions/getExtensionId.ts:46:1)"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-20T04:47:54.480Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "4f83dbcf08cd97d3da0a-73e18ee23879fb2a53e7",
+              "file": "01-wallet-connection-synpress.spec.ts",
+              "line": 49,
+              "column": 3
+            },
+            {
+              "title": "should show Jeju network in wallet",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 25,
+                      "error": {
+                        "message": "Error: Cache for 4fd36d4f7435b4cb7d78 does not exist. Create it first!",
+                        "stack": "Error: Cache for 4fd36d4f7435b4cb7d78 does not exist. Create it first!\n    at Object.context (/Users/shawwalters/jeju/apps/bazaar/node_modules/@synthetixio/synpress-metamask/src/playwright/fixture-actions/getExtensionId.ts:46:1)"
+                      },
+                      "errors": [
+                        {
+                          "message": "Error: Cache for 4fd36d4f7435b4cb7d78 does not exist. Create it first!\n    at Object.context (/Users/shawwalters/jeju/apps/bazaar/node_modules/@synthetixio/synpress-metamask/src/playwright/fixture-actions/getExtensionId.ts:46:1)"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-20T04:47:55.675Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "4f83dbcf08cd97d3da0a-69c90c775e19503f7f98",
+              "file": "01-wallet-connection-synpress.spec.ts",
+              "line": 84,
+              "column": 3
+            },
+            {
+              "title": "should display user balance after connection",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 22,
+                      "error": {
+                        "message": "Error: Cache for 4fd36d4f7435b4cb7d78 does not exist. Create it first!",
+                        "stack": "Error: Cache for 4fd36d4f7435b4cb7d78 does not exist. Create it first!\n    at Object.context (/Users/shawwalters/jeju/apps/bazaar/node_modules/@synthetixio/synpress-metamask/src/playwright/fixture-actions/getExtensionId.ts:46:1)"
+                      },
+                      "errors": [
+                        {
+                          "message": "Error: Cache for 4fd36d4f7435b4cb7d78 does not exist. Create it first!\n    at Object.context (/Users/shawwalters/jeju/apps/bazaar/node_modules/@synthetixio/synpress-metamask/src/playwright/fixture-actions/getExtensionId.ts:46:1)"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-20T04:47:56.645Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "4f83dbcf08cd97d3da0a-2bcd6667ff2b4e13a64e",
+              "file": "01-wallet-connection-synpress.spec.ts",
+              "line": 100,
+              "column": 3
+            },
+            {
+              "title": "should access swap interface with connected wallet",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 22,
+                      "error": {
+                        "message": "Error: Cache for 4fd36d4f7435b4cb7d78 does not exist. Create it first!",
+                        "stack": "Error: Cache for 4fd36d4f7435b4cb7d78 does not exist. Create it first!\n    at Object.context (/Users/shawwalters/jeju/apps/bazaar/node_modules/@synthetixio/synpress-metamask/src/playwright/fixture-actions/getExtensionId.ts:46:1)"
+                      },
+                      "errors": [
+                        {
+                          "message": "Error: Cache for 4fd36d4f7435b4cb7d78 does not exist. Create it first!\n    at Object.context (/Users/shawwalters/jeju/apps/bazaar/node_modules/@synthetixio/synpress-metamask/src/playwright/fixture-actions/getExtensionId.ts:46:1)"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-20T04:47:57.575Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "4f83dbcf08cd97d3da0a-79bb23367d61af01a677",
+              "file": "01-wallet-connection-synpress.spec.ts",
+              "line": 115,
+              "column": 3
+            },
+            {
+              "title": "should access liquidity interface with connected wallet",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 19,
+                      "error": {
+                        "message": "Error: Cache for 4fd36d4f7435b4cb7d78 does not exist. Create it first!",
+                        "stack": "Error: Cache for 4fd36d4f7435b4cb7d78 does not exist. Create it first!\n    at Object.context (/Users/shawwalters/jeju/apps/bazaar/node_modules/@synthetixio/synpress-metamask/src/playwright/fixture-actions/getExtensionId.ts:46:1)"
+                      },
+                      "errors": [
+                        {
+                          "message": "Error: Cache for 4fd36d4f7435b4cb7d78 does not exist. Create it first!\n    at Object.context (/Users/shawwalters/jeju/apps/bazaar/node_modules/@synthetixio/synpress-metamask/src/playwright/fixture-actions/getExtensionId.ts:46:1)"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-20T04:47:58.526Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "4f83dbcf08cd97d3da0a-9c91b7867e4de8a92522",
+              "file": "01-wallet-connection-synpress.spec.ts",
+              "line": 136,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2025-10-20T04:47:48.324Z",
+    "duration": 10375.175,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 5,
+    "flaky": 0
+  }
+}

@@ -4,15 +4,6 @@
  */
 
 import { ethers, Contract, Wallet, JsonRpcProvider } from 'ethers';
-import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
-
-const IDENTITY_REGISTRY_ABI = [
-  'function register(string memory tokenURI) external returns (uint256 agentId)',
-  'function balanceOf(address owner) external view returns (uint256)',
-  'function totalAgents() external view returns (uint256)',
-  'event Registered(uint256 indexed agentId, address indexed agentAddress, string tokenURI, uint256 timestamp)'
-];
 
 export interface RegistrationResult {
   registered: boolean;
@@ -22,44 +13,39 @@ export interface RegistrationResult {
   error?: string;
 }
 
+const IDENTITY_REGISTRY_ABI = [
+  'function register(string memory tokenURI) external returns (uint256 agentId)',
+  'function balanceOf(address owner) external view returns (uint256)',
+  'function totalAgents() external view returns (uint256)',
+  'function setMetadata(uint256 agentId, string memory key, bytes memory value) external',
+  'event Registered(uint256 indexed agentId, address indexed agentAddress, string tokenURI, uint256 timestamp)'
+];
+
 export class RegistryClient {
   private provider: JsonRpcProvider;
   private wallet: Wallet;
   private registry: Contract | null = null;
+  private registryAddress: string;
 
-  constructor(rpcUrl: string, privateKey: string) {
+  constructor(rpcUrl: string, privateKey: string, registryAddress: string) {
     this.provider = new JsonRpcProvider(rpcUrl);
     this.wallet = new Wallet(privateKey, this.provider);
+    this.registryAddress = registryAddress;
   }
 
   async initialize(): Promise<void> {
-    // Try to load IdentityRegistry from contracts deployment
-    const possiblePaths = [
-      join(process.cwd(), '../../contracts/IdentityRegistry.json'),
-      join(process.cwd(), '../../../contracts/IdentityRegistry.json')
-    ];
-
-    let registryData: { address?: string; abi?: unknown } | null = null;
-
-    for (const path of possiblePaths) {
-      if (existsSync(path)) {
-        registryData = JSON.parse(readFileSync(path, 'utf-8'));
-        break;
-      }
-    }
-
-    if (!registryData?.address || !registryData?.abi) {
-      console.log('⚠️  IdentityRegistry not found - skipping ERC-8004 registration');
+    if (!this.registryAddress) {
+      console.log('⚠️  IdentityRegistry address not provided - skipping ERC-8004 registration');
       return;
     }
 
     this.registry = new Contract(
-      registryData.address,
-      registryData.abi,
+      this.registryAddress,
+      IDENTITY_REGISTRY_ABI,
       this.wallet
     );
 
-    console.log(`📝 IdentityRegistry loaded: ${registryData.address}`);
+    console.log(`📝 IdentityRegistry loaded: ${this.registryAddress}`);
   }
 
   async registerGame(gameName: string, serverUrl: string): Promise<RegistrationResult> {
@@ -81,15 +67,22 @@ export class RegistryClient {
     // Register with metadata
     const domain = `${gameName}.ehorse.jeju`;
     const metadata = JSON.stringify({
-      type: 'game-server',
-      name: gameName,
+      type: 'tee-oracle',
+      subtype: 'contest',
+      name: 'eHorse Racing',
+      category: 'racing',
+      description: 'TEE-based horse racing oracle for prediction markets',
       url: serverUrl,
-      category: 'racing'
+      a2a_card: `${serverUrl}/.well-known/agent-card.json`,
+      oracle_type: 'contest',
+      implements: ['IPredictionOracle', 'ContestOracle'],
+      version: '2.0.0'
     });
 
     console.log(`🔄 Registering ${gameName} to ERC-8004...`);
+    console.log(`   Metadata: ${metadata}`);
 
-    const tx = await this.registry['register(string)'](metadata);
+    const tx = await this.registry.register(metadata);
     const receipt = await tx.wait();
 
     // Extract agentId from event

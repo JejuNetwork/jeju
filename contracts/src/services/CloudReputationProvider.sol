@@ -101,6 +101,11 @@ contract CloudReputationProvider is Ownable, Pausable, ReentrancyGuard {
     address[] public banApprovers;
     mapping(address => bool) public isBanApprover;
     
+    /// @notice Timelock for threshold changes (prevents manipulation)
+    uint256 public constant THRESHOLD_CHANGE_DELAY = 7 days;
+    uint256 public pendingThreshold;
+    uint256 public thresholdChangeTime;
+    
     /// @notice Reputation decay settings
     uint256 public reputationDecayPeriod = 30 days;
     uint256 public reputationDecayRate = 5; // 5% per period
@@ -148,6 +153,8 @@ contract CloudReputationProvider is Ownable, Pausable, ReentrancyGuard {
     event OperatorUpdated(address indexed operator, bool authorized);
     event CloudAgentRegistered(uint256 indexed agentId);
     event BanApproverUpdated(address indexed approver, bool isApprover);
+    event ThresholdChangeQueued(uint256 indexed newThreshold, uint256 indexed executeAfter);
+    event ThresholdChanged(uint256 indexed oldThreshold, uint256 indexed newThreshold);
     
     // ============ Errors ============
     
@@ -198,6 +205,18 @@ contract CloudReputationProvider is Ownable, Pausable, ReentrancyGuard {
     }
     
     /**
+     * @notice Set cloud agent ID (use if agent was registered externally)
+     * @param agentId Agent ID of cloud service
+     */
+    function setCloudAgentId(uint256 agentId) external onlyOwner {
+        require(cloudAgentId == 0, "Cloud agent already set");
+        require(identityRegistry.agentExists(agentId), "Agent does not exist");
+        
+        cloudAgentId = agentId;
+        emit CloudAgentRegistered(agentId);
+    }
+    
+    /**
      * @notice Set authorized operator (cloud service backend)
      * @param operator Operator address
      * @param authorized Authorization status
@@ -216,13 +235,15 @@ contract CloudReputationProvider is Ownable, Pausable, ReentrancyGuard {
      * @param tag1 Primary category (e.g., "quality", "reliability")
      * @param tag2 Secondary category (e.g., "api-usage", "payment")
      * @param reason IPFS hash of detailed reasoning
+     * @param signedAuth Pre-signed feedback authorization from cloud agent's private key
      */
     function setReputation(
         uint256 agentId,
         uint8 score,
         bytes32 tag1,
         bytes32 tag2,
-        string calldata reason
+        string calldata reason,
+        bytes calldata signedAuth
     ) external nonReentrant whenNotPaused {
         if (!authorizedOperators[msg.sender] && msg.sender != owner()) {
             revert NotAuthorized();
@@ -231,13 +252,10 @@ contract CloudReputationProvider is Ownable, Pausable, ReentrancyGuard {
         if (score > 100) revert InvalidScore();
         if (cloudAgentId == 0) revert CloudAgentNotRegistered();
         
-        // Create feedback authorization
-        // In production, this would be signed by the cloud agent's private key
-        // For now, we'll use a simplified version
+        // SECURITY: Prevent cloud from setting its own reputation
+        require(agentId != cloudAgentId, "Cannot set own reputation");
         
-        bytes memory feedbackAuth = _createFeedbackAuth(agentId);
-        
-        // Submit reputation via ReputationRegistry
+        // Submit reputation via ReputationRegistry with provided signature
         reputationRegistry.giveFeedback(
             agentId,
             score,
@@ -245,7 +263,7 @@ contract CloudReputationProvider is Ownable, Pausable, ReentrancyGuard {
             tag2,
             reason,
             keccak256(abi.encodePacked(reason)),
-            feedbackAuth
+            signedAuth
         );
         
         emit ReputationSet(agentId, score, tag1, tag2, reason);
@@ -370,18 +388,25 @@ contract CloudReputationProvider is Ownable, Pausable, ReentrancyGuard {
     }
     
     /**
-     * @dev Internal ban execution
+     * @dev Internal ban execution (follows CEI pattern)
      */
     function _executeBan(BanProposal storage proposal) internal {
+        // CHECKS
+        require(!proposal.executed, "Already executed");
+        
+        // EFFECTS (all state changes first)
         proposal.executed = true;
         
-        // Ban agent in IdentityRegistry
+        // Emit event before external calls
+        emit BanExecuted(proposal.proposalId, proposal.agentId, proposal.reason);
+        
+        // INTERACTIONS (external calls last - reentrancy safe)
         identityRegistry.banAgent(
             proposal.agentId,
             string(abi.encodePacked("Cloud TOS violation: ", _violationTypeToString(proposal.reason)))
         );
         
-        // Record final violation
+        // Record final violation (internal, but modifies state)
         _recordViolation(
             proposal.agentId,
             proposal.reason,
@@ -389,8 +414,6 @@ contract CloudReputationProvider is Ownable, Pausable, ReentrancyGuard {
             proposal.evidence,
             address(this)
         );
-        
-        emit BanExecuted(proposal.proposalId, proposal.agentId, proposal.reason);
     }
     
     // ============ Admin Functions ============
@@ -430,12 +453,32 @@ contract CloudReputationProvider is Ownable, Pausable, ReentrancyGuard {
     }
     
     /**
-     * @notice Update ban approval threshold
+     * @notice Queue ban approval threshold change (7-day timelock)
      * @param newThreshold New threshold
      */
-    function setBanApprovalThreshold(uint256 newThreshold) external onlyOwner {
+    function queueThresholdChange(uint256 newThreshold) external onlyOwner {
         require(newThreshold > 0 && newThreshold <= banApprovers.length, "Invalid threshold");
-        banApprovalThreshold = newThreshold;
+        
+        pendingThreshold = newThreshold;
+        thresholdChangeTime = block.timestamp + THRESHOLD_CHANGE_DELAY;
+        
+        emit ThresholdChangeQueued(newThreshold, thresholdChangeTime);
+    }
+    
+    /**
+     * @notice Execute queued threshold change after timelock
+     */
+    function executeThresholdChange() external onlyOwner {
+        require(pendingThreshold != 0, "No pending change");
+        require(block.timestamp >= thresholdChangeTime, "Timelock not expired");
+        
+        uint256 oldThreshold = banApprovalThreshold;
+        banApprovalThreshold = pendingThreshold;
+        
+        pendingThreshold = 0;
+        thresholdChangeTime = 0;
+        
+        emit ThresholdChanged(oldThreshold, banApprovalThreshold);
     }
     
     /**
@@ -458,12 +501,34 @@ contract CloudReputationProvider is Ownable, Pausable, ReentrancyGuard {
     // ============ View Functions ============
     
     /**
-     * @notice Get violation history for an agent
+     * @notice Get violation history for an agent (paginated to prevent gas griefing)
      * @param agentId Agent ID
+     * @param offset Start index
+     * @param limit Maximum number of violations to return
      * @return violations Array of violations
      */
-    function getAgentViolations(uint256 agentId) external view returns (Violation[] memory violations) {
-        return agentViolations[agentId];
+    function getAgentViolations(
+        uint256 agentId,
+        uint256 offset,
+        uint256 limit
+    ) external view returns (Violation[] memory violations) {
+        uint256 total = agentViolations[agentId].length;
+        
+        if (offset >= total) {
+            return new Violation[](0);
+        }
+        
+        uint256 end = offset + limit;
+        if (end > total) {
+            end = total;
+        }
+        
+        uint256 count = end - offset;
+        violations = new Violation[](count);
+        
+        for (uint256 i = 0; i < count; i++) {
+            violations[i] = agentViolations[agentId][offset + i];
+        }
     }
     
     /**
@@ -516,24 +581,6 @@ contract CloudReputationProvider is Ownable, Pausable, ReentrancyGuard {
     }
     
     // ============ Internal Helpers ============
-    
-    /**
-     * @dev Create feedback authorization (simplified)
-     * In production, this would be properly signed by cloud agent's key
-     */
-    function _createFeedbackAuth(uint256 agentId) internal view returns (bytes memory) {
-        // This is a placeholder - in production, the cloud agent's private key
-        // would sign the authorization off-chain and pass it here
-        return abi.encodePacked(
-            agentId,
-            address(this),
-            uint64(type(uint64).max),
-            block.timestamp + 1 days,
-            block.chainid,
-            address(reputationRegistry),
-            address(this)
-        );
-    }
     
     /**
      * @dev Convert violation type to string

@@ -35,7 +35,7 @@ class PaymasterSystemDeployer {
   private deployerAddress: string;
 
   constructor() {
-    this.rpcUrl = process.env.JEJU_RPC_URL || 'http://localhost:8545';
+    this.rpcUrl = process.env.JEJU_RPC_URL || process.env.L2_RPC_URL || 'http://localhost:9545';
     this.deployerKey = process.env.PRIVATE_KEY || '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
     this.deployerAddress = this.getAddress(this.deployerKey);
   }
@@ -173,11 +173,11 @@ class PaymasterSystemDeployer {
 
       // Deploy paymaster via factory
       const deployCmd = `cast send ${factory} "deployPaymaster(address,uint256,address)" ${tokenAddr} ${token.actualFee} ${this.deployerAddress} --rpc-url ${this.rpcUrl} --private-key ${this.deployerKey}`;
-      const output = execSync(deployCmd, { encoding: 'utf-8' });
+      execSync(deployCmd, { encoding: 'utf-8' });
       
       // Get deployment addresses from factory
       const getDeploymentCmd = `cast call ${factory} "getDeployment(address)" ${tokenAddr} --rpc-url ${this.rpcUrl}`;
-      const deploymentData = execSync(getDeploymentCmd, { encoding: 'utf-8' });
+      execSync(getDeploymentCmd, { encoding: 'utf-8' });
       
       console.log(`    ✅ ${token.symbol}: Token + Paymaster deployed`);
 

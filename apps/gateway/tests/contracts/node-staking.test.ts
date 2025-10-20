@@ -151,7 +151,7 @@ describe('NodeStakingManager Contract', () => {
       });
       
       expect(nodeInfo).toBeDefined();
-      const [node, perf, rewards] = nodeInfo as [
+      const [node, perf] = nodeInfo as [
         { operator: `0x${string}`; isActive: boolean; rpcUrl: string },
         { uptimeScore: bigint },
         bigint
@@ -181,7 +181,7 @@ describe('NodeStakingManager Contract', () => {
     }) as `0x${string}`[];
     
     if (nodeIds.length > 0) {
-      const rewards = await publicClient.readContract({
+      const pendingRewards = await publicClient.readContract({
         address: addresses.nodeStakingManager,
         abi: [{
           type: 'function',
@@ -194,8 +194,8 @@ describe('NodeStakingManager Contract', () => {
         args: [nodeIds[0]],
       });
       
-      expect(rewards).toBeDefined();
-      expect(rewards).toBeGreaterThanOrEqual(0n);
+      expect(pendingRewards).toBeDefined();
+      expect(pendingRewards).toBeGreaterThanOrEqual(0n);
     }
   });
 
@@ -258,4 +258,5 @@ describe('NodeStakingManager Contract', () => {
     expect(Array.isArray(allNodes)).toBe(true);
   });
 });
+
 

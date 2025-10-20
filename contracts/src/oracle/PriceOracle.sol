@@ -2,19 +2,23 @@
 pragma solidity ^0.8.26;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 /**
  * @title PriceOracle
  * @notice Multi-token price oracle supporting unlimited tokens
  * @dev Supports manual price setting and automatic Uniswap V4 pool reading
  *      Works on localnet (manual/pools) and mainnet (bot updates from Base)
+ * 
+ * @custom:security-contact security@jeju.network
  */
-contract PriceOracle is Ownable {
+contract PriceOracle is Ownable, Pausable {
     // ============ Errors ============
 
     error PriceBelowMinimum(uint256 price, uint256 minimum);
     error PriceAboveMaximum(uint256 price, uint256 maximum);
     error DeviationTooLarge(uint256 deviation, uint256 maxDeviation);
+    error TokenPaused(address token);
 
     // ============ State Variables ============
 
@@ -36,6 +40,9 @@ contract PriceOracle is Ownable {
     /// @notice Absolute price bounds per token
     mapping(address => uint256) public minPrice;
     mapping(address => uint256) public maxPrice;
+    
+    /// @notice Per-token pause status
+    mapping(address => bool) public tokenPaused;
 
     /// @notice ETH address constant
     address public constant ETH_ADDRESS = address(0);
@@ -48,13 +55,15 @@ contract PriceOracle is Ownable {
     event PriceUpdated(address indexed token, uint256 price, uint256 decimals);
     event PriceBoundsSet(address indexed token, uint256 min, uint256 max);
     event DeviationLimitUpdated(uint256 oldLimit, uint256 newLimit);
+    event TokenPausedStatusChanged(address indexed token, bool paused);
+    event StalenessThresholdUpdated(uint256 oldThreshold, uint256 newThreshold);
 
     // ============ Constructor ============
 
     constructor() Ownable(msg.sender) {
-        // Set default prices for testing
-        _setPrice(ETH_ADDRESS, 3000 * 1e18, 18);  // ETH = $3000
-        _setPrice(address(0x1), 1 * 1e18, 18);     // USDC = $1 (placeholder)
+        // Set default ETH price for initial testing/deployment
+        // Note: Owner must set actual token prices after deployment
+        _setPrice(ETH_ADDRESS, 3000 * 1e18, 18);  // ETH = $3000 (default)
     }
 
     // ============ Core Functions ============
@@ -64,8 +73,11 @@ contract PriceOracle is Ownable {
      * @param token Token address (address(0) for ETH)
      * @return priceUSD Price in USD with decimals
      * @return decimals Number of decimals in price
+     * @dev Reverts if token is paused
      */
     function getPrice(address token) external view returns (uint256 priceUSD, uint256 decimals) {
+        if (tokenPaused[token]) revert TokenPaused(token);
+        
         priceUSD = prices[token];
         decimals = priceDecimals[token];
         
@@ -126,8 +138,10 @@ contract PriceOracle is Ownable {
      * @param priceUSD Price in USD
      * @param decimals Price decimals
      * @dev Validates price is within bounds and deviation limits to prevent manipulation
+     *      Can be called even when globally paused for emergency updates
      */
     function setPrice(address token, uint256 priceUSD, uint256 decimals) external onlyOwner {
+        if (tokenPaused[token]) revert TokenPaused(token);
         // Check bounds if set
         if (minPrice[token] > 0 && priceUSD < minPrice[token]) {
             revert PriceBelowMinimum(priceUSD, minPrice[token]);
@@ -194,7 +208,9 @@ contract PriceOracle is Ownable {
      * @param threshold New threshold in seconds
      */
     function setStalenessThreshold(uint256 threshold) external onlyOwner {
+        uint256 oldThreshold = stalenessThreshold;
         stalenessThreshold = threshold;
+        emit StalenessThresholdUpdated(oldThreshold, threshold);
     }
     
     /**
@@ -207,6 +223,40 @@ contract PriceOracle is Ownable {
         uint256 oldLimit = maxDeviation;
         maxDeviation = newMaxDeviation;
         emit DeviationLimitUpdated(oldLimit, newMaxDeviation);
+    }
+    
+    /**
+     * @notice Pause a specific token's price updates and queries
+     * @param token Token address to pause
+     * @dev Use when a token's price source is compromised or unreliable
+     */
+    function pauseToken(address token) external onlyOwner {
+        tokenPaused[token] = true;
+        emit TokenPausedStatusChanged(token, true);
+    }
+    
+    /**
+     * @notice Unpause a specific token
+     * @param token Token address to unpause
+     */
+    function unpauseToken(address token) external onlyOwner {
+        tokenPaused[token] = false;
+        emit TokenPausedStatusChanged(token, false);
+    }
+    
+    /**
+     * @notice Pause all oracle operations (emergency)
+     * @dev Prevents all price updates and queries
+     */
+    function pause() external onlyOwner {
+        _pause();
+    }
+    
+    /**
+     * @notice Unpause all oracle operations
+     */
+    function unpause() external onlyOwner {
+        _unpause();
     }
 
     // ============ Internal ============

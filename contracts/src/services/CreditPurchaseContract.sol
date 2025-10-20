@@ -199,7 +199,13 @@ contract CreditPurchaseContract is Ownable, Pausable, ReentrancyGuard {
         uint256 platformFee = (paymentAmount * platformFeeBps) / BASIS_POINTS;
         uint256 netPayment = paymentAmount - platformFee;
 
-        // Transfer payment to treasury
+        // CEI PATTERN: Set return value FIRST, then mint (reentrancy protection)
+        creditsReceived = creditsOut;
+
+        // Mint tokens BEFORE external calls to untrusted addresses (reentrancy safe)
+        ElizaOSToken.mint(recipient, creditsOut);
+
+        // EXTERNAL CALLS LAST (to treasury which could be malicious contract)
         if (paymentToken == ETH) {
             // Pull-over-push pattern: record failed transfers instead of reverting
             (bool treasurySuccess, ) = treasury.call{value: netPayment}("");
@@ -222,11 +228,6 @@ contract CreditPurchaseContract is Ownable, Pausable, ReentrancyGuard {
                 IERC20(paymentToken).safeTransferFrom(msg.sender, owner(), platformFee);
             }
         }
-
-        // Mint elizaOS tokens to recipient
-        ElizaOSToken.mint(recipient, creditsOut);
-
-        creditsReceived = creditsOut;
 
         emit CreditsPurchased(
             msg.sender,
