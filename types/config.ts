@@ -52,31 +52,5 @@ export interface NetworkConfig {
   localnet: ChainConfig;
 }
 
-export interface BaseNetworkConfig {
-  chainId: number;
-  name: string;
-  rpcUrl: string;
-  wsUrl: string;
-  explorerUrl: string;
-  faucetUrl?: string;
-  bridgeUrl?: string;
-  isTestnet: boolean;
-  nativeCurrency: GasToken;
-  blockTime: number;
-  gasPrice?: {
-    average: string;
-    fast: string;
-  };
-  tvl?: string;
-  operator?: string;
-  superchain?: boolean;
-  costPerTransaction?: string;
-  notes?: string;
-}
-
-export interface BaseNetworks {
-  'base-sepolia': BaseNetworkConfig;
-  'base-mainnet': BaseNetworkConfig;
-}
 
 

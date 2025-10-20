@@ -6,7 +6,6 @@
 import { describe, it, expect, afterEach } from 'bun:test';
 import { 
   loadChainConfig, 
-  loadBaseNetworks,
   getChainConfig,
   getContractAddress,
   getRpcUrl,
@@ -23,6 +22,15 @@ describe('Configuration Loaders', () => {
     // Restore environment variables after each test
     process.env = { ...originalEnv };
   });
+
+  function cleanEnv() {
+    // Clear network-related env vars for isolated testing
+    delete process.env.JEJU_NETWORK;
+    delete process.env.JEJU_RPC_URL;
+    delete process.env.JEJU_WS_URL;
+    delete process.env.JEJU_EXPLORER_URL;
+    delete process.env.JEJU_L1_RPC_URL;
+  }
 
   describe('loadChainConfig', () => {
     it('should load mainnet configuration', () => {
@@ -67,31 +75,16 @@ describe('Configuration Loaders', () => {
     });
   });
 
-  describe('loadBaseNetworks', () => {
-    it('should load Base Mainnet configuration', () => {
-      const networks = loadBaseNetworks();
-      
-      expect(networks['base-mainnet'].chainId).toBe(8453);
-      expect(networks['base-mainnet'].name).toBe('Base');
-      expect(networks['base-mainnet'].rpcUrl).toBe('https://mainnet.base.org');
-    });
-
-    it('should load Base Sepolia configuration', () => {
-      const networks = loadBaseNetworks();
-      
-      expect(networks['base-sepolia'].chainId).toBe(84532);
-      expect(networks['base-sepolia'].name).toBe('Base Sepolia');
-      expect(networks['base-sepolia'].isTestnet).toBe(true);
-    });
-  });
 
   describe('getChainConfig', () => {
     it('should default to mainnet', () => {
+      cleanEnv();
       const config = getChainConfig();
       expect(config.chainId).toBe(420691);
     });
 
     it('should respect explicit network parameter', () => {
+      cleanEnv();
       const config = getChainConfig('testnet');
       expect(config.chainId).toBe(420690);
     });
@@ -144,6 +137,7 @@ describe('Configuration Loaders', () => {
   describe('URL Getters', () => {
     describe('getRpcUrl', () => {
       it('should get RPC URL from config', () => {
+        cleanEnv();
         const rpcUrl = getRpcUrl('mainnet');
         expect(rpcUrl).toBe('https://rpc.jeju.network');
       });
@@ -157,6 +151,7 @@ describe('Configuration Loaders', () => {
 
     describe('getWsUrl', () => {
       it('should get WebSocket URL from config', () => {
+        cleanEnv();
         const wsUrl = getWsUrl('testnet');
         expect(wsUrl).toBe('wss://testnet-ws.jeju.network');
       });
@@ -170,6 +165,7 @@ describe('Configuration Loaders', () => {
 
     describe('getExplorerUrl', () => {
       it('should get explorer URL from config', () => {
+        cleanEnv();
         const explorerUrl = getExplorerUrl('mainnet');
         expect(explorerUrl).toBe('https://explorer.jeju.network');
       });
@@ -183,11 +179,13 @@ describe('Configuration Loaders', () => {
 
     describe('getL1RpcUrl', () => {
       it('should get Base Mainnet RPC for mainnet', () => {
+        cleanEnv();
         const l1Rpc = getL1RpcUrl('mainnet');
         expect(l1Rpc).toBe('https://mainnet.base.org');
       });
 
       it('should get Base Sepolia RPC for testnet', () => {
+        cleanEnv();
         const l1Rpc = getL1RpcUrl('testnet');
         expect(l1Rpc).toBe('https://sepolia.base.org');
       });

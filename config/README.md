@@ -19,14 +19,15 @@ Centralized configuration for the Jeju network, including chain configs, port al
   - `testnet.json` - Test network config
   - `localnet.json` - Local development config
 
-### Network Configuration
-- **`base-networks.json`** - Base (L1) network configurations
-- **`localnet-config.json`** - Localnet-specific settings
+### Token Configuration
+- **`base-tokens.json`** - Base chain token metadata (used by scripts/shared/token-utils.ts)
+- **`jeju-tokens.json`** - Jeju native token configurations
+- **`protocol-tokens.json`** - Protocol tokens with paymaster support
 
-### Deployment Configuration
-- **`deploy-configs/`** - Deployment-specific configurations
-- **`genesis/`** - Genesis block configurations
-- **`rollup/`** - Rollup configuration files
+### Deployment Configuration (OP Stack)
+- **`deploy-configs/`** - Input files for `op-node genesis` command
+- **`genesis/`** - Genesis block templates (generated during deployment)
+- **`rollup/`** - Rollup configuration templates (generated during deployment)
 
 ## Usage
 
@@ -120,6 +121,25 @@ JEJU_EXPLORER_URL=http://localhost:4000
 JEJU_L1_RPC_URL=http://localhost:8545
 ```
 
+## Token Configuration Files
+
+### base-tokens.json
+Tokens on Base (L1) that can be bridged to Jeju. Used by deployment scripts for:
+- Setting up initial liquidity pools
+- Configuring bridge contracts
+- Price oracle initialization
+
+### jeju-tokens.json
+Native Jeju tokens and bridged token addresses on Jeju (L2). Used by:
+- `apps/bazaar` for marketplace token listings
+- Frontend applications for token metadata
+
+### protocol-tokens.json
+Tokens with deployed paymaster infrastructure. Includes:
+- Paymaster contract addresses
+- LP reward distribution settings
+- Bridge configuration
+
 ## Validation
 
 ### Check Port Configuration
@@ -174,10 +194,29 @@ Tests:
 - System services
 - Critical infrastructure separation
 
+## Deployment Template Files
+
+The `deploy-configs/`, `genesis/`, and `rollup/` directories contain **template files** used during OP Stack deployment:
+
+### Workflow
+1. **Input:** `deploy-configs/{network}.json` defines deployment parameters
+2. **Process:** `scripts/generate-genesis.sh` runs `op-node genesis l2` command
+3. **Output:** Generates `genesis.json` and `rollup.json` into `config/generated/{network}/`
+4. **Distribution:** Generated configs are distributed to node operators
+
+The files in the repo are reference templates. Actual operational configs are generated during deployment.
+
+## Recent Changes
+
+### Removed Files (2025-10-20)
+- **`base-networks.json`** - Removed (data duplicated in `chain/*.json` files)
+- **`localnet-config.json`** - Removed (data duplicated in `jeju-defaults.ts` and `chain/localnet.json`)
+
+These files were never imported or used by actual application code, only referenced in documentation.
+
 ## See Also
 
-- **`../ENV_VARS.md`** - Complete environment variable reference
-- **`../PORT_ALLOCATION.md`** - Detailed port allocation guide
-- **`../DYNAMIC_PORTS_MIGRATION.md`** - Migration guide
-- **`../QUICK_PORT_REFERENCE.md`** - Quick reference card
+- **`deploy-configs/README.md`** - OP Stack deployment configuration details
+- **`genesis/README.md`** - Genesis block configuration reference
+- **`rollup/README.md`** - Rollup configuration reference
 

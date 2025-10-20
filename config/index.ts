@@ -31,7 +31,7 @@
 
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import { ChainConfigSchema, type ChainConfig, type NetworkType, type BaseNetworks } from '../types/chain';
+import { ChainConfigSchema, type ChainConfig, type NetworkType } from '../types/chain';
 
 /** Base directory for all configuration files */
 const CONFIG_DIR = __dirname;
@@ -56,24 +56,6 @@ export function loadChainConfig(network: NetworkType): ChainConfig {
   return ChainConfigSchema.parse(raw);
 }
 
-/**
- * Loads Base network configurations (Sepolia and Mainnet)
- * 
- * @returns Object containing Base Sepolia and Base Mainnet configurations
- * @throws {Error} If base-networks.json not found
- * 
- * @example
- * ```ts
- * const baseNetworks = loadBaseNetworks();
- * console.log(baseNetworks['base-mainnet'].chainId); // 8453
- * console.log(baseNetworks['base-sepolia'].chainId); // 84532
- * ```
- */
-export function loadBaseNetworks(): BaseNetworks {
-  const configPath = resolve(CONFIG_DIR, 'base-networks.json');
-  const config = JSON.parse(readFileSync(configPath, 'utf-8'));
-  return config;
-}
 
 /**
  * Gets chain configuration with environment variable override support
@@ -217,6 +199,6 @@ export function getL1RpcUrl(network?: NetworkType): string {
   return process.env.JEJU_L1_RPC_URL || config.l1RpcUrl;
 }
 
-export type { ChainConfig, NetworkType, BaseNetworks } from '../types/chain';
+export type { ChainConfig, NetworkType } from '../types/chain';
 
 
