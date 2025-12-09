@@ -1,0 +1,39 @@
+name: Types CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'packages/types/**'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'packages/types/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build @jejunetwork/types
+        working-directory: packages/types
+        run: bun run build
+
+      - name: Verify exports
+        run: |
+          cat > /tmp/test-types.ts << 'EOF'
+          import type { NetworkType, ChainConfig } from './packages/types/dist/chain.js';
+          import type { Intent, Solver } from './packages/types/dist/oif.js';
+          console.log('✓ All type exports verified');
+          EOF
+          bun run /tmp/test-types.ts
+

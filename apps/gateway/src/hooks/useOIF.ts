@@ -198,10 +198,11 @@ const getEnvAddress = (key: string, fallback: Address = '0x000000000000000000000
 
 const OIF_CONFIG = {
   inputSettlers: {
-    8453: getEnvAddress('VITE_OIF_INPUT_SETTLER_BASE'),
+    1: getEnvAddress('VITE_OIF_INPUT_SETTLER_ETHEREUM'),
     42161: getEnvAddress('VITE_OIF_INPUT_SETTLER_ARBITRUM'),
     10: getEnvAddress('VITE_OIF_INPUT_SETTLER_OPTIMISM'),
     420691: getEnvAddress('VITE_OIF_INPUT_SETTLER_JEJU'),
+    11155111: getEnvAddress('VITE_OIF_INPUT_SETTLER_SEPOLIA'),
   } as Record<number, Address>,
   solverRegistry: getEnvAddress('VITE_OIF_SOLVER_REGISTRY'),
   defaultOpenDeadlineBlocks: 100,

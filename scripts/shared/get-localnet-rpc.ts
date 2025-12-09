@@ -33,7 +33,7 @@ export function getLocalnetRpcUrl(): string {
 	} catch (error) {
 		// Fallback to default port if Kurtosis is not running
 		console.warn('⚠️  Warning: Could not get RPC URL from Kurtosis, using default port 9545');
-		console.warn('Make sure localnet is running: bun run scripts/localnet/start.ts');
+		console.warn('Make sure localnet is running: bun run localnet:start');
 		return 'http://127.0.0.1:9545';
 	}
 }

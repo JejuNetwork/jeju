@@ -31,7 +31,7 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
 
 // Step 1: Stop localnet
 console.log("1️⃣  Stopping Localnet...");
-const stopResult = await $`bun run scripts/localnet/stop.ts`.nothrow();
+const stopResult = await $`bun run localnet:stop`.nothrow();
 if (stopResult.exitCode === 0) {
   console.log("   ✅ Localnet stopped\n");
 } else {

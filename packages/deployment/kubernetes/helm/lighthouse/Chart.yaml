@@ -1,0 +1,8 @@
+apiVersion: v2
+name: lighthouse
+description: Lighthouse Ethereum beacon node for L1 blob data (Fusaka required)
+type: application
+version: 1.0.0
+appVersion: "v6.0.1"
+
+

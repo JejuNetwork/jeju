@@ -1,55 +1,61 @@
-/**
- * @fileoverview Playwright configuration for OIF Viewer E2E tests
- */
+import { defineConfig, devices } from '@playwright/test'
+import { defineWalletSetup } from '@synthetixio/synpress'
+import { MetaMask } from '@synthetixio/synpress/playwright'
 
-import { defineConfig, devices } from '@playwright/test';
+const VIEWER_PORT = parseInt(process.env.VIEWER_PORT || '4011')
+const JEJU_CHAIN_ID = parseInt(process.env.CHAIN_ID || '1337')
+const JEJU_RPC_URL = process.env.L2_RPC_URL || process.env.JEJU_RPC_URL || 'http://localhost:9545'
+
+const PASSWORD = 'Tester@1234'
+const SEED_PHRASE = 'test test test test test test test test test test test junk'
 
 export default defineConfig({
   testDir: './tests',
-  fullyParallel: false, // Synpress doesn't support parallel wallet tests
+  fullyParallel: false,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: 1, // Single worker for wallet tests
+  retries: 0,
+  workers: 1,
   reporter: [
     ['html', { open: 'never' }],
     ['list'],
+    ['json', { outputFile: 'test-results/synpress-intents-viewer.json' }],
   ],
-  
   use: {
-    baseURL: process.env.VIEWER_URL || 'http://localhost:4011',
+    baseURL: `http://localhost:${VIEWER_PORT}`,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
+    viewport: { width: 1280, height: 720 },
   },
-
   projects: [
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-
-  // Start viewer dev server before tests
-  webServer: [
-    {
-      command: 'bun run dev',
-      cwd: '..',
-      port: 4010,
-      reuseExistingServer: !process.env.CI,
-      timeout: 120000,
-    },
-    {
-      command: 'bun run dev',
-      port: 4011,
-      reuseExistingServer: !process.env.CI,
-      timeout: 120000,
-    },
-  ],
-
-  // Timeout settings
-  timeout: 60000,
-  expect: {
-    timeout: 10000,
+  webServer: {
+    command: 'bun run dev',
+    url: `http://localhost:${VIEWER_PORT}`,
+    reuseExistingServer: true,
+    timeout: 120000,
   },
-});
+  timeout: 120000,
+  expect: {
+    timeout: 15000,
+  },
+})
+
+export const basicSetup = defineWalletSetup(PASSWORD, async (context, walletPage) => {
+  const metamask = new MetaMask(context, walletPage, PASSWORD)
+  await metamask.importWallet(SEED_PHRASE)
+  await metamask.addNetwork({
+    name: 'Jeju Local',
+    rpcUrl: JEJU_RPC_URL,
+    chainId: JEJU_CHAIN_ID,
+    symbol: 'ETH',
+  })
+  await metamask.switchNetwork('Jeju Local')
+})
+
+export { PASSWORD, SEED_PHRASE }
 

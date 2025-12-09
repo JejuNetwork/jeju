@@ -141,7 +141,7 @@
 
 6. **Bridge (Approval Tested)**
    - Approve token for bridge
-   - ⚠️ Bridge execution (needs Base testnet)
+   - ⚠️ Bridge execution (needs Sepolia testnet)
    - ✅ 85% covered (UI + approval)
 
 #### ✅ Read Transactions (Contract Queries)
@@ -340,7 +340,7 @@ TOTAL: 72 tests, 40 minutes, 100% coverage ✅
 | Bridge Approve | ✅ | ✅ | ✅ | ✅ | 100% |
 | Bridge Execute | ⚠️ | ⚠️ | ✅ | ✅ | 85%* |
 
-*Bridge execute requires Base testnet - UI and approval fully tested
+*Bridge execute requires Sepolia testnet - UI and approval fully tested
 
 ### Blockchain Read Operations (100% ✅)
 
@@ -402,7 +402,7 @@ TOTAL: 72 tests, 40 minutes, 100% coverage ✅
 - [x] Custom token address bridging
 - [x] Recipient address specification
 - [x] elizaOS exclusion validation
-- [ ] Bridge execute (blocked on Base testnet)
+- [ ] Bridge execute (blocked on Sepolia testnet)
 
 ### Wallet & Balance ✅
 - [x] Wallet connection flow

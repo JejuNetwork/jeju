@@ -15,7 +15,7 @@ AWS VPC
 ## Terraform
 
 ```bash
-cd terraform/environments/{testnet|mainnet}
+cd packages/deployment/terraform/environments/{testnet|mainnet}
 terraform init
 
 # Deploy in order
@@ -36,6 +36,6 @@ helm install aws-load-balancer-controller eks/aws-load-balancer-controller
 helm install cert-manager jetstack/cert-manager
 
 # Deploy services
-cd kubernetes/helmfile
+cd packages/deployment/kubernetes/helmfile
 helmfile -e {testnet|mainnet} sync
 ```

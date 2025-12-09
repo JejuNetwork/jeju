@@ -8,13 +8,13 @@ import {FeeDistributor} from "../src/distributor/FeeDistributor.sol";
 /**
  * @title DeployFeeDistributor
  * @notice Deployment script for FeeDistributor contract
- * 
+ *
  * Usage:
  *   forge script script/DeployFeeDistributor.s.sol \
  *     --rpc-url $RPC_URL \
  *     --broadcast \
  *     --verify
- * 
+ *
  * Required env vars:
  *   - REWARD_TOKEN_ADDRESS (elizaOS token address)
  *   - LIQUIDITY_VAULT_ADDRESS (vault address)
@@ -29,28 +29,24 @@ contract DeployFeeDistributor is Script {
         address paymaster = vm.envAddress("PAYMASTER_ADDRESS");
         address oracle = vm.envAddress("ORACLE_ADDRESS");
         address deployer = vm.addr(vm.envUint("DEPLOYER_PRIVATE_KEY"));
-        
+
         console.log("Deploying FeeDistributor...");
         console.log("  Deployer:", deployer);
         console.log("  Reward Token:", rewardToken);
         console.log("  Liquidity Vault:", liquidityVault);
         console.log("  Paymaster:", paymaster);
         console.log("  Oracle:", oracle);
-        
+
         vm.startBroadcast();
-        
-        FeeDistributor distributor = new FeeDistributor(
-            rewardToken,
-            liquidityVault,
-            deployer
-        );
-        
+
+        FeeDistributor distributor = new FeeDistributor(rewardToken, liquidityVault, deployer);
+
         // Configure
         distributor.setPaymaster(paymaster);
         distributor.setContributorOracle(oracle);
-        
+
         vm.stopBroadcast();
-        
+
         console.log("Deployment complete!");
         console.log("  FeeDistributor:", address(distributor));
         console.log("");
@@ -60,4 +56,3 @@ contract DeployFeeDistributor is Script {
         console.log("3. Deploy AirdropManager: forge script script/DeployAirdropManager.s.sol");
     }
 }
-

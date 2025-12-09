@@ -3,7 +3,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import type { Intent, IntentRoute, Solver, OIFStats, IntentQuote, SolverLeaderboardEntry } from '../../../../../types/oif';
+import type { Intent, IntentRoute, Solver, OIFStats, IntentQuote, SolverLeaderboardEntry } from '@jejunetwork/types';
 
 const API_BASE = '/api';
 

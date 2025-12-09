@@ -1,0 +1,122 @@
+{
+  "network": "testnet",
+  "version": "2.0.0",
+  "lastUpdated": "2025-12-09T00:00:00.000Z",
+  "deployer": "0x5dB1268e424da5C26451e4a8B9C221e6DE3C3064",
+  
+  "chains": {
+    "84532": {
+      "chainId": 84532,
+      "name": "Base Sepolia",
+      "rpcUrl": "https://sepolia.base.org",
+      "status": "deployed",
+      "contracts": {
+        "solverRegistry": "0xecfE47302D941c8ce5B0009C0ac2E6D6ee2A42de",
+        "inputSettler": "0x9bb59d0329FcCEdD99f1753D20AF50347Ad2eB75",
+        "outputSettler": "0xf7ef3C6a54dA3E03A96D23864e5865E7e3EBEcF5",
+        "oracle": "0xE30218678a940d1553b285B0eB5C5364BBF70ed9",
+        "oracleType": "simple"
+      },
+      "tokens": {
+        "MockJejuUSDC": "0x953F6516E5d2864cE7f13186B45dE418EA665EB2",
+        "ElizaOSToken": "0x7af64e6aE21076DE21EFe71F243A75664a17C34b"
+      }
+    },
+    "420690": {
+      "chainId": 420690,
+      "name": "Jeju Testnet",
+      "rpcUrl": "https://testnet-rpc.jeju.network",
+      "status": "pending",
+      "contracts": {
+        "solverRegistry": "",
+        "inputSettler": "",
+        "outputSettler": "",
+        "oracle": "",
+        "oracleType": "superchain"
+      },
+      "_note": "Deploy when Jeju testnet RPC is live"
+    },
+    "11155111": {
+      "chainId": 11155111,
+      "name": "Sepolia",
+      "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
+      "status": "pending",
+      "contracts": {
+        "solverRegistry": "",
+        "inputSettler": "",
+        "outputSettler": "",
+        "oracle": "",
+        "oracleType": "simple"
+      },
+      "_note": "Need testnet ETH on Sepolia to deploy"
+    },
+    "421614": {
+      "chainId": 421614,
+      "name": "Arbitrum Sepolia",
+      "rpcUrl": "https://sepolia-rollup.arbitrum.io/rpc",
+      "status": "pending",
+      "contracts": {
+        "solverRegistry": "",
+        "inputSettler": "",
+        "outputSettler": "",
+        "oracle": "",
+        "oracleType": "simple"
+      },
+      "_note": "Deploy for Arbitrum cross-chain support"
+    },
+    "11155420": {
+      "chainId": 11155420,
+      "name": "Optimism Sepolia",
+      "rpcUrl": "https://sepolia.optimism.io",
+      "status": "pending",
+      "contracts": {
+        "solverRegistry": "",
+        "inputSettler": "",
+        "outputSettler": "",
+        "oracle": "",
+        "oracleType": "superchain"
+      },
+      "_note": "Deploy for Optimism cross-chain support"
+    },
+    "97": {
+      "chainId": 97,
+      "name": "BSC Testnet",
+      "rpcUrl": "https://data-seed-prebsc-1-s1.bnbchain.org:8545",
+      "status": "pending",
+      "contracts": {
+        "solverRegistry": "",
+        "inputSettler": "",
+        "outputSettler": "",
+        "oracle": "",
+        "oracleType": "simple"
+      },
+      "_note": "Deploy for BSC cross-chain support"
+    }
+  },
+
+  "crossChainRoutes": [
+    { "from": 84532, "to": 420690, "enabled": true, "description": "Base Sepolia → Jeju Testnet" },
+    { "from": 420690, "to": 84532, "enabled": true, "description": "Jeju Testnet → Base Sepolia" },
+    { "from": 11155111, "to": 420690, "enabled": true, "description": "Sepolia → Jeju Testnet" },
+    { "from": 420690, "to": 11155111, "enabled": true, "description": "Jeju Testnet → Sepolia" },
+    { "from": 421614, "to": 420690, "enabled": true, "description": "Arbitrum Sepolia → Jeju Testnet" },
+    { "from": 420690, "to": 421614, "enabled": true, "description": "Jeju Testnet → Arbitrum Sepolia" },
+    { "from": 11155420, "to": 420690, "enabled": true, "description": "Optimism Sepolia → Jeju Testnet" },
+    { "from": 420690, "to": 11155420, "enabled": true, "description": "Jeju Testnet → Optimism Sepolia" },
+    { "from": 97, "to": 420690, "enabled": true, "description": "BSC Testnet → Jeju Testnet" },
+    { "from": 420690, "to": 97, "enabled": true, "description": "Jeju Testnet → BSC Testnet" }
+  ],
+
+  "deploymentOrder": [
+    "1. Fund deployer on all chains",
+    "2. Deploy OIF on Sepolia (L1 hub)",
+    "3. Deploy OIF on Base Sepolia (already done)",
+    "4. Deploy OIF on Arbitrum Sepolia",
+    "5. Deploy OIF on Optimism Sepolia",
+    "6. Deploy OIF on BSC Testnet",
+    "7. Deploy OIF on Jeju Testnet (when RPC live)",
+    "8. Configure cross-chain attesters",
+    "9. Register initial solvers",
+    "10. Verify cross-chain liquidity flows"
+  ]
+}

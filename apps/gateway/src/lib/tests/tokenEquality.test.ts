@@ -54,18 +54,18 @@ describe('Token Equality and Completeness', () => {
     });
   });
 
-  describe('CLANKER Token (Bridged from Base)', () => {
+  describe('CLANKER Token (Bridged from Ethereum)', () => {
     it('should be included in protocol tokens', () => {
       const clanker = getTokenBySymbol('CLANKER');
       expect(clanker).toBeDefined();
       expect(clanker?.symbol).toBe('CLANKER');
     });
 
-    it('should be marked as bridged from Base', () => {
+    it('should be marked as bridged from Ethereum', () => {
       const clanker = protocolTokens.find(t => t.symbol === 'CLANKER');
       expect(clanker?.bridged).toBe(true);
-      expect(clanker?.originChain).toBe('base');
-      expect(clanker?.baseAddress).toBeDefined();
+      expect(clanker?.originChain).toBe('ethereum');
+      expect(clanker?.l1Address).toBeDefined();
     });
 
     it('should have paymaster deployed', () => {
@@ -82,18 +82,18 @@ describe('Token Equality and Completeness', () => {
     });
   });
 
-  describe('VIRTUAL Token (Bridged from Base)', () => {
+  describe('VIRTUAL Token (Bridged from Ethereum)', () => {
     it('should be included in protocol tokens', () => {
       const virtual = getTokenBySymbol('VIRTUAL');
       expect(virtual).toBeDefined();
       expect(virtual?.symbol).toBe('VIRTUAL');
     });
 
-    it('should be marked as bridged from Base', () => {
+    it('should be marked as bridged from Ethereum', () => {
       const virtual = protocolTokens.find(t => t.symbol === 'VIRTUAL');
       expect(virtual?.bridged).toBe(true);
-      expect(virtual?.originChain).toBe('base');
-      expect(virtual?.baseAddress).toBeDefined();
+      expect(virtual?.originChain).toBe('ethereum');
+      expect(virtual?.l1Address).toBeDefined();
     });
 
     it('should have paymaster deployed', () => {
@@ -110,18 +110,18 @@ describe('Token Equality and Completeness', () => {
     });
   });
 
-  describe('CLANKERMON Token (Bridged from Base)', () => {
+  describe('CLANKERMON Token (Bridged from Ethereum)', () => {
     it('should be included in protocol tokens', () => {
       const clankermon = getTokenBySymbol('CLANKERMON');
       expect(clankermon).toBeDefined();
       expect(clankermon?.symbol).toBe('CLANKERMON');
     });
 
-    it('should be marked as bridged from Base', () => {
+    it('should be marked as bridged from Ethereum', () => {
       const clankermon = protocolTokens.find(t => t.symbol === 'CLANKERMON');
       expect(clankermon?.bridged).toBe(true);
-      expect(clankermon?.originChain).toBe('base');
-      expect(clankermon?.baseAddress).toBeDefined();
+      expect(clankermon?.originChain).toBe('ethereum');
+      expect(clankermon?.l1Address).toBeDefined();
     });
 
     it('should have paymaster deployed', () => {
@@ -172,8 +172,8 @@ describe('Token Equality and Completeness', () => {
     it('should have Base addresses for all bridged tokens', () => {
       const bridged = protocolTokens.filter(t => t.bridged);
       bridged.forEach(token => {
-        expect(token.baseAddress).toBeDefined();
-        expect(token.baseAddress).toMatch(/^0x[a-fA-F0-9]{40}$/);
+        expect(token.l1Address).toBeDefined();
+        expect(token.l1Address).toMatch(/^0x[a-fA-F0-9]{40}$/);
       });
     });
 

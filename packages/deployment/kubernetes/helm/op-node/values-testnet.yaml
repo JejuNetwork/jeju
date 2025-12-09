@@ -1,0 +1,36 @@
+# OP-Node values for testnet
+
+replicaCount: 1
+
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+  requests:
+    cpu: 1000m
+    memory: 2Gi
+
+persistence:
+  enabled: true
+  size: 100Gi
+
+nodeSelector:
+  role: core
+
+tolerations:
+  - key: workload
+    operator: Equal
+    value: core
+    effect: NoSchedule
+
+config:
+  network: "testnet"
+  l1ChainId: 11155111
+  l2ChainId: 420690
+  l1:
+    rpcUrl: "https://ethereum-sepolia-rpc.publicnode.com"
+    rpcKind: "standard"
+  p2p:
+    bootnodes: []
+
+

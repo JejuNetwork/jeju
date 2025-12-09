@@ -1,0 +1,31 @@
+{
+  "name": "da-server",
+  "displayName": "JejuDA Server",
+  "description": "Native Data Availability Server implementing OP Stack Alt-DA interface",
+  "version": "1.0.0",
+  "type": "infrastructure",
+  "category": "data-availability",
+  "port": 3100,
+  "healthCheck": {
+    "path": "/health",
+    "interval": 30
+  },
+  "dependencies": {
+    "required": ["ipfs"],
+    "optional": []
+  },
+  "environment": {
+    "PORT": "3100",
+    "IPFS_API_URL": "http://ipfs:5001",
+    "IPFS_GATEWAY_URL": "http://ipfs:8080",
+    "DATA_DIR": "/data"
+  },
+  "features": [
+    "alt-da-interface",
+    "ipfs-backend",
+    "keccak256-commitments",
+    "metrics"
+  ]
+}
+
+

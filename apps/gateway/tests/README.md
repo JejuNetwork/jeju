@@ -368,9 +368,9 @@ Add to CI pipeline:
 
 ### Test Tokens
 - **elizaOS**: Native Jeju token ($0.10)
-- **CLANKER**: Bridged from Base ($26.14)
-- **VIRTUAL**: Bridged from Base ($1.85)
-- **CLANKERMON**: Bridged from Base ($0.15)
+- **CLANKER**: Bridged from Ethereum ($26.14)
+- **VIRTUAL**: Bridged from Ethereum ($1.85)
+- **CLANKERMON**: Bridged from Ethereum ($0.15)
 
 ### Contract Addresses
 Loaded from `.env.local` after deployment

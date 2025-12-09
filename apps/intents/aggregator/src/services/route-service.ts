@@ -3,13 +3,12 @@
  * Routes are derived from deployed contracts and actual solver capabilities
  */
 
-import type { IntentRoute } from '../../../../../types/oif';
+import type { IntentRoute } from '@jejunetwork/types';
 
 // Chain configurations
 const CHAINS = [
   { chainId: 1, name: 'Ethereum', isL2: false },
-  { chainId: 8453, name: 'Base', isL2: true },
-  { chainId: 84532, name: 'Base Sepolia', isL2: true },
+  { chainId: 11155111, name: 'Sepolia', isL2: false },
   { chainId: 42161, name: 'Arbitrum One', isL2: true },
   { chainId: 10, name: 'Optimism', isL2: true },
   { chainId: 420691, name: 'Jeju Mainnet', isL2: true },
@@ -22,9 +21,8 @@ const TOKENS: Record<number, Array<{ address: string; symbol: string; decimals: 
     { address: '0x0000000000000000000000000000000000000000', symbol: 'ETH', decimals: 18 },
     { address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', symbol: 'USDC', decimals: 6 },
   ],
-  8453: [
+  11155111: [
     { address: '0x0000000000000000000000000000000000000000', symbol: 'ETH', decimals: 18 },
-    { address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', symbol: 'USDC', decimals: 6 },
   ],
   42161: [
     { address: '0x0000000000000000000000000000000000000000', symbol: 'ETH', decimals: 18 },
@@ -46,19 +44,24 @@ function getRoutes(): IntentRoute[] {
 
   // Build routes from deployed contracts
   const routeConfigs = [
-    { source: 8453, dest: 42161, oracle: 'hyperlane' },
-    { source: 8453, dest: 10, oracle: 'superchain' },
-    { source: 1, dest: 8453, oracle: 'optimism-native' },
-    { source: 8453, dest: 420691, oracle: 'superchain' },
-    { source: 42161, dest: 8453, oracle: 'hyperlane' },
-    { source: 10, dest: 8453, oracle: 'superchain' },
+    { source: 1, dest: 42161, oracle: 'hyperlane' },
+    { source: 1, dest: 10, oracle: 'superchain' },
+    { source: 1, dest: 420691, oracle: 'optimism-native' },
+    { source: 42161, dest: 1, oracle: 'hyperlane' },
+    { source: 10, dest: 1, oracle: 'superchain' },
+    { source: 11155111, dest: 420690, oracle: 'superchain' },
   ];
 
   for (const config of routeConfigs) {
-    const inputSettler = process.env[`OIF_INPUT_SETTLER_${config.source}`] || 
-      `0x${(config.source * 1111).toString(16).padStart(40, '1')}`;
-    const outputSettler = process.env[`OIF_OUTPUT_SETTLER_${config.dest}`] ||
-      `0x${(config.dest * 2222).toString(16).padStart(40, '2')}`;
+    const inputSettler = process.env[`OIF_INPUT_SETTLER_${config.source}`];
+    const outputSettler = process.env[`OIF_OUTPUT_SETTLER_${config.dest}`];
+    
+    // Skip routes where contracts aren't deployed
+    if (!inputSettler || !outputSettler || 
+        inputSettler === '0x0000000000000000000000000000000000000000' ||
+        outputSettler === '0x0000000000000000000000000000000000000000') {
+      continue;
+    }
 
     const sourceChain = CHAINS.find(c => c.chainId === config.source);
     const destChain = CHAINS.find(c => c.chainId === config.dest);
@@ -67,8 +70,8 @@ function getRoutes(): IntentRoute[] {
 
     routes.push({
       routeId: `${sourceChain.name.toLowerCase().replace(' ', '-')}-${destChain.name.toLowerCase().replace(' ', '-')}-eth`,
-      sourceChainId: config.source as 1 | 8453 | 84532 | 42161 | 10 | 1337 | 420691 | 420690,
-      destinationChainId: config.dest as 1 | 8453 | 84532 | 42161 | 10 | 1337 | 420691 | 420690,
+      sourceChainId: config.source as 1 | 11155111 | 42161 | 10 | 1337 | 420691 | 420690,
+      destinationChainId: config.dest as 1 | 11155111 | 42161 | 10 | 1337 | 420691 | 420690,
       sourceToken: nativeToken,
       destinationToken: nativeToken,
       inputSettler,

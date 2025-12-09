@@ -1,0 +1,141 @@
+name: Publish Packages
+
+on:
+  push:
+    tags:
+      - 'v*'  # Matches v1.0.0, v0.1.0, etc.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 0.1.1)'
+        required: true
+      dry_run:
+        description: 'Dry run (do not actually publish)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write  # Required for npm provenance
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node (for npm publish)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Publishing version: $VERSION"
+
+      # Build and test types package
+      - name: Build @jejunetwork/types
+        working-directory: packages/types
+        run: |
+          bun run build
+          echo "✓ @jejunetwork/types built"
+
+      # Build and test contracts package
+      - name: Build contracts (Forge)
+        working-directory: packages/contracts
+        run: |
+          forge build
+          echo "✓ Solidity contracts compiled"
+
+      - name: Export ABIs
+        working-directory: packages/contracts
+        run: |
+          bun run scripts/export-abis.ts || echo "ABI export script not available, using existing ABIs"
+          echo "✓ ABIs ready"
+
+      - name: Build @jejunetwork/contracts
+        working-directory: packages/contracts
+        run: |
+          bun run build
+          echo "✓ @jejunetwork/contracts built"
+
+      - name: Run contract tests
+        working-directory: packages/contracts
+        run: forge test
+
+      # Update versions
+      - name: Update package versions
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          
+          # Update @jejunetwork/types version
+          cd packages/types
+          jq ".version = \"$VERSION\"" package.json > tmp.json && mv tmp.json package.json
+          cd ../..
+          
+          # Update @jejunetwork/contracts version
+          cd packages/contracts
+          jq ".version = \"$VERSION\"" package.json > tmp.json && mv tmp.json package.json
+          cd ../..
+          
+          echo "✓ Updated versions to $VERSION"
+
+      # Publish packages
+      - name: Publish @jejunetwork/types
+        working-directory: packages/types
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            echo "DRY RUN: Would publish @jejunetwork/types"
+            npm pack --dry-run
+          else
+            npm publish --access public --provenance
+            echo "✓ Published @jejunetwork/types@${{ steps.version.outputs.version }}"
+          fi
+
+      - name: Publish @jejunetwork/contracts
+        working-directory: packages/contracts
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            echo "DRY RUN: Would publish @jejunetwork/contracts"
+            npm pack --dry-run
+          else
+            npm publish --access public --provenance
+            echo "✓ Published @jejunetwork/contracts@${{ steps.version.outputs.version }}"
+          fi
+
+      # Create GitHub release
+      - name: Create Release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            packages/types/jeju-types-*.tgz
+            packages/contracts/jeju-contracts-*.tgz
+

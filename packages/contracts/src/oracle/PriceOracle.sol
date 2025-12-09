@@ -8,8 +8,8 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
  * @title PriceOracle
  * @notice Multi-token price oracle supporting unlimited tokens
  * @dev Supports manual price setting and automatic Uniswap V4 pool reading
- *      Works on localnet (manual/pools) and mainnet (bot updates from Base)
- * 
+ *      Works on localnet (manual/pools) and mainnet (bot updates from Ethereum)
+ *
  * @custom:security-contact security@jeju.network
  */
 contract PriceOracle is Ownable, Pausable {
@@ -33,20 +33,20 @@ contract PriceOracle is Ownable, Pausable {
 
     /// @notice Price staleness threshold (default 1 hour)
     uint256 public stalenessThreshold = 1 hours;
-    
+
     /// @notice Maximum price deviation allowed per update (50%)
     uint256 public maxDeviation = 5000; // 50% in basis points
-    
+
     /// @notice Absolute price bounds per token
     mapping(address => uint256) public minPrice;
     mapping(address => uint256) public maxPrice;
-    
+
     /// @notice Per-token pause status
     mapping(address => bool) public tokenPaused;
 
     /// @notice ETH address constant
     address public constant ETH_ADDRESS = address(0);
-    
+
     /// @notice Basis points denominator
     uint256 public constant BASIS_POINTS = 10000;
 
@@ -63,7 +63,7 @@ contract PriceOracle is Ownable, Pausable {
     constructor() Ownable(msg.sender) {
         // Set default ETH price for initial testing/deployment
         // Note: Owner must set actual token prices after deployment
-        _setPrice(ETH_ADDRESS, 3000 * 1e18, 18);  // ETH = $3000 (default)
+        _setPrice(ETH_ADDRESS, 3000 * 1e18, 18); // ETH = $3000 (default)
     }
 
     // ============ Core Functions ============
@@ -77,10 +77,10 @@ contract PriceOracle is Ownable, Pausable {
      */
     function getPrice(address token) external view returns (uint256 priceUSD, uint256 decimals) {
         if (tokenPaused[token]) revert TokenPaused(token);
-        
+
         priceUSD = prices[token];
         decimals = priceDecimals[token];
-        
+
         if (priceUSD == 0) {
             // Default to $1 if not set
             priceUSD = 1e18;
@@ -113,10 +113,10 @@ contract PriceOracle is Ownable, Pausable {
      * @param amount Amount in source token
      * @return converted Amount in destination token
      */
-    function convertAmount(address fromToken, address toToken, uint256 amount) 
-        external 
-        view 
-        returns (uint256 converted) 
+    function convertAmount(address fromToken, address toToken, uint256 amount)
+        external
+        view
+        returns (uint256 converted)
     {
         if (fromToken == toToken) return amount;
 
@@ -149,7 +149,7 @@ contract PriceOracle is Ownable, Pausable {
         if (maxPrice[token] > 0 && priceUSD > maxPrice[token]) {
             revert PriceAboveMaximum(priceUSD, maxPrice[token]);
         }
-        
+
         // Check deviation from last price (if price exists)
         uint256 lastPrice = prices[token];
         if (lastPrice > 0) {
@@ -159,17 +159,17 @@ contract PriceOracle is Ownable, Pausable {
             } else {
                 deviation = ((lastPrice - priceUSD) * BASIS_POINTS) / lastPrice;
             }
-            
+
             // Allow larger deviation if price is very stale (>24h)
             uint256 age = block.timestamp - lastUpdate[token];
             if (age < 24 hours && deviation > maxDeviation) {
                 revert DeviationTooLarge(deviation, maxDeviation);
             }
         }
-        
+
         _setPrice(token, priceUSD, decimals);
     }
-    
+
     /**
      * @notice Set price bounds for a token
      * @param token Token address
@@ -183,7 +183,7 @@ contract PriceOracle is Ownable, Pausable {
         maxPrice[token] = max;
         emit PriceBoundsSet(token, min, max);
     }
-    
+
     /**
      * @notice Emergency price update (bypasses deviation check)
      * @param token Token address
@@ -199,7 +199,7 @@ contract PriceOracle is Ownable, Pausable {
         if (maxPrice[token] > 0 && priceUSD > maxPrice[token]) {
             revert PriceAboveMaximum(priceUSD, maxPrice[token]);
         }
-        
+
         _setPrice(token, priceUSD, decimals);
     }
 
@@ -212,7 +212,7 @@ contract PriceOracle is Ownable, Pausable {
         stalenessThreshold = threshold;
         emit StalenessThresholdUpdated(oldThreshold, threshold);
     }
-    
+
     /**
      * @notice Set maximum allowed price deviation
      * @param newMaxDeviation New deviation limit in basis points
@@ -224,7 +224,7 @@ contract PriceOracle is Ownable, Pausable {
         maxDeviation = newMaxDeviation;
         emit DeviationLimitUpdated(oldLimit, newMaxDeviation);
     }
-    
+
     /**
      * @notice Pause a specific token's price updates and queries
      * @param token Token address to pause
@@ -234,7 +234,7 @@ contract PriceOracle is Ownable, Pausable {
         tokenPaused[token] = true;
         emit TokenPausedStatusChanged(token, true);
     }
-    
+
     /**
      * @notice Unpause a specific token
      * @param token Token address to unpause
@@ -243,7 +243,7 @@ contract PriceOracle is Ownable, Pausable {
         tokenPaused[token] = false;
         emit TokenPausedStatusChanged(token, false);
     }
-    
+
     /**
      * @notice Pause all oracle operations (emergency)
      * @dev Prevents all price updates and queries
@@ -251,7 +251,7 @@ contract PriceOracle is Ownable, Pausable {
     function pause() external onlyOwner {
         _pause();
     }
-    
+
     /**
      * @notice Unpause all oracle operations
      */
@@ -285,4 +285,3 @@ contract PriceOracle is Ownable, Pausable {
         rate = (ethPrice * 1e18) / elizaPrice;
     }
 }
-

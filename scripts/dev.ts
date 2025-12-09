@@ -11,7 +11,7 @@ import { spawn, type Subprocess } from "bun";
 import { existsSync } from "fs";
 import { join } from "path";
 import { discoverAllApps, displayAppsSummary, getAutoStartApps, type JejuApp } from "./shared/discover-apps";
-import { CORE_PORTS, INFRA_PORTS } from "../packages/config/ports";
+import { CORE_PORTS, INFRA_PORTS } from "@jejunetwork/config/ports";
 
 // Configuration
 const minimal = process.argv.includes("--minimal");
@@ -57,7 +57,7 @@ async function cleanup() {
     proc.kill();
   }
   
-  await $`bun run scripts/localnet/stop.ts`.nothrow().quiet();
+  await $`bun run localnet:stop`.nothrow().quiet();
   await $`cd apps/indexer && npm run db:down`.nothrow().quiet();
   await $`rm -f apps/node-explorer/node-explorer.db`.nothrow().quiet();
   
@@ -352,7 +352,7 @@ async function startJejuApp(app: JejuApp, l2RpcPort: string): Promise<void> {
   services.set(serviceId, {
     name: appName,
     description: app.manifest.description || '',
-    url: mainPort ? `http://localhost:${mainPort}` : undefined,
+    url: mainPort ? `http://127.0.0.1:${mainPort}` : undefined,
     port: mainPort,
     status: "starting",
     category: "apps",
@@ -478,7 +478,7 @@ async function main() {
       category: "core",
     });
 
-    const startResult = await $`bun run scripts/localnet/start.ts`.nothrow();
+    const startResult = await $`bun run localnet:start`.nothrow();
     
     if (startResult.exitCode !== 0) {
       console.error(`${COLORS.RED}Failed to start localnet${COLORS.RESET}`);
@@ -540,7 +540,7 @@ async function main() {
     services.set("kurtosis-ui", {
       name: "Kurtosis Dashboard",
       description: "Manage localnet",
-      url: "http://localhost:9711",
+      url: "http://127.0.0.1:9711",
       port: 9711,
       status: "running",
       category: "core",
@@ -637,7 +637,7 @@ async function main() {
     services.set("indexer-graphql", {
       name: "GraphQL API",
       description: "Query blockchain data",
-      url: `http://localhost:${indexerGraphQLPort}/graphql`,
+      url: `http://127.0.0.1:${indexerGraphQLPort}/graphql`,
       port: indexerGraphQLPort,
       status: "starting",
       category: "indexer",
@@ -678,7 +678,7 @@ async function main() {
         services.set("prometheus", {
           name: "Prometheus",
           description: "",
-          url: `http://localhost:${prometheusPort}`,
+          url: `http://127.0.0.1:${prometheusPort}`,
           port: prometheusPort,
           status: "running",
           category: "monitoring",
@@ -687,7 +687,7 @@ async function main() {
         services.set("grafana", {
           name: "Grafana",
           description: "",
-          url: `http://localhost:${grafanaPort}`,
+          url: `http://127.0.0.1:${grafanaPort}`,
           port: grafanaPort,
           status: "running",
           category: "monitoring",

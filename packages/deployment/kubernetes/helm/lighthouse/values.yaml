@@ -1,0 +1,118 @@
+# Lighthouse Beacon Node - Required for Fusaka (Dec 2025+)
+# Provides blob data and PeerDAS sampling for op-node
+# https://lighthouse-book.sigmaprime.io/
+
+replicaCount: 1
+
+image:
+  repository: sigp/lighthouse
+  pullPolicy: IfNotPresent
+  tag: "v6.0.1"  # Fusaka-compatible
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "5054"
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsUser: 1000
+  runAsNonRoot: true
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  http:
+    port: 5052
+  metrics:
+    port: 5054
+  p2p:
+    port: 9000
+
+resources:
+  limits:
+    cpu: 4000m
+    memory: 16Gi
+  requests:
+    cpu: 2000m
+    memory: 8Gi
+
+persistence:
+  enabled: true
+  storageClass: "gp3"
+  accessMode: ReadWriteOnce
+  size: 500Gi  # Beacon chain data is large
+  mountPath: /data
+
+nodeSelector:
+  role: core
+
+tolerations:
+  - key: workload
+    operator: Equal
+    value: core
+    effect: NoSchedule
+
+affinity: {}
+
+config:
+  network: "mainnet"  # or "sepolia" for testnet
+  
+  # Execution layer connection (for engine API)
+  execution:
+    endpoint: ""  # Not needed for blob-only use, but can sync with L1 geth
+    jwtSecret: ""
+  
+  # Checkpoint sync for fast startup
+  checkpoint:
+    syncUrl: "https://beaconstate.ethstaker.cc"
+  
+  # HTTP API (for op-node to fetch blobs)
+  http:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 5052
+    allowOrigins: "*"
+  
+  # Metrics
+  metrics:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 5054
+  
+  # Data directory
+  dataDir: "/data"
+  
+  # Fusaka/PeerDAS settings
+  fusaka:
+    # Enable blob serving (required for op-node)
+    serveBlobSidecars: true
+    # PeerDAS participation
+    peerDAS:
+      enabled: true
+      # Number of custody columns (default 4)
+      custodyCount: 4
+    # Blob pruning (keep last N epochs, ~13 hours = 3200 slots)
+    blobPruneDistance: 3200
+  
+  # P2P settings
+  p2p:
+    port: 9000
+    discoveryPort: 9000
+    targetPeers: 80
+
+

@@ -8,7 +8,11 @@ export function LoadingSpinner({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
   return (
     <div className="flex items-center justify-center">
       <div
-        className={`${sizeClasses[size]} border-4 border-purple-600/30 border-t-purple-600 rounded-full animate-spin`}
+        className={`${sizeClasses[size]} border-4 rounded-full animate-spin`}
+        style={{ 
+          borderColor: 'var(--border)',
+          borderTopColor: 'var(--color-primary)'
+        }}
       />
     </div>
   )
@@ -16,7 +20,9 @@ export function LoadingSpinner({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
 
 export function LoadingSkeleton({ className }: { className?: string }) {
   return (
-    <div className={`animate-pulse bg-white/10 rounded ${className}`} />
+    <div 
+      className={`animate-pulse rounded ${className}`}
+      style={{ backgroundColor: 'var(--bg-tertiary)' }}
+    />
   )
 }
-

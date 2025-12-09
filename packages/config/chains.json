@@ -1,0 +1,157 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2025-12-09",
+  
+  "testnet": {
+    "jeju": {
+      "chainId": 420690,
+      "name": "Jeju Testnet",
+      "rpcUrl": "https://testnet-rpc.jeju.network",
+      "wsUrl": "wss://testnet-ws.jeju.network",
+      "explorerUrl": "https://testnet-explorer.jeju.network",
+      "nativeCurrency": { "name": "Ether", "symbol": "ETH", "decimals": 18 },
+      "l1ChainId": 11155111,
+      "isL2": true,
+      "bridgeType": "optimism"
+    },
+    "sepolia": {
+      "chainId": 11155111,
+      "name": "Sepolia",
+      "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
+      "wsUrl": "wss://ethereum-sepolia-rpc.publicnode.com",
+      "explorerUrl": "https://sepolia.etherscan.io",
+      "nativeCurrency": { "name": "Ether", "symbol": "ETH", "decimals": 18 },
+      "isL1": true,
+      "faucet": "https://sepoliafaucet.com"
+    },
+    "baseSepolia": {
+      "chainId": 84532,
+      "name": "Base Sepolia",
+      "rpcUrl": "https://sepolia.base.org",
+      "wsUrl": "wss://sepolia.base.org",
+      "explorerUrl": "https://sepolia.basescan.org",
+      "nativeCurrency": { "name": "Ether", "symbol": "ETH", "decimals": 18 },
+      "l1ChainId": 11155111,
+      "isL2": true,
+      "bridgeType": "optimism",
+      "faucet": "https://www.alchemy.com/faucets/base-sepolia"
+    },
+    "arbitrumSepolia": {
+      "chainId": 421614,
+      "name": "Arbitrum Sepolia",
+      "rpcUrl": "https://sepolia-rollup.arbitrum.io/rpc",
+      "wsUrl": "wss://sepolia-rollup.arbitrum.io/rpc",
+      "explorerUrl": "https://sepolia.arbiscan.io",
+      "nativeCurrency": { "name": "Ether", "symbol": "ETH", "decimals": 18 },
+      "l1ChainId": 11155111,
+      "isL2": true,
+      "bridgeType": "arbitrum",
+      "faucet": "https://faucet.quicknode.com/arbitrum/sepolia"
+    },
+    "optimismSepolia": {
+      "chainId": 11155420,
+      "name": "Optimism Sepolia",
+      "rpcUrl": "https://sepolia.optimism.io",
+      "wsUrl": "wss://sepolia.optimism.io",
+      "explorerUrl": "https://sepolia-optimism.etherscan.io",
+      "nativeCurrency": { "name": "Ether", "symbol": "ETH", "decimals": 18 },
+      "l1ChainId": 11155111,
+      "isL2": true,
+      "bridgeType": "optimism",
+      "faucet": "https://www.alchemy.com/faucets/optimism-sepolia"
+    },
+    "bscTestnet": {
+      "chainId": 97,
+      "name": "BSC Testnet",
+      "rpcUrl": "https://data-seed-prebsc-1-s1.bnbchain.org:8545",
+      "wsUrl": "wss://bsc-testnet-rpc.publicnode.com",
+      "explorerUrl": "https://testnet.bscscan.com",
+      "nativeCurrency": { "name": "BNB", "symbol": "BNB", "decimals": 18 },
+      "isL1": true,
+      "bridgeType": "native",
+      "faucet": "https://testnet.bnbchain.org/faucet-smart"
+    }
+  },
+  
+  "mainnet": {
+    "jeju": {
+      "chainId": 420691,
+      "name": "Jeju",
+      "rpcUrl": "https://rpc.jeju.network",
+      "wsUrl": "wss://ws.jeju.network",
+      "explorerUrl": "https://explorer.jeju.network",
+      "nativeCurrency": { "name": "Ether", "symbol": "ETH", "decimals": 18 },
+      "l1ChainId": 1,
+      "isL2": true,
+      "bridgeType": "optimism"
+    },
+    "ethereum": {
+      "chainId": 1,
+      "name": "Ethereum",
+      "rpcUrl": "https://eth.llamarpc.com",
+      "wsUrl": "wss://eth.llamarpc.com",
+      "explorerUrl": "https://etherscan.io",
+      "nativeCurrency": { "name": "Ether", "symbol": "ETH", "decimals": 18 },
+      "isL1": true
+    },
+    "base": {
+      "chainId": 8453,
+      "name": "Base",
+      "rpcUrl": "https://mainnet.base.org",
+      "wsUrl": "wss://mainnet.base.org",
+      "explorerUrl": "https://basescan.org",
+      "nativeCurrency": { "name": "Ether", "symbol": "ETH", "decimals": 18 },
+      "l1ChainId": 1,
+      "isL2": true,
+      "bridgeType": "optimism"
+    },
+    "arbitrum": {
+      "chainId": 42161,
+      "name": "Arbitrum One",
+      "rpcUrl": "https://arb1.arbitrum.io/rpc",
+      "wsUrl": "wss://arb1.arbitrum.io/rpc",
+      "explorerUrl": "https://arbiscan.io",
+      "nativeCurrency": { "name": "Ether", "symbol": "ETH", "decimals": 18 },
+      "l1ChainId": 1,
+      "isL2": true,
+      "bridgeType": "arbitrum"
+    },
+    "optimism": {
+      "chainId": 10,
+      "name": "Optimism",
+      "rpcUrl": "https://mainnet.optimism.io",
+      "wsUrl": "wss://mainnet.optimism.io",
+      "explorerUrl": "https://optimistic.etherscan.io",
+      "nativeCurrency": { "name": "Ether", "symbol": "ETH", "decimals": 18 },
+      "l1ChainId": 1,
+      "isL2": true,
+      "bridgeType": "optimism"
+    },
+    "bsc": {
+      "chainId": 56,
+      "name": "BNB Chain",
+      "rpcUrl": "https://bsc-dataseed.bnbchain.org",
+      "wsUrl": "wss://bsc-ws-node.nariox.org",
+      "explorerUrl": "https://bscscan.com",
+      "nativeCurrency": { "name": "BNB", "symbol": "BNB", "decimals": 18 },
+      "isL1": true,
+      "bridgeType": "native"
+    }
+  },
+  
+  "entryPoints": {
+    "v0.6": "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789",
+    "v0.7": "0x0000000071727De22E5E9d8BAf0edAc6f37da032"
+  },
+  
+  "l2Precompiles": {
+    "L2CrossDomainMessenger": "0x4200000000000000000000000000000000000007",
+    "L2StandardBridge": "0x4200000000000000000000000000000000000010",
+    "L2ToL1MessagePasser": "0x4200000000000000000000000000000000000016",
+    "GasPriceOracle": "0x420000000000000000000000000000000000000F",
+    "L1Block": "0x4200000000000000000000000000000000000015",
+    "WETH": "0x4200000000000000000000000000000000000006"
+  }
+}
+
+

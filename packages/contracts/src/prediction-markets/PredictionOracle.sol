@@ -13,38 +13,27 @@ contract PredictionOracle is IPredictionOracle {
     struct GameOutcome {
         bytes32 sessionId;
         string question;
-        bool outcome;              // true = YES, false = NO
-        bytes32 commitment;        // Hash committed at game start
-        bytes32 salt;              // Salt for commitment
+        bool outcome; // true = YES, false = NO
+        bytes32 commitment; // Hash committed at game start
+        bytes32 salt; // Salt for commitment
         uint256 startTime;
         uint256 endTime;
-        bytes teeQuote;            // TEE attestation quote
+        bytes teeQuote; // TEE attestation quote
         uint256 totalPayout;
         bool finalized;
     }
 
     mapping(bytes32 => GameOutcome) public games;
     mapping(bytes32 => bool) public commitments;
-    mapping(bytes32 => address[]) private gameWinners;  // Separate mapping for winners array
-    
-    address public gameServer;
+    mapping(bytes32 => address[]) private gameWinners; // Separate mapping for winners array
+
+    address public immutable gameServer;
     uint256 public gameCount;
     address public dstackVerifier; // Dstack TEE verifier contract
 
-    event GameCommitted(
-        bytes32 indexed sessionId,
-        string question,
-        bytes32 commitment,
-        uint256 startTime
-    );
+    event GameCommitted(bytes32 indexed sessionId, string question, bytes32 commitment, uint256 startTime);
 
-    event GameRevealed(
-        bytes32 indexed sessionId,
-        bool outcome,
-        uint256 endTime,
-        bytes teeQuote,
-        uint256 winnersCount
-    );
+    event GameRevealed(bytes32 indexed sessionId, bool outcome, uint256 endTime, bytes teeQuote, uint256 winnersCount);
 
     modifier onlyGameServer() {
         require(msg.sender == gameServer, "Only game server");
@@ -66,11 +55,7 @@ contract PredictionOracle is IPredictionOracle {
      * @param question The yes/no question
      * @param commitment Hash of (outcome + salt)
      */
-    function commitGame(
-        bytes32 sessionId,
-        string calldata question,
-        bytes32 commitment
-    ) external onlyGameServer {
+    function commitGame(bytes32 sessionId, string calldata question, bytes32 commitment) external onlyGameServer {
         require(!commitments[commitment], "Commitment already exists");
         require(games[sessionId].startTime == 0, "Session already exists");
 
@@ -102,6 +87,10 @@ contract PredictionOracle is IPredictionOracle {
      * @param winners List of winner addresses
      * @param totalPayout Total prize pool distributed
      */
+    /**
+     * @notice Reveal game outcome
+     * @custom:security CEI pattern: Verify first, then update state
+     */
     function revealGame(
         bytes32 sessionId,
         bool outcome,
@@ -118,14 +107,11 @@ contract PredictionOracle is IPredictionOracle {
         bytes32 expectedCommitment = keccak256(abi.encode(outcome, salt));
         require(game.commitment == expectedCommitment, "Commitment mismatch");
 
-        // Verify TEE quote if verifier is set
+        // Verify TEE quote if verifier is set (view-only call, safe before state update)
         if (dstackVerifier != address(0)) {
-            (bool success, bytes memory result) = dstackVerifier.call(
+            (bool success, bytes memory result) = dstackVerifier.staticcall(
                 abi.encodeWithSignature(
-                    "verify(bytes,uint256,bytes)",
-                    teeQuote,
-                    block.timestamp,
-                    abi.encode(sessionId, outcome)
+                    "verify(bytes,uint256,bytes)", teeQuote, block.timestamp, abi.encode(sessionId, outcome)
                 )
             );
             require(success && abi.decode(result, (bool)), "TEE quote verification failed");
@@ -136,13 +122,13 @@ contract PredictionOracle is IPredictionOracle {
         game.salt = salt;
         game.endTime = block.timestamp;
         game.teeQuote = teeQuote;
-        gameWinners[sessionId] = winners;  // Store winners separately
+        gameWinners[sessionId] = winners; // Store winners separately
         game.totalPayout = totalPayout;
         game.finalized = true;
 
         emit GameRevealed(sessionId, outcome, block.timestamp, teeQuote, winners.length);
     }
-    
+
     /**
      * @notice Get winners array for a game
      * @param sessionId Game session ID
@@ -168,9 +154,9 @@ contract PredictionOracle is IPredictionOracle {
     function isWinner(bytes32 sessionId, address player) external view override returns (bool) {
         GameOutcome storage game = games[sessionId];
         if (!game.finalized) return false;
-        
+
         address[] storage winners = gameWinners[sessionId];
-        for (uint i = 0; i < winners.length; i++) {
+        for (uint256 i = 0; i < winners.length; i++) {
             if (winners[i] == player) return true;
         }
         return false;
@@ -183,44 +169,45 @@ contract PredictionOracle is IPredictionOracle {
     function verifyCommitment(bytes32 commitment) external view override returns (bool) {
         return commitments[commitment];
     }
-    
+
     // ============ Contest Oracle Methods (Not Supported) ============
     // PredictionOracle doesn't support contest-specific features
     // These return empty/default values for interface compliance
-    
-    function getContestInfo(bytes32 /* contestId */) external pure returns (
-        ContestState state,
-        ContestMode mode,
-        uint256 startTime,
-        uint256 endTime,
-        uint256 optionCount
-    ) {
+
+    function getContestInfo(bytes32 /* contestId */ )
+        external
+        pure
+        returns (ContestState state, ContestMode mode, uint256 startTime, uint256 endTime, uint256 optionCount)
+    {
         return (ContestState.PENDING, ContestMode.SINGLE_WINNER, 0, 0, 0);
     }
-    
-    function getOptions(bytes32 /* contestId */) external pure returns (string[] memory) {
+
+    function getOptions(bytes32 /* contestId */ ) external pure returns (string[] memory) {
         return new string[](0);
     }
-    
-    function getWinner(bytes32 /* contestId */) external pure returns (uint256, bool) {
+
+    function getWinner(bytes32 /* contestId */ ) external pure returns (uint256, bool) {
         return (0, false);
     }
-    
-    function getTop3(bytes32 /* contestId */) external pure returns (uint256[3] memory, bool) {
+
+    function getTop3(bytes32 /* contestId */ ) external pure returns (uint256[3] memory, bool) {
         return ([uint256(0), 0, 0], false);
     }
-    
-    function getFullRanking(bytes32 /* contestId */) external pure returns (uint256[] memory, bool) {
+
+    function getFullRanking(bytes32 /* contestId */ ) external pure returns (uint256[] memory, bool) {
         return (new uint256[](0), false);
     }
-    
-    function getBinaryOutcome(bytes32 sessionId, bytes memory /* outcomeDefinition */) external view returns (bool outcome, bool finalized) {
+
+    function getBinaryOutcome(bytes32 sessionId, bytes memory /* outcomeDefinition */ )
+        external
+        view
+        returns (bool outcome, bool finalized)
+    {
         // Just delegate to getOutcome for non-contest oracles
         return this.getOutcome(sessionId);
     }
-    
-    function isWinningOption(bytes32 /* contestId */, uint256 /* optionIndex */) external pure returns (bool) {
+
+    function isWinningOption(bytes32, /* contestId */ uint256 /* optionIndex */ ) external pure returns (bool) {
         return false;
     }
 }
-

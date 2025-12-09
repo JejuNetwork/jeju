@@ -8,14 +8,13 @@ import {SimpleERC20Factory} from "../src/token/SimpleERC20Factory.sol";
 contract DeployERC20Factory is Script {
     function run() external {
         vm.startBroadcast();
-        
+
         SimpleERC20Factory factory = new SimpleERC20Factory();
-        
+
         console.log("========================================");
         console.log("SimpleERC20Factory deployed at:", address(factory));
         console.log("========================================");
-        
+
         vm.stopBroadcast();
     }
 }
-

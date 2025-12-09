@@ -154,6 +154,16 @@ async function sendContract(
   return fn(...args) as Promise<ContractTransactionResponse>;
 }
 
+import {
+  ComputePaymentClient,
+  createPaymentClient,
+  type PaymasterOption,
+  type CreditBalance,
+  type PaymentResult,
+  ZERO_ADDRESS,
+} from './payment';
+import type { Address } from 'viem';
+
 /**
  * Jeju Compute SDK
  */
@@ -164,6 +174,7 @@ export class JejuComputeSDK {
   private ledger: Contract;
   private inferenceContract: Contract;
   private rentalContract: Contract | null;
+  private paymentClient: ComputePaymentClient | null;
 
   constructor(config: SDKConfig) {
     this.rpcProvider = new JsonRpcProvider(config.rpcUrl);
@@ -192,6 +203,18 @@ export class JejuComputeSDK {
     // Optional rental contract
     this.rentalContract = config.contracts.rental
       ? new Contract(config.contracts.rental, RENTAL_ABI, signerOrProvider)
+      : null;
+
+    // Initialize payment client for multi-token paymaster support
+    this.paymentClient = config.contracts.creditManager
+      ? createPaymentClient({
+          rpcUrl: config.rpcUrl,
+          creditManagerAddress: config.contracts.creditManager as Address,
+          paymasterFactoryAddress: (config.contracts.paymasterFactory || ZERO_ADDRESS) as Address,
+          ledgerManagerAddress: config.contracts.ledger as Address,
+          tokenRegistryAddress: (config.contracts.tokenRegistry || ZERO_ADDRESS) as Address,
+          entryPointAddress: (config.contracts.entryPoint || '0x0000000071727De22E5E9d8BAf0edAc6f37da032') as Address,
+        })
       : null;
   }
 
@@ -600,6 +623,107 @@ export class JejuComputeSDK {
    */
   async isAcknowledged(user: string, provider: string): Promise<boolean> {
     return callContract<boolean>(this.ledger, 'isAcknowledged', user, provider);
+  }
+
+  // ============ Multi-Token Payment Functions ============
+  // These functions enable payment with ANY registered token via ERC-4337 paymasters
+  // Users can pay with elizaOS, USDC, VIRTUAL, etc. - no bridging required
+
+  /**
+   * Check if multi-token payments are enabled
+   */
+  isPaymasterEnabled(): boolean {
+    return this.paymentClient !== null;
+  }
+
+  /**
+   * Get credit balances across all supported tokens
+   * Credits enable zero-latency operations (no blockchain tx needed)
+   */
+  async getCreditBalances(address?: string): Promise<CreditBalance | null> {
+    if (!this.paymentClient) return null;
+    const addr = address || this.signer?.address;
+    if (!addr) throw new Error('Address required');
+    return this.paymentClient.getCreditBalances(addr);
+  }
+
+  /**
+   * Get available paymasters (tokens that can sponsor gas)
+   * @param estimatedGas Gas estimate for the operation (use estimateGasForOperation)
+   */
+  async getAvailablePaymasters(estimatedGas: bigint): Promise<PaymasterOption[]> {
+    if (!this.paymentClient) return [];
+    return this.paymentClient.getAvailablePaymasters(estimatedGas);
+  }
+
+  /**
+   * Select optimal paymaster based on user's token balances
+   * Returns the cheapest paymaster that the user can afford
+   */
+  async selectOptimalPaymaster(estimatedGas: bigint): Promise<PaymasterOption | null> {
+    if (!this.paymentClient || !this.signer) return null;
+    return this.paymentClient.selectOptimalPaymaster(this.signer.address, estimatedGas);
+  }
+
+  /**
+   * Deposit credits for future compute usage
+   * Credits enable zero-latency operations - no blockchain tx needed per request
+   * 
+   * @param tokenAddress Token to deposit (ZERO_ADDRESS for ETH)
+   * @param amount Amount to deposit
+   */
+  async depositCredits(tokenAddress: string, amount: bigint): Promise<string> {
+    if (!this.paymentClient) throw new Error('Payment client not configured');
+    const signer = this.requireSigner();
+    return this.paymentClient.depositCredits(signer, tokenAddress, amount);
+  }
+
+  /**
+   * Pay for compute using the optimal method:
+   * 1. Credits (zero latency, if available)
+   * 2. Paymaster-sponsored tx (any token)
+   * 3. Direct ETH payment (fallback)
+   * 
+   * @param amount Amount required in wei
+   * @param preferredToken Optional preferred token for payment
+   */
+  async payForCompute(amount: bigint, preferredToken?: string): Promise<PaymentResult> {
+    if (!this.paymentClient) {
+      throw new Error('Payment client not configured - use deposit() for ETH-only payments');
+    }
+    const signer = this.requireSigner();
+    return this.paymentClient.payForCompute(signer, amount, preferredToken);
+  }
+
+  /**
+   * Check if user has sufficient balance in any payment method
+   * Returns the best payment option available
+   */
+  async checkPaymentOptions(
+    amount: bigint
+  ): Promise<{
+    credits: CreditBalance | null;
+    ledgerBalance: bigint;
+    paymasters: PaymasterOption[];
+    canPay: boolean;
+  }> {
+    this.requireSigner(); // Ensure user has a signer for payment options
+    const [credits, ledger, paymasters] = await Promise.all([
+      this.getCreditBalances(),
+      this.getLedger().then((l) => l.availableBalance),
+      this.getAvailablePaymasters(amount),
+    ]);
+
+    const canPayWithCredits = credits ? credits.total >= amount : false;
+    const canPayWithLedger = ledger >= amount;
+    const canPayWithPaymaster = paymasters.some((p) => p.isAvailable);
+
+    return {
+      credits,
+      ledgerBalance: ledger,
+      paymasters,
+      canPay: canPayWithCredits || canPayWithLedger || canPayWithPaymaster,
+    };
   }
 
   // ============ Inference Functions ============

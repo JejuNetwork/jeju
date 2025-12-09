@@ -1,184 +1,258 @@
 # Open Intents Framework (OIF)
 
-Cross-chain intent infrastructure for the Jeju network. Enables trustless, permissionless cross-chain swaps via intents.
+Cross-chain intent system for Jeju Network. Users specify desired outcomes, solvers compete to fulfill them.
+
+## Overview
+
+OIF implements ERC-7683 compatible cross-chain intents:
+
+1. **User** creates intent specifying desired outcome (e.g., "swap 1 ETH on Ethereum for USDC on Jeju")
+2. **Aggregator** collects intents and routes to solvers
+3. **Solver** evaluates profitability and fills the intent
+4. **Oracle** attests to cross-chain fill completion
+5. **Settlement** releases locked funds to appropriate parties
+
+## Quick Start
+
+```bash
+# Start all services (from repo root)
+bun run dev
+
+# Or start individually
+cd apps/intents/aggregator && bun run src/index.ts  # Port 4010
+cd apps/intents/solver && bun run src/index.ts      # Port 4011
+cd apps/intents/viewer && bun run dev               # Port 5173
+```
 
 ## Architecture
 
-```
-┌─────────────┐     ┌──────────────┐     ┌─────────────┐
-│    User     │────▶│ InputSettler │────▶│  Aggregator │
-│  (Source)   │     │  (Lock $)    │     │   (Route)   │
-└─────────────┘     └──────────────┘     └──────┬──────┘
-                                                │
-                    ┌──────────────┐     ┌──────▼──────┐
-                    │   Oracle     │◀────│   Solver    │
-                    │  (Attest)    │     │   (Fill)    │
-                    └──────┬───────┘     └──────┬──────┘
-                           │                    │
-                    ┌──────▼───────┐     ┌──────▼──────┐
-                    │ InputSettler │◀────│OutputSettler│
-                    │  (Release)   │     │  (Deliver)  │
-                    └──────────────┘     └─────────────┘
-```
+### Smart Contracts
 
-## Components
+Located in `packages/contracts/src/oif/`:
 
-### Aggregator (`aggregator/`)
-A2A + MCP server for intent routing and quote aggregation.
+| Contract | Purpose |
+|----------|---------|
+| `InputSettler.sol` | Intent creation, fund locking, refunds |
+| `OutputSettler.sol` | Solver fills, output delivery |
+| `SolverRegistry.sol` | Solver registration, staking, slashing |
+| `OracleAdapter.sol` | Cross-chain attestation verification |
+| `IOIF.sol` | Interfaces (ERC-7683 compatible) |
 
-```bash
-cd aggregator && bun run dev  # Port 4010
-```
+### Off-Chain Services
 
-**A2A Skills:**
-- `create-intent` - Create cross-chain swap
-- `get-quote` - Get best price from solvers
-- `track-intent` - Monitor intent status
-- `list-routes` - Available routes
-- `list-solvers` - Active solvers
+| Service | Port | Description |
+|---------|------|-------------|
+| Aggregator | 4010 | Intent aggregation, routing, APIs |
+| WebSocket | 4012 | Real-time intent updates |
+| Solver | 4011 | Automated intent fulfillment |
+| Viewer | 5173 | Web UI for intent management |
 
-**MCP Resources:**
-- `oif://routes` - Route statistics
-- `oif://solvers` - Solver leaderboard
-- `oif://intents/recent` - Recent intents
-- `oif://stats` - Global analytics
+### Aggregator APIs
 
-### Solver (`solver/`)
-Autonomous agent that monitors and fills intents for profit.
+**REST API** (`/api/*`):
+- `POST /api/intents` - Create intent
+- `GET /api/intents` - List intents
+- `GET /api/intents/:id` - Get intent details
+- `POST /api/intents/quote` - Get quote
+- `GET /api/routes` - List supported routes
+- `GET /api/solvers` - List active solvers
+- `GET /api/stats` - Network statistics
 
-```bash
-cd solver && bun run dev
-```
+**A2A Protocol** (`/a2a`):
+- Agent-to-agent communication for AI agents
+- Skills: `create-intent`, `get-quote`, `list-routes`, `get-solver-liquidity`
+- Agent card at `/.well-known/agent-card.json`
 
-**Features:**
-- Multi-chain event monitoring
-- Profitability evaluation
-- Liquidity management
-- Automatic fills
+**MCP Protocol** (`/mcp`):
+- Model Context Protocol for AI integration
+- Resources: `intent://`, `route://`, `solver://`
+- Tools: `create_intent`, `get_quote`, `list_routes`
 
-### Viewer (`viewer/`)
-React frontend for visualizing intents, routes, and solvers.
+**WebSocket** (`ws://localhost:4012`):
+- Subscribe to: `intents`, `solvers`, `stats`
+- Real-time updates on intent status changes
+
+## Deployment
+
+### 1. Deploy Contracts
 
 ```bash
-cd viewer && bun run dev  # Port 4011
+cd packages/contracts
+
+# Deploy to Jeju (chain 420690)
+PRIVATE_KEY=$DEPLOYER_PRIVATE_KEY forge script script/DeployOIF.s.sol \
+  --rpc-url https://rpc.testnet.jeju.network \
+  --broadcast \
+  --verify
+
+# Deploy to Sepolia (chain 11155111) - Jeju L1
+PRIVATE_KEY=$DEPLOYER_PRIVATE_KEY forge script script/DeployOIF.s.sol \
+  --rpc-url https://ethereum-sepolia-rpc.publicnode.com \
+  --broadcast \
+  --verify
 ```
 
-**Views:**
-- **Intents** - Live feed with status filters
-- **Routes** - Route cards with metrics
-- **Solvers** - Leaderboard and cards
-- **Analytics** - Charts and stats
+The deployment script outputs environment variables to add to your `.env`:
 
-## Smart Contracts
+```
+OIF_SOLVER_REGISTRY_420690=0x...
+OIF_ORACLE_420690=0x...
+OIF_INPUT_SETTLER_420690=0x...
+OIF_OUTPUT_SETTLER_420690=0x...
+```
 
-Located in `/packages/contracts/src/oif/`:
+### 2. Configure Environment
 
-| Contract | Description |
-|----------|-------------|
-| `InputSettler.sol` | Locks user funds, receives intents (ERC-7683) |
-| `OutputSettler.sol` | Delivers tokens to recipient on destination |
-| `SolverRegistry.sol` | Solver staking, slashing, reputation |
-| `OracleAdapter.sol` | Pluggable oracle (Hyperlane, Superchain, Simple) |
-
-### Deploy
+Add to `.env`:
 
 ```bash
-cd /packages/contracts
-forge script script/DeployOIF.s.sol --rpc-url $RPC_URL --broadcast
+# OIF Service Ports
+OIF_AGGREGATOR_PORT=4010
+OIF_AGGREGATOR_WS_PORT=4012
+OIF_SOLVER_PORT=4011
+
+# Oracle Type (simple, hyperlane, superchain)
+OIF_ORACLE_TYPE=simple
+
+# Contract Addresses (from deployment)
+OIF_INPUT_SETTLER_420690=0x...
+OIF_OUTPUT_SETTLER_420690=0x...
+OIF_SOLVER_REGISTRY_420690=0x...
+OIF_ORACLE_420690=0x...
+
+# Solver Configuration
+OIF_SOLVER_PRIVATE_KEY=0x...
+OIF_SOLVER_MIN_PROFIT_BPS=50
+OIF_SOLVER_MAX_SLIPPAGE_BPS=100
+
+# Supported Chains
+OIF_SUPPORTED_CHAINS=420690,11155111
+
+# RPC URLs
+OIF_RPC_420690=https://testnet-rpc.jeju.network
+OIF_RPC_11155111=https://ethereum-sepolia-rpc.publicnode.com
 ```
 
-## Configuration
+### 3. Start Services
 
-Copy `.env.example` and configure:
-
-```env
-# Aggregator
-AGGREGATOR_PORT=4010
-
-# Contracts per chain
-OIF_INPUT_SETTLER_8453=0x...
-OIF_OUTPUT_SETTLER_8453=0x...
-OIF_SOLVER_REGISTRY_8453=0x...
-
-# Solver
-SOLVER_PRIVATE_KEY=0x...
-```
-
-## API Examples
-
-### Create Intent
 ```bash
-curl -X POST http://localhost:4010/api/intents \
-  -H "Content-Type: application/json" \
-  -d '{
-    "sourceChain": 8453,
-    "destinationChain": 42161,
-    "sourceToken": "0x0000000000000000000000000000000000000000",
-    "destinationToken": "0x0000000000000000000000000000000000000000",
-    "amount": "1000000000000000000"
-  }'
+# Aggregator (required)
+cd apps/intents/aggregator && bun run src/index.ts
+
+# Solver (optional - for automated filling)
+cd apps/intents/solver && bun run src/index.ts
+
+# Viewer (optional - for web UI)
+cd apps/intents/viewer && bun run dev
 ```
 
-### Get Quote
+## Oracle Types
+
+### SimpleOracle (Default)
+Trusted attester model. Good for development and controlled environments.
+
+### HyperlaneOracle
+Uses Hyperlane for cross-chain message verification. Requires:
 ```bash
-curl -X POST http://localhost:4010/api/intents/quote \
-  -H "Content-Type: application/json" \
-  -d '{
-    "sourceChain": 8453,
-    "destinationChain": 42161,
-    "sourceToken": "0x0000000000000000000000000000000000000000",
-    "destinationToken": "0x0000000000000000000000000000000000000000",
-    "amount": "1000000000000000000"
-  }'
+HYPERLANE_MAILBOX=0x...
+HYPERLANE_ISM=0x...
 ```
 
-### A2A Message
-```bash
-curl -X POST http://localhost:4010/a2a \
-  -H "Content-Type: application/json" \
-  -d '{
-    "jsonrpc": "2.0",
-    "method": "message/send",
-    "params": {
-      "message": {
-        "messageId": "1",
-        "parts": [{
-          "kind": "data",
-          "data": {"skillId": "get-stats"}
-        }]
-      }
-    },
-    "id": 1
-  }'
-```
+### SuperchainOracle
+Uses OP Superchain native interop. Best for OP Stack chains with shared sequencer.
 
 ## Testing
 
 ```bash
-# Contract tests
-cd /packages/contracts && forge test --match-path test/OIF.t.sol
+# Smart contract tests (70 tests)
+cd packages/contracts
+forge test --match-path "test/OIF*.sol"
 
-# Aggregator
-cd aggregator && bun test
+# Aggregator tests (77 tests)
+cd apps/intents/aggregator && bun test
 
-# Viewer build
-cd viewer && bun run build
+# Solver tests (18 tests)
+cd apps/intents/solver && bun test
+
+# Cross-chain tests (14 tests)
+cd apps/intents && bun test test/cross-chain.test.ts
 ```
 
-## Integration
+## Intent Flow
 
-### Gateway
-Import the hook:
-```typescript
-import { useCreateIntent, useIntentStatus } from '../hooks/useOIF';
+```
+┌─────────┐     ┌────────────┐     ┌────────────┐     ┌─────────────┐
+│  User   │────▶│ Aggregator │────▶│   Solver   │────▶│ OutputSettler│
+│         │     │            │     │            │     │ (dest chain) │
+└─────────┘     └────────────┘     └────────────┘     └─────────────┘
+     │                                    │                  │
+     ▼                                    │                  ▼
+┌─────────────┐                          │           ┌──────────┐
+│InputSettler │                          │           │  Oracle  │
+│(src chain)  │◀─────────────────────────┘           │          │
+└─────────────┘                                      └──────────┘
+     │                                                     │
+     └────────────── attestation ◀─────────────────────────┘
 ```
 
-### Bazaar
-Import crosschain lib:
-```typescript
-import { getCrossChainQuotes, createIntent } from '../lib/crosschain';
+1. User calls `InputSettler.open()` with order details + funds
+2. Aggregator broadcasts intent to solvers
+3. Solver evaluates profitability and calls `OutputSettler.fill()`
+4. Oracle attests to fill completion
+5. `InputSettler.settle()` releases funds to solver
+
+## Supported Chains
+
+| Chain | Chain ID | Status |
+|-------|----------|--------|
+| Jeju Mainnet | 420691 | ✅ |
+| Jeju Testnet | 420690 | ✅ |
+| Ethereum | 1 | ✅ |
+| Sepolia | 11155111 | ✅ |
+| Arbitrum | 42161 | Ready |
+| Optimism | 10 | Ready |
+
+## File Structure
+
+```
+apps/intents/
+├── aggregator/           # Intent aggregation service
+│   ├── src/
+│   │   ├── index.ts      # Entry point
+│   │   ├── api.ts        # REST endpoints
+│   │   ├── a2a-server.ts # A2A protocol
+│   │   ├── mcp-server.ts # MCP protocol
+│   │   ├── websocket.ts  # Real-time updates
+│   │   ├── services/     # Business logic
+│   │   └── middleware/   # Rate limiting, etc.
+│   └── test/             # Unit & API tests
+├── solver/               # Automated solver agent
+│   ├── src/
+│   │   ├── index.ts      # Entry point
+│   │   ├── agent.ts      # Core solver logic
+│   │   ├── monitor.ts    # Intent monitoring
+│   │   ├── strategy.ts   # Profitability analysis
+│   │   └── liquidity.ts  # Liquidity management
+│   └── test/             # Unit & integration tests
+├── viewer/               # Web UI
+│   ├── src/
+│   │   ├── App.tsx       # Main app
+│   │   ├── pages/        # Views
+│   │   ├── components/   # UI components
+│   │   └── hooks/        # React hooks
+│   └── tests/            # E2E tests
+└── test/                 # Cross-chain tests
+
+packages/contracts/src/oif/
+├── IOIF.sol              # Interfaces
+├── InputSettler.sol      # Source chain settler
+├── OutputSettler.sol     # Destination chain settler
+├── SolverRegistry.sol    # Solver management
+└── OracleAdapter.sol     # Oracle implementations
 ```
 
-### Indexer
-OIF events are processed by `src/oif-processor.ts` and stored in GraphQL entities.
+## Links
 
+- [ERC-7683 Specification](https://eips.ethereum.org/EIPS/eip-7683)
+- [Ethereum Interoperability Layer](https://ethereum.org/en/roadmap/)
+- [Jeju Docs](https://docs.jeju.network)

@@ -1,0 +1,8 @@
+apiVersion: v2
+name: bundler
+description: ERC-4337 bundler (Stackup)
+type: application
+version: 1.1.0
+appVersion: "v0.7.0"
+
+

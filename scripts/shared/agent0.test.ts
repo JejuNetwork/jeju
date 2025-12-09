@@ -3,15 +3,14 @@
  * @notice Tests for the agent0.ts module
  */
 
-import { describe, test, expect, beforeAll, afterAll, mock } from 'bun:test';
+import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
 import { 
   loadJejuManifest, 
   getNetworkConfig, 
   buildRegistrationFile,
   detectNetwork,
   createConfigFromEnv,
-  type JejuManifest,
-  type Agent0Config
+  type JejuManifest
 } from './agent0';
 import { resolve } from 'path';
 import { writeFileSync, rmSync, mkdirSync, existsSync } from 'fs';
@@ -25,16 +24,16 @@ describe('Agent0 SDK Integration', () => {
       expect(config.rpcUrl).toBe('http://localhost:8545');
     });
     
-    test('should return testnet config with Base Sepolia chain ID', () => {
+    test('should return testnet config with Sepolia chain ID', () => {
       const config = getNetworkConfig('testnet');
-      expect(config.chainId).toBe(84532);
-      expect(config.rpcUrl).toBe('https://sepolia.base.org');
+      expect(config.chainId).toBe(11155111);
+      expect(config.rpcUrl).toBe('https://ethereum-sepolia-rpc.publicnode.com');
     });
     
-    test('should return mainnet config with Base chain ID', () => {
+    test('should return mainnet config with Ethereum chain ID', () => {
       const config = getNetworkConfig('mainnet');
-      expect(config.chainId).toBe(8453);
-      expect(config.rpcUrl).toBe('https://mainnet.base.org');
+      expect(config.chainId).toBe(1);
+      expect(config.rpcUrl).toBe('https://eth.llamarpc.com');
     });
     
     test('should include registry addresses structure', () => {
@@ -271,13 +270,7 @@ describe('Agent0 Manifest Loading - Real Apps', () => {
     expect(manifest.agent?.a2aEndpoint).toContain('/a2a');
   });
   
-  test('should load ipfs manifest with agent config', () => {
-    const manifest = loadJejuManifest(resolve(appsDir, 'ipfs'));
-    
-    expect(manifest.name).toBe('ipfs');
-    expect(manifest.agent?.enabled).toBe(true);
-    expect(manifest.agent?.x402Support).toBe(true);
-  });
+  // Note: apps/ipfs was removed from the project
   
   test('should load compute manifest with agent config', () => {
     const manifest = loadJejuManifest(resolve(appsDir, 'compute'));

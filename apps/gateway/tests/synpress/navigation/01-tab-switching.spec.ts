@@ -5,7 +5,7 @@
 
 import { testWithSynpress } from '@synthetixio/synpress';
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
-import { basicSetup } from '../../synpress.config'
+import { basicSetup } from '../../../synpress.config'
 import { connectWallet } from '../helpers/wallet-helpers';
 import { GATEWAY_URL } from '../fixtures/test-data';
 
@@ -22,7 +22,7 @@ test.describe('Main Tab Navigation', () => {
   test('should navigate through all 7 main tabs sequentially', async ({ page }) => {
     const tabs = [
       { name: 'Registered Tokens', content: /elizaOS|Token/i },
-      { name: 'Bridge from Base', content: /Bridge from Base/i },
+      { name: 'Bridge from Ethereum', content: /Bridge from Ethereum/i },
       { name: 'Deploy Paymaster', content: /Deploy Paymaster/i },
       { name: 'Add Liquidity', content: /Add ETH Liquidity/i },
       { name: 'My Earnings', content: /My LP Positions/i },
@@ -56,7 +56,7 @@ test.describe('Main Tab Navigation', () => {
   });
 
   test('should maintain wallet connection across all tabs', async ({ page }) => {
-    const tabs = ['Registered Tokens', 'Bridge from Base', 'Deploy Paymaster', 'Add Liquidity', 'My Earnings', 'Node Operators', 'App Registry'];
+    const tabs = ['Registered Tokens', 'Bridge from Ethereum', 'Deploy Paymaster', 'Add Liquidity', 'My Earnings', 'Node Operators', 'App Registry'];
 
     for (const tab of tabs) {
       await page.getByRole('button', { name: tab }).click();
@@ -95,7 +95,7 @@ test.describe('Main Tab Navigation', () => {
   });
 
   test('should handle rapid tab switching', async ({ page }) => {
-    const tabs = ['Registered Tokens', 'Bridge from Base', 'Add Liquidity', 'My Earnings'];
+    const tabs = ['Registered Tokens', 'Bridge from Ethereum', 'Add Liquidity', 'My Earnings'];
 
     // Rapidly switch tabs
     for (let i = 0; i < 3; i++) {
@@ -146,7 +146,7 @@ test.describe('Sub-Navigation - Node Operators', () => {
     await page.waitForTimeout(500);
 
     // Navigate to different main tab
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(500);
 
     // Come back to Node Operators
@@ -209,7 +209,7 @@ test.describe('Browser Navigation', () => {
     await connectWallet(page, metamask);
 
     // Navigate to different tabs
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(500);
 
     await page.getByRole('button', { name: /Add Liquidity/i }).click();
@@ -227,7 +227,7 @@ test.describe('Browser Navigation', () => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(500);
 
     await page.goBack();

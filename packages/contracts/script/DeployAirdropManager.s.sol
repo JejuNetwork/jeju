@@ -8,13 +8,13 @@ import {AirdropManager} from "../src/distributor/AirdropManager.sol";
 /**
  * @title DeployAirdropManager
  * @notice Deployment script for AirdropManager contract
- * 
+ *
  * Usage:
  *   forge script script/DeployAirdropManager.s.sol \
  *     --rpc-url $RPC_URL \
  *     --broadcast \
  *     --verify
- * 
+ *
  * Required env vars:
  *   - FEE_DISTRIBUTOR_ADDRESS (deployed FeeDistributor address)
  *   - DEPLOYER_PRIVATE_KEY (for deployment)
@@ -23,20 +23,17 @@ contract DeployAirdropManager is Script {
     function run() external {
         address feeDistributor = vm.envAddress("FEE_DISTRIBUTOR_ADDRESS");
         address deployer = vm.addr(vm.envUint("DEPLOYER_PRIVATE_KEY"));
-        
+
         console.log("Deploying AirdropManager...");
         console.log("  Deployer:", deployer);
         console.log("  FeeDistributor:", feeDistributor);
-        
+
         vm.startBroadcast();
-        
-        AirdropManager manager = new AirdropManager(
-            feeDistributor,
-            deployer
-        );
-        
+
+        AirdropManager manager = new AirdropManager(feeDistributor, deployer);
+
         vm.stopBroadcast();
-        
+
         console.log("Deployment complete!");
         console.log("  AirdropManager:", address(manager));
         console.log("");
@@ -50,5 +47,3 @@ contract DeployAirdropManager is Script {
         console.log("3. Test snapshot generation: bun run scripts/leaderboard/monthly-distribution.ts --dry-run");
     }
 }
-
-

@@ -4,7 +4,7 @@
   "displayName": "Bazaar",
   "version": "1.0.0",
   "type": "core",
-  "description": "Unified DeFi + NFT + Token Launchpad - Uniswap V4 swaps, liquidity pools, NFT trading, and multi-chain token creation",
+  "description": "Unified DeFi + NFT + Token Launchpad - Uniswap V4 swaps, liquidity pools, NFT trading, JNS name marketplace, and multi-chain token creation",
   "commands": {
     "dev": "bun run dev",
     "build": "bun run build",
@@ -18,20 +18,26 @@
   "optional": false,
   "enabled": true,
   "autoStart": true,
-  "tags": ["defi", "nft", "marketplace", "uniswap-v4", "launchpad", "multi-chain", "core"],
+  "tags": ["defi", "nft", "marketplace", "uniswap-v4", "launchpad", "multi-chain", "jns", "names", "core"],
   "healthCheck": {
     "url": "http://localhost:4006",
     "interval": 30000
   },
+  "jns": {
+    "name": "bazaar.jeju",
+    "description": "DeFi + NFT + Names Marketplace on Jeju",
+    "url": "https://bazaar.jeju.network"
+  },
   "agent": {
     "enabled": true,
     "a2aEndpoint": "/api/a2a",
-    "tags": ["jeju-app", "defi", "nft", "marketplace", "launchpad"],
+    "tags": ["jeju-app", "defi", "nft", "marketplace", "launchpad", "jns"],
     "metadata": {
       "category": "defi",
       "provider": "jeju-network"
     },
     "trustModels": ["open"],
-    "x402Support": true
+    "x402Support": true,
+    "jnsName": "bazaar.jeju"
   }
 }

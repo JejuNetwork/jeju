@@ -20,6 +20,11 @@
   "enabled": true,
   "autoStart": true,
   "tags": ["protocol", "infrastructure", "paymaster", "nodes", "staking", "liquidity", "elizaOS", "multi-token"],
+  "jns": {
+    "name": "gateway.jeju",
+    "description": "Protocol Infrastructure Hub for Jeju Network",
+    "url": "https://gateway.jeju.network"
+  },
   "agent": {
     "enabled": true,
     "a2aEndpoint": "http://localhost:4003/a2a",
@@ -29,7 +34,8 @@
       "provider": "jeju-network"
     },
     "trustModels": ["open"],
-    "x402Support": true
+    "x402Support": true,
+    "jnsName": "gateway.jeju"
   }
 }
 

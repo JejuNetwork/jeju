@@ -41,7 +41,7 @@ export const A2A_AGENT_CARD = {
       name: 'Create Cross-Chain Intent',
       description: 'Create a new intent for cross-chain swap/transfer',
       tags: ['intents', 'create', 'swap', 'bridge'],
-      examples: ['Swap 1 ETH on Base for USDC on Arbitrum', 'Bridge 100 USDC from Ethereum to Jeju'],
+      examples: ['Swap 1 ETH on Ethereum for USDC on Arbitrum', 'Bridge 100 USDC from Ethereum to Jeju'],
     },
     {
       id: 'get-quote',
@@ -77,7 +77,7 @@ export const A2A_AGENT_CARD = {
       name: 'Get Best Route',
       description: 'Find optimal route for a specific swap',
       tags: ['routes', 'optimization'],
-      examples: ['Best route for ETH to USDC', 'Fastest path from Base to Arbitrum'],
+      examples: ['Best route for ETH to USDC', 'Fastest path from Ethereum to Arbitrum'],
     },
     // Solver Operations
     {
@@ -107,7 +107,7 @@ export const A2A_AGENT_CARD = {
       name: 'Get Route Volume',
       description: 'Get volume statistics for a specific route',
       tags: ['analytics', 'volume'],
-      examples: ['Volume on Base to Arbitrum route', 'Route statistics'],
+      examples: ['Volume on Ethereum to Arbitrum route', 'Route statistics'],
     },
   ],
 };

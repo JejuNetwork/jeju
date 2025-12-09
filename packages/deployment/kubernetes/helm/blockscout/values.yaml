@@ -1,0 +1,132 @@
+# Blockscout Block Explorer for Jeju L2
+# https://docs.blockscout.com/setup/deployment
+
+replicaCount: 2
+
+backend:
+  image:
+    repository: blockscout/blockscout
+    pullPolicy: IfNotPresent
+    tag: "6.10.0"
+  
+  resources:
+    limits:
+      cpu: 4000m
+      memory: 8Gi
+    requests:
+      cpu: 2000m
+      memory: 4Gi
+
+frontend:
+  image:
+    repository: ghcr.io/blockscout/frontend
+    pullPolicy: IfNotPresent
+    tag: "v1.36.0"
+  
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+
+smartContractVerifier:
+  enabled: true
+  image:
+    repository: ghcr.io/blockscout/smart-contract-verifier
+    pullPolicy: IfNotPresent
+    tag: "v1.9.0"
+  
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+service:
+  type: ClusterIP
+  backend:
+    port: 4000
+  frontend:
+    port: 3000
+  verifier:
+    port: 8050
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: explorer.testnet.jeju.network
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: blockscout-tls
+      hosts:
+        - explorer.testnet.jeju.network
+
+# External PostgreSQL (RDS)
+externalDatabase:
+  host: ""
+  port: 5432
+  database: blockscout
+  username: blockscout
+  existingSecret: blockscout-db
+
+config:
+  network: "Jeju"
+  subnetwork: "Mainnet"
+  chainId: 420691
+  
+  ethereum:
+    jsonRpcUrl: "http://reth-archive:8545"
+    traceUrl: "http://reth-archive:8545"
+    wsUrl: "ws://reth-archive:8546"
+  
+  # OP Stack specific
+  rollup:
+    enabled: true
+    type: "optimism"
+    l1RpcUrl: ""
+  
+  # Indexer settings
+  indexer:
+    realtime: true
+    fetchRewardWay: "trace"
+    blockRewards: true
+    internalTransactions: true
+    
+  # Smart contract verification
+  verification:
+    enabled: true
+    ethBytecodeDb: true
+    
+  # API settings
+  api:
+    enabled: true
+    v2: true
+    rateLimit: 50
+    
+  # Market data
+  coinGecko:
+    enabled: false
+    coinId: ""
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+

@@ -5,7 +5,7 @@
 
 import { testWithSynpress } from '@synthetixio/synpress';
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
-import { basicSetup } from '../../synpress.config'
+import { basicSetup } from '../../../synpress.config'
 import { connectWallet } from '../helpers/wallet-helpers';
 import { GATEWAY_URL } from '../fixtures/test-data';
 
@@ -48,7 +48,7 @@ test.describe('Wallet Connection Flow', () => {
     await connectWallet(page, metamask);
 
     // Navigate to different tab
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(500);
 
     // Still connected

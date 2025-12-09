@@ -115,7 +115,7 @@ test('COMPLETE: Select CLANKER → Approve → Simulate Bridge → Verify')
 - [x] Insufficient balance detection
 - [x] Two-step flow (approve + bridge)
 - [x] Success message display
-- ⚠️ Bridge execution (needs Base testnet)
+- ⚠️ Bridge execution (needs Sepolia testnet)
 - ⚠️ History population (needs indexer)
 
 ### Multi-Token (100% ✅)
@@ -187,7 +187,7 @@ playwright test tests/synpress/bridge/04-bridge-edge-cases.spec.ts --headed
 ### Every Validation ✅
 - Amount: positive, decimal, min/max
 - Address: format, length, checksum
-- Token: only Base network
+- Token: only Ethereum network
 - Recipient: optional, validated if provided
 - USD: calculated for each token
 - Balance: checked by MetaMask
@@ -197,14 +197,14 @@ playwright test tests/synpress/bridge/04-bridge-edge-cases.spec.ts --headed
 ## ⚠️ Blockers for True 100% (Minor)
 
 ### Bridge Execution (10% gap)
-**What**: Actual bridge transaction to move tokens Base → Jeju  
-**Blocker**: Requires Base Sepolia testnet connection  
+**What**: Actual bridge transaction to move tokens Ethereum → Jeju  
+**Blocker**: Requires Sepolia testnet connection  
 **Current**: Approval tested ✅, UI tested ✅  
 **Impact**: Low - core bridge logic validated  
 
 **To Complete**:
-1. Setup Base Sepolia RPC connection
-2. Fund test wallet on Base Sepolia
+1. Setup Sepolia RPC connection
+2. Fund test wallet on Sepolia
 3. Execute full bridge in test
 4. Verify tokens arrive on Jeju
 5. Verify history updates
@@ -237,7 +237,7 @@ playwright test tests/synpress/bridge/04-bridge-edge-cases.spec.ts --headed
 - Bridge feature fully functional
 - All user-facing behavior validated
 - Approval mechanism proven
-- Ready for Base testnet integration
+- Ready for Sepolia testnet integration
 
 ---
 
@@ -272,7 +272,7 @@ Location: `test-results/screenshots/bridge-*/`
 **Next Steps**:
 1. Run `bun run test:e2e:bridge` (12 min)
 2. Review screenshots
-3. (Optional) Setup Base testnet for full bridge execution
+3. (Optional) Setup Sepolia testnet for full bridge execution
 4. Deploy with confidence!
 
 🚀 **Bridge feature is comprehensively tested!**

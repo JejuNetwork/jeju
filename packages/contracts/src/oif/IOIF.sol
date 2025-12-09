@@ -21,9 +21,9 @@ struct GaslessCrossChainOrder {
 }
 
 struct Output {
-    bytes32 token;      // Token address as bytes32 for cross-chain compatibility
+    bytes32 token; // Token address as bytes32 for cross-chain compatibility
     uint256 amount;
-    bytes32 recipient;  // Recipient as bytes32 for cross-chain compatibility
+    bytes32 recipient; // Recipient as bytes32 for cross-chain compatibility
     uint256 chainId;
 }
 
@@ -49,29 +49,26 @@ struct ResolvedCrossChainOrder {
 interface IInputSettler {
     /// @notice Emitted when an order is opened
     event Open(bytes32 indexed orderId, ResolvedCrossChainOrder order);
-    
+
     /// @notice Opens a new cross-chain order
     /// @param order The order to open
     function open(GaslessCrossChainOrder calldata order) external;
-    
+
     /// @notice Opens an order on behalf of a user (gasless)
     /// @param order The order to open
     /// @param signature User's signature authorizing the order
     /// @param originFillerData Optional data for the filler
-    function openFor(
-        GaslessCrossChainOrder calldata order,
-        bytes calldata signature,
-        bytes calldata originFillerData
-    ) external;
-    
+    function openFor(GaslessCrossChainOrder calldata order, bytes calldata signature, bytes calldata originFillerData)
+        external;
+
     /// @notice Resolves an order into its execution details
     /// @param order The order to resolve
     /// @param originFillerData Data provided by the filler
     /// @return resolved The resolved order details
-    function resolveFor(
-        GaslessCrossChainOrder calldata order,
-        bytes calldata originFillerData
-    ) external view returns (ResolvedCrossChainOrder memory resolved);
+    function resolveFor(GaslessCrossChainOrder calldata order, bytes calldata originFillerData)
+        external
+        view
+        returns (ResolvedCrossChainOrder memory resolved);
 }
 
 // ============ Output Settler Interface ============
@@ -79,16 +76,12 @@ interface IInputSettler {
 interface IOutputSettler {
     /// @notice Emitted when an order is filled
     event Fill(bytes32 indexed orderId, bytes32 indexed originData, bytes fillerData);
-    
+
     /// @notice Fills an order on the destination chain
     /// @param orderId The order ID to fill
     /// @param originData Data from the origin chain
     /// @param fillerData Data provided by the filler
-    function fill(
-        bytes32 orderId,
-        bytes calldata originData,
-        bytes calldata fillerData
-    ) external payable;
+    function fill(bytes32 orderId, bytes calldata originData, bytes calldata fillerData) external payable;
 }
 
 // ============ Oracle Interface ============
@@ -98,12 +91,12 @@ interface IOracle {
     /// @param orderId The order ID to check
     /// @return attested Whether the output has been attested
     function hasAttested(bytes32 orderId) external view returns (bool);
-    
+
     /// @notice Gets the attestation data for an order
     /// @param orderId The order ID to get attestation for
     /// @return attestation The attestation proof data
     function getAttestation(bytes32 orderId) external view returns (bytes memory);
-    
+
     /// @notice Submits an attestation for an order
     /// @param orderId The order ID
     /// @param proof The proof data
@@ -123,12 +116,12 @@ interface ISolverRegistry {
         bool isActive;
         uint256 registeredAt;
     }
-    
+
     event SolverRegistered(address indexed solver, uint256 stakeAmount, uint256[] chains);
     event SolverStakeDeposited(address indexed solver, uint256 amount, uint256 totalStake);
     event SolverSlashed(address indexed solver, bytes32 indexed orderId, uint256 amount);
     event SolverWithdrawn(address indexed solver, uint256 amount);
-    
+
     function register(uint256[] calldata chains) external payable;
     function addStake() external payable;
     function startUnbonding(uint256 amount) external;
@@ -149,3 +142,28 @@ interface ISettlementCallback {
     function onSettlement(bytes32 orderId, address solver, uint256 amount) external;
 }
 
+// ============ Compute Intent Types ============
+
+// Order type for compute rental intents
+bytes32 constant COMPUTE_RENTAL_ORDER_TYPE = keccak256("ComputeRental");
+
+// Order type for AI inference intents
+bytes32 constant COMPUTE_INFERENCE_ORDER_TYPE = keccak256("ComputeInference");
+
+// Compute rental order data
+struct ComputeRentalOrderData {
+    address provider; // Target compute provider
+    uint256 durationHours; // Rental duration in hours
+    string sshPublicKey; // User's SSH public key
+    string containerImage; // Docker image to run
+    string startupScript; // Startup script to execute
+}
+
+// AI inference order data
+struct ComputeInferenceOrderData {
+    address provider; // Target provider (0x0 = any)
+    string model; // Model to use
+    bytes prompt; // Encoded prompt data
+    uint256 maxInputTokens; // Max input tokens
+    uint256 maxOutputTokens; // Max output tokens
+}

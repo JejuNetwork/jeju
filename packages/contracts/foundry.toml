@@ -5,7 +5,7 @@ libs = ["lib"]
 solc_version = "0.8.28"
 auto_detect_solc = true
 optimizer = true
-optimizer_runs = 999999
+optimizer_runs = 200
 via_ir = true
 evm_version = "cancun"
 
@@ -20,17 +20,16 @@ exclude = [
     "lib/v2-core/**",
     "lib/v2-periphery/**",
     "lib/solidity-lib/**",
-    "lib/v4-core/lib/openzeppelin-contracts/lib/**",
-    "lib/v4-core/lib/openzeppelin-contracts/test/**",
-    "lib/v4-periphery/lib/**/test/**",
-    "lib/v4-periphery/lib/**/lib/**",
+    "lib/v4-core/**",
+    "lib/v4-periphery/**",
+    "lib/chainlink/**",
     "src/paymaster/CloudPaymaster.sol",
     "src/prediction/JejuMarket.sol",
     "src/uniswap-v2/**",
     "src/uniswap-v4/**",
-    "src/games/mmo/src/systems/**",
-    "src/games/mmo/src/codegen/**",
-    "src/games/mmo/src/libraries/**"
+    "src/games/mmo/**",
+    "script/DeployCompute.s.sol",
+    "script/DeployUniswapV4Periphery.s.sol"
 ]
 
 # Test settings

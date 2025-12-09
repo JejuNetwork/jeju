@@ -1,0 +1,51 @@
+{
+  "name": "@jejunetwork/tests",
+  "version": "0.1.0",
+  "description": "Shared test utilities, fixtures, and helpers for Jeju Network",
+  "license": "MIT",
+  "type": "module",
+  "main": "./shared/index.ts",
+  "types": "./shared/index.ts",
+  "exports": {
+    ".": "./shared/index.ts",
+    "./fixtures": "./shared/fixtures/index.ts",
+    "./fixtures/wallet": "./shared/fixtures/wallet.ts",
+    "./fixtures/synpress-wallet": "./shared/fixtures/synpress-wallet.ts",
+    "./helpers": "./shared/helpers/index.ts",
+    "./helpers/contracts": "./shared/helpers/contracts.ts",
+    "./helpers/screenshots": "./shared/helpers/screenshots.ts",
+    "./helpers/navigation": "./shared/helpers/navigation.ts",
+    "./helpers/error-detection": "./shared/helpers/error-detection.ts",
+    "./constants": "./shared/constants.ts",
+    "./playwright.config.base": "./shared/playwright.config.base.ts",
+    "./synpress.config.base": "./shared/synpress.config.base.ts",
+    "./wallet-setup": "./shared/wallet-setup/jeju.setup.ts"
+  },
+  "files": [
+    "shared"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elizaos/jeju.git",
+    "directory": "packages/tests"
+  },
+  "keywords": [
+    "jeju",
+    "tests",
+    "playwright",
+    "synpress",
+    "e2e"
+  ],
+  "dependencies": {
+    "@tenkeylabs/dappwright": "^2.11.3"
+  },
+  "peerDependencies": {
+    "@playwright/test": ">=1.40.0",
+    "@synthetixio/synpress": ">=4.0.0",
+    "playwright-core": ">=1.40.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
+

@@ -5,7 +5,7 @@
 
 import { testWithSynpress } from '@synthetixio/synpress';
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
-import { basicSetup } from '../../synpress.config'
+import { basicSetup } from '../../../synpress.config'
 import { connectWallet } from '../helpers/wallet-helpers';
 import { executeTransaction } from '../helpers/transaction-helpers';
 import { GATEWAY_URL, TEST_WALLET, TEST_WALLET_2 } from '../fixtures/test-data';

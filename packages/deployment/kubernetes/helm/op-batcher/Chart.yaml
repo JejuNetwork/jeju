@@ -1,0 +1,8 @@
+apiVersion: v2
+name: op-batcher
+description: Optimism batcher service
+type: application
+version: 1.1.0
+appVersion: "v1.16.3"
+
+

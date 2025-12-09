@@ -73,20 +73,39 @@ describe('EIL GraphQL API', () => {
     })
 
     it('should query XLP by address', async () => {
-      const testAddress = '0x0000000000000000000000000000000000000000'
-      
-      const result = await query<{ xlpById: { id: string } | null }>(`
-        query($id: ID!) {
-          xlpById(id: $id) {
+      // First get an existing XLP if any
+      const xlps = await query<{ xlps: Array<{ id: string }> }>(`
+        query {
+          xlps(limit: 1) {
             id
-            address
-            stakedAmount
           }
         }
-      `, { id: testAddress })
+      `)
       
-      // May or may not exist
-      expect(result).toBeDefined()
+      if (xlps.xlps.length > 0) {
+        const result = await query<{ xlpById: { id: string, address: string, stakedAmount: string } | null }>(`
+          query($id: String!) {
+            xlpById(id: $id) {
+              id
+              address
+              stakedAmount
+            }
+          }
+        `, { id: xlps.xlps[0].id })
+        
+        expect(result.xlpById).toBeDefined()
+      } else {
+        // No XLPs exist yet, just verify the query works
+        const result = await query<{ xlpById: { id: string } | null }>(`
+          query($id: String!) {
+            xlpById(id: $id) {
+              id
+            }
+          }
+        `, { id: '0x0000000000000000000000000000000000000000' })
+        
+        expect(result.xlpById).toBeNull()
+      }
     })
 
     it('should query XLP liquidity deposits', async () => {
@@ -347,13 +366,13 @@ describe('EIL GraphQL API', () => {
         failed: { totalCount: number }
       }>(`
         query {
-          pending: eilTransfersConnection(where: { status_eq: PENDING }) {
+          pending: eilTransfersConnection(where: { status_eq: PENDING }, orderBy: initiatedAt_DESC) {
             totalCount
           }
-          completed: eilTransfersConnection(where: { status_eq: COMPLETED }) {
+          completed: eilTransfersConnection(where: { status_eq: COMPLETED }, orderBy: initiatedAt_DESC) {
             totalCount
           }
-          failed: eilTransfersConnection(where: { status_eq: FAILED }) {
+          failed: eilTransfersConnection(where: { status_eq: FAILED }, orderBy: initiatedAt_DESC) {
             totalCount
           }
         }

@@ -4,8 +4,7 @@ import type { IntentRoute } from '../../../../../types/oif';
 
 const CHAIN_NAMES: Record<number, string> = {
   1: 'Ethereum',
-  8453: 'Base',
-  84532: 'Base Sepolia',
+  11155111: 'Sepolia',
   42161: 'Arbitrum',
   10: 'Optimism',
   420691: 'Jeju',
@@ -14,7 +13,7 @@ const CHAIN_NAMES: Record<number, string> = {
 
 const CHAIN_COLORS: Record<number, string> = {
   1: '#627eea',
-  8453: '#0052ff',
+  11155111: '#8b5cf6',
   42161: '#28a0f0',
   10: '#ff0420',
   420691: '#64ffda',

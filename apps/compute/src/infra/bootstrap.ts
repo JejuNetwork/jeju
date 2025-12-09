@@ -133,7 +133,7 @@ export async function bootstrap(
   console.log('\n[3/6] Booting TEE enclave...');
 
   const codeHash =
-    config.gameCodeHash ?? (keccak256(toBytes('babylon-ai-game-v1')) as Hex);
+    config.gameCodeHash ?? (keccak256(toBytes('jeju-compute-v1')) as Hex);
 
   const enclave = await TEEEnclave.create({
     codeHash,

@@ -1,0 +1,12 @@
+{
+  "network": "localnet",
+  "l1ChainId": 1337,
+  "l2ChainId": 420690,
+  "l1RpcUrl": "http://localhost:8545",
+  "l2RpcUrl": "http://localhost:9545",
+  "l1StakeManager": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+  "crossChainPaymaster": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+  "entryPoint": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+  "supportedTokens": ["0x0000000000000000000000000000000000000000"],
+  "deployedAt": 1733684708
+}

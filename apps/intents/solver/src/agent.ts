@@ -4,18 +4,27 @@
 
 import { createPublicClient, createWalletClient, http, type PublicClient, type WalletClient, type Chain } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { base, arbitrum, optimism } from 'viem/chains';
+import { mainnet, arbitrum, optimism, sepolia } from 'viem/chains';
 import { LiquidityManager } from './liquidity';
 import { StrategyEngine } from './strategy';
 import { EventMonitor, type IntentEvent } from './monitor';
 
-// Custom Jeju chain definition
-const jeju: Chain = {
+// Custom Jeju chain definitions
+const jejuMainnet: Chain = {
   id: 420691,
   name: 'Jeju',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
-    default: { http: ['http://localhost:8545'] },
+    default: { http: [process.env.JEJU_RPC_URL || 'https://rpc.jeju.network'] },
+  },
+};
+
+const jejuTestnet: Chain = {
+  id: 420690,
+  name: 'Jeju Testnet',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: [process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jeju.network'] },
   },
 };
 
@@ -187,8 +196,8 @@ export class SolverAgent {
     const isNativeToken = params.outputToken === '0x0000000000000000000000000000000000000000';
     const outputAmount = BigInt(params.outputAmount);
 
-    // Build transaction
-    const fillAbi = [{
+    // Separate ABIs for payable vs nonpayable (TypeScript needs this)
+    const fillAbiPayable = [{
       type: 'function',
       name: 'fill',
       inputs: [
@@ -198,8 +207,24 @@ export class SolverAgent {
         { name: 'amount', type: 'uint256' },
       ],
       outputs: [],
-      stateMutability: isNativeToken ? 'payable' : 'nonpayable',
+      stateMutability: 'payable',
     }] as const;
+
+    const fillAbiNonpayable = [{
+      type: 'function',
+      name: 'fill',
+      inputs: [
+        { name: 'orderId', type: 'bytes32' },
+        { name: 'recipient', type: 'address' },
+        { name: 'token', type: 'address' },
+        { name: 'amount', type: 'uint256' },
+      ],
+      outputs: [],
+      stateMutability: 'nonpayable',
+    }] as const;
+
+    // Get chain definition for write operations
+    const chainDef = this.getChainDef(params.destinationChain);
 
     // If ERC20, first approve the OutputSettler
     if (!isNativeToken) {
@@ -215,6 +240,8 @@ export class SolverAgent {
       }] as const;
 
       const approveHash = await client.wallet.writeContract({
+        chain: chainDef,
+        account: client.wallet.account!,
         address: params.outputToken as `0x${string}`,
         abi: approveAbi,
         functionName: 'approve',
@@ -227,19 +254,38 @@ export class SolverAgent {
       await client.public.waitForTransactionReceipt({ hash: approveHash });
     }
 
-    // Execute fill
-    const fillHash = await client.wallet.writeContract({
-      address: outputSettlerAddress,
-      abi: fillAbi,
-      functionName: 'fill',
-      args: [
-        params.orderId as `0x${string}`,
-        params.recipient as `0x${string}`,
-        params.outputToken as `0x${string}`,
-        outputAmount,
-      ],
-      value: isNativeToken ? outputAmount : undefined,
-    });
+    // Execute fill - separate handling for ETH vs ERC20
+    let fillHash: `0x${string}`;
+    if (isNativeToken) {
+      fillHash = await client.wallet.writeContract({
+        chain: chainDef,
+        account: client.wallet.account!,
+        address: outputSettlerAddress,
+        abi: fillAbiPayable,
+        functionName: 'fill',
+        args: [
+          params.orderId as `0x${string}`,
+          params.recipient as `0x${string}`,
+          params.outputToken as `0x${string}`,
+          outputAmount,
+        ],
+        value: outputAmount,
+      });
+    } else {
+      fillHash = await client.wallet.writeContract({
+        chain: chainDef,
+        account: client.wallet.account!,
+        address: outputSettlerAddress,
+        abi: fillAbiNonpayable,
+        functionName: 'fill',
+        args: [
+          params.orderId as `0x${string}`,
+          params.recipient as `0x${string}`,
+          params.outputToken as `0x${string}`,
+          outputAmount,
+        ],
+      });
+    }
 
     console.log(`   📝 Fill tx: ${fillHash}`);
 
@@ -270,11 +316,13 @@ export class SolverAgent {
 
   private getChainDef(chainId: number): Chain {
     switch (chainId) {
-      case 8453: return base;
+      case 1: return mainnet;
       case 42161: return arbitrum;
       case 10: return optimism;
-      case 420691: return jeju;
-      default: return base;
+      case 420691: return jejuMainnet;
+      case 420690: return jejuTestnet;
+      case 11155111: return sepolia;
+      default: return mainnet;
     }
   }
 }

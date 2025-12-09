@@ -1,0 +1,30 @@
+{
+  "chainId": 84532,
+  "network": "base-sepolia",
+  "deployedAt": "2025-12-09T00:00:00.000Z",
+  "deployer": "0x5dB1268e424da5C26451e4a8B9C221e6DE3C3064",
+  
+  "contracts": {
+    "erc8004": {
+      "IdentityRegistry": "0x759D602d8D2E4F1ccCa12E955420cC19e64a68bd",
+      "_note": "Deployed fresh for OIF testing"
+    },
+    
+    "oif": {
+      "SolverRegistry": "0xecfE47302D941c8ce5B0009C0ac2E6D6ee2A42de",
+      "SimpleOracle": "0xE30218678a940d1553b285B0eB5C5364BBF70ed9",
+      "InputSettler": "0x9bb59d0329FcCEdD99f1753D20AF50347Ad2eB75",
+      "OutputSettler": "0xf7ef3C6a54dA3E03A96D23864e5865E7e3EBEcF5"
+    },
+    
+    "tokens": {
+      "MockJejuUSDC": "0x953F6516E5d2864cE7f13186B45dE418EA665EB2",
+      "ElizaOSToken": "0x7af64e6aE21076DE21EFe71F243A75664a17C34b"
+    }
+  },
+  
+  "verification": {
+    "basescanUrl": "https://sepolia.basescan.org"
+  }
+}
+

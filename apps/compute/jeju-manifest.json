@@ -23,6 +23,11 @@
   "enabled": true,
   "autoStart": true,
   "tags": ["compute", "ai", "inference", "staking", "erc-8004", "marketplace", "tee", "gpu"],
+  "jns": {
+    "name": "compute.jeju",
+    "description": "Decentralized Compute Marketplace",
+    "url": "https://compute.jeju.network"
+  },
   "healthCheck": {
     "url": "http://localhost:4007/health",
     "interval": 30000
@@ -36,7 +41,8 @@
       "provider": "jeju-network"
     },
     "trustModels": ["open", "staked"],
-    "x402Support": true
+    "x402Support": true,
+    "jnsName": "compute.jeju"
   }
 }
 

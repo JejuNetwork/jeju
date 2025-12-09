@@ -4,7 +4,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { assertNoPageErrors } from '../../../../packages/tests/shared/helpers/error-detection';
+import { assertNoPageErrors } from '@jejunetwork/tests/helpers/error-detection';
 
 test.describe('Trading - REAL Calculation Verification', () => {
   test('should verify YES/NO selection affects buy button text', async ({ page }) => {

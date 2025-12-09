@@ -1,8 +1,0 @@
-apiVersion: v2
-name: op-proposer
-description: Optimism output root proposer
-type: application
-version: 1.0.0
-appVersion: "v1.7.6"
-
-

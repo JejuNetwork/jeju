@@ -12,7 +12,7 @@ describe('LiquidityManager', () => {
   beforeEach(() => {
     liquidityManager = new LiquidityManager({
       chains: [
-        { chainId: 8453, name: 'Base', rpcUrl: 'https://mainnet.base.org' },
+        { chainId: 1, name: 'Ethereum', rpcUrl: 'https://eth.llamarpc.com' },
         { chainId: 42161, name: 'Arbitrum', rpcUrl: 'https://arb1.arbitrum.io/rpc' },
       ],
       maxExposurePerChain: '10000000000000000000',
@@ -21,7 +21,7 @@ describe('LiquidityManager', () => {
 
   test('hasLiquidity returns false when not initialized', async () => {
     const has = await liquidityManager.hasLiquidity(
-      8453,
+      1,
       '0x0000000000000000000000000000000000000000',
       '1000000000000000000'
     );
@@ -30,7 +30,7 @@ describe('LiquidityManager', () => {
 
   test('lockLiquidity fails when insufficient', async () => {
     const locked = await liquidityManager.lockLiquidity(
-      8453,
+      1,
       '0x0000000000000000000000000000000000000000',
       '1000000000000000000'
     );
@@ -50,7 +50,7 @@ describe('StrategyEngine', () => {
   beforeEach(() => {
     strategyEngine = new StrategyEngine({
       chains: [
-        { chainId: 8453, name: 'Base', rpcUrl: 'https://mainnet.base.org' },
+        { chainId: 1, name: 'Ethereum', rpcUrl: 'https://eth.llamarpc.com' },
       ],
       minProfitBps: 10,
       maxGasPrice: 100n * 10n ** 9n,
@@ -65,7 +65,7 @@ describe('StrategyEngine', () => {
   test('evaluate returns evaluation with profitability', async () => {
     const evaluation = await strategyEngine.evaluate({
       orderId: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-      sourceChain: 8453,
+      sourceChain: 1,
       destinationChain: 42161,
       inputToken: '0x0000000000000000000000000000000000000000',
       inputAmount: '1000000000000000000',
@@ -80,7 +80,7 @@ describe('StrategyEngine', () => {
   test('rejects intents above max size', async () => {
     const evaluation = await strategyEngine.evaluate({
       orderId: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-      sourceChain: 8453,
+      sourceChain: 1,
       destinationChain: 42161,
       inputToken: '0x0000000000000000000000000000000000000000',
       inputAmount: '100000000000000000000', // 100 ETH > max 5 ETH
@@ -97,7 +97,7 @@ describe('Agent Integration', () => {
   test('config has required fields', () => {
     const config = {
       chains: [
-        { chainId: 8453, name: 'Base', rpcUrl: 'https://mainnet.base.org' },
+        { chainId: 1, name: 'Ethereum', rpcUrl: 'https://eth.llamarpc.com' },
       ],
       minProfitBps: 10,
       maxGasPrice: 100n * 10n ** 9n,

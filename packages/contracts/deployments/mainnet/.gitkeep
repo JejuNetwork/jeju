@@ -1,0 +1,6 @@
+# Deployment artifacts for mainnet will be saved here
+# - addresses.json (L1 contract addresses)
+# - genesis.json (L2 genesis state)
+# - rollup.json (Rollup configuration)
+
+

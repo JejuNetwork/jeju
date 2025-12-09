@@ -1,4 +1,4 @@
-import { createJejuSynpressConfig, createJejuWalletSetup } from '../../tests/shared/synpress.config.base';
+import { createJejuSynpressConfig, createJejuWalletSetup } from '@jejunetwork/tests/synpress.config.base';
 
 const DOCS_PORT = parseInt(process.env.DOCS_PORT || '3002');
 

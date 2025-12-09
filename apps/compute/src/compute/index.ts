@@ -61,11 +61,6 @@ export { JejuComputeSDK, createSDK } from './sdk';
 // Export enums
 export { GPUTypeEnum, RentalStatusEnum } from './sdk/types';
 
-/**
- * @deprecated Use JejuComputeSDK instead. BabylonComputeSDK is kept for backwards compatibility only.
- */
-export { JejuComputeSDK as BabylonComputeSDK } from './sdk';
-
 // Export Moderation SDK types
 export type { BanRecord, ModerationSDKConfig, Stake } from './sdk/moderation';
 
@@ -75,3 +70,9 @@ export {
   ModerationSDK,
   StakeType,
 } from './sdk/moderation';
+
+// Export A2A Server
+export { ComputeA2AServer, createComputeA2AServer } from './a2a-server';
+
+// Export MCP Server
+export { createMCPRouter } from './mcp-server';

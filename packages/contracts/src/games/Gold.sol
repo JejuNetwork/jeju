@@ -40,7 +40,7 @@ contract Gold is ERC20, Ownable {
 
     /// @notice Name of the token
     string private constant TOKEN_NAME = "Hyperscape Gold";
-    
+
     /// @notice Symbol of the token
     string private constant TOKEN_SYMBOL = "HG";
 
@@ -78,11 +78,10 @@ contract Gold is ERC20, Ownable {
      * @param _owner Contract owner (admin)
      * @dev Game must be registered in IdentityRegistry before deployment
      */
-    constructor(
-        uint256 _gameAgentId,
-        address _gameSigner,
-        address _owner
-    ) ERC20(TOKEN_NAME, TOKEN_SYMBOL) Ownable(_owner) {
+    constructor(uint256 _gameAgentId, address _gameSigner, address _owner)
+        ERC20(TOKEN_NAME, TOKEN_SYMBOL)
+        Ownable(_owner)
+    {
         if (_gameSigner == address(0)) revert InvalidGameSigner();
         gameAgentId = _gameAgentId;
         gameSigner = _gameSigner;
@@ -154,12 +153,11 @@ contract Gold is ERC20, Ownable {
      * @param signature Signature to verify
      * @return True if signature is valid
      */
-    function verifyClaim(
-        address player,
-        uint256 amount,
-        uint256 nonce,
-        bytes memory signature
-    ) public view returns (bool) {
+    function verifyClaim(address player, uint256 amount, uint256 nonce, bytes memory signature)
+        public
+        view
+        returns (bool)
+    {
         bytes32 messageHash = keccak256(abi.encodePacked(player, amount, nonce));
         bytes32 ethSignedMessageHash = messageHash.toEthSignedMessageHash();
         address signer = ethSignedMessageHash.recover(signature);
@@ -198,4 +196,3 @@ contract Gold is ERC20, Ownable {
         return "1.0.0";
     }
 }
-

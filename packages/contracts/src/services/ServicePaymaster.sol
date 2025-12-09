@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {PackedUserOperation} from "@account-abstraction/contracts/interfaces/PackedUserOperation.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import {BasePaymaster} from "@account-abstraction/contracts/core/BasePaymaster.sol";
@@ -43,6 +44,8 @@ interface ICloudServiceRegistry {
  * @custom:security-contact security@jeju.network
  */
 contract CloudPaymaster is BasePaymaster, Pausable {
+    using SafeERC20 for IERC20;
+
     // ============ State Variables ============
 
     /// @notice elizaOS token contract
@@ -103,7 +106,6 @@ contract CloudPaymaster is BasePaymaster, Pausable {
     error GasCostTooHigh(uint256 cost, uint256 max);
     error StaleOraclePrice();
     error ServiceNotAvailable(string serviceName);
-    error PaymentFailed();
     error InvalidRevenueWallet();
 
     // ============ Constructor ============
@@ -148,11 +150,13 @@ contract CloudPaymaster is BasePaymaster, Pausable {
      * @return validationData 0 for valid, 1 for invalid
      * @dev paymasterAndData format: [paymaster address][serviceName length][serviceName][paymentToken]
      */
-    function _validatePaymasterUserOp(
-        PackedUserOperation calldata userOp,
-        bytes32,
-        uint256 maxCost
-    ) internal override whenNotPaused returns (bytes memory context, uint256 validationData) {
+    function _validatePaymasterUserOp(PackedUserOperation calldata userOp, bytes32, uint256 maxCost)
+        internal
+        view
+        override
+        whenNotPaused
+        returns (bytes memory context, uint256 validationData)
+    {
         // Validate gas cost
         if (maxCost > maxGasCost) {
             revert GasCostTooHigh(maxCost, maxGasCost);
@@ -181,12 +185,7 @@ contract CloudPaymaster is BasePaymaster, Pausable {
         address user = userOp.sender;
 
         // Calculate total cost
-        (uint256 tokenAmount, IERC20 token) = _calculateTotalCost(
-            user,
-            serviceName,
-            maxCost,
-            paymentToken
-        );
+        (uint256 tokenAmount, IERC20 token) = _calculateTotalCost(user, serviceName, maxCost, paymentToken);
 
         // Verify user has sufficient balance
         uint256 userBalance = token.balanceOf(user);
@@ -217,43 +216,25 @@ contract CloudPaymaster is BasePaymaster, Pausable {
      * @param actualGasCost Actual gas cost of the operation
      * @dev Collects tokens from user and transfers to revenue wallet
      */
-    function _postOp(
-        PostOpMode,
-        bytes calldata context,
-        uint256 actualGasCost,
-        uint256
-    ) internal override {
+    function _postOp(PostOpMode, bytes calldata context, uint256 actualGasCost, uint256) internal override {
         // Decode context
         (address user, string memory serviceName, PaymentToken paymentToken, uint256 maxTokenAmount) =
             abi.decode(context, (address, string, PaymentToken, uint256));
 
         // Recalculate with actual gas cost (should be <= maxTokenAmount)
-        (uint256 actualTokenAmount, IERC20 token) = _calculateTotalCost(
-            user,
-            serviceName,
-            actualGasCost,
-            paymentToken
-        );
+        (uint256 actualTokenAmount, IERC20 token) = _calculateTotalCost(user, serviceName, actualGasCost, paymentToken);
 
         // Use the lesser of max and actual (safety check)
         uint256 chargeAmount = actualTokenAmount > maxTokenAmount ? maxTokenAmount : actualTokenAmount;
 
-        // Transfer tokens from user to revenue wallet
-        bool success = token.transferFrom(user, revenueWallet, chargeAmount);
-        if (!success) revert PaymentFailed();
+        // Transfer tokens from user to revenue wallet (using SafeERC20)
+        token.safeTransferFrom(user, revenueWallet, chargeAmount);
 
         // Record usage in service registry
         uint256 serviceCost = serviceRegistry.getServiceCost(serviceName, user);
         serviceRegistry.recordUsage(user, serviceName, serviceCost);
 
-        emit TransactionSponsored(
-            user,
-            serviceName,
-            paymentToken,
-            actualGasCost,
-            serviceCost,
-            chargeAmount
-        );
+        emit TransactionSponsored(user, serviceName, paymentToken, actualGasCost, serviceCost, chargeAmount);
     }
 
     // ============ Internal Helpers ============
@@ -267,19 +248,18 @@ contract CloudPaymaster is BasePaymaster, Pausable {
      * @return tokenAmount Total tokens to charge
      * @return token The ERC-20 token contract
      */
-    function _calculateTotalCost(
-        address user,
-        string memory serviceName,
-        uint256 gasCostETH,
-        PaymentToken paymentToken
-    ) internal view returns (uint256 tokenAmount, IERC20 token) {
+    function _calculateTotalCost(address user, string memory serviceName, uint256 gasCostETH, PaymentToken paymentToken)
+        internal
+        view
+        returns (uint256 tokenAmount, IERC20 token)
+    {
         // Get service cost in elizaOS tokens
         uint256 serviceCostElizaOS = serviceRegistry.getServiceCost(serviceName, user);
 
         if (paymentToken == PaymentToken.ElizaOS) {
             // Convert gas cost from ETH to elizaOS
-            (uint256 ethPriceUSD, ) = priceOracle.getPrice(address(0)); // ETH
-            (uint256 elizaPriceUSD, ) = priceOracle.getPrice(address(elizaOS));
+            (uint256 ethPriceUSD,) = priceOracle.getPrice(address(0)); // ETH
+            (uint256 elizaPriceUSD,) = priceOracle.getPrice(address(elizaOS));
 
             if (!priceOracle.isPriceFresh(address(0)) || !priceOracle.isPriceFresh(address(elizaOS))) {
                 revert StaleOraclePrice();
@@ -296,7 +276,7 @@ contract CloudPaymaster is BasePaymaster, Pausable {
         } else {
             // PaymentToken.USDC
             // Convert gas cost from ETH to USD (USDC)
-            (uint256 ethPriceUSD, ) = priceOracle.getPrice(address(0)); // ETH
+            (uint256 ethPriceUSD,) = priceOracle.getPrice(address(0)); // ETH
 
             if (!priceOracle.isPriceFresh(address(0))) {
                 revert StaleOraclePrice();
@@ -309,7 +289,7 @@ contract CloudPaymaster is BasePaymaster, Pausable {
             gasCostUSD = (gasCostUSD * (BASIS_POINTS + feeMargin)) / BASIS_POINTS;
 
             // Convert service cost from elizaOS to USDC
-            (uint256 elizaPriceUSD, ) = priceOracle.getPrice(address(elizaOS));
+            (uint256 elizaPriceUSD,) = priceOracle.getPrice(address(elizaOS));
             if (!priceOracle.isPriceFresh(address(elizaOS))) {
                 revert StaleOraclePrice();
             }
@@ -424,12 +404,7 @@ contract CloudPaymaster is BasePaymaster, Pausable {
         uint256 estimatedGas,
         PaymentToken paymentToken
     ) external view returns (uint256 tokenAmount, address token) {
-        (uint256 amount, IERC20 tokenContract) = _calculateTotalCost(
-            user,
-            serviceName,
-            estimatedGas,
-            paymentToken
-        );
+        (uint256 amount, IERC20 tokenContract) = _calculateTotalCost(user, serviceName, estimatedGas, paymentToken);
         return (amount, address(tokenContract));
     }
 
@@ -443,18 +418,12 @@ contract CloudPaymaster is BasePaymaster, Pausable {
      * @return required Required token amount
      * @return available User's available balance
      */
-    function canUserAfford(
-        address user,
-        string calldata serviceName,
-        uint256 estimatedGas,
-        PaymentToken paymentToken
-    ) external view returns (bool canAfford, uint256 required, uint256 available) {
-        (uint256 tokenAmount, IERC20 token) = _calculateTotalCost(
-            user,
-            serviceName,
-            estimatedGas,
-            paymentToken
-        );
+    function canUserAfford(address user, string calldata serviceName, uint256 estimatedGas, PaymentToken paymentToken)
+        external
+        view
+        returns (bool canAfford, uint256 required, uint256 available)
+    {
+        (uint256 tokenAmount, IERC20 token) = _calculateTotalCost(user, serviceName, estimatedGas, paymentToken);
 
         uint256 userBalance = token.balanceOf(user);
         uint256 userAllowance = token.allowance(user, address(this));
@@ -468,4 +437,3 @@ contract CloudPaymaster is BasePaymaster, Pausable {
 
     error InsufficientLiquidity();
 }
-

@@ -6,7 +6,7 @@
 
 import { testWithSynpress } from '@synthetixio/synpress';
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
-import { basicSetup } from '../../synpress.config'
+import { basicSetup } from '../../../synpress.config'
 import { connectWallet } from '../helpers/wallet-helpers';
 import { GATEWAY_URL } from '../fixtures/test-data';
 import type { Page } from '@playwright/test';
@@ -131,9 +131,9 @@ test.describe('COMPLETE VISUAL VALIDATION - Every Screen', () => {
     }
 
     // ===================
-    // TAB 2: Bridge from Base
+    // TAB 2: Bridge from Ethereum
     // ===================
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
     
     await validateNoErrors(page, 'Bridge Tab');
@@ -405,7 +405,7 @@ test.describe('COMPLETE VISUAL VALIDATION - Every Screen', () => {
     // ===================
     const finalTabs = [
       { name: /Registered Tokens/i, screen: 'Final - Tokens' },
-      { name: /Bridge from Base/i, screen: 'Final - Bridge' },
+      { name: /Bridge from Ethereum/i, screen: 'Final - Bridge' },
       { name: /My Earnings/i, screen: 'Final - Earnings' },
       { name: /Node Operators/i, screen: 'Final - Nodes' },
     ];

@@ -62,7 +62,7 @@ test.describe('Gateway Wallet Connection', () => {
     
     const tabs = [
       'Registered Tokens',
-      'Bridge from Base',
+      'Bridge from Ethereum',
       'Deploy Paymaster',
       'Add Liquidity',
       'My Earnings',
@@ -88,7 +88,7 @@ test.describe('Gateway Wallet Connection', () => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     
-    const tabs = ['Registered Tokens', 'Bridge from Base', 'Add Liquidity'];
+    const tabs = ['Registered Tokens', 'Bridge from Ethereum', 'Add Liquidity'];
     
     for (const tab of tabs) {
       await page.getByRole('button', { name: tab }).click();

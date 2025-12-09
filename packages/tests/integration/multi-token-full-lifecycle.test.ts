@@ -3,7 +3,7 @@
  * @module tests/integration/multi-token-full-lifecycle
  * 
  * Tests the COMPLETE user journey for bringing a new token to Jeju:
- * 1. Bridge CLANKER from Base to Jeju
+ * 1. Bridge CLANKER from Ethereum to Jeju
  * 2. Deploy paymaster infrastructure for CLANKER
  * 3. LP provides ETH liquidity to CLANKER vault
  * 4. User pays gas with CLANKER tokens

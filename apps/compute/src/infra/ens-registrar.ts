@@ -450,8 +450,8 @@ Environment:
   ENS_NETWORK              'sepolia' or 'mainnet' (default: sepolia)
 
 Example:
-  bun run ens-registrar.ts check babylon-game
-  bun run ens-registrar.ts set-ipfs babylon-game QmXxx... 
+  bun run ens-registrar.ts check jeju-compute
+  bun run ens-registrar.ts set-ipfs jeju-compute QmXxx... 
     `);
     return;
   }

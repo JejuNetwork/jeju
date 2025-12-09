@@ -2,10 +2,13 @@
  * Compute Node Server
  *
  * OpenAI-compatible inference server with on-chain settlement
+ * Supports x402 payment protocol for micropayments
  */
 
 import {
+  Contract,
   getBytes,
+  JsonRpcProvider,
   keccak256,
   solidityPackedKeccak256,
   toUtf8Bytes,
@@ -28,6 +31,25 @@ import type {
   NodeMetrics,
   ProviderConfig,
 } from './types';
+import {
+  type X402PaymentRequirement,
+  type X402PaymentHeader,
+  parseX402Header as parseX402,
+  verifyX402Payment as verifyX402,
+  createPaymentRequirement as createX402Requirement,
+  getX402Config,
+} from '../sdk/x402';
+
+// Credit Manager ABI for balance checking
+const CREDIT_MANAGER_ABI = [
+  'function getBalance(address user, address token) view returns (uint256)',
+  'function hasSufficientCredit(address user, address token, uint256 amount) view returns (bool sufficient, uint256 available)',
+];
+
+const LEDGER_MANAGER_ABI = [
+  'function getAvailableBalance(address user) view returns (uint256)',
+  'function getSubAccount(address user, address provider) view returns (tuple(uint256 balance, uint256 pendingRefund, uint256 refundUnlockTime, bool acknowledged))',
+];
 
 // Warmth thresholds (milliseconds)
 const COLD_THRESHOLD = 60_000; // 60s without inference = cold
@@ -39,7 +61,8 @@ const WARM_THRESHOLD = 10_000; // 10s without inference = warm
 export class ComputeNodeServer {
   private app: Hono;
   private wallet: Wallet;
-  private config: ProviderConfig;
+  private _server: ReturnType<typeof Bun.serve> | null = null;
+  public config: ProviderConfig;
   private engines: Map<string, InferenceEngine> = new Map();
   private attestation: AttestationReport | null = null;
   
@@ -49,6 +72,12 @@ export class ComputeNodeServer {
   private lastInferenceTime: number | null = null;
   private totalInferences: number = 0;
   private totalLatency: number = 0;
+  
+  // x402 Payment support
+  private provider: JsonRpcProvider | null = null;
+  private creditManager: Contract | null = null;
+  private ledgerManager: Contract | null = null;
+  private x402Enabled: boolean = false;
 
   constructor(config: ProviderConfig) {
     this.config = config;
@@ -60,7 +89,29 @@ export class ComputeNodeServer {
       this.engines.set(model.name, createInferenceEngine(model));
     }
 
+    // Initialize payment contracts if configured
+    this.initializePaymentContracts();
+    
     this.setupRoutes();
+  }
+
+  private initializePaymentContracts(): void {
+    const rpcUrl = this.config.rpcUrl || process.env.JEJU_RPC_URL || 'http://127.0.0.1:9545';
+    const creditManagerAddr = process.env.CREDIT_MANAGER_ADDRESS;
+    const ledgerManagerAddr = process.env.LEDGER_MANAGER_ADDRESS;
+
+    if (creditManagerAddr || ledgerManagerAddr) {
+      this.provider = new JsonRpcProvider(rpcUrl);
+      
+      if (creditManagerAddr) {
+        this.creditManager = new Contract(creditManagerAddr, CREDIT_MANAGER_ABI, this.provider);
+      }
+      if (ledgerManagerAddr) {
+        this.ledgerManager = new Contract(ledgerManagerAddr, LEDGER_MANAGER_ABI, this.provider);
+      }
+      
+      this.x402Enabled = process.env.X402_ENABLED === 'true';
+    }
   }
 
   private setupRoutes(): void {
@@ -110,7 +161,7 @@ export class ComputeNodeServer {
       });
     });
 
-    // Chat completions
+    // Chat completions with x402 payment support
     this.app.post('/v1/chat/completions', async (c) => {
       // Verify auth headers (optional for local testing)
       const authValid = await this.verifyAuth(c);
@@ -129,6 +180,18 @@ export class ComputeNodeServer {
         );
       }
 
+      // x402 Payment check (if enabled)
+      const userAddress = c.req.header('x-jeju-address');
+      if (this.x402Enabled && userAddress) {
+        const estimatedCost = this.estimateInferenceCost(request);
+        const paymentCheck = await this.checkPayment(c, userAddress, estimatedCost);
+        
+        if (!paymentCheck.paid) {
+          // Return 402 Payment Required
+          return c.json(paymentCheck.requirement, 402);
+        }
+      }
+
       // Streaming
       if (request.stream) {
         return this.handleStreamingCompletion(c, engine, request);
@@ -142,8 +205,7 @@ export class ComputeNodeServer {
       // Track metrics
       this.recordInference(inferenceEnd - inferenceStart);
 
-      // Get user address and settlement nonce from auth headers
-      const userAddress = c.req.header('x-jeju-address');
+      // Get settlement nonce from auth headers
       const settlementNonceStr = c.req.header('x-jeju-settlement-nonce');
 
       // Generate request hash and settlement signature
@@ -271,27 +333,6 @@ export class ComputeNodeServer {
     );
   }
 
-  /**
-   * Start the server
-   */
-  start(): void {
-    console.log(`🚀 Compute Node starting...`);
-    console.log(`   Provider: ${this.wallet.address}`);
-    console.log(`   Port: ${this.config.port}`);
-    console.log(
-      `   Models: ${this.config.models.map((m) => m.name).join(', ')}`
-    );
-
-    Bun.serve({
-      port: this.config.port,
-      fetch: this.app.fetch,
-    });
-
-    console.log(
-      `✅ Compute Node running at http://localhost:${this.config.port}`
-    );
-    console.log(`⚠️  Attestation: SIMULATED (wallet signatures only, no TEE)`);
-  }
 
   /**
    * Get the Hono app for testing
@@ -351,6 +392,143 @@ export class ComputeNodeServer {
     this.lastInferenceTime = now;
     this.totalInferences++;
     this.totalLatency += latencyMs;
+  }
+
+  // ============ x402 Payment Support ============
+
+  /**
+   * Estimate the cost of an inference request
+   */
+  private estimateInferenceCost(request: ChatCompletionRequest): bigint {
+    // Rough estimate: 1 token per 4 characters
+    const inputChars = request.messages.reduce((sum, m) => sum + m.content.length, 0);
+    const estimatedInputTokens = Math.ceil(inputChars / 4);
+    const estimatedOutputTokens = request.max_tokens || 500;
+
+    // Find model pricing
+    const modelConfig = this.config.models.find(m => m.name === request.model);
+    if (!modelConfig) {
+      return BigInt(1e14); // Default: 0.0001 ETH
+    }
+
+    const inputCost = BigInt(estimatedInputTokens) * modelConfig.pricePerInputToken;
+    const outputCost = BigInt(estimatedOutputTokens) * modelConfig.pricePerOutputToken;
+    
+    return inputCost + outputCost;
+  }
+
+  /**
+   * Check if user has paid for the request via x402
+   */
+  private async checkPayment(
+    c: Context,
+    userAddress: string,
+    estimatedCost: bigint
+  ): Promise<{ paid: boolean; requirement?: X402PaymentRequirement }> {
+    // Check x402 payment header
+    const paymentHeader = c.req.header('X-Payment');
+    if (paymentHeader) {
+      const parsed = this.parseX402Header(paymentHeader);
+      if (parsed && this.verifyX402Payment(parsed, userAddress, estimatedCost)) {
+        return { paid: true };
+      }
+    }
+
+    // Check credit balance (gracefully handle contract errors)
+    if (this.creditManager) {
+      try {
+        const getBalanceFn = this.creditManager.getFunction('getBalance');
+        const balance = await getBalanceFn(userAddress, '0x0000000000000000000000000000000000000000') as bigint;
+        if (balance >= estimatedCost) {
+          return { paid: true };
+        }
+      } catch {
+        // CreditManager not deployed or call failed - continue to check ledger
+      }
+    }
+
+    // Check ledger balance (gracefully handle contract errors)
+    if (this.ledgerManager) {
+      try {
+        const getSubAccountFn = this.ledgerManager.getFunction('getSubAccount');
+        const subAccount = await getSubAccountFn(userAddress, this.wallet.address) as { balance: bigint };
+        if (subAccount.balance >= estimatedCost) {
+          return { paid: true };
+        }
+      } catch {
+        // LedgerManager not deployed or call failed - require payment
+      }
+    }
+
+    // Return 402 requirement
+    return {
+      paid: false,
+      requirement: this.createPaymentRequirement('/v1/chat/completions', estimatedCost),
+    };
+  }
+
+  /**
+   * Parse x402 payment header (uses shared x402 module)
+   */
+  private parseX402Header(header: string): X402PaymentHeader | null {
+    return parseX402(header);
+  }
+
+  /**
+   * Verify x402 payment (uses shared x402 module)
+   */
+  private verifyX402Payment(
+    payment: X402PaymentHeader,
+    userAddress: string,
+    _estimatedCost: bigint
+  ): boolean {
+    return verifyX402(
+      payment, 
+      this.wallet.address as `0x${string}`, 
+      userAddress as `0x${string}`
+    );
+  }
+
+  /**
+   * Create x402 payment requirement response (uses shared x402 module)
+   */
+  private createPaymentRequirement(resource: string, amountWei: bigint): X402PaymentRequirement {
+    const x402Config = getX402Config();
+    return createX402Requirement(
+      resource,
+      amountWei,
+      this.wallet.address as `0x${string}`,
+      `AI inference on ${this.config.models.map(m => m.name).join(', ')}`,
+      x402Config.network
+    );
+  }
+
+  /**
+   * Start the server
+   */
+  start(port: number): void {
+    console.log(`🚀 Compute Node starting...`);
+    console.log(`   Provider: ${this.wallet.address}`);
+    console.log(`   Port: ${port}`);
+    console.log(`   Models: ${this.config.models.map((m) => m.name).join(', ')}`);
+
+    this._server = Bun.serve({
+      port,
+      fetch: this.app.fetch,
+    });
+
+    console.log(`✅ Compute Node running at http://localhost:${port}`);
+    console.log(`⚠️  Attestation: SIMULATED (wallet signatures only, no TEE)`);
+  }
+
+  /**
+   * Stop the server
+   */
+  stop(): void {
+    if (this._server) {
+      this._server.stop();
+      this._server = null;
+    }
   }
 }
 
@@ -416,6 +594,6 @@ Generate a new wallet:
   };
 
   const server = new ComputeNodeServer(config);
-  server.start();
+  server.start(port);
   return server;
 }

@@ -1,6 +1,6 @@
 # Oracle Setup
 
-Price bot fetches ETH/USD from Chainlink on Base and elizaOS/USD from DEXes, pushes to ManualPriceOracle on Jeju every 5 minutes.
+Price bot fetches ETH/USD from Chainlink on Ethereum and elizaOS/USD from DEXes, pushes to ManualPriceOracle on Jeju every 5 minutes.
 
 ## Deploy
 
@@ -13,7 +13,7 @@ forge script script/DeployLiquiditySystem.s.sol --broadcast --verify
 
 `.env.oracle`:
 ```bash
-BASE_RPC_URL=https://mainnet.base.org
+ETHEREUM_RPC_URL=https://eth.llamarpc.com
 JEJU_RPC_URL=https://rpc.jeju.network
 ORACLE_ADDRESS=0x...
 ELIZAOS_TOKEN_BASE=0x...

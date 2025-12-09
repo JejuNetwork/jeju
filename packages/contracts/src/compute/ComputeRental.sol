@@ -5,10 +5,11 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IIdentityRegistry} from "../registry/interfaces/IIdentityRegistry.sol";
+import {IComputeRegistry} from "./interfaces/IComputeRegistry.sol";
 
-interface IComputeRegistry {
-    function isActive(address provider) external view returns (bool);
-    function getProviderStake(address provider) external view returns (uint256);
+interface ICreditManager {
+    function deductCredit(address user, address token, uint256 amount) external;
+    function hasSufficientCredit(address user, address token, uint256 amount) external view returns (bool, uint256);
 }
 
 /**
@@ -40,13 +41,14 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
     // ============ Enums ============
 
     enum RentalStatus {
-        PENDING,    // Created but not started
-        ACTIVE,     // Running
-        PAUSED,     // Temporarily suspended
-        COMPLETED,  // Finished normally
-        CANCELLED,  // User cancelled
-        EXPIRED,    // Time ran out
-        DISPUTED    // Under dispute
+        PENDING, // Created but not started
+        ACTIVE, // Running
+        PAUSED, // Temporarily suspended
+        COMPLETED, // Finished normally
+        CANCELLED, // User cancelled
+        EXPIRED, // Time ran out
+        DISPUTED // Under dispute
+
     }
 
     enum GPUType {
@@ -64,14 +66,15 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
 
     enum DisputeReason {
         NONE,
-        PROVIDER_OFFLINE,         // Provider unavailable
-        WRONG_HARDWARE,           // Hardware doesn't match advertised
-        POOR_PERFORMANCE,         // Performance below promised
-        SECURITY_ISSUE,           // Security vulnerability
-        USER_ABUSE,               // User generated illegal/abusive content
-        USER_HACK_ATTEMPT,        // User attempted to hack/exploit
-        USER_TERMS_VIOLATION,     // User violated terms
-        PAYMENT_DISPUTE           // Payment/billing dispute
+        PROVIDER_OFFLINE, // Provider unavailable
+        WRONG_HARDWARE, // Hardware doesn't match advertised
+        POOR_PERFORMANCE, // Performance below promised
+        SECURITY_ISSUE, // Security vulnerability
+        USER_ABUSE, // User generated illegal/abusive content
+        USER_HACK_ATTEMPT, // User attempted to hack/exploit
+        USER_TERMS_VIOLATION, // User violated terms
+        PAYMENT_DISPUTE // Payment/billing dispute
+
     }
 
     // ============ Structs ============
@@ -79,17 +82,17 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
     struct ComputeResources {
         GPUType gpuType;
         uint8 gpuCount;
-        uint16 gpuVram;      // GB
+        uint16 gpuVram; // GB
         uint16 cpuCores;
-        uint32 memoryGb;     // GB
-        uint32 storageGb;    // GB
+        uint32 memoryGb; // GB
+        uint32 storageGb; // GB
         uint32 bandwidthMbps; // Mbps
         bool teeCapable;
     }
 
     struct ResourcePricing {
-        uint256 pricePerHour;        // wei per hour
-        uint256 pricePerGpuHour;     // additional per GPU hour
+        uint256 pricePerHour; // wei per hour
+        uint256 pricePerGpuHour; // additional per GPU hour
         uint256 minimumRentalHours;
         uint256 maximumRentalHours;
     }
@@ -104,11 +107,11 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         uint256 totalCost;
         uint256 paidAmount;
         uint256 refundedAmount;
-        string sshPublicKey;        // User's SSH public key
-        string containerImage;       // Docker image to run
-        string startupScript;        // Script to execute on start
-        string sshHost;              // Assigned SSH host
-        uint16 sshPort;              // Assigned SSH port
+        string sshPublicKey; // User's SSH public key
+        string containerImage; // Docker image to run
+        string startupScript; // Script to execute on start
+        string sshHost; // Assigned SSH host
+        uint16 sshPort; // Assigned SSH port
     }
 
     struct ProviderResources {
@@ -119,26 +122,26 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         string[] supportedImages;
         bool sshEnabled;
         bool dockerEnabled;
-        uint256 agentId;         // ERC-8004 agent ID (0 if not linked)
+        uint256 agentId; // ERC-8004 agent ID (0 if not linked)
     }
 
     struct Dispute {
         bytes32 disputeId;
         bytes32 rentalId;
-        address initiator;        // Who filed the dispute
-        address defendant;        // Who is being accused
+        address initiator; // Who filed the dispute
+        address defendant; // Who is being accused
         DisputeReason reason;
-        string evidenceUri;       // IPFS URI to evidence
+        string evidenceUri; // IPFS URI to evidence
         uint256 createdAt;
         uint256 resolvedAt;
         bool resolved;
-        bool inFavorOfInitiator;  // Resolution outcome
-        uint256 slashAmount;      // Amount slashed from defendant
+        bool inFavorOfInitiator; // Resolution outcome
+        uint256 slashAmount; // Amount slashed from defendant
     }
 
     struct RentalRating {
-        uint8 score;              // 0-100
-        string comment;           // Optional comment
+        uint8 score; // 0-100
+        string comment; // Optional comment
         uint256 ratedAt;
     }
 
@@ -158,7 +161,7 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         uint256 completedRentals;
         uint256 failedRentals;
         uint256 totalEarnings;
-        uint256 avgRating;        // scaled by 100 (5000 = 50.00)
+        uint256 avgRating; // scaled by 100 (5000 = 50.00)
         uint256 ratingCount;
         bool banned;
     }
@@ -231,6 +234,15 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
     /// @notice Arbitrators who can resolve disputes
     mapping(address => bool) public arbitrators;
 
+    /// @notice Trusted settlement contracts that can create rentals for users
+    mapping(address => bool) public trustedSettlers;
+
+    /// @notice Credit manager for multi-token payments
+    ICreditManager public creditManager;
+
+    /// @notice Supported payment tokens (token => accepted)
+    mapping(address => bool) public acceptedTokens;
+
     // ============ Events ============
 
     event RentalCreated(
@@ -241,75 +253,31 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         uint256 totalCost
     );
 
-    event RentalStarted(
-        bytes32 indexed rentalId,
-        string sshHost,
-        uint16 sshPort,
-        string containerId
-    );
+    event RentalStarted(bytes32 indexed rentalId, string sshHost, uint16 sshPort, string containerId);
 
-    event RentalCompleted(
-        bytes32 indexed rentalId,
-        uint256 actualDuration,
-        uint256 refundAmount
-    );
+    event RentalCompleted(bytes32 indexed rentalId, uint256 actualDuration, uint256 refundAmount);
 
-    event RentalCancelled(
-        bytes32 indexed rentalId,
-        uint256 refundAmount
-    );
+    event RentalCancelled(bytes32 indexed rentalId, uint256 refundAmount);
 
-    event RentalExtended(
-        bytes32 indexed rentalId,
-        uint256 additionalHours,
-        uint256 additionalCost
-    );
+    event RentalExtended(bytes32 indexed rentalId, uint256 additionalHours, uint256 additionalCost);
 
-    event ProviderResourcesUpdated(
-        address indexed provider,
-        ComputeResources resources,
-        ResourcePricing pricing
-    );
+    event ProviderResourcesUpdated(address indexed provider, ComputeResources resources, ResourcePricing pricing);
 
-    event SSHSessionStarted(
-        bytes32 indexed rentalId,
-        address indexed user,
-        string clientIp
-    );
+    event SSHSessionStarted(bytes32 indexed rentalId, address indexed user, string clientIp);
 
     event DisputeCreated(
-        bytes32 indexed disputeId,
-        bytes32 indexed rentalId,
-        address indexed initiator,
-        DisputeReason reason
+        bytes32 indexed disputeId, bytes32 indexed rentalId, address indexed initiator, DisputeReason reason
     );
 
-    event DisputeResolved(
-        bytes32 indexed disputeId,
-        bool inFavorOfInitiator,
-        uint256 slashAmount
-    );
+    event DisputeResolved(bytes32 indexed disputeId, bool inFavorOfInitiator, uint256 slashAmount);
 
-    event RentalRated(
-        bytes32 indexed rentalId,
-        address indexed user,
-        address indexed provider,
-        uint8 score
-    );
+    event RentalRated(bytes32 indexed rentalId, address indexed user, address indexed provider, uint8 score);
 
-    event UserBanned(
-        address indexed user,
-        string reason
-    );
+    event UserBanned(address indexed user, string reason);
 
-    event UserUnbanned(
-        address indexed user
-    );
+    event UserUnbanned(address indexed user);
 
-    event ProviderBanned(
-        address indexed provider,
-        string reason
-    );
+    event ProviderBanned(address indexed provider, string reason);
 
     event AbuseReported(
         address indexed reporter,
@@ -319,14 +287,22 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         string evidenceUri
     );
 
-    event ProviderAgentLinked(
-        address indexed provider,
-        uint256 indexed agentId
+    event ProviderAgentLinked(address indexed provider, uint256 indexed agentId);
+
+    /// @notice x402 payment requirement for rental quote
+    event PaymentRequired(
+        address indexed provider, uint256 durationHours, uint256 amountRequired, string asset, string network
     );
 
-    // ============ Errors ============
+    /// @notice Rental created with credit (multi-token)
+    event RentalCreatedWithCredit(
+        bytes32 indexed rentalId, address indexed user, address indexed provider, address token, uint256 amount
+    );
 
-    error InvalidProvider();
+    event CreditManagerUpdated(address indexed oldManager, address indexed newManager);
+    event TokenAccepted(address indexed token, bool accepted);
+
+    // ============ Errors ============
     error InsufficientPayment(uint256 provided, uint256 required);
     error RentalNotFound();
     error RentalNotActive();
@@ -352,6 +328,10 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
     error AgentAlreadyLinked();
     error NotAgentOwner();
     error ProviderNotInRegistry();
+    error NotTrustedSettler();
+    error CreditManagerNotSet();
+    error TokenNotAccepted();
+    error InsufficientCredit();
 
     // ============ Modifiers ============
 
@@ -436,12 +416,20 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         string calldata sshPublicKey,
         string calldata containerImage,
         string calldata startupScript
-    ) external payable nonReentrant whenNotPaused notBannedUser notBannedProvider(provider) returns (bytes32 rentalId) {
+    )
+        external
+        payable
+        nonReentrant
+        whenNotPaused
+        notBannedUser
+        notBannedProvider(provider)
+        returns (bytes32 rentalId)
+    {
         // Check if provider is registered in ComputeRegistry (if required)
         if (requireRegisteredProvider && address(computeRegistry) != address(0)) {
             if (!computeRegistry.isActive(provider)) revert ProviderNotInRegistry();
         }
-        
+
         ProviderResources storage pr = providerResources[provider];
         if (pr.pricing.pricePerHour == 0) revert ProviderNotRegistered();
         if (pr.activeRentals >= pr.maxConcurrentRentals) revert ProviderAtCapacity();
@@ -457,12 +445,7 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         if (msg.value < totalCost) revert InsufficientPayment(msg.value, totalCost);
 
         // Generate rental ID
-        rentalId = keccak256(abi.encodePacked(
-            msg.sender,
-            provider,
-            block.timestamp,
-            _rentalCounter++
-        ));
+        rentalId = keccak256(abi.encodePacked(msg.sender, provider, block.timestamp, _rentalCounter++));
 
         // Create rental
         rentals[rentalId] = Rental({
@@ -492,17 +475,140 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         emit RentalCreated(rentalId, msg.sender, provider, durationHours, totalCost);
     }
 
+    /**
+     * @notice Create a rental on behalf of another user (for cross-chain flows)
+     * @dev Only callable by trusted settlement contracts (OIF OutputSettlers)
+     */
+    function createRentalFor(
+        address user,
+        address provider,
+        uint256 durationHours,
+        string calldata sshPublicKey,
+        string calldata containerImage,
+        string calldata startupScript
+    ) external payable nonReentrant whenNotPaused notBannedProvider(provider) returns (bytes32 rentalId) {
+        if (!trustedSettlers[msg.sender]) revert NotTrustedSettler();
+        if (userRecords[user].banned) revert UserBannedError();
+
+        if (requireRegisteredProvider && address(computeRegistry) != address(0)) {
+            if (!computeRegistry.isActive(provider)) revert ProviderNotInRegistry();
+        }
+
+        ProviderResources storage pr = providerResources[provider];
+        if (pr.pricing.pricePerHour == 0) revert ProviderNotRegistered();
+        if (pr.activeRentals >= pr.maxConcurrentRentals) revert ProviderAtCapacity();
+        if (durationHours < pr.pricing.minimumRentalHours) revert InvalidDuration();
+        if (durationHours > pr.pricing.maximumRentalHours) revert InvalidDuration();
+        if (bytes(sshPublicKey).length == 0 && pr.sshEnabled) revert InvalidSSHKey();
+
+        uint256 baseCost = durationHours * pr.pricing.pricePerHour;
+        uint256 gpuCost = durationHours * pr.pricing.pricePerGpuHour * pr.resources.gpuCount;
+        uint256 totalCost = baseCost + gpuCost;
+
+        if (msg.value < totalCost) revert InsufficientPayment(msg.value, totalCost);
+
+        rentalId = keccak256(abi.encodePacked(user, provider, block.timestamp, _rentalCounter++));
+
+        rentals[rentalId] = Rental({
+            rentalId: rentalId,
+            user: user,
+            provider: provider,
+            status: RentalStatus.PENDING,
+            startTime: 0,
+            endTime: 0,
+            totalCost: totalCost,
+            paidAmount: msg.value,
+            refundedAmount: 0,
+            sshPublicKey: sshPublicKey,
+            containerImage: containerImage,
+            startupScript: startupScript,
+            sshHost: "",
+            sshPort: 0
+        });
+
+        userRentals[user].push(rentalId);
+        providerRentals[provider].push(rentalId);
+        pr.activeRentals++;
+        userRecords[user].totalRentals++;
+
+        emit RentalCreated(rentalId, user, provider, durationHours, totalCost);
+    }
+
+    /**
+     * @notice Create a rental using credit balance (multi-token support)
+     * @param provider Provider address
+     * @param durationHours Rental duration in hours
+     * @param sshPublicKey User's SSH public key
+     * @param containerImage Docker image to run
+     * @param startupScript Startup script to execute
+     * @param paymentToken Token address for payment (from CreditManager)
+     */
+    function createRentalWithCredit(
+        address provider,
+        uint256 durationHours,
+        string calldata sshPublicKey,
+        string calldata containerImage,
+        string calldata startupScript,
+        address paymentToken
+    ) external nonReentrant whenNotPaused notBannedUser notBannedProvider(provider) returns (bytes32 rentalId) {
+        if (address(creditManager) == address(0)) revert CreditManagerNotSet();
+        if (!acceptedTokens[paymentToken]) revert TokenNotAccepted();
+
+        if (requireRegisteredProvider && address(computeRegistry) != address(0)) {
+            if (!computeRegistry.isActive(provider)) revert ProviderNotInRegistry();
+        }
+
+        ProviderResources storage pr = providerResources[provider];
+        if (pr.pricing.pricePerHour == 0) revert ProviderNotRegistered();
+        if (pr.activeRentals >= pr.maxConcurrentRentals) revert ProviderAtCapacity();
+        if (durationHours < pr.pricing.minimumRentalHours) revert InvalidDuration();
+        if (durationHours > pr.pricing.maximumRentalHours) revert InvalidDuration();
+        if (bytes(sshPublicKey).length == 0 && pr.sshEnabled) revert InvalidSSHKey();
+
+        uint256 totalCost = _calculateCost(provider, durationHours);
+
+        // Check and deduct credit
+        (bool hasCredit,) = creditManager.hasSufficientCredit(msg.sender, paymentToken, totalCost);
+        if (!hasCredit) revert InsufficientCredit();
+
+        creditManager.deductCredit(msg.sender, paymentToken, totalCost);
+
+        rentalId = keccak256(abi.encodePacked(msg.sender, provider, block.timestamp, _rentalCounter++));
+
+        rentals[rentalId] = Rental({
+            rentalId: rentalId,
+            user: msg.sender,
+            provider: provider,
+            status: RentalStatus.PENDING,
+            startTime: 0,
+            endTime: 0,
+            totalCost: totalCost,
+            paidAmount: totalCost, // Credit deducted = paid
+            refundedAmount: 0,
+            sshPublicKey: sshPublicKey,
+            containerImage: containerImage,
+            startupScript: startupScript,
+            sshHost: "",
+            sshPort: 0
+        });
+
+        userRentals[msg.sender].push(rentalId);
+        providerRentals[provider].push(rentalId);
+        pr.activeRentals++;
+        userRecords[msg.sender].totalRentals++;
+
+        emit RentalCreated(rentalId, msg.sender, provider, durationHours, totalCost);
+        emit RentalCreatedWithCredit(rentalId, msg.sender, provider, paymentToken, totalCost);
+    }
+
     // ============ Provider Actions ============
 
     /**
      * @notice Provider confirms rental start with connection details
      */
-    function startRental(
-        bytes32 rentalId,
-        string calldata sshHost,
-        uint16 sshPort,
-        string calldata containerId
-    ) external {
+    function startRental(bytes32 rentalId, string calldata sshHost, uint16 sshPort, string calldata containerId)
+        external
+    {
         Rental storage rental = rentals[rentalId];
         if (rental.rentalId == bytes32(0)) revert RentalNotFound();
         if (rental.provider != msg.sender) revert NotRentalProvider();
@@ -520,6 +626,7 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
 
     /**
      * @notice Provider completes the rental
+     * @custom:security CEI pattern: Update all state before external calls
      */
     function completeRental(bytes32 rentalId) external nonReentrant {
         Rental storage rental = rentals[rentalId];
@@ -527,20 +634,18 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         if (rental.provider != msg.sender) revert NotRentalProvider();
         if (rental.status != RentalStatus.ACTIVE) revert RentalNotActive();
 
-        rental.status = RentalStatus.COMPLETED;
+        // Cache values before state changes
+        address user = rental.user;
+        address provider = rental.provider;
+        uint256 paidAmount = rental.paidAmount;
 
         // Calculate actual usage and refund
         uint256 actualDuration = block.timestamp - rental.startTime;
-        uint256 usedCost = _calculateCost(rental.provider, actualDuration / 1 hours);
+        uint256 usedCost = _calculateCost(provider, actualDuration / 1 hours);
         uint256 refundAmount = 0;
 
-        if (rental.paidAmount > usedCost) {
-            refundAmount = rental.paidAmount - usedCost;
-            rental.refundedAmount = refundAmount;
-            
-            // Send refund to user
-            (bool success, ) = rental.user.call{value: refundAmount}("");
-            if (!success) revert TransferFailed();
+        if (paidAmount > usedCost) {
+            refundAmount = paidAmount - usedCost;
         }
 
         // Calculate platform fee
@@ -548,32 +653,41 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         uint256 platformFee = (usedCost * platformFeeBps) / 10000;
         providerPayment -= platformFee;
 
+        // EFFECTS: Update ALL state BEFORE external calls (CEI pattern)
+        rental.status = RentalStatus.COMPLETED;
+        rental.refundedAmount = refundAmount;
+
+        providerResources[provider].activeRentals--;
+        providerRecords[provider].completedRentals++;
+        providerRecords[provider].totalRentals++;
+        providerRecords[provider].totalEarnings += providerPayment;
+        userRecords[user].completedRentals++;
+
+        // Emit event before external calls
+        emit RentalCompleted(rentalId, actualDuration, refundAmount);
+
+        // INTERACTIONS: External calls last
+        if (refundAmount > 0) {
+            (bool success,) = user.call{value: refundAmount}("");
+            if (!success) revert TransferFailed();
+        }
+
         // Pay provider
-        (bool providerSuccess, ) = rental.provider.call{value: providerPayment}("");
+        (bool providerSuccess,) = provider.call{value: providerPayment}("");
         if (!providerSuccess) revert TransferFailed();
 
         // Pay treasury
         if (platformFee > 0) {
-            (bool treasurySuccess, ) = treasury.call{value: platformFee}("");
+            (bool treasurySuccess,) = treasury.call{value: platformFee}("");
             if (!treasurySuccess) revert TransferFailed();
         }
-
-        // Update provider capacity and records
-        providerResources[rental.provider].activeRentals--;
-        providerRecords[rental.provider].completedRentals++;
-        providerRecords[rental.provider].totalRentals++;
-        providerRecords[rental.provider].totalEarnings += providerPayment;
-
-        // Update user records
-        userRecords[rental.user].completedRentals++;
-
-        emit RentalCompleted(rentalId, actualDuration, refundAmount);
     }
 
     // ============ User Actions ============
 
     /**
      * @notice User cancels a pending rental
+     * @custom:security CEI pattern: Update all state before external calls
      */
     function cancelRental(bytes32 rentalId) external nonReentrant {
         Rental storage rental = rentals[rentalId];
@@ -582,18 +696,22 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         if (rental.status == RentalStatus.ACTIVE) revert CannotCancelActiveRental();
         if (rental.status != RentalStatus.PENDING) revert RentalNotActive();
 
+        // Cache values before state changes
+        uint256 refundAmount = rental.paidAmount;
+        address provider = rental.provider;
+
+        // EFFECTS: Update ALL state BEFORE external calls (CEI pattern)
         rental.status = RentalStatus.CANCELLED;
-        rental.refundedAmount = rental.paidAmount;
-
-        // Refund user
-        (bool success, ) = msg.sender.call{value: rental.paidAmount}("");
-        if (!success) revert TransferFailed();
-
-        // Update records
-        providerResources[rental.provider].activeRentals--;
+        rental.refundedAmount = refundAmount;
+        providerResources[provider].activeRentals--;
         userRecords[msg.sender].cancelledRentals++;
 
-        emit RentalCancelled(rentalId, rental.paidAmount);
+        // Emit event before external calls
+        emit RentalCancelled(rentalId, refundAmount);
+
+        // INTERACTIONS: External calls last
+        (bool success,) = msg.sender.call{value: refundAmount}("");
+        if (!success) revert TransferFailed();
     }
 
     /**
@@ -632,11 +750,7 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         if (rentalRatings[rentalId].ratedAt != 0) revert AlreadyRated();
         require(score <= 100, "Score must be 0-100");
 
-        rentalRatings[rentalId] = RentalRating({
-            score: score,
-            comment: comment,
-            ratedAt: block.timestamp
-        });
+        rentalRatings[rentalId] = RentalRating({score: score, comment: comment, ratedAt: block.timestamp});
 
         // Update provider average rating
         ProviderRecord storage pr = providerRecords[rental.provider];
@@ -655,23 +769,19 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
      * @param reason The dispute reason
      * @param evidenceUri IPFS URI to evidence
      */
-    function createDispute(
-        bytes32 rentalId,
-        DisputeReason reason,
-        string calldata evidenceUri
-    ) external payable nonReentrant returns (bytes32 disputeId) {
+    function createDispute(bytes32 rentalId, DisputeReason reason, string calldata evidenceUri)
+        external
+        payable
+        nonReentrant
+        returns (bytes32 disputeId)
+    {
         Rental storage rental = rentals[rentalId];
         if (rental.rentalId == bytes32(0)) revert RentalNotFound();
         if (rental.user != msg.sender && rental.provider != msg.sender) revert NotDisputeParty();
         if (rentalDisputes[rentalId] != bytes32(0)) revert AlreadyDisputed();
         if (msg.value < disputeBond) revert InsufficientPayment(msg.value, disputeBond);
 
-        disputeId = keccak256(abi.encodePacked(
-            rentalId,
-            msg.sender,
-            block.timestamp,
-            _disputeCounter++
-        ));
+        disputeId = keccak256(abi.encodePacked(rentalId, msg.sender, block.timestamp, _disputeCounter++));
 
         address defendant = msg.sender == rental.user ? rental.provider : rental.user;
 
@@ -705,47 +815,66 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
      * @param disputeId The dispute to resolve
      * @param inFavorOfInitiator Whether to rule in favor of initiator
      * @param slashAmount Amount to slash from defendant
+     * @custom:security CEI pattern: Update all state before external calls
      */
-    function resolveDispute(
-        bytes32 disputeId,
-        bool inFavorOfInitiator,
-        uint256 slashAmount
-    ) external onlyArbitrator nonReentrant {
+    function resolveDispute(bytes32 disputeId, bool inFavorOfInitiator, uint256 slashAmount)
+        external
+        nonReentrant
+        onlyArbitrator
+    {
         Dispute storage dispute = disputes[disputeId];
         if (dispute.disputeId == bytes32(0)) revert DisputeNotFound();
         if (dispute.resolved) revert AlreadyResolved();
 
+        // Cache values before state changes
+        address initiator = dispute.initiator;
+        bytes32 rentalId = dispute.rentalId;
+        Rental storage rental = rentals[rentalId];
+        address user = rental.user;
+        address provider = rental.provider;
+        uint256 paidAmount = rental.paidAmount;
+        uint256 refundedAmount = rental.refundedAmount;
+
+        // Calculate refund if applicable
+        uint256 refund = 0;
+        if (inFavorOfInitiator && initiator == user && paidAmount > refundedAmount) {
+            refund = paidAmount - refundedAmount;
+        }
+
+        // EFFECTS: Update ALL state BEFORE external calls (CEI pattern)
         dispute.resolved = true;
         dispute.resolvedAt = block.timestamp;
         dispute.inFavorOfInitiator = inFavorOfInitiator;
         dispute.slashAmount = slashAmount;
 
-        Rental storage rental = rentals[dispute.rentalId];
-
         if (inFavorOfInitiator) {
-            // Initiator wins - return their bond and potentially pay them from rental
-            (bool bondSuccess, ) = dispute.initiator.call{value: disputeBond}("");
+            if (refund > 0) {
+                rental.refundedAmount = paidAmount;
+            }
+            if (initiator == user) {
+                providerRecords[provider].failedRentals++;
+            }
+        }
+
+        // Emit event before external calls
+        emit DisputeResolved(disputeId, inFavorOfInitiator, slashAmount);
+
+        // INTERACTIONS: External calls last
+        if (inFavorOfInitiator) {
+            // Return bond to initiator
+            (bool bondSuccess,) = initiator.call{value: disputeBond}("");
             if (!bondSuccess) revert TransferFailed();
 
-            // If user wins against provider, refund remaining amount
-            if (dispute.initiator == rental.user && rental.paidAmount > rental.refundedAmount) {
-                uint256 refund = rental.paidAmount - rental.refundedAmount;
-                rental.refundedAmount = rental.paidAmount;
-                (bool refundSuccess, ) = rental.user.call{value: refund}("");
+            // Refund remaining amount if user won
+            if (refund > 0) {
+                (bool refundSuccess,) = user.call{value: refund}("");
                 if (!refundSuccess) revert TransferFailed();
-            }
-
-            // Track provider failure if user won
-            if (dispute.initiator == rental.user) {
-                providerRecords[rental.provider].failedRentals++;
             }
         } else {
             // Defendant wins - bond goes to treasury
-            (bool treasurySuccess, ) = treasury.call{value: disputeBond}("");
+            (bool treasurySuccess,) = treasury.call{value: disputeBond}("");
             if (!treasurySuccess) revert TransferFailed();
         }
-
-        emit DisputeResolved(disputeId, inFavorOfInitiator, slashAmount);
     }
 
     // ============ Abuse Reporting ============
@@ -756,20 +885,15 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
      * @param reason The abuse reason
      * @param evidenceUri IPFS URI to evidence
      */
-    function reportAbuse(
-        bytes32 rentalId,
-        DisputeReason reason,
-        string calldata evidenceUri
-    ) external {
+    function reportAbuse(bytes32 rentalId, DisputeReason reason, string calldata evidenceUri) external {
         Rental storage rental = rentals[rentalId];
         if (rental.rentalId == bytes32(0)) revert RentalNotFound();
         if (rental.provider != msg.sender) revert NotRentalProvider();
-        
+
         // Only allow abuse-related reasons
         require(
-            reason == DisputeReason.USER_ABUSE ||
-            reason == DisputeReason.USER_HACK_ATTEMPT ||
-            reason == DisputeReason.USER_TERMS_VIOLATION,
+            reason == DisputeReason.USER_ABUSE || reason == DisputeReason.USER_HACK_ATTEMPT
+                || reason == DisputeReason.USER_TERMS_VIOLATION,
             "Invalid abuse reason"
         );
 
@@ -792,23 +916,20 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         return rentals[rentalId];
     }
 
-    function getProviderResources(address provider) external view returns (
-        ComputeResources memory resources,
-        ResourcePricing memory pricing,
-        uint256 maxConcurrent,
-        uint256 active,
-        bool sshEnabled,
-        bool dockerEnabled
-    ) {
+    function getProviderResources(address provider)
+        external
+        view
+        returns (
+            ComputeResources memory resources,
+            ResourcePricing memory pricing,
+            uint256 maxConcurrent,
+            uint256 active,
+            bool sshEnabled,
+            bool dockerEnabled
+        )
+    {
         ProviderResources storage pr = providerResources[provider];
-        return (
-            pr.resources,
-            pr.pricing,
-            pr.maxConcurrentRentals,
-            pr.activeRentals,
-            pr.sshEnabled,
-            pr.dockerEnabled
-        );
+        return (pr.resources, pr.pricing, pr.maxConcurrentRentals, pr.activeRentals, pr.sshEnabled, pr.dockerEnabled);
     }
 
     function getUserRentals(address user) external view returns (bytes32[] memory) {
@@ -821,6 +942,53 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
 
     function calculateRentalCost(address provider, uint256 durationHours) external view returns (uint256) {
         return _calculateCost(provider, durationHours);
+    }
+
+    /**
+     * @notice Get x402-compatible payment requirement for a rental
+     * @param provider Provider address
+     * @param durationHours Rental duration in hours
+     * @return cost Required payment in wei
+     * @return asset Asset address (0x0 for ETH)
+     * @return payTo Payment recipient (this contract)
+     * @return network Network identifier
+     * @return description Human-readable description
+     */
+    function getPaymentRequirement(address provider, uint256 durationHours)
+        external
+        view
+        returns (uint256 cost, address asset, address payTo, string memory network, string memory description)
+    {
+        cost = _calculateCost(provider, durationHours);
+        asset = address(0); // ETH
+        payTo = address(this);
+        network = "jeju";
+
+        ProviderResources storage pr = providerResources[provider];
+        description = string.concat(
+            "Compute rental: ",
+            pr.resources.gpuCount > 0 ? "GPU" : "CPU",
+            " for ",
+            _uintToString(durationHours),
+            " hours"
+        );
+    }
+
+    function _uintToString(uint256 value) internal pure returns (string memory) {
+        if (value == 0) return "0";
+        uint256 temp = value;
+        uint256 digits;
+        while (temp != 0) {
+            digits++;
+            temp /= 10;
+        }
+        bytes memory buffer = new bytes(digits);
+        while (value != 0) {
+            digits--;
+            buffer[digits] = bytes1(uint8(48 + value % 10));
+            value /= 10;
+        }
+        return string(buffer);
     }
 
     function isRentalActive(bytes32 rentalId) external view returns (bool) {
@@ -917,6 +1085,25 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
 
     function removeArbitrator(address arbitrator) external onlyOwner {
         arbitrators[arbitrator] = false;
+    }
+
+    function addTrustedSettler(address settler) external onlyOwner {
+        trustedSettlers[settler] = true;
+    }
+
+    function removeTrustedSettler(address settler) external onlyOwner {
+        trustedSettlers[settler] = false;
+    }
+
+    function setCreditManager(address _creditManager) external onlyOwner {
+        address oldManager = address(creditManager);
+        creditManager = ICreditManager(_creditManager);
+        emit CreditManagerUpdated(oldManager, _creditManager);
+    }
+
+    function setAcceptedToken(address token, bool accepted) external onlyOwner {
+        acceptedTokens[token] = accepted;
+        emit TokenAccepted(token, accepted);
     }
 
     function banUser(address user, string calldata reason) external onlyOwner {

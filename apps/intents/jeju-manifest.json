@@ -1,32 +1,42 @@
 {
+  "$schema": "../../packages/config/jeju-manifest.schema.json",
   "name": "intents",
   "displayName": "Open Intents Framework",
   "description": "Cross-chain intent aggregation, solving, and visualization with A2A/MCP interfaces",
   "version": "1.0.0",
-  "type": "infrastructure",
-  "port": {
-    "aggregator": 4010,
-    "viewer": 4011
+  "type": "core",
+  "commands": {
+    "dev": "bun run aggregator/src/index.ts",
+    "build": "bun run build",
+    "start": "bun run aggregator/dist/index.js",
+    "test": "bun test"
   },
-  "dependencies": {
-    "services": ["indexer", "gateway"],
-    "contracts": ["InputSettler", "OutputSettler", "SolverRegistry"]
+  "ports": {
+    "main": 4015,
+    "aggregator": 4015,
+    "viewer": 4016
   },
-  "endpoints": {
-    "aggregator": {
-      "a2a": "/a2a",
-      "mcp": "/mcp",
-      "rest": "/api"
+  "dependencies": ["contracts", "config"],
+  "optional": true,
+  "enabled": true,
+  "autoStart": false,
+  "tags": ["intents", "cross-chain", "oif", "eil", "aggregator", "solver"],
+  "healthCheck": {
+    "url": "http://localhost:4015/health",
+    "interval": 30000
+  },
+  "agent": {
+    "enabled": true,
+    "a2aEndpoint": "/a2a",
+    "mcpEndpoint": "/mcp",
+    "tags": ["jeju-app", "intents", "cross-chain", "oif"],
+    "metadata": {
+      "category": "infrastructure",
+      "provider": "jeju-network"
     },
-    "viewer": {
-      "ui": "/"
-    }
-  },
-  "capabilities": {
-    "a2a": true,
-    "mcp": true,
-    "x402": true
-  },
-  "tags": ["intents", "cross-chain", "oif", "eil", "aggregator", "solver"]
+    "trustModels": ["open"],
+    "x402Support": true,
+    "jnsName": "intents.jeju"
+  }
 }
 

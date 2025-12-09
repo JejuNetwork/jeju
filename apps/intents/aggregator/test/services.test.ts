@@ -33,7 +33,7 @@ describe('IntentService', () => {
       const mockIntent = {
         intentType: 'SWAP',
         user: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-        sourceChainId: 8453,
+        sourceChainId: 1,
         destinationChainId: 42161,
         inputToken: '0x0000000000000000000000000000000000000000',
         outputToken: '0x0000000000000000000000000000000000000000',
@@ -58,7 +58,7 @@ describe('IntentService', () => {
     });
 
     test('validates chain IDs', () => {
-      const supportedChains = [1, 8453, 42161, 10, 137, 11155111];
+      const supportedChains = [1, 1, 42161, 10, 137, 11155111];
       
       for (const chainId of supportedChains) {
         expect(chainId).toBeGreaterThan(0);
@@ -95,12 +95,12 @@ describe('IntentService', () => {
 
     test('filters by chain', () => {
       const intents = [
-        { intentId: '0x1', sourceChainId: 8453 },
+        { intentId: '0x1', sourceChainId: 1 },
         { intentId: '0x2', sourceChainId: 42161 },
-        { intentId: '0x3', sourceChainId: 8453 },
+        { intentId: '0x3', sourceChainId: 1 },
       ];
 
-      const baseIntents = intents.filter(i => i.sourceChainId === 8453);
+      const baseIntents = intents.filter(i => i.sourceChainId === 1);
       expect(baseIntents.length).toBe(2);
     });
 
@@ -122,12 +122,12 @@ describe('RouteService', () => {
   describe('listRoutes', () => {
     test('returns routes for chain pair', () => {
       const routes = [
-        { routeId: 'base-arb', sourceChainId: 8453, destinationChainId: 42161, isActive: true },
-        { routeId: 'arb-base', sourceChainId: 42161, destinationChainId: 8453, isActive: true },
-        { routeId: 'base-op', sourceChainId: 8453, destinationChainId: 10, isActive: false },
+        { routeId: 'base-arb', sourceChainId: 1, destinationChainId: 42161, isActive: true },
+        { routeId: 'arb-base', sourceChainId: 42161, destinationChainId: 1, isActive: true },
+        { routeId: 'base-op', sourceChainId: 1, destinationChainId: 10, isActive: false },
       ];
 
-      const baseRoutes = routes.filter(r => r.sourceChainId === 8453);
+      const baseRoutes = routes.filter(r => r.sourceChainId === 1);
       expect(baseRoutes.length).toBe(2);
 
       const activeRoutes = routes.filter(r => r.isActive);
@@ -137,7 +137,7 @@ describe('RouteService', () => {
     test('route has required fields', () => {
       const route = {
         routeId: 'base-arbitrum-hyperlane',
-        sourceChainId: 8453,
+        sourceChainId: 1,
         destinationChainId: 42161,
         sourceToken: '0x0000000000000000000000000000000000000000',
         destinationToken: '0x0000000000000000000000000000000000000000',
@@ -208,12 +208,12 @@ describe('SolverService', () => {
 
     test('filters by supported chain', () => {
       const solvers = [
-        { address: '0x1', supportedChains: [8453, 42161] },
-        { address: '0x2', supportedChains: [8453] },
+        { address: '0x1', supportedChains: [1, 42161] },
+        { address: '0x2', supportedChains: [1] },
         { address: '0x3', supportedChains: [42161, 10] },
       ];
 
-      const baseSupporting = solvers.filter(s => s.supportedChains.includes(8453));
+      const baseSupporting = solvers.filter(s => s.supportedChains.includes(1));
       expect(baseSupporting.length).toBe(2);
     });
 
@@ -296,7 +296,7 @@ describe('ChainService', () => {
   describe('chain configuration', () => {
     test('all chains have required config', () => {
       const chains = {
-        8453: { name: 'Base', rpcUrl: 'https://mainnet.base.org' },
+        1: { name: 'Ethereum', rpcUrl: 'https://eth.llamarpc.com' },
         42161: { name: 'Arbitrum', rpcUrl: 'https://arb1.arbitrum.io/rpc' },
         10: { name: 'Optimism', rpcUrl: 'https://mainnet.optimism.io' },
       };
@@ -309,7 +309,7 @@ describe('ChainService', () => {
     });
 
     test('chain IDs are valid', () => {
-      const validChainIds = [1, 8453, 42161, 10, 137, 11155111];
+      const validChainIds = [1, 1, 42161, 10, 137, 11155111];
       
       for (const chainId of validChainIds) {
         expect(chainId).toBeGreaterThan(0);
@@ -450,7 +450,7 @@ describe('WebSocket', () => {
           intentId: '0x1234',
           user: '0xabcd',
         },
-        chainId: 8453,
+        chainId: 1,
       };
 
       expect(message.type).toBeDefined();

@@ -533,17 +533,49 @@ type RegisteredAgent @entity {
   name: String!
   description: String
   tags: [String!]!
+  stakeTier: Int!
   stakeToken: String!
   stakeAmount: BigInt!
   stakeWithdrawn: Boolean!
+  isSlashed: Boolean!
+  isBanned: Boolean!
   registeredAt: DateTime! @index
   depositedAt: BigInt!
   withdrawnAt: BigInt
+  lastActivityAt: DateTime
   active: Boolean!
+  
+  # Marketplace Discovery Fields
   a2aEndpoint: String
+  mcpEndpoint: String
+  serviceType: String @index # "agent", "mcp", "app"
+  category: String @index
+  x402Support: Boolean!
+  
+  # Discovery Tools/Skills
+  mcpTools: [String!]!
+  a2aSkills: [String!]!
+  
+  # Image/Avatar
+  image: String
+  
   metadataUpdates: [AgentMetadata!]! @derivedFrom(field: "agent")
   stakes: [RegistryStake!]! @derivedFrom(field: "agent")
   tagUpdates: [TagUpdate!]! @derivedFrom(field: "agent")
+  banEvents: [AgentBanEvent!]! @derivedFrom(field: "agent")
+  slashEvents: [AgentSlashEvent!]! @derivedFrom(field: "agent")
+  stakeEvents: [AgentStakeEvent!]! @derivedFrom(field: "agent")
+  feedback: [AgentFeedback!]! @derivedFrom(field: "agent")
+  validations: [AgentValidation!]! @derivedFrom(field: "agent")
+}
+
+# Tag index for efficient tag-based queries
+type TagIndex @entity {
+  id: ID! # tag name
+  tag: String! @unique @index
+  agentCount: Int!
+  lastUpdated: DateTime! @index
+  # Note: agents are looked up via RegisteredAgent.tags array
 }
 
 type RegistryStake @entity {
@@ -573,6 +605,87 @@ type TagUpdate @entity {
   newTags: [String!]!
   updatedAt: DateTime! @index
   txHash: String!
+  blockNumber: Int!
+}
+
+type AgentBanEvent @entity {
+  id: ID!
+  agent: RegisteredAgent!
+  isBan: Boolean! # true = ban, false = unban
+  banType: String! # "network" or "app"
+  appId: String # For app-specific bans
+  reason: String
+  proposalId: String
+  timestamp: DateTime! @index
+  txHash: String!
+  blockNumber: Int!
+}
+
+type AgentSlashEvent @entity {
+  id: ID!
+  agent: RegisteredAgent!
+  slashAmount: BigInt!
+  reason: String!
+  timestamp: DateTime! @index
+  txHash: String!
+  blockNumber: Int!
+}
+
+type AgentStakeEvent @entity {
+  id: ID!
+  agent: RegisteredAgent!
+  eventType: String! # "increase", "withdraw"
+  oldTier: Int
+  newTier: Int
+  amount: BigInt!
+  token: String!
+  timestamp: DateTime! @index
+  txHash: String!
+  blockNumber: Int!
+}
+
+type AgentFeedback @entity {
+  id: ID!
+  agent: RegisteredAgent!
+  client: Account!
+  score: Int!
+  tag1: String
+  tag2: String
+  fileUri: String
+  fileHash: String
+  isRevoked: Boolean!
+  timestamp: DateTime! @index
+  txHash: String!
+  blockNumber: Int!
+  responses: [FeedbackResponse!]! @derivedFrom(field: "feedback")
+}
+
+type FeedbackResponse @entity {
+  id: ID!
+  feedback: AgentFeedback!
+  responder: Account!
+  responseUri: String!
+  responseHash: String
+  timestamp: DateTime! @index
+  txHash: String!
+  blockNumber: Int!
+}
+
+type AgentValidation @entity {
+  id: ID!
+  agent: RegisteredAgent!
+  validator: Account!
+  requestUri: String!
+  requestHash: String!
+  response: Int # 0-100, null if pending
+  responseUri: String
+  responseHash: String
+  tag: String
+  status: String! # "pending", "responded"
+  requestedAt: DateTime! @index
+  respondedAt: DateTime
+  requestTxHash: String!
+  responseTxHash: String
   blockNumber: Int!
 }
 
@@ -1162,4 +1275,396 @@ type OIFChainStats @entity {
   inboundVolume: BigInt!
   
   lastUpdated: DateTime! @index
+}
+
+# ============ Compute Infrastructure Entities ============
+
+type ComputeProvider @entity {
+  id: ID! # provider address
+  address: String! @unique @index
+  name: String # Provider name
+  endpoint: String!
+  attestationHash: String # TEE/GPU attestation hash
+  stakeAmount: BigInt!
+  agentId: Int # ERC-8004 agent ID
+  isActive: Boolean! @index
+  registeredAt: DateTime! @index
+  lastUpdated: DateTime! @index
+  totalRentals: Int!
+  totalEarnings: BigInt!
+  
+  # Relations
+  resources: [ComputeResource!]! @derivedFrom(field: "provider")
+  rentals: [ComputeRental!]! @derivedFrom(field: "provider")
+  inferenceRequests: [InferenceRequest!]! @derivedFrom(field: "provider")
+}
+
+type ComputeResource @entity {
+  id: ID! # provider-resourceId
+  provider: ComputeProvider!
+  resourceId: String! @index
+  gpuCount: Int!
+  cpuCores: Int!
+  memoryGB: Int!
+  pricePerHour: BigInt!
+  isAvailable: Boolean! @index
+  createdAt: DateTime! @index
+  
+  rentals: [ComputeRental!]! @derivedFrom(field: "resource")
+}
+
+type ComputeRental @entity {
+  id: ID! # rentalId
+  rentalId: String! @unique @index
+  renter: Account!
+  provider: ComputeProvider!
+  resource: ComputeResource
+  duration: BigInt!
+  price: BigInt!
+  status: ComputeRentalStatus! @index
+  startTime: DateTime
+  endTime: DateTime
+  createdAt: DateTime! @index
+  txHash: String!
+  blockNumber: Int!
+}
+
+enum ComputeRentalStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+type InferenceRequest @entity {
+  id: ID! # requestId
+  requestId: String! @unique @index
+  requester: Account!
+  provider: ComputeProvider!
+  model: String! @index
+  maxTokens: BigInt!
+  tokensUsed: BigInt
+  status: InferenceStatus! @index
+  responseHash: String
+  createdAt: DateTime! @index
+  completedAt: DateTime
+  txHash: String!
+  blockNumber: Int!
+}
+
+enum InferenceStatus {
+  PENDING
+  COMPLETED
+  DISPUTED
+  SETTLED
+}
+
+type ComputeLedgerBalance @entity {
+  id: ID! # account-token
+  account: Account!
+  token: String! @index
+  balance: BigInt!
+  lockedAmount: BigInt!
+  lastUpdated: DateTime! @index
+}
+
+type ComputeStats @entity {
+  id: ID! # "global" or date string
+  date: DateTime @index
+  
+  totalProviders: Int!
+  activeProviders: Int!
+  totalResources: Int!
+  availableResources: Int!
+  totalRentals: Int!
+  activeRentals: Int!
+  completedRentals: Int!
+  totalInferenceRequests: Int!
+  
+  totalStaked: BigInt!
+  totalEarnings: BigInt!
+  
+  last24hRentals: Int!
+  last24hInference: Int!
+  
+  lastUpdated: DateTime!
+}
+
+# ============ Storage Infrastructure Entities ============
+
+type StorageProvider @entity {
+  id: ID! # provider address
+  address: String! @unique @index
+  name: String!
+  endpoint: String!
+  providerType: StorageProviderType! @index
+  attestationHash: String
+  stakeAmount: BigInt!
+  agentId: Int # ERC-8004 agent ID
+  isActive: Boolean! @index
+  isVerified: Boolean!
+  registeredAt: DateTime! @index
+  lastUpdated: DateTime! @index
+  
+  # Capacity
+  totalCapacityGB: BigInt!
+  usedCapacityGB: BigInt!
+  availableCapacityGB: BigInt!
+  
+  # Pricing (wei per GB per month)
+  pricePerGBMonth: BigInt!
+  uploadPricePerGB: BigInt!
+  retrievalPricePerGB: BigInt!
+  minStoragePeriodDays: Int!
+  maxStoragePeriodDays: Int!
+  
+  # Performance
+  healthScore: Int!
+  avgLatencyMs: Int!
+  replicationFactor: Int!
+  ipfsGateway: String
+  supportedTiers: [StorageTier!]!
+  
+  # Stats
+  totalDeals: Int!
+  activeDeals: Int!
+  completedDeals: Int!
+  failedDeals: Int!
+  totalStoredGB: BigInt!
+  totalEarnings: BigInt!
+  avgRating: Int! # 0-100
+  ratingCount: Int!
+  uptimePercent: Int!
+  
+  # Relations
+  deals: [StorageDeal!]! @derivedFrom(field: "provider")
+}
+
+enum StorageProviderType {
+  IPFS_NODE
+  FILECOIN
+  ARWEAVE
+  CLOUD_S3
+  CLOUD_VERCEL
+  CLOUD_R2
+  HYBRID
+}
+
+enum StorageTier {
+  HOT
+  WARM
+  COLD
+  PERMANENT
+}
+
+type StorageDeal @entity {
+  id: ID! # dealId
+  dealId: String! @unique @index
+  user: Account!
+  provider: StorageProvider!
+  status: StorageDealStatus! @index
+  cid: String! @index
+  sizeBytes: BigInt!
+  tier: StorageTier! @index
+  startTime: DateTime
+  endTime: DateTime
+  totalCost: BigInt!
+  paidAmount: BigInt!
+  refundedAmount: BigInt!
+  replicationFactor: Int!
+  retrievalCount: Int!
+  createdAt: DateTime! @index
+  txHash: String!
+  blockNumber: Int!
+  
+  # Rating
+  rating: Int # 0-100
+  ratingComment: String
+}
+
+enum StorageDealStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+  TERMINATED
+  FAILED
+  DISPUTED
+}
+
+type StorageLedgerBalance @entity {
+  id: ID! # user-provider
+  user: Account!
+  provider: StorageProvider
+  totalBalance: BigInt!
+  availableBalance: BigInt!
+  lockedBalance: BigInt!
+  pendingRefund: BigInt!
+  refundUnlockTime: DateTime
+  lastUpdated: DateTime! @index
+}
+
+type StorageMarketStats @entity {
+  id: ID! # "global" or date string
+  date: DateTime @index
+  
+  totalProviders: Int!
+  activeProviders: Int!
+  verifiedProviders: Int!
+  totalCapacityTB: BigInt!
+  usedCapacityTB: BigInt!
+  
+  totalDeals: Int!
+  activeDeals: Int!
+  completedDeals: Int!
+  
+  totalStaked: BigInt!
+  totalEarnings: BigInt!
+  avgPricePerGBMonth: BigInt!
+  
+  last24hDeals: Int!
+  last24hVolume: BigInt!
+  
+  lastUpdated: DateTime!
+}
+
+# ============ JNS (Jeju Name Service) Entities ============
+
+type JNSName @entity {
+  id: ID! # node hash
+  name: String! @index
+  labelhash: String! @index
+  node: String! @unique @index
+  
+  # Ownership
+  owner: Account! @index
+  resolver: String
+  
+  # Registration
+  registeredAt: DateTime! @index
+  expiresAt: DateTime! @index
+  registrationCost: BigInt!
+  
+  # Status
+  isExpired: Boolean! @index
+  inGracePeriod: Boolean!
+  
+  # Resolver records
+  resolvedAddress: String
+  contenthash: String
+  
+  # ERC-8004 Integration
+  linkedAgentId: BigInt
+  linkedAgent: Agent
+  
+  # App configuration
+  appContract: String
+  appId: String
+  appEndpoint: String
+  appA2AEndpoint: String
+  
+  # Text records (stored as JSON)
+  textRecords: JSON
+  
+  # Marketplace
+  isListed: Boolean!
+  currentListing: JNSListing
+  
+  # Stats
+  transferCount: Int!
+  renewalCount: Int!
+  
+  # Metadata
+  createdAt: DateTime! @index
+  lastUpdated: DateTime! @index
+  
+  # Relations
+  transfers: [JNSTransfer!]! @derivedFrom(field: "name")
+  renewals: [JNSRenewal!]! @derivedFrom(field: "name")
+  listings: [JNSListing!]! @derivedFrom(field: "name")
+}
+
+type JNSTransfer @entity {
+  id: ID! # tx-logIndex
+  name: JNSName!
+  from: Account!
+  to: Account!
+  timestamp: DateTime! @index
+  txHash: String!
+  blockNumber: Int! @index
+}
+
+type JNSRenewal @entity {
+  id: ID! # tx-logIndex
+  name: JNSName!
+  renewer: Account!
+  cost: BigInt!
+  newExpiresAt: DateTime!
+  timestamp: DateTime! @index
+  txHash: String!
+  blockNumber: Int! @index
+}
+
+type JNSListing @entity {
+  id: ID! # listingId
+  name: JNSName!
+  seller: Account!
+  price: BigInt!
+  currency: String! # ETH, HG, USDC
+  
+  status: JNSListingStatus!
+  createdAt: DateTime! @index
+  expiresAt: DateTime
+  soldAt: DateTime
+  buyer: Account
+  
+  txHash: String!
+  blockNumber: Int! @index
+}
+
+enum JNSListingStatus {
+  ACTIVE
+  SOLD
+  CANCELLED
+  EXPIRED
+}
+
+type JNSResolverRecord @entity {
+  id: ID! # node-key
+  name: JNSName!
+  key: String! @index
+  value: String!
+  timestamp: DateTime! @index
+  txHash: String!
+}
+
+type JNSReverseRecord @entity {
+  id: ID! # address
+  address: String! @unique @index
+  name: JNSName
+  primaryName: String
+  timestamp: DateTime! @index
+  txHash: String!
+}
+
+type JNSStats @entity {
+  id: ID! # "global" or date string
+  date: DateTime @index
+  
+  totalNames: Int!
+  activeNames: Int!
+  expiredNames: Int!
+  
+  totalOwners: Int!
+  totalRevenue: BigInt!
+  
+  registrationsToday: Int!
+  renewalsToday: Int!
+  transfersToday: Int!
+  
+  floorPrice: BigInt!
+  avgSalePrice: BigInt!
+  totalListings: Int!
+  activeListings: Int!
+  
+  lastUpdated: DateTime!
 }

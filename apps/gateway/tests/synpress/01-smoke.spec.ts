@@ -41,7 +41,7 @@ test.describe('Gateway Smoke Tests', () => {
     console.log('✅ 3/7: All protocol tokens loaded');
 
     // Navigate tabs
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(500);
     console.log('✅ 4/7: Bridge tab');
 

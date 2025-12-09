@@ -1,0 +1,39 @@
+{
+  "name": "@jejunetwork/storage",
+  "version": "2.0.0",
+  "description": "Jeju Storage Marketplace - Decentralized storage with multi-provider routing, x402 payments, and A2A/MCP agent integration",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./sdk": "./src/sdk/index.ts",
+    "./node": "./src/node/index.ts"
+  },
+  "scripts": {
+    "predev": "bun run db:init && bun run db:migrate",
+    "dev": "bun run src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "start": "bun run dist/index.js",
+    "node": "bun run src/node/index.ts",
+    "test": "bun test src/*.test.ts",
+    "db:init": "bun run src/database/init.ts",
+    "db:migrate": "bun run src/database/migrate.ts",
+    "db:generate": "drizzle-kit generate:pg",
+    "db:push": "drizzle-kit push:pg",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@coinbase/x402": "latest",
+    "hono": "^4.0.0",
+    "ipfs-http-client": "^60.0.0",
+    "drizzle-orm": "^0.29.0",
+    "postgres": "^3.4.0",
+    "viem": "^2.7.15",
+    "ethers": "^6.11.1"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "latest",
+    "drizzle-kit": "^0.20.0"
+  }
+}

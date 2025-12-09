@@ -1,9 +1,13 @@
 {
-  "name": "@jeju/monitoring",
+  "name": "@jejunetwork/monitoring",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
     "a2a": "bun server/a2a.ts",
+    "start": "concurrently \"bun run a2a\" \"bun run dev\"",
     "test": "bun test test/*.test.ts",
     "test:dashboards": "bun test test/dashboard-validation.test.ts",
     "test:onchain": "bun test test/on-chain-validation.test.ts",
@@ -14,12 +18,27 @@
   "dependencies": {
     "express": "^4.18.2",
     "cors": "^2.8.5",
-    "pg": "^8.11.3"
+    "pg": "^8.11.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.23.1",
+    "recharts": "^2.12.7",
+    "sonner": "^1.5.0",
+    "lucide-react": "^0.441.0"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/cors": "^2.8.17",
-    "@types/pg": "^8.10.9"
+    "@types/pg": "^8.10.9",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.19",
+    "concurrently": "^8.2.2",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.4",
+    "typescript": "^5.5.3",
+    "vite": "^5.4.0"
   }
 }
 

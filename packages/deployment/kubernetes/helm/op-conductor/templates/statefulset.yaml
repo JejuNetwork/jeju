@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "op-conductor.fullname" . }}
+  labels:
+    {{- include "op-conductor.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "op-conductor.fullname" . }}-headless
+  replicas: {{ .Values.replicaCount }}
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      {{- include "op-conductor.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "op-conductor.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "op-conductor.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --consensus.addr={{ .Values.config.consensusAddr }}
+            - --rpc.addr={{ .Values.config.rpcAddr }}
+            - --healthcheck.interval={{ .Values.config.healthcheckInterval }}
+            - --healthcheck.unsafe-interval={{ .Values.config.healthcheckUnsafeInterval }}
+            - --healthcheck.min-peer-count={{ .Values.config.healthcheckMinPeerCount }}
+            - --raft.storage-dir={{ .Values.config.raft.storageDir }}
+            - --raft.server-id=$(POD_NAME)
+            {{- if .Values.config.raft.bootstrapCluster }}
+            - --raft.bootstrap
+            {{- end }}
+            - --node.rpc={{ .Values.config.opNode.rpc }}
+            - --execution.rpc={{ .Values.config.execution.rpc }}
+            {{- if .Values.config.metrics.enabled }}
+            - --metrics.enabled
+            - --metrics.addr={{ .Values.config.metrics.addr }}
+            - --metrics.port={{ .Values.config.metrics.port }}
+            {{- end }}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          ports:
+            - name: rpc
+              containerPort: {{ .Values.service.rpc.port }}
+              protocol: TCP
+            - name: raft
+              containerPort: {{ .Values.service.raft.port }}
+              protocol: TCP
+            - name: metrics
+              containerPort: {{ .Values.service.metrics.port }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: rpc
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: rpc
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: {{ .Values.persistence.mountPath }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  {{- if .Values.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - {{ .Values.persistence.accessMode }}
+        {{- if .Values.persistence.storageClass }}
+        storageClassName: {{ .Values.persistence.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size }}
+  {{- end }}
+
+

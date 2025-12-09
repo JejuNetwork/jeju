@@ -78,7 +78,7 @@ describe('OIF Aggregator API', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sourceChain: 8453,
+          sourceChain: 1,
           destinationChain: 42161,
           sourceToken: '0x0000000000000000000000000000000000000000',
           destinationToken: '0x0000000000000000000000000000000000000000',
@@ -97,7 +97,7 @@ describe('OIF Aggregator API', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           // Missing some fields - implementation handles gracefully
-          sourceChain: 8453,
+          sourceChain: 1,
         }),
       });
       // May return 400 or 200 with empty array depending on implementation
@@ -115,13 +115,13 @@ describe('OIF Aggregator API', () => {
     });
 
     test('GET /api/routes with chain filters', async () => {
-      const res = await fetch(`${BASE_URL}/api/routes?sourceChain=8453`);
+      const res = await fetch(`${BASE_URL}/api/routes?sourceChain=1`);
       expect(res.ok).toBe(true);
       
       const routes = await res.json();
       expect(routes).toBeInstanceOf(Array);
       routes.forEach((route: { sourceChainId: number }) => {
-        expect(route.sourceChainId).toBe(8453);
+        expect(route.sourceChainId).toBe(1);
       });
     });
 
@@ -306,7 +306,7 @@ describe('OIF Aggregator Service Logic', () => {
       const intentData = {
         intentType: 'SWAP',
         user: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-        sourceChainId: 8453,
+        sourceChainId: 1,
         destinationChainId: 42161,
         inputToken: '0x0000000000000000000000000000000000000000',
         outputToken: '0x0000000000000000000000000000000000000000',
@@ -335,7 +335,7 @@ describe('OIF Aggregator Service Logic', () => {
   describe('Route Service', () => {
     test('best route selection considers fees', async () => {
       const res = await fetch(
-        `${BASE_URL}/api/routes/best?sourceChainId=8453&destinationChainId=42161&inputToken=0x0000000000000000000000000000000000000000&outputToken=0x0000000000000000000000000000000000000000&amount=1000000000000000000&sortBy=fee`
+        `${BASE_URL}/api/routes/best?sourceChainId=1&destinationChainId=42161&inputToken=0x0000000000000000000000000000000000000000&outputToken=0x0000000000000000000000000000000000000000&amount=1000000000000000000&sortBy=fee`
       );
       
       // May return 404 if no routes or 200 with best route
@@ -345,12 +345,12 @@ describe('OIF Aggregator Service Logic', () => {
 
   describe('Solver Service', () => {
     test('solver list filters by chain', async () => {
-      const res = await fetch(`${BASE_URL}/api/solvers?chainId=8453`);
+      const res = await fetch(`${BASE_URL}/api/solvers?chainId=1`);
       expect(res.ok).toBe(true);
       
       const solvers = await res.json();
       solvers.forEach((solver: { supportedChains: number[] }) => {
-        expect(solver.supportedChains).toContain(8453);
+        expect(solver.supportedChains).toContain(1);
       });
     });
   });
@@ -361,7 +361,7 @@ describe('OIF Aggregator Service Logic', () => {
 describe('Additional API Endpoints', () => {
   describe('Route Volume Endpoint', () => {
     test('GET /api/routes/:routeId/volume returns volume data', async () => {
-      const res = await fetch(`${BASE_URL}/api/routes/8453-42161-hyperlane/volume`);
+      const res = await fetch(`${BASE_URL}/api/routes/1-42161-hyperlane/volume`);
       // May return 404 if route doesn't exist
       expect([200, 404]).toContain(res.status);
     });
@@ -386,7 +386,7 @@ describe('Additional API Endpoints', () => {
 
   describe('Chain Stats', () => {
     test('GET /api/stats/chain/:chainId returns chain-specific stats', async () => {
-      const res = await fetch(`${BASE_URL}/api/stats/chain/8453`);
+      const res = await fetch(`${BASE_URL}/api/stats/chain/1`);
       expect([200, 404]).toContain(res.status);
     });
   });
@@ -401,7 +401,7 @@ describe('Additional API Endpoints', () => {
     });
 
     test('GET /api/config/tokens returns supported tokens', async () => {
-      const res = await fetch(`${BASE_URL}/api/config/tokens?chainId=8453`);
+      const res = await fetch(`${BASE_URL}/api/config/tokens?chainId=1`);
       expect(res.ok).toBe(true);
       
       const tokens = await res.json();
@@ -445,7 +445,7 @@ describe('All A2A Skills', () => {
 
   test('create-intent skill', async () => {
     const res = await invokeSkill('create-intent', {
-      sourceChain: 8453,
+      sourceChain: 1,
       destinationChain: 42161,
       sourceToken: '0x0000000000000000000000000000000000000000',
       destinationToken: '0x0000000000000000000000000000000000000000',
@@ -460,7 +460,7 @@ describe('All A2A Skills', () => {
 
   test('get-quote skill', async () => {
     const res = await invokeSkill('get-quote', {
-      sourceChain: 8453,
+      sourceChain: 1,
       destinationChain: 42161,
       sourceToken: '0x0000000000000000000000000000000000000000',
       destinationToken: '0x0000000000000000000000000000000000000000',
@@ -492,7 +492,7 @@ describe('All A2A Skills', () => {
 
   test('get-best-route skill', async () => {
     const res = await invokeSkill('get-best-route', {
-      sourceChainId: 8453,
+      sourceChainId: 1,
       destinationChainId: 42161,
       inputToken: '0x0000000000000000000000000000000000000000',
       outputToken: '0x0000000000000000000000000000000000000000',

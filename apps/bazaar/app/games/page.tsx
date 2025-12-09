@@ -47,44 +47,54 @@ export default function GamesPage() {
 
   return (
     <div>
-      <h1 className="text-4xl font-bold mb-8">Games & Applications</h1>
-      <p className="text-slate-400 mb-8">
-        Decentralized games and applications registered on Jeju via ERC-8004
-      </p>
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl md:text-4xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+          🎮 Games & Applications
+        </h1>
+        <p style={{ color: 'var(--text-secondary)' }}>
+          Decentralized games and applications registered on Jeju via ERC-8004
+        </p>
+      </div>
 
+      {/* Loading State */}
       {isLoading && (
-        <div className="flex justify-center py-12">
-          <div className="w-8 h-8 border-4 border-purple-600/30 border-t-purple-600 rounded-full animate-spin" />
+        <div className="flex justify-center py-20">
+          <div className="w-10 h-10 border-4 rounded-full animate-spin"
+            style={{ borderColor: 'var(--border)', borderTopColor: 'var(--color-primary)' }} />
         </div>
       )}
 
+      {/* Empty State */}
       {!isLoading && games.length === 0 && (
         <div className="text-center py-20">
-          <div className="text-6xl mb-4">🎮</div>
-          <h3 className="text-2xl font-semibold mb-2">No Games Yet</h3>
-          <p className="text-slate-400">
+          <div className="text-6xl md:text-7xl mb-4">🎮</div>
+          <h3 className="text-xl md:text-2xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+            No Games Yet
+          </h3>
+          <p style={{ color: 'var(--text-secondary)' }}>
             Games will appear here once registered via ERC-8004
           </p>
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Games Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         {games.map((game: RegisteredGame) => (
-          <div
-            key={game.id}
-            className="p-6 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all hover:scale-105"
-          >
-            <div className="text-4xl mb-4">🎮</div>
-            <h3 className="text-2xl font-bold mb-2">{game.name}</h3>
+          <div key={game.id} className="card p-5 md:p-6 group">
+            <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-bazaar-accent to-emerald-600 flex items-center justify-center text-2xl md:text-3xl mb-4 group-hover:scale-110 transition-transform">
+              🎮
+            </div>
+            
+            <h3 className="text-xl md:text-2xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+              {game.name}
+            </h3>
             
             {/* Tags */}
             {game.tags && game.tags.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-4">
                 {game.tags.map((tag, i) => (
-                  <span
-                    key={i}
-                    className="px-2 py-1 text-xs rounded bg-purple-600/20 text-purple-300"
-                  >
+                  <span key={i} className="badge-primary">
                     {tag}
                   </span>
                 ))}
@@ -92,14 +102,14 @@ export default function GamesPage() {
             )}
 
             {/* Stats */}
-            <div className="space-y-2 text-sm text-slate-400 mb-4">
+            <div className="space-y-1 text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
               {game.totalPlayers !== undefined && (
                 <div>👥 {game.totalPlayers} players</div>
               )}
               {game.totalItems !== undefined && (
                 <div>🎁 {game.totalItems} items</div>
               )}
-              <div className="text-xs text-slate-500">
+              <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                 Agent ID: {game.agentId}
               </div>
             </div>
@@ -107,7 +117,7 @@ export default function GamesPage() {
             <Link
               href={`https://jeju.network/agent/${game.agentId}`}
               target="_blank"
-              className="inline-block px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 font-semibold transition-all"
+              className="btn-primary w-full text-center"
             >
               View Game →
             </Link>

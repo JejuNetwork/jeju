@@ -1,0 +1,8 @@
+apiVersion: v2
+name: op-node
+description: Optimism rollup node (consensus layer)
+type: application
+version: 1.1.0
+appVersion: "v1.16.3"
+
+

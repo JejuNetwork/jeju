@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test';
-import { captureScreenshot, captureUserFlow } from '../../../../tests/shared/helpers/screenshots';
-import { testWithWallet as test } from '../../../../tests/shared/fixtures/wallet';
-import { connectWallet, deployPaymaster } from '../../../../tests/shared/helpers/contracts';
+import { captureScreenshot, captureUserFlow } from '@jejunetwork/tests/helpers/screenshots';
+import { testWithWallet as test } from '@jejunetwork/tests/fixtures/wallet';
+import { connectWallet, deployPaymaster } from '@jejunetwork/tests/helpers/contracts';
 
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:5173';
 

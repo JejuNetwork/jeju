@@ -1,5 +1,5 @@
 /**
-import type { Page } from "@playwright/test";
+* @fileoverview Test file
  * Paymaster Integration Tests
  * Tests paying gas with alternative ERC20 tokens
  */
@@ -233,4 +233,5 @@ test.describe('Paymaster Integration', () => {
       }
     }
   })
-28-paymaster-integration.spec.ts.backup
+
+})

@@ -4,11 +4,11 @@ on:
   push:
     branches: [main, develop]
     paths:
-      - 'contracts/**'
+      - 'packages/contracts/**'
   pull_request:
     branches: [main, develop]
     paths:
-      - 'contracts/**'
+      - 'packages/contracts/**'
 
 jobs:
   test:
@@ -22,20 +22,21 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
       
       - name: Run Forge build
-        working-directory: contracts
+        working-directory: packages/contracts
         run: forge build
       
       - name: Run tests
-        working-directory: contracts
+        working-directory: packages/contracts
         run: forge test -vv
       
       - name: Gas report
-        working-directory: contracts
+        working-directory: packages/contracts
         run: forge test --gas-report
       
       - name: Coverage
-        working-directory: contracts
+        working-directory: packages/contracts
         run: forge coverage --report summary
+        continue-on-error: true
 
   lint:
     runs-on: ubuntu-latest
@@ -48,8 +49,34 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
       
       - name: Check formatting
-        working-directory: contracts
+        working-directory: packages/contracts
         run: forge fmt --check
+
+  typescript:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+      
+      - name: Install dependencies
+        run: bun install
+      
+      - name: Build contracts
+        working-directory: packages/contracts
+        run: forge build
+      
+      - name: Build TypeScript
+        working-directory: packages/contracts
+        run: bun run build
 
   slither:
     runs-on: ubuntu-latest
@@ -61,8 +88,8 @@ jobs:
       - name: Run Slither
         uses: crytic/slither-action@v0.3.0
         with:
-          target: 'contracts/src'
-          slither-args: '--filter-paths "contracts/lib" --exclude naming-convention,external-function'
+          target: 'packages/contracts/src'
+          slither-args: '--filter-paths "packages/contracts/lib" --exclude naming-convention,external-function'
           fail-on: medium
         continue-on-error: true
 

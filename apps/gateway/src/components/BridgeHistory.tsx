@@ -24,7 +24,7 @@ interface BridgeTransfer {
  * const { data: transfers } = useQuery({
  *   queryKey: ['bridgeTransfers', address],
  *   queryFn: async () => {
- *     const response = await fetch('http://localhost:4350/graphql', {
+ *     const response = await fetch('http://localhost:4000/graphql', {
  *       method: 'POST',
  *       body: JSON.stringify({
  *         query: `query { bridgeTransfers(where: {user: "${address}"}) { ... } }`
@@ -48,7 +48,7 @@ export default function BridgeHistory() {
     return (
       <div className="card">
         <h3 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>Bridge History</h3>
-        <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
+        <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
           <p>No bridge transfers yet</p>
           <p style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>
             Your bridged tokens will appear here
@@ -68,13 +68,13 @@ export default function BridgeHistory() {
         {transfers.map(transfer => {
           const token = getToken(transfer.token);
           const statusIcon = transfer.status === 'confirmed' ? (
-            <CheckCircle size={20} style={{ color: '#10b981' }} />
+            <CheckCircle size={20} style={{ color: 'var(--success)' }} />
           ) : transfer.status === 'failed' ? (
-            <XCircle size={20} style={{ color: '#ef4444' }} />
+            <XCircle size={20} style={{ color: 'var(--error)' }} />
           ) : transfer.status === 'pending' ? (
-            <Loader size={20} style={{ color: '#3b82f6', animation: 'spin 1s linear infinite' }} />
+            <Loader size={20} style={{ color: 'var(--info)', animation: 'spin 1s linear infinite' }} />
           ) : (
-            <Clock size={20} style={{ color: '#94a3b8' }} />
+            <Clock size={20} style={{ color: 'var(--text-muted)' }} />
           );
 
           return (
@@ -82,7 +82,7 @@ export default function BridgeHistory() {
               key={transfer.id}
               style={{
                 padding: '1rem',
-                background: '#f8fafc',
+                background: 'var(--surface-hover)',
                 borderRadius: '8px',
                 display: 'flex',
                 alignItems: 'center',
@@ -95,15 +95,15 @@ export default function BridgeHistory() {
                   <span style={{ fontWeight: '600' }}>
                     {token ? formatTokenAmount(transfer.amount, token.decimals, 2) : transfer.amount.toString()} {transfer.token}
                   </span>
-                  <span style={{ fontSize: '0.875rem', color: '#64748b' }}>
+                  <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
                     {new Date(transfer.timestamp).toLocaleString()}
                   </span>
                 </div>
-                <div style={{ fontSize: '0.875rem', color: '#94a3b8', marginTop: '0.25rem' }}>
+                <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
                   {transfer.from.slice(0, 6)}...{transfer.from.slice(-4)} → {transfer.to.slice(0, 6)}...{transfer.to.slice(-4)}
                 </div>
                 {transfer.txHash && (
-                  <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
                     Tx: {transfer.txHash.slice(0, 10)}...
                   </div>
                 )}

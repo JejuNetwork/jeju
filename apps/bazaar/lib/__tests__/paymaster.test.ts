@@ -61,20 +61,12 @@ describe('Paymaster Integration', () => {
   test('should estimate token cost correctly', () => {
     const gasEstimate = BigInt(100000); // 100k gas
     const gasPrice = parseEther('0.00000001'); // 10 Gwei
-    const mockPaymaster = {
-      address: '0x1111111111111111111111111111111111111111' as Address,
-      token: '0x2222222222222222222222222222222222222222' as Address,
-      tokenSymbol: 'USDC',
-      tokenName: 'USD Coin',
-      stakedEth: parseEther('10.0'),
-      isActive: true,
-      exchangeRate: BigInt('2000000'), // 2 USDC per ETH
-    };
+    const exchangeRate = parseEther('2'); // 2 tokens per ETH (18 decimals)
 
-    const tokenCost = estimateTokenCost(gasEstimate, gasPrice, mockPaymaster);
+    const tokenCost = estimateTokenCost(gasEstimate, gasPrice, exchangeRate);
 
     // ETH cost = 100000 * 0.00000001 = 0.001 ETH
-    // Token cost = 0.001 * 2 = 0.002 USDC (assuming 18 decimals)
+    // Token cost = 0.001 * 2 = 0.002 tokens
     expect(tokenCost).toBeGreaterThan(0n);
   });
 
@@ -112,11 +104,12 @@ describe('Paymaster Integration', () => {
     
     if (options.length > 0) {
       const option = options[0];
-      expect(option.label).toContain('Pay gas with');
-      expect(option.value).toBeDefined();
-      expect(option.token.symbol).toBeDefined();
-      expect(option.estimatedCost).toContain(option.token.symbol);
-      expect(option.stakedEth).toContain('ETH');
+      // PaymasterOption has: paymaster, estimatedCost, estimatedCostFormatted, isRecommended
+      expect(option.paymaster).toBeDefined();
+      expect(option.paymaster.address).toBeDefined();
+      expect(option.paymaster.tokenSymbol).toBeDefined();
+      expect(option.estimatedCostFormatted).toContain(option.paymaster.tokenSymbol);
+      expect(option.estimatedCost).toBeGreaterThanOrEqual(0n);
     }
   });
 
@@ -125,12 +118,12 @@ describe('Paymaster Integration', () => {
 
     // If factory is configured and returns paymasters, check recommendations
     if (options.length > 0) {
-      const recommended = options.filter(opt => opt.recommended);
+      const recommended = options.filter(opt => opt.isRecommended);
       expect(recommended.length).toBeGreaterThanOrEqual(0);
 
       if (recommended.length > 0) {
-        const symbols = recommended.map(opt => opt.token.symbol);
-        expect(symbols.some(s => s === 'USDC' || s === 'elizaOS')).toBe(true);
+        const symbols = recommended.map(opt => opt.paymaster.tokenSymbol);
+        expect(symbols.some(s => s === 'USDC' || s.includes('eliza'))).toBe(true);
       }
     } else {
       // No factory configured, which is fine for development
@@ -142,10 +135,10 @@ describe('Paymaster Integration', () => {
     const options = await getPaymasterOptions(BigInt(100000), parseEther('0.00000001'));
 
     options.forEach(option => {
-      expect(option.estimatedCost).toMatch(/^~/); // Starts with ~
-      expect(option.estimatedCost).toContain(option.token.symbol);
+      expect(option.estimatedCostFormatted).toMatch(/^~/); // Starts with ~
+      expect(option.estimatedCostFormatted).toContain(option.paymaster.tokenSymbol);
       // Should have reasonable decimal places
-      const match = option.estimatedCost.match(/~(\d+\.?\d*)/);
+      const match = option.estimatedCostFormatted.match(/~(\d+\.?\d*)/);
       if (match) {
         const value = parseFloat(match[1]);
         expect(value).toBeGreaterThanOrEqual(0); // Can be 0 for small amounts

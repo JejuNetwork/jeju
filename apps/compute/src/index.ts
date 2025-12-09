@@ -1,5 +1,5 @@
 /**
- * @jeju/compute - Decentralized AI Compute Marketplace
+ * @jejunetwork/compute - Decentralized AI Compute Marketplace
  *
  * Permissionless AI inference with ERC-8004 integration.
  * NO API KEYS. NO LOGINS. WALLET SIGNATURE ONLY.
@@ -8,9 +8,9 @@
  * - Arweave for permanent storage (wallet-signed)
  * - AES-256-GCM for encryption (Web Crypto API)
  * - secp256k1 for signatures (Ethereum-compatible)
- * - Jeju Compute Marketplace for TEE inference (Base)
+ * - Jeju Compute Marketplace for TEE inference (Ethereum)
  *
- * Target chains: Anvil (local) → Base Sepolia → Base Mainnet
+ * Target chains: Anvil (local) → Sepolia → Ethereum Mainnet
  *
  * @see src/compute/scripts/demo.ts - Run the compute marketplace demo
  * @see src/compute/scripts/join-network.ts - Join as a provider
@@ -57,7 +57,6 @@ export type {
 export {
   // SDK
   JejuComputeSDK,
-  BabylonComputeSDK, // Legacy alias
   // Node
   ComputeNodeServer,
   countTokens,

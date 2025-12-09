@@ -9,7 +9,7 @@ describe('Internal Navigation Links', () => {
   test('All 7 main tabs navigate correctly', () => {
     const tabs = [
       { tab: 'Registered Tokens', route: '/' },
-      { tab: 'Bridge from Base', route: '/' },
+      { tab: 'Bridge from Ethereum', route: '/' },
       { tab: 'Deploy Paymaster', route: '/' },
       { tab: 'Add Liquidity', route: '/' },
       { tab: 'My Earnings', route: '/' },

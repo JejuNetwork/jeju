@@ -17,7 +17,7 @@ import {
   tickToPrice,
   type PoolKey,
 } from '@/lib/pools'
-import { parseUnits, parseEther, formatEther, type Address } from 'viem'
+import { parseUnits, type Address } from 'viem'
 import { toast } from 'sonner'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { useEILConfig, SUPPORTED_CHAINS } from '@/hooks/useEIL'
@@ -25,7 +25,6 @@ import { useEILConfig, SUPPORTED_CHAINS } from '@/hooks/useEIL'
 function LiquidityPageContent() {
   const { address, isConnected, chain } = useAccount()
   const searchParams = useSearchParams()
-  const poolIdFromUrl = searchParams.get('pool')
 
   const [token0Address, setToken0Address] = useState('')
   const [token1Address, setToken1Address] = useState('')
@@ -42,29 +41,18 @@ function LiquidityPageContent() {
   const isCorrectChain = chain?.id === JEJU_CHAIN_ID
   const { isAvailable: eilAvailable } = useEILConfig()
 
-  // Create pool key from inputs
   const poolKey: PoolKey | null = token0Address && token1Address
-    ? createPoolKey(
-        token0Address as Address,
-        token1Address as Address,
-        fee,
-        60 // Default tick spacing
-      )
+    ? createPoolKey(token0Address as Address, token1Address as Address, fee, 60)
     : null
 
-  // Fetch pool data
-  const { pool, isLoading: poolLoading } = usePool(poolKey)
-
-  // Fetch user positions
+  const { pool } = usePool(poolKey)
   const { positions, refetch: refetchPositions } = usePositions(poolKey || undefined)
-
-  // Liquidity operations
   const { addLiquidity, isLoading: isAdding, isSuccess: addSuccess } = useAddLiquidity()
   const { removeLiquidity, isLoading: isRemoving, isSuccess: removeSuccess } = useRemoveLiquidity()
 
   useEffect(() => {
     if (addSuccess) {
-      toast.success('Liquidity added successfully!')
+      toast.success('Liquidity added')
       refetchPositions()
       setToken0Amount('')
       setToken1Amount('')
@@ -73,7 +61,7 @@ function LiquidityPageContent() {
 
   useEffect(() => {
     if (removeSuccess) {
-      toast.success('Liquidity removed successfully!')
+      toast.success('Liquidity removed')
       refetchPositions()
       setRemoveAmount('')
       setSelectedPosition(null)
@@ -82,12 +70,11 @@ function LiquidityPageContent() {
 
   const handleAddLiquidity = async () => {
     if (!poolKey || !token0Amount || !token1Amount || !minPrice || !maxPrice) {
-      toast.error('Please fill in all fields')
+      toast.error('Fill all fields')
       return
     }
-
     if (!address) {
-      toast.error('Please connect your wallet')
+      toast.error('Connect wallet')
       return
     }
 
@@ -111,7 +98,7 @@ function LiquidityPageContent() {
 
   const handleRemoveLiquidity = async () => {
     if (!selectedPosition || !removeAmount) {
-      toast.error('Please select a position and enter amount')
+      toast.error('Select position and amount')
       return
     }
 
@@ -119,7 +106,7 @@ function LiquidityPageContent() {
 
     await removeLiquidity({
       tokenId: selectedPosition,
-      liquidity: liquidity as unknown as bigint,
+      liquidity: liquidity as bigint,
       amount0Min: 0n,
       amount1Min: 0n,
       deadline: BigInt(Math.floor(Date.now() / 1000) + 1800),
@@ -127,380 +114,264 @@ function LiquidityPageContent() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <h1 className="text-4xl font-bold mb-4">Manage Liquidity</h1>
-      <p className="text-slate-400 mb-8">Provide liquidity for same-chain swaps (V4) or cross-chain transfers (XLP)</p>
+    <div>
+      <h1 className="text-3xl md:text-4xl font-bold mb-8" style={{ color: 'var(--text-primary)' }}>
+        💧 Liquidity
+      </h1>
 
-      {/* Section Toggle */}
-      <div className="flex gap-4 mb-8">
+      <div className="flex gap-3 mb-8 overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0">
         <button
           onClick={() => setActiveSection('v4')}
-          className={`px-6 py-3 rounded-lg font-semibold transition-all ${
-            activeSection === 'v4'
-              ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
-              : 'bg-white/5 text-slate-400 hover:bg-white/10'
+          className={`px-5 py-3 rounded-xl font-semibold whitespace-nowrap transition-all ${
+            activeSection === 'v4' ? 'btn-primary' : 'btn-secondary'
           }`}
         >
-          🔄 Uniswap V4 Pools
+          V4 Pools
         </button>
         <button
           onClick={() => setActiveSection('xlp')}
-          className={`px-6 py-3 rounded-lg font-semibold transition-all ${
-            activeSection === 'xlp'
-              ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white'
-              : 'bg-white/5 text-slate-400 hover:bg-white/10'
+          className={`px-5 py-3 rounded-xl font-semibold whitespace-nowrap transition-all ${
+            activeSection === 'xlp' ? 'btn-accent' : 'btn-secondary'
           }`}
         >
-          ⚡ Cross-Chain XLP
+          Cross-Chain XLP
         </button>
       </div>
 
-      {/* XLP Section */}
       {activeSection === 'xlp' && (
-        <div className="mb-8">
-          <div className="p-6 rounded-xl bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/30 mb-6">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-3xl">⚡</span>
-              <div>
-                <h2 className="text-xl font-bold text-blue-300">Become an XLP</h2>
-                <p className="text-sm text-slate-400">Earn fees by providing cross-chain liquidity</p>
-              </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="card p-5">
+            <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Chains</h3>
+            <div className="grid grid-cols-2 gap-3">
+              {SUPPORTED_CHAINS.map((chain) => (
+                <div key={chain.id} className="p-3 rounded-xl text-center" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                  <div className="text-2xl mb-1">{chain.icon}</div>
+                  <div className="text-sm font-medium">{chain.name}</div>
+                </div>
+              ))}
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-              <div className="p-4 rounded-lg bg-white/5">
-                <div className="text-2xl mb-1">1</div>
-                <div className="font-semibold mb-1">Stake on L1</div>
-                <div className="text-sm text-slate-400">Min 1 ETH stake for security</div>
-              </div>
-              <div className="p-4 rounded-lg bg-white/5">
-                <div className="text-2xl mb-1">2</div>
-                <div className="font-semibold mb-1">Deposit Liquidity</div>
-                <div className="text-sm text-slate-400">Add ETH/tokens on supported chains</div>
-              </div>
-              <div className="p-4 rounded-lg bg-white/5">
-                <div className="text-2xl mb-1">3</div>
-                <div className="font-semibold mb-1">Fulfill Transfers</div>
-                <div className="text-sm text-slate-400">Earn fees on every cross-chain swap</div>
-              </div>
-            </div>
-            <p className="text-sm text-slate-400">
-              <strong>Security:</strong> Your stake is slashed if you fail to fulfill vouchers. 8-day unbonding period.
-            </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Supported Chains */}
-            <div className="p-6 rounded-xl bg-white/5 border border-white/10">
-              <h3 className="text-xl font-semibold mb-4">Supported Chains</h3>
-              <div className="grid grid-cols-2 gap-4">
-                {SUPPORTED_CHAINS.map((chain) => (
-                  <div key={chain.id} className="p-4 rounded-lg bg-white/5 text-center">
-                    <div className="text-2xl mb-2">{chain.icon}</div>
-                    <div className="font-semibold">{chain.name}</div>
-                    <div className="text-sm text-green-400">Active</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="p-6 rounded-xl bg-white/5 border border-white/10">
-              <h3 className="text-xl font-semibold mb-4">Quick Actions</h3>
-              <div className="space-y-4">
-                <a 
-                  href="https://gateway.jeju.network?tab=xlp" 
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block p-4 rounded-lg bg-blue-500/10 border border-blue-500/30 hover:bg-blue-500/20 transition-all"
-                >
-                  <div className="font-semibold text-blue-300 mb-1">🌊 Register as XLP</div>
-                  <div className="text-sm text-slate-400">Stake ETH and start earning cross-chain fees</div>
-                </a>
-                <a 
-                  href="https://gateway.jeju.network?tab=xlp" 
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block p-4 rounded-lg bg-green-500/10 border border-green-500/30 hover:bg-green-500/20 transition-all"
-                >
-                  <div className="font-semibold text-green-300 mb-1">💰 Deposit Liquidity</div>
-                  <div className="text-sm text-slate-400">Add ETH or tokens to start fulfilling transfers</div>
-                </a>
-                <a 
-                  href="https://gateway.jeju.network?tab=transfer" 
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block p-4 rounded-lg bg-purple-500/10 border border-purple-500/30 hover:bg-purple-500/20 transition-all"
-                >
-                  <div className="font-semibold text-purple-300 mb-1">⚡ Try Cross-Chain Transfer</div>
-                  <div className="text-sm text-slate-400">Experience instant, trustless transfers</div>
-                </a>
-              </div>
+          <div className="card p-5">
+            <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Actions</h3>
+            <div className="space-y-3">
+              <a 
+                href="https://gateway.jeju.network?tab=xlp" 
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block p-4 rounded-xl btn-secondary text-center"
+              >
+                Register as XLP →
+              </a>
+              <a 
+                href="https://gateway.jeju.network?tab=xlp" 
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block p-4 rounded-xl btn-secondary text-center"
+              >
+                Deposit Liquidity →
+              </a>
             </div>
           </div>
         </div>
       )}
 
-      {/* V4 Section */}
       {activeSection === 'v4' && (
         <>
           {!hasPeriphery && (
-            <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/50 text-yellow-200 mb-6">
-              ⚠️ V4 Periphery contracts not deployed. Liquidity features unavailable.
+            <div className="card p-4 mb-6 border-bazaar-warning/50 bg-bazaar-warning/10">
+              <p className="text-bazaar-warning text-sm">V4 contracts not deployed</p>
             </div>
           )}
 
           {isConnected && !isCorrectChain && (
-            <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/50 text-red-200 mb-6">
-              ❌ Please switch to Jeju network (Chain ID: {JEJU_CHAIN_ID})
+            <div className="card p-4 mb-6 border-bazaar-error/50 bg-bazaar-error/10">
+              <p className="text-bazaar-error text-sm">Switch to Jeju (Chain {JEJU_CHAIN_ID})</p>
             </div>
           )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Add Liquidity Section */}
-        <div className="p-6 rounded-xl bg-white/5 border border-white/10">
-          <h2 className="text-2xl font-semibold mb-6">Add Liquidity</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="card p-5">
+              <h2 className="text-xl font-semibold mb-6" style={{ color: 'var(--text-primary)' }}>
+                Add Liquidity
+              </h2>
 
-          {/* Pool Selection */}
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-4">Select Pool</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm text-slate-400 mb-2 block">Token 0 Address</label>
-                <input
-                  type="text"
-                  value={token0Address}
-                  onChange={(e) => setToken0Address(e.target.value)}
-                  placeholder="0x..."
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500"
-                />
-              </div>
-              <div>
-                <label className="text-sm text-slate-400 mb-2 block">Token 1 Address</label>
-                <input
-                  type="text"
-                  value={token1Address}
-                  onChange={(e) => setToken1Address(e.target.value)}
-                  placeholder="0x..."
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500"
-                />
-              </div>
-              <div>
-                <label className="text-sm text-slate-400 mb-2 block">Fee Tier</label>
-                <select
-                  value={fee}
-                  onChange={(e) => setFee(Number(e.target.value))}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:border-purple-500"
-                >
-                  <option value={100}>0.01%</option>
-                  <option value={500}>0.05%</option>
-                  <option value={3000}>0.3%</option>
-                  <option value={10000}>1%</option>
-                </select>
-              </div>
-            </div>
-
-            {pool && (
-              <div className="mt-4 p-4 rounded-lg bg-blue-500/10 border border-blue-500/50">
-                <div className="text-sm">
-                  <div className="flex justify-between mb-2">
-                    <span className="text-slate-400">Current Price:</span>
-                    <span className="font-semibold">
-                      {sqrtPriceX96ToPrice(pool.slot0.sqrtPriceX96).toFixed(6)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Liquidity:</span>
-                    <span className="font-semibold">{formatLiquidity(pool.liquidity)}</span>
-                  </div>
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="text-sm mb-2 block" style={{ color: 'var(--text-secondary)' }}>Token 0</label>
+                  <input
+                    type="text"
+                    value={token0Address}
+                    onChange={(e) => setToken0Address(e.target.value)}
+                    placeholder="0x..."
+                    className="input"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm mb-2 block" style={{ color: 'var(--text-secondary)' }}>Token 1</label>
+                  <input
+                    type="text"
+                    value={token1Address}
+                    onChange={(e) => setToken1Address(e.target.value)}
+                    placeholder="0x..."
+                    className="input"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm mb-2 block" style={{ color: 'var(--text-secondary)' }}>Fee</label>
+                  <select value={fee} onChange={(e) => setFee(Number(e.target.value))} className="input">
+                    <option value={100}>0.01%</option>
+                    <option value={500}>0.05%</option>
+                    <option value={3000}>0.3%</option>
+                    <option value={10000}>1%</option>
+                  </select>
                 </div>
               </div>
-            )}
-          </div>
 
-          {/* Token Amounts */}
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-4">Deposit Amounts</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm text-slate-400 mb-2 block">Token 0 Amount</label>
-                <input
-                  type="number"
-                  value={token0Amount}
-                  onChange={(e) => setToken0Amount(e.target.value)}
-                  placeholder="0.0"
-                  step="0.000001"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500"
-                />
-              </div>
-              <div>
-                <label className="text-sm text-slate-400 mb-2 block">Token 1 Amount</label>
-                <input
-                  type="number"
-                  value={token1Amount}
-                  onChange={(e) => setToken1Amount(e.target.value)}
-                  placeholder="0.0"
-                  step="0.000001"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Price Range */}
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-4">Set Price Range</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm text-slate-400 mb-2 block">Min Price</label>
-                <input
-                  type="number"
-                  value={minPrice}
-                  onChange={(e) => setMinPrice(e.target.value)}
-                  placeholder="0.0"
-                  step="0.000001"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500"
-                />
-              </div>
-              <div>
-                <label className="text-sm text-slate-400 mb-2 block">Max Price</label>
-                <input
-                  type="number"
-                  value={maxPrice}
-                  onChange={(e) => setMaxPrice(e.target.value)}
-                  placeholder="0.0"
-                  step="0.000001"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500"
-                />
-              </div>
-            </div>
-            <p className="text-sm text-slate-400 mt-2">
-              Your liquidity will only be active within this price range
-            </p>
-          </div>
-
-          {/* Add Button */}
-          <button
-            onClick={handleAddLiquidity}
-            disabled={!isConnected || !hasPeriphery || !isCorrectChain || isAdding}
-            className="w-full py-4 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 font-bold text-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {!isConnected
-              ? 'Connect Wallet'
-              : !isCorrectChain
-              ? 'Switch to Jeju'
-              : !hasPeriphery
-              ? 'Contracts Not Deployed'
-              : isAdding
-              ? 'Adding Liquidity...'
-              : 'Add Liquidity'}
-          </button>
-        </div>
-
-        {/* Positions & Remove Liquidity Section */}
-        <div className="space-y-6">
-          {/* User Positions */}
-          <div className="p-6 rounded-xl bg-white/5 border border-white/10">
-            <h2 className="text-2xl font-semibold mb-4">Your Positions</h2>
-            
-            {!isConnected ? (
-              <div className="text-center py-8 text-slate-400">
-                Connect wallet to view positions
-              </div>
-            ) : positions.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="text-4xl mb-2">📊</div>
-                <p className="text-slate-400">No positions yet</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {positions.map((position) => (
-                  <div
-                    key={position.tokenId.toString()}
-                    onClick={() => setSelectedPosition(position.tokenId)}
-                    className={`p-4 rounded-lg border transition-all cursor-pointer ${
-                      selectedPosition === position.tokenId
-                        ? 'border-purple-500 bg-purple-500/10'
-                        : 'border-white/10 bg-white/5 hover:bg-white/10'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-semibold">Position #{position.tokenId.toString()}</span>
-                      <span className="text-sm text-green-400">Active</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div>
-                        <div className="text-slate-400">Liquidity</div>
-                        <div className="font-semibold">{formatLiquidity(position.liquidity)}</div>
-                      </div>
-                      <div>
-                        <div className="text-slate-400">Range</div>
-                        <div className="font-semibold">
-                          {tickToPrice(position.tickLower).toFixed(4)} - {tickToPrice(position.tickUpper).toFixed(4)}
-                        </div>
-                      </div>
-                    </div>
+              {pool && (
+                <div className="mb-6 p-3 rounded-xl text-sm" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--text-tertiary)' }}>Price</span>
+                    <span>{sqrtPriceX96ToPrice(pool.slot0.sqrtPriceX96).toFixed(6)}</span>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--text-tertiary)' }}>Liquidity</span>
+                    <span>{formatLiquidity(pool.liquidity)}</span>
+                  </div>
+                </div>
+              )}
 
-          {/* Remove Liquidity */}
-          {selectedPosition && (
-            <div className="p-6 rounded-xl bg-white/5 border border-white/10">
-              <h2 className="text-2xl font-semibold mb-4">Remove Liquidity</h2>
-              
-              <div className="mb-4">
-                <label className="text-sm text-slate-400 mb-2 block">
-                  Amount to Remove
-                </label>
-                <input
-                  type="number"
-                  value={removeAmount}
-                  onChange={(e) => setRemoveAmount(e.target.value)}
-                  placeholder="0.0"
-                  step="0.000001"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500"
-                />
-                <div className="flex gap-2 mt-2">
-                  <button
-                    onClick={() => setRemoveAmount('25')}
-                    className="flex-1 px-3 py-1 rounded bg-white/5 hover:bg-white/10 text-sm"
-                  >
-                    25%
-                  </button>
-                  <button
-                    onClick={() => setRemoveAmount('50')}
-                    className="flex-1 px-3 py-1 rounded bg-white/5 hover:bg-white/10 text-sm"
-                  >
-                    50%
-                  </button>
-                  <button
-                    onClick={() => setRemoveAmount('75')}
-                    className="flex-1 px-3 py-1 rounded bg-white/5 hover:bg-white/10 text-sm"
-                  >
-                    75%
-                  </button>
-                  <button
-                    onClick={() => setRemoveAmount('100')}
-                    className="flex-1 px-3 py-1 rounded bg-white/5 hover:bg-white/10 text-sm"
-                  >
-                    100%
-                  </button>
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div>
+                  <label className="text-sm mb-2 block" style={{ color: 'var(--text-secondary)' }}>Amount 0</label>
+                  <input
+                    type="number"
+                    value={token0Amount}
+                    onChange={(e) => setToken0Amount(e.target.value)}
+                    placeholder="0.0"
+                    className="input"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm mb-2 block" style={{ color: 'var(--text-secondary)' }}>Amount 1</label>
+                  <input
+                    type="number"
+                    value={token1Amount}
+                    onChange={(e) => setToken1Amount(e.target.value)}
+                    placeholder="0.0"
+                    className="input"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                <div>
+                  <label className="text-sm mb-2 block" style={{ color: 'var(--text-secondary)' }}>Min Price</label>
+                  <input
+                    type="number"
+                    value={minPrice}
+                    onChange={(e) => setMinPrice(e.target.value)}
+                    placeholder="0.0"
+                    className="input"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm mb-2 block" style={{ color: 'var(--text-secondary)' }}>Max Price</label>
+                  <input
+                    type="number"
+                    value={maxPrice}
+                    onChange={(e) => setMaxPrice(e.target.value)}
+                    placeholder="0.0"
+                    className="input"
+                  />
                 </div>
               </div>
 
               <button
-                onClick={handleRemoveLiquidity}
-                disabled={!removeAmount || isRemoving}
-                className="w-full py-4 rounded-lg bg-red-600 hover:bg-red-500 font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleAddLiquidity}
+                disabled={!isConnected || !hasPeriphery || !isCorrectChain || isAdding}
+                className="btn-primary w-full py-4 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isRemoving ? 'Removing Liquidity...' : 'Remove Liquidity'}
+                {!isConnected ? 'Connect Wallet' : isAdding ? 'Adding...' : 'Add Liquidity'}
               </button>
             </div>
-          )}
-        </div>
-      </div>
+
+            <div className="space-y-6">
+              <div className="card p-5">
+                <h2 className="text-xl font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+                  Positions
+                </h2>
+                
+                {!isConnected ? (
+                  <p className="text-center py-8" style={{ color: 'var(--text-tertiary)' }}>Connect wallet</p>
+                ) : positions.length === 0 ? (
+                  <p className="text-center py-8" style={{ color: 'var(--text-tertiary)' }}>No positions</p>
+                ) : (
+                  <div className="space-y-3">
+                    {positions.map((position) => (
+                      <div
+                        key={position.tokenId.toString()}
+                        onClick={() => setSelectedPosition(position.tokenId)}
+                        className={`p-4 rounded-xl border cursor-pointer ${
+                          selectedPosition === position.tokenId ? 'border-bazaar-primary bg-bazaar-primary/10' : ''
+                        }`}
+                        style={selectedPosition !== position.tokenId ? { 
+                          backgroundColor: 'var(--bg-secondary)',
+                          borderColor: 'var(--border)'
+                        } : undefined}
+                      >
+                        <div className="flex justify-between mb-2">
+                          <span className="font-semibold">#{position.tokenId.toString()}</span>
+                          <span className="text-sm text-bazaar-success">Active</span>
+                        </div>
+                        <div className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                          {tickToPrice(position.tickLower).toFixed(4)} - {tickToPrice(position.tickUpper).toFixed(4)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {selectedPosition && (
+                <div className="card p-5">
+                  <h2 className="text-xl font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+                    Remove
+                  </h2>
+                  
+                  <div className="mb-4">
+                    <input
+                      type="number"
+                      value={removeAmount}
+                      onChange={(e) => setRemoveAmount(e.target.value)}
+                      placeholder="0.0"
+                      className="input mb-2"
+                    />
+                    <div className="flex gap-2">
+                      {['25', '50', '75', '100'].map((pct) => (
+                        <button
+                          key={pct}
+                          onClick={() => setRemoveAmount(pct)}
+                          className="flex-1 px-3 py-2 rounded-lg text-sm"
+                          style={{ backgroundColor: 'var(--bg-secondary)' }}
+                        >
+                          {pct}%
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleRemoveLiquidity}
+                    disabled={!removeAmount || isRemoving}
+                    className="w-full py-4 rounded-xl font-bold bg-bazaar-error text-white disabled:opacity-50"
+                  >
+                    {isRemoving ? 'Removing...' : 'Remove'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </>
       )}
     </div>

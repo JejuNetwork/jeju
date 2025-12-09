@@ -1,8 +1,0 @@
-apiVersion: v2
-name: reth
-description: Reth execution layer for OP-Stack (op-reth)
-type: application
-version: 1.0.0
-appVersion: "v1.0.3"
-
-

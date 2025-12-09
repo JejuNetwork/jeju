@@ -99,7 +99,7 @@ export class PhalaGateway {
     };
     
     // ERC-8004 integration will use publicClient
-    // const chain = config.rpcUrl.includes('sepolia') ? baseSepolia : base;
+    // const chain = config.rpcUrl.includes('sepolia') ? sepolia : mainnet;
     // createPublicClient({ chain, transport: http(config.rpcUrl) });
   }
   

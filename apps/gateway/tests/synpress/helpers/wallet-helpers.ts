@@ -5,7 +5,7 @@
 
 import { MetaMask } from '@synthetixio/synpress/playwright';
 import { Page, BrowserContext } from '@playwright/test';
-import { basicSetup } from '../../synpress.config';
+import { basicSetup } from '../../../synpress.config';
 
 /**
  * Connect wallet to dApp using MetaMask

@@ -9,7 +9,7 @@ import {
   ZERO_ADDRESS,
   isValidAddress,
   type ChainId,
-} from '@jeju/contracts'
+} from '@jejunetwork/contracts'
 
 export interface V4Contracts {
   poolManager: Address

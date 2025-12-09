@@ -3,7 +3,7 @@
  * @module gateway/lib/tokens
  * 
  * Manages the list of protocol tokens that have deployed paymaster infrastructure.
- * These tokens can be bridged from Base, used for gas payments, and earn LP rewards.
+ * These tokens can be bridged from Ethereum, used for gas payments, and earn LP rewards.
  * 
  * Features:
  * - elizaOS, CLANKER, VIRTUAL, CLANKERMON support
@@ -29,12 +29,12 @@ import type { TokenOption } from '../components/TokenSelector';
 export interface ProtocolToken extends TokenOption {
   /** Whether this token has a deployed paymaster */
   hasPaymaster: boolean;
-  /** Whether this token is bridged from Base */
+  /** Whether this token is bridged from Ethereum */
   bridged: boolean;
   /** Original chain where token was deployed */
   originChain: string;
-  /** Token address on Base (if bridged) */
-  baseAddress?: string;
+  /** Token address on Ethereum L1 (if bridged) */
+  l1Address?: string;
   /** Liquidity vault address for this token */
   vaultAddress?: string;
   /** Fee distributor address for this token */
@@ -107,8 +107,8 @@ export function getProtocolTokens(): ProtocolToken[] {
       logoUrl: 'https://assets.coinmarketcap.com/clanker-logo.png',
       hasPaymaster: true,
       bridged: true,
-      originChain: 'base',
-      baseAddress: '0x1bc0c42215582d5a085795f4badbac3ff36d1bcb',
+      originChain: 'ethereum',
+      l1Address: '0x1bc0c42215582d5a085795f4badbac3ff36d1bcb',
       vaultAddress: import.meta.env.VITE_CLANKER_VAULT_ADDRESS,
       paymasterAddress: import.meta.env.VITE_CLANKER_PAYMASTER_ADDRESS,
     },
@@ -121,8 +121,8 @@ export function getProtocolTokens(): ProtocolToken[] {
       logoUrl: 'https://assets.virtuals.io/logo.png',
       hasPaymaster: true,
       bridged: true,
-      originChain: 'base',
-      baseAddress: '0x44ff8620b8cA30902395A7bD3F2407e1A091BF73',
+      originChain: 'ethereum',
+      l1Address: '0x44ff8620b8cA30902395A7bD3F2407e1A091BF73',
       vaultAddress: import.meta.env.VITE_VIRTUAL_VAULT_ADDRESS,
       paymasterAddress: import.meta.env.VITE_VIRTUAL_PAYMASTER_ADDRESS,
     },
@@ -135,8 +135,8 @@ export function getProtocolTokens(): ProtocolToken[] {
       logoUrl: 'https://assets.clankermon.xyz/logo.png',
       hasPaymaster: true,
       bridged: true,
-      originChain: 'base',
-      baseAddress: '0x1cDbB57b12f732cFb4DC06f690ACeF476485B2a5',
+      originChain: 'ethereum',
+      l1Address: '0x1cDbB57b12f732cFb4DC06f690ACeF476485B2a5',
       vaultAddress: import.meta.env.VITE_CLANKERMON_VAULT_ADDRESS,
       paymasterAddress: import.meta.env.VITE_CLANKERMON_PAYMASTER_ADDRESS,
     },

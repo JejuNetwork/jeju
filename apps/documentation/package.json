@@ -1,5 +1,5 @@
 {
-  "name": "@jeju/documentation",
+  "name": "@jejunetwork/documentation",
   "version": "1.0.0",
   "description": "Jeju documentation site powered by VitePress",
   "type": "module",
@@ -15,10 +15,12 @@
     "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {
+    "@jejunetwork/config": "workspace:*",
     "cors": "^2.8.5",
     "express": "^5.1.0"
   },
   "devDependencies": {
+    "@jejunetwork/tests": "workspace:*",
     "@playwright/test": "^1.56.1",
     "@synthetixio/synpress": "^4.1.1",
     "@types/cors": "^2.8.19",

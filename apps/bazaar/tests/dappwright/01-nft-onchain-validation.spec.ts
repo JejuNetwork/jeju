@@ -6,7 +6,7 @@
 
 import { testWithSynpress } from '@synthetixio/synpress'
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'
-import basicSetup from '../../test/wallet-setup/jeju.setup'
+import { basicSetup } from '../../synpress.config'
 import { createPublicClient, http, parseAbi, parseEther } from 'viem'
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup))

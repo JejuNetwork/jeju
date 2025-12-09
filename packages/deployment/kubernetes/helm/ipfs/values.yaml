@@ -1,0 +1,75 @@
+replicaCount: 2
+
+image:
+  repository: ""
+  pullPolicy: IfNotPresent
+  tag: ""
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+service:
+  type: ClusterIP
+  port: 5020
+  targetPort: 5020
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+  hosts:
+    - host: ipfs.testnet.jeju.network
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: ipfs-tls
+      hosts:
+        - ipfs.testnet.jeju.network
+
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+  requests:
+    cpu: 1000m
+    memory: 2Gi
+
+# Persistent storage for IPFS data
+persistence:
+  enabled: true
+  storageClass: "gp3"
+  size: 100Gi
+  accessMode: ReadWriteOnce
+
+env:
+  - name: IPFS_PORT
+    value: "5020"
+  - name: NODE_ENV
+    value: "production"
+
+envFrom:
+  - secretRef:
+      name: ipfs-env
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 5020
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 5020
+  initialDelaySeconds: 15
+  periodSeconds: 5
+

@@ -1,0 +1,56 @@
+{
+  "$schema": "../../packages/config/jeju-manifest.schema.json",
+  "name": "storage",
+  "displayName": "Jeju Storage Marketplace",
+  "version": "2.0.0",
+  "type": "core",
+  "description": "Decentralized storage marketplace with multi-provider routing (IPFS, Cloud, Arweave), x402 micropayments, ERC-4337 multi-token payments, and A2A/MCP agent integration. Replace Pinata/Infura with self-hosted or marketplace infrastructure.",
+  "commands": {
+    "dev": "bun run dev",
+    "dev:api": "bun run dev:api",
+    "dev:app": "bun run dev:app",
+    "build": "bun run build",
+    "start": "bun run start",
+    "node": "bun run pinning-api/src/node/index.ts",
+    "test": "bun run test",
+    "test:e2e": "bun run test:e2e",
+    "test:wallet": "bun run test:wallet"
+  },
+  "ports": {
+    "main": 3100,
+    "app": 4100,
+    "nodeApi": 3101,
+    "ipfsNode": 4001,
+    "ipfsGateway": 8080,
+    "ipfsSwarm": 4001
+  },
+  "dependencies": ["contracts", "config"],
+  "optional": false,
+  "enabled": true,
+  "autoStart": true,
+  "tags": ["storage", "ipfs", "marketplace", "x402", "micropayments", "infrastructure", "a2a", "mcp", "arweave", "cloud", "erc-4337"],
+  "jns": {
+    "name": "storage.jeju",
+    "description": "Decentralized Storage Marketplace",
+    "url": "https://storage.jeju.network"
+  },
+  "healthCheck": {
+    "url": "http://localhost:3100/health",
+    "interval": 30000
+  },
+  "agent": {
+    "enabled": true,
+    "a2aEndpoint": "/a2a",
+    "mcpEndpoint": "/mcp",
+    "tags": ["jeju-app", "storage", "ipfs", "files", "marketplace"],
+    "metadata": {
+      "category": "storage",
+      "provider": "jeju-network",
+      "features": ["multi-provider", "auto-routing", "permanent-storage", "cloud-backup"]
+    },
+    "trustModels": ["open", "staked"],
+    "x402Support": true,
+    "multiTokenPayments": true,
+    "jnsName": "storage.jeju"
+  }
+}

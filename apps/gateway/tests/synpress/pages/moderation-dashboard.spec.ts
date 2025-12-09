@@ -7,7 +7,7 @@
 
 import { testWithSynpress } from '@synthetixio/synpress';
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
-import { basicSetup } from '../../synpress.config'
+import { basicSetup } from '../../../synpress.config'
 import { connectWallet } from '../helpers/wallet-helpers';
 import { executeTransaction } from '../helpers/transaction-helpers';
 import { REPORT_TYPES, SEVERITY, REPORT_BONDS } from '../fixtures/test-data';

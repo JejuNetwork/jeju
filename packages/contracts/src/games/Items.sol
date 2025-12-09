@@ -55,20 +55,20 @@ contract Items is ERC1155, ERC1155Burnable, ERC1155Supply, Ownable {
 
     /// @notice Item type metadata for each item ID
     struct ItemTypeMetadata {
-        uint256 itemId;       // Item type identifier (token ID)
-        string name;          // Item name (e.g., "Bronze Sword")
-        bool stackable;       // True if stackable (fungible), false if unique (non-fungible)
-        int16 attack;         // Attack bonus
-        int16 defense;        // Defense bonus
-        int16 strength;       // Strength bonus
-        uint8 rarity;         // 0=Common, 1=Uncommon, 2=Rare, 3=Epic, 4=Legendary
+        uint256 itemId; // Item type identifier (token ID)
+        string name; // Item name (e.g., "Bronze Sword")
+        bool stackable; // True if stackable (fungible), false if unique (non-fungible)
+        int16 attack; // Attack bonus
+        int16 defense; // Defense bonus
+        int16 strength; // Strength bonus
+        uint8 rarity; // 0=Common, 1=Uncommon, 2=Rare, 3=Epic, 4=Legendary
     }
 
     /// @notice Minted NFT instance metadata (tracks WHO minted it)
     struct MintedItemMetadata {
-        address originalMinter;   // WHO first minted this token/instance
-        uint256 mintedAt;         // WHEN it was minted
-        bytes32 instanceId;       // Unique instance identifier (for non-stackable)
+        address originalMinter; // WHO first minted this token/instance
+        uint256 mintedAt; // WHEN it was minted
+        bytes32 instanceId; // Unique instance identifier (for non-stackable)
     }
 
     // ============ Constants ============
@@ -97,30 +97,19 @@ contract Items is ERC1155, ERC1155Burnable, ERC1155Supply, Ownable {
     /// @notice Mapping from instance ID to original minter (prevents double-minting non-stackable)
     mapping(bytes32 => address) private _instanceToMinter;
 
-    /// @notice Mapping from instance ID to item ID (for lookup)
-    mapping(bytes32 => uint256) private _instanceToItemId;
-
     /// @notice Mapping to check if instance has been minted (for non-stackable items)
     mapping(bytes32 => bool) private _instanceMinted;
 
     // ============ Events ============
 
     event ItemMinted(
-        address indexed minter,
-        uint256 indexed itemId,
-        uint256 amount,
-        bytes32 instanceId,
-        bool stackable,
-        uint8 rarity
+        address indexed minter, uint256 indexed itemId, uint256 amount, bytes32 instanceId, bool stackable, uint8 rarity
     );
     event ItemBurned(address indexed player, uint256 indexed itemId, uint256 amount);
     event GameSignerUpdated(address indexed oldSigner, address indexed newSigner);
     event ItemTypeCreated(uint256 indexed itemId, string name, bool stackable, uint8 rarity);
     event NFTProvenance(
-        address indexed originalMinter,
-        uint256 indexed itemId,
-        bytes32 indexed instanceId,
-        uint256 mintedAt
+        address indexed originalMinter, uint256 indexed itemId, bytes32 indexed instanceId, uint256 mintedAt
     );
 
     // ============ Errors ============
@@ -143,11 +132,7 @@ contract Items is ERC1155, ERC1155Burnable, ERC1155Supply, Ownable {
      * @param _owner Contract owner (admin)
      * @dev Game must be registered in IdentityRegistry before deployment
      */
-    constructor(
-        uint256 _gameAgentId,
-        address _gameSigner,
-        address _owner
-    ) ERC1155(BASE_URI) Ownable(_owner) {
+    constructor(uint256 _gameAgentId, address _gameSigner, address _owner) ERC1155(BASE_URI) Ownable(_owner) {
         if (_gameSigner == address(0)) revert InvalidGameSigner();
         gameAgentId = _gameAgentId;
         gameSigner = _gameSigner;
@@ -176,7 +161,7 @@ contract Items is ERC1155, ERC1155Burnable, ERC1155Supply, Ownable {
         uint8 rarity
     ) external onlyOwner returns (uint256 itemId) {
         itemId = _nextItemId++;
-        
+
         _itemTypeMetadata[itemId] = ItemTypeMetadata({
             itemId: itemId,
             name: name,
@@ -202,14 +187,9 @@ contract Items is ERC1155, ERC1155Burnable, ERC1155Supply, Ownable {
      *          msg.sender, itemId, amount, instanceId
      *      )))
      */
-    function mintItem(
-        uint256 itemId,
-        uint256 amount,
-        bytes32 instanceId,
-        bytes memory signature
-    ) external {
+    function mintItem(uint256 itemId, uint256 amount, bytes32 instanceId, bytes memory signature) external {
         if (amount == 0) revert InvalidAmount();
-        
+
         ItemTypeMetadata memory metadata = _itemTypeMetadata[itemId];
         if (bytes(metadata.name).length == 0) revert ItemDoesNotExist();
 
@@ -227,11 +207,8 @@ contract Items is ERC1155, ERC1155Burnable, ERC1155Supply, Ownable {
 
         // CRITICAL: Record who is minting this (ORIGINAL MINTER tracking)
         if (_mintedMetadata[msg.sender][itemId].originalMinter == address(0)) {
-            _mintedMetadata[msg.sender][itemId] = MintedItemMetadata({
-                originalMinter: msg.sender,
-                mintedAt: block.timestamp,
-                instanceId: instanceId
-            });
+            _mintedMetadata[msg.sender][itemId] =
+                MintedItemMetadata({originalMinter: msg.sender, mintedAt: block.timestamp, instanceId: instanceId});
         }
 
         // Mark instance as minted for non-stackable items
@@ -243,7 +220,7 @@ contract Items is ERC1155, ERC1155Burnable, ERC1155Supply, Ownable {
         _mint(msg.sender, itemId, amount, "");
 
         emit ItemMinted(msg.sender, itemId, amount, instanceId, metadata.stackable, metadata.rarity);
-        
+
         // Emit provenance event for tracking
         emit NFTProvenance(msg.sender, itemId, instanceId, block.timestamp);
     }
@@ -260,7 +237,7 @@ contract Items is ERC1155, ERC1155Burnable, ERC1155Supply, Ownable {
         if (account != msg.sender && !isApprovedForAll(account, msg.sender)) {
             revert ERC1155MissingApprovalForAll(msg.sender, account);
         }
-        
+
         super.burn(account, itemId, amount);
         emit ItemBurned(account, itemId, amount);
     }
@@ -272,10 +249,10 @@ contract Items is ERC1155, ERC1155Burnable, ERC1155Supply, Ownable {
      */
     function burnByInstance(bytes32 instanceId) external {
         if (!_instanceMinted[instanceId]) revert InvalidItemId();
-        
+
         address originalMinter = _instanceToMinter[instanceId];
         if (msg.sender != originalMinter) revert NotOriginalMinter();
-        
+
         // Find itemId from minted metadata
         for (uint256 i = 1; i < _nextItemId; i++) {
             if (_mintedMetadata[originalMinter][i].instanceId == instanceId) {
@@ -285,12 +262,12 @@ contract Items is ERC1155, ERC1155Burnable, ERC1155Supply, Ownable {
 
                 // Allow re-minting same instance after burn (loses provenance)
                 _instanceMinted[instanceId] = false;
-                
+
                 burn(msg.sender, i, 1);
                 return;
             }
         }
-        
+
         revert InvalidItemId();
     }
 
@@ -349,16 +326,12 @@ contract Items is ERC1155, ERC1155Burnable, ERC1155Supply, Ownable {
      * @param signature Signature to verify
      * @return True if signature is valid
      */
-    function verifyMint(
-        address player,
-        uint256 itemId,
-        uint256 amount,
-        bytes32 instanceId,
-        bytes memory signature
-    ) public view returns (bool) {
-        bytes32 messageHash = keccak256(
-            abi.encodePacked(player, itemId, amount, instanceId)
-        );
+    function verifyMint(address player, uint256 itemId, uint256 amount, bytes32 instanceId, bytes memory signature)
+        public
+        view
+        returns (bool)
+    {
+        bytes32 messageHash = keccak256(abi.encodePacked(player, itemId, amount, instanceId));
         bytes32 ethSignedMessageHash = messageHash.toEthSignedMessageHash();
         address signer = ethSignedMessageHash.recover(signature);
         return signer == gameSigner;
@@ -397,12 +370,10 @@ contract Items is ERC1155, ERC1155Burnable, ERC1155Supply, Ownable {
 
     // ============ Internal Overrides ============
 
-    function _update(
-        address from,
-        address to,
-        uint256[] memory ids,
-        uint256[] memory values
-    ) internal override(ERC1155, ERC1155Supply) {
+    function _update(address from, address to, uint256[] memory ids, uint256[] memory values)
+        internal
+        override(ERC1155, ERC1155Supply)
+    {
         super._update(from, to, ids, values);
     }
 }

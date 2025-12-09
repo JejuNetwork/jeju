@@ -21,7 +21,7 @@ contract CreditManagerSecurityTest is Test {
     address payable attacker;
 
     address constant ETH_ADDRESS = address(0);
-    
+
     // Allow test contract to receive ETH
     receive() external payable {}
 
@@ -51,15 +51,10 @@ contract CreditManagerSecurityTest is Test {
         vm.prank(attacker);
         creditManager.depositETH{value: 10 ether}();
 
-        uint256 balanceBefore = attacker.balance;
-
-        // Try to exploit reentrancy
+        // Try to exploit reentrancy - should revert with ReentrancyGuard error
         vm.prank(attacker);
-        vm.expectRevert(); // Should revert with ReentrancyGuard error
+        vm.expectRevert();
         ReentrancyAttacker(attacker).attack(1 ether);
-
-        // Balance should not have changed beyond first withdrawal
-        // (Attack should fail completely)
     }
 
     function test_WithdrawHasReentrancyGuardModifier() public {
@@ -131,11 +126,7 @@ contract CreditManagerSecurityTest is Test {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                CreditManager.InsufficientCredit.selector,
-                alice,
-                address(usdc),
-                200 * 1e6,
-                100 * 1e6
+                CreditManager.InsufficientCredit.selector, alice, address(usdc), 200 * 1e6, 100 * 1e6
             )
         );
         creditManager.withdraw(address(usdc), 200 * 1e6);
@@ -150,13 +141,7 @@ contract CreditManagerSecurityTest is Test {
 
         vm.prank(service1);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                CreditManager.InsufficientCredit.selector,
-                alice,
-                address(usdc),
-                100 * 1e6,
-                50 * 1e6
-            )
+            abi.encodeWithSelector(CreditManager.InsufficientCredit.selector, alice, address(usdc), 100 * 1e6, 50 * 1e6)
         );
         creditManager.deductCredit(alice, address(usdc), 100 * 1e6);
     }
@@ -220,7 +205,7 @@ contract CreditManagerSecurityTest is Test {
 
         // Pause and try again
         creditManager.pause();
-        
+
         uint256 balBefore = owner.balance;
         creditManager.emergencyWithdraw(ETH_ADDRESS, 5 ether);
 
@@ -255,7 +240,7 @@ contract CreditManagerSecurityTest is Test {
         uint256 balBefore = creditManager.balances(alice, ETH_ADDRESS);
 
         vm.prank(alice);
-        (bool success, ) = address(creditManager).call{value: 1 ether}("");
+        (bool success,) = address(creditManager).call{value: 1 ether}("");
 
         assertTrue(success);
         assertEq(creditManager.balances(alice, ETH_ADDRESS), balBefore + 1 ether);
@@ -291,4 +276,3 @@ contract ReentrancyAttacker {
         }
     }
 }
-

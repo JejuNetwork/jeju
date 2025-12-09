@@ -93,7 +93,7 @@ export default function BridgeToken() {
 
   return (
     <div className="card">
-      <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Bridge from Base to Jeju</h2>
+      <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Bridge from Ethereum to Jeju</h2>
       
       <form onSubmit={handleBridge}>
         <div style={{ marginBottom: '1rem' }}>
@@ -128,7 +128,7 @@ export default function BridgeToken() {
           ) : (
             <div>
               <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
-                Custom Token Address (Base Network)
+                Custom Token Address (Ethereum)
               </label>
               <input
                 className="input"
@@ -138,8 +138,8 @@ export default function BridgeToken() {
                 onChange={(e) => setCustomTokenAddress(e.target.value)}
                 disabled={isPending || isConfirming}
               />
-              <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
-                Enter any ERC20 token address from Base network. Make sure the token exists on both networks.
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                Enter any ERC20 token address from Ethereum. Make sure the token exists on both networks.
               </p>
             </div>
           )}
@@ -159,7 +159,7 @@ export default function BridgeToken() {
             disabled={isPending || isConfirming || !selectedToken}
           />
           {selectedToken && amount && (
-            <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
               ≈ {formatUSD(usdValue)}
             </p>
           )}
@@ -177,26 +177,26 @@ export default function BridgeToken() {
             onChange={(e) => setRecipient(e.target.value)}
             disabled={isPending || isConfirming}
           />
-          <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
             Leave blank to send to your address
           </p>
         </div>
 
-        <div style={{ padding: '1rem', background: '#f8fafc', borderRadius: '8px', marginTop: '1rem' }}>
+        <div style={{ padding: '1rem', background: 'var(--surface-hover)', borderRadius: '8px', marginTop: '1rem' }}>
           <p style={{ fontSize: '0.875rem', margin: '0.5rem 0' }}>
             <strong>Estimated Time:</strong> ~2 minutes
           </p>
           <p style={{ fontSize: '0.875rem', margin: '0.5rem 0' }}>
             <strong>Bridge:</strong> OP Stack Standard Bridge
           </p>
-          <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.5rem' }}>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
             Tokens will appear on Jeju after confirmation
           </p>
         </div>
 
         {isSuccess && (
-          <div style={{ padding: '1rem', background: '#dcfce7', borderRadius: '8px', marginTop: '1rem' }}>
-            <p style={{ color: '#16a34a', margin: 0 }}>
+          <div style={{ padding: '1rem', background: 'var(--success-soft)', borderRadius: '8px', marginTop: '1rem' }}>
+            <p style={{ color: 'var(--success)', margin: 0 }}>
               Bridge transaction submitted! Check status on block explorer.
             </p>
           </div>

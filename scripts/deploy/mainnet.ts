@@ -3,61 +3,126 @@
 /**
  * Deploy to Mainnet
  * 
- * Complete mainnet deployment workflow
+ * Deploys all contracts to Jeju Mainnet.
+ * Config loaded from packages/config/chain/mainnet.json
+ * 
+ * Requirements:
+ *   - DEPLOYER_PRIVATE_KEY set
+ *   - Mainnet ETH in deployer wallet
+ *   - Security checklist complete
  * 
  * Usage:
+ *   export DEPLOYER_PRIVATE_KEY=0x...
  *   bun run scripts/deploy/mainnet.ts
  */
 
 import { $ } from "bun";
+import { existsSync, mkdirSync, writeFileSync } from "fs";
+import { join } from "path";
+import { loadChainConfig, getDeployerConfig } from "@jejunetwork/config/network";
+import { checkNetworkOrSkip } from "../shared/network-check";
 
-console.log("🚀 Jeju Mainnet Deployment\n");
+const NETWORK = "mainnet";
+const CONTRACTS_DIR = join(process.cwd(), "packages", "contracts");
+const DEPLOYMENTS_DIR = join(CONTRACTS_DIR, "deployments", NETWORK);
 
-console.log("⚠️  MAINNET DEPLOYMENT CHECKLIST:\n");
-
-const checklist = [
-  "[ ] Testnet running stable for 4+ weeks",
-  "[ ] Security audit complete",
-  "[ ] Bug bounty program active",
-  "[ ] Legal entity established",
-  "[ ] Insurance obtained",
-  "[ ] On-call team ready (24/7)",
-  "[ ] Disaster recovery plan documented",
-  "[ ] Keys in hardware wallets / KMS",
-  "[ ] Multisig wallets configured",
-  "[ ] Sufficient ETH on Base ($60k+)",
-  "[ ] Monitoring fully deployed",
-  "[ ] Load testing complete"
-];
-
-for (const item of checklist) {
-  console.log(`  ${item}`);
+async function main() {
+  console.log("\n🚀 Jeju MAINNET Deployment\n");
+  
+  // Security checklist
+  console.log("⚠️  MAINNET CHECKLIST:\n");
+  const checklist = [
+    "Testnet stable 4+ weeks",
+    "Security audit complete",
+    "Bug bounty active",
+    "Multisig configured",
+    "Monitoring deployed",
+    "Sufficient ETH"
+  ];
+  
+  for (const item of checklist) {
+    console.log(`  [ ] ${item}`);
+  }
+  
+  console.log("\n❌ DO NOT PROCEED unless all items checked\n");
+  
+  const confirm = prompt("Type 'DEPLOY' to continue: ");
+  if (confirm !== "DEPLOY") {
+    console.log("\nDeployment cancelled");
+    process.exit(0);
+  }
+  
+  // Load config
+  const config = loadChainConfig(NETWORK);
+  console.log(`\nChain ID: ${config.chainId}`);
+  console.log(`RPC: ${config.rpcUrl}`);
+  console.log(`L1: ${config.l1Name} (${config.l1ChainId})`);
+  
+  // Check network
+  const available = await checkNetworkOrSkip(NETWORK, "deployment");
+  if (!available) {
+    process.exit(1);
+  }
+  
+  // Check deployer
+  const deployer = getDeployerConfig();
+  console.log(`\nDeployer: ${deployer.address}`);
+  
+  if (!process.env.DEPLOYER_PRIVATE_KEY) {
+    console.error("\n❌ DEPLOYER_PRIVATE_KEY not set");
+    process.exit(1);
+  }
+  
+  // Ensure directory exists
+  if (!existsSync(DEPLOYMENTS_DIR)) {
+    mkdirSync(DEPLOYMENTS_DIR, { recursive: true });
+  }
+  
+  console.log("\n📦 Deploying...\n");
+  
+  // Dry run first
+  console.log("Running dry run...");
+  const dryRun = await $`cd ${CONTRACTS_DIR} && forge script script/Deploy.s.sol \
+    --rpc-url ${config.rpcUrl} \
+    --private-key ${process.env.DEPLOYER_PRIVATE_KEY}`.nothrow();
+  
+  if (dryRun.exitCode !== 0) {
+    console.error("\n❌ Dry run failed");
+    process.exit(1);
+  }
+  
+  console.log("Dry run passed. Broadcasting...\n");
+  
+  // Deploy
+  const result = await $`cd ${CONTRACTS_DIR} && forge script script/Deploy.s.sol \
+    --rpc-url ${config.rpcUrl} \
+    --private-key ${process.env.DEPLOYER_PRIVATE_KEY} \
+    --broadcast \
+    --verify \
+    --slow`.nothrow();
+  
+  if (result.exitCode !== 0) {
+    console.error("\n❌ Deployment failed");
+    process.exit(1);
+  }
+  
+  // Save deployment
+  const deployment = {
+    network: NETWORK,
+    chainId: config.chainId,
+    l1ChainId: config.l1ChainId,
+    deployedAt: new Date().toISOString(),
+    deployer: deployer.address,
+  };
+  
+  writeFileSync(
+    join(DEPLOYMENTS_DIR, "deployment.json"),
+    JSON.stringify(deployment, null, 2)
+  );
+  
+  console.log("\n✅ Mainnet deployment complete");
+  console.log(`📄 Saved to: ${DEPLOYMENTS_DIR}/deployment.json`);
+  console.log("\n⚠️  Monitor closely for 48 hours");
 }
 
-console.log("\n❌ DO NOT PROCEED unless all items checked!\n");
-
-const confirm = prompt("Type 'DEPLOY TO MAINNET' to continue: ");
-
-if (confirm !== "DEPLOY TO MAINNET") {
-  console.log("\n⚠️  Deployment cancelled");
-  process.exit(0);
-}
-
-console.log("\n🚀 Starting mainnet deployment...\n");
-console.log("Step 1: Deploy L1 contracts to Base Mainnet");
-
-const result = await $`bun run scripts/deploy/l1-contracts.ts --network mainnet`.nothrow();
-
-if (result.exitCode !== 0) {
-  console.error("\n❌ Mainnet deployment failed!");
-  process.exit(1);
-}
-
-console.log("\n✅ Mainnet L1 contracts deployed!");
-console.log("\n📝 Next steps:");
-console.log("   1. Generate genesis: bun run scripts/deploy/l2-genesis.ts --network mainnet");
-console.log("   2. Update packages/config/chain/mainnet.json");
-console.log("   3. Deploy infrastructure: bun run k8s:mainnet");
-console.log("   4. Monitor closely for 48 hours");
-
-
+main();

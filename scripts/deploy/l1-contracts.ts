@@ -1,15 +1,15 @@
 #!/usr/bin/env bun
 import { $ } from "bun";
 import { resolve } from "path";
-import { getChainConfig } from "../../packages/config";
-import type { NetworkType } from "../../types";
+import { getChainConfig } from "@jejunetwork/config";
+import type { NetworkType } from "@jejunetwork/types";
 
 async function main() {
   const network = (process.argv[3] || 'local') as NetworkType;
   console.log(`🚀 Deploying L1 contracts to ${network}...`);
 
   const config = getChainConfig(network);
-  const contractsDir = resolve(process.cwd(), "contracts");
+  const contractsDir = resolve(process.cwd(), "packages/contracts");
 
   await $`cd ${contractsDir} && forge script script/Deploy.s.sol --rpc-url ${config.l1RpcUrl} --broadcast --verify -vvvv`;
 

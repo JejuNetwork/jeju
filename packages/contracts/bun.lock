@@ -2,7 +2,7 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
-      "name": "@jeju/contracts",
+      "name": "@jejunetwork/contracts",
       "dependencies": {
         "viem": "^2.7.15",
       },

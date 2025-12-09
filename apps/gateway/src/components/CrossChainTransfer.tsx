@@ -3,16 +3,16 @@ import { useAccount } from 'wagmi';
 import { type Address } from 'viem';
 import TokenSelector from './TokenSelector';
 import { useProtocolTokens } from '../hooks/useProtocolTokens';
-import { useCrossChainTransfer, useEILConfig } from '../hooks/useEIL';
+import { useCrossChainSwap, useEILConfig } from '../hooks/useEIL';
 import { parseTokenAmount, formatUSD, calculateUSDValue } from '../lib/tokenUtils';
 import type { TokenOption } from './TokenSelector';
 
 // Supported destination chains
 const DESTINATION_CHAINS = [
-  { id: 8453, name: 'Base', icon: '🔵' },
+  { id: 1, name: 'Ethereum', icon: '💎' },
   { id: 42161, name: 'Arbitrum', icon: '🟠' },
   { id: 10, name: 'Optimism', icon: '🔴' },
-  { id: 1, name: 'Ethereum', icon: '⚫' },
+  { id: 11155111, name: 'Sepolia', icon: '🧪' },
 ] as const;
 
 type TransferStep = 'input' | 'confirm' | 'processing' | 'complete' | 'error';
@@ -24,7 +24,7 @@ export default function CrossChainTransfer() {
   const [selectedToken, setSelectedToken] = useState<TokenOption | null>(null);
   const [amount, setAmount] = useState('');
   const [recipient, setRecipient] = useState('');
-  const [destinationChainId, setDestinationChainId] = useState<number>(8453);
+  const [destinationChainId, setDestinationChainId] = useState<number>(1);
   const [step, setStep] = useState<TransferStep>('input');
   const estimatedTime = '~10 seconds';
   const estimatedFee = '0.001';
@@ -40,11 +40,11 @@ export default function CrossChainTransfer() {
   }));
 
   const {
-    createTransfer,
+    executeCrossChainSwap,
     isLoading,
     isSuccess,
     hash
-  } = useCrossChainTransfer(crossChainPaymaster);
+  } = useCrossChainSwap(crossChainPaymaster);
 
   // Update step based on transaction status
   useEffect(() => {
@@ -65,10 +65,11 @@ export default function CrossChainTransfer() {
 
     setStep('processing');
 
-    await createTransfer({
+    await executeCrossChainSwap({
       sourceToken: selectedToken.address as Address,
       destinationToken: selectedToken.address as Address, // Same token on destination
       amount: amountBigInt,
+      sourceChainId: 420691, // Jeju mainnet
       destinationChainId,
       recipient: recipientAddress,
     });
@@ -90,84 +91,52 @@ export default function CrossChainTransfer() {
   if (!crossChainPaymaster) {
     return (
       <div className="card">
-        <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>⚡ Instant Cross-Chain Transfer</h2>
-        <div style={{ padding: '1rem', background: '#fef3c7', borderRadius: '8px' }}>
-          <p style={{ color: '#92400e', margin: 0 }}>
-            EIL (Ethereum Interop Layer) is not configured. Please deploy EIL contracts first.
-          </p>
-        </div>
+        <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', color: 'var(--text-primary)' }}>Cross-Chain Transfer</h2>
+        <p style={{ color: 'var(--text-muted)' }}>EIL not configured</p>
       </div>
     );
   }
 
   return (
     <div className="card">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-        <span style={{ fontSize: '2rem' }}>⚡</span>
-        <div>
-          <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Instant Cross-Chain Transfer</h2>
-          <p style={{ fontSize: '0.875rem', color: '#64748b', margin: '0.25rem 0 0 0' }}>
-            Powered by EIL – No bridges, no waiting
-          </p>
-        </div>
-      </div>
-
-      {/* Info Banner */}
-      <div style={{ 
-        padding: '1rem', 
-        background: 'linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%)', 
-        borderRadius: '12px', 
-        marginBottom: '1.5rem',
-        border: '1px solid #93c5fd'
-      }}>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-          <span style={{ fontSize: '1.5rem' }}>🔗</span>
-          <div>
-            <p style={{ fontSize: '0.875rem', margin: 0, color: '#1e40af', fontWeight: '600' }}>
-              How EIL Works
-            </p>
-            <p style={{ fontSize: '0.8rem', margin: '0.5rem 0 0 0', color: '#3730a3' }}>
-              Sign once → XLP fulfills instantly → No oracles, no trust assumptions. 
-              Your funds are either transferred or refunded automatically.
-            </p>
-          </div>
-        </div>
-      </div>
+      <h2 style={{ fontSize: '1.25rem', margin: '0 0 1.5rem', fontWeight: 700, color: 'var(--text-primary)' }}>Cross-Chain Transfer</h2>
 
       {step === 'input' && (
         <form onSubmit={handleTransfer}>
-          {/* Destination Chain Selector */}
           <div style={{ marginBottom: '1.5rem' }}>
             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
               Destination Chain
             </label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(85px, 1fr))', 
+              gap: '0.5rem' 
+            }}>
               {DESTINATION_CHAINS.map((chain) => (
                 <button
                   key={chain.id}
                   type="button"
                   onClick={() => setDestinationChainId(chain.id)}
                   style={{
-                    padding: '0.75rem',
+                    padding: '0.625rem 0.5rem',
                     borderRadius: '12px',
                     border: destinationChainId === chain.id 
-                      ? '2px solid #3b82f6' 
+                      ? '2px solid var(--info)' 
                       : '2px solid transparent',
                     background: destinationChainId === chain.id 
-                      ? '#eff6ff' 
-                      : '#f8fafc',
+                      ? 'var(--info-soft)' 
+                      : 'var(--surface-hover)',
                     cursor: 'pointer',
                     transition: 'all 0.2s',
                   }}
                 >
-                  <div style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>{chain.icon}</div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: '600' }}>{chain.name}</div>
+                  <div style={{ fontSize: '1.25rem', marginBottom: '0.125rem' }}>{chain.icon}</div>
+                  <div style={{ fontSize: '0.6875rem', fontWeight: '600', whiteSpace: 'nowrap' }}>{chain.name}</div>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Token Selector */}
           <div style={{ marginBottom: '1rem' }}>
             <TokenSelector
               tokens={tokens}
@@ -179,7 +148,6 @@ export default function CrossChainTransfer() {
             />
           </div>
 
-          {/* Amount Input */}
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
               Amount
@@ -195,13 +163,12 @@ export default function CrossChainTransfer() {
               style={{ fontSize: '1.25rem', fontWeight: '600' }}
             />
             {selectedToken && amount && (
-              <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
                 ≈ {formatUSD(usdValue)}
               </p>
             )}
           </div>
 
-          {/* Recipient */}
           <div style={{ marginBottom: '1.5rem' }}>
             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
               Recipient (optional)
@@ -214,33 +181,32 @@ export default function CrossChainTransfer() {
               onChange={(e) => setRecipient(e.target.value)}
               disabled={isLoading}
             />
-            <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
               Leave blank to send to yourself on {selectedChain?.name}
             </p>
           </div>
 
-          {/* Transfer Details */}
           <div style={{ 
             padding: '1rem', 
-            background: '#f8fafc', 
+            background: 'var(--surface-hover)', 
             borderRadius: '12px', 
             marginBottom: '1rem' 
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-              <span style={{ fontSize: '0.875rem', color: '#64748b' }}>Estimated Time</span>
-              <span style={{ fontSize: '0.875rem', fontWeight: '600', color: '#16a34a' }}>
+              <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Estimated Time</span>
+              <span style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--success)' }}>
                 {estimatedTime}
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-              <span style={{ fontSize: '0.875rem', color: '#64748b' }}>Network Fee</span>
+              <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Network Fee</span>
               <span style={{ fontSize: '0.875rem', fontWeight: '600' }}>
                 ~{estimatedFee} ETH
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '0.875rem', color: '#64748b' }}>Protocol</span>
-              <span style={{ fontSize: '0.875rem', fontWeight: '600', color: '#3b82f6' }}>
+              <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Protocol</span>
+              <span style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--info)' }}>
                 EIL (Trustless)
               </span>
             </div>
@@ -254,21 +220,13 @@ export default function CrossChainTransfer() {
               padding: '1rem',
               fontSize: '1rem',
               fontWeight: '600',
-              background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+              background: 'linear-gradient(135deg, var(--info) 0%, var(--accent-primary) 100%)',
             }}
             disabled={isLoading || !amount || !selectedToken}
           >
             {isLoading ? 'Processing...' : `Transfer to ${selectedChain?.name}`}
           </button>
 
-          <p style={{ 
-            fontSize: '0.75rem', 
-            color: '#94a3b8', 
-            textAlign: 'center', 
-            marginTop: '1rem' 
-          }}>
-            One signature. Instant transfer. No bridges.
-          </p>
         </form>
       )}
 
@@ -279,7 +237,7 @@ export default function CrossChainTransfer() {
             height: '80px', 
             margin: '0 auto 1.5rem',
             borderRadius: '50%',
-            background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+            background: 'linear-gradient(135deg, var(--info) 0%, var(--accent-primary) 100%)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -288,7 +246,7 @@ export default function CrossChainTransfer() {
             <span style={{ fontSize: '2rem' }}>⚡</span>
           </div>
           <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Processing Transfer</h3>
-          <p style={{ color: '#64748b', marginBottom: '1rem' }}>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
             XLP is fulfilling your request...
           </p>
           <div style={{ 
@@ -298,7 +256,7 @@ export default function CrossChainTransfer() {
             alignItems: 'center'
           }}>
             <div className="spinner" />
-            <span style={{ fontSize: '0.875rem', color: '#64748b' }}>
+            <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
               Usually takes ~10 seconds
             </span>
           </div>
@@ -312,17 +270,17 @@ export default function CrossChainTransfer() {
             height: '80px', 
             margin: '0 auto 1.5rem',
             borderRadius: '50%',
-            background: '#dcfce7',
+            background: 'var(--success-soft)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
           }}>
             <span style={{ fontSize: '2.5rem' }}>✓</span>
           </div>
-          <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem', color: '#16a34a' }}>
+          <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem', color: 'var(--success)' }}>
             Transfer Complete!
           </h3>
-          <p style={{ color: '#64748b', marginBottom: '1.5rem' }}>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
             {amount} {selectedToken?.symbol} sent to {selectedChain?.name}
           </p>
           
@@ -334,9 +292,9 @@ export default function CrossChainTransfer() {
               style={{ 
                 display: 'inline-block',
                 padding: '0.5rem 1rem',
-                background: '#f8fafc',
+                background: 'var(--surface-hover)',
                 borderRadius: '8px',
-                color: '#3b82f6',
+                color: 'var(--info)',
                 textDecoration: 'none',
                 fontSize: '0.875rem',
                 marginBottom: '1rem'
@@ -363,32 +321,34 @@ export default function CrossChainTransfer() {
             height: '80px', 
             margin: '0 auto 1.5rem',
             borderRadius: '50%',
-            background: '#fee2e2',
+            background: 'var(--error-soft)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
           }}>
             <span style={{ fontSize: '2.5rem' }}>✗</span>
           </div>
-          <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem', color: '#dc2626' }}>
+          <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem', color: 'var(--error)' }}>
             Transfer Failed
           </h3>
-          <p style={{ color: '#64748b', marginBottom: '1.5rem' }}>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
             No XLP responded in time. Your funds are safe and can be refunded.
           </p>
           
-          <div style={{ display: 'flex', gap: '1rem' }}>
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', 
+            gap: '0.75rem' 
+          }}>
             <button
               className="button button-secondary"
               onClick={resetForm}
-              style={{ flex: 1 }}
             >
               Try Again
             </button>
             <button
               className="button"
-              onClick={() => {/* refund logic */}}
-              style={{ flex: 1 }}
+              onClick={() => {}}
             >
               Refund
             </button>
@@ -404,8 +364,8 @@ export default function CrossChainTransfer() {
         .spinner {
           width: 20px;
           height: 20px;
-          border: 2px solid #e2e8f0;
-          border-top-color: #3b82f6;
+          border: 2px solid var(--border);
+          border-top-color: var(--info);
           border-radius: 50%;
           animation: spin 1s linear infinite;
         }

@@ -1,278 +1,149 @@
+/**
+ * EIL Hooks for Gateway
+ * Re-exports shared implementation with Gateway-specific config
+ * 
+ * Gateway shows:
+ * - XLP staking dashboard
+ * - All EIL liquidity
+ * - Paymaster liquidity
+ * - Staking rewards
+ */
+
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { parseEther, type Address } from 'viem';
 
-// ============ ABIs ============
+// Re-export shared types and utilities
+export {
+  type ChainInfo,
+  type CrossChainSwapParams,
+  type XLPPosition,
+  type EILStats,
+  type SwapStatus,
+  type StakeStatus,
+  SUPPORTED_CHAINS,
+  CROSS_CHAIN_PAYMASTER_ABI,
+  L1_STAKE_MANAGER_ABI,
+  calculateSwapFee,
+  estimateSwapTime,
+  formatSwapRoute,
+  formatXLPPosition,
+  getChainById,
+  isCrossChainSwap,
+  validateSwapParams,
+  buildSwapTransaction,
+  buildXLPStakeTransaction,
+  buildLiquidityDepositTransaction,
+} from '../../../../scripts/shared/eil-hooks';
 
-const CROSS_CHAIN_PAYMASTER_ABI = [
-  {
-    type: 'function',
-    name: 'createVoucherRequest',
-    inputs: [
-      { name: 'token', type: 'address' },
-      { name: 'amount', type: 'uint256' },
-      { name: 'destinationToken', type: 'address' },
-      { name: 'destinationChainId', type: 'uint256' },
-      { name: 'recipient', type: 'address' },
-      { name: 'gasOnDestination', type: 'uint256' },
-      { name: 'maxFee', type: 'uint256' },
-      { name: 'feeIncrement', type: 'uint256' }
-    ],
-    outputs: [{ type: 'bytes32' }],
-    stateMutability: 'payable'
-  },
-  {
-    type: 'function',
-    name: 'getCurrentFee',
-    inputs: [{ name: 'requestId', type: 'bytes32' }],
-    outputs: [{ type: 'uint256' }],
-    stateMutability: 'view'
-  },
-  {
-    type: 'function',
-    name: 'canFulfillRequest',
-    inputs: [{ name: 'requestId', type: 'bytes32' }],
-    outputs: [{ type: 'bool' }],
-    stateMutability: 'view'
-  },
-  {
-    type: 'function',
-    name: 'refundExpiredRequest',
-    inputs: [{ name: 'requestId', type: 'bytes32' }],
-    outputs: [],
-    stateMutability: 'nonpayable'
-  },
-  {
-    type: 'function',
-    name: 'supportedTokens',
-    inputs: [{ name: 'token', type: 'address' }],
-    outputs: [{ type: 'bool' }],
-    stateMutability: 'view'
-  },
-  {
-    type: 'function',
-    name: 'depositLiquidity',
-    inputs: [
-      { name: 'token', type: 'address' },
-      { name: 'amount', type: 'uint256' }
-    ],
-    outputs: [],
-    stateMutability: 'nonpayable'
-  },
-  {
-    type: 'function',
-    name: 'depositETH',
-    inputs: [],
-    outputs: [],
-    stateMutability: 'payable'
-  },
-  {
-    type: 'function',
-    name: 'withdrawLiquidity',
-    inputs: [
-      { name: 'token', type: 'address' },
-      { name: 'amount', type: 'uint256' }
-    ],
-    outputs: [],
-    stateMutability: 'nonpayable'
-  },
-  {
-    type: 'function',
-    name: 'withdrawETH',
-    inputs: [{ name: 'amount', type: 'uint256' }],
-    outputs: [],
-    stateMutability: 'nonpayable'
-  },
-  {
-    type: 'function',
-    name: 'getXLPLiquidity',
-    inputs: [
-      { name: 'xlp', type: 'address' },
-      { name: 'token', type: 'address' }
-    ],
-    outputs: [{ type: 'uint256' }],
-    stateMutability: 'view'
-  },
-  {
-    type: 'function',
-    name: 'getXLPETH',
-    inputs: [{ name: 'xlp', type: 'address' }],
-    outputs: [{ type: 'uint256' }],
-    stateMutability: 'view'
-  },
-  {
-    type: 'event',
-    name: 'VoucherRequested',
-    inputs: [
-      { name: 'requestId', type: 'bytes32', indexed: true },
-      { name: 'requester', type: 'address', indexed: true },
-      { name: 'token', type: 'address', indexed: false },
-      { name: 'amount', type: 'uint256', indexed: false },
-      { name: 'destinationChainId', type: 'uint256', indexed: false },
-      { name: 'recipient', type: 'address', indexed: false },
-      { name: 'maxFee', type: 'uint256', indexed: false },
-      { name: 'deadline', type: 'uint256', indexed: false }
-    ]
-  },
-  {
-    type: 'event',
-    name: 'VoucherIssued',
-    inputs: [
-      { name: 'voucherId', type: 'bytes32', indexed: true },
-      { name: 'requestId', type: 'bytes32', indexed: true },
-      { name: 'xlp', type: 'address', indexed: true },
-      { name: 'fee', type: 'uint256', indexed: false }
-    ]
-  },
-  {
-    type: 'event',
-    name: 'VoucherFulfilled',
-    inputs: [
-      { name: 'voucherId', type: 'bytes32', indexed: true },
-      { name: 'recipient', type: 'address', indexed: true },
-      { name: 'amount', type: 'uint256', indexed: false }
-    ]
-  }
-] as const;
+// Import for local use
+import {
+  SUPPORTED_CHAINS,
+  CROSS_CHAIN_PAYMASTER_ABI,
+  L1_STAKE_MANAGER_ABI,
+  type CrossChainSwapParams,
+  type XLPPosition,
+  type SwapStatus,
+  type StakeStatus,
+} from '../../../../scripts/shared/eil-hooks';
 
-const L1_STAKE_MANAGER_ABI = [
-  {
-    type: 'function',
-    name: 'register',
-    inputs: [{ name: 'chains', type: 'uint256[]' }],
-    outputs: [],
-    stateMutability: 'payable'
-  },
-  {
-    type: 'function',
-    name: 'addStake',
-    inputs: [],
-    outputs: [],
-    stateMutability: 'payable'
-  },
-  {
-    type: 'function',
-    name: 'startUnbonding',
-    inputs: [{ name: 'amount', type: 'uint256' }],
-    outputs: [],
-    stateMutability: 'nonpayable'
-  },
-  {
-    type: 'function',
-    name: 'completeUnbonding',
-    inputs: [],
-    outputs: [],
-    stateMutability: 'nonpayable'
-  },
-  {
-    type: 'function',
-    name: 'getStake',
-    inputs: [{ name: 'xlp', type: 'address' }],
-    outputs: [{
-      type: 'tuple',
-      components: [
-        { name: 'stakedAmount', type: 'uint256' },
-        { name: 'unbondingAmount', type: 'uint256' },
-        { name: 'unbondingStartTime', type: 'uint256' },
-        { name: 'slashedAmount', type: 'uint256' },
-        { name: 'isActive', type: 'bool' },
-        { name: 'registeredAt', type: 'uint256' }
-      ]
-    }],
-    stateMutability: 'view'
-  },
-  {
-    type: 'function',
-    name: 'getXLPChains',
-    inputs: [{ name: 'xlp', type: 'address' }],
-    outputs: [{ type: 'uint256[]' }],
-    stateMutability: 'view'
-  },
-  {
-    type: 'function',
-    name: 'isXLPActive',
-    inputs: [{ name: 'xlp', type: 'address' }],
-    outputs: [{ type: 'bool' }],
-    stateMutability: 'view'
-  },
-  {
-    type: 'function',
-    name: 'getEffectiveStake',
-    inputs: [{ name: 'xlp', type: 'address' }],
-    outputs: [{ type: 'uint256' }],
-    stateMutability: 'view'
-  },
-  {
-    type: 'function',
-    name: 'getUnbondingTimeRemaining',
-    inputs: [{ name: 'xlp', type: 'address' }],
-    outputs: [{ type: 'uint256' }],
-    stateMutability: 'view'
-  }
-] as const;
+// Load config from JSON
+import eilConfig from '@jejunetwork/config/eil';
 
-// ============ Types ============
+// ============ Type Definitions ============
 
-export interface TransferRequest {
-  requestId: `0x${string}`;
-  sourceChain: number;
-  destinationChain: number;
-  sourceToken: Address;
-  destinationToken: Address;
-  amount: bigint;
-  maxFee: bigint;
-  recipient: Address;
-  deadline: number;
-  status: 'pending' | 'claimed' | 'fulfilled' | 'expired' | 'refunded';
+type EILChainConfig = {
+  name: string;
+  crossChainPaymaster: string;
+  status: string;
+  oif?: Record<string, string>;
+  tokens?: Record<string, string>;
+};
+
+type EILNetworkConfig = {
+  hub: { chainId: number; name: string; l1StakeManager: string; status: string };
+  chains: Record<string, EILChainConfig>;
+};
+
+type EILConfig = {
+  version: string;
+  lastUpdated: string;
+  entryPoint: string;
+  l2Messenger: string;
+  supportedTokens: string[];
+  testnet: EILNetworkConfig;
+  mainnet: EILNetworkConfig;
+  localnet: EILNetworkConfig;
+};
+
+// Helper to get chain config based on current network
+function getNetworkConfig(): EILNetworkConfig {
+  const network = import.meta.env.VITE_NETWORK || 'localnet';
+  const config = eilConfig as EILConfig;
+  if (network === 'testnet') return config.testnet;
+  if (network === 'mainnet') return config.mainnet;
+  return config.localnet;
 }
 
-export interface XLPStake {
-  stakedAmount: bigint;
-  unbondingAmount: bigint;
-  unbondingStartTime: bigint;
-  slashedAmount: bigint;
-  isActive: boolean;
-  registeredAt: bigint;
+// ============ EIL Config Hook ============
+
+export function useEILConfig() {
+  const { chain } = useAccount();
+  const chainId = chain?.id?.toString() || '420691';
+  
+  const networkConfig = getNetworkConfig();
+  const chainConfig = networkConfig.chains[chainId];
+  const paymasterAddress = chainConfig?.crossChainPaymaster;
+  const crossChainPaymaster = (paymasterAddress && paymasterAddress.length > 0 ? paymasterAddress : undefined) as Address | undefined;
+  const isAvailable = crossChainPaymaster && crossChainPaymaster !== '0x0000000000000000000000000000000000000000';
+  
+  const configuredChains = SUPPORTED_CHAINS.map(supportedChain => {
+    const config = networkConfig.chains[supportedChain.id.toString()];
+    const addr = config?.crossChainPaymaster;
+    return {
+      ...supportedChain,
+      paymasterAddress: (addr && addr.length > 0 ? addr : undefined) as Address | undefined
+    };
+  });
+
+  return {
+    isAvailable: Boolean(isAvailable),
+    crossChainPaymaster: isAvailable ? crossChainPaymaster : undefined,
+    supportedChains: configuredChains,
+    l1StakeManager: (networkConfig.hub.l1StakeManager || undefined) as Address | undefined,
+    supportedTokens: (eilConfig as EILConfig).supportedTokens as Address[],
+  };
 }
 
-export interface XLPLiquidity {
-  token: Address;
-  amount: bigint;
-}
+// ============ Cross-Chain Swap Hook ============
 
-// ============ Hooks ============
-
-/**
- * Hook for cross-chain transfers via EIL
- */
-export function useCrossChainTransfer(paymasterAddress: Address | undefined) {
+export function useCrossChainSwap(paymasterAddress: Address | undefined) {
   const { address: userAddress } = useAccount();
-  const [transferStatus, setTransferStatus] = useState<'idle' | 'approving' | 'requesting' | 'waiting' | 'complete' | 'error'>('idle');
-  const [_currentRequest, _setCurrentRequest] = useState<TransferRequest | null>(null);
+  const [swapStatus, setSwapStatus] = useState<SwapStatus>('idle');
+  const [error, setError] = useState<string | null>(null);
 
   const { writeContract, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
-  const createTransfer = useCallback(async (params: {
-    sourceToken: Address;
-    destinationToken: Address;
-    amount: bigint;
-    destinationChainId: number;
-    recipient?: Address;
-    gasOnDestination?: bigint;
-    maxFee?: bigint;
-    feeIncrement?: bigint;
-  }) => {
-    if (!paymasterAddress || !userAddress) return;
+  useEffect(() => {
+    if (isPending) setSwapStatus('creating');
+    else if (isConfirming) setSwapStatus('waiting');
+    else if (isSuccess) setSwapStatus('complete');
+  }, [isPending, isConfirming, isSuccess]);
 
-    setTransferStatus('requesting');
+  const executeCrossChainSwap = useCallback(async (params: CrossChainSwapParams) => {
+    if (!paymasterAddress || !userAddress) {
+      setError('Wallet not connected or EIL not configured');
+      return;
+    }
 
-    const recipient = params.recipient || userAddress;
-    const gasOnDestination = params.gasOnDestination || parseEther('0.001');
-    const maxFee = params.maxFee || parseEther('0.01');
-    const feeIncrement = params.feeIncrement || parseEther('0.0001');
+    setSwapStatus('creating');
+    setError(null);
 
-    // For ETH transfers, value = amount + maxFee. For ERC20, value = maxFee (for fee payment)
+    const maxFee = parseEther('0.01');
+    const feeIncrement = parseEther('0.0001');
+    const gasOnDestination = parseEther('0.001');
+
     const isETH = params.sourceToken === '0x0000000000000000000000000000000000000000';
     const txValue = isETH ? params.amount + maxFee : maxFee;
 
@@ -285,7 +156,7 @@ export function useCrossChainTransfer(paymasterAddress: Address | undefined) {
         params.amount,
         params.destinationToken,
         BigInt(params.destinationChainId),
-        recipient,
+        params.recipient || userAddress,
         gasOnDestination,
         maxFee,
         feeIncrement
@@ -294,43 +165,159 @@ export function useCrossChainTransfer(paymasterAddress: Address | undefined) {
     });
   }, [paymasterAddress, userAddress, writeContract]);
 
-  const refundExpired = useCallback(async (requestId: `0x${string}`) => {
-    if (!paymasterAddress) return;
-
-    writeContract({
-      address: paymasterAddress,
-      abi: CROSS_CHAIN_PAYMASTER_ABI,
-      functionName: 'refundExpiredRequest',
-      args: [requestId]
-    });
-  }, [paymasterAddress, writeContract]);
+  const reset = useCallback(() => {
+    setSwapStatus('idle');
+    setError(null);
+  }, []);
 
   return {
-    createTransfer,
-    refundExpired,
-    transferStatus,
+    executeCrossChainSwap,
+    swapStatus,
+    error,
+    isLoading: isPending || isConfirming,
+    isSuccess,
+    hash,
+    reset
+  };
+}
+
+// ============ XLP Position Hook ============
+
+export function useXLPPosition(stakeManagerAddress: Address | undefined) {
+  const { address } = useAccount();
+  const [position, setPosition] = useState<XLPPosition | null>(null);
+  
+  const { data: stakeData } = useReadContract({
+    address: stakeManagerAddress,
+    abi: L1_STAKE_MANAGER_ABI,
+    functionName: 'getXLPStake',
+    args: address ? [address] : undefined,
+  });
+  
+  const { data: chainsData } = useReadContract({
+    address: stakeManagerAddress,
+    abi: L1_STAKE_MANAGER_ABI,
+    functionName: 'getXLPChains',
+    args: address ? [address] : undefined,
+  });
+
+  useEffect(() => {
+    if (stakeData && chainsData) {
+      const [stakedAmount, unbondingAmount, unbondingStartTime, slashedAmount, isActive, registeredAt] = stakeData as [bigint, bigint, bigint, bigint, boolean, bigint];
+      const chains = (chainsData as bigint[]).map(c => Number(c));
+      
+      setPosition({
+        stakedAmount,
+        unbondingAmount,
+        unbondingStartTime: Number(unbondingStartTime),
+        slashedAmount,
+        isActive,
+        registeredAt: Number(registeredAt),
+        supportedChains: chains,
+        tokenLiquidity: new Map(),
+        ethBalance: 0n,
+        pendingFees: 0n,
+        totalEarnings: 0n,
+      });
+    }
+  }, [stakeData, chainsData]);
+
+  return { position };
+}
+
+// ============ XLP Registration Hook ============
+
+export function useXLPRegistration(stakeManagerAddress: Address | undefined) {
+  const [status, setStatus] = useState<StakeStatus>('idle');
+  const [error, setError] = useState<string | null>(null);
+
+  const { writeContract, data: hash, isPending } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  useEffect(() => {
+    if (isPending) setStatus('pending');
+    else if (isSuccess) setStatus('complete');
+  }, [isPending, isSuccess]);
+
+  const register = useCallback(async (chains: number[], stakeAmount: bigint) => {
+    if (!stakeManagerAddress) {
+      setError('Stake manager not configured');
+      return;
+    }
+
+    setStatus('pending');
+    setError(null);
+
+    writeContract({
+      address: stakeManagerAddress,
+      abi: L1_STAKE_MANAGER_ABI,
+      functionName: 'register',
+      args: [chains.map(c => BigInt(c))],
+      value: stakeAmount
+    });
+  }, [stakeManagerAddress, writeContract]);
+
+  const addStake = useCallback(async (amount: bigint) => {
+    if (!stakeManagerAddress) {
+      setError('Stake manager not configured');
+      return;
+    }
+
+    writeContract({
+      address: stakeManagerAddress,
+      abi: L1_STAKE_MANAGER_ABI,
+      functionName: 'addStake',
+      args: [],
+      value: amount
+    });
+  }, [stakeManagerAddress, writeContract]);
+
+  const startUnbonding = useCallback(async (amount: bigint) => {
+    if (!stakeManagerAddress) {
+      setError('Stake manager not configured');
+      return;
+    }
+
+    writeContract({
+      address: stakeManagerAddress,
+      abi: L1_STAKE_MANAGER_ABI,
+      functionName: 'startUnbonding',
+      args: [amount]
+    });
+  }, [stakeManagerAddress, writeContract]);
+
+  return {
+    register,
+    addStake,
+    startUnbonding,
+    status,
+    error,
     isLoading: isPending || isConfirming,
     isSuccess,
     hash
   };
 }
 
-/**
- * Hook for XLP liquidity management
- */
-export function useXLPLiquidity(paymasterAddress: Address | undefined) {
-  const { address: userAddress } = useAccount();
+// ============ XLP Liquidity Hook ============
 
-  // Read XLP ETH balance
-  const { data: xlpETH } = useReadContract({
-    address: paymasterAddress,
-    abi: CROSS_CHAIN_PAYMASTER_ABI,
-    functionName: 'getXLPETH',
-    args: userAddress ? [userAddress] : undefined,
-  });
+export function useXLPLiquidity(paymasterAddress: Address | undefined) {
+  const { address } = useAccount();
+  const [status, setStatus] = useState<StakeStatus>('idle');
 
   const { writeContract, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  const { data: ethBalance } = useReadContract({
+    address: paymasterAddress,
+    abi: CROSS_CHAIN_PAYMASTER_ABI,
+    functionName: 'getXLPETH',
+    args: address ? [address] : undefined,
+  });
+
+  useEffect(() => {
+    if (isPending) setStatus('pending');
+    else if (isSuccess) setStatus('complete');
+  }, [isPending, isSuccess]);
 
   const depositETH = useCallback(async (amount: bigint) => {
     if (!paymasterAddress) return;
@@ -339,6 +326,7 @@ export function useXLPLiquidity(paymasterAddress: Address | undefined) {
       address: paymasterAddress,
       abi: CROSS_CHAIN_PAYMASTER_ABI,
       functionName: 'depositETH',
+      args: [],
       value: amount
     });
   }, [paymasterAddress, writeContract]);
@@ -376,156 +364,47 @@ export function useXLPLiquidity(paymasterAddress: Address | undefined) {
     });
   }, [paymasterAddress, writeContract]);
 
-  const getTokenLiquidity = useCallback(async (_token: Address): Promise<bigint | undefined> => {
-    if (!paymasterAddress || !userAddress) return undefined;
-    // This would need to be called via the public client
-    return undefined;
-  }, [paymasterAddress, userAddress]);
-
   return {
-    xlpETH: xlpETH as bigint | undefined,
+    ethBalance: ethBalance as bigint | undefined,
     depositETH,
     withdrawETH,
     depositToken,
     withdrawToken,
-    getTokenLiquidity,
+    status,
     isLoading: isPending || isConfirming,
     isSuccess,
     hash
   };
 }
 
-/**
- * Hook for XLP stake management on L1
- */
-export function useXLPStake(stakeManagerAddress: Address | undefined) {
-  const { address: userAddress } = useAccount();
+// ============ Fee Estimate Hook ============
 
-  // Read stake info
-  const { data: stake, refetch: refetchStake } = useReadContract({
-    address: stakeManagerAddress,
-    abi: L1_STAKE_MANAGER_ABI,
-    functionName: 'getStake',
-    args: userAddress ? [userAddress] : undefined,
+export function useSwapFeeEstimate(
+  sourceChainId: number,
+  destinationChainId: number,
+  amount: bigint
+) {
+  const [estimate, setEstimate] = useState({
+    networkFee: parseEther('0.001'),
+    xlpFee: parseEther('0.0005'),
+    totalFee: parseEther('0.0015'),
+    estimatedTime: 10,
+    isLoading: false
   });
 
-  const { data: chains } = useReadContract({
-    address: stakeManagerAddress,
-    abi: L1_STAKE_MANAGER_ABI,
-    functionName: 'getXLPChains',
-    args: userAddress ? [userAddress] : undefined,
-  });
-
-  const { data: unbondingTime } = useReadContract({
-    address: stakeManagerAddress,
-    abi: L1_STAKE_MANAGER_ABI,
-    functionName: 'getUnbondingTimeRemaining',
-    args: userAddress ? [userAddress] : undefined,
-  });
-
-  const { writeContract, data: hash, isPending } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
-
-  const register = useCallback(async (supportedChains: number[], stakeAmount: bigint) => {
-    if (!stakeManagerAddress) return;
-
-    writeContract({
-      address: stakeManagerAddress,
-      abi: L1_STAKE_MANAGER_ABI,
-      functionName: 'register',
-      args: [supportedChains.map(c => BigInt(c))],
-      value: stakeAmount
+  useEffect(() => {
+    const xlpFee = amount * 5n / 10000n;
+    const networkFee = parseEther('0.001');
+    const crossChainPremium = sourceChainId !== destinationChainId ? parseEther('0.0005') : 0n;
+    
+    setEstimate({
+      networkFee: networkFee + crossChainPremium,
+      xlpFee,
+      totalFee: networkFee + crossChainPremium + xlpFee,
+      estimatedTime: sourceChainId === destinationChainId ? 0 : 10,
+      isLoading: false
     });
-  }, [stakeManagerAddress, writeContract]);
+  }, [sourceChainId, destinationChainId, amount]);
 
-  const addStake = useCallback(async (amount: bigint) => {
-    if (!stakeManagerAddress) return;
-
-    writeContract({
-      address: stakeManagerAddress,
-      abi: L1_STAKE_MANAGER_ABI,
-      functionName: 'addStake',
-      value: amount
-    });
-  }, [stakeManagerAddress, writeContract]);
-
-  const startUnbonding = useCallback(async (amount: bigint) => {
-    if (!stakeManagerAddress) return;
-
-    writeContract({
-      address: stakeManagerAddress,
-      abi: L1_STAKE_MANAGER_ABI,
-      functionName: 'startUnbonding',
-      args: [amount]
-    });
-  }, [stakeManagerAddress, writeContract]);
-
-  const completeUnbonding = useCallback(async () => {
-    if (!stakeManagerAddress) return;
-
-    writeContract({
-      address: stakeManagerAddress,
-      abi: L1_STAKE_MANAGER_ABI,
-      functionName: 'completeUnbonding'
-    });
-  }, [stakeManagerAddress, writeContract]);
-
-  type StakeResult = {
-    stakedAmount: bigint;
-    unbondingAmount: bigint;
-    unbondingStartTime: bigint;
-    slashedAmount: bigint;
-    isActive: boolean;
-    registeredAt: bigint;
-  };
-
-  const stakeInfo: XLPStake | null = stake ? {
-    stakedAmount: (stake as StakeResult).stakedAmount,
-    unbondingAmount: (stake as StakeResult).unbondingAmount,
-    unbondingStartTime: (stake as StakeResult).unbondingStartTime,
-    slashedAmount: (stake as StakeResult).slashedAmount,
-    isActive: (stake as StakeResult).isActive,
-    registeredAt: (stake as StakeResult).registeredAt,
-  } : null;
-
-  return {
-    stake: stakeInfo,
-    supportedChains: chains as bigint[] | undefined,
-    unbondingTimeRemaining: unbondingTime as bigint | undefined,
-    register,
-    addStake,
-    startUnbonding,
-    completeUnbonding,
-    refetchStake,
-    isLoading: isPending || isConfirming,
-    isSuccess,
-    hash
-  };
+  return estimate;
 }
-
-// EIL config from packages/config/eil.json
-import eilConfig from '../../../../packages/config/eil.json';
-
-/**
- * Hook for reading EIL contract addresses from config
- */
-export function useEILConfig() {
-  const { chain } = useAccount();
-  const chainId = chain?.id?.toString() || '420691';
-  
-  // Get paymaster for current chain
-  const crossChainPaymaster = eilConfig.crossChainPaymasters[chainId as keyof typeof eilConfig.crossChainPaymasters] as Address | undefined;
-  const l1StakeManager = eilConfig.l1StakeManager as Address;
-  
-  // Check if addresses are valid (not zero address)
-  const isConfigured = crossChainPaymaster && crossChainPaymaster !== '0x0000000000000000000000000000000000000000';
-
-  return {
-    crossChainPaymaster: isConfigured ? crossChainPaymaster : undefined,
-    l1StakeManager,
-    networks: eilConfig.networks,
-    supportedTokens: eilConfig.supportedTokens,
-    isConfigured: Boolean(isConfigured),
-  };
-}
-

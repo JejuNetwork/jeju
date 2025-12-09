@@ -1,5 +1,5 @@
 /**
-import type { Page } from "@playwright/test";
+* @fileoverview Test file
  * Game Feeds & Hyperscape Events Tests
  * Tests real-time game feed integration and Hyperscape oracle events
  */
@@ -281,4 +281,4 @@ test.describe('Game Feeds & Hyperscape', () => {
       expect(target).toBe('_blank')
     }
   })
-30-game-feeds-hyperscape.spec.ts.backup
+})

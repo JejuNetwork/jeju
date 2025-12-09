@@ -1,0 +1,162 @@
+# Testnet environment values (Sepolia)
+# 1 replica of each service for cost efficiency
+
+environment: testnet
+cluster_name: jeju-testnet
+
+# Enable ingress and certificates
+ingress_enabled: true
+cert_manager_enabled: true
+
+# Single replicas for testnet (cost optimization)
+replicas:
+  op_node: 1
+  sequencer: 1
+  rpc: 1          # Single RPC node for testnet
+  archive: 1      # Single archive node for testnet
+  batcher: 1
+  proposer: 1
+  challenger: 1
+  eigenda: 1
+  bundler: 1
+  gateway: 2      # At least 2 for HA
+  subsquid_processor: 1
+  subsquid_api: 2
+
+# Testnet resource allocations
+resources:
+  op_node:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+  
+  sequencer:
+    limits:
+      cpu: 4000m
+      memory: 8Gi
+    requests:
+      cpu: 2000m
+      memory: 4Gi
+  
+  rpc:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+  
+  archive:
+    limits:
+      cpu: 4000m
+      memory: 16Gi
+    requests:
+      cpu: 2000m
+      memory: 8Gi
+  
+  batcher:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  
+  proposer:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  
+  challenger:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  
+  eigenda:
+    limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+  
+  bundler:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  
+  gateway:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+  
+  subsquid_processor:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  
+  subsquid_api:
+    limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+
+# Persistence
+persistence:
+  enabled: true
+  storage_class: gp3
+  sizes:
+    op_node: 100Gi
+    sequencer: 500Gi
+    rpc: 500Gi
+    archive: 2Ti
+    challenger: 50Gi
+
+# Auto-scaling (disabled for testnet, fixed replicas)
+autoscaling:
+  enabled: false
+
+# Sepolia L1
+l1_rpc_url: https://ethereum-sepolia-rpc.publicnode.com
+l1_chain_id: "11155111"
+l2_chain_id: "420690"
+
+# Domains
+rpc_domain: testnet-rpc.jeju.network
+ws_domain: testnet-ws.jeju.network
+
+# Rate limiting (relaxed for testnet)
+rate_limit:
+  enabled: true
+  requests_per_second: 50
+  requests_per_minute: 2000
+  max_connections_per_ip: 5
+  burst_size: 100
+
+# AWS settings
+aws_region: us-east-1
+acm_certificate_arn: ""  # Let cert-manager handle it
+waf_enabled: false       # No WAF for testnet
+shield_enabled: false    # No Shield for testnet
+
+

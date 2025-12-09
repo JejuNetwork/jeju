@@ -5,9 +5,9 @@
   "rpcUrl": "https://testnet-rpc.jeju.network",
   "wsUrl": "wss://testnet-ws.jeju.network",
   "explorerUrl": "https://testnet-explorer.jeju.network",
-  "l1ChainId": 84532,
-  "l1RpcUrl": "https://sepolia.base.org",
-  "l1Name": "Base Sepolia",
+  "l1ChainId": 11155111,
+  "l1RpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
+  "l1Name": "Sepolia",
   "flashblocksEnabled": true,
   "flashblocksSubBlockTime": 200,
   "blockTime": 2000,
@@ -35,5 +35,3 @@
     }
   }
 }
-
-

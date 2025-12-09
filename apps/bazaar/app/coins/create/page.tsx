@@ -29,7 +29,7 @@ export default function CreateTokenPage() {
   useEffect(() => {
     if (isSuccess && hash && !successToastShown.current) {
       successToastShown.current = true
-      toast.success(`Token ${symbol} created successfully!`, {
+      toast.success(`Token ${symbol} created successfully.`, {
         description: 'Your token will appear in the tokens list shortly',
         action: {
           label: 'View Tokens',
@@ -87,41 +87,45 @@ export default function CreateTokenPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h1 className="text-4xl font-bold mb-2">Create Token</h1>
-      <p className="text-slate-400 mb-8">Launch your own ERC20 token on Jeju</p>
+      <div className="text-center mb-8">
+        <h1 className="text-3xl md:text-4xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+          🪙 Create Token
+        </h1>
+        <p style={{ color: 'var(--text-secondary)' }}>Launch your own ERC20 token on Jeju</p>
+      </div>
 
+      {/* Alerts */}
       {!isConnected && (
-        <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/50 text-yellow-200 mb-6">
-          ⚠️ Please connect your wallet to create a token
+        <div className="card p-4 mb-6 border-bazaar-warning/50 bg-bazaar-warning/10">
+          <p className="text-bazaar-warning">Please connect your wallet to create a token</p>
         </div>
       )}
 
       {isConnected && !isCorrectChain && (
-        <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/50 text-red-200 mb-6">
-          ❌ Please switch to Jeju network (Chain ID: {JEJU_CHAIN_ID})
+        <div className="card p-4 mb-6 border-bazaar-error/50 bg-bazaar-error/10">
+          <p className="text-bazaar-error">Please switch to Jeju network (Chain ID: {JEJU_CHAIN_ID})</p>
         </div>
       )}
 
-      <div className="p-6 rounded-xl bg-white/5 border border-white/10">
-        <div className="space-y-6">
-          {/* Token Name */}
+      {/* Form */}
+      <div className="card p-5 md:p-6">
+        <div className="space-y-5 md:space-y-6">
           <div>
-            <label className="block text-sm font-medium mb-2">
-              Token Name <span className="text-red-500">*</span>
+            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+              Token Name <span className="text-bazaar-error">*</span>
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="My Awesome Token"
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500"
+              className="input"
             />
           </div>
 
-          {/* Token Symbol */}
           <div>
-            <label className="block text-sm font-medium mb-2">
-              Symbol <span className="text-red-500">*</span>
+            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+              Symbol <span className="text-bazaar-error">*</span>
             </label>
             <input
               type="text"
@@ -129,13 +133,12 @@ export default function CreateTokenPage() {
               onChange={(e) => setSymbol(e.target.value.toUpperCase())}
               placeholder="MAT"
               maxLength={10}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500"
+              className="input"
             />
           </div>
 
-          {/* Description */}
           <div>
-            <label className="block text-sm font-medium mb-2">
+            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
               Description
             </label>
             <textarea
@@ -143,50 +146,48 @@ export default function CreateTokenPage() {
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe your token..."
               rows={4}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500 resize-none"
+              className="input resize-none"
             />
           </div>
 
-          {/* Initial Supply */}
           <div>
-            <label className="block text-sm font-medium mb-2">
-              Initial Supply <span className="text-red-500">*</span>
+            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+              Initial Supply <span className="text-bazaar-error">*</span>
             </label>
             <input
               type="number"
               value={initialSupply}
               onChange={(e) => setInitialSupply(e.target.value)}
               placeholder="1000000"
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500"
+              className="input"
             />
-            <p className="text-sm text-slate-400 mt-1">
+            <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
               Number of tokens to mint (full tokens, will use {decimals} decimals)
             </p>
           </div>
 
-          {/* Decimals */}
           <div>
-            <label className="block text-sm font-medium mb-2">
+            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
               Decimals
             </label>
             <select
               value={decimals}
               onChange={(e) => setDecimals(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500"
+              className="input"
             >
               <option value="6">6 (like USDC)</option>
               <option value="8">8 (like Bitcoin)</option>
               <option value="18">18 (standard)</option>
             </select>
-            <p className="text-sm text-slate-400 mt-1">
+            <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
               Standard is 18 decimals (like ETH)
             </p>
           </div>
 
           {/* Features Preview */}
-          <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/50">
-            <h3 className="font-semibold mb-2">🚀 Features</h3>
-            <ul className="text-sm text-slate-300 space-y-1">
+          <div className="p-4 rounded-xl border border-bazaar-primary/30 bg-bazaar-primary/5">
+            <h3 className="font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>🚀 Features</h3>
+            <ul className="text-sm space-y-1" style={{ color: 'var(--text-secondary)' }}>
               <li>✅ Automatically indexed on Bazaar</li>
               <li>✅ Tradeable on Uniswap V4</li>
               <li>✅ Visible on Jeju Explorer</li>
@@ -194,11 +195,10 @@ export default function CreateTokenPage() {
             </ul>
           </div>
 
-          {/* Create Button */}
           <button
             onClick={handleCreate}
             disabled={!isConnected || !isCorrectChain || isCreating || !name || !symbol}
-            className="w-full py-4 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 font-bold text-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-primary w-full py-4 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isCreating
               ? 'Creating...'
@@ -211,39 +211,27 @@ export default function CreateTokenPage() {
         </div>
       </div>
 
-      {/* Info Section */}
-      <div className="mt-8 p-6 rounded-xl bg-white/5 border border-white/10">
-        <h3 className="text-lg font-semibold mb-4">How it works</h3>
-        <ol className="space-y-3 text-sm text-slate-300">
-          <li className="flex gap-3">
-            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-xs font-bold">
-              1
-            </span>
-            <span>Connect your wallet and switch to Jeju network</span>
-          </li>
-          <li className="flex gap-3">
-            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-xs font-bold">
-              2
-            </span>
-            <span>Fill in token details (name, symbol, supply)</span>
-          </li>
-          <li className="flex gap-3">
-            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-xs font-bold">
-              3
-            </span>
-            <span>Deploy your ERC20 token contract</span>
-          </li>
-          <li className="flex gap-3">
-            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-xs font-bold">
-              4
-            </span>
-            <span>Your token appears on Bazaar automatically via the indexer</span>
-          </li>
+      {/* How It Works */}
+      <div className="card p-5 md:p-6 mt-6">
+        <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+          How it works
+        </h3>
+        <ol className="space-y-3 text-sm" style={{ color: 'var(--text-secondary)' }}>
+          {[
+            'Connect your wallet and switch to Jeju network',
+            'Fill in token details (name, symbol, supply)',
+            'Deploy your ERC20 token contract',
+            'Your token appears on Bazaar automatically via the indexer'
+          ].map((step, i) => (
+            <li key={i} className="flex gap-3">
+              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-bazaar-primary text-white flex items-center justify-center text-xs font-bold">
+                {i + 1}
+              </span>
+              <span>{step}</span>
+            </li>
+          ))}
         </ol>
       </div>
     </div>
   )
 }
-
-
-

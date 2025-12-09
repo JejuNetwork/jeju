@@ -1,19 +1,128 @@
 {
-  "l1StakeManager": "0xaC156EFC5a5ad1d4Db8541C31F995E203dA796aC",
-  "entryPoint": "0xaC156EFC5a5ad1d4Db8541C31F995E203dA796aC",
-  "crossChainPaymasters": {
-    "1337": "0x0000000000000000000000000000000000000000",
-    "420691": "0xa7Cd0542a8F4CCa6Dd021C3A0Af0E423Ad7DFfB7"
-  },
-  "supportedTokens": ["0x0000000000000000000000000000000000000000"],
-  "networks": {
-    "1337": {
-      "name": "L1 (Localnet)",
-      "rpcUrl": "http://127.0.0.1:8545"
+  "version": "2.0.0",
+  "lastUpdated": "2025-12-09",
+  
+  "entryPoint": "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789",
+  "l2Messenger": "0x4200000000000000000000000000000000000007",
+  
+  "supportedTokens": [
+    "0x0000000000000000000000000000000000000000",
+    "0x4200000000000000000000000000000000000006"
+  ],
+  
+  "testnet": {
+    "hub": {
+      "chainId": 11155111,
+      "name": "Sepolia",
+      "l1StakeManager": "",
+      "status": "not_deployed"
     },
-    "420691": {
-      "name": "Jeju (Localnet)", 
-      "rpcUrl": "http://127.0.0.1:9545"
+    "chains": {
+      "420690": {
+        "name": "Jeju Testnet",
+        "crossChainPaymaster": "",
+        "status": "pending_rpc"
+      },
+      "84532": {
+        "name": "Base Sepolia",
+        "crossChainPaymaster": "",
+        "status": "ready_to_deploy",
+        "oif": {
+          "solverRegistry": "0xecfE47302D941c8ce5B0009C0ac2E6D6ee2A42de",
+          "inputSettler": "0x9bb59d0329FcCEdD99f1753D20AF50347Ad2eB75",
+          "outputSettler": "0xf7ef3C6a54dA3E03A96D23864e5865E7e3EBEcF5",
+          "oracle": "0xE30218678a940d1553b285B0eB5C5364BBF70ed9"
+        },
+        "tokens": {
+          "mockJejuUSDC": "0x953F6516E5d2864cE7f13186B45dE418EA665EB2",
+          "elizaOSToken": "0x7af64e6aE21076DE21EFe71F243A75664a17C34b"
+        }
+      },
+      "421614": {
+        "name": "Arbitrum Sepolia",
+        "crossChainPaymaster": "",
+        "status": "ready_to_deploy",
+        "oif": {
+          "solverRegistry": "",
+          "inputSettler": "",
+          "outputSettler": "",
+          "oracle": ""
+        }
+      },
+      "11155420": {
+        "name": "Optimism Sepolia",
+        "crossChainPaymaster": "",
+        "status": "ready_to_deploy",
+        "oif": {
+          "solverRegistry": "",
+          "inputSettler": "",
+          "outputSettler": "",
+          "oracle": ""
+        }
+      },
+      "97": {
+        "name": "BSC Testnet",
+        "crossChainPaymaster": "",
+        "status": "ready_to_deploy",
+        "oif": {
+          "solverRegistry": "",
+          "inputSettler": "",
+          "outputSettler": "",
+          "oracle": ""
+        }
+      }
+    }
+  },
+  
+  "mainnet": {
+    "hub": {
+      "chainId": 1,
+      "name": "Ethereum",
+      "l1StakeManager": "",
+      "status": "not_deployed"
+    },
+    "chains": {
+      "420691": {
+        "name": "Jeju",
+        "crossChainPaymaster": "",
+        "status": "not_deployed"
+      },
+      "8453": {
+        "name": "Base",
+        "crossChainPaymaster": "",
+        "status": "not_deployed"
+      },
+      "42161": {
+        "name": "Arbitrum One",
+        "crossChainPaymaster": "",
+        "status": "not_deployed"
+      },
+      "10": {
+        "name": "Optimism",
+        "crossChainPaymaster": "",
+        "status": "not_deployed"
+      },
+      "56": {
+        "name": "BNB Chain",
+        "crossChainPaymaster": "",
+        "status": "not_deployed"
+      }
+    }
+  },
+  
+  "localnet": {
+    "hub": {
+      "chainId": 1337,
+      "name": "L1 Localnet",
+      "l1StakeManager": "",
+      "status": "local"
+    },
+    "chains": {
+      "420691": {
+        "name": "Jeju Localnet",
+        "crossChainPaymaster": "0xa7Cd0542a8F4CCa6Dd021C3A0Af0E423Ad7DFfB7",
+        "status": "local"
+      }
     }
   }
 }

@@ -8,6 +8,10 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IIdentityRegistry} from "../registry/interfaces/IIdentityRegistry.sol";
 
+interface ILedgerManager {
+    function depositFromCreditManager(address user) external payable;
+}
+
 /**
  * @title CreditManager
  * @author Jeju Network
@@ -54,26 +58,41 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
 
     /// @notice ETH address constant
     address public constant ETH_ADDRESS = address(0);
-    
+
     /// @notice ERC-8004 Identity Registry for agent tracking (optional)
     IIdentityRegistry public identityRegistry;
-    
+
     /// @notice Mapping of agent ID => token => balance (agent-based credit)
     mapping(uint256 => mapping(address => uint256)) public agentBalances;
-    
+
     /// @notice Mapping of agent ID => total spent across all tokens (for reputation)
     mapping(uint256 => uint256) public agentTotalSpent;
+
+    /// @notice LedgerManager for compute marketplace integration
+    ILedgerManager public ledgerManager;
 
     // ============ Events ============
 
     event CreditDeposited(address indexed user, address indexed token, uint256 amount, uint256 newBalance);
-    event CreditDeducted(address indexed user, address indexed service, address indexed token, uint256 amount, uint256 remainingBalance);
+    event CreditDeducted(
+        address indexed user, address indexed service, address indexed token, uint256 amount, uint256 remainingBalance
+    );
     event BalanceLow(address indexed user, address indexed token, uint256 balance, uint256 recommended);
     event ServiceAuthorized(address indexed service, bool authorized);
     event MinBalanceUpdated(uint256 oldMin, uint256 newMin);
     event IdentityRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
     event AgentCreditDeposited(uint256 indexed agentId, address indexed token, uint256 amount, uint256 newBalance);
-    event AgentCreditDeducted(uint256 indexed agentId, address indexed service, address indexed token, uint256 amount, uint256 remainingBalance);
+    event AgentCreditDeducted(
+        uint256 indexed agentId,
+        address indexed service,
+        address indexed token,
+        uint256 amount,
+        uint256 remainingBalance
+    );
+    event LedgerManagerUpdated(address indexed oldManager, address indexed newManager);
+    event ComputePayment(address indexed user, uint256 ethAmount, uint256 tokenAmount, address token);
+    event LiquidityDeposited(address indexed depositor, uint256 amount, uint256 newBalance);
+    event LiquidityWithdrawn(address indexed recipient, uint256 amount, uint256 newBalance);
 
     // ============ Errors ============
 
@@ -81,13 +100,15 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
     error UnauthorizedService(address service);
     error InvalidToken(address token);
     error InvalidAmount(uint256 amount);
+    error ZeroAmount();
+    error UnsupportedToken(address token);
 
     // ============ Constructor ============
 
     constructor(address _usdc, address _elizaOS) Ownable(msg.sender) {
         require(_usdc != address(0), "Invalid USDC");
         require(_elizaOS != address(0), "Invalid elizaOS");
-        
+
         usdc = IERC20(_usdc);
         elizaOS = IERC20(_elizaOS);
     }
@@ -100,11 +121,11 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
      */
     function depositUSDC(uint256 amount) external whenNotPaused {
         if (amount == 0) revert InvalidAmount(amount);
-        
+
         usdc.safeTransferFrom(msg.sender, address(this), amount);
-        
+
         balances[msg.sender][address(usdc)] += amount;
-        
+
         emit CreditDeposited(msg.sender, address(usdc), amount, balances[msg.sender][address(usdc)]);
     }
 
@@ -114,11 +135,11 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
      */
     function depositElizaOS(uint256 amount) external whenNotPaused {
         if (amount == 0) revert InvalidAmount(amount);
-        
+
         elizaOS.safeTransferFrom(msg.sender, address(this), amount);
-        
+
         balances[msg.sender][address(elizaOS)] += amount;
-        
+
         emit CreditDeposited(msg.sender, address(elizaOS), amount, balances[msg.sender][address(elizaOS)]);
     }
 
@@ -127,9 +148,9 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
      */
     function depositETH() external payable whenNotPaused {
         if (msg.value == 0) revert InvalidAmount(msg.value);
-        
+
         balances[msg.sender][ETH_ADDRESS] += msg.value;
-        
+
         emit CreditDeposited(msg.sender, ETH_ADDRESS, msg.value, balances[msg.sender][ETH_ADDRESS]);
     }
 
@@ -151,7 +172,7 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
         } else {
             revert InvalidToken(token);
         }
-        
+
         emit CreditDeposited(msg.sender, token, amount, balances[msg.sender][token]);
     }
 
@@ -166,16 +187,16 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
      */
     function deductCredit(address user, address token, uint256 amount) external whenNotPaused {
         if (!authorizedServices[msg.sender]) revert UnauthorizedService(msg.sender);
-        
+
         uint256 userBalance = balances[user][token];
         if (userBalance < amount) {
             revert InsufficientCredit(user, token, amount, userBalance);
         }
-        
+
         balances[user][token] -= amount;
-        
+
         emit CreditDeducted(user, msg.sender, token, amount, balances[user][token]);
-        
+
         // Emit warning if balance is low
         if (balances[user][token] < minBalance) {
             emit BalanceLow(user, token, balances[user][token], recommendedTopUp);
@@ -190,28 +211,101 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
      * @return success Whether deduction succeeded
      * @return remaining Remaining balance after deduction
      */
-    function tryDeductCredit(address user, address token, uint256 amount) 
-        external 
-        whenNotPaused 
-        returns (bool success, uint256 remaining) 
+    function tryDeductCredit(address user, address token, uint256 amount)
+        external
+        whenNotPaused
+        returns (bool success, uint256 remaining)
     {
         if (!authorizedServices[msg.sender]) revert UnauthorizedService(msg.sender);
-        
+
         uint256 userBalance = balances[user][token];
-        
+
         if (userBalance < amount) {
             return (false, userBalance);
         }
-        
+
         balances[user][token] -= amount;
-        
+
         emit CreditDeducted(user, msg.sender, token, amount, balances[user][token]);
-        
+
         if (balances[user][token] < minBalance) {
             emit BalanceLow(user, token, balances[user][token], recommendedTopUp);
         }
-        
+
         return (true, balances[user][token]);
+    }
+
+    // ============ Compute Integration ============
+
+    /**
+     * @notice Pay for compute by transferring ETH credits to LedgerManager
+     * @dev Deducts from user's ETH credit balance and deposits to LedgerManager
+     * @param ethAmount Amount in wei to transfer to compute ledger
+     */
+    function payForCompute(uint256 ethAmount) external nonReentrant whenNotPaused {
+        if (address(ledgerManager) == address(0)) revert UnauthorizedService(address(0));
+
+        uint256 userEthBalance = balances[msg.sender][ETH_ADDRESS];
+        if (userEthBalance < ethAmount) {
+            revert InsufficientCredit(msg.sender, ETH_ADDRESS, ethAmount, userEthBalance);
+        }
+
+        // Deduct from credit balance
+        balances[msg.sender][ETH_ADDRESS] -= ethAmount;
+
+        // Deposit to LedgerManager on user's behalf
+        ledgerManager.depositFromCreditManager{value: ethAmount}(msg.sender);
+
+        emit ComputePayment(msg.sender, ethAmount, 0, ETH_ADDRESS);
+        emit CreditDeducted(
+            msg.sender, address(ledgerManager), ETH_ADDRESS, ethAmount, balances[msg.sender][ETH_ADDRESS]
+        );
+    }
+
+    /**
+     * @notice Pay for compute with any supported token (converted to ETH)
+     * @dev For non-ETH tokens, requires price oracle to determine ETH value
+     * @param token Token to pay with (USDC, elizaOS)
+     * @param tokenAmount Amount of token to spend
+     * @param minEthAmount Minimum ETH to receive (slippage protection)
+     */
+    function payForComputeWithToken(address token, uint256 tokenAmount, uint256 minEthAmount)
+        external
+        nonReentrant
+        whenNotPaused
+    {
+        if (address(ledgerManager) == address(0)) revert UnauthorizedService(address(0));
+        if (token == ETH_ADDRESS) revert ZeroAmount(); // Use payForCompute for ETH
+
+        uint256 userBalance = balances[msg.sender][token];
+        if (userBalance < tokenAmount) {
+            revert InsufficientCredit(msg.sender, token, tokenAmount, userBalance);
+        }
+
+        // Simple conversion rate (in production, use oracle)
+        // 1 USDC = 0.0003 ETH, 1 elizaOS = 0.0001 ETH (example rates)
+        uint256 ethValue = 0;
+        if (token == address(usdc)) {
+            ethValue = (tokenAmount * 3e14) / 1e6; // USDC has 6 decimals
+        } else if (token == address(elizaOS)) {
+            ethValue = (tokenAmount * 1e14) / 1e18; // elizaOS has 18 decimals
+        } else {
+            revert UnsupportedToken(token);
+        }
+
+        if (ethValue < minEthAmount) revert InsufficientCredit(msg.sender, ETH_ADDRESS, minEthAmount, ethValue);
+        if (ethValue > address(this).balance) {
+            revert InsufficientCredit(address(this), ETH_ADDRESS, ethValue, address(this).balance);
+        }
+
+        // Deduct token from credit balance
+        balances[msg.sender][token] -= tokenAmount;
+
+        // Deposit ETH equivalent to LedgerManager
+        ledgerManager.depositFromCreditManager{value: ethValue}(msg.sender);
+
+        emit ComputePayment(msg.sender, ethValue, tokenAmount, token);
+        emit CreditDeducted(msg.sender, address(ledgerManager), token, tokenAmount, balances[msg.sender][token]);
     }
 
     // ============ Withdrawal Functions ============
@@ -226,16 +320,16 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
         if (userBalance < amount) {
             revert InsufficientCredit(msg.sender, token, amount, userBalance);
         }
-        
+
         balances[msg.sender][token] -= amount;
-        
+
         if (token == ETH_ADDRESS) {
-            (bool success, ) = msg.sender.call{value: amount}("");
+            (bool success,) = msg.sender.call{value: amount}("");
             require(success, "ETH transfer failed");
         } else {
             IERC20(token).safeTransfer(msg.sender, amount);
         }
-        
+
         emit CreditDeducted(msg.sender, address(0), token, amount, balances[msg.sender][token]);
     }
 
@@ -258,11 +352,11 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
      * @return elizaBalance elizaOS balance (18 decimals)
      * @return ethBalance ETH balance (18 decimals)
      */
-    function getAllBalances(address user) external view returns (
-        uint256 usdcBalance,
-        uint256 elizaBalance,
-        uint256 ethBalance
-    ) {
+    function getAllBalances(address user)
+        external
+        view
+        returns (uint256 usdcBalance, uint256 elizaBalance, uint256 ethBalance)
+    {
         usdcBalance = balances[user][address(usdc)];
         elizaBalance = balances[user][address(elizaOS)];
         ethBalance = balances[user][ETH_ADDRESS];
@@ -276,10 +370,10 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
      * @return sufficient Whether user has enough credit
      * @return available Available balance
      */
-    function hasSufficientCredit(address user, address token, uint256 amount) 
-        external 
-        view 
-        returns (bool sufficient, uint256 available) 
+    function hasSufficientCredit(address user, address token, uint256 amount)
+        external
+        view
+        returns (bool sufficient, uint256 available)
     {
         available = balances[user][token];
         sufficient = available >= amount;
@@ -293,10 +387,10 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
      * @return balance Current balance
      * @return recommended Recommended top-up amount
      */
-    function isBalanceLow(address user, address token) 
-        external 
-        view 
-        returns (bool isLow, uint256 balance, uint256 recommended) 
+    function isBalanceLow(address user, address token)
+        external
+        view
+        returns (bool isLow, uint256 balance, uint256 recommended)
     {
         balance = balances[user][token];
         isLow = balance < minBalance;
@@ -334,6 +428,45 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
     }
 
     /**
+     * @notice Set LedgerManager for compute integration
+     * @param _ledgerManager LedgerManager contract address
+     */
+    function setLedgerManager(address _ledgerManager) external onlyOwner {
+        address oldManager = address(ledgerManager);
+        ledgerManager = ILedgerManager(_ledgerManager);
+        emit LedgerManagerUpdated(oldManager, _ledgerManager);
+    }
+
+    /**
+     * @notice Deposit ETH liquidity for token-to-ETH conversions
+     * @dev Anyone can provide liquidity to enable payForComputeWithToken
+     */
+    function depositLiquidity() external payable {
+        if (msg.value == 0) revert ZeroAmount();
+        emit LiquidityDeposited(msg.sender, msg.value, address(this).balance);
+    }
+
+    /**
+     * @notice Withdraw ETH liquidity (owner only)
+     * @param amount Amount of ETH to withdraw
+     */
+    function withdrawLiquidity(uint256 amount) external onlyOwner {
+        if (amount > address(this).balance) {
+            revert InsufficientCredit(address(this), ETH_ADDRESS, amount, address(this).balance);
+        }
+        (bool success,) = owner().call{value: amount}("");
+        require(success, "ETH transfer failed");
+        emit LiquidityWithdrawn(owner(), amount, address(this).balance);
+    }
+
+    /**
+     * @notice Get current ETH liquidity available for token conversions
+     */
+    function getLiquidity() external view returns (uint256) {
+        return address(this).balance;
+    }
+
+    /**
      * @notice Pause credit operations
      */
     function pause() external onlyOwner {
@@ -355,9 +488,9 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
      */
     function emergencyWithdraw(address token, uint256 amount) external onlyOwner {
         require(paused(), "Must be paused");
-        
+
         if (token == ETH_ADDRESS) {
-            (bool success, ) = owner().call{value: amount}("");
+            (bool success,) = owner().call{value: amount}("");
             require(success, "ETH transfer failed");
         } else {
             IERC20(token).safeTransfer(owner(), amount);
@@ -371,12 +504,12 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
         balances[msg.sender][ETH_ADDRESS] += msg.value;
         emit CreditDeposited(msg.sender, ETH_ADDRESS, msg.value, balances[msg.sender][ETH_ADDRESS]);
     }
-    
+
     // ============ ERC-8004 Integration ============
-    
+
     error InvalidAgentId();
     error NotAgentOwner();
-    
+
     /**
      * @notice Set the ERC-8004 Identity Registry
      * @param _identityRegistry Address of the IdentityRegistry contract
@@ -386,7 +519,7 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
         identityRegistry = IIdentityRegistry(_identityRegistry);
         emit IdentityRegistryUpdated(oldRegistry, _identityRegistry);
     }
-    
+
     /**
      * @notice Deposit credits for an ERC-8004 agent
      * @param agentId The agent ID to credit
@@ -397,7 +530,7 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
         if (address(identityRegistry) == address(0)) revert InvalidToken(address(0));
         if (!identityRegistry.agentExists(agentId)) revert InvalidAgentId();
         if (identityRegistry.ownerOf(agentId) != msg.sender) revert NotAgentOwner();
-        
+
         if (token == ETH_ADDRESS) {
             require(msg.value == amount, "ETH amount mismatch");
             agentBalances[agentId][ETH_ADDRESS] += amount;
@@ -410,32 +543,28 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
         } else {
             revert InvalidToken(token);
         }
-        
+
         emit AgentCreditDeposited(agentId, token, amount, agentBalances[agentId][token]);
     }
-    
+
     /**
      * @notice Deduct credits from an ERC-8004 agent
      * @param agentId Agent ID to deduct from
      * @param token Token to deduct
      * @param amount Amount to deduct
      */
-    function deductAgentCredit(uint256 agentId, address token, uint256 amount) 
-        external 
-        whenNotPaused 
-        nonReentrant 
-    {
+    function deductAgentCredit(uint256 agentId, address token, uint256 amount) external nonReentrant whenNotPaused {
         if (!authorizedServices[msg.sender]) revert UnauthorizedService(msg.sender);
-        
+
         uint256 available = agentBalances[agentId][token];
         if (available < amount) revert InsufficientCredit(address(0), token, amount, available);
-        
+
         agentBalances[agentId][token] -= amount;
         agentTotalSpent[agentId] += amount;
-        
+
         emit AgentCreditDeducted(agentId, msg.sender, token, amount, agentBalances[agentId][token]);
     }
-    
+
     /**
      * @notice Check agent's credit balance
      * @param agentId Agent ID to check
@@ -445,7 +574,7 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
     function getAgentBalance(uint256 agentId, address token) external view returns (uint256) {
         return agentBalances[agentId][token];
     }
-    
+
     /**
      * @notice Get total amount spent by an agent (for reputation tracking)
      * @param agentId Agent ID to check
@@ -454,7 +583,7 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
     function getAgentTotalSpent(uint256 agentId) external view returns (uint256) {
         return agentTotalSpent[agentId];
     }
-    
+
     /**
      * @notice Check if agent has sufficient credit
      * @param agentId Agent ID to check
@@ -463,13 +592,12 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
      * @return sufficient Whether balance is sufficient
      * @return available Current balance
      */
-    function hasAgentSufficientCredit(uint256 agentId, address token, uint256 amount) 
-        external 
-        view 
-        returns (bool sufficient, uint256 available) 
+    function hasAgentSufficientCredit(uint256 agentId, address token, uint256 amount)
+        external
+        view
+        returns (bool sufficient, uint256 available)
     {
         available = agentBalances[agentId][token];
         sufficient = available >= amount;
     }
 }
-

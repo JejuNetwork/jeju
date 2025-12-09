@@ -31,7 +31,7 @@ export default function PaymasterSelector({
     const paymasterOptions = await getPaymasterOptions(estimatedGas, gasPrice);
     setOptions(paymasterOptions);
     
-    const recommended = paymasterOptions.find(opt => opt.recommended);
+    const recommended = paymasterOptions.find(opt => opt.isRecommended);
     if (recommended) {
       setSelected(recommended);
       onSelect(recommended);
@@ -76,11 +76,11 @@ export default function PaymasterSelector({
           {selected ? (
             <>
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
-                {selected.token.symbol.slice(0, 2)}
+                {selected.paymaster.tokenSymbol.slice(0, 2)}
               </div>
               <div className="text-left">
-                <div className="font-medium text-gray-900">{selected.token.symbol}</div>
-                <div className="text-xs text-gray-500">{selected.estimatedCost}</div>
+                <div className="font-medium text-gray-900">{selected.paymaster.tokenSymbol}</div>
+                <div className="text-xs text-gray-500">{selected.estimatedCostFormatted}</div>
               </div>
             </>
           ) : (
@@ -135,28 +135,28 @@ export default function PaymasterSelector({
             {/* Paymaster Options */}
             {options.map((option) => (
               <button
-                key={option.value}
+                key={option.paymaster.address}
                 onClick={() => handleSelect(option)}
                 className="w-full px-4 py-3 hover:bg-gray-50 transition-colors flex items-center justify-between group"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
-                    {option.token.symbol.slice(0, 2)}
+                    {option.paymaster.tokenSymbol.slice(0, 2)}
                   </div>
                   <div className="text-left">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900">{option.token.symbol}</span>
-                      {option.recommended && (
+                      <span className="font-medium text-gray-900">{option.paymaster.tokenSymbol}</span>
+                      {option.isRecommended && (
                         <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-xs rounded font-medium">
                           Recommended
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-gray-500">{option.estimatedCost}</div>
-                    <div className="text-xs text-gray-400 mt-0.5">{option.stakedEth}</div>
+                    <div className="text-xs text-gray-500">{option.estimatedCostFormatted}</div>
+                    <div className="text-xs text-gray-400 mt-0.5">{option.paymaster.stakedEth.toString()} ETH staked</div>
                   </div>
                 </div>
-                {selected?.value === option.value && (
+                {selected?.paymaster.address === option.paymaster.address && (
                   <Check size={20} className="text-green-500" />
                 )}
               </button>

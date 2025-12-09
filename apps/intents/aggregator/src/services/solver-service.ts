@@ -3,19 +3,17 @@
  * Uses real on-chain data from SolverRegistry when available
  */
 
-import type { Solver, SolverLeaderboardEntry, SolverLiquidity } from '../../../../../types/oif';
-import type { SupportedChainId } from '../../../../../types/eil';
+import type { Solver, SolverLeaderboardEntry, SolverLiquidity, SupportedChainId } from '@jejunetwork/types';
 import * as chainService from './chain-service';
 
 // Solver cache (populated from on-chain registry + discovery)
 const solverCache: Map<string, Solver> = new Map();
 
-// Initialize with known solvers (these would be discovered via events in production)
-const KNOWN_SOLVER_ADDRESSES = [
-  '0x1234567890123456789012345678901234567890',
-  '0x2345678901234567890123456789012345678901',
-  '0x3456789012345678901234567890123456789012',
-];
+// Solver addresses are populated from on-chain SolverRegistry events
+// In dev mode, configure via OIF_DEV_SOLVER_ADDRESSES env var
+const KNOWN_SOLVER_ADDRESSES: string[] = (process.env.OIF_DEV_SOLVER_ADDRESSES || '')
+  .split(',')
+  .filter(addr => addr.startsWith('0x') && addr.length === 42);
 
 interface ListSolversParams {
   chainId?: number;
@@ -48,7 +46,7 @@ export class SolverService {
         address,
         name: `Solver ${address.slice(0, 8)}`,
         endpoint: `http://solver-${address.slice(2, 8)}.local/a2a`,
-        supportedChains: chainInfo.supportedChains.map(c => Number(c) as 1 | 8453 | 84532 | 42161 | 10 | 1337 | 420691 | 420690),
+        supportedChains: chainInfo.supportedChains.map(c => Number(c) as 1 | 11155111 | 42161 | 10 | 1337 | 420691 | 420690),
         supportedTokens: {},
         liquidity: [],
         reputation: Math.min(100, Number(chainInfo.successfulFills) / Math.max(1, Number(chainInfo.totalFills)) * 100),
@@ -70,40 +68,7 @@ export class SolverService {
       return solver;
     }
     
-    // Return placeholder if not on chain (for demo purposes)
-    if (!solverCache.has(address.toLowerCase())) {
-      const placeholder: Solver = {
-        address,
-        name: `Solver ${address.slice(0, 8)}`,
-        endpoint: `http://localhost:402${KNOWN_SOLVER_ADDRESSES.indexOf(address)}/a2a`,
-        supportedChains: [1, 8453, 42161, 10],
-        supportedTokens: {
-          '1': ['0x0000000000000000000000000000000000000000'],
-          '8453': ['0x0000000000000000000000000000000000000000'],
-          '42161': ['0x0000000000000000000000000000000000000000'],
-        },
-        liquidity: [
-          { chainId: 8453, token: '0x0000000000000000000000000000000000000000', amount: '100000000000000000000', lastUpdated: Date.now() },
-          { chainId: 42161, token: '0x0000000000000000000000000000000000000000', amount: '80000000000000000000', lastUpdated: Date.now() },
-        ],
-        reputation: 90 + Math.random() * 10,
-        totalFills: 1000 + Math.floor(Math.random() * 500),
-        successfulFills: 980 + Math.floor(Math.random() * 20),
-        failedFills: 10 + Math.floor(Math.random() * 10),
-        successRate: 98 + Math.random() * 2,
-        avgResponseMs: 150 + Math.random() * 100,
-        avgFillTimeMs: 20000 + Math.random() * 20000,
-        totalVolumeUsd: (Math.random() * 10000000).toFixed(0),
-        totalFeesEarnedUsd: (Math.random() * 50000).toFixed(0),
-        status: 'active',
-        stakedAmount: (10n ** 18n * BigInt(5 + Math.floor(Math.random() * 15))).toString(),
-        registeredAt: Date.now() - Math.random() * 120 * 24 * 60 * 60 * 1000,
-        lastActiveAt: Date.now(),
-      };
-      solverCache.set(address.toLowerCase(), placeholder);
-      return placeholder;
-    }
-    
+    // Solver not found on-chain - return null (no fake data)
     return solverCache.get(address.toLowerCase()) || null;
   }
 
@@ -195,8 +160,8 @@ export class SolverService {
     token: string
   ): Promise<Solver[]> {
     const allSolvers = await this.listSolvers({ active: true });
-    const srcChain = sourceChain as 1 | 8453 | 84532 | 42161 | 10 | 1337 | 420691 | 420690;
-    const destChain = destinationChain as 1 | 8453 | 84532 | 42161 | 10 | 1337 | 420691 | 420690;
+    const srcChain = sourceChain as 1 | 11155111 | 42161 | 10 | 1337 | 420691 | 420690;
+    const destChain = destinationChain as 1 | 11155111 | 42161 | 10 | 1337 | 420691 | 420690;
     
     return allSolvers.filter(solver => {
       const supportsSource = solver.supportedChains.includes(srcChain);

@@ -43,7 +43,7 @@ type TxStatus = 'idle' | 'preparing' | 'pending' | 'confirming' | 'success' | 'e
 
 export function CreateIntent({ onClose }: CreateIntentProps) {
   const { data: chains } = useSupportedChains();
-  const [sourceChain, setSourceChain] = useState(8453);
+  const [sourceChain, setSourceChain] = useState(1);
   const [destChain, setDestChain] = useState(42161);
   const [amount, setAmount] = useState('0.1');
   const [token] = useState('0x0000000000000000000000000000000000000000');

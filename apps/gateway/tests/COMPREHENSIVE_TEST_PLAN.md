@@ -61,7 +61,7 @@
 
 ---
 
-### Tab 2: **Bridge from Base** ✅ PARTIAL
+### Tab 2: **Bridge from Ethereum** ✅ PARTIAL
 
 #### Token Selection
 - [x] Display bridge interface
@@ -72,7 +72,7 @@
 - [ ] **TODO**: Test switching between "Select Token" and "Custom Address" modes
 - [ ] **TODO**: Test loading token metadata for custom address
 - [ ] **TODO**: Test invalid custom token address errors
-- [ ] **TODO**: Test token not on Base network error
+- [ ] **TODO**: Test token not on Ethereum network error
 
 #### Bridge Transaction
 - [x] Validate amount input

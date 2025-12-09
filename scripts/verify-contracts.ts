@@ -16,8 +16,8 @@
 import { $ } from "bun";
 import { resolve } from "path";
 import { readFileSync, existsSync } from "fs";
-import { getChainConfig } from "../packages/config";
-import type { NetworkType } from "../types";
+import { getChainConfig } from "@jejunetwork/config";
+import type { NetworkType } from "@jejunetwork/types";
 
 async function main() {
   const network = (process.argv[2] || process.env.NETWORK || 'testnet') as NetworkType;
@@ -37,12 +37,12 @@ async function main() {
   console.log("=".repeat(60));
 
   const config = getChainConfig(network);
-  const contractsDir = resolve(process.cwd(), "contracts");
+  const contractsDir = resolve(process.cwd(), "packages/contracts");
   
   // Check for API key
-  const apiKey = process.env.BASESCAN_API_KEY;
+  const apiKey = process.env.ETHERSCAN_API_KEY;
   if (!apiKey && network === 'mainnet') {
-    console.error("❌ BASESCAN_API_KEY environment variable required for mainnet");
+    console.error("❌ ETHERSCAN_API_KEY environment variable required for mainnet");
     process.exit(1);
   }
   
@@ -98,9 +98,9 @@ async function main() {
           } else {
             console.log(`  ❌ ${name} verification failed`);
             if (network === 'mainnet') {
-              console.log(`     View at: https://basescan.org/address/${address}`);
+              console.log(`     View at: https://etherscan.io/address/${address}`);
             } else {
-              console.log(`     View at: https://sepolia.basescan.org/address/${address}`);
+              console.log(`     View at: https://sepolia.etherscan.io/address/${address}`);
             }
             failed++;
           }
@@ -124,11 +124,11 @@ async function main() {
   if (failed === 0 && verified > 0) {
     console.log("\n✅ All contracts verified successfully!");
     if (network === 'mainnet') {
-      console.log("\nView on BaseScan:");
-      console.log("  https://basescan.org/");
+      console.log("\nView on Etherscan:");
+      console.log("  https://etherscan.io/");
     } else {
-      console.log("\nView on Base Sepolia:");
-      console.log("  https://sepolia.basescan.org/");
+      console.log("\nView on Sepolia Etherscan:");
+      console.log("  https://sepolia.etherscan.io/");
     }
   } else if (verified === 0) {
     console.log("\n⚠️  No contracts were verified. Deploy contracts first.");

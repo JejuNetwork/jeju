@@ -2,7 +2,7 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
-      "name": "@jeju/monitoring",
+      "name": "@jejunetwork/monitoring",
       "dependencies": {
         "cors": "^2.8.5",
         "express": "^4.18.2",

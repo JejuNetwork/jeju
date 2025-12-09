@@ -1,5 +1,5 @@
 /**
-import type { Page } from "@playwright/test";
+* @fileoverview Test file
  * End-to-End Complete Journey
  * Tests FULL user journey across all features in sequence
  */
@@ -272,4 +272,5 @@ test.describe('End-to-End Complete Journey', () => {
     
     console.log('✅ Rapid action sequence completed without issues')
   })
-27-end-to-end-journey.spec.ts.backup
+
+})

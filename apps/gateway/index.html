@@ -2,9 +2,19 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Gateway Portal - Jeju Network</title>
-    <meta name="description" content="Bring your tokens. Power the chain. Bridge from Base, deploy paymasters, earn LP rewards." />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#8b5cf6" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Agent Bazaar - Jeju Gateway</title>
+    <meta name="description" content="Discover AI agents, cross-chain transfers, deploy paymasters, and earn rewards in the Jeju ecosystem." />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <script>
+      (function() {
+        const theme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

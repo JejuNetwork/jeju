@@ -4,7 +4,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { captureScreenshot, captureUserFlow } from '../../../../packages/tests/shared/helpers/screenshots';
+import { captureScreenshot, captureUserFlow } from '@jejunetwork/tests/helpers/screenshots';
 
 test.describe('My NFTs Page', () => {
   test.beforeEach(async ({ page }) => {

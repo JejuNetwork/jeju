@@ -38,24 +38,24 @@ contract ServiceRegistry is Ownable, Pausable, ReentrancyGuard {
     // ============ Structs ============
 
     struct ServiceConfig {
-        string category;                // Service category (e.g., "ai", "compute", "storage", "game")
-        uint256 basePrice;              // Base price in payment tokens (18 decimals)
-        uint256 demandMultiplier;       // Current demand multiplier (basis points)
-        uint256 totalUsageCount;        // Total times this service has been used
-        uint256 totalRevenue;           // Total revenue generated in payment tokens
-        bool isActive;                  // Whether service is accepting requests
-        uint256 minPrice;               // Minimum price floor
-        uint256 maxPrice;               // Maximum price ceiling
-        address provider;               // Service provider address
-        uint256 providerAgentId;        // ERC-8004 agent ID (0 if not linked)
-        uint256 registeredAt;           // Block timestamp when registered
+        string category; // Service category (e.g., "ai", "compute", "storage", "game")
+        uint256 basePrice; // Base price in payment tokens (18 decimals)
+        uint256 demandMultiplier; // Current demand multiplier (basis points)
+        uint256 totalUsageCount; // Total times this service has been used
+        uint256 totalRevenue; // Total revenue generated in payment tokens
+        bool isActive; // Whether service is accepting requests
+        uint256 minPrice; // Minimum price floor
+        uint256 maxPrice; // Maximum price ceiling
+        address provider; // Service provider address
+        uint256 providerAgentId; // ERC-8004 agent ID (0 if not linked)
+        uint256 registeredAt; // Block timestamp when registered
     }
 
     struct UserUsage {
-        uint256 totalSpent;             // Total tokens spent by user
-        uint256 requestCount;           // Total requests made
-        uint256 lastUsedBlock;          // Last block user used service
-        uint256 volumeDiscount;         // User's volume discount (basis points)
+        uint256 totalSpent; // Total tokens spent by user
+        uint256 requestCount; // Total requests made
+        uint256 lastUsedBlock; // Last block user used service
+        uint256 volumeDiscount; // User's volume discount (basis points)
     }
 
     struct UsageRecord {
@@ -89,20 +89,20 @@ contract ServiceRegistry is Ownable, Pausable, ReentrancyGuard {
 
     /// @notice Volume discount tiers (spending thresholds in tokens)
     uint256[] public volumeTiers = [
-        0,                  // 0%    - 0 spent
-        1000 * 1e18,       // 5%    - 1,000 tokens
-        5000 * 1e18,       // 10%   - 5,000 tokens
-        10000 * 1e18,      // 15%   - 10,000 tokens
-        50000 * 1e18       // 20%   - 50,000 tokens
+        0, // 0%    - 0 spent
+        1000 * 1e18, // 5%    - 1,000 tokens
+        5000 * 1e18, // 10%   - 5,000 tokens
+        10000 * 1e18, // 15%   - 10,000 tokens
+        50000 * 1e18 // 20%   - 50,000 tokens
     ];
 
     /// @notice Volume discount rates (basis points)
     uint256[] public volumeDiscounts = [
-        0,      // 0% discount
-        500,    // 5% discount
-        1000,   // 10% discount
-        1500,   // 15% discount
-        2000    // 20% discount
+        0, // 0% discount
+        500, // 5% discount
+        1000, // 10% discount
+        1500, // 15% discount
+        2000 // 20% discount
     ];
 
     /// @notice Treasury address for revenue collection
@@ -131,25 +131,13 @@ contract ServiceRegistry is Ownable, Pausable, ReentrancyGuard {
         address provider
     );
 
-    event ServicePriceUpdated(
-        string indexed serviceName,
-        uint256 oldPrice,
-        uint256 newPrice
-    );
+    event ServicePriceUpdated(string indexed serviceName, uint256 oldPrice, uint256 newPrice);
 
     event ServiceUsageRecorded(
-        address indexed user,
-        string serviceName,
-        uint256 cost,
-        bytes32 sessionId,
-        uint256 volumeDiscount
+        address indexed user, string serviceName, uint256 cost, bytes32 sessionId, uint256 volumeDiscount
     );
 
-    event DemandMultiplierUpdated(
-        string indexed serviceName,
-        uint256 oldMultiplier,
-        uint256 newMultiplier
-    );
+    event DemandMultiplierUpdated(string indexed serviceName, uint256 oldMultiplier, uint256 newMultiplier);
 
     event VolumeTiersUpdated(uint256[] newTiers, uint256[] newDiscounts);
     event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
@@ -170,7 +158,6 @@ contract ServiceRegistry is Ownable, Pausable, ReentrancyGuard {
     error InvalidCategory();
     error AgentRequired();
     error InvalidAgentId();
-    error NotAgentOwner();
 
     // ============ Constructor ============
 
@@ -220,10 +207,10 @@ contract ServiceRegistry is Ownable, Pausable, ReentrancyGuard {
     ) external onlyOwner {
         if (address(identityRegistry) == address(0)) revert InvalidTreasuryAddress();
         if (!identityRegistry.agentExists(providerAgentId)) revert InvalidAgentId();
-        
+
         address provider = identityRegistry.ownerOf(providerAgentId);
         _registerServiceInternal(serviceName, category, basePrice, minPrice, maxPrice, provider, providerAgentId);
-        
+
         // Track services by agent
         agentServices[providerAgentId].push(serviceName);
     }
@@ -244,7 +231,7 @@ contract ServiceRegistry is Ownable, Pausable, ReentrancyGuard {
         if (basePrice == 0 || minPrice == 0 || maxPrice == 0) revert InvalidPrice(0);
         if (basePrice < minPrice || basePrice > maxPrice) revert InvalidPrice(basePrice);
         if (bytes(category).length == 0) revert InvalidCategory();
-        
+
         // If agent registration is required and no agent provided, revert
         if (requireAgentRegistration && providerAgentId == 0) revert AgentRequired();
 
@@ -321,11 +308,7 @@ contract ServiceRegistry is Ownable, Pausable, ReentrancyGuard {
      * @param serviceName Service that was used
      * @param cost Cost charged to user
      */
-    function recordUsage(
-        address user,
-        string calldata serviceName,
-        uint256 cost
-    ) external nonReentrant whenNotPaused {
+    function recordUsage(address user, string calldata serviceName, uint256 cost) external nonReentrant whenNotPaused {
         if (!authorizedCallers[msg.sender]) revert UnauthorizedCaller();
 
         ServiceConfig storage service = services[serviceName];
@@ -346,13 +329,8 @@ contract ServiceRegistry is Ownable, Pausable, ReentrancyGuard {
         usage.volumeDiscount = _calculateVolumeDiscount(usage.totalSpent);
 
         // Record for audit trail
-        bytes32 sessionId = keccak256(abi.encodePacked(
-            user,
-            serviceName,
-            block.timestamp,
-            block.number,
-            usage.requestCount
-        ));
+        bytes32 sessionId =
+            keccak256(abi.encodePacked(user, serviceName, block.timestamp, block.number, usage.requestCount));
 
         usageRecords[sessionId] = UsageRecord({
             user: user,
@@ -438,10 +416,7 @@ contract ServiceRegistry is Ownable, Pausable, ReentrancyGuard {
      * @param newTiers New spending thresholds
      * @param newDiscounts New discount rates (basis points)
      */
-    function updateVolumeTiers(
-        uint256[] calldata newTiers,
-        uint256[] calldata newDiscounts
-    ) external onlyOwner {
+    function updateVolumeTiers(uint256[] calldata newTiers, uint256[] calldata newDiscounts) external onlyOwner {
         if (newTiers.length != newDiscounts.length) revert InvalidTierArrays();
         if (newTiers.length == 0) revert InvalidTierArrays();
 

@@ -1,0 +1,29 @@
+# OP-Batcher values for mainnet
+
+replicaCount: 2
+
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+  requests:
+    cpu: 1000m
+    memory: 2Gi
+
+nodeSelector:
+  role: core
+
+tolerations:
+  - key: workload
+    operator: Equal
+    value: core
+    effect: NoSchedule
+
+config:
+  l1:
+    rpcUrl: "https://eth.llamarpc.com"
+  dataAvailability:
+    type: "eigenda"
+
+
+

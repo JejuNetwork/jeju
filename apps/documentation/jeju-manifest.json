@@ -17,6 +17,16 @@
   "optional": true,
   "enabled": true,
   "autoStart": true,
-  "tags": ["docs"]
+  "tags": ["docs"],
+  "agent": {
+    "enabled": true,
+    "tags": ["jeju-app", "documentation"],
+    "metadata": {
+      "category": "documentation",
+      "provider": "jeju-network"
+    },
+    "trustModels": ["open"],
+    "jnsName": "docs.jeju"
+  }
 }
 

@@ -18,20 +18,26 @@ export const DEFAULT_TEST_WALLET = {
 
 // App ports
 export const APP_PORTS = {
-  predimarket: 4005,
+  gateway: 4001,
+  documentation: 3002,
   bazaar: 4006,
-  gateway: 5173,
-  ehorse: 5700,
-  leaderboard: 3000,
-  documentation: 4004,
+  compute: 4007,
+  storage: 4100,
+  intents: 4010,
+  intentsViewer: 4011,
+  indexer: 4351,
 };
 
 // App URLs
 export const APP_URLS = {
-  predimarket: `http://localhost:${APP_PORTS.predimarket}`,
-  bazaar: `http://localhost:${APP_PORTS.bazaar}`,
   gateway: `http://localhost:${APP_PORTS.gateway}`,
-  ehorse: `http://localhost:${APP_PORTS.ehorse}`,
+  documentation: `http://localhost:${APP_PORTS.documentation}`,
+  bazaar: `http://localhost:${APP_PORTS.bazaar}`,
+  compute: `http://localhost:${APP_PORTS.compute}`,
+  storage: `http://localhost:${APP_PORTS.storage}`,
+  intents: `http://localhost:${APP_PORTS.intents}`,
+  intentsViewer: `http://localhost:${APP_PORTS.intentsViewer}`,
+  indexer: `http://localhost:${APP_PORTS.indexer}`,
 };
 
 // Test timeouts

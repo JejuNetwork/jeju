@@ -1,6 +1,6 @@
 /**
  * @fileoverview Contract types for Jeju smart contracts
- * @module @jeju/contracts/types
+ * @module @jejunetwork/contracts/types
  */
 
 import type { Abi, Address } from 'viem';
@@ -11,20 +11,27 @@ import type { Abi, Address } from 'viem';
 
 export type NetworkName = 'localnet' | 'testnet' | 'mainnet';
 
-export type ChainId = 1337 | 420691 | 84532 | 8453;
+export type ChainId = 1337 | 31337 | 420690 | 420691 | 11155111 | 1;
 
 export const CHAIN_IDS = {
+  // Local development
   localnet: 1337,
-  testnetL3: 420691,
-  testnetL1: 84532, // Base Sepolia
-  mainnetL1: 8453,  // Base Mainnet
+  anvil: 31337,         // Foundry Anvil
+  // Jeju networks
+  testnet: 420690,      // Jeju Testnet
+  testnetL2: 420691,    // Jeju Testnet L2 (legacy)
+  // Ethereum networks
+  sepolia: 11155111,    // Sepolia Testnet
+  mainnetL1: 1,         // Ethereum Mainnet
 } as const;
 
 export const NETWORK_BY_CHAIN_ID: Record<ChainId, NetworkName> = {
   1337: 'localnet',
+  31337: 'localnet',
+  420690: 'testnet',
   420691: 'testnet',
-  84532: 'testnet',
-  8453: 'mainnet',
+  11155111: 'testnet',
+  1: 'mainnet',
 };
 
 // ============================================================================
@@ -129,6 +136,18 @@ export interface L1Deployment {
   addressManager?: Address;
 }
 
+export interface ModerationSystemDeployment {
+  banManager?: Address;
+  moderationMarketplace?: Address;
+  reportingSystem?: Address;
+  reputationLabelManager?: Address;
+  predimarket?: Address;
+  registryGovernance?: Address;
+  treasury?: Address;
+  deployedAt?: string;
+  chainId?: number;
+}
+
 // ============================================================================
 // Contract Address Types
 // ============================================================================
@@ -140,6 +159,12 @@ export interface ContractAddresses {
   validationRegistry?: Address;
   serviceRegistry?: Address;
   
+  // Moderation
+  banManager?: Address;
+  moderationMarketplace?: Address;
+  reportingSystem?: Address;
+  reputationLabelManager?: Address;
+  
   // DeFi
   poolManager?: Address;
   swapRouter?: Address;
@@ -150,6 +175,7 @@ export interface ContractAddresses {
   
   // Marketplace
   marketplace?: Address;
+  predimarket?: Address;
   
   // Token Factory
   erc20Factory?: Address;

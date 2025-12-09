@@ -20,7 +20,9 @@ contract CreditManagerTest is Test {
     address constant ETH_ADDRESS = address(0);
 
     event CreditDeposited(address indexed user, address indexed token, uint256 amount, uint256 newBalance);
-    event CreditDeducted(address indexed user, address indexed service, address indexed token, uint256 amount, uint256 remainingBalance);
+    event CreditDeducted(
+        address indexed user, address indexed service, address indexed token, uint256 amount, uint256 remainingBalance
+    );
     event BalanceLow(address indexed user, address indexed token, uint256 balance, uint256 recommended);
 
     function setUp() public {
@@ -53,10 +55,10 @@ contract CreditManagerTest is Test {
 
         vm.startPrank(alice);
         usdc.approve(address(creditManager), depositAmount);
-        
+
         vm.expectEmit(true, true, false, true);
         emit CreditDeposited(alice, address(usdc), depositAmount, depositAmount);
-        
+
         creditManager.depositUSDC(depositAmount);
         vm.stopPrank();
 
@@ -112,11 +114,11 @@ contract CreditManagerTest is Test {
 
         // Service deducts
         uint256 deductAmount = 10 * 1e6;
-        
+
         vm.prank(service1);
         vm.expectEmit(true, true, true, true);
         emit CreditDeducted(alice, service1, address(usdc), deductAmount, depositAmount - deductAmount);
-        
+
         creditManager.deductCredit(alice, address(usdc), deductAmount);
 
         assertEq(creditManager.balances(alice, address(usdc)), depositAmount - deductAmount);
@@ -157,7 +159,7 @@ contract CreditManagerTest is Test {
         vm.stopPrank();
 
         address unauthorized = makeAddr("unauthorized");
-        
+
         vm.prank(unauthorized);
         vm.expectRevert(abi.encodeWithSelector(CreditManager.UnauthorizedService.selector, unauthorized));
         creditManager.deductCredit(alice, address(usdc), 10 * 1e6);
@@ -171,13 +173,7 @@ contract CreditManagerTest is Test {
 
         vm.prank(service1);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                CreditManager.InsufficientCredit.selector,
-                alice,
-                address(usdc),
-                100 * 1e6,
-                10 * 1e6
-            )
+            abi.encodeWithSelector(CreditManager.InsufficientCredit.selector, alice, address(usdc), 100 * 1e6, 10 * 1e6)
         );
         creditManager.deductCredit(alice, address(usdc), 100 * 1e6);
     }
@@ -193,7 +189,7 @@ contract CreditManagerTest is Test {
         vm.prank(service1);
         vm.expectEmit(true, true, false, false);
         emit BalanceLow(alice, address(usdc), 0, 0);
-        
+
         creditManager.deductCredit(alice, address(usdc), 1.5e6);
     }
 
@@ -201,13 +197,13 @@ contract CreditManagerTest is Test {
 
     function test_Withdraw() public {
         uint256 depositAmount = 100 * 1e6;
-        
+
         vm.startPrank(alice);
         usdc.approve(address(creditManager), depositAmount);
         creditManager.depositUSDC(depositAmount);
 
         uint256 balanceBefore = usdc.balanceOf(alice);
-        
+
         creditManager.withdraw(address(usdc), 50 * 1e6);
         vm.stopPrank();
 
@@ -233,7 +229,7 @@ contract CreditManagerTest is Test {
 
     function test_GetBalance() public {
         uint256 amount = 100 * 1e6;
-        
+
         vm.startPrank(alice);
         usdc.approve(address(creditManager), amount);
         creditManager.depositUSDC(amount);
@@ -245,7 +241,7 @@ contract CreditManagerTest is Test {
 
     function test_GetAllBalances() public {
         vm.startPrank(alice);
-        
+
         // Deposit USDC
         usdc.approve(address(creditManager), 100 * 1e6);
         creditManager.depositUSDC(100 * 1e6);
@@ -256,7 +252,7 @@ contract CreditManagerTest is Test {
 
         // Deposit ETH
         creditManager.depositETH{value: 1 ether}();
-        
+
         vm.stopPrank();
 
         (uint256 usdcBal, uint256 elizaBal, uint256 ethBal) = creditManager.getAllBalances(alice);
@@ -368,10 +364,9 @@ contract CreditManagerTest is Test {
 
     function test_ReceiveETH() public {
         vm.prank(alice);
-        (bool success, ) = address(creditManager).call{value: 1 ether}("");
-        
+        (bool success,) = address(creditManager).call{value: 1 ether}("");
+
         assertTrue(success);
         assertEq(creditManager.balances(alice, ETH_ADDRESS), 1 ether);
     }
 }
-

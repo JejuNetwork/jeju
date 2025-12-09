@@ -14,7 +14,7 @@
 
 import { describe, test, expect, beforeAll } from 'bun:test';
 import { ethers } from 'ethers';
-import { Logger } from '../../scripts/shared/logger';
+import { Logger } from '../../../scripts/shared/logger';
 
 const logger = new Logger('cloud-x402-e2e');
 

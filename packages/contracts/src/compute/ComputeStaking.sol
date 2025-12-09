@@ -236,11 +236,7 @@ contract ComputeStaking is Ownable, Pausable, ReentrancyGuard {
      * @param percentage Slash percentage (0-100)
      * @param reason Reason for slash
      */
-    function slash(
-        address account,
-        uint256 percentage,
-        string calldata reason
-    ) external nonReentrant {
+    function slash(address account, uint256 percentage, string calldata reason) external nonReentrant {
         if (!isGuardianActive[msg.sender] && msg.sender != owner()) revert NotGuardian();
         if (percentage > 100) percentage = 100;
 
@@ -340,12 +336,7 @@ contract ComputeStaking is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Get total staked amounts
      */
-    function getTotalStaked() external view returns (
-        uint256 user,
-        uint256 provider,
-        uint256 guardian,
-        uint256 total
-    ) {
+    function getTotalStaked() external view returns (uint256 user, uint256 provider, uint256 guardian, uint256 total) {
         return (
             totalUserStaked,
             totalProviderStaked,
@@ -401,4 +392,3 @@ contract ComputeStaking is Ownable, Pausable, ReentrancyGuard {
         return "1.0.0";
     }
 }
-

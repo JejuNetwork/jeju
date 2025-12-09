@@ -1,0 +1,22 @@
+# op-conductor testnet values
+replicaCount: 3
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+persistence:
+  enabled: true
+  storageClass: "gp3"
+  size: 10Gi
+
+config:
+  raft:
+    bootstrapCluster: true
+    clusterID: "jeju-testnet-sequencer"
+
+

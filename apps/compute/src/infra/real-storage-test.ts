@@ -102,7 +102,7 @@ export async function uploadToArweave(
 
   const receipt = await irys.upload(data, {
     tags: [
-      { name: 'App-Name', value: 'babylon' },
+      { name: 'App-Name', value: 'jeju-compute' },
       { name: 'Timestamp', value: Date.now().toString() },
     ],
   });

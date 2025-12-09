@@ -11,7 +11,7 @@
  */
 
 import { spawn } from 'bun'
-import { rawDeployments, isValidAddress } from '@jeju/contracts'
+import { rawDeployments, isValidAddress } from '@jejunetwork/contracts'
 
 const COLORS = {
   RESET: '\x1b[0m',
@@ -40,7 +40,7 @@ async function checkPrerequisites(): Promise<boolean> {
   
   console.log(`${COLORS.GREEN}✅ Localnet is running${COLORS.RESET}`)
 
-  // Check for deployed contracts using @jeju/contracts
+  // Check for deployed contracts using @jejunetwork/contracts
   const requiredDeployments = [
     { name: 'uniswap-v4', deployment: rawDeployments.uniswapV4_1337, key: 'swapRouter' },
     { name: 'bazaar-marketplace', deployment: rawDeployments.bazaarMarketplace1337, key: 'marketplace' },

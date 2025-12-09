@@ -1,46 +1,32 @@
 /**
- * x402 Payment Protocol for Premium Documentation Access
+ * x402 Payment Protocol for Documentation
+ * Re-exports shared implementation with Documentation-specific payment tiers
  */
 
-import { Address, parseEther } from 'viem';
+import { parseEther } from 'viem';
 
-export interface PaymentRequirements {
-  x402Version: number;
-  error: string;
-  accepts: PaymentScheme[];
-}
+// Re-export core x402 functionality
+export {
+  type PaymentRequirements,
+  type PaymentScheme,
+  type PaymentPayload,
+  parsePaymentHeader,
+  checkPayment,
+} from '../../../scripts/shared/x402';
 
-export interface PaymentScheme {
-  scheme: string;
-  network: string;
-  maxAmountRequired: string;
-  asset: Address;
-  payTo: Address;
-  resource: string;
-  description: string;
-  mimeType: string;
-  outputSchema: string | null;
-  maxTimeoutSeconds: number;
-}
+import { createPaymentRequirement as sharedCreatePaymentRequirement } from '../../../scripts/shared/x402';
+import type { Address } from 'viem';
 
-export interface PaymentPayload {
-  scheme: string;
-  network: string;
-  asset: Address;
-  payTo: Address;
-  amount: string;
-  resource: string;
-  nonce: string;
-  timestamp: number;
-  signature?: string;
-}
+// ============ Documentation-Specific Payment Tiers ============
 
 export const PAYMENT_TIERS = {
-  PREMIUM_DOCS: parseEther('0.01'), // 0.01 ETH for premium docs
-  API_DOCS: parseEther('0.005'), // 0.005 ETH for API docs
-  TUTORIALS: parseEther('0.02'), // 0.02 ETH for premium tutorials
-  EXAMPLES: parseEther('0.01'), // 0.01 ETH for code examples
+  PREMIUM_DOCS: parseEther('0.01'),
+  API_DOCS: parseEther('0.005'),
+  TUTORIALS: parseEther('0.02'),
+  EXAMPLES: parseEther('0.01'),
 } as const;
+
+// ============ Documentation-Specific Wrapper ============
 
 export function createPaymentRequirement(
   resource: string,
@@ -48,52 +34,11 @@ export function createPaymentRequirement(
   description: string,
   recipientAddress: Address,
   tokenAddress: Address = '0x0000000000000000000000000000000000000000',
-  network: string = 'jeju'
-): PaymentRequirements {
-  return {
-    x402Version: 1,
-    error: 'Payment required to access this resource',
-    accepts: [{
-      scheme: 'exact',
-      network,
-      maxAmountRequired: amount.toString(),
-      asset: tokenAddress,
-      payTo: recipientAddress,
-      resource,
-      description,
-      mimeType: 'text/markdown',
-      outputSchema: null,
-      maxTimeoutSeconds: 300,
-    }],
-  };
+  network: 'base-sepolia' | 'base' | 'jeju' | 'jeju-testnet' = 'jeju'
+) {
+  return sharedCreatePaymentRequirement(resource, amount, description, {
+    recipientAddress,
+    network,
+    serviceName: 'Documentation',
+  }, tokenAddress);
 }
-
-export function parsePaymentHeader(headerValue: string | null): PaymentPayload | null {
-  if (!headerValue) return null;
-  const parsed = JSON.parse(headerValue) as PaymentPayload;
-  if (!parsed || typeof parsed !== 'object') return null;
-  return parsed;
-}
-
-export async function checkPayment(
-  paymentHeader: string | null,
-  requiredAmount: bigint,
-  recipient: Address
-): Promise<{ paid: boolean; error?: string }> {
-  const payment = parsePaymentHeader(paymentHeader);
-  
-  if (!payment) {
-    return { paid: false, error: 'No payment' };
-  }
-
-  if (BigInt(payment.amount) < requiredAmount) {
-    return { paid: false, error: 'Insufficient amount' };
-  }
-
-  if (payment.payTo.toLowerCase() !== recipient.toLowerCase()) {
-    return { paid: false, error: 'Invalid recipient' };
-  }
-
-  return { paid: true };
-}
-

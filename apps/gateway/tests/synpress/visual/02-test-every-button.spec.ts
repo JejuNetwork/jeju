@@ -5,7 +5,7 @@
 
 import { testWithSynpress } from '@synthetixio/synpress';
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
-import { basicSetup } from '../../synpress.config'
+import { basicSetup } from '../../../synpress.config'
 import { connectWallet } from '../helpers/wallet-helpers';
 import { GATEWAY_URL } from '../fixtures/test-data';
 
@@ -27,7 +27,7 @@ test.describe('EVERY BUTTON TEST - Complete Button Coverage', () => {
     // ===================
     const tabs = [
       'Registered Tokens',
-      'Bridge from Base',
+      'Bridge from Ethereum',
       'Deploy Paymaster',
       'Add Liquidity',
       'My Earnings',
@@ -94,7 +94,7 @@ test.describe('EVERY BUTTON TEST - Complete Button Coverage', () => {
     // ===================
     // BRIDGE MODE BUTTONS (2 modes)
     // ===================
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(500);
 
     const modeButtons = [

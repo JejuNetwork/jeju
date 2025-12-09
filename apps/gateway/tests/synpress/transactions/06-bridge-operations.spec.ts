@@ -1,14 +1,14 @@
 /**
  * Bridge Transaction Tests
- * Tests token bridging from Base to Jeju (approve + bridge)
+ * Tests token bridging from Ethereum to Jeju (approve + bridge)
  * 
  * NOTE: Currently tests UI and approval flow
- * Full bridge requires Base testnet connection
+ * Full bridge requires Sepolia testnet connection
  */
 
 import { testWithSynpress } from '@synthetixio/synpress';
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
-import { basicSetup } from '../../synpress.config'
+import { basicSetup } from '../../../synpress.config'
 import { connectWallet } from '../helpers/wallet-helpers';
 import { executeTransaction } from '../helpers/transaction-helpers';
 import { GATEWAY_URL, PROTOCOL_TOKENS, TEST_AMOUNTS } from '../fixtures/test-data';
@@ -20,7 +20,7 @@ test.describe('Bridge UI and Validation', () => {
   test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
   });
 
@@ -127,7 +127,7 @@ test.describe('Bridge Transaction Approval', () => {
   test('should approve CLANKER for bridge', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
     // Select CLANKER
@@ -173,7 +173,7 @@ test.describe('Bridge Transaction Approval', () => {
   });
 
   test.skip('should execute bridge after approval', async ({ page, metamask }) => {
-    // TODO: Implement full bridge flow when Base testnet available
+    // TODO: Implement full bridge flow when Sepolia testnet available
     // Would require:
     // 1. Approval transaction (done above)
     // 2. Bridge transaction
@@ -181,7 +181,7 @@ test.describe('Bridge Transaction Approval', () => {
     // 4. Verify receipt on Jeju
     // 5. Check balance updated
 
-    console.log('⚠️  Full bridge transaction - requires Base testnet setup');
+    console.log('⚠️  Full bridge transaction - requires Sepolia testnet setup');
     console.log('   See TODO in COMPREHENSIVE_TEST_PLAN.md');
   });
 });
@@ -190,7 +190,7 @@ test.describe('Bridge Error Handling', () => {
   test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
   });
 
@@ -220,7 +220,7 @@ test.describe('Bridge Error Handling', () => {
 
     // Warning should be visible
     await expect(page.getByText(/elizaOS is a native Jeju token/i)).toBeVisible();
-    await expect(page.getByText(/cannot be bridged from Base/i)).toBeVisible();
+    await expect(page.getByText(/cannot be bridged from Ethereum/i)).toBeVisible();
 
     console.log('✅ elizaOS correctly excluded from bridge');
   });
@@ -253,7 +253,7 @@ test.describe('Bridge History Display', () => {
   test('should show bridge history section', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
     // Scroll to history section (if visible)

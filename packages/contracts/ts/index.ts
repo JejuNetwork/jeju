@@ -1,6 +1,6 @@
 /**
- * @fileoverview Main exports for @jeju/contracts package
- * @module @jeju/contracts
+ * @fileoverview Main exports for @jejunetwork/contracts package
+ * @module @jejunetwork/contracts
  * 
  * This package provides:
  * - Contract ABIs for Jeju smart contracts
@@ -14,7 +14,7 @@
  *   ERC20Abi,
  *   IdentityRegistryAbi,
  *   CHAIN_IDS 
- * } from '@jeju/contracts';
+ * } from '@jejunetwork/contracts';
  * 
  * // Get all addresses for localnet
  * const addresses = getContractAddresses(1337);
@@ -43,17 +43,31 @@ export * from './types';
 // ============================================================================
 
 export {
+  // Core ABIs
   ERC20Abi,
   ERC20FactoryAbi,
   BazaarAbi,
   IdentityRegistryAbi,
   ERC20ReadAbi,
   ERC20WriteAbi,
+  // OIF (Open Intents Framework) ABIs
+  InputSettlerAbi,
+  OutputSettlerAbi,
+  SolverRegistryAbi,
+  SimpleOracleAbi,
+  HyperlaneOracleAbi,
+  SuperchainOracleAbi,
   // Full JSON exports
   ERC20AbiJson,
   ERC20FactoryAbiJson,
   BazaarAbiJson,
   IdentityRegistryAbiJson,
+  InputSettlerAbiJson,
+  OutputSettlerAbiJson,
+  SolverRegistryAbiJson,
+  SimpleOracleAbiJson,
+  HyperlaneOracleAbiJson,
+  SuperchainOracleAbiJson,
 } from './abis';
 
 // ============================================================================

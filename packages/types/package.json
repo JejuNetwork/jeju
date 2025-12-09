@@ -1,0 +1,76 @@
+{
+  "name": "@jejunetwork/types",
+  "version": "0.1.0",
+  "description": "TypeScript types for Jeju Network",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./chain": {
+      "import": "./dist/chain.js",
+      "types": "./dist/chain.d.ts"
+    },
+    "./compute": {
+      "import": "./dist/compute.js",
+      "types": "./dist/compute.d.ts"
+    },
+    "./contracts": {
+      "import": "./dist/contracts.js",
+      "types": "./dist/contracts.d.ts"
+    },
+    "./defi": {
+      "import": "./dist/defi.js",
+      "types": "./dist/defi.d.ts"
+    },
+    "./eil": {
+      "import": "./dist/eil.js",
+      "types": "./dist/eil.d.ts"
+    },
+    "./oif": {
+      "import": "./dist/oif.js",
+      "types": "./dist/oif.d.ts"
+    },
+    "./infrastructure": {
+      "import": "./dist/infrastructure.js",
+      "types": "./dist/infrastructure.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "bun run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elizaos/jeju.git",
+    "directory": "packages/types"
+  },
+  "keywords": [
+    "jeju",
+    "types",
+    "typescript",
+    "ethereum",
+    "oif",
+    "eil"
+  ],
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  },
+  "peerDependencies": {
+    "zod": ">=3.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
+

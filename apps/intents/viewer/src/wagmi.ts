@@ -4,7 +4,7 @@
 
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { http } from 'wagmi';
-import { base, baseSepolia, arbitrum, optimism, mainnet } from 'wagmi/chains';
+import { arbitrum, optimism, mainnet, sepolia } from 'wagmi/chains';
 import type { Chain } from 'wagmi/chains';
 
 // Custom Jeju chain definition
@@ -27,11 +27,10 @@ export const jeju: Chain = {
 export const config = getDefaultConfig({
   appName: 'Jeju Intent Viewer',
   projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'oif-viewer',
-  chains: [jeju, baseSepolia, base, arbitrum, optimism, mainnet],
+  chains: [jeju, sepolia, arbitrum, optimism, mainnet],
   transports: {
     [mainnet.id]: http(),
-    [base.id]: http(),
-    [baseSepolia.id]: http(),
+    [sepolia.id]: http(),
     [arbitrum.id]: http(),
     [optimism.id]: http(),
     [jeju.id]: http(import.meta.env.VITE_JEJU_RPC_URL || 'https://rpc.testnet.jeju.network'),
@@ -42,22 +41,21 @@ export const config = getDefaultConfig({
 export const OIF_CONTRACTS = {
   inputSettlers: {
     [jeju.id]: import.meta.env.VITE_OIF_INPUT_SETTLER_420690 as `0x${string}` | undefined,
-    [baseSepolia.id]: import.meta.env.VITE_OIF_INPUT_SETTLER_84532 as `0x${string}` | undefined,
-    [base.id]: import.meta.env.VITE_OIF_INPUT_SETTLER_8453 as `0x${string}` | undefined,
+    [sepolia.id]: import.meta.env.VITE_OIF_INPUT_SETTLER_11155111 as `0x${string}` | undefined,
+    [mainnet.id]: import.meta.env.VITE_OIF_INPUT_SETTLER_1 as `0x${string}` | undefined,
     [arbitrum.id]: import.meta.env.VITE_OIF_INPUT_SETTLER_42161 as `0x${string}` | undefined,
     [optimism.id]: import.meta.env.VITE_OIF_INPUT_SETTLER_10 as `0x${string}` | undefined,
   },
   outputSettlers: {
     [jeju.id]: import.meta.env.VITE_OIF_OUTPUT_SETTLER_420690 as `0x${string}` | undefined,
-    [baseSepolia.id]: import.meta.env.VITE_OIF_OUTPUT_SETTLER_84532 as `0x${string}` | undefined,
-    [base.id]: import.meta.env.VITE_OIF_OUTPUT_SETTLER_8453 as `0x${string}` | undefined,
+    [sepolia.id]: import.meta.env.VITE_OIF_OUTPUT_SETTLER_11155111 as `0x${string}` | undefined,
+    [mainnet.id]: import.meta.env.VITE_OIF_OUTPUT_SETTLER_1 as `0x${string}` | undefined,
     [arbitrum.id]: import.meta.env.VITE_OIF_OUTPUT_SETTLER_42161 as `0x${string}` | undefined,
     [optimism.id]: import.meta.env.VITE_OIF_OUTPUT_SETTLER_10 as `0x${string}` | undefined,
   },
   solverRegistries: {
     [jeju.id]: import.meta.env.VITE_OIF_SOLVER_REGISTRY_420690 as `0x${string}` | undefined,
-    [baseSepolia.id]: import.meta.env.VITE_OIF_SOLVER_REGISTRY_84532 as `0x${string}` | undefined,
-    [base.id]: import.meta.env.VITE_OIF_SOLVER_REGISTRY_8453 as `0x${string}` | undefined,
+    [mainnet.id]: import.meta.env.VITE_OIF_SOLVER_REGISTRY_1 as `0x${string}` | undefined,
   },
 } as const;
 

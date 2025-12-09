@@ -5,7 +5,7 @@
 
 import { testWithSynpress } from '@synthetixio/synpress';
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
-import { basicSetup } from '../../synpress.config';
+import { basicSetup } from '../../../synpress.config';
 import { connectWallet } from '../helpers/wallet-helpers';
 import { GATEWAY_URL } from '../fixtures/test-data';
 
@@ -83,7 +83,7 @@ test.describe('DROPDOWNS - Complete Coverage', () => {
   });
 
   test('should test token selector dropdown on Bridge', async ({ page }) => {
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
     const tokenSelector = page.locator('.input').first();
@@ -301,7 +301,7 @@ test.describe('TOGGLE BUTTONS - Complete Coverage', () => {
   });
 
   test('should test bridge mode toggle (Select Token / Custom Address)', async ({ page }) => {
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
     // Check for mode toggle buttons
@@ -376,7 +376,7 @@ test.describe('INPUT FIELDS - Complete Coverage', () => {
   test('should test all text input fields', async ({ page }) => {
     const inputTests = [
       { tab: 'Registered Tokens', placeholder: '0x...', type: 'address' },
-      { tab: 'Bridge from Base', placeholder: '0.0', type: 'amount' },
+      { tab: 'Bridge from Ethereum', placeholder: '0.0', type: 'amount' },
       { tab: 'Node Operators', placeholder: 'Amount', type: 'stake' },
       { tab: 'App Registry', placeholder: 'My Awesome App', type: 'name' },
     ];
@@ -445,7 +445,7 @@ test.describe('FORM SUBMIT BUTTONS - Complete Coverage', () => {
   test('should test submit button disabled states', async ({ page }) => {
     const forms = [
       { tab: 'Registered Tokens', button: 'Register Token' },
-      { tab: 'Bridge from Base', button: 'Bridge to Jeju' },
+      { tab: 'Bridge from Ethereum', button: 'Bridge to Jeju' },
       { tab: 'App Registry', button: 'Register App' },
     ];
 

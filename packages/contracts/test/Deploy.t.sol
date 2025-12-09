@@ -8,23 +8,22 @@ import "forge-std/Test.sol";
  * @notice Basic test to verify Foundry setup works
  */
 contract DeployTest is Test {
-    
     function setUp() public {
         // Setup runs before each test
     }
-    
-    function testFoundrySetup() public {
+
+    function testFoundrySetup() public pure {
         // Basic test to verify Foundry is working
-        assertTrue(true);
+        assert(true);
     }
-    
+
     function testDeployerHasBalance() public {
         // Check deployer has ETH
         address deployer = address(this);
         vm.deal(deployer, 100 ether);
         assertEq(deployer.balance, 100 ether);
     }
-    
+
     function testCanDeployContract() public {
         // Test contract deployment works
         TestContract test = new TestContract();
@@ -37,5 +36,3 @@ contract TestContract {
         return 42;
     }
 }
-
-

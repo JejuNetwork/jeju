@@ -1,5 +1,5 @@
 /**
-import type { Page } from "@playwright/test";
+* @fileoverview Test file
  * NFT Marketplace - Complete Flow
  * Tests browsing, purchasing, listing with real transactions
  */
@@ -193,4 +193,5 @@ test.describe('NFT Marketplace - Complete Flow', () => {
     
     expect(body).toBeTruthy()
   })
-26-nft-marketplace-complete.spec.ts.backup
+
+})

@@ -5,9 +5,9 @@
   "rpcUrl": "https://rpc.jeju.network",
   "wsUrl": "wss://ws.jeju.network",
   "explorerUrl": "https://explorer.jeju.network",
-  "l1ChainId": 8453,
-  "l1RpcUrl": "https://mainnet.base.org",
-  "l1Name": "Base",
+  "l1ChainId": 1,
+  "l1RpcUrl": "https://eth.llamarpc.com",
+  "l1Name": "Ethereum",
   "flashblocksEnabled": true,
   "flashblocksSubBlockTime": 200,
   "blockTime": 2000,
@@ -35,5 +35,3 @@
     }
   }
 }
-
-

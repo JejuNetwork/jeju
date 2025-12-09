@@ -1,0 +1,18 @@
+{
+  "network": "localnet",
+  "chainId": 1337,
+  "deployer": "",
+  "timestamp": "",
+  "status": "not-deployed",
+  "contracts": {
+    "solverRegistry": "",
+    "inputSettler": "",
+    "outputSettler": "",
+    "oracle": "",
+    "oracleType": "simple"
+  },
+  "notes": "Deploy with: forge script script/DeployOIF.s.sol --rpc-url http://localhost:8545 --broadcast"
+}
+
+
+

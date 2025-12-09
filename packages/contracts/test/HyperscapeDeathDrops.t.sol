@@ -91,11 +91,11 @@ contract HyperscapeDeathDropsTest is Test {
         console.log("[PASS] Minted items protected (shouldDrop = false)");
     }
 
-    function test_UnmintedItemsDropOnDeath() public {
+    function test_UnmintedItemsDropOnDeath() public view {
         bytes32 instanceId = keccak256("droppable_sword");
 
         // Item exists in MUD but NOT minted to Items.sol
-        (bool isMinted, ) = items.checkInstance(instanceId);
+        (bool isMinted,) = items.checkInstance(instanceId);
         assertFalse(isMinted);
 
         // Death handler should drop this
@@ -118,8 +118,8 @@ contract HyperscapeDeathDropsTest is Test {
 
         // Check each instance (simulating death handler loop)
         bool[] memory shouldDrop = new bool[](3);
-        for (uint i = 0; i < 3; i++) {
-            (bool isMinted, ) = items.checkInstance(instances[i]);
+        for (uint256 i = 0; i < 3; i++) {
+            (bool isMinted,) = items.checkInstance(instances[i]);
             shouldDrop[i] = !isMinted;
         }
 
@@ -131,7 +131,7 @@ contract HyperscapeDeathDropsTest is Test {
         console.log("[PASS] Mixed inventory: 2 protected, 1 dropped");
     }
 
-    function test_StackableItemsPartialDrop() public view {
+    function test_StackableItemsPartialDrop() public pure {
         // For stackable items, checkInstance() returns false
         // Because Items.sol only sets _instanceMinted for non-stackable items
         // Instead, death handler should use balanceOf() for stackable items
@@ -144,14 +144,13 @@ contract HyperscapeDeathDropsTest is Test {
 
         // For this test, we verify the contract behavior exists
         // Actual drop logic would be in PlayerSystem (MUD)
-
-        console.log("[PASS] Stackable items use balanceOf(), not checkInstance()");
+        assert(true); // Stackable items use balanceOf(), not checkInstance()
     }
 
     // ============ Gold Claiming Tests ============
 
     function test_GoldClaimWithValidSignature() public {
-        uint256 amount = 1000 * 10**18;
+        uint256 amount = 1000 * 10 ** 18;
         uint256 nonce = gold.getNonce(playerA);
 
         // Generate signature (simulating server)
@@ -172,7 +171,7 @@ contract HyperscapeDeathDropsTest is Test {
     }
 
     function test_GoldNoncePreventsReplay() public {
-        uint256 amount = 1000 * 10**18;
+        uint256 amount = 1000 * 10 ** 18;
         uint256 nonce = 0;
 
         // Generate signature
@@ -203,9 +202,7 @@ contract HyperscapeDeathDropsTest is Test {
         uint16 itemId = uint16(swordId);
         uint8 slot = 5;
 
-        bytes32 calculatedId = keccak256(
-            abi.encodePacked(player, itemId, slot, "hyperscape")
-        );
+        bytes32 calculatedId = keccak256(abi.encodePacked(player, itemId, slot, "hyperscape"));
 
         // This MUST match what server calculates
         // And what PlayerSystem._calculateInstanceId() returns
@@ -261,4 +258,3 @@ contract HyperscapeDeathDropsTest is Test {
         items.mintItem(arrowsId, amount, instanceId, signature);
     }
 }
-

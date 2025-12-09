@@ -32,9 +32,9 @@ bun test --watch
 
 ### Token Configuration
 - [x] elizaOS: Native Jeju token, not bridgeable
-- [x] CLANKER: Bridged from Base
-- [x] VIRTUAL: Bridged from Base
-- [x] CLANKERMON: Bridged from Base
+- [x] CLANKER: Bridged from Ethereum
+- [x] VIRTUAL: Bridged from Ethereum
+- [x] CLANKERMON: Bridged from Ethereum
 
 ### Features Tested
 - [x] Token balance display (all 4 tokens)
@@ -68,7 +68,7 @@ bun test --watch
 
 ### Scenario 2: CLANKER Bridged Flow
 1. Connect wallet
-2. Bridge CLANKER from Base
+2. Bridge CLANKER from Ethereum
 3. View CLANKER balance on Jeju
 4. Deploy paymaster for CLANKER
 5. Add ETH liquidity to CLANKER vault

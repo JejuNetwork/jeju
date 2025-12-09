@@ -38,7 +38,7 @@ export const PROTOCOL_TOKENS = {
     decimals: 18,
     priceUSD: 26.14,
     bridgeable: true,
-    baseAddress: '0x1bc0c42215582d5a085795f4badbac3ff36d1bcb',
+    l1Address: '0x1bc0c42215582d5a085795f4badbac3ff36d1bcb',
   },
   VIRTUAL: {
     symbol: 'VIRTUAL',
@@ -46,7 +46,7 @@ export const PROTOCOL_TOKENS = {
     decimals: 18,
     priceUSD: 1.85,
     bridgeable: true,
-    baseAddress: '0x44ff8620b8cA30902395A7bD3F2407e1A091BF73',
+    l1Address: '0x44ff8620b8cA30902395A7bD3F2407e1A091BF73',
   },
   CLANKERMON: {
     symbol: 'CLANKERMON',
@@ -54,7 +54,7 @@ export const PROTOCOL_TOKENS = {
     decimals: 18,
     priceUSD: 0.15,
     bridgeable: true,
-    baseAddress: '0x1cDbB57b12f732cFb4DC06f690ACeF476485B2a5',
+    l1Address: '0x1cDbB57b12f732cFb4DC06f690ACeF476485B2a5',
   },
 };
 

@@ -421,7 +421,7 @@ bun run test:e2e:multi-token   # 6min - token equality
 ### Short-Term (To Complete)
 1. **Deploy moderation contracts** - unlocks moderation tests
 2. **Start IPFS service** - unlocks storage tests
-3. **Setup Base testnet bridge** - unlocks real bridge tests
+3. **Setup Sepolia testnet bridge** - unlocks real bridge tests
 4. **Add governance contracts** - unlocks governance tests
 
 ### Long-Term (Nice to Have)

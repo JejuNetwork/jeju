@@ -14,8 +14,7 @@ const STATUS_CONFIG: Record<IntentStatus, { color: string; icon: React.ReactNode
 
 const CHAIN_NAMES: Record<number, string> = {
   1: 'Ethereum',
-  8453: 'Base',
-  84532: 'Base Sepolia',
+  11155111: 'Sepolia',
   42161: 'Arbitrum',
   10: 'Optimism',
   420691: 'Jeju',

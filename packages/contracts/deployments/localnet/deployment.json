@@ -1,0 +1,87 @@
+{
+  "network": "localnet",
+  "chainId": 1337,
+  "l1ChainId": 1337,
+  "deployedAt": null,
+  "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  
+  "tokens": {
+    "weth": "0x4200000000000000000000000000000000000006",
+    "usdc": null,
+    "elizaOS": null
+  },
+  
+  "bridge": {
+    "l2CrossDomainMessenger": "0x4200000000000000000000000000000000000007",
+    "l2StandardBridge": "0x4200000000000000000000000000000000000010",
+    "l2ToL1MessagePasser": "0x4200000000000000000000000000000000000016",
+    "l2ERC721Bridge": "0x4200000000000000000000000000000000000014"
+  },
+  
+  "infrastructure": {
+    "entryPoint": null,
+    "priceOracle": null,
+    "serviceRegistry": null,
+    "creditManager": null
+  },
+  
+  "paymaster": {
+    "tokenRegistry": null,
+    "paymasterFactory": null,
+    "liquidityPaymaster": null,
+    "multiTokenPaymaster": null
+  },
+  
+  "registry": {
+    "identityRegistry": "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853",
+    "reputationRegistry": null,
+    "validationRegistry": null,
+    "registryGovernance": null
+  },
+  
+  "defi": {
+    "liquidityVault": null,
+    "feeDistributor": null,
+    "poolManager": null,
+    "swapRouter": null,
+    "positionManager": null,
+    "quoterV4": null,
+    "stateView": null
+  },
+  
+  "nodeStaking": {
+    "nodeStakingManager": null,
+    "nodePerformanceOracle": null
+  },
+  
+  "moderation": {
+    "banManager": null,
+    "reputationLabelManager": null,
+    "reportingSystem": null
+  },
+  
+  "compute": {
+    "computeRegistry": null,
+    "computeRental": null,
+    "ledgerManager": null,
+    "inferenceServing": null,
+    "computeStaking": null
+  },
+  
+  "oif": {
+    "solverRegistry": null,
+    "inputSettler": null,
+    "outputSettler": null,
+    "oracle": null
+  },
+  
+  "games": {
+    "bazaarMarketplace": null,
+    "goldToken": null,
+    "itemsNFT": null,
+    "predimarket": null
+  },
+  
+  "_note": "Auto-populated by bootstrap-localnet-complete.ts on first run of 'bun run dev'"
+}
+

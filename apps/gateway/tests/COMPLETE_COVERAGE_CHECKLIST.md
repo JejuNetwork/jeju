@@ -19,7 +19,7 @@ This document maps EVERY element that needs testing in Gateway Portal.
 - [ ] Register token form - Screenshot ✅
 - [ ] Empty state (no tokens) - Screenshot if applicable
 
-### Tab 2: Bridge from Base
+### Tab 2: Bridge from Ethereum
 - [ ] Bridge interface - Screenshot ✅
 - [ ] Token dropdown open - Screenshot ✅
 - [ ] Token selected (CLANKER) - Screenshot ✅
@@ -76,7 +76,7 @@ This document maps EVERY element that needs testing in Gateway Portal.
 
 ### Navigation Buttons (7)
 - [x] Registered Tokens - Click and verify ✅
-- [x] Bridge from Base - Click and verify ✅
+- [x] Bridge from Ethereum - Click and verify ✅
 - [x] Deploy Paymaster - Click and verify ✅
 - [x] Add Liquidity - Click and verify ✅
 - [x] My Earnings - Click and verify ✅

@@ -1,6 +1,6 @@
 /**
  * @fileoverview Deployment address exports for Jeju contracts
- * @module @jeju/contracts/deployments
+ * @module @jejunetwork/contracts/deployments
  */
 
 import type { Address } from 'viem';
@@ -35,39 +35,29 @@ import elizaToken1337 from '../deployments/eliza-token-1337.json';
 // Typed Deployment Exports
 // ============================================================================
 
-export const uniswapV4Deployments: Record<ChainId, UniswapV4Deployment> = {
+export const uniswapV4Deployments: Partial<Record<ChainId, UniswapV4Deployment>> = {
   1337: uniswapV4_1337 as UniswapV4Deployment,
   420691: uniswapV4_420691 as UniswapV4Deployment,
-  84532: {} as UniswapV4Deployment, // Base Sepolia - not deployed
-  8453: {} as UniswapV4Deployment,  // Base Mainnet - not deployed
 };
 
-export const bazaarMarketplaceDeployments: Record<ChainId, BazaarMarketplaceDeployment> = {
+export const bazaarMarketplaceDeployments: Partial<Record<ChainId, BazaarMarketplaceDeployment>> = {
   1337: bazaarMarketplace1337 as BazaarMarketplaceDeployment,
-  420691: bazaarMarketplace1337 as BazaarMarketplaceDeployment, // Same for L3
-  84532: {} as BazaarMarketplaceDeployment,
-  8453: {} as BazaarMarketplaceDeployment,
+  420691: bazaarMarketplace1337 as BazaarMarketplaceDeployment,
 };
 
-export const erc20FactoryDeployments: Record<ChainId, ERC20FactoryDeployment> = {
+export const erc20FactoryDeployments: Partial<Record<ChainId, ERC20FactoryDeployment>> = {
   1337: erc20Factory1337 as ERC20FactoryDeployment,
   420691: erc20Factory1337 as ERC20FactoryDeployment,
-  84532: {} as ERC20FactoryDeployment,
-  8453: {} as ERC20FactoryDeployment,
 };
 
-export const identitySystemDeployments: Record<ChainId, IdentitySystemDeployment> = {
+export const identitySystemDeployments: Partial<Record<ChainId, IdentitySystemDeployment>> = {
   1337: { ...identitySystem1337, ...localnetAddresses } as IdentitySystemDeployment,
   420691: { ...identitySystem1337, ...localnetAddresses } as IdentitySystemDeployment,
-  84532: {} as IdentitySystemDeployment,
-  8453: {} as IdentitySystemDeployment,
 };
 
-export const paymasterDeployments: Record<ChainId, PaymasterSystemDeployment> = {
+export const paymasterDeployments: Partial<Record<ChainId, PaymasterSystemDeployment>> = {
   1337: paymasterSystemLocalnet as PaymasterSystemDeployment,
   420691: paymasterSystemLocalnet as PaymasterSystemDeployment,
-  84532: {} as PaymasterSystemDeployment,
-  8453: {} as PaymasterSystemDeployment,
 };
 
 // ============================================================================
@@ -161,7 +151,7 @@ export function getContractAddressesByNetwork(network: NetworkName): ContractAdd
       chainId = CHAIN_IDS.localnet;
       break;
     case 'testnet':
-      chainId = CHAIN_IDS.testnetL3;
+      chainId = CHAIN_IDS.testnet;
       break;
     case 'mainnet':
       chainId = CHAIN_IDS.mainnetL1;

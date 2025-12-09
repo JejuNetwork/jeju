@@ -12,11 +12,7 @@ interface ICrossDomainMessenger {
      * @param _message Message to send to the target.
      * @param _minGasLimit Minimum gas limit that the message can be executed with.
      */
-    function sendMessage(
-        address _target,
-        bytes calldata _message,
-        uint32 _minGasLimit
-    ) external payable;
+    function sendMessage(address _target, bytes calldata _message, uint32 _minGasLimit) external payable;
 
     /**
      * @notice Retrieves the address of the contract or wallet that initiated the currently
@@ -25,4 +21,3 @@ interface ICrossDomainMessenger {
      */
     function xDomainMessageSender() external view returns (address);
 }
-

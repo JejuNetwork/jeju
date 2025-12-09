@@ -1,6 +1,6 @@
 /**
  * Gateway Bridge Tokens - Synpress E2E Tests
- * Tests token bridging from Base to Jeju
+ * Tests token bridging from Ethereum to Jeju
  */
 
 import { testWithSynpress } from '@synthetixio/synpress';
@@ -13,18 +13,18 @@ const { expect } = test;
 
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4001';
 
-test.describe('Bridge from Base Flow', () => {
+test.describe('Bridge from Ethereum Flow', () => {
   test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     
     // Navigate to Bridge tab
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
   });
 
   test('should display bridge interface', async ({ page }) => {
-    await expect(page.getByText('Bridge from Base to Jeju')).toBeVisible();
+    await expect(page.getByText('Bridge from Ethereum to Jeju')).toBeVisible();
     
     // Screenshot
     await page.screenshot({ path: 'test-results/screenshots/synpress-bridge-interface.png', fullPage: true });
@@ -33,7 +33,7 @@ test.describe('Bridge from Base Flow', () => {
   test('should show elizaOS warning (native token)', async ({ page }) => {
     // elizaOS is native Jeju and should not be bridgeable
     await expect(page.getByText(/elizaOS is a native Jeju token/i)).toBeVisible();
-    await expect(page.getByText(/cannot be bridged from Base/i)).toBeVisible();
+    await expect(page.getByText(/cannot be bridged from Ethereum/i)).toBeVisible();
     
     console.log('✅ Native token warning displayed');
   });

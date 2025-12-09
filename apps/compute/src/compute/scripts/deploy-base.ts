@@ -1,7 +1,7 @@
 /**
- * Deploy Jeju Compute Marketplace to Base (Sepolia or Mainnet)
+ * Deploy Jeju Compute Marketplace to Ethereum (Sepolia or Mainnet)
  *
- * This script deploys all compute marketplace contracts to Base.
+ * This script deploys all compute marketplace contracts to Ethereum.
  *
  * Prerequisites:
  * 1. PRIVATE_KEY environment variable set
@@ -9,8 +9,8 @@
  * 3. Contracts compiled: cd packages/contracts && forge build
  *
  * Usage:
- *   Base Sepolia: NETWORK=sepolia bun run deploy:sepolia
- *   Base Mainnet: NETWORK=mainnet bun run deploy:mainnet
+ *   Sepolia: NETWORK=sepolia bun run deploy:sepolia
+ *   Mainnet: NETWORK=mainnet bun run deploy:mainnet
  */
 
 import {
@@ -24,16 +24,16 @@ import {
 // Network configurations
 const NETWORKS = {
   sepolia: {
-    name: 'Base Sepolia',
-    chainId: 84532,
-    rpcUrl: 'https://sepolia.base.org',
-    explorer: 'https://sepolia.basescan.org',
+    name: 'Sepolia',
+    chainId: 11155111,
+    rpcUrl: 'https://ethereum-sepolia-rpc.publicnode.com',
+    explorer: 'https://sepolia.etherscan.io',
   },
   mainnet: {
-    name: 'Base Mainnet',
-    chainId: 8453,
-    rpcUrl: 'https://mainnet.base.org',
-    explorer: 'https://basescan.org',
+    name: 'Ethereum Mainnet',
+    chainId: 1,
+    rpcUrl: 'https://eth.llamarpc.com',
+    explorer: 'https://etherscan.io',
   },
   anvil: {
     name: 'Anvil (Local)',

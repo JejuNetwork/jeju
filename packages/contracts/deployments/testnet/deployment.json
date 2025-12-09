@@ -1,0 +1,91 @@
+{
+  "network": "testnet",
+  "chainId": 420690,
+  "l1ChainId": 11155111,
+  "deployedAt": null,
+  "deployer": null,
+  
+  "tokens": {
+    "weth": "0x4200000000000000000000000000000000000006",
+    "usdc": null,
+    "elizaOS": null
+  },
+  
+  "bridge": {
+    "l2CrossDomainMessenger": "0x4200000000000000000000000000000000000007",
+    "l2StandardBridge": "0x4200000000000000000000000000000000000010",
+    "l2ToL1MessagePasser": "0x4200000000000000000000000000000000000016",
+    "l2ERC721Bridge": "0x4200000000000000000000000000000000000014",
+    "optimismPortal": null,
+    "l1StandardBridge": null
+  },
+  
+  "infrastructure": {
+    "entryPoint": "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
+    "priceOracle": null,
+    "serviceRegistry": null,
+    "creditManager": null
+  },
+  
+  "paymaster": {
+    "tokenRegistry": null,
+    "paymasterFactory": null,
+    "liquidityPaymaster": null,
+    "multiTokenPaymaster": null
+  },
+  
+  "registry": {
+    "identityRegistry": null,
+    "reputationRegistry": null,
+    "validationRegistry": null,
+    "registryGovernance": null
+  },
+  
+  "defi": {
+    "liquidityVault": null,
+    "feeDistributor": null,
+    "poolManager": null,
+    "swapRouter": null,
+    "positionManager": null,
+    "quoterV4": null,
+    "stateView": null
+  },
+  
+  "nodeStaking": {
+    "nodeStakingManager": null,
+    "nodePerformanceOracle": null,
+    "autoSlasher": null,
+    "multiOracleConsensus": null
+  },
+  
+  "moderation": {
+    "banManager": null,
+    "reputationLabelManager": null,
+    "reportingSystem": null
+  },
+  
+  "compute": {
+    "computeRegistry": null,
+    "computeRental": null,
+    "ledgerManager": null,
+    "inferenceServing": null,
+    "computeStaking": null
+  },
+  
+  "oif": {
+    "solverRegistry": null,
+    "inputSettler": null,
+    "outputSettler": null,
+    "oracle": null
+  },
+  
+  "games": {
+    "bazaarMarketplace": null,
+    "goldToken": null,
+    "itemsNFT": null,
+    "predimarket": null
+  },
+  
+  "_note": "null values indicate not yet deployed. Run deploy script to populate."
+}
+

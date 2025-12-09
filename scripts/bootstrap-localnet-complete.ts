@@ -101,7 +101,7 @@ class CompleteBootstrapper {
   ];
 
   constructor() {
-    this.rpcUrl = process.env.JEJU_RPC_URL || 'http://localhost:8545';
+    this.rpcUrl = process.env.JEJU_RPC_URL || 'http://127.0.0.1:9545';
     this.deployerKey = process.env.PRIVATE_KEY || this.TEST_ACCOUNTS[0].key;
     this.deployerAddress = this.getAddress(this.deployerKey);
   }
@@ -246,7 +246,7 @@ class CompleteBootstrapper {
       console.log(`✅ Localnet running (block ${blockNumber})`);
     } catch {
       console.error('❌ Localnet not running!');
-      console.error('   Start: bun run scripts/localnet/start.ts');
+      console.error('   Start: bun run localnet:start');
       process.exit(1);
     }
 

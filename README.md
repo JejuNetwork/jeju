@@ -1,179 +1,221 @@
 # Jeju Network
 
-A complete OP Stack L3 network on Base with DeFi, NFTs, prediction markets, and AI agent integration.
+OP-Stack L2 on Ethereum with 200ms Flashblocks.
 
-## 🚀 AWS Testnet Deployment - Ready to Deploy
-
-**Complete AWS deployment package ready!** All infrastructure, containers, Kubernetes configs, CI/CD, and documentation created.
-
-### Quick Deploy
+## Quick Start
 
 ```bash
-# 1. Configure environment
-vim .env.testnet  # Fill TODO_ values (14 items)
+# Prerequisites
+brew install --cask docker
+brew install kurtosis-tech/tap/kurtosis
+curl -fsSL https://bun.sh/install | bash
 
-# 2. Validate
-./scripts/deploy/preflight-checklist.sh
-
-# 3. Deploy
-./scripts/deploy/deploy-testnet.sh
-# OR: git push origin develop (GitHub Actions)
+# Run
+git clone https://github.com/elizaos/jeju.git && cd jeju
+bun install
+bun run dev
 ```
 
-**Time**: 90 min automated (+ 60 min one-time AWS setup)  
-**Cost**: $459-779/month  
-**Guide**: [`DEPLOY_AWS_TESTNET.md`](DEPLOY_AWS_TESTNET.md) 📖
+No configuration needed.
 
-### What's Included
+## What Starts
 
-- ✅ **9 Terraform modules** - Complete AWS infrastructure
-- ✅ **7 Docker containers** - All apps with fixes applied
-- ✅ **14 Helm charts** - Kubernetes deployment ready
-- ✅ **8 automation scripts** - CI/CD + deployment
-- ✅ **Complete documentation** - Runbook + guides
+| Service | URL |
+|---------|-----|
+| Jeju (L2) RPC | http://127.0.0.1:9545 |
+| Ethereum (L1) RPC | http://127.0.0.1:8545 |
+| GraphQL | http://127.0.0.1:4350/graphql |
+| Gateway | http://127.0.0.1:4001 |
+| Bazaar | http://127.0.0.1:4006 |
+| Intent Aggregator | http://127.0.0.1:4010 |
+| Intent Viewer | http://127.0.0.1:5173 |
 
-### Key Documentation
+## Test Account
 
-| File | Purpose |
-|------|---------|
-| **[DEPLOY_AWS_TESTNET.md](DEPLOY_AWS_TESTNET.md)** | **👈 START HERE** |
-| [docs/AWS_DEPLOYMENT_RUNBOOK.md](docs/AWS_DEPLOYMENT_RUNBOOK.md) | Complete guide (500+ lines) |
-| [env.testnet](env.testnet) | **Configure this file** |
-| [scripts/deploy/README.md](scripts/deploy/README.md) | Scripts reference |
+```
+Address: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+Key:     0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+```
 
-### Costs
+Chain ID: `1337`
 
-- **Optimized**: $459/month (recommended)
-- **Standard**: $779/month  
-- **vs GCP**: $100/month cheaper but 25h migration needed
+## Commands
 
----
+```bash
+bun run dev                  # Start everything
+bun run dev -- --minimal     # Chain only
+bun run test                 # Run tests
 
-## Local Development
+# Contracts
+cd packages/contracts
+forge test                   # Test contracts
+forge build                  # Build contracts
+```
+
+## Networks
+
+| Network | Chain ID | RPC |
+|---------|----------|-----|
+| Localnet | 1337 | http://127.0.0.1:9545 |
+| Testnet | 420690 | https://testnet-rpc.jeju.network |
+| Mainnet | 420691 | https://rpc.jeju.network |
+
+## Deployment
+
+### Prerequisites Check
+
+```bash
+# Run preflight checks before deployment
+bun run scripts/preflight-testnet.ts
+```
+
+### Deploy to Testnet
+
+```bash
+# Copy and configure environment
+cp env.testnet .env.testnet
+# Edit .env.testnet with your DEPLOYER_PRIVATE_KEY
+
+# Deploy contracts
+bun run scripts/deploy/testnet.ts
+
+# Deploy EIL (cross-chain)
+bun run scripts/deploy/eil.ts testnet
+
+# Deploy OIF (intents)
+cd packages/contracts
+PRIVATE_KEY=$DEPLOYER_PRIVATE_KEY forge script script/DeployOIF.s.sol \
+  --rpc-url https://testnet-rpc.jeju.network --broadcast
+```
+
+See `packages/deployment/TESTNET_RUNBOOK.md` for complete guide.
+
+### Deploy to Mainnet
+
+```bash
+# See packages/deployment/MAINNET_RUNBOOK.md for full checklist
+bun run scripts/deploy/mainnet.ts
+```
+
+### Deployed Contracts (Testnet)
+
+| Contract | Chain | Address |
+|----------|-------|---------|
+| L1StakeManager | Sepolia | `0x355281d1974BfB64F9d475d01936e5dB37396DA3` |
+| SolverRegistry | Base Sepolia | `0xecfE47302D941c8ce5B0009C0ac2E6D6ee2A42de` |
+| InputSettler | Base Sepolia | `0x9bb59d0329FcCEdD99f1753D20AF50347Ad2eB75` |
+| OutputSettler | Base Sepolia | `0xf7ef3C6a54dA3E03A96D23864e5865E7e3EBEcF5` |
+
+## Open Intents Framework (OIF)
+
+Cross-chain intent system with ERC-7683 compatible contracts.
 
 ### Quick Start
 
 ```bash
-# Install dependencies (auto-runs setup)
-bun install
-
-# Start everything (chain → apps → vendor)
-bun run dev
-
-# Start with options
-bun run dev -- --minimal        # Only chain
-bun run dev -- --max-apps=4     # Limit apps
-
-# Run tests
-bun test
-
-# Build all apps
-bun run build
+# Start intent services
+cd apps/intents/aggregator && bun run src/index.ts  # Port 4010
+cd apps/intents/solver && bun run src/index.ts      # Port 4011
+cd apps/intents/viewer && bun run dev               # Port 5173
 ```
 
-### Startup Order
-
-1. Chain (Kurtosis L1 + L2, contracts, indexer)
-2. Core apps (`apps/*`)
-3. Vendor apps (`vendor/*`)
-
-Apps are discovered via `jeju-manifest.json`.
-
----
-
-## Repository Structure
-
-```
-jeju/
-├── apps/              # Core applications (canonical chain apps)
-│   ├── bazaar/        # DeFi + NFT marketplace
-│   ├── gateway/       # Protocol infrastructure hub
-│   ├── indexer/       # Subsquid blockchain indexer
-│   ├── ipfs/          # Decentralized storage
-│   └── documentation/ # VitePress docs
-├── vendor/            # Third-party apps (git submodules, git-ignored)
-│   ├── babylon/       # Prediction game
-│   ├── crucible2/     # AI agent pet game
-│   ├── hyperscape/    # 3D game engine
-│   ├── cloud/         # Cloud dashboard
-│   └── ...            # Auto-discovered via jeju-manifest.json
-├── packages/          # Shared packages
-│   └── config/        # Shared configuration
-├── contracts/         # Solidity smart contracts
-├── types/             # Shared TypeScript types
-├── kubernetes/        # K8s Helm charts + Helmfile
-├── terraform/         # AWS infrastructure as code
-├── scripts/           # Deployment and utility scripts
-└── docs/              # Documentation
-```
-
-`apps/` = core apps (version controlled), `vendor/` = third-party (git-ignored)
-
----
-
-## Smart Contracts
+### Deploy OIF Contracts
 
 ```bash
-cd contracts
-
-# Build
-forge build
-
-# Test (173 tests)
-forge test
-
-# Deploy to testnet
-forge script script/DeployLiquiditySystem.s.sol \
-  --rpc-url $JEJU_RPC_URL \
-  --broadcast \
-  --verify
+cd packages/contracts
+PRIVATE_KEY=$DEPLOYER_PRIVATE_KEY forge script script/DeployOIF.s.sol \
+  --rpc-url https://testnet-rpc.jeju.network \
+  --broadcast
 ```
 
-See [contracts/README.md](contracts/README.md) for details.
+### OIF Architecture
 
----
+| Component | Description |
+|-----------|-------------|
+| `InputSettler` | User intent creation, fund locking |
+| `OutputSettler` | Solver fills, output delivery |
+| `SolverRegistry` | Solver staking and slashing |
+| `OracleAdapter` | Cross-chain attestations |
 
-## Documentation
+| Service | Port | Purpose |
+|---------|------|---------|
+| Aggregator | 4010 | REST API, A2A, MCP |
+| WebSocket | 4012 | Real-time updates |
+| Solver | 4011 | Intent fulfillment |
+| Viewer | 5173 | Web UI |
 
-- [apps/README.md](apps/README.md) - Core apps
-- [vendor/README.md](vendor/README.md) - Vendor apps  
-- [contracts/README.md](contracts/README.md) - Contracts
-- [docs/AWS_DEPLOYMENT_RUNBOOK.md](docs/AWS_DEPLOYMENT_RUNBOOK.md) - AWS deployment
+See `apps/intents/README.md` for full documentation.
 
----
+## Ethereum Interop Layer (EIL)
 
-## AWS Deployment Status
+Trustless cross-chain transfers without bridges. Users can use tokens from Ethereum, Base, or other L2s directly on Jeju.
 
-**✅ 100% COMPLETE AND VALIDATED**
+### Architecture
 
-All components ready:
-- ✅ Infrastructure code (8 Terraform modules)
-- ✅ Application containers (7 Dockerfiles)
-- ✅ Kubernetes deployment (10 Helm charts)
-- ✅ CI/CD automation (GitHub Actions + scripts)
-- ✅ Comprehensive documentation (13 guides)
+```
+User on Ethereum → L1StakeManager → CrossChainPaymaster → User gets tokens on Jeju
+```
 
-**What you need to deploy**:
-1. Complete AWS account setup (50 min)
-2. Configure secrets (10 min)
-3. Run deploy script (90 min automated)
+### Key Contracts
 
-**See**: [🚀_START_DEPLOYMENT.md](🚀_START_DEPLOYMENT.md)
+| Contract | Purpose |
+|----------|---------|
+| `L1StakeManager` | XLP staking on L1 (Ethereum) |
+| `CrossChainPaymaster` | ERC-4337 paymaster for cross-chain swaps |
+| `LiquidityPaymaster` | Pay gas in tokens (not ETH) |
 
----
+### Become an XLP (Cross-chain Liquidity Provider)
 
-## Support
+```bash
+# Register as XLP on L1 (requires 1+ ETH stake)
+cast send $L1_STAKE_MANAGER "register(uint256[])" "[420691]" \
+  --value 1ether --rpc-url $L1_RPC --private-key $PK
 
-- **Deployment Help**: [docs/AWS_DEPLOYMENT_RUNBOOK.md](docs/AWS_DEPLOYMENT_RUNBOOK.md)
-- **Issues**: [GitHub Issues](https://github.com/JejuNetwork/jeju/issues)
-- **Discord**: https://discord.gg/jeju
+# Deposit liquidity on L2
+cast send $CROSS_CHAIN_PAYMASTER "depositETH()" \
+  --value 0.5ether --rpc-url $L2_RPC --private-key $PK
+```
 
----
+### Become a Solver (OIF)
 
-## License
+```bash
+# Register solver (requires 0.5 ETH stake)
+cast send $SOLVER_REGISTRY "register(uint256[])" "[420691,84532]" \
+  --value 0.5ether --rpc-url $RPC --private-key $PK
 
-MIT
+# Deposit fill liquidity
+cast send $OUTPUT_SETTLER "depositETH()" \
+  --value 1ether --rpc-url $RPC --private-key $PK
+```
 
----
+See `packages/deployment/TESTNET_RUNBOOK.md` for complete setup.
 
-**Ready to deploy AWS testnet?** Start here: [🚀_START_DEPLOYMENT.md](🚀_START_DEPLOYMENT.md)
+## Configuration
+
+No `.env` needed. Config lives in JSON files:
+
+| Config | Location |
+|--------|----------|
+| Networks | `packages/config/chain/*.json` |
+| Contracts | `packages/contracts/deployments/` |
+| Ports | `packages/config/ports.ts` |
+
+For testnet/mainnet, only secrets go in `.env`:
+```bash
+DEPLOYER_PRIVATE_KEY=0x...
+ETHERSCAN_API_KEY=...
+```
+
+## Troubleshooting
+
+**Docker not running**: Start Docker Desktop
+
+**Port in use**: `lsof -i :9545` then `kill -9 <PID>`
+
+**Reset**: `kurtosis clean -a`
+
+## Links
+
+- [Docs](https://docs.jeju.network)
+- [Discord](https://discord.gg/jeju)
+- [GitHub](https://github.com/elizaos/jeju)

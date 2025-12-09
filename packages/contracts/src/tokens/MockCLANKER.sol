@@ -7,8 +7,8 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 /**
  * @title MockCLANKER
  * @notice Mock version of CLANKER (tokenbot) for localnet testing
- * @dev Mimics the real CLANKER token on Base (0x1bc0c42215582d5a085795f4badbac3ff36d1bcb)
- * 
+ * @dev Mock token for localnet testing (0x1bc0c42215582d5a085795f4badbac3ff36d1bcb)
+ *
  * Real Token Info:
  * - Name: tokenbot
  * - Symbol: CLANKER
@@ -16,16 +16,16 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
  * - Max Supply: 1,000,000 tokens
  * - Decimals: 18
  * - Network: Base
- * 
+ *
  * This mock enables testing of:
  * - Paymaster gas payments in CLANKER
  * - LP fee distribution in CLANKER tokens
  * - Uniswap V4 CLANKER/ETH pools
- * - Bridge simulations (Base → Jeju)
+ * - Bridge simulations (Ethereum → Jeju)
  */
 contract MockCLANKER is ERC20, Ownable {
-    uint256 public constant MAX_SUPPLY = 1_000_000 * 10**18;
-    uint256 public constant INITIAL_SUPPLY = 1_000_000 * 10**18;
+    uint256 public constant MAX_SUPPLY = 1_000_000 * 10 ** 18;
+    uint256 public constant INITIAL_SUPPLY = 1_000_000 * 10 ** 18;
 
     error MaxSupplyExceeded();
 
@@ -47,10 +47,9 @@ contract MockCLANKER is ERC20, Ownable {
      * @dev Gives 1000 CLANKER tokens (~$26,140)
      */
     function faucet() external {
-        uint256 faucetAmount = 1000 * 10**18;
+        uint256 faucetAmount = 1000 * 10 ** 18;
         if (totalSupply() + faucetAmount <= MAX_SUPPLY) {
             _mint(msg.sender, faucetAmount);
         }
     }
 }
-

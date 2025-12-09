@@ -3,7 +3,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { assertNoPageErrors } from '../../../../packages/tests/shared/helpers/error-detection';
+import { assertNoPageErrors } from '@jejunetwork/tests/helpers/error-detection';
 
 test.describe('Swap - Deep Interaction Testing', () => {
   test('should test all token dropdown selections', async ({ page }) => {

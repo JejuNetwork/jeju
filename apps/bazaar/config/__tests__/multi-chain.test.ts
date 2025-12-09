@@ -11,8 +11,8 @@ describe('Multi-Chain Config', () => {
     expect(EvmChainIds.JejuLocalnet).toBe(1337);
     expect(EvmChainIds.JejuTestnet).toBe(420690);
     expect(EvmChainIds.JejuMainnet).toBe(420691);
-    expect(EvmChainIds.BaseMainnet).toBe(8453);
-    expect(EvmChainIds.BaseSepolia).toBe(84532);
+    expect(EvmChainIds.EthereumMainnet).toBe(1);
+    expect(EvmChainIds.EthereumSepolia).toBe(11155111);
   });
 
   test('should check if chain is available', () => {

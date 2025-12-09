@@ -13,15 +13,9 @@ import {MarketFactory} from "../src/prediction-markets/MarketFactory.sol";
  * @dev Deploys: ElizaOS Token, PredictionOracle, Predimarket, and MarketFactory
  */
 contract DeployPredimarketFull is Script {
-    function run() external returns (
-        address elizaToken,
-        address oracle,
-        address market,
-        address factory
-    ) {
+    function run() external returns (address elizaToken, address oracle, address market, address factory) {
         uint256 deployerPrivateKey = vm.envOr(
-            "DEPLOYER_PRIVATE_KEY",
-            uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80)
+            "DEPLOYER_PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80)
         );
         address deployer = vm.addr(deployerPrivateKey);
 
@@ -38,9 +32,9 @@ contract DeployPredimarketFull is Script {
         ElizaOSToken elizaOSToken = new ElizaOSToken(deployer);
         elizaToken = address(elizaOSToken);
         console.log("   ElizaOS Token:", elizaToken);
-        
+
         // Mint some initial tokens for testing (100M tokens)
-        elizaOSToken.mint(deployer, 100_000_000 * 10**18);
+        elizaOSToken.mint(deployer, 100_000_000 * 10 ** 18);
         console.log("   Minted 100M tokens to deployer");
         console.log("");
 
@@ -57,7 +51,7 @@ contract DeployPredimarketFull is Script {
             elizaToken,
             oracle,
             deployer, // treasury
-            deployer  // owner
+            deployer // owner
         );
         market = address(predimarket);
         console.log("   Predimarket:", market);
@@ -65,16 +59,11 @@ contract DeployPredimarketFull is Script {
 
         // 4. Deploy MarketFactory
         console.log("4/4 Deploying MarketFactory...");
-        uint256 defaultLiquidity = 1000 * 10**18; // 1000 ELIZA default liquidity
-        MarketFactory marketFactory = new MarketFactory(
-            market,
-            oracle,
-            defaultLiquidity,
-            deployer
-        );
+        uint256 defaultLiquidity = 1000 * 10 ** 18; // 1000 ELIZA default liquidity
+        MarketFactory marketFactory = new MarketFactory(market, oracle, defaultLiquidity, deployer);
         factory = address(marketFactory);
         console.log("   MarketFactory:", factory);
-        console.log("   Default Liquidity:", defaultLiquidity / 10**18, "ELIZA");
+        console.log("   Default Liquidity:", defaultLiquidity / 10 ** 18, "ELIZA");
         console.log("");
 
         vm.stopBroadcast();
@@ -91,15 +80,29 @@ contract DeployPredimarketFull is Script {
 
         // Save deployment info to JSON
         string memory deploymentJson = string.concat(
-            '{\n',
-            '  "chainId": ', vm.toString(block.chainid), ',\n',
-            '  "deployer": "', vm.toString(deployer), '",\n',
-            '  "elizaOSToken": "', vm.toString(elizaToken), '",\n',
-            '  "predictionOracle": "', vm.toString(oracle), '",\n',
-            '  "predimarket": "', vm.toString(market), '",\n',
-            '  "marketFactory": "', vm.toString(factory), '",\n',
-            '  "deployedAt": ', vm.toString(block.timestamp), '\n',
-            '}'
+            "{\n",
+            '  "chainId": ',
+            vm.toString(block.chainid),
+            ",\n",
+            '  "deployer": "',
+            vm.toString(deployer),
+            '",\n',
+            '  "elizaOSToken": "',
+            vm.toString(elizaToken),
+            '",\n',
+            '  "predictionOracle": "',
+            vm.toString(oracle),
+            '",\n',
+            '  "predimarket": "',
+            vm.toString(market),
+            '",\n',
+            '  "marketFactory": "',
+            vm.toString(factory),
+            '",\n',
+            '  "deployedAt": ',
+            vm.toString(block.timestamp),
+            "\n",
+            "}"
         );
 
         string memory filename = string.concat("deployments/predimarket-", vm.toString(block.chainid), ".json");
@@ -110,4 +113,3 @@ contract DeployPredimarketFull is Script {
         return (elizaToken, oracle, market, factory);
     }
 }
-

@@ -1,12 +1,294 @@
 <!DOCTYPE html>
-<html><head><title>Jeju Indexer - GraphQL Playground</title>
-<style>body{margin:0;font-family:system-ui}#root{height:100vh}</style>
-<script src="https://unpkg.com/graphiql@3/graphiql.min.js" crossorigin></script>
-<link href="https://unpkg.com/graphiql@3/graphiql.min.css" rel="stylesheet" />
-</head><body><div id="root"></div>
-<script>
-const fetcher = GraphiQL.createFetcher({ url: '/graphql' });
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(React.createElement(GraphiQL, { fetcher }));
-</script></body></html>
-
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0D0B14">
+  <title>Jeju Indexer</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/graphiql@3/graphiql.min.js" crossorigin></script>
+  <link href="https://unpkg.com/graphiql@3/graphiql.min.css" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --jeju-primary: #FF6B35;
+      --jeju-primary-dark: #E85A2A;
+      --jeju-primary-light: #FF8F66;
+      --jeju-accent: #00D9C0;
+      --jeju-purple: #7C3AED;
+      --color-success: #10B981;
+      --font-display: 'Space Grotesk', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --transition-fast: 150ms ease;
+    }
+    
+    :root, [data-theme="light"] {
+      --bg-primary: #FFFBF7;
+      --bg-secondary: #FFF5ED;
+      --surface: #FFFFFF;
+      --surface-elevated: #FFFFFF;
+      --border: #FFE4D4;
+      --border-strong: #FFD0B8;
+      --text-primary: #1A1523;
+      --text-secondary: #635E69;
+      --text-tertiary: #9D97A5;
+      --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.08);
+      --editor-bg: #FEFCFA;
+      --editor-gutter: #FFF8F3;
+      --editor-line-number: #B8A090;
+      --editor-cursor: var(--jeju-primary);
+      --editor-selection: rgba(255, 107, 53, 0.2);
+      --syntax-keyword: #7C3AED;
+      --syntax-string: #059669;
+      --syntax-number: #DC2626;
+      --syntax-property: #0891B2;
+      --syntax-comment: #9CA3AF;
+    }
+    
+    [data-theme="dark"] {
+      --bg-primary: #0D0B14;
+      --bg-secondary: #161222;
+      --surface: #1E1830;
+      --surface-elevated: #2A2440;
+      --border: #3D3558;
+      --border-strong: #4D4570;
+      --text-primary: #FAFAFA;
+      --text-secondary: #B8B4C0;
+      --text-tertiary: #7D7888;
+      --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.4);
+      --editor-bg: #12101A;
+      --editor-gutter: #1A1626;
+      --editor-line-number: #5A5470;
+      --editor-cursor: var(--jeju-accent);
+      --editor-selection: rgba(0, 217, 192, 0.25);
+      --syntax-keyword: #A78BFA;
+      --syntax-string: #34D399;
+      --syntax-number: #F87171;
+      --syntax-property: #38BDF8;
+      --syntax-comment: #6B7280;
+    }
+    
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { height: 100%; -webkit-tap-highlight-color: transparent; }
+    body {
+      height: 100%;
+      font-family: var(--font-display);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      overflow: hidden;
+    }
+    #root { height: 100%; display: flex; flex-direction: column; }
+    
+    .jeju-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    
+    .jeju-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text-primary);
+    }
+    
+    .jeju-logo-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--jeju-primary) 0%, var(--jeju-purple) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+    
+    .jeju-logo-title {
+      font-weight: 700;
+      font-size: 15px;
+      background: linear-gradient(135deg, var(--jeju-primary) 0%, var(--jeju-purple) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .jeju-header-actions { display: flex; align-items: center; gap: 8px; }
+    
+    .jeju-status {
+      width: 8px;
+      height: 8px;
+      background: var(--color-success);
+      border-radius: 50%;
+    }
+    
+    .jeju-theme-toggle {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      transition: all var(--transition-fast);
+    }
+    .jeju-theme-toggle:hover { border-color: var(--jeju-primary); color: var(--jeju-primary); }
+    
+    #graphiql-container { flex: 1; display: flex; min-height: 0; }
+    
+    .graphiql-container {
+      flex: 1;
+      font-family: var(--font-display) !important;
+      --color-base: var(--text-primary) !important;
+      --color-primary: var(--jeju-primary) !important;
+      background: var(--bg-primary) !important;
+    }
+    
+    .graphiql-sessions { background: var(--bg-secondary) !important; border-bottom: 1px solid var(--border) !important; }
+    .graphiql-session-header { background: var(--surface) !important; border: 1px solid var(--border) !important; color: var(--text-primary) !important; }
+    .graphiql-main { background: var(--bg-primary) !important; }
+    .graphiql-editors { background: var(--surface) !important; border-radius: 8px !important; margin: 8px !important; box-shadow: var(--shadow-card) !important; border: 1px solid var(--border) !important; }
+    .graphiql-editor { background: var(--editor-bg) !important; }
+    .CodeMirror { background: var(--editor-bg) !important; color: var(--text-primary) !important; font-family: var(--font-mono) !important; font-size: 13px !important; }
+    .CodeMirror-gutters { background: var(--editor-gutter) !important; border-right: 1px solid var(--border) !important; }
+    .CodeMirror-linenumber { color: var(--editor-line-number) !important; font-family: var(--font-mono) !important; }
+    .CodeMirror-cursor { border-left-color: var(--editor-cursor) !important; }
+    .CodeMirror-selected { background: var(--editor-selection) !important; }
+    .cm-keyword { color: var(--syntax-keyword) !important; font-weight: 600 !important; }
+    .cm-def { color: var(--jeju-primary) !important; }
+    .cm-property { color: var(--syntax-property) !important; }
+    .cm-string { color: var(--syntax-string) !important; }
+    .cm-number { color: var(--syntax-number) !important; }
+    .cm-atom { color: var(--jeju-accent) !important; }
+    .cm-comment { color: var(--syntax-comment) !important; font-style: italic !important; }
+    .graphiql-response { background: var(--surface) !important; border-radius: 8px !important; margin: 8px !important; box-shadow: var(--shadow-card) !important; border: 1px solid var(--border) !important; }
+    .graphiql-sidebar { background: var(--bg-secondary) !important; border-right: 1px solid var(--border) !important; }
+    .graphiql-sidebar button { color: var(--text-secondary) !important; }
+    .graphiql-sidebar button:hover { background: var(--surface) !important; color: var(--jeju-primary) !important; }
+    .graphiql-toolbar { background: var(--bg-secondary) !important; border-bottom: 1px solid var(--border) !important; padding: 6px 8px !important; }
+    .graphiql-execute-button { background: linear-gradient(135deg, var(--jeju-primary) 0%, var(--jeju-primary-dark) 100%) !important; border: none !important; border-radius: 8px !important; }
+    .graphiql-execute-button svg { fill: white !important; }
+    .graphiql-toolbar-button { background: var(--surface) !important; border: 1px solid var(--border) !important; border-radius: 6px !important; color: var(--text-secondary) !important; }
+    .graphiql-toolbar-button:hover { border-color: var(--jeju-accent) !important; color: var(--jeju-accent) !important; }
+    .graphiql-plugin { background: var(--surface) !important; border-left: 1px solid var(--border) !important; }
+    .graphiql-doc-explorer { background: var(--surface) !important; }
+    .graphiql-doc-explorer-title { color: var(--text-primary) !important; font-weight: 700 !important; }
+    .graphiql-doc-explorer-search { background: var(--bg-secondary) !important; border: 1px solid var(--border) !important; border-radius: 6px !important; color: var(--text-primary) !important; }
+    .graphiql-doc-explorer-type-name { color: var(--jeju-purple) !important; }
+    .graphiql-doc-explorer-field-name { color: var(--jeju-primary) !important; }
+    .graphiql-doc-explorer-argument-name { color: var(--jeju-accent) !important; }
+    .graphiql-editor-tools { background: var(--bg-secondary) !important; border-top: 1px solid var(--border) !important; }
+    .graphiql-editor-tools button { color: var(--text-secondary) !important; }
+    .graphiql-editor-tools button:hover, .graphiql-editor-tools button.active { color: var(--jeju-primary) !important; }
+    .CodeMirror-hints { background: var(--surface) !important; border: 1px solid var(--border) !important; border-radius: 8px !important; font-family: var(--font-mono) !important; }
+    .CodeMirror-hint { color: var(--text-primary) !important; padding: 6px 10px !important; }
+    .CodeMirror-hint-active { background: var(--jeju-primary) !important; color: white !important; }
+    .graphiql-container ::-webkit-scrollbar { width: 8px; height: 8px; }
+    .graphiql-container ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+    .graphiql-container ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+    .graphiql-container ::-webkit-scrollbar-thumb:hover { background: var(--jeju-primary); }
+    
+    @supports (padding: max(0px)) {
+      .jeju-header { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
+    }
+    
+    @media (max-width: 768px) {
+      .jeju-header { padding: 6px 12px; }
+      .jeju-logo-icon { width: 28px; height: 28px; font-size: 14px; }
+      .jeju-logo-title { font-size: 13px; }
+      .jeju-theme-toggle { width: 32px; height: 32px; font-size: 14px; }
+      .graphiql-editors, .graphiql-response { margin: 4px !important; }
+      .CodeMirror { font-size: 12px !important; }
+      .graphiql-sidebar { width: 40px !important; min-width: 40px !important; }
+      .graphiql-plugin { width: 280px !important; max-width: 80vw !important; }
+    }
+    
+    @media (max-width: 480px) {
+      .jeju-logo-title { max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .graphiql-plugin { position: absolute !important; left: 0 !important; right: 0 !important; width: 100% !important; max-width: 100% !important; z-index: 50 !important; }
+    }
+    
+    @media (max-width: 360px) {
+      .graphiql-sidebar { display: none !important; }
+    }
+    
+    @media (pointer: coarse) {
+      .graphiql-container button { min-width: 44px !important; min-height: 44px !important; }
+      .CodeMirror-hint { padding: 10px 14px !important; min-height: 44px !important; }
+    }
+    
+    @media (prefers-reduced-motion: reduce) {
+      * { transition-duration: 0.01ms !important; }
+    }
+    
+    @media print {
+      .jeju-header, .graphiql-sidebar, .graphiql-toolbar { display: none !important; }
+      .graphiql-container { background: white !important; }
+      .CodeMirror { background: white !important; color: black !important; }
+    }
+  </style>
+</head>
+<body data-theme="dark">
+  <div id="root">
+    <header class="jeju-header">
+      <a href="/" class="jeju-logo">
+        <div class="jeju-logo-icon">🏝️</div>
+        <span class="jeju-logo-title">Jeju Indexer</span>
+      </a>
+      <div class="jeju-header-actions">
+        <div class="jeju-status"></div>
+        <button class="jeju-theme-toggle" id="themeToggle" title="Toggle theme">
+          <span id="themeIcon">☀️</span>
+        </button>
+      </div>
+    </header>
+    <div id="graphiql-container"></div>
+  </div>
+  <script>
+    const themeToggle = document.getElementById('themeToggle');
+    const themeIcon = document.getElementById('themeIcon');
+    const body = document.body;
+    const savedTheme = localStorage.getItem('jeju-theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const initialTheme = savedTheme || (prefersDark ? 'dark' : 'light');
+    body.setAttribute('data-theme', initialTheme);
+    themeIcon.textContent = initialTheme === 'dark' ? '☀️' : '🌙';
+    themeToggle.addEventListener('click', () => {
+      const newTheme = body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      body.setAttribute('data-theme', newTheme);
+      localStorage.setItem('jeju-theme', newTheme);
+      themeIcon.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+    });
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+      if (!localStorage.getItem('jeju-theme')) {
+        const newTheme = e.matches ? 'dark' : 'light';
+        body.setAttribute('data-theme', newTheme);
+        themeIcon.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+      }
+    });
+    const graphqlUrl = window.location.hostname === 'localhost' ? 'http://localhost:4000/graphql' : '/graphql';
+    const fetcher = GraphiQL.createFetcher({ url: graphqlUrl });
+    const defaultQuery = `query {
+  blocks(limit: 5, orderBy: number_DESC) {
+    number
+    hash
+    timestamp
+  }
+}`;
+    ReactDOM.createRoot(document.getElementById('graphiql-container')).render(
+      React.createElement(GraphiQL, { fetcher, defaultQuery, defaultEditorToolsVisibility: false })
+    );
+  </script>
+</body>
+</html>

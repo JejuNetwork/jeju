@@ -1,0 +1,183 @@
+# Mainnet environment values (Ethereum Mainnet)
+# Production configuration with HA and auto-scaling
+
+environment: mainnet
+cluster_name: jeju-mainnet
+
+# Enable all production features
+ingress_enabled: true
+cert_manager_enabled: true
+
+# Production replicas
+replicas:
+  op_node: 3
+  sequencer: 1      # Single sequencer for consistency
+  rpc: 5            # 5 RPC nodes with auto-scaling
+  archive: 2        # 2 archive nodes with auto-scaling
+  batcher: 2
+  proposer: 2
+  challenger: 1
+  eigenda: 2
+  bundler: 3
+  gateway: 3        # 3 gateway instances with auto-scaling
+  subsquid_processor: 1  # Single processor for consistency
+  subsquid_api: 3        # 3 API replicas with auto-scaling
+
+# Production resource allocations
+resources:
+  op_node:
+    limits:
+      cpu: 4000m
+      memory: 8Gi
+    requests:
+      cpu: 2000m
+      memory: 4Gi
+  
+  sequencer:
+    limits:
+      cpu: 8000m
+      memory: 16Gi
+    requests:
+      cpu: 4000m
+      memory: 8Gi
+  
+  rpc:
+    limits:
+      cpu: 4000m
+      memory: 8Gi
+    requests:
+      cpu: 2000m
+      memory: 4Gi
+  
+  archive:
+    limits:
+      cpu: 8000m
+      memory: 32Gi
+    requests:
+      cpu: 4000m
+      memory: 16Gi
+  
+  batcher:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+  
+  proposer:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+  
+  challenger:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+  
+  eigenda:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  
+  bundler:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+  
+  gateway:
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+  
+  subsquid_processor:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+  
+  subsquid_api:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+
+# Persistence
+persistence:
+  enabled: true
+  storage_class: gp3
+  sizes:
+    op_node: 100Gi
+    sequencer: 500Gi
+    rpc: 500Gi
+    archive: 2Ti
+    challenger: 50Gi
+
+# Auto-scaling (production)
+autoscaling:
+  enabled: true
+  rpc:
+    min_replicas: 5
+    max_replicas: 15
+    target_cpu: 70
+    target_memory: 80
+  archive:
+    min_replicas: 2
+    max_replicas: 5
+    target_cpu: 70
+    target_memory: 80
+  gateway:
+    min_replicas: 3
+    max_replicas: 20
+    target_cpu: 70
+    target_memory: 80
+  bundler:
+    min_replicas: 3
+    max_replicas: 10
+    target_cpu: 70
+    target_memory: 80
+
+# Ethereum Mainnet L1
+l1_rpc_url: https://eth.llamarpc.com
+l1_chain_id: "1"
+l2_chain_id: "420691"
+
+# Domains
+rpc_domain: rpc.jeju.network
+ws_domain: ws.jeju.network
+
+# Rate limiting (production)
+rate_limit:
+  enabled: true
+  requests_per_second: 100
+  requests_per_minute: 5000
+  requests_per_hour: 100000
+  max_connections_per_ip: 10
+  burst_size: 200
+
+# AWS settings
+aws_region: us-east-1
+acm_certificate_arn: ""  # Let cert-manager handle it
+waf_enabled: true        # Enable WAF for DDoS protection
+shield_enabled: true     # Enable AWS Shield Standard (free)
+
+

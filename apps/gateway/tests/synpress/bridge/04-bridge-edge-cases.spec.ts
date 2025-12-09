@@ -5,7 +5,7 @@
 
 import { testWithSynpress } from '@synthetixio/synpress';
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
-import { basicSetup } from '../../synpress.config'
+import { basicSetup } from '../../../synpress.config'
 import { connectWallet } from '../helpers/wallet-helpers';
 import { GATEWAY_URL } from '../fixtures/test-data';
 
@@ -18,7 +18,7 @@ test.describe('Bridge - Network State Edge Cases', () => {
     // Don't connect wallet
 
     // Try to access bridge
-    const bridge = page.getByRole('button', { name: /Bridge from Base/i });
+    const bridge = page.getByRole('button', { name: /Bridge from Ethereum/i });
     const bridgeVisible = await bridge.isVisible();
 
     if (!bridgeVisible) {
@@ -34,7 +34,7 @@ test.describe('Bridge - Network State Edge Cases', () => {
   test('should maintain bridge form across page reloads', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
     // Fill form
@@ -73,7 +73,7 @@ test.describe('Bridge - Maximum Values', () => {
   test('should handle maximum safe integer', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
     await page.locator('.input').first().click();
@@ -102,7 +102,7 @@ test.describe('Bridge - Maximum Values', () => {
   test('should handle minimum positive value', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
     await page.locator('.input').first().click();
@@ -130,7 +130,7 @@ test.describe('Bridge - Input Sanitization', () => {
   test('should reject non-numeric characters in amount', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
     await page.locator('.input').first().click();
@@ -152,7 +152,7 @@ test.describe('Bridge - Input Sanitization', () => {
   test('should handle special characters in recipient', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
     await page.locator('.input').first().click();
@@ -230,7 +230,7 @@ test.describe('Bridge - Mode Switching Comprehensive', () => {
   test('should switch from Select Token to Custom Address seamlessly', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
     // Start in Select Token mode (default)
@@ -277,7 +277,7 @@ test.describe('Bridge - Mode Switching Comprehensive', () => {
   test('should highlight active mode button', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
     // Check Select Token button styling
@@ -305,7 +305,7 @@ test.describe('Bridge - Accessibility and UX', () => {
   test('should have clear labels for all inputs', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
     // Check for labels (explicit or implicit)
@@ -318,7 +318,7 @@ test.describe('Bridge - Accessibility and UX', () => {
   test('should have helpful placeholder text', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
     // Check placeholders
@@ -337,7 +337,7 @@ test.describe('Bridge - Accessibility and UX', () => {
   test('should have informative helper text', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
     // Check for helper text
@@ -358,7 +358,7 @@ test.describe('Bridge - Complete Test Coverage Verification', () => {
   test('MASTER: Test every bridge feature comprehensively', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
     console.log('🎯 Comprehensive Bridge Test:');

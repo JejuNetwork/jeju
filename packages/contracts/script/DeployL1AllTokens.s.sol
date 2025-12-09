@@ -10,19 +10,19 @@ import {MockClankermon} from "../src/tokens/MockClankermon.sol";
 
 /**
  * @title DeployL1AllTokens
- * @notice Deploy ALL tokens on L1 first (simulating Base/Ethereum origin)
+ * @notice Deploy ALL tokens on L1 first (simulating Ethereum origin)
  * @dev This creates the "source of truth" for all tokens before bridging to L2
- * 
+ *
  * Tokens deployed on L1:
  * - MockElizaOS (simulating if elizaOS originated on L1)
- * - MockJejuUSDC (simulating USDC on Base)
- * - MockCLANKER (simulating real CLANKER on Base)
- * - MockVIRTUAL (simulating real VIRTUAL on Base)
- * - MockClankermon (simulating real CLANKERMON on Base)
- * 
+ * - MockJejuUSDC (simulating USDC on Ethereum)
+ * - MockCLANKER (simulating real CLANKER on Ethereum)
+ * - MockVIRTUAL (simulating real VIRTUAL on Ethereum)
+ * - MockClankermon (simulating real CLANKERMON on Ethereum)
+ *
  * After deployment, these will be bridged to L2 via Standard Bridge.
  * This ensures ALL tokens go through the same bridge flow.
- * 
+ *
  * Usage:
  *   forge script script/DeployL1AllTokens.s.sol:DeployL1AllTokens \
  *     --rpc-url http://localhost:8545 \
@@ -38,67 +38,66 @@ contract DeployL1AllTokens is Script {
         address deployer;
         uint256 chainId;
     }
-    
+
     function run() external returns (L1Deployments memory) {
         uint256 deployerPrivateKey = vm.envOr(
-            "DEPLOYER_PRIVATE_KEY",
-            uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80)
+            "DEPLOYER_PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80)
         );
         address deployer = vm.addr(deployerPrivateKey);
-        
+
         console.log("============================================================");
         console.log("DEPLOYING ALL TOKENS ON L1");
         console.log("============================================================");
         console.log("Deployer:", deployer);
         console.log("Chain ID:", block.chainid);
         console.log("");
-        console.log("This simulates tokens originating on Base/Ethereum");
+        console.log("This simulates tokens originating on Ethereum");
         console.log("All tokens will then be bridged to L2 (Jeju)");
         console.log("");
-        
+
         vm.startBroadcast(deployerPrivateKey);
-        
+
         L1Deployments memory deployments;
         deployments.deployer = deployer;
         deployments.chainId = block.chainid;
-        
+
         // Deploy all 5 tokens
         console.log("[1/5] Deploying MockElizaOS...");
         MockElizaOS elizaOS = new MockElizaOS(deployer);
         deployments.elizaOS = address(elizaOS);
         console.log("   elizaOS:", deployments.elizaOS);
-        
+
         console.log("\n[2/5] Deploying MockJejuUSDC...");
         MockJejuUSDC usdc = new MockJejuUSDC(deployer);
         deployments.usdc = address(usdc);
         console.log("   USDC:", deployments.usdc);
-        
+
         console.log("\n[3/5] Deploying MockCLANKER...");
         MockCLANKER clanker = new MockCLANKER(deployer);
         deployments.clanker = address(clanker);
         console.log("   CLANKER:", deployments.clanker);
-        
+
         console.log("\n[4/5] Deploying MockVIRTUAL...");
         MockVIRTUAL virtualToken = new MockVIRTUAL(deployer);
         deployments.virtualToken = address(virtualToken);
         console.log("   VIRTUAL:", deployments.virtualToken);
-        
+
         console.log("\n[5/5] Deploying MockClankermon...");
         MockClankermon clankermon = new MockClankermon(deployer);
         deployments.clankermon = address(clankermon);
         console.log("   CLANKERMON:", deployments.clankermon);
-        
+
         vm.stopBroadcast();
-        
+
         // Print summary
         printSummary(deployments);
-        
+
         // Save deployment
         saveDeployment(deployments);
-        
+
         return deployments;
     }
-    
+
     function printSummary(L1Deployments memory d) internal pure {
         console.log("\n============================================================");
         console.log("L1 TOKEN DEPLOYMENT COMPLETE");
@@ -111,7 +110,7 @@ contract DeployL1AllTokens is Script {
         console.log("VIRTUAL:      ", d.virtualToken);
         console.log("CLANKERMON:   ", d.clankermon);
         console.log("============================================================");
-        
+
         console.log("\nNEXT STEPS:");
         console.log("-----------------------------------------------------------");
         console.log("1. Bridge all tokens to L2:");
@@ -123,7 +122,7 @@ contract DeployL1AllTokens is Script {
         console.log("3. All tokens will have equal status on L2");
         console.log("============================================================\n");
     }
-    
+
     function saveDeployment(L1Deployments memory d) internal {
         string memory json = "deployment";
         vm.serializeAddress(json, "elizaOS", d.elizaOS);
@@ -133,9 +132,8 @@ contract DeployL1AllTokens is Script {
         vm.serializeAddress(json, "clankermon", d.clankermon);
         vm.serializeAddress(json, "deployer", d.deployer);
         string memory finalJson = vm.serializeUint(json, "chainId", d.chainId);
-        
+
         vm.writeJson(finalJson, "deployments/l1-tokens.json");
         console.log("Saved to: deployments/l1-tokens.json");
     }
 }
-

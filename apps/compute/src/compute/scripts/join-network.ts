@@ -14,7 +14,7 @@
  *
  * Environment variables:
  *   PRIVATE_KEY     - Provider wallet private key (required)
- *   RPC_URL         - RPC endpoint (default: Base Sepolia)
+ *   RPC_URL         - RPC endpoint (default: Sepolia)
  *   MODEL_NAME      - Model to serve (default: mock-model)
  *   MODEL_BACKEND   - Backend type: mock, ollama (default: mock)
  *   STAKE_AMOUNT    - Amount to stake in ETH (default: 0.1)
@@ -93,7 +93,7 @@ async function main() {
     process.exit(1);
   }
 
-  const rpcUrl = process.env.RPC_URL || 'https://sepolia.base.org';
+  const rpcUrl = process.env.RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com';
   const modelName = process.env.MODEL_NAME || 'mock-model';
   const modelBackend = (process.env.MODEL_BACKEND || 'mock') as
     | 'mock'
@@ -141,7 +141,7 @@ async function main() {
     console.log(`   Current balance: ${formatEther(balance)} ETH`);
     console.log('\n   Get testnet ETH from:');
     console.log(
-      '   - Base Sepolia: https://www.coinbase.com/faucets/base-ethereum-goerli-faucet'
+      '   - Sepolia: https://sepoliafaucet.com'
     );
     process.exit(1);
   }
@@ -264,7 +264,7 @@ async function main() {
   };
 
   const server = new ComputeNodeServer(nodeConfig);
-  server.start();
+  server.start(nodeConfig.port);
 
   console.log('\n' + '='.repeat(50));
   console.log('✅ Provider successfully joined the network!');

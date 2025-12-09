@@ -1,0 +1,44 @@
+[
+  {
+    "name": "sequencer",
+    "role": "Produces L2 blocks",
+    "address": "0x6Fd49Bbeb99b0feD669A81a6c6E1EEF2548Ed91e",
+    "privateKey": "0xbcb62ca03790534ca6fb2c2178a79858400e9000305d9358dd5b69e7498d8121"
+  },
+  {
+    "name": "batcher",
+    "role": "Submits transaction batches to L1",
+    "address": "0x169a20665f6A2175580d669869eFD6B20045F6aA",
+    "privateKey": "0xb74e54d66c5394b9678a6add0855c70573bfc6d1f786e1d3f30bf405d4f32c3c"
+  },
+  {
+    "name": "proposer",
+    "role": "Submits L2 output roots to L1",
+    "address": "0x4f0d3bC42d0E203C954aE3e66a6Bb684143EF8a1",
+    "privateKey": "0x84f44d401579a573ae04f28dd2736f4d088f26671234ba6e57777b7360de5b55"
+  },
+  {
+    "name": "challenger",
+    "role": "Challenges invalid output roots",
+    "address": "0x6E7CbdCB2586C862516C375d6Be61f34A400Cdc2",
+    "privateKey": "0xe0b606ccb99accb75a54cfbaec91000abdb1fd479abfe5fcb2a500425ccb4276"
+  },
+  {
+    "name": "admin",
+    "role": "Proxy admin owner",
+    "address": "0x8b39BBAb6d1FB7C682D32e13A92cdCB0510D03C2",
+    "privateKey": "0x4fa52e6dced6f17e97b74a41dd9827e8c1e1e99a3638bbde93c1b30ebfb27d40"
+  },
+  {
+    "name": "feeRecipient",
+    "role": "Receives sequencer fees",
+    "address": "0x88d3757c79FF13A2E533705ebdE7C9a0B9FC22b3",
+    "privateKey": "0x957d716a05cb3db043bbf3663fa05bf1bfe8da5931dd57c29553b558a9adff20"
+  },
+  {
+    "name": "guardian",
+    "role": "Superchain config guardian",
+    "address": "0xb63060c4c50BaC70c89399f7dca286103620987c",
+    "privateKey": "0x5c7cf4f9052c8605b88fc35b28909415a2e5fad051f6ad44085dbac5db42320c"
+  }
+]

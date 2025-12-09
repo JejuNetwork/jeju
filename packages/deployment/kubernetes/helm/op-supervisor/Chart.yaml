@@ -1,0 +1,8 @@
+apiVersion: v2
+name: op-supervisor
+description: OP Stack Superchain interoperability supervisor
+type: application
+version: 1.0.0
+appVersion: "v0.5.0"
+
+

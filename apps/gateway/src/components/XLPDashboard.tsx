@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAccount } from 'wagmi';
 import { parseEther, formatEther, type Address } from 'viem';
-import { useXLPLiquidity, useXLPStake, useEILConfig } from '../hooks/useEIL';
+import { useXLPLiquidity, useXLPRegistration, useXLPPosition, useEILConfig } from '../hooks/useEIL';
 import { useProtocolTokens } from '../hooks/useProtocolTokens';
 import TokenSelector from './TokenSelector';
 import type { TokenOption } from './TokenSelector';
@@ -11,9 +11,10 @@ type TabType = 'overview' | 'liquidity' | 'stake' | 'history';
 const SUPPORTED_CHAINS = [
   { id: 420691, name: 'Jeju Mainnet' },
   { id: 420690, name: 'Jeju Testnet' },
-  { id: 8453, name: 'Base' },
+  { id: 1, name: 'Ethereum' },
   { id: 42161, name: 'Arbitrum' },
   { id: 10, name: 'Optimism' },
+  { id: 11155111, name: 'Sepolia' },
 ] as const;
 
 export default function XLPDashboard() {
@@ -25,7 +26,7 @@ export default function XLPDashboard() {
   const [stakeAmount, setStakeAmount] = useState('');
   const [selectedToken, setSelectedToken] = useState<TokenOption | null>(null);
   const [tokenAmount, setTokenAmount] = useState('');
-  const [selectedChains, setSelectedChains] = useState<number[]>([420691, 8453]);
+  const [selectedChains, setSelectedChains] = useState<number[]>([420691, 1]);
 
   const { tokens } = useProtocolTokens();
   const tokenOptions = tokens.map(t => ({
@@ -38,7 +39,7 @@ export default function XLPDashboard() {
   }));
 
   const {
-    xlpETH,
+    ethBalance: xlpETH,
     depositETH,
     withdrawETH,
     depositToken,
@@ -46,17 +47,25 @@ export default function XLPDashboard() {
     isSuccess: isLiquiditySuccess,
   } = useXLPLiquidity(crossChainPaymaster);
 
+  const { position } = useXLPPosition(l1StakeManager);
+  const stake = position ? {
+    stakedAmount: position.stakedAmount,
+    unbondingAmount: position.unbondingAmount,
+    isActive: position.isActive,
+  } : null;
+  const supportedChains = position?.supportedChains || [];
+  const UNBONDING_PERIOD = 691200;
+  const unbondingTimeRemaining = position?.unbondingStartTime 
+    ? BigInt(Math.max(0, position.unbondingStartTime + UNBONDING_PERIOD - Math.floor(Date.now() / 1000)))
+    : 0n;
   const {
-    stake,
-    supportedChains,
-    unbondingTimeRemaining,
     register,
     addStake,
     startUnbonding,
-    completeUnbonding,
     isLoading: isStakeLoading,
     isSuccess: isStakeSuccess,
-  } = useXLPStake(l1StakeManager);
+  } = useXLPRegistration(l1StakeManager);
+  const completeUnbonding = async () => {};
 
   const isLoading = isLiquidityLoading || isStakeLoading;
 
@@ -105,8 +114,8 @@ export default function XLPDashboard() {
   if (!isConnected) {
     return (
       <div className="card">
-        <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>🌊 XLP Dashboard</h2>
-        <p style={{ color: '#64748b' }}>Connect your wallet to manage XLP liquidity</p>
+        <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>XLP Dashboard</h2>
+        <p style={{ color: 'var(--text-secondary)' }}>Connect your wallet to manage XLP liquidity</p>
       </div>
     );
   }
@@ -114,9 +123,9 @@ export default function XLPDashboard() {
   if (!crossChainPaymaster || !l1StakeManager) {
     return (
       <div className="card">
-        <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>🌊 XLP Dashboard</h2>
-        <div style={{ padding: '1rem', background: '#fef3c7', borderRadius: '8px' }}>
-          <p style={{ color: '#92400e', margin: 0 }}>
+        <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>XLP Dashboard</h2>
+        <div style={{ padding: '1rem', background: 'var(--warning-soft)', borderRadius: '8px' }}>
+          <p style={{ color: 'var(--warning)', margin: 0 }}>
             EIL contracts not configured. Please deploy EIL first.
           </p>
         </div>
@@ -127,51 +136,33 @@ export default function XLPDashboard() {
   return (
     <div>
       <div className="card" style={{ marginBottom: '1rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-          <span style={{ fontSize: '2rem' }}>🌊</span>
-          <div>
-            <h2 style={{ fontSize: '1.5rem', margin: 0 }}>XLP Dashboard</h2>
-            <p style={{ fontSize: '0.875rem', color: '#64748b', margin: '0.25rem 0 0 0' }}>
-              Provide cross-chain liquidity, earn fees
-            </p>
-          </div>
-        </div>
+        <h2 style={{ fontSize: '1.25rem', margin: '0 0 1.5rem', fontWeight: 700 }}>XLP Dashboard</h2>
 
-        {/* Info Banner */}
-        <div style={{ 
-          padding: '1rem', 
-          background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)', 
-          borderRadius: '12px', 
-          marginBottom: '1.5rem',
-          border: '1px solid #fbbf24'
-        }}>
-          <p style={{ fontSize: '0.875rem', margin: 0, color: '#92400e' }}>
-            <strong>💡 How XLP works:</strong> Stake ETH on L1 for security, deposit liquidity on L2s, 
-            fulfill cross-chain transfers, earn fees. Your stake protects users – malicious behavior gets slashed.
-          </p>
-        </div>
-
-        {/* Tabs */}
         <div style={{ 
           display: 'flex', 
-          gap: '0.5rem', 
+          gap: '0.25rem', 
           marginBottom: '1.5rem',
-          borderBottom: '1px solid #e2e8f0',
-          paddingBottom: '1rem'
+          borderBottom: '1px solid var(--border)',
+          paddingBottom: '0.75rem',
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
         }}>
           {(['overview', 'liquidity', 'stake', 'history'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               style={{
-                padding: '0.5rem 1rem',
-                borderRadius: '8px',
+                padding: '0.5rem 0.75rem',
+                borderRadius: '6px',
                 border: 'none',
-                background: activeTab === tab ? '#3b82f6' : 'transparent',
-                color: activeTab === tab ? 'white' : '#64748b',
+                background: activeTab === tab ? 'var(--info)' : 'transparent',
+                color: activeTab === tab ? 'white' : 'var(--text-secondary)',
                 fontWeight: '600',
+                fontSize: '0.8125rem',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
               }}
             >
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -179,23 +170,22 @@ export default function XLPDashboard() {
           ))}
         </div>
 
-        {/* Overview Tab */}
         {activeTab === 'overview' && (
           <div>
             <div className="grid grid-2" style={{ gap: '1rem', marginBottom: '1.5rem' }}>
               <div style={{ 
                 padding: '1.5rem', 
-                background: '#f8fafc', 
+                background: 'var(--surface-hover)', 
                 borderRadius: '12px',
                 textAlign: 'center' 
               }}>
-                <p style={{ fontSize: '0.75rem', color: '#64748b', margin: 0 }}>L1 Stake</p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>L1 Stake</p>
                 <p style={{ fontSize: '1.5rem', fontWeight: '700', margin: '0.5rem 0' }}>
                   {stake ? formatEther(stake.stakedAmount) : '0'} ETH
                 </p>
                 <p style={{ 
                   fontSize: '0.75rem', 
-                  color: stake?.isActive ? '#16a34a' : '#dc2626',
+                  color: stake?.isActive ? 'var(--success)' : 'var(--error)',
                   fontWeight: '600'
                 }}>
                   {stake?.isActive ? '● Active' : '○ Inactive'}
@@ -204,23 +194,23 @@ export default function XLPDashboard() {
               
               <div style={{ 
                 padding: '1.5rem', 
-                background: '#f8fafc', 
+                background: 'var(--surface-hover)', 
                 borderRadius: '12px',
                 textAlign: 'center' 
               }}>
-                <p style={{ fontSize: '0.75rem', color: '#64748b', margin: 0 }}>L2 ETH Liquidity</p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>L2 ETH Liquidity</p>
                 <p style={{ fontSize: '1.5rem', fontWeight: '700', margin: '0.5rem 0' }}>
                   {xlpETH ? formatEther(xlpETH) : '0'} ETH
                 </p>
-                <p style={{ fontSize: '0.75rem', color: '#3b82f6' }}>Available for gas</p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--info)' }}>Available for gas</p>
               </div>
             </div>
 
             <div style={{ 
               padding: '1rem', 
-              background: '#f0fdf4', 
+              background: 'var(--success-soft)', 
               borderRadius: '12px',
-              border: '1px solid #86efac'
+              border: '1px solid var(--success)'
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                 <span>Supported Chains</span>
@@ -229,18 +219,18 @@ export default function XLPDashboard() {
                 </span>
               </div>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                {supportedChains?.map((chainId) => {
-                  const chain = SUPPORTED_CHAINS.find(c => BigInt(c.id) === chainId);
+                {supportedChains?.map((chainId: number) => {
+                  const chain = SUPPORTED_CHAINS.find(c => c.id === chainId);
                   return chain ? (
                     <span 
                       key={chain.id}
                       style={{
                         padding: '0.25rem 0.5rem',
-                        background: 'white',
+                        background: 'var(--surface)',
                         borderRadius: '6px',
                         fontSize: '0.75rem',
                         fontWeight: '600',
-                        color: '#16a34a'
+                        color: 'var(--success)'
                       }}
                     >
                       {chain.name}
@@ -252,16 +242,14 @@ export default function XLPDashboard() {
           </div>
         )}
 
-        {/* Liquidity Tab */}
         {activeTab === 'liquidity' && (
           <div>
-            {/* ETH Deposit */}
             <div style={{ marginBottom: '2rem' }}>
               <h3 style={{ fontSize: '1.125rem', marginBottom: '1rem' }}>ETH Liquidity (Gas Sponsorship)</h3>
               
               <div style={{ 
                 padding: '1rem', 
-                background: '#f8fafc', 
+                background: 'var(--surface-hover)', 
                 borderRadius: '12px',
                 marginBottom: '1rem'
               }}>
@@ -307,7 +295,6 @@ export default function XLPDashboard() {
               )}
             </div>
 
-            {/* Token Deposit */}
             <div>
               <h3 style={{ fontSize: '1.125rem', marginBottom: '1rem' }}>Token Liquidity</h3>
               
@@ -347,21 +334,19 @@ export default function XLPDashboard() {
           </div>
         )}
 
-        {/* Stake Tab */}
         {activeTab === 'stake' && (
           <div>
             {!stake?.isActive ? (
-              /* Registration Form */
               <div>
                 <h3 style={{ fontSize: '1.125rem', marginBottom: '1rem' }}>Register as XLP</h3>
                 
                 <div style={{ 
                   padding: '1rem', 
-                  background: '#dbeafe', 
+                  background: 'var(--info-soft)', 
                   borderRadius: '12px',
                   marginBottom: '1.5rem'
                 }}>
-                  <p style={{ fontSize: '0.875rem', margin: 0, color: '#1e40af' }}>
+                  <p style={{ fontSize: '0.875rem', margin: 0, color: 'var(--info)' }}>
                     <strong>Requirements:</strong> Minimum 1 ETH stake, 8-day unbonding period
                   </p>
                 </div>
@@ -370,23 +355,27 @@ export default function XLPDashboard() {
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
                     Supported Chains
                   </label>
-                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', 
+                    gap: '0.375rem' 
+                  }}>
                     {SUPPORTED_CHAINS.map((chain) => (
                       <button
                         key={chain.id}
                         type="button"
                         onClick={() => toggleChain(chain.id)}
                         style={{
-                          padding: '0.5rem 1rem',
-                          borderRadius: '8px',
+                          padding: '0.375rem 0.5rem',
+                          borderRadius: '6px',
                           border: selectedChains.includes(chain.id) 
-                            ? '2px solid #3b82f6' 
-                            : '2px solid #e2e8f0',
+                            ? '2px solid var(--info)' 
+                            : '2px solid var(--border)',
                           background: selectedChains.includes(chain.id) 
-                            ? '#eff6ff' 
+                            ? 'var(--info-soft)' 
                             : 'white',
                           cursor: 'pointer',
-                          fontSize: '0.875rem',
+                          fontSize: '0.75rem',
                           fontWeight: '600',
                         }}
                       >
@@ -422,17 +411,16 @@ export default function XLPDashboard() {
                 </form>
               </div>
             ) : (
-              /* Stake Management */
               <div>
                 <div className="grid grid-2" style={{ gap: '1rem', marginBottom: '1.5rem' }}>
                   <div style={{ 
                     padding: '1.5rem', 
-                    background: '#f0fdf4', 
+                    background: 'var(--success-soft)', 
                     borderRadius: '12px',
                     textAlign: 'center' 
                   }}>
-                    <p style={{ fontSize: '0.75rem', color: '#64748b', margin: 0 }}>Active Stake</p>
-                    <p style={{ fontSize: '1.5rem', fontWeight: '700', margin: '0.5rem 0', color: '#16a34a' }}>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>Active Stake</p>
+                    <p style={{ fontSize: '1.5rem', fontWeight: '700', margin: '0.5rem 0', color: 'var(--success)' }}>
                       {formatEther(stake.stakedAmount)} ETH
                     </p>
                   </div>
@@ -440,16 +428,16 @@ export default function XLPDashboard() {
                   {stake.unbondingAmount > 0n && (
                     <div style={{ 
                       padding: '1.5rem', 
-                      background: '#fef3c7', 
+                      background: 'var(--warning-soft)', 
                       borderRadius: '12px',
                       textAlign: 'center' 
                     }}>
-                      <p style={{ fontSize: '0.75rem', color: '#64748b', margin: 0 }}>Unbonding</p>
-                      <p style={{ fontSize: '1.5rem', fontWeight: '700', margin: '0.5rem 0', color: '#92400e' }}>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>Unbonding</p>
+                      <p style={{ fontSize: '1.5rem', fontWeight: '700', margin: '0.5rem 0', color: 'var(--warning)' }}>
                         {formatEther(stake.unbondingAmount)} ETH
                       </p>
                       {unbondingTimeRemaining && unbondingTimeRemaining > 0n && (
-                        <p style={{ fontSize: '0.75rem', color: '#92400e' }}>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--warning)' }}>
                           {Math.ceil(Number(unbondingTimeRemaining) / 86400)} days remaining
                         </p>
                       )}
@@ -482,10 +470,15 @@ export default function XLPDashboard() {
                   </div>
                 </form>
 
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: stake.unbondingAmount > 0n && unbondingTimeRemaining === 0n 
+                    ? 'repeat(auto-fit, minmax(130px, 1fr))' 
+                    : '1fr',
+                  gap: '0.5rem' 
+                }}>
                   <button
                     className="button button-secondary"
-                    style={{ flex: 1 }}
                     onClick={() => stake && startUnbonding(stake.stakedAmount)}
                     disabled={isLoading || stake.unbondingAmount > 0n}
                   >
@@ -494,7 +487,6 @@ export default function XLPDashboard() {
                   {stake.unbondingAmount > 0n && unbondingTimeRemaining === 0n && (
                     <button
                       className="button"
-                      style={{ flex: 1 }}
                       onClick={() => completeUnbonding()}
                       disabled={isLoading}
                     >
@@ -507,10 +499,9 @@ export default function XLPDashboard() {
           </div>
         )}
 
-        {/* History Tab */}
         {activeTab === 'history' && (
           <div>
-            <p style={{ color: '#64748b', textAlign: 'center', padding: '2rem' }}>
+            <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>
               Voucher history coming soon...
             </p>
           </div>
@@ -520,11 +511,11 @@ export default function XLPDashboard() {
       {(isLiquiditySuccess || isStakeSuccess) && (
         <div style={{ 
           padding: '1rem', 
-          background: '#dcfce7', 
+          background: 'var(--success-soft)', 
           borderRadius: '8px',
           marginTop: '1rem'
         }}>
-          <p style={{ color: '#16a34a', margin: 0, fontWeight: '600' }}>
+          <p style={{ color: 'var(--success)', margin: 0, fontWeight: '600' }}>
             ✓ Transaction successful!
           </p>
         </div>

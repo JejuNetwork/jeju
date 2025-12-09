@@ -2,6 +2,9 @@
  * Main indexer processor - comprehensive blockchain data indexing
  */
 
+// Initialize network configuration and register known contracts
+import './init';
+
 import {TypeormDatabase} from '@subsquid/typeorm-store'
 import {
     Block, Transaction, Account, Log, Contract, TokenTransfer, 
@@ -14,6 +17,9 @@ import {processNodeStakingEvents} from './node-staking-processor'
 import {processMarketEvents} from './market-processor'
 import {processRegistryEvents} from './registry-game-processor'
 import {processEILEvents} from './eil-processor'
+import {processComputeEvents} from './compute-processor'
+import {processOIFEvents} from './oif-processor'
+import {processStorageEvents} from './storage-processor'
 import {
     getEventCategory, getEventName,
     ERC20_TRANSFER, ERC1155_TRANSFER_SINGLE, ERC1155_TRANSFER_BATCH
@@ -505,4 +511,7 @@ processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx: Process
     await processMarketEvents(ctx)
     await processRegistryEvents(ctx)
     await processEILEvents(ctx)
+    await processComputeEvents(ctx)
+    await processStorageEvents(ctx)
+    await processOIFEvents(ctx)
 })

@@ -7,7 +7,6 @@
 | [Discord](https://discord.gg/jeju) | Real-time help |
 | [GitHub](https://github.com/elizaos/jeju) | Bug reports, code |
 | security@jeju.network | Security issues |
-| enterprise@jeju.network | Enterprise support |
 
 ## Common Issues
 
@@ -27,52 +26,26 @@ kurtosis clean -a && bun run dev
 
 ### Network
 
-**Can't connect to RPC**:
-- Primary: `https://testnet-rpc.jeju.network`
-- Check status: https://status.jeju.network
+**Can't connect to RPC**: Check https://status.jeju.network
 
-**Transaction stuck**:
-1. Check on explorer
-2. Increase gas and resend with same nonce
+**Transaction stuck**: Increase gas, resend with same nonce
 
-**Need testnet ETH**:
-- Faucet: https://faucet.jeju.network
-- Or ask in Discord #testnet-faucet
+**Need testnet ETH**: 
+1. Get Sepolia ETH: https://sepoliafaucet.com
+2. Bridge: https://testnet-gateway.jeju.network
 
 ### Bridge
 
-**Deposit not received**: Wait 2-5 minutes, check both explorers
+**Deposit not received**: Wait 2-5 min, check both explorers
 
-**Withdrawal slow**: Standard = 7 days. Use Hop/Across for fast (~15 min + fee)
-
-### Development
-
-```bash
-# Check balance
-cast balance $ADDRESS --rpc-url https://testnet-rpc.jeju.network
-
-# Contract verification
-forge verify-contract --chain-id 420690 $ADDRESS src/Contract.sol:Contract
-```
+**Withdrawal slow**: Standard = 7 days. Use EIL for fast (~15 min)
 
 ## Status
 
 https://status.jeju.network
 
-## Bug Bounty
-
-https://immunefi.com/bounty/jeju
-
-| Severity | Range |
-|----------|-------|
-| Critical | $100k - $1M |
-| High | $10k - $100k |
-| Medium | $1k - $10k |
-
 ## Resources
 
 - Explorer: https://explorer.jeju.network
-- Bridge: https://bridge.jeju.network
-- Faucet: https://faucet.jeju.network
+- Gateway: https://gateway.jeju.network
 - RPC: https://rpc.jeju.network
-- WebSocket: wss://ws.jeju.network

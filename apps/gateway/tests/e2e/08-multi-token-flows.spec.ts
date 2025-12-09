@@ -4,11 +4,11 @@
  * 
  * Ensures all protocol tokens (elizaOS, CLANKER, VIRTUAL, CLANKERMON)
  * are treated equally throughout the UI
-import { captureScreenshot, captureUserFlow } from '../../../../tests/shared/helpers/screenshots';
+import { captureScreenshot, captureUserFlow } from '@jejunetwork/tests/helpers/screenshots';
  */
 
 import { testWithWallet as test, expect } from '../fixtures/wallet';
-import { connectWallet } from '../../../../tests/shared/helpers/contracts';
+import { connectWallet } from '@jejunetwork/tests/helpers/contracts';
 import { assertAllProtocolTokens } from '../helpers/assertions';
 
 test.describe('Multi-Token Equality Tests', () => {
@@ -128,7 +128,7 @@ test.describe('Multi-Token Equality Tests', () => {
   });
 
   test('bridgeable tokens should EXCLUDE elizaOS', async ({ page }) => {
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     
     // Open token selector
     await page.locator('.input').first().click();

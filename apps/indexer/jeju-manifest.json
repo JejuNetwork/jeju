@@ -18,7 +18,12 @@
   "optional": true,
   "enabled": false,
   "autoStart": false,
-  "tags": ["indexer", "graphql", "data"],
+  "tags": ["indexer", "graphql", "data", "jns"],
+  "jns": {
+    "name": "indexer.jeju",
+    "description": "Blockchain Indexer with GraphQL API",
+    "url": "https://indexer.jeju.network"
+  },
   "agent": {
     "enabled": true,
     "tags": ["jeju-app", "indexer", "graphql", "data"],
@@ -26,7 +31,8 @@
       "category": "data",
       "provider": "jeju-network"
     },
-    "trustModels": ["open"]
+    "trustModels": ["open"],
+    "jnsName": "indexer.jeju"
   }
 }
 

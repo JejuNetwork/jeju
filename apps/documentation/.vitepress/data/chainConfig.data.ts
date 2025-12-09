@@ -19,8 +19,8 @@
  * ```
  */
 
-import { readFileSync } from 'fs';
-import { resolve } from 'path';
+import mainnet from '@jejunetwork/config/chain/mainnet.json';
+import testnet from '@jejunetwork/config/chain/testnet.json';
 
 /**
  * Chain configuration interface matching the JSON structure
@@ -92,26 +92,11 @@ export default {
    * Loads chain configurations from JSON files at build time
    * 
    * @returns {ChainConfigs} Object containing mainnet and testnet configurations
-   * @throws {Error} If configuration files are not found or invalid JSON
-   * 
-   * @remarks
-   * This function is called by VitePress during the build process.
-   * Configuration files are located at:
-   * - config/chain/mainnet.json
-   * - config/chain/testnet.json
    */
   load(): ChainConfigs {
-    const mainnetPath = resolve(__dirname, '../../../../config/chain/mainnet.json');
-    const testnetPath = resolve(__dirname, '../../../../config/chain/testnet.json');
-
-    const mainnet: ChainConfig = JSON.parse(readFileSync(mainnetPath, 'utf-8'));
-    const testnet: ChainConfig = JSON.parse(readFileSync(testnetPath, 'utf-8'));
-
     return {
-      mainnet,
-      testnet,
+      mainnet: mainnet as ChainConfig,
+      testnet: testnet as ChainConfig,
     };
   },
 };
-
-

@@ -106,7 +106,7 @@ describe('Jeju Compute E2E', () => {
     };
 
     computeNode = new ComputeNodeServer(nodeConfig);
-    computeNode.start();
+    computeNode.start(nodeConfig.port);
 
     // Wait for server to start
     await new Promise((r) => setTimeout(r, 1000));

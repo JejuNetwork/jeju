@@ -16,7 +16,7 @@ export interface ProtocolToken {
   hasPaymaster: boolean;
   bridged: boolean;
   originChain: string;
-  baseAddress?: string;
+  l1Address?: string;
   vaultAddress?: string;
   distributorAddress?: string;
   paymasterAddress?: string;

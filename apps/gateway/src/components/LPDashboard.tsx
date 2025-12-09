@@ -21,22 +21,22 @@ function PositionCard({ tokenAddress }: { tokenAddress: `0x${string}` }) {
 
       <div className="grid grid-3">
         <div>
-          <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: 0 }}>ETH Shares</p>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>ETH Shares</p>
           <p style={{ fontSize: '1.25rem', fontWeight: '600', margin: '0.25rem 0' }}>
             {formatEther(lpPosition.ethShares)}
           </p>
         </div>
 
         <div>
-          <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: 0 }}>Current Value</p>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>Current Value</p>
           <p style={{ fontSize: '1.25rem', fontWeight: '600', margin: '0.25rem 0' }}>
             {formatEther(lpPosition.ethValue)} ETH
           </p>
         </div>
 
         <div>
-          <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: 0 }}>Pending Fees</p>
-          <p style={{ fontSize: '1.25rem', fontWeight: '600', margin: '0.25rem 0', color: '#16a34a' }}>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>Pending Fees</p>
+          <p style={{ fontSize: '1.25rem', fontWeight: '600', margin: '0.25rem 0', color: 'var(--success)' }}>
             {formatEther(lpPosition.pendingFees)}
           </p>
         </div>
@@ -45,8 +45,8 @@ function PositionCard({ tokenAddress }: { tokenAddress: `0x${string}` }) {
       {lpPosition.pendingFees > 0n && (
         <>
           {isClaimSuccess && (
-            <div style={{ padding: '1rem', background: '#dcfce7', borderRadius: '8px', marginTop: '1rem' }}>
-              <p style={{ color: '#16a34a', margin: 0 }}>Fees claimed successfully!</p>
+            <div style={{ padding: '1rem', background: 'var(--success-soft)', borderRadius: '8px', marginTop: '1rem' }}>
+              <p style={{ color: 'var(--success)', margin: 0 }}>Fees claimed successfully!</p>
             </div>
           )}
           
@@ -70,9 +70,9 @@ export default function LPDashboard() {
   if (!allDeployments || allDeployments.length === 0) {
     return (
       <div className="card" style={{ textAlign: 'center', padding: '3rem 1rem' }}>
-        <BarChart3 size={48} style={{ margin: '0 auto 1rem', color: '#94a3b8' }} />
+        <BarChart3 size={48} style={{ margin: '0 auto 1rem', color: 'var(--text-muted)' }} />
         <h2 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>No LP Positions</h2>
-        <p style={{ color: '#64748b' }}>
+        <p style={{ color: 'var(--text-secondary)' }}>
           Add liquidity to earn fees from gas sponsorship
         </p>
       </div>

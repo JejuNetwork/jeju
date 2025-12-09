@@ -1,4 +1,4 @@
-import { createJejuPlaywrightConfig } from '../../tests/shared/playwright.config.base';
+import { createJejuPlaywrightConfig } from '@jejunetwork/tests/playwright.config.base';
 
 const BAZAAR_PORT = process.env.BAZAAR_PORT || '4006';
 

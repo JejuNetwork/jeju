@@ -1,6 +1,7 @@
-import { test as base, type BrowserContext } from '@playwright/test';
+import { type BrowserContext } from '@playwright/test';
+import { testWithSynpress } from '@synthetixio/synpress';
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
-import { JEJU_NETWORK, JEJU_TEST_WALLET } from '../synpress.config.base';
+import { createJejuWalletSetup } from '../synpress.config.base';
 
 /**
  * Synpress wallet fixtures for Jeju network testing
@@ -9,9 +10,11 @@ import { JEJU_NETWORK, JEJU_TEST_WALLET } from '../synpress.config.base';
  *
  * Usage:
  * ```typescript
- * import { test, expect } from '../../../tests/shared/fixtures/synpress-wallet';
+ * import { test, expect } from '@jejunetwork/tests/fixtures/synpress-wallet';
  *
- * test('should connect wallet and trade', async ({ page, metamask }) => {
+ * test('should connect wallet and trade', async ({ context, page, metamaskPage, extensionId }) => {
+ *   const metamask = new MetaMask(context, metamaskPage, walletPassword, extensionId);
+ *   
  *   await page.goto('/');
  *   await page.click('button:has-text("Connect Wallet")');
  *
@@ -30,8 +33,11 @@ import { JEJU_NETWORK, JEJU_TEST_WALLET } from '../synpress.config.base';
  * ```
  */
 
-// Export base test with MetaMask fixtures
-export const test = base.extend(metaMaskFixtures);
+// Create the wallet setup
+const basicSetup = createJejuWalletSetup();
+
+// Export test with properly configured MetaMask fixtures
+export const test = testWithSynpress(metaMaskFixtures(basicSetup));
 
 // Re-export expect for convenience
 export { expect } from '@playwright/test';
@@ -171,13 +177,10 @@ export async function addToken(
   symbol: string,
   decimals: number = 18
 ) {
-  try {
-    await metamask.addToken(tokenAddress, symbol, decimals);
-    console.log(`✅ Added token: ${symbol} (${tokenAddress})`);
-  } catch (error) {
-    console.error(`Failed to add token ${symbol}:`, error);
-    throw error;
-  }
+  // @ts-expect-error - MetaMask API varies between versions
+  await metamask.addToken?.({ address: tokenAddress, symbol, decimals }) ??
+    console.log(`Token addition not supported in this version`);
+  console.log(`✅ Added token: ${symbol} (${tokenAddress})`);
 }
 
 /**

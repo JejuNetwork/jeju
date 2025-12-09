@@ -120,10 +120,6 @@ const L1_STAKE_MANAGER_ABI = [
   'function supportsChain(address xlp, uint256 chainId) external view returns (bool)',
 ];
 
-const ENTRY_POINT_ABI = [
-  'function handleOps(tuple(address sender, uint256 nonce, bytes initCode, bytes callData, bytes32 accountGasLimits, uint256 preVerificationGas, bytes32 gasFees, bytes paymasterAndData, bytes signature)[] ops, address payable beneficiary) external',
-];
-
 // ============ EIL Client ============
 
 export class EILClient {
@@ -247,23 +243,31 @@ export class EILClient {
    */
   async waitForVoucher(requestId: string, timeoutMs: number = 60000): Promise<Voucher> {
     return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        this.paymaster.off('VoucherIssued');
-        reject(new Error('Timeout waiting for voucher'));
-      }, timeoutMs);
-
       const filter = this.paymaster.filters.VoucherIssued(null, requestId);
+      let resolved = false;
       
-      this.paymaster.once(filter, (voucherId: string, _requestId: string, xlp: string, fee: bigint, event: ethers.EventLog) => {
+      const handler = (voucherId: string, _requestId: string, xlp: string, fee: bigint) => {
+        if (resolved) return;
+        resolved = true;
         clearTimeout(timeout);
+        this.paymaster.off(filter, handler);
         resolve({
           voucherId,
           requestId: _requestId,
           xlp,
           fee,
-          signature: '', // Would need to fetch from XLP
+          signature: '',
         });
-      });
+      };
+
+      const timeout = setTimeout(() => {
+        if (resolved) return;
+        resolved = true;
+        this.paymaster.off(filter, handler);
+        reject(new Error('Timeout waiting for voucher'));
+      }, timeoutMs);
+      
+      this.paymaster.on(filter, handler);
     });
   }
 
@@ -272,36 +276,55 @@ export class EILClient {
    */
   async waitForFulfillment(voucherId: string, timeoutMs: number = 120000): Promise<boolean> {
     return new Promise((resolve, reject) => {
+      const filter = this.paymaster.filters.VoucherFulfilled(voucherId);
+      let resolved = false;
+
+      const handler = () => {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(timeout);
+        this.paymaster.off(filter, handler);
+        resolve(true);
+      };
+
       const timeout = setTimeout(() => {
-        this.paymaster.off('VoucherFulfilled');
+        if (resolved) return;
+        resolved = true;
+        this.paymaster.off(filter, handler);
         reject(new Error('Timeout waiting for fulfillment'));
       }, timeoutMs);
-
-      const filter = this.paymaster.filters.VoucherFulfilled(voucherId);
       
-      this.paymaster.once(filter, () => {
-        clearTimeout(timeout);
-        resolve(true);
-      });
+      this.paymaster.on(filter, handler);
     });
   }
 
   // ============ XLP Operations ============
 
   /**
-   * Get XLP information
+   * Get XLP information with liquidity for specified tokens
    */
-  async getXLPInfo(xlpAddress: string): Promise<XLPInfo> {
-    const stake = await this.stakeManager.getStake(xlpAddress);
-    const chains = await this.stakeManager.getXLPChains(xlpAddress);
-    const ethBalance = await this.paymaster.getXLPETH(xlpAddress);
+  async getXLPInfo(xlpAddress: string, tokenAddresses: string[] = []): Promise<XLPInfo> {
+    const [stake, chains, ethBalance] = await Promise.all([
+      this.stakeManager.getStake(xlpAddress),
+      this.stakeManager.getXLPChains(xlpAddress),
+      this.paymaster.getXLPETH(xlpAddress),
+    ]);
+
+    // Query liquidity for each token
+    const liquidity = new Map<string, bigint>();
+    for (const token of tokenAddresses) {
+      const tokenLiquidity = await this.paymaster.getXLPLiquidity(xlpAddress, token).catch(() => 0n);
+      if (tokenLiquidity > 0n) {
+        liquidity.set(token, tokenLiquidity);
+      }
+    }
 
     return {
       address: xlpAddress,
       stakedAmount: stake.stakedAmount,
       isActive: stake.isActive,
       supportedChains: chains.map((c: bigint) => Number(c)),
-      liquidity: new Map(), // Would need to query for each token
+      liquidity,
       ethBalance,
     };
   }

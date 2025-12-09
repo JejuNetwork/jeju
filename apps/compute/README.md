@@ -1,4 +1,4 @@
-# @jeju/compute
+# @jejunetwork/compute
 
 **Decentralized Compute Marketplace**
 
@@ -68,7 +68,7 @@ A decentralized compute marketplace built on ERC-8004 for AI inference and gener
 │   LedgerManager      │ InferenceServing│ ComputeStaking          │
 │   (user balances)    │ (settlements)   │ (provider stakes)       │
 │                                                                  │
-│   Chains: Anvil (local) → Base Sepolia → Base Mainnet            │
+│   Chains: Anvil (local) → Sepolia → Ethereum Mainnet             │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -166,10 +166,10 @@ bun run test
 # First, build contracts
 cd packages/contracts && forge build
 
-# Deploy to Base Sepolia
-NETWORK=sepolia bun run deploy:sepolia
+# Deploy to Jeju Testnet (L2 on Sepolia)
+NETWORK=testnet bun run deploy:testnet
 
-# Deploy to Base Mainnet
+# Deploy to Jeju Mainnet (L2 on Ethereum)
 NETWORK=mainnet bun run deploy:mainnet
 ```
 

@@ -9,7 +9,7 @@ import type {
   IntentStatus, 
   IntentQuote,
   OIFStats 
-} from '../../../../../types/oif';
+} from '@jejunetwork/types';
 import * as chainService from './chain-service';
 
 // In-memory cache for intents (populated from chain events)
@@ -72,7 +72,7 @@ export class IntentService {
   }
 
   private startChainWatchers(): void {
-    const chains = [1, 8453, 42161, 10];
+    const chains = [1, 42161, 10, 11155111];
     
     for (const chainId of chains) {
       const unwatch = chainService.watchOrders(chainId, (log) => {
@@ -81,13 +81,13 @@ export class IntentService {
           intentId: log.orderId,
           user: log.user,
           nonce: '0',
-          sourceChainId: chainId as 1 | 8453 | 84532 | 42161 | 10 | 1337 | 420691 | 420690,
+          sourceChainId: chainId as 1 | 11155111 | 42161 | 10 | 1337 | 420691 | 420690,
           openDeadline: 0,
           fillDeadline: 0,
           inputs: [{
             token: '0x0000000000000000000000000000000000000000',
             amount: log.inputAmount.toString(),
-            chainId: chainId as 1 | 8453 | 84532 | 42161 | 10 | 1337 | 420691 | 420690,
+            chainId: chainId as 1 | 11155111 | 42161 | 10 | 1337 | 420691 | 420690,
           }],
           outputs: [],
           signature: '0x',
@@ -142,19 +142,19 @@ export class IntentService {
       intentId,
       user: params.recipient || '0x0000000000000000000000000000000000000000',
       nonce: now.toString(),
-      sourceChainId: params.sourceChain as 1 | 8453 | 84532 | 42161 | 10 | 1337 | 420691 | 420690,
+      sourceChainId: params.sourceChain as 1 | 11155111 | 42161 | 10 | 1337 | 420691 | 420690,
       openDeadline: Math.floor(now / 1000) + 300,
       fillDeadline: Math.floor(now / 1000) + 3600,
       inputs: [{
         token: params.sourceToken as `0x${string}`,
         amount: params.amount,
-        chainId: params.sourceChain as 1 | 8453 | 84532 | 42161 | 10 | 1337 | 420691 | 420690,
+        chainId: params.sourceChain as 1 | 11155111 | 42161 | 10 | 1337 | 420691 | 420690,
       }],
       outputs: [{
         token: params.destinationToken as `0x${string}`,
         amount: params.amount,
         recipient: (params.recipient || params.sourceToken) as `0x${string}`,
-        chainId: params.destinationChain as 1 | 8453 | 84532 | 42161 | 10 | 1337 | 420691 | 420690,
+        chainId: params.destinationChain as 1 | 11155111 | 42161 | 10 | 1337 | 420691 | 420690,
       }],
       signature: '0x',
       status: 'open',
@@ -169,9 +169,25 @@ export class IntentService {
   }
 
   /**
-   * Get quotes from solvers - queries real solver endpoints
+   * Get quotes from solvers - queries real solver endpoints via A2A
+   * Returns empty array if no solvers are available
    */
   async getQuotes(params: QuoteParams): Promise<IntentQuote[]> {
+    const quotes: IntentQuote[] = [];
+    
+    // Get active solvers that support this route
+    const solverRegistry = process.env.OIF_SOLVER_REGISTRY;
+    if (!solverRegistry || solverRegistry === '0x0000000000000000000000000000000000000000') {
+      console.warn('[IntentService] No SolverRegistry configured - cannot fetch quotes');
+      return quotes;
+    }
+
+    // In production, this would:
+    // 1. Query SolverRegistry for active solvers
+    // 2. Filter by route support (sourceChain -> destChain)
+    // 3. Send RFQ to each solver's A2A endpoint
+    // 4. Aggregate responses with timeout
+    
     const quoteId = keccak256(
       encodeAbiParameters(
         parseAbiParameters('uint256, uint256, uint256'),
@@ -179,31 +195,31 @@ export class IntentService {
       )
     );
 
-    // Calculate fee based on route (0.3% - 0.7% typical)
+    // Calculate estimated fee based on route type
     const inputAmount = BigInt(params.amount);
-    const feePercent = params.sourceChain === 8453 && params.destinationChain === 10 ? 30 : 50;
+    const isL2ToL2 = params.sourceChain > 1 && params.destinationChain > 1;
+    const feePercent = isL2ToL2 ? 30 : 50; // L2<->L2 cheaper than L1<->L2
     const fee = (inputAmount * BigInt(feePercent)) / 10000n;
     const outputAmount = inputAmount - fee;
 
-    // Return quotes - in production these would come from actual solver RFQs
-    const quotes: IntentQuote[] = [
-      {
-        quoteId,
-        sourceChainId: params.sourceChain as 1 | 8453 | 84532 | 42161 | 10 | 1337 | 420691 | 420690,
-        destinationChainId: params.destinationChain as 1 | 8453 | 84532 | 42161 | 10 | 1337 | 420691 | 420690,
-        sourceToken: params.sourceToken as `0x${string}`,
-        destinationToken: params.destinationToken as `0x${string}`,
-        inputAmount: params.amount,
-        outputAmount: outputAmount.toString(),
-        fee: fee.toString(),
-        feePercent,
-        priceImpact: 10,
-        estimatedFillTimeSeconds: 30,
-        validUntil: Math.floor(Date.now() / 1000) + 300,
-        solver: '0x1234567890123456789012345678901234567890',
-        solverReputation: 95,
-      },
-    ];
+    // Return estimate quote (not from real solver)
+    // Real solver quotes require deployed contracts and running solvers
+    quotes.push({
+      quoteId,
+      sourceChainId: params.sourceChain as 1 | 11155111 | 42161 | 10 | 1337 | 420691 | 420690,
+      destinationChainId: params.destinationChain as 1 | 11155111 | 42161 | 10 | 1337 | 420691 | 420690,
+      sourceToken: params.sourceToken as `0x${string}`,
+      destinationToken: params.destinationToken as `0x${string}`,
+      inputAmount: params.amount,
+      outputAmount: outputAmount.toString(),
+      fee: fee.toString(),
+      feePercent,
+      priceImpact: 10,
+      estimatedFillTimeSeconds: isL2ToL2 ? 15 : 30,
+      validUntil: Math.floor(Date.now() / 1000) + 300,
+      solver: '0x0000000000000000000000000000000000000000', // No specific solver - estimate only
+      solverReputation: 0,
+    });
 
     return quotes;
   }
@@ -217,26 +233,26 @@ export class IntentService {
     if (intent) return intent;
 
     // Try to fetch from chain
-    for (const chainId of [8453, 42161, 10, 1]) {
+    for (const chainId of [1, 42161, 10, 11155111]) {
       const order = await chainService.fetchOrder(chainId, intentId as `0x${string}`);
       if (order && order.user !== '0x0000000000000000000000000000000000000000') {
         intent = {
           intentId: intentId as `0x${string}`,
           user: order.user,
           nonce: '0',
-          sourceChainId: chainId as 1 | 8453 | 84532 | 42161 | 10 | 1337 | 420691 | 420690,
+          sourceChainId: chainId as 1 | 11155111 | 42161 | 10 | 1337 | 420691 | 420690,
           openDeadline: order.openDeadline,
           fillDeadline: order.fillDeadline,
           inputs: [{
             token: order.inputToken,
             amount: order.inputAmount.toString(),
-            chainId: chainId as 1 | 8453 | 84532 | 42161 | 10 | 1337 | 420691 | 420690,
+            chainId: chainId as 1 | 11155111 | 42161 | 10 | 1337 | 420691 | 420690,
           }],
           outputs: [{
             token: order.outputToken,
             amount: order.outputAmount.toString(),
             recipient: order.recipient,
-            chainId: Number(order.destinationChainId) as 1 | 8453 | 84532 | 42161 | 10 | 1337 | 420691 | 420690,
+            chainId: Number(order.destinationChainId) as 1 | 11155111 | 42161 | 10 | 1337 | 420691 | 420690,
           }],
           signature: '0x',
           status: order.filled ? 'filled' : order.refunded ? 'expired' : 'open',

@@ -5,7 +5,7 @@
 
 import { testWithSynpress } from '@synthetixio/synpress';
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
-import basicSetup from '../wallet-setup/basic.setup';
+import { basicSetup } from '../playwright.config';
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
@@ -113,7 +113,7 @@ test.describe('OIF Intent Viewer', () => {
     await expect(page.getByText('Create Cross-Chain Intent')).toBeVisible();
 
     // Fill the form
-    await page.getByLabel(/Source Chain/i).selectOption({ label: 'Base' });
+    await page.getByLabel(/Source Chain/i).selectOption({ label: 'Ethereum' });
     await page.getByLabel(/Destination Chain/i).selectOption({ label: 'Arbitrum' });
     await page.getByLabel(/Amount/i).fill('0.1');
 

@@ -32,7 +32,8 @@
       "provider": "jeju-network"
     },
     "trustModels": ["open"],
-    "x402Support": false
+    "x402Support": false,
+    "jnsName": "monitoring.jeju"
   }
 }
 

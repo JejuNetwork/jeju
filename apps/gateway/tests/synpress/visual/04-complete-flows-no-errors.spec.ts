@@ -5,7 +5,7 @@
 
 import { testWithSynpress } from '@synthetixio/synpress';
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
-import { basicSetup } from '../../synpress.config'
+import { basicSetup } from '../../../synpress.config'
 import { connectWallet } from '../helpers/wallet-helpers';
 import { GATEWAY_URL } from '../fixtures/test-data';
 import type { Page } from '@playwright/test';
@@ -83,7 +83,7 @@ test.describe('COMPLETE USER JOURNEY - No Errors', () => {
     await page.screenshot({ path: 'test-results/screenshots/flows-no-errors/04-token-list.png', fullPage: true });
 
     // Step 5: View bridge interface
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
     
     await assertNoErrorsOnPage(page, 'Step 5: Bridge Interface');
@@ -178,7 +178,7 @@ test.describe('COMPLETE USER JOURNEY - No Errors', () => {
     const steps = [
       { name: 'Homepage', action: async () => {} },
       { name: 'Registered Tokens', action: async () => { await page.getByRole('button', { name: /Registered Tokens/i }).click(); } },
-      { name: 'Bridge from Base', action: async () => { await page.getByRole('button', { name: /Bridge from Base/i }).click(); } },
+      { name: 'Bridge from Ethereum', action: async () => { await page.getByRole('button', { name: /Bridge from Ethereum/i }).click(); } },
       { name: 'Deploy Paymaster', action: async () => { await page.getByRole('button', { name: /Deploy Paymaster/i }).click(); } },
       { name: 'Add Liquidity', action: async () => { await page.getByRole('button', { name: /Add Liquidity/i }).click(); } },
       { name: 'My Earnings', action: async () => { await page.getByRole('button', { name: /My Earnings/i }).click(); } },
@@ -231,7 +231,7 @@ test.describe('Error Detection - Comprehensive', () => {
     // Navigate through all tabs
     const tabs = [
       'Registered Tokens',
-      'Bridge from Base',
+      'Bridge from Ethereum',
       'Deploy Paymaster',
       'Add Liquidity',
       'My Earnings',
