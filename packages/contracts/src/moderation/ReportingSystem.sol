@@ -289,6 +289,8 @@ contract ReportingSystem is Ownable, Pausable, ReentrancyGuard {
         if (severity == ReportSeverity.CRITICAL) {
             if (reportType == ReportType.NETWORK_BAN) {
                 // Temp network ban (will be made permanent if vote passes)
+                // slither-disable-next-line encode-packed-collision
+                // @audit-ok String concatenation for ban reason, not hashed
                 banManager.banFromNetwork(
                     targetAgentId,
                     string(abi.encodePacked("TEMP BAN - Critical report #", _uint2str(reportId), " pending vote")),
@@ -296,6 +298,8 @@ contract ReportingSystem is Ownable, Pausable, ReentrancyGuard {
                 );
             } else if (reportType == ReportType.APP_BAN) {
                 // Temp app ban
+                // slither-disable-next-line encode-packed-collision
+                // @audit-ok String concatenation for ban reason, not hashed
                 banManager.banFromApp(
                     targetAgentId,
                     sourceAppId,
@@ -408,12 +412,16 @@ contract ReportingSystem is Ownable, Pausable, ReentrancyGuard {
 
         // INTERACTIONS: Execute based on report type
         if (reportType == ReportType.NETWORK_BAN) {
+            // slither-disable-next-line encode-packed-collision
+            // @audit-ok String concatenation for ban reason, not hashed
             banManager.banFromNetwork(
                 targetAgentId,
                 string(abi.encodePacked("Report #", _uint2str(reportId), ": ", details)),
                 bytes32(reportId)
             );
         } else if (reportType == ReportType.APP_BAN) {
+            // slither-disable-next-line encode-packed-collision
+            // @audit-ok String concatenation for ban reason, not hashed
             banManager.banFromApp(
                 targetAgentId,
                 sourceAppId,
@@ -433,6 +441,8 @@ contract ReportingSystem is Ownable, Pausable, ReentrancyGuard {
 
     // ============ Internal Functions ============
 
+    // slither-disable-next-line encode-packed-collision
+    // @audit-ok All abi.encodePacked uses are for string concatenation, not hashed - no collision risk
     function _generateMarketQuestion(uint256 agentId, ReportType reportType) internal pure returns (string memory) {
         if (reportType == ReportType.NETWORK_BAN) {
             return string(

@@ -343,6 +343,8 @@ contract Items is ERC1155, ERC1155Burnable, ERC1155Supply, Ownable {
      * @return Token URI
      */
     function uri(uint256 itemId) public pure override returns (string memory) {
+        // slither-disable-next-line encode-packed-collision
+        // @audit-ok String concatenation for URI, not hashed - no collision risk
         return string(abi.encodePacked(BASE_URI, itemId.toString(), ".json"));
     }
 

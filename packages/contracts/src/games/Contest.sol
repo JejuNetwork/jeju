@@ -405,6 +405,8 @@ contract Contest is IPredictionOracle, Ownable, Pausable {
         ContestData storage contest = contests[sessionId];
 
         // Build question from options
+        // slither-disable-next-line encode-packed-collision
+        // @audit-ok String concatenation for display, not hashed - no collision risk
         string memory q = string(
             abi.encodePacked(
                 "Will ",

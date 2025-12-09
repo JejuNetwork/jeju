@@ -286,6 +286,8 @@ contract RegistryGovernance is Ownable, Pausable, ReentrancyGuard {
         uint256 slashPercentageBPS,
         string memory reason
     ) internal returns (bytes32 proposalId) {
+        // slither-disable-next-line encode-packed-collision
+        // @audit-ok Uses fixed-size types (enum, uint256, address, uint256) - no collision risk
         proposalId = keccak256(abi.encodePacked(proposalType, agentId, msg.sender, block.timestamp));
 
         // Create conditional markets
@@ -294,12 +296,16 @@ contract RegistryGovernance is Ownable, Pausable, ReentrancyGuard {
         bytes32 yesMarketId = bytes32(uint256(uint160(address(this))) | uint256(proposalId) | 1);
         bytes32 noMarketId = bytes32(uint256(uint160(address(this))) | uint256(proposalId) | 2);
 
+        // slither-disable-next-line encode-packed-collision
+        // @audit-ok String concatenation for market question, not hashed
         predimarket.createMarket(
             yesMarketId,
             string(abi.encodePacked("Network quality improves IF we ", actionText, " Agent #", _uint2str(agentId))),
             defaultLiquidity
         );
 
+        // slither-disable-next-line encode-packed-collision
+        // @audit-ok String concatenation for market question, not hashed
         predimarket.createMarket(
             noMarketId,
             string(
@@ -547,6 +553,8 @@ contract RegistryGovernance is Ownable, Pausable, ReentrancyGuard {
         require(msg.value >= appealBond, "Insufficient bond");
         require(block.timestamp < proposal.executeAfter + 7 days, "Appeal period expired");
 
+        // slither-disable-next-line encode-packed-collision
+        // @audit-ok Uses fixed-size types (bytes32, address, uint256) - no collision risk
         appealId = keccak256(abi.encodePacked(proposalId, msg.sender, block.timestamp));
 
         Appeal storage appeal = appeals[appealId];

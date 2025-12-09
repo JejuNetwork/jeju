@@ -714,6 +714,8 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
         // Apply or remove ban via BanManager
         if (banUpheld) {
             // Apply permanent ban
+            // slither-disable-next-line encode-packed-collision
+            // @audit-ok String concatenation for ban reason, not hashed - no collision risk
             banManager.applyAddressBan(
                 banCase.target,
                 caseId,

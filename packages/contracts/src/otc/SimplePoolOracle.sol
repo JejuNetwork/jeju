@@ -102,6 +102,8 @@ contract SimplePoolOracle is IAggregatorV3, Ownable {
     }
 
     /// @notice Implements Chainlink's description()
+    // slither-disable-next-line encode-packed-collision
+    // @audit-ok String concatenation for description, not hashed - no collision risk
     function description() external view returns (string memory) {
         string memory tokenSymbol = IERC20Metadata(targetToken).symbol();
         return string(abi.encodePacked(tokenSymbol, " / USD"));

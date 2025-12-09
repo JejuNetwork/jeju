@@ -445,6 +445,8 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         if (msg.value < totalCost) revert InsufficientPayment(msg.value, totalCost);
 
         // Generate rental ID
+        // slither-disable-next-line encode-packed-collision
+        // @audit-ok Uses fixed-size types only (address, address, uint256, uint256) - no collision risk
         rentalId = keccak256(abi.encodePacked(msg.sender, provider, block.timestamp, _rentalCounter++));
 
         // Create rental
@@ -507,6 +509,8 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
 
         if (msg.value < totalCost) revert InsufficientPayment(msg.value, totalCost);
 
+        // slither-disable-next-line encode-packed-collision
+        // @audit-ok Uses fixed-size types only - no collision risk
         rentalId = keccak256(abi.encodePacked(user, provider, block.timestamp, _rentalCounter++));
 
         rentals[rentalId] = Rental({
@@ -573,6 +577,8 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
 
         creditManager.deductCredit(msg.sender, paymentToken, totalCost);
 
+        // slither-disable-next-line encode-packed-collision
+        // @audit-ok Uses fixed-size types only - no collision risk
         rentalId = keccak256(abi.encodePacked(msg.sender, provider, block.timestamp, _rentalCounter++));
 
         rentals[rentalId] = Rental({
@@ -781,6 +787,8 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         if (rentalDisputes[rentalId] != bytes32(0)) revert AlreadyDisputed();
         if (msg.value < disputeBond) revert InsufficientPayment(msg.value, disputeBond);
 
+        // slither-disable-next-line encode-packed-collision
+        // @audit-ok Uses fixed-size types only (bytes32, address, uint256, uint256) - no collision risk
         disputeId = keccak256(abi.encodePacked(rentalId, msg.sender, block.timestamp, _disputeCounter++));
 
         address defendant = msg.sender == rental.user ? rental.provider : rental.user;

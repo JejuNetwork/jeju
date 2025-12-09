@@ -211,6 +211,8 @@ contract ReputationLabelManager is Ownable, Pausable, ReentrancyGuard {
         if (msg.value < requiredStake) revert InsufficientStake();
 
         // Generate unique proposal ID
+        // slither-disable-next-line encode-packed-collision
+        // @audit-ok Uses fixed-size types only (uint256, enum, address) - no collision risk
         proposalId = keccak256(abi.encodePacked(targetAgentId, label, msg.sender, block.timestamp));
 
         // Create market question
@@ -287,6 +289,8 @@ contract ReputationLabelManager is Ownable, Pausable, ReentrancyGuard {
 
             // If HACKER label, auto-ban from network
             if (proposedLabel == Label.HACKER) {
+                // slither-disable-next-line encode-packed-collision
+                // @audit-ok String concatenation for ban reason, not hashed
                 banManager.banFromNetwork(
                     targetAgentId,
                     string(abi.encodePacked("Auto-ban: HACKER label approved (", _bytes32ToString(proposalId), ")")),
@@ -349,6 +353,8 @@ contract ReputationLabelManager is Ownable, Pausable, ReentrancyGuard {
     /**
      * @dev Generate market question
      */
+    // slither-disable-next-line encode-packed-collision
+    // @audit-ok String concatenation for market question, not hashed - no collision risk
     function _generateMarketQuestion(uint256 agentId, Label label) internal pure returns (string memory) {
         string memory labelStr = _labelToString(label);
         return string(abi.encodePacked("Should Agent #", _uint2str(agentId), " be labeled as ", labelStr, "?"));
