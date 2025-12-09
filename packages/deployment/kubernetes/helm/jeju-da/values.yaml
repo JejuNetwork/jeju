@@ -1,0 +1,138 @@
+# JejuDA - Native Data Availability Server
+# Implements OP Stack Alt-DA interface using IPFS + KZG commitments
+#
+# Architecture:
+# 1. op-batcher sends batch data to JejuDA server
+# 2. JejuDA creates KZG commitment and stores data in IPFS
+# 3. Commitment posted to L1 (tiny footprint)
+# 4. op-node retrieves data from JejuDA using commitment
+# 5. IPFS provides redundancy and global availability
+#
+# Why use this over EigenDA?
+# - Self-sovereign: no external dependencies
+# - Uses existing IPFS infrastructure
+# - Cheaper: only pay for IPFS storage
+# - Decentralized: IPFS provides global redundancy
+
+replicaCount: 3
+
+image:
+  repository: ghcr.io/jejunetwork/jeju-da
+  pullPolicy: IfNotPresent
+  tag: "1.0.0"
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "9100"
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsUser: 1000
+  runAsNonRoot: true
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  da:
+    port: 3100  # Alt-DA interface
+  metrics:
+    port: 9100
+
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+  requests:
+    cpu: 1000m
+    memory: 2Gi
+
+persistence:
+  enabled: true
+  storageClass: "gp3"
+  accessMode: ReadWriteOnce
+  size: 100Gi
+  mountPath: /data
+
+nodeSelector:
+  role: core
+
+tolerations:
+  - key: workload
+    operator: Equal
+    value: core
+    effect: NoSchedule
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - jeju-da
+        topologyKey: kubernetes.io/hostname
+
+config:
+  # Server settings
+  server:
+    addr: "0.0.0.0"
+    port: 3100
+  
+  # IPFS backend (uses existing apps/storage infrastructure)
+  ipfs:
+    apiUrl: "http://ipfs:5001"
+    gatewayUrl: "http://ipfs:8080"
+    # Pin data to ensure availability
+    pinEnabled: true
+    # Replicate to multiple IPFS nodes
+    replicationFactor: 3
+  
+  # Commitment scheme
+  commitment:
+    # Use Keccak256 for commitments (simpler than KZG for IPFS data)
+    # KZG would require trusted setup ceremony
+    scheme: "keccak256"  # or "kzg" for full DA sampling support
+  
+  # Data retention
+  retention:
+    # How long to keep data (blobs only kept ~18 days on L1)
+    daysToKeep: 30
+    # Archive old data to cold storage
+    archiveEnabled: true
+    archiveBackend: "s3"  # or "arweave" for permanent storage
+  
+  # Metrics
+  metrics:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 9100
+  
+  # Challenge period (for fraud proofs)
+  challenge:
+    enabled: true
+    windowBlocks: 7200  # ~1 day at 12s blocks
+  
+  # Fallback to Ethereum blobs if IPFS unavailable
+  fallback:
+    enabled: true
+    useEthereumBlobs: true
+
+

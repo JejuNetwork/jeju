@@ -6,7 +6,7 @@
 import { describe, test, expect, beforeAll } from 'bun:test';
 import { createPublicClient, createWalletClient, http, parseEther, formatEther, type PublicClient, type WalletClient } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
-import { base, arbitrum, optimism } from 'viem/chains';
+import { mainnet, arbitrum, optimism } from 'viem/chains';
 
 // Test configuration
 const PRIVATE_KEY = process.env.MAINNET_EVM_PRIVATE_KEY as `0x${string}`;
@@ -14,11 +14,11 @@ const skipTests = !PRIVATE_KEY;
 
 // Chain configurations
 const CHAINS = {
-  base: {
-    chain: base,
-    rpcUrl: process.env.BASE_RPC_URL || 'https://mainnet.base.org',
-    inputSettler: process.env.OIF_INPUT_SETTLER_8453 as `0x${string}`,
-    outputSettler: process.env.OIF_OUTPUT_SETTLER_8453 as `0x${string}`,
+  ethereum: {
+    chain: mainnet,
+    rpcUrl: process.env.ETHEREUM_RPC_URL || 'https://eth.llamarpc.com',
+    inputSettler: process.env.OIF_INPUT_SETTLER_1 as `0x${string}`,
+    outputSettler: process.env.OIF_OUTPUT_SETTLER_1 as `0x${string}`,
   },
   arbitrum: {
     chain: arbitrum,
@@ -189,13 +189,13 @@ describe('Cross-Chain OIF Integration', () => {
   });
 
   describe('Cross-Chain Intent Simulation', () => {
-    test('simulate Base → Arbitrum intent quote request', async () => {
+    test('simulate Ethereum → Arbitrum intent quote request', async () => {
       if (skipTests) return;
 
       const aggregatorUrl = process.env.AGGREGATOR_URL || 'http://localhost:4010';
 
       const quoteRequest = {
-        sourceChainId: 8453,
+        sourceChainId: 1,
         destinationChainId: 42161,
         inputToken: '0x0000000000000000000000000000000000000000', // ETH
         outputToken: '0x0000000000000000000000000000000000000000', // ETH
@@ -212,7 +212,7 @@ describe('Cross-Chain OIF Integration', () => {
 
         if (res.ok) {
           const quotes = await res.json();
-          console.log(`Received ${quotes.length} quote(s) for Base → Arbitrum`);
+          console.log(`Received ${quotes.length} quote(s) for Ethereum → Arbitrum`);
 
           if (quotes.length > 0) {
             const best = quotes[0];
@@ -226,14 +226,14 @@ describe('Cross-Chain OIF Integration', () => {
       }
     });
 
-    test('simulate Optimism → Base intent quote request', async () => {
+    test('simulate Optimism → Ethereum intent quote request', async () => {
       if (skipTests) return;
 
       const aggregatorUrl = process.env.AGGREGATOR_URL || 'http://localhost:4010';
 
       const quoteRequest = {
         sourceChainId: 10,
-        destinationChainId: 8453,
+        destinationChainId: 1,
         inputToken: '0x0000000000000000000000000000000000000000',
         outputToken: '0x0000000000000000000000000000000000000000',
         inputAmount: parseEther('0.1').toString(),
@@ -249,7 +249,7 @@ describe('Cross-Chain OIF Integration', () => {
 
         if (res.ok) {
           const quotes = await res.json();
-          console.log(`Received ${quotes.length} quote(s) for Optimism → Base`);
+          console.log(`Received ${quotes.length} quote(s) for Optimism → Ethereum`);
         }
       } catch {
         console.log('Aggregator not available - skipping quote test');

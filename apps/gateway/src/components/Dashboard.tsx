@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount } from 'wagmi';
-import { Wallet, Factory, DropletIcon, BarChart3, Zap, Server, Book, Waves } from 'lucide-react';
+import { Wallet, Factory, DropletIcon, BarChart3, Zap, Server, Book, Waves, Activity, Tag, Sparkles } from 'lucide-react';
+import { ThemeToggle } from './ThemeProvider';
 import TokenList from './TokenList';
 import RegisterToken from './RegisterToken';
 import DeployPaymaster from './DeployPaymaster';
@@ -13,135 +14,72 @@ import EILStats from './EILStats';
 import MultiTokenBalanceDisplay from './MultiTokenBalanceDisplay';
 import NodeStakingTab from './NodeStakingTab';
 import RegistryTab from './RegistryTab';
+import { IntentsTab } from './intents';
+import JNSTab from './JNSTab';
+
+type TabId = 'tokens' | 'deploy' | 'liquidity' | 'earnings' | 'transfer' | 'xlp' | 'nodes' | 'registry' | 'intents' | 'names';
+
+const TABS: { id: TabId; icon: typeof Factory; label: string }[] = [
+  { id: 'registry', icon: Book, label: 'Bazaar' },
+  { id: 'transfer', icon: Zap, label: 'Transfer' },
+  { id: 'intents', icon: Activity, label: 'Intents' },
+  { id: 'xlp', icon: Waves, label: 'XLP' },
+  { id: 'tokens', icon: Factory, label: 'Tokens' },
+  { id: 'deploy', icon: Factory, label: 'Deploy' },
+  { id: 'liquidity', icon: DropletIcon, label: 'Liquidity' },
+  { id: 'earnings', icon: BarChart3, label: 'Earnings' },
+  { id: 'nodes', icon: Server, label: 'Nodes' },
+  { id: 'names', icon: Tag, label: 'Names' },
+];
 
 export default function Dashboard() {
   const { isConnected } = useAccount();
-  const [activeTab, setActiveTab] = useState<'tokens' | 'deploy' | 'liquidity' | 'earnings' | 'transfer' | 'xlp' | 'nodes' | 'registry'>('tokens');
+  const [activeTab, setActiveTab] = useState<TabId>('registry');
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
-      {/* Header */}
-      <header style={{
-        background: 'rgba(255, 255, 255, 0.95)',
-        backdropFilter: 'blur(10px)',
-        borderBottom: '1px solid rgba(102, 126, 234, 0.2)',
-        padding: '1rem 0'
-      }}>
-        <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#667eea', margin: 0 }}>
-              🌉 Gateway Portal
-            </h1>
-            <p style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '0.25rem' }}>
-              Protocol Infrastructure Hub - Tokens, Nodes, Liquidity
-            </p>
+    <div style={{ minHeight: '100vh' }}>
+      <header className="header">
+        <div className="container header-content">
+          <div className="header-brand"><Sparkles size={24} />Agent Bazaar</div>
+          <div className="header-actions">
+            <ThemeToggle />
+            <ConnectButton showBalance={false} chainStatus="icon" accountStatus="avatar" />
           </div>
-          <ConnectButton />
         </div>
       </header>
 
-      {/* Content */}
-      <div className="container" style={{ paddingTop: '2rem' }}>
+      <div className="container" style={{ paddingTop: '1.5rem' }}>
         {!isConnected ? (
-          <div className="card" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
-            <Wallet size={64} style={{ margin: '0 auto 1rem', color: '#667eea' }} />
-            <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Connect Your Wallet</h2>
-            <p style={{ color: '#64748b', marginBottom: '2rem' }}>
-              Instant cross-chain transfers, deploy paymasters, add liquidity, and earn token rewards
-            </p>
+          <div className="card hero-card animate-fade-in">
+            <div className="hero-icon"><Wallet size={36} /></div>
+            <h2 className="hero-title">Connect Wallet</h2>
             <ConnectButton />
           </div>
         ) : (
           <>
-            {/* Show Token Balances at the top */}
             <MultiTokenBalanceDisplay />
-
-            {/* Navigation Tabs */}
-            <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
-              <button
-                className={`button ${activeTab === 'tokens' ? '' : 'button-secondary'}`}
-                onClick={() => setActiveTab('tokens')}
-              >
-                <Factory size={18} style={{ display: 'inline', marginRight: '0.5rem', verticalAlign: 'middle' }} />
-                Registered Tokens
-              </button>
-              <button
-                className={`button ${activeTab === 'transfer' ? '' : 'button-secondary'}`}
-                onClick={() => setActiveTab('transfer')}
-              >
-                <Zap size={18} style={{ display: 'inline', marginRight: '0.5rem', verticalAlign: 'middle' }} />
-                Cross-Chain Transfer
-              </button>
-              <button
-                className={`button ${activeTab === 'xlp' ? '' : 'button-secondary'}`}
-                onClick={() => setActiveTab('xlp')}
-              >
-                <Waves size={18} style={{ display: 'inline', marginRight: '0.5rem', verticalAlign: 'middle' }} />
-                XLP Dashboard
-              </button>
-              <button
-                className={`button ${activeTab === 'deploy' ? '' : 'button-secondary'}`}
-                onClick={() => setActiveTab('deploy')}
-              >
-                <Factory size={18} style={{ display: 'inline', marginRight: '0.5rem', verticalAlign: 'middle' }} />
-                Deploy Paymaster
-              </button>
-              <button
-                className={`button ${activeTab === 'liquidity' ? '' : 'button-secondary'}`}
-                onClick={() => setActiveTab('liquidity')}
-              >
-                <DropletIcon size={18} style={{ display: 'inline', marginRight: '0.5rem', verticalAlign: 'middle' }} />
-                Add Liquidity
-              </button>
-              <button
-                className={`button ${activeTab === 'earnings' ? '' : 'button-secondary'}`}
-                onClick={() => setActiveTab('earnings')}
-              >
-                <BarChart3 size={18} style={{ display: 'inline', marginRight: '0.5rem', verticalAlign: 'middle' }} />
-                My Earnings
-              </button>
-              <button
-                className={`button ${activeTab === 'nodes' ? '' : 'button-secondary'}`}
-                onClick={() => setActiveTab('nodes')}
-              >
-                <Server size={18} style={{ display: 'inline', marginRight: '0.5rem', verticalAlign: 'middle' }} />
-                Node Operators
-              </button>
-              <button
-                className={`button ${activeTab === 'registry' ? '' : 'button-secondary'}`}
-                onClick={() => setActiveTab('registry')}
-              >
-                <Book size={18} style={{ display: 'inline', marginRight: '0.5rem', verticalAlign: 'middle' }} />
-                App Registry
-              </button>
+            <nav className="nav-tab-container">
+              {TABS.map(({ id, icon: Icon, label }) => (
+                <button key={id} className={`button nav-tab ${activeTab === id ? '' : 'button-secondary'}`} onClick={() => setActiveTab(id)}>
+                  <Icon size={16} />{label}
+                </button>
+              ))}
+            </nav>
+            <div className="animate-fade-in">
+              {activeTab === 'tokens' && <><TokenList /><div style={{ marginTop: '1.5rem' }}><RegisterToken /></div></>}
+              {activeTab === 'transfer' && <><EILStats /><CrossChainTransfer /></>}
+              {activeTab === 'xlp' && <XLPDashboard />}
+              {activeTab === 'deploy' && <DeployPaymaster />}
+              {activeTab === 'liquidity' && <AddLiquidity />}
+              {activeTab === 'earnings' && <LPDashboard />}
+              {activeTab === 'nodes' && <NodeStakingTab />}
+              {activeTab === 'registry' && <RegistryTab />}
+              {activeTab === 'intents' && <IntentsTab />}
+              {activeTab === 'names' && <JNSTab />}
             </div>
-
-            {/* Tab Content */}
-            {activeTab === 'tokens' && (
-              <div>
-                <TokenList />
-                <div style={{ marginTop: '2rem' }}>
-                  <RegisterToken />
-                </div>
-              </div>
-            )}
-            {activeTab === 'transfer' && (
-              <div>
-                <EILStats />
-                <CrossChainTransfer />
-              </div>
-            )}
-            {activeTab === 'xlp' && <XLPDashboard />}
-            {activeTab === 'deploy' && <DeployPaymaster />}
-            {activeTab === 'liquidity' && <AddLiquidity />}
-            {activeTab === 'earnings' && <LPDashboard />}
-            {activeTab === 'nodes' && <NodeStakingTab />}
-            {activeTab === 'registry' && <RegistryTab />}
           </>
         )}
       </div>
     </div>
   );
 }
-
-

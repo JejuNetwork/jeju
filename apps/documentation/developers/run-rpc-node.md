@@ -39,7 +39,7 @@ services:
     command:
       - op-node
       - --rollup.config=/config/rollup.json
-      - --l1=https://mainnet.base.org
+      - --l1=https://eth.llamarpc.com
       - --l2=http://reth:8551
       - --l2.jwt-secret=/secrets/jwt-secret.txt
       - --rpc.addr=0.0.0.0 --rpc.port=9545
@@ -50,7 +50,7 @@ services:
 docker-compose up -d
 
 # Check sync
-curl -X POST http://localhost:8545 \
+curl -X POST http://127.0.0.1:8545 \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":1}'
 ```
@@ -58,14 +58,14 @@ curl -X POST http://localhost:8545 \
 ## Kubernetes (Production)
 
 ```bash
-cd terraform/environments/mainnet
+cd packages/deployment/terraform/environments/mainnet
 terraform init && terraform apply
 
-cd kubernetes/helmfile
+cd packages/deployment/kubernetes/helmfile
 helmfile -e mainnet sync
 ```
 
-## Rate Limits (built-in)
+## Rate Limits
 
 - 100 req/s per IP
 - 5,000 req/min per IP

@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test';
-import { captureScreenshot, captureUserFlow } from '../../../../tests/shared/helpers/screenshots';
-import { testWithWallet as test } from '../../../../tests/shared/fixtures/wallet';
-import { connectWallet } from '../../../../tests/shared/helpers/contracts';
+import { captureScreenshot, captureUserFlow } from '@jejunetwork/tests/helpers/screenshots';
+import { testWithWallet as test } from '@jejunetwork/tests/fixtures/wallet';
+import { connectWallet } from '@jejunetwork/tests/helpers/contracts';
 
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:5173';
 
@@ -23,7 +23,7 @@ test.describe('Gateway Complete Protocol Flow', () => {
     console.log('✅ Step 3: Token registry viewed');
 
     // 4. Check bridge interface
-    await page.click('button:has-text("Bridge from Base")');
+    await page.click('button:has-text("Bridge from Ethereum")');
     await expect(page.getByText(/Bridge/i)).toBeVisible();
     console.log('✅ Step 4: Bridge interface loaded');
 
@@ -56,7 +56,7 @@ test.describe('Gateway Complete Protocol Flow', () => {
 
     const tabs = [
       'Registered Tokens',
-      'Bridge from Base',
+      'Bridge from Ethereum',
       'Deploy Paymaster',
       'Add Liquidity',
       'My Earnings',
@@ -78,7 +78,7 @@ test.describe('Gateway Complete Protocol Flow', () => {
 
     const tabs = [
       'Registered Tokens',
-      'Bridge from Base',
+      'Bridge from Ethereum',
       'Deploy Paymaster'
     ];
 
@@ -95,7 +95,7 @@ test.describe('Gateway Complete Protocol Flow', () => {
     await connectWallet(page, wallet);
 
     // Check balance display on different tabs
-    const tabs = ['Registered Tokens', 'Bridge from Base', 'Add Liquidity'];
+    const tabs = ['Registered Tokens', 'Bridge from Ethereum', 'Add Liquidity'];
 
     for (const tab of tabs) {
       await page.click(`button:has-text("${tab}")`);

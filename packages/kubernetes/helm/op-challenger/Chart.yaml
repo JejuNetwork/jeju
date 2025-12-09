@@ -1,8 +1,0 @@
-apiVersion: v2
-name: op-challenger
-description: Optimism fault proof challenger
-type: application
-version: 1.0.0
-appVersion: "v1.7.6"
-
-

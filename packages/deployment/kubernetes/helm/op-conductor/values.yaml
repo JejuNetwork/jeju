@@ -1,0 +1,102 @@
+replicaCount: 3
+
+image:
+  repository: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-conductor
+  pullPolicy: IfNotPresent
+  tag: "v0.9.0"
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "7300"
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsUser: 1000
+  runAsNonRoot: true
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  rpc:
+    port: 8547
+  raft:
+    port: 50050
+  metrics:
+    port: 7300
+
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+  requests:
+    cpu: 1000m
+    memory: 2Gi
+
+persistence:
+  enabled: true
+  storageClass: "gp3"
+  accessMode: ReadWriteOnce
+  size: 10Gi
+  mountPath: /data
+
+nodeSelector:
+  role: core
+
+tolerations:
+  - key: workload
+    operator: Equal
+    value: core
+    effect: NoSchedule
+
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+    - labelSelector:
+        matchExpressions:
+        - key: app.kubernetes.io/name
+          operator: In
+          values:
+          - op-conductor
+      topologyKey: kubernetes.io/hostname
+
+config:
+  consensusAddr: "0.0.0.0:50050"
+  rpcAddr: "0.0.0.0:8547"
+  healthcheckInterval: "1s"
+  healthcheckUnsafeInterval: "500ms"
+  healthcheckMinPeerCount: 1
+  pausedEnabled: false
+  raft:
+    storageDir: "/data/raft"
+    bootstrapCluster: false
+    serverID: ""
+    clusterID: "jeju-sequencer"
+  sequencer:
+    enabled: true
+    stopped: false
+    maxSafeLag: 0
+  opNode:
+    rpc: "http://op-node:9545"
+  execution:
+    rpc: "http://reth-sequencer:8545"
+  metrics:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 7300
+
+

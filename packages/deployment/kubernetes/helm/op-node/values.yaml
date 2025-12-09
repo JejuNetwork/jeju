@@ -1,0 +1,143 @@
+replicaCount: 1
+
+image:
+  repository: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-node
+  pullPolicy: IfNotPresent
+  tag: "v1.16.3"
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "7300"
+  prometheus.io/path: "/metrics"
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsUser: 1000
+  runAsNonRoot: true
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  p2p:
+    port: 9003
+  rpc:
+    port: 9545
+  metrics:
+    port: 7300
+
+resources:
+  limits:
+    cpu: 4000m
+    memory: 8Gi
+  requests:
+    cpu: 2000m
+    memory: 4Gi
+
+persistence:
+  enabled: true
+  storageClass: "gp3"
+  accessMode: ReadWriteOnce
+  size: 100Gi
+  mountPath: /data
+
+nodeSelector:
+  role: core
+
+tolerations:
+  - key: workload
+    operator: Equal
+    value: core
+    effect: NoSchedule
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - op-node
+        topologyKey: kubernetes.io/hostname
+
+config:
+  network: "mainnet-l2"
+  rollup: "/config/rollup.json"
+  l1:
+    rpcUrl: ""
+    rpcKind: "alchemy"
+    rpcMaxBatchSize: 20
+    # REQUIRED for Fusaka (Dec 3, 2025+): L1 beacon node for blob/PeerDAS data
+    beacon:
+      url: ""  # L1 beacon node (e.g., http://lighthouse:5052) - REQUIRED
+      archiveUrl: ""  # Archive beacon for historical blobs (recommended)
+      fetchAllSidecars: false  # Set true to fetch all blob sidecars for debugging
+  # Fusaka blob settings (BPO fork Dec 9: 10/15, Jan 7: 14/21)
+  blobs:
+    enabled: true
+    archiveUrl: ""  # Blob archive for historical data
+  l1ChainId: 1
+  l2ChainId: 420691
+  l2:
+    engineRpc: "http://reth-sequencer:8551"
+    engineJwtSecret: "/secrets/jwt-secret.txt"
+  rpc:
+    addr: "0.0.0.0"
+    port: 9545
+    enableAdmin: true
+  p2p:
+    advertiseIp: ""
+    bootnodes: []
+    static: []
+    listen:
+      ip: "0.0.0.0"
+      tcp: 9003
+      udp: 9003
+    nat: "false"
+    peersLo: 20
+    peersHi: 30
+  metrics:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 7300
+  pprof:
+    enabled: false
+  snapshotLog: "/data/snapshot.log"
+  conductor:
+    enabled: true
+    rpc: "http://op-conductor:8547"
+  flashblocks:
+    enabled: true
+    url: ""
+  # Superchain Upgrade 16a features
+  superchain:
+    featureToggles: true
+    interopEnabled: false
+  # Fusaka upgrade (Dec 3, 2025) - PeerDAS and blob capacity
+  fusaka:
+    # PeerDAS (EIP-7594) - data availability sampling
+    peerDAS:
+      enabled: true
+    # Blob capacity settings (auto-adjust for BPO forks)
+    # Dec 9: 10/15, Jan 7: 14/21 blobs per block
+    blobCapacity:
+      autoScale: true
+
+

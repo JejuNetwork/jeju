@@ -1,0 +1,21 @@
+{
+  "l1StakeManager": "",
+  "crossChainPaymaster": "",
+  "entryPoint": "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789",
+  "l1Messenger": "",
+  "supportedTokens": [
+    "0x0000000000000000000000000000000000000000"
+  ],
+  "network": "testnet",
+  "l1ChainId": 11155111,
+  "l2ChainId": 420690,
+  "status": "not_deployed",
+  "notes": "EIL not yet deployed. Deploy L1StakeManager on Sepolia first, then CrossChainPaymaster on Jeju testnet.",
+  "_requiredSteps": [
+    "1. Fund deployer with 0.5+ ETH on Sepolia",
+    "2. Deploy L1StakeManager: bun run scripts/deploy/eil.ts testnet",
+    "3. Wait for Jeju testnet RPC to be live",
+    "4. Deploy CrossChainPaymaster on Jeju"
+  ]
+}
+

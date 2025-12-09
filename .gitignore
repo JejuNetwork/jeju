@@ -9,10 +9,13 @@ out/
 .next/
 .turbo/
 
-# Environment
+# Environment (secrets only - never commit)
 .env
 .env.local
 .env.*.local
+.env.testnet
+.env.mainnet
+.env.localnet
 
 # IDE
 .vscode/
@@ -46,19 +49,13 @@ packages/contracts/lib/
 # Kurtosis
 .kurtosis/
 
-# Generated contract deployment files (except templates)
-packages/contracts/deployments/*
-!packages/contracts/deployments/.gitkeep
-contracts/deployments/*
-!contracts/deployments/.gitkeep
-
-# Keep specific template files
-!packages/contracts/deployments/uniswap-v4-1337.json
-!packages/contracts/deployments/erc20-factory-1337.json
-!packages/contracts/deployments/bazaar-marketplace-1337.json
-!contracts/deployments/uniswap-v4-1337.json
-!contracts/deployments/erc20-factory-1337.json
-!contracts/deployments/bazaar-marketplace-1337.json
+# Generated localnet deployment files (regenerated on each dev run)
+packages/contracts/deployments/localnet-complete.json
+packages/contracts/deployments/localnet-addresses.json
+packages/contracts/deployments/*-1337.json
+!packages/contracts/deployments/localnet/
+!packages/contracts/deployments/testnet/
+!packages/contracts/deployments/mainnet/
 
 # Database files
 *.db
@@ -78,6 +75,14 @@ vendor/*
 !vendor/verify-integrations.ts
 !vendor/run-all-vendor-tests.sh
 
+# Terraform
+**/.terraform/
+**/.terraform.lock.hcl
+*.tfplan
+*.tfstate
+*.tfstate.*
+.terraform.tfstate.lock.info
+
 # Misc
 .cache/
 .cache-synpress/
@@ -90,4 +95,4 @@ test-results
 **/__pycache__/
 **/*.cpython-314.pyc
 
-cache/
+cache/packages/deployment/.keys/

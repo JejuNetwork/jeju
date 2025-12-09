@@ -241,7 +241,7 @@ async function processVoucherIssued(
         request: request || undefined,
         xlp,
         sourceChainId: request?.sourceChain || 420691,
-        destinationChainId: request?.destinationChain || 8453,
+        destinationChainId: request?.destinationChain || 1,
         sourceToken: request?.sourceToken || '',
         destinationToken: request?.destinationToken || '',
         amount: request?.amount || 0n,

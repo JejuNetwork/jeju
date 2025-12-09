@@ -62,11 +62,10 @@ export interface IntentResult {
 const AGGREGATOR_URL = process.env.NEXT_PUBLIC_OIF_AGGREGATOR_URL || 'http://localhost:4010';
 
 export const SUPPORTED_CHAINS = [
-  { chainId: 1, name: 'Ethereum', isL2: false },
-  { chainId: 8453, name: 'Base', isL2: true },
-  { chainId: 42161, name: 'Arbitrum', isL2: true },
-  { chainId: 10, name: 'Optimism', isL2: true },
-  { chainId: 420691, name: 'Jeju', isL2: true },
+  { chainId: 1, name: 'Ethereum' },
+  { chainId: 42161, name: 'Arbitrum' },
+  { chainId: 10, name: 'Optimism' },
+  { chainId: 420691, name: 'Jeju' },
 ] as const;
 
 // Common tokens across chains
@@ -75,11 +74,6 @@ export const CROSS_CHAIN_TOKENS: Record<number, Record<string, Address>> = {
     ETH: '0x0000000000000000000000000000000000000000',
     USDC: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
     WETH: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
-  },
-  8453: {
-    ETH: '0x0000000000000000000000000000000000000000',
-    USDC: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-    WETH: '0x4200000000000000000000000000000000000006',
   },
   42161: {
     ETH: '0x0000000000000000000000000000000000000000',
@@ -255,4 +249,3 @@ export function estimateIntentGas(): bigint {
   // Approximate gas for InputSettler.open()
   return 150000n;
 }
-

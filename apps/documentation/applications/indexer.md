@@ -1,17 +1,17 @@
 # Indexer
 
-Subsquid-powered blockchain indexing with GraphQL API.
+Subsquid blockchain indexer with GraphQL API.
 
-**URL**: http://localhost:4350/graphql
+**URL**: http://127.0.0.1:4350/graphql
 
 ## What's Indexed
 
 - Blocks, transactions, logs
-- ERC20/721/1155 tokens and transfers
+- ERC20/721/1155 tokens
 - Contracts with type detection
-- Prediction markets (schema ready)
-- Node staking (schema ready)
-- ERC-8004 registry (schema ready)
+- Prediction markets
+- Node staking
+- ERC-8004 registry
 
 ## Queries
 
@@ -27,14 +27,6 @@ Subsquid-powered blockchain indexing with GraphQL API.
 {
   tokenTransfers(limit: 20, where: { tokenStandard_eq: "ERC20" }) {
     from { address } to { address } value
-    token { address }
-  }
-}
-
-# Contracts
-{
-  contracts(where: { isERC20_eq: true }) {
-    address contractType creator { address }
   }
 }
 ```
@@ -43,20 +35,17 @@ Subsquid-powered blockchain indexing with GraphQL API.
 
 ```bash
 cd apps/indexer
-npm install
-npm run db:up
-npm run dev
+bun install
+bun run db:up
+bun run dev
 ```
 
 ## Configuration
 
-```bash
-# .env
-DB_NAME=indexer
-DB_PORT=23798
-GQL_PORT=4350
-RPC_ETH_HTTP=http://localhost:9545
-```
+Environment loaded from `packages/config/ports.ts`:
+- DB_PORT: 23798
+- GQL_PORT: 4350
+- RPC: http://127.0.0.1:9545
 
 ## Troubleshooting
 
@@ -65,10 +54,10 @@ RPC_ETH_HTTP=http://localhost:9545
 docker ps | grep squid-db
 
 # Reset
-npm run db:reset && npm run dev
+bun run db:reset && bun run dev
 
 # RPC check
-curl -X POST http://localhost:9545 \
+curl -X POST http://127.0.0.1:9545 \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
 ```

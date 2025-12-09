@@ -1,0 +1,152 @@
+{
+  "config": {
+    "configFile": "/Users/shawwalters/jeju/apps/compute/synpress.config.ts",
+    "rootDir": "/Users/shawwalters/jeju/apps/compute/tests/synpress",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "html",
+        {
+          "outputFolder": "playwright-report"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results-synpress.json"
+        }
+      ],
+      [
+        "list",
+        null
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "/Users/shawwalters/jeju/apps/compute/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/Users/shawwalters/jeju/apps/compute/tests/synpress",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 120000
+      }
+    ],
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.57.0",
+    "workers": 1,
+    "webServer": {
+      "command": "bun run serve-frontend",
+      "url": "http://localhost:4007",
+      "reuseExistingServer": true,
+      "timeout": 60000
+    }
+  },
+  "suites": [
+    {
+      "title": "00-smoke.spec.ts",
+      "file": "00-smoke.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Smoke Tests",
+          "file": "00-smoke.spec.ts",
+          "line": 13,
+          "column": 6,
+          "specs": [
+            {
+              "title": "page loads without errors",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 2677,
+                      "error": {
+                        "message": "Error: [GetExtensionId] Extension with name MetaMask not found.\nAvailable extensions: ",
+                        "stack": "Error: [GetExtensionId] Extension with name MetaMask not found.\nAvailable extensions: \n    at getExtensionId (/Users/shawwalters/jeju/node_modules/.bun/@synthetixio+synpress-metamask@0.0.13+7e54155530552298/node_modules/@synthetixio/synpress-metamask/src/playwright/fixture-actions/unlockForFixture.ts:62:20)\n    at Object.context (/Users/shawwalters/jeju/node_modules/.bun/@synthetixio+synpress-metamask@0.0.13+7e54155530552298/node_modules/@synthetixio/synpress-metamask/src/playwright/fixtures/metaMaskFixtures.ts:37:17)"
+                      },
+                      "errors": [
+                        {
+                          "message": "Error: [GetExtensionId] Extension with name MetaMask not found.\nAvailable extensions: \n    at getExtensionId (/Users/shawwalters/jeju/node_modules/.bun/@synthetixio+synpress-metamask@0.0.13+7e54155530552298/node_modules/@synthetixio/synpress-metamask/src/playwright/fixture-actions/unlockForFixture.ts:62:20)\n    at Object.context (/Users/shawwalters/jeju/node_modules/.bun/@synthetixio+synpress-metamask@0.0.13+7e54155530552298/node_modules/@synthetixio/synpress-metamask/src/playwright/fixtures/metaMaskFixtures.ts:37:17)"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-09T07:19:45.579Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/shawwalters/jeju/apps/compute/test-results/00-smoke-Smoke-Tests-page-loads-without-errors-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/shawwalters/jeju/apps/compute/test-results/00-smoke-Smoke-Tests-page-loads-without-errors-chromium/test-failed-2.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "09c83651e459c22e1fd4-ea263257b9475a81eb2d",
+              "file": "00-smoke.spec.ts",
+              "line": 14,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2025-12-09T07:19:44.226Z",
+    "duration": 4755.148999999999,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

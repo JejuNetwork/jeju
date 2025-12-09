@@ -1,5 +1,5 @@
 /**
-import type { Page } from "@playwright/test";
+* @fileoverview Test file
  * Moderation & ERC-8004 Integration Tests
  * Tests ban enforcement, reputation badges, and reporting
  */
@@ -207,4 +207,4 @@ test.describe('Moderation & ERC-8004', () => {
       }
     }
   })
-29-moderation-erc8004.spec.ts.backup
+})

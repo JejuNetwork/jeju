@@ -1,6 +1,6 @@
 # Mainnet Deployment Checklist
 
-Settlement: Base (8453) → Jeju Mainnet (420691)  
+L1: Ethereum (1) → Jeju Mainnet (420691)  
 Time: 1-2 days  
 Risk: High
 
@@ -24,9 +24,9 @@ Risk: High
 - [ ] Team trained on ops
 
 ### Capital
-- [ ] Deployer: ~3 ETH on Base
-- [ ] Batcher: ~10 ETH on Base
-- [ ] Proposer: ~3 ETH on Base
+- [ ] Deployer: ~3 ETH on Ethereum
+- [ ] Batcher: ~10 ETH on Ethereum
+- [ ] Proposer: ~3 ETH on Ethereum
 - [ ] Emergency reserve: ~3 ETH
 
 ## Phase 1: Keys & Security
@@ -41,15 +41,14 @@ Use hardware wallets or HSM for all keys. Never store plaintext.
 ## Phase 2: Infrastructure
 
 ```bash
-cd terraform/environments/mainnet
+cd packages/deployment/terraform/environments/mainnet
 terraform init && terraform validate
 terraform plan -out=mainnet.tfplan
 # Review with 2+ engineers
 terraform apply mainnet.tfplan
 
 aws eks update-kubeconfig --region us-east-1 --name jeju-mainnet-cluster
-kubectl apply -f kubernetes/security/pod-security-policy.yaml
-kubectl apply -f kubernetes/security/network-policies.yaml
+# Security policies applied via helmfile
 ```
 
 ## Phase 3: Contracts
@@ -59,13 +58,13 @@ kubectl apply -f kubernetes/security/network-policies.yaml
 ```bash
 cd contracts
 forge script script/Deploy.s.sol \
-  --rpc-url https://mainnet.base.org \
+  --rpc-url https://eth.llamarpc.com \
   --private-key $DEPLOYER_PRIVATE_KEY \
   --broadcast --verify --watch
 ```
 
 Post-deploy:
-- [ ] All contracts verified on BaseScan
+- [ ] All contracts verified on Etherscan
 - [ ] Ownership → multisigs
 - [ ] Test deposit completed
 
@@ -74,7 +73,7 @@ Post-deploy:
 Create sealed secrets for private keys, then:
 
 ```bash
-cd kubernetes/helmfile
+cd packages/deployment/kubernetes/helmfile
 helmfile -e mainnet apply
 watch kubectl get pods -n op-stack
 ```
@@ -83,11 +82,11 @@ watch kubectl get pods -n op-stack
 
 ```bash
 # Block production
-cast subscribe newHeads --rpc-url http://localhost:8545
+cast subscribe newHeads --rpc-url http://127.0.0.1:8545
 
 # Test deposit
 cast send $OPTIMISM_PORTAL "depositTransaction(...)" \
-  --value 0.001ether --rpc-url https://mainnet.base.org
+  --value 0.001ether --rpc-url https://eth.llamarpc.com
 
 # Monitor batcher/proposer
 kubectl logs -n op-stack deployment/op-batcher -f

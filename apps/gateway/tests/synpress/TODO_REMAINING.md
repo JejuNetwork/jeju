@@ -37,12 +37,12 @@
 
 ## 🔴 High Priority TODOs
 
-### Bridge Flow (Requires Base Testnet Setup)
-- [ ] **TODO**: Real bridge transaction test (approve on Base → bridge → verify on Jeju)
+### Bridge Flow (Requires Sepolia Testnet Setup)
+- [ ] **TODO**: Real bridge transaction test (approve on Ethereum → bridge → verify on Jeju)
 - [ ] **TODO**: Bridge history populated with real transfers
 - [ ] **TODO**: Custom token bridge flow
 - [ ] **TODO**: Failed bridge handling
-- **Blocker**: Needs Base Sepolia setup or mock bridge
+- **Blocker**: Needs Sepolia setup or mock bridge
 
 ### Governance Flow (Requires Governance Contracts)
 - [ ] **TODO**: Create governance quest transaction
@@ -273,7 +273,7 @@ A feature has complete coverage when:
 3. **Deploy blockers** (optional):
    - Deploy moderation contracts
    - Start IPFS service
-   - Setup Base testnet connection
+   - Setup Sepolia testnet connection
 
 4. **Iterate**:
    - Fix failing tests

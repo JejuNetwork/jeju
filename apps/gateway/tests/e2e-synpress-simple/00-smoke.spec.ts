@@ -5,7 +5,7 @@
 
 import { testWithSynpress } from '@synthetixio/synpress';
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
-import { basicSetup } from '../../wallet-setup/basic.setup';
+import { basicSetup } from '../../synpress.config';
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
@@ -56,7 +56,7 @@ test.describe('Gateway Smoke Tests', () => {
     await expect(page.locator('button:has-text(/0x/)')).toBeVisible({ timeout: 15000 });
 
     // Test navigation
-    const tabs = ['Bridge from Base', 'Add Liquidity', 'Node Operators'];
+    const tabs = ['Bridge from Ethereum', 'Add Liquidity', 'Node Operators'];
     
     for (const tab of tabs) {
       await page.getByRole('button', { name: tab }).click();

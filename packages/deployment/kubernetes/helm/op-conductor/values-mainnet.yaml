@@ -1,0 +1,25 @@
+# op-conductor mainnet values - HA sequencing cluster
+replicaCount: 5
+
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+  requests:
+    cpu: 1000m
+    memory: 2Gi
+
+persistence:
+  enabled: true
+  storageClass: "gp3"
+  size: 20Gi
+
+config:
+  healthcheckInterval: "500ms"
+  healthcheckUnsafeInterval: "250ms"
+  healthcheckMinPeerCount: 2
+  raft:
+    bootstrapCluster: true
+    clusterID: "jeju-mainnet-sequencer"
+
+

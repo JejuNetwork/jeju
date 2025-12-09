@@ -10,69 +10,72 @@ export function MarketCard({ market }: { market: Market }) {
   
   return (
     <Link href={`/markets/${market.sessionId}`} data-testid="market-card">
-      <div className="bg-white/5 border border-white/10 rounded-xl p-6 hover:border-purple-600 transition cursor-pointer group">
+      <div className="card p-5 md:p-6 h-full flex flex-col group">
         <div className="flex items-center justify-between mb-4">
           {market.resolved ? (
-            <span className="px-3 py-1 bg-white/10 text-slate-400 rounded-full text-xs font-medium">
+            <span className="badge" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
               Resolved
             </span>
           ) : (
-            <span className="px-3 py-1 bg-green-600/20 text-green-400 rounded-full text-xs font-medium">
+            <span className="badge-success">
               Active
             </span>
           )}
-          <span className="text-xs text-slate-500">
+          <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
             {formatDistanceToNow(market.createdAt, { addSuffix: true })}
           </span>
         </div>
 
-        <h3 className="text-lg font-semibold text-white mb-4 group-hover:text-purple-400 transition line-clamp-2">
+        <h3 
+          className="text-base md:text-lg font-semibold mb-4 line-clamp-2 group-hover:text-bazaar-primary transition-colors flex-1"
+          style={{ color: 'var(--text-primary)' }}
+        >
           {market.question}
         </h3>
 
         <div className="space-y-3">
           <div>
-            <div className="flex justify-between mb-1">
-              <span className="text-sm text-slate-400">YES</span>
-              <span className="text-sm font-bold text-green-400">{yesPercent.toFixed(1)}%</span>
+            <div className="flex justify-between mb-1.5">
+              <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>YES</span>
+              <span className="text-sm font-bold text-bazaar-success">{yesPercent.toFixed(1)}%</span>
             </div>
-            <div className="w-full bg-white/10 rounded-full h-2">
+            <div className="progress-bar">
               <div
-                className="bg-gradient-to-r from-green-600 to-green-400 h-2 rounded-full transition-all"
+                className="progress-bar-fill progress-bar-success"
                 style={{ width: `${yesPercent}%` }}
               />
             </div>
           </div>
 
           <div>
-            <div className="flex justify-between mb-1">
-              <span className="text-sm text-slate-400">NO</span>
-              <span className="text-sm font-bold text-red-400">{noPercent.toFixed(1)}%</span>
+            <div className="flex justify-between mb-1.5">
+              <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>NO</span>
+              <span className="text-sm font-bold text-bazaar-error">{noPercent.toFixed(1)}%</span>
             </div>
-            <div className="w-full bg-white/10 rounded-full h-2">
+            <div className="progress-bar">
               <div
-                className="bg-gradient-to-r from-red-600 to-red-400 h-2 rounded-full transition-all"
+                className="progress-bar-fill progress-bar-error"
                 style={{ width: `${noPercent}%` }}
               />
             </div>
           </div>
         </div>
 
-        <div className="mt-4 pt-4 border-t border-white/10">
+        <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
           <div className="flex justify-between text-sm">
-            <span className="text-slate-400">Volume</span>
-            <span className="text-white font-medium">
+            <span style={{ color: 'var(--text-tertiary)' }}>Volume</span>
+            <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
               {(Number(market.totalVolume) / 1e18).toLocaleString()} ETH
             </span>
           </div>
         </div>
 
         {market.resolved && market.outcome !== undefined && (
-          <div className="mt-3 pt-3 border-t border-white/10">
-            <div className={`text-center py-2 rounded-lg font-bold ${
+          <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
+            <div className={`text-center py-2 rounded-xl font-bold ${
               market.outcome
-                ? 'bg-green-600/20 text-green-400'
-                : 'bg-red-600/20 text-red-400'
+                ? 'bg-bazaar-success/20 text-bazaar-success'
+                : 'bg-bazaar-error/20 text-bazaar-error'
             }`}>
               Outcome: {market.outcome ? 'YES' : 'NO'}
             </div>
@@ -82,6 +85,3 @@ export function MarketCard({ market }: { market: Market }) {
     </Link>
   );
 }
-
-
-

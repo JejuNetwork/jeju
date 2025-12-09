@@ -9,10 +9,11 @@ import { parseEther, formatEther, type Address } from 'viem';
 import { useCreateIntent, useOIFConfig, useIntentStatus } from '../hooks/useOIF';
 
 const CHAINS = [
-  { id: 8453, name: 'Base', color: '#0052ff' },
-  { id: 42161, name: 'Arbitrum', color: '#28a0f0' },
-  { id: 10, name: 'Optimism', color: '#ff0420' },
-  { id: 420691, name: 'Jeju', color: '#64ffda' },
+  { id: 1, name: 'Ethereum', color: 'var(--chain-ethereum)' },
+  { id: 42161, name: 'Arbitrum', color: 'var(--chain-arbitrum)' },
+  { id: 10, name: 'Optimism', color: 'var(--chain-optimism)' },
+  { id: 420691, name: 'Jeju', color: 'var(--chain-jeju)' },
+  { id: 11155111, name: 'Sepolia', color: 'var(--accent-primary)' },
 ];
 
 const TOKENS = {
@@ -61,21 +62,21 @@ export function CrossChainIntent() {
   if (!isConnected) {
     return (
       <div style={{
-        background: 'linear-gradient(135deg, #12121a 0%, #1a1a28 100%)',
+        background: 'linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--surface) 100%)',
         borderRadius: '16px',
         padding: '32px',
         textAlign: 'center',
       }}>
-        <p style={{ color: '#8888a8' }}>Connect your wallet to create cross-chain intents</p>
+        <p style={{ color: 'var(--text-muted)' }}>Connect your wallet to create cross-chain intents</p>
       </div>
     );
   }
 
   return (
     <div style={{
-      background: 'linear-gradient(135deg, #12121a 0%, #1a1a28 100%)',
+      background: 'linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--surface) 100%)',
       borderRadius: '16px',
-      border: '1px solid rgba(100, 255, 218, 0.1)',
+      border: '1px solid var(--accent-tertiary-soft)',
       padding: '24px',
     }}>
       <h3 style={{
@@ -89,7 +90,7 @@ export function CrossChainIntent() {
         <span style={{
           width: '32px',
           height: '32px',
-          background: 'linear-gradient(135deg, #64ffda, #9d4edd)',
+          background: 'linear-gradient(135deg, var(--chain-jeju), var(--accent-primary))',
           borderRadius: '8px',
           display: 'flex',
           alignItems: 'center',
@@ -103,7 +104,7 @@ export function CrossChainIntent() {
       <form onSubmit={handleSubmit}>
         {/* From Chain */}
         <div style={{ marginBottom: '16px' }}>
-          <label style={{ display: 'block', fontSize: '12px', color: '#8888a8', marginBottom: '8px' }}>
+          <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>
             From
           </label>
           <div style={{
@@ -111,9 +112,9 @@ export function CrossChainIntent() {
             alignItems: 'center',
             gap: '12px',
             padding: '12px 16px',
-            background: '#1a1a28',
+            background: 'var(--surface)',
             borderRadius: '10px',
-            border: '1px solid rgba(100, 255, 218, 0.1)',
+            border: '1px solid var(--accent-tertiary-soft)',
           }}>
             <div style={{
               width: '24px',
@@ -131,7 +132,7 @@ export function CrossChainIntent() {
                 style={{
                   background: 'transparent',
                   border: 'none',
-                  color: '#e4e4f0',
+                  color: 'var(--text-primary)',
                   fontSize: '20px',
                   fontFamily: 'JetBrains Mono, monospace',
                   textAlign: 'right',
@@ -139,7 +140,7 @@ export function CrossChainIntent() {
                   outline: 'none',
                 }}
               />
-              <div style={{ fontSize: '12px', color: '#8888a8' }}>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                 Balance: {balance ? formatEther(balance.value).slice(0, 8) : '0'} ETH
               </div>
             </div>
@@ -151,8 +152,8 @@ export function CrossChainIntent() {
           <div style={{
             width: '32px',
             height: '32px',
-            background: '#1a1a28',
-            border: '1px solid rgba(100, 255, 218, 0.2)',
+            background: 'var(--surface)',
+            border: '1px solid var(--accent-tertiary-soft)',
             borderRadius: '8px',
             display: 'flex',
             alignItems: 'center',
@@ -165,7 +166,7 @@ export function CrossChainIntent() {
 
         {/* To Chain */}
         <div style={{ marginBottom: '16px' }}>
-          <label style={{ display: 'block', fontSize: '12px', color: '#8888a8', marginBottom: '8px' }}>
+          <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>
             To
           </label>
           <select
@@ -174,10 +175,10 @@ export function CrossChainIntent() {
             style={{
               width: '100%',
               padding: '12px 16px',
-              background: '#1a1a28',
-              border: '1px solid rgba(100, 255, 218, 0.1)',
+              background: 'var(--surface)',
+              border: '1px solid var(--accent-tertiary-soft)',
               borderRadius: '10px',
-              color: '#e4e4f0',
+              color: 'var(--text-primary)',
               fontSize: '14px',
             }}
           >
@@ -191,7 +192,7 @@ export function CrossChainIntent() {
 
         {/* Fee */}
         <div style={{ marginBottom: '20px' }}>
-          <label style={{ display: 'block', fontSize: '12px', color: '#8888a8', marginBottom: '8px' }}>
+          <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>
             Max Solver Fee
           </label>
           <div style={{
@@ -199,9 +200,9 @@ export function CrossChainIntent() {
             alignItems: 'center',
             gap: '8px',
             padding: '12px 16px',
-            background: '#1a1a28',
+            background: 'var(--surface)',
             borderRadius: '10px',
-            border: '1px solid rgba(100, 255, 218, 0.1)',
+            border: '1px solid var(--accent-tertiary-soft)',
           }}>
             <input
               type="text"
@@ -210,14 +211,14 @@ export function CrossChainIntent() {
               style={{
                 background: 'transparent',
                 border: 'none',
-                color: '#e4e4f0',
+                color: 'var(--text-primary)',
                 fontSize: '16px',
                 fontFamily: 'JetBrains Mono, monospace',
                 width: '100%',
                 outline: 'none',
               }}
             />
-            <span style={{ color: '#8888a8' }}>ETH</span>
+            <span style={{ color: 'var(--text-muted)' }}>ETH</span>
           </div>
         </div>
 
@@ -225,25 +226,25 @@ export function CrossChainIntent() {
         {amount && parseFloat(amount) > 0 && (
           <div style={{
             padding: '16px',
-            background: 'rgba(100, 255, 218, 0.05)',
+            background: 'var(--accent-tertiary-soft)',
             borderRadius: '10px',
             marginBottom: '20px',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <span style={{ color: '#8888a8', fontSize: '13px' }}>You receive</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>You receive</span>
               <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>
                 ~{(parseFloat(amount) * 0.995).toFixed(6)} ETH
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <span style={{ color: '#8888a8', fontSize: '13px' }}>Solver fee</span>
-              <span style={{ fontFamily: 'JetBrains Mono, monospace', color: '#ffbe0b' }}>
+              <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Solver fee</span>
+              <span style={{ fontFamily: 'JetBrains Mono, monospace', color: 'var(--warning-bright)' }}>
                 ~0.5%
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#8888a8', fontSize: '13px' }}>Est. time</span>
-              <span style={{ fontFamily: 'JetBrains Mono, monospace', color: '#64ffda' }}>
+              <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Est. time</span>
+              <span style={{ fontFamily: 'JetBrains Mono, monospace', color: 'var(--chain-jeju)' }}>
                 ~30s
               </span>
             </div>
@@ -254,24 +255,24 @@ export function CrossChainIntent() {
         {intentId && (
           <div style={{
             padding: '12px 16px',
-            background: status === 'filled' ? 'rgba(0, 255, 136, 0.1)' : 'rgba(100, 255, 218, 0.1)',
+            background: status === 'filled' ? 'var(--success-soft)' : 'var(--accent-tertiary-soft)',
             borderRadius: '10px',
             marginBottom: '16px',
             fontSize: '13px',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: '#8888a8' }}>Intent ID</span>
+              <span style={{ color: 'var(--text-muted)' }}>Intent ID</span>
               <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px' }}>
                 {intentId.slice(0, 10)}...{intentId.slice(-8)}
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#8888a8' }}>Status</span>
+              <span style={{ color: 'var(--text-muted)' }}>Status</span>
               <span style={{
                 fontWeight: 600,
-                color: status === 'filled' ? '#00ff88' :
-                       status === 'claimed' ? '#ffbe0b' :
-                       status === 'open' ? '#64ffda' : '#8888a8'
+                color: status === 'filled' ? 'var(--success-bright)' :
+                       status === 'claimed' ? 'var(--warning-bright)' :
+                       status === 'open' ? 'var(--chain-jeju)' : 'var(--text-muted)'
               }}>
                 {status.toUpperCase()}
               </span>
@@ -283,12 +284,12 @@ export function CrossChainIntent() {
         {error && (
           <div style={{
             padding: '12px 16px',
-            background: 'rgba(255, 71, 87, 0.1)',
-            border: '1px solid rgba(255, 71, 87, 0.3)',
+            background: 'var(--error-soft)',
+            border: '1px solid var(--error)',
             borderRadius: '10px',
             marginBottom: '16px',
             fontSize: '13px',
-            color: '#ff4757',
+            color: 'var(--error-bright)',
           }}>
             {error.message}
           </div>
@@ -302,11 +303,11 @@ export function CrossChainIntent() {
             width: '100%',
             padding: '16px',
             background: isPending || isConfirming
-              ? 'rgba(100, 255, 218, 0.3)'
-              : 'linear-gradient(135deg, #64ffda, #9d4edd)',
+              ? 'var(--accent-tertiary-soft)'
+              : 'linear-gradient(135deg, var(--chain-jeju), var(--accent-primary))',
             border: 'none',
             borderRadius: '12px',
-            color: '#0a0a0f',
+            color: 'var(--text-inverse)',
             fontSize: '16px',
             fontWeight: 600,
             cursor: isPending || isConfirming ? 'not-allowed' : 'pointer',

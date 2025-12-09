@@ -1,117 +1,140 @@
 # Agent Registry (ERC-8004)
 
-On-chain identity, reputation, and validation for AI agents.
+On-chain identity for apps and agents. Enables discovery, reputation, and verification.
 
-## Contracts
+## Why Register?
 
-| Contract | Path | Purpose |
-|----------|------|---------|
-| IdentityRegistry | `contracts/src/registry/IdentityRegistry.sol` | ERC-721 agent NFTs |
-| ReputationRegistry | `contracts/src/registry/ReputationRegistry.sol` | Feedback/ratings |
-| ValidationRegistry | `contracts/src/registry/ValidationRegistry.sol` | Independent verification |
+| Benefit | Description |
+|---------|-------------|
+| Discovery | Agents find you via on-chain search |
+| Reputation | Accumulate feedback from users/clients |
+| Revenue | Set revenue wallet, earn from paymaster fees |
+| Verification | Third-party validators attest capabilities |
 
-## Quick Start
+## Register an Agent
 
-### Register Agent
+### Via Script
+
+```bash
+bun run scripts/register-agents.ts --network testnet
+```
+
+### Via Contract
 
 ```bash
 cast send $IDENTITY_REGISTRY \
   "register(string)" "ipfs://QmYourAgentConfig" \
-  --rpc-url $RPC_URL --private-key $PRIVATE_KEY
+  --rpc-url $RPC_URL \
+  --private-key $PRIVATE_KEY
 ```
 
-### Set Metadata
+### With Metadata
+
+```bash
+# Register with name and endpoint
+cast send $IDENTITY_REGISTRY \
+  "register(string,(string,bytes)[])" \
+  "ipfs://config" \
+  '[("name","0x4d79204167656e74"),("endpoint","0x...")]' \
+  --rpc-url $RPC_URL \
+  --private-key $PRIVATE_KEY
+```
+
+## Set Revenue Wallet
+
+Earn 50% of paymaster fees when users interact with your app:
 
 ```bash
 cast send $IDENTITY_REGISTRY \
-  "setMetadata(uint256,string,bytes)" 1 "name" $(cast abi-encode "x(string)" "My Agent") \
-  --rpc-url $RPC_URL --private-key $PRIVATE_KEY
+  "setMetadata(uint256,string,bytes)" \
+  $AGENT_ID \
+  "revenueWallet" \
+  $(cast abi-encode "x(address)" $YOUR_WALLET) \
+  --rpc-url $RPC_URL \
+  --private-key $PRIVATE_KEY
 ```
 
-## IdentityRegistry API
-
-```solidity
-// Register
-function register(string calldata tokenURI) returns (uint256 agentId);
-function register(string calldata tokenURI, MetadataEntry[] calldata metadata) returns (uint256);
-
-// Metadata
-function setMetadata(uint256 agentId, string calldata key, bytes calldata value);
-function getMetadata(uint256 agentId, string calldata key) returns (bytes memory);
-
-// Query
-function totalAgents() returns (uint256);
-function ownerOf(uint256 agentId) returns (address);
-```
-
-## ReputationRegistry API
-
-```solidity
-// Feedback (requires agent signature for authorization)
-function giveFeedback(
-    uint256 agentId, uint8 score, bytes32 tag1, bytes32 tag2,
-    string calldata fileuri, bytes32 filehash, bytes memory feedbackAuth
-);
-
-function revokeFeedback(uint256 agentId, uint64 feedbackIndex);
-
-// Query
-function getSummary(uint256 agentId, address[] calldata clients, bytes32 tag1, bytes32 tag2)
-    returns (uint64 count, uint8 avgScore);
-```
-
-## ValidationRegistry API
-
-```solidity
-// Request validation
-function validationRequest(
-    address validatorAddress, uint256 agentId,
-    string calldata requestUri, bytes32 requestHash
-);
-
-// Respond (validator only)
-function validationResponse(
-    bytes32 requestHash, uint8 response,
-    string calldata responseUri, bytes32 responseHash, bytes32 tag
-);
-
-// Query
-function getValidationStatus(bytes32 requestHash) returns (
-    address validator, uint256 agentId, uint8 response, bytes32 tag, uint256 lastUpdate
-);
-```
-
-## Revenue Integration
-
-```solidity
-// Register + set revenue wallet
-uint256 agentId = identityRegistry.register("ipfs://config");
-identityRegistry.setMetadata(agentId, "revenueWallet", abi.encode(wallet));
-
-// Deploy app pointing to wallet → users pay via paymaster → you earn 50% of fees
-```
-
-## Gas Costs
-
-| Operation | Gas |
-|-----------|-----|
-| Register | ~75k |
-| Register w/ metadata | ~300k |
-| Set metadata | ~50k |
-| Give feedback | ~150k |
-| Validation request | ~120k |
-
-## Testing
+## Query Agents
 
 ```bash
-cd contracts
-forge test --match-path "test/*Registry*.t.sol" -vv
+# Total agents
+cast call $IDENTITY_REGISTRY "totalAgents()" --rpc-url $RPC_URL
+
+# Owner of agent
+cast call $IDENTITY_REGISTRY "ownerOf(uint256)" $AGENT_ID --rpc-url $RPC_URL
+
+# Agent metadata
+cast call $IDENTITY_REGISTRY "getMetadata(uint256,string)" $AGENT_ID "name" --rpc-url $RPC_URL
 ```
 
-## Web Viewer
+## Reputation
+
+### Give Feedback
+
+Requires agent's authorization signature:
 
 ```bash
-cd contracts/web
-python3 -m http.server 3000
-# Open http://localhost:3000/registry-viewer.html
+cast send $REPUTATION_REGISTRY \
+  "giveFeedback(uint256,uint8,bytes32,bytes32,string,bytes32,bytes)" \
+  $AGENT_ID \
+  85 \
+  "service" \
+  "quality" \
+  "ipfs://feedback" \
+  $FILE_HASH \
+  $AUTH_SIGNATURE \
+  --rpc-url $RPC_URL \
+  --private-key $PRIVATE_KEY
 ```
+
+### Get Summary
+
+```bash
+cast call $REPUTATION_REGISTRY \
+  "getSummary(uint256,address[],bytes32,bytes32)" \
+  $AGENT_ID \
+  "[]" \
+  "service" \
+  "0x0" \
+  --rpc-url $RPC_URL
+```
+
+## Validation
+
+Request third-party verification of agent capabilities:
+
+```bash
+cast send $VALIDATION_REGISTRY \
+  "validationRequest(address,uint256,string,bytes32)" \
+  $VALIDATOR_ADDRESS \
+  $AGENT_ID \
+  "ipfs://request" \
+  $REQUEST_HASH \
+  --rpc-url $RPC_URL \
+  --private-key $PRIVATE_KEY
+```
+
+## jeju-manifest.json
+
+Every app should have a manifest in its root:
+
+```json
+{
+  "name": "My App",
+  "description": "What it does",
+  "version": "1.0.0",
+  "port": 4000,
+  "agent": {
+    "tags": ["defi", "trading"],
+    "capabilities": ["swap", "bridge"]
+  }
+}
+```
+
+## Contracts
+
+| Contract | Purpose |
+|----------|---------|
+| IdentityRegistry | ERC-721 agent NFTs, metadata |
+| ReputationRegistry | Feedback/ratings with auth |
+| ValidationRegistry | Third-party attestations |

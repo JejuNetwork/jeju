@@ -3,7 +3,7 @@
  */
 
 import { createPublicClient, http, type PublicClient, type Address, type Chain, type Abi } from 'viem';
-import { base, baseSepolia, arbitrum, arbitrumSepolia, optimism, optimismSepolia, mainnet, sepolia } from 'viem/chains';
+import { arbitrum, arbitrumSepolia, optimism, optimismSepolia, mainnet, sepolia } from 'viem/chains';
 
 // Custom Jeju chain definition
 const jeju: Chain = {
@@ -126,12 +126,10 @@ const SOLVER_REGISTRY_ABI = [
 const CHAINS: Record<number, Chain> = {
   // Mainnets
   1: mainnet,
-  8453: base,
   42161: arbitrum,
   10: optimism,
   // Testnets
   11155111: sepolia,
-  84532: baseSepolia,
   421614: arbitrumSepolia,
   11155420: optimismSepolia,
   // Custom
@@ -252,8 +250,8 @@ export async function fetchSolverInfo(solverAddress: Address): Promise<SolverInf
     return null;
   }
 
-  // Registry is typically on Base or mainnet
-  const client = getClient(8453); // Default to Base
+  // Registry is on Ethereum mainnet
+  const client = getClient(1); // Default to Ethereum
   
   const info = await client.readContract({
     address: registry,
@@ -278,7 +276,7 @@ export async function fetchRegistryStats(): Promise<{
     return null;
   }
 
-  const client = getClient(8453);
+  const client = getClient(1);
   
   const result = await client.readContract({
     address: registry,

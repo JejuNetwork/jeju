@@ -1,6 +1,6 @@
 /**
  * @fileoverview Contract ABI exports
- * @module @jeju/contracts/abis
+ * @module @jejunetwork/contracts/abis
  */
 
 // Re-export ABIs with their types
@@ -8,6 +8,25 @@ import ERC20AbiJson from '../../abis/ERC20.json';
 import ERC20FactoryAbiJson from '../../abis/ERC20Factory.json';
 import BazaarAbiJson from '../../abis/Bazaar.json';
 import IdentityRegistryAbiJson from '../../abis/IdentityRegistry.json';
+
+// OIF (Open Intents Framework) ABIs
+import InputSettlerAbiJson from '../../abis/InputSettler.json';
+import OutputSettlerAbiJson from '../../abis/OutputSettler.json';
+import SolverRegistryAbiJson from '../../abis/SolverRegistry.json';
+import SimpleOracleAbiJson from '../../abis/SimpleOracle.json';
+import HyperlaneOracleAbiJson from '../../abis/HyperlaneOracle.json';
+import SuperchainOracleAbiJson from '../../abis/SuperchainOracle.json';
+
+// OTC ABIs
+import OTCAbiJson from '../../abis/OTC.json';
+import SimplePoolOracleAbiJson from '../../abis/SimplePoolOracle.json';
+import RegistrationHelperAbiJson from '../../abis/RegistrationHelper.json';
+import MockERC20AbiJson from '../../abis/MockERC20.json';
+import MockAggregatorV3AbiJson from '../../abis/MockAggregatorV3.json';
+
+// Moderation ABIs
+import BanManagerAbiJson from '../../abis/BanManager.json';
+import ModerationMarketplaceAbiJson from '../../abis/ModerationMarketplace.json';
 
 import type { Abi } from 'viem';
 
@@ -17,8 +36,31 @@ export const ERC20FactoryAbi = ERC20FactoryAbiJson.abi as Abi;
 export const BazaarAbi = BazaarAbiJson.abi as Abi;
 export const IdentityRegistryAbi = IdentityRegistryAbiJson.abi as Abi;
 
+// OIF ABIs
+export const InputSettlerAbi = InputSettlerAbiJson.abi as Abi;
+export const OutputSettlerAbi = OutputSettlerAbiJson.abi as Abi;
+export const SolverRegistryAbi = SolverRegistryAbiJson.abi as Abi;
+export const SimpleOracleAbi = SimpleOracleAbiJson.abi as Abi;
+export const HyperlaneOracleAbi = HyperlaneOracleAbiJson.abi as Abi;
+export const SuperchainOracleAbi = SuperchainOracleAbiJson.abi as Abi;
+
+// OTC ABIs
+export const OTCAbi = OTCAbiJson.abi as Abi;
+export const SimplePoolOracleAbi = SimplePoolOracleAbiJson.abi as Abi;
+export const RegistrationHelperAbi = RegistrationHelperAbiJson.abi as Abi;
+export const MockERC20Abi = MockERC20AbiJson.abi as Abi;
+export const MockAggregatorV3Abi = MockAggregatorV3AbiJson.abi as Abi;
+
+// Moderation ABIs
+export const BanManagerAbi = BanManagerAbiJson as Abi;
+export const ModerationMarketplaceAbi = ModerationMarketplaceAbiJson as Abi;
+
 // Export the full JSON files for those who need address + abi
 export { ERC20AbiJson, ERC20FactoryAbiJson, BazaarAbiJson, IdentityRegistryAbiJson };
+export { InputSettlerAbiJson, OutputSettlerAbiJson, SolverRegistryAbiJson };
+export { SimpleOracleAbiJson, HyperlaneOracleAbiJson, SuperchainOracleAbiJson };
+export { OTCAbiJson, SimplePoolOracleAbiJson, RegistrationHelperAbiJson, MockERC20AbiJson, MockAggregatorV3AbiJson };
+export { BanManagerAbiJson, ModerationMarketplaceAbiJson };
 
 // Common ABI fragments for convenience
 export const ERC20ReadAbi = [

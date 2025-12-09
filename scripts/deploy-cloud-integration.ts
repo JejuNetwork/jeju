@@ -9,7 +9,7 @@ import {
 } from './shared/cloud-integration';
 import fs from 'fs';
 import path from 'path';
-import { rawDeployments, getContractAddresses } from '@jeju/contracts';
+import { rawDeployments, getContractAddresses } from '@jejunetwork/contracts';
 
 const logger = new Logger('deploy-cloud-integration');
 
@@ -132,7 +132,7 @@ async function setupCloudIntegration(
 async function main() {
   logger.info('=== Cloud Integration Deployment ===\n');
   
-  // Load deployment addresses from @jeju/contracts
+  // Load deployment addresses from @jejunetwork/contracts
   const contractAddrs = getContractAddresses(1337);
   const localnetAddrs = rawDeployments.localnetAddresses as Record<string, string>;
   

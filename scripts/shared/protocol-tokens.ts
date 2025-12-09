@@ -45,7 +45,7 @@ export interface TokenConfig {
   hasPaymaster: boolean;
   bridged?: boolean;
   originChain?: string;
-  baseAddress?: string;
+  l1Address?: string;
   logoUrl: string;
   website?: string;
   tags: string[];
@@ -154,7 +154,7 @@ export function getNativeTokens(): TokenConfig[] {
 }
 
 /**
- * Get bridged tokens (from Base)
+ * Get bridged tokens (from Ethereum)
  */
 export function getBridgedTokens(): TokenConfig[] {
   return getAllTokens().filter(t => t.bridged);

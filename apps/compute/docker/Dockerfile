@@ -31,7 +31,7 @@ USER bun
 
 # Environment variables (override at runtime)
 ENV PORT=8080
-ENV RPC_URL=https://sepolia.base.org
+ENV RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
 ENV MODEL_BACKEND=mock
 ENV MODEL_NAME=babylon-inference
 ENV REQUIRE_AUTH=false

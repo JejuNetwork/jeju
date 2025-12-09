@@ -1,0 +1,47 @@
+# Bundler values for testnet
+# ERC-4337 bundler for Jeju Testnet
+
+replicaCount: 2
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+
+nodeSelector:
+  role: core
+
+tolerations:
+  - key: workload
+    operator: Equal
+    value: core
+    effect: NoSchedule
+
+config:
+  network: "jeju-testnet"
+  chainId: 420690
+  rpcUrl: "https://testnet-rpc.jeju.network"
+  entryPoint: "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789"
+  # Private key and beneficiary injected from Vault/Secrets
+  beneficiary: ""
+  minBalance: "0.05"
+  maxBatchSize: 10
+  maxOpsPerBatch: 10
+  debugMode: true
+  userOpMempool: "local"
+  rateLimit:
+    enabled: true
+    rps: 50
+    burst: 100
+
+
+

@@ -8,13 +8,9 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
  * @notice Simple ERC20 token for testing Gateway integration
  */
 contract TestERC20 is ERC20 {
-    uint8 private _decimals;
+    uint8 private immutable _decimals;
 
-    constructor(
-        string memory name,
-        string memory symbol,
-        uint256 initialSupply
-    ) ERC20(name, symbol) {
+    constructor(string memory name, string memory symbol, uint256 initialSupply) ERC20(name, symbol) {
         _decimals = 18;
         _mint(msg.sender, initialSupply);
     }
@@ -31,5 +27,3 @@ contract TestERC20 is ERC20 {
         _burn(msg.sender, amount);
     }
 }
-
-

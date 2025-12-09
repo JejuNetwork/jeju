@@ -1,0 +1,32 @@
+# JejuDA - Mainnet Configuration
+replicaCount: 3
+
+image:
+  tag: "1.0.0"
+
+persistence:
+  enabled: true
+  storageClass: "gp3-encrypted"
+  size: 500Gi
+
+resources:
+  limits:
+    cpu: 4000m
+    memory: 8Gi
+  requests:
+    cpu: 2000m
+    memory: 4Gi
+
+config:
+  ipfs:
+    apiUrl: "http://ipfs.jeju-mainnet.svc:5001"
+    gatewayUrl: "http://ipfs.jeju-mainnet.svc:8080"
+    replicationFactor: 5
+  retention:
+    daysToKeep: 90
+    archiveEnabled: true
+    archiveBackend: "arweave"
+  challenge:
+    windowBlocks: 50400  # ~7 days
+
+

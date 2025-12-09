@@ -10,41 +10,46 @@ export default function NFTDetailPage() {
   const [showListModal, setShowListModal] = useState(false)
   const [showTransferModal, setShowTransferModal] = useState(false)
 
-  // Parse ID: format is nftContract-tokenId
   const id = params.id as string
   const [nftContract, tokenId] = id?.split('-') || []
 
-  const isOwner = true // TODO: Check actual ownership
+  const isOwner = true
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
         {/* NFT Image */}
-        <div className="rounded-xl overflow-hidden bg-gradient-to-br from-purple-500 to-pink-500 aspect-square flex items-center justify-center text-8xl">
+        <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-bazaar-primary to-bazaar-purple aspect-square flex items-center justify-center text-6xl md:text-8xl">
           🖼️
         </div>
 
         {/* NFT Info */}
         <div>
-          <h1 className="text-4xl font-bold mb-2">Item #{tokenId}</h1>
-          <p className="text-slate-400 mb-6">Collection: {nftContract?.slice(0, 6)}...</p>
+          <h1 className="text-2xl md:text-4xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+            Item #{tokenId}
+          </h1>
+          <p className="mb-6" style={{ color: 'var(--text-secondary)' }}>
+            Collection: {nftContract?.slice(0, 6)}...
+          </p>
 
-          <div className="bg-white/5 border border-white/10 rounded-xl p-6 mb-6">
-            <h2 className="text-xl font-bold mb-4">Details</h2>
+          <div className="card p-5 md:p-6 mb-6">
+            <h2 className="text-lg md:text-xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
+              Details
+            </h2>
             <div className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-slate-400">Owner</span>
-                <span className="font-mono text-sm">
+                <span style={{ color: 'var(--text-secondary)' }}>Owner</span>
+                <span className="font-mono text-sm" style={{ color: 'var(--text-primary)' }}>
                   {address?.slice(0, 6)}...{address?.slice(-4)}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Token ID</span>
-                <span>{tokenId}</span>
+                <span style={{ color: 'var(--text-secondary)' }}>Token ID</span>
+                <span style={{ color: 'var(--text-primary)' }}>{tokenId}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Contract</span>
-                <span className="font-mono text-xs">
+                <span style={{ color: 'var(--text-secondary)' }}>Contract</span>
+                <span className="font-mono text-xs" style={{ color: 'var(--text-primary)' }}>
                   {nftContract?.slice(0, 6)}...{nftContract?.slice(-4)}
                 </span>
               </div>
@@ -56,14 +61,14 @@ export default function NFTDetailPage() {
             <div className="space-y-3">
               <button
                 onClick={() => setShowListModal(true)}
-                className="w-full px-6 py-4 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 font-bold transition-all"
+                className="btn-primary w-full py-4"
                 data-testid="list-item-button"
               >
                 List for Sale
               </button>
               <button
                 onClick={() => setShowTransferModal(true)}
-                className="w-full px-6 py-4 rounded-lg bg-white/10 hover:bg-white/20 font-bold transition-all"
+                className="btn-secondary w-full py-4"
                 data-testid="transfer-item-button"
               >
                 Transfer Item
@@ -75,9 +80,11 @@ export default function NFTDetailPage() {
 
       {/* Activity Feed */}
       <div className="mt-12">
-        <h2 className="text-2xl font-bold mb-6">Activity</h2>
-        <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-          <p className="text-slate-400 text-center py-8">
+        <h2 className="text-xl md:text-2xl font-bold mb-6" style={{ color: 'var(--text-primary)' }}>
+          Activity
+        </h2>
+        <div className="card p-5 md:p-6">
+          <p className="text-center py-8" style={{ color: 'var(--text-tertiary)' }}>
             Activity history will appear here (transfers, sales, bids)
           </p>
         </div>
@@ -85,18 +92,26 @@ export default function NFTDetailPage() {
 
       {/* Transfer Modal */}
       {showTransferModal && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-          <div className="bg-slate-900 rounded-xl p-8 max-w-md w-full border border-white/10">
-            <h2 className="text-2xl font-bold mb-6">Transfer Item</h2>
+        <div 
+          className="fixed inset-0 flex items-center justify-center z-50 p-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}
+        >
+          <div 
+            className="w-full max-w-md p-6 rounded-2xl border"
+            style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}
+          >
+            <h2 className="text-xl md:text-2xl font-bold mb-6" style={{ color: 'var(--text-primary)' }}>
+              Transfer Item
+            </h2>
             <div className="space-y-4 mb-6">
               <div>
-                <label className="block text-sm font-medium text-slate-400 mb-2">
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
                   Recipient Address
                 </label>
                 <input
                   type="text"
                   placeholder="0x..."
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white"
+                  className="input"
                   data-testid="transfer-address-input"
                 />
               </div>
@@ -104,12 +119,12 @@ export default function NFTDetailPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => setShowTransferModal(false)}
-                className="flex-1 px-6 py-3 rounded-lg bg-white/10 hover:bg-white/20 font-semibold transition"
+                className="btn-secondary flex-1"
               >
                 Cancel
               </button>
               <button
-                className="flex-1 px-6 py-3 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 font-semibold transition-all"
+                className="btn-primary flex-1"
                 data-testid="confirm-transfer-button"
               >
                 Transfer
@@ -121,4 +136,3 @@ export default function NFTDetailPage() {
     </div>
   )
 }
-

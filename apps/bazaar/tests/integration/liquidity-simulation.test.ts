@@ -20,7 +20,7 @@ import {
   type WalletClient,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { rawDeployments } from '@jeju/contracts'
+import { rawDeployments } from '@jejunetwork/contracts'
 
 // =============================================================================
 // CONFIGURATION

@@ -71,32 +71,40 @@ export function TradingInterface({ market }: { market: Market }) {
 
   if (banReason) {
     return (
-      <div className="bg-red-500/10 border border-red-500 rounded-xl p-6" data-testid="trading-banned">
-        <h2 className="text-lg font-bold text-red-400 mb-2">Trading Restricted</h2>
-        <p className="text-sm text-red-300">{banReason}</p>
+      <div className="card p-5 md:p-6 border-bazaar-error/50 bg-bazaar-error/10" data-testid="trading-banned">
+        <h2 className="text-lg font-bold text-bazaar-error mb-2">Trading Restricted</h2>
+        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{banReason}</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white/5 border border-white/10 rounded-xl p-6" data-testid="trading-interface">
-      <h2 className="text-lg font-bold text-white mb-4">Place Bet</h2>
+    <div className="card p-5 md:p-6" data-testid="trading-interface">
+      <h2 className="text-lg font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
+        Place Bet
+      </h2>
 
       <div className="grid grid-cols-2 gap-3 mb-6">
         <button
           onClick={() => setOutcome(true)}
-          className={`px-4 py-3 rounded-lg font-medium transition ${
-            outcome ? 'bg-green-600 text-white ring-2 ring-green-400' : 'bg-white/10 text-slate-400'
+          className={`px-4 py-3 rounded-xl font-medium transition ${
+            outcome 
+              ? 'bg-bazaar-success text-white ring-2 ring-bazaar-success/50' 
+              : ''
           }`}
+          style={!outcome ? { backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' } : undefined}
           data-testid="outcome-yes-button"
         >
           YES {yesPercent.toFixed(1)}%
         </button>
         <button
           onClick={() => setOutcome(false)}
-          className={`px-4 py-3 rounded-lg font-medium transition ${
-            !outcome ? 'bg-red-600 text-white ring-2 ring-red-400' : 'bg-white/10 text-slate-400'
+          className={`px-4 py-3 rounded-xl font-medium transition ${
+            !outcome 
+              ? 'bg-bazaar-error text-white ring-2 ring-bazaar-error/50' 
+              : ''
           }`}
+          style={outcome ? { backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' } : undefined}
           data-testid="outcome-no-button"
         >
           NO {noPercent.toFixed(1)}%
@@ -104,12 +112,14 @@ export function TradingInterface({ market }: { market: Market }) {
       </div>
 
       <div className="mb-6">
-        <label className="block text-sm font-medium text-slate-400 mb-2">Amount</label>
+        <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+          Amount
+        </label>
         <input
           type="number"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white"
+          className="input"
           placeholder="100"
           data-testid="amount-input"
         />
@@ -118,7 +128,7 @@ export function TradingInterface({ market }: { market: Market }) {
       <button
         onClick={handleBuy}
         disabled={!isConnected || isPending || isConfirming}
-        className="w-full px-6 py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 disabled:opacity-50 text-white font-bold rounded-lg transition"
+        className="btn-accent w-full py-4 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
         data-testid="buy-button"
       >
         {isPending || isConfirming ? 'Confirming...' : `Buy ${outcome ? 'YES' : 'NO'}`}
@@ -126,4 +136,3 @@ export function TradingInterface({ market }: { market: Market }) {
     </div>
   );
 }
-

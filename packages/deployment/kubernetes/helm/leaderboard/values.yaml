@@ -1,0 +1,86 @@
+replicaCount: 2
+
+image:
+  repository: ""
+  pullPolicy: IfNotPresent
+  tag: ""
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+service:
+  type: ClusterIP
+  port: 5012
+  targetPort: 5012
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: leaderboard.testnet.jeju.network
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: leaderboard-tls
+      hosts:
+        - leaderboard.testnet.jeju.network
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 8
+  targetCPUUtilizationPercentage: 70
+
+env:
+  - name: PORT
+    value: "5012"
+  - name: NODE_ENV
+    value: "production"
+
+envFrom:
+  - secretRef:
+      name: leaderboard-env
+  - secretRef:
+      name: leaderboard-db
+
+# PostgreSQL subchart configuration
+postgresql:
+  enabled: false # Use external RDS
+  
+# External database (RDS)
+externalDatabase:
+  host: "" # Set via values-{env}.yaml
+  port: 5432
+  database: leaderboard
+  username: leaderboard
+
+livenessProbe:
+  httpGet:
+    path: /api/health
+    port: 5012
+  initialDelaySeconds: 60
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /api/health
+    port: 5012
+  initialDelaySeconds: 30
+  periodSeconds: 5
+

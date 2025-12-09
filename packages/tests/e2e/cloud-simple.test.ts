@@ -9,20 +9,36 @@
 
 import { describe, test, expect, beforeAll } from 'bun:test';
 import { ethers } from 'ethers';
-import { rawDeployments, getContractAddresses } from '@jeju/contracts';
+import { existsSync, readFileSync } from 'fs';
+import { resolve } from 'path';
 
 // Load addresses dynamically from deployment files
 function loadDeployedAddresses(): Record<string, string> {
+  const deploymentsDir = resolve(__dirname, '../../../packages/contracts/deployments');
   const addresses: Record<string, string> = {};
   
-  // Load from @jeju/contracts
-  const contractAddrs = getContractAddresses(1337);
-  if (contractAddrs.identityRegistry) addresses.identityRegistry = contractAddrs.identityRegistry;
-  if (contractAddrs.reputationRegistry) addresses.reputationRegistry = contractAddrs.reputationRegistry;
-  if (contractAddrs.validationRegistry) addresses.validationRegistry = contractAddrs.validationRegistry;
+  // Try identity-system deployment
+  const identityPath = resolve(deploymentsDir, 'identity-system-1337.json');
+  if (existsSync(identityPath)) {
+    const data = JSON.parse(readFileSync(identityPath, 'utf-8')) as Record<string, string>;
+    if (data.IdentityRegistry) addresses.identityRegistry = data.IdentityRegistry;
+    if (data.ReputationRegistry) addresses.reputationRegistry = data.ReputationRegistry;
+    if (data.ValidationRegistry) addresses.validationRegistry = data.ValidationRegistry;
+  }
   
-  // Merge localnet addresses
-  Object.assign(addresses, rawDeployments.localnetAddresses);
+  // Try localnet-addresses.json for cloud contracts
+  const localnetPath = resolve(deploymentsDir, 'localnet-addresses.json');
+  if (existsSync(localnetPath)) {
+    const data = JSON.parse(readFileSync(localnetPath, 'utf-8')) as Record<string, string>;
+    Object.assign(addresses, data);
+  }
+  
+  // Try cloud-integration deployment if it exists
+  const cloudPath = resolve(deploymentsDir, 'cloud-integration-1337.json');
+  if (existsSync(cloudPath)) {
+    const data = JSON.parse(readFileSync(cloudPath, 'utf-8')) as Record<string, string>;
+    Object.assign(addresses, data);
+  }
   
   return addresses;
 }

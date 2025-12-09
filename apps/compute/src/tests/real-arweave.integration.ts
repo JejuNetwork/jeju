@@ -27,7 +27,7 @@ describe.skipIf(!PRIVATE_KEY)('Arweave Upload/Download', () => {
 
     const testData = {
       timestamp: Date.now(),
-      message: 'Hello from Babylon!',
+      message: 'Hello from Jeju Compute!',
       random: Math.random(),
     };
 
@@ -64,7 +64,7 @@ describe.skipIf(!PRIVATE_KEY)('Encrypted State Flow', () => {
     });
 
     const secretState = {
-      gameId: 'babylon-test-001',
+      gameId: 'jeju-test-001',
       timestamp: Date.now(),
       players: [
         { name: 'alice', secretCards: ['ace-spades', 'king-hearts'] },

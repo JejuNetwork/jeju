@@ -7,24 +7,24 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 /**
  * @title MockClankermon
  * @notice Mock version of Clankermon token for localnet testing
- * @dev Mimics the real Clankermon token on Base (0x1cDbB57b12f732cFb4DC06f690ACeF476485B2a5)
- * 
+ * @dev Mock token for localnet testing (0x1cDbB57b12f732cFb4DC06f690ACeF476485B2a5)
+ *
  * Real Token Info:
  * - Name: Clankermon
  * - Symbol: CLANKERMON
  * - Price: ~$0.15
  * - Decimals: 18
  * - Network: Base
- * 
+ *
  * This mock enables testing of:
  * - Paymaster gas payments in CLANKERMON
  * - LP fee distribution in CLANKERMON tokens
  * - Uniswap V4 CLANKERMON/ETH pools
- * - Bridge simulations (Base → Jeju)
+ * - Bridge simulations (Ethereum → Jeju)
  */
 contract MockClankermon is ERC20, Ownable {
-    uint256 public constant MAX_SUPPLY = 100_000_000 * 10**18;
-    uint256 public constant INITIAL_SUPPLY = 33_333_333 * 10**18;
+    uint256 public constant MAX_SUPPLY = 100_000_000 * 10 ** 18;
+    uint256 public constant INITIAL_SUPPLY = 33_333_333 * 10 ** 18;
 
     error MaxSupplyExceeded();
 
@@ -46,10 +46,9 @@ contract MockClankermon is ERC20, Ownable {
      * @dev Gives 10000 CLANKERMON tokens (~$1,500)
      */
     function faucet() external {
-        uint256 faucetAmount = 10000 * 10**18;
+        uint256 faucetAmount = 10000 * 10 ** 18;
         if (totalSupply() + faucetAmount <= MAX_SUPPLY) {
             _mint(msg.sender, faucetAmount);
         }
     }
 }
-

@@ -112,32 +112,32 @@ export default function RegisterAppForm() {
         {error && (
           <div style={{
             padding: '1rem',
-            background: '#fee2e2',
-            border: '1px solid #ef4444',
+            background: 'var(--error-soft)',
+            border: '1px solid var(--error)',
             borderRadius: '8px',
             marginBottom: '1.5rem',
             display: 'flex',
             alignItems: 'center',
             gap: '0.5rem',
           }}>
-            <AlertCircle size={20} style={{ color: '#dc2626' }} />
-            <span style={{ color: '#dc2626' }}>{error}</span>
+            <AlertCircle size={20} style={{ color: 'var(--error)' }} />
+            <span style={{ color: 'var(--error)' }}>{error}</span>
           </div>
         )}
 
         {success && (
           <div style={{
             padding: '1rem',
-            background: '#d1fae5',
-            border: '1px solid #10b981',
+            background: 'var(--success-soft)',
+            border: '1px solid var(--success)',
             borderRadius: '8px',
             marginBottom: '1.5rem',
             display: 'flex',
             alignItems: 'center',
             gap: '0.5rem',
           }}>
-            <CheckCircle size={20} style={{ color: '#059669' }} />
-            <span style={{ color: '#047857' }}>App registered successfully!</span>
+            <CheckCircle size={20} style={{ color: 'var(--success)' }} />
+            <span style={{ color: 'var(--success)' }}>App registered successfully!</span>
           </div>
         )}
 
@@ -145,7 +145,7 @@ export default function RegisterAppForm() {
           {/* App Name */}
           <div style={{ marginBottom: '1.5rem' }}>
             <label className="input-label">
-              App Name <span style={{ color: '#ef4444' }}>*</span>
+              App Name <span style={{ color: 'var(--error)' }}>*</span>
             </label>
             <input
               type="text"
@@ -174,7 +174,7 @@ export default function RegisterAppForm() {
           <div style={{ marginBottom: '1.5rem' }}>
             <label className="input-label">
               A2A Endpoint URL
-              <span style={{ fontSize: '0.75rem', color: '#94a3b8', marginLeft: '0.5rem' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>
                 (Optional - for agent discovery)
               </span>
             </label>
@@ -185,17 +185,14 @@ export default function RegisterAppForm() {
               placeholder="https://myapp.com/a2a"
               className="input"
             />
-            <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem' }}>
-              Agents will call /.well-known/agent-card.json at this endpoint to discover capabilities
-            </p>
           </div>
 
           {/* Tags */}
           <div style={{ marginBottom: '1.5rem' }}>
             <label className="input-label">
-              Tags <span style={{ color: '#ef4444' }}>*</span>
+              Tags <span style={{ color: 'var(--error)' }}>*</span>
             </label>
-            <p style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.75rem' }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
               Select one or more categories (up to 10)
             </p>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -206,9 +203,9 @@ export default function RegisterAppForm() {
                   onClick={() => handleTagToggle(tag.value)}
                   style={{
                     padding: '0.5rem 1rem',
-                    border: selectedTags.includes(tag.value) ? '2px solid #667eea' : '1px solid #cbd5e1',
-                    background: selectedTags.includes(tag.value) ? '#667eea' : 'white',
-                    color: selectedTags.includes(tag.value) ? 'white' : '#64748b',
+                    border: selectedTags.includes(tag.value) ? '2px solid var(--accent-primary)' : '1px solid var(--border-strong)',
+                    background: selectedTags.includes(tag.value) ? 'var(--accent-primary)' : 'white',
+                    color: selectedTags.includes(tag.value) ? 'white' : 'var(--text-secondary)',
                     borderRadius: '8px',
                     cursor: 'pointer',
                     fontSize: '0.875rem',
@@ -225,11 +222,8 @@ export default function RegisterAppForm() {
           {/* Stake Token Selection */}
           <div style={{ marginBottom: '1.5rem' }}>
             <label className="input-label">
-              Stake Token <span style={{ color: '#ef4444' }}>*</span>
+              Stake Token <span style={{ color: 'var(--error)' }}>*</span>
             </label>
-            <p style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.75rem' }}>
-              Stake .001 ETH worth (~$3.50) in any protocol token. Fully refundable when you close your account.
-            </p>
             <TokenSelector
               tokens={tokens.map((t) => ({
                 symbol: t.symbol,
@@ -250,18 +244,18 @@ export default function RegisterAppForm() {
           {selectedToken && requiredStake && (
             <div style={{
               padding: '1rem',
-              background: '#f8fafc',
-              border: '1px solid #cbd5e1',
+              background: 'var(--surface-hover)',
+              border: '1px solid var(--border-strong)',
               borderRadius: '8px',
               marginBottom: '1.5rem',
             }}>
-              <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '0.5rem' }}>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
                 Required Stake:
               </p>
-              <p style={{ fontSize: '1.25rem', fontWeight: 600, color: '#0f172a' }}>
+              <p style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)' }}>
                 {formatTokenAmount(requiredStake, selectedToken.decimals, 6)} {selectedToken.symbol}
               </p>
-              <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
                 ≈ $3.50 USD
               </p>
             </div>
@@ -277,19 +271,6 @@ export default function RegisterAppForm() {
             {isSubmitting ? 'Registering...' : 'Register App'}
           </button>
 
-          {/* Info Box */}
-          <div style={{
-            marginTop: '1.5rem',
-            padding: '1rem',
-            background: '#eff6ff',
-            border: '1px solid #3b82f6',
-            borderRadius: '8px',
-          }}>
-            <p style={{ fontSize: '0.875rem', color: '#1e40af', margin: 0 }}>
-              <strong>ℹ️ Note:</strong> Your stake is fully refundable. You can withdraw it anytime by de-registering your app.
-              Agents will be able to discover your app via the registry and connect to it using the A2A endpoint.
-            </p>
-          </div>
         </form>
       </div>
     </div>

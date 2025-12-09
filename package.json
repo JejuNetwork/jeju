@@ -5,11 +5,20 @@
   "type": "module",
   "workspaces": [
     "packages/*",
-    "apps/*"
+    "apps/*",
+    "vendor/*",
+    "vendor/hyperscape/packages/*"
   ],
+  "overrides": {
+    "@jejunetwork/contracts": "workspace:*",
+    "@jejunetwork/types": "workspace:*",
+    "@jejunetwork/tests": "workspace:*",
+    "@jejunetwork/config": "workspace:*"
+  },
   "scripts": {
     "docs:generate": "typedoc --options packages/config/typedoc.json",
-    "postinstall": "bun run scripts/setup-apps.ts || echo 'Setup completed with warnings'",
+    "postinstall": "bun run build:packages && bun run scripts/setup-apps.ts || echo 'Setup completed with warnings'",
+    "build:packages": "cd packages/types && bun run build && cd ../contracts && bun run build || echo 'Package build completed'",
     "preflight": "bun run scripts/preflight-check.ts",
     "dev": "bun run scripts/dev.ts",
     "dev:vendor": "bun run scripts/dev-with-vendor.ts",
@@ -18,7 +27,29 @@
     "cleanup": "bun run scripts/cleanup-processes.ts",
     "build": "bun run docs:generate && bun run scripts/build.ts",
     "test": "bun run scripts/test-all.ts",
-    "clean": "bun run scripts/clean.ts"
+    "clean": "bun run scripts/clean.ts",
+    "localnet:start": "cd packages/deployment && bun run localnet:start",
+    "localnet:stop": "cd packages/deployment && bun run localnet:stop",
+    "localnet:reset": "cd packages/deployment && bun run localnet:reset",
+    "infra:validate": "cd packages/deployment && bun run validate",
+    "infra:plan": "cd packages/deployment && bun run infra:plan",
+    "infra:apply": "cd packages/deployment && bun run infra:apply",
+    "images:build": "cd packages/deployment && bun run images:build",
+    "images:push": "cd packages/deployment && bun run images:push",
+    "k8s:deploy": "cd packages/deployment && bun run k8s:deploy",
+    "k8s:diff": "cd packages/deployment && bun run k8s:diff",
+    "deploy:testnet": "cd packages/deployment && bun run deploy:testnet",
+    "deploy:mainnet": "cd packages/deployment && bun run deploy:mainnet",
+    "contracts:deploy:testnet": "bun run scripts/deploy/testnet.ts",
+    "contracts:deploy:mainnet": "bun run scripts/deploy/mainnet.ts",
+    "contracts:deploy": "bun run scripts/deploy.ts",
+    "oif:deploy:local": "bun run scripts/deploy-oif.ts localnet",
+    "oif:deploy:testnet": "bun run scripts/deploy-oif.ts testnet",
+    "oif:deploy:mainnet": "bun run scripts/deploy-oif.ts mainnet",
+    "oif:verify": "bun run scripts/verify-oif-deployment.ts",
+    "testnet:check": "bun run scripts/check-testnet-readiness.ts",
+    "testnet:keys": "bun run scripts/deploy/generate-operator-keys.ts",
+    "testnet:full": "bun run scripts/deploy/testnet-full.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.911.0",
@@ -37,6 +68,7 @@
     "@playwright/test": "^1.56.1",
     "@synthetixio/synpress": "^4.0.0-alpha.7",
     "@types/bun": "latest",
+    "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
     "eslint": "^8.56.0",
@@ -50,6 +82,7 @@
     "typedoc-plugin-markdown": "^4.9.0",
     "typescript": "^5.3.3",
     "vitepress": "^1.0.0",
+    "ws": "^8.18.3",
     "yaml-lint": "^1.7.0"
   },
   "engines": {
@@ -82,9 +115,9 @@
       "babylon",
       "caliguland2",
       "packages/contracts",
-      "packages/kubernetes",
-      "packages/terraform",
-      "packages/kurtosis",
+      "packages/deployment/kubernetes",
+      "packages/deployment/terraform",
+      "packages/deployment/kurtosis",
       "*.config.js",
       "*.config.ts"
     ],

@@ -6,7 +6,7 @@
 import type { Address } from 'viem';
 
 // Supported chain IDs
-export const SUPPORTED_CHAINS = [1, 8453, 42161, 10, 420691, 420690] as const;
+export const SUPPORTED_CHAINS = [1, 11155111, 42161, 10, 420691, 420690] as const;
 export type SupportedChainId = (typeof SUPPORTED_CHAINS)[number];
 
 // Chain information
@@ -15,7 +15,6 @@ export const CHAIN_INFO: Record<SupportedChainId, {
   shortName: string;
   rpcUrl: string;
   explorerUrl: string;
-  isL2: boolean;
   isTestnet: boolean;
 }> = {
   1: {
@@ -23,23 +22,20 @@ export const CHAIN_INFO: Record<SupportedChainId, {
     shortName: 'ETH',
     rpcUrl: process.env.ETHEREUM_RPC_URL || 'https://eth.llamarpc.com',
     explorerUrl: 'https://etherscan.io',
-    isL2: false,
     isTestnet: false,
   },
-  8453: {
-    name: 'Base',
-    shortName: 'BASE',
-    rpcUrl: process.env.BASE_RPC_URL || 'https://mainnet.base.org',
-    explorerUrl: 'https://basescan.org',
-    isL2: true,
-    isTestnet: false,
+  11155111: {
+    name: 'Sepolia',
+    shortName: 'SEP',
+    rpcUrl: process.env.SEPOLIA_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com',
+    explorerUrl: 'https://sepolia.etherscan.io',
+    isTestnet: true,
   },
   42161: {
     name: 'Arbitrum One',
     shortName: 'ARB',
     rpcUrl: process.env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc',
     explorerUrl: 'https://arbiscan.io',
-    isL2: true,
     isTestnet: false,
   },
   10: {
@@ -47,23 +43,20 @@ export const CHAIN_INFO: Record<SupportedChainId, {
     shortName: 'OP',
     rpcUrl: process.env.OPTIMISM_RPC_URL || 'https://mainnet.optimism.io',
     explorerUrl: 'https://optimistic.etherscan.io',
-    isL2: true,
     isTestnet: false,
   },
   420691: {
     name: 'Jeju',
     shortName: 'JEJU',
-    rpcUrl: process.env.JEJU_RPC_URL || 'http://localhost:8545',
-    explorerUrl: 'http://localhost:4000',
-    isL2: true,
+    rpcUrl: process.env.JEJU_RPC_URL || 'https://rpc.jeju.network',
+    explorerUrl: 'https://explorer.jeju.network',
     isTestnet: false,
   },
   420690: {
     name: 'Jeju Testnet',
     shortName: 'JEJU-TEST',
-    rpcUrl: process.env.JEJU_TESTNET_RPC_URL || 'http://localhost:8545',
-    explorerUrl: 'http://localhost:4000',
-    isL2: true,
+    rpcUrl: process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jeju.network',
+    explorerUrl: 'https://testnet-explorer.jeju.network',
     isTestnet: true,
   },
 };
@@ -86,10 +79,15 @@ function getContractAddress(envKey: string): Address | undefined {
 
 // Contract deployment addresses
 export const OIF_CONTRACTS: Partial<Record<SupportedChainId, OIFChainContracts>> = {
-  8453: {
-    inputSettler: getContractAddress('OIF_INPUT_SETTLER_8453') || '0x0000000000000000000000000000000000000000',
-    outputSettler: getContractAddress('OIF_OUTPUT_SETTLER_8453') || '0x0000000000000000000000000000000000000000',
-    oracle: getContractAddress('OIF_ORACLE_8453') || '0x0000000000000000000000000000000000000000',
+  1: {
+    inputSettler: getContractAddress('OIF_INPUT_SETTLER_1') || '0x0000000000000000000000000000000000000000',
+    outputSettler: getContractAddress('OIF_OUTPUT_SETTLER_1') || '0x0000000000000000000000000000000000000000',
+    oracle: getContractAddress('OIF_ORACLE_1') || '0x0000000000000000000000000000000000000000',
+  },
+  11155111: {
+    inputSettler: getContractAddress('OIF_INPUT_SETTLER_11155111') || '0x0000000000000000000000000000000000000000',
+    outputSettler: getContractAddress('OIF_OUTPUT_SETTLER_11155111') || '0x0000000000000000000000000000000000000000',
+    oracle: getContractAddress('OIF_ORACLE_11155111') || '0x0000000000000000000000000000000000000000',
   },
   42161: {
     inputSettler: getContractAddress('OIF_INPUT_SETTLER_42161') || '0x0000000000000000000000000000000000000000',
@@ -106,9 +104,14 @@ export const OIF_CONTRACTS: Partial<Record<SupportedChainId, OIFChainContracts>>
     outputSettler: getContractAddress('OIF_OUTPUT_SETTLER_420691') || '0x0000000000000000000000000000000000000000',
     oracle: getContractAddress('OIF_ORACLE_420691') || '0x0000000000000000000000000000000000000000',
   },
+  420690: {
+    inputSettler: getContractAddress('OIF_INPUT_SETTLER_420690') || '0x0000000000000000000000000000000000000000',
+    outputSettler: getContractAddress('OIF_OUTPUT_SETTLER_420690') || '0x0000000000000000000000000000000000000000',
+    oracle: getContractAddress('OIF_ORACLE_420690') || '0x0000000000000000000000000000000000000000',
+  },
 };
 
-// Solver Registry (single deployment, usually on L1 or main L2)
+// Solver Registry (single deployment, usually on L1)
 export const SOLVER_REGISTRY_ADDRESS: Address = 
   getContractAddress('OIF_SOLVER_REGISTRY') || '0x0000000000000000000000000000000000000000';
 
@@ -116,7 +119,7 @@ export const SOLVER_REGISTRY_ADDRESS: Address =
 export const AGGREGATOR_CONFIG = {
   port: Number(process.env.AGGREGATOR_PORT) || 4010,
   wsPort: Number(process.env.AGGREGATOR_WS_PORT) || 4012,
-  indexerUrl: process.env.INDEXER_URL || 'http://localhost:4350/graphql',
+  indexerUrl: process.env.INDEXER_URL || 'http://127.0.0.1:4350/graphql',
   rateLimitRpm: Number(process.env.RATE_LIMIT_RPM) || 100,
 };
 
@@ -136,10 +139,9 @@ export const COMMON_TOKENS: Record<SupportedChainId, Record<string, Address>> = 
     USDC: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
     USDT: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
   },
-  8453: {
+  11155111: {
     ETH: '0x0000000000000000000000000000000000000000',
-    WETH: '0x4200000000000000000000000000000000000006',
-    USDC: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+    WETH: '0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9', // Sepolia WETH
   },
   42161: {
     ETH: '0x0000000000000000000000000000000000000000',
@@ -153,9 +155,11 @@ export const COMMON_TOKENS: Record<SupportedChainId, Record<string, Address>> = 
   },
   420691: {
     ETH: '0x0000000000000000000000000000000000000000',
+    WETH: '0x4200000000000000000000000000000000000006', // OP-Stack predeploy
   },
   420690: {
     ETH: '0x0000000000000000000000000000000000000000',
+    WETH: '0x4200000000000000000000000000000000000006', // OP-Stack predeploy
   },
 };
 
@@ -183,4 +187,3 @@ export const OIF_CONFIG = {
   solver: SOLVER_CONFIG,
   tokens: COMMON_TOKENS,
 };
-

@@ -1,0 +1,43 @@
+{
+  "name": "@jejunetwork/deployment",
+  "version": "0.1.0",
+  "description": "Infrastructure deployment for Jeju Network",
+  "type": "module",
+  "scripts": {
+    "validate": "bun run scripts/validate.ts",
+    "validate:terraform": "cd terraform/environments/${NETWORK:-testnet} && terraform init -backend=false && terraform validate",
+    "validate:helm": "helm lint kubernetes/helm/*/",
+    "validate:kurtosis": "kurtosis lint kurtosis/main.star",
+    
+    "localnet:start": "bun run scripts/localnet-start.ts",
+    "localnet:stop": "bun run scripts/localnet-stop.ts",
+    "localnet:reset": "bun run scripts/localnet-reset.ts",
+    
+    "infra:plan": "bun run scripts/terraform.ts plan",
+    "infra:apply": "bun run scripts/terraform.ts apply",
+    "infra:destroy": "bun run scripts/terraform.ts destroy",
+    
+    "images:build": "bun run scripts/build-images.ts",
+    "images:push": "bun run scripts/build-images.ts --push",
+    
+    "k8s:deploy": "bun run scripts/helmfile.ts sync",
+    "k8s:diff": "bun run scripts/helmfile.ts diff",
+    "k8s:destroy": "bun run scripts/helmfile.ts destroy",
+    
+    "genesis:l2": "bun run scripts/l2-genesis.ts",
+    
+    "deploy:localnet": "bun run localnet:start",
+    "deploy:testnet": "NETWORK=testnet bun run scripts/deploy-full.ts",
+    "deploy:mainnet": "NETWORK=mainnet bun run scripts/deploy-full.ts"
+  },
+  "dependencies": {
+    "ethers": "^6.11.1"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "@jejunetwork/config": "workspace:*"
+  }
+}
+

@@ -2,13 +2,16 @@
 pragma solidity ^0.8.26;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {PackedUserOperation} from "@account-abstraction/contracts/interfaces/PackedUserOperation.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import {BasePaymaster} from "@account-abstraction/contracts/core/BasePaymaster.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 interface ICreditManager {
-    function tryDeductCredit(address user, address token, uint256 amount) external returns (bool success, uint256 remaining);
+    function tryDeductCredit(address user, address token, uint256 amount)
+        external
+        returns (bool success, uint256 remaining);
     function balances(address user, address token) external view returns (uint256);
     function hasSufficientCredit(address user, address token, uint256 amount) external view returns (bool, uint256);
 }
@@ -50,6 +53,8 @@ interface IServiceRegistry {
  * @custom:security-contact security@jeju.network
  */
 contract MultiTokenPaymaster is BasePaymaster, Pausable {
+    using SafeERC20 for IERC20;
+
     // ============ State Variables ============
 
     /// @notice USDC token contract
@@ -65,10 +70,10 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
     IServiceRegistry public serviceRegistry;
 
     /// @notice Price oracle for conversions
-    IPriceOracle public priceOracle;
+    IPriceOracle public immutable priceOracle;
 
     /// @notice Revenue wallet for service fees
-    address public revenueWallet;
+    address public immutable revenueWallet;
 
     /// @notice Maximum gas cost allowed
     uint256 public maxGasCost = 0.1 ether;
@@ -86,7 +91,9 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
     // ============ Events ============
 
     event TransactionSponsoredWithCredit(address indexed user, string service, address token, uint256 amount);
-    event TransactionSponsoredWithPayment(address indexed user, string service, address token, uint256 paid, uint256 credited);
+    event TransactionSponsoredWithPayment(
+        address indexed user, string service, address token, uint256 paid, uint256 credited
+    );
     event CreditManagerUpdated(address indexed oldManager, address indexed newManager);
     event ServiceRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
 
@@ -94,7 +101,6 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
 
     error InvalidPaymasterData();
     error GasCostTooHigh(uint256 cost, uint256 max);
-    error StaleOraclePrice();
     error ServiceNotAvailable(string serviceName);
     error InsufficientCreditAndNoPayment();
 
@@ -140,11 +146,13 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
      * - [1 byte] payment token (0=USDC, 1=elizaOS, 2=ETH)
      * - [32 bytes] overpayment amount (optional, for crediting)
      */
-    function _validatePaymasterUserOp(
-        PackedUserOperation calldata userOp,
-        bytes32,
-        uint256 maxCost
-    ) internal override whenNotPaused returns (bytes memory context, uint256 validationData) {
+    function _validatePaymasterUserOp(PackedUserOperation calldata userOp, bytes32, uint256 maxCost)
+        internal
+        view
+        override
+        whenNotPaused
+        returns (bytes memory context, uint256 validationData)
+    {
         if (maxCost > maxGasCost) {
             revert GasCostTooHigh(maxCost, maxGasCost);
         }
@@ -171,11 +179,7 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
         uint256 totalCost = _calculateTotalCost(serviceCost, maxCost, token);
 
         // FAST PATH: Check if user has sufficient prepaid balance
-        (bool hasSufficientCredit, ) = creditManager.hasSufficientCredit(
-            userOp.sender,
-            token,
-            totalCost
-        );
+        (bool hasSufficientCredit,) = creditManager.hasSufficientCredit(userOp.sender, token, totalCost);
 
         if (hasSufficientCredit) {
             // User has credit - will deduct in _postOp
@@ -229,12 +233,7 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
      * @param context Data from validation
      * @param actualGasCost Actual gas cost
      */
-    function _postOp(
-        PostOpMode,
-        bytes calldata context,
-        uint256 actualGasCost,
-        uint256
-    ) internal override {
+    function _postOp(PostOpMode, bytes calldata context, uint256 actualGasCost, uint256) internal override {
         (
             address user,
             string memory serviceName,
@@ -250,7 +249,7 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
 
         if (useCredit) {
             // FAST PATH: Deduct from prepaid balance
-            (bool success, ) = creditManager.tryDeductCredit(user, token, actualTotalCost);
+            (bool success,) = creditManager.tryDeductCredit(user, token, actualTotalCost);
             require(success, "Credit deduction failed");
 
             emit TransactionSponsoredWithCredit(user, serviceName, token, actualTotalCost);
@@ -258,20 +257,20 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
             // SLOW PATH: Collect payment and credit overpayment
             if (token == ETH_ADDRESS) {
                 // ETH was already sent in UserOp - just transfer to revenue
-                (bool success, ) = revenueWallet.call{value: actualTotalCost}("");
+                (bool success,) = revenueWallet.call{value: actualTotalCost}("");
                 require(success, "ETH transfer failed");
 
                 // Note: Overpayment refunds would be handled here
                 // Currently, overpayments are kept as donations to the protocol
                 // Future enhancement: implement refund mechanism via CreditManager
             } else {
-                // Collect tokens
-                IERC20(token).transferFrom(user, revenueWallet, actualTotalCost);
+                // Collect tokens using SafeERC20 to handle non-standard tokens
+                IERC20(token).safeTransferFrom(user, revenueWallet, actualTotalCost);
 
                 // Credit overpayment to user's balance
                 if (overpayment > actualTotalCost) {
                     uint256 creditAmount = overpayment - actualTotalCost;
-                    IERC20(token).transferFrom(user, address(creditManager), creditAmount);
+                    IERC20(token).safeTransferFrom(user, address(creditManager), creditAmount);
                     // CreditManager will track this
                 }
             }
@@ -289,24 +288,16 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
      * @param paymentToken Token user is paying with
      * @return totalCost Total cost in payment token
      */
-    function _calculateTotalCost(
-        uint256 serviceCost,
-        uint256 gasCost,
-        address paymentToken
-    ) internal view returns (uint256 totalCost) {
+    function _calculateTotalCost(uint256 serviceCost, uint256 gasCost, address paymentToken)
+        internal
+        view
+        returns (uint256 totalCost)
+    {
         // Convert service cost (elizaOS) to payment token
-        uint256 serviceCostInToken = priceOracle.convertAmount(
-            address(elizaOS),
-            paymentToken,
-            serviceCost
-        );
+        uint256 serviceCostInToken = priceOracle.convertAmount(address(elizaOS), paymentToken, serviceCost);
 
         // Convert gas cost (ETH) to payment token
-        uint256 gasCostInToken = priceOracle.convertAmount(
-            ETH_ADDRESS,
-            paymentToken,
-            gasCost
-        );
+        uint256 gasCostInToken = priceOracle.convertAmount(ETH_ADDRESS, paymentToken, gasCost);
 
         totalCost = serviceCostInToken + gasCostInToken;
     }
@@ -346,4 +337,3 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
         _unpause();
     }
 }
-

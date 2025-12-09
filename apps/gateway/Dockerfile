@@ -1,9 +1,9 @@
 # Gateway Portal - Protocol Infrastructure Hub
-# Vite + React production build optimized for AWS S3/CloudFront
+# Build from monorepo root to include workspace packages
 
 FROM oven/bun:1.1-slim AS base
 
-# Install system dependencies including build tools for native modules
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     curl \
     ca-certificates \
@@ -14,20 +14,48 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Install dependencies
+# Copy workspace package files
 FROM base AS deps
-COPY package.json bun.lockb* ./
-RUN bun install --frozen-lockfile
+
+# Copy root package.json and bun.lock
+COPY package.json bun.lock* ./
+
+# Copy all package.json files for workspace resolution
+COPY packages/types/package.json ./packages/types/
+COPY packages/config/package.json ./packages/config/
+COPY packages/contracts/package.json ./packages/contracts/
+COPY packages/tests/package.json ./packages/tests/
+COPY apps/gateway/package.json ./apps/gateway/
+
+# Install all dependencies
+RUN bun install --frozen-lockfile || bun install
 
 # Build stage
 FROM base AS builder
-COPY package.json bun.lockb* ./
-RUN bun install --frozen-lockfile
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages/types/node_modules ./packages/types/node_modules
+COPY --from=deps /app/packages/config/node_modules ./packages/config/node_modules
+COPY --from=deps /app/packages/contracts/node_modules ./packages/contracts/node_modules
 
 # Copy source code
-COPY . .
+COPY packages/types ./packages/types
+COPY packages/config ./packages/config  
+COPY packages/contracts ./packages/contracts
+COPY apps/gateway ./apps/gateway
 
-# Build Vite app for production
+# Build packages first
+WORKDIR /app/packages/types
+RUN bun run build || echo "No build script"
+
+WORKDIR /app/packages/config
+RUN bun run build || echo "No build script"
+
+WORKDIR /app/packages/contracts
+RUN bun run build || echo "No build script"
+
+# Build gateway
+WORKDIR /app/apps/gateway
 ENV NODE_ENV=production
 RUN bun run build
 
@@ -42,26 +70,13 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
-    # Enable gzip
     gzip on;
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
 
-    # SPA routing
     location / {
         try_files $uri $uri/ /index.html;
     }
 
-    # API proxy (if needed)
-    location /api/ {
-        proxy_pass http://gateway-api:4002;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-
-    # Health check
     location /health {
         access_log off;
         return 200 "healthy\n";
@@ -71,16 +86,7 @@ server {
 EOF
 
 # Copy built assets
-COPY --from=builder /app/dist /usr/share/nginx/html
-
-# Create non-root user
-RUN addgroup -g 1001 -S nginx && \
-    adduser -S -D -H -u 1001 -h /var/cache/nginx -s /sbin/nologin -G nginx -g nginx nginx && \
-    chown -R nginx:nginx /usr/share/nginx/html && \
-    chown -R nginx:nginx /var/cache/nginx && \
-    chown -R nginx:nginx /var/log/nginx
-
-USER nginx
+COPY --from=builder /app/apps/gateway/dist /usr/share/nginx/html
 
 EXPOSE 80
 
@@ -88,4 +94,3 @@ HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
   CMD curl -f http://localhost/health || exit 1
 
 CMD ["nginx", "-g", "daemon off;"]
-

@@ -131,8 +131,8 @@ export default function CreateQuestForm() {
         </div>
         
         {isSuccess && (
-          <div style={{ padding: '1rem', background: '#dcfce7', borderRadius: '8px', marginBottom: '1rem' }}>
-            <p style={{ color: '#16a34a', margin: 0 }}>
+          <div style={{ padding: '1rem', background: 'var(--success-soft)', borderRadius: '8px', marginBottom: '1rem' }}>
+            <p style={{ color: 'var(--success)', margin: 0 }}>
               Quest created! Markets will be available for 7 days.
             </p>
           </div>

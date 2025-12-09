@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: Jeju
-  text: L3 on Base
-  tagline: OP-Stack with 200ms Flashblocks, settling on Base.
+  text: L2 on Ethereum
+  tagline: OP-Stack with 200ms Flashblocks.
   image:
     src: /logo.svg
     alt: Jeju
@@ -22,57 +22,58 @@ features:
     details: Flashblocks for instant confirmation.
   
   - icon: 💸
-    title: L3 Costs
-    details: 10-100x cheaper than Base.
+    title: L2 Costs
+    details: 10-100x cheaper than Ethereum L1.
   
   - icon: 🔒
     title: Ethereum Security
-    details: Fraud proofs through Base → Ethereum.
+    details: Fraud proofs via Ethereum L1.
   
-  - icon: 📦
-    title: EigenDA
-    details: Data availability with calldata fallback.
+  - icon: 🤖
+    title: Agent-First
+    details: Built-in identity and paymasters.
 ---
 
-## Stack
+## Quick Start
 
-```
-Ethereum L1 ← Base ← Jeju
+```bash
+brew install --cask docker
+brew install kurtosis-tech/tap/kurtosis
+curl -fsSL https://bun.sh/install | bash
+
+git clone https://github.com/elizaos/jeju.git
+cd jeju && bun install && bun run dev
 ```
 
 ## Networks
 
 | Network | Chain ID | RPC |
 |---------|----------|-----|
+| Localnet | 1337 | http://127.0.0.1:9545 |
 | Testnet | 420690 | https://testnet-rpc.jeju.network |
 | Mainnet | 420691 | https://rpc.jeju.network |
 
-## Applications
+## Key Features
+
+| Feature | What It Does |
+|---------|--------------|
+| [Stake & Earn](/getting-started/staking) | Provide liquidity, earn fees from gas payments + bridging |
+| [Token Integration](/getting-started/token-integration) | Make your token usable for gas payments |
+| [Bridging (EIL)](/network/bridge) | Trustless cross-chain transfers via XLP liquidity |
+| [Agent Registry](/registry) | On-chain identity for apps and agents (ERC-8004) |
+
+## Apps
 
 | App | Purpose |
 |-----|---------|
-| [Bazaar](/applications/bazaar) | DeFi + NFT + Prediction Markets |
-| [Gateway](/applications/gateway) | Bridge, Paymasters, Node Staking |
-| [Crucible](/applications/crucible) | AI Security Testing |
+| [Gateway](/applications/gateway) | Bridge, Paymasters, Staking |
+| [Bazaar](/applications/bazaar) | DeFi, NFTs, Prediction Markets |
+| [Indexer](/applications/indexer) | GraphQL API |
 
-## Links
+## Config
 
-- [Discord](https://discord.gg/jeju)
-- [GitHub](https://github.com/elizaos/jeju)
-- [Explorer](https://explorer.jeju.network)
+No `.env` needed. Config in JSON files:
 
-<style>
-.info-card {
-  background: var(--vp-c-bg-soft);
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 8px;
-  padding: 1.5rem;
-}
-.info-card h3 { margin-top: 0; }
-.network-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1rem;
-  margin: 2rem 0;
-}
-</style>
+- Networks: `packages/config/chain/*.json`
+- Contracts: `packages/contracts/deployments/`
+- Ports: `packages/config/ports.ts`

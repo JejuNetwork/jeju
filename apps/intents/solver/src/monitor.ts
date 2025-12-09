@@ -18,6 +18,8 @@ export interface IntentEvent {
   deadline: number;
   blockNumber: bigint;
   transactionHash: string;
+  orderType?: string; // Order type identifier (e.g., COMPUTE_RENTAL_ORDER_TYPE)
+  originData?: string; // Raw origin data for compute intents
 }
 
 interface MonitorConfig {
@@ -32,10 +34,11 @@ const OPEN_EVENT = parseAbiItem(
 
 // Settler addresses per chain (would be configured in production)
 const SETTLER_ADDRESSES: Record<number, `0x${string}`> = {
-  8453: '0x1111111111111111111111111111111111111111',
+  1: '0x1111111111111111111111111111111111111111',
   42161: '0x2222222222222222222222222222222222222222',
   10: '0x3333333333333333333333333333333333333333',
   420691: '0x4444444444444444444444444444444444444444',
+  11155111: '0x5555555555555555555555555555555555555555',
 };
 
 export class EventMonitor extends EventEmitter {

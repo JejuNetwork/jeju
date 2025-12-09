@@ -1,5 +1,5 @@
 {
-  "name": "@jeju/intents-solver",
+  "name": "@jejunetwork/intents-solver",
   "version": "1.0.0",
   "type": "module",
   "description": "OIF Solver Agent - Fill cross-chain intents and earn fees",

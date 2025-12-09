@@ -4,7 +4,7 @@
  */
 
 import { testWithWallet as test, expect } from '../fixtures/wallet';
-import { connectWallet } from '../../../../tests/shared/helpers/contracts';
+import { connectWallet } from '@jejunetwork/tests/helpers/contracts';
 
 test.describe('Complete Protocol Flow', () => {
   test('full token lifecycle: register → deploy → add liquidity → earn fees', async ({ page, wallet }) => {
@@ -36,9 +36,9 @@ test.describe('Complete Protocol Flow', () => {
     await page.goto('http://localhost:4001');
     await connectWallet(page, wallet);
     
-    // Step 1: Bridge token from Base
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
-    await expect(page.getByText('Bridge from Base to Jeju')).toBeVisible();
+    // Step 1: Bridge token from Ethereum
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
+    await expect(page.getByText('Bridge from Ethereum to Jeju')).toBeVisible();
     
     // Select CLANKER
     await page.locator('.input').first().click();

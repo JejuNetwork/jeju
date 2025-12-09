@@ -75,12 +75,15 @@ describe('A2A Monitoring Server', () => {
     expect(card.name).toBe('Jeju Monitoring');
     expect(card.description).toContain('Prometheus');
     expect(card.skills).toBeArray();
-    expect(card.skills.length).toBe(3);
+    expect(card.skills.length).toBe(6);
 
     const skillIds = card.skills.map((s) => s.id);
     expect(skillIds).toContain('query-metrics');
     expect(skillIds).toContain('get-alerts');
     expect(skillIds).toContain('get-targets');
+    expect(skillIds).toContain('oif-stats');
+    expect(skillIds).toContain('oif-solver-health');
+    expect(skillIds).toContain('oif-route-stats');
   });
 
   test('should handle query-metrics skill', async () => {

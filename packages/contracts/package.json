@@ -1,7 +1,8 @@
 {
-  "name": "@jeju/contracts",
+  "name": "@jejunetwork/contracts",
   "version": "0.1.0",
-  "description": "Jeju smart contract ABIs, types, and deployment addresses",
+  "description": "Jeju Network smart contract ABIs, types, and deployment addresses",
+  "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -14,36 +15,51 @@
       "import": "./dist/abis/index.js",
       "types": "./dist/abis/index.d.ts"
     },
-    "./abis/*": {
-      "import": "./abis/*.json"
-    },
+    "./abis/*": "./abis/*.json",
     "./deployments": {
       "import": "./dist/deployments.js",
       "types": "./dist/deployments.d.ts"
     },
-    "./deployments/*": {
-      "import": "./deployments/*.json"
-    }
+    "./deployments/*": "./deployments/*.json"
   },
   "files": [
     "dist",
     "abis",
     "deployments"
   ],
+  "sideEffects": false,
   "scripts": {
     "build": "tsc",
     "build:contracts": "forge build",
+    "build:abis": "forge build && bun run scripts/export-abis.ts",
     "test": "forge test",
-    "clean": "rm -rf dist out cache"
+    "test:registry": "forge test --match-contract '.*Registry.*'",
+    "test:oif": "forge test --match-path 'test/OIF*.sol'",
+    "clean": "rm -rf dist out cache",
+    "prepublishOnly": "bun run build"
   },
-  "dependencies": {
-    "viem": "^2.7.15"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elizaos/jeju.git",
+    "directory": "packages/contracts"
   },
+  "keywords": [
+    "jeju",
+    "ethereum",
+    "smart-contracts",
+    "abi",
+    "solidity",
+    "erc-8004",
+    "oif",
+    "intents"
+  ],
   "devDependencies": {
     "typescript": "^5.3.3"
   },
   "peerDependencies": {
     "viem": ">=2.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
-

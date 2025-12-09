@@ -1,5 +1,5 @@
 /**
-import type { Page } from "@playwright/test";
+* @fileoverview Test file
  * A2A (Agent-to-Agent) Integration Tests
  * Tests agent card discovery and skill execution
  */
@@ -257,4 +257,4 @@ test.describe('A2A Integration', () => {
     
     console.log('✅ CORS headers configured for A2A')
   })
-31-a2a-integration.spec.ts.backup
+})

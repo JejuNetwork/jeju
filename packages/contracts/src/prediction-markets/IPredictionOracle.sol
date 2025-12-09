@@ -5,10 +5,10 @@ pragma solidity ^0.8.20;
  * @title IPredictionOracle
  * @notice Unified interface for all prediction game oracles
  * @dev Supports both simple games (Caliguland) and contest-based games (eHorse, tournaments)
- * 
+ *
  * This allows ANY prediction market contract to trustlessly access game results
  * without needing to know the game's internal logic.
- * 
+ *
  * Oracle Types:
  * - PredictionOracle.sol: Simple commit-reveal games
  * - Contest.sol: Contest-based with rankings and TEE attestation
@@ -19,20 +19,22 @@ interface IPredictionOracle {
      * @notice Contest modes (for contest-based oracles)
      */
     enum ContestMode {
-        SINGLE_WINNER,    // One winner only
-        TOP_THREE,        // Top 3 ranked (1st, 2nd, 3rd)
-        FULL_RANKING      // All contestants ranked in order
+        SINGLE_WINNER, // One winner only
+        TOP_THREE, // Top 3 ranked (1st, 2nd, 3rd)
+        FULL_RANKING // All contestants ranked in order
+
     }
 
     /**
      * @notice Contest state (for contest-based oracles)
      */
     enum ContestState {
-        PENDING,        // Announced but not started
-        ACTIVE,         // Running - trading allowed
-        GRACE_PERIOD,   // Frozen - no trading, prevents MEV
-        FINISHED,       // Completed with results
-        CANCELLED       // Cancelled (refund bets)
+        PENDING, // Announced but not started
+        ACTIVE, // Running - trading allowed
+        GRACE_PERIOD, // Frozen - no trading, prevents MEV
+        FINISHED, // Completed with results
+        CANCELLED // Cancelled (refund bets)
+
     }
 
     // ============ Core Prediction Oracle Methods ============
@@ -72,13 +74,10 @@ interface IPredictionOracle {
      * @return endTime When contest ended (0 if not finished)
      * @return optionCount Number of options/contestants
      */
-    function getContestInfo(bytes32 contestId) external view returns (
-        ContestState state,
-        ContestMode mode,
-        uint256 startTime,
-        uint256 endTime,
-        uint256 optionCount
-    );
+    function getContestInfo(bytes32 contestId)
+        external
+        view
+        returns (ContestState state, ContestMode mode, uint256 startTime, uint256 endTime, uint256 optionCount);
 
     /**
      * @notice Get contest options/contestants (for contest-based oracles)
@@ -119,7 +118,10 @@ interface IPredictionOracle {
      * @return outcome Binary result
      * @return finalized Whether result is finalized
      */
-    function getBinaryOutcome(bytes32 contestId, bytes memory outcomeDefinition) external view returns (bool outcome, bool finalized);
+    function getBinaryOutcome(bytes32 contestId, bytes memory outcomeDefinition)
+        external
+        view
+        returns (bool outcome, bool finalized);
 
     /**
      * @notice Check if specific option won (for contest-based oracles)
@@ -167,7 +169,7 @@ interface IPredictionOracle {
  * @dev This shows how Predimarket or any other contract can bet on Caliguland games
  */
 contract ExamplePredictionContract {
-    IPredictionOracle public oracle;
+    IPredictionOracle public immutable oracle;
 
     struct Bet {
         bytes32 gameSessionId;
@@ -204,11 +206,10 @@ contract ExamplePredictionContract {
 
         (bool outcome, bool finalized) = oracle.getOutcome(bet.gameSessionId);
         if (!finalized) revert("Game not finalized");
-        
+
         if (outcome == bet.predictedOutcome) {
             uint256 payout = bet.amount * 2;
             payable(msg.sender).transfer(payout);
         }
     }
 }
-

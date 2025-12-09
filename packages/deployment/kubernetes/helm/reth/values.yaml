@@ -1,0 +1,155 @@
+# Reth configuration - supports sequencer, RPC, and archive modes
+
+mode: "sequencer"  # sequencer, rpc, or archive
+
+image:
+  repository: ghcr.io/paradigmxyz/op-reth
+  pullPolicy: IfNotPresent
+  tag: "v1.1.2"
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "9001"
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsUser: 1000
+  runAsNonRoot: true
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false  # Reth needs write access to data dir
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  http:
+    port: 8545
+  ws:
+    port: 8546
+  engine:
+    port: 8551
+  p2p:
+    port: 30303
+  metrics:
+    port: 9001
+
+resources:
+  sequencer:
+    limits:
+      cpu: 8000m
+      memory: 16Gi
+    requests:
+      cpu: 4000m
+      memory: 8Gi
+  rpc:
+    limits:
+      cpu: 4000m
+      memory: 8Gi
+    requests:
+      cpu: 2000m
+      memory: 4Gi
+  archive:
+    limits:
+      cpu: 8000m
+      memory: 32Gi
+    requests:
+      cpu: 4000m
+      memory: 16Gi
+
+persistence:
+  enabled: true
+  storageClass: "gp3"
+  accessMode: ReadWriteOnce
+  sequencerSize: 500Gi
+  rpcSize: 500Gi
+  archiveSize: 2Ti
+  mountPath: /data
+
+nodeSelector:
+  sequencer:
+    role: core
+  rpc:
+    role: rpc
+  archive:
+    role: data
+
+tolerations:
+  sequencer:
+    - key: workload
+      operator: Equal
+      value: core
+      effect: NoSchedule
+  rpc:
+    - key: workload
+      operator: Equal
+      value: rpc
+      effect: NoSchedule
+  archive:
+    - key: workload
+      operator: Equal
+      value: data
+      effect: NoSchedule
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - reth
+        topologyKey: kubernetes.io/hostname
+
+config:
+  chain: "optimism"
+  network: "mainnet"
+  rollup:
+    sequencerHttp: ""
+    disableTxPoolGossip: false
+  datadir: "/data"
+  http:
+    addr: "0.0.0.0"
+    port: 8545
+    api: "eth,net,web3,txpool,trace"
+    corsdomain: "*"
+  ws:
+    addr: "0.0.0.0"
+    port: 8546
+    api: "eth,net,web3,txpool,trace"
+    origins: "*"
+  authrpc:
+    addr: "0.0.0.0"
+    port: 8551
+    jwtsecret: "/secrets/jwt-secret.txt"
+  p2p:
+    port: 30303
+    maxPeers: 100
+  metrics:
+    addr: "0.0.0.0"
+    port: 9001
+  pruning:
+    full: "full"
+    archive: "archive"
+  db:
+    logLevel: "info"
+  discovery:
+    enabled: true
+  maxPendingTransactions: 10000
+  maxNewPayloadTimeout: "4s"
+
+

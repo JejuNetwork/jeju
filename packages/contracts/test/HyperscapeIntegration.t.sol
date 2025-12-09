@@ -23,9 +23,9 @@ contract HyperscapeIntegrationTest is Test {
     address public mudWorld = address(0x999); // Simulated MUD World (would query Items.sol)
     address public gameSigner;
     uint256 public gameSignerKey;
-    
+
     uint256 public gameAgentId = 1; // Game registered in IdentityRegistry
-    
+
     address public playerA = address(0x1);
     address public playerB = address(0x2);
 
@@ -69,29 +69,29 @@ contract HyperscapeIntegrationTest is Test {
         // In game death handler, query generic Items.sol:
         // (bool isMinted, ) = items.checkInstance(instanceId);
         // if (isMinted) continue; // PROTECTED - don't drop
-        
+
         console.log("[PASS] Minted item protected (MUD queries Items.sol directly)");
     }
 
-    function test_NonMintedItemsDropOnDeath() public {
+    function test_NonMintedItemsDropOnDeath() public view {
         // Scenario: PlayerA has a bronze sword (NOT minted, in-game only)
         bytes32 inGameInstance = keccak256("sword_ingame");
-        
+
         // Query generic Items.sol - instance not minted
         (bool isMinted, address minter) = items.checkInstance(inGameInstance);
         assertFalse(isMinted);
         assertEq(minter, address(0)); // No minter (not minted)
 
         // On death, MUD World checks: if (!isMinted) dropItem();
-        
+
         console.log("[PASS] Non-minted item droppable (generic Items.sol query)");
     }
 
     function test_MintToNFTFlow() public {
         bytes32 instanceId = keccak256("sword_mint_flow");
-        
+
         // Step 1: Item exists in-game (MUD state only)
-        (bool initialMinted, ) = items.checkInstance(instanceId);
+        (bool initialMinted,) = items.checkInstance(instanceId);
         assertFalse(initialMinted);
 
         // Step 2: Player mints to NFT (calls generic Items.sol)
@@ -105,7 +105,7 @@ contract HyperscapeIntegrationTest is Test {
         (bool nowMinted, address minter) = items.checkInstance(instanceId);
         assertTrue(nowMinted);
         assertEq(minter, playerA);
-        
+
         // Step 5: Item is now PROTECTED (MUD queries Items.sol)
         console.log("[PASS] Generic Items.sol provides all protection info");
     }
@@ -115,7 +115,7 @@ contract HyperscapeIntegrationTest is Test {
         bytes32 instanceId = keccak256("sword_burn_flow");
         _mintSwordForPlayer(playerA, instanceId);
 
-        (bool isMinted, ) = items.checkInstance(instanceId);
+        (bool isMinted,) = items.checkInstance(instanceId);
         assertTrue(isMinted);
 
         // Player burns NFT back to in-game (generic Items.sol function)
@@ -126,7 +126,7 @@ contract HyperscapeIntegrationTest is Test {
         // ItemInstance.set(instanceId, {..., isMinted: false});
 
         // Verify Items.sol knows it's no longer minted
-        (bool stillMinted, ) = items.checkInstance(instanceId);
+        (bool stillMinted,) = items.checkInstance(instanceId);
         assertFalse(stillMinted); // Items.sol automatically updates on burn!
 
         // Item is now droppable again (MUD checks Items.sol)
@@ -135,10 +135,10 @@ contract HyperscapeIntegrationTest is Test {
 
     function test_ProvenanceTrackingAcrossStates() public {
         bytes32 instanceId = keccak256("provenance_flow");
-        
+
         // Mint NFT (generic Items.sol)
         _mintSwordForPlayer(playerA, instanceId);
-        
+
         // Record original minter (generic query)
         address originalMinter = items.getInstanceMinter(instanceId);
         assertEq(originalMinter, playerA);
@@ -162,7 +162,7 @@ contract HyperscapeIntegrationTest is Test {
     function test_GenericItemsQueryFunctions() public {
         // Generic Items.sol provides all needed query functions for MUD
         bytes32 instanceId = keccak256("query_test");
-        
+
         // Before mint - not tracked
         (bool minted, address minter) = items.checkInstance(instanceId);
         assertFalse(minted);
@@ -194,12 +194,12 @@ contract HyperscapeIntegrationTest is Test {
         _mintSwordForPlayer(playerA, instance1);
 
         // MUD World queries GENERIC Items.sol (no game-specific bridge)
-        (bool isMinted1, ) = items.checkInstance(instance1);
+        (bool isMinted1,) = items.checkInstance(instance1);
         assertTrue(isMinted1); // Generic contract knows
         assertTrue(items.balanceOf(playerA, swordId) >= 1); // NFT exists
-        
+
         // instance2 is NOT minted
-        (bool isMinted2, ) = items.checkInstance(instance2);
+        (bool isMinted2,) = items.checkInstance(instance2);
         assertFalse(isMinted2); // Generic contract knows
         assertEq(items.balanceOf(playerA, arrowsId), 0); // No NFT
 
@@ -224,8 +224,8 @@ contract HyperscapeIntegrationTest is Test {
 
         // Simulate death check for MUD World
         // For non-stackable items: use checkInstance
-        (bool isMinted1, ) = items.checkInstance(mintedSwordInstance);
-        (bool isMinted2, ) = items.checkInstance(inGameSwordInstance);
+        (bool isMinted1,) = items.checkInstance(mintedSwordInstance);
+        (bool isMinted2,) = items.checkInstance(inGameSwordInstance);
 
         // For stackable items: use balanceOf (if player has NFT, it's minted)
         bool hasArrowNFT = items.balanceOf(playerA, arrowsId) > 0;
@@ -235,7 +235,7 @@ contract HyperscapeIntegrationTest is Test {
         bool dropArrows = !hasArrowNFT; // Stackable check via balance
 
         assertFalse(dropSword1); // Minted sword: DON'T DROP
-        assertTrue(dropSword2);  // In-game sword: DROP
+        assertTrue(dropSword2); // In-game sword: DROP
         assertFalse(dropArrows); // Minted arrows: DON'T DROP
 
         console.log("[PASS] MUD queries generic Items.sol (checkInstance + balanceOf)");
@@ -264,4 +264,3 @@ contract HyperscapeIntegrationTest is Test {
         items.mintItem(arrowsId, amount, instanceId, signature);
     }
 }
-

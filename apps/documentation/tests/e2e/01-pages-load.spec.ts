@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { captureScreenshot, captureUserFlow } from '../../../../tests/shared/helpers/screenshots';
+import { captureScreenshot, captureUserFlow } from '@jejunetwork/tests/helpers/screenshots';
 
 test.describe('Documentation Site', () => {
   test('should load homepage', async ({ page }) => {

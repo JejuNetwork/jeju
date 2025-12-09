@@ -39,7 +39,7 @@ cast call $POOL_MANAGER "owner()" --rpc-url https://testnet-rpc.jeju.network
 
 ## Troubleshooting
 
-**Insufficient balance**: Get more testnet ETH from faucet or bridge from Base Sepolia  
+**Insufficient balance**: Get more testnet ETH from faucet or bridge from Sepolia  
 **RPC fails**: Check network status, try alternative RPC  
 **Deployment fails**: `forge clean && forge build --use 0.8.26`
 

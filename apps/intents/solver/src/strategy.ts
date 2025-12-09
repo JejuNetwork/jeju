@@ -3,8 +3,8 @@
  * Uses Chainlink price feeds when available, falls back to cached prices
  */
 
-import { createPublicClient, http, type Address } from 'viem';
-import { base, arbitrum, optimism, mainnet } from 'viem/chains';
+import { createPublicClient, http, type Address, type PublicClient, type Chain } from 'viem';
+import { arbitrum, optimism, mainnet, sepolia } from 'viem/chains';
 
 interface StrategyConfig {
   minProfitBps: number;
@@ -34,12 +34,8 @@ interface EvaluationResult {
 // Chainlink price feed addresses per chain
 const CHAINLINK_FEEDS: Record<number, Record<string, Address>> = {
   1: {
-    'ETH': '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419', // ETH/USD
-    'USDC': '0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6', // USDC/USD
-  },
-  8453: {
-    'ETH': '0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70', // ETH/USD on Base
-    'USDC': '0x7e860098F58bBFC8648a4311b374B1D669a2bc6B', // USDC/USD on Base
+    'ETH': '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419', // ETH/USD on Ethereum
+    'USDC': '0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6', // USDC/USD on Ethereum
   },
   42161: {
     'ETH': '0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612', // ETH/USD on Arbitrum
@@ -54,8 +50,7 @@ const CHAINLINK_FEEDS: Record<number, Record<string, Address>> = {
 // Token to symbol mapping
 const TOKEN_SYMBOLS: Record<string, string> = {
   '0x0000000000000000000000000000000000000000': 'ETH',
-  '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': 'USDC', // Mainnet
-  '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913': 'USDC', // Base
+  '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': 'USDC', // Ethereum Mainnet
   '0xaf88d065e77c8cc2239327c5edb3a432268e5831': 'USDC', // Arbitrum
   '0x0b2c639c533813f4aa9d7837caf62653d097ff85': 'USDC', // Optimism
 };
@@ -68,11 +63,11 @@ let priceCache: Record<string, { price: number; timestamp: number }> = {
 
 // Gas costs per chain (fetched from chain, cached)
 const GAS_COSTS: Record<number, { fillGas: bigint; gasPrice: bigint }> = {
-  1: { fillGas: 150000n, gasPrice: 30000000000n },     // Mainnet: ~30 gwei
-  8453: { fillGas: 150000n, gasPrice: 1000000n },      // Base: ~0.001 gwei
-  42161: { fillGas: 300000n, gasPrice: 100000000n },   // Arbitrum: ~0.1 gwei
-  10: { fillGas: 150000n, gasPrice: 1000000n },        // Optimism: ~0.001 gwei
-  420691: { fillGas: 100000n, gasPrice: 1000000000n }, // Jeju: 1 gwei
+  1: { fillGas: 150000n, gasPrice: 30000000000n },      // Ethereum: ~30 gwei
+  42161: { fillGas: 300000n, gasPrice: 100000000n },    // Arbitrum: ~0.1 gwei
+  10: { fillGas: 150000n, gasPrice: 1000000n },         // Optimism: ~0.001 gwei
+  420691: { fillGas: 100000n, gasPrice: 1000000000n },  // Jeju: 1 gwei
+  11155111: { fillGas: 150000n, gasPrice: 5000000000n }, // Sepolia: ~5 gwei
 };
 
 // Chainlink ABI for price feeds
@@ -92,9 +87,17 @@ const AGGREGATOR_ABI = [
   },
 ] as const;
 
+// Chain definitions for client creation
+const CHAINS: Record<number, Chain> = {
+  1: mainnet,
+  42161: arbitrum,
+  10: optimism,
+  11155111: sepolia,
+};
+
 export class StrategyEngine {
   private config: StrategyConfig;
-  private clients: Map<number, ReturnType<typeof createPublicClient>> = new Map();
+  private clients = new Map<number, PublicClient>();
 
   constructor(config: StrategyConfig) {
     this.config = config;
@@ -103,19 +106,14 @@ export class StrategyEngine {
   }
 
   private initializeClients(): void {
-    const chains = [
-      { id: 1, chain: mainnet },
-      { id: 8453, chain: base },
-      { id: 42161, chain: arbitrum },
-      { id: 10, chain: optimism },
-    ];
-
-    for (const { id, chain } of chains) {
-      const rpcUrl = process.env[`${chain.name.toUpperCase().replace(' ', '_')}_RPC_URL`];
-      this.clients.set(id, createPublicClient({
+    for (const [idStr, chain] of Object.entries(CHAINS)) {
+      const id = Number(idStr);
+      const rpcUrl = process.env[`${chain.name.toUpperCase().replace(/ /g, '_')}_RPC_URL`];
+      const client = createPublicClient({
         chain,
         transport: http(rpcUrl),
-      }));
+      });
+      this.clients.set(id, client as PublicClient);
     }
   }
 
@@ -129,11 +127,11 @@ export class StrategyEngine {
   }
 
   private async refreshPrices(): Promise<void> {
-    // Try to fetch from Chainlink on Base (most reliable for L2s)
-    const client = this.clients.get(8453);
+    // Try to fetch from Chainlink on Ethereum mainnet (most reliable)
+    const client = this.clients.get(1);
     if (!client) return;
 
-    const feeds = CHAINLINK_FEEDS[8453];
+    const feeds = CHAINLINK_FEEDS[1];
     if (!feeds) return;
 
     for (const [symbol, feedAddress] of Object.entries(feeds)) {

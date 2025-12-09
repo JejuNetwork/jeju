@@ -7,7 +7,7 @@ import {IdentityRegistry} from "../src/registry/IdentityRegistry.sol";
 /**
  * @title DeployIdentityRegistry
  * @notice Deploys IdentityRegistry contract for ERC-8004 agent/app registration
- * 
+ *
  * Usage:
  *   forge script script/DeployIdentityRegistry.s.sol:DeployIdentityRegistry \
  *     --rpc-url http://localhost:8545 \
@@ -17,24 +17,23 @@ contract DeployIdentityRegistry is Script {
     function run() external {
         // Get deployer key
         uint256 deployerPrivateKey = vm.envOr(
-            "DEPLOYER_PRIVATE_KEY",
-            uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80)
+            "DEPLOYER_PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80)
         );
         address deployer = vm.addr(deployerPrivateKey);
-        
+
         console.log("==========================================");
         console.log("Deploying IdentityRegistry");
         console.log("==========================================");
         console.log("Deployer:", deployer);
         console.log("");
-        
+
         vm.startBroadcast(deployerPrivateKey);
-        
+
         // Deploy IdentityRegistry
         IdentityRegistry registry = new IdentityRegistry();
-        
+
         vm.stopBroadcast();
-        
+
         console.log("==========================================");
         console.log("DEPLOYMENT COMPLETE");
         console.log("==========================================");
@@ -51,4 +50,3 @@ contract DeployIdentityRegistry is Script {
         console.log("==========================================");
     }
 }
-

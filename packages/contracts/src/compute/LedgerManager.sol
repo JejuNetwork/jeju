@@ -63,6 +63,9 @@ contract LedgerManager is Ownable, Pausable, ReentrancyGuard {
     /// @notice Compute registry for provider validation
     address public registry;
 
+    /// @notice Authorized CreditManager (can deposit on behalf of users)
+    address public creditManager;
+
     // ============ Events ============
 
     event LedgerCreated(address indexed user, uint256 initialDeposit);
@@ -73,15 +76,12 @@ contract LedgerManager is Ownable, Pausable, ReentrancyGuard {
     event RefundRequested(address indexed user, address indexed provider, uint256 amount, uint256 unlockTime);
     event RefundCompleted(address indexed user, address indexed provider, uint256 amount);
     event RefundCancelled(address indexed user, address indexed provider);
-    event Settled(
-        address indexed user,
-        address indexed provider,
-        uint256 amount,
-        bytes32 requestHash
-    );
+    event Settled(address indexed user, address indexed provider, uint256 amount, bytes32 requestHash);
     event InferenceContractUpdated(address indexed oldContract, address indexed newContract);
     event RegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
     event RefundTimelockUpdated(uint256 oldPeriod, uint256 newPeriod);
+    event CreditManagerUpdated(address indexed oldManager, address indexed newManager);
+    event DepositedFromCredit(address indexed user, address indexed creditManager, uint256 amount, uint256 newBalance);
 
     // ============ Errors ============
 
@@ -105,6 +105,11 @@ contract LedgerManager is Ownable, Pausable, ReentrancyGuard {
         _;
     }
 
+    modifier onlyCreditManager() {
+        if (msg.sender != creditManager) revert UnauthorizedCaller();
+        _;
+    }
+
     // ============ Constructor ============
 
     constructor(address _registry, address initialOwner) Ownable(initialOwner) {
@@ -120,12 +125,8 @@ contract LedgerManager is Ownable, Pausable, ReentrancyGuard {
         if (ledgers[msg.sender].createdAt != 0) revert LedgerAlreadyExists();
         if (msg.value < MIN_DEPOSIT) revert InsufficientDeposit(msg.value, MIN_DEPOSIT);
 
-        ledgers[msg.sender] = Ledger({
-            totalBalance: msg.value,
-            availableBalance: msg.value,
-            lockedBalance: 0,
-            createdAt: block.timestamp
-        });
+        ledgers[msg.sender] =
+            Ledger({totalBalance: msg.value, availableBalance: msg.value, lockedBalance: 0, createdAt: block.timestamp});
 
         emit LedgerCreated(msg.sender, msg.value);
     }
@@ -141,6 +142,27 @@ contract LedgerManager is Ownable, Pausable, ReentrancyGuard {
         ledger.availableBalance += msg.value;
 
         emit Deposited(msg.sender, msg.value, ledger.availableBalance);
+    }
+
+    /**
+     * @notice Deposit on behalf of user from CreditManager
+     * @dev Called by authorized CreditManager when user pays with tokens
+     * @param user The user to deposit for
+     */
+    function depositFromCreditManager(address user) external payable nonReentrant whenNotPaused onlyCreditManager {
+        if (msg.value == 0) revert InvalidAmount();
+
+        Ledger storage ledger = ledgers[user];
+
+        // Create ledger if doesn't exist
+        if (ledger.createdAt == 0) {
+            ledger.createdAt = block.timestamp;
+        }
+
+        ledger.totalBalance += msg.value;
+        ledger.availableBalance += msg.value;
+
+        emit DepositedFromCredit(user, msg.sender, msg.value, ledger.availableBalance);
     }
 
     /**
@@ -258,12 +280,11 @@ contract LedgerManager is Ownable, Pausable, ReentrancyGuard {
      * @param amount Amount to settle
      * @param requestHash Hash of the inference request
      */
-    function settle(
-        address user,
-        address provider,
-        uint256 amount,
-        bytes32 requestHash
-    ) external onlyInferenceContract nonReentrant {
+    function settle(address user, address provider, uint256 amount, bytes32 requestHash)
+        external
+        nonReentrant
+        onlyInferenceContract
+    {
         ProviderSubAccount storage subAccount = subAccounts[user][provider];
         if (!subAccount.acknowledged) revert ProviderNotAcknowledged();
         if (amount > subAccount.balance) revert InsufficientBalance(subAccount.balance, amount);
@@ -355,6 +376,15 @@ contract LedgerManager is Ownable, Pausable, ReentrancyGuard {
     }
 
     /**
+     * @notice Set authorized CreditManager
+     */
+    function setCreditManager(address _creditManager) external onlyOwner {
+        address oldManager = creditManager;
+        creditManager = _creditManager;
+        emit CreditManagerUpdated(oldManager, _creditManager);
+    }
+
+    /**
      * @notice Pause/unpause the contract
      */
     function pause() external onlyOwner {
@@ -372,4 +402,3 @@ contract LedgerManager is Ownable, Pausable, ReentrancyGuard {
         return "1.0.0";
     }
 }
-

@@ -1,5 +1,5 @@
 /**
-import type { Page } from "@playwright/test";
+* @fileoverview Test file
  * Concurrent Operations Tests
  * Tests multiple simultaneous transactions and state consistency
  */
@@ -358,4 +358,4 @@ test.describe('Concurrent Operations', () => {
     
     console.log('✅ Final state verification complete')
   })
-37-concurrent-operations.spec.ts.backup
+})

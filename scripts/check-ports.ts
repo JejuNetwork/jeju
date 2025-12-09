@@ -19,7 +19,7 @@ import {
   printPortAllocation,
   getAllCorePorts,
   getAllVendorPorts
-} from '../packages/config/ports';
+} from '@jejunetwork/config/ports';
 
 const COLORS = {
   RESET: '\x1b[0m',

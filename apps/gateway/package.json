@@ -1,5 +1,5 @@
 {
-  "name": "@jeju/gateway",
+  "name": "@jejunetwork/gateway",
   "version": "1.0.0",
   "type": "module",
   "description": "Gateway Portal - Protocol Infrastructure Hub. Bridge tokens, deploy paymasters, provide ETH liquidity, run nodes, earn rewards. Protocol power = paymaster + liquidity. Supports elizaOS, CLANKER, VIRTUAL, CLANKERMON + any ERC20.",
@@ -29,6 +29,8 @@
     "test:e2e:integration": "playwright test tests/synpress/integration/ --headed",
     "test:e2e:edge-cases": "playwright test tests/synpress/edge-cases/ --headed",
     "test:e2e:multi-token": "playwright test tests/synpress/multi-token/ --headed",
+    "test:e2e:responsive": "playwright test tests/e2e/responsive-buttons.spec.ts --headed",
+    "test:e2e:responsive:ci": "playwright test tests/e2e/responsive-buttons.spec.ts",
     "test:e2e:headed": "playwright test tests/synpress --headed",
     "test:e2e:debug": "playwright test tests/synpress --debug",
     "test:e2e:old": "playwright test tests/e2e",
@@ -38,7 +40,9 @@
     "test:report": "playwright show-report"
   },
   "dependencies": {
-    "@jeju/contracts": "workspace:*",
+    "@jejunetwork/config": "workspace:*",
+    "@jejunetwork/contracts": "workspace:*",
+    "@jejunetwork/types": "workspace:*",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "viem": "^2.38.3",
@@ -51,6 +55,7 @@
     "cors": "^2.8.5"
   },
   "devDependencies": {
+    "@jejunetwork/tests": "workspace:*",
     "@playwright/test": "1.48.2",
     "@synthetixio/synpress": "^4.1.1",
     "@types/bun": "latest",

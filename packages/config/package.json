@@ -1,0 +1,36 @@
+{
+  "name": "@jejunetwork/config",
+  "version": "0.1.0",
+  "description": "Configuration files and utilities for Jeju Network",
+  "license": "MIT",
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./network": "./network.ts",
+    "./ports": "./ports.ts",
+    "./chain/*": "./chain/*.json",
+    "./tokens": "./tokens.json",
+    "./eil": "./eil.json"
+  },
+  "files": [
+    "*.ts",
+    "*.json",
+    "chain"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elizaos/jeju.git",
+    "directory": "packages/config"
+  },
+  "keywords": [
+    "jeju",
+    "config",
+    "network"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}
+

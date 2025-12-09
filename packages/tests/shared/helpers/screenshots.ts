@@ -19,7 +19,6 @@ export interface ScreenshotOptions {
   fullPage?: boolean;
   /** Additional screenshot options */
   options?: {
-    mask?: string[];
     animations?: 'disabled' | 'allow';
   };
 }
@@ -205,7 +204,8 @@ export async function captureWalletFlow(
   // Capture wallet popup (if visible)
   const walletScreenshots: string[] = [];
   try {
-    if (await walletPage.isVisible()) {
+    // Check if wallet page is open and has content
+    if (!walletPage.isClosed()) {
       const walletShot = await captureScreenshot(walletPage, {
         appName,
         feature,

@@ -11,18 +11,17 @@ import {NodeStakingManager} from "../src/node-staking/NodeStakingManager.sol";
 contract DeployNodeStaking is Script {
     function run() external returns (address stakingManager) {
         uint256 deployerPrivateKey = vm.envOr(
-            "DEPLOYER_PRIVATE_KEY",
-            uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80)
+            "DEPLOYER_PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80)
         );
         address deployer = vm.addr(deployerPrivateKey);
-        
+
         // Get dependency addresses from environment
         address tokenRegistry = vm.envAddress("TOKEN_REGISTRY_ADDRESS");
         address paymasterFactory = vm.envAddress("PAYMASTER_FACTORY_ADDRESS");
         address priceOracle = vm.envAddress("PRICE_ORACLE_ADDRESS");
         address performanceOracle = vm.envOr("PERFORMANCE_ORACLE_ADDRESS", deployer);
         address identityRegistry = vm.envOr("IDENTITY_REGISTRY_ADDRESS", address(0));
-        
+
         console.log("============================================================");
         console.log("Deploying Node Staking System");
         console.log("============================================================");
@@ -32,26 +31,21 @@ contract DeployNodeStaking is Script {
         console.log("Price Oracle:", priceOracle);
         console.log("Performance Oracle:", performanceOracle);
         console.log("Identity Registry:", identityRegistry);
-        
+
         vm.startBroadcast(deployerPrivateKey);
-        
+
         // Deploy NodeStakingManager
-        NodeStakingManager staking = new NodeStakingManager(
-            tokenRegistry,
-            paymasterFactory,
-            priceOracle,
-            performanceOracle,
-            deployer
-        );
-        
+        NodeStakingManager staking =
+            new NodeStakingManager(tokenRegistry, paymasterFactory, priceOracle, performanceOracle, deployer);
+
         stakingManager = address(staking);
-        
+
         // Configure ERC-8004 integration if IdentityRegistry is provided
         if (identityRegistry != address(0)) {
             staking.setIdentityRegistry(identityRegistry);
             console.log("\n[ERC-8004] Linked to IdentityRegistry:", identityRegistry);
         }
-        
+
         console.log("\nDeployed:");
         console.log("  NodeStakingManager:", stakingManager);
         console.log("\nConfiguration:");
@@ -61,9 +55,9 @@ contract DeployNodeStaking is Script {
         console.log("  Paymaster Stake Cut:", staking.paymasterStakeCutBPS(), "bps");
         console.log("  Max Nodes Per Operator:", staking.maxNodesPerOperator());
         console.log("  Max Network Ownership:", staking.maxNetworkOwnershipBPS(), "bps");
-        
+
         vm.stopBroadcast();
-        
+
         console.log("Deployment complete!");
         console.log("\nNext steps:");
         console.log("1. Fund contract with reward tokens");
@@ -72,4 +66,3 @@ contract DeployNodeStaking is Script {
         console.log("4. Run: bun run scripts/verify-node-staking.ts");
     }
 }
-

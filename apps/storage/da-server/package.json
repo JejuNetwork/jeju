@@ -1,0 +1,24 @@
+{
+  "name": "@jejunetwork/da-server",
+  "version": "1.0.0",
+  "description": "JejuDA - Native Data Availability Server for OP Stack",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "build": "bun build src/index.ts --outdir=dist --target=bun",
+    "test": "bun test src/*.test.ts",
+    "test:watch": "bun test --watch src/*.test.ts",
+    "docker:build": "docker build -t ghcr.io/jejunetwork/jeju-da:latest .",
+    "docker:push": "docker push ghcr.io/jejunetwork/jeju-da:latest"
+  },
+  "dependencies": {
+    "hono": "^4.5.0",
+    "ethers": "^6.11.1"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}
+

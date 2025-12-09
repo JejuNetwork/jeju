@@ -1,0 +1,17 @@
+{
+  "poolManager": "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82",
+  "weth": "0x4200000000000000000000000000000000000006",
+  "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "chainId": 420691,
+  "network": "mainnet",
+  "timestamp": 1760759733124,
+  "deployedAt": "2025-10-18T03:55:33.124Z",
+  "version": "v4",
+  "features": {
+    "singleton": true,
+    "hooks": true,
+    "flashAccounting": true,
+    "nativeETH": true
+  },
+  "notes": "Uniswap V4 PoolManager - Singleton architecture for all liquidity pools"
+}

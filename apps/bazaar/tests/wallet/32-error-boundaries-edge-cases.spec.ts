@@ -1,5 +1,5 @@
 /**
-import type { Page } from "@playwright/test";
+* @fileoverview Test file
  * Error Boundaries & Edge Cases
  * Tests error handling, recovery, and edge cases throughout the app
  */
@@ -312,4 +312,4 @@ test.describe('Error Boundaries & Edge Cases', () => {
     
     console.log('✅ Data consistency maintained after refresh')
   })
-32-error-boundaries-edge-cases.spec.ts.backup
+})

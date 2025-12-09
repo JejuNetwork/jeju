@@ -13,7 +13,7 @@ export default function NetworkStatsCard() {
   if (!networkStats) {
     return (
       <div className="card">
-        <p style={{ color: '#94a3b8' }}>Loading network stats...</p>
+        <p style={{ color: 'var(--text-muted)' }}>Loading network stats...</p>
       </div>
     );
   }
@@ -34,32 +34,32 @@ export default function NetworkStatsCard() {
         <h2 style={{ fontSize: '1.5rem', marginBottom: '1.5rem' }}>Network Overview</h2>
         
         <div className="grid grid-3" style={{ gap: '1rem' }}>
-          <div style={{ padding: '1rem', background: '#f8fafc', borderRadius: '8px' }}>
+          <div style={{ padding: '1rem', background: 'var(--surface-hover)', borderRadius: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <Server size={20} style={{ color: '#667eea' }} />
-              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Total Nodes</span>
+              <Server size={20} style={{ color: 'var(--accent-primary)' }} />
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total Nodes</span>
             </div>
-            <p style={{ fontSize: '2rem', fontWeight: '700', color: '#667eea', margin: 0 }}>
+            <p style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--accent-primary)', margin: 0 }}>
               {Number(totalNodes)}
             </p>
           </div>
 
-          <div style={{ padding: '1rem', background: '#f8fafc', borderRadius: '8px' }}>
+          <div style={{ padding: '1rem', background: 'var(--surface-hover)', borderRadius: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <TrendingUp size={20} style={{ color: '#16a34a' }} />
-              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Total Staked</span>
+              <TrendingUp size={20} style={{ color: 'var(--success)' }} />
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total Staked</span>
             </div>
-            <p style={{ fontSize: '2rem', fontWeight: '700', color: '#16a34a', margin: 0 }}>
+            <p style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--success)', margin: 0 }}>
               {formatUSD(Number(totalStakedUSD) / 1e18)}
             </p>
           </div>
 
-          <div style={{ padding: '1rem', background: '#f8fafc', borderRadius: '8px' }}>
+          <div style={{ padding: '1rem', background: 'var(--surface-hover)', borderRadius: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <Globe size={20} style={{ color: '#8b5cf6' }} />
-              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Rewards Claimed</span>
+              <Globe size={20} style={{ color: 'var(--accent-primary)' }} />
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Rewards Claimed</span>
             </div>
-            <p style={{ fontSize: '2rem', fontWeight: '700', color: '#8b5cf6', margin: 0 }}>
+            <p style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--accent-primary)', margin: 0 }}>
               {formatUSD(Number(totalRewardsClaimedUSD) / 1e18)}
             </p>
           </div>
@@ -73,13 +73,13 @@ export default function NetworkStatsCard() {
           
           <div className="grid grid-2" style={{ gap: '1rem', marginBottom: '1rem' }}>
             <div>
-              <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: 0 }}>Your Nodes</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>Your Nodes</p>
               <p style={{ fontSize: '1.5rem', fontWeight: '600', margin: '0.25rem 0' }}>
                 {Number(operatorStats.totalNodesActive)} / 5 max
               </p>
             </div>
             <div>
-              <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: 0 }}>Your Stake</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>Your Stake</p>
               <p style={{ fontSize: '1.5rem', fontWeight: '600', margin: '0.25rem 0' }}>
                 {formatUSD(operatorStakeUSD)}
               </p>
@@ -90,32 +90,32 @@ export default function NetworkStatsCard() {
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
               <span style={{ fontSize: '0.875rem', fontWeight: '600' }}>Network Ownership</span>
-              <span style={{ fontSize: '0.875rem', fontWeight: '600', color: isNearLimit ? '#f59e0b' : '#16a34a' }}>
+              <span style={{ fontSize: '0.875rem', fontWeight: '600', color: isNearLimit ? 'var(--warning)' : 'var(--success)' }}>
                 {operatorOwnershipPercent.toFixed(2)}% / {maxOwnership}% max
               </span>
             </div>
-            <div style={{ width: '100%', height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
+            <div style={{ width: '100%', height: '8px', background: 'var(--border)', borderRadius: '4px', overflow: 'hidden' }}>
               <div
                 style={{
                   width: `${Math.min(operatorOwnershipPercent, 100)}%`,
                   height: '100%',
                   background: isNearLimit
-                    ? 'linear-gradient(90deg, #f59e0b, #ef4444)'
-                    : 'linear-gradient(90deg, #16a34a, #22c55e)',
+                    ? 'linear-gradient(90deg, var(--warning), var(--error))'
+                    : 'linear-gradient(90deg, var(--success), var(--success))',
                   transition: 'width 0.3s'
                 }}
               />
             </div>
             
             {isNearLimit && (
-              <div style={{ padding: '0.75rem', background: '#fef3c7', borderRadius: '8px', marginTop: '0.75rem', border: '1px solid #fbbf24' }}>
+              <div style={{ padding: '0.75rem', background: 'var(--warning-soft)', borderRadius: '8px', marginTop: '0.75rem', border: '1px solid var(--warning)' }}>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'start' }}>
-                  <AlertTriangle size={18} style={{ color: '#f59e0b', flexShrink: 0, marginTop: '0.125rem' }} />
+                  <AlertTriangle size={18} style={{ color: 'var(--warning)', flexShrink: 0, marginTop: '0.125rem' }} />
                   <div>
-                    <p style={{ fontSize: '0.875rem', fontWeight: '600', color: '#92400e', margin: 0 }}>
+                    <p style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--warning)', margin: 0 }}>
                       ⚠️ Approaching Ownership Limit
                     </p>
-                    <p style={{ fontSize: '0.75rem', color: '#92400e', margin: '0.25rem 0 0 0' }}>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--warning)', margin: '0.25rem 0 0 0' }}>
                       You're at {operatorOwnershipPercent.toFixed(1)}% of the network. 
                       Limit is {maxOwnership}%. Adding more nodes may be blocked.
                     </p>
@@ -127,16 +127,6 @@ export default function NetworkStatsCard() {
         </div>
       )}
 
-      {/* Token Distribution Info */}
-      <div className="card" style={{ background: '#f8fafc' }}>
-        <h3 style={{ fontSize: '1rem', marginBottom: '0.75rem' }}>💡 Tips for Maximizing Rewards</h3>
-        <ul style={{ fontSize: '0.875rem', color: '#64748b', margin: 0, paddingLeft: '1.25rem' }}>
-          <li>Maintain 99%+ uptime for 2x reward multiplier</li>
-          <li>Choose underserved regions (Africa, South America) for +50% bonus</li>
-          <li>Stake minority tokens (&lt;10% of network) for diversity bonus (v2)</li>
-          <li>Earn rewards in your preferred token - can be different from staking token</li>
-        </ul>
-      </div>
     </div>
   );
 }

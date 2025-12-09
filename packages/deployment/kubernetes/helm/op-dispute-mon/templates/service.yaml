@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "op-dispute-mon.fullname" . }}
+  labels:
+    {{- include "op-dispute-mon.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.service.metrics.port }}
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+  selector:
+    {{- include "op-dispute-mon.selectorLabels" . | nindent 4 }}
+
+

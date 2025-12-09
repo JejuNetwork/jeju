@@ -1,0 +1,54 @@
+{
+  "name": "@jejunetwork/storage",
+  "version": "2.0.0",
+  "description": "Jeju Storage Marketplace - Decentralized storage with multi-provider routing, x402 micropayments, and A2A/MCP integration",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"bun run dev:api\" \"bun run dev:app\"",
+    "dev:api": "bun run pinning-api/src/index.ts",
+    "dev:app": "cd app && bun run dev",
+    "dev:da": "bun run da-server/src/index.ts",
+    "build": "bun run build:api && bun run build:app && bun run build:da",
+    "build:api": "cd pinning-api && bun run build",
+    "build:app": "cd app && bun run build",
+    "build:da": "cd da-server && bun run build",
+    "start": "concurrently \"bun run start:api\" \"bun run start:app\"",
+    "start:api": "bun run pinning-api/dist/index.js",
+    "start:app": "cd app && bun run start",
+    "start:da": "bun run da-server/dist/index.js",
+    "node": "bun run pinning-api/src/node/index.ts",
+    "test": "bun run test:api && bun run test:da",
+    "test:api": "cd pinning-api && bun test",
+    "test:da": "cd da-server && bun test",
+    "test:app": "cd app && bun run test",
+    "test:e2e": "cd app && playwright test tests/e2e",
+    "test:wallet": "cd app && playwright test tests/wallet --headed",
+    "ipfs:init": "ipfs init",
+    "ipfs:start": "ipfs daemon"
+  },
+  "workspaces": [
+    "pinning-api",
+    "app",
+    "da-server"
+  ],
+  "keywords": [
+    "ipfs",
+    "storage",
+    "marketplace",
+    "x402",
+    "micropayments",
+    "pinning",
+    "decentralized",
+    "file-storage",
+    "a2a",
+    "mcp",
+    "arweave",
+    "cloud",
+    "erc-4337",
+    "multi-token"
+  ],
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
+

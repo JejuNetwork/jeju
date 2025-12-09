@@ -1,29 +1,25 @@
-/**
- * Basic wallet setup for Synpress tests
- * Follows official Synpress pattern
- */
+import { defineWalletSetup } from '@synthetixio/synpress'
+import { MetaMask } from '@synthetixio/synpress/playwright'
 
-import { defineWalletSetup } from '@synthetixio/synpress';
-import { MetaMask } from '@synthetixio/synpress/playwright';
-
-const SEED_PHRASE = 'test test test test test test test test test test test junk';
-const PASSWORD = 'Tester@1234';
+const PASSWORD = 'Tester@1234'
+const SEED_PHRASE = 'test test test test test test test test test test test junk'
+const JEJU_CHAIN_ID = parseInt(process.env.CHAIN_ID || '1337')
+const JEJU_RPC_URL = process.env.L2_RPC_URL || process.env.JEJU_RPC_URL || 'http://localhost:9545'
 
 export default defineWalletSetup(PASSWORD, async (context, walletPage) => {
-  const metamask = new MetaMask(context, walletPage, PASSWORD);
+  const metamask = new MetaMask(context, walletPage, PASSWORD)
 
-  // Import wallet using seed phrase
-  await metamask.importWallet(SEED_PHRASE);
+  await metamask.importWallet(SEED_PHRASE)
 
-  // Add Jeju Localnet
   await metamask.addNetwork({
-    networkName: 'Jeju Localnet',
-    rpcUrl: 'http://127.0.0.1:9545',
-    chainId: 1337,
+    name: 'Jeju Local',
+    rpcUrl: JEJU_RPC_URL,
+    chainId: JEJU_CHAIN_ID,
     symbol: 'ETH',
-  });
+  })
 
-  // Switch to Jeju network
-  await metamask.switchNetwork('Jeju Localnet');
-});
+  await metamask.switchNetwork('Jeju Local')
+})
+
+export { PASSWORD, SEED_PHRASE }
 

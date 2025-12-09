@@ -7,18 +7,18 @@ import "forge-std/console.sol";
 /**
  * @title GenerateGenesis
  * @notice Generates genesis.json and rollup.json for L2
- * 
- * This script helps generate the genesis configuration for your L3.
+ *
+ * This script helps generate the genesis configuration for your L2.
  * It requires L1 contracts to be deployed first.
- * 
+ *
  * Usage:
  *   forge script script/Genesis.s.sol:GenerateGenesis \
  *     --sig "run(string)" testnet
- * 
+ *
  * Prerequisites:
- *   - L1 contracts deployed to Base
+ *   - L1 contracts deployed to Ethereum
  *   - Addresses saved in deployments/<network>/addresses.json
- * 
+ *
  * Note: For production, use op-node genesis command:
  *   op-node genesis l2 \
  *     --deploy-config deploy-config/testnet.json \
@@ -27,21 +27,20 @@ import "forge-std/console.sol";
  *     --outfile.rollup rollup.json
  */
 contract GenerateGenesis is Script {
-    
-    function run(string memory network) external {
+    function run(string memory network) external pure {
         console.log("==================================================");
         console.log("Generating L2 Genesis Configuration");
         console.log("==================================================");
         console.log("Network:", network);
         console.log("");
-        
+
         string memory deployConfigPath = string.concat("deploy-config/", network, ".json");
         string memory addressesPath = string.concat("deployments/", network, "/addresses.json");
-        
+
         console.log("Deploy Config:", deployConfigPath);
         console.log("L1 Addresses:", addressesPath);
         console.log("");
-        
+
         console.log("IMPORTANT: Use op-node to generate genesis files.");
         console.log("");
         console.log("Command:");
@@ -59,5 +58,3 @@ contract GenerateGenesis is Script {
         console.log("");
     }
 }
-
-

@@ -27,7 +27,7 @@ bun run dev
 
 This starts:
 - L1 Ethereum (Geth + Lighthouse)
-- L3 Jeju (op-reth + op-node + batcher + proposer)
+- L2 Jeju (op-reth + op-node + batcher + proposer)
 - Indexer + GraphQL API
 - Pre-funded test accounts
 

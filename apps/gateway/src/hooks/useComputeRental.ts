@@ -4,7 +4,7 @@
  */
 
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi';
-import { parseEther, formatEther } from 'viem';
+import { formatEther } from 'viem';
 import { useMemo } from 'react';
 
 // ============================================================================

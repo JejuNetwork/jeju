@@ -71,7 +71,7 @@ export const processor = new EvmBatchProcessor()
      * Finality confirmation depth
      * 
      * Waits for 10 block confirmations before considering data final.
-     * This prevents reorg issues on the L3. Jeju has 2s block time,
+     * This prevents reorg issues on Jeju. Jeju has 2s block time,
      * so 10 blocks = 20 seconds of confirmation time.
      */
     .setFinalityConfirmation(10)

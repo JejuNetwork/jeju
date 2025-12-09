@@ -201,7 +201,6 @@ async function executeSkill(
           bytecode: '0x...', // Would be actual ERC20 bytecode
           estimatedGas: '2000000',
           fee: PAYMENT_TIERS.TOKEN_DEPLOYMENT.toString(),
-          settlement: paymentCheck.settlement,
           instructions: 'Sign and broadcast this transaction to deploy your token',
         },
       };
@@ -257,7 +256,6 @@ async function executeSkill(
           },
           fee: swapFee.toString(),
           estimatedGas: '300000',
-          settlement: paymentCheck.settlement,
           calldata: '0x...', // Would encode actual swap calldata
           instructions: 'Sign and execute this swap transaction',
         },

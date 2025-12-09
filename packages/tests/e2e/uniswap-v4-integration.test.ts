@@ -4,14 +4,14 @@
  * Tests the complete V4 deployment and functionality on Jeju localnet
  *
  * Prerequisites:
- * - Localnet running (bun run scripts/localnet/start.ts)
+ * - Localnet running (bun run localnet:start)
  * - V4 contracts deployed
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
 import { createPublicClient, createWalletClient, http, parseEther, formatEther } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { rawDeployments } from '@jeju/contracts';
+import { rawDeployments } from '@jejunetwork/contracts';
 import { getLocalnetRpcUrl } from '../../scripts/shared/get-localnet-rpc';
 
 const PRIVATE_KEY = process.env.PRIVATE_KEY || "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
@@ -61,7 +61,7 @@ describe('Uniswap V4 Integration Tests', () => {
             transport: http(rpcUrl),
         });
 
-        // Load deployments from @jeju/contracts
+        // Load deployments from @jejunetwork/contracts
         v4Deployment = rawDeployments.uniswapV4_1337 as V4Deployment;
         tokenDeployment = rawDeployments.elizaToken1337 as TokenDeployment;
         

@@ -3,8 +3,8 @@ import { createPublicClient, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
-import type { ChainConfig } from "../../types";
-import { rawDeployments, getContractAddresses } from "@jeju/contracts";
+import type { ChainConfig } from "@jejunetwork/types";
+import { rawDeployments, getContractAddresses } from "@jejunetwork/contracts";
 
 const CONFIG_PATH = join(process.cwd(), "config", "chain", "localnet.json");
 
@@ -20,7 +20,7 @@ describe("DeFi E2E Tests", () => {
   let config: ChainConfig;
 
   beforeAll(() => {
-    // Load from @jeju/contracts
+    // Load from @jejunetwork/contracts
     const addresses = getContractAddresses(1337);
     deployment = {
       uniswapV4: {

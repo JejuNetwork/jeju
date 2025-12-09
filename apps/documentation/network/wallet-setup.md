@@ -1,51 +1,26 @@
 # Wallet Setup
 
-## MetaMask
+## Add to MetaMask
 
-### Auto Setup
+### Testnet
 
-- Testnet: [chainlist.org/chain/420690](https://chainlist.org/chain/420690)
-- Mainnet: [chainlist.org/chain/420691](https://chainlist.org/chain/420691)
+| Field | Value |
+|-------|-------|
+| Network | Jeju Testnet |
+| RPC | https://testnet-rpc.jeju.network |
+| Chain ID | 420690 |
+| Symbol | ETH |
+| Explorer | https://testnet-explorer.jeju.network |
 
-### Manual
+### Mainnet
 
-Networks → Add Network → Add Manually:
-
-**Testnet**:
-```
-Name: Jeju Testnet
-RPC: https://testnet-rpc.jeju.network
-Chain ID: 420690
-Symbol: ETH
-Explorer: https://testnet-explorer.jeju.network
-```
-
-**Mainnet**:
-```
-Name: Jeju
-RPC: https://rpc.jeju.network
-Chain ID: 420691
-Symbol: ETH
-Explorer: https://explorer.jeju.network
-```
-
-## Hardware Wallets
-
-Ledger/Trezor work via MetaMask or Frame. May show "Unknown chain" warning - safe to ignore.
-
-## Safe (Multisig)
-
-- Testnet: https://testnet-safe.jeju.network
-- Mainnet: https://safe.jeju.network
-
-## ERC-4337 (Account Abstraction)
-
-Native support for smart wallets:
-- Gasless via paymasters
-- Social recovery
-- Batch operations
-
-Supported: Stackup, Biconomy, Alchemy Account Kit
+| Field | Value |
+|-------|-------|
+| Network | Jeju |
+| RPC | https://rpc.jeju.network |
+| Chain ID | 420691 |
+| Symbol | ETH |
+| Explorer | https://explorer.jeju.network |
 
 ## Programmatic
 
@@ -62,12 +37,53 @@ await window.ethereum.request({
 });
 ```
 
-## Troubleshooting
+## Get ETH
 
-**Wrong network**: Switch network in wallet, refresh page
+### Testnet
 
-**Tx stuck**: Send 0 ETH to yourself with same nonce + higher gas
+1. Get Sepolia ETH: https://sepoliafaucet.com
+2. Bridge to Jeju: https://testnet-gateway.jeju.network
 
-**Need ETH**: Faucet (testnet) or bridge from Base (mainnet)
+### Mainnet
 
-**Tokens not showing**: Import token with contract address from explorer
+1. Get ETH on Ethereum
+2. Bridge at https://gateway.jeju.network/bridge
+
+## Hardware Wallets
+
+Ledger/Trezor work via MetaMask or Frame. "Unknown chain" warning is safe to ignore.
+
+## Multisig (Safe)
+
+- Testnet: https://testnet-safe.jeju.network
+- Mainnet: https://safe.jeju.network
+
+## Smart Wallets (ERC-4337)
+
+Jeju has native account abstraction support:
+
+- Pay gas with any registered token
+- Social recovery
+- Batch transactions
+- Session keys
+
+Supported providers: Stackup, Biconomy, Alchemy Account Kit
+
+## Use Token for Gas
+
+If you have tokens but no ETH:
+
+1. Go to Gateway → Pay with Token
+2. Select token
+3. Approve paymaster
+4. Transactions use token for gas
+
+```typescript
+// Viem with paymaster
+const hash = await walletClient.sendTransaction({
+  to: recipient,
+  value: amount,
+  paymaster: paymasterAddress,
+  paymasterData: tokenPaymentData,
+});
+```

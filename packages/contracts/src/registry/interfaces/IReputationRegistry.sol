@@ -5,17 +5,16 @@ pragma solidity ^0.8.26;
  * @title IReputationRegistry
  * @dev Interface for ERC-8004 v1.0 Reputation Registry
  * @notice On-chain feedback system with cryptographic authorization
- * 
+ *
  * This interface provides a standard for posting and fetching feedback signals
  * with on-chain storage and aggregation capabilities. It uses cryptographic
  * signatures (EIP-191/ERC-1271) to authorize feedback submissions.
- * 
+ *
  * @author ChaosChain Labs
  */
 interface IReputationRegistry {
-    
     // ============ Events ============
-    
+
     /**
      * @dev Emitted when new feedback is given
      */
@@ -28,16 +27,12 @@ interface IReputationRegistry {
         string fileuri,
         bytes32 filehash
     );
-    
+
     /**
      * @dev Emitted when feedback is revoked
      */
-    event FeedbackRevoked(
-        uint256 indexed agentId,
-        address indexed clientAddress,
-        uint64 indexed feedbackIndex
-    );
-    
+    event FeedbackRevoked(uint256 indexed agentId, address indexed clientAddress, uint64 indexed feedbackIndex);
+
     /**
      * @dev Emitted when a response is appended to feedback
      */
@@ -51,7 +46,7 @@ interface IReputationRegistry {
     );
 
     // ============ Core Functions ============
-    
+
     /**
      * @notice Give feedback for an agent
      * @param agentId The agent receiving feedback
@@ -71,14 +66,14 @@ interface IReputationRegistry {
         bytes32 filehash,
         bytes memory feedbackAuth
     ) external;
-    
+
     /**
      * @notice Revoke previously given feedback
      * @param agentId The agent ID
      * @param feedbackIndex The feedback index to revoke
      */
     function revokeFeedback(uint256 agentId, uint64 feedbackIndex) external;
-    
+
     /**
      * @notice Append a response to feedback
      * @param agentId The agent ID
@@ -96,7 +91,7 @@ interface IReputationRegistry {
     ) external;
 
     // ============ Read Functions ============
-    
+
     /**
      * @notice Get aggregated summary for an agent
      * @param agentId The agent ID (mandatory)
@@ -106,13 +101,11 @@ interface IReputationRegistry {
      * @return count Number of feedback entries
      * @return averageScore Average score (0-100)
      */
-    function getSummary(
-        uint256 agentId,
-        address[] calldata clientAddresses,
-        bytes32 tag1,
-        bytes32 tag2
-    ) external view returns (uint64 count, uint8 averageScore);
-    
+    function getSummary(uint256 agentId, address[] calldata clientAddresses, bytes32 tag1, bytes32 tag2)
+        external
+        view
+        returns (uint64 count, uint8 averageScore);
+
     /**
      * @notice Read a specific feedback entry
      * @param agentId The agent ID
@@ -123,17 +116,11 @@ interface IReputationRegistry {
      * @return tag2 Second tag
      * @return isRevoked Whether the feedback is revoked
      */
-    function readFeedback(
-        uint256 agentId,
-        address clientAddress,
-        uint64 index
-    ) external view returns (
-        uint8 score,
-        bytes32 tag1,
-        bytes32 tag2,
-        bool isRevoked
-    );
-    
+    function readFeedback(uint256 agentId, address clientAddress, uint64 index)
+        external
+        view
+        returns (uint8 score, bytes32 tag1, bytes32 tag2, bool isRevoked);
+
     /**
      * @notice Read all feedback for an agent
      * @param agentId The agent ID (mandatory)
@@ -153,14 +140,17 @@ interface IReputationRegistry {
         bytes32 tag1,
         bytes32 tag2,
         bool includeRevoked
-    ) external view returns (
-        address[] memory clients,
-        uint8[] memory scores,
-        bytes32[] memory tag1s,
-        bytes32[] memory tag2s,
-        bool[] memory revokedStatuses
-    );
-    
+    )
+        external
+        view
+        returns (
+            address[] memory clients,
+            uint8[] memory scores,
+            bytes32[] memory tag1s,
+            bytes32[] memory tag2s,
+            bool[] memory revokedStatuses
+        );
+
     /**
      * @notice Get response count for a feedback entry
      * @param agentId The agent ID (mandatory)
@@ -175,14 +165,14 @@ interface IReputationRegistry {
         uint64 feedbackIndex,
         address[] calldata responders
     ) external view returns (uint64 count);
-    
+
     /**
      * @notice Get all clients who gave feedback to an agent
      * @param agentId The agent ID
      * @return clientList Array of client addresses
      */
     function getClients(uint256 agentId) external view returns (address[] memory clientList);
-    
+
     /**
      * @notice Get the last feedback index for a client-agent pair
      * @param agentId The agent ID
@@ -190,7 +180,7 @@ interface IReputationRegistry {
      * @return lastIndex The last feedback index
      */
     function getLastIndex(uint256 agentId, address clientAddress) external view returns (uint64 lastIndex);
-    
+
     /**
      * @notice Get the identity registry address
      * @return registry The identity registry address

@@ -66,9 +66,6 @@ export async function createSignedFeedbackAuth(
     )
   );
   
-  // EIP-191 personal sign format
-  const messageHash = ethers.hashMessage(ethers.getBytes(structHash));
-  
   // Sign the message
   const signature = await signer.signMessage(ethers.getBytes(structHash));
   

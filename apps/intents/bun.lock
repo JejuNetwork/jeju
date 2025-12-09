@@ -2,14 +2,14 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
-      "name": "@jeju/intents",
+      "name": "@jejunetwork/intents",
       "devDependencies": {
         "@types/ws": "^8.18.1",
         "concurrently": "^9.1.0",
       },
     },
     "aggregator": {
-      "name": "@jeju/intents-aggregator",
+      "name": "@jejunetwork/intents-aggregator",
       "version": "1.0.0",
       "dependencies": {
         "cors": "^2.8.5",
@@ -25,7 +25,7 @@
       },
     },
     "solver": {
-      "name": "@jeju/intents-solver",
+      "name": "@jejunetwork/intents-solver",
       "version": "1.0.0",
       "dependencies": {
         "ethers": "^6.13.0",
@@ -36,7 +36,7 @@
       },
     },
     "viewer": {
-      "name": "@jeju/intents-viewer",
+      "name": "@jejunetwork/intents-viewer",
       "version": "1.0.0",
       "dependencies": {
         "@rainbow-me/rainbowkit": "^2.2.9",
@@ -246,11 +246,11 @@
 
     "@isaacs/cliui": ["@isaacs/cliui@8.0.2", "", { "dependencies": { "string-width": "^5.1.2", "string-width-cjs": "npm:string-width@^4.2.0", "strip-ansi": "^7.0.1", "strip-ansi-cjs": "npm:strip-ansi@^6.0.1", "wrap-ansi": "^8.1.0", "wrap-ansi-cjs": "npm:wrap-ansi@^7.0.0" } }, "sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA=="],
 
-    "@jeju/intents-aggregator": ["@jeju/intents-aggregator@workspace:aggregator"],
+    "@jejunetwork/intents-aggregator": ["@jejunetwork/intents-aggregator@workspace:aggregator"],
 
-    "@jeju/intents-solver": ["@jeju/intents-solver@workspace:solver"],
+    "@jejunetwork/intents-solver": ["@jejunetwork/intents-solver@workspace:solver"],
 
-    "@jeju/intents-viewer": ["@jeju/intents-viewer@workspace:viewer"],
+    "@jejunetwork/intents-viewer": ["@jejunetwork/intents-viewer@workspace:viewer"],
 
     "@jridgewell/gen-mapping": ["@jridgewell/gen-mapping@0.3.13", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.5.0", "@jridgewell/trace-mapping": "^0.3.24" } }, "sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA=="],
 

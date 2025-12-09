@@ -1,0 +1,101 @@
+replicaCount: 1
+
+image:
+  repository: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-batcher
+  pullPolicy: IfNotPresent
+  tag: "v1.16.3"
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "7300"
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsUser: 1000
+  runAsNonRoot: true
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  rpc:
+    port: 8545
+  metrics:
+    port: 7300
+
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+  requests:
+    cpu: 1000m
+    memory: 2Gi
+
+nodeSelector:
+  role: core
+
+tolerations:
+  - key: workload
+    operator: Equal
+    value: core
+    effect: NoSchedule
+
+affinity: {}
+
+config:
+  l1:
+    rpcUrl: ""
+    # L1 beacon for blob submission (Fusaka required)
+    beacon:
+      url: "http://lighthouse:5052"
+  l2:
+    rpcUrl: "http://reth-sequencer:8545"
+  rollup:
+    rpcUrl: "http://op-node:9545"
+  maxChannelDuration: 1
+  subSafetyMargin: 4
+  pollInterval: "6s"
+  numConfirmations: 1
+  safeAbortNonceTooLowCount: 3
+  resubmission: "12s"
+  batchType: 1
+  dataAvailability:
+    # Options: "blobs" (Ethereum native), "eigenda", "jejuda", "calldata"
+    # Post-Fusaka recommendation: use "blobs" with PeerDAS (8x capacity)
+    type: "blobs"
+    # Alt-DA server URL (for eigenda or jejuda)
+    altDaServer: ""
+    # JejuDA: "http://jeju-da:3100"
+    # EigenDA: "http://eigenda:4242"
+  # Fusaka blob settings (Dec 9: 10/15, Jan 7: 14/21 blobs per block)
+  blobs:
+    # Max blobs per batch (adjust based on L1 capacity)
+    maxBlobsPerBatch: 6  # Conservative - can increase post-BPO forks
+    # Target blob utilization (0.0-1.0)
+    targetBlobUtilization: 0.8
+    # Enable blob compression
+    compression: true
+  privateKey: ""  # Should be injected from Vault
+  sequencerHd: ""
+  metrics:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 7300
+  pprof:
+    enabled: false
+
+

@@ -12,7 +12,7 @@
 
 import { testWithSynpress } from '@synthetixio/synpress'
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'
-import basicSetup from '../wallet-setup/basic.setup'
+import { basicSetup } from '../../synpress.config'
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup))
 const { expect } = test
@@ -51,11 +51,11 @@ test.describe('EIL Cross-Chain Transfer', () => {
   test('should allow selecting destination chain', async ({ page }) => {
     await page.click('text=Cross-Chain Transfer')
     
-    // Click on Base chain option
-    await page.click('text=Base')
+    // Click on Ethereum chain option
+    await page.click('text=Ethereum')
     
-    // Verify Base is selected (has blue border)
-    const baseButton = page.locator('button:has-text("Base")')
+    // Verify Ethereum is selected (has blue border)
+    const ethereumButton = page.locator('button:has-text("Ethereum")')
     await expect(baseButton).toHaveCSS('border-color', 'rgb(59, 130, 246)')
   })
 

@@ -5,27 +5,23 @@ pragma solidity ^0.8.26;
  * @title IValidationRegistry
  * @dev Interface for ERC-8004 v1.0 Validation Registry
  * @notice Generic hooks for requesting and recording independent validation
- * 
+ *
  * This interface enables agents to request verification of their work and allows
  * validator smart contracts to provide responses that can be tracked on-chain.
  * Supports various validation methods including stake-secured, zkML, and TEE.
- * 
+ *
  * @author ChaosChain Labs
  */
 interface IValidationRegistry {
-    
     // ============ Events ============
-    
+
     /**
      * @dev Emitted when a validation request is made
      */
     event ValidationRequest(
-        address indexed validatorAddress,
-        uint256 indexed agentId,
-        string requestUri,
-        bytes32 indexed requestHash
+        address indexed validatorAddress, uint256 indexed agentId, string requestUri, bytes32 indexed requestHash
     );
-    
+
     /**
      * @dev Emitted when a validation response is provided
      */
@@ -40,7 +36,7 @@ interface IValidationRegistry {
     );
 
     // ============ Core Functions ============
-    
+
     /**
      * @notice Request validation for an agent's work
      * @dev Must be called by the owner or operator of the agent
@@ -55,7 +51,7 @@ interface IValidationRegistry {
         string calldata requestUri,
         bytes32 requestHash
     ) external;
-    
+
     /**
      * @notice Provide a validation response
      * @dev Must be called by the validator address specified in the request
@@ -75,7 +71,7 @@ interface IValidationRegistry {
     ) external;
 
     // ============ Read Functions ============
-    
+
     /**
      * @notice Get validation status for a request
      * @param requestHash The request hash
@@ -85,14 +81,11 @@ interface IValidationRegistry {
      * @return tag The response tag
      * @return lastUpdate Timestamp of last update
      */
-    function getValidationStatus(bytes32 requestHash) external view returns (
-        address validatorAddress,
-        uint256 agentId,
-        uint8 response,
-        bytes32 tag,
-        uint256 lastUpdate
-    );
-    
+    function getValidationStatus(bytes32 requestHash)
+        external
+        view
+        returns (address validatorAddress, uint256 agentId, uint8 response, bytes32 tag, uint256 lastUpdate);
+
     /**
      * @notice Get aggregated validation summary for an agent
      * @param agentId The agent ID (mandatory)
@@ -101,33 +94,32 @@ interface IValidationRegistry {
      * @return count Number of validations
      * @return avgResponse Average response value (0-100)
      */
-    function getSummary(
-        uint256 agentId,
-        address[] calldata validatorAddresses,
-        bytes32 tag
-    ) external view returns (uint64 count, uint8 avgResponse);
-    
+    function getSummary(uint256 agentId, address[] calldata validatorAddresses, bytes32 tag)
+        external
+        view
+        returns (uint64 count, uint8 avgResponse);
+
     /**
      * @notice Get all validation request hashes for an agent
      * @param agentId The agent ID
      * @return requestHashes Array of request hashes
      */
     function getAgentValidations(uint256 agentId) external view returns (bytes32[] memory requestHashes);
-    
+
     /**
      * @notice Get all validation request hashes for a validator
      * @param validatorAddress The validator address
      * @return requestHashes Array of request hashes
      */
     function getValidatorRequests(address validatorAddress) external view returns (bytes32[] memory requestHashes);
-    
+
     /**
      * @notice Check if a validation request exists
      * @param requestHash The request hash
      * @return exists True if the request has been created
      */
     function requestExists(bytes32 requestHash) external view returns (bool exists);
-    
+
     /**
      * @notice Get validation request details
      * @param requestHash The request hash
@@ -136,13 +128,11 @@ interface IValidationRegistry {
      * @return requestUri The request URI
      * @return timestamp The request timestamp
      */
-    function getRequest(bytes32 requestHash) external view returns (
-        address validatorAddress,
-        uint256 agentId,
-        string memory requestUri,
-        uint256 timestamp
-    );
-    
+    function getRequest(bytes32 requestHash)
+        external
+        view
+        returns (address validatorAddress, uint256 agentId, string memory requestUri, uint256 timestamp);
+
     /**
      * @notice Get the identity registry address
      * @return registry The identity registry address

@@ -1,5 +1,5 @@
 /**
-import type { Page } from "@playwright/test";
+* @fileoverview Test file
  * Token Creation - Complete End-to-End Flow
  * Tests REAL token deployment with contract verification
  */
@@ -178,4 +178,5 @@ test.describe('Token Creation - Full Flow', () => {
       expect(buttonText).toContain('Connect Wallet')
     }
   })
-21-token-creation-full-flow.spec.ts.backup
+
+})

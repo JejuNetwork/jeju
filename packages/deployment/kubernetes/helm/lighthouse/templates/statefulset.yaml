@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "lighthouse.fullname" . }}
+  labels:
+    {{- include "lighthouse.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "lighthouse.fullname" . }}
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "lighthouse.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "lighthouse.selectorLabels" . | nindent 8 }}
+    spec:
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: lighthouse
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - lighthouse
+            - beacon_node
+            - --network={{ .Values.config.network }}
+            - --datadir={{ .Values.config.dataDir }}
+            - --http
+            - --http-address={{ .Values.config.http.addr }}
+            - --http-port={{ .Values.config.http.port }}
+            - --http-allow-origin={{ .Values.config.http.allowOrigins }}
+            - --metrics
+            - --metrics-address={{ .Values.config.metrics.addr }}
+            - --metrics-port={{ .Values.config.metrics.port }}
+            {{- if .Values.config.checkpoint.syncUrl }}
+            - --checkpoint-sync-url={{ .Values.config.checkpoint.syncUrl }}
+            {{- end }}
+            - --port={{ .Values.config.p2p.port }}
+            - --discovery-port={{ .Values.config.p2p.discoveryPort }}
+            - --target-peers={{ .Values.config.p2p.targetPeers }}
+            # Fusaka/PeerDAS settings
+            - --blob-prune-margin-epochs={{ .Values.config.fusaka.blobPruneDistance }}
+          ports:
+            - containerPort: {{ .Values.service.http.port }}
+              name: http
+            - containerPort: {{ .Values.service.metrics.port }}
+              name: metrics
+            - containerPort: {{ .Values.service.p2p.port }}
+              name: p2p-tcp
+              protocol: TCP
+            - containerPort: {{ .Values.service.p2p.port }}
+              name: p2p-udp
+              protocol: UDP
+          livenessProbe:
+            httpGet:
+              path: /eth/v1/node/health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /eth/v1/node/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: {{ .Values.config.dataDir }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  {{- if .Values.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - {{ .Values.persistence.accessMode }}
+        {{- if .Values.persistence.storageClass }}
+        storageClassName: {{ .Values.persistence.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size }}
+  {{- end }}
+
+

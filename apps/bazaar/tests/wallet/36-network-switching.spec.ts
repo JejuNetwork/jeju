@@ -1,5 +1,5 @@
 /**
-import type { Page } from "@playwright/test";
+* @fileoverview Test file
  * Network Switching Tests
  * Tests switching between different networks and verifying contract updates
  */
@@ -136,13 +136,13 @@ test.describe('Network Switching', () => {
     
     // Switch network
     await metamask.addNetwork({
-      name: 'Base Sepolia',
-      rpcUrl: 'https://sepolia.base.org',
-      chainId: 84532,
+      name: 'Sepolia',
+      rpcUrl: 'https://ethereum-sepolia-rpc.publicnode.com',
+      chainId: 11155111,
       symbol: 'ETH',
     })
     
-    await metamask.switchNetwork('Base Sepolia')
+    await metamask.switchNetwork('Sepolia')
     await page.waitForTimeout(2000)
     
     // Wallet should still show address
@@ -204,4 +204,4 @@ test.describe('Network Switching', () => {
       console.log('✅ Network switch during transaction handled')
     }
   })
-36-network-switching.spec.ts.backup
+})

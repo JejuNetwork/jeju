@@ -6,7 +6,7 @@
 
 import { testWithSynpress } from '@synthetixio/synpress';
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
-import { basicSetup } from '../../synpress.config'
+import { basicSetup } from '../../../synpress.config'
 import { connectWallet } from '../helpers/wallet-helpers';
 import { GATEWAY_URL, PROTOCOL_TOKENS } from '../fixtures/test-data';
 
@@ -164,7 +164,7 @@ test.describe('Token Selector Equality', () => {
   });
 
   test('ONLY bridgeable tokens should appear in bridge selector', async ({ page }) => {
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
     await page.locator('.input').first().click();
@@ -364,7 +364,7 @@ test.describe('Bridge Token Filtering', () => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
     // Open selector
@@ -386,7 +386,7 @@ test.describe('Bridge Token Filtering', () => {
 
     // Verify warning message shown
     await expect(page.getByText(/elizaOS is a native Jeju token/i)).toBeVisible();
-    await expect(page.getByText(/cannot be bridged from Base/i)).toBeVisible();
+    await expect(page.getByText(/cannot be bridged from Ethereum/i)).toBeVisible();
 
     await page.screenshot({
       path: 'test-results/screenshots/multi-token/03-bridge-exclusion.png',
@@ -398,7 +398,7 @@ test.describe('Bridge Token Filtering', () => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
     // Switch to custom mode

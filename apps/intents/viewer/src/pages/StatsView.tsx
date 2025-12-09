@@ -101,7 +101,7 @@ export function StatsView() {
           Volume by Chain
         </h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <ChainBar name="Base" percentage={45} color="#0052ff" volume="$2.25M" />
+          <ChainBar name="Ethereum" percentage={45} color="#627eea" volume="$2.25M" />
           <ChainBar name="Arbitrum" percentage={30} color="#28a0f0" volume="$1.5M" />
           <ChainBar name="Optimism" percentage={15} color="#ff0420" volume="$750K" />
           <ChainBar name="Jeju" percentage={10} color="#64ffda" volume="$500K" />

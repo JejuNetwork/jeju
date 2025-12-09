@@ -13,8 +13,8 @@ export default function GovernanceTab() {
   
   return (
     <div>
-      <div style={{ padding: '1rem', background: '#dbeafe', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid #3b82f6' }}>
-        <p style={{ fontSize: '0.875rem', margin: 0, color: '#1e40af' }}>
+      <div style={{ padding: '1rem', background: 'var(--info-soft)', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid var(--info)' }}>
+        <p style={{ fontSize: '0.875rem', margin: 0, color: 'var(--info)' }}>
           <strong>🏛️ Futarchy Governance:</strong> Prediction markets decide network parameters.
           Create quests, trade on outcomes, execute automatically if markets favor change.
         </p>
@@ -28,20 +28,20 @@ export default function GovernanceTab() {
           </h3>
           <div className="grid grid-3" style={{ gap: '1rem' }}>
             <div>
-              <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: 0 }}>From Nodes</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>From Nodes</p>
               <p style={{ fontSize: '1.5rem', fontWeight: '600', margin: '0.25rem 0' }}>
                 {formatTokenAmount(votingPower.fromNodeStaking, 18, 0)}
               </p>
             </div>
             <div>
-              <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: 0 }}>From LPs</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>From LPs</p>
               <p style={{ fontSize: '1.5rem', fontWeight: '600', margin: '0.25rem 0' }}>
                 {formatTokenAmount(votingPower.fromLPPositions, 18, 0)}
               </p>
             </div>
             <div>
-              <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: 0 }}>Total Power</p>
-              <p style={{ fontSize: '1.5rem', fontWeight: '600', margin: '0.25rem 0', color: '#667eea' }}>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>Total Power</p>
+              <p style={{ fontSize: '1.5rem', fontWeight: '600', margin: '0.25rem 0', color: 'var(--accent-primary)' }}>
                 {formatTokenAmount(votingPower.total, 18, 0)}
               </p>
             </div>

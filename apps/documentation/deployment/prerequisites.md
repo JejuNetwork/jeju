@@ -23,9 +23,9 @@
 
 ## Costs
 
-**Testnet**: AWS infra + Base Sepolia gas
+**Testnet**: AWS infra + Sepolia gas
 
-**Mainnet**: Production AWS + Base settlement + EigenDA + monitoring
+**Mainnet**: Production AWS + Ethereum settlement + EigenDA + monitoring
 
 Initial capital: ETH for contracts + batcher + proposer + emergency reserve
 

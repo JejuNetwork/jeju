@@ -40,7 +40,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
  */
 contract PlayerTradeEscrow is IERC721Receiver, IERC1155Receiver, ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;
-    
+
     // ============ Enums ============
 
     enum TokenType {
@@ -53,10 +53,10 @@ contract PlayerTradeEscrow is IERC721Receiver, IERC1155Receiver, ReentrancyGuard
 
     /// @notice Trade item struct
     struct TradeItem {
-        address tokenContract;    // Token contract address
-        uint256 tokenId;          // Token ID (0 for ERC-20, itemId for ERC-721/1155)
-        uint256 amount;           // Amount (for ERC-20/1155)
-        TokenType tokenType;      // Type of token
+        address tokenContract; // Token contract address
+        uint256 tokenId; // Token ID (0 for ERC-20, itemId for ERC-721/1155)
+        uint256 amount; // Amount (for ERC-20/1155)
+        TokenType tokenType; // Type of token
     }
 
     /// @notice Trade struct
@@ -175,10 +175,7 @@ contract PlayerTradeEscrow is IERC721Receiver, IERC1155Receiver, ReentrancyGuard
      * @param tradeId Trade ID
      * @param items Array of items to deposit
      */
-    function depositItems(
-        uint256 tradeId,
-        TradeItem[] memory items
-    ) external nonReentrant {
+    function depositItems(uint256 tradeId, TradeItem[] memory items) external nonReentrant {
         Trade storage trade = trades[tradeId];
         _validateTradeActive(trade);
 
@@ -194,31 +191,21 @@ contract PlayerTradeEscrow is IERC721Receiver, IERC1155Receiver, ReentrancyGuard
         uint256 itemCount = items.length;
         for (uint256 i = 0; i < itemCount; i++) {
             TradeItem memory item = items[i];
-            
+
             if (item.tokenType == TokenType.ERC20) {
                 if (!approvedERC20[item.tokenContract]) revert ContractNotApproved();
                 if (item.amount == 0) revert InvalidItem();
-                
+
                 IERC20(item.tokenContract).safeTransferFrom(msg.sender, address(this), item.amount);
             } else if (item.tokenType == TokenType.ERC721) {
                 if (!approvedERC721[item.tokenContract]) revert ContractNotApproved();
-                
-                IERC721(item.tokenContract).safeTransferFrom(
-                    msg.sender,
-                    address(this),
-                    item.tokenId
-                );
+
+                IERC721(item.tokenContract).safeTransferFrom(msg.sender, address(this), item.tokenId);
             } else if (item.tokenType == TokenType.ERC1155) {
                 if (!approvedERC1155[item.tokenContract]) revert ContractNotApproved();
                 if (item.amount == 0) revert InvalidItem();
-                
-                IERC1155(item.tokenContract).safeTransferFrom(
-                    msg.sender,
-                    address(this),
-                    item.tokenId,
-                    item.amount,
-                    ""
-                );
+
+                IERC1155(item.tokenContract).safeTransferFrom(msg.sender, address(this), item.tokenId, item.amount, "");
             } else {
                 revert InvalidTokenType();
             }
@@ -282,7 +269,7 @@ contract PlayerTradeEscrow is IERC721Receiver, IERC1155Receiver, ReentrancyGuard
      */
     function cancelTrade(uint256 tradeId) external nonReentrant {
         Trade storage trade = trades[tradeId];
-        
+
         if (trade.cancelled) revert TradeAlreadyCancelled();
         if (trade.executed) revert TradeAlreadyExecuted();
 
@@ -323,9 +310,11 @@ contract PlayerTradeEscrow is IERC721Receiver, IERC1155Receiver, ReentrancyGuard
      * @return itemsA Player A's items
      * @return itemsB Player B's items
      */
-    function getTradeItems(
-        uint256 tradeId
-    ) external view returns (TradeItem[] memory itemsA, TradeItem[] memory itemsB) {
+    function getTradeItems(uint256 tradeId)
+        external
+        view
+        returns (TradeItem[] memory itemsA, TradeItem[] memory itemsB)
+    {
         return (_itemsA[tradeId], _itemsB[tradeId]);
     }
 
@@ -337,11 +326,7 @@ contract PlayerTradeEscrow is IERC721Receiver, IERC1155Receiver, ReentrancyGuard
      * @param tokenType Type of token (ERC20, ERC721, ERC1155)
      * @param approved True to approve, false to revoke
      */
-    function setContractApproval(
-        address tokenContract,
-        TokenType tokenType,
-        bool approved
-    ) external onlyOwner {
+    function setContractApproval(address tokenContract, TokenType tokenType, bool approved) external onlyOwner {
         if (tokenType == TokenType.ERC20) {
             approvedERC20[tokenContract] = approved;
         } else if (tokenType == TokenType.ERC721) {
@@ -386,32 +371,18 @@ contract PlayerTradeEscrow is IERC721Receiver, IERC1155Receiver, ReentrancyGuard
      * @param recipient Recipient address
      * @param items Items to transfer
      */
-    function _transferItems(
-        uint256,
-        address recipient,
-        TradeItem[] storage items
-    ) internal {
+    function _transferItems(uint256, address recipient, TradeItem[] storage items) internal {
         // Gas optimized: cache array length
         uint256 itemCount = items.length;
         for (uint256 i = 0; i < itemCount; i++) {
             TradeItem storage item = items[i];
-            
+
             if (item.tokenType == TokenType.ERC20) {
                 IERC20(item.tokenContract).safeTransfer(recipient, item.amount);
             } else if (item.tokenType == TokenType.ERC721) {
-                IERC721(item.tokenContract).safeTransferFrom(
-                    address(this),
-                    recipient,
-                    item.tokenId
-                );
+                IERC721(item.tokenContract).safeTransferFrom(address(this), recipient, item.tokenId);
             } else if (item.tokenType == TokenType.ERC1155) {
-                IERC1155(item.tokenContract).safeTransferFrom(
-                    address(this),
-                    recipient,
-                    item.tokenId,
-                    item.amount,
-                    ""
-                );
+                IERC1155(item.tokenContract).safeTransferFrom(address(this), recipient, item.tokenId, item.amount, "");
             }
         }
     }
@@ -422,11 +393,7 @@ contract PlayerTradeEscrow is IERC721Receiver, IERC1155Receiver, ReentrancyGuard
      * @param owner Owner address
      * @param items Items to return
      */
-    function _returnItems(
-        uint256 tradeId,
-        address owner,
-        TradeItem[] storage items
-    ) internal {
+    function _returnItems(uint256 tradeId, address owner, TradeItem[] storage items) internal {
         _transferItems(tradeId, owner, items);
     }
 
@@ -446,12 +413,7 @@ contract PlayerTradeEscrow is IERC721Receiver, IERC1155Receiver, ReentrancyGuard
     /**
      * @notice Handle ERC-721 token receipt
      */
-    function onERC721Received(
-        address,
-        address,
-        uint256,
-        bytes memory
-    ) public pure override returns (bytes4) {
+    function onERC721Received(address, address, uint256, bytes memory) public pure override returns (bytes4) {
         return this.onERC721Received.selector;
     }
 
@@ -460,26 +422,24 @@ contract PlayerTradeEscrow is IERC721Receiver, IERC1155Receiver, ReentrancyGuard
     /**
      * @notice Handle ERC-1155 single token receipt
      */
-    function onERC1155Received(
-        address,
-        address,
-        uint256,
-        uint256,
-        bytes memory
-    ) public pure override returns (bytes4) {
+    function onERC1155Received(address, address, uint256, uint256, bytes memory)
+        public
+        pure
+        override
+        returns (bytes4)
+    {
         return this.onERC1155Received.selector;
     }
 
     /**
      * @notice Handle ERC-1155 batch token receipt
      */
-    function onERC1155BatchReceived(
-        address,
-        address,
-        uint256[] memory,
-        uint256[] memory,
-        bytes memory
-    ) public pure override returns (bytes4) {
+    function onERC1155BatchReceived(address, address, uint256[] memory, uint256[] memory, bytes memory)
+        public
+        pure
+        override
+        returns (bytes4)
+    {
         return this.onERC1155BatchReceived.selector;
     }
 
@@ -487,7 +447,6 @@ contract PlayerTradeEscrow is IERC721Receiver, IERC1155Receiver, ReentrancyGuard
      * @notice ERC-165 support
      */
     function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
-        return interfaceId == type(IERC721Receiver).interfaceId 
-            || interfaceId == type(IERC1155Receiver).interfaceId;
+        return interfaceId == type(IERC721Receiver).interfaceId || interfaceId == type(IERC1155Receiver).interfaceId;
     }
 }

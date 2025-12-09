@@ -300,6 +300,33 @@ export class ComputeGateway {
       activeSessions: this.sessions.size,
     }));
 
+    // ========== A2A Agent Card ==========
+    this.app.get('/.well-known/agent-card.json', (c) => c.json({
+      protocolVersion: '0.3.0',
+      name: 'Jeju Compute Gateway',
+      description: 'Decentralized compute marketplace gateway - rent GPUs, CPUs, TEE. SSH access, Docker containers, AI inference.',
+      url: '/a2a',
+      preferredTransport: 'http',
+      provider: { organization: 'Jeju Network', url: 'https://jeju.network' },
+      version: '1.0.0',
+      capabilities: { streaming: true, pushNotifications: false, stateTransitionHistory: true },
+      defaultInputModes: ['text', 'data'],
+      defaultOutputModes: ['text', 'data'],
+      skills: [
+        { id: 'list-providers', name: 'List Compute Providers', description: 'Get all active compute providers', tags: ['query', 'providers'] },
+        { id: 'get-provider', name: 'Get Provider Details', description: 'Get info about a provider', tags: ['query', 'provider'] },
+        { id: 'get-quote', name: 'Get Rental Quote', description: 'Get cost estimate for rental', tags: ['query', 'pricing'] },
+        { id: 'create-rental', name: 'Create Compute Rental', description: 'Rent compute resources (requires payment)', tags: ['action', 'rental', 'payment'] },
+        { id: 'get-rental', name: 'Get Rental Status', description: 'Check rental status', tags: ['query', 'rental'] },
+        { id: 'get-ssh-access', name: 'Get SSH Access', description: 'Get SSH connection details', tags: ['query', 'ssh'] },
+        { id: 'list-my-rentals', name: 'List My Rentals', description: 'Get user rentals', tags: ['query', 'rentals'] },
+        { id: 'rate-rental', name: 'Rate Rental', description: 'Rate a completed rental', tags: ['action', 'rating'] },
+        { id: 'get-reputation', name: 'Get Reputation', description: 'Get provider/user reputation', tags: ['query', 'reputation'] },
+        { id: 'list-models', name: 'List AI Models', description: 'Get available AI models', tags: ['query', 'ai'] },
+        { id: 'inference', name: 'AI Inference', description: 'Execute AI inference (requires payment)', tags: ['action', 'ai', 'payment'] },
+      ],
+    }));
+
     // ========== Provider Discovery ==========
 
     // List all active providers

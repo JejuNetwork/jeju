@@ -1,0 +1,20 @@
+{
+  "clanker_distributor": "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c",
+  "clanker_paymaster": "0xc6e7DF5E7b4f2A278906862b61205850344D4e7d",
+  "clanker_token": "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853",
+  "clanker_vault": "0x68B1D87F95878fE05B998F19b66F4baba5De1aed",
+  "clankermon_distributor": "0x9E545E3C0baAB3E08CdfD552C960A1050f373042",
+  "clankermon_paymaster": "0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9",
+  "clankermon_token": "0x8A791620dd6260079BF849Dc5567aDC3F2FdC318",
+  "clankermon_vault": "0x84eA74d481Ee0A5332c457a4d796187F6Ba67fEB",
+  "elizaOS_distributor": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0",
+  "elizaOS_paymaster": "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82",
+  "elizaOS_token": "0x0165878A594ca255338adfa4d48449f69242Eb8F",
+  "elizaOS_vault": "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e",
+  "entryPoint": "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
+  "oracle": "0x610178dA211FEF7D417bC0e6FeD39F05609AD788",
+  "virtual_distributor": "0x7a2088a1bFc9d81c55368AE168C2C02570cB814F",
+  "virtual_paymaster": "0x09635F643e140090A9A8Dcd712eD6285858ceBef",
+  "virtual_token": "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6",
+  "virtual_vault": "0x4A679253410272dd5232B3Ff7cF5dbB88f295319"
+}

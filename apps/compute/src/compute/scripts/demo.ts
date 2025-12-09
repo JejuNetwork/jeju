@@ -13,7 +13,7 @@
  * Usage:
  *   bun run src/compute/scripts/demo.ts
  *
- * For testnet (Base Sepolia):
+ * For testnet (Sepolia):
  *   NETWORK=sepolia PRIVATE_KEY=0x... bun run src/compute/scripts/demo.ts
  */
 
@@ -43,10 +43,10 @@ const DEMO_CONFIG = {
       '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d',
     user: '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a',
   },
-  // Base Sepolia testnet
+  // Sepolia testnet
   sepolia: {
-    rpcUrl: 'https://sepolia.base.org',
-    chainId: 84532,
+    rpcUrl: 'https://ethereum-sepolia-rpc.publicnode.com',
+    chainId: 11155111,
   },
 };
 
@@ -199,7 +199,7 @@ async function main() {
   };
 
   const computeNode = new ComputeNodeServer(nodeConfig);
-  computeNode.start();
+  computeNode.start(nodeConfig.port);
 
   // Wait for server to be ready
   await new Promise((r) => setTimeout(r, 1000));

@@ -405,7 +405,7 @@ Visual report with failure details
 - Error handling
 
 ### ⚠️ Requires Additional Setup
-- **Bridge**: Needs Base testnet or bridge mock
+- **Bridge**: Needs Sepolia testnet or bridge mock
 - **Moderation**: Needs moderation contracts deployed
 - **Storage**: Needs IPFS service on port 3100
 - **Governance**: Needs governance contracts deployed

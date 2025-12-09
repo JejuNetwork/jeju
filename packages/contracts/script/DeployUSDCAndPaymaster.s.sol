@@ -11,13 +11,13 @@ import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint
  * @title DeployUSDCAndPaymaster
  * @notice Deploys USDC and CloudPaymaster with x402 support on Jeju
  * @dev Usage:
- *      
+ *
  *      # Testnet:
  *      forge script script/DeployUSDCAndPaymaster.s.sol:DeployUSDCAndPaymaster \
  *        --rpc-url $JEJU_TESTNET_RPC \
  *        --broadcast \
  *        --verify
- *      
+ *
  *      # Mainnet:
  *      forge script script/DeployUSDCAndPaymaster.s.sol:DeployUSDCAndPaymaster \
  *        --rpc-url $JEJU_RPC \
@@ -27,16 +27,16 @@ import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint
 contract DeployUSDCAndPaymaster is Script {
     // Known addresses (update these for your deployment)
     address constant ENTRYPOINT_V07 = 0x0000000071727De22E5E9d8BAf0edAc6f37da032; // Same on all chains
-    
+
     function run() external {
         // Load configuration from environment
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
-        
+
         bool isTestnet = vm.envBool("IS_TESTNET");
         address treasury = vm.envOr("TREASURY_ADDRESS", deployer);
         address revenueWallet = vm.envOr("REVENUE_WALLET", deployer);
-        
+
         // Existing contracts (if already deployed)
         address ElizaOSToken = vm.envOr("ELIZAOS_TOKEN_ADDRESS", address(0));
         address serviceRegistry = vm.envOr("SERVICE_REGISTRY_ADDRESS", address(0));
@@ -53,36 +53,31 @@ contract DeployUSDCAndPaymaster is Script {
 
         // ============ Step 1: Deploy USDC ============
         console2.log("Step 1: Deploying Jeju USDC...");
-        
+
         uint256 initialSupply = isTestnet ? 1_000_000 * 1e6 : 0; // 1M USDC on testnet, 0 on mainnet
         bool enableFaucet = isTestnet; // Only enable faucet on testnet
-        
+
         MockJejuUSDC usdc = new MockJejuUSDC(treasury);
-        
+
         // Mint initial supply if needed
         if (initialSupply > 0) {
             usdc.mint(treasury, initialSupply);
         }
-        
+
         console2.log("  USDC deployed at:", address(usdc));
         console2.log("  Initial supply:", initialSupply / 1e6, "USDC");
         console2.log("  Faucet enabled:", enableFaucet);
         console2.log("");
 
         // ============ Step 2: Deploy CloudPaymaster (if dependencies exist) ============
-        
+
         if (ElizaOSToken != address(0) && serviceRegistry != address(0) && priceOracle != address(0)) {
             console2.log("Step 2: Deploying CloudPaymaster...");
-            
+
             CloudPaymaster paymaster = new CloudPaymaster(
-                IEntryPoint(ENTRYPOINT_V07),
-                ElizaOSToken,
-                address(usdc),
-                serviceRegistry,
-                priceOracle,
-                revenueWallet
+                IEntryPoint(ENTRYPOINT_V07), ElizaOSToken, address(usdc), serviceRegistry, priceOracle, revenueWallet
             );
-            
+
             console2.log("  CloudPaymaster deployed at:", address(paymaster));
             console2.log("  EntryPoint:", ENTRYPOINT_V07);
             console2.log("  ElizaOS token:", ElizaOSToken);
@@ -94,10 +89,10 @@ contract DeployUSDCAndPaymaster is Script {
 
             // ============ Step 3: Fund paymaster with ETH ============
             console2.log("Step 3: Funding paymaster with ETH...");
-            
+
             uint256 initialDeposit = isTestnet ? 1 ether : 10 ether;
             paymaster.depositToEntryPoint{value: initialDeposit}();
-            
+
             console2.log("  Deposited:", initialDeposit / 1e18, "ETH to EntryPoint");
             console2.log("");
 
@@ -127,7 +122,9 @@ contract DeployUSDCAndPaymaster is Script {
             console2.log("2. Configure x402 facilitator to support Jeju network");
             console2.log("3. Update MCP Gateway config with Jeju USDC address");
             console2.log("4. Test payment flow with:");
-            console2.log("   cast call %s \"faucet()\" --rpc-url $JEJU_TESTNET_RPC --private-key $TEST_KEY", address(usdc));
+            console2.log(
+                "   cast call %s \"faucet()\" --rpc-url $JEJU_TESTNET_RPC --private-key $TEST_KEY", address(usdc)
+            );
             console2.log("");
         } else {
             console2.log("WARNING: Skipping CloudPaymaster deployment - missing dependencies:");
@@ -146,4 +143,3 @@ contract DeployUSDCAndPaymaster is Script {
         vm.stopBroadcast();
     }
 }
-

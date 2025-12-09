@@ -1,5 +1,5 @@
 {
-  "name": "@jeju/intents-aggregator",
+  "name": "@jejunetwork/intents-aggregator",
   "version": "1.0.0",
   "type": "module",
   "description": "OIF Intent Aggregator - A2A/MCP server for cross-chain intent routing",

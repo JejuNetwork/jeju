@@ -111,7 +111,7 @@ async function validateLocalNode(): Promise<boolean> {
     rpcUrl: 'http://localhost:8545',
   });
 
-  await server.start();
+  server.start(LOCAL_PORT);
   void server; // Keep reference for future cleanup
   pass('Server started', `http://localhost:${LOCAL_PORT}`);
 

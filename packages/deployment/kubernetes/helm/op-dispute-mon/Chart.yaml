@@ -1,0 +1,8 @@
+apiVersion: v2
+name: op-dispute-mon
+description: OP Stack dispute game monitor for fault proof health
+type: application
+version: 1.0.0
+appVersion: "v1.16.3"
+
+

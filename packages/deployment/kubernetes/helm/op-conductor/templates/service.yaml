@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "op-conductor.fullname" . }}
+  labels:
+    {{- include "op-conductor.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.rpc.port }}
+      targetPort: rpc
+      protocol: TCP
+      name: rpc
+    - port: {{ .Values.service.raft.port }}
+      targetPort: raft
+      protocol: TCP
+      name: raft
+    - port: {{ .Values.service.metrics.port }}
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+  selector:
+    {{- include "op-conductor.selectorLabels" . | nindent 4 }}
+---
+# Headless service for Raft peer discovery
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "op-conductor.fullname" . }}-headless
+  labels:
+    {{- include "op-conductor.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - port: {{ .Values.service.raft.port }}
+      targetPort: raft
+      protocol: TCP
+      name: raft
+  selector:
+    {{- include "op-conductor.selectorLabels" . | nindent 4 }}
+
+

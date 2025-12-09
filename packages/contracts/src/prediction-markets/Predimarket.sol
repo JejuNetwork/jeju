@@ -9,37 +9,40 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 interface IPredictionOracle {
     function getOutcome(bytes32 sessionId) external view returns (bool outcome, bool finalized);
-    function games(bytes32 sessionId) external view returns (
-        bytes32 _sessionId,
-        string memory question,
-        bool outcome,
-        bytes32 commitment,
-        bytes32 salt,
-        uint256 startTime,
-        uint256 endTime,
-        bytes memory teeQuote,
-        address[] memory winners,
-        uint256 totalPayout,
-        bool finalized
-    );
+    function games(bytes32 sessionId)
+        external
+        view
+        returns (
+            bytes32 _sessionId,
+            string memory question,
+            bool outcome,
+            bytes32 commitment,
+            bytes32 salt,
+            uint256 startTime,
+            uint256 endTime,
+            bytes memory teeQuote,
+            address[] memory winners,
+            uint256 totalPayout,
+            bool finalized
+        );
 }
 
 /**
  * @title Predimarket
  * @notice LMSR-based prediction market for oracle-based games
  * @dev Implements Logarithmic Market Scoring Rule for continuous automated market making
- * 
+ *
  * Current Implementation: Binary Markets (YES/NO)
  * - Works with any IPredictionOracle implementation
  * - Maps contest results to binary outcomes
  * - Example: "Will Storm or Blaze win?" (horses 2-3 = YES, horses 0-1 = NO)
- * 
+ *
  * Future Enhancement: Multi-Option Markets
  * - Add support for "Who will win?" with N options
  * - Implement LMSR across all options simultaneously
  * - Example: Thunder | Lightning | Storm | Blaze (4 separate betting pools)
  * - See docs/enhancements/multi-option-lmsr.md for specification
- * 
+ *
  * Supported Oracle Types:
  * - PredictionOracle.sol (Caliguland)
  * - Contest.sol (eHorse, contests) - maps rankings to binary
@@ -47,15 +50,16 @@ interface IPredictionOracle {
  */
 contract Predimarket is ReentrancyGuard, Pausable, Ownable {
     using SafeERC20 for IERC20;
-    
+
     enum GameType {
-        GENERIC,          // Generic prediction market
-        CALIGULAND,       // Caliguland social deduction game
-        CONTEST,          // Contest oracle (eHorse, tournaments, etc.)
-        HYPERSCAPE,       // Hyperscape RPG battles
-        CUSTOM            // Custom oracle game
+        GENERIC, // Generic prediction market
+        CALIGULAND, // Caliguland social deduction game
+        CONTEST, // Contest oracle (eHorse, tournaments, etc.)
+        HYPERSCAPE, // Hyperscape RPG battles
+        CUSTOM // Custom oracle game
+
     }
-    
+
     enum MarketCategory {
         GENERAL,
         MODERATION_NETWORK_BAN,
@@ -64,14 +68,14 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
         MODERATION_LABEL_SCAMMER,
         MODERATION_APPEAL
     }
-    
+
     struct ModerationMetadata {
         uint256 targetAgentId;
         bytes32 evidenceHash;
         address reporter;
         uint256 reportId;
     }
-    
+
     struct Market {
         bytes32 sessionId;
         string question;
@@ -82,11 +86,11 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
         uint256 createdAt;
         bool resolved;
         bool outcome;
-        GameType gameType;      // Type of game for this market
-        address gameContract;   // Address of game contract (oracle)
+        GameType gameType; // Type of game for this market
+        address gameContract; // Address of game contract (oracle)
         MarketCategory category; // Moderation category
     }
-    
+
     /// @notice Track deposits per market per token (fixes multi-market payout bug)
     mapping(bytes32 => mapping(address => uint256)) public marketTokenDeposits;
 
@@ -101,28 +105,44 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
     IERC20 public immutable paymentToken; // Default payment token (was elizaOS)
     IPredictionOracle public immutable oracle;
     address public immutable treasury;
-    
+
     uint256 public constant PLATFORM_FEE = 100; // 1% in basis points
     uint256 public constant BASIS_POINTS = 10000;
     uint256 public constant DEFAULT_LIQUIDITY = 1000 * 1e18; // Default b parameter
 
     mapping(bytes32 => Market) public markets;
     mapping(bytes32 => mapping(address => Position)) public positions;
-    
+
     /// @notice Supported payment tokens (elizaOS, CLANKER, VIRTUAL, CLANKERMON)
     mapping(address => bool) public supportedTokens;
-    
+
     /// @notice Authorized market creators (for moderation system)
     mapping(address => bool) public authorizedCreators;
-    
+
     /// @notice Moderation metadata per market
     mapping(bytes32 => ModerationMetadata) public moderationMetadata;
-    
+
     bytes32[] public allMarketIds;
 
-    event MarketCreated(bytes32 indexed sessionId, string question, uint256 liquidity, GameType gameType, address indexed gameContract);
-    event SharesPurchased(bytes32 indexed sessionId, address indexed trader, bool outcome, uint256 shares, uint256 cost, address paymentToken);
-    event SharesSold(bytes32 indexed sessionId, address indexed trader, bool outcome, uint256 shares, uint256 payout, address paymentToken);
+    event MarketCreated(
+        bytes32 indexed sessionId, string question, uint256 liquidity, GameType gameType, address indexed gameContract
+    );
+    event SharesPurchased(
+        bytes32 indexed sessionId,
+        address indexed trader,
+        bool outcome,
+        uint256 shares,
+        uint256 cost,
+        address paymentToken
+    );
+    event SharesSold(
+        bytes32 indexed sessionId,
+        address indexed trader,
+        bool outcome,
+        uint256 shares,
+        uint256 payout,
+        address paymentToken
+    );
     event MarketResolved(bytes32 indexed sessionId, bool outcome);
     event PayoutClaimed(bytes32 indexed sessionId, address indexed trader, uint256 amount);
     event TokenSupportUpdated(address indexed token, bool supported);
@@ -138,24 +158,19 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
     error UnsupportedPaymentToken();
     error NotAuthorizedCreator();
 
-    constructor(
-        address _defaultToken,
-        address _oracle,
-        address _treasury,
-        address _owner
-    ) Ownable(_owner) {
+    constructor(address _defaultToken, address _oracle, address _treasury, address _owner) Ownable(_owner) {
         require(_defaultToken != address(0), "Invalid payment token");
         require(_oracle != address(0), "Invalid oracle");
         require(_treasury != address(0), "Invalid treasury");
-        
+
         paymentToken = IERC20(_defaultToken);
         oracle = IPredictionOracle(_oracle);
         treasury = _treasury;
-        
+
         // Enable default token
         supportedTokens[_defaultToken] = true;
     }
-    
+
     /**
      * @notice Add support for a new payment token (CLANKER, VIRTUAL, CLANKERMON, etc)
      * @param token Token address to enable/disable
@@ -166,7 +181,7 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
         supportedTokens[token] = supported;
         emit TokenSupportUpdated(token, supported);
     }
-    
+
     /**
      * @notice Get immutable elizaOS address for backwards compatibility
      */
@@ -180,14 +195,12 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
      * @param question Market question
      * @param liquidityParameter LMSR liquidity parameter (b)
      */
-    function createMarket(
-        bytes32 sessionId,
-        string calldata question,
-        uint256 liquidityParameter
-    ) external onlyOwner {
-        _createMarketWithType(sessionId, question, liquidityParameter, GameType.GENERIC, address(oracle), MarketCategory.GENERAL);
+    function createMarket(bytes32 sessionId, string calldata question, uint256 liquidityParameter) external onlyOwner {
+        _createMarketWithType(
+            sessionId, question, liquidityParameter, GameType.GENERIC, address(oracle), MarketCategory.GENERAL
+        );
     }
-    
+
     /**
      * @notice Create moderation market (authorized creators only)
      * @param sessionId Market ID
@@ -207,7 +220,7 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
         _createMarketWithType(sessionId, question, liquidityParameter, GameType.GENERIC, address(oracle), category);
         moderationMetadata[sessionId] = metadata;
     }
-    
+
     function createMarketWithType(
         bytes32 sessionId,
         string calldata question,
@@ -217,7 +230,7 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
     ) external onlyOwner {
         _createMarketWithType(sessionId, question, liquidityParameter, gameType, gameContract, MarketCategory.GENERAL);
     }
-    
+
     function _createMarketWithType(
         bytes32 sessionId,
         string calldata question,
@@ -259,13 +272,12 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
      * @param token Payment token (elizaOS, CLANKER, VIRTUAL, or CLANKERMON)
      * @return shares Number of shares purchased
      */
-    function buy(
-        bytes32 sessionId,
-        bool outcome,
-        uint256 tokenAmount,
-        uint256 minShares,
-        address token
-    ) external nonReentrant whenNotPaused returns (uint256 shares) {
+    function buy(bytes32 sessionId, bool outcome, uint256 tokenAmount, uint256 minShares, address token)
+        external
+        nonReentrant
+        whenNotPaused
+        returns (uint256 shares)
+    {
         Market storage market = markets[sessionId];
         if (market.createdAt == 0) revert MarketNotFound();
         if (market.resolved) revert MarketAlreadyResolved();
@@ -300,20 +312,20 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
 
         emit SharesPurchased(sessionId, msg.sender, outcome, shares, tokenAmount, token);
     }
-    
+
     /**
      * @notice Buy shares with default payment token (simple 4-param version)
      */
-    function buy(
-        bytes32 sessionId,
-        bool outcome,
-        uint256 tokenAmount,
-        uint256 minShares
-    ) external nonReentrant whenNotPaused returns (uint256 shares) {
+    function buy(bytes32 sessionId, bool outcome, uint256 tokenAmount, uint256 minShares)
+        external
+        nonReentrant
+        whenNotPaused
+        returns (uint256 shares)
+    {
         Market storage market = markets[sessionId];
         if (market.createdAt == 0) revert MarketNotFound();
         if (market.resolved) revert MarketAlreadyResolved();
-        
+
         // Use default payment token
         address token = address(paymentToken);
 
@@ -366,14 +378,14 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
         uint256 deadline
     ) external nonReentrant whenNotPaused returns (uint256 payout) {
         require(block.timestamp <= deadline, "Transaction expired");
-        
+
         Market storage market = markets[sessionId];
         if (market.createdAt == 0) revert MarketNotFound();
         if (market.resolved) revert MarketAlreadyResolved();
         if (!supportedTokens[token]) revert UnsupportedPaymentToken();
 
         Position storage position = positions[sessionId][msg.sender];
-        
+
         // Check user has enough shares
         if (outcome && position.yesShares < shareAmount) revert InsufficientShares();
         if (!outcome && position.noShares < shareAmount) revert InsufficientShares();
@@ -405,25 +417,25 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
 
         emit SharesSold(sessionId, msg.sender, outcome, shareAmount, payout, token);
     }
-    
+
     /**
      * @notice Sell shares with default payment token (simple 4-param version)
      */
-    function sell(
-        bytes32 sessionId,
-        bool outcome,
-        uint256 shareAmount,
-        uint256 minPayout
-    ) external nonReentrant whenNotPaused returns (uint256 payout) {
+    function sell(bytes32 sessionId, bool outcome, uint256 shareAmount, uint256 minPayout)
+        external
+        nonReentrant
+        whenNotPaused
+        returns (uint256 payout)
+    {
         Market storage market = markets[sessionId];
         if (market.createdAt == 0) revert MarketNotFound();
         if (market.resolved) revert MarketAlreadyResolved();
-        
+
         // Use default payment token
         address token = address(paymentToken);
 
         Position storage position = positions[sessionId][msg.sender];
-        
+
         // Check user has enough shares
         if (outcome && position.yesShares < shareAmount) revert InsufficientShares();
         if (!outcome && position.noShares < shareAmount) revert InsufficientShares();
@@ -493,12 +505,12 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
         if (winningShares == 0) revert NoWinningShares();
 
         uint256 totalWinningShares = market.outcome ? market.yesShares : market.noShares;
-        
+
         // Use market-specific pool instead of entire contract balance
         uint256 marketPool = marketTokenDeposits[sessionId][token];
         uint256 platformFeeAmount = (marketPool * PLATFORM_FEE) / BASIS_POINTS;
         uint256 payoutPool = marketPool - platformFeeAmount;
-        
+
         payout = (payoutPool * winningShares) / totalWinningShares;
         position.hasClaimed = true;
 
@@ -507,13 +519,13 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
 
         // Transfer platform fee to treasury
         IERC20(token).safeTransfer(treasury, platformFeeAmount);
-        
+
         // Transfer payout to user
         IERC20(token).safeTransfer(msg.sender, payout);
 
         emit PayoutClaimed(sessionId, msg.sender, payout);
     }
-    
+
     /**
      * @notice Claim with default payment token (backwards compatibility)
      */
@@ -532,12 +544,12 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
         if (winningShares == 0) revert NoWinningShares();
 
         uint256 totalWinningShares = market.outcome ? market.yesShares : market.noShares;
-        
+
         // Use market-specific pool instead of entire contract balance
         uint256 marketPool = marketTokenDeposits[sessionId][token];
         uint256 platformFeeAmount = (marketPool * PLATFORM_FEE) / BASIS_POINTS;
         uint256 payoutPool = marketPool - platformFeeAmount;
-        
+
         payout = (payoutPool * winningShares) / totalWinningShares;
         position.hasClaimed = true;
 
@@ -546,7 +558,7 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
 
         // Transfer platform fee to treasury
         IERC20(token).safeTransfer(treasury, platformFeeAmount);
-        
+
         // Transfer payout to user
         IERC20(token).safeTransfer(msg.sender, payout);
 
@@ -560,11 +572,11 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
      * @param elizaOSAmount Amount to spend
      * @return shares Number of shares received
      */
-    function calculateSharesReceived(
-        bytes32 sessionId,
-        bool outcome,
-        uint256 elizaOSAmount
-    ) public view returns (uint256 shares) {
+    function calculateSharesReceived(bytes32 sessionId, bool outcome, uint256 elizaOSAmount)
+        public
+        view
+        returns (uint256 shares)
+    {
         Market storage market = markets[sessionId];
         uint256 b = market.liquidityParameter;
         uint256 qYes = market.yesShares;
@@ -572,7 +584,7 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
 
         // Cost function: C(q) = b * ln(e^(q_yes/b) + e^(q_no/b))
         uint256 costBefore = _costFunction(qYes, qNo, b);
-        
+
         // Binary search to find shares that match the cost
         uint256 low = 0;
         uint256 high = elizaOSAmount * 10; // Upper bound estimate
@@ -601,18 +613,18 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
      * @param shareAmount Number of shares to sell
      * @return payout Amount of elizaOS received
      */
-    function calculatePayout(
-        bytes32 sessionId,
-        bool outcome,
-        uint256 shareAmount
-    ) public view returns (uint256 payout) {
+    function calculatePayout(bytes32 sessionId, bool outcome, uint256 shareAmount)
+        public
+        view
+        returns (uint256 payout)
+    {
         Market storage market = markets[sessionId];
         uint256 b = market.liquidityParameter;
         uint256 qYes = market.yesShares;
         uint256 qNo = market.noShares;
 
         uint256 costBefore = _costFunction(qYes, qNo, b);
-        
+
         uint256 newQYes = outcome ? qYes - shareAmount : qYes;
         uint256 newQNo = outcome ? qNo : qNo - shareAmount;
         uint256 costAfter = _costFunction(newQYes, newQNo, b);
@@ -677,12 +689,12 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
      */
     function _costFunction(uint256 qYes, uint256 qNo, uint256 b) internal pure returns (uint256) {
         require(b > 0, "Invalid liquidity");
-        
+
         // Simplified calculation using exp approximation
         uint256 expYes = _exp(qYes * 1e18 / b);
         uint256 expNo = _exp(qNo * 1e18 / b);
         uint256 sum = expYes + expNo;
-        
+
         return (b * _ln(sum)) / 1e18;
     }
 
@@ -693,11 +705,11 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
     function _exp(uint256 x) internal pure returns (uint256) {
         if (x == 0) return 1e18;
         if (x > 10e18) return type(uint256).max / 1e18; // Overflow protection
-        
+
         // e^x ≈ 1 + x + x^2/2! + x^3/3! + x^4/4! + x^5/5!
         uint256 result = 1e18;
         uint256 term = x;
-        
+
         result += term;
         term = (term * x) / (2 * 1e18);
         result += term;
@@ -707,7 +719,7 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
         result += term;
         term = (term * x) / (5 * 1e18);
         result += term;
-        
+
         return result;
     }
 
@@ -718,23 +730,23 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
     function _ln(uint256 x) internal pure returns (uint256) {
         require(x > 0, "ln(0) undefined");
         if (x == 1e18) return 0;
-        
+
         // For x close to 1, use Taylor series: ln(1+y) ≈ y - y^2/2 + y^3/3 - y^4/4
         if (x > 0.5e18 && x < 1.5e18) {
             int256 y = int256(x) - 1e18;
             int256 result = y;
             int256 term = y;
-            
+
             term = -(term * y) / 1e18 / 2;
             result += term;
             term = -(term * y) / 1e18 * 2 / 3;
             result += term;
             term = -(term * y) / 1e18 * 3 / 4;
             result += term;
-            
+
             return uint256(result);
         }
-        
+
         // For other values, use simpler approximation
         // ln(x) ≈ 2 * ((x-1)/(x+1))
         uint256 numerator = (x - 1e18) * 2 * 1e18;
@@ -755,7 +767,7 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
     function version() external pure returns (string memory) {
         return "1.0.0";
     }
-    
+
     /**
      * @notice Get markets filtered by game type
      * @param gameType The game type to filter by
@@ -770,7 +782,7 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
                 count++;
             }
         }
-        
+
         bytes32[] memory filtered = new bytes32[](count);
         uint256 index = 0;
         for (uint256 i = 0; i < allMarketIds.length; i++) {
@@ -778,10 +790,10 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
                 filtered[index++] = allMarketIds[i];
             }
         }
-        
+
         return filtered;
     }
-    
+
     /**
      * @notice Get markets for a specific game contract
      * @param gameContract Address of the game contract
@@ -794,7 +806,7 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
                 count++;
             }
         }
-        
+
         bytes32[] memory filtered = new bytes32[](count);
         uint256 index = 0;
         for (uint256 i = 0; i < allMarketIds.length; i++) {
@@ -802,10 +814,10 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
                 filtered[index++] = allMarketIds[i];
             }
         }
-        
+
         return filtered;
     }
-    
+
     /**
      * @notice Get markets by category (e.g., all moderation markets)
      * @param category Market category
@@ -818,7 +830,7 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
                 count++;
             }
         }
-        
+
         bytes32[] memory filtered = new bytes32[](count);
         uint256 index = 0;
         for (uint256 i = 0; i < allMarketIds.length; i++) {
@@ -826,10 +838,10 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
                 filtered[index++] = allMarketIds[i];
             }
         }
-        
+
         return filtered;
     }
-    
+
     /**
      * @notice Add authorized market creator (for moderation system)
      * @param creator Address to authorize
@@ -837,7 +849,7 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
     function addAuthorizedCreator(address creator) external onlyOwner {
         authorizedCreators[creator] = true;
     }
-    
+
     /**
      * @notice Remove authorized market creator
      * @param creator Address to remove
@@ -845,7 +857,7 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
     function removeAuthorizedCreator(address creator) external onlyOwner {
         authorizedCreators[creator] = false;
     }
-    
+
     /**
      * @notice Get moderation metadata for a market
      * @param sessionId Market ID
@@ -855,5 +867,3 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
         return moderationMetadata[sessionId];
     }
 }
-
-

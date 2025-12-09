@@ -6,7 +6,9 @@ import "../src/prediction-markets/Predimarket.sol";
 
 contract DeployPredimarket is Script {
     function run() external returns (address) {
-        uint256 deployerPrivateKey = vm.envOr("DEPLOYER_PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
+        uint256 deployerPrivateKey = vm.envOr(
+            "DEPLOYER_PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80)
+        );
         address deployer = vm.addr(deployerPrivateKey);
 
         // Get deployed addresses from environment or use localnet defaults
@@ -24,12 +26,7 @@ contract DeployPredimarket is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        Predimarket market = new Predimarket(
-            elizaOS,
-            oracle,
-            treasury,
-            deployer
-        );
+        Predimarket market = new Predimarket(elizaOS, oracle, treasury, deployer);
 
         vm.stopBroadcast();
 

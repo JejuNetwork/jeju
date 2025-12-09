@@ -1,6 +1,6 @@
 {
-  "network": "Base Sepolia",
-  "chainId": 84532,
+  "network": "Sepolia",
+  "chainId": 11155111,
   "deployer": "0x748D2E8439c81bFD56756B5d4983EE4565b1E62C",
   "contracts": {
     "registry": "0x99b39FA8ca3Bb067e67c0351059844744372aA58",

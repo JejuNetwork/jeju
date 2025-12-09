@@ -8,29 +8,29 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
  * @title MockJejuUSDC
  * @notice Mock USDC for localnet and testnet testing
  * @dev Simple ERC20 implementation for development/testing
- * 
+ *
  * Token Info:
  * - Name: USD Coin
  * - Symbol: USDC
  * - Price: $1.00 (stable)
  * - Decimals: 6 (matching real USDC)
  * - Max Supply: Unlimited (mint on demand)
- * 
+ *
  * Deployment Flow:
  * 1. Deploy on L1 (localnet)
  * 2. Bridge to L2 via Standard Bridge
  * 3. Use for paymaster, pools, and testing
- * 
+ *
  * Production Usage:
- * - For production, bridge real USDC from Base instead of deploying this
+ * - For production, bridge real USDC from Ethereum instead of deploying this
  * - This contract is for testing only
- * 
+ *
  * Treated identically to other protocol tokens (CLANKER, VIRTUAL, elizaOS).
  * No special privileges.
  */
 contract MockJejuUSDC is ERC20, Ownable {
     uint8 private constant DECIMALS = 6;
-    uint256 public constant INITIAL_SUPPLY = 100_000_000 * 10**DECIMALS; // 100M USDC
+    uint256 public constant INITIAL_SUPPLY = 100_000_000 * 10 ** DECIMALS; // 100M USDC
 
     constructor(address initialOwner) ERC20("USD Coin", "USDC") Ownable(initialOwner) {
         _mint(initialOwner, INITIAL_SUPPLY);
@@ -55,10 +55,10 @@ contract MockJejuUSDC is ERC20, Ownable {
      * @dev Gives 100,000 USDC
      */
     function faucet() external {
-        uint256 faucetAmount = 100_000 * 10**DECIMALS;
+        uint256 faucetAmount = 100_000 * 10 ** DECIMALS;
         _mint(msg.sender, faucetAmount);
     }
-    
+
     /**
      * @notice Burn tokens
      */
@@ -66,4 +66,3 @@ contract MockJejuUSDC is ERC20, Ownable {
         _burn(msg.sender, amount);
     }
 }
-

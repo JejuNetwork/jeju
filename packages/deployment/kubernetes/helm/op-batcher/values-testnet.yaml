@@ -1,0 +1,29 @@
+# OP-Batcher values for testnet
+
+replicaCount: 1
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+nodeSelector:
+  role: core
+
+tolerations:
+  - key: workload
+    operator: Equal
+    value: core
+    effect: NoSchedule
+
+config:
+  l1:
+    rpcUrl: "https://ethereum-sepolia-rpc.publicnode.com"
+  dataAvailability:
+    type: "eigenda"
+
+
+

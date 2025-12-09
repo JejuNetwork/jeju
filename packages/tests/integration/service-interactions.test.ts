@@ -219,7 +219,7 @@ describe('Service Interaction Tests', () => {
 
     it('should test oracle update flow', async () => {
       console.log('   ℹ️  Oracle update flow:');
-      console.log('       1. Oracle bot reads prices from Base');
+      console.log('       1. Oracle bot reads prices from Ethereum');
       console.log('       2. Bot calls updatePrices() on Jeju oracle');
       console.log('       3. Paymaster reads updated prices');
       console.log('       4. Paymaster calculates elizaOS fees');

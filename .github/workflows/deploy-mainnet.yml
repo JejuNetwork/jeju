@@ -4,13 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: 'Type "deploy-to-mainnet" to confirm'
+        description: 'Type "deploy-mainnet" to confirm'
         required: true
-      security_checklist_completed:
-        description: 'Security audit completed? (yes/no)'
-        required: true
-      testnet_stable_weeks:
-        description: 'How many weeks has testnet been stable?'
+      audit_complete:
+        description: 'Security audit complete? (yes/no)'
         required: true
 
 permissions:
@@ -19,272 +16,157 @@ permissions:
 
 env:
   AWS_REGION: us-east-1
-  ENVIRONMENT: mainnet
+  NETWORK: mainnet
 
 jobs:
   validate-prerequisites:
     name: Validate Prerequisites
     runs-on: ubuntu-latest
-    
     steps:
       - name: Validate confirmation
+        if: github.event.inputs.confirm != 'deploy-mainnet'
         run: |
-          if [ "${{ github.event.inputs.confirm }}" != "deploy-to-mainnet" ]; then
-            echo "❌ Deployment cancelled - confirmation not provided"
-            exit 1
-          fi
-      
+          echo "❌ Confirmation required"
+          exit 1
+
       - name: Validate security audit
+        if: github.event.inputs.audit_complete != 'yes'
         run: |
-          if [ "${{ github.event.inputs.security_checklist_completed }}" != "yes" ]; then
-            echo "❌ Security audit must be completed before mainnet deployment"
-            exit 1
-          fi
-      
-      - name: Validate testnet stability
-        run: |
-          if [ "${{ github.event.inputs.testnet_stable_weeks }}" -lt "4" ]; then
-            echo "❌ Testnet must be stable for at least 4 weeks before mainnet"
-            exit 1
-          fi
-      
-      - name: Validate required secrets
-        run: |
-          MISSING_SECRETS=""
-          
-          if [ -z "${{ secrets.AWS_ROLE_ARN_MAINNET }}" ]; then
-            MISSING_SECRETS="${MISSING_SECRETS}AWS_ROLE_ARN_MAINNET "
-          fi
-          
-          if [ -z "${{ secrets.DEPLOYER_PRIVATE_KEY_MAINNET }}" ]; then
-            MISSING_SECRETS="${MISSING_SECRETS}DEPLOYER_PRIVATE_KEY_MAINNET "
-          fi
-          
-          if [ -z "${{ secrets.DEPLOYER_ADDRESS }}" ]; then
-            MISSING_SECRETS="${MISSING_SECRETS}DEPLOYER_ADDRESS "
-          fi
-          
-          if [ -z "${{ secrets.BASESCAN_API_KEY }}" ]; then
-            MISSING_SECRETS="${MISSING_SECRETS}BASESCAN_API_KEY "
-          fi
-          
-          if [ -n "$MISSING_SECRETS" ]; then
-            echo "❌ Missing required secrets: $MISSING_SECRETS"
-            echo "Please configure these secrets in GitHub repository settings"
-            exit 1
-          fi
-          
-          echo "✅ All required secrets are configured"
-      
-      - name: Prerequisites validated
-        run: |
-          echo "✅ All prerequisites validated"
-          echo "✅ Confirmation received"
-          echo "✅ Security audit completed"
-          echo "✅ Testnet stable for ${{ github.event.inputs.testnet_stable_weeks }} weeks"
-          echo "✅ Required secrets configured"
+          echo "❌ Security audit must be complete"
+          exit 1
+
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Validate configurations
+        run: bun run infra:validate
 
   deploy-infrastructure:
     name: Deploy Infrastructure
     runs-on: ubuntu-latest
     needs: validate-prerequisites
-    # Environment 'mainnet' must be created in GitHub repository settings first
-    # See: Settings > Environments > New environment
-    environment:
-      name: mainnet
-      url: https://rpc.jeju.network
-    
+    environment: mainnet
+    outputs:
+      eks-cluster: ${{ steps.output.outputs.eks_cluster_name }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN_MAINNET }}
-          aws-region: ${{ env.AWS_REGION }}
-      
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+      - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.0
-      
-      - name: Terraform Init
-        working-directory: terraform/environments/mainnet
-        run: terraform init
-      
-      - name: Terraform Plan
-        working-directory: terraform/environments/mainnet
-        run: terraform plan -out=tfplan
-      
-      - name: Upload plan for review
-        uses: actions/upload-artifact@v4
-        with:
-          name: terraform-plan
-          path: terraform/environments/mainnet/tfplan
-      
-      - name: Terraform Apply
-        working-directory: terraform/environments/mainnet
-        run: terraform apply -auto-approve tfplan
-      
-      - name: Save outputs
-        working-directory: terraform/environments/mainnet
-        run: terraform output -json > outputs.json
-      
-      - name: Upload outputs
-        uses: actions/upload-artifact@v4
-        with:
-          name: terraform-outputs
-          path: terraform/environments/mainnet/outputs.json
 
-  deploy-contracts:
-    name: Deploy Contracts to Base
-    runs-on: ubuntu-latest
-    needs: deploy-infrastructure
-    environment:
-      name: mainnet
-      url: https://rpc.jeju.network
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-      
-      - name: Install dependencies
-        run: bun install
-      
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-      
-      - name: Deploy L1 contracts to Base Mainnet
-        env:
-          DEPLOYER_PRIVATE_KEY: ${{ secrets.DEPLOYER_PRIVATE_KEY_MAINNET }}
-          DEPLOYER_ADDRESS: ${{ secrets.DEPLOYER_ADDRESS }}
-          L1_RPC_URL: https://mainnet.base.org
-          L1_CHAIN_ID: 8453
-          BASESCAN_API_KEY: ${{ secrets.BASESCAN_API_KEY }}
-        run: bun run deploy:mainnet
-      
-      - name: Verify contracts on BaseScan
-        env:
-          BASESCAN_API_KEY: ${{ secrets.BASESCAN_API_KEY }}
-        run: bun run verify:mainnet
-      
-      - name: Upload deployment artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: contract-deployments
-          path: contracts/deployments/mainnet/
-      
-      - name: Create deployment report
-        run: |
-          echo "# Mainnet Deployment Report" > deployment-report.md
-          echo "" >> deployment-report.md
-          echo "**Date**: $(date)" >> deployment-report.md
-          echo "**Settlement Layer**: Base (Chain ID 8453)" >> deployment-report.md
-          echo "**Deployer**: ${{ secrets.DEPLOYER_ADDRESS }}" >> deployment-report.md
-          echo "" >> deployment-report.md
-          echo "## Deployed Contracts" >> deployment-report.md
-          cat contracts/deployments/mainnet/deployment.json | jq '.' >> deployment-report.md
-      
-      - name: Upload deployment report
-        uses: actions/upload-artifact@v4
-        with:
-          name: deployment-report
-          path: deployment-report.md
-
-  deploy-kubernetes:
-    name: Deploy Kubernetes Services
-    runs-on: ubuntu-latest
-    needs: [deploy-infrastructure, deploy-contracts]
-    environment:
-      name: mainnet
-      url: https://rpc.jeju.network
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_MAINNET }}
           aws-region: ${{ env.AWS_REGION }}
-      
-      - name: Download Terraform outputs
-        uses: actions/download-artifact@v4
-        with:
-          name: terraform-outputs
-      
-      - name: Download contract deployments
-        uses: actions/download-artifact@v4
-        with:
-          name: contract-deployments
-          path: contracts/deployments/mainnet/
-      
-      - name: Update kubeconfig
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Terraform Plan
         run: |
-          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name jeju-mainnet
-      
-      - name: Create Kubernetes namespaces
+          cd packages/deployment
+          NETWORK=mainnet bun run infra:plan
+
+      - name: Terraform Apply
         run: |
-          kubectl create namespace op-stack --dry-run=client -o yaml | kubectl apply -f -
-          kubectl create namespace execution --dry-run=client -o yaml | kubectl apply -f -
-          kubectl create namespace da --dry-run=client -o yaml | kubectl apply -f -
-          kubectl create namespace explorer --dry-run=client -o yaml | kubectl apply -f -
-          kubectl create namespace observability --dry-run=client -o yaml | kubectl apply -f -
-          kubectl create namespace infra --dry-run=client -o yaml | kubectl apply -f -
-      
+          cd packages/deployment
+          NETWORK=mainnet bun run infra:apply
+
+      - name: Get outputs
+        id: output
+        run: |
+          cd packages/deployment/terraform/environments/mainnet
+          echo "eks_cluster_name=$(terraform output -raw eks_cluster_name)" >> $GITHUB_OUTPUT
+
+  build-and-push:
+    name: Build Images
+    runs-on: ubuntu-latest
+    needs: validate-prerequisites
+    strategy:
+      matrix:
+        app: [bazaar, gateway, leaderboard, ipfs, documentation, indexer]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_MAINNET }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: login-ecr
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build and push ${{ matrix.app }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ./apps/${{ matrix.app }}
+          file: ./apps/${{ matrix.app }}/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/jeju/${{ matrix.app }}:mainnet-${{ github.sha }}
+            ${{ steps.login-ecr.outputs.registry }}/jeju/${{ matrix.app }}:mainnet-latest
+          platforms: linux/amd64
+
+  deploy-kubernetes:
+    name: Deploy to Kubernetes
+    runs-on: ubuntu-latest
+    needs: [build-and-push, deploy-infrastructure]
+    environment: mainnet
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_MAINNET }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Configure kubectl
+        run: |
+          aws eks update-kubeconfig \
+            --name ${{ needs.deploy-infrastructure.outputs.eks-cluster }} \
+            --region ${{ env.AWS_REGION }}
+
       - name: Install Helmfile
         run: |
-          wget https://github.com/helmfile/helmfile/releases/download/v0.162.0/helmfile_0.162.0_linux_amd64.tar.gz
+          wget -q https://github.com/helmfile/helmfile/releases/download/v0.162.0/helmfile_0.162.0_linux_amd64.tar.gz
           tar -xzf helmfile_0.162.0_linux_amd64.tar.gz
           sudo mv helmfile /usr/local/bin/
-      
-      - name: Deploy Helm charts
-        working-directory: kubernetes/helmfile
+
+      - name: Deploy with Helmfile
         run: |
-          helmfile -e mainnet sync
-      
+          cd packages/deployment
+          NETWORK=mainnet bun run k8s:deploy
+
       - name: Wait for rollout
         run: |
-          kubectl rollout status statefulset/reth-sequencer -n execution --timeout=15m
-          kubectl rollout status deployment/op-node -n op-stack --timeout=10m
-          kubectl rollout status deployment/op-batcher -n op-stack --timeout=10m
-          kubectl rollout status deployment/op-proposer -n op-stack --timeout=10m
+          kubectl rollout status deployment/bazaar -n jeju-apps --timeout=15m
+          kubectl rollout status deployment/gateway -n jeju-apps --timeout=15m
 
-  health-check:
-    name: Health Check
+  verify:
+    name: Verify Deployment
     runs-on: ubuntu-latest
     needs: deploy-kubernetes
-    
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-      
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-      
-      - name: Run health checks
-        env:
-          L1_RPC_URL: https://mainnet.base.org
-          L2_RPC_URL: https://rpc.jeju.network
+      - uses: actions/checkout@v4
+      - uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Health checks
         run: |
-          # Test Jeju is responding
-          cast block latest --rpc-url $L2_RPC_URL
-          
-          # Test can send transactions
-          echo "✅ Jeju RPC responding"
-          
-          # Verify settlement layer connectivity
-          cast block latest --rpc-url $L1_RPC_URL
-          echo "✅ Base connectivity confirmed"
+          cast block latest --rpc-url https://rpc.jeju.network
+          echo "✅ Mainnet RPC responding"
+
+      - name: Notify success
+        run: echo "✅ Mainnet deployment complete"

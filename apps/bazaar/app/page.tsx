@@ -1,93 +1,41 @@
 import Link from 'next/link'
-import { ArrowRightIcon } from '@radix-ui/react-icons'
+
+const features = [
+  { href: '/coins', icon: '🪙', title: 'Coins' },
+  { href: '/swap', icon: '🔄', title: 'Swap' },
+  { href: '/pools', icon: '💧', title: 'Pools' },
+  { href: '/markets', icon: '📊', title: 'Markets' },
+  { href: '/items', icon: '🖼️', title: 'Items' },
+  { href: '/names', icon: '🏷️', title: 'Names' },
+  { href: '/games', icon: '🎮', title: 'Games' },
+]
 
 export default function Home() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[80vh] text-center">
-      <h1 className="text-6xl font-bold mb-4 bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
-        Welcome to Bazaar
-      </h1>
-      <p className="text-xl text-slate-300 mb-8 max-w-2xl">
-        The unified DeFi + NFT + Token Launchpad on Jeju. 
-        Create and trade tokens, swap with Uniswap V4, provide liquidity, trade NFTs, and bet on prediction markets - all in one place.
-      </p>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-8 w-full max-w-6xl">
-        <Link href="/coins" className="group">
-          <div className="p-6 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all hover:scale-105">
-            <div className="text-4xl mb-4">🪙</div>
-            <h3 className="text-2xl font-bold mb-2">Coins</h3>
-            <p className="text-slate-400 mb-4">
-              Create and trade multi-chain coins
-            </p>
-            <div className="flex items-center text-purple-400 group-hover:translate-x-2 transition-transform">
-              <span>Launch Coin</span>
-              <ArrowRightIcon className="ml-2" />
-            </div>
-          </div>
-        </Link>
-
-        <Link href="/swap" className="group">
-          <div className="p-6 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all hover:scale-105">
-            <div className="text-4xl mb-4">🔄</div>
-            <h3 className="text-2xl font-bold mb-2">Swap</h3>
-            <p className="text-slate-400 mb-4">
-              Trade tokens with Uniswap V4 hooks
-            </p>
-            <div className="flex items-center text-purple-400 group-hover:translate-x-2 transition-transform">
-              <span>Start Swapping</span>
-              <ArrowRightIcon className="ml-2" />
-            </div>
-          </div>
-        </Link>
-
-        <Link href="/pools" className="group">
-          <div className="p-6 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all hover:scale-105">
-            <div className="text-4xl mb-4">💧</div>
-            <h3 className="text-2xl font-bold mb-2">Pools</h3>
-            <p className="text-slate-400 mb-4">
-              Provide liquidity and earn fees
-            </p>
-            <div className="flex items-center text-purple-400 group-hover:translate-x-2 transition-transform">
-              <span>Explore Pools</span>
-              <ArrowRightIcon className="ml-2" />
-            </div>
-          </div>
-        </Link>
-
-        <Link href="/markets" className="group">
-          <div className="p-6 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all hover:scale-105">
-            <div className="text-4xl mb-4">📊</div>
-            <h3 className="text-2xl font-bold mb-2">Markets</h3>
-            <p className="text-slate-400 mb-4">
-              Prediction markets on real events
-            </p>
-            <div className="flex items-center text-purple-400 group-hover:translate-x-2 transition-transform">
-              <span>Trade Predictions</span>
-              <ArrowRightIcon className="ml-2" />
-            </div>
-          </div>
-        </Link>
-
-        <Link href="/items" className="group">
-          <div className="p-6 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all hover:scale-105">
-            <div className="text-4xl mb-4">🖼️</div>
-            <h3 className="text-2xl font-bold mb-2">Items</h3>
-            <p className="text-slate-400 mb-4">
-              Browse and trade items
-            </p>
-            <div className="flex items-center text-purple-400 group-hover:translate-x-2 transition-transform">
-              <span>View Marketplace</span>
-              <ArrowRightIcon className="ml-2" />
-            </div>
-          </div>
-        </Link>
+    <div className="flex flex-col items-center justify-center min-h-[70vh]">
+      <div className="text-center mb-12">
+        <h1 className="text-5xl md:text-7xl font-bold mb-4">
+          <span className="text-gradient">Bazaar</span>
+        </h1>
+        <p className="text-lg" style={{ color: 'var(--text-secondary)' }}>
+          DeFi on Jeju
+        </p>
       </div>
 
-      <div className="mt-16 text-slate-400">
-        <p>Powered by Uniswap V4 on Jeju</p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 w-full max-w-3xl">
+        {features.map((feature) => (
+          <Link key={feature.href} href={feature.href} className="group">
+            <div className="card p-6 text-center hover:border-bazaar-primary">
+              <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">
+                {feature.icon}
+              </div>
+              <div className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                {feature.title}
+              </div>
+            </div>
+          </Link>
+        ))}
       </div>
     </div>
   )
 }
-

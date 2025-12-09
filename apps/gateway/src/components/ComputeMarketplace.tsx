@@ -3,7 +3,7 @@
  * @module gateway/components/ComputeMarketplace
  */
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { formatEther } from 'viem';
 import { useAccount } from 'wagmi';
 import {
@@ -14,13 +14,10 @@ import {
   useRental,
   useCancelRental,
   GPU_NAMES,
-  GPUType,
   RentalStatus,
   STATUS_LABELS,
   formatDuration,
   formatHourlyRate,
-  type ProviderResources,
-  type Rental,
 } from '../hooks/useComputeRental';
 
 // ============================================================================
@@ -84,9 +81,9 @@ function ProviderCard({ provider, onRent }: ProviderCardProps) {
       className="card"
       style={{
         padding: '1.5rem',
-        border: '1px solid #e2e8f0',
+        border: '1px solid var(--border)',
         borderRadius: '12px',
-        background: 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)',
+        background: 'linear-gradient(135deg, var(--surface-hover) 0%, var(--surface) 100%)',
       }}
     >
       {/* Header */}
@@ -95,19 +92,19 @@ function ProviderCard({ provider, onRent }: ProviderCardProps) {
           <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '600' }}>
             {provider.name}
           </h3>
-          <p style={{ margin: '0.25rem 0 0', fontSize: '0.875rem', color: '#64748b' }}>
+          <p style={{ margin: '0.25rem 0 0', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
             📍 {provider.location}
           </p>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: '0.875rem', color: '#eab308' }}>
+          <div style={{ fontSize: '0.875rem', color: 'var(--warning)' }}>
             {'⭐'.repeat(Math.floor(provider.rating))} {provider.rating}
           </div>
           <div
             style={{
               marginTop: '0.25rem',
               fontSize: '0.75rem',
-              color: available > 0 ? '#16a34a' : '#dc2626',
+              color: available > 0 ? 'var(--success)' : 'var(--error)',
             }}
           >
             {available > 0 ? `${available} slots available` : 'Fully booked'}
@@ -124,26 +121,26 @@ function ProviderCard({ provider, onRent }: ProviderCardProps) {
             gap: '0.75rem',
             marginBottom: '1rem',
             padding: '1rem',
-            background: '#f1f5f9',
+            background: 'var(--surface-active)',
             borderRadius: '8px',
           }}
         >
           <div>
-            <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b' }}>GPU</p>
+            <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>GPU</p>
             <p style={{ margin: 0, fontWeight: '600' }}>
               {resources.resources.gpuCount}x {gpuName}
             </p>
           </div>
           <div>
-            <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b' }}>VRAM</p>
+            <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>VRAM</p>
             <p style={{ margin: 0, fontWeight: '600' }}>{resources.resources.gpuVram} GB</p>
           </div>
           <div>
-            <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b' }}>CPU</p>
+            <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>CPU</p>
             <p style={{ margin: 0, fontWeight: '600' }}>{resources.resources.cpuCores} cores</p>
           </div>
           <div>
-            <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b' }}>RAM</p>
+            <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>RAM</p>
             <p style={{ margin: 0, fontWeight: '600' }}>{resources.resources.memory} GB</p>
           </div>
         </div>
@@ -155,8 +152,8 @@ function ProviderCard({ provider, onRent }: ProviderCardProps) {
           <span
             style={{
               padding: '0.25rem 0.5rem',
-              background: '#dcfce7',
-              color: '#16a34a',
+              background: 'var(--success-soft)',
+              color: 'var(--success)',
               borderRadius: '4px',
               fontSize: '0.75rem',
             }}
@@ -168,8 +165,8 @@ function ProviderCard({ provider, onRent }: ProviderCardProps) {
           <span
             style={{
               padding: '0.25rem 0.5rem',
-              background: '#dbeafe',
-              color: '#2563eb',
+              background: 'var(--info-soft)',
+              color: 'var(--info)',
               borderRadius: '4px',
               fontSize: '0.75rem',
             }}
@@ -181,8 +178,8 @@ function ProviderCard({ provider, onRent }: ProviderCardProps) {
           <span
             style={{
               padding: '0.25rem 0.5rem',
-              background: '#fef3c7',
-              color: '#d97706',
+              background: 'var(--warning-soft)',
+              color: 'var(--warning)',
               borderRadius: '4px',
               fontSize: '0.75rem',
             }}
@@ -195,11 +192,11 @@ function ProviderCard({ provider, onRent }: ProviderCardProps) {
       {/* Pricing & Action */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <p style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#0f172a' }}>
+          <p style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: 'var(--text-primary)' }}>
             {formatHourlyRate(hourlyRate)}
           </p>
           {resources?.pricing.pricePerGpuHour && resources.pricing.pricePerGpuHour > 0n && (
-            <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b' }}>
+            <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
               +{formatHourlyRate(resources.pricing.pricePerGpuHour)}/GPU
             </p>
           )}
@@ -210,7 +207,7 @@ function ProviderCard({ provider, onRent }: ProviderCardProps) {
           disabled={available === 0}
           style={{
             padding: '0.75rem 1.5rem',
-            background: available > 0 ? '#2563eb' : '#94a3b8',
+            background: available > 0 ? 'var(--info)' : 'var(--text-muted)',
             color: 'white',
             border: 'none',
             borderRadius: '8px',
@@ -269,14 +266,14 @@ function RentalForm({ provider, onClose }: RentalFormProps) {
       >
         <div
           style={{
-            background: 'white',
+            background: 'var(--surface)',
             padding: '2rem',
             borderRadius: '12px',
             maxWidth: '400px',
             textAlign: 'center',
           }}
         >
-          <h2 style={{ color: '#16a34a' }}>✅ Rental Created!</h2>
+          <h2 style={{ color: 'var(--success)' }}>✅ Rental Created!</h2>
           <p>Your compute rental has been created. Check "My Rentals" for SSH access details.</p>
           <button className="button" onClick={onClose} style={{ marginTop: '1rem' }}>
             Close
@@ -301,7 +298,7 @@ function RentalForm({ provider, onClose }: RentalFormProps) {
     >
       <div
         style={{
-          background: 'white',
+          background: 'var(--surface)',
           padding: '2rem',
           borderRadius: '12px',
           maxWidth: '500px',
@@ -326,7 +323,7 @@ function RentalForm({ provider, onClose }: RentalFormProps) {
               value={durationHours}
               onChange={(e) => setDurationHours(Number(e.target.value))}
             />
-            <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
               Min: {minHours}h, Max: {maxHours}h ({Math.floor(maxHours / 24)} days)
             </p>
           </div>
@@ -345,7 +342,7 @@ function RentalForm({ provider, onClose }: RentalFormProps) {
               required
               style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
             />
-            <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
               Paste your public key (e.g., from ~/.ssh/id_ed25519.pub)
             </p>
           </div>
@@ -385,7 +382,7 @@ function RentalForm({ provider, onClose }: RentalFormProps) {
           <div
             style={{
               padding: '1rem',
-              background: '#f1f5f9',
+              background: 'var(--surface-active)',
               borderRadius: '8px',
               marginBottom: '1.5rem',
             }}
@@ -408,7 +405,7 @@ function RentalForm({ provider, onClose }: RentalFormProps) {
               style={{
                 flex: 1,
                 padding: '0.75rem',
-                background: '#e2e8f0',
+                background: 'var(--border)',
                 border: 'none',
                 borderRadius: '8px',
                 cursor: 'pointer',
@@ -423,7 +420,7 @@ function RentalForm({ provider, onClose }: RentalFormProps) {
               style={{
                 flex: 1,
                 padding: '0.75rem',
-                background: '#2563eb',
+                background: 'var(--info)',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
@@ -444,7 +441,7 @@ function RentalForm({ provider, onClose }: RentalFormProps) {
 // ============================================================================
 
 function MyRentals() {
-  const { rentalIds, refetchIds } = useUserRentals();
+  const { rentalIds, refetchIds: _refetchIds } = useUserRentals();
   const { cancelRental, isCancelling } = useCancelRental();
 
   if (rentalIds.length === 0) {
@@ -453,11 +450,11 @@ function MyRentals() {
         style={{
           padding: '2rem',
           textAlign: 'center',
-          background: '#f8fafc',
+          background: 'var(--surface-hover)',
           borderRadius: '12px',
         }}
       >
-        <p style={{ color: '#64748b' }}>No active rentals. Browse providers to get started!</p>
+        <p style={{ color: 'var(--text-secondary)' }}>No active rentals. Browse providers to get started!</p>
       </div>
     );
   }
@@ -504,7 +501,7 @@ function RentalCard({ rentalId, onCancel, isCancelling }: RentalCardProps) {
       className="card"
       style={{
         padding: '1.5rem',
-        border: isActive ? '2px solid #16a34a' : '1px solid #e2e8f0',
+        border: isActive ? '2px solid var(--success)' : '1px solid var(--border)',
         borderRadius: '12px',
       }}
     >
@@ -513,8 +510,8 @@ function RentalCard({ rentalId, onCancel, isCancelling }: RentalCardProps) {
           <span
             style={{
               padding: '0.25rem 0.5rem',
-              background: isActive ? '#dcfce7' : '#f1f5f9',
-              color: isActive ? '#16a34a' : '#64748b',
+              background: isActive ? 'var(--success-soft)' : 'var(--surface-active)',
+              color: isActive ? 'var(--success)' : 'var(--text-secondary)',
               borderRadius: '4px',
               fontSize: '0.75rem',
               fontWeight: '600',
@@ -523,7 +520,7 @@ function RentalCard({ rentalId, onCancel, isCancelling }: RentalCardProps) {
             {STATUS_LABELS[rental.status]}
           </span>
         </div>
-        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
           ID: {rentalId.slice(0, 10)}...
         </div>
       </div>
@@ -533,7 +530,7 @@ function RentalCard({ rentalId, onCancel, isCancelling }: RentalCardProps) {
         <div
           style={{
             padding: '1rem',
-            background: '#f0fdf4',
+            background: 'var(--success-soft)',
             borderRadius: '8px',
             marginBottom: '1rem',
           }}
@@ -543,8 +540,8 @@ function RentalCard({ rentalId, onCancel, isCancelling }: RentalCardProps) {
             style={{
               display: 'block',
               padding: '0.5rem',
-              background: '#1e293b',
-              color: '#22c55e',
+              background: 'var(--text-primary)',
+              color: 'var(--success)',
               borderRadius: '4px',
               fontSize: '0.75rem',
               wordBreak: 'break-all',
@@ -558,7 +555,7 @@ function RentalCard({ rentalId, onCancel, isCancelling }: RentalCardProps) {
       {/* Time Remaining */}
       {isActive && (
         <div style={{ marginBottom: '1rem' }}>
-          <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b' }}>Time Remaining:</p>
+          <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Time Remaining:</p>
           <p style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700' }}>
             {formatDuration(remainingSeconds)}
           </p>
@@ -567,7 +564,7 @@ function RentalCard({ rentalId, onCancel, isCancelling }: RentalCardProps) {
 
       {/* Cost */}
       <div style={{ marginBottom: '1rem' }}>
-        <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b' }}>Total Cost:</p>
+        <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Total Cost:</p>
         <p style={{ margin: 0, fontSize: '1rem', fontWeight: '600' }}>
           {formatEther(rental.totalCost)} ETH
         </p>
@@ -581,8 +578,8 @@ function RentalCard({ rentalId, onCancel, isCancelling }: RentalCardProps) {
           style={{
             width: '100%',
             padding: '0.75rem',
-            background: '#fee2e2',
-            color: '#dc2626',
+            background: 'var(--error-soft)',
+            color: 'var(--error)',
             border: 'none',
             borderRadius: '8px',
             cursor: isCancelling ? 'wait' : 'pointer',
@@ -600,7 +597,7 @@ function RentalCard({ rentalId, onCancel, isCancelling }: RentalCardProps) {
 // ============================================================================
 
 export default function ComputeMarketplace() {
-  const { address, isConnected } = useAccount();
+  const { isConnected } = useAccount();
   const [selectedProvider, setSelectedProvider] = useState<`0x${string}` | null>(null);
   const [activeTab, setActiveTab] = useState<'browse' | 'my-rentals'>('browse');
 
@@ -608,7 +605,7 @@ export default function ComputeMarketplace() {
     return (
       <div className="card" style={{ padding: '2rem', textAlign: 'center' }}>
         <h2>Compute Marketplace</h2>
-        <p style={{ color: '#64748b' }}>Connect your wallet to browse and rent compute resources.</p>
+        <p style={{ color: 'var(--text-secondary)' }}>Connect your wallet to browse and rent compute resources.</p>
       </div>
     );
   }
@@ -617,8 +614,8 @@ export default function ComputeMarketplace() {
     <div>
       {/* Header */}
       <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{ margin: '0 0 0.5rem' }}>🖥️ Compute Marketplace</h1>
-        <p style={{ margin: 0, color: '#64748b' }}>
+        <h1 style={{ margin: '0 0 0.5rem', fontSize: '1.25rem' }}>Compute Marketplace</h1>
+        <p style={{ margin: 0, color: 'var(--text-secondary)' }}>
           Rent GPU compute with SSH access. Similar to vast.ai, but decentralized.
         </p>
       </div>
@@ -629,7 +626,7 @@ export default function ComputeMarketplace() {
           display: 'flex',
           gap: '1rem',
           marginBottom: '1.5rem',
-          borderBottom: '1px solid #e2e8f0',
+          borderBottom: '1px solid var(--border)',
           paddingBottom: '1rem',
         }}
       >
@@ -637,8 +634,8 @@ export default function ComputeMarketplace() {
           onClick={() => setActiveTab('browse')}
           style={{
             padding: '0.5rem 1rem',
-            background: activeTab === 'browse' ? '#2563eb' : 'transparent',
-            color: activeTab === 'browse' ? 'white' : '#64748b',
+            background: activeTab === 'browse' ? 'var(--info)' : 'transparent',
+            color: activeTab === 'browse' ? 'white' : 'var(--text-secondary)',
             border: 'none',
             borderRadius: '8px',
             cursor: 'pointer',
@@ -651,8 +648,8 @@ export default function ComputeMarketplace() {
           onClick={() => setActiveTab('my-rentals')}
           style={{
             padding: '0.5rem 1rem',
-            background: activeTab === 'my-rentals' ? '#2563eb' : 'transparent',
-            color: activeTab === 'my-rentals' ? 'white' : '#64748b',
+            background: activeTab === 'my-rentals' ? 'var(--info)' : 'transparent',
+            color: activeTab === 'my-rentals' ? 'white' : 'var(--text-secondary)',
             border: 'none',
             borderRadius: '8px',
             cursor: 'pointer',

@@ -2,59 +2,45 @@
 
 ## Localnet
 
-```bash
-cd contracts
-forge script script/Deploy.s.sol --broadcast --rpc-url http://localhost:9545 \
-  --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-```
+Auto-deployed on `bun run dev`. Addresses in `packages/contracts/deployments/`.
 
 ## Testnet
 
 ```bash
-forge script script/Deploy.s.sol --broadcast \
+export DEPLOYER_PRIVATE_KEY=0x...
+
+cd packages/contracts
+forge script script/Deploy.s.sol \
   --rpc-url https://testnet-rpc.jeju.network \
-  --private-key $TESTNET_KEY --verify
+  --broadcast
 ```
+
+Get testnet ETH: https://www.alchemy.com/faucets/base-sepolia
 
 ## Mainnet
 
 ```bash
-forge script script/Deploy.s.sol --broadcast \
+export DEPLOYER_PRIVATE_KEY=0x...
+
+cd packages/contracts
+forge script script/Deploy.s.sol \
   --rpc-url https://rpc.jeju.network \
-  --private-key $MAINNET_KEY --verify
+  --broadcast \
+  --verify
 ```
 
-## Core Deployments
+## Verify
 
 ```bash
-# Liquidity system
-forge script script/DeployLiquiditySystem.s.sol --broadcast
-
-# Node rewards
-forge script script/DeployRewards.s.sol --broadcast
-
-# Oracle
-forge script script/DeployCrossChainOracle.s.sol --broadcast
+forge verify-contract <address> <Contract> --chain-id 420690
 ```
 
-## Verification
-
-```bash
-forge verify-contract \
-  --chain-id 420691 \
-  --compiler-version v0.8.28 \
-  $CONTRACT_ADDRESS src/YourContract.sol:YourContract
-```
-
-## TypeScript
+## Access Addresses
 
 ```typescript
-import { ethers } from 'ethers';
+import { getContractAddress } from '@jejunetwork/config';
 
-const provider = new ethers.JsonRpcProvider('https://rpc.jeju.network');
-const wallet = new ethers.Wallet(privateKey, provider);
-const factory = new ethers.ContractFactory(abi, bytecode, wallet);
-const contract = await factory.deploy(...args);
-await contract.waitForDeployment();
-console.log('Deployed:', await contract.getAddress());
+const registry = getContractAddress('identityRegistry');
 ```
+
+Addresses saved to `packages/contracts/deployments/<network>/deployment.json`.

@@ -15,15 +15,15 @@ contract GameTokensTest is Test {
     address public owner = address(this);
     address public gameSigner;
     uint256 public gameSignerKey;
-    
+
     uint256 public gameAgentId = 1; // Simulated IdentityRegistry agent ID
-    
+
     address public playerA = address(0x1);
     address public playerB = address(0x2);
 
     // Item IDs
     uint256 public arrowsId; // Stackable
-    uint256 public swordId;  // Non-stackable
+    uint256 public swordId; // Non-stackable
 
     function setUp() public {
         // Generate game signer
@@ -42,20 +42,20 @@ contract GameTokensTest is Test {
         // Create item types
         arrowsId = items.createItemType(
             "Bronze Arrows",
-            true,  // stackable
-            5,     // attack
-            0,     // defense
-            0,     // strength
-            0      // rarity: Common
+            true, // stackable
+            5, // attack
+            0, // defense
+            0, // strength
+            0 // rarity: Common
         );
 
         swordId = items.createItemType(
             "Legendary Sword",
             false, // non-stackable
-            50,    // attack
-            0,     // defense
-            10,    // strength
-            4      // rarity: Legendary
+            50, // attack
+            0, // defense
+            10, // strength
+            4 // rarity: Legendary
         );
 
         // Fund players with ETH
@@ -66,7 +66,7 @@ contract GameTokensTest is Test {
     // ============ Gold Tests ============
 
     function test_ClaimGold() public {
-        uint256 amount = 1000 * 10**18;
+        uint256 amount = 1000 * 10 ** 18;
         uint256 nonce = 0;
 
         // Generate signature
@@ -86,8 +86,8 @@ contract GameTokensTest is Test {
     function test_BurnGold() public {
         // First claim some gold
         test_ClaimGold();
-        
-        uint256 burnAmount = 500 * 10**18;
+
+        uint256 burnAmount = 500 * 10 ** 18;
         uint256 initialBalance = gold.balanceOf(playerA);
 
         vm.prank(playerA);
@@ -164,7 +164,7 @@ contract GameTokensTest is Test {
         items.mintItem(swordId, amount, instanceId, signature);
 
         assertEq(items.balanceOf(playerA, swordId), 1);
-        
+
         // Check instance is marked as minted and WHO minted it
         (bool minted, address minter) = items.checkInstance(instanceId);
         assertTrue(minted);
@@ -224,7 +224,7 @@ contract GameTokensTest is Test {
 
     function test_TradeGoldForStackableItems() public {
         // Setup: playerA has gold, playerB has arrows
-        _setupPlayerAWithGold(1000 * 10**18);
+        _setupPlayerAWithGold(1000 * 10 ** 18);
         _setupPlayerBWithArrows(100);
 
         // PlayerA creates trade
@@ -236,12 +236,12 @@ contract GameTokensTest is Test {
         itemsA[0] = PlayerTradeEscrow.TradeItem({
             tokenContract: address(gold),
             tokenId: 0,
-            amount: 500 * 10**18,
+            amount: 500 * 10 ** 18,
             tokenType: PlayerTradeEscrow.TokenType.ERC20
         });
 
         vm.prank(playerA);
-        gold.approve(address(escrow), 500 * 10**18);
+        gold.approve(address(escrow), 500 * 10 ** 18);
         vm.prank(playerA);
         escrow.depositItems(tradeId, itemsA);
 
@@ -261,7 +261,7 @@ contract GameTokensTest is Test {
 
         // Both players confirm (wait for review period)
         vm.warp(block.timestamp + 2 minutes);
-        
+
         vm.prank(playerA);
         escrow.confirmTrade(tradeId);
 
@@ -269,8 +269,8 @@ contract GameTokensTest is Test {
         escrow.confirmTrade(tradeId);
 
         // Verify trade executed
-        assertEq(gold.balanceOf(playerA), 500 * 10**18); // Kept 500
-        assertEq(gold.balanceOf(playerB), 500 * 10**18); // Got 500
+        assertEq(gold.balanceOf(playerA), 500 * 10 ** 18); // Kept 500
+        assertEq(gold.balanceOf(playerB), 500 * 10 ** 18); // Got 500
         assertEq(items.balanceOf(playerA, arrowsId), 50); // Got 50 arrows
         assertEq(items.balanceOf(playerB, arrowsId), 50); // Kept 50 arrows
     }
@@ -314,7 +314,7 @@ contract GameTokensTest is Test {
 
         // Both players confirm
         vm.warp(block.timestamp + 2 minutes);
-        
+
         vm.prank(playerA);
         escrow.confirmTrade(tradeId);
 
@@ -328,7 +328,7 @@ contract GameTokensTest is Test {
 
     function test_CancelTradeReturnsItems() public {
         // Setup
-        _setupPlayerAWithGold(1000 * 10**18);
+        _setupPlayerAWithGold(1000 * 10 ** 18);
         _setupPlayerBWithArrows(100);
 
         // Create and deposit
@@ -339,12 +339,12 @@ contract GameTokensTest is Test {
         itemsA[0] = PlayerTradeEscrow.TradeItem({
             tokenContract: address(gold),
             tokenId: 0,
-            amount: 500 * 10**18,
+            amount: 500 * 10 ** 18,
             tokenType: PlayerTradeEscrow.TokenType.ERC20
         });
 
         vm.prank(playerA);
-        gold.approve(address(escrow), 500 * 10**18);
+        gold.approve(address(escrow), 500 * 10 ** 18);
         vm.prank(playerA);
         escrow.depositItems(tradeId, itemsA);
 
@@ -355,13 +355,13 @@ contract GameTokensTest is Test {
         escrow.cancelTrade(tradeId);
 
         // Items should be returned
-        assertEq(gold.balanceOf(playerA), balanceBefore + 500 * 10**18);
+        assertEq(gold.balanceOf(playerA), balanceBefore + 500 * 10 ** 18);
     }
 
     // ============ Edge Case Tests ============
 
     function test_CannotClaimGoldWithInvalidSignature() public {
-        uint256 amount = 1000 * 10**18;
+        uint256 amount = 1000 * 10 ** 18;
         uint256 nonce = 0;
 
         // Generate signature with WRONG key
@@ -377,7 +377,7 @@ contract GameTokensTest is Test {
     }
 
     function test_CannotClaimGoldWithWrongNonce() public {
-        uint256 amount = 1000 * 10**18;
+        uint256 amount = 1000 * 10 ** 18;
         uint256 wrongNonce = 5; // Should be 0
 
         bytes32 messageHash = keccak256(abi.encodePacked(playerA, amount, wrongNonce));
@@ -449,7 +449,7 @@ contract GameTokensTest is Test {
     }
 
     function test_TradeExpiration() public {
-        _setupPlayerAWithGold(1000 * 10**18);
+        _setupPlayerAWithGold(1000 * 10 ** 18);
 
         vm.prank(playerA);
         uint256 tradeId = escrow.createTrade(playerB);
@@ -461,20 +461,20 @@ contract GameTokensTest is Test {
         itemsA[0] = PlayerTradeEscrow.TradeItem({
             tokenContract: address(gold),
             tokenId: 0,
-            amount: 500 * 10**18,
+            amount: 500 * 10 ** 18,
             tokenType: PlayerTradeEscrow.TokenType.ERC20
         });
 
         vm.prank(playerA);
-        gold.approve(address(escrow), 500 * 10**18);
-        
+        gold.approve(address(escrow), 500 * 10 ** 18);
+
         vm.prank(playerA);
         vm.expectRevert(PlayerTradeEscrow.TradeExpired.selector);
         escrow.depositItems(tradeId, itemsA);
     }
 
     function test_CannotConfirmBeforeReviewPeriod() public {
-        _setupPlayerAWithGold(1000 * 10**18);
+        _setupPlayerAWithGold(1000 * 10 ** 18);
         _setupPlayerBWithArrows(100);
 
         vm.prank(playerA);
@@ -485,12 +485,12 @@ contract GameTokensTest is Test {
         itemsA[0] = PlayerTradeEscrow.TradeItem({
             tokenContract: address(gold),
             tokenId: 0,
-            amount: 500 * 10**18,
+            amount: 500 * 10 ** 18,
             tokenType: PlayerTradeEscrow.TokenType.ERC20
         });
 
         vm.prank(playerA);
-        gold.approve(address(escrow), 500 * 10**18);
+        gold.approve(address(escrow), 500 * 10 ** 18);
         vm.prank(playerA);
         escrow.depositItems(tradeId, itemsA);
 
@@ -514,7 +514,7 @@ contract GameTokensTest is Test {
     }
 
     function test_CannotDepositWithoutApproval() public {
-        _setupPlayerAWithGold(1000 * 10**18);
+        _setupPlayerAWithGold(1000 * 10 ** 18);
 
         vm.prank(playerA);
         uint256 tradeId = escrow.createTrade(playerB);
@@ -523,7 +523,7 @@ contract GameTokensTest is Test {
         itemsA[0] = PlayerTradeEscrow.TradeItem({
             tokenContract: address(gold),
             tokenId: 0,
-            amount: 500 * 10**18,
+            amount: 500 * 10 ** 18,
             tokenType: PlayerTradeEscrow.TokenType.ERC20
         });
 
@@ -534,7 +534,7 @@ contract GameTokensTest is Test {
     }
 
     function test_CannotDepositTwice() public {
-        _setupPlayerAWithGold(1000 * 10**18);
+        _setupPlayerAWithGold(1000 * 10 ** 18);
 
         vm.prank(playerA);
         uint256 tradeId = escrow.createTrade(playerB);
@@ -543,12 +543,12 @@ contract GameTokensTest is Test {
         itemsA[0] = PlayerTradeEscrow.TradeItem({
             tokenContract: address(gold),
             tokenId: 0,
-            amount: 500 * 10**18,
+            amount: 500 * 10 ** 18,
             tokenType: PlayerTradeEscrow.TokenType.ERC20
         });
 
         vm.prank(playerA);
-        gold.approve(address(escrow), 1000 * 10**18);
+        gold.approve(address(escrow), 1000 * 10 ** 18);
         vm.prank(playerA);
         escrow.depositItems(tradeId, itemsA);
 
@@ -559,7 +559,7 @@ contract GameTokensTest is Test {
     }
 
     function test_UnauthorizedCannotDeposit() public {
-        _setupPlayerAWithGold(1000 * 10**18);
+        _setupPlayerAWithGold(1000 * 10 ** 18);
 
         vm.prank(playerA);
         uint256 tradeId = escrow.createTrade(playerB);
@@ -568,7 +568,7 @@ contract GameTokensTest is Test {
         itemsA[0] = PlayerTradeEscrow.TradeItem({
             tokenContract: address(gold),
             tokenId: 0,
-            amount: 500 * 10**18,
+            amount: 500 * 10 ** 18,
             tokenType: PlayerTradeEscrow.TokenType.ERC20
         });
 
@@ -580,7 +580,7 @@ contract GameTokensTest is Test {
     }
 
     function test_CannotCancelAfterBothConfirm() public {
-        _setupPlayerAWithGold(1000 * 10**18);
+        _setupPlayerAWithGold(1000 * 10 ** 18);
         _setupPlayerBWithArrows(100);
 
         vm.prank(playerA);
@@ -591,12 +591,12 @@ contract GameTokensTest is Test {
         itemsA[0] = PlayerTradeEscrow.TradeItem({
             tokenContract: address(gold),
             tokenId: 0,
-            amount: 500 * 10**18,
+            amount: 500 * 10 ** 18,
             tokenType: PlayerTradeEscrow.TokenType.ERC20
         });
 
         vm.prank(playerA);
-        gold.approve(address(escrow), 500 * 10**18);
+        gold.approve(address(escrow), 500 * 10 ** 18);
         vm.prank(playerA);
         escrow.depositItems(tradeId, itemsA);
 
@@ -615,7 +615,7 @@ contract GameTokensTest is Test {
 
         // Wait and confirm both
         vm.warp(block.timestamp + 2 minutes);
-        
+
         vm.prank(playerA);
         escrow.confirmTrade(tradeId);
 
@@ -663,7 +663,7 @@ contract GameTokensTest is Test {
         test_MintNonStackableItem(); // PlayerA mints sword
 
         bytes32 instanceId = keccak256("legendary_sword_001");
-        
+
         // Transfer to PlayerB
         vm.prank(playerA);
         items.safeTransferFrom(playerA, playerB, swordId, 1, "");
@@ -675,15 +675,15 @@ contract GameTokensTest is Test {
         // But playerA is STILL the original minter
         address originalMinter = items.getInstanceMinter(instanceId);
         assertEq(originalMinter, playerA); // Provenance preserved!
-        
+
         // Transfer to PlayerC (3rd party)
         address playerC = address(0x3);
         vm.prank(playerB);
         items.safeTransferFrom(playerB, playerC, swordId, 1, "");
-        
+
         // PlayerC owns it now
         assertEq(items.balanceOf(playerC, swordId), 1);
-        
+
         // But playerA is STILL the original minter (immutable)
         originalMinter = items.getInstanceMinter(instanceId);
         assertEq(originalMinter, playerA); // Forever tracked!
@@ -693,16 +693,16 @@ contract GameTokensTest is Test {
         // PlayerA mints sword
         test_MintNonStackableItem();
         bytes32 instanceId = keccak256("legendary_sword_001");
-        
+
         // Transfer to PlayerB
         vm.prank(playerA);
         items.safeTransferFrom(playerA, playerB, swordId, 1, "");
-        
+
         // PlayerB tries to burn by instance (should fail - not original minter)
         vm.prank(playerB);
         vm.expectRevert(Items.NotOriginalMinter.selector);
         items.burnByInstance(instanceId);
-        
+
         // PlayerA (original minter) can still burn it even though PlayerB owns it
         // This is intentional - minter controls instance lifecycle
         vm.prank(playerA);
@@ -713,7 +713,7 @@ contract GameTokensTest is Test {
     function test_MintedItemProvenanceQuery() public {
         // Mint stackable arrows
         _setupPlayerBWithArrows(100);
-        
+
         // Query minted metadata for PlayerB
         Items.MintedItemMetadata memory metadata = items.getMintedMetadata(playerB, arrowsId);
         assertEq(metadata.originalMinter, playerB);
@@ -767,4 +767,3 @@ contract GameTokensTest is Test {
         items.mintItem(swordId, amount, instanceId, signature);
     }
 }
-

@@ -16,7 +16,7 @@ async function main() {
   
   // Stop any running Kurtosis enclaves
   console.log('1️⃣  Stopping Kurtosis localnet...');
-  await $`bun run scripts/localnet/stop.ts`.nothrow().quiet();
+  await $`bun run localnet:stop`.nothrow().quiet();
   console.log('   ✅ Kurtosis stopped\n');
   
   // Stop Docker containers

@@ -134,11 +134,7 @@ contract CreditPurchaseContract is Ownable, Pausable, ReentrancyGuard {
 
     // ============ Constructor ============
 
-    constructor(
-        IElizaOSToken _elizaOSToken,
-        IPriceOracle _priceOracle,
-        address _treasury
-    ) Ownable(msg.sender) {
+    constructor(IElizaOSToken _elizaOSToken, IPriceOracle _priceOracle, address _treasury) Ownable(msg.sender) {
         if (address(_elizaOSToken) == address(0)) revert InvalidElizaOSToken();
         if (address(_priceOracle) == address(0)) revert InvalidPriceOracle();
         if (_treasury == address(0)) revert InvalidTreasury();
@@ -162,12 +158,13 @@ contract CreditPurchaseContract is Ownable, Pausable, ReentrancyGuard {
      * @param recipient Address to receive the minted credits
      * @return creditsReceived Amount of elizaOS tokens minted
      */
-    function purchaseCredits(
-        address paymentToken,
-        uint256 paymentAmount,
-        uint256 minCreditsOut,
-        address recipient
-    ) external payable nonReentrant whenNotPaused returns (uint256 creditsReceived) {
+    function purchaseCredits(address paymentToken, uint256 paymentAmount, uint256 minCreditsOut, address recipient)
+        external
+        payable
+        nonReentrant
+        whenNotPaused
+        returns (uint256 creditsReceived)
+    {
         if (recipient == address(0)) revert InvalidRecipient();
         if (!supportedTokens[paymentToken]) revert UnsupportedToken(paymentToken);
 
@@ -179,8 +176,7 @@ contract CreditPurchaseContract is Ownable, Pausable, ReentrancyGuard {
         }
 
         // Get current quote
-        (uint256 creditsOut, uint256 pricePerCredit, , uint256 usdValue) =
-            _calculateQuote(paymentToken, paymentAmount);
+        (uint256 creditsOut, uint256 pricePerCredit,, uint256 usdValue) = _calculateQuote(paymentToken, paymentAmount);
 
         // Verify purchase limits
         if (usdValue < minPurchaseUSD) {
@@ -207,8 +203,11 @@ contract CreditPurchaseContract is Ownable, Pausable, ReentrancyGuard {
 
         // EXTERNAL CALLS LAST (to treasury which could be malicious contract)
         if (paymentToken == ETH) {
+            // CEI: Cache owner address before external calls
+            address ownerAddr = owner();
+            
             // Pull-over-push pattern: record failed transfers instead of reverting
-            (bool treasurySuccess, ) = treasury.call{value: netPayment}("");
+            (bool treasurySuccess,) = treasury.call{value: netPayment}("");
             if (!treasurySuccess) {
                 pendingWithdrawals[treasury] += netPayment;
                 emit WithdrawalRecorded(treasury, netPayment);
@@ -216,10 +215,10 @@ contract CreditPurchaseContract is Ownable, Pausable, ReentrancyGuard {
 
             // Platform fee to owner
             if (platformFee > 0) {
-                (bool feeSuccess, ) = owner().call{value: platformFee}("");
+                (bool feeSuccess,) = ownerAddr.call{value: platformFee}("");
                 if (!feeSuccess) {
-                    pendingWithdrawals[owner()] += platformFee;
-                    emit WithdrawalRecorded(owner(), platformFee);
+                    pendingWithdrawals[ownerAddr] += platformFee;
+                    emit WithdrawalRecorded(ownerAddr, platformFee);
                 }
             }
         } else {
@@ -230,13 +229,7 @@ contract CreditPurchaseContract is Ownable, Pausable, ReentrancyGuard {
         }
 
         emit CreditsPurchased(
-            msg.sender,
-            recipient,
-            paymentToken,
-            paymentAmount,
-            creditsReceived,
-            platformFee,
-            pricePerCredit
+            msg.sender, recipient, paymentToken, paymentAmount, creditsReceived, platformFee, pricePerCredit
         );
     }
 
@@ -249,15 +242,11 @@ contract CreditPurchaseContract is Ownable, Pausable, ReentrancyGuard {
      * @return slippageBps Current slippage in basis points
      * @return totalCostUSD Total cost in USD (18 decimals)
      */
-    function getQuote(
-        address paymentToken,
-        uint256 paymentAmount
-    ) external view returns (
-        uint256 creditsOut,
-        uint256 pricePerCredit,
-        uint256 slippageBps,
-        uint256 totalCostUSD
-    ) {
+    function getQuote(address paymentToken, uint256 paymentAmount)
+        external
+        view
+        returns (uint256 creditsOut, uint256 pricePerCredit, uint256 slippageBps, uint256 totalCostUSD)
+    {
         if (!supportedTokens[paymentToken]) revert UnsupportedToken(paymentToken);
 
         return _calculateQuote(paymentToken, paymentAmount);
@@ -310,11 +299,7 @@ contract CreditPurchaseContract is Ownable, Pausable, ReentrancyGuard {
      * @param supported Whether token is supported
      * @param decimals Token decimals (only needed when adding)
      */
-    function setTokenSupport(
-        address token,
-        bool supported,
-        uint8 decimals
-    ) external onlyOwner {
+    function setTokenSupport(address token, bool supported, uint8 decimals) external onlyOwner {
         supportedTokens[token] = supported;
         if (supported && decimals > 0) {
             tokenDecimals[token] = decimals;
@@ -328,10 +313,7 @@ contract CreditPurchaseContract is Ownable, Pausable, ReentrancyGuard {
      * @param _minPurchaseUSD Minimum purchase in USD (18 decimals)
      * @param _maxPurchaseUSD Maximum purchase in USD (18 decimals)
      */
-    function setPurchaseLimits(
-        uint256 _minPurchaseUSD,
-        uint256 _maxPurchaseUSD
-    ) external onlyOwner {
+    function setPurchaseLimits(uint256 _minPurchaseUSD, uint256 _maxPurchaseUSD) external onlyOwner {
         require(_minPurchaseUSD < _maxPurchaseUSD, "Invalid limits");
 
         minPurchaseUSD = _minPurchaseUSD;
@@ -375,15 +357,11 @@ contract CreditPurchaseContract is Ownable, Pausable, ReentrancyGuard {
      * @return slippageBps Current slippage
      * @return usdValue USD value of purchase
      */
-    function _calculateQuote(
-        address paymentToken,
-        uint256 paymentAmount
-    ) internal view returns (
-        uint256 creditsOut,
-        uint256 pricePerCredit,
-        uint256 slippageBps,
-        uint256 usdValue
-    ) {
+    function _calculateQuote(address paymentToken, uint256 paymentAmount)
+        internal
+        view
+        returns (uint256 creditsOut, uint256 pricePerCredit, uint256 slippageBps, uint256 usdValue)
+    {
         // Get payment token price from oracle
         (uint256 paymentTokenPriceUSD, uint256 paymentDecimals) = priceOracle.getPrice(paymentToken);
         if (!priceOracle.isPriceFresh(paymentToken)) {
@@ -391,15 +369,14 @@ contract CreditPurchaseContract is Ownable, Pausable, ReentrancyGuard {
         }
 
         // Get elizaOS price from oracle
-        (uint256 elizaPriceUSD, ) = priceOracle.getPrice(address(ElizaOSToken));
+        (uint256 elizaPriceUSD,) = priceOracle.getPrice(address(ElizaOSToken));
         if (!priceOracle.isPriceFresh(address(ElizaOSToken))) {
             revert StalePriceData(address(ElizaOSToken));
         }
 
         // Calculate USD value of payment (normalize to 18 decimals)
         uint8 paymentTokenDecimals = tokenDecimals[paymentToken];
-        usdValue = (paymentAmount * paymentTokenPriceUSD * 1e18) /
-                   (10 ** paymentTokenDecimals * 10 ** paymentDecimals);
+        usdValue = (paymentAmount * paymentTokenPriceUSD * 1e18) / (10 ** paymentTokenDecimals * 10 ** paymentDecimals);
 
         // Subtract platform fee from USD value
         uint256 netUsdValue = usdValue - ((usdValue * platformFeeBps) / BASIS_POINTS);
@@ -430,7 +407,7 @@ contract CreditPurchaseContract is Ownable, Pausable, ReentrancyGuard {
         pendingWithdrawals[msg.sender] = 0;
 
         // Transfer ETH to recipient
-        (bool success, ) = msg.sender.call{value: amount}("");
+        (bool success,) = msg.sender.call{value: amount}("");
         require(success, "ETH transfer failed");
 
         emit WithdrawalClaimed(msg.sender, amount);
@@ -453,16 +430,13 @@ contract CreditPurchaseContract is Ownable, Pausable, ReentrancyGuard {
      * @param token Token to withdraw
      * @param amount Amount to withdraw
      */
-    function emergencyWithdraw(
-        address token,
-        uint256 amount
-    ) external onlyOwner {
+    function emergencyWithdraw(address token, uint256 amount) external onlyOwner {
         require(paused(), "Must be paused");
 
         if (token == ETH) {
             // Note: This does not withdraw pending withdrawals
             // Users must call withdraw() themselves to claim pending amounts
-            (bool success, ) = owner().call{value: amount}("");
+            (bool success,) = owner().call{value: amount}("");
             require(success, "ETH transfer failed");
         } else {
             IERC20(token).safeTransfer(owner(), amount);
@@ -495,10 +469,7 @@ contract CreditPurchaseContract is Ownable, Pausable, ReentrancyGuard {
      * @param actualOut Actual credits out
      * @return slippageBps Slippage in basis points
      */
-    function calculateSlippage(
-        uint256 expectedOut,
-        uint256 actualOut
-    ) public pure returns (uint256 slippageBps) {
+    function calculateSlippage(uint256 expectedOut, uint256 actualOut) public pure returns (uint256 slippageBps) {
         if (actualOut >= expectedOut) return 0;
 
         uint256 difference = expectedOut - actualOut;

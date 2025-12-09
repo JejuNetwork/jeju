@@ -61,13 +61,14 @@ const dashboardFiles = fs.readdirSync(DASHBOARD_DIR).filter(f => f.endsWith('.js
 // ============================================================================
 
 describe('Dashboard File Validation', () => {
-  test('should have all 10 required dashboard files', () => {
+  test('should have all 11 required dashboard files', () => {
     const requiredDashboards = [
       'jeju-overview.json',
       'blockchain-activity.json',
       'accounts-and-tokens.json',
       'contract-activity.json',
       'contracts-and-defi.json',
+      'eil-overview.json',
       'events-and-logs.json',
       'prediction-markets.json',
       'system-status.json',
@@ -75,7 +76,7 @@ describe('Dashboard File Validation', () => {
       'subsquid-overview.json'
     ];
 
-    expect(dashboardFiles.length).toBe(10);
+    expect(dashboardFiles.length).toBe(11);
     for (const dashboard of requiredDashboards) {
       expect(dashboardFiles).toContain(dashboard);
     }
@@ -560,7 +561,7 @@ describe('Grafana API Validation', () => {
     expect(postgres?.uid).toBe('postgres-indexer');
   });
 
-  test('should have all 10 dashboards provisioned', async () => {
+  test('should have all 11 dashboards provisioned', async () => {
     const response = await grafanaRequest('/api/search?type=dash-db').catch(() => null);
     if (!response?.ok) {
       console.log('⚠️ Grafana not accessible');
@@ -570,7 +571,7 @@ describe('Grafana API Validation', () => {
 
     const dashboards = await response.json() as Array<{ title: string }>;
     console.log(`📊 Found ${dashboards.length} provisioned dashboards`);
-    expect(dashboards.length).toBe(10);
+    expect(dashboards.length).toBe(11);
   });
 });
 

@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "declaration": false,
+    "noEmit": true
+  },
+  "include": ["shared/**/*.ts"],
+  "exclude": ["node_modules", "../../vendor", "shared/synpress.config.base.ts", "shared/wallet-setup/**"]
+}
+

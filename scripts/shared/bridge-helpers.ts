@@ -1,5 +1,5 @@
 /**
- * Standard Bridge ABI and Helpers for Base ↔ Jeju Token Transfers
+ * Standard Bridge ABI and Helpers for Ethereum ↔ Jeju Token Transfers
  */
 
 import type { Address } from 'viem';
@@ -138,18 +138,18 @@ export const CROSS_DOMAIN_MESSENGER_ABI = [
  * Standard OP Stack predeploy addresses
  */
 export const OP_STACK_PREDEPLOYS = {
-  L2StandardBridge: '0x4200000000000000000000000000000000000010' as Address,
-  L2CrossDomainMessenger: '0x4200000000000000000000000000000000000007' as Address,
-  L2ToL1MessagePasser: '0x4200000000000000000000000000000000000016' as Address,
+  StandardBridge: '0x4200000000000000000000000000000000000010' as Address,
+  CrossDomainMessenger: '0x4200000000000000000000000000000000000007' as Address,
+  ToL1MessagePasser: '0x4200000000000000000000000000000000000016' as Address,
   WETH: '0x4200000000000000000000000000000000000006' as Address,
 } as const;
 
 /**
- * Bridge configuration for Base ↔ Jeju
+ * Bridge configuration for Ethereum ↔ Jeju
  */
 export interface BridgeParams {
-  sourceChain: 'base' | 'jeju';
-  destinationChain: 'base' | 'jeju';
+  sourceChain: 'ethereum' | 'jeju';
+  destinationChain: 'ethereum' | 'jeju';
   token: Address;
   amount: bigint;
   recipient?: Address;
@@ -160,15 +160,18 @@ export interface BridgeParams {
  * Calculate estimated bridge time
  */
 export function estimateBridgeTime(params: BridgeParams): number {
-  // Base → Jeju: ~2 minutes (L2 → L3)
-  // Jeju → Base: ~2 minutes (L3 → L2)
-  return 120; // seconds
+  // Ethereum → Jeju: ~15 minutes
+  // Jeju → Ethereum: 7 days (challenge period)
+  if (params.sourceChain === 'ethereum' && params.destinationChain === 'jeju') {
+    return 900; // 15 minutes in seconds
+  }
+  return 604800; // 7 days in seconds
 }
 
 /**
  * Calculate estimated bridge gas cost
  */
-export function estimateBridgeGas(params: BridgeParams): bigint {
+export function estimateBridgeGas(_params: BridgeParams): bigint {
   const baseGas = 100000n; // 100k gas minimum
   const l1DataFee = 50000n; // Estimated L1 data fee
   
@@ -178,7 +181,7 @@ export function estimateBridgeGas(params: BridgeParams): bigint {
 /**
  * Generate bridge transaction data
  */
-export function encodeBridgeData(params: BridgeParams): `0x${string}` {
+export function encodeBridgeData(_params: BridgeParams): `0x${string}` {
   return '0x' as `0x${string}`;
 }
 
@@ -227,16 +230,15 @@ export function parseBridgeEvent(log: BridgeEventLog): ParsedBridgeEvent | null 
 /**
  * Get bridge contract address for chain
  */
-export function getBridgeAddress(chain: 'base' | 'jeju'): Address {
+export function getBridgeAddress(_chain: 'ethereum' | 'jeju'): Address {
   // Both use OP Stack Standard Bridge predeploy
-  return OP_STACK_PREDEPLOYS.L2StandardBridge;
+  return OP_STACK_PREDEPLOYS.StandardBridge;
 }
 
 /**
  * Get messenger contract address for chain
  */
-export function getMessengerAddress(chain: 'base' | 'jeju'): Address {
+export function getMessengerAddress(_chain: 'ethereum' | 'jeju'): Address {
   // Both use OP Stack CrossDomainMessenger predeploy
-  return OP_STACK_PREDEPLOYS.L2CrossDomainMessenger;
+  return OP_STACK_PREDEPLOYS.CrossDomainMessenger;
 }
-

@@ -1,43 +1,29 @@
 # Developer Quick Start
 
-## 1. Get Testnet ETH
+## Get Testnet ETH
 
-**Faucet**: https://faucet.jeju.network
+1. Get Sepolia ETH: https://sepoliafaucet.com
+2. Bridge to Jeju: https://testnet-gateway.jeju.network
 
-Or bridge from Sepolia → Base Sepolia → Jeju Testnet.
+## Networks
 
-## 2. Add Network
+| Network | Chain ID | RPC |
+|---------|----------|-----|
+| Localnet | 1337 | http://127.0.0.1:9545 |
+| Testnet | 420690 | https://testnet-rpc.jeju.network |
+| Mainnet | 420691 | https://rpc.jeju.network |
 
-```
-Network: Jeju Testnet
-RPC: https://testnet-rpc.jeju.network
-Chain ID: 420690
-Explorer: https://testnet-explorer.jeju.network
-```
-
-Or: [chainlist.org/chain/420690](https://chainlist.org/chain/420690)
-
-## 3. Deploy Contract
+## Deploy Contract
 
 ```bash
 forge init my-project && cd my-project
-
-cat > src/Counter.sol << 'EOF'
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
-
-contract Counter {
-    uint256 public count;
-    function increment() public { count++; }
-}
-EOF
 
 forge create src/Counter.sol:Counter \
   --rpc-url https://testnet-rpc.jeju.network \
   --private-key $PRIVATE_KEY
 ```
 
-## 4. Interact
+## Interact
 
 ```bash
 # Read
@@ -49,10 +35,42 @@ cast send $CONTRACT "increment()" \
   --private-key $PRIVATE_KEY
 ```
 
-## 5. Frontend
+## Register as Agent
+
+Make your app discoverable:
+
+```bash
+cast send $IDENTITY_REGISTRY \
+  "register(string)" '{"name":"MyApp","endpoint":"https://myapp.com"}' \
+  --rpc-url $RPC_URL \
+  --private-key $PRIVATE_KEY
+```
+
+## Enable Token Gas Payments
+
+1. Register revenue wallet with your agent
+2. Users can pay gas with tokens when using your app
+3. You earn 50% of paymaster fees
+
+```bash
+cast send $IDENTITY_REGISTRY \
+  "setMetadata(uint256,string,bytes)" $AGENT_ID "revenueWallet" $WALLET_ENCODED \
+  --rpc-url $RPC_URL \
+  --private-key $PRIVATE_KEY
+```
+
+## Viem Config
 
 ```typescript
 import { defineChain } from 'viem';
+
+export const jeju = defineChain({
+  id: 420691,
+  name: 'Jeju',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: { default: { http: ['https://rpc.jeju.network'] } },
+  blockExplorers: { default: { name: 'Explorer', url: 'https://explorer.jeju.network' } },
+});
 
 export const jejuTestnet = defineChain({
   id: 420690,
@@ -64,19 +82,9 @@ export const jejuTestnet = defineChain({
 });
 ```
 
-## 6. Mainnet
+## Next
 
-```bash
-forge create src/Counter.sol:Counter \
-  --rpc-url https://rpc.jeju.network \
-  --private-key $MAINNET_KEY --verify
-
-# Chain ID: 420691
-```
-
-## Resources
-
-- [Local Development](./local-development)
 - [Deploy Contracts](./deploy-contracts)
-- [DeFi Integration](./defi-protocols)
-- [Run RPC Node](./run-rpc-node)
+- [Local Development](./local-development)
+- [Token Integration](/getting-started/token-integration)
+- [Agent Registry](/registry)

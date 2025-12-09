@@ -4,26 +4,26 @@
  */
 
 import { testWithWallet as test, expect } from '../fixtures/wallet';
-import { captureScreenshot, captureUserFlow } from '../../../../tests/shared/helpers/screenshots';
-import { connectWallet } from '../../../../tests/shared/helpers/contracts';
+import { captureScreenshot, captureUserFlow } from '@jejunetwork/tests/helpers/screenshots';
+import { connectWallet } from '@jejunetwork/tests/helpers/contracts';
 
-test.describe('Bridge from Base Flow', () => {
+test.describe('Bridge from Ethereum Flow', () => {
   test.beforeEach(async ({ page, wallet }) => {
     await page.goto('http://localhost:4001');
     await connectWallet(page, wallet);
     
     // Navigate to Bridge tab
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
   });
 
   test('should display bridge interface', async ({ page }) => {
-    await expect(page.getByText('Bridge from Base to Jeju')).toBeVisible();
+    await expect(page.getByText('Bridge from Ethereum to Jeju')).toBeVisible();
   });
 
   test('should show elizaOS warning message', async ({ page }) => {
     // elizaOS is native and should not be bridgeable
     await expect(page.getByText(/elizaOS is a native Jeju token/i)).toBeVisible();
-    await expect(page.getByText(/cannot be bridged from Base/i)).toBeVisible();
+    await expect(page.getByText(/cannot be bridged from Ethereum/i)).toBeVisible();
   });
 
   test('should only show bridgeable tokens in selector', async ({ page }) => {

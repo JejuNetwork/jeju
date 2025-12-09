@@ -40,14 +40,7 @@ export default function AddLiquidity({ vaultAddress: propVaultAddress }: { vault
   return (
     <div>
       <div className="card">
-        <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Add ETH Liquidity</h2>
-
-        <div style={{ padding: '1rem', background: '#dbeafe', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid #3b82f6' }}>
-          <p style={{ fontSize: '0.875rem', margin: 0, color: '#1e40af' }}>
-            <strong>💡 How it works:</strong> Deposit ETH to sponsor gas payments. 
-            Earn fees in protocol tokens (elizaOS, CLANKER, VIRTUAL, CLANKERMON) when users pay gas with those tokens.
-          </p>
-        </div>
+        <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem' }}>Add Liquidity</h2>
 
         <TokenSelector
           tokens={tokenOptions}
@@ -60,8 +53,8 @@ export default function AddLiquidity({ vaultAddress: propVaultAddress }: { vault
         />
 
         {selectedToken && !deployment && (
-          <div style={{ padding: '1rem', background: '#fee2e2', borderRadius: '8px', marginTop: '1rem' }}>
-            <p style={{ color: '#dc2626', margin: 0 }}>
+          <div style={{ padding: '1rem', background: 'var(--error-soft)', borderRadius: '8px', marginTop: '1rem' }}>
+            <p style={{ color: 'var(--error)', margin: 0 }}>
               No paymaster deployed for {selectedToken.symbol}. Deploy one first in the "Deploy Paymaster" tab.
             </p>
           </div>
@@ -83,14 +76,14 @@ export default function AddLiquidity({ vaultAddress: propVaultAddress }: { vault
                 onChange={(e) => setEthAmount(e.target.value)}
                 disabled={isLoading}
               />
-              <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
                 Deposit ETH to earn fees in {selectedToken.symbol}
               </p>
             </div>
 
             {isAddSuccess && (
-              <div style={{ padding: '1rem', background: '#dcfce7', borderRadius: '8px', marginBottom: '1rem' }}>
-                <p style={{ color: '#16a34a', margin: 0 }}>Liquidity added successfully to {selectedToken.symbol} vault!</p>
+              <div style={{ padding: '1rem', background: 'var(--success-soft)', borderRadius: '8px', marginBottom: '1rem' }}>
+                <p style={{ color: 'var(--success)', margin: 0 }}>Liquidity added successfully to {selectedToken.symbol} vault!</p>
               </div>
             )}
 
@@ -114,20 +107,20 @@ export default function AddLiquidity({ vaultAddress: propVaultAddress }: { vault
           
           <div className="grid grid-2">
             <div>
-              <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: 0 }}>ETH Shares</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>ETH Shares</p>
               <p style={{ fontSize: '1.25rem', fontWeight: '600', margin: '0.25rem 0' }}>
                 {formatEther(lpPosition.ethShares)}
               </p>
             </div>
             <div>
-              <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: 0 }}>ETH Value</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>ETH Value</p>
               <p style={{ fontSize: '1.25rem', fontWeight: '600', margin: '0.25rem 0' }}>
                 {formatEther(lpPosition.ethValue)} ETH
               </p>
             </div>
             <div>
-              <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: 0 }}>Pending Fees</p>
-              <p style={{ fontSize: '1.25rem', fontWeight: '600', margin: '0.25rem 0', color: '#16a34a' }}>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>Pending Fees</p>
+              <p style={{ fontSize: '1.25rem', fontWeight: '600', margin: '0.25rem 0', color: 'var(--success)' }}>
                 {formatEther(lpPosition.pendingFees)}
               </p>
             </div>

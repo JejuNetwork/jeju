@@ -1,7 +1,7 @@
 /**
  * Mainnet Integration Test for Jeju Compute Marketplace
  *
- * This test validates the deployed contracts on Base Sepolia or Mainnet.
+ * This test validates the deployed contracts on Sepolia or Ethereum Mainnet.
  *
  * Prerequisites:
  * 1. Contracts deployed via deploy-base.ts
@@ -26,17 +26,17 @@ import {
 // Network configurations
 const NETWORKS = {
   sepolia: {
-    name: 'Base Sepolia',
-    chainId: 84532,
-    rpcUrl: 'https://sepolia.base.org',
-    explorer: 'https://sepolia.basescan.org',
+    name: 'Sepolia',
+    chainId: 11155111,
+    rpcUrl: 'https://ethereum-sepolia-rpc.publicnode.com',
+    explorer: 'https://sepolia.etherscan.io',
     minBalance: parseEther('0.01'), // Need at least 0.01 ETH
   },
   mainnet: {
-    name: 'Base Mainnet',
-    chainId: 8453,
-    rpcUrl: 'https://mainnet.base.org',
-    explorer: 'https://basescan.org',
+    name: 'Ethereum Mainnet',
+    chainId: 1,
+    rpcUrl: 'https://eth.llamarpc.com',
+    explorer: 'https://etherscan.io',
     minBalance: parseEther('0.001'), // Need at least 0.001 ETH
   },
 };
@@ -118,7 +118,7 @@ describe('Mainnet Integration Test', () => {
       return;
     }
 
-    console.log(`\n🧪 Mainnet Integration Test - ${networkConfig.name}\n`);
+    console.log(`\n🧪 Integration Test - ${networkConfig.name}\n`);
 
     // Load deployment
     try {
@@ -200,7 +200,7 @@ describe('Mainnet Integration Test', () => {
   });
 
   afterAll(async () => {
-    console.log('\n🏁 Mainnet tests complete\n');
+    console.log('\n🏁 Integration tests complete\n');
   });
 
   describe('Contract Verification', () => {
@@ -378,7 +378,7 @@ describe('Mainnet Integration Test', () => {
   });
 });
 
-console.log('\n🧪 Mainnet Integration Test Suite');
+console.log('\n🧪 Integration Test Suite');
 console.log('==================================\n');
 console.log('Prerequisites:');
 console.log(

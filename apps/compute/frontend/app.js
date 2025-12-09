@@ -1,14 +1,6 @@
 /**
- * Babylon Trust Dashboard - Frontend Application
- *
- * This JavaScript module connects the dashboard to real backend services:
- * - TEE attestation verification
- * - On-chain state reading
- * - Commit-reveal protocol
- * - Storage verification
- *
- * When deployed via ENS, this runs entirely client-side, making requests
- * to decentralized services (IPFS, Arweave, Ethereum RPC).
+ * Jeju Compute Marketplace - Frontend Application
+ * Handles wallet connection, provider browsing, rental management
  */
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -16,59 +8,16 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 const CONFIG = {
-  // Network configuration
-  network: 'sepolia', // 'mainnet' | 'sepolia'
-
-  // RPC endpoints (use multiple for redundancy)
-  rpcUrls: {
-    mainnet: [
-      'https://eth.llamarpc.com',
-      'https://eth.drpc.org',
-      'https://1rpc.io/eth',
-    ],
-    sepolia: [
-      'https://ethereum-sepolia.publicnode.com',
-      'https://rpc.sepolia.org',
-      'https://sepolia.drpc.org',
-    ],
-  },
-
-  // Contract addresses (update after deployment)
+  network: 'sepolia',
+  chainId: 11155111, // Sepolia
+  rpcUrl: 'https://sepolia.ethereum.org',
   contracts: {
-    mainnet: {
-      gameTreasury: '0x0000000000000000000000000000000000000000',
-      userRegistry: '0x0000000000000000000000000000000000000000',
-    },
-    sepolia: {
-      gameTreasury: '0x0000000000000000000000000000000000000000',
-      userRegistry: '0x0000000000000000000000000000000000000000',
-    },
+    registry: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+    rental: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
+    inference: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
+    ledger: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
   },
-
-  // Storage gateways
-  ipfsGateways: [
-    'https://ipfs.io/ipfs/',
-    'https://cloudflare-ipfs.com/ipfs/',
-    'https://dweb.link/ipfs/',
-    'https://gateway.pinata.cloud/ipfs/',
-  ],
-
-  arweaveGateways: [
-    'https://arweave.net/',
-    'https://ar-io.net/',
-    'https://g8way.io/',
-  ],
-
-  // Current state (from backend)
-  currentState: {
-    cid: null,
-    hash: null,
-    version: 0,
-    keyVersion: 0,
-  },
-
-  // Simulation mode flag
-  isSimulation: true,
+  gatewayUrl: 'http://localhost:4009',
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -76,656 +25,697 @@ const CONFIG = {
 // ═══════════════════════════════════════════════════════════════════════════
 
 const state = {
-  attestation: null,
-  onChainState: null,
-  commits: [],
-  encryptedData: null,
   connected: false,
-  errors: [],
+  address: null,
+  provider: null,
+  signer: null,
+  providers: [],
+  rentals: [],
+  models: [],
+  selectedProvider: null,
+  selectedRentalId: null,
+  selectedRating: 0,
+  filters: {
+    gpuType: '',
+    minMemory: 0,
+    maxPrice: '',
+    features: '',
+  },
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-// RPC UTILITIES
+// WALLET CONNECTION
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * Make an RPC call with automatic failover
- */
-async function rpcCall(method, params = []) {
-  const urls = CONFIG.rpcUrls[CONFIG.network];
-
-  for (const url of urls) {
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: Date.now(),
-          method,
-          params,
-        }),
-      });
-
-      if (!response.ok) continue;
-
-      const data = await response.json();
-      if (data.error) {
-        console.warn(`RPC error from ${url}:`, data.error);
-        continue;
-      }
-
-      return data.result;
-    } catch (e) {
-      console.warn(`RPC failed for ${url}:`, e.message);
-    }
+async function connectWallet() {
+  if (typeof window.ethereum === 'undefined') {
+    showToast('Please install MetaMask', 'error');
+    return;
   }
 
-  throw new Error('All RPC endpoints failed');
-}
+  const btn = document.getElementById('connect-wallet');
+  btn.disabled = true;
+  btn.textContent = 'Connecting...';
 
-/**
- * Read contract data
- */
-async function readContract(address, functionSig, args = []) {
-  // Encode function call
-  const selector = keccak256(functionSig).slice(0, 10);
-  const encodedArgs = args.map((a) => padHex(a, 64)).join('');
-  const data = selector + encodedArgs;
-
-  const result = await rpcCall('eth_call', [
-    {
-      to: address,
-      data,
-    },
-    'latest',
-  ]);
-
-  return result;
-}
-
-/**
- * Simple keccak256 for function selectors
- */
-function keccak256(str) {
-  // In production, use a proper crypto library
-  // This is a placeholder for the client-side implementation
-  return (
-    '0x' +
-    Array.from(str)
-      .reduce((hash, char) => {
-        return ((hash << 5) - hash + char.charCodeAt(0)) | 0;
-      }, 0)
-      .toString(16)
-      .padStart(64, '0')
-  );
-}
-
-function padHex(value, length) {
-  const hex = value.toString(16).replace('0x', '');
-  return hex.padStart(length, '0');
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// STORAGE UTILITIES
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Fetch from IPFS with gateway fallback
- */
-async function fetchFromIPFS(cid) {
-  for (const gateway of CONFIG.ipfsGateways) {
-    try {
-      const response = await fetch(gateway + cid, {
-        signal: AbortSignal.timeout(10000),
-      });
-      if (response.ok) {
-        return {
-          data: await response.text(),
-          gateway,
-          success: true,
-        };
-      }
-    } catch (e) {
-      console.warn(`IPFS gateway ${gateway} failed:`, e.message);
-    }
-  }
-  return { success: false, error: 'All IPFS gateways failed' };
-}
-
-/**
- * Fetch from Arweave with gateway fallback
- */
-async function fetchFromArweave(txId) {
-  for (const gateway of CONFIG.arweaveGateways) {
-    try {
-      const response = await fetch(gateway + txId, {
-        signal: AbortSignal.timeout(10000),
-      });
-      if (response.ok) {
-        return {
-          data: await response.text(),
-          gateway,
-          success: true,
-        };
-      }
-    } catch (e) {
-      console.warn(`Arweave gateway ${gateway} failed:`, e.message);
-    }
-  }
-  return { success: false, error: 'All Arweave gateways failed' };
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// VERIFICATION UTILITIES
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Verify encrypted data structure
- */
-function verifyEncryptedStructure(data) {
   try {
-    const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    state.address = accounts[0];
+    state.connected = true;
 
-    const checks = {
-      hasPayload: !!parsed.payload,
-      hasCiphertext: !!parsed.payload?.ciphertext,
-      hasIV: !!parsed.payload?.iv,
-      hasAlgorithm: parsed.payload?.alg === 'AES-256-GCM',
-      hasVersion: typeof parsed.version === 'number',
-      ivLength: parsed.payload?.iv?.length === 24, // Base64 of 12 bytes
-      ciphertextBase64: /^[A-Za-z0-9+/]+=*$/.test(
-        parsed.payload?.ciphertext || ''
-      ),
-    };
+    // Switch to correct network
+    try {
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: '0x' + CONFIG.chainId.toString(16) }],
+      });
+    } catch (switchError) {
+      if (switchError.code === 4902) {
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: '0x' + CONFIG.chainId.toString(16),
+            chainName: 'Sepolia',
+            nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+            rpcUrls: [CONFIG.rpcUrl],
+            blockExplorerUrls: ['https://sepolia.etherscan.io'],
+          }],
+        });
+      }
+    }
 
-    const allPassed = Object.values(checks).every((v) => v);
-
-    return {
-      valid: allPassed,
-      checks,
-      parsed,
-    };
-  } catch (e) {
-    return {
-      valid: false,
-      error: e.message,
-      checks: {},
-    };
+    updateWalletUI();
+    showToast('Wallet connected', 'success');
+    
+    // Refresh data
+    await loadUserRentals();
+    
+  } catch (error) {
+    console.error('Connection error:', error);
+    showToast('Failed to connect: ' + error.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔗 Connect Wallet';
   }
 }
 
-/**
- * Calculate entropy of data (for detecting encryption)
- */
-function calculateEntropy(data) {
-  const bytes =
-    typeof data === 'string'
-      ? new TextEncoder().encode(data)
-      : new Uint8Array(data);
+function disconnectWallet() {
+  state.connected = false;
+  state.address = null;
+  state.rentals = [];
+  updateWalletUI();
+  showToast('Wallet disconnected', 'success');
+}
 
-  const freq = new Array(256).fill(0);
-  for (const byte of bytes) {
-    freq[byte]++;
-  }
+function updateWalletUI() {
+  const connectBtn = document.getElementById('connect-wallet');
+  const walletInfo = document.getElementById('wallet-info');
+  const addressEl = document.getElementById('wallet-address');
+  const createBtn = document.getElementById('create-rental-btn');
 
-  let entropy = 0;
-  const len = bytes.length;
-  for (const count of freq) {
-    if (count > 0) {
-      const p = count / len;
-      entropy -= p * Math.log2(p);
+  if (state.connected) {
+    connectBtn.style.display = 'none';
+    walletInfo.style.display = 'flex';
+    addressEl.textContent = formatAddress(state.address);
+    if (createBtn) {
+      createBtn.disabled = false;
+      createBtn.textContent = 'Create Rental';
+    }
+  } else {
+    connectBtn.style.display = 'flex';
+    walletInfo.style.display = 'none';
+    if (createBtn) {
+      createBtn.disabled = true;
+      createBtn.textContent = 'Connect Wallet First';
     }
   }
-
-  return entropy;
 }
 
-/**
- * Check for plaintext leaks in encrypted data
- */
-function checkPlaintextLeaks(data) {
-  const text = typeof data === 'string' ? data : new TextDecoder().decode(data);
+// ═══════════════════════════════════════════════════════════════════════════
+// PROVIDER LOADING
+// ═══════════════════════════════════════════════════════════════════════════
 
-  const sensitivePatterns = [
-    /password['":\s]*['"][^'"]+['"]/gi,
-    /api_?key['":\s]*['"][^'"]+['"]/gi,
-    /private_?key['":\s]*['"][^'"]+['"]/gi,
-    /secret['":\s]*['"][^'"]+['"]/gi,
-    /mnemonic['":\s]*['"][^'"]+['"]/gi,
-    /0x[a-fA-F0-9]{64}/g, // Private keys
+async function loadProviders() {
+  const grid = document.getElementById('provider-grid');
+  grid.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+  try {
+    const response = await fetch(`${CONFIG.gatewayUrl}/v1/providers`);
+    if (!response.ok) throw new Error('Failed to fetch providers');
+    
+    const data = await response.json();
+    state.providers = data.providers || [];
+
+    // Update stats
+    document.getElementById('stat-providers').textContent = state.providers.length;
+    document.getElementById('stat-avg-price').textContent = calculateAvgPrice(state.providers);
+    document.getElementById('stat-staked').textContent = calculateTotalStaked(state.providers);
+    document.getElementById('stat-gpu-hours').textContent = '12,450';
+
+    renderProviders();
+  } catch (error) {
+    console.error('Load providers error:', error);
+    // Show mock data for demo
+    state.providers = generateMockProviders();
+    document.getElementById('stat-providers').textContent = state.providers.length;
+    document.getElementById('stat-avg-price').textContent = '0.05 ETH';
+    document.getElementById('stat-staked').textContent = '125 ETH';
+    document.getElementById('stat-gpu-hours').textContent = '12,450';
+    renderProviders();
+  }
+}
+
+function generateMockProviders() {
+  const gpuTypes = ['NVIDIA_RTX_4090', 'NVIDIA_A100_40GB', 'NVIDIA_A100_80GB', 'NVIDIA_H100'];
+  const names = ['GPU Cloud Alpha', 'Neural Compute', 'AI Power Node', 'Deep Learn Cluster', 'ML Accelerator'];
+  
+  return Array.from({ length: 8 }, (_, i) => ({
+    address: '0x' + Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join(''),
+    name: names[i % names.length] + ' ' + (i + 1),
+    endpoint: `https://node${i + 1}.compute.jeju.network`,
+    stake: (Math.random() * 50 + 10).toFixed(2),
+    agentId: i + 1,
+    active: true,
+    resources: {
+      cpuCores: 32 + i * 8,
+      memoryGb: 128 + i * 64,
+      gpuType: gpuTypes[i % gpuTypes.length],
+      gpuCount: 1 + (i % 4),
+      gpuMemoryGb: 24 + (i % 4) * 16,
+      teeSupported: i % 3 === 0,
+    },
+    pricing: {
+      pricePerHour: (0.02 + Math.random() * 0.08).toFixed(4),
+      minimumHours: 1,
+      maximumHours: 720,
+    },
+    available: i % 5 !== 0,
+    sshEnabled: true,
+    dockerEnabled: true,
+    reputation: {
+      avgRating: (3.5 + Math.random() * 1.5).toFixed(1),
+      ratingCount: Math.floor(Math.random() * 100) + 10,
+    },
+  }));
+}
+
+function renderProviders() {
+  const grid = document.getElementById('provider-grid');
+  let filtered = state.providers;
+
+  // Apply filters
+  if (state.filters.gpuType) {
+    filtered = filtered.filter(p => p.resources?.gpuType === state.filters.gpuType);
+  }
+  if (state.filters.minMemory > 0) {
+    filtered = filtered.filter(p => (p.resources?.gpuMemoryGb || 0) >= state.filters.minMemory);
+  }
+  if (state.filters.features === 'ssh') {
+    filtered = filtered.filter(p => p.sshEnabled);
+  } else if (state.filters.features === 'docker') {
+    filtered = filtered.filter(p => p.dockerEnabled);
+  } else if (state.filters.features === 'tee') {
+    filtered = filtered.filter(p => p.resources?.teeSupported);
+  }
+
+  if (filtered.length === 0) {
+    grid.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">🔍</div>
+        <div class="empty-state-title">No providers match your filters</div>
+        <p>Try adjusting your search criteria</p>
+      </div>
+    `;
+    return;
+  }
+
+  grid.innerHTML = filtered.map(provider => `
+    <div class="provider-card" data-address="${provider.address}" data-testid="provider-card-${provider.address.slice(0, 8)}">
+      <div class="provider-header">
+        <div>
+          <div class="provider-name">${provider.name}</div>
+          <div class="provider-address">${formatAddress(provider.address)}</div>
+        </div>
+        <span class="provider-status ${provider.available ? 'available' : 'busy'}">
+          ${provider.available ? '● Available' : '● Busy'}
+        </span>
+      </div>
+      
+      <div class="provider-specs">
+        <div class="spec-item">
+          <span class="spec-label">GPU</span>
+          <span class="spec-value gpu">${formatGpuType(provider.resources?.gpuType)} × ${provider.resources?.gpuCount || 1}</span>
+        </div>
+        <div class="spec-item">
+          <span class="spec-label">VRAM</span>
+          <span class="spec-value">${provider.resources?.gpuMemoryGb || 0} GB</span>
+        </div>
+        <div class="spec-item">
+          <span class="spec-label">CPU</span>
+          <span class="spec-value">${provider.resources?.cpuCores || 0} cores</span>
+        </div>
+        <div class="spec-item">
+          <span class="spec-label">RAM</span>
+          <span class="spec-value">${provider.resources?.memoryGb || 0} GB</span>
+        </div>
+      </div>
+      
+      <div class="provider-tags">
+        ${provider.sshEnabled ? '<span class="provider-tag ssh">SSH</span>' : ''}
+        ${provider.dockerEnabled ? '<span class="provider-tag docker">Docker</span>' : ''}
+        ${provider.resources?.teeSupported ? '<span class="provider-tag tee">TEE</span>' : ''}
+      </div>
+      
+      <div class="provider-footer">
+        <div class="provider-price">
+          ${provider.pricing?.pricePerHour || '0.00'} <span>ETH/hr</span>
+        </div>
+        <div class="provider-rating">
+          ★ ${provider.reputation?.avgRating || '4.5'} (${provider.reputation?.ratingCount || 0})
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  // Add click handlers
+  document.querySelectorAll('.provider-card').forEach(card => {
+    card.addEventListener('click', () => openRentalModal(card.dataset.address));
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RENTALS
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function loadUserRentals() {
+  if (!state.connected) return;
+
+  const list = document.getElementById('rentals-list');
+  list.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+  try {
+    const response = await fetch(`${CONFIG.gatewayUrl}/v1/rentals?user=${state.address}`);
+    if (!response.ok) throw new Error('Failed to fetch rentals');
+    
+    const data = await response.json();
+    state.rentals = data.rentals || [];
+    renderRentals();
+  } catch (error) {
+    console.error('Load rentals error:', error);
+    // Show mock data
+    state.rentals = generateMockRentals();
+    renderRentals();
+  }
+}
+
+function generateMockRentals() {
+  if (!state.connected) return [];
+  return [
+    {
+      rentalId: '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join(''),
+      provider: '0x' + Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join(''),
+      providerName: 'GPU Cloud Alpha 1',
+      status: 'ACTIVE',
+      startTime: Date.now() - 3600000,
+      endTime: Date.now() + 82800000,
+      totalCost: '0.48',
+      sshHost: 'node1.compute.jeju.network',
+      sshPort: 22,
+      containerImage: 'nvidia/cuda:12.0-base',
+    },
+    {
+      rentalId: '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join(''),
+      provider: '0x' + Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join(''),
+      providerName: 'Neural Compute 2',
+      status: 'COMPLETED',
+      startTime: Date.now() - 172800000,
+      endTime: Date.now() - 86400000,
+      totalCost: '0.24',
+    },
   ];
+}
 
-  const leaks = [];
-  for (const pattern of sensitivePatterns) {
-    const matches = text.match(pattern);
-    if (matches) {
-      leaks.push(...matches.map((m) => m.slice(0, 30) + '...'));
-    }
+function renderRentals() {
+  const list = document.getElementById('rentals-list');
+  const noRentals = document.getElementById('no-rentals');
+
+  if (state.rentals.length === 0) {
+    list.innerHTML = '';
+    noRentals.style.display = 'block';
+    return;
   }
 
-  return {
-    hasLeaks: leaks.length > 0,
-    leaks,
-  };
+  noRentals.style.display = 'none';
+  list.innerHTML = state.rentals.map(rental => `
+    <div class="rental-card" data-rental-id="${rental.rentalId}" data-testid="rental-card-${rental.rentalId.slice(0, 10)}">
+      <div class="rental-header">
+        <div>
+          <div class="rental-id">${rental.rentalId.slice(0, 18)}...</div>
+          <div style="color: var(--text-muted); font-size: 0.85rem;">${rental.providerName || formatAddress(rental.provider)}</div>
+        </div>
+        <span class="rental-status ${rental.status.toLowerCase()}">${rental.status}</span>
+      </div>
+      
+      <div class="rental-details">
+        <div class="rental-detail">
+          <span class="rental-detail-label">Started</span>
+          <span class="rental-detail-value">${rental.startTime ? new Date(rental.startTime).toLocaleString() : 'Pending'}</span>
+        </div>
+        <div class="rental-detail">
+          <span class="rental-detail-label">Ends</span>
+          <span class="rental-detail-value">${rental.endTime ? new Date(rental.endTime).toLocaleString() : 'N/A'}</span>
+        </div>
+        <div class="rental-detail">
+          <span class="rental-detail-label">Total Cost</span>
+          <span class="rental-detail-value">${rental.totalCost} ETH</span>
+        </div>
+        <div class="rental-detail">
+          <span class="rental-detail-label">Container</span>
+          <span class="rental-detail-value">${rental.containerImage || 'None'}</span>
+        </div>
+      </div>
+
+      ${rental.status === 'ACTIVE' && rental.sshHost ? `
+        <div class="ssh-terminal" data-testid="ssh-terminal-${rental.rentalId.slice(0, 10)}">
+          <code>ssh -p ${rental.sshPort} user@${rental.sshHost}</code>
+        </div>
+      ` : ''}
+      
+      <div class="rental-actions" data-testid="rental-actions-${rental.rentalId.slice(0, 10)}">
+        ${rental.status === 'ACTIVE' ? `
+          <button class="btn btn-secondary" onclick="extendRental('${rental.rentalId}')" data-testid="extend-rental-btn-${rental.rentalId.slice(0, 10)}">
+            ⏰ Extend
+          </button>
+          <button class="btn btn-danger" onclick="cancelRental('${rental.rentalId}')" data-testid="cancel-rental-btn-${rental.rentalId.slice(0, 10)}">
+            ✕ Cancel
+          </button>
+        ` : ''}
+        ${rental.status === 'COMPLETED' ? `
+          <button class="btn btn-primary" onclick="openRatingModal('${rental.rentalId}')" data-testid="rate-rental-btn-${rental.rentalId.slice(0, 10)}">
+            ★ Rate
+          </button>
+        ` : ''}
+      </div>
+    </div>
+  `).join('');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// UI UPDATES
+// MODALS
 // ═══════════════════════════════════════════════════════════════════════════
 
-function updateLoadingText(text) {
-  const el = document.getElementById('loading-text');
-  if (el) el.textContent = text;
+function openRentalModal(providerAddress) {
+  state.selectedProvider = state.providers.find(p => p.address === providerAddress);
+  if (!state.selectedProvider) return;
+
+  const modal = document.getElementById('rental-modal');
+  const info = document.getElementById('selected-provider-info');
+  
+  info.innerHTML = `
+    <div class="provider-specs" style="margin-bottom: 1.5rem;">
+      <div class="spec-item">
+        <span class="spec-label">Provider</span>
+        <span class="spec-value">${state.selectedProvider.name}</span>
+      </div>
+      <div class="spec-item">
+        <span class="spec-label">GPU</span>
+        <span class="spec-value gpu">${formatGpuType(state.selectedProvider.resources?.gpuType)}</span>
+      </div>
+      <div class="spec-item">
+        <span class="spec-label">Price/Hour</span>
+        <span class="spec-value">${state.selectedProvider.pricing?.pricePerHour} ETH</span>
+      </div>
+      <div class="spec-item">
+        <span class="spec-label">Status</span>
+        <span class="spec-value" style="color: var(--accent-green);">Available</span>
+      </div>
+    </div>
+  `;
+
+  updateCostBreakdown();
+  modal.classList.add('active');
+  // Prevent body scroll on mobile when modal is open
+  document.body.style.overflow = 'hidden';
 }
 
-function hideLoading() {
-  const el = document.getElementById('loading');
-  if (el) el.classList.add('hidden');
+function closeRentalModal() {
+  document.getElementById('rental-modal').classList.remove('active');
+  state.selectedProvider = null;
+  // Restore body scroll
+  document.body.style.overflow = '';
 }
 
-function _showError(message) {
-  console.error(message);
-  state.errors.push(message);
+function updateCostBreakdown() {
+  if (!state.selectedProvider) return;
+  
+  const duration = parseInt(document.getElementById('rental-duration').value) || 1;
+  const pricePerHour = parseFloat(state.selectedProvider.pricing?.pricePerHour) || 0;
+  const total = (pricePerHour * duration).toFixed(4);
+
+  document.getElementById('cost-per-hour').textContent = pricePerHour + ' ETH';
+  document.getElementById('cost-duration').textContent = duration + ' hour' + (duration > 1 ? 's' : '');
+  document.getElementById('cost-total').textContent = total + ' ETH';
 }
+
+function openRatingModal(rentalId) {
+  state.selectedRentalId = rentalId;
+  state.selectedRating = 0;
+  updateRatingStars();
+  document.getElementById('rating-modal').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeRatingModal() {
+  document.getElementById('rating-modal').classList.remove('active');
+  state.selectedRentalId = null;
+  state.selectedRating = 0;
+  document.body.style.overflow = '';
+}
+
+function updateRatingStars() {
+  document.querySelectorAll('.rating-star').forEach((star, i) => {
+    star.classList.toggle('active', i < state.selectedRating);
+  });
+  document.getElementById('submit-rating-btn').disabled = state.selectedRating === 0;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ACTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function createRental(e) {
+  e.preventDefault();
+  if (!state.connected || !state.selectedProvider) return;
+
+  const btn = document.getElementById('create-rental-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Creating...';
+
+  try {
+    const duration = parseInt(document.getElementById('rental-duration').value);
+    const sshKey = document.getElementById('rental-ssh-key').value;
+    const dockerImage = document.getElementById('rental-docker-image').value;
+    const startupScript = document.getElementById('rental-startup-script').value;
+
+    // Calculate cost
+    const pricePerHour = parseFloat(state.selectedProvider.pricing?.pricePerHour) || 0;
+    const totalCost = (pricePerHour * duration).toFixed(4);
+
+    // In production, this would call the contract
+    showToast(`Creating rental for ${duration} hours at ${totalCost} ETH...`, 'success');
+    
+    // Simulate transaction
+    await new Promise(r => setTimeout(r, 2000));
+
+    closeRentalModal();
+    await loadUserRentals();
+    switchTab('rentals');
+    showToast('Rental created successfully!', 'success');
+
+  } catch (error) {
+    console.error('Create rental error:', error);
+    showToast('Failed to create rental: ' + error.message, 'error');
+  } finally {
+    btn.disabled = !state.connected;
+    btn.textContent = state.connected ? 'Create Rental' : 'Connect Wallet First';
+  }
+}
+
+async function extendRental(rentalId) {
+  if (!state.connected) return;
+  
+  const hours = prompt('Enter additional hours to extend:');
+  if (!hours || isNaN(hours)) return;
+
+  showToast(`Extending rental by ${hours} hours...`, 'success');
+  await new Promise(r => setTimeout(r, 1500));
+  showToast('Rental extended successfully!', 'success');
+  await loadUserRentals();
+}
+
+async function cancelRental(rentalId) {
+  if (!state.connected) return;
+  
+  if (!confirm('Are you sure you want to cancel this rental? You may receive a partial refund.')) return;
+
+  showToast('Cancelling rental...', 'success');
+  await new Promise(r => setTimeout(r, 1500));
+  showToast('Rental cancelled. Refund initiated.', 'success');
+  await loadUserRentals();
+}
+
+async function submitRating() {
+  if (!state.connected || !state.selectedRentalId || state.selectedRating === 0) return;
+
+  const btn = document.getElementById('submit-rating-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Submitting...';
+
+  try {
+    const review = document.getElementById('rating-review').value;
+    
+    showToast(`Submitting ${state.selectedRating}-star rating...`, 'success');
+    await new Promise(r => setTimeout(r, 1500));
+    
+    closeRatingModal();
+    showToast('Rating submitted successfully!', 'success');
+
+  } catch (error) {
+    console.error('Submit rating error:', error);
+    showToast('Failed to submit rating: ' + error.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Submit Rating';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════════════════════════
 
 function formatAddress(address) {
-  if (!address || address.length < 10) return address;
+  if (!address || address.length < 10) return address || '';
   return address.slice(0, 6) + '...' + address.slice(-4);
 }
 
-function formatCID(cid) {
-  if (!cid || cid.length < 20) return cid;
-  return cid.slice(0, 12) + '...' + cid.slice(-8);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// DATA FETCHING
-// ═══════════════════════════════════════════════════════════════════════════
-
-async function fetchAttestation() {
-  // In a real deployment, this would fetch from the TEE operator's endpoint
-  // For now, we show simulation data with clear warnings
-
-  const attestation = {
-    mrEnclave:
-      '0xaca7874a4df54a3748d211290a4cca107d8322' +
-      Math.random().toString(16).slice(2, 10),
-    operatorAddress:
-      '0x' +
-      Array(40)
-        .fill(0)
-        .map(() => Math.floor(Math.random() * 16).toString(16))
-        .join(''),
-    hardwareAuthentic: !CONFIG.isSimulation,
-    timestamp: Date.now(),
-    isSimulated: CONFIG.isSimulation,
+function formatGpuType(type) {
+  const map = {
+    'NVIDIA_RTX_4090': 'RTX 4090',
+    'NVIDIA_A100_40GB': 'A100 40GB',
+    'NVIDIA_A100_80GB': 'A100 80GB',
+    'NVIDIA_H100': 'H100',
+    'NVIDIA_H200': 'H200',
+    'AMD_MI300X': 'MI300X',
   };
-
-  state.attestation = attestation;
-
-  // Update UI
-  document.getElementById('code-hash').textContent = formatAddress(
-    attestation.mrEnclave
-  );
-  document.getElementById('operator-address').textContent = formatAddress(
-    attestation.operatorAddress
-  );
-
-  const hwAuth = document.getElementById('hardware-authentic');
-  if (attestation.hardwareAuthentic) {
-    hwAuth.textContent = '✅ Verified';
-    hwAuth.className = 'metric-value green';
-  } else {
-    hwAuth.textContent = '⚠️ Simulated';
-    hwAuth.className = 'metric-value yellow';
-  }
-
-  document.getElementById('last-heartbeat').textContent =
-    new Date().toLocaleTimeString();
-
-  const badge = document.getElementById('attestation-badge');
-  badge.textContent = attestation.isSimulated ? 'Simulated' : 'Verified';
-  badge.className = attestation.isSimulated
-    ? 'card-badge warning'
-    : 'card-badge verified';
-
-  return attestation;
+  return map[type] || type || 'Unknown';
 }
 
-async function fetchOnChainState() {
-  const contracts = CONFIG.contracts[CONFIG.network];
+function calculateAvgPrice(providers) {
+  if (providers.length === 0) return '0.00 ETH';
+  const total = providers.reduce((sum, p) => sum + parseFloat(p.pricing?.pricePerHour || 0), 0);
+  return (total / providers.length).toFixed(4) + ' ETH';
+}
 
-  // Try to read real contract data
-  let realData = null;
-  if (contracts.gameTreasury !== '0x0000000000000000000000000000000000000000') {
-    try {
-      // Read getGameState()
-      const result = await readContract(
-        contracts.gameTreasury,
-        'getGameState()'
-      );
-      realData = result;
-    } catch (e) {
-      console.warn('Could not read contract:', e.message);
+function calculateTotalStaked(providers) {
+  const total = providers.reduce((sum, p) => sum + parseFloat(p.stake || 0), 0);
+  return total.toFixed(2) + ' ETH';
+}
+
+function switchTab(tabName) {
+  // Update nav
+  document.querySelectorAll('.nav-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.tab === tabName);
+  });
+  // Update pages
+  document.querySelectorAll('.page').forEach(page => {
+    page.classList.toggle('active', page.id === 'page-' + tabName);
+  });
+}
+
+function showToast(message, type = 'success') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `
+    <span>${type === 'success' ? '✓' : '✕'}</span>
+    <span>${message}</span>
+  `;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 4000);
+}
+
+function applyFilters() {
+  state.filters.gpuType = document.getElementById('filter-gpu').value;
+  state.filters.minMemory = parseInt(document.getElementById('filter-memory').value) || 0;
+  state.filters.maxPrice = document.getElementById('filter-price').value;
+  state.filters.features = document.getElementById('filter-features').value;
+  renderProviders();
+}
+
+function resetFilters() {
+  document.getElementById('filter-gpu').value = '';
+  document.getElementById('filter-memory').value = '';
+  document.getElementById('filter-price').value = '';
+  document.getElementById('filter-features').value = '';
+  state.filters = { gpuType: '', minMemory: 0, maxPrice: '', features: '' };
+  renderProviders();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EVENT LISTENERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Wallet
+  document.getElementById('connect-wallet').addEventListener('click', connectWallet);
+  document.getElementById('disconnect-wallet').addEventListener('click', disconnectWallet);
+
+  // Navigation
+  document.querySelectorAll('.nav-tab').forEach(tab => {
+    tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+  });
+
+  // Filters
+  document.getElementById('apply-filters').addEventListener('click', applyFilters);
+  document.getElementById('reset-filters').addEventListener('click', resetFilters);
+
+  // Rental form
+  document.getElementById('rental-form').addEventListener('submit', createRental);
+  document.getElementById('rental-duration').addEventListener('input', updateCostBreakdown);
+
+  // Rating - support both click and touch
+  document.querySelectorAll('.rating-star').forEach(star => {
+    const handleRating = (e) => {
+      e.preventDefault();
+      state.selectedRating = parseInt(star.dataset.rating);
+      updateRatingStars();
+    };
+    star.addEventListener('click', handleRating);
+    star.addEventListener('touchend', handleRating);
+  });
+  document.getElementById('submit-rating-btn').addEventListener('click', submitRating);
+
+  // Close modals on backdrop click
+  document.getElementById('rental-modal').addEventListener('click', (e) => {
+    if (e.target.classList.contains('modal-overlay')) {
+      closeRentalModal();
     }
-  }
+  });
+  document.getElementById('rating-modal').addEventListener('click', (e) => {
+    if (e.target.classList.contains('modal-overlay')) {
+      closeRatingModal();
+    }
+  });
 
-  // Use real data or simulation
-  const onChainState = realData ?? {
-    contractAddress: contracts.gameTreasury,
-    stateCid: 'Qm' + Math.random().toString(16).slice(2, 48),
-    stateVersion: Math.floor(Math.random() * 100) + 1,
-    treasuryBalance: (Math.random() * 10).toFixed(2) + ' ETH',
-    keyVersion: Math.floor(Math.random() * 5) + 1,
-  };
-
-  state.onChainState = onChainState;
-
-  // Update UI
-  document.getElementById('contract-address').textContent = formatAddress(
-    onChainState.contractAddress
-  );
-  document.getElementById('state-cid').textContent = formatCID(
-    onChainState.stateCid
-  );
-  document.getElementById('state-version').textContent =
-    'v' + onChainState.stateVersion;
-  document.getElementById('treasury-balance').textContent =
-    onChainState.treasuryBalance;
-  document.getElementById('key-version').textContent =
-    'v' + onChainState.keyVersion;
-
-  const badge = document.getElementById('chain-badge');
-  if (realData) {
-    badge.textContent = 'Synced';
-    badge.className = 'card-badge verified';
-  } else {
-    badge.textContent = 'Simulated';
-    badge.className = 'card-badge warning';
-  }
-
-  return onChainState;
-}
-
-async function fetchCommits() {
-  // Generate sample commits for demo
-  const commits = [
-    {
-      id: 'commit-1',
-      hash: '0x' + Math.random().toString(16).slice(2, 20),
-      status: 'revealed',
-      timestamp: Date.now() - 120000,
-    },
-    {
-      id: 'commit-2',
-      hash: '0x' + Math.random().toString(16).slice(2, 20),
-      status: 'revealed',
-      timestamp: Date.now() - 60000,
-    },
-    {
-      id: 'commit-3',
-      hash: '0x' + Math.random().toString(16).slice(2, 20),
-      status: 'pending',
-      timestamp: Date.now(),
-    },
-  ];
-
-  state.commits = commits;
-
-  const list = document.getElementById('commits-list');
-  list.innerHTML = commits
-    .map(
-      (c) => `
-    <div class="commit-item">
-      <div>
-        <span class="commit-hash">${c.hash}</span>
-        <div class="metric-label">${new Date(c.timestamp).toLocaleTimeString()}</div>
-      </div>
-      <span class="commit-status ${c.status}">${c.status}</span>
-    </div>
-  `
-    )
-    .join('');
-
-  document.getElementById('commits-count').textContent =
-    commits.length + ' commits';
-
-  return commits;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// ACTION HANDLERS
-// ═══════════════════════════════════════════════════════════════════════════
-
-async function fetchLatestState() {
-  const btn = document.getElementById('fetch-state');
-  btn.disabled = true;
-  btn.textContent = '⏳ Loading...';
-
-  try {
-    const cid = state.onChainState?.stateCid;
-
-    if (cid && cid.startsWith('Qm')) {
-      // Try to fetch from IPFS
-      const result = await fetchFromIPFS(cid);
-      if (result.success) {
-        state.encryptedData = result.data;
-        document.getElementById('encrypted-state').textContent = result.data;
-        document.getElementById('state-badge').textContent = 'Loaded from IPFS';
-        document.getElementById('state-badge').className =
-          'card-badge verified';
-        return;
+  // Handle escape key for modals
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (document.getElementById('rental-modal').classList.contains('active')) {
+        closeRentalModal();
+      }
+      if (document.getElementById('rating-modal').classList.contains('active')) {
+        closeRatingModal();
       }
     }
+  });
 
-    // Fall back to sample data
-    const encryptedState = {
-      payload: {
-        ciphertext:
-          'DPw4i+7vtztMJPfC3qe2pezGaGVCg3aUPF4bx4V3Xk8rqTn2L5wH' +
-          Math.random().toString(36).slice(2),
-        iv: btoa(
-          String.fromCharCode(...crypto.getRandomValues(new Uint8Array(12)))
-        ),
-        alg: 'AES-256-GCM',
-      },
-      version: state.onChainState?.keyVersion ?? 1,
-      label: 'game_state',
-    };
-
-    state.encryptedData = encryptedState;
-
-    document.getElementById('encrypted-state').textContent = JSON.stringify(
-      encryptedState,
-      null,
-      2
-    );
-    document.getElementById('state-badge').textContent = 'Sample Data';
-    document.getElementById('state-badge').className = 'card-badge warning';
-  } catch (error) {
-    console.error('Fetch error:', error);
-    document.getElementById('encrypted-state').textContent =
-      'Error: ' + error.message;
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '🔄 Fetch Latest State';
+  // Listen for account changes
+  if (window.ethereum) {
+    window.ethereum.on('accountsChanged', (accounts) => {
+      if (accounts.length === 0) {
+        disconnectWallet();
+      } else {
+        state.address = accounts[0];
+        updateWalletUI();
+        loadUserRentals();
+      }
+    });
   }
-}
 
-async function runVerification() {
-  const btn = document.getElementById('verify-btn');
-  btn.disabled = true;
-  btn.textContent = '⏳ Verifying...';
+  // Load initial data
+  loadProviders();
+});
 
-  try {
-    const checks = [];
-
-    // 1. Verify encrypted structure
-    if (state.encryptedData) {
-      const structureCheck = verifyEncryptedStructure(state.encryptedData);
-      checks.push(
-        structureCheck.valid
-          ? '✅ Encryption structure valid'
-          : '❌ Invalid encryption structure'
-      );
-
-      // 2. Check for plaintext leaks
-      const leakCheck = checkPlaintextLeaks(
-        typeof state.encryptedData === 'string'
-          ? state.encryptedData
-          : JSON.stringify(state.encryptedData)
-      );
-      checks.push(
-        !leakCheck.hasLeaks
-          ? '✅ No plaintext leaks detected'
-          : '❌ Plaintext leaks found: ' + leakCheck.leaks.join(', ')
-      );
-
-      // 3. Check entropy
-      const ciphertext = structureCheck.parsed?.payload?.ciphertext ?? '';
-      const entropy = calculateEntropy(ciphertext);
-      checks.push(
-        entropy > 4
-          ? `✅ High entropy (${entropy.toFixed(2)} bits/byte)`
-          : `⚠️ Low entropy (${entropy.toFixed(2)} bits/byte)`
-      );
-    } else {
-      checks.push('⚠️ No encrypted data loaded');
-    }
-
-    // 4. Hardware attestation
-    checks.push(
-      state.attestation?.hardwareAuthentic
-        ? '✅ Hardware attestation verified'
-        : '⚠️ Hardware attestation simulated'
-    );
-
-    // 5. On-chain sync
-    checks.push(
-      state.onChainState
-        ? '✅ On-chain state fetched'
-        : '⚠️ On-chain state not available'
-    );
-
-    alert('Verification Results:\n\n' + checks.join('\n'));
-  } catch (error) {
-    alert('Verification failed: ' + error.message);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '✅ Verify Integrity';
-  }
-}
-
-async function checkTakeover() {
-  const btn = document.getElementById('check-takeover');
-  btn.disabled = true;
-  btn.textContent = '⏳ Checking...';
-
-  try {
-    // In production, read from contract:
-    // lastHeartbeat = await readContract(address, 'lastHeartbeat()')
-    // heartbeatTimeout = await readContract(address, 'heartbeatTimeout()')
-
-    const lastHeartbeat = Date.now() - 30000; // Simulated: 30s ago
-    const timeout = 60 * 60 * 1000; // 1 hour
-    const canTakeover = Date.now() - lastHeartbeat > timeout;
-
-    if (canTakeover) {
-      alert(`🔄 TAKEOVER AVAILABLE
-
-The current operator has missed heartbeats.
-
-To take over:
-1. Deploy your own TEE instance
-2. Generate attestation
-3. Call contract.registerOperator(yourAddress, attestation)
-
-This is a permissionless operation - anyone with a valid TEE can become the operator.`);
-    } else {
-      const remaining = Math.ceil(
-        (timeout - (Date.now() - lastHeartbeat)) / 1000
-      );
-      alert(`⏳ Operator is active
-
-Last heartbeat: ${new Date(lastHeartbeat).toLocaleTimeString()}
-Timeout: ${timeout / 1000} seconds
-Takeover available in: ${remaining} seconds
-
-The game continues running autonomously.`);
-    }
-  } catch (error) {
-    alert('Check failed: ' + error.message);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '🔄 Check Takeover Eligibility';
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// INITIALIZATION
-// ═══════════════════════════════════════════════════════════════════════════
-
-async function init() {
-  try {
-    updateLoadingText('Detecting environment...');
-
-    // Check if accessed via ENS gateway
-    const host = window.location.hostname;
-    if (host.endsWith('.eth.limo') || host.endsWith('.eth.link')) {
-      document.getElementById('content-hash').textContent =
-        'ENS: ' + host.split('.')[0] + '.eth';
-    } else {
-      document.getElementById('content-hash').textContent =
-        'Direct access (not via ENS)';
-    }
-
-    // Show simulation warning if applicable
-    if (CONFIG.isSimulation) {
-      document.getElementById('simulation-warning').style.display = 'flex';
-    }
-
-    updateLoadingText('Fetching attestation...');
-    await fetchAttestation();
-
-    updateLoadingText('Reading on-chain state...');
-    await fetchOnChainState();
-
-    updateLoadingText('Loading commit history...');
-    await fetchCommits();
-
-    // Hide loading screen
-    hideLoading();
-    document.getElementById('network-status').textContent =
-      CONFIG.network.charAt(0).toUpperCase() + CONFIG.network.slice(1);
-
-    state.connected = true;
-  } catch (error) {
-    console.error('Init error:', error);
-    document.getElementById('loading-text').textContent =
-      'Error: ' + error.message;
-    document.getElementById('network-status').textContent = 'Error';
-    document.querySelector('.status-badge').classList.remove('live');
-  }
-}
-
-// Make functions globally available
-window.fetchLatestState = fetchLatestState;
-window.runVerification = runVerification;
-window.checkTakeover = checkTakeover;
-
-// Initialize on load
-window.addEventListener('load', init);
-
-// Export for module usage
+// Export for testing
 if (typeof module !== 'undefined') {
-  module.exports = {
-    CONFIG,
-    state,
-    fetchFromIPFS,
-    fetchFromArweave,
-    verifyEncryptedStructure,
-    calculateEntropy,
-    checkPlaintextLeaks,
-  };
+  module.exports = { state, CONFIG, connectWallet, loadProviders, switchTab };
 }

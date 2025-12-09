@@ -250,7 +250,7 @@ test-results/screenshots/
 
 1. **Moderation Tests**: Require moderation contracts deployed (separate from core Gateway)
 2. **Storage Tests**: Require IPFS service running on port 3100
-3. **Bridge Tests**: Currently test UI only, real bridge requires Base testnet connection
+3. **Bridge Tests**: Currently test UI only, real bridge requires Sepolia testnet connection
 4. **Time-Dependent Tests**: Use blockchain time manipulation (evm_increaseTime)
 
 ---
@@ -274,7 +274,7 @@ test-results/screenshots/
 ## 📈 Next Steps
 
 ### Still TODO (Lower Priority):
-1. Bridge with real Base testnet
+1. Bridge with real Sepolia testnet
 2. Governance quest creation tests
 3. Label proposal tests
 4. Appeal submission tests

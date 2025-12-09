@@ -2,7 +2,7 @@
  * Token utility functions for formatting and calculations
  */
 
-import { loadTokensConfig, getToken, getAllTokens, type TokenConfig } from './protocol-tokens';
+import { getToken, getAllTokens, type TokenConfig } from './protocol-tokens';
 
 /**
  * Get decimals for a token

@@ -5,7 +5,7 @@
 
 import { createPublicClient, createWalletClient, http, parseEther } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { getContractAddresses as getDeployedAddresses, isValidAddress } from '@jeju/contracts';
+import { getContractAddresses as getDeployedAddresses, isValidAddress } from '@jejunetwork/contracts';
 
 export const TEST_WALLET = {
   privateKey: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',

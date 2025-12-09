@@ -89,7 +89,7 @@ test.describe('Gateway Smoke Tests', () => {
     
     const tabs = [
       'Registered Tokens',
-      'Bridge from Base',
+      'Bridge from Ethereum',
       'Deploy Paymaster',
       'Add Liquidity',
       'My Earnings',
@@ -117,7 +117,7 @@ test.describe('Gateway Smoke Tests', () => {
     await metamask.connectToDapp();
     
     // Navigate through tabs
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await expect(page.locator('button:has-text(/0x/)')).toBeVisible();
     
     await page.getByRole('button', { name: /Add Liquidity/i }).click();

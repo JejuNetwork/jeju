@@ -18,7 +18,7 @@ import Bun from 'bun';
 const L1_RPC = process.env.L1_RPC_URL || 'http://127.0.0.1:8545';
 const L2_RPC = process.env.L2_RPC_URL || 'http://127.0.0.1:9545';
 
-import { rawDeployments } from '@jeju/contracts';
+import { rawDeployments } from '@jejunetwork/contracts';
 
 // Load deployment config
 const CONFIG_PATH = './packages/config/eil.json';
@@ -87,7 +87,7 @@ describe('EIL Flow Integration Tests', () => {
       return;
     }
     
-    // Load deployment - try @jeju/contracts first, then config file
+    // Load deployment - try @jejunetwork/contracts first, then config file
     const eilDeployment = rawDeployments.eilLocalnet;
     
     if (eilDeployment && Object.keys(eilDeployment).length > 0) {
@@ -142,7 +142,7 @@ describe('EIL Flow Integration Tests', () => {
     const isRegistered = await stakeManager.isXLPActive(xlpL1.address);
     
     if (!isRegistered) {
-      const tx = await stakeManager.register([1337, 8453], {
+      const tx = await stakeManager.register([1337, 1], {
         value: ethers.parseEther('10')
       });
       await tx.wait();
@@ -198,7 +198,7 @@ describe('EIL Flow Integration Tests', () => {
       user
     );
     
-    // Create request for 0.5 ETH transfer to a DIFFERENT chain (8453 = Base mainnet)
+    // Create request for 0.5 ETH transfer to a DIFFERENT chain (1 = Ethereum mainnet)
     const amount = ethers.parseEther('0.5');
     const maxFee = ethers.parseEther('0.1');
     const feeIncrement = ethers.parseEther('0.01');
@@ -208,7 +208,7 @@ describe('EIL Flow Integration Tests', () => {
       ethers.ZeroAddress, // ETH
       amount,
       ethers.ZeroAddress, // Destination token (ETH)
-      8453, // Destination chain (Base mainnet - different from source)
+      1, // Destination chain (Ethereum mainnet - different from source)
       user.address, // Recipient
       gasOnDestination,
       maxFee,
@@ -243,7 +243,7 @@ describe('EIL Flow Integration Tests', () => {
     const amount = ethers.parseEther('0.3');
     const maxFee = ethers.parseEther('0.05');
     const feeIncrement = ethers.parseEther('0.001');
-    const destChainId = 8453; // Base mainnet
+    const destChainId = 1; // Ethereum mainnet
     
     const tx = await paymaster.createVoucherRequest(
       ethers.ZeroAddress,
@@ -307,7 +307,7 @@ describe('EIL Flow Integration Tests', () => {
     const amount = ethers.parseEther('0.2');
     const maxFee = ethers.parseEther('0.02');
     const feeIncrement = ethers.parseEther('0.001');
-    const destChainId = 8453; // Base mainnet
+    const destChainId = 1; // Ethereum mainnet
     
     const tx = await paymaster.createVoucherRequest(
       ethers.ZeroAddress,

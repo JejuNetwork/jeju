@@ -3,806 +3,874 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Babylon - Permissionless AI Game</title>
-  <meta name="description" content="Verifiable, trustless AI game running in TEE with on-chain state">
+  <title>Jeju Compute Marketplace</title>
+  <meta name="description" content="Decentralized GPU/CPU rentals with SSH access, Docker containers, and AI inference">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-primary: #050508;
-      --bg-secondary: #0c0c12;
-      --bg-tertiary: #14141f;
-      --bg-card: #0a0a10;
-      --accent-primary: #00ffaa;
-      --accent-secondary: #00c4ff;
-      --accent-tertiary: #8b5cf6;
-      --accent-warning: #fbbf24;
-      --accent-danger: #ef4444;
-      --text-primary: #f0f0f5;
-      --text-secondary: #8888a0;
-      --text-muted: #555566;
-      --border-default: #1a1a28;
-      --border-hover: #2a2a40;
-      --glow-primary: rgba(0, 255, 170, 0.15);
-      --glow-secondary: rgba(0, 196, 255, 0.1);
+      --bg-primary: #0a0a0f;
+      --bg-secondary: #12121a;
+      --bg-card: #16161f;
+      --bg-input: #1a1a25;
+      --accent-green: #10b981;
+      --accent-blue: #3b82f6;
+      --accent-purple: #8b5cf6;
+      --accent-orange: #f59e0b;
+      --accent-red: #ef4444;
+      --text-primary: #f4f4f5;
+      --text-secondary: #a1a1aa;
+      --text-muted: #71717a;
+      --border-color: #27272a;
+      --border-focus: #3f3f46;
     }
-
     * { margin: 0; padding: 0; box-sizing: border-box; }
-
     body {
-      font-family: 'Outfit', sans-serif;
+      font-family: 'Space Grotesk', sans-serif;
       background: var(--bg-primary);
       color: var(--text-primary);
       min-height: 100vh;
-      line-height: 1.6;
     }
-
-    /* Background effect */
-    body::before {
-      content: '';
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: 
-        radial-gradient(ellipse 80% 50% at 50% -20%, var(--glow-primary), transparent),
-        radial-gradient(ellipse 60% 40% at 100% 100%, var(--glow-secondary), transparent),
-        linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
-      z-index: -1;
-    }
-
-    .container {
-      max-width: 1280px;
-      margin: 0 auto;
-      padding: 1.5rem;
-    }
-
+    .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+    
     /* Header */
     header {
-      text-align: center;
-      padding: 3rem 0 2rem;
-      position: relative;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.5rem 2rem;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-secondary);
     }
-
     .logo {
-      font-size: 3rem;
+      font-size: 1.5rem;
       font-weight: 700;
-      letter-spacing: -0.02em;
-      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      background: linear-gradient(135deg, var(--accent-green), var(--accent-blue));
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      background-clip: text;
-      margin-bottom: 0.5rem;
-      text-shadow: 0 0 60px var(--glow-primary);
     }
-
-    .tagline {
-      color: var(--text-secondary);
-      font-size: 1.1rem;
-      font-weight: 400;
-    }
-
-    .status-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      margin-top: 1.25rem;
-      padding: 0.5rem 1.25rem;
-      background: var(--bg-tertiary);
-      border: 1px solid var(--border-default);
-      border-radius: 100px;
-      font-size: 0.875rem;
-      font-weight: 500;
-    }
-
-    .status-pill.live { border-color: var(--accent-primary); }
-
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      background: var(--accent-primary);
-      border-radius: 50%;
-      animation: pulse 2s ease-in-out infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 var(--glow-primary); }
-      50% { opacity: 0.7; box-shadow: 0 0 0 4px transparent; }
-    }
-
-    /* Warning banner */
-    .warning-banner {
+    .nav-tabs {
       display: flex;
-      align-items: flex-start;
-      gap: 1rem;
-      padding: 1rem 1.25rem;
-      background: rgba(251, 191, 36, 0.08);
-      border: 1px solid rgba(251, 191, 36, 0.3);
-      border-radius: 0.75rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .warning-banner .icon { font-size: 1.25rem; }
-    .warning-banner strong { display: block; color: var(--accent-warning); }
-    .warning-banner p { color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.25rem; }
-
-    /* Grid */
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-      gap: 1.25rem;
-      margin-bottom: 1.5rem;
-    }
-
-    /* Cards */
-    .card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-default);
-      border-radius: 1rem;
-      padding: 1.5rem;
-      transition: all 0.2s ease;
-    }
-
-    .card:hover {
-      border-color: var(--border-hover);
-      transform: translateY(-2px);
-    }
-
-    .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1.25rem;
-    }
-
-    .card-title {
-      font-size: 1rem;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
       gap: 0.5rem;
     }
-
-    .card-title .icon { font-size: 1.25rem; }
-
-    .badge {
-      font-size: 0.7rem;
-      font-weight: 500;
-      padding: 0.25rem 0.625rem;
-      border-radius: 100px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .badge-default { background: var(--bg-tertiary); color: var(--text-secondary); }
-    .badge-success { background: rgba(0, 255, 170, 0.12); color: var(--accent-primary); }
-    .badge-warning { background: rgba(251, 191, 36, 0.12); color: var(--accent-warning); }
-    .badge-info { background: rgba(0, 196, 255, 0.12); color: var(--accent-secondary); }
-
-    /* Metrics */
-    .metric {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.875rem 0;
-      border-bottom: 1px solid var(--border-default);
-    }
-
-    .metric:last-child { border-bottom: none; }
-
-    .metric-label {
-      color: var(--text-secondary);
-      font-size: 0.875rem;
-    }
-
-    .metric-value {
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 0.875rem;
-      font-weight: 500;
-    }
-
-    .metric-value.green { color: var(--accent-primary); }
-    .metric-value.blue { color: var(--accent-secondary); }
-    .metric-value.yellow { color: var(--accent-warning); }
-    .metric-value.purple { color: var(--accent-tertiary); }
-
-    /* Code block */
-    .code-block {
-      background: var(--bg-primary);
-      border: 1px solid var(--border-default);
+    .nav-tab {
+      padding: 0.75rem 1.5rem;
       border-radius: 0.5rem;
-      padding: 1rem;
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 0.75rem;
-      line-height: 1.6;
-      overflow-x: auto;
-      white-space: pre-wrap;
-      word-break: break-all;
+      background: transparent;
       color: var(--text-secondary);
-      max-height: 200px;
-      overflow-y: auto;
-    }
-
-    /* Commits list */
-    .commits-list {
-      max-height: 280px;
-      overflow-y: auto;
-    }
-
-    .commit-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.75rem;
-      background: var(--bg-tertiary);
-      border-radius: 0.5rem;
-      margin-bottom: 0.5rem;
-    }
-
-    .commit-item:last-child { margin-bottom: 0; }
-
-    .commit-hash {
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 0.8rem;
-      color: var(--accent-secondary);
-    }
-
-    .commit-time {
-      font-size: 0.75rem;
-      color: var(--text-secondary);
-      margin-top: 0.125rem;
-    }
-
-    .commit-status {
-      font-size: 0.7rem;
-      font-weight: 500;
-      padding: 0.25rem 0.5rem;
-      border-radius: 0.25rem;
-      text-transform: uppercase;
-    }
-
-    .commit-status.pending { background: rgba(251, 191, 36, 0.15); color: var(--accent-warning); }
-    .commit-status.revealed { background: rgba(0, 255, 170, 0.15); color: var(--accent-primary); }
-
-    /* Buttons */
-    .btn-group {
-      display: flex;
-      gap: 1rem;
-      margin-top: 1.5rem;
-      flex-wrap: wrap;
-    }
-
-    .btn {
-      flex: 1;
-      min-width: 200px;
-      padding: 0.875rem 1.5rem;
       border: none;
-      border-radius: 0.625rem;
-      font-family: 'Outfit', sans-serif;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    .nav-tab:hover { color: var(--text-primary); background: var(--bg-card); }
+    .nav-tab.active { color: var(--accent-green); background: rgba(16, 185, 129, 0.1); }
+    
+    .wallet-section { display: flex; align-items: center; gap: 1rem; }
+    .network-badge {
+      padding: 0.5rem 1rem;
+      background: var(--bg-card);
+      border-radius: 0.5rem;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .network-dot { width: 8px; height: 8px; background: var(--accent-green); border-radius: 50%; }
+    
+    .btn {
+      padding: 0.75rem 1.5rem;
+      border-radius: 0.5rem;
+      border: none;
+      font-family: inherit;
       font-size: 0.9rem;
       font-weight: 600;
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: all 0.2s;
       display: flex;
       align-items: center;
-      justify-content: center;
       gap: 0.5rem;
     }
-
-    .btn:hover { transform: translateY(-2px); }
-    .btn:active { transform: translateY(0); }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
     .btn-primary {
-      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-      color: var(--bg-primary);
+      background: linear-gradient(135deg, var(--accent-green), var(--accent-blue));
+      color: white;
     }
-
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3); }
     .btn-secondary {
-      background: var(--bg-tertiary);
+      background: var(--bg-card);
       color: var(--text-primary);
-      border: 1px solid var(--border-default);
+      border: 1px solid var(--border-color);
     }
-
-    .btn-secondary:hover { border-color: var(--border-hover); }
-
-    /* ENS Registration Modal */
+    .btn-secondary:hover { border-color: var(--border-focus); }
+    .btn-danger { background: var(--accent-red); color: white; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    
+    /* Main Content */
+    main { padding: 2rem; }
+    
+    .page-header {
+      margin-bottom: 2rem;
+    }
+    .page-title { font-size: 1.75rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .page-subtitle { color: var(--text-secondary); }
+    
+    /* Stats Bar */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 1rem;
+      padding: 1.5rem;
+    }
+    .stat-label { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem; }
+    .stat-value { font-size: 1.75rem; font-weight: 700; }
+    .stat-value.green { color: var(--accent-green); }
+    .stat-value.blue { color: var(--accent-blue); }
+    
+    /* Filters */
+    .filters-bar {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+    }
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .filter-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .filter-select, .filter-input {
+      padding: 0.75rem 1rem;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 0.5rem;
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 0.9rem;
+      min-width: 150px;
+    }
+    .filter-select:focus, .filter-input:focus { outline: none; border-color: var(--accent-green); }
+    
+    /* Provider Grid */
+    .provider-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+      gap: 1.5rem;
+    }
+    .provider-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 1rem;
+      padding: 1.5rem;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+    .provider-card:hover { border-color: var(--accent-green); transform: translateY(-4px); }
+    .provider-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+    .provider-name { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.25rem; }
+    .provider-address { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--text-muted); }
+    .provider-status {
+      padding: 0.375rem 0.75rem;
+      border-radius: 100px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .provider-status.available { background: rgba(16, 185, 129, 0.1); color: var(--accent-green); }
+    .provider-status.busy { background: rgba(245, 158, 11, 0.1); color: var(--accent-orange); }
+    
+    .provider-specs {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      padding: 1rem;
+      background: var(--bg-input);
+      border-radius: 0.75rem;
+    }
+    .spec-item { display: flex; flex-direction: column; gap: 0.25rem; }
+    .spec-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .spec-value { font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; font-weight: 500; }
+    .spec-value.gpu { color: var(--accent-purple); }
+    
+    .provider-tags {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    .provider-tag {
+      padding: 0.375rem 0.75rem;
+      background: var(--bg-input);
+      border-radius: 0.375rem;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+    .provider-tag.ssh { color: var(--accent-green); }
+    .provider-tag.docker { color: var(--accent-blue); }
+    .provider-tag.tee { color: var(--accent-purple); }
+    
+    .provider-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border-color);
+    }
+    .provider-price { font-size: 1.25rem; font-weight: 700; color: var(--accent-green); }
+    .provider-price span { font-size: 0.85rem; font-weight: 400; color: var(--text-muted); }
+    .provider-rating { display: flex; align-items: center; gap: 0.375rem; color: var(--accent-orange); }
+    
+    /* Pages */
+    .page { display: none; }
+    .page.active { display: block; }
+    
+    /* My Rentals Page */
+    .rentals-list { display: flex; flex-direction: column; gap: 1rem; }
+    .rental-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 1rem;
+      padding: 1.5rem;
+    }
+    .rental-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    .rental-id { font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; color: var(--accent-blue); }
+    .rental-status {
+      padding: 0.375rem 0.75rem;
+      border-radius: 100px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .rental-status.active { background: rgba(16, 185, 129, 0.1); color: var(--accent-green); }
+    .rental-status.pending { background: rgba(245, 158, 11, 0.1); color: var(--accent-orange); }
+    .rental-status.completed { background: rgba(113, 113, 122, 0.1); color: var(--text-muted); }
+    
+    .rental-details {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .rental-detail { display: flex; flex-direction: column; gap: 0.25rem; }
+    .rental-detail-label { font-size: 0.75rem; color: var(--text-muted); }
+    .rental-detail-value { font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; }
+    
+    .rental-actions { display: flex; gap: 0.75rem; }
+    .rental-actions .btn { padding: 0.625rem 1.25rem; font-size: 0.85rem; }
+    
+    /* SSH Terminal */
+    .ssh-terminal {
+      background: #0d1117;
+      border: 1px solid var(--border-color);
+      border-radius: 0.75rem;
+      padding: 1rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      margin-top: 1rem;
+    }
+    .ssh-terminal code { color: var(--accent-green); }
+    
+    /* Rental Modal */
     .modal-overlay {
       display: none;
       position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
+      inset: 0;
       background: rgba(0, 0, 0, 0.8);
       z-index: 1000;
       align-items: center;
       justify-content: center;
       backdrop-filter: blur(4px);
     }
-
     .modal-overlay.active { display: flex; }
-
     .modal {
       background: var(--bg-secondary);
-      border: 1px solid var(--border-default);
+      border: 1px solid var(--border-color);
       border-radius: 1rem;
       padding: 2rem;
-      max-width: 500px;
+      max-width: 560px;
       width: 90%;
       max-height: 90vh;
       overflow-y: auto;
     }
-
     .modal-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 1.5rem;
     }
-
-    .modal-title {
-      font-size: 1.25rem;
-      font-weight: 600;
-    }
-
+    .modal-title { font-size: 1.25rem; font-weight: 600; }
     .modal-close {
       background: none;
       border: none;
       color: var(--text-secondary);
       font-size: 1.5rem;
       cursor: pointer;
-      padding: 0.25rem;
     }
-
-    .modal-close:hover { color: var(--text-primary); }
-
-    .form-group {
-      margin-bottom: 1.25rem;
-    }
-
-    .form-label {
-      display: block;
-      font-size: 0.875rem;
-      font-weight: 500;
-      margin-bottom: 0.5rem;
-      color: var(--text-secondary);
-    }
-
-    .form-input {
+    .form-group { margin-bottom: 1.25rem; }
+    .form-label { display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 0.5rem; color: var(--text-secondary); }
+    .form-input, .form-select, .form-textarea {
       width: 100%;
-      padding: 0.75rem 1rem;
-      background: var(--bg-primary);
-      border: 1px solid var(--border-default);
+      padding: 0.875rem 1rem;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
       border-radius: 0.5rem;
       color: var(--text-primary);
-      font-family: 'IBM Plex Mono', monospace;
+      font-family: 'JetBrains Mono', monospace;
       font-size: 0.9rem;
     }
-
-    .form-input:focus {
-      outline: none;
-      border-color: var(--accent-primary);
-    }
-
-    .form-hint {
-      font-size: 0.75rem;
-      color: var(--text-secondary);
-      margin-top: 0.5rem;
-    }
-
-    .price-display {
-      background: var(--bg-tertiary);
-      border-radius: 0.5rem;
+    .form-input:focus, .form-select:focus, .form-textarea:focus { outline: none; border-color: var(--accent-green); }
+    .form-textarea { min-height: 100px; resize: vertical; }
+    .form-hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; }
+    
+    .cost-breakdown {
+      background: var(--bg-input);
+      border-radius: 0.75rem;
       padding: 1rem;
-      margin-bottom: 1rem;
+      margin-bottom: 1.5rem;
     }
-
-    .price-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 0.5rem 0;
+    .cost-row { display: flex; justify-content: space-between; padding: 0.5rem 0; }
+    .cost-row.total { border-top: 1px solid var(--border-color); margin-top: 0.5rem; padding-top: 0.75rem; font-weight: 600; color: var(--accent-green); }
+    
+    /* Rating Modal */
+    .rating-stars { display: flex; gap: 0.5rem; margin: 1rem 0; }
+    .rating-star {
+      font-size: 2rem;
+      cursor: pointer;
+      color: var(--border-color);
+      transition: color 0.2s;
     }
-
-    .price-total {
-      font-weight: 600;
-      color: var(--accent-primary);
-      border-top: 1px solid var(--border-default);
-      margin-top: 0.5rem;
-      padding-top: 0.75rem;
+    .rating-star.active, .rating-star:hover { color: var(--accent-orange); }
+    
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--text-muted);
     }
-
+    .empty-state-icon { font-size: 4rem; margin-bottom: 1rem; }
+    .empty-state-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-secondary); }
+    
     /* Loading */
-    #loading {
-      position: fixed;
-      inset: 0;
-      background: var(--bg-primary);
+    .loading {
       display: flex;
-      flex-direction: column;
-      justify-content: center;
       align-items: center;
-      z-index: 2000;
-      transition: opacity 0.3s;
+      justify-content: center;
+      padding: 4rem;
     }
-
-    #loading.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .loader {
-      width: 48px;
-      height: 48px;
-      border: 3px solid var(--border-default);
-      border-top-color: var(--accent-primary);
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--border-color);
+      border-top-color: var(--accent-green);
       border-radius: 50%;
       animation: spin 1s linear infinite;
     }
-
     @keyframes spin { to { transform: rotate(360deg); } }
-
-    #loading-text {
-      margin-top: 1rem;
-      color: var(--text-secondary);
-      font-size: 0.9rem;
-    }
-
-    /* Footer */
-    footer {
-      border-top: 1px solid var(--border-default);
-      padding: 2rem 0;
-      margin-top: 2rem;
-      text-align: center;
-    }
-
-    .footer-links {
+    
+    /* Toast */
+    .toast-container {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      z-index: 2000;
       display: flex;
-      justify-content: center;
-      gap: 2rem;
-      margin-bottom: 1rem;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .toast {
+      padding: 1rem 1.5rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      animation: slideIn 0.3s ease;
+    }
+    .toast.success { border-color: var(--accent-green); }
+    .toast.error { border-color: var(--accent-red); }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } }
+    
+    /* Responsive - Tablet */
+    @media (max-width: 1024px) {
+      .container { padding: 1.5rem; }
+      .stats-bar { grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+      .provider-grid { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
     }
 
-    .footer-links a {
-      color: var(--text-secondary);
-      text-decoration: none;
-      font-size: 0.875rem;
-      transition: color 0.2s;
+    /* Responsive - Mobile */
+    @media (max-width: 768px) {
+      header { 
+        flex-direction: column; 
+        gap: 1rem; 
+        padding: 1rem;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+      }
+      
+      .logo { font-size: 1.25rem; }
+      
+      .nav-tabs { 
+        width: 100%; 
+        overflow-x: auto; 
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        padding-bottom: 0.5rem;
+        justify-content: flex-start;
+      }
+      .nav-tabs::-webkit-scrollbar { display: none; }
+      .nav-tab { 
+        padding: 0.625rem 1rem; 
+        font-size: 0.85rem;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      
+      .wallet-section { 
+        width: 100%; 
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+      .network-badge { 
+        padding: 0.375rem 0.75rem; 
+        font-size: 0.8rem; 
+      }
+      
+      main { padding: 1rem; }
+      
+      .page-header { margin-bottom: 1.5rem; }
+      .page-title { font-size: 1.35rem; }
+      .page-subtitle { font-size: 0.9rem; }
+      
+      .stats-bar { 
+        grid-template-columns: repeat(2, 1fr); 
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+      }
+      .stat-card { 
+        padding: 1rem; 
+        border-radius: 0.75rem;
+      }
+      .stat-label { font-size: 0.75rem; }
+      .stat-value { font-size: 1.35rem; }
+      
+      .filters-bar { 
+        flex-direction: column;
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        background: var(--bg-card);
+        border-radius: 0.75rem;
+        border: 1px solid var(--border-color);
+      }
+      .filter-group { 
+        width: 100%;
+      }
+      .filter-select, .filter-input { 
+        width: 100%; 
+        min-width: unset;
+        padding: 0.875rem 1rem;
+        font-size: 1rem;
+        min-height: 48px;
+      }
+      .filters-bar .btn {
+        width: 100%;
+        justify-content: center;
+        min-height: 48px;
+      }
+      
+      .provider-grid { 
+        grid-template-columns: 1fr; 
+        gap: 1rem;
+      }
+      .provider-card { 
+        padding: 1.25rem;
+        border-radius: 0.75rem;
+      }
+      .provider-header { margin-bottom: 0.75rem; }
+      .provider-name { font-size: 1rem; }
+      .provider-address { font-size: 0.75rem; }
+      .provider-specs { 
+        padding: 0.75rem; 
+        gap: 0.5rem;
+      }
+      .spec-label { font-size: 0.65rem; }
+      .spec-value { font-size: 0.8rem; }
+      .provider-tags { margin-bottom: 0.75rem; }
+      .provider-footer { padding-top: 0.75rem; }
+      .provider-price { font-size: 1.1rem; }
+      
+      .rental-details { 
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+      }
+      .rental-card { padding: 1.25rem; }
+      .rental-id { font-size: 0.8rem; }
+      .rental-detail-label { font-size: 0.7rem; }
+      .rental-detail-value { font-size: 0.8rem; }
+      
+      .ssh-terminal { 
+        padding: 0.75rem;
+        font-size: 0.75rem;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      .ssh-terminal code { 
+        white-space: nowrap;
+        display: block;
+      }
+      
+      .rental-actions { 
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+      .rental-actions .btn { 
+        flex: 1 1 auto;
+        min-width: 120px;
+        justify-content: center;
+        min-height: 44px;
+      }
+      
+      .modal { 
+        width: 100%;
+        max-width: 100%;
+        max-height: 100%;
+        border-radius: 1rem 1rem 0 0;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 1.5rem;
+        padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+      }
+      .modal-overlay.active {
+        align-items: flex-end;
+      }
+      .modal-header { margin-bottom: 1.25rem; }
+      .modal-title { font-size: 1.15rem; }
+      .modal-close { 
+        font-size: 1.75rem;
+        padding: 0.25rem;
+        min-width: 44px;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      
+      .form-group { margin-bottom: 1rem; }
+      .form-label { font-size: 0.9rem; }
+      .form-input, .form-select, .form-textarea {
+        padding: 1rem;
+        font-size: 1rem;
+        min-height: 48px;
+        border-radius: 0.625rem;
+      }
+      .form-textarea { min-height: 80px; }
+      .form-hint { font-size: 0.7rem; }
+      
+      .cost-breakdown { 
+        padding: 0.875rem;
+        margin-bottom: 1.25rem;
+      }
+      .cost-row { 
+        padding: 0.375rem 0;
+        font-size: 0.9rem;
+      }
+      
+      .btn { 
+        padding: 0.875rem 1.25rem;
+        font-size: 0.9rem;
+        min-height: 48px;
+        border-radius: 0.625rem;
+      }
+      
+      .rating-stars { 
+        justify-content: center;
+        gap: 0.75rem;
+      }
+      .rating-star { 
+        font-size: 2.5rem;
+        padding: 0.5rem;
+      }
+      
+      .empty-state { padding: 3rem 1.5rem; }
+      .empty-state-icon { font-size: 3rem; }
+      .empty-state-title { font-size: 1.1rem; }
+      
+      .toast-container {
+        bottom: env(safe-area-inset-bottom, 1rem);
+        left: 1rem;
+        right: 1rem;
+        padding-bottom: 1rem;
+      }
+      .toast {
+        padding: 0.875rem 1rem;
+        font-size: 0.9rem;
+      }
     }
 
-    .footer-links a:hover { color: var(--accent-secondary); }
-
-    .footer-hash {
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 0.75rem;
-      color: var(--text-secondary);
+    /* Extra small mobile */
+    @media (max-width: 375px) {
+      header { padding: 0.75rem; }
+      main { padding: 0.75rem; }
+      .stats-bar { gap: 0.5rem; }
+      .stat-card { padding: 0.75rem; }
+      .stat-value { font-size: 1.2rem; }
+      .provider-card { padding: 1rem; }
+      .rental-details { grid-template-columns: 1fr; }
     }
 
-    /* Responsive */
-    @media (max-width: 640px) {
-      .logo { font-size: 2rem; }
-      .grid { grid-template-columns: 1fr; }
-      .btn-group { flex-direction: column; }
-      .btn { min-width: 100%; }
+    /* Touch device optimizations */
+    @media (hover: none) and (pointer: coarse) {
+      .provider-card:hover { transform: none; }
+      .btn-primary:hover { transform: none; box-shadow: none; }
+      .provider-card:active { 
+        transform: scale(0.98);
+        border-color: var(--accent-green);
+      }
+      .btn:active { 
+        transform: scale(0.97);
+        opacity: 0.9;
+      }
+      .nav-tab:hover { background: transparent; }
+      .nav-tab:active { background: var(--bg-card); }
+    }
+
+    /* Safe area for notched devices */
+    @supports (padding: env(safe-area-inset-bottom)) {
+      .toast-container {
+        padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+      }
     }
   </style>
 </head>
 <body>
-  <!-- Loading Screen -->
-  <div id="loading">
-    <div class="loader"></div>
-    <p id="loading-text">Initializing permissionless network...</p>
-  </div>
-
-  <div class="container">
-    <!-- Header -->
-    <header>
-      <h1 class="logo">BABYLON</h1>
-      <p class="tagline">Verifiable Permissionless AI Game</p>
-      <div class="status-pill live">
-        <span class="status-dot"></span>
-        <span id="network-status">Connecting...</span>
+  <!-- Header -->
+  <header>
+    <div class="logo" data-testid="logo">⚡ Jeju Compute</div>
+    <nav class="nav-tabs">
+      <button class="nav-tab active" data-tab="providers" data-testid="nav-providers">Providers</button>
+      <button class="nav-tab" data-tab="rentals" data-testid="nav-rentals">My Rentals</button>
+      <button class="nav-tab" data-tab="models" data-testid="nav-models">AI Models</button>
+    </nav>
+    <div class="wallet-section">
+      <div class="network-badge" data-testid="network-badge">
+        <span class="network-dot"></span>
+        <span id="network-name">Sepolia</span>
       </div>
-    </header>
+      <button class="btn btn-primary" id="connect-wallet" data-testid="connect-wallet">
+        🔗 Connect Wallet
+      </button>
+      <div id="wallet-info" style="display: none;" data-testid="wallet-info">
+        <span id="wallet-address" class="network-badge"></span>
+        <button class="btn btn-secondary" id="disconnect-wallet" data-testid="disconnect-wallet">Disconnect</button>
+      </div>
+    </div>
+  </header>
 
-    <!-- Simulation Warning -->
-    <div class="warning-banner" id="simulation-warning" style="display: none;">
-      <span class="icon">⚠️</span>
-      <div>
-        <strong>Simulation Mode</strong>
-        <p>Running locally. Hardware attestation is simulated. Deploy to Phala CVM for real TEE.</p>
+  <main>
+    <!-- Providers Page -->
+    <div class="page active" id="page-providers" data-testid="page-providers">
+      <div class="page-header">
+        <h1 class="page-title">Compute Providers</h1>
+        <p class="page-subtitle">Rent GPUs, CPUs, and TEE resources from decentralized providers</p>
+      </div>
+
+      <div class="stats-bar" data-testid="stats-bar">
+        <div class="stat-card">
+          <div class="stat-label">Active Providers</div>
+          <div class="stat-value green" id="stat-providers" data-testid="stat-providers">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total GPU Hours</div>
+          <div class="stat-value" id="stat-gpu-hours" data-testid="stat-gpu-hours">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Avg Price/Hour</div>
+          <div class="stat-value blue" id="stat-avg-price" data-testid="stat-avg-price">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Staked</div>
+          <div class="stat-value" id="stat-staked" data-testid="stat-staked">-</div>
+        </div>
+      </div>
+
+      <div class="filters-bar" data-testid="filters-bar">
+        <div class="filter-group">
+          <label class="filter-label">GPU Type</label>
+          <select class="filter-select" id="filter-gpu" data-testid="filter-gpu">
+            <option value="">All GPUs</option>
+            <option value="NVIDIA_RTX_4090">RTX 4090</option>
+            <option value="NVIDIA_A100_40GB">A100 40GB</option>
+            <option value="NVIDIA_A100_80GB">A100 80GB</option>
+            <option value="NVIDIA_H100">H100</option>
+            <option value="NVIDIA_H200">H200</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">Min Memory (GB)</label>
+          <input type="number" class="filter-input" id="filter-memory" placeholder="0" data-testid="filter-memory">
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">Max Price/Hour</label>
+          <input type="text" class="filter-input" id="filter-price" placeholder="0.1 ETH" data-testid="filter-price">
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">Features</label>
+          <select class="filter-select" id="filter-features" data-testid="filter-features">
+            <option value="">All Features</option>
+            <option value="ssh">SSH Enabled</option>
+            <option value="docker">Docker Enabled</option>
+            <option value="tee">TEE Supported</option>
+          </select>
+        </div>
+        <button class="btn btn-secondary" id="apply-filters" data-testid="apply-filters">Apply Filters</button>
+        <button class="btn btn-secondary" id="reset-filters" data-testid="reset-filters">Reset</button>
+      </div>
+
+      <div class="provider-grid" id="provider-grid" data-testid="provider-grid">
+        <div class="loading"><div class="spinner"></div></div>
       </div>
     </div>
 
-    <!-- Dashboard Grid -->
-    <div class="grid">
-      <!-- TEE Attestation -->
-      <div class="card">
-        <div class="card-header">
-          <h3 class="card-title"><span class="icon">🔐</span> TEE Attestation</h3>
-          <span class="badge badge-default" id="attestation-badge">Loading</span>
-        </div>
-        <div class="metric">
-          <span class="metric-label">Code Hash</span>
-          <span class="metric-value blue" id="code-hash">...</span>
-        </div>
-        <div class="metric">
-          <span class="metric-label">Operator</span>
-          <span class="metric-value green" id="operator-address">...</span>
-        </div>
-        <div class="metric">
-          <span class="metric-label">Hardware</span>
-          <span class="metric-value" id="hardware-authentic">...</span>
-        </div>
-        <div class="metric">
-          <span class="metric-label">Heartbeat</span>
-          <span class="metric-value" id="last-heartbeat">...</span>
-        </div>
+    <!-- My Rentals Page -->
+    <div class="page" id="page-rentals" data-testid="page-rentals">
+      <div class="page-header">
+        <h1 class="page-title">My Rentals</h1>
+        <p class="page-subtitle">Manage your active compute rentals</p>
       </div>
 
-      <!-- On-Chain State -->
-      <div class="card">
-        <div class="card-header">
-          <h3 class="card-title"><span class="icon">⛓️</span> On-Chain State</h3>
-          <span class="badge badge-default" id="chain-badge">Loading</span>
-        </div>
-        <div class="metric">
-          <span class="metric-label">Contract</span>
-          <span class="metric-value blue" id="contract-address">...</span>
-        </div>
-        <div class="metric">
-          <span class="metric-label">State CID</span>
-          <span class="metric-value" id="state-cid">...</span>
-        </div>
-        <div class="metric">
-          <span class="metric-label">Version</span>
-          <span class="metric-value green" id="state-version">...</span>
-        </div>
-        <div class="metric">
-          <span class="metric-label">Treasury</span>
-          <span class="metric-value yellow" id="treasury-balance">...</span>
-        </div>
-      </div>
-
-      <!-- Encryption -->
-      <div class="card">
-        <div class="card-header">
-          <h3 class="card-title"><span class="icon">🔒</span> Encryption</h3>
-          <span class="badge badge-success">Real Crypto</span>
-        </div>
-        <div class="metric">
-          <span class="metric-label">Algorithm</span>
-          <span class="metric-value green">AES-256-GCM</span>
-        </div>
-        <div class="metric">
-          <span class="metric-label">Key Derivation</span>
-          <span class="metric-value green">HKDF-SHA256</span>
-        </div>
-        <div class="metric">
-          <span class="metric-label">Key Version</span>
-          <span class="metric-value purple" id="key-version">...</span>
-        </div>
-        <div class="metric">
-          <span class="metric-label">Leaks</span>
-          <span class="metric-value green">None</span>
-        </div>
-      </div>
-
-      <!-- Commit-Reveal -->
-      <div class="card">
-        <div class="card-header">
-          <h3 class="card-title"><span class="icon">📝</span> Commit-Reveal</h3>
-          <span class="badge badge-info" id="commits-count">0</span>
-        </div>
-        <div class="commits-list" id="commits-list">
-          <p class="metric-label" style="text-align: center; padding: 1rem;">No commits yet...</p>
+      <div class="rentals-list" id="rentals-list" data-testid="rentals-list">
+        <div class="empty-state" id="no-rentals" data-testid="no-rentals">
+          <div class="empty-state-icon">📦</div>
+          <div class="empty-state-title">No active rentals</div>
+          <p>Browse providers and create your first rental to get started</p>
+          <button class="btn btn-primary" style="margin-top: 1rem;" onclick="switchTab('providers')" data-testid="browse-providers-btn">Browse Providers</button>
         </div>
       </div>
     </div>
 
-    <!-- Encrypted State Viewer -->
-    <div class="card" style="margin-bottom: 1.5rem;">
-      <div class="card-header">
-        <h3 class="card-title"><span class="icon">📦</span> Latest Encrypted State</h3>
-        <span class="badge badge-default" id="state-badge">Not Loaded</span>
+    <!-- AI Models Page -->
+    <div class="page" id="page-models" data-testid="page-models">
+      <div class="page-header">
+        <h1 class="page-title">AI Models</h1>
+        <p class="page-subtitle">Available models for inference</p>
       </div>
-      <div class="code-block" id="encrypted-state">Click "Fetch State" to load encrypted game state from decentralized storage...</div>
-    </div>
-
-    <!-- Action Buttons -->
-    <div class="btn-group">
-      <button class="btn btn-primary" id="fetch-state" onclick="fetchLatestState()">
-        🔄 Fetch State
-      </button>
-      <button class="btn btn-secondary" id="verify-btn" onclick="runVerification()">
-        ✅ Verify Integrity
-      </button>
-      <button class="btn btn-secondary" id="check-takeover" onclick="checkTakeover()">
-        🔄 Check Takeover
-      </button>
-      <button class="btn btn-secondary" onclick="openENSModal()">
-        🌐 Register ENS
-      </button>
-    </div>
-
-    <!-- Footer -->
-    <footer>
-      <div class="footer-links">
-        <a href="https://github.com/babylon-game" target="_blank">GitHub</a>
-        <a href="#" id="ipfs-link">IPFS</a>
-        <a href="#" id="arweave-link">Arweave</a>
-        <a href="https://sepolia.etherscan.io" target="_blank" id="etherscan-link">Contract</a>
+      <div id="models-list" data-testid="models-list">
+        <div class="loading"><div class="spinner"></div></div>
       </div>
-      <p class="footer-hash">
-        Content: <code id="content-hash">Loading...</code>
-      </p>
-    </footer>
-  </div>
+    </div>
+  </main>
 
-  <!-- ENS Registration Modal -->
-  <div class="modal-overlay" id="ens-modal">
+  <!-- Create Rental Modal -->
+  <div class="modal-overlay" id="rental-modal" data-testid="rental-modal">
     <div class="modal">
       <div class="modal-header">
-        <h3 class="modal-title">🌐 Register ENS Name</h3>
-        <button class="modal-close" onclick="closeENSModal()">&times;</button>
+        <h3 class="modal-title">Create Rental</h3>
+        <button class="modal-close" onclick="closeRentalModal()" data-testid="close-rental-modal">&times;</button>
       </div>
       
-      <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.9rem;">
-        Register a unique .eth name to deploy your own game instance accessible via ENS.
-      </p>
+      <div id="selected-provider-info" data-testid="selected-provider-info"></div>
 
-      <div class="form-group">
-        <label class="form-label">ENS Name</label>
-        <input type="text" class="form-input" id="ens-name-input" placeholder="my-babylon-game" oninput="checkENSAvailability()">
-        <p class="form-hint" id="ens-availability">Enter a name to check availability</p>
+      <form id="rental-form" data-testid="rental-form">
+        <div class="form-group">
+          <label class="form-label">Duration (hours)</label>
+          <input type="number" class="form-input" id="rental-duration" min="1" max="720" value="1" required data-testid="rental-duration">
+          <p class="form-hint">Min: 1 hour, Max: 720 hours (30 days)</p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">SSH Public Key</label>
+          <textarea class="form-textarea" id="rental-ssh-key" placeholder="ssh-rsa AAAA..." required data-testid="rental-ssh-key"></textarea>
+          <p class="form-hint">Your SSH public key for secure access</p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Docker Image (optional)</label>
+          <input type="text" class="form-input" id="rental-docker-image" placeholder="nvidia/cuda:12.0-base" data-testid="rental-docker-image">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Startup Script (optional)</label>
+          <textarea class="form-textarea" id="rental-startup-script" placeholder="#!/bin/bash&#10;apt update && apt install -y python3" data-testid="rental-startup-script"></textarea>
+        </div>
+
+        <div class="cost-breakdown" id="cost-breakdown" data-testid="cost-breakdown">
+          <div class="cost-row">
+            <span>Price per hour</span>
+            <span id="cost-per-hour">0.000 ETH</span>
+          </div>
+          <div class="cost-row">
+            <span>Duration</span>
+            <span id="cost-duration">1 hour</span>
+          </div>
+          <div class="cost-row total">
+            <span>Total Cost</span>
+            <span id="cost-total">0.000 ETH</span>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%;" id="create-rental-btn" data-testid="create-rental-btn" disabled>
+          Connect Wallet First
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Rating Modal -->
+  <div class="modal-overlay" id="rating-modal" data-testid="rating-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Rate Your Rental</h3>
+        <button class="modal-close" onclick="closeRatingModal()" data-testid="close-rating-modal">&times;</button>
+      </div>
+      
+      <p style="color: var(--text-secondary); margin-bottom: 1rem;">How was your experience with this provider?</p>
+      
+      <div class="rating-stars" id="rating-stars" data-testid="rating-stars">
+        <span class="rating-star" data-rating="1" data-testid="rating-star-1">★</span>
+        <span class="rating-star" data-rating="2" data-testid="rating-star-2">★</span>
+        <span class="rating-star" data-rating="3" data-testid="rating-star-3">★</span>
+        <span class="rating-star" data-rating="4" data-testid="rating-star-4">★</span>
+        <span class="rating-star" data-rating="5" data-testid="rating-star-5">★</span>
       </div>
 
       <div class="form-group">
-        <label class="form-label">Duration</label>
-        <select class="form-input" id="ens-duration">
-          <option value="1">1 Year</option>
-          <option value="2">2 Years</option>
-          <option value="5">5 Years</option>
-        </select>
+        <label class="form-label">Review (optional)</label>
+        <textarea class="form-textarea" id="rating-review" placeholder="Share your experience..." data-testid="rating-review"></textarea>
       </div>
 
-      <div class="price-display" id="price-display" style="display: none;">
-        <div class="price-row">
-          <span>Registration</span>
-          <span id="price-base">0.000 ETH</span>
-        </div>
-        <div class="price-row">
-          <span>Premium</span>
-          <span id="price-premium">0.000 ETH</span>
-        </div>
-        <div class="price-row price-total">
-          <span>Total</span>
-          <span id="price-total">0.000 ETH</span>
-        </div>
-      </div>
-
-      <div class="warning-banner" style="margin-bottom: 1.5rem;">
-        <span class="icon">💡</span>
-        <div>
-          <strong>How it works</strong>
-          <p>Registration requires 2 transactions: commit (prevents front-running) and reveal (completes registration). This takes ~1-2 minutes on Sepolia.</p>
-        </div>
-      </div>
-
-      <button class="btn btn-primary" id="register-ens-btn" onclick="registerENS()" disabled style="width: 100%;">
-        Register Name
+      <button class="btn btn-primary" style="width: 100%;" id="submit-rating-btn" data-testid="submit-rating-btn" disabled>
+        Submit Rating
       </button>
     </div>
   </div>
 
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container" data-testid="toast-container"></div>
+
   <script src="app.js"></script>
-  <script>
-    // ENS Modal functions
-    function _openENSModal() {
-      document.getElementById('ens-modal').classList.add('active');
-    }
-
-    function closeENSModal() {
-      document.getElementById('ens-modal').classList.remove('active');
-    }
-
-    // Close modal on outside click
-    document.getElementById('ens-modal').addEventListener('click', (e) => {
-      if (e.target.id === 'ens-modal') closeENSModal();
-    });
-
-    let checkTimeout = null;
-
-    async function checkENSAvailability() {
-      const input = document.getElementById('ens-name-input');
-      const hint = document.getElementById('ens-availability');
-      const priceDisplay = document.getElementById('price-display');
-      const registerBtn = document.getElementById('register-ens-btn');
-      
-      const name = input.value.trim().toLowerCase().replace('.eth', '');
-      
-      if (!name || name.length < 3) {
-        hint.textContent = 'Name must be at least 3 characters';
-        hint.style.color = 'var(--text-secondary)';
-        priceDisplay.style.display = 'none';
-        registerBtn.disabled = true;
-        return;
-      }
-
-      hint.textContent = 'Checking availability...';
-      hint.style.color = 'var(--text-secondary)';
-
-      // Debounce
-      clearTimeout(checkTimeout);
-      checkTimeout = setTimeout(async () => {
-        // Simulate availability check (in production, call registrar.checkAvailability)
-        const available = !['ethereum', 'vitalik', 'bitcoin', 'test'].includes(name);
-        const duration = parseInt(document.getElementById('ens-duration').value);
-        
-        // Simulate pricing (real prices vary by name length)
-        const basePrice = name.length <= 3 ? 0.1 : name.length <= 4 ? 0.05 : 0.003;
-        const total = basePrice * duration;
-
-        if (available) {
-          hint.textContent = `✅ ${name}.eth is available!`;
-          hint.style.color = 'var(--accent-primary)';
-          
-          priceDisplay.style.display = 'block';
-          document.getElementById('price-base').textContent = basePrice.toFixed(4) + ' ETH';
-          document.getElementById('price-premium').textContent = '0.0000 ETH';
-          document.getElementById('price-total').textContent = total.toFixed(4) + ' ETH';
-          
-          registerBtn.disabled = false;
-        } else {
-          hint.textContent = `❌ ${name}.eth is not available`;
-          hint.style.color = 'var(--accent-danger)';
-          priceDisplay.style.display = 'none';
-          registerBtn.disabled = true;
-        }
-      }, 500);
-    }
-
-    async function _registerENS() {
-      const btn = document.getElementById('register-ens-btn');
-      const name = document.getElementById('ens-name-input').value.trim().toLowerCase();
-      
-      btn.disabled = true;
-      btn.textContent = '⏳ Step 1/3: Committing...';
-
-      try {
-        // Simulate registration steps
-        await new Promise(r => setTimeout(r, 2000));
-        btn.textContent = '⏳ Step 2/3: Waiting...';
-        
-        await new Promise(r => setTimeout(r, 3000));
-        btn.textContent = '⏳ Step 3/3: Registering...';
-        
-        await new Promise(r => setTimeout(r, 2000));
-
-        alert(`🎉 Successfully registered ${name}.eth!
-
-Your game will be accessible at:
-• https://${name}.eth.limo
-• https://${name}.eth.link
-
-Next steps:
-1. Upload your frontend to IPFS
-2. Set contenthash via ENS deployer
-3. Your permissionless game is live!`);
-
-        closeENSModal();
-
-      } catch (error) {
-        alert('Registration failed: ' + error.message);
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Register Name';
-      }
-    }
-
-    // Re-check when duration changes
-    document.getElementById('ens-duration').addEventListener('change', checkENSAvailability);
-  </script>
 </body>
 </html>

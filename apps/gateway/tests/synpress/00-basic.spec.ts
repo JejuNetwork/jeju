@@ -37,7 +37,7 @@ test.describe('Gateway Basic Tests', () => {
     console.log('✅ 3/8: Tokens loaded');
 
     // 4-8. Navigate tabs
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.screenshot({ path: 'test-results/screenshots/gateway/smoke/04-bridge-tab.png', fullPage: true });
     console.log('✅ 4/8: Bridge');
 

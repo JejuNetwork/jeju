@@ -1,5 +1,5 @@
 {
-  "name": "@jeju/gateway-tests",
+  "name": "@jejunetwork/gateway-tests",
   "version": "1.0.0",
   "private": true,
   "description": "Comprehensive test suite for Gateway Portal",

@@ -24,7 +24,7 @@ import { mainnet, sepolia } from 'viem/chains';
 // ═══════════════════════════════════════════════════════════════════════════
 
 export interface ENSConfig {
-  /** ENS name (e.g., 'babylon-game.eth') */
+  /** ENS name (e.g., 'jeju-compute.eth') */
   ensName: string;
   /** Deployer private key (wallet signature for all operations) */
   privateKey: Hex;
@@ -360,7 +360,7 @@ export async function uploadToArweave(
   const receipt = await irys.upload(indexFile.content.toString(), {
     tags: [
       { name: 'Content-Type', value: 'text/html' },
-      { name: 'App-Name', value: 'babylon-frontend' },
+      { name: 'App-Name', value: 'jeju-compute-frontend' },
       { name: 'Timestamp', value: Date.now().toString() },
     ],
   });
@@ -675,7 +675,7 @@ export async function deployFrontend(): Promise<void> {
 `);
 
   const privateKey = process.env.PRIVATE_KEY as Hex | undefined;
-  const ensName = process.env.ENS_NAME ?? 'babylon-game.eth';
+  const ensName = process.env.ENS_NAME ?? 'jeju-compute.eth';
   const network = (process.env.NETWORK ?? 'sepolia') as 'mainnet' | 'sepolia';
   const uploadStrategy = (process.env.UPLOAD_STRATEGY ?? 'auto') as
     | 'local-ipfs'

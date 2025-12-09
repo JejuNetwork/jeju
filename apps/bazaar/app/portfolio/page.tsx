@@ -12,13 +12,17 @@ export default function PortfolioPage() {
 
   return (
     <div>
-      <h1 className="text-4xl font-bold mb-8">Your Portfolio</h1>
+      <h1 className="text-3xl md:text-4xl font-bold mb-8" style={{ color: 'var(--text-primary)' }}>
+        📊 Your Portfolio
+      </h1>
 
       {!isConnected ? (
         <div className="text-center py-20" data-testid="connect-wallet-message">
-          <div className="text-6xl mb-4">🔐</div>
-          <h2 className="text-2xl font-bold text-white mb-2">Connect Your Wallet</h2>
-          <p className="text-slate-400">View your market positions and claim winnings</p>
+          <div className="text-6xl md:text-7xl mb-4">🔐</div>
+          <h2 className="text-xl md:text-2xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+            Connect Your Wallet
+          </h2>
+          <p style={{ color: 'var(--text-secondary)' }}>View your market positions and claim winnings</p>
         </div>
       ) : loading ? (
         <div className="flex justify-center py-20">
@@ -26,62 +30,77 @@ export default function PortfolioPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-              <div className="text-sm text-slate-400 mb-1">Total Value</div>
-              <div className="text-3xl font-bold text-white">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6 mb-8">
+            <div className="stat-card">
+              <div className="stat-label">Total Value</div>
+              <div className="stat-value">
                 {(Number(totalValue) / 1e18).toLocaleString()} ETH
               </div>
             </div>
-            <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-              <div className="text-sm text-slate-400 mb-1">Total P&L</div>
-              <div className={`text-3xl font-bold ${totalPnL >= 0n ? 'text-green-400' : 'text-red-400'}`}>
+            <div className="stat-card">
+              <div className="stat-label">Total P&L</div>
+              <div className={`stat-value ${totalPnL >= 0n ? 'text-bazaar-success' : 'text-bazaar-error'}`}>
                 {totalPnL >= 0n ? '+' : ''}{(Number(totalPnL) / 1e18).toLocaleString()} ETH
               </div>
             </div>
-            <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-              <div className="text-sm text-slate-400 mb-1">Active Positions</div>
-              <div className="text-3xl font-bold text-white">
+            <div className="stat-card">
+              <div className="stat-label">Active Positions</div>
+              <div className="stat-value">
                 {positions.filter(p => !p.market.resolved).length}
               </div>
             </div>
           </div>
 
-          <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden" data-testid="positions-table">
-            <div className="p-6 border-b border-white/10">
-              <h2 className="text-xl font-bold text-white">Positions</h2>
+          {/* Positions Table */}
+          <div className="card overflow-hidden" data-testid="positions-table">
+            <div className="p-5 md:p-6 border-b" style={{ borderColor: 'var(--border)' }}>
+              <h2 className="text-lg md:text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                Positions
+              </h2>
             </div>
             
             {positions.length === 0 ? (
-              <div className="p-12 text-center text-slate-400" data-testid="no-positions">
-                No positions yet. <Link href="/markets" className="text-purple-400 hover:underline">Browse markets</Link>
+              <div className="p-12 text-center" data-testid="no-positions">
+                <p style={{ color: 'var(--text-secondary)' }}>
+                  No positions yet.{' '}
+                  <Link href="/markets" className="text-bazaar-primary hover:underline">
+                    Browse markets
+                  </Link>
+                </p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-white/5">
+                  <thead style={{ backgroundColor: 'var(--bg-secondary)' }}>
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
+                      <th className="px-4 md:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider"
+                        style={{ color: 'var(--text-tertiary)' }}>
                         Market
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
+                      <th className="px-4 md:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider hidden sm:table-cell"
+                        style={{ color: 'var(--text-tertiary)' }}>
                         Position
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
+                      <th className="px-4 md:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider hidden md:table-cell"
+                        style={{ color: 'var(--text-tertiary)' }}>
                         Value
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
+                      <th className="px-4 md:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider"
+                        style={{ color: 'var(--text-tertiary)' }}>
                         P&L
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
+                      <th className="px-4 md:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider hidden sm:table-cell"
+                        style={{ color: 'var(--text-tertiary)' }}>
                         Status
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">
+                      <th className="px-4 md:px-6 py-3 text-right text-xs font-medium uppercase tracking-wider"
+                        style={{ color: 'var(--text-tertiary)' }}>
                         Action
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/10">
+                  <tbody className="divide-y" style={{ borderColor: 'var(--border)' }}>
                     {positions.map((pos) => {
                       const pnl = Number(pos.totalReceived) - Number(pos.totalSpent);
                       const currentValue = pos.market.resolved
@@ -94,7 +113,7 @@ export default function PortfolioPage() {
                           <button 
                             onClick={claim}
                             disabled={isPending}
-                            className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 disabled:opacity-50 text-white rounded-lg transition"
+                            className="btn-accent px-3 py-1.5 text-sm disabled:opacity-50"
                           >
                             {isPending ? 'Claiming...' : 'Claim'}
                           </button>
@@ -102,46 +121,50 @@ export default function PortfolioPage() {
                       };
                       
                       return (
-                        <tr key={pos.id} className="hover:bg-white/5">
-                          <td className="px-6 py-4">
-                            <Link href={`/markets/${pos.market.sessionId}`} className="text-white hover:text-purple-400">
+                        <tr key={pos.id} className="hover:bg-[var(--bg-secondary)] transition-colors">
+                          <td className="px-4 md:px-6 py-4">
+                            <Link 
+                              href={`/markets/${pos.market.sessionId}`} 
+                              className="hover:text-bazaar-primary transition-colors line-clamp-2"
+                              style={{ color: 'var(--text-primary)' }}
+                            >
                               {pos.market.question}
                             </Link>
                           </td>
-                          <td className="px-6 py-4">
-                            <div className="flex gap-2">
+                          <td className="px-4 md:px-6 py-4 hidden sm:table-cell">
+                            <div className="flex gap-2 flex-wrap">
                               {Number(pos.yesShares) > 0 && (
-                                <span className="px-2 py-1 bg-green-600/20 text-green-400 rounded text-xs">
+                                <span className="badge-success">
                                   YES {(Number(pos.yesShares) / 1e18).toFixed(2)}
                                 </span>
                               )}
                               {Number(pos.noShares) > 0 && (
-                                <span className="px-2 py-1 bg-red-600/20 text-red-400 rounded text-xs">
+                                <span className="badge-error">
                                   NO {(Number(pos.noShares) / 1e18).toFixed(2)}
                                 </span>
                               )}
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-white">
+                          <td className="px-4 md:px-6 py-4 hidden md:table-cell" style={{ color: 'var(--text-primary)' }}>
                             {(currentValue / 1e18).toLocaleString()} ETH
                           </td>
-                          <td className="px-6 py-4">
-                            <span className={pnl >= 0 ? 'text-green-400' : 'text-red-400'}>
+                          <td className="px-4 md:px-6 py-4">
+                            <span className={pnl >= 0 ? 'text-bazaar-success' : 'text-bazaar-error'}>
                               {pnl >= 0 ? '+' : ''}{(pnl / 1e18).toFixed(2)} ETH
                             </span>
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-4 md:px-6 py-4 hidden sm:table-cell">
                             {pos.market.resolved ? (
                               pos.hasClaimed ? (
-                                <span className="text-slate-400">Claimed</span>
+                                <span style={{ color: 'var(--text-tertiary)' }}>Claimed</span>
                               ) : (
-                                <span className="text-green-400">Ready to claim</span>
+                                <span className="text-bazaar-success">Ready to claim</span>
                               )
                             ) : (
-                              <span className="text-blue-400">Active</span>
+                              <span className="text-bazaar-info">Active</span>
                             )}
                           </td>
-                          <td className="px-6 py-4 text-right">
+                          <td className="px-4 md:px-6 py-4 text-right">
                             {pos.market.resolved && !pos.hasClaimed && <PositionClaimButton />}
                           </td>
                         </tr>
@@ -157,4 +180,3 @@ export default function PortfolioPage() {
     </div>
   );
 }
-

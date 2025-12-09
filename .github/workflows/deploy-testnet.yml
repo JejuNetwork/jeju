@@ -2,245 +2,151 @@ name: Deploy to Testnet
 
 on:
   push:
-    branches:
-      - develop
+    branches: [develop]
   workflow_dispatch:
 
 permissions:
   id-token: write
   contents: read
+  packages: write
 
 env:
   AWS_REGION: us-east-1
-  ENVIRONMENT: testnet
+  NETWORK: testnet
 
 jobs:
-  validate-secrets:
-    name: Validate Required Secrets
+  validate:
+    name: Validate
     runs-on: ubuntu-latest
-    
     steps:
-      - name: Validate required secrets
-        run: |
-          MISSING_SECRETS=""
-          
-          if [ -z "${{ secrets.AWS_ROLE_ARN_TESTNET }}" ]; then
-            MISSING_SECRETS="${MISSING_SECRETS}AWS_ROLE_ARN_TESTNET "
-          fi
-          
-          if [ -z "${{ secrets.DEPLOYER_PRIVATE_KEY_TESTNET }}" ]; then
-            MISSING_SECRETS="${MISSING_SECRETS}DEPLOYER_PRIVATE_KEY_TESTNET "
-          fi
-          
-          if [ -z "${{ secrets.DEPLOYER_ADDRESS }}" ]; then
-            MISSING_SECRETS="${MISSING_SECRETS}DEPLOYER_ADDRESS "
-          fi
-          
-          if [ -z "${{ secrets.BASESCAN_API_KEY }}" ]; then
-            MISSING_SECRETS="${MISSING_SECRETS}BASESCAN_API_KEY "
-          fi
-          
-          if [ -n "$MISSING_SECRETS" ]; then
-            echo "❌ Missing required secrets: $MISSING_SECRETS"
-            echo "Please configure these secrets in GitHub repository settings"
-            exit 1
-          fi
-          
-          echo "✅ All required secrets are configured"
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Validate configurations
+        run: bun run infra:validate
+
+  build-images:
+    name: Build Images
+    runs-on: ubuntu-latest
+    needs: validate
+    strategy:
+      matrix:
+        app: [bazaar, gateway, leaderboard, ipfs, documentation, indexer]
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_TESTNET }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: login-ecr
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build and push ${{ matrix.app }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ./apps/${{ matrix.app }}
+          file: ./apps/${{ matrix.app }}/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/jeju/${{ matrix.app }}:testnet-${{ github.sha }}
+            ${{ steps.login-ecr.outputs.registry }}/jeju/${{ matrix.app }}:testnet-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
 
   deploy-infrastructure:
     name: Deploy Infrastructure
     runs-on: ubuntu-latest
-    needs: validate-secrets
-    environment:
-      name: testnet
-      url: https://testnet-rpc.jeju.network
-    
+    needs: validate
+    environment: testnet-infrastructure
+    outputs:
+      eks-cluster: ${{ steps.output.outputs.eks_cluster_name }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN_TESTNET }}
-          aws-region: ${{ env.AWS_REGION }}
-      
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+      - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.0
-      
-      - name: Terraform Init
-        working-directory: terraform/environments/testnet
-        run: terraform init
-      
-      - name: Terraform Plan
-        working-directory: terraform/environments/testnet
-        run: terraform plan -out=tfplan
-      
-      - name: Terraform Apply
-        working-directory: terraform/environments/testnet
-        run: terraform apply -auto-approve tfplan
-      
-      - name: Save outputs
-        working-directory: terraform/environments/testnet
-        run: terraform output -json > outputs.json
-      
-      - name: Upload outputs
-        uses: actions/upload-artifact@v4
-        with:
-          name: terraform-outputs
-          path: terraform/environments/testnet/outputs.json
 
-  deploy-contracts:
-    name: Deploy Contracts
-    runs-on: ubuntu-latest
-    needs: deploy-infrastructure
-    environment:
-      name: testnet
-      url: https://testnet-rpc.jeju.network
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-      
-      - name: Install dependencies
-        run: bun install
-      
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-      
-      - name: Deploy L1 contracts to Base Sepolia
-        env:
-          DEPLOYER_PRIVATE_KEY: ${{ secrets.DEPLOYER_PRIVATE_KEY_TESTNET }}
-          DEPLOYER_ADDRESS: ${{ secrets.DEPLOYER_ADDRESS }}
-          L1_RPC_URL: https://sepolia.base.org
-          L1_CHAIN_ID: 84532
-          BASESCAN_API_KEY: ${{ secrets.BASESCAN_API_KEY }}
-        run: bun run deploy:testnet
-      
-      - name: Verify contracts on BaseScan
-        env:
-          BASESCAN_API_KEY: ${{ secrets.BASESCAN_API_KEY }}
-        run: bun run verify:testnet
-      
-      - name: Upload deployment artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: contract-deployments
-          path: contracts/deployments/testnet/
-      
-      - name: Create deployment report
-        run: |
-          echo "# Testnet Deployment Report" > deployment-report.md
-          echo "" >> deployment-report.md
-          echo "**Date**: $(date)" >> deployment-report.md
-          echo "**Settlement Layer**: Base Sepolia (Chain ID 84532)" >> deployment-report.md
-          echo "**Deployer**: ${{ secrets.DEPLOYER_ADDRESS }}" >> deployment-report.md
-          echo "" >> deployment-report.md
-          echo "## Deployed Contracts" >> deployment-report.md
-          cat contracts/deployments/testnet/deployment.json | jq '.' >> deployment-report.md
-      
-      - name: Upload deployment report
-        uses: actions/upload-artifact@v4
-        with:
-          name: deployment-report
-          path: deployment-report.md
-
-  deploy-kubernetes:
-    name: Deploy Kubernetes Services
-    runs-on: ubuntu-latest
-    needs: [deploy-infrastructure, deploy-contracts]
-    environment:
-      name: testnet
-      url: https://testnet-rpc.jeju.network
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_TESTNET }}
           aws-region: ${{ env.AWS_REGION }}
-      
-      - name: Download Terraform outputs
-        uses: actions/download-artifact@v4
-        with:
-          name: terraform-outputs
-      
-      - name: Download contract deployments
-        uses: actions/download-artifact@v4
-        with:
-          name: contract-deployments
-          path: contracts/deployments/testnet/
-      
-      - name: Update kubeconfig
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Terraform Apply
         run: |
-          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name jeju-testnet
-      
-      - name: Create Kubernetes namespaces
+          cd packages/deployment
+          NETWORK=testnet bun run infra:plan
+          NETWORK=testnet bun run infra:apply
+
+      - name: Get outputs
+        id: output
         run: |
-          kubectl create namespace op-stack --dry-run=client -o yaml | kubectl apply -f -
-          kubectl create namespace execution --dry-run=client -o yaml | kubectl apply -f -
-          kubectl create namespace da --dry-run=client -o yaml | kubectl apply -f -
-          kubectl create namespace explorer --dry-run=client -o yaml | kubectl apply -f -
-          kubectl create namespace observability --dry-run=client -o yaml | kubectl apply -f -
-          kubectl create namespace infra --dry-run=client -o yaml | kubectl apply -f -
-      
+          cd packages/deployment/terraform/environments/testnet
+          echo "eks_cluster_name=$(terraform output -raw eks_cluster_name)" >> $GITHUB_OUTPUT
+
+  deploy-kubernetes:
+    name: Deploy to Kubernetes
+    runs-on: ubuntu-latest
+    needs: [build-images, deploy-infrastructure]
+    environment: testnet
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_TESTNET }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Configure kubectl
+        run: |
+          aws eks update-kubeconfig \
+            --name ${{ needs.deploy-infrastructure.outputs.eks-cluster }} \
+            --region ${{ env.AWS_REGION }}
+
       - name: Install Helmfile
         run: |
-          wget https://github.com/helmfile/helmfile/releases/download/v0.162.0/helmfile_0.162.0_linux_amd64.tar.gz
+          wget -q https://github.com/helmfile/helmfile/releases/download/v0.162.0/helmfile_0.162.0_linux_amd64.tar.gz
           tar -xzf helmfile_0.162.0_linux_amd64.tar.gz
           sudo mv helmfile /usr/local/bin/
-      
-      - name: Deploy Helm charts
-        working-directory: kubernetes/helmfile
+
+      - name: Deploy with Helmfile
         run: |
-          helmfile -e testnet sync
-      
+          cd packages/deployment
+          NETWORK=testnet bun run k8s:deploy
+
       - name: Wait for rollout
         run: |
-          kubectl rollout status statefulset/reth-sequencer -n execution --timeout=10m
-          kubectl rollout status deployment/op-node -n op-stack --timeout=10m
-          kubectl rollout status deployment/op-batcher -n op-stack --timeout=10m
-          kubectl rollout status deployment/op-proposer -n op-stack --timeout=10m
+          kubectl rollout status deployment/bazaar -n jeju-apps --timeout=10m
+          kubectl rollout status deployment/gateway -n jeju-apps --timeout=10m
 
-  health-check:
-    name: Health Check
+  verify:
+    name: Verify Deployment
     runs-on: ubuntu-latest
     needs: deploy-kubernetes
-    
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-      
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-      
-      - name: Run health checks
-        env:
-          L1_RPC_URL: https://sepolia.base.org
-          L2_RPC_URL: https://testnet-rpc.jeju.network
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+      - uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Health checks
         run: |
-          # Test Jeju testnet is responding
-          cast block latest --rpc-url $L2_RPC_URL
-          
-          # Test can send transactions
-          echo "✅ Jeju Testnet RPC responding"
-          
-          # Verify settlement layer connectivity
-          cast block latest --rpc-url $L1_RPC_URL
-          echo "✅ Base Sepolia connectivity confirmed"
+          cast block latest --rpc-url https://testnet-rpc.jeju.network
+          echo "✅ Testnet RPC responding"

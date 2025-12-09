@@ -1,0 +1,154 @@
+{
+  "_comment": "CANONICAL CONTRACT ADDRESSES - Single source of truth",
+  "_lastUpdated": "2025-12-09",
+  
+  "base-sepolia": {
+    "chainId": 84532,
+    "deployer": "0x5dB1268e424da5C26451e4a8B9C221e6DE3C3064",
+    "deployedAt": "2025-12-09",
+    
+    "tokens": {
+      "USDC": "0x953F6516E5d2864cE7f13186B45dE418EA665EB2",
+      "ElizaOSToken": "0x7af64e6aE21076DE21EFe71F243A75664a17C34b"
+    },
+    
+    "erc8004": {
+      "IdentityRegistry": "0x759D602d8D2E4F1ccCa12E955420cC19e64a68bd",
+      "ReputationRegistry": "0x0000000000000000000000000000000000000000",
+      "ValidationRegistry": "0x0000000000000000000000000000000000000000",
+      "agentId": 1
+    },
+    
+    "oif": {
+      "SolverRegistry": "0xecfE47302D941c8ce5B0009C0ac2E6D6ee2A42de",
+      "SimpleOracle": "0xE30218678a940d1553b285B0eB5C5364BBF70ed9",
+      "InputSettler": "0x9bb59d0329FcCEdD99f1753D20AF50347Ad2eB75",
+      "OutputSettler": "0xf7ef3C6a54dA3E03A96D23864e5865E7e3EBEcF5"
+    },
+    
+    "accountAbstraction": {
+      "EntryPoint": "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
+      "Paymaster": "0x0000000000000000000000000000000000000000"
+    }
+  },
+  
+  "base": {
+    "chainId": 8453,
+    "deployer": null,
+    
+    "tokens": {
+      "USDC": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "ElizaOSToken": "0xea17df5cf6d172224892b5477a16acb111182478"
+    },
+    
+    "erc8004": {
+      "IdentityRegistry": "0x46e470b3655ff9efc772cfb927507ac65fee0267",
+      "ReputationRegistry": "0xecfe47302d941c8ce5b0009c0ac2e6d6ee2a42de",
+      "ValidationRegistry": "0x43b16111e30d218444ac7ee8ad86210c589205ed",
+      "agentId": 0
+    },
+    
+    "oif": {
+      "SolverRegistry": "0x0000000000000000000000000000000000000000",
+      "SuperchainOracle": "0x0000000000000000000000000000000000000000",
+      "InputSettler": "0x0000000000000000000000000000000000000000",
+      "OutputSettler": "0x0000000000000000000000000000000000000000"
+    },
+    
+    "accountAbstraction": {
+      "EntryPoint": "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
+      "Paymaster": "0x0000000000000000000000000000000000000000"
+    }
+  },
+  
+  "jeju-testnet": {
+    "chainId": 420690,
+    "deployer": null,
+    "_note": "Deploy when RPC is live at testnet-rpc.jeju.network",
+    
+    "tokens": {
+      "USDC": "0x0000000000000000000000000000000000000000",
+      "ElizaOSToken": "0x0000000000000000000000000000000000000000"
+    },
+    
+    "erc8004": {
+      "IdentityRegistry": "0x0000000000000000000000000000000000000000",
+      "ReputationRegistry": "0x0000000000000000000000000000000000000000",
+      "ValidationRegistry": "0x0000000000000000000000000000000000000000",
+      "agentId": null
+    },
+    
+    "oif": {
+      "SolverRegistry": "0x0000000000000000000000000000000000000000",
+      "SuperchainOracle": "0x0000000000000000000000000000000000000000",
+      "InputSettler": "0x0000000000000000000000000000000000000000",
+      "OutputSettler": "0x0000000000000000000000000000000000000000"
+    },
+    
+    "accountAbstraction": {
+      "EntryPoint": "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
+      "Paymaster": "0x0000000000000000000000000000000000000000"
+    }
+  },
+  
+  "jeju": {
+    "chainId": 420691,
+    "deployer": null,
+    "_note": "Deploy when mainnet is live at rpc.jeju.network",
+    
+    "tokens": {
+      "USDC": "0x0000000000000000000000000000000000000000",
+      "ElizaOSToken": "0x0000000000000000000000000000000000000000"
+    },
+    
+    "erc8004": {
+      "IdentityRegistry": "0x0000000000000000000000000000000000000000",
+      "ReputationRegistry": "0x0000000000000000000000000000000000000000",
+      "ValidationRegistry": "0x0000000000000000000000000000000000000000",
+      "agentId": null
+    },
+    
+    "oif": {
+      "SolverRegistry": "0x0000000000000000000000000000000000000000",
+      "SuperchainOracle": "0x0000000000000000000000000000000000000000",
+      "InputSettler": "0x0000000000000000000000000000000000000000",
+      "OutputSettler": "0x0000000000000000000000000000000000000000"
+    },
+    
+    "accountAbstraction": {
+      "EntryPoint": "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
+      "Paymaster": "0x0000000000000000000000000000000000000000"
+    }
+  },
+  
+  "jeju-localnet": {
+    "chainId": 1337,
+    "_note": "Deploy locally with scripts/deploy-all.ts",
+    
+    "tokens": {
+      "USDC": "0x0000000000000000000000000000000000000000",
+      "ElizaOSToken": "0x0000000000000000000000000000000000000000"
+    },
+    
+    "erc8004": {
+      "IdentityRegistry": "0x0000000000000000000000000000000000000000",
+      "ReputationRegistry": "0x0000000000000000000000000000000000000000",
+      "ValidationRegistry": "0x0000000000000000000000000000000000000000",
+      "agentId": null
+    },
+    
+    "oif": {
+      "SolverRegistry": "0x0000000000000000000000000000000000000000",
+      "SimpleOracle": "0x0000000000000000000000000000000000000000",
+      "InputSettler": "0x0000000000000000000000000000000000000000",
+      "OutputSettler": "0x0000000000000000000000000000000000000000"
+    },
+    
+    "accountAbstraction": {
+      "EntryPoint": "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
+      "Paymaster": "0x0000000000000000000000000000000000000000"
+    }
+  }
+}
+
+

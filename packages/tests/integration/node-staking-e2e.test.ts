@@ -43,7 +43,7 @@ describe('Node Staking System E2E (Multi-Token)', () => {
     
     // Start localnet
     console.log('📦 Starting Kurtosis localnet...');
-    await $`bun run scripts/localnet/start.ts`.quiet();
+    await $`bun run localnet:start`.quiet();
     
     // Get RPC endpoint
     const l2Port = await $`kurtosis port print jeju-localnet op-geth rpc`.text();

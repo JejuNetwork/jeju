@@ -12,6 +12,11 @@ export interface SDKConfig {
     ledger: string;
     inference: string;
     rental?: string; // Optional rental contract
+    // Multi-token payment support (ERC-4337 paymaster integration)
+    creditManager?: string;      // CreditManager for prepaid balances
+    paymasterFactory?: string;   // PaymasterFactory for gas sponsorship
+    tokenRegistry?: string;      // TokenRegistry for supported tokens
+    entryPoint?: string;         // ERC-4337 EntryPoint address
   };
 }
 

@@ -1,0 +1,80 @@
+# Jeju Testnet Faucet
+# Dispenses testnet ETH to developers
+
+replicaCount: 2
+
+image:
+  repository: chainflag/eth-faucet
+  pullPolicy: IfNotPresent
+  tag: "v1.2.0"
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/limit-rpm: "10"
+  hosts:
+    - host: faucet.testnet.jeju.network
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: faucet-tls
+      hosts:
+        - faucet.testnet.jeju.network
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+config:
+  # Amount of ETH per request
+  payoutAmount: "0.1"
+  
+  # Cooldown period between requests (same address)
+  cooldownSeconds: 86400  # 24 hours
+  
+  # Maximum pending requests
+  queueSize: 100
+  
+  # RPC endpoint
+  rpcUrl: "http://reth-rpc:8545"
+  
+  # Faucet wallet (funded from treasury)
+  # Private key should be injected from Vault
+  privateKey: ""
+  
+  # Optional: CAPTCHA for bot protection
+  hcaptcha:
+    enabled: true
+    siteKey: ""
+    secretKey: ""
+  
+  # Rate limiting
+  rateLimit:
+    enabled: true
+    requestsPerHour: 5
+    requestsPerDay: 10
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+

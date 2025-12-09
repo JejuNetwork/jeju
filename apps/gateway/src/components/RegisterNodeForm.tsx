@@ -72,8 +72,8 @@ export default function RegisterNodeForm() {
       <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Register New Node</h2>
 
       {!canAddMore && (
-        <div style={{ padding: '1rem', background: '#fee2e2', borderRadius: '8px', marginBottom: '1rem' }}>
-          <p style={{ color: '#dc2626', margin: 0 }}>
+        <div style={{ padding: '1rem', background: 'var(--error-soft)', borderRadius: '8px', marginBottom: '1rem' }}>
+          <p style={{ color: 'var(--error)', margin: 0 }}>
             ⚠️ You've reached the maximum of {maxNodes} nodes per operator.
             Deregister a node before adding more.
           </p>
@@ -111,11 +111,11 @@ export default function RegisterNodeForm() {
           {stakingToken && stakeAmount && (
             <div style={{ marginTop: '0.5rem', fontSize: '0.875rem' }}>
               {stakeValueUSD >= minStakeUSD ? (
-                <span style={{ color: '#16a34a' }}>
+                <span style={{ color: 'var(--success)' }}>
                   ✅ {formatUSD(stakeValueUSD)} (meets ${minStakeUSD.toLocaleString()} minimum)
                 </span>
               ) : (
-                <span style={{ color: '#dc2626' }}>
+                <span style={{ color: 'var(--error)' }}>
                   ❌ {formatUSD(stakeValueUSD)} (need ${minStakeUSD.toLocaleString()} minimum)
                 </span>
               )}
@@ -135,7 +135,7 @@ export default function RegisterNodeForm() {
             disabled={isRegistering || !canAddMore}
           />
           {rewardToken && (
-            <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem' }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
               Estimated: ~{(Number(estimatedMonthlyUSD) / 1e18 / rewardToken.priceUSD).toFixed(2)} {rewardToken.symbol}/month
               (≈ {formatUSD(Number(estimatedMonthlyUSD) / 1e18)}/month)
             </p>
@@ -155,7 +155,7 @@ export default function RegisterNodeForm() {
             onChange={(e) => setRpcUrl(e.target.value)}
             disabled={isRegistering || !canAddMore}
           />
-          <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
             Your node's publicly accessible RPC endpoint
           </p>
         </div>
@@ -178,13 +178,13 @@ export default function RegisterNodeForm() {
               </option>
             ))}
           </select>
-          <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
             Underserved regions earn geographic bonuses
           </p>
         </div>
 
         {/* Info Box */}
-        <div style={{ padding: '1rem', background: '#f8fafc', borderRadius: '8px', marginBottom: '1rem' }}>
+        <div style={{ padding: '1rem', background: 'var(--surface-hover)', borderRadius: '8px', marginBottom: '1rem' }}>
           <p style={{ fontSize: '0.875rem', margin: '0.5rem 0' }}>
             <strong>⏱️ Minimum staking period:</strong> 7 days
           </p>
@@ -197,8 +197,8 @@ export default function RegisterNodeForm() {
         </div>
 
         {isRegisterSuccess && (
-          <div style={{ padding: '1rem', background: '#dcfce7', borderRadius: '8px', marginBottom: '1rem' }}>
-            <p style={{ color: '#16a34a', margin: 0 }}>
+          <div style={{ padding: '1rem', background: 'var(--success-soft)', borderRadius: '8px', marginBottom: '1rem' }}>
+            <p style={{ color: 'var(--success)', margin: 0 }}>
               ✅ Node registered successfully! Check "My Nodes" to see details.
             </p>
           </div>

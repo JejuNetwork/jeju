@@ -1,0 +1,108 @@
+# Alertmanager - Alert Routing and Notification
+# Routes Prometheus alerts to PagerDuty, Slack, etc.
+
+replicaCount: 2
+
+image:
+  repository: prom/alertmanager
+  pullPolicy: IfNotPresent
+  tag: "v0.27.0"
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+service:
+  type: ClusterIP
+  port: 9093
+  clusterPort: 9094
+
+ingress:
+  enabled: false
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+persistence:
+  enabled: true
+  storageClass: "gp3"
+  accessMode: ReadWriteOnce
+  size: 5Gi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+config:
+  global:
+    resolve_timeout: 5m
+    
+  # Route tree
+  route:
+    group_by: ['alertname', 'severity']
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
+    receiver: 'default'
+    routes:
+      # Critical alerts -> PagerDuty
+      - match:
+          severity: critical
+        receiver: 'pagerduty-critical'
+        continue: true
+        
+      # Warning alerts -> Slack
+      - match:
+          severity: warning
+        receiver: 'slack-warning'
+        
+      # Chain health alerts -> dedicated channel
+      - match:
+          category: chain
+        receiver: 'slack-chain'
+  
+  # Receivers
+  receivers:
+    - name: 'default'
+      slack_configs:
+        - api_url: ''  # Inject from secret
+          channel: '#alerts'
+          send_resolved: true
+    
+    - name: 'pagerduty-critical'
+      pagerduty_configs:
+        - service_key: ''  # Inject from secret
+          severity: critical
+          description: '{{ .CommonAnnotations.summary }}'
+    
+    - name: 'slack-warning'
+      slack_configs:
+        - api_url: ''
+          channel: '#alerts-warning'
+          send_resolved: true
+          
+    - name: 'slack-chain'
+      slack_configs:
+        - api_url: ''
+          channel: '#chain-health'
+          send_resolved: true
+          
+  # Inhibition rules
+  inhibit_rules:
+    # If critical, suppress warning for same alertname
+    - source_match:
+        severity: 'critical'
+      target_match:
+        severity: 'warning'
+      equal: ['alertname']
+
+

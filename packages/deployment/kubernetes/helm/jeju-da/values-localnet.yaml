@@ -1,0 +1,21 @@
+# JejuDA - Localnet Configuration
+replicaCount: 1
+
+image:
+  tag: "latest"
+  pullPolicy: Never
+
+persistence:
+  enabled: false
+
+nodeSelector: {}
+tolerations: []
+
+config:
+  ipfs:
+    apiUrl: "http://ipfs:5001"
+    gatewayUrl: "http://ipfs:8080"
+  fallback:
+    enabled: false
+
+

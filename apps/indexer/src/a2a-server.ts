@@ -1,15 +1,30 @@
 /**
  * A2A Server for Jeju Indexer
+ * Also serves the custom styled GraphQL playground
  */
 
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 const PORT = 4351;
+
+// Serve static files from public directory
+app.use('/static', express.static(path.join(__dirname, '../public')));
+
+// Custom styled GraphQL playground
+app.get('/playground', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../public/playground.html'));
+});
+
+// Root redirect to playground
+app.get('/', (_req, res) => {
+  res.redirect('/playground');
+});
 
 app.get('/.well-known/agent-card.json', (_req, res) => {
   res.json({

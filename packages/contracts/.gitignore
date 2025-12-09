@@ -2,18 +2,14 @@
 cache/
 out/
 broadcast/
-deployments/local/
 
-# Artifacts
-artifacts/
-typechain/
-typechain-types/
+# Build
+dist/
 
 # Environment
 .env
 
-# IDE
-.vscode/
-.idea/
-
-
+# Reports
+*.report.json
+slither-report.json
+report.md

@@ -4,8 +4,8 @@
  */
 
 import { testWithWallet as test, expect } from '../fixtures/wallet';
-import { captureScreenshot, captureUserFlow } from '../../../../tests/shared/helpers/screenshots';
-import { connectWallet } from '../../../../tests/shared/helpers/contracts';
+import { captureScreenshot, captureUserFlow } from '@jejunetwork/tests/helpers/screenshots';
+import { connectWallet } from '@jejunetwork/tests/helpers/contracts';
 
 test.describe('App Registry Flow', () => {
   test.beforeEach(async ({ page, wallet }) => {

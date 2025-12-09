@@ -82,7 +82,7 @@ export default function RegisterToken() {
               min="0"
               max="500"
             />
-            <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
               {parseInt(minFee) / 100}% minimum fee
             </p>
           </div>
@@ -101,30 +101,30 @@ export default function RegisterToken() {
               min="0"
               max="500"
             />
-            <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
               {parseInt(maxFee) / 100}% maximum fee
             </p>
           </div>
         </div>
 
-        <div style={{ padding: '1rem', background: '#f8fafc', borderRadius: '8px', marginBottom: '1rem' }}>
+        <div style={{ padding: '1rem', background: 'var(--surface-hover)', borderRadius: '8px', marginBottom: '1rem' }}>
           <p style={{ fontSize: '0.875rem', margin: 0 }}>
             <strong>Registration Fee:</strong> {registrationFee ? formatEther(registrationFee) : '0.1'} ETH
           </p>
-          <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem' }}>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
             This fee prevents spam registrations and goes to treasury.
           </p>
         </div>
 
         {error && (
-          <div style={{ padding: '1rem', background: '#fee2e2', borderRadius: '8px', marginBottom: '1rem' }}>
-            <p style={{ color: '#dc2626', margin: 0 }}>{error}</p>
+          <div style={{ padding: '1rem', background: 'var(--error-soft)', borderRadius: '8px', marginBottom: '1rem' }}>
+            <p style={{ color: 'var(--error)', margin: 0 }}>{error}</p>
           </div>
         )}
 
         {isSuccess && (
-          <div style={{ padding: '1rem', background: '#dcfce7', borderRadius: '8px', marginBottom: '1rem' }}>
-            <p style={{ color: '#16a34a', margin: 0 }}>Token registered successfully!</p>
+          <div style={{ padding: '1rem', background: 'var(--success-soft)', borderRadius: '8px', marginBottom: '1rem' }}>
+            <p style={{ color: 'var(--success)', margin: 0 }}>Token registered successfully!</p>
           </div>
         )}
 

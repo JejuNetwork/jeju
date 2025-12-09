@@ -4,7 +4,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { assertNoPageErrors } from '../../../../packages/tests/shared/helpers/error-detection';
+import { assertNoPageErrors } from '@jejunetwork/tests/helpers/error-detection';
 
 test.describe('Portfolio - REAL Functionality Verification', () => {
   test('should verify portfolio stats show actual numeric values', async ({ page }) => {

@@ -13,17 +13,17 @@ interface ImportMetaEnv {
   readonly VITE_ELIZAOS_VAULT_ADDRESS?: string;
   readonly VITE_ELIZAOS_PAYMASTER_ADDRESS?: string;
   
-  // CLANKER Token (Bridged from Base)
+  // CLANKER Token (Bridged from Ethereum)
   readonly VITE_CLANKER_TOKEN_ADDRESS?: string;
   readonly VITE_CLANKER_VAULT_ADDRESS?: string;
   readonly VITE_CLANKER_PAYMASTER_ADDRESS?: string;
   
-  // VIRTUAL Token (Bridged from Base)
+  // VIRTUAL Token (Bridged from Ethereum)
   readonly VITE_VIRTUAL_TOKEN_ADDRESS?: string;
   readonly VITE_VIRTUAL_VAULT_ADDRESS?: string;
   readonly VITE_VIRTUAL_PAYMASTER_ADDRESS?: string;
   
-  // CLANKERMON Token (Bridged from Base)
+  // CLANKERMON Token (Bridged from Ethereum)
   readonly VITE_CLANKERMON_TOKEN_ADDRESS?: string;
   readonly VITE_CLANKERMON_VAULT_ADDRESS?: string;
   readonly VITE_CLANKERMON_PAYMASTER_ADDRESS?: string;

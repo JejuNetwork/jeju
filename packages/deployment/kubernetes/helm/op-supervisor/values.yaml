@@ -1,0 +1,103 @@
+# OP Supervisor - Superchain Interoperability
+# Enables cross-L2 messaging within the Superchain
+# https://docs.optimism.io/stack/interop
+
+replicaCount: 2
+
+image:
+  repository: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-supervisor
+  pullPolicy: IfNotPresent
+  tag: "v0.5.0"
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "7300"
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsUser: 1000
+  runAsNonRoot: true
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  rpc:
+    port: 8545
+  metrics:
+    port: 7300
+
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+  requests:
+    cpu: 1000m
+    memory: 2Gi
+
+persistence:
+  enabled: true
+  storageClass: "gp3"
+  accessMode: ReadWriteOnce
+  size: 100Gi
+  mountPath: /data
+
+nodeSelector:
+  role: core
+
+tolerations:
+  - key: workload
+    operator: Equal
+    value: core
+    effect: NoSchedule
+
+affinity: {}
+
+config:
+  # Data directory
+  datadir: "/data"
+  
+  # L1 connection
+  l1:
+    rpcUrl: ""
+    beacon:
+      url: ""
+  
+  # Local L2 chains to supervise
+  chains:
+    - name: "jeju"
+      chainId: 420691
+      rpcUrl: "http://reth-archive:8545"
+      opNodeUrl: "http://op-node:9545"
+  
+  # Cross-chain message validation
+  interop:
+    enabled: true
+    dependencySet: []  # Other Superchain L2s
+  
+  # RPC server
+  rpc:
+    addr: "0.0.0.0"
+    port: 8545
+  
+  # Metrics
+  metrics:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 7300
+
+

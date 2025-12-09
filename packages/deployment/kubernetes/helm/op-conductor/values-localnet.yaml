@@ -1,0 +1,26 @@
+# op-conductor localnet values - single node for development
+replicaCount: 1
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+persistence:
+  enabled: true
+  storageClass: "standard"
+  size: 1Gi
+
+nodeSelector: {}
+
+tolerations: []
+
+config:
+  raft:
+    bootstrapCluster: true
+    serverID: "conductor-0"
+
+

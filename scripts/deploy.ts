@@ -29,15 +29,15 @@ if (network !== "testnet" && network !== "mainnet") {
 }
 
 const isMainnet = network === "mainnet";
-const l1RpcUrl = isMainnet ? "https://mainnet.base.org" : "https://sepolia.base.org";
-const l1ChainId = isMainnet ? "8453" : "84532";
+const l1RpcUrl = isMainnet ? "https://eth.llamarpc.com" : "https://ethereum-sepolia-rpc.publicnode.com";
+const l1ChainId = isMainnet ? "1" : "11155111";
 
 console.log(`
 ╔═══════════════════════════════════════════════════════════╗
 ║                                                           ║
 ║   🚀 JEJU - ${isMainnet ? 'MAINNET' : 'TESTNET'} DEPLOYMENT                    ║
 ║   Complete Stack                                          ║
-║   Settlement Layer: Base ${isMainnet ? 'Mainnet' : 'Sepolia'}                    ║
+║   Settlement Layer: Ethereum ${isMainnet ? 'Mainnet' : 'Sepolia'}                ║
 ║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
 `);
@@ -47,9 +47,9 @@ if (isMainnet) {
   console.log("⚠️  MAINNET DEPLOYMENT - This will use real funds!");
   console.log("\nRequired environment variables:");
   console.log("  - DEPLOYER_PRIVATE_KEY");
-  console.log("  - BASESCAN_API_KEY");
+  console.log("  - ETHERSCAN_API_KEY");
   
-  const requiredVars = ["DEPLOYER_PRIVATE_KEY", "BASESCAN_API_KEY"];
+  const requiredVars = ["DEPLOYER_PRIVATE_KEY", "ETHERSCAN_API_KEY"];
   const missing = requiredVars.filter(v => !process.env[v]);
   
   if (missing.length > 0) {
@@ -76,7 +76,7 @@ if (buildResult.exitCode !== 0) {
 console.log("✅ Contracts built successfully\n");
 
 // Step 2: Deploy L1 contracts
-console.log("2️⃣  Deploying L1 Contracts to Base...\n");
+console.log("2️⃣  Deploying L1 Contracts to Ethereum...\n");
 
 const deployCmd = await $`bun run scripts/deploy/l1-contracts.ts --network ${network}`.env({
   L1_RPC_URL: l1RpcUrl,
@@ -93,8 +93,7 @@ console.log("✅ L1 contracts deployed successfully\n");
 
 // Step 3: Deploy L2 genesis
 console.log("3️⃣  Configuring L2 Genesis...\n");
-const genesisResult = await $`bun run scripts/deploy/l2-genesis.ts`.env({
-  NETWORK: network,
+const genesisResult = await $`NETWORK=${network} bun run --cwd packages/deployment scripts/l2-genesis.ts`.env({
   ...process.env,
 }).nothrow();
 
@@ -131,9 +130,9 @@ if (aaResult.exitCode !== 0) {
 }
 
 // Step 6: Verify contracts
-console.log("6️⃣  Verifying Contracts on BaseScan...\n");
+console.log("6️⃣  Verifying Contracts on Etherscan...\n");
 const verifyResult = await $`bun run scripts/verify-contracts.ts ${network}`.env({
-  BASESCAN_API_KEY: process.env.BASESCAN_API_KEY || "",
+  ETHERSCAN_API_KEY: process.env.ETHERSCAN_API_KEY || "",
   ...process.env,
 }).nothrow();
 
@@ -153,8 +152,8 @@ if (existsSync(deploymentFile)) {
   console.log("📋 Deployment Summary:");
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   console.log(`Network:           ${network.toUpperCase()}`);
-  console.log(`Settlement Layer:  Base ${isMainnet ? 'Mainnet' : 'Sepolia'} (Chain ID ${l1ChainId})`);
-  console.log(`L3 Chain ID:       ${isMainnet ? '420691' : '420690'}`);
+  console.log(`Settlement Layer:  Ethereum ${isMainnet ? 'Mainnet' : 'Sepolia'} (Chain ID ${l1ChainId})`);
+  console.log(`L2 Chain ID:       ${isMainnet ? '420691' : '420690'}`);
   console.log(`Timestamp:         ${new Date().toISOString()}`);
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   

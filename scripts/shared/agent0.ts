@@ -14,7 +14,6 @@ import { ethers, Wallet } from 'ethers';
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
 import { Logger } from './logger';
-import { rawDeployments, getContractAddresses } from '@jeju/contracts';
 
 const logger = new Logger('agent0');
 
@@ -97,18 +96,18 @@ const NETWORK_CONFIG: Record<string, {
     },
   },
   testnet: {
-    chainId: 84532, // Base Sepolia
-    rpcUrl: 'https://sepolia.base.org',
+    chainId: 11155111, // Sepolia
+    rpcUrl: 'https://ethereum-sepolia-rpc.publicnode.com',
     registries: {
-      // These are from the ERC-8004 canonical deployments on Base Sepolia
+      // These are from the ERC-8004 canonical deployments on Sepolia
       IDENTITY: '0x0F7E3D1b3edcf09f134EA8F1ECa2C6A0e00b3E96',
       REPUTATION: '0x6C52Bd8E34bA87D4a2e1d59c1c5fDc4cb0d0bca5',
       VALIDATION: '0x3E8B2fD2C4E0d6fB12a1E5e8f9A6bC2fE4D8bE4a',
     },
   },
   mainnet: {
-    chainId: 8453, // Base Mainnet
-    rpcUrl: 'https://mainnet.base.org',
+    chainId: 1, // Ethereum Mainnet
+    rpcUrl: 'https://eth.llamarpc.com',
     registries: {
       // To be filled when deployed to mainnet
       IDENTITY: '',
@@ -121,23 +120,41 @@ const NETWORK_CONFIG: Record<string, {
 // ============ Core Functions ============
 
 /**
- * Load deployment addresses for localnet from @jeju/contracts
+ * Load deployment addresses for localnet from deployment files
  */
 function loadLocalnetAddresses(): void {
-  // Use @jeju/contracts for deployment addresses
-  const addresses = getContractAddresses(1337);
+  const deploymentsDir = resolve(__dirname, '../../packages/contracts/deployments');
   
-  if (addresses.identityRegistry) {
-    NETWORK_CONFIG.localnet.registries.IDENTITY = addresses.identityRegistry;
-  }
-  if (addresses.reputationRegistry) {
-    NETWORK_CONFIG.localnet.registries.REPUTATION = addresses.reputationRegistry;
-  }
-  if (addresses.validationRegistry) {
-    NETWORK_CONFIG.localnet.registries.VALIDATION = addresses.validationRegistry;
+  // Try to load from identity-system-1337.json
+  const identityPath = resolve(deploymentsDir, 'identity-system-1337.json');
+  if (existsSync(identityPath)) {
+    const deployments = JSON.parse(readFileSync(identityPath, 'utf-8')) as Record<string, string>;
+    if (deployments.IdentityRegistry) {
+      NETWORK_CONFIG.localnet.registries.IDENTITY = deployments.IdentityRegistry;
+    }
+    if (deployments.ReputationRegistry) {
+      NETWORK_CONFIG.localnet.registries.REPUTATION = deployments.ReputationRegistry;
+    }
+    if (deployments.ValidationRegistry) {
+      NETWORK_CONFIG.localnet.registries.VALIDATION = deployments.ValidationRegistry;
+    }
+    logger.info('Loaded localnet addresses from identity-system-1337.json');
   }
   
-  logger.info('Loaded localnet addresses from @jeju/contracts');
+  // Also check localnet-addresses.json for additional addresses
+  const localnetPath = resolve(deploymentsDir, 'localnet-addresses.json');
+  if (existsSync(localnetPath)) {
+    const deployments = JSON.parse(readFileSync(localnetPath, 'utf-8')) as Record<string, string>;
+    if (deployments.identityRegistry) {
+      NETWORK_CONFIG.localnet.registries.IDENTITY = deployments.identityRegistry;
+    }
+    if (deployments.reputationRegistry) {
+      NETWORK_CONFIG.localnet.registries.REPUTATION = deployments.reputationRegistry;
+    }
+    if (deployments.validationRegistry) {
+      NETWORK_CONFIG.localnet.registries.VALIDATION = deployments.validationRegistry;
+    }
+  }
 }
 
 /**
@@ -290,9 +307,8 @@ export async function registerApp(
     signer
   );
   
-  // Build registration file
+  // Get owner address for logging
   const ownerAddress = await signer.getAddress();
-  const registrationFile = buildRegistrationFile(manifest, appUrl, ownerAddress);
   
   // Use provided tokenURI or empty string (can be set later)
   const finalTokenURI = tokenURI || '';

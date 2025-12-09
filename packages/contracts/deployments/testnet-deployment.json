@@ -1,0 +1,9 @@
+{
+  "base-sepolia": {
+    "IdentityRegistry": "0x759D602d8D2E4F1ccCa12E955420cC19e64a68bd",
+    "SolverRegistry": "0xecfE47302D941c8ce5B0009C0ac2E6D6ee2A42de",
+    "SimpleOracle": "0xE30218678a940d1553b285B0eB5C5364BBF70ed9",
+    "InputSettler": "0x9bb59d0329FcCEdD99f1753D20AF50347Ad2eB75",
+    "OutputSettler": "0xf7ef3C6a54dA3E03A96D23864e5865E7e3EBEcF5"
+  }
+}

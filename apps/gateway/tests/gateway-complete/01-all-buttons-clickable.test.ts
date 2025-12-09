@@ -10,7 +10,7 @@ import { expect, test, describe } from 'bun:test';
 describe('Dashboard - All Tab Buttons', () => {
   const tabButtons = [
     'Registered Tokens',
-    'Bridge from Base',
+    'Bridge from Ethereum',
     'Deploy Paymaster',
     'Add Liquidity',
     'My Earnings',

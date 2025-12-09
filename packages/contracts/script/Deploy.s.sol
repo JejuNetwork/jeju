@@ -5,35 +5,34 @@ import "forge-std/Script.sol";
 
 /**
  * @title Deploy L1 Contracts
- * @notice Deploys OP Stack settlement contracts on Base
- * 
+ * @notice Deploys OP Stack settlement contracts on Ethereum
+ *
  * NOTE: This script is for reference. In production, use the official OP Stack
  * deployment tooling (op-deployer) which handles the full deployment process:
- * 
+ *
  * Official OP Stack Deployment:
  * 1. Install op-deployer: https://github.com/ethereum-optimism/optimism
  * 2. Create deploy-config.json with your chain parameters
  * 3. Run: op-deployer init --deploy-config deploy-config.json
  * 4. Run: op-deployer apply
- * 
+ *
  * This will deploy:
  * - ProxyAdmin
- * - AddressManager  
+ * - AddressManager
  * - L1CrossDomainMessenger (Proxy + Implementation)
  * - L1StandardBridge (Proxy + Implementation)
  * - L2OutputOracle (Proxy + Implementation)
  * - OptimismPortal (Proxy + Implementation)
  * - SystemConfig (Proxy + Implementation)
  * - ProtocolVersions
- * 
+ *
  * For Jeju specifically:
- * - These contracts are deployed on Base (not Ethereum)
- * - Base itself has these contracts on Ethereum
- * - Jeju → Base → Ethereum (3-layer architecture)
- * 
+ * - These contracts are deployed on Ethereum
+ * - Jeju → Ethereum (2-layer architecture)
+ *
  * Usage:
  *   forge script script/Deploy.s.sol:DeployL1Contracts \
- *     --rpc-url $BASE_SEPOLIA_RPC \
+ *     --rpc-url $SEPOLIA_RPC \
  *     --broadcast \
  *     --verify
  */
@@ -41,7 +40,7 @@ contract DeployL1Contracts is Script {
     function run() external view {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
-        
+
         console.log("======================================================================");
         console.log("L1 (Settlement Layer) Contract Deployment Guide");
         console.log("======================================================================");
@@ -50,7 +49,7 @@ contract DeployL1Contracts is Script {
         console.log("Chain:", _getChainName());
         console.log("Chain ID:", block.chainid);
         console.log("");
-        
+
         console.log("IMPORTANT: Use Official OP Stack Tooling");
         console.log("======================================================================");
         console.log("");
@@ -62,7 +61,7 @@ contract DeployL1Contracts is Script {
         console.log("");
         console.log("2. Create deploy-config.json:");
         console.log("   {");
-        console.log('     "l1ChainID": 84532,  // Base Sepolia');
+        console.log('     "l1ChainID": 11155111,  // Sepolia');
         console.log('     "l2ChainID": 420690,  // Jeju Testnet');
         console.log('     "l2BlockTime": 2,');
         console.log('     "maxSequencerDrift": 600,');
@@ -105,11 +104,13 @@ contract DeployL1Contracts is Script {
         console.log("// 6. Transfer ownership to multisig");
         console.log("");
         console.log("See full deployment sequence:");
-        console.log("https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts-bedrock/scripts/Deploy.s.sol");
+        console.log(
+            "https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts-bedrock/scripts/Deploy.s.sol"
+        );
         console.log("");
         console.log("Cost Estimate:");
-        console.log("  Base Sepolia: ~$10-50 in gas");
-        console.log("  Base Mainnet: ~$100-500 in gas");
+        console.log("  Sepolia: ~$10-50 in gas");
+        console.log("  Ethereum Mainnet: ~$100-500 in gas");
         console.log("  Time: 30-60 minutes");
         console.log("");
         console.log("======================================================================");
@@ -119,12 +120,10 @@ contract DeployL1Contracts is Script {
         console.log("  Docs: https://docs.jeju.network/deployment");
         console.log("");
     }
-    
+
     function _getChainName() internal view returns (string memory) {
         if (block.chainid == 1) return "Ethereum Mainnet";
         if (block.chainid == 11155111) return "Ethereum Sepolia";
-        if (block.chainid == 8453) return "Base Mainnet";
-        if (block.chainid == 84532) return "Base Sepolia";
         return "Unknown";
     }
 }
@@ -139,26 +138,26 @@ contract VerifyL1Deployment is Script {
         console.log("L1 Deployment Verification");
         console.log("======================================================================");
         console.log("");
-        
+
         // Read deployment file
         string memory network = _getNetworkName();
         string memory deploymentPath = string.concat("deployments/", network, "/l1-contracts.json");
-        
+
         console.log("Reading:", deploymentPath);
         console.log("");
-        
+
         // Check if file exists
         try vm.readFile(deploymentPath) returns (string memory json) {
             console.log("Deployment file found!");
             console.log("");
-            
+
             // Parse and display addresses
             address portal = vm.parseJsonAddress(json, ".OptimismPortal");
             address outputOracle = vm.parseJsonAddress(json, ".L2OutputOracle");
             address messenger = vm.parseJsonAddress(json, ".L1CrossDomainMessenger");
             address bridge = vm.parseJsonAddress(json, ".L1StandardBridge");
             address systemConfig = vm.parseJsonAddress(json, ".SystemConfig");
-            
+
             console.log("Deployed Contracts:");
             console.log("  OptimismPortal:", portal);
             console.log("  L2OutputOracle:", outputOracle);
@@ -166,17 +165,16 @@ contract VerifyL1Deployment is Script {
             console.log("  L1StandardBridge:", bridge);
             console.log("  SystemConfig:", systemConfig);
             console.log("");
-            
+
             // Verify contracts have code
             _verifyCode(portal, "OptimismPortal");
             _verifyCode(outputOracle, "L2OutputOracle");
             _verifyCode(messenger, "L1CrossDomainMessenger");
             _verifyCode(bridge, "L1StandardBridge");
             _verifyCode(systemConfig, "SystemConfig");
-            
+
             console.log("");
             console.log("[OK] All contracts deployed and verified!");
-            
         } catch {
             console.log("[ERROR] Deployment file not found.");
             console.log("");
@@ -184,7 +182,7 @@ contract VerifyL1Deployment is Script {
             console.log("  forge script script/Deploy.s.sol:DeployL1Contracts --broadcast");
         }
     }
-    
+
     function _verifyCode(address addr, string memory name) internal view {
         if (addr.code.length > 0) {
             console.log("  [OK]", name, "has code");
@@ -192,11 +190,10 @@ contract VerifyL1Deployment is Script {
             console.log("  [ERROR]", name, "NO CODE FOUND");
         }
     }
-    
+
     function _getNetworkName() internal view returns (string memory) {
-        if (block.chainid == 84532) return "base-sepolia";
-        if (block.chainid == 8453) return "base-mainnet";
+        if (block.chainid == 11155111) return "sepolia";
+        if (block.chainid == 1) return "mainnet";
         return "unknown";
     }
 }
-

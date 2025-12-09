@@ -1,5 +1,5 @@
 import { Address } from 'viem'
-import tokenConfig from '../../../packages/config/tokens.json'
+import tokenConfig from '@jejunetwork/config/tokens'
 
 export interface TokenInfo {
   address: Address | string

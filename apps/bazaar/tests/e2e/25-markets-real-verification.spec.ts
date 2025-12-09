@@ -4,7 +4,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { assertNoPageErrors } from '../../../../packages/tests/shared/helpers/error-detection';
+import { assertNoPageErrors } from '@jejunetwork/tests/helpers/error-detection';
 
 test.describe('Markets - REAL Functionality Verification', () => {
   test('should verify market stats calculate from actual data', async ({ page }) => {

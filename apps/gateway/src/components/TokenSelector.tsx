@@ -78,7 +78,7 @@ export default function TokenSelector({
             )}
             <div>
               <div style={{ fontWeight: '600' }}>{selected.symbol}</div>
-              <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                 {selected.name}
                 {showBalances && balances[selected.symbol] && (
                   <span style={{ marginLeft: '0.5rem' }}>
@@ -89,9 +89,9 @@ export default function TokenSelector({
             </div>
           </div>
         ) : (
-          <span style={{ color: '#94a3b8' }}>{placeholder}</span>
+          <span style={{ color: 'var(--text-muted)' }}>{placeholder}</span>
         )}
-        <span style={{ color: '#94a3b8' }}>▼</span>
+        <span style={{ color: 'var(--text-muted)' }}>▼</span>
       </button>
 
       {/* Dropdown List */}
@@ -115,10 +115,10 @@ export default function TokenSelector({
               left: 0,
               right: 0,
               marginTop: '0.5rem',
-              background: 'white',
-              border: '1px solid #e2e8f0',
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
               borderRadius: '8px',
-              boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
+              boxShadow: '0 10px 25px var(--shadow-sm)',
               maxHeight: '300px',
               overflowY: 'auto',
               zIndex: 50,
@@ -138,7 +138,7 @@ export default function TokenSelector({
                     padding: '0.75rem 1rem',
                     textAlign: 'left',
                     border: 'none',
-                    background: isSelected ? '#f1f5f9' : 'white',
+                    background: isSelected ? 'var(--surface-active)' : 'white',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
@@ -146,7 +146,7 @@ export default function TokenSelector({
                     transition: 'background 0.15s',
                   }}
                   onMouseEnter={(e) => {
-                    if (!isSelected) e.currentTarget.style.background = '#f8fafc';
+                    if (!isSelected) e.currentTarget.style.background = 'var(--surface-hover)';
                   }}
                   onMouseLeave={(e) => {
                     if (!isSelected) e.currentTarget.style.background = 'white';
@@ -164,12 +164,12 @@ export default function TokenSelector({
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div style={{ fontWeight: '600' }}>{token.symbol}</div>
                       {showBalances && balance && (
-                        <div style={{ fontSize: '0.875rem', color: '#64748b' }}>
+                        <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
                           {formatTokenAmount(balance, token.decimals, 2)}
                         </div>
                       )}
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.125rem' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.125rem' }}>
                       {token.name}
                       {token.priceUSD > 0 && (
                         <span style={{ marginLeft: '0.5rem' }}>

@@ -1,20 +1,20 @@
 /**
  * @fileoverview Integration tests for OIF Solver with real chain interactions
- * Uses Base testnet/mainnet for on-chain verification
+ * Uses Ethereum testnet/mainnet for on-chain verification
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
 import { createPublicClient, createWalletClient, http, parseEther, formatEther } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { base, baseSepolia } from 'viem/chains';
+import { mainnet, sepolia } from 'viem/chains';
 
 // Test configuration
 const PRIVATE_KEY = process.env.MAINNET_EVM_PRIVATE_KEY as `0x${string}`;
 const USE_TESTNET = process.env.USE_TESTNET === 'true';
-const chain = USE_TESTNET ? baseSepolia : base;
+const chain = USE_TESTNET ? sepolia : mainnet;
 const rpcUrl = USE_TESTNET 
-  ? 'https://sepolia.base.org'
-  : (process.env.BASE_RPC_URL || 'https://mainnet.base.org');
+  ? 'https://ethereum-sepolia-rpc.publicnode.com'
+  : (process.env.ETHEREUM_RPC_URL || 'https://eth.llamarpc.com');
 
 // Skip integration tests if no private key
 const skipIntegration = !PRIVATE_KEY;
@@ -287,7 +287,7 @@ describe('InputSettler Contract Interaction', () => {
 
 describe('Cross-Chain Monitoring', () => {
   const chains = [
-    { id: 8453, name: 'Base', rpcUrl: 'https://mainnet.base.org' },
+    { id: 1, name: 'Ethereum', rpcUrl: 'https://eth.llamarpc.com' },
     { id: 42161, name: 'Arbitrum', rpcUrl: 'https://arb1.arbitrum.io/rpc' },
     { id: 10, name: 'Optimism', rpcUrl: 'https://mainnet.optimism.io' },
   ];

@@ -96,7 +96,7 @@ export default function AppDetailModal({ agentId, onClose }: AppDetailModalProps
             {/* Header */}
             <div style={{ marginBottom: '2rem' }}>
               <h2 style={{ fontSize: '1.75rem', marginBottom: '0.5rem' }}>{app.name}</h2>
-              <p style={{ color: '#64748b', fontSize: '0.875rem', fontFamily: 'monospace' }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', fontFamily: 'monospace' }}>
                 Agent ID: {agentId.toString()}
               </p>
             </div>
@@ -105,7 +105,7 @@ export default function AppDetailModal({ agentId, onClose }: AppDetailModalProps
             {app.description && (
               <div style={{ marginBottom: '1.5rem' }}>
                 <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem' }}>Description</h3>
-                <p style={{ color: '#64748b' }}>{app.description}</p>
+                <p style={{ color: 'var(--text-secondary)' }}>{app.description}</p>
               </div>
             )}
 
@@ -120,9 +120,9 @@ export default function AppDetailModal({ agentId, onClose }: AppDetailModalProps
                     style={{
                       padding: '0.5rem 1rem',
                       borderRadius: '9999px',
-                      background: '#f1f5f9',
-                      color: '#475569',
-                      border: '1px solid #cbd5e1',
+                      background: 'var(--surface-active)',
+                      color: 'var(--text-secondary)',
+                      border: '1px solid var(--border-strong)',
                     }}
                   >
                     {tag}
@@ -137,20 +137,20 @@ export default function AppDetailModal({ agentId, onClose }: AppDetailModalProps
                 <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem' }}>A2A Endpoint</h3>
                 <div style={{
                   padding: '0.75rem',
-                  background: '#f8fafc',
+                  background: 'var(--surface-hover)',
                   borderRadius: '8px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
                 }}>
-                  <code style={{ fontSize: '0.875rem', color: '#475569' }}>
+                  <code style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
                     {app.a2aEndpoint}
                   </code>
                   <a
                     href={app.a2aEndpoint}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ color: '#667eea', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                    style={{ color: 'var(--accent-primary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
                   >
                     <ExternalLink size={16} />
                   </a>
@@ -163,25 +163,25 @@ export default function AppDetailModal({ agentId, onClose }: AppDetailModalProps
               <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem' }}>Stake Information</h3>
               <div style={{
                 padding: '1rem',
-                background: '#f8fafc',
+                background: 'var(--surface-hover)',
                 borderRadius: '8px',
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                  <span style={{ color: '#64748b' }}>Token:</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>Token:</span>
                   <span style={{ fontWeight: 600 }}>{app.stakeToken}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                  <span style={{ color: '#64748b' }}>Amount:</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>Amount:</span>
                   <span style={{ fontWeight: 600 }}>{app.stakeAmount}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                  <span style={{ color: '#64748b' }}>Deposited:</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>Deposited:</span>
                   <span style={{ fontSize: '0.875rem' }}>
                     {new Date(Number(app.depositedAt) * 1000).toLocaleDateString()}
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b' }}>Status:</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>Status:</span>
                   <span className="badge-success" style={{ padding: '0.25rem 0.75rem', borderRadius: '9999px' }}>
                     Active
                   </span>
@@ -194,9 +194,9 @@ export default function AppDetailModal({ agentId, onClose }: AppDetailModalProps
               <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem' }}>Owner</h3>
               <code style={{ 
                 fontSize: '0.875rem',
-                color: '#475569',
+                color: 'var(--text-secondary)',
                 padding: '0.75rem',
-                background: '#f8fafc',
+                background: 'var(--surface-hover)',
                 borderRadius: '8px',
                 display: 'block',
               }}>
@@ -208,12 +208,12 @@ export default function AppDetailModal({ agentId, onClose }: AppDetailModalProps
             {isOwner && (
               <div style={{
                 padding: '1rem',
-                background: '#fef3c7',
-                border: '1px solid #f59e0b',
+                background: 'var(--warning-soft)',
+                border: '1px solid var(--warning)',
                 borderRadius: '8px',
                 marginBottom: '1rem',
               }}>
-                <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', color: '#92400e' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', color: 'var(--warning)' }}>
                   Owner Actions
                 </h3>
                 <div style={{ display: 'flex', gap: '1rem' }}>
@@ -234,14 +234,14 @@ export default function AppDetailModal({ agentId, onClose }: AppDetailModalProps
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: '0.5rem',
-                      background: '#dc2626',
+                      background: 'var(--error)',
                     }}
                   >
                     <Trash2 size={16} />
                     {isWithdrawing ? 'Withdrawing...' : 'Withdraw & De-register'}
                   </button>
                 </div>
-                <p style={{ fontSize: '0.75rem', color: '#92400e', marginTop: '0.75rem', margin: 0 }}>
+                <p style={{ fontSize: '0.75rem', color: 'var(--warning)', marginTop: '0.75rem', margin: 0 }}>
                   Withdrawing will de-register your app and refund your full stake
                 </p>
               </div>

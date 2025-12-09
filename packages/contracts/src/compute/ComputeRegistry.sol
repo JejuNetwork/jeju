@@ -75,12 +75,7 @@ contract ComputeRegistry is Ownable, Pausable, ReentrancyGuard {
     // ============ Events ============
 
     event ProviderRegistered(
-        address indexed provider,
-        string name,
-        string endpoint,
-        bytes32 attestationHash,
-        uint256 stake,
-        uint256 agentId
+        address indexed provider, string name, string endpoint, bytes32 attestationHash, uint256 stake, uint256 agentId
     );
     event ProviderUpdated(address indexed provider, string endpoint, bytes32 attestationHash);
     event ProviderDeactivated(address indexed provider);
@@ -128,11 +123,12 @@ contract ComputeRegistry is Ownable, Pausable, ReentrancyGuard {
      * @param endpoint API endpoint URL (e.g., https://provider.example.com)
      * @param attestationHash Hash of hardware attestation (TEE/GPU proof)
      */
-    function register(
-        string calldata name,
-        string calldata endpoint,
-        bytes32 attestationHash
-    ) external payable nonReentrant whenNotPaused {
+    function register(string calldata name, string calldata endpoint, bytes32 attestationHash)
+        external
+        payable
+        nonReentrant
+        whenNotPaused
+    {
         if (requireAgentRegistration) revert AgentRequired();
         _registerInternal(name, endpoint, attestationHash, 0);
     }
@@ -144,12 +140,12 @@ contract ComputeRegistry is Ownable, Pausable, ReentrancyGuard {
      * @param attestationHash Hash of hardware attestation
      * @param agentId ERC-8004 agent ID for identity verification
      */
-    function registerWithAgent(
-        string calldata name,
-        string calldata endpoint,
-        bytes32 attestationHash,
-        uint256 agentId
-    ) external payable nonReentrant whenNotPaused {
+    function registerWithAgent(string calldata name, string calldata endpoint, bytes32 attestationHash, uint256 agentId)
+        external
+        payable
+        nonReentrant
+        whenNotPaused
+    {
         if (address(identityRegistry) == address(0)) revert InvalidAgentId();
         if (!identityRegistry.agentExists(agentId)) revert InvalidAgentId();
         if (identityRegistry.ownerOf(agentId) != msg.sender) revert NotAgentOwner();
@@ -162,12 +158,9 @@ contract ComputeRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @dev Internal registration logic
      */
-    function _registerInternal(
-        string calldata name,
-        string calldata endpoint,
-        bytes32 attestationHash,
-        uint256 agentId
-    ) internal {
+    function _registerInternal(string calldata name, string calldata endpoint, bytes32 attestationHash, uint256 agentId)
+        internal
+    {
         if (providers[msg.sender].registeredAt != 0) revert ProviderAlreadyRegistered();
         if (bytes(name).length == 0) revert InvalidName();
         if (bytes(endpoint).length == 0) revert InvalidEndpoint();
@@ -387,6 +380,13 @@ contract ComputeRegistry is Ownable, Pausable, ReentrancyGuard {
         return agentToProvider[agentId];
     }
 
+    /**
+     * @notice Get agent ID for a provider
+     */
+    function getProviderAgentId(address provider) external view returns (uint256) {
+        return providers[provider].agentId;
+    }
+
     // ============ Admin Functions ============
 
     /**
@@ -433,4 +433,3 @@ contract ComputeRegistry is Ownable, Pausable, ReentrancyGuard {
         return "1.0.0";
     }
 }
-

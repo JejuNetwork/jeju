@@ -1,41 +1,30 @@
 # Bazaar
 
-DeFi + NFT + Prediction Markets hub.
+DeFi, NFTs, and Prediction Markets.
 
-**URL**: http://localhost:4006 | https://bazaar.jeju.network
+**URL**: http://127.0.0.1:4006 | https://bazaar.jeju.network
 
 ## Features
 
-- **Token Launchpad**: Deploy ERC20s with bonding curves
-- **DEX**: Uniswap V4 swaps with custom hooks
-- **Liquidity**: Concentrated liquidity positions
-- **Prediction Markets**: LMSR automated market maker
-- **NFT Marketplace**: Browse and trade NFTs
-- **Games**: ERC-8004 registered game discovery
+| Feature | Description |
+|---------|-------------|
+| Token Launchpad | Deploy ERC20s with bonding curves |
+| DEX | Uniswap V4 swaps |
+| Liquidity | Concentrated liquidity positions |
+| Prediction Markets | LMSR market maker |
+| NFT Marketplace | Browse and trade NFTs |
 
 ## Routes
 
-| Route | Description |
-|-------|-------------|
+| Route | Purpose |
+|-------|---------|
 | `/tokens` | Token discovery |
-| `/tokens/create` | Launch new tokens |
+| `/tokens/create` | Launch tokens |
 | `/swap` | Token swaps |
-| `/pools` | Liquidity overview |
+| `/pools` | Liquidity |
 | `/markets` | Prediction markets |
 | `/portfolio` | Your positions |
 | `/nfts` | NFT marketplace |
-
-## Stack
-
-Next.js 14, React 19, Wagmi 2, Viem 2, TanStack Query, Tailwind, Radix UI
-
-## LMSR Pricing
-
-```typescript
-yesPrice = exp(yesShares / b) / (exp(yesShares / b) + exp(noShares / b))
-noPrice = 1 - yesPrice
-// b = liquidity parameter (100 ETH default)
-```
 
 ## Development
 
@@ -49,6 +38,5 @@ bun run dev
 
 ```bash
 bun run test        # All tests
-bun run test:unit   # Unit tests
 bun run test:e2e    # E2E tests
 ```

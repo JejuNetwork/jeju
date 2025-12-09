@@ -456,7 +456,7 @@ describe('Full Integration Test', () => {
         ],
       });
 
-      await computeNode.start();
+      computeNode.start(port);
 
       // Verify health endpoint
       const response = await fetch(`${nodeUrl}/health`);

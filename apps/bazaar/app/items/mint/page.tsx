@@ -24,11 +24,18 @@ export default function MintNFTPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h1 className="text-4xl font-bold mb-8">Mint New Item</h1>
+      <div className="text-center mb-8">
+        <h1 className="text-3xl md:text-4xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+          🖼️ Mint New Item
+        </h1>
+        <p style={{ color: 'var(--text-secondary)' }}>
+          Create your own NFT on the Jeju network
+        </p>
+      </div>
 
-      <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-6">
+      <div className="card p-5 md:p-6 space-y-5 md:space-y-6">
         <div>
-          <label className="block text-sm font-medium text-slate-400 mb-2">
+          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
             Item Name
           </label>
           <input
@@ -36,26 +43,26 @@ export default function MintNFTPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Legendary Sword"
-            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white"
+            className="input"
             data-testid="nft-name-input"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-400 mb-2">
+          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
             Description
           </label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="A powerful sword forged in dragon fire..."
-            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white h-32"
+            className="input h-32 resize-none"
             data-testid="nft-description-input"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-400 mb-2">
+          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
             Image URL
           </label>
           <input
@@ -63,7 +70,7 @@ export default function MintNFTPage() {
             value={image}
             onChange={(e) => setImage(e.target.value)}
             placeholder="ipfs://..."
-            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white"
+            className="input"
             data-testid="nft-image-input"
           />
         </div>
@@ -71,16 +78,16 @@ export default function MintNFTPage() {
         <button
           onClick={mintNFT}
           disabled={!isConnected || !name || isPending}
-          className="w-full py-4 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 font-bold text-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="btn-primary w-full py-4 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
           data-testid="mint-nft-button"
         >
           {!isConnected ? 'Connect Wallet' : isPending ? 'Minting...' : 'Mint Item'}
         </button>
       </div>
 
-      <div className="mt-8 p-4 bg-slate-800/50 rounded-lg">
-        <h2 className="font-bold mb-2">About Minting</h2>
-        <ul className="text-sm text-slate-400 space-y-1">
+      <div className="card p-5 md:p-6 mt-6">
+        <h2 className="font-bold mb-3" style={{ color: 'var(--text-primary)' }}>About Minting</h2>
+        <ul className="text-sm space-y-2" style={{ color: 'var(--text-secondary)' }}>
           <li>✅ Mints as ERC-721 NFT</li>
           <li>✅ Stored on IPFS (decentralized)</li>
           <li>✅ Fully on-chain ownership</li>
@@ -90,4 +97,3 @@ export default function MintNFTPage() {
     </div>
   )
 }
-

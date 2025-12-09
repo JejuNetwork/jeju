@@ -6,16 +6,17 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
-
-interface IComputeRegistry {
-    function isActive(address provider) external view returns (bool);
-    function getProviderStake(address provider) external view returns (uint256);
-}
+import {IComputeRegistry} from "./interfaces/IComputeRegistry.sol";
 
 interface ILedgerManager {
     function settle(address user, address provider, uint256 amount, bytes32 requestHash) external;
     function isAcknowledged(address user, address provider) external view returns (bool);
     function getProviderBalance(address user, address provider) external view returns (uint256);
+}
+
+interface IIdentityRegistryMinimal {
+    function agentExists(uint256 agentId) external view returns (bool);
+    function ownerOf(uint256 agentId) external view returns (address);
 }
 
 /**
@@ -91,6 +92,18 @@ contract InferenceServing is Ownable, Pausable, ReentrancyGuard {
     /// @notice Total fees collected
     uint256 public totalFeesCollected;
 
+    /// @notice ERC-8004 Identity Registry (optional)
+    IIdentityRegistryMinimal public identityRegistry;
+
+    /// @notice Agent ID => Total tokens processed
+    mapping(uint256 => uint256) public agentTotalTokens;
+
+    /// @notice Agent ID => Total revenue generated
+    mapping(uint256 => uint256) public agentTotalRevenue;
+
+    /// @notice Agent ID => Settlement count
+    mapping(uint256 => uint256) public agentSettlementCount;
+
     // ============ Events ============
 
     event ServiceRegistered(
@@ -115,6 +128,10 @@ contract InferenceServing is Ownable, Pausable, ReentrancyGuard {
     );
     event RegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
     event LedgerUpdated(address indexed oldLedger, address indexed newLedger);
+    event IdentityRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
+    event AgentSettled(
+        uint256 indexed agentId, address indexed user, uint256 inputTokens, uint256 outputTokens, uint256 fee
+    );
 
     // ============ Errors ============
 
@@ -125,16 +142,11 @@ contract InferenceServing is Ownable, Pausable, ReentrancyGuard {
     error InvalidNonce(uint256 expected, uint256 provided);
     error UserNotAcknowledged();
     error InsufficientBalance(uint256 available, uint256 required);
-    error InvalidTokenCounts();
     error ZeroAddress();
 
     // ============ Constructor ============
 
-    constructor(
-        address _registry,
-        address _ledger,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _registry, address _ledger, address initialOwner) Ownable(initialOwner) {
         registry = IComputeRegistry(_registry);
         ledger = ILedgerManager(_ledger);
     }
@@ -169,14 +181,7 @@ contract InferenceServing is Ownable, Pausable, ReentrancyGuard {
 
         uint256 serviceIndex = _services[msg.sender].length - 1;
 
-        emit ServiceRegistered(
-            msg.sender,
-            serviceIndex,
-            model,
-            endpoint,
-            pricePerInputToken,
-            pricePerOutputToken
-        );
+        emit ServiceRegistered(msg.sender, serviceIndex, model, endpoint, pricePerInputToken, pricePerOutputToken);
     }
 
     /**
@@ -252,16 +257,8 @@ contract InferenceServing is Ownable, Pausable, ReentrancyGuard {
         address signer = providerSigners[provider];
         if (signer == address(0)) signer = provider;
 
-        bytes32 messageHash = keccak256(
-            abi.encodePacked(
-                msg.sender,
-                provider,
-                requestHash,
-                inputTokens,
-                outputTokens,
-                nonce
-            )
-        );
+        bytes32 messageHash =
+            keccak256(abi.encodePacked(msg.sender, provider, requestHash, inputTokens, outputTokens, nonce));
 
         address recovered = messageHash.toEthSignedMessageHash().recover(signature);
         if (recovered != signer) revert InvalidSignature();
@@ -270,9 +267,7 @@ contract InferenceServing is Ownable, Pausable, ReentrancyGuard {
         nonces[msg.sender][provider] = nonce + 1;
 
         // Record settlement
-        bytes32 settlementId = keccak256(
-            abi.encodePacked(msg.sender, provider, requestHash, block.timestamp)
-        );
+        bytes32 settlementId = keccak256(abi.encodePacked(msg.sender, provider, requestHash, block.timestamp));
 
         settlements[settlementId] = Settlement({
             user: msg.sender,
@@ -287,18 +282,22 @@ contract InferenceServing is Ownable, Pausable, ReentrancyGuard {
         totalSettlements++;
         totalFeesCollected += fee;
 
+        // Track by ERC-8004 agent if registry is set
+        uint256 agentId = 0;
+        if (address(identityRegistry) != address(0)) {
+            agentId = registry.getProviderAgentId(provider);
+            if (agentId != 0) {
+                agentTotalTokens[agentId] += inputTokens + outputTokens;
+                agentTotalRevenue[agentId] += fee;
+                agentSettlementCount[agentId]++;
+                emit AgentSettled(agentId, msg.sender, inputTokens, outputTokens, fee);
+            }
+        }
+
         // Execute settlement via ledger
         ledger.settle(msg.sender, provider, fee, requestHash);
 
-        emit Settled(
-            msg.sender,
-            provider,
-            requestHash,
-            inputTokens,
-            outputTokens,
-            fee,
-            nonce
-        );
+        emit Settled(msg.sender, provider, requestHash, inputTokens, outputTokens, fee, nonce);
     }
 
     // ============ View Functions ============
@@ -351,11 +350,11 @@ contract InferenceServing is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Calculate fee for token counts
      */
-    function calculateFee(
-        address provider,
-        uint256 inputTokens,
-        uint256 outputTokens
-    ) external view returns (uint256) {
+    function calculateFee(address provider, uint256 inputTokens, uint256 outputTokens)
+        external
+        view
+        returns (uint256)
+    {
         Service memory service = _getActiveService(provider);
         return calculateFee(service, inputTokens, outputTokens);
     }
@@ -363,11 +362,11 @@ contract InferenceServing is Ownable, Pausable, ReentrancyGuard {
     /**
      * @dev Internal fee calculation
      */
-    function calculateFee(
-        Service memory service,
-        uint256 inputTokens,
-        uint256 outputTokens
-    ) internal pure returns (uint256) {
+    function calculateFee(Service memory service, uint256 inputTokens, uint256 outputTokens)
+        internal
+        pure
+        returns (uint256)
+    {
         return (inputTokens * service.pricePerInputToken) + (outputTokens * service.pricePerOutputToken);
     }
 
@@ -407,6 +406,26 @@ contract InferenceServing is Ownable, Pausable, ReentrancyGuard {
     }
 
     /**
+     * @notice Set identity registry for ERC-8004 agent tracking
+     */
+    function setIdentityRegistry(address _identityRegistry) external onlyOwner {
+        address oldRegistry = address(identityRegistry);
+        identityRegistry = IIdentityRegistryMinimal(_identityRegistry);
+        emit IdentityRegistryUpdated(oldRegistry, _identityRegistry);
+    }
+
+    /**
+     * @notice Get agent statistics
+     */
+    function getAgentStats(uint256 agentId)
+        external
+        view
+        returns (uint256 totalTokens, uint256 totalRevenue, uint256 settlementCount)
+    {
+        return (agentTotalTokens[agentId], agentTotalRevenue[agentId], agentSettlementCount[agentId]);
+    }
+
+    /**
      * @notice Pause/unpause the contract
      */
     function pause() external onlyOwner {
@@ -424,4 +443,3 @@ contract InferenceServing is Ownable, Pausable, ReentrancyGuard {
         return "1.0.0";
     }
 }
-

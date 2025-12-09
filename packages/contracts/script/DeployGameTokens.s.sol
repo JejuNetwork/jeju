@@ -12,21 +12,19 @@ import {IdentityRegistry} from "src/registry/IdentityRegistry.sol";
  * @title DeployGameTokens
  * @notice Deploys the complete game token system
  * @dev Deploys generic contracts linked to IdentityRegistry (ERC-8004)
- * 
+ *
  * Usage:
  *   forge script script/DeployGameTokens.s.sol:DeployGameTokens --broadcast --rpc-url http://localhost:8545
  */
 contract DeployGameTokens is Script {
     function run() public {
         // Get deployer (default Anvil account #0)
-        uint256 deployerPrivateKey = vm.envOr(
-            "PRIVATE_KEY",
-            uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80)
-        );
-        
+        uint256 deployerPrivateKey =
+            vm.envOr("PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
+
         // Game signer (Anvil account #1)
         address gameSigner = vm.addr(0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d);
-        
+
         vm.startBroadcast(deployerPrivateKey);
         address deployer = vm.addr(deployerPrivateKey);
 
@@ -79,21 +77,21 @@ contract DeployGameTokens is Script {
         // Create item types
         uint256 arrowsId = items.createItemType(
             "Bronze Arrows",
-            true,  // stackable
-            5,     // attack
-            0,     // defense
-            0,     // strength
-            0      // rarity: Common
+            true, // stackable
+            5, // attack
+            0, // defense
+            0, // strength
+            0 // rarity: Common
         );
         console.log("  Created item type: Bronze Arrows (ID:", arrowsId, ")");
 
         uint256 swordId = items.createItemType(
             "Legendary Sword",
             false, // non-stackable
-            50,    // attack
-            0,     // defense
-            10,    // strength
-            4      // rarity: Legendary
+            50, // attack
+            0, // defense
+            10, // strength
+            4 // rarity: Legendary
         );
         console.log("  Created item type: Legendary Sword (ID:", swordId, ")");
 
@@ -123,4 +121,3 @@ contract DeployGameTokens is Script {
         console.log("");
     }
 }
-

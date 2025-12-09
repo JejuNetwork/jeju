@@ -5,7 +5,7 @@
 
 import { testWithSynpress } from '@synthetixio/synpress';
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
-import { basicSetup } from '../../synpress.config'
+import { basicSetup } from '../../../synpress.config'
 import { connectWallet } from '../helpers/wallet-helpers';
 import { GATEWAY_URL } from '../fixtures/test-data';
 
@@ -16,7 +16,7 @@ test.describe('Bridge - elizaOS Exclusion (Native Token)', () => {
   test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
   });
 
@@ -26,7 +26,7 @@ test.describe('Bridge - elizaOS Exclusion (Native Token)', () => {
     await expect(warning).toBeVisible();
 
     await expect(page.getByText(/elizaOS is a native Jeju token/i)).toBeVisible();
-    await expect(page.getByText(/cannot be bridged from Base/i)).toBeVisible();
+    await expect(page.getByText(/cannot be bridged from Ethereum/i)).toBeVisible();
 
     await page.screenshot({
       path: 'test-results/screenshots/bridge-validation/01-elizaos-warning.png',
@@ -71,7 +71,7 @@ test.describe('Bridge - USD Price Calculations', () => {
   test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
   });
 
@@ -161,14 +161,14 @@ test.describe('Bridge - Custom Token Comprehensive Testing', () => {
   test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
     await page.getByRole('button', { name: /Custom Address/i }).click();
     await page.waitForTimeout(500);
   });
 
   test('should show helper text for custom tokens', async ({ page }) => {
-    await expect(page.getByText(/Enter any ERC20 token address from Base network/i)).toBeVisible();
+    await expect(page.getByText(/Enter any ERC20 token address from Ethereum/i)).toBeVisible();
     await expect(page.getByText(/Make sure the token exists on both networks/i)).toBeVisible();
 
     console.log('✅ Custom token helper text displayed');
@@ -232,7 +232,7 @@ test.describe('Bridge - Button State Management', () => {
   test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
   });
 
@@ -300,7 +300,7 @@ test.describe('Bridge - Decimal and Formatting', () => {
   test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
   });
 
@@ -361,7 +361,7 @@ test.describe('Bridge - Information Display Completeness', () => {
   test('should display estimated bridge time', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
     await expect(page.getByText(/Estimated Time.*~2 minutes/i)).toBeVisible();
@@ -372,7 +372,7 @@ test.describe('Bridge - Information Display Completeness', () => {
   test('should display bridge type (OP Stack)', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
     await expect(page.getByText(/OP Stack Standard Bridge/i)).toBeVisible();
@@ -383,7 +383,7 @@ test.describe('Bridge - Information Display Completeness', () => {
   test('should display destination information', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
     await expect(page.getByText(/Tokens will appear on Jeju after confirmation/i)).toBeVisible();
@@ -394,7 +394,7 @@ test.describe('Bridge - Information Display Completeness', () => {
   test('should show all bridge information together', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
     // All info should be in one panel
@@ -413,14 +413,14 @@ test.describe('Bridge - Information Display Completeness', () => {
   });
 });
 
-test.describe('Bridge - Base Network Tokens Only', () => {
-  test('should only accept tokens from Base network', async ({ page, metamask }) => {
+test.describe('Bridge - Ethereum Network Tokens Only', () => {
+  test('should only accept tokens from Ethereum network', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
-    // All shown tokens should be from Base
+    // All shown tokens should be from Ethereum
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
 
@@ -430,8 +430,8 @@ test.describe('Bridge - Base Network Tokens Only', () => {
       const tokenElement = page.getByText(token);
       await expect(tokenElement).toBeVisible();
       
-      // These are all Base network tokens
-      console.log(`✅ ${token} (Base network) available for bridge`);
+      // These are all Ethereum network tokens
+      console.log(`✅ ${token} (Ethereum network) available for bridge`);
     }
 
     // Native Jeju tokens should NOT be in list
@@ -440,7 +440,7 @@ test.describe('Bridge - Base Network Tokens Only', () => {
     
     expect(dropdownText).not.toContain('elizaOS'); // Native Jeju
 
-    console.log('✅ Only Base network tokens shown');
+    console.log('✅ Only Ethereum network tokens shown');
   });
 });
 
@@ -448,7 +448,7 @@ test.describe('Bridge - Form Reset and Clearing', () => {
   test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
   });
 
@@ -503,7 +503,7 @@ test.describe('Bridge - Visual Feedback', () => {
   test('should highlight selected token in dropdown', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
     await page.locator('.input').first().click();
@@ -523,7 +523,7 @@ test.describe('Bridge - Visual Feedback', () => {
   test('should show token logo in selector', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
-    await page.getByRole('button', { name: /Bridge from Base/i }).click();
+    await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
     await page.locator('.input').first().click();

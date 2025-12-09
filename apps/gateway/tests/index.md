@@ -20,7 +20,7 @@ Located in `tests/e2e/`
    - Register tokens, validation, fee limits
 
 3. **Bridge Tokens** - `03-bridge-tokens.spec.ts`
-   - Bridge from Base, custom tokens, elizaOS exclusion
+   - Bridge from Ethereum, custom tokens, elizaOS exclusion
 
 4. **Deploy Paymaster** - `04-deploy-paymaster.spec.ts`
    - Deploy for all tokens, fee configuration
