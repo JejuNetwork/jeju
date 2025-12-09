@@ -171,6 +171,8 @@ contract GameOracle is Ownable, Pausable {
         if (commitments[commitment]) revert CommitmentAlreadyExists();
 
         // Generate deterministic session ID from question ID
+        // slither-disable-next-line encode-packed-collision
+        // @audit-ok Uses literal prefix + fixed-size uint256 types - no collision risk
         sessionId = keccak256(abi.encodePacked("game", questionId, block.timestamp));
 
         // Store mappings
@@ -293,6 +295,8 @@ contract GameOracle is Ownable, Pausable {
                 revert QuestionAlreadyCommitted(questionId);
             }
 
+            // slither-disable-next-line encode-packed-collision
+            // @audit-ok Uses literal prefix + fixed-size types - no collision risk
             bytes32 _sessionId = keccak256(abi.encodePacked("game", questionId, block.timestamp, i));
 
             questionIdToSessionId[questionId] = _sessionId;

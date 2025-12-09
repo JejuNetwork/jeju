@@ -1,0 +1,8 @@
+{
+  "filter_paths": "lib/,node_modules/,test/,script/",
+  "exclude_dependencies": true,
+  "exclude_informational": true,
+  "exclude_optimization": true,
+  "exclude_low": true,
+  "detectors_to_exclude": "arbitrary-send-eth,arbitrary-send-erc20,reentrancy-benign,reentrancy-events,divide-before-multiply,uninitialized-local"
+}

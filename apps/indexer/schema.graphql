@@ -1554,7 +1554,7 @@ type JNSName @entity {
   
   # ERC-8004 Integration
   linkedAgentId: BigInt
-  linkedAgent: Agent
+  linkedAgent: RegisteredAgent
   
   # App configuration
   appContract: String

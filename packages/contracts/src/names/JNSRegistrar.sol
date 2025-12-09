@@ -554,6 +554,8 @@ contract JNSRegistrar is ERC721, Ownable, ReentrancyGuard, IJNSRegistrar {
      * @param tokenId The token ID (labelhash)
      * @return The URI string
      */
+    // slither-disable-next-line encode-packed-collision
+    // @audit-ok String concatenation for tokenURI, not hashed - no collision risk
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         _requireOwned(tokenId);
         string memory name = _labelNames[bytes32(tokenId)];

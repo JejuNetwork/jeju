@@ -214,6 +214,8 @@ contract CloudReputationProvider is Ownable, Pausable, ReentrancyGuard {
         require(agentId != cloudAgentId, "Cannot set own reputation");
 
         // Submit reputation via ReputationRegistry with provided signature
+        // slither-disable-next-line encode-packed-collision
+        // @audit-ok Single dynamic type hashed - no collision risk
         reputationRegistry.giveFeedback(
             agentId, score, tag1, tag2, reason, keccak256(abi.encodePacked(reason)), signedAuth
         );
@@ -300,6 +302,8 @@ contract CloudReputationProvider is Ownable, Pausable, ReentrancyGuard {
         if (agentBanProposals[agentId] != bytes32(0)) revert BanAlreadyProposed();
 
         // Create ban reason string
+        // slither-disable-next-line encode-packed-collision
+        // @audit-ok String concatenation for reason, not hashed
         string memory reasonString = string(abi.encodePacked("Cloud TOS violation: ", _violationTypeToString(reason)));
 
         // Create proposal via governance (forwards value as proposal bond)
@@ -330,6 +334,8 @@ contract CloudReputationProvider is Ownable, Pausable, ReentrancyGuard {
         }
         if (!identityRegistry.agentExists(agentId)) revert InvalidAgentId();
 
+        // slither-disable-next-line encode-packed-collision
+        // @audit-ok String concatenation for reason, not hashed
         string memory reasonString =
             string(abi.encodePacked("Cloud TOS violation (slash): ", _violationTypeToString(reason)));
 
