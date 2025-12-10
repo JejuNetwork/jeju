@@ -4,6 +4,7 @@ import { parseEther } from 'viem';
 import TokenSelector from './TokenSelector';
 import { useProtocolTokens } from '../hooks/useProtocolTokens';
 import type { TokenOption } from './TokenSelector';
+import { CONTRACTS } from '../config';
 
 const FUTARCHY_GOVERNOR_ABI = [
   {
@@ -44,11 +45,11 @@ export default function CreateQuestForm() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const governorAddress = import.meta.env.VITE_FUTARCHY_GOVERNOR_ADDRESS as `0x${string}`;
-    if (!governorAddress || !prizeToken) return;
+    const governorAddress = CONTRACTS.futarchyGovernor;
+    if (!governorAddress || governorAddress === '0x0000000000000000000000000000000000000000' || !prizeToken) return;
     
     // Example: Change geographic bonus
-    const targetContract = import.meta.env.VITE_NODE_STAKING_MANAGER_ADDRESS as `0x${string}`;
+    const targetContract = CONTRACTS.nodeStakingManager;
     const changeCalldata = '0x'; // Encoded function call
     
     writeContract({

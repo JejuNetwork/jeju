@@ -207,6 +207,8 @@ export const IERC20_ABI = [
   }
 ] as const;
 
+import { CONTRACTS } from '../config';
+
 export const getContractAddresses = (): {
   tokenRegistry: Address;
   paymasterFactory: Address;
@@ -214,9 +216,9 @@ export const getContractAddresses = (): {
   jejuToken: Address;
   banManager: Address;
 } => ({
-  tokenRegistry: (import.meta.env.VITE_TOKEN_REGISTRY_ADDRESS || '0x0000000000000000000000000000000000000000') as Address,
-  paymasterFactory: (import.meta.env.VITE_PAYMASTER_FACTORY_ADDRESS || '0x0000000000000000000000000000000000000000') as Address,
-  priceOracle: (import.meta.env.VITE_PRICE_ORACLE_ADDRESS || '0x0000000000000000000000000000000000000000') as Address,
-  jejuToken: (import.meta.env.VITE_JEJU_TOKEN_ADDRESS || '0x0000000000000000000000000000000000000000') as Address,
-  banManager: (import.meta.env.VITE_BAN_MANAGER_ADDRESS || '0x0000000000000000000000000000000000000000') as Address,
+  tokenRegistry: CONTRACTS.tokenRegistry,
+  paymasterFactory: CONTRACTS.paymasterFactory,
+  priceOracle: CONTRACTS.priceOracle,
+  jejuToken: CONTRACTS.jeju,
+  banManager: CONTRACTS.banManager,
 });

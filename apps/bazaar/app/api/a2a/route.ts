@@ -18,6 +18,7 @@ import {
   prepareChallengeTransaction,
 } from '@/lib/moderation-api';
 import { Address } from 'viem';
+import { BAZAAR_PAYMENT_RECIPIENT } from '@/config';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -25,8 +26,7 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, X-Payment',
 };
 
-const PAYMENT_RECIPIENT = (process.env.NEXT_PUBLIC_BAZAAR_PAYMENT_RECIPIENT || 
-  '0x0000000000000000000000000000000000000000') as Address;
+const PAYMENT_RECIPIENT = BAZAAR_PAYMENT_RECIPIENT;
 
 interface A2ARequest {
   jsonrpc: string;

@@ -19,19 +19,13 @@ const L1_RPC = process.env.L1_RPC_URL || 'http://127.0.0.1:8545';
 const L2_RPC = process.env.L2_RPC_URL || 'http://127.0.0.1:9545';
 
 import { rawDeployments } from '@jejunetwork/contracts';
+import { getContract, getConstant } from '@jejunetwork/config';
 
-// Load deployment config
-const CONFIG_PATH = './packages/config/eil.json';
-
-interface EILDeployment {
+// EIL contracts from config
+interface EILConfig {
   l1StakeManager: string;
   crossChainPaymaster: string;
   entryPoint: string;
-  supportedTokens: string[];
-  network: string;
-  l1ChainId: number;
-  l2ChainId: number;
-  deployedAt: number;
 }
 
 // Test accounts (from Anvil)
@@ -70,7 +64,7 @@ describe('EIL Flow Integration Tests', () => {
   let xlpL2: ethers.Wallet;
   let user: ethers.Wallet;
   let deployer: ethers.Wallet;
-  let deployment: EILDeployment;
+  let eilConfig: EILConfig;
   let isLocalnetRunning = false;
 
   beforeAll(async () => {
@@ -87,30 +81,24 @@ describe('EIL Flow Integration Tests', () => {
       return;
     }
     
-    // Load deployment - try @jejunetwork/contracts first, then config file
-    const eilDeployment = rawDeployments.eilLocalnet;
+    // Load EIL contracts from config
+    const l1StakeManager = getContract('eil', 'l1StakeManager', 'localnet');
+    const crossChainPaymaster = getContract('eil', 'crossChainPaymaster', 'localnet');
     
-    if (eilDeployment && Object.keys(eilDeployment).length > 0) {
-      deployment = eilDeployment as EILDeployment;
-    } else {
-      // Fall back to config file
-      const configFile = Bun.file(CONFIG_PATH);
-      const configExists = await configFile.exists();
-      if (!configExists) {
+    if (!l1StakeManager && !crossChainPaymaster) {
+      // Try @jejunetwork/contracts fallback
+      const eilDeployment = rawDeployments.eilLocalnet;
+      if (eilDeployment && Object.keys(eilDeployment).length > 0) {
+        eilConfig = eilDeployment as EILConfig;
+      } else {
         console.warn('EIL deployment not found, skipping tests');
         return;
       }
-      const config = await configFile.json();
-      // Build deployment object from config
-      deployment = {
-        l1StakeManager: config.l1StakeManager,
-        crossChainPaymaster: config.crossChainPaymasters['420691'] || config.crossChainPaymasters['1337'],
-        entryPoint: config.entryPoint,
-        supportedTokens: config.supportedTokens,
-        network: 'localnet',
-        l1ChainId: 1337,
-        l2ChainId: 420691,
-        deployedAt: 0
+    } else {
+      eilConfig = {
+        l1StakeManager,
+        crossChainPaymaster,
+        entryPoint: getConstant('entryPoint'),
       };
     }
     
@@ -124,16 +112,16 @@ describe('EIL Flow Integration Tests', () => {
   test('should have valid deployment config', async () => {
     if (!isLocalnetRunning) return;
     
-    expect(deployment.l1StakeManager).toMatch(/^0x[a-fA-F0-9]{40}$/);
-    expect(deployment.crossChainPaymaster).toMatch(/^0x[a-fA-F0-9]{40}$/);
-    expect(deployment.supportedTokens).toContain('0x0000000000000000000000000000000000000000');
+    expect(eilConfig.l1StakeManager).toMatch(/^0x[a-fA-F0-9]{40}$/);
+    expect(eilConfig.crossChainPaymaster).toMatch(/^0x[a-fA-F0-9]{40}$/);
+    expect(eilConfig.supportedTokens).toContain('0x0000000000000000000000000000000000000000');
   });
 
   test('should register XLP on L1', async () => {
     if (!isLocalnetRunning) return;
     
     const stakeManager = new ethers.Contract(
-      deployment.l1StakeManager,
+      eilConfig.l1StakeManager,
       L1_STAKE_MANAGER_ABI,
       xlpL1
     );
@@ -157,7 +145,7 @@ describe('EIL Flow Integration Tests', () => {
     if (!isLocalnetRunning) return;
     
     const paymaster = new ethers.Contract(
-      deployment.crossChainPaymaster,
+      eilConfig.crossChainPaymaster,
       PAYMASTER_ABI,
       deployer
     );
@@ -174,7 +162,7 @@ describe('EIL Flow Integration Tests', () => {
     if (!isLocalnetRunning) return;
     
     const paymaster = new ethers.Contract(
-      deployment.crossChainPaymaster,
+      eilConfig.crossChainPaymaster,
       PAYMASTER_ABI,
       xlpL2
     );
@@ -193,7 +181,7 @@ describe('EIL Flow Integration Tests', () => {
     if (!isLocalnetRunning) return;
     
     const paymaster = new ethers.Contract(
-      deployment.crossChainPaymaster,
+      eilConfig.crossChainPaymaster,
       PAYMASTER_ABI,
       user
     );
@@ -234,7 +222,7 @@ describe('EIL Flow Integration Tests', () => {
     if (!isLocalnetRunning) return;
     
     const paymaster = new ethers.Contract(
-      deployment.crossChainPaymaster,
+      eilConfig.crossChainPaymaster,
       PAYMASTER_ABI,
       user
     );
@@ -298,7 +286,7 @@ describe('EIL Flow Integration Tests', () => {
     if (!isLocalnetRunning) return;
     
     const paymaster = new ethers.Contract(
-      deployment.crossChainPaymaster,
+      eilConfig.crossChainPaymaster,
       PAYMASTER_ABI,
       user
     );

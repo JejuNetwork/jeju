@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { request, gql } from 'graphql-request';
 import type { Position } from '@/types/markets';
+import { INDEXER_URL } from '@/config';
 
 const POSITIONS_QUERY = gql`
   query GetUserPositions($user: String!) {
@@ -37,7 +38,7 @@ export function useUserPositions(address?: `0x${string}`) {
     async function fetchPositions() {
       if (!address) return;
       
-      const endpoint = process.env.NEXT_PUBLIC_INDEXER_URL || 'http://localhost:4350/graphql';
+      const endpoint = INDEXER_URL;
       
       const data = await request(endpoint, POSITIONS_QUERY, {
         user: address.toLowerCase()

@@ -1,5 +1,6 @@
 import { Address, createPublicClient, http, parseAbi } from 'viem';
 import { jeju } from '@/config/chains';
+import { CONTRACTS } from '@/config';
 
 const IDENTITY_REGISTRY_ABI = parseAbi([
   'function getAgentId(address agentAddress) external view returns (uint256)',
@@ -18,9 +19,9 @@ const REPUTATION_MANAGER_ABI = parseAbi([
 ]);
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
-const IDENTITY_REGISTRY_ADDRESS = (process.env.NEXT_PUBLIC_IDENTITY_REGISTRY_ADDRESS || ZERO_ADDRESS) as Address;
-const BAN_MANAGER_ADDRESS = (process.env.NEXT_PUBLIC_BAN_MANAGER_ADDRESS || ZERO_ADDRESS) as Address;
-const REPUTATION_MANAGER_ADDRESS = (process.env.NEXT_PUBLIC_REPUTATION_MANAGER_ADDRESS || ZERO_ADDRESS) as Address;
+const IDENTITY_REGISTRY_ADDRESS = CONTRACTS.identityRegistry || ZERO_ADDRESS;
+const BAN_MANAGER_ADDRESS = CONTRACTS.banManager || ZERO_ADDRESS;
+const REPUTATION_MANAGER_ADDRESS = CONTRACTS.reputationLabelManager || ZERO_ADDRESS;
 
 export interface BanCheckResult {
   allowed: boolean;

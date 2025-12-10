@@ -1,4 +1,6 @@
-const INDEXER_URL = process.env.NEXT_PUBLIC_INDEXER_URL || 'http://localhost:4350/graphql'
+import { INDEXER_URL as CONFIG_INDEXER_URL } from '../config';
+
+const INDEXER_URL = CONFIG_INDEXER_URL;
 
 interface GraphQLResponse<T> {
   data?: T

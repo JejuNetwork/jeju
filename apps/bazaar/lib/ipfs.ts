@@ -2,9 +2,10 @@
  * Jeju IPFS Client for Bazaar
  * Uses LOCAL Jeju IPFS infrastructure (no Pinata/external services)
  */
+import { IPFS_API_URL, IPFS_GATEWAY_URL } from '../config';
 
-const JEJU_IPFS_API = process.env.NEXT_PUBLIC_JEJU_IPFS_API || 'http://localhost:3100';
-const JEJU_IPFS_GATEWAY = process.env.NEXT_PUBLIC_JEJU_IPFS_GATEWAY || 'http://localhost:3100';
+const JEJU_IPFS_API = IPFS_API_URL;
+const JEJU_IPFS_GATEWAY = IPFS_GATEWAY_URL;
 
 /**
  * Upload file to Jeju IPFS (local nodes, x402 payments)

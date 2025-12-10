@@ -383,7 +383,7 @@ async function main() {
   
   console.log('\n\nNext steps:');
   console.log('1. Run forge scripts to deploy actual contracts');
-  console.log('2. Update config/eil.json with deployed addresses');
+  console.log('2. Update packages/config/contracts.json with deployed addresses');
   console.log('3. Configure paymasters on L1StakeManager');
   console.log('4. Test cross-chain transfers');
 }

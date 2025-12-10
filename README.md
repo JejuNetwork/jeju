@@ -216,18 +216,74 @@ See `apps/ico/README.md` for full documentation.
 
 ## Configuration
 
-No `.env` needed. Config lives in JSON files:
+**Config-first architecture**: All public values live in JSON config files. Environment variables only override or provide secrets.
 
-| Config | Location |
-|--------|----------|
-| Networks | `packages/config/chain/*.json` |
-| Contracts | `packages/contracts/deployments/` |
-| Ports | `packages/config/ports.ts` |
+### Config Files
 
-For testnet/mainnet, only secrets go in `.env`:
+| Config | Location | Purpose |
+|--------|----------|---------|
+| Chain | `packages/config/chain/*.json` | Network settings (RPC, chain ID, bridge contracts) |
+| Contracts | `packages/config/contracts.json` | All contract addresses (Jeju + external chains) |
+| Services | `packages/config/services.json` | API URLs per network |
+| Tokens | `packages/config/tokens.json` | Token definitions |
+| Ports | `packages/config/ports.ts` | Local port allocations |
+
+### Usage
+
+```typescript
+import { getConfig, getContract, getServiceUrl, getExternalContract } from '@jejunetwork/config';
+
+// Full config for current network
+const config = getConfig();
+
+// Contract address (env override: OIF_SOLVER_REGISTRY)
+const solver = getContract('oif', 'solverRegistry');
+
+// Service URL (env override: INDEXER_GRAPHQL_URL)
+const indexer = getServiceUrl('indexer', 'graphql');
+
+// External chain contract (Base Sepolia, etc.)
+const baseSolver = getExternalContract('baseSepolia', 'oif', 'solverRegistry');
+```
+
+### Environment Overrides
+
+Environment variables override config values (not replace them):
+
 ```bash
+# Override RPC URL
+JEJU_RPC_URL=https://custom-rpc.example.com
+
+# Override contract address
+OIF_SOLVER_REGISTRY=0x...
+
+# Override service URL  
+GATEWAY_API_URL=https://custom-gateway.example.com
+```
+
+### Secrets Only in .env
+
+Only actual secrets go in `.env.{network}`:
+
+```bash
+# Required
 DEPLOYER_PRIVATE_KEY=0x...
+
+# Optional API keys
 ETHERSCAN_API_KEY=...
+WALLETCONNECT_PROJECT_ID=...
+OPENAI_API_KEY=...
+```
+
+### Deployment Updates
+
+When deploying contracts, update the config files:
+```bash
+# After deploying, update contracts.json
+packages/config/contracts.json
+
+# After infrastructure changes, update services.json
+packages/config/services.json
 ```
 
 ## Troubleshooting

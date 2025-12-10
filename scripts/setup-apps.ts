@@ -42,13 +42,47 @@ async function checkGitAccess(url: string): Promise<boolean> {
   return result.exitCode === 0;
 }
 
-async function cloneVendorApp(app: VendorAppConfig): Promise<boolean> {
+async function ensureCorrectBranch(appPath: string, branch: string): Promise<void> {
+  const currentBranch = await $`git -C ${appPath} branch --show-current`.nothrow().quiet();
+  const current = currentBranch.stdout.toString().trim();
+  
+  if (current !== branch) {
+    // Try to checkout the correct branch
+    const checkoutResult = await $`git -C ${appPath} checkout ${branch}`.nothrow().quiet();
+    if (checkoutResult.exitCode !== 0) {
+      // Branch might not exist locally, try fetching and checking out
+      await $`git -C ${appPath} fetch origin ${branch}`.nothrow().quiet();
+      await $`git -C ${appPath} checkout -b ${branch} origin/${branch}`.nothrow().quiet();
+    }
+  }
+}
+
+async function installDependencies(appPath: string, appName: string): Promise<boolean> {
+  // Check if package.json exists
+  if (!existsSync(join(appPath, 'package.json'))) {
+    return true; // No dependencies to install
+  }
+  
+  console.log(`   📦 Installing ${appName} dependencies...`);
+  const result = await $`cd ${appPath} && bun install --frozen-lockfile`.nothrow().quiet();
+  
+  if (result.exitCode !== 0) {
+    // Try without frozen lockfile
+    const retryResult = await $`cd ${appPath} && bun install`.nothrow().quiet();
+    return retryResult.exitCode === 0;
+  }
+  
+  return true;
+}
+
+async function cloneVendorApp(app: VendorAppConfig): Promise<'cloned' | 'exists' | 'skipped'> {
   const fullPath = join(process.cwd(), app.path);
   
   // Already exists
   if (existsSync(fullPath) && existsSync(join(fullPath, '.git'))) {
-    console.log(`   ✅ ${app.name} already exists`);
-    return true;
+    // Ensure on correct branch
+    await ensureCorrectBranch(fullPath, app.branch);
+    return 'exists';
   }
   
   // Check access for private repos
@@ -56,7 +90,7 @@ async function cloneVendorApp(app: VendorAppConfig): Promise<boolean> {
     const hasAccess = await checkGitAccess(app.url);
     if (!hasAccess) {
       console.log(`   ⏭️  ${app.name} - no access (private repo, skipping)`);
-      return false;
+      return 'skipped';
     }
   }
   
@@ -72,8 +106,10 @@ async function cloneVendorApp(app: VendorAppConfig): Promise<boolean> {
     // Init existing submodule
     const result = await $`git submodule update --init --recursive ${app.path}`.nothrow().quiet();
     if (result.exitCode === 0) {
+      // Ensure on correct branch
+      await ensureCorrectBranch(fullPath, app.branch);
       console.log(`   ✅ ${app.name} initialized (submodule)`);
-      return true;
+      return 'cloned';
     }
   }
   
@@ -87,7 +123,7 @@ async function cloneVendorApp(app: VendorAppConfig): Promise<boolean> {
   
   if (cloneResult.exitCode === 0) {
     console.log(`   ✅ ${app.name} cloned`);
-    return true;
+    return 'cloned';
   }
   
   const stderr = cloneResult.stderr.toString();
@@ -97,17 +133,17 @@ async function cloneVendorApp(app: VendorAppConfig): Promise<boolean> {
     console.log(`   ⚠️  ${app.name} - clone failed: ${stderr.split('\n')[0]}`);
   }
   
-  return false;
+  return 'skipped';
 }
 
-async function setupVendorApps(): Promise<void> {
+async function setupVendorApps(): Promise<string[]> {
   console.log('📦 Setting up vendor apps...\n');
   
   const config = loadVendorAppsConfig();
   
   if (config.apps.length === 0) {
     console.log('   ℹ️  No vendor apps configured\n');
-    return;
+    return [];
   }
   
   console.log(`   Found ${config.apps.length} vendor app(s) in config\n`);
@@ -115,27 +151,30 @@ async function setupVendorApps(): Promise<void> {
   let cloned = 0;
   let skipped = 0;
   let existing = 0;
+  const newlyCloned: string[] = [];
   
   for (const app of config.apps) {
-    const fullPath = join(process.cwd(), app.path);
-    const alreadyExists = existsSync(fullPath) && existsSync(join(fullPath, '.git'));
+    const result = await cloneVendorApp(app);
     
-    if (alreadyExists) {
-      console.log(`   ✅ ${app.name} already exists`);
-      existing++;
-      continue;
-    }
-    
-    const success = await cloneVendorApp(app);
-    if (success) {
-      cloned++;
-    } else {
-      skipped++;
+    switch (result) {
+      case 'cloned':
+        cloned++;
+        newlyCloned.push(app.path);
+        break;
+      case 'exists':
+        console.log(`   ✅ ${app.name} already exists`);
+        existing++;
+        break;
+      case 'skipped':
+        skipped++;
+        break;
     }
   }
   
   console.log('');
   console.log(`   📊 Summary: ${existing} existing, ${cloned} cloned, ${skipped} skipped\n`);
+  
+  return newlyCloned;
 }
 
 async function main() {
@@ -153,9 +192,27 @@ async function main() {
   }
 
   // 2. Setup vendor apps (check access and clone if available)
-  await setupVendorApps();
+  const newlyCloned = await setupVendorApps();
   
-  // 3. Discover and report on vendor apps with manifests
+  // 3. Install dependencies for newly cloned vendor apps
+  if (newlyCloned.length > 0) {
+    console.log('📦 Installing dependencies for newly cloned apps...\n');
+    
+    for (const appPath of newlyCloned) {
+      const appName = appPath.split('/').pop() || appPath;
+      const fullPath = join(process.cwd(), appPath);
+      
+      const success = await installDependencies(fullPath, appName);
+      if (success) {
+        console.log(`   ✅ ${appName} dependencies installed`);
+      } else {
+        console.log(`   ⚠️  ${appName} dependency install failed (run 'bun install' in ${appPath})`);
+      }
+    }
+    console.log('');
+  }
+  
+  // 4. Discover and report on vendor apps with manifests
   console.log('🎮 Discovering vendor apps...\n');
   const vendorApps = discoverVendorApps();
   
@@ -170,7 +227,7 @@ async function main() {
     console.log('');
   }
 
-  // 4. Check core dependencies
+  // 5. Check core dependencies
   console.log('🔍 Checking core dependencies...');
   
   if (existsSync('packages/contracts')) {
@@ -187,7 +244,7 @@ async function main() {
   
   console.log('');
 
-  // 5. Setup Synpress cache directory
+  // 6. Setup Synpress cache directory
   console.log('🧪 Setting up test infrastructure...');
   
   if (!existsSync(SYNPRESS_CACHE_DIR)) {
@@ -197,7 +254,7 @@ async function main() {
     console.log('   ✅ Synpress cache directory exists\n');
   }
 
-  // 6. Install Playwright browsers (needed for Synpress)
+  // 7. Install Playwright browsers (needed for Synpress)
   console.log('   🎭 Installing Playwright browsers...');
   const playwrightResult = await $`bunx playwright install chromium`.nothrow().quiet();
   
@@ -207,7 +264,7 @@ async function main() {
     console.log('   ⚠️  Could not install Playwright browsers (run: bunx playwright install)\n');
   }
 
-  // 7. Summary
+  // 8. Summary
   console.log('✅ Workspace setup complete\n');
   console.log('Next steps:');
   console.log('  • Start development: bun run dev');

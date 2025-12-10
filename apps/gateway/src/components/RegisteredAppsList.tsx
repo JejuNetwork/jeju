@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { RefreshCw, Sparkles, Search, ExternalLink, Zap, Server, Bot, Box, Shield, DollarSign } from 'lucide-react';
+import { INDEXER_URL } from '../config';
 
 interface RegisteredApp {
   agentId: string;
@@ -26,8 +27,6 @@ interface RegisteredApp {
 interface RegisteredAppsListProps {
   onSelectApp: (agentId: bigint) => void;
 }
-
-const INDEXER_URL = import.meta.env.VITE_INDEXER_URL || 'http://localhost:4000/graphql';
 
 const TYPE_FILTERS = [
   { value: 'all', label: 'All', icon: Box },

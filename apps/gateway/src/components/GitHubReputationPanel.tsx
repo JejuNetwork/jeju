@@ -31,7 +31,7 @@ export default function GitHubReputationPanel({
     linkAgentToGitHub,
   } = useGitHubReputation();
 
-  const { reputation: agentReputationData } = useAgentReputation(agentId);
+  const { reputation: agentReputationData, isConfigured: isContractConfigured } = useAgentReputation(agentId);
 
   // Fetch reputation on mount
   useEffect(() => {
@@ -67,6 +67,10 @@ export default function GitHubReputationPanel({
     const rep = leaderboardData.reputation;
     const attestation = leaderboardData.attestation;
 
+    if (!attestation.signature) {
+      return; // Button should be disabled anyway
+    }
+
     await submitAttestationOnChain(
       agentId,
       attestation.normalizedScore,
@@ -74,7 +78,8 @@ export default function GitHubReputationPanel({
       rep.mergedPrCount,
       rep.totalCommits,
       Math.floor(new Date(attestation.calculatedAt).getTime() / 1000),
-      attestation.signature || '0x'
+      attestation.signature,
+      attestation.hash
     );
   };
 
@@ -245,7 +250,7 @@ export default function GitHubReputationPanel({
             </div>
 
             {/* On-chain status */}
-            {onChainReputation && (
+            {isContractConfigured && onChainReputation && (
               <div className="border-t pt-4">
                 <h4 className="text-sm font-medium text-gray-700 mb-2">On-Chain Status</h4>
                 <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
@@ -264,8 +269,20 @@ export default function GitHubReputationPanel({
               </div>
             )}
 
+            {/* Contract not configured warning */}
+            {!isContractConfigured && agentId && (
+              <div className="border-t pt-4">
+                <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                  <div className="flex items-center gap-2 text-yellow-700 text-sm">
+                    <AlertCircle size={16} />
+                    <span>On-chain reputation not available (contract not deployed)</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Agent-specific reputation */}
-            {agentId && agentReputationData && (
+            {agentId && isContractConfigured && agentReputationData && (
               <div className="border-t pt-4">
                 <h4 className="text-sm font-medium text-gray-700 mb-2">
                   Agent #{agentId.toString()} Reputation
@@ -298,7 +315,7 @@ export default function GitHubReputationPanel({
                 </button>
               )}
 
-              {leaderboardData.attestation && !leaderboardData.attestation.txHash && agentId && (
+              {leaderboardData.attestation && !leaderboardData.attestation.txHash && agentId && isContractConfigured && (
                 <button
                   onClick={handleSubmitOnChain}
                   disabled={loading || !leaderboardData.attestation.signature}

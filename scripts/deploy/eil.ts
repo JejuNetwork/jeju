@@ -245,21 +245,14 @@ async function deployEIL(network: string): Promise<DeploymentResult> {
     JSON.stringify(deployment, null, 2)
   );
   
-  // Update eil.json config
-  const configPath = resolve(CONFIG_DIR, 'eil.json');
-  const eilConfig = existsSync(configPath) 
-    ? JSON.parse(readFileSync(configPath, 'utf-8'))
-    : { crossChainPaymasters: {}, networks: {}, supportedTokens: [] };
+  // Update contracts.json config
+  const configPath = resolve(CONFIG_DIR, 'contracts.json');
+  const contracts = JSON.parse(readFileSync(configPath, 'utf-8'));
   
-  eilConfig.l1StakeManager = l1StakeManager;
-  eilConfig.entryPoint = entryPoint;
-  eilConfig.crossChainPaymasters[config.l2ChainId.toString()] = crossChainPaymaster;
-  eilConfig.networks[config.l2ChainId.toString()] = {
-    name: `Jeju (${network})`,
-    rpcUrl: config.l2RpcUrl,
-  };
+  contracts[network].eil.l1StakeManager = l1StakeManager;
+  contracts[network].eil.crossChainPaymaster = crossChainPaymaster;
   
-  writeFileSync(configPath, JSON.stringify(eilConfig, null, 2));
+  writeFileSync(configPath, JSON.stringify(contracts, null, 2));
   
   logger.info('\n' + '='.repeat(50));
   logger.success('EIL Deployment Complete!');
@@ -269,7 +262,7 @@ async function deployEIL(network: string): Promise<DeploymentResult> {
   logger.info(`CrossChainPaymaster: ${crossChainPaymaster}`);
   logger.info(`EntryPoint: ${entryPoint}`);
   logger.info(`\nSaved to: deployments/eil-${network}.json`);
-  logger.info(`Config updated: packages/config/eil.json`);
+  logger.info(`Config updated: packages/config/contracts.json`);
   
   return deployment;
 }

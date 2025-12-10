@@ -1,17 +1,16 @@
 import { createPublicClient, createWalletClient, http, type Address, parseEther, formatEther, isAddress } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { IERC20_ABI } from '../lib/contracts.js';
-import { CHAIN_INFO } from '../config/oif.js';
-import { jejuTestnet, getRpcUrl } from '../lib/chains.js';
-
-const JEJU_CHAIN_ID = 420690 as const;
-const JEJU_RPC = getRpcUrl(JEJU_CHAIN_ID);
+import { JEJU_CHAIN_ID, getRpcUrl, getChainName, IS_TESTNET } from '../config/networks.js';
+import { JEJU_TOKEN_ADDRESS, IDENTITY_REGISTRY_ADDRESS } from '../config/contracts.js';
+import { jejuTestnet } from '../lib/chains.js';
 
 const FAUCET_CONFIG = {
   cooldownMs: 12 * 60 * 60 * 1000,
   amountPerClaim: parseEther('100'),
-  jejuTokenAddress: (process.env.VITE_JEJU_TOKEN_ADDRESS || process.env.JEJU_TOKEN_ADDRESS || '0x0000000000000000000000000000000000000000') as Address,
-  identityRegistryAddress: (process.env.VITE_IDENTITY_REGISTRY_ADDRESS || process.env.IDENTITY_REGISTRY_ADDRESS || '0x0000000000000000000000000000000000000000') as Address,
+  jejuTokenAddress: JEJU_TOKEN_ADDRESS,
+  identityRegistryAddress: IDENTITY_REGISTRY_ADDRESS,
+  // Only secret that stays in env
   faucetPrivateKey: process.env.FAUCET_PRIVATE_KEY,
 };
 
@@ -21,12 +20,12 @@ const IDENTITY_REGISTRY_ABI = [
 
 const claimHistory = new Map<string, number>();
 
-const publicClient = createPublicClient({ chain: jejuTestnet, transport: http(JEJU_RPC) });
+const publicClient = createPublicClient({ chain: jejuTestnet, transport: http(getRpcUrl(JEJU_CHAIN_ID)) });
 
 function getWalletClient() {
   if (!FAUCET_CONFIG.faucetPrivateKey) throw new Error('FAUCET_PRIVATE_KEY not configured');
   const account = privateKeyToAccount(FAUCET_CONFIG.faucetPrivateKey as `0x${string}`);
-  return createWalletClient({ account, chain: jejuTestnet, transport: http(JEJU_RPC) });
+  return createWalletClient({ account, chain: jejuTestnet, transport: http(getRpcUrl(JEJU_CHAIN_ID)) });
 }
 
 export interface FaucetStatus {
@@ -57,10 +56,19 @@ export interface FaucetInfo {
   chainName: string;
 }
 
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
+
 async function isRegisteredAgent(address: Address): Promise<boolean> {
-  if (FAUCET_CONFIG.identityRegistryAddress === '0x0000000000000000000000000000000000000000') {
-    return process.env.NODE_ENV === 'test' || process.env.FAUCET_SKIP_REGISTRY === 'true';
+  // Skip registry check in test mode or if explicitly disabled
+  if (process.env.NODE_ENV === 'test' || process.env.FAUCET_SKIP_REGISTRY === 'true') {
+    return true;
   }
+  
+  // If no registry configured, deny access (requires explicit skip in dev)
+  if (FAUCET_CONFIG.identityRegistryAddress === ZERO_ADDRESS) {
+    return false;
+  }
+  
   const balance = await publicClient.readContract({
     address: FAUCET_CONFIG.identityRegistryAddress,
     abi: IDENTITY_REGISTRY_ABI,
@@ -77,7 +85,7 @@ function getCooldownRemaining(address: string): number {
 }
 
 async function getFaucetBalance(): Promise<bigint> {
-  if (FAUCET_CONFIG.jejuTokenAddress === '0x0000000000000000000000000000000000000000' || !FAUCET_CONFIG.faucetPrivateKey) {
+  if (FAUCET_CONFIG.jejuTokenAddress === ZERO_ADDRESS || !FAUCET_CONFIG.faucetPrivateKey) {
     return 0n;
   }
   const account = privateKeyToAccount(FAUCET_CONFIG.faucetPrivateKey as `0x${string}`);
@@ -123,7 +131,7 @@ export async function claimFromFaucet(address: Address): Promise<FaucetClaimResu
   const faucetBalance = await getFaucetBalance();
   if (faucetBalance < FAUCET_CONFIG.amountPerClaim) return { success: false, error: 'Faucet is empty, please try again later' };
 
-  if (FAUCET_CONFIG.jejuTokenAddress === '0x0000000000000000000000000000000000000000') {
+  if (FAUCET_CONFIG.jejuTokenAddress === ZERO_ADDRESS) {
     return { success: false, error: 'JEJU token not configured' };
   }
 
@@ -141,14 +149,14 @@ export async function claimFromFaucet(address: Address): Promise<FaucetClaimResu
 
 export function getFaucetInfo(): FaucetInfo {
   return {
-    name: 'Jeju Testnet Faucet',
+    name: IS_TESTNET ? 'Jeju Testnet Faucet' : 'Jeju Faucet',
     description: 'Get JEJU tokens for testing. Requires ERC-8004 registry registration.',
     tokenSymbol: 'JEJU',
     amountPerClaim: formatEther(FAUCET_CONFIG.amountPerClaim),
     cooldownHours: FAUCET_CONFIG.cooldownMs / (60 * 60 * 1000),
     requirements: ['Wallet must be registered in ERC-8004 Identity Registry', '12 hour cooldown between claims'],
     chainId: JEJU_CHAIN_ID,
-    chainName: CHAIN_INFO[JEJU_CHAIN_ID].name,
+    chainName: getChainName(JEJU_CHAIN_ID),
   };
 }
 

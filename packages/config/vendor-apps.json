@@ -55,15 +55,6 @@
       "private": true,
       "optional": true,
       "branch": "jeju"
-    },
-    {
-      "name": "launchpad",
-      "url": "git@github.com:elizaos/launchpad.git",
-      "path": "vendor/launchpad",
-      "description": "Token launchpad",
-      "private": true,
-      "optional": true,
-      "branch": "jeju"
     }
   ]
 }

@@ -2,27 +2,30 @@ import { SolverAgent } from './agent';
 import { LiquidityManager } from './liquidity';
 import { EventMonitor } from './monitor';
 import { StrategyEngine } from './strategy';
+import { IS_TESTNET, getRpcUrl, getChainName } from '../config/networks.js';
 
-const isTestnet = process.env.NETWORK === 'testnet';
+interface ChainConfig {
+  chainId: number;
+  name: string;
+  rpcUrl: string;
+}
 
-const TESTNET_CHAINS = [
-  { chainId: 11155111, name: 'Sepolia', rpcUrl: process.env.SEPOLIA_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com' },
-  { chainId: 84532, name: 'Base Sepolia', rpcUrl: process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org' },
-  { chainId: 421614, name: 'Arbitrum Sepolia', rpcUrl: process.env.ARBITRUM_SEPOLIA_RPC_URL || 'https://sepolia-rollup.arbitrum.io/rpc' },
-  { chainId: 11155420, name: 'Optimism Sepolia', rpcUrl: process.env.OPTIMISM_SEPOLIA_RPC_URL || 'https://sepolia.optimism.io' },
-  { chainId: 420690, name: 'Jeju Testnet', rpcUrl: process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jeju.network' },
+const TESTNET_CHAINS: ChainConfig[] = [
+  { chainId: 11155111, name: getChainName(11155111), rpcUrl: getRpcUrl(11155111) },
+  { chainId: 84532, name: getChainName(84532), rpcUrl: getRpcUrl(84532) },
+  { chainId: 420690, name: getChainName(420690), rpcUrl: getRpcUrl(420690) },
 ];
 
-const MAINNET_CHAINS = [
-  { chainId: 1, name: 'Ethereum', rpcUrl: process.env.ETHEREUM_RPC_URL || 'https://eth.llamarpc.com' },
-  { chainId: 8453, name: 'Base', rpcUrl: process.env.BASE_RPC_URL || 'https://mainnet.base.org' },
-  { chainId: 42161, name: 'Arbitrum', rpcUrl: process.env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc' },
-  { chainId: 10, name: 'Optimism', rpcUrl: process.env.OPTIMISM_RPC_URL || 'https://mainnet.optimism.io' },
-  { chainId: 420691, name: 'Jeju', rpcUrl: process.env.JEJU_RPC_URL || 'https://rpc.jeju.network' },
+const MAINNET_CHAINS: ChainConfig[] = [
+  { chainId: 1, name: getChainName(1), rpcUrl: getRpcUrl(1) },
+  { chainId: 8453, name: getChainName(8453), rpcUrl: getRpcUrl(8453) },
+  { chainId: 42161, name: getChainName(42161), rpcUrl: getRpcUrl(42161) },
+  { chainId: 10, name: getChainName(10), rpcUrl: getRpcUrl(10) },
+  { chainId: 420691, name: getChainName(420691), rpcUrl: getRpcUrl(420691) },
 ];
 
 const SOLVER_CONFIG = {
-  chains: isTestnet ? TESTNET_CHAINS : MAINNET_CHAINS,
+  chains: IS_TESTNET ? TESTNET_CHAINS : MAINNET_CHAINS,
   minProfitBps: 10,
   maxGasPrice: 100n * 10n ** 9n,
   maxExposurePerChain: '10000000000000000000',

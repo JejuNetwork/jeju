@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useAccount, useWalletClient, usePublicClient, useChainId } from 'wagmi';
 import { Address, Hex } from 'viem';
+import { CONTRACTS } from '../config';
 
 interface PaymentState {
   status: 'idle' | 'signing' | 'approving' | 'settling' | 'success' | 'error';
@@ -103,8 +104,8 @@ const ERC20_ABI = [
 
 const CHAIN_CONFIG: Record<number, { facilitator: Address; usdc: Address }> = {
   420691: {
-    facilitator: (import.meta.env.VITE_X402_FACILITATOR_ADDRESS || '0x0000000000000000000000000000000000000000') as Address,
-    usdc: '0x0165878A594ca255338adfa4d48449f69242Eb8F' as Address,
+    facilitator: CONTRACTS.x402Facilitator,
+    usdc: CONTRACTS.usdc || '0x0165878A594ca255338adfa4d48449f69242Eb8F' as Address,
   },
   420690: {
     facilitator: '0x0000000000000000000000000000000000000000' as Address,

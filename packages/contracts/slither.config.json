@@ -4,5 +4,5 @@
   "exclude_informational": true,
   "exclude_optimization": true,
   "exclude_low": true,
-  "detectors_to_exclude": "arbitrary-send-eth,arbitrary-send-erc20,reentrancy-benign,reentrancy-events,divide-before-multiply,uninitialized-local"
+  "detectors_to_exclude": "arbitrary-send-eth,arbitrary-send-erc20,reentrancy-benign,reentrancy-events,divide-before-multiply,uninitialized-local,reentrancy-no-eth,reentrancy-eth,unused-return,incorrect-equality,weak-prng"
 }

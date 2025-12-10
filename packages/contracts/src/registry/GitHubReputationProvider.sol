@@ -250,10 +250,11 @@ contract GitHubReputationProvider is Ownable {
 
     /**
      * @notice Record validation to ValidationRegistry
-     * @dev Creates a validation entry that other contracts can query
+     * @dev The agent owner must first request validation from ValidationRegistry with us as validator
      * @param agentId Agent to validate
+     * @param requestHash The validation request hash from ValidationRegistry
      */
-    function recordValidation(uint256 agentId) external {
+    function recordValidation(uint256 agentId, bytes32 requestHash) external {
         address wallet = agentToWallet[agentId];
         if (wallet == address(0)) revert ProfileNotLinked();
 
@@ -261,19 +262,18 @@ contract GitHubReputationProvider is Ownable {
         if (!attestation.isValid) revert ProfileNotLinked();
         if (attestation.score < MIN_SCORE_FOR_BOOST) revert ScoreTooLow();
 
-        // Request validation (we are the validator for our own requests)
-        bytes32 requestHash = keccak256(
-            abi.encodePacked(
-                address(this),
-                agentId,
-                attestation.attestationHash,
-                block.timestamp
-            )
+        // Submit validation response to ValidationRegistry
+        // Note: ValidationRegistry.validationResponse requires:
+        // - We are the designated validator
+        // - Request exists and is pending
+        // Parameters: requestHash, response (0-100), responseUri, responseHash, tag
+        validationRegistry.validationResponse(
+            requestHash,
+            attestation.score,
+            "", // No URI needed - score speaks for itself
+            attestation.attestationHash, // Reference to the attestation
+            GITHUB_TAG
         );
-
-        // Since we're both requester and validator, we use the metadata approach
-        // The ValidationRegistry allows the agent owner to request validation
-        // We record the validation response directly with our score
 
         emit ValidationRecorded(wallet, agentId, requestHash, attestation.score);
     }

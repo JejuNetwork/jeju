@@ -1,10 +1,11 @@
 import { Address, createPublicClient, http } from 'viem';
 import { jeju } from '../config/chains';
+import { CONTRACTS } from '../config';
 
-const BAN_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_BAN_MANAGER_ADDRESS as Address | undefined;
-const MODERATION_MARKETPLACE_ADDRESS = process.env.NEXT_PUBLIC_MODERATION_MARKETPLACE_ADDRESS as Address | undefined;
-const IDENTITY_REGISTRY_ADDRESS = process.env.NEXT_PUBLIC_IDENTITY_REGISTRY_ADDRESS as Address | undefined;
-const JEJU_TOKEN_ADDRESS = process.env.NEXT_PUBLIC_JEJU_TOKEN_ADDRESS as Address | undefined;
+const BAN_MANAGER_ADDRESS = CONTRACTS.banManager || undefined;
+const MODERATION_MARKETPLACE_ADDRESS = CONTRACTS.moderationMarketplace || undefined;
+const IDENTITY_REGISTRY_ADDRESS = CONTRACTS.identityRegistry || undefined;
+const JEJU_TOKEN_ADDRESS = CONTRACTS.jeju || undefined;
 const BAZAAR_APP_ID = `0x${Buffer.from('bazaar').toString('hex').padEnd(64, '0')}` as `0x${string}`;
 
 // ============ Types ============

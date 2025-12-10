@@ -13,8 +13,10 @@ import {
   rawPullRequests,
   rawCommits,
 } from "@/lib/data/schema";
-import { eq, and, desc, sql, sum, count } from "drizzle-orm";
-import { keccak256, encodePacked, toHex } from "viem";
+import { eq, and, desc, sum, count } from "drizzle-orm";
+import { keccak256, encodePacked, toHex, type Hex } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { sql } from "drizzle-orm";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -22,14 +24,21 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
+// Oracle private key for signing attestations
+// In production, this should be in a secure key management system
+const ORACLE_PRIVATE_KEY = process.env.ATTESTATION_ORACLE_PRIVATE_KEY as Hex | undefined;
+
+// Contract address for domain binding
+const GITHUB_REPUTATION_PROVIDER_ADDRESS = process.env.GITHUB_REPUTATION_PROVIDER_ADDRESS || "0x0000000000000000000000000000000000000000";
+
+// Chain ID for the target chain
+const TARGET_CHAIN_ID = parseInt(process.env.TARGET_CHAIN_ID || "8453"); // Base mainnet
+
 export async function OPTIONS() {
   return new NextResponse(null, { headers: CORS_HEADERS });
 }
 
-interface AttestationData {
-  username: string;
-  walletAddress: string;
-  chainId: string;
+interface ReputationData {
   totalScore: number;
   normalizedScore: number;
   prScore: number;
@@ -39,8 +48,6 @@ interface AttestationData {
   mergedPrCount: number;
   totalPrCount: number;
   totalCommits: number;
-  timestamp: number;
-  nonce: string;
 }
 
 /**
@@ -152,6 +159,7 @@ export async function GET(request: NextRequest) {
             txHash: existingAttestation.txHash,
           }
         : null,
+      oracleConfigured: !!ORACLE_PRIVATE_KEY,
     },
     { headers: CORS_HEADERS }
   );
@@ -159,7 +167,7 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/attestation
- * Request a new reputation attestation
+ * Request a new signed reputation attestation
  */
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -172,7 +180,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Verify wallet is linked to this user
+  // Verify wallet is linked AND verified for this user
   const wallet = await db.query.walletAddresses.findFirst({
     where: and(
       eq(walletAddresses.userId, username),
@@ -188,44 +196,53 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Require wallet verification for attestations
+  if (!wallet.isVerified) {
+    return NextResponse.json(
+      {
+        error: "Wallet must be verified before requesting attestation",
+        action: "verify_wallet",
+        message: "Please sign a verification message to prove wallet ownership first",
+      },
+      { status: 403, headers: CORS_HEADERS }
+    );
+  }
+
   // Calculate reputation
   const reputationData = await calculateUserReputation(username);
-  const timestamp = Date.now();
-  const nonce = toHex(Math.floor(Math.random() * 1000000000));
+  const timestamp = Math.floor(Date.now() / 1000); // Unix timestamp in seconds
 
-  // Create attestation data
-  const attestationData: AttestationData = {
-    username,
-    walletAddress: walletAddress.toLowerCase(),
-    chainId,
-    totalScore: reputationData.totalScore,
-    normalizedScore: reputationData.normalizedScore,
-    prScore: reputationData.prScore,
-    issueScore: reputationData.issueScore,
-    reviewScore: reputationData.reviewScore,
-    commitScore: reputationData.commitScore,
-    mergedPrCount: reputationData.mergedPrCount,
-    totalPrCount: reputationData.totalPrCount,
-    totalCommits: reputationData.totalCommits,
-    timestamp,
-    nonce,
-  };
-
-  // Create attestation hash
+  // Create attestation hash matching contract format exactly:
+  // keccak256(abi.encodePacked(wallet, agentId, score, totalScore, mergedPrs, totalCommits, timestamp, chainid, address(this)))
   const attestationHash = keccak256(
     encodePacked(
-      ["address", "uint256", "uint8", "uint256", "bytes32"],
+      ["address", "uint256", "uint8", "uint256", "uint256", "uint256", "uint256", "uint256", "address"],
       [
         walletAddress.toLowerCase() as `0x${string}`,
         BigInt(agentId || 0),
         reputationData.normalizedScore,
+        BigInt(Math.floor(reputationData.totalScore)),
+        BigInt(reputationData.mergedPrCount),
+        BigInt(reputationData.totalCommits),
         BigInt(timestamp),
-        nonce as `0x${string}`,
+        BigInt(TARGET_CHAIN_ID),
+        GITHUB_REPUTATION_PROVIDER_ADDRESS as `0x${string}`,
       ]
     )
   );
 
-  // Store attestation (signature will be added when oracle signs it)
+  // Sign the attestation if oracle is configured
+  let oracleSignature: string | null = null;
+
+  if (ORACLE_PRIVATE_KEY) {
+    const account = privateKeyToAccount(ORACLE_PRIVATE_KEY);
+    // Sign the EIP-191 prefixed message
+    oracleSignature = await account.signMessage({
+      message: { raw: attestationHash },
+    });
+  }
+
+  // Store attestation
   const existingAttestation = await db.query.reputationAttestations.findFirst({
     where: and(
       eq(reputationAttestations.userId, username),
@@ -234,6 +251,7 @@ export async function POST(request: NextRequest) {
     ),
   });
 
+  const now = new Date().toISOString();
   const attestationRecord = {
     userId: username,
     walletAddress: walletAddress.toLowerCase(),
@@ -248,9 +266,11 @@ export async function POST(request: NextRequest) {
     totalCommits: reputationData.totalCommits,
     normalizedScore: reputationData.normalizedScore,
     attestationHash,
+    oracleSignature,
     agentId: agentId || null,
-    scoreCalculatedAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    scoreCalculatedAt: now,
+    attestedAt: oracleSignature ? now : null,
+    updatedAt: now,
   };
 
   if (existingAttestation) {
@@ -261,7 +281,7 @@ export async function POST(request: NextRequest) {
   } else {
     await db.insert(reputationAttestations).values({
       ...attestationRecord,
-      createdAt: new Date().toISOString(),
+      createdAt: now,
     });
   }
 
@@ -270,26 +290,30 @@ export async function POST(request: NextRequest) {
       success: true,
       attestation: {
         hash: attestationHash,
-        data: attestationData,
+        signature: oracleSignature,
         normalizedScore: reputationData.normalizedScore,
-        message: `Attestation created for ${username}. Score: ${reputationData.normalizedScore}/100`,
+        timestamp,
+        agentId: agentId || 0,
+        // Data needed for on-chain submission
+        onChainParams: {
+          agentId: agentId || 0,
+          score: reputationData.normalizedScore,
+          totalScore: Math.floor(reputationData.totalScore),
+          mergedPrs: reputationData.mergedPrCount,
+          totalCommits: reputationData.totalCommits,
+          timestamp,
+          signature: oracleSignature,
+        },
       },
+      message: oracleSignature
+        ? `Signed attestation created for ${username}. Score: ${reputationData.normalizedScore}/100`
+        : `Attestation created but not signed (oracle not configured). Score: ${reputationData.normalizedScore}/100`,
     },
     { headers: CORS_HEADERS }
   );
 }
 
-async function calculateUserReputation(username: string): Promise<{
-  totalScore: number;
-  normalizedScore: number;
-  prScore: number;
-  issueScore: number;
-  reviewScore: number;
-  commitScore: number;
-  mergedPrCount: number;
-  totalPrCount: number;
-  totalCommits: number;
-}> {
+async function calculateUserReputation(username: string): Promise<ReputationData> {
   // Get aggregated scores from daily scores
   const scoreResult = await db
     .select({
@@ -332,12 +356,6 @@ async function calculateUserReputation(username: string): Promise<{
 
   // Normalize score to 0-100 for ERC-8004 compatibility
   // Use logarithmic scaling to handle large score ranges
-  // Score tiers:
-  // 0-10: New contributor (score < 100)
-  // 11-30: Active contributor (score 100-1000)
-  // 31-60: Regular contributor (score 1000-10000)
-  // 61-80: Core contributor (score 10000-50000)
-  // 81-100: Elite contributor (score > 50000)
   let normalizedScore: number;
   if (totalScore <= 0) {
     normalizedScore = 0;

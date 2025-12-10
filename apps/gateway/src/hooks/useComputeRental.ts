@@ -92,9 +92,8 @@ export interface Rental {
   sshPort: number;
 }
 
-const COMPUTE_RENTAL_ADDRESS = (process.env.NEXT_PUBLIC_RENTAL_ADDRESS ||
-  process.env.VITE_RENTAL_ADDRESS ||
-  '0x0000000000000000000000000000000000000000') as `0x${string}`;
+// Deployed ComputeRental contract address
+const COMPUTE_RENTAL_ADDRESS = '0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1' as const;
 
 const COMPUTE_RENTAL_ABI = [
   // Read functions

@@ -1,10 +1,16 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useSignMessage } from 'wagmi';
 import type { Address } from 'viem';
+import { CONTRACTS, LEADERBOARD_API_URL } from '../config';
 
-const LEADERBOARD_API = import.meta.env.VITE_LEADERBOARD_API_URL || 'https://leaderboard.jeju.network';
+const LEADERBOARD_API = LEADERBOARD_API_URL;
 
-const GITHUB_REPUTATION_PROVIDER_ADDRESS = (import.meta.env.VITE_GITHUB_REPUTATION_PROVIDER_ADDRESS || '0x0000000000000000000000000000000000000000') as Address;
+// Contract address - queries will be skipped if not configured
+const GITHUB_REPUTATION_PROVIDER_ADDRESS = CONTRACTS.githubReputationProvider;
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
+
+// Check if on-chain queries are enabled (not zero address)
+const isOnChainEnabled = GITHUB_REPUTATION_PROVIDER_ADDRESS !== ZERO_ADDRESS;
 
 const GITHUB_REPUTATION_PROVIDER_ABI = [
   {
@@ -120,26 +126,29 @@ export function useGitHubReputation() {
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
   const { data: txReceipt } = useWaitForTransactionReceipt({ hash: txHash });
 
-  // Query on-chain reputation
+  // Query on-chain reputation (only if contract is configured)
   const { data: agentReputation, refetch: refetchAgentReputation } = useReadContract({
-    address: GITHUB_REPUTATION_PROVIDER_ADDRESS,
+    address: isOnChainEnabled ? GITHUB_REPUTATION_PROVIDER_ADDRESS : undefined,
     abi: GITHUB_REPUTATION_PROVIDER_ABI,
     functionName: 'hasReputationBoost',
     args: address ? [address] : undefined,
+    query: { enabled: isOnChainEnabled && !!address },
   });
 
   const { data: stakeDiscount, refetch: refetchStakeDiscount } = useReadContract({
-    address: GITHUB_REPUTATION_PROVIDER_ADDRESS,
+    address: isOnChainEnabled ? GITHUB_REPUTATION_PROVIDER_ADDRESS : undefined,
     abi: GITHUB_REPUTATION_PROVIDER_ABI,
     functionName: 'getStakeDiscount',
     args: address ? [address] : undefined,
+    query: { enabled: isOnChainEnabled && !!address },
   });
 
   const { data: onChainProfile } = useReadContract({
-    address: GITHUB_REPUTATION_PROVIDER_ADDRESS,
+    address: isOnChainEnabled ? GITHUB_REPUTATION_PROVIDER_ADDRESS : undefined,
     abi: GITHUB_REPUTATION_PROVIDER_ABI,
     functionName: 'getProfile',
     args: address ? [address] : undefined,
+    query: { enabled: isOnChainEnabled && !!address },
   });
 
   /**
@@ -190,21 +199,22 @@ export function useGitHubReputation() {
     setError(null);
 
     try {
-      // Get verification message
+      // Get verification message with timestamp
       const messageResponse = await fetch(
         `${LEADERBOARD_API}/api/wallet/verify?username=${username}&wallet=${address}`
       );
 
       if (!messageResponse.ok) {
-        throw new Error('Failed to get verification message');
+        const errorData = await messageResponse.json();
+        throw new Error(errorData.error || 'Failed to get verification message');
       }
 
-      const { message } = await messageResponse.json();
+      const { message, timestamp } = await messageResponse.json();
 
       // Sign the message
       const signature = await signMessageAsync({ message });
 
-      // Submit verification
+      // Submit verification with timestamp for replay protection
       const verifyResponse = await fetch(`${LEADERBOARD_API}/api/wallet/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -213,6 +223,7 @@ export function useGitHubReputation() {
           walletAddress: address,
           signature,
           message,
+          timestamp,
           chainId: 'eip155:1',
         }),
       });
@@ -224,8 +235,8 @@ export function useGitHubReputation() {
 
       return true;
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Verification failed';
-      setError(message);
+      const errMessage = err instanceof Error ? err.message : 'Verification failed';
+      setError(errMessage);
       return false;
     } finally {
       setLoading(false);
@@ -286,8 +297,24 @@ export function useGitHubReputation() {
     mergedPrs: number,
     totalCommits: number,
     timestamp: number,
-    oracleSignature: string
+    oracleSignature: string,
+    attestationHash: string
   ) => {
+    if (!isOnChainEnabled || !GITHUB_REPUTATION_PROVIDER_ADDRESS) {
+      setError('GitHubReputationProvider contract not configured');
+      return null;
+    }
+
+    if (!oracleSignature || oracleSignature === '0x') {
+      setError('Missing oracle signature - attestation not signed');
+      return null;
+    }
+
+    if (!address) {
+      setError('No wallet connected');
+      return null;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -309,8 +336,24 @@ export function useGitHubReputation() {
 
       setTxHash(hash);
 
-      // Refresh on-chain data
-      await Promise.all([refetchAgentReputation(), refetchStakeDiscount()]);
+      // Confirm submission to leaderboard API
+      await fetch(`${LEADERBOARD_API}/api/attestation/confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          attestationHash,
+          txHash: hash,
+          walletAddress: address,
+          chainId: 'eip155:1',
+        }),
+      });
+
+      // Refresh on-chain and off-chain data
+      await Promise.all([
+        refetchAgentReputation(),
+        refetchStakeDiscount(),
+        fetchLeaderboardReputation(),
+      ]);
 
       return hash;
     } catch (err) {
@@ -320,7 +363,7 @@ export function useGitHubReputation() {
     } finally {
       setLoading(false);
     }
-  }, [writeContractAsync, refetchAgentReputation, refetchStakeDiscount]);
+  }, [address, writeContractAsync, refetchAgentReputation, refetchStakeDiscount, fetchLeaderboardReputation]);
 
   /**
    * Link agent to GitHub account
@@ -411,10 +454,11 @@ export function useGitHubReputation() {
 
 export function useAgentReputation(agentId: bigint | undefined) {
   const { data, isLoading, error, refetch } = useReadContract({
-    address: GITHUB_REPUTATION_PROVIDER_ADDRESS,
+    address: isOnChainEnabled ? GITHUB_REPUTATION_PROVIDER_ADDRESS : undefined,
     abi: GITHUB_REPUTATION_PROVIDER_ABI,
     functionName: 'getAgentReputation',
     args: agentId !== undefined ? [agentId] : undefined,
+    query: { enabled: isOnChainEnabled && agentId !== undefined },
   });
 
   const reputation = data ? {
@@ -423,5 +467,5 @@ export function useAgentReputation(agentId: bigint | undefined) {
     lastUpdated: (data as [number, boolean, bigint])[2],
   } : null;
 
-  return { reputation, isLoading, error, refetch };
+  return { reputation, isLoading, error, refetch, isConfigured: isOnChainEnabled };
 }

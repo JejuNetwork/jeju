@@ -1,4 +1,5 @@
-export const API_BASE_URL = process.env.NEXT_PUBLIC_STORAGE_API_URL || 'http://localhost:3100'
+// Re-export from parent config
+export { API_BASE_URL } from '../../config/api';
 
 export interface StorageStats {
   totalPins: number

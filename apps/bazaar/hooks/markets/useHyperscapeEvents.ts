@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { request, gql } from 'graphql-request';
+import { INDEXER_URL } from '@/config';
 
 const HYPERSCAPE_EVENTS_QUERY = gql`
   query GetHyperscapeEvents($player: String) {
@@ -145,7 +146,7 @@ export function useHyperscapeEvents(playerAddress?: string) {
     }
 
     async function fetchEvents() {
-      const endpoint = process.env.NEXT_PUBLIC_INDEXER_URL || 'http://localhost:4350/graphql';
+      const endpoint = INDEXER_URL;
       
       setLoading(true);
       const data = await request(endpoint, HYPERSCAPE_EVENTS_QUERY, {

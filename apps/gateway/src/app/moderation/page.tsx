@@ -6,6 +6,7 @@ import { Shield, Flag, Clock, CheckCircle, Scale, Users, TrendingUp, AlertTriang
 import ReportSubmissionForm from '../../components/moderation/ReportSubmissionForm';
 import BanVotingInterface from '../../components/moderation/BanVotingInterface';
 import { MODERATION_CONTRACTS } from '../../config/moderation';
+import { IPFS_GATEWAY_URL } from '../../config';
 import { formatEther } from 'viem';
 
 type TabType = 'overview' | 'active' | 'resolved' | 'submit' | 'labels' | 'bans';
@@ -568,8 +569,7 @@ function ReportCard({ reportId }: { reportId: bigint }) {
                   window.open(`https://ipfs.io/ipfs/${cid}`, '_blank');
                 } else {
                   // Fallback: try using Jeju IPFS gateway with raw hash
-                  const gateway = import.meta.env.VITE_JEJU_IPFS_GATEWAY || 'http://localhost:3100';
-                  window.open(`${gateway}/ipfs/${cid || hash}`, '_blank');
+                  window.open(`${IPFS_GATEWAY_URL}/ipfs/${cid || hash}`, '_blank');
                 }
               }
             }}
@@ -663,8 +663,7 @@ function ResolvedReportCard({ reportId }: { reportId: bigint }) {
               if (cid && cid.startsWith('Qm')) {
                 window.open(`https://ipfs.io/ipfs/${cid}`, '_blank');
               } else {
-                const gateway = import.meta.env.VITE_JEJU_IPFS_GATEWAY || 'http://localhost:3100';
-                window.open(`${gateway}/ipfs/${cid || hash}`, '_blank');
+                window.open(`${IPFS_GATEWAY_URL}/ipfs/${cid || hash}`, '_blank');
               }
             }
           }}

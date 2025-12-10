@@ -65,17 +65,20 @@ test.describe('Attestation API E2E Tests', () => {
     expect([403, 404]).toContain(response.status());
   });
 
-  test('GET /api/wallet/verify - should return verification message', async ({ request }) => {
+  test('GET /api/wallet/verify - should return 404 for unknown user', async ({ request }) => {
     const response = await request.get(
-      `${API_BASE}/api/wallet/verify?username=testuser&wallet=0x1234567890123456789012345678901234567890`
+      `${API_BASE}/api/wallet/verify?username=nonexistent_user_xyz&wallet=0x1234567890123456789012345678901234567890`
     );
-    expect(response.status()).toBe(200);
+    // User must exist to get verification message
+    expect(response.status()).toBe(404);
+  });
+
+  test('GET /api/wallet/verify - should require username', async ({ request }) => {
+    const response = await request.get(`${API_BASE}/api/wallet/verify`);
+    expect(response.status()).toBe(400);
 
     const data = await response.json();
-    expect(data).toHaveProperty('message');
-    expect(data).toHaveProperty('timestamp');
-    expect(data.message).toContain('testuser');
-    expect(data.message).toContain('verify');
+    expect(data.error).toContain('required');
   });
 
   test('POST /api/wallet/verify - should require all fields', async ({ request }) => {

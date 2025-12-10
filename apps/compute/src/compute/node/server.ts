@@ -46,8 +46,12 @@ import {
   SeverityEnum,
   ContentCategoryEnum,
   type ModerationIncident,
-  type ContentCategory,
 } from '../sdk/content-moderation';
+
+type ContentCategory = typeof ContentCategoryEnum[keyof typeof ContentCategoryEnum];
+
+const parseContentCategory = (name: string): ContentCategory =>
+  ContentCategoryEnum[name.toUpperCase() as keyof typeof ContentCategoryEnum] ?? ContentCategoryEnum.SAFE;
 
 // Credit Manager ABI for balance checking
 const CREDIT_MANAGER_ABI = [
@@ -349,7 +353,7 @@ export class ComputeNodeServer {
       const limit = parseInt(c.req.query('limit') || '1000', 10);
       
       // Parse category as ContentCategory if provided
-      const categoryValue = category !== undefined ? this.parseContentCategory(category) : undefined;
+      const categoryValue = category !== undefined ? parseContentCategory(category) : undefined;
       const incidents = await this.moderationStorage.getForTraining(categoryValue, limit);
       
       const trainingData = incidents.map(i => ({

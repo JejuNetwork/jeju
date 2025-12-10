@@ -1,8 +1,9 @@
 import { useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { toast } from 'sonner'
 import NFTMarketplaceABI from '@/lib/abis/NFTMarketplace.json'
+import { CONTRACTS } from '@/config'
 
-const MARKETPLACE_ADDRESS = (process.env.NEXT_PUBLIC_NFT_MARKETPLACE_ADDRESS || '0x0') as `0x${string}`
+const MARKETPLACE_ADDRESS = CONTRACTS.nftMarketplace
 
 interface ListingData {
   seller: string

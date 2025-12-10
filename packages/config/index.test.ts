@@ -98,10 +98,11 @@ describe('Configuration Loaders', () => {
       expect(config.chainId).toBe(420690);
     });
 
-    it('should prioritize env var over parameter', () => {
+    it('should prioritize explicit parameter over env var', () => {
       process.env.JEJU_NETWORK = 'localnet';
       const config = getChainConfig('mainnet');
-      expect(config.chainId).toBe(1337);
+      // Explicit parameter takes precedence over env var
+      expect(config.chainId).toBe(420691);
     });
   });
 

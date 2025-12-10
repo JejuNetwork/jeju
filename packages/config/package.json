@@ -12,6 +12,8 @@
     "./ports": "./ports.ts",
     "./chain/*": "./chain/*.json",
     "./tokens": "./tokens.json",
+    "./contracts": "./contracts.json",
+    "./services": "./services.json",
     "./eil": "./eil.json"
   },
   "files": [
@@ -33,4 +35,3 @@
     "access": "public"
   }
 }
-

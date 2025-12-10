@@ -1,0 +1,139 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2025-12-10",
+  "description": "Service URLs for Jeju networks. Env overrides: VITE_/NEXT_PUBLIC_ + SERVICE_URL (e.g., VITE_INDEXER_URL)",
+  
+  "localnet": {
+    "rpc": {
+      "l1": "http://127.0.0.1:8545",
+      "l2": "http://127.0.0.1:9545",
+      "ws": "ws://127.0.0.1:9546"
+    },
+    "explorer": "http://127.0.0.1:4000",
+    "indexer": {
+      "graphql": "http://127.0.0.1:4350/graphql",
+      "websocket": "ws://127.0.0.1:4350/graphql"
+    },
+    "gateway": {
+      "ui": "http://127.0.0.1:4001",
+      "api": "http://127.0.0.1:4002",
+      "a2a": "http://127.0.0.1:4003",
+      "ws": "ws://127.0.0.1:4012"
+    },
+    "rpcGateway": "http://127.0.0.1:4004",
+    "bazaar": "http://127.0.0.1:4006",
+    "storage": {
+      "api": "http://127.0.0.1:3100",
+      "ipfsGateway": "http://127.0.0.1:3100"
+    },
+    "compute": {
+      "marketplace": "http://127.0.0.1:4007",
+      "nodeApi": "http://127.0.0.1:4008"
+    },
+    "oif": {
+      "aggregator": "http://127.0.0.1:4010/api"
+    },
+    "leaderboard": {
+      "api": "http://127.0.0.1:4005",
+      "ui": "http://127.0.0.1:4005"
+    },
+    "monitoring": {
+      "prometheus": "http://127.0.0.1:9090",
+      "grafana": "http://127.0.0.1:3000"
+    }
+  },
+  
+  "testnet": {
+    "rpc": {
+      "l1": "https://ethereum-sepolia-rpc.publicnode.com",
+      "l2": "https://testnet-rpc.jeju.network",
+      "ws": "wss://testnet-ws.jeju.network"
+    },
+    "explorer": "https://testnet-explorer.jeju.network",
+    "indexer": {
+      "graphql": "https://testnet-indexer.jeju.network/graphql",
+      "websocket": "wss://testnet-indexer.jeju.network/graphql"
+    },
+    "gateway": {
+      "ui": "https://testnet-gateway.jeju.network",
+      "api": "https://testnet-api.jeju.network",
+      "a2a": "https://testnet-a2a.jeju.network",
+      "ws": "wss://testnet-ws.jeju.network"
+    },
+    "rpcGateway": "https://testnet-rpc-gateway.jeju.network",
+    "bazaar": "https://testnet-bazaar.jeju.network",
+    "storage": {
+      "api": "https://testnet-storage.jeju.network",
+      "ipfsGateway": "https://testnet-ipfs.jeju.network"
+    },
+    "compute": {
+      "marketplace": "https://testnet-compute.jeju.network",
+      "nodeApi": "https://testnet-compute-api.jeju.network"
+    },
+    "oif": {
+      "aggregator": "https://testnet-oif.jeju.network/api"
+    },
+    "leaderboard": {
+      "api": "https://leaderboard.jeju.network/api",
+      "ui": "https://leaderboard.jeju.network"
+    },
+    "monitoring": {
+      "prometheus": "https://testnet-prometheus.jeju.network",
+      "grafana": "https://testnet-grafana.jeju.network"
+    },
+    "externalRpcs": {
+      "ethSepolia": "https://ethereum-sepolia-rpc.publicnode.com",
+      "baseSepolia": "https://sepolia.base.org",
+      "arbitrumSepolia": "https://sepolia-rollup.arbitrum.io/rpc",
+      "optimismSepolia": "https://sepolia.optimism.io",
+      "bscTestnet": "https://data-seed-prebsc-1-s1.bnbchain.org:8545"
+    }
+  },
+  
+  "mainnet": {
+    "rpc": {
+      "l1": "https://eth.llamarpc.com",
+      "l2": "https://rpc.jeju.network",
+      "ws": "wss://ws.jeju.network"
+    },
+    "explorer": "https://explorer.jeju.network",
+    "indexer": {
+      "graphql": "https://indexer.jeju.network/graphql",
+      "websocket": "wss://indexer.jeju.network/graphql"
+    },
+    "gateway": {
+      "ui": "https://gateway.jeju.network",
+      "api": "https://api.jeju.network",
+      "a2a": "https://a2a.jeju.network",
+      "ws": "wss://ws.jeju.network"
+    },
+    "rpcGateway": "https://rpc-gateway.jeju.network",
+    "bazaar": "https://bazaar.jeju.network",
+    "storage": {
+      "api": "https://storage.jeju.network",
+      "ipfsGateway": "https://ipfs.jeju.network"
+    },
+    "compute": {
+      "marketplace": "https://compute.jeju.network",
+      "nodeApi": "https://compute-api.jeju.network"
+    },
+    "oif": {
+      "aggregator": "https://oif.jeju.network/api"
+    },
+    "leaderboard": {
+      "api": "https://leaderboard.jeju.network/api",
+      "ui": "https://leaderboard.jeju.network"
+    },
+    "monitoring": {
+      "prometheus": "https://prometheus.jeju.network",
+      "grafana": "https://grafana.jeju.network"
+    },
+    "externalRpcs": {
+      "ethereum": "https://eth.llamarpc.com",
+      "base": "https://mainnet.base.org",
+      "arbitrum": "https://arb1.arbitrum.io/rpc",
+      "optimism": "https://mainnet.optimism.io",
+      "bsc": "https://bsc-dataseed.bnbchain.org"
+    }
+  }
+}

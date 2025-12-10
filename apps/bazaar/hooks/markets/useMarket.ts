@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { request, gql } from 'graphql-request';
 import type { Market } from '@/types/markets';
 import { calculateYesPrice, calculateNoPrice } from '@/lib/markets/lmsrPricing';
+import { INDEXER_URL } from '@/config';
 
 const MARKET_QUERY = gql`
   query GetMarket($id: String!) {
@@ -28,7 +29,7 @@ export function useMarket(sessionId: string) {
   useEffect(() => {
     async function fetchMarket() {
       try {
-        const endpoint = process.env.NEXT_PUBLIC_INDEXER_URL || 'http://localhost:4350/graphql';
+        const endpoint = INDEXER_URL;
         
         const data = await request(endpoint, MARKET_QUERY, { id: sessionId }) as {
           predictionMarkets: Array<{

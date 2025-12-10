@@ -3,9 +3,11 @@
 import { useState } from 'react';
 import { useAccount, useReadContract } from 'wagmi';
 import { Upload, Folder, DollarSign, Clock, HardDrive } from 'lucide-react';
+import { IPFS_API_URL, CONTRACTS } from '../../config';
 
-const FILE_STORAGE_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_FILE_STORAGE_MANAGER_ADDRESS as `0x${string}`;
-const JEJU_IPFS_API = process.env.NEXT_PUBLIC_JEJU_IPFS_API || 'http://localhost:3100';
+// Client-side config from centralized config
+const FILE_STORAGE_MANAGER_ADDRESS = CONTRACTS.fileStorageManager || '0x0B306BF915C4d645ff596e518fAf3F9669b97016' as const;
+const JEJU_IPFS_API = IPFS_API_URL;
 
 const FILE_STORAGE_ABI = [
   {

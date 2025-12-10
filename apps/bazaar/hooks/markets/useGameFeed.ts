@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { request, gql } from 'graphql-request';
+import { INDEXER_URL } from '@/config';
 
 const GAME_FEED_QUERY = gql`
   query GetGameFeed($sessionId: String!) {
@@ -63,7 +64,7 @@ export function useGameFeed(sessionId: string) {
 
   useEffect(() => {
     async function fetchGameFeed() {
-      const endpoint = process.env.NEXT_PUBLIC_INDEXER_URL || 'http://localhost:4350/graphql';
+      const endpoint = INDEXER_URL;
       
       setLoading(true);
       const data = await request(endpoint, GAME_FEED_QUERY, {
