@@ -1,0 +1,115 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "nitro.fullname" . }}
+  labels:
+    {{- include "nitro.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "nitro.fullname" . }}
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "nitro.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- toYaml .Values.podAnnotations | nindent 8 }}
+      labels:
+        {{- include "nitro.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "nitro.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: {{ .Chart.Name }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 12 }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command:
+        - nitro
+        args:
+        - --chain.id={{ .Values.config.chain }}
+        - --parent-chain.connection.url={{ .Values.config.parentChain.url }}
+        {{- if .Values.config.parentChain.beaconUrl }}
+        - --parent-chain.blob-client.beacon-url={{ .Values.config.parentChain.beaconUrl }}
+        {{- end }}
+        - --persistent.chain={{ .Values.config.dataDir }}
+        {{- if .Values.config.http.enabled }}
+        - --http.addr={{ .Values.config.http.addr }}
+        - --http.port={{ .Values.config.http.port }}
+        - --http.api={{ .Values.config.http.api }}
+        - --http.vhosts={{ .Values.config.http.vhosts }}
+        - --http.corsdomain={{ .Values.config.http.corsdomain }}
+        {{- end }}
+        {{- if .Values.config.ws.enabled }}
+        - --ws.addr={{ .Values.config.ws.addr }}
+        - --ws.port={{ .Values.config.ws.port }}
+        - --ws.api={{ .Values.config.ws.api }}
+        - --ws.origins={{ .Values.config.ws.origins }}
+        {{- end }}
+        {{- if .Values.config.metrics.enabled }}
+        - --metrics
+        - --metrics-server.addr={{ .Values.config.metrics.addr }}
+        - --metrics-server.port={{ .Values.config.metrics.port }}
+        {{- end }}
+        {{- if .Values.config.execution.caching.archive }}
+        - --execution.caching.archive
+        {{- end }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.config.http.port }}
+          protocol: TCP
+        - name: ws
+          containerPort: {{ .Values.config.ws.port }}
+          protocol: TCP
+        - name: feed
+          containerPort: {{ .Values.config.feed.port }}
+          protocol: TCP
+        - name: metrics
+          containerPort: {{ .Values.config.metrics.port }}
+          protocol: TCP
+        livenessProbe:
+          tcpSocket:
+            port: http
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          tcpSocket:
+            port: http
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        resources:
+          {{- toYaml .Values.resources | nindent 12 }}
+        volumeMounts:
+        - name: data
+          mountPath: {{ .Values.config.dataDir }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes:
+      - {{ .Values.persistence.accessMode }}
+      {{- if .Values.persistence.storageClass }}
+      storageClassName: {{ .Values.persistence.storageClass }}
+      {{- end }}
+      resources:
+        requests:
+          storage: {{ .Values.persistence.size }}
+

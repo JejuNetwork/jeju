@@ -1,0 +1,30 @@
+# OP-Geth for Optimism Sepolia
+
+resources:
+  limits:
+    cpu: 2000m
+    memory: 8Gi
+  requests:
+    cpu: 1000m
+    memory: 4Gi
+
+persistence:
+  size: 500Gi
+
+nodeSelector:
+  workload: indexer
+
+tolerations:
+  - key: workload
+    operator: Equal
+    value: indexer
+    effect: NoSchedule
+
+config:
+  network: "op-sepolia"
+  sequencerUrl: "https://sepolia-sequencer.optimism.io"
+  rollup:
+    syncMode: "execution-layer"
+  cache: 2048
+  gcMode: "full"
+

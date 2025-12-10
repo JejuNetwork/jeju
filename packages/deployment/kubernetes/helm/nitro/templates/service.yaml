@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "nitro.fullname" . }}
+  labels:
+    {{- include "nitro.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+  - port: {{ .Values.service.http.port }}
+    targetPort: http
+    protocol: TCP
+    name: http
+  - port: {{ .Values.service.ws.port }}
+    targetPort: ws
+    protocol: TCP
+    name: ws
+  - port: {{ .Values.service.feed.port }}
+    targetPort: feed
+    protocol: TCP
+    name: feed
+  - port: {{ .Values.service.metrics.port }}
+    targetPort: metrics
+    protocol: TCP
+    name: metrics
+  selector:
+    {{- include "nitro.selectorLabels" . | nindent 4 }}
+

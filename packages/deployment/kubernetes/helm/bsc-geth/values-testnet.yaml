@@ -1,0 +1,28 @@
+# BSC Geth for Chapel Testnet
+
+resources:
+  limits:
+    cpu: 4000m
+    memory: 16Gi
+  requests:
+    cpu: 2000m
+    memory: 8Gi
+
+persistence:
+  size: 500Gi
+
+nodeSelector:
+  workload: indexer
+
+tolerations:
+  - key: workload
+    operator: Equal
+    value: indexer
+    effect: NoSchedule
+
+config:
+  network: "chapel"
+  syncMode: "snap"
+  cache: 4096
+  gcMode: "full"
+

@@ -1,0 +1,7 @@
+apiVersion: v2
+name: op-geth
+description: OP Stack Execution Layer (op-geth) for L2 chains
+type: application
+version: 1.0.0
+appVersion: "v1.101408.0"
+

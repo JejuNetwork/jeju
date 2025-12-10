@@ -1,0 +1,130 @@
+# OP-Geth - OP Stack Execution Layer
+# Used for Base, OP Mainnet, and other OP Stack L2s
+
+replicaCount: 1
+
+image:
+  repository: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth
+  pullPolicy: IfNotPresent
+  tag: "v1.101408.0"
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "6060"
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsUser: 1000
+  runAsNonRoot: true
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  http:
+    port: 8545
+  ws:
+    port: 8546
+  authrpc:
+    port: 8551
+  p2p:
+    port: 30303
+  metrics:
+    port: 6060
+
+resources:
+  limits:
+    cpu: 4000m
+    memory: 16Gi
+  requests:
+    cpu: 2000m
+    memory: 8Gi
+
+persistence:
+  enabled: true
+  storageClass: "gp3"
+  accessMode: ReadWriteOnce
+  size: 500Gi
+  mountPath: /data
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+config:
+  # Network: "base-mainnet", "base-sepolia", "op-mainnet", "op-sepolia"
+  network: ""
+  
+  # Sequencer URL for syncing
+  sequencerUrl: ""
+  
+  # Rollup config
+  rollup:
+    # Set to "sequencer" if running as sequencer
+    syncMode: "execution-layer"
+    halt: "none"
+  
+  # HTTP RPC
+  http:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 8545
+    api: "eth,net,web3,debug,txpool"
+    vhosts: "*"
+    corsdomain: "*"
+  
+  # WebSocket RPC
+  ws:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 8546
+    api: "eth,net,web3"
+    origins: "*"
+  
+  # Engine API (for op-node)
+  authrpc:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 8551
+    vhosts: "*"
+  
+  # P2P
+  p2p:
+    port: 30303
+    maxPeers: 50
+  
+  # Metrics
+  metrics:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 6060
+  
+  # Cache size in MB
+  cache: 4096
+  
+  # Data directory
+  dataDir: "/data"
+  
+  # GC mode
+  gcMode: "archive"
+
+# JWT secret for engine API (shared with op-node)
+secrets:
+  jwtSecret: ""
+

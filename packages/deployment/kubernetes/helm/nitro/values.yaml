@@ -1,0 +1,116 @@
+# Arbitrum Nitro Node
+# Full node for Arbitrum One / Arbitrum Sepolia
+
+replicaCount: 1
+
+image:
+  repository: offchainlabs/nitro-node
+  pullPolicy: IfNotPresent
+  tag: "v3.2.1-d81324d"
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "6070"
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsUser: 1000
+  runAsNonRoot: true
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  http:
+    port: 8547
+  ws:
+    port: 8548
+  feed:
+    port: 9642
+  metrics:
+    port: 6070
+
+resources:
+  limits:
+    cpu: 8000m
+    memory: 32Gi
+  requests:
+    cpu: 4000m
+    memory: 16Gi
+
+persistence:
+  enabled: true
+  storageClass: "gp3"
+  accessMode: ReadWriteOnce
+  size: 500Gi
+  mountPath: /home/user/.arbitrum
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+config:
+  # Chain: "arb1" (mainnet), "sepolia-rollup" (sepolia)
+  chain: "sepolia-rollup"
+  
+  # Parent chain (L1) configuration
+  parentChain:
+    # Self-hosted L1 RPC endpoint
+    url: "http://geth-l1.l1.svc.cluster.local:8545"
+    # Self-hosted L1 Beacon endpoint
+    beaconUrl: "http://lighthouse.l1.svc.cluster.local:5052"
+  
+  # HTTP RPC
+  http:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 8547
+    api: "eth,net,web3,arb,debug"
+    vhosts: "*"
+    corsdomain: "*"
+  
+  # WebSocket RPC
+  ws:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 8548
+    api: "eth,net,web3,arb"
+    origins: "*"
+  
+  # Feed (for sequencer feed)
+  feed:
+    port: 9642
+  
+  # Metrics
+  metrics:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 6070
+  
+  # Execution settings
+  execution:
+    caching:
+      archive: false
+    rpc:
+      gasLimit: 50000000
+      txFeeCap: 1
+  
+  # Data directory
+  dataDir: "/home/user/.arbitrum"
+

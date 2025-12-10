@@ -1,0 +1,121 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "bsc-geth.fullname" . }}
+  labels:
+    {{- include "bsc-geth.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "bsc-geth.fullname" . }}
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "bsc-geth.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- toYaml .Values.podAnnotations | nindent 8 }}
+      labels:
+        {{- include "bsc-geth.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "bsc-geth.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: {{ .Chart.Name }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 12 }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command:
+        - geth
+        args:
+        - --{{ .Values.config.network }}
+        - --datadir={{ .Values.config.dataDir }}
+        - --syncmode={{ .Values.config.syncMode }}
+        - --gcmode={{ .Values.config.gcMode }}
+        - --cache={{ .Values.config.cache }}
+        {{- if .Values.config.pruneAncient }}
+        - --history.transactions=0
+        {{- end }}
+        {{- if .Values.config.http.enabled }}
+        - --http
+        - --http.addr={{ .Values.config.http.addr }}
+        - --http.port={{ .Values.config.http.port }}
+        - --http.api={{ .Values.config.http.api }}
+        - --http.vhosts={{ .Values.config.http.vhosts }}
+        - --http.corsdomain={{ .Values.config.http.corsdomain }}
+        {{- end }}
+        {{- if .Values.config.ws.enabled }}
+        - --ws
+        - --ws.addr={{ .Values.config.ws.addr }}
+        - --ws.port={{ .Values.config.ws.port }}
+        - --ws.api={{ .Values.config.ws.api }}
+        - --ws.origins={{ .Values.config.ws.origins }}
+        {{- end }}
+        - --port={{ .Values.config.p2p.port }}
+        - --maxpeers={{ .Values.config.p2p.maxPeers }}
+        {{- if .Values.config.metrics.enabled }}
+        - --metrics
+        - --metrics.addr={{ .Values.config.metrics.addr }}
+        - --metrics.port={{ .Values.config.metrics.port }}
+        {{- end }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.config.http.port }}
+          protocol: TCP
+        - name: ws
+          containerPort: {{ .Values.config.ws.port }}
+          protocol: TCP
+        - name: p2p-tcp
+          containerPort: {{ .Values.config.p2p.port }}
+          protocol: TCP
+        - name: p2p-udp
+          containerPort: {{ .Values.config.p2p.port }}
+          protocol: UDP
+        - name: metrics
+          containerPort: {{ .Values.config.metrics.port }}
+          protocol: TCP
+        livenessProbe:
+          tcpSocket:
+            port: http
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          tcpSocket:
+            port: http
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        resources:
+          {{- toYaml .Values.resources | nindent 12 }}
+        volumeMounts:
+        - name: data
+          mountPath: {{ .Values.config.dataDir }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes:
+      - {{ .Values.persistence.accessMode }}
+      {{- if .Values.persistence.storageClass }}
+      storageClassName: {{ .Values.persistence.storageClass }}
+      {{- end }}
+      resources:
+        requests:
+          storage: {{ .Values.persistence.size }}
+

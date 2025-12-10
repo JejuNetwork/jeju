@@ -1,0 +1,7 @@
+apiVersion: v2
+name: bsc-geth
+description: BNB Smart Chain (BSC) full node
+type: application
+version: 1.0.0
+appVersion: "v1.4.15"
+

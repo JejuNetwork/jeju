@@ -1,0 +1,7 @@
+apiVersion: v2
+name: nitro
+description: Arbitrum Nitro Node for running Arbitrum L2 full nodes
+type: application
+version: 1.0.0
+appVersion: "v3.2.1"
+

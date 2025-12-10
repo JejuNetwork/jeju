@@ -1,0 +1,114 @@
+# BSC Geth - BNB Smart Chain Node
+# Full node for BSC mainnet / testnet (Chapel)
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/bnb-chain/bsc
+  pullPolicy: IfNotPresent
+  tag: "v1.4.15"
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "6060"
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsUser: 1000
+  runAsNonRoot: true
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  http:
+    port: 8545
+  ws:
+    port: 8546
+  p2p:
+    port: 30311
+  metrics:
+    port: 6060
+
+resources:
+  limits:
+    cpu: 8000m
+    memory: 32Gi
+  requests:
+    cpu: 4000m
+    memory: 16Gi
+
+persistence:
+  enabled: true
+  storageClass: "gp3"
+  accessMode: ReadWriteOnce
+  size: 500Gi
+  mountPath: /data
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+config:
+  # Network: "mainnet" or "chapel" (testnet)
+  network: "chapel"
+  
+  # Sync mode
+  syncMode: "snap"
+  
+  # HTTP RPC
+  http:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 8545
+    api: "eth,net,web3,txpool,parlia"
+    vhosts: "*"
+    corsdomain: "*"
+  
+  # WebSocket RPC
+  ws:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 8546
+    api: "eth,net,web3"
+    origins: "*"
+  
+  # P2P
+  p2p:
+    port: 30311
+    maxPeers: 50
+  
+  # Metrics
+  metrics:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 6060
+  
+  # Cache size in MB
+  cache: 8192
+  
+  # Data directory
+  dataDir: "/data"
+  
+  # GC mode
+  gcMode: "full"
+  
+  # Prune ancient data
+  pruneAncient: true
+

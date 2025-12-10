@@ -1,0 +1,138 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "op-geth.fullname" . }}
+  labels:
+    {{- include "op-geth.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "op-geth.fullname" . }}
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "op-geth.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- toYaml .Values.podAnnotations | nindent 8 }}
+      labels:
+        {{- include "op-geth.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "op-geth.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: {{ .Chart.Name }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 12 }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command:
+        - geth
+        args:
+        {{- if .Values.config.network }}
+        - --{{ .Values.config.network }}
+        {{- end }}
+        - --datadir={{ .Values.config.dataDir }}
+        - --rollup.disabletxpoolgossip=true
+        - --rollup.sequencerhttp={{ .Values.config.sequencerUrl }}
+        - --syncmode=snap
+        - --gcmode={{ .Values.config.gcMode }}
+        - --cache={{ .Values.config.cache }}
+        {{- if .Values.config.http.enabled }}
+        - --http
+        - --http.addr={{ .Values.config.http.addr }}
+        - --http.port={{ .Values.config.http.port }}
+        - --http.api={{ .Values.config.http.api }}
+        - --http.vhosts={{ .Values.config.http.vhosts }}
+        - --http.corsdomain={{ .Values.config.http.corsdomain }}
+        {{- end }}
+        {{- if .Values.config.ws.enabled }}
+        - --ws
+        - --ws.addr={{ .Values.config.ws.addr }}
+        - --ws.port={{ .Values.config.ws.port }}
+        - --ws.api={{ .Values.config.ws.api }}
+        - --ws.origins={{ .Values.config.ws.origins }}
+        {{- end }}
+        {{- if .Values.config.authrpc.enabled }}
+        - --authrpc.addr={{ .Values.config.authrpc.addr }}
+        - --authrpc.port={{ .Values.config.authrpc.port }}
+        - --authrpc.vhosts={{ .Values.config.authrpc.vhosts }}
+        - --authrpc.jwtsecret=/secrets/jwt.hex
+        {{- end }}
+        - --port={{ .Values.config.p2p.port }}
+        - --maxpeers={{ .Values.config.p2p.maxPeers }}
+        {{- if .Values.config.metrics.enabled }}
+        - --metrics
+        - --metrics.addr={{ .Values.config.metrics.addr }}
+        - --metrics.port={{ .Values.config.metrics.port }}
+        {{- end }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.config.http.port }}
+          protocol: TCP
+        - name: ws
+          containerPort: {{ .Values.config.ws.port }}
+          protocol: TCP
+        - name: authrpc
+          containerPort: {{ .Values.config.authrpc.port }}
+          protocol: TCP
+        - name: p2p-tcp
+          containerPort: {{ .Values.config.p2p.port }}
+          protocol: TCP
+        - name: p2p-udp
+          containerPort: {{ .Values.config.p2p.port }}
+          protocol: UDP
+        - name: metrics
+          containerPort: {{ .Values.config.metrics.port }}
+          protocol: TCP
+        livenessProbe:
+          tcpSocket:
+            port: http
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          tcpSocket:
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        resources:
+          {{- toYaml .Values.resources | nindent 12 }}
+        volumeMounts:
+        - name: data
+          mountPath: {{ .Values.config.dataDir }}
+        - name: secrets
+          mountPath: /secrets
+          readOnly: true
+      volumes:
+      - name: secrets
+        secret:
+          secretName: {{ include "op-geth.fullname" . }}-secrets
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes:
+      - {{ .Values.persistence.accessMode }}
+      {{- if .Values.persistence.storageClass }}
+      storageClassName: {{ .Values.persistence.storageClass }}
+      {{- end }}
+      resources:
+        requests:
+          storage: {{ .Values.persistence.size }}
+
