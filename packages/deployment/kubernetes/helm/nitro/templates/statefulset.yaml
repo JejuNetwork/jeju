@@ -29,12 +29,14 @@ spec:
         command:
         - nitro
         args:
-        - --chain.id={{ .Values.config.chain }}
+        - --chain.id=421614
         - --parent-chain.connection.url={{ .Values.config.parentChain.url }}
         {{- if .Values.config.parentChain.beaconUrl }}
         - --parent-chain.blob-client.beacon-url={{ .Values.config.parentChain.beaconUrl }}
         {{- end }}
         - --persistent.chain={{ .Values.config.dataDir }}
+        - --init.latest=pruned
+        - --init.force
         {{- if .Values.config.http.enabled }}
         - --http.addr={{ .Values.config.http.addr }}
         - --http.port={{ .Values.config.http.port }}

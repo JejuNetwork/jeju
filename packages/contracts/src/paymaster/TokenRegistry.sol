@@ -9,16 +9,20 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 /**
  * @title TokenRegistry
  * @author Jeju Network
- * @notice Permissionless registry for tokens that can be used for gas payment
- * @dev Central registry enabling any project to register their token for paymaster usage.
- *      Once registered, PaymasterFactory can deploy a dedicated paymaster instance.
+ * @notice Permissionless registry for tokens enabling cross-chain gas payment
+ * @dev Central registry enabling any project to register their token for:
+ *      - Gas payment on Jeju (4337 paymaster support)
+ *      - Cross-chain liquidity via EIL XLPs
+ *      - Multi-chain gas sponsorship without bridging
  *
  * Architecture:
  * - Projects register their ERC20 token with oracle address
  * - Set fee range (min/max) within global bounds
+ * - Configure cross-chain availability (which chains token exists on)
  * - Pay registration fee to prevent spam
  * - Token becomes discoverable for LP liquidity provision
  * - Factory can deploy paymaster for registered tokens
+ * - XLPs can provide liquidity to enable gas payment with this token
  *
  * Fee Model:
  * - Global bounds: 0-5% (set by protocol governance)
@@ -29,9 +33,10 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
  * Registration Flow:
  * 1. Project calls registerToken() with 0.1 ETH fee
  * 2. Contract validates: ERC20, oracle, fee range
- * 3. Token added to registry
+ * 3. Token added to registry with cross-chain config
  * 4. Anyone can deploy paymaster via factory
- * 5. LPs can start providing liquidity
+ * 5. XLPs can start providing liquidity on any supported chain
+ * 6. Users can pay gas with token on any chain where liquidity exists
  *
  * @custom:security-contact security@jeju.network
  */
@@ -52,6 +57,17 @@ contract TokenRegistry is Ownable, Pausable, ReentrancyGuard {
         uint256 totalVolume; // Total gas paid with this token (in wei equivalent)
         uint256 totalTransactions; // Total transactions using this token
         bytes32 metadataHash; // IPFS hash for additional metadata
+        bool crossChainEnabled; // Whether token can be used for cross-chain gas
+        uint256 totalLiquidity; // Total XLP liquidity across all chains
+    }
+
+    /// @notice Cross-chain configuration for a token
+    struct CrossChainConfig {
+        uint256 chainId; // Chain ID where token exists
+        address tokenAddress; // Token address on that chain
+        address paymasterAddress; // CrossChainPaymaster on that chain
+        uint256 liquidity; // XLP liquidity available on that chain
+        bool isActive; // Whether cross-chain is enabled for this chain
     }
 
     // ============ State Variables ============
@@ -80,6 +96,23 @@ contract TokenRegistry is Ownable, Pausable, ReentrancyGuard {
     /// @notice Total registration fees collected
     uint256 public totalFeesCollected;
 
+    // ============ Cross-Chain State ============
+
+    /// @notice Cross-chain configs: local token => chainId => CrossChainConfig
+    mapping(address => mapping(uint256 => CrossChainConfig)) public crossChainConfigs;
+
+    /// @notice Supported chain IDs for cross-chain gas
+    uint256[] public supportedChainIds;
+
+    /// @notice Whether a chain ID is supported
+    mapping(uint256 => bool) public isChainSupported;
+
+    /// @notice Cross-chain paymaster addresses per chain
+    mapping(uint256 => address) public chainPaymasters;
+
+    /// @notice Total cross-chain liquidity across all tokens
+    uint256 public totalCrossChainLiquidity;
+
     // ============ Events ============
 
     event TokenRegistered(
@@ -101,6 +134,14 @@ contract TokenRegistry is Ownable, Pausable, ReentrancyGuard {
     event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
     event MetadataUpdated(address indexed token, bytes32 indexed metadataHash);
 
+    // Cross-chain events
+    event CrossChainEnabled(address indexed token, uint256 indexed chainId, address tokenOnChain, address paymaster);
+    event CrossChainDisabled(address indexed token, uint256 indexed chainId);
+    event CrossChainLiquidityUpdated(address indexed token, uint256 indexed chainId, uint256 newLiquidity);
+    event ChainPaymasterRegistered(uint256 indexed chainId, address indexed paymaster);
+    event SupportedChainAdded(uint256 indexed chainId);
+    event SupportedChainRemoved(uint256 indexed chainId);
+
     // ============ Errors ============
 
     error TokenAlreadyRegistered(address token);
@@ -113,6 +154,8 @@ contract TokenRegistry is Ownable, Pausable, ReentrancyGuard {
     error InvalidTreasury();
     error TransferFailed();
     error FeeOnTransferToken(address token);
+    error ChainNotSupported(uint256 chainId);
+    error CrossChainNotEnabled(address token, uint256 chainId);
 
     // ============ Constructor ============
 
@@ -550,12 +593,199 @@ contract TokenRegistry is Ownable, Pausable, ReentrancyGuard {
         if (!success) revert TransferFailed();
     }
 
+    // ============ Cross-Chain Management ============
+
+    /**
+     * @notice Add a supported chain for cross-chain gas payment
+     * @param chainId Chain ID to support
+     * @param paymaster CrossChainPaymaster address on that chain
+     */
+    function addSupportedChain(uint256 chainId, address paymaster) external onlyOwner {
+        require(paymaster != address(0), "Invalid paymaster");
+        require(!isChainSupported[chainId], "Chain already supported");
+
+        isChainSupported[chainId] = true;
+        supportedChainIds.push(chainId);
+        chainPaymasters[chainId] = paymaster;
+
+        emit SupportedChainAdded(chainId);
+        emit ChainPaymasterRegistered(chainId, paymaster);
+    }
+
+    /**
+     * @notice Remove a supported chain
+     * @param chainId Chain ID to remove
+     */
+    function removeSupportedChain(uint256 chainId) external onlyOwner {
+        require(isChainSupported[chainId], "Chain not supported");
+
+        isChainSupported[chainId] = false;
+        chainPaymasters[chainId] = address(0);
+
+        // Remove from array
+        for (uint256 i = 0; i < supportedChainIds.length; i++) {
+            if (supportedChainIds[i] == chainId) {
+                supportedChainIds[i] = supportedChainIds[supportedChainIds.length - 1];
+                supportedChainIds.pop();
+                break;
+            }
+        }
+
+        emit SupportedChainRemoved(chainId);
+    }
+
+    /**
+     * @notice Enable cross-chain gas payment for a token on a specific chain
+     * @param localToken Token address on this chain
+     * @param chainId Target chain ID
+     * @param tokenOnChain Token address on target chain
+     * @dev Only token registrant can enable cross-chain
+     */
+    function enableCrossChain(address localToken, uint256 chainId, address tokenOnChain) external {
+        TokenConfig storage config = tokens[localToken];
+        if (config.tokenAddress == address(0)) revert TokenNotRegistered(localToken);
+        require(msg.sender == config.registrant || msg.sender == owner(), "Not authorized");
+        if (!isChainSupported[chainId]) revert ChainNotSupported(chainId);
+        require(tokenOnChain != address(0), "Invalid token address");
+
+        crossChainConfigs[localToken][chainId] = CrossChainConfig({
+            chainId: chainId,
+            tokenAddress: tokenOnChain,
+            paymasterAddress: chainPaymasters[chainId],
+            liquidity: 0,
+            isActive: true
+        });
+
+        config.crossChainEnabled = true;
+
+        emit CrossChainEnabled(localToken, chainId, tokenOnChain, chainPaymasters[chainId]);
+    }
+
+    /**
+     * @notice Disable cross-chain for a token on a specific chain
+     * @param localToken Token address on this chain
+     * @param chainId Target chain ID
+     */
+    function disableCrossChain(address localToken, uint256 chainId) external {
+        TokenConfig storage config = tokens[localToken];
+        if (config.tokenAddress == address(0)) revert TokenNotRegistered(localToken);
+        require(msg.sender == config.registrant || msg.sender == owner(), "Not authorized");
+
+        crossChainConfigs[localToken][chainId].isActive = false;
+
+        emit CrossChainDisabled(localToken, chainId);
+    }
+
+    /**
+     * @notice Update cross-chain liquidity for a token (called by XLP system)
+     * @param localToken Token address on this chain
+     * @param chainId Chain where liquidity exists
+     * @param newLiquidity Updated liquidity amount
+     */
+    function updateCrossChainLiquidity(address localToken, uint256 chainId, uint256 newLiquidity) external onlyOwner {
+        CrossChainConfig storage ccConfig = crossChainConfigs[localToken][chainId];
+        if (!ccConfig.isActive) revert CrossChainNotEnabled(localToken, chainId);
+
+        uint256 oldLiquidity = ccConfig.liquidity;
+        ccConfig.liquidity = newLiquidity;
+
+        // Update token's total liquidity
+        TokenConfig storage config = tokens[localToken];
+        config.totalLiquidity = config.totalLiquidity - oldLiquidity + newLiquidity;
+
+        // Update global cross-chain liquidity
+        totalCrossChainLiquidity = totalCrossChainLiquidity - oldLiquidity + newLiquidity;
+
+        emit CrossChainLiquidityUpdated(localToken, chainId, newLiquidity);
+    }
+
+    /**
+     * @notice Get cross-chain config for a token
+     * @param localToken Token address
+     * @param chainId Chain ID
+     * @return config Cross-chain configuration
+     */
+    function getCrossChainConfig(address localToken, uint256 chainId)
+        external
+        view
+        returns (CrossChainConfig memory config)
+    {
+        return crossChainConfigs[localToken][chainId];
+    }
+
+    /**
+     * @notice Get all chains where a token can be used for gas
+     * @param localToken Token address
+     * @return chainIds Array of chain IDs where token is enabled
+     * @return liquidity Array of liquidity amounts per chain
+     */
+    function getTokenCrossChainInfo(address localToken)
+        external
+        view
+        returns (uint256[] memory chainIds, uint256[] memory liquidity)
+    {
+        uint256 count = 0;
+
+        // Count enabled chains
+        for (uint256 i = 0; i < supportedChainIds.length; i++) {
+            if (crossChainConfigs[localToken][supportedChainIds[i]].isActive) {
+                count++;
+            }
+        }
+
+        chainIds = new uint256[](count);
+        liquidity = new uint256[](count);
+        uint256 index = 0;
+
+        for (uint256 i = 0; i < supportedChainIds.length; i++) {
+            CrossChainConfig storage ccConfig = crossChainConfigs[localToken][supportedChainIds[i]];
+            if (ccConfig.isActive) {
+                chainIds[index] = supportedChainIds[i];
+                liquidity[index] = ccConfig.liquidity;
+                index++;
+            }
+        }
+    }
+
+    /**
+     * @notice Get all supported chain IDs
+     * @return Array of supported chain IDs
+     */
+    function getSupportedChains() external view returns (uint256[] memory) {
+        return supportedChainIds;
+    }
+
+    /**
+     * @notice Find best chain for gas payment based on liquidity
+     * @param localToken Token to pay gas with
+     * @param requiredLiquidity Minimum liquidity needed
+     * @return bestChainId Chain with most liquidity meeting minimum
+     * @return availableLiquidity Liquidity on that chain
+     */
+    function findBestChainForGas(address localToken, uint256 requiredLiquidity)
+        external
+        view
+        returns (uint256 bestChainId, uint256 availableLiquidity)
+    {
+        for (uint256 i = 0; i < supportedChainIds.length; i++) {
+            uint256 cid = supportedChainIds[i];
+            CrossChainConfig storage ccConfig = crossChainConfigs[localToken][cid];
+
+            if (ccConfig.isActive && ccConfig.liquidity >= requiredLiquidity) {
+                if (ccConfig.liquidity > availableLiquidity) {
+                    bestChainId = cid;
+                    availableLiquidity = ccConfig.liquidity;
+                }
+            }
+        }
+    }
+
     /**
      * @notice Returns the contract version
      * @return Version string in semver format
      */
     function version() external pure returns (string memory) {
-        return "1.0.0";
+        return "2.0.0";
     }
 
     // ============ Internal Validation ============

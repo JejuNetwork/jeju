@@ -1,27 +1,28 @@
 {
   "network": "testnet",
   "version": "2.0.0",
-  "lastUpdated": "2025-12-10T04:17:40.542Z",
+  "lastUpdated": "2025-12-10T17:05:00.000Z",
   "deployer": "0x5dB1268e424da5C26451e4a8B9C221e6DE3C3064",
   "chains": {
-    "97": {
-      "chainId": 97,
-      "name": "BSC Testnet",
-      "rpcUrl": "https://data-seed-prebsc-1-s1.bnbchain.org:8545",
-      "status": "pending",
+    "11155111": {
+      "chainId": 11155111,
+      "name": "Sepolia",
+      "internalRpcUrl": "http://geth-l1.l1.svc.cluster.local:8545",
+      "externalRpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
+      "status": "deployed",
       "contracts": {
-        "solverRegistry": "",
-        "inputSettler": "",
-        "outputSettler": "",
-        "oracle": "",
+        "solverRegistry": "0x08cAa161780d195E0799b73b318da5D175b85313",
+        "inputSettler": "0xD28752E9bBC29DDc14DA83dD673a36A5A19e91B1",
+        "outputSettler": "0x198D8D23B57C3F490Bc78dbe66D9c23B27A289ca",
+        "oracle": "0xe1f87369beED68C52003372Fe33Db8A245317B6E",
         "oracleType": "simple"
-      },
-      "_note": "Deploy for BSC cross-chain support"
+      }
     },
     "84532": {
       "chainId": 84532,
       "name": "Base Sepolia",
-      "rpcUrl": "https://sepolia.base.org",
+      "internalRpcUrl": "http://op-geth-base-sepolia.l2-base.svc.cluster.local:8545",
+      "externalRpcUrl": "https://sepolia.base.org",
       "status": "deployed",
       "contracts": {
         "solverRegistry": "0xecfE47302D941c8ce5B0009C0ac2E6D6ee2A42de",
@@ -35,10 +36,11 @@
         "ElizaOSToken": "0x7af64e6aE21076DE21EFe71F243A75664a17C34b"
       }
     },
-    "420690": {
-      "chainId": 420690,
-      "name": "Jeju Testnet",
-      "rpcUrl": "https://testnet-rpc.jeju.network",
+    "11155420": {
+      "chainId": 11155420,
+      "name": "Optimism Sepolia",
+      "internalRpcUrl": "http://op-geth-optimism-sepolia.l2-optimism.svc.cluster.local:8545",
+      "externalRpcUrl": "https://sepolia.optimism.io",
       "status": "pending",
       "contracts": {
         "solverRegistry": "",
@@ -47,12 +49,13 @@
         "oracle": "",
         "oracleType": "superchain"
       },
-      "_note": "Deploy when Jeju testnet RPC is live"
+      "_note": "Deploy for Optimism cross-chain support"
     },
     "421614": {
       "chainId": 421614,
       "name": "Arbitrum Sepolia",
-      "rpcUrl": "https://sepolia-rollup.arbitrum.io/rpc",
+      "internalRpcUrl": "http://nitro-arbitrum-sepolia.l2-arbitrum.svc.cluster.local:8547",
+      "externalRpcUrl": "https://sepolia-rollup.arbitrum.io/rpc",
       "status": "pending",
       "contracts": {
         "solverRegistry": "",
@@ -63,23 +66,11 @@
       },
       "_note": "Deploy for Arbitrum cross-chain support"
     },
-    "11155111": {
-      "chainId": 11155111,
-      "name": "Sepolia",
-      "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
-      "status": "deployed",
-      "contracts": {
-        "solverRegistry": "0x08cAa161780d195E0799b73b318da5D175b85313",
-        "inputSettler": "0xD28752E9bBC29DDc14DA83dD673a36A5A19e91B1",
-        "outputSettler": "0x198D8D23B57C3F490Bc78dbe66D9c23B27A289ca",
-        "oracle": "0xe1f87369beED68C52003372Fe33Db8A245317B6E",
-        "oracleType": "simple"
-      }
-    },
-    "11155420": {
-      "chainId": 11155420,
-      "name": "Optimism Sepolia",
-      "rpcUrl": "https://sepolia.optimism.io",
+    "420690": {
+      "chainId": 420690,
+      "name": "Jeju Testnet",
+      "internalRpcUrl": "http://reth-sequencer.execution.svc.cluster.local:8545",
+      "externalRpcUrl": "https://testnet-rpc.jeju.network",
       "status": "pending",
       "contracts": {
         "solverRegistry": "",
@@ -88,7 +79,7 @@
         "oracle": "",
         "oracleType": "superchain"
       },
-      "_note": "Deploy for Optimism cross-chain support"
+      "_note": "Deploy when Jeju testnet RPC is live"
     }
   },
   "crossChainRoutes": [
@@ -139,30 +130,39 @@
       "to": 11155420,
       "enabled": true,
       "description": "Jeju Testnet → Optimism Sepolia"
-    },
-    {
-      "from": 97,
-      "to": 420690,
-      "enabled": true,
-      "description": "BSC Testnet → Jeju Testnet"
-    },
-    {
-      "from": 420690,
-      "to": 97,
-      "enabled": true,
-      "description": "Jeju Testnet → BSC Testnet"
     }
   ],
   "deploymentOrder": [
     "1. Fund deployer on all chains",
-    "2. Deploy OIF on Sepolia (L1 hub)",
-    "3. Deploy OIF on Base Sepolia (already done)",
+    "2. Deploy OIF on Sepolia (L1 hub) - DONE",
+    "3. Deploy OIF on Base Sepolia - DONE",
     "4. Deploy OIF on Arbitrum Sepolia",
     "5. Deploy OIF on Optimism Sepolia",
-    "6. Deploy OIF on BSC Testnet",
-    "7. Deploy OIF on Jeju Testnet (when RPC live)",
-    "8. Configure cross-chain attesters",
-    "9. Register initial solvers",
-    "10. Verify cross-chain liquidity flows"
-  ]
+    "6. Deploy OIF on Jeju Testnet (when RPC live)",
+    "7. Configure cross-chain attesters",
+    "8. Register initial solvers",
+    "9. Verify cross-chain liquidity flows"
+  ],
+  "infrastructure": {
+    "l1": {
+      "namespace": "l1",
+      "pods": ["geth-l1-0", "lighthouse-0"]
+    },
+    "l2-base": {
+      "namespace": "l2-base",
+      "pods": ["op-geth-base-sepolia-0"]
+    },
+    "l2-optimism": {
+      "namespace": "l2-optimism",
+      "pods": ["op-geth-optimism-sepolia-0"]
+    },
+    "l2-arbitrum": {
+      "namespace": "l2-arbitrum",
+      "pods": ["nitro-arbitrum-sepolia-0"]
+    },
+    "jeju": {
+      "namespace": "execution",
+      "pods": ["reth-sequencer-0", "reth-rpc-0"]
+    }
+  }
 }

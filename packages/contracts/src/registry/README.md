@@ -67,7 +67,7 @@ identityRegistry.increaseStake{value: 0.009 ether}(
 );
 
 // Set metadata
-identityRegistry.setMetadata(agentId, "model", abi.encode("GPT-4"));
+identityRegistry.setMetadata(agentId, "model", abi.encode("GPT-5"));
 
 // Update tags for discovery
 string[] memory tags = new string[](2);
@@ -389,7 +389,7 @@ Approximate gas costs on Jeju (subject to change):
 string memory agentCard = uploadToIPFS({
     "name": "AI Assistant",
     "description": "Helpful AI chatbot",
-    "model": "GPT-4-Turbo",
+    "model": "GPT-5",
     "capabilities": ["chat", "code", "analysis"]
 });
 
@@ -398,7 +398,7 @@ uint256 agentId = identityRegistry.register(agentCard);
 
 // Set metadata
 identityRegistry.setMetadata(agentId, "name", abi.encode("AI Assistant"));
-identityRegistry.setMetadata(agentId, "model", abi.encode("GPT-4-Turbo"));
+identityRegistry.setMetadata(agentId, "model", abi.encode("GPT-5"));
 identityRegistry.setMetadata(agentId, "status", abi.encode("active"));
 ```
 

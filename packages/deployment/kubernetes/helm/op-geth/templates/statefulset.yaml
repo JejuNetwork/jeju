@@ -30,7 +30,7 @@ spec:
         - geth
         args:
         {{- if .Values.config.network }}
-        - --{{ .Values.config.network }}
+        - --op-network={{ .Values.config.network }}
         {{- end }}
         - --datadir={{ .Values.config.dataDir }}
         - --rollup.disabletxpoolgossip=true

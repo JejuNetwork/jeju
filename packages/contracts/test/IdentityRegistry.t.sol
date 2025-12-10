@@ -245,16 +245,16 @@ contract IdentityRegistryTest is Test {
 
         // Set initial metadata
         registry.setMetadata(agentId, "name", abi.encode("AI Assistant"));
-        registry.setMetadata(agentId, "model", abi.encode("GPT-4"));
+        registry.setMetadata(agentId, "model", abi.encode("GPT-5"));
         registry.setMetadata(agentId, "capabilities", abi.encode("chat,code,analysis"));
 
         // Verify metadata
         assertEq(abi.decode(registry.getMetadata(agentId, "name"), (string)), "AI Assistant");
-        assertEq(abi.decode(registry.getMetadata(agentId, "model"), (string)), "GPT-4");
+        assertEq(abi.decode(registry.getMetadata(agentId, "model"), (string)), "GPT-5");
 
         // Update metadata
-        registry.setMetadata(agentId, "model", abi.encode("GPT-4-Turbo"));
-        assertEq(abi.decode(registry.getMetadata(agentId, "model"), (string)), "GPT-4-Turbo");
+        registry.setMetadata(agentId, "model", abi.encode("GPT-5"));
+        assertEq(abi.decode(registry.getMetadata(agentId, "model"), (string)), "GPT-5");
 
         // Transfer to new owner
         registry.transferFrom(alice, bob, agentId);

@@ -16,9 +16,10 @@ interface IPriceOracle {
 /**
  * @title PaymasterFactory
  * @author Jeju Network
- * @notice Factory for deploying token-specific paymaster instances
+ * @notice Factory for deploying token-specific paymaster instances with cross-chain support
  * @dev Enables permissionless paymaster deployment for any registered token.
  *      Each deployment creates a complete paymaster system: vault, distributor, and paymaster.
+ *      Integrates with EIL CrossChainPaymaster for XLP liquidity.
  *
  * Architecture:
  * - Projects register token in TokenRegistry first
@@ -28,16 +29,28 @@ interface IPriceOracle {
  *   2. FeeDistributor (fee splits)
  *   3. LiquidityPaymaster (ERC-4337 sponsorship)
  * - Wires all contracts together automatically
+ * - Registers token with CrossChainPaymaster for XLP liquidity
  * - Transfers ownership to operator
+ *
+ * XLP Integration:
+ * - Tokens deployed via factory are auto-registered with CrossChainPaymaster
+ * - XLPs can provide liquidity for these tokens
+ * - Users can pay gas with any XLP-funded token
+ * - No bridging needed - use whatever token gives best rate
  *
  * Usage Flow:
  * 1. Register token: TokenRegistry.registerToken()
  * 2. Deploy paymaster: factory.deployPaymaster(token, feeMargin)
- * 3. Add liquidity: vault.addETHLiquidity()
- * 4. Users can pay gas with token!
+ * 3. XLPs add liquidity: crossChainPaymaster.depositLiquidity(token, amount)
+ * 4. Users can pay gas with token on any supported chain!
  *
  * @custom:security-contact security@jeju.network
  */
+interface ICrossChainPaymaster {
+    function setTokenSupport(address token, bool supported) external;
+    function supportedTokens(address token) external view returns (bool);
+}
+
 contract PaymasterFactory is Ownable {
     // ============ State Variables ============
 
@@ -49,6 +62,9 @@ contract PaymasterFactory is Ownable {
 
     /// @notice Price oracle (shared by all paymasters)
     IPriceOracle public immutable oracle;
+
+    /// @notice CrossChainPaymaster for XLP liquidity integration
+    ICrossChainPaymaster public crossChainPaymaster;
 
     /// @notice Deployment information for each token
     struct Deployment {
@@ -84,6 +100,10 @@ contract PaymasterFactory is Ownable {
 
     event OwnershipTransferred(address indexed token, address indexed paymaster, address indexed newOwner);
 
+    event TokenRegisteredWithCrossChain(address indexed token, address indexed crossChainPaymaster);
+
+    event CrossChainPaymasterUpdated(address indexed oldPaymaster, address indexed newPaymaster);
+
     // ============ Errors ============
 
     error TokenNotRegistered(address token);
@@ -91,6 +111,7 @@ contract PaymasterFactory is Ownable {
     error InvalidFeeMargin(uint256 margin, uint256 min, uint256 max);
     error DeploymentFailed(string reason);
     error InvalidOperator(address operator);
+    error CrossChainNotConfigured();
 
     // ============ Constructor ============
 
@@ -109,6 +130,17 @@ contract PaymasterFactory is Ownable {
         registry = TokenRegistry(_registry);
         entryPoint = IEntryPoint(_entryPoint);
         oracle = IPriceOracle(_oracle);
+    }
+
+    /**
+     * @notice Set the CrossChainPaymaster for XLP integration
+     * @param _crossChainPaymaster CrossChainPaymaster contract address
+     */
+    function setCrossChainPaymaster(address _crossChainPaymaster) external onlyOwner {
+        require(_crossChainPaymaster != address(0), "Invalid paymaster");
+        address oldPaymaster = address(crossChainPaymaster);
+        crossChainPaymaster = ICrossChainPaymaster(_crossChainPaymaster);
+        emit CrossChainPaymasterUpdated(oldPaymaster, _crossChainPaymaster);
     }
 
     // ============ Core Functions ============
@@ -219,12 +251,51 @@ contract PaymasterFactory is Ownable {
         // Set fee margin (factory owns it now)
         _paymaster.emergencySetFeeMargin(feeMargin);
 
+        // Register token with CrossChainPaymaster for XLP liquidity (if configured)
+        if (address(crossChainPaymaster) != address(0)) {
+            // Enable this token in CrossChainPaymaster so XLPs can provide liquidity
+            crossChainPaymaster.setTokenSupport(token, true);
+            emit TokenRegisteredWithCrossChain(token, address(crossChainPaymaster));
+        }
+
         // Transfer ownership (contracts are fully configured)
         _vault.transferOwnership(operator);
         _distributor.transferOwnership(operator);
         _paymaster.transferOwnership(operator);
 
         return (paymaster, vault, distributor);
+    }
+
+    /**
+     * @notice Register an existing token with CrossChainPaymaster
+     * @param token Token address to register
+     * @dev Use for tokens already deployed but not yet registered for XLP liquidity
+     */
+    function registerTokenWithCrossChain(address token) external {
+        require(deployments[token].paymaster != address(0), "Token not deployed");
+        require(
+            msg.sender == deployments[token].operator || msg.sender == owner(),
+            "Not authorized"
+        );
+        if (address(crossChainPaymaster) == address(0)) revert CrossChainNotConfigured();
+
+        crossChainPaymaster.setTokenSupport(token, true);
+        emit TokenRegisteredWithCrossChain(token, address(crossChainPaymaster));
+    }
+
+    /**
+     * @notice Batch register multiple tokens with CrossChainPaymaster
+     * @param tokens Array of token addresses
+     */
+    function batchRegisterWithCrossChain(address[] calldata tokens) external onlyOwner {
+        if (address(crossChainPaymaster) == address(0)) revert CrossChainNotConfigured();
+
+        for (uint256 i = 0; i < tokens.length; i++) {
+            if (deployments[tokens[i]].paymaster != address(0)) {
+                crossChainPaymaster.setTokenSupport(tokens[i], true);
+                emit TokenRegisteredWithCrossChain(tokens[i], address(crossChainPaymaster));
+            }
+        }
     }
 
     // ============ View Functions ============
@@ -317,10 +388,28 @@ contract PaymasterFactory is Ownable {
     }
 
     /**
+     * @notice Check if a token is registered with CrossChainPaymaster
+     * @param token Token to check
+     * @return registered Whether token is registered
+     */
+    function isTokenCrossChainEnabled(address token) external view returns (bool) {
+        if (address(crossChainPaymaster) == address(0)) return false;
+        return crossChainPaymaster.supportedTokens(token);
+    }
+
+    /**
+     * @notice Get cross-chain paymaster address
+     * @return Address of CrossChainPaymaster
+     */
+    function getCrossChainPaymaster() external view returns (address) {
+        return address(crossChainPaymaster);
+    }
+
+    /**
      * @notice Returns the contract version
      * @return Version string in semver format
      */
     function version() external pure returns (string memory) {
-        return "1.0.0";
+        return "2.0.0";
     }
 }

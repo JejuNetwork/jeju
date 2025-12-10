@@ -4,9 +4,10 @@
 replicaCount: 1
 
 image:
-  repository: ghcr.io/bnb-chain/bsc
+  # Official BSC node image from Docker Hub
+  repository: bnbchain/bsc
   pullPolicy: IfNotPresent
-  tag: "v1.4.15"
+  tag: "1.4.15"
 
 nameOverride: ""
 fullnameOverride: ""
