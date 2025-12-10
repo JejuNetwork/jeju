@@ -3,7 +3,7 @@ replicaCount: 1
 image:
   repository: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-proposer
   pullPolicy: IfNotPresent
-  tag: "v1.16.3"
+  tag: "v1.10.0"
 
 nameOverride: ""
 fullnameOverride: ""
@@ -20,14 +20,14 @@ podAnnotations:
 podSecurityContext:
   fsGroup: 1000
   runAsUser: 1000
-  runAsNonRoot: true
+  # runAsNonRoot: true
 
 securityContext:
   capabilities:
     drop:
     - ALL
   readOnlyRootFilesystem: true
-  runAsNonRoot: true
+  # runAsNonRoot: true
   runAsUser: 1000
 
 service:
@@ -45,14 +45,10 @@ resources:
     cpu: 500m
     memory: 1Gi
 
-nodeSelector:
-  role: core
+nodeSelector: {}
 
-tolerations:
-  - key: workload
-    operator: Equal
-    value: core
-    effect: NoSchedule
+
+tolerations: []
 
 affinity: {}
 

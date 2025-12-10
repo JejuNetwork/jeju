@@ -1,0 +1,246 @@
+name: Leaderboard Pipelines
+
+on:
+  schedule:
+    # Run at 23:00 UTC daily
+    - cron: "0 23 * * *"
+  workflow_dispatch:
+    inputs:
+      force_ingest:
+        description: "Force reingest of data"
+        type: boolean
+        default: false
+      force_process:
+        description: "Force reprocessing/re-export of data"
+        type: boolean
+        default: false
+      force_summaries:
+        description: "Force regeneration of summaries"
+        type: boolean
+        default: false
+      summary_types_to_run:
+        description: "Comma-separated list of summary types (repository,overall,contributors)"
+        type: string
+        default: "repository,overall,contributors"
+      summary_intervals_to_run:
+        description: "Comma-separated list of intervals (daily,weekly,monthly)"
+        type: string
+        default: "daily,weekly,monthly"
+      startDate:
+        description: "Start date (YYYY-MM-DD)"
+        type: string
+      endDate:
+        description: "End date (YYYY-MM-DD)"
+        type: string
+
+defaults:
+  run:
+    working-directory: apps/leaderboard
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+  PIPELINE_DATA_BRANCH: "leaderboard-data"
+  DATA_DIR: "data"
+
+jobs:
+  ingest-export:
+    name: Ingest/Export Pipeline
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Set conditional variables
+        id: set-vars
+        run: |
+          START_DATE_ARG="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.startDate != '' && format(' -a {0}', github.event.inputs.startDate) || '' }}"
+          END_DATE_ARG="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.endDate != '' && format(' -b {0}', github.event.inputs.endDate) || '' }}"
+          FORCE_INGEST_ARG="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.force_ingest == 'true' && ' -f' || '' }}"
+          FORCE_PROCESS_ARG="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.force_process == 'true' && ' -f' || '' }}"
+
+          echo "start_date_arg=$START_DATE_ARG" >> $GITHUB_ENV
+          echo "end_date_arg=$END_DATE_ARG" >> $GITHUB_ENV
+          echo "force_ingest_arg=$FORCE_INGEST_ARG" >> $GITHUB_ENV
+          echo "force_process_arg=$FORCE_PROCESS_ARG" >> $GITHUB_ENV
+
+      - name: Setup pipeline-data branch
+        uses: ./.github/actions/leaderboard-pipeline-data
+        with:
+          operation: setup
+          branch_name: ${{ env.PIPELINE_DATA_BRANCH }}
+          data_dir: ${{ env.DATA_DIR }}
+
+      - name: Restore database
+        uses: ./.github/actions/leaderboard-restore-db
+        with:
+          operation: restore
+          dump_dir: ${{ env.DATA_DIR }}/dump
+          db_path: ${{ env.DATA_DIR }}/db.sqlite
+
+      - name: Run ingest pipeline
+        run: bun run pipeline ingest${{ env.force_ingest_arg }}${{ env.start_date_arg }}${{ env.end_date_arg }}
+
+      - name: Run process pipeline
+        run: bun run pipeline process${{ env.force_process_arg }}
+
+      - name: Run export pipeline
+        run: |
+          bun run pipeline export${{ env.start_date_arg }}${{ env.end_date_arg }}${{ env.force_process_arg }}
+          bun run pipeline export --days 2 -f
+
+      - name: Dump SQLite database
+        uses: ./.github/actions/leaderboard-restore-db
+        with:
+          operation: dump
+          db_path: ${{ env.DATA_DIR }}/db.sqlite
+          dump_dir: ${{ env.DATA_DIR }}/dump
+
+      - name: Update pipeline-data branch
+        uses: ./.github/actions/leaderboard-pipeline-data
+        with:
+          operation: update
+          data_dir: ${{ env.DATA_DIR }}
+          commit_message: "Ingest/export run: $(date -u +'%Y-%m-%d %H:%M')"
+          branch_name: ${{ env.PIPELINE_DATA_BRANCH }}
+
+      - name: Cleanup
+        if: always()
+        uses: ./.github/actions/leaderboard-pipeline-data
+        with:
+          operation: cleanup
+          data_dir: ${{ env.DATA_DIR }}
+          branch_name: ${{ env.PIPELINE_DATA_BRANCH }}
+
+  generate-summaries:
+    name: Generate Summaries
+    needs: ingest-export
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.summary_types_to_run != '' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Setup pipeline-data branch
+        uses: ./.github/actions/leaderboard-pipeline-data
+        with:
+          operation: setup
+          branch_name: ${{ env.PIPELINE_DATA_BRANCH }}
+          data_dir: ${{ env.DATA_DIR }}
+
+      - name: Restore database
+        uses: ./.github/actions/leaderboard-restore-db
+        with:
+          operation: restore
+          dump_dir: ${{ env.DATA_DIR }}/dump
+          db_path: ${{ env.DATA_DIR }}/db.sqlite
+
+      - name: Set run conditions
+        id: conditions
+        run: |
+          DAY_OF_WEEK=$(date +%u)
+          if [ "${{ github.event_name }}" == "schedule" ]; then
+            echo "RUN_DAILY=true" >> $GITHUB_OUTPUT
+            if [ "$DAY_OF_WEEK" = "3" ] || [ "$DAY_OF_WEEK" = "6" ]; then
+              echo "RUN_WEEKLY=true" >> $GITHUB_OUTPUT
+            fi
+            if [ "$DAY_OF_WEEK" = "7" ]; then
+              echo "RUN_MONTHLY=true" >> $GITHUB_OUTPUT
+              echo "RUN_CONTRIBUTORS=true" >> $GITHUB_OUTPUT
+            fi
+            echo "RUN_REPOSITORIES=true" >> $GITHUB_OUTPUT
+            echo "RUN_OVERALL=true" >> $GITHUB_OUTPUT
+          else
+            SUMMARY_TYPES="${{ github.event.inputs.summary_types_to_run }}"
+            SUMMARY_INTERVALS="${{ github.event.inputs.summary_intervals_to_run }}"
+
+            if [[ "$SUMMARY_INTERVALS" == *'daily'* ]]; then echo "RUN_DAILY=true"; else echo "RUN_DAILY=false"; fi >> $GITHUB_OUTPUT
+            if [[ "$SUMMARY_INTERVALS" == *'weekly'* ]]; then echo "RUN_WEEKLY=true"; else echo "RUN_WEEKLY=false"; fi >> $GITHUB_OUTPUT
+            if [[ "$SUMMARY_INTERVALS" == *'monthly'* ]]; then echo "RUN_MONTHLY=true"; else echo "RUN_MONTHLY=false"; fi >> $GITHUB_OUTPUT
+            if [[ "$SUMMARY_TYPES" == *'contributors'* ]]; then echo "RUN_CONTRIBUTORS=true"; else echo "RUN_CONTRIBUTORS=false"; fi >> $GITHUB_OUTPUT
+            if [[ "$SUMMARY_TYPES" == *'repository'* ]]; then echo "RUN_REPOSITORIES=true"; else echo "RUN_REPOSITORIES=false"; fi >> $GITHUB_OUTPUT
+            if [[ "$SUMMARY_TYPES" == *'overall'* ]]; then echo "RUN_OVERALL=true"; else echo "RUN_OVERALL=false"; fi >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run Overall Summaries
+        if: steps.conditions.outputs.RUN_OVERALL == 'true'
+        uses: ./.github/actions/leaderboard-run-summary
+        with:
+          summary-type: "overall"
+          daily: ${{ steps.conditions.outputs.RUN_DAILY }}
+          weekly: ${{ steps.conditions.outputs.RUN_WEEKLY }}
+          monthly: ${{ steps.conditions.outputs.RUN_MONTHLY }}
+          force: ${{ github.event.inputs.force_summaries }}
+          start-date: ${{ github.event.inputs.startDate }}
+          end-date: ${{ github.event.inputs.endDate }}
+
+      - name: Run Repository Summaries
+        if: steps.conditions.outputs.RUN_REPOSITORIES == 'true'
+        uses: ./.github/actions/leaderboard-run-summary
+        with:
+          summary-type: "repository"
+          daily: ${{ steps.conditions.outputs.RUN_DAILY }}
+          weekly: ${{ steps.conditions.outputs.RUN_WEEKLY }}
+          monthly: ${{ steps.conditions.outputs.RUN_MONTHLY }}
+          force: ${{ github.event.inputs.force_summaries }}
+          start-date: ${{ github.event.inputs.startDate }}
+          end-date: ${{ github.event.inputs.endDate }}
+
+      - name: Run Contributor Summaries
+        if: steps.conditions.outputs.RUN_CONTRIBUTORS == 'true'
+        uses: ./.github/actions/leaderboard-run-summary
+        with:
+          summary-type: "contributors"
+          daily: ${{ steps.conditions.outputs.RUN_DAILY }}
+          weekly: ${{ steps.conditions.outputs.RUN_WEEKLY }}
+          monthly: ${{ steps.conditions.outputs.RUN_MONTHLY }}
+          force: ${{ github.event.inputs.force_summaries }}
+          start-date: ${{ github.event.inputs.startDate }}
+          end-date: ${{ github.event.inputs.endDate }}
+
+      - name: Dump SQLite database
+        uses: ./.github/actions/leaderboard-restore-db
+        with:
+          operation: dump
+          db_path: ${{ env.DATA_DIR }}/db.sqlite
+          dump_dir: ${{ env.DATA_DIR }}/dump
+
+      - name: Update pipeline-data branch
+        uses: ./.github/actions/leaderboard-pipeline-data
+        with:
+          operation: update
+          data_dir: ${{ env.DATA_DIR }}
+          commit_message: "Summary generation run: $(date -u +'%Y-%m-%d %H:%M')"
+          branch_name: ${{ env.PIPELINE_DATA_BRANCH }}
+
+      - name: Cleanup
+        if: always()
+        uses: ./.github/actions/leaderboard-pipeline-data
+        with:
+          operation: cleanup
+          data_dir: ${{ env.DATA_DIR }}
+          branch_name: ${{ env.PIPELINE_DATA_BRANCH }}

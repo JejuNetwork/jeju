@@ -1,14 +1,16 @@
 #!/usr/bin/env bun
 /**
- * Setup Script - Initializes workspace apps and vendor apps
+ * Setup Script - Initializes workspace apps, vendor apps, and test infrastructure
  * Runs after bun install (postinstall hook)
  * 
  * This script is safe to fail - it's a best-effort setup
  */
 
-import { existsSync } from 'fs';
+import { existsSync, mkdirSync } from 'fs';
 import { $ } from 'bun';
 import { discoverVendorApps } from './shared/discover-apps';
+
+const SYNPRESS_CACHE_DIR = '.synpress-cache';
 
 async function main() {
   console.log('🔧 Setting up Jeju workspace...\n');
@@ -56,18 +58,39 @@ async function main() {
     console.log('   ✅ Config found');
   }
   
-  if (existsSync('shared')) {
-    console.log('   ✅ Shared types found');
+  if (existsSync('packages/tests')) {
+    console.log('   ✅ Test utilities found');
   }
   
   console.log('');
 
-  // 3. Summary
+  // 3. Setup Synpress cache directory
+  console.log('🧪 Setting up test infrastructure...');
+  
+  if (!existsSync(SYNPRESS_CACHE_DIR)) {
+    mkdirSync(SYNPRESS_CACHE_DIR, { recursive: true });
+    console.log('   ✅ Created synpress cache directory\n');
+  } else {
+    console.log('   ✅ Synpress cache directory exists\n');
+  }
+
+  // 4. Install Playwright browsers (needed for Synpress)
+  console.log('   🎭 Installing Playwright browsers...');
+  const playwrightResult = await $`bunx playwright install chromium`.nothrow().quiet();
+  
+  if (playwrightResult.exitCode === 0) {
+    console.log('   ✅ Playwright browsers installed\n');
+  } else {
+    console.log('   ⚠️  Could not install Playwright browsers (run: bunx playwright install)\n');
+  }
+
+  // 5. Summary
   console.log('✅ Workspace setup complete!\n');
   console.log('Next steps:');
-  console.log('  • List vendor apps: bun run vendor:list');
   console.log('  • Start development: bun run dev');
-  console.log('  • Migrate apps to vendor: bun run vendor:migrate\n');
+  console.log('  • Run all tests: bun test');
+  console.log('  • Run wallet tests: bun run test:wallet (in any app directory)');
+  console.log('  • Build synpress cache: bun run synpress:cache (in packages/tests)\n');
 }
 
 main().catch((err) => {

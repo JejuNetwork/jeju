@@ -18,7 +18,8 @@ export const JEJU_TEST_WALLET = {
 };
 
 export const JEJU_NETWORK = {
-  networkName: 'Jeju Local',
+  name: 'Jeju Local',
+  networkName: 'Jeju Local', // Alias for dappwright compatibility
   rpcUrl: process.env.L2_RPC_URL || process.env.JEJU_RPC_URL || 'http://localhost:9545',
   chainId: parseInt(process.env.CHAIN_ID || '1337'),
   symbol: 'ETH',

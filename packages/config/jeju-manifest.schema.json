@@ -21,8 +21,8 @@
     },
     "type": {
       "type": "string",
-      "enum": ["core", "vendor"],
-      "description": "App type: core (apps/) or vendor (vendor/)"
+      "enum": ["core", "vendor", "service"],
+      "description": "App type: core (apps/), vendor (vendor/), service (MCP+A2A service)"
     },
     "description": {
       "type": "string",
@@ -46,7 +46,9 @@
         "api": { "type": "number" },
         "ui": { "type": "number" },
         "game": { "type": "number" },
-        "auth": { "type": "number" }
+        "auth": { "type": "number" },
+        "a2a": { "type": "number", "description": "Separate port for A2A server if not on main" },
+        "mcp": { "type": "number", "description": "Separate port for MCP server if not on main" }
       }
     },
     "dependencies": {
@@ -82,6 +84,73 @@
       "properties": {
         "url": { "type": "string" },
         "interval": { "type": "number" }
+      }
+    },
+    "jns": {
+      "type": "object",
+      "description": "Jeju Name Service configuration",
+      "properties": {
+        "name": { "type": "string", "description": "JNS name (e.g., bazaar.jeju)" },
+        "description": { "type": "string" },
+        "url": { "type": "string", "description": "Public URL" }
+      }
+    },
+    "agent": {
+      "type": "object",
+      "description": "ERC-8004 agent registration and protocol configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to register as ERC-8004 agent"
+        },
+        "a2aEndpoint": {
+          "type": "string",
+          "description": "A2A endpoint path or full URL (e.g., /a2a, /api/a2a, http://localhost:4003/a2a)"
+        },
+        "mcpEndpoint": {
+          "type": "string",
+          "description": "MCP endpoint path or full URL (e.g., /mcp, /api/mcp)"
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Agent discovery tags (e.g., jeju-app, defi, storage)"
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Additional agent metadata",
+          "properties": {
+            "category": { "type": "string", "description": "Service category (defi, storage, compute, etc.)" },
+            "provider": { "type": "string" },
+            "features": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        "trustModels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["open", "staked", "verified", "permissioned"]
+          },
+          "description": "Supported trust models"
+        },
+        "x402Support": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether service supports x402 micropayments"
+        },
+        "multiTokenPayments": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether service supports ERC-4337 multi-token payments"
+        },
+        "jnsName": {
+          "type": "string",
+          "description": "JNS name for this agent"
+        }
       }
     }
   }

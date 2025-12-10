@@ -1,0 +1,102 @@
+name: "Leaderboard SQLite Database Operations"
+description: "Manages SQLite database operations for leaderboard: restore from diffable dump or dump to diffable format"
+inputs:
+  operation:
+    description: "Operation to perform: restore or dump"
+    required: true
+  db_path:
+    description: "Path to the SQLite database file (relative to apps/leaderboard)"
+    required: true
+    default: "data/db.sqlite"
+  dump_dir:
+    description: "Directory where diffable dump should be stored (relative to apps/leaderboard)"
+    required: true
+    default: "data/dump"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install uv
+      uses: astral-sh/setup-uv@v1
+
+    - name: Restore SQLite database from diffable dump
+      if: inputs.operation == 'restore'
+      shell: bash
+      working-directory: apps/leaderboard
+      run: |
+        set -euo pipefail
+        DUMP_DIR='${{ inputs.dump_dir }}'
+        TARGET_DB='${{ inputs.db_path }}'
+        JOURNAL_FILE="$DUMP_DIR/meta/_journal.json"
+
+        if [ ! -d "$DUMP_DIR" ] || [ -z "$(ls -A $DUMP_DIR)" ]; then
+          echo "⚠️ Dump directory $DUMP_DIR does not exist or is empty. Skipping restore."
+          exit 0
+        fi
+
+        echo "🧹 Removing migration tables from dump..."
+        rm -f $DUMP_DIR/__drizzle_migrations*
+
+        LATEST_MIGRATION_NUM=""
+        if [ -f "$JOURNAL_FILE" ]; then
+            echo "📖 Reading latest migration number from $JOURNAL_FILE"
+            LATEST_MIGRATION_NUM=$(jq '.entries[-1].idx' "$JOURNAL_FILE")
+            if [ -n "$LATEST_MIGRATION_NUM" ] && [ "$LATEST_MIGRATION_NUM" != "null" ]; then
+              echo "Found latest migration number: $LATEST_MIGRATION_NUM"
+            else
+              LATEST_MIGRATION_NUM=""
+              echo "Could not determine migration number from journal. Running all migrations."
+            fi
+        else
+            echo "⚠️ Journal file not found at $JOURNAL_FILE. Running all migrations."
+        fi
+
+        echo "🔄 Instantiating database and running migrations up to dump version..."
+        rm -f "$TARGET_DB"
+
+        MIGRATE_CMD="bun run db:migrate"
+        if [ -n "$LATEST_MIGRATION_NUM" ]; then
+            MIGRATE_CMD="$MIGRATE_CMD $LATEST_MIGRATION_NUM"
+        fi
+
+        if ! DB_PATH=$TARGET_DB $MIGRATE_CMD; then
+          echo "❌ Initial migration failed."
+          exit 1
+        fi
+
+        if [ ! -f "$TARGET_DB" ]; then
+            echo "❌ Database file not found at $TARGET_DB after initial migration."
+            exit 1
+        fi
+        echo "✅ Database instantiated."
+
+        echo "🔄 Restoring database from diffable dump..."
+        uv run uvx sqlite-diffable load $TARGET_DB $DUMP_DIR --replace
+
+        echo "🚀 Running remaining migrations on restored database..."
+        DB_PATH=$TARGET_DB bun run db:migrate
+
+        echo "✅ Database restored to $TARGET_DB"
+
+    - name: Dump SQLite database to diffable format
+      if: inputs.operation == 'dump'
+      shell: bash
+      working-directory: apps/leaderboard
+      run: |
+        if [ ! -f "${{ inputs.db_path }}" ]; then
+          echo "⚠️ Warning: Database file ${{ inputs.db_path }} does not exist"
+          exit 1
+        fi
+
+        mkdir -p ${{ inputs.dump_dir }}
+
+        echo "🔄 Dumping database to diffable format..."
+        uv run uvx sqlite-diffable dump ${{ inputs.db_path }} ${{ inputs.dump_dir }} --all --exclude sqlite_sequence
+
+        if [ -f "drizzle/meta/_journal.json" ]; then
+          echo "🔄 Copying migration journal to dump directory..."
+          mkdir -p ${{ inputs.dump_dir }}/meta
+          cp drizzle/meta/_journal.json ${{ inputs.dump_dir }}/meta/_journal.json
+        fi
+
+        echo "✅ Database dumped to ${{ inputs.dump_dir }}"

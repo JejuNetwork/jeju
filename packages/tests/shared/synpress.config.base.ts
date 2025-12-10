@@ -1,17 +1,32 @@
 import { defineConfig, devices } from '@playwright/test';
 import { defineWalletSetup } from '@synthetixio/synpress';
 import { MetaMask } from '@synthetixio/synpress/playwright';
+import { join } from 'path';
 
+// Jeju network configuration
 const JEJU_CHAIN_ID = parseInt(process.env.CHAIN_ID || '1337');
 const JEJU_RPC_URL = process.env.L2_RPC_URL || process.env.JEJU_RPC_URL || 'http://localhost:9545';
+
+// Wallet credentials - Hardhat/Anvil test account #0
+const SEED_PHRASE = 'test test test test test test test test test test test junk';
+const PASSWORD = 'Tester@1234';
+
+// Expected test wallet address (Hardhat/Anvil account #0)
+const TEST_WALLET_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+
+// Unified cache directory for all apps
+const SYNPRESS_CACHE_DIR = process.env.SYNPRESS_CACHE_DIR || join(process.cwd(), '../../.synpress-cache');
 
 export interface JejuSynpressConfig {
   appName: string;
   port: number;
   testDir: string;
-  overrides?: Record<string, unknown>;
+  overrides?: Partial<ReturnType<typeof defineConfig>>;
 }
 
+/**
+ * Creates a Playwright config with Synpress for wallet testing
+ */
 export function createJejuSynpressConfig(config: JejuSynpressConfig) {
   const { appName, port, testDir, overrides = {} } = config;
 
@@ -19,7 +34,7 @@ export function createJejuSynpressConfig(config: JejuSynpressConfig) {
     testDir,
     fullyParallel: false,
     workers: 1,
-    retries: 0,
+    retries: process.env.CI ? 1 : 0,
 
     reporter: [
       ['list'],
@@ -58,9 +73,10 @@ export function createJejuSynpressConfig(config: JejuSynpressConfig) {
   });
 }
 
-const SEED_PHRASE = 'test test test test test test test test test test test junk';
-const PASSWORD = 'Tester@1234';
-
+/**
+ * Creates the Jeju wallet setup for Synpress
+ * Uses shared cache directory across all apps
+ */
 export function createJejuWalletSetup() {
   return defineWalletSetup(PASSWORD, async (context, walletPage) => {
     const metamask = new MetaMask(context, walletPage, PASSWORD);
@@ -81,4 +97,11 @@ export function createJejuWalletSetup() {
   });
 }
 
-export { SEED_PHRASE, PASSWORD };
+export { 
+  SEED_PHRASE, 
+  PASSWORD, 
+  TEST_WALLET_ADDRESS, 
+  JEJU_CHAIN_ID, 
+  JEJU_RPC_URL,
+  SYNPRESS_CACHE_DIR 
+};

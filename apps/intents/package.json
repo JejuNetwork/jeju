@@ -18,7 +18,7 @@
     "build:solver": "cd solver && bun run build",
     "build:viewer": "cd viewer && bun run build",
     "test": "bun run test:aggregator && bun run test:solver",
-    "test:aggregator": "cd aggregator && bun test",
+    "test:aggregator": "cd aggregator && bun run test",
     "test:solver": "cd solver && bun test"
   },
   "devDependencies": {

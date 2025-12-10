@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*"],
+      "@/lib/data/db": ["./src/lib/data/db-nextjs"]
+    }
+  },
+  "exclude": [
+    "node_modules",
+    "scripts",
+    "cli",
+    "drizzle",
+    "tests",
+    "**/*.test.ts",
+    "**/__testing__/**"
+  ]
+}

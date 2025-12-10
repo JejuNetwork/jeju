@@ -26,7 +26,7 @@ spec:
       initContainers:
       - name: init-data-dir
         image: busybox:1.36
-        command: ['sh', '-c', 'mkdir -p /data && chown -R 1000:1000 /data']
+        command: ['sh', '-c', 'mkdir -p /data/logs && chown -R 1000:1000 /data']
         volumeMounts:
         - name: data
           mountPath: /data
@@ -62,14 +62,15 @@ spec:
         - --metrics={{ .Values.config.metrics.addr }}:{{ .Values.config.metrics.port }}
         {{- if eq .Values.mode "sequencer" }}
         - --rollup.sequencer-http={{ .Values.config.rollup.sequencerHttp }}
-        - --rollup.disable-tx-pool-gossip={{ .Values.config.rollup.disableTxPoolGossip }}
+        {{- if .Values.config.rollup.disableTxPoolGossip }}
+        - --rollup.disable-tx-pool-gossip
+        {{- end }}
         {{- end }}
         {{- if eq .Values.mode "archive" }}
         - --full
-        {{- else }}
-        - --pruning={{ .Values.config.pruning.full }}
         {{- end }}
         - --log.stdout.format=json
+        - --log.file.directory=/data/logs
         ports:
         - name: http
           containerPort: {{ .Values.config.http.port }}
@@ -87,28 +88,16 @@ spec:
           containerPort: {{ .Values.config.metrics.port }}
           protocol: TCP
         livenessProbe:
-          exec:
-            command:
-            - sh
-            - -c
-            - |
-              curl -sf -X POST http://localhost:{{ .Values.config.http.port }} \
-                -H "Content-Type: application/json" \
-                --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' | grep -q result
+          tcpSocket:
+            port: {{ .Values.config.http.port }}
           initialDelaySeconds: 60
           periodSeconds: 30
           timeoutSeconds: 10
           failureThreshold: 3
         readinessProbe:
-          exec:
-            command:
-            - sh
-            - -c
-            - |
-              curl -sf -X POST http://localhost:{{ .Values.config.http.port }} \
-                -H "Content-Type: application/json" \
-                --data '{"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":1}' | grep -q result
-          initialDelaySeconds: 30
+          tcpSocket:
+            port: {{ .Values.config.http.port }}
+          initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 3
@@ -126,10 +115,16 @@ spec:
         - name: secrets
           mountPath: /secrets
           readOnly: true
+        - name: genesis
+          mountPath: /genesis
+          readOnly: true
       volumes:
       - name: secrets
         secret:
           secretName: {{ include "reth.fullname" . }}-secrets
+      - name: genesis
+        configMap:
+          name: jeju-genesis
       {{- $nodeSelector := .Values.nodeSelector }}
       {{- if hasKey .Values.nodeSelector .Values.mode }}
       {{- $nodeSelector = index .Values.nodeSelector .Values.mode }}
@@ -142,11 +137,7 @@ spec:
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- $tolerations := .Values.tolerations }}
-      {{- if hasKey .Values.tolerations .Values.mode }}
-      {{- $tolerations = index .Values.tolerations .Values.mode }}
-      {{- end }}
-      {{- with $tolerations }}
+      {{- with .Values.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}

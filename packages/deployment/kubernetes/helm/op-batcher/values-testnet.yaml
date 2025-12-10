@@ -11,13 +11,9 @@ resources:
     memory: 1Gi
 
 nodeSelector:
-  role: core
+  workload: general
 
-tolerations:
-  - key: workload
-    operator: Equal
-    value: core
-    effect: NoSchedule
+tolerations: []
 
 config:
   l1:

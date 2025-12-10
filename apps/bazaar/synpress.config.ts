@@ -1,4 +1,4 @@
-import { createJejuSynpressConfig, createJejuWalletSetup } from '@jejunetwork/tests/synpress.config.base';
+import { createJejuSynpressConfig, createJejuWalletSetup, PASSWORD } from '@jejunetwork/tests/synpress.config.base';
 
 const BAZAAR_PORT = parseInt(process.env.BAZAAR_PORT || '4006');
 
@@ -15,3 +15,6 @@ export default createJejuSynpressConfig({
 
 // Export wallet setup for Synpress
 export const basicSetup = createJejuWalletSetup();
+
+// Re-export password for tests that need it
+export { PASSWORD };

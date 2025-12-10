@@ -1,0 +1,63 @@
+name: "Run Leaderboard Summary Pipeline"
+description: "Runs the leaderboard summary pipeline with specified options"
+
+inputs:
+  summary-type:
+    description: "Type of summary to generate (repository, overall, contributors)"
+    required: true
+  daily:
+    description: "Enable daily interval"
+    required: false
+    default: "false"
+  weekly:
+    description: "Enable weekly interval"
+    required: false
+    default: "false"
+  monthly:
+    description: "Enable monthly interval"
+    required: false
+    default: "false"
+  force:
+    description: "Whether to force regenerate summaries"
+    required: false
+    default: "false"
+  start-date:
+    description: "Start date for data processing (YYYY-MM-DD)"
+    required: false
+  end-date:
+    description: "End date for data processing (YYYY-MM-DD)"
+    required: false
+  days:
+    description: "Number of days to look back"
+    required: false
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set conditional variables
+      id: set-vars
+      shell: bash
+      run: |
+        FORCE_ARG="${{ inputs.force == 'true' && ' -f' || '' }}"
+        START_DATE_ARG="${{ inputs.start-date != '' && format(' -a {0}', inputs.start-date) || '' }}"
+        END_DATE_ARG="${{ inputs.end-date != '' && format(' -b {0}', inputs.end-date) || '' }}"
+        DAYS_ARG="${{ inputs.days != '' && format(' -d {0}', inputs.days) || '' }}"
+
+        INTERVAL_ARGS=""
+        if [[ "${{ inputs.daily }}" == "true" ]]; then
+          INTERVAL_ARGS="$INTERVAL_ARGS --daily"
+        fi
+        if [[ "${{ inputs.weekly }}" == "true" ]]; then
+          INTERVAL_ARGS="$INTERVAL_ARGS --weekly"
+        fi
+        if [[ "${{ inputs.monthly }}" == "true" ]]; then
+          INTERVAL_ARGS="$INTERVAL_ARGS --monthly"
+        fi
+
+        echo "CMD_ARGS=${FORCE_ARG}${START_DATE_ARG}${END_DATE_ARG}${DAYS_ARG}${INTERVAL_ARGS}" >> $GITHUB_OUTPUT
+
+    - name: Generate summaries
+      shell: bash
+      working-directory: apps/leaderboard
+      run: |
+        bun run pipeline summarize -t ${{ inputs.summary-type }} ${{ steps.set-vars.outputs.CMD_ARGS }}

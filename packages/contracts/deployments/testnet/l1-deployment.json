@@ -1,0 +1,15 @@
+{
+  "network": "testnet",
+  "l1ChainId": 11155111,
+  "l2ChainId": 420690,
+  "deployedAt": "2025-12-10T04:09:44.274Z",
+  "deployer": "0x1c8D40d6E81289B5a1B6e4E3a2E34eA23d1c2A0E",
+  "contracts": {
+    "ProxyAdmin": "0x96b238A30F95e9B0f34Bc82c5B55725531786f60",
+    "AddressManager": "0xE40997A7C5e472E1C90fF960d7aA16C78ab71Ae3",
+    "SystemConfig": "0x586b880fB2f6831F1a1AD1E6754861008264816c",
+    "OptimismPortal": "0x0F80836afff3f0b18D767643c6A5f83d027b00e8",
+    "L1CrossDomainMessenger": "0x563209CfA6a3d7361634e7CC80251e947E699D4c",
+    "L1StandardBridge": "0x12FA61c9d77AEd9BeDA0FF4bF2E900F31bdBdc45"
+  }
+}

@@ -35,6 +35,7 @@
   "agent": {
     "enabled": true,
     "a2aEndpoint": "/a2a",
+    "mcpEndpoint": "/mcp",
     "tags": ["jeju-app", "compute", "ai", "inference", "marketplace"],
     "metadata": {
       "category": "compute",

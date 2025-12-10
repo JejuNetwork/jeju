@@ -9,16 +9,16 @@ data:
     {
       "genesis": {
         "l1": {
-          "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-          "number": 0
+          "hash": "{{ .Values.config.genesisL1Hash | default "0x0000000000000000000000000000000000000000000000000000000000000000" }}",
+          "number": {{ .Values.config.genesisL1Number | default 0 | int64 }}
         },
         "l2": {
-          "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "hash": "{{ .Values.config.genesisL2Hash | default "0x0000000000000000000000000000000000000000000000000000000000000000" }}",
           "number": 0
         },
-        "l2_time": 0,
+        "l2_time": {{ .Values.config.genesisL2Time | default 0 | int64 }},
         "system_config": {
-          "batcherAddr": "0x0000000000000000000000000000000000000000",
+          "batcherAddr": "{{ .Values.config.batcherAddr | default "0x0000000000000000000000000000000000000000" }}",
           "overhead": "0x00000000000000000000000000000000000000000000000000000000000000bc",
           "scalar": "0x00000000000000000000000000000000000000000000000000000000000a6fe0",
           "gasLimit": 30000000
@@ -28,17 +28,15 @@ data:
       "max_sequencer_drift": 600,
       "seq_window_size": 3600,
       "channel_timeout": 300,
-      "l1_chain_id": {{ .Values.config.l1ChainId | default 1 }},
-      "l2_chain_id": {{ .Values.config.l2ChainId | default 420691 }},
+      "l1_chain_id": {{ .Values.config.l1ChainId | default 1 | int64 }},
+      "l2_chain_id": {{ .Values.config.l2ChainId | default 420691 | int64 }},
       "regolith_time": 0,
       "canyon_time": 0,
       "delta_time": 0,
       "ecotone_time": 0,
       "fjord_time": 0,
-      "batch_inbox_address": "0xff00000000000000000000000000000000000000",
-      "deposit_contract_address": "0x0000000000000000000000000000000000000000",
-      "l1_system_config_address": "0x0000000000000000000000000000000000000000"
+      "granite_time": 0,
+      "batch_inbox_address": "{{ .Values.config.batchInboxAddr | default "0xff00000000000000000000000000000000420690" }}",
+      "deposit_contract_address": "{{ .Values.config.depositContractAddr | default "0x0000000000000000000000000000000000000000" }}",
+      "l1_system_config_address": "{{ .Values.config.systemConfigAddr | default "0x0000000000000000000000000000000000000000" }}"
     }
-
-
-

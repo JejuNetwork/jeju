@@ -25,3 +25,6 @@
 [submodule "contracts/lib/solidity-lib"]
 	path = contracts/lib/solidity-lib
 	url = https://github.com/uniswap/solidity-lib
+[submodule "packages/contracts/lib/optimism"]
+	path = packages/contracts/lib/optimism
+	url = https://github.com/ethereum-optimism/optimism

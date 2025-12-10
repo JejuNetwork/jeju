@@ -21,8 +21,6 @@ podAnnotations:
 
 podSecurityContext:
   fsGroup: 1000
-  runAsUser: 1000
-  runAsNonRoot: true
 
 securityContext:
   capabilities:
@@ -48,25 +46,25 @@ service:
 resources:
   sequencer:
     limits:
-      cpu: 8000m
-      memory: 16Gi
-    requests:
-      cpu: 4000m
-      memory: 8Gi
-  rpc:
-    limits:
-      cpu: 4000m
-      memory: 8Gi
-    requests:
       cpu: 2000m
       memory: 4Gi
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+  rpc:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 1000m
+      memory: 2Gi
   archive:
     limits:
-      cpu: 8000m
-      memory: 32Gi
+      cpu: 2000m
+      memory: 8Gi
     requests:
-      cpu: 4000m
-      memory: 16Gi
+      cpu: 1000m
+      memory: 4Gi
 
 persistence:
   enabled: true
@@ -77,30 +75,9 @@ persistence:
   archiveSize: 2Ti
   mountPath: /data
 
-nodeSelector:
-  sequencer:
-    role: core
-  rpc:
-    role: rpc
-  archive:
-    role: data
+nodeSelector: {}
 
-tolerations:
-  sequencer:
-    - key: workload
-      operator: Equal
-      value: core
-      effect: NoSchedule
-  rpc:
-    - key: workload
-      operator: Equal
-      value: rpc
-      effect: NoSchedule
-  archive:
-    - key: workload
-      operator: Equal
-      value: data
-      effect: NoSchedule
+tolerations: []
 
 affinity:
   podAntiAffinity:
@@ -116,8 +93,8 @@ affinity:
         topologyKey: kubernetes.io/hostname
 
 config:
-  chain: "optimism"
-  network: "mainnet"
+  chain: "/genesis/genesis.json"
+  network: "testnet"
   rollup:
     sequencerHttp: ""
     disableTxPoolGossip: false

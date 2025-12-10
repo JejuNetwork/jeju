@@ -17,12 +17,12 @@
     "test:wallet": "bun run test:wallet"
   },
   "ports": {
-    "main": 3100,
+    "main": 4010,
     "app": 4100,
-    "nodeApi": 3101,
-    "ipfsNode": 4001,
-    "ipfsGateway": 8080,
-    "ipfsSwarm": 4001
+    "nodeApi": 4011,
+    "ipfsNode": 4101,
+    "ipfsGateway": 4180,
+    "ipfsSwarm": 4101
   },
   "dependencies": ["contracts", "config"],
   "optional": false,
@@ -35,7 +35,7 @@
     "url": "https://storage.jeju.network"
   },
   "healthCheck": {
-    "url": "http://localhost:3100/health",
+    "url": "http://localhost:4010/health",
     "interval": 30000
   },
   "agent": {

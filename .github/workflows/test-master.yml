@@ -28,7 +28,7 @@ jobs:
           submodules: recursive
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
+        uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
@@ -56,22 +56,22 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
 
       - name: Run Forge build
-        working-directory: contracts
+        working-directory: packages/contracts
         run: forge build
         # Build MUST succeed
 
       - name: Run Forge tests
-        working-directory: contracts
+        working-directory: packages/contracts
         run: forge test -vv
         # ALL tests MUST pass
 
       - name: Generate gas report
-        working-directory: contracts
+        working-directory: packages/contracts
         run: forge test --gas-report
         # Gas report MUST generate
 
       - name: Check test coverage
-        working-directory: contracts
+        working-directory: packages/contracts
         run: |
           forge coverage --report summary > coverage.txt
           cat coverage.txt
@@ -91,7 +91,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
+        uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
@@ -125,7 +125,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
+        uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 

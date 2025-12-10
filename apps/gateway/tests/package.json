@@ -4,7 +4,7 @@
   "private": true,
   "description": "Comprehensive test suite for Gateway Portal",
   "scripts": {
-    "test": "../RUN_TESTS.sh"
+    "test": "echo 'Run tests via apps/gateway - see parent package.json'"
   },
   "keywords": [
     "testing",

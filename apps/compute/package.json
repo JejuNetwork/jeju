@@ -26,9 +26,10 @@
     "test:e2e": "bun test src/compute/tests/e2e.test.ts",
     "test:ui": "npx playwright test -c playwright.config.ts",
     "test:ui:headed": "npx playwright test -c playwright.config.ts --headed",
-    "test:synpress": "npx synpress wallet-setup && npx playwright test -c synpress.config.ts",
-    "test:synpress:ui": "npx playwright test -c synpress.config.ts --ui",
-    "test:synpress:headed": "npx playwright test -c synpress.config.ts --headed",
+    "test:wallet": "npx playwright test -c synpress.config.ts",
+    "test:wallet:headed": "npx playwright test -c synpress.config.ts --headed",
+    "test:wallet:ui": "npx playwright test -c synpress.config.ts --ui",
+    "test:wallet:cache": "npx synpress --force",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist out cache demo-output test-results"
   },
@@ -41,6 +42,7 @@
   },
   "devDependencies": {
     "@irys/sdk": "^0.2.11",
+    "@jejunetwork/tests": "workspace:*",
     "@playwright/test": "^1.40.0",
     "@synthetixio/synpress": "^4.0.0",
     "@types/bun": "^1.3.3",

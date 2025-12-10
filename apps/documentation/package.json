@@ -9,7 +9,8 @@
     "build": "bun run docs:generate && vitepress build",
     "docs:generate": "cd ../.. && typedoc",
     "preview": "vitepress preview --port ${DOCUMENTATION_PORT:-4004}",
-    "test": "bun run test:e2e && bun run test:unit",
+    "test": "bun run test:unit",
+    "test:full": "bun run test:e2e && bun run test:unit",
     "test:unit": "bun test tests/unit/",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed"
