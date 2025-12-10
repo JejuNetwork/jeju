@@ -1,0 +1,12 @@
+{
+  "p2pSequencerAddress": "0x6Fd49Bbeb99b0feD669A81a6c6E1EEF2548Ed91e",
+  "batchSenderAddress": "0x169a20665f6A2175580d669869eFD6B20045F6aA",
+  "l2OutputOracleProposer": "0x4f0d3bC42d0E203C954aE3e66a6Bb684143EF8a1",
+  "l2OutputOracleChallenger": "0x6E7CbdCB2586C862516C375d6Be61f34A400Cdc2",
+  "proxyAdminOwner": "0x8b39BBAb6d1FB7C682D32e13A92cdCB0510D03C2",
+  "baseFeeVaultRecipient": "0x88d3757c79FF13A2E533705ebdE7C9a0B9FC22b3",
+  "l1FeeVaultRecipient": "0x88d3757c79FF13A2E533705ebdE7C9a0B9FC22b3",
+  "sequencerFeeVaultRecipient": "0x88d3757c79FF13A2E533705ebdE7C9a0B9FC22b3",
+  "finalSystemOwner": "0x8b39BBAb6d1FB7C682D32e13A92cdCB0510D03C2",
+  "superchainConfigGuardian": "0xb63060c4c50BaC70c89399f7dca286103620987c"
+}

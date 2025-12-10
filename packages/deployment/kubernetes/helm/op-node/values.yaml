@@ -3,7 +3,7 @@ replicaCount: 1
 image:
   repository: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-node
   pullPolicy: IfNotPresent
-  tag: "v1.10.0"
+  tag: "v1.16.3"
 
 nameOverride: ""
 fullnameOverride: ""
@@ -114,10 +114,10 @@ config:
     enabled: false
   snapshotLog: "/data/snapshot.log"
   conductor:
-    enabled: false
+    enabled: true
     rpc: "http://op-conductor:8547"
   flashblocks:
-    enabled: false
+    enabled: true
     url: ""
   # Superchain Upgrade 16a features
   superchain:
@@ -132,5 +132,3 @@ config:
     # Dec 9: 10/15, Jan 7: 14/21 blobs per block
     blobCapacity:
       autoScale: true
-
-

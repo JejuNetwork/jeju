@@ -13,7 +13,7 @@ export async function callAIService(
     model?: string;
   },
 ): Promise<string> {
-  const model = options?.model || config.defaultModel || "openai/gpt-4o-mini";
+  const model = options?.model || config.defaultModel || "openai/gpt-5-mini";
   try {
     const response = await fetch(config.endpoint, {
       method: "POST",

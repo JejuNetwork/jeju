@@ -1,14 +1,14 @@
 {
   "genesis": {
     "l1": {
-      "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-      "number": 0
+      "hash": "0x50bcb8d28d556b8efea194192012e1a4140850fa925626088b2958622c03e0c1",
+      "number": 9809245
     },
     "l2": {
       "hash": "0x918beda32eea49746a06f522b95c3b6e4f43ce0be705ca9ec523fd3045429b7e",
       "number": 0
     },
-    "l2_time": 1765340021,
+    "l2_time": 1765385568,
     "system_config": {
       "batcherAddr": "0x169a20665f6A2175580d669869eFD6B20045F6aA",
       "overhead": "0x0",
@@ -27,6 +27,7 @@
   "delta_time": 0,
   "ecotone_time": 0,
   "fjord_time": 0,
+  "granite_time": 0,
   "batch_inbox_address": "0xff00000000000000000000000000000000420690",
   "deposit_contract_address": "0x0F80836afff3f0b18D767643c6A5f83d027b00e8",
   "l1_system_config_address": "0x586b880fB2f6831F1a1AD1E6754861008264816c",

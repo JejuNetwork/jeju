@@ -484,4 +484,3 @@ export class X402Client {
 export {
   ZERO_ADDRESS,
 };
-

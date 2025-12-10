@@ -16,4 +16,3 @@ export default createJejuSynpressConfig({
 export const basicSetup = createJejuWalletSetup();
 
 export { PASSWORD, SEED_PHRASE };
-

@@ -98,3 +98,6 @@ test-results/
 
 # Private keys - NEVER commit
 packages/deployment/.keys/
+
+# Generated documentation
+docs/

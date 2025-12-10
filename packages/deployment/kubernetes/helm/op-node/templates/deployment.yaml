@@ -47,6 +47,7 @@ spec:
         {{- end }}
         - --l1={{ .Values.config.l1.rpcUrl }}
         - --l1.rpckind={{ .Values.config.l1.rpcKind }}
+        - --l1.trustrpc
         {{- if .Values.config.l1.beacon.url }}
         - --l1.beacon={{ .Values.config.l1.beacon.url }}
         {{- end }}
