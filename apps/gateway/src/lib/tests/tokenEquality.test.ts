@@ -1,15 +1,74 @@
 /**
  * Token Equality Tests
  * 
- * Ensures all protocol tokens (elizaOS, CLANKER, VIRTUAL, CLANKERMON) are treated equally
- * and have complete configurations
+ * Ensures all protocol tokens (JEJU, elizaOS, CLANKER, VIRTUAL, CLANKERMON) are treated equally
+ * and have complete configurations.
  */
 
-import { getProtocolTokens, getAllTokens, getTokenBySymbol, getTokenByAddress } from '../tokens';
+import { getProtocolTokens, getAllTokens, getTokenBySymbol, getTokenByAddress, getPreferredToken, getPaymasterTokens, hasBanEnforcement } from '../tokens';
 
 describe('Token Equality and Completeness', () => {
   const protocolTokens = getProtocolTokens();
   const allTokens = getAllTokens();
+
+  describe('JEJU Token (Native)', () => {
+    it('should be included in protocol tokens', () => {
+      const jeju = getTokenBySymbol('JEJU');
+      expect(jeju).toBeDefined();
+      expect(jeju?.symbol).toBe('JEJU');
+    });
+
+    it('should be marked as native (not bridged)', () => {
+      const jeju = protocolTokens.find(t => t.symbol === 'JEJU');
+      expect(jeju?.bridged).toBe(false);
+      expect(jeju?.originChain).toBe('jeju');
+    });
+
+    it('should be marked as preferred', () => {
+      const jeju = protocolTokens.find(t => t.symbol === 'JEJU');
+      expect(jeju?.isPreferred).toBe(true);
+    });
+
+    it('should have ban enforcement enabled', () => {
+      const jeju = protocolTokens.find(t => t.symbol === 'JEJU');
+      expect(jeju?.hasBanEnforcement).toBe(true);
+      expect(hasBanEnforcement('JEJU')).toBe(true);
+    });
+
+    it('should be returned by getPreferredToken', () => {
+      const preferred = getPreferredToken();
+      expect(preferred).toBeDefined();
+      expect(preferred?.symbol).toBe('JEJU');
+    });
+
+    it('should appear FIRST in paymaster tokens', () => {
+      const paymasterTokens = getPaymasterTokens();
+      expect(paymasterTokens[0].symbol).toBe('JEJU');
+    });
+
+    it('should appear FIRST in protocol tokens list', () => {
+      expect(protocolTokens[0].symbol).toBe('JEJU');
+    });
+
+    it('should have paymaster deployed', () => {
+      const jeju = protocolTokens.find(t => t.symbol === 'JEJU');
+      expect(jeju?.hasPaymaster).toBe(true);
+    });
+
+    it('should have complete configuration', () => {
+      const jeju = protocolTokens.find(t => t.symbol === 'JEJU');
+      expect(jeju?.name).toBe('Jeju');
+      expect(jeju?.decimals).toBe(18);
+      expect(jeju?.priceUSD).toBe(0.05);
+      expect(jeju?.logoUrl).toBeDefined();
+    });
+
+    it('should NOT appear in bridgeable tokens', () => {
+      const bridgeable = protocolTokens.filter(t => t.bridged);
+      const hasJeju = bridgeable.some(t => t.symbol === 'JEJU');
+      expect(hasJeju).toBe(false);
+    });
+  });
 
   describe('elizaOS Token (Native)', () => {
     it('should be included in protocol tokens', () => {
@@ -22,6 +81,11 @@ describe('Token Equality and Completeness', () => {
       const elizaOS = protocolTokens.find(t => t.symbol === 'elizaOS');
       expect(elizaOS?.bridged).toBe(false);
       expect(elizaOS?.originChain).toBe('jeju');
+    });
+
+    it('should NOT be marked as preferred', () => {
+      const elizaOS = protocolTokens.find(t => t.symbol === 'elizaOS');
+      expect(elizaOS?.isPreferred).toBeFalsy();
     });
 
     it('should have paymaster deployed', () => {
@@ -47,10 +111,6 @@ describe('Token Equality and Completeness', () => {
       const bridgeable = protocolTokens.filter(t => t.bridged);
       const hasElizaOS = bridgeable.some(t => t.symbol === 'elizaOS');
       expect(hasElizaOS).toBe(false);
-    });
-
-    it('should appear FIRST in token list', () => {
-      expect(protocolTokens[0].symbol).toBe('elizaOS');
     });
   });
 
@@ -139,13 +199,13 @@ describe('Token Equality and Completeness', () => {
   });
 
   describe('Token Equality', () => {
-    it('should have exactly 4 protocol tokens', () => {
-      expect(protocolTokens.length).toBe(4);
+    it('should have exactly 5 protocol tokens', () => {
+      expect(protocolTokens.length).toBe(5);
     });
 
-    it('should include all 4 tokens: elizaOS, CLANKER, VIRTUAL, CLANKERMON', () => {
+    it('should include all 5 tokens: JEJU, elizaOS, CLANKER, VIRTUAL, CLANKERMON', () => {
       const symbols = protocolTokens.map(t => t.symbol).sort();
-      expect(symbols).toEqual(['CLANKER', 'CLANKERMON', 'VIRTUAL', 'elizaOS']);
+      expect(symbols).toEqual(['CLANKER', 'CLANKERMON', 'JEJU', 'VIRTUAL', 'elizaOS']);
     });
 
     it('should treat all tokens with equal structure', () => {
@@ -160,13 +220,21 @@ describe('Token Equality and Completeness', () => {
       });
     });
 
-    it('should have 1 native token (elizaOS) and 3 bridged tokens', () => {
+    it('should have 2 native tokens (JEJU, elizaOS) and 3 bridged tokens', () => {
       const native = protocolTokens.filter(t => !t.bridged);
       const bridged = protocolTokens.filter(t => t.bridged);
       
-      expect(native.length).toBe(1);
+      expect(native.length).toBe(2);
       expect(bridged.length).toBe(3);
-      expect(native[0].symbol).toBe('elizaOS');
+      // JEJU should be first, elizaOS second
+      expect(native[0].symbol).toBe('JEJU');
+      expect(native[1].symbol).toBe('elizaOS');
+    });
+
+    it('should have exactly 1 preferred token (JEJU)', () => {
+      const preferred = protocolTokens.filter(t => t.isPreferred);
+      expect(preferred.length).toBe(1);
+      expect(preferred[0].symbol).toBe('JEJU');
     });
 
     it('should have Base addresses for all bridged tokens', () => {
@@ -178,6 +246,8 @@ describe('Token Equality and Completeness', () => {
     });
 
     it('should be retrievable by symbol (case-insensitive)', () => {
+      expect(getTokenBySymbol('JEJU')).toBeDefined();
+      expect(getTokenBySymbol('jeju')).toBeDefined();
       expect(getTokenBySymbol('elizaOS')).toBeDefined();
       expect(getTokenBySymbol('ELIZAOS')).toBeDefined();
       expect(getTokenBySymbol('clanker')).toBeDefined();
@@ -213,7 +283,7 @@ describe('Token Equality and Completeness', () => {
   });
 
   describe('Complete Token Coverage', () => {
-    const requiredTokens = ['elizaOS', 'CLANKER', 'VIRTUAL', 'CLANKERMON'];
+    const requiredTokens = ['JEJU', 'elizaOS', 'CLANKER', 'VIRTUAL', 'CLANKERMON'];
 
     requiredTokens.forEach(symbol => {
       it(`should have ${symbol} in all token lists`, () => {

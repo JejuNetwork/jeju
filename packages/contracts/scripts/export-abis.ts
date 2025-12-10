@@ -16,6 +16,19 @@ const CONTRACTS_TO_EXPORT = [
   { file: 'SimpleERC20Factory.sol', contract: 'SimpleERC20Factory', outputName: 'ERC20Factory' },
   { file: 'Bazaar.sol', contract: 'Bazaar' },
   { file: 'IdentityRegistry.sol', contract: 'IdentityRegistry' },
+  // Tokens
+  { file: 'JejuToken.sol', contract: 'JejuToken' },
+  // Moderation
+  { file: 'BanManager.sol', contract: 'BanManager' },
+  { file: 'ModerationMarketplace.sol', contract: 'ModerationMarketplace' },
+  // Services
+  { file: 'CreditManager.sol', contract: 'CreditManager' },
+  { file: 'MultiTokenPaymaster.sol', contract: 'MultiTokenPaymaster' },
+  // Paymaster
+  { file: 'TokenRegistry.sol', contract: 'TokenRegistry' },
+  { file: 'PaymasterFactory.sol', contract: 'PaymasterFactory' },
+  { file: 'LiquidityVault.sol', contract: 'LiquidityVault' },
+  { file: 'AppTokenPreference.sol', contract: 'AppTokenPreference' },
   // OIF
   { file: 'InputSettler.sol', contract: 'InputSettler' },
   { file: 'OutputSettler.sol', contract: 'OutputSettler' },

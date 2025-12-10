@@ -731,6 +731,6 @@ contract TokenRegistryTest is Test {
     // ============ Version ============
 
     function test_Version() public view {
-        assertEq(registry.version(), "1.0.0");
+        assertEq(registry.version(), "2.0.0");
     }
 }

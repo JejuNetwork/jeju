@@ -175,9 +175,12 @@ export { ZERO_ADDRESS };
 
 export const SUPPORTED_TOKENS = {
   ETH: ZERO_ADDRESS,
+  JEJU: '0x0000000000000000000000000000000000000000' as Address,
   USDC: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' as Address, // Mainnet USDC
   ELIZA: '0x0000000000000000000000000000000000000000' as Address, // Set at runtime
 } as const;
+
+export const PREFERRED_TOKEN_SYMBOL = 'JEJU';
 
 // ============ Payment Client ============
 
@@ -312,12 +315,16 @@ export class ComputePaymentClient {
       });
     }
 
-    // Sort by cost (cheapest first)
-    return options.sort((a, b) => Number(a.estimatedCost - b.estimatedCost));
+    return options.sort((a, b) => {
+      if (a.tokenSymbol === PREFERRED_TOKEN_SYMBOL && b.tokenSymbol !== PREFERRED_TOKEN_SYMBOL) return -1;
+      if (a.tokenSymbol !== PREFERRED_TOKEN_SYMBOL && b.tokenSymbol === PREFERRED_TOKEN_SYMBOL) return 1;
+      return Number(a.estimatedCost - b.estimatedCost);
+    });
   }
 
   /**
    * Select optimal paymaster based on user's token balances
+   * Selects JEJU if available, otherwise cheapest option
    */
   async selectOptimalPaymaster(
     userAddress: string,
@@ -325,6 +332,17 @@ export class ComputePaymentClient {
   ): Promise<PaymasterOption | null> {
     const options = await this.getAvailablePaymasters(gasEstimateWei);
 
+    // First, try to find JEJU paymaster if user has JEJU balance
+    const jejuPaymaster = options.find(o => o.tokenSymbol === PREFERRED_TOKEN_SYMBOL && o.isAvailable);
+    if (jejuPaymaster) {
+      const tokenContract = new Contract(jejuPaymaster.tokenAddress, ERC20_ABI, this.provider);
+      const userBalance = (await tokenContract.balanceOf(userAddress)) as bigint;
+      if (userBalance >= jejuPaymaster.estimatedCost) {
+        return jejuPaymaster;
+      }
+    }
+
+    // Fall back to any other available paymaster
     for (const option of options) {
       if (!option.isAvailable) continue;
 

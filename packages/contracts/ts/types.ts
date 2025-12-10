@@ -190,6 +190,7 @@ export interface ContractAddresses {
   usdc?: Address;
   elizaOS?: Address;
   goldToken?: Address;
+  jeju?: Address;
 }
 
 // ============================================================================

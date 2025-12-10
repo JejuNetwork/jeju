@@ -20,17 +20,16 @@
  */
 
 import {
-  AbiCoder,
   Contract,
   JsonRpcProvider,
   Wallet,
   formatEther,
-  keccak256,
   parseEther,
-  toUtf8Bytes,
 } from 'ethers';
 import type { Address } from 'viem';
 import { ZERO_ADDRESS, STORAGE_PRICING, type X402PaymentRequirement } from './x402';
+
+const PREFERRED_TOKEN_SYMBOL = 'JEJU';
 
 // ============================================================================
 // Types
@@ -221,15 +220,34 @@ export class StoragePaymentClient {
       });
     }
 
-    return options.sort((a, b) => Number(a.estimatedCost - b.estimatedCost));
+    return options.sort((a, b) => {
+      if (a.tokenSymbol === PREFERRED_TOKEN_SYMBOL && b.tokenSymbol !== PREFERRED_TOKEN_SYMBOL) return -1;
+      if (a.tokenSymbol !== PREFERRED_TOKEN_SYMBOL && b.tokenSymbol === PREFERRED_TOKEN_SYMBOL) return 1;
+      return Number(a.estimatedCost - b.estimatedCost);
+    });
   }
 
+  /**
+   * Select optimal paymaster based on user's token balances
+   * Selects JEJU if available, otherwise cheapest option
+   */
   async selectOptimalPaymaster(
     userAddress: string,
     gasEstimateWei: bigint
   ): Promise<PaymasterOption | null> {
     const options = await this.getAvailablePaymasters(gasEstimateWei);
 
+    // First, try to find JEJU paymaster if user has JEJU balance
+    const jejuPaymaster = options.find(o => o.tokenSymbol === PREFERRED_TOKEN_SYMBOL && o.isAvailable);
+    if (jejuPaymaster) {
+      const tokenContract = new Contract(jejuPaymaster.tokenAddress, ERC20_ABI, this.provider);
+      const userBalance = (await tokenContract.balanceOf(userAddress)) as bigint;
+      if (userBalance >= jejuPaymaster.estimatedCost) {
+        return jejuPaymaster;
+      }
+    }
+
+    // Fall back to any other available paymaster
     for (const option of options) {
       if (!option.isAvailable) continue;
 

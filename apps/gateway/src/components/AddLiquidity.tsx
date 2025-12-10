@@ -46,7 +46,7 @@ export default function AddLiquidity({ vaultAddress: propVaultAddress }: { vault
           tokens={tokenOptions}
           selectedToken={selectedToken?.symbol}
           onSelect={setSelectedToken}
-          label="Select Token (elizaOS, CLANKER, VIRTUAL, CLANKERMON)"
+          label="Select Token (JEJU, elizaOS, CLANKER, VIRTUAL, etc.)"
           placeholder="Choose token vault..."
           showBalances={false}
           disabled={isLoading}

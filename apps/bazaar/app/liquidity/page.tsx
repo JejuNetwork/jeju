@@ -139,38 +139,91 @@ function LiquidityPageContent() {
       </div>
 
       {activeSection === 'xlp' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="card p-5">
-            <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Chains</h3>
-            <div className="grid grid-cols-2 gap-3">
-              {SUPPORTED_CHAINS.map((chain) => (
-                <div key={chain.id} className="p-3 rounded-xl text-center" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                  <div className="text-2xl mb-1">{chain.icon}</div>
-                  <div className="text-sm font-medium">{chain.name}</div>
-                </div>
-              ))}
+        <div className="space-y-6">
+          <div className="card p-5 border-bazaar-accent/30 bg-bazaar-accent/5">
+            <h3 className="font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+              🔗 V4 + XLP Integration
+            </h3>
+            <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
+              Liquidity now serves both local V4 swaps and cross-chain transfers. 
+              Deposit once, earn from both sources.
+            </p>
+            <div className="grid grid-cols-3 gap-3 text-center text-sm">
+              <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                <div className="text-xl mb-1">💧</div>
+                <div style={{ color: 'var(--text-tertiary)' }}>V4 LP Fees</div>
+                <div className="font-semibold">0.01-1%</div>
+              </div>
+              <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                <div className="text-xl mb-1">🌉</div>
+                <div style={{ color: 'var(--text-tertiary)' }}>XLP Fees</div>
+                <div className="font-semibold">~0.05%</div>
+              </div>
+              <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                <div className="text-xl mb-1">⚡</div>
+                <div style={{ color: 'var(--text-tertiary)' }}>Gas Sponsor</div>
+                <div className="font-semibold">+10%</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="card p-5">
+              <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Supported Chains</h3>
+              <div className="grid grid-cols-2 gap-3">
+                {SUPPORTED_CHAINS.map((chain) => (
+                  <div key={chain.id} className="p-3 rounded-xl text-center" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                    <div className="text-2xl mb-1">{chain.icon}</div>
+                    <div className="text-sm font-medium">{chain.name}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="card p-5">
+              <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Get Started</h3>
+              <div className="space-y-3">
+                <a 
+                  href="https://gateway.jeju.network?tab=xlp" 
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block p-4 rounded-xl btn-secondary text-center"
+                >
+                  Register as XLP →
+                </a>
+                <a 
+                  href="https://gateway.jeju.network?tab=xlp" 
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block p-4 rounded-xl btn-secondary text-center"
+                >
+                  Deposit Dual Liquidity →
+                </a>
+              </div>
             </div>
           </div>
 
           <div className="card p-5">
-            <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Actions</h3>
-            <div className="space-y-3">
-              <a 
-                href="https://gateway.jeju.network?tab=xlp" 
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block p-4 rounded-xl btn-secondary text-center"
-              >
-                Register as XLP →
-              </a>
-              <a 
-                href="https://gateway.jeju.network?tab=xlp" 
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block p-4 rounded-xl btn-secondary text-center"
-              >
-                Deposit Liquidity →
-              </a>
+            <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>How It Works</h3>
+            <div className="space-y-4 text-sm" style={{ color: 'var(--text-secondary)' }}>
+              <div className="flex gap-3">
+                <span className="w-6 h-6 rounded-full bg-bazaar-primary/20 text-bazaar-primary flex items-center justify-center text-xs font-bold shrink-0">1</span>
+                <div>
+                  <strong>Deposit ETH or tokens</strong> - Your liquidity is split between V4 pools (70%) and XLP transport (30%)
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <span className="w-6 h-6 rounded-full bg-bazaar-primary/20 text-bazaar-primary flex items-center justify-center text-xs font-bold shrink-0">2</span>
+                <div>
+                  <strong>Earn from both</strong> - V4 pools earn swap fees, XLP earns cross-chain transport fees
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <span className="w-6 h-6 rounded-full bg-bazaar-primary/20 text-bazaar-primary flex items-center justify-center text-xs font-bold shrink-0">3</span>
+                <div>
+                  <strong>Cross-chain volume</strong> - Users on any chain can swap into Jeju tokens via your liquidity
+                </div>
+              </div>
             </div>
           </div>
         </div>

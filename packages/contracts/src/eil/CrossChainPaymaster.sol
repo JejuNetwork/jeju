@@ -21,6 +21,38 @@ interface IFeeDistributor {
     function distributeFees(uint256 amount, address appAddress) external;
 }
 
+interface IAppTokenPreference {
+    struct TokenBalance {
+        address token;
+        uint256 balance;
+    }
+
+    function getBestPaymentToken(address appAddress, address user, TokenBalance[] calldata userBalances)
+        external
+        view
+        returns (address bestToken, string memory reason);
+
+    function hasPreferredToken(address appAddress, address user, address token, uint256 balance)
+        external
+        view
+        returns (bool hasPreferred);
+
+    function getAppPreference(address appAddress)
+        external
+        view
+        returns (
+            address appAddr,
+            address preferredToken,
+            string memory tokenSymbol,
+            uint8 tokenDecimals,
+            bool allowFallback,
+            uint256 minBalance,
+            bool isActive,
+            address registrant,
+            uint256 registrationTime
+        );
+}
+
 /**
  * @title CrossChainPaymaster
  * @author Jeju Network
@@ -95,6 +127,9 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
 
     /// @notice Fee distributor for LP rewards
     IFeeDistributor public feeDistributor;
+
+    /// @notice App token preference registry for app-specific payment tokens
+    IAppTokenPreference public appTokenPreference;
 
     /// @notice Fee margin for gas sponsorship (basis points)
     uint256 public feeMargin = DEFAULT_FEE_MARGIN;
@@ -237,6 +272,8 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
 
     event FeeDistributorUpdated(address indexed oldDistributor, address indexed newDistributor);
 
+    event AppTokenPreferenceUpdated(address indexed oldPreference, address indexed newPreference);
+
     event FeeMarginUpdated(uint256 oldMargin, uint256 newMargin);
 
     // ============ Errors ============
@@ -318,6 +355,16 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         address oldDistributor = address(feeDistributor);
         feeDistributor = IFeeDistributor(_feeDistributor);
         emit FeeDistributorUpdated(oldDistributor, _feeDistributor);
+    }
+
+    /**
+     * @notice Set the app token preference registry
+     * @param _appTokenPreference New preference registry address
+     */
+    function setAppTokenPreference(address _appTokenPreference) external onlyOwner {
+        address oldPreference = address(appTokenPreference);
+        appTokenPreference = IAppTokenPreference(_appTokenPreference);
+        emit AppTokenPreferenceUpdated(oldPreference, _appTokenPreference);
     }
 
     /**
@@ -959,7 +1006,7 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         // Check if this is legacy voucher mode (shorter context)
         if (context.length <= 128) {
             // Try legacy decode
-            (bytes32 voucherId, address xlp, uint256 maxCost, uint8 paymentMode) =
+            (bytes32 voucherId, address xlp, /* unused maxCost */, uint8 paymentMode) =
                 abi.decode(context, (bytes32, address, uint256, uint8));
 
             if (paymentMode == 1) {
@@ -1085,6 +1132,7 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
             // Get USD value of cost
             uint256 usdCost = cost;
             if (address(priceOracle) != address(0)) {
+                // slither-disable-next-line unused-return
                 (uint256 price,) = priceOracle.getPrice(token);
                 usdCost = (cost * price) / 1e18;
             }
@@ -1095,6 +1143,111 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
                 tokenCost = cost;
             }
         }
+    }
+
+    /**
+     * @notice Get the best payment token for a user considering app preferences
+     * @dev Priority order:
+     *      1. App's preferred token (if user has it with sufficient balance)
+     *      2. App's fallback tokens (in priority order)
+     *      3. Cheapest token from user's wallet with XLP liquidity
+     * @param appAddress The app requesting payment
+     * @param user User's address
+     * @param gasCostETH Gas cost in ETH
+     * @param tokens Array of tokens user has
+     * @param balances Array of balances corresponding to tokens
+     * @return bestToken Best token to use
+     * @return tokenCost Cost in that token
+     * @return reason Why this token was selected
+     */
+    function getBestPaymentTokenForApp(
+        address appAddress,
+        address user,
+        uint256 gasCostETH,
+        address[] calldata tokens,
+        uint256[] calldata balances
+    ) external view returns (address bestToken, uint256 tokenCost, string memory reason) {
+        require(tokens.length == balances.length, "Arrays must match");
+
+        // Check app token preference first
+        if (address(appTokenPreference) != address(0) && appAddress != address(0)) {
+            // Build token balance array for preference check
+            IAppTokenPreference.TokenBalance[] memory tokenBalances = new IAppTokenPreference.TokenBalance[](tokens.length);
+            for (uint256 i = 0; i < tokens.length; i++) {
+                tokenBalances[i] = IAppTokenPreference.TokenBalance({token: tokens[i], balance: balances[i]});
+            }
+
+            (address preferredToken, string memory preferenceReason) =
+                appTokenPreference.getBestPaymentToken(appAddress, user, tokenBalances);
+
+            // If we got a preferred token and it's supported, use it
+            if (preferredToken != address(0) && supportedTokens[preferredToken]) {
+                uint256 cost = _calculateTokenCost(gasCostETH, preferredToken);
+
+                // Find user's balance for this token
+                for (uint256 i = 0; i < tokens.length; i++) {
+                    if (tokens[i] == preferredToken && balances[i] >= cost) {
+                        return (preferredToken, cost, preferenceReason);
+                    }
+                }
+            }
+        }
+
+        // Fall back to cheapest available token
+        uint256 lowestUsdCost = type(uint256).max;
+
+        for (uint256 i = 0; i < tokens.length; i++) {
+            address token = tokens[i];
+            if (!supportedTokens[token]) continue;
+
+            uint256 cost = _calculateTokenCost(gasCostETH, token);
+            if (balances[i] < cost) continue;
+
+            // Get USD value of cost
+            uint256 usdCost = cost;
+            if (address(priceOracle) != address(0)) {
+                // slither-disable-next-line unused-return
+                (uint256 price,) = priceOracle.getPrice(token);
+                usdCost = (cost * price) / 1e18;
+            }
+
+            if (usdCost < lowestUsdCost) {
+                lowestUsdCost = usdCost;
+                bestToken = token;
+                tokenCost = cost;
+                reason = "Cheapest available token";
+            }
+        }
+
+        if (bestToken == address(0)) {
+            reason = "No suitable token found";
+        }
+    }
+
+    /**
+     * @notice Check if user has app's preferred token
+     * @param appAddress The app's address
+     * @param user User's address
+     * @param token Token to check
+     * @param balance User's balance
+     * @return hasPreferred Whether user has the preferred token
+     * @return preferredToken The app's preferred token (if set)
+     */
+    function checkAppPreference(address appAddress, address user, address token, uint256 balance)
+        external
+        view
+        returns (bool hasPreferred, address preferredToken)
+    {
+        if (address(appTokenPreference) == address(0)) {
+            return (false, address(0));
+        }
+
+        hasPreferred = appTokenPreference.hasPreferredToken(appAddress, user, token, balance);
+
+        // Get the preferred token - we only need the preferredToken field
+        // slither-disable-next-line unused-return
+        (,address prefToken,,,,,,,) = appTokenPreference.getAppPreference(appAddress);
+        preferredToken = prefToken;
     }
 
     // ============ View Functions ============
@@ -1226,10 +1379,9 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
     {
         ethLiquidity = totalETHLiquidity;
         entryPointBalance = entryPoint.balanceOf(address(this));
+        supportedTokenCount = 0; // Requires off-chain enumeration
         totalGasFees = totalGasFeesCollected;
         oracleSet = address(priceOracle) != address(0);
-        // Note: supportedTokenCount would need enumeration which we don't have
-        // Callers should track this off-chain
     }
 
     // ============ EntryPoint Funding ============

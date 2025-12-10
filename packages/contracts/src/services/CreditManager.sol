@@ -16,10 +16,10 @@ interface ILedgerManager {
  * @title CreditManager
  * @author Jeju Network
  * @notice Manages prepaid balances for agents across all services
- * @dev Supports USDC, ETH, and elizaOS tokens for zero-latency payments
+ * @dev Supports USDC, ETH, elizaOS, and JEJU tokens for zero-latency payments
  *
  * Architecture:
- * - Users deposit tokens (USDC/ETH/elizaOS) to build credit balance
+ * - Users deposit tokens (USDC/ETH/elizaOS/JEJU) to build credit balance
  * - Services deduct from balance (off-chain signature or on-chain)
  * - Overpayments automatically credit user account
  * - Low balance triggers new payment requirement
@@ -43,6 +43,9 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
 
     /// @notice elizaOS token contract
     IERC20 public immutable elizaOS;
+
+    /// @notice JEJU token contract
+    IERC20 public jeju;
 
     /// @notice Mapping of user -> token -> balance
     mapping(address => mapping(address => uint256)) public balances;
@@ -93,6 +96,7 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
     event ComputePayment(address indexed user, uint256 ethAmount, uint256 tokenAmount, address token);
     event LiquidityDeposited(address indexed depositor, uint256 amount, uint256 newBalance);
     event LiquidityWithdrawn(address indexed recipient, uint256 amount, uint256 newBalance);
+    event JejuTokenUpdated(address indexed oldToken, address indexed newToken);
 
     // ============ Errors ============
 
@@ -144,6 +148,21 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
     }
 
     /**
+     * @notice Deposit JEJU tokens to build credit balance (preferred payment token)
+     * @param amount Amount in JEJU (18 decimals)
+     */
+    function depositJEJU(uint256 amount) external whenNotPaused {
+        if (amount == 0) revert InvalidAmount(amount);
+        if (address(jeju) == address(0)) revert InvalidToken(address(0));
+
+        jeju.safeTransferFrom(msg.sender, address(this), amount);
+
+        balances[msg.sender][address(jeju)] += amount;
+
+        emit CreditDeposited(msg.sender, address(jeju), amount, balances[msg.sender][address(jeju)]);
+    }
+
+    /**
      * @notice Deposit ETH to build credit balance
      */
     function depositETH() external payable whenNotPaused {
@@ -155,7 +174,7 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
     }
 
     /**
-     * @notice Deposit any supported token (USDC, elizaOS, or ETH)
+     * @notice Deposit any supported token (USDC, elizaOS, JEJU, or ETH)
      * @param token Token address (address(0) for ETH)
      * @param amount Amount to deposit
      */
@@ -169,6 +188,9 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
         } else if (token == address(elizaOS)) {
             elizaOS.safeTransferFrom(msg.sender, address(this), amount);
             balances[msg.sender][address(elizaOS)] += amount;
+        } else if (address(jeju) != address(0) && token == address(jeju)) {
+            jeju.safeTransferFrom(msg.sender, address(this), amount);
+            balances[msg.sender][address(jeju)] += amount;
         } else {
             revert InvalidToken(token);
         }
@@ -283,12 +305,14 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
         }
 
         // Simple conversion rate (in production, use oracle)
-        // 1 USDC = 0.0003 ETH, 1 elizaOS = 0.0001 ETH (example rates)
+        // 1 USDC = 0.0003 ETH, 1 elizaOS = 0.0001 ETH, 1 JEJU = 0.0002 ETH (example rates)
         uint256 ethValue = 0;
         if (token == address(usdc)) {
             ethValue = (tokenAmount * 3e14) / 1e6; // USDC has 6 decimals
         } else if (token == address(elizaOS)) {
             ethValue = (tokenAmount * 1e14) / 1e18; // elizaOS has 18 decimals
+        } else if (address(jeju) != address(0) && token == address(jeju)) {
+            ethValue = (tokenAmount * 2e14) / 1e18; // JEJU has 18 decimals, preferred token
         } else {
             revert UnsupportedToken(token);
         }
@@ -360,6 +384,25 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
         usdcBalance = balances[user][address(usdc)];
         elizaBalance = balances[user][address(elizaOS)];
         ethBalance = balances[user][ETH_ADDRESS];
+    }
+
+    /**
+     * @notice Get user's balances for all supported tokens including JEJU
+     * @param user User address
+     * @return usdcBalance USDC balance (6 decimals)
+     * @return elizaBalance elizaOS balance (18 decimals)
+     * @return ethBalance ETH balance (18 decimals)
+     * @return jejuBalance JEJU balance (18 decimals)
+     */
+    function getAllBalancesWithJeju(address user)
+        external
+        view
+        returns (uint256 usdcBalance, uint256 elizaBalance, uint256 ethBalance, uint256 jejuBalance)
+    {
+        usdcBalance = balances[user][address(usdc)];
+        elizaBalance = balances[user][address(elizaOS)];
+        ethBalance = balances[user][ETH_ADDRESS];
+        jejuBalance = address(jeju) != address(0) ? balances[user][address(jeju)] : 0;
     }
 
     /**
@@ -435,6 +478,16 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
         address oldManager = address(ledgerManager);
         ledgerManager = ILedgerManager(_ledgerManager);
         emit LedgerManagerUpdated(oldManager, _ledgerManager);
+    }
+
+    /**
+     * @notice Set JEJU token address (preferred payment token for Jeju Network)
+     * @param _jeju JEJU token contract address
+     */
+    function setJejuToken(address _jeju) external onlyOwner {
+        address oldToken = address(jeju);
+        jeju = IERC20(_jeju);
+        emit JejuTokenUpdated(oldToken, _jeju);
     }
 
     /**
@@ -540,6 +593,9 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
         } else if (token == address(elizaOS)) {
             elizaOS.safeTransferFrom(msg.sender, address(this), amount);
             agentBalances[agentId][address(elizaOS)] += amount;
+        } else if (address(jeju) != address(0) && token == address(jeju)) {
+            jeju.safeTransferFrom(msg.sender, address(this), amount);
+            agentBalances[agentId][address(jeju)] += amount;
         } else {
             revert InvalidToken(token);
         }

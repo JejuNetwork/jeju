@@ -162,6 +162,7 @@ export async function getPaymasterForToken(
 
 /**
  * Get paymaster options with cost estimates
+ * Returns available paymaster options sorted by cost
  */
 export async function getPaymasterOptions(
   estimatedGas: bigint,
@@ -187,16 +188,23 @@ export async function getPaymasterOptions(
     
     tokenCost = quote;
 
+    const isRecommended = pm.tokenSymbol === 'JEJU' || 
+      pm.tokenSymbol === 'USDC' || 
+      pm.tokenSymbol.includes('eliza');
+
     options.push({
       paymaster: pm,
       estimatedCost: tokenCost,
       estimatedCostFormatted: `~${formatEther(tokenCost)} ${pm.tokenSymbol}`,
-      isRecommended: pm.tokenSymbol === 'USDC' || pm.tokenSymbol.includes('eliza'),
+      isRecommended,
     });
   }
 
-  // Sort by cost
-  return options.sort((a, b) => Number(a.estimatedCost - b.estimatedCost));
+  return options.sort((a, b) => {
+    if (a.paymaster.tokenSymbol === 'JEJU' && b.paymaster.tokenSymbol !== 'JEJU') return -1;
+    if (a.paymaster.tokenSymbol !== 'JEJU' && b.paymaster.tokenSymbol === 'JEJU') return 1;
+    return Number(a.estimatedCost - b.estimatedCost);
+  });
 }
 
 /**

@@ -10,29 +10,21 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 /**
  * @title LiquidityVault
  * @author Jeju Network
- * @notice Dual-pool liquidity vault enabling decentralized paymaster operations
- * @dev Manages separate ETH and elizaOS liquidity pools where liquidity providers earn
- *      proportional fees from paymaster transactions. ETH is used to sponsor gas costs,
- *      while elizaOS collected from users is distributed as fees.
+ * @notice Dual-use liquidity vault: XLP cross-chain transport + V4 AMM
+ * @dev Single deposit serves both:
+ *      - XLP: Cross-chain liquidity provision (earn transport fees)
+ *      - V4:  AMM liquidity provision (earn swap fees)
  *
  * Architecture:
- * - Two independent pools: ETH (for gas) and elizaOS (optional diversification)
- * - Share-based accounting similar to Uniswap LP tokens
- * - Proportional fee distribution based on LP share ownership
- * - Utilization limits protect against over-deployment
+ *      - Configurable allocation split (default 70% V4, 30% XLP)
+ *      - Share-based accounting (LP tokens)
+ *      - Combined fee tracking from both sources
+ *      - Auto-rebalancing between pools
  *
- * Fee Distribution Model:
- * - LPs earn 50% of all transaction fees (split 70/30 between ETH/elizaOS LPs)
- * - Fees are immediately credited per-share (no time-based vesting)
- * - Gas-efficient accounting using accumulated fees per share
- * - LPs can claim fees anytime without unstaking
- *
- * Security Features:
- * - Maximum utilization cap (80%) prevents liquidity exhaustion
- * - Minimum liquidity requirement ensures operational buffer
- * - Share-based accounting prevents dilution attacks
- * - Pausable for emergency situations
- * - Protected withdrawal/deposit flows with reentrancy guards
+ * Revenue Sources:
+ *      - XLP fees: ~0.05% per cross-chain transfer
+ *      - V4 fees:  0.01%-1% per swap (depends on pool)
+ *      - Gas sponsorship fees from paymaster operations
  *
  * @custom:security-contact security@jeju.network
  */
@@ -91,19 +83,81 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
     /// @notice Fee distributor contract authorized to distribute fees
     address public feeDistributor;
 
+    /// @notice CrossChainSwapRouter for V4 integration
+    address public swapRouter;
+
+    /// @notice CrossChainPaymaster for XLP operations
+    address public crossChainPaymaster;
+
+    // ============ Allocation Configuration ============
+
+    /// @notice Percentage of deposits allocated to V4 pools (basis points, 7000 = 70%)
+    uint256 public v4AllocationBps = 7000;
+
+    /// @notice Percentage allocated to XLP (basis points, 3000 = 30%)
+    uint256 public xlpAllocationBps = 3000;
+
+    /// @notice ETH currently deployed to V4 pools
+    uint256 public ethInV4;
+
+    /// @notice ETH currently available for XLP operations
+    uint256 public ethInXLP;
+
+    /// @notice Tokens deployed to V4 pools: token => amount
+    mapping(address => uint256) public tokensInV4;
+
+    /// @notice Tokens available for XLP: token => amount
+    mapping(address => uint256) public tokensInXLP;
+
+    // ============ V4 Pool Tracking ============
+
+    /// @notice Registered V4 pool positions: poolId => PositionInfo
+    mapping(bytes32 => V4Position) public v4Positions;
+
+    /// @notice List of active pool IDs
+    bytes32[] public activePoolIds;
+
+    struct V4Position {
+        address token0;
+        address token1;
+        uint24 fee;
+        int24 tickLower;
+        int24 tickUpper;
+        uint128 liquidity;
+        uint256 lastFeeCollection;
+        bool active;
+    }
+
+    // ============ Combined Fee Tracking ============
+
+    /// @notice Total fees earned from V4 swaps (in ETH equivalent)
+    uint256 public totalV4Fees;
+
+    /// @notice Total fees earned from XLP transfers
+    uint256 public totalXLPFees;
+
+    /// @notice Combined fees per share (scaled by PRECISION)
+    uint256 public combinedFeesPerShare;
+
+    /// @notice Last combined fees per share when LP claimed
+    mapping(address => uint256) public combinedFeesPerSharePaid;
+
+    /// @notice Pending combined fees for each LP
+    mapping(address => uint256) public pendingCombinedFees;
+
     // ============ Safety Parameters ============
 
     /// @notice Maximum percentage of ETH that can be deployed (80%)
-    /// @dev Prevents over-deployment, maintains operational buffer
     uint256 public constant MAX_UTILIZATION = 80;
 
     /// @notice Minimum ETH that must remain in vault for withdrawals
-    /// @dev Configurable by owner. Default 10 ETH.
     uint256 public minETHLiquidity = 10 ether;
 
     /// @notice Precision multiplier for per-share calculations
-    /// @dev Using 1e18 to maintain accuracy in fee distributions
     uint256 private constant PRECISION = 1e18;
+
+    /// @notice Basis points denominator
+    uint256 private constant BASIS_POINTS = 10000;
 
     // ============ Events ============
 
@@ -115,6 +169,13 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
     event FeesClaimed(address indexed provider, uint256 amount);
     event PaymasterSet(address indexed paymaster);
     event FeeDistributorSet(address indexed feeDistributor);
+    event SwapRouterSet(address indexed router);
+    event CrossChainPaymasterSet(address indexed paymaster);
+    event AllocationUpdated(uint256 v4Bps, uint256 xlpBps);
+    event V4PositionCreated(bytes32 indexed poolId, address token0, address token1, uint128 liquidity);
+    event V4FeesCollected(bytes32 indexed poolId, uint256 amount0, uint256 amount1);
+    event XLPFeesCollected(uint256 amount);
+    event Rebalanced(uint256 toV4, uint256 toXLP);
 
     // ============ Errors ============
 
@@ -536,13 +597,198 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
         return (shares * feesDelta) / PRECISION;
     }
 
+    // ============ Dual-Use Deposit (V4 + XLP) ============
+
+    /**
+     * @notice Deposit ETH with automatic allocation to V4 and XLP
+     * @param minShares Minimum shares (slippage protection)
+     * @dev Split according to v4AllocationBps/xlpAllocationBps
+     */
+    function depositDual(uint256 minShares) external payable nonReentrant whenNotPaused updateFees(msg.sender) {
+        if (msg.value == 0) revert InvalidAmount();
+
+        uint256 shares;
+        if (totalETHLiquidity == 0) {
+            shares = msg.value;
+        } else {
+            uint256 balanceBeforeDeposit = address(this).balance - msg.value + ethInV4 + ethInXLP;
+            shares = (msg.value * totalETHLiquidity) / balanceBeforeDeposit;
+        }
+
+        if (shares < minShares) revert InsufficientShares(shares, minShares);
+
+        // Allocate between V4 and XLP
+        uint256 toV4 = (msg.value * v4AllocationBps) / BASIS_POINTS;
+        uint256 toXLP = msg.value - toV4;
+
+        ethInV4 += toV4;
+        ethInXLP += toXLP;
+
+        ethShares[msg.sender] += shares;
+        totalETHLiquidity += shares;
+
+        emit ETHAdded(msg.sender, msg.value, shares);
+    }
+
+    /**
+     * @notice Get allocation breakdown for a deposit
+     * @param amount Deposit amount
+     * @return v4Amount Amount that would go to V4
+     * @return xlpAmount Amount that would go to XLP
+     */
+    function previewAllocation(uint256 amount) external view returns (uint256 v4Amount, uint256 xlpAmount) {
+        v4Amount = (amount * v4AllocationBps) / BASIS_POINTS;
+        xlpAmount = amount - v4Amount;
+    }
+
+    /**
+     * @notice Rebalance between V4 and XLP according to allocation
+     * @dev Can be called by anyone, useful after allocation changes
+     */
+    function rebalance() external nonReentrant {
+        uint256 totalAllocated = ethInV4 + ethInXLP;
+        if (totalAllocated == 0) return;
+        
+        uint256 targetV4 = (totalAllocated * v4AllocationBps) / BASIS_POINTS;
+
+        uint256 movedToV4 = 0;
+        uint256 movedToXLP = 0;
+
+        if (ethInV4 < targetV4) {
+            uint256 toMove = targetV4 - ethInV4;
+            if (toMove > ethInXLP) toMove = ethInXLP;
+            ethInV4 += toMove;
+            ethInXLP -= toMove;
+            movedToV4 = toMove;
+        } else if (ethInV4 > targetV4) {
+            uint256 toMove = ethInV4 - targetV4;
+            ethInV4 -= toMove;
+            ethInXLP += toMove;
+            movedToXLP = toMove;
+        }
+
+        emit Rebalanced(movedToV4, movedToXLP);
+    }
+
+    // ============ V4 Position Management ============
+
+    /**
+     * @notice Create a V4 pool position
+     * @param poolId Unique identifier for tracking
+     * @param token0 First token
+     * @param token1 Second token
+     * @param fee Fee tier
+     * @param tickLower Lower tick bound
+     * @param tickUpper Upper tick bound
+     * @param liquidity Initial liquidity
+     */
+    function createV4Position(
+        bytes32 poolId,
+        address token0,
+        address token1,
+        uint24 fee,
+        int24 tickLower,
+        int24 tickUpper,
+        uint128 liquidity
+    ) external onlyOwner {
+        require(!v4Positions[poolId].active, "Position exists");
+
+        v4Positions[poolId] = V4Position({
+            token0: token0,
+            token1: token1,
+            fee: fee,
+            tickLower: tickLower,
+            tickUpper: tickUpper,
+            liquidity: liquidity,
+            lastFeeCollection: block.timestamp,
+            active: true
+        });
+
+        activePoolIds.push(poolId);
+
+        emit V4PositionCreated(poolId, token0, token1, liquidity);
+    }
+
+    /**
+     * @notice Record V4 fees collected from a position
+     * @param poolId Position ID
+     * @param amount0 Fees in token0
+     * @param amount1 Fees in token1
+     */
+    function recordV4Fees(bytes32 poolId, uint256 amount0, uint256 amount1) external {
+        require(msg.sender == swapRouter || msg.sender == owner(), "Unauthorized");
+        require(v4Positions[poolId].active, "Position not active");
+
+        v4Positions[poolId].lastFeeCollection = block.timestamp;
+
+        // Convert to ETH equivalent (simplified - use oracle in production)
+        uint256 ethEquivalent = amount0 + amount1; // Assumes 1:1 for simplicity
+        totalV4Fees += ethEquivalent;
+
+        // Update combined fees per share
+        if (totalETHLiquidity > 0) {
+            combinedFeesPerShare += (ethEquivalent * PRECISION) / totalETHLiquidity;
+        }
+
+        emit V4FeesCollected(poolId, amount0, amount1);
+    }
+
+    /**
+     * @notice Record XLP fees collected
+     * @param amount Fee amount in ETH
+     */
+    function recordXLPFees(uint256 amount) external {
+        require(msg.sender == crossChainPaymaster || msg.sender == owner(), "Unauthorized");
+
+        totalXLPFees += amount;
+
+        if (totalETHLiquidity > 0) {
+            combinedFeesPerShare += (amount * PRECISION) / totalETHLiquidity;
+        }
+
+        emit XLPFeesCollected(amount);
+    }
+
+    /**
+     * @notice Get combined pending fees from V4 + XLP
+     * @param account LP address
+     * @return Total pending fees
+     */
+    function pendingCombined(address account) public view returns (uint256) {
+        uint256 shares = ethShares[account];
+        if (shares == 0) return pendingCombinedFees[account];
+
+        uint256 feesDelta = combinedFeesPerShare - combinedFeesPerSharePaid[account];
+        return pendingCombinedFees[account] + (shares * feesDelta) / PRECISION;
+    }
+
+    /**
+     * @notice Get vault statistics
+     * @return v4Total ETH in V4 pools
+     * @return xlpTotal ETH in XLP
+     * @return v4FeesTotal Total V4 fees earned
+     * @return xlpFeesTotal Total XLP fees earned
+     * @return activePositions Number of active V4 positions
+     */
+    function getVaultStats() external view returns (
+        uint256 v4Total,
+        uint256 xlpTotal,
+        uint256 v4FeesTotal,
+        uint256 xlpFeesTotal,
+        uint256 activePositions
+    ) {
+        v4Total = ethInV4;
+        xlpTotal = ethInXLP;
+        v4FeesTotal = totalV4Fees;
+        xlpFeesTotal = totalXLPFees;
+        activePositions = activePoolIds.length;
+    }
+
     // ============ Admin Functions ============
 
     /**
      * @notice Set the authorized paymaster contract address
      * @param _paymaster Address of the paymaster contract
-     * @dev Only callable by owner. Paymaster can request ETH for gas operations.
-     * @custom:security Ensure paymaster contract is audited before setting
      */
     function setPaymaster(address _paymaster) external onlyOwner {
         require(_paymaster != address(0), "Invalid paymaster");
@@ -553,7 +799,6 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
     /**
      * @notice Set the authorized fee distributor contract address
      * @param _feeDistributor Address of the fee distributor contract
-     * @dev Only callable by owner. Distributor can distribute fees to LPs.
      */
     function setFeeDistributor(address _feeDistributor) external onlyOwner {
         require(_feeDistributor != address(0), "Invalid distributor");
@@ -562,9 +807,38 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
     }
 
     /**
+     * @notice Set the swap router for V4 integration
+     * @param _router Address of CrossChainSwapRouter
+     */
+    function setSwapRouter(address _router) external onlyOwner {
+        swapRouter = _router;
+        emit SwapRouterSet(_router);
+    }
+
+    /**
+     * @notice Set the cross-chain paymaster for XLP operations
+     * @param _paymaster Address of CrossChainPaymaster
+     */
+    function setCrossChainPaymaster(address _paymaster) external onlyOwner {
+        crossChainPaymaster = _paymaster;
+        emit CrossChainPaymasterSet(_paymaster);
+    }
+
+    /**
+     * @notice Update allocation split between V4 and XLP
+     * @param _v4Bps V4 allocation in basis points (max 10000)
+     * @param _xlpBps XLP allocation in basis points (max 10000)
+     */
+    function setAllocation(uint256 _v4Bps, uint256 _xlpBps) external onlyOwner {
+        require(_v4Bps + _xlpBps == BASIS_POINTS, "Must total 100%");
+        v4AllocationBps = _v4Bps;
+        xlpAllocationBps = _xlpBps;
+        emit AllocationUpdated(_v4Bps, _xlpBps);
+    }
+
+    /**
      * @notice Update the minimum ETH that must remain in vault
      * @param _minETH New minimum ETH amount in wei
-     * @dev Only callable by owner. Affects withdrawal limits and available liquidity.
      */
     function setMinETHLiquidity(uint256 _minETH) external onlyOwner {
         minETHLiquidity = _minETH;
@@ -601,6 +875,6 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
      * @return Version string in semver format
      */
     function version() external pure returns (string memory) {
-        return "1.0.0";
+        return "2.0.0";
     }
 }

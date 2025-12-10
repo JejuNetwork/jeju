@@ -242,6 +242,13 @@ export const OTC_LISTING_CANCELLED = eventSig('ListingCancelled(uint256)');
 export const OTC_LISTING_UPDATED = eventSig('ListingUpdated(uint256,uint256,uint256)');
 export const OTC_SWAP_EXECUTED = eventSig('SwapExecuted(uint256,address,address,uint256,uint256)');
 
+// ============ JEJU Token Events (JejuToken.sol) ============
+
+export const BAN_ENFORCEMENT_TOGGLED = eventSig('BanEnforcementToggled(bool)');
+export const BAN_MANAGER_UPDATED = eventSig('BanManagerUpdated(address,address)');
+export const FAUCET_CLAIMED = eventSig('FaucetClaimed(address,uint256)');
+export const FAUCET_TOGGLED = eventSig('FaucetToggled(bool)');
+
 // ============ Token Factory Events (SimpleERC20Factory.sol) ============
 
 export const TOKEN_CREATED = eventSig('TokenCreated(address,string,string,uint256,uint8)');
@@ -383,6 +390,12 @@ export const EVENT_REGISTRY: Record<string, EventCategory> = {
   [PAYMASTER_DEPLOYED]: { signature: PAYMASTER_DEPLOYED, name: 'PaymasterDeployed', category: 'paymaster', contract: 'PaymasterFactory' },
   [TOKEN_REGISTERED]: { signature: TOKEN_REGISTERED, name: 'TokenRegistered', category: 'paymaster', contract: 'TokenRegistry' },
   [TOKEN_CREATED]: { signature: TOKEN_CREATED, name: 'TokenCreated', category: 'token', contract: 'SimpleERC20Factory' },
+
+  // JEJU Token events
+  [BAN_ENFORCEMENT_TOGGLED]: { signature: BAN_ENFORCEMENT_TOGGLED, name: 'BanEnforcementToggled', category: 'token', contract: 'JejuToken' },
+  [BAN_MANAGER_UPDATED]: { signature: BAN_MANAGER_UPDATED, name: 'BanManagerUpdated', category: 'token', contract: 'JejuToken' },
+  [FAUCET_CLAIMED]: { signature: FAUCET_CLAIMED, name: 'FaucetClaimed', category: 'token', contract: 'JejuToken' },
+  [FAUCET_TOGGLED]: { signature: FAUCET_TOGGLED, name: 'FaucetToggled', category: 'token', contract: 'JejuToken' },
 };
 
 // ============ Contract Type Detection ============
@@ -470,6 +483,10 @@ export const ORACLE_EVENTS = [
   FEED_POST_PUBLISHED, MARKET_UPDATED, SKILL_LEVEL_UP, PRICES_UPDATED,
 ];
 
+export const JEJU_TOKEN_EVENTS = [
+  BAN_ENFORCEMENT_TOGGLED, BAN_MANAGER_UPDATED, FAUCET_CLAIMED, FAUCET_TOGGLED,
+];
+
 // ============ All Known Events ============
 
 export const ALL_KNOWN_EVENTS = [
@@ -487,6 +504,7 @@ export const ALL_KNOWN_EVENTS = [
   ...REPORTING_EVENTS,
   ...NODE_EVENTS,
   ...ORACLE_EVENTS,
+  ...JEJU_TOKEN_EVENTS,
 ];
 
 // ============ Contract Address Mapping (filled at runtime) ============

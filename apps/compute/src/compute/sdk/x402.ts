@@ -62,6 +62,9 @@ export interface X402Config {
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
 
+/** JEJU token address */
+const JEJU_TOKEN_ADDRESS = (process.env.JEJU_TOKEN_ADDRESS || ZERO_ADDRESS) as Address;
+
 export const X402_CHAIN_IDS: Record<X402Network, number> = {
   sepolia: 11155111,
   'base-sepolia': 84532,
@@ -290,6 +293,7 @@ export function createPaymentRequirement(
 
 /**
  * Create a multi-asset payment requirement (supports multiple tokens)
+ * JEJU is listed first
  */
 export function createMultiAssetPaymentRequirement(
   resource: string,
@@ -299,35 +303,50 @@ export function createMultiAssetPaymentRequirement(
   network: X402Network = 'jeju',
   supportedAssets: Array<{ address: Address; symbol: string; decimals: number }> = []
 ): X402PaymentRequirement {
-  const accepts: X402PaymentOption[] = [
-    // Native ETH
-    {
-      scheme: 'exact',
-      network,
-      maxAmountRequired: amountWei.toString(),
-      asset: ZERO_ADDRESS,
-      payTo,
-      resource,
-      description: `${description} (ETH)`,
-    },
-    // Credit balance
-    {
-      scheme: 'credit',
-      network,
-      maxAmountRequired: amountWei.toString(),
-      asset: ZERO_ADDRESS,
-      payTo,
-      resource,
-      description: 'Pay from prepaid credit balance',
-    },
-  ];
+  const accepts: X402PaymentOption[] = [];
 
-  // Add supported ERC-20 tokens
-  for (const asset of supportedAssets) {
+  if (JEJU_TOKEN_ADDRESS !== ZERO_ADDRESS) {
     accepts.push({
       scheme: 'paymaster',
       network,
-      maxAmountRequired: amountWei.toString(), // Would need conversion in practice
+      maxAmountRequired: amountWei.toString(),
+      asset: JEJU_TOKEN_ADDRESS,
+      payTo,
+      resource,
+      description: `${description} (JEJU)`,
+    });
+  }
+
+  // Native ETH
+  accepts.push({
+    scheme: 'exact',
+    network,
+    maxAmountRequired: amountWei.toString(),
+    asset: ZERO_ADDRESS,
+    payTo,
+    resource,
+    description: `${description} (ETH)`,
+  });
+
+  // Credit balance
+  accepts.push({
+    scheme: 'credit',
+    network,
+    maxAmountRequired: amountWei.toString(),
+    asset: ZERO_ADDRESS,
+    payTo,
+    resource,
+    description: 'Pay from prepaid credit balance',
+  });
+
+  // Add other supported ERC-20 tokens
+  for (const asset of supportedAssets) {
+    // Skip JEJU as it's already first
+    if (asset.symbol === 'JEJU') continue;
+    accepts.push({
+      scheme: 'paymaster',
+      network,
+      maxAmountRequired: amountWei.toString(),
       asset: asset.address,
       payTo,
       resource,

@@ -161,7 +161,7 @@ describe('Cross-Chain Compute Integration', () => {
     test('inference params with any provider', () => {
       const params: CrossChainInferenceParams = {
         // No provider specified - any provider can fulfill
-        model: 'gpt-4',
+        model: '5',
         prompt: 'Hello world',
         paymentToken: '0x0000000000000000000000000000000000000000',
         paymentAmount: parseEther('0.001'),

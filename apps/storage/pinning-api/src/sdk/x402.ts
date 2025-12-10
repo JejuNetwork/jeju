@@ -60,6 +60,9 @@ export interface X402Config {
 
 export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
 
+/** JEJU token address */
+export const JEJU_TOKEN_ADDRESS = (process.env.JEJU_TOKEN_ADDRESS || ZERO_ADDRESS) as Address;
+
 export const X402_CHAIN_IDS: Record<X402Network, number> = {
   sepolia: 11155111,
   'base-sepolia': 84532,
@@ -424,40 +427,59 @@ export function createStoragePaymentRequirement(
   network: X402Network = 'jeju'
 ): X402PaymentRequirement {
   const netConfig = getX402NetworkConfig(network);
+  const accepts: X402PaymentOption[] = [];
+
+  if (JEJU_TOKEN_ADDRESS !== ZERO_ADDRESS) {
+    accepts.push({
+      scheme: 'paymaster',
+      network,
+      maxAmountRequired: amountWei.toString(),
+      asset: JEJU_TOKEN_ADDRESS,
+      payTo,
+      resource,
+      description: `${description} (JEJU)`,
+    });
+  }
+
+  // Native ETH
+  accepts.push({
+    scheme: 'exact',
+    network,
+    maxAmountRequired: amountWei.toString(),
+    asset: ZERO_ADDRESS,
+    payTo,
+    resource,
+    description: `${description} (ETH)`,
+  });
+
+  // Credit balance
+  accepts.push({
+    scheme: 'credit',
+    network,
+    maxAmountRequired: amountWei.toString(),
+    asset: ZERO_ADDRESS,
+    payTo,
+    resource,
+    description: 'Pay from prepaid credit balance',
+  });
+
+  // Add USDC option if available on network
+  if (netConfig.usdc !== ZERO_ADDRESS) {
+    accepts.push({
+      scheme: 'paymaster',
+      network,
+      maxAmountRequired: amountWei.toString(),
+      asset: netConfig.usdc,
+      payTo,
+      resource,
+      description: `${description} (USDC via paymaster)`,
+    });
+  }
 
   return {
     x402Version: 1,
     error: 'Payment required to access storage service',
-    accepts: [
-      {
-        scheme: 'exact',
-        network,
-        maxAmountRequired: amountWei.toString(),
-        asset: ZERO_ADDRESS, // ETH
-        payTo,
-        resource,
-        description: `${description} (ETH)`,
-      },
-      {
-        scheme: 'credit',
-        network,
-        maxAmountRequired: amountWei.toString(),
-        asset: ZERO_ADDRESS,
-        payTo,
-        resource,
-        description: 'Pay from prepaid credit balance',
-      },
-      // Add USDC option if available on network
-      ...(netConfig.usdc !== ZERO_ADDRESS ? [{
-        scheme: 'paymaster',
-        network,
-        maxAmountRequired: amountWei.toString(),
-        asset: netConfig.usdc,
-        payTo,
-        resource,
-        description: `${description} (USDC via paymaster)`,
-      }] : []),
-    ],
+    accepts,
   };
 }
 

@@ -21,9 +21,12 @@ export {
   type EILStats,
   type SwapStatus,
   type StakeStatus,
+  type AppPreference,
+  type GasPaymentOption,
   SUPPORTED_CHAINS,
   CROSS_CHAIN_PAYMASTER_ABI,
   L1_STAKE_MANAGER_ABI,
+  APP_TOKEN_PREFERENCE_ABI,
   calculateSwapFee,
   estimateSwapTime,
   formatSwapRoute,
@@ -34,6 +37,11 @@ export {
   buildSwapTransaction,
   buildXLPStakeTransaction,
   buildLiquidityDepositTransaction,
+  buildTokenPaymentData,
+  buildAppAwarePaymentData,
+  getBestGasTokenForApp,
+  selectBestGasToken,
+  formatGasPaymentOption,
 } from '../../../../scripts/shared/eil-hooks';
 
 // Import for local use
@@ -41,10 +49,12 @@ import {
   SUPPORTED_CHAINS,
   CROSS_CHAIN_PAYMASTER_ABI,
   L1_STAKE_MANAGER_ABI,
+  APP_TOKEN_PREFERENCE_ABI,
   type CrossChainSwapParams,
   type XLPPosition,
   type SwapStatus,
   type StakeStatus,
+  type AppPreference,
 } from '../../../../scripts/shared/eil-hooks';
 
 // Load config from JSON
@@ -106,9 +116,13 @@ export function useEILConfig() {
     };
   });
 
+  // Get appTokenPreference address from chain config if available
+  const appTokenPreferenceAddr = chainConfig?.tokens?.['appTokenPreference'] as Address | undefined;
+
   return {
     isAvailable: Boolean(isAvailable),
     crossChainPaymaster: isAvailable ? crossChainPaymaster : undefined,
+    appTokenPreference: appTokenPreferenceAddr || undefined,
     supportedChains: configuredChains,
     l1StakeManager: (networkConfig.hub.l1StakeManager || undefined) as Address | undefined,
     supportedTokens: (eilConfig as EILConfig).supportedTokens as Address[],
@@ -374,6 +388,130 @@ export function useXLPLiquidity(paymasterAddress: Address | undefined) {
     isLoading: isPending || isConfirming,
     isSuccess,
     hash
+  };
+}
+
+// ============ App Token Preference Hooks ============
+
+/**
+ * Hook for registering app token preferences
+ */
+export function useAppTokenPreference(preferenceAddress: Address | undefined) {
+  const { writeContract, data: hash, isPending } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  const registerApp = useCallback(async (
+    appAddress: Address,
+    preferredToken: Address,
+    allowFallback: boolean,
+    minBalance: bigint
+  ) => {
+    if (!preferenceAddress) return;
+    
+    writeContract({
+      address: preferenceAddress,
+      abi: APP_TOKEN_PREFERENCE_ABI,
+      functionName: 'registerApp',
+      args: [appAddress, preferredToken, allowFallback, minBalance],
+    });
+  }, [preferenceAddress, writeContract]);
+
+  const updatePreferredToken = useCallback(async (
+    appAddress: Address,
+    newPreferredToken: Address
+  ) => {
+    if (!preferenceAddress) return;
+    
+    writeContract({
+      address: preferenceAddress,
+      abi: APP_TOKEN_PREFERENCE_ABI,
+      functionName: 'updatePreferredToken',
+      args: [appAddress, newPreferredToken],
+    });
+  }, [preferenceAddress, writeContract]);
+
+  const setFallbackTokens = useCallback(async (
+    appAddress: Address,
+    tokens: Address[]
+  ) => {
+    if (!preferenceAddress) return;
+    
+    writeContract({
+      address: preferenceAddress,
+      abi: APP_TOKEN_PREFERENCE_ABI,
+      functionName: 'setFallbackTokens',
+      args: [appAddress, tokens],
+    });
+  }, [preferenceAddress, writeContract]);
+
+  return {
+    registerApp,
+    updatePreferredToken,
+    setFallbackTokens,
+    isLoading: isPending || isConfirming,
+    isSuccess,
+    hash,
+  };
+}
+
+/**
+ * Hook for reading app token preferences
+ */
+export function useAppPreference(preferenceAddress: Address | undefined, appAddress: Address | undefined) {
+  const { data: preferenceData } = useReadContract({
+    address: preferenceAddress,
+    abi: APP_TOKEN_PREFERENCE_ABI,
+    functionName: 'getAppPreference',
+    args: appAddress ? [appAddress] : undefined,
+  });
+
+  const { data: fallbackTokens } = useReadContract({
+    address: preferenceAddress,
+    abi: APP_TOKEN_PREFERENCE_ABI,
+    functionName: 'getAppFallbackTokens',
+    args: appAddress ? [appAddress] : undefined,
+  });
+
+  const preference: AppPreference | null = preferenceData ? {
+    appAddress: preferenceData[0] as Address,
+    preferredToken: preferenceData[1] as Address,
+    tokenSymbol: preferenceData[2] as string,
+    tokenDecimals: preferenceData[3] as number,
+    allowFallback: preferenceData[4] as boolean,
+    minBalance: preferenceData[5] as bigint,
+    isActive: preferenceData[6] as boolean,
+    registrant: preferenceData[7] as Address,
+    registrationTime: preferenceData[8] as bigint,
+  } : null;
+
+  return {
+    preference,
+    fallbackTokens: (fallbackTokens || []) as Address[],
+  };
+}
+
+/**
+ * Hook for getting the best gas payment token for an app
+ */
+export function useBestGasToken(
+  paymasterAddress: Address | undefined,
+  appAddress: Address | undefined,
+  user: Address | undefined,
+  gasCostETH: bigint,
+  userTokens: Address[],
+  userBalances: bigint[]
+) {
+  const { data: result } = useReadContract({
+    address: paymasterAddress,
+    abi: CROSS_CHAIN_PAYMASTER_ABI,
+    functionName: 'getBestPaymentTokenForApp',
+    args: appAddress && user ? [appAddress, user, gasCostETH, userTokens, userBalances] : undefined,
+  });
+
+  return {
+    bestToken: result?.[0] as Address | undefined,
+    tokenCost: result?.[1] as bigint | undefined,
+    reason: result?.[2] as string | undefined,
   };
 }
 

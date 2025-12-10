@@ -572,6 +572,6 @@ contract PaymasterFactoryTest is Test {
     // ============ Version ============
 
     function test_Version() public view {
-        assertEq(factory.version(), "1.0.0");
+        assertEq(factory.version(), "2.0.0");
     }
 }

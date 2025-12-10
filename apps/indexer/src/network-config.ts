@@ -83,6 +83,7 @@ export interface ContractAddresses {
   weth: string | null;
   usdc: string | null;
   elizaOS: string | null;
+  jeju: string | null;
 
   // OTC
   otc: string | null;
@@ -156,7 +157,7 @@ export function getNetworkFromEnv(): NetworkType {
 }
 
 interface NetworkDeployment {
-  tokens?: { weth?: string; usdc?: string; elizaOS?: string };
+  tokens?: { weth?: string; usdc?: string; elizaOS?: string; jeju?: string };
   infrastructure?: { entryPoint?: string; priceOracle?: string; serviceRegistry?: string; creditManager?: string };
   paymaster?: { tokenRegistry?: string; paymasterFactory?: string; liquidityPaymaster?: string; multiTokenPaymaster?: string };
   registry?: { identityRegistry?: string; reputationRegistry?: string; validationRegistry?: string; registryGovernance?: string };
@@ -177,6 +178,7 @@ interface IdentitySystemDeployment {
   cloudReputationProvider?: string;
   usdc?: string;
   elizaOS?: string;
+  jeju?: string;
 }
 
 interface PaymasterSystemDeployment {
@@ -269,6 +271,7 @@ export function loadNetworkConfig(network?: NetworkType): NetworkConfig {
     weth: '0x4200000000000000000000000000000000000006', // Standard OP Stack WETH
     usdc: null,
     elizaOS: null,
+    jeju: null,
     otc: null,
   };
 
@@ -333,6 +336,7 @@ export function loadNetworkConfig(network?: NetworkType): NetworkConfig {
     contracts.weth = mainDeployment.tokens?.weth || contracts.weth;
     contracts.usdc = mainDeployment.tokens?.usdc || null;
     contracts.elizaOS = mainDeployment.tokens?.elizaOS || null;
+    contracts.jeju = mainDeployment.tokens?.jeju || null;
   }
 
   // Load additional deployment files for localnet
@@ -347,6 +351,7 @@ export function loadNetworkConfig(network?: NetworkType): NetworkConfig {
       contracts.creditManager = identitySystem.creditManager || contracts.creditManager;
       contracts.usdc = identitySystem.usdc || contracts.usdc;
       contracts.elizaOS = identitySystem.elizaOS || contracts.elizaOS;
+      contracts.jeju = identitySystem.jeju || contracts.jeju;
     }
 
     // Localnet addresses (alternative file)
@@ -359,6 +364,18 @@ export function loadNetworkConfig(network?: NetworkType): NetworkConfig {
       contracts.creditManager = localnetAddresses.creditManager || contracts.creditManager;
       contracts.usdc = localnetAddresses.usdc || contracts.usdc;
       contracts.elizaOS = localnetAddresses.elizaOS || contracts.elizaOS;
+      contracts.jeju = localnetAddresses.jeju || contracts.jeju;
+    }
+
+    // JEJU Token deployment (localnet subfolder)
+    interface JejuTokenDeployment {
+      jejuToken?: string;
+      banManager?: string;
+    }
+    const jejuTokenDeployment = loadNetworkDeployment<JejuTokenDeployment>(deploymentsPath, 'localnet', 'jeju-token.json');
+    if (jejuTokenDeployment) {
+      contracts.jeju = jejuTokenDeployment.jejuToken || contracts.jeju;
+      contracts.banManager = jejuTokenDeployment.banManager || contracts.banManager;
     }
 
     // Paymaster system

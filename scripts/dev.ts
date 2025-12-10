@@ -16,6 +16,7 @@ import { CORE_PORTS, INFRA_PORTS } from "@jejunetwork/config/ports";
 // Configuration
 const minimal = process.argv.includes("--minimal");
 const noApps = process.argv.includes("--no-apps");
+const noAccumulator = process.argv.includes("--no-accumulator");
 const maxAppsArg = process.argv.find(arg => arg.startsWith("--max-apps="));
 const maxApps = maxAppsArg ? parseInt(maxAppsArg.split("=")[1]) : undefined;
 
@@ -769,6 +770,30 @@ async function main() {
     const stillStarting = Array.from(services.entries()).filter(([, s]) => s.status === "starting");
     const errorServices = Array.from(services.entries()).filter(([, s]) => s.status === "error");
     const hasIssues = errorServices.length > 0 || stillStarting.length > 0;
+    
+    // Start token accumulator in background (for testnet funding)
+    if (!noAccumulator && existsSync(join(process.cwd(), 'packages/deployment/.keys/testnet-deployer.json'))) {
+      console.log(`Starting token accumulator (testnet funding)...`);
+      const accumulatorProc = spawn({
+        cmd: ["bun", "run", "scripts/token-accumulator.ts", "--watch"],
+        cwd: process.cwd(),
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      processes.push(accumulatorProc);
+      
+      // Log accumulator output (minimal)
+      (async () => {
+        if (!accumulatorProc.stdout) return;
+        const stdout = accumulatorProc.stdout as unknown as AsyncIterable<Uint8Array>;
+        for await (const chunk of stdout) {
+          const text = new TextDecoder().decode(chunk).trim();
+          if (text.includes('Bridge tx:') || text.includes('Summary:') || text.includes('low')) {
+            console.log(`${COLORS.MAGENTA}[Accumulator]${COLORS.RESET} ${text}`);
+          }
+        }
+      })();
+    }
     
     await printDashboard(hasIssues);
     

@@ -164,6 +164,48 @@ export const LIQUIDITY_VAULT_ABI = [
 ] as const;
 
 /**
+ * JEJU Token ABI (with ban enforcement check)
+ * The native Jeju Network token
+ */
+export const JEJU_TOKEN_ABI = [
+  {
+    type: 'function',
+    name: 'isBanned',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ type: 'bool' }],
+    stateMutability: 'view'
+  },
+  {
+    type: 'function',
+    name: 'banEnforcementEnabled',
+    inputs: [],
+    outputs: [{ type: 'bool' }],
+    stateMutability: 'view'
+  },
+  {
+    type: 'function',
+    name: 'faucet',
+    inputs: [],
+    outputs: [],
+    stateMutability: 'nonpayable'
+  },
+  {
+    type: 'function',
+    name: 'faucetCooldownRemaining',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ type: 'uint256' }],
+    stateMutability: 'view'
+  },
+  {
+    type: 'function',
+    name: 'faucetEnabled',
+    inputs: [],
+    outputs: [{ type: 'bool' }],
+    stateMutability: 'view'
+  },
+] as const;
+
+/**
  * Standard ERC20 token ABI
  */
 export const IERC20_ABI = [
@@ -199,14 +241,18 @@ export const IERC20_ABI = [
 /**
  * Get deployed contract addresses from environment
  * 
- * @returns Contract addresses for token registry, paymaster factory, and price oracle
+ * @returns Contract addresses for core Jeju contracts
  */
 export const getContractAddresses = (): {
   tokenRegistry: Address;
   paymasterFactory: Address;
   priceOracle: Address;
+  jejuToken: Address;
+  banManager: Address;
 } => ({
   tokenRegistry: (import.meta.env.VITE_TOKEN_REGISTRY_ADDRESS || '0x0000000000000000000000000000000000000000') as Address,
   paymasterFactory: (import.meta.env.VITE_PAYMASTER_FACTORY_ADDRESS || '0x0000000000000000000000000000000000000000') as Address,
   priceOracle: (import.meta.env.VITE_PRICE_ORACLE_ADDRESS || '0x0000000000000000000000000000000000000000') as Address,
+  jejuToken: (import.meta.env.VITE_JEJU_TOKEN_ADDRESS || '0x0000000000000000000000000000000000000000') as Address,
+  banManager: (import.meta.env.VITE_BAN_MANAGER_ADDRESS || '0x0000000000000000000000000000000000000000') as Address,
 });

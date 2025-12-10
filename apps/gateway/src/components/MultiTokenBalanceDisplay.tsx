@@ -1,11 +1,20 @@
+import { useMemo } from 'react';
 import { useTokenBalances } from '../hooks/useTokenBalances';
 import { useProtocolTokens } from '../hooks/useProtocolTokens';
 import { formatTokenAmount, formatUSD, calculateUSDValue } from '../lib/tokenUtils';
-import { Coins } from 'lucide-react';
+import { Coins, Star } from 'lucide-react';
 
 export default function MultiTokenBalanceDisplay() {
   const { balances, isLoading } = useTokenBalances();
   const { tokens } = useProtocolTokens();
+
+  const sortedTokens = useMemo(() => {
+    return [...tokens].sort((a, b) => {
+      if (a.isPreferred && !b.isPreferred) return -1;
+      if (!a.isPreferred && b.isPreferred) return 1;
+      return 0;
+    });
+  }, [tokens]);
 
   if (isLoading) {
     return (
@@ -43,12 +52,40 @@ export default function MultiTokenBalanceDisplay() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '0.75rem' }}>
-        {tokens.map(token => {
+        {sortedTokens.map(token => {
           const balance = balances[token.symbol] || 0n;
           const usdValue = calculateUSDValue(balance, token.decimals, token.priceUSD);
+          const isPreferred = token.isPreferred;
 
           return (
-            <div key={token.symbol} className="stat-card" style={{ textAlign: 'left', padding: '1rem' }}>
+            <div 
+              key={token.symbol} 
+              className="stat-card" 
+              style={{ 
+                textAlign: 'left', 
+                padding: '1rem',
+                border: isPreferred ? '2px solid var(--accent-primary)' : undefined,
+                position: 'relative',
+              }}
+            >
+              {isPreferred && (
+                <div style={{ 
+                  position: 'absolute', 
+                  top: '-8px', 
+                  right: '8px', 
+                  background: 'var(--accent-primary)', 
+                  color: 'white', 
+                  fontSize: '0.625rem', 
+                  padding: '2px 6px', 
+                  borderRadius: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '2px',
+                }}>
+                  <Star size={10} fill="white" />
+                  Preferred
+                </div>
+              )}
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 {token.logoUrl ? (
                   <img src={token.logoUrl} alt={token.symbol} style={{ width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0 }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />

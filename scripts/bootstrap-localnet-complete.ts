@@ -33,6 +33,7 @@ interface BootstrapResult {
   rpcUrl: string;
   contracts: {
     // Tokens
+    jeju: string;
     usdc: string;
     elizaOS: string;
     weth: string;
@@ -128,6 +129,7 @@ class CompleteBootstrapper {
     result.contracts.usdc = await this.deployUSDC();
     result.contracts.elizaOS = await this.deployElizaOS();
     result.contracts.weth = '0x4200000000000000000000000000000000000006';
+    // JEJU token deployed after BanManager (needs ban enforcement)
     console.log('');
 
     // Step 2: Deploy support infrastructure
@@ -190,6 +192,12 @@ class CompleteBootstrapper {
     result.contracts.reputationLabelManager = moderation.reputationLabelManager;
     console.log('');
 
+    // Step 5.6.1: Deploy JEJU Token (with ban enforcement)
+    console.log('🏝️  STEP 5.6.1: Deploying JEJU Token');
+    console.log('-'.repeat(70));
+    result.contracts.jeju = await this.deployJejuToken(result.contracts.banManager);
+    console.log('');
+
     // Step 5.7: Deploy Compute Marketplace
     console.log('🖥️  STEP 5.7: Deploying Compute Marketplace');
     console.log('-'.repeat(70));
@@ -209,7 +217,7 @@ class CompleteBootstrapper {
     // Step 7: Fund Test Wallets
     console.log('💰 STEP 7: Funding Test Wallets');
     console.log('-'.repeat(70));
-    result.testWallets = await this.fundTestWallets(result.contracts.usdc, result.contracts.elizaOS);
+    result.testWallets = await this.fundTestWallets(result.contracts.usdc, result.contracts.elizaOS, result.contracts.jeju);
     console.log('');
 
     // Step 8: Deploy Uniswap V4 Periphery Contracts
@@ -418,12 +426,13 @@ class CompleteBootstrapper {
       'PaymasterFactory'
     );
 
-    // Auto-register all local tokens
+    // Auto-register all local tokens (JEJU first as preferred)
     const tokens = [
+      { address: contracts.jeju, symbol: 'JEJU', name: 'Jeju Token', minFee: 0, maxFee: 100 },
       { address: contracts.usdc, symbol: 'USDC', name: 'USD Coin', minFee: 50, maxFee: 200 },
       { address: contracts.elizaOS, symbol: 'elizaOS', name: 'elizaOS Token', minFee: 100, maxFee: 300 },
       { address: contracts.weth, symbol: 'WETH', name: 'Wrapped Ether', minFee: 0, maxFee: 100 }
-    ];
+    ].filter(t => t.address && t.address !== '0x0000000000000000000000000000000000000000');
 
     console.log('  📝 Registering local tokens...');
     for (const token of tokens) {
@@ -493,6 +502,26 @@ class CompleteBootstrapper {
     } catch (error) {
       console.log('  ⚠️  Moderation deployment skipped (contracts may not exist)');
       return { banManager: '0x0000000000000000000000000000000000000000', reputationLabelManager: '0x0000000000000000000000000000000000000000' };
+    }
+  }
+
+  private async deployJejuToken(banManager: string): Promise<string> {
+    try {
+      // Deploy JEJU token with ban enforcement and faucet enabled
+      const jeju = this.deployContractFromPackages(
+        'src/tokens/JejuToken.sol:JejuToken',
+        [this.deployerAddress, banManager, 'true'],
+        'JejuToken'
+      );
+
+      console.log('     ✨ Faucet enabled (10,000 JEJU per claim)');
+      console.log('     ✨ Ban enforcement enabled (banned users cannot transfer)');
+      
+      return jeju;
+    } catch (error) {
+      console.log('  ⚠️  JEJU token deployment failed');
+      console.log('     Error:', error);
+      return '0x0000000000000000000000000000000000000000';
     }
   }
 
@@ -588,7 +617,7 @@ class CompleteBootstrapper {
     console.log(`  ✅ Authorized ${services.length} services to deduct credits`);
   }
 
-  private async fundTestWallets(usdc: string, elizaOS: string): Promise<Array<any>> {
+  private async fundTestWallets(usdc: string, elizaOS: string, jeju?: string): Promise<Array<any>> {
     const wallets = [];
 
     for (const account of this.TEST_ACCOUNTS) {
@@ -602,10 +631,16 @@ class CompleteBootstrapper {
       // elizaOS: 100,000 elizaOS
       this.sendTx(elizaOS, `transfer(address,uint256) ${address} 100000000000000000000000`, null);
 
+      // JEJU: 100,000 JEJU
+      if (jeju && jeju !== '0x0000000000000000000000000000000000000000') {
+        this.sendTx(jeju, `transfer(address,uint256) ${address} 100000000000000000000000`, null);
+      }
+
       // ETH: 1000 ETH
       execSync(`cast send ${address} --value 1000ether --rpc-url ${this.rpcUrl} --private-key ${this.deployerKey}`, { stdio: 'pipe' });
 
-      console.log(`    ✅ 10,000 USDC, 100,000 elizaOS, 1,000 ETH`);
+      const jejuStr = jeju && jeju !== '0x0000000000000000000000000000000000000000' ? ', 100,000 JEJU' : '';
+      console.log(`    ✅ 10,000 USDC, 100,000 elizaOS${jejuStr}, 1,000 ETH`);
       console.log('');
 
       wallets.push({
@@ -756,6 +791,7 @@ VITE_JEJU_RPC_URL="${result.rpcUrl}"
 VITE_CHAIN_ID="1337"
 
 # Tokens
+VITE_JEJU_TOKEN_ADDRESS="${result.contracts.jeju}"
 VITE_ELIZAOS_TOKEN_ADDRESS="${result.contracts.elizaOS}"
 VITE_USDC_ADDRESS="${result.contracts.usdc}"
 VITE_WETH_ADDRESS="${result.contracts.weth}"
@@ -812,6 +848,7 @@ JEJU_NETWORK=localnet
 CHAIN_ID=1337
 
 # Tokens
+JEJU_TOKEN_ADDRESS="${result.contracts.jeju}"
 JEJU_USDC_ADDRESS="${result.contracts.usdc}"
 JEJU_LOCALNET_USDC_ADDRESS="${result.contracts.usdc}"
 ELIZAOS_TOKEN_ADDRESS="${result.contracts.elizaOS}"
@@ -875,6 +912,7 @@ ${result.testWallets.map((w, i) => `TEST_ACCOUNT_${i + 1}_KEY="${w.privateKey}"`
     console.log('='.repeat(70));
     console.log('');
     console.log('📦 Core Contracts:');
+    console.log(`   JEJU:                ${result.contracts.jeju}`);
     console.log(`   USDC:                ${result.contracts.usdc}`);
     console.log(`   elizaOS:             ${result.contracts.elizaOS}`);
     console.log(`   CreditManager:       ${result.contracts.creditManager}`);
@@ -885,15 +923,17 @@ ${result.testWallets.map((w, i) => `TEST_ACCOUNT_${i + 1}_KEY="${w.privateKey}"`
     }
     console.log('');
     console.log('🎯 What Works Now:');
+    console.log('   ✅ JEJU token with ban enforcement');
     console.log('   ✅ x402 payments with USDC on Jeju');
     console.log('   ✅ Prepaid credit system (zero-latency!)');
-    console.log('   ✅ Multi-token support (USDC, elizaOS, ETH)');
+    console.log('   ✅ Multi-token support (JEJU, USDC, elizaOS, ETH)');
     console.log('   ✅ Account abstraction (gasless transactions)');
     console.log('   ✅ Paymaster system with all tokens registered');
     console.log('   ✅ Compute marketplace (AI inference on-chain settlement)');
-    console.log('   ✅ 8 test wallets funded and ready');
+    console.log('   ✅ 8 test wallets funded with all tokens');
     console.log('   ✅ Oracle prices initialized');
     console.log('   ✅ All services authorized');
+    console.log('   ✅ Banned users cannot transfer JEJU');
     console.log('');
     console.log('👥 Test Wallets (all funded):');
     result.testWallets.slice(0, 5).forEach(w => {
@@ -915,11 +955,19 @@ ${result.testWallets.map((w, i) => `TEST_ACCOUNT_${i + 1}_KEY="${w.privateKey}"`
     console.log('   bun test tests/x402-integration.test.ts');
     console.log('');
     console.log('💡 Payment System Features:');
-    console.log('   • Multi-token support (USDC, elizaOS, ETH)');
+    console.log('   • JEJU preferred if in wallet (ban-enforced)');
+    console.log('   • Multi-token support (JEJU, USDC, elizaOS, ETH)');
     console.log('   • Gasless transactions (account abstraction)');
     console.log('   • Zero-latency credit system');
     console.log('   • Permissionless token registration');
     console.log('   • Automatic token discovery');
+    console.log('');
+    console.log('🏝️  JEJU Token Commands:');
+    console.log('   # Claim from faucet (10,000 JEJU):');
+    console.log(`   cast send ${result.contracts.jeju} "faucet()" --rpc-url ${result.rpcUrl} --private-key <KEY>`);
+    console.log('');
+    console.log('   # Check if address is banned:');
+    console.log(`   cast call ${result.contracts.jeju} "isBanned(address)(bool)" <ADDRESS> --rpc-url ${result.rpcUrl}`);
     console.log('');
   }
 }

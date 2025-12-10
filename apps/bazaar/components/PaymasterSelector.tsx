@@ -133,34 +133,42 @@ export default function PaymasterSelector({
             )}
 
             {/* Paymaster Options */}
-            {options.map((option) => (
-              <button
-                key={option.paymaster.address}
-                onClick={() => handleSelect(option)}
-                className="w-full px-4 py-3 hover:bg-gray-50 transition-colors flex items-center justify-between group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
-                    {option.paymaster.tokenSymbol.slice(0, 2)}
-                  </div>
-                  <div className="text-left">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900">{option.paymaster.tokenSymbol}</span>
-                      {option.isRecommended && (
-                        <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-xs rounded font-medium">
-                          Recommended
-                        </span>
-                      )}
+            {options.map((option) => {
+              const isJeju = option.paymaster.tokenSymbol === 'JEJU';
+              return (
+                <button
+                  key={option.paymaster.address}
+                  onClick={() => handleSelect(option)}
+                  className={`w-full px-4 py-3 hover:bg-gray-50 transition-colors flex items-center justify-between group ${isJeju ? 'bg-purple-50' : ''}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${isJeju ? 'bg-gradient-to-br from-purple-500 to-pink-500' : 'bg-gradient-to-br from-blue-400 to-purple-500'}`}>
+                      {option.paymaster.tokenSymbol.slice(0, 2)}
                     </div>
-                    <div className="text-xs text-gray-500">{option.estimatedCostFormatted}</div>
-                    <div className="text-xs text-gray-400 mt-0.5">{option.paymaster.stakedEth.toString()} ETH staked</div>
+                    <div className="text-left">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-gray-900">{option.paymaster.tokenSymbol}</span>
+                        {isJeju && (
+                          <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-xs rounded font-medium">
+                            ⭐ Preferred
+                          </span>
+                        )}
+                        {option.isRecommended && !isJeju && (
+                          <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-xs rounded font-medium">
+                            Recommended
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-500">{option.estimatedCostFormatted}</div>
+                      <div className="text-xs text-gray-400 mt-0.5">{option.paymaster.stakedEth.toString()} ETH staked</div>
+                    </div>
                   </div>
-                </div>
-                {selected?.paymaster.address === option.paymaster.address && (
-                  <Check size={20} className="text-green-500" />
-                )}
-              </button>
-            ))}
+                  {selected?.paymaster.address === option.paymaster.address && (
+                    <Check size={20} className="text-green-500" />
+                  )}
+                </button>
+              );
+            })}
 
           </div>
         </>

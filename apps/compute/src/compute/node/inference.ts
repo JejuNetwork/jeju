@@ -17,7 +17,7 @@ import type {
 
 /**
  * Count tokens using GPT tokenizer (cl100k_base encoding)
- * This is accurate for GPT-3.5/GPT-4 and a reasonable approximation for other models
+ * This is accurate for GPT-5 and a reasonable approximation for other models
  */
 export function countTokens(text: string): number {
   return encode(text).length;

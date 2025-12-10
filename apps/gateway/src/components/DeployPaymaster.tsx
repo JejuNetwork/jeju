@@ -48,7 +48,7 @@ export default function DeployPaymaster({ tokenAddress: propTokenAddress }: { to
         tokens={tokenOptions}
         selectedToken={selectedToken?.symbol}
         onSelect={setSelectedToken}
-        label="Select Token (elizaOS, CLANKER, VIRTUAL, CLANKERMON, etc.)"
+        label="Select Token (JEJU, elizaOS, CLANKER, VIRTUAL, etc.)"
         placeholder="Choose token for paymaster..."
         showBalances={false}
         disabled={isPending}

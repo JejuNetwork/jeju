@@ -41,12 +41,13 @@ interface IServiceRegistry {
  * Payment Flow (SLOW PATH - initial payment or top-up):
  * 1. User has insufficient balance
  * 2. Paymaster requires payment in UserOp
- * 3. User includes USDC/elizaOS transfer in UserOp
+ * 3. User includes USDC/elizaOS/JEJU transfer in UserOp
  * 4. Overpayment amount credited to user's balance
  * 5. Future calls use fast path
  *
  * Supported Tokens:
- * - USDC (primary, 6 decimals)
+ * - JEJU (18 decimals)
+ * - USDC (6 decimals)
  * - elizaOS (18 decimals)
  * - ETH (18 decimals)
  *
@@ -62,6 +63,9 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
 
     /// @notice elizaOS token contract
     IERC20 public immutable elizaOS;
+
+    /// @notice JEJU token contract
+    IERC20 public jeju;
 
     /// @notice Credit manager for prepaid balances
     ICreditManager public creditManager;
@@ -80,9 +84,10 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
 
     /// @notice Payment token selector
     enum PaymentToken {
-        USDC,
-        ElizaOS,
-        ETH
+        JEJU,    // 0
+        USDC,    // 1
+        ElizaOS, // 2
+        ETH      // 3
     }
 
     /// @notice ETH address constant
@@ -96,6 +101,7 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
     );
     event CreditManagerUpdated(address indexed oldManager, address indexed newManager);
     event ServiceRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
+    event JejuTokenUpdated(address indexed oldToken, address indexed newToken);
 
     // ============ Errors ============
 
@@ -306,6 +312,7 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
      * @notice Get token address from enum
      */
     function _getTokenAddress(PaymentToken token) internal view returns (address) {
+        if (token == PaymentToken.JEJU && address(jeju) != address(0)) return address(jeju);
         if (token == PaymentToken.USDC) return address(usdc);
         if (token == PaymentToken.ElizaOS) return address(elizaOS);
         return ETH_ADDRESS;
@@ -323,6 +330,12 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
         address oldRegistry = address(serviceRegistry);
         serviceRegistry = IServiceRegistry(newRegistry);
         emit ServiceRegistryUpdated(oldRegistry, newRegistry);
+    }
+
+    function setJejuToken(address _jeju) external onlyOwner {
+        address oldToken = address(jeju);
+        jeju = IERC20(_jeju);
+        emit JejuTokenUpdated(oldToken, _jeju);
     }
 
     function depositToEntryPoint() external payable onlyOwner {

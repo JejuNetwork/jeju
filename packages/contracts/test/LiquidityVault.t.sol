@@ -255,4 +255,172 @@ contract LiquidityVaultTest is Test {
         vault.distributeFees(100e18, 0);
         vm.stopPrank();
     }
+
+    // ============ Dual-Use (V4 + XLP) Tests ============
+
+    function testDepositDual() public {
+        vm.prank(lp1);
+        vault.depositDual{value: 10 ether}(0);
+
+        // Default allocation: 70% V4, 30% XLP
+        assertEq(vault.ethInV4(), 7 ether);
+        assertEq(vault.ethInXLP(), 3 ether);
+        assertEq(vault.ethShares(lp1), 10 ether);
+    }
+
+    function testPreviewAllocation() public view {
+        (uint256 v4Amount, uint256 xlpAmount) = vault.previewAllocation(10 ether);
+        
+        assertEq(v4Amount, 7 ether); // 70%
+        assertEq(xlpAmount, 3 ether); // 30%
+    }
+
+    function testSetAllocation() public {
+        vault.setAllocation(5000, 5000); // 50/50 split
+        
+        assertEq(vault.v4AllocationBps(), 5000);
+        assertEq(vault.xlpAllocationBps(), 5000);
+    }
+
+    function testSetAllocation_MustTotal100() public {
+        vm.expectRevert("Must total 100%");
+        vault.setAllocation(6000, 3000); // Only 90%
+    }
+
+    function testRebalance() public {
+        // Initial deposit with 70/30 split
+        vm.prank(lp1);
+        vault.depositDual{value: 10 ether}(0);
+
+        // Change allocation to 50/50
+        vault.setAllocation(5000, 5000);
+
+        // Rebalance
+        vault.rebalance();
+
+        // Should now be 50/50
+        assertEq(vault.ethInV4(), 5 ether);
+        assertEq(vault.ethInXLP(), 5 ether);
+    }
+
+    function testCreateV4Position() public {
+        bytes32 poolId = keccak256("ETH/USDC");
+        
+        vault.createV4Position(
+            poolId,
+            address(0), // ETH
+            address(rewardToken), // USDC (using rewardToken as proxy)
+            3000, // 0.3% fee
+            -887220, // tickLower
+            887220, // tickUpper
+            1000000 // liquidity
+        );
+
+        (address token0,,,,,,, bool active) = vault.v4Positions(poolId);
+        assertEq(token0, address(0));
+        assertTrue(active);
+    }
+
+    function testRecordV4Fees() public {
+        // Create position first
+        bytes32 poolId = keccak256("ETH/USDC");
+        vault.createV4Position(
+            poolId,
+            address(0),
+            address(rewardToken),
+            3000,
+            -887220,
+            887220,
+            1000000
+        );
+
+        // Add LP so there are shares
+        vm.prank(lp1);
+        vault.depositDual{value: 10 ether}(0);
+
+        // Record fees (owner can do this)
+        vault.recordV4Fees(poolId, 1 ether, 0.5 ether);
+
+        assertEq(vault.totalV4Fees(), 1.5 ether);
+    }
+
+    function testRecordXLPFees() public {
+        // Set up XLP paymaster
+        address xlpPaymaster = address(0x456);
+        vault.setCrossChainPaymaster(xlpPaymaster);
+
+        // Add LP
+        vm.prank(lp1);
+        vault.depositDual{value: 10 ether}(0);
+
+        // Record fees
+        vm.prank(xlpPaymaster);
+        vault.recordXLPFees(0.5 ether);
+
+        assertEq(vault.totalXLPFees(), 0.5 ether);
+    }
+
+    function testPendingCombinedFees() public {
+        // Set up
+        bytes32 poolId = keccak256("ETH/USDC");
+        vault.createV4Position(poolId, address(0), address(rewardToken), 3000, -887220, 887220, 1000000);
+
+        address xlpPaymaster = address(0x456);
+        vault.setCrossChainPaymaster(xlpPaymaster);
+
+        // LP deposits
+        vm.prank(lp1);
+        vault.depositDual{value: 10 ether}(0);
+
+        // Record V4 fees
+        vault.recordV4Fees(poolId, 1 ether, 0);
+
+        // Record XLP fees
+        vm.prank(xlpPaymaster);
+        vault.recordXLPFees(0.5 ether);
+
+        // LP1 should have 1.5 ETH in combined fees
+        uint256 pending = vault.pendingCombined(lp1);
+        assertEq(pending, 1.5 ether);
+    }
+
+    function testGetVaultStats() public {
+        // Deposit
+        vm.prank(lp1);
+        vault.depositDual{value: 10 ether}(0);
+
+        // Create a position
+        bytes32 poolId = keccak256("ETH/USDC");
+        vault.createV4Position(poolId, address(0), address(rewardToken), 3000, -887220, 887220, 1000000);
+
+        (
+            uint256 v4Total,
+            uint256 xlpTotal,
+            uint256 v4FeesTotal,
+            uint256 xlpFeesTotal,
+            uint256 activePositions
+        ) = vault.getVaultStats();
+
+        assertEq(v4Total, 7 ether);
+        assertEq(xlpTotal, 3 ether);
+        assertEq(v4FeesTotal, 0);
+        assertEq(xlpFeesTotal, 0);
+        assertEq(activePositions, 1);
+    }
+
+    function testSetSwapRouter() public {
+        address router = address(0x789);
+        vault.setSwapRouter(router);
+        assertEq(vault.swapRouter(), router);
+    }
+
+    function testSetCrossChainPaymaster() public {
+        address xlpPaymaster = address(0x456);
+        vault.setCrossChainPaymaster(xlpPaymaster);
+        assertEq(vault.crossChainPaymaster(), xlpPaymaster);
+    }
+
+    function testVersion() public view {
+        assertEq(vault.version(), "2.0.0");
+    }
 }

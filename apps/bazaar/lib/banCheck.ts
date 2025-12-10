@@ -4,6 +4,7 @@ import { jeju } from '../config/chains';
 const BAN_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_BAN_MANAGER_ADDRESS as Address | undefined;
 const MODERATION_MARKETPLACE_ADDRESS = process.env.NEXT_PUBLIC_MODERATION_MARKETPLACE_ADDRESS as Address | undefined;
 const IDENTITY_REGISTRY_ADDRESS = process.env.NEXT_PUBLIC_IDENTITY_REGISTRY_ADDRESS as Address | undefined;
+const JEJU_TOKEN_ADDRESS = process.env.NEXT_PUBLIC_JEJU_TOKEN_ADDRESS as Address | undefined;
 const BAZAAR_APP_ID = `0x${Buffer.from('bazaar').toString('hex').padEnd(64, '0')}` as `0x${string}`;
 
 // ============ Types ============
@@ -163,6 +164,23 @@ const MODERATION_MARKETPLACE_ABI = [
         ],
       },
     ],
+  },
+] as const;
+
+const JEJU_TOKEN_ABI = [
+  {
+    name: 'isBanned',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ name: '', type: 'bool' }],
+  },
+  {
+    name: 'banEnforcementEnabled',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'bool' }],
   },
 ] as const;
 
@@ -381,4 +399,59 @@ export function clearBanCache(userAddress?: Address): void {
   } else {
     banCache.clear();
   }
+}
+
+/**
+ * Check if user can transfer JEJU tokens
+ * JEJU token has built-in ban enforcement - banned users cannot transfer
+ */
+export async function checkJejuTransferAllowed(userAddress: Address): Promise<boolean> {
+  if (!JEJU_TOKEN_ADDRESS) {
+    return true; // No JEJU token configured, allow
+  }
+
+  // First check if ban enforcement is enabled on the token
+  const enforcementEnabled = await publicClient.readContract({
+    address: JEJU_TOKEN_ADDRESS,
+    abi: JEJU_TOKEN_ABI,
+    functionName: 'banEnforcementEnabled',
+  }).catch(() => false);
+
+  if (!enforcementEnabled) {
+    return true; // Ban enforcement disabled, allow all transfers
+  }
+
+  // Check if user is banned from transferring JEJU
+  const isBanned = await publicClient.readContract({
+    address: JEJU_TOKEN_ADDRESS,
+    abi: JEJU_TOKEN_ABI,
+    functionName: 'isBanned',
+    args: [userAddress],
+  }).catch(() => false);
+
+  return !isBanned;
+}
+
+/**
+ * Check if user can trade JEJU on Bazaar
+ * Combines general ban check with JEJU-specific transfer check
+ */
+export async function checkJejuTradeAllowed(userAddress: Address): Promise<BanCheckResult> {
+  // First check general platform ban
+  const generalResult = await checkUserBan(userAddress);
+  if (!generalResult.allowed) {
+    return generalResult;
+  }
+
+  // Then check JEJU-specific ban
+  const jejuAllowed = await checkJejuTransferAllowed(userAddress);
+  if (!jejuAllowed) {
+    return {
+      allowed: false,
+      reason: 'Banned from JEJU token transfers',
+      networkBanned: true,
+    };
+  }
+
+  return { allowed: true };
 }

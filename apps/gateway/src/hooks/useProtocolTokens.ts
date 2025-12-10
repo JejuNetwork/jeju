@@ -1,11 +1,5 @@
-/**
- * Hook to load protocol tokens configuration
- * 
- * Provides typed access to protocol tokens
- */
-
 import { useMemo } from 'react';
-import { getProtocolTokens } from '../lib/tokens';
+import { getProtocolTokens, getPreferredToken, getPaymasterTokens } from '../lib/tokens';
 
 export interface ProtocolToken {
   symbol: string;
@@ -21,6 +15,8 @@ export interface ProtocolToken {
   distributorAddress?: string;
   paymasterAddress?: string;
   logoUrl?: string;
+  isPreferred?: boolean;
+  hasBanEnforcement?: boolean;
 }
 
 export function useProtocolTokens() {
@@ -38,28 +34,36 @@ export function useProtocolTokens() {
     return map;
   }, [tokens]);
 
-  const bridgeableTokens = useMemo(
-    () => tokens.filter(t => t.bridged),
-    [tokens]
-  );
-
-  const nativeTokens = useMemo(
-    () => tokens.filter(t => !t.bridged),
-    [tokens]
-  );
+  const bridgeableTokens = useMemo(() => tokens.filter(t => t.bridged), [tokens]);
+  const nativeTokens = useMemo(() => tokens.filter(t => !t.bridged), [tokens]);
+  const preferredToken = useMemo(() => getPreferredToken(), []);
+  const paymasterTokens = useMemo(() => getPaymasterTokens(), []);
 
   const getToken = (symbolOrAddress: string): ProtocolToken | undefined => {
-    return tokensBySymbol.get(symbolOrAddress) || 
-           tokensByAddress.get(symbolOrAddress.toLowerCase());
+    return tokensBySymbol.get(symbolOrAddress) || tokensByAddress.get(symbolOrAddress.toLowerCase());
+  };
+
+  const getBestPaymentToken = (balances: Record<string, bigint>): ProtocolToken | undefined => {
+    if (preferredToken && balances[preferredToken.symbol] && balances[preferredToken.symbol] > 0n) {
+      return preferredToken;
+    }
+    for (const token of paymasterTokens) {
+      if (balances[token.symbol] && balances[token.symbol] > 0n) {
+        return token;
+      }
+    }
+    return preferredToken;
   };
 
   return {
     tokens,
     bridgeableTokens,
     nativeTokens,
+    preferredToken,
+    paymasterTokens,
     getToken,
+    getBestPaymentToken,
     tokensBySymbol,
     tokensByAddress,
   };
 }
-

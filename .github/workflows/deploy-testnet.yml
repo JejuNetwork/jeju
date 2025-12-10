@@ -37,7 +37,7 @@ jobs:
     needs: validate
     strategy:
       matrix:
-        app: [bazaar, gateway, leaderboard, ipfs, documentation, indexer]
+        app: [bazaar, gateway, leaderboard, ipfs, documentation, indexer, compute, intents, monitoring, storage]
     steps:
       - uses: actions/checkout@v4
       

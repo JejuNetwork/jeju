@@ -28,7 +28,7 @@ releases:
   - name: aws-load-balancer-controller
     namespace: kube-system
     chart: aws/aws-load-balancer-controller
-    version: 2.8.0
+    version: 1.16.0
     installed: {{ ne .Environment.Name "localnet" }}
     set:
       - name: clusterName

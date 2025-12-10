@@ -16,7 +16,7 @@ const CHAINS = [
 ];
 
 // Token configs per chain
-const TOKENS: Record<number, Array<{ address: string; symbol: string; decimals: number }>> = {
+const TOKENS: Record<number, Array<{ address: string; symbol: string; decimals: number; isPreferred?: boolean }>> = {
   1: [
     { address: '0x0000000000000000000000000000000000000000', symbol: 'ETH', decimals: 18 },
     { address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', symbol: 'USDC', decimals: 6 },
@@ -33,6 +33,11 @@ const TOKENS: Record<number, Array<{ address: string; symbol: string; decimals: 
     { address: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85', symbol: 'USDC', decimals: 6 },
   ],
   420691: [
+    { address: process.env.JEJU_TOKEN_ADDRESS || '0x0000000000000000000000000000000000000000', symbol: 'JEJU', decimals: 18, isPreferred: true },
+    { address: '0x0000000000000000000000000000000000000000', symbol: 'ETH', decimals: 18 },
+  ],
+  420690: [
+    { address: process.env.JEJU_TOKEN_ADDRESS || '0x0000000000000000000000000000000000000000', symbol: 'JEJU', decimals: 18, isPreferred: true },
     { address: '0x0000000000000000000000000000000000000000', symbol: 'ETH', decimals: 18 },
   ],
 };
@@ -240,7 +245,16 @@ export class RouteService {
   /**
    * Get supported tokens for a chain
    */
-  getTokens(chainId: number): Array<{ address: string; symbol: string; decimals: number }> {
+  getTokens(chainId: number): Array<{ address: string; symbol: string; decimals: number; isPreferred?: boolean }> {
     return TOKENS[chainId] || [];
+  }
+
+  /**
+   * Get the preferred token for a chain (JEJU on Jeju chains)
+   */
+  getPreferredToken(chainId: number): { address: string; symbol: string; decimals: number } | null {
+    const tokens = TOKENS[chainId];
+    if (!tokens) return null;
+    return tokens.find(t => t.isPreferred) || null;
   }
 }

@@ -4,7 +4,10 @@ import {
   getTokenByAddress, 
   getAllTokens,
   isTokenDeployed,
-  getDeployedTokens 
+  getDeployedTokens,
+  getPreferredToken,
+  getPaymasterTokensSorted,
+  PREFERRED_TOKEN,
 } from '../tokens';
 
 describe('Token Config', () => {
@@ -53,6 +56,40 @@ describe('Token Config', () => {
     deployed.forEach(token => {
       expect(token.address.startsWith('TBD_')).toBe(false);
     });
+  });
+});
+
+describe('JEJU Token Integration', () => {
+  test('JEJU should be the preferred token', () => {
+    expect(PREFERRED_TOKEN).toBeDefined();
+    expect(PREFERRED_TOKEN?.symbol).toBe('JEJU');
+  });
+
+  test('getPreferredToken should return JEJU', () => {
+    const preferred = getPreferredToken();
+    expect(preferred).toBeDefined();
+    expect(preferred?.symbol).toBe('JEJU');
+  });
+
+  test('JEJU should appear first in paymaster tokens', () => {
+    const sorted = getPaymasterTokensSorted();
+    if (sorted.length > 0 && sorted.some(t => t.symbol === 'JEJU')) {
+      expect(sorted[0].symbol).toBe('JEJU');
+    }
+  });
+
+  test('JEJU should have hasPaymaster flag', () => {
+    const jeju = getTokenBySymbol('JEJU');
+    if (jeju) {
+      expect(jeju.hasPaymaster).toBe(true);
+    }
+  });
+
+  test('JEJU should be retrievable by symbol', () => {
+    const jeju = getTokenBySymbol('JEJU');
+    expect(jeju).toBeDefined();
+    expect(jeju?.name).toBe('Jeju');
+    expect(jeju?.decimals).toBe(18);
   });
 });
 

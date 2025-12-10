@@ -17,3 +17,7 @@ export * from './gas-intent-router';
 export * from './intent-swap';
 export * from './jns';
 
+// Payment system (consolidated into token-payment-router.ts)
+export * from './token-payment-router';
+export * from './multi-chain-discovery';
+export * from './oif-integration';

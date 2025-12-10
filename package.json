@@ -58,7 +58,12 @@
     "oif:verify": "bun run scripts/verify-oif-deployment.ts",
     "testnet:check": "bun run scripts/check-testnet-readiness.ts",
     "testnet:keys": "bun run scripts/deploy/generate-operator-keys.ts",
-    "testnet:full": "bun run scripts/deploy/testnet-full.ts"
+    "testnet:full": "bun run scripts/deploy/testnet-full.ts",
+    "testnet:deployer": "bun run scripts/setup-testnet-deployer.ts",
+    "testnet:fund": "bun run scripts/fund-testnet-deployer.ts",
+    "testnet:bridge": "bun run scripts/fund-testnet-deployer.ts --bridge",
+    "testnet:accumulate": "bun run scripts/token-accumulator.ts",
+    "testnet:accumulate:watch": "bun run scripts/token-accumulator.ts --watch"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.911.0",
