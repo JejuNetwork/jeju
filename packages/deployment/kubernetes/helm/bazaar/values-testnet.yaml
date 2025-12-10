@@ -1,41 +1,40 @@
 # Bazaar - Testnet Configuration
 
 image:
-  repository: 502713364895.dkr.ecr.us-east-1.amazonaws.com/jeju/bazaar # Update with your account ID
+  repository: 502713364895.dkr.ecr.us-east-1.amazonaws.com/jeju/bazaar
   tag: "testnet-latest"
 
-replicaCount: 2
+replicaCount: 1
 
 ingress:
   enabled: true
-  className: "nginx"
+  className: alb
   annotations:
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/rate-limit: "100"
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:502713364895:certificate/34c89eb5-a94f-406a-be3c-c40008f4f693"
   hosts:
     - host: bazaar.testnet.jeju.network
       paths:
         - path: /
           pathType: Prefix
-  tls:
-    - secretName: bazaar-testnet-tls
-      hosts:
-        - bazaar.testnet.jeju.network
+    - host: bazaar.testnet.jejunetwork.org
+      paths:
+        - path: /
+          pathType: Prefix
 
 resources:
   limits:
-    cpu: 1000m
-    memory: 2Gi
-  requests:
     cpu: 500m
     memory: 1Gi
+  requests:
+    cpu: 250m
+    memory: 512Mi
 
 autoscaling:
-  enabled: true
-  minReplicas: 2
-  maxReplicas: 10
-  targetCPUUtilizationPercentage: 70
+  enabled: false
 
 env:
   - name: NEXT_PUBLIC_NETWORK
@@ -43,5 +42,5 @@ env:
   - name: NEXT_PUBLIC_CHAIN_ID
     value: "420690"
   - name: NEXT_PUBLIC_RPC_URL
-    value: "https://rpc.testnet.jeju.network"
+    value: "https://testnet-rpc.jejunetwork.org"
 

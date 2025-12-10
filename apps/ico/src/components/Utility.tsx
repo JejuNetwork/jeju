@@ -6,22 +6,22 @@ const UTILITIES = [
   {
     icon: <Vote className="w-5 h-5" />,
     title: 'Governance',
-    description: 'Vote on protocol upgrades and network parameters',
+    description: 'Vote on protocol upgrades',
   },
   {
     icon: <Shield className="w-5 h-5" />,
     title: 'Moderation',
-    description: 'Stake JEJU in the futarchy moderation marketplace',
+    description: 'Stake in moderation marketplace',
   },
   {
     icon: <Server className="w-5 h-5" />,
-    title: 'Network Services',
-    description: 'Pay for compute, storage, and services via paymaster',
+    title: 'Services',
+    description: 'Pay for compute and storage',
   },
   {
     icon: <Users className="w-5 h-5" />,
-    title: 'Agent Council',
-    description: 'Revenue funds the council that maintains Jeju',
+    title: 'Council',
+    description: 'Revenue funds operations',
   },
 ];
 

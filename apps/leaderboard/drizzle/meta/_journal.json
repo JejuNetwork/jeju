@@ -8,6 +8,13 @@
       "when": 1733810400000,
       "tag": "0000_initial",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1733875200000,
+      "tag": "0001_erc8004_integration",
+      "breakpoints": true
     }
   ]
 }

@@ -140,7 +140,6 @@ async function callTool(
       }
       const status = await checkBanStatus(address);
       return makeResult({
-        address,
         ...status,
         summary: status.isBanned 
           ? `Address is ${status.isOnNotice ? 'on notice' : 'banned'}: ${status.reason}`

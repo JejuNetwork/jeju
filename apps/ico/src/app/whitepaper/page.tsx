@@ -1,6 +1,6 @@
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
-import { FileText, Shield, Vote, Server, Users, Scale, Globe, Lock } from 'lucide-react';
+import { FileText, Shield, Vote, Server, Users, Scale } from 'lucide-react';
 
 export const metadata = {
   title: 'Jeju Token Whitepaper',
@@ -43,88 +43,52 @@ export default function WhitepaperPage() {
         {/* Abstract */}
         <Section id="abstract" title="1. Abstract">
           <p>
-            Jeju Network is an OP-Stack Layer 2 blockchain optimized for AI agents and high-frequency applications, 
-            featuring 200ms Flashblocks for near-instant transaction finality. The JEJU token serves as the governance 
-            and utility token for the network, enabling participation in protocol governance, moderation staking, 
-            and network service payments.
+            Jeju Network is an OP-Stack L2 with 200ms Flashblocks. JEJU is the governance and utility token.
           </p>
           <p>
-            This whitepaper describes the technical architecture, tokenomics, governance model, and regulatory 
-            compliance framework for the JEJU token. The token is designed with a "most favored nations" principle: 
-            any token can be used for payments through the paymaster system, while JEJU provides exclusive access 
-            to governance and moderation functions.
+            Any token can be used for payments via paymaster. JEJU provides exclusive access to governance 
+            and moderation.
           </p>
         </Section>
         
         {/* Network Overview */}
         <Section id="network" title="2. Jeju Network Overview">
-          <h3 className="text-lg font-semibold mt-6 mb-3">2.1 Technical Architecture</h3>
-          <p>
-            Jeju Network is built on the OP-Stack, inheriting the security guarantees of Ethereum while providing 
-            significantly improved performance:
-          </p>
+          <h3 className="text-lg font-semibold mt-6 mb-3">2.1 Architecture</h3>
           <ul className="list-disc pl-6 space-y-2 mt-4">
-            <li><strong>200ms Flashblocks:</strong> Near-instant transaction inclusion for real-time applications</li>
-            <li><strong>ERC-4337 Account Abstraction:</strong> Gasless transactions through paymaster infrastructure</li>
-            <li><strong>Cross-chain Interoperability:</strong> Ethereum Interop Layer (EIL) for trustless bridging</li>
-            <li><strong>Open Intents Framework (OIF):</strong> ERC-7683 compatible cross-chain intents</li>
+            <li><strong>200ms Flashblocks</strong></li>
+            <li><strong>ERC-4337 Account Abstraction</strong></li>
+            <li><strong>EIL Cross-chain Bridging</strong></li>
+            <li><strong>ERC-7683 Intents</strong></li>
           </ul>
           
-          <h3 className="text-lg font-semibold mt-6 mb-3">2.2 Core Services</h3>
+          <h3 className="text-lg font-semibold mt-6 mb-3">2.2 Services</h3>
           <ul className="list-disc pl-6 space-y-2">
-            <li><strong>Compute:</strong> Decentralized inference serving with x402 micropayments</li>
-            <li><strong>Storage:</strong> IPFS-compatible pinning with credit-based billing</li>
-            <li><strong>Bazaar:</strong> NFT and digital asset marketplace</li>
-            <li><strong>Identity:</strong> On-chain identity registry with reputation</li>
+            <li><strong>Compute:</strong> Inference with x402 micropayments</li>
+            <li><strong>Storage:</strong> IPFS-compatible pinning</li>
+            <li><strong>Bazaar:</strong> NFT marketplace</li>
+            <li><strong>Identity:</strong> On-chain registry</li>
           </ul>
         </Section>
         
         {/* Token Utility */}
         <Section id="token" title="3. Token Utility">
           <div className="grid md:grid-cols-2 gap-4 my-6">
-            <UtilityCard 
-              icon={<Vote className="w-5 h-5" />}
-              title="Governance"
-              description="Vote on protocol upgrades, parameter changes, and treasury allocation through the Agent Council."
-            />
-            <UtilityCard 
-              icon={<Shield className="w-5 h-5" />}
-              title="Moderation Staking"
-              description="Stake JEJU in the futarchy-based moderation marketplace to participate in ban decisions."
-            />
-            <UtilityCard 
-              icon={<Server className="w-5 h-5" />}
-              title="Service Payments"
-              description="Pay for network services through the paymaster system. Any registered token works."
-            />
-            <UtilityCard 
-              icon={<Users className="w-5 h-5" />}
-              title="Agent Council"
-              description="Network revenue flows to the Agent Council, which funds development and operations."
-            />
+            <UtilityCard icon={<Vote className="w-5 h-5" />} title="Governance" description="Vote on proposals" />
+            <UtilityCard icon={<Shield className="w-5 h-5" />} title="Moderation" description="Stake in moderation marketplace" />
+            <UtilityCard icon={<Server className="w-5 h-5" />} title="Services" description="Pay via paymaster (any token)" />
+            <UtilityCard icon={<Users className="w-5 h-5" />} title="Council" description="Revenue funds operations" />
           </div>
           
-          <h3 className="text-lg font-semibold mt-6 mb-3">3.1 Most Favored Nations</h3>
-          <p>
-            The Jeju Network implements a "most favored nations" policy for token payments. Any token registered 
-            in the Token Registry with an active paymaster can be used to pay for services. The paymaster system 
-            automatically handles token-to-ETH conversion, providing a seamless experience regardless of which 
-            token the user holds.
-          </p>
-          <p className="mt-4">
-            JEJU token has exclusive utility in two areas:
-          </p>
+          <h3 className="text-lg font-semibold mt-6 mb-3">3.1 Token Policy</h3>
+          <p>Any registered token with a paymaster can be used for payments. JEJU is exclusive for:</p>
           <ul className="list-disc pl-6 space-y-2 mt-2">
-            <li><strong>Governance:</strong> Only JEJU can be used to vote on proposals</li>
-            <li><strong>Moderation:</strong> Only JEJU can be staked in the ModerationMarketplace</li>
+            <li><strong>Governance:</strong> Voting on proposals</li>
+            <li><strong>Moderation:</strong> Staking in ModerationMarketplace</li>
           </ul>
           
           <h3 className="text-lg font-semibold mt-6 mb-3">3.2 Ban Enforcement</h3>
           <p>
-            The JEJU token implements ban enforcement at the token level. Users banned by the BanManager cannot 
-            transfer JEJU tokens, creating a powerful incentive for good behavior. However, banned users CAN 
-            deposit JEJU to the ModerationMarketplace to appeal their ban—this "conviction lock" mechanism 
-            ensures banned users have skin in the game when challenging their status.
+            Banned users cannot transfer JEJU but can deposit to ModerationMarketplace to appeal (conviction lock).
           </p>
         </Section>
         
@@ -191,64 +155,49 @@ export default function WhitepaperPage() {
           
           <h3 className="text-lg font-semibold mt-6 mb-3">4.1 Initial Supply</h3>
           <p>
-            At TGE, 1,000,000,000 JEJU (10% of max supply) will be in circulation. The token has a maximum 
-            supply cap of 10,000,000,000 JEJU, with minting controlled by the contract owner (eventually 
-            transferred to the Agent Council multi-sig).
+            1B JEJU at TGE. 10B max supply. Minting controlled by Agent Council multi-sig.
           </p>
         </Section>
         
         {/* Governance */}
         <Section id="governance" title="5. Governance">
-          <p>
-            The Jeju Network uses a futarchy-based governance system implemented through prediction markets. 
-            Token holders can create proposals, and outcomes are determined by market prices representing 
-            community expectations of network quality.
-          </p>
+          <p>Futarchy-based governance via prediction markets.</p>
           
           <h3 className="text-lg font-semibold mt-6 mb-3">5.1 Agent Council</h3>
-          <p>
-            The Agent Council is a multi-signature treasury that receives all network revenue. It is responsible for:
-          </p>
+          <p>Multi-sig treasury receiving network revenue:</p>
           <ul className="list-disc pl-6 space-y-2 mt-2">
-            <li>Funding protocol development</li>
-            <li>Operating network infrastructure</li>
-            <li>Sponsoring ecosystem grants</li>
-            <li>Managing emergency responses</li>
+            <li>Protocol development</li>
+            <li>Infrastructure</li>
+            <li>Grants</li>
+            <li>Emergency response</li>
           </ul>
           
-          <h3 className="text-lg font-semibold mt-6 mb-3">5.2 Proposal Types</h3>
+          <h3 className="text-lg font-semibold mt-6 mb-3">5.2 Proposals</h3>
           <ul className="list-disc pl-6 space-y-2">
-            <li><strong>Parameter Changes:</strong> Adjust network fees, staking requirements, etc.</li>
-            <li><strong>Treasury Allocation:</strong> Fund grants, partnerships, and development</li>
-            <li><strong>Protocol Upgrades:</strong> Approve contract upgrades and new features</li>
-            <li><strong>Guardian Elections:</strong> Elect trusted parties for emergency actions</li>
+            <li><strong>Parameters:</strong> Fees, staking requirements</li>
+            <li><strong>Treasury:</strong> Grants, partnerships</li>
+            <li><strong>Upgrades:</strong> Contract changes</li>
+            <li><strong>Elections:</strong> Guardian selection</li>
           </ul>
         </Section>
         
         {/* Moderation */}
         <Section id="moderation" title="6. Moderation Marketplace">
-          <p>
-            The ModerationMarketplace is a futarchy-based system for managing user bans. Staked users can 
-            flag bad actors, creating a prediction market where the community votes on whether the ban 
-            should be upheld.
-          </p>
+          <p>Futarchy-based ban decisions via prediction markets.</p>
           
           <h3 className="text-lg font-semibold mt-6 mb-3">6.1 Conviction Lock</h3>
-          <p>
-            JEJU staked in the ModerationMarketplace cannot be withdrawn by banned users. This creates 
-            strong incentives:
-          </p>
+          <p>Banned users&apos; JEJU stakes are locked until appeal resolved:</p>
           <ul className="list-disc pl-6 space-y-2 mt-2">
-            <li>Good actors stake to earn rewards from successful moderation</li>
-            <li>Banned users must stake to appeal, putting skin in the game</li>
-            <li>False reporters lose their stake, discouraging abuse</li>
+            <li>Stakers earn from successful moderation</li>
+            <li>Banned users stake to appeal</li>
+            <li>False reporters lose stake</li>
           </ul>
           
-          <h3 className="text-lg font-semibold mt-6 mb-3">6.2 Fee Structure</h3>
+          <h3 className="text-lg font-semibold mt-6 mb-3">6.2 Fees</h3>
           <ul className="list-disc pl-6 space-y-2">
-            <li>Winners receive 90% of loser&apos;s stake</li>
-            <li>Protocol treasury receives 5%</li>
-            <li>Market makers receive 5%</li>
+            <li>90% to winners</li>
+            <li>5% to treasury</li>
+            <li>5% to market makers</li>
           </ul>
         </Section>
         
@@ -257,123 +206,91 @@ export default function WhitepaperPage() {
           <div className="p-4 rounded-lg bg-zinc-800/50 border border-zinc-700 my-6">
             <div className="flex items-center gap-2 mb-2">
               <Scale className="w-5 h-5 text-jeju-500" />
-              <span className="font-semibold">MiCA Compliance Statement</span>
+              <span className="font-semibold">MiCA Compliance</span>
             </div>
             <p className="text-sm text-zinc-400">
-              This whitepaper is prepared in accordance with the Markets in Crypto-Assets Regulation (MiCA) 
-              requirements for utility tokens. JEJU is classified as a utility token providing access to 
-              goods or services on the Jeju Network.
+              JEJU is a utility token under MiCA Article 3(1)(5).
             </p>
           </div>
           
-          <h3 className="text-lg font-semibold mt-6 mb-3">7.1 Token Classification</h3>
-          <p>
-            Under MiCA Article 3(1)(5), JEJU qualifies as a utility token because it:
-          </p>
+          <h3 className="text-lg font-semibold mt-6 mb-3">7.1 Classification</h3>
           <ul className="list-disc pl-6 space-y-2 mt-2">
-            <li>Provides access to governance functions on the Jeju Network</li>
-            <li>Enables participation in the moderation marketplace</li>
-            <li>Can be used for network service payments (alongside other tokens)</li>
-            <li>Does not represent ownership, debt, or payment rights</li>
+            <li>Governance access</li>
+            <li>Moderation participation</li>
+            <li>Service payments</li>
+            <li>No ownership/debt rights</li>
           </ul>
           
-          <h3 className="text-lg font-semibold mt-6 mb-3">7.2 Issuer Information</h3>
+          <h3 className="text-lg font-semibold mt-6 mb-3">7.2 Issuer</h3>
           <ul className="list-disc pl-6 space-y-2">
-            <li><strong>Issuing Entity:</strong> Jeju Network Foundation (to be established)</li>
-            <li><strong>Jurisdiction:</strong> [To be determined - EU-friendly jurisdiction]</li>
+            <li><strong>Entity:</strong> Jeju Network Foundation</li>
             <li><strong>Contact:</strong> legal@jeju.network</li>
           </ul>
           
-          <h3 className="text-lg font-semibold mt-6 mb-3">7.3 Right of Withdrawal</h3>
-          <p>
-            In accordance with MiCA requirements, presale participants have the right to withdraw within 
-            14 days of their contribution. Additionally, if the soft cap is not reached, all contributions 
-            will be refunded automatically through the smart contract.
-          </p>
+          <h3 className="text-lg font-semibold mt-6 mb-3">7.3 Withdrawal</h3>
+          <p>14-day withdrawal right. Auto-refund if soft cap not reached.</p>
           
-          <h3 className="text-lg font-semibold mt-6 mb-3">7.4 Environmental Disclosure</h3>
-          <p>
-            Jeju Network operates as a Layer 2 on Ethereum, which transitioned to Proof of Stake in 
-            September 2022. The network&apos;s energy consumption is minimal compared to Proof of Work chains, 
-            with estimated carbon footprint of less than 0.01 kg CO2 per transaction.
-          </p>
+          <h3 className="text-lg font-semibold mt-6 mb-3">7.4 Environment</h3>
+          <p>L2 on PoS Ethereum. &lt;0.01 kg CO2/tx.</p>
         </Section>
         
         {/* Risks */}
         <Section id="risks" title="8. Risk Factors">
           <div className="p-4 rounded-lg bg-red-900/20 border border-red-900/50 my-6">
             <p className="text-sm text-red-300">
-              <strong>Warning:</strong> Crypto assets are high-risk investments. You may lose some or all 
-              of your investment. Please read all risk factors carefully before participating.
+              <strong>Warning:</strong> You may lose your entire investment.
             </p>
           </div>
           
-          <h3 className="text-lg font-semibold mt-6 mb-3">8.1 Technical Risks</h3>
+          <h3 className="text-lg font-semibold mt-6 mb-3">8.1 Technical</h3>
           <ul className="list-disc pl-6 space-y-2">
-            <li>Smart contract vulnerabilities despite audits</li>
-            <li>Dependency on Ethereum L1 security</li>
-            <li>Network congestion or downtime</li>
-            <li>Bridge or cross-chain failures</li>
+            <li>Smart contract vulnerabilities</li>
+            <li>L1 dependency</li>
+            <li>Network downtime</li>
+            <li>Bridge failures</li>
           </ul>
           
-          <h3 className="text-lg font-semibold mt-6 mb-3">8.2 Market Risks</h3>
+          <h3 className="text-lg font-semibold mt-6 mb-3">8.2 Market</h3>
           <ul className="list-disc pl-6 space-y-2">
-            <li>Token price volatility</li>
+            <li>Price volatility</li>
             <li>Liquidity constraints</li>
-            <li>Competition from other L2 networks</li>
-            <li>General cryptocurrency market conditions</li>
+            <li>Competition</li>
           </ul>
           
-          <h3 className="text-lg font-semibold mt-6 mb-3">8.3 Regulatory Risks</h3>
+          <h3 className="text-lg font-semibold mt-6 mb-3">8.3 Regulatory</h3>
           <ul className="list-disc pl-6 space-y-2">
-            <li>Changes in cryptocurrency regulations</li>
-            <li>Classification changes affecting utility token status</li>
-            <li>Geographic restrictions on token access</li>
+            <li>Regulation changes</li>
+            <li>Classification changes</li>
+            <li>Geographic restrictions</li>
           </ul>
           
-          <h3 className="text-lg font-semibold mt-6 mb-3">8.4 Operational Risks</h3>
+          <h3 className="text-lg font-semibold mt-6 mb-3">8.4 Operational</h3>
           <ul className="list-disc pl-6 space-y-2">
-            <li>Key person dependencies</li>
-            <li>Governance attacks or manipulation</li>
-            <li>Insufficient adoption or usage</li>
+            <li>Key person risk</li>
+            <li>Governance attacks</li>
+            <li>Low adoption</li>
           </ul>
         </Section>
         
         {/* Team */}
-        <Section id="team" title="9. Team & Contact">
-          <h3 className="text-lg font-semibold mt-6 mb-3">9.1 Development</h3>
-          <p>
-            Jeju Network is developed as open-source software under the MIT License. All code is available 
-            for review at <a href="https://github.com/elizaos/jeju" className="text-jeju-400 hover:underline">github.com/elizaos/jeju</a>.
-          </p>
-          
-          <h3 className="text-lg font-semibold mt-6 mb-3">9.2 Contact Information</h3>
+        <Section id="team" title="9. Contact">
           <ul className="list-disc pl-6 space-y-2">
-            <li><strong>General:</strong> hello@jeju.network</li>
+            <li><strong>Code:</strong> <a href="https://github.com/elizaos/jeju" className="text-jeju-400 hover:underline">github.com/elizaos/jeju</a></li>
             <li><strong>Security:</strong> security@jeju.network</li>
             <li><strong>Legal:</strong> legal@jeju.network</li>
+            <li><strong>Audits:</strong> <a href="https://docs.jeju.network/audits" className="text-jeju-400 hover:underline">docs.jeju.network/audits</a></li>
           </ul>
-          
-          <h3 className="text-lg font-semibold mt-6 mb-3">9.3 Audits</h3>
-          <p>
-            Smart contracts will be audited by [Auditor TBD] before mainnet deployment. Audit reports will 
-            be published at <a href="https://docs.jeju.network/audits" className="text-jeju-400 hover:underline">docs.jeju.network/audits</a>.
-          </p>
         </Section>
         
         {/* Disclaimer */}
         <div className="mt-12 p-6 rounded-xl bg-zinc-800/50 border border-zinc-700">
           <h2 className="font-semibold mb-4">Disclaimer</h2>
           <p className="text-sm text-zinc-400">
-            This whitepaper is for informational purposes only and does not constitute an offer to sell or 
-            solicitation of an offer to buy any securities. The JEJU token is a utility token and does not 
-            represent any ownership, equity, or debt interest in any entity. Participation in the presale 
-            involves significant risk and is suitable only for those who can afford to lose their entire 
-            investment. This document may contain forward-looking statements that involve risks and 
-            uncertainties. Actual results may differ materially from those anticipated.
+            Not financial advice. JEJU is a utility token with no ownership rights. 
+            You may lose your entire investment.
           </p>
-          <p className="text-sm text-zinc-400 mt-4">
-            Last updated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+          <p className="text-sm text-zinc-500 mt-4">
+            Updated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}
           </p>
         </div>
       </div>

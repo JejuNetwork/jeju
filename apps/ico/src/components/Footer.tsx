@@ -16,7 +16,7 @@ export function Footer() {
               <span className="font-semibold text-lg">Jeju</span>
             </div>
             <p className="text-sm text-zinc-400">
-              OP-Stack L2 with 200ms Flashblocks. Built for AI agents and humans.
+              OP-Stack L2 with 200ms Flashblocks.
             </p>
           </div>
           

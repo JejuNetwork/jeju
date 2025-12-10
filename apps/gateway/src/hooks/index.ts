@@ -7,3 +7,4 @@ export * from './useNodeStaking';
 export * from './useRegistry';
 export * from './useGovernance';
 export * from './useEIL';
+export * from './useGitHubReputation';

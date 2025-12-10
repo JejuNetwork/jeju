@@ -29,7 +29,6 @@ export function PresaleCard() {
   
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, mins: 0, secs: 0 });
   
-  // Demo countdown (in production, fetch from contract)
   useEffect(() => {
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + 14); // 14 days from now
@@ -62,8 +61,7 @@ export function PresaleCard() {
   const progress = Number((stats.raised * 100n) / stats.hardCap);
   
   const handleContribute = async () => {
-    // In production, this would connect wallet and call the contract
-    alert('Connect your wallet to participate. This is a demo on testnet.');
+    alert('Connect wallet to participate (testnet demo)');
   };
   
   return (

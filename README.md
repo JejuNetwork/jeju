@@ -27,6 +27,7 @@ No configuration needed. Private vendor apps (hyperscape, babylon, cloud, etc.) 
 | GraphQL | http://127.0.0.1:4350/graphql |
 | Gateway | http://127.0.0.1:4001 |
 | Bazaar | http://127.0.0.1:4006 |
+| ICO / Presale | http://127.0.0.1:4020 |
 | Intent Aggregator | http://127.0.0.1:4010 |
 | Intent Viewer | http://127.0.0.1:5173 |
 
@@ -187,6 +188,31 @@ cast send $OUTPUT_SETTLER "depositETH()" \
 ```
 
 See `packages/deployment/TESTNET_RUNBOOK.md` for complete setup.
+
+## JEJU Token
+
+The native governance and utility token for Jeju Network.
+
+### Token Utility
+
+| Use Case | Description |
+|----------|-------------|
+| Governance | Vote on protocol proposals and upgrades |
+| Moderation | Stake in the futarchy moderation marketplace |
+| Services | Pay for compute, storage via paymaster |
+
+### Presale
+
+```bash
+# Run the presale app
+cd apps/ico && bun run dev
+
+# Deploy presale contract
+cd packages/contracts
+PRIVATE_KEY=$PK forge script script/DeployPresale.s.sol --rpc-url $RPC --broadcast
+```
+
+See `apps/ico/README.md` for full documentation.
 
 ## Configuration
 

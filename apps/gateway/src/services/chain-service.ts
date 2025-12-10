@@ -1,5 +1,5 @@
 import { createPublicClient, http, type PublicClient, type Address, type Abi } from 'viem';
-import { CHAINS, getChain } from '../lib/chains.js';
+import { getChain } from '../lib/chains.js';
 
 // ABIs for reading contract state and watching events
 const INPUT_SETTLER_ABI = [

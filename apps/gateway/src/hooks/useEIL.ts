@@ -1,5 +1,5 @@
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { parseEther, type Address } from 'viem';
 
 // Re-export shared types and utilities
@@ -119,14 +119,17 @@ export function useCrossChainSwap(paymasterAddress: Address | undefined) {
   const [swapStatus, setSwapStatus] = useState<SwapStatus>('idle');
   const [error, setError] = useState<string | null>(null);
 
-  const { writeContract, data: hash, isPending } = useWriteContract();
+  const { writeContract, data: hash, isPending, error: writeError } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
   useEffect(() => {
-    if (isPending) setSwapStatus('creating');
+    if (writeError) {
+      setSwapStatus('idle');
+      setError(writeError.message);
+    } else if (isPending) setSwapStatus('creating');
     else if (isConfirming) setSwapStatus('waiting');
     else if (isSuccess) setSwapStatus('complete');
-  }, [isPending, isConfirming, isSuccess]);
+  }, [isPending, isConfirming, isSuccess, writeError]);
 
   const executeCrossChainSwap = useCallback(async (params: CrossChainSwapParams) => {
     if (!paymasterAddress || !userAddress) {
@@ -180,7 +183,6 @@ export function useCrossChainSwap(paymasterAddress: Address | undefined) {
 
 export function useXLPPosition(stakeManagerAddress: Address | undefined) {
   const { address } = useAccount();
-  const [position, setPosition] = useState<XLPPosition | null>(null);
   
   const { data: stakeData } = useReadContract({
     address: stakeManagerAddress,
@@ -196,25 +198,25 @@ export function useXLPPosition(stakeManagerAddress: Address | undefined) {
     args: address ? [address] : undefined,
   });
 
-  useEffect(() => {
-    if (stakeData && chainsData) {
-      const [stakedAmount, unbondingAmount, unbondingStartTime, slashedAmount, isActive, registeredAt] = stakeData as [bigint, bigint, bigint, bigint, boolean, bigint];
-      const chains = (chainsData as bigint[]).map(c => Number(c));
-      
-      setPosition({
-        stakedAmount,
-        unbondingAmount,
-        unbondingStartTime: Number(unbondingStartTime),
-        slashedAmount,
-        isActive,
-        registeredAt: Number(registeredAt),
-        supportedChains: chains,
-        tokenLiquidity: new Map(),
-        ethBalance: 0n,
-        pendingFees: 0n,
-        totalEarnings: 0n,
-      });
-    }
+  const position = useMemo<XLPPosition | null>(() => {
+    if (!stakeData || !chainsData) return null;
+    
+    const [stakedAmount, unbondingAmount, unbondingStartTime, slashedAmount, isActive, registeredAt] = stakeData as [bigint, bigint, bigint, bigint, boolean, bigint];
+    const chains = (chainsData as bigint[]).map(c => Number(c));
+    
+    return {
+      stakedAmount,
+      unbondingAmount,
+      unbondingStartTime: Number(unbondingStartTime),
+      slashedAmount,
+      isActive,
+      registeredAt: Number(registeredAt),
+      supportedChains: chains,
+      tokenLiquidity: new Map(),
+      ethBalance: 0n,
+      pendingFees: 0n,
+      totalEarnings: 0n,
+    };
   }, [stakeData, chainsData]);
 
   return { position };
@@ -224,13 +226,16 @@ export function useXLPRegistration(stakeManagerAddress: Address | undefined) {
   const [status, setStatus] = useState<StakeStatus>('idle');
   const [error, setError] = useState<string | null>(null);
 
-  const { writeContract, data: hash, isPending } = useWriteContract();
+  const { writeContract, data: hash, isPending, error: writeError } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
   useEffect(() => {
-    if (isPending) setStatus('pending');
+    if (writeError) {
+      setStatus('idle');
+      setError(writeError.message);
+    } else if (isPending) setStatus('pending');
     else if (isSuccess) setStatus('complete');
-  }, [isPending, isSuccess]);
+  }, [isPending, isSuccess, writeError]);
 
   const register = useCallback(async (chains: number[], stakeAmount: bigint) => {
     if (!stakeManagerAddress) {
@@ -279,10 +284,25 @@ export function useXLPRegistration(stakeManagerAddress: Address | undefined) {
     });
   }, [stakeManagerAddress, writeContract]);
 
+  const completeUnbonding = useCallback(async () => {
+    if (!stakeManagerAddress) {
+      setError('Stake manager not configured');
+      return;
+    }
+
+    writeContract({
+      address: stakeManagerAddress,
+      abi: L1_STAKE_MANAGER_ABI,
+      functionName: 'completeUnbonding',
+      args: []
+    });
+  }, [stakeManagerAddress, writeContract]);
+
   return {
     register,
     addStake,
     startUnbonding,
+    completeUnbonding,
     status,
     error,
     isLoading: isPending || isConfirming,
@@ -294,8 +314,9 @@ export function useXLPRegistration(stakeManagerAddress: Address | undefined) {
 export function useXLPLiquidity(paymasterAddress: Address | undefined) {
   const { address } = useAccount();
   const [status, setStatus] = useState<StakeStatus>('idle');
+  const [error, setError] = useState<string | null>(null);
 
-  const { writeContract, data: hash, isPending } = useWriteContract();
+  const { writeContract, data: hash, isPending, error: writeError } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
   const { data: ethBalance } = useReadContract({
@@ -306,9 +327,12 @@ export function useXLPLiquidity(paymasterAddress: Address | undefined) {
   });
 
   useEffect(() => {
-    if (isPending) setStatus('pending');
+    if (writeError) {
+      setStatus('idle');
+      setError(writeError.message);
+    } else if (isPending) setStatus('pending');
     else if (isSuccess) setStatus('complete');
-  }, [isPending, isSuccess]);
+  }, [isPending, isSuccess, writeError]);
 
   const depositETH = useCallback(async (amount: bigint) => {
     if (!paymasterAddress) return;
@@ -362,6 +386,7 @@ export function useXLPLiquidity(paymasterAddress: Address | undefined) {
     depositToken,
     withdrawToken,
     status,
+    error,
     isLoading: isPending || isConfirming,
     isSuccess,
     hash
@@ -369,7 +394,7 @@ export function useXLPLiquidity(paymasterAddress: Address | undefined) {
 }
 
 export function useAppTokenPreference(preferenceAddress: Address | undefined) {
-  const { writeContract, data: hash, isPending } = useWriteContract();
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
   const registerApp = useCallback(async (
@@ -422,6 +447,7 @@ export function useAppTokenPreference(preferenceAddress: Address | undefined) {
     setFallbackTokens,
     isLoading: isPending || isConfirming,
     isSuccess,
+    error: error?.message ?? null,
     hash,
   };
 }

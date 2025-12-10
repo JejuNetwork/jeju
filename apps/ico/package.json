@@ -6,8 +6,11 @@
     "dev": "next dev -p 4020",
     "build": "next build",
     "start": "next start -p 4020",
-    "test": "bun test",
-    "test:e2e": "playwright test",
+    "test": "bun test tests/presale.test.ts",
+    "test:contract": "bun test tests/contract/presale-contract.test.ts",
+    "test:e2e": "playwright test tests/e2e/",
+    "test:synpress": "playwright test tests/synpress/ --project=chromium",
+    "test:all": "bun run test && bun run test:e2e",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
   },

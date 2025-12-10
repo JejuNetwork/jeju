@@ -1,10 +1,79 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useAccount } from 'wagmi';
+import { useQuery } from '@tanstack/react-query';
 import { parseEther, formatEther, type Address } from 'viem';
 import { useXLPLiquidity, useXLPRegistration, useXLPPosition, useEILConfig } from '../hooks/useEIL';
 import { useProtocolTokens } from '../hooks/useProtocolTokens';
 import TokenSelector from './TokenSelector';
 import type { TokenOption } from './TokenSelector';
+import { Clock, CheckCircle, XCircle } from 'lucide-react';
+
+const INDEXER_URL = import.meta.env.VITE_INDEXER_URL || 'http://localhost:4350/graphql';
+
+interface VoucherHistoryItem {
+  id: string;
+  requestId: string;
+  sourceAmount: string;
+  sourceToken: string;
+  destinationToken: string;
+  destinationChain: number;
+  recipient: string;
+  status: 'PENDING' | 'FULFILLED' | 'EXPIRED' | 'REFUNDED';
+  createdAt: string;
+  fulfilledAt?: string;
+  feeEarned?: string;
+}
+
+async function fetchXLPVoucherHistory(xlpAddress: string): Promise<VoucherHistoryItem[]> {
+  const query = `
+    query XLPVoucherHistory($xlp: String!) {
+      voucherFulfillments(
+        where: { xlp_eq: $xlp }
+        orderBy: createdAt_DESC
+        limit: 50
+      ) {
+        id
+        voucherRequest {
+          requestId
+          sourceAmount
+          sourceToken
+          destinationToken
+          destinationChain
+          recipient
+          status
+          createdAt
+        }
+        feeEarned
+        fulfilledAt
+      }
+    }
+  `;
+
+  const response = await fetch(INDEXER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, variables: { xlp: xlpAddress.toLowerCase() } }),
+  });
+
+  if (!response.ok) return [];
+
+  const { data } = await response.json();
+  const fulfillments = data?.voucherFulfillments || [];
+
+  return fulfillments.map((f: { voucherRequest: VoucherHistoryItem; feeEarned: string; fulfilledAt: string }) => ({
+    id: f.voucherRequest.requestId,
+    requestId: f.voucherRequest.requestId,
+    sourceAmount: f.voucherRequest.sourceAmount,
+    sourceToken: f.voucherRequest.sourceToken,
+    destinationToken: f.voucherRequest.destinationToken,
+    destinationChain: f.voucherRequest.destinationChain,
+    recipient: f.voucherRequest.recipient,
+    status: f.voucherRequest.status,
+    createdAt: f.voucherRequest.createdAt,
+    fulfilledAt: f.fulfilledAt,
+    feeEarned: f.feeEarned,
+  }));
+}
 
 type TabType = 'overview' | 'liquidity' | 'stake' | 'history';
 
@@ -29,14 +98,14 @@ export default function XLPDashboard() {
   const [selectedChains, setSelectedChains] = useState<number[]>([420691, 1]);
 
   const { tokens } = useProtocolTokens();
-  const tokenOptions = tokens.map(t => ({
+  const tokenOptions = useMemo(() => tokens.map(t => ({
     symbol: t.symbol,
     name: t.name,
     address: t.address,
     decimals: t.decimals,
     priceUSD: t.priceUSD,
     logoUrl: t.logoUrl,
-  }));
+  })), [tokens]);
 
   const {
     ethBalance: xlpETH,
@@ -48,20 +117,24 @@ export default function XLPDashboard() {
   } = useXLPLiquidity(crossChainPaymaster);
 
   const { position } = useXLPPosition(l1StakeManager);
-  const stake = position ? {
+  const UNBONDING_PERIOD = 691200;
+  
+  const stake = useMemo(() => position ? {
     stakedAmount: position.stakedAmount,
     unbondingAmount: position.unbondingAmount,
     isActive: position.isActive,
-  } : null;
-  const supportedChains = position?.supportedChains || [];
-  const UNBONDING_PERIOD = 691200;
-  const unbondingTimeRemaining = position?.unbondingStartTime 
+  } : null, [position]);
+  
+  const supportedChains = useMemo(() => position?.supportedChains || [], [position]);
+  
+  const unbondingTimeRemaining = useMemo(() => position?.unbondingStartTime 
     ? BigInt(Math.max(0, position.unbondingStartTime + UNBONDING_PERIOD - Math.floor(Date.now() / 1000)))
-    : 0n;
+    : 0n, [position?.unbondingStartTime]);
   const {
     register,
     addStake,
     startUnbonding,
+    completeUnbonding,
     isLoading: isStakeLoading,
     isSuccess: isStakeSuccess,
   } = useXLPRegistration(l1StakeManager);
@@ -499,11 +572,7 @@ export default function XLPDashboard() {
         )}
 
         {activeTab === 'history' && (
-          <div>
-            <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>
-              Voucher history coming soon...
-            </p>
-          </div>
+          <VoucherHistory />
         )}
       </div>
 
@@ -519,6 +588,100 @@ export default function XLPDashboard() {
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+function VoucherHistory() {
+  const { address } = useAccount();
+  
+  const { data: history = [], isLoading, error } = useQuery({
+    queryKey: ['xlp-voucher-history', address],
+    queryFn: () => fetchXLPVoucherHistory(address!),
+    enabled: !!address,
+    refetchInterval: 30000,
+  });
+
+  if (!address) {
+    return (
+      <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>
+        Connect wallet to view history
+      </p>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div style={{ textAlign: 'center', padding: '2rem' }}>
+        <div className="spinner" style={{ margin: '0 auto' }} />
+        <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Loading history...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>
+        Unable to load voucher history. Indexer may be unavailable.
+      </p>
+    );
+  }
+
+  if (history.length === 0) {
+    return (
+      <div style={{ textAlign: 'center', padding: '2rem' }}>
+        <p style={{ color: 'var(--text-secondary)' }}>No vouchers fulfilled yet</p>
+        <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+          When you fulfill voucher requests as an XLP, they will appear here
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+      {history.map((item) => {
+        const statusIcon = item.status === 'FULFILLED' ? (
+          <CheckCircle size={18} style={{ color: 'var(--success)' }} />
+        ) : item.status === 'EXPIRED' || item.status === 'REFUNDED' ? (
+          <XCircle size={18} style={{ color: 'var(--error)' }} />
+        ) : (
+          <Clock size={18} style={{ color: 'var(--warning)' }} />
+        );
+
+        const amountEth = (Number(BigInt(item.sourceAmount)) / 1e18).toFixed(4);
+        const feeEth = item.feeEarned ? (Number(BigInt(item.feeEarned)) / 1e18).toFixed(6) : '0';
+
+        return (
+          <div
+            key={item.id}
+            style={{
+              padding: '1rem',
+              background: 'var(--surface-hover)',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '1rem'
+            }}
+          >
+            {statusIcon}
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: '600' }}>{amountEth} ETH</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--success)', fontWeight: '600' }}>
+                  +{feeEth} ETH fee
+                </span>
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                {item.recipient.slice(0, 10)}... → Chain {item.destinationChain}
+              </div>
+              <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', marginTop: '0.125rem' }}>
+                {new Date(item.createdAt).toLocaleString()}
+              </div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

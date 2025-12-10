@@ -4,14 +4,16 @@ import { useState, useEffect, FormEvent } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Loader2, Info, Shield, ArrowRight } from "lucide-react";
-import { isAddress } from "viem"; // For ETH address validation
+import { Loader2, Info, Shield, ArrowRight, CheckCircle, Award } from "lucide-react";
+import { isAddress } from "viem";
 import { LinkedWallet } from "@/lib/walletLinking/readmeUtils";
 
 interface WalletLinkFormProps {
   wallets: LinkedWallet[];
   onSubmit: (wallets: LinkedWallet[]) => Promise<void>;
   isProcessing: boolean;
+  isVerified?: boolean;
+  onRequestVerification?: (address: string) => Promise<void>;
 }
 
 // Basic regex for Solana address (Base58, 32-44 chars)
@@ -22,6 +24,8 @@ export function WalletLinkForm({
   wallets = [],
   onSubmit,
   isProcessing,
+  isVerified = false,
+  onRequestVerification,
 }: WalletLinkFormProps) {
   const [ethAddress, setEthAddress] = useState("");
   const [solAddress, setSolAddress] = useState("");
@@ -174,6 +178,54 @@ export function WalletLinkForm({
           </div>
         </div>
       </div>
+
+      {/* ERC-8004 Verification Section */}
+      {ethAddress && isEthValid && (
+        <div className="mt-6 rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-900/20">
+          <div className="flex items-start space-x-3">
+            <Award className="mt-0.5 h-5 w-5 text-green-600 dark:text-green-400" />
+            <div className="flex-1 space-y-2">
+              <h4 className="font-medium text-green-800 dark:text-green-200">
+                ERC-8004 Identity Verification
+              </h4>
+              {isVerified ? (
+                <div className="flex items-center space-x-2 text-sm text-green-700 dark:text-green-300">
+                  <CheckCircle className="h-4 w-4" />
+                  <span>Wallet verified for reputation attestation</span>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-sm text-green-700 dark:text-green-300">
+                    Verify wallet ownership to unlock:
+                  </p>
+                  <ul className="text-xs text-green-600 dark:text-green-400 space-y-1 ml-4">
+                    <li>• On-chain reputation attestation</li>
+                    <li>• Reduced staking for moderation</li>
+                    <li>• Verified developer badge</li>
+                  </ul>
+                  {onRequestVerification && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onRequestVerification(ethAddress)}
+                      disabled={isProcessing}
+                      className="mt-2 border-green-300 text-green-700 hover:bg-green-100 dark:border-green-700 dark:text-green-300 dark:hover:bg-green-800"
+                    >
+                      {isProcessing ? (
+                        <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                      ) : (
+                        <Shield className="mr-2 h-3 w-3" />
+                      )}
+                      Verify with Wallet Signature
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }

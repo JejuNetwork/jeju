@@ -302,7 +302,7 @@ test.describe('Complete Button Audit', () => {
     await page.waitForTimeout(1000);
 
     let totalButtons = 0;
-    let clickedButtons: string[] = [];
+    const clickedButtons: string[] = [];
 
     // Click all main tabs and count buttons on each
     for (const tab of MAIN_TABS) {
@@ -334,7 +334,7 @@ test.describe('Complete Button Audit', () => {
     await connectWallet(page, metamask);
     await page.waitForTimeout(1000);
 
-    let clickedButtons: string[] = [];
+    const clickedButtons: string[] = [];
 
     for (const tab of MAIN_TABS) {
       const tabBtn = page.locator(`button:has-text("${tab}")`).first();

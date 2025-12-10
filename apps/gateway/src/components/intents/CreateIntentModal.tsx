@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { X, ArrowRight, Zap, AlertCircle, Loader2, CheckCircle } from 'lucide-react';
-import { useAccount, useWriteContract, useSwitchChain, useChainId } from 'wagmi';
+import { useAccount, useWriteContract, useSwitchChain, useChainId, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther } from 'viem';
 import { useSupportedChains, useIntentQuote } from '../../hooks/useIntentAPI';
 import { useOIFConfig } from '../../hooks/useOIF';
@@ -30,7 +30,17 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
 
   const { address, isConnected, chain } = useAccount();
   const { switchChain } = useSwitchChain();
-  const { writeContractAsync } = useWriteContract();
+  const { writeContractAsync, data: txHash } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
+
+  // Update status when transaction confirms
+  useEffect(() => {
+    if (isConfirming) setTxStatus('confirming');
+    if (isConfirmed) {
+      setTxStatus('success');
+      if (txHash) setIntentId(txHash);
+    }
+  }, [isConfirming, isConfirmed, txHash]);
 
   const { data: quotes, isLoading: quotesLoading } = useIntentQuote({
     sourceChain,
@@ -51,7 +61,15 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
     setError(null);
     setTxStatus('preparing');
     
-    if (!isCorrectChain) await switchChain({ chainId: sourceChain });
+    if (!isCorrectChain) {
+      try {
+        await switchChain({ chainId: sourceChain });
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to switch network');
+        setTxStatus('error');
+        return;
+      }
+    }
 
     const amountWei = parseEther(amount);
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
@@ -73,19 +91,19 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
     };
 
     setTxStatus('pending');
-    const hash = await writeContractAsync({
-      address: inputSettlerAddress,
-      abi: INPUT_SETTLER_ABI,
-      functionName: 'createIntent',
-      args: [order],
-      value: token === '0x0000000000000000000000000000000000000000' ? amountWei : undefined,
-    });
-
-    setTxStatus('confirming');
-    setTimeout(() => {
-      setTxStatus('success');
-      setIntentId(hash);
-    }, 2000);
+    try {
+      await writeContractAsync({
+        address: inputSettlerAddress,
+        abi: INPUT_SETTLER_ABI,
+        functionName: 'createIntent',
+        args: [order],
+        value: token === '0x0000000000000000000000000000000000000000' ? amountWei : undefined,
+      });
+      // Status updates handled by useEffect watching isConfirming/isConfirmed
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Transaction failed');
+      setTxStatus('error');
+    }
   }, [address, amount, destChain, inputSettlerAddress, isCorrectChain, sourceChain, switchChain, token, writeContractAsync]);
 
   return (

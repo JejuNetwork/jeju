@@ -15,8 +15,7 @@ export function Hero() {
       </h1>
       
       <p className="text-xl text-zinc-400 max-w-2xl mx-auto mb-8">
-        Governance and utility token for the Jeju Network. 
-        Stake for moderation, vote on proposals, and power network services.
+        Governance and utility token for the Jeju Network.
       </p>
       
       <div className="flex flex-wrap justify-center gap-4 mb-12">

@@ -9,7 +9,7 @@
       "description": "Hyperscape 3D game engine",
       "private": true,
       "optional": true,
-      "branch": "main"
+      "branch": "jeju"
     },
     {
       "name": "babylon",
@@ -18,7 +18,7 @@
       "description": "Babylon game engine integration",
       "private": true,
       "optional": true,
-      "branch": "main"
+      "branch": "jeju"
     },
     {
       "name": "cloud",
@@ -27,7 +27,7 @@
       "description": "Cloud platform with agent marketplace",
       "private": true,
       "optional": true,
-      "branch": "main"
+      "branch": "jeju"
     },
     {
       "name": "otc-agent",
@@ -36,7 +36,7 @@
       "description": "OTC trading desk agent",
       "private": true,
       "optional": true,
-      "branch": "main"
+      "branch": "jeju"
     },
     {
       "name": "eliza",
@@ -45,7 +45,7 @@
       "description": "ElizaOS agent framework",
       "private": true,
       "optional": true,
-      "branch": "main"
+      "branch": "jeju"
     },
     {
       "name": "otaku",
@@ -54,7 +54,7 @@
       "description": "Otaku anime/manga integration",
       "private": true,
       "optional": true,
-      "branch": "main"
+      "branch": "jeju"
     },
     {
       "name": "launchpad",
@@ -63,7 +63,7 @@
       "description": "Token launchpad",
       "private": true,
       "optional": true,
-      "branch": "main"
+      "branch": "jeju"
     }
   ]
 }

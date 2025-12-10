@@ -12,26 +12,32 @@ resources:
     memory: 1Gi
 
 autoscaling:
+  enabled: false
+
+nodeSelector: {}
+
+tolerations: []
+
+ingress:
   enabled: true
-  minReplicas: 2
-  maxReplicas: 5
-  targetCPUUtilizationPercentage: 70
-
-nodeSelector:
-  role: core
-
-tolerations:
-  - key: workload
-    operator: Equal
-    value: core
-    effect: NoSchedule
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:502713364895:certificate/34c89eb5-a94f-406a-be3c-c40008f4f693"
+  hosts:
+    - host: bundler.testnet.jejunetwork.org
+      paths:
+        - path: /
+          pathType: Prefix
 
 config:
   network: "jeju-testnet"
   chainId: 420690
-  rpcUrl: "https://testnet-rpc.jeju.network"
+  rpcUrl: "http://reth-rpc.rpc.svc.cluster.local:8545"
   entryPoint: "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789"
-  # Private key and beneficiary injected from Vault/Secrets
   beneficiary: ""
   minBalance: "0.05"
   maxBatchSize: 10

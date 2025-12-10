@@ -471,7 +471,7 @@ async function executeSkill(
         message: status.isBanned 
           ? `Address ${address.slice(0, 10)}... is ${status.isOnNotice ? 'on notice' : 'banned'}`
           : `Address ${address.slice(0, 10)}... is not banned`,
-        data: { address, ...status },
+        data: { ...status } as Record<string, unknown>,
       };
     }
 
@@ -488,7 +488,7 @@ async function executeSkill(
       }
       return {
         message: `${stats.tier} tier moderator with ${stats.winRate}% win rate`,
-        data: stats,
+        data: stats as unknown as Record<string, unknown>,
       };
     }
 
@@ -513,7 +513,7 @@ async function executeSkill(
       
       return {
         message: `Case ${caseData.status}: ${caseData.target.slice(0, 10)}... reported for ${caseData.reason.slice(0, 50)}`,
-        data: caseData,
+        data: caseData as unknown as Record<string, unknown>,
       };
     }
 
@@ -521,7 +521,7 @@ async function executeSkill(
       const stats = await getModerationStats();
       return {
         message: `${stats.totalCases} total cases, ${stats.totalStaked} ETH staked`,
-        data: stats,
+        data: stats as unknown as Record<string, unknown>,
       };
     }
 

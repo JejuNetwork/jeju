@@ -4,19 +4,26 @@ image:
   repository: 502713364895.dkr.ecr.us-east-1.amazonaws.com/jeju/gateway
   tag: "testnet-latest"
 
-replicaCount: 3
+replicaCount: 2
 
 ingress:
   enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:502713364895:certificate/34c89eb5-a94f-406a-be3c-c40008f4f693"
   hosts:
     - host: gateway.testnet.jeju.network
       paths:
         - path: /
           pathType: Prefix
-  tls:
-    - secretName: gateway-testnet-tls
-      hosts:
-        - gateway.testnet.jeju.network
+    - host: gateway.testnet.jejunetwork.org
+      paths:
+        - path: /
+          pathType: Prefix
 
 env:
   - name: NEXT_PUBLIC_NETWORK
@@ -24,5 +31,9 @@ env:
   - name: NEXT_PUBLIC_CHAIN_ID
     value: "420690"
   - name: NEXT_PUBLIC_RPC_URL
-    value: "https://rpc.testnet.jeju.network"
+    value: "https://testnet-rpc.jejunetwork.org"
+  - name: BUNDLER_URL
+    value: "https://bundler.testnet.jejunetwork.org"
+  - name: INDEXER_URL
+    value: "https://indexer.testnet.jejunetwork.org/graphql"
 

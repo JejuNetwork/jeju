@@ -4,19 +4,26 @@ image:
   repository: 502713364895.dkr.ecr.us-east-1.amazonaws.com/jeju/leaderboard
   tag: "testnet-latest"
 
-replicaCount: 2
+replicaCount: 1
 
 ingress:
   enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:502713364895:certificate/34c89eb5-a94f-406a-be3c-c40008f4f693"
   hosts:
     - host: leaderboard.testnet.jeju.network
       paths:
         - path: /
           pathType: Prefix
-  tls:
-    - secretName: leaderboard-testnet-tls
-      hosts:
-        - leaderboard.testnet.jeju.network
+    - host: leaderboard.testnet.jejunetwork.org
+      paths:
+        - path: /
+          pathType: Prefix
 
 # External RDS database
 externalDatabase:
@@ -27,9 +34,11 @@ externalDatabase:
 
 env:
   - name: SITE_URL
-    value: "https://leaderboard.testnet.jeju.network"
+    value: "https://leaderboard.testnet.jejunetwork.org"
   - name: SITE_NAME
     value: "Jeju Network Leaderboard - Testnet"
   - name: LARGE_MODEL
-    value: "openai/gpt-5-mini"
+    value: "openai/gpt-4o-mini"
+  - name: RPC_URL
+    value: "https://testnet-rpc.jejunetwork.org"
 

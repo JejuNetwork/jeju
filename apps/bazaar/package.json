@@ -24,6 +24,7 @@
     "test:localnet:full": "bun run scripts/run-localnet-simulations.ts"
   },
   "dependencies": {
+    "@jeju/shared": "workspace:*",
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/contracts": "workspace:*",
     "next": "^14.2.0",

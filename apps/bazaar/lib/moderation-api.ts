@@ -1,15 +1,15 @@
 import { 
-  createModerationAPI, 
+  ModerationAPI,
   type ModerationConfig,
-  type ModerationBanStatus as BanStatus,
+  type BanStatus,
   type ModeratorProfile,
   type ModerationCase,
   type Report,
   type AgentLabels,
   type ModerationStats,
   type TransactionRequest,
-} from '@jeju/shared';
-import { Address } from 'viem';
+} from '../../../packages/shared/src/api/moderation';
+import { type Address } from 'viem';
 import { jeju } from '../config/chains';
 
 export type { BanStatus, ModeratorProfile, ModerationCase, Report, AgentLabels, ModerationStats, TransactionRequest };
@@ -25,7 +25,7 @@ const config: ModerationConfig = {
 };
 
 // Create singleton API instance
-const moderationAPI = createModerationAPI(config);
+const moderationAPI = new ModerationAPI(config);
 
 // Export API methods as standalone functions for backward compatibility
 export const checkBanStatus = moderationAPI.checkBanStatus.bind(moderationAPI);

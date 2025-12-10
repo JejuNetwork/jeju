@@ -159,6 +159,62 @@ const REPUTATION_LABEL_MANAGER_ABI = [
   { name: 'getLabels', type: 'function', stateMutability: 'view', inputs: [{ name: 'agentId', type: 'uint256' }], outputs: [{ name: '', type: 'uint8[]' }] },
 ] as const;
 
+// ============ Contract Return Types ============
+
+type StakeData = {
+  amount: bigint;
+  stakedAt: bigint;
+  stakedBlock: bigint;
+  lastActivityBlock: bigint;
+  isStaked: boolean;
+};
+
+type ReputationData = {
+  successfulBans: bigint;
+  unsuccessfulBans: bigint;
+  totalSlashedFrom: bigint;
+  totalSlashedOthers: bigint;
+  reputationScore: bigint;
+  lastReportTimestamp: bigint;
+  reportCooldownUntil: bigint;
+};
+
+type CaseData = {
+  caseId: `0x${string}`;
+  reporter: `0x${string}`;
+  target: `0x${string}`;
+  reporterStake: bigint;
+  targetStake: bigint;
+  reason: string;
+  evidenceHash: `0x${string}`;
+  status: number;
+  createdAt: bigint;
+  marketOpenUntil: bigint;
+  yesVotes: bigint;
+  noVotes: bigint;
+  totalPot: bigint;
+  resolved: boolean;
+  outcome: number;
+  appealCount: bigint;
+};
+
+type ReportData = {
+  reportId: bigint;
+  reportType: number;
+  severity: number;
+  targetAgentId: bigint;
+  sourceAppId: `0x${string}`;
+  reporter: `0x${string}`;
+  reporterAgentId: bigint;
+  evidenceHash: `0x${string}`;
+  details: string;
+  marketId: `0x${string}`;
+  reportBond: bigint;
+  createdAt: bigint;
+  votingEnds: bigint;
+  status: number;
+};
+
 // ============ ModerationAPI Class ============
 
 // Client type that works across viem versions
@@ -188,13 +244,16 @@ export class ModerationAPI {
       this.client.readContract({ address: this.config.banManagerAddress, abi: BAN_MANAGER_ABI, functionName: 'getAddressBan', args: [address as Address] }).catch(() => null),
     ]);
 
-    if (!isAddressBanned && !isOnNotice) return defaultResult;
+    const isBanned = isAddressBanned as boolean;
+    const onNotice = isOnNotice as boolean;
+    
+    if (!isBanned && !onNotice) return defaultResult;
 
     const ban = addressBan as { banType: number; reason: string; caseId: `0x${string}`; reporter: Address; bannedAt: bigint } | null;
     return {
       address,
-      isBanned: isAddressBanned,
-      isOnNotice,
+      isBanned,
+      isOnNotice: onNotice,
       banType: BAN_TYPE_NAMES[ban?.banType ?? 0],
       reason: ban?.reason || (isOnNotice ? 'Account on notice - pending review' : 'Banned'),
       caseId: ban?.caseId && ban.caseId !== '0x0000000000000000000000000000000000000000000000000000000000000000' ? ban.caseId : null,
@@ -219,22 +278,24 @@ export class ModerationAPI {
 
     if (!stake || !rep) return null;
 
-    const wins = Number(rep.successfulBans);
-    const losses = Number(rep.unsuccessfulBans);
+    const stakeData = stake as StakeData;
+    const repData = rep as ReputationData;
+    const wins = Number(repData.successfulBans);
+    const losses = Number(repData.unsuccessfulBans);
     const total = wins + losses;
 
     return {
       address,
-      stakeAmount: formatEther(stake.amount),
-      isStaked: stake.isStaked,
-      stakedSince: Number(stake.stakedAt),
-      reputationScore: Number(rep.reputationScore),
+      stakeAmount: formatEther(stakeData.amount),
+      isStaked: stakeData.isStaked,
+      stakedSince: Number(stakeData.stakedAt),
+      reputationScore: Number(repData.reputationScore),
       tier: TIER_NAMES[tier as number] || 'MEDIUM',
       successfulBans: wins,
       unsuccessfulBans: losses,
       winRate: total > 0 ? Math.round((wins / total) * 100) : 50,
-      totalEarned: formatEther(rep.totalSlashedOthers),
-      totalLost: formatEther(rep.totalSlashedFrom),
+      totalEarned: formatEther(repData.totalSlashedOthers),
+      totalLost: formatEther(repData.totalSlashedFrom),
       netPnL: formatEther(pnl as bigint),
       canReport: canReport as boolean,
       requiredStake: formatEther(requiredStake as bigint),
@@ -245,16 +306,18 @@ export class ModerationAPI {
   async getModerationCases(options?: { activeOnly?: boolean; resolvedOnly?: boolean; limit?: number }): Promise<ModerationCase[]> {
     if (!this.config.moderationMarketplaceAddress) return [];
 
-    const caseIds = await this.client.readContract({ address: this.config.moderationMarketplaceAddress, abi: MODERATION_MARKETPLACE_ABI, functionName: 'getAllCaseIds' }).catch(() => [] as `0x${string}`[]);
+    const rawCaseIds = await this.client.readContract({ address: this.config.moderationMarketplaceAddress, abi: MODERATION_MARKETPLACE_ABI, functionName: 'getAllCaseIds' }).catch(() => []);
+    const caseIds = (rawCaseIds || []) as `0x${string}`[];
     if (!caseIds.length) return [];
 
     const limit = options?.limit || 50;
     const now = Math.floor(Date.now() / 1000);
 
     const cases = await Promise.all(
-      caseIds.slice(0, limit).map(async (caseId) => {
-        const caseData = await this.client.readContract({ address: this.config.moderationMarketplaceAddress!, abi: MODERATION_MARKETPLACE_ABI, functionName: 'getCase', args: [caseId] }).catch(() => null);
-        if (!caseData) return null;
+      caseIds.slice(0, limit).map(async (caseId: `0x${string}`) => {
+        const rawCaseData = await this.client.readContract({ address: this.config.moderationMarketplaceAddress!, abi: MODERATION_MARKETPLACE_ABI, functionName: 'getCase', args: [caseId] }).catch(() => null);
+        if (!rawCaseData) return null;
+        const caseData = rawCaseData as CaseData;
 
         return {
           caseId: caseData.caseId,
@@ -279,16 +342,17 @@ export class ModerationAPI {
     );
 
     let filtered = cases.filter((c): c is ModerationCase => c !== null);
-    if (options?.activeOnly) filtered = filtered.filter(c => !c.resolved);
-    if (options?.resolvedOnly) filtered = filtered.filter(c => c.resolved);
+    if (options?.activeOnly) filtered = filtered.filter((c: ModerationCase) => !c.resolved);
+    if (options?.resolvedOnly) filtered = filtered.filter((c: ModerationCase) => c.resolved);
     return filtered;
   }
 
   async getModerationCase(caseId: string): Promise<ModerationCase | null> {
     if (!this.config.moderationMarketplaceAddress) return null;
 
-    const caseData = await this.client.readContract({ address: this.config.moderationMarketplaceAddress, abi: MODERATION_MARKETPLACE_ABI, functionName: 'getCase', args: [caseId as `0x${string}`] }).catch(() => null);
-    if (!caseData) return null;
+    const rawCaseData = await this.client.readContract({ address: this.config.moderationMarketplaceAddress, abi: MODERATION_MARKETPLACE_ABI, functionName: 'getCase', args: [caseId as `0x${string}`] }).catch(() => null);
+    if (!rawCaseData) return null;
+    const caseData = rawCaseData as CaseData;
 
     const now = Math.floor(Date.now() / 1000);
     return {
@@ -315,14 +379,16 @@ export class ModerationAPI {
   async getReports(options?: { limit?: number; pendingOnly?: boolean }): Promise<Report[]> {
     if (!this.config.reportingSystemAddress) return [];
 
-    const reportIds = await this.client.readContract({ address: this.config.reportingSystemAddress, abi: REPORTING_SYSTEM_ABI, functionName: 'getAllReports' }).catch(() => [] as bigint[]);
+    const rawReportIds = await this.client.readContract({ address: this.config.reportingSystemAddress, abi: REPORTING_SYSTEM_ABI, functionName: 'getAllReports' }).catch(() => [] as bigint[]);
+    const reportIds = rawReportIds as bigint[];
     if (!reportIds.length) return [];
 
     const limit = options?.limit || 50;
     const reports = await Promise.all(
-      reportIds.slice(0, limit).map(async (reportId) => {
-        const report = await this.client.readContract({ address: this.config.reportingSystemAddress!, abi: REPORTING_SYSTEM_ABI, functionName: 'getReport', args: [reportId] }).catch(() => null);
-        if (!report) return null;
+      reportIds.slice(0, limit).map(async (reportId: bigint) => {
+        const rawReport = await this.client.readContract({ address: this.config.reportingSystemAddress!, abi: REPORTING_SYSTEM_ABI, functionName: 'getReport', args: [reportId] }).catch(() => null);
+        if (!rawReport) return null;
+        const report = rawReport as ReportData;
 
         return {
           reportId: Number(report.reportId),
@@ -343,7 +409,7 @@ export class ModerationAPI {
     );
 
     let filtered = reports.filter((r): r is Report => r !== null);
-    if (options?.pendingOnly) filtered = filtered.filter(r => r.status === 'PENDING');
+    if (options?.pendingOnly) filtered = filtered.filter((r: Report) => r.status === 'PENDING');
     return filtered;
   }
 
@@ -351,8 +417,9 @@ export class ModerationAPI {
     const defaultResult: AgentLabels = { agentId, labels: [], isHacker: false, isScammer: false, isSpamBot: false, isTrusted: false };
     if (!this.config.reputationLabelManagerAddress) return defaultResult;
 
-    const labelIds = await this.client.readContract({ address: this.config.reputationLabelManagerAddress, abi: REPUTATION_LABEL_MANAGER_ABI, functionName: 'getLabels', args: [BigInt(agentId)] }).catch(() => [] as number[]);
-    const labels = labelIds.map(id => LABEL_NAMES[id] || 'UNKNOWN').filter(l => l !== 'NONE' && l !== 'UNKNOWN');
+    const rawLabelIds = await this.client.readContract({ address: this.config.reputationLabelManagerAddress, abi: REPUTATION_LABEL_MANAGER_ABI, functionName: 'getLabels', args: [BigInt(agentId)] }).catch(() => [] as number[]);
+    const labelIds = rawLabelIds as number[];
+    const labels = labelIds.map((id: number) => LABEL_NAMES[id] || 'UNKNOWN').filter((l: string) => l !== 'NONE' && l !== 'UNKNOWN');
 
     return { agentId, labels, isHacker: labels.includes('HACKER'), isScammer: labels.includes('SCAMMER'), isSpamBot: labels.includes('SPAM_BOT'), isTrusted: labels.includes('TRUSTED') };
   }

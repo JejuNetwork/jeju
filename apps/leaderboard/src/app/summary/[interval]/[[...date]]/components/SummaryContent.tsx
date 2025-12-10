@@ -1,9 +1,8 @@
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { visit, SKIP } from "unist-util-visit";
 import { Node, Parent } from "unist";
 import { Heading } from "mdast";
-import { type HTMLProps } from "react";
 import { cn } from "@/lib/utils";
 
 // Custom remark plugin to remove the first H1
@@ -27,9 +26,9 @@ const remarkRemoveFirstH1 = () => {
   };
 };
 
-// Custom H2 component to apply primary color
-const CustomH2 = (props: HTMLProps<HTMLHeadingElement>) => {
-  return <h2 className="lowercase" {...props} />;
+// Custom components for markdown rendering
+const markdownComponents: Partial<Components> = {
+  h2: ({ children }) => <h2 className="lowercase">{children}</h2>,
 };
 
 interface SummaryContentProps {
@@ -54,9 +53,7 @@ export function SummaryContent({
     >
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkRemoveFirstH1]}
-        components={{
-          h2: CustomH2,
-        }}
+        components={markdownComponents}
       >
         {summaryContent}
       </ReactMarkdown>

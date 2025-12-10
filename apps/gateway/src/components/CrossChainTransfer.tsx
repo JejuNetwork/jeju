@@ -186,11 +186,11 @@ export default function CrossChainTransfer() {
           <div style={{ padding: '1rem', background: 'var(--surface-hover)', borderRadius: '12px', marginBottom: '1rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
               <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Estimated Time</span>
-              <span style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--success)' }}>~10 seconds</span>
+              <span style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--text-muted)' }}>Depends on XLP availability</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-              <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Network Fee</span>
-              <span style={{ fontSize: '0.875rem', fontWeight: '600' }}>~0.001 ETH</span>
+              <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>XLP Fee</span>
+              <span style={{ fontSize: '0.875rem', fontWeight: '600' }}>0.05% of amount</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Protocol</span>
@@ -243,7 +243,7 @@ export default function CrossChainTransfer() {
           }}>
             <div className="spinner" />
             <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-              Usually takes ~10 seconds
+              Waiting for XLP fulfillment...
             </span>
           </div>
         </div>
@@ -317,28 +317,17 @@ export default function CrossChainTransfer() {
           <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem', color: 'var(--error)' }}>
             Transfer Failed
           </h3>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-            No XLP responded in time. Your funds are safe and can be refunded.
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+            Transaction was rejected or failed. Your funds remain in your wallet.
           </p>
           
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', 
-            gap: '0.75rem' 
-          }}>
-            <button
-              className="button button-secondary"
-              onClick={resetForm}
-            >
-              Try Again
-            </button>
-            <button
-              className="button"
-              onClick={() => {}}
-            >
-              Refund
-            </button>
-          </div>
+          <button
+            className="button"
+            onClick={resetForm}
+            style={{ width: '100%' }}
+          >
+            Try Again
+          </button>
         </div>
       )}
 

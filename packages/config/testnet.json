@@ -1,0 +1,65 @@
+{
+  "network": "testnet",
+  "chainId": 420690,
+  "networkName": "Jeju Testnet",
+  "currency": {
+    "name": "Ether",
+    "symbol": "ETH",
+    "decimals": 18
+  },
+  
+  "rpc": {
+    "http": "https://testnet-rpc.jejunetwork.org",
+    "ws": "wss://testnet-ws.jejunetwork.org"
+  },
+  
+  "api": {
+    "gateway": "https://gateway.testnet.jejunetwork.org",
+    "bundler": "https://bundler.testnet.jejunetwork.org",
+    "indexer": "https://indexer.testnet.jejunetwork.org/graphql",
+    "explorer": "https://explorer.testnet.jejunetwork.org"
+  },
+  
+  "contracts": {
+    "entryPoint": "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789",
+    "crossChainPaymaster": "",
+    "solverRegistry": "",
+    "inputSettler": "",
+    "outputSettler": ""
+  },
+  
+  "l1": {
+    "chainId": 11155111,
+    "networkName": "Sepolia",
+    "rpc": {
+      "http": "https://ethereum-sepolia-rpc.publicnode.com",
+      "ws": "wss://ethereum-sepolia-rpc.publicnode.com"
+    },
+    "contracts": {
+      "l1StakeManager": "",
+      "optimismPortal": "",
+      "l2OutputOracle": ""
+    }
+  },
+  
+  "supportedChains": {
+    "84532": {
+      "name": "Base Sepolia",
+      "rpc": "https://sepolia.base.org",
+      "crossChainPaymaster": ""
+    },
+    "421614": {
+      "name": "Arbitrum Sepolia",
+      "rpc": "https://sepolia-rollup.arbitrum.io/rpc",
+      "crossChainPaymaster": ""
+    },
+    "11155420": {
+      "name": "Optimism Sepolia",
+      "rpc": "https://sepolia.optimism.io",
+      "crossChainPaymaster": ""
+    }
+  },
+  
+  "faucet": "https://faucet.testnet.jejunetwork.org"
+}
+

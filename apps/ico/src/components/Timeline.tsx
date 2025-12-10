@@ -7,31 +7,31 @@ const TIMELINE = [
     title: 'Whitelist Registration',
     date: 'Week 1',
     status: 'completed' as const,
-    description: 'Early supporters register for whitelist access',
+    description: 'Register for whitelist',
   },
   {
     title: 'Whitelist Sale',
     date: 'Week 2',
     status: 'active' as const,
-    description: '10% bonus for whitelisted participants',
+    description: '10% bonus',
   },
   {
     title: 'Public Sale',
     date: 'Week 3-4',
     status: 'upcoming' as const,
-    description: 'Open participation with volume bonuses',
+    description: 'Open with volume bonuses',
   },
   {
-    title: 'Token Generation Event',
+    title: 'TGE',
     date: 'Week 5',
     status: 'upcoming' as const,
-    description: '20% unlock, vesting begins',
+    description: '20% unlock, vesting starts',
   },
   {
     title: 'DEX Listing',
     date: 'Week 5',
     status: 'upcoming' as const,
-    description: 'JEJU/ETH liquidity on Jeju DEX',
+    description: 'JEJU/ETH trading begins',
   },
 ];
 

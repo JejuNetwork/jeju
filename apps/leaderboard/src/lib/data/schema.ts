@@ -34,6 +34,11 @@ export const walletAddresses = sqliteTable(
     label: text("label", { length: 100 }),
     isPrimary: integer("is_primary", { mode: "boolean" }).default(false),
     isActive: integer("is_active", { mode: "boolean" }).default(true),
+    // Signature verification fields for ERC-8004 integration
+    signature: text("signature"), // EIP-191 signature proving wallet ownership
+    signatureMessage: text("signature_message"), // Message that was signed
+    isVerified: integer("is_verified", { mode: "boolean" }).default(false),
+    verifiedAt: text("verified_at"),
     createdAt: text("created_at")
       .notNull()
       .default(sql`CURRENT_TIMESTAMP`),
@@ -45,6 +50,7 @@ export const walletAddresses = sqliteTable(
     index("idx_wallet_addresses_user_id").on(table.userId),
     index("idx_wallet_addresses_chain_id").on(table.chainId),
     index("idx_wallet_addresses_address").on(table.accountAddress),
+    index("idx_wallet_addresses_verified").on(table.isVerified),
     unique("unq_user_chain_address").on(
       table.userId,
       table.chainId,
@@ -53,6 +59,86 @@ export const walletAddresses = sqliteTable(
     uniqueIndex("unq_user_chain_primary")
       .on(table.userId, table.chainId)
       .where(sql`${table.isPrimary} = 1`),
+  ],
+);
+
+// Reputation attestations - on-chain reputation proofs for ERC-8004
+export const reputationAttestations = sqliteTable(
+  "reputation_attestations",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.username, { onDelete: "cascade" }),
+    walletAddress: text("wallet_address", { length: 100 }).notNull(),
+    chainId: text("chain_id", { length: 100 }).notNull(),
+    // Reputation data
+    totalScore: real("total_score").notNull().default(0),
+    prScore: real("pr_score").notNull().default(0),
+    issueScore: real("issue_score").notNull().default(0),
+    reviewScore: real("review_score").notNull().default(0),
+    commitScore: real("commit_score").notNull().default(0),
+    mergedPrCount: integer("merged_pr_count").notNull().default(0),
+    totalPrCount: integer("total_pr_count").notNull().default(0),
+    totalCommits: integer("total_commits").notNull().default(0),
+    // Normalized score (0-100 for ERC-8004 compatibility)
+    normalizedScore: integer("normalized_score").notNull().default(0),
+    // Attestation data
+    attestationHash: text("attestation_hash"), // keccak256 of the attestation data
+    oracleSignature: text("oracle_signature"), // Signature from reputation oracle
+    // On-chain status
+    txHash: text("tx_hash"), // Transaction hash if submitted on-chain
+    agentId: integer("agent_id"), // ERC-8004 agent ID if linked
+    validationRequestHash: text("validation_request_hash"), // ValidationRegistry request hash
+    // Timestamps
+    scoreCalculatedAt: text("score_calculated_at").notNull(),
+    attestedAt: text("attested_at"),
+    submittedOnChainAt: text("submitted_on_chain_at"),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("idx_attestations_user_id").on(table.userId),
+    index("idx_attestations_wallet").on(table.walletAddress),
+    index("idx_attestations_agent_id").on(table.agentId),
+    index("idx_attestations_hash").on(table.attestationHash),
+    unique("unq_attestation_wallet_chain").on(table.walletAddress, table.chainId),
+  ],
+);
+
+// Agent identity links - connects GitHub users to ERC-8004 agents
+export const agentIdentityLinks = sqliteTable(
+  "agent_identity_links",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.username, { onDelete: "cascade" }),
+    walletAddress: text("wallet_address", { length: 100 }).notNull(),
+    chainId: text("chain_id", { length: 100 }).notNull(),
+    agentId: integer("agent_id").notNull(), // ERC-8004 agent ID
+    registryAddress: text("registry_address", { length: 100 }).notNull(), // IdentityRegistry contract
+    // Verification
+    isVerified: integer("is_verified", { mode: "boolean" }).default(false),
+    verifiedAt: text("verified_at"),
+    verificationTxHash: text("verification_tx_hash"),
+    // Timestamps
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("idx_agent_links_user_id").on(table.userId),
+    index("idx_agent_links_wallet").on(table.walletAddress),
+    index("idx_agent_links_agent_id").on(table.agentId),
+    unique("unq_agent_link").on(table.walletAddress, table.chainId, table.agentId),
   ],
 );
 
@@ -516,6 +602,8 @@ export const usersRelations = relations(users, ({ many }) => ({
   dailySummaries: many(userSummaries),
   dailyScores: many(userDailyScores),
   walletAddresses: many(walletAddresses),
+  reputationAttestations: many(reputationAttestations),
+  agentIdentityLinks: many(agentIdentityLinks),
 }));
 
 export const walletAddressesRelations = relations(
@@ -523,6 +611,26 @@ export const walletAddressesRelations = relations(
   ({ one }) => ({
     user: one(users, {
       fields: [walletAddresses.userId],
+      references: [users.username],
+    }),
+  }),
+);
+
+export const reputationAttestationsRelations = relations(
+  reputationAttestations,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [reputationAttestations.userId],
+      references: [users.username],
+    }),
+  }),
+);
+
+export const agentIdentityLinksRelations = relations(
+  agentIdentityLinks,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [agentIdentityLinks.userId],
       references: [users.username],
     }),
   }),

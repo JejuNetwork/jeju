@@ -164,13 +164,17 @@ export function useV2PairData(pairAddress: Address | null) {
     return { pair: null, userLpBalance: 0n, isLoading, error, refetch }
   }
 
-  const [reservesResult, token0Result, token1Result, supplyResult, balanceResult] = data
+  const reservesResult = data[0]
+  const token0Result = data[1]
+  const token1Result = data[2]
+  const supplyResult = data[3]
+  const balanceResult = data[4]
 
   if (
-    reservesResult.status !== 'success' ||
-    token0Result.status !== 'success' ||
-    token1Result.status !== 'success' ||
-    supplyResult.status !== 'success'
+    !reservesResult || reservesResult.status !== 'success' ||
+    !token0Result || token0Result.status !== 'success' ||
+    !token1Result || token1Result.status !== 'success' ||
+    !supplyResult || supplyResult.status !== 'success'
   ) {
     return { pair: null, userLpBalance: 0n, isLoading, error, refetch }
   }

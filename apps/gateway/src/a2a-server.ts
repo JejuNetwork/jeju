@@ -8,6 +8,11 @@ import { routeService } from './services/route-service.js';
 import { solverService } from './services/solver-service.js';
 import { getWebSocketServer } from './services/websocket.js';
 import { faucetService } from './services/faucet-service.js';
+import { CHAIN_INFO } from './config/oif.js';
+
+// Faucet is only available on testnet
+const GATEWAY_CHAIN_ID = Number(process.env.GATEWAY_CHAIN_ID || 420690) as 420690 | 420691;
+const IS_TESTNET = CHAIN_INFO[GATEWAY_CHAIN_ID]?.isTestnet ?? true;
 import {
   checkBanStatus,
   getModeratorProfile,
@@ -74,11 +79,12 @@ const GATEWAY_AGENT_CARD = {
     { id: 'prepare-vote', name: 'Prepare Vote', description: 'Prepare transaction to vote on a moderation case', tags: ['moderation', 'vote', 'action'], examples: ['Vote BAN on case 0x...'] },
     { id: 'prepare-challenge', name: 'Prepare Challenge', description: 'Prepare transaction to challenge a ban', tags: ['moderation', 'challenge', 'action'], examples: ['Challenge my ban'] },
     { id: 'prepare-appeal', name: 'Prepare Appeal', description: 'Prepare transaction to appeal a resolved ban', tags: ['moderation', 'appeal', 'action'], examples: ['Appeal case 0x...'] },
-    // Faucet
+    // Faucet (testnet only - added dynamically)
+  ].concat(IS_TESTNET ? [
     { id: 'faucet-status', name: 'Check Faucet Status', description: 'Check eligibility and cooldown for JEJU faucet', tags: ['faucet', 'query'], examples: ['Am I eligible for faucet?', 'Check my faucet status'] },
     { id: 'faucet-claim', name: 'Claim from Faucet', description: 'Claim JEJU tokens from testnet faucet (requires ERC-8004 registration)', tags: ['faucet', 'claim', 'action'], examples: ['Claim JEJU from faucet', 'Get testnet tokens'] },
     { id: 'faucet-info', name: 'Get Faucet Info', description: 'Get faucet configuration and requirements', tags: ['faucet', 'info', 'query'], examples: ['Faucet info', 'How does faucet work?'] },
-  ],
+  ] : []),
 };
 
 const MCP_SERVER_INFO = {
@@ -99,9 +105,10 @@ const MCP_RESOURCES = [
   { uri: 'moderation://cases/active', name: 'Active Cases', description: 'Cases currently open for voting', mimeType: 'application/json' },
   { uri: 'moderation://reports', name: 'Reports', description: 'All submitted moderation reports', mimeType: 'application/json' },
   { uri: 'moderation://stats', name: 'Moderation Stats', description: 'System-wide moderation statistics', mimeType: 'application/json' },
-  // Faucet
+  // Faucet (testnet only - added dynamically)
+].concat(IS_TESTNET ? [
   { uri: 'faucet://info', name: 'Faucet Info', description: 'Faucet configuration and requirements', mimeType: 'application/json' },
-];
+] : []);
 
 const MCP_TOOLS = [
   // Intent Tools
@@ -123,11 +130,12 @@ const MCP_TOOLS = [
   { name: 'prepare_vote', description: 'Prepare vote transaction', inputSchema: { type: 'object', properties: { caseId: { type: 'string' }, voteYes: { type: 'boolean' } }, required: ['caseId', 'voteYes'] } },
   { name: 'prepare_challenge', description: 'Prepare challenge transaction', inputSchema: { type: 'object', properties: { caseId: { type: 'string' }, stakeAmount: { type: 'string' } }, required: ['caseId', 'stakeAmount'] } },
   { name: 'prepare_appeal', description: 'Prepare appeal transaction', inputSchema: { type: 'object', properties: { caseId: { type: 'string' }, stakeAmount: { type: 'string' } }, required: ['caseId', 'stakeAmount'] } },
-  // Faucet Tools
+  // Faucet Tools (testnet only - added dynamically)
+].concat(IS_TESTNET ? [
   { name: 'faucet_status', description: 'Check faucet eligibility and cooldown for an address', inputSchema: { type: 'object', properties: { address: { type: 'string', description: 'Wallet address to check' } }, required: ['address'] } },
   { name: 'faucet_claim', description: 'Claim JEJU tokens from faucet (requires ERC-8004 registration)', inputSchema: { type: 'object', properties: { address: { type: 'string', description: 'Wallet address to receive tokens' } }, required: ['address'] } },
   { name: 'faucet_info', description: 'Get faucet configuration and requirements', inputSchema: { type: 'object', properties: {} } },
-];
+] : []);
 
 interface A2ARequest {
   jsonrpc: string;
@@ -275,8 +283,9 @@ async function executeSkill(skillId: string, params: Record<string, unknown>, pa
       const tx = prepareAppealTransaction(caseId, stakeAmount);
       return { message: `Prepared appeal transaction`, data: { action: 'sign-and-send', transaction: tx, note: 'Appeals require 10x the original stake' } };
     }
-    // Faucet skills
+    // Faucet skills (testnet only)
     case 'faucet-status': {
+      if (!IS_TESTNET) return { message: 'Faucet is only available on testnet', data: { error: 'Faucet disabled on mainnet' } };
       const address = params.address as string;
       if (!address) return { message: 'Address required', data: { error: 'Missing address parameter' } };
       const status = await faucetService.getFaucetStatus(address as Address);
@@ -288,6 +297,7 @@ async function executeSkill(skillId: string, params: Record<string, unknown>, pa
       return { message, data: status as unknown as Record<string, unknown> };
     }
     case 'faucet-claim': {
+      if (!IS_TESTNET) return { message: 'Faucet is only available on testnet', data: { error: 'Faucet disabled on mainnet' } };
       const address = params.address as string;
       if (!address) return { message: 'Address required', data: { error: 'Missing address parameter' } };
       const result = await faucetService.claimFromFaucet(address as Address);
@@ -297,6 +307,7 @@ async function executeSkill(skillId: string, params: Record<string, unknown>, pa
       return { message, data: result as unknown as Record<string, unknown> };
     }
     case 'faucet-info': {
+      if (!IS_TESTNET) return { message: 'Faucet is only available on testnet', data: { error: 'Faucet disabled on mainnet' } };
       const info = faucetService.getFaucetInfo();
       return { message: `${info.name}: Claim ${info.amountPerClaim} ${info.tokenSymbol} every ${info.cooldownHours}h`, data: info as unknown as Record<string, unknown> };
     }
@@ -386,8 +397,11 @@ app.post('/mcp/resources/read', agentRateLimit(), async (req: Request, res: Resp
     case 'moderation://cases/active': contents = await getModerationCases({ activeOnly: true, limit: 50 }); break;
     case 'moderation://reports': contents = await getReports({ limit: 100 }); break;
     case 'moderation://stats': contents = await getModerationStats(); break;
-    // Faucet
-    case 'faucet://info': contents = faucetService.getFaucetInfo(); break;
+    // Faucet (testnet only)
+    case 'faucet://info':
+      if (!IS_TESTNET) return res.status(403).json({ error: 'Faucet is only available on testnet' });
+      contents = faucetService.getFaucetInfo();
+      break;
     default: return res.status(404).json({ error: 'Resource not found' });
   }
 
@@ -450,17 +464,20 @@ app.post('/mcp/tools/call', agentRateLimit(), async (req: Request, res: Response
       if (!args.caseId || !args.stakeAmount) { result = { error: 'caseId and stakeAmount required' }; isError = true; }
       else result = { action: 'sign-and-send', transaction: prepareAppealTransaction(args.caseId, args.stakeAmount) };
       break;
-    // Faucet Tools
+    // Faucet Tools (testnet only)
     case 'faucet_status':
-      if (!args.address) { result = { error: 'Address required' }; isError = true; }
+      if (!IS_TESTNET) { result = { error: 'Faucet is only available on testnet' }; isError = true; }
+      else if (!args.address) { result = { error: 'Address required' }; isError = true; }
       else result = await faucetService.getFaucetStatus(args.address);
       break;
     case 'faucet_claim':
-      if (!args.address) { result = { error: 'Address required' }; isError = true; }
+      if (!IS_TESTNET) { result = { error: 'Faucet is only available on testnet' }; isError = true; }
+      else if (!args.address) { result = { error: 'Address required' }; isError = true; }
       else result = await faucetService.claimFromFaucet(args.address);
       break;
     case 'faucet_info':
-      result = faucetService.getFaucetInfo();
+      if (!IS_TESTNET) { result = { error: 'Faucet is only available on testnet' }; isError = true; }
+      else result = faucetService.getFaucetInfo();
       break;
     default: result = { error: 'Tool not found' }; isError = true;
   }
@@ -581,12 +598,14 @@ app.get('/api/config/tokens', (req: Request, res: Response) => {
   }
 });
 
-// Faucet REST API
+// Faucet REST API (testnet only)
 app.get('/api/faucet/info', (_req: Request, res: Response) => {
+  if (!IS_TESTNET) return res.status(403).json({ error: 'Faucet is only available on testnet' });
   res.json(faucetService.getFaucetInfo());
 });
 
 app.get('/api/faucet/status/:address', async (req: Request, res: Response) => {
+  if (!IS_TESTNET) return res.status(403).json({ error: 'Faucet is only available on testnet' });
   const { address } = req.params;
   if (!address) {
     return res.status(400).json({ error: 'Address required' });
@@ -596,6 +615,7 @@ app.get('/api/faucet/status/:address', async (req: Request, res: Response) => {
 });
 
 app.post('/api/faucet/claim', strictRateLimit(), async (req: Request, res: Response) => {
+  if (!IS_TESTNET) return res.status(403).json({ error: 'Faucet is only available on testnet' });
   const { address } = req.body;
   if (!address) {
     return res.status(400).json({ error: 'Address required in request body' });
@@ -615,9 +635,11 @@ getWebSocketServer(Number(WS_PORT));
 
 app.listen(PORT, () => {
   console.log(`🌉 Gateway A2A Server running on http://localhost:${PORT}`);
+  console.log(`   Network: ${CHAIN_INFO[GATEWAY_CHAIN_ID]?.name || 'Unknown'} (${IS_TESTNET ? 'testnet' : 'mainnet'})`);
   console.log(`   Agent Card: http://localhost:${PORT}/.well-known/agent-card.json`);
   console.log(`   A2A Endpoint: http://localhost:${PORT}/a2a`);
   console.log(`   MCP Endpoint: http://localhost:${PORT}/mcp`);
   console.log(`   REST API: http://localhost:${PORT}/api`);
   console.log(`   WebSocket: ws://localhost:${WS_PORT}`);
+  if (IS_TESTNET) console.log(`   Faucet: enabled`);
 });

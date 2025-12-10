@@ -215,15 +215,20 @@ export function useV3PoolData(poolAddress: Address | null) {
     return { pool: null, isLoading, error, refetch }
   }
 
-  const [slot0Result, liquidityResult, token0Result, token1Result, feeResult, tickSpacingResult] = data
+  const slot0Result = data[0]
+  const liquidityResult = data[1]
+  const token0Result = data[2]
+  const token1Result = data[3]
+  const feeResult = data[4]
+  const tickSpacingResult = data[5]
 
   if (
-    slot0Result.status !== 'success' ||
-    liquidityResult.status !== 'success' ||
-    token0Result.status !== 'success' ||
-    token1Result.status !== 'success' ||
-    feeResult.status !== 'success' ||
-    tickSpacingResult.status !== 'success'
+    !slot0Result || slot0Result.status !== 'success' ||
+    !liquidityResult || liquidityResult.status !== 'success' ||
+    !token0Result || token0Result.status !== 'success' ||
+    !token1Result || token1Result.status !== 'success' ||
+    !feeResult || feeResult.status !== 'success' ||
+    !tickSpacingResult || tickSpacingResult.status !== 'success'
   ) {
     return { pool: null, isLoading, error, refetch }
   }
@@ -367,19 +372,4 @@ export function priceToSqrtPriceX96(price: number): bigint {
   return BigInt(Math.floor(sqrtPrice * Number(Q96)))
 }
 
-// Calculate price from sqrt price
-export function sqrtPriceX96ToPrice(sqrtPriceX96: bigint): number {
-  const Q96 = 2n ** 96n
-  const sqrtPrice = Number(sqrtPriceX96) / Number(Q96)
-  return sqrtPrice * sqrtPrice
-}
-
-// Get tick from price
-export function priceToTick(price: number): number {
-  return Math.floor(Math.log(price) / Math.log(1.0001))
-}
-
-// Get price from tick
-export function tickToPrice(tick: number): number {
-  return Math.pow(1.0001, tick)
-}
+// Note: sqrtPriceX96ToPrice, priceToTick, and tickToPrice are exported from utils.ts
