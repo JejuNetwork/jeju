@@ -31,6 +31,11 @@ spec:
           {{- toYaml .Values.securityContext | nindent 12 }}
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         command:
         - geth
         args:
@@ -62,6 +67,11 @@ spec:
         {{- end }}
         - --port={{ .Values.config.p2p.port }}
         - --maxpeers={{ .Values.config.p2p.maxPeers }}
+        - --nat=extip:$(POD_IP)
+        - --discovery.port={{ .Values.config.p2p.port }}
+        {{- if .Values.config.bootnodes }}
+        - --bootnodes={{ .Values.config.bootnodes }}
+        {{- end }}
         {{- if .Values.config.metrics.enabled }}
         - --metrics
         - --metrics.addr={{ .Values.config.metrics.addr }}
