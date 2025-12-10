@@ -1184,25 +1184,25 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
      * @param gasCost Estimated gas cost in ETH
      * @param paymentToken Token user will pay with
      * @param userAddress User's address
-     * @return canSponsor Whether sponsorship is possible
+     * @return canSponsorTx Whether sponsorship is possible
      * @return tokenCost Cost in payment token
-     * @return userBalance User's balance of payment token
+     * @return userBal User's balance of payment token
      */
     function canSponsor(uint256 gasCost, address paymentToken, address userAddress)
         external
         view
-        returns (bool canSponsor, uint256 tokenCost, uint256 userBalance)
+        returns (bool canSponsorTx, uint256 tokenCost, uint256 userBal)
     {
         if (!supportedTokens[paymentToken]) {
             return (false, 0, 0);
         }
 
         tokenCost = _calculateTokenCost(gasCost, paymentToken);
-        userBalance = IERC20(paymentToken).balanceOf(userAddress);
+        userBal = IERC20(paymentToken).balanceOf(userAddress);
         uint256 userAllowance = IERC20(paymentToken).allowance(userAddress, address(this));
         uint256 entryPointBalance = entryPoint.balanceOf(address(this));
 
-        canSponsor = userBalance >= tokenCost && userAllowance >= tokenCost && entryPointBalance >= gasCost;
+        canSponsorTx = userBal >= tokenCost && userAllowance >= tokenCost && entryPointBalance >= gasCost;
     }
 
     /**

@@ -1,4 +1,5 @@
-# OP-Node values for mainnet
+# OP-Node values for Jeju Mainnet
+# Uses internal Ethereum mainnet L1 full node
 
 replicaCount: 3
 
@@ -15,7 +16,8 @@ persistence:
   size: 100Gi
 
 nodeSelector:
-  role: core
+  workload: core
+  Environment: mainnet
 
 tolerations:
   - key: workload
@@ -24,14 +26,29 @@ tolerations:
     effect: NoSchedule
 
 config:
-  network: "mainnet"
+  network: "custom"
   l1ChainId: 1
   l2ChainId: 420691
   l1:
-    rpcUrl: "https://eth.llamarpc.com"
-    rpcKind: "standard"
+    # Use internal Ethereum mainnet L1 node
+    rpcUrl: "http://geth-mainnet.l1.svc.cluster.local:8545"
+    rpcKind: "geth"
+    beacon:
+      url: "http://lighthouse-mainnet.l1.svc.cluster.local:5052"
+  l2:
+    engineRpc: "http://reth-sequencer.execution.svc.cluster.local:8551"
+    engineJwtSecret: "/secrets/jwt-secret.txt"
   p2p:
     bootnodes: []
+  # Genesis config - to be updated with actual mainnet values
+  genesisL1Hash: ""
+  genesisL1Number: 0
+  genesisL2Hash: ""
+  genesisL2Time: 0
+  batcherAddr: ""
+  batchInboxAddr: "0xff00000000000000000000000000000000420691"
+  depositContractAddr: ""
+  systemConfigAddr: ""
 
 affinity:
   podAntiAffinity:
@@ -46,4 +63,5 @@ affinity:
             - op-node
         topologyKey: kubernetes.io/hostname
 
-
+secrets:
+  jwtSecret: ""  # Use external secret management

@@ -1,4 +1,5 @@
-# OP-Challenger values for mainnet
+# OP-Challenger values for Jeju Mainnet
+# Uses internal L1 node
 
 replicaCount: 1
 
@@ -12,10 +13,11 @@ resources:
 
 persistence:
   enabled: true
-  size: 50Gi
+  size: 100Gi
 
 nodeSelector:
-  role: core
+  workload: core
+  Environment: mainnet
 
 tolerations:
   - key: workload
@@ -25,7 +27,27 @@ tolerations:
 
 config:
   l1:
-    rpcUrl: "https://eth.llamarpc.com"
+    # Use internal Ethereum mainnet L1 node
+    rpcUrl: "http://geth-mainnet.l1.svc.cluster.local:8545"
+  rollup:
+    rpcUrl: "http://op-node.op-stack.svc.cluster.local:9545"
+  l2:
+    rpcUrl: "http://reth-rpc.rpc.svc.cluster.local:8545"
+  # Dispute game factory address - to be set after mainnet deployment
+  gameFactory:
+    address: ""
+  # Private key should be from external secret management
+  privateKey: ""  # MUST be set via secrets
 
-
-
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - op-challenger
+        topologyKey: kubernetes.io/hostname

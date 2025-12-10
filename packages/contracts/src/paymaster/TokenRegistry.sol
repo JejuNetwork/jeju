@@ -278,7 +278,9 @@ contract TokenRegistry is Ownable, Pausable, ReentrancyGuard {
             registrationTime: block.timestamp,
             totalVolume: 0,
             totalTransactions: 0,
-            metadataHash: metadataHash
+            metadataHash: metadataHash,
+            crossChainEnabled: false,
+            totalLiquidity: 0
         });
 
         tokenList.push(tokenAddress);
