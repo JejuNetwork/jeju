@@ -5,8 +5,7 @@ export interface Env {
 }
 
 const worker = {
-  async fetch(request: Request, env: Env, ctx: unknown): Promise<Response> {
-    console.log("Request received:", { request, ctx });
+  async fetch(request: Request, env: Env): Promise<Response> {
     // Handle CORS preflight requests
     if (request.method === "OPTIONS") {
       return handleCors(request, env);
@@ -84,7 +83,7 @@ async function handleCallback(request: Request, env: Env): Promise<Response> {
       error?: string;
       error_description?: string;
     };
-    console.log("Token data:", tokenData);
+
     // Check if we got an error response from GitHub
     if (tokenData.error) {
       return new Response(
