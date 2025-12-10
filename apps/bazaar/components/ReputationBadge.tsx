@@ -3,6 +3,7 @@
 import { useReadContract } from 'wagmi';
 import { Shield, AlertTriangle, Award, Zap } from 'lucide-react';
 import { Address } from 'viem';
+import { CONTRACTS } from '@/config';
 
 interface ReputationBadgeProps {
   address: Address
@@ -72,9 +73,9 @@ const BAN_MANAGER_ABI = [
   },
 ] as const;
 
-const LABEL_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_LABEL_MANAGER_ADDRESS as `0x${string}`;
-const IDENTITY_REGISTRY_ADDRESS = process.env.NEXT_PUBLIC_IDENTITY_REGISTRY_ADDRESS as `0x${string}`;
-const BAN_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_BAN_MANAGER_ADDRESS as `0x${string}`;
+const LABEL_MANAGER_ADDRESS = CONTRACTS.labelManager;
+const IDENTITY_REGISTRY_ADDRESS = CONTRACTS.identityRegistry;
+const BAN_MANAGER_ADDRESS = CONTRACTS.banManager;
 
 export default function ReputationBadge({ address, agentId: providedAgentId, size = 'md' }: ReputationBadgeProps) {
   // Get agent ID from address if not provided

@@ -1,6 +1,7 @@
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi';
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { parseEther, type Address } from 'viem';
+import { NETWORK } from '../config';
 
 // Re-export shared types and utilities
 export {
@@ -75,10 +76,9 @@ type EILConfig = {
 
 // Helper to get chain config based on current network
 function getNetworkConfig(): EILNetworkConfig {
-  const network = import.meta.env.VITE_NETWORK || 'localnet';
   const config = eilConfig as EILConfig;
-  if (network === 'testnet') return config.testnet;
-  if (network === 'mainnet') return config.mainnet;
+  if (NETWORK === 'testnet') return config.testnet;
+  if (NETWORK === 'mainnet') return config.mainnet;
   return config.localnet;
 }
 

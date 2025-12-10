@@ -50,10 +50,6 @@
 	url = git@github.com:elizaos/otc-agent.git
 	ignore = untracked
 
-[submodule "vendor/launchpad"]
-	path = vendor/launchpad
-	url = git@github.com:elizaos/launchpad.git
-	ignore = untracked
 [submodule "packages/contracts/lib/openzeppelin-contracts-upgradeable"]
 	path = packages/contracts/lib/openzeppelin-contracts-upgradeable
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable

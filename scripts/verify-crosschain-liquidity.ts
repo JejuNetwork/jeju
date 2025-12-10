@@ -74,9 +74,10 @@ function loadOIFDeployments(network: 'testnet' | 'mainnet') {
   }
 }
 
-function loadEILConfig() {
-  const eilPath = resolve(process.cwd(), 'packages/config/eil.json');
-  return JSON.parse(readFileSync(eilPath, 'utf-8'));
+function loadContractsConfig(network: 'testnet' | 'mainnet') {
+  const contractsPath = resolve(process.cwd(), 'packages/config/contracts.json');
+  const contracts = JSON.parse(readFileSync(contractsPath, 'utf-8'));
+  return contracts[network];
 }
 
 async function checkChainConnectivity(rpcUrl: string, expectedChainId: number): Promise<boolean> {
@@ -175,7 +176,7 @@ async function main() {
   // Load configs
   const chainConfigs = loadChainConfigs(network);
   const oifDeployments = loadOIFDeployments(network);
-  const eilConfig = loadEILConfig();
+  const contractsConfig = loadContractsConfig(network);
   
   // Verify each chain
   console.log('═══ Chain Status ═══\n');

@@ -87,11 +87,24 @@ const MODERATION_MARKETPLACE_ABI = [
 
 // ============ Default Config ============
 
+// Get RPC URL with network-aware defaults
+function getDefaultRpcUrl(): string {
+  const network = process.env.NEXT_PUBLIC_NETWORK || process.env.VITE_NETWORK || 'localnet';
+  const envRpc = process.env.NEXT_PUBLIC_RPC_URL || process.env.NEXT_PUBLIC_JEJU_RPC_URL || process.env.VITE_RPC_URL;
+  if (envRpc) return envRpc;
+  
+  switch (network) {
+    case 'mainnet': return 'https://rpc.jeju.network';
+    case 'testnet': return 'https://testnet-rpc.jeju.network';
+    default: return 'http://localhost:9545';
+  }
+}
+
 const DEFAULT_CONFIG: BanCheckConfig = {
-  banManagerAddress: process.env.NEXT_PUBLIC_BAN_MANAGER_ADDRESS as Address | undefined,
-  moderationMarketplaceAddress: process.env.NEXT_PUBLIC_MODERATION_MARKETPLACE_ADDRESS as Address | undefined,
-  identityRegistryAddress: process.env.NEXT_PUBLIC_IDENTITY_REGISTRY_ADDRESS as Address | undefined,
-  rpcUrl: process.env.NEXT_PUBLIC_RPC_URL || 'https://sepolia.base.org',
+  banManagerAddress: (process.env.NEXT_PUBLIC_BAN_MANAGER_ADDRESS || process.env.VITE_BAN_MANAGER_ADDRESS) as Address | undefined,
+  moderationMarketplaceAddress: (process.env.NEXT_PUBLIC_MODERATION_MARKETPLACE_ADDRESS || process.env.VITE_MODERATION_MARKETPLACE_ADDRESS) as Address | undefined,
+  identityRegistryAddress: (process.env.NEXT_PUBLIC_IDENTITY_REGISTRY_ADDRESS || process.env.VITE_IDENTITY_REGISTRY_ADDRESS) as Address | undefined,
+  rpcUrl: getDefaultRpcUrl(),
 };
 
 // ============ Hook ============

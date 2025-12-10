@@ -11,17 +11,18 @@ import {
 } from '../../../packages/shared/src/api/moderation';
 import { type Address } from 'viem';
 import { jeju } from '../config/chains';
+import { RPC_URL, CONTRACTS } from '../config';
 
 export type { BanStatus, ModeratorProfile, ModerationCase, Report, AgentLabels, ModerationStats, TransactionRequest };
 
-// Bazaar-specific configuration from environment
+// Bazaar-specific configuration from centralized config
 const config: ModerationConfig = {
   chain: jeju,
-  rpcUrl: process.env.NEXT_PUBLIC_JEJU_RPC_URL || 'http://localhost:8545',
-  banManagerAddress: process.env.NEXT_PUBLIC_BAN_MANAGER_ADDRESS as Address | undefined,
-  moderationMarketplaceAddress: process.env.NEXT_PUBLIC_MODERATION_MARKETPLACE_ADDRESS as Address | undefined,
-  reportingSystemAddress: process.env.NEXT_PUBLIC_REPORTING_SYSTEM_ADDRESS as Address | undefined,
-  reputationLabelManagerAddress: process.env.NEXT_PUBLIC_REPUTATION_LABEL_MANAGER_ADDRESS as Address | undefined,
+  rpcUrl: RPC_URL,
+  banManagerAddress: CONTRACTS.banManager || undefined,
+  moderationMarketplaceAddress: CONTRACTS.moderationMarketplace || undefined,
+  reportingSystemAddress: CONTRACTS.reportingSystem || undefined,
+  reputationLabelManagerAddress: CONTRACTS.reputationLabelManager || undefined,
 };
 
 // Create singleton API instance

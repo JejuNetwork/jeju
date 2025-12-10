@@ -7,8 +7,7 @@ import { useProtocolTokens } from '../hooks/useProtocolTokens';
 import TokenSelector from './TokenSelector';
 import type { TokenOption } from './TokenSelector';
 import { Clock, CheckCircle, XCircle } from 'lucide-react';
-
-const INDEXER_URL = import.meta.env.VITE_INDEXER_URL || 'http://localhost:4350/graphql';
+import { INDEXER_URL } from '../config';
 
 interface VoucherHistoryItem {
   id: string;

@@ -57,9 +57,11 @@ export interface IntentResult {
   destinationTxHash?: string;
 }
 
+import { OIF_AGGREGATOR_URL } from '../config';
+
 // ============ Constants ============
 
-const AGGREGATOR_URL = process.env.NEXT_PUBLIC_OIF_AGGREGATOR_URL || 'http://localhost:4010';
+const AGGREGATOR_URL = OIF_AGGREGATOR_URL;
 
 export const SUPPORTED_CHAINS = [
   { chainId: 1, name: 'Ethereum' },

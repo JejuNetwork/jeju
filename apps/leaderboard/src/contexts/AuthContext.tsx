@@ -8,6 +8,7 @@ import {
   useCallback,
   ReactNode,
 } from "react";
+import { GITHUB_CLIENT_ID, AUTH_WORKER_URL } from "../config";
 
 interface GitHubUser {
   id: number;
@@ -151,7 +152,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const authUrl = new URL("https://github.com/login/oauth/authorize");
       authUrl.searchParams.append(
         "client_id",
-        process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID || "",
+        GITHUB_CLIENT_ID,
       );
       authUrl.searchParams.append(
         "redirect_uri",
@@ -190,7 +191,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       localStorage.removeItem("oauth_state");
 
       // Exchange the code for an access token via our Cloudflare Worker
-      const tokenUrl = `${process.env.NEXT_PUBLIC_AUTH_WORKER_URL}/api/auth/callback?code=${code}`;
+      const tokenUrl = `${AUTH_WORKER_URL}/api/auth/callback?code=${code}`;
       const response = await fetch(tokenUrl);
 
       if (!response.ok) {

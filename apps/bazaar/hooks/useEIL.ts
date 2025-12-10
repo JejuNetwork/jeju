@@ -75,13 +75,13 @@ type EILConfig = {
   localnet: EILNetworkConfig;
 };
 
+import { NETWORK } from '@/config';
+
 // Helper to get chain config based on current network
 function getNetworkConfig(): EILNetworkConfig {
-  // Default to localnet for development
-  const network = process.env.NEXT_PUBLIC_NETWORK || 'localnet';
   const config = eilConfig as EILConfig;
-  if (network === 'testnet') return config.testnet;
-  if (network === 'mainnet') return config.mainnet;
+  if (NETWORK === 'testnet') return config.testnet;
+  if (NETWORK === 'mainnet') return config.mainnet;
   return config.localnet;
 }
 

@@ -1,0 +1,387 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2025-12-10",
+  "description": "All contract addresses for Jeju networks. Env overrides use VITE_/NEXT_PUBLIC_ + name (e.g., VITE_BAN_MANAGER_ADDRESS)",
+  
+  "constants": {
+    "entryPoint": "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789",
+    "entryPointV07": "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
+    "l2Messenger": "0x4200000000000000000000000000000000000007",
+    "l2StandardBridge": "0x4200000000000000000000000000000000000010",
+    "weth": "0x4200000000000000000000000000000000000006"
+  },
+
+  "localnet": {
+    "chainId": 1337,
+    
+    "tokens": {
+      "jeju": "",
+      "elizaOS": "",
+      "usdc": "",
+      "weth": "0x4200000000000000000000000000000000000006"
+    },
+    
+    "registry": {
+      "identity": "",
+      "app": "",
+      "node": "",
+      "token": "",
+      "reputation": "",
+      "validation": ""
+    },
+    
+    "moderation": {
+      "banManager": "",
+      "moderationMarketplace": "",
+      "reportingSystem": "",
+      "reputationLabelManager": "",
+      "predimarket": ""
+    },
+    
+    "nodeStaking": {
+      "manager": "",
+      "performanceOracle": ""
+    },
+    
+    "jns": {
+      "registry": "",
+      "resolver": "",
+      "registrar": "",
+      "reverseRegistrar": ""
+    },
+    
+    "payments": {
+      "paymasterFactory": "",
+      "priceOracle": "",
+      "creditManager": "",
+      "serviceRegistry": "",
+      "multiTokenPaymaster": "",
+      "x402Facilitator": ""
+    },
+    
+    "defi": {
+      "poolManager": "",
+      "positionManager": "",
+      "swapRouter": "",
+      "quoterV4": "",
+      "stateView": ""
+    },
+    
+    "compute": {
+      "registry": "",
+      "ledgerManager": "",
+      "inferenceServing": "",
+      "staking": ""
+    },
+    
+    "governance": {
+      "governor": "",
+      "timelock": "",
+      "futarchyGovernor": "",
+      "registryGovernance": ""
+    },
+    
+    "oif": {
+      "solverRegistry": "",
+      "inputSettler": "",
+      "outputSettler": "",
+      "oracleAdapter": ""
+    },
+    
+    "eil": {
+      "l1StakeManager": "",
+      "crossChainPaymaster": "0xa7Cd0542a8F4CCa6Dd021C3A0Af0E423Ad7DFfB7",
+      "liquidityPaymaster": ""
+    }
+  },
+
+  "testnet": {
+    "chainId": 420690,
+    
+    "tokens": {
+      "jeju": "",
+      "elizaOS": "0x7af64e6aE21076DE21EFe71F243A75664a17C34b",
+      "usdc": "0x953F6516E5d2864cE7f13186B45dE418EA665EB2",
+      "weth": "0x4200000000000000000000000000000000000006"
+    },
+    
+    "registry": {
+      "identity": "",
+      "app": "",
+      "node": "",
+      "token": "",
+      "reputation": "",
+      "validation": ""
+    },
+    
+    "moderation": {
+      "banManager": "",
+      "moderationMarketplace": "",
+      "reportingSystem": "",
+      "reputationLabelManager": "",
+      "predimarket": ""
+    },
+    
+    "nodeStaking": {
+      "manager": "",
+      "performanceOracle": ""
+    },
+    
+    "jns": {
+      "registry": "",
+      "resolver": "",
+      "registrar": "",
+      "reverseRegistrar": ""
+    },
+    
+    "payments": {
+      "paymasterFactory": "",
+      "priceOracle": "",
+      "creditManager": "",
+      "serviceRegistry": "",
+      "multiTokenPaymaster": "",
+      "x402Facilitator": ""
+    },
+    
+    "defi": {
+      "poolManager": "",
+      "positionManager": "",
+      "swapRouter": "",
+      "quoterV4": "",
+      "stateView": ""
+    },
+    
+    "compute": {
+      "registry": "",
+      "ledgerManager": "",
+      "inferenceServing": "",
+      "staking": ""
+    },
+    
+    "governance": {
+      "governor": "",
+      "timelock": "",
+      "futarchyGovernor": "",
+      "registryGovernance": ""
+    },
+    
+    "oif": {
+      "solverRegistry": "",
+      "inputSettler": "",
+      "outputSettler": "",
+      "oracleAdapter": ""
+    },
+    
+    "eil": {
+      "l1StakeManager": "0x355281d1974BfB64F9d475d01936e5dB37396DA3",
+      "crossChainPaymaster": "",
+      "liquidityPaymaster": ""
+    }
+  },
+
+  "mainnet": {
+    "chainId": 420691,
+    
+    "tokens": {
+      "jeju": "",
+      "elizaOS": "",
+      "usdc": "",
+      "weth": "0x4200000000000000000000000000000000000006"
+    },
+    
+    "registry": {
+      "identity": "",
+      "app": "",
+      "node": "",
+      "token": "",
+      "reputation": "",
+      "validation": ""
+    },
+    
+    "moderation": {
+      "banManager": "",
+      "moderationMarketplace": "",
+      "reportingSystem": "",
+      "reputationLabelManager": "",
+      "predimarket": ""
+    },
+    
+    "nodeStaking": {
+      "manager": "",
+      "performanceOracle": ""
+    },
+    
+    "jns": {
+      "registry": "",
+      "resolver": "",
+      "registrar": "",
+      "reverseRegistrar": ""
+    },
+    
+    "payments": {
+      "paymasterFactory": "",
+      "priceOracle": "",
+      "creditManager": "",
+      "serviceRegistry": "",
+      "multiTokenPaymaster": "",
+      "x402Facilitator": ""
+    },
+    
+    "defi": {
+      "poolManager": "",
+      "positionManager": "",
+      "swapRouter": "",
+      "quoterV4": "",
+      "stateView": ""
+    },
+    
+    "compute": {
+      "registry": "",
+      "ledgerManager": "",
+      "inferenceServing": "",
+      "staking": ""
+    },
+    
+    "governance": {
+      "governor": "",
+      "timelock": "",
+      "futarchyGovernor": "",
+      "registryGovernance": ""
+    },
+    
+    "oif": {
+      "solverRegistry": "",
+      "inputSettler": "",
+      "outputSettler": "",
+      "oracleAdapter": ""
+    },
+    
+    "eil": {
+      "l1StakeManager": "",
+      "crossChainPaymaster": "",
+      "liquidityPaymaster": ""
+    }
+  },
+
+  "external": {
+    "sepolia": {
+      "chainId": 11155111,
+      "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
+      "oif": {
+        "solverRegistry": "0x08cAa161780d195E0799b73b318da5D175b85313",
+        "inputSettler": "0xD28752E9bBC29DDc14DA83dD673a36A5A19e91B1",
+        "outputSettler": "0x198D8D23B57C3F490Bc78dbe66D9c23B27A289ca",
+        "oracleAdapter": "0xe1f87369beED68C52003372Fe33Db8A245317B6E"
+      },
+      "eil": {
+        "l1StakeManager": "0x355281d1974BfB64F9d475d01936e5dB37396DA3"
+      }
+    },
+    "baseSepolia": {
+      "chainId": 84532,
+      "rpcUrl": "https://sepolia.base.org",
+      "oif": {
+        "solverRegistry": "0xecfE47302D941c8ce5B0009C0ac2E6D6ee2A42de",
+        "inputSettler": "0x9bb59d0329FcCEdD99f1753D20AF50347Ad2eB75",
+        "outputSettler": "0xf7ef3C6a54dA3E03A96D23864e5865E7e3EBEcF5",
+        "oracleAdapter": "0xE30218678a940d1553b285B0eB5C5364BBF70ed9"
+      },
+      "eil": {
+        "crossChainPaymaster": ""
+      },
+      "tokens": {
+        "usdc": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+        "elizaOS": "0x7af64e6aE21076DE21EFe71F243A75664a17C34b"
+      }
+    },
+    "arbitrumSepolia": {
+      "chainId": 421614,
+      "rpcUrl": "https://sepolia-rollup.arbitrum.io/rpc",
+      "oif": {
+        "solverRegistry": "",
+        "inputSettler": "",
+        "outputSettler": "",
+        "oracleAdapter": ""
+      },
+      "eil": {
+        "crossChainPaymaster": ""
+      },
+      "tokens": {
+        "usdc": "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d"
+      }
+    },
+    "optimismSepolia": {
+      "chainId": 11155420,
+      "rpcUrl": "https://sepolia.optimism.io",
+      "oif": {
+        "solverRegistry": "",
+        "inputSettler": "",
+        "outputSettler": "",
+        "oracleAdapter": ""
+      },
+      "eil": {
+        "crossChainPaymaster": ""
+      },
+      "tokens": {
+        "usdc": "0x5fd84259d66Cd46123540766Be93DFE6D43130D7"
+      }
+    },
+    "bscTestnet": {
+      "chainId": 97,
+      "rpcUrl": "https://data-seed-prebsc-1-s1.bnbchain.org:8545",
+      "oif": {
+        "solverRegistry": "",
+        "inputSettler": "",
+        "outputSettler": "",
+        "oracleAdapter": ""
+      },
+      "eil": {
+        "crossChainPaymaster": ""
+      },
+      "tokens": {
+        "usdc": "",
+        "usdt": "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd"
+      }
+    },
+    "ethereum": {
+      "chainId": 1,
+      "rpcUrl": "https://eth.llamarpc.com",
+      "oif": {
+        "inputSettler": ""
+      },
+      "eil": {
+        "l1StakeManager": ""
+      }
+    },
+    "base": {
+      "chainId": 8453,
+      "rpcUrl": "https://mainnet.base.org",
+      "oif": {
+        "solverRegistry": "",
+        "inputSettler": "",
+        "outputSettler": "",
+        "oracleAdapter": ""
+      }
+    },
+    "arbitrum": {
+      "chainId": 42161,
+      "rpcUrl": "https://arb1.arbitrum.io/rpc",
+      "oif": {
+        "solverRegistry": "",
+        "inputSettler": "",
+        "outputSettler": "",
+        "oracleAdapter": ""
+      }
+    },
+    "optimism": {
+      "chainId": 10,
+      "rpcUrl": "https://mainnet.optimism.io",
+      "oif": {
+        "solverRegistry": "",
+        "inputSettler": "",
+        "outputSettler": "",
+        "oracleAdapter": ""
+      }
+    }
+  }
+}

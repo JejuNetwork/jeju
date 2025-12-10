@@ -1,9 +1,8 @@
 -- Add signature verification columns to wallet_addresses
-ALTER TABLE `wallet_addresses` ADD COLUMN `signature` text;
-ALTER TABLE `wallet_addresses` ADD COLUMN `signature_message` text;
-ALTER TABLE `wallet_addresses` ADD COLUMN `is_verified` integer DEFAULT false;
-ALTER TABLE `wallet_addresses` ADD COLUMN `verified_at` text;
---> statement-breakpoint
+ALTER TABLE `wallet_addresses` ADD COLUMN `signature` text;--> statement-breakpoint
+ALTER TABLE `wallet_addresses` ADD COLUMN `signature_message` text;--> statement-breakpoint
+ALTER TABLE `wallet_addresses` ADD COLUMN `is_verified` integer DEFAULT false;--> statement-breakpoint
+ALTER TABLE `wallet_addresses` ADD COLUMN `verified_at` text;--> statement-breakpoint
 CREATE INDEX `idx_wallet_addresses_verified` ON `wallet_addresses` (`is_verified`);
 --> statement-breakpoint
 -- Create reputation attestations table for ERC-8004 integration

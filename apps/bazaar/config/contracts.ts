@@ -4,6 +4,7 @@ import {
   getUniswapV4,
   getBazaarMarketplace,
   getERC20Factory,
+  getXLPDeployment,
   bazaarMarketplaceDeployments,
   erc20FactoryDeployments,
   ZERO_ADDRESS,
@@ -115,23 +116,21 @@ export function hasTokenFactory(chainId: number): boolean {
   return !!contracts?.erc20Factory && isValidAddress(contracts.erc20Factory)
 }
 
-// XLP AMM Contracts (V2 + V3)
-// These will be populated after deployment
+// XLP AMM Contracts (V2 + V3) - loaded from deployments
+function buildXLPContracts(chainId: ChainId): XLPContracts {
+  const xlp = getXLPDeployment(chainId)
+  return {
+    v2Factory: xlp.v2Factory as Address | undefined,
+    v3Factory: xlp.v3Factory as Address | undefined,
+    router: xlp.router as Address | undefined,
+    positionManager: xlp.positionManager as Address | undefined,
+    weth: xlp.weth as Address | undefined,
+  }
+}
+
 export const XLP_CONTRACTS: Record<number, XLPContracts> = {
-  1337: {
-    v2Factory: ZERO_ADDRESS as Address,
-    v3Factory: ZERO_ADDRESS as Address,
-    router: ZERO_ADDRESS as Address,
-    positionManager: ZERO_ADDRESS as Address,
-    weth: ZERO_ADDRESS as Address,
-  },
-  [JEJU_CHAIN_ID]: {
-    v2Factory: ZERO_ADDRESS as Address,
-    v3Factory: ZERO_ADDRESS as Address,
-    router: ZERO_ADDRESS as Address,
-    positionManager: ZERO_ADDRESS as Address,
-    weth: ZERO_ADDRESS as Address,
-  },
+  1337: buildXLPContracts(1337),
+  [JEJU_CHAIN_ID]: buildXLPContracts(420691),
 }
 
 export function getXLPContracts(chainId: number): XLPContracts | undefined {

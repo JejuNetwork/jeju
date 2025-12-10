@@ -2,8 +2,10 @@ import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 
 import { useState } from 'react';
 import { Address } from 'viem';
 import { IERC20_ABI } from '../lib/contracts';
+import { CONTRACTS } from '../config';
 
-const REGISTRY_ADDRESS = (import.meta.env.VITE_IDENTITY_REGISTRY_ADDRESS || '0x0000000000000000000000000000000000000000') as Address;
+export const IDENTITY_REGISTRY_ADDRESS = CONTRACTS.identityRegistry;
+const REGISTRY_ADDRESS = IDENTITY_REGISTRY_ADDRESS;
 
 const IDENTITY_REGISTRY_ABI = [
   { inputs: [{ internalType: 'string', name: 'tokenURI_', type: 'string' }, { internalType: 'string[]', name: 'tags_', type: 'string[]' }, { internalType: 'string', name: 'a2aEndpoint_', type: 'string' }, { internalType: 'address', name: 'stakeToken_', type: 'address' }], name: 'registerWithStake', outputs: [{ internalType: 'uint256', name: 'agentId', type: 'uint256' }], stateMutability: 'payable', type: 'function' },

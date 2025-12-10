@@ -1,6 +1,7 @@
 import { MetaMask } from '@synthetixio/synpress/playwright';
 import { Page, BrowserContext } from '@playwright/test';
-import { basicSetup } from '../wallet-setup/basic.setup';
+
+const PASSWORD = 'Tester@1234';
 
 export async function connectWallet(page: Page, metamask: MetaMask): Promise<void> {
   await page.waitForLoadState('networkidle');
@@ -14,7 +15,7 @@ export async function connectWallet(page: Page, metamask: MetaMask): Promise<voi
 }
 
 export function createMetaMask(context: BrowserContext, metamaskPage: Page, extensionId: string): MetaMask {
-  return new MetaMask(context, metamaskPage, basicSetup.walletPassword, extensionId);
+  return new MetaMask(context, metamaskPage, PASSWORD, extensionId);
 }
 
 export async function isWalletConnected(page: Page): Promise<boolean> {

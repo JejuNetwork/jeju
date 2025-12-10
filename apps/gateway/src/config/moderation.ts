@@ -1,13 +1,13 @@
-const ZERO = '0x0000000000000000000000000000000000000000';
+import { CONTRACTS } from './index';
 
 export const MODERATION_CONTRACTS = {
-  BanManager: import.meta.env.VITE_BAN_MANAGER_ADDRESS || ZERO,
-  ModerationMarketplace: import.meta.env.VITE_MODERATION_MARKETPLACE_ADDRESS || ZERO,
-  ReputationLabelManager: import.meta.env.VITE_REPUTATION_LABEL_MANAGER_ADDRESS || ZERO,
-  ReportingSystem: import.meta.env.VITE_REPORTING_SYSTEM_ADDRESS || ZERO,
-  Predimarket: import.meta.env.VITE_PREDIMARKET_ADDRESS || ZERO,
-  RegistryGovernance: import.meta.env.VITE_REGISTRY_GOVERNANCE_ADDRESS || ZERO,
-  IdentityRegistry: import.meta.env.VITE_IDENTITY_REGISTRY_ADDRESS || ZERO,
+  BanManager: CONTRACTS.banManager,
+  ModerationMarketplace: CONTRACTS.moderationMarketplace,
+  ReputationLabelManager: CONTRACTS.reputationLabelManager,
+  ReportingSystem: CONTRACTS.reportingSystem,
+  Predimarket: CONTRACTS.predimarket,
+  RegistryGovernance: CONTRACTS.registryGovernance,
+  IdentityRegistry: CONTRACTS.identityRegistry,
 } as const;
 
 export const MODERATION_CONFIG = {

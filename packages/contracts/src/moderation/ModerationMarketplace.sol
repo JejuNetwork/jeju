@@ -7,6 +7,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./BanManager.sol";
+import "./IGitHubReputationProvider.sol";
 
 /**
  * @title ModerationMarketplace
@@ -317,6 +318,9 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
 
     /// @notice Pending quorum reports: target => reporters who have reported
     mapping(address => address[]) public pendingQuorumReports;
+
+    /// @notice External GitHub reputation provider (optional)
+    IGitHubReputationProvider public gitHubReputationProvider;
 
     /// @notice Track which reporter has reported which target (for quorum)
     mapping(address => mapping(address => bool)) public hasReportedTarget;
@@ -1513,16 +1517,30 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
      */
     function getRequiredStakeForReporter(address reporter) public view returns (uint256 requiredStake) {
         ReputationTier tier = getReputationTier(reporter);
+        uint256 baseStake = minReporterStake;
+        uint256 internalDiscountBps = 0;
         
         if (tier == ReputationTier.TRUSTED) {
             // 50% discount for trusted users
-            return (minReporterStake * (10000 - TRUSTED_STAKE_DISCOUNT_BPS)) / 10000;
+            internalDiscountBps = TRUSTED_STAKE_DISCOUNT_BPS;
         } else if (tier == ReputationTier.HIGH) {
             // 25% discount for high rep users
-            return (minReporterStake * 7500) / 10000;
+            internalDiscountBps = 2500;
         }
-        // All others pay full stake
-        return minReporterStake;
+        
+        // Check external GitHub reputation for additional discount
+        uint256 externalDiscountBps = 0;
+        if (address(gitHubReputationProvider) != address(0)) {
+            externalDiscountBps = gitHubReputationProvider.getStakeDiscount(reporter);
+        }
+        
+        // Combine discounts (capped at 75% total to maintain skin-in-game)
+        uint256 totalDiscountBps = internalDiscountBps + externalDiscountBps;
+        if (totalDiscountBps > 7500) {
+            totalDiscountBps = 7500;
+        }
+        
+        return (baseStake * (10000 - totalDiscountBps)) / 10000;
     }
 
     /**
@@ -1876,6 +1894,15 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
     function setTreasury(address newTreasury) external onlyOwner {
         require(newTreasury != address(0), "Invalid treasury");
         treasury = newTreasury;
+    }
+
+    /**
+     * @notice Set the GitHub reputation provider for external reputation integration
+     * @param provider The GitHubReputationProvider contract address (or address(0) to disable)
+     */
+    function setGitHubReputationProvider(address provider) external onlyOwner {
+        gitHubReputationProvider = IGitHubReputationProvider(provider);
+        emit ConfigUpdated("gitHubReputationProvider", uint256(uint160(address(gitHubReputationProvider))), uint256(uint160(provider)));
     }
 
     function pause() external onlyOwner {

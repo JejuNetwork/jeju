@@ -7,9 +7,10 @@ import type { Market } from '@/types/markets';
 import { checkUserBan } from '@/lib/erc8004';
 import { calculateExpectedShares } from '@/lib/markets/lmsrPricing';
 import { toast } from 'sonner';
+import { CONTRACTS } from '@/config';
 
-const PREDIMARKET_ADDRESS = (process.env.NEXT_PUBLIC_PREDIMARKET_ADDRESS || '0x0') as `0x${string}`;
-const ELIZAOS_TOKEN_ADDRESS = (process.env.NEXT_PUBLIC_ELIZA_OS_ADDRESS || '0x0') as `0x${string}`;
+const PREDIMARKET_ADDRESS = CONTRACTS.predimarket;
+const ELIZAOS_TOKEN_ADDRESS = CONTRACTS.elizaOS;
 
 const BUY_ABI = [{
   name: 'buy',

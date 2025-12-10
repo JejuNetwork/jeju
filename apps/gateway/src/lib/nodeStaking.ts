@@ -247,8 +247,10 @@ export const REGION_NAMES = {
   [Region.Oceania]: 'Oceania'
 };
 
+import { CONTRACTS } from '../config';
+
 export function getNodeStakingAddress(): Address {
-  return (import.meta.env.VITE_NODE_STAKING_MANAGER_ADDRESS || '0x0000000000000000000000000000000000000000') as Address;
+  return CONTRACTS.nodeStakingManager;
 }
 
 export function formatUptimeScore(score: bigint): string {

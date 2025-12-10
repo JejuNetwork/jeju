@@ -5,6 +5,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { request, gql } from 'graphql-request';
 import { formatDistanceToNow } from 'date-fns';
 import type { PricePoint } from '@/types/markets';
+import { INDEXER_URL } from '@/config';
 
 const PRICE_HISTORY_QUERY = gql`
   query GetPriceHistory($marketId: String!) {
@@ -25,7 +26,7 @@ export function MarketChart({ marketId }: { marketId: string }) {
 
   useEffect(() => {
     async function fetchPriceHistory() {
-      const endpoint = process.env.NEXT_PUBLIC_INDEXER_URL || 'http://localhost:4350/graphql';
+      const endpoint = INDEXER_URL;
       const data = await request(endpoint, PRICE_HISTORY_QUERY, { marketId }) as {
         marketTrades: Array<{
           id: string;

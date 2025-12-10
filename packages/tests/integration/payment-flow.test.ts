@@ -18,7 +18,7 @@ import { createPublicClient, createWalletClient, http, parseAbi, parseEther, for
 import { privateKeyToAccount } from 'viem/accounts';
 
 const TEST_CONFIG = {
-  rpcUrl: process.env.JEJU_RPC_URL || 'http://localhost:8545',
+  rpcUrl: process.env.JEJU_RPC_URL || 'http://localhost:9545',
   chainId: 420691,
   contracts: {
     ElizaOSToken: process.env.ELIZAOS_TOKEN_ADDRESS as Address,

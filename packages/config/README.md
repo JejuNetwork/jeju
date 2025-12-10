@@ -1,67 +1,56 @@
 # Config
 
-Jeju network configuration. No `.env` needed.
+Jeju network configuration. Config-first architecture - no `.env` needed for public values.
 
 ## Usage
 
 ```typescript
-import { getRpcUrl, getChainId, getContractAddress } from '@jejunetwork/config';
+import { getConfig, getContract, getServiceUrl, getConstant } from '@jejunetwork/config';
 
-const rpc = getRpcUrl();           // http://127.0.0.1:9545
-const chainId = getChainId();      // 1337
-const addr = getContractAddress('identityRegistry');
+// Full config for current network
+const config = getConfig();
+
+// Contract address (env override: OIF_SOLVER_REGISTRY)
+const solver = getContract('oif', 'solverRegistry');
+
+// Service URL (env override: INDEXER_GRAPHQL_URL)  
+const indexer = getServiceUrl('indexer', 'graphql');
+
+// Constants (EntryPoint, L2 bridge contracts)
+const entryPoint = getConstant('entryPoint');
 ```
 
 ## Files
 
 ```
 packages/config/
-├── chain/
+├── chain/              # Network settings
 │   ├── localnet.json
 │   ├── testnet.json
 │   └── mainnet.json
-├── ports.ts
-├── tokens.json
-└── network.ts
-```
-
-## Network Config
-
-JSON files, not environment variables:
-
-```json
-{
-  "chainId": 420690,
-  "rpcUrl": "https://testnet-rpc.jeju.network",
-  "l1ChainId": 11155111
-}
-```
-
-## Contract Addresses
-
-Auto-loaded from `packages/contracts/deployments/<network>/`.
-
-```typescript
-import { loadDeployedContracts } from '@jejunetwork/config';
-
-const contracts = loadDeployedContracts('testnet');
-```
-
-## Test Accounts
-
-```typescript
-import { TEST_ACCOUNTS } from '@jejunetwork/config';
-
-TEST_ACCOUNTS.DEPLOYER.address    // 0xf39F...2266
-TEST_ACCOUNTS.DEPLOYER.privateKey // 0xac09...ff80
+├── contracts.json      # All contract addresses (Jeju + external chains)
+├── services.json       # API URLs per network
+├── tokens.json         # Token metadata
+├── chains.json         # Node infrastructure (deployment)
+└── ports.ts            # Local port allocations
 ```
 
 ## Environment Overrides
 
-Override any default:
+Override any config value:
 
 ```bash
-JEJU_RPC_URL=http://my-node:8545 bun run dev
-JEJU_NETWORK=testnet bun run dev
-GATEWAY_PORT=5001 bun run dev
+JEJU_NETWORK=testnet            # localnet | testnet | mainnet
+JEJU_RPC_URL=https://...        # Override RPC
+OIF_SOLVER_REGISTRY=0x...       # Override contract
+GATEWAY_API_URL=https://...     # Override service URL
+```
+
+## Secrets
+
+Only secrets go in `.env`:
+
+```bash
+PRIVATE_KEY=0x...
+ETHERSCAN_API_KEY=...
 ```

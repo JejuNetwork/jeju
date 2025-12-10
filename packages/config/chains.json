@@ -1,7 +1,6 @@
 {
-  "$schema": "./chains.schema.json",
   "version": "1.0.0",
-  "description": "Multi-chain infrastructure configuration for EIL/OIF deployment",
+  "description": "Multi-chain node infrastructure for EIL/OIF deployment. Contract addresses are in contracts.json.",
   
   "testnets": {
     "ethereum-sepolia": {
@@ -9,7 +8,6 @@
       "name": "Sepolia",
       "type": "l1",
       "stack": "ethereum",
-      "l1ChainId": null,
       "node": {
         "execution": "geth",
         "consensus": "lighthouse",
@@ -17,32 +15,13 @@
           "execution": "ethereum/client-go:v1.14.11",
           "consensus": "sigp/lighthouse:v6.0.1"
         },
-        "storage": {
-          "execution": "300Gi",
-          "consensus": "200Gi"
-        },
-        "resources": {
-          "cpu": "2000m",
-          "memory": "8Gi"
-        },
+        "storage": { "execution": "300Gi", "consensus": "200Gi" },
+        "resources": { "cpu": "2000m", "memory": "8Gi" },
         "syncTime": "24-48h"
       },
-      "endpoints": {
-        "internal": {
-          "rpc": "http://geth-l1.l1.svc.cluster.local:8545",
-          "ws": "ws://geth-l1.l1.svc.cluster.local:8546",
-          "beacon": "http://lighthouse.l1.svc.cluster.local:5052"
-        }
-      },
-      "contracts": {
-        "entryPoint": "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
-        "l1StakeManager": "0x...",
-        "oif": {
-          "solverRegistry": "0x08cAa161780d195E0799b73b318da5D175b85313",
-          "inputSettler": "0xD28752E9bBC29DDc14DA83dD673a36A5A19e91B1",
-          "outputSettler": "0x198D8D23B57C3F490Bc78dbe66D9c23B27A289ca",
-          "oracle": "0xe1f87369beED68C52003372Fe33Db8A245317B6E"
-        }
+      "internal": {
+        "rpc": "http://geth-l1.l1.svc.cluster.local:8545",
+        "ws": "ws://geth-l1.l1.svc.cluster.local:8546"
       }
     },
     
@@ -59,33 +38,13 @@
           "execution": "us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:v1.101408.0",
           "consensus": "us-docker.pkg.dev/oplabs-tools-artifacts/images/op-node:v1.9.4"
         },
-        "storage": {
-          "execution": "500Gi"
-        },
-        "resources": {
-          "cpu": "2000m",
-          "memory": "8Gi"
-        },
+        "storage": { "execution": "500Gi" },
+        "resources": { "cpu": "2000m", "memory": "8Gi" },
         "syncTime": "4-8h",
-        "config": {
-          "network": "base-sepolia",
-          "sequencerUrl": "https://sepolia-sequencer.base.org"
-        }
+        "config": { "network": "base-sepolia" }
       },
-      "endpoints": {
-        "internal": {
-          "rpc": "http://op-geth-base-sepolia.l2-base.svc.cluster.local:8545",
-          "ws": "ws://op-geth-base-sepolia.l2-base.svc.cluster.local:8546"
-        }
-      },
-      "contracts": {
-        "entryPoint": "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
-        "oif": {
-          "solverRegistry": "0xecfE47302D941c8ce5B0009C0ac2E6D6ee2A42de",
-          "inputSettler": "0x9bb59d0329FcCEdD99f1753D20AF50347Ad2eB75",
-          "outputSettler": "0xf7ef3C6a54dA3E03A96D23864e5865E7e3EBEcF5",
-          "oracle": "0xE30218678a940d1553b285B0eB5C5364BBF70ed9"
-        }
+      "internal": {
+        "rpc": "http://op-geth-base-sepolia.l2-base.svc.cluster.local:8545"
       }
     },
     
@@ -102,30 +61,13 @@
           "execution": "us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:v1.101408.0",
           "consensus": "us-docker.pkg.dev/oplabs-tools-artifacts/images/op-node:v1.9.4"
         },
-        "storage": {
-          "execution": "500Gi"
-        },
-        "resources": {
-          "cpu": "2000m",
-          "memory": "8Gi"
-        },
+        "storage": { "execution": "500Gi" },
+        "resources": { "cpu": "2000m", "memory": "8Gi" },
         "syncTime": "4-8h",
-        "config": {
-          "network": "op-sepolia",
-          "sequencerUrl": "https://sepolia-sequencer.optimism.io"
-        }
+        "config": { "network": "op-sepolia" }
       },
-      "endpoints": {
-        "internal": {
-          "rpc": "http://op-geth-optimism-sepolia.l2-optimism.svc.cluster.local:8545",
-          "ws": "ws://op-geth-optimism-sepolia.l2-optimism.svc.cluster.local:8546"
-        }
-      },
-      "contracts": {
-        "entryPoint": "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
-        "oif": {
-          "status": "pending"
-        }
+      "internal": {
+        "rpc": "http://op-geth-optimism-sepolia.l2-optimism.svc.cluster.local:8545"
       }
     },
     
@@ -137,34 +79,13 @@
       "l1ChainId": 11155111,
       "node": {
         "execution": "nitro",
-        "image": {
-          "execution": "offchainlabs/nitro-node:v3.2.1-d81324d"
-        },
-        "storage": {
-          "execution": "500Gi"
-        },
-        "resources": {
-          "cpu": "4000m",
-          "memory": "16Gi"
-        },
-        "syncTime": "8-12h",
-        "config": {
-          "chain": "sepolia-rollup",
-          "parentChainUrl": "http://geth-l1.l1.svc.cluster.local:8545",
-          "parentChainBeacon": "http://lighthouse.l1.svc.cluster.local:5052"
-        }
+        "image": { "execution": "offchainlabs/nitro-node:v3.2.1-d81324d" },
+        "storage": { "execution": "500Gi" },
+        "resources": { "cpu": "4000m", "memory": "16Gi" },
+        "syncTime": "8-12h"
       },
-      "endpoints": {
-        "internal": {
-          "rpc": "http://nitro-arbitrum-sepolia.l2-arbitrum.svc.cluster.local:8547",
-          "ws": "ws://nitro-arbitrum-sepolia.l2-arbitrum.svc.cluster.local:8548"
-        }
-      },
-      "contracts": {
-        "entryPoint": "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
-        "oif": {
-          "status": "pending"
-        }
+      "internal": {
+        "rpc": "http://nitro-arbitrum-sepolia.l2-arbitrum.svc.cluster.local:8547"
       }
     },
     
@@ -173,35 +94,15 @@
       "name": "BSC Testnet",
       "type": "l1",
       "stack": "bsc",
-      "l1ChainId": null,
       "node": {
         "execution": "bsc-geth",
-        "image": {
-          "execution": "ghcr.io/bnb-chain/bsc:v1.4.15"
-        },
-        "storage": {
-          "execution": "500Gi"
-        },
-        "resources": {
-          "cpu": "4000m",
-          "memory": "16Gi"
-        },
-        "syncTime": "12-24h",
-        "config": {
-          "network": "chapel"
-        }
+        "image": { "execution": "ghcr.io/bnb-chain/bsc:v1.4.15" },
+        "storage": { "execution": "500Gi" },
+        "resources": { "cpu": "4000m", "memory": "16Gi" },
+        "syncTime": "12-24h"
       },
-      "endpoints": {
-        "internal": {
-          "rpc": "http://bsc-geth-testnet.l1-bsc.svc.cluster.local:8545",
-          "ws": "ws://bsc-geth-testnet.l1-bsc.svc.cluster.local:8546"
-        }
-      },
-      "contracts": {
-        "entryPoint": "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
-        "oif": {
-          "status": "pending"
-        }
+      "internal": {
+        "rpc": "http://bsc-geth-testnet.l1-bsc.svc.cluster.local:8545"
       }
     },
     
@@ -211,6 +112,7 @@
       "type": "l2",
       "stack": "op-stack",
       "l1ChainId": 11155111,
+      "isOurs": true,
       "node": {
         "execution": "reth",
         "consensus": "op-node",
@@ -219,28 +121,11 @@
           "execution": "ghcr.io/paradigmxyz/op-reth:latest",
           "consensus": "us-docker.pkg.dev/oplabs-tools-artifacts/images/op-node:v1.9.4"
         },
-        "storage": {
-          "execution": "500Gi"
-        },
-        "resources": {
-          "cpu": "2000m",
-          "memory": "8Gi"
-        }
+        "storage": { "execution": "500Gi" },
+        "resources": { "cpu": "2000m", "memory": "8Gi" }
       },
-      "endpoints": {
-        "internal": {
-          "rpc": "http://reth-sequencer.execution.svc.cluster.local:8545",
-          "ws": "ws://reth-sequencer.execution.svc.cluster.local:8546"
-        }
-      },
-      "contracts": {
-        "entryPoint": "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
-        "oif": {
-          "status": "pending"
-        },
-        "eil": {
-          "crossChainPaymaster": "0x..."
-        }
+      "internal": {
+        "rpc": "http://reth-sequencer.execution.svc.cluster.local:8545"
       }
     }
   },
@@ -248,10 +133,9 @@
   "mainnets": {
     "ethereum-mainnet": {
       "chainId": 1,
-      "name": "Ethereum Mainnet",
+      "name": "Ethereum",
       "type": "l1",
       "stack": "ethereum",
-      "l1ChainId": null,
       "node": {
         "execution": "geth",
         "consensus": "lighthouse",
@@ -259,22 +143,12 @@
           "execution": "ethereum/client-go:v1.14.11",
           "consensus": "sigp/lighthouse:v6.0.1"
         },
-        "storage": {
-          "execution": "2Ti",
-          "consensus": "500Gi"
-        },
-        "resources": {
-          "cpu": "8000m",
-          "memory": "32Gi"
-        },
+        "storage": { "execution": "2Ti", "consensus": "500Gi" },
+        "resources": { "cpu": "8000m", "memory": "32Gi" },
         "syncTime": "48-72h"
       },
-      "endpoints": {
-        "internal": {
-          "rpc": "http://geth-mainnet.l1.svc.cluster.local:8545",
-          "ws": "ws://geth-mainnet.l1.svc.cluster.local:8546",
-          "beacon": "http://lighthouse-mainnet.l1.svc.cluster.local:5052"
-        }
+      "internal": {
+        "rpc": "http://geth-mainnet.l1.svc.cluster.local:8545"
       }
     },
     
@@ -291,24 +165,12 @@
           "execution": "us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:v1.101408.0",
           "consensus": "us-docker.pkg.dev/oplabs-tools-artifacts/images/op-node:v1.9.4"
         },
-        "storage": {
-          "execution": "2Ti"
-        },
-        "resources": {
-          "cpu": "4000m",
-          "memory": "16Gi"
-        },
-        "syncTime": "24-48h",
-        "config": {
-          "network": "base-mainnet",
-          "sequencerUrl": "https://mainnet-sequencer.base.org"
-        }
+        "storage": { "execution": "2Ti" },
+        "resources": { "cpu": "4000m", "memory": "16Gi" },
+        "syncTime": "24-48h"
       },
-      "endpoints": {
-        "internal": {
-          "rpc": "http://op-geth-base.l2-base.svc.cluster.local:8545",
-          "ws": "ws://op-geth-base.l2-base.svc.cluster.local:8546"
-        }
+      "internal": {
+        "rpc": "http://op-geth-base.l2-base.svc.cluster.local:8545"
       }
     },
     
@@ -325,24 +187,12 @@
           "execution": "us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:v1.101408.0",
           "consensus": "us-docker.pkg.dev/oplabs-tools-artifacts/images/op-node:v1.9.4"
         },
-        "storage": {
-          "execution": "2Ti"
-        },
-        "resources": {
-          "cpu": "4000m",
-          "memory": "16Gi"
-        },
-        "syncTime": "24-48h",
-        "config": {
-          "network": "op-mainnet",
-          "sequencerUrl": "https://mainnet-sequencer.optimism.io"
-        }
+        "storage": { "execution": "2Ti" },
+        "resources": { "cpu": "4000m", "memory": "16Gi" },
+        "syncTime": "24-48h"
       },
-      "endpoints": {
-        "internal": {
-          "rpc": "http://op-geth-optimism.l2-optimism.svc.cluster.local:8545",
-          "ws": "ws://op-geth-optimism.l2-optimism.svc.cluster.local:8546"
-        }
+      "internal": {
+        "rpc": "http://op-geth-optimism.l2-optimism.svc.cluster.local:8545"
       }
     },
     
@@ -354,28 +204,13 @@
       "l1ChainId": 1,
       "node": {
         "execution": "nitro",
-        "image": {
-          "execution": "offchainlabs/nitro-node:v3.2.1-d81324d"
-        },
-        "storage": {
-          "execution": "4Ti"
-        },
-        "resources": {
-          "cpu": "8000m",
-          "memory": "32Gi"
-        },
-        "syncTime": "48-72h",
-        "config": {
-          "chain": "arb1",
-          "parentChainUrl": "http://geth-mainnet.l1.svc.cluster.local:8545",
-          "parentChainBeacon": "http://lighthouse-mainnet.l1.svc.cluster.local:5052"
-        }
+        "image": { "execution": "offchainlabs/nitro-node:v3.2.1-d81324d" },
+        "storage": { "execution": "4Ti" },
+        "resources": { "cpu": "8000m", "memory": "32Gi" },
+        "syncTime": "48-72h"
       },
-      "endpoints": {
-        "internal": {
-          "rpc": "http://nitro-arbitrum.l2-arbitrum.svc.cluster.local:8547",
-          "ws": "ws://nitro-arbitrum.l2-arbitrum.svc.cluster.local:8548"
-        }
+      "internal": {
+        "rpc": "http://nitro-arbitrum.l2-arbitrum.svc.cluster.local:8547"
       }
     },
     
@@ -384,66 +219,21 @@
       "name": "BNB Smart Chain",
       "type": "l1",
       "stack": "bsc",
-      "l1ChainId": null,
       "node": {
         "execution": "bsc-geth",
-        "image": {
-          "execution": "ghcr.io/bnb-chain/bsc:v1.4.15"
-        },
-        "storage": {
-          "execution": "3Ti"
-        },
-        "resources": {
-          "cpu": "8000m",
-          "memory": "32Gi"
-        },
-        "syncTime": "48-72h",
-        "config": {
-          "network": "mainnet"
-        }
+        "image": { "execution": "ghcr.io/bnb-chain/bsc:v1.4.15" },
+        "storage": { "execution": "3Ti" },
+        "resources": { "cpu": "8000m", "memory": "32Gi" },
+        "syncTime": "48-72h"
       },
-      "endpoints": {
-        "internal": {
-          "rpc": "http://bsc-geth.l1-bsc.svc.cluster.local:8545",
-          "ws": "ws://bsc-geth.l1-bsc.svc.cluster.local:8546"
-        }
-      }
-    },
-    
-    "polygon-pos": {
-      "chainId": 137,
-      "name": "Polygon PoS",
-      "type": "l2",
-      "stack": "polygon",
-      "l1ChainId": 1,
-      "node": {
-        "execution": "bor",
-        "consensus": "heimdall",
-        "image": {
-          "execution": "0xpolygon/bor:1.3.7",
-          "consensus": "0xpolygon/heimdall:1.0.7"
-        },
-        "storage": {
-          "execution": "4Ti",
-          "consensus": "500Gi"
-        },
-        "resources": {
-          "cpu": "8000m",
-          "memory": "32Gi"
-        },
-        "syncTime": "72-96h"
-      },
-      "endpoints": {
-        "internal": {
-          "rpc": "http://bor-polygon.l2-polygon.svc.cluster.local:8545",
-          "ws": "ws://bor-polygon.l2-polygon.svc.cluster.local:8546"
-        }
+      "internal": {
+        "rpc": "http://bsc-geth.l1-bsc.svc.cluster.local:8545"
       }
     },
     
     "jeju-mainnet": {
       "chainId": 420691,
-      "name": "Jeju Mainnet",
+      "name": "Jeju",
       "type": "l2",
       "stack": "op-stack",
       "l1ChainId": 1,
@@ -455,98 +245,11 @@
       }
     }
   },
-  
-  "nodeStacks": {
-    "ethereum": {
-      "description": "Standard Ethereum L1 (Geth + Lighthouse)",
-      "components": ["geth-l1", "lighthouse"]
-    },
-    "op-stack": {
-      "description": "Optimism Stack L2 (op-geth + op-node)",
-      "components": ["op-geth", "op-node"],
-      "requiresL1": true
-    },
-    "nitro": {
-      "description": "Arbitrum Nitro L2",
-      "components": ["nitro-node"],
-      "requiresL1": true,
-      "requiresBeacon": true
-    },
-    "bsc": {
-      "description": "BNB Smart Chain (modified Geth)",
-      "components": ["bsc-geth"]
-    },
-    "polygon": {
-      "description": "Polygon PoS (Bor + Heimdall)",
-      "components": ["bor", "heimdall"],
-      "requiresL1": true
-    }
-  },
-  
-  "deploymentPhases": {
-    "phase1-testnet-core": {
-      "description": "Core testnet infrastructure",
-      "chains": [
-        "ethereum-sepolia",
-        "jeju-testnet"
-      ],
-      "estimatedCost": "$200-400/month"
-    },
-    "phase2-testnet-l2s": {
-      "description": "L2 testnet full nodes",
-      "chains": [
-        "base-sepolia",
-        "optimism-sepolia",
-        "arbitrum-sepolia"
-      ],
-      "estimatedCost": "$400-600/month"
-    },
-    "phase3-testnet-alt": {
-      "description": "Alternative L1 testnets",
-      "chains": [
-        "bsc-testnet"
-      ],
-      "estimatedCost": "$200-300/month"
-    },
-    "phase4-mainnet-core": {
-      "description": "Mainnet L1 infrastructure",
-      "chains": [
-        "ethereum-mainnet",
-        "jeju-mainnet"
-      ],
-      "estimatedCost": "$800-1200/month"
-    },
-    "phase5-mainnet-l2s": {
-      "description": "Mainnet L2 full nodes",
-      "chains": [
-        "base-mainnet",
-        "optimism-mainnet",
-        "arbitrum-one"
-      ],
-      "estimatedCost": "$1500-2500/month"
-    },
-    "phase6-mainnet-alt": {
-      "description": "Alternative mainnet chains",
-      "chains": [
-        "bsc-mainnet",
-        "polygon-pos"
-      ],
-      "estimatedCost": "$800-1200/month"
-    }
-  },
-  
-  "totalResourceEstimates": {
-    "testnet": {
-      "storage": "~3TB",
-      "cpu": "16-24 cores",
-      "memory": "64-96GB",
-      "monthlyAWS": "$800-1200"
-    },
-    "mainnet": {
-      "storage": "~20TB",
-      "cpu": "48-64 cores",
-      "memory": "192-256GB",
-      "monthlyAWS": "$4000-6000"
-    }
+
+  "stacks": {
+    "ethereum": { "description": "Standard Ethereum L1", "components": ["geth", "lighthouse"] },
+    "op-stack": { "description": "Optimism Stack L2", "components": ["op-geth", "op-node"], "requiresL1": true },
+    "nitro": { "description": "Arbitrum Nitro L2", "components": ["nitro-node"], "requiresL1": true },
+    "bsc": { "description": "BNB Smart Chain", "components": ["bsc-geth"] }
   }
 }

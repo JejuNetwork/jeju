@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
-import { X, ExternalLink, Trash2, Edit } from 'lucide-react';
-import { useRegistryAppDetails, useRegistry } from '../hooks/useRegistry';
+import { X, ExternalLink, Trash2, Edit, Github } from 'lucide-react';
+import { useRegistryAppDetails, useRegistry, IDENTITY_REGISTRY_ADDRESS } from '../hooks/useRegistry';
+import GitHubReputationPanel from './GitHubReputationPanel';
 
 interface AppDetailModalProps {
   agentId: bigint;
@@ -106,6 +107,17 @@ export default function AppDetailModal({ agentId, onClose }: AppDetailModalProps
               <code style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', padding: '0.75rem', background: 'var(--surface-hover)', borderRadius: 'var(--radius-md)', display: 'block', wordBreak: 'break-all' }}>
                 {app.owner}
               </code>
+            </div>
+
+            {/* GitHub Developer Reputation */}
+            <div style={{ marginBottom: '1.5rem' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Github size={18} />Developer Reputation
+              </h3>
+              <GitHubReputationPanel
+                agentId={agentId}
+                registryAddress={IDENTITY_REGISTRY_ADDRESS}
+              />
             </div>
 
             {isOwner && (

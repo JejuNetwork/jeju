@@ -1,8 +1,9 @@
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { toast } from 'sonner';
 import { useEffect } from 'react';
+import { CONTRACTS } from '@/config';
 
-const PREDIMARKET_ADDRESS = (process.env.NEXT_PUBLIC_PREDIMARKET_ADDRESS || '0x0') as `0x${string}`;
+const PREDIMARKET_ADDRESS = CONTRACTS.predimarket;
 
 const PREDIMARKET_ABI = [
   {

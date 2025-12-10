@@ -14,6 +14,11 @@ import {
 import { z } from "zod";
 import { decodeBase64 } from "@/lib/decode";
 
+interface WalletVerificationState {
+  isVerified: boolean;
+  verifyingAddress: string | null;
+}
+
 export function useProfileWallets() {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
@@ -29,6 +34,12 @@ export function useProfileWallets() {
   const [pageLoading, setPageLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Wallet verification state
+  const [walletVerification, setWalletVerification] = useState<WalletVerificationState>({
+    isVerified: false,
+    verifyingAddress: null,
+  });
 
   const fetchProfileData = useCallback(async (currentLogin: string) => {
     setPageLoading(true);
@@ -162,6 +173,75 @@ export function useProfileWallets() {
     [user, setError, setSuccessMessage, setPageLoading],
   );
 
+  // Handle wallet verification for ERC-8004
+  const handleRequestVerification = useCallback(
+    async (address: string) => {
+      if (!user?.login) return;
+
+      setWalletVerification((prev) => ({ ...prev, verifyingAddress: address }));
+      setError(null);
+
+      // Step 1: Get the verification message
+      const messageRes = await fetch(
+        `/api/wallet/verify?username=${encodeURIComponent(user.login)}&wallet=${encodeURIComponent(address)}`
+      );
+
+      if (!messageRes.ok) {
+        const errorData = await messageRes.json();
+        setError(errorData.error || "Failed to get verification message");
+        setWalletVerification((prev) => ({ ...prev, verifyingAddress: null }));
+        return;
+      }
+
+      const { message, timestamp } = await messageRes.json();
+
+      // Step 2: Request signature from user's wallet
+      // This requires the user to have MetaMask or similar installed
+      if (typeof window === "undefined" || !window.ethereum) {
+        setError("No wallet detected. Please install MetaMask.");
+        setWalletVerification((prev) => ({ ...prev, verifyingAddress: null }));
+        return;
+      }
+
+      let signature: string;
+      try {
+        signature = await window.ethereum.request({
+          method: "personal_sign",
+          params: [message, address],
+        });
+      } catch (signError) {
+        setError("Signature rejected by user");
+        setWalletVerification((prev) => ({ ...prev, verifyingAddress: null }));
+        return;
+      }
+
+      // Step 3: Submit signature for verification
+      const verifyRes = await fetch("/api/wallet/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: user.login,
+          walletAddress: address,
+          signature,
+          message,
+          timestamp,
+        }),
+      });
+
+      if (!verifyRes.ok) {
+        const errorData = await verifyRes.json();
+        setError(errorData.error || "Verification failed");
+        setWalletVerification((prev) => ({ ...prev, verifyingAddress: null }));
+        return;
+      }
+
+      // Success
+      setWalletVerification({ isVerified: true, verifyingAddress: null });
+      setSuccessMessage("Wallet verified successfully! You can now request on-chain attestations.");
+    },
+    [user],
+  );
+
   return {
     user,
     authLoading,
@@ -177,6 +257,8 @@ export function useProfileWallets() {
     getWalletAddress,
     handleCreateProfileRepo,
     handleGenerateWalletSection,
+    handleRequestVerification,
+    walletVerification,
     defaultBranch,
   };
 }

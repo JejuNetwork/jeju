@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, usePublicClient } from 'wagmi';
 import { parseEther, type Address, keccak256, encodeAbiParameters, parseAbiParameters } from 'viem';
+import { CONTRACTS } from '../config';
 
 const INPUT_SETTLER_ABI = [
   { inputs: [{ components: [{ name: 'originSettler', type: 'address' }, { name: 'user', type: 'address' }, { name: 'nonce', type: 'uint256' }, { name: 'originChainId', type: 'uint256' }, { name: 'openDeadline', type: 'uint32' }, { name: 'fillDeadline', type: 'uint32' }, { name: 'orderDataType', type: 'bytes32' }, { name: 'orderData', type: 'bytes' }], name: 'order', type: 'tuple' }], name: 'open', outputs: [], stateMutability: 'payable', type: 'function' },
@@ -59,21 +60,15 @@ interface SolverInfo {
   registeredAt: bigint;
 }
 
-const getEnvAddress = (key: string, fallback: Address = '0x0000000000000000000000000000000000000000'): Address => {
-  if (typeof window === 'undefined') return fallback;
-  const envValue = (import.meta as { env?: Record<string, string> }).env?.[key];
-  return (envValue as Address) || fallback;
-};
-
 const OIF_CONFIG = {
   inputSettlers: {
-    1: getEnvAddress('VITE_OIF_INPUT_SETTLER_ETHEREUM'),
-    42161: getEnvAddress('VITE_OIF_INPUT_SETTLER_ARBITRUM'),
-    10: getEnvAddress('VITE_OIF_INPUT_SETTLER_OPTIMISM'),
-    420691: getEnvAddress('VITE_OIF_INPUT_SETTLER_JEJU'),
-    11155111: getEnvAddress('VITE_OIF_INPUT_SETTLER_SEPOLIA'),
+    1: CONTRACTS.inputSettler.ethereum,
+    42161: CONTRACTS.inputSettler.arbitrum,
+    10: CONTRACTS.inputSettler.optimism,
+    420691: CONTRACTS.inputSettler.jeju,
+    11155111: CONTRACTS.inputSettler.sepolia,
   } as Record<number, Address>,
-  solverRegistry: getEnvAddress('VITE_OIF_SOLVER_REGISTRY'),
+  solverRegistry: CONTRACTS.solverRegistry,
   defaultOpenDeadlineBlocks: 100,
   defaultFillDeadlineBlocks: 1000,
   minSolverStake: parseEther('0.5'),

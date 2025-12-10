@@ -28,6 +28,8 @@ export default function ProfileEditor() {
     readmeContent,
     handleCreateProfileRepo,
     handleGenerateWalletSection,
+    handleRequestVerification,
+    walletVerification,
     defaultBranch,
   } = useProfileWallets();
 
@@ -99,7 +101,9 @@ export default function ProfileEditor() {
                   <WalletLinkForm
                     wallets={walletData?.wallets || []}
                     onSubmit={handleGenerateWalletSection}
-                    isProcessing={pageLoading}
+                    isProcessing={pageLoading || walletVerification.verifyingAddress !== null}
+                    isVerified={walletVerification.isVerified}
+                    onRequestVerification={handleRequestVerification}
                   />
                 </>
               )}

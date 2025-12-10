@@ -1,11 +1,14 @@
-const JEJU_IPFS_API = process.env.NEXT_PUBLIC_JEJU_IPFS_API || 'http://localhost:3100';
-const JEJU_IPFS_GATEWAY = process.env.NEXT_PUBLIC_JEJU_IPFS_GATEWAY || 'http://localhost:3100';
+import { IPFS_API_URL, IPFS_GATEWAY_URL } from '../config';
+
+// IPFS client for both client and server contexts
+const getIpfsApi = () => IPFS_API_URL;
+const getIpfsGateway = () => IPFS_GATEWAY_URL;
 
 export async function uploadToIPFS(file: File): Promise<string> {
   const formData = new FormData();
   formData.append('file', file);
   
-  const response = await fetch(`${JEJU_IPFS_API}/upload`, {
+  const response = await fetch(`${getIpfsApi()}/upload`, {
     method: 'POST',
     headers: {
       'X-Duration-Months': '1',
@@ -21,12 +24,12 @@ export async function uploadToIPFS(file: File): Promise<string> {
     throw new Error(`Upload failed: ${response.statusText}`);
   }
 
-  const { cid } = await response.json();
+  const { cid } = await response.json() as { cid: string };
   return cid;
 }
 
 export function getIPFSUrl(hash: string): string {
-  return `${JEJU_IPFS_GATEWAY}/ipfs/${hash}`;
+  return `${getIpfsGateway()}/ipfs/${hash}`;
 }
 
 export async function retrieveFromIPFS(hash: string): Promise<Blob> {
@@ -40,8 +43,7 @@ export async function retrieveFromIPFS(hash: string): Promise<Blob> {
 }
 
 export async function fileExists(cid: string): Promise<boolean> {
-  const response = await fetch(`${JEJU_IPFS_API}/pins?cid=${cid}`);
-  const { count } = await response.json();
+  const response = await fetch(`${getIpfsApi()}/pins?cid=${cid}`);
+  const { count } = await response.json() as { count: number };
   return count > 0;
 }
-

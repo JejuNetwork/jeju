@@ -18,7 +18,7 @@ import { describe, test, expect, beforeAll } from 'bun:test';
 import { ethers } from 'ethers';
 
 // Test configuration
-const RPC_URL = process.env.JEJU_RPC_URL || 'http://localhost:8545';
+const RPC_URL = process.env.JEJU_RPC_URL || 'http://localhost:9545';
 const STAKING_TOKEN_ADDRESS = process.env.STAKING_TOKEN_ADDRESS || '0x5FbDB2315678afecb367f032d93F642f64180aa3';
 const STAKING_ADDRESS = process.env.STAKING_ADDRESS || '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512';
 

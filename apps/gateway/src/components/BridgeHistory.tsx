@@ -3,8 +3,7 @@ import { useAccount } from 'wagmi';
 import { useProtocolTokens } from '../hooks/useProtocolTokens';
 import { formatTokenAmount } from '../lib/tokenUtils';
 import { Clock, CheckCircle, XCircle, Loader, RefreshCw } from 'lucide-react';
-
-const INDEXER_URL = import.meta.env.VITE_INDEXER_URL || 'http://localhost:4350/graphql';
+import { INDEXER_URL } from '../config';
 
 interface BridgeTransfer {
   id: string;

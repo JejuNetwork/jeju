@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
+import { INDEXER_URL } from '@/config';
 
 interface RegisteredGame {
   id: string
@@ -13,7 +14,6 @@ interface RegisteredGame {
 }
 
 async function getRegisteredGames() {
-  const INDEXER_URL = process.env.NEXT_PUBLIC_INDEXER_URL || 'http://localhost:4350/graphql';
   
   const query = `
     query GetGames {

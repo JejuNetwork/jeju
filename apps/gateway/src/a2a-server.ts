@@ -8,11 +8,7 @@ import { routeService } from './services/route-service.js';
 import { solverService } from './services/solver-service.js';
 import { getWebSocketServer } from './services/websocket.js';
 import { faucetService } from './services/faucet-service.js';
-import { CHAIN_INFO } from './config/oif.js';
-
-// Faucet is only available on testnet
-const GATEWAY_CHAIN_ID = Number(process.env.GATEWAY_CHAIN_ID || 420690) as 420690 | 420691;
-const IS_TESTNET = CHAIN_INFO[GATEWAY_CHAIN_ID]?.isTestnet ?? true;
+import { JEJU_CHAIN_ID, IS_TESTNET, getChainName, PORTS, SERVICES } from './config/networks.js';
 import {
   checkBanStatus,
   getModeratorProfile,
@@ -29,8 +25,9 @@ import {
 } from './lib/moderation-api.js';
 
 const app = express();
-const PORT = process.env.A2A_PORT || 4003;
-const WS_PORT = process.env.WS_PORT || 4012;
+const PORT = PORTS.a2a;
+const WS_PORT = PORTS.websocket;
+// Only env var needed: payment recipient address (optional)
 const PAYMENT_RECIPIENT = (process.env.GATEWAY_PAYMENT_RECIPIENT || '0x0000000000000000000000000000000000000000') as Address;
 
 app.use(cors());
@@ -79,6 +76,12 @@ const GATEWAY_AGENT_CARD = {
     { id: 'prepare-vote', name: 'Prepare Vote', description: 'Prepare transaction to vote on a moderation case', tags: ['moderation', 'vote', 'action'], examples: ['Vote BAN on case 0x...'] },
     { id: 'prepare-challenge', name: 'Prepare Challenge', description: 'Prepare transaction to challenge a ban', tags: ['moderation', 'challenge', 'action'], examples: ['Challenge my ban'] },
     { id: 'prepare-appeal', name: 'Prepare Appeal', description: 'Prepare transaction to appeal a resolved ban', tags: ['moderation', 'appeal', 'action'], examples: ['Appeal case 0x...'] },
+    // RPC Gateway
+    { id: 'rpc-list-chains', name: 'List RPC Chains', description: 'Get all supported blockchain networks', tags: ['rpc', 'chains', 'query'], examples: ['What chains are supported?', 'List RPC endpoints'] },
+    { id: 'rpc-get-limits', name: 'Check RPC Limits', description: 'Check rate limits and tier for an address', tags: ['rpc', 'limits', 'query'], examples: ['What are my RPC limits?', 'Check rate limit for 0x...'] },
+    { id: 'rpc-get-usage', name: 'Get RPC Usage', description: 'Get usage statistics for an address', tags: ['rpc', 'usage', 'query'], examples: ['Show my RPC usage', 'How many requests have I made?'] },
+    { id: 'rpc-create-key', name: 'Create API Key', description: 'Generate a new RPC API key', tags: ['rpc', 'apikey', 'action'], examples: ['Create new API key', 'Generate RPC key'] },
+    { id: 'rpc-staking-info', name: 'RPC Staking Info', description: 'Get staking tiers and requirements', tags: ['rpc', 'staking', 'query'], examples: ['How do I get higher rate limits?', 'RPC staking tiers'] },
     // Faucet (testnet only - added dynamically)
   ].concat(IS_TESTNET ? [
     { id: 'faucet-status', name: 'Check Faucet Status', description: 'Check eligibility and cooldown for JEJU faucet', tags: ['faucet', 'query'], examples: ['Am I eligible for faucet?', 'Check my faucet status'] },
@@ -310,6 +313,48 @@ async function executeSkill(skillId: string, params: Record<string, unknown>, pa
       if (!IS_TESTNET) return { message: 'Faucet is only available on testnet', data: { error: 'Faucet disabled on mainnet' } };
       const info = faucetService.getFaucetInfo();
       return { message: `${info.name}: Claim ${info.amountPerClaim} ${info.tokenSymbol} every ${info.cooldownHours}h`, data: info as unknown as Record<string, unknown> };
+    }
+    // RPC Gateway Skills
+    case 'rpc-list-chains': {
+      const chainsRes = await fetch(`${SERVICES.rpcGateway}/v1/chains`);
+      if (!chainsRes.ok) return { message: 'Failed to fetch chains', data: { error: 'RPC Gateway unavailable' } };
+      const chainsData = await chainsRes.json() as { chains: Array<{ chainId: number; name: string; shortName: string; isTestnet: boolean }> };
+      return { message: `${chainsData.chains.length} chains supported`, data: { chains: chainsData.chains } };
+    }
+    case 'rpc-get-limits': {
+      const address = params.address as string;
+      if (!address) return { message: 'Address required', data: { error: 'Missing address parameter' } };
+      const usageRes = await fetch(`${SERVICES.rpcGateway}/v1/usage`, { headers: { 'X-Wallet-Address': address } });
+      if (!usageRes.ok) return { message: 'Failed to fetch limits', data: { error: 'RPC Gateway unavailable' } };
+      const usageData = await usageRes.json() as { currentTier: string; rateLimit: number; remaining: number };
+      return { message: `Tier: ${usageData.currentTier}, Limit: ${usageData.rateLimit}/min`, data: usageData as unknown as Record<string, unknown> };
+    }
+    case 'rpc-get-usage': {
+      const address = params.address as string;
+      if (!address) return { message: 'Address required', data: { error: 'Missing address parameter' } };
+      const usageRes = await fetch(`${SERVICES.rpcGateway}/v1/usage`, { headers: { 'X-Wallet-Address': address } });
+      if (!usageRes.ok) return { message: 'Failed to fetch usage', data: { error: 'RPC Gateway unavailable' } };
+      const usageData = await usageRes.json() as { totalRequests: number; apiKeys: number };
+      return { message: `${usageData.totalRequests} total requests, ${usageData.apiKeys} API keys`, data: usageData as unknown as Record<string, unknown> };
+    }
+    case 'rpc-create-key': {
+      const address = params.address as string;
+      const name = (params.name as string) || 'A2A Generated';
+      if (!address) return { message: 'Address required', data: { error: 'Missing address parameter' } };
+      const keyRes = await fetch(`${SERVICES.rpcGateway}/v1/keys`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Wallet-Address': address },
+        body: JSON.stringify({ name }),
+      });
+      if (!keyRes.ok) return { message: 'Failed to create key', data: { error: 'Key creation failed' } };
+      const keyData = await keyRes.json() as { key: string; id: string; tier: string };
+      return { message: `API key created: ${keyData.key.slice(0, 15)}...`, data: { key: keyData.key, id: keyData.id, tier: keyData.tier, warning: 'Store this key securely - it will not be shown again' } };
+    }
+    case 'rpc-staking-info': {
+      const stakeRes = await fetch(`${SERVICES.rpcGateway}/v1/stake`);
+      if (!stakeRes.ok) return { message: 'Failed to fetch staking info', data: { error: 'RPC Gateway unavailable' } };
+      const stakeData = await stakeRes.json() as { tiers: Record<string, { minStake: string; rateLimit: number | string }> };
+      return { message: 'RPC rate limits based on staked JEJU. Higher stake = higher limits. 7-day unbonding period.', data: stakeData as unknown as Record<string, unknown> };
     }
     default:
       return { message: 'Unknown skill', data: { error: 'Skill not found', availableSkills: GATEWAY_AGENT_CARD.skills.map(s => s.id) } };
@@ -635,7 +680,7 @@ getWebSocketServer(Number(WS_PORT));
 
 app.listen(PORT, () => {
   console.log(`🌉 Gateway A2A Server running on http://localhost:${PORT}`);
-  console.log(`   Network: ${CHAIN_INFO[GATEWAY_CHAIN_ID]?.name || 'Unknown'} (${IS_TESTNET ? 'testnet' : 'mainnet'})`);
+  console.log(`   Network: ${getChainName(JEJU_CHAIN_ID)} (${IS_TESTNET ? 'testnet' : 'mainnet'})`);
   console.log(`   Agent Card: http://localhost:${PORT}/.well-known/agent-card.json`);
   console.log(`   A2A Endpoint: http://localhost:${PORT}/a2a`);
   console.log(`   MCP Endpoint: http://localhost:${PORT}/mcp`);

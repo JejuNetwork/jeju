@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Zap } from 'lucide-react';
-
-const INDEXER_URL = import.meta.env.VITE_INDEXER_URL || 'http://localhost:4350/graphql';
+import { INDEXER_URL } from '../config';
 
 interface EILStatsData {
   totalVolumeEth: string;

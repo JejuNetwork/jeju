@@ -1,4 +1,6 @@
-export const API_BASE_URL = process.env.NEXT_PUBLIC_STORAGE_API_URL || 'http://localhost:3100'
+import { STORAGE_API_URL } from './index';
+
+export const API_BASE_URL = STORAGE_API_URL;
 
 export interface StorageStats {
   totalPins: number

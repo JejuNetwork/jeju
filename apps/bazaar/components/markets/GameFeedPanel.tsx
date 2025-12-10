@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useGameFeed } from '@/hooks/markets/useGameFeed';
+import { EXPLORER_URL } from '@/config';
 
 interface GameFeedPanelProps {
   sessionId: string;
@@ -105,7 +106,7 @@ export function GameFeedPanel({ sessionId, className = '' }: GameFeedPanelProps)
                 <span>Block {post.blockNumber.toString()}</span>
                 <span>•</span>
                 <a
-                  href={`${process.env.NEXT_PUBLIC_EXPLORER_URL || 'http://localhost:4004'}/tx/${post.transactionHash}`}
+                  href={`${EXPLORER_URL}/tx/${post.transactionHash}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-blue-400 transition-colors"

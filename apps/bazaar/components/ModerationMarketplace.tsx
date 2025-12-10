@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { formatEther, parseEther, Address } from 'viem';
+import { CONTRACTS } from '@/config';
 import { 
   Shield, 
   AlertTriangle, 
@@ -63,7 +64,7 @@ interface StakeInfo {
 
 // ============ Constants ============
 
-const MODERATION_MARKETPLACE_ADDRESS = process.env.NEXT_PUBLIC_MODERATION_MARKETPLACE_ADDRESS as Address | undefined;
+const MODERATION_MARKETPLACE_ADDRESS = CONTRACTS.moderationMarketplace || undefined;
 
 const MODERATION_MARKETPLACE_ABI = [
   {

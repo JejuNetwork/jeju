@@ -4,28 +4,25 @@ import { RainbowKitProvider, getDefaultConfig, darkTheme, lightTheme } from '@ra
 import '@rainbow-me/rainbowkit/styles.css';
 import Dashboard from './components/Dashboard';
 import { ThemeProvider, useTheme } from './components/ThemeProvider';
+import { CHAIN_ID, RPC_URL, WALLETCONNECT_PROJECT_ID, NETWORK } from './config';
 
-// Jeju localnet chain config
-// Using STATIC port 9545 (forwarded automatically by dev environment)
-const rpcUrl = import.meta.env.VITE_RPC_URL || 'http://127.0.0.1:9545';
-const chainId = parseInt(import.meta.env.VITE_CHAIN_ID || '1337');
-
-const jejuLocalnet = {
-  id: chainId,
-  name: 'Jeju Localnet',
+// Jeju chain config from centralized config
+const jejuChain = {
+  id: CHAIN_ID,
+  name: NETWORK === 'mainnet' ? 'Jeju' : NETWORK === 'testnet' ? 'Jeju Testnet' : 'Jeju Localnet',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
-    default: { http: [rpcUrl] },
-    public: { http: [rpcUrl] }
+    default: { http: [RPC_URL] },
+    public: { http: [RPC_URL] }
   }
 } as const;
 
 const config = getDefaultConfig({
   appName: 'Gateway Portal - Jeju Network',
-  projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'YOUR_PROJECT_ID',
-  chains: [jejuLocalnet],
+  projectId: WALLETCONNECT_PROJECT_ID,
+  chains: [jejuChain],
   transports: {
-    [jejuLocalnet.id]: http()
+    [jejuChain.id]: http()
   },
   ssr: false
 });

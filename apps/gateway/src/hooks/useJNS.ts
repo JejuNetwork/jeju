@@ -1,12 +1,13 @@
 import { useState, useCallback } from 'react';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { type Address, type Hash, namehash } from 'viem';
+import { CONTRACTS, INDEXER_URL } from '../config';
 
-// Contract addresses (loaded from environment or deployment)
-const JNS_REGISTRY = import.meta.env.VITE_JNS_REGISTRY as Address || '0x0000000000000000000000000000000000000000';
-const JNS_RESOLVER = import.meta.env.VITE_JNS_RESOLVER as Address || '0x0000000000000000000000000000000000000000';
-const JNS_REGISTRAR = import.meta.env.VITE_JNS_REGISTRAR as Address || '0x0000000000000000000000000000000000000000';
-const JNS_REVERSE_REGISTRAR = import.meta.env.VITE_JNS_REVERSE_REGISTRAR as Address || '0x0000000000000000000000000000000000000000';
+// Contract addresses from centralized config
+const JNS_REGISTRY = CONTRACTS.jnsRegistry;
+const JNS_RESOLVER = CONTRACTS.jnsResolver;
+const JNS_REGISTRAR = CONTRACTS.jnsRegistrar;
+const JNS_REVERSE_REGISTRAR = CONTRACTS.jnsReverseRegistrar;
 
 // Contract ABIs
 const JNS_REGISTRAR_ABI = [
@@ -328,7 +329,6 @@ export function useJNSLookup() {
       return [];
     }
 
-    const INDEXER_URL = import.meta.env.VITE_INDEXER_URL || 'http://localhost:4350/graphql';
     const query = `
       query OwnerNames($owner: String!) {
         jnsNames(where: { owner_eq: $owner }) {
@@ -553,12 +553,36 @@ export function useJNSResolver() {
     });
   }, [walletClient]);
 
+  const setAppConfig = useCallback(async (
+    name: string,
+    appContract: Address,
+    appId: `0x${string}`,
+    agentId: bigint,
+    endpoint: string,
+    a2aEndpoint: string
+  ): Promise<Hash> => {
+    if (!walletClient) {
+      throw new Error('Wallet not connected');
+    }
+
+    const fullName = name.endsWith('.jeju') ? name : `${name}.jeju`;
+    const node = namehash(fullName) as `0x${string}`;
+
+    return await walletClient.writeContract({
+      address: JNS_RESOLVER,
+      abi: JNS_RESOLVER_ABI,
+      functionName: 'setAppConfig',
+      args: [node, appContract, appId, agentId, endpoint, a2aEndpoint],
+    });
+  }, [walletClient]);
+
   return {
     resolve,
     getText,
     getAppInfo,
     setAddr,
     setText,
+    setAppConfig,
   };
 }
 

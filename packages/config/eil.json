@@ -1,74 +1,91 @@
 {
-  "version": "2.0.0",
-  "lastUpdated": "2025-12-09",
-  
+  "version": "1.0.0",
+  "lastUpdated": "2025-12-10",
+  "description": "EIL (Elastic Intent Liquidity) cross-chain configuration",
   "entryPoint": "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789",
   "l2Messenger": "0x4200000000000000000000000000000000000007",
+  "supportedTokens": ["JEJU", "USDC", "USDT", "ETH", "WETH"],
   
-  "supportedTokens": [
-    "0x0000000000000000000000000000000000000000",
-    "0x4200000000000000000000000000000000000006"
-  ],
+  "localnet": {
+    "hub": {
+      "chainId": 1337,
+      "name": "Jeju Localnet",
+      "rpcUrl": "http://localhost:9545",
+      "l1StakeManager": "",
+      "crossChainPaymaster": "",
+      "status": "active"
+    },
+    "chains": {
+      "l1-anvil": {
+        "chainId": 31337,
+        "name": "L1 Anvil",
+        "rpcUrl": "http://localhost:8545",
+        "crossChainPaymaster": "",
+        "status": "active",
+        "tokens": {}
+      }
+    }
+  },
   
   "testnet": {
     "hub": {
-      "chainId": 11155111,
-      "name": "Sepolia",
-      "l1StakeManager": "",
-      "status": "not_deployed"
+      "chainId": 420690,
+      "name": "Jeju Testnet",
+      "rpcUrl": "https://testnet-rpc.jeju.network",
+      "l1StakeManager": "0x355281d1974BfB64F9d475d01936e5dB37396DA3",
+      "crossChainPaymaster": "",
+      "status": "active"
     },
     "chains": {
-      "420690": {
-        "name": "Jeju Testnet",
+      "eth-sepolia": {
+        "chainId": 11155111,
+        "name": "Ethereum Sepolia",
+        "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
         "crossChainPaymaster": "",
-        "status": "pending_rpc"
-      },
-      "84532": {
-        "name": "Base Sepolia",
-        "crossChainPaymaster": "",
-        "status": "ready_to_deploy",
-        "oif": {
-          "solverRegistry": "0xecfE47302D941c8ce5B0009C0ac2E6D6ee2A42de",
-          "inputSettler": "0x9bb59d0329FcCEdD99f1753D20AF50347Ad2eB75",
-          "outputSettler": "0xf7ef3C6a54dA3E03A96D23864e5865E7e3EBEcF5",
-          "oracle": "0xE30218678a940d1553b285B0eB5C5364BBF70ed9"
-        },
+        "l1StakeManager": "0x355281d1974BfB64F9d475d01936e5dB37396DA3",
+        "status": "active",
         "tokens": {
-          "mockJejuUSDC": "0x953F6516E5d2864cE7f13186B45dE418EA665EB2",
-          "elizaOSToken": "0x7af64e6aE21076DE21EFe71F243A75664a17C34b"
+          "USDC": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238"
         }
       },
-      "421614": {
+      "base-sepolia": {
+        "chainId": 84532,
+        "name": "Base Sepolia",
+        "rpcUrl": "https://sepolia.base.org",
+        "crossChainPaymaster": "",
+        "status": "active",
+        "tokens": {
+          "USDC": "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+        }
+      },
+      "arb-sepolia": {
+        "chainId": 421614,
         "name": "Arbitrum Sepolia",
+        "rpcUrl": "https://sepolia-rollup.arbitrum.io/rpc",
         "crossChainPaymaster": "",
-        "status": "ready_to_deploy",
-        "oif": {
-          "solverRegistry": "",
-          "inputSettler": "",
-          "outputSettler": "",
-          "oracle": ""
+        "status": "active",
+        "tokens": {
+          "USDC": "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d"
         }
       },
-      "11155420": {
+      "op-sepolia": {
+        "chainId": 11155420,
         "name": "Optimism Sepolia",
+        "rpcUrl": "https://sepolia.optimism.io",
         "crossChainPaymaster": "",
-        "status": "ready_to_deploy",
-        "oif": {
-          "solverRegistry": "",
-          "inputSettler": "",
-          "outputSettler": "",
-          "oracle": ""
+        "status": "active",
+        "tokens": {
+          "USDC": "0x5fd84259d66Cd46123540766Be93DFE6D43130D7"
         }
       },
-      "97": {
+      "bsc-testnet": {
+        "chainId": 97,
         "name": "BSC Testnet",
+        "rpcUrl": "https://data-seed-prebsc-1-s1.bnbchain.org:8545",
         "crossChainPaymaster": "",
-        "status": "ready_to_deploy",
-        "oif": {
-          "solverRegistry": "",
-          "inputSettler": "",
-          "outputSettler": "",
-          "oracle": ""
+        "status": "active",
+        "tokens": {
+          "USDT": "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd"
         }
       }
     }
@@ -76,52 +93,68 @@
   
   "mainnet": {
     "hub": {
-      "chainId": 1,
-      "name": "Ethereum",
+      "chainId": 420691,
+      "name": "Jeju Mainnet",
+      "rpcUrl": "https://rpc.jeju.network",
       "l1StakeManager": "",
-      "status": "not_deployed"
+      "crossChainPaymaster": "",
+      "status": "planned"
     },
     "chains": {
-      "420691": {
-        "name": "Jeju",
+      "ethereum": {
+        "chainId": 1,
+        "name": "Ethereum",
+        "rpcUrl": "https://eth.llamarpc.com",
         "crossChainPaymaster": "",
-        "status": "not_deployed"
+        "l1StakeManager": "",
+        "status": "planned",
+        "tokens": {
+          "USDC": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "USDT": "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+        }
       },
-      "8453": {
+      "base": {
+        "chainId": 8453,
         "name": "Base",
+        "rpcUrl": "https://mainnet.base.org",
         "crossChainPaymaster": "",
-        "status": "not_deployed"
+        "status": "planned",
+        "tokens": {
+          "USDC": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+        }
       },
-      "42161": {
+      "arbitrum": {
+        "chainId": 42161,
         "name": "Arbitrum One",
+        "rpcUrl": "https://arb1.arbitrum.io/rpc",
         "crossChainPaymaster": "",
-        "status": "not_deployed"
+        "status": "planned",
+        "tokens": {
+          "USDC": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+          "USDT": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9"
+        }
       },
-      "10": {
+      "optimism": {
+        "chainId": 10,
         "name": "Optimism",
+        "rpcUrl": "https://mainnet.optimism.io",
         "crossChainPaymaster": "",
-        "status": "not_deployed"
+        "status": "planned",
+        "tokens": {
+          "USDC": "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
+          "USDT": "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58"
+        }
       },
-      "56": {
+      "bsc": {
+        "chainId": 56,
         "name": "BNB Chain",
+        "rpcUrl": "https://bsc-dataseed.bnbchain.org",
         "crossChainPaymaster": "",
-        "status": "not_deployed"
-      }
-    }
-  },
-  
-  "localnet": {
-    "hub": {
-      "chainId": 1337,
-      "name": "L1 Localnet",
-      "l1StakeManager": "",
-      "status": "local"
-    },
-    "chains": {
-      "420691": {
-        "name": "Jeju Localnet",
-        "crossChainPaymaster": "0xa7Cd0542a8F4CCa6Dd021C3A0Af0E423Ad7DFfB7",
-        "status": "local"
+        "status": "planned",
+        "tokens": {
+          "USDC": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+          "USDT": "0x55d398326f99059fF775485246999027B3197955"
+        }
       }
     }
   }

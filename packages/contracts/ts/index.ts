@@ -103,11 +103,13 @@ export {
   erc20FactoryDeployments,
   identitySystemDeployments,
   paymasterDeployments,
+  xlpDeployments,
   // Helper functions
   getUniswapV4,
   getBazaarMarketplace,
   getERC20Factory,
   getIdentityRegistry,
+  getXLPDeployment,
   getContractAddresses,
   getContractAddressesByNetwork,
   // Raw deployments

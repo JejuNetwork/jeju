@@ -8,8 +8,7 @@ import { hasNFTMarketplace } from '@/config/contracts'
 import { JEJU_CHAIN_ID } from '@/config/chains'
 import { request, gql } from 'graphql-request'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
-
-const INDEXER_URL = process.env.NEXT_PUBLIC_INDEXER_URL || 'http://localhost:4350/graphql'
+import { INDEXER_URL } from '@/config'
 
 const NFT_QUERY = gql`
   query GetNFTs($owner: String) {

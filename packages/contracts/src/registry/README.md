@@ -446,8 +446,55 @@ validationRegistry.validationResponse(
 );
 ```
 
+## GitHub Reputation Provider
+
+The `GitHubReputationProvider` contract bridges off-chain GitHub contribution data to on-chain reputation:
+
+### Features
+- **Oracle-signed attestations** of GitHub contribution scores
+- **Stake discounts** based on contribution level (10-50%)
+- **Agent identity linking** between GitHub and ERC-8004 agents
+- **ValidationRegistry integration** for on-chain verification
+
+### Stake Discount Tiers
+| GitHub Score | Stake Discount |
+|--------------|----------------|
+| 30-50        | 10%            |
+| 51-70        | 20%            |
+| 71-90        | 35%            |
+| 91-100       | 50%            |
+
+### Integration Flow
+1. User links GitHub account via leaderboard.jeju.network
+2. User signs message to verify wallet ownership
+3. Leaderboard oracle generates attestation with contribution score
+4. User submits attestation on-chain via GitHubReputationProvider
+5. Stake discounts apply to ModerationMarketplace and other contracts
+
+### Example Usage
+```solidity
+// Submit attestation (user must own the agent)
+provider.submitAttestation(
+    agentId,
+    score,        // 0-100 normalized score
+    totalScore,   // Raw GitHub score
+    mergedPrs,
+    totalCommits,
+    timestamp,
+    oracleSignature
+);
+
+// Query stake discount for moderation
+uint256 discountBps = provider.getStakeDiscount(userWallet);
+// Returns 0-5000 (0-50% in basis points)
+
+// Check if user has reputation boost
+(bool hasBoost, uint8 score) = provider.hasReputationBoost(userWallet);
+```
+
 ## Future Enhancements
 
+- [x] GitHub reputation integration
 - [ ] Agent search and filtering
 - [ ] Reputation dashboard
 - [ ] Validation marketplace

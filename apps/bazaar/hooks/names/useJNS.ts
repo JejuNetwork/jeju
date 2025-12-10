@@ -10,10 +10,11 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { type Address, type Hash, formatEther, parseEther, namehash } from 'viem';
+import { CONTRACTS } from '@/config';
 
-// Contract addresses (from deployment)
-const JNS_REGISTRAR = process.env.NEXT_PUBLIC_JNS_REGISTRAR as Address || '0x0000000000000000000000000000000000000000';
-const BAZAAR = process.env.NEXT_PUBLIC_BAZAAR as Address || '0x0000000000000000000000000000000000000000';
+// Contract addresses from centralized config
+const JNS_REGISTRAR = CONTRACTS.jnsRegistrar;
+const BAZAAR = CONTRACTS.bazaar;
 
 // JNS Registrar is an ERC-721, so names can be listed on Bazaar
 const JNS_REGISTRAR_ABI = [
