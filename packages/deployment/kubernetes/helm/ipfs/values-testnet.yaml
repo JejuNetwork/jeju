@@ -1,7 +1,7 @@
 # IPFS - Testnet Configuration
 
 image:
-  repository: 123456789012.dkr.ecr.us-east-1.amazonaws.com/jeju/ipfs
+  repository: 502713364895.dkr.ecr.us-east-1.amazonaws.com/jeju/ipfs
   tag: "testnet-latest"
 
 replicaCount: 2

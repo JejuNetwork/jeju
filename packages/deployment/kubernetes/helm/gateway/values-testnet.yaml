@@ -1,7 +1,7 @@
 # Gateway - Testnet Configuration
 
 image:
-  repository: 123456789012.dkr.ecr.us-east-1.amazonaws.com/jeju/gateway
+  repository: 502713364895.dkr.ecr.us-east-1.amazonaws.com/jeju/gateway
   tag: "testnet-latest"
 
 replicaCount: 3

@@ -1,7 +1,7 @@
 # Leaderboard - Testnet Configuration
 
 image:
-  repository: 123456789012.dkr.ecr.us-east-1.amazonaws.com/jeju/leaderboard
+  repository: 502713364895.dkr.ecr.us-east-1.amazonaws.com/jeju/leaderboard
   tag: "testnet-latest"
 
 replicaCount: 2
