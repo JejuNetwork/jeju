@@ -1,9 +1,9 @@
 replicaCount: 1
 
 image:
-  repository: ghcr.io/ethereum-optimism/op-proposer
+  repository: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-proposer
   pullPolicy: IfNotPresent
-  tag: "v1.10.0"
+  tag: "v1.9.4"
 
 nameOverride: ""
 fullnameOverride: ""
