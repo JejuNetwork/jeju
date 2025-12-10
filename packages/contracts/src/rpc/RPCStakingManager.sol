@@ -92,12 +92,10 @@ contract RPCStakingManager is IRPCStakingManager, Ownable, Pausable, ReentrancyG
         if (amount == 0) revert InvalidAmount();
 
         StakePosition storage pos = positions[user];
-        Tier oldTier = _calculateTier(pos.stakedAmount);
+        Tier oldTier = getTier(user);
 
-        // Transfer tokens
         jejuToken.safeTransferFrom(user, address(this), amount);
 
-        // Update position
         if (!pos.isActive) {
             pos.isActive = true;
             pos.stakedAt = block.timestamp;
@@ -106,13 +104,11 @@ contract RPCStakingManager is IRPCStakingManager, Ownable, Pausable, ReentrancyG
         pos.stakedAmount += amount;
         totalStaked += amount;
 
-        // Link agent if provided
         if (agentId > 0) {
             _linkAgent(user, agentId);
         }
 
-        Tier newTier = _calculateTier(pos.stakedAmount);
-
+        Tier newTier = getTier(user);
         emit Staked(user, amount, newTier);
         if (oldTier != newTier) {
             emit TierChanged(user, oldTier, newTier);
@@ -152,14 +148,14 @@ contract RPCStakingManager is IRPCStakingManager, Ownable, Pausable, ReentrancyG
         if (amount > pos.stakedAmount) revert InsufficientBalance();
         if (pos.unbondingStartTime > 0) revert StillUnbonding();
 
-        Tier oldTier = _calculateTier(pos.stakedAmount);
+        Tier oldTier = getTier(msg.sender);
 
         pos.unbondingAmount = amount;
         pos.unbondingStartTime = block.timestamp;
         pos.stakedAmount -= amount;
         totalStaked -= amount;
 
-        Tier newTier = _calculateTier(pos.stakedAmount);
+        Tier newTier = getTier(msg.sender);
 
         emit UnbondingStarted(msg.sender, amount);
         if (oldTier != newTier) {
@@ -368,23 +364,23 @@ contract RPCStakingManager is IRPCStakingManager, Ownable, Pausable, ReentrancyG
     function slashStake(address user, uint256 amount, bytes32 reportId) external override onlyModerator {
         StakePosition storage pos = positions[user];
         
-        // Can only slash staked amount (not unbonding)
         uint256 slashable = pos.stakedAmount;
         uint256 toSlash = amount > slashable ? slashable : amount;
-        
         if (toSlash == 0) revert InvalidAmount();
+        
+        Tier oldTier = getTier(user);
         
         pos.stakedAmount -= toSlash;
         totalStaked -= toSlash;
         
-        // Send slashed funds to treasury
         if (treasury != address(0)) {
             jejuToken.safeTransfer(treasury, toSlash);
         }
         
-        // Update tier
-        Tier newTier = _calculateTier(pos.stakedAmount);
-        emit TierChanged(user, getTier(user), newTier);
+        Tier newTier = getTier(user);
+        if (oldTier != newTier) {
+            emit TierChanged(user, oldTier, newTier);
+        }
         emit StakeSlashed(user, toSlash, reportId, msg.sender);
     }
 

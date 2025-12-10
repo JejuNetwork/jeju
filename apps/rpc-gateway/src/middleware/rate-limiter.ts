@@ -65,7 +65,7 @@ export function rateLimiter() {
       return next();
     }
 
-    let rateLimit = RATE_LIMITS.FREE;
+    let rateLimit: number = RATE_LIMITS.FREE;
     if (address) {
       if (!(await checkAccess(address))) return c.json({ error: 'Access denied' }, 403);
       rateLimit = await getContractRateLimit(address);
