@@ -1,23 +1,9 @@
 import { createPublicClient, createWalletClient, http, type PublicClient, type WalletClient, type Chain } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { mainnet, arbitrum, optimism, sepolia } from 'viem/chains';
 import { LiquidityManager } from './liquidity';
 import { StrategyEngine } from './strategy';
 import { EventMonitor, type IntentEvent } from './monitor';
-
-const jejuMainnet: Chain = {
-  id: 420691,
-  name: 'Jeju',
-  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: { default: { http: [process.env.JEJU_RPC_URL || 'https://rpc.jeju.network'] } },
-};
-
-const jejuTestnet: Chain = {
-  id: 420690,
-  name: 'Jeju Testnet',
-  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: { default: { http: [process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jeju.network'] } },
-};
+import { getChain } from '../lib/chains.js';
 
 interface SolverConfig {
   chains: Array<{ chainId: number; name: string; rpcUrl: string }>;
@@ -169,14 +155,6 @@ export class SolverAgent {
   }
 
   private getChainDef(chainId: number): Chain {
-    switch (chainId) {
-      case 1: return mainnet;
-      case 42161: return arbitrum;
-      case 10: return optimism;
-      case 420691: return jejuMainnet;
-      case 420690: return jejuTestnet;
-      case 11155111: return sepolia;
-      default: return mainnet;
-    }
+    return getChain(chainId);
   }
 }

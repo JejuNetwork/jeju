@@ -6,7 +6,7 @@
       "name": "hyperscape",
       "url": "git@github.com:elizaos/hyperscape.git",
       "path": "vendor/hyperscape",
-      "description": "Hyperscape game integration",
+      "description": "Hyperscape 3D game engine",
       "private": true,
       "optional": true,
       "branch": "main"
@@ -15,7 +15,7 @@
       "name": "babylon",
       "url": "git@github.com:elizaos/babylon.git",
       "path": "vendor/babylon",
-      "description": "Babylon integration",
+      "description": "Babylon game engine integration",
       "private": true,
       "optional": true,
       "branch": "main"
@@ -34,6 +34,24 @@
       "url": "git@github.com:elizaos/otc-agent.git",
       "path": "vendor/otc-agent",
       "description": "OTC trading desk agent",
+      "private": true,
+      "optional": true,
+      "branch": "main"
+    },
+    {
+      "name": "eliza",
+      "url": "git@github.com:elizaos/eliza.git",
+      "path": "vendor/eliza",
+      "description": "ElizaOS agent framework",
+      "private": true,
+      "optional": true,
+      "branch": "main"
+    },
+    {
+      "name": "otaku",
+      "url": "git@github.com:elizaos/otaku.git",
+      "path": "vendor/otaku",
+      "description": "Otaku anime/manga integration",
       "private": true,
       "optional": true,
       "branch": "main"

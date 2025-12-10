@@ -1,18 +1,5 @@
-import { createPublicClient, http, type PublicClient, type Address, type Chain, type Abi } from 'viem';
-import { arbitrum, arbitrumSepolia, optimism, optimismSepolia, mainnet, sepolia } from 'viem/chains';
-
-// Custom Jeju chain definition
-const jeju: Chain = {
-  id: 420690,
-  name: 'Jeju',
-  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: {
-    default: { http: [process.env.JEJU_RPC_URL || 'http://localhost:8545'] },
-  },
-  blockExplorers: {
-    default: { name: 'Jeju Explorer', url: 'https://explorer.jeju.network' },
-  },
-};
+import { createPublicClient, http, type PublicClient, type Address, type Abi } from 'viem';
+import { CHAINS, getChain } from '../lib/chains.js';
 
 // ABIs for reading contract state and watching events
 const INPUT_SETTLER_ABI = [
@@ -118,36 +105,16 @@ const SOLVER_REGISTRY_ABI = [
   },
 ] as const satisfies Abi;
 
-// Chain definitions
-const CHAINS: Record<number, Chain> = {
-  1: mainnet,
-  42161: arbitrum,
-  10: optimism,
-  11155111: sepolia,
-  421614: arbitrumSepolia,
-  11155420: optimismSepolia,
-  420690: jeju,
-};
-
-// Client pool
 const clients = new Map<number, PublicClient>();
 
 function getClient(chainId: number): PublicClient {
   if (!clients.has(chainId)) {
-    const chain = CHAINS[chainId];
-    if (!chain) {
-      throw new Error(`Unsupported chain: ${chainId}`);
-    }
-    
+    const chain = getChain(chainId);
     const rpcUrl = process.env[`OIF_RPC_${chainId}`] 
       || process.env[`${chain.name.toUpperCase().replace(/ /g, '_')}_RPC_URL`]
       || chain.rpcUrls.default.http[0];
     
-    const client = createPublicClient({
-      chain,
-      transport: http(rpcUrl),
-    });
-    clients.set(chainId, client as PublicClient);
+    clients.set(chainId, createPublicClient({ chain, transport: http(rpcUrl) }) as PublicClient);
   }
   return clients.get(chainId)!;
 }

@@ -324,7 +324,7 @@ export function useJNSLookup() {
   }, [publicClient]);
 
   const getOwnerNames = useCallback(async (ownerAddress: Address): Promise<JNSRegistration[]> => {
-    if (!publicClient || JNS_REGISTRAR === '0x0000000000000000000000000000000000000000') {
+    if (JNS_REGISTRAR === '0x0000000000000000000000000000000000000000') {
       return [];
     }
 
@@ -359,7 +359,7 @@ export function useJNSLookup() {
       inGracePeriod: false,
       isAvailable: false,
     }));
-  }, [publicClient]);
+  }, []);
 
   return {
     checkAvailability,

@@ -7,7 +7,7 @@
     "packages/*",
     "apps/*",
     "vendor/*",
-    "vendor/hyperscape/packages/*"
+    "vendor/*/packages/*"
   ],
   "overrides": {
     "@jejunetwork/contracts": "workspace:*",

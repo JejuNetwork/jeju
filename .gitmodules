@@ -54,3 +54,16 @@
 	path = vendor/launchpad
 	url = git@github.com:elizaos/launchpad.git
 	ignore = untracked
+[submodule "packages/contracts/lib/openzeppelin-contracts-upgradeable"]
+	path = packages/contracts/lib/openzeppelin-contracts-upgradeable
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable
+
+[submodule "vendor/eliza"]
+	path = vendor/eliza
+	url = git@github.com:elizaos/eliza.git
+	ignore = untracked
+
+[submodule "vendor/otaku"]
+	path = vendor/otaku
+	url = git@github.com:elizaos/otaku.git
+	ignore = untracked

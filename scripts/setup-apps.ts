@@ -37,29 +37,9 @@ function loadVendorAppsConfig(): VendorAppsConfig {
 }
 
 async function checkGitAccess(url: string): Promise<boolean> {
-  // Extract host from SSH URL (git@github.com:org/repo.git)
-  const match = url.match(/git@([^:]+):/);
-  if (!match) {
-    // HTTPS URL - assume accessible
-    return true;
-  }
-  
-  const host = match[1];
-  
-  // Test SSH access to the host
-  const result = await $`ssh -o BatchMode=yes -o ConnectTimeout=5 -T git@${host} 2>&1`.nothrow().quiet();
-  
-  // SSH to GitHub returns exit code 1 with "Hi username!" for success
-  // Exit code 255 means permission denied
-  const output = result.stdout.toString() + result.stderr.toString();
-  
-  // GitHub specifically says "Hi <username>!" on successful auth
-  if (output.includes('successfully authenticated') || output.includes('Hi ')) {
-    return true;
-  }
-  
-  // Permission denied or other errors
-  return result.exitCode !== 255;
+  // Use git ls-remote to check access to the specific repo (fast, no clone)
+  const result = await $`git ls-remote --exit-code ${url} HEAD`.nothrow().quiet();
+  return result.exitCode === 0;
 }
 
 async function cloneVendorApp(app: VendorAppConfig): Promise<boolean> {

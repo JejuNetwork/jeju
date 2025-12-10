@@ -482,18 +482,17 @@ export function useBestGasToken(
 }
 
 export function useSwapFeeEstimate(
-  sourceChainId: number,
-  destinationChainId: number,
+  _sourceChainId: number,
+  _destinationChainId: number,
   amount: bigint
 ) {
-  const isCrossChain = sourceChainId !== destinationChainId;
   const xlpFee = amount * 5n / 10000n;
 
   return {
     networkFee: 0n,
     xlpFee,
     totalFee: xlpFee,
-    estimatedTime: isCrossChain ? 0 : 0,
+    estimatedTime: 0,
     isLoading: false,
     isEstimate: true,
   };

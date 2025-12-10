@@ -65,7 +65,6 @@ export default function XLPDashboard() {
     isLoading: isStakeLoading,
     isSuccess: isStakeSuccess,
   } = useXLPRegistration(l1StakeManager);
-  const completeUnbonding = async () => {};
 
   const isLoading = isLiquidityLoading || isStakeLoading;
 

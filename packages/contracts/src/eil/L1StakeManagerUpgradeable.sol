@@ -2,7 +2,7 @@
 pragma solidity ^0.8.26;
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
@@ -15,19 +15,15 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 contract L1StakeManagerUpgradeable is 
     Initializable,
     OwnableUpgradeable,
-    ReentrancyGuardUpgradeable,
+    ReentrancyGuard,
     PausableUpgradeable,
     UUPSUpgradeable
 {
-    // ============ Constants ============
-    
     uint256 public constant UNBONDING_PERIOD = 8 days;
     uint256 public constant MIN_STAKE = 1 ether;
-    uint256 public constant SLASH_PENALTY = 50; // 50%
+    uint256 public constant SLASH_PENALTY = 50;
     uint256 public constant MAX_CHAINS = 20;
 
-    // ============ State ============
-    
     mapping(uint256 => address) public l2Paymasters;
     mapping(address => XLPStake) public stakes;
     mapping(address => uint256[]) public xlpChains;
@@ -36,11 +32,8 @@ contract L1StakeManagerUpgradeable is
     uint256 public totalStaked;
     uint256 public totalSlashed;
     uint256 public activeXLPCount;
-    
     mapping(address => bool) public authorizedSlashers;
 
-    // ============ Structs ============
-    
     struct XLPStake {
         uint256 stakedAmount;
         uint256 unbondingAmount;
@@ -58,8 +51,6 @@ contract L1StakeManagerUpgradeable is
         bool disputed;
     }
 
-    // ============ Events ============
-    
     event XLPRegistered(address indexed xlp, uint256 stake, uint256[] chains);
     event StakeDeposited(address indexed xlp, uint256 amount, uint256 total);
     event UnbondingStarted(address indexed xlp, uint256 amount, uint256 unlockTime);
@@ -67,8 +58,6 @@ contract L1StakeManagerUpgradeable is
     event XLPSlashed(address indexed xlp, uint256 amount, bytes32 reason);
     event PaymasterRegistered(uint256 indexed chainId, address paymaster);
 
-    // ============ Errors ============
-    
     error InsufficientStake();
     error AlreadyRegistered();
     error NotRegistered();
@@ -79,8 +68,6 @@ contract L1StakeManagerUpgradeable is
     error InvalidAmount();
     error NotAuthorized();
 
-    // ============ Initializer ============
-    
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -88,13 +75,9 @@ contract L1StakeManagerUpgradeable is
     
     function initialize(address owner) public initializer {
         __Ownable_init(owner);
-        __ReentrancyGuard_init();
         __Pausable_init();
-        __UUPSUpgradeable_init();
     }
 
-    // ============ XLP Functions ============
-    
     function register(uint256[] calldata chains) external payable nonReentrant whenNotPaused {
         if (msg.value < MIN_STAKE) revert InsufficientStake();
         if (stakes[msg.sender].isActive) revert AlreadyRegistered();
@@ -166,8 +149,6 @@ contract L1StakeManagerUpgradeable is
         emit StakeWithdrawn(msg.sender, amount);
     }
 
-    // ============ Admin Functions ============
-    
     function registerPaymaster(uint256 chainId, address paymaster) external onlyOwner {
         l2Paymasters[chainId] = paymaster;
         emit PaymasterRegistered(chainId, paymaster);
@@ -189,28 +170,12 @@ contract L1StakeManagerUpgradeable is
         totalStaked -= slashAmount;
         totalSlashed += slashAmount;
         
-        bytes32 recordId = keccak256(abi.encodePacked(xlp, block.timestamp, reason));
-        slashRecords[recordId] = SlashRecord({
-            xlp: xlp,
-            amount: slashAmount,
-            reason: reason,
-            timestamp: block.timestamp,
-            disputed: false
-        });
-        
         emit XLPSlashed(xlp, slashAmount, reason);
     }
     
-    function pause() external onlyOwner {
-        _pause();
-    }
-    
-    function unpause() external onlyOwner {
-        _unpause();
-    }
+    function pause() external onlyOwner { _pause(); }
+    function unpause() external onlyOwner { _unpause(); }
 
-    // ============ View Functions ============
-    
     function getXLPStake(address xlp) external view returns (XLPStake memory) {
         return stakes[xlp];
     }
@@ -223,12 +188,5 @@ contract L1StakeManagerUpgradeable is
         return stakes[xlp].isActive;
     }
 
-    // ============ UUPS ============
-    
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
-    
-    function getImplementation() external view returns (address) {
-        return _getImplementation();
-    }
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 }
-

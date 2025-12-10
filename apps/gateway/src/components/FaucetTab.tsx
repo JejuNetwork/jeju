@@ -1,34 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAccount } from 'wagmi';
 import { Droplet, Clock, CheckCircle2, AlertCircle, ExternalLink, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
-
-interface FaucetStatus {
-  eligible: boolean;
-  isRegistered: boolean;
-  cooldownRemaining: number;
-  nextClaimAt: number | null;
-  amountPerClaim: string;
-  faucetBalance: string;
-}
-
-interface FaucetClaimResult {
-  success: boolean;
-  txHash?: string;
-  amount?: string;
-  error?: string;
-  cooldownRemaining?: number;
-}
-
-interface FaucetInfo {
-  name: string;
-  description: string;
-  tokenSymbol: string;
-  amountPerClaim: string;
-  cooldownHours: number;
-  requirements: string[];
-  chainId: number;
-  chainName: string;
-}
+import type { FaucetStatus, FaucetClaimResult, FaucetInfo } from '../services/faucet-service';
 
 function formatTime(ms: number): string {
   const hours = Math.floor(ms / 3600000);

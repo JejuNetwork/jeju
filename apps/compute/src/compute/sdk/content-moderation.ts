@@ -136,15 +136,33 @@ export interface ContentModerationConfig {
 }
 
 // ============================================================================
-// Expletives Filter (Local)
+// AI Classifier Response Types
 // ============================================================================
 
-/**
- * Common profanity and harmful terms
- * Using a subset here - in production, use the full `expletives` npm package
- * 
- * These patterns are used by the CATEGORY_PATTERNS array below.
- */
+interface AIClassifierResponse {
+  choices: AIClassifierChoice[];
+}
+
+interface AIClassifierChoice {
+  message: {
+    content: string;
+  };
+}
+
+interface AIClassifierParsedResponse {
+  safe: boolean;
+  categories?: AIClassifierCategory[];
+}
+
+interface AIClassifierCategory {
+  category: string;
+  confidence: number;
+  explanation?: string;
+}
+
+// ============================================================================
+// Expletives Filter (Local)
+// ============================================================================
 
 /** Terms that indicate high severity regardless of context */
 const HIGH_SEVERITY_TERMS = [
@@ -348,61 +366,76 @@ ${content.slice(0, 2000)}
 
 Respond with valid JSON only:`;
 
-    try {
-      const response = await fetch(`${this.config.aiClassifierEndpoint}/v1/chat/completions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: this.config.aiClassifierModel ?? 'moderation',
-          messages: [{ role: 'user', content: prompt }],
-          max_tokens: 500,
-          temperature: 0.1,
-        }),
-        signal: AbortSignal.timeout(5000),
-      });
+    const response = await fetch(`${this.config.aiClassifierEndpoint}/v1/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: this.config.aiClassifierModel ?? 'moderation',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 500,
+        temperature: 0.1,
+      }),
+      signal: AbortSignal.timeout(5000),
+    }).catch(() => null);
 
-      if (!response.ok) {
-        console.warn('[ContentModerator] AI classifier request failed:', response.status);
-        return [];
-      }
-
-      const data = await response.json() as {
-        choices: Array<{ message: { content: string } }>;
-      };
-
-      const aiResponse = data.choices[0]?.message?.content ?? '';
-      
-      // Parse JSON response
-      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) return [];
-
-      const parsed = JSON.parse(jsonMatch[0]) as {
-        safe: boolean;
-        categories?: Array<{
-          category: string;
-          confidence: number;
-          explanation?: string;
-        }>;
-      };
-
-      if (parsed.safe || !parsed.categories) {
-        return [];
-      }
-
-      return parsed.categories
-        .filter(c => c.confidence >= this.config.minConfidenceToFlag)
-        .map(c => ({
-          category: this.mapCategoryName(c.category),
-          severity: this.inferSeverity(c.category, c.confidence),
-          confidence: c.confidence,
-          source: ModerationSourceEnum.AI_CLASSIFIER as ModerationSource,
-          explanation: c.explanation,
-        }));
-
-    } catch (error) {
-      console.warn('[ContentModerator] AI classifier error:', error);
+    if (!response?.ok) {
       return [];
     }
+
+    const data = await response.json().catch(() => null) as AIClassifierResponse | null;
+    if (!data) return [];
+
+    const aiResponse = data.choices[0]?.message?.content ?? '';
+    
+    // Parse JSON response
+    const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return [];
+
+    const parsed = this.parseAIResponse(jsonMatch[0]);
+    if (!parsed || parsed.safe || !parsed.categories) {
+      return [];
+    }
+
+    return parsed.categories
+      .filter(c => c.confidence >= this.config.minConfidenceToFlag)
+      .map(c => ({
+        category: this.mapCategoryName(c.category),
+        severity: this.inferSeverity(c.category, c.confidence),
+        confidence: c.confidence,
+        source: ModerationSourceEnum.AI_CLASSIFIER,
+        explanation: c.explanation,
+      }));
+  }
+
+  /**
+   * Parse AI classifier JSON response safely
+   */
+  private parseAIResponse(json: string): AIClassifierParsedResponse | null {
+    const parsed = JSON.parse(json) as Record<string, unknown>;
+    
+    if (typeof parsed.safe !== 'boolean') {
+      return null;
+    }
+
+    const result: AIClassifierParsedResponse = {
+      safe: parsed.safe,
+    };
+
+    if (Array.isArray(parsed.categories)) {
+      result.categories = parsed.categories
+        .filter((c): c is Record<string, unknown> => 
+          typeof c === 'object' && c !== null &&
+          typeof (c as Record<string, unknown>).category === 'string' &&
+          typeof (c as Record<string, unknown>).confidence === 'number'
+        )
+        .map(c => ({
+          category: c.category as string,
+          confidence: c.confidence as number,
+          explanation: typeof c.explanation === 'string' ? c.explanation : undefined,
+        }));
+    }
+
+    return result;
   }
 
   /**

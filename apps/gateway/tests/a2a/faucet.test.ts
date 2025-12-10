@@ -277,7 +277,7 @@ describe('Faucet REST API', () => {
     expect(data.amountPerClaim).toBe('100');
     expect(data.cooldownHours).toBe(12);
     expect(data.chainId).toBe(420690);
-    expect(data.chainName).toBe('Jeju');
+    expect(data.chainName).toBe('Jeju Testnet');
     expect(data.requirements).toBeDefined();
     expect(data.requirements.length).toBe(2);
   });
