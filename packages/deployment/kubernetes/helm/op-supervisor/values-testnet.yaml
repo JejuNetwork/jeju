@@ -1,0 +1,31 @@
+# OP-Supervisor values for testnet
+# Note: Supervisor is for Superchain interop - optional for standalone testnet
+
+replicaCount: 0  # Disabled for standalone testnet
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+nodeSelector: {}
+
+tolerations: []
+
+config:
+  datadir: "/data"
+  l1:
+    # Use internal L1 full node
+    rpcUrl: "http://geth-l1.l1.svc.cluster.local:8545"
+    beacon:
+      url: "http://lighthouse.l1.svc.cluster.local:5052"
+  chains:
+    - name: "jeju-testnet"
+      chainId: 420690
+      rpcUrl: "http://reth-rpc.rpc.svc.cluster.local:8545"
+      opNodeUrl: "http://op-node.op-stack.svc.cluster.local:9545"
+  interop:
+    enabled: false  # Not connected to Superchain yet

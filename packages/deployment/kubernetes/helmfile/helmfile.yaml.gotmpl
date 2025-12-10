@@ -55,14 +55,32 @@ releases:
       - installCRDs: true
       - ../helm/cert-manager/values-{{ .Environment.Name }}.yaml
 
-  # Lighthouse Beacon Node (L1 - Required for Fusaka blob data)
-  - name: lighthouse
+  # ==========================================================================
+  # L1 Full Node Infrastructure (Required for EIL/OIF)
+  # ==========================================================================
+
+  # Geth L1 Execution Layer (Sepolia for testnet, Mainnet for prod)
+  - name: geth-l1
     namespace: l1
     createNamespace: true
+    chart: ../helm/geth-l1
+    installed: {{ ne .Environment.Name "localnet" }}
+    values:
+      - ../helm/geth-l1/values.yaml
+      - ../helm/geth-l1/values-{{ .Environment.Name }}.yaml
+
+  # Lighthouse Beacon Node (L1 Consensus - Required for blob data)
+  - name: lighthouse
+    namespace: l1
     chart: ../helm/lighthouse
     installed: {{ ne .Environment.Name "localnet" }}
     values:
       - ../helm/lighthouse/values.yaml
+      - ../helm/lighthouse/values-{{ .Environment.Name }}.yaml
+
+  # ==========================================================================
+  # L2 OP Stack Components
+  # ==========================================================================
 
   # OP-Node (Consensus Layer)
   - name: op-node

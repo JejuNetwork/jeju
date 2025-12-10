@@ -1,0 +1,124 @@
+# Geth L1 - Ethereum Execution Layer Node
+# Required for EIL/OIF to have reliable L1 access
+
+replicaCount: 1
+
+image:
+  repository: ethereum/client-go
+  pullPolicy: IfNotPresent
+  tag: "v1.14.11"
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "6060"
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsUser: 1000
+  runAsNonRoot: true
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  http:
+    port: 8545
+  ws:
+    port: 8546
+  authrpc:
+    port: 8551
+  p2p:
+    port: 30303
+  metrics:
+    port: 6060
+
+resources:
+  limits:
+    cpu: 4000m
+    memory: 16Gi
+  requests:
+    cpu: 2000m
+    memory: 8Gi
+
+persistence:
+  enabled: true
+  storageClass: "gp3"
+  accessMode: ReadWriteOnce
+  size: 500Gi  # Sepolia is ~200GB, mainnet is ~1.5TB
+  mountPath: /data
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+config:
+  # Network: "mainnet" or "sepolia"
+  network: "sepolia"
+  
+  # Sync mode: "snap" (fast) or "full"
+  syncMode: "snap"
+  
+  # Enable state pruning
+  gcMode: "full"
+  
+  # HTTP RPC
+  http:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 8545
+    api: "eth,net,web3,engine,admin,debug"
+    vhosts: "*"
+    corsdomain: "*"
+  
+  # WebSocket RPC
+  ws:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 8546
+    api: "eth,net,web3"
+    origins: "*"
+  
+  # Engine API (for consensus layer)
+  authrpc:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 8551
+    vhosts: "*"
+  
+  # P2P
+  p2p:
+    port: 30303
+    maxPeers: 50
+  
+  # Metrics
+  metrics:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 6060
+  
+  # Cache size in MB
+  cache: 4096
+  
+  # Data directory
+  dataDir: "/data"
+
+# JWT secret for engine API (shared with Lighthouse)
+secrets:
+  jwtSecret: ""  # Auto-generated if empty
+

@@ -1,0 +1,30 @@
+# OP-Dispute-Mon values for testnet
+# Monitors dispute games for fault proofs
+
+replicaCount: 1
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 1Gi
+  requests:
+    cpu: 250m
+    memory: 512Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+config:
+  l1:
+    # Use internal L1 full node
+    rpcUrl: "http://geth-l1.l1.svc.cluster.local:8545"
+  l2:
+    rpcUrl: "http://reth-rpc.rpc.svc.cluster.local:8545"
+  rollup:
+    rpcUrl: "http://op-node.op-stack.svc.cluster.local:9545"
+  gameFactory:
+    address: "0x0000000000000000000000000000000000000000"
+  monitor:
+    interval: "60s"
+

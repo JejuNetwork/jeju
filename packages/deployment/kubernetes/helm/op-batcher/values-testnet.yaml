@@ -1,4 +1,5 @@
 # OP-Batcher values for testnet
+# Uses internal L1 full node
 
 replicaCount: 1
 
@@ -16,11 +17,13 @@ tolerations: []
 
 config:
   l1:
-    rpcUrl: "https://1rpc.io/sepolia"
+    # Use internal L1 full node - no rate limits
+    rpcUrl: "http://geth-l1.l1.svc.cluster.local:8545"
   l2:
     rpcUrl: "http://reth-sequencer.execution.svc.cluster.local:8545"
   rollup:
     rpcUrl: "http://op-node.op-stack.svc.cluster.local:9545"
   dataAvailability:
     type: "calldata"
+  # Test account private key (Anvil default account 0)
   privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"

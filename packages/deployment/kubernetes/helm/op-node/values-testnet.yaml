@@ -1,4 +1,5 @@
 # OP-Node values for testnet
+# Uses internal L1 full node (geth-l1 + lighthouse)
 
 replicaCount: 1
 
@@ -23,17 +24,18 @@ config:
   l1ChainId: 11155111
   l2ChainId: 420690
   l1:
-    rpcUrl: "https://1rpc.io/sepolia"
-    rpcKind: "standard"
+    # Use internal L1 full node - no rate limits
+    rpcUrl: "http://geth-l1.l1.svc.cluster.local:8545"
+    rpcKind: "geth"
     beacon:
-      url: "https://ethereum-sepolia-beacon-api.publicnode.com"
+      # Use internal Lighthouse beacon node
+      url: "http://lighthouse.l1.svc.cluster.local:5052"
   l2:
     engineRpc: "http://reth-sequencer.execution.svc.cluster.local:8551"
     engineJwtSecret: "/secrets/jwt-secret.txt"
   p2p:
     bootnodes: []
   # Genesis and contract configuration
-  # Use Sepolia genesis block (block 0) to avoid hash validation issues
   genesisL1Hash: "0x25a5cc106eea7138acab33231d7160d69cb777ee0c2c553fcddf5138993e6dd9"
   genesisL1Number: 0
   genesisL2Hash: "0xa9a264f374dd37a03827836390158f9ffd0ddec31bd46259f647c2ed5b9cc0ba"

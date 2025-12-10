@@ -1,0 +1,23 @@
+# Geth L1 Testnet (Sepolia) values
+
+resources:
+  limits:
+    cpu: 4000m
+    memory: 16Gi
+  requests:
+    cpu: 2000m
+    memory: 8Gi
+
+persistence:
+  enabled: true
+  size: 300Gi  # Sepolia is smaller than mainnet
+
+nodeSelector: {}
+
+tolerations: []
+
+config:
+  network: "sepolia"
+  syncMode: "snap"
+  cache: 4096
+

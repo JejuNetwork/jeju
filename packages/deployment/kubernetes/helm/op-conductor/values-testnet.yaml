@@ -1,5 +1,7 @@
-# op-conductor testnet values
-replicaCount: 3
+# OP-Conductor values for testnet
+# Note: Conductor is for sequencer HA - optional for basic testnet
+
+replicaCount: 0  # Disabled for basic testnet - enable when HA is needed
 
 resources:
   limits:
@@ -14,9 +16,13 @@ persistence:
   storageClass: "gp3"
   size: 10Gi
 
+nodeSelector: {}
+
+tolerations: []
+
 config:
   raft:
     bootstrapCluster: true
     clusterID: "jeju-testnet-sequencer"
-
-
+  sequencer:
+    rpcUrl: "http://op-node.op-stack.svc.cluster.local:9545"

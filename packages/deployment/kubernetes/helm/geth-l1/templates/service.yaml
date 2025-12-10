@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "geth-l1.fullname" . }}
+  labels:
+    {{- include "geth-l1.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+  - port: {{ .Values.service.http.port }}
+    targetPort: http
+    protocol: TCP
+    name: http
+  - port: {{ .Values.service.ws.port }}
+    targetPort: ws
+    protocol: TCP
+    name: ws
+  - port: {{ .Values.service.authrpc.port }}
+    targetPort: authrpc
+    protocol: TCP
+    name: authrpc
+  - port: {{ .Values.service.p2p.port }}
+    targetPort: p2p-tcp
+    protocol: TCP
+    name: p2p-tcp
+  - port: {{ .Values.service.p2p.port }}
+    targetPort: p2p-udp
+    protocol: UDP
+    name: p2p-udp
+  - port: {{ .Values.service.metrics.port }}
+    targetPort: metrics
+    protocol: TCP
+    name: metrics
+  selector:
+    {{- include "geth-l1.selectorLabels" . | nindent 4 }}
+
