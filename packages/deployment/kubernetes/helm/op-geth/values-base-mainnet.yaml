@@ -1,0 +1,80 @@
+# OP-Geth for Base Mainnet
+# Production configuration
+
+replicaCount: 1
+
+image:
+  repository: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth
+  tag: "v1.101408.0"
+
+resources:
+  limits:
+    cpu: 4000m
+    memory: 16Gi
+  requests:
+    cpu: 2000m
+    memory: 8Gi
+
+persistence:
+  enabled: true
+  storageClass: "gp3"
+  size: 2Ti  # Base mainnet is large
+
+nodeSelector:
+  workload: l2
+  Environment: mainnet
+
+tolerations:
+  - key: workload
+    operator: Equal
+    value: l2
+    effect: NoSchedule
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: op-geth
+          topologyKey: kubernetes.io/hostname
+
+config:
+  network: "base-mainnet"
+  sequencerUrl: "https://mainnet-sequencer.base.org"
+  rollup:
+    syncMode: "execution-layer"
+  cache: 4096
+  gcMode: "full"
+  
+  http:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 8545
+    api: "eth,net,web3,debug,txpool"
+    vhosts: "*"
+    corsdomain: "*"
+  
+  ws:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 8546
+    api: "eth,net,web3"
+    origins: "*"
+  
+  authrpc:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 8551
+    vhosts: "*"
+  
+  p2p:
+    port: 30303
+    maxPeers: 50
+  
+  metrics:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 6060
+
