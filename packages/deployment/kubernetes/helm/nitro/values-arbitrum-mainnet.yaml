@@ -1,0 +1,76 @@
+# Nitro for Arbitrum One (Mainnet)
+# Production configuration
+
+replicaCount: 1
+
+image:
+  repository: offchainlabs/nitro-node
+  tag: "v3.2.1-d81324d"
+
+resources:
+  limits:
+    cpu: 8000m
+    memory: 32Gi
+  requests:
+    cpu: 4000m
+    memory: 16Gi
+
+persistence:
+  enabled: true
+  storageClass: "gp3"
+  size: 4Ti  # Arbitrum One is very large
+
+nodeSelector:
+  workload: l2
+  Environment: mainnet
+
+tolerations:
+  - key: workload
+    operator: Equal
+    value: l2
+    effect: NoSchedule
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: nitro
+          topologyKey: kubernetes.io/hostname
+
+config:
+  chain: "42161"  # Arbitrum One chain ID
+  parentChain:
+    # Use internal Ethereum mainnet L1 node
+    url: "http://geth-mainnet.l1.svc.cluster.local:8545"
+    beaconUrl: "http://lighthouse-mainnet.l1.svc.cluster.local:5052"
+  
+  http:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 8547
+    api: "eth,net,web3,arb,debug"
+    vhosts: "*"
+    corsdomain: "*"
+  
+  ws:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 8548
+    api: "eth,net,web3,arb"
+    origins: "*"
+  
+  feed:
+    port: 9642
+  
+  metrics:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 6070
+  
+  execution:
+    caching:
+      archive: false
+

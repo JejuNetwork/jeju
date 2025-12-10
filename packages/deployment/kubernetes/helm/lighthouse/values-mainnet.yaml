@@ -1,0 +1,70 @@
+# Lighthouse Beacon Node for Ethereum Mainnet
+# Production configuration
+
+replicaCount: 1
+
+image:
+  repository: sigp/lighthouse
+  tag: "v6.0.1"
+
+resources:
+  limits:
+    cpu: 8000m
+    memory: 16Gi
+  requests:
+    cpu: 4000m
+    memory: 8Gi
+
+persistence:
+  enabled: true
+  storageClass: "gp3"
+  size: 500Gi  # Mainnet beacon data
+
+nodeSelector:
+  workload: l1
+  Environment: mainnet
+
+tolerations:
+  - key: workload
+    operator: Equal
+    value: l1
+    effect: NoSchedule
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: lighthouse
+          topologyKey: kubernetes.io/hostname
+
+config:
+  network: "mainnet"
+  
+  # Connect to our Geth mainnet execution layer
+  execution:
+    endpoint: "http://geth-mainnet.l1.svc.cluster.local:8551"
+  
+  # Checkpoint sync for faster startup
+  checkpoint:
+    syncUrl: "https://mainnet-checkpoint-sync.stakely.io"
+  
+  # HTTP API
+  http:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 5052
+    allowOrigins: "*"
+  
+  # P2P
+  p2p:
+    port: 9000
+    discoveryPort: 9000
+    targetPeers: 100
+  
+  # Fusaka/PeerDAS settings
+  fusaka:
+    blobPruneDistance: 8640  # ~30 days
+

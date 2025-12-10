@@ -1,0 +1,82 @@
+# Geth L1 Mainnet (Ethereum) values
+# Production configuration for full Ethereum mainnet node
+
+replicaCount: 1
+
+image:
+  repository: ethereum/client-go
+  tag: "v1.14.11"
+
+resources:
+  limits:
+    cpu: 8000m
+    memory: 32Gi
+  requests:
+    cpu: 4000m
+    memory: 16Gi
+
+persistence:
+  enabled: true
+  storageClass: "gp3"
+  size: 2Ti  # Mainnet requires ~1.5TB+
+
+nodeSelector:
+  workload: l1
+  Environment: mainnet
+
+tolerations:
+  - key: workload
+    operator: Equal
+    value: l1
+    effect: NoSchedule
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: geth-l1
+          topologyKey: kubernetes.io/hostname
+
+config:
+  network: "mainnet"
+  syncMode: "snap"
+  gcMode: "full"
+  cache: 8192
+  
+  http:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 8545
+    api: "eth,net,web3,engine,admin"
+    vhosts: "*"
+    corsdomain: "*"
+  
+  ws:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 8546
+    api: "eth,net,web3"
+    origins: "*"
+  
+  authrpc:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 8551
+    vhosts: "*"
+  
+  p2p:
+    port: 30303
+    maxPeers: 100
+  
+  metrics:
+    enabled: true
+    addr: "0.0.0.0"
+    port: 6060
+
+secrets:
+  # Production JWT secret - MUST be replaced with secure value from secrets manager
+  jwtSecret: ""  # Use external secret management
+

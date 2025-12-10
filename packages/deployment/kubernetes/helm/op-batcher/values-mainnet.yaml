@@ -1,4 +1,5 @@
-# OP-Batcher values for mainnet
+# OP-Batcher values for Jeju Mainnet
+# Uses internal L1 and L2 nodes
 
 replicaCount: 2
 
@@ -11,7 +12,8 @@ resources:
     memory: 2Gi
 
 nodeSelector:
-  role: core
+  workload: core
+  Environment: mainnet
 
 tolerations:
   - key: workload
@@ -21,9 +23,33 @@ tolerations:
 
 config:
   l1:
-    rpcUrl: "https://eth.llamarpc.com"
+    # Use internal Ethereum mainnet L1 node
+    rpcUrl: "http://geth-mainnet.l1.svc.cluster.local:8545"
+  l2:
+    rpcUrl: "http://reth-sequencer.execution.svc.cluster.local:8545"
+  rollup:
+    rpcUrl: "http://op-node.op-stack.svc.cluster.local:9545"
   dataAvailability:
-    type: "eigenda"
+    # Use native blobs post-Fusaka
+    type: "blobs"
+  # Private key should be from external secret management
+  privateKey: ""  # MUST be set via secrets
+  
+  # Batch submission settings
+  maxChannelDuration: 200
+  subSafetyMargin: 10
+  pollInterval: "6s"
+  numConfirmations: 10
 
-
-
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - op-batcher
+        topologyKey: kubernetes.io/hostname

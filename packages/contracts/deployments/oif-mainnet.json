@@ -1,0 +1,183 @@
+{
+  "network": "mainnet",
+  "version": "2.0.0",
+  "lastUpdated": "2025-12-10T17:10:00.000Z",
+  "deployer": "",
+  "status": "not_deployed",
+  "chains": {
+    "1": {
+      "chainId": 1,
+      "name": "Ethereum Mainnet",
+      "internalRpcUrl": "http://geth-mainnet.l1.svc.cluster.local:8545",
+      "status": "pending",
+      "contracts": {
+        "solverRegistry": "",
+        "inputSettler": "",
+        "outputSettler": "",
+        "oracle": "",
+        "oracleType": "simple",
+        "l1StakeManager": ""
+      },
+      "_note": "Deploy L1StakeManager and OIF contracts"
+    },
+    "8453": {
+      "chainId": 8453,
+      "name": "Base",
+      "internalRpcUrl": "http://op-geth-base.l2-base.svc.cluster.local:8545",
+      "status": "pending",
+      "contracts": {
+        "solverRegistry": "",
+        "inputSettler": "",
+        "outputSettler": "",
+        "oracle": "",
+        "oracleType": "simple",
+        "crossChainPaymaster": ""
+      },
+      "_note": "Deploy OIF and EIL contracts"
+    },
+    "10": {
+      "chainId": 10,
+      "name": "OP Mainnet",
+      "internalRpcUrl": "http://op-geth-optimism.l2-optimism.svc.cluster.local:8545",
+      "status": "pending",
+      "contracts": {
+        "solverRegistry": "",
+        "inputSettler": "",
+        "outputSettler": "",
+        "oracle": "",
+        "oracleType": "superchain",
+        "crossChainPaymaster": ""
+      },
+      "_note": "Deploy OIF and EIL contracts - use Superchain oracle"
+    },
+    "42161": {
+      "chainId": 42161,
+      "name": "Arbitrum One",
+      "internalRpcUrl": "http://nitro-arbitrum.l2-arbitrum.svc.cluster.local:8547",
+      "status": "pending",
+      "contracts": {
+        "solverRegistry": "",
+        "inputSettler": "",
+        "outputSettler": "",
+        "oracle": "",
+        "oracleType": "simple",
+        "crossChainPaymaster": ""
+      },
+      "_note": "Deploy OIF and EIL contracts"
+    },
+    "420691": {
+      "chainId": 420691,
+      "name": "Jeju Mainnet",
+      "internalRpcUrl": "http://reth-sequencer.execution.svc.cluster.local:8545",
+      "status": "pending",
+      "contracts": {
+        "solverRegistry": "",
+        "inputSettler": "",
+        "outputSettler": "",
+        "oracle": "",
+        "oracleType": "superchain",
+        "crossChainPaymaster": ""
+      },
+      "_note": "Deploy OIF and EIL contracts - our chain"
+    }
+  },
+  "crossChainRoutes": [
+    {
+      "from": 8453,
+      "to": 420691,
+      "enabled": true,
+      "description": "Base → Jeju"
+    },
+    {
+      "from": 420691,
+      "to": 8453,
+      "enabled": true,
+      "description": "Jeju → Base"
+    },
+    {
+      "from": 1,
+      "to": 420691,
+      "enabled": true,
+      "description": "Ethereum → Jeju"
+    },
+    {
+      "from": 420691,
+      "to": 1,
+      "enabled": true,
+      "description": "Jeju → Ethereum"
+    },
+    {
+      "from": 42161,
+      "to": 420691,
+      "enabled": true,
+      "description": "Arbitrum → Jeju"
+    },
+    {
+      "from": 420691,
+      "to": 42161,
+      "enabled": true,
+      "description": "Jeju → Arbitrum"
+    },
+    {
+      "from": 10,
+      "to": 420691,
+      "enabled": true,
+      "description": "OP Mainnet → Jeju"
+    },
+    {
+      "from": 420691,
+      "to": 10,
+      "enabled": true,
+      "description": "Jeju → OP Mainnet"
+    }
+  ],
+  "deploymentOrder": [
+    "1. Deploy L1 infrastructure (geth-mainnet + lighthouse-mainnet)",
+    "2. Deploy L2 infrastructure (op-geth-base, op-geth-optimism, nitro-arbitrum)",
+    "3. Wait for all nodes to sync (48-72 hours)",
+    "4. Generate secure operator keys (sequencer, batcher, proposer, challenger)",
+    "5. Fund deployer wallet on all chains",
+    "6. Deploy L1 contracts on Ethereum (L1StakeManager, OIF)",
+    "7. Deploy L2 contracts on Base (CrossChainPaymaster, OIF)",
+    "8. Deploy L2 contracts on OP Mainnet",
+    "9. Deploy L2 contracts on Arbitrum One",
+    "10. Deploy Jeju L2 genesis contracts",
+    "11. Configure cross-chain attesters",
+    "12. Register initial XLPs and solvers",
+    "13. Verify cross-chain liquidity flows",
+    "14. Launch Jeju mainnet"
+  ],
+  "infrastructure": {
+    "l1": {
+      "namespace": "l1",
+      "pods": ["geth-mainnet-0", "lighthouse-mainnet-0"]
+    },
+    "l2-base": {
+      "namespace": "l2-base",
+      "pods": ["op-geth-base-0"]
+    },
+    "l2-optimism": {
+      "namespace": "l2-optimism",
+      "pods": ["op-geth-optimism-0"]
+    },
+    "l2-arbitrum": {
+      "namespace": "l2-arbitrum",
+      "pods": ["nitro-arbitrum-0"]
+    },
+    "jeju": {
+      "namespace": "execution",
+      "pods": ["reth-sequencer-0", "reth-rpc-0"]
+    }
+  },
+  "securityChecklist": [
+    "[ ] All private keys stored in AWS Secrets Manager or Vault",
+    "[ ] Multi-sig wallets for admin functions",
+    "[ ] Rate limiting enabled on all RPCs",
+    "[ ] WAF enabled for DDoS protection",
+    "[ ] Monitoring and alerting configured",
+    "[ ] Incident response plan documented",
+    "[ ] Smart contract audits completed",
+    "[ ] Bug bounty program launched"
+  ]
+}
+

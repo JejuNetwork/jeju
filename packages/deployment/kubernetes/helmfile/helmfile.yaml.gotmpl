@@ -82,46 +82,47 @@ releases:
   # External L2 Full Nodes (for EIL/OIF cross-chain)
   # ==========================================================================
 
-  # Base Sepolia Full Node (OP Stack)
-  - name: op-geth-base-sepolia
+  # Base Full Node (OP Stack)
+  - name: op-geth-base
     namespace: l2-base
     createNamespace: true
     chart: ../helm/op-geth
-    installed: {{ eq .Environment.Name "testnet" }}
+    installed: {{ ne .Environment.Name "localnet" }}
     values:
       - ../helm/op-geth/values.yaml
+      {{- if eq .Environment.Name "mainnet" }}
+      - ../helm/op-geth/values-base-mainnet.yaml
+      {{- else }}
       - ../helm/op-geth/values-base-sepolia.yaml
+      {{- end }}
 
-  # Optimism Sepolia Full Node (OP Stack)
-  - name: op-geth-optimism-sepolia
+  # Optimism Full Node (OP Stack)
+  - name: op-geth-optimism
     namespace: l2-optimism
     createNamespace: true
     chart: ../helm/op-geth
-    installed: {{ eq .Environment.Name "testnet" }}
+    installed: {{ ne .Environment.Name "localnet" }}
     values:
       - ../helm/op-geth/values.yaml
+      {{- if eq .Environment.Name "mainnet" }}
+      - ../helm/op-geth/values-optimism-mainnet.yaml
+      {{- else }}
       - ../helm/op-geth/values-optimism-sepolia.yaml
+      {{- end }}
 
-  # Arbitrum Sepolia Full Node (Nitro)
-  - name: nitro-arbitrum-sepolia
+  # Arbitrum Full Node (Nitro)
+  - name: nitro-arbitrum
     namespace: l2-arbitrum
     createNamespace: true
     chart: ../helm/nitro
-    installed: {{ eq .Environment.Name "testnet" }}
+    installed: {{ ne .Environment.Name "localnet" }}
     values:
       - ../helm/nitro/values.yaml
+      {{- if eq .Environment.Name "mainnet" }}
+      - ../helm/nitro/values-arbitrum-mainnet.yaml
+      {{- else }}
       - ../helm/nitro/values-arbitrum-sepolia.yaml
-
-  # BSC Chapel (Testnet) Full Node
-  # NOTE: Disabled for now - need to verify correct Docker image
-  - name: bsc-geth-chapel
-    namespace: l1-bsc
-    createNamespace: true
-    chart: ../helm/bsc-geth
-    installed: false  # {{ eq .Environment.Name "testnet" }}
-    values:
-      - ../helm/bsc-geth/values.yaml
-      - ../helm/bsc-geth/values-testnet.yaml
+      {{- end }}
 
   # ==========================================================================
   # Jeju L2 OP Stack Components
