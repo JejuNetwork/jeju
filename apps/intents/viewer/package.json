@@ -7,9 +7,12 @@
     "dev": "vite --port 4011",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "bun test src/",
+    "test": "echo 'No unit tests - run test:e2e for e2e tests'",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "test:wallet": "playwright test --config=playwright.config.ts",
+    "test:wallet:headed": "playwright test --config=playwright.config.ts --headed",
+    "test:wallet:cache": "npx synpress --force"
   },
   "dependencies": {
     "react": "^19.0.0",
@@ -22,6 +25,7 @@
     "recharts": "^2.15.3"
   },
   "devDependencies": {
+    "@jejunetwork/tests": "workspace:*",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.5.0",

@@ -86,13 +86,15 @@ vendor/*
 # Misc
 .cache/
 .cache-synpress/
+.synpress-cache/
 vendor/
 vendor_examples/
 playwright-report/
-test-results
+test-results/
 *.backup
 *.bak
 **/__pycache__/
 **/*.cpython-314.pyc
 
-cache/packages/deployment/.keys/
+# Private keys - NEVER commit
+packages/deployment/.keys/

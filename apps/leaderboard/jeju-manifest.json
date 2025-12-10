@@ -1,0 +1,22 @@
+{
+  "$schema": "../../jeju-manifest.schema.json",
+  "name": "leaderboard",
+  "displayName": "Jeju Leaderboard",
+  "version": "1.0.0",
+  "type": "vendor",
+  "description": "Global leaderboard and rankings system",
+  "commands": {
+    "dev": "bun run dev",
+    "build": "bun run build",
+    "start": "bun run start"
+  },
+  "ports": {
+    "main": 5012
+  },
+  "dependencies": ["indexer"],
+  "optional": true,
+  "enabled": false,
+  "autoStart": false,
+  "tags": ["gaming", "social", "rankings"]
+}
+

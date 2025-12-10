@@ -24,6 +24,11 @@
   "files": [
     "shared"
   ],
+  "scripts": {
+    "synpress:cache": "bun run synpress:cache:build",
+    "synpress:cache:build": "npx synpress --force",
+    "synpress:cache:clear": "rm -rf ../../.synpress-cache"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/elizaos/jeju.git",

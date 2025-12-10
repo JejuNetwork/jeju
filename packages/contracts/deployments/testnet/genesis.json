@@ -1,0 +1,95 @@
+{
+  "config": {
+    "chainId": 420690,
+    "homesteadBlock": 0,
+    "eip150Block": 0,
+    "eip155Block": 0,
+    "eip158Block": 0,
+    "byzantiumBlock": 0,
+    "constantinopleBlock": 0,
+    "petersburgBlock": 0,
+    "istanbulBlock": 0,
+    "muirGlacierBlock": 0,
+    "berlinBlock": 0,
+    "londonBlock": 0,
+    "arrowGlacierBlock": 0,
+    "grayGlacierBlock": 0,
+    "mergeNetsplitBlock": 0,
+    "shanghaiTime": 0,
+    "cancunTime": 0,
+    "bedrockBlock": 0,
+    "regolithTime": 0,
+    "canyonTime": 0,
+    "deltaTime": 0,
+    "ecotoneTime": 0,
+    "fjordTime": 0,
+    "terminalTotalDifficulty": 0,
+    "terminalTotalDifficultyPassed": true,
+    "optimism": {
+      "eip1559Elasticity": 6,
+      "eip1559Denominator": 50,
+      "eip1559DenominatorCanyon": 250
+    }
+  },
+  "nonce": "0x0",
+  "timestamp": "0x6938f375",
+  "extraData": "0x",
+  "gasLimit": "0x1c9c380",
+  "difficulty": "0x0",
+  "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "coinbase": "0x4200000000000000000000000000000000000011",
+  "alloc": {
+    "0x4200000000000000000000000000000000000015": {
+      "balance": "0x0",
+      "nonce": "0x1"
+    },
+    "0x4200000000000000000000000000000000000007": {
+      "balance": "0x0",
+      "nonce": "0x1"
+    },
+    "0x4200000000000000000000000000000000000010": {
+      "balance": "0x0",
+      "nonce": "0x1"
+    },
+    "0x4200000000000000000000000000000000000016": {
+      "balance": "0x0",
+      "nonce": "0x1"
+    },
+    "0x420000000000000000000000000000000000000F": {
+      "balance": "0x0",
+      "nonce": "0x1"
+    },
+    "0x4200000000000000000000000000000000000006": {
+      "balance": "0x0",
+      "nonce": "0x1"
+    },
+    "0x4200000000000000000000000000000000000019": {
+      "balance": "0x0",
+      "nonce": "0x1"
+    },
+    "0x420000000000000000000000000000000000001a": {
+      "balance": "0x0",
+      "nonce": "0x1"
+    },
+    "0x4200000000000000000000000000000000000011": {
+      "balance": "0x0",
+      "nonce": "0x1"
+    },
+    "0x6Fd49Bbeb99b0feD669A81a6c6E1EEF2548Ed91e": {
+      "balance": "0x21e19e0c9bab2400000"
+    },
+    "0x169a20665f6A2175580d669869eFD6B20045F6aA": {
+      "balance": "0x21e19e0c9bab2400000"
+    },
+    "0x4f0d3bC42d0E203C954aE3e66a6Bb684143EF8a1": {
+      "balance": "0x21e19e0c9bab2400000"
+    },
+    "0x1c8D40d6E81289B5a1B6e4E3a2E34eA23d1c2A0E": {
+      "balance": "0x21e19e0c9bab2400000"
+    }
+  },
+  "number": "0x0",
+  "gasUsed": "0x0",
+  "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "baseFeePerGas": "0x3b9aca00"
+}

@@ -1,10 +1,23 @@
 {
   "network": "testnet",
   "version": "2.0.0",
-  "lastUpdated": "2025-12-09T00:00:00.000Z",
+  "lastUpdated": "2025-12-10T04:17:40.542Z",
   "deployer": "0x5dB1268e424da5C26451e4a8B9C221e6DE3C3064",
-  
   "chains": {
+    "97": {
+      "chainId": 97,
+      "name": "BSC Testnet",
+      "rpcUrl": "https://data-seed-prebsc-1-s1.bnbchain.org:8545",
+      "status": "pending",
+      "contracts": {
+        "solverRegistry": "",
+        "inputSettler": "",
+        "outputSettler": "",
+        "oracle": "",
+        "oracleType": "simple"
+      },
+      "_note": "Deploy for BSC cross-chain support"
+    },
     "84532": {
       "chainId": 84532,
       "name": "Base Sepolia",
@@ -36,20 +49,6 @@
       },
       "_note": "Deploy when Jeju testnet RPC is live"
     },
-    "11155111": {
-      "chainId": 11155111,
-      "name": "Sepolia",
-      "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
-      "status": "pending",
-      "contracts": {
-        "solverRegistry": "",
-        "inputSettler": "",
-        "outputSettler": "",
-        "oracle": "",
-        "oracleType": "simple"
-      },
-      "_note": "Need testnet ETH on Sepolia to deploy"
-    },
     "421614": {
       "chainId": 421614,
       "name": "Arbitrum Sepolia",
@@ -64,6 +63,19 @@
       },
       "_note": "Deploy for Arbitrum cross-chain support"
     },
+    "11155111": {
+      "chainId": 11155111,
+      "name": "Sepolia",
+      "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
+      "status": "deployed",
+      "contracts": {
+        "solverRegistry": "0x08cAa161780d195E0799b73b318da5D175b85313",
+        "inputSettler": "0xD28752E9bBC29DDc14DA83dD673a36A5A19e91B1",
+        "outputSettler": "0x198D8D23B57C3F490Bc78dbe66D9c23B27A289ca",
+        "oracle": "0xe1f87369beED68C52003372Fe33Db8A245317B6E",
+        "oracleType": "simple"
+      }
+    },
     "11155420": {
       "chainId": 11155420,
       "name": "Optimism Sepolia",
@@ -77,36 +89,70 @@
         "oracleType": "superchain"
       },
       "_note": "Deploy for Optimism cross-chain support"
-    },
-    "97": {
-      "chainId": 97,
-      "name": "BSC Testnet",
-      "rpcUrl": "https://data-seed-prebsc-1-s1.bnbchain.org:8545",
-      "status": "pending",
-      "contracts": {
-        "solverRegistry": "",
-        "inputSettler": "",
-        "outputSettler": "",
-        "oracle": "",
-        "oracleType": "simple"
-      },
-      "_note": "Deploy for BSC cross-chain support"
     }
   },
-
   "crossChainRoutes": [
-    { "from": 84532, "to": 420690, "enabled": true, "description": "Base Sepolia → Jeju Testnet" },
-    { "from": 420690, "to": 84532, "enabled": true, "description": "Jeju Testnet → Base Sepolia" },
-    { "from": 11155111, "to": 420690, "enabled": true, "description": "Sepolia → Jeju Testnet" },
-    { "from": 420690, "to": 11155111, "enabled": true, "description": "Jeju Testnet → Sepolia" },
-    { "from": 421614, "to": 420690, "enabled": true, "description": "Arbitrum Sepolia → Jeju Testnet" },
-    { "from": 420690, "to": 421614, "enabled": true, "description": "Jeju Testnet → Arbitrum Sepolia" },
-    { "from": 11155420, "to": 420690, "enabled": true, "description": "Optimism Sepolia → Jeju Testnet" },
-    { "from": 420690, "to": 11155420, "enabled": true, "description": "Jeju Testnet → Optimism Sepolia" },
-    { "from": 97, "to": 420690, "enabled": true, "description": "BSC Testnet → Jeju Testnet" },
-    { "from": 420690, "to": 97, "enabled": true, "description": "Jeju Testnet → BSC Testnet" }
+    {
+      "from": 84532,
+      "to": 420690,
+      "enabled": true,
+      "description": "Base Sepolia → Jeju Testnet"
+    },
+    {
+      "from": 420690,
+      "to": 84532,
+      "enabled": true,
+      "description": "Jeju Testnet → Base Sepolia"
+    },
+    {
+      "from": 11155111,
+      "to": 420690,
+      "enabled": true,
+      "description": "Sepolia → Jeju Testnet"
+    },
+    {
+      "from": 420690,
+      "to": 11155111,
+      "enabled": true,
+      "description": "Jeju Testnet → Sepolia"
+    },
+    {
+      "from": 421614,
+      "to": 420690,
+      "enabled": true,
+      "description": "Arbitrum Sepolia → Jeju Testnet"
+    },
+    {
+      "from": 420690,
+      "to": 421614,
+      "enabled": true,
+      "description": "Jeju Testnet → Arbitrum Sepolia"
+    },
+    {
+      "from": 11155420,
+      "to": 420690,
+      "enabled": true,
+      "description": "Optimism Sepolia → Jeju Testnet"
+    },
+    {
+      "from": 420690,
+      "to": 11155420,
+      "enabled": true,
+      "description": "Jeju Testnet → Optimism Sepolia"
+    },
+    {
+      "from": 97,
+      "to": 420690,
+      "enabled": true,
+      "description": "BSC Testnet → Jeju Testnet"
+    },
+    {
+      "from": 420690,
+      "to": 97,
+      "enabled": true,
+      "description": "Jeju Testnet → BSC Testnet"
+    }
   ],
-
   "deploymentOrder": [
     "1. Fund deployer on all chains",
     "2. Deploy OIF on Sepolia (L1 hub)",

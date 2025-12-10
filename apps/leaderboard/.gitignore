@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Build
+build/
+dist/
+
+# Database
+data/db.sqlite*
+data/*/*
+
+# Environment
+.env
+.envrc
+
+# IDE
+.idea/
+.vscode/
+*.sw?
+
+# OS
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Test artifacts
+test-results/
+playwright-report/
+
+# Vercel
+.vercel

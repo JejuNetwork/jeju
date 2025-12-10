@@ -14,23 +14,34 @@ persistence:
   enabled: true
   size: 100Gi
 
-nodeSelector:
-  role: core
+nodeSelector: {}
 
-tolerations:
-  - key: workload
-    operator: Equal
-    value: core
-    effect: NoSchedule
+tolerations: []
 
 config:
-  network: "testnet"
+  network: "custom"
   l1ChainId: 11155111
   l2ChainId: 420690
   l1:
-    rpcUrl: "https://ethereum-sepolia-rpc.publicnode.com"
+    rpcUrl: "https://rpc.sepolia.org"
     rpcKind: "standard"
+    beacon:
+      url: "https://ethereum-sepolia-beacon-api.publicnode.com"
+  l2:
+    engineRpc: "http://reth-sequencer.execution.svc.cluster.local:8551"
+    engineJwtSecret: "/secrets/jwt-secret.txt"
   p2p:
     bootnodes: []
+  # Genesis and contract configuration
+  genesisL1Hash: "0xcd6424c8d0a66660713c82b8df86b1ad6368856f9b8d6d0e6be6a40a61394166"
+  genesisL1Number: 9043968
+  genesisL2Hash: "0xa9a264f374dd37a03827836390158f9ffd0ddec31bd46259f647c2ed5b9cc0ba"
+  genesisL2Time: 1765340021
+  batcherAddr: "0x169a20665f6A2175580d669869eFD6B20045F6aA"
+  batchInboxAddr: "0xff00000000000000000000000000000000420690"
+  depositContractAddr: "0x0F80836afff3f0b18D767643c6A5f83d027b00e8"
+  systemConfigAddr: "0x586b880fB2f6831F1a1AD1E6754861008264816c"
 
-
+# Secrets - must be hex-encoded 32 bytes for JWT
+secrets:
+  jwtSecret: "a5f4967ffe019fb71673f9a5154412081357e9c4e0191d5560728ed777b8ddb0"

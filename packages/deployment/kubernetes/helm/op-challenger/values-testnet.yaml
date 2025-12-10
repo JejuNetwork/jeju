@@ -15,7 +15,7 @@ persistence:
   size: 50Gi
 
 nodeSelector:
-  role: core
+  workload: general
 
 tolerations:
   - key: workload

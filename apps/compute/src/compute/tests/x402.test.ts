@@ -262,24 +262,24 @@ describe('x402 Payment Requirements', () => {
 describe('x402 Pricing', () => {
   test('estimateInferencePrice returns different prices for different models', () => {
     const prices = {
-      'gpt-4o': estimateInferencePrice('gpt-4o'),
-      'gpt-4o-mini': estimateInferencePrice('gpt-4o-mini'),
+      'gpt-5': estimateInferencePrice('gpt-5'),
+      'gpt-5-mini': estimateInferencePrice('gpt-5-mini'),
       'claude-3-opus': estimateInferencePrice('claude-3-opus'),
       'claude-3-haiku': estimateInferencePrice('claude-3-haiku'),
       'unknown-model': estimateInferencePrice('unknown-model'),
     };
     
     // Opus should be most expensive
-    expect(prices['claude-3-opus']).toBeGreaterThan(prices['gpt-4o']);
+    expect(prices['claude-3-opus']).toBeGreaterThan(prices['gpt-5']);
     
     // Mini and Haiku should be cheaper
-    expect(prices['gpt-4o-mini']).toBeLessThan(prices['gpt-4o']);
-    expect(prices['claude-3-haiku']).toBeLessThan(prices['gpt-4o']);
+    expect(prices['gpt-5-mini']).toBeLessThan(prices['gpt-5']);
+    expect(prices['claude-3-haiku']).toBeLessThan(prices['gpt-5']);
   });
 
   test('estimateInferencePrice scales with token count', () => {
-    const basePrice = estimateInferencePrice('gpt-4o');
-    const scaledPrice = estimateInferencePrice('gpt-4o', 5000); // 5x tokens
+    const basePrice = estimateInferencePrice('gpt-5');
+    const scaledPrice = estimateInferencePrice('gpt-5', 5000); // 5x tokens
     
     expect(scaledPrice).toBeGreaterThan(basePrice);
     expect(scaledPrice).toBe(basePrice * 5n);

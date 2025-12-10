@@ -355,7 +355,7 @@ export function estimateInferencePrice(model: string, tokens?: number): bigint {
   let basePriceWei: bigint;
 
   // Premium models
-  if (modelLower.includes('gpt-4o') && !modelLower.includes('mini')) {
+  if (modelLower.includes('gpt-5') && !modelLower.includes('mini')) {
     basePriceWei = 50000000000000n; // 0.00005 ETH ≈ $0.05
   } else if (modelLower.includes('claude-3-5-sonnet')) {
     basePriceWei = 50000000000000n;
@@ -363,7 +363,7 @@ export function estimateInferencePrice(model: string, tokens?: number): bigint {
     basePriceWei = 100000000000000n; // 0.0001 ETH ≈ $0.10
   }
   // Standard models
-  else if (modelLower.includes('gpt-4o-mini')) {
+  else if (modelLower.includes('gpt-5-mini')) {
     basePriceWei = 20000000000000n; // 0.00002 ETH ≈ $0.02
   } else if (modelLower.includes('claude-3-haiku')) {
     basePriceWei = 10000000000000n; // 0.00001 ETH ≈ $0.01

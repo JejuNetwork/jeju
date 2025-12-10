@@ -1,7 +1,6 @@
-import { createJejuSynpressConfig, createJejuWalletSetup } from '../../tests/shared/synpress.config.base';
+import { createJejuSynpressConfig, createJejuWalletSetup, PASSWORD, SEED_PHRASE } from '@jejunetwork/tests/synpress.config.base';
 
 const GATEWAY_PORT = parseInt(process.env.GATEWAY_PORT || '4001');
-const A2A_PORT = parseInt(process.env.A2A_PORT || '4003');
 
 // Export Playwright config - assumes servers already running
 export default createJejuSynpressConfig({
@@ -16,4 +15,6 @@ export default createJejuSynpressConfig({
 
 // Export wallet setup for Synpress
 export const basicSetup = createJejuWalletSetup();
+
+export { PASSWORD, SEED_PHRASE };
 

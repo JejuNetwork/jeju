@@ -8,7 +8,9 @@
     "dev": "bun run src/index.ts",
     "build": "bun build src/index.ts --outdir=dist --target=node",
     "start": "bun run dist/index.js",
-    "test": "bun test test/",
+    "test": "bun test test/services.test.ts",
+    "test:integration": "bun test test/api.test.ts",
+    "test:all": "bun test test/",
     "test:watch": "bun test test/ --watch"
   },
   "dependencies": {

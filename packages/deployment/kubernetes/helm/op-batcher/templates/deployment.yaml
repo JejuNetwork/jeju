@@ -42,16 +42,7 @@ spec:
         - --poll-interval={{ .Values.config.pollInterval }}
         - --num-confirmations={{ .Values.config.numConfirmations }}
         - --safe-abort-nonce-too-low-count={{ .Values.config.safeAbortNonceTooLowCount }}
-        - --resubmission={{ .Values.config.resubmission }}
         - --batch-type={{ .Values.config.batchType }}
-        {{- if eq .Values.config.dataAvailability.type "eigenda" }}
-        - --data-availability-type=eigenda
-        - --eigenda-proxy-url=http://eigenda:4242
-        {{- else if eq .Values.config.dataAvailability.type "blobs" }}
-        - --data-availability-type=blobs
-        {{- else }}
-        - --data-availability-type=calldata
-        {{- end }}
         {{- if .Values.config.privateKey }}
         - --private-key={{ .Values.config.privateKey }}
         {{- else }}

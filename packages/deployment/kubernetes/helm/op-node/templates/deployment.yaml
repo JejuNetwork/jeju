@@ -38,12 +38,18 @@ spec:
           {{- toYaml .Values.securityContext | nindent 12 }}
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        workingDir: {{ .Values.persistence.mountPath }}
         command:
         - op-node
         args:
+        {{- if and .Values.config.network (ne .Values.config.network "custom") }}
         - --network={{ .Values.config.network }}
+        {{- end }}
         - --l1={{ .Values.config.l1.rpcUrl }}
         - --l1.rpckind={{ .Values.config.l1.rpcKind }}
+        {{- if .Values.config.l1.beacon.url }}
+        - --l1.beacon={{ .Values.config.l1.beacon.url }}
+        {{- end }}
         - --l2={{ .Values.config.l2.engineRpc }}
         - --l2.jwt-secret={{ .Values.config.l2.engineJwtSecret }}
         - --rpc.addr={{ .Values.config.rpc.addr }}
@@ -69,6 +75,9 @@ spec:
         - --metrics.addr={{ .Values.config.metrics.addr }}
         - --metrics.port={{ .Values.config.metrics.port }}
         - --snapshotlog.file={{ .Values.config.snapshotLog }}
+        - --p2p.priv.path={{ .Values.persistence.mountPath }}/opnode_p2p_priv.txt
+        - --p2p.peerstore.path={{ .Values.persistence.mountPath }}/opnode_peerstore_db
+        - --p2p.discovery.path={{ .Values.persistence.mountPath }}/opnode_discovery_db
         {{- if .Values.config.conductor.enabled }}
         - --conductor.enabled
         - --conductor.rpc={{ .Values.config.conductor.rpc }}
