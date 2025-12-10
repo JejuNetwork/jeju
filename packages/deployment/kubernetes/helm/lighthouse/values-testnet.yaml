@@ -30,8 +30,8 @@ config:
   execution:
     endpoint: "http://geth-l1.l1.svc.cluster.local:8551"
   
-  # Checkpoint sync disabled - sync from genesis
-  # (checkpoint URLs have SSZ compatibility issues with this Lighthouse version)
+  # Checkpoint sync disabled - SSZ format incompatible with Lighthouse v6.0.1
+  # Syncing from genesis (slow but reliable)
   checkpoint:
     syncUrl: ""
   

@@ -5,11 +5,11 @@ replicaCount: 1
 
 resources:
   limits:
-    cpu: 2000m
-    memory: 4Gi
-  requests:
     cpu: 1000m
     memory: 2Gi
+  requests:
+    cpu: 250m
+    memory: 512Mi
 
 persistence:
   enabled: true
@@ -24,11 +24,12 @@ config:
   l1ChainId: 11155111
   l2ChainId: 420690
   l1:
-    # Use internal L1 full node - no rate limits
+    # Internal L1 full node - no external API dependencies
     rpcUrl: "http://geth-l1.l1.svc.cluster.local:8545"
-    rpcKind: "geth"
+    rpcKind: "standard"
+    trustrpc: true
     beacon:
-      # Use internal Lighthouse beacon node
+      # Internal Lighthouse beacon node
       url: "http://lighthouse.l1.svc.cluster.local:5052"
   l2:
     engineRpc: "http://reth-sequencer.execution.svc.cluster.local:8551"

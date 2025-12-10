@@ -48,6 +48,7 @@ spec:
             - --metrics-port={{ .Values.config.metrics.port }}
             {{- if .Values.config.checkpoint.syncUrl }}
             - --checkpoint-sync-url={{ .Values.config.checkpoint.syncUrl }}
+            - --checkpoint-sync-url-timeout=600
             {{- else }}
             - --allow-insecure-genesis-sync
             {{- end }}

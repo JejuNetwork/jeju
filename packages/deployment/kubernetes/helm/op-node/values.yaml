@@ -75,7 +75,7 @@ config:
   rollup: "/config/rollup.json"
   l1:
     rpcUrl: ""
-    rpcKind: "alchemy"
+    rpcKind: "standard"
     rpcMaxBatchSize: 20
     # REQUIRED for Fusaka (Dec 3, 2025+): L1 beacon node for blob/PeerDAS data
     beacon:
