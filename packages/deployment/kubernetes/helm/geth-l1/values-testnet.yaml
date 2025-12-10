@@ -1,23 +1,30 @@
 # Geth L1 Testnet (Sepolia) values
+# NOTE: Full L1 nodes require larger instances (t3.2xlarge+)
+# Current cluster has limited capacity - using minimal resources
 
 resources:
   limits:
-    cpu: 4000m
-    memory: 16Gi
+    cpu: 1500m
+    memory: 6Gi
   requests:
-    cpu: 2000m
-    memory: 8Gi
+    cpu: 500m
+    memory: 2Gi
 
 persistence:
   enabled: true
-  size: 300Gi  # Sepolia is smaller than mainnet
+  size: 300Gi
 
-nodeSelector: {}
+nodeSelector:
+  workload: indexer  # Use indexer nodes which have more capacity
 
-tolerations: []
+tolerations:
+  - key: workload
+    operator: Equal
+    value: indexer
+    effect: NoSchedule
 
 config:
   network: "sepolia"
   syncMode: "snap"
-  cache: 4096
+  cache: 1024  # Reduced for limited RAM
 

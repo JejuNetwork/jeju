@@ -1,20 +1,27 @@
 # Lighthouse Beacon Node for Sepolia Testnet
+# NOTE: Beacon nodes require ~4GB RAM minimum
 
 resources:
   limits:
-    cpu: 4000m
-    memory: 8Gi
-  requests:
-    cpu: 2000m
+    cpu: 1500m
     memory: 4Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
 
 persistence:
   enabled: true
-  size: 200Gi  # Sepolia beacon data
+  size: 200Gi
 
-nodeSelector: {}
+# Override base nodeSelector (removes role=core)
+nodeSelector:
+  workload: indexer
 
-tolerations: []
+tolerations:
+  - key: workload
+    operator: Equal
+    value: indexer
+    effect: NoSchedule
 
 config:
   network: "sepolia"
@@ -22,11 +29,11 @@ config:
   # Connect to our Geth L1 execution layer
   execution:
     endpoint: "http://geth-l1.l1.svc.cluster.local:8551"
-    jwtSecret: "/secrets/jwt.hex"
   
-  # Checkpoint sync for fast startup (Sepolia)
+  # Checkpoint sync disabled - sync from genesis
+  # (checkpoint URLs have SSZ compatibility issues with this Lighthouse version)
   checkpoint:
-    syncUrl: "https://sepolia.beaconstate.info"
+    syncUrl: ""
   
   # HTTP API for op-node blob retrieval
   http:
@@ -37,9 +44,5 @@ config:
   
   # Fusaka/PeerDAS settings
   fusaka:
-    serveBlobSidecars: true
-    peerDAS:
-      enabled: true
-      custodyCount: 4
     blobPruneDistance: 3200
 

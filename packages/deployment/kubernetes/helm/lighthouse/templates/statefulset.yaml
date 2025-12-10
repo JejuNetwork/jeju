@@ -32,6 +32,13 @@ spec:
             - beacon_node
             - --network={{ .Values.config.network }}
             - --datadir={{ .Values.config.dataDir }}
+            {{- if .Values.config.execution.endpoint }}
+            - --execution-endpoint={{ .Values.config.execution.endpoint }}
+            - --execution-jwt=/secrets/jwt.hex
+            {{- else }}
+            # Run in checkpoint-sync-only mode without execution
+            - --disable-deposit-contract-sync
+            {{- end }}
             - --http
             - --http-address={{ .Values.config.http.addr }}
             - --http-port={{ .Values.config.http.port }}
@@ -41,6 +48,8 @@ spec:
             - --metrics-port={{ .Values.config.metrics.port }}
             {{- if .Values.config.checkpoint.syncUrl }}
             - --checkpoint-sync-url={{ .Values.config.checkpoint.syncUrl }}
+            {{- else }}
+            - --allow-insecure-genesis-sync
             {{- end }}
             - --port={{ .Values.config.p2p.port }}
             - --discovery-port={{ .Values.config.p2p.discoveryPort }}
@@ -75,6 +84,13 @@ spec:
           volumeMounts:
             - name: data
               mountPath: {{ .Values.config.dataDir }}
+            - name: secrets
+              mountPath: /secrets
+              readOnly: true
+      volumes:
+        - name: secrets
+          secret:
+            secretName: {{ include "lighthouse.fullname" . }}-secrets
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

@@ -58,8 +58,7 @@ persistence:
   size: 500Gi  # Beacon chain data is large
   mountPath: /data
 
-nodeSelector:
-  role: core
+nodeSelector: {}
 
 tolerations:
   - key: workload
