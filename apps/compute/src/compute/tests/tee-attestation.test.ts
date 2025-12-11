@@ -1,11 +1,10 @@
 /**
- * TEE Attestation and dStack Integration Tests
+ * TEE Attestation Tests
  *
  * Tests for:
  * - TEE status detection (simulated vs real)
  * - Node type detection (CPU vs GPU)
  * - Attestation generation and verification
- * - dStack simulator integration
  *
  * Run with: bun test src/compute/tests/tee-attestation.test.ts
  */
@@ -20,7 +19,6 @@ import {
   isAttestationFresh,
 } from '../node/attestation';
 import { ComputeNodeServer } from '../node/server';
-import { DStackClient } from '../../infra/dstack-integration';
 import type { HardwareInfo, AttestationReport, TEEStatus } from '../node/types';
 
 // Test wallet
@@ -69,7 +67,7 @@ describe('TEE Attestation System', () => {
 
     test('TEE status is valid enum value', () => {
       const validStatuses: TEEStatus[] = [
-        'none', 'simulated', 'dstack-simulator', 'intel-tdx', 'amd-sev', 'aws-nitro'
+        'none', 'simulated', 'intel-tdx', 'amd-sev', 'aws-nitro'
       ];
       expect(validStatuses).toContain(hardware.teeInfo.status);
     });
@@ -224,51 +222,6 @@ describe('TEE Attestation System', () => {
     });
   });
 
-  describe('DStack Client', () => {
-    let dstack: DStackClient;
-
-    beforeAll(() => {
-      dstack = new DStackClient();
-    });
-
-    test('detects TEE environment correctly', () => {
-      // Without DSTACK_SIMULATOR_ENDPOINT, should return false
-      const hasEnv = process.env.DSTACK_SIMULATOR_ENDPOINT !== undefined;
-      expect(dstack.isRunningInTEE()).toBe(hasEnv);
-    });
-
-    test('derives deterministic keys', async () => {
-      const key1 = await dstack.deriveKey('/test/path', 'subject1');
-      const key2 = await dstack.deriveKey('/test/path', 'subject1');
-      // Same path+subject = same key
-      expect(Buffer.from(key1).toString('hex')).toBe(Buffer.from(key2).toString('hex'));
-    });
-
-    test('different subjects produce different keys', async () => {
-      const key1 = await dstack.deriveKey('/test/path', 'subject1');
-      const key2 = await dstack.deriveKey('/test/path', 'subject2');
-      expect(Buffer.from(key1).toString('hex')).not.toBe(Buffer.from(key2).toString('hex'));
-    });
-
-    test('getWallet returns valid address', async () => {
-      const wallet = await dstack.getWallet();
-      expect(wallet.address).toMatch(/^0x[a-fA-F0-9]{40}$/);
-      expect(wallet.privateKey).toMatch(/^0x[a-fA-F0-9]{64}$/);
-    });
-
-    test('generateAttestation returns quote', async () => {
-      const attestation = await dstack.generateAttestation('0x1234' as `0x${string}`);
-      expect(attestation.quote).toBeDefined();
-      expect(attestation.eventLog).toBeDefined();
-    });
-
-    test('seal and unseal work correctly', async () => {
-      const data = new TextEncoder().encode('secret data');
-      const sealed = await dstack.seal(data);
-      const unsealed = await dstack.unseal(sealed);
-      expect(new TextDecoder().decode(unsealed)).toBe('secret data');
-    });
-  });
 
   describe('Compute Node Server TEE Integration', () => {
     let server: ComputeNodeServer;
@@ -356,4 +309,4 @@ describe('TEE Attestation System', () => {
 
 console.log('\n🧪 TEE Attestation Test Suite');
 console.log('==============================\n');
-console.log('Testing TEE status detection, attestation, and dStack integration.\n');
+console.log('Testing TEE status detection and attestation.\n');

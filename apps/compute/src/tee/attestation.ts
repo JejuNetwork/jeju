@@ -7,12 +7,10 @@
  * Real attestation requires:
  * - Intel TDX hardware (for CPU attestation)
  * - NVIDIA H200 with Confidential Computing (for GPU attestation)
- * - Running inside Phala CVM (DStack)
+ * - Running inside a TEE environment
  *
  * The simulation demonstrates the DATA STRUCTURES and VERIFICATION LOGIC
  * but the signatures are NOT from real Intel/NVIDIA PKI.
- *
- * For production: Use ProductionTEEEnclave from dstack-integration.ts
  */
 
 import { type Address, type Hex, keccak256, toBytes } from 'viem';
@@ -131,7 +129,7 @@ export function verifyQuote(quote: AttestationQuote): VerificationResult {
       'SIMULATION MODE: Attestation is not from real Intel/NVIDIA hardware'
     );
     warnings.push(
-      'For production, deploy to Phala CVM and use ProductionTEEEnclave'
+      'For production, deploy to a TEE provider'
     );
   }
 

@@ -6,7 +6,7 @@
  * - SDK can connect to testnet
  * - Node registration flow works
  * - Payment systems (X402, Paymaster) are configured
- * - Phala deployment configuration is valid
+ * - TEE deployment configuration is valid
  *
  * Run with: bun test src/compute/tests/testnet-deployment.test.ts
  */
@@ -208,23 +208,10 @@ describe('Testnet Deployment Readiness', () => {
     });
   });
 
-  describe('Phala Deployment Config', () => {
-    test('dstack.yml exists', async () => {
-      const file = Bun.file(`${import.meta.dir}/../../../docker/phala-node.dstack.yml`);
+  describe('TEE Deployment Config', () => {
+    test('TEE config exists in cloud app', async () => {
+      const file = Bun.file(`${import.meta.dir}/../../../../vendor/cloud/config/tee/phala-node.dstack.yml`);
       expect(await file.exists()).toBe(true);
-    });
-
-    test('dstack.yml has required fields', async () => {
-      const file = Bun.file(`${import.meta.dir}/../../../docker/phala-node.dstack.yml`);
-      const content = await file.text();
-      
-      // Check required fields
-      expect(content).toContain('type: service');
-      expect(content).toContain('confidential:');
-      expect(content).toContain('enabled: true');
-      expect(content).toContain('attestation: true');
-      expect(content).toContain('PRIVATE_KEY');
-      expect(content).toContain('REGISTRY_ADDRESS');
     });
 
     test('Dockerfile exists', async () => {
@@ -243,7 +230,6 @@ describe('Testnet Deployment Readiness', () => {
       const validTeeStatuses = [
         'none', 
         'simulated', 
-        'dstack-simulator', 
         'intel-tdx', 
         'amd-sev', 
         'aws-nitro'

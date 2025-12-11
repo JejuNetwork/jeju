@@ -10,12 +10,10 @@
 
 import {
   createPublicClient,
-  createWalletClient,
   http,
   parseEther,
   formatEther,
   type Address,
-  type Hex,
 } from "viem";
 import { privateKeyToAccount, generatePrivateKey } from "viem/accounts";
 
@@ -27,9 +25,6 @@ const CHAIN_ID = parseInt(process.env.CHAIN_ID || "31337");
 const ENTRYPOINT_V07 = "0x0000000071727De22E5E9d8BAf0edAc6f37da032" as const;
 const SPONSORED_PAYMASTER = (process.env.SPONSORED_PAYMASTER_ADDRESS || 
   "0x5FbDB2315678afecb367f032d93F642f64180aa3") as Address;
-
-// Deployer account
-const DEPLOYER_PRIVATE_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" as Hex;
 
 // ============ ABIs ============
 
@@ -104,16 +99,6 @@ const SPONSORED_PAYMASTER_ABI = [
   },
 ] as const;
 
-const ENTRYPOINT_ABI = [
-  {
-    name: "balanceOf",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "account", type: "address" }],
-    outputs: [{ name: "", type: "uint256" }],
-  },
-] as const;
-
 // ============ Setup ============
 
 const chain = {
@@ -122,8 +107,6 @@ const chain = {
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: { default: { http: [RPC_URL] } },
 };
-
-const account = privateKeyToAccount(DEPLOYER_PRIVATE_KEY);
 
 const publicClient = createPublicClient({
   chain,

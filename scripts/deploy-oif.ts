@@ -18,7 +18,7 @@
  */
 
 import { spawn } from 'child_process';
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { writeFileSync } from 'fs';
 import path from 'path';
 
 const CONTRACTS_DIR = path.join(import.meta.dirname, '../packages/contracts');
@@ -81,7 +81,6 @@ async function deployToChain(config: NetworkConfig, privateKey: string): Promise
     );
 
     let output = '';
-    let errorOutput = '';
 
     child.stdout.on('data', (data) => {
       output += data.toString();

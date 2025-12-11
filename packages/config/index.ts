@@ -337,7 +337,7 @@ export function getBridgeContractAddress(
 }
 
 // ============================================================================
-// Unified Config
+// Config
 // ============================================================================
 
 export interface JejuConfig {

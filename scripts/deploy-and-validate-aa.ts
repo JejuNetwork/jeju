@@ -29,9 +29,6 @@ import { privateKeyToAccount } from "viem/accounts";
 const RPC_URL = process.env.RPC_URL || "http://127.0.0.1:8545";
 const CHAIN_ID = parseInt(process.env.CHAIN_ID || "31337");
 
-// Known deployment address from forge script
-const SPONSORED_PAYMASTER_ADDRESS = process.env.SPONSORED_PAYMASTER_ADDRESS || "0x5FbDB2315678afecb367f032d93F642f64180aa3" as Address;
-
 // Anvil default account #0
 const DEPLOYER_PRIVATE_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" as Hex;
 
@@ -132,30 +129,6 @@ const SPONSORED_PAYMASTER_ABI = [
     stateMutability: "view",
     inputs: [],
     outputs: [{ name: "", type: "string" }],
-  },
-] as const;
-
-const ENTRYPOINT_ABI = [
-  {
-    name: "balanceOf",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "account", type: "address" }],
-    outputs: [{ name: "", type: "uint256" }],
-  },
-  {
-    name: "depositTo",
-    type: "function",
-    stateMutability: "payable",
-    inputs: [{ name: "account", type: "address" }],
-    outputs: [],
-  },
-  {
-    name: "supportsInterface",
-    type: "function",
-    stateMutability: "pure",
-    inputs: [{ name: "interfaceId", type: "bytes4" }],
-    outputs: [{ name: "", type: "bool" }],
   },
 ] as const;
 

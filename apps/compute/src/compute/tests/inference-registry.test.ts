@@ -251,7 +251,6 @@ describe('Decentralized Inference Registry', () => {
       expect(TEETypeEnum.AMD_SEV).toBe(3);
       expect(TEETypeEnum.ARM_TRUSTZONE).toBe(4);
       expect(TEETypeEnum.AWS_NITRO).toBe(5);
-      expect(TEETypeEnum.PHALA_DSTACK).toBe(6);
     });
 
     test('model can specify TEE requirements', () => {

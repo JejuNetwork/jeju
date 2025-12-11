@@ -56,6 +56,12 @@ async function saveVersion(version: Version): Promise<void> {
   writeFileSync(versionFile, JSON.stringify(version, null, 2));
 }
 
+interface GitHubRelease {
+  published_at: string;
+  tag_name?: string;
+  body?: string;
+}
+
 async function getLatestVersion(): Promise<Version> {
   try {
     // Check GitHub releases
@@ -63,7 +69,7 @@ async function getLatestVersion(): Promise<Version> {
       `https://api.github.com/repos/${CONFIG.GITHUB_REPO}/releases/latest`
     );
     
-    const release = await response.json() as any;
+    const release = await response.json() as GitHubRelease;
     
     // Parse version from release notes or use defaults
     // In a real implementation, this would parse the release notes
@@ -236,7 +242,7 @@ async function verifyUpdate(): Promise<boolean> {
       }),
     });
     
-    const data = await response.json() as any;
+    const data = await response.json() as { result?: string };
     
     if (!data.result) {
       throw new Error('RPC not responding correctly');

@@ -62,7 +62,7 @@ export const CORE_PORTS = {
     get: () => parseInt(process.env.PREDIMARKET_PORT || '4005')
   },
 
-  /** Bazaar - Unified DeFi + NFT Marketplace */
+  /** Bazaar - DeFi + NFT Marketplace */
   BAZAAR: {
     DEFAULT: 4006,
     ENV_VAR: 'BAZAAR_PORT',

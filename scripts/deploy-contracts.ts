@@ -9,7 +9,7 @@
  *   DEPLOYER_KEY=0x... bun scripts/deploy-contracts.ts
  */
 
-import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { $ } from 'bun';
 

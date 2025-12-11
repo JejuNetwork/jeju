@@ -70,7 +70,11 @@ describe('A2A Monitoring Server', () => {
     const response = await fetch(`${A2A_URL}/.well-known/agent-card.json`);
     expect(response.ok).toBe(true);
 
-    const card = await response.json() as AgentCard;
+    const text = await response.text();
+    if (!text || text.trim() === '') {
+      throw new Error('Empty response from agent card endpoint');
+    }
+    const card = JSON.parse(text) as AgentCard;
     expect(card.protocolVersion).toBe('0.3.0');
     expect(card.name).toBe('Jeju Monitoring');
     expect(card.description).toContain('Prometheus');
@@ -113,7 +117,11 @@ describe('A2A Monitoring Server', () => {
 
     expect(response.ok).toBe(true);
 
-    const result = await response.json() as A2AResponse;
+    const text = await response.text();
+    if (!text || text.trim() === '') {
+      throw new Error('Empty response from A2A endpoint');
+    }
+    const result = JSON.parse(text) as A2AResponse;
     expect(result.jsonrpc).toBe('2.0');
     expect(result.id).toBe('1');
     expect(result.result).toBeDefined();
@@ -148,7 +156,11 @@ describe('A2A Monitoring Server', () => {
 
     expect(response.ok).toBe(true);
 
-    const result = await response.json() as A2AResponse;
+    const text = await response.text();
+    if (!text || text.trim() === '') {
+      throw new Error('Empty response from A2A endpoint');
+    }
+    const result = JSON.parse(text) as A2AResponse;
     expect(result.jsonrpc).toBe('2.0');
     expect(result.result).toBeDefined();
   });
@@ -211,7 +223,11 @@ describe('A2A Monitoring Server', () => {
 
     expect(response.ok).toBe(true);
 
-    const result = await response.json() as A2AResponse;
+    const text = await response.text();
+    if (!text || text.trim() === '') {
+      throw new Error('Empty response from A2A endpoint');
+    }
+    const result = JSON.parse(text) as A2AResponse;
     const textPart = result.result?.parts.find((p) => p.kind === 'text');
     expect(textPart?.text).toBe('Missing PromQL query');
   });
@@ -243,7 +259,11 @@ describe('A2A Monitoring Server', () => {
 
     expect(response.ok).toBe(true);
 
-    const result = await response.json() as A2AResponse;
+    const text = await response.text();
+    if (!text || text.trim() === '') {
+      throw new Error('Empty response from A2A endpoint');
+    }
+    const result = JSON.parse(text) as A2AResponse;
     const textPart = result.result?.parts.find((p) => p.kind === 'text');
     expect(textPart?.text).toBe('Unknown skill');
   });
@@ -270,7 +290,11 @@ describe('A2A Monitoring Server', () => {
 
     expect(response.ok).toBe(true);
 
-    const result = await response.json() as A2AResponse;
+    const text = await response.text();
+    if (!text || text.trim() === '') {
+      throw new Error('Empty response from A2A endpoint');
+    }
+    const result = JSON.parse(text) as A2AResponse;
     expect(result.error).toBeDefined();
     expect(result.error?.code).toBe(-32601);
     expect(result.error?.message).toBe('Method not found');
@@ -286,7 +310,11 @@ describe('A2A Monitoring Server - Integration', () => {
     }
 
     const response = await fetch(`${A2A_URL}/.well-known/agent-card.json`);
-    const card = await response.json() as AgentCard;
+    const text = await response.text();
+    if (!text || text.trim() === '') {
+      throw new Error('Empty response from agent card endpoint');
+    }
+    const card = JSON.parse(text) as AgentCard;
 
     const queryMetrics = card.skills.find((s) => s.id === 'query-metrics');
     expect(queryMetrics?.examples).toBeArray();
@@ -336,7 +364,15 @@ describe('A2A Monitoring Server - Integration', () => {
 
     expect(responses.every(r => r.ok)).toBe(true);
 
-    const results = await Promise.all(responses.map(r => r.json() as Promise<A2AResponse>));
+    const results = await Promise.all(
+      responses.map(async (r) => {
+        const text = await r.text();
+        if (!text || text.trim() === '') {
+          throw new Error('Empty response from A2A endpoint');
+        }
+        return JSON.parse(text) as A2AResponse;
+      })
+    );
     expect(results.every(r => r.jsonrpc === '2.0')).toBe(true);
   });
 });

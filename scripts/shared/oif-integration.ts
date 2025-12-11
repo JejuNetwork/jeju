@@ -10,7 +10,7 @@
  * automatically routing via OIF when needed.
  */
 
-import { createPublicClient, http, Address, parseAbi, keccak256, encodeAbiParameters, parseAbiParameters } from 'viem';
+import { Address } from 'viem';
 import type { TokenBalance } from './multi-chain-discovery';
 
 // ============ Types ============

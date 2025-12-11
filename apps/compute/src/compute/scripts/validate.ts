@@ -4,11 +4,9 @@
  * 
  * Validates:
  * 1. Local Node - Starts and tests a local compute node
- * 2. Phala TEE - Tests Phala Cloud integration (requires PHALA_API_KEY)
  * 
  * Usage:
- *   bun run src/compute/scripts/validate.ts              # Validate local node only
- *   PHALA_API_KEY=xxx bun run src/compute/scripts/validate.ts --phala  # Include Phala
+ *   bun run src/compute/scripts/validate.ts
  */
 
 import { Wallet } from 'ethers';
@@ -276,127 +274,14 @@ async function validateLocalNode(): Promise<boolean> {
   return true;
 }
 
-// ============================================================================
-// Phala TEE Validation
-// ============================================================================
-
-async function validatePhala(): Promise<boolean> {
-  log('\n╔══════════════════════════════════════════════════════════════════╗');
-  log('║                    PHALA TEE VALIDATION                          ║');
-  log('╚══════════════════════════════════════════════════════════════════╝\n');
-
-  const apiKey = process.env.PHALA_API_KEY;
-  
-  if (!apiKey) {
-    log('⚠️  PHALA_API_KEY not set - skipping Phala validation');
-    log('   To test Phala integration:');
-    log('   PHALA_API_KEY=your-key bun run src/compute/scripts/validate.ts --phala\n');
-    return true;
-  }
-
-  log('Testing Phala Cloud connection...\n');
-
-  // 1. API Connection
-  log('1. Phala API Connection');
-  
-  const apiUrl = process.env.PHALA_API_URL || 'https://cloud-api.phala.network';
-  
-  const accountRes = await fetch(`${apiUrl}/api/v1/account`, {
-    headers: { 'Authorization': `Bearer ${apiKey}` },
-  });
-
-  if (accountRes.ok) {
-    const account = await accountRes.json() as { email?: string; balance?: number };
-    pass('API connection', `account=${account.email || 'unknown'}`);
-  } else if (accountRes.status === 401) {
-    fail('API connection', 'Invalid API key');
-    return false;
-  } else {
-    fail('API connection', `HTTP ${accountRes.status}`);
-    return false;
-  }
-
-  // 2. List deployments
-  log('\n2. List Deployments');
-  
-  const deploymentsRes = await fetch(`${apiUrl}/api/v1/deployments`, {
-    headers: { 'Authorization': `Bearer ${apiKey}` },
-  });
-
-  if (deploymentsRes.ok) {
-    const deployments = await deploymentsRes.json() as Array<{ name: string; status: string }>;
-    if (Array.isArray(deployments)) {
-      pass('List deployments', `${deployments.length} deployment(s) found`);
-      for (const d of deployments.slice(0, 5)) {
-        log(`      - ${d.name}: ${d.status}`);
-      }
-    } else {
-      pass('List deployments', 'No deployments');
-    }
-  } else {
-    fail('List deployments', `HTTP ${deploymentsRes.status}`);
-  }
-
-  // 3. Check TEE capabilities
-  log('\n3. TEE Capabilities');
-  
-  const capabilitiesRes = await fetch(`${apiUrl}/api/v1/capabilities`, {
-    headers: { 'Authorization': `Bearer ${apiKey}` },
-  });
-
-  if (capabilitiesRes.ok) {
-    const caps = await capabilitiesRes.json() as { 
-      tee?: { available: boolean; types: string[] };
-      gpu?: { available: boolean; types: string[] };
-    };
-    if (caps.tee?.available) {
-      pass('TEE available', caps.tee.types?.join(', ') || 'yes');
-    } else {
-      pass('TEE available', 'Not available (may require upgrade)');
-    }
-    if (caps.gpu?.available) {
-      pass('GPU available', caps.gpu.types?.join(', ') || 'yes');
-    }
-  } else {
-    // API might not have this endpoint - that's okay
-    pass('TEE capabilities', 'Could not query (API may not support)');
-  }
-
-  log('\n✅ Phala integration validated');
-  log('   To deploy a node:');
-  log('   dstack apply -f docker/phala-node.dstack.yml\n');
-
-  return true;
-}
-
-// ============================================================================
-// Main
-// ============================================================================
-
 async function main() {
-  const args = process.argv.slice(2);
-  const includePhala = args.includes('--phala') || args.includes('-p');
-  const phalaOnly = args.includes('--phala-only');
-
   log('');
   log('╔══════════════════════════════════════════════════════════════════╗');
   log('║              JEJU COMPUTE VALIDATION SUITE                       ║');
   log('╚══════════════════════════════════════════════════════════════════╝');
   log('');
 
-  let allPassed = true;
-
-  // Run local node validation (unless --phala-only)
-  if (!phalaOnly) {
-    const localPassed = await validateLocalNode();
-    allPassed = allPassed && localPassed;
-  }
-
-  // Run Phala validation if requested
-  if (includePhala || phalaOnly) {
-    const phalaPassed = await validatePhala();
-    allPassed = allPassed && phalaPassed;
-  }
+  await validateLocalNode();
 
   // Summary
   log('\n╔══════════════════════════════════════════════════════════════════╗');
@@ -419,7 +304,7 @@ async function main() {
 
   log('');
 
-  if (allPassed && failed === 0) {
+  if (failed === 0) {
     log('🎉 All validations passed!\n');
     process.exit(0);
   } else {

@@ -17,7 +17,7 @@
  */
 
 import { ethers } from 'ethers';
-import { readFileSync, writeFileSync } from 'fs';
+import { writeFileSync } from 'fs';
 
 // ============ Configuration ============
 
@@ -61,15 +61,6 @@ const TESTNET_CHAINS: ChainConfig[] = [
   }
 ];
 
-// Deterministic deployment salts
-const SALTS = {
-  CREATE2_FACTORY: ethers.keccak256(ethers.toUtf8Bytes('jeju-create2-factory-v1')),
-  L1_STAKE_MANAGER: ethers.keccak256(ethers.toUtf8Bytes('jeju-l1-stake-manager-v1')),
-  CROSS_CHAIN_PAYMASTER: ethers.keccak256(ethers.toUtf8Bytes('jeju-cross-chain-paymaster-v1')),
-  SOLVER_REGISTRY: ethers.keccak256(ethers.toUtf8Bytes('jeju-solver-registry-v1')),
-  INPUT_SETTLER: ethers.keccak256(ethers.toUtf8Bytes('jeju-input-settler-v1')),
-  OUTPUT_SETTLER: ethers.keccak256(ethers.toUtf8Bytes('jeju-output-settler-v1')),
-};
 
 // Contract ABIs (minimal for deployment)
 const L1_STAKE_MANAGER_ABI = [
@@ -141,7 +132,8 @@ async function deployToChain(
     
     // For now, deploy non-upgradeable version
     // In production, use Create2Factory + proxy
-    const L1StakeManagerFactory = new ethers.ContractFactory(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _L1StakeManagerFactory = new ethers.ContractFactory(
       L1_STAKE_MANAGER_ABI,
       '0x...', // bytecode would go here
       deployer
@@ -154,7 +146,8 @@ async function deployToChain(
   } else {
     // Deploy L2 contracts
     const l1ChainId = 11155111; // Sepolia
-    const l1StakeManager = existingContracts[l1ChainId]?.l1StakeManager || ethers.ZeroAddress;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _l1StakeManager = existingContracts[l1ChainId]?.l1StakeManager || ethers.ZeroAddress;
     
     log('Deploying CrossChainPaymaster...');
     contracts.crossChainPaymaster = ethers.ZeroAddress; // Will be filled by forge

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Unified Deployment Script
+ * Deployment Script
  * 
  * Deploys the complete Jeju stack to testnet or mainnet:
  * - Smart contracts (L1 + L2)

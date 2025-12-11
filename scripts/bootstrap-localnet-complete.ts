@@ -118,7 +118,7 @@ class CompleteBootstrapper {
     const result: BootstrapResult = {
       network: 'jeju-localnet',
       rpcUrl: this.rpcUrl,
-      contracts: {} as any,
+      contracts: {} as BootstrapResult['contracts'],
       pools: {},
       testWallets: []
     };
@@ -282,7 +282,9 @@ class CompleteBootstrapper {
           console.log(`  ✅ USDC (existing): ${addresses.usdc}`);
           return addresses.usdc;
         }
-      } catch {}
+      } catch {
+        // File doesn't exist or is invalid, continue to deploy
+      }
     }
 
     return this.deployContract(
@@ -309,7 +311,9 @@ class CompleteBootstrapper {
           console.log(`  ✅ elizaOS (existing): ${addresses.elizaOS}`);
           return addresses.elizaOS;
         }
-      } catch {}
+      } catch {
+        // File doesn't exist or is invalid, continue to deploy
+      }
     }
 
     return this.deployContract(
@@ -408,7 +412,7 @@ class CompleteBootstrapper {
     return { identity, reputation, validation };
   }
 
-  private async deployPaymasterSystem(contracts: any): Promise<{ tokenRegistry: string; paymasterFactory: string }> {
+  private async deployPaymasterSystem(contracts: Partial<BootstrapResult['contracts']>): Promise<{ tokenRegistry: string; paymasterFactory: string }> {
     const entryPoint = contracts.entryPoint || '0x0000000071727De22E5E9d8BAf0edAc6f37da032';
     
     // Deploy TokenRegistry
@@ -442,7 +446,7 @@ class CompleteBootstrapper {
           `registerToken(address,address,uint256,uint256) ${token.address} ${contracts.priceOracle} ${token.minFee} ${token.maxFee}`,
           `${token.symbol} registered (${token.minFee}-${token.maxFee} bps fee range)`
         );
-      } catch (error) {
+      } catch (error: unknown) {
         console.log(`     ⚠️  ${token.symbol} registration skipped (may already exist)`);
       }
     }
@@ -451,7 +455,7 @@ class CompleteBootstrapper {
     return { tokenRegistry, paymasterFactory };
   }
 
-  private async deployNodeStaking(contracts: any): Promise<{ manager: string; performanceOracle: string }> {
+  private async deployNodeStaking(contracts: Partial<BootstrapResult['contracts']>): Promise<{ manager: string; performanceOracle: string }> {
     try {
       // Deploy NodePerformanceOracle first
       const performanceOracle = this.deployContract(
@@ -476,13 +480,13 @@ class CompleteBootstrapper {
 
       console.log('  ✅ Node staking system deployed');
       return { manager, performanceOracle };
-    } catch (error) {
+    } catch (error: unknown) {
       console.log('  ⚠️  Node staking deployment skipped (contracts may not exist)');
       return { manager: '0x0000000000000000000000000000000000000000', performanceOracle: '0x0000000000000000000000000000000000000000' };
     }
   }
 
-  private async deployModeration(contracts: any): Promise<{ banManager: string; reputationLabelManager: string }> {
+  private async deployModeration(contracts: Partial<BootstrapResult['contracts']>): Promise<{ banManager: string; reputationLabelManager: string }> {
     try {
       const banManager = this.deployContract(
         'src/moderation/BanManager.sol:BanManager',
@@ -498,7 +502,7 @@ class CompleteBootstrapper {
 
       console.log('  ✅ Moderation system deployed');
       return { banManager, reputationLabelManager };
-    } catch (error) {
+    } catch (error: unknown) {
       console.log('  ⚠️  Moderation deployment skipped (contracts may not exist)');
       return { banManager: '0x0000000000000000000000000000000000000000', reputationLabelManager: '0x0000000000000000000000000000000000000000' };
     }
@@ -516,14 +520,14 @@ class CompleteBootstrapper {
       console.log('     ✨ Faucet enabled (10,000 JEJU per claim)');
       
       return jeju;
-    } catch (error) {
+    } catch (error: unknown) {
       console.log('  ⚠️  JEJU token deployment failed');
       console.log('     Error:', error);
       return '0x0000000000000000000000000000000000000000';
     }
   }
 
-  private async deployComputeMarketplace(contracts: any): Promise<{ 
+  private async deployComputeMarketplace(contracts: Partial<BootstrapResult['contracts']>): Promise<{ 
     computeRegistry: string; 
     ledgerManager: string; 
     inferenceServing: string;
@@ -561,7 +565,7 @@ class CompleteBootstrapper {
       console.log('  ✅ Compute marketplace deployed');
       console.log('     ✨ AI inference with on-chain settlement ready!');
       return { computeRegistry, ledgerManager, inferenceServing, computeStaking };
-    } catch (error) {
+    } catch (error: unknown) {
       console.log('  ⚠️  Compute marketplace deployment skipped (contracts may not exist)');
       console.log('     Error:', error);
       return { 
@@ -615,7 +619,7 @@ class CompleteBootstrapper {
     console.log(`  ✅ Authorized ${services.length} services to deduct credits`);
   }
 
-  private async fundTestWallets(usdc: string, elizaOS: string, jeju?: string): Promise<Array<any>> {
+  private async fundTestWallets(usdc: string, elizaOS: string, jeju?: string): Promise<Array<{ name: string; address: string; privateKey: string }>> {
     const wallets = [];
 
     for (const account of this.TEST_ACCOUNTS) {
@@ -673,11 +677,11 @@ class CompleteBootstrapper {
       const quoterMatch = output.match(/QuoterV4:\s*(0x[a-fA-F0-9]{40})/);
       const stateViewMatch = output.match(/StateView:\s*(0x[a-fA-F0-9]{40})/);
       
-      const result: any = {};
+      const result: Record<string, string> = {};
       
       // Update V4 deployment file
       const v4DeploymentPath = join(process.cwd(), 'packages', 'contracts', 'deployments', 'uniswap-v4-1337.json');
-      let v4Deployment: any = {};
+      let v4Deployment: Record<string, string> = {};
       
       if (existsSync(v4DeploymentPath)) {
         v4Deployment = JSON.parse(readFileSync(v4DeploymentPath, 'utf-8'));
@@ -713,14 +717,14 @@ class CompleteBootstrapper {
       console.log(`  💾 Saved to: ${v4DeploymentPath}`);
       
       return result;
-    } catch (error) {
+    } catch (error: unknown) {
       console.log('  ⚠️  V4 Periphery deployment failed (continuing anyway)');
       console.log('     Error:', error);
       return {};
     }
   }
 
-  private async initializeUniswapPools(_contracts: any): Promise<Record<string, string>> {
+  private async initializeUniswapPools(_contracts: Partial<BootstrapResult['contracts']>): Promise<Record<string, string>> {
     try {
       // Check if Uniswap V4 is deployed
       const poolManagerPath = join(process.cwd(), 'packages', 'contracts', 'deployments', 'uniswap-v4-localnet.json');
@@ -740,7 +744,7 @@ class CompleteBootstrapper {
         'USDC-elizaOS': '0x...',
         'ETH-elizaOS': '0x...'
       };
-    } catch (error) {
+    } catch (error: unknown) {
       console.log('  ⚠️  Pool initialization skipped');
       return {};
     }

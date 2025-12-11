@@ -11,7 +11,7 @@
  * - Attestation is simulated (not from Intel/NVIDIA PKI)
  * - Encryption is REAL (production-quality AES-256-GCM)
  *
- * For production: Deploy to Phala CVM and use ProductionTEEEnclave
+ * For production: Deploy to a TEE provider
  */
 
 import { type Address, type Hex, keccak256, toBytes } from 'viem';

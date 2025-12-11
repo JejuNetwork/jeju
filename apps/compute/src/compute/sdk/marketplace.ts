@@ -3,7 +3,7 @@
  *
  * Interface for the decentralized compute marketplace:
  * - Model discovery (LLM, image, video, audio)
- * - Phala TEE node provisioning
+ * - TEE node provisioning and routing
  * - X402 payment integration with JEJU token
  * - Inference routing with TEE attestation
  */
@@ -32,9 +32,6 @@ import type {
 } from './types';
 import { ModelTypeEnum, TEETypeEnum, ModelCapabilityEnum } from './types';
 
-// ============================================================================
-// Types
-// ============================================================================
 
 export interface MarketplaceConfig {
   rpcUrl: string;
@@ -123,27 +120,14 @@ export interface InferenceResult {
   coldStart: boolean;
 }
 
-export interface PhalaNodeInfo {
-  nodeId: string;
-  endpoint: string;
-  teeType: TEEType;
-  status: 'cold' | 'starting' | 'warm' | 'hot';
-  models: string[];
-  attestationHash?: string;
-}
 
-// ============================================================================
-// Compute Marketplace
-// ============================================================================
 
 export class ComputeMarketplace {
   private config: MarketplaceConfig;
   private registry: InferenceRegistrySDK;
   private payment: ComputePaymentClient;
 
-  // Phala node cache
-  private phalaNodes: Map<string, PhalaNodeInfo> = new Map();
-  private phalaProxyEndpoint: string | null = null;
+  private teeGatewayEndpoint: string | null = null;
 
   constructor(config: MarketplaceConfig) {
     this.config = {
@@ -171,11 +155,6 @@ export class ComputeMarketplace {
     });
   }
 
-  // ============================================================================
-  // Model Discovery
-  // ============================================================================
-
-  /** Get all available LLMs */
   async getLLMs(): Promise<RegisteredModel[]> {
     return this.registry.getLLMs();
   }
@@ -261,97 +240,103 @@ export class ComputeMarketplace {
     return candidates[0] ?? null;
   }
 
-  // ============================================================================
-  // Phala TEE Integration
-  // ============================================================================
-
-  /** Set Phala proxy endpoint for TEE node management */
-  setPhalaProxy(endpoint: string): void {
-    this.phalaProxyEndpoint = endpoint;
+  setTEEGateway(endpoint: string): void {
+    this.teeGatewayEndpoint = endpoint;
   }
 
-  /** Get available Phala TEE nodes */
-  async getPhalaNodes(): Promise<PhalaNodeInfo[]> {
-    if (!this.phalaProxyEndpoint) {
-      return Array.from(this.phalaNodes.values());
+  async getTEENodes(providerType?: string): Promise<Array<{
+    id: string;
+    endpoint: string;
+    providerType: string;
+    status: string;
+    warmth: string;
+    models: string[];
+    hardware: {
+      isSecure: boolean;
+      hardwareType: string;
+      gpuType: string | null;
+    };
+    warning?: string;
+  }>> {
+    if (!this.teeGatewayEndpoint) {
+      return [];
     }
 
-    const response = await fetch(`${this.phalaProxyEndpoint}/nodes`);
+    const url = providerType 
+      ? `${this.teeGatewayEndpoint}/api/v1/tee/nodes?provider=${providerType}`
+      : `${this.teeGatewayEndpoint}/api/v1/tee/nodes`;
+      
+    const response = await fetch(url);
     if (!response.ok) {
-      throw new Error(`Failed to fetch Phala nodes: ${response.statusText}`);
+      throw new Error(`Failed to fetch TEE nodes: ${response.statusText}`);
     }
 
     const data = await response.json() as {
       nodes: Array<{
         id: string;
         endpoint: string;
+        providerType: string;
         status: string;
-        teeStatus: string;
-        models?: string[];
+        warmth: string;
+        models: string[];
+        hardware: {
+          isSecure: boolean;
+          hardwareType: string;
+          gpuType: string | null;
+        };
+        warning?: string;
       }>;
     };
 
-    // Update cache
-    for (const node of data.nodes) {
-      this.phalaNodes.set(node.id, {
-        nodeId: node.id,
-        endpoint: node.endpoint,
-        teeType: this.mapTeeStatus(node.teeStatus),
-        status: node.status as PhalaNodeInfo['status'],
-        models: node.models ?? [],
-      });
-    }
-
-    return Array.from(this.phalaNodes.values());
+    return data.nodes;
   }
 
-  /** Request a Phala TEE endpoint for a model */
-  async getPhalaEndpoint(modelId: string): Promise<{ endpoint: string; teeType: TEEType; coldStart: boolean }> {
-    if (!this.phalaProxyEndpoint) {
-      throw new Error('Phala proxy not configured');
+  async getTEEEndpoint(
+    modelId: string, 
+    options?: { requireSecure?: boolean; providerType?: string }
+  ): Promise<{ endpoint: string; teeType: TEEType; coldStart: boolean; warning?: string }> {
+    if (!this.teeGatewayEndpoint) {
+      throw new Error('TEE gateway not configured');
     }
 
-    const response = await fetch(`${this.phalaProxyEndpoint}/v1/route`, {
+    const response = await fetch(`${this.teeGatewayEndpoint}/api/v1/tee/route`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: modelId }),
+      body: JSON.stringify({ 
+        model: modelId,
+        requireSecure: options?.requireSecure,
+        providerType: options?.providerType,
+      }),
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to get Phala endpoint: ${response.statusText}`);
+      throw new Error(`Failed to get TEE endpoint: ${response.statusText}`);
     }
 
     const data = await response.json() as {
       endpoint: string;
-      tlsPassthrough: boolean;
-      coldStart?: boolean;
+      teeType: string;
+      coldStart: boolean;
+      warning?: string;
+    };
+
+    const teeTypeMap: Record<string, TEEType> = {
+      'intel-tdx': TEETypeEnum.INTEL_TDX,
+      'intel-sgx': TEETypeEnum.INTEL_SGX,
+      'amd-sev': TEETypeEnum.AMD_SEV,
+      'arm-trustzone': TEETypeEnum.ARM_TRUSTZONE,
+      'none': TEETypeEnum.NONE,
+      'simulated': TEETypeEnum.SIMULATED,
     };
 
     return {
       endpoint: data.endpoint,
-      teeType: TEETypeEnum.INTEL_TDX, // Phala uses Intel TDX
+      teeType: teeTypeMap[data.teeType] ?? TEETypeEnum.NONE,
       coldStart: data.coldStart ?? false,
+      warning: data.warning,
     };
   }
 
-  private mapTeeStatus(status: string): TEEType {
-    switch (status) {
-      case 'intel-tdx':
-        return TEETypeEnum.INTEL_TDX;
-      case 'amd-sev':
-        return TEETypeEnum.AMD_SEV;
-      case 'dstack-simulator':
-        return TEETypeEnum.DSTACK_SIMULATOR;
-      case 'simulated':
-        return TEETypeEnum.SIMULATED;
-      default:
-        return TEETypeEnum.NONE;
-    }
-  }
-
-  // ============================================================================
-  // Inference Execution
-  // ============================================================================
 
   /** Execute inference request with automatic endpoint selection and payment */
   async inference(request: InferenceRequest): Promise<InferenceResult> {
@@ -364,16 +349,22 @@ export class ComputeMarketplace {
     let endpoint: ModelEndpoint | null = null;
     let coldStart = false;
 
-    // Try Phala first if TEE required
-    if (request.options?.requireTEE && this.phalaProxyEndpoint) {
-      const phalaResult = await this.getPhalaEndpoint(request.modelId);
-      coldStart = phalaResult.coldStart;
+    if (request.options?.requireTEE && this.teeGatewayEndpoint) {
+      const teeResult = await this.getTEEEndpoint(request.modelId, {
+        requireSecure: request.options.requireTEE,
+      });
+      coldStart = teeResult.coldStart;
+      
+      if (teeResult.warning) {
+        console.warn(`[ComputeMarketplace] ${teeResult.warning}`);
+      }
+      
       endpoint = {
         modelId: request.modelId,
         providerAddress: '',
-        endpoint: phalaResult.endpoint,
-        region: 'phala-cloud',
-        teeType: phalaResult.teeType,
+        endpoint: teeResult.endpoint,
+        region: 'tee-cloud',
+        teeType: teeResult.teeType,
         attestationHash: '',
         active: true,
         currentLoad: 0,
@@ -638,9 +629,6 @@ export class ComputeMarketplace {
     return this.executeLLMInference(endpoint, request);
   }
 
-  // ============================================================================
-  // Payment
-  // ============================================================================
 
   /** Calculate cost based on model type and usage */
   calculateCost(model: RegisteredModel, result: Partial<InferenceResult>): bigint {
@@ -724,9 +712,6 @@ export class ComputeMarketplace {
     };
   }
 
-  // ============================================================================
-  // Static Pricing Info
-  // ============================================================================
 
   /** Get standard compute pricing */
   static getPricing() {
@@ -774,9 +759,6 @@ export class ComputeMarketplace {
   }
 }
 
-// ============================================================================
-// Factory
-// ============================================================================
 
 export function createComputeMarketplace(config: MarketplaceConfig): ComputeMarketplace {
   return new ComputeMarketplace(config);

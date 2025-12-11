@@ -18,23 +18,11 @@ import {
   http,
   formatEther,
   type Address,
-  type Hex,
 } from "viem";
 
 // ============ Constants ============
 
 const ENTRYPOINT_V07 = "0x0000000071727De22E5E9d8BAf0edAc6f37da032" as const;
-
-// Minimal ABIs for validation
-const ENTRYPOINT_ABI = [
-  {
-    name: "balanceOf",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "account", type: "address" }],
-    outputs: [{ name: "", type: "uint256" }],
-  },
-] as const;
 
 const SPONSORED_PAYMASTER_ABI = [
   {
@@ -97,19 +85,6 @@ const SPONSORED_PAYMASTER_ABI = [
     stateMutability: "view",
     inputs: [],
     outputs: [{ name: "", type: "string" }],
-  },
-] as const;
-
-const SIMPLE_ACCOUNT_FACTORY_ABI = [
-  {
-    name: "getAddress",
-    type: "function",
-    stateMutability: "view",
-    inputs: [
-      { name: "owner", type: "address" },
-      { name: "salt", type: "uint256" },
-    ],
-    outputs: [{ name: "", type: "address" }],
   },
 ] as const;
 
@@ -223,7 +198,7 @@ async function validateSponsoredPaymaster(
   });
 
   // Check status
-  const [deposit, isPaused, totalTx, totalGas] = await client.readContract({
+  const [deposit, isPaused] = await client.readContract({
     address: paymasterAddress,
     abi: SPONSORED_PAYMASTER_ABI,
     functionName: "getStatus",

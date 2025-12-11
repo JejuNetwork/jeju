@@ -1,19 +1,5 @@
 /**
  * Hardware detection for compute nodes
- * 
- * Supports: Mac (Apple Silicon + Intel), Linux (CUDA/ROCm), Windows (CUDA)
- * 
- * Node Types:
- * - CPU: Standard compute without GPU (can run small models, general compute)
- * - GPU: GPU-enabled compute (required for large models)
- * 
- * TEE Status:
- * - none: No TEE available
- * - simulated: Using wallet signatures only (NOT SECURE)
- * - dstack-simulator: Local dStack TEE simulator
- * - intel-tdx: Real Intel TDX (Phala production)
- * - amd-sev: Real AMD SEV
- * - aws-nitro: AWS Nitro Enclaves
  */
 
 import { spawn } from 'node:child_process';
@@ -193,21 +179,20 @@ function getAppleSiliconMemory(): number | null {
  * Detect TEE capabilities and status
  */
 async function detectTeeInfo(): Promise<{ capable: boolean; info: TEEInfo }> {
-  // Check for dStack simulator (local development)
-  if (process.env.DSTACK_SIMULATOR_ENDPOINT) {
+  // Check for TEE simulator (local development)
+  if (process.env.TEE_SIMULATOR_ENDPOINT) {
     return {
       capable: true,
       info: {
-        status: 'dstack-simulator',
+        status: 'simulated',
         isReal: false,
-        provider: 'phala',
-        attestationUrl: process.env.DSTACK_SIMULATOR_ENDPOINT,
-        warning: 'Running in dStack SIMULATOR - attestation is NOT cryptographically verified',
+        provider: null,
+        attestationUrl: process.env.TEE_SIMULATOR_ENDPOINT,
+        warning: '⚠️ SIMULATED TEE - Attestation is NOT cryptographically verified',
       },
     };
   }
 
-  // Check for real Intel TDX (Phala production)
   if (process.platform === 'linux') {
     try {
       await exec('ls', ['/dev/tdx-guest']);
@@ -216,14 +201,12 @@ async function detectTeeInfo(): Promise<{ capable: boolean; info: TEEInfo }> {
         info: {
           status: 'intel-tdx',
           isReal: true,
-          provider: 'phala',
-          attestationUrl: 'https://dcap.phala.network/verify',
+          provider: null,
+          attestationUrl: process.env.DCAP_ENDPOINT || null,
           warning: null,
         },
       };
     } catch {}
-    
-    // Check for AMD SEV
     try {
       await exec('ls', ['/dev/sev-guest']);
       return {
@@ -252,8 +235,6 @@ async function detectTeeInfo(): Promise<{ capable: boolean; info: TEEInfo }> {
       },
     };
   }
-  
-  // No TEE available - will use simulated attestation
   return {
     capable: false,
     info: {

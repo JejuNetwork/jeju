@@ -15,7 +15,6 @@ import { ethers } from 'ethers';
 import { Logger } from '../shared/logger';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { resolve } from 'path';
-import type { NetworkType } from '@jeju/types';
 
 const logger = new Logger('deploy-eil');
 

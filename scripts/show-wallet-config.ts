@@ -6,12 +6,6 @@
  *   bun run scripts/show-wallet-config.ts
  */
 
-import { $ } from "bun";
-import { existsSync } from "fs";
-import { join } from "path";
-
-const ENCLAVE_NAME = "jeju-localnet";
-const PORTS_FILE = join(process.cwd(), ".kurtosis/ports.json");
 
 async function main() {
   console.log("\n╔═══════════════════════════════════════════════════════════════════════╗");

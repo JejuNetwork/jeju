@@ -14,7 +14,6 @@
 import { Wallet, JsonRpcProvider, parseEther, formatEther, Contract } from 'ethers';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { $ } from 'bun';
 
 const ROOT = join(import.meta.dir, '..');
 const KEYS_DIR = join(ROOT, 'packages/deployment/.keys');

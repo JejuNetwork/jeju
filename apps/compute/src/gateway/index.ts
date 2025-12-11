@@ -965,8 +965,9 @@ export class ComputeGateway {
       // Get cloud models
       if (this.cloudBridge && (source === 'cloud' || source === 'all' || !source)) {
         await this.cloudBridge.initialize();
+        const parsedModelType = modelType ? (this.parseModelType(modelType) as unknown as ModelType) : undefined;
         const cloudModels = await this.cloudBridge.discoverModels(
-          modelType ? { modelType: this.parseModelType(modelType) } : undefined
+          parsedModelType ? { modelType: parsedModelType } : undefined
         );
         
         for (const result of cloudModels) {

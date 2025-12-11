@@ -14,7 +14,7 @@
  * - ComputeMarketplace: Interface for all compute services
  *   - Model discovery by type (LLM, image, video, audio, embeddings)
  *   - Automatic endpoint selection with TEE support
- *   - Phala TEE node integration
+ *   - TEE node integration
  *   - X402 payment with JEJU token
  *
  * ## Decentralized Inference
@@ -58,5 +58,4 @@ export {
   type InferenceInput,
   type InferenceOptions as MarketplaceInferenceOptions,
   type InferenceResult as MarketplaceInferenceResult,
-  type PhalaNodeInfo,
 } from './marketplace';

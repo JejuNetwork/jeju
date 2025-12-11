@@ -240,7 +240,6 @@ async function checkL1Contracts() {
   
   const provider = new ethers.JsonRpcProvider('https://ethereum-sepolia-rpc.publicnode.com');
   
-  let verified = 0;
   let total = 0;
   
   for (const [name, address] of Object.entries(contracts)) {
@@ -249,7 +248,6 @@ async function checkL1Contracts() {
       try {
         const code = await provider.getCode(address);
         if (code !== '0x') {
-          verified++;
           addResult(category, name, 'pass', `${(address as string).slice(0, 10)}...`);
         } else {
           addResult(category, name, 'fail', 'No code at address');

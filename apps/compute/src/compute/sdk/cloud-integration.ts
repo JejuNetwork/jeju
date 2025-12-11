@@ -658,18 +658,22 @@ export class CloudProviderBridge {
 export class ModelDiscovery {
   private cloudBridge: CloudProviderBridge | null = null;
   private registrySDK: InferenceRegistrySDK | null = null;
+  private readonly config: CloudIntegrationConfig & { registryConfig?: ExtendedSDKConfig };
 
   constructor(config: CloudIntegrationConfig & { registryConfig?: ExtendedSDKConfig }) {
+    this.config = config;
+
     // Initialize cloud bridge
-    if (config.cloudEndpoint) {
-      this.cloudBridge = new CloudProviderBridge(config);
+    if (this.config.cloudEndpoint) {
+      this.cloudBridge = new CloudProviderBridge(this.config);
     }
 
     // Initialize on-chain registry
-    if (config.registryConfig) {
-      this.registrySDK = createInferenceRegistry(config.registryConfig);
+    if (this.config.registryConfig) {
+      this.registrySDK = createInferenceRegistry(this.config.registryConfig);
     }
   }
+
 
   /**
    * Initialize both discovery sources

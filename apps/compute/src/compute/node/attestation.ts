@@ -1,14 +1,5 @@
 /**
  * Attestation generation for compute nodes
- *
- * TEE Status Levels:
- * - simulated: Wallet signatures only - NOT SECURE for production
- * - dstack-simulator: Local dStack simulator - NOT SECURE for production
- * - intel-tdx: Real Intel TDX (Phala production) - SECURE
- * - amd-sev: Real AMD SEV - SECURE
- * - aws-nitro: AWS Nitro Enclaves - SECURE
- *
- * ⚠️ ALWAYS CHECK teeIsReal === true FOR PRODUCTION USE ⚠️
  */
 
 import type { Wallet } from 'ethers';
@@ -16,10 +7,6 @@ import { verifyMessage } from 'ethers';
 import { detectHardware, generateHardwareHash } from './hardware';
 import type { AttestationReport } from './types';
 
-/**
- * Generate an attestation based on the actual TEE environment
- * Returns simulated attestation if no real TEE is available
- */
 export async function generateAttestation(
   wallet: Wallet,
   nonce: string
@@ -61,10 +48,6 @@ export async function generateAttestation(
   };
 }
 
-/**
- * Generate a simulated attestation for local testing
- * @deprecated Use generateAttestation() which auto-detects TEE status
- */
 export async function generateSimulatedAttestation(
   wallet: Wallet,
   nonce: string
@@ -72,9 +55,6 @@ export async function generateSimulatedAttestation(
   return generateAttestation(wallet, nonce);
 }
 
-/**
- * Verify an attestation
- */
 export async function verifyAttestation(
   attestation: AttestationReport,
   expectedAddress: string,
@@ -89,7 +69,6 @@ export async function verifyAttestation(
     return { valid: false, reason: 'Signing address mismatch', warnings };
   }
 
-  // If real TEE is required, check teeIsReal
   if (requireRealTEE && !attestation.teeIsReal) {
     return { 
       valid: false, 
@@ -98,16 +77,12 @@ export async function verifyAttestation(
     };
   }
 
-  // Add warning for non-production TEE
   if (!attestation.teeIsReal && attestation.teeWarning) {
     warnings.push(attestation.teeWarning);
   }
-
-  // Verify signature based on TEE status
   const teeStatus = attestation.teeStatus || (attestation.simulated ? 'simulated' : 'intel-tdx');
 
-  if (teeStatus === 'simulated' || teeStatus === 'dstack-simulator') {
-    // Simulated: verify wallet signature
+  if (teeStatus === 'simulated') {
     const message = JSON.stringify({
       signingAddress: attestation.signingAddress,
       hardware: generateHardwareHash(attestation.hardware),
@@ -125,9 +100,7 @@ export async function verifyAttestation(
     return { valid: true, warnings };
   }
 
-  // For real TEE attestations (intel-tdx, amd-sev, aws-nitro)
   if (teeStatus === 'intel-tdx') {
-    // Verify with Phala DCAP verification service
     const dcapResult = await verifyDCAPAttestation(attestation);
     if (!dcapResult.valid) {
       return { valid: false, reason: dcapResult.reason, warnings };
@@ -137,8 +110,6 @@ export async function verifyAttestation(
   }
 
   if (teeStatus === 'amd-sev' || teeStatus === 'aws-nitro') {
-    // For AMD SEV and AWS Nitro, verify the basic signature for now
-    // Full verification would require vendor-specific APIs
     const message = JSON.stringify({
       signingAddress: attestation.signingAddress,
       hardware: generateHardwareHash(attestation.hardware),
@@ -163,7 +134,7 @@ export async function verifyAttestation(
   };
 }
 
-const PHALA_DCAP_ENDPOINT = process.env.PHALA_DCAP_ENDPOINT || 'https://dcap.phala.network/verify';
+const DCAP_ENDPOINT = process.env.DCAP_ENDPOINT || process.env.TEE_DCAP_ENDPOINT || 'https://dcap.phala.network/verify';
 
 interface DCAPVerificationResult {
   valid: boolean;
@@ -174,7 +145,6 @@ interface DCAPVerificationResult {
   mrSigner?: string;
 }
 
-/** Verify Intel TDX attestation via Phala DCAP service */
 async function verifyDCAPAttestation(
   attestation: AttestationReport
 ): Promise<DCAPVerificationResult> {
@@ -196,8 +166,7 @@ async function verifyDCAPAttestation(
   }
 
   try {
-    // Call Phala DCAP verification service
-    const response = await fetch(PHALA_DCAP_ENDPOINT, {
+    const response = await fetch(DCAP_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -206,12 +175,11 @@ async function verifyDCAPAttestation(
         quote: attestation.signature,
         reportData: attestation.nonce,
       }),
-      signal: AbortSignal.timeout(10000), // 10 second timeout
+      signal: AbortSignal.timeout(10000),
     });
 
     if (!response.ok) {
       if (response.status === 503) {
-        // Service temporarily unavailable - allow with warning
         warnings.push('DCAP service temporarily unavailable - verification deferred');
         return { valid: true, warnings };
       }
@@ -239,7 +207,6 @@ async function verifyDCAPAttestation(
       };
     }
 
-    // Check TCB status for warnings
     if (result.tcbStatus && result.tcbStatus !== 'UpToDate') {
       warnings.push(`TCB Status: ${result.tcbStatus} - Consider updating TEE firmware`);
     }
@@ -253,7 +220,6 @@ async function verifyDCAPAttestation(
     };
 
   } catch (error) {
-    // Network error - allow with warning in non-production
     if (process.env.NODE_ENV !== 'production') {
       warnings.push(`DCAP verification skipped: ${(error as Error).message}`);
       return { valid: true, warnings };
@@ -267,9 +233,6 @@ async function verifyDCAPAttestation(
   }
 }
 
-/**
- * Check if attestation is fresh (within time window)
- */
 export function isAttestationFresh(
   attestation: AttestationReport,
   maxAgeMs: number = 3600000 // 1 hour default
@@ -279,9 +242,6 @@ export function isAttestationFresh(
   return now - attestationTime < maxAgeMs;
 }
 
-/**
- * Generate attestation hash for on-chain storage
- */
 export function getAttestationHash(attestation: AttestationReport): string {
   const data = JSON.stringify({
     signingAddress: attestation.signingAddress,

@@ -255,7 +255,7 @@ export default function GitHubReputationPanel({
             </div>
 
             {/* On-chain status */}
-            {isContractConfigured && onChainReputation && (
+            {Boolean(isContractConfigured && onChainReputation) && (
               <div className="border-t pt-4">
                 <h4 className="text-sm font-medium text-gray-700 mb-2">On-Chain Status</h4>
                 <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
@@ -275,7 +275,7 @@ export default function GitHubReputationPanel({
             )}
 
             {/* Contract not configured warning */}
-            {!isContractConfigured && agentId && (
+            {Boolean(!isContractConfigured && agentId) && (
               <div className="border-t pt-4">
                 <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
                   <div className="flex items-center gap-2 text-yellow-700 text-sm">
@@ -287,7 +287,7 @@ export default function GitHubReputationPanel({
             )}
 
             {/* Agent-specific reputation */}
-            {agentId && isContractConfigured && agentReputationData && (
+            {Boolean(agentId && isContractConfigured && agentReputationData) && (
               <div className="border-t pt-4">
                 <h4 className="text-sm font-medium text-gray-700 mb-2">
                   Agent #{agentId.toString()} Reputation

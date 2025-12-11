@@ -191,7 +191,7 @@ function NameSearchCard() {
                   )}
                 </span>
               </div>
-              {searchResult.appInfo && searchResult.appInfo.agentId > 0n && (
+              {searchResult.appInfo && Boolean(searchResult.appInfo.agentId > 0n) && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                   <span style={{ color: 'var(--text-secondary)' }}>Linked Agent:</span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
