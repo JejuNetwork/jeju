@@ -9,10 +9,10 @@ import { describe, test, expect, beforeAll, mock, spyOn } from 'bun:test';
 import {
   CloudModelBroadcaster,
   CloudProviderBridge,
-  UnifiedModelDiscovery,
+  ModelDiscovery,
   createCloudBroadcaster,
   createCloudBridge,
-  createUnifiedDiscovery,
+  createModelDiscovery,
   type CloudModelInfo,
   type CloudA2ASkill,
   type CloudIntegrationConfig,
@@ -332,17 +332,17 @@ describe('CloudProviderBridge', () => {
 });
 
 // ============================================================================
-// UnifiedModelDiscovery Tests
+// ModelDiscovery Tests
 // ============================================================================
 
-describe('UnifiedModelDiscovery', () => {
-  test('creates unified discovery with cloud', () => {
-    const discovery = createUnifiedDiscovery(TEST_CONFIG);
-    expect(discovery).toBeInstanceOf(UnifiedModelDiscovery);
+describe('ModelDiscovery', () => {
+  test('creates model discovery with cloud', () => {
+    const discovery = createModelDiscovery(TEST_CONFIG);
+    expect(discovery).toBeInstanceOf(ModelDiscovery);
   });
   
   test('initializes cloud bridge', async () => {
-    const discovery = createUnifiedDiscovery(TEST_CONFIG);
+    const discovery = createModelDiscovery(TEST_CONFIG);
     await discovery.initialize();
     
     const bridge = discovery.getCloudBridge();
@@ -350,7 +350,7 @@ describe('UnifiedModelDiscovery', () => {
   });
   
   test('discovers models from cloud', async () => {
-    const discovery = createUnifiedDiscovery(TEST_CONFIG);
+    const discovery = createModelDiscovery(TEST_CONFIG);
     await discovery.initialize();
     
     const { cloud, combined } = await discovery.discoverAll();
@@ -360,7 +360,7 @@ describe('UnifiedModelDiscovery', () => {
   });
   
   test('filters by model type', async () => {
-    const discovery = createUnifiedDiscovery(TEST_CONFIG);
+    const discovery = createModelDiscovery(TEST_CONFIG);
     await discovery.initialize();
     
     const { combined } = await discovery.discoverAll({ modelType: ModelTypeEnum.IMAGE_GEN });
@@ -370,7 +370,7 @@ describe('UnifiedModelDiscovery', () => {
   });
   
   test('selects best model preferring cloud', async () => {
-    const discovery = createUnifiedDiscovery(TEST_CONFIG);
+    const discovery = createModelDiscovery(TEST_CONFIG);
     await discovery.initialize();
     
     const result = await discovery.selectBestModel({
@@ -383,7 +383,7 @@ describe('UnifiedModelDiscovery', () => {
   });
   
   test('returns null when no models match', async () => {
-    const discovery = createUnifiedDiscovery(TEST_CONFIG);
+    const discovery = createModelDiscovery(TEST_CONFIG);
     await discovery.initialize();
     
     const result = await discovery.selectBestModel({
@@ -395,7 +395,7 @@ describe('UnifiedModelDiscovery', () => {
   });
   
   test('sorts by price when selecting best model', async () => {
-    const discovery = createUnifiedDiscovery(TEST_CONFIG);
+    const discovery = createModelDiscovery(TEST_CONFIG);
     await discovery.initialize();
     
     const result = await discovery.selectBestModel({
@@ -414,7 +414,7 @@ describe('UnifiedModelDiscovery', () => {
 
 describe('Cloud-Compute Integration', () => {
   test('full workflow: discover, select, and infer', async () => {
-    const discovery = createUnifiedDiscovery(TEST_CONFIG);
+    const discovery = createModelDiscovery(TEST_CONFIG);
     await discovery.initialize();
     
     // Discover models

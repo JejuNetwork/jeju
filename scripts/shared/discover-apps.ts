@@ -1,5 +1,5 @@
 /**
- * Unified App Discovery Utility
+ * App Discovery Utility
  * Discovers both core apps (apps/) and vendor apps (vendor/)
  * based on jeju-manifest.json files
  */

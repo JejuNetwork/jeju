@@ -1,7 +1,7 @@
 /**
  * External Model Provider Bridge
  *
- * Provides a unified interface for accessing models via external APIs.
+ * Provides an interface for accessing models via external APIs.
  * All model configurations come from the on-chain registry - no hardcoded models.
  *
  * Features:

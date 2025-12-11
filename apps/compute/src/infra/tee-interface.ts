@@ -7,10 +7,12 @@ import type { Address, Hex } from 'viem';
 export enum TEEProviderType {
   UNKNOWN = 0,
   PHALA = 1,
-  AWS_NITRO = 2,
-  AZURE_CONFIDENTIAL = 3,
-  GOOGLE_CONFIDENTIAL = 4,
-  CLOUDFLARE_WORKERS = 5,
+  MARLIN = 2,
+  OASIS = 3,
+  AWS_NITRO = 4,
+  AZURE_CONFIDENTIAL = 5,
+  GOOGLE_CONFIDENTIAL = 6,
+  CLOUDFLARE_WORKERS = 7,
 }
 
 export enum TEEHardwareType {

@@ -11,7 +11,7 @@
  *   - Gasless transactions via XLP sponsorship
  *
  * ## Marketplace (Recommended)
- * - ComputeMarketplace: Unified interface for all compute services
+ * - ComputeMarketplace: Interface for all compute services
  *   - Model discovery by type (LLM, image, video, audio, embeddings)
  *   - Automatic endpoint selection with TEE support
  *   - TEE node integration

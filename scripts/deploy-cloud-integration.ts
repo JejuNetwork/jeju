@@ -79,29 +79,6 @@ async function setupCloudIntegration(
 ): Promise<void> {
   logger.info('🤖 Registering cloud service as agent...');
   
-  // Create agent card for cloud service (unused for now)
-  const _agentCard = {
-    name: metadata.name,
-    description: metadata.description,
-    version: metadata.version,
-    type: 'cloud-service',
-    capabilities: metadata.capabilities,
-    endpoints: {
-      a2a: metadata.endpoint,
-      health: `${metadata.endpoint}/health`,
-      metrics: `${metadata.endpoint}/metrics`
-    },
-    payment: {
-      x402: true,
-      tokens: ['USDC', 'elizaOS', 'ETH']
-    },
-    reputation: {
-      provider: true,
-      canBan: true,
-      canSetReputation: true
-    }
-  };
-  
   // Upload to IPFS (placeholder - in production use actual IPFS)
   const tokenURI = `ipfs://QmCloudServiceCard${Date.now()}`;
   logger.info(`Agent card URI: ${tokenURI}`);

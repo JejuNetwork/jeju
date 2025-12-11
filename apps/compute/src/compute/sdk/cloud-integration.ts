@@ -4,7 +4,7 @@
  * Bridges the cloud platform with the decentralized compute marketplace.
  * Enables:
  * - Dynamic model broadcasting from cloud to on-chain registry
- * - Unified inference routing through cloud and decentralized providers
+ * - Inference routing through cloud and decentralized providers
  * - A2A and MCP endpoint discovery for cloud services
  * - ERC-8004 integration for agent/service discovery
  *
@@ -23,10 +23,6 @@ import type {
   ModelType,
   ModelDiscoveryResult,
   ModelDiscoveryFilter,
-  ModelSourceType,
-  ModelHostingType,
-  TEEType,
-  GPUType,
 } from './types';
 import {
   ModelTypeEnum,
@@ -234,7 +230,7 @@ export class CloudModelBroadcaster {
   /**
    * Convert cloud model to RegisteredModel format
    */
-  private cloudToRegisteredModel(cloud: CloudModelInfo): RegisteredModel {
+  cloudToRegisteredModel(cloud: CloudModelInfo): RegisteredModel {
     const modelType = this.mapModelType(cloud.modelType);
     const capabilities = this.mapCapabilities(cloud);
     const pricing = this.mapPricing(cloud);
@@ -402,7 +398,7 @@ export class CloudModelBroadcaster {
  * CloudProviderBridge
  *
  * Routes inference requests through the cloud platform.
- * Integrates with compute marketplace for unified access.
+ * Integrates with compute marketplace for access.
  */
 export class CloudProviderBridge {
   private config: CloudIntegrationConfig;
@@ -635,8 +631,7 @@ export class CloudProviderBridge {
   }
 
   private cloudToRegisteredModel(cloud: CloudModelInfo): RegisteredModel {
-    return (this.broadcaster as { cloudToRegisteredModel: (c: CloudModelInfo) => RegisteredModel })
-      ['cloudToRegisteredModel'](cloud);
+    return this.broadcaster.cloudToRegisteredModel(cloud);
   }
 
   private getHeaders(): Record<string, string> {
@@ -651,33 +646,34 @@ export class CloudProviderBridge {
 }
 
 // ============================================================================
-// Unified Discovery Service
+// Discovery Service
 // ============================================================================
 
 /**
- * UnifiedModelDiscovery
+ * ModelDiscovery
  *
  * Combines cloud and decentralized model discovery into a single interface.
  * Provides intelligent routing based on availability, cost, and capabilities.
  */
-export class UnifiedModelDiscovery {
+export class ModelDiscovery {
   private cloudBridge: CloudProviderBridge | null = null;
   private registrySDK: InferenceRegistrySDK | null = null;
-  private config: CloudIntegrationConfig & { registryConfig?: ExtendedSDKConfig };
+  private readonly config: CloudIntegrationConfig & { registryConfig?: ExtendedSDKConfig };
 
   constructor(config: CloudIntegrationConfig & { registryConfig?: ExtendedSDKConfig }) {
     this.config = config;
 
     // Initialize cloud bridge
-    if (config.cloudEndpoint) {
-      this.cloudBridge = new CloudProviderBridge(config);
+    if (this.config.cloudEndpoint) {
+      this.cloudBridge = new CloudProviderBridge(this.config);
     }
 
     // Initialize on-chain registry
-    if (config.registryConfig) {
-      this.registrySDK = createInferenceRegistry(config.registryConfig);
+    if (this.config.registryConfig) {
+      this.registrySDK = createInferenceRegistry(this.config.registryConfig);
     }
   }
+
 
   /**
    * Initialize both discovery sources
@@ -748,7 +744,7 @@ export class UnifiedModelDiscovery {
       active: true,
     };
 
-    const { cloud, decentralized, combined } = await this.discoverAll(filter);
+    const { combined } = await this.discoverAll(filter);
 
     if (combined.length === 0) {
       return null;
@@ -813,18 +809,18 @@ export function createCloudBridge(config: CloudIntegrationConfig): CloudProvider
 }
 
 /**
- * Create unified model discovery
+ * Create model discovery
  */
-export function createUnifiedDiscovery(
+export function createModelDiscovery(
   config: CloudIntegrationConfig & { registryConfig?: ExtendedSDKConfig }
-): UnifiedModelDiscovery {
-  return new UnifiedModelDiscovery(config);
+): ModelDiscovery {
+  return new ModelDiscovery(config);
 }
 
 /**
  * Create from environment variables
  */
-export function createCloudIntegrationFromEnv(): UnifiedModelDiscovery {
+export function createCloudIntegrationFromEnv(): ModelDiscovery {
   const config: CloudIntegrationConfig & { registryConfig?: ExtendedSDKConfig } = {
     cloudEndpoint: process.env.CLOUD_ENDPOINT ?? process.env.NEXT_PUBLIC_APP_URL ?? 'https://elizacloud.ai',
     cloudApiKey: process.env.CLOUD_API_KEY,
@@ -849,5 +845,5 @@ export function createCloudIntegrationFromEnv(): UnifiedModelDiscovery {
     };
   }
 
-  return createUnifiedDiscovery(config);
+  return createModelDiscovery(config);
 }

@@ -27,10 +27,27 @@ async function runTest(name: string, fn: () => Promise<void>): Promise<void> {
     console.log(`   ✅ PASS`)
 }
 
+async function checkDatabaseAvailable(): Promise<boolean> {
+    try {
+        await execAsync('docker ps --format "{{.Names}}" | grep -q "^squid-db-1$"')
+        return true
+    } catch {
+        return false
+    }
+}
+
 async function queryDatabase(sql: string): Promise<string> {
+    const isAvailable = await checkDatabaseAvailable()
+    if (!isAvailable) {
+        throw new Error('Database container (squid-db-1) is not running. Start it with: cd apps/indexer && bun run db:up')
+    }
     const cmd = `docker exec squid-db-1 psql -U postgres -d indexer -tAc "${sql}"`
-    const { stdout } = await execAsync(cmd)
-    return stdout.trim()
+    try {
+        const { stdout } = await execAsync(cmd)
+        return stdout.trim()
+    } catch (error) {
+        throw new Error(`Database query failed: ${error instanceof Error ? error.message : String(error)}`)
+    }
 }
 
 async function main() {
@@ -39,6 +56,17 @@ async function main() {
     console.log('║   🧪 COMPREHENSIVE INTEGRATION TEST SUITE                    ║')
     console.log('║                                                              ║')
     console.log('╚══════════════════════════════════════════════════════════════╝\n')
+
+    // Check if database is available
+    const dbAvailable = await checkDatabaseAvailable()
+    if (!dbAvailable) {
+        console.log('⚠️  Database container (squid-db-1) is not running.')
+        console.log('   To run these tests, start the database with:')
+        console.log('   cd apps/indexer && bun run db:up')
+        console.log('')
+        console.log('   Skipping integration tests...\n')
+        process.exit(0)
+    }
 
     // Test 1: Database Connection
     await runTest('Database Connection', async () => {

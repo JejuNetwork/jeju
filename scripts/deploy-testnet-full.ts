@@ -61,15 +61,6 @@ const TESTNET_CHAINS: ChainConfig[] = [
   }
 ];
 
-// Deterministic deployment salts (reserved for future use)
-const _SALTS = {
-  CREATE2_FACTORY: ethers.keccak256(ethers.toUtf8Bytes('jeju-create2-factory-v1')),
-  L1_STAKE_MANAGER: ethers.keccak256(ethers.toUtf8Bytes('jeju-l1-stake-manager-v1')),
-  CROSS_CHAIN_PAYMASTER: ethers.keccak256(ethers.toUtf8Bytes('jeju-cross-chain-paymaster-v1')),
-  SOLVER_REGISTRY: ethers.keccak256(ethers.toUtf8Bytes('jeju-solver-registry-v1')),
-  INPUT_SETTLER: ethers.keccak256(ethers.toUtf8Bytes('jeju-input-settler-v1')),
-  OUTPUT_SETTLER: ethers.keccak256(ethers.toUtf8Bytes('jeju-output-settler-v1')),
-};
 
 // Contract ABIs (minimal for deployment)
 const L1_STAKE_MANAGER_ABI = [

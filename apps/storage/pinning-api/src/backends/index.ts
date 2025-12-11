@@ -1,7 +1,7 @@
 /**
  * Storage Backends
  * 
- * Unified interface for all storage backends:
+ * Interface for all storage backends:
  * - IPFS (decentralized)
  * - Cloud (Vercel, S3, R2)
  * - Arweave (permanent)
@@ -20,7 +20,7 @@ import {
 } from './cloud';
 
 // ============================================================================
-// Unified Backend Interface
+// Backend Interface
 // ============================================================================
 
 export interface StorageUploadOptions {
@@ -37,7 +37,7 @@ export interface StorageUploadResult {
   provider?: string;
 }
 
-export interface UnifiedStorageBackend {
+export interface StorageBackend {
   name: string;
   type: 'ipfs' | 'cloud' | 'arweave' | 'local';
   upload(content: Buffer, options: StorageUploadOptions): Promise<StorageUploadResult>;
@@ -52,7 +52,7 @@ export interface UnifiedStorageBackend {
 // IPFS Backend
 // ============================================================================
 
-export class IPFSBackend implements UnifiedStorageBackend {
+export class IPFSBackend implements StorageBackend {
   name = 'ipfs';
   type = 'ipfs' as const;
   private apiUrl: string;
@@ -119,7 +119,7 @@ export class IPFSBackend implements UnifiedStorageBackend {
 // Cloud Backend Adapter
 // ============================================================================
 
-export class CloudBackendAdapter implements UnifiedStorageBackend {
+export class CloudBackendAdapter implements StorageBackend {
   name: string;
   type = 'cloud' as const;
   private backend: CloudStorageBackend;
@@ -166,7 +166,7 @@ export class CloudBackendAdapter implements UnifiedStorageBackend {
 // Local Backend (In-Memory / Disk)
 // ============================================================================
 
-export class LocalBackend implements UnifiedStorageBackend {
+export class LocalBackend implements StorageBackend {
   name = 'local';
   type = 'local' as const;
   private storage: Map<string, { content: Buffer; filename: string; createdAt: Date }> = new Map();
@@ -266,7 +266,7 @@ export class LocalBackend implements UnifiedStorageBackend {
 // Arweave Backend
 // ============================================================================
 
-export class ArweaveBackend implements UnifiedStorageBackend {
+export class ArweaveBackend implements StorageBackend {
   name = 'arweave';
   type = 'arweave' as const;
   private apiUrl: string;
@@ -334,9 +334,9 @@ export class ArweaveBackend implements UnifiedStorageBackend {
 // ============================================================================
 
 export class BackendManager {
-  private backends: Map<string, UnifiedStorageBackend> = new Map();
-  private primaryBackend: UnifiedStorageBackend;
-  private fallbackBackend: UnifiedStorageBackend;
+  private backends: Map<string, StorageBackend> = new Map();
+  private primaryBackend: StorageBackend;
+  private fallbackBackend: StorageBackend;
 
   constructor() {
     // Always have local as fallback
@@ -347,7 +347,7 @@ export class BackendManager {
   /**
    * Add a backend
    */
-  addBackend(backend: UnifiedStorageBackend): void {
+  addBackend(backend: StorageBackend): void {
     this.backends.set(backend.name, backend);
   }
 
@@ -364,7 +364,7 @@ export class BackendManager {
   /**
    * Get backend by name
    */
-  getBackend(name: string): UnifiedStorageBackend | undefined {
+  getBackend(name: string): StorageBackend | undefined {
     return this.backends.get(name);
   }
 

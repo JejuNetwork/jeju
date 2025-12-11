@@ -29,7 +29,7 @@ import {
 // Backend Interface Tests
 // ============================================================================
 
-describe('Unified Storage Backend Interface', () => {
+describe('Storage Backend Interface', () => {
   test('all backends implement the same interface', () => {
     const localBackend = new LocalBackend();
     

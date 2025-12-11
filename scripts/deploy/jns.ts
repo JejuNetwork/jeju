@@ -43,15 +43,6 @@ console.log(`
 ╚═══════════════════════════════════════════════════════════╝
 `);
 
-// Contract ABIs (minimal for deployment) - reserved for future use
-const _JNS_REGISTRY_ABI = [
-  'constructor()',
-  'function setSubnodeOwner(bytes32 node, bytes32 label, address owner) returns (bytes32)',
-  'function setResolver(bytes32 node, address resolver)',
-  'function owner(bytes32 node) view returns (address)',
-  'function version() view returns (string)',
-];
-
 const JNS_RESOLVER_ABI = [
   'constructor(address _jns)',
   'function setIdentityRegistry(address _identityRegistry)',
@@ -64,13 +55,6 @@ const JNS_REGISTRAR_ABI = [
   'function claimReserved(string name, address owner, uint256 duration) returns (bytes32)',
   'function version() view returns (string)',
   'function BASE_NODE() view returns (bytes32)',
-];
-
-// Reserved for future use
-const _JNS_REVERSE_REGISTRAR_ABI = [
-  'constructor(address _jns, address _defaultResolver)',
-  'function version() view returns (string)',
-  'function ADDR_REVERSE_NODE() view returns (bytes32)',
 ];
 
 // Read compiled artifacts

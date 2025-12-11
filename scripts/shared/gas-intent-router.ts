@@ -97,13 +97,6 @@ const CROSS_CHAIN_PAYMASTER_ABI = parseAbi([
   'function tokenExchangeRates(address token) view returns (uint256)',
 ]);
 
-const _TOKEN_REGISTRY_ABI = parseAbi([
-  'function getTokenCrossChainInfo(address token) view returns (uint256[] chainIds, uint256[] liquidity)',
-  'function findBestChainForGas(address token, uint256 requiredLiquidity) view returns (uint256 bestChainId, uint256 availableLiquidity)',
-  'function getSupportedChains() view returns (uint256[])',
-  'function getCrossChainConfig(address token, uint256 chainId) view returns ((uint256 chainId, address tokenAddress, address paymasterAddress, uint256 liquidity, bool isActive))',
-]);
-
 const ERC20_ABI = parseAbi([
   'function symbol() view returns (string)',
   'function name() view returns (string)',

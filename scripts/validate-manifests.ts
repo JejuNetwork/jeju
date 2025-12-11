@@ -8,7 +8,6 @@
  */
 
 import { discoverAllApps } from './shared/discover-apps';
-import { join } from 'path';
 
 const COLORS = {
   RESET: '\x1b[0m',
@@ -39,8 +38,6 @@ function main() {
   let warnings = 0;
 
   for (const app of apps) {
-    const _manifestPath = join(app.path, 'jeju-manifest.json');
-    
     console.log(`\n${COLORS.CYAN}Validating ${app.type}/${app.name}...${COLORS.RESET}`);
 
     // Check required fields

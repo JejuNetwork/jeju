@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @title Unified Contract Verification Script
+ * @title Contract Verification Script
  * @notice Verifies deployed contracts on block explorers
  * @dev Supports testnet and mainnet with automatic network detection
  * 

@@ -1,9 +1,9 @@
 /**
  * Compute Marketplace SDK
  *
- * Unified interface for the decentralized compute marketplace:
+ * Interface for the decentralized compute marketplace:
  * - Model discovery (LLM, image, video, audio)
- * - Phala TEE node provisioning
+ * - TEE node provisioning and routing
  * - X402 payment integration with JEJU token
  * - Inference routing with TEE attestation
  */
@@ -120,7 +120,6 @@ export interface InferenceResult {
   coldStart: boolean;
 }
 
-// Removed PhalaNodeInfo - use TEENode from infra/tee-interface instead
 
 
 export class ComputeMarketplace {
@@ -264,8 +263,8 @@ export class ComputeMarketplace {
     }
 
     const url = providerType 
-      ? `${this.teeGatewayEndpoint}/nodes?provider=${providerType}`
-      : `${this.teeGatewayEndpoint}/nodes`;
+      ? `${this.teeGatewayEndpoint}/api/v1/tee/nodes?provider=${providerType}`
+      : `${this.teeGatewayEndpoint}/api/v1/tee/nodes`;
       
     const response = await fetch(url);
     if (!response.ok) {
@@ -323,7 +322,9 @@ export class ComputeMarketplace {
 
     const teeTypeMap: Record<string, TEEType> = {
       'intel-tdx': TEETypeEnum.INTEL_TDX,
+      'intel-sgx': TEETypeEnum.INTEL_SGX,
       'amd-sev': TEETypeEnum.AMD_SEV,
+      'arm-trustzone': TEETypeEnum.ARM_TRUSTZONE,
       'none': TEETypeEnum.NONE,
       'simulated': TEETypeEnum.SIMULATED,
     };

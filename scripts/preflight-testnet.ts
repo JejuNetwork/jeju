@@ -14,9 +14,6 @@
  */
 
 import { ethers } from 'ethers';
-import { Logger } from './shared/logger';
-
-const _logger = new Logger('preflight');
 
 interface CheckResult {
   name: string;

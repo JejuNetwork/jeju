@@ -48,11 +48,6 @@ const OUTPUT_SETTLER_ABI = [
   'function getSolverLiquidity(address solver, address token) view returns (uint256)',
 ];
 
-const _CROSS_CHAIN_PAYMASTER_ABI = [
-  'function getXLPETH(address xlp) view returns (uint256)',
-  'function xlpVerifiedStake(address xlp) view returns (uint256)',
-];
-
 const L1_STAKE_MANAGER_ABI = [
   'function getProtocolStats() view returns (uint256 totalStaked, uint256 totalSlashed, uint256 activeXLPs)',
   'function isXLPActive(address xlp) view returns (bool)',
@@ -74,11 +69,6 @@ function loadOIFDeployments(network: 'testnet' | 'mainnet') {
   }
 }
 
-function loadContractsConfig(network: 'testnet' | 'mainnet') {
-  const contractsPath = resolve(process.cwd(), 'packages/config/contracts.json');
-  const contracts = JSON.parse(readFileSync(contractsPath, 'utf-8'));
-  return contracts[network];
-}
 
 async function checkChainConnectivity(rpcUrl: string, expectedChainId: number): Promise<boolean> {
   try {
@@ -176,7 +166,6 @@ async function main() {
   // Load configs
   const chainConfigs = loadChainConfigs(network);
   const oifDeployments = loadOIFDeployments(network);
-  const _contractsConfig = loadContractsConfig(network);
   
   // Verify each chain
   console.log('═══ Chain Status ═══\n');

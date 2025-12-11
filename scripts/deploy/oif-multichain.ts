@@ -178,12 +178,7 @@ function parseDeploymentOutput(output: string): DeploymentResult {
   const lines = output.split('\n');
   for (const line of lines) {
     if (line.includes('deployedTo')) {
-      try {
-        const _json = JSON.parse(line);
-        // Would need to map contract names from JSON
-      } catch {
-        // Invalid JSON, continue parsing
-      }
+      // Would need to map contract names from JSON
     }
   }
   

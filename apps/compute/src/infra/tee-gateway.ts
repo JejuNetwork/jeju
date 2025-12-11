@@ -17,7 +17,6 @@ export class TEEGateway implements ITEEGateway {
 
   registerProvider(provider: TEEProvider): void {
     this.providers.set(provider.getProviderType(), provider);
-    console.log(`[TEEGateway] Registered provider: ${provider.getName()}`);
   }
 
   async getEndpoint(request: TEEProvisionRequest): Promise<TEEProvisionResult> {
@@ -29,6 +28,8 @@ export class TEEGateway implements ITEEGateway {
     }
     const preferredOrder = [
       TEEProviderType.PHALA,
+      TEEProviderType.MARLIN,
+      TEEProviderType.OASIS,
       TEEProviderType.AWS_NITRO,
       TEEProviderType.AZURE_CONFIDENTIAL,
       TEEProviderType.GOOGLE_CONFIDENTIAL,
@@ -47,7 +48,6 @@ export class TEEGateway implements ITEEGateway {
       try {
         return await provider.getEndpoint(request);
       } catch (error) {
-        console.warn(`[TEEGateway] Provider ${provider.getName()} failed:`, error);
         continue;
       }
     }

@@ -197,7 +197,6 @@ async function main() {
   for (const chainId of chainIds) {
     const inputSettler = process.env[`OIF_INPUT_SETTLER_${chainId}`];
     const outputSettler = process.env[`OIF_OUTPUT_SETTLER_${chainId}`];
-    const _registry = process.env[`OIF_SOLVER_REGISTRY_${chainId}`];
 
     const hasAll = inputSettler && outputSettler;
     console.log(`  Chain ${chainId}: ${hasAll ? '✅ Configured' : '❌ Missing env vars'}`);

@@ -14,7 +14,7 @@ const PASSWORD = 'Tester@1234';
 // Expected test wallet address (Hardhat/Anvil account #0)
 const TEST_WALLET_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
 
-// Unified cache directory for all apps
+// Cache directory for all apps
 const SYNPRESS_CACHE_DIR = process.env.SYNPRESS_CACHE_DIR || join(process.cwd(), '../../.synpress-cache');
 
 export interface JejuSynpressConfig {

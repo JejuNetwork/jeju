@@ -1,5 +1,5 @@
 /**
- * @fileoverview Unified Network Configuration
+ * @fileoverview Network Configuration
  * @module config/network
  * 
  * Single source of truth for all network configuration.

@@ -310,7 +310,7 @@ app.post('/upload', async (c) => {
   const content = Buffer.from(await file.arrayBuffer());
   const sizeBytes = content.byteLength;
 
-  // Use unified backend manager for upload
+  // Use backend manager for upload
   const result = await backendManager.upload(content, { filename: file.name });
   const cid = result.cid;
   const isIPFS = result.backend === 'ipfs';
