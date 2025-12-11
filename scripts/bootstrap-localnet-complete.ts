@@ -425,7 +425,7 @@ class CompleteBootstrapper {
     // Deploy PaymasterFactory
     const paymasterFactory = this.deployContract(
       'src/paymaster/PaymasterFactory.sol:PaymasterFactory',
-      [tokenRegistry, entryPoint, contracts.priceOracle, this.deployerAddress],
+      [tokenRegistry, entryPoint, contracts.priceOracle ?? '0x0000000000000000000000000000000000000000', this.deployerAddress],
       'PaymasterFactory'
     );
 
@@ -470,8 +470,8 @@ class CompleteBootstrapper {
         [
           contracts.tokenRegistry || '0x0000000000000000000000000000000000000000',
           contracts.paymasterFactory || '0x0000000000000000000000000000000000000000',
-          contracts.priceOracle,
-          contracts.elizaOS,
+          contracts.priceOracle ?? '0x0000000000000000000000000000000000000000',
+          contracts.elizaOS ?? '0x0000000000000000000000000000000000000000',
           performanceOracle,
           this.deployerAddress
         ],

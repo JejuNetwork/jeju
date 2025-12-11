@@ -214,7 +214,9 @@ async function main() {
     console.log('   ⏭️  Skipped (timed out after 30s - large repos can be slow)\n');
     console.log('   ℹ️  To initialize manually: git submodule update --init --recursive\n');
   } else {
-    const stderr = contractLibsResult.stderr?.toString() || '';
+    const stderr = ('stderr' in contractLibsResult && contractLibsResult.stderr) 
+      ? contractLibsResult.stderr.toString() 
+      : '';
     console.log(`   ⚠️  Could not sync: ${stderr.split('\n')[0] || 'unknown error'}\n`);
     console.log('   ℹ️  To initialize manually: git submodule update --init --recursive\n');
   }

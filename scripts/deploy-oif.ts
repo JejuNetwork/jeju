@@ -81,6 +81,7 @@ async function deployToChain(config: NetworkConfig, privateKey: string): Promise
     );
 
     let output = '';
+    let errorOutput = '';
 
     child.stdout.on('data', (data) => {
       output += data.toString();

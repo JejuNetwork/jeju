@@ -20,6 +20,7 @@ import {
     Contract,
 } from './model';
 import { TokenStandard } from './model/generated/_tokenStandard';
+import { ContractType } from './model/generated/_contractType';
 
 // Event signatures
 const GOLD_CLAIMED = ethers.id('GoldClaimed(address,uint256,uint256)');
@@ -149,7 +150,7 @@ export async function processGameTokenEvents(ctx: ProcessorContext<Store>): Prom
                 const playerAccount = getOrCreateAccount(player, block.header.height, blockTimestamp);
                 const tokenContract = getOrCreateContract(contractAddress, block.header.height, blockTimestamp);
                 tokenContract.isERC20 = true;
-                tokenContract.contractType = 'GAME';
+                tokenContract.contractType = ContractType.GAME;
 
                 // Track as token transfer (mint from zero address)
                 tokenTransfers.push(new TokenTransfer({
@@ -220,7 +221,7 @@ export async function processGameTokenEvents(ctx: ProcessorContext<Store>): Prom
                 const minterAccount = getOrCreateAccount(minter, block.header.height, blockTimestamp);
                 const tokenContract = getOrCreateContract(contractAddress, block.header.height, blockTimestamp);
                 tokenContract.isERC1155 = true;
-                tokenContract.contractType = 'GAME';
+                tokenContract.contractType = ContractType.GAME;
 
                 // Track as ERC-1155 transfer (mint from zero address)
                 tokenTransfers.push(new TokenTransfer({

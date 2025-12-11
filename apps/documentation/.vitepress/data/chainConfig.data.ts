@@ -19,8 +19,8 @@
  * ```
  */
 
-import mainnet from '@jejunetwork/config/chain/mainnet.json';
-import testnet from '@jejunetwork/config/chain/testnet.json';
+import mainnet from '@jejunetwork/config/chain/mainnet.json' assert { type: 'json' };
+import testnet from '@jejunetwork/config/chain/testnet.json' assert { type: 'json' };
 
 /**
  * Chain configuration interface matching the JSON structure

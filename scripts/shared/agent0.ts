@@ -15,7 +15,7 @@ import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
 import { Logger } from './logger';
 
-const logger = new Logger('agent0');
+const logger = new Logger({ prefix: 'agent0' });
 
 // ============ Types ============
 
@@ -291,7 +291,7 @@ export async function uploadToIPFS(
 export async function registerApp(
   config: Agent0Config,
   manifest: JejuManifest,
-  appUrl: string,
+  _appUrl: string,
   tokenURI?: string
 ): Promise<RegistrationResult> {
   const networkConfig = getNetworkConfig(config.network);

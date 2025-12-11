@@ -26,7 +26,7 @@ import {
   type Hex,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import SponsoredPaymasterArtifact from "../../packages/contracts/out/SponsoredPaymaster.sol/SponsoredPaymaster.json";
+import path from "path";
 
 // ============ Configuration ============
 
@@ -246,16 +246,34 @@ async function deploySponsoredPaymaster(
 ): Promise<Address> {
   console.log("   Deploying SponsoredPaymaster...");
 
-  // Check if artifact exists
-  if (!SponsoredPaymasterArtifact?.bytecode?.object) {
+  // Try to load artifact from multiple possible locations
+  const artifactPaths = [
+    path.join(process.cwd(), "packages/contracts/out/SponsoredPaymaster.sol/SponsoredPaymaster.json"),
+    path.join(process.cwd(), "packages/contracts/abis/SponsoredPaymaster.json"),
+  ];
+
+  let artifact: { abi: unknown; bytecode?: { object?: string } } | null = null;
+  for (const artifactPath of artifactPaths) {
+    try {
+      const file = Bun.file(artifactPath);
+      if (await file.exists()) {
+        artifact = await file.json();
+        break;
+      }
+    } catch {
+      // Continue to next path
+    }
+  }
+
+  if (!artifact?.bytecode?.object) {
     console.log("   ⚠️  SponsoredPaymaster not compiled. Run: forge build");
     console.log("   Using deterministic address placeholder");
     return "0x0000000000000000000000000000000000000001" as Address;
   }
 
   const deployData = encodeDeployData({
-    abi: SponsoredPaymasterArtifact.abi,
-    bytecode: SponsoredPaymasterArtifact.bytecode.object as Hex,
+    abi: artifact.abi as Parameters<typeof encodeDeployData>[0]["abi"],
+    bytecode: artifact.bytecode.object as Hex,
     args: [ENTRYPOINT_V07, ownerAddress],
   });
 
@@ -318,7 +336,7 @@ async function configureSponsoredPaymaster(
     abi: sponsoredPaymasterAbi,
     functionName: "setWhitelistedTarget",
     args: ["0x0000000000000000000000000000000000000000" as Address, true],
-  });
+  } as unknown as Parameters<typeof walletClient.writeContract>[0]);
 
   console.log(`   Transaction: ${hash}`);
   await publicClient.waitForTransactionReceipt({ hash });
@@ -369,7 +387,7 @@ async function fundPaymaster(
       functionName: "depositTo",
       args: [paymasterAddress],
       value: needed,
-    });
+    } as unknown as Parameters<typeof walletClient.writeContract>[0]);
 
     console.log(`   Transaction: ${hash}`);
     await publicClient.waitForTransactionReceipt({ hash });

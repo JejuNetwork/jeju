@@ -43,7 +43,7 @@ export async function createSignedFeedbackAuth(
   const authData: FeedbackAuthData = {
     agentId,
     clientAddress,
-    indexLimit: BigInt(type(uint64).max), // Allow unlimited feedback
+    indexLimit: type('uint64').max, // Allow unlimited feedback
     expiry: BigInt(Math.floor(Date.now() / 1000) + 86400), // 24 hours
     chainId,
     identityRegistry: reputationRegistryAddress,

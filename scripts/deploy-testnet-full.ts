@@ -109,7 +109,7 @@ interface DeploymentResult {
 async function deployToChain(
   chain: ChainConfig,
   deployerWallet: ethers.Wallet,
-  existingContracts: Record<number, Record<string, string>>
+  _existingContracts: Record<number, Record<string, string>>
 ): Promise<DeploymentResult> {
   log(`\n========== Deploying to ${chain.name} (${chain.chainId}) ==========`);
   
@@ -132,23 +132,12 @@ async function deployToChain(
     
     // For now, deploy non-upgradeable version
     // In production, use Create2Factory + proxy
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _L1StakeManagerFactory = new ethers.ContractFactory(
-      L1_STAKE_MANAGER_ABI,
-      '0x...', // bytecode would go here
-      deployer
-    );
-    
     // Placeholder - actual deployment would use forge
     contracts.l1StakeManager = ethers.ZeroAddress; // Will be filled by forge
     
     success(`L1StakeManager: ${contracts.l1StakeManager}`);
   } else {
     // Deploy L2 contracts
-    const l1ChainId = 11155111; // Sepolia
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _l1StakeManager = existingContracts[l1ChainId]?.l1StakeManager || ethers.ZeroAddress;
-    
     log('Deploying CrossChainPaymaster...');
     contracts.crossChainPaymaster = ethers.ZeroAddress; // Will be filled by forge
     
@@ -200,7 +189,7 @@ async function fundXLP(
 }
 
 async function registerXLP(
-  deployerWallet: ethers.Wallet,
+  _deployerWallet: ethers.Wallet,
   xlpWallet: ethers.Wallet,
   deployments: Record<number, DeploymentResult>
 ) {
@@ -296,8 +285,8 @@ async function main() {
     process.exit(1);
   }
   
-  const deployerWallet = new ethers.Wallet(deployerKey);
-  const xlpWallet = xlpKey ? new ethers.Wallet(xlpKey) : ethers.Wallet.createRandom();
+  const deployerWallet = new ethers.Wallet(deployerKey) as ethers.Wallet;
+  const xlpWallet = (xlpKey ? new ethers.Wallet(xlpKey) : ethers.Wallet.createRandom()) as ethers.Wallet;
   
   log(`Deployer: ${deployerWallet.address}`);
   log(`XLP: ${xlpWallet.address}`);
@@ -321,7 +310,10 @@ async function main() {
   const l1Chain = TESTNET_CHAINS.find(c => c.type === 'l1');
   if (l1Chain) {
     try {
-      deployments[l1Chain.chainId] = await deployToChain(l1Chain, deployerWallet, deployments);
+      const existingContracts = Object.fromEntries(
+        Object.entries(deployments).map(([chainId, result]) => [chainId, result.contracts])
+      ) as Record<number, Record<string, string>>;
+      deployments[l1Chain.chainId] = await deployToChain(l1Chain, deployerWallet, existingContracts);
     } catch (e) {
       error(`L1 deployment failed: ${(e as Error).message}`);
     }
@@ -330,7 +322,10 @@ async function main() {
   // Deploy L2s
   for (const chain of TESTNET_CHAINS.filter(c => c.type === 'l2')) {
     try {
-      deployments[chain.chainId] = await deployToChain(chain, deployerWallet, deployments);
+      const existingContracts = Object.fromEntries(
+        Object.entries(deployments).map(([chainId, result]) => [chainId, result.contracts])
+      ) as Record<number, Record<string, string>>;
+      deployments[chain.chainId] = await deployToChain(chain, deployerWallet, existingContracts);
     } catch (e) {
       error(`${chain.name} deployment failed: ${(e as Error).message}`);
     }

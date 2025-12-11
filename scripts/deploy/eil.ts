@@ -16,7 +16,7 @@ import { Logger } from '../shared/logger';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { resolve } from 'path';
 
-const logger = new Logger('deploy-eil');
+const logger = new Logger({ prefix: 'deploy-eil' });
 
 const CONTRACTS_DIR = resolve(process.cwd(), 'packages/contracts');
 const CONFIG_DIR = resolve(process.cwd(), 'packages/config');

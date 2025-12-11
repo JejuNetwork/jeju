@@ -19,7 +19,7 @@ import { Logger } from '../shared/logger';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
 
-const logger = new Logger('deploy-oif-multichain');
+const logger = new Logger({ prefix: 'deploy-oif-multichain' });
 
 interface ChainConfig {
   chainId: number;
