@@ -2,17 +2,10 @@
 # Pure TCP ports only - no UDP/QUIC issues!
 
 # Pinned versions for reproducibility (December 2025)
-# Updated for Fusaka compatibility (activated Dec 3, 2025)
 OP_STACK_VERSION = "v1.16.3"
-GETH_VERSION = "v1.16.7"  # Fusaka-compatible (required for PeerDAS + blob capacity)
-OP_GETH_VERSION = "v1.101607.0"  # Matches Geth v1.16.7 base
+GETH_VERSION = "v1.14.12"
+OP_GETH_VERSION = "v1.101411.4"  # Based on Geth 1.14.11
 OP_RETH_VERSION = "v1.1.2"
-
-# Fusaka upgrade notes:
-# - PeerDAS (EIP-7594): Data availability sampling enabled
-# - BPO fork Dec 9: 6/9 blobs → 10/15 blobs per block
-# - BPO fork Jan 7: 10/15 blobs → 14/21 blobs per block
-# - Gas limit: 30M → 60M
 
 def run(plan, args={}):
     """

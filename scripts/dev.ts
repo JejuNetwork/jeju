@@ -314,7 +314,7 @@ async function startJejuApp(app: JejuApp, l2RpcPort: string): Promise<void> {
     RPC_URL: `http://localhost:${l2RpcPort}`,
     JEJU_RPC_URL: `http://localhost:${l2RpcPort}`,
     CHAIN_ID: "1337",
-    PUBLIC_CDN_URL: process.env.PUBLIC_CDN_URL || 'http://localhost:8088',
+    PUBLIC_CDN_URL: process.env.PUBLIC_CDN_URL || 'http://localhost:8080',
   };
   
   if (mainPort) {

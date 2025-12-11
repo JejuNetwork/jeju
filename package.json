@@ -17,6 +17,7 @@
   },
   "scripts": {
     "docs:generate": "typedoc --options packages/config/typedoc.json",
+    "preinstall": "python3 -c 'import distutils' 2>/dev/null || (echo '\\n⚠️  Python distutils not found (required for native modules like better-sqlite3)\\n\\nFix with: pip3 install --user --break-system-packages setuptools\\n' && exit 1)",
     "postinstall": "bun run build:packages && bun run scripts/setup-apps.ts || echo 'Setup completed with warnings'",
     "build:packages": "cd packages/types && bun run build && cd ../contracts && bun run build || echo 'Package build completed'",
     "preflight": "bun run scripts/preflight-check.ts",

@@ -208,6 +208,11 @@ ETHERSCAN_API_KEY=...
 
 ## Troubleshooting
 
+**"No module named distutils"** (Python 3.12+): Native modules like `better-sqlite3` need `distutils`.
+```bash
+pip3 install --user --break-system-packages setuptools
+```
+
 **Docker not running**: Start Docker Desktop
 
 **Port in use**: `lsof -i :9545` then `kill -9 <PID>`
