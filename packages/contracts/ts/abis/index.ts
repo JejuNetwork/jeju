@@ -41,6 +41,15 @@ import PaymasterFactoryAbiJson from '../../abis/PaymasterFactory.json';
 import LiquidityVaultAbiJson from '../../abis/LiquidityVault.json';
 import AppTokenPreferenceAbiJson from '../../abis/AppTokenPreference.json';
 
+// Game ABIs (Hyperscape / forkable game contracts)
+import GoldAbiJson from '../../abis/Gold.json';
+import ItemsAbiJson from '../../abis/Items.json';
+import GameIntegrationAbiJson from '../../abis/GameIntegration.json';
+import PlayerTradeEscrowAbiJson from '../../abis/PlayerTradeEscrow.json';
+
+// Paymaster ABIs (ERC-4337 Account Abstraction)
+import SponsoredPaymasterAbiJson from '../../abis/SponsoredPaymaster.json';
+
 import type { Abi } from 'viem';
 
 // Extract and type the ABIs
@@ -81,6 +90,16 @@ export const PaymasterFactoryAbi = PaymasterFactoryAbiJson.abi as Abi;
 export const LiquidityVaultAbi = LiquidityVaultAbiJson.abi as Abi;
 export const AppTokenPreferenceAbi = AppTokenPreferenceAbiJson.abi as Abi;
 
+// Game ABIs (Hyperscape / forkable game infrastructure)
+// Note: Games use the standard Jeju BanManager for moderation (see moderation/BanManager.sol)
+export const GoldAbi = GoldAbiJson.abi as Abi;
+export const ItemsAbi = ItemsAbiJson.abi as Abi;
+export const GameIntegrationAbi = GameIntegrationAbiJson.abi as Abi;
+export const PlayerTradeEscrowAbi = PlayerTradeEscrowAbiJson.abi as Abi;
+
+// Paymaster ABIs (ERC-4337 Account Abstraction)
+export const SponsoredPaymasterAbi = SponsoredPaymasterAbiJson.abi as Abi;
+
 // Export the full JSON files for those who need address + abi
 export { ERC20AbiJson, ERC20FactoryAbiJson, BazaarAbiJson, IdentityRegistryAbiJson };
 export { InputSettlerAbiJson, OutputSettlerAbiJson, SolverRegistryAbiJson };
@@ -90,6 +109,8 @@ export { BanManagerAbiJson, ModerationMarketplaceAbiJson };
 export { JejuTokenAbiJson };
 export { CreditManagerAbiJson, MultiTokenPaymasterAbiJson };
 export { TokenRegistryAbiJson, PaymasterFactoryAbiJson, LiquidityVaultAbiJson, AppTokenPreferenceAbiJson };
+export { GoldAbiJson, ItemsAbiJson, GameIntegrationAbiJson, PlayerTradeEscrowAbiJson };
+export { SponsoredPaymasterAbiJson };
 
 // Common ABI fragments for convenience
 export const ERC20ReadAbi = [

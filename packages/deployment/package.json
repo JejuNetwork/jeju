@@ -4,6 +4,9 @@
   "description": "Infrastructure deployment for Jeju Network",
   "type": "module",
   "scripts": {
+    "test": "bun test",
+    "test:aa": "bun test tests/aa-integration.test.ts",
+    "test:privy": "bun test tests/privy-auth.test.ts",
     "validate": "bun run scripts/validate.ts",
     "validate:terraform": "cd terraform/environments/${NETWORK:-testnet} && terraform init -backend=false && terraform validate",
     "validate:helm": "helm lint kubernetes/helm/*/",

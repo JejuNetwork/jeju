@@ -5,8 +5,14 @@ import {
   getBazaarMarketplace,
   getERC20Factory,
   getXLPDeployment,
+  getGameSystem,
+  getGameGold,
+  getGameItems,
+  getGameIntegration,
+  getPaymasterSystem,
   bazaarMarketplaceDeployments,
   erc20FactoryDeployments,
+  gameSystemDeployments,
   ZERO_ADDRESS,
   isValidAddress,
   type ChainId,
@@ -29,12 +35,27 @@ export interface XLPContracts {
   weth?: Address
 }
 
-export interface NFTContracts {
-  hyperscapeItems?: Address
-  hyperscapeGold?: Address
+/**
+ * Game contract addresses for Jeju-integrated games
+ * These are canonical contracts - any game fork uses the same contract types
+ */
+export interface GameContracts {
+  /** Bazaar marketplace for trading NFTs */
   marketplace?: Address
+  /** Items.sol ERC-1155 contract for game items */
+  items?: Address
+  /** Gold.sol ERC-20 contract for game currency */
+  gold?: Address
+  /** PlayerTradeEscrow.sol for P2P trading */
   tradeEscrow?: Address
+  /** GameIntegration.sol hub */
+  gameIntegration?: Address
+  /** ERC-8004 agent ID for this game */
   gameAgentId?: number
+  /** SponsoredPaymaster for gasless transactions (ERC-4337) */
+  sponsoredPaymaster?: Address
+  /** EntryPoint v0.7 for ERC-4337 */
+  entryPoint?: Address
 }
 
 export interface TokenFactoryContracts {
@@ -58,19 +79,27 @@ export const V4_CONTRACTS: Record<number, V4Contracts> = {
   420691: buildV4Contracts(420691),
 }
 
-function buildNFTContracts(chainId: ChainId): NFTContracts {
+function buildGameContracts(chainId: ChainId): GameContracts {
   const marketplace = bazaarMarketplaceDeployments[chainId]
+  const game = gameSystemDeployments[chainId]
+  const paymaster = getPaymasterSystem(chainId)
   const marketplaceAddr = getBazaarMarketplace(chainId) || ZERO_ADDRESS
+  
   return {
     marketplace: marketplaceAddr as Address,
-    hyperscapeGold: (marketplace?.goldToken || ZERO_ADDRESS) as Address,
-    hyperscapeItems: marketplaceAddr as Address,
+    items: (getGameItems(chainId) || ZERO_ADDRESS) as Address,
+    gold: (getGameGold(chainId) || marketplace?.goldToken || ZERO_ADDRESS) as Address,
+    tradeEscrow: (game?.playerTradeEscrow || ZERO_ADDRESS) as Address,
+    gameIntegration: (getGameIntegration(chainId) || ZERO_ADDRESS) as Address,
+    gameAgentId: game?.gameAgentId,
+    sponsoredPaymaster: (paymaster?.sponsoredPaymaster || ZERO_ADDRESS) as Address,
+    entryPoint: (paymaster?.entryPoint || '0x0000000071727De22E5E9d8BAf0edAc6f37da032') as Address,
   }
 }
 
-export const NFT_CONTRACTS: Record<number, NFTContracts> = {
-  1337: buildNFTContracts(1337),
-  [JEJU_CHAIN_ID]: buildNFTContracts(420691),
+export const GAME_CONTRACTS: Record<number, GameContracts> = {
+  1337: buildGameContracts(1337),
+  [JEJU_CHAIN_ID]: buildGameContracts(420691),
 }
 
 function buildTokenFactoryContracts(chainId: ChainId): TokenFactoryContracts {
@@ -93,8 +122,13 @@ export function getV4Contracts(chainId: number): V4Contracts {
   return contracts
 }
 
-export function getNFTContracts(chainId: number): NFTContracts {
-  return NFT_CONTRACTS[chainId] || {}
+export function getGameContracts(chainId: number): GameContracts {
+  return GAME_CONTRACTS[chainId] || {}
+}
+
+/** @deprecated Use getGameContracts */
+export function getNFTContracts(chainId: number): GameContracts {
+  return getGameContracts(chainId)
 }
 
 export function hasV4Periphery(chainId: number): boolean {
@@ -103,8 +137,13 @@ export function hasV4Periphery(chainId: number): boolean {
 }
 
 export function hasNFTMarketplace(chainId: number): boolean {
-  const contracts = getNFTContracts(chainId)
-  return !!(contracts.marketplace && contracts.hyperscapeItems && isValidAddress(contracts.marketplace))
+  const contracts = getGameContracts(chainId)
+  return !!(contracts.marketplace && contracts.items && isValidAddress(contracts.marketplace))
+}
+
+export function hasGameContracts(chainId: number): boolean {
+  const contracts = getGameContracts(chainId)
+  return !!(contracts.items && isValidAddress(contracts.items))
 }
 
 export function getTokenFactoryContracts(chainId: number): TokenFactoryContracts | undefined {

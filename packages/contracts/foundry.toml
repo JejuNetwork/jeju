@@ -9,25 +9,13 @@ optimizer_runs = 200
 via_ir = true
 evm_version = "cancun"
 
-# Exclude incomplete contracts and problematic dependencies
-deny_warnings = false
-exclude = [
-    "lib/account-abstraction/**",
-    "lib/openzeppelin-contracts/test/**",
-    "lib/openzeppelin-contracts/lib/**",
-    "lib/openzeppelin-contracts-upgradeable/test/**",
-    "lib/openzeppelin-contracts-upgradeable/lib/**",
-    "lib/v2-core/**",
-    "lib/v2-periphery/**",
-    "lib/solidity-lib/**",
-    "lib/v4-core/**",
-    "lib/v4-periphery/**",
-    "lib/chainlink/**",
-    "src/paymaster/CloudPaymaster.sol",
+# Skip these contracts from compilation
+# Note: Library test/lib folders are handled automatically
+skip = [
     "src/prediction/JejuMarket.sol",
     "src/uniswap-v2/**",
     "src/uniswap-v4/**",
-    "src/games/mmo/**",
+    "src/mmo/**",
     "script/DeployCompute.s.sol",
     "script/DeployUniswapV4Periphery.s.sol"
 ]
@@ -35,7 +23,32 @@ exclude = [
 # Test settings
 # Note: Hyperscape tests require MUD World deployment - run separately with: cd apps/hyperscape && pnpm test
 verbosity = 2
-fuzz_runs = 256
+
+# Lint configuration - suppress known false positives and style notes
+# These are reviewed and documented below
+[lint]
+exclude_lints = [
+    # Warnings (reviewed, false positives or intentional)
+    "unsafe-typecast",          # Typecasts validated by input constraints
+    "divide-before-multiply",   # Intentional for specific math operations
+    "erc20-unchecked-transfer", # Test code uses known-safe mock tokens
+    
+    # Notes (style preferences, not errors)
+    "mixed-case-variable",           # External interfaces define names
+    "unaliased-plain-import",        # OpenZeppelin imports are clear
+    "screaming-snake-case-immutable",# Matches upstream conventions
+    "mixed-case-function",           # External interface compatibility
+    "asm-keccak256",                 # Gas optimization, not required
+    "unwrapped-modifier-logic",      # Style preference
+    "unused-import",                 # Some imports used in comments/docs
+    "unsafe-cheatcode",              # Test code only
+    "pascal-case-struct",            # External interface compatibility
+    "screaming-snake-case-const",    # Style preference
+    "named-struct-fields"            # Style preference
+]
+
+[fuzz]
+runs = 256
 fs_permissions = [{ access = "read-write", path = "./deployments" }, { access = "read", path = "./" }]
 
 # Remappings
@@ -45,6 +58,7 @@ remappings = [
     "@optimism/=lib/optimism/packages/contracts-bedrock/src/",
     "forge-std/=lib/forge-std/src/",
     "@eth-optimism-bedrock/=lib/optimism/packages/contracts-bedrock/src/",
+    "@account-abstraction/contracts/=lib/account-abstraction/contracts/",
     "account-abstraction/=lib/account-abstraction/contracts/",
     "@uniswap/lib/contracts/=lib/solidity-lib/contracts/",
     "@uniswap/v4-core/=lib/v4-core/",

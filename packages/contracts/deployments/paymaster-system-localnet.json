@@ -2,7 +2,8 @@
   "tokenRegistry": "0xfaAddC93baf78e89DCf37bA67943E1bE8F37Bb8c",
   "priceOracle": "0xA7c59f010700930003b33aB25a7a0679C860f29c",
   "paymasterFactory": "0x276C216D241856199A83bf27b2286659e5b877D3",
-  "entryPoint": "0x22753E4264FDDc6181dc7cce468904A80a363E44",
+  "entryPoint": "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
+  "sponsoredPaymaster": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
   "exampleDeployments": [
     {
       "token": "0x3347B4d90ebe72BeFb30444C9966B2B990aE9FcB",

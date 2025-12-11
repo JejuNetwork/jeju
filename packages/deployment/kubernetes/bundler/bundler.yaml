@@ -1,0 +1,193 @@
+---
+# ERC-4337 Bundler Deployment for Jeju Network
+#
+# Uses Alto bundler from Pimlico for UserOperation relay.
+# This is required for account abstraction / gasless transactions.
+#
+# Environment Variables Required:
+# - CHAIN_ID: Network chain ID (420691 localnet, 420690 testnet, 420692 mainnet)
+# - RPC_URL: Jeju network RPC URL
+# - ENTRYPOINT_ADDRESS: ERC-4337 EntryPoint v0.7 address
+# - PRIVATE_KEY: Bundler's private key for submitting bundles (needs ETH for gas)
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: jeju-bundler
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bundler-config
+  namespace: jeju-bundler
+data:
+  CHAIN_ID: "420691"
+  ENTRYPOINT_ADDRESS: "0x0000000071727De22E5E9d8BAf0edAc6f37da032"
+  # EntryPoint v0.7 (same on all EVM chains)
+  BUNDLER_PORT: "4337"
+  LOG_LEVEL: "info"
+  # Bundle submission settings
+  MAX_BUNDLE_SIZE: "10"
+  BUNDLE_INTERVAL_MS: "100"
+  # Gas settings
+  MIN_BALANCE: "0.1"
+  # Mempool settings
+  MAX_MEMPOOL_SIZE: "1000"
+  MEMPOOL_TTL_SECONDS: "300"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: bundler-secrets
+  namespace: jeju-bundler
+type: Opaque
+stringData:
+  # IMPORTANT: Replace with actual values in production
+  RPC_URL: "http://jeju-rpc.jeju-network.svc.cluster.local:9545"
+  PRIVATE_KEY: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alto-bundler
+  namespace: jeju-bundler
+  labels:
+    app: bundler
+    component: alto
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: bundler
+  template:
+    metadata:
+      labels:
+        app: bundler
+        component: alto
+    spec:
+      containers:
+        - name: alto
+          image: ghcr.io/pimlicolabs/alto:latest
+          ports:
+            - containerPort: 4337
+              name: rpc
+          envFrom:
+            - configMapRef:
+                name: bundler-config
+            - secretRef:
+                name: bundler-secrets
+          env:
+            - name: ALTO_RPC_URL
+              valueFrom:
+                secretKeyRef:
+                  name: bundler-secrets
+                  key: RPC_URL
+            - name: ALTO_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: bundler-secrets
+                  key: PRIVATE_KEY
+            - name: ALTO_CHAIN_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: bundler-config
+                  key: CHAIN_ID
+            - name: ALTO_ENTRYPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: bundler-config
+                  key: ENTRYPOINT_ADDRESS
+            - name: ALTO_PORT
+              value: "4337"
+            - name: ALTO_LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: bundler-config
+                  key: LOG_LEVEL
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4337
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4337
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bundler
+  namespace: jeju-bundler
+  labels:
+    app: bundler
+spec:
+  type: ClusterIP
+  ports:
+    - port: 4337
+      targetPort: 4337
+      protocol: TCP
+      name: rpc
+  selector:
+    app: bundler
+
+---
+# External access for bundler RPC (for development/testing)
+apiVersion: v1
+kind: Service
+metadata:
+  name: bundler-external
+  namespace: jeju-bundler
+  labels:
+    app: bundler
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 4337
+      targetPort: 4337
+      protocol: TCP
+      name: rpc
+  selector:
+    app: bundler
+
+---
+# Horizontal Pod Autoscaler for high load
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: bundler-hpa
+  namespace: jeju-bundler
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: alto-bundler
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

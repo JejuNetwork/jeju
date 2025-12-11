@@ -45,7 +45,7 @@ contract EILTest is Test {
         entryPoint = new MockEntryPoint();
         l1StakeManager = new L1StakeManager();
         crossChainPaymaster =
-            new CrossChainPaymaster(IEntryPoint(address(entryPoint)), address(l1StakeManager), L2_CHAIN_ID, address(0));
+            new CrossChainPaymaster(IEntryPoint(address(entryPoint)), address(l1StakeManager), L2_CHAIN_ID, address(0), address(this));
 
         // Register the paymaster on L1
         l1StakeManager.registerL2Paymaster(L2_CHAIN_ID, address(crossChainPaymaster));

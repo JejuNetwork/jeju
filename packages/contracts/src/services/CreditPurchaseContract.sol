@@ -6,11 +6,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-
-interface IPriceOracle {
-    function getPrice(address token) external view returns (uint256 priceUSD, uint256 decimals);
-    function isPriceFresh(address token) external view returns (bool);
-}
+import {IPriceOracle} from "../interfaces/IPriceOracle.sol";
 
 interface IElizaOSToken {
     function mint(address to, uint256 amount) external;

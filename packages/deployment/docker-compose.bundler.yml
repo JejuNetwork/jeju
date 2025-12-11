@@ -1,0 +1,67 @@
+# ERC-4337 Bundler for Jeju Network (Local Development)
+#
+# Start with: docker-compose -f docker-compose.bundler.yml up
+#
+# This runs the Alto bundler locally for testing gasless transactions.
+# In production, use the Kubernetes deployment.
+
+services:
+  bundler:
+    image: ghcr.io/pimlicolabs/alto:latest
+    container_name: jeju-bundler
+    ports:
+      - "4337:4337"
+    environment:
+      # Network configuration
+      ALTO_RPC_URL: ${JEJU_RPC_URL:-http://host.docker.internal:9545}
+      ALTO_CHAIN_ID: ${CHAIN_ID:-420691}
+      ALTO_ENTRYPOINT: "0x0000000071727De22E5E9d8BAf0edAc6f37da032"
+      
+      # Bundler private key (default is Anvil/Hardhat account #1)
+      # IMPORTANT: Use a funded account in production
+      ALTO_PRIVATE_KEY: ${BUNDLER_PRIVATE_KEY:-0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d}
+      
+      # Server settings
+      ALTO_PORT: "4337"
+      ALTO_LOG_LEVEL: ${LOG_LEVEL:-info}
+      
+      # Bundle settings
+      ALTO_MAX_BUNDLE_SIZE: "10"
+      ALTO_BUNDLE_INTERVAL_MS: "100"
+      
+      # Gas price settings
+      ALTO_GAS_PRICE_MULTIPLIER: "1.2"
+      ALTO_MIN_STAKE: "1000000000000000"
+      
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4337/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  # Optional: Local monitoring
+  bundler-monitor:
+    image: grafana/grafana:latest
+    container_name: jeju-bundler-monitor
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - bundler-grafana:/var/lib/grafana
+    depends_on:
+      - bundler
+    profiles:
+      - monitoring
+
+volumes:
+  bundler-grafana:
+
+networks:
+  default:
+    name: jeju-network
+    external: true

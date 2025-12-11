@@ -13,6 +13,7 @@ import {
 } from './model'
 import {processor, ProcessorContext} from './processor'
 import {processGameFeedEvents} from './game-feed-processor'
+import {processGameTokenEvents} from './game-tokens-processor'
 import {processNodeStakingEvents} from './node-staking-processor'
 import {processMarketEvents} from './market-processor'
 import {processRegistryEvents} from './registry-game-processor'
@@ -507,6 +508,7 @@ processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx: Process
     await ctx.store.insert(traces)
     
     await processGameFeedEvents(ctx)
+    await processGameTokenEvents(ctx)
     await processNodeStakingEvents(ctx)
     await processMarketEvents(ctx)
     await processRegistryEvents(ctx)

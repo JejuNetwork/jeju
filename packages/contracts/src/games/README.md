@@ -1,6 +1,153 @@
 # Jeju Games Contracts
 
-This directory contains standardized game token systems and on-chain game implementations built on Jeju.
+This directory contains standardized game token systems, RPG utilities, and on-chain game implementations built on Jeju.
+
+## Publishing
+
+These contracts are exported via `@jejunetwork/contracts`:
+
+```typescript
+import { 
+  GoldAbi, 
+  ItemsAbi, 
+  GameIntegrationAbi, 
+  PlayerTradeEscrowAbi,
+  getGameGold,
+  getGameItems,
+  getGameIntegration,
+} from '@jejunetwork/contracts';
+```
+
+## Web2 Fallback
+
+All Jeju game integrations support **web2 fallback mode**:
+- If blockchain/contracts are not deployed, games run in pure web2 mode
+- All blockchain features gracefully degrade (return empty data, hide UI elements)
+- Games forking Hyperscape can start in web2 mode and add blockchain later
+
+## Architecture Overview
+
+The game contracts are designed to be **game-agnostic** and **forkable**. Any game can use these contracts without modification:
+
+```
+packages/contracts/src/
+├── games/                    # Standalone game infrastructure
+│   ├── GameIntegration.sol   # Central hub connecting to all Jeju contracts
+│   ├── BaseRPGSystem.sol     # Abstract base for RPG systems
+│   ├── Gold.sol              # ERC-20 game currency
+│   ├── Items.sol             # ERC-1155 game items
+│   └── PlayerTradeEscrow.sol # P2P trading
+│
+├── moderation/               # Standard Jeju moderation (shared by all apps)
+│   ├── BanManager.sol        # Network + app-level bans
+│   └── ReportingSystem.sol   # User reports + futarchy resolution
+│
+└── mmo/                      # MUD-based MMO systems (game-agnostic)
+    ├── systems/
+    │   ├── JejuIntegrationSystem.sol  # MUD ↔ Jeju bridge
+    │   ├── PlayerSystem.sol           # Registration, movement, health
+    │   ├── CombatSystem.sol           # Combat mechanics
+    │   ├── InventorySystem.sol        # 28-slot inventory
+    │   ├── EquipmentSystem.sol        # 6-slot equipment
+    │   ├── ResourceSystem.sol         # Gathering (woodcutting, fishing)
+    │   ├── SkillSystem.sol            # XP and leveling
+    │   └── ...
+    ├── libraries/                     # Shared RPG math
+    └── codegen/                       # MUD auto-generated tables
+```
+
+## Forking a Game
+
+To create a new game (e.g., "MyGame" instead of "Hyperscape"):
+
+1. **Deploy GameIntegration** with your APP_ID:
+```solidity
+bytes32 appId = keccak256("mygame");
+GameIntegration integration = new GameIntegration(appId, owner);
+```
+
+2. **Deploy Gold/Items** with your game's branding:
+```solidity
+// Gold: name, symbol, gameAgentId, gameSigner, owner
+Gold gold = new Gold("MyGame Gold", "MG", gameAgentId, gameSigner, owner);
+
+// Items: baseURI, gameAgentId, gameSigner, owner
+Items items = new Items("https://api.mygame.com/items/", gameAgentId, gameSigner, owner);
+```
+
+3. **Initialize GameIntegration**:
+```solidity
+integration.initialize(
+    banManager,        // Jeju BanManager
+    identityRegistry,  // Jeju IdentityRegistry
+    address(items),
+    address(gold),
+    bazaar,            // Jeju Bazaar
+    paymaster          // Jeju LiquidityPaymaster
+    gameAgentId        // Your game's agent ID
+);
+```
+
+4. **Deploy MUD World** with the same systems - they're game-agnostic.
+
+5. **Initialize JejuIntegrationSystem** in your MUD world:
+```solidity
+jejuIntegration.initialize(worldAdmin, address(integration));
+```
+
+All ban checking, moderation, and network integration works automatically.
+
+## New Generalized Contracts
+
+### `BaseRPGSystem.sol` - Abstract Base for RPG Systems
+Abstract base contract for RPG game systems providing:
+- Ban/moderation integration with BanManager
+- Game server signature verification
+- Player registration hooks
+- Standard events for indexing
+
+### `GameIntegration.sol` - Central Integration Hub
+Central hub for games to connect with Jeju infrastructure:
+- Connect to BanManager for moderation (network + app-level bans)
+- Connect to ReportingSystem for user reports
+- Connect to IdentityRegistry (ERC-8004) for player identity
+- Connect to Items.sol for NFT minting
+- Connect to Gold.sol for token economy
+- Connect to Bazaar for marketplace
+- Connect to LiquidityPaymaster for gasless transactions
+
+## Moderation Architecture
+
+Games use the **standard Jeju moderation system** - no separate game-level moderation contracts needed:
+
+### Network-Level Bans (BanManager)
+- **Network bans**: Block from ALL Jeju apps (most severe)
+- **App-level bans**: Block from specific app only (e.g., just this game)
+- **Address bans**: For unregistered players
+
+```solidity
+// Check if player is allowed via GameIntegration
+bool allowed = gameIntegration.isPlayerAllowed(playerAddress);
+// Internally calls BanManager.isAccessAllowed(agentId, appId)
+```
+
+### User Reports (ReportingSystem)
+- Users submit reports with evidence (IPFS hash)
+- Futarchy-based resolution via prediction markets
+- Approved reports trigger bans via governance
+
+This architecture ensures:
+- ✅ **Consistent moderation** across all games
+- ✅ **No duplicate code** in each game
+- ✅ **Network-wide bad actor tracking**
+- ✅ **Democratic resolution** via futarchy
+
+### `RPGStats.sol` - Common RPG Calculations Library
+Library for common RPG stat calculations:
+- XP to level conversion (RuneScape-style exponential curve)
+- Combat damage calculations
+- Hit chance calculations
+- Combat level formula
 
 ## Standardized Game Token System
 
@@ -181,27 +328,28 @@ Games run inside Trusted Execution Environments (TEE) for provably fair outcomes
 
 ## Structure
 
-### `/mmo/` - MMO Game Framework (Hyperscape)
-Full on-chain MMO implementation using MUD (Autonomous Worlds framework):
+### `/mmo/` - Game-Agnostic MMO Framework
+Full on-chain MMO implementation using MUD (Autonomous Worlds framework).
+These systems are **game-agnostic** and can be forked for any game with different aesthetics/themes.
 
-**Hyperscape** - On-chain RuneScape-style RPG
-- **Location**: `mmo/` (formerly `hyperscape/`)
+**Features** (usable by any game):
 - **Framework**: MUD v2 (Lattice)
-- **Features**:
-  - 9 Skills (Combat: Attack, Strength, Defense, Constitution, Ranged | Gathering: Woodcutting, Fishing, Firemaking, Cooking)
-  - 28-slot inventory system
-  - 6-slot equipment system (weapon, shield, helmet, body, legs, arrows)
-  - Combat system with mobs and loot tables
-  - Resource gathering (trees, fishing spots)
-  - On-chain state storage using MUD tables
+- 9 Skills (Combat: Attack, Strength, Defense, Constitution, Ranged | Gathering: Woodcutting, Fishing, Firemaking, Cooking)
+- 28-slot inventory system
+- 6-slot equipment system (weapon, shield, helmet, body, legs, arrows)
+- Combat system with mobs and loot tables
+- Resource gathering (trees, fishing spots)
+- On-chain state storage using MUD tables
+- **Jeju Integration**: All player actions check bans via `JejuIntegrationSystem`
 
-**Systems** (`mmo/src/systems/`):
-- `PlayerSystem.sol` - Registration, movement, health
-- `CombatSystem.sol` - Combat mechanics, damage calculation
-- `EquipmentSystem.sol` - Equip/unequip items
-- `InventorySystem.sol` - 28-slot inventory management
+**Systems** (`mmo/systems/`):
+- `JejuIntegrationSystem.sol` - Bridges MUD ↔ Jeju contracts (ban checking, identity)
+- `PlayerSystem.sol` - Registration, movement, health (ban-checked)
+- `CombatSystem.sol` - Combat mechanics, damage (ban-checked)
+- `EquipmentSystem.sol` - Equip/unequip items (ban-checked)
+- `InventorySystem.sol` - 28-slot inventory (ban-checked)
+- `ResourceSystem.sol` - Gathering skills (ban-checked)
 - `MobSystem.sol` - Mob spawning and respawning
-- `ResourceSystem.sol` - Woodcutting, fishing, firemaking
 - `SkillSystem.sol` - XP and leveling for 9 skills
 - `AdminSystem.sol` - World initialization and configuration
 

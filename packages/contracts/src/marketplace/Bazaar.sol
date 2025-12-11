@@ -22,7 +22,7 @@ import {IIdentityRegistry} from "../registry/interfaces/IIdentityRegistry.sol";
  *
  * Payment Currencies Supported:
  * - Native ETH
- * - HyperscapeGold (HG) ERC-20
+ * - Game Gold (ERC-20) - any game's in-game currency
  * - USDC ERC-20
  * - Any ERC-20 token
  *
@@ -39,7 +39,7 @@ import {IIdentityRegistry} from "../registry/interfaces/IIdentityRegistry.sol";
  * - Creator royalty: 0-10% (set per collection)
  *
  * Use Cases:
- * - Trade Hyperscape Items (ERC1155) for Gold (ERC20) or ETH
+ * - Trade Game Items (ERC1155) for Gold (ERC20) or ETH
  * - Sell unique NFTs (ERC721) for USDC
  * - Exchange Gold tokens (ERC20) for other currencies
  * - P2P token swaps with platform guarantees
@@ -102,8 +102,8 @@ contract Bazaar is ReentrancyGuard, Ownable {
     /// @notice Platform fee recipient
     address public feeRecipient;
 
-    /// @notice HyperscapeGold token address
-    address public immutable hyperscapeGold;
+    /// @notice Game Gold token address (the primary in-game currency)
+    address public immutable gameGold;
 
     /// @notice USDC token address
     address public immutable usdc;
@@ -182,14 +182,14 @@ contract Bazaar is ReentrancyGuard, Ownable {
 
     // ============ Constructor ============
 
-    constructor(address initialOwner, address _hyperscapeGold, address _usdc, address _feeRecipient)
+    constructor(address initialOwner, address _gameGold, address _usdc, address _feeRecipient)
         Ownable(initialOwner)
     {
-        if (_hyperscapeGold == address(0) || _usdc == address(0) || _feeRecipient == address(0)) {
+        if (_gameGold == address(0) || _usdc == address(0) || _feeRecipient == address(0)) {
             revert InvalidAssetContract();
         }
 
-        hyperscapeGold = _hyperscapeGold;
+        gameGold = _gameGold;
         usdc = _usdc;
         feeRecipient = _feeRecipient;
     }
@@ -341,7 +341,7 @@ contract Bazaar is ReentrancyGuard, Ownable {
             // ERC-20 payment
             address tokenAddress = address(0);
             if (currency == Currency.HG) {
-                tokenAddress = hyperscapeGold;
+                tokenAddress = gameGold;
             } else if (currency == Currency.USDC) {
                 tokenAddress = usdc;
             } else if (currency == Currency.CUSTOM_ERC20) {

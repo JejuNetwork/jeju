@@ -31,8 +31,8 @@ contract GameTokensTest is Test {
         gameSigner = vm.addr(gameSignerKey);
 
         // Deploy contracts (linked to game's IdentityRegistry agent ID)
-        gold = new Gold(gameAgentId, gameSigner, owner);
-        items = new Items(gameAgentId, gameSigner, owner);
+        gold = new Gold("Test Gold", "TG", gameAgentId, gameSigner, owner);
+        items = new Items("https://api.test.jeju.network/items/", gameAgentId, gameSigner, owner);
         escrow = new PlayerTradeEscrow(owner);
 
         // Approve contracts in escrow

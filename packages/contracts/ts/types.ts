@@ -92,6 +92,13 @@ export interface PaymasterSystemDeployment {
   priceOracle?: Address;
   paymasterFactory?: Address;
   entryPoint?: Address;
+  // Specific paymasters
+  sponsoredPaymaster?: Address;      // Free transactions (platform pays)
+  liquidityPaymaster?: Address;      // Pay in elizaOS tokens
+  multiTokenPaymaster?: Address;     // Pay in USDC/elizaOS with credits
+  crossChainPaymaster?: Address;     // For EIL cross-chain transfers
+  // Smart account factory
+  simpleAccountFactory?: Address;
   exampleDeployments?: Array<{
     token: Address;
     symbol: string;
@@ -160,6 +167,36 @@ export interface ModerationSystemDeployment {
   chainId?: number;
 }
 
+/**
+ * Game system deployment (Hyperscape-compatible, forkable)
+ * Any game can deploy these contracts with their own branding.
+ */
+export interface GameSystemDeployment {
+  // Core game token contracts
+  goldToken?: Address;
+  itemsNFT?: Address;
+  playerTradeEscrow?: Address;
+  
+  // Integration hub (connects to Jeju's BanManager for moderation)
+  gameIntegration?: Address;
+  
+  // Game identity (ERC-8004 agent ID)
+  gameAgentId?: number;
+  gameSigner?: Address;
+  
+  // MUD world (if applicable)
+  mudWorld?: Address;
+  jejuIntegrationSystem?: Address;
+  
+  // Metadata
+  appId?: string;
+  gameName?: string;
+  baseURI?: string;
+  
+  deployedAt?: string;
+  chainId?: number;
+}
+
 // ============================================================================
 // Contract Address Types
 // ============================================================================
@@ -192,17 +229,26 @@ export interface ContractAddresses {
   // Token Factory
   erc20Factory?: Address;
   
-  // Paymaster / AA
+  // Paymaster / AA (Account Abstraction - ERC-4337)
   entryPoint?: Address;
   paymasterFactory?: Address;
   tokenRegistry?: Address;
   priceOracle?: Address;
+  sponsoredPaymaster?: Address;      // Free transactions
+  liquidityPaymaster?: Address;      // Pay in tokens
+  multiTokenPaymaster?: Address;     // Pay in USDC/elizaOS
+  simpleAccountFactory?: Address;    // Smart account factory
   
   // Tokens
   usdc?: Address;
   elizaOS?: Address;
   goldToken?: Address;
   jeju?: Address;
+  
+  // Game System (Hyperscape-compatible)
+  itemsNFT?: Address;
+  playerTradeEscrow?: Address;
+  gameIntegration?: Address;
 }
 
 // ============================================================================

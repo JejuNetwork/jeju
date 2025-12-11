@@ -7,10 +7,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {IIdentityRegistry} from "../registry/interfaces/IIdentityRegistry.sol";
-
-interface ILiquidityVault {
-    function distributeFees(uint256 ethPoolFees, uint256 elizaPoolFees) external;
-}
+import {ILiquidityVault} from "../interfaces/IPaymaster.sol";
 
 /**
  * @title FeeDistributor

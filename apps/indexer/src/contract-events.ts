@@ -57,9 +57,16 @@ export const MOB_KILLED = eventSig('MobKilled(address,bytes32,uint256)');
 export const LOOT_DROPPED = eventSig('LootDropped(bytes32,uint16,uint32)');
 export const ITEM_EQUIPPED = eventSig('ItemEquipped(address,uint8,uint16)');
 export const ITEM_ADDED = eventSig('ItemAdded(address,uint16,uint32,uint8)');
+// Gold.sol events
 export const GOLD_CLAIMED = eventSig('GoldClaimed(address,uint256,uint256)');
-export const ITEM_MINTED = eventSig('ItemMinted(address,uint256,string,bytes32)');
-export const ITEM_BURNED = eventSig('ItemBurned(address,uint256,bytes32)');
+export const GOLD_BURNED = eventSig('GoldBurned(address,uint256)');
+export const GOLD_SIGNER_UPDATED = eventSig('GameSignerUpdated(address,address)');
+
+// Items.sol events (ERC-1155 game items)
+export const ITEM_MINTED = eventSig('ItemMinted(address,uint256,uint256,bytes32,bool,uint8)');
+export const ITEM_BURNED = eventSig('ItemBurned(address,uint256,uint256)');
+export const ITEM_TYPE_CREATED = eventSig('ItemTypeCreated(uint256,string,bool,uint8)');
+export const NFT_PROVENANCE = eventSig('NFTProvenance(address,uint256,bytes32,uint256)');
 
 // ============ Marketplace Events (Bazaar.sol) ============
 
@@ -295,9 +302,14 @@ export const EVENT_REGISTRY: Record<string, EventCategory> = {
   [LEVEL_UP]: { signature: LEVEL_UP, name: 'LevelUp', category: 'game', contract: 'Hyperscape' },
   [XP_GAINED]: { signature: XP_GAINED, name: 'XPGained', category: 'game', contract: 'Hyperscape' },
   [MOB_KILLED]: { signature: MOB_KILLED, name: 'MobKilled', category: 'game', contract: 'Hyperscape' },
-  [GOLD_CLAIMED]: { signature: GOLD_CLAIMED, name: 'GoldClaimed', category: 'game', contract: 'HyperscapeGold' },
-  [ITEM_MINTED]: { signature: ITEM_MINTED, name: 'ItemMinted', category: 'game', contract: 'HyperscapeItems' },
-  
+  [GOLD_CLAIMED]: { signature: GOLD_CLAIMED, name: 'GoldClaimed', category: 'game', contract: 'Gold' },
+  [GOLD_BURNED]: { signature: GOLD_BURNED, name: 'GoldBurned', category: 'game', contract: 'Gold' },
+  [GOLD_SIGNER_UPDATED]: { signature: GOLD_SIGNER_UPDATED, name: 'GameSignerUpdated', category: 'game', contract: 'Gold' },
+  [ITEM_MINTED]: { signature: ITEM_MINTED, name: 'ItemMinted', category: 'game', contract: 'Items' },
+  [ITEM_BURNED]: { signature: ITEM_BURNED, name: 'ItemBurned', category: 'game', contract: 'Items' },
+  [ITEM_TYPE_CREATED]: { signature: ITEM_TYPE_CREATED, name: 'ItemTypeCreated', category: 'game', contract: 'Items' },
+  [NFT_PROVENANCE]: { signature: NFT_PROVENANCE, name: 'NFTProvenance', category: 'game', contract: 'Items' },
+
   // Marketplace events
   [LISTING_CREATED]: { signature: LISTING_CREATED, name: 'ListingCreated', category: 'marketplace', contract: 'Bazaar' },
   [LISTING_SOLD]: { signature: LISTING_SOLD, name: 'ListingSold', category: 'marketplace', contract: 'Bazaar' },

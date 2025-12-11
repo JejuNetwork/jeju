@@ -111,6 +111,10 @@ contract JejuPresale is Ownable, Pausable, ReentrancyGuard {
     error PresaleNotEnded();
     error InvalidConfig();
     error TransferFailed();
+    error ZeroAddress();
+    error PresaleAlreadyConfigured();
+    error ZeroTokenPrice();
+    error ZeroVestingDuration();
 
     // ═══════════════════════════════════════════════════════════════════════
     //                              CONSTRUCTOR
@@ -121,6 +125,8 @@ contract JejuPresale is Ownable, Pausable, ReentrancyGuard {
         address _treasury,
         address _owner
     ) Ownable(_owner) {
+        if (_jejuToken == address(0)) revert ZeroAddress();
+        if (_treasury == address(0)) revert ZeroAddress();
         jejuToken = IERC20(_jejuToken);
         treasury = _treasury;
     }
@@ -140,6 +146,11 @@ contract JejuPresale is Ownable, Pausable, ReentrancyGuard {
         uint256 _presaleEnd,
         uint256 _tgeTimestamp
     ) external onlyOwner {
+        // Prevent reconfiguration after presale has started
+        if (config.whitelistStart != 0 && block.timestamp >= config.whitelistStart) {
+            revert PresaleAlreadyConfigured();
+        }
+        if (_tokenPrice == 0) revert ZeroTokenPrice();
         if (_softCap >= _hardCap) revert InvalidConfig();
         if (_minContribution >= _maxContribution) revert InvalidConfig();
         if (_whitelistStart >= _publicStart) revert InvalidConfig();

@@ -6,11 +6,7 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IIdentityRegistry} from "../registry/interfaces/IIdentityRegistry.sol";
 import {IComputeRegistry} from "./interfaces/IComputeRegistry.sol";
-
-interface ICreditManager {
-    function deductCredit(address user, address token, uint256 amount) external;
-    function hasSufficientCredit(address user, address token, uint256 amount) external view returns (bool, uint256);
-}
+import {ICreditManager} from "../interfaces/IServices.sol";
 
 /**
  * @title ComputeRental

@@ -1,0 +1,11 @@
+{
+  "timestamp": "2025-12-10T09:19:06.117Z",
+  "network": "Anvil Local",
+  "chainId": 31337,
+  "rpcUrl": "http://127.0.0.1:8545",
+  "contracts": {
+    "entryPoint": "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
+    "sponsoredPaymaster": "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+  },
+  "status": "VALIDATED"
+}

@@ -75,8 +75,8 @@ contract BazaarTest is Test {
         gameSigner = vm.addr(gameSignerKey);
 
         // Deploy tokens
-        gold = new Gold(GAME_AGENT_ID, gameSigner, owner);
-        items = new Items(GAME_AGENT_ID, gameSigner, owner);
+        gold = new Gold("Test Gold", "TG", GAME_AGENT_ID, gameSigner, owner);
+        items = new Items("https://api.test.jeju.network/items/", GAME_AGENT_ID, gameSigner, owner);
         nft = new MockNFT();
         usdc = new MockUSDC();
 

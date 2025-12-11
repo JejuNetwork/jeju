@@ -1,7 +1,7 @@
 {
   "name": "@jejunetwork/contracts",
-  "version": "0.1.0",
-  "description": "Jeju Network smart contract ABIs, types, and deployment addresses",
+  "version": "0.2.0",
+  "description": "Jeju Network smart contract ABIs, types, and deployment addresses. Includes game contracts (Gold, Items, GameIntegration) for Hyperscape and forkable games.",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -35,6 +35,8 @@
     "test": "forge test",
     "test:registry": "forge test --match-contract '.*Registry.*'",
     "test:oif": "forge test --match-path 'test/OIF*.sol'",
+    "slither": "slither . --config-file slither.config.json",
+    "slither:report": "slither . --config-file slither.config.json --json slither-report.json",
     "clean": "rm -rf dist out cache",
     "prepublishOnly": "bun run build"
   },
@@ -51,7 +53,11 @@
     "solidity",
     "erc-8004",
     "oif",
-    "intents"
+    "intents",
+    "games",
+    "nft",
+    "erc-1155",
+    "hyperscape"
   ],
   "devDependencies": {
     "typescript": "^5.3.3"

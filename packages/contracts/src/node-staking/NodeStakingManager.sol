@@ -8,6 +8,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {INodeStakingManager} from "./INodeStakingManager.sol";
 import {IIdentityRegistry} from "../registry/interfaces/IIdentityRegistry.sol";
+import {ITokenRegistry, IPaymasterFactory} from "../interfaces/IPaymaster.sol";
+import {ISimplePriceOracle} from "../interfaces/IPriceOracle.sol";
 
 /**
  * @title NodeStakingManager
@@ -40,7 +42,7 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
 
     ITokenRegistry public immutable tokenRegistry;
     IPaymasterFactory public immutable paymasterFactory;
-    IPriceOracle public immutable priceOracle;
+    ISimplePriceOracle public immutable priceOracle;
 
     // ============ State Variables ============
 
@@ -135,7 +137,7 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
 
         tokenRegistry = ITokenRegistry(_tokenRegistry);
         paymasterFactory = IPaymasterFactory(_paymasterFactory);
-        priceOracle = IPriceOracle(_priceOracle);
+        priceOracle = ISimplePriceOracle(_priceOracle);
 
         // Initialize performance oracle
         performanceOracles.push(_performanceOracle);
@@ -752,17 +754,3 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
     receive() external payable {}
 }
 
-// ============ External Interfaces (Minimal) ============
-
-interface ITokenRegistry {
-    function isRegistered(address token) external view returns (bool);
-}
-
-interface IPaymasterFactory {
-    function hasPaymaster(address token) external view returns (bool);
-    function getPaymaster(address token) external view returns (address);
-}
-
-interface IPriceOracle {
-    function getPrice(address token) external view returns (uint256);
-}

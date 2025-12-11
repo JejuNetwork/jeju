@@ -38,8 +38,8 @@ contract HyperscapeIntegrationTest is Test {
         gameSigner = vm.addr(gameSignerKey);
 
         // Deploy GENERIC contracts (linked to IdentityRegistry agentId)
-        gold = new Gold(gameAgentId, gameSigner, owner);
-        items = new Items(gameAgentId, gameSigner, owner);
+        gold = new Gold("Test Gold", "TG", gameAgentId, gameSigner, owner);
+        items = new Items("https://api.test.jeju.network/items/", gameAgentId, gameSigner, owner);
 
         // Create item types
         arrowsId = items.createItemType("Bronze Arrows", true, 5, 0, 0, 0);

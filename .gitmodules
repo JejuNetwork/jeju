@@ -25,9 +25,26 @@
 [submodule "contracts/lib/solidity-lib"]
 	path = contracts/lib/solidity-lib
 	url = https://github.com/uniswap/solidity-lib
+
+[submodule "packages/contracts/lib/forge-std"]
+	path = packages/contracts/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+
+[submodule "packages/contracts/lib/openzeppelin-contracts"]
+	path = packages/contracts/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+
+[submodule "packages/contracts/lib/account-abstraction"]
+	path = packages/contracts/lib/account-abstraction
+	url = https://github.com/eth-infinitism/account-abstraction
+
 [submodule "packages/contracts/lib/optimism"]
 	path = packages/contracts/lib/optimism
 	url = https://github.com/ethereum-optimism/optimism
+
+[submodule "packages/contracts/lib/openzeppelin-contracts-upgradeable"]
+	path = packages/contracts/lib/openzeppelin-contracts-upgradeable
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable
 
 # Vendor apps (private - will skip for users without access)
 [submodule "vendor/hyperscape"]
@@ -49,10 +66,6 @@
 	path = vendor/otc-agent
 	url = git@github.com:elizaos/otc-agent.git
 	ignore = untracked
-
-[submodule "packages/contracts/lib/openzeppelin-contracts-upgradeable"]
-	path = packages/contracts/lib/openzeppelin-contracts-upgradeable
-	url = https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable
 
 [submodule "vendor/eliza"]
 	path = vendor/eliza

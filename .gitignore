@@ -99,5 +99,9 @@ test-results/
 # Private keys - NEVER commit
 packages/deployment/.keys/
 
+# Root-owned build artifacts (delete with sudo rm -rf)
+packages/contracts/out-root-owned/
+packages/contracts/cache-root-owned/
+
 # Generated documentation
 docs/

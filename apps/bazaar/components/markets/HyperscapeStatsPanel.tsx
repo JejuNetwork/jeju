@@ -1,16 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { useHyperscapeEvents } from '@/hooks/markets/useHyperscapeEvents';
+import { usePlayerEvents } from '@/hooks/markets/usePlayerEvents';
 
 interface HyperscapeStatsPanelProps {
   playerAddress?: string;
   className?: string;
 }
 
+/**
+ * Game stats panel component
+ * Uses generic player events hook - works with any Jeju-integrated game
+ */
 export function HyperscapeStatsPanel({ playerAddress, className = '' }: HyperscapeStatsPanelProps) {
   const [selectedTab, setSelectedTab] = useState<'skills' | 'combat' | 'achievements'>('skills');
-  const { skillEvents, deathEvents, killEvents, achievements, playerStats, loading, error } = useHyperscapeEvents(playerAddress);
+  const { skillEvents, deathEvents, killEvents, achievements, playerStats, loading, error } = usePlayerEvents(playerAddress);
 
   if (loading) {
     return (

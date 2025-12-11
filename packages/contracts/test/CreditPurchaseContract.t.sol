@@ -242,6 +242,13 @@ contract MockPriceOracleForTest is IPriceOracle {
     function isPriceFresh(address) external pure override returns (bool) {
         return true;
     }
+
+    function convertAmount(address fromToken, address toToken, uint256 amount) external view override returns (uint256) {
+        (uint256 fromPrice,) = this.getPrice(fromToken);
+        (uint256 toPrice,) = this.getPrice(toToken);
+        if (toPrice == 0) return 0;
+        return (amount * fromPrice) / toPrice;
+    }
 }
 
 contract MockERC20 is IERC20 {

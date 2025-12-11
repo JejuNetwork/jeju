@@ -31,8 +31,8 @@ contract HyperscapeDeathDropsTest is Test {
         gameSignerKey = 0xA11CE;
         gameSigner = vm.addr(gameSignerKey);
 
-        items = new Items(GAME_AGENT_ID, gameSigner, owner);
-        gold = new Gold(GAME_AGENT_ID, gameSigner, owner);
+        items = new Items("https://api.test.jeju.network/items/", GAME_AGENT_ID, gameSigner, owner);
+        gold = new Gold("Test Gold", "TG", GAME_AGENT_ID, gameSigner, owner);
 
         // Create item types
         swordId = items.createItemType("Legendary Sword", false, 50, 0, 10, 4);

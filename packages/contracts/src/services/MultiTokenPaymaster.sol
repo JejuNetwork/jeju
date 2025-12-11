@@ -7,25 +7,8 @@ import {PackedUserOperation} from "@account-abstraction/contracts/interfaces/Pac
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import {BasePaymaster} from "@account-abstraction/contracts/core/BasePaymaster.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
-
-interface ICreditManager {
-    function tryDeductCredit(address user, address token, uint256 amount)
-        external
-        returns (bool success, uint256 remaining);
-    function balances(address user, address token) external view returns (uint256);
-    function hasSufficientCredit(address user, address token, uint256 amount) external view returns (bool, uint256);
-}
-
-interface IPriceOracle {
-    function getPrice(address token) external view returns (uint256 priceUSD, uint256 decimals);
-    function isPriceFresh(address token) external view returns (bool);
-    function convertAmount(address fromToken, address toToken, uint256 amount) external view returns (uint256);
-}
-
-interface IServiceRegistry {
-    function getServiceCost(string calldata serviceName, address user) external view returns (uint256 cost);
-    function isServiceAvailable(string calldata serviceName) external view returns (bool);
-}
+import {IPriceOracle} from "../interfaces/IPriceOracle.sol";
+import {ICreditManager, IServiceRegistry} from "../interfaces/IServices.sol";
 
 /**
  * @title MultiTokenPaymaster
@@ -119,8 +102,10 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
         address _creditManager,
         address _serviceRegistry,
         address _priceOracle,
-        address _revenueWallet
+        address _revenueWallet,
+        address _owner
     ) BasePaymaster(_entryPoint) {
+        if (_owner != msg.sender) _transferOwnership(_owner);
         require(_usdc != address(0), "Invalid USDC");
         require(_elizaOS != address(0), "Invalid elizaOS");
         require(_creditManager != address(0), "Invalid credit manager");

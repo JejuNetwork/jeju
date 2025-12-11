@@ -9,7 +9,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 /**
  * @title Gold
  * @author Jeju Network
- * @notice In-game gold token for Hyperscape MMO
+ * @notice In-game gold token for any Jeju-based game
  * @dev Standard ERC-20 token that:
  *      - Can be earned in-game and claimed via signature
  *      - Can be spent in game for items/upgrades
@@ -35,14 +35,6 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 contract Gold is ERC20, Ownable {
     using ECDSA for bytes32;
     using MessageHashUtils for bytes32;
-
-    // ============ Constants ============
-
-    /// @notice Name of the token
-    string private constant TOKEN_NAME = "Hyperscape Gold";
-
-    /// @notice Symbol of the token
-    string private constant TOKEN_SYMBOL = "HG";
 
     // ============ State Variables ============
 
@@ -73,13 +65,21 @@ contract Gold is ERC20, Ownable {
 
     /**
      * @notice Deploy Gold token
+     * @param _name Token name (e.g., "Hyperscape Gold", "MyGame Gold")
+     * @param _symbol Token symbol (e.g., "HG", "MG")
      * @param _gameAgentId Game's agent ID in IdentityRegistry (ERC-8004)
      * @param _gameSigner Address authorized to sign gold claims
      * @param _owner Contract owner (admin)
      * @dev Game must be registered in IdentityRegistry before deployment
      */
-    constructor(uint256 _gameAgentId, address _gameSigner, address _owner)
-        ERC20(TOKEN_NAME, TOKEN_SYMBOL)
+    constructor(
+        string memory _name,
+        string memory _symbol,
+        uint256 _gameAgentId,
+        address _gameSigner,
+        address _owner
+    )
+        ERC20(_name, _symbol)
         Ownable(_owner)
     {
         if (_gameSigner == address(0)) revert InvalidGameSigner();
