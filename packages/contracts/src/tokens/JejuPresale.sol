@@ -176,6 +176,8 @@ contract JejuPresale is Ownable, Pausable, ReentrancyGuard {
         uint256 _vestingDuration
     ) external onlyOwner {
         if (_tgePercent > 10000) revert InvalidConfig();
+        // If not 100% TGE, must have vesting duration
+        if (_tgePercent < 10000 && _vestingDuration == 0) revert ZeroVestingDuration();
         vesting = VestingSchedule({
             tgePercent: _tgePercent,
             cliffDuration: _cliffDuration,
@@ -288,6 +290,11 @@ contract JejuPresale is Ownable, Pausable, ReentrancyGuard {
         // TGE unlock
         uint256 tgeUnlock = (totalAllocation * vesting.tgePercent) / 10000;
         
+        // If 100% TGE or no vesting duration, return full amount
+        if (vesting.tgePercent == 10000 || vesting.vestingDuration == 0) {
+            return totalAllocation;
+        }
+        
         uint256 timeSinceTGE = block.timestamp - config.tgeTimestamp;
         
         // During cliff period, only TGE amount is available
@@ -345,13 +352,16 @@ contract JejuPresale is Ownable, Pausable, ReentrancyGuard {
     function withdrawUnsoldTokens() external onlyOwner {
         if (block.timestamp < config.tgeTimestamp) revert TGENotReached();
         
-        uint256 unsold = jejuToken.balanceOf(address(this)) - totalTokensSold;
-        if (unsold > 0) {
+        uint256 balance = jejuToken.balanceOf(address(this));
+        // Safe check: only withdraw if balance exceeds sold tokens
+        if (balance > totalTokensSold) {
+            uint256 unsold = balance - totalTokensSold;
             jejuToken.safeTransfer(treasury, unsold);
         }
     }
 
     function setTreasury(address _treasury) external onlyOwner {
+        if (_treasury == address(0)) revert ZeroAddress();
         treasury = _treasury;
     }
 

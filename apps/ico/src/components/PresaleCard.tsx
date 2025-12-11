@@ -124,22 +124,22 @@ export function PresaleCard() {
               placeholder="0.0"
               className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-lg focus:outline-none focus:border-jeju-500 transition-colors"
             />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex gap-2">
+            <div className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex gap-1 sm:gap-2">
               <button 
                 onClick={() => setAmount('0.1')}
-                className="text-xs px-2 py-1 rounded bg-zinc-700 hover:bg-zinc-600 transition-colors"
+                className="text-xs px-1.5 sm:px-2 py-1 rounded bg-zinc-700 hover:bg-zinc-600 transition-colors"
               >
                 0.1
               </button>
               <button 
                 onClick={() => setAmount('1')}
-                className="text-xs px-2 py-1 rounded bg-zinc-700 hover:bg-zinc-600 transition-colors"
+                className="text-xs px-1.5 sm:px-2 py-1 rounded bg-zinc-700 hover:bg-zinc-600 transition-colors"
               >
                 1
               </button>
               <button 
                 onClick={() => setAmount('5')}
-                className="text-xs px-2 py-1 rounded bg-zinc-700 hover:bg-zinc-600 transition-colors"
+                className="text-xs px-1.5 sm:px-2 py-1 rounded bg-zinc-700 hover:bg-zinc-600 transition-colors hidden sm:block"
               >
                 5
               </button>

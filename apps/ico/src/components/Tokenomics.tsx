@@ -33,10 +33,10 @@ export function Tokenomics() {
     <section className="py-16" id="tokenomics">
       <h2 className="text-3xl font-bold text-center mb-12">Tokenomics</h2>
       
-      <div className="grid lg:grid-cols-2 gap-12 items-center">
+      <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
         {/* Chart */}
         <div className="flex justify-center">
-          <div className="relative w-80 h-80">
+          <div className="relative w-64 h-64 sm:w-72 sm:h-72 md:w-80 md:h-80">
             <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
               {segments.map((segment, index) => {
                 const startAngle = (segment.startAngle * Math.PI) / 180;

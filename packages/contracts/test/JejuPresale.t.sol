@@ -194,7 +194,7 @@ contract JejuPresaleTest is Test {
         uint256 aliceBalanceAfter = token.balanceOf(alice);
         
         // Should have received 20% TGE unlock
-        (uint256 ethAmount, uint256 tokenAllocation, uint256 bonusTokens, uint256 claimed, , ) = presale.getContribution(alice);
+        (, uint256 tokenAllocation, uint256 bonusTokens, uint256 claimed, , ) = presale.getContribution(alice);
         uint256 totalAllocation = tokenAllocation + bonusTokens;
         uint256 expectedTGE = (totalAllocation * 2000) / 10000; // 20%
         
@@ -314,5 +314,194 @@ contract JejuPresaleTest is Test {
         assertEq(softCap, SOFT_CAP);
         assertEq(hardCap, HARD_CAP);
         assertEq(uint(phase), uint(JejuPresale.PresalePhase.PUBLIC));
+    }
+    
+    // ============ Security Tests ============
+    
+    function test_RevertZeroAddressToken() public {
+        vm.prank(owner);
+        vm.expectRevert(JejuPresale.ZeroAddress.selector);
+        new JejuPresale(address(0), treasury, owner);
+    }
+    
+    function test_RevertZeroAddressTreasury() public {
+        vm.prank(owner);
+        vm.expectRevert(JejuPresale.ZeroAddress.selector);
+        new JejuPresale(address(token), address(0), owner);
+    }
+    
+    function test_RevertSetTreasuryZeroAddress() public {
+        vm.prank(owner);
+        vm.expectRevert(JejuPresale.ZeroAddress.selector);
+        presale.setTreasury(address(0));
+    }
+    
+    function test_RevertReconfigureAfterStart() public {
+        // Warp to after whitelist start
+        vm.warp(whitelistStart + 1);
+        
+        vm.prank(owner);
+        vm.expectRevert(JejuPresale.PresaleAlreadyConfigured.selector);
+        presale.configure(
+            SOFT_CAP,
+            HARD_CAP,
+            MIN_CONTRIBUTION,
+            MAX_CONTRIBUTION,
+            TOKEN_PRICE,
+            whitelistStart + 1000,
+            publicStart + 1000,
+            presaleEnd + 1000,
+            tgeTimestamp + 1000
+        );
+    }
+    
+    function test_RevertZeroTokenPrice() public {
+        // Deploy new presale that hasn't been configured
+        vm.startPrank(owner);
+        JejuPresale newPresale = new JejuPresale(address(token), treasury, owner);
+        
+        vm.expectRevert(JejuPresale.ZeroTokenPrice.selector);
+        newPresale.configure(
+            SOFT_CAP,
+            HARD_CAP,
+            MIN_CONTRIBUTION,
+            MAX_CONTRIBUTION,
+            0, // Zero price
+            block.timestamp + 1 hours,
+            block.timestamp + 8 days,
+            block.timestamp + 22 days,
+            block.timestamp + 29 days
+        );
+        vm.stopPrank();
+    }
+    
+    function test_RevertZeroVestingDuration() public {
+        vm.prank(owner);
+        vm.expectRevert(JejuPresale.ZeroVestingDuration.selector);
+        presale.setVesting(5000, 0, 0); // 50% TGE with 0 vesting duration
+    }
+    
+    function test_FullTGEAllowsZeroVestingDuration() public {
+        vm.prank(owner);
+        presale.setVesting(10000, 0, 0); // 100% TGE - should not revert
+    }
+    
+    function test_DoubleRefundReverts() public {
+        // Setup failed presale
+        vm.warp(publicStart);
+        vm.prank(alice);
+        presale.contribute{value: 1 ether}();
+        vm.warp(presaleEnd + 1);
+        
+        // First refund succeeds
+        vm.prank(alice);
+        presale.refund();
+        
+        // Second refund reverts
+        vm.prank(alice);
+        vm.expectRevert(JejuPresale.AlreadyRefunded.selector);
+        presale.refund();
+    }
+    
+    function test_DoubleClaimGetsRemainingOnly() public {
+        // Setup successful presale
+        vm.warp(publicStart);
+        vm.prank(alice);
+        presale.contribute{value: 50 ether}();
+        vm.prank(bob);
+        presale.contribute{value: 50 ether}();
+        
+        // Claim at TGE
+        vm.warp(tgeTimestamp);
+        vm.prank(alice);
+        presale.claim();
+        
+        // Immediate second claim should revert with nothing to claim
+        vm.prank(alice);
+        vm.expectRevert(JejuPresale.NothingToClaim.selector);
+        presale.claim();
+        
+        // After vesting, second claim works
+        vm.warp(tgeTimestamp + 180 days);
+        vm.prank(alice);
+        presale.claim();
+    }
+    
+    function test_HardCapEnforced() public {
+        // Deploy new presale with small hard cap
+        vm.startPrank(owner);
+        JejuPresale smallPresale = new JejuPresale(address(token), treasury, owner);
+        
+        uint256 futureStart = block.timestamp + 100;
+        smallPresale.configure(
+            1 ether, // soft cap
+            5 ether, // hard cap
+            0.1 ether,
+            10 ether,
+            TOKEN_PRICE,
+            futureStart,
+            futureStart + 1,
+            futureStart + 2 days,
+            futureStart + 3 days
+        );
+        smallPresale.setVesting(10000, 0, 0);
+        // Mint new tokens instead of transferring
+        token.mint(address(smallPresale), 1_000_000 ether);
+        vm.stopPrank();
+        
+        // Warp to public
+        vm.warp(futureStart + 1);
+        
+        // First contribution
+        vm.prank(alice);
+        smallPresale.contribute{value: 3 ether}();
+        
+        // Second contribution that would exceed hard cap
+        vm.prank(bob);
+        vm.expectRevert(JejuPresale.HardCapReached.selector);
+        smallPresale.contribute{value: 3 ether}();
+    }
+    
+    // ============ Fuzz Tests ============
+    
+    function testFuzz_ContributionAmount(uint256 amount) public {
+        // Bound to valid range
+        amount = bound(amount, MIN_CONTRIBUTION, MAX_CONTRIBUTION);
+        
+        vm.warp(publicStart);
+        vm.deal(alice, amount);
+        
+        vm.prank(alice);
+        presale.contribute{value: amount}();
+        
+        (uint256 ethAmount, , , , , ) = presale.getContribution(alice);
+        assertEq(ethAmount, amount);
+    }
+    
+    function testFuzz_VestingCalculation(uint256 timePassed) public {
+        // Setup successful presale
+        vm.warp(publicStart);
+        vm.prank(alice);
+        presale.contribute{value: 50 ether}();
+        vm.prank(bob);
+        presale.contribute{value: 50 ether}();
+        
+        (, uint256 tokenAllocation, uint256 bonusTokens, , , ) = presale.getContribution(alice);
+        uint256 totalAllocation = tokenAllocation + bonusTokens;
+        
+        // Bound time to reasonable range (0 to 2 years)
+        timePassed = bound(timePassed, 0, 365 days * 2);
+        
+        vm.warp(tgeTimestamp + timePassed);
+        
+        uint256 claimable = presale.getClaimableAmount(alice);
+        
+        // Should never exceed total allocation
+        assertLe(claimable, totalAllocation);
+        
+        // After full vesting, should be exactly total allocation
+        if (timePassed >= 180 days) {
+            assertEq(claimable, totalAllocation);
+        }
     }
 }
