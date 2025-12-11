@@ -137,7 +137,8 @@ contract ICOPresale is ReentrancyGuard, Pausable {
         token.safeTransfer(lpPair, tokensForLP);
         require(ILaunchpadWETH(weth).transfer(lpPair, ethForLP), "WETH transfer failed");
 
-        uint256 lpTokens = ILaunchpadXLPV2Pair(lpPair).mint(address(lpLocker));
+        uint256 lpTokens = ILaunchpadXLPV2Pair(lpPair).mint(address(this));
+        IERC20(lpPair).approve(address(lpLocker), lpTokens);
         lpLocker.lock(IERC20(lpPair), lpTokens, creator, config.lpLockDuration);
 
         if (ethForCreator > 0) {

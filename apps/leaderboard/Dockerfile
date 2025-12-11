@@ -1,7 +1,7 @@
 # Leaderboard - Analytics and Rankings
 # Next.js production build with database migrations
 
-FROM oven/bun:1.1-slim AS base
+FROM oven/bun:latest AS base
 
 # Install system dependencies including build tools and PostgreSQL client
 RUN apt-get update && apt-get install -y \
@@ -17,13 +17,13 @@ WORKDIR /app
 
 # Dependencies stage
 FROM base AS deps
-COPY package.json bun.lockb* ./
-RUN bun install --frozen-lockfile --production
+COPY package.json bun.lock* ./
+RUN bun install  --production
 
 # Builder stage
 FROM base AS builder
-COPY package.json bun.lockb* ./
-RUN bun install --frozen-lockfile
+COPY package.json bun.lock* ./
+RUN bun install 
 
 # Copy source
 COPY . .

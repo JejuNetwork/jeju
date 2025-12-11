@@ -2,7 +2,7 @@
 # Build static docs and serve with nginx
 # NOTE: Build context must be project root for config access
 
-FROM oven/bun:1.1-slim AS builder
+FROM oven/bun:latest AS builder
 
 # Install system dependencies including build tools
 RUN apt-get update && apt-get install -y \
@@ -19,8 +19,8 @@ WORKDIR /app
 COPY config ./config
 
 # Install dependencies
-COPY apps/documentation/package.json apps/documentation/bun.lockb* ./
-RUN bun install --frozen-lockfile
+COPY apps/documentation/package.json apps/documentation/bun.lock* ./
+RUN bun install 
 
 # Copy source
 COPY apps/documentation .

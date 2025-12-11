@@ -1,0 +1,47 @@
+# Dependencies
+**/node_modules
+**/.next
+**/dist
+**/build
+**/out
+
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.swp
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test
+**/coverage
+**/*.test.ts
+**/*.spec.ts
+
+# Build artifacts
+**/target
+**/cache
+**/.turbo
+
+# Environment files (keep .env.example)
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Vendor apps we don't need in Docker
+vendor/
+
+# Contract build artifacts
+packages/contracts/out
+packages/contracts/cache
+packages/contracts/broadcast
+

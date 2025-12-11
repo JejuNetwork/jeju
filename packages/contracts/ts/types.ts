@@ -92,6 +92,7 @@ export interface PaymasterSystemDeployment {
   priceOracle?: Address;
   paymasterFactory?: Address;
   entryPoint?: Address;
+  sponsoredPaymaster?: Address;
   exampleDeployments?: Array<{
     token: Address;
     symbol: string;

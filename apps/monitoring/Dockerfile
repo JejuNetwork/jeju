@@ -1,7 +1,7 @@
 # Monitoring Dashboard - Vite React App + Express A2A Server
 # Production build for AWS ECS/EKS
 
-FROM oven/bun:1.1-slim AS base
+FROM oven/bun:latest AS base
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -13,8 +13,8 @@ WORKDIR /app
 
 # Install dependencies
 FROM base AS deps
-COPY package.json bun.lockb* ./
-RUN bun install --frozen-lockfile
+COPY package.json bun.lock* ./
+RUN bun install 
 
 # Build stage
 FROM base AS builder

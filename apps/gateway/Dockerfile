@@ -1,7 +1,7 @@
 # Gateway Portal - Protocol Infrastructure Hub
 # Build from monorepo root to include workspace packages
 
-FROM oven/bun:1.1-slim AS base
+FROM oven/bun:latest AS base
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -28,7 +28,7 @@ COPY packages/tests/package.json ./packages/tests/
 COPY apps/gateway/package.json ./apps/gateway/
 
 # Install all dependencies
-RUN bun install --frozen-lockfile || bun install
+RUN bun install  || bun install
 
 # Build stage
 FROM base AS builder

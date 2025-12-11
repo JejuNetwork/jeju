@@ -166,6 +166,9 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
             tokenAddress, msg.sender, xlpV2Factory, weth, address(locker), presaleConfig
         );
 
+        // Authorize presale to lock LP tokens
+        locker.setAuthorizedLocker(address(presale), true);
+
         IERC20(address(token)).safeTransfer(address(presale), presaleTokens + lpTokens);
         IERC20(address(token)).safeTransfer(msg.sender, creatorTokens);
 

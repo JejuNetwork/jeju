@@ -32,6 +32,27 @@ import predimarket1337 from '../deployments/predimarket-1337.json';
 import rpgTokens1337 from '../deployments/rpg-tokens-1337.json';
 import elizaToken1337 from '../deployments/eliza-token-1337.json';
 import xlpAmmLocalnet from '../deployments/xlp-amm-localnet.json';
+import gameSystem1337 from '../deployments/game-system-1337.json';
+
+// ============================================================================
+// Types for Game System
+// ============================================================================
+
+export interface GameSystemDeployment {
+  goldToken?: string | null;
+  itemsNFT?: string | null;
+  gameIntegration?: string | null;
+  playerTradeEscrow?: string | null;
+  gameAgentId?: string | null;
+  gameSigner?: string | null;
+  mudWorld?: string | null;
+  jejuIntegrationSystem?: string | null;
+  appId?: string;
+  gameName?: string;
+  baseURI?: string;
+  deployedAt?: string | null;
+  chainId?: number;
+}
 
 // ============================================================================
 // Typed Deployment Exports
@@ -65,6 +86,11 @@ export const paymasterDeployments: Partial<Record<ChainId, PaymasterSystemDeploy
 export const xlpDeployments: Partial<Record<ChainId, XLPDeployment>> = {
   1337: xlpAmmLocalnet as XLPDeployment,
   420691: xlpAmmLocalnet as XLPDeployment,
+};
+
+export const gameSystemDeployments: Partial<Record<ChainId, GameSystemDeployment>> = {
+  1337: gameSystem1337 as GameSystemDeployment,
+  420691: gameSystem1337 as GameSystemDeployment,
 };
 
 // ============================================================================
@@ -110,6 +136,56 @@ export function getIdentityRegistry(chainId: ChainId): Address | undefined {
  */
 export function getXLPDeployment(chainId: ChainId): XLPDeployment {
   return xlpDeployments[chainId] ?? {};
+}
+
+/**
+ * Get Game System deployment for a chain
+ */
+export function getGameSystem(chainId: ChainId): GameSystemDeployment {
+  return gameSystemDeployments[chainId] ?? {};
+}
+
+/**
+ * Get Game Gold token address for a chain
+ */
+export function getGameGold(chainId: ChainId): Address | undefined {
+  const deployment = gameSystemDeployments[chainId];
+  const address = deployment?.goldToken ?? undefined;
+  return isValidAddress(address) ? address as Address : undefined;
+}
+
+/**
+ * Get Game Items NFT address for a chain
+ */
+export function getGameItems(chainId: ChainId): Address | undefined {
+  const deployment = gameSystemDeployments[chainId];
+  const address = deployment?.itemsNFT ?? undefined;
+  return isValidAddress(address) ? address as Address : undefined;
+}
+
+/**
+ * Get Game Integration contract address for a chain
+ */
+export function getGameIntegration(chainId: ChainId): Address | undefined {
+  const deployment = gameSystemDeployments[chainId];
+  const address = deployment?.gameIntegration ?? undefined;
+  return isValidAddress(address) ? address as Address : undefined;
+}
+
+/**
+ * Get Paymaster System deployment
+ */
+export function getPaymasterSystem(chainId: ChainId): PaymasterSystemDeployment {
+  return paymasterDeployments[chainId] ?? {};
+}
+
+/**
+ * Get Sponsored Paymaster address
+ */
+export function getSponsoredPaymaster(chainId: ChainId): Address | undefined {
+  const deployment = paymasterDeployments[chainId];
+  const address = deployment?.sponsoredPaymaster;
+  return isValidAddress(address) ? address as Address : undefined;
 }
 
 /**
@@ -193,6 +269,7 @@ export const rawDeployments = {
   rpgTokens1337,
   elizaToken1337,
   xlpAmmLocalnet,
+  gameSystem1337,
 } as const;
 
 // Re-export types
