@@ -1,9 +1,9 @@
 # Bazaar - Unified DeFi + NFT Marketplace
-# Next.js production build optimized for AWS ECS/EKS
+# Build from repo root: docker build -f apps/bazaar/Dockerfile .
 
-FROM oven/bun:1.1-slim AS base
+FROM oven/bun:latest AS base
 
-# Install system dependencies including build tools for native modules
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     curl \
     ca-certificates \
@@ -14,21 +14,31 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy dependency files
+# Copy workspace files
 FROM base AS deps
-COPY package.json bun.lockb* ./
-RUN bun install --frozen-lockfile --production
+COPY package.json bun.lock ./
+COPY apps/bazaar/package.json ./apps/bazaar/
+COPY packages/config/package.json ./packages/config/
+COPY packages/types/package.json ./packages/types/
+COPY packages/contracts/package.json ./packages/contracts/
+
+# Install all workspace dependencies
+RUN bun install --production
 
 # Build stage
 FROM base AS builder
-COPY package.json bun.lockb* ./
-RUN bun install --frozen-lockfile
+COPY package.json bun.lock ./
+COPY apps/bazaar/package.json ./apps/bazaar/
+COPY packages/ ./packages/
+COPY scripts/shared/ ./scripts/shared/
 
-# Copy source code
-COPY . .
-COPY --from=deps /app/node_modules ./node_modules
+RUN bun install
 
-# Build Next.js app
+# Copy app source
+COPY apps/bazaar/ ./apps/bazaar/
+
+# Build the app
+WORKDIR /app/apps/bazaar
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 RUN bun run build
@@ -42,10 +52,12 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN groupadd --gid 1001 nodejs && \
     useradd --uid 1001 --gid nodejs --create-home nextjs
 
+WORKDIR /app
+
 # Copy built application
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/apps/bazaar/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/bazaar/.next/static ./apps/bazaar/.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/bazaar/public ./apps/bazaar/public
 
 USER nextjs
 
@@ -57,5 +69,4 @@ ENV HOSTNAME="0.0.0.0"
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
   CMD curl -f http://localhost:4006/api/health || exit 1
 
-CMD ["node", "server.js"]
-
+CMD ["node", "apps/bazaar/server.js"]

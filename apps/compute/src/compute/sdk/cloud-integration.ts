@@ -398,7 +398,7 @@ export class CloudModelBroadcaster {
  * CloudProviderBridge
  *
  * Routes inference requests through the cloud platform.
- * Integrates with compute marketplace for access.
+ * Integrates with compute marketplace for seamless access.
  */
 export class CloudProviderBridge {
   private config: CloudIntegrationConfig;
@@ -646,7 +646,7 @@ export class CloudProviderBridge {
 }
 
 // ============================================================================
-// Discovery Service
+// Model Discovery Service
 // ============================================================================
 
 /**
@@ -809,7 +809,7 @@ export function createCloudBridge(config: CloudIntegrationConfig): CloudProvider
 }
 
 /**
- * Create model discovery
+ * Create model discovery instance
  */
 export function createModelDiscovery(
   config: CloudIntegrationConfig & { registryConfig?: ExtendedSDKConfig }

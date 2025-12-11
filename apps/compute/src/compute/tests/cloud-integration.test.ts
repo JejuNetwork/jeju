@@ -5,7 +5,7 @@
  * the cloud platform with the decentralized compute marketplace.
  */
 
-import { describe, test, expect, beforeAll, mock, spyOn } from 'bun:test';
+import { describe, test, expect, beforeAll } from 'bun:test';
 import {
   CloudModelBroadcaster,
   CloudProviderBridge,
@@ -91,11 +91,10 @@ const TEST_CONFIG: CloudIntegrationConfig = {
 };
 
 // Mock fetch for all tests
-const originalFetch = global.fetch;
-let mockFetch: ReturnType<typeof mock>;
+let mockFetch: typeof fetch;
 
 beforeAll(() => {
-  mockFetch = mock((url: string, options?: RequestInit) => {
+  mockFetch = ((url: string) => {
     const urlStr = url.toString();
     
     if (urlStr.includes('/api/v1/models')) {
@@ -142,7 +141,7 @@ beforeAll(() => {
     }
     
     return Promise.resolve(new Response('Not found', { status: 404 }));
-  });
+  }) as typeof fetch;
   
   global.fetch = mockFetch;
 });
@@ -513,8 +512,7 @@ describe('Cloud-Compute Integration', () => {
 
 describe('Error Handling', () => {
   test('handles fetch failure gracefully', async () => {
-    const failingFetch = mock(() => Promise.reject(new Error('Network error')));
-    global.fetch = failingFetch;
+    global.fetch = ((() => Promise.reject(new Error('Network error'))) as unknown) as typeof fetch;
     
     const broadcaster = createCloudBroadcaster(TEST_CONFIG);
     
@@ -525,13 +523,12 @@ describe('Error Handling', () => {
   });
   
   test('handles 404 for agent card', async () => {
-    const notFoundFetch = mock((url: string) => {
+    global.fetch = ((url: string) => {
       if (url.includes('agent-card.json')) {
         return Promise.resolve(new Response('Not found', { status: 404 }));
       }
       return Promise.resolve(new Response(JSON.stringify({ models: [] }), { status: 200 }));
-    });
-    global.fetch = notFoundFetch;
+    }) as typeof fetch;
     
     const broadcaster = createCloudBroadcaster(TEST_CONFIG);
     const skills = await broadcaster.fetchCloudSkills();
@@ -544,13 +541,12 @@ describe('Error Handling', () => {
   });
   
   test('handles cloud inference error', async () => {
-    const errorFetch = mock((url: string) => {
+    global.fetch = ((url: string) => {
       if (url.includes('/chat/completions')) {
         return Promise.resolve(new Response('Internal Server Error', { status: 500 }));
       }
       return mockFetch(url);
-    });
-    global.fetch = errorFetch;
+    }) as typeof fetch;
     
     const bridge = createCloudBridge(TEST_CONFIG);
     
@@ -562,15 +558,14 @@ describe('Error Handling', () => {
   });
   
   test('handles A2A error response', async () => {
-    const errorFetch = mock((url: string) => {
+    global.fetch = ((url: string) => {
       if (url.includes('/api/a2a')) {
         return Promise.resolve(new Response(JSON.stringify({
           error: { message: 'Skill not found' },
         }), { status: 200 }));
       }
       return mockFetch(url);
-    });
-    global.fetch = errorFetch;
+    }) as typeof fetch;
     
     const bridge = createCloudBridge(TEST_CONFIG);
     

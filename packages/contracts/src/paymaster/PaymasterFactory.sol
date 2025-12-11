@@ -7,7 +7,11 @@ import {LiquidityVault} from "../liquidity/LiquidityVault.sol";
 import {FeeDistributor} from "../distributor/FeeDistributor.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import {TokenRegistry} from "./TokenRegistry.sol";
-import {IElizaOSPriceOracle} from "../interfaces/IPriceOracle.sol";
+
+interface IPriceOracle {
+    function getElizaOSPerETH() external view returns (uint256);
+    function isPriceFresh() external view returns (bool);
+}
 
 /**
  * @title PaymasterFactory
@@ -57,7 +61,7 @@ contract PaymasterFactory is Ownable {
     IEntryPoint public immutable entryPoint;
 
     /// @notice Price oracle (shared by all paymasters)
-    IElizaOSPriceOracle public immutable oracle;
+    IPriceOracle public immutable oracle;
 
     /// @notice CrossChainPaymaster for XLP liquidity integration
     ICrossChainPaymaster public crossChainPaymaster;
@@ -125,7 +129,7 @@ contract PaymasterFactory is Ownable {
 
         registry = TokenRegistry(_registry);
         entryPoint = IEntryPoint(_entryPoint);
-        oracle = IElizaOSPriceOracle(_oracle);
+        oracle = IPriceOracle(_oracle);
     }
 
     /**

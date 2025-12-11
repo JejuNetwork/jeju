@@ -20,7 +20,7 @@ import {
 } from './cloud';
 
 // ============================================================================
-// Backend Interface
+// Storage Backend Interface
 // ============================================================================
 
 export interface StorageUploadOptions {

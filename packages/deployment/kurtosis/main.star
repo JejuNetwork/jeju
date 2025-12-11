@@ -5,7 +5,7 @@
 # Updated for Fusaka compatibility (activated Dec 3, 2025)
 OP_STACK_VERSION = "v1.16.3"
 GETH_VERSION = "v1.16.7"  # Fusaka-compatible (required for PeerDAS + blob capacity)
-OP_GETH_VERSION = "v1.101607.0"  # Matches Geth v1.16.7 base
+OP_GETH_VERSION = "v1.101603.5"  # Latest stable op-geth version
 OP_RETH_VERSION = "v1.1.2"
 
 # Fusaka upgrade notes:

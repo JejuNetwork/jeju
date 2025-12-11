@@ -19,6 +19,8 @@ const noApps = process.argv.includes("--no-apps");
 const noAccumulator = process.argv.includes("--no-accumulator");
 const maxAppsArg = process.argv.find(arg => arg.startsWith("--max-apps="));
 const maxApps = maxAppsArg ? parseInt(maxAppsArg.split("=")[1]) : undefined;
+const onlyArg = process.argv.find(arg => arg.startsWith("--only="));
+const onlyApps = onlyArg ? onlyArg.split("=")[1].split(",") : undefined;
 
 const processes: Subprocess[] = [];
 const services: Map<string, ServiceInfo> = new Map();
@@ -703,7 +705,13 @@ async function main() {
     if (!noApps) {
       console.log(`Starting core apps...`);
       
-      const allAppsToStart = getAutoStartApps();
+      let allAppsToStart = getAutoStartApps();
+      
+      // Filter to specific apps if --only flag is provided
+      if (onlyApps && onlyApps.length > 0) {
+        allAppsToStart = allAppsToStart.filter(app => onlyApps.includes(app.name));
+        console.log(`Filtering to only: ${onlyApps.join(", ")}`);
+      }
       
       const coreApps = allAppsToStart.filter(app => 
         app.type === 'core' && app.name !== 'indexer' && app.name !== 'monitoring'

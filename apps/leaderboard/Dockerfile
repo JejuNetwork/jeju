@@ -1,7 +1,7 @@
 # Leaderboard - Analytics and Rankings
 # Next.js production build with database migrations
 
-FROM oven/bun:1.1-slim AS base
+FROM oven/bun:latest AS base
 
 # Install system dependencies including build tools and PostgreSQL client
 RUN apt-get update && apt-get install -y \
@@ -17,22 +17,19 @@ WORKDIR /app
 
 # Dependencies stage
 FROM base AS deps
-COPY package.json bun.lockb* ./
-RUN bun install --frozen-lockfile --production
+COPY package.json bun.lock* ./
+RUN bun install --no-save
 
 # Builder stage
 FROM base AS builder
-COPY package.json bun.lockb* ./
-RUN bun install --frozen-lockfile
+WORKDIR /app/apps/leaderboard
+COPY apps/leaderboard/package.json ./
+RUN bun install --no-save
 
 # Copy source
-COPY . .
-COPY --from=deps /app/node_modules ./node_modules
+COPY apps/leaderboard/ ./
 
-# Generate Drizzle client
-RUN bun run db:generate
-
-# Build Next.js
+# Build Next.js (db migrations run at container startup)
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 RUN bun run build
@@ -47,12 +44,12 @@ RUN groupadd --gid 1001 nodejs && \
     useradd --uid 1001 --gid nodejs --create-home nextjs
 
 # Copy built application
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
-COPY --from=builder --chown=nextjs:nodejs /app/package.json ./
-COPY --from=builder --chown=nextjs:nodejs /app/drizzle.config.ts ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/leaderboard/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/leaderboard/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/leaderboard/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/apps/leaderboard/drizzle ./drizzle
+COPY --from=builder --chown=nextjs:nodejs /app/apps/leaderboard/package.json ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/leaderboard/drizzle.config.ts ./
 
 # Copy migration script
 COPY --chown=nextjs:nodejs <<'EOF' /app/migrate.sh

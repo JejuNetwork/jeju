@@ -6,6 +6,7 @@ import type {
   SupportedChainId
 } from '@jejunetwork/types/oif';
 import * as chainService from './chain-service';
+import { ZERO_ADDRESS } from '../lib/contracts.js';
 
 // In-memory cache for intents
 const intentCache: Map<string, Intent> = new Map();
@@ -77,7 +78,7 @@ export class IntentService {
           openDeadline: 0,
           fillDeadline: 0,
           inputs: [{
-            token: '0x0000000000000000000000000000000000000000',
+            token: ZERO_ADDRESS,
             amount: log.inputAmount.toString(),
             chainId: chainId as SupportedChainId,
           }],
@@ -117,7 +118,7 @@ export class IntentService {
       encodeAbiParameters(
         parseAbiParameters('address, uint256, uint256, uint256'),
         [
-          params.recipient as `0x${string}` || '0x0000000000000000000000000000000000000000',
+          params.recipient as `0x${string}` || ZERO_ADDRESS,
           BigInt(params.sourceChain),
           BigInt(params.amount),
           BigInt(now),
@@ -127,7 +128,7 @@ export class IntentService {
 
     const intent: Intent = {
       intentId,
-      user: params.recipient || '0x0000000000000000000000000000000000000000',
+      user: params.recipient || ZERO_ADDRESS,
       nonce: now.toString(),
       sourceChainId: params.sourceChain as SupportedChainId,
       openDeadline: Math.floor(now / 1000) + 300,
@@ -184,7 +185,7 @@ export class IntentService {
       priceImpact: 10,
       estimatedFillTimeSeconds: isL2ToL2 ? 15 : 30,
       validUntil: Math.floor(Date.now() / 1000) + 300,
-      solver: '0x0000000000000000000000000000000000000000',
+      solver: ZERO_ADDRESS,
       solverReputation: 0,
     });
 
@@ -197,7 +198,7 @@ export class IntentService {
 
     for (const chainId of [1, 42161, 10, 11155111]) {
       const order = await chainService.fetchOrder(chainId, intentId as `0x${string}`);
-      if (order && order.user !== '0x0000000000000000000000000000000000000000') {
+      if (order && order.user !== ZERO_ADDRESS) {
         intent = {
           intentId: intentId as `0x${string}`,
           user: order.user,
@@ -220,7 +221,7 @@ export class IntentService {
           status: order.filled ? 'filled' : order.refunded ? 'expired' : 'open',
           createdAt: Number(order.createdBlock) * 12000,
           filledAt: order.filled ? Date.now() : undefined,
-          solver: order.solver !== '0x0000000000000000000000000000000000000000' ? order.solver : undefined,
+          solver: order.solver !== ZERO_ADDRESS ? order.solver : undefined,
         };
         intentCache.set(intentId, intent);
         return intent;

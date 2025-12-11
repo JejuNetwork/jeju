@@ -201,18 +201,20 @@ The native governance and utility token for Jeju Network.
 | Moderation | Stake in the futarchy moderation marketplace |
 | Services | Pay for compute, storage via paymaster |
 
-### Presale
+### Presale / ICO
+
+The Jeju ICO is integrated into the Bazaar launchpad:
 
 ```bash
-# Run the presale app
-cd apps/ico && bun run dev
+# Run Bazaar (includes ICO)
+cd apps/bazaar && bun run dev
+# Visit: http://localhost:3000/coins/jeju-ico
 
-# Deploy presale contract
-cd packages/contracts
-PRIVATE_KEY=$PK forge script script/DeployPresale.s.sol --rpc-url $RPC --broadcast
+# Deploy ICO contracts on localnet
+bun run scripts/deploy-jeju-launchpad.ts --network localnet
 ```
 
-See `apps/ico/README.md` for full documentation.
+See `apps/bazaar/config/jeju-tokenomics.ts` for tokenomics configuration.
 
 ## Configuration
 

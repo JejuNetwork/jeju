@@ -1,4 +1,5 @@
 import type { PublicClient, WalletClient } from 'viem';
+import { ZERO_ADDRESS } from '../lib/contracts.js';
 
 interface LiquidityConfig {
   chains: Array<{ chainId: number; name: string; rpcUrl: string }>;
@@ -30,7 +31,7 @@ export class LiquidityManager {
 
       this.liquidity.set(chain.chainId, {
         chainId: chain.chainId,
-        available: new Map([['0x0000000000000000000000000000000000000000', balance]]),
+        available: new Map([[ZERO_ADDRESS, balance]]),
         locked: new Map(),
       });
       console.log(`   ${chain.name}: ${(Number(balance) / 1e18).toFixed(4)} ETH`);

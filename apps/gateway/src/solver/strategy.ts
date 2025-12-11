@@ -1,5 +1,6 @@
 import { createPublicClient, http, type Address, type PublicClient, type Chain } from 'viem';
 import { arbitrum, optimism, mainnet, sepolia } from 'viem/chains';
+import { ZERO_ADDRESS } from '../lib/contracts.js';
 
 interface StrategyConfig {
   minProfitBps: number;
@@ -33,7 +34,7 @@ const CHAINLINK_FEEDS: Record<number, Record<string, Address>> = {
 };
 
 const TOKEN_SYMBOLS: Record<string, string> = {
-  '0x0000000000000000000000000000000000000000': 'ETH',
+  [ZERO_ADDRESS]: 'ETH',
   '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': 'USDC',
   '0xaf88d065e77c8cc2239327c5edb3a432268e5831': 'USDC',
   '0x0b2c639c533813f4aa9d7837caf62653d097ff85': 'USDC',

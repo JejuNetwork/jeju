@@ -13,7 +13,6 @@ import type {
   IdentitySystemDeployment,
   PaymasterSystemDeployment,
   XLPDeployment,
-  GameSystemDeployment,
   ContractAddresses,
 } from './types';
 import { CHAIN_IDS, ZERO_ADDRESS, isValidAddress } from './types';
@@ -23,9 +22,10 @@ import uniswapV4_1337 from '../deployments/uniswap-v4-1337.json';
 import uniswapV4_420691 from '../deployments/uniswap-v4-420691.json';
 import bazaarMarketplace1337 from '../deployments/bazaar-marketplace-1337.json';
 import erc20Factory1337 from '../deployments/erc20-factory-1337.json';
+import identitySystem1337 from '../deployments/identity-system-1337.json';
+import localnetAddresses from '../deployments/localnet-addresses.json';
 import paymasterSystemLocalnet from '../deployments/paymaster-system-localnet.json';
-import localnetDeployment from '../deployments/localnet/deployment.json';
-import localnetMultiToken from '../deployments/localnet/multi-token-system.json';
+import multiTokenSystem1337 from '../deployments/multi-token-system-1337.json';
 import eilLocalnet from '../deployments/eil-localnet.json';
 import eilTestnet from '../deployments/eil-testnet.json';
 import predimarket1337 from '../deployments/predimarket-1337.json';
@@ -34,10 +34,25 @@ import elizaToken1337 from '../deployments/eliza-token-1337.json';
 import xlpAmmLocalnet from '../deployments/xlp-amm-localnet.json';
 import gameSystem1337 from '../deployments/game-system-1337.json';
 
-// Combine localnet deployments for identity system
-const identitySystem1337 = localnetDeployment;
-const localnetAddresses = localnetDeployment;
-const multiTokenSystem1337 = localnetMultiToken;
+// ============================================================================
+// Types for Game System
+// ============================================================================
+
+export interface GameSystemDeployment {
+  goldToken?: string | null;
+  itemsNFT?: string | null;
+  gameIntegration?: string | null;
+  playerTradeEscrow?: string | null;
+  gameAgentId?: string | null;
+  gameSigner?: string | null;
+  mudWorld?: string | null;
+  jejuIntegrationSystem?: string | null;
+  appId?: string;
+  gameName?: string;
+  baseURI?: string;
+  deployedAt?: string | null;
+  chainId?: number;
+}
 
 // ============================================================================
 // Typed Deployment Exports
@@ -73,16 +88,9 @@ export const xlpDeployments: Partial<Record<ChainId, XLPDeployment>> = {
   420691: xlpAmmLocalnet as XLPDeployment,
 };
 
-// Filter out null values from JSON (JSON doesn't support undefined)
-function filterNulls<T extends object>(obj: T): Partial<T> {
-  return Object.fromEntries(
-    Object.entries(obj).filter(([, v]) => v !== null)
-  ) as Partial<T>;
-}
-
 export const gameSystemDeployments: Partial<Record<ChainId, GameSystemDeployment>> = {
-  1337: filterNulls(gameSystem1337) as GameSystemDeployment,
-  420691: filterNulls(gameSystem1337) as GameSystemDeployment,
+  1337: gameSystem1337 as GameSystemDeployment,
+  420691: gameSystem1337 as GameSystemDeployment,
 };
 
 // ============================================================================
@@ -131,54 +139,53 @@ export function getXLPDeployment(chainId: ChainId): XLPDeployment {
 }
 
 /**
- * Get game system deployment for a chain
+ * Get Game System deployment for a chain
  */
 export function getGameSystem(chainId: ChainId): GameSystemDeployment {
   return gameSystemDeployments[chainId] ?? {};
 }
 
 /**
- * Get game Gold token address for a chain
+ * Get Game Gold token address for a chain
  */
 export function getGameGold(chainId: ChainId): Address | undefined {
-  const game = gameSystemDeployments[chainId];
-  const marketplace = bazaarMarketplaceDeployments[chainId];
-  const address = game?.goldToken ?? marketplace?.goldToken;
-  return isValidAddress(address) ? address : undefined;
+  const deployment = gameSystemDeployments[chainId];
+  const address = deployment?.goldToken ?? undefined;
+  return isValidAddress(address) ? address as Address : undefined;
 }
 
 /**
- * Get game Items NFT address for a chain
+ * Get Game Items NFT address for a chain
  */
 export function getGameItems(chainId: ChainId): Address | undefined {
   const deployment = gameSystemDeployments[chainId];
-  const address = deployment?.itemsNFT;
-  return isValidAddress(address) ? address : undefined;
+  const address = deployment?.itemsNFT ?? undefined;
+  return isValidAddress(address) ? address as Address : undefined;
 }
 
 /**
- * Get GameIntegration hub address for a chain
+ * Get Game Integration contract address for a chain
  */
 export function getGameIntegration(chainId: ChainId): Address | undefined {
   const deployment = gameSystemDeployments[chainId];
-  const address = deployment?.gameIntegration;
-  return isValidAddress(address) ? address : undefined;
+  const address = deployment?.gameIntegration ?? undefined;
+  return isValidAddress(address) ? address as Address : undefined;
 }
 
 /**
- * Get paymaster system deployment for a chain
+ * Get Paymaster System deployment
  */
 export function getPaymasterSystem(chainId: ChainId): PaymasterSystemDeployment {
   return paymasterDeployments[chainId] ?? {};
 }
 
 /**
- * Get SponsoredPaymaster address for a chain
+ * Get Sponsored Paymaster address
  */
 export function getSponsoredPaymaster(chainId: ChainId): Address | undefined {
   const deployment = paymasterDeployments[chainId];
   const address = deployment?.sponsoredPaymaster;
-  return isValidAddress(address) ? address : undefined;
+  return isValidAddress(address) ? address as Address : undefined;
 }
 
 /**
@@ -189,7 +196,6 @@ export function getContractAddresses(chainId: ChainId): ContractAddresses {
   const identity = identitySystemDeployments[chainId];
   const paymaster = paymasterDeployments[chainId];
   const marketplace = bazaarMarketplaceDeployments[chainId];
-  const game = gameSystemDeployments[chainId];
 
   return {
     // Identity & Registry
@@ -212,25 +218,16 @@ export function getContractAddresses(chainId: ChainId): ContractAddresses {
     // Token Factory
     erc20Factory: getERC20Factory(chainId),
 
-    // Paymaster / AA (Account Abstraction - ERC-4337)
+    // Paymaster / AA
     entryPoint: paymaster?.entryPoint as Address | undefined,
     paymasterFactory: paymaster?.paymasterFactory as Address | undefined,
     tokenRegistry: paymaster?.tokenRegistry as Address | undefined,
     priceOracle: paymaster?.priceOracle as Address | undefined,
-    sponsoredPaymaster: paymaster?.sponsoredPaymaster as Address | undefined,
-    liquidityPaymaster: paymaster?.liquidityPaymaster as Address | undefined,
-    multiTokenPaymaster: paymaster?.multiTokenPaymaster as Address | undefined,
-    simpleAccountFactory: paymaster?.simpleAccountFactory as Address | undefined,
 
     // Tokens
     usdc: identity?.usdc as Address | undefined,
     elizaOS: identity?.elizaOS as Address | undefined,
-    goldToken: getGameGold(chainId),
-    
-    // Game System (Hyperscape-compatible)
-    itemsNFT: getGameItems(chainId),
-    playerTradeEscrow: game?.playerTradeEscrow as Address | undefined,
-    gameIntegration: getGameIntegration(chainId),
+    goldToken: marketplace?.goldToken as Address | undefined,
   };
 }
 
@@ -283,7 +280,6 @@ export type {
   IdentitySystemDeployment,
   PaymasterSystemDeployment,
   XLPDeployment,
-  GameSystemDeployment,
   ContractAddresses,
 } from './types';
 

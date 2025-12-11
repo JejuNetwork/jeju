@@ -5,6 +5,7 @@ import TokenSelector from './TokenSelector';
 import { useProtocolTokens } from '../hooks/useProtocolTokens';
 import type { TokenOption } from './TokenSelector';
 import { CONTRACTS } from '../config';
+import { ZERO_ADDRESS } from '../lib/contracts';
 
 const FUTARCHY_GOVERNOR_ABI = [
   {
@@ -46,7 +47,7 @@ export default function CreateQuestForm() {
     e.preventDefault();
     
     const governorAddress = CONTRACTS.futarchyGovernor;
-    if (!governorAddress || governorAddress === '0x0000000000000000000000000000000000000000' || !prizeToken) return;
+    if (!governorAddress || governorAddress === ZERO_ADDRESS || !prizeToken) return;
     
     // Example: Change geographic bonus
     const targetContract = CONTRACTS.nodeStakingManager;

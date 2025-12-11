@@ -1,7 +1,7 @@
 # IPFS Pinning Service with x402 Payments
 # Bun runtime with IPFS node integration
 
-FROM oven/bun:1.1-slim AS base
+FROM oven/bun:latest AS base
 
 # Install system dependencies including build tools
 RUN apt-get update && apt-get install -y \
@@ -16,15 +16,15 @@ WORKDIR /app
 
 # Dependencies
 FROM base AS deps
-COPY package.json bun.lockb* ./
+COPY package.json bun.lock* ./
 COPY pinning-api/package.json ./pinning-api/
-RUN bun install --frozen-lockfile --production
+RUN bun install  --production
 
 # Builder
 FROM base AS builder
-COPY package.json bun.lockb* ./
+COPY package.json bun.lock* ./
 COPY pinning-api/package.json ./pinning-api/
-RUN bun install --frozen-lockfile
+RUN bun install 
 
 COPY . .
 

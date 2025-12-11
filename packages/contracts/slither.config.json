@@ -1,9 +1,8 @@
 {
-  "filter_paths": "lib/,node_modules/,test/,script/,src/mocks/,src/mmo/,src/tokens/Mock,src/otc/mocks/",
+  "filter_paths": "lib/,node_modules/,test/,script/",
   "exclude_dependencies": true,
   "exclude_informational": true,
   "exclude_optimization": true,
   "exclude_low": true,
-  "detectors_to_exclude": "naming-convention,solc-version,pragma,too-many-digits,timestamp,missing-zero-check,calls-loop,reentrancy-benign,reentrancy-events,shadowing-local,events-maths,events-access,arbitrary-send-erc20,arbitrary-send-eth,unchecked-transfer,reentrancy-eth,uninitialized-local,divide-before-multiply,incorrect-equality,unused-return,reentrancy-no-eth,weak-prng",
-  "compile_force_framework": "foundry"
+  "detectors_to_exclude": "arbitrary-send-eth,arbitrary-send-erc20,reentrancy-benign,reentrancy-events,divide-before-multiply,uninitialized-local,reentrancy-no-eth,reentrancy-eth,unused-return,incorrect-equality,weak-prng"
 }

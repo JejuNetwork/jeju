@@ -4,6 +4,7 @@ import { LiquidityManager } from './liquidity';
 import { StrategyEngine } from './strategy';
 import { EventMonitor, type IntentEvent } from './monitor';
 import { getChain } from '../lib/chains.js';
+import { ZERO_ADDRESS } from '../lib/contracts.js';
 
 interface SolverConfig {
   chains: Array<{ chainId: number; name: string; rpcUrl: string }>;
@@ -121,7 +122,7 @@ export class SolverAgent {
     const gasPrice = await client.public.getGasPrice();
     if (gasPrice > this.config.maxGasPrice) return { success: false, error: `Gas price too high: ${gasPrice} > ${this.config.maxGasPrice}` };
 
-    const isNativeToken = params.outputToken === '0x0000000000000000000000000000000000000000';
+    const isNativeToken = params.outputToken === ZERO_ADDRESS;
     const outputAmount = BigInt(params.outputAmount);
     const chainDef = this.getChainDef(params.destinationChain);
 

@@ -4,6 +4,7 @@ import { useAccount, useWriteContract, useSwitchChain, useChainId, useWaitForTra
 import { parseEther } from 'viem';
 import { useSupportedChains, useIntentQuote } from '../../hooks/useIntentAPI';
 import { useOIFConfig } from '../../hooks/useOIF';
+import { ZERO_ADDRESS } from '../../lib/contracts';
 
 interface CreateIntentModalProps {
   onClose: () => void;
@@ -23,7 +24,7 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
   const [sourceChain, setSourceChain] = useState(chainId || 1);
   const [destChain, setDestChain] = useState(42161);
   const [amount, setAmount] = useState('0.1');
-  const [token] = useState('0x0000000000000000000000000000000000000000');
+  const [token] = useState(ZERO_ADDRESS);
   const [txStatus, setTxStatus] = useState<TxStatus>('idle');
   const [intentId, setIntentId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -84,7 +85,7 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
       targetAddress: address,
       deadline,
       data: '0x' as `0x${string}`,
-      resolver: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+      resolver: ZERO_ADDRESS as `0x${string}`,
       resolverFee: 0n,
       refundAddress: address,
       nonce,
@@ -97,7 +98,7 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
         abi: INPUT_SETTLER_ABI,
         functionName: 'createIntent',
         args: [order],
-        value: token === '0x0000000000000000000000000000000000000000' ? amountWei : undefined,
+        value: token === ZERO_ADDRESS ? amountWei : undefined,
       });
       // Status updates handled by useEffect watching isConfirming/isConfirmed
     } catch (e) {

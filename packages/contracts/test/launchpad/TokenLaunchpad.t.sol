@@ -217,7 +217,7 @@ contract TokenLaunchpadTest is Test {
     function test_BondingCurveGraduation() public {
         // Launch with lower graduation target for testing
         vm.prank(creator);
-        (, address tokenAddress) = launchpad.launchBondingCurve(
+        launchpad.launchBondingCurve(
             "Test Token",
             "TEST",
             8000,

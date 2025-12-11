@@ -15,6 +15,7 @@ export * from './sdk';
 export * from './payment';
 export * from './router';
 export * from './x402';
+export * from './compute-integration';
 
 // Re-export commonly used items
 export { JejuStorageSDK, createStorageSDK, StorageSDK } from './sdk';
@@ -28,4 +29,12 @@ export {
   createStoragePaymentRequirement,
   STORAGE_PRICING,
 } from './x402';
+export {
+  StorageComputeIntegration,
+  createComputeIntegration,
+  type ComputeProviderInfo,
+  type ComputeQuote,
+  type ContainerCompatibility,
+  type ComputeRentalForFile,
+} from './compute-integration';
 

@@ -8,6 +8,7 @@ import BanVotingInterface from '../../components/moderation/BanVotingInterface';
 import { MODERATION_CONTRACTS } from '../../config/moderation';
 import { IPFS_GATEWAY_URL } from '../../config';
 import { formatEther } from 'viem';
+import { ZERO_BYTES32 } from '../../lib/contracts';
 
 type TabType = 'overview' | 'active' | 'resolved' | 'submit' | 'labels' | 'bans';
 
@@ -561,7 +562,7 @@ function ReportCard({ reportId }: { reportId: bigint }) {
           <button
             onClick={() => {
               const hash = report.evidenceHash;
-              if (hash && hash !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
+              if (hash && hash !== ZERO_BYTES32) {
                 // Decode bytes32 hex back to CID string (reverse of cidToBytes32)
                 const hexStr = hash.slice(2).replace(/^0+/, ''); // Remove 0x and leading zeros
                 const cid = hexStr ? Buffer.from(hexStr, 'hex').toString('utf8').replace(/\0/g, '') : '';
@@ -657,7 +658,7 @@ function ResolvedReportCard({ reportId }: { reportId: bigint }) {
         <button
           onClick={() => {
             const hash = report.evidenceHash;
-            if (hash && hash !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
+            if (hash && hash !== ZERO_BYTES32) {
               const hexStr = hash.slice(2).replace(/^0+/, '');
               const cid = hexStr ? Buffer.from(hexStr, 'hex').toString('utf8').replace(/\0/g, '') : '';
               if (cid && cid.startsWith('Qm')) {

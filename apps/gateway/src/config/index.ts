@@ -9,6 +9,7 @@
  * type-safe defaults. Import from here instead of using import.meta.env directly.
  */
 import type { Address } from 'viem';
+import { ZERO_ADDRESS } from '../lib/contracts';
 
 // Build-time network selection
 export const NETWORK = (import.meta.env.VITE_NETWORK || 'localnet') as 'localnet' | 'testnet' | 'mainnet';
@@ -28,7 +29,7 @@ export const LEADERBOARD_API_URL = import.meta.env.VITE_LEADERBOARD_API_URL || g
 export const EXPLORER_URL = import.meta.env.VITE_EXPLORER_URL || getDefaultExplorerUrl();
 
 // Contract addresses - with VITE_ override support
-const ZERO = '0x0000000000000000000000000000000000000000' as const;
+const ZERO = ZERO_ADDRESS;
 
 export const CONTRACTS = {
   // Tokens

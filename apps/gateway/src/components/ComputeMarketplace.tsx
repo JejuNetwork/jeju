@@ -182,7 +182,7 @@ function ProviderCard({ provider, onRent }: ProviderCardProps) {
           <p style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: 'var(--text-primary)' }}>
             {formatHourlyRate(hourlyRate)}
           </p>
-          {resources?.pricing.pricePerGpuHour && resources.pricing.pricePerGpuHour > 0n && (
+          {Boolean(resources?.pricing.pricePerGpuHour && resources.pricing.pricePerGpuHour > 0n) && (
             <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
               +{formatHourlyRate(resources.pricing.pricePerGpuHour)}/GPU
             </p>

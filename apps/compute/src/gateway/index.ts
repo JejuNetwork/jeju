@@ -41,7 +41,7 @@ import {
   createCloudBridge,
   type CloudProviderBridge,
 } from '../compute/sdk/cloud-integration';
-import type { ModelType } from '../compute/sdk/types';
+import { ModelTypeEnum, type ModelType } from '../compute/sdk/types';
 
 // ============================================================================
 // Types
@@ -1062,18 +1062,18 @@ export class ComputeGateway {
   }
   
   // Helper to parse model type from query
-  private parseModelType(type: string): number {
-    const types: Record<string, number> = {
-      llm: 0,
-      image: 1,
-      video: 2,
-      audio: 3,
-      speech_to_text: 4,
-      text_to_speech: 5,
-      embedding: 6,
-      multimodal: 7,
+  private parseModelType(type: string): ModelType {
+    const types: Record<string, ModelType> = {
+      llm: ModelTypeEnum.LLM,
+      image: ModelTypeEnum.IMAGE_GEN,
+      video: ModelTypeEnum.VIDEO_GEN,
+      audio: ModelTypeEnum.AUDIO_GEN,
+      speech_to_text: ModelTypeEnum.SPEECH_TO_TEXT,
+      text_to_speech: ModelTypeEnum.TEXT_TO_SPEECH,
+      embedding: ModelTypeEnum.EMBEDDING,
+      multimodal: ModelTypeEnum.MULTIMODAL,
     };
-    return types[type.toLowerCase()] ?? 0;
+    return types[type.toLowerCase()] ?? ModelTypeEnum.LLM;
   }
   
   // Helper to convert model type to string

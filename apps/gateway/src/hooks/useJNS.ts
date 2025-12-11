@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { type Address, type Hash, namehash } from 'viem';
 import { CONTRACTS, INDEXER_URL } from '../config';
+import { ZERO_ADDRESS } from '../lib/contracts';
 
 // Contract addresses from centralized config
 const JNS_REGISTRY = CONTRACTS.jnsRegistry;
@@ -236,7 +237,7 @@ export function useJNSLookup() {
   const { address } = useAccount();
 
   const checkAvailability = useCallback(async (name: string): Promise<boolean> => {
-    if (!publicClient || JNS_REGISTRAR === '0x0000000000000000000000000000000000000000') {
+    if (!publicClient || JNS_REGISTRAR === ZERO_ADDRESS) {
       return false;
     }
 
@@ -251,7 +252,7 @@ export function useJNSLookup() {
   }, [publicClient]);
 
   const getPrice = useCallback(async (name: string, durationYears: number = 1): Promise<JNSPriceQuote> => {
-    if (!publicClient || JNS_REGISTRAR === '0x0000000000000000000000000000000000000000') {
+    if (!publicClient || JNS_REGISTRAR === ZERO_ADDRESS) {
       throw new Error('JNS not configured');
     }
 
@@ -284,7 +285,7 @@ export function useJNSLookup() {
   }, [publicClient, address]);
 
   const getRegistration = useCallback(async (name: string): Promise<JNSRegistration> => {
-    if (!publicClient || JNS_REGISTRAR === '0x0000000000000000000000000000000000000000') {
+    if (!publicClient || JNS_REGISTRAR === ZERO_ADDRESS) {
       throw new Error('JNS not configured');
     }
 
@@ -325,7 +326,7 @@ export function useJNSLookup() {
   }, [publicClient]);
 
   const getOwnerNames = useCallback(async (ownerAddress: Address): Promise<JNSRegistration[]> => {
-    if (JNS_REGISTRAR === '0x0000000000000000000000000000000000000000') {
+    if (JNS_REGISTRAR === ZERO_ADDRESS) {
       return [];
     }
 
@@ -384,7 +385,7 @@ export function useJNSRegister() {
     if (!walletClient || !address) {
       throw new Error('Wallet not connected');
     }
-    if (JNS_REGISTRAR === '0x0000000000000000000000000000000000000000') {
+    if (JNS_REGISTRAR === ZERO_ADDRESS) {
       throw new Error('JNS not configured');
     }
 
@@ -421,7 +422,7 @@ export function useJNSRegister() {
     if (!walletClient || !address) {
       throw new Error('Wallet not connected');
     }
-    if (JNS_REGISTRAR === '0x0000000000000000000000000000000000000000') {
+    if (JNS_REGISTRAR === ZERO_ADDRESS) {
       throw new Error('JNS not configured');
     }
 
@@ -463,7 +464,7 @@ export function useJNSResolver() {
   const { data: walletClient } = useWalletClient();
 
   const resolve = useCallback(async (name: string): Promise<Address | null> => {
-    if (!publicClient || JNS_RESOLVER === '0x0000000000000000000000000000000000000000') {
+    if (!publicClient || JNS_RESOLVER === ZERO_ADDRESS) {
       return null;
     }
 
@@ -477,11 +478,11 @@ export function useJNSResolver() {
       args: [node],
     });
 
-    return addr === '0x0000000000000000000000000000000000000000' ? null : addr;
+    return addr === ZERO_ADDRESS ? null : addr;
   }, [publicClient]);
 
   const getText = useCallback(async (name: string, key: string): Promise<string> => {
-    if (!publicClient || JNS_RESOLVER === '0x0000000000000000000000000000000000000000') {
+    if (!publicClient || JNS_RESOLVER === ZERO_ADDRESS) {
       return '';
     }
 
@@ -497,7 +498,7 @@ export function useJNSResolver() {
   }, [publicClient]);
 
   const getAppInfo = useCallback(async (name: string): Promise<JNSAppInfo | null> => {
-    if (!publicClient || JNS_RESOLVER === '0x0000000000000000000000000000000000000000') {
+    if (!publicClient || JNS_RESOLVER === ZERO_ADDRESS) {
       return null;
     }
 
@@ -591,7 +592,7 @@ export function useJNSReverse() {
   const { data: walletClient } = useWalletClient();
 
   const reverseLookup = useCallback(async (addr: Address): Promise<string | null> => {
-    if (!publicClient || JNS_REVERSE_REGISTRAR === '0x0000000000000000000000000000000000000000') {
+    if (!publicClient || JNS_REVERSE_REGISTRAR === ZERO_ADDRESS) {
       return null;
     }
 

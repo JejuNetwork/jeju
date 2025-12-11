@@ -42,7 +42,7 @@ function PositionCard({ tokenAddress }: { tokenAddress: `0x${string}` }) {
         </div>
       </div>
 
-      {lpPosition.pendingFees > 0n && (
+      {Boolean(lpPosition.pendingFees > 0n) && (
         <>
           {isClaimSuccess && (
             <div style={{ padding: '1rem', background: 'var(--success-soft)', borderRadius: '8px', marginTop: '1rem' }}>
