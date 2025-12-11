@@ -58,7 +58,6 @@ export enum ViolationType {
 
 export class CloudIntegration {
   private config: CloudConfig;
-  private identityRegistry: ethers.Contract;
   private reputationRegistry: ethers.Contract;
   private cloudReputationProvider: ethers.Contract;
   private serviceRegistry: ethers.Contract;
@@ -68,19 +67,6 @@ export class CloudIntegration {
     this.config = config;
     
     // Initialize contract interfaces
-    this.identityRegistry = new ethers.Contract(
-      config.identityRegistryAddress,
-      [
-        'function register(string calldata tokenURI) external returns (uint256 agentId)',
-        'function register(string calldata tokenURI, tuple(string key, bytes value)[] calldata metadata) external returns (uint256 agentId)',
-        'function setMetadata(uint256 agentId, string calldata key, bytes calldata value) external',
-        'function agentExists(uint256 agentId) external view returns (bool)',
-        'function ownerOf(uint256 tokenId) external view returns (address)',
-        'function banAgent(uint256 agentId, string calldata reason) external'
-      ],
-      config.provider
-    );
-    
     this.reputationRegistry = new ethers.Contract(
       config.reputationRegistryAddress,
       [
@@ -147,11 +133,16 @@ export class CloudIntegration {
     ];
     
     const contract = this.cloudReputationProvider.connect(signer);
-    const tx = await contract.registerCloudAgent(tokenURI, metadataEntries);
+    const tx = await (contract as ethers.Contract & { registerCloudAgent: (tokenURI: string, metadata: Array<{ key: string; value: Uint8Array }>) => Promise<ethers.ContractTransactionResponse> }).registerCloudAgent(tokenURI, metadataEntries);
     const receipt = await tx.wait();
     
+    if (!receipt) {
+      throw new Error('Transaction receipt is null');
+    }
+    
     // Extract agentId from event
-    const event = receipt.logs.find((log: { topics: string[] }) => 
+    const logs = receipt.logs as unknown as Array<{ topics: string[] }>;
+    const event = logs.find((log) => 
       log.topics[0] === ethers.id('CloudAgentRegistered(uint256)')
     );
     
@@ -179,7 +170,10 @@ export class CloudIntegration {
     for (const service of services) {
       this.config.logger.info(`Registering service: ${service.name}`);
       
-      const tx = await contract.registerService(
+      const serviceContract = contract as ethers.Contract & {
+        registerService: (name: string, category: string, basePrice: bigint, minPrice: bigint, maxPrice: bigint, provider: string) => Promise<ethers.ContractTransactionResponse>;
+      };
+      const tx = await serviceContract.registerService(
         service.name,
         service.category,
         service.basePrice,
@@ -229,7 +223,7 @@ export class CloudIntegration {
     );
     
     const contract = this.cloudReputationProvider.connect(signer);
-    const tx = await contract.setReputation(
+    const tx = await (contract as ethers.Contract & { setReputation: (agentId: bigint, score: number, tag1: string, tag2: string, reason: string, signedAuth: string) => Promise<ethers.ContractTransactionResponse> }).setReputation(
       agentId,
       score,
       tag1,
@@ -261,7 +255,7 @@ export class CloudIntegration {
     );
     
     const contract = this.cloudReputationProvider.connect(signer);
-    const tx = await contract.recordViolation(
+    const tx = await (contract as ethers.Contract & { recordViolation: (agentId: bigint, violationType: number, severityScore: number, evidence: string) => Promise<ethers.ContractTransactionResponse> }).recordViolation(
       agentId,
       violationType,
       severityScore,
@@ -286,7 +280,7 @@ export class CloudIntegration {
     );
     
     const contract = this.cloudReputationProvider.connect(signer);
-    const tx = await contract.proposeBan(
+    const tx = await (contract as ethers.Contract & { proposeBan: (agentId: bigint, violationType: number, evidence: string) => Promise<ethers.ContractTransactionResponse> }).proposeBan(
       agentId,
       violationType,
       evidence
@@ -294,8 +288,13 @@ export class CloudIntegration {
     
     const receipt = await tx.wait();
     
+    if (!receipt) {
+      throw new Error('Transaction receipt is null');
+    }
+    
     // Extract proposalId from event
-    const event = receipt.logs.find((log: { topics: string[] }) => 
+    const logs = receipt.logs as unknown as Array<{ topics: string[] }>;
+    const event = logs.find((log) => 
       log.topics[0] === ethers.id('BanProposalCreated(bytes32,uint256,uint8,address)')
     );
     
@@ -319,7 +318,7 @@ export class CloudIntegration {
     this.config.logger.info(`Approving ban proposal: ${proposalId}`);
     
     const contract = this.cloudReputationProvider.connect(signer);
-    const tx = await contract.approveBan(proposalId);
+    const tx = await (contract as ethers.Contract & { approveBan: (proposalId: string) => Promise<ethers.ContractTransactionResponse> }).approveBan(proposalId);
     await tx.wait();
     
     this.config.logger.info('Ban proposal approved');

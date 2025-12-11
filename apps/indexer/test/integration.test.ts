@@ -36,6 +36,66 @@ async function checkDatabaseAvailable(): Promise<boolean> {
     }
 }
 
+async function startDatabase(): Promise<boolean> {
+    console.log('🚀 Starting indexer database...')
+    try {
+        // Check if docker-compose exists - use indexer directory
+        const { existsSync } = await import('fs')
+        const { join, dirname } = await import('path')
+        const { fileURLToPath } = await import('url')
+        
+        // Get indexer directory from this file's location
+        const __filename = fileURLToPath(import.meta.url)
+        const __dirname = dirname(__filename)
+        const indexerDir = join(__dirname, '..')
+        const dockerComposePath = join(indexerDir, 'docker-compose.yml')
+        
+        if (!existsSync(dockerComposePath)) {
+            console.log('⚠️  docker-compose.yml not found in indexer directory')
+            return false
+        }
+        
+        // Start database
+        await execAsync(`cd ${indexerDir} && docker-compose up -d db`)
+        
+        // Wait for database to be ready
+        console.log('⏳ Waiting for database to be ready...')
+        for (let i = 0; i < 30; i++) {
+            await new Promise(resolve => setTimeout(resolve, 1000))
+            const available = await checkDatabaseAvailable()
+            if (available) {
+                // Wait for postgres to be ready
+                try {
+                    await execAsync('docker exec squid-db-1 pg_isready -U postgres')
+                    // Create database if it doesn't exist
+                    try {
+                        await execAsync('docker exec squid-db-1 psql -U postgres -c "CREATE DATABASE indexer;" 2>&1')
+                    } catch (error) {
+                        // Database might already exist, check if we can connect
+                        try {
+                            await execAsync('docker exec squid-db-1 psql -U postgres -d indexer -c "SELECT 1;" 2>&1')
+                        } catch {
+                            // Database doesn't exist and creation failed
+                            console.log('⚠️  Could not create indexer database')
+                            return false
+                        }
+                    }
+                    console.log('✅ Database started successfully')
+                    return true
+                } catch {
+                    // Still starting
+                }
+            }
+        }
+        
+        console.log('⚠️  Database did not start in time')
+        return false
+    } catch (error) {
+        console.log(`⚠️  Failed to start database: ${error instanceof Error ? error.message : String(error)}`)
+        return false
+    }
+}
+
 async function queryDatabase(sql: string): Promise<string> {
     const isAvailable = await checkDatabaseAvailable()
     if (!isAvailable) {
@@ -46,7 +106,12 @@ async function queryDatabase(sql: string): Promise<string> {
         const { stdout } = await execAsync(cmd)
         return stdout.trim()
     } catch (error) {
-        throw new Error(`Database query failed: ${error instanceof Error ? error.message : String(error)}`)
+        const errorMsg = error instanceof Error ? error.message : String(error)
+        // Check if it's a database doesn't exist error
+        if (errorMsg.includes('database "indexer" does not exist')) {
+            throw new Error('Database "indexer" does not exist. Run migrations: cd apps/indexer && bun run db:migrate')
+        }
+        throw new Error(`Database query failed: ${errorMsg}`)
     }
 }
 
@@ -57,15 +122,18 @@ async function main() {
     console.log('║                                                              ║')
     console.log('╚══════════════════════════════════════════════════════════════╝\n')
 
-    // Check if database is available
-    const dbAvailable = await checkDatabaseAvailable()
+    // Check if database is available, start if not
+    let dbAvailable = await checkDatabaseAvailable()
     if (!dbAvailable) {
-        console.log('⚠️  Database container (squid-db-1) is not running.')
-        console.log('   To run these tests, start the database with:')
-        console.log('   cd apps/indexer && bun run db:up')
-        console.log('')
-        console.log('   Skipping integration tests...\n')
-        process.exit(0)
+        dbAvailable = await startDatabase()
+        if (!dbAvailable) {
+            console.log('⚠️  Database container (squid-db-1) is not running and could not be started.')
+            console.log('   To run these tests, start the database with:')
+            console.log('   cd apps/indexer && bun run db:up')
+            console.log('')
+            console.log('   Skipping integration tests...\n')
+            process.exit(0)
+        }
     }
 
     // Test 1: Database Connection

@@ -17,7 +17,7 @@ import { Logger } from './shared/logger';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
-const logger = new Logger('verify-crosschain');
+const logger = new Logger({ prefix: 'verify-crosschain' });
 
 interface ChainStatus {
   chainId: number;
@@ -30,13 +30,6 @@ interface ChainStatus {
   activeXLPs: number;
 }
 
-interface _CrossChainRoute {
-  from: number;
-  to: number;
-  enabled: boolean;
-  hasSolvers: boolean;
-  hasLiquidity: boolean;
-}
 
 const SOLVER_REGISTRY_ABI = [
   'function getStats() view returns (uint256 totalStaked, uint256 totalSlashed, uint256 activeSolvers)',

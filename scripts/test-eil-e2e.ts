@@ -16,7 +16,7 @@
 import { ethers } from 'ethers';
 import { Logger } from './shared/logger';
 
-const logger = new Logger('eil-e2e-test');
+const logger = new Logger({ prefix: 'eil-e2e-test' });
 
 const L1_RPC = 'http://127.0.0.1:8545';
 const L2_RPC = 'http://127.0.0.1:9545';
@@ -284,7 +284,7 @@ async function fulfillAndClaim(contracts: DeployedContracts, voucherId: string):
   
   // Mark voucher as fulfilled (simulates cross-chain verification)
   logger.info('Marking voucher as fulfilled...');
-  await (await paymaster.markVoucherFulfilled(voucherId)).wait();
+  await (await (paymaster as ethers.Contract & { markVoucherFulfilled: (voucherId: string) => Promise<ethers.ContractTransactionResponse> }).markVoucherFulfilled(voucherId)).wait();
   
   // Advance blocks past claim delay (150 blocks)
   logger.info('Advancing blocks past claim delay...');
@@ -295,15 +295,16 @@ async function fulfillAndClaim(contracts: DeployedContracts, voucherId: string):
   // XLP claims source funds
   logger.info('XLP claiming source funds...');
   const xlpBalanceBefore = await l2Provider.getBalance(xlp.address);
-  await (await paymaster.connect(xlp).claimSourceFunds(voucherId)).wait();
+  const connectedPaymaster = paymaster.connect(xlp) as ethers.Contract & { claimSourceFunds: (voucherId: string) => Promise<ethers.ContractTransactionResponse> };
+  await (await connectedPaymaster.claimSourceFunds(voucherId)).wait();
   const xlpBalanceAfter = await l2Provider.getBalance(xlp.address);
   
   const received = xlpBalanceAfter - xlpBalanceBefore;
   logger.success(`XLP received: ~${ethers.formatEther(received)} ETH (minus gas)`);
   
   // Verify voucher state
-  const voucher = await paymaster.vouchers(voucherId);
-  logger.success(`Voucher fulfilled: ${voucher.fulfilled}`);
+  const voucher = await (paymaster as ethers.Contract & { vouchers: (voucherId: string) => Promise<[string, string, bigint, bigint, string, string, bigint, bigint, bigint, bigint, bigint, boolean, boolean]> }).vouchers(voucherId);
+  logger.success(`Voucher fulfilled: ${voucher[11]}`);
 }
 
 async function printSummary(contracts: DeployedContracts): Promise<void> {

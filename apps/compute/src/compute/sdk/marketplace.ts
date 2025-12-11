@@ -80,6 +80,9 @@ export interface InferenceOptions {
   teeType?: TEEType;
   maxLatencyMs?: number;
   region?: string;
+  gpuRequired?: boolean;
+  gpuType?: string;
+  gpuCount?: number;
 }
 
 export interface InferenceResult {
@@ -293,7 +296,12 @@ export class ComputeMarketplace {
 
   async getTEEEndpoint(
     modelId: string, 
-    options?: { requireSecure?: boolean; providerType?: string }
+    options?: { 
+      requireSecure?: boolean; 
+      providerType?: string;
+      preferWarm?: boolean;
+      deployment?: any;
+    }
   ): Promise<{ endpoint: string; teeType: TEEType; coldStart: boolean; warning?: string }> {
     if (!this.teeGatewayEndpoint) {
       throw new Error('TEE gateway not configured');
@@ -306,6 +314,8 @@ export class ComputeMarketplace {
         model: modelId,
         requireSecure: options?.requireSecure,
         providerType: options?.providerType,
+        preferWarm: options?.preferWarm,
+        deployment: options?.deployment,
       }),
     });
 
@@ -350,8 +360,24 @@ export class ComputeMarketplace {
     let coldStart = false;
 
     if (request.options?.requireTEE && this.teeGatewayEndpoint) {
+      const deploymentConfig = request.options.gpuRequired ? {
+        gpuRequired: true,
+        gpuType: request.options.gpuType || 'H200',
+        gpuCount: request.options.gpuCount || 1,
+        memoryGb: request.options.gpuType === 'H200' ? 192 : request.options.gpuType === 'B200' ? 192 : 128,
+        cpuCores: request.options.gpuType === 'H200' ? 24 : request.options.gpuType === 'B200' ? 12 : 16,
+        dockerImage: 'ghcr.io/jeju/compute-node:latest',
+        healthCheck: {
+          path: '/health',
+          interval: 30,
+          timeout: 10,
+        },
+      } : undefined;
+
       const teeResult = await this.getTEEEndpoint(request.modelId, {
         requireSecure: request.options.requireTEE,
+        preferWarm: !request.options.gpuRequired,
+        deployment: deploymentConfig,
       });
       coldStart = teeResult.coldStart;
       
@@ -368,7 +394,7 @@ export class ComputeMarketplace {
         attestationHash: '',
         active: true,
         currentLoad: 0,
-        maxConcurrent: 100,
+        maxConcurrent: request.options.gpuCount || 1,
         pricing: model.pricing,
       };
     } else {

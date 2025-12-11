@@ -22,7 +22,7 @@ import {
   type Agent0Config
 } from './shared/agent0';
 
-const logger = new Logger('register-agents');
+const logger = new Logger({ prefix: 'register-agents' });
 
 // ============ Types ============
 

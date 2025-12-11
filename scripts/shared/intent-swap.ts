@@ -84,10 +84,11 @@ export interface IntentSwapConfig {
 // ============ Intent Swap Router ============
 
 export class IntentSwapRouter {
-  private config: IntentSwapConfig;
+  // @ts-expect-error - Config stored for future use
+  private _config: IntentSwapConfig;
 
   constructor(config: IntentSwapConfig) {
-    this.config = config;
+    this._config = config;
   }
 
   /**
