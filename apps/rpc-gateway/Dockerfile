@@ -5,12 +5,12 @@ WORKDIR /app
 # Install dependencies
 FROM base AS deps
 COPY package.json bun.lock* ./
-RUN bun install --frozen-lockfile --production
+RUN bun install --no-save
 
 # Build stage
 FROM base AS builder
 COPY package.json bun.lock* ./
-RUN bun install --frozen-lockfile
+RUN bun install --no-save
 COPY . .
 RUN bun run build 2>/dev/null || true
 

@@ -15,15 +15,22 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy config first (needed for builds)
-COPY config ./config
+# Copy workspace files
+COPY package.json bun.lock ./
+COPY packages/config/package.json ./packages/config/
+COPY packages/types/package.json ./packages/types/
+COPY packages/tests/package.json ./packages/tests/
+COPY apps/documentation/package.json ./apps/documentation/
 
 # Install dependencies
-COPY apps/documentation/package.json apps/documentation/bun.lock* ./
-RUN bun install 
+RUN bun install --no-save
 
-# Copy source
-COPY apps/documentation .
+# Copy source files
+COPY packages/config ./packages/config
+COPY packages/types ./packages/types
+COPY apps/documentation ./apps/documentation
+
+WORKDIR /app/apps/documentation
 
 # Build VitePress static site
 ENV NODE_ENV=production
@@ -65,7 +72,7 @@ server {
 EOF
 
 # Copy built site
-COPY --from=builder /app/.vitepress/dist /usr/share/nginx/html
+COPY --from=builder /app/apps/documentation/.vitepress/dist /usr/share/nginx/html
 
 EXPOSE 80
 
