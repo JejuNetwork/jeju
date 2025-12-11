@@ -27,7 +27,7 @@ export function Hero() {
       <div className="flex flex-wrap justify-center gap-6 text-sm text-zinc-500">
         <Stat label="Max Supply" value="10B JEJU" />
         <Stat label="Presale Allocation" value="10%" />
-        <Stat label="Initial Price" value="$0.15" />
+        <Stat label="Initial Price" value="~$0.009" />
       </div>
     </section>
   );

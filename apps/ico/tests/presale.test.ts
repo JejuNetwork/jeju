@@ -62,7 +62,7 @@ describe('Token Math', () => {
     const tokenPrice = TOKENOMICS.presale.tokenPrice;
     const tokens = (ethAmount * 10n ** 18n) / tokenPrice;
     
-    // At $0.15 per token and $3k ETH, 1 ETH = $3000 = 20000 tokens
+    // At ~$0.009 per token and $3k ETH, 1 ETH = $3000 / $0.009 = ~333k tokens
     expect(tokens).toBeGreaterThan(10000n * 10n ** 18n);
   });
 

@@ -3,16 +3,14 @@ export const TOKENOMICS = {
   symbol: 'JEJU',
   decimals: 18,
   
-  // Total Supply
   maxSupply: 10_000_000_000n * 10n ** 18n, // 10 billion
   initialSupply: 1_000_000_000n * 10n ** 18n, // 1 billion at launch
   
-  // Distribution (percentage of max supply)
   allocation: {
     presale: {
       percent: 10,
       amount: 1_000_000_000n * 10n ** 18n,
-      description: 'Public presale',
+      description: 'Public CCA auction',
       vesting: {
         tgePercent: 20,
         cliff: 0,
@@ -71,13 +69,17 @@ export const TOKENOMICS = {
     },
   },
   
-  // Presale Configuration
+  // CCA Auction Configuration (Uniswap Continuous Clearing Auction)
   presale: {
-    softCap: 100n * 10n ** 18n, // 100 ETH
-    hardCap: 1000n * 10n ** 18n, // 1000 ETH
+    softCap: 1000n * 10n ** 18n, // 1000 ETH (~$3M at $3k ETH)
+    hardCap: 3000n * 10n ** 18n, // 3000 ETH (~$9M)
     minContribution: 1n * 10n ** 16n, // 0.01 ETH
     maxContribution: 50n * 10n ** 18n, // 50 ETH
-    tokenPrice: 5n * 10n ** 13n, // 0.00005 ETH per JEJU ($0.15 at $3k ETH)
+    tokenPrice: 3n * 10n ** 12n, // 0.000003 ETH per JEJU (~$0.009 at $3k ETH)
+    
+    // CCA Parameters
+    auctionDuration: 7 * 24 * 60 * 60, // 7 days
+    floorPrice: 1n * 10n ** 12n, // 0.000001 ETH minimum
     
     // Bonuses
     whitelistBonus: 10, // 10% bonus for whitelist
@@ -88,19 +90,51 @@ export const TOKENOMICS = {
     ],
   },
   
-  // Key Dates (timestamps will be set during deployment)
   schedule: {
     whitelistDuration: 7 * 24 * 60 * 60, // 7 days
-    publicDuration: 14 * 24 * 60 * 60, // 14 days
-    tgeDelay: 7 * 24 * 60 * 60, // 7 days after presale ends
+    publicDuration: 7 * 24 * 60 * 60, // 7 days (CCA auction)
+    tgeDelay: 0, // Immediate after auction
   },
   
+  // Exclusive JEJU utility (not available with other tokens)
+  exclusiveUtility: [
+    { name: 'Governance', description: 'Vote on protocol upgrades', icon: 'vote' },
+    { name: 'Moderation', description: 'Stake in moderation marketplace', icon: 'shield' },
+    { name: 'Ban Enforcement', description: 'Conviction lock for banned users', icon: 'lock' },
+  ],
+  
+  // Universal payment (any paymaster token works)
+  universalPayment: [
+    { name: 'Compute', description: 'Inference and TEE', icon: 'cpu' },
+    { name: 'Storage', description: 'IPFS pinning', icon: 'database' },
+    { name: 'Bazaar', description: 'Marketplace fees', icon: 'store' },
+    { name: 'Gateway', description: 'API access', icon: 'globe' },
+  ],
+  
+  // Legacy compatibility
   utility: [
     { name: 'Governance', description: 'Vote on protocol upgrades', icon: 'vote' },
     { name: 'Moderation', description: 'Stake in moderation marketplace', icon: 'shield' },
     { name: 'Services', description: 'Pay for compute and storage', icon: 'server' },
     { name: 'Council', description: 'Revenue funds operations', icon: 'users' },
   ],
+  
+  // Raise targets
+  targets: {
+    softCap: 3_000_000, // $3M USD
+    hardCap: 10_000_000, // $10M USD
+    participants: 5_000,
+    liquidityTarget: 500_000, // $500K TVL
+  },
+  
+  // Network info
+  network: {
+    name: 'Jeju Network',
+    chainId: 420691,
+    testnetChainId: 420690,
+    blockTime: 200, // 200ms Flashblocks
+    nativeToken: 'ETH',
+  },
 } as const;
 
 export type TokenomicsAllocation = keyof typeof TOKENOMICS.allocation;

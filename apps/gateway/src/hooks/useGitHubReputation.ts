@@ -187,20 +187,32 @@ export function useGitHubReputation() {
 
   /**
    * Verify wallet ownership by signing a message
+   * Note: Requires GitHub token for authentication
    */
-  const verifyWallet = useCallback(async (username: string) => {
+  const verifyWallet = useCallback(async (username: string, githubToken: string) => {
     if (!address) {
       setError('No wallet connected');
+      return false;
+    }
+
+    if (!githubToken) {
+      setError('GitHub authentication required');
       return false;
     }
 
     setLoading(true);
     setError(null);
 
+    const authHeaders = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${githubToken}`,
+    };
+
     try {
       // Get verification message with timestamp
       const messageResponse = await fetch(
-        `${LEADERBOARD_API}/api/wallet/verify?username=${username}&wallet=${address}`
+        `${LEADERBOARD_API}/api/wallet/verify?username=${username}&wallet=${address}`,
+        { headers: authHeaders }
       );
 
       if (!messageResponse.ok) {
@@ -216,7 +228,7 @@ export function useGitHubReputation() {
       // Submit verification with timestamp for replay protection
       const verifyResponse = await fetch(`${LEADERBOARD_API}/api/wallet/verify`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders,
         body: JSON.stringify({
           username,
           walletAddress: address,
@@ -244,10 +256,16 @@ export function useGitHubReputation() {
 
   /**
    * Request a new attestation from the leaderboard
+   * Note: Requires GitHub token for authentication
    */
-  const requestAttestation = useCallback(async (username: string, agentId?: number) => {
+  const requestAttestation = useCallback(async (username: string, githubToken: string, agentId?: number) => {
     if (!address) {
       setError('No wallet connected');
+      return null;
+    }
+
+    if (!githubToken) {
+      setError('GitHub authentication required');
       return null;
     }
 
@@ -257,7 +275,10 @@ export function useGitHubReputation() {
     try {
       const response = await fetch(`${LEADERBOARD_API}/api/attestation`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${githubToken}`,
+        },
         body: JSON.stringify({
           username,
           walletAddress: address,
@@ -288,6 +309,7 @@ export function useGitHubReputation() {
 
   /**
    * Submit attestation on-chain
+   * Note: Requires GitHub token for confirmation API call
    */
   const submitAttestationOnChain = useCallback(async (
     agentId: bigint,
@@ -297,7 +319,8 @@ export function useGitHubReputation() {
     totalCommits: number,
     timestamp: number,
     oracleSignature: string,
-    attestationHash: string
+    attestationHash: string,
+    githubToken: string
   ) => {
     if (!isOnChainEnabled || !GITHUB_REPUTATION_PROVIDER_ADDRESS) {
       setError('GitHubReputationProvider contract not configured');
@@ -311,6 +334,11 @@ export function useGitHubReputation() {
 
     if (!address) {
       setError('No wallet connected');
+      return null;
+    }
+
+    if (!githubToken) {
+      setError('GitHub authentication required');
       return null;
     }
 
@@ -335,10 +363,13 @@ export function useGitHubReputation() {
 
       setTxHash(hash);
 
-      // Confirm submission to leaderboard API
+      // Confirm submission to leaderboard API (requires auth)
       await fetch(`${LEADERBOARD_API}/api/attestation/confirm`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${githubToken}`,
+        },
         body: JSON.stringify({
           attestationHash,
           txHash: hash,
@@ -366,10 +397,16 @@ export function useGitHubReputation() {
 
   /**
    * Link agent to GitHub account
+   * Note: Requires GitHub token for authentication
    */
-  const linkAgentToGitHub = useCallback(async (username: string, agentId: number, registryAddress: string) => {
+  const linkAgentToGitHub = useCallback(async (username: string, agentId: number, registryAddress: string, githubToken: string) => {
     if (!address) {
       setError('No wallet connected');
+      return false;
+    }
+
+    if (!githubToken) {
+      setError('GitHub authentication required');
       return false;
     }
 
@@ -379,7 +416,10 @@ export function useGitHubReputation() {
     try {
       const response = await fetch(`${LEADERBOARD_API}/api/agent/link`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${githubToken}`,
+        },
         body: JSON.stringify({
           username,
           walletAddress: address,

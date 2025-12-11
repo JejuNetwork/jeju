@@ -61,11 +61,19 @@ export async function generateStaticParams(): Promise<StaticParam[]> {
         params.push({
           interval: intervalType,
           date: dateParam,
+        });
       });
     });
-  });
 
-  return params;
+    return params;
+  } catch {
+    // Database not available during build - return minimal params for ISR
+    return [
+      { interval: "day", date: [] },
+      { interval: "week", date: [] },
+      { interval: "month", date: [] },
+    ];
+  }
 }
 
 const VALID_INTERVALS: IntervalType[] = ["day", "week", "month"];

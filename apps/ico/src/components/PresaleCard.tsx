@@ -108,7 +108,7 @@ export function PresaleCard() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         <StatCard icon={<Users className="w-4 h-4" />} value={stats.participants.toString()} label="Participants" />
-        <StatCard icon={<TrendingUp className="w-4 h-4" />} value={`$0.15`} label="Price" />
+        <StatCard icon={<TrendingUp className="w-4 h-4" />} value="~$0.009" label="Price" />
         <StatCard icon={<Clock className="w-4 h-4" />} value="20%" label="TGE Unlock" />
       </div>
       
