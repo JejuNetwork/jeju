@@ -1,44 +1,58 @@
 {
   "network": "testnet",
-  "chainId": 420690,
-  "networkName": "Jeju Testnet",
-  "currency": {
-    "name": "Ether",
-    "symbol": "ETH",
-    "decimals": 18
-  },
+  "version": "1.0.0",
   
-  "rpc": {
-    "http": "https://testnet-rpc.jejunetwork.org",
-    "ws": "wss://testnet-ws.jejunetwork.org"
-  },
-  
-  "api": {
-    "gateway": "https://gateway.testnet.jejunetwork.org",
-    "bundler": "https://bundler.testnet.jejunetwork.org",
-    "indexer": "https://indexer.testnet.jejunetwork.org/graphql",
-    "explorer": "https://explorer.testnet.jejunetwork.org"
-  },
-  
-  "contracts": {
-    "entryPoint": "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789",
-    "crossChainPaymaster": "",
-    "solverRegistry": "",
-    "inputSettler": "",
-    "outputSettler": ""
+  "jeju": {
+    "chainId": 420690,
+    "networkName": "Jeju Testnet",
+    "currency": {
+      "name": "Ether",
+      "symbol": "ETH",
+      "decimals": 18
+    },
+    "rpc": {
+      "http": "https://testnet-rpc.jejunetwork.org",
+      "ws": "wss://testnet-ws.jejunetwork.org",
+      "internal": "http://reth-sequencer.execution.svc.cluster.local:8545"
+    },
+    "explorer": "https://explorer.testnet.jejunetwork.org",
+    "blockTime": 2
   },
   
   "l1": {
     "chainId": 11155111,
     "networkName": "Sepolia",
     "rpc": {
-      "http": "https://ethereum-sepolia-rpc.publicnode.com",
-      "ws": "wss://ethereum-sepolia-rpc.publicnode.com"
+      "http": "https://1rpc.io/sepolia",
+      "fallback": [
+        "https://ethereum-sepolia-rpc.publicnode.com",
+        "https://sepolia.drpc.org"
+      ],
+      "beacon": "https://ethereum-sepolia-beacon-api.publicnode.com",
+      "internal": "http://geth-l1.l1.svc.cluster.local:8545"
+    }
+  },
+  
+  "api": {
+    "gateway": "https://gateway.testnet.jejunetwork.org",
+    "bundler": "https://bundler.testnet.jejunetwork.org",
+    "indexer": "https://indexer.testnet.jejunetwork.org/graphql",
+    "faucet": "https://faucet.testnet.jejunetwork.org"
+  },
+  
+  "contracts": {
+    "jeju": {
+      "entryPoint": "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789",
+      "crossChainPaymaster": "",
+      "solverRegistry": "",
+      "inputSettler": "",
+      "outputSettler": ""
     },
-    "contracts": {
+    "sepolia": {
       "l1StakeManager": "",
-      "optimismPortal": "",
-      "l2OutputOracle": ""
+      "optimismPortal": "0x0F80836afff3f0b18D767643c6A5f83d027b00e8",
+      "l2OutputOracle": "",
+      "systemConfig": "0x586b880fB2f6831F1a1AD1E6754861008264816c"
     }
   },
   
@@ -46,20 +60,49 @@
     "84532": {
       "name": "Base Sepolia",
       "rpc": "https://sepolia.base.org",
+      "explorer": "https://sepolia.basescan.org",
       "crossChainPaymaster": ""
     },
     "421614": {
       "name": "Arbitrum Sepolia",
       "rpc": "https://sepolia-rollup.arbitrum.io/rpc",
+      "explorer": "https://sepolia.arbiscan.io",
       "crossChainPaymaster": ""
     },
     "11155420": {
       "name": "Optimism Sepolia",
       "rpc": "https://sepolia.optimism.io",
+      "explorer": "https://sepolia-optimism.etherscan.io",
       "crossChainPaymaster": ""
     }
   },
   
-  "faucet": "https://faucet.testnet.jejunetwork.org"
+  "deployer": {
+    "address": "0x1c8D40d6E81289B5a1B6e4E3a2E34eA23d1c2A0E"
+  },
+  
+  "infrastructure": {
+    "domain": "jejunetwork.org",
+    "aws": {
+      "region": "us-east-1",
+      "eksCluster": "jeju-testnet",
+      "route53Zone": "Z04776841ET3FSDM5A8OL",
+      "acmCertificate": "arn:aws:acm:us-east-1:502713364895:certificate/34c89eb5-a94f-406a-be3c-c40008f4f693"
+    },
+    "dns": {
+      "rpc": "testnet-rpc.jejunetwork.org",
+      "ws": "testnet-ws.jejunetwork.org",
+      "gateway": "gateway.testnet.jejunetwork.org",
+      "bundler": "bundler.testnet.jejunetwork.org",
+      "indexer": "indexer.testnet.jejunetwork.org",
+      "explorer": "explorer.testnet.jejunetwork.org",
+      "faucet": "faucet.testnet.jejunetwork.org"
+    },
+    "nameservers": [
+      "ns-1957.awsdns-52.co.uk",
+      "ns-1067.awsdns-05.org",
+      "ns-996.awsdns-60.net",
+      "ns-447.awsdns-55.com"
+    ]
+  }
 }
-

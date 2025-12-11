@@ -15,6 +15,18 @@ import {
 import { TagType } from "@/lib/scoring/types";
 import { getUserWalletData } from "@/lib/walletLinking/queries";
 
+/**
+ * Get all usernames for static page generation
+ */
+export async function getAllUsernames(limit?: number) {
+  return db.query.users.findMany({
+    columns: {
+      username: true,
+    },
+    limit,
+  });
+}
+
 export async function getUserTags(username: string) {
   const tagSelectFields = {
     tagName: userTagScores.tag,

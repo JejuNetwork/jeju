@@ -552,3 +552,73 @@ export interface VendorAppConfig {
 export function loadVendorAppsConfig(): { apps: VendorAppConfig[] } {
   return loadJson<{ apps: VendorAppConfig[] }>('vendor-apps.json');
 }
+
+// ============================================================================
+// Testnet Config (quick access)
+// ============================================================================
+
+export interface TestnetConfig {
+  network: string;
+  version: string;
+  jeju: {
+    chainId: number;
+    networkName: string;
+    currency: { name: string; symbol: string; decimals: number };
+    rpc: { http: string; ws: string; internal: string };
+    explorer: string;
+    blockTime: number;
+  };
+  l1: {
+    chainId: number;
+    networkName: string;
+    rpc: { http: string; fallback: string[]; beacon: string; internal: string };
+  };
+  api: {
+    gateway: string;
+    bundler: string;
+    indexer: string;
+    faucet: string;
+  };
+  contracts: {
+    jeju: Record<string, string>;
+    sepolia: Record<string, string>;
+  };
+  supportedChains: Record<string, {
+    name: string;
+    rpc: string;
+    explorer: string;
+    crossChainPaymaster: string;
+  }>;
+  deployer: { address: string };
+  infrastructure: {
+    domain: string;
+    aws: { region: string; eksCluster: string; route53Zone: string; acmCertificate: string };
+    dns: Record<string, string>;
+    nameservers: string[];
+  };
+}
+
+/** Load the full testnet configuration */
+export function getTestnetConfig(): TestnetConfig {
+  return loadJson<TestnetConfig>('testnet.json');
+}
+
+/** Get the Jeju testnet RPC URL */
+export function getJejuTestnetRpc(): string {
+  return getTestnetConfig().jeju.rpc.http;
+}
+
+/** Get the Jeju testnet chain ID */
+export function getJejuTestnetChainId(): number {
+  return getTestnetConfig().jeju.chainId;
+}
+
+/** Get all testnet supported chain IDs */
+export function getTestnetChainIds(): number[] {
+  const config = getTestnetConfig();
+  return [
+    config.jeju.chainId,
+    config.l1.chainId,
+    ...Object.values(config.supportedChains).map(() => 0) // Will need actual chain IDs
+  ].filter(Boolean);
+}

@@ -52,11 +52,15 @@ remappings = [
 ]
 
 # RPC endpoints (override with env vars)
+# Default values from packages/config/testnet.json
 [rpc_endpoints]
 mainnet = "${MAINNET_RPC_URL}"
-sepolia = "${SEPOLIA_RPC_URL}"
+sepolia = "https://1rpc.io/sepolia"
 base = "${BASE_RPC_URL}"
-base_sepolia = "${BASE_SEPOLIA_RPC_URL}"
+base_sepolia = "https://sepolia.base.org"
+arbitrum_sepolia = "https://sepolia-rollup.arbitrum.io/rpc"
+optimism_sepolia = "https://sepolia.optimism.io"
+jeju_testnet = "https://testnet-rpc.jejunetwork.org"
 local = "http://127.0.0.1:8545"
 
 # Etherscan API keys

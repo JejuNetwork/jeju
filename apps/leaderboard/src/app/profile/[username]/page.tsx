@@ -1,29 +1,28 @@
 import UserProfile from "@/app/profile/[username]/components/UserProfile";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getUserProfile } from "./queries";
-import { db } from "@/lib/data/db";
+import { getUserProfile, getAllUsernames } from "./queries";
 
 type ProfilePageProps = {
   params: Promise<{ username: string }>;
 };
 
 export async function generateStaticParams() {
-  const maxUsers = process.env.CI_MAX_USERS
-    ? parseInt(process.env.CI_MAX_USERS, 10)
-    : undefined;
+  // During build time, the database may not be available
+  // Return empty array to skip static generation and use ISR instead
+  try {
+    const maxUsers = process.env.CI_MAX_USERS
+      ? parseInt(process.env.CI_MAX_USERS, 10)
+      : undefined;
 
-  // Get all users directly from the database
-  const allUsers = await db.query.users.findMany({
-    columns: {
-      username: true,
-    },
-    limit: maxUsers,
-  });
-
-  return allUsers.map((user) => ({
-    username: user.username,
-  }));
+    const allUsers = await getAllUsernames(maxUsers);
+    return allUsers.map((user) => ({
+      username: user.username,
+    }));
+  } catch {
+    // Database not available during build - use ISR for all profiles
+    return [];
+  }
 }
 
 export async function generateMetadata({

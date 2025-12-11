@@ -35,29 +35,32 @@ interface StaticParam {
 }
 
 export async function generateStaticParams(): Promise<StaticParam[]> {
-  const latestDate = await getLatestAvailableDate();
-  const intervals: IntervalType[] = ["day", "week", "month"];
+  // During build time, the database may not be available
+  // Return basic params and use ISR for dynamic dates
+  try {
+    const latestDate = await getLatestAvailableDate();
+    const intervals: IntervalType[] = ["day", "week", "month"];
 
-  const params: StaticParam[] = [];
+    const params: StaticParam[] = [];
 
-  // Add empty date params for each interval (latest)
-  intervals.forEach((intervalType) => {
-    params.push({ interval: intervalType, date: [] });
-  });
-
-  // Generate intervals from contribution start date to latest
-  intervals.forEach((intervalType) => {
-    const timeIntervals = generateTimeIntervalsForDateRange(intervalType, {
-      startDate: pipelineConfig.contributionStartDate,
-      endDate: latestDate,
+    // Add empty date params for each interval (latest)
+    intervals.forEach((intervalType) => {
+      params.push({ interval: intervalType, date: [] });
     });
 
-    // Add params for each interval date
-    timeIntervals.forEach((interval) => {
-      const dateParam = formatIntervalForPath(interval);
-      params.push({
-        interval: intervalType,
-        date: dateParam,
+    // Generate intervals from contribution start date to latest
+    intervals.forEach((intervalType) => {
+      const timeIntervals = generateTimeIntervalsForDateRange(intervalType, {
+        startDate: pipelineConfig.contributionStartDate,
+        endDate: latestDate,
+      });
+
+      // Add params for each interval date
+      timeIntervals.forEach((interval) => {
+        const dateParam = formatIntervalForPath(interval);
+        params.push({
+          interval: intervalType,
+          date: dateParam,
       });
     });
   });

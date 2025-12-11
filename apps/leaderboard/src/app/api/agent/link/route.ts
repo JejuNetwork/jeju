@@ -1,6 +1,8 @@
 /**
  * Agent Identity Link API
  * Links GitHub accounts to ERC-8004 agent IDs
+ * 
+ * Security: POST/DELETE require GitHub OAuth token authentication
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -11,22 +13,46 @@ import {
   users,
 } from "@/lib/data/schema";
 import { eq, and } from "drizzle-orm";
+import {
+  authenticateRequest,
+  isAuthError,
+  verifyUserOwnership,
+  forbiddenResponse,
+} from "@/lib/auth";
+import { corsHeadersFromRequest } from "@/lib/auth/cors";
+import {
+  checkRateLimit,
+  getClientIdentifier,
+  RATE_LIMITS,
+  rateLimitExceededResponse,
+} from "@/lib/auth/rateLimit";
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-};
-
-export async function OPTIONS() {
-  return new NextResponse(null, { headers: CORS_HEADERS });
+export async function OPTIONS(request: NextRequest) {
+  const corsHeaders = corsHeadersFromRequest(request);
+  return new NextResponse(null, {
+    headers: {
+      ...corsHeaders,
+      "Access-Control-Max-Age": "86400",
+    },
+  });
 }
 
 /**
  * GET /api/agent/link?wallet=0x...&chainId=eip155:1
  * Get agent links for a wallet
+ * 
+ * Public endpoint - no authentication required for reading
  */
 export async function GET(request: NextRequest) {
+  const corsHeaders = corsHeadersFromRequest(request);
+
+  // Rate limiting
+  const clientId = getClientIdentifier(request);
+  const rateLimit = checkRateLimit(`agent-link-get:${clientId}`, RATE_LIMITS.agentLink);
+  if (!rateLimit.success) {
+    return rateLimitExceededResponse(rateLimit, corsHeaders);
+  }
+
   const { searchParams } = new URL(request.url);
   const walletAddress = searchParams.get("wallet");
   const username = searchParams.get("username");
@@ -35,7 +61,7 @@ export async function GET(request: NextRequest) {
   if (!walletAddress && !username && !agentId) {
     return NextResponse.json(
       { error: "wallet, username, or agentId parameter required" },
-      { status: 400, headers: CORS_HEADERS }
+      { status: 400, headers: corsHeaders }
     );
   }
 
@@ -77,15 +103,36 @@ export async function GET(request: NextRequest) {
           : null,
       })),
     },
-    { headers: CORS_HEADERS }
+    { headers: corsHeaders }
   );
 }
 
 /**
  * POST /api/agent/link
  * Create a new agent-GitHub link
+ * 
+ * Requires: Authorization header with GitHub token
+ * User can only create links for their own account
  */
 export async function POST(request: NextRequest) {
+  const corsHeaders = corsHeadersFromRequest(request);
+
+  // Rate limiting
+  const clientId = getClientIdentifier(request);
+  const rateLimit = checkRateLimit(`agent-link-post:${clientId}`, RATE_LIMITS.agentLink);
+  if (!rateLimit.success) {
+    return rateLimitExceededResponse(rateLimit, corsHeaders);
+  }
+
+  // Authenticate request
+  const authResult = await authenticateRequest(request);
+  if (isAuthError(authResult)) {
+    return NextResponse.json(
+      { error: authResult.error },
+      { status: authResult.status, headers: corsHeaders }
+    );
+  }
+
   const body = await request.json();
   const {
     username,
@@ -101,7 +148,15 @@ export async function POST(request: NextRequest) {
       {
         error: "username, walletAddress, agentId, and registryAddress required",
       },
-      { status: 400, headers: CORS_HEADERS }
+      { status: 400, headers: corsHeaders }
+    );
+  }
+
+  // SECURITY: Verify user is creating link for their own account
+  if (!verifyUserOwnership(authResult.user, username)) {
+    return forbiddenResponse(
+      "You can only create agent links for your own account",
+      corsHeaders
     );
   }
 
@@ -113,7 +168,7 @@ export async function POST(request: NextRequest) {
   if (!user) {
     return NextResponse.json(
       { error: "User not found" },
-      { status: 404, headers: CORS_HEADERS }
+      { status: 404, headers: corsHeaders }
     );
   }
 
@@ -129,7 +184,19 @@ export async function POST(request: NextRequest) {
   if (!wallet) {
     return NextResponse.json(
       { error: "Wallet not linked to this GitHub account" },
-      { status: 403, headers: CORS_HEADERS }
+      { status: 403, headers: corsHeaders }
+    );
+  }
+
+  // Require wallet verification for agent links
+  if (!wallet.isVerified) {
+    return NextResponse.json(
+      {
+        error: "Wallet must be verified before creating agent links",
+        action: "verify_wallet",
+        message: "Please sign a verification message to prove wallet ownership first",
+      },
+      { status: 403, headers: corsHeaders }
     );
   }
 
@@ -145,6 +212,14 @@ export async function POST(request: NextRequest) {
   const now = new Date().toISOString();
 
   if (existingLink) {
+    // SECURITY: Verify the existing link belongs to the same user
+    if (existingLink.userId !== username) {
+      return forbiddenResponse(
+        "This agent is already linked to a different user",
+        corsHeaders
+      );
+    }
+
     // Update existing link
     await db
       .update(agentIdentityLinks)
@@ -171,7 +246,7 @@ export async function POST(request: NextRequest) {
         },
         message: "Agent link updated",
       },
-      { headers: CORS_HEADERS }
+      { headers: corsHeaders }
     );
   }
 
@@ -206,22 +281,51 @@ export async function POST(request: NextRequest) {
       },
       message: `Agent #${agentId} linked to ${username}`,
     },
-    { status: 201, headers: CORS_HEADERS }
+    { status: 201, headers: corsHeaders }
   );
 }
 
 /**
  * DELETE /api/agent/link
  * Remove an agent link
+ * 
+ * Requires: Authorization header with GitHub token
+ * User can only delete their own links
  */
 export async function DELETE(request: NextRequest) {
+  const corsHeaders = corsHeadersFromRequest(request);
+
+  // Rate limiting
+  const clientId = getClientIdentifier(request);
+  const rateLimit = checkRateLimit(`agent-link-delete:${clientId}`, RATE_LIMITS.agentLink);
+  if (!rateLimit.success) {
+    return rateLimitExceededResponse(rateLimit, corsHeaders);
+  }
+
+  // Authenticate request
+  const authResult = await authenticateRequest(request);
+  if (isAuthError(authResult)) {
+    return NextResponse.json(
+      { error: authResult.error },
+      { status: authResult.status, headers: corsHeaders }
+    );
+  }
+
   const body = await request.json();
   const { username, agentId, chainId = "eip155:1" } = body;
 
   if (!username || !agentId) {
     return NextResponse.json(
       { error: "username and agentId required" },
-      { status: 400, headers: CORS_HEADERS }
+      { status: 400, headers: corsHeaders }
+    );
+  }
+
+  // SECURITY: Verify user is deleting their own link
+  if (!verifyUserOwnership(authResult.user, username)) {
+    return forbiddenResponse(
+      "You can only delete your own agent links",
+      corsHeaders
     );
   }
 
@@ -237,7 +341,7 @@ export async function DELETE(request: NextRequest) {
   if (!link) {
     return NextResponse.json(
       { error: "Link not found" },
-      { status: 404, headers: CORS_HEADERS }
+      { status: 404, headers: corsHeaders }
     );
   }
 
@@ -250,6 +354,6 @@ export async function DELETE(request: NextRequest) {
       success: true,
       message: `Agent #${agentId} unlinked from ${username}`,
     },
-    { headers: CORS_HEADERS }
+    { headers: corsHeaders }
   );
 }

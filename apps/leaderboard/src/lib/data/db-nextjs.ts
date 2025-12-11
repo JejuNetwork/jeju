@@ -1,27 +1,62 @@
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
 import path from "path";
 import * as schema from "./schema";
 
-// Initialize SQLite database
-let sqlite: Database.Database;
-try {
-  sqlite = new Database(path.join(process.cwd(), "data/db.sqlite"), {
-    // Enable WAL mode for better performance
-    fileMustExist: false,
-  });
+// Type for the drizzle database instance
+type DrizzleDB = ReturnType<typeof import("drizzle-orm/better-sqlite3").drizzle<typeof schema>>;
 
-  // Enable WAL mode for better performance
-  sqlite.pragma("journal_mode = WAL");
-} catch (error) {
-  console.error("Failed to initialize database:", error);
-  process.exit(1);
+// Initialize SQLite database lazily to avoid issues during Next.js build
+let sqlite: import("better-sqlite3").Database | null = null;
+let dbInstance: DrizzleDB | null = null;
+let initializationError: Error | null = null;
+
+function initializeDatabase(): DrizzleDB {
+  if (dbInstance) {
+    return dbInstance;
+  }
+
+  if (initializationError) {
+    throw initializationError;
+  }
+
+  try {
+    // Dynamic import to avoid loading native modules at build time
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const Database = require("better-sqlite3");
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { drizzle } = require("drizzle-orm/better-sqlite3");
+
+    sqlite = new Database(path.join(process.cwd(), "data/db.sqlite"), {
+      fileMustExist: false,
+    });
+
+    // Enable WAL mode for better performance
+    sqlite.pragma("journal_mode = WAL");
+
+    dbInstance = drizzle(sqlite, { schema });
+    return dbInstance;
+  } catch (error) {
+    initializationError = error instanceof Error ? error : new Error(String(error));
+    throw initializationError;
+  }
 }
 
-// Create drizzle database instance
-export const db = drizzle(sqlite, { schema });
+// Lazy getter for the database
+export const db = new Proxy({} as DrizzleDB, {
+  get(_, prop) {
+    const instance = initializeDatabase();
+    const value = instance[prop as keyof typeof instance];
+    if (typeof value === "function") {
+      return value.bind(instance);
+    }
+    return value;
+  },
+});
 
 // Ensure database is closed when the process exits
-process.on("exit", () => {
-  sqlite.close();
-});
+if (typeof process !== "undefined") {
+  process.on("exit", () => {
+    if (sqlite) {
+      sqlite.close();
+    }
+  });
+}

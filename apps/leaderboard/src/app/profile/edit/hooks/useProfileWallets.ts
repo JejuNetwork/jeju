@@ -19,6 +19,25 @@ interface WalletVerificationState {
   verifyingAddress: string | null;
 }
 
+/**
+ * Get the auth token from localStorage
+ */
+function getAuthToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("github_token");
+}
+
+/**
+ * Create headers with auth token
+ */
+function authHeaders(): HeadersInit {
+  const token = getAuthToken();
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
 export function useProfileWallets() {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
@@ -181,9 +200,10 @@ export function useProfileWallets() {
       setWalletVerification((prev) => ({ ...prev, verifyingAddress: address }));
       setError(null);
 
-      // Step 1: Get the verification message
+      // Step 1: Get the verification message (requires auth token)
       const messageRes = await fetch(
-        `/api/wallet/verify?username=${encodeURIComponent(user.login)}&wallet=${encodeURIComponent(address)}`
+        `/api/wallet/verify?username=${encodeURIComponent(user.login)}&wallet=${encodeURIComponent(address)}`,
+        { headers: authHeaders() }
       );
 
       if (!messageRes.ok) {
@@ -215,10 +235,10 @@ export function useProfileWallets() {
         return;
       }
 
-      // Step 3: Submit signature for verification
+      // Step 3: Submit signature for verification (requires auth token)
       const verifyRes = await fetch("/api/wallet/verify", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify({
           username: user.login,
           walletAddress: address,

@@ -1,6 +1,8 @@
 /**
  * Reputation Attestation API
  * Provides signed attestations of GitHub reputation for ERC-8004 integration
+ * 
+ * Security: Requires GitHub OAuth token authentication for POST
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -14,15 +16,22 @@ import {
   rawCommits,
 } from "@/lib/data/schema";
 import { eq, and, desc, sum, count } from "drizzle-orm";
-import { keccak256, encodePacked, toHex, type Hex } from "viem";
+import { keccak256, encodePacked, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { sql } from "drizzle-orm";
-
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-};
+import {
+  authenticateRequest,
+  isAuthError,
+  verifyUserOwnership,
+  forbiddenResponse,
+} from "@/lib/auth";
+import { corsHeadersFromRequest } from "@/lib/auth/cors";
+import {
+  checkRateLimit,
+  getClientIdentifier,
+  RATE_LIMITS,
+  rateLimitExceededResponse,
+} from "@/lib/auth/rateLimit";
 
 // Oracle private key for signing attestations
 // In production, this should be in a secure key management system
@@ -34,8 +43,14 @@ const GITHUB_REPUTATION_PROVIDER_ADDRESS = process.env.GITHUB_REPUTATION_PROVIDE
 // Chain ID for the target chain
 const TARGET_CHAIN_ID = parseInt(process.env.TARGET_CHAIN_ID || "8453"); // Base mainnet
 
-export async function OPTIONS() {
-  return new NextResponse(null, { headers: CORS_HEADERS });
+export async function OPTIONS(request: NextRequest) {
+  const corsHeaders = corsHeadersFromRequest(request);
+  return new NextResponse(null, {
+    headers: {
+      ...corsHeaders,
+      "Access-Control-Max-Age": "86400",
+    },
+  });
 }
 
 interface ReputationData {
@@ -53,8 +68,19 @@ interface ReputationData {
 /**
  * GET /api/attestation?wallet=0x...&chainId=eip155:1
  * Returns reputation data for a wallet address
+ * 
+ * Public endpoint - no authentication required for reading
  */
 export async function GET(request: NextRequest) {
+  const corsHeaders = corsHeadersFromRequest(request);
+
+  // Rate limiting
+  const clientId = getClientIdentifier(request);
+  const rateLimit = checkRateLimit(`attestation-get:${clientId}`, RATE_LIMITS.attestation);
+  if (!rateLimit.success) {
+    return rateLimitExceededResponse(rateLimit, corsHeaders);
+  }
+
   const { searchParams } = new URL(request.url);
   const walletAddress = searchParams.get("wallet");
   const chainId = searchParams.get("chainId") || "eip155:1";
@@ -63,7 +89,7 @@ export async function GET(request: NextRequest) {
   if (!walletAddress && !username) {
     return NextResponse.json(
       { error: "wallet or username parameter required" },
-      { status: 400, headers: CORS_HEADERS }
+      { status: 400, headers: corsHeaders }
     );
   }
 
@@ -83,7 +109,7 @@ export async function GET(request: NextRequest) {
     if (!walletResult) {
       return NextResponse.json(
         { error: "Wallet not linked to any GitHub account" },
-        { status: 404, headers: CORS_HEADERS }
+        { status: 404, headers: corsHeaders }
       );
     }
 
@@ -97,7 +123,7 @@ export async function GET(request: NextRequest) {
     if (!user) {
       return NextResponse.json(
         { error: "User not found" },
-        { status: 404, headers: CORS_HEADERS }
+        { status: 404, headers: corsHeaders }
       );
     }
 
@@ -114,7 +140,7 @@ export async function GET(request: NextRequest) {
   if (!user) {
     return NextResponse.json(
       { error: "User not found" },
-      { status: 404, headers: CORS_HEADERS }
+      { status: 404, headers: corsHeaders }
     );
   }
 
@@ -161,22 +187,51 @@ export async function GET(request: NextRequest) {
         : null,
       oracleConfigured: !!ORACLE_PRIVATE_KEY,
     },
-    { headers: CORS_HEADERS }
+    { headers: corsHeaders }
   );
 }
 
 /**
  * POST /api/attestation
  * Request a new signed reputation attestation
+ * 
+ * Requires: Authorization header with GitHub token
+ * User can only request attestations for their own account
  */
 export async function POST(request: NextRequest) {
+  const corsHeaders = corsHeadersFromRequest(request);
+
+  // Rate limiting
+  const clientId = getClientIdentifier(request);
+  const rateLimit = checkRateLimit(`attestation-post:${clientId}`, RATE_LIMITS.attestation);
+  if (!rateLimit.success) {
+    return rateLimitExceededResponse(rateLimit, corsHeaders);
+  }
+
+  // Authenticate request
+  const authResult = await authenticateRequest(request);
+  if (isAuthError(authResult)) {
+    return NextResponse.json(
+      { error: authResult.error },
+      { status: authResult.status, headers: corsHeaders }
+    );
+  }
+
   const body = await request.json();
   const { username, walletAddress, chainId = "eip155:1", agentId } = body;
 
   if (!username || !walletAddress) {
     return NextResponse.json(
       { error: "username and walletAddress required" },
-      { status: 400, headers: CORS_HEADERS }
+      { status: 400, headers: corsHeaders }
+    );
+  }
+
+  // SECURITY: Verify user is requesting attestation for their own account
+  if (!verifyUserOwnership(authResult.user, username)) {
+    return forbiddenResponse(
+      "You can only request attestations for your own account",
+      corsHeaders
     );
   }
 
@@ -192,7 +247,7 @@ export async function POST(request: NextRequest) {
   if (!wallet) {
     return NextResponse.json(
       { error: "Wallet not linked to this GitHub account" },
-      { status: 403, headers: CORS_HEADERS }
+      { status: 403, headers: corsHeaders }
     );
   }
 
@@ -204,7 +259,7 @@ export async function POST(request: NextRequest) {
         action: "verify_wallet",
         message: "Please sign a verification message to prove wallet ownership first",
       },
-      { status: 403, headers: CORS_HEADERS }
+      { status: 403, headers: corsHeaders }
     );
   }
 
@@ -309,7 +364,7 @@ export async function POST(request: NextRequest) {
         ? `Signed attestation created for ${username}. Score: ${reputationData.normalizedScore}/100`
         : `Attestation created but not signed (oracle not configured). Score: ${reputationData.normalizedScore}/100`,
     },
-    { headers: CORS_HEADERS }
+    { headers: corsHeaders }
   );
 }
 
