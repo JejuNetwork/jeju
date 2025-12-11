@@ -104,13 +104,15 @@ async function main() {
             }
             failed++;
           }
-        } catch (error: any) {
-          console.log(`  ❌ ${name} verification error:`, error.message);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          console.log(`  ❌ ${name} verification error:`, message);
           failed++;
         }
       }
-    } catch (error: any) {
-      console.error(`❌ Failed to read ${file}:`, error.message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`❌ Failed to read ${file}:`, message);
     }
   }
   

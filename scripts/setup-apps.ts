@@ -181,14 +181,42 @@ async function main() {
   console.log('🔧 Setting up Jeju workspace...\n');
 
   // 1. Initialize git submodules (contract libs)
+  // Note: This is optional - submodules can be initialized manually if needed
   console.log('📚 Initializing contract libraries...\n');
+  console.log('   (Attempting with 30s timeout - will skip if too slow)\n');
   
-  const contractLibsResult = await $`git submodule update --init --recursive packages/contracts/lib/`.nothrow().quiet();
+  // Try to initialize submodules with a short timeout to avoid hanging
+  // Use depth=1 to speed up cloning
+  let contractLibsResult;
+  let timedOut = false;
+  
+  try {
+    const submodulePromise = $`git submodule update --init --recursive --depth 1 packages/contracts/lib/`.nothrow();
+    const timeoutPromise = new Promise<{ exitCode: number; timedOut: boolean }>((resolve) => {
+      setTimeout(() => resolve({ exitCode: 124, timedOut: true }), 30000); // 30 second timeout
+    });
+    
+    const result = await Promise.race([submodulePromise, timeoutPromise]);
+    
+    if ('timedOut' in result && result.timedOut) {
+      timedOut = true;
+      contractLibsResult = { exitCode: 124, stderr: { toString: () => 'Operation timed out' } };
+    } else {
+      contractLibsResult = result;
+    }
+  } catch (err) {
+    contractLibsResult = { exitCode: 1, stderr: { toString: () => String(err) } };
+  }
   
   if (contractLibsResult.exitCode === 0) {
     console.log('   ✅ Contract libraries synced\n');
+  } else if (timedOut) {
+    console.log('   ⏭️  Skipped (timed out after 30s - large repos can be slow)\n');
+    console.log('   ℹ️  To initialize manually: git submodule update --init --recursive\n');
   } else {
-    console.log('   ⚠️  Could not sync contract libraries (may not be in git repo)\n');
+    const stderr = contractLibsResult.stderr?.toString() || '';
+    console.log(`   ⚠️  Could not sync: ${stderr.split('\n')[0] || 'unknown error'}\n`);
+    console.log('   ℹ️  To initialize manually: git submodule update --init --recursive\n');
   }
 
   // 2. Setup vendor apps (check access and clone if available)

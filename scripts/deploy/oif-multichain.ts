@@ -182,7 +182,9 @@ function parseDeploymentOutput(output: string): DeploymentResult {
       try {
         const json = JSON.parse(line);
         // Would need to map contract names from JSON
-      } catch {}
+      } catch {
+        // Invalid JSON, continue parsing
+      }
     }
   }
   

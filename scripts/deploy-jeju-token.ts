@@ -104,7 +104,7 @@ const networkName = args.network as NetworkName;
 const safeAddress = args.safe as Address | undefined;
 const existingBanManager = args['ban-manager'] as Address | undefined;
 const existingModMarketplace = args['moderation-marketplace'] as Address | undefined;
-const existingTokenRegistry = args['token-registry'] as Address | undefined;
+const _existingTokenRegistry = args['token-registry'] as Address | undefined;
 const dryRun = args['dry-run'];
 const verify = args.verify;
 

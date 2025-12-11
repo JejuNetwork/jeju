@@ -80,7 +80,7 @@ async function setupCloudIntegration(
   logger.info('🤖 Registering cloud service as agent...');
   
   // Create agent card for cloud service
-  const agentCard = {
+  const _agentCard = {
     name: metadata.name,
     description: metadata.description,
     version: metadata.version,

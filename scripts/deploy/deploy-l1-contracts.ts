@@ -81,7 +81,7 @@ async function checkPrerequisites(): Promise<boolean> {
 }
 
 async function deployWithOpDeployer(): Promise<DeploymentResult> {
-  const configFile = join(CONFIG_DIR, 'testnet.json');
+  const _configFile = join(CONFIG_DIR, 'testnet.json');
   const keysFile = join(KEYS_DIR, 'testnet-operators.json');
   
   const keys = JSON.parse(readFileSync(keysFile, 'utf-8'));
@@ -149,7 +149,7 @@ async function deployWithOpDeployer(): Promise<DeploymentResult> {
   throw new Error('Deployment output not found');
 }
 
-async function deployManually(privateKey: string): Promise<DeploymentResult> {
+async function deployManually(_privateKey: string): Promise<DeploymentResult> {
   console.log('\nManual deployment not yet implemented.');
   console.log('Please use op-deployer or deploy contracts manually using:');
   console.log('  https://docs.optimism.io/builders/chain-operators/tutorials/create-l2-rollup');

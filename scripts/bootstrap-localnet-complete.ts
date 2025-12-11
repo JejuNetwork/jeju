@@ -118,7 +118,7 @@ class CompleteBootstrapper {
     const result: BootstrapResult = {
       network: 'jeju-localnet',
       rpcUrl: this.rpcUrl,
-      contracts: {} as any,
+      contracts: {} as BootstrapResult['contracts'],
       pools: {},
       testWallets: []
     };
@@ -282,7 +282,9 @@ class CompleteBootstrapper {
           console.log(`  ✅ USDC (existing): ${addresses.usdc}`);
           return addresses.usdc;
         }
-      } catch {}
+      } catch {
+        // File doesn't exist or is invalid, continue to deploy
+      }
     }
 
     return this.deployContract(
@@ -309,7 +311,9 @@ class CompleteBootstrapper {
           console.log(`  ✅ elizaOS (existing): ${addresses.elizaOS}`);
           return addresses.elizaOS;
         }
-      } catch {}
+      } catch {
+        // File doesn't exist or is invalid, continue to deploy
+      }
     }
 
     return this.deployContract(
@@ -451,7 +455,7 @@ class CompleteBootstrapper {
     return { tokenRegistry, paymasterFactory };
   }
 
-  private async deployNodeStaking(contracts: any): Promise<{ manager: string; performanceOracle: string }> {
+  private async deployNodeStaking(contracts: Partial<BootstrapResult['contracts']>): Promise<{ manager: string; performanceOracle: string }> {
     try {
       // Deploy NodePerformanceOracle first
       const performanceOracle = this.deployContract(
@@ -482,7 +486,7 @@ class CompleteBootstrapper {
     }
   }
 
-  private async deployModeration(contracts: any): Promise<{ banManager: string; reputationLabelManager: string }> {
+  private async deployModeration(contracts: Partial<BootstrapResult['contracts']>): Promise<{ banManager: string; reputationLabelManager: string }> {
     try {
       const banManager = this.deployContract(
         'src/moderation/BanManager.sol:BanManager',
@@ -615,7 +619,7 @@ class CompleteBootstrapper {
     console.log(`  ✅ Authorized ${services.length} services to deduct credits`);
   }
 
-  private async fundTestWallets(usdc: string, elizaOS: string, jeju?: string): Promise<Array<any>> {
+  private async fundTestWallets(usdc: string, elizaOS: string, jeju?: string): Promise<Array<{ name: string; address: string; privateKey: string }>> {
     const wallets = [];
 
     for (const account of this.TEST_ACCOUNTS) {
@@ -673,11 +677,11 @@ class CompleteBootstrapper {
       const quoterMatch = output.match(/QuoterV4:\s*(0x[a-fA-F0-9]{40})/);
       const stateViewMatch = output.match(/StateView:\s*(0x[a-fA-F0-9]{40})/);
       
-      const result: any = {};
+      const result: Record<string, string> = {};
       
       // Update V4 deployment file
       const v4DeploymentPath = join(process.cwd(), 'packages', 'contracts', 'deployments', 'uniswap-v4-1337.json');
-      let v4Deployment: any = {};
+      let v4Deployment: Record<string, string> = {};
       
       if (existsSync(v4DeploymentPath)) {
         v4Deployment = JSON.parse(readFileSync(v4DeploymentPath, 'utf-8'));
@@ -720,7 +724,7 @@ class CompleteBootstrapper {
     }
   }
 
-  private async initializeUniswapPools(_contracts: any): Promise<Record<string, string>> {
+  private async initializeUniswapPools(_contracts: Partial<BootstrapResult['contracts']>): Promise<Record<string, string>> {
     try {
       // Check if Uniswap V4 is deployed
       const poolManagerPath = join(process.cwd(), 'packages', 'contracts', 'deployments', 'uniswap-v4-localnet.json');

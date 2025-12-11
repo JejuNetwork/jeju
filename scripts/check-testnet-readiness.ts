@@ -249,7 +249,6 @@ async function checkL1Contracts() {
       try {
         const code = await provider.getCode(address);
         if (code !== '0x') {
-          verified++;
           addResult(category, name, 'pass', `${(address as string).slice(0, 10)}...`);
         } else {
           addResult(category, name, 'fail', 'No code at address');
