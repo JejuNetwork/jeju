@@ -9,6 +9,10 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {IRPCStakingManager} from "./IRPCStakingManager.sol";
 import {IIdentityRegistry} from "../registry/interfaces/IIdentityRegistry.sol";
 
+interface IBanManager {
+    function isAddressBanned(address target) external view returns (bool);
+}
+
 /**
  * @title RPCStakingManager
  * @author Jeju Network
@@ -35,6 +39,7 @@ contract RPCStakingManager is IRPCStakingManager, Ownable, Pausable, ReentrancyG
     IERC20 public immutable jejuToken;
 
     IIdentityRegistry public identityRegistry;
+    IBanManager public banManager;
     address public reputationProvider;
     address public priceOracle; // Chainlink-compatible price feed
     uint256 public fallbackPrice = 1e7; // $0.10 default (8 decimals)
@@ -90,6 +95,7 @@ contract RPCStakingManager is IRPCStakingManager, Ownable, Pausable, ReentrancyG
 
     function _stake(address user, uint256 amount, uint256 agentId) internal {
         if (amount == 0) revert InvalidAmount();
+        if (address(banManager) != address(0) && banManager.isAddressBanned(user)) revert UserIsBanned();
 
         StakePosition storage pos = positions[user];
         Tier oldTier = getTier(user);
@@ -284,22 +290,22 @@ contract RPCStakingManager is IRPCStakingManager, Ownable, Pausable, ReentrancyG
      * @notice Check if user can access RPC (not banned, not frozen, has position or free tier)
      */
     function canAccess(address user) external view override returns (bool) {
-        // Whitelisted always allowed
         if (whitelisted[user]) return true;
-
-        // Check if stake is frozen
         if (positions[user].isFrozen) return false;
 
-        // Check if banned in identity registry
+        // Check BanManager for address-level bans (moderation marketplace)
+        if (address(banManager) != address(0) && banManager.isAddressBanned(user)) {
+            return false;
+        }
+
+        // Check identity registry for agent-level bans
         if (address(identityRegistry) != address(0)) {
             StakePosition storage pos = positions[user];
             if (pos.agentId > 0) {
-                // Check if agent is banned via getMarketplaceInfo
                 (bool success, bytes memory data) = address(identityRegistry).staticcall(
                     abi.encodeWithSignature("getMarketplaceInfo(uint256)", pos.agentId)
                 );
-                if (success && data.length >= 224) { // 7 return values
-                    // banned is the 7th return value
+                if (success && data.length >= 224) {
                     (, , , , , , bool banned) = abi.decode(
                         data, 
                         (string, string, string, string, bool, uint8, bool)
@@ -309,7 +315,6 @@ contract RPCStakingManager is IRPCStakingManager, Ownable, Pausable, ReentrancyG
             }
         }
 
-        // Everyone can access (even free tier)
         return true;
     }
 
@@ -406,6 +411,10 @@ contract RPCStakingManager is IRPCStakingManager, Ownable, Pausable, ReentrancyG
      */
     function setIdentityRegistry(address registry) external onlyOwner {
         identityRegistry = IIdentityRegistry(registry);
+    }
+
+    function setBanManager(address _banManager) external onlyOwner {
+        banManager = IBanManager(_banManager);
     }
 
     /**

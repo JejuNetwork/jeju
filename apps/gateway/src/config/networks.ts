@@ -1,4 +1,5 @@
 import type { Address } from 'viem';
+import { ZERO_ADDRESS } from '../lib/contracts.js';
 
 // Network selection: NETWORK env var or default to testnet
 export type NetworkId = 'mainnet' | 'testnet' | 'localnet';
@@ -82,7 +83,6 @@ export function getChainName(chainId: number): string {
 }
 
 // Common tokens by chain (public addresses)
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as const;
 export const COMMON_TOKENS: Record<number, Record<string, Address>> = {
   1: { ETH: ZERO_ADDRESS, WETH: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', USDC: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' },
   11155111: { ETH: ZERO_ADDRESS, WETH: '0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9' },

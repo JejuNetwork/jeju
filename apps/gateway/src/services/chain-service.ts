@@ -6,6 +6,7 @@ import {
   OUTPUT_SETTLER_ADDRESS, 
   SOLVER_REGISTRY_ADDRESS 
 } from '../config/contracts.js';
+import { ZERO_ADDRESS } from '../lib/contracts.js';
 
 // ABIs for reading contract state and watching events
 const INPUT_SETTLER_ABI = [
@@ -112,7 +113,6 @@ const SOLVER_REGISTRY_ABI = [
 ] as const satisfies Abi;
 
 const clients = new Map<number, PublicClient>();
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as const;
 
 function getClient(chainId: number): PublicClient {
   if (!clients.has(chainId)) {

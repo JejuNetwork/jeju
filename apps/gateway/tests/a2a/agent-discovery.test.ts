@@ -44,7 +44,8 @@ describe('A2A Agent Card Discovery', () => {
     
     expect(agentCard.capabilities).toBeDefined();
     expect(agentCard.capabilities.streaming).toBe(false);
-    expect(agentCard.capabilities.pushNotifications).toBe(false);
+    expect(agentCard.capabilities.pushNotifications).toBe(true);
+    expect(agentCard.capabilities.stateTransitionHistory).toBe(true);
   });
 
   test('should specify transport preferences', async () => {

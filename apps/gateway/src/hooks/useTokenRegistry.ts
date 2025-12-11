@@ -1,9 +1,10 @@
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther } from 'viem';
-import { TOKEN_REGISTRY_ABI, getContractAddresses } from '../lib/contracts';
+import { TOKEN_REGISTRY_ABI } from '../lib/contracts';
+import { CONTRACTS } from '../config';
 
 export function useTokenRegistry() {
-  const { tokenRegistry } = getContractAddresses();
+  const tokenRegistry = CONTRACTS.tokenRegistry;
 
   // Read all tokens
   const { data: allTokens, refetch: refetchTokens } = useReadContract({
@@ -49,7 +50,7 @@ export function useTokenRegistry() {
 }
 
 export function useTokenConfig(tokenAddress: `0x${string}` | undefined) {
-  const { tokenRegistry } = getContractAddresses();
+  const tokenRegistry = CONTRACTS.tokenRegistry;
 
   const { data: config, refetch } = useReadContract({
     address: tokenRegistry,

@@ -1,8 +1,9 @@
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { PAYMASTER_FACTORY_ABI, getContractAddresses } from '../lib/contracts';
+import { PAYMASTER_FACTORY_ABI } from '../lib/contracts';
+import { CONTRACTS } from '../config';
 
 export function usePaymasterFactory() {
-  const { paymasterFactory } = getContractAddresses();
+  const paymasterFactory = CONTRACTS.paymasterFactory;
 
   // Read all deployments
   const { data: allDeployments, refetch: refetchDeployments } = useReadContract({
@@ -38,7 +39,7 @@ export function usePaymasterFactory() {
 }
 
 export function usePaymasterDeployment(tokenAddress: `0x${string}` | undefined) {
-  const { paymasterFactory } = getContractAddresses();
+  const paymasterFactory = CONTRACTS.paymasterFactory;
 
   const { data: deployment, refetch } = useReadContract({
     address: paymasterFactory,

@@ -6,6 +6,7 @@ import { useProtocolTokens } from '../hooks/useProtocolTokens';
 import { useCrossChainSwap, useEILConfig } from '../hooks/useEIL';
 import { parseTokenAmount, formatUSD, calculateUSDValue } from '../lib/tokenUtils';
 import type { TokenOption } from './TokenSelector';
+import { EXPLORER_URL } from '../config';
 
 const DESTINATION_CHAINS = [
   { id: 1, name: 'Ethereum', icon: '💎' },
@@ -272,7 +273,7 @@ export default function CrossChainTransfer() {
           
           {hash && (
             <a 
-              href={`https://explorer.jeju.network/tx/${hash}`}
+              href={`${EXPLORER_URL}/tx/${hash}`}
               target="_blank"
               rel="noopener noreferrer"
               style={{ 

@@ -6,8 +6,7 @@
  */
 import type { Address } from 'viem';
 import { NETWORK, type NetworkId } from './networks.js';
-
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
+import { ZERO_ADDRESS } from '../lib/contracts.js';
 
 // ============================================================================
 // DEPLOYED CONTRACT ADDRESSES BY NETWORK

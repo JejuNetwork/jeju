@@ -57,6 +57,7 @@ interface IRPCStakingManager {
     error StakeIsFrozen();
     error StakeNotFrozen();
     error NotModerator();
+    error UserIsBanned();
 
     // ============ Core Functions ============
 

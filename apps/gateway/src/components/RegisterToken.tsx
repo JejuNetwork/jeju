@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTokenRegistry } from '../hooks/useTokenRegistry';
-import { getContractAddresses } from '../lib/contracts';
+import { CONTRACTS } from '../config';
 import { formatEther } from 'viem';
 
 export default function RegisterToken() {
@@ -10,7 +10,7 @@ export default function RegisterToken() {
   const [error, setError] = useState('');
 
   const { registerToken, isPending, isSuccess, registrationFee } = useTokenRegistry();
-  const { priceOracle } = getContractAddresses();
+  const priceOracle = CONTRACTS.priceOracle;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

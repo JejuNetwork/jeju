@@ -1,4 +1,6 @@
 import type { IntentRoute, SupportedChainId } from '@jejunetwork/types/oif';
+import { INPUT_SETTLER_ADDRESS, OUTPUT_SETTLER_ADDRESS } from '../config/contracts.js';
+import { ZERO_ADDRESS } from '../lib/contracts.js';
 
 // Chain configurations
 const CHAINS = [
@@ -31,6 +33,9 @@ const TOKENS: Record<number, Array<{ address: string; symbol: string; decimals: 
   420691: [
     { address: '0x0000000000000000000000000000000000000000', symbol: 'ETH', decimals: 18 },
   ],
+  420690: [
+    { address: '0x0000000000000000000000000000000000000000', symbol: 'ETH', decimals: 18 },
+  ],
   1337: [
     { address: '0x0000000000000000000000000000000000000000', symbol: 'ETH', decimals: 18 },
   ],
@@ -38,40 +43,38 @@ const TOKENS: Record<number, Array<{ address: string; symbol: string; decimals: 
 
 function getRoutes(): IntentRoute[] {
   const routes: IntentRoute[] = [];
-  const nativeToken = '0x0000000000000000000000000000000000000000';
+  const nativeToken = ZERO_ADDRESS;
+
+  // Only add routes if we have valid settler contracts
+  if (INPUT_SETTLER_ADDRESS === ZERO_ADDRESS || OUTPUT_SETTLER_ADDRESS === ZERO_ADDRESS) {
+    return routes;
+  }
 
   const routeConfigs = [
-    { source: 1, dest: 42161, oracle: 'hyperlane' },
-    { source: 1, dest: 10, oracle: 'superchain' },
-    { source: 1, dest: 420691, oracle: 'optimism-native' },
-    { source: 42161, dest: 1, oracle: 'hyperlane' },
-    { source: 10, dest: 1, oracle: 'superchain' },
+    { source: 420690, dest: 11155111, oracle: 'superchain' },
     { source: 11155111, dest: 420690, oracle: 'superchain' },
+    { source: 420691, dest: 1, oracle: 'optimism-native' },
+    { source: 1, dest: 420691, oracle: 'optimism-native' },
+    { source: 420691, dest: 42161, oracle: 'hyperlane' },
+    { source: 42161, dest: 420691, oracle: 'hyperlane' },
+    { source: 420691, dest: 10, oracle: 'superchain' },
+    { source: 10, dest: 420691, oracle: 'superchain' },
   ];
 
   for (const config of routeConfigs) {
-    const inputSettler = process.env[`OIF_INPUT_SETTLER_${config.source}`];
-    const outputSettler = process.env[`OIF_OUTPUT_SETTLER_${config.dest}`];
-    
-    if (!inputSettler || !outputSettler || 
-        inputSettler === '0x0000000000000000000000000000000000000000' ||
-        outputSettler === '0x0000000000000000000000000000000000000000') {
-      continue;
-    }
-
     const sourceChain = CHAINS.find(c => c.chainId === config.source);
     const destChain = CHAINS.find(c => c.chainId === config.dest);
 
     if (!sourceChain || !destChain) continue;
 
     routes.push({
-      routeId: `${sourceChain.name.toLowerCase().replace(' ', '-')}-${destChain.name.toLowerCase().replace(' ', '-')}-eth`,
+      routeId: `${sourceChain.name.toLowerCase().replace(/ /g, '-')}-${destChain.name.toLowerCase().replace(/ /g, '-')}-eth`,
       sourceChainId: config.source as SupportedChainId,
       destinationChainId: config.dest as SupportedChainId,
       sourceToken: nativeToken,
       destinationToken: nativeToken,
-      inputSettler,
-      outputSettler,
+      inputSettler: INPUT_SETTLER_ADDRESS,
+      outputSettler: OUTPUT_SETTLER_ADDRESS,
       oracle: config.oracle as 'hyperlane' | 'superchain' | 'optimism-native' | 'layerzero' | 'custom',
       isActive: true,
       totalVolume: '0',
@@ -208,6 +211,3 @@ export class RouteService {
 }
 
 export const routeService = new RouteService();
-
-
-

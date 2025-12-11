@@ -1,4 +1,7 @@
-import { Address } from 'viem';
+import type { Address } from 'viem';
+
+// Canonical zero address constant
+export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
 
 export const TOKEN_REGISTRY_ABI = [
   {
@@ -206,19 +209,3 @@ export const IERC20_ABI = [
     stateMutability: 'nonpayable'
   }
 ] as const;
-
-import { CONTRACTS } from '../config';
-
-export const getContractAddresses = (): {
-  tokenRegistry: Address;
-  paymasterFactory: Address;
-  priceOracle: Address;
-  jejuToken: Address;
-  banManager: Address;
-} => ({
-  tokenRegistry: CONTRACTS.tokenRegistry,
-  paymasterFactory: CONTRACTS.paymasterFactory,
-  priceOracle: CONTRACTS.priceOracle,
-  jejuToken: CONTRACTS.jeju,
-  banManager: CONTRACTS.banManager,
-});

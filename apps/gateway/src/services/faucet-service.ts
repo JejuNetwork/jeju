@@ -1,6 +1,6 @@
 import { createPublicClient, createWalletClient, http, type Address, parseEther, formatEther, isAddress } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { IERC20_ABI } from '../lib/contracts.js';
+import { IERC20_ABI, ZERO_ADDRESS } from '../lib/contracts.js';
 import { JEJU_CHAIN_ID, getRpcUrl, getChainName, IS_TESTNET } from '../config/networks.js';
 import { JEJU_TOKEN_ADDRESS, IDENTITY_REGISTRY_ADDRESS } from '../config/contracts.js';
 import { jejuTestnet } from '../lib/chains.js';
@@ -55,8 +55,6 @@ export interface FaucetInfo {
   chainId: number;
   chainName: string;
 }
-
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
 
 async function isRegisteredAgent(address: Address): Promise<boolean> {
   // Skip registry check in test mode or if explicitly disabled

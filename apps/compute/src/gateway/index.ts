@@ -37,6 +37,11 @@ import {
   SeverityEnum,
   type ModerationIncident,
 } from '../compute/sdk/content-moderation';
+import {
+  createCloudBridge,
+  type CloudProviderBridge,
+  type CloudModelInfo,
+} from '../compute/sdk/cloud-integration';
 
 // ============================================================================
 // Types
@@ -57,6 +62,9 @@ interface GatewayConfig {
   moderationEnabled?: boolean;
   aiModerationEndpoint?: string;
   aiModerationModel?: string;
+  // Cloud integration
+  cloudEndpoint?: string;
+  cloudApiKey?: string;
 }
 
 interface Provider {
@@ -172,6 +180,9 @@ export class ComputeGateway {
   private moderator: ContentModerator;
   private moderationStorage: MemoryIncidentStorage;
   private moderationEnabled: boolean;
+  
+  // Cloud integration
+  private cloudBridge: CloudProviderBridge | null = null;
 
   constructor(config: GatewayConfig) {
     this.config = config;
@@ -232,6 +243,15 @@ export class ComputeGateway {
         }
       },
     });
+
+    // Initialize cloud bridge if endpoint configured
+    if (config.cloudEndpoint) {
+      this.cloudBridge = createCloudBridge({
+        cloudEndpoint: config.cloudEndpoint,
+        cloudApiKey: config.cloudApiKey,
+        rpcUrl: config.rpcUrl,
+      });
+    }
 
     this.setupRoutes();
   }
@@ -923,6 +943,164 @@ export class ComputeGateway {
         incidentCount: this.moderationStorage.size(),
       });
     });
+    
+    // ========== Model Discovery (Cloud Integration) ==========
+    
+    // List available models from cloud and decentralized providers
+    this.app.get('/v1/models', async (c: Context) => {
+      const modelType = c.req.query('type'); // llm, image, video, audio, embedding
+      const source = c.req.query('source'); // cloud, decentralized, all
+      
+      const models: Array<{
+        id: string;
+        name: string;
+        provider: string;
+        type: string;
+        source: 'cloud' | 'decentralized';
+        capabilities?: string[];
+        contextWindow?: number;
+        pricing?: { inputPerMillion?: number; outputPerMillion?: number };
+      }> = [];
+      
+      // Get cloud models
+      if (this.cloudBridge && (source === 'cloud' || source === 'all' || !source)) {
+        await this.cloudBridge.initialize();
+        const cloudModels = await this.cloudBridge.discoverModels(
+          modelType ? { modelType: this.parseModelType(modelType) } : undefined
+        );
+        
+        for (const result of cloudModels) {
+          models.push({
+            id: result.model.modelId,
+            name: result.model.name,
+            provider: result.model.creator.name,
+            type: this.modelTypeToString(result.model.modelType),
+            source: 'cloud',
+            capabilities: this.capabilitiesToStrings(result.model.capabilities),
+            contextWindow: result.model.contextWindow,
+            pricing: {
+              inputPerMillion: Number(result.model.pricing.pricePerInputToken) / 1e12,
+              outputPerMillion: Number(result.model.pricing.pricePerOutputToken) / 1e12,
+            },
+          });
+        }
+      }
+      
+      return c.json({
+        models,
+        count: models.length,
+        cloudEnabled: !!this.cloudBridge,
+      });
+    });
+    
+    // Get cloud status
+    this.app.get('/v1/cloud/status', async (c: Context) => {
+      if (!this.cloudBridge) {
+        return c.json({
+          enabled: false,
+          endpoint: null,
+          modelCount: 0,
+          skillCount: 0,
+        });
+      }
+      
+      const status = await this.cloudBridge.getStatus();
+      return c.json({
+        enabled: true,
+        ...status,
+      });
+    });
+    
+    // List cloud A2A skills
+    this.app.get('/v1/cloud/skills', (c: Context) => {
+      if (!this.cloudBridge) {
+        return c.json({ skills: [], count: 0 });
+      }
+      
+      const skills = this.cloudBridge.getAvailableSkills();
+      return c.json({ skills, count: skills.length });
+    });
+    
+    // Proxy inference to cloud
+    this.app.post('/v1/cloud/inference', async (c: Context) => {
+      if (!this.cloudBridge) {
+        return c.json({ error: 'Cloud integration not enabled' }, 503);
+      }
+      
+      const body = await c.req.json<{
+        model: string;
+        messages: Array<{ role: string; content: string }>;
+        temperature?: number;
+        max_tokens?: number;
+      }>();
+      
+      const result = await this.cloudBridge.inference(
+        body.model,
+        body.messages,
+        {
+          temperature: body.temperature,
+          maxTokens: body.max_tokens,
+        }
+      );
+      
+      return c.json(result);
+    });
+    
+    // Execute A2A skill on cloud
+    this.app.post('/v1/cloud/skills/:skillId', async (c: Context) => {
+      if (!this.cloudBridge) {
+        return c.json({ error: 'Cloud integration not enabled' }, 503);
+      }
+      
+      const skillId = c.req.param('skillId');
+      const body = await c.req.json<{ input: string | Record<string, unknown> }>();
+      
+      const result = await this.cloudBridge.executeSkill(skillId, body.input);
+      return c.json({ result });
+    });
+  }
+  
+  // Helper to parse model type from query
+  private parseModelType(type: string): number {
+    const types: Record<string, number> = {
+      llm: 0,
+      image: 1,
+      video: 2,
+      audio: 3,
+      speech_to_text: 4,
+      text_to_speech: 5,
+      embedding: 6,
+      multimodal: 7,
+    };
+    return types[type.toLowerCase()] ?? 0;
+  }
+  
+  // Helper to convert model type to string
+  private modelTypeToString(type: number): string {
+    const types = ['llm', 'image', 'video', 'audio', 'speech_to_text', 'text_to_speech', 'embedding', 'multimodal'];
+    return types[type] ?? 'unknown';
+  }
+  
+  // Helper to convert capability bitmask to strings
+  private capabilitiesToStrings(caps: number): string[] {
+    const result: string[] = [];
+    if (caps & 1) result.push('text_generation');
+    if (caps & 2) result.push('code_generation');
+    if (caps & 4) result.push('vision');
+    if (caps & 8) result.push('function_calling');
+    if (caps & 16) result.push('streaming');
+    if (caps & 32) result.push('embeddings');
+    if (caps & 64) result.push('long_context');
+    if (caps & 128) result.push('reasoning');
+    if (caps & 256) result.push('image_generation');
+    if (caps & 512) result.push('image_editing');
+    if (caps & 1024) result.push('speech_to_text');
+    if (caps & 2048) result.push('text_to_speech');
+    if (caps & 4096) result.push('audio_generation');
+    if (caps & 8192) result.push('video_generation');
+    if (caps & 16384) result.push('video_analysis');
+    if (caps & 32768) result.push('multimodal');
+    return result;
   }
 
   /**
@@ -1190,6 +1368,9 @@ export async function startComputeGateway(): Promise<ComputeGateway> {
     moderationEnabled: process.env.MODERATION_ENABLED !== 'false',
     aiModerationEndpoint: process.env.AI_MODERATION_ENDPOINT,
     aiModerationModel: process.env.AI_MODERATION_MODEL,
+    // Cloud integration config
+    cloudEndpoint: process.env.CLOUD_ENDPOINT || process.env.NEXT_PUBLIC_APP_URL,
+    cloudApiKey: process.env.CLOUD_API_KEY,
   };
 
   const gateway = new ComputeGateway(config);

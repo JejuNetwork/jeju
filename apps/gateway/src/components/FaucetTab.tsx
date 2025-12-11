@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAccount } from 'wagmi';
 import { Droplet, Clock, CheckCircle2, AlertCircle, ExternalLink, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import type { FaucetStatus, FaucetClaimResult, FaucetInfo } from '../services/faucet-service';
+import { EXPLORER_URL } from '../config';
 
 function formatTime(ms: number): string {
   const hours = Math.floor(ms / 3600000);
@@ -227,9 +228,9 @@ export default function FaucetTab() {
                   <p className="text-secondary text-sm mt-1">
                     You received {claimResult.amount} JEJU
                   </p>
-                  {claimResult.txHash && (
+                    {claimResult.txHash && (
                     <a
-                      href={`https://explorer.jeju.network/tx/${claimResult.txHash}`}
+                      href={`${EXPLORER_URL}/tx/${claimResult.txHash}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-primary text-sm mt-2 inline-flex items-center gap-1 hover:underline"

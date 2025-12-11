@@ -1,13 +1,12 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useSignMessage } from 'wagmi';
-import type { Address } from 'viem';
 import { CONTRACTS, LEADERBOARD_API_URL } from '../config';
+import { ZERO_ADDRESS } from '../lib/contracts';
 
 const LEADERBOARD_API = LEADERBOARD_API_URL;
 
 // Contract address - queries will be skipped if not configured
 const GITHUB_REPUTATION_PROVIDER_ADDRESS = CONTRACTS.githubReputationProvider;
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
 
 // Check if on-chain queries are enabled (not zero address)
 const isOnChainEnabled = GITHUB_REPUTATION_PROVIDER_ADDRESS !== ZERO_ADDRESS;

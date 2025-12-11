@@ -25,6 +25,7 @@ export const IPFS_API_URL = import.meta.env.VITE_JEJU_IPFS_API || getDefaultIpfs
 export const IPFS_GATEWAY_URL = import.meta.env.VITE_JEJU_IPFS_GATEWAY || getDefaultIpfsGatewayUrl();
 export const OIF_AGGREGATOR_URL = import.meta.env.VITE_OIF_AGGREGATOR_URL || getDefaultOifAggregatorUrl();
 export const LEADERBOARD_API_URL = import.meta.env.VITE_LEADERBOARD_API_URL || getDefaultLeaderboardUrl();
+export const EXPLORER_URL = import.meta.env.VITE_EXPLORER_URL || getDefaultExplorerUrl();
 
 // Contract addresses - with VITE_ override support
 const ZERO = '0x0000000000000000000000000000000000000000' as const;
@@ -180,5 +181,13 @@ function getDefaultLeaderboardUrl(): string {
     case 'mainnet': 
     case 'testnet': return 'https://leaderboard.jeju.network';
     default: return 'http://127.0.0.1:4005';
+  }
+}
+
+function getDefaultExplorerUrl(): string {
+  switch (NETWORK) {
+    case 'mainnet': return 'https://explorer.jeju.network';
+    case 'testnet': return 'https://testnet-explorer.jeju.network';
+    default: return 'http://127.0.0.1:4000';
   }
 }

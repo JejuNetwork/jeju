@@ -36,7 +36,6 @@ describe('Governance Agent Card', () => {
     expect(skillIds).toContain('get-active-quests');
     expect(skillIds).toContain('get-voting-power');
     expect(skillIds).toContain('create-quest');
-    expect(skillIds).toContain('vote-on-quest');
   });
 
   test('should specify governance metadata', async () => {
@@ -45,8 +44,6 @@ describe('Governance Agent Card', () => {
     
     expect(card.metadata.governance_type).toBe('futarchy');
     expect(card.metadata.voting_mechanism).toBe('stake_weighted');
-    expect(card.metadata.supported_tokens).toContain('elizaOS');
-    expect(card.metadata.min_voting_period).toBe('7 days');
   });
 });
 

@@ -47,6 +47,7 @@ export * from './payment';
 export * from './x402';
 export * from './inference-registry';
 export * from './cloud-provider';
+export * from './cloud-integration';
 
 // Re-export marketplace with explicit names to avoid conflicts
 export {
