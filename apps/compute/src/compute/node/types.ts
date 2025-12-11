@@ -58,16 +58,7 @@ export interface ChatCompletionChunk {
  */
 export type NodeType = 'cpu' | 'gpu';
 
-/**
- * TEE (Trusted Execution Environment) status
- * - none: No TEE, runs in standard environment
- * - simulated: TEE is simulated for testing (NOT SECURE)
- * - dstack-simulator: Running in dStack TEE simulator locally
- * - intel-tdx: Real Intel TDX TEE (Phala production)
- * - amd-sev: Real AMD SEV TEE
- * - aws-nitro: AWS Nitro Enclaves
- */
-export type TEEStatus = 'none' | 'simulated' | 'dstack-simulator' | 'intel-tdx' | 'amd-sev' | 'aws-nitro';
+export type TEEStatus = 'none' | 'simulated' | 'intel-tdx' | 'amd-sev' | 'aws-nitro';
 
 export interface TEEInfo {
   status: TEEStatus;
@@ -112,7 +103,6 @@ export interface AttestationReport {
   timestamp: string;
   nonce: string;
   signature: string;
-  /** @deprecated Use teeStatus/teeIsReal instead */
   simulated: boolean;
   teeStatus: TEEStatus;
   teeIsReal: boolean;

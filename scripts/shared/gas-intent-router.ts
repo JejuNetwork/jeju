@@ -97,7 +97,7 @@ const CROSS_CHAIN_PAYMASTER_ABI = parseAbi([
   'function tokenExchangeRates(address token) view returns (uint256)',
 ]);
 
-const TOKEN_REGISTRY_ABI = parseAbi([
+const _TOKEN_REGISTRY_ABI = parseAbi([
   'function getTokenCrossChainInfo(address token) view returns (uint256[] chainIds, uint256[] liquidity)',
   'function findBestChainForGas(address token, uint256 requiredLiquidity) view returns (uint256 bestChainId, uint256 availableLiquidity)',
   'function getSupportedChains() view returns (uint256[])',

@@ -32,10 +32,6 @@ import SponsoredPaymasterArtifact from "../../packages/contracts/out/SponsoredPa
 
 const ENTRYPOINT_V07 = "0x0000000071727De22E5E9d8BAf0edAc6f37da032" as const;
 
-// SimpleAccountFactory bytecode (compiled from account-abstraction repo)
-// This is a minimal factory for creating SimpleAccount smart wallets
-const SIMPLE_ACCOUNT_FACTORY_BYTECODE = "0x608060405234801561001057600080fd5b50" as Hex;
-
 interface DeployConfig {
   network: "localnet" | "testnet" | "mainnet";
   rpcUrl: string;
@@ -227,13 +223,10 @@ async function main() {
 }
 
 async function deploySimpleAccountFactory(
-  walletClient: ReturnType<typeof createWalletClient>,
-  publicClient: ReturnType<typeof createPublicClient>,
-  config: DeployConfig
+  _walletClient: ReturnType<typeof createWalletClient>,
+  _publicClient: ReturnType<typeof createPublicClient>,
+  _config: DeployConfig
 ): Promise<Address> {
-  // SimpleAccountFactory constructor takes EntryPoint address
-  const constructorArgs = ENTRYPOINT_V07;
-
   // For production, compile from source. This is a placeholder.
   console.log("   ⚠️  Using pre-deployed factory. For custom deployment, compile from:");
   console.log("   https://github.com/eth-infinitism/account-abstraction");

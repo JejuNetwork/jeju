@@ -9,7 +9,6 @@
  */
 
 import { createPublicClient, http, type Address } from 'viem';
-import { mainnet, sepolia, arbitrum, optimism } from 'viem/chains';
 import { readFileSync, existsSync } from 'fs';
 import path from 'path';
 
@@ -50,8 +49,8 @@ const CHAINS: Record<number, ChainConfig> = {
 async function verifyContract(
   rpcUrl: string,
   address: string,
-  abi: readonly object[],
-  functionName: string
+  _abi: readonly object[],
+  _functionName: string
 ): Promise<{ exists: boolean; error?: string }> {
   if (!address || address === '0x0000000000000000000000000000000000000000') {
     return { exists: false, error: 'Not deployed (zero address)' };
@@ -198,7 +197,7 @@ async function main() {
   for (const chainId of chainIds) {
     const inputSettler = process.env[`OIF_INPUT_SETTLER_${chainId}`];
     const outputSettler = process.env[`OIF_OUTPUT_SETTLER_${chainId}`];
-    const registry = process.env[`OIF_SOLVER_REGISTRY_${chainId}`];
+    const _registry = process.env[`OIF_SOLVER_REGISTRY_${chainId}`];
 
     const hasAll = inputSettler && outputSettler;
     console.log(`  Chain ${chainId}: ${hasAll ? '✅ Configured' : '❌ Missing env vars'}`);

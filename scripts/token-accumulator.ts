@@ -36,8 +36,6 @@ const BRIDGE_AMOUNT = '0.03';
 // Check interval in watch mode (5 minutes)
 const CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
-// Faucet cooldowns in milliseconds (24 hours for most)
-const FAUCET_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
 interface NetworkConfig {
   name: string;

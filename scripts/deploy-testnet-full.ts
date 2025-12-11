@@ -61,7 +61,7 @@ const TESTNET_CHAINS: ChainConfig[] = [
   }
 ];
 
-// Deterministic deployment salts
+// Deterministic deployment salts (reserved for future use)
 const _SALTS = {
   CREATE2_FACTORY: ethers.keccak256(ethers.toUtf8Bytes('jeju-create2-factory-v1')),
   L1_STAKE_MANAGER: ethers.keccak256(ethers.toUtf8Bytes('jeju-l1-stake-manager-v1')),
@@ -141,6 +141,7 @@ async function deployToChain(
     
     // For now, deploy non-upgradeable version
     // In production, use Create2Factory + proxy
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const _L1StakeManagerFactory = new ethers.ContractFactory(
       L1_STAKE_MANAGER_ABI,
       '0x...', // bytecode would go here
@@ -154,6 +155,7 @@ async function deployToChain(
   } else {
     // Deploy L2 contracts
     const l1ChainId = 11155111; // Sepolia
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const _l1StakeManager = existingContracts[l1ChainId]?.l1StakeManager || ethers.ZeroAddress;
     
     log('Deploying CrossChainPaymaster...');

@@ -10,7 +10,6 @@
 
 import {
   createPublicClient,
-  createWalletClient,
   http,
   parseEther,
   formatEther,
@@ -104,7 +103,7 @@ const SPONSORED_PAYMASTER_ABI = [
   },
 ] as const;
 
-const ENTRYPOINT_ABI = [
+const _ENTRYPOINT_ABI = [
   {
     name: "balanceOf",
     type: "function",
@@ -123,7 +122,7 @@ const chain = {
   rpcUrls: { default: { http: [RPC_URL] } },
 };
 
-const account = privateKeyToAccount(DEPLOYER_PRIVATE_KEY);
+const _account = privateKeyToAccount(DEPLOYER_PRIVATE_KEY);
 
 const publicClient = createPublicClient({
   chain,

@@ -81,6 +81,7 @@ async function checkPrerequisites(): Promise<boolean> {
 }
 
 async function deployWithOpDeployer(): Promise<DeploymentResult> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _configFile = join(CONFIG_DIR, 'testnet.json');
   const keysFile = join(KEYS_DIR, 'testnet-operators.json');
   

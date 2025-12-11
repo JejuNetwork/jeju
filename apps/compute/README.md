@@ -242,7 +242,6 @@ RPC_URL=               # Ethereum RPC endpoint
 
 - [ERC-8004](https://github.com/ethereum/EIPs) - Trustless Agents standard
 - [Arweave](https://www.arweave.org/) - Permanent storage
-- [DStack](https://github.com/phala-network/dstack) - TEE framework
 
 ## License
 

@@ -16,7 +16,7 @@
 import { ethers } from 'ethers';
 import { Logger } from './shared/logger';
 
-const logger = new Logger('preflight');
+const _logger = new Logger('preflight');
 
 interface CheckResult {
   name: string;
@@ -147,7 +147,7 @@ async function checkOIFTestnet() {
   try {
     const oifDeployment = await Bun.file('packages/contracts/deployments/oif-testnet.json').json();
     
-    for (const [chainKey, chainData] of Object.entries(oifDeployment.chains as Record<string, { status: string; name: string; contracts: Record<string, string> }>)) {
+    for (const [_chainKey, chainData] of Object.entries(oifDeployment.chains as Record<string, { status: string; name: string; contracts: Record<string, string> }>)) {
       const chain = chainData as { status: string; name: string; contracts: Record<string, string> };
       if (chain.status === 'deployed') {
         addResult(`OIF ${chain.name}`, 'pass', 'Fully deployed');

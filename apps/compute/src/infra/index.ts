@@ -1,7 +1,5 @@
 /**
  * Infrastructure Module
- *
- * Real blockchain and TEE integration for production deployment.
  */
 
 export {
@@ -20,26 +18,24 @@ export {
 } from './bootstrap.js';
 
 export {
-  DStackClient,
-  ProductionTEEEnclave,
-} from './dstack-integration.js';
+  TEEProviderType,
+  TEEHardwareType,
+  type TEENodeStatus,
+  type TEENodeWarmth,
+  type TEEHardwareInfo,
+  type TEENode,
+  type TEEDeploymentConfig,
+  type TEEProvisionRequest,
+  type TEEProvisionResult,
+  type TEEProvider,
+  type TEEGateway as ITEEGateway,
+  type TEEEnclaveClient,
+} from './tee-interface.js';
 
-export {
-  createPhalaGateway,
-  type DeploymentConfig,
-  type GatewayConfig,
-  PhalaGateway,
-  type PhalaNode,
-  type ProvisionRequest,
-} from './phala-gateway.js';
+export { TEEGateway } from './tee-gateway.js';
 
-export {
-  createPhalaProxy,
-  PhalaProxy,
-  type PhalaNodeState,
-  type ProxyConfig,
-  type ProxyStats,
-} from './phala-proxy.js';
+export type { TEEDeploymentConfig as DeploymentConfig } from './tee-interface.js';
+export type { TEEProvisionRequest as ProvisionRequest } from './tee-interface.js';
 
 export {
   type DeploymentResult,

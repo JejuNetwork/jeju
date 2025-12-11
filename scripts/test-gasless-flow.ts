@@ -14,13 +14,9 @@
 
 import {
   createPublicClient,
-  createWalletClient,
   http,
   parseEther,
   formatEther,
-  encodeFunctionData,
-  keccak256,
-  encodeAbiParameters,
   encodePacked,
   type Address,
   type Hex,
@@ -35,9 +31,6 @@ const CHAIN_ID = parseInt(process.env.CHAIN_ID || "31337");
 const ENTRYPOINT_V07 = "0x0000000071727De22E5E9d8BAf0edAc6f37da032" as const;
 const SPONSORED_PAYMASTER = (process.env.SPONSORED_PAYMASTER_ADDRESS ||
   "0x5FbDB2315678afecb367f032d93F642f64180aa3") as Address;
-
-// Test accounts
-const DEPLOYER_PRIVATE_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" as Hex;
 
 // ============ ABIs ============
 

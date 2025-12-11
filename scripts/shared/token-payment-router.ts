@@ -30,7 +30,7 @@
  * ```
  */
 
-import { createPublicClient, http, Address, parseAbi, formatUnits, PublicClient } from 'viem';
+import { createPublicClient, http, Address, parseAbi, formatUnits } from 'viem';
 
 // ============ Types ============
 
@@ -386,7 +386,7 @@ export class TokenPaymentRouter {
    */
   private async findCrossChainOption(
     request: PaymentRequest,
-    localTokens: TokenInfo[]
+    _localTokens: TokenInfo[]
   ): Promise<PaymentOption | null> {
     if (!this.config.oifAggregator) return null;
 
@@ -711,7 +711,6 @@ export function formatPaymentOption(option: PaymentOption): string {
 let globalRouter: TokenPaymentRouter | null = null;
 let globalUserAddress: Address | null = null;
 let globalUserTokens: Address[] = [];
-let globalChainId = 420691;
 
 /**
  * Initialize the payment system (call once at app startup)

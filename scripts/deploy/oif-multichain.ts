@@ -15,7 +15,6 @@
  */
 
 import { ethers } from 'ethers';
-import { $ } from 'bun';
 import { Logger } from '../shared/logger';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
@@ -180,7 +179,7 @@ function parseDeploymentOutput(output: string): DeploymentResult {
   for (const line of lines) {
     if (line.includes('deployedTo')) {
       try {
-        const json = JSON.parse(line);
+        const _json = JSON.parse(line);
         // Would need to map contract names from JSON
       } catch {
         // Invalid JSON, continue parsing

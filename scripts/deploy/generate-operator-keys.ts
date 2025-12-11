@@ -19,7 +19,6 @@ import { join } from 'path';
 
 const ROOT = join(import.meta.dir, '../..');
 const KEYS_DIR = join(ROOT, 'packages/deployment/.keys');
-const CONFIG_DIR = join(ROOT, 'packages/contracts/deploy-config');
 
 interface OperatorKey {
   name: string;

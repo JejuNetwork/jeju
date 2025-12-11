@@ -404,8 +404,6 @@ export const TEETypeEnum = {
   AMD_SEV: 3,
   ARM_TRUSTZONE: 4,
   AWS_NITRO: 5,
-  PHALA_DSTACK: 6,
-  DSTACK_SIMULATOR: 7,
   SIMULATED: 8,
 } as const;
 

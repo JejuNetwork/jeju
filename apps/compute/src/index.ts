@@ -122,20 +122,23 @@ export {
   type BootstrappedGame,
   bootstrap,
   type ChainId,
-  createPhalaGateway,
   type DeploymentConfig,
-  DStackClient,
   ENSDeployer,
   ENSRegistrar,
   type GameStatus,
-  type GatewayConfig,
   OnChainAttestationClient,
   type OperatorInfo,
-  PhalaGateway,
-  type PhalaNode,
-  ProductionTEEEnclave,
   type ProvisionRequest,
   type RegistrationResult,
+  TEEGateway,
+  TEEProviderType,
+  TEEHardwareType,
+  type TEENode,
+  type TEEDeploymentConfig,
+  type TEEProvisionRequest,
+  type TEEProvisionResult,
+  type TEEProvider,
+  type TEEEnclaveClient,
 } from './infra/index.js';
 
 // Protocol (PBTS-aligned)
@@ -183,7 +186,7 @@ export {
   type UploadResult,
 } from './storage/index.js';
 
-// TEE (simulated locally, real via Phala dstack)
+// TEE
 export {
   type AttestationQuote,
   type EnclaveConfig,

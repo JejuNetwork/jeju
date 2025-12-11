@@ -14,7 +14,6 @@
  */
 
 import { createPublicClient, http, Address, parseAbi, PublicClient } from 'viem';
-import { mainnet, arbitrum, optimism, base, sepolia } from 'viem/chains';
 
 // ============ Types ============
 

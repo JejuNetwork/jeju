@@ -18,7 +18,6 @@ import {
   http,
   formatEther,
   type Address,
-  type Hex,
 } from "viem";
 
 // ============ Constants ============
@@ -26,7 +25,7 @@ import {
 const ENTRYPOINT_V07 = "0x0000000071727De22E5E9d8BAf0edAc6f37da032" as const;
 
 // Minimal ABIs for validation
-const ENTRYPOINT_ABI = [
+const _ENTRYPOINT_ABI = [
   {
     name: "balanceOf",
     type: "function",
@@ -100,7 +99,7 @@ const SPONSORED_PAYMASTER_ABI = [
   },
 ] as const;
 
-const SIMPLE_ACCOUNT_FACTORY_ABI = [
+const _SIMPLE_ACCOUNT_FACTORY_ABI = [
   {
     name: "getAddress",
     type: "function",
@@ -223,7 +222,7 @@ async function validateSponsoredPaymaster(
   });
 
   // Check status
-  const [deposit, isPaused, totalTx, totalGas] = await client.readContract({
+  const [deposit, isPaused, _totalTx, _totalGas] = await client.readContract({
     address: paymasterAddress,
     abi: SPONSORED_PAYMASTER_ABI,
     functionName: "getStatus",

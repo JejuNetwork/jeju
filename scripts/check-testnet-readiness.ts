@@ -240,7 +240,6 @@ async function checkL1Contracts() {
   
   const provider = new ethers.JsonRpcProvider('https://ethereum-sepolia-rpc.publicnode.com');
   
-  let verified = 0;
   let total = 0;
   
   for (const [name, address] of Object.entries(contracts)) {

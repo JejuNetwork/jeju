@@ -6,10 +6,10 @@
  * Usage: bun run scripts/vendor/create-jeju-manifest.ts <app-name>
  */
 
-import { writeFileSync, existsSync, mkdirSync } from 'fs';
+import { writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
-interface ManifestAnswers {
+interface _ManifestAnswers {
   name: string;
   displayName: string;
   version: string;

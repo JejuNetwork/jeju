@@ -43,8 +43,8 @@ console.log(`
 ╚═══════════════════════════════════════════════════════════╝
 `);
 
-// Contract ABIs (minimal for deployment)
-const JNS_REGISTRY_ABI = [
+// Contract ABIs (minimal for deployment) - reserved for future use
+const _JNS_REGISTRY_ABI = [
   'constructor()',
   'function setSubnodeOwner(bytes32 node, bytes32 label, address owner) returns (bytes32)',
   'function setResolver(bytes32 node, address resolver)',
@@ -66,7 +66,8 @@ const JNS_REGISTRAR_ABI = [
   'function BASE_NODE() view returns (bytes32)',
 ];
 
-const JNS_REVERSE_REGISTRAR_ABI = [
+// Reserved for future use
+const _JNS_REVERSE_REGISTRAR_ABI = [
   'constructor(address _jns, address _defaultResolver)',
   'function version() view returns (string)',
   'function ADDR_REVERSE_NODE() view returns (bytes32)',

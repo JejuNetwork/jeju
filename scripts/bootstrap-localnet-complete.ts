@@ -412,7 +412,7 @@ class CompleteBootstrapper {
     return { identity, reputation, validation };
   }
 
-  private async deployPaymasterSystem(contracts: any): Promise<{ tokenRegistry: string; paymasterFactory: string }> {
+  private async deployPaymasterSystem(contracts: Partial<BootstrapResult['contracts']>): Promise<{ tokenRegistry: string; paymasterFactory: string }> {
     const entryPoint = contracts.entryPoint || '0x0000000071727De22E5E9d8BAf0edAc6f37da032';
     
     // Deploy TokenRegistry
@@ -446,7 +446,7 @@ class CompleteBootstrapper {
           `registerToken(address,address,uint256,uint256) ${token.address} ${contracts.priceOracle} ${token.minFee} ${token.maxFee}`,
           `${token.symbol} registered (${token.minFee}-${token.maxFee} bps fee range)`
         );
-      } catch (error) {
+      } catch (error: unknown) {
         console.log(`     ⚠️  ${token.symbol} registration skipped (may already exist)`);
       }
     }
@@ -480,7 +480,7 @@ class CompleteBootstrapper {
 
       console.log('  ✅ Node staking system deployed');
       return { manager, performanceOracle };
-    } catch (error) {
+    } catch (error: unknown) {
       console.log('  ⚠️  Node staking deployment skipped (contracts may not exist)');
       return { manager: '0x0000000000000000000000000000000000000000', performanceOracle: '0x0000000000000000000000000000000000000000' };
     }
@@ -502,7 +502,7 @@ class CompleteBootstrapper {
 
       console.log('  ✅ Moderation system deployed');
       return { banManager, reputationLabelManager };
-    } catch (error) {
+    } catch (error: unknown) {
       console.log('  ⚠️  Moderation deployment skipped (contracts may not exist)');
       return { banManager: '0x0000000000000000000000000000000000000000', reputationLabelManager: '0x0000000000000000000000000000000000000000' };
     }
@@ -520,14 +520,14 @@ class CompleteBootstrapper {
       console.log('     ✨ Faucet enabled (10,000 JEJU per claim)');
       
       return jeju;
-    } catch (error) {
+    } catch (error: unknown) {
       console.log('  ⚠️  JEJU token deployment failed');
       console.log('     Error:', error);
       return '0x0000000000000000000000000000000000000000';
     }
   }
 
-  private async deployComputeMarketplace(contracts: any): Promise<{ 
+  private async deployComputeMarketplace(contracts: Partial<BootstrapResult['contracts']>): Promise<{ 
     computeRegistry: string; 
     ledgerManager: string; 
     inferenceServing: string;
@@ -565,7 +565,7 @@ class CompleteBootstrapper {
       console.log('  ✅ Compute marketplace deployed');
       console.log('     ✨ AI inference with on-chain settlement ready!');
       return { computeRegistry, ledgerManager, inferenceServing, computeStaking };
-    } catch (error) {
+    } catch (error: unknown) {
       console.log('  ⚠️  Compute marketplace deployment skipped (contracts may not exist)');
       console.log('     Error:', error);
       return { 
@@ -717,7 +717,7 @@ class CompleteBootstrapper {
       console.log(`  💾 Saved to: ${v4DeploymentPath}`);
       
       return result;
-    } catch (error) {
+    } catch (error: unknown) {
       console.log('  ⚠️  V4 Periphery deployment failed (continuing anyway)');
       console.log('     Error:', error);
       return {};
@@ -744,7 +744,7 @@ class CompleteBootstrapper {
         'USDC-elizaOS': '0x...',
         'ETH-elizaOS': '0x...'
       };
-    } catch (error) {
+    } catch (error: unknown) {
       console.log('  ⚠️  Pool initialization skipped');
       return {};
     }

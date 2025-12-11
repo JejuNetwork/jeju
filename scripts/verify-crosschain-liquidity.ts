@@ -30,7 +30,7 @@ interface ChainStatus {
   activeXLPs: number;
 }
 
-interface CrossChainRoute {
+interface _CrossChainRoute {
   from: number;
   to: number;
   enabled: boolean;
@@ -48,7 +48,7 @@ const OUTPUT_SETTLER_ABI = [
   'function getSolverLiquidity(address solver, address token) view returns (uint256)',
 ];
 
-const CROSS_CHAIN_PAYMASTER_ABI = [
+const _CROSS_CHAIN_PAYMASTER_ABI = [
   'function getXLPETH(address xlp) view returns (uint256)',
   'function xlpVerifiedStake(address xlp) view returns (uint256)',
 ];
@@ -104,7 +104,7 @@ async function checkContractDeployed(rpcUrl: string, address: string): Promise<b
 async function getOIFStats(
   rpcUrl: string,
   solverRegistryAddr: string,
-  outputSettlerAddr: string
+  _outputSettlerAddr: string
 ): Promise<{ activeSolvers: number; totalStaked: bigint }> {
   if (!solverRegistryAddr) return { activeSolvers: 0, totalStaked: 0n };
   
@@ -134,7 +134,7 @@ async function getEILStats(
   }
 }
 
-async function verifyCrossChainRoute(
+async function _verifyCrossChainRoute(
   fromChain: { rpcUrl: string; outputSettler: string },
   toChain: { rpcUrl: string; inputSettler: string },
   testSolver: string
@@ -176,14 +176,14 @@ async function main() {
   // Load configs
   const chainConfigs = loadChainConfigs(network);
   const oifDeployments = loadOIFDeployments(network);
-  const contractsConfig = loadContractsConfig(network);
+  const _contractsConfig = loadContractsConfig(network);
   
   // Verify each chain
   console.log('═══ Chain Status ═══\n');
   
   const chainStatuses: ChainStatus[] = [];
   
-  for (const [key, chain] of Object.entries(chainConfigs)) {
+  for (const [_key, chain] of Object.entries(chainConfigs)) {
     const chainConfig = chain as { chainId: number; name: string; rpcUrl: string };
     const chainId = chainConfig.chainId.toString();
     const oifChain = oifDeployments.chains?.[chainId] || {};
