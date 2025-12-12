@@ -43,11 +43,10 @@ jobs:
       - name: Build paymaster contracts
         run: forge build src/services/ServicePaymaster.sol src/paymaster/LiquidityPaymaster.sol
 
-      - name: Run contract tests (if not blocked by deps)
+      - name: Run contract tests
         run: |
-          forge test --match-path "test/ServiceRegistry.t.sol" || echo "Tests blocked by external deps (known issue)"
-          forge test --match-path "test/CreditPurchaseContract.t.sol" || echo "Tests blocked by external deps (known issue)"
-        continue-on-error: true
+          forge test --match-path "test/ServiceRegistry.t.sol"
+          forge test --match-path "test/CreditPurchaseContract.t.sol"
 
       - name: Check contract sizes
         run: forge build --sizes
@@ -83,20 +82,21 @@ jobs:
       - name: Build TypeScript
         run: bun run build || echo "Build step not configured"
 
+      - name: Install Foundry for Anvil
+        uses: foundry-rs/foundry-toolchain@v1
+
       - name: Start Anvil (local testnet)
         run: |
           anvil --fork-url https://mainnet.base.org --fork-block-number 10000000 &
           sleep 5
-        continue-on-error: true
 
       - name: Run TypeScript tests
         env:
           JEJU_RPC_URL: http://localhost:8545
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/jeju_service_test
         run: |
-          bun test tests/integration/payment-flow.test.ts || echo "Integration tests require deployed contracts"
-          bun test tests/integration/credit-migration.test.ts || echo "Integration tests require deployed contracts"
-        continue-on-error: true
+          bun test tests/integration/payment-flow.test.ts
+          bun test tests/integration/credit-migration.test.ts
 
   lint:
     name: Lint and Format
@@ -111,13 +111,13 @@ jobs:
         run: bun install
 
       - name: Check TypeScript
-        run: bunx tsc --noEmit || echo "TypeScript check"
+        run: bunx tsc --noEmit
 
       - name: Run ESLint
-        run: bun run lint || echo "ESLint not configured"
+        run: bun run lint
 
       - name: Check Solidity formatting
-        run: forge fmt --check || echo "Solidity formatting check"
+        run: forge fmt --check
 
   security:
     name: Security Analysis
@@ -130,10 +130,10 @@ jobs:
 
       - name: Run Slither
         uses: crytic/slither-action@v0.3.0
-        continue-on-error: true
         with:
           target: 'contracts/src/services/'
           slither-args: '--filter-paths "lib/"'
+          fail-on: medium
 
   summary:
     name: Test Summary
