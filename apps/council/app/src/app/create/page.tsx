@@ -1,46 +1,103 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Sparkles, Check, AlertCircle } from 'lucide-react'
-import { assessProposal, type QualityAssessment } from '@/config/api'
+import { ArrowLeft, Loader2 } from 'lucide-react'
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { parseEther, keccak256, toHex } from 'viem'
+import { ProposalWizard } from '@/components/ProposalWizard'
+import type { ProposalDraft, FullQualityAssessment } from '@/config/api'
 
-const PROPOSAL_TYPES = [
-  { value: 'PARAMETER_CHANGE', label: 'Parameter Change' },
-  { value: 'TREASURY_ALLOCATION', label: 'Treasury Allocation' },
-  { value: 'CODE_UPGRADE', label: 'Code Upgrade' },
-  { value: 'BOUNTY', label: 'Bounty' },
-  { value: 'GRANT', label: 'Grant' },
-  { value: 'PARTNERSHIP', label: 'Partnership' },
-  { value: 'POLICY', label: 'Policy' },
-]
+const COUNCIL_ADDRESS = (process.env.NEXT_PUBLIC_COUNCIL_ADDRESS || '0x0000000000000000000000000000000000000000') as `0x${string}`
+const PROPOSAL_BOND = parseEther('0.001')
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as `0x${string}`
+
+const COUNCIL_ABI = [
+  {
+    name: 'submitProposal',
+    type: 'function',
+    stateMutability: 'payable',
+    inputs: [
+      { name: 'proposalType', type: 'uint8' },
+      { name: 'qualityScore', type: 'uint8' },
+      { name: 'contentHash', type: 'bytes32' },
+      { name: 'targetContract', type: 'address' },
+      { name: 'callData', type: 'bytes' },
+      { name: 'value', type: 'uint256' },
+    ],
+    outputs: [{ name: 'proposalId', type: 'bytes32' }],
+  },
+] as const
 
 export default function CreateProposalPage() {
-  const [title, setTitle] = useState('')
-  const [summary, setSummary] = useState('')
-  const [description, setDescription] = useState('')
-  const [proposalType, setProposalType] = useState('PARAMETER_CHANGE')
-  const [assessment, setAssessment] = useState<QualityAssessment | null>(null)
-  const [assessing, setAssessing] = useState(false)
-  const [error, setError] = useState('')
+  const router = useRouter()
+  const { isConnected } = useAccount()
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
-  const handleAssess = async () => {
-    if (!title || !summary || !description) {
-      setError('Fill in all fields')
+  const { writeContract, data: txHash, isPending } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash })
+
+  const handleComplete = async (draft: ProposalDraft, assessment: FullQualityAssessment) => {
+    if (!isConnected) {
+      setSubmitError('Please connect your wallet to submit a proposal')
       return
     }
-    setError('')
-    setAssessing(true)
-    
-    const result = await assessProposal({ title, summary, description, proposalType })
-      .catch(() => null)
-    
-    setAssessment(result)
-    setAssessing(false)
+
+    if (COUNCIL_ADDRESS === ZERO_ADDRESS) {
+      setSubmitError('Council contract not configured. Set NEXT_PUBLIC_COUNCIL_ADDRESS.')
+      return
+    }
+
+    if (assessment.overallScore < 90) {
+      setSubmitError(`Quality score ${assessment.overallScore} is below minimum (90)`)
+      return
+    }
+
+    setSubmitError(null)
+    setSubmitting(true)
+
+    // Compute content hash from draft content
+    const contentString = JSON.stringify({
+      title: draft.title,
+      summary: draft.summary,
+      description: draft.description,
+      proposalType: draft.proposalType,
+      tags: draft.tags,
+      assessedAt: assessment.assessedAt,
+    })
+    const contentHash = keccak256(toHex(contentString))
+
+    writeContract({
+      address: COUNCIL_ADDRESS,
+      abi: COUNCIL_ABI,
+      functionName: 'submitProposal',
+      args: [
+        draft.proposalType,
+        assessment.overallScore,
+        contentHash,
+        (draft.targetContract || ZERO_ADDRESS) as `0x${string}`,
+        (draft.calldata || '0x') as `0x${string}`,
+        draft.value ? parseEther(draft.value) : 0n,
+      ],
+      value: PROPOSAL_BOND,
+    })
   }
 
+  // Redirect on success
+  if (isSuccess && txHash) {
+    router.push(`/proposals?submitted=${txHash}`)
+  }
+
+  const handleCancel = () => {
+    router.push('/')
+  }
+
+  const isLoading = isPending || isConfirming || submitting
+
   return (
-    <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex items-center gap-2 sm:gap-3">
         <Link 
@@ -52,156 +109,28 @@ export default function CreateProposalPage() {
         <h1 className="text-lg sm:text-xl font-semibold">Create Proposal</h1>
       </div>
 
-      {/* Form and Assessment - stack on mobile, side by side on desktop */}
-      <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
-        {/* Form */}
-        <div className="flex-1 card-static p-3 sm:p-4 space-y-3 sm:space-y-4">
-          <div>
-            <label className="block text-xs sm:text-sm font-medium mb-1">Type</label>
-            <select
-              value={proposalType}
-              onChange={(e) => setProposalType(e.target.value)}
-              className="input text-sm"
-            >
-              {PROPOSAL_TYPES.map((type) => (
-                <option key={type.value} value={type.value}>{type.label}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs sm:text-sm font-medium mb-1">Title</label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="10-100 characters"
-              className="input text-sm"
-              maxLength={100}
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs sm:text-sm font-medium mb-1">Summary</label>
-            <textarea
-              value={summary}
-              onChange={(e) => setSummary(e.target.value)}
-              placeholder="50-500 characters"
-              className="textarea text-sm"
-              rows={2}
-              maxLength={500}
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs sm:text-sm font-medium mb-1">Description</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Problem, solution, timeline, cost, benefit, risk..."
-              className="textarea text-sm"
-              rows={6}
-            />
-          </div>
-
-          {error && (
-            <p className="text-xs sm:text-sm" style={{ color: 'var(--color-error)' }}>{error}</p>
-          )}
-
-          {/* Buttons - stack on very small screens */}
-          <div className="flex flex-col xs:flex-row gap-2 sm:gap-3">
-            <button
-              onClick={handleAssess}
-              disabled={assessing}
-              className="btn-accent flex items-center justify-center gap-2 flex-1 text-sm"
-            >
-              <Sparkles size={16} />
-              {assessing ? 'Assessing...' : 'Assess'}
-            </button>
-            <button
-              disabled={!assessment?.readyToSubmit}
-              className="btn-primary flex items-center justify-center gap-2 flex-1 text-sm disabled:opacity-50"
-            >
-              <Check size={16} />
-              Submit
-            </button>
-          </div>
+      {/* Error Display */}
+      {submitError && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <p className="text-red-700 dark:text-red-300">{submitError}</p>
         </div>
+      )}
 
-        {/* Assessment Panel */}
-        <div className="lg:w-64 shrink-0">
-          <div className="card-static p-3 sm:p-4 lg:sticky lg:top-20">
-            {assessment ? (
-              <div className="space-y-3 sm:space-y-4">
-                <div className="text-center">
-                  <div 
-                    className="text-3xl sm:text-4xl font-bold"
-                    style={{ 
-                      color: assessment.overallScore >= 90 
-                        ? 'var(--color-success)' 
-                        : assessment.overallScore >= 70 
-                        ? 'var(--color-warning)' 
-                        : 'var(--color-error)'
-                    }}
-                  >
-                    {assessment.overallScore}%
-                  </div>
-                  <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                    90% required
-                  </div>
-                </div>
-
-                <div className="progress-bar">
-                  <div className="progress-bar-fill" style={{ width: `${assessment.overallScore}%` }} />
-                </div>
-
-                {assessment.readyToSubmit ? (
-                  <div className="badge-success text-center p-2 rounded text-xs sm:text-sm w-full justify-center">
-                    <Check size={14} className="mr-1" /> Ready
-                  </div>
-                ) : (
-                  <div className="badge-warning text-center p-2 rounded text-xs sm:text-sm w-full justify-center">
-                    <AlertCircle size={14} className="mr-1" /> Improve
-                  </div>
-                )}
-
-                {assessment.blockers.length > 0 && (
-                  <div>
-                    <div className="text-xs font-medium mb-1" style={{ color: 'var(--color-error)' }}>
-                      Must fix:
-                    </div>
-                    {assessment.blockers.map((b, i) => (
-                      <p key={i} className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                        • {b}
-                      </p>
-                    ))}
-                  </div>
-                )}
-
-                {assessment.suggestions.length > 0 && (
-                  <div>
-                    <div className="text-xs font-medium mb-1" style={{ color: 'var(--color-warning)' }}>
-                      Suggestions:
-                    </div>
-                    {assessment.suggestions.map((s, i) => (
-                      <p key={i} className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                        • {s}
-                      </p>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-center py-4">
-                <Sparkles size={28} className="mx-auto mb-2 opacity-30" />
-                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                  Click Assess for feedback
-                </p>
-              </div>
-            )}
-          </div>
+      {/* Transaction Status */}
+      {isLoading && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 flex items-center gap-3">
+          <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+          <p className="text-blue-700 dark:text-blue-300">
+            {isPending ? 'Confirm in wallet...' : 'Waiting for confirmation...'}
+          </p>
         </div>
-      </div>
+      )}
+
+      {/* Wizard */}
+      <ProposalWizard
+        onComplete={handleComplete}
+        onCancel={handleCancel}
+      />
     </div>
   )
 }
