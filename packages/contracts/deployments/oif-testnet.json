@@ -84,6 +84,42 @@
   },
   "crossChainRoutes": [
     {
+      "from": 11155111,
+      "to": 84532,
+      "enabled": true,
+      "description": "Sepolia → Base Sepolia"
+    },
+    {
+      "from": 84532,
+      "to": 11155111,
+      "enabled": true,
+      "description": "Base Sepolia → Sepolia"
+    },
+    {
+      "from": 84532,
+      "to": 11155420,
+      "enabled": true,
+      "description": "Base Sepolia → Optimism Sepolia"
+    },
+    {
+      "from": 11155420,
+      "to": 84532,
+      "enabled": true,
+      "description": "Optimism Sepolia → Base Sepolia"
+    },
+    {
+      "from": 84532,
+      "to": 421614,
+      "enabled": true,
+      "description": "Base Sepolia → Arbitrum Sepolia"
+    },
+    {
+      "from": 421614,
+      "to": 84532,
+      "enabled": true,
+      "description": "Arbitrum Sepolia → Base Sepolia"
+    },
+    {
       "from": 84532,
       "to": 420690,
       "enabled": true,
@@ -106,30 +142,6 @@
       "to": 11155111,
       "enabled": true,
       "description": "Jeju Testnet → Sepolia"
-    },
-    {
-      "from": 421614,
-      "to": 420690,
-      "enabled": true,
-      "description": "Arbitrum Sepolia → Jeju Testnet"
-    },
-    {
-      "from": 420690,
-      "to": 421614,
-      "enabled": true,
-      "description": "Jeju Testnet → Arbitrum Sepolia"
-    },
-    {
-      "from": 11155420,
-      "to": 420690,
-      "enabled": true,
-      "description": "Optimism Sepolia → Jeju Testnet"
-    },
-    {
-      "from": 420690,
-      "to": 11155420,
-      "enabled": true,
-      "description": "Jeju Testnet → Optimism Sepolia"
     }
   ],
   "deploymentOrder": [
