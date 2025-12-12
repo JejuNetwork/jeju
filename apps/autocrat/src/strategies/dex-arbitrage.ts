@@ -10,13 +10,10 @@
 import type {
   ChainId,
   Pool,
-  Token,
   ArbitrageOpportunity,
   StrategyConfig,
-  OpportunityStatus,
 } from '../types';
-import type { EventCollector, SyncEvent, SwapEvent } from '../engine/collector';
-import { ZERO_ADDRESS } from '../lib/contracts';
+import type { SyncEvent, SwapEvent } from '../engine/collector';
 
 // ============ Types ============
 
@@ -39,7 +36,6 @@ interface ArbitragePath {
 
 const FEE_BPS = 30; // 0.3% fee per swap (standard Uniswap V2)
 const MIN_LIQUIDITY = BigInt(1e18); // Minimum pool liquidity to consider
-const MAX_PATH_LENGTH = 4; // Maximum hops in a path
 const OPPORTUNITY_TTL_MS = 2000; // 2 seconds validity
 
 // ============ Strategy Class ============

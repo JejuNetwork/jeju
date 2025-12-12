@@ -218,12 +218,13 @@ export type ExecutionResult = z.infer<typeof ExecutionResultSchema>;
 
 // ============ Treasury Types ============
 
+// Note: Aligns with StrategyType for consistent metrics tracking
 export const ProfitSourceSchema = z.enum([
   'DEX_ARBITRAGE',
   'CROSS_CHAIN_ARBITRAGE',
   'SANDWICH',
   'LIQUIDATION',
-  'SOLVER_FEE',
+  'SOLVER',
   'ORACLE_KEEPER',
   'OTHER',
 ]);

@@ -17,7 +17,7 @@ import {
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import type { ChainId, ChainConfig, StrategyConfig } from '../types';
-import { PRICE_ORACLE_ABI, CHAINLINK_AGGREGATOR_ABI, ZERO_ADDRESS } from '../lib/contracts';
+import { PRICE_ORACLE_ABI, CHAINLINK_AGGREGATOR_ABI } from '../lib/contracts';
 
 // ============ Types ============
 

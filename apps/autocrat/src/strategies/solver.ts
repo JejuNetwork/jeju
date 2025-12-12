@@ -15,12 +15,11 @@ import {
   type PublicClient,
   type WalletClient,
   type Account,
-  encodeFunctionData,
   parseAbiItem,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import type { ChainId, ChainConfig, StrategyConfig } from '../types';
-import { INPUT_SETTLER_ABI, OUTPUT_SETTLER_ABI, ERC20_ABI, ZERO_ADDRESS } from '../lib/contracts';
+import { OUTPUT_SETTLER_ABI, ERC20_ABI, ZERO_ADDRESS } from '../lib/contracts';
 
 // ============ Types ============
 

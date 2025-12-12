@@ -13,7 +13,6 @@ import type {
   CrossChainArbOpportunity,
   StrategyConfig,
 } from '../types';
-import type { EventCollector } from '../engine/collector';
 
 // ============ Types ============
 

@@ -15,7 +15,6 @@ import {
 import type {
   ChainId,
   ChainConfig,
-  Token,
   LiquidationOpportunity,
   StrategyConfig,
 } from '../types';

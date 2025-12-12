@@ -30,7 +30,7 @@ import type {
   SandwichOpportunity,
   LiquidationOpportunity,
 } from '../types';
-import { XLP_ROUTER_ABI, PERPETUAL_MARKET_ABI, ERC20_ABI, ZERO_ADDRESS } from '../lib/contracts';
+import { XLP_ROUTER_ABI, PERPETUAL_MARKET_ABI, ZERO_ADDRESS } from '../lib/contracts';
 
 // ============ Types ============
 

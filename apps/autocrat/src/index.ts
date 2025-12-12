@@ -9,7 +9,7 @@
 
 import { getConfig, getContractAddresses } from './config';
 import type { AutocratConfig } from './types';
-import { EventCollector, type SwapEvent, type SyncEvent, type BlockEvent, type PendingTransaction } from './engine/collector';
+import { EventCollector, type SwapEvent, type SyncEvent, type PendingTransaction } from './engine/collector';
 import { TransactionExecutor } from './engine/executor';
 import { TreasuryManager } from './engine/treasury';
 import {
@@ -291,10 +291,6 @@ class Autocrat {
       }
     });
 
-    // Handle new blocks
-    this.collector.on('block', (block: BlockEvent) => {
-      // Could use for block-based strategies
-    });
   }
 
   private async processOpportunities(): Promise<void> {
@@ -303,30 +299,24 @@ class Autocrat {
     // Collect opportunities from all strategies
     const opportunities: Array<{ opportunity: Opportunity; source: ProfitSource }> = [];
 
-    // DEX Arbitrage
-    for (const [chainId, strategy] of this.dexArbitrage) {
-      for (const opp of strategy.getOpportunities()) {
-        opportunities.push({ opportunity: opp, source: 'DEX_ARBITRAGE' });
+    // Collect from all per-chain strategies
+    const strategyMaps: Array<[Map<ChainId, { getOpportunities(): Opportunity[] }>, ProfitSource]> = [
+      [this.dexArbitrage, 'DEX_ARBITRAGE'],
+      [this.sandwich, 'SANDWICH'],
+      [this.liquidation, 'LIQUIDATION'],
+    ];
+
+    for (const [strategyMap, source] of strategyMaps) {
+      for (const strategy of strategyMap.values()) {
+        for (const opp of strategy.getOpportunities()) {
+          opportunities.push({ opportunity: opp, source });
+        }
       }
     }
 
-    // Sandwiches
-    for (const [chainId, strategy] of this.sandwich) {
-      for (const opp of strategy.getOpportunities()) {
-        opportunities.push({ opportunity: opp, source: 'SANDWICH' });
-      }
-    }
-
-    // Cross-chain
+    // Cross-chain (single strategy, not per-chain)
     for (const opp of this.crossChainArb.getOpportunities()) {
       opportunities.push({ opportunity: opp, source: 'CROSS_CHAIN_ARBITRAGE' });
-    }
-
-    // Liquidations
-    for (const [chainId, strategy] of this.liquidation) {
-      for (const opp of strategy.getOpportunities()) {
-        opportunities.push({ opportunity: opp, source: 'LIQUIDATION' });
-      }
     }
 
     // Sort by expected profit
@@ -393,50 +383,24 @@ class Autocrat {
     }
   }
 
+  private getStrategyForOpportunity(opportunity: Opportunity, source: ProfitSource) {
+    if (source === 'CROSS_CHAIN_ARBITRAGE') return this.crossChainArb;
+    if (!('chainId' in opportunity)) return null;
+    
+    const strategyMap: Record<string, Map<ChainId, { markExecuting: (id: string) => void; markCompleted: (id: string, success: boolean) => void }>> = {
+      DEX_ARBITRAGE: this.dexArbitrage,
+      SANDWICH: this.sandwich,
+      LIQUIDATION: this.liquidation,
+    };
+    return strategyMap[source]?.get(opportunity.chainId) ?? null;
+  }
+
   private markExecuting(opportunity: Opportunity, source: ProfitSource): void {
-    switch (source) {
-      case 'DEX_ARBITRAGE':
-        if ('chainId' in opportunity) {
-          this.dexArbitrage.get(opportunity.chainId)?.markExecuting(opportunity.id);
-        }
-        break;
-      case 'SANDWICH':
-        if ('chainId' in opportunity) {
-          this.sandwich.get(opportunity.chainId)?.markExecuting(opportunity.id);
-        }
-        break;
-      case 'CROSS_CHAIN_ARBITRAGE':
-        this.crossChainArb.markExecuting(opportunity.id);
-        break;
-      case 'LIQUIDATION':
-        if ('chainId' in opportunity) {
-          this.liquidation.get(opportunity.chainId)?.markExecuting(opportunity.id);
-        }
-        break;
-    }
+    this.getStrategyForOpportunity(opportunity, source)?.markExecuting(opportunity.id);
   }
 
   private markCompleted(opportunity: Opportunity, source: ProfitSource, success: boolean): void {
-    switch (source) {
-      case 'DEX_ARBITRAGE':
-        if ('chainId' in opportunity) {
-          this.dexArbitrage.get(opportunity.chainId)?.markCompleted(opportunity.id, success);
-        }
-        break;
-      case 'SANDWICH':
-        if ('chainId' in opportunity) {
-          this.sandwich.get(opportunity.chainId)?.markCompleted(opportunity.id, success);
-        }
-        break;
-      case 'CROSS_CHAIN_ARBITRAGE':
-        this.crossChainArb.markCompleted(opportunity.id, success);
-        break;
-      case 'LIQUIDATION':
-        if ('chainId' in opportunity) {
-          this.liquidation.get(opportunity.chainId)?.markCompleted(opportunity.id, success);
-        }
-        break;
-    }
+    this.getStrategyForOpportunity(opportunity, source)?.markCompleted(opportunity.id, success);
   }
 }
 

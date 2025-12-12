@@ -15,16 +15,13 @@ import {
   type PublicClient,
   type Account,
   encodeFunctionData,
-  parseEther,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import type {
   ChainId,
-  ChainConfig,
   ProfitSource,
   TreasuryStats,
   ProfitDeposit,
-  ExecutionResult,
 } from '../types';
 import { AUTOCRAT_TREASURY_ABI, ERC20_ABI, ZERO_ADDRESS } from '../lib/contracts';
 
