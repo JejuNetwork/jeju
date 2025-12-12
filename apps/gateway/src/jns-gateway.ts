@@ -14,7 +14,7 @@
  * babylon.jeju.network → resolves babylon.jeju → contenthash → IPFS gateway
  */
 
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { createPublicClient, http, type Address, type Hex } from 'viem';
 import { base, baseSepolia } from 'viem/chains';
@@ -109,9 +109,9 @@ function decodeContenthash(contenthash: Hex): ResolvedContent | null {
     }
     // CIDv0 - raw multihash
     if (hashFn === 0x12) {
-      // SHA2-256
+      // SHA2-256 - return as hex since base58 encoding needs external library
       const multihash = bytes.slice(1);
-      const cid = `Qm${Buffer.from(multihash.slice(2)).toString('base58')}`;
+      const cid = `Qm${Buffer.from(multihash.slice(2)).toString('hex')}`;
       return { cid, codec: 'ipfs' };
     }
     // Fallback: assume raw CID bytes after codec
@@ -198,7 +198,8 @@ function getMimeType(path: string): string {
 export class JNSGateway {
   private app: Hono;
   private config: JNSGatewayConfig;
-  private client: ReturnType<typeof createPublicClient>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private client: any;
   private cache: Map<string, { content: ResolvedContent; expiry: number }> =
     new Map();
   private readonly CACHE_TTL = 300_000; // 5 minutes
@@ -325,13 +326,8 @@ export class JNSGateway {
   /**
    * Serve content from JNS-resolved CID
    */
-  private async serveJNSContent(
-    c: ReturnType<Hono['get']> extends (path: string, handler: infer H) => void
-      ? Parameters<H>[0]
-      : never,
-    name: string,
-    path: string
-  ): Promise<Response> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private async serveJNSContent(c: Context<any>, name: string, path: string): Promise<Response> {
     const content = await this.resolveJNS(name);
 
     if (!content) {
@@ -344,13 +340,8 @@ export class JNSGateway {
   /**
    * Serve content from IPFS
    */
-  private async serveIpfsContent(
-    c: ReturnType<Hono['get']> extends (path: string, handler: infer H) => void
-      ? Parameters<H>[0]
-      : never,
-    cid: string,
-    path: string
-  ): Promise<Response> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private async serveIpfsContent(c: Context<any>, cid: string, path: string): Promise<Response> {
     const gateways = [
       this.config.ipfsGatewayUrl,
       ...(this.config.fallbackIpfsGateways ?? []),
@@ -364,8 +355,8 @@ export class JNSGateway {
       const response = await fetch(url, {
         headers: { Accept: '*/*' },
         signal: AbortSignal.timeout(10000),
-      }).catch((e) => {
-        lastError = e;
+      }).catch((e: unknown) => {
+        lastError = e instanceof Error ? e : new Error(String(e));
         return null;
       });
 
@@ -407,7 +398,7 @@ export class JNSGateway {
     }
 
     return c.text(
-      `Failed to fetch content: ${lastError?.message ?? 'Unknown error'}`,
+      `Failed to fetch content: ${(lastError as Error | null)?.message ?? 'Unknown error'}`,
       502
     );
   }

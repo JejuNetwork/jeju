@@ -262,13 +262,13 @@ export default function GitHubReputationPanel({
                   <div className="flex items-center gap-2">
                     <Award size={18} className="text-green-600" />
                     <span className="text-sm">
-                      {onChainReputation.hasBoost
-                        ? `Reputation Boost Active (${onChainReputation.stakeDiscount}% stake discount)`
+                      {onChainReputation?.hasBoost
+                        ? `Reputation Boost Active (${onChainReputation?.stakeDiscount ?? 0}% stake discount)`
                         : 'No active boost'}
                     </span>
                   </div>
                   <span className="text-lg font-bold text-green-600">
-                    {onChainReputation.score}/100
+                    {onChainReputation?.score ?? 0}/100
                   </span>
                 </div>
               </div>
@@ -290,14 +290,14 @@ export default function GitHubReputationPanel({
             {Boolean(agentId && isContractConfigured && agentReputationData) && (
               <div className="border-t pt-4">
                 <h4 className="text-sm font-medium text-gray-700 mb-2">
-                  Agent #{agentId.toString()} Reputation
+                  Agent #{agentId?.toString() ?? '?'} Reputation
                 </h4>
                 <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
                   <span className="text-sm">
-                    {agentReputationData.isValid ? 'Verified' : 'Not verified'}
+                    {agentReputationData?.isValid ? 'Verified' : 'Not verified'}
                   </span>
                   <span className="text-lg font-bold text-blue-600">
-                    {agentReputationData.score}/100
+                    {agentReputationData?.score ?? 0}/100
                   </span>
                 </div>
               </div>

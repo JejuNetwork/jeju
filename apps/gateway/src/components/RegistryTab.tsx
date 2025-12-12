@@ -34,7 +34,7 @@ export default function RegistryTab() {
       </div>
       {activeSection === 'list' && <RegisteredAppsList onSelectApp={setSelectedAppId} />}
       {activeSection === 'register' && <RegisterAppForm />}
-      {Boolean(selectedAppId) && <AppDetailModal agentId={selectedAppId} onClose={() => setSelectedAppId(null)} />}
+      {selectedAppId !== null && <AppDetailModal agentId={selectedAppId} onClose={() => setSelectedAppId(null)} />}
     </div>
   );
 }
