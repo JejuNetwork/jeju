@@ -1,13 +1,23 @@
 /**
  * Storage Backends
- * 
+ *
  * Interface for all storage backends:
  * - IPFS (decentralized)
- * - Cloud (Vercel, S3, R2)
+ * - Cloud (Vercel, S3, R2) - wrapped via cloud-provider.ts
  * - Arweave (permanent)
+ *
+ * IMPORTANT: Vendor code (Vercel SDK, AWS SDK, etc.) stays in cloud.ts.
+ * The cloud-provider.ts wraps these to implement StorageProviderInterface,
+ * allowing them to participate in the decentralized marketplace.
+ *
+ * Compute marketplace should use:
+ *   import { createComputeStorageClient } from '../sdk/marketplace-client'
+ * NOT:
+ *   import { VercelBlobBackend } from './cloud'
  */
 
 export * from './cloud';
+export * from './cloud-provider';
 
 import { createHash } from 'crypto';
 import {

@@ -1,0 +1,33 @@
+{
+  "name": "@jeju/council",
+  "version": "1.0.0",
+  "description": "AI Council DAO - Autonomous governance with AI CEO, council agents, and reputation-weighted proposals",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "dev:ceo": "bun run src/ceo-server.ts",
+    "dev:all": "bun run src/index.ts & bun run src/ceo-server.ts",
+    "build": "bun build src/index.ts --outdir dist --target node",
+    "test": "bun test",
+    "test:synpress": "bunx synpress run --configFile synpress.config.ts",
+    "lint": "eslint src --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@elizaos/core": "^1.6.4",
+    "@anthropic-ai/sdk": "^0.30.0",
+    "ai": "^5.0.0",
+    "ethers": "^6.13.4",
+    "hono": "^4.6.0",
+    "viem": "^2.21.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "@synthetixio/synpress": "^4.0.0",
+    "@types/bun": "^1.1.0",
+    "typescript": "^5.6.0"
+  },
+  "optionalDependencies": {}
+}

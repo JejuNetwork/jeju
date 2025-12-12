@@ -8,7 +8,7 @@ import "../contracts/RegistryFactory.sol";
 
 /**
  * @title Deploy
- * @notice Deployment script for Babylon experimental contracts
+ * @notice Deployment script for Jeju compute marketplace contracts
  * 
  * Usage:
  *   # Deploy to Sepolia with verification

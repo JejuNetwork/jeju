@@ -1,405 +1,442 @@
 /**
  * Cloud-Compute Integration
  *
- * Bridges the cloud platform with the decentralized compute marketplace.
- * Enables:
- * - Dynamic model broadcasting from cloud to on-chain registry
- * - Inference routing through cloud and decentralized providers
- * - A2A and MCP endpoint discovery for cloud services
- * - ERC-8004 integration for agent/service discovery
- *
- * Cloud serves as a provider in the compute marketplace, exposing:
- * - LLM models (OpenAI, Anthropic, local)
- * - Image generation (FLUX, Stable Diffusion)
- * - Video generation (Luma, Runway)
- * - Audio/speech services
+ * On-demand compute provisioning with cold start support.
+ * Provisions TEE nodes only when needed to minimize costs.
  */
 
 import type { Address } from 'viem';
-import type {
-  RegisteredModel,
-  ModelPricing,
-  ModelEndpoint,
-  ModelType,
-  ModelDiscoveryResult,
-  ModelDiscoveryFilter,
-} from './types';
-import {
-  ModelTypeEnum,
-  ModelSourceTypeEnum,
-  ModelHostingTypeEnum,
-  ModelCapabilityEnum,
-  TEETypeEnum,
-  GPUTypeEnum,
-} from './types';
+import type { RegisteredModel, ModelPricing, ModelEndpoint, ModelType, ModelDiscoveryResult, ModelDiscoveryFilter, ExtendedSDKConfig } from './types';
+import { ModelTypeEnum, ModelSourceTypeEnum, ModelHostingTypeEnum, ModelCapabilityEnum, TEETypeEnum, GPUTypeEnum } from './types';
 import { createInferenceRegistry, type InferenceRegistrySDK } from './inference-registry';
-import type { ExtendedSDKConfig } from './types';
 
 // ============================================================================
-// Types
+// Compute Node Types
 // ============================================================================
 
-/** Cloud model from the cloud platform */
+export type ComputeNodeStatus = 'cold' | 'provisioning' | 'ready' | 'active' | 'idle' | 'draining' | 'terminated' | 'error';
+export type ComputeHardwareType = 'cpu' | 'gpu';
+export type ComputeTEEType = 'none' | 'phala' | 'sgx' | 'nitro' | 'sev';
+export type ComputeGPUType = 'none' | 'H200' | 'H100' | 'A100_80' | 'A100_40' | 'RTX4090' | 'L40S';
+
+export interface ComputeNodeConfig {
+  nodeId: string;
+  name: string;
+  hardwareType: ComputeHardwareType;
+  teeType: ComputeTEEType;
+  gpuType: ComputeGPUType;
+  gpuMemoryGb?: number;
+  cpuCores: number;
+  memoryGb: number;
+  containerImage: string;
+  startupCommand?: string;
+  env?: Record<string, string>;
+  idleTimeoutMs: number;
+  coldStartTimeMs: number;
+  pricePerHourWei: bigint;
+  regions: string[];
+}
+
+export interface ComputeNode {
+  config: ComputeNodeConfig;
+  status: ComputeNodeStatus;
+  endpoint?: string;
+  internalEndpoint?: string;
+  provisioningStartedAt?: number;
+  readySince?: number;
+  lastRequestAt?: number;
+  activeRequests: number;
+  totalRequests: number;
+  error?: string;
+  providerMeta?: Record<string, unknown>;
+}
+
+export interface ComputeNodeMetadata {
+  nodeId: string;
+  name: string;
+  status: ComputeNodeStatus;
+  hardwareType: ComputeHardwareType;
+  teeType: ComputeTEEType;
+  gpuType: ComputeGPUType;
+  endpointAvailable: boolean;
+  coldStartTimeMs: number;
+  estimatedReadyInMs: number;
+  pricePerHourWei: string;
+  regions: string[];
+  activeRequests: number;
+  lastActivityAt?: number;
+}
+
+export interface ProvisionRequest { nodeId: string; priority?: 'low' | 'normal' | 'high'; timeout?: number }
+export interface ProvisionResult { nodeId: string; status: ComputeNodeStatus; endpoint?: string; error?: string; provisionTimeMs?: number }
+
+interface QueuedRequest {
+  id: string;
+  nodeId: string;
+  request: unknown;
+  resolve: (v: unknown) => void;
+  reject: (e: Error) => void;
+  timeout: NodeJS.Timeout;
+  queuedAt: number;
+}
+
+export interface ComputeManagerConfig {
+  provisionerEndpoint: string;
+  provisionerApiKey?: string;
+  rpcUrl: string;
+  defaultIdleTimeoutMs: number;
+  maxQueueTimeMs: number;
+  statusPollIntervalMs: number;
+}
+
+// ============================================================================
+// Compute Node Manager
+// ============================================================================
+
+export class ComputeNodeManager {
+  private config: ComputeManagerConfig;
+  private nodes = new Map<string, ComputeNode>();
+  private queues = new Map<string, QueuedRequest[]>();
+  private pollers = new Map<string, NodeJS.Timer>();
+
+  constructor(config: ComputeManagerConfig) { this.config = config; }
+
+  registerNode(cfg: ComputeNodeConfig): ComputeNode {
+    const node: ComputeNode = { config: cfg, status: 'cold', activeRequests: 0, totalRequests: 0 };
+    this.nodes.set(cfg.nodeId, node);
+    this.queues.set(cfg.nodeId, []);
+    console.log('[Compute] Registered', { nodeId: cfg.nodeId, name: cfg.name, hardware: cfg.hardwareType, tee: cfg.teeType, gpu: cfg.gpuType });
+    return node;
+  }
+
+  getNode(id: string): ComputeNode | undefined { return this.nodes.get(id); }
+  getAllNodes(): ComputeNode[] { return [...this.nodes.values()]; }
+
+  getNodeMetadata(id: string): ComputeNodeMetadata | undefined {
+    const n = this.nodes.get(id);
+    if (!n) return undefined;
+
+    let estimatedReadyInMs = 0;
+    if (n.status === 'cold') estimatedReadyInMs = n.config.coldStartTimeMs;
+    else if (n.status === 'provisioning' && n.provisioningStartedAt) {
+      estimatedReadyInMs = Math.max(0, n.config.coldStartTimeMs - (Date.now() - n.provisioningStartedAt));
+    }
+
+    return {
+      nodeId: n.config.nodeId, name: n.config.name, status: n.status,
+      hardwareType: n.config.hardwareType, teeType: n.config.teeType, gpuType: n.config.gpuType,
+      endpointAvailable: n.status === 'ready' || n.status === 'active',
+      coldStartTimeMs: n.config.coldStartTimeMs, estimatedReadyInMs,
+      pricePerHourWei: n.config.pricePerHourWei.toString(),
+      regions: n.config.regions, activeRequests: n.activeRequests, lastActivityAt: n.lastRequestAt,
+    };
+  }
+
+  getAllNodeMetadata(): ComputeNodeMetadata[] {
+    return [...this.nodes.keys()].map(id => this.getNodeMetadata(id)).filter((m): m is ComputeNodeMetadata => !!m);
+  }
+
+  async provisionNode(req: ProvisionRequest): Promise<ProvisionResult> {
+    const node = this.nodes.get(req.nodeId);
+    if (!node) return { nodeId: req.nodeId, status: 'error', error: 'Node not found' };
+    if (node.status === 'ready' || node.status === 'active') return { nodeId: req.nodeId, status: node.status, endpoint: node.endpoint };
+    if (node.status === 'provisioning') return this.waitForReady(req.nodeId, req.timeout);
+
+    node.status = 'provisioning';
+    node.provisioningStartedAt = Date.now();
+    console.log('[Compute] Provisioning', { nodeId: req.nodeId, hardware: node.config.hardwareType, tee: node.config.teeType });
+
+    try {
+      const res = await this.callProvisioner('provision', {
+        nodeId: node.config.nodeId, containerImage: node.config.containerImage,
+        startupCommand: node.config.startupCommand, env: node.config.env,
+        hardwareType: node.config.hardwareType, teeType: node.config.teeType,
+        gpuType: node.config.gpuType, gpuMemoryGb: node.config.gpuMemoryGb,
+        cpuCores: node.config.cpuCores, memoryGb: node.config.memoryGb, priority: req.priority,
+      });
+
+      node.status = 'ready';
+      node.endpoint = res.endpoint;
+      node.internalEndpoint = res.internalEndpoint ?? res.endpoint;
+      node.readySince = Date.now();
+      node.providerMeta = res.providerMeta;
+      const provisionTimeMs = Date.now() - node.provisioningStartedAt;
+
+      console.log('[Compute] Ready', { nodeId: req.nodeId, endpoint: node.endpoint, provisionTimeMs });
+      this.startIdleMonitor(req.nodeId);
+      await this.processQueue(req.nodeId);
+
+      return { nodeId: req.nodeId, status: 'ready', endpoint: node.endpoint, provisionTimeMs };
+    } catch (e) {
+      node.status = 'error';
+      node.error = e instanceof Error ? e.message : String(e);
+      console.error('[Compute] Failed', { nodeId: req.nodeId, error: node.error });
+      this.rejectQueue(req.nodeId, new Error(`Provisioning failed: ${node.error}`));
+      return { nodeId: req.nodeId, status: 'error', error: node.error };
+    }
+  }
+
+  private async waitForReady(nodeId: string, timeout?: number): Promise<ProvisionResult> {
+    const deadline = Date.now() + (timeout ?? 120000);
+    while (Date.now() < deadline) {
+      const n = this.nodes.get(nodeId);
+      if (!n) return { nodeId, status: 'error', error: 'Node not found' };
+      if (n.status === 'ready' || n.status === 'active') return { nodeId, status: n.status, endpoint: n.endpoint };
+      if (n.status === 'error') return { nodeId, status: 'error', error: n.error };
+      await new Promise(r => setTimeout(r, this.config.statusPollIntervalMs));
+    }
+    return { nodeId, status: 'error', error: 'Timeout' };
+  }
+
+  async executeRequest<T>(nodeId: string, request: unknown, exec: (endpoint: string, req: unknown) => Promise<T>): Promise<T> {
+    const node = this.nodes.get(nodeId);
+    if (!node) throw new Error(`Node ${nodeId} not found`);
+
+    if ((node.status === 'ready' || node.status === 'active') && node.endpoint) {
+      node.activeRequests++;
+      node.status = 'active';
+      node.lastRequestAt = Date.now();
+      try {
+        const result = await exec(node.endpoint, request);
+        node.totalRequests++;
+        return result;
+      } finally {
+        node.activeRequests--;
+        if (node.activeRequests === 0) node.status = 'ready';
+      }
+    }
+
+    if (node.status === 'cold' || node.status === 'error') this.provisionNode({ nodeId }).catch(() => {});
+
+    return new Promise((resolve, reject) => {
+      const queue = this.queues.get(nodeId);
+      if (!queue) { reject(new Error(`No queue for ${nodeId}`)); return; }
+
+      const id = `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const timer = setTimeout(() => {
+        const idx = queue.findIndex(q => q.id === id);
+        if (idx >= 0) { queue.splice(idx, 1); reject(new Error('Queue timeout')); }
+      }, this.config.maxQueueTimeMs);
+
+      queue.push({ id, nodeId, request, resolve: resolve as (v: unknown) => void, reject, timeout: timer, queuedAt: Date.now() });
+      console.log('[Compute] Queued', { nodeId, requestId: id, queueLength: queue.length, status: node.status });
+    });
+  }
+
+  private async processQueue(nodeId: string): Promise<void> {
+    const node = this.nodes.get(nodeId);
+    const queue = this.queues.get(nodeId);
+    if (!node || !queue || queue.length === 0) return;
+
+    console.log('[Compute] Processing queue', { nodeId, queueLength: queue.length });
+    while (queue.length > 0) {
+      const item = queue.shift()!;
+      clearTimeout(item.timeout);
+      item.resolve({ endpoint: node.endpoint, request: item.request });
+    }
+  }
+
+  private rejectQueue(nodeId: string, error: Error): void {
+    const queue = this.queues.get(nodeId);
+    if (!queue) return;
+    while (queue.length > 0) {
+      const item = queue.shift()!;
+      clearTimeout(item.timeout);
+      item.reject(error);
+    }
+  }
+
+  private startIdleMonitor(nodeId: string): void {
+    const existing = this.pollers.get(nodeId);
+    if (existing) clearInterval(existing);
+
+    const poller = setInterval(() => {
+      const n = this.nodes.get(nodeId);
+      if (!n) { clearInterval(poller); this.pollers.delete(nodeId); return; }
+      if ((n.status !== 'ready' && n.status !== 'idle') || n.activeRequests > 0) return;
+
+      const idle = Date.now() - (n.lastRequestAt ?? n.readySince ?? Date.now());
+      if (idle > n.config.idleTimeoutMs) {
+        console.log('[Compute] Idle timeout', { nodeId, idleMs: idle });
+        this.terminateNode(nodeId).catch(() => {});
+      } else if (idle > n.config.idleTimeoutMs / 2) {
+        n.status = 'idle';
+      }
+    }, this.config.statusPollIntervalMs);
+
+    this.pollers.set(nodeId, poller);
+  }
+
+  async terminateNode(nodeId: string): Promise<void> {
+    const node = this.nodes.get(nodeId);
+    if (!node) return;
+
+    if (node.activeRequests > 0) {
+      node.status = 'draining';
+      const deadline = Date.now() + 30000;
+      while (node.activeRequests > 0 && Date.now() < deadline) await new Promise(r => setTimeout(r, 1000));
+    }
+
+    const poller = this.pollers.get(nodeId);
+    if (poller) { clearInterval(poller); this.pollers.delete(nodeId); }
+
+    await this.callProvisioner('terminate', { nodeId }).catch(() => {});
+
+    Object.assign(node, {
+      status: 'cold', endpoint: undefined, internalEndpoint: undefined,
+      provisioningStartedAt: undefined, readySince: undefined, lastRequestAt: undefined,
+      activeRequests: 0, error: undefined, providerMeta: undefined,
+    });
+    console.log('[Compute] Terminated', { nodeId });
+  }
+
+  async shutdown(): Promise<void> {
+    await Promise.all([...this.nodes.keys()].map(id => this.terminateNode(id)));
+    console.log('[Compute] All nodes terminated');
+  }
+
+  private async callProvisioner(action: string, params: Record<string, unknown>): Promise<{ endpoint?: string; internalEndpoint?: string; providerMeta?: Record<string, unknown> }> {
+    const res = await fetch(`${this.config.provisionerEndpoint}/api/v1/compute/${action}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(this.config.provisionerApiKey ? { Authorization: `Bearer ${this.config.provisionerApiKey}` } : {}),
+      },
+      body: JSON.stringify(params),
+    });
+    if (!res.ok) throw new Error(`Provisioner ${action} failed: ${res.status} - ${await res.text()}`);
+    return res.json() as Promise<{ endpoint?: string; internalEndpoint?: string; providerMeta?: Record<string, unknown> }>;
+  }
+}
+
+// ============================================================================
+// Cloud Model Types
+// ============================================================================
+
 export interface CloudModelInfo {
   id: string;
   name: string;
-  provider: string;           // OpenAI, Anthropic, etc.
-  providerId: string;         // Internal provider ID
+  provider: string;
   modelType: 'llm' | 'image' | 'video' | 'audio' | 'embedding';
   multiModal?: boolean;
   contextWindow?: number;
-  maxResolution?: string;
-  maxDuration?: number;
-  inputPricePerMillion?: number;   // USD
-  outputPricePerMillion?: number;  // USD
-  pricePerImage?: number;          // USD
-  pricePerSecond?: number;         // USD
-  capabilities?: string[];
+  inputPricePerMillion?: number;
+  outputPricePerMillion?: number;
+  pricePerImage?: number;
+  pricePerSecond?: number;
 }
 
-/** Cloud A2A skill */
-export interface CloudA2ASkill {
-  id: string;
-  description: string;
-  handler?: string;
-}
-
-/** Cloud provider status */
-export interface CloudProviderStatus {
-  available: boolean;
-  modelCount: number;
-  skillCount: number;
-  lastSync: number;
-  endpoint: string;
-}
-
-/** Cloud integration configuration */
 export interface CloudIntegrationConfig {
-  cloudEndpoint: string;              // Cloud API endpoint
-  cloudApiKey?: string;               // API key for cloud
-  rpcUrl: string;                     // Blockchain RPC
-  modelRegistryAddress?: string;      // On-chain model registry
-  identityRegistryAddress?: string;   // ERC-8004 identity registry
-  providerAddress?: Address;          // Cloud's on-chain provider address
-  syncIntervalMs?: number;            // Model sync interval (default: 60000)
-  enableBroadcasting?: boolean;       // Register models on-chain (default: false)
+  cloudEndpoint: string;
+  cloudApiKey?: string;
+  rpcUrl: string;
+  modelRegistryAddress?: string;
+  providerAddress?: Address;
+  syncIntervalMs?: number;
+  enableBroadcasting?: boolean;
 }
 
 // ============================================================================
 // Cloud Model Broadcaster
 // ============================================================================
 
-/**
- * CloudModelBroadcaster
- *
- * Syncs cloud platform models to the on-chain InferenceRegistry.
- * This allows decentralized discovery of cloud-hosted models.
- */
 export class CloudModelBroadcaster {
   private config: CloudIntegrationConfig;
   private registry: InferenceRegistrySDK | null = null;
-  private cachedModels: Map<string, CloudModelInfo> = new Map();
-  private cachedSkills: CloudA2ASkill[] = [];
+  private models = new Map<string, CloudModelInfo>();
   private lastSync = 0;
-  private syncIntervalMs: number;
+  private syncInterval: number;
 
   constructor(config: CloudIntegrationConfig) {
     this.config = config;
-    this.syncIntervalMs = config.syncIntervalMs ?? 60000;
-
+    this.syncInterval = config.syncIntervalMs ?? 60000;
     if (config.modelRegistryAddress && config.enableBroadcasting) {
       this.registry = createInferenceRegistry({
         rpcUrl: config.rpcUrl,
-        contracts: {
-          registry: '0x0',
-          ledger: '0x0',
-          inference: '0x0',
-          modelRegistry: config.modelRegistryAddress,
-        },
+        contracts: { registry: '0x0', ledger: '0x0', inference: '0x0', modelRegistry: config.modelRegistryAddress },
       });
     }
   }
 
-  /**
-   * Fetch available models from cloud endpoint
-   */
-  async fetchCloudModels(): Promise<CloudModelInfo[]> {
-    const response = await fetch(`${this.config.cloudEndpoint}/api/v1/models`, {
-      headers: this.getHeaders(),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch cloud models: ${response.status}`);
-    }
-
-    const data = await response.json() as { models: CloudModelInfo[] };
-    return data.models;
-  }
-
-  /**
-   * Fetch A2A skills from cloud
-   */
-  async fetchCloudSkills(): Promise<CloudA2ASkill[]> {
-    const response = await fetch(`${this.config.cloudEndpoint}/.well-known/agent-card.json`, {
-      headers: this.getHeaders(),
-    });
-
-    if (!response.ok) {
-      return [];
-    }
-
-    const card = await response.json() as { skills?: Array<{ id: string; description: string }> };
-    return (card.skills ?? []).map(s => ({
-      id: s.id,
-      description: s.description,
-    }));
-  }
-
-  /**
-   * Sync cloud models to local cache and optionally to on-chain registry
-   */
   async sync(): Promise<void> {
-    const now = Date.now();
-    if (now - this.lastSync < this.syncIntervalMs) {
-      return; // Skip if synced recently
-    }
+    if (Date.now() - this.lastSync < this.syncInterval) return;
 
-    const [models, skills] = await Promise.all([
-      this.fetchCloudModels(),
-      this.fetchCloudSkills(),
-    ]);
+    const res = await fetch(`${this.config.cloudEndpoint}/api/v1/models`, { headers: this.headers() });
+    if (!res.ok) throw new Error(`Fetch models failed: ${res.status}`);
 
-    // Update local cache
-    this.cachedModels.clear();
-    for (const model of models) {
-      this.cachedModels.set(model.id, model);
-    }
-    this.cachedSkills = skills;
-    this.lastSync = now;
+    const data = await res.json() as { models: CloudModelInfo[] };
+    this.models.clear();
+    for (const m of data.models) this.models.set(m.id, m);
+    this.lastSync = Date.now();
 
-    // Broadcast to on-chain registry if enabled
     if (this.config.enableBroadcasting && this.registry) {
-      await this.broadcastToRegistry(models);
-    }
-  }
-
-  /**
-   * Register cloud models on-chain
-   */
-  private async broadcastToRegistry(models: CloudModelInfo[]): Promise<void> {
-    if (!this.registry) return;
-
-    for (const model of models) {
-      const registeredModel = this.cloudToRegisteredModel(model);
-      
-      // Check if already registered
-      const existingModel = await this.registry.getModel(registeredModel.modelId);
-      if (existingModel) {
-        // Update pricing if needed
-        continue;
+      for (const m of data.models) {
+        const reg = this.toRegisteredModel(m);
+        if (await this.registry.getModel(reg.modelId)) continue;
+        await this.registry.registerModel({
+          modelId: reg.modelId, name: reg.name, description: reg.description, version: '1.0.0',
+          modelType: reg.modelType, sourceType: reg.sourceType, hostingType: reg.hostingType,
+          creatorName: reg.creator.name, creatorWebsite: reg.creator.website,
+          capabilities: reg.capabilities, contextWindow: reg.contextWindow, pricing: reg.pricing, hardware: reg.hardware,
+        });
+        await this.registry.addEndpoint({
+          modelId: reg.modelId, endpoint: `${this.config.cloudEndpoint}/api/v1`,
+          region: 'global', teeType: TEETypeEnum.NONE, maxConcurrent: 1000,
+        });
       }
-
-      // Register new model
-      await this.registry.registerModel({
-        modelId: registeredModel.modelId,
-        name: registeredModel.name,
-        description: registeredModel.description,
-        version: '1.0.0',
-        modelType: registeredModel.modelType,
-        sourceType: registeredModel.sourceType,
-        hostingType: registeredModel.hostingType,
-        creatorName: registeredModel.creator.name,
-        creatorWebsite: registeredModel.creator.website,
-        capabilities: registeredModel.capabilities,
-        contextWindow: registeredModel.contextWindow,
-        pricing: registeredModel.pricing,
-        hardware: registeredModel.hardware,
-      });
-
-      // Add cloud endpoint
-      await this.registry.addEndpoint({
-        modelId: registeredModel.modelId,
-        endpoint: `${this.config.cloudEndpoint}/api/v1`,
-        region: 'global',
-        teeType: TEETypeEnum.NONE,
-        maxConcurrent: 1000,
-      });
     }
   }
 
-  /**
-   * Convert cloud model to RegisteredModel format
-   */
-  cloudToRegisteredModel(cloud: CloudModelInfo): RegisteredModel {
-    const modelType = this.mapModelType(cloud.modelType);
-    const capabilities = this.mapCapabilities(cloud);
-    const pricing = this.mapPricing(cloud);
+  toRegisteredModel(m: CloudModelInfo): RegisteredModel {
+    const typeMap: Record<string, ModelType> = { llm: ModelTypeEnum.LLM, image: ModelTypeEnum.IMAGE_GEN, video: ModelTypeEnum.VIDEO_GEN, audio: ModelTypeEnum.AUDIO_GEN, embedding: ModelTypeEnum.EMBEDDING };
+    const websites: Record<string, string> = { openai: 'https://openai.com', anthropic: 'https://anthropic.com', google: 'https://google.com', meta: 'https://meta.com', mistral: 'https://mistral.ai' };
 
-    return {
-      modelId: `cloud/${cloud.provider.toLowerCase()}/${cloud.id}`,
-      name: cloud.name,
-      description: `${cloud.name} via ${cloud.provider}`,
-      version: '1.0.0',
-      modelType,
-      sourceType: ModelSourceTypeEnum.CLOSED_SOURCE,
-      hostingType: ModelHostingTypeEnum.CENTRALIZED,
-      creator: {
-        name: cloud.provider,
-        website: this.getProviderWebsite(cloud.provider),
-        verified: true,
-        trustScore: 100,
-      },
-      capabilities,
-      contextWindow: cloud.contextWindow ?? 0,
-      pricing,
-      hardware: {
-        minGpuVram: 0,
-        recommendedGpuType: GPUTypeEnum.NONE,
-        minCpuCores: 0,
-        minMemory: 0,
-        teeRequired: false,
-        teeType: TEETypeEnum.NONE,
-      },
-      registeredAt: Date.now(),
-      updatedAt: Date.now(),
-      active: true,
-      totalRequests: 0n,
-      avgLatencyMs: 0,
-      uptime: 100,
-    };
-  }
-
-  private mapModelType(type: string): ModelType {
-    switch (type) {
-      case 'llm': return ModelTypeEnum.LLM;
-      case 'image': return ModelTypeEnum.IMAGE_GEN;
-      case 'video': return ModelTypeEnum.VIDEO_GEN;
-      case 'audio': return ModelTypeEnum.AUDIO_GEN;
-      case 'embedding': return ModelTypeEnum.EMBEDDING;
-      default: return ModelTypeEnum.LLM;
-    }
-  }
-
-  private mapCapabilities(cloud: CloudModelInfo): number {
     let caps = 0;
-    
-    if (cloud.modelType === 'llm') {
-      caps |= ModelCapabilityEnum.TEXT_GENERATION;
-      caps |= ModelCapabilityEnum.STREAMING;
-    }
-    if (cloud.modelType === 'image') {
-      caps |= ModelCapabilityEnum.IMAGE_GENERATION;
-    }
-    if (cloud.modelType === 'video') {
-      caps |= ModelCapabilityEnum.VIDEO_GENERATION;
-    }
-    if (cloud.modelType === 'audio') {
-      caps |= ModelCapabilityEnum.TEXT_TO_SPEECH | ModelCapabilityEnum.AUDIO_GENERATION;
-    }
-    if (cloud.modelType === 'embedding') {
-      caps |= ModelCapabilityEnum.EMBEDDINGS;
-    }
-    if (cloud.multiModal) {
-      caps |= ModelCapabilityEnum.VISION | ModelCapabilityEnum.MULTIMODAL;
-    }
-    if (cloud.contextWindow && cloud.contextWindow > 32000) {
-      caps |= ModelCapabilityEnum.LONG_CONTEXT;
-    }
+    if (m.modelType === 'llm') caps |= ModelCapabilityEnum.TEXT_GENERATION | ModelCapabilityEnum.STREAMING;
+    if (m.modelType === 'image') caps |= ModelCapabilityEnum.IMAGE_GENERATION;
+    if (m.modelType === 'video') caps |= ModelCapabilityEnum.VIDEO_GENERATION;
+    if (m.modelType === 'audio') caps |= ModelCapabilityEnum.TEXT_TO_SPEECH | ModelCapabilityEnum.AUDIO_GENERATION;
+    if (m.modelType === 'embedding') caps |= ModelCapabilityEnum.EMBEDDINGS;
+    if (m.multiModal) caps |= ModelCapabilityEnum.VISION | ModelCapabilityEnum.MULTIMODAL;
+    if (m.contextWindow && m.contextWindow > 32000) caps |= ModelCapabilityEnum.LONG_CONTEXT;
 
-    return caps;
-  }
-
-  private mapPricing(cloud: CloudModelInfo): ModelPricing {
-    // Convert USD pricing to wei (assuming 1 ETH = $3000 for estimation)
-    const ethPerUsd = 1 / 3000;
-    const weiPerUsd = BigInt(Math.floor(ethPerUsd * 1e18));
+    const weiPerUsd = BigInt(Math.floor((1 / 3000) * 1e18));
+    const pricing: ModelPricing = {
+      pricePerInputToken: m.inputPricePerMillion ? (weiPerUsd * BigInt(Math.floor(m.inputPricePerMillion * 1e6))) / 1_000_000n : 0n,
+      pricePerOutputToken: m.outputPricePerMillion ? (weiPerUsd * BigInt(Math.floor(m.outputPricePerMillion * 1e6))) / 1_000_000n : 0n,
+      pricePerImageInput: 0n,
+      pricePerImageOutput: m.pricePerImage ? weiPerUsd * BigInt(Math.floor(m.pricePerImage * 1e6)) / 1_000_000n : 0n,
+      pricePerVideoSecond: m.pricePerSecond ? weiPerUsd * BigInt(Math.floor(m.pricePerSecond * 1e6)) / 1_000_000n : 0n,
+      pricePerAudioSecond: m.pricePerSecond ? weiPerUsd * BigInt(Math.floor(m.pricePerSecond * 1e6)) / 1_000_000n : 0n,
+      minimumFee: weiPerUsd / 1000n, currency: 'ETH',
+    };
 
     return {
-      pricePerInputToken: cloud.inputPricePerMillion 
-        ? (weiPerUsd * BigInt(Math.floor(cloud.inputPricePerMillion * 1e6))) / 1_000_000n
-        : 0n,
-      pricePerOutputToken: cloud.outputPricePerMillion
-        ? (weiPerUsd * BigInt(Math.floor(cloud.outputPricePerMillion * 1e6))) / 1_000_000n
-        : 0n,
-      pricePerImageInput: 0n,
-      pricePerImageOutput: cloud.pricePerImage
-        ? weiPerUsd * BigInt(Math.floor(cloud.pricePerImage * 1e6)) / 1_000_000n
-        : 0n,
-      pricePerVideoSecond: cloud.pricePerSecond
-        ? weiPerUsd * BigInt(Math.floor(cloud.pricePerSecond * 1e6)) / 1_000_000n
-        : 0n,
-      pricePerAudioSecond: cloud.pricePerSecond
-        ? weiPerUsd * BigInt(Math.floor(cloud.pricePerSecond * 1e6)) / 1_000_000n
-        : 0n,
-      minimumFee: weiPerUsd / 1000n, // $0.001 minimum
-      currency: 'ETH',
+      modelId: `cloud/${m.provider.toLowerCase()}/${m.id}`, name: m.name, description: `${m.name} via ${m.provider}`,
+      version: '1.0.0', modelType: typeMap[m.modelType] ?? ModelTypeEnum.LLM,
+      sourceType: ModelSourceTypeEnum.CLOSED_SOURCE, hostingType: ModelHostingTypeEnum.CENTRALIZED,
+      creator: { name: m.provider, website: websites[m.provider.toLowerCase()] ?? 'https://jeju.network', verified: true, trustScore: 100 },
+      capabilities: caps, contextWindow: m.contextWindow ?? 0, pricing,
+      hardware: { minGpuVram: 0, recommendedGpuType: GPUTypeEnum.NONE, minCpuCores: 0, minMemory: 0, teeRequired: false, teeType: TEETypeEnum.NONE },
+      registeredAt: Date.now(), updatedAt: Date.now(), active: true, totalRequests: 0n, avgLatencyMs: 0, uptime: 100,
     };
   }
 
-  private getProviderWebsite(provider: string): string {
-    const websites: Record<string, string> = {
-      openai: 'https://openai.com',
-      anthropic: 'https://anthropic.com',
-      google: 'https://google.com',
-      meta: 'https://meta.com',
-      mistral: 'https://mistral.ai',
-      flux: 'https://blackforestlabs.ai',
-      luma: 'https://lumalabs.ai',
-      runway: 'https://runwayml.com',
-      elevenlabs: 'https://elevenlabs.io',
-    };
-    return websites[provider.toLowerCase()] ?? 'https://elizacloud.ai';
+  private headers(): Record<string, string> {
+    const h: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (this.config.cloudApiKey) h['Authorization'] = `Bearer ${this.config.cloudApiKey}`;
+    return h;
   }
 
-  private getHeaders(): Record<string, string> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    if (this.config.cloudApiKey) {
-      headers['Authorization'] = `Bearer ${this.config.cloudApiKey}`;
-    }
-    return headers;
-  }
-
-  /**
-   * Get cached models
-   */
-  getModels(): CloudModelInfo[] {
-    return Array.from(this.cachedModels.values());
-  }
-
-  /**
-   * Get cached skills
-   */
-  getSkills(): CloudA2ASkill[] {
-    return this.cachedSkills;
-  }
-
-  /**
-   * Get model by ID
-   */
-  getModel(modelId: string): CloudModelInfo | undefined {
-    return this.cachedModels.get(modelId);
-  }
-
-  /**
-   * Check if synced
-   */
-  isSynced(): boolean {
-    return this.lastSync > 0;
-  }
+  getModels(): CloudModelInfo[] { return [...this.models.values()]; }
+  getModel(id: string): CloudModelInfo | undefined { return this.models.get(id); }
+  isSynced(): boolean { return this.lastSync > 0; }
 }
 
 // ============================================================================
 // Cloud Provider Bridge
 // ============================================================================
 
-/**
- * CloudProviderBridge
- *
- * Routes inference requests through the cloud platform.
- * Integrates with compute marketplace for seamless access.
- */
 export class CloudProviderBridge {
   private config: CloudIntegrationConfig;
   private broadcaster: CloudModelBroadcaster;
@@ -409,439 +446,108 @@ export class CloudProviderBridge {
     this.broadcaster = new CloudModelBroadcaster(config);
   }
 
-  /**
-   * Initialize and sync with cloud
-   */
-  async initialize(): Promise<void> {
-    await this.broadcaster.sync();
-  }
+  async initialize(): Promise<void> { await this.broadcaster.sync(); }
 
-  /**
-   * Get provider status
-   */
-  async getStatus(): Promise<CloudProviderStatus> {
-    const models = this.broadcaster.getModels();
-    const skills = this.broadcaster.getSkills();
-
-    return {
-      available: this.broadcaster.isSynced(),
-      modelCount: models.length,
-      skillCount: skills.length,
-      lastSync: Date.now(),
-      endpoint: this.config.cloudEndpoint,
-    };
-  }
-
-  /**
-   * Discover models from cloud matching filter
-   */
   async discoverModels(filter?: ModelDiscoveryFilter): Promise<ModelDiscoveryResult[]> {
     await this.broadcaster.sync();
-
-    const cloudModels = this.broadcaster.getModels();
     const results: ModelDiscoveryResult[] = [];
 
-    for (const cloud of cloudModels) {
-      const registered = this.cloudToRegisteredModel(cloud);
-
-      // Apply filters
-      if (filter?.modelType !== undefined && registered.modelType !== filter.modelType) {
-        continue;
-      }
-      if (filter?.capabilities && (registered.capabilities & filter.capabilities) !== filter.capabilities) {
-        continue;
-      }
-      if (filter?.minContextWindow && registered.contextWindow < filter.minContextWindow) {
-        continue;
-      }
+    for (const m of this.broadcaster.getModels()) {
+      const reg = this.broadcaster.toRegisteredModel(m);
+      if (filter?.modelType !== undefined && reg.modelType !== filter.modelType) continue;
+      if (filter?.capabilities && (reg.capabilities & filter.capabilities) !== filter.capabilities) continue;
+      if (filter?.minContextWindow && reg.contextWindow < filter.minContextWindow) continue;
 
       const endpoint: ModelEndpoint = {
-        modelId: registered.modelId,
-        providerAddress: this.config.providerAddress ?? '0x0000000000000000000000000000000000000000',
-        endpoint: `${this.config.cloudEndpoint}/api/v1`,
-        region: 'global',
-        teeType: TEETypeEnum.NONE,
-        attestationHash: '',
-        active: true,
-        currentLoad: 0,
-        maxConcurrent: 1000,
-        pricing: registered.pricing,
+        modelId: reg.modelId, providerAddress: this.config.providerAddress ?? '0x0000000000000000000000000000000000000000',
+        endpoint: `${this.config.cloudEndpoint}/api/v1`, region: 'global', teeType: TEETypeEnum.NONE,
+        attestationHash: '', active: true, currentLoad: 0, maxConcurrent: 1000, pricing: reg.pricing,
       };
-
-      results.push({
-        model: registered,
-        endpoints: [endpoint],
-        recommendedEndpoint: endpoint,
-      });
+      results.push({ model: reg, endpoints: [endpoint], recommendedEndpoint: endpoint });
     }
-
     return results;
   }
 
-  /**
-   * Make inference request to cloud
-   */
-  async inference(
-    modelId: string,
-    messages: Array<{ role: string; content: string }>,
-    options?: {
-      temperature?: number;
-      maxTokens?: number;
-      stream?: boolean;
-    }
-  ): Promise<{
-    id: string;
-    model: string;
-    content: string;
-    usage: { promptTokens: number; completionTokens: number; totalTokens: number };
-    cost?: number;
-  }> {
-    const response = await fetch(`${this.config.cloudEndpoint}/api/v1/chat/completions`, {
+  async inference(modelId: string, messages: Array<{ role: string; content: string }>, opts?: { temperature?: number; maxTokens?: number }): Promise<{ id: string; model: string; content: string; usage: { promptTokens: number; completionTokens: number; totalTokens: number } }> {
+    const res = await fetch(`${this.config.cloudEndpoint}/api/v1/chat/completions`, {
       method: 'POST',
-      headers: this.getHeaders(),
-      body: JSON.stringify({
-        model: modelId,
-        messages,
-        temperature: options?.temperature ?? 0.7,
-        max_tokens: options?.maxTokens ?? 1024,
-        stream: options?.stream ?? false,
-      }),
+      headers: { 'Content-Type': 'application/json', ...(this.config.cloudApiKey ? { Authorization: `Bearer ${this.config.cloudApiKey}` } : {}) },
+      body: JSON.stringify({ model: modelId, messages, temperature: opts?.temperature ?? 0.7, max_tokens: opts?.maxTokens ?? 1024 }),
     });
+    if (!res.ok) throw new Error(`Inference failed: ${res.status} - ${await res.text()}`);
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Cloud inference failed: ${response.status} - ${error}`);
-    }
-
-    const data = await response.json() as {
-      id: string;
-      model: string;
-      choices: Array<{ message: { content: string } }>;
-      usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
-      cost?: number;
-    };
-
-    return {
-      id: data.id,
-      model: data.model,
-      content: data.choices[0]?.message.content ?? '',
-      usage: {
-        promptTokens: data.usage.prompt_tokens,
-        completionTokens: data.usage.completion_tokens,
-        totalTokens: data.usage.total_tokens,
-      },
-      cost: data.cost,
-    };
-  }
-
-  /**
-   * Generate image via cloud
-   */
-  async generateImage(
-    prompt: string,
-    options?: {
-      model?: string;
-      size?: string;
-      quality?: string;
-    }
-  ): Promise<{ url: string; cost?: number }> {
-    const response = await fetch(`${this.config.cloudEndpoint}/api/v1/images/generations`, {
-      method: 'POST',
-      headers: this.getHeaders(),
-      body: JSON.stringify({
-        prompt,
-        model: options?.model ?? 'flux',
-        size: options?.size ?? '1024x1024',
-        quality: options?.quality ?? 'standard',
-      }),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Cloud image generation failed: ${response.status} - ${error}`);
-    }
-
-    const data = await response.json() as {
-      data: Array<{ url: string }>;
-      cost?: number;
-    };
-
-    return {
-      url: data.data[0]?.url ?? '',
-      cost: data.cost,
-    };
-  }
-
-  /**
-   * Execute A2A skill on cloud
-   */
-  async executeSkill(
-    skillId: string,
-    input: string | Record<string, unknown>,
-    options?: { timeout?: number }
-  ): Promise<unknown> {
-    const response = await fetch(`${this.config.cloudEndpoint}/api/a2a`, {
-      method: 'POST',
-      headers: {
-        ...this.getHeaders(),
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: crypto.randomUUID(),
-        method: 'message/send',
-        params: {
-          message: {
-            role: 'user',
-            parts: typeof input === 'string'
-              ? [{ type: 'text', text: input }]
-              : [{ type: 'data', data: { skill: skillId, ...input } }],
-          },
-        },
-      }),
-      signal: options?.timeout ? AbortSignal.timeout(options.timeout) : undefined,
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Cloud A2A skill failed: ${response.status} - ${error}`);
-    }
-
-    const data = await response.json() as {
-      result?: { status?: { message?: { parts?: Array<{ text?: string; data?: unknown }> } } };
-      error?: { message: string };
-    };
-
-    if (data.error) {
-      throw new Error(`A2A error: ${data.error.message}`);
-    }
-
-    const parts = data.result?.status?.message?.parts ?? [];
-    const textPart = parts.find(p => p.text);
-    const dataPart = parts.find(p => p.data);
-
-    return dataPart?.data ?? textPart?.text ?? data.result;
-  }
-
-  /**
-   * Get available A2A skills
-   */
-  getAvailableSkills(): CloudA2ASkill[] {
-    return this.broadcaster.getSkills();
-  }
-
-  private cloudToRegisteredModel(cloud: CloudModelInfo): RegisteredModel {
-    return this.broadcaster.cloudToRegisteredModel(cloud);
-  }
-
-  private getHeaders(): Record<string, string> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    if (this.config.cloudApiKey) {
-      headers['Authorization'] = `Bearer ${this.config.cloudApiKey}`;
-    }
-    return headers;
+    const data = await res.json() as { id: string; model: string; choices: Array<{ message: { content: string } }>; usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } };
+    return { id: data.id, model: data.model, content: data.choices[0]?.message.content ?? '', usage: { promptTokens: data.usage.prompt_tokens, completionTokens: data.usage.completion_tokens, totalTokens: data.usage.total_tokens } };
   }
 }
 
 // ============================================================================
-// Model Discovery Service
+// Model Discovery
 // ============================================================================
 
-/**
- * ModelDiscovery
- *
- * Combines cloud and decentralized model discovery into a single interface.
- * Provides intelligent routing based on availability, cost, and capabilities.
- */
 export class ModelDiscovery {
   private cloudBridge: CloudProviderBridge | null = null;
   private registrySDK: InferenceRegistrySDK | null = null;
-  private readonly config: CloudIntegrationConfig & { registryConfig?: ExtendedSDKConfig };
+  private computeManager: ComputeNodeManager | null = null;
 
-  constructor(config: CloudIntegrationConfig & { registryConfig?: ExtendedSDKConfig }) {
-    this.config = config;
-
-    // Initialize cloud bridge
-    if (this.config.cloudEndpoint) {
-      this.cloudBridge = new CloudProviderBridge(this.config);
-    }
-
-    // Initialize on-chain registry
-    if (this.config.registryConfig) {
-      this.registrySDK = createInferenceRegistry(this.config.registryConfig);
-    }
+  constructor(config: CloudIntegrationConfig & { registryConfig?: ExtendedSDKConfig; computeConfig?: ComputeManagerConfig }) {
+    if (config.cloudEndpoint) this.cloudBridge = new CloudProviderBridge(config);
+    if (config.registryConfig) this.registrySDK = createInferenceRegistry(config.registryConfig);
+    if (config.computeConfig) this.computeManager = new ComputeNodeManager(config.computeConfig);
   }
 
+  async initialize(): Promise<void> { if (this.cloudBridge) await this.cloudBridge.initialize(); }
 
-  /**
-   * Initialize both discovery sources
-   */
-  async initialize(): Promise<void> {
-    const promises: Promise<void>[] = [];
-
-    if (this.cloudBridge) {
-      promises.push(this.cloudBridge.initialize());
-    }
-
-    await Promise.all(promises);
-  }
-
-  /**
-   * Discover all available models from both sources
-   */
-  async discoverAll(filter?: ModelDiscoveryFilter): Promise<{
-    cloud: ModelDiscoveryResult[];
-    decentralized: ModelDiscoveryResult[];
-    combined: ModelDiscoveryResult[];
-  }> {
-    const [cloudResults, decentralizedResults] = await Promise.all([
-      this.cloudBridge?.discoverModels(filter) ?? Promise.resolve([]),
-      this.registrySDK?.discoverModels(filter ?? {}) ?? Promise.resolve([]),
+  async discoverAll(filter?: ModelDiscoveryFilter): Promise<{ cloud: ModelDiscoveryResult[]; decentralized: ModelDiscoveryResult[]; combined: ModelDiscoveryResult[] }> {
+    const [cloud, decentralized] = await Promise.all([
+      this.cloudBridge?.discoverModels(filter) ?? [],
+      this.registrySDK?.discoverModels(filter ?? {}) ?? [],
     ]);
 
-    // Combine and deduplicate by model ID
     const seen = new Set<string>();
-    const combined: ModelDiscoveryResult[] = [];
+    const combined = [...cloud, ...decentralized].filter(r => { if (seen.has(r.model.modelId)) return false; seen.add(r.model.modelId); return true; });
 
-    // Prefer cloud models for known providers (faster response)
-    for (const result of cloudResults) {
-      if (!seen.has(result.model.modelId)) {
-        seen.add(result.model.modelId);
-        combined.push(result);
-      }
-    }
-
-    // Add decentralized models not in cloud
-    for (const result of decentralizedResults) {
-      if (!seen.has(result.model.modelId)) {
-        seen.add(result.model.modelId);
-        combined.push(result);
-      }
-    }
-
-    return {
-      cloud: cloudResults,
-      decentralized: decentralizedResults,
-      combined,
-    };
+    return { cloud, decentralized, combined };
   }
 
-  /**
-   * Get best model for a given requirement
-   */
-  async selectBestModel(params: {
-    modelType?: ModelType;
-    capabilities?: number;
-    maxPricePerRequest?: bigint;
-    preferCloud?: boolean;
-    preferDecentralized?: boolean;
-  }): Promise<ModelDiscoveryResult | null> {
-    const filter: ModelDiscoveryFilter = {
-      modelType: params.modelType,
-      capabilities: params.capabilities,
-      active: true,
-    };
-
-    const { combined } = await this.discoverAll(filter);
-
-    if (combined.length === 0) {
-      return null;
-    }
-
-    // Sort by preference
-    const sorted = [...combined].sort((a, b) => {
-      // Preference flags
-      if (params.preferCloud) {
-        const aIsCloud = a.model.hostingType === ModelHostingTypeEnum.CENTRALIZED;
-        const bIsCloud = b.model.hostingType === ModelHostingTypeEnum.CENTRALIZED;
-        if (aIsCloud && !bIsCloud) return -1;
-        if (!aIsCloud && bIsCloud) return 1;
-      }
-      if (params.preferDecentralized) {
-        const aIsDecentralized = a.model.hostingType === ModelHostingTypeEnum.DECENTRALIZED;
-        const bIsDecentralized = b.model.hostingType === ModelHostingTypeEnum.DECENTRALIZED;
-        if (aIsDecentralized && !bIsDecentralized) return -1;
-        if (!aIsDecentralized && bIsDecentralized) return 1;
-      }
-
-      // Sort by price
-      const priceA = a.model.pricing.pricePerInputToken + a.model.pricing.pricePerOutputToken;
-      const priceB = b.model.pricing.pricePerInputToken + b.model.pricing.pricePerOutputToken;
-      return Number(priceA - priceB);
-    });
-
-    return sorted[0] ?? null;
-  }
-
-  /**
-   * Get cloud bridge (if available)
-   */
-  getCloudBridge(): CloudProviderBridge | null {
-    return this.cloudBridge;
-  }
-
-  /**
-   * Get registry SDK (if available)
-   */
-  getRegistrySDK(): InferenceRegistrySDK | null {
-    return this.registrySDK;
-  }
+  getCloudBridge(): CloudProviderBridge | null { return this.cloudBridge; }
+  getRegistrySDK(): InferenceRegistrySDK | null { return this.registrySDK; }
+  getComputeManager(): ComputeNodeManager | null { return this.computeManager; }
 }
 
 // ============================================================================
 // Factory Functions
 // ============================================================================
 
-/**
- * Create cloud model broadcaster
- */
-export function createCloudBroadcaster(config: CloudIntegrationConfig): CloudModelBroadcaster {
-  return new CloudModelBroadcaster(config);
-}
+export function createComputeNodeManager(config: ComputeManagerConfig): ComputeNodeManager { return new ComputeNodeManager(config); }
+export function createCloudBroadcaster(config: CloudIntegrationConfig): CloudModelBroadcaster { return new CloudModelBroadcaster(config); }
+export function createCloudBridge(config: CloudIntegrationConfig): CloudProviderBridge { return new CloudProviderBridge(config); }
+export function createModelDiscovery(config: CloudIntegrationConfig & { registryConfig?: ExtendedSDKConfig; computeConfig?: ComputeManagerConfig }): ModelDiscovery { return new ModelDiscovery(config); }
 
-/**
- * Create cloud provider bridge
- */
-export function createCloudBridge(config: CloudIntegrationConfig): CloudProviderBridge {
-  return new CloudProviderBridge(config);
-}
-
-/**
- * Create model discovery instance
- */
-export function createModelDiscovery(
-  config: CloudIntegrationConfig & { registryConfig?: ExtendedSDKConfig }
-): ModelDiscovery {
-  return new ModelDiscovery(config);
-}
-
-/**
- * Create from environment variables
- */
 export function createCloudIntegrationFromEnv(): ModelDiscovery {
-  const config: CloudIntegrationConfig & { registryConfig?: ExtendedSDKConfig } = {
-    cloudEndpoint: process.env.CLOUD_ENDPOINT ?? process.env.NEXT_PUBLIC_APP_URL ?? 'https://elizacloud.ai',
+  const config: CloudIntegrationConfig & { registryConfig?: ExtendedSDKConfig; computeConfig?: ComputeManagerConfig } = {
+    cloudEndpoint: process.env.CLOUD_ENDPOINT ?? process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:8010',
     cloudApiKey: process.env.CLOUD_API_KEY,
     rpcUrl: process.env.RPC_URL ?? process.env.JEJU_RPC_URL ?? 'http://localhost:9545',
     modelRegistryAddress: process.env.MODEL_REGISTRY_ADDRESS,
-    identityRegistryAddress: process.env.IDENTITY_REGISTRY_ADDRESS,
     providerAddress: process.env.CLOUD_PROVIDER_ADDRESS as Address | undefined,
     syncIntervalMs: parseInt(process.env.CLOUD_SYNC_INTERVAL ?? '60000', 10),
     enableBroadcasting: process.env.ENABLE_CLOUD_BROADCASTING === 'true',
   };
 
-  // Add registry config if addresses provided
   if (process.env.MODEL_REGISTRY_ADDRESS) {
     config.registryConfig = {
       rpcUrl: config.rpcUrl,
-      contracts: {
-        registry: process.env.COMPUTE_REGISTRY_ADDRESS ?? '0x0',
-        ledger: process.env.LEDGER_ADDRESS ?? '0x0',
-        inference: process.env.INFERENCE_ADDRESS ?? '0x0',
-        modelRegistry: process.env.MODEL_REGISTRY_ADDRESS,
-      },
+      contracts: { registry: process.env.COMPUTE_REGISTRY_ADDRESS ?? '0x0', ledger: process.env.LEDGER_ADDRESS ?? '0x0', inference: process.env.INFERENCE_ADDRESS ?? '0x0', modelRegistry: process.env.MODEL_REGISTRY_ADDRESS },
+    };
+  }
+
+  if (process.env.PROVISIONER_ENDPOINT) {
+    config.computeConfig = {
+      provisionerEndpoint: process.env.PROVISIONER_ENDPOINT, provisionerApiKey: process.env.PROVISIONER_API_KEY, rpcUrl: config.rpcUrl,
+      defaultIdleTimeoutMs: parseInt(process.env.COMPUTE_IDLE_TIMEOUT_MS ?? '300000', 10),
+      maxQueueTimeMs: parseInt(process.env.COMPUTE_MAX_QUEUE_MS ?? '120000', 10),
+      statusPollIntervalMs: parseInt(process.env.COMPUTE_POLL_INTERVAL_MS ?? '5000', 10),
     };
   }
 

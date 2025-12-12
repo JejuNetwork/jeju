@@ -2,7 +2,7 @@
  * Attestation Tests
  *
  * Verifies the TEE attestation simulation is internally consistent.
- * NOTE: Real hardware attestation requires Phala CVM - these tests
+ * NOTE: Real hardware attestation requires a TEE provider - these tests
  * verify the simulation correctly models the expected behavior.
  */
 

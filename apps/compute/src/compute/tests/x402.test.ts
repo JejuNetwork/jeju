@@ -459,21 +459,20 @@ describe('x402 Server Integration', () => {
 });
 
 // ============================================================================
-// Compatibility with vendor/cloud Tests
+// X402 Protocol Compatibility Tests
 // ============================================================================
 
-describe('x402 Compatibility with vendor/cloud', () => {
-  test('network config matches vendor/cloud format', () => {
+describe('x402 Protocol Compatibility', () => {
+  test('network config follows standard format', () => {
     const sepoliaConfig = X402_NETWORK_CONFIGS['base-sepolia'];
     
-    // Should match vendor/cloud config/x402.json structure
     expect(sepoliaConfig.chainId).toBe(84532);
     expect(sepoliaConfig.rpcUrl).toBe('https://sepolia.base.org');
     expect(sepoliaConfig.isTestnet).toBe(true);
     expect(sepoliaConfig.usdc).toBe('0x036CbD53842c5426634e7929541eC2318f3dCF7e');
   });
 
-  test('payment requirement structure matches vendor/cloud', () => {
+  test('payment requirement structure follows X402 spec', () => {
     const requirement = createPaymentRequirement(
       '/v1/chat/completions',
       1000000n,
@@ -482,7 +481,7 @@ describe('x402 Compatibility with vendor/cloud', () => {
       'base-sepolia'
     );
     
-    // Should be compatible with vendor/cloud X402PaymentRequirements type
+    // X402 standard fields
     expect(requirement).toHaveProperty('x402Version');
     expect(requirement).toHaveProperty('error');
     expect(requirement).toHaveProperty('accepts');
@@ -496,8 +495,8 @@ describe('x402 Compatibility with vendor/cloud', () => {
     expect(accept).toHaveProperty('resource');
   });
 
-  test('creditsPerDollar matches vendor/cloud', () => {
+  test('creditsPerDollar follows standard rate', () => {
     const config = getX402Config();
-    expect(config.creditsPerDollar).toBe(100); // Same as vendor/cloud
+    expect(config.creditsPerDollar).toBe(100);
   });
 });

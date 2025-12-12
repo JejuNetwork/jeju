@@ -1,14 +1,20 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import { createPaymentRequirement, checkPayment, PAYMENT_TIERS, PaymentRequirements } from './lib/x402.js';
-import { Address } from 'viem';
+import { Address, isAddress } from 'viem';
 import { rateLimit, agentRateLimit, strictRateLimit } from './middleware/rate-limit.js';
 import { intentService } from './services/intent-service.js';
 import { routeService } from './services/route-service.js';
 import { solverService } from './services/solver-service.js';
 import { getWebSocketServer } from './services/websocket.js';
 import { faucetService } from './services/faucet-service.js';
-import { JEJU_CHAIN_ID, IS_TESTNET, getChainName, PORTS, SERVICES } from './config/networks.js';
+import { JEJU_CHAIN_ID, IS_TESTNET, getChainName, PORTS } from './config/networks.js';
+import {
+  CHAINS as RPC_CHAINS,
+  getApiKeysForAddress,
+  createApiKey,
+  RATE_LIMITS,
+} from './rpc/index.js';
 import {
   checkBanStatus,
   getModeratorProfile,
@@ -314,47 +320,59 @@ async function executeSkill(skillId: string, params: Record<string, unknown>, pa
       const info = faucetService.getFaucetInfo();
       return { message: `${info.name}: Claim ${info.amountPerClaim} ${info.tokenSymbol} every ${info.cooldownHours}h`, data: info as unknown as Record<string, unknown> };
     }
-    // RPC Gateway Skills
+    // RPC Gateway Skills (using local imports)
     case 'rpc-list-chains': {
-      const chainsRes = await fetch(`${SERVICES.rpcGateway}/v1/chains`);
-      if (!chainsRes.ok) return { message: 'Failed to fetch chains', data: { error: 'RPC Gateway unavailable' } };
-      const chainsData = await chainsRes.json() as { chains: Array<{ chainId: number; name: string; shortName: string; isTestnet: boolean }> };
-      return { message: `${chainsData.chains.length} chains supported`, data: { chains: chainsData.chains } };
+      const chains = Object.values(RPC_CHAINS).map(c => ({
+        chainId: c.chainId,
+        name: c.name,
+        shortName: c.shortName,
+        isTestnet: c.isTestnet,
+        rpcEndpoint: `/v1/rpc/${c.chainId}`,
+      }));
+      return { message: `${chains.length} chains supported`, data: { chains } };
     }
     case 'rpc-get-limits': {
       const address = params.address as string;
-      if (!address) return { message: 'Address required', data: { error: 'Missing address parameter' } };
-      const usageRes = await fetch(`${SERVICES.rpcGateway}/v1/usage`, { headers: { 'X-Wallet-Address': address } });
-      if (!usageRes.ok) return { message: 'Failed to fetch limits', data: { error: 'RPC Gateway unavailable' } };
-      const usageData = await usageRes.json() as { currentTier: string; rateLimit: number; remaining: number };
-      return { message: `Tier: ${usageData.currentTier}, Limit: ${usageData.rateLimit}/min`, data: usageData as unknown as Record<string, unknown> };
+      if (!address || !isAddress(address)) return { message: 'Valid address required', data: { error: 'Missing or invalid address parameter' } };
+      const keys = getApiKeysForAddress(address as Address);
+      const activeKeys = keys.filter(k => k.isActive);
+      return {
+        message: `Tier: FREE, Limit: ${RATE_LIMITS.FREE}/min`,
+        data: { currentTier: 'FREE', rateLimit: RATE_LIMITS.FREE, apiKeys: activeKeys.length, tiers: RATE_LIMITS },
+      };
     }
     case 'rpc-get-usage': {
       const address = params.address as string;
-      if (!address) return { message: 'Address required', data: { error: 'Missing address parameter' } };
-      const usageRes = await fetch(`${SERVICES.rpcGateway}/v1/usage`, { headers: { 'X-Wallet-Address': address } });
-      if (!usageRes.ok) return { message: 'Failed to fetch usage', data: { error: 'RPC Gateway unavailable' } };
-      const usageData = await usageRes.json() as { totalRequests: number; apiKeys: number };
-      return { message: `${usageData.totalRequests} total requests, ${usageData.apiKeys} API keys`, data: usageData as unknown as Record<string, unknown> };
+      if (!address || !isAddress(address)) return { message: 'Valid address required', data: { error: 'Missing or invalid address parameter' } };
+      const keys = getApiKeysForAddress(address as Address);
+      const totalRequests = keys.reduce((sum, k) => sum + k.requestCount, 0);
+      return { message: `${totalRequests} total requests, ${keys.length} API keys`, data: { totalRequests, apiKeys: keys.length } };
     }
     case 'rpc-create-key': {
       const address = params.address as string;
       const name = (params.name as string) || 'A2A Generated';
-      if (!address) return { message: 'Address required', data: { error: 'Missing address parameter' } };
-      const keyRes = await fetch(`${SERVICES.rpcGateway}/v1/keys`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Wallet-Address': address },
-        body: JSON.stringify({ name }),
-      });
-      if (!keyRes.ok) return { message: 'Failed to create key', data: { error: 'Key creation failed' } };
-      const keyData = await keyRes.json() as { key: string; id: string; tier: string };
-      return { message: `API key created: ${keyData.key.slice(0, 15)}...`, data: { key: keyData.key, id: keyData.id, tier: keyData.tier, warning: 'Store this key securely - it will not be shown again' } };
+      if (!address || !isAddress(address)) return { message: 'Valid address required', data: { error: 'Missing or invalid address parameter' } };
+      const existingKeys = getApiKeysForAddress(address as Address);
+      if (existingKeys.filter(k => k.isActive).length >= 10) {
+        return { message: 'Maximum API keys reached (10)', data: { error: 'Maximum API keys reached' } };
+      }
+      const { key, record } = createApiKey(address as Address, name);
+      return { message: `API key created: ${key.slice(0, 15)}...`, data: { key, id: record.id, tier: record.tier, warning: 'Store this key securely - it will not be shown again' } };
     }
     case 'rpc-staking-info': {
-      const stakeRes = await fetch(`${SERVICES.rpcGateway}/v1/stake`);
-      if (!stakeRes.ok) return { message: 'Failed to fetch staking info', data: { error: 'RPC Gateway unavailable' } };
-      const stakeData = await stakeRes.json() as { tiers: Record<string, { minStake: string; rateLimit: number | string }> };
-      return { message: 'RPC rate limits based on staked JEJU. Higher stake = higher limits. 7-day unbonding period.', data: stakeData as unknown as Record<string, unknown> };
+      return {
+        message: 'RPC rate limits based on staked JEJU. Higher stake = higher limits. 7-day unbonding period.',
+        data: {
+          contract: process.env.RPC_STAKING_ADDRESS || 'Not deployed',
+          tiers: {
+            FREE: { minUsd: 0, rateLimit: 10, description: '10 requests/minute' },
+            BASIC: { minUsd: 10, rateLimit: 100, description: '100 requests/minute' },
+            PRO: { minUsd: 100, rateLimit: 1000, description: '1,000 requests/minute' },
+            UNLIMITED: { minUsd: 1000, rateLimit: 'unlimited', description: 'Unlimited requests' },
+          },
+          unbondingPeriod: '7 days',
+        },
+      };
     }
     default:
       return { message: 'Unknown skill', data: { error: 'Skill not found', availableSkills: GATEWAY_AGENT_CARD.skills.map(s => s.id) } };

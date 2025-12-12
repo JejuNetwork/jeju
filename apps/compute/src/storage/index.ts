@@ -3,6 +3,17 @@
  *
  * ALL storage options work with wallet signature only - NO API KEYS.
  *
+ * ARCHITECTURE:
+ * - This module provides native decentralized storage (IPFS, Arweave)
+ * - Cloud providers (Vercel, S3, R2) are NOT included here directly
+ * - Cloud storage is accessed through the storage marketplace API
+ *
+ * For marketplace-based storage (includes cloud via marketplace):
+ *   Use createMarketplaceStorageClient() from @jeju/storage-sdk
+ *
+ * For native permissionless storage:
+ *   Use PermissionlessStorage (IPFS + Arweave, wallet only)
+ *
  * Production storage:
  * - PermissionlessStorage: Auto-switches between local IPFS and Arweave
  * - ArweaveStorage: Permanent storage via Irys (wallet signature)

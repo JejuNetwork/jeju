@@ -1,19 +1,19 @@
 # Dockerfile for Phala TEE Deployment
 #
-# This builds the autonomous game runner for deployment on Phala Network.
+# This builds the compute node for deployment on Phala Network.
 # When running inside a Phala CVM (Confidential VM):
 #   - Keys are derived from hardware (Intel TDX)
 #   - Attestation is cryptographically verifiable
 #   - No secrets leave the enclave
 #
 # Build:
-#   docker build -t babylon-autonomous-game .
+#   docker build -t jeju-compute-node .
 #
 # Run locally (simulation mode):
-#   docker run -e CONTRACT_ADDRESS=0x... babylon-autonomous-game
+#   docker run -e CONTRACT_ADDRESS=0x... jeju-compute-node
 #
 # Deploy to Phala:
-#   phala deploy --image babylon-autonomous-game --wallet $WALLET
+#   phala deploy --image jeju-compute-node --wallet $WALLET
 
 FROM oven/bun:1-alpine AS builder
 

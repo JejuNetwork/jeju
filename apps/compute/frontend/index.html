@@ -160,6 +160,21 @@
       min-width: 150px;
     }
     .filter-select:focus, .filter-input:focus { outline: none; border-color: var(--accent-green); }
+    .filter-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 0.5rem;
+      color: var(--text-primary);
+      font-size: 0.9rem;
+      cursor: pointer;
+      min-width: 130px;
+    }
+    .filter-checkbox input { accent-color: var(--accent-green); width: 16px; height: 16px; }
+    .provider-rating .unrated { color: var(--text-muted); font-style: italic; }
     
     /* Provider Grid */
     .provider-grid {
@@ -664,6 +679,101 @@
         padding-bottom: calc(1rem + env(safe-area-inset-bottom));
       }
     }
+
+    /* Model Cards */
+    .model-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 1rem;
+      padding: 1.5rem;
+      transition: all 0.2s;
+    }
+    .model-card:hover { border-color: var(--accent-blue); transform: translateY(-4px); }
+    .model-header { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .model-type-badge {
+      padding: 0.25rem 0.625rem;
+      border-radius: 0.375rem;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .model-type-badge.llm { background: rgba(139, 92, 246, 0.1); color: var(--accent-purple); }
+    .model-type-badge.image { background: rgba(59, 130, 246, 0.1); color: var(--accent-blue); }
+    .model-type-badge.audio { background: rgba(16, 185, 129, 0.1); color: var(--accent-green); }
+    .model-type-badge.embedding { background: rgba(245, 158, 11, 0.1); color: var(--accent-orange); }
+    .model-type-badge.multimodal { background: rgba(236, 72, 153, 0.1); color: #ec4899; }
+    .tee-badge {
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.375rem;
+      font-size: 0.7rem;
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--accent-green);
+    }
+    .model-name { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.25rem; }
+    .model-provider { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem; }
+    .model-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      padding: 0.75rem;
+      background: var(--bg-input);
+      border-radius: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+    .model-capabilities { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-bottom: 1rem; }
+    .cap-badge {
+      padding: 0.25rem 0.5rem;
+      background: var(--bg-input);
+      border-radius: 0.25rem;
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+    }
+    .model-actions { display: flex; gap: 0.5rem; }
+    .model-actions .btn { flex: 1; justify-content: center; }
+
+    /* Trigger Cards */
+    .trigger-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 1rem;
+      padding: 1.5rem;
+    }
+    .trigger-card.inactive { opacity: 0.7; }
+    .trigger-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+    .trigger-type-badge {
+      padding: 0.25rem 0.625rem;
+      border-radius: 0.375rem;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    .trigger-type-badge.cron { background: rgba(59, 130, 246, 0.1); color: var(--accent-blue); }
+    .trigger-type-badge.webhook { background: rgba(139, 92, 246, 0.1); color: var(--accent-purple); }
+    .trigger-type-badge.event { background: rgba(245, 158, 11, 0.1); color: var(--accent-orange); }
+    .trigger-status { font-size: 0.8rem; }
+    .trigger-status.active { color: var(--accent-green); }
+    .trigger-status.inactive { color: var(--text-muted); }
+    .trigger-name { font-size: 1rem; font-weight: 600; margin-bottom: 0.25rem; }
+    .trigger-description { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem; }
+    .trigger-cron {
+      display: inline-block;
+      padding: 0.375rem 0.75rem;
+      background: var(--bg-input);
+      border-radius: 0.375rem;
+      font-size: 0.8rem;
+      color: var(--accent-blue);
+      margin-bottom: 0.75rem;
+    }
+    .trigger-stats { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem; display: flex; gap: 1rem; }
+    .trigger-actions { display: flex; gap: 0.5rem; }
+    .btn-sm { padding: 0.5rem 0.875rem; font-size: 0.8rem; }
+    .btn-danger { background: var(--accent-red); color: white; }
+    .btn-danger:hover { background: #dc2626; }
+
+    /* Endpoint list */
+    .endpoint-item { display: flex; justify-content: space-between; padding: 0.5rem; background: var(--bg-input); border-radius: 0.25rem; margin-bottom: 0.25rem; }
+    .endpoint-url { color: var(--text-secondary); }
+    .endpoint-status.healthy { color: var(--accent-green); }
+    .endpoint-status.unhealthy { color: var(--accent-red); }
   </style>
 </head>
 <body>
@@ -674,6 +784,7 @@
       <button class="nav-tab active" data-tab="providers" data-testid="nav-providers">Providers</button>
       <button class="nav-tab" data-tab="rentals" data-testid="nav-rentals">My Rentals</button>
       <button class="nav-tab" data-tab="models" data-testid="nav-models">AI Models</button>
+      <button class="nav-tab" data-tab="triggers" data-testid="nav-triggers">Triggers</button>
     </nav>
     <div class="wallet-section">
       <div class="network-badge" data-testid="network-badge">
@@ -719,6 +830,14 @@
 
       <div class="filters-bar" data-testid="filters-bar">
         <div class="filter-group">
+          <label class="filter-label">Sort By</label>
+          <select class="filter-select" id="filter-sort" data-testid="filter-sort">
+            <option value="rating">Best Rated</option>
+            <option value="price">Lowest Price</option>
+            <option value="stake">Highest Stake</option>
+          </select>
+        </div>
+        <div class="filter-group">
           <label class="filter-label">GPU Type</label>
           <select class="filter-select" id="filter-gpu" data-testid="filter-gpu">
             <option value="">All GPUs</option>
@@ -734,8 +853,13 @@
           <input type="number" class="filter-input" id="filter-memory" placeholder="0" data-testid="filter-memory">
         </div>
         <div class="filter-group">
-          <label class="filter-label">Max Price/Hour</label>
-          <input type="text" class="filter-input" id="filter-price" placeholder="0.1 ETH" data-testid="filter-price">
+          <label class="filter-label">Min Rating</label>
+          <select class="filter-select" id="filter-min-rating" data-testid="filter-min-rating">
+            <option value="">Any Rating</option>
+            <option value="3">3+ Stars</option>
+            <option value="4">4+ Stars</option>
+            <option value="4.5">4.5+ Stars</option>
+          </select>
         </div>
         <div class="filter-group">
           <label class="filter-label">Features</label>
@@ -745,6 +869,13 @@
             <option value="docker">Docker Enabled</option>
             <option value="tee">TEE Supported</option>
           </select>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">&nbsp;</label>
+          <label class="filter-checkbox">
+            <input type="checkbox" id="filter-hide-unrated" data-testid="filter-hide-unrated">
+            <span>Hide Unrated</span>
+          </label>
         </div>
         <button class="btn btn-secondary" id="apply-filters" data-testid="apply-filters">Apply Filters</button>
         <button class="btn btn-secondary" id="reset-filters" data-testid="reset-filters">Reset</button>
@@ -776,9 +907,56 @@
     <div class="page" id="page-models" data-testid="page-models">
       <div class="page-header">
         <h1 class="page-title">AI Models</h1>
-        <p class="page-subtitle">Available models for inference</p>
+        <p class="page-subtitle">Browse and use models from the inference registry</p>
       </div>
-      <div id="models-list" data-testid="models-list">
+
+      <div class="filters-bar" data-testid="model-filters-bar">
+        <div class="filter-group">
+          <label class="filter-label">Sort By</label>
+          <select class="filter-select" id="filter-model-sort" data-testid="filter-model-sort">
+            <option value="rating">Best Rated</option>
+            <option value="price">Lowest Price</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">Model Type</label>
+          <select class="filter-select" id="filter-model-type" data-testid="filter-model-type">
+            <option value="">All Types</option>
+            <option value="llm">LLM</option>
+            <option value="image">Image</option>
+            <option value="audio">Audio</option>
+            <option value="embedding">Embedding</option>
+            <option value="multimodal">Multimodal</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">Provider</label>
+          <input type="text" class="filter-input" id="filter-model-provider" placeholder="OpenAI, Anthropic..." data-testid="filter-model-provider">
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">Min Context (K)</label>
+          <input type="number" class="filter-input" id="filter-model-context" placeholder="128" data-testid="filter-model-context">
+        </div>
+        <button class="btn btn-secondary" id="apply-model-filters" data-testid="apply-model-filters">Apply</button>
+        <button class="btn btn-secondary" id="reset-model-filters" data-testid="reset-model-filters">Reset</button>
+      </div>
+
+      <div class="provider-grid" id="models-grid" data-testid="models-grid">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+    <!-- Triggers Page -->
+    <div class="page" id="page-triggers" data-testid="page-triggers">
+      <div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h1 class="page-title">Triggers</h1>
+          <p class="page-subtitle">Manage cron jobs and webhook triggers</p>
+        </div>
+        <button class="btn btn-primary" onclick="openCreateTriggerModal()" data-testid="create-trigger-btn">+ Create Trigger</button>
+      </div>
+
+      <div class="rentals-list" id="triggers-list" data-testid="triggers-list">
         <div class="loading"><div class="spinner"></div></div>
       </div>
     </div>
@@ -865,6 +1043,111 @@
       <button class="btn btn-primary" style="width: 100%;" id="submit-rating-btn" data-testid="submit-rating-btn" disabled>
         Submit Rating
       </button>
+    </div>
+  </div>
+
+  <!-- Model Details Modal -->
+  <div class="modal-overlay" id="model-modal" data-testid="model-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title" id="model-detail-name">Model Details</h3>
+        <button class="modal-close" onclick="closeModelModal()" data-testid="close-model-modal">&times;</button>
+      </div>
+      
+      <div style="margin-bottom: 1rem;">
+        <span class="provider-tag" id="model-detail-type" data-testid="model-detail-type">LLM</span>
+      </div>
+
+      <div class="provider-specs" style="margin-bottom: 1rem;">
+        <div class="spec-item">
+          <span class="spec-label">Provider</span>
+          <span class="spec-value" id="model-detail-provider">-</span>
+        </div>
+        <div class="spec-item">
+          <span class="spec-label">Context Window</span>
+          <span class="spec-value" id="model-detail-context">-</span>
+        </div>
+        <div class="spec-item">
+          <span class="spec-label">Price</span>
+          <span class="spec-value" id="model-detail-price">-</span>
+        </div>
+        <div class="spec-item">
+          <span class="spec-label">TEE Verified</span>
+          <span class="spec-value" id="model-detail-tee">No</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <p style="color: var(--text-secondary);" id="model-detail-description">-</p>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Endpoints</label>
+        <div id="model-endpoints-list" style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;">-</div>
+      </div>
+
+      <button class="btn btn-primary" style="width: 100%;" onclick="useModel(state.selectedModel?.id)" data-testid="use-model-btn">
+        Use This Model
+      </button>
+    </div>
+  </div>
+
+  <!-- Create Trigger Modal -->
+  <div class="modal-overlay" id="trigger-modal" data-testid="trigger-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Create Trigger</h3>
+        <button class="modal-close" onclick="closeTriggerModal()" data-testid="close-trigger-modal">&times;</button>
+      </div>
+      
+      <form id="trigger-form" data-testid="trigger-form">
+        <div class="form-group">
+          <label class="form-label">Trigger Name</label>
+          <input type="text" class="form-input" id="trigger-name" placeholder="Daily backup" required data-testid="trigger-name">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Type</label>
+          <select class="form-select" id="trigger-type" required data-testid="trigger-type">
+            <option value="cron">Cron (Scheduled)</option>
+            <option value="webhook">Webhook</option>
+            <option value="event">On-chain Event</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="cron-group">
+          <label class="form-label">Cron Expression</label>
+          <input type="text" class="form-input" id="trigger-cron" placeholder="*/5 * * * *" data-testid="trigger-cron">
+          <p class="form-hint">e.g., */5 * * * * (every 5 minutes)</p>
+        </div>
+
+        <div class="form-group" id="webhook-group" style="display: none;">
+          <label class="form-label">Webhook Path</label>
+          <input type="text" class="form-input" id="trigger-webhook" placeholder="/my-webhook" data-testid="trigger-webhook">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Target Endpoint</label>
+          <input type="url" class="form-input" id="trigger-endpoint" placeholder="https://api.example.com/action" required data-testid="trigger-endpoint">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea class="form-textarea" id="trigger-description" placeholder="What does this trigger do?" data-testid="trigger-description"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+            <input type="checkbox" id="trigger-onchain" data-testid="trigger-onchain">
+            <span class="form-label" style="margin: 0;">Register on-chain (costs gas)</span>
+          </label>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%;" data-testid="submit-trigger-btn">
+          Create Trigger
+        </button>
+      </form>
     </div>
   </div>
 
