@@ -1,5 +1,11 @@
 'use client';
 
+/**
+ * @deprecated This component is vendor-specific and maintained in vendor/hyperscape/components/.
+ * This copy remains for backwards compatibility. For new development,
+ * use the component from vendor/hyperscape/components/HyperscapeStatsPanel.tsx
+ */
+
 import { useState } from 'react';
 import { usePlayerEvents } from '@/hooks/markets/usePlayerEvents';
 
@@ -10,6 +16,9 @@ interface HyperscapeStatsPanelProps {
 
 /**
  * Game stats panel component
+ * 
+ * @deprecated Use vendor/hyperscape/components/HyperscapeStatsPanel.tsx for new development
+ * 
  * Uses generic player events hook - works with any Jeju-integrated game
  */
 export function HyperscapeStatsPanel({ playerAddress, className = '' }: HyperscapeStatsPanelProps) {

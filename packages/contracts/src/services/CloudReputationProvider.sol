@@ -1,18 +1,31 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+/**
+ * @dev DEPRECATION NOTICE: This contract is vendor-specific and maintained in vendor/cloud/contracts/.
+ *      This copy remains for backwards compatibility with existing deployments.
+ *      For new deployments, use the contract from vendor/cloud/contracts/CloudReputationProvider.sol
+ */
+
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "../registry/IdentityRegistry.sol";
 import "../registry/ReputationRegistry.sol";
 import "../registry/RegistryGovernance.sol";
+import "../interfaces/IReputationProvider.sol";
 
 /**
  * @title CloudReputationProvider
  * @author Jeju Network
  * @notice Enables cloud services to manage reputation and report TOS violations
- * @dev Integrates with ERC-8004 registries and delegates banning to RegistryGovernance
+ * @dev Implements IReputationProvider interface for vendor-agnostic integration.
+ *      Integrates with ERC-8004 registries and delegates banning to RegistryGovernance.
+ *
+ * NOTE: This contract is vendor-specific and should be deployed from vendor/cloud.
+ *       The core Jeju system uses IReputationProvider interface for abstraction.
+ * 
+ * @custom:deprecated Use vendor/cloud/contracts/CloudReputationProvider.sol for new deployments
  *
  * Features:
  * - Set reputation for any agent via ReputationRegistry
@@ -33,7 +46,7 @@ import "../registry/RegistryGovernance.sol";
  *
  * @custom:security-contact security@jeju.network
  */
-contract CloudReputationProvider is Ownable, Pausable, ReentrancyGuard {
+contract CloudReputationProvider is IReputationProvider, Ownable, Pausable, ReentrancyGuard {
     // ============ State Variables ============
 
     /// @notice Identity registry for agent management
@@ -93,10 +106,8 @@ contract CloudReputationProvider is Ownable, Pausable, ReentrancyGuard {
     uint8 public autobanThreshold = 20; // Score below 20/100
 
     // ============ Events ============
-
-    event ReputationSet(
-        uint256 indexed agentId, uint8 score, bytes32 indexed tag1, bytes32 indexed tag2, string reason
-    );
+    // Note: ReputationSet, ViolationRecorded (with uint8), and BanProposalRequested (with uint8)
+    // are inherited from IReputationProvider
 
     event ViolationRecorded(
         uint256 indexed agentId,
@@ -235,18 +246,43 @@ contract CloudReputationProvider is Ownable, Pausable, ReentrancyGuard {
     }
 
     /**
-     * @notice Record a violation without immediate reputation impact
+     * @notice Record a violation without immediate reputation impact (with enum type)
      * @param agentId Target agent ID
-     * @param violationType Type of violation
+     * @param violationType Type of violation (ViolationType enum)
      * @param severityScore Severity (0-100)
      * @param evidence IPFS hash of evidence
      */
-    function recordViolation(
+    function recordViolationWithType(
         uint256 agentId,
         ViolationType violationType,
         uint8 severityScore,
         string calldata evidence
     ) external nonReentrant whenNotPaused {
+        _recordViolationInternal(agentId, violationType, severityScore, evidence);
+    }
+
+    /**
+     * @notice Record a violation (IReputationProvider interface)
+     * @param agentId Target agent ID
+     * @param violationType Type of violation as uint8
+     * @param severityScore Severity (0-100)
+     * @param evidence IPFS hash of evidence
+     */
+    function recordViolation(
+        uint256 agentId,
+        uint8 violationType,
+        uint8 severityScore,
+        string calldata evidence
+    ) external override nonReentrant whenNotPaused {
+        _recordViolationInternal(agentId, ViolationType(violationType), severityScore, evidence);
+    }
+
+    function _recordViolationInternal(
+        uint256 agentId,
+        ViolationType violationType,
+        uint8 severityScore,
+        string calldata evidence
+    ) internal {
         if (!authorizedOperators[msg.sender] && msg.sender != owner()) {
             revert NotAuthorized();
         }
@@ -288,13 +324,7 @@ contract CloudReputationProvider is Ownable, Pausable, ReentrancyGuard {
      * @return proposalId The governance proposal ID
      * @dev This initiates a futarchy vote, does NOT immediately ban
      */
-    function requestBanViaGovernance(uint256 agentId, ViolationType reason)
-        external
-        payable
-        nonReentrant
-        whenNotPaused
-        returns (bytes32 proposalId)
-    {
+    function _requestBanViaGovernance(uint256 agentId, ViolationType reason) internal returns (bytes32 proposalId) {
         if (!authorizedOperators[msg.sender] && msg.sender != owner()) {
             revert NotAuthorized();
         }
@@ -313,6 +343,39 @@ contract CloudReputationProvider is Ownable, Pausable, ReentrancyGuard {
         agentBanProposals[agentId] = proposalId;
 
         emit BanProposalRequested(agentId, proposalId, reason);
+    }
+
+    /**
+     * @notice Request ban via governance with enum type (vendor-specific)
+     * @param agentId Agent to ban
+     * @param reason ViolationType enum
+     * @return proposalId The governance proposal ID
+     */
+    function requestBanViaGovernanceWithType(uint256 agentId, ViolationType reason)
+        external
+        payable
+        nonReentrant
+        whenNotPaused
+        returns (bytes32 proposalId)
+    {
+        return _requestBanViaGovernance(agentId, reason);
+    }
+
+    /**
+     * @notice Request ban via governance (IReputationProvider interface)
+     * @param agentId Agent to ban
+     * @param reason Violation type as uint8
+     * @return proposalId The governance proposal ID
+     */
+    function requestBanViaGovernance(uint256 agentId, uint8 reason)
+        external
+        payable
+        override
+        nonReentrant
+        whenNotPaused
+        returns (bytes32 proposalId)
+    {
+        return _requestBanViaGovernance(agentId, ViolationType(reason));
     }
 
     /**
@@ -443,7 +506,26 @@ contract CloudReputationProvider is Ownable, Pausable, ReentrancyGuard {
         return "TOS_VIOLATION";
     }
 
-    function version() external pure returns (string memory) {
+    function version() external pure override returns (string memory) {
         return "2.0.0";
+    }
+
+    // ============ IReputationProvider Interface Implementation ============
+
+    /**
+     * @notice Get the provider's registered agent ID (IReputationProvider)
+     * @return agentId Agent ID in IdentityRegistry
+     */
+    function getProviderAgentId() external view override returns (uint256) {
+        return cloudAgentId;
+    }
+
+    /**
+     * @notice Check if an operator is authorized (IReputationProvider)
+     * @param operator Address to check
+     * @return authorized True if operator is authorized
+     */
+    function isAuthorizedOperator(address operator) external view override returns (bool) {
+        return authorizedOperators[operator];
     }
 }

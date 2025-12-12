@@ -1,6 +1,14 @@
+/**
+ * @deprecated This file is deprecated. Import from '@jeju-vendor/cloud' or 'vendor/cloud/src' instead.
+ * 
+ * This file remains for backwards compatibility but new code should import
+ * from the vendor/cloud package directly.
+ */
+
 import { ethers } from 'ethers';
 
 /**
+ * @deprecated Use from '@jeju-vendor/cloud'
  * Cloud Reputation Signing Utilities
  * 
  * Creates properly signed feedback authorizations for CloudReputationProvider.

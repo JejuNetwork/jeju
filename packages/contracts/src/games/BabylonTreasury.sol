@@ -1,14 +1,27 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+/**
+ * @dev DEPRECATION NOTICE: This contract is vendor-specific and maintained in vendor/babylon/contracts/.
+ *      This copy remains for backwards compatibility with existing deployments.
+ *      For new deployments, use the contract from vendor/babylon/contracts/BabylonTreasury.sol
+ */
+
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
+import "../interfaces/IGameTreasury.sol";
 
 /**
  * @title BabylonTreasury
  * @notice Unruggable game treasury for permissionless Babylon
- * @dev Manages funds, state tracking, operator authorization, and security council
+ * @dev Implements IGameTreasury interface for vendor-agnostic integration.
+ *      Manages funds, state tracking, operator authorization, and security council.
+ *
+ * NOTE: This contract is vendor-specific and should be deployed from vendor/babylon.
+ *       The core Jeju system uses IGameTreasury interface for abstraction.
+ * 
+ * @custom:deprecated Use vendor/babylon/contracts/BabylonTreasury.sol for new deployments
  *
  * Key Security Features:
  * - Rate-limited withdrawals prevent fund draining
@@ -17,7 +30,7 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
  * - Anyone can take over after operator timeout
  * - On-chain state anchoring via IPFS CIDs
  */
-contract BabylonTreasury is AccessControl, ReentrancyGuard, Pausable {
+contract BabylonTreasury is IGameTreasury, AccessControl, ReentrancyGuard, Pausable {
     // =========================================================================
     // Roles
     // =========================================================================
@@ -93,15 +106,9 @@ contract BabylonTreasury is AccessControl, ReentrancyGuard, Pausable {
     }
 
     // =========================================================================
-    // Events
+    // Events (inherited from IGameTreasury: OperatorRegistered, OperatorDeactivated,
+    // TakeoverInitiated, StateUpdated, HeartbeatReceived, FundsWithdrawn, FundsDeposited)
     // =========================================================================
-    event OperatorRegistered(address indexed operator, bytes attestation);
-    event OperatorDeactivated(address indexed operator, string reason);
-    event TakeoverInitiated(address indexed newOperator, address indexed oldOperator);
-    event StateUpdated(string cid, bytes32 hash, uint256 version);
-    event HeartbeatReceived(address indexed operator, uint256 timestamp);
-    event FundsWithdrawn(address indexed operator, uint256 amount);
-    event FundsDeposited(address indexed depositor, uint256 amount);
     event KeyRotationRequested(uint256 indexed requestId, address indexed initiator);
     event KeyRotationApproved(uint256 indexed requestId, address indexed approver);
     event KeyRotationExecuted(uint256 indexed requestId, uint256 newVersion);
@@ -132,7 +139,7 @@ contract BabylonTreasury is AccessControl, ReentrancyGuard, Pausable {
     /**
      * @notice Explicit deposit function
      */
-    function deposit() external payable {
+    function deposit() external payable override {
         require(msg.value > 0, "Must deposit something");
         emit FundsDeposited(msg.sender, msg.value);
     }
@@ -140,7 +147,7 @@ contract BabylonTreasury is AccessControl, ReentrancyGuard, Pausable {
     /**
      * @notice Get treasury balance
      */
-    function getBalance() external view returns (uint256) {
+    function getBalance() external view override returns (uint256) {
         return address(this).balance;
     }
 
@@ -156,7 +163,7 @@ contract BabylonTreasury is AccessControl, ReentrancyGuard, Pausable {
     function registerOperator(
         address _operator,
         bytes calldata _attestation
-    ) external onlyRole(COUNCIL_ROLE) {
+    ) external override onlyRole(COUNCIL_ROLE) {
         require(_operator != address(0), "Invalid operator");
         require(
             operator == address(0) || !isOperatorActive(),
@@ -182,7 +189,7 @@ contract BabylonTreasury is AccessControl, ReentrancyGuard, Pausable {
     /**
      * @notice Check if current operator is active
      */
-    function isOperatorActive() public view returns (bool) {
+    function isOperatorActive() public view override returns (bool) {
         if (operator == address(0)) return false;
         return block.timestamp - lastHeartbeat <= heartbeatTimeout;
     }
@@ -206,7 +213,7 @@ contract BabylonTreasury is AccessControl, ReentrancyGuard, Pausable {
      * @dev Anyone with valid attestation can take over after timeout + cooldown
      * @param _attestation New operator's attestation proof
      */
-    function takeoverAsOperator(bytes calldata _attestation) external {
+    function takeoverAsOperator(bytes calldata _attestation) external override {
         require(operator == address(0) || !isOperatorActive(), "Operator still active");
         require(
             block.timestamp >= lastHeartbeat + heartbeatTimeout + takeoverCooldown,
@@ -245,7 +252,7 @@ contract BabylonTreasury is AccessControl, ReentrancyGuard, Pausable {
     function updateState(
         string calldata _cid,
         bytes32 _hash
-    ) external onlyRole(OPERATOR_ROLE) whenNotPaused {
+    ) external override onlyRole(OPERATOR_ROLE) whenNotPaused {
         currentStateCID = _cid;
         currentStateHash = _hash;
         stateVersion++;
@@ -257,7 +264,7 @@ contract BabylonTreasury is AccessControl, ReentrancyGuard, Pausable {
     /**
      * @notice Send heartbeat to prove liveness
      */
-    function heartbeat() external onlyRole(OPERATOR_ROLE) {
+    function heartbeat() external override onlyRole(OPERATOR_ROLE) {
         lastHeartbeat = block.timestamp;
         emit HeartbeatReceived(msg.sender, block.timestamp);
     }
@@ -286,7 +293,7 @@ contract BabylonTreasury is AccessControl, ReentrancyGuard, Pausable {
      */
     function withdraw(
         uint256 _amount
-    ) external onlyRole(OPERATOR_ROLE) nonReentrant whenNotPaused {
+    ) external override onlyRole(OPERATOR_ROLE) nonReentrant whenNotPaused {
         require(_amount > 0, "Amount must be positive");
         require(address(this).balance >= _amount, "Insufficient balance");
 
@@ -452,6 +459,7 @@ contract BabylonTreasury is AccessControl, ReentrancyGuard, Pausable {
     function getGameState()
         external
         view
+        override
         returns (
             string memory cid,
             bytes32 stateHash,
@@ -498,6 +506,7 @@ contract BabylonTreasury is AccessControl, ReentrancyGuard, Pausable {
     function getWithdrawalInfo()
         external
         view
+        override
         returns (
             uint256 limit,
             uint256 usedToday,
@@ -516,7 +525,7 @@ contract BabylonTreasury is AccessControl, ReentrancyGuard, Pausable {
     /**
      * @notice Check if takeover is available
      */
-    function isTakeoverAvailable() external view returns (bool) {
+    function isTakeoverAvailable() external view override returns (bool) {
         if (operator == address(0)) return true;
         if (isOperatorActive()) return false;
         return block.timestamp >= lastHeartbeat + heartbeatTimeout + takeoverCooldown;

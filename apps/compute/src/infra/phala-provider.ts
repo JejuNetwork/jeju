@@ -10,6 +10,10 @@
  * - Docker containers with full isolation
  * - Node.js/Python backends
  * - Static site serving
+ * 
+ * NOTE: This is the core Phala provider with generic configuration.
+ * For vendor-specific configurations (e.g., Babylon game servers),
+ * see vendor/phala/src/phala-provider.ts
  */
 
 import type {
@@ -159,7 +163,7 @@ export class PhalaProvider implements TEEProvider {
 
     // Provision new CVM
     const deployConfig: TEEDeploymentConfig = request.deployment ?? {
-      dockerImage: this.config.defaultImage ?? 'ghcr.io/jeju-ai/babylon-server:latest',
+      dockerImage: this.config.defaultImage ?? 'ghcr.io/jeju-ai/generic-server:latest',
       memoryGb: 4,
       cpuCores: 2,
     };
@@ -289,20 +293,25 @@ export class PhalaProvider implements TEEProvider {
   }
 
   /**
-   * Provision for Babylon game server
+   * Provision a game server with configurable image
+   * @param gameConfig Game-specific configuration
    */
-  async provisionBabylonServer(options?: {
+  async provisionGameServer(gameConfig: {
+    dockerImage: string;
+    memoryGb?: number;
+    cpuCores?: number;
     env?: Record<string, string>;
+    healthCheck?: { path: string; interval: number; timeout: number };
   }): Promise<TEENode> {
     return this.provisionBackend({
-      dockerImage: 'ghcr.io/jeju-ai/babylon-server:latest',
-      memoryGb: 4,
-      cpuCores: 2,
+      dockerImage: gameConfig.dockerImage,
+      memoryGb: gameConfig.memoryGb ?? 4,
+      cpuCores: gameConfig.cpuCores ?? 2,
       env: {
         NODE_ENV: 'production',
-        ...options?.env,
+        ...gameConfig.env,
       },
-      healthCheck: {
+      healthCheck: gameConfig.healthCheck ?? {
         path: '/health',
         interval: 30,
         timeout: 10,
@@ -315,10 +324,11 @@ export class PhalaProvider implements TEEProvider {
    */
   async provisionStaticServer(options: {
     ipfsCid: string;
+    dockerImage?: string;
     env?: Record<string, string>;
   }): Promise<TEENode> {
     return this.provisionBackend({
-      dockerImage: 'ghcr.io/jeju-ai/static-server:latest',
+      dockerImage: options.dockerImage ?? 'ghcr.io/jeju-ai/static-server:latest',
       memoryGb: 1,
       cpuCores: 1,
       env: {
@@ -419,25 +429,29 @@ export class PhalaProvider implements TEEProvider {
 
 let phalaProvider: PhalaProvider | null = null;
 
-export function getPhalaProvider(): PhalaProvider {
+export function getPhalaProvider(config?: Partial<PhalaConfig>): PhalaProvider {
   if (!phalaProvider) {
     phalaProvider = new PhalaProvider({
-      endpoint: process.env.PHALA_ENDPOINT ?? 'https://cloud-api.phala.network',
-      apiKey: process.env.PHALA_API_KEY,
-      clusterId: process.env.PHALA_CLUSTER_ID,
-      defaultImage: 'ghcr.io/jeju-ai/babylon-server:latest',
+      endpoint: config?.endpoint ?? process.env.PHALA_ENDPOINT ?? 'https://cloud-api.phala.network',
+      apiKey: config?.apiKey ?? process.env.PHALA_API_KEY,
+      clusterId: config?.clusterId ?? process.env.PHALA_CLUSTER_ID,
+      defaultImage: config?.defaultImage ?? process.env.PHALA_DEFAULT_IMAGE ?? 'ghcr.io/jeju-ai/generic-server:latest',
     });
   }
   return phalaProvider;
 }
 
 /**
- * Provision a backend server on Phala CVM
- * This is the recommended way to run Babylon backend in production
+ * Provision a game backend server on Phala CVM
+ * @param gameConfig Game-specific configuration including docker image
  */
-export async function provisionBabylonBackend(options?: {
+export async function provisionGameBackend(gameConfig: {
+  dockerImage: string;
+  memoryGb?: number;
+  cpuCores?: number;
   env?: Record<string, string>;
+  healthCheck?: { path: string; interval: number; timeout: number };
 }): Promise<TEENode> {
   const provider = getPhalaProvider();
-  return provider.provisionBabylonServer(options);
+  return provider.provisionGameServer(gameConfig);
 }
