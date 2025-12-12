@@ -757,6 +757,241 @@ export class ComputeMarketplace {
 
     return names;
   }
+
+  // ============================================================================
+  // Trigger Integration
+  // ============================================================================
+
+  /**
+   * Create a cron trigger for scheduled compute jobs
+   * @param name - Trigger name
+   * @param cronExpression - Cron expression (e.g., '* * * * *' for every minute)
+   * @param endpoint - Endpoint to call on trigger
+   * @param options - Additional options
+   */
+  async createCronTrigger(
+    name: string,
+    cronExpression: string,
+    endpoint: string,
+    options?: {
+      description?: string;
+      method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+      timeout?: number;
+      payment?: {
+        mode: 'x402' | 'prepaid' | 'free';
+        pricePerExecution?: bigint;
+      };
+    }
+  ): Promise<string> {
+    const { getTriggerIntegration } = await import('./trigger-integration');
+    const integration = getTriggerIntegration();
+
+    return integration.registerTrigger({
+      source: 'local',
+      type: 'cron',
+      name,
+      cronExpression,
+      target: {
+        type: 'http',
+        endpoint,
+        method: options?.method ?? 'POST',
+        timeout: options?.timeout ?? 30,
+      },
+      active: true,
+      description: options?.description,
+      payment: options?.payment ? {
+        mode: options.payment.mode,
+        pricePerExecution: options.payment.pricePerExecution,
+      } : undefined,
+    });
+  }
+
+  /**
+   * Create a webhook trigger
+   * @param name - Trigger name
+   * @param webhookPath - Path for webhook (e.g., '/webhooks/my-trigger')
+   * @param endpoint - Endpoint to call on trigger
+   */
+  async createWebhookTrigger(
+    name: string,
+    webhookPath: string,
+    endpoint: string,
+    options?: {
+      description?: string;
+      method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+      timeout?: number;
+      requireX402?: boolean;
+      pricePerExecution?: bigint;
+    }
+  ): Promise<string> {
+    const { getTriggerIntegration } = await import('./trigger-integration');
+    const integration = getTriggerIntegration();
+
+    return integration.registerTrigger({
+      source: 'local',
+      type: 'webhook',
+      name,
+      webhookPath,
+      target: {
+        type: 'http',
+        endpoint,
+        method: options?.method ?? 'POST',
+        timeout: options?.timeout ?? 30,
+      },
+      active: true,
+      description: options?.description,
+      payment: options?.requireX402 ? {
+        mode: 'x402',
+        pricePerExecution: options.pricePerExecution,
+      } : undefined,
+    });
+  }
+
+  /**
+   * Create an event trigger
+   * @param name - Trigger name
+   * @param eventTypes - Event types to listen for
+   * @param endpoint - Endpoint to call on trigger
+   */
+  async createEventTrigger(
+    name: string,
+    eventTypes: string[],
+    endpoint: string,
+    options?: {
+      description?: string;
+      method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+      timeout?: number;
+    }
+  ): Promise<string> {
+    const { getTriggerIntegration } = await import('./trigger-integration');
+    const integration = getTriggerIntegration();
+
+    return integration.registerTrigger({
+      source: 'local',
+      type: 'event',
+      name,
+      eventTypes,
+      target: {
+        type: 'http',
+        endpoint,
+        method: options?.method ?? 'POST',
+        timeout: options?.timeout ?? 30,
+      },
+      active: true,
+      description: options?.description,
+    });
+  }
+
+  /**
+   * Subscribe to a trigger with callback endpoint
+   * @param triggerId - ID of the trigger to subscribe to
+   * @param callbackEndpoint - Your endpoint to receive trigger callbacks
+   * @param options - Subscription options
+   */
+  async subscribeTrigger(
+    triggerId: string,
+    callbackEndpoint: string,
+    subscriberAddress: Address,
+    options?: {
+      callbackMethod?: 'GET' | 'POST' | 'PUT';
+      authToken?: string;
+      paymentMode?: 'x402' | 'prepaid' | 'free';
+      prepaidBalance?: bigint;
+      maxExecutions?: number;
+    }
+  ): Promise<{ subscriptionId: string }> {
+    const { getTriggerIntegration } = await import('./trigger-integration');
+    const integration = getTriggerIntegration();
+
+    const subscription = await integration.subscribe({
+      triggerId,
+      subscriberAddress,
+      callbackEndpoint,
+      callbackMethod: options?.callbackMethod ?? 'POST',
+      callbackAuth: options?.authToken ? {
+        type: 'bearer',
+        value: options.authToken,
+      } : undefined,
+      payment: {
+        mode: options?.paymentMode ?? 'free',
+        pricePerExecution: 0n,
+        prepaidBalance: options?.prepaidBalance,
+      },
+      maxExecutions: options?.maxExecutions,
+    });
+
+    return { subscriptionId: subscription.id };
+  }
+
+  /**
+   * Get all registered triggers
+   */
+  async getTriggers(filter?: {
+    type?: 'cron' | 'webhook' | 'event';
+    active?: boolean;
+  }): Promise<Array<{
+    id: string;
+    name: string;
+    type: string;
+    active: boolean;
+    cronExpression?: string;
+    webhookPath?: string;
+    eventTypes?: string[];
+  }>> {
+    const { getTriggerIntegration } = await import('./trigger-integration');
+    const integration = getTriggerIntegration();
+
+    const triggers = integration.getTriggers({
+      type: filter?.type,
+      active: filter?.active,
+    });
+
+    return triggers.map((t) => ({
+      id: t.id,
+      name: t.name,
+      type: t.type,
+      active: t.active,
+      cronExpression: t.cronExpression,
+      webhookPath: t.webhookPath,
+      eventTypes: t.eventTypes,
+    }));
+  }
+
+  /**
+   * Execute a trigger manually
+   */
+  async executeTrigger(
+    triggerId: string,
+    input?: Record<string, unknown>
+  ): Promise<{
+    executionId: string;
+    status: string;
+    output?: Record<string, unknown>;
+    proof?: {
+      executorSignature: string;
+      timestamp: number;
+      outputHash: string;
+    };
+  }> {
+    const { getTriggerIntegration } = await import('./trigger-integration');
+    const integration = getTriggerIntegration();
+
+    const result = await integration.executeTrigger({
+      triggerId,
+      input,
+    });
+
+    return {
+      executionId: result.executionId,
+      status: result.status,
+      output: result.output,
+      proof: result.proof ? {
+        executorSignature: result.proof.executorSignature,
+        timestamp: result.proof.timestamp,
+        outputHash: result.proof.outputHash,
+      } : undefined,
+    };
+  }
 }
 
 

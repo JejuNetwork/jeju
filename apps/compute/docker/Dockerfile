@@ -1,13 +1,13 @@
-# Babylon Compute Node
+# Jeju Compute Node
 # 
-# A TEE-compatible inference server for the Babylon compute marketplace.
+# A TEE-compatible inference server for the Jeju compute marketplace.
 # Supports local development and Phala Cloud deployment.
 #
-# Build from packages/experimental:
-#   docker build -t babylon-compute-node -f docker/Dockerfile .
+# Build:
+#   docker build -t jeju-compute-node -f docker/Dockerfile .
 #
 # Run:
-#   docker run -p 8080:8080 -e PRIVATE_KEY=0x... babylon-compute-node
+#   docker run -p 8080:8080 -e PRIVATE_KEY=0x... jeju-compute-node
 
 FROM oven/bun:1.1-alpine
 
@@ -33,7 +33,7 @@ USER bun
 ENV PORT=8080
 ENV RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
 ENV MODEL_BACKEND=mock
-ENV MODEL_NAME=babylon-inference
+ENV MODEL_NAME=inference
 ENV REQUIRE_AUTH=false
 
 # Health check

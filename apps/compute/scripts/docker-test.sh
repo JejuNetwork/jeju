@@ -1,17 +1,17 @@
 #!/bin/bash
-# Docker Build and Test Script for Babylon Experimental
+# Docker Build and Test Script for Jeju Compute
 # 
 # This script builds and tests the Docker image locally before Phala deployment
 
 set -e
 
 echo "═══════════════════════════════════════════════════════════════"
-echo "         BABYLON EXPERIMENTAL - DOCKER TEST                     "
+echo "         JEJU COMPUTE - DOCKER TEST                             "
 echo "═══════════════════════════════════════════════════════════════"
 
 # Configuration
-IMAGE_NAME="babylon-experimental"
-CONTAINER_NAME="babylon-test"
+IMAGE_NAME="jeju-compute"
+CONTAINER_NAME="jeju-compute-test"
 PORT=8080
 
 # Colors

@@ -4,18 +4,20 @@
   "type": "module",
   "description": "Gateway Portal - Protocol Infrastructure Hub. Bridge tokens, deploy paymasters, provide ETH liquidity, run nodes, earn rewards. Protocol power = paymaster + liquidity. Supports elizaOS, CLANKER, VIRTUAL, CLANKERMON + any ERC20.",
   "scripts": {
-    "dev": "concurrently \"vite\" \"bun src/a2a-server.ts\"",
+    "dev": "concurrently \"vite\" \"bun src/a2a-server.ts\" \"bun src/rpc-server.ts\"",
     "dev:ui": "vite",
     "dev:a2a": "bun src/a2a-server.ts",
+    "dev:rpc": "bun src/rpc-server.ts",
     "dev:solver": "bun src/solver/index.ts",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives",
     "lint:fix": "eslint . --ext ts,tsx --fix",
-    "test": "bun run test:unit",
-    "test:full": "bun run test:unit && bun run test:a2a",
+    "test": "bun run test:unit && bun run test:rpc",
+    "test:full": "bun run test:unit && bun run test:rpc && bun run test:a2a",
     "test:unit": "bun test src/lib/tests/",
+    "test:rpc": "bun test tests/rpc/",
     "test:contracts": "bun test tests/contracts/",
     "test:a2a": "bun test tests/a2a/",
     "test:e2e": "playwright test tests/synpress",
@@ -56,7 +58,8 @@
     "lucide-react": "^0.546.0",
     "express": "^4.19.2",
     "cors": "^2.8.5",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "hono": "^4.6.0"
   },
   "devDependencies": {
     "@jejunetwork/tests": "workspace:*",

@@ -13,3 +13,5 @@ export * from './nodeStaking';
 // x402 Payment Protocol
 export * from './x402';
 
+// RPC Gateway Client
+export * from './rpc-client';

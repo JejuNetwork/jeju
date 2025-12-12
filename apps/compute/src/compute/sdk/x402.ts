@@ -1,18 +1,10 @@
 /**
- * x402 Payment Protocol for Jeju Compute
- *
- * Implements HTTP 402 Payment Required protocol for micropayments.
- * Compatible with @coinbase/x402 and vendor/cloud implementation.
- *
+ * x402 Payment Protocol - HTTP 402 micropayments
  * @see https://x402.org
  */
 
 import type { Address } from 'viem';
 import { Wallet, verifyMessage } from 'ethers';
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export type X402Network = 'sepolia' | 'base-sepolia' | 'ethereum' | 'base' | 'jeju' | 'jeju-testnet';
 
@@ -55,10 +47,6 @@ export interface X402Config {
   network: X402Network;
   creditsPerDollar: number;
 }
-
-// ============================================================================
-// Constants
-// ============================================================================
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
 
@@ -145,13 +133,6 @@ export const X402_NETWORK_CONFIGS: Record<X402Network, X402NetworkConfig> = {
 
 export const CREDITS_PER_DOLLAR = 100;
 
-// ============================================================================
-// Configuration Functions
-// ============================================================================
-
-/**
- * Get x402 configuration from environment
- */
 export function getX402Config(): X402Config {
   const enabled = process.env.X402_ENABLED !== 'false';
   const recipientAddress = (process.env.X402_RECIPIENT_ADDRESS || ZERO_ADDRESS) as Address;
@@ -165,30 +146,15 @@ export function getX402Config(): X402Config {
   };
 }
 
-/**
- * Check if x402 is properly configured
- */
 export function isX402Configured(): boolean {
   const config = getX402Config();
   return config.enabled && config.recipientAddress !== ZERO_ADDRESS;
 }
 
-/**
- * Get network configuration for x402
- */
 export function getX402NetworkConfig(network?: X402Network): X402NetworkConfig {
-  const targetNetwork = network || getX402Config().network;
-  return X402_NETWORK_CONFIGS[targetNetwork];
+  return X402_NETWORK_CONFIGS[network || getX402Config().network];
 }
 
-// ============================================================================
-// Payment Header Utilities
-// ============================================================================
-
-/**
- * Parse x402 payment header string
- * Format: scheme=exact;network=jeju;payload=0x...;asset=0x...;amount=1000000
- */
 export function parseX402Header(header: string): X402PaymentHeader | null {
   const parts = header.split(';').reduce(
     (acc, part) => {
@@ -212,9 +178,6 @@ export function parseX402Header(header: string): X402PaymentHeader | null {
   };
 }
 
-/**
- * Generate x402 payment header for a request
- */
 export async function generateX402PaymentHeader(
   signer: Wallet,
   providerAddress: Address,
@@ -233,9 +196,8 @@ export async function generateX402PaymentHeader(
   ].join(';');
 }
 
-/**
- * Verify x402 payment signature
- */
+export const parseX402PaymentHeader = parseX402Header;
+
 export function verifyX402Payment(
   payment: X402PaymentHeader,
   providerAddress: Address,
@@ -249,13 +211,6 @@ export function verifyX402Payment(
   return recoveredAddress.toLowerCase() === expectedUserAddress.toLowerCase();
 }
 
-// ============================================================================
-// Payment Requirement Utilities
-// ============================================================================
-
-/**
- * Create a 402 payment requirement response
- */
 export function createPaymentRequirement(
   resource: string,
   amountWei: bigint,
@@ -291,10 +246,6 @@ export function createPaymentRequirement(
   };
 }
 
-/**
- * Create a multi-asset payment requirement (supports multiple tokens)
- * JEJU is listed first
- */
 export function createMultiAssetPaymentRequirement(
   resource: string,
   amountWei: bigint,
@@ -361,11 +312,6 @@ export function createMultiAssetPaymentRequirement(
   };
 }
 
-// ============================================================================
-// Pricing Utilities
-// ============================================================================
-
-/** Model type for pricing purposes */
 export type PricingModelType = 
   | 'llm'
   | 'image-generation'
@@ -375,34 +321,18 @@ export type PricingModelType =
   | 'text-to-speech'
   | 'embedding';
 
-/** Default pricing tiers (in wei) */
 export const DEFAULT_PRICING = {
-  // LLM: per 1k tokens (~$0.03 at $3k ETH)
-  LLM_PER_1K_INPUT: 10000000000000n,   // ~$0.03
-  LLM_PER_1K_OUTPUT: 30000000000000n,  // ~$0.09
-  
-  // Image: per image
-  IMAGE_512: 100000000000000n,          // ~$0.30 per 512x512
-  IMAGE_1024: 300000000000000n,         // ~$0.90 per 1024x1024
-  IMAGE_HD: 500000000000000n,           // ~$1.50 per HD image
-  
-  // Video: per second
-  VIDEO_PER_SECOND: 1000000000000000n,  // ~$3 per second
-  
-  // Audio generation: per second
-  AUDIO_GEN_PER_SECOND: 50000000000000n, // ~$0.15 per second
-  
-  // Speech-to-text: per minute
-  STT_PER_MINUTE: 20000000000000n,       // ~$0.06 per minute
-  
-  // Text-to-speech: per 1k characters
-  TTS_PER_1K_CHARS: 50000000000000n,     // ~$0.15 per 1k chars
-  
-  // Embeddings: per 1k tokens
-  EMBEDDING_PER_1K: 3000000000000n,      // ~$0.01 per 1k tokens
-  
-  // Minimum fees
-  MIN_FEE: 10000000000000n,              // ~$0.03 minimum
+  LLM_PER_1K_INPUT: 10000000000000n,
+  LLM_PER_1K_OUTPUT: 30000000000000n,
+  IMAGE_512: 100000000000000n,
+  IMAGE_1024: 300000000000000n,
+  IMAGE_HD: 500000000000000n,
+  VIDEO_PER_SECOND: 1000000000000000n,
+  AUDIO_GEN_PER_SECOND: 50000000000000n,
+  STT_PER_MINUTE: 20000000000000n,
+  TTS_PER_1K_CHARS: 50000000000000n,
+  EMBEDDING_PER_1K: 3000000000000n,
+  MIN_FEE: 10000000000000n,
 } as const;
 
 export interface InferencePriceEstimate {
@@ -415,9 +345,6 @@ export interface InferencePriceEstimate {
   };
 }
 
-/**
- * Estimate price for model inference by type
- */
 export function estimateInferencePrice(
   _model: string,
   tokens?: number,
@@ -467,9 +394,6 @@ export function estimateInferencePrice(
   }
 }
 
-/**
- * Get detailed price estimate with breakdown
- */
 export function getDetailedPriceEstimate(
   modelType: PricingModelType,
   units: number
@@ -497,18 +421,11 @@ export function getDetailedPriceEstimate(
   };
 }
 
-/**
- * Get price string from wei amount
- */
 export function formatPriceUSD(amountWei: bigint, ethPriceUSD: number = 3000): string {
   const ethAmount = Number(amountWei) / 1e18;
-  const usdAmount = ethAmount * ethPriceUSD;
-  return `$${usdAmount.toFixed(4)}`;
+  return `$${(ethAmount * ethPriceUSD).toFixed(4)}`;
 }
 
-/**
- * Format price in ETH
- */
 export function formatPriceETH(amountWei: bigint): string {
   const ethAmount = Number(amountWei) / 1e18;
   if (ethAmount < 0.0001) {
@@ -517,10 +434,6 @@ export function formatPriceETH(amountWei: bigint): string {
   }
   return `${ethAmount.toFixed(6)} ETH`;
 }
-
-// ============================================================================
-// Payment Requirement Factory
-// ============================================================================
 
 export interface X402PaymentRequirementParams {
   network: X402Network;
@@ -531,9 +444,6 @@ export interface X402PaymentRequirementParams {
   description: string;
 }
 
-/**
- * Create a complete X402 payment requirement with JEJU as preferred token
- */
 export function createX402PaymentRequirement(
   params: X402PaymentRequirementParams
 ): X402PaymentRequirement {
@@ -597,95 +507,75 @@ export function createX402PaymentRequirement(
   };
 }
 
-// ============================================================================
-// x402 Client Class
-// ============================================================================
-
 export class X402Client {
   private signer: Wallet;
   private network: X402Network;
-  private config: X402Config;
 
   constructor(signer: Wallet, network?: X402Network) {
     this.signer = signer;
-    this.config = getX402Config();
-    this.network = network || this.config.network;
+    this.network = network || getX402Config().network;
   }
 
-  /**
-   * Generate payment header for a request
-   */
   async generatePayment(providerAddress: Address, amount: string): Promise<string> {
     return generateX402PaymentHeader(this.signer, providerAddress, amount, this.network);
   }
 
-  /**
-   * Verify a payment header
-   */
   verifyPayment(payment: X402PaymentHeader, providerAddress: Address): boolean {
     return verifyX402Payment(payment, providerAddress, this.signer.address as Address);
   }
 
-  /**
-   * Make a paid request to a compute endpoint
-   */
-  async paidFetch(
-    url: string,
-    options: RequestInit,
-    providerAddress: Address,
-    amount: string
-  ): Promise<Response> {
+  async paidFetch(url: string, options: RequestInit, providerAddress: Address, amount: string): Promise<Response> {
     const paymentHeader = await this.generatePayment(providerAddress, amount);
-
     const headers = new Headers(options.headers);
     headers.set('X-Payment', paymentHeader);
     headers.set('x-jeju-address', this.signer.address);
-
-    return fetch(url, {
-      ...options,
-      headers,
-    });
+    return fetch(url, { ...options, headers });
   }
 
-  /**
-   * Handle 402 response and retry with payment
-   */
-  async handlePaymentRequired(
-    response: Response,
-    url: string,
-    options: RequestInit
-  ): Promise<Response> {
+  async handlePaymentRequired(response: Response, url: string, options: RequestInit): Promise<Response> {
     if (response.status !== 402) return response;
-
     const requirement = (await response.json()) as X402PaymentRequirement;
     const exactPayment = requirement.accepts.find((a) => a.scheme === 'exact');
-
-    if (!exactPayment) {
-      throw new Error('No exact payment scheme available');
-    }
-
+    if (!exactPayment) throw new Error('No exact payment scheme available');
     return this.paidFetch(url, options, exactPayment.payTo, exactPayment.maxAmountRequired);
   }
 
-  /**
-   * Get network configuration
-   */
-  getNetworkConfig(): X402NetworkConfig {
-    return getX402NetworkConfig(this.network);
-  }
-
-  /**
-   * Get current signer address
-   */
-  getAddress(): Address {
-    return this.signer.address as Address;
-  }
+  getNetworkConfig(): X402NetworkConfig { return getX402NetworkConfig(this.network); }
+  getAddress(): Address { return this.signer.address as Address; }
 }
 
-// ============================================================================
-// Exports
-// ============================================================================
+import type { Context, Next } from 'hono';
 
-export {
-  ZERO_ADDRESS,
-};
+export function createX402Middleware(config: X402Config) {
+  return async (c: Context, next: Next) => {
+    if (!config.enabled) {
+      return next();
+    }
+
+    const paymentHeader = c.req.header('X-Payment');
+    if (!paymentHeader) {
+      return c.json({
+        x402Version: 1,
+        error: 'Payment required',
+        accepts: [{
+          scheme: 'exact',
+          network: config.network,
+          asset: ZERO_ADDRESS,
+          payTo: config.recipientAddress || ZERO_ADDRESS,
+          resource: c.req.path,
+          description: 'API access payment required',
+        }],
+      }, 402);
+    }
+
+    const parsed = parseX402Header(paymentHeader);
+    if (!parsed) {
+      return c.json({ error: 'Invalid payment header' }, 400);
+    }
+
+    c.set('x402Payment', parsed);
+    return next();
+  };
+}
+
+export { ZERO_ADDRESS };

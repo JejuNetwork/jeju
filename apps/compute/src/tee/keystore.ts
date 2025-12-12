@@ -4,7 +4,7 @@
  * Simulates hardware-protected key management in a TEE.
  * Uses production-quality cryptography (AES-GCM, HKDF).
  *
- * In a real Phala TEE, keys are derived from hardware-protected seeds
+ * In a real hardware TEE, keys are derived from hardware-protected seeds
  * and never leave the enclave. This simulation uses proper crypto
  * but cannot provide the hardware isolation guarantees.
  */
