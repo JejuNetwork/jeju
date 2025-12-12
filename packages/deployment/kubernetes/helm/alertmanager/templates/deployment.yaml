@@ -32,6 +32,11 @@ spec:
               mountPath: /etc/alertmanager
             - name: storage
               mountPath: /alertmanager
+            {{- if .Values.secrets.create }}
+            - name: secrets
+              mountPath: /etc/alertmanager/secrets
+              readOnly: true
+            {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       volumes:
@@ -45,6 +50,11 @@ spec:
           {{- else }}
           emptyDir: {}
           {{- end }}
+        {{- if .Values.secrets.create }}
+        - name: secrets
+          secret:
+            secretName: {{ include "alertmanager.fullname" . }}-credentials
+        {{- end }}
 
 
 
