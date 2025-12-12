@@ -4,7 +4,7 @@ pragma solidity ^0.8.26;
 import {Test} from "forge-std/Test.sol";
 import {L1StakeManager} from "../src/eil/L1StakeManager.sol";
 import {CrossChainPaymaster} from "../src/eil/CrossChainPaymaster.sol";
-import {MockEntryPoint} from "../src/eil/MockEntryPoint.sol";
+import {MockEntryPoint} from "./mocks/MockEntryPoint.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
@@ -460,9 +460,9 @@ contract EILTest is Test {
 
     function test_SetAppTokenPreference() public {
         address preferenceContract = address(0x9999);
-        
+
         crossChainPaymaster.setAppTokenPreference(preferenceContract);
-        
+
         // The contract stores the preference address
         // Note: appTokenPreference is internal, so we test via getBestPaymentTokenForApp behavior
     }
@@ -470,25 +470,24 @@ contract EILTest is Test {
     function test_GetBestPaymentTokenForApp_NoPreference() public {
         // Warp to a reasonable timestamp to avoid underflow in freshness check
         vm.warp(1000000);
-        
+
         // Without app preference set and no supported tokens, should return zero
         address[] memory tokens = new address[](1);
         tokens[0] = address(0);
-        
+
         uint256[] memory balances = new uint256[](1);
         balances[0] = 10 ether;
-        
+
         // Should not revert even without preference contract
         // Note: ETH is supported but no exchange rate set, so it will use default 1:1
-        (address bestToken, uint256 tokenCost, string memory reason) = 
-            crossChainPaymaster.getBestPaymentTokenForApp(
-                address(0x1234), // app
-                user,
-                0.01 ether, // gas cost
-                tokens,
-                balances
-            );
-        
+        (address bestToken, uint256 tokenCost, string memory reason) = crossChainPaymaster.getBestPaymentTokenForApp(
+            address(0x1234), // app
+            user,
+            0.01 ether, // gas cost
+            tokens,
+            balances
+        );
+
         // ETH is supported and default rate is 1:1, so it should return ETH
         assertEq(bestToken, address(0));
         assertTrue(tokenCost > 0); // Should be gas cost + fee margin
@@ -502,7 +501,7 @@ contract EILTest is Test {
             address(0), // token
             10 ether // balance
         );
-        
+
         // Without preference contract, should return false
         assertFalse(hasPreferred);
         assertEq(preferredToken, address(0));
