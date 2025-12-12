@@ -10,9 +10,10 @@ import { ethers } from 'ethers';
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
 
-// Test ABI subsets
+// Actual OutputSettler ABI from contracts/src/oif/OutputSettler.sol
 const OUTPUT_SETTLER_ABI = [
-  'function fill(bytes32 orderId, address recipient, address token, uint256 amount) external payable',
+  'function fillDirect(bytes32 orderId, address token, uint256 amount, address recipient) external payable',
+  'function isFilled(bytes32 orderId) external view returns (bool)',
 ];
 
 const SOLVER_REGISTRY_ABI = [
@@ -24,58 +25,66 @@ const SOLVER_REGISTRY_ABI = [
 ];
 
 describe('OutputSettler ABI Encoding', () => {
-  test('should encode fill() call correctly', () => {
+  test('should encode fillDirect() call correctly', () => {
     const iface = new ethers.Interface(OUTPUT_SETTLER_ABI);
     const orderId = '0x' + '1'.repeat(64);
-    const recipient = '0x' + '2'.repeat(40);
     const token = ethers.ZeroAddress;
     const amount = ethers.parseEther('1.0');
+    const recipient = '0x' + '2'.repeat(40);
 
-    const data = iface.encodeFunctionData('fill', [orderId, recipient, token, amount]);
+    // Note: fillDirect signature is (orderId, token, amount, recipient)
+    const data = iface.encodeFunctionData('fillDirect', [orderId, token, amount, recipient]);
 
     expect(data).toMatch(/^0x/);
-    expect(data.length).toBeGreaterThan(10); // function selector + params
+    expect(data.length).toBeGreaterThan(10);
   });
 
-  test('should decode fill() args correctly', () => {
+  test('should decode fillDirect() args correctly', () => {
     const iface = new ethers.Interface(OUTPUT_SETTLER_ABI);
     const orderId = '0x' + 'ab'.repeat(32);
-    const recipient = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
     const token = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'; // USDC
     const amount = 1000000n; // 1 USDC
+    const recipient = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
 
-    const data = iface.encodeFunctionData('fill', [orderId, recipient, token, amount]);
-    const decoded = iface.decodeFunctionData('fill', data);
+    const data = iface.encodeFunctionData('fillDirect', [orderId, token, amount, recipient]);
+    const decoded = iface.decodeFunctionData('fillDirect', data);
 
     expect(decoded[0]).toBe(orderId);
-    expect(decoded[1].toLowerCase()).toBe(recipient.toLowerCase());
-    expect(decoded[2].toLowerCase()).toBe(token.toLowerCase());
-    expect(decoded[3]).toBe(amount);
+    expect(decoded[1].toLowerCase()).toBe(token.toLowerCase());
+    expect(decoded[2]).toBe(amount);
+    expect(decoded[3].toLowerCase()).toBe(recipient.toLowerCase());
   });
 
   test('should handle zero amount edge case', () => {
     const iface = new ethers.Interface(OUTPUT_SETTLER_ABI);
     const orderId = '0x' + '0'.repeat(64);
-    const recipient = ethers.ZeroAddress;
     const token = ethers.ZeroAddress;
     const amount = 0n;
+    const recipient = ethers.ZeroAddress;
 
-    // Should not throw
-    const data = iface.encodeFunctionData('fill', [orderId, recipient, token, amount]);
+    const data = iface.encodeFunctionData('fillDirect', [orderId, token, amount, recipient]);
     expect(data).toBeDefined();
   });
 
   test('should handle max uint256 amount', () => {
     const iface = new ethers.Interface(OUTPUT_SETTLER_ABI);
     const orderId = '0x' + 'ff'.repeat(32);
-    const recipient = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
     const token = ethers.ZeroAddress;
-    const amount = 2n ** 256n - 1n; // Max uint256
+    const amount = 2n ** 256n - 1n;
+    const recipient = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
 
-    const data = iface.encodeFunctionData('fill', [orderId, recipient, token, amount]);
-    const decoded = iface.decodeFunctionData('fill', data);
+    const data = iface.encodeFunctionData('fillDirect', [orderId, token, amount, recipient]);
+    const decoded = iface.decodeFunctionData('fillDirect', data);
 
-    expect(decoded[3]).toBe(amount);
+    expect(decoded[2]).toBe(amount);
+  });
+
+  test('should encode isFilled() correctly', () => {
+    const iface = new ethers.Interface(OUTPUT_SETTLER_ABI);
+    const orderId = '0x' + 'ab'.repeat(32);
+
+    const data = iface.encodeFunctionData('isFilled', [orderId]);
+    expect(data).toMatch(/^0x/);
   });
 });
 
