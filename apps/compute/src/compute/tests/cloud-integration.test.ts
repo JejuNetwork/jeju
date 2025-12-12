@@ -177,6 +177,31 @@ describe('CloudProviderBridge', () => {
     expect(results[0].endpoints[0].endpoint).toBe('https://mock-cloud.example.com/api/v1');
     expect(results[0].recommendedEndpoint).toBeDefined();
   });
+
+  test('getStatus returns endpoint and model count', async () => {
+    const bridge = createCloudBridge(TEST_CONFIG);
+    await bridge.initialize();
+
+    const status = await bridge.getStatus();
+
+    expect(status.endpoint).toBe('https://mock-cloud.example.com');
+    expect(status.modelCount).toBe(3);
+    expect(status.skillCount).toBe(0);
+  });
+
+  test('getAvailableSkills returns empty array', () => {
+    const bridge = createCloudBridge(TEST_CONFIG);
+    const skills = bridge.getAvailableSkills();
+
+    expect(skills).toEqual([]);
+  });
+
+  test('executeSkill throws not implemented error', async () => {
+    const bridge = createCloudBridge(TEST_CONFIG);
+
+    await expect(bridge.executeSkill('some-skill', 'input'))
+      .rejects.toThrow('A2A skills not implemented in cloud bridge');
+  });
 });
 
 describe('ModelDiscovery', () => {
