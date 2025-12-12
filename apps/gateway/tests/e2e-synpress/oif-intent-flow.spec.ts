@@ -16,25 +16,11 @@
  */
 
 import { testWithSynpress } from '@synthetixio/synpress';
-import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
+import { metaMaskFixtures } from '@synthetixio/synpress/playwright';
 import { basicSetup } from '../../synpress.config';
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
-
-// Contract addresses from contracts.json
-const CONTRACTS = {
-  sepolia: {
-    solverRegistry: '0x08cAa161780d195E0799b73b318da5D175b85313',
-    inputSettler: '0xD28752E9bBC29DDc14DA83dD673a36A5A19e91B1',
-    outputSettler: '0x198D8D23B57C3F490Bc78dbe66D9c23B27A289ca',
-  },
-  baseSepolia: {
-    solverRegistry: '0xecfE47302D941c8ce5B0009C0ac2E6D6ee2A42de',
-    inputSettler: '0x9bb59d0329FcCEdD99f1753D20AF50347Ad2eB75',
-    outputSettler: '0xf7ef3C6a54dA3E03A96D23864e5865E7e3EBEcF5',
-  },
-};
 
 test.describe('OIF Cross-Chain Intent Flow', () => {
   test.beforeEach(async ({ page, metamask }) => {
