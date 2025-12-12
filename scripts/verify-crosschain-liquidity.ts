@@ -14,7 +14,7 @@
 
 import { ethers } from 'ethers';
 import { Logger } from './shared/logger';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
 
 const logger = new Logger('verify-crosschain');
@@ -25,17 +25,13 @@ interface ChainStatus {
   connected: boolean;
   oifDeployed: boolean;
   solverLiquidity: bigint;
-  xlpLiquidity: bigint;
   activeSolvers: number;
-  activeXLPs: number;
 }
 
-interface _CrossChainRoute {
-  from: number;
-  to: number;
-  enabled: boolean;
-  hasSolvers: boolean;
-  hasLiquidity: boolean;
+interface ChainInfo {
+  chainId: number;
+  name: string;
+  rpcUrl: string;
 }
 
 const SOLVER_REGISTRY_ABI = [
@@ -43,69 +39,84 @@ const SOLVER_REGISTRY_ABI = [
   'function isSolverActive(address solver) view returns (bool)',
 ];
 
-const OUTPUT_SETTLER_ABI = [
-  'function getSolverETH(address solver) view returns (uint256)',
-  'function getSolverLiquidity(address solver, address token) view returns (uint256)',
-];
-
 const L1_STAKE_MANAGER_ABI = [
   'function getProtocolStats() view returns (uint256 totalStaked, uint256 totalSlashed, uint256 activeXLPs)',
-  'function isXLPActive(address xlp) view returns (bool)',
 ];
 
-// Load chain configs
-function loadChainConfigs(network: 'testnet' | 'mainnet') {
+// Public RPC URLs for verification
+const PUBLIC_RPCS: Record<number, string> = {
+  11155111: 'https://ethereum-sepolia-rpc.publicnode.com',
+  84532: 'https://sepolia.base.org',
+  421614: 'https://sepolia-rollup.arbitrum.io/rpc',
+  11155420: 'https://sepolia.optimism.io',
+  97: 'https://data-seed-prebsc-1-s1.bnbchain.org:8545',
+  420690: 'https://testnet-rpc.jeju.network',
+  1: 'https://eth.llamarpc.com',
+  8453: 'https://mainnet.base.org',
+  42161: 'https://arb1.arbitrum.io/rpc',
+  10: 'https://mainnet.optimism.io',
+  56: 'https://bsc-dataseed.bnbchain.org',
+  420691: 'https://rpc.jeju.network',
+};
+
+// Load chain configs from chains.json
+function loadChainConfigs(network: 'testnet' | 'mainnet'): ChainInfo[] {
   const chainsPath = resolve(process.cwd(), 'packages/config/chains.json');
+  if (!existsSync(chainsPath)) return [];
+  
   const chains = JSON.parse(readFileSync(chainsPath, 'utf-8'));
-  return chains[network];
+  const networkKey = network === 'testnet' ? 'testnets' : 'mainnets';
+  const networkChains = chains[networkKey] || {};
+  
+  const result: ChainInfo[] = [];
+  for (const chain of Object.values(networkChains)) {
+    const c = chain as { chainId: number; name: string };
+    result.push({
+      chainId: c.chainId,
+      name: c.name,
+      rpcUrl: PUBLIC_RPCS[c.chainId] || '',
+    });
+  }
+  return result;
 }
 
 function loadOIFDeployments(network: 'testnet' | 'mainnet') {
   const deploymentsPath = resolve(process.cwd(), `packages/contracts/deployments/oif-${network}.json`);
-  try {
-    return JSON.parse(readFileSync(deploymentsPath, 'utf-8'));
-  } catch {
-    return { chains: {} };
-  }
+  if (!existsSync(deploymentsPath)) return { chains: {}, crossChainRoutes: [] };
+  return JSON.parse(readFileSync(deploymentsPath, 'utf-8'));
 }
 
+function loadEILConfig(network: 'testnet' | 'mainnet') {
+  const eilPath = resolve(process.cwd(), 'packages/config/eil.json');
+  if (!existsSync(eilPath)) return null;
+  const eil = JSON.parse(readFileSync(eilPath, 'utf-8'));
+  return eil[network] || null;
+}
 
 async function checkChainConnectivity(rpcUrl: string, expectedChainId: number): Promise<boolean> {
-  try {
-    const provider = new ethers.JsonRpcProvider(rpcUrl);
-    const network = await provider.getNetwork();
-    return Number(network.chainId) === expectedChainId;
-  } catch {
-    return false;
-  }
+  if (!rpcUrl) return false;
+  const provider = new ethers.JsonRpcProvider(rpcUrl, undefined, { staticNetwork: true });
+  const network = await provider.getNetwork();
+  return Number(network.chainId) === expectedChainId;
 }
 
 async function checkContractDeployed(rpcUrl: string, address: string): Promise<boolean> {
   if (!address || address === '') return false;
-  try {
-    const provider = new ethers.JsonRpcProvider(rpcUrl);
-    const code = await provider.getCode(address);
-    return code !== '0x' && code.length > 2;
-  } catch {
-    return false;
-  }
+  const provider = new ethers.JsonRpcProvider(rpcUrl, undefined, { staticNetwork: true });
+  const code = await provider.getCode(address);
+  return code !== '0x' && code.length > 2;
 }
 
 async function getOIFStats(
   rpcUrl: string,
-  solverRegistryAddr: string,
-  _outputSettlerAddr: string
+  solverRegistryAddr: string
 ): Promise<{ activeSolvers: number; totalStaked: bigint }> {
   if (!solverRegistryAddr) return { activeSolvers: 0, totalStaked: 0n };
   
-  try {
-    const provider = new ethers.JsonRpcProvider(rpcUrl);
-    const registry = new ethers.Contract(solverRegistryAddr, SOLVER_REGISTRY_ABI, provider);
-    const [totalStaked, , activeSolvers] = await registry.getStats();
-    return { activeSolvers: Number(activeSolvers), totalStaked };
-  } catch {
-    return { activeSolvers: 0, totalStaked: 0n };
-  }
+  const provider = new ethers.JsonRpcProvider(rpcUrl, undefined, { staticNetwork: true });
+  const registry = new ethers.Contract(solverRegistryAddr, SOLVER_REGISTRY_ABI, provider);
+  const [totalStaked, , activeSolvers] = await registry.getStats();
+  return { activeSolvers: Number(activeSolvers), totalStaked };
 }
 
 async function getEILStats(
@@ -114,42 +125,10 @@ async function getEILStats(
 ): Promise<{ activeXLPs: number; totalStaked: bigint }> {
   if (!l1StakeManagerAddr) return { activeXLPs: 0, totalStaked: 0n };
   
-  try {
-    const provider = new ethers.JsonRpcProvider(l1RpcUrl);
-    const manager = new ethers.Contract(l1StakeManagerAddr, L1_STAKE_MANAGER_ABI, provider);
-    const [totalStaked, , activeXLPs] = await manager.getProtocolStats();
-    return { activeXLPs: Number(activeXLPs), totalStaked };
-  } catch {
-    return { activeXLPs: 0, totalStaked: 0n };
-  }
-}
-
-async function _verifyCrossChainRoute(
-  fromChain: { rpcUrl: string; outputSettler: string },
-  toChain: { rpcUrl: string; inputSettler: string },
-  testSolver: string
-): Promise<{ hasSolvers: boolean; hasLiquidity: boolean }> {
-  if (!fromChain.outputSettler || !toChain.inputSettler) {
-    return { hasSolvers: false, hasLiquidity: false };
-  }
-  
-  try {
-    // Check if output settler has solver liquidity
-    const provider = new ethers.JsonRpcProvider(fromChain.rpcUrl);
-    const settler = new ethers.Contract(fromChain.outputSettler, OUTPUT_SETTLER_ABI, provider);
-    
-    if (testSolver) {
-      const ethLiquidity = await settler.getSolverETH(testSolver);
-      return {
-        hasSolvers: true,
-        hasLiquidity: ethLiquidity > 0n,
-      };
-    }
-    
-    return { hasSolvers: true, hasLiquidity: false };
-  } catch {
-    return { hasSolvers: false, hasLiquidity: false };
-  }
+  const provider = new ethers.JsonRpcProvider(l1RpcUrl, undefined, { staticNetwork: true });
+  const manager = new ethers.Contract(l1StakeManagerAddr, L1_STAKE_MANAGER_ABI, provider);
+  const [totalStaked, , activeXLPs] = await manager.getProtocolStats();
+  return { activeXLPs: Number(activeXLPs), totalStaked };
 }
 
 async function main() {
@@ -166,54 +145,67 @@ async function main() {
   // Load configs
   const chainConfigs = loadChainConfigs(network);
   const oifDeployments = loadOIFDeployments(network);
+  const eilConfig = loadEILConfig(network);
+  
+  if (chainConfigs.length === 0) {
+    logger.error('No chains configured in packages/config/chains.json');
+    process.exit(1);
+  }
   
   // Verify each chain
   console.log('═══ Chain Status ═══\n');
   
   const chainStatuses: ChainStatus[] = [];
   
-  for (const [_key, chain] of Object.entries(chainConfigs)) {
-    const chainConfig = chain as { chainId: number; name: string; rpcUrl: string };
-    const chainId = chainConfig.chainId.toString();
-    const oifChain = oifDeployments.chains?.[chainId] || {};
+  for (const chain of chainConfigs) {
+    const oifChain = oifDeployments.chains?.[chain.chainId.toString()] || {};
     
-    const connected = await checkChainConnectivity(chainConfig.rpcUrl, chainConfig.chainId);
-    const oifDeployed = oifChain.contracts?.solverRegistry 
-      ? await checkContractDeployed(chainConfig.rpcUrl, oifChain.contracts.solverRegistry)
-      : false;
+    let connected = false;
+    try {
+      connected = await checkChainConnectivity(chain.rpcUrl, chain.chainId);
+    } catch {
+      connected = false;
+    }
+    
+    let oifDeployed = false;
+    if (connected && oifChain.contracts?.solverRegistry) {
+      try {
+        oifDeployed = await checkContractDeployed(chain.rpcUrl, oifChain.contracts.solverRegistry);
+      } catch {
+        oifDeployed = false;
+      }
+    }
     
     let activeSolvers = 0;
     let solverLiquidity = 0n;
     
     if (oifDeployed && oifChain.contracts) {
-      const stats = await getOIFStats(
-        chainConfig.rpcUrl,
-        oifChain.contracts.solverRegistry,
-        oifChain.contracts.outputSettler
-      );
-      activeSolvers = stats.activeSolvers;
-      solverLiquidity = stats.totalStaked;
+      try {
+        const stats = await getOIFStats(chain.rpcUrl, oifChain.contracts.solverRegistry);
+        activeSolvers = stats.activeSolvers;
+        solverLiquidity = stats.totalStaked;
+      } catch {
+        // Stats unavailable
+      }
     }
     
     const status: ChainStatus = {
-      chainId: chainConfig.chainId,
-      name: chainConfig.name,
+      chainId: chain.chainId,
+      name: chain.name,
       connected,
       oifDeployed,
       solverLiquidity,
-      xlpLiquidity: 0n,
       activeSolvers,
-      activeXLPs: 0,
     };
     
     chainStatuses.push(status);
     
     const connIcon = connected ? '✅' : '❌';
-    const oifIcon = oifDeployed ? '✅' : '⏳';
+    const oifIcon = oifDeployed ? '✅' : oifChain.status === 'pending' ? '⏳' : '❌';
     
-    console.log(`${chainConfig.name} (${chainConfig.chainId})`);
+    console.log(`${chain.name} (${chain.chainId})`);
     console.log(`  ${connIcon} RPC: ${connected ? 'Connected' : 'Not reachable'}`);
-    console.log(`  ${oifIcon} OIF: ${oifDeployed ? 'Deployed' : 'Not deployed'}`);
+    console.log(`  ${oifIcon} OIF: ${oifDeployed ? 'Deployed' : oifChain.status || 'Not deployed'}`);
     if (oifDeployed) {
       console.log(`  📊 Solvers: ${activeSolvers} active, ${ethers.formatEther(solverLiquidity)} ETH staked`);
     }
@@ -223,25 +215,32 @@ async function main() {
   // Verify EIL (L1 hub)
   console.log('═══ EIL Status (L1 Hub) ═══\n');
   
-  const eilNetwork = eilConfig[network];
-  if (eilNetwork?.hub) {
-    const hubConfig = chainConfigs[Object.keys(chainConfigs).find(
-      k => (chainConfigs[k] as { chainId: number }).chainId === eilNetwork.hub.chainId
-    ) || ''] as { rpcUrl: string } | undefined;
+  if (eilConfig?.hub) {
+    const hubRpc = PUBLIC_RPCS[eilConfig.hub.chainId] || '';
+    let hubDeployed = false;
+    let activeXLPs = 0;
+    let totalStaked = 0n;
     
-    if (hubConfig) {
-      const { activeXLPs, totalStaked } = await getEILStats(
-        hubConfig.rpcUrl,
-        eilNetwork.hub.l1StakeManager
-      );
-      
-      const hubDeployed = eilNetwork.hub.l1StakeManager && eilNetwork.hub.l1StakeManager !== '';
-      console.log(`L1 Hub: ${eilNetwork.hub.name} (${eilNetwork.hub.chainId})`);
-      console.log(`  ${hubDeployed ? '✅' : '❌'} L1StakeManager: ${hubDeployed ? 'Deployed' : 'Not deployed'}`);
-      if (hubDeployed) {
-        console.log(`  📊 XLPs: ${activeXLPs} active, ${ethers.formatEther(totalStaked)} ETH staked`);
+    if (hubRpc && eilConfig.hub.l1StakeManager) {
+      try {
+        hubDeployed = await checkContractDeployed(hubRpc, eilConfig.hub.l1StakeManager);
+        if (hubDeployed) {
+          const stats = await getEILStats(hubRpc, eilConfig.hub.l1StakeManager);
+          activeXLPs = stats.activeXLPs;
+          totalStaked = stats.totalStaked;
+        }
+      } catch {
+        // Stats unavailable
       }
     }
+    
+    console.log(`L1 Hub: ${eilConfig.hub.name} (${eilConfig.hub.chainId})`);
+    console.log(`  ${hubDeployed ? '✅' : '❌'} L1StakeManager: ${hubDeployed ? eilConfig.hub.l1StakeManager : 'Not deployed'}`);
+    if (hubDeployed) {
+      console.log(`  📊 XLPs: ${activeXLPs} active, ${ethers.formatEther(totalStaked)} ETH staked`);
+    }
+  } else {
+    console.log('  ❌ EIL not configured');
   }
   console.log('');
   
@@ -322,13 +321,13 @@ async function main() {
   if (noSolverChains.length > 0) {
     console.log('Register solvers on:');
     noSolverChains.forEach(c => console.log(`  - ${c.name} (${c.chainId})`));
-    console.log('\nSee: packages/deployment/XLP_SOLVER_GUIDE.md');
+    console.log('\nRun: bun run scripts/register-solver.ts --chain <chainId>');
     console.log('');
   }
   
-  if (!eilNetwork?.hub?.l1StakeManager) {
+  if (!eilConfig?.hub?.l1StakeManager) {
     console.log('Deploy EIL:');
-    console.log('  - L1StakeManager on Sepolia/Ethereum');
+    console.log('  - L1StakeManager on L1');
     console.log('  - CrossChainPaymaster on each L2');
     console.log('\nRun: bun run scripts/deploy/eil.ts testnet');
     console.log('');
@@ -351,5 +350,3 @@ main().catch(err => {
   logger.error(`Verification failed: ${err.message}`);
   process.exit(1);
 });
-
-
