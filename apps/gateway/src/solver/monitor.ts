@@ -1,7 +1,6 @@
 import { type PublicClient, parseAbiItem } from 'viem';
 import { EventEmitter } from 'events';
-import { readFileSync, existsSync } from 'fs';
-import { resolve } from 'path';
+import { INPUT_SETTLERS, bytes32ToAddress } from './contracts';
 
 export interface IntentEvent {
   orderId: string;
@@ -18,33 +17,19 @@ export interface IntentEvent {
   transactionHash: string;
 }
 
-// ERC-7683 Open event from InputSettler
 const OPEN_EVENT = parseAbiItem(
   'event Open(bytes32 indexed orderId, (address user, uint256 originChainId, uint32 openDeadline, uint32 fillDeadline, bytes32 orderId, (bytes32 token, uint256 amount, bytes32 recipient, uint256 chainId)[] maxSpent, (bytes32 token, uint256 amount, bytes32 recipient, uint256 chainId)[] minReceived, (uint64 destinationChainId, bytes32 destinationSettler, bytes originData)[] fillInstructions) order)'
 );
 
-function loadSettlers(): Record<number, `0x${string}`> {
-  const path = resolve(process.cwd(), '../../packages/config/contracts.json');
-  if (!existsSync(path)) {
-    console.warn('⚠️ contracts.json not found');
-    return {};
-  }
-  
-  const contracts = JSON.parse(readFileSync(path, 'utf-8'));
-  const out: Record<number, `0x${string}`> = {};
-
-  for (const chain of Object.values(contracts.external || {})) {
-    const c = chain as { chainId?: number; oif?: { inputSettler?: string } };
-    if (c.chainId && c.oif?.inputSettler) out[c.chainId] = c.oif.inputSettler as `0x${string}`;
-  }
-  for (const net of ['testnet', 'mainnet'] as const) {
-    const cfg = contracts[net];
-    if (cfg?.chainId && cfg?.oif?.inputSettler) out[cfg.chainId] = cfg.oif.inputSettler as `0x${string}`;
-  }
-  return out;
+interface EventArgs {
+  orderId?: `0x${string}`;
+  order?: {
+    user?: `0x${string}`;
+    maxSpent?: Array<{ token: `0x${string}`; amount: bigint; recipient: `0x${string}`; chainId: bigint }>;
+    minReceived?: Array<{ token: `0x${string}`; amount: bigint; recipient: `0x${string}`; chainId: bigint }>;
+    fillDeadline?: number;
+  };
 }
-
-const SETTLERS = loadSettlers();
 
 export class EventMonitor extends EventEmitter {
   private chains: Array<{ chainId: number; name: string }>;
@@ -62,7 +47,7 @@ export class EventMonitor extends EventEmitter {
 
     for (const chain of this.chains) {
       const client = clients.get(chain.chainId);
-      const settler = SETTLERS[chain.chainId];
+      const settler = INPUT_SETTLERS[chain.chainId];
       if (!client) continue;
       if (!settler) {
         console.warn(`   ⚠️ No settler for ${chain.name}, skipping`);
@@ -101,76 +86,37 @@ export class EventMonitor extends EventEmitter {
     chainId: number,
     log: { args: Record<string, unknown>; blockNumber: bigint; transactionHash: `0x${string}` }
   ): IntentEvent | null {
-    const args = log.args as {
-      orderId?: `0x${string}`;
-      order?: {
-        user?: `0x${string}`;
-        maxSpent?: Array<{ token: `0x${string}`; amount: bigint; recipient: `0x${string}`; chainId: bigint }>;
-        minReceived?: Array<{ token: `0x${string}`; amount: bigint; recipient: `0x${string}`; chainId: bigint }>;
-        fillDeadline?: number;
-      };
-    };
+    const args = log.args as EventArgs;
 
-    // Validate required fields
-    if (!args.orderId) {
-      console.warn('⚠️ Event missing orderId, skipping');
-      return null;
-    }
-    if (!args.order) {
-      console.warn('⚠️ Event missing order struct, skipping');
-      return null;
-    }
-    if (!args.order.maxSpent?.length) {
-      console.warn('⚠️ Event has empty maxSpent array, skipping');
-      return null;
-    }
-    if (!args.order.minReceived?.length) {
-      console.warn('⚠️ Event has empty minReceived array, skipping');
+    // Validate required struct
+    if (!args.orderId || !args.order?.maxSpent?.[0] || !args.order?.minReceived?.[0]) {
+      console.warn('⚠️ Malformed event, skipping');
       return null;
     }
 
     const spent = args.order.maxSpent[0];
     const received = args.order.minReceived[0];
 
-    // Validate amounts are positive
-    if (!spent.amount || spent.amount <= 0n) {
-      console.warn('⚠️ Invalid input amount, skipping');
+    // Validate amounts and addresses
+    if (!spent.amount || spent.amount <= 0n || !received.amount || received.amount <= 0n) {
+      console.warn('⚠️ Invalid amounts, skipping');
       return null;
     }
-    if (!received.amount || received.amount <= 0n) {
-      console.warn('⚠️ Invalid output amount, skipping');
+    if (!spent.token || !received.token || !received.recipient) {
+      console.warn('⚠️ Invalid addresses, skipping');
       return null;
     }
-
-    // Validate addresses
-    if (!spent.token || spent.token.length < 42) {
-      console.warn('⚠️ Invalid input token address, skipping');
-      return null;
-    }
-    if (!received.token || received.token.length < 42) {
-      console.warn('⚠️ Invalid output token address, skipping');
-      return null;
-    }
-    if (!received.recipient || received.recipient.length < 42) {
-      console.warn('⚠️ Invalid recipient address, skipping');
-      return null;
-    }
-
-    // Convert bytes32 addresses to address format (first 20 bytes)
-    const inputToken = '0x' + spent.token.slice(26);
-    const outputToken = '0x' + received.token.slice(26);
-    const recipient = '0x' + received.recipient.slice(26);
 
     return {
       orderId: args.orderId,
       user: args.order.user || '0x',
       sourceChain: chainId,
       destinationChain: Number(received.chainId || 0),
-      inputToken,
+      inputToken: bytes32ToAddress(spent.token),
       inputAmount: spent.amount.toString(),
-      outputToken,
+      outputToken: bytes32ToAddress(received.token),
       outputAmount: received.amount.toString(),
-      recipient,
+      recipient: bytes32ToAddress(received.recipient),
       deadline: args.order.fillDeadline || 0,
       blockNumber: log.blockNumber,
       transactionHash: log.transactionHash,

@@ -1,5 +1,5 @@
-import { createPublicClient, http, type Address, type PublicClient } from 'viem';
-import { arbitrum, optimism, mainnet, sepolia } from 'viem/chains';
+import { createPublicClient, http, type Address, type PublicClient, type Chain } from 'viem';
+import { mainnet, arbitrum, optimism, sepolia } from 'viem/chains';
 
 interface StrategyConfig {
   minProfitBps: number;
@@ -24,7 +24,6 @@ interface EvaluationResult {
   gasEstimate?: bigint;
 }
 
-// Chainlink ETH/USD feeds (mainnet only - testnets use CoinGecko API)
 const CHAINLINK_ETH_USD: Record<number, Address> = {
   1: '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419',
   42161: '0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612',
@@ -45,63 +44,68 @@ const AGGREGATOR_ABI = [{
   stateMutability: 'view',
 }] as const;
 
-const CHAINS = { 1: mainnet, 42161: arbitrum, 10: optimism, 11155111: sepolia } as const;
-const FILL_GAS = 150000n;
+const CHAINS: [number, Chain, string][] = [
+  [1, mainnet, 'MAINNET'],
+  [42161, arbitrum, 'ARBITRUM'],
+  [10, optimism, 'OPTIMISM'],
+  [11155111, sepolia, 'SEPOLIA'],
+];
 
-// Price state with staleness tracking
-let ethPriceUsd = 0;
-let priceLastUpdated = 0;
-const PRICE_STALE_MS = 5 * 60 * 1000; // 5 minutes
+const FILL_GAS = 150_000n;
+const PRICE_STALE_MS = 5 * 60 * 1000;
 
 export class StrategyEngine {
   private config: StrategyConfig;
   private clients = new Map<number, PublicClient>();
-  private isTestnet: boolean;
+  private ethPriceUsd = 0;
+  private priceUpdatedAt = 0;
 
   constructor(config: StrategyConfig) {
     this.config = config;
-    this.isTestnet = !process.env.MAINNET_RPC_URL;
-    
-    for (const [id, chain] of Object.entries(CHAINS)) {
-      const rpc = process.env[`${chain.name.toUpperCase().replace(/ /g, '_')}_RPC_URL`];
+    this.initClients();
+    this.refreshPrices();
+    setInterval(() => this.refreshPrices(), 60_000);
+  }
+
+  private initClients(): void {
+    for (const [id, chain, envPrefix] of CHAINS) {
+      const rpc = process.env[`${envPrefix}_RPC_URL`];
       if (rpc) {
-        this.clients.set(Number(id), createPublicClient({ chain, transport: http(rpc) }) as PublicClient);
+        this.clients.set(id, createPublicClient({ chain, transport: http(rpc) }) as PublicClient);
       }
     }
-    
-    this.refreshPrices();
-    setInterval(() => this.refreshPrices(), 60000);
   }
 
   private async refreshPrices(): Promise<void> {
-    // Try Chainlink first (mainnet)
+    // Try Chainlink first (mainnet only)
     const client = this.clients.get(1);
-    const feed = CHAINLINK_ETH_USD[1];
-    
-    if (client && feed) {
-      const result = await client.readContract({ address: feed, abi: AGGREGATOR_ABI, functionName: 'latestRoundData' });
-      if (result[1] > 0n) {
-        ethPriceUsd = Number(result[1]) / 1e8;
-        priceLastUpdated = Date.now();
+    if (client) {
+      const result = await client.readContract({
+        address: CHAINLINK_ETH_USD[1],
+        abi: AGGREGATOR_ABI,
+        functionName: 'latestRoundData',
+      }).catch(() => null);
+      if (result && result[1] > 0n) {
+        this.ethPriceUsd = Number(result[1]) / 1e8;
+        this.priceUpdatedAt = Date.now();
         return;
       }
     }
 
-    // Fallback: fetch from CoinGecko (works on testnets)
-    const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
-    if (res.ok) {
+    // Fallback: CoinGecko API
+    const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd').catch(() => null);
+    if (res?.ok) {
       const data = await res.json() as { ethereum: { usd: number } };
-      ethPriceUsd = data.ethereum.usd;
-      priceLastUpdated = Date.now();
+      this.ethPriceUsd = data.ethereum.usd;
+      this.priceUpdatedAt = Date.now();
     }
   }
 
   async evaluate(intent: IntentEvaluation): Promise<EvaluationResult> {
-    // Check price freshness
-    if (Date.now() - priceLastUpdated > PRICE_STALE_MS) {
-      console.warn('⚠️ ETH price is stale, refreshing...');
+    if (this.isPriceStale()) {
+      console.warn('⚠️ ETH price stale, refreshing...');
       await this.refreshPrices();
-      if (Date.now() - priceLastUpdated > PRICE_STALE_MS) {
+      if (this.isPriceStale()) {
         return { profitable: false, expectedProfitBps: 0, reason: 'Price feed unavailable' };
       }
     }
@@ -123,7 +127,9 @@ export class StrategyEngine {
 
     const gasCost = FILL_GAS * gasPrice;
     const netProfit = fee - gasCost;
-    if (netProfit <= 0n) return { profitable: false, expectedProfitBps: 0, reason: 'Gas exceeds fee', gasEstimate: gasCost };
+    if (netProfit <= 0n) {
+      return { profitable: false, expectedProfitBps: 0, reason: 'Gas exceeds fee', gasEstimate: gasCost };
+    }
 
     const profitBps = Number((netProfit * 10000n) / input);
     if (profitBps < this.config.minProfitBps) {
@@ -134,10 +140,10 @@ export class StrategyEngine {
   }
 
   getEthPrice(): number {
-    return ethPriceUsd;
+    return this.ethPriceUsd;
   }
-  
+
   isPriceStale(): boolean {
-    return Date.now() - priceLastUpdated > PRICE_STALE_MS;
+    return Date.now() - this.priceUpdatedAt > PRICE_STALE_MS;
   }
 }
