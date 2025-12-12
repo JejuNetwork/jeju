@@ -284,7 +284,7 @@ describe('Payment Verification Edge Cases', () => {
 
 describe('X402Client Concurrent Behavior', () => {
   let server: BunServer;
-  let port = 9870;
+  let port = 8770;
   let requestCount = 0;
   let concurrentMax = 0;
   let currentConcurrent = 0;
@@ -529,7 +529,7 @@ describe('Header Parsing Edge Cases', () => {
 
 describe('Error Recovery', () => {
   let server: BunServer;
-  let port = 9871;
+  let port = 8771;
   let failNextRequest = false;
 
   beforeAll(async () => {

@@ -85,7 +85,7 @@ function createMockCloudServer(port: number) {
 
 describe('CloudProviderBridge Integration', () => {
   let mockServer: ReturnType<typeof createMockCloudServer>;
-  let port = 9850;
+  let port = 8750;
 
   beforeAll(() => {
     mockServer = createMockCloudServer(port);
@@ -205,7 +205,7 @@ describe('CloudProviderBridge Integration', () => {
 
 describe('ComputeNodeManager Integration', () => {
   let server: BunServer;
-  let port = 9851;
+  let port = 8751;
   let provisionedNodes: string[] = [];
   let terminatedNodes: string[] = [];
   let shouldFailProvision = false;
@@ -413,7 +413,7 @@ describe('ComputeNodeManager Integration', () => {
 
 describe('Payment Flow Integration', () => {
   let server: BunServer;
-  let port = 9852;
+  let port = 8752;
   let receivedPayments: Array<{ header: string; parsed: ReturnType<typeof parseX402Header> }> = [];
 
   beforeAll(() => {
@@ -498,14 +498,14 @@ describe('Payment Flow Integration', () => {
       return c.json({ ok: true });
     });
     
-    const headerServer = serve({ port: 9853, fetch: app.fetch });
+    const headerServer = serve({ port: 8753, fetch: app.fetch });
 
     const wallet = createWallet();
     const client = new X402Client(wallet, 'jeju');
     const providerAddress = createWallet().address as Address;
 
     await client.paidFetch(
-      'http://localhost:9853/check-headers',
+      'http://localhost:8753/check-headers',
       { method: 'POST' },
       providerAddress,
       '1000000'
@@ -524,7 +524,7 @@ describe('Payment Flow Integration', () => {
 
 describe('ModelDiscovery Combined Sources', () => {
   let mockServer: ReturnType<typeof createMockCloudServer>;
-  let port = 9854;
+  let port = 8754;
 
   beforeAll(() => {
     mockServer = createMockCloudServer(port);
@@ -592,10 +592,10 @@ describe('Race Conditions', () => {
     });
     app.post('/api/v1/compute/terminate', () => new Response(JSON.stringify({ success: true })));
 
-    const server = serve({ port: 9855, fetch: app.fetch });
+    const server = serve({ port: 8755, fetch: app.fetch });
 
     const manager = createComputeNodeManager({
-      provisionerEndpoint: 'http://localhost:9855',
+      provisionerEndpoint: 'http://localhost:8755',
       rpcUrl: 'http://localhost:9545',
       defaultIdleTimeoutMs: 60000,
       maxQueueTimeMs: 30000,
@@ -671,10 +671,10 @@ describe('Timeout and Retry Behavior', () => {
       });
     });
 
-    const server = serve({ port: 9856, fetch: app.fetch });
+    const server = serve({ port: 8756, fetch: app.fetch });
 
     const bridge = createCloudBridge({
-      cloudEndpoint: 'http://localhost:9856',
+      cloudEndpoint: 'http://localhost:8756',
       rpcUrl: 'http://localhost:9545',
       syncIntervalMs: 100,
     });
@@ -697,10 +697,10 @@ describe('Timeout and Retry Behavior', () => {
     });
     app.post('/api/v1/compute/terminate', () => new Response(JSON.stringify({ success: true })));
 
-    const server = serve({ port: 9857, fetch: app.fetch });
+    const server = serve({ port: 8757, fetch: app.fetch });
 
     const manager = createComputeNodeManager({
-      provisionerEndpoint: 'http://localhost:9857',
+      provisionerEndpoint: 'http://localhost:8757',
       rpcUrl: 'http://localhost:9545',
       defaultIdleTimeoutMs: 60000,
       maxQueueTimeMs: 100, // Very short timeout
