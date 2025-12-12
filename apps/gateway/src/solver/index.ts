@@ -13,6 +13,8 @@ interface ChainConfig {
 const TESTNET_CHAINS: ChainConfig[] = [
   { chainId: 11155111, name: getChainName(11155111), rpcUrl: getRpcUrl(11155111) },
   { chainId: 84532, name: getChainName(84532), rpcUrl: getRpcUrl(84532) },
+  { chainId: 421614, name: getChainName(421614), rpcUrl: getRpcUrl(421614) },
+  { chainId: 11155420, name: getChainName(11155420), rpcUrl: getRpcUrl(11155420) },
   { chainId: 420690, name: getChainName(420690), rpcUrl: getRpcUrl(420690) },
 ];
 

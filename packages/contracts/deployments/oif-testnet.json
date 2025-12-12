@@ -96,6 +96,42 @@
       "description": "Base Sepolia → Sepolia"
     },
     {
+      "from": 11155111,
+      "to": 11155420,
+      "enabled": true,
+      "description": "Sepolia → Optimism Sepolia"
+    },
+    {
+      "from": 11155420,
+      "to": 11155111,
+      "enabled": true,
+      "description": "Optimism Sepolia → Sepolia"
+    },
+    {
+      "from": 11155111,
+      "to": 421614,
+      "enabled": true,
+      "description": "Sepolia → Arbitrum Sepolia"
+    },
+    {
+      "from": 421614,
+      "to": 11155111,
+      "enabled": true,
+      "description": "Arbitrum Sepolia → Sepolia"
+    },
+    {
+      "from": 11155111,
+      "to": 420690,
+      "enabled": true,
+      "description": "Sepolia → Jeju Testnet"
+    },
+    {
+      "from": 420690,
+      "to": 11155111,
+      "enabled": true,
+      "description": "Jeju Testnet → Sepolia"
+    },
+    {
       "from": 84532,
       "to": 11155420,
       "enabled": true,
@@ -132,16 +168,40 @@
       "description": "Jeju Testnet → Base Sepolia"
     },
     {
-      "from": 11155111,
+      "from": 11155420,
+      "to": 421614,
+      "enabled": true,
+      "description": "Optimism Sepolia → Arbitrum Sepolia"
+    },
+    {
+      "from": 421614,
+      "to": 11155420,
+      "enabled": true,
+      "description": "Arbitrum Sepolia → Optimism Sepolia"
+    },
+    {
+      "from": 11155420,
       "to": 420690,
       "enabled": true,
-      "description": "Sepolia → Jeju Testnet"
+      "description": "Optimism Sepolia → Jeju Testnet"
     },
     {
       "from": 420690,
-      "to": 11155111,
+      "to": 11155420,
       "enabled": true,
-      "description": "Jeju Testnet → Sepolia"
+      "description": "Jeju Testnet → Optimism Sepolia"
+    },
+    {
+      "from": 421614,
+      "to": 420690,
+      "enabled": true,
+      "description": "Arbitrum Sepolia → Jeju Testnet"
+    },
+    {
+      "from": 420690,
+      "to": 421614,
+      "enabled": true,
+      "description": "Jeju Testnet → Arbitrum Sepolia"
     }
   ],
   "deploymentOrder": [

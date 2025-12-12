@@ -1,10 +1,42 @@
 import { createPublicClient, createWalletClient, http, type PublicClient, type WalletClient, type Chain } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 import { LiquidityManager } from './liquidity';
 import { StrategyEngine } from './strategy';
 import { EventMonitor, type IntentEvent } from './monitor';
 import { getChain } from '../lib/chains.js';
 import { ZERO_ADDRESS } from '../lib/contracts.js';
+
+// Load output settler addresses from contracts.json
+function loadOutputSettlers(): Record<number, `0x${string}`> {
+  const configPath = resolve(process.cwd(), '../../packages/config/contracts.json');
+  const contracts = JSON.parse(readFileSync(configPath, 'utf-8'));
+  
+  const addresses: Record<number, `0x${string}`> = {};
+  
+  // Load from external chains
+  if (contracts.external) {
+    for (const [, chain] of Object.entries(contracts.external)) {
+      const c = chain as { chainId?: number; oif?: { outputSettler?: string } };
+      if (c.chainId && c.oif?.outputSettler) {
+        addresses[c.chainId] = c.oif.outputSettler as `0x${string}`;
+      }
+    }
+  }
+  
+  // Load from testnet/mainnet jeju config  
+  if (contracts.testnet?.oif?.outputSettler) {
+    addresses[contracts.testnet.chainId] = contracts.testnet.oif.outputSettler as `0x${string}`;
+  }
+  if (contracts.mainnet?.oif?.outputSettler) {
+    addresses[contracts.mainnet.chainId] = contracts.mainnet.oif.outputSettler as `0x${string}`;
+  }
+  
+  return addresses;
+}
+
+const OUTPUT_SETTLERS = loadOutputSettlers();
 
 interface SolverConfig {
   chains: Array<{ chainId: number; name: string; rpcUrl: string }>;
@@ -150,9 +182,13 @@ export class SolverAgent {
   }
 
   private getOutputSettler(chainId: number): `0x${string}` | undefined {
-    const addr = process.env[`OIF_OUTPUT_SETTLER_${chainId}`];
-    if (addr && addr.startsWith('0x') && addr.length === 42) return addr as `0x${string}`;
-    return undefined;
+    // First check env var override
+    const envAddr = process.env[`OIF_OUTPUT_SETTLER_${chainId}`];
+    if (envAddr && envAddr.startsWith('0x') && envAddr.length === 42) {
+      return envAddr as `0x${string}`;
+    }
+    // Fall back to contracts.json
+    return OUTPUT_SETTLERS[chainId];
   }
 
   private getChainDef(chainId: number): Chain {

@@ -31,10 +31,11 @@ const L1_STAKE_MANAGER_ABI = [
   'function startUnbonding(uint256 amount) external',
   'function completeUnbonding() external',
   'function isXLPActive(address xlp) external view returns (bool)',
-  'function getXLPStake(address xlp) external view returns (uint256)',
+  'function getStake(address xlp) external view returns (tuple(uint256 stakedAmount, uint256 unbondingAmount, uint256 unbondingStartTime, uint256 slashedAmount, bool isActive, uint256 registeredAt))',
   'function getXLPChains(address xlp) external view returns (uint256[])',
   'function getProtocolStats() external view returns (uint256 totalStaked, uint256 totalSlashed, uint256 activeXLPs)',
   'function MIN_STAKE() external view returns (uint256)',
+  'function l2Paymasters(uint256 chainId) external view returns (address)',
 ];
 
 const CROSS_CHAIN_PAYMASTER_ABI = [
@@ -109,8 +110,9 @@ async function getXLPStatus(
 }> {
   const manager = new ethers.Contract(stakeManagerAddress, L1_STAKE_MANAGER_ABI, provider);
   
-  const isActive = await manager.isXLPActive(xlpAddress);
-  const stake = await manager.getXLPStake(xlpAddress);
+  const stakeData = await manager.getStake(xlpAddress);
+  const isActive = stakeData.isActive;
+  const stake = stakeData.stakedAmount;
   let chains: number[] = [];
   
   if (isActive) {
@@ -124,6 +126,24 @@ async function getXLPStatus(
     stake,
     chains,
   };
+}
+
+async function getRegisteredPaymasters(
+  provider: ethers.JsonRpcProvider,
+  stakeManagerAddress: string,
+  chainIds: number[]
+): Promise<number[]> {
+  const manager = new ethers.Contract(stakeManagerAddress, L1_STAKE_MANAGER_ABI, provider);
+  const registered: number[] = [];
+  
+  for (const chainId of chainIds) {
+    const paymaster = await manager.l2Paymasters(chainId);
+    if (paymaster !== ethers.ZeroAddress) {
+      registered.push(chainId);
+    }
+  }
+  
+  return registered;
 }
 
 async function registerXLP(
@@ -157,6 +177,24 @@ async function registerXLP(
     return { success: true };
   }
 
+  // Check which chains have registered L2 paymasters
+  const registeredPaymasters = await getRegisteredPaymasters(provider, eilConfig.hub.l1StakeManager, supportedChains);
+  
+  if (registeredPaymasters.length === 0) {
+    return { 
+      success: false, 
+      error: 'No L2 CrossChainPaymaster contracts registered. Deploy paymasters first with: bun scripts/deploy/eil.ts testnet' 
+    };
+  }
+  
+  // Only register for chains with paymasters
+  const chainsToRegister = registeredPaymasters;
+  
+  if (chainsToRegister.length < supportedChains.length) {
+    logger.info(`Note: Only ${chainsToRegister.length}/${supportedChains.length} chains have registered paymasters`);
+    logger.info(`  Registering for: ${chainsToRegister.map(c => CHAIN_NAMES[c] || c).join(', ')}`);
+  }
+
   // Get minimum stake
   const minStake = await manager.MIN_STAKE();
   const stake = ethers.parseEther(stakeAmount);
@@ -179,9 +217,9 @@ async function registerXLP(
 
   logger.info(`Registering XLP on ${eilConfig.hub.name} (L1 Hub)...`);
   logger.info(`  Stake: ${stakeAmount} ETH`);
-  logger.info(`  Supported chains: ${supportedChains.map(c => CHAIN_NAMES[c] || c).join(', ')}`);
+  logger.info(`  Supported chains: ${chainsToRegister.map(c => CHAIN_NAMES[c] || c).join(', ')}`);
 
-  const tx = await manager.register(supportedChains, { value: stake });
+  const tx = await manager.register(chainsToRegister, { value: stake });
   logger.info(`  Transaction: ${tx.hash}`);
   
   const receipt = await tx.wait();
@@ -248,13 +286,27 @@ async function showXLPStatus(eilConfig: EILConfig, xlpAddress: string) {
   const hubRpc = PUBLIC_RPCS[eilConfig.hub.chainId];
   if (hubRpc && eilConfig.hub.l1StakeManager) {
     const provider = new ethers.JsonRpcProvider(hubRpc);
-    const status = await getXLPStatus(provider, eilConfig.hub.l1StakeManager, xlpAddress);
     
-    console.log(`L1 Hub (${eilConfig.hub.name}):`);
-    console.log(`  Status: ${status.isActive ? '✅ Active' : '❌ Not registered'}`);
-    console.log(`  Stake: ${ethers.formatEther(status.stake)} ETH`);
-    if (status.chains.length > 0) {
-      console.log(`  Chains: ${status.chains.map(c => CHAIN_NAMES[c] || c).join(', ')}`);
+    try {
+      const status = await getXLPStatus(provider, eilConfig.hub.l1StakeManager, xlpAddress);
+      
+      console.log(`L1 Hub (${eilConfig.hub.name}):`);
+      console.log(`  Status: ${status.isActive ? '✅ Active' : '❌ Not registered'}`);
+      console.log(`  Stake: ${ethers.formatEther(status.stake)} ETH`);
+      if (status.chains.length > 0) {
+        console.log(`  Chains: ${status.chains.map(c => CHAIN_NAMES[c] || c).join(', ')}`);
+      }
+      
+      // Check registered paymasters
+      const allChainIds = [84532, 11155420, 421614, 420690];
+      const registeredPaymasters = await getRegisteredPaymasters(provider, eilConfig.hub.l1StakeManager, allChainIds);
+      if (registeredPaymasters.length > 0) {
+        console.log(`  Registered L2 Paymasters: ${registeredPaymasters.map(c => CHAIN_NAMES[c] || c).join(', ')}`);
+      } else {
+        console.log(`  ⚠️ No L2 Paymasters registered yet`);
+      }
+    } catch (e) {
+      console.log(`L1 Hub (${eilConfig.hub.name}): Error reading status - ${(e as Error).message.slice(0, 60)}`);
     }
     console.log('');
   }
@@ -266,16 +318,20 @@ async function showXLPStatus(eilConfig: EILConfig, xlpAddress: string) {
     const rpc = PUBLIC_RPCS[chain.chainId];
     if (!rpc) continue;
 
-    const provider = new ethers.JsonRpcProvider(rpc);
-    const paymaster = new ethers.Contract(chain.crossChainPaymaster, CROSS_CHAIN_PAYMASTER_ABI, provider);
+    try {
+      const provider = new ethers.JsonRpcProvider(rpc);
+      const paymaster = new ethers.Contract(chain.crossChainPaymaster, CROSS_CHAIN_PAYMASTER_ABI, provider);
 
-    const ethBalance = await paymaster.getXLPETH(xlpAddress);
-    const verifiedStake = await paymaster.xlpVerifiedStake(xlpAddress);
-    
-    console.log(`${chain.name}:`);
-    console.log(`  ETH Liquidity: ${ethers.formatEther(ethBalance)} ETH`);
-    console.log(`  Verified Stake: ${ethers.formatEther(verifiedStake)} ETH`);
-    console.log('');
+      const ethBalance = await paymaster.getXLPETH(xlpAddress);
+      const verifiedStake = await paymaster.xlpVerifiedStake(xlpAddress);
+      
+      console.log(`${chain.name}:`);
+      console.log(`  ETH Liquidity: ${ethers.formatEther(ethBalance)} ETH`);
+      console.log(`  Verified Stake: ${ethers.formatEther(verifiedStake)} ETH`);
+      console.log('');
+    } catch {
+      // Paymaster not deployed or not accessible
+    }
   }
 }
 
