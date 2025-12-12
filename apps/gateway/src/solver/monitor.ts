@@ -18,6 +18,7 @@ export interface IntentEvent {
   transactionHash: string;
 }
 
+// ERC-7683 Open event from InputSettler
 const OPEN_EVENT = parseAbiItem(
   'event Open(bytes32 indexed orderId, (address user, uint256 originChainId, uint32 openDeadline, uint32 fillDeadline, bytes32 orderId, (bytes32 token, uint256 amount, bytes32 recipient, uint256 chainId)[] maxSpent, (bytes32 token, uint256 amount, bytes32 recipient, uint256 chainId)[] minReceived, (uint64 destinationChainId, bytes32 destinationSettler, bytes originData)[] fillInstructions) order)'
 );
@@ -72,7 +73,12 @@ export class EventMonitor extends EventEmitter {
         address: settler,
         abi: [OPEN_EVENT],
         eventName: 'Open',
-        onLogs: (logs) => logs.forEach(log => this.processEvent(chain.chainId, log)),
+        onLogs: (logs) => {
+          for (const log of logs) {
+            const event = this.parseEvent(chain.chainId, log);
+            if (event) this.emit('intent', event);
+          }
+        },
         onError: (err) => console.error(`Event error on ${chain.name}:`, err.message),
       });
 
@@ -91,33 +97,83 @@ export class EventMonitor extends EventEmitter {
     return this.running;
   }
 
-  private processEvent(chainId: number, log: { args: Record<string, unknown>; blockNumber: bigint; transactionHash: `0x${string}` }): void {
+  private parseEvent(
+    chainId: number,
+    log: { args: Record<string, unknown>; blockNumber: bigint; transactionHash: `0x${string}` }
+  ): IntentEvent | null {
     const args = log.args as {
-      orderId: `0x${string}`;
-      order: {
-        user: `0x${string}`;
-        maxSpent: Array<{ token: `0x${string}`; amount: bigint; chainId: bigint }>;
-        minReceived: Array<{ token: `0x${string}`; amount: bigint; recipient: `0x${string}`; chainId: bigint }>;
-        fillDeadline: number;
+      orderId?: `0x${string}`;
+      order?: {
+        user?: `0x${string}`;
+        maxSpent?: Array<{ token: `0x${string}`; amount: bigint; recipient: `0x${string}`; chainId: bigint }>;
+        minReceived?: Array<{ token: `0x${string}`; amount: bigint; recipient: `0x${string}`; chainId: bigint }>;
+        fillDeadline?: number;
       };
     };
+
+    // Validate required fields
+    if (!args.orderId) {
+      console.warn('⚠️ Event missing orderId, skipping');
+      return null;
+    }
+    if (!args.order) {
+      console.warn('⚠️ Event missing order struct, skipping');
+      return null;
+    }
+    if (!args.order.maxSpent?.length) {
+      console.warn('⚠️ Event has empty maxSpent array, skipping');
+      return null;
+    }
+    if (!args.order.minReceived?.length) {
+      console.warn('⚠️ Event has empty minReceived array, skipping');
+      return null;
+    }
 
     const spent = args.order.maxSpent[0];
     const received = args.order.minReceived[0];
 
-    this.emit('intent', {
+    // Validate amounts are positive
+    if (!spent.amount || spent.amount <= 0n) {
+      console.warn('⚠️ Invalid input amount, skipping');
+      return null;
+    }
+    if (!received.amount || received.amount <= 0n) {
+      console.warn('⚠️ Invalid output amount, skipping');
+      return null;
+    }
+
+    // Validate addresses
+    if (!spent.token || spent.token.length < 42) {
+      console.warn('⚠️ Invalid input token address, skipping');
+      return null;
+    }
+    if (!received.token || received.token.length < 42) {
+      console.warn('⚠️ Invalid output token address, skipping');
+      return null;
+    }
+    if (!received.recipient || received.recipient.length < 42) {
+      console.warn('⚠️ Invalid recipient address, skipping');
+      return null;
+    }
+
+    // Convert bytes32 addresses to address format (first 20 bytes)
+    const inputToken = '0x' + spent.token.slice(26);
+    const outputToken = '0x' + received.token.slice(26);
+    const recipient = '0x' + received.recipient.slice(26);
+
+    return {
       orderId: args.orderId,
-      user: args.order.user,
+      user: args.order.user || '0x',
       sourceChain: chainId,
-      destinationChain: Number(received?.chainId || 0),
-      inputToken: spent?.token.slice(0, 42) || '0x',
-      inputAmount: spent?.amount.toString() || '0',
-      outputToken: received?.token.slice(0, 42) || '0x',
-      outputAmount: received?.amount.toString() || '0',
-      recipient: received?.recipient.slice(0, 42) || '0x',
-      deadline: args.order.fillDeadline,
+      destinationChain: Number(received.chainId || 0),
+      inputToken,
+      inputAmount: spent.amount.toString(),
+      outputToken,
+      outputAmount: received.amount.toString(),
+      recipient,
+      deadline: args.order.fillDeadline || 0,
       blockNumber: log.blockNumber,
       transactionHash: log.transactionHash,
-    } as IntentEvent);
+    };
   }
 }

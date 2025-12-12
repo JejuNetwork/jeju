@@ -8,6 +8,37 @@ import { EventMonitor, type IntentEvent } from './monitor';
 import { getChain } from '../lib/chains.js';
 import { ZERO_ADDRESS } from '../lib/contracts.js';
 
+// Actual OutputSettler ABI from the contract
+const OUTPUT_SETTLER_ABI = [
+  {
+    type: 'function',
+    name: 'fillDirect',
+    inputs: [
+      { name: 'orderId', type: 'bytes32' },
+      { name: 'token', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+      { name: 'recipient', type: 'address' },
+    ],
+    outputs: [],
+    stateMutability: 'payable',
+  },
+  {
+    type: 'function',
+    name: 'isFilled',
+    inputs: [{ name: 'orderId', type: 'bytes32' }],
+    outputs: [{ type: 'bool' }],
+    stateMutability: 'view',
+  },
+] as const;
+
+const ERC20_APPROVE_ABI = [{
+  type: 'function',
+  name: 'approve',
+  inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }],
+  outputs: [{ type: 'bool' }],
+  stateMutability: 'nonpayable',
+}] as const;
+
 function loadOutputSettlers(): Record<number, `0x${string}`> {
   const path = resolve(process.cwd(), '../../packages/config/contracts.json');
   if (!existsSync(path)) {
@@ -44,7 +75,7 @@ export class SolverAgent {
   private strategy: StrategyEngine;
   private monitor: EventMonitor;
   private clients = new Map<number, { public: PublicClient; wallet?: WalletClient }>();
-  private pending = new Set<string>();
+  private pending = new Map<string, Promise<void>>(); // Track in-flight fills
   private running = false;
 
   constructor(config: SolverConfig, liquidity: LiquidityManager, strategy: StrategyEngine, monitor: EventMonitor) {
@@ -79,6 +110,8 @@ export class SolverAgent {
   async stop(): Promise<void> {
     this.running = false;
     await this.monitor.stop();
+    // Wait for pending fills to complete
+    await Promise.all(this.pending.values());
   }
 
   isRunning(): boolean {
@@ -86,9 +119,39 @@ export class SolverAgent {
   }
 
   private async handleIntent(e: IntentEvent): Promise<void> {
-    if (this.pending.has(e.orderId)) return;
+    // Race condition fix: check AND set atomically
+    if (this.pending.has(e.orderId)) {
+      console.log(`   ⏭️ Already processing ${e.orderId.slice(0, 10)}...`);
+      return;
+    }
 
+    // Reserve this order immediately
+    const fillPromise = this.processIntent(e);
+    this.pending.set(e.orderId, fillPromise);
+    
+    await fillPromise;
+    this.pending.delete(e.orderId);
+  }
+
+  private async processIntent(e: IntentEvent): Promise<void> {
     console.log(`\n🎯 Intent ${e.orderId.slice(0, 10)}... | ${e.sourceChain} → ${e.destinationChain}`);
+
+    // Check if already filled on-chain
+    const client = this.clients.get(e.destinationChain);
+    const settler = OUTPUT_SETTLERS[e.destinationChain] || process.env[`OIF_OUTPUT_SETTLER_${e.destinationChain}`] as `0x${string}`;
+    
+    if (client && settler) {
+      const isFilled = await client.public.readContract({
+        address: settler,
+        abi: OUTPUT_SETTLER_ABI,
+        functionName: 'isFilled',
+        args: [e.orderId as `0x${string}`],
+      });
+      if (isFilled) {
+        console.log('   ⏭️ Already filled on-chain');
+        return;
+      }
+    }
 
     const eval_ = await this.strategy.evaluate({
       orderId: e.orderId,
@@ -111,10 +174,8 @@ export class SolverAgent {
       return;
     }
 
-    this.pending.add(e.orderId);
     const result = await this.fill(e);
     console.log(result.success ? `   ✅ Filled: ${result.txHash}` : `   ❌ ${result.error}`);
-    this.pending.delete(e.orderId);
   }
 
   private async fill(e: IntentEvent): Promise<{ success: boolean; txHash?: string; error?: string }> {
@@ -127,42 +188,39 @@ export class SolverAgent {
     const gasPrice = await client.public.getGasPrice();
     if (gasPrice > this.config.maxGasPrice) return { success: false, error: 'Gas too high' };
 
-    const isNative = e.outputToken === ZERO_ADDRESS;
+    const isNative = e.outputToken === ZERO_ADDRESS || e.outputToken.toLowerCase() === '0x0000000000000000000000000000000000000000';
     const amount = BigInt(e.outputAmount);
     const chain = getChain(e.destinationChain);
 
+    // Approve if ERC20
     if (!isNative) {
       const approveTx = await client.wallet.writeContract({
         chain,
         account: client.wallet.account!,
         address: e.outputToken as `0x${string}`,
-        abi: [{ type: 'function', name: 'approve', inputs: [{ name: 's', type: 'address' }, { name: 'a', type: 'uint256' }], outputs: [{ type: 'bool' }], stateMutability: 'nonpayable' }] as const,
+        abi: ERC20_APPROVE_ABI,
         functionName: 'approve',
         args: [settler, amount],
       });
       await client.public.waitForTransactionReceipt({ hash: approveTx });
     }
 
-    const fillArgs = [e.orderId as `0x${string}`, e.recipient as `0x${string}`, e.outputToken as `0x${string}`, amount] as const;
-    
-    const fillTx = isNative
-      ? await client.wallet.writeContract({
-          chain,
-          account: client.wallet.account!,
-          address: settler,
-          abi: [{ type: 'function', name: 'fill', inputs: [{ name: 'o', type: 'bytes32' }, { name: 'r', type: 'address' }, { name: 't', type: 'address' }, { name: 'a', type: 'uint256' }], outputs: [], stateMutability: 'payable' }] as const,
-          functionName: 'fill',
-          args: fillArgs,
-          value: amount,
-        })
-      : await client.wallet.writeContract({
-          chain,
-          account: client.wallet.account!,
-          address: settler,
-          abi: [{ type: 'function', name: 'fill', inputs: [{ name: 'o', type: 'bytes32' }, { name: 'r', type: 'address' }, { name: 't', type: 'address' }, { name: 'a', type: 'uint256' }], outputs: [], stateMutability: 'nonpayable' }] as const,
-          functionName: 'fill',
-          args: fillArgs,
-        });
+    // Call fillDirect (the actual contract function)
+    // Note: fillDirect signature is (orderId, token, amount, recipient) - different order than I had before!
+    const fillTx = await client.wallet.writeContract({
+      chain,
+      account: client.wallet.account!,
+      address: settler,
+      abi: OUTPUT_SETTLER_ABI,
+      functionName: 'fillDirect',
+      args: [
+        e.orderId as `0x${string}`,
+        e.outputToken as `0x${string}`,
+        amount,
+        e.recipient as `0x${string}`,
+      ],
+      value: isNative ? amount : 0n,
+    });
 
     const receipt = await client.public.waitForTransactionReceipt({ hash: fillTx });
     if (receipt.status === 'reverted') return { success: false, error: 'Reverted' };
