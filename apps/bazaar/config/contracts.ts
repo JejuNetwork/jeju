@@ -30,8 +30,12 @@ export interface XLPContracts {
 }
 
 export interface NFTContracts {
+  /** @deprecated Use gameItems instead */
   hyperscapeItems?: Address
+  /** @deprecated Use gameGold instead */
   hyperscapeGold?: Address
+  gameItems?: Address
+  gameGold?: Address
   marketplace?: Address
   tradeEscrow?: Address
   gameAgentId?: number
@@ -70,10 +74,16 @@ export const V4_CONTRACTS: Record<number, V4Contracts> = {
 function buildNFTContracts(chainId: ChainId): NFTContracts {
   const marketplace = bazaarMarketplaceDeployments[chainId]
   const marketplaceAddr = getBazaarMarketplace(chainId) || ZERO_ADDRESS
+  const goldAddr = (marketplace?.goldToken || ZERO_ADDRESS) as Address
+  const itemsAddr = marketplaceAddr as Address
   return {
     marketplace: marketplaceAddr as Address,
-    hyperscapeGold: (marketplace?.goldToken || ZERO_ADDRESS) as Address,
-    hyperscapeItems: marketplaceAddr as Address,
+    // Generic names
+    gameGold: goldAddr,
+    gameItems: itemsAddr,
+    // Legacy names (deprecated)
+    hyperscapeGold: goldAddr,
+    hyperscapeItems: itemsAddr,
   }
 }
 
@@ -113,7 +123,8 @@ export function hasV4Periphery(chainId: number): boolean {
 
 export function hasNFTMarketplace(chainId: number): boolean {
   const contracts = getNFTContracts(chainId)
-  return !!(contracts.marketplace && contracts.hyperscapeItems && isValidAddress(contracts.marketplace))
+  const items = contracts.gameItems || contracts.hyperscapeItems
+  return !!(contracts.marketplace && items && isValidAddress(contracts.marketplace))
 }
 
 export function getTokenFactoryContracts(chainId: number): TokenFactoryContracts | undefined {
@@ -165,8 +176,8 @@ export function hasXLPRouter(chainId: number): boolean {
 function buildGameContracts(chainId: ChainId): GameContracts {
   const nft = buildNFTContracts(chainId)
   return {
-    items: nft.hyperscapeItems,
-    gold: nft.hyperscapeGold,
+    items: nft.gameItems || nft.hyperscapeItems,
+    gold: nft.gameGold || nft.hyperscapeGold,
     marketplace: nft.marketplace,
     tradeEscrow: nft.tradeEscrow,
     sponsoredPaymaster: ZERO_ADDRESS as Address,

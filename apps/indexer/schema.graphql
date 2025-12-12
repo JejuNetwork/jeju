@@ -279,11 +279,14 @@ type TEEAttestation @entity {
   verified: Boolean!
 }
 
+# Game types - GENERIC should be used for new games
+# Specific game types are legacy and will be deprecated in favor of dynamic registration
 enum GameType {
+  GENERIC
+  # Legacy game types (retained for backwards compatibility)
   CALIGULAND
   EHORSE
   HYPERSCAPE
-  GENERIC
 }
 
 type AgentProfile @entity {
