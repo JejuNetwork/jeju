@@ -233,6 +233,9 @@ enum FileCategory {
   CONTEST_RESULT
   ORACLE_DATA
   USER_CONTENT
+  CONTAINER_IMAGE
+  MODEL_WEIGHTS
+  COMPUTE_OUTPUT
 }
 
 type ModerationReport @entity {
@@ -526,6 +529,203 @@ type GovernanceEvent @entity {
   transactionHash: String!
 }
 
+# ============ AI Council Governance ============
+
+type CouncilProposal @entity {
+  id: ID! # proposalId bytes32
+  proposalId: Bytes! @unique @index
+  proposer: Account!
+  proposerAgentId: BigInt
+  proposalType: Int! # enum: PARAMETER_CHANGE, TREASURY_ALLOCATION, etc.
+  status: String! @index # SUBMITTED, COUNCIL_REVIEW, APPROVED, etc.
+  qualityScore: Int!
+  contentHash: Bytes!
+  targetContract: String
+  callData: Bytes
+  value: BigInt!
+  totalStaked: BigInt!
+  totalReputation: BigInt!
+  backerCount: Int!
+  hasResearch: Boolean!
+  researchHash: Bytes
+  ceoApproved: Boolean!
+  ceoDecisionHash: Bytes
+  createdAt: DateTime! @index
+  councilVoteEnd: DateTime
+  gracePeriodEnd: DateTime
+  executedAt: DateTime
+  councilVotes: [CouncilVote!]! @derivedFrom(field: "proposal")
+  backers: [ProposalBacker!]! @derivedFrom(field: "proposal")
+  vetoVotes: [VetoVote!]! @derivedFrom(field: "proposal")
+}
+
+type CouncilVote @entity {
+  id: ID!
+  proposal: CouncilProposal!
+  councilAgent: Account!
+  role: String! # TREASURY, CODE, COMMUNITY, SECURITY
+  vote: String! # APPROVE, REJECT, ABSTAIN, REQUEST_CHANGES
+  reasoningHash: Bytes!
+  weight: BigInt!
+  votedAt: DateTime! @index
+  blockNumber: Int!
+  transactionHash: String!
+}
+
+type ProposalBacker @entity {
+  id: ID!
+  proposal: CouncilProposal!
+  backer: Account!
+  agentId: BigInt
+  stakedAmount: BigInt!
+  reputationWeight: BigInt!
+  backedAt: DateTime! @index
+}
+
+type VetoVote @entity {
+  id: ID!
+  proposal: CouncilProposal!
+  voter: Account!
+  agentId: BigInt
+  category: String! # ALREADY_DONE, DUPLICATE, IMPOSSIBLE, HARMFUL, etc.
+  reasonHash: Bytes!
+  stakedAmount: BigInt!
+  reputationWeight: BigInt!
+  votedAt: DateTime! @index
+}
+
+type CEODecision @entity {
+  id: ID! # decisionId
+  proposal: CouncilProposal!
+  modelId: String!
+  approved: Boolean!
+  decisionHash: Bytes!
+  encryptedHash: Bytes!
+  contextHash: Bytes!
+  confidenceScore: Int!
+  alignmentScore: Int!
+  disputed: Boolean!
+  overridden: Boolean!
+  decidedAt: DateTime! @index
+  blockNumber: Int!
+  transactionHash: String!
+}
+
+# ============ Delegation System ============
+
+type Delegate @entity {
+  id: ID! # delegate address
+  delegate: Account!
+  agentId: BigInt
+  name: String!
+  profileHash: String
+  expertise: [String!]!
+  totalDelegated: BigInt!
+  delegatorCount: Int!
+  isActive: Boolean!
+  isSecurityCouncil: Boolean! @index
+  proposalsVoted: Int!
+  proposalsCreated: Int!
+  registeredAt: DateTime! @index
+  delegations: [Delegation!]! @derivedFrom(field: "delegate")
+}
+
+type Delegation @entity {
+  id: ID! # delegator address
+  delegator: Account!
+  delegate: Delegate!
+  amount: BigInt!
+  lockedUntil: DateTime
+  delegatedAt: DateTime! @index
+  revokedAt: DateTime
+  active: Boolean! @index
+}
+
+type SecurityCouncilMember @entity {
+  id: ID! # member address + election timestamp
+  member: Account!
+  agentId: BigInt
+  combinedScore: BigInt!
+  electedAt: DateTime! @index
+  removedAt: DateTime
+  active: Boolean! @index
+}
+
+type SecurityCouncilUpdate @entity {
+  id: ID!
+  members: [String!]!
+  memberCount: Int!
+  updatedAt: DateTime! @index
+  blockNumber: Int!
+  transactionHash: String!
+}
+
+# ============ Circuit Breaker ============
+
+type ProtectedContract @entity {
+  id: ID! # contract address
+  target: Account!
+  name: String!
+  priority: Int!
+  isPaused: Boolean! @index
+  pausedAt: DateTime
+  pausedBy: Account
+  pauseReason: String
+  registeredAt: DateTime! @index
+}
+
+type PauseEvent @entity {
+  id: ID! # eventId
+  target: ProtectedContract!
+  pauser: Account
+  reason: String!
+  isGlobal: Boolean!
+  wasEmergency: Boolean!
+  pausedAt: DateTime! @index
+  unpausedAt: DateTime
+  blockNumber: Int!
+  transactionHash: String!
+}
+
+type AnomalyDetection @entity {
+  id: ID!
+  target: ProtectedContract!
+  anomalyType: String! # HIGH_TX_COUNT, HIGH_TX_VALUE, HIGH_HOURLY_VALUE
+  value: BigInt!
+  threshold: BigInt!
+  autoPaused: Boolean!
+  detectedAt: DateTime! @index
+  blockNumber: Int!
+}
+
+# ============ Safe Multi-Sig ============
+
+type SafeExecution @entity {
+  id: ID! # executionId
+  proposalId: Bytes!
+  target: String!
+  value: BigInt!
+  data: Bytes
+  humanApprovals: Int!
+  aiApproved: Boolean!
+  executed: Boolean!
+  cancelled: Boolean!
+  createdAt: DateTime! @index
+  executedAt: DateTime
+  approvals: [SafeApproval!]! @derivedFrom(field: "execution")
+}
+
+type SafeApproval @entity {
+  id: ID!
+  execution: SafeExecution!
+  approver: Account!
+  isAI: Boolean!
+  attestationHash: Bytes
+  approvedAt: DateTime! @index
+  blockNumber: Int!
+  transactionHash: String!
+}
+
 # ============ ERC-8004 Registry ============
 
 type RegisteredAgent @entity {
@@ -758,6 +958,216 @@ type MarketStats @entity {
   totalVolume: BigInt!
   totalTrades: BigInt!
   uniqueTraders: BigInt!
+}
+
+# ============ Jeju Oracle Network (JON) Entities ============
+
+type OracleFeed @entity {
+  id: ID! # feedId (bytes32)
+  feedId: String! @unique @index
+  symbol: String! @index
+  baseToken: String!
+  quoteToken: String!
+  decimals: Int!
+  heartbeatSeconds: Int!
+  category: OracleFeedCategory!
+  isActive: Boolean! @index
+  minOracles: Int!
+  quorumThreshold: Int!
+  
+  createdAt: DateTime! @index
+  createdTxHash: String!
+  lastUpdated: DateTime! @index
+  
+  latestPrice: BigInt
+  latestConfidence: BigInt
+  latestTimestamp: DateTime
+  latestRound: BigInt
+  
+  totalReports: Int!
+  totalDisputes: Int!
+  
+  reports: [OracleReport!]! @derivedFrom(field: "feed")
+  disputes: [OracleDispute!]! @derivedFrom(field: "feed")
+  committee: [OracleCommitteeMember!]! @derivedFrom(field: "feed")
+}
+
+enum OracleFeedCategory {
+  SPOT_PRICE
+  TWAP
+  FX_RATE
+  STABLECOIN_PEG
+  LST_RATE
+  L2_GAS
+  SEQUENCER_UPTIME
+  FINALITY
+  MARKET_STATUS
+}
+
+type OracleReport @entity {
+  id: ID! # reportId (bytes32)
+  reportId: String! @unique @index
+  feed: OracleFeed!
+  round: BigInt! @index
+  
+  price: BigInt!
+  confidence: BigInt!
+  timestamp: DateTime! @index
+  
+  signers: [String!]!
+  signatureCount: Int!
+  
+  isDisputed: Boolean! @index
+  isValid: Boolean!
+  
+  submittedAt: DateTime! @index
+  submittedBy: Account!
+  txHash: String!
+  blockNumber: Int! @index
+  
+  dispute: OracleDispute
+}
+
+type OracleDispute @entity {
+  id: ID! # disputeId (bytes32)
+  disputeId: String! @unique @index
+  report: OracleReport!
+  feed: OracleFeed!
+  
+  disputer: Account!
+  bond: BigInt!
+  reason: String!
+  
+  status: OracleDisputeStatus! @index
+  challengeBond: BigInt
+  challenger: Account
+  
+  openedAt: DateTime! @index
+  challengeDeadline: DateTime!
+  resolvedAt: DateTime
+  
+  outcome: OracleDisputeOutcome
+  slashedAmount: BigInt
+  
+  txHash: String!
+  blockNumber: Int! @index
+}
+
+enum OracleDisputeStatus {
+  OPEN
+  CHALLENGED
+  RESOLVED
+  EXPIRED
+  ESCALATED
+}
+
+enum OracleDisputeOutcome {
+  VALID
+  INVALID
+  PENDING
+}
+
+type OracleOperator @entity {
+  id: ID! # operator address
+  address: String! @unique @index
+  identityId: BigInt @index
+  
+  isActive: Boolean! @index
+  isJailed: Boolean! @index
+  
+  stakedAmount: BigInt!
+  delegatedAmount: BigInt!
+  totalSlashed: BigInt!
+  
+  reportsSubmitted: Int!
+  reportsAccepted: Int!
+  disputesAgainst: Int!
+  disputesLost: Int!
+  
+  participationScore: Int! # 0-10000 bps
+  accuracyScore: Int! # 0-10000 bps
+  uptimeScore: Int! # 0-10000 bps
+  
+  totalEarnings: BigInt!
+  pendingRewards: BigInt!
+  
+  registeredAt: DateTime! @index
+  lastActiveAt: DateTime! @index
+  
+  committees: [OracleCommitteeMember!]! @derivedFrom(field: "operator")
+  attestations: [OracleAttestation!]! @derivedFrom(field: "operator")
+}
+
+type OracleCommitteeMember @entity {
+  id: ID! # feedId-operatorAddress
+  feed: OracleFeed!
+  operator: OracleOperator!
+  
+  isActive: Boolean! @index
+  addedAt: DateTime! @index
+  removedAt: DateTime
+  
+  reportsInFeed: Int!
+  lastReportAt: DateTime
+}
+
+type OracleSubscription @entity {
+  id: ID! # subscriptionId
+  subscriptionId: BigInt! @unique @index
+  subscriber: Account!
+  
+  feedIds: [String!]! # Array of feed IDs (bytes32 as hex strings)
+  
+  startTime: DateTime! @index
+  endTime: DateTime! @index
+  monthsPaid: Int!
+  totalPaid: BigInt!
+  
+  isActive: Boolean! @index
+  cancelledAt: DateTime
+  
+  createdAt: DateTime! @index
+  txHash: String!
+}
+
+type OracleAttestation @entity {
+  id: ID! # epoch-operator
+  operator: OracleOperator!
+  epoch: BigInt! @index
+  
+  feedsServed: Int!
+  reportsSubmitted: Int!
+  reportsAccepted: Int!
+  disputesReceived: Int!
+  
+  participationScore: Int!
+  accuracyScore: Int!
+  
+  attestedAt: DateTime! @index
+  txHash: String!
+}
+
+type OracleNetworkStats @entity {
+  id: ID! # "global" or date string
+  date: DateTime @index
+  
+  totalFeeds: Int!
+  activeFeeds: Int!
+  totalOperators: Int!
+  activeOperators: Int!
+  
+  totalReportsToday: Int!
+  totalDisputesToday: Int!
+  disputeRate: Int! # bps
+  
+  totalStaked: BigInt!
+  totalFeesCollected: BigInt!
+  feesToday: BigInt!
+  
+  avgParticipationScore: Int!
+  avgAccuracyScore: Int!
+  
+  lastUpdated: DateTime!
 }
 
 # ============ EIL (Ethereum Interop Layer) Entities ============
@@ -1530,6 +1940,130 @@ type StorageMarketStats @entity {
   lastUpdated: DateTime!
 }
 
+# ============ Cross-Service Integration Entities ============
+
+type ContainerImage @entity {
+  id: ID! # CID
+  cid: String! @unique @index
+  name: String!
+  tag: String!
+  sizeBytes: BigInt!
+  uploadedAt: DateTime! @index
+  uploadedBy: Account!
+  
+  # Storage info
+  storageProvider: StorageProvider
+  storageDeal: StorageDeal
+  tier: StorageTier! @index
+  expiresAt: DateTime
+  
+  # Compute compatibility
+  architecture: ContainerArchitecture! @index
+  gpuRequired: Boolean! @index
+  minGpuVram: Int
+  teeRequired: Boolean! @index
+  
+  # Verification
+  contentHash: String!
+  verified: Boolean! @index
+  verifiedBy: RegisteredAgent
+  
+  # Usage tracking
+  pullCount: Int!
+  lastPulledAt: DateTime
+  
+  # Relations
+  crossServiceRequests: [CrossServiceRequest!]! @derivedFrom(field: "containerImage")
+}
+
+enum ContainerArchitecture {
+  AMD64
+  ARM64
+  MULTI
+}
+
+type CrossServiceRequest @entity {
+  id: ID! # requestId
+  requestId: String! @unique @index
+  requester: Account!
+  requestType: CrossServiceRequestType! @index
+  
+  # Source (storage)
+  containerImage: ContainerImage
+  sourceCid: String! @index
+  sourceProvider: StorageProvider
+  
+  # Destination (compute)
+  destinationProvider: ComputeProvider
+  destinationRental: ComputeRental
+  
+  # Status
+  status: CrossServiceRequestStatus! @index
+  createdAt: DateTime! @index
+  completedAt: DateTime
+  
+  # Cost breakdown
+  storageCost: BigInt!
+  bandwidthCost: BigInt!
+  totalCost: BigInt!
+  
+  # Result
+  error: String
+  txHash: String!
+  blockNumber: Int! @index
+}
+
+enum CrossServiceRequestType {
+  CONTAINER_PULL
+  DATA_LOAD
+  MODEL_FETCH
+  OUTPUT_STORE
+}
+
+enum CrossServiceRequestStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+type MarketplaceStats @entity {
+  id: ID! # "global" or date string
+  date: DateTime @index
+  
+  # Compute metrics
+  computeProviders: Int!
+  activeComputeProviders: Int!
+  computeAgentLinked: Int!
+  totalComputeRentals: Int!
+  activeComputeRentals: Int!
+  computeStaked: BigInt!
+  computeEarnings: BigInt!
+  
+  # Storage metrics
+  storageProviders: Int!
+  activeStorageProviders: Int!
+  storageAgentLinked: Int!
+  totalStorageDeals: Int!
+  activeStorageDeals: Int!
+  storageCapacityTB: BigInt!
+  storageUsedTB: BigInt!
+  storageStaked: BigInt!
+  
+  # Cross-service metrics
+  totalContainerImages: Int!
+  verifiedContainerImages: Int!
+  totalCrossServiceRequests: Int!
+  successfulRequests: Int!
+  fullStackAgents: Int!
+  
+  # 24h metrics
+  last24hContainerPulls: Int!
+  last24hCrossServiceVolume: BigInt!
+  
+  lastUpdated: DateTime!
+}
+
 # ============ JNS (Jeju Name Service) Entities ============
 
 type JNSName @entity {
@@ -1668,6 +2202,269 @@ type JNSStats @entity {
   avgSalePrice: BigInt!
   totalListings: Int!
   activeListings: Int!
+  
+  lastUpdated: DateTime!
+}
+
+# ============ Perpetual Futures DEX Entities ============
+
+type PerpMarket @entity {
+  id: ID! # marketId (bytes32)
+  marketId: String! @unique @index
+  symbol: String! @index
+  oracleAsset: String!
+  settlementToken: String
+  
+  maxLeverage: Int!
+  maintenanceMarginBps: Int!
+  liquidationFeeBps: Int!
+  makerFeeBps: Int!
+  takerFeeBps: Int!
+  maxOpenInterest: BigInt!
+  
+  isActive: Boolean! @index
+  createdAt: DateTime! @index
+  createdTxHash: String!
+  
+  # Current state
+  markPrice: BigInt!
+  indexPrice: BigInt!
+  fundingRate: BigInt!
+  lastFundingTime: DateTime!
+  
+  longOpenInterest: BigInt!
+  shortOpenInterest: BigInt!
+  
+  # Stats
+  totalVolume: BigInt!
+  totalTrades: Int!
+  totalLiquidations: Int!
+  totalFundingPaid: BigInt!
+  
+  # Relations
+  positions: [PerpPosition!]! @derivedFrom(field: "market")
+  trades: [PerpTrade!]! @derivedFrom(field: "market")
+  liquidations: [PerpLiquidation!]! @derivedFrom(field: "market")
+  fundingPayments: [PerpFundingPayment!]! @derivedFrom(field: "market")
+}
+
+enum PerpPositionSide {
+  LONG
+  SHORT
+}
+
+enum PerpPositionStatus {
+  OPEN
+  CLOSED
+  LIQUIDATED
+}
+
+type PerpPosition @entity {
+  id: ID! # positionId (bytes32)
+  positionId: String! @unique @index
+  market: PerpMarket!
+  trader: Account!
+  
+  side: PerpPositionSide! @index
+  status: PerpPositionStatus! @index
+  
+  size: BigInt!
+  margin: BigInt!
+  marginToken: String!
+  entryPrice: BigInt!
+  leverage: Int!
+  
+  # Current state (updated on price changes)
+  markPrice: BigInt!
+  unrealizedPnl: BigInt!
+  liquidationPrice: BigInt!
+  healthFactor: BigInt!
+  
+  # Cumulative
+  realizedPnl: BigInt!
+  fundingPaid: BigInt!
+  feePaid: BigInt!
+  
+  openedAt: DateTime! @index
+  closedAt: DateTime
+  openTxHash: String!
+  closeTxHash: String
+  
+  # Relations
+  trades: [PerpTrade!]! @derivedFrom(field: "position")
+  fundingPayments: [PerpFundingPayment!]! @derivedFrom(field: "position")
+}
+
+enum PerpTradeType {
+  OPEN
+  INCREASE
+  DECREASE
+  CLOSE
+}
+
+type PerpTrade @entity {
+  id: ID! # txHash-logIndex
+  market: PerpMarket!
+  position: PerpPosition
+  trader: Account!
+  
+  tradeType: PerpTradeType! @index
+  side: PerpPositionSide!
+  
+  size: BigInt!
+  price: BigInt!
+  margin: BigInt!
+  marginToken: String!
+  leverage: Int!
+  
+  fee: BigInt!
+  realizedPnl: BigInt!
+  
+  timestamp: DateTime! @index
+  txHash: String! @index
+  blockNumber: Int! @index
+}
+
+type PerpLiquidation @entity {
+  id: ID! # txHash-logIndex
+  market: PerpMarket!
+  position: PerpPosition!
+  
+  liquidator: Account!
+  trader: Account!
+  
+  size: BigInt!
+  margin: BigInt!
+  liquidationPrice: BigInt!
+  markPrice: BigInt!
+  
+  liquidatorReward: BigInt!
+  insuranceFundFee: BigInt!
+  badDebt: BigInt!
+  
+  timestamp: DateTime! @index
+  txHash: String! @index
+  blockNumber: Int! @index
+}
+
+type PerpFundingPayment @entity {
+  id: ID! # positionId-timestamp
+  market: PerpMarket!
+  position: PerpPosition!
+  trader: Account!
+  
+  fundingRate: BigInt!
+  payment: BigInt!
+  isPayment: Boolean!
+  
+  positionSize: BigInt!
+  
+  timestamp: DateTime! @index
+  txHash: String!
+  blockNumber: Int!
+}
+
+type PerpInsuranceFund @entity {
+  id: ID! # token address
+  token: String! @unique @index
+  balance: BigInt!
+  totalDeposited: BigInt!
+  totalWithdrawn: BigInt!
+  totalBadDebtCovered: BigInt!
+  
+  lastUpdated: DateTime! @index
+}
+
+type PerpCollateralDeposit @entity {
+  id: ID! # txHash-logIndex
+  trader: Account!
+  token: String! @index
+  amount: BigInt!
+  
+  isCrossChain: Boolean!
+  sourceChainId: Int
+  voucherId: String
+  
+  timestamp: DateTime! @index
+  txHash: String! @index
+  blockNumber: Int!
+}
+
+type PerpCollateralWithdrawal @entity {
+  id: ID! # txHash-logIndex
+  trader: Account!
+  token: String! @index
+  amount: BigInt!
+  
+  timestamp: DateTime! @index
+  txHash: String! @index
+  blockNumber: Int!
+}
+
+type PerpMarketStats @entity {
+  id: ID! # "global" or marketId-date
+  market: PerpMarket
+  date: DateTime @index
+  
+  # Volume
+  volume24h: BigInt!
+  trades24h: Int!
+  uniqueTraders24h: Int!
+  
+  # Open Interest
+  longOpenInterest: BigInt!
+  shortOpenInterest: BigInt!
+  totalOpenInterest: BigInt!
+  
+  # Prices
+  highPrice24h: BigInt!
+  lowPrice24h: BigInt!
+  openPrice24h: BigInt!
+  closePrice24h: BigInt!
+  
+  # Funding
+  fundingRate: BigInt!
+  cumulativeFunding24h: BigInt!
+  
+  # Liquidations
+  liquidations24h: Int!
+  liquidationVolume24h: BigInt!
+  
+  # Fees
+  totalFees24h: BigInt!
+  insuranceFundFees24h: BigInt!
+  
+  lastUpdated: DateTime!
+}
+
+type PerpGlobalStats @entity {
+  id: ID! # "global" or date string
+  date: DateTime @index
+  
+  totalMarkets: Int!
+  activeMarkets: Int!
+  
+  totalVolume: BigInt!
+  volume24h: BigInt!
+  
+  totalTrades: Int!
+  trades24h: Int!
+  
+  totalOpenInterest: BigInt!
+  totalLongOI: BigInt!
+  totalShortOI: BigInt!
+  
+  totalLiquidations: Int!
+  liquidations24h: Int!
+  
+  totalFees: BigInt!
+  fees24h: BigInt!
+  
+  totalBadDebt: BigInt!
+  insuranceFundBalance: BigInt!
+  
+  uniqueTraders: Int!
+  activeTraders24h: Int!
   
   lastUpdated: DateTime!
 }

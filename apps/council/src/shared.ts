@@ -1,8 +1,7 @@
 /**
- * Shared constants and utilities for Council servers
+ * Shared constants and utilities for Council
  */
 
-// Contract ABIs
 export const COUNCIL_ABI = [
   'function getProposal(bytes32) view returns (tuple(bytes32 proposalId, address proposer, uint256 proposerAgentId, uint8 proposalType, uint8 status, uint8 qualityScore, uint256 createdAt, uint256 councilVoteEnd, uint256 gracePeriodEnd, bytes32 contentHash, address targetContract, bytes callData, uint256 value, uint256 totalStaked, uint256 totalReputation, uint256 backerCount, bool hasResearch, bytes32 researchHash, bool ceoApproved, bytes32 ceoDecisionHash))',
   'function getCouncilVotes(bytes32) view returns (tuple(bytes32 proposalId, address councilAgent, uint8 role, uint8 vote, bytes32 reasoningHash, uint256 votedAt, uint256 weight)[])',
@@ -19,43 +18,21 @@ export const CEO_AGENT_ABI = [
   'function getCEOStats() view returns (string currentModelId, uint256 totalDecisions, uint256 approvedDecisions, uint256 overriddenDecisions, uint256 approvalRate, uint256 overrideRate)',
   'function getDecision(bytes32) view returns (tuple(bytes32 proposalId, string modelId, bool approved, bytes32 decisionHash, bytes32 encryptedHash, bytes32 contextHash, uint256 decidedAt, uint256 confidenceScore, uint256 alignmentScore, bool disputed, bool overridden))',
   'function getAllModels() view returns (string[])',
+  'function getModel(string) view returns (tuple(string modelId, string modelName, string provider, address nominatedBy, uint256 totalStaked, uint256 totalReputation, uint256 nominatedAt, bool isActive, uint256 decisionsCount, uint256 approvedDecisions, uint256 benchmarkScore))',
+  'function getRecentDecisions(uint256) view returns (bytes32[])',
 ] as const;
 
-// Status and type enums as arrays for index-based lookup
-export const PROPOSAL_STATUS = [
-  'SUBMITTED', 'COUNCIL_REVIEW', 'RESEARCH_PENDING', 'COUNCIL_FINAL',
-  'CEO_QUEUE', 'APPROVED', 'EXECUTING', 'COMPLETED', 'REJECTED',
-  'VETOED', 'DUPLICATE', 'SPAM'
-] as const;
-
-export const PROPOSAL_TYPES = [
-  'PARAMETER_CHANGE', 'TREASURY_ALLOCATION', 'CODE_UPGRADE',
-  'HIRE_CONTRACTOR', 'FIRE_CONTRACTOR', 'BOUNTY', 'GRANT',
-  'PARTNERSHIP', 'POLICY', 'EMERGENCY'
-] as const;
-
+export const PROPOSAL_STATUS = ['SUBMITTED', 'COUNCIL_REVIEW', 'RESEARCH_PENDING', 'COUNCIL_FINAL', 'CEO_QUEUE', 'APPROVED', 'EXECUTING', 'COMPLETED', 'REJECTED', 'VETOED', 'DUPLICATE', 'SPAM'] as const;
+export const PROPOSAL_TYPES = ['PARAMETER_CHANGE', 'TREASURY_ALLOCATION', 'CODE_UPGRADE', 'HIRE_CONTRACTOR', 'FIRE_CONTRACTOR', 'BOUNTY', 'GRANT', 'PARTNERSHIP', 'POLICY', 'EMERGENCY'] as const;
 export const VOTE_TYPES = ['APPROVE', 'REJECT', 'ABSTAIN', 'REQUEST_CHANGES'] as const;
 export const COUNCIL_ROLES = ['TREASURY', 'CODE', 'COMMUNITY', 'SECURITY'] as const;
 export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
-// Type guards for safe array access
-export function getProposalStatus(index: number): string {
-  return PROPOSAL_STATUS[index] ?? 'UNKNOWN';
-}
+export function getProposalStatus(index: number): string { return PROPOSAL_STATUS[index] ?? 'UNKNOWN'; }
+export function getProposalType(index: number): string { return PROPOSAL_TYPES[index] ?? 'UNKNOWN'; }
+export function getVoteType(index: number): string { return VOTE_TYPES[index] ?? 'UNKNOWN'; }
+export function getCouncilRole(index: number): string { return COUNCIL_ROLES[index] ?? 'UNKNOWN'; }
 
-export function getProposalType(index: number): string {
-  return PROPOSAL_TYPES[index] ?? 'UNKNOWN';
-}
-
-export function getVoteType(index: number): string {
-  return VOTE_TYPES[index] ?? 'UNKNOWN';
-}
-
-export function getCouncilRole(index: number): string {
-  return COUNCIL_ROLES[index] ?? 'UNKNOWN';
-}
-
-// Contract response types
 export interface ProposalFromContract {
   proposalId: string;
   proposer: string;
@@ -126,8 +103,7 @@ export interface CEOStatsFromContract {
   overrideRate: bigint;
 }
 
-// Quality assessment - heuristic fallback when AI not available
-// NOTE: For production, use assessProposalWithAI() which calls real inference
+// Heuristic assessment (fallback only - use AI assessment when available)
 export function assessClarity(title: string | undefined, summary: string | undefined, description: string | undefined): number {
   if (!title || !summary || !description) return 20;
   let score = 40;
@@ -140,8 +116,7 @@ export function assessClarity(title: string | undefined, summary: string | undef
 export function assessCompleteness(description: string | undefined): number {
   if (!description || description.length < 100) return 20;
   let score = 30;
-  const sections = ['problem', 'solution', 'implementation', 'timeline', 'cost', 'benefit'];
-  for (const section of sections) {
+  for (const section of ['problem', 'solution', 'implementation', 'timeline', 'cost', 'benefit']) {
     if (description.toLowerCase().includes(section)) score += 12;
   }
   return Math.min(100, score);
@@ -159,8 +134,7 @@ export function assessFeasibility(description: string | undefined): number {
 export function assessAlignment(description: string | undefined): number {
   if (!description) return 30;
   let score = 40;
-  const values = ['growth', 'open source', 'decentralized', 'community', 'member benefit'];
-  for (const value of values) {
+  for (const value of ['growth', 'open source', 'decentralized', 'community', 'member benefit']) {
     if (description.toLowerCase().includes(value)) score += 12;
   }
   return Math.min(100, score);
@@ -193,97 +167,6 @@ export function assessCostBenefit(description: string | undefined): number {
   return Math.min(100, score);
 }
 
-// AI-based assessment (production)
-export interface AIAssessmentResult {
-  overallScore: number;
-  criteria: QualityCriteria;
-  feedback: string[];
-  blockers: string[];
-  suggestions: string[];
-}
-
-export async function assessProposalWithAI(
-  title: string,
-  summary: string,
-  description: string,
-  cloudEndpoint: string,
-  apiKey?: string
-): Promise<AIAssessmentResult> {
-  const prompt = `Assess this DAO proposal. Return JSON with scores 0-100.
-
-Title: ${title}
-Summary: ${summary}
-Description: ${description}
-
-Return ONLY valid JSON:
-{
-  "clarity": <score>,
-  "completeness": <score>,
-  "feasibility": <score>,
-  "alignment": <score>,
-  "impact": <score>,
-  "riskAssessment": <score>,
-  "costBenefit": <score>,
-  "feedback": ["..."],
-  "blockers": ["..."],
-  "suggestions": ["..."]
-}`;
-
-  const response = await fetch(`${cloudEndpoint}/api/v1/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {}),
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.3,
-      max_tokens: 500,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`AI assessment failed: ${response.status}`);
-  }
-
-  const data = await response.json() as {
-    choices: Array<{ message: { content: string } }>;
-  };
-
-  const content = data.choices[0]?.message.content ?? '{}';
-  const parsed = JSON.parse(content) as {
-    clarity: number;
-    completeness: number;
-    feasibility: number;
-    alignment: number;
-    impact: number;
-    riskAssessment: number;
-    costBenefit: number;
-    feedback: string[];
-    blockers: string[];
-    suggestions: string[];
-  };
-
-  const criteria = {
-    clarity: parsed.clarity,
-    completeness: parsed.completeness,
-    feasibility: parsed.feasibility,
-    alignment: parsed.alignment,
-    impact: parsed.impact,
-    riskAssessment: parsed.riskAssessment,
-    costBenefit: parsed.costBenefit,
-  };
-
-  return {
-    overallScore: calculateQualityScore(criteria),
-    criteria,
-    feedback: parsed.feedback,
-    blockers: parsed.blockers,
-    suggestions: parsed.suggestions,
-  };
-}
-
 export interface QualityCriteria {
   clarity: number;
   completeness: number;
@@ -304,4 +187,43 @@ export function calculateQualityScore(criteria: QualityCriteria): number {
     criteria.riskAssessment * 0.15 +
     criteria.costBenefit * 0.10
   );
+}
+
+export interface AIAssessmentResult {
+  overallScore: number;
+  criteria: QualityCriteria;
+  feedback: string[];
+  blockers: string[];
+  suggestions: string[];
+}
+
+export async function assessProposalWithAI(title: string, summary: string, description: string, cloudEndpoint: string, apiKey?: string): Promise<AIAssessmentResult> {
+  const prompt = `Assess this DAO proposal. Return JSON with scores 0-100.
+
+Title: ${title}
+Summary: ${summary}
+Description: ${description}
+
+Return ONLY valid JSON:
+{"clarity":N,"completeness":N,"feasibility":N,"alignment":N,"impact":N,"riskAssessment":N,"costBenefit":N,"feedback":[],"blockers":[],"suggestions":[]}`;
+
+  const response = await fetch(`${cloudEndpoint}/api/v1/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {}) },
+    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', messages: [{ role: 'user', content: prompt }], temperature: 0.3, max_tokens: 500 }),
+  });
+
+  if (!response.ok) throw new Error(`AI assessment failed: ${response.status}`);
+
+  const data = await response.json() as { choices: Array<{ message: { content: string } }> };
+  const content = data.choices[0]?.message.content ?? '{}';
+  const parsed = JSON.parse(content) as QualityCriteria & { feedback: string[]; blockers: string[]; suggestions: string[] };
+
+  return {
+    overallScore: calculateQualityScore(parsed),
+    criteria: { clarity: parsed.clarity, completeness: parsed.completeness, feasibility: parsed.feasibility, alignment: parsed.alignment, impact: parsed.impact, riskAssessment: parsed.riskAssessment, costBenefit: parsed.costBenefit },
+    feedback: parsed.feedback,
+    blockers: parsed.blockers,
+    suggestions: parsed.suggestions,
+  };
 }

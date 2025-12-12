@@ -146,6 +146,42 @@ export async function fetchCEOStatus(): Promise<CEOStatus> {
   return result.data
 }
 
+export interface ModelCandidate {
+  modelId: string
+  modelName: string
+  provider: string
+  totalStaked: string
+  totalReputation: string
+  benchmarkScore: number
+  decisionsCount: number
+  isActive: boolean
+}
+
+export interface Decision {
+  decisionId: string
+  proposalId: string
+  approved: boolean
+  confidenceScore: number
+  alignmentScore: number
+  decidedAt: number
+  disputed: boolean
+  overridden: boolean
+}
+
+export async function fetchModelCandidates(): Promise<ModelCandidate[]> {
+  const response = await fetch(`${API_BASE}/api/v1/ceo/models`)
+  if (!response.ok) return []
+  const data = await response.json()
+  return data.models ?? []
+}
+
+export async function fetchRecentDecisions(limit = 10): Promise<Decision[]> {
+  const response = await fetch(`${API_BASE}/api/v1/ceo/decisions?limit=${limit}`)
+  if (!response.ok) return []
+  const data = await response.json()
+  return data.decisions ?? []
+}
+
 export async function fetchGovernanceStats(): Promise<GovernanceStats> {
   const result = await callA2A<GovernanceStats>({ skillId: 'get-governance-stats' })
   return result.data
@@ -176,4 +212,200 @@ export async function prepareSubmitProposal(params: {
 }) {
   const result = await callA2A({ skillId: 'submit-proposal', params })
   return result.data
+}
+
+// ============================================================================
+// Proposal Assistant API (REST endpoints)
+// ============================================================================
+
+export interface ProposalDraft {
+  title: string
+  summary: string
+  description: string
+  proposalType: number
+  targetContract?: string
+  calldata?: string
+  value?: string
+  tags?: string[]
+}
+
+export interface SimilarProposal {
+  proposalId: string
+  title: string
+  similarity: number
+  status: string
+  reason: string
+}
+
+export interface FullQualityAssessment extends QualityAssessment {
+  similarProposals: SimilarProposal[]
+  assessedAt: number
+  model: string
+}
+
+export interface QuickScoreResult {
+  score: number
+  contentHash: string
+  readyForFullAssessment: boolean
+}
+
+export interface ImprovementResult {
+  improved: string
+}
+
+export interface GeneratedProposal {
+  title: string
+  summary: string
+  description: string
+  tags: string[]
+}
+
+export async function assessProposalFull(draft: ProposalDraft): Promise<FullQualityAssessment> {
+  const response = await fetch(`${API_BASE}/api/v1/proposals/assess`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(draft)
+  })
+  if (!response.ok) throw new Error('Assessment failed')
+  return response.json()
+}
+
+export async function checkDuplicates(draft: ProposalDraft): Promise<SimilarProposal[]> {
+  const response = await fetch(`${API_BASE}/api/v1/proposals/check-duplicates`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(draft)
+  })
+  if (!response.ok) throw new Error('Duplicate check failed')
+  const data = await response.json()
+  return data.duplicates
+}
+
+export async function improveProposal(draft: ProposalDraft, criterion: string): Promise<string> {
+  const response = await fetch(`${API_BASE}/api/v1/proposals/improve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ draft, criterion })
+  })
+  if (!response.ok) throw new Error('Improvement failed')
+  const data: ImprovementResult = await response.json()
+  return data.improved
+}
+
+export async function generateProposal(idea: string, proposalType: number): Promise<GeneratedProposal> {
+  const response = await fetch(`${API_BASE}/api/v1/proposals/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idea, proposalType })
+  })
+  if (!response.ok) throw new Error('Generation failed')
+  return response.json()
+}
+
+export async function quickScore(draft: ProposalDraft): Promise<QuickScoreResult> {
+  const response = await fetch(`${API_BASE}/api/v1/proposals/quick-score`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(draft)
+  })
+  if (!response.ok) throw new Error('Quick score failed')
+  return response.json()
+}
+
+// ============================================================================
+// Research API
+// ============================================================================
+
+export interface ResearchRequest {
+  proposalId: string
+  title: string
+  summary: string
+  description: string
+  proposalType: number
+}
+
+export interface ResearchSection {
+  title: string
+  content: string
+  sources: string[]
+  confidence: number
+}
+
+export interface ResearchReport {
+  proposalId: string
+  researcher: string
+  model: string
+  executionTime: number
+  sections: ResearchSection[]
+  recommendation: 'proceed' | 'reject' | 'modify'
+  confidenceLevel: number
+  riskLevel: 'low' | 'medium' | 'high' | 'critical'
+  summary: string
+  keyFindings: string[]
+  concerns: string[]
+  alternatives: string[]
+  ipfsHash: string
+}
+
+export interface QuickScreenResult {
+  recommendation: 'proceed' | 'reject' | 'needs_full_research'
+  confidence: number
+  redFlags: string[]
+  greenFlags: string[]
+}
+
+export async function conductResearch(request: ResearchRequest): Promise<ResearchReport> {
+  const response = await fetch(`${API_BASE}/api/v1/research/conduct`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request)
+  })
+  if (!response.ok) throw new Error('Research failed')
+  return response.json()
+}
+
+export async function quickScreenResearch(request: ResearchRequest): Promise<QuickScreenResult> {
+  const response = await fetch(`${API_BASE}/api/v1/research/quick-screen`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request)
+  })
+  if (!response.ok) throw new Error('Quick screen failed')
+  return response.json()
+}
+
+export async function factCheck(claim: string, context: string) {
+  const response = await fetch(`${API_BASE}/api/v1/research/fact-check`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ claim, context })
+  })
+  if (!response.ok) throw new Error('Fact check failed')
+  return response.json()
+}
+
+// ============================================================================
+// Orchestrator & Triggers API
+// ============================================================================
+
+export interface OrchestratorStatus {
+  running: boolean
+  cycleCount: number
+  lastCycle: number
+  processedProposals: number
+}
+
+export async function fetchOrchestratorStatus(): Promise<OrchestratorStatus> {
+  const response = await fetch(`${API_BASE}/api/v1/orchestrator/status`)
+  return response.json()
+}
+
+export async function startOrchestrator() {
+  const response = await fetch(`${API_BASE}/api/v1/orchestrator/start`, { method: 'POST' })
+  return response.json()
+}
+
+export async function stopOrchestrator() {
+  const response = await fetch(`${API_BASE}/api/v1/orchestrator/stop`, { method: 'POST' })
+  return response.json()
 }

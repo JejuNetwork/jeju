@@ -1,8 +1,5 @@
 /**
- * Shared blockchain client for Council servers
- * 
- * Provides single instances of provider and contracts
- * for use by A2A and MCP servers.
+ * Blockchain client for Council
  */
 
 import { Contract, JsonRpcProvider, formatEther, isAddress } from 'ethers';
@@ -31,10 +28,7 @@ export class CouncilBlockchain {
     this.ceoDeployed = isAddress(config.contracts.ceoAgent) && config.contracts.ceoAgent !== ZERO_ADDRESS;
   }
 
-  async getProposal(proposalId: string): Promise<{
-    proposal: ProposalFromContract;
-    votes: CouncilVoteFromContract[];
-  } | null> {
+  async getProposal(proposalId: string): Promise<{ proposal: ProposalFromContract; votes: CouncilVoteFromContract[] } | null> {
     if (!this.councilDeployed) return null;
     const proposal = await this.council.getProposal(proposalId) as ProposalFromContract;
     const votes = await this.council.getCouncilVotes(proposalId) as CouncilVoteFromContract[];
@@ -50,9 +44,7 @@ export class CouncilBlockchain {
       qualityScore: p.qualityScore,
       createdAt: new Date(Number(p.createdAt) * 1000).toISOString(),
       councilVoteEnd: new Date(Number(p.councilVoteEnd) * 1000).toISOString(),
-      gracePeriodEnd: p.gracePeriodEnd > 0n
-        ? new Date(Number(p.gracePeriodEnd) * 1000).toISOString()
-        : null,
+      gracePeriodEnd: p.gracePeriodEnd > 0n ? new Date(Number(p.gracePeriodEnd) * 1000).toISOString() : null,
       contentHash: p.contentHash,
       targetContract: p.targetContract,
       value: formatEther(p.value),
@@ -76,20 +68,8 @@ export class CouncilBlockchain {
     }));
   }
 
-  async listProposals(activeOnly: boolean, limit = 20): Promise<{
-    total: number;
-    proposals: Array<{
-      proposalId: string;
-      proposer: string;
-      type: string;
-      status: string;
-      qualityScore: number;
-      createdAt: string;
-    }>;
-  }> {
-    if (!this.councilDeployed) {
-      return { total: 0, proposals: [] };
-    }
+  async listProposals(activeOnly: boolean, limit = 20): Promise<{ total: number; proposals: Array<{ proposalId: string; proposer: string; type: string; status: string; qualityScore: number; createdAt: string }> }> {
+    if (!this.councilDeployed) return { total: 0, proposals: [] };
 
     const proposalIds = activeOnly
       ? await this.council.getActiveProposals() as string[]
@@ -111,36 +91,11 @@ export class CouncilBlockchain {
     return { total: proposalIds.length, proposals: proposals.reverse() };
   }
 
-  async getCEOStatus(): Promise<{
-    currentModel: {
-      modelId: string;
-      name: string;
-      provider: string;
-      totalStaked?: string;
-      benchmarkScore?: string;
-    };
-    stats: {
-      totalDecisions: string;
-      approvedDecisions: string;
-      overriddenDecisions: string;
-      approvalRate: string;
-      overrideRate: string;
-    };
-  }> {
+  async getCEOStatus(): Promise<{ currentModel: { modelId: string; name: string; provider: string; totalStaked?: string; benchmarkScore?: string }; stats: { totalDecisions: string; approvedDecisions: string; overriddenDecisions: string; approvalRate: string; overrideRate: string } }> {
     if (!this.ceoDeployed) {
       return {
-        currentModel: {
-          modelId: this.config.agents.ceo.model,
-          name: this.config.agents.ceo.name,
-          provider: 'anthropic'
-        },
-        stats: {
-          totalDecisions: '0',
-          approvedDecisions: '0',
-          overriddenDecisions: '0',
-          approvalRate: '0%',
-          overrideRate: '0%'
-        }
+        currentModel: { modelId: this.config.agents.ceo.model, name: this.config.agents.ceo.name, provider: 'local' },
+        stats: { totalDecisions: '0', approvedDecisions: '0', overriddenDecisions: '0', approvalRate: '0%', overrideRate: '0%' }
       };
     }
 
@@ -165,28 +120,11 @@ export class CouncilBlockchain {
     };
   }
 
-  async getDecision(proposalId: string): Promise<{
-    decided: boolean;
-    decision?: {
-      proposalId: string;
-      modelId: string;
-      approved: boolean;
-      decisionHash: string;
-      decidedAt: string;
-      confidenceScore: string;
-      alignmentScore: string;
-      disputed: boolean;
-      overridden: boolean;
-    };
-  }> {
-    if (!this.ceoDeployed) {
-      return { decided: false };
-    }
+  async getDecision(proposalId: string): Promise<{ decided: boolean; decision?: { proposalId: string; modelId: string; approved: boolean; decisionHash: string; decidedAt: string; confidenceScore: string; alignmentScore: string; disputed: boolean; overridden: boolean } }> {
+    if (!this.ceoDeployed) return { decided: false };
 
     const decision = await this.ceoAgent.getDecision(proposalId) as DecisionFromContract;
-    if (!decision.decidedAt || decision.decidedAt === 0n) {
-      return { decided: false };
-    }
+    if (!decision.decidedAt || decision.decidedAt === 0n) return { decided: false };
 
     return {
       decided: true,
@@ -204,19 +142,59 @@ export class CouncilBlockchain {
     };
   }
 
-  async getGovernanceStats(): Promise<{
-    totalProposals: string;
-    ceo: { model: string; decisions: string; approvalRate: string };
-    parameters: { minQualityScore: string; councilVotingPeriod: string; gracePeriod: string };
-  }> {
+  async getModelCandidates(): Promise<Array<{ modelId: string; modelName: string; provider: string; totalStaked: string; totalReputation: string; benchmarkScore: number; decisionsCount: number; isActive: boolean }>> {
+    if (!this.ceoDeployed) return [];
+
+    const modelIds = await this.ceoAgent.getAllModels() as string[];
+    const models = [];
+
+    for (const modelId of modelIds) {
+      const m = await this.ceoAgent.getModel(modelId) as ModelFromContract;
+      models.push({
+        modelId: m.modelId,
+        modelName: m.modelName,
+        provider: m.provider,
+        totalStaked: formatEther(m.totalStaked),
+        totalReputation: m.totalReputation.toString(),
+        benchmarkScore: Number(m.benchmarkScore) / 100,
+        decisionsCount: Number(m.decisionsCount),
+        isActive: m.isActive,
+      });
+    }
+
+    return models.sort((a, b) => parseFloat(b.totalStaked) - parseFloat(a.totalStaked));
+  }
+
+  async getRecentDecisions(limit = 10): Promise<Array<{ decisionId: string; proposalId: string; approved: boolean; confidenceScore: number; alignmentScore: number; decidedAt: number; disputed: boolean; overridden: boolean }>> {
+    if (!this.ceoDeployed) return [];
+
+    const decisionIds = await this.ceoAgent.getRecentDecisions(limit) as string[];
+    const decisions = [];
+
+    for (const id of decisionIds) {
+      const d = await this.ceoAgent.getDecision(id) as DecisionFromContract;
+      if (d.decidedAt && d.decidedAt > 0n) {
+        decisions.push({
+          decisionId: id,
+          proposalId: d.proposalId,
+          approved: d.approved,
+          confidenceScore: Number(d.confidenceScore),
+          alignmentScore: Number(d.alignmentScore),
+          decidedAt: Number(d.decidedAt) * 1000,
+          disputed: d.disputed,
+          overridden: d.overridden,
+        });
+      }
+    }
+
+    return decisions;
+  }
+
+  async getGovernanceStats(): Promise<{ totalProposals: string; ceo: { model: string; decisions: string; approvalRate: string }; parameters: { minQualityScore: string; councilVotingPeriod: string; gracePeriod: string } }> {
     if (!this.councilDeployed || !this.ceoDeployed) {
       return {
         totalProposals: '0',
-        ceo: {
-          model: this.config.agents.ceo.model,
-          decisions: '0',
-          approvalRate: '0%'
-        },
+        ceo: { model: this.config.agents.ceo.model, decisions: '0', approvalRate: '0%' },
         parameters: {
           minQualityScore: this.config.parameters.minQualityScore.toString(),
           councilVotingPeriod: `${this.config.parameters.councilVotingPeriod} seconds`,
@@ -247,19 +225,11 @@ export class CouncilBlockchain {
   }
 
   getCouncilStatus() {
-    const roles = ['Treasury', 'Code', 'Community', 'Security'];
-    const descriptions = [
-      'Reviews financial impact and treasury implications',
-      'Reviews technical proposals and code changes',
-      'Reviews community impact and social implications',
-      'Reviews security implications and risk assessment'
-    ];
-
     return {
-      agents: roles.map((role, i) => ({
+      agents: ['Treasury', 'Code', 'Community', 'Security'].map((role, i) => ({
         role,
         index: i,
-        description: descriptions[i]
+        description: ['Financial review', 'Technical review', 'Community impact', 'Security assessment'][i]
       })),
       votingPeriod: `${this.config.parameters.councilVotingPeriod} seconds`,
       gracePeriod: `${this.config.parameters.gracePeriod} seconds`
@@ -270,8 +240,5 @@ export class CouncilBlockchain {
 let instance: CouncilBlockchain | null = null;
 
 export function getBlockchain(config: CouncilConfig): CouncilBlockchain {
-  if (!instance) {
-    instance = new CouncilBlockchain(config);
-  }
-  return instance;
+  return instance ??= new CouncilBlockchain(config);
 }
