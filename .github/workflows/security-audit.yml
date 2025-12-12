@@ -1,0 +1,69 @@
+name: Security Audit
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+jobs:
+  dependency-audit:
+    name: Dependency Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run security audit (high severity)
+        run: |
+          echo "## Security Audit Results" >> $GITHUB_STEP_SUMMARY
+          bun audit --audit-level=high 2>&1 | tee audit-results.txt
+          if grep -q "high\|critical" audit-results.txt; then
+            echo "❌ HIGH or CRITICAL vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+            cat audit-results.txt >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo "✅ No HIGH or CRITICAL vulnerabilities" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  smart-contract-security:
+    name: Smart Contract Security (Slither)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Run Slither on core contracts
+        uses: crytic/slither-action@v0.3.0
+        with:
+          target: 'packages/contracts/src'
+          slither-args: '--filter-paths "packages/contracts/lib" --exclude naming-convention,external-function'
+          fail-on: medium
+
+  secrets-scan:
+    name: Secrets Detection
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan for secrets
+        run: |
+          # Check for common secret patterns (private keys, API keys)
+          if grep -rE "0x[a-fA-F0-9]{64}" --include="*.ts" --include="*.js" --exclude-dir=node_modules --exclude-dir=.git . | grep -v "test" | grep -v "ZERO_ADDRESS" | grep -v "0x0000000000000000000000000000000000000000"; then
+            echo "❌ Potential hardcoded private key found"
+            exit 1
+          fi
+          echo "✅ No hardcoded secrets detected"

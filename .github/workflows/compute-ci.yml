@@ -1,0 +1,132 @@
+name: Compute CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/compute/**'
+      - '.github/workflows/compute-ci.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'apps/compute/**'
+
+env:
+  CI: true
+
+jobs:
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: TypeScript type check
+        working-directory: apps/compute
+        run: bun run typecheck
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run unit tests
+        working-directory: apps/compute
+        run: |
+          bun test src/compute/tests/x402.test.ts
+          bun test src/compute/tests/sdk.test.ts
+          bun test src/compute/tests/auth.test.ts
+
+  integration-tests:
+    name: Integration Tests (with Anvil)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build contracts
+        working-directory: packages/contracts
+        run: forge build
+
+      - name: Start Anvil
+        run: |
+          anvil --port 9545 &
+          sleep 3
+          curl -s http://127.0.0.1:9545 -X POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
+
+      - name: Deploy test contracts
+        working-directory: packages/contracts
+        run: |
+          forge script script/Deploy.s.sol:DeployScript --rpc-url http://127.0.0.1:9545 --broadcast --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+
+      - name: Run integration tests
+        working-directory: apps/compute
+        env:
+          JEJU_RPC_URL: http://127.0.0.1:9545
+        run: |
+          bun test src/compute/tests/e2e.test.ts
+          bun test src/compute/tests/settlement.test.ts
+          bun test src/compute/tests/paymaster.test.ts
+
+  mcp-a2a-tests:
+    name: MCP & A2A Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Start Anvil
+        run: |
+          anvil --port 9545 &
+          sleep 3
+
+      - name: Run A2A and MCP tests
+        working-directory: apps/compute
+        env:
+          JEJU_RPC_URL: http://127.0.0.1:9545
+        run: bun test src/compute/tests/a2a-mcp.test.ts
