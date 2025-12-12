@@ -220,33 +220,11 @@ contract L2OutputVerifier is Ownable {
     }
 
     /**
-     * @notice Simplified verification for L1StakeManager dispute resolution
-     * @param stateRoot State root claimed by XLP
-     * @param l2BlockNumber L2 block number of fulfillment
-     * @return valid Whether the state root could be valid (block is committed and finalized)
-     * @dev This is a simplified check that only verifies block existence and finality.
-     *      Full verification requires merkle proofs against the state root.
-     *      Returns true if an output exists for the block and is finalized.
+     * @notice Simplified verification stub for L1StakeManager compatibility
+     * @dev Always returns false - full verification requires chainId and outputRoot preimage.
+     *      Dispute resolution falls back to arbitrator voting.
      */
-    function verifyStateRoot(bytes32 stateRoot, uint256 l2BlockNumber) external view returns (bool valid) {
-        // This is the simplified interface called by L1StakeManager
-        // It accepts the state root but only verifies block existence
-        // Full verification requires the complete outputRoot preimage
-
-        // For now, we check all registered chains
-        // In production, the chainId should be passed as a parameter
-        // This is a fallback that returns true if ANY chain has this block finalized
-
-        // Note: This is intentionally permissive for backwards compatibility
-        // The proper flow is for arbitrators to verify the full proof off-chain
-        // and vote accordingly
-
-        // Suppress unused variable warning
-        (stateRoot);
-
-        // Return false to indicate no automatic verification
-        // Dispute resolution falls back to arbitrator voting
-        (l2BlockNumber);
+    function verifyStateRoot(bytes32, uint256) external pure returns (bool) {
         return false;
     }
 
@@ -285,15 +263,11 @@ contract L2OutputVerifier is Ownable {
     /**
      * @notice Get the latest committed block number for a chain
      * @param chainId L2 chain ID
-     * @return blockNumber Latest committed L2 block number (0 if oracle not registered)
+     * @return Latest committed L2 block number (0 if oracle not registered)
      */
     function getLatestCommittedBlock(uint256 chainId) external view returns (uint256) {
         address oracle = l2OutputOracles[chainId];
         if (oracle == address(0)) return 0;
         return IL2OutputOracle(oracle).latestBlockNumber();
-    }
-
-    function version() external pure returns (string memory) {
-        return "1.0.0";
     }
 }

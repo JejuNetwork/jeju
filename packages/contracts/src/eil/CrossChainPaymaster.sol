@@ -182,6 +182,35 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
     /// @notice Total gas fees collected (in selected tokens)
     uint256 public totalGasFeesCollected;
 
+    // ============ Multi-XLP Competition State ============
+
+    /// @notice XLP statistics for competition tracking
+    mapping(address => XLPStats) public xlpStats;
+
+    /// @notice Request XLP allowlist: requestId => xlp => allowed
+    mapping(bytes32 => mapping(address => bool)) public requestAllowlist;
+
+    /// @notice Whether request has an allowlist set (if false, any XLP can bid)
+    mapping(bytes32 => bool) public requestHasAllowlist;
+
+    /// @notice XLP bid submissions for fee auction: requestId => xlp => bidBlock
+    mapping(bytes32 => mapping(address => uint256)) public xlpBids;
+
+    /// @notice All XLPs that bid on a request: requestId => XLPs array
+    mapping(bytes32 => address[]) public requestBidders;
+
+    /// @notice Total competition wins per XLP
+    mapping(address => uint256) public xlpWins;
+
+    /// @notice Total requests processed
+    uint256 public totalRequestsProcessed;
+
+    /// @notice Request nonce for unique ID generation
+    uint256 private _requestNonce;
+
+    /// @notice Total XLP competition events
+    uint256 public totalCompetitionEvents;
+
     // ============ Structs ============
 
     struct VoucherRequest {
@@ -199,6 +228,21 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         bool claimed;
         bool expired;
         bool refunded;
+        // Multi-XLP Competition fields
+        uint256 bidCount; // Number of XLP bids received
+        address winningXLP; // XLP that won the auction
+        uint256 winningFee; // Fee at which voucher was issued
+    }
+
+    /// @notice XLP competition statistics
+    struct XLPStats {
+        uint256 totalBids; // Total bids submitted
+        uint256 wonBids; // Bids won
+        uint256 lostBids; // Bids lost to competition
+        uint256 totalVolume; // Total volume fulfilled
+        uint256 totalFeesEarned; // Total fees earned
+        uint256 avgResponseTime; // Average response time in blocks
+        uint256 lastActiveBlock; // Last activity block
     }
 
     struct Voucher {
@@ -276,6 +320,27 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
 
     event FeeMarginUpdated(uint256 oldMargin, uint256 newMargin);
 
+    // Multi-XLP Competition Events
+    event XLPBidSubmitted(
+        bytes32 indexed requestId, address indexed xlp, uint256 bidFee, uint256 bidBlock, uint256 totalBids
+    );
+
+    event XLPCompetitionWon(
+        bytes32 indexed requestId, address indexed winner, uint256 winningFee, uint256 competitorCount
+    );
+
+    event XLPCompetitionLost(
+        bytes32 indexed requestId,
+        address indexed loser,
+        address indexed winner,
+        uint256 loserBidFee,
+        uint256 winnerBidFee
+    );
+
+    event RequestAllowlistSet(bytes32 indexed requestId, address[] allowedXLPs);
+
+    event XLPStatsUpdated(address indexed xlp, uint256 totalBids, uint256 wonBids, uint256 totalVolume);
+
     // ============ Errors ============
 
     error UnsupportedToken();
@@ -303,6 +368,8 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
     error InsufficientTokenAllowance();
     error InvalidPaymasterData();
     error InsufficientPoolLiquidity();
+    error XLPNotInAllowlist();
+    error XLPAlreadyBid();
 
     // ============ Constructor ============
 
@@ -442,9 +509,9 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
             excessRefund = msg.value - maxFee;
         }
 
-        // Generate unique request ID
+        // Generate unique request ID (include nonce for uniqueness in same block)
         requestId =
-            keccak256(abi.encodePacked(msg.sender, token, amount, destinationChainId, block.number, block.timestamp));
+            keccak256(abi.encodePacked(msg.sender, token, amount, destinationChainId, block.number, block.timestamp, ++_requestNonce));
 
         // EFFECTS: Store request FIRST (CEI pattern)
         voucherRequests[requestId] = VoucherRequest({
@@ -461,7 +528,10 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
             createdBlock: block.number,
             claimed: false,
             expired: false,
-            refunded: false
+            refunded: false,
+            bidCount: 0,
+            winningXLP: address(0),
+            winningFee: 0
         });
 
         // Emit event before external calls
@@ -496,6 +566,184 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
 
         if (currentFee > request.maxFee) {
             currentFee = request.maxFee;
+        }
+    }
+
+    // ============ Multi-XLP Competition Functions ============
+
+    /**
+     * @notice Create a voucher request with an XLP allowlist
+     * @param token Token to transfer
+     * @param amount Amount to transfer
+     * @param destinationToken Token to receive on destination
+     * @param destinationChainId Destination chain ID
+     * @param recipient Recipient address
+     * @param gasOnDestination Gas needed on destination
+     * @param maxFee Maximum fee willing to pay
+     * @param feeIncrement Fee increase per block
+     * @param allowedXLPs Array of allowed XLP addresses (empty = any XLP)
+     * @return requestId Unique request identifier
+     */
+    function createVoucherRequestWithAllowlist(
+        address token,
+        uint256 amount,
+        address destinationToken,
+        uint256 destinationChainId,
+        address recipient,
+        uint256 gasOnDestination,
+        uint256 maxFee,
+        uint256 feeIncrement,
+        address[] calldata allowedXLPs
+    ) external payable nonReentrant returns (bytes32 requestId) {
+        if (!supportedTokens[token]) revert UnsupportedToken();
+        if (amount == 0) revert InsufficientAmount();
+        if (maxFee < MIN_FEE) revert InsufficientFee();
+        if (destinationChainId == chainId) revert InvalidDestinationChain();
+        if (recipient == address(0)) revert InvalidRecipient();
+
+        uint256 excessRefund = 0;
+        if (token == address(0)) {
+            uint256 required = amount + maxFee;
+            if (msg.value < required) revert InsufficientAmount();
+            excessRefund = msg.value - required;
+        } else {
+            if (msg.value < maxFee) revert InsufficientFee();
+            excessRefund = msg.value - maxFee;
+        }
+
+        requestId =
+            keccak256(abi.encodePacked(msg.sender, token, amount, destinationChainId, block.number, block.timestamp, ++_requestNonce));
+
+        voucherRequests[requestId] = VoucherRequest({
+            requester: msg.sender,
+            token: token,
+            amount: amount,
+            destinationToken: destinationToken,
+            destinationChainId: destinationChainId,
+            recipient: recipient,
+            gasOnDestination: gasOnDestination,
+            maxFee: maxFee,
+            feeIncrement: feeIncrement,
+            deadline: block.number + REQUEST_TIMEOUT,
+            createdBlock: block.number,
+            claimed: false,
+            expired: false,
+            refunded: false,
+            bidCount: 0,
+            winningXLP: address(0),
+            winningFee: 0
+        });
+
+        // Set XLP allowlist if provided
+        if (allowedXLPs.length > 0) {
+            requestHasAllowlist[requestId] = true;
+            for (uint256 i = 0; i < allowedXLPs.length; i++) {
+                requestAllowlist[requestId][allowedXLPs[i]] = true;
+            }
+            emit RequestAllowlistSet(requestId, allowedXLPs);
+        }
+
+        emit VoucherRequested(
+            requestId, msg.sender, token, amount, destinationChainId, recipient, maxFee, block.number + REQUEST_TIMEOUT
+        );
+
+        if (token != address(0)) {
+            IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+        }
+
+        if (excessRefund > 0) {
+            (bool refundSuccess,) = msg.sender.call{value: excessRefund}("");
+            if (!refundSuccess) revert TransferFailed();
+        }
+    }
+
+    /**
+     * @notice Submit a bid to fulfill a request (pre-voucher auction step)
+     * @param requestId Request to bid on
+     * @dev XLPs call this to signal intent, then call issueVoucher to actually claim
+     *      Bidding helps wallets track market fee rates and adds transparency
+     */
+    function submitBid(bytes32 requestId) external nonReentrant {
+        VoucherRequest storage request = voucherRequests[requestId];
+
+        if (request.requester == address(0)) revert Unauthorized();
+        if (request.claimed) revert RequestAlreadyClaimed();
+        if (request.expired || block.number > request.deadline) revert RequestExpired();
+
+        // Check allowlist if set
+        if (requestHasAllowlist[requestId] && !requestAllowlist[requestId][msg.sender]) {
+            revert XLPNotInAllowlist();
+        }
+
+        // Check if already bid
+        if (xlpBids[requestId][msg.sender] > 0) revert XLPAlreadyBid();
+
+        // Record bid
+        xlpBids[requestId][msg.sender] = block.number;
+        requestBidders[requestId].push(msg.sender);
+        request.bidCount++;
+
+        // Update XLP stats
+        xlpStats[msg.sender].totalBids++;
+        xlpStats[msg.sender].lastActiveBlock = block.number;
+
+        uint256 currentFee = getCurrentFee(requestId);
+
+        emit XLPBidSubmitted(requestId, msg.sender, currentFee, block.number, request.bidCount);
+    }
+
+    /**
+     * @notice Get competition info for a request
+     * @param requestId Request to check
+     * @return bidCount Number of bids
+     * @return currentFee Current fee
+     * @return bidders Array of XLPs that bid
+     * @return hasAllowlist Whether request has an allowlist
+     */
+    function getRequestCompetition(bytes32 requestId)
+        external
+        view
+        returns (uint256 bidCount, uint256 currentFee, address[] memory bidders, bool hasAllowlist)
+    {
+        VoucherRequest storage request = voucherRequests[requestId];
+        return (request.bidCount, getCurrentFee(requestId), requestBidders[requestId], requestHasAllowlist[requestId]);
+    }
+
+    /**
+     * @notice Check if an XLP is allowed to bid on a request
+     * @param requestId Request to check
+     * @param xlp XLP address to check
+     * @return allowed Whether XLP can bid
+     */
+    function isXLPAllowed(bytes32 requestId, address xlp) external view returns (bool) {
+        if (!requestHasAllowlist[requestId]) return true;
+        return requestAllowlist[requestId][xlp];
+    }
+
+    /**
+     * @notice Get XLP competition statistics
+     * @param xlp XLP address
+     * @return stats XLP statistics
+     */
+    function getXLPStats(address xlp) external view returns (XLPStats memory) {
+        return xlpStats[xlp];
+    }
+
+    /**
+     * @notice Get global competition statistics
+     * @return totalRequests Total requests processed
+     * @return totalCompetitions Total competition events
+     * @return avgBidsPerRequest Average bids per request (scaled by 100)
+     */
+    function getGlobalCompetitionStats()
+        external
+        view
+        returns (uint256 totalRequests, uint256 totalCompetitions, uint256 avgBidsPerRequest)
+    {
+        totalRequests = totalRequestsProcessed;
+        totalCompetitions = totalCompetitionEvents;
+        if (totalRequests > 0) {
+            avgBidsPerRequest = (totalCompetitions * 100) / totalRequests;
         }
     }
 
@@ -708,6 +956,11 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         if (request.claimed) revert RequestAlreadyClaimed();
         if (request.expired || block.number > request.deadline) revert RequestExpired();
 
+        // Check XLP allowlist if set
+        if (requestHasAllowlist[requestId] && !requestAllowlist[requestId][msg.sender]) {
+            revert XLPNotInAllowlist();
+        }
+
         // Verify XLP has sufficient stake (10% of transfer amount, minimum 0.01 ETH)
         uint256 requiredStake = request.amount / 10;
         if (requiredStake < 0.01 ether) requiredStake = 0.01 ether;
@@ -727,8 +980,46 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
 
         // Mark request as claimed
         request.claimed = true;
+        request.winningXLP = msg.sender;
+        request.winningFee = fee;
         requestClaimedBy[requestId] = msg.sender;
         xlpActiveRequests[msg.sender]++;
+
+        // Update competition tracking
+        totalRequestsProcessed++;
+        xlpWins[msg.sender]++;
+
+        // Update XLP stats for winner
+        XLPStats storage winnerStats = xlpStats[msg.sender];
+        winnerStats.wonBids++;
+        winnerStats.totalVolume += request.amount;
+        winnerStats.totalFeesEarned += fee;
+        winnerStats.lastActiveBlock = block.number;
+
+        // Calculate response time (blocks since request created)
+        if (winnerStats.avgResponseTime == 0) {
+            winnerStats.avgResponseTime = block.number - request.createdBlock;
+        } else {
+            // Moving average
+            winnerStats.avgResponseTime = (winnerStats.avgResponseTime + block.number - request.createdBlock) / 2;
+        }
+
+        // Track competition - emit events for other bidders who lost
+        address[] storage bidders = requestBidders[requestId];
+        if (bidders.length > 1) {
+            totalCompetitionEvents++;
+            for (uint256 i = 0; i < bidders.length; i++) {
+                if (bidders[i] != msg.sender) {
+                    xlpStats[bidders[i]].lostBids++;
+                    emit XLPCompetitionLost(requestId, bidders[i], msg.sender, 0, fee);
+                }
+            }
+        }
+
+        // Emit competition won event
+        emit XLPCompetitionWon(requestId, msg.sender, fee, bidders.length > 0 ? bidders.length : 1);
+
+        emit XLPStatsUpdated(msg.sender, winnerStats.totalBids, winnerStats.wonBids, winnerStats.totalVolume);
 
         // Store voucher
         vouchers[voucherId] = Voucher({
@@ -1172,7 +1463,8 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         // Check app token preference first
         if (address(appTokenPreference) != address(0) && appAddress != address(0)) {
             // Build token balance array for preference check
-            IAppTokenPreference.TokenBalance[] memory tokenBalances = new IAppTokenPreference.TokenBalance[](tokens.length);
+            IAppTokenPreference.TokenBalance[] memory tokenBalances =
+                new IAppTokenPreference.TokenBalance[](tokens.length);
             for (uint256 i = 0; i < tokens.length; i++) {
                 tokenBalances[i] = IAppTokenPreference.TokenBalance({token: tokens[i], balance: balances[i]});
             }
@@ -1246,7 +1538,7 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
 
         // Get the preferred token - we only need the preferredToken field
         // slither-disable-next-line unused-return
-        (,address prefToken,,,,,,,) = appTokenPreference.getAppPreference(appAddress);
+        (, address prefToken,,,,,,,) = appTokenPreference.getAppPreference(appAddress);
         preferredToken = prefToken;
     }
 
@@ -1434,12 +1726,12 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
      * @return amountOut Actual output amount
      * @dev Uses xy=k formula with XLP liquidity as reserves
      */
-    function swap(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn,
-        uint256 minAmountOut
-    ) external payable nonReentrant returns (uint256 amountOut) {
+    function swap(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut)
+        external
+        payable
+        nonReentrant
+        returns (uint256 amountOut)
+    {
         if (amountIn == 0) revert InsufficientAmount();
         if (tokenIn == tokenOut) revert UnsupportedToken();
 
@@ -1512,11 +1804,11 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
      * @return amountOut Expected output
      * @return priceImpact Price impact in basis points
      */
-    function getSwapQuote(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn
-    ) external view returns (uint256 amountOut, uint256 priceImpact) {
+    function getSwapQuote(address tokenIn, address tokenOut, uint256 amountIn)
+        external
+        view
+        returns (uint256 amountOut, uint256 priceImpact)
+    {
         uint256 reserveIn = _getReserve(tokenIn);
         uint256 reserveOut = _getReserve(tokenOut);
 
@@ -1535,11 +1827,7 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
      * @return reserve0 Reserve of token0
      * @return reserve1 Reserve of token1
      */
-    function getReserves(address token0, address token1)
-        external
-        view
-        returns (uint256 reserve0, uint256 reserve1)
-    {
+    function getReserves(address token0, address token1) external view returns (uint256 reserve0, uint256 reserve1) {
         reserve0 = _getReserve(token0);
         reserve1 = _getReserve(token1);
     }
@@ -1548,11 +1836,7 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
      * @notice Calculate output amount using constant-product formula
      * @dev Implements xy=k with fee: amountOut = (amountIn * (1-fee) * reserveOut) / (reserveIn + amountIn * (1-fee))
      */
-    function _getAmountOut(
-        uint256 amountIn,
-        uint256 reserveIn,
-        uint256 reserveOut
-    ) internal view returns (uint256) {
+    function _getAmountOut(uint256 amountIn, uint256 reserveIn, uint256 reserveOut) internal view returns (uint256) {
         uint256 amountInWithFee = amountIn * (BASIS_POINTS - swapFeeBps);
         uint256 numerator = amountInWithFee * reserveOut;
         uint256 denominator = (reserveIn * BASIS_POINTS) + amountInWithFee;
@@ -1583,12 +1867,11 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
     /**
      * @notice Get AMM stats
      */
-    function getAMMStats() external view returns (
-        uint256 ethReserve,
-        uint256 swapVolume,
-        uint256 swapFees,
-        uint256 currentFeeBps
-    ) {
+    function getAMMStats()
+        external
+        view
+        returns (uint256 ethReserve, uint256 swapVolume, uint256 swapFees, uint256 currentFeeBps)
+    {
         ethReserve = totalETHLiquidity;
         swapVolume = totalSwapVolume;
         swapFees = totalSwapFees;

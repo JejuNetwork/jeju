@@ -485,15 +485,9 @@ contract CrossChainMessagingPaymaster is Ownable, ReentrancyGuard, Pausable {
 
     /**
      * @notice Check if a transfer has been completed
-     * @param transferId Transfer ID to check
-     * @return completed Whether transfer is completed
      */
     function isCompleted(bytes32 transferId) external view returns (bool) {
         return completedTransfers[transferId];
-    }
-
-    function version() external pure returns (string memory) {
-        return "1.0.0";
     }
 
     receive() external payable {}

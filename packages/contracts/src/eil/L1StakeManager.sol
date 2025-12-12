@@ -227,6 +227,7 @@ contract L1StakeManager is Ownable, ReentrancyGuard, Pausable {
     error InvalidProof();
     error InsufficientArbitratorStake();
     error InvalidUnbondingPeriod();
+    error MessengerNotSet();
 
     // ============ Constructor ============
 
@@ -748,38 +749,30 @@ contract L1StakeManager is Ownable, ReentrancyGuard, Pausable {
      * @notice Sync XLP stake to an L2 paymaster
      * @param chainId Target L2 chain ID
      * @param xlp XLP address to sync
-     * @dev Sends a cross-chain message to update stake on L2
-     *      Only callable by the XLP themselves or the owner
      */
     function syncStakeToL2(uint256 chainId, address xlp) external {
-        require(msg.sender == xlp || msg.sender == owner(), "Unauthorized");
-        require(address(messenger) != address(0), "Messenger not set");
+        if (msg.sender != xlp && msg.sender != owner()) revert UnauthorizedSlasher();
+        if (address(messenger) == address(0)) revert MessengerNotSet();
         address paymaster = l2Paymasters[chainId];
-        require(paymaster != address(0), "Paymaster not registered");
+        if (paymaster == address(0)) revert ChainNotSupported();
 
-        uint256 stake = stakes[xlp].stakedAmount;
-
-        // Encode the updateXLPStake call
-        bytes memory message = abi.encodeWithSignature("updateXLPStake(address,uint256)", xlp, stake);
-
-        // Send cross-chain message
-        messenger.sendMessage(paymaster, message, CROSS_CHAIN_GAS_LIMIT);
+        messenger.sendMessage(
+            paymaster,
+            abi.encodeWithSignature("updateXLPStake(address,uint256)", xlp, stakes[xlp].stakedAmount),
+            CROSS_CHAIN_GAS_LIMIT
+        );
     }
 
-    /**
-     * @notice Relay voucher fulfillment proof to source chain
-     * @param chainId Target L2 chain ID (source chain)
-     * @param voucherId Voucher that was fulfilled
-     * @dev Called after verifying fulfillment on destination chain
-     */
     function relayFulfillment(uint256 chainId, bytes32 voucherId) external onlyOwner {
-        require(address(messenger) != address(0), "Messenger not set");
+        if (address(messenger) == address(0)) revert MessengerNotSet();
         address paymaster = l2Paymasters[chainId];
-        require(paymaster != address(0), "Paymaster not registered");
+        if (paymaster == address(0)) revert ChainNotSupported();
 
-        bytes memory message = abi.encodeWithSignature("markVoucherFulfilled(bytes32)", voucherId);
-
-        messenger.sendMessage(paymaster, message, CROSS_CHAIN_GAS_LIMIT);
+        messenger.sendMessage(
+            paymaster,
+            abi.encodeWithSignature("markVoucherFulfilled(bytes32)", voucherId),
+            CROSS_CHAIN_GAS_LIMIT
+        );
     }
 
     // ============ View Functions ============
@@ -863,10 +856,6 @@ contract L1StakeManager is Ownable, ReentrancyGuard, Pausable {
         returns (uint256 _totalStaked, uint256 _totalSlashed, uint256 activeXLPs)
     {
         return (totalStaked, totalSlashed, activeXLPCount);
-    }
-
-    function version() external pure returns (string memory) {
-        return "1.0.0";
     }
 
     receive() external payable {}

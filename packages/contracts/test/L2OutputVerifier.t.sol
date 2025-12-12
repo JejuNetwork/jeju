@@ -266,8 +266,4 @@ contract L2OutputVerifierTest is Test {
     function test_GetLatestCommittedBlock_NotRegistered() public view {
         assertEq(verifier.getLatestCommittedBlock(BASE_CHAIN_ID), 0);
     }
-
-    function test_Version() public view {
-        assertEq(verifier.version(), "1.0.0");
-    }
 }
