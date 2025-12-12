@@ -7,8 +7,11 @@ import {IStakeManager} from "@account-abstraction/contracts/interfaces/IStakeMan
 
 /**
  * @title MockEntryPoint
- * @notice Mock EntryPoint for testing EIL on localnet
- * @dev Implements minimal IEntryPoint interface for CrossChainPaymaster deployment
+ * @notice Mock EntryPoint for testing EIL on localnet ONLY
+ * @dev WARNING: This contract returns fake data and should NEVER be used in production.
+ *      - getUserOpHash returns bytes32(0), not the actual hash
+ *      - handleOps does nothing
+ *      Use real EntryPoint (0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789) in production.
  */
 contract MockEntryPoint {
     mapping(address => IStakeManager.DepositInfo) internal _depositInfo;
