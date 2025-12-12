@@ -603,4 +603,198 @@ contract MarginManagerTest is Test {
         assertEq(manager.getCollateralBalance(trader1, address(usdc)), 0);
         vm.stopPrank();
     }
+
+    // ============ Concurrent Behavior Tests ============
+
+    function test_ConcurrentDeposits_MultipleTraders() public {
+        // Simulate concurrent deposits from multiple traders
+        address[] memory traders = new address[](5);
+        for (uint256 i = 0; i < 5; i++) {
+            traders[i] = address(uint160(100 + i));
+            usdc.mint(traders[i], 10000e6);
+        }
+
+        // Each trader deposits
+        for (uint256 i = 0; i < 5; i++) {
+            vm.startPrank(traders[i]);
+            usdc.approve(address(manager), 5000e6);
+            manager.deposit(address(usdc), 5000e6);
+            vm.stopPrank();
+        }
+
+        // Verify all balances are correct
+        for (uint256 i = 0; i < 5; i++) {
+            assertEq(manager.getCollateralBalance(traders[i], address(usdc)), 5000e6);
+        }
+        
+        // Total should be sum of all deposits
+        assertEq(manager.totalDeposits(address(usdc)), 25000e6);
+    }
+
+    function test_ConcurrentReservations_SameTrader() public {
+        vm.startPrank(trader1);
+        usdc.approve(address(manager), 10000e6);
+        manager.deposit(address(usdc), 10000e6);
+        vm.stopPrank();
+
+        // Simulate multiple perp markets reserving from same trader
+        address perpMarket2 = address(10);
+        address perpMarket3 = address(11);
+        
+        vm.prank(owner);
+        manager.setAuthorizedContract(perpMarket2, true);
+        vm.prank(owner);
+        manager.setAuthorizedContract(perpMarket3, true);
+
+        // Each market reserves
+        vm.prank(perpMarket);
+        manager.reserveMargin(trader1, address(usdc), 2000e6);
+        
+        vm.prank(perpMarket2);
+        manager.reserveMargin(trader1, address(usdc), 3000e6);
+        
+        vm.prank(perpMarket3);
+        manager.reserveMargin(trader1, address(usdc), 2000e6);
+
+        // Total reserved should be cumulative
+        assertEq(manager.getReservedBalance(trader1, address(usdc)), 7000e6);
+        assertEq(manager.getAvailableCollateral(trader1, address(usdc)), 3000e6);
+    }
+
+    function test_ConcurrentReserveAndWithdraw() public {
+        vm.startPrank(trader1);
+        usdc.approve(address(manager), 10000e6);
+        manager.deposit(address(usdc), 10000e6);
+        vm.stopPrank();
+
+        // Reserve first
+        vm.prank(perpMarket);
+        manager.reserveMargin(trader1, address(usdc), 5000e6);
+
+        // Trader can only withdraw available
+        vm.startPrank(trader1);
+        manager.withdraw(address(usdc), 5000e6); // Available amount
+        vm.stopPrank();
+
+        assertEq(manager.getCollateralBalance(trader1, address(usdc)), 5000e6);
+        assertEq(manager.getReservedBalance(trader1, address(usdc)), 5000e6);
+        
+        // Cannot withdraw reserved
+        vm.prank(trader1);
+        vm.expectRevert(MarginManager.InsufficientAvailableMargin.selector);
+        manager.withdraw(address(usdc), 1);
+    }
+
+    function test_RapidDepositWithdrawCycles() public {
+        vm.startPrank(trader1);
+        usdc.approve(address(manager), 100000e6);
+        
+        // Rapid deposit/withdraw cycles
+        for (uint256 i = 0; i < 10; i++) {
+            manager.deposit(address(usdc), 1000e6);
+            manager.withdraw(address(usdc), 500e6);
+        }
+        vm.stopPrank();
+
+        // Balance should be 10 * (1000 - 500) = 5000
+        assertEq(manager.getCollateralBalance(trader1, address(usdc)), 5000e6);
+    }
+
+    function test_CrossTokenOperations() public {
+        vm.startPrank(trader1);
+        usdc.approve(address(manager), 5000e6);
+        weth.approve(address(manager), 5e18);
+        wbtc.approve(address(manager), 1e8);
+        
+        // Deposit all three tokens
+        manager.deposit(address(usdc), 5000e6);
+        manager.deposit(address(weth), 5e18);
+        manager.deposit(address(wbtc), 1e8);
+        vm.stopPrank();
+
+        // Reserve from different tokens
+        vm.startPrank(perpMarket);
+        manager.reserveMargin(trader1, address(usdc), 2000e6);
+        manager.reserveMargin(trader1, address(weth), 2e18);
+        vm.stopPrank();
+
+        // Verify independent tracking
+        assertEq(manager.getReservedBalance(trader1, address(usdc)), 2000e6);
+        assertEq(manager.getReservedBalance(trader1, address(weth)), 2e18);
+        assertEq(manager.getReservedBalance(trader1, address(wbtc)), 0);
+        
+        assertEq(manager.getAvailableCollateral(trader1, address(usdc)), 3000e6);
+        assertEq(manager.getAvailableCollateral(trader1, address(weth)), 3e18);
+        assertEq(manager.getAvailableCollateral(trader1, address(wbtc)), 1e8);
+    }
+
+    function test_SimultaneousTransfers() public {
+        // Setup multiple traders with funds
+        address[] memory traders = new address[](4);
+        for (uint256 i = 0; i < 4; i++) {
+            traders[i] = address(uint160(200 + i));
+            usdc.mint(traders[i], 5000e6);
+            vm.startPrank(traders[i]);
+            usdc.approve(address(manager), 5000e6);
+            manager.deposit(address(usdc), 5000e6);
+            vm.stopPrank();
+        }
+
+        // Chain of transfers: 0 -> 1 -> 2 -> 3
+        vm.startPrank(perpMarket);
+        manager.transferMargin(traders[0], traders[1], address(usdc), 1000e6);
+        manager.transferMargin(traders[1], traders[2], address(usdc), 1500e6);
+        manager.transferMargin(traders[2], traders[3], address(usdc), 2000e6);
+        vm.stopPrank();
+
+        assertEq(manager.getCollateralBalance(traders[0], address(usdc)), 4000e6);
+        assertEq(manager.getCollateralBalance(traders[1], address(usdc)), 4500e6);
+        assertEq(manager.getCollateralBalance(traders[2], address(usdc)), 4500e6);
+        assertEq(manager.getCollateralBalance(traders[3], address(usdc)), 7000e6);
+    }
+
+    function test_StressTest_ManyOperations() public {
+        // Stress test with many operations
+        vm.startPrank(trader1);
+        usdc.approve(address(manager), 100000e6);
+        
+        // 50 deposits
+        for (uint256 i = 0; i < 50; i++) {
+            manager.deposit(address(usdc), 1000e6);
+        }
+        vm.stopPrank();
+
+        assertEq(manager.getCollateralBalance(trader1, address(usdc)), 50000e6);
+
+        // 25 reserves
+        vm.startPrank(perpMarket);
+        for (uint256 i = 0; i < 25; i++) {
+            manager.reserveMargin(trader1, address(usdc), 500e6);
+        }
+        vm.stopPrank();
+
+        assertEq(manager.getReservedBalance(trader1, address(usdc)), 12500e6);
+        assertEq(manager.getAvailableCollateral(trader1, address(usdc)), 37500e6);
+    }
+
+    function testFuzz_ConcurrentReserveRelease(uint128 reserve1, uint128 reserve2, uint128 release) public {
+        uint256 deposit = 100000e6;
+        vm.assume(uint256(reserve1) + uint256(reserve2) <= deposit);
+        vm.assume(release <= uint256(reserve1) + uint256(reserve2));
+
+        vm.startPrank(trader1);
+        usdc.approve(address(manager), deposit);
+        manager.deposit(address(usdc), deposit);
+        vm.stopPrank();
+
+        vm.startPrank(perpMarket);
+        if (reserve1 > 0) manager.reserveMargin(trader1, address(usdc), reserve1);
+        if (reserve2 > 0) manager.reserveMargin(trader1, address(usdc), reserve2);
+        if (release > 0) manager.releaseMargin(trader1, address(usdc), release);
+        vm.stopPrank();
+
+        uint256 expectedReserved = uint256(reserve1) + uint256(reserve2) - release;
+        assertEq(manager.getReservedBalance(trader1, address(usdc)), expectedReserved);
+        assertEq(manager.getAvailableCollateral(trader1, address(usdc)), deposit - expectedReserved);
+    }
 }
