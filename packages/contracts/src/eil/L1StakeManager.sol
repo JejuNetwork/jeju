@@ -122,6 +122,7 @@ contract L1StakeManager is Ownable, ReentrancyGuard, Pausable {
         uint256 stakedAmount;
         uint256 unbondingAmount;
         uint256 unbondingStartTime;
+        uint256 lockedUnbondingPeriod; // Stored at unbonding start to prevent bypass
         uint256 slashedAmount;
         bool isActive;
         uint256 registeredAt;
@@ -248,6 +249,7 @@ contract L1StakeManager is Ownable, ReentrancyGuard, Pausable {
             stakedAmount: msg.value,
             unbondingAmount: 0,
             unbondingStartTime: 0,
+            lockedUnbondingPeriod: 0,
             slashedAmount: 0,
             isActive: true,
             registeredAt: block.timestamp
@@ -282,16 +284,20 @@ contract L1StakeManager is Ownable, ReentrancyGuard, Pausable {
             revert InsufficientStake();
         }
 
+        // Lock the unbonding period at start to prevent bypass via chain unregistration
+        uint256 unbondingPeriod = getXLPUnbondingPeriod(msg.sender);
+
         stake.stakedAmount -= amount;
         stake.unbondingAmount = amount;
         stake.unbondingStartTime = block.timestamp;
+        stake.lockedUnbondingPeriod = unbondingPeriod;
 
         if (stake.stakedAmount == 0) {
             stake.isActive = false;
             activeXLPCount--;
         }
 
-        emit UnbondingStarted(msg.sender, amount, block.timestamp + getXLPUnbondingPeriod(msg.sender));
+        emit UnbondingStarted(msg.sender, amount, block.timestamp + unbondingPeriod);
     }
 
     function completeUnbonding() external nonReentrant {
@@ -299,7 +305,11 @@ contract L1StakeManager is Ownable, ReentrancyGuard, Pausable {
 
         if (stake.unbondingAmount == 0) revert NoUnbondingStake();
 
-        uint256 unbondingPeriod = getXLPUnbondingPeriod(msg.sender);
+        // Use the locked period from when unbonding started (prevents bypass)
+        uint256 unbondingPeriod = stake.lockedUnbondingPeriod;
+        if (unbondingPeriod == 0) {
+            unbondingPeriod = DEFAULT_UNBONDING_PERIOD; // Fallback for legacy stakes
+        }
         if (block.timestamp < stake.unbondingStartTime + unbondingPeriod) {
             revert UnbondingNotComplete();
         }
@@ -307,6 +317,7 @@ contract L1StakeManager is Ownable, ReentrancyGuard, Pausable {
         uint256 amount = stake.unbondingAmount;
         stake.unbondingAmount = 0;
         stake.unbondingStartTime = 0;
+        stake.lockedUnbondingPeriod = 0;
         totalStaked -= amount;
 
         (bool success,) = msg.sender.call{value: amount}("");
@@ -326,6 +337,7 @@ contract L1StakeManager is Ownable, ReentrancyGuard, Pausable {
         stake.stakedAmount += amount;
         stake.unbondingAmount = 0;
         stake.unbondingStartTime = 0;
+        stake.lockedUnbondingPeriod = 0;
         stake.isActive = true;
 
         // Increment count if reactivating
