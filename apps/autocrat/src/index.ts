@@ -7,7 +7,8 @@
  * @module @jeju/autocrat
  */
 
-import { getConfig, getContractAddresses, type AutocratConfig } from './config';
+import { getConfig, getContractAddresses } from './config';
+import type { AutocratConfig } from './types';
 import { EventCollector, type SwapEvent, type SyncEvent, type BlockEvent, type PendingTransaction } from './engine/collector';
 import { TransactionExecutor } from './engine/executor';
 import { TreasuryManager } from './engine/treasury';

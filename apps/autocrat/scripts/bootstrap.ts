@@ -78,8 +78,9 @@ async function main() {
   console.log('\n📦 Deploying contracts...');
 
   try {
+    // Set dummy API keys for localnet (not needed but foundry.toml references them)
     const output = execSync(
-      `cd ${CONTRACTS_DIR} && forge script script/DeployAutocrat.s.sol:DeployAutocratLocalnet --rpc-url ${RPC_URL} --broadcast 2>&1`,
+      `cd ${CONTRACTS_DIR} && BASESCAN_API_KEY=dummy ETHERSCAN_API_KEY=dummy forge script script/DeployAutocrat.s.sol:DeployAutocratLocalnet --rpc-url ${RPC_URL} --broadcast --private-key ${DEPLOYER_KEY} 2>&1`,
       { encoding: 'utf-8' }
     );
 
