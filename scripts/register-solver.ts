@@ -3,7 +3,7 @@ import { ethers } from 'ethers';
 import { Logger } from './shared/logger';
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
-import { PUBLIC_RPCS, chainName } from './shared/chains';
+import { PUBLIC_RPCS, chainName, TESTNET_CHAIN_IDS } from './shared/chains';
 
 const logger = new Logger('register-solver');
 
@@ -30,11 +30,15 @@ function getDeployedChains(): number[] {
     .map(([id]) => parseInt(id));
 }
 
+function isTestnet(chainId: number): boolean {
+  return TESTNET_CHAIN_IDS.includes(chainId);
+}
+
 async function register(chainId: number, supportedChains: number[], stake: string, pk: string) {
   const rpc = PUBLIC_RPCS[chainId];
   if (!rpc) throw new Error(`No RPC for ${chainId}`);
 
-  const deployments = loadDeployments(chainId >= 1000000 ? 'mainnet' : 'testnet');
+  const deployments = loadDeployments(isTestnet(chainId) ? 'testnet' : 'mainnet');
   const registry = (deployments[chainId.toString()] as { contracts?: { solverRegistry: string } })?.contracts?.solverRegistry;
   if (!registry) throw new Error(`No SolverRegistry on ${chainName(chainId)}`);
 
