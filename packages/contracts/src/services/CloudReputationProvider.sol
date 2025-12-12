@@ -233,24 +233,14 @@ contract CloudReputationProvider is IReputationProvider, Ownable, Pausable, Reen
 
         emit ReputationSet(agentId, score, tag1, tag2, reason);
 
-        // Check for auto-ban threshold and record violation
+        // Check for auto-ban threshold and record violation (auth already checked)
         if (score < autobanThreshold) {
-            _recordViolation(
-                agentId,
-                ViolationType.TOS_VIOLATION,
-                100 - score, // Severity inversely proportional to score
-                reason,
-                msg.sender
-            );
+            _storeViolation(agentId, ViolationType.TOS_VIOLATION, 100 - score, reason);
         }
     }
 
     /**
-     * @notice Record a violation without immediate reputation impact (with enum type)
-     * @param agentId Target agent ID
-     * @param violationType Type of violation (ViolationType enum)
-     * @param severityScore Severity (0-100)
-     * @param evidence IPFS hash of evidence
+     * @notice Record a violation with enum type (vendor-specific)
      */
     function recordViolationWithType(
         uint256 agentId,
@@ -258,15 +248,11 @@ contract CloudReputationProvider is IReputationProvider, Ownable, Pausable, Reen
         uint8 severityScore,
         string calldata evidence
     ) external nonReentrant whenNotPaused {
-        _recordViolationInternal(agentId, violationType, severityScore, evidence);
+        _validateAndRecordViolation(agentId, violationType, severityScore, evidence);
     }
 
     /**
      * @notice Record a violation (IReputationProvider interface)
-     * @param agentId Target agent ID
-     * @param violationType Type of violation as uint8
-     * @param severityScore Severity (0-100)
-     * @param evidence IPFS hash of evidence
      */
     function recordViolation(
         uint256 agentId,
@@ -274,30 +260,26 @@ contract CloudReputationProvider is IReputationProvider, Ownable, Pausable, Reen
         uint8 severityScore,
         string calldata evidence
     ) external override nonReentrant whenNotPaused {
-        _recordViolationInternal(agentId, ViolationType(violationType), severityScore, evidence);
+        _validateAndRecordViolation(agentId, ViolationType(violationType), severityScore, evidence);
     }
 
-    function _recordViolationInternal(
+    function _validateAndRecordViolation(
         uint256 agentId,
         ViolationType violationType,
         uint8 severityScore,
         string calldata evidence
     ) internal {
-        if (!authorizedOperators[msg.sender] && msg.sender != owner()) {
-            revert NotAuthorized();
-        }
+        if (!authorizedOperators[msg.sender] && msg.sender != owner()) revert NotAuthorized();
         if (!identityRegistry.agentExists(agentId)) revert InvalidAgentId();
         if (severityScore > 100) revert InvalidScore();
-
-        _recordViolation(agentId, violationType, severityScore, evidence, msg.sender);
+        _storeViolation(agentId, violationType, severityScore, evidence);
     }
 
-    function _recordViolation(
+    function _storeViolation(
         uint256 agentId,
         ViolationType violationType,
         uint8 severityScore,
-        string memory evidence,
-        address reporter
+        string memory evidence
     ) internal {
         agentViolations[agentId].push(
             Violation({
@@ -306,13 +288,11 @@ contract CloudReputationProvider is IReputationProvider, Ownable, Pausable, Reen
                 severityScore: severityScore,
                 evidence: evidence,
                 timestamp: block.timestamp,
-                reporter: reporter
+                reporter: msg.sender
             })
         );
-
         violationCounts[violationType]++;
-
-        emit ViolationRecorded(agentId, violationType, severityScore, evidence, reporter);
+        emit ViolationRecorded(agentId, violationType, severityScore, evidence, msg.sender);
     }
 
     // ============ Ban Management (via RegistryGovernance) ============
