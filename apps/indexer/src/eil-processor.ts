@@ -12,6 +12,7 @@ import {
     VoucherRequestStatus, VoucherStatus, TransferStatus, Account
 } from './model'
 import { ethers } from 'ethers'
+import { BlockHeader, LogData } from './lib/entities'
 
 // Event signatures for CrossChainPaymaster
 const VOUCHER_REQUESTED = ethers.id('VoucherRequested(bytes32,address,address,uint256,uint256,address,uint256,uint256)')
@@ -35,21 +36,6 @@ const EIL_EVENT_SIGNATURES = new Set([
     FUNDS_REFUNDED, XLP_DEPOSIT, XLP_WITHDRAW, SOURCE_FUNDS_CLAIMED,
     XLP_REGISTERED, STAKE_DEPOSITED, UNBONDING_STARTED, STAKE_WITHDRAWN, XLP_SLASHED
 ])
-
-interface LogData {
-    address: string
-    topics: string[]
-    data: string
-    logIndex: number
-    transactionIndex: number
-    transaction?: { hash: string }
-}
-
-interface BlockHeader {
-    hash: string
-    height: number
-    timestamp: number
-}
 
 export async function processEILEvents(ctx: ProcessorContext<Store>): Promise<void> {
     const xlps = new Map<string, XLP>()

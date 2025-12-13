@@ -2590,3 +2590,73 @@ type KeepaliveStats @entity {
   syncedMirrors: Int!
   lastUpdated: DateTime!
 }
+
+# ============ Council Registry Integration Entities ============
+
+type CompositeScoreCalculation @entity {
+  id: ID! # agentId
+  agentId: BigInt! @index
+  stakeScore: Int!
+  reputationScore: Int!
+  activityScore: Int!
+  violationPenalty: Int!
+  compositeScore: Int!
+  isBanned: Boolean!
+  lastUpdated: DateTime!
+}
+
+type ProviderReputationWeight @entity {
+  id: ID! # provider address
+  provider: String! @index
+  providerAgentId: BigInt
+  stakeAmount: BigInt!
+  stakeTime: DateTime
+  averageReputation: Int!
+  violationsReported: Int!
+  operatorCount: Int!
+  weightedScore: Int!
+  lastUpdated: DateTime!
+}
+
+type AgentEligibility @entity {
+  id: ID! # agentId
+  agentId: BigInt! @index
+  canSubmitProposal: Boolean!
+  proposalIneligibleReason: String
+  canVote: Boolean!
+  voteIneligibleReason: String
+  canConductResearch: Boolean!
+  researchIneligibleReason: String
+  checkedAt: DateTime!
+}
+
+type VotingPowerSnapshot @entity {
+  id: ID! # voter-proposalId
+  voter: String! @index
+  agentId: BigInt
+  proposalId: String @index
+  baseVotes: BigInt!
+  reputationMultiplier: Int!
+  stakeMultiplier: Int!
+  effectiveVotes: BigInt!
+  snapshotAt: DateTime!
+  blockNumber: Int!
+}
+
+type WeightedReputationQuery @entity {
+  id: ID! # agentId-timestamp
+  agentId: BigInt! @index
+  weightedReputation: Int!
+  totalWeight: BigInt!
+  providerCount: Int!
+  queriedAt: DateTime!
+}
+
+type RegistrySearchQuery @entity {
+  id: ID! # query hash
+  queryType: String! # "tag", "score", "top"
+  queryParams: String!
+  resultCount: Int!
+  executionTime: Int! # milliseconds
+  queriedAt: DateTime! @index
+}

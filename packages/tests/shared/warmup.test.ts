@@ -287,9 +287,12 @@ describe('quickWarmup - Fast Warmup', () => {
 });
 
 describe('Warmup - Real World Discovery', () => {
+  // Get workspace root (packages/tests -> ../..)
+  const workspaceRoot = join(process.cwd(), '../..');
+
   test('should discover apps in actual jeju workspace', () => {
-    // Use actual workspace
-    const apps = discoverAppsForWarmup(process.cwd());
+    // Use actual workspace root
+    const apps = discoverAppsForWarmup(workspaceRoot);
 
     // Should find some apps
     expect(apps.length).toBeGreaterThan(0);

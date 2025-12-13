@@ -8,7 +8,6 @@ import {
   type Account,
   encodeFunctionData,
   parseEther,
-  serializeTransaction,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { mainnet, arbitrum, optimism, base, bsc } from 'viem/chains';

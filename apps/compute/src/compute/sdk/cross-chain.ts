@@ -203,15 +203,6 @@ export class CrossChainComputeClient {
    * Solvers will compete to fill this intent on the compute chain
    */
   async createRentalIntent(params: CrossChainRentalParams): Promise<CrossChainRentalResult> {
-    if (!this.inputSettler) {
-      throw new Error('InputSettler address not configured');
-    }
-
-    const signerAddress = await this.signer.getAddress();
-    const nonce = await this.inputSettler.nonces(signerAddress);
-    const currentBlock = await this.sourceProvider.getBlockNumber();
-
-    // Encode rental order data
     const abiCoder = new AbiCoder();
     const orderData = abiCoder.encode(
       ['address', 'uint256', 'string', 'string', 'string'],
@@ -224,30 +215,13 @@ export class CrossChainComputeClient {
       ]
     );
 
-    // Build order
-    const order = {
-      originSettler: this.config.inputSettlerAddress,
-      user: signerAddress,
-      nonce,
-      originChainId: this.config.sourceChainId,
-      openDeadline: currentBlock + 50,   // ~100 seconds
-      fillDeadline: currentBlock + 300,  // ~10 minutes
-      orderDataType: COMPUTE_RENTAL_ORDER_TYPE,
-      orderData,
-    };
-
-    // Submit intent
-    const tx = await this.inputSettler.open(order);
-    const receipt = await tx.wait();
-
-    // Parse orderId from event
-    const orderId = this.extractOrderIdFromReceipt(receipt, tx.hash);
+    const { txHash, orderId } = await this.submitOrder(orderData, COMPUTE_RENTAL_ORDER_TYPE, 50, 300);
 
     return {
-      intentId: tx.hash,
+      intentId: txHash,
       orderId,
       status: 'pending',
-      txHash: tx.hash,
+      txHash,
     };
   }
 
@@ -255,15 +229,6 @@ export class CrossChainComputeClient {
    * Create an inference intent via OIF
    */
   async createInferenceIntent(params: CrossChainInferenceParams): Promise<CrossChainInferenceResult> {
-    if (!this.inputSettler) {
-      throw new Error('InputSettler address not configured');
-    }
-
-    const signerAddress = await this.signer.getAddress();
-    const nonce = await this.inputSettler.nonces(signerAddress);
-    const currentBlock = await this.sourceProvider.getBlockNumber();
-
-    // Encode inference order data
     const abiCoder = new AbiCoder();
     const orderData = abiCoder.encode(
       ['address', 'string', 'bytes', 'uint256', 'uint256'],
@@ -276,27 +241,13 @@ export class CrossChainComputeClient {
       ]
     );
 
-    const order = {
-      originSettler: this.config.inputSettlerAddress,
-      user: signerAddress,
-      nonce,
-      originChainId: this.config.sourceChainId,
-      openDeadline: currentBlock + 25,   // ~50 seconds
-      fillDeadline: currentBlock + 100,  // ~3 minutes
-      orderDataType: COMPUTE_INFERENCE_ORDER_TYPE,
-      orderData,
-    };
-
-    const tx = await this.inputSettler.open(order);
-    const receipt = await tx.wait();
-
-    const inferenceOrderId = this.extractOrderIdFromReceipt(receipt, tx.hash);
+    const { txHash, orderId } = await this.submitOrder(orderData, COMPUTE_INFERENCE_ORDER_TYPE, 25, 100);
 
     return {
-      intentId: tx.hash,
-      orderId: inferenceOrderId,
+      intentId: txHash,
+      orderId,
       status: 'pending',
-      txHash: tx.hash,
+      txHash,
     };
   }
 

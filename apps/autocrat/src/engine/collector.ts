@@ -50,8 +50,6 @@ export interface BlockEvent {
   chainId: ChainId;
 }
 
-// ============ Chain Definitions ============
-
 const CHAIN_DEFS: Record<number, Chain> = {
   1: mainnet,
   42161: arbitrum,
@@ -262,7 +260,9 @@ export class EventCollector extends EventEmitter {
     if (chainId === 420691) return jejuChain;
     if (chainId === 420690) return jejuTestnet;
     if (chainId === 1337) return localnet;
-    return CHAIN_DEFS[chainId] || mainnet;
+    const chain = CHAIN_DEFS[chainId];
+    if (!chain) throw new Error(`Unknown chain ID: ${chainId}`);
+    return chain;
   }
 
   private handleBlock(chainId: ChainId, block: {
@@ -304,9 +304,9 @@ export class EventCollector extends EventEmitter {
         const pendingTx: PendingTransaction = {
           hash: tx.hash,
           from: tx.from,
-          to: tx.to || '',
+          to: tx.to ?? '',
           value: tx.value,
-          gasPrice: tx.gasPrice || 0n,
+          gasPrice: tx.gasPrice ?? 0n,
           maxFeePerGas: tx.maxFeePerGas,
           maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
           gas: tx.gas,
@@ -376,8 +376,8 @@ export class EventCollector extends EventEmitter {
         amount1In: args.amount1In,
         amount0Out: args.amount0Out,
         amount1Out: args.amount1Out,
-        blockNumber: log.blockNumber || 0n,
-        transactionHash: log.transactionHash || '',
+        blockNumber: log.blockNumber,
+        transactionHash: log.transactionHash,
         chainId,
       };
 
@@ -405,7 +405,7 @@ export class EventCollector extends EventEmitter {
         poolAddress: log.address,
         reserve0: args.reserve0,
         reserve1: args.reserve1,
-        blockNumber: log.blockNumber || 0n,
+        blockNumber: log.blockNumber,
         chainId,
       };
 

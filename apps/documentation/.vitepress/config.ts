@@ -1,145 +1,186 @@
 import { defineConfig } from 'vitepress';
 
-// Helper to reduce repetition in sidebar definitions
-const sidebarSection = (text: string, base: string, items: string[][]) => [{
-  text,
-  items: items.map(([label, page]) => ({ text: label, link: `${base}/${page}` })),
-}];
-
 export default defineConfig({
   title: 'Jeju',
   description: 'OP-Stack L2 on Ethereum with 200ms Flashblocks',
   base: '/jeju/',
-  ignoreDeadLinks: [
-    /^http:\/\/localhost/,
-    /\/api\/.*\/README/,
-    // Planned guides (remove when created)
-    /\/guides\/become-lp/,
-    /\/guides\/launch-token/,
-    /\/guides\/register-name/,
-    /\/guides\/build-character/,
-    /\/guides\/multi-agent/,
-    /\/guides\/graphql-best-practices/,
-    /\/guides\/custom-indexing/,
-    /\/guides\/realtime-apps/,
-    /\/guides\/store-agent-memory/,
-    /\/guides\/ipfs-best-practices/,
-  ],
+  ignoreDeadLinks: [/^http:\/\/localhost/, /\/api\/.*\/README/],
 
   vite: {
     server: { port: parseInt(process.env.DOCUMENTATION_PORT || '4004') },
   },
 
+  markdown: {
+    lineNumbers: true,
+    config: (md) => {
+      // Enable mermaid
+    },
+  },
+
   head: [
     ['link', { rel: 'icon', href: '/jeju/favicon.ico' }],
-    ['meta', { name: 'theme-color', content: '#3eaf7c' }],
+    ['meta', { name: 'theme-color', content: '#0EA5E9' }],
     ['meta', { name: 'og:type', content: 'website' }],
     ['meta', { name: 'og:locale', content: 'en' }],
     ['meta', { name: 'og:site_name', content: 'Jeju' }],
+    ['meta', { name: 'og:title', content: 'Jeju - L2 Built for Agents' }],
+    ['meta', { name: 'og:description', content: 'OP-Stack L2 with 200ms blocks, gasless transactions, and native agent infrastructure.' }],
   ],
 
   themeConfig: {
     logo: '/logo.svg',
+    siteTitle: 'Jeju',
 
     nav: [
-      { text: 'Home', link: '/' },
-      { text: 'Get Started', link: '/getting-started/quick-start' },
-      { text: 'Apps', link: '/applications/overview' },
-      { text: 'Contracts', link: '/contracts/overview' },
-      { text: 'Guides', link: '/guides/overview' },
+      { text: 'Docs', link: '/learn/why-jeju' },
       {
-        text: 'Reference',
+        text: 'Learn',
         items: [
-          { text: 'API', link: '/api-reference/rpc' },
-          { text: 'Deployment', link: '/deployment/overview' },
-          { text: 'CLI Commands', link: '/reference/cli' },
-          { text: 'Port Allocations', link: '/reference/ports' },
-          { text: 'Contract Addresses', link: '/reference/addresses' },
+          { text: 'Why Jeju?', link: '/learn/why-jeju' },
+          { text: 'Core Concepts', link: '/learn/concepts' },
+          { text: 'Architecture', link: '/learn/architecture' },
         ],
       },
+      {
+        text: 'Build',
+        items: [
+          { text: 'Quick Start', link: '/build/quick-start' },
+          { text: 'Tutorials', link: '/tutorials/overview' },
+          { text: 'API Reference', link: '/reference/api/rpc' },
+        ],
+      },
+      {
+        text: 'Run',
+        items: [
+          { text: 'Node Operators', link: '/operate/overview' },
+          { text: 'Deployment', link: '/operate/deployment' },
+        ],
+      },
+      { text: 'FAQ', link: '/faq' },
     ],
 
     sidebar: {
-      '/getting-started/': sidebarSection('Getting Started', '/getting-started', [
-        ['Quick Start', 'quick-start'],
-        ['Networks', 'networks'],
-        ['Configuration', 'configuration'],
-        ['Test Accounts', 'test-accounts'],
-      ]),
+      '/learn/': [
+        {
+          text: 'Introduction',
+          items: [
+            { text: 'Why Jeju?', link: '/learn/why-jeju' },
+            { text: 'Core Concepts', link: '/learn/concepts' },
+            { text: 'Architecture', link: '/learn/architecture' },
+          ],
+        },
+        {
+          text: 'Key Features',
+          items: [
+            { text: 'Gasless Transactions', link: '/learn/gasless' },
+            { text: 'Cross-Chain Intents', link: '/learn/intents' },
+            { text: 'Agent Identity', link: '/learn/agents' },
+          ],
+        },
+      ],
 
-      '/applications/': sidebarSection('Applications', '/applications', [
-        ['Overview', 'overview'],
-        ['Gateway', 'gateway'],
-        ['Bazaar', 'bazaar'],
-        ['Compute', 'compute'],
-        ['Storage', 'storage'],
-        ['Crucible', 'crucible'],
-        ['Indexer', 'indexer'],
-        ['Facilitator', 'facilitator'],
-        ['Monitoring', 'monitoring'],
-      ]),
+      '/build/': [
+        {
+          text: 'Getting Started',
+          items: [
+            { text: 'Quick Start', link: '/build/quick-start' },
+            { text: 'Networks', link: '/build/networks' },
+            { text: 'Configuration', link: '/build/configuration' },
+          ],
+        },
+        {
+          text: 'Applications',
+          items: [
+            { text: 'Overview', link: '/build/apps/overview' },
+            { text: 'Gateway', link: '/build/apps/gateway' },
+            { text: 'Bazaar', link: '/build/apps/bazaar' },
+            { text: 'Compute', link: '/build/apps/compute' },
+            { text: 'Storage', link: '/build/apps/storage' },
+            { text: 'Crucible', link: '/build/apps/crucible' },
+            { text: 'Indexer', link: '/build/apps/indexer' },
+          ],
+        },
+        {
+          text: 'Smart Contracts',
+          items: [
+            { text: 'Overview', link: '/build/contracts/overview' },
+            { text: 'Tokens', link: '/build/contracts/tokens' },
+            { text: 'Identity (ERC-8004)', link: '/build/contracts/identity' },
+            { text: 'Paymasters', link: '/build/contracts/paymasters' },
+            { text: 'Intents (OIF)', link: '/build/contracts/oif' },
+            { text: 'Bridge (EIL)', link: '/build/contracts/eil' },
+          ],
+        },
+      ],
 
-      '/contracts/': sidebarSection('Smart Contracts', '/contracts', [
-        ['Overview', 'overview'],
-        ['Tokens', 'tokens'],
-        ['Identity (ERC-8004)', 'identity'],
-        ['Payments & Paymasters', 'payments'],
-        ['Open Intents (OIF)', 'oif'],
-        ['Cross-Chain (EIL)', 'eil'],
-        ['Compute', 'compute'],
-        ['Staking', 'staking'],
-        ['Name Service (JNS)', 'jns'],
-        ['DeFi', 'defi'],
-        ['Moderation', 'moderation'],
-      ]),
+      '/tutorials/': [
+        {
+          text: 'Tutorials',
+          items: [
+            { text: 'Overview', link: '/tutorials/overview' },
+            { text: 'Gasless NFT Drop', link: '/tutorials/gasless-nft' },
+            { text: 'Trading Agent', link: '/tutorials/trading-agent' },
+            { text: 'Pay-per-Query API', link: '/tutorials/x402-api' },
+          ],
+        },
+      ],
 
-      '/guides/': sidebarSection('User Guides', '/guides', [
-        ['Overview', 'overview'],
-        ['Become an XLP', 'become-xlp'],
-        ['Become a Solver', 'become-solver'],
-        ['Run an RPC Node', 'run-rpc-node'],
-        ['Run a Compute Node', 'run-compute-node'],
-        ['Run a Storage Node', 'run-storage-node'],
-        ['Register a Token', 'register-token'],
-        ['Register an Agent', 'register-agent'],
-        ['Deploy an Agent', 'deploy-agent'],
-        ['Gasless Transactions', 'gasless-transactions'],
-      ]),
+      '/operate/': [
+        {
+          text: 'Node Operations',
+          items: [
+            { text: 'Overview', link: '/operate/overview' },
+            { text: 'Run RPC Node', link: '/operate/rpc-node' },
+            { text: 'Run Compute Node', link: '/operate/compute-node' },
+            { text: 'Run Storage Node', link: '/operate/storage-node' },
+            { text: 'Become an XLP', link: '/operate/xlp' },
+            { text: 'Become a Solver', link: '/operate/solver' },
+          ],
+        },
+        {
+          text: 'Deployment',
+          items: [
+            { text: 'Overview', link: '/operate/deployment' },
+            { text: 'Localnet', link: '/operate/localnet' },
+            { text: 'Testnet', link: '/operate/testnet' },
+            { text: 'Mainnet', link: '/operate/mainnet' },
+          ],
+        },
+      ],
 
-      '/api-reference/': sidebarSection('API Reference', '/api-reference', [
-        ['RPC Methods', 'rpc'],
-        ['GraphQL (Indexer)', 'graphql'],
-        ['A2A Protocol', 'a2a'],
-        ['MCP', 'mcp'],
-        ['x402 Payments', 'x402'],
-      ]),
-
-      '/deployment/': sidebarSection('Deployment', '/deployment', [
-        ['Overview', 'overview'],
-        ['Localnet', 'localnet'],
-        ['Testnet', 'testnet'],
-        ['Mainnet', 'mainnet'],
-        ['Contracts', 'contracts'],
-        ['Infrastructure', 'infrastructure'],
-      ]),
-
-      '/reference/': sidebarSection('Reference', '/reference', [
-        ['CLI Commands', 'cli'],
-        ['Port Allocations', 'ports'],
-        ['Environment Variables', 'env-vars'],
-        ['Contract Addresses', 'addresses'],
-      ]),
+      '/reference/': [
+        {
+          text: 'API Reference',
+          items: [
+            { text: 'RPC Methods', link: '/reference/api/rpc' },
+            { text: 'GraphQL', link: '/reference/api/graphql' },
+            { text: 'A2A Protocol', link: '/reference/api/a2a' },
+            { text: 'MCP', link: '/reference/api/mcp' },
+            { text: 'x402 Payments', link: '/reference/api/x402' },
+          ],
+        },
+        {
+          text: 'Reference Tables',
+          items: [
+            { text: 'Contract Addresses', link: '/reference/addresses' },
+            { text: 'Port Allocations', link: '/reference/ports' },
+            { text: 'Environment Variables', link: '/reference/env-vars' },
+            { text: 'CLI Commands', link: '/reference/cli' },
+            { text: 'Test Accounts', link: '/reference/test-accounts' },
+          ],
+        },
+      ],
     },
 
     socialLinks: [
       { icon: 'github', link: 'https://github.com/elizaos/jeju' },
-      { icon: 'discord', link: 'https://discord.gg/jeju' },
-      { icon: 'twitter', link: 'https://twitter.com/jejunetwork' },
+      { icon: 'discord', link: 'https://discord.gg/elizaos' },
+      { icon: 'twitter', link: 'https://twitter.com/elizaos' },
     ],
 
     footer: {
       message: 'Released under the MIT License.',
-      copyright: 'Copyright © 2025 Jeju',
+      copyright: 'Copyright © 2025 Jeju Network',
     },
 
     search: { provider: 'local' },
@@ -147,6 +188,13 @@ export default defineConfig({
     editLink: {
       pattern: 'https://github.com/elizaos/jeju/edit/main/apps/documentation/:path',
       text: 'Edit this page on GitHub',
+    },
+
+    outline: { level: [2, 3] },
+
+    lastUpdated: {
+      text: 'Updated at',
+      formatOptions: { dateStyle: 'short' },
     },
   },
 });

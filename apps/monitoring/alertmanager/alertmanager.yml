@@ -1,0 +1,71 @@
+global:
+  resolve_timeout: 5m
+  smtp_smarthost: '${SMTP_HOST:-localhost:587}'
+  smtp_from: '${ALERT_FROM:-alerts@jeju.network}'
+  smtp_auth_username: '${SMTP_USER:-}'
+  smtp_auth_password: '${SMTP_PASSWORD:-}'
+
+route:
+  group_by: ['alertname', 'severity', 'component']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: 'default-receiver'
+  continue: false
+  routes:
+    - match:
+        severity: critical
+      receiver: 'critical-receiver'
+      group_wait: 10s
+      repeat_interval: 1h
+      continue: false
+    - match:
+        severity: warning
+      receiver: 'warning-receiver'
+      repeat_interval: 4h
+      continue: false
+
+receivers:
+  - name: 'default-receiver'
+    webhook_configs:
+      - url: '${ALERT_WEBHOOK_URL:-http://localhost:9094/webhook}'
+        send_resolved: true
+        http_config:
+          follow_redirects: true
+          timeout: 10s
+        max_alerts: 0
+
+  - name: 'critical-receiver'
+    webhook_configs:
+      - url: '${CRITICAL_ALERT_WEBHOOK_URL:-http://localhost:9094/webhook}'
+        send_resolved: true
+        http_config:
+          follow_redirects: true
+          timeout: 10s
+        max_alerts: 0
+
+  - name: 'warning-receiver'
+    webhook_configs:
+      - url: '${WARNING_ALERT_WEBHOOK_URL:-http://localhost:9094/webhook}'
+        send_resolved: true
+        http_config:
+          follow_redirects: true
+          timeout: 10s
+        max_alerts: 0
+
+  - name: 'fallback-receiver'
+    webhook_configs:
+      - url: '${FALLBACK_ALERT_WEBHOOK_URL:-}'
+        send_resolved: true
+        http_config:
+          follow_redirects: true
+          timeout: 10s
+        max_alerts: 0
+    continue: true
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'component']

@@ -3,41 +3,15 @@ pragma solidity ^0.8.26;
 
 import {Test} from "forge-std/Test.sol";
 import {MarginManager} from "../../src/perps/MarginManager.sol";
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-
-contract MockERC20Token is ERC20 {
-    uint8 private _decimals;
-    
-    constructor(uint8 decimals_) ERC20("Mock", "MOCK") {
-        _decimals = decimals_;
-    }
-    
-    function mint(address to, uint256 amount) external { _mint(to, amount); }
-    
-    function decimals() public view override returns (uint8) { return _decimals; }
-}
-
-contract MockPriceOracle {
-    mapping(address => uint256) public prices;
-    
-    function setPrice(address token, uint256 price) external {
-        prices[token] = price;
-    }
-    
-    function getPrice(address token) external view returns (uint256) {
-        return prices[token];
-    }
-}
-
-contract MockTokenRegistry {}
+import {MockERC20WithDecimals, MockPriceOracle, MockTokenRegistry} from "../mocks/PerpsMocks.sol";
 
 contract MarginManagerTest is Test {
     MarginManager public manager;
     MockPriceOracle public oracle;
     MockTokenRegistry public registry;
-    MockERC20Token public usdc;
-    MockERC20Token public weth;
-    MockERC20Token public wbtc;
+    MockERC20WithDecimals public usdc;
+    MockERC20WithDecimals public weth;
+    MockERC20WithDecimals public wbtc;
     
     address public owner = address(1);
     address public trader1 = address(2);
@@ -55,9 +29,9 @@ contract MarginManagerTest is Test {
         oracle = new MockPriceOracle();
         registry = new MockTokenRegistry();
         
-        usdc = new MockERC20Token(6); // 6 decimals
-        weth = new MockERC20Token(18); // 18 decimals
-        wbtc = new MockERC20Token(8); // 8 decimals
+        usdc = new MockERC20WithDecimals("USD Coin", "USDC", 6);
+        weth = new MockERC20WithDecimals("Wrapped Ether", "WETH", 18);
+        wbtc = new MockERC20WithDecimals("Wrapped BTC", "WBTC", 8);
         
         oracle.setPrice(address(usdc), USDC_PRICE);
         oracle.setPrice(address(weth), ETH_PRICE);
@@ -123,7 +97,7 @@ contract MarginManagerTest is Test {
     }
     
     function test_Deposit_TokenNotAccepted_Reverts() public {
-        MockERC20Token unknown = new MockERC20Token(18);
+        MockERC20WithDecimals unknown = new MockERC20WithDecimals("Unknown", "UNK", 18);
         unknown.mint(trader1, 1000e18);
         
         vm.startPrank(trader1);
@@ -465,7 +439,7 @@ contract MarginManagerTest is Test {
     // ============ Admin Tests ============
     
     function test_AddCollateralToken() public {
-        MockERC20Token newToken = new MockERC20Token(18);
+        MockERC20WithDecimals newToken = new MockERC20WithDecimals("New Token", "NEW", 18);
         oracle.setPrice(address(newToken), 10e18);
         
         vm.prank(owner);
@@ -483,7 +457,7 @@ contract MarginManagerTest is Test {
     }
     
     function test_AddCollateralToken_InvalidWeight_Reverts() public {
-        MockERC20Token newToken = new MockERC20Token(18);
+        MockERC20WithDecimals newToken = new MockERC20WithDecimals("New Token", "NEW", 18);
         
         vm.startPrank(owner);
         vm.expectRevert(MarginManager.InvalidWeight.selector);

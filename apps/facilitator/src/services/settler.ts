@@ -89,7 +89,9 @@ export async function getFacilitatorStats(publicClient: PublicClient): Promise<{
 
 export async function isTokenSupported(publicClient: PublicClient, token: Address): Promise<boolean> {
   const cfg = config();
-  if (cfg.facilitatorAddress === ZERO_ADDRESS) return false;
+  if (cfg.facilitatorAddress === ZERO_ADDRESS) {
+    return false;
+  }
 
   return (await publicClient.readContract({
     address: cfg.facilitatorAddress,
@@ -105,7 +107,9 @@ export async function getTokenBalance(publicClient: PublicClient, token: Address
 
 export async function getTokenAllowance(publicClient: PublicClient, token: Address, owner: Address): Promise<bigint> {
   const cfg = config();
-  if (cfg.facilitatorAddress === ZERO_ADDRESS) return 0n;
+  if (cfg.facilitatorAddress === ZERO_ADDRESS) {
+    return 0n;
+  }
   return (await publicClient.readContract({
     address: token,
     abi: ERC20_ABI,
@@ -147,51 +151,65 @@ async function validateSettlementPrerequisites(
   return { valid: true };
 }
 
+async function executeSettlement(
+  payment: DecodedPayment,
+  publicClient: PublicClient,
+  walletClient: WalletClient,
+  functionName: 'settle' | 'settleWithAuthorization',
+  args: readonly [`0x${string}`, `0x${string}`, `0x${string}`, bigint, string, string, bigint, `0x${string}`] | readonly [`0x${string}`, `0x${string}`, `0x${string}`, bigint, string, string, bigint, `0x${string}`, bigint, bigint, `0x${string}`, `0x${string}`]
+): Promise<SettlementResult> {
+  const cfg = config();
+  const settlementKey = `${payment.payer}:${payment.nonce}`;
+
+  const nonceReservation = await reserveNonce(publicClient, payment.payer, payment.nonce);
+  if (!nonceReservation.reserved) {
+    return { success: false, error: nonceReservation.error };
+  }
+
+  pendingSettlements.set(settlementKey, { timestamp: Date.now(), payment });
+
+  const prereq = await validateSettlementPrerequisites(publicClient, payment);
+  if (!prereq.valid) {
+    markNonceFailed(payment.payer, payment.nonce);
+    pendingSettlements.delete(settlementKey);
+    return { success: false, error: prereq.error ?? 'Settlement prerequisites not met' };
+  }
+
+  const hash = await walletClient.writeContract({
+    address: cfg.facilitatorAddress,
+    abi: X402_FACILITATOR_ABI,
+    functionName,
+    args: args as never,
+    chain: walletClient.chain,
+    account: walletClient.account!,
+  });
+
+  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  if (receipt.status !== 'success') {
+    markNonceFailed(payment.payer, payment.nonce);
+    pendingSettlements.delete(settlementKey);
+    return { success: false, error: 'Transaction reverted' };
+  }
+
+  const { paymentId, protocolFee } = extractPaymentEvent(receipt);
+  markNonceUsed(payment.payer, payment.nonce);
+  pendingSettlements.delete(settlementKey);
+  return { success: true, txHash: hash, paymentId, protocolFee };
+}
+
 export async function settlePayment(
   payment: DecodedPayment,
   _network: string,
   publicClient: PublicClient,
   walletClient: WalletClient
 ): Promise<SettlementResult> {
-  const cfg = config();
-  const settlementKey = `${payment.payer}:${payment.nonce}`;
-
-  const nonceReservation = await reserveNonce(publicClient, payment.payer, payment.nonce);
-  if (!nonceReservation.reserved) return { success: false, error: nonceReservation.error };
-
-  pendingSettlements.set(settlementKey, { timestamp: Date.now(), payment });
-
-  try {
-    const prereq = await validateSettlementPrerequisites(publicClient, payment);
-    if (!prereq.valid) {
-      markNonceFailed(payment.payer, payment.nonce);
-      return { success: false, error: prereq.error! };
-    }
-
-    const hash = await walletClient.writeContract({
-      address: cfg.facilitatorAddress,
-      abi: X402_FACILITATOR_ABI,
-      functionName: 'settle',
-      args: [payment.payer, payment.recipient, payment.token, payment.amount, payment.resource, payment.nonce, BigInt(payment.timestamp), payment.signature],
-      chain: walletClient.chain,
-      account: walletClient.account!,
-    });
-
-    const receipt = await publicClient.waitForTransactionReceipt({ hash });
-    if (receipt.status !== 'success') {
-      markNonceFailed(payment.payer, payment.nonce);
-      return { success: false, error: 'Transaction reverted' };
-    }
-
-    const { paymentId, protocolFee } = extractPaymentEvent(receipt);
-    markNonceUsed(payment.payer, payment.nonce);
-    return { success: true, txHash: hash, paymentId, protocolFee };
-  } catch (e) {
-    markNonceFailed(payment.payer, payment.nonce);
-    return { success: false, error: e instanceof Error ? e.message : String(e) };
-  } finally {
-    pendingSettlements.delete(settlementKey);
-  }
+  return executeSettlement(
+    payment,
+    publicClient,
+    walletClient,
+    'settle',
+    [payment.payer, payment.recipient, payment.token, payment.amount, payment.resource, payment.nonce, BigInt(payment.timestamp), payment.signature]
+  );
 }
 
 export async function settleGaslessPayment(
@@ -206,58 +224,26 @@ export async function settleGaslessPayment(
     authSignature: Hex;
   }
 ): Promise<SettlementResult> {
-  const cfg = config();
-  const settlementKey = `${payment.payer}:${payment.nonce}`;
-
-  const nonceReservation = await reserveNonce(publicClient, payment.payer, payment.nonce);
-  if (!nonceReservation.reserved) return { success: false, error: nonceReservation.error };
-
-  pendingSettlements.set(settlementKey, { timestamp: Date.now(), payment });
-
-  try {
-    const prereq = await validateSettlementPrerequisites(publicClient, payment);
-    if (!prereq.valid) {
-      markNonceFailed(payment.payer, payment.nonce);
-      return { success: false, error: prereq.error! };
-    }
-
-    const hash = await walletClient.writeContract({
-      address: cfg.facilitatorAddress,
-      abi: X402_FACILITATOR_ABI,
-      functionName: 'settleWithAuthorization',
-      args: [
-        payment.payer,
-        payment.recipient,
-        payment.token,
-        payment.amount,
-        payment.resource,
-        payment.nonce,
-        BigInt(payment.timestamp),
-        payment.signature,
-        BigInt(authParams.validAfter),
-        BigInt(authParams.validBefore),
-        authParams.authNonce,
-        authParams.authSignature,
-      ],
-      chain: walletClient.chain,
-      account: walletClient.account!,
-    });
-
-    const receipt = await publicClient.waitForTransactionReceipt({ hash });
-    if (receipt.status !== 'success') {
-      markNonceFailed(payment.payer, payment.nonce);
-      return { success: false, error: 'Transaction reverted' };
-    }
-
-    const { paymentId, protocolFee } = extractPaymentEvent(receipt);
-    markNonceUsed(payment.payer, payment.nonce);
-    return { success: true, txHash: hash, paymentId, protocolFee };
-  } catch (e) {
-    markNonceFailed(payment.payer, payment.nonce);
-    return { success: false, error: e instanceof Error ? e.message : String(e) };
-  } finally {
-    pendingSettlements.delete(settlementKey);
-  }
+  return executeSettlement(
+    payment,
+    publicClient,
+    walletClient,
+    'settleWithAuthorization',
+    [
+      payment.payer,
+      payment.recipient,
+      payment.token,
+      payment.amount,
+      payment.resource,
+      payment.nonce,
+      BigInt(payment.timestamp),
+      payment.signature,
+      BigInt(authParams.validAfter),
+      BigInt(authParams.validBefore),
+      authParams.authNonce,
+      authParams.authSignature,
+    ]
+  );
 }
 
 export function calculateProtocolFee(amount: bigint, feeBps: number): bigint {

@@ -8,8 +8,6 @@
  */
 
 import { ethers } from 'ethers';
-import { readFileSync, existsSync } from 'fs';
-import { resolve } from 'path';
 
 const fmt = {
   green: (s: string) => `\x1b[32m${s}\x1b[0m`,

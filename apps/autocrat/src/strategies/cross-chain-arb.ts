@@ -252,12 +252,10 @@ export class CrossChainArbStrategy {
   ): void {
     const id = `xchain-${buyPrice.chainId}-${sellPrice.chainId}-${token}-${Date.now()}`;
 
-    const tokenInfo = this.tokens.get(token) || {
-      address: token,
-      symbol: 'UNKNOWN',
-      decimals: 18,
-      chainId: buyPrice.chainId,
-    };
+    const tokenInfo = this.tokens.get(token);
+    if (!tokenInfo) {
+      throw new Error(`Token ${token} not registered for cross-chain arbitrage`);
+    }
 
     const opportunity: CrossChainArbOpportunity = {
       id,

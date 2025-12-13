@@ -3,18 +3,7 @@ pragma solidity ^0.8.26;
 
 import {Test} from "forge-std/Test.sol";
 import {InsuranceFund} from "../../src/perps/InsuranceFund.sol";
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-
-contract MockERC20 is ERC20 {
-    constructor() ERC20("Mock", "MOCK") {}
-    function mint(address to, uint256 amount) external { _mint(to, amount); }
-}
-
-contract MockPriceOracle {
-    mapping(address => uint256) public prices;
-    function setPrice(address token, uint256 price) external { prices[token] = price; }
-    function getPrice(address token) external view returns (uint256) { return prices[token]; }
-}
+import {MockERC20, MockPriceOracle} from "../mocks/PerpsMocks.sol";
 
 contract InsuranceFundTest is Test {
     InsuranceFund public fund;
@@ -30,8 +19,8 @@ contract InsuranceFundTest is Test {
     function setUp() public {
         vm.startPrank(owner);
         oracle = new MockPriceOracle();
-        usdc = new MockERC20();
-        weth = new MockERC20();
+        usdc = new MockERC20("USD Coin", "USDC");
+        weth = new MockERC20("Wrapped Ether", "WETH");
         fund = new InsuranceFund(address(oracle), owner);
         
         // Setup tokens
@@ -70,7 +59,7 @@ contract InsuranceFundTest is Test {
     }
 
     function test_Deposit_UnsupportedToken_Reverts() public {
-        MockERC20 unknown = new MockERC20();
+        MockERC20 unknown = new MockERC20("Unknown", "UNK");
         unknown.mint(user, 1000e18);
         
         vm.startPrank(user);
@@ -351,7 +340,7 @@ contract InsuranceFundTest is Test {
     // ============ Admin Functions Tests ============
 
     function test_AddSupportedToken_OnlyOwner() public {
-        MockERC20 newToken = new MockERC20();
+        MockERC20 newToken = new MockERC20("New Token", "NEW");
         
         vm.prank(unauthorized);
         vm.expectRevert();

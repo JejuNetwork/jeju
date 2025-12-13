@@ -436,5 +436,4 @@ contract OracleFeeRouterFuzzTest is Test {
         feeRouter.subscribe{value: 1 ether}(feeds, duration);
     }
 
-    receive() external payable {}
 }

@@ -17,7 +17,6 @@ import { ethers } from 'ethers';
 import { Store } from '@subsquid/typeorm-store';
 import { ProcessorContext } from './processor';
 import {
-  Account,
   ComputeProvider,
   StorageProvider,
   IPFSFile,
@@ -31,6 +30,7 @@ import {
   StorageTier,
   ComputeRental,
 } from './model';
+import { createAccountFactory, BlockHeader, LogData } from './lib/entities';
 
 const hexToBytes = (hex: string): Uint8Array => {
   const h = hex.startsWith('0x') ? hex.slice(2) : hex;
@@ -58,21 +58,6 @@ const EVENT_SIGNATURES = {
 
 const CROSS_SERVICE_TOPIC_SET = new Set(Object.values(EVENT_SIGNATURES));
 
-interface BlockHeader {
-  hash: string;
-  height: number;
-  timestamp: number;
-}
-
-interface LogData {
-  address: string;
-  topics: string[];
-  data: string;
-  logIndex: number;
-  transactionIndex: number;
-  transaction?: { hash: string };
-}
-
 export function isCrossServiceProcessorEvent(topic0: string): boolean {
   return CROSS_SERVICE_TOPIC_SET.has(topic0);
 }
@@ -87,29 +72,7 @@ export async function processCrossServiceEvents(ctx: ProcessorContext<Store>): P
   const updatedComputeProviders = new Map<string, ComputeProvider>();
   const updatedStorageProviders = new Map<string, StorageProvider>();
   const updatedAgents = new Map<string, RegisteredAgent>();
-  const accounts = new Map<string, Account>();
-
-  function getOrCreateAccount(address: string, blockNumber: number, timestamp: Date): Account {
-    const id = address.toLowerCase();
-    let account = accounts.get(id);
-    if (!account) {
-      account = new Account({
-        id,
-        address: id,
-        isContract: false,
-        firstSeenBlock: blockNumber,
-        lastSeenBlock: blockNumber,
-        transactionCount: 0,
-        totalValueSent: 0n,
-        totalValueReceived: 0n,
-        labels: [],
-        firstSeenAt: timestamp,
-        lastSeenAt: timestamp,
-      });
-      accounts.set(id, account);
-    }
-    return account;
-  }
+  const accountFactory = createAccountFactory();
 
   for (const block of ctx.blocks) {
     const header = block.header as unknown as BlockHeader;
@@ -136,7 +99,7 @@ export async function processCrossServiceEvents(ctx: ProcessorContext<Store>): P
         const storageProviderAddr = decoded[2] as string;
         const sizeBytes = BigInt(decoded[3].toString());
 
-        const uploaderAccount = getOrCreateAccount(uploader, header.height, blockTimestamp);
+        const uploaderAccount = accountFactory.getOrCreate(uploader, header.height, blockTimestamp);
 
         // Create IPFS file entry for container
         const fileId = cid;
@@ -251,7 +214,7 @@ export async function processCrossServiceEvents(ctx: ProcessorContext<Store>): P
         }
 
         // Create requester account (use compute provider address as requester)
-        const requesterAccount = getOrCreateAccount(computeProviderAddr, header.height, blockTimestamp);
+        const requesterAccount = accountFactory.getOrCreate(computeProviderAddr, header.height, blockTimestamp);
 
         // Create CrossServiceRequest entity
         const requestId = `${txHash}-${log.logIndex}`;
@@ -395,8 +358,8 @@ export async function processCrossServiceEvents(ctx: ProcessorContext<Store>): P
   }
 
   // Persist entities - order matters for foreign key dependencies
-  if (accounts.size > 0) {
-    await ctx.store.upsert(Array.from(accounts.values()));
+  if (accountFactory.hasAccounts()) {
+    await ctx.store.upsert(accountFactory.getAll());
   }
   if (updatedStorageProviders.size > 0) {
     await ctx.store.upsert(Array.from(updatedStorageProviders.values()));

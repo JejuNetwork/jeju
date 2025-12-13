@@ -199,8 +199,9 @@ export function updatePendingSettlements(count: number): void {
   registry.setGauge(METRICS.SETTLEMENTS_PENDING, count);
 }
 
-export function updateLiquidity(chainId: number, token: string, amountWei: bigint): void {
-  registry.setGauge(`${METRICS.LIQUIDITY_AVAILABLE}{chain="${chainId}",token="${token}"}`, Number(amountWei));
+export function updateLiquidity(chainId: number, _token: string, amountWei: bigint): void {
+  // Gauge keys are simple strings - use chain-specific gauge name
+  registry.setGauge(`${METRICS.LIQUIDITY_AVAILABLE}_${chainId}`, Number(amountWei));
 }
 
 // Get metrics in Prometheus format

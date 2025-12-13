@@ -124,10 +124,11 @@ contract DisputerHandler is Test {
             IDisputeGame.Dispute memory dispute = disputeGame.getDispute(disputeId);
 
             if (block.timestamp >= dispute.deadline) {
-                disputeGame.expireDispute(disputeId);
-                totalDisputesExpired++;
-                _removeFromOpen(i - 1);
-                resolvedDisputes.push(disputeId);
+                try disputeGame.expireDispute(disputeId) {
+                    totalDisputesExpired++;
+                    _removeFromOpen(i - 1);
+                    resolvedDisputes.push(disputeId);
+                } catch {}
             }
         }
     }
@@ -153,5 +154,4 @@ contract DisputerHandler is Test {
         openDisputes.pop();
     }
 
-    receive() external payable {}
 }

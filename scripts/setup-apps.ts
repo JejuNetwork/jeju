@@ -11,7 +11,7 @@ import { join } from 'path';
 import { $ } from 'bun';
 import { discoverVendorApps } from './shared/discover-apps';
 
-const SYNPRESS_CACHE_DIR = '.synpress-cache';
+const SYNPRESS_CACHE_DIR = '.jeju/.synpress-cache';
 
 interface VendorAppConfig {
   name: string;

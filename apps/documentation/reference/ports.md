@@ -1,65 +1,84 @@
 # Port Allocations
 
-All port assignments for Jeju services.
+Standard port assignments for Jeju services.
 
-## Core Apps (4000-4399)
+## Applications
 
-Gateway UI runs on port 4001 (`GATEWAY_PORT`). Gateway Node API runs on port 4002. Gateway A2A runs on port 4003. Documentation runs on port 4004 (`DOCUMENTATION_PORT`). Predimarket runs on port 4005. Bazaar runs on port 4006 (`BAZAAR_PORT`). Compute Marketplace runs on port 4007 (`COMPUTE_PORT`). Compute Node API runs on port 4008. Compute Gateway runs on port 4009. Storage API runs on port 4010 (`STORAGE_PORT`). Gateway WebSocket runs on port 4012. Crucible API runs on port 4020. Crucible Executor runs on port 4021. Autocrat runs on port 4050.
+| Service | Port | Description |
+|---------|------|-------------|
+| Gateway | 4001 | Bridge, staking, registration UI |
+| Gateway A2A | 4003 | Agent-to-Agent protocol |
+| Bazaar | 4006 | DeFi, NFTs, launchpad UI |
+| Compute | 4007 | AI inference marketplace |
+| Storage | 4010 | IPFS/Arweave storage |
+| Crucible | 4020 | Agent orchestration |
+| Indexer GraphQL | 4350 | Blockchain data API |
+| Documentation | 4004 | This site |
+| Facilitator | 3402 | x402 payment verification |
 
-## Indexer (4350-4399)
+## Chain Infrastructure
 
-Indexer GraphQL runs on port 4350 (`INDEXER_GRAPHQL_PORT`).
+| Service | Port | Description |
+|---------|------|-------------|
+| L2 RPC (HTTP) | 9545 | Jeju JSON-RPC |
+| L2 RPC (WS) | 9546 | Jeju WebSocket |
+| L1 RPC | 8545 | Local Ethereum |
+| L1 Beacon | 4000 | Consensus layer |
 
-## Storage (3100, 4100)
+## Supporting Services
 
-Storage API runs on port 3100 (`IPFS_PORT`). IPFS Node runs on port 4100. IPFS Swarm runs on port 4101. IPFS Gateway runs on port 4180.
+| Service | Port | Description |
+|---------|------|-------------|
+| PostgreSQL | 23798 | Indexer database |
+| IPFS API | 5001 | IPFS node API |
+| IPFS Gateway | 8080 | IPFS HTTP gateway |
+| IPFS Swarm | 4100 | IPFS peer connections |
+| Ollama | 11434 | Local LLM inference |
 
-## Payments (3400)
+## Monitoring
 
-x402 Facilitator runs on port 3402 (`FACILITATOR_PORT`).
+| Service | Port | Description |
+|---------|------|-------------|
+| Prometheus | 9090 | Metrics collection |
+| Grafana | 4009 | Dashboards |
 
-## Vendor Apps (5000-5999)
+## Override Ports
 
-Launchpad Frontend runs on port 5003. Launchpad Backend runs on port 5004. OTC Desk runs on port 5005. Cloud runs on port 5006. Leaderboard runs on port 5012. Hyperscape Client runs on port 5013. Hyperscape Server runs on port 5014.
-
-## Infrastructure (8000-9999)
-
-L1 RPC (Geth) runs on port 8545 (`L1_RPC_PORT`). Prometheus runs on port 9090. Monitoring A2A runs on port 9091. L2 RPC (op-reth) runs on port 9545 (`L2_RPC_PORT`). L2 WebSocket runs on port 9546 (`L2_WS_PORT`). Kurtosis UI runs on port 9711.
-
-## Database
-
-Indexer PostgreSQL runs on port 23798 (`INDEXER_DB_PORT`).
-
-## Overriding Ports
-
-Set via environment variable:
+Set environment variables to change default ports:
 
 ```bash
-GATEWAY_PORT=5001 bun run dev
-```
-
-Or in `.env.local`:
-
-```bash
+# In .env.local
 GATEWAY_PORT=5001
 BAZAAR_PORT=5006
+INDEXER_GRAPHQL_PORT=5350
+L2_RPC_PORT=8545
 ```
-
-Or in code:
-
-```typescript
-import { CORE_PORTS } from '@jejunetwork/config/ports';
-const gatewayPort = CORE_PORTS.GATEWAY.get();
-```
-
-## Port Management
-
-Check all port allocations with `bun run ports`. Check a specific port with `lsof -i :9545`. Kill a process on a port with `kill -9 $(lsof -t -i :9545)`.
 
 ## Port Conflicts
 
-If you see "port already in use", find what's using the port with `lsof -i :4001`, kill Jeju processes with `bun run cleanup`, or kill a specific process with `kill -9 <PID>`.
+If a port is in use:
 
-## Production Ports
+```bash
+# Find process using port
+lsof -i :9545
 
-In production, services run behind load balancers. Gateway, Bazaar, RPC, and GraphQL all run on internal ports but are exposed externally on port 443 (HTTPS).
+# Kill it
+kill -9 <PID>
+
+# Or use cleanup script
+bun run cleanup
+```
+
+## Docker Port Mapping
+
+When running in Docker, map to host ports:
+
+```yaml
+services:
+  gateway:
+    ports:
+      - "4001:4001"  # host:container
+  indexer:
+    ports:
+      - "4350:4350"
+```

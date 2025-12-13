@@ -211,9 +211,8 @@ export class SandwichStrategy {
     pool: Pool,
     victimGasPrice: bigint
   ): SandwichParams | null {
-    // Get current reserves
-    const reserve0 = BigInt(pool.reserve0 || '0');
-    const reserve1 = BigInt(pool.reserve1 || '0');
+    const reserve0 = BigInt(pool.reserve0 ?? '0');
+    const reserve1 = BigInt(pool.reserve1 ?? '0');
 
     if (reserve0 === 0n || reserve1 === 0n) return null;
 

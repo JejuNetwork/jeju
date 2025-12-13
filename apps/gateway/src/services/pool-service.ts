@@ -308,7 +308,7 @@ class PoolService {
       reserve0: formatEther(reserves[0]),
       reserve1: formatEther(reserves[1]),
       totalSupply: formatEther(totalSupply),
-      fee: 3000,
+      fee: V2_FEE,
     };
   }
 
@@ -337,24 +337,24 @@ class PoolService {
   async getV3PoolData(poolAddress: Address): Promise<V3Pool | null> {
     const [slot0, liquidity, token0, token1, fee] = await Promise.all([
       this.client.readContract({ address: poolAddress, abi: V3_POOL_ABI, functionName: 'slot0' }).catch((error) => {
-        console.error(`[PoolService] Failed to get slot0 for ${poolAddress}:`, error instanceof Error ? error.message : String(error));
+        logContractError('get slot0', poolAddress, error);
         return null;
       }),
       this.client.readContract({ address: poolAddress, abi: V3_POOL_ABI, functionName: 'liquidity' }).catch((error) => {
-        console.error(`[PoolService] Failed to get liquidity for ${poolAddress}:`, error instanceof Error ? error.message : String(error));
+        logContractError('get liquidity', poolAddress, error);
         return 0n;
       }),
       this.client.readContract({ address: poolAddress, abi: V3_POOL_ABI, functionName: 'token0' }).catch((error) => {
-        console.error(`[PoolService] Failed to get token0 for ${poolAddress}:`, error instanceof Error ? error.message : String(error));
+        logContractError('get token0', poolAddress, error);
         return null;
       }),
       this.client.readContract({ address: poolAddress, abi: V3_POOL_ABI, functionName: 'token1' }).catch((error) => {
-        console.error(`[PoolService] Failed to get token1 for ${poolAddress}:`, error instanceof Error ? error.message : String(error));
+        logContractError('get token1', poolAddress, error);
         return null;
       }),
       this.client.readContract({ address: poolAddress, abi: V3_POOL_ABI, functionName: 'fee' }).catch((error) => {
-        console.error(`[PoolService] Failed to get fee for ${poolAddress}, using default 3000:`, error instanceof Error ? error.message : String(error));
-        return 3000;
+        logContractError('get fee', poolAddress, error);
+        return V2_FEE;
       }),
     ]);
 
@@ -404,7 +404,7 @@ class PoolService {
         functionName: 'getReserves',
         args: [token0, token1],
       }).catch((error) => {
-        console.error(`[PoolService] Failed to get paymaster reserves for ${token0}/${token1}:`, error instanceof Error ? error.message : String(error));
+        logContractError('get paymaster reserves', `${token0}/${token1}`, error);
         return null;
       });
 
@@ -424,9 +424,6 @@ class PoolService {
     return pools;
   }
 
-  /**
-   * Get swap quote using LiquidityAggregator
-   */
   async getSwapQuote(tokenIn: Address, tokenOut: Address, amountIn: string): Promise<SwapQuote | null> {
     const amountInWei = parseEther(amountIn);
 
@@ -437,7 +434,7 @@ class PoolService {
         functionName: 'getBestQuote',
         args: [tokenIn, tokenOut, amountInWei],
       }).catch((error) => {
-        console.error(`[PoolService] Failed to get best quote from aggregator:`, error instanceof Error ? error.message : String(error));
+        logContractError('get best quote from aggregator', '', error);
         return null;
       });
 
@@ -473,7 +470,7 @@ class PoolService {
           amountIn,
           amountOut: formatEther(amountOut),
           priceImpactBps: priceImpact,
-          fee: 3000,
+          fee: V2_FEE,
           effectivePrice: calculateEffectivePrice(amountIn, amountOut),
         };
       }
@@ -493,7 +490,7 @@ class PoolService {
         functionName: 'getAllQuotes',
         args: [tokenIn, tokenOut, amountInWei],
       }).catch((error) => {
-        console.error(`[PoolService] Failed to get all quotes from aggregator:`, error instanceof Error ? error.message : String(error));
+        logContractError('get all quotes from aggregator', '', error);
         return [];
       });
 
@@ -533,7 +530,7 @@ class PoolService {
         abi: V2_FACTORY_ABI,
         functionName: 'allPairsLength',
       }).catch((error) => {
-        console.error('[PoolService] Failed to get V2 pool count:', error instanceof Error ? error.message : String(error));
+        logContractError('get V2 pool count', '', error);
         return 0n;
       });
       v2Count = Number(count);
@@ -545,7 +542,7 @@ class PoolService {
         abi: V3_FACTORY_ABI,
         functionName: 'allPoolsLength',
       }).catch((error) => {
-        console.error('[PoolService] Failed to get V3 pool count:', error instanceof Error ? error.message : String(error));
+        logContractError('get V3 pool count', '', error);
         return 0n;
       });
       v3Count = Number(count);
@@ -557,7 +554,7 @@ class PoolService {
         abi: PAYMASTER_AMM_ABI,
         functionName: 'getAMMStats',
       }).catch((error) => {
-        console.error('[PoolService] Failed to get paymaster stats:', error instanceof Error ? error.message : String(error));
+        logContractError('get paymaster stats', '', error);
         return null;
       });
 
@@ -600,7 +597,7 @@ class PoolService {
       ethPriceCacheAge: this.ethPriceCache 
         ? Date.now() - this.ethPriceCache.timestamp 
         : null,
-      usingFallbackPrice: !this.ethPriceCache || this.ethPriceCache.price === 3000n * 10n ** 18n,
+      usingFallbackPrice: !this.ethPriceCache || this.ethPriceCache.price === ETH_PRICE_FALLBACK_USD,
     };
   }
 }

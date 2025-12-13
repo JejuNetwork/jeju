@@ -21,7 +21,10 @@ export function validateVerifyRequest(body: unknown): ValidationResult<VerifyReq
     return { valid: false, error: 'Missing paymentRequirements' };
   }
 
-  if (req.x402Version !== 1) {
+  if (req.x402Version === undefined || req.x402Version === null) {
+    return { valid: false, error: 'Missing x402Version' };
+  }
+  if (typeof req.x402Version !== 'number' || req.x402Version !== 1) {
     return { valid: false, error: `Unsupported x402Version: ${req.x402Version}. Only version 1 is supported.` };
   }
 

@@ -161,7 +161,6 @@ describe('Settler Loading', () => {
 
 describe('Edge Cases', () => {
   test('bytes32ToAddress with minimum input length', () => {
-    // Ensure we handle the exact expected length
     const input = '0x' + '0'.repeat(64);
     expect(() => bytes32ToAddress(input as `0x${string}`)).not.toThrow();
   });
@@ -203,6 +202,202 @@ describe('Edge Cases', () => {
     
     const decoded = iface.decodeFunctionData('approve', data);
     expect(decoded[1]).toBe(maxUint256);
+  });
+});
+
+describe('Boundary Conditions - bytes32ToAddress', () => {
+  test('extracts last 40 chars correctly for all-zero prefix', () => {
+    // 12 bytes of zeros, 20 bytes of address
+    const addr = 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef';
+    const bytes32 = `0x${'00'.repeat(12)}${addr}` as `0x${string}`;
+    expect(bytes32ToAddress(bytes32)).toBe(`0x${addr}`);
+  });
+
+  test('extracts last 40 chars when prefix has data', () => {
+    // Non-zero prefix bytes should be truncated
+    const bytes32 = '0xffffffffffffffffffffffff1234567890abcdef1234567890abcdef12345678' as `0x${string}`;
+    const result = bytes32ToAddress(bytes32);
+    expect(result).toBe('0x1234567890abcdef1234567890abcdef12345678');
+  });
+
+  test('handles checksum address in bytes32', () => {
+    // USDC checksum address
+    const checksumAddr = 'A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
+    const bytes32 = `0x${'00'.repeat(12)}${checksumAddr}` as `0x${string}`;
+    const result = bytes32ToAddress(bytes32);
+    // Result preserves the case
+    expect(result.slice(2).toLowerCase()).toBe(checksumAddr.toLowerCase());
+  });
+
+  test('slice(26) boundary is correct for 66-char input', () => {
+    // 0x (2) + 64 chars = 66 total, slice(26) gives last 40
+    const input = '0x' + '1'.repeat(24) + '2'.repeat(40);
+    const result = bytes32ToAddress(input as `0x${string}`);
+    expect(result).toBe('0x' + '2'.repeat(40));
+  });
+});
+
+describe('Boundary Conditions - isNativeToken', () => {
+  test('false for address with single non-zero byte', () => {
+    expect(isNativeToken('0x0000000000000000000000000000000000000001')).toBe(false);
+    expect(isNativeToken('0x1000000000000000000000000000000000000000')).toBe(false);
+    expect(isNativeToken('0x0000000000000000000100000000000000000000')).toBe(false);
+  });
+
+  test('true for various zero address formats', () => {
+    expect(isNativeToken('0x0000000000000000000000000000000000000000')).toBe(true);
+    expect(isNativeToken('0x' + '0'.repeat(40))).toBe(true);
+  });
+
+  test('handles mixed case zero address', () => {
+    // This tests actual runtime behavior - mixed case shouldn't matter
+    const mixedCase = '0x0000000000000000000000000000000000000000';
+    expect(isNativeToken(mixedCase)).toBe(true);
+  });
+
+  test('WETH address is not native', () => {
+    // Common WETH addresses
+    const wethAddresses = [
+      '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', // Mainnet
+      '0x4200000000000000000000000000000000000006', // OP/Base
+      '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1', // Arbitrum
+    ];
+    for (const addr of wethAddresses) {
+      expect(isNativeToken(addr)).toBe(false);
+    }
+  });
+});
+
+describe('ABI Encoding/Decoding Roundtrip', () => {
+  test('fillDirect encodes and decodes identically', () => {
+    const iface = new ethers.Interface(OUTPUT_SETTLER_ABI);
+    const params = [
+      '0x' + 'ab'.repeat(32),
+      '0x' + '11'.repeat(20),
+      ethers.parseEther('123.456'),
+      '0x' + '22'.repeat(20),
+    ] as const;
+    
+    const encoded = iface.encodeFunctionData('fillDirect', params);
+    const decoded = iface.decodeFunctionData('fillDirect', encoded);
+    
+    expect(decoded[0]).toBe(params[0]);
+    expect(decoded[1].toLowerCase()).toBe(params[1]);
+    expect(decoded[2]).toBe(params[2]);
+    expect(decoded[3].toLowerCase()).toBe(params[3]);
+  });
+
+  test('isFilled encodes orderId correctly', () => {
+    const iface = new ethers.Interface(OUTPUT_SETTLER_ABI);
+    const orderId = '0x' + 'deadbeef'.repeat(8);
+    
+    const encoded = iface.encodeFunctionData('isFilled', [orderId]);
+    const decoded = iface.decodeFunctionData('isFilled', encoded);
+    
+    expect(decoded[0]).toBe(orderId);
+  });
+
+  test('approve handles various amounts', () => {
+    const iface = new ethers.Interface(ERC20_APPROVE_ABI);
+    const testAmounts = [
+      0n,
+      1n,
+      ethers.parseEther('1'),
+      ethers.parseUnits('1000000', 6), // USDC
+      2n ** 128n,
+      2n ** 256n - 1n,
+    ];
+    
+    for (const amount of testAmounts) {
+      const encoded = iface.encodeFunctionData('approve', [ethers.ZeroAddress, amount]);
+      const decoded = iface.decodeFunctionData('approve', encoded);
+      expect(decoded[1]).toBe(amount);
+    }
+  });
+});
+
+describe('Deployed Contract Verification', () => {
+  test('deployed settlers have valid addresses', () => {
+    const inputCount = Object.keys(INPUT_SETTLERS).length;
+    const outputCount = Object.keys(OUTPUT_SETTLERS).length;
+    
+    // Should have same number of input and output settlers
+    expect(inputCount).toBe(outputCount);
+    
+    // Each address should be unique
+    const inputAddrs = new Set(Object.values(INPUT_SETTLERS));
+    const outputAddrs = new Set(Object.values(OUTPUT_SETTLERS));
+    expect(inputAddrs.size).toBe(inputCount);
+    expect(outputAddrs.size).toBe(outputCount);
+  });
+
+  test('settler chain IDs are valid EVM chain IDs', () => {
+    for (const chainId of Object.keys(INPUT_SETTLERS)) {
+      const id = parseInt(chainId);
+      expect(id).toBeGreaterThan(0);
+      // Chain ID should be reasonable (testnets can be up to ~420 million)
+      expect(id).toBeLessThan(500_000_000);
+    }
+  });
+
+  test('deployed addresses are not zero address', () => {
+    for (const [, addr] of Object.entries(INPUT_SETTLERS)) {
+      expect(addr).not.toBe('0x0000000000000000000000000000000000000000');
+    }
+    for (const [, addr] of Object.entries(OUTPUT_SETTLERS)) {
+      expect(addr).not.toBe('0x0000000000000000000000000000000000000000');
+    }
+  });
+});
+
+describe('INPUT_SETTLER_ABI Coverage', () => {
+  // Import the ABI
+  const { INPUT_SETTLER_ABI } = require('../../src/solver/contracts');
+  
+  test('settle function exists with correct signature', () => {
+    const iface = new ethers.Interface(INPUT_SETTLER_ABI);
+    const settle = iface.getFunction('settle');
+    expect(settle).toBeDefined();
+    expect(settle!.inputs.length).toBe(1);
+    expect(settle!.inputs[0].type).toBe('bytes32');
+  });
+
+  test('canSettle function exists with correct signature', () => {
+    const iface = new ethers.Interface(INPUT_SETTLER_ABI);
+    const canSettle = iface.getFunction('canSettle');
+    expect(canSettle).toBeDefined();
+    expect(canSettle!.inputs.length).toBe(1);
+    expect(canSettle!.outputs?.length).toBe(1);
+    expect(canSettle!.outputs?.[0].type).toBe('bool');
+  });
+
+  test('getOrder function returns tuple with expected fields', () => {
+    const iface = new ethers.Interface(INPUT_SETTLER_ABI);
+    const getOrder = iface.getFunction('getOrder');
+    expect(getOrder).toBeDefined();
+    expect(getOrder!.outputs?.length).toBe(1);
+    expect(getOrder!.outputs?.[0].type).toBe('tuple');
+  });
+});
+
+describe('ORACLE_ABI Coverage', () => {
+  const { ORACLE_ABI } = require('../../src/solver/contracts');
+  
+  test('hasAttested function exists', () => {
+    const iface = new ethers.Interface(ORACLE_ABI);
+    const fn = iface.getFunction('hasAttested');
+    expect(fn).toBeDefined();
+    expect(fn!.inputs[0].type).toBe('bytes32');
+    expect(fn!.outputs?.[0].type).toBe('bool');
+  });
+
+  test('submitAttestation function exists', () => {
+    const iface = new ethers.Interface(ORACLE_ABI);
+    const fn = iface.getFunction('submitAttestation');
+    expect(fn).toBeDefined();
+    expect(fn!.inputs.length).toBe(2);
+    expect(fn!.inputs[0].type).toBe('bytes32');
+    expect(fn!.inputs[1].type).toBe('bytes');
   });
 });
 

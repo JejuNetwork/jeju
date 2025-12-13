@@ -2,7 +2,7 @@
  * Lock Manager - Prevents concurrent E2E test runs
  * 
  * ASSUMPTIONS:
- * - Lock file at workspace root (.jeju-e2e-test.lock)
+ * - Lock file at workspace root (.jeju/.jeju-e2e-test.lock)
  * - 30-minute TTL is sufficient for test runs
  * - PID 0 signal can detect dead processes (Unix-like systems)
  * 
@@ -17,7 +17,7 @@
  * - Verifies ownership after replacement to handle races
  */
 
-import { existsSync, unlinkSync, writeFileSync, readFileSync, renameSync } from 'fs';
+import { existsSync, unlinkSync, writeFileSync, readFileSync, renameSync, mkdirSync } from 'fs';
 import { hostname } from 'os';
 import { join } from 'path';
 import { randomBytes } from 'crypto';
@@ -36,7 +36,7 @@ export interface LockManagerOptions {
 }
 
 const DEFAULT_TTL_MS = 30 * 60 * 1000; // 30 minutes - adjust if tests take longer
-const LOCK_FILE = '.jeju-e2e-test.lock';
+const LOCK_FILE = '.jeju/.jeju-e2e-test.lock';
 const MAX_ACQUIRE_ATTEMPTS = 3;
 
 function findWorkspaceRoot(): string {
@@ -62,6 +62,11 @@ export class LockManager {
   constructor(options: LockManagerOptions = {}) {
     const lockDir = options.lockDir ?? findWorkspaceRoot();
     this.lockPath = join(lockDir, LOCK_FILE);
+    // Ensure .jeju directory exists
+    const jejuDir = join(lockDir, '.jeju');
+    if (!existsSync(jejuDir)) {
+      mkdirSync(jejuDir, { recursive: true });
+    }
     this.ttlMs = options.ttlMs ?? DEFAULT_TTL_MS;
     this.force = options.force ?? false;
   }

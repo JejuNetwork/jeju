@@ -379,5 +379,4 @@ contract EconomicSimulationTest is Test {
         return reportHash;
     }
 
-    receive() external payable {}
 }

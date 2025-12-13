@@ -53,12 +53,6 @@ const TESTNET_CONFIG: TestnetConfig = {
 };
 
 // ABIs
-const ERC20_ABI = [
-  'function balanceOf(address) view returns (uint256)',
-  'function symbol() view returns (string)',
-  'function decimals() view returns (uint8)',
-];
-
 const DELEGATION_REGISTRY_ABI = [
   'function registerAsDelegate(uint256 agentId, string name, string profileHash, string[] expertise)',
   'function updateSecurityCouncil()',

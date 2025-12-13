@@ -15,7 +15,7 @@ const PASSWORD = 'Tester@1234';
 const TEST_WALLET_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
 
 // Cache directory for all apps
-const SYNPRESS_CACHE_DIR = process.env.SYNPRESS_CACHE_DIR || join(process.cwd(), '../../.synpress-cache');
+const SYNPRESS_CACHE_DIR = process.env.SYNPRESS_CACHE_DIR || join(process.cwd(), '../../.jeju', '.synpress-cache');
 
 // Path to shared global setup (relative from app directory)
 const GLOBAL_SETUP_PATH = join(__dirname, 'global-setup.ts');

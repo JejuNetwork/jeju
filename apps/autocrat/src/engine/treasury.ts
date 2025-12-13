@@ -73,7 +73,7 @@ export class TreasuryManager {
 
     // Get current stats
     const stats = await this.getStats();
-    console.log(`   Total ETH deposited: ${stats.totalProfitsByToken[ZERO_ADDRESS] || '0'}`);
+    console.log(`   Total ETH deposited: ${stats.totalProfitsByToken[ZERO_ADDRESS] ?? '0'}`);
   }
 
   /**
@@ -93,73 +93,65 @@ export class TreasuryManager {
     console.log(`   Source: ${source}`);
     console.log(`   From TX: ${txHash}`);
 
-    try {
-      // For ERC20 tokens, approve first
-      if (token !== ZERO_ADDRESS) {
-        const allowance = await this.publicClient.readContract({
+    if (token !== ZERO_ADDRESS) {
+      const allowance = await this.publicClient.readContract({
+        address: token as `0x${string}`,
+        abi: ERC20_ABI,
+        functionName: 'allowance',
+        args: [this.account.address, this.treasuryAddress as `0x${string}`],
+      });
+
+      if (allowance < amount) {
+        console.log('   Approving token spend...');
+        const approveHash = await this.walletClient.writeContract({
           address: token as `0x${string}`,
           abi: ERC20_ABI,
-          functionName: 'allowance',
-          args: [this.account.address, this.treasuryAddress as `0x${string}`],
+          functionName: 'approve',
+          args: [this.treasuryAddress as `0x${string}`, amount],
         });
-
-        if (allowance < amount) {
-          console.log('   Approving token spend...');
-          const approveHash = await this.walletClient.writeContract({
-            address: token as `0x${string}`,
-            abi: ERC20_ABI,
-            functionName: 'approve',
-            args: [this.treasuryAddress as `0x${string}`, amount],
-          });
-          await this.publicClient.waitForTransactionReceipt({ hash: approveHash });
-        }
+        await this.publicClient.waitForTransactionReceipt({ hash: approveHash });
       }
-
-      // Deposit
-      const data = encodeFunctionData({
-        abi: AUTOCRAT_TREASURY_ABI,
-        functionName: 'depositProfit',
-        args: [
-          token as `0x${string}`,
-          amount,
-          PROFIT_SOURCE_MAP[source],
-          txHash as `0x${string}`,
-        ],
-      });
-
-      const hash = await this.walletClient.sendTransaction({
-        to: this.treasuryAddress as `0x${string}`,
-        data: data as `0x${string}`,
-        value: token === ZERO_ADDRESS ? amount : 0n,
-      });
-
-      const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
-
-      if (receipt.status === 'reverted') {
-        return { success: false, error: 'Deposit transaction reverted' };
-      }
-
-      // Track locally
-      const deposit: ProfitDeposit = {
-        token,
-        amount: amount.toString(),
-        source,
-        txHash: hash,
-        timestamp: Date.now(),
-        operator: this.account.address,
-      };
-      this.pendingDeposits.push(deposit);
-
-      const current = this.totalDeposited.get(token) || 0n;
-      this.totalDeposited.set(token, current + amount);
-
-      console.log(`   ✓ Deposited in TX: ${hash}`);
-
-      return { success: true, depositTxHash: hash };
-    } catch (error) {
-      console.error(`   ✗ Deposit failed: ${error}`);
-      return { success: false, error: String(error) };
     }
+
+    const data = encodeFunctionData({
+      abi: AUTOCRAT_TREASURY_ABI,
+      functionName: 'depositProfit',
+      args: [
+        token as `0x${string}`,
+        amount,
+        PROFIT_SOURCE_MAP[source],
+        txHash as `0x${string}`,
+      ],
+    });
+
+    const hash = await this.walletClient.sendTransaction({
+      to: this.treasuryAddress as `0x${string}`,
+      data: data as `0x${string}`,
+      value: token === ZERO_ADDRESS ? amount : 0n,
+    });
+
+    const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
+
+    if (receipt.status === 'reverted') {
+      return { success: false, error: 'Deposit transaction reverted' };
+    }
+
+    const deposit: ProfitDeposit = {
+      token,
+      amount: amount.toString(),
+      source,
+      txHash: hash,
+      timestamp: Date.now(),
+      operator: this.account.address,
+    };
+    this.pendingDeposits.push(deposit);
+
+    const current = this.totalDeposited.get(token) ?? 0n;
+    this.totalDeposited.set(token, current + amount);
+
+    console.log(`   ✓ Deposited in TX: ${hash}`);
+
+    return { success: true, depositTxHash: hash };
   }
 
   /**
@@ -193,132 +185,93 @@ export class TreasuryManager {
   }> {
     console.log(`🏧 Withdrawing operator earnings for token: ${token}`);
 
-    try {
-      // Check pending amount
-      const pending = await this.getPendingWithdrawal(token);
-      if (pending <= 0n) {
-        return { success: false, error: 'No pending earnings' };
-      }
-
-      const hash = await this.walletClient.writeContract({
-        address: this.treasuryAddress as `0x${string}`,
-        abi: AUTOCRAT_TREASURY_ABI,
-        functionName: 'withdrawOperatorEarnings',
-        args: [token as `0x${string}`],
-      });
-
-      const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
-
-      if (receipt.status === 'reverted') {
-        return { success: false, error: 'Withdrawal reverted' };
-      }
-
-      console.log(`   ✓ Withdrawn ${pending} in TX: ${hash}`);
-
-      return {
-        success: true,
-        amount: pending.toString(),
-        txHash: hash,
-      };
-    } catch (error) {
-      return { success: false, error: String(error) };
+    const pending = await this.getPendingWithdrawal(token);
+    if (pending <= 0n) {
+      return { success: false, error: 'No pending earnings' };
     }
+
+    const hash = await this.walletClient.writeContract({
+      address: this.treasuryAddress as `0x${string}`,
+      abi: AUTOCRAT_TREASURY_ABI,
+      functionName: 'withdrawOperatorEarnings',
+      args: [token as `0x${string}`],
+    });
+
+    const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
+
+    if (receipt.status === 'reverted') {
+      return { success: false, error: 'Withdrawal reverted' };
+    }
+
+    console.log(`   ✓ Withdrawn ${pending} in TX: ${hash}`);
+
+    return {
+      success: true,
+      amount: pending.toString(),
+      txHash: hash,
+    };
   }
 
   /**
    * Check if current operator is authorized
    */
   async isAuthorizedOperator(): Promise<boolean> {
-    try {
-      const result = await this.publicClient.readContract({
-        address: this.treasuryAddress as `0x${string}`,
-        abi: AUTOCRAT_TREASURY_ABI,
-        functionName: 'authorizedOperators',
-        args: [this.account.address],
-      });
-      return result as boolean;
-    } catch {
-      return false;
-    }
+    const result = await this.publicClient.readContract({
+      address: this.treasuryAddress as `0x${string}`,
+      abi: AUTOCRAT_TREASURY_ABI,
+      functionName: 'authorizedOperators',
+      args: [this.account.address],
+    });
+    return result as boolean;
   }
 
   /**
    * Get pending withdrawal amount for operator
    */
   async getPendingWithdrawal(token: string = ZERO_ADDRESS): Promise<bigint> {
-    try {
-      // This would need a view function in the contract
-      // For now, return 0
-      return 0n;
-    } catch {
-      return 0n;
-    }
+    // This would need a view function in the contract
+    return 0n;
   }
 
   /**
    * Get treasury statistics
    */
   async getStats(): Promise<TreasuryStats> {
-    try {
-      // Get ETH profits
-      const ethProfits = await this.publicClient.readContract({
-        address: this.treasuryAddress as `0x${string}`,
-        abi: AUTOCRAT_TREASURY_ABI,
-        functionName: 'totalProfitsByToken',
-        args: [ZERO_ADDRESS as `0x${string}`],
-      });
+    const ethProfits = await this.publicClient.readContract({
+      address: this.treasuryAddress as `0x${string}`,
+      abi: AUTOCRAT_TREASURY_ABI,
+      functionName: 'totalProfitsByToken',
+      args: [ZERO_ADDRESS as `0x${string}`],
+    });
 
-      // Get distribution config
-      const distConfig = await this.publicClient.readContract({
-        address: this.treasuryAddress as `0x${string}`,
-        abi: AUTOCRAT_TREASURY_ABI,
-        functionName: 'getDistributionConfig',
-      }) as { protocolBps: number; stakersBps: number; insuranceBps: number; operatorBps: number };
+    const distConfig = await this.publicClient.readContract({
+      address: this.treasuryAddress as `0x${string}`,
+      abi: AUTOCRAT_TREASURY_ABI,
+      functionName: 'getDistributionConfig',
+    }) as { protocolBps: number; stakersBps: number; insuranceBps: number; operatorBps: number };
 
-      return {
-        totalProfitsByToken: {
-          [ZERO_ADDRESS]: (ethProfits as bigint).toString(),
-        },
-        totalProfitsBySource: {
-          DEX_ARBITRAGE: '0',
-          CROSS_CHAIN_ARBITRAGE: '0',
-          SANDWICH: '0',
-          LIQUIDATION: '0',
-          SOLVER_FEE: '0',
-          ORACLE_KEEPER: '0',
-          OTHER: '0',
-        },
-        totalDeposits: this.pendingDeposits.length,
-        recentDeposits: this.pendingDeposits.slice(-10),
-        distributionConfig: {
-          protocolBps: distConfig.protocolBps,
-          stakersBps: distConfig.stakersBps,
-          insuranceBps: distConfig.insuranceBps,
-          operatorBps: distConfig.operatorBps,
-        },
-      };
-    } catch {
-      return {
-        totalProfitsByToken: {},
-        totalProfitsBySource: {
-          DEX_ARBITRAGE: '0',
-          CROSS_CHAIN_ARBITRAGE: '0',
-          SANDWICH: '0',
-          LIQUIDATION: '0',
-          SOLVER_FEE: '0',
-          ORACLE_KEEPER: '0',
-          OTHER: '0',
-        },
-        totalDeposits: 0,
-        recentDeposits: [],
-        distributionConfig: {
-          protocolBps: 5000,
-          stakersBps: 3000,
-          insuranceBps: 1500,
-          operatorBps: 500,
-        },
-      };
-    }
+    return {
+      totalProfitsByToken: {
+        [ZERO_ADDRESS]: (ethProfits as bigint).toString(),
+      },
+      totalProfitsBySource: {
+        DEX_ARBITRAGE: '0',
+        CROSS_CHAIN_ARBITRAGE: '0',
+        SANDWICH: '0',
+        LIQUIDATION: '0',
+        SOLVER: '0',
+        ORACLE_KEEPER: '0',
+        OTHER: '0',
+      },
+      totalDeposits: this.pendingDeposits.length,
+      recentDeposits: this.pendingDeposits.slice(-10),
+      distributionConfig: {
+        protocolBps: distConfig.protocolBps,
+        stakersBps: distConfig.stakersBps,
+        insuranceBps: distConfig.insuranceBps,
+        operatorBps: distConfig.operatorBps,
+      },
+    };
   }
 
   /**
@@ -332,6 +285,6 @@ export class TreasuryManager {
    * Get total deposited by token (local cache)
    */
   getTotalDeposited(token: string = ZERO_ADDRESS): bigint {
-    return this.totalDeposited.get(token) || 0n;
+    return this.totalDeposited.get(token) ?? 0n;
   }
 }

@@ -9,7 +9,6 @@ import { ethers } from 'ethers';
 import { Store } from '@subsquid/typeorm-store';
 import { ProcessorContext } from './processor';
 import { 
-  Account, 
   ComputeProvider, 
   ComputeResource, 
   ComputeRental, 
@@ -19,6 +18,7 @@ import {
   ComputeLedgerBalance,
   ComputeStats
 } from './model';
+import { createAccountFactory, BlockHeader, LogData } from './lib/entities';
 
 // ============ CORRECT Event Signatures from contracts/src/compute/*.sol ============
 
@@ -112,21 +112,6 @@ const COMPUTE_EVENT_SIGNATURES = new Set([
   STAKED_AS_USER, STAKED_AS_PROVIDER, STAKED_AS_GUARDIAN, STAKE_ADDED_STAKING, UNSTAKED, SLASHED,
 ]);
 
-interface LogData {
-  address: string;
-  topics: string[];
-  data: string;
-  logIndex: number;
-  transactionIndex: number;
-  transaction?: { hash: string };
-}
-
-interface BlockHeader {
-  hash: string;
-  height: number;
-  timestamp: number;
-}
-
 export function isComputeEvent(topic0: string): boolean {
   return COMPUTE_EVENT_SIGNATURES.has(topic0);
 }
@@ -137,34 +122,12 @@ export async function processComputeEvents(ctx: ProcessorContext<Store>): Promis
   const rentals = new Map<string, ComputeRental>();
   const inferenceRequests = new Map<string, InferenceRequestEntity>();
   const balances = new Map<string, ComputeLedgerBalance>();
-  const accounts = new Map<string, Account>();
+  const accountFactory = createAccountFactory();
 
   // Load existing providers
   const existingProviders = await ctx.store.find(ComputeProvider);
   for (const p of existingProviders) {
     providers.set(p.id, p);
-  }
-
-  function getOrCreateAccount(address: string, blockNumber: number, timestamp: Date): Account {
-    const id = address.toLowerCase();
-    let account = accounts.get(id);
-    if (!account) {
-      account = new Account({
-        id,
-        address: id,
-        isContract: false,
-        firstSeenBlock: blockNumber,
-        lastSeenBlock: blockNumber,
-        transactionCount: 0,
-        totalValueSent: 0n,
-        totalValueReceived: 0n,
-        labels: [],
-        firstSeenAt: timestamp,
-        lastSeenAt: timestamp,
-      });
-      accounts.set(id, account);
-    }
-    return account;
   }
 
   async function getOrCreateProvider(address: string, timestamp: Date): Promise<ComputeProvider> {
@@ -214,7 +177,7 @@ export async function processComputeEvents(ctx: ProcessorContext<Store>): Promis
         );
         
         const id = providerAddr.toLowerCase();
-        getOrCreateAccount(providerAddr, header.height, blockTimestamp);
+        accountFactory.getOrCreate(providerAddr, header.height, blockTimestamp);
 
         const provider = new ComputeProvider({
           id,
@@ -330,7 +293,7 @@ export async function processComputeEvents(ctx: ProcessorContext<Store>): Promis
           log.data
         );
 
-        const renter = getOrCreateAccount(userAddr, header.height, blockTimestamp);
+        const renter = accountFactory.getOrCreate(userAddr, header.height, blockTimestamp);
         const provider = await getOrCreateProvider(providerAddr, blockTimestamp);
 
         const rental = new ComputeRental({
@@ -422,7 +385,7 @@ export async function processComputeEvents(ctx: ProcessorContext<Store>): Promis
         );
 
         const requestId = decoded[0];
-        const requester = getOrCreateAccount(userAddr, header.height, blockTimestamp);
+        const requester = accountFactory.getOrCreate(userAddr, header.height, blockTimestamp);
         const provider = await getOrCreateProvider(providerAddr, blockTimestamp);
 
         const request = new InferenceRequestEntity({
@@ -483,7 +446,7 @@ export async function processComputeEvents(ctx: ProcessorContext<Store>): Promis
   }
 
   // Persist all entities
-  await ctx.store.upsert(Array.from(accounts.values()));
+  await ctx.store.upsert(accountFactory.getAll());
   
   if (providers.size > 0) {
     await ctx.store.upsert(Array.from(providers.values()));

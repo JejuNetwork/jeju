@@ -9,9 +9,10 @@ import { ProcessorContext } from './processor'
 import { 
   OIFIntent, OIFSolver, OIFSettlement, OIFRoute, OIFStats,
   OIFChainStats, OIFSlashEvent, OIFAttestation,
-  OIFIntentStatus, OIFSettlementStatus, OIFOracleType, Account
+  OIFIntentStatus, OIFSettlementStatus, OIFOracleType
 } from './model'
 import { ethers } from 'ethers'
+import { createAccountFactory, BlockHeader, LogData } from './lib/entities'
 
 // Event signatures for InputSettler
 const ORDER_OPENED = ethers.id('Open(bytes32,(address,uint256,uint32,uint32,bytes32,(bytes32,uint256,bytes32,uint256)[],(bytes32,uint256,bytes32,uint256)[],(uint64,bytes32,bytes)[]))')
@@ -43,21 +44,6 @@ const OIF_EVENT_SIGNATURES = new Set([
   ATTESTATION_SUBMITTED
 ])
 
-interface LogData {
-  address: string
-  topics: string[]
-  data: string
-  logIndex: number
-  transactionIndex: number
-  transaction?: { hash: string }
-}
-
-interface BlockHeader {
-  hash: string
-  height: number
-  timestamp: number
-}
-
 export function isOIFEvent(topic0: string): boolean {
   return OIF_EVENT_SIGNATURES.has(topic0)
 }
@@ -68,31 +54,9 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
   const settlements = new Map<string, OIFSettlement>()
   const attestations = new Map<string, OIFAttestation>()
   const slashEvents: OIFSlashEvent[] = []
-  const accounts = new Map<string, Account>()
+  const accountFactory = createAccountFactory()
   const routes = new Map<string, OIFRoute>()
   const chainStats = new Map<number, OIFChainStats>()
-
-  function getOrCreateAccount(address: string, blockNumber: number, timestamp: Date): Account {
-    const id = address.toLowerCase()
-    let account = accounts.get(id)
-    if (!account) {
-      account = new Account({
-        id,
-        address: id,
-        isContract: false,
-        firstSeenBlock: blockNumber,
-        lastSeenBlock: blockNumber,
-        transactionCount: 0,
-        totalValueSent: 0n,
-        totalValueReceived: 0n,
-        labels: [],
-        firstSeenAt: timestamp,
-        lastSeenAt: timestamp
-      })
-      accounts.set(id, account)
-    }
-    return account
-  }
 
   async function getOrCreateSolver(address: string, timestamp: Date): Promise<OIFSolver> {
     const id = address.toLowerCase()
@@ -187,7 +151,7 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
           log.data
         )
 
-        const user = getOrCreateAccount(userAddr, header.height, blockTimestamp)
+        const user = accountFactory.getOrCreate(userAddr, header.height, blockTimestamp)
         const sourceChainId = 420691 // Jeju mainnet
         const destChainId = Number(decoded[2])
 
@@ -488,28 +452,28 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
   }
 
   // Persist all entities
-  await ctx.store.upsert(Array.from(accounts.values()))
+  await ctx.store.upsert(accountFactory.getAll())
   
   if (intents.size > 0) {
-    await ctx.store.upsert(Array.from(intents.values()))
+    await ctx.store.upsert([...intents.values()))
   }
   if (solvers.size > 0) {
-    await ctx.store.upsert(Array.from(solvers.values()))
+    await ctx.store.upsert([...solvers.values()))
   }
   if (settlements.size > 0) {
-    await ctx.store.upsert(Array.from(settlements.values()))
+    await ctx.store.upsert([...settlements.values()))
   }
   if (attestations.size > 0) {
-    await ctx.store.upsert(Array.from(attestations.values()))
+    await ctx.store.upsert([...attestations.values()))
   }
   if (slashEvents.length > 0) {
     await ctx.store.insert(slashEvents)
   }
   if (routes.size > 0) {
-    await ctx.store.upsert(Array.from(routes.values()))
+    await ctx.store.upsert([...routes.values()))
   }
   if (chainStats.size > 0) {
-    await ctx.store.upsert(Array.from(chainStats.values()))
+    await ctx.store.upsert([...chainStats.values()))
   }
 
   // Update global stats

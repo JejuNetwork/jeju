@@ -5,7 +5,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { execSync } from 'child_process';
 
-const BACKUP_DIR = join(process.cwd(), '.rollback-test-backups');
+const BACKUP_DIR = join(process.cwd(), '.jeju', '.rollback-test-backups');
 const TEST_CONFIG_FILE = join(process.cwd(), 'apps/gateway/.rollback-test-config.json');
 
 interface RollbackTestResult {

@@ -10,6 +10,15 @@ rule_files:
   - '/etc/prometheus/alerts/*.yaml'
   - '/etc/prometheus/*.yaml'
 
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+      scheme: http
+      timeout: 10s
+      api_version: v2
+
 # Scrape configurations
 scrape_configs:
   # OP Stack Components

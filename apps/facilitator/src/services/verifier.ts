@@ -32,7 +32,7 @@ export function decodePaymentHeader(paymentHeader: string): PaymentPayload | nul
 async function verifySignature(
   payload: PaymentPayload,
   chainId: number
-): Promise<{ valid: boolean; signer?: Address; error?: string }> {
+): Promise<Address> {
   const domain = { ...EIP712_DOMAIN, chainId, verifyingContract: ZERO_ADDRESS };
   const message = {
     scheme: payload.scheme,
@@ -45,18 +45,13 @@ async function verifySignature(
     timestamp: BigInt(payload.timestamp),
   };
 
-  try {
-    const signer = await recoverTypedDataAddress({
-      domain,
-      types: EIP712_TYPES,
-      primaryType: 'Payment',
-      message,
-      signature: payload.signature,
-    });
-    return { valid: true, signer };
-  } catch (e) {
-    return { valid: false, error: `Invalid signature: ${e instanceof Error ? e.message : String(e)}` };
-  }
+  return recoverTypedDataAddress({
+    domain,
+    types: EIP712_TYPES,
+    primaryType: 'Payment',
+    message,
+    signature: payload.signature,
+  });
 }
 
 function validateAgainstRequirements(
@@ -124,20 +119,24 @@ export async function verifyPayment(
     return { valid: false, error: 'Facilitator contract not deployed - verification unavailable' };
   }
 
-  const signatureResult = await verifySignature(payload, chainConfig.chainId);
-  if (!signatureResult.valid) return { valid: false, error: signatureResult.error };
+  let signer: Address;
+  try {
+    signer = await verifySignature(payload, chainConfig.chainId);
+  } catch (e) {
+    return { valid: false, error: `Invalid signature: ${e instanceof Error ? e.message : String(e)}` };
+  }
 
   const reqResult = validateAgainstRequirements(payload, requirements);
   if (!reqResult.valid) return { valid: false, error: reqResult.error };
 
-  const nonceUsed = await isNonceUsed(publicClient, signatureResult.signer!, payload.nonce);
+  const nonceUsed = await isNonceUsed(publicClient, signer, payload.nonce);
   if (nonceUsed) return { valid: false, error: 'Nonce has already been used' };
 
   return {
     valid: true,
-    signer: signatureResult.signer,
+    signer,
     decodedPayment: {
-      payer: signatureResult.signer!,
+      payer: signer,
       recipient: payload.payTo,
       token: payload.asset,
       amount: BigInt(payload.amount),
@@ -159,7 +158,12 @@ export async function verifySignatureOnly(
   const chainConfig = getChainConfig(network);
   if (!chainConfig) return { valid: false, error: `Unsupported network: ${network}` };
 
-  return verifySignature(payload, chainConfig.chainId);
+  try {
+    const signer = await verifySignature(payload, chainConfig.chainId);
+    return { valid: true, signer };
+  } catch (e) {
+    return { valid: false, error: `Invalid signature: ${e instanceof Error ? e.message : String(e)}` };
+  }
 }
 
 export function encodePaymentHeader(payload: Omit<PaymentPayload, 'signature'> & { signature: Hex }): string {

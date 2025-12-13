@@ -450,6 +450,5 @@ contract DisputeGameFuzzTest is Test {
         return hash;
     }
 
-    receive() external payable {}
 }
 

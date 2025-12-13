@@ -64,10 +64,7 @@ async function getStakeTier(address: string): Promise<RateTier> {
   }
 
   if (staking) {
-    const stakeWei = await staking.getStake(address).catch(() => {
-      return staking.positions(address).then(pos => pos[0]);
-    });
-    
+    const stakeWei = await staking.getStake(address);
     const stakeUsd = (Number(stakeWei) / 1e18) * ETH_USD_PRICE;
     tier = stakeUsd >= TIER_THRESHOLDS.UNLIMITED ? 'UNLIMITED'
          : stakeUsd >= TIER_THRESHOLDS.PRO ? 'PRO'
@@ -91,9 +88,9 @@ function getClientKey(req: Request): { key: string; address: string | null } {
   const agentId = req.headers['x-agent-id'] as string | undefined;
   if (agentId) return { key: `agent:${agentId}`, address: null };
 
-  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
-    || req.headers['x-real-ip'] as string
-    || req.ip || 'unknown';
+  const forwarded = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim();
+  const ip = forwarded || (req.headers['x-real-ip'] as string) || req.ip;
+  if (!ip) throw new Error('Unable to determine client IP address');
   return { key: `ip:${ip}`, address: null };
 }
 

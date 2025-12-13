@@ -56,10 +56,71 @@ const SOLVER_REGISTRY_ABI = [
   },
 ] as const;
 
+const SOLVER_REGISTERED_EVENT = {
+  type: 'event',
+  name: 'SolverRegistered',
+  inputs: [
+    { name: 'solver', type: 'address', indexed: true },
+    { name: 'stake', type: 'uint256', indexed: false },
+    { name: 'chains', type: 'uint256[]', indexed: false },
+  ],
+} as const;
+
 // Known solver addresses (from env or discovery)
-const KNOWN_SOLVERS: `0x${string}`[] = (process.env.OIF_DEV_SOLVER_ADDRESSES || '')
+const envSolvers: `0x${string}`[] = (process.env.OIF_DEV_SOLVER_ADDRESSES || '')
   .split(',')
   .filter((addr): addr is `0x${string}` => addr.startsWith('0x') && addr.length === 42);
+
+// Discovered solvers from on-chain events
+const discoveredSolvers = new Set<`0x${string}`>();
+let lastDiscoveryBlock = 0n;
+const DISCOVERY_INTERVAL_MS = 60_000;
+let lastDiscoveryTime = 0;
+
+async function discoverSolvers(): Promise<`0x${string}`[]> {
+  // Skip if no registry configured
+  if (!SOLVER_REGISTRY_ADDRESS || SOLVER_REGISTRY_ADDRESS === ZERO_ADDRESS) {
+    return envSolvers;
+  }
+
+  // Rate limit discovery
+  if (Date.now() - lastDiscoveryTime < DISCOVERY_INTERVAL_MS && discoveredSolvers.size > 0) {
+    return [...envSolvers, ...discoveredSolvers];
+  }
+
+  const registryChain = IS_TESTNET ? 11155111 : 1;
+  const client = getClient(registryChain);
+
+  // Get recent registration events
+  const fromBlock = lastDiscoveryBlock > 0n ? lastDiscoveryBlock : 'earliest';
+  const logs = await client.getLogs({
+    address: SOLVER_REGISTRY_ADDRESS as `0x${string}`,
+    event: SOLVER_REGISTERED_EVENT,
+    fromBlock,
+    toBlock: 'latest',
+  }).catch((err: Error) => {
+    console.warn(`[quote-service] Failed to discover solvers: ${err.message}`);
+    return [];
+  });
+
+  for (const log of logs) {
+    const solver = log.args.solver;
+    if (solver) {
+      discoveredSolvers.add(solver);
+    }
+    if (log.blockNumber > lastDiscoveryBlock) {
+      lastDiscoveryBlock = log.blockNumber;
+    }
+  }
+
+  lastDiscoveryTime = Date.now();
+  
+  if (discoveredSolvers.size > 0) {
+    console.log(`[quote-service] Discovered ${discoveredSolvers.size} solvers from registry`);
+  }
+
+  return [...envSolvers, ...discoveredSolvers];
+}
 
 // Gas costs per chain (in gwei)
 const GAS_COSTS: Record<number, { fillGas: bigint; settlementGas: bigint; baseFee: bigint }> = {
@@ -157,21 +218,10 @@ async function fetchSolverInfo(address: `0x${string}`): Promise<SolverInfo | nul
   return info;
 }
 
-async function getGasPrice(chainId: number): Promise<bigint> {
-  const client = getClient(chainId);
-  const gasPrice = await client.getGasPrice();
-  return gasPrice;
-}
-
-function calculateGasCost(sourceChain: number, destChain: number, gasPrice?: bigint): bigint {
+function calculateGasCost(sourceChain: number, destChain: number, destGasPrice: bigint): bigint {
   const destCosts = GAS_COSTS[destChain] || GAS_COSTS[1];
   const srcCosts = GAS_COSTS[sourceChain] || GAS_COSTS[1];
-
-  const effectiveGasPrice = gasPrice || destCosts.baseFee;
-  const fillCost = destCosts.fillGas * effectiveGasPrice;
-  const settlementCost = srcCosts.settlementGas * srcCosts.baseFee;
-
-  return fillCost + settlementCost;
+  return (destCosts.fillGas * destGasPrice) + (srcCosts.settlementGas * srcCosts.baseFee);
 }
 
 function isL2Chain(chainId: number): boolean {
@@ -188,15 +238,12 @@ export async function getQuotes(params: QuoteParams): Promise<IntentQuote[]> {
   const solverResults = await Promise.all(solverPromises);
   const activeSolvers = solverResults.filter((s): s is SolverInfo => s !== null);
 
-  // Get current gas price on destination chain
-  let destGasPrice: bigint;
-  try {
-    destGasPrice = await getGasPrice(destinationChain);
-  } catch {
-    destGasPrice = GAS_COSTS[destinationChain]?.baseFee || 10n ** 9n;
-  }
-
-  // Calculate base gas cost
+  // Get current gas price on destination chain (fallback to estimate if RPC fails)
+  const client = getClient(destinationChain);
+  const destGasPrice = await client.getGasPrice().catch((err: Error) => {
+    console.warn(`[quote-service] Failed to get gas price for chain ${destinationChain}: ${err.message}`);
+    return GAS_COSTS[destinationChain]?.baseFee || 10n ** 9n;
+  });
   const gasCost = calculateGasCost(sourceChain, destinationChain, destGasPrice);
 
   // Generate quotes from each active solver

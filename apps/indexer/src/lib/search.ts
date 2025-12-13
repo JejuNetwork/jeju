@@ -74,18 +74,18 @@ function hashParams(params: SearchParams): string {
 function mapAgentToResult(agent: RegisteredAgent, score: number): AgentSearchResult {
   return {
     agentId: agent.agentId.toString(),
-    name: agent.name || 'Unnamed Agent',
-    description: agent.description || null,
-    tags: agent.tags || [],
-    serviceType: agent.serviceType || null,
-    category: agent.category || null,
+    name: agent.name ?? 'Unnamed Agent',
+    description: agent.description ?? null,
+    tags: agent.tags ?? [],
+    serviceType: agent.serviceType ?? null,
+    category: agent.category ?? null,
     endpoints: {
-      a2a: agent.a2aEndpoint || null,
-      mcp: agent.mcpEndpoint || null,
+      a2a: agent.a2aEndpoint ?? null,
+      mcp: agent.mcpEndpoint ?? null,
     },
     tools: {
-      mcpTools: agent.mcpTools || [],
-      a2aSkills: agent.a2aSkills || [],
+      mcpTools: agent.mcpTools ?? [],
+      a2aSkills: agent.a2aSkills ?? [],
     },
     stakeTier: agent.stakeTier,
     stakeAmount: agent.stakeAmount.toString(),
@@ -235,7 +235,7 @@ export async function search(
         { type: 'rest', count: restCount },
       ],
     },
-    query: query || null,
+    query: query ?? null,
     took: Date.now() - startTime,
   };
 

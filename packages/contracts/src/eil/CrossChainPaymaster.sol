@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {PackedUserOperation} from "@account-abstraction/contracts/interfaces/PackedUserOperation.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import {BasePaymaster} from "@account-abstraction/contracts/core/BasePaymaster.sol";
@@ -390,6 +391,18 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         messenger = ICrossDomainMessenger(0x4200000000000000000000000000000000000007);
         if (_priceOracle != address(0)) {
             priceOracle = IPriceOracle(_priceOracle);
+        }
+    }
+
+    /// @dev Override to allow both EntryPoint v0.6 (no ERC-165) and v0.7 (with ERC-165)
+    function _validateEntryPointInterface(IEntryPoint _entryPoint) internal view override {
+        // Check if EntryPoint has code (basic validation)
+        require(address(_entryPoint).code.length > 0, "EntryPoint has no code");
+        // Try ERC-165 check, but don't fail if not supported (v0.6 compatibility)
+        try IERC165(address(_entryPoint)).supportsInterface(type(IEntryPoint).interfaceId) returns (bool supported) {
+            require(supported, "IEntryPoint interface mismatch");
+        } catch {
+            // EntryPoint v0.6 doesn't support ERC-165 - allow it
         }
     }
 

@@ -13,14 +13,10 @@
 import { ethers } from 'ethers';
 import { Store } from '@subsquid/typeorm-store';
 import { ProcessorContext } from './processor';
-import {
-    TokenTransfer,
-    TokenBalance,
-    Account,
-    Contract,
-} from './model';
+import { TokenTransfer, TokenBalance, Contract } from './model';
 import { TokenStandard } from './model/generated/_tokenStandard';
 import { ContractType } from './model/generated/_contractType';
+import { createAccountFactory } from './lib/entities';
 
 // Event signatures
 const GOLD_CLAIMED = ethers.id('GoldClaimed(address,uint256,uint256)');
@@ -75,7 +71,7 @@ interface GoldClaim {
 }
 
 export async function processGameTokenEvents(ctx: ProcessorContext<Store>): Promise<void> {
-    const accounts = new Map<string, Account>();
+    const accountFactory = createAccountFactory();
     const tokenTransfers: TokenTransfer[] = [];
     const tokenBalances = new Map<string, TokenBalance>();
     const contracts = new Map<string, Contract>();
@@ -83,30 +79,6 @@ export async function processGameTokenEvents(ctx: ProcessorContext<Store>): Prom
     // Track minted items and gold claims for stats
     const mintedItems: MintedItem[] = [];
     const goldClaims: GoldClaim[] = [];
-
-    function getOrCreateAccount(address: string, blockNumber: number, timestamp: Date): Account {
-        const id = address.toLowerCase();
-        let account = accounts.get(id);
-        if (!account) {
-            account = new Account({
-                id,
-                address: id,
-                isContract: false,
-                firstSeenBlock: blockNumber,
-                lastSeenBlock: blockNumber,
-                transactionCount: 0,
-                totalValueSent: 0n,
-                totalValueReceived: 0n,
-                labels: [],
-                firstSeenAt: timestamp,
-                lastSeenAt: timestamp
-            });
-            accounts.set(id, account);
-        }
-        account.lastSeenBlock = blockNumber;
-        account.lastSeenAt = timestamp;
-        return account;
-    }
 
     function getOrCreateContract(address: string, blockNumber: number, timestamp: Date): Contract {
         const id = address.toLowerCase();
@@ -147,7 +119,7 @@ export async function processGameTokenEvents(ctx: ProcessorContext<Store>): Prom
                 const amount = BigInt(decoded.args.amount.toString());
                 const nonce = BigInt(decoded.args.nonce.toString());
 
-                const playerAccount = getOrCreateAccount(player, block.header.height, blockTimestamp);
+                const playerAccount = accountFactory.getOrCreate(player, block.header.height, blockTimestamp);
                 const tokenContract = getOrCreateContract(contractAddress, block.header.height, blockTimestamp);
                 tokenContract.isERC20 = true;
                 tokenContract.contractType = ContractType.GAME;
@@ -157,7 +129,7 @@ export async function processGameTokenEvents(ctx: ProcessorContext<Store>): Prom
                     id: `${txHash}-${log.logIndex}`,
                     logIndex: log.logIndex,
                     tokenStandard: TokenStandard.ERC20,
-                    from: getOrCreateAccount(ZERO_ADDRESS, block.header.height, blockTimestamp),
+                    from: accountFactory.getOrCreate(ZERO_ADDRESS, block.header.height, blockTimestamp),
                     to: playerAccount,
                     token: tokenContract,
                     value: amount,
@@ -184,7 +156,7 @@ export async function processGameTokenEvents(ctx: ProcessorContext<Store>): Prom
                 const player = decoded.args.player.toLowerCase();
                 const amount = BigInt(decoded.args.amount.toString());
 
-                const playerAccount = getOrCreateAccount(player, block.header.height, blockTimestamp);
+                const playerAccount = accountFactory.getOrCreate(player, block.header.height, blockTimestamp);
                 const tokenContract = getOrCreateContract(contractAddress, block.header.height, blockTimestamp);
                 tokenContract.isERC20 = true;
 
@@ -194,7 +166,7 @@ export async function processGameTokenEvents(ctx: ProcessorContext<Store>): Prom
                     logIndex: log.logIndex,
                     tokenStandard: TokenStandard.ERC20,
                     from: playerAccount,
-                    to: getOrCreateAccount(ZERO_ADDRESS, block.header.height, blockTimestamp),
+                    to: accountFactory.getOrCreate(ZERO_ADDRESS, block.header.height, blockTimestamp),
                     token: tokenContract,
                     value: amount,
                     block: { id: block.header.hash } as never,
@@ -218,7 +190,7 @@ export async function processGameTokenEvents(ctx: ProcessorContext<Store>): Prom
                 const stackable = decoded.args.stackable;
                 const rarity = decoded.args.rarity;
 
-                const minterAccount = getOrCreateAccount(minter, block.header.height, blockTimestamp);
+                const minterAccount = accountFactory.getOrCreate(minter, block.header.height, blockTimestamp);
                 const tokenContract = getOrCreateContract(contractAddress, block.header.height, blockTimestamp);
                 tokenContract.isERC1155 = true;
                 tokenContract.contractType = ContractType.GAME;
@@ -228,7 +200,7 @@ export async function processGameTokenEvents(ctx: ProcessorContext<Store>): Prom
                     id: `${txHash}-${log.logIndex}`,
                     logIndex: log.logIndex,
                     tokenStandard: TokenStandard.ERC1155,
-                    from: getOrCreateAccount(ZERO_ADDRESS, block.header.height, blockTimestamp),
+                    from: accountFactory.getOrCreate(ZERO_ADDRESS, block.header.height, blockTimestamp),
                     to: minterAccount,
                     token: tokenContract,
                     value: amount,
@@ -261,7 +233,7 @@ export async function processGameTokenEvents(ctx: ProcessorContext<Store>): Prom
                 const itemId = BigInt(decoded.args.itemId.toString());
                 const amount = BigInt(decoded.args.amount.toString());
 
-                const playerAccount = getOrCreateAccount(player, block.header.height, blockTimestamp);
+                const playerAccount = accountFactory.getOrCreate(player, block.header.height, blockTimestamp);
                 const tokenContract = getOrCreateContract(contractAddress, block.header.height, blockTimestamp);
                 tokenContract.isERC1155 = true;
 
@@ -271,7 +243,7 @@ export async function processGameTokenEvents(ctx: ProcessorContext<Store>): Prom
                     logIndex: log.logIndex,
                     tokenStandard: TokenStandard.ERC1155,
                     from: playerAccount,
-                    to: getOrCreateAccount(ZERO_ADDRESS, block.header.height, blockTimestamp),
+                    to: accountFactory.getOrCreate(ZERO_ADDRESS, block.header.height, blockTimestamp),
                     token: tokenContract,
                     value: amount,
                     tokenId: itemId.toString(),
@@ -319,8 +291,8 @@ export async function processGameTokenEvents(ctx: ProcessorContext<Store>): Prom
                 // Skip mint/burn events (already handled above)
                 if (from === ZERO_ADDRESS || to === ZERO_ADDRESS) continue;
 
-                const fromAccount = getOrCreateAccount(from, block.header.height, blockTimestamp);
-                const toAccount = getOrCreateAccount(to, block.header.height, blockTimestamp);
+                const fromAccount = accountFactory.getOrCreate(from, block.header.height, blockTimestamp);
+                const toAccount = accountFactory.getOrCreate(to, block.header.height, blockTimestamp);
                 const tokenContract = getOrCreateContract(contractAddress, block.header.height, blockTimestamp);
                 tokenContract.isERC1155 = true;
 
@@ -342,8 +314,8 @@ export async function processGameTokenEvents(ctx: ProcessorContext<Store>): Prom
     }
 
     // Persist all entities
-    await ctx.store.upsert(Array.from(accounts.values()));
-    await ctx.store.upsert(Array.from(contracts.values()));
+    await ctx.store.upsert(accountFactory.getAll());
+    await ctx.store.upsert([...contracts.values()]);
     await ctx.store.insert(tokenTransfers);
 
     // Log stats

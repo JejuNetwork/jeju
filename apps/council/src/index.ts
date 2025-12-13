@@ -411,6 +411,178 @@ app.get('/api/v1/moderation/should-reject/:proposalId', (c) => {
   return c.json(result);
 });
 
+// Registry Integration API - Deep AI DAO integration
+const registryConfig: RegistryIntegrationConfig = {
+  rpcUrl: config.rpcUrl,
+  integrationContract: process.env.REGISTRY_INTEGRATION_ADDRESS,
+  identityRegistry: config.contracts.identityRegistry as string,
+  reputationRegistry: config.contracts.reputationRegistry as string,
+  delegationRegistry: process.env.DELEGATION_REGISTRY_ADDRESS,
+};
+const registryIntegration = getRegistryIntegrationClient(registryConfig);
+
+// Get comprehensive agent profile with composite score
+app.get('/api/v1/registry/profile/:agentId', async (c) => {
+  const agentId = BigInt(c.req.param('agentId'));
+  const profile = await registryIntegration.getAgentProfile(agentId);
+  if (!profile) return c.json({ error: 'Agent not found' }, 404);
+  return c.json({
+    ...profile,
+    agentId: profile.agentId.toString(),
+    stakedAmount: profile.stakedAmount.toString(),
+  });
+});
+
+// Get multiple agent profiles
+app.post('/api/v1/registry/profiles', async (c) => {
+  const body = await c.req.json() as { agentIds: string[] };
+  if (!body.agentIds?.length) return c.json({ error: 'agentIds required' }, 400);
+  const profiles = await registryIntegration.getAgentProfiles(body.agentIds.map(id => BigInt(id)));
+  return c.json({
+    profiles: profiles.map(p => ({
+      ...p,
+      agentId: p.agentId.toString(),
+      stakedAmount: p.stakedAmount.toString(),
+    })),
+  });
+});
+
+// Get voting power for an address
+app.get('/api/v1/registry/voting-power/:address', async (c) => {
+  const address = c.req.param('address');
+  const agentId = BigInt(c.req.query('agentId') ?? '0');
+  const baseVotes = BigInt(c.req.query('baseVotes') ?? '1000000000000000000'); // Default 1 token
+  const power = await registryIntegration.getVotingPower(address, agentId, baseVotes);
+  return c.json({
+    ...power,
+    baseVotes: power.baseVotes.toString(),
+    effectiveVotes: power.effectiveVotes.toString(),
+  });
+});
+
+// Search agents by tag
+app.get('/api/v1/registry/search/tag/:tag', async (c) => {
+  const tag = c.req.param('tag');
+  const offset = parseInt(c.req.query('offset') ?? '0', 10);
+  const limit = parseInt(c.req.query('limit') ?? '50', 10);
+  const result = await registryIntegration.searchByTag(tag, offset, limit);
+  return c.json({
+    ...result,
+    agentIds: result.agentIds.map(id => id.toString()),
+  });
+});
+
+// Get agents by minimum score
+app.get('/api/v1/registry/search/score', async (c) => {
+  const minScore = parseInt(c.req.query('minScore') ?? '50', 10);
+  const offset = parseInt(c.req.query('offset') ?? '0', 10);
+  const limit = parseInt(c.req.query('limit') ?? '50', 10);
+  const result = await registryIntegration.getAgentsByScore(minScore, offset, limit);
+  return c.json({
+    agentIds: result.agentIds.map(id => id.toString()),
+    scores: result.scores,
+  });
+});
+
+// Get top agents by composite score
+app.get('/api/v1/registry/top-agents', async (c) => {
+  const count = parseInt(c.req.query('count') ?? '10', 10);
+  const profiles = await registryIntegration.getTopAgents(count);
+  return c.json({
+    agents: profiles.map(p => ({
+      ...p,
+      agentId: p.agentId.toString(),
+      stakedAmount: p.stakedAmount.toString(),
+    })),
+  });
+});
+
+// Get all active agents
+app.get('/api/v1/registry/active-agents', async (c) => {
+  const offset = parseInt(c.req.query('offset') ?? '0', 10);
+  const limit = parseInt(c.req.query('limit') ?? '100', 10);
+  const agentIds = await registryIntegration.getActiveAgents(offset, limit);
+  return c.json({
+    agentIds: agentIds.map(id => id.toString()),
+    total: await registryIntegration.getTotalAgents(),
+    offset,
+    limit,
+  });
+});
+
+// Get provider reputations with weighting
+app.get('/api/v1/registry/providers', async (c) => {
+  const providers = await registryIntegration.getAllProviderReputations();
+  return c.json({
+    providers: providers.map(p => ({
+      ...p,
+      providerAgentId: p.providerAgentId.toString(),
+      stakeAmount: p.stakeAmount.toString(),
+    })),
+  });
+});
+
+// Get weighted reputation for an agent (across all providers)
+app.get('/api/v1/registry/weighted-reputation/:agentId', async (c) => {
+  const agentId = BigInt(c.req.param('agentId'));
+  const result = await registryIntegration.getWeightedAgentReputation(agentId);
+  return c.json(result);
+});
+
+// Check eligibility for various actions
+app.get('/api/v1/registry/eligibility/:agentId', async (c) => {
+  const agentId = BigInt(c.req.param('agentId'));
+  const [proposal, vote, research] = await Promise.all([
+    registryIntegration.canSubmitProposal(agentId),
+    registryIntegration.canVote(agentId),
+    registryIntegration.canConductResearch(agentId),
+  ]);
+  return c.json({
+    agentId: agentId.toString(),
+    canSubmitProposal: proposal,
+    canVote: vote,
+    canConductResearch: research,
+  });
+});
+
+// Delegation endpoints
+app.get('/api/v1/registry/delegate/:address', async (c) => {
+  const delegate = await registryIntegration.getDelegate(c.req.param('address'));
+  if (!delegate) return c.json({ error: 'Not a registered delegate' }, 404);
+  return c.json({
+    ...delegate,
+    agentId: delegate.agentId.toString(),
+    totalDelegated: delegate.totalDelegated.toString(),
+  });
+});
+
+app.get('/api/v1/registry/top-delegates', async (c) => {
+  const limit = parseInt(c.req.query('limit') ?? '10', 10);
+  const delegates = await registryIntegration.getTopDelegates(limit);
+  return c.json({
+    delegates: delegates.map((d: { delegate: string; agentId: bigint; name: string; totalDelegated: bigint; delegatorCount: number; isActive: boolean }) => ({
+      ...d,
+      agentId: d.agentId.toString(),
+      totalDelegated: d.totalDelegated.toString(),
+    })),
+  });
+});
+
+app.get('/api/v1/registry/security-council', async (c) => {
+  const council = await registryIntegration.getSecurityCouncil();
+  return c.json({
+    members: council.map((m: { member: string; agentId: bigint; combinedScore: number; electedAt: number }) => ({
+      ...m,
+      agentId: m.agentId.toString(),
+    })),
+  });
+});
+
+app.get('/api/v1/registry/is-council-member/:address', async (c) => {
+  const isMember = await registryIntegration.isSecurityCouncilMember(c.req.param('address'));
+  return c.json({ isMember });
+});
+
 async function runOrchestratorCycle(): Promise<OrchestratorTriggerResult> {
   const start = Date.now();
   if (!orchestrator) {
@@ -424,18 +596,19 @@ async function runOrchestratorCycle(): Promise<OrchestratorTriggerResult> {
 app.get('/health', (c) => c.json({
   status: 'ok',
   service: 'jeju-council',
-  version: '2.0.0',
+  version: '2.1.0',
   mode: 'local',
   tee: getTEEMode(),
   orchestrator: orchestrator?.getStatus().running ?? false,
   erc8004: { identity: erc8004.identityDeployed, reputation: erc8004.reputationDeployed, validation: erc8004.validationDeployed },
   futarchy: { council: futarchy.councilDeployed, predimarket: futarchy.predimarketDeployed },
-  endpoints: { a2a: '/a2a', mcp: '/mcp', rest: '/api/v1', agents: '/api/v1/agents', futarchy: '/api/v1/futarchy', moderation: '/api/v1/moderation' },
+  registry: { integration: !!registryConfig.integrationContract, delegation: !!registryConfig.delegationRegistry },
+  endpoints: { a2a: '/a2a', mcp: '/mcp', rest: '/api/v1', agents: '/api/v1/agents', futarchy: '/api/v1/futarchy', moderation: '/api/v1/moderation', registry: '/api/v1/registry' },
 }));
 
 app.get('/', (c) => c.json({
   name: 'Jeju AI Council',
-  version: '2.0.0',
+  version: '2.1.0',
   description: 'Fully autonomous reputation-based DAO with AI CEO',
   endpoints: {
     a2a: '/a2a',
@@ -447,6 +620,8 @@ app.get('/', (c) => c.json({
     agents: '/api/v1/agents',
     futarchy: '/api/v1/futarchy',
     moderation: '/api/v1/moderation',
+    registry: '/api/v1/registry',
+    ceo: '/api/v1/ceo',
     health: '/health',
   },
 }));
@@ -501,3 +676,4 @@ export { getResearchAgent, ResearchAgent, generateResearchReport, quickScreenPro
 export { getERC8004Client, ERC8004Client, type ERC8004Config, type AgentIdentity, type AgentReputation } from './erc8004';
 export { getFutarchyClient, FutarchyClient, type FutarchyConfig, type FutarchyMarket } from './futarchy';
 export { getModerationSystem, ModerationSystem, FlagType, type ProposalFlag, type TrustRelation, type ModerationScore, type ModeratorStats } from './moderation';
+export { getRegistryIntegrationClient, RegistryIntegrationClient, resetRegistryIntegrationClient, type RegistryIntegrationConfig, type AgentProfile, type ProviderReputation, type VotingPower, type SearchResult, type EligibilityResult } from './registry-integration';

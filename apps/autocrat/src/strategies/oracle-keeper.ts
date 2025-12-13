@@ -194,8 +194,7 @@ export class OracleKeeperStrategy {
   private async checkToken(token: string, source: PriceSource): Promise<void> {
     if (!this.publicClient) return;
 
-    // Check cooldown
-    const lastUpdate = this.lastUpdateByToken.get(token) || 0;
+    const lastUpdate = this.lastUpdateByToken.get(token) ?? 0;
     if (Date.now() - lastUpdate < UPDATE_COOLDOWN_MS) return;
 
     try {

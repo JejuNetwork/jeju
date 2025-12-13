@@ -17,7 +17,7 @@ import {
   OracleSubscription,
   OracleAttestation,
 } from './model';
-import { createAccountFactory } from './lib/entities';
+import { createAccountFactory, BlockHeader, LogData } from './lib/entities';
 
 // Event signatures - only those we actually process
 const EVENTS = {
@@ -69,21 +69,6 @@ const ABI = {
     'event AttestationSubmitted(address indexed operator, uint256 epoch, uint256 feedsServed, uint256 reportsSubmitted, uint256 reportsAccepted, uint256 disputesReceived)',
   ]),
 };
-
-interface LogData {
-  address: string;
-  topics: string[];
-  data: string;
-  logIndex: number;
-  transactionIndex: number;
-  transaction?: { hash: string };
-}
-
-interface BlockHeader {
-  hash: string;
-  height: number;
-  timestamp: number;
-}
 
 export function isOracleEvent(topic0: string): boolean {
   return ORACLE_EVENT_SET.has(topic0);
@@ -351,7 +336,7 @@ export async function processOracleEvents(ctx: ProcessorContext<Store>): Promise
         const [startTime, endTime] = [Number(decoded.args[3]), Number(decoded.args[4])];
         subscriptions.set(subId.toString(), new OracleSubscription({
           id: subId.toString(), subscriptionId: subId,
-          subscriber: getOrCreateAccount(decoded.args[1] as string, header.height, blockTimestamp),
+          subscriber: accountFactory.getOrCreate(decoded.args[1] as string, header.height, blockTimestamp),
           feedIds: decoded.args[2] as string[],
           startTime: new Date(startTime * 1000), endTime: new Date(endTime * 1000),
           monthsPaid: Math.ceil((endTime - startTime) / 2592000),
@@ -402,7 +387,7 @@ export async function processOracleEvents(ctx: ProcessorContext<Store>): Promise
   }
 
   // Persist entities (order matters for FK dependencies)
-  if (accounts.size) await ctx.store.upsert([...accounts.values()]);
+  if (accountFactory.hasAccounts()) await ctx.store.upsert(accountFactory.getAll());
   if (feeds.size) await ctx.store.upsert([...feeds.values()]);
   if (operators.size) await ctx.store.upsert([...operators.values()]);
   if (committeeMembers.size) await ctx.store.upsert([...committeeMembers.values()]);

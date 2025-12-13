@@ -161,10 +161,4 @@ contract OracleOperatorHandler is Test {
     function getFeedCount() external view returns (uint256) {
         return feedIds.length;
     }
-
-    function _calculateDeviation(uint256 oldPrice, uint256 newPrice) internal pure returns (uint256) {
-        if (oldPrice == 0) return 0;
-        uint256 diff = oldPrice > newPrice ? oldPrice - newPrice : newPrice - oldPrice;
-        return (diff * 10000) / oldPrice;
-    }
 }

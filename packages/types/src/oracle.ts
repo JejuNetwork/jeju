@@ -186,7 +186,7 @@ export interface DelegationPool {
   isAcceptingDelegations: boolean;
 }
 
-export interface Delegation {
+export interface OracleDelegation {
   delegator: Address;
   operatorId: `0x${string}`;
   amount: bigint;
