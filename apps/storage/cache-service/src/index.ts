@@ -107,16 +107,41 @@ export class CacheServer {
   private setupRoutes(): void {
     this.app.use('/*', cors());
 
-    // ========== Health ==========
     this.app.get('/health', (c: Context) => {
-      return c.json({
-        status: 'healthy',
-        service: 'cache-service',
-        timestamp: new Date().toISOString(),
-      });
+      return c.json({ status: 'healthy', service: 'cache-service', timestamp: new Date().toISOString() });
     });
 
-    // ========== Cache Operations ==========
+    // Prometheus metrics
+    this.app.get('/metrics', (c: Context) => {
+      const stats = this.store.getStats();
+      const lines = [
+        '# HELP cache_keys_total Total number of keys in cache',
+        '# TYPE cache_keys_total gauge',
+        `cache_keys_total ${stats.totalKeys}`,
+        '# HELP cache_namespaces Total number of namespaces',
+        '# TYPE cache_namespaces gauge',
+        `cache_namespaces ${stats.namespaces}`,
+        '# HELP cache_memory_used_mb Memory used in MB',
+        '# TYPE cache_memory_used_mb gauge',
+        `cache_memory_used_mb ${stats.usedMemoryMb.toFixed(4)}`,
+        '# HELP cache_memory_max_mb Maximum memory in MB',
+        '# TYPE cache_memory_max_mb gauge',
+        `cache_memory_max_mb ${stats.totalMemoryMb}`,
+        '# HELP cache_hits_total Total cache hits',
+        '# TYPE cache_hits_total counter',
+        `cache_hits_total ${stats.hits}`,
+        '# HELP cache_misses_total Total cache misses',
+        '# TYPE cache_misses_total counter',
+        `cache_misses_total ${stats.misses}`,
+        '# HELP cache_hit_rate Cache hit rate',
+        '# TYPE cache_hit_rate gauge',
+        `cache_hit_rate ${stats.hitRate.toFixed(4)}`,
+        '# HELP cache_instances_total Total cache instances',
+        '# TYPE cache_instances_total gauge',
+        `cache_instances_total ${stats.totalInstances}`,
+      ];
+      return new Response(lines.join('\n'), { headers: { 'Content-Type': 'text/plain; version=0.0.4' } });
+    });
 
     // SET
     this.app.post('/cache/set', async (c: Context) => {

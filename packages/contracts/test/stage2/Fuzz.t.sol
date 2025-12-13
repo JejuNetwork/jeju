@@ -37,11 +37,7 @@ contract Stage2FuzzTest is Test {
         reputationRegistry = new ReputationRegistry(payable(address(identityRegistry)));
         jejuToken = new MockJEJU();
         sequencerRegistry = new SequencerRegistry(
-            address(jejuToken),
-            address(identityRegistry),
-            address(reputationRegistry),
-            treasury,
-            owner
+            address(jejuToken), address(identityRegistry), address(reputationRegistry), treasury, owner
         );
         timelock = new GovernanceTimelock(governance, makeAddr("council"), owner, 60);
         disputeFactory = new DisputeGameFactory(treasury, owner);
@@ -184,13 +180,17 @@ contract Stage2FuzzTest is Test {
 
         vm.startPrank(challenger);
         bytes32 game1 = disputeFactory.createGame{value: 1 ether}(
-            makeAddr("proposer"), stateRoot1, claimRoot,
+            makeAddr("proposer"),
+            stateRoot1,
+            claimRoot,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
         vm.warp(block.timestamp + 1);
         bytes32 game2 = disputeFactory.createGame{value: 1 ether}(
-            makeAddr("proposer"), stateRoot2, claimRoot,
+            makeAddr("proposer"),
+            stateRoot2,
+            claimRoot,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );

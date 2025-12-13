@@ -25,7 +25,7 @@
  * bun run localnet:start
  * 
  * # Terminal 2: Start indexer
- * cd apps/indexer && npm run dev
+ * cd apps/indexer && bun run dev
  * 
  * # Terminal 3: Run tests
  * bun test tests/integration/runtime-full-stack.test.ts
@@ -34,13 +34,17 @@
 
 import { describe, it, expect, beforeAll } from 'bun:test';
 import { ethers } from 'ethers';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
+import {
+  JEJU_LOCALNET,
+  L1_LOCALNET,
+  TEST_WALLETS,
+  APP_URLS,
+  APP_PORTS,
+  TIMEOUTS,
+} from '../shared/constants';
 
 // Quick check if L2 RPC is available before running full suite
-const l2RpcUrl = process.env.L2_RPC_URL || process.env.JEJU_RPC_URL || `http://127.0.0.1:${process.env.L2_RPC_PORT || '9545'}`;
+const l2RpcUrl = JEJU_LOCALNET.rpcUrl;
 let servicesAvailable = false;
 try {
   const res = await fetch(l2RpcUrl, {
@@ -58,7 +62,7 @@ if (!servicesAvailable) {
   console.log('   Start with: bun run localnet:start');
 }
 
-/** Configuration for runtime testing */
+/** Configuration for runtime testing derived from shared constants */
 interface RuntimeConfig {
   l1: {
     rpcUrl: string;
@@ -80,24 +84,26 @@ interface RuntimeConfig {
   };
 }
 
+const HOST = process.env.HOST || '127.0.0.1';
+
 const CONFIG: RuntimeConfig = {
   l1: {
-    rpcUrl: process.env.L1_RPC_URL || `http://127.0.0.1:${process.env.L1_RPC_PORT || '8545'}`,
-    chainId: 1337,
+    rpcUrl: L1_LOCALNET.rpcUrl,
+    chainId: L1_LOCALNET.chainId,
   },
   l2: {
-    rpcUrl: process.env.L2_RPC_URL || process.env.JEJU_RPC_URL || `http://127.0.0.1:${process.env.L2_RPC_PORT || '9545'}`,
-    wsUrl: process.env.L2_WS_URL || `ws://127.0.0.1:${process.env.L2_WS_PORT || '9546'}`,
-    chainId: 1337,
+    rpcUrl: JEJU_LOCALNET.rpcUrl,
+    wsUrl: JEJU_LOCALNET.wsUrl,
+    chainId: JEJU_LOCALNET.chainId,
   },
   indexer: {
-    graphqlUrl: process.env.INDEXER_GRAPHQL_URL || `http://localhost:${process.env.INDEXER_GRAPHQL_PORT || '4350'}/graphql`,
-    databaseUrl: process.env.INDEXER_DATABASE_URL || `postgresql://postgres:postgres@localhost:${process.env.INDEXER_DB_PORT || '23798'}/indexer`,
+    graphqlUrl: APP_URLS.indexerGraphQL,
+    databaseUrl: process.env.INDEXER_DATABASE_URL || `postgresql://postgres:postgres@${HOST}:${APP_PORTS.indexerDatabase}/indexer`,
   },
   timeouts: {
-    blockProduction: 5000, // 5s for block to be produced
-    indexerSync: 30000,    // 30s for indexer to sync
-    rpcResponse: 1000,     // 1s for RPC response
+    blockProduction: TIMEOUTS.blockProduction,
+    indexerSync: TIMEOUTS.indexerSync,
+    rpcResponse: TIMEOUTS.rpcResponse,
   },
 };
 
@@ -166,10 +172,7 @@ describe.skipIf(!servicesAvailable)('Runtime Full Stack Integration', () => {
       console.log('ℹ️  WebSocket provider not available (optional)');
     }
 
-    deployer = new ethers.Wallet(
-      '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
-      l2Provider
-    );
+    deployer = new ethers.Wallet(TEST_WALLETS.deployer.privateKey, l2Provider);
   });
 
   describe('Service Health Checks', () => {
@@ -224,7 +227,7 @@ describe.skipIf(!servicesAvailable)('Runtime Full Stack Integration', () => {
       console.log('   📤 Sending test transaction...');
       
       const tx = await deployer.sendTransaction({
-        to: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+        to: TEST_WALLETS.user1.address,
         value: ethers.parseEther('0.5'),
       });
 
@@ -485,7 +488,7 @@ describe.skipIf(!servicesAvailable)('Runtime Full Stack Integration', () => {
       // Send transaction
       const txStart = Date.now();
       const tx = await deployer.sendTransaction({
-        to: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+        to: TEST_WALLETS.user1.address,
         value: ethers.parseEther('0.01'),
       });
 

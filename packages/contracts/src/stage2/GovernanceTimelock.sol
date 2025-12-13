@@ -63,22 +63,19 @@ contract GovernanceTimelock is Ownable, ReentrancyGuard, Pausable {
         _;
     }
 
-    constructor(
-        address _governance,
-        address _securityCouncil,
-        address _owner,
-        uint256 _timelockDelay
-    ) Ownable(_owner) {
+    constructor(address _governance, address _securityCouncil, address _owner, uint256 _timelockDelay)
+        Ownable(_owner)
+    {
         governance = _governance;
         securityCouncil = _securityCouncil;
         timelockDelay = _timelockDelay > 0 ? _timelockDelay : TIMELOCK_DELAY;
     }
 
-    function proposeUpgrade(
-        address _target,
-        bytes calldata _data,
-        string calldata _description
-    ) external onlyGovernance returns (bytes32 proposalId) {
+    function proposeUpgrade(address _target, bytes calldata _data, string calldata _description)
+        external
+        onlyGovernance
+        returns (bytes32 proposalId)
+    {
         if (_target == address(0)) revert InvalidTarget();
 
         proposalId = keccak256(abi.encodePacked(_target, _data, block.timestamp, block.number));

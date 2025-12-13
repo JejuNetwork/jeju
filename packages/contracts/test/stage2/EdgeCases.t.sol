@@ -12,7 +12,9 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 contract RejectingReceiver {
-    receive() external payable { revert("I reject ETH"); }
+    receive() external payable {
+        revert("I reject ETH");
+    }
 }
 
 contract ReentrantAttacker {
@@ -20,13 +22,13 @@ contract ReentrantAttacker {
     bytes32 public targetGameId;
     bytes public proof;
     uint256 public attackCount;
-    
+
     function setTarget(DisputeGameFactory _factory, bytes32 _gameId, bytes memory _proof) external {
         factory = _factory;
         targetGameId = _gameId;
         proof = _proof;
     }
-    
+
     receive() external payable {
         if (attackCount < 2) {
             attackCount++;
@@ -36,8 +38,13 @@ contract ReentrantAttacker {
 }
 
 contract MockJEJUEdge is ERC20 {
-    constructor() ERC20("JEJU", "JEJU") { _mint(msg.sender, 10_000_000 ether); }
-    function mint(address to, uint256 amount) external { _mint(to, amount); }
+    constructor() ERC20("JEJU", "JEJU") {
+        _mint(msg.sender, 10_000_000 ether);
+    }
+
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
 }
 
 contract DisputeGameFactoryEdgeCasesTest is Test {
@@ -45,17 +52,17 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
 
     DisputeGameFactory public factory;
     Prover public prover;
-    
+
     address public owner = makeAddr("owner");
     address public treasury = makeAddr("treasury");
     address public challenger = makeAddr("challenger");
     address public proposer = makeAddr("proposer");
-    
+
     uint256 constant VALIDATOR1_KEY = 0x1;
     uint256 constant VALIDATOR2_KEY = 0x2;
     address validator1;
     address validator2;
-    
+
     bytes32 constant STATE_ROOT = keccak256("stateRoot");
     bytes32 constant CLAIM_ROOT = keccak256("claimRoot");
     bytes32 constant ACTUAL_POST_STATE = keccak256("actualPostState");
@@ -76,16 +83,20 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
         address[] memory signers = new address[](1);
         bytes[] memory signatures = new bytes[](1);
         signers[0] = validator1;
-        
+
         bytes32 outputRoot = keccak256(abi.encodePacked(BLOCK_HASH, stateRoot, ACTUAL_POST_STATE));
-        bytes32 fraudHash = keccak256(abi.encodePacked(
-            prover.FRAUD_DOMAIN(), stateRoot, claimRoot, ACTUAL_POST_STATE, BLOCK_HASH, BLOCK_NUMBER, outputRoot
-        ));
-        
+        bytes32 fraudHash = keccak256(
+            abi.encodePacked(
+                prover.FRAUD_DOMAIN(), stateRoot, claimRoot, ACTUAL_POST_STATE, BLOCK_HASH, BLOCK_NUMBER, outputRoot
+            )
+        );
+
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(VALIDATOR1_KEY, fraudHash.toEthSignedMessageHash());
         signatures[0] = abi.encodePacked(r, s, v);
-        
-        return prover.generateFraudProof(stateRoot, claimRoot, ACTUAL_POST_STATE, BLOCK_HASH, BLOCK_NUMBER, signers, signatures);
+
+        return prover.generateFraudProof(
+            stateRoot, claimRoot, ACTUAL_POST_STATE, BLOCK_HASH, BLOCK_NUMBER, signers, signatures
+        );
     }
 
     function _generateDefenseProof(bytes32 stateRoot, bytes32 claimRoot) internal view returns (bytes memory) {
@@ -93,17 +104,17 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
         bytes[] memory signatures = new bytes[](2);
         signers[0] = validator1;
         signers[1] = validator2;
-        
+
         bytes32 outputRoot = keccak256(abi.encodePacked(BLOCK_HASH, stateRoot, claimRoot));
-        bytes32 defenseHash = keccak256(abi.encodePacked(
-            prover.DEFENSE_DOMAIN(), stateRoot, claimRoot, BLOCK_HASH, BLOCK_NUMBER, outputRoot
-        ));
-        
+        bytes32 defenseHash = keccak256(
+            abi.encodePacked(prover.DEFENSE_DOMAIN(), stateRoot, claimRoot, BLOCK_HASH, BLOCK_NUMBER, outputRoot)
+        );
+
         (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(VALIDATOR1_KEY, defenseHash.toEthSignedMessageHash());
         (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(VALIDATOR2_KEY, defenseHash.toEthSignedMessageHash());
         signatures[0] = abi.encodePacked(r1, s1, v1);
         signatures[1] = abi.encodePacked(r2, s2, v2);
-        
+
         return prover.generateDefenseProof(stateRoot, claimRoot, BLOCK_HASH, BLOCK_NUMBER, signers, signatures);
     }
 
@@ -113,7 +124,9 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
         uint256 minBond = factory.MIN_BOND();
         vm.prank(challenger);
         bytes32 gameId = factory.createGame{value: minBond}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
@@ -126,7 +139,9 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
         vm.prank(challenger);
         vm.expectRevert(DisputeGameFactory.InsufficientBond.selector);
         factory.createGame{value: minBond - 1}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
@@ -136,7 +151,9 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
         uint256 maxBond = factory.MAX_BOND();
         vm.prank(challenger);
         bytes32 gameId = factory.createGame{value: maxBond}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
@@ -149,7 +166,9 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
         vm.prank(challenger);
         vm.expectRevert(DisputeGameFactory.InvalidBond.selector);
         factory.createGame{value: maxBond + 1}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
@@ -158,15 +177,17 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
     function testResolveTimeoutExactlyAtBoundary() public {
         vm.prank(challenger);
         bytes32 gameId = factory.createGame{value: 1 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
-        
+
         uint256 timeout = factory.GAME_TIMEOUT();
         vm.warp(block.timestamp + timeout);
         factory.resolveTimeout(gameId);
-        
+
         DisputeGameFactory.DisputeGame memory game = factory.getGame(gameId);
         assertEq(uint256(game.status), uint256(DisputeGameFactory.GameStatus.TIMEOUT));
     }
@@ -174,11 +195,13 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
     function testResolveTimeoutOneSecondBefore() public {
         vm.prank(challenger);
         bytes32 gameId = factory.createGame{value: 1 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
-        
+
         uint256 timeout = factory.GAME_TIMEOUT();
         vm.warp(block.timestamp + timeout - 1);
         vm.expectRevert(DisputeGameFactory.GameNotResolved.selector);
@@ -190,14 +213,16 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
     function testChallengerWinsWhenChallengerRejectsETH() public {
         RejectingReceiver rejectingChallenger = new RejectingReceiver();
         vm.deal(address(rejectingChallenger), 10 ether);
-        
+
         vm.prank(address(rejectingChallenger));
         bytes32 gameId = factory.createGame{value: 5 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
-        
+
         bytes memory proof = _generateFraudProof(STATE_ROOT, CLAIM_ROOT);
         uint256 treasuryBefore = treasury.balance;
         factory.resolveChallengerWins(gameId, proof);
@@ -207,14 +232,16 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
     function testReentrancyProtectionOnChallengerWins() public {
         vm.prank(challenger);
         bytes32 gameId = factory.createGame{value: 5 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
-        
+
         bytes memory proof = _generateFraudProof(STATE_ROOT, CLAIM_ROOT);
         factory.resolveChallengerWins(gameId, proof);
-        
+
         vm.expectRevert(DisputeGameFactory.GameAlreadyResolved.selector);
         factory.resolveChallengerWins(gameId, proof);
     }
@@ -224,11 +251,13 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
     function testResolveChallengerWinsWithEmptyProof() public {
         vm.prank(challenger);
         bytes32 gameId = factory.createGame{value: 5 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
-        
+
         // Empty proof should fail in prover
         vm.expectRevert(Prover.InvalidProofLength.selector);
         factory.resolveChallengerWins(gameId, "");
@@ -237,11 +266,13 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
     function testResolveChallengerWinsWithShortProof() public {
         vm.prank(challenger);
         bytes32 gameId = factory.createGame{value: 5 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
-        
+
         // Proof shorter than MIN_PROOF_LENGTH (32 bytes)
         bytes memory shortProof = new bytes(16);
         vm.expectRevert(Prover.InvalidProofLength.selector);
@@ -251,11 +282,13 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
     function testResolveProposerWinsWithFraudProof() public {
         vm.prank(challenger);
         bytes32 gameId = factory.createGame{value: 5 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
-        
+
         bytes memory fraudProof = _generateFraudProof(STATE_ROOT, CLAIM_ROOT);
         vm.expectRevert(DisputeGameFactory.GameNotResolved.selector);
         factory.resolveProposerWins(gameId, fraudProof);
@@ -264,11 +297,13 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
     function testResolveChallengerWinsWithDefenseProof() public {
         vm.prank(challenger);
         bytes32 gameId = factory.createGame{value: 5 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
-        
+
         bytes memory defenseProof = _generateDefenseProof(STATE_ROOT, CLAIM_ROOT);
         vm.expectRevert(DisputeGameFactory.GameNotResolved.selector);
         factory.resolveChallengerWins(gameId, defenseProof);
@@ -277,11 +312,13 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
     function testResolveWithWrongStateRoot() public {
         vm.prank(challenger);
         bytes32 gameId = factory.createGame{value: 5 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
-        
+
         bytes32 wrongStateRoot = keccak256("wrong");
         bytes memory wrongProof = _generateFraudProof(wrongStateRoot, CLAIM_ROOT);
         vm.expectRevert(); // Will revert due to state mismatch in prover
@@ -291,37 +328,57 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
     function testConcurrentResolutionAttempts() public {
         vm.prank(challenger);
         bytes32 gameId = factory.createGame{value: 5 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
-        
+
         bytes memory fraudProof = _generateFraudProof(STATE_ROOT, CLAIM_ROOT);
         bytes memory defenseProof = _generateDefenseProof(STATE_ROOT, CLAIM_ROOT);
-        
+
         factory.resolveChallengerWins(gameId, fraudProof);
-        
+
         vm.expectRevert(DisputeGameFactory.GameAlreadyResolved.selector);
         factory.resolveProposerWins(gameId, defenseProof);
     }
 
     function testMultipleGamesResolutionOrder() public {
         vm.startPrank(challenger);
-        bytes32 game1 = factory.createGame{value: 1 ether}(proposer, STATE_ROOT, CLAIM_ROOT, DisputeGameFactory.GameType.FAULT_DISPUTE, DisputeGameFactory.ProverType.CANNON);
+        bytes32 game1 = factory.createGame{value: 1 ether}(
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
+            DisputeGameFactory.GameType.FAULT_DISPUTE,
+            DisputeGameFactory.ProverType.CANNON
+        );
         vm.warp(block.timestamp + 1);
-        bytes32 game2 = factory.createGame{value: 2 ether}(proposer, keccak256("state2"), CLAIM_ROOT, DisputeGameFactory.GameType.FAULT_DISPUTE, DisputeGameFactory.ProverType.CANNON);
+        bytes32 game2 = factory.createGame{value: 2 ether}(
+            proposer,
+            keccak256("state2"),
+            CLAIM_ROOT,
+            DisputeGameFactory.GameType.FAULT_DISPUTE,
+            DisputeGameFactory.ProverType.CANNON
+        );
         vm.warp(block.timestamp + 1);
-        bytes32 game3 = factory.createGame{value: 3 ether}(proposer, keccak256("state3"), CLAIM_ROOT, DisputeGameFactory.GameType.FAULT_DISPUTE, DisputeGameFactory.ProverType.CANNON);
+        bytes32 game3 = factory.createGame{value: 3 ether}(
+            proposer,
+            keccak256("state3"),
+            CLAIM_ROOT,
+            DisputeGameFactory.GameType.FAULT_DISPUTE,
+            DisputeGameFactory.ProverType.CANNON
+        );
         vm.stopPrank();
-        
+
         assertEq(factory.getActiveGameCount(), 3);
-        
+
         factory.resolveChallengerWins(game2, _generateFraudProof(keccak256("state2"), CLAIM_ROOT));
         assertEq(factory.getActiveGameCount(), 2);
-        
+
         factory.resolveChallengerWins(game1, _generateFraudProof(STATE_ROOT, CLAIM_ROOT));
         assertEq(factory.getActiveGameCount(), 1);
-        
+
         factory.resolveChallengerWins(game3, _generateFraudProof(keccak256("state3"), CLAIM_ROOT));
         assertEq(factory.getActiveGameCount(), 0);
     }
@@ -329,14 +386,16 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
     function testDisableProverMidGame() public {
         vm.prank(challenger);
         bytes32 gameId = factory.createGame{value: 5 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
-        
+
         vm.prank(owner);
         factory.setProverImplementation(DisputeGameFactory.ProverType.CANNON, address(0), false);
-        
+
         bytes memory proof = _generateFraudProof(STATE_ROOT, CLAIM_ROOT);
         vm.expectRevert(DisputeGameFactory.InvalidProver.selector);
         factory.resolveChallengerWins(gameId, proof);
@@ -345,19 +404,21 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
     function testChangeProverMidGame() public {
         vm.prank(challenger);
         bytes32 gameId = factory.createGame{value: 5 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
-        
+
         Prover newProver = new Prover();
         vm.prank(owner);
         factory.setProverImplementation(DisputeGameFactory.ProverType.CANNON, address(newProver), true);
-        
+
         // Generate proof with new prover
         bytes memory proof = _generateFraudProof(STATE_ROOT, CLAIM_ROOT);
         factory.resolveChallengerWins(gameId, proof);
-        
+
         DisputeGameFactory.DisputeGame memory game = factory.getGame(gameId);
         assertEq(uint256(game.status), uint256(DisputeGameFactory.GameStatus.CHALLENGER_WINS));
     }
@@ -368,11 +429,13 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
         // Creating game with zero proposer is technically allowed but economically useless
         vm.prank(challenger);
         bytes32 gameId = factory.createGame{value: 1 ether}(
-            address(0), STATE_ROOT, CLAIM_ROOT,
+            address(0),
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
-        
+
         DisputeGameFactory.DisputeGame memory game = factory.getGame(gameId);
         assertEq(game.proposer, address(0));
     }
@@ -421,17 +484,19 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
     function testCreateManyGames() public {
         uint256 numGames = 50;
         bytes32[] memory gameIds = new bytes32[](numGames);
-        
+
         for (uint256 i = 0; i < numGames; i++) {
             vm.warp(block.timestamp + 1);
             vm.prank(challenger);
             gameIds[i] = factory.createGame{value: 1 ether}(
-                proposer, keccak256(abi.encode("state", i)), CLAIM_ROOT,
+                proposer,
+                keccak256(abi.encode("state", i)),
+                CLAIM_ROOT,
                 DisputeGameFactory.GameType.FAULT_DISPUTE,
                 DisputeGameFactory.ProverType.CANNON
             );
         }
-        
+
         assertEq(factory.getGameCount(), numGames);
         assertEq(factory.getActiveGameCount(), numGames);
         assertEq(factory.totalBondsLocked(), numGames * 1 ether);
@@ -442,19 +507,21 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
     function testGameStateTransitions() public {
         vm.prank(challenger);
         bytes32 gameId = factory.createGame{value: 5 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
-        
+
         DisputeGameFactory.DisputeGame memory game = factory.getGame(gameId);
         assertEq(uint256(game.status), uint256(DisputeGameFactory.GameStatus.PENDING));
         assertEq(game.resolvedAt, 0);
         assertEq(game.winner, address(0));
-        
+
         bytes memory proof = _generateFraudProof(STATE_ROOT, CLAIM_ROOT);
         factory.resolveChallengerWins(gameId, proof);
-        
+
         game = factory.getGame(gameId);
         assertEq(uint256(game.status), uint256(DisputeGameFactory.GameStatus.CHALLENGER_WINS));
         assertGt(game.resolvedAt, 0);
@@ -466,11 +533,13 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
     function testCreateGameWhilePaused() public {
         vm.prank(owner);
         factory.pause();
-        
+
         vm.prank(challenger);
         vm.expectRevert();
         factory.createGame{value: 1 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
@@ -480,19 +549,21 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
         // Create game before pause
         vm.prank(challenger);
         bytes32 gameId = factory.createGame{value: 5 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
-        
+
         // Pause
         vm.prank(owner);
         factory.pause();
-        
+
         // Resolution should still work (not pausable)
         bytes memory proof = _generateFraudProof(STATE_ROOT, CLAIM_ROOT);
         factory.resolveChallengerWins(gameId, proof);
-        
+
         DisputeGameFactory.DisputeGame memory game = factory.getGame(gameId);
         assertEq(uint256(game.status), uint256(DisputeGameFactory.GameStatus.CHALLENGER_WINS));
     }
@@ -500,17 +571,19 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
     function testUnpauseAndCreateGame() public {
         vm.prank(owner);
         factory.pause();
-        
+
         vm.prank(owner);
         factory.unpause();
-        
+
         vm.prank(challenger);
         bytes32 gameId = factory.createGame{value: 1 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
-        
+
         assertTrue(factory.isGame(gameId));
     }
 
@@ -520,20 +593,22 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
         // Create game with CANNON prover
         vm.prank(challenger);
         bytes32 gameId = factory.createGame{value: 5 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
-        
+
         // Deploy new prover and switch
         Prover newProver = new Prover();
         vm.prank(owner);
         factory.setProverImplementation(DisputeGameFactory.ProverType.CANNON, address(newProver), true);
-        
+
         // Generate proof - must work with new prover
         bytes memory proof = _generateFraudProof(STATE_ROOT, CLAIM_ROOT);
         factory.resolveChallengerWins(gameId, proof);
-        
+
         DisputeGameFactory.DisputeGame memory game = factory.getGame(gameId);
         assertEq(uint256(game.status), uint256(DisputeGameFactory.GameStatus.CHALLENGER_WINS));
     }
@@ -542,28 +617,46 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
 
     function testTotalBondsLockedAccuracy() public {
         assertEq(factory.totalBondsLocked(), 0);
-        
+
         vm.startPrank(challenger);
-        bytes32 game1 = factory.createGame{value: 1 ether}(proposer, STATE_ROOT, CLAIM_ROOT, DisputeGameFactory.GameType.FAULT_DISPUTE, DisputeGameFactory.ProverType.CANNON);
+        bytes32 game1 = factory.createGame{value: 1 ether}(
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
+            DisputeGameFactory.GameType.FAULT_DISPUTE,
+            DisputeGameFactory.ProverType.CANNON
+        );
         assertEq(factory.totalBondsLocked(), 1 ether);
-        
+
         vm.warp(block.timestamp + 1);
-        bytes32 game2 = factory.createGame{value: 2 ether}(proposer, keccak256("s2"), CLAIM_ROOT, DisputeGameFactory.GameType.FAULT_DISPUTE, DisputeGameFactory.ProverType.CANNON);
+        bytes32 game2 = factory.createGame{value: 2 ether}(
+            proposer,
+            keccak256("s2"),
+            CLAIM_ROOT,
+            DisputeGameFactory.GameType.FAULT_DISPUTE,
+            DisputeGameFactory.ProverType.CANNON
+        );
         assertEq(factory.totalBondsLocked(), 3 ether);
-        
+
         vm.warp(block.timestamp + 1);
-        bytes32 game3 = factory.createGame{value: 3 ether}(proposer, keccak256("s3"), CLAIM_ROOT, DisputeGameFactory.GameType.FAULT_DISPUTE, DisputeGameFactory.ProverType.CANNON);
+        bytes32 game3 = factory.createGame{value: 3 ether}(
+            proposer,
+            keccak256("s3"),
+            CLAIM_ROOT,
+            DisputeGameFactory.GameType.FAULT_DISPUTE,
+            DisputeGameFactory.ProverType.CANNON
+        );
         assertEq(factory.totalBondsLocked(), 6 ether);
         vm.stopPrank();
-        
+
         // Resolve one game
         factory.resolveChallengerWins(game2, _generateFraudProof(keccak256("s2"), CLAIM_ROOT));
         assertEq(factory.totalBondsLocked(), 4 ether);
-        
+
         // Resolve another
         factory.resolveChallengerWins(game1, _generateFraudProof(STATE_ROOT, CLAIM_ROOT));
         assertEq(factory.totalBondsLocked(), 3 ether);
-        
+
         // Resolve last
         factory.resolveChallengerWins(game3, _generateFraudProof(keccak256("s3"), CLAIM_ROOT));
         assertEq(factory.totalBondsLocked(), 0);
@@ -575,12 +668,14 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
         uint256 gasBefore = gasleft();
         vm.prank(challenger);
         factory.createGame{value: 1 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
         uint256 gasUsed = gasBefore - gasleft();
-        
+
         // Should be under 350k gas (accounts for test suite overhead variance)
         assertLt(gasUsed, 350_000);
     }
@@ -588,17 +683,19 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
     function testResolveGameGas() public {
         vm.prank(challenger);
         bytes32 gameId = factory.createGame{value: 5 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
-        
+
         bytes memory proof = _generateFraudProof(STATE_ROOT, CLAIM_ROOT);
-        
+
         uint256 gasBefore = gasleft();
         factory.resolveChallengerWins(gameId, proof);
         uint256 gasUsed = gasBefore - gasleft();
-        
+
         // Should be under 200k gas
         assertLt(gasUsed, 200_000);
     }
@@ -609,7 +706,18 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
         vm.prank(challenger);
         vm.expectEmit(true, true, true, true);
         emit DisputeGameFactory.GameCreated(
-            keccak256(abi.encodePacked(challenger, proposer, STATE_ROOT, CLAIM_ROOT, DisputeGameFactory.GameType.FAULT_DISPUTE, DisputeGameFactory.ProverType.CANNON, block.timestamp, block.number)),
+            keccak256(
+                abi.encodePacked(
+                    challenger,
+                    proposer,
+                    STATE_ROOT,
+                    CLAIM_ROOT,
+                    DisputeGameFactory.GameType.FAULT_DISPUTE,
+                    DisputeGameFactory.ProverType.CANNON,
+                    block.timestamp,
+                    block.number
+                )
+            ),
             challenger,
             proposer,
             STATE_ROOT,
@@ -618,7 +726,9 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
             5 ether
         );
         factory.createGame{value: 5 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
@@ -701,13 +811,13 @@ contract SequencerRegistryEdgeCasesTest is Test {
     function testIncreaseStakeToExactlyMax() public {
         uint256 maxStake = registry.MAX_STAKE();
         uint256 initialStake = 50_000 ether;
-        
+
         vm.startPrank(sequencer1);
         jejuToken.approve(address(registry), maxStake);
         registry.register(agentId1, initialStake);
         registry.increaseStake(maxStake - initialStake);
         vm.stopPrank();
-        
+
         (, uint256 stake,,,,,,,) = registry.sequencers(sequencer1);
         assertEq(stake, maxStake);
     }
@@ -715,7 +825,7 @@ contract SequencerRegistryEdgeCasesTest is Test {
     function testIncreaseStakeOneWeiOverMax() public {
         uint256 maxStake = registry.MAX_STAKE();
         uint256 initialStake = 50_000 ether;
-        
+
         vm.startPrank(sequencer1);
         jejuToken.approve(address(registry), maxStake + 1);
         registry.register(agentId1, initialStake);
@@ -727,13 +837,13 @@ contract SequencerRegistryEdgeCasesTest is Test {
     function testDecreaseStakeToExactlyMin() public {
         uint256 minStake = registry.MIN_STAKE();
         uint256 initialStake = 10_000 ether;
-        
+
         vm.startPrank(sequencer1);
         jejuToken.approve(address(registry), initialStake);
         registry.register(agentId1, initialStake);
         registry.decreaseStake(initialStake - minStake);
         vm.stopPrank();
-        
+
         (, uint256 stake,,,,,,,) = registry.sequencers(sequencer1);
         assertEq(stake, minStake);
     }
@@ -741,7 +851,7 @@ contract SequencerRegistryEdgeCasesTest is Test {
     function testDecreaseStakeOneWeiBelowMin() public {
         uint256 minStake = registry.MIN_STAKE();
         uint256 initialStake = 10_000 ether;
-        
+
         vm.startPrank(sequencer1);
         jejuToken.approve(address(registry), initialStake);
         registry.register(agentId1, initialStake);
@@ -759,10 +869,10 @@ contract SequencerRegistryEdgeCasesTest is Test {
         jejuToken.approve(address(registry), 2000 ether);
         registry.register(agentId1, 2000 ether);
         vm.stopPrank();
-        
+
         vm.prank(owner);
         registry.slash(sequencer1, SequencerRegistry.SlashingReason.CENSORSHIP);
-        
+
         (, uint256 stake,,,,,, bool isActive,) = registry.sequencers(sequencer1);
         assertEq(stake, 1000 ether);
         assertTrue(isActive); // Still active at minimum
@@ -774,16 +884,16 @@ contract SequencerRegistryEdgeCasesTest is Test {
         jejuToken.approve(address(registry), 1500 ether);
         registry.register(agentId1, 1500 ether);
         vm.stopPrank();
-        
+
         uint256 balanceBefore = jejuToken.balanceOf(sequencer1);
-        
+
         vm.prank(owner);
         registry.slash(sequencer1, SequencerRegistry.SlashingReason.CENSORSHIP);
-        
+
         (, uint256 stake,,,,,, bool isActive,) = registry.sequencers(sequencer1);
         assertEq(stake, 750 ether);
         assertFalse(isActive); // Deactivated
-        
+
         // Remaining stake returned to sequencer
         assertEq(jejuToken.balanceOf(sequencer1), balanceBefore + 750 ether);
     }
@@ -795,10 +905,10 @@ contract SequencerRegistryEdgeCasesTest is Test {
         jejuToken.approve(address(registry), 10000 ether);
         registry.register(agentId1, 10000 ether);
         vm.stopPrank();
-        
+
         vm.prank(owner);
         registry.slash(sequencer1, SequencerRegistry.SlashingReason.DOWNTIME);
-        
+
         (, uint256 stake,,,,,, bool isActive, bool isSlashed) = registry.sequencers(sequencer1);
         assertEq(stake, 9000 ether);
         assertTrue(isActive); // Still active
@@ -810,35 +920,35 @@ contract SequencerRegistryEdgeCasesTest is Test {
         jejuToken.approve(address(registry), 2000 ether);
         registry.register(agentId1, 2000 ether);
         vm.stopPrank();
-        
+
         // First slash: 2000 * 10% = 200, remaining 1800
         vm.prank(owner);
         registry.slash(sequencer1, SequencerRegistry.SlashingReason.DOWNTIME);
-        (, uint256 stake1,,,,,,bool isActive1,) = registry.sequencers(sequencer1);
+        (, uint256 stake1,,,,,, bool isActive1,) = registry.sequencers(sequencer1);
         assertEq(stake1, 1800 ether);
         assertTrue(isActive1);
-        
+
         // Second slash: 1800 * 10% = 180, remaining 1620
         vm.prank(owner);
         registry.slash(sequencer1, SequencerRegistry.SlashingReason.DOWNTIME);
-        (, uint256 stake2,,,,,,bool isActive2,) = registry.sequencers(sequencer1);
+        (, uint256 stake2,,,,,, bool isActive2,) = registry.sequencers(sequencer1);
         assertEq(stake2, 1620 ether);
         assertTrue(isActive2);
-        
+
         // Third slash: 1620 * 10% = 162, remaining 1458
         vm.prank(owner);
         registry.slash(sequencer1, SequencerRegistry.SlashingReason.DOWNTIME);
-        (, uint256 stake3,,,,,,bool isActive3,) = registry.sequencers(sequencer1);
+        (, uint256 stake3,,,,,, bool isActive3,) = registry.sequencers(sequencer1);
         assertEq(stake3, 1458 ether);
         assertTrue(isActive3);
-        
+
         // Continue until below MIN_STAKE
         while (isActive3) {
             vm.prank(owner);
             registry.slash(sequencer1, SequencerRegistry.SlashingReason.DOWNTIME);
             (,,,,,,, isActive3,) = registry.sequencers(sequencer1);
         }
-        
+
         assertFalse(isActive3);
     }
 
@@ -849,12 +959,12 @@ contract SequencerRegistryEdgeCasesTest is Test {
         jejuToken.approve(address(registry), 10000 ether);
         registry.register(agentId1, 10000 ether);
         vm.stopPrank();
-        
+
         vm.prank(owner);
         registry.recordBlockProposed(sequencer1, 1);
-        
+
         uint256 threshold = registry.DOWNTIME_THRESHOLD();
-        
+
         // Check exactly at threshold - should not slash
         registry.checkDowntime(sequencer1, 1 + threshold);
         (, uint256 stake1,,,,,,,) = registry.sequencers(sequencer1);
@@ -866,12 +976,12 @@ contract SequencerRegistryEdgeCasesTest is Test {
         jejuToken.approve(address(registry), 10000 ether);
         registry.register(agentId1, 10000 ether);
         vm.stopPrank();
-        
+
         vm.prank(owner);
         registry.recordBlockProposed(sequencer1, 1);
-        
+
         uint256 threshold = registry.DOWNTIME_THRESHOLD();
-        
+
         // Check one over threshold - should slash
         registry.checkDowntime(sequencer1, 1 + threshold + 1);
         (, uint256 stake,,,,,,,) = registry.sequencers(sequencer1);
@@ -885,9 +995,9 @@ contract SequencerRegistryEdgeCasesTest is Test {
         jejuToken.approve(address(registry), 10000 ether);
         registry.register(agentId1, 10000 ether);
         vm.stopPrank();
-        
+
         uint256 weight = registry.getSelectionWeight(sequencer1);
-        
+
         // Weight = baseWeight + repWeight
         // baseWeight = stake * (10000 - REPUTATION_WEIGHT) / 10000
         //            = 10000 * 5000 / 10000 = 5000 ether
@@ -903,15 +1013,15 @@ contract SequencerRegistryEdgeCasesTest is Test {
         jejuToken.approve(address(registry), 10000 ether);
         registry.register(agentId1, 10000 ether);
         vm.stopPrank();
-        
+
         vm.startPrank(sequencer2);
         jejuToken.approve(address(registry), 20000 ether);
         registry.register(agentId2, 20000 ether);
         vm.stopPrank();
-        
+
         uint256 weight1 = registry.getSelectionWeight(sequencer1);
         uint256 weight2 = registry.getSelectionWeight(sequencer2);
-        
+
         // weight2 should be approximately 2x weight1
         assertApproxEqRel(weight2, weight1 * 2, 0.01e18);
     }
@@ -935,7 +1045,9 @@ contract SequencerRegistryEdgeCasesTest is Test {
 
     function testConstructorZeroTreasury() public {
         vm.expectRevert(SequencerRegistry.InvalidAddress.selector);
-        new SequencerRegistry(address(jejuToken), address(identityRegistry), address(reputationRegistry), address(0), owner);
+        new SequencerRegistry(
+            address(jejuToken), address(identityRegistry), address(reputationRegistry), address(0), owner
+        );
     }
 }
 
@@ -959,10 +1071,10 @@ contract GovernanceTimelockEdgeCasesTest is Test {
     function testProposeWithLargeCalldata() public {
         // Create calldata with large payload
         bytes memory largeData = abi.encodeWithSelector(MockTarget.setValue.selector, uint256(type(uint256).max));
-        
+
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(target), largeData, "Large value test");
-        
+
         GovernanceTimelock.Proposal memory proposal = timelock.getProposal(proposalId);
         assertEq(keccak256(proposal.data), keccak256(largeData));
     }
@@ -970,7 +1082,7 @@ contract GovernanceTimelockEdgeCasesTest is Test {
     function testProposeWithEmptyCalldata() public {
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(target), "", "Empty calldata");
-        
+
         GovernanceTimelock.Proposal memory proposal = timelock.getProposal(proposalId);
         assertEq(proposal.data.length, 0);
     }
@@ -979,13 +1091,13 @@ contract GovernanceTimelockEdgeCasesTest is Test {
         // Create a contract that accepts empty calls
         address receiver = makeAddr("receiver");
         vm.deal(address(timelock), 1 ether);
-        
+
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(receiver, "", "Empty calldata to EOA");
-        
+
         vm.warp(block.timestamp + DELAY);
         timelock.execute(proposalId);
-        
+
         GovernanceTimelock.Proposal memory proposal = timelock.getProposal(proposalId);
         assertTrue(proposal.executed);
     }
@@ -994,10 +1106,10 @@ contract GovernanceTimelockEdgeCasesTest is Test {
 
     function testExecuteOneSecondBeforeExpiry() public {
         bytes memory data = abi.encodeWithSelector(MockTarget.setValue.selector, 42);
-        
+
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(target), data, "test");
-        
+
         vm.warp(block.timestamp + DELAY - 1);
         vm.expectRevert(GovernanceTimelock.TimelockNotExpired.selector);
         timelock.execute(proposalId);
@@ -1005,10 +1117,10 @@ contract GovernanceTimelockEdgeCasesTest is Test {
 
     function testExecuteExactlyAtExpiry() public {
         bytes memory data = abi.encodeWithSelector(MockTarget.setValue.selector, 42);
-        
+
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(target), data, "test");
-        
+
         vm.warp(block.timestamp + DELAY);
         timelock.execute(proposalId);
         assertEq(target.value(), 42);
@@ -1016,22 +1128,22 @@ contract GovernanceTimelockEdgeCasesTest is Test {
 
     function testTimeRemainingDecrementsCorrectly() public {
         bytes memory data = abi.encodeWithSelector(MockTarget.setValue.selector, 42);
-        
+
         uint256 startTime = block.timestamp;
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(target), data, "test");
-        
+
         uint256 remaining1 = timelock.timeRemaining(proposalId);
         assertEq(remaining1, DELAY);
-        
+
         vm.warp(startTime + 30 minutes);
         uint256 remaining2 = timelock.timeRemaining(proposalId);
         assertEq(remaining2, DELAY - 30 minutes);
-        
+
         vm.warp(startTime + DELAY);
         uint256 remaining3 = timelock.timeRemaining(proposalId);
         assertEq(remaining3, 0);
-        
+
         vm.warp(startTime + DELAY + 1 hours);
         uint256 remaining4 = timelock.timeRemaining(proposalId);
         assertEq(remaining4, 0); // Still 0 after expiry
@@ -1042,18 +1154,18 @@ contract GovernanceTimelockEdgeCasesTest is Test {
     function testEmergencyExecutesFasterThanNormal() public {
         bytes memory data = abi.encodeWithSelector(MockTarget.setValue.selector, 42);
         bytes32 bugProof = keccak256("proof");
-        
+
         // Normal proposal
         vm.prank(governance);
         bytes32 normalId = timelock.proposeUpgrade(address(target), data, "normal");
-        
+
         // Emergency proposal
         vm.prank(securityCouncil);
         bytes32 emergencyId = timelock.proposeEmergencyBugfix(address(target), data, "emergency", bugProof);
-        
+
         GovernanceTimelock.Proposal memory normalProposal = timelock.getProposal(normalId);
         GovernanceTimelock.Proposal memory emergencyProposal = timelock.getProposal(emergencyId);
-        
+
         assertLt(emergencyProposal.executeAfter, normalProposal.executeAfter);
     }
 
@@ -1063,24 +1175,24 @@ contract GovernanceTimelockEdgeCasesTest is Test {
         bytes memory data1 = abi.encodeWithSelector(MockTarget.setValue.selector, 1);
         bytes memory data2 = abi.encodeWithSelector(MockTarget.setValue.selector, 2);
         bytes memory data3 = abi.encodeWithSelector(MockTarget.setValue.selector, 3);
-        
+
         vm.startPrank(governance);
         bytes32 id1 = timelock.proposeUpgrade(address(target), data1, "p1");
         bytes32 id2 = timelock.proposeUpgrade(address(target), data2, "p2");
         bytes32 id3 = timelock.proposeUpgrade(address(target), data3, "p3");
         vm.stopPrank();
-        
+
         bytes32[] memory allIds = timelock.getAllProposalIds();
         assertEq(allIds.length, 3);
-        
+
         // Execute in reverse order
         vm.warp(block.timestamp + DELAY);
         timelock.execute(id3);
         assertEq(target.value(), 3);
-        
+
         timelock.execute(id1);
         assertEq(target.value(), 1);
-        
+
         timelock.execute(id2);
         assertEq(target.value(), 2);
     }
@@ -1111,24 +1223,24 @@ contract GovernanceTimelockEdgeCasesTest is Test {
 
     function testExecutionFailurePreservesState() public {
         bytes memory data = abi.encodeWithSelector(MockTarget.setValue.selector, 42);
-        
+
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(target), data, "test");
-        
+
         target.setShouldRevert(true);
-        
+
         vm.warp(block.timestamp + DELAY);
         vm.expectRevert(GovernanceTimelock.ExecutionFailed.selector);
         timelock.execute(proposalId);
-        
+
         // Proposal should NOT be marked as executed
         GovernanceTimelock.Proposal memory proposal = timelock.getProposal(proposalId);
         assertFalse(proposal.executed);
-        
+
         // Fix target and retry
         target.setShouldRevert(false);
         timelock.execute(proposalId);
-        
+
         proposal = timelock.getProposal(proposalId);
         assertTrue(proposal.executed);
         assertEq(target.value(), 42);
@@ -1138,13 +1250,13 @@ contract GovernanceTimelockEdgeCasesTest is Test {
 
     function testCancelTwice() public {
         bytes memory data = abi.encodeWithSelector(MockTarget.setValue.selector, 42);
-        
+
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(target), data, "test");
-        
+
         vm.prank(governance);
         timelock.cancel(proposalId);
-        
+
         vm.prank(governance);
         vm.expectRevert(GovernanceTimelock.ProposalAlreadyCancelled.selector);
         timelock.cancel(proposalId);

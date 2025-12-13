@@ -4,11 +4,13 @@
  */
 
 import { describe, test, expect } from 'bun:test';
+import { APP_URLS, INFRA_PORTS } from '../shared/constants';
 
-const INDEXER_GRAPHQL = 'http://localhost:4350/graphql';
-const IPFS_API = 'http://localhost:3100';
-const GRAFANA_API = 'http://localhost:4010';
-const PROMETHEUS_API = 'http://localhost:9090';
+const HOST = process.env.HOST || '127.0.0.1';
+const INDEXER_GRAPHQL = APP_URLS.indexerGraphQL;
+const IPFS_API = APP_URLS.ipfs;
+const GRAFANA_API = `http://${HOST}:${INFRA_PORTS.grafana}`;
+const PROMETHEUS_API = `http://${HOST}:${INFRA_PORTS.prometheus}`;
 
 describe('Service Integration - Indexer + IPFS + Monitoring', () => {
   test('indexer GraphQL API is accessible', async () => {

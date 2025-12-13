@@ -34,66 +34,56 @@ contract ProverTest is Test {
     function setUp() public {
         prover = new Prover();
         factory = new DisputeGameFactory(treasury, owner);
-        
+
         validator1 = vm.addr(VALIDATOR1_KEY);
         validator2 = vm.addr(VALIDATOR2_KEY);
         validator3 = vm.addr(VALIDATOR3_KEY);
-        
+
         vm.prank(owner);
         factory.setProverImplementation(DisputeGameFactory.ProverType.SIMPLE, address(prover), true);
         vm.deal(challenger, 100 ether);
     }
 
-    function _generateFraudProof(
-        bytes32 stateRoot,
-        bytes32 claimRoot,
-        bytes32 actualPostState
-    ) internal view returns (bytes memory) {
+    function _generateFraudProof(bytes32 stateRoot, bytes32 claimRoot, bytes32 actualPostState)
+        internal
+        view
+        returns (bytes memory)
+    {
         address[] memory signers = new address[](1);
         bytes[] memory signatures = new bytes[](1);
         signers[0] = validator1;
-        
+
         bytes32 outputRoot = keccak256(abi.encodePacked(BLOCK_HASH, stateRoot, actualPostState));
-        bytes32 fraudHash = keccak256(abi.encodePacked(
-            prover.FRAUD_DOMAIN(),
-            stateRoot,
-            claimRoot,
-            actualPostState,
-            BLOCK_HASH,
-            BLOCK_NUMBER,
-            outputRoot
-        ));
-        
+        bytes32 fraudHash = keccak256(
+            abi.encodePacked(
+                prover.FRAUD_DOMAIN(), stateRoot, claimRoot, actualPostState, BLOCK_HASH, BLOCK_NUMBER, outputRoot
+            )
+        );
+
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(VALIDATOR1_KEY, fraudHash.toEthSignedMessageHash());
         signatures[0] = abi.encodePacked(r, s, v);
-        
-        return prover.generateFraudProof(stateRoot, claimRoot, actualPostState, BLOCK_HASH, BLOCK_NUMBER, signers, signatures);
+
+        return prover.generateFraudProof(
+            stateRoot, claimRoot, actualPostState, BLOCK_HASH, BLOCK_NUMBER, signers, signatures
+        );
     }
 
-    function _generateDefenseProof(
-        bytes32 stateRoot,
-        bytes32 claimRoot
-    ) internal view returns (bytes memory) {
+    function _generateDefenseProof(bytes32 stateRoot, bytes32 claimRoot) internal view returns (bytes memory) {
         address[] memory signers = new address[](2);
         bytes[] memory signatures = new bytes[](2);
         signers[0] = validator1;
         signers[1] = validator2;
-        
+
         bytes32 outputRoot = keccak256(abi.encodePacked(BLOCK_HASH, stateRoot, claimRoot));
-        bytes32 defenseHash = keccak256(abi.encodePacked(
-            prover.DEFENSE_DOMAIN(),
-            stateRoot,
-            claimRoot,
-            BLOCK_HASH,
-            BLOCK_NUMBER,
-            outputRoot
-        ));
-        
+        bytes32 defenseHash = keccak256(
+            abi.encodePacked(prover.DEFENSE_DOMAIN(), stateRoot, claimRoot, BLOCK_HASH, BLOCK_NUMBER, outputRoot)
+        );
+
         (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(VALIDATOR1_KEY, defenseHash.toEthSignedMessageHash());
         (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(VALIDATOR2_KEY, defenseHash.toEthSignedMessageHash());
         signatures[0] = abi.encodePacked(r1, s1, v1);
         signatures[1] = abi.encodePacked(r2, s2, v2);
-        
+
         return prover.generateDefenseProof(stateRoot, claimRoot, BLOCK_HASH, BLOCK_NUMBER, signers, signatures);
     }
 
@@ -167,11 +157,11 @@ contract ProverTest is Test {
         bytes[] memory signatures = new bytes[](1);
         signers[0] = validator1;
         signatures[0] = abi.encodePacked(bytes32(0), bytes32(0), uint8(27)); // Invalid sig
-        
+
         bytes memory proof = prover.generateFraudProof(
             STATE_ROOT, CLAIM_ROOT, ACTUAL_POST_STATE, BLOCK_HASH, BLOCK_NUMBER, signers, signatures
         );
-        
+
         // ECDSA library throws ECDSAInvalidSignature for invalid signature bytes
         vm.expectRevert();
         prover.verifyProof(STATE_ROOT, CLAIM_ROOT, proof);
@@ -182,16 +172,17 @@ contract ProverTest is Test {
         address[] memory signers = new address[](1);
         bytes[] memory signatures = new bytes[](1);
         signers[0] = validator1;
-        
+
         bytes32 outputRoot = keccak256(abi.encodePacked(BLOCK_HASH, STATE_ROOT, CLAIM_ROOT));
-        bytes32 defenseHash = keccak256(abi.encodePacked(
-            prover.DEFENSE_DOMAIN(), STATE_ROOT, CLAIM_ROOT, BLOCK_HASH, BLOCK_NUMBER, outputRoot
-        ));
-        
+        bytes32 defenseHash = keccak256(
+            abi.encodePacked(prover.DEFENSE_DOMAIN(), STATE_ROOT, CLAIM_ROOT, BLOCK_HASH, BLOCK_NUMBER, outputRoot)
+        );
+
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(VALIDATOR1_KEY, defenseHash.toEthSignedMessageHash());
         signatures[0] = abi.encodePacked(r, s, v);
-        
-        bytes memory proof = prover.generateDefenseProof(STATE_ROOT, CLAIM_ROOT, BLOCK_HASH, BLOCK_NUMBER, signers, signatures);
+
+        bytes memory proof =
+            prover.generateDefenseProof(STATE_ROOT, CLAIM_ROOT, BLOCK_HASH, BLOCK_NUMBER, signers, signatures);
         vm.expectRevert(Prover.InsufficientSignatures.selector);
         prover.verifyDefenseProof(STATE_ROOT, CLAIM_ROOT, proof);
     }
@@ -201,20 +192,22 @@ contract ProverTest is Test {
         bytes[] memory signatures = new bytes[](2);
         signers[0] = validator1;
         signers[1] = validator1; // Duplicate
-        
+
         bytes32 outputRoot = keccak256(abi.encodePacked(BLOCK_HASH, STATE_ROOT, ACTUAL_POST_STATE));
-        bytes32 fraudHash = keccak256(abi.encodePacked(
-            prover.FRAUD_DOMAIN(), STATE_ROOT, CLAIM_ROOT, ACTUAL_POST_STATE, BLOCK_HASH, BLOCK_NUMBER, outputRoot
-        ));
-        
+        bytes32 fraudHash = keccak256(
+            abi.encodePacked(
+                prover.FRAUD_DOMAIN(), STATE_ROOT, CLAIM_ROOT, ACTUAL_POST_STATE, BLOCK_HASH, BLOCK_NUMBER, outputRoot
+            )
+        );
+
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(VALIDATOR1_KEY, fraudHash.toEthSignedMessageHash());
         signatures[0] = abi.encodePacked(r, s, v);
         signatures[1] = abi.encodePacked(r, s, v);
-        
+
         bytes memory proof = prover.generateFraudProof(
             STATE_ROOT, CLAIM_ROOT, ACTUAL_POST_STATE, BLOCK_HASH, BLOCK_NUMBER, signers, signatures
         );
-        
+
         vm.expectRevert(Prover.DuplicateSigner.selector);
         prover.verifyProof(STATE_ROOT, CLAIM_ROOT, proof);
     }
@@ -222,7 +215,9 @@ contract ProverTest is Test {
     function testIntegrationChallengerWins() public {
         vm.prank(challenger);
         bytes32 gameId = factory.createGame{value: 5 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.SIMPLE
         );
@@ -240,7 +235,9 @@ contract ProverTest is Test {
     function testIntegrationProposerWins() public {
         vm.prank(challenger);
         bytes32 gameId = factory.createGame{value: 5 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.SIMPLE
         );
@@ -258,7 +255,9 @@ contract ProverTest is Test {
     function testIntegrationInvalidFraudProofFails() public {
         vm.prank(challenger);
         bytes32 gameId = factory.createGame{value: 5 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.SIMPLE
         );
@@ -272,7 +271,9 @@ contract ProverTest is Test {
     function testIntegrationInvalidDefenseProofFails() public {
         vm.prank(challenger);
         bytes32 gameId = factory.createGame{value: 5 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.SIMPLE
         );
@@ -285,21 +286,25 @@ contract ProverTest is Test {
 
     function testFuzzVerifyFraudProof(bytes32 stateRoot, bytes32 claimRoot, bytes32 actualPostState) public view {
         vm.assume(actualPostState != claimRoot); // Fraud requires different states
-        
+
         address[] memory signers = new address[](1);
         bytes[] memory signatures = new bytes[](1);
         signers[0] = validator1;
-        
+
         bytes32 blockHash = keccak256(abi.encodePacked("fuzz_block", stateRoot));
         bytes32 outputRoot = keccak256(abi.encodePacked(blockHash, stateRoot, actualPostState));
-        bytes32 fraudHash = keccak256(abi.encodePacked(
-            prover.FRAUD_DOMAIN(), stateRoot, claimRoot, actualPostState, blockHash, BLOCK_NUMBER, outputRoot
-        ));
-        
+        bytes32 fraudHash = keccak256(
+            abi.encodePacked(
+                prover.FRAUD_DOMAIN(), stateRoot, claimRoot, actualPostState, blockHash, BLOCK_NUMBER, outputRoot
+            )
+        );
+
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(VALIDATOR1_KEY, fraudHash.toEthSignedMessageHash());
         signatures[0] = abi.encodePacked(r, s, v);
-        
-        bytes memory proof = prover.generateFraudProof(stateRoot, claimRoot, actualPostState, blockHash, BLOCK_NUMBER, signers, signatures);
+
+        bytes memory proof = prover.generateFraudProof(
+            stateRoot, claimRoot, actualPostState, blockHash, BLOCK_NUMBER, signers, signatures
+        );
         assertTrue(prover.verifyProof(stateRoot, claimRoot, proof));
     }
 
@@ -308,19 +313,20 @@ contract ProverTest is Test {
         bytes[] memory signatures = new bytes[](2);
         signers[0] = validator1;
         signers[1] = validator2;
-        
+
         bytes32 blockHash = keccak256(abi.encodePacked("fuzz_block", stateRoot));
         bytes32 outputRoot = keccak256(abi.encodePacked(blockHash, stateRoot, claimRoot));
-        bytes32 defenseHash = keccak256(abi.encodePacked(
-            prover.DEFENSE_DOMAIN(), stateRoot, claimRoot, blockHash, BLOCK_NUMBER, outputRoot
-        ));
-        
+        bytes32 defenseHash = keccak256(
+            abi.encodePacked(prover.DEFENSE_DOMAIN(), stateRoot, claimRoot, blockHash, BLOCK_NUMBER, outputRoot)
+        );
+
         (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(VALIDATOR1_KEY, defenseHash.toEthSignedMessageHash());
         (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(VALIDATOR2_KEY, defenseHash.toEthSignedMessageHash());
         signatures[0] = abi.encodePacked(r1, s1, v1);
         signatures[1] = abi.encodePacked(r2, s2, v2);
-        
-        bytes memory proof = prover.generateDefenseProof(stateRoot, claimRoot, blockHash, BLOCK_NUMBER, signers, signatures);
+
+        bytes memory proof =
+            prover.generateDefenseProof(stateRoot, claimRoot, blockHash, BLOCK_NUMBER, signers, signatures);
         assertTrue(prover.verifyDefenseProof(stateRoot, claimRoot, proof));
     }
 
@@ -386,19 +392,21 @@ contract ProverTest is Test {
         signers[0] = validator1;
         signers[1] = validator2;
         signers[2] = validator3;
-        
+
         bytes32 outputRoot = keccak256(abi.encodePacked(BLOCK_HASH, STATE_ROOT, ACTUAL_POST_STATE));
-        bytes32 fraudHash = keccak256(abi.encodePacked(
-            prover.FRAUD_DOMAIN(), STATE_ROOT, CLAIM_ROOT, ACTUAL_POST_STATE, BLOCK_HASH, BLOCK_NUMBER, outputRoot
-        ));
-        
+        bytes32 fraudHash = keccak256(
+            abi.encodePacked(
+                prover.FRAUD_DOMAIN(), STATE_ROOT, CLAIM_ROOT, ACTUAL_POST_STATE, BLOCK_HASH, BLOCK_NUMBER, outputRoot
+            )
+        );
+
         (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(VALIDATOR1_KEY, fraudHash.toEthSignedMessageHash());
         (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(VALIDATOR2_KEY, fraudHash.toEthSignedMessageHash());
         (uint8 v3, bytes32 r3, bytes32 s3) = vm.sign(VALIDATOR3_KEY, fraudHash.toEthSignedMessageHash());
         signatures[0] = abi.encodePacked(r1, s1, v1);
         signatures[1] = abi.encodePacked(r2, s2, v2);
         signatures[2] = abi.encodePacked(r3, s3, v3);
-        
+
         bytes memory proof = prover.generateFraudProof(
             STATE_ROOT, CLAIM_ROOT, ACTUAL_POST_STATE, BLOCK_HASH, BLOCK_NUMBER, signers, signatures
         );
@@ -409,16 +417,16 @@ contract ProverTest is Test {
         address[] memory signers = new address[](1);
         bytes[] memory signatures = new bytes[](1);
         signers[0] = validator1;
-        
+
         // Sign a completely different message
         bytes32 wrongMessage = keccak256("wrong message");
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(VALIDATOR1_KEY, wrongMessage.toEthSignedMessageHash());
         signatures[0] = abi.encodePacked(r, s, v);
-        
+
         bytes memory proof = prover.generateFraudProof(
             STATE_ROOT, CLAIM_ROOT, ACTUAL_POST_STATE, BLOCK_HASH, BLOCK_NUMBER, signers, signatures
         );
-        
+
         // Signature is valid but for wrong message, so recovered address won't match
         vm.expectRevert(Prover.InvalidSignature.selector);
         prover.verifyProof(STATE_ROOT, CLAIM_ROOT, proof);
@@ -428,20 +436,22 @@ contract ProverTest is Test {
         address[] memory signers = new address[](1);
         bytes[] memory signatures = new bytes[](1);
         signers[0] = validator1; // Claim to be validator1
-        
+
         bytes32 outputRoot = keccak256(abi.encodePacked(BLOCK_HASH, STATE_ROOT, ACTUAL_POST_STATE));
-        bytes32 fraudHash = keccak256(abi.encodePacked(
-            prover.FRAUD_DOMAIN(), STATE_ROOT, CLAIM_ROOT, ACTUAL_POST_STATE, BLOCK_HASH, BLOCK_NUMBER, outputRoot
-        ));
-        
+        bytes32 fraudHash = keccak256(
+            abi.encodePacked(
+                prover.FRAUD_DOMAIN(), STATE_ROOT, CLAIM_ROOT, ACTUAL_POST_STATE, BLOCK_HASH, BLOCK_NUMBER, outputRoot
+            )
+        );
+
         // But sign with validator2's key
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(VALIDATOR2_KEY, fraudHash.toEthSignedMessageHash());
         signatures[0] = abi.encodePacked(r, s, v);
-        
+
         bytes memory proof = prover.generateFraudProof(
             STATE_ROOT, CLAIM_ROOT, ACTUAL_POST_STATE, BLOCK_HASH, BLOCK_NUMBER, signers, signatures
         );
-        
+
         vm.expectRevert(Prover.InvalidSignature.selector);
         prover.verifyProof(STATE_ROOT, CLAIM_ROOT, proof);
     }
@@ -456,7 +466,7 @@ contract ProverTest is Test {
         // Fraud proof should not validate as defense proof
         bytes memory fraudProof = _generateFraudProof(STATE_ROOT, CLAIM_ROOT, ACTUAL_POST_STATE);
         assertFalse(prover.verifyDefenseProof(STATE_ROOT, CLAIM_ROOT, fraudProof));
-        
+
         // Defense proof should not validate as fraud proof
         bytes memory defenseProof = _generateDefenseProof(STATE_ROOT, CLAIM_ROOT);
         assertFalse(prover.verifyProof(STATE_ROOT, CLAIM_ROOT, defenseProof));
@@ -469,7 +479,7 @@ contract ProverTest is Test {
         uint256 gasBefore = gasleft();
         prover.verifyProof(STATE_ROOT, CLAIM_ROOT, proof);
         uint256 gasUsed = gasBefore - gasleft();
-        
+
         // Gas should be reasonable (under 100k for 1 signature verification)
         assertLt(gasUsed, 100_000);
     }
@@ -479,7 +489,7 @@ contract ProverTest is Test {
         uint256 gasBefore = gasleft();
         prover.verifyDefenseProof(STATE_ROOT, CLAIM_ROOT, proof);
         uint256 gasUsed = gasBefore - gasleft();
-        
+
         // Gas should be reasonable (under 150k for 2 signature verifications)
         assertLt(gasUsed, 150_000);
     }

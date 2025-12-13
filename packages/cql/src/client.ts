@@ -1,41 +1,61 @@
 /**
- * CovenantSQL Client
- * 
- * Decentralized SQL database client with connection pooling,
- * transactions, and permission management.
+ * CovenantSQL Client with circuit breaker pattern
  */
 
 import { toHex } from 'viem';
 import type { Address, Hex } from 'viem';
 import type {
-  CQLConfig,
-  CQLConnection,
-  CQLConnectionPool,
-  CQLTransaction,
-  DatabaseConfig,
-  DatabaseInfo,
-  ExecResult,
-  QueryParam,
-  QueryResult,
-  RentalInfo,
-  RentalPlan,
-  CreateRentalRequest,
-  ACLRule,
-  GrantRequest,
-  RevokeRequest,
-  BlockProducerInfo,
+  CQLConfig, CQLConnection, CQLConnectionPool, CQLTransaction,
+  DatabaseConfig, DatabaseInfo, ExecResult, QueryParam, QueryResult,
+  RentalInfo, RentalPlan, CreateRentalRequest, ACLRule, GrantRequest, RevokeRequest, BlockProducerInfo,
 } from './types.js';
 
-// Helper for HTTP requests with error handling
+class CircuitBreaker {
+  private failures = 0;
+  private lastFailure = 0;
+  private state: 'closed' | 'open' | 'half-open' = 'closed';
+  
+  constructor(private threshold = 5, private resetTimeMs = 30000) {}
+
+  async execute<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.state === 'open') {
+      if (Date.now() - this.lastFailure > this.resetTimeMs) {
+        this.state = 'half-open';
+      } else {
+        throw new Error('Circuit breaker is open - service unavailable');
+      }
+    }
+    
+    try {
+      const result = await fn();
+      if (this.state === 'half-open') { this.state = 'closed'; this.failures = 0; }
+      return result;
+    } catch (error) {
+      this.failures++;
+      this.lastFailure = Date.now();
+      if (this.failures >= this.threshold) this.state = 'open';
+      throw error;
+    }
+  }
+
+  getState() { return { state: this.state, failures: this.failures }; }
+}
+
+const circuitBreaker = new CircuitBreaker();
+
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(url, options);
-  if (!response.ok) throw new Error(`Request failed: ${response.status}`);
-  return response.json() as Promise<T>;
+  return circuitBreaker.execute(async () => {
+    const response = await fetch(url, options);
+    if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+    return response.json() as Promise<T>;
+  });
 }
 
 async function requestVoid(url: string, options?: RequestInit): Promise<void> {
-  const response = await fetch(url, options);
-  if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+  return circuitBreaker.execute(async () => {
+    const response = await fetch(url, options);
+    if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+  });
 }
 
 class CQLConnectionImpl implements CQLConnection {
@@ -276,9 +296,13 @@ export class CQLClient {
   }
 
   async isHealthy(): Promise<boolean> {
-    try { return (await fetch(`${this.endpoint}/health`, { signal: AbortSignal.timeout(5000) })).ok; }
-    catch { return false; }
+    return circuitBreaker.execute(async () => {
+      const res = await fetch(`${this.endpoint}/health`, { signal: AbortSignal.timeout(5000) });
+      return res.ok;
+    }).catch(() => false);
   }
+
+  getCircuitState() { return circuitBreaker.getState(); }
 
   async close(): Promise<void> {
     await Promise.all(Array.from(this.pools.values()).map(p => p.close()));

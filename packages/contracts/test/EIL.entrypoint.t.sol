@@ -222,13 +222,11 @@ contract EILEntryPointTest is Test {
 
     // ============ Voucher Mode Tests ============
 
-    /// @dev Skipped: Requires complex cross-chain voucher signature setup
-    function SKIP_test_ValidatePaymasterUserOp_VoucherMode_Valid() public {
-        // Create a voucher first
+    function test_ValidatePaymasterUserOp_VoucherMode_WithRealVoucher() public {
+        // Create a real voucher through the full flow
         testVoucherId = _createVoucher();
 
         // Build voucher mode paymasterAndData
-        // Format: [paymaster(20)][verificationGas(16)][postOpGas(16)][mode(1)][voucherId(32)][xlp(20)]
         bytes memory paymasterAndData = _buildVoucherPaymentData(testVoucherId, xlp);
         PackedUserOperation memory userOp = _buildUserOp(user, paymasterAndData);
 
@@ -236,18 +234,18 @@ contract EILEntryPointTest is Test {
         (bytes memory context, uint256 validationData) =
             paymaster.validatePaymasterUserOp(userOp, bytes32(0), 0.001 ether);
 
-        // Should validate successfully for valid voucher
+        // Should validate successfully - XLP has ETH deposits
         assertEq(validationData, 0, "Should validate with valid voucher");
         assertTrue(context.length > 0, "Should return context");
     }
 
-    /// @dev Skipped: Requires complex cross-chain voucher signature setup
-    function SKIP_test_ValidatePaymasterUserOp_VoucherMode_ExpiredVoucher() public {
-        // Create voucher
+    function test_ValidatePaymasterUserOp_VoucherMode_XLPInsufficientETH() public {
+        // Create a voucher, then drain XLP's ETH deposits
         testVoucherId = _createVoucher();
 
-        // Warp past voucher expiry (assuming 24h default)
-        vm.warp(block.timestamp + 25 hours);
+        // Withdraw all XLP ETH deposits
+        vm.prank(xlp);
+        paymaster.withdrawETH(paymaster.getXLPETH(xlp));
 
         bytes memory paymasterAndData = _buildVoucherPaymentData(testVoucherId, xlp);
         PackedUserOperation memory userOp = _buildUserOp(user, paymasterAndData);
@@ -256,8 +254,9 @@ contract EILEntryPointTest is Test {
         (bytes memory context, uint256 validationData) =
             paymaster.validatePaymasterUserOp(userOp, bytes32(0), 0.001 ether);
 
-        // Should fail for expired voucher
-        assertEq(validationData, 1, "Should fail for expired voucher");
+        // Should fail because XLP has no ETH to cover gas
+        assertEq(validationData, 1, "Should fail when XLP has no ETH");
+        assertEq(context.length, 0, "Should return empty context");
     }
 
     function test_ValidatePaymasterUserOp_VoucherMode_Valid() public {

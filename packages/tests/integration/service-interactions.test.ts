@@ -18,10 +18,10 @@
  * bun run localnet:start
  * 
  * # Deploy contracts
- * cd contracts && forge script script/DeployLiquiditySystem.s.sol --broadcast --rpc-url http://localhost:9545
+ * cd packages/contracts && forge script script/DeployLiquiditySystem.s.sol --broadcast --rpc-url http://127.0.0.1:9545
  * 
  * # Start indexer (in separate terminal)
- * cd apps/indexer && npm run dev
+ * cd apps/indexer && bun run dev
  * 
  * # Run service interaction tests
  * bun test tests/integration/service-interactions.test.ts
@@ -30,15 +30,16 @@
 
 import { describe, it, expect, beforeAll } from 'bun:test';
 import { ethers } from 'ethers';
+import {
+  JEJU_LOCALNET,
+  TEST_WALLETS,
+  APP_URLS,
+  TIMEOUTS,
+} from '../shared/constants';
 
-const RPC_URL = process.env.RPC_ETH_HTTP || 
-                process.env.L2_RPC_URL || 
-                process.env.JEJU_RPC_URL || 
-                `http://127.0.0.1:${process.env.L2_RPC_PORT || '9545'}`;
-const GRAPHQL_URL = process.env.GRAPHQL_URL || 
-                    process.env.INDEXER_GRAPHQL_URL || 
-                    `http://localhost:${process.env.INDEXER_GRAPHQL_PORT || '4350'}/graphql`;
-const TIMEOUT = 30000; // 30 seconds
+const RPC_URL = JEJU_LOCALNET.rpcUrl;
+const GRAPHQL_URL = APP_URLS.indexerGraphQL;
+const TIMEOUT = TIMEOUTS.indexerSync;
 
 /**
  * Helper: Query GraphQL endpoint
@@ -90,27 +91,24 @@ async function waitForIndexer(txHash: string, maxAttempts = 10): Promise<boolean
 }
 
 describe('Service Interaction Tests', () => {
-  let provider: ethers.Provider;
+  let provider: ethers.JsonRpcProvider;
   let wallet: ethers.Wallet;
   let indexerAvailable: boolean = false;
 
   beforeAll(async () => {
     provider = new ethers.JsonRpcProvider(RPC_URL);
-    wallet = new ethers.Wallet(
-      '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
-      provider
-    );
+    wallet = new ethers.Wallet(TEST_WALLETS.deployer.privateKey, provider);
 
     // Check if indexer is available
     try {
       await queryGraphQL('{ __schema { queryType { name } } }');
       indexerAvailable = true;
       console.log('✅ Indexer detected and available\n');
-    } catch (error) {
+    } catch {
       console.log('⚠️  Indexer not available - skipping indexer tests\n');
-      console.log('   Start indexer with: cd apps/indexer && npm run dev\n');
+      console.log('   Start indexer with: cd apps/indexer && bun run dev\n');
     }
-  }, TIMEOUT);
+  });
 
   describe('RPC ↔ Indexer Interaction', () => {
     it('should sync transaction from RPC to indexer', async () => {
@@ -153,7 +151,7 @@ describe('Service Interaction Tests', () => {
       expect(indexedTx.from.address.toLowerCase()).toBe(wallet.address.toLowerCase());
       expect(indexedTx.status).toBe('SUCCESS');
       console.log('   ✅ Indexed data matches RPC data');
-    }, TIMEOUT);
+    });
 
     it('should capture event logs in indexer', async () => {
       if (!indexerAvailable) {
@@ -176,7 +174,7 @@ describe('Service Interaction Tests', () => {
       } else {
         console.log('   ℹ️  No logs captured yet (no events emitted)');
       }
-    }, TIMEOUT);
+    });
 
     it('should track contract deployments in indexer', async () => {
       if (!indexerAvailable) {
@@ -199,7 +197,7 @@ describe('Service Interaction Tests', () => {
       } else {
         console.log('   ℹ️  No contracts deployed yet');
       }
-    }, TIMEOUT);
+    });
   });
 
   describe('Oracle → Paymaster Interaction', () => {
@@ -267,58 +265,46 @@ describe('Service Interaction Tests', () => {
 
 describe('System Health and Monitoring', () => {
   it('should verify all critical services are healthy', async () => {
-    // This test checks service health but doesn't fail if services aren't running
-    // It's informational
     const healthChecks = {
       l2RPC: false,
       indexer: false,
     };
 
     // Check L2 RPC
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
     try {
-      const testProvider = new ethers.JsonRpcProvider(RPC_URL);
-      await testProvider.getBlockNumber();
+      await provider.getBlockNumber();
       healthChecks.l2RPC = true;
-    } catch (error) {
-      console.log('   ⚠️  L2 RPC not available (expected if localnet not running)');
+    } catch {
+      console.log('   ⏭️  L2 RPC not available - skipping health verification');
     }
 
     // Check Indexer
-    let indexerAvailable = false;
     try {
-      const response = await fetch(GRAPHQL_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: '{ __schema { queryType { name } } }' })
-      });
-      indexerAvailable = response.ok;
+      await queryGraphQL('{ blocks(limit: 1) { number } }');
+      healthChecks.indexer = true;
     } catch {
-      // Indexer not available
-    }
-
-    if (indexerAvailable) {
-      try {
-        await queryGraphQL('{ blocks(limit: 1) { number } }');
-        healthChecks.indexer = true;
-      } catch (error) {
-        console.log('   ⚠️  Indexer not available');
-      }
+      console.log('   ⏭️  Indexer not running');
     }
 
     console.log('\n🏥 Health Check Results:');
-    console.log(`   L2 RPC: ${healthChecks.l2RPC ? '✅' : '⏭️  Not running'}`);
-    console.log(`   Indexer: ${healthChecks.indexer ? '✅' : '⏭️  Not running'}`);
+    console.log(`   L2 RPC (${RPC_URL}): ${healthChecks.l2RPC ? '✅' : '⏭️  Not running'}`);
+    console.log(`   Indexer (${GRAPHQL_URL}): ${healthChecks.indexer ? '✅' : '⏭️  Not running'}`);
     console.log('');
 
-    // Don't fail if services aren't running - this is informational
-    expect(true).toBe(true);
+    // Don't fail if services aren't running - this is an integration test
+    // that should skip gracefully when infrastructure is unavailable
+    if (!healthChecks.l2RPC) {
+      console.log('   ⏭️  Skipping - localnet not running');
+    }
+    expect(true).toBe(true); // Always pass - health info is advisory
   });
 
   it('should provide instructions for manual testing', () => {
     console.log('\n📋 Manual Testing Checklist:\n');
     console.log('   □ Start localnet: bun run localnet:start');
-    console.log('   □ Deploy contracts: cd contracts && forge script script/DeployLiquiditySystem.s.sol --broadcast --rpc-url http://localhost:9545');
-    console.log('   □ Start indexer: cd apps/indexer && npm run dev');
+    console.log('   □ Deploy contracts: cd packages/contracts && forge script script/DeployLiquiditySystem.s.sol --broadcast --rpc-url http://127.0.0.1:9545');
+    console.log('   □ Start indexer: cd apps/indexer && bun run dev');
     console.log('   □ Deploy oracle bot: bun run scripts/oracle-updater.ts');
     console.log('   □ Test oracle integration: bun run scripts/verify-oracle-integration.ts');
     console.log('   □ Test node staking: bun run scripts/test-node-rewards-system.ts');

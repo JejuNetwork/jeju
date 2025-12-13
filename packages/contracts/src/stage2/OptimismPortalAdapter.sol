@@ -78,7 +78,8 @@ contract OptimismPortalAdapter {
     }
 
     function requiresTimelock(bytes4 selector) external pure returns (bool) {
-        if (selector == UPGRADE_TO || selector == UPGRADE_AND_CALL || selector == SET_GAS_TOKEN || selector == UNPAUSE) {
+        if (selector == UPGRADE_TO || selector == UPGRADE_AND_CALL || selector == SET_GAS_TOKEN || selector == UNPAUSE)
+        {
             return true;
         }
         if (selector == PAUSE) return false;

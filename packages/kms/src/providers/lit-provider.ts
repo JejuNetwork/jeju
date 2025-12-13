@@ -7,6 +7,7 @@
 
 import { keccak256, toBytes } from 'viem';
 import type { Address, Hex } from 'viem';
+import { litLogger as log } from '../logger.js';
 import {
   type AccessCondition,
   type AccessControlPolicy,
@@ -83,9 +84,9 @@ export class LitProvider implements KMSProvider {
       this.sdk = module as unknown as LitSDK;
       this.client = new this.sdk.LitNodeClient({ litNetwork: this.config.network, debug: this.config.debug ?? false });
       await this.client.connect();
-      console.log('[LitProvider] Connected to network:', this.config.network);
+      log.info('Connected to network', { network: this.config.network });
     } catch (error) {
-      console.warn('[LitProvider] Connection failed, fallback mode enabled:', (error as Error).message);
+      log.warn('Connection failed, fallback mode enabled', { error: (error as Error).message });
       this.client = null;
     }
   }

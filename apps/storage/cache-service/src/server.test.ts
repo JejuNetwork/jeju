@@ -38,6 +38,19 @@ describe('Cache Service HTTP API', () => {
       expect(data.service).toBe('cache-service');
       expect(data.timestamp).toBeDefined();
     });
+
+    it('should return Prometheus metrics', async () => {
+      const res = await fetch(`${baseUrl}/metrics`);
+      expect(res.status).toBe(200);
+      expect(res.headers.get('content-type')).toContain('text/plain');
+      
+      const body = await res.text();
+      expect(body).toContain('cache_keys_total');
+      expect(body).toContain('cache_hits_total');
+      expect(body).toContain('cache_misses_total');
+      expect(body).toContain('cache_hit_rate');
+      expect(body).toContain('cache_memory_used_mb');
+    });
   });
 
   describe('Basic Cache Operations', () => {

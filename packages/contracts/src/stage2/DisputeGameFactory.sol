@@ -21,9 +21,22 @@ contract DisputeGameFactory is Ownable, ReentrancyGuard, Pausable {
         address winner;
     }
 
-    enum GameType { FAULT_DISPUTE, VALIDITY_DISPUTE }
-    enum ProverType { CANNON, SIMPLE, ALTERNATIVE }
-    enum GameStatus { PENDING, CHALLENGER_WINS, PROPOSER_WINS, TIMEOUT, CANCELLED }
+    enum GameType {
+        FAULT_DISPUTE,
+        VALIDITY_DISPUTE
+    }
+    enum ProverType {
+        CANNON,
+        SIMPLE,
+        ALTERNATIVE
+    }
+    enum GameStatus {
+        PENDING,
+        CHALLENGER_WINS,
+        PROPOSER_WINS,
+        TIMEOUT,
+        CANCELLED
+    }
 
     uint256 public constant MIN_BOND = 1 ether;
     uint256 public constant MAX_BOND = 100 ether;
@@ -45,12 +58,7 @@ contract DisputeGameFactory is Ownable, ReentrancyGuard, Pausable {
         ProverType proverType,
         uint256 bondAmount
     );
-    event GameResolved(
-        bytes32 indexed gameId,
-        GameStatus status,
-        address indexed winner,
-        uint256 bondAmount
-    );
+    event GameResolved(bytes32 indexed gameId, GameStatus status, address indexed winner, uint256 bondAmount);
     event ProverImplementationUpdated(ProverType indexed proverType, address implementation, bool enabled);
     event TreasuryUpdated(address oldTreasury, address newTreasury);
 
@@ -82,14 +90,7 @@ contract DisputeGameFactory is Ownable, ReentrancyGuard, Pausable {
 
         gameId = keccak256(
             abi.encodePacked(
-                msg.sender,
-                _proposer,
-                _stateRoot,
-                _claimRoot,
-                _gameType,
-                _proverType,
-                block.timestamp,
-                block.number
+                msg.sender, _proposer, _stateRoot, _claimRoot, _gameType, _proverType, block.timestamp, block.number
             )
         );
 
@@ -193,8 +194,7 @@ contract DisputeGameFactory is Ownable, ReentrancyGuard, Pausable {
 
     function canResolveTimeout(bytes32 _gameId) external view returns (bool) {
         DisputeGame memory game = games[_gameId];
-        return game.challenger != address(0) 
-            && game.status == GameStatus.PENDING 
+        return game.challenger != address(0) && game.status == GameStatus.PENDING
             && block.timestamp >= game.createdAt + GAME_TIMEOUT;
     }
 
@@ -210,11 +210,19 @@ contract DisputeGameFactory is Ownable, ReentrancyGuard, Pausable {
         return activeGames.length;
     }
 
-    function _verifyProof(address prover, bytes32 stateRoot, bytes32 claimRoot, bytes calldata proof) internal view returns (bool) {
+    function _verifyProof(address prover, bytes32 stateRoot, bytes32 claimRoot, bytes calldata proof)
+        internal
+        view
+        returns (bool)
+    {
         return IProver(prover).verifyProof(stateRoot, claimRoot, proof);
     }
 
-    function _verifyDefenseProof(address prover, bytes32 stateRoot, bytes32 claimRoot, bytes calldata defenseProof) internal view returns (bool) {
+    function _verifyDefenseProof(address prover, bytes32 stateRoot, bytes32 claimRoot, bytes calldata defenseProof)
+        internal
+        view
+        returns (bool)
+    {
         return IProver(prover).verifyDefenseProof(stateRoot, claimRoot, defenseProof);
     }
 
@@ -229,11 +237,10 @@ contract DisputeGameFactory is Ownable, ReentrancyGuard, Pausable {
         }
     }
 
-    function setProverImplementation(
-        ProverType _proverType,
-        address _implementation,
-        bool _enabled
-    ) external onlyOwner {
+    function setProverImplementation(ProverType _proverType, address _implementation, bool _enabled)
+        external
+        onlyOwner
+    {
         proverImplementations[_proverType] = _implementation;
         proverEnabled[_proverType] = _enabled;
         emit ProverImplementationUpdated(_proverType, _implementation, _enabled);
@@ -256,4 +263,3 @@ contract DisputeGameFactory is Ownable, ReentrancyGuard, Pausable {
 
     receive() external payable {}
 }
-

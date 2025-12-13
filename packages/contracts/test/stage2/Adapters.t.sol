@@ -49,21 +49,14 @@ contract L2OutputOracleAdapterTest is Test {
         prover = new Prover();
 
         sequencerRegistry = new SequencerRegistry(
-            address(jejuToken),
-            address(identityRegistry),
-            address(reputationRegistry),
-            treasury,
-            owner
+            address(jejuToken), address(identityRegistry), address(reputationRegistry), treasury, owner
         );
 
         disputeFactory = new DisputeGameFactory(treasury, owner);
         disputeFactory.setProverImplementation(DisputeGameFactory.ProverType.CANNON, address(prover), true);
 
-        adapter = new L2OutputOracleAdapter(
-            address(sequencerRegistry),
-            payable(address(disputeFactory)),
-            l2OutputOracle
-        );
+        adapter =
+            new L2OutputOracleAdapter(address(sequencerRegistry), payable(address(disputeFactory)), l2OutputOracle);
 
         vm.stopPrank();
 
@@ -158,10 +151,7 @@ contract OptimismPortalAdapterTest is Test {
 
     function testSetPortalViaTimelock() public {
         // Propose through timelock
-        bytes memory setPortalData = abi.encodeWithSelector(
-            OptimismPortalAdapter.setPortal.selector,
-            portal
-        );
+        bytes memory setPortalData = abi.encodeWithSelector(OptimismPortalAdapter.setPortal.selector, portal);
 
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(adapter), setPortalData, "Set portal");
@@ -184,10 +174,7 @@ contract OptimismPortalAdapterTest is Test {
     function testSetSecurityCouncilViaTimelock() public {
         address newCouncil = makeAddr("newCouncil");
 
-        bytes memory data = abi.encodeWithSelector(
-            OptimismPortalAdapter.setSecurityCouncil.selector,
-            newCouncil
-        );
+        bytes memory data = abi.encodeWithSelector(OptimismPortalAdapter.setSecurityCouncil.selector, newCouncil);
 
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(adapter), data, "Update council");
@@ -200,10 +187,7 @@ contract OptimismPortalAdapterTest is Test {
 
     function testPauseOnlySecurityCouncil() public {
         // Set portal first via timelock
-        bytes memory setPortalData = abi.encodeWithSelector(
-            OptimismPortalAdapter.setPortal.selector,
-            portal
-        );
+        bytes memory setPortalData = abi.encodeWithSelector(OptimismPortalAdapter.setPortal.selector, portal);
 
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(adapter), setPortalData, "Set portal");
@@ -237,10 +221,7 @@ contract OptimismPortalAdapterTest is Test {
     }
 
     function testPortalNotSetRevert() public {
-        bytes memory upgradeData = abi.encodeWithSelector(
-            OptimismPortalAdapter.executeUpgrade.selector,
-            ""
-        );
+        bytes memory upgradeData = abi.encodeWithSelector(OptimismPortalAdapter.executeUpgrade.selector, "");
 
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(adapter), upgradeData, "Test");

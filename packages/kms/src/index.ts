@@ -84,9 +84,10 @@ export {
   // TEE
   type TEEAttestation,
   type TEEKeyInfo,
-  // Events
-  type KMSEvent,
 } from './types.js';
+
+// Logger
+export { createLogger, kmsLogger } from './logger.js';
 
 // SDK utilities
 export * from './sdk/index.js';

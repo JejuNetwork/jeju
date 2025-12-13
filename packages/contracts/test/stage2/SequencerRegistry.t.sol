@@ -51,7 +51,7 @@ contract SequencerRegistryTest is Test {
             bool isActive,
             bool isSlashed
         ) = registry.sequencers(seq);
-        
+
         return SequencerRegistry.Sequencer({
             agentId: agentId,
             stake: stake,
@@ -75,11 +75,7 @@ contract SequencerRegistryTest is Test {
 
         // Deploy registry
         registry = new SequencerRegistry(
-            address(jejuToken),
-            address(identityRegistry),
-            address(reputationRegistry),
-            treasury,
-            owner
+            address(jejuToken), address(identityRegistry), address(reputationRegistry), treasury, owner
         );
 
         // Register agents
@@ -212,7 +208,7 @@ contract SequencerRegistryTest is Test {
         vm.startPrank(sequencer1);
         jejuToken.approve(address(registry), 10000 ether);
         registry.register(agentId1, 1000 ether);
-        
+
         jejuToken.approve(address(registry), 5000 ether);
         registry.increaseStake(5000 ether);
         vm.stopPrank();
@@ -225,7 +221,7 @@ contract SequencerRegistryTest is Test {
         vm.startPrank(sequencer1);
         jejuToken.approve(address(registry), 100_000 ether);
         registry.register(agentId1, 99_000 ether);
-        
+
         jejuToken.approve(address(registry), 2000 ether);
         vm.expectRevert(SequencerRegistry.ExceedsMaxStake.selector);
         registry.increaseStake(2000 ether); // Would exceed MAX_STAKE
@@ -236,7 +232,7 @@ contract SequencerRegistryTest is Test {
         vm.startPrank(sequencer1);
         jejuToken.approve(address(registry), 10000 ether);
         registry.register(agentId1, 10000 ether);
-        
+
         registry.decreaseStake(5000 ether);
         vm.stopPrank();
 
@@ -248,7 +244,7 @@ contract SequencerRegistryTest is Test {
         vm.startPrank(sequencer1);
         jejuToken.approve(address(registry), 10000 ether);
         registry.register(agentId1, 10000 ether);
-        
+
         vm.expectRevert(SequencerRegistry.InsufficientStake.selector);
         registry.decreaseStake(9500 ether); // Would go below MIN_STAKE
         vm.stopPrank();
@@ -258,7 +254,7 @@ contract SequencerRegistryTest is Test {
         vm.startPrank(sequencer1);
         jejuToken.approve(address(registry), 10000 ether);
         registry.register(agentId1, 10000 ether);
-        
+
         registry.decreaseStake(9000 ether); // Exactly to MIN_STAKE
         vm.stopPrank();
 
@@ -271,7 +267,7 @@ contract SequencerRegistryTest is Test {
         vm.startPrank(sequencer1);
         jejuToken.approve(address(registry), 10000 ether);
         registry.register(agentId1, 10000 ether);
-        
+
         uint256 balanceBefore = jejuToken.balanceOf(sequencer1);
         registry.unregister();
         vm.stopPrank();
@@ -511,7 +507,7 @@ contract SequencerRegistryTest is Test {
 
         uint256 weight = registry.getSelectionWeight(sequencer1);
         assertGt(weight, 0);
-        
+
         // Weight should be proportional to stake (with reputation factor)
         // Base: 10000 * 0.5 = 5000
         // Rep: 10000 * 0.5 * 0.5 = 2500
@@ -544,7 +540,7 @@ contract SequencerRegistryTest is Test {
         (address[] memory addresses, uint256[] memory weights) = registry.getActiveSequencers();
         assertEq(addresses.length, 3);
         assertEq(weights.length, 3);
-        
+
         // Weights should be proportional to stakes
         assertGt(weights[2], weights[1]); // sequencer3 > sequencer2
         assertGt(weights[1], weights[0]); // sequencer2 > sequencer1
