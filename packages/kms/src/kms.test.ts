@@ -1,13 +1,12 @@
 /**
  * KMS Package Tests
  * 
- * These tests use FALLBACK MODE (local AES-256-GCM encryption).
- * Lit Protocol network is not connected during tests.
- * TEE and MPC providers are stubs (not implemented).
- * 
- * What IS tested: Fallback encryption, key metadata management, policy creation.
- * What is NOT tested: Lit Protocol network, TEE enclaves, MPC threshold signing.
+ * Tests FALLBACK MODE (local AES-256-GCM encryption).
+ * Lit Protocol network not connected. TEE/MPC providers are stubs.
  */
+
+// Set required env before imports
+process.env.KMS_FALLBACK_SECRET = 'test-secret-for-kms-unit-tests';
 
 import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from 'bun:test';
 import {

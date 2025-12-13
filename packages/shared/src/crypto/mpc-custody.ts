@@ -9,8 +9,16 @@
  * - The key is used briefly for signing, then cleared from memory
  */
 
-import { keccak256, toBytes, toHex, type Hex, type Address } from 'viem';
-import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
+import { keccak256, toBytes, toHex, type Hex, type Address, createWalletClient, http } from 'viem';
+import { mainnet } from 'viem/chains';
+
+// Helper to create an account from private key using secp256k1 directly
+async function createAccountFromPrivateKey(privateKeyHex: `0x${string}`) {
+  const { privateKeyToAccount } = await import('viem/accounts');
+  return privateKeyToAccount(privateKeyHex);
+}
+
+type PrivateKeyAccount = Awaited<ReturnType<typeof createAccountFromPrivateKey>>;
 
 export interface MPCConfig {
   /** Total number of key shares (n) */
@@ -207,8 +215,8 @@ export class MPCCustodyManager {
 
     // Generate random private key
     const privateKeyBytes = crypto.getRandomValues(new Uint8Array(32));
-    const privateKey = toHex(privateKeyBytes);
-    const account = privateKeyToAccount(privateKey as `0x${string}`);
+    const privateKey = toHex(privateKeyBytes) as `0x${string}`;
+    const account = await createAccountFromPrivateKey(privateKey);
 
     // Convert to bigint for secret sharing
     const secret = BigInt(privateKey);
@@ -373,7 +381,7 @@ export class MPCCustodyManager {
     let account: PrivateKeyAccount;
     
     try {
-      account = privateKeyToAccount(privateKeyHex);
+      account = await createAccountFromPrivateKey(privateKeyHex);
       
       // Verify reconstructed key matches expected address
       const key = this.keys.get(request.keyId);

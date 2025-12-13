@@ -1,23 +1,13 @@
 /**
- * @jeju/kms - Decentralized Key Management Types
- *
- * Core types for the Jeju KMS system supporting:
- * - Lit Protocol (distributed key management)
- * - TEE-based key operations (Phala, Intel TDX)
- * - MPC threshold signatures
+ * @jeju/kms - Key Management Types
  */
 
 import type { Address, Hex } from 'viem';
-
-// ============================================================================
-// Provider Types
-// ============================================================================
 
 export enum KMSProviderType {
   LIT = 'lit',
   TEE = 'tee',
   MPC = 'mpc',
-  LOCAL = 'local', // Development only
 }
 
 export interface KMSProvider {
@@ -26,10 +16,6 @@ export interface KMSProvider {
   connect(): Promise<void>;
   disconnect(): Promise<void>;
 }
-
-// ============================================================================
-// Access Control
-// ============================================================================
 
 export enum ConditionOperator {
   EQUALS = '=',
@@ -47,25 +33,22 @@ export interface ContractCondition {
   chain: string;
   method: string;
   parameters: (string | number | boolean)[];
-  returnValueTest: {
-    comparator: ConditionOperator;
-    value: string;
-  };
+  returnValueTest: { comparator: ConditionOperator; value: string };
 }
 
 export interface TimestampCondition {
   type: 'timestamp';
   chain: string;
   comparator: ConditionOperator;
-  value: number; // Unix timestamp
+  value: number;
 }
 
 export interface BalanceCondition {
   type: 'balance';
   chain: string;
-  tokenAddress?: Address; // Native if not specified
+  tokenAddress?: Address;
   comparator: ConditionOperator;
-  value: string; // Wei string
+  value: string;
 }
 
 export interface StakeCondition {
@@ -87,28 +70,16 @@ export interface AgentCondition {
   registryAddress: Address;
   chain: string;
   agentId: number;
-  requiredLabels?: string[];
 }
 
-export type AccessCondition =
-  | ContractCondition
-  | TimestampCondition
-  | BalanceCondition
-  | StakeCondition
-  | RoleCondition
-  | AgentCondition;
+export type AccessCondition = ContractCondition | TimestampCondition | BalanceCondition | StakeCondition | RoleCondition | AgentCondition;
 
 export interface AccessControlPolicy {
   conditions: AccessCondition[];
   operator: 'and' | 'or';
 }
 
-// ============================================================================
-// Key Types
-// ============================================================================
-
 export type KeyType = 'encryption' | 'signing' | 'session';
-
 export type KeyCurve = 'secp256k1' | 'ed25519' | 'bls12-381';
 
 export interface KeyMetadata {
@@ -120,18 +91,13 @@ export interface KeyMetadata {
   owner: Address;
   policy: AccessControlPolicy;
   providerType: KMSProviderType;
-  providerKeyId?: string; // External key ID (Lit PKP, TEE key ID, etc.)
+  providerKeyId?: string;
 }
 
 export interface GeneratedKey {
   metadata: KeyMetadata;
   publicKey: Hex;
-  // Private key is NEVER exposed - stored in provider
 }
-
-// ============================================================================
-// Encryption Types
-// ============================================================================
 
 export interface EncryptedPayload {
   ciphertext: string;
@@ -147,7 +113,7 @@ export interface EncryptedPayload {
 export interface EncryptRequest {
   data: string | Uint8Array;
   policy: AccessControlPolicy;
-  keyId?: string; // Use existing key or generate new
+  keyId?: string;
   metadata?: Record<string, string>;
 }
 
@@ -155,10 +121,6 @@ export interface DecryptRequest {
   payload: EncryptedPayload;
   authSig?: AuthSignature;
 }
-
-// ============================================================================
-// Signing Types
-// ============================================================================
 
 export interface SignRequest {
   message: string | Uint8Array;
@@ -190,10 +152,6 @@ export interface ThresholdSignature {
   signedAt: number;
 }
 
-// ============================================================================
-// Authentication
-// ============================================================================
-
 export interface AuthSignature {
   sig: Hex;
   derivedVia: 'web3.eth.personal.sign' | 'EIP712' | 'siwe';
@@ -207,10 +165,6 @@ export interface SessionKey {
   capabilities: string[];
   authSig: AuthSignature;
 }
-
-// ============================================================================
-// MPC Types
-// ============================================================================
 
 export interface MPCKeyShare {
   shareId: string;
@@ -232,10 +186,6 @@ export interface MPCSigningSession {
   expiresAt: number;
 }
 
-// ============================================================================
-// TEE Types
-// ============================================================================
-
 export interface TEEAttestation {
   quote: Hex;
   measurement: Hex;
@@ -250,22 +200,6 @@ export interface TEEKeyInfo {
   attestation: TEEAttestation;
   enclaveId: string;
 }
-
-// ============================================================================
-// Events
-// ============================================================================
-
-export interface KMSEvent {
-  type: 'key_created' | 'key_rotated' | 'key_revoked' | 'encrypt' | 'decrypt' | 'sign';
-  keyId: string;
-  timestamp: number;
-  actor?: Address;
-  metadata?: Record<string, string>;
-}
-
-// ============================================================================
-// Configuration
-// ============================================================================
 
 export interface LitConfig {
   network: 'cayenne' | 'manzano' | 'habanero' | 'datil-dev' | 'datil-test';
@@ -286,14 +220,9 @@ export interface MPCConfig {
 }
 
 export interface KMSConfig {
-  providers: {
-    lit?: LitConfig;
-    tee?: TEEConfig;
-    mpc?: MPCConfig;
-  };
+  providers: { lit?: LitConfig; tee?: TEEConfig; mpc?: MPCConfig };
   defaultProvider: KMSProviderType;
   defaultChain: string;
   registryAddress?: Address;
   fallbackEnabled?: boolean;
 }
-

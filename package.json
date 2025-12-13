@@ -125,6 +125,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.911.0",
     "@eth-optimism/sdk": "^3.2.0",
+    "@noble/curves": "^2.0.1",
     "@openzeppelin/contracts": "^5.0.2",
     "@safe-global/safe-core-sdk": "^3.3.5",
     "@synthetixio/v3-contracts": "latest",

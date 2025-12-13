@@ -231,7 +231,13 @@ export class CacheServer {
 
     // List plans
     this.app.get('/plans', (c: Context) => {
-      return c.json({ plans: this.plans });
+      // Convert BigInt to string for JSON serialization
+      const serializablePlans = this.plans.map((plan) => ({
+        ...plan,
+        pricePerHour: plan.pricePerHour.toString(),
+        pricePerMonth: plan.pricePerMonth.toString(),
+      }));
+      return c.json({ plans: serializablePlans });
     });
 
     // Create cache instance

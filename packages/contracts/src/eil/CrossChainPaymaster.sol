@@ -656,6 +656,7 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         if (request.refunded) revert RequestAlreadyRefunded();
         if (block.number <= request.deadline) revert RequestNotExpired();
 
+        // Cache for gas and CEI
         address requester = request.requester;
         address token = request.token;
         uint256 amount = request.amount;
@@ -667,16 +668,19 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         emit VoucherExpired(requestId, requester);
         emit FundsRefunded(requestId, requester, amount);
 
+        // Refund: ETH transfers amount+fee together, ERC20 transfers token then fee separately
         if (token == address(0)) {
-            (bool success,) = requester.call{value: amount + maxFee}("");
-            if (!success) revert TransferFailed();
+            _transferETH(requester, amount + maxFee);
         } else {
             IERC20(token).safeTransfer(requester, amount);
-            if (maxFee > 0) {
-                (bool feeSuccess,) = requester.call{value: maxFee}("");
-                if (!feeSuccess) revert TransferFailed();
-            }
+            if (maxFee > 0) _transferETH(requester, maxFee);
         }
+    }
+
+    /// @dev Safe ETH transfer with revert on failure
+    function _transferETH(address to, uint256 amount) internal {
+        (bool success,) = to.call{value: amount}("");
+        if (!success) revert TransferFailed();
     }
 
     // ============ XLP Liquidity Management ============
@@ -715,9 +719,7 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         xlpETHDeposits[msg.sender] -= amount;
         totalETHLiquidity -= amount;
         emit XLPWithdraw(msg.sender, address(0), amount);
-
-        (bool success,) = msg.sender.call{value: amount}("");
-        if (!success) revert TransferFailed();
+        _transferETH(msg.sender, amount);
     }
 
     /// @notice Permissionless exchange rate update from oracle
@@ -902,18 +904,10 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
 
         // INTERACTIONS: External calls last
         if (token == address(0)) {
-            // Native ETH - amount was locked, fee was also locked in maxFee
-            // XLP gets amount + fee
-            (bool success,) = msg.sender.call{value: xlpReceives + feeReceived}("");
-            if (!success) revert TransferFailed();
+            _transferETH(msg.sender, xlpReceives + feeReceived);
         } else {
-            // ERC20 - transfer the locked tokens
             IERC20(token).safeTransfer(msg.sender, xlpReceives);
-            // Fee was paid in ETH for ERC20 transfers
-            if (feeReceived > 0) {
-                (bool feeSuccess,) = msg.sender.call{value: feeReceived}("");
-                if (!feeSuccess) revert TransferFailed();
-            }
+            if (feeReceived > 0) _transferETH(msg.sender, feeReceived);
         }
     }
 
@@ -972,14 +966,10 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
 
         // INTERACTIONS: External calls last
         if (token == address(0)) {
-            (bool success,) = recipient.call{value: amount + gasAmount}("");
-            if (!success) revert TransferFailed();
+            _transferETH(recipient, amount + gasAmount);
         } else {
             IERC20(token).safeTransfer(recipient, amount);
-            if (gasAmount > 0) {
-                (bool gasSuccess,) = recipient.call{value: gasAmount}("");
-                if (!gasSuccess) revert TransferFailed();
-            }
+            if (gasAmount > 0) _transferETH(recipient, gasAmount);
         }
     }
 
@@ -1609,17 +1599,13 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
 
         // Handle output transfer
         if (tokenOut == address(0)) {
-            (bool success,) = msg.sender.call{value: amountOut}("");
-            if (!success) revert TransferFailed();
+            _transferETH(msg.sender, amountOut);
         } else {
             IERC20(tokenOut).safeTransfer(msg.sender, amountOut);
         }
 
-        // Refund excess ETH last
-        if (refundAmount > 0) {
-            (bool refundSuccess,) = msg.sender.call{value: refundAmount}("");
-            if (!refundSuccess) revert TransferFailed();
-        }
+        // Refund excess ETH
+        if (refundAmount > 0) _transferETH(msg.sender, refundAmount);
 
         emit Swap(msg.sender, tokenIn, tokenOut, amountIn, amountOut, fee);
     }

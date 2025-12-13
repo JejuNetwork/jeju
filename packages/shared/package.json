@@ -18,9 +18,11 @@
     "./crypto/mpc-custody": "./src/crypto/mpc-custody.ts",
     "./crypto/hsm-integration": "./src/crypto/hsm-integration.ts"
   },
+  "dependencies": {
+    "viem": "^2.0.0"
+  },
   "peerDependencies": {
     "react": "^18.0.0",
-    "viem": "^2.0.0",
     "hono": "^4.0.0"
   },
   "devDependencies": {

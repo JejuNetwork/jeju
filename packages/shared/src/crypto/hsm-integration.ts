@@ -3,7 +3,12 @@
  */
 
 import { keccak256, toHex, toBytes, type Hex, type Address } from 'viem';
-import { privateKeyToAccount, signMessage } from 'viem/accounts';
+
+// Dynamic import for viem/accounts to avoid bundler issues
+async function createAccountFromPrivateKey(privateKeyHex: `0x${string}`) {
+  const { privateKeyToAccount } = await import('viem/accounts');
+  return privateKeyToAccount(privateKeyHex);
+}
 
 export type HSMProvider = 'aws-cloudhsm' | 'azure-keyvault' | 'hashicorp-vault' | 'yubihsm' | 'local-sim';
 
@@ -409,7 +414,7 @@ export class HSMClient {
       
       if (type.startsWith('ec')) {
         const privateKey = toHex(privateKeyBytes) as `0x${string}`;
-        const account = privateKeyToAccount(privateKey);
+        const account = await createAccountFromPrivateKey(privateKey);
         return { publicKey: toHex(account.publicKey), address: account.address };
       }
       
@@ -438,7 +443,7 @@ export class HSMClient {
       }
       
       const privateKey = toHex(privateKeyBytes) as `0x${string}`;
-      const account = privateKeyToAccount(privateKey);
+      const account = await createAccountFromPrivateKey(privateKey);
       
       // Hash the data according to algorithm
       const dataBytes = toBytes(data);

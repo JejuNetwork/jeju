@@ -6,6 +6,7 @@
  */
 
 import type { Address } from 'viem';
+import { kmsLogger as log } from './logger.js';
 import {
   type AccessControlPolicy,
   type AuthSignature,
@@ -57,7 +58,7 @@ export class KMSService {
     if (defaultProvider) await defaultProvider.connect();
 
     this.initialized = true;
-    console.log('[KMS] Initialized with providers:', Array.from(this.providers.keys()));
+    log.info('Initialized', { providers: Array.from(this.providers.keys()) });
   }
 
   async shutdown(): Promise<void> {
@@ -78,7 +79,7 @@ export class KMSService {
     for (const type of candidates) {
       const provider = this.providers.get(type) as ConcreteProvider | undefined;
       if (provider && await provider.isAvailable()) {
-        if (type !== candidates[0]) console.warn(`[KMS] Using fallback: ${type}`);
+        if (type !== candidates[0]) log.warn('Using fallback provider', { type });
         return provider;
       }
     }
@@ -197,6 +198,6 @@ export function getKMS(config?: Partial<KMSConfig>): KMSService {
 }
 
 export function resetKMS(): void {
-  kmsService?.shutdown().catch(console.error);
+  kmsService?.shutdown().catch(e => log.error('Shutdown failed', { error: String(e) }));
   kmsService = null;
 }
