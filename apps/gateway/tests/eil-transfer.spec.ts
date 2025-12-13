@@ -11,7 +11,7 @@
  */
 
 import { testWithSynpress } from '@synthetixio/synpress'
-import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'
+import { MetaMask as _MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'
 import { basicSetup } from '../../synpress.config'
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup))
@@ -56,7 +56,7 @@ test.describe('EIL Cross-Chain Transfer', () => {
     
     // Verify Ethereum is selected (has blue border)
     const ethereumButton = page.locator('button:has-text("Ethereum")')
-    await expect(baseButton).toHaveCSS('border-color', 'rgb(59, 130, 246)')
+    await expect(ethereumButton).toHaveCSS('border-color', 'rgb(59, 130, 246)')
   })
 
   test('should show estimated fees and time', async ({ page }) => {

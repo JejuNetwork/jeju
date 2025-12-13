@@ -132,14 +132,11 @@ export function parseJNSName(name: string): string {
 
 export class JNSClient {
   private provider: ethers.JsonRpcProvider;
-  // @ts-expect-error - Config stored for future use
-  private _config: JNSConfig;
   private registry: ethers.Contract;
   private registrar: ethers.Contract;
   private reverseRegistrar: ethers.Contract;
 
   constructor(config: JNSConfig) {
-    this._config = config;
     this.provider = new ethers.JsonRpcProvider(config.rpcUrl);
     this.registry = new ethers.Contract(config.registry, JNS_REGISTRY_ABI, this.provider);
     this.registrar = new ethers.Contract(config.registrar, JNS_REGISTRAR_ABI, this.provider);

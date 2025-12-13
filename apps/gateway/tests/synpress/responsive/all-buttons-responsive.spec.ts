@@ -1,5 +1,5 @@
 import { testWithSynpress } from '@synthetixio/synpress';
-import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
+import { MetaMask as _MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
 import { basicSetup } from '../../../synpress.config';
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4001';
 const TIMEOUTS = { NORMAL: 15000, TRANSACTION: 30000 };

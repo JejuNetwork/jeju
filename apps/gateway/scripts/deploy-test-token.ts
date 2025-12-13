@@ -8,7 +8,8 @@ import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
 // Simple ERC20 ABI for deployment
-const ERC20_BYTECODE = '0x608060...'; // TODO: Add actual bytecode or use ethers.ContractFactory
+// TODO: Add actual bytecode or use ethers.ContractFactory
+// const ERC20_BYTECODE = '0x608060...';
 
 async function deployTestToken() {
   console.log('🚀 Deploying Test Token for Gateway Integration Tests\n');

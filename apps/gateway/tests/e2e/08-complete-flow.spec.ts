@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import { captureScreenshot, captureUserFlow } from '@jejunetwork/tests/helpers/screenshots';
+import { captureScreenshot, captureUserFlow as _captureUserFlow } from '@jejunetwork/tests/helpers/screenshots';
 import { testWithWallet as test } from '@jejunetwork/tests/fixtures/wallet';
 import { connectWallet } from '@jejunetwork/tests/helpers/contracts';
 

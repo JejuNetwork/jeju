@@ -4,7 +4,7 @@
  */
 
 import { testWithSynpress } from '@synthetixio/synpress';
-import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
+import { MetaMask as _MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
 import basicSetup from '../e2e/wallet-setup/basic.setup';
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup));

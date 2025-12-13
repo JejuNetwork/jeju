@@ -4,9 +4,9 @@
  */
 
 import { testWithSynpress } from '@synthetixio/synpress';
-import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
-import basicSetup, { JEJU_NETWORK } from '../fixtures/synpress-wallet';
-import { connectWallet, checkBalance } from '../helpers/wallet-helpers';
+import { metaMaskFixtures } from '@synthetixio/synpress/playwright';
+import basicSetup from '../fixtures/synpress-wallet';
+import { connectWallet } from '../helpers/wallet-helpers';
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;

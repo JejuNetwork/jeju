@@ -117,6 +117,7 @@ async function getEILStats(
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function _verifyCrossChainRoute(
   fromChain: { rpcUrl: string; outputSettler: string },
   toChain: { rpcUrl: string; inputSettler: string },

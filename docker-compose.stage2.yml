@@ -1,0 +1,153 @@
+# Stage 2 Decentralized OP Stack POC
+# 
+# This docker-compose file sets up a complete Stage 2 decentralized rollup:
+# - L1: Geth (Ethereum dev mode)
+# - L2: Multiple sequencers
+# - Stage 2 services: Consensus Coordinator, Challenger, Threshold Signer
+#
+# Usage:
+#   docker-compose -f docker-compose.stage2.yml up
+#
+# Prerequisites:
+#   - Deploy Stage 2 contracts first: forge script script/DeployStage2.s.sol
+#   - Set environment variables in .env.stage2
+
+services:
+  # L1: Ethereum Geth (dev mode)
+  geth-l1:
+    image: ethereum/client-go:v1.14.7
+    container_name: jeju-stage2-l1
+    ports:
+      - "8545:8545"
+      - "8546:8546"
+    command:
+      - --dev
+      - --dev.period=1
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      - --http.api=eth,net,web3,debug,personal
+      - --http.corsdomain=*
+      - --ws
+      - --ws.addr=0.0.0.0
+      - --ws.port=8546
+      - --ws.api=eth,net,web3
+      - --ws.origins=*
+      - --nodiscover
+    volumes:
+      - l1-data:/data
+    networks:
+      - jeju-stage2
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:8545"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Contract Deployer (runs once)
+  contract-deployer:
+    image: ghcr.io/foundry-rs/foundry:latest
+    container_name: jeju-stage2-deployer
+    working_dir: /contracts
+    volumes:
+      - ./packages/contracts:/contracts
+      - deployer-cache:/root/.foundry
+    environment:
+      - DEPLOYER_PRIVATE_KEY=${DEPLOYER_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
+      - RPC_URL=http://geth-l1:8545
+    command: >
+      sh -c "
+        echo 'Waiting for L1...' &&
+        sleep 10 &&
+        echo 'Deploying Stage 2 contracts...' &&
+        forge script script/DeployStage2.s.sol:DeployStage2 --rpc-url $$RPC_URL --broadcast --legacy &&
+        echo 'Deployment complete!'
+      "
+    depends_on:
+      geth-l1:
+        condition: service_healthy
+    networks:
+      - jeju-stage2
+
+  # Consensus Coordinator Service
+  consensus-coordinator:
+    image: oven/bun:1
+    container_name: jeju-stage2-consensus
+    working_dir: /app
+    volumes:
+      - ./scripts/stage2-poc:/app
+      - ./packages/contracts/deployments:/app/deployments:ro
+    environment:
+      - L1_RPC_URL=http://geth-l1:8545
+      - SEQUENCER_REGISTRY_ADDRESS=${SEQUENCER_REGISTRY_ADDRESS}
+      - BLOCK_INTERVAL=${BLOCK_INTERVAL:-12000}
+      - NODE_ENV=development
+    command: >
+      sh -c "
+        echo 'Waiting for contracts...' &&
+        sleep 30 &&
+        echo 'Starting consensus coordinator...' &&
+        bun run run-consensus.ts
+      "
+    depends_on:
+      - contract-deployer
+    networks:
+      - jeju-stage2
+    restart: unless-stopped
+
+  # Challenger Service
+  challenger:
+    image: oven/bun:1
+    container_name: jeju-stage2-challenger
+    working_dir: /app
+    volumes:
+      - ./scripts/stage2-poc:/app
+      - ./packages/contracts/deployments:/app/deployments:ro
+    environment:
+      - L1_RPC_URL=http://geth-l1:8545
+      - DISPUTE_GAME_FACTORY_ADDRESS=${DISPUTE_GAME_FACTORY_ADDRESS}
+      - PROVER_ADDRESS=${PROVER_ADDRESS}
+      - CHALLENGER_PRIVATE_KEY=${CHALLENGER_PRIVATE_KEY:-0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d}
+      - NODE_ENV=development
+    command: >
+      sh -c "
+        echo 'Waiting for contracts...' &&
+        sleep 35 &&
+        echo 'Starting challenger service...' &&
+        bun run run-challenger.ts
+      "
+    depends_on:
+      - contract-deployer
+    networks:
+      - jeju-stage2
+    restart: unless-stopped
+
+  # Threshold Signer Service (for batching)
+  threshold-signer:
+    image: oven/bun:1
+    container_name: jeju-stage2-signer
+    working_dir: /app
+    volumes:
+      - ./scripts/stage2-poc:/app
+    environment:
+      - SIGNER_THRESHOLD=${SIGNER_THRESHOLD:-2}
+      - NODE_ENV=development
+    command: >
+      sh -c "
+        echo 'Starting threshold signer...' &&
+        sleep 40 &&
+        bun run run-signer.ts
+      "
+    depends_on:
+      - consensus-coordinator
+    networks:
+      - jeju-stage2
+    restart: unless-stopped
+
+volumes:
+  l1-data:
+  deployer-cache:
+
+networks:
+  jeju-stage2:
+    driver: bridge
