@@ -485,4 +485,118 @@ contract EILIntegrationTest is Test {
         assertTrue(fee > 0);
         assertTrue(l2MessagingPaymaster.canComplete(address(0), transferAmount - fee));
     }
+
+    // ============ Full Voucher Fulfillment with Real Signature Test ============
+
+    function test_FullVoucherFulfillmentWithSignature() public {
+        // === Step 1: XLP registers and syncs to L2 ===
+        vm.startPrank(xlp);
+        uint256[] memory chains = new uint256[](1);
+        chains[0] = L2_CHAIN_ID;
+        l1StakeManager.register{value: 10 ether}(chains);
+        vm.stopPrank();
+
+        vm.prank(xlp);
+        l1StakeManager.syncStakeToL2(L2_CHAIN_ID, xlp);
+        l2Messenger.relayMessage(address(l1StakeManager), address(l2Paymaster), l1Messenger.lastMessage());
+
+        // === Step 2: XLP deposits liquidity ===
+        vm.prank(xlp);
+        l2Paymaster.depositETH{value: 5 ether}();
+
+        // === Step 3: User creates voucher request ===
+        uint256 transferAmount = 1 ether;
+        uint256 maxFee = 0.01 ether;
+
+        vm.prank(user);
+        bytes32 requestId = l2Paymaster.createVoucherRequest{value: transferAmount + maxFee}(
+            address(0), transferAmount, address(0), L1_CHAIN_ID, user, 0.001 ether, maxFee, 0.0001 ether
+        );
+
+        // === Step 4: XLP issues voucher ===
+        uint256 currentFee = l2Paymaster.getCurrentFee(requestId);
+        CrossChainPaymaster.VoucherRequest memory request = l2Paymaster.getRequest(requestId);
+
+        bytes32 commitment =
+            keccak256(abi.encodePacked(requestId, xlp, request.amount, currentFee, request.destinationChainId));
+        bytes32 ethSignedHash = commitment.toEthSignedMessageHash();
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(xlpPrivateKey, ethSignedHash);
+
+        vm.prank(xlp);
+        bytes32 voucherId = l2Paymaster.issueVoucher(requestId, abi.encodePacked(r, s, v));
+
+        // === Step 5: Fulfill voucher on destination with REAL signature ===
+        // This simulates what happens on the destination chain
+        uint256 recipientBalanceBefore = user.balance;
+
+        // XLP signs the fulfillment
+        bytes32 fulfillmentHash = keccak256(
+            abi.encodePacked(
+                voucherId, requestId, xlp, address(0), transferAmount, user, uint256(0.001 ether), L2_CHAIN_ID
+            )
+        );
+        bytes32 fulfillmentEthHash = fulfillmentHash.toEthSignedMessageHash();
+        (uint8 fv, bytes32 fr, bytes32 fs) = vm.sign(xlpPrivateKey, fulfillmentEthHash);
+        bytes memory fulfillmentSig = abi.encodePacked(fr, fs, fv);
+
+        // Execute fulfillment (anyone can call with valid XLP signature)
+        l2Paymaster.fulfillVoucher(
+            voucherId, requestId, xlp, address(0), transferAmount, user, 0.001 ether, fulfillmentSig
+        );
+
+        // === Step 6: Verify fulfillment ===
+        // Recipient should have received the funds
+        assertEq(
+            user.balance - recipientBalanceBefore, transferAmount + 0.001 ether, "User should receive amount + gas"
+        );
+
+        // Voucher should be marked as fulfilled
+        assertTrue(l2Paymaster.getVoucher(voucherId).fulfilled, "Voucher should be fulfilled");
+
+        // XLP liquidity should be reduced
+        assertEq(l2Paymaster.getXLPETH(xlp), 5 ether - transferAmount - 0.001 ether, "XLP ETH should be reduced");
+    }
+
+    function test_FulfillVoucher_InvalidSignature_Reverts() public {
+        // Setup XLP
+        vm.startPrank(xlp);
+        uint256[] memory chains = new uint256[](1);
+        chains[0] = L2_CHAIN_ID;
+        l1StakeManager.register{value: 10 ether}(chains);
+        vm.stopPrank();
+
+        vm.prank(xlp);
+        l1StakeManager.syncStakeToL2(L2_CHAIN_ID, xlp);
+        l2Messenger.relayMessage(address(l1StakeManager), address(l2Paymaster), l1Messenger.lastMessage());
+
+        vm.prank(xlp);
+        l2Paymaster.depositETH{value: 5 ether}();
+
+        // Create request and voucher
+        vm.prank(user);
+        bytes32 requestId = l2Paymaster.createVoucherRequest{value: 1.01 ether}(
+            address(0), 1 ether, address(0), L1_CHAIN_ID, user, 0, 0.01 ether, 0.0001 ether
+        );
+
+        uint256 currentFee = l2Paymaster.getCurrentFee(requestId);
+        CrossChainPaymaster.VoucherRequest memory request = l2Paymaster.getRequest(requestId);
+
+        bytes32 commitment =
+            keccak256(abi.encodePacked(requestId, xlp, request.amount, currentFee, request.destinationChainId));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(xlpPrivateKey, commitment.toEthSignedMessageHash());
+
+        vm.prank(xlp);
+        bytes32 voucherId = l2Paymaster.issueVoucher(requestId, abi.encodePacked(r, s, v));
+
+        // Try to fulfill with WRONG signature (sign with user's key instead of XLP)
+        bytes32 fulfillmentHash = keccak256(
+            abi.encodePacked(voucherId, requestId, xlp, address(0), uint256(1 ether), user, uint256(0), L2_CHAIN_ID)
+        );
+        (uint8 badV, bytes32 badR, bytes32 badS) = vm.sign(userPrivateKey, fulfillmentHash.toEthSignedMessageHash());
+        bytes memory badSig = abi.encodePacked(badR, badS, badV);
+
+        // Should revert with InvalidVoucherSignature
+        vm.expectRevert(CrossChainPaymaster.InvalidVoucherSignature.selector);
+        l2Paymaster.fulfillVoucher(voucherId, requestId, xlp, address(0), 1 ether, user, 0, badSig);
+    }
 }

@@ -25,7 +25,8 @@ contract EILEntryPointTest is Test {
     MockEntryPoint public mockEntryPoint;
 
     address public owner = address(0x1);
-    address public xlp = address(0x2);
+    uint256 public xlpPrivateKey = 0xA11CE;
+    address public xlp;
     address public user = address(0x3);
     address public entryPoint;
 
@@ -42,6 +43,9 @@ contract EILEntryPointTest is Test {
     uint256 constant OP_SEPOLIA_CHAIN_ID = 11155420;
 
     function setUp() public {
+        // Derive XLP address from private key
+        xlp = vm.addr(xlpPrivateKey);
+
         // Warp time to avoid underflow in exchange rate calculations
         vm.warp(1700000000);
 
@@ -239,23 +243,22 @@ contract EILEntryPointTest is Test {
         assertTrue(context.length > 0, "Should return context");
     }
 
-    function test_ValidatePaymasterUserOp_VoucherMode_XLPInsufficientETH() public {
-        // Create a voucher, then drain XLP's ETH deposits
-        testVoucherId = _createVoucher();
-
-        // Withdraw all XLP ETH deposits
+    function test_ValidatePaymasterUserOp_VoucherMode_GasCostExceedsDeposit() public {
+        // Withdraw most of XLP's ETH to leave only a small amount
         vm.prank(xlp);
-        paymaster.withdrawETH(paymaster.getXLPETH(xlp));
+        paymaster.withdrawETH(4.999 ether); // Leave only 0.001 ETH
 
-        bytes memory paymasterAndData = _buildVoucherPaymentData(testVoucherId, xlp);
+        bytes32 voucherId = bytes32(uint256(0xCAFE));
+        bytes memory paymasterAndData = _buildVoucherPaymentData(voucherId, xlp);
         PackedUserOperation memory userOp = _buildUserOp(user, paymasterAndData);
 
+        // Request 0.01 ETH gas - more than the 0.001 ETH remaining, but below maxGasCost (1 ETH)
         vm.prank(entryPoint);
         (bytes memory context, uint256 validationData) =
-            paymaster.validatePaymasterUserOp(userOp, bytes32(0), 0.001 ether);
+            paymaster.validatePaymasterUserOp(userOp, bytes32(0), 0.01 ether);
 
-        // Should fail because XLP has no ETH to cover gas
-        assertEq(validationData, 1, "Should fail when XLP has no ETH");
+        // Should fail because gas cost exceeds XLP's remaining ETH deposit
+        assertEq(validationData, 1, "Should fail when gas cost exceeds deposit");
         assertEq(context.length, 0, "Should return empty context");
     }
 
@@ -458,8 +461,8 @@ contract EILEntryPointTest is Test {
         bytes32 commitment = keccak256(abi.encodePacked(requestId, xlp, amount, fee, destChainId));
         bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", commitment));
 
-        // Sign with xlp's private key (address(0x2) corresponds to private key 2)
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(2, ethSignedHash);
+        // Sign with xlp's private key
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(xlpPrivateKey, ethSignedHash);
         return abi.encodePacked(r, s, v);
     }
 }
