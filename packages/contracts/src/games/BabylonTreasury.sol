@@ -6,7 +6,6 @@ pragma solidity ^0.8.20;
  *      This copy remains for backwards compatibility with existing deployments.
  *      For new deployments, use the contract from vendor/babylon/contracts/BabylonTreasury.sol
  */
-
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
@@ -20,7 +19,7 @@ import "../interfaces/IGameTreasury.sol";
  *
  * NOTE: This contract is vendor-specific and should be deployed from vendor/babylon.
  *       The core Jeju system uses IGameTreasury interface for abstraction.
- * 
+ *
  * @custom:deprecated Use vendor/babylon/contracts/BabylonTreasury.sol for new deployments
  *
  * Key Security Features:
@@ -160,15 +159,13 @@ contract BabylonTreasury is IGameTreasury, AccessControl, ReentrancyGuard, Pausa
      * @param _operator Address derived inside TEE
      * @param _attestation Remote attestation proof
      */
-    function registerOperator(
-        address _operator,
-        bytes calldata _attestation
-    ) external override onlyRole(COUNCIL_ROLE) {
+    function registerOperator(address _operator, bytes calldata _attestation)
+        external
+        override
+        onlyRole(COUNCIL_ROLE)
+    {
         require(_operator != address(0), "Invalid operator");
-        require(
-            operator == address(0) || !isOperatorActive(),
-            "Active operator exists"
-        );
+        require(operator == address(0) || !isOperatorActive(), "Active operator exists");
 
         // Revoke old operator if exists
         if (operator != address(0)) {
@@ -215,10 +212,7 @@ contract BabylonTreasury is IGameTreasury, AccessControl, ReentrancyGuard, Pausa
      */
     function takeoverAsOperator(bytes calldata _attestation) external override {
         require(operator == address(0) || !isOperatorActive(), "Operator still active");
-        require(
-            block.timestamp >= lastHeartbeat + heartbeatTimeout + takeoverCooldown,
-            "Takeover cooldown not met"
-        );
+        require(block.timestamp >= lastHeartbeat + heartbeatTimeout + takeoverCooldown, "Takeover cooldown not met");
         require(_attestation.length > 0, "Attestation required");
 
         address oldOperator = operator;
@@ -249,10 +243,7 @@ contract BabylonTreasury is IGameTreasury, AccessControl, ReentrancyGuard, Pausa
      * @param _cid IPFS CID of encrypted state
      * @param _hash Hash of the state for integrity
      */
-    function updateState(
-        string calldata _cid,
-        bytes32 _hash
-    ) external override onlyRole(OPERATOR_ROLE) whenNotPaused {
+    function updateState(string calldata _cid, bytes32 _hash) external override onlyRole(OPERATOR_ROLE) whenNotPaused {
         currentStateCID = _cid;
         currentStateHash = _hash;
         stateVersion++;
@@ -274,10 +265,7 @@ contract BabylonTreasury is IGameTreasury, AccessControl, ReentrancyGuard, Pausa
      * @param _datasetCID Public IPFS CID of training data
      * @param _modelHash Hash of the updated model
      */
-    function recordTraining(
-        string calldata _datasetCID,
-        bytes32 _modelHash
-    ) external onlyRole(OPERATOR_ROLE) {
+    function recordTraining(string calldata _datasetCID, bytes32 _modelHash) external onlyRole(OPERATOR_ROLE) {
         trainingEpoch++;
         lastModelHash = _modelHash;
         emit TrainingRecorded(trainingEpoch, _datasetCID, _modelHash);
@@ -291,9 +279,7 @@ contract BabylonTreasury is IGameTreasury, AccessControl, ReentrancyGuard, Pausa
      * @notice Withdraw funds for operational costs (rate-limited)
      * @param _amount Amount to withdraw
      */
-    function withdraw(
-        uint256 _amount
-    ) external override onlyRole(OPERATOR_ROLE) nonReentrant whenNotPaused {
+    function withdraw(uint256 _amount) external override onlyRole(OPERATOR_ROLE) nonReentrant whenNotPaused {
         require(_amount > 0, "Amount must be positive");
         require(address(this).balance >= _amount, "Insufficient balance");
 
@@ -304,14 +290,11 @@ contract BabylonTreasury is IGameTreasury, AccessControl, ReentrancyGuard, Pausa
             lastWithdrawalDay = currentDay;
         }
 
-        require(
-            withdrawnToday + _amount <= dailyWithdrawalLimit,
-            "Exceeds daily limit"
-        );
+        require(withdrawnToday + _amount <= dailyWithdrawalLimit, "Exceeds daily limit");
 
         withdrawnToday += _amount;
 
-        (bool success, ) = msg.sender.call{value: _amount}("");
+        (bool success,) = msg.sender.call{value: _amount}("");
         require(success, "Transfer failed");
 
         emit FundsWithdrawn(msg.sender, _amount);
@@ -381,9 +364,7 @@ contract BabylonTreasury is IGameTreasury, AccessControl, ReentrancyGuard, Pausa
     /**
      * @notice Update daily withdrawal limit
      */
-    function setDailyLimit(
-        uint256 _newLimit
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setDailyLimit(uint256 _newLimit) external onlyRole(DEFAULT_ADMIN_ROLE) {
         dailyWithdrawalLimit = _newLimit;
         emit DailyLimitUpdated(_newLimit);
     }
@@ -391,9 +372,7 @@ contract BabylonTreasury is IGameTreasury, AccessControl, ReentrancyGuard, Pausa
     /**
      * @notice Update heartbeat timeout
      */
-    function setHeartbeatTimeout(
-        uint256 _timeout
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setHeartbeatTimeout(uint256 _timeout) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(_timeout >= 5 minutes, "Timeout too short");
         heartbeatTimeout = _timeout;
     }
@@ -401,18 +380,14 @@ contract BabylonTreasury is IGameTreasury, AccessControl, ReentrancyGuard, Pausa
     /**
      * @notice Update takeover cooldown
      */
-    function setTakeoverCooldown(
-        uint256 _cooldown
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setTakeoverCooldown(uint256 _cooldown) external onlyRole(DEFAULT_ADMIN_ROLE) {
         takeoverCooldown = _cooldown;
     }
 
     /**
      * @notice Update rotation approval threshold
      */
-    function setRotationApprovalThreshold(
-        uint256 _threshold
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setRotationApprovalThreshold(uint256 _threshold) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(_threshold >= 1, "Threshold must be at least 1");
         rotationApprovalThreshold = _threshold;
     }
@@ -420,18 +395,14 @@ contract BabylonTreasury is IGameTreasury, AccessControl, ReentrancyGuard, Pausa
     /**
      * @notice Add council member
      */
-    function addCouncilMember(
-        address _member
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function addCouncilMember(address _member) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _grantRole(COUNCIL_ROLE, _member);
     }
 
     /**
      * @notice Remove council member
      */
-    function removeCouncilMember(
-        address _member
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function removeCouncilMember(address _member) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _revokeRole(COUNCIL_ROLE, _member);
     }
 
@@ -469,14 +440,7 @@ contract BabylonTreasury is IGameTreasury, AccessControl, ReentrancyGuard, Pausa
             bool operatorActive
         )
     {
-        return (
-            currentStateCID,
-            currentStateHash,
-            stateVersion,
-            keyVersion,
-            lastHeartbeat,
-            isOperatorActive()
-        );
+        return (currentStateCID, currentStateHash, stateVersion, keyVersion, lastHeartbeat, isOperatorActive());
     }
 
     /**
@@ -485,39 +449,18 @@ contract BabylonTreasury is IGameTreasury, AccessControl, ReentrancyGuard, Pausa
     function getOperatorInfo()
         external
         view
-        returns (
-            address op,
-            bytes memory attestation,
-            uint256 registeredAt,
-            bool active
-        )
+        returns (address op, bytes memory attestation, uint256 registeredAt, bool active)
     {
-        return (
-            operator,
-            operatorAttestation,
-            operatorRegisteredAt,
-            isOperatorActive()
-        );
+        return (operator, operatorAttestation, operatorRegisteredAt, isOperatorActive());
     }
 
     /**
      * @notice Get withdrawal info
      */
-    function getWithdrawalInfo()
-        external
-        view
-        override
-        returns (
-            uint256 limit,
-            uint256 usedToday,
-            uint256 remaining
-        )
-    {
+    function getWithdrawalInfo() external view override returns (uint256 limit, uint256 usedToday, uint256 remaining) {
         uint256 currentDay = block.timestamp / 1 days;
         uint256 todayWithdrawn = currentDay > lastWithdrawalDay ? 0 : withdrawnToday;
-        uint256 remainingToday = dailyWithdrawalLimit > todayWithdrawn
-            ? dailyWithdrawalLimit - todayWithdrawn
-            : 0;
+        uint256 remainingToday = dailyWithdrawalLimit > todayWithdrawn ? dailyWithdrawalLimit - todayWithdrawn : 0;
 
         return (dailyWithdrawalLimit, todayWithdrawn, remainingToday);
     }

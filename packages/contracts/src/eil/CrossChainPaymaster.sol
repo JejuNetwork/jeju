@@ -491,73 +491,19 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         uint256 maxFee,
         uint256 feeIncrement
     ) external payable nonReentrant returns (bytes32 requestId) {
-        if (!supportedTokens[token]) revert UnsupportedToken();
-        if (amount == 0) revert InsufficientAmount();
-        if (maxFee < MIN_FEE) revert InsufficientFee();
-        if (destinationChainId == chainId) revert InvalidDestinationChain();
-        if (recipient == address(0)) revert InvalidRecipient();
-
-        uint256 excessRefund = 0;
-        if (token == address(0)) {
-            uint256 required = amount + maxFee;
-            if (msg.value < required) revert InsufficientAmount();
-            excessRefund = msg.value - required;
-        } else {
-            if (msg.value < maxFee) revert InsufficientFee();
-            excessRefund = msg.value - maxFee;
-        }
-
-        requestId =
-            keccak256(abi.encodePacked(msg.sender, token, amount, destinationChainId, block.number, block.timestamp, ++_requestNonce));
-
-        voucherRequests[requestId] = VoucherRequest({
-            requester: msg.sender,
-            token: token,
-            amount: amount,
-            destinationToken: destinationToken,
-            destinationChainId: destinationChainId,
-            recipient: recipient,
-            gasOnDestination: gasOnDestination,
-            maxFee: maxFee,
-            feeIncrement: feeIncrement,
-            deadline: block.number + REQUEST_TIMEOUT,
-            createdBlock: block.number,
-            claimed: false,
-            expired: false,
-            refunded: false,
-            bidCount: 0,
-            winningXLP: address(0),
-            winningFee: 0
-        });
-
-        emit VoucherRequested(
-            requestId, msg.sender, token, amount, destinationChainId, recipient, maxFee, block.number + REQUEST_TIMEOUT
+        address[] memory empty = new address[](0);
+        return _createVoucherRequest(
+            token,
+            amount,
+            destinationToken,
+            destinationChainId,
+            recipient,
+            gasOnDestination,
+            maxFee,
+            feeIncrement,
+            empty
         );
-
-        if (token != address(0)) {
-            IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
-        }
-
-        if (excessRefund > 0) {
-            (bool refundSuccess,) = msg.sender.call{value: excessRefund}("");
-            if (!refundSuccess) revert TransferFailed();
-        }
     }
-
-    /// @notice Get current fee for a request (increases over time via reverse Dutch auction)
-    function getCurrentFee(bytes32 requestId) public view returns (uint256 currentFee) {
-        VoucherRequest storage request = voucherRequests[requestId];
-        if (request.requester == address(0)) return 0;
-
-        uint256 elapsedBlocks = block.number - request.createdBlock;
-        currentFee = MIN_FEE + (elapsedBlocks * request.feeIncrement);
-
-        if (currentFee > request.maxFee) {
-            currentFee = request.maxFee;
-        }
-    }
-
-    // ============ Multi-XLP Competition Functions ============
 
     /// @notice Create a voucher request with an XLP allowlist (empty = any XLP)
     function createVoucherRequestWithAllowlist(
@@ -571,13 +517,37 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         uint256 feeIncrement,
         address[] calldata allowedXLPs
     ) external payable nonReentrant returns (bytes32 requestId) {
+        return _createVoucherRequest(
+            token,
+            amount,
+            destinationToken,
+            destinationChainId,
+            recipient,
+            gasOnDestination,
+            maxFee,
+            feeIncrement,
+            allowedXLPs
+        );
+    }
+
+    function _createVoucherRequest(
+        address token,
+        uint256 amount,
+        address destinationToken,
+        uint256 destinationChainId,
+        address recipient,
+        uint256 gasOnDestination,
+        uint256 maxFee,
+        uint256 feeIncrement,
+        address[] memory allowedXLPs
+    ) internal returns (bytes32 requestId) {
         if (!supportedTokens[token]) revert UnsupportedToken();
         if (amount == 0) revert InsufficientAmount();
         if (maxFee < MIN_FEE) revert InsufficientFee();
         if (destinationChainId == chainId) revert InvalidDestinationChain();
         if (recipient == address(0)) revert InvalidRecipient();
 
-        uint256 excessRefund = 0;
+        uint256 excessRefund;
         if (token == address(0)) {
             uint256 required = amount + maxFee;
             if (msg.value < required) revert InsufficientAmount();
@@ -587,8 +557,11 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
             excessRefund = msg.value - maxFee;
         }
 
-        requestId =
-            keccak256(abi.encodePacked(msg.sender, token, amount, destinationChainId, block.number, block.timestamp, ++_requestNonce));
+        requestId = keccak256(
+            abi.encodePacked(
+                msg.sender, token, amount, destinationChainId, block.number, block.timestamp, ++_requestNonce
+            )
+        );
 
         voucherRequests[requestId] = VoucherRequest({
             requester: msg.sender,
@@ -610,7 +583,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
             winningFee: 0
         });
 
-        // Set XLP allowlist if provided
         if (allowedXLPs.length > 0) {
             requestHasAllowlist[requestId] = true;
             for (uint256 i = 0; i < allowedXLPs.length; i++) {
@@ -628,10 +600,22 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         }
 
         if (excessRefund > 0) {
-            (bool refundSuccess,) = msg.sender.call{value: excessRefund}("");
-            if (!refundSuccess) revert TransferFailed();
+            (bool success,) = msg.sender.call{value: excessRefund}("");
+            if (!success) revert TransferFailed();
         }
     }
+
+    /// @notice Get current fee for a request (increases over time via reverse Dutch auction)
+    function getCurrentFee(bytes32 requestId) public view returns (uint256 currentFee) {
+        VoucherRequest storage request = voucherRequests[requestId];
+        if (request.requester == address(0)) return 0;
+
+        uint256 elapsedBlocks = block.number - request.createdBlock;
+        currentFee = MIN_FEE + (elapsedBlocks * request.feeIncrement);
+        if (currentFee > request.maxFee) currentFee = request.maxFee;
+    }
+
+    // ============ Multi-XLP Competition Functions ============
 
     /// @notice Submit a bid to fulfill a request
     function submitBid(bytes32 requestId) external nonReentrant {
@@ -692,6 +676,7 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         if (request.refunded) revert RequestAlreadyRefunded();
         if (block.number <= request.deadline) revert RequestNotExpired();
 
+        // Cache for gas and CEI
         address requester = request.requester;
         address token = request.token;
         uint256 amount = request.amount;
@@ -703,16 +688,19 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         emit VoucherExpired(requestId, requester);
         emit FundsRefunded(requestId, requester, amount);
 
+        // Refund: ETH transfers amount+fee together, ERC20 transfers token then fee separately
         if (token == address(0)) {
-            (bool success,) = requester.call{value: amount + maxFee}("");
-            if (!success) revert TransferFailed();
+            _transferETH(requester, amount + maxFee);
         } else {
             IERC20(token).safeTransfer(requester, amount);
-            if (maxFee > 0) {
-                (bool feeSuccess,) = requester.call{value: maxFee}("");
-                if (!feeSuccess) revert TransferFailed();
-            }
+            if (maxFee > 0) _transferETH(requester, maxFee);
         }
+    }
+
+    /// @dev Safe ETH transfer with revert on failure
+    function _transferETH(address to, uint256 amount) internal {
+        (bool success,) = to.call{value: amount}("");
+        if (!success) revert TransferFailed();
     }
 
     // ============ XLP Liquidity Management ============
@@ -751,9 +739,7 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         xlpETHDeposits[msg.sender] -= amount;
         totalETHLiquidity -= amount;
         emit XLPWithdraw(msg.sender, address(0), amount);
-
-        (bool success,) = msg.sender.call{value: amount}("");
-        if (!success) revert TransferFailed();
+        _transferETH(msg.sender, amount);
     }
 
     /// @notice Permissionless exchange rate update from oracle
@@ -938,18 +924,10 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
 
         // INTERACTIONS: External calls last
         if (token == address(0)) {
-            // Native ETH - amount was locked, fee was also locked in maxFee
-            // XLP gets amount + fee
-            (bool success,) = msg.sender.call{value: xlpReceives + feeReceived}("");
-            if (!success) revert TransferFailed();
+            _transferETH(msg.sender, xlpReceives + feeReceived);
         } else {
-            // ERC20 - transfer the locked tokens
             IERC20(token).safeTransfer(msg.sender, xlpReceives);
-            // Fee was paid in ETH for ERC20 transfers
-            if (feeReceived > 0) {
-                (bool feeSuccess,) = msg.sender.call{value: feeReceived}("");
-                if (!feeSuccess) revert TransferFailed();
-            }
+            if (feeReceived > 0) _transferETH(msg.sender, feeReceived);
         }
     }
 
@@ -1008,14 +986,10 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
 
         // INTERACTIONS: External calls last
         if (token == address(0)) {
-            (bool success,) = recipient.call{value: amount + gasAmount}("");
-            if (!success) revert TransferFailed();
+            _transferETH(recipient, amount + gasAmount);
         } else {
             IERC20(token).safeTransfer(recipient, amount);
-            if (gasAmount > 0) {
-                (bool gasSuccess,) = recipient.call{value: gasAmount}("");
-                if (!gasSuccess) revert TransferFailed();
-            }
+            if (gasAmount > 0) _transferETH(recipient, gasAmount);
         }
     }
 
@@ -1645,17 +1619,13 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
 
         // Handle output transfer
         if (tokenOut == address(0)) {
-            (bool success,) = msg.sender.call{value: amountOut}("");
-            if (!success) revert TransferFailed();
+            _transferETH(msg.sender, amountOut);
         } else {
             IERC20(tokenOut).safeTransfer(msg.sender, amountOut);
         }
 
-        // Refund excess ETH last
-        if (refundAmount > 0) {
-            (bool refundSuccess,) = msg.sender.call{value: refundAmount}("");
-            if (!refundSuccess) revert TransferFailed();
-        }
+        // Refund excess ETH
+        if (refundAmount > 0) _transferETH(msg.sender, refundAmount);
 
         emit Swap(msg.sender, tokenIn, tokenOut, amountIn, amountOut, fee);
     }

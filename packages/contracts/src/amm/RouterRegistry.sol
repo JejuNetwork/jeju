@@ -9,7 +9,6 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 /// @notice Registry for routers enabling external protocol discovery
 /// @dev Enables aggregators like 1inch, Paraswap to discover and route through XLP
 contract RouterRegistry is Ownable, ReentrancyGuard {
-
     // ============ Structs ============
 
     struct RouterInfo {
@@ -22,15 +21,15 @@ contract RouterRegistry is Ownable, ReentrancyGuard {
         uint256 registeredAt;
         uint256 totalVolume;
         uint256 totalTrades;
-        uint256 feeShareBps;      // Fee share for referrers (basis points)
+        uint256 feeShareBps; // Fee share for referrers (basis points)
         address feeRecipient;
     }
 
     struct ChainRouter {
         address router;
-        address aggregator;       // LiquidityAggregator on this chain
-        address inputSettler;     // OIF InputSettler
-        address outputSettler;    // OIF OutputSettler
+        address aggregator; // LiquidityAggregator on this chain
+        address inputSettler; // OIF InputSettler
+        address outputSettler; // OIF OutputSettler
         bool isActive;
     }
 
@@ -53,8 +52,8 @@ contract RouterRegistry is Ownable, ReentrancyGuard {
 
     /// @notice Router fee tiers (volume-based discounts)
     mapping(address => uint256) public routerTier;
-    uint256[] public tierThresholds;      // Volume thresholds for each tier
-    uint256[] public tierFeeDiscounts;    // Fee discount bps for each tier
+    uint256[] public tierThresholds; // Volume thresholds for each tier
+    uint256[] public tierFeeDiscounts; // Fee discount bps for each tier
 
     /// @notice Referral tracking
     mapping(address => address) public referrer;
@@ -62,23 +61,12 @@ contract RouterRegistry is Ownable, ReentrancyGuard {
 
     // ============ Events ============
 
-    event RouterRegistered(
-        address indexed router,
-        string name,
-        uint256[] chains
-    );
+    event RouterRegistered(address indexed router, string name, uint256[] chains);
 
-    event RouterUpdated(
-        address indexed router,
-        bool isActive
-    );
+    event RouterUpdated(address indexed router, bool isActive);
 
     event ChainRouterSet(
-        uint256 indexed chainId,
-        address router,
-        address aggregator,
-        address inputSettler,
-        address outputSettler
+        uint256 indexed chainId, address router, address aggregator, address inputSettler, address outputSettler
     );
 
     event AggregatorApproved(address indexed aggregator, bool approved);
@@ -99,16 +87,16 @@ contract RouterRegistry is Ownable, ReentrancyGuard {
 
     constructor() Ownable(msg.sender) {
         // Initialize default tier thresholds (in USD value scaled by 1e18)
-        tierThresholds.push(0);                    // Tier 0: 0+
-        tierThresholds.push(100_000 * 1e18);       // Tier 1: 100k+
-        tierThresholds.push(1_000_000 * 1e18);     // Tier 2: 1M+
-        tierThresholds.push(10_000_000 * 1e18);    // Tier 3: 10M+
+        tierThresholds.push(0); // Tier 0: 0+
+        tierThresholds.push(100_000 * 1e18); // Tier 1: 100k+
+        tierThresholds.push(1_000_000 * 1e18); // Tier 2: 1M+
+        tierThresholds.push(10_000_000 * 1e18); // Tier 3: 10M+
 
         // Fee discounts in basis points
-        tierFeeDiscounts.push(0);      // Tier 0: 0% discount
-        tierFeeDiscounts.push(500);    // Tier 1: 5% discount
-        tierFeeDiscounts.push(1000);   // Tier 2: 10% discount
-        tierFeeDiscounts.push(2000);   // Tier 3: 20% discount
+        tierFeeDiscounts.push(0); // Tier 0: 0% discount
+        tierFeeDiscounts.push(500); // Tier 1: 5% discount
+        tierFeeDiscounts.push(1000); // Tier 2: 10% discount
+        tierFeeDiscounts.push(2000); // Tier 3: 20% discount
     }
 
     // ============ Router Registration ============
@@ -245,7 +233,7 @@ contract RouterRegistry is Ownable, ReentrancyGuard {
     function setReferrer(address user, address ref) external {
         if (referrer[user] != address(0)) return; // Already set
         if (ref == user) return; // Can't self-refer
-        
+
         referrer[user] = ref;
         emit ReferralSet(user, ref);
     }
@@ -290,7 +278,7 @@ contract RouterRegistry is Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < routers.length; i++) {
             RouterInfo storage info = routerInfo[routers[i]];
             if (!info.isActive) continue;
-            
+
             for (uint256 j = 0; j < info.supportedChainIds.length; j++) {
                 if (info.supportedChainIds[j] == chainId) {
                     count++;
@@ -304,7 +292,7 @@ contract RouterRegistry is Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < routers.length; i++) {
             RouterInfo storage info = routerInfo[routers[i]];
             if (!info.isActive) continue;
-            
+
             for (uint256 j = 0; j < info.supportedChainIds.length; j++) {
                 if (info.supportedChainIds[j] == chainId) {
                     chainRoutersList[idx++] = routers[i];
@@ -346,10 +334,8 @@ contract RouterRegistry is Ownable, ReentrancyGuard {
     /// @param sourceChain Source chain ID
     /// @param destChain Destination chain ID
     function isRouteAvailable(uint256 sourceChain, uint256 destChain) external view returns (bool) {
-        return isSupportedChain[sourceChain] && 
-               isSupportedChain[destChain] &&
-               chainRouters[sourceChain].isActive &&
-               chainRouters[destChain].isActive;
+        return isSupportedChain[sourceChain] && isSupportedChain[destChain] && chainRouters[sourceChain].isActive
+            && chainRouters[destChain].isActive;
     }
 
     function version() external pure returns (string memory) {

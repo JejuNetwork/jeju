@@ -34,6 +34,14 @@ Build an API that charges per request using x402. Learn:
 - Rate limiting with payments
 - Client SDK usage
 
+### [Register a Token](/tutorials/register-token)
+**Time:** 15 minutes | **Level:** Beginner
+
+Enable your token for gas payments via paymasters. Learn:
+- Deploy a price oracle
+- Register in TokenRegistry
+- Test gas payments in your token
+
 ## Prerequisites
 
 All tutorials assume:

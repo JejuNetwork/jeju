@@ -81,11 +81,7 @@ contract OracleStakingManagerTest is Test {
         priceOracle.setPrice(address(stakeToken), 1e18); // $1 per token
 
         // Deploy oracle staking manager
-        oracleManager = new OracleStakingManager(
-            address(tokenRegistry),
-            address(priceOracle),
-            owner
-        );
+        oracleManager = new OracleStakingManager(address(tokenRegistry), address(priceOracle), owner);
 
         // Configure registries
         oracleManager.setIdentityRegistry(address(identityRegistry));
@@ -95,25 +91,15 @@ contract OracleStakingManagerTest is Test {
             BTC_USD,
             "BTC-USD",
             address(0),
-            3600,   // 1 hour heartbeat
-            100,    // 1% deviation
-            3       // Min 3 oracles
+            3600, // 1 hour heartbeat
+            100, // 1% deviation
+            3 // Min 3 oracles
         );
 
-        oracleManager.addMarket(
-            ETH_USD,
-            "ETH-USD",
-            address(0),
-            3600,
-            100,
-            3
-        );
+        oracleManager.addMarket(ETH_USD, "ETH-USD", address(0), 3600, 100, 3);
 
         // Deploy price feed aggregator
-        priceFeedAggregator = new PriceFeedAggregator(
-            address(oracleManager),
-            owner
-        );
+        priceFeedAggregator = new PriceFeedAggregator(address(oracleManager), owner);
 
         // Configure price feeds
         priceFeedAggregator.configureFeed(
@@ -125,14 +111,7 @@ contract OracleStakingManagerTest is Test {
             false
         );
 
-        priceFeedAggregator.configureFeed(
-            "ETH-USD",
-            ETH_USD,
-            address(0),
-            3600,
-            200,
-            false
-        );
+        priceFeedAggregator.configureFeed("ETH-USD", ETH_USD, address(0), 3600, 200, false);
 
         vm.stopPrank();
 
@@ -159,8 +138,8 @@ contract OracleStakingManagerTest is Test {
         vm.prank(oracle1);
         bytes32 oracleId = oracleManager.registerOracle(
             address(stakeToken),
-            2000 * 1e18,  // $2000 stake
-            0             // No reputation agent
+            2000 * 1e18, // $2000 stake
+            0 // No reputation agent
         );
 
         IOracleStakingManager.OracleNode memory node = oracleManager.getOracleInfo(oracleId);
@@ -177,7 +156,7 @@ contract OracleStakingManagerTest is Test {
         bytes32 oracleId = oracleManager.registerOracle(
             address(stakeToken),
             2000 * 1e18,
-            1  // Agent ID 1
+            1 // Agent ID 1
         );
 
         IOracleStakingManager.OracleNode memory node = oracleManager.getOracleInfo(oracleId);
@@ -188,11 +167,7 @@ contract OracleStakingManagerTest is Test {
         // Min stake is $1000, so 500 tokens = $500
         vm.prank(oracle1);
         vm.expectRevert();
-        oracleManager.registerOracle(
-            address(stakeToken),
-            500 * 1e18,
-            0
-        );
+        oracleManager.registerOracle(address(stakeToken), 500 * 1e18, 0);
     }
 
     function testCannotRegisterUnregisteredToken() public {
@@ -384,14 +359,7 @@ contract OracleStakingManagerTest is Test {
         bytes32 newMarket = keccak256("SOL-USD");
 
         vm.prank(owner);
-        oracleManager.addMarket(
-            newMarket,
-            "SOL-USD",
-            address(0),
-            3600,
-            100,
-            3
-        );
+        oracleManager.addMarket(newMarket, "SOL-USD", address(0), 3600, 100, 3);
 
         IOracleStakingManager.MarketConfig memory config = oracleManager.getMarketConfig(newMarket);
         assertEq(config.symbol, "SOL-USD");

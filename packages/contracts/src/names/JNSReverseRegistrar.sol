@@ -26,12 +26,8 @@ contract JNSReverseRegistrar is Ownable {
     // ============ Constants ============
 
     /// @notice Reverse node root (namehash("addr.reverse"))
-    bytes32 public constant ADDR_REVERSE_NODE = keccak256(
-        abi.encodePacked(
-            keccak256(abi.encodePacked(bytes32(0), keccak256("reverse"))),
-            keccak256("addr")
-        )
-    );
+    bytes32 public constant ADDR_REVERSE_NODE =
+        keccak256(abi.encodePacked(keccak256(abi.encodePacked(bytes32(0), keccak256("reverse"))), keccak256("addr")));
 
     // ============ State Variables ============
 
@@ -98,16 +94,9 @@ contract JNSReverseRegistrar is Ownable {
      * @param resolver The resolver to use
      * @return nodeHash The claimed reverse node
      */
-    function claimForAddr(
-        address addr,
-        address owner_,
-        address resolver
-    ) external returns (bytes32 nodeHash) {
+    function claimForAddr(address addr, address owner_, address resolver) external returns (bytes32 nodeHash) {
         // Only the address itself or an authorized controller can claim
-        require(
-            addr == msg.sender || isAuthorised(msg.sender),
-            "Not authorized"
-        );
+        require(addr == msg.sender || isAuthorised(msg.sender), "Not authorized");
         return _claimForAddr(addr, owner_, resolver);
     }
 
@@ -143,16 +132,11 @@ contract JNSReverseRegistrar is Ownable {
      * @param name The name to set
      * @return nodeHash The reverse node
      */
-    function setNameForAddr(
-        address addr,
-        address owner_,
-        address resolver,
-        string calldata name
-    ) external returns (bytes32 nodeHash) {
-        require(
-            addr == msg.sender || isAuthorised(msg.sender),
-            "Not authorized"
-        );
+    function setNameForAddr(address addr, address owner_, address resolver, string calldata name)
+        external
+        returns (bytes32 nodeHash)
+    {
+        require(addr == msg.sender || isAuthorised(msg.sender), "Not authorized");
 
         nodeHash = _claimForAddr(addr, owner_, resolver);
         IJNSResolver(resolver == address(0) ? defaultResolver : resolver).setName(nodeHash, name);
@@ -219,11 +203,7 @@ contract JNSReverseRegistrar is Ownable {
 
     // ============ Internal Functions ============
 
-    function _claimForAddr(
-        address addr,
-        address owner_,
-        address resolver
-    ) internal returns (bytes32 reverseNode) {
+    function _claimForAddr(address addr, address owner_, address resolver) internal returns (bytes32 reverseNode) {
         // Calculate the reverse node
         reverseNode = node(addr);
 
@@ -264,4 +244,3 @@ contract JNSReverseRegistrar is Ownable {
         return "1.0.0";
     }
 }
-

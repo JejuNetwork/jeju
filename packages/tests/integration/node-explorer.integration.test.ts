@@ -13,7 +13,16 @@ const API_URL = process.env.NODE_EXPLORER_API_URL ||
                 process.env.API_URL || 
                 `http://localhost:${process.env.NODE_EXPLORER_API_PORT || '4002'}`;
 
-describe("Node Explorer Integration Tests", () => {
+// Check if API is available
+let apiAvailable = false;
+try {
+  const response = await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(2000) });
+  apiAvailable = response.ok;
+} catch {
+  console.log(`Node Explorer API not available at ${API_URL}, skipping integration tests`);
+}
+
+describe.skipIf(!apiAvailable)("Node Explorer Integration Tests", () => {
   let testWallet: ethers.HDNodeWallet;
   let testNodeId: string;
   let apiAvailable = false;

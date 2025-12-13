@@ -17,24 +17,25 @@ contract ThresholdBatchSubmitter is Ownable, ReentrancyGuard {
 
     // Batch inbox address (where batches are ultimately sent)
     address public immutable batchInbox;
-    
+
     // Sequencer registry for authorized signers
     address public sequencerRegistry;
-    
+
     // Threshold configuration
     uint256 public threshold;
     uint256 public sequencerCount;
-    
+
     // Authorized sequencers (address => isAuthorized)
     mapping(address => bool) public isSequencer;
     address[] public sequencers;
-    
+
     // Nonce to prevent replay attacks
     uint256 public nonce;
-    
+
     // Domain separator for EIP-712 style signing
     bytes32 public immutable DOMAIN_SEPARATOR;
-    bytes32 public constant BATCH_TYPEHASH = keccak256("BatchSubmission(bytes32 batchHash,uint256 nonce,uint256 chainId)");
+    bytes32 public constant BATCH_TYPEHASH =
+        keccak256("BatchSubmission(bytes32 batchHash,uint256 nonce,uint256 chainId)");
 
     event BatchSubmitted(bytes32 indexed batchHash, uint256 indexed nonce, address[] signers);
     event SequencerAdded(address indexed sequencer);
@@ -50,15 +51,11 @@ contract ThresholdBatchSubmitter is Ownable, ReentrancyGuard {
     error BatchSubmissionFailed();
     error ZeroAddress();
 
-    constructor(
-        address _batchInbox,
-        address _owner,
-        uint256 _threshold
-    ) Ownable(_owner) {
+    constructor(address _batchInbox, address _owner, uint256 _threshold) Ownable(_owner) {
         if (_batchInbox == address(0)) revert ZeroAddress();
         batchInbox = _batchInbox;
         threshold = _threshold;
-        
+
         DOMAIN_SEPARATOR = keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
@@ -70,11 +67,10 @@ contract ThresholdBatchSubmitter is Ownable, ReentrancyGuard {
         );
     }
 
-    function submitBatch(
-        bytes calldata batchData,
-        bytes[] calldata signatures,
-        address[] calldata signers
-    ) external nonReentrant {
+    function submitBatch(bytes calldata batchData, bytes[] calldata signatures, address[] calldata signers)
+        external
+        nonReentrant
+    {
         uint256 sigCount = signatures.length;
         if (sigCount < threshold) revert InsufficientSignatures(sigCount, threshold);
         if (sigCount != signers.length) revert InsufficientSignatures(signers.length, sigCount);
@@ -85,7 +81,7 @@ contract ThresholdBatchSubmitter is Ownable, ReentrancyGuard {
             address recovered = digest.recover(signatures[i]);
             if (recovered != signers[i]) revert InvalidSignature(recovered, i);
             if (!isSequencer[recovered]) revert NotAuthorizedSequencer(recovered);
-            
+
             for (uint256 j = 0; j < i; j++) {
                 if (signers[j] == recovered) revert DuplicateSigner(recovered);
             }
@@ -116,19 +112,19 @@ contract ThresholdBatchSubmitter is Ownable, ReentrancyGuard {
     function addSequencer(address sequencer) external onlyOwner {
         if (sequencer == address(0)) revert ZeroAddress();
         if (isSequencer[sequencer]) return;
-        
+
         isSequencer[sequencer] = true;
         sequencers.push(sequencer);
         sequencerCount++;
-        
+
         emit SequencerAdded(sequencer);
     }
 
     function removeSequencer(address sequencer) external onlyOwner {
         if (!isSequencer[sequencer]) return;
-        
+
         isSequencer[sequencer] = false;
-        
+
         // Remove from array
         for (uint256 i = 0; i < sequencers.length; i++) {
             if (sequencers[i] == sequencer) {
@@ -138,14 +134,14 @@ contract ThresholdBatchSubmitter is Ownable, ReentrancyGuard {
             }
         }
         sequencerCount--;
-        
+
         // Adjust threshold if needed
         if (threshold > sequencerCount && sequencerCount > 0) {
             uint256 oldThreshold = threshold;
             threshold = sequencerCount;
             emit ThresholdUpdated(oldThreshold, threshold);
         }
-        
+
         emit SequencerRemoved(sequencer);
     }
 
@@ -166,16 +162,16 @@ contract ThresholdBatchSubmitter is Ownable, ReentrancyGuard {
 
     function syncFromRegistry() external {
         if (sequencerRegistry == address(0)) revert ZeroAddress();
-        
+
         (address[] memory activeSequencers,) = ISequencerRegistry(sequencerRegistry).getActiveSequencers();
-        
+
         // Clear current
         uint256 len = sequencers.length;
         for (uint256 i = 0; i < len; i++) {
             isSequencer[sequencers[i]] = false;
         }
         delete sequencers;
-        
+
         // Add active
         for (uint256 i = 0; i < activeSequencers.length; i++) {
             address seq = activeSequencers[i];
@@ -184,7 +180,7 @@ contract ThresholdBatchSubmitter is Ownable, ReentrancyGuard {
                 sequencers.push(seq);
             }
         }
-        
+
         sequencerCount = sequencers.length;
         if (threshold > sequencerCount && sequencerCount > 0) {
             threshold = sequencerCount;
@@ -203,4 +199,3 @@ contract ThresholdBatchSubmitter is Ownable, ReentrancyGuard {
 interface ISequencerRegistry {
     function getActiveSequencers() external view returns (address[] memory addresses, uint256[] memory weights);
 }
-

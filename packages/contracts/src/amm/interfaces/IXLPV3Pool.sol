@@ -56,8 +56,7 @@ interface IXLPV3Pool {
     );
 
     event IncreaseObservationCardinalityNext(
-        uint16 observationCardinalityNextOld,
-        uint16 observationCardinalityNextNew
+        uint16 observationCardinalityNextOld, uint16 observationCardinalityNextNew
     );
 
     event SetFeeProtocol(uint8 feeProtocol0Old, uint8 feeProtocol1Old, uint8 feeProtocol0New, uint8 feeProtocol1New);
@@ -134,13 +133,9 @@ interface IXLPV3Pool {
 
     function initialize(uint160 sqrtPriceX96) external;
 
-    function mint(
-        address recipient,
-        int24 tickLower,
-        int24 tickUpper,
-        uint128 amount,
-        bytes calldata data
-    ) external returns (uint256 amount0, uint256 amount1);
+    function mint(address recipient, int24 tickLower, int24 tickUpper, uint128 amount, bytes calldata data)
+        external
+        returns (uint256 amount0, uint256 amount1);
 
     function collect(
         address recipient,
@@ -150,11 +145,9 @@ interface IXLPV3Pool {
         uint128 amount1Requested
     ) external returns (uint128 amount0, uint128 amount1);
 
-    function burn(
-        int24 tickLower,
-        int24 tickUpper,
-        uint128 amount
-    ) external returns (uint256 amount0, uint256 amount1);
+    function burn(int24 tickLower, int24 tickUpper, uint128 amount)
+        external
+        returns (uint256 amount0, uint256 amount1);
 
     function swap(
         address recipient,
@@ -164,48 +157,29 @@ interface IXLPV3Pool {
         bytes calldata data
     ) external returns (int256 amount0, int256 amount1);
 
-    function flash(
-        address recipient,
-        uint256 amount0,
-        uint256 amount1,
-        bytes calldata data
-    ) external;
+    function flash(address recipient, uint256 amount0, uint256 amount1, bytes calldata data) external;
 
     function increaseObservationCardinalityNext(uint16 observationCardinalityNext) external;
 
     // ============ Admin ============
 
     function setFeeProtocol(uint8 feeProtocol0, uint8 feeProtocol1) external;
-    function collectProtocol(
-        address recipient,
-        uint128 amount0Requested,
-        uint128 amount1Requested
-    ) external returns (uint128 amount0, uint128 amount1);
+    function collectProtocol(address recipient, uint128 amount0Requested, uint128 amount1Requested)
+        external
+        returns (uint128 amount0, uint128 amount1);
 }
 
 /// @title Callback for mint
 interface IXLPV3MintCallback {
-    function xlpV3MintCallback(
-        uint256 amount0Owed,
-        uint256 amount1Owed,
-        bytes calldata data
-    ) external;
+    function xlpV3MintCallback(uint256 amount0Owed, uint256 amount1Owed, bytes calldata data) external;
 }
 
 /// @title Callback for swap
 interface IXLPV3SwapCallback {
-    function xlpV3SwapCallback(
-        int256 amount0Delta,
-        int256 amount1Delta,
-        bytes calldata data
-    ) external;
+    function xlpV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) external;
 }
 
 /// @title Callback for flash
 interface IXLPV3FlashCallback {
-    function xlpV3FlashCallback(
-        uint256 fee0,
-        uint256 fee1,
-        bytes calldata data
-    ) external;
+    function xlpV3FlashCallback(uint256 fee0, uint256 fee1, bytes calldata data) external;
 }

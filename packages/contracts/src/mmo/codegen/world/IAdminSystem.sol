@@ -9,37 +9,37 @@ pragma solidity >=0.8.24;
  * @dev This interface is automatically generated from the corresponding system contract. Do not edit manually.
  */
 interface IAdminSystem {
-  function hyperscape__initialize() external;
+    function hyperscape__initialize() external;
 
-  function hyperscape__createItem(
-    uint16 itemId,
-    string memory name,
-    uint8 itemType,
-    bool stackable,
-    int16 attackBonus,
-    int16 strengthBonus,
-    int16 defenseBonus,
-    int16 rangedBonus,
-    uint8 reqAttack,
-    uint8 reqStrength,
-    uint8 reqDefense,
-    uint8 reqRanged,
-    uint16 heals
-  ) external;
+    function hyperscape__createItem(
+        uint16 itemId,
+        string memory name,
+        uint8 itemType,
+        bool stackable,
+        int16 attackBonus,
+        int16 strengthBonus,
+        int16 defenseBonus,
+        int16 rangedBonus,
+        uint8 reqAttack,
+        uint8 reqStrength,
+        uint8 reqDefense,
+        uint8 reqRanged,
+        uint16 heals
+    ) external;
 
-  function hyperscape__setLootTable(
-    uint8 mobType,
-    uint32 coinMin,
-    uint32 coinMax,
-    uint16 itemId1,
-    uint16 itemId1Chance,
-    uint16 itemId2,
-    uint16 itemId2Chance,
-    uint16 itemId3,
-    uint16 itemId3Chance,
-    uint16 itemId4,
-    uint16 itemId4Chance
-  ) external;
+    function hyperscape__setLootTable(
+        uint8 mobType,
+        uint32 coinMin,
+        uint32 coinMax,
+        uint16 itemId1,
+        uint16 itemId1Chance,
+        uint16 itemId2,
+        uint16 itemId2Chance,
+        uint16 itemId3,
+        uint16 itemId3Chance,
+        uint16 itemId4,
+        uint16 itemId4Chance
+    ) external;
 
-  function hyperscape__setItemsContractAddress(address _itemsContract) external;
+    function hyperscape__setItemsContractAddress(address _itemsContract) external;
 }

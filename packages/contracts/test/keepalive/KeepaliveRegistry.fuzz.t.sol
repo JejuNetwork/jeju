@@ -32,17 +32,9 @@ contract KeepaliveRegistryFuzzTest is Test {
         bytes32 jnsNode = keccak256(abi.encodePacked("test", interval));
 
         vm.prank(alice);
-        bytes32 keepaliveId = registry.registerKeepalive(
-            jnsNode,
-            0,
-            vault,
-            0.1 ether,
-            interval,
-            0,
-            false
-        );
+        bytes32 keepaliveId = registry.registerKeepalive(jnsNode, 0, vault, 0.1 ether, interval, 0, false);
 
-        (, , , , , , uint256 storedInterval, , , , , , ) = registry.keepalives(keepaliveId);
+        (,,,,,, uint256 storedInterval,,,,,,) = registry.keepalives(keepaliveId);
 
         // 0 should default to 3600
         if (interval == 0) {
@@ -58,53 +50,29 @@ contract KeepaliveRegistryFuzzTest is Test {
         bytes32 jnsNode = keccak256(abi.encodePacked("test", minBalance));
 
         vm.prank(alice);
-        bytes32 keepaliveId = registry.registerKeepalive(
-            jnsNode,
-            0,
-            vault,
-            minBalance,
-            3600,
-            0,
-            false
-        );
+        bytes32 keepaliveId = registry.registerKeepalive(jnsNode, 0, vault, minBalance, 3600, 0, false);
 
-        (, , , , , uint256 storedMinBalance, , , , , , , ) = registry.keepalives(keepaliveId);
+        (,,,,, uint256 storedMinBalance,,,,,,,) = registry.keepalives(keepaliveId);
         assertEq(storedMinBalance, minBalance);
     }
 
-    function testFuzz_RecordHealthCheck_ResourceCounts(
-        uint8 healthyResources,
-        uint8 totalResources
-    ) public {
+    function testFuzz_RecordHealthCheck_ResourceCounts(uint8 healthyResources, uint8 totalResources) public {
         healthyResources = uint8(bound(healthyResources, 0, 100));
         totalResources = uint8(bound(totalResources, healthyResources, 100));
 
         bytes32 jnsNode = keccak256("test");
 
         vm.prank(alice);
-        bytes32 keepaliveId = registry.registerKeepalive(
-            jnsNode,
-            0,
-            vault,
-            0.1 ether,
-            3600,
-            0,
-            false
-        );
+        bytes32 keepaliveId = registry.registerKeepalive(jnsNode, 0, vault, 0.1 ether, 3600, 0, false);
 
         string[] memory failed = new string[](0);
 
         vm.prank(executor);
         registry.recordHealthCheck(
-            keepaliveId,
-            KeepaliveRegistry.HealthStatus.HEALTHY,
-            1 ether,
-            healthyResources,
-            totalResources,
-            failed
+            keepaliveId, KeepaliveRegistry.HealthStatus.HEALTHY, 1 ether, healthyResources, totalResources, failed
         );
 
-        (, , , , uint8 storedHealthy, uint8 storedTotal) = registry.lastHealthCheck(keepaliveId);
+        (,,,, uint8 storedHealthy, uint8 storedTotal) = registry.lastHealthCheck(keepaliveId);
         assertEq(storedHealthy, healthyResources);
         assertEq(storedTotal, totalResources);
     }
@@ -115,15 +83,7 @@ contract KeepaliveRegistryFuzzTest is Test {
         bytes32 jnsNode = keccak256("test");
 
         vm.prank(alice);
-        bytes32 keepaliveId = registry.registerKeepalive(
-            jnsNode,
-            0,
-            vault,
-            0.1 ether,
-            3600,
-            0,
-            false
-        );
+        bytes32 keepaliveId = registry.registerKeepalive(jnsNode, 0, vault, 0.1 ether, 3600, 0, false);
 
         vm.prank(bob);
         vm.expectEmit(true, false, false, true);
@@ -135,15 +95,7 @@ contract KeepaliveRegistryFuzzTest is Test {
 
     function test_ResourceLimit_ManyResources() public {
         vm.prank(alice);
-        bytes32 keepaliveId = registry.registerKeepalive(
-            keccak256("test"),
-            0,
-            vault,
-            0.1 ether,
-            3600,
-            0,
-            false
-        );
+        bytes32 keepaliveId = registry.registerKeepalive(keccak256("test"), 0, vault, 0.1 ether, 3600, 0, false);
 
         // Add 50 resources
         vm.startPrank(alice);
@@ -165,21 +117,13 @@ contract KeepaliveRegistryFuzzTest is Test {
 
     function test_RemoveResource_LastElement() public {
         vm.prank(alice);
-        bytes32 keepaliveId = registry.registerKeepalive(
-            keccak256("test"),
-            0,
-            vault,
-            0.1 ether,
-            3600,
-            0,
-            false
-        );
+        bytes32 keepaliveId = registry.registerKeepalive(keccak256("test"), 0, vault, 0.1 ether, 3600, 0, false);
 
         vm.startPrank(alice);
         registry.addResource(keepaliveId, KeepaliveRegistry.ResourceType.CUSTOM, "a", "", 0, true);
         registry.addResource(keepaliveId, KeepaliveRegistry.ResourceType.CUSTOM, "b", "", 0, true);
         registry.addResource(keepaliveId, KeepaliveRegistry.ResourceType.CUSTOM, "c", "", 0, true);
-        
+
         // Remove last element
         registry.removeResource(keepaliveId, 2);
         vm.stopPrank();
@@ -192,21 +136,13 @@ contract KeepaliveRegistryFuzzTest is Test {
 
     function test_RemoveResource_FirstElement() public {
         vm.prank(alice);
-        bytes32 keepaliveId = registry.registerKeepalive(
-            keccak256("test"),
-            0,
-            vault,
-            0.1 ether,
-            3600,
-            0,
-            false
-        );
+        bytes32 keepaliveId = registry.registerKeepalive(keccak256("test"), 0, vault, 0.1 ether, 3600, 0, false);
 
         vm.startPrank(alice);
         registry.addResource(keepaliveId, KeepaliveRegistry.ResourceType.CUSTOM, "a", "", 0, true);
         registry.addResource(keepaliveId, KeepaliveRegistry.ResourceType.CUSTOM, "b", "", 0, true);
         registry.addResource(keepaliveId, KeepaliveRegistry.ResourceType.CUSTOM, "c", "", 0, true);
-        
+
         // Remove first element (c moves to 0)
         registry.removeResource(keepaliveId, 0);
         vm.stopPrank();
@@ -219,15 +155,7 @@ contract KeepaliveRegistryFuzzTest is Test {
 
     function test_RemoveResource_RevertOutOfBounds() public {
         vm.prank(alice);
-        bytes32 keepaliveId = registry.registerKeepalive(
-            keccak256("test"),
-            0,
-            vault,
-            0.1 ether,
-            3600,
-            0,
-            false
-        );
+        bytes32 keepaliveId = registry.registerKeepalive(keccak256("test"), 0, vault, 0.1 ether, 3600, 0, false);
 
         vm.prank(alice);
         registry.addResource(keepaliveId, KeepaliveRegistry.ResourceType.CUSTOM, "a", "", 0, true);
@@ -245,39 +173,18 @@ contract KeepaliveRegistryFuzzTest is Test {
         string[] memory failed = new string[](0);
 
         vm.prank(executor);
-        vm.expectRevert(abi.encodeWithSelector(
-            KeepaliveRegistry.KeepaliveNotFound.selector,
-            nonExistentId
-        ));
-        registry.recordHealthCheck(
-            nonExistentId,
-            KeepaliveRegistry.HealthStatus.HEALTHY,
-            1 ether,
-            1,
-            1,
-            failed
-        );
+        vm.expectRevert(abi.encodeWithSelector(KeepaliveRegistry.KeepaliveNotFound.selector, nonExistentId));
+        registry.recordHealthCheck(nonExistentId, KeepaliveRegistry.HealthStatus.HEALTHY, 1 ether, 1, 1, failed);
     }
 
     function test_AddDependency_RevertKeepaliveNotFound() public {
         vm.prank(alice);
-        bytes32 id1 = registry.registerKeepalive(
-            keccak256("test1"),
-            0,
-            vault,
-            0.1 ether,
-            3600,
-            0,
-            false
-        );
+        bytes32 id1 = registry.registerKeepalive(keccak256("test1"), 0, vault, 0.1 ether, 3600, 0, false);
 
         bytes32 nonExistentId = keccak256("nonexistent");
 
         vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(
-            KeepaliveRegistry.KeepaliveNotFound.selector,
-            nonExistentId
-        ));
+        vm.expectRevert(abi.encodeWithSelector(KeepaliveRegistry.KeepaliveNotFound.selector, nonExistentId));
         registry.addDependency(id1, nonExistentId);
     }
 
@@ -303,7 +210,7 @@ contract KeepaliveRegistryFuzzTest is Test {
                 0,
                 vault,
                 0.1 ether,
-                60 + i,  // Different intervals
+                60 + i, // Different intervals
                 0,
                 false
             );
@@ -317,14 +224,7 @@ contract KeepaliveRegistryFuzzTest is Test {
         string[] memory failed = new string[](0);
         for (uint256 i = 0; i < 5; i++) {
             vm.prank(executor);
-            registry.recordHealthCheck(
-                ids[i],
-                KeepaliveRegistry.HealthStatus.HEALTHY,
-                1 ether,
-                1,
-                1,
-                failed
-            );
+            registry.recordHealthCheck(ids[i], KeepaliveRegistry.HealthStatus.HEALTHY, 1 ether, 1, 1, failed);
         }
 
         // Now only 5 should need check
@@ -336,15 +236,7 @@ contract KeepaliveRegistryFuzzTest is Test {
         // Register 20 keepalives
         for (uint256 i = 0; i < 20; i++) {
             vm.prank(alice);
-            registry.registerKeepalive(
-                keccak256(abi.encodePacked("test", i)),
-                0,
-                vault,
-                0.1 ether,
-                3600,
-                0,
-                false
-            );
+            registry.registerKeepalive(keccak256(abi.encodePacked("test", i)), 0, vault, 0.1 ether, 3600, 0, false);
         }
 
         // Request only 5
@@ -360,29 +252,21 @@ contract KeepaliveRegistryFuzzTest is Test {
 
     function test_StatusTransitions_AllStatuses() public {
         vm.prank(alice);
-        bytes32 keepaliveId = registry.registerKeepalive(
-            keccak256("test"),
-            0,
-            vault,
-            0.1 ether,
-            60,
-            0,
-            false
-        );
+        bytes32 keepaliveId = registry.registerKeepalive(keccak256("test"), 0, vault, 0.1 ether, 60, 0, false);
 
         string[] memory failed = new string[](0);
 
         // UNKNOWN -> HEALTHY
         vm.prank(executor);
         registry.recordHealthCheck(keepaliveId, KeepaliveRegistry.HealthStatus.HEALTHY, 1 ether, 1, 1, failed);
-        (, , , , , , , , , , , , KeepaliveRegistry.HealthStatus status) = registry.keepalives(keepaliveId);
+        (,,,,,,,,,,,, KeepaliveRegistry.HealthStatus status) = registry.keepalives(keepaliveId);
         assertEq(uint8(status), uint8(KeepaliveRegistry.HealthStatus.HEALTHY));
 
         // HEALTHY -> DEGRADED
         vm.warp(block.timestamp + 61);
         vm.prank(executor);
         registry.recordHealthCheck(keepaliveId, KeepaliveRegistry.HealthStatus.DEGRADED, 1 ether, 1, 2, failed);
-        (, , , , , , , , , , , , status) = registry.keepalives(keepaliveId);
+        (,,,,,,,,,,,, status) = registry.keepalives(keepaliveId);
         assertEq(uint8(status), uint8(KeepaliveRegistry.HealthStatus.DEGRADED));
 
         // DEGRADED -> UNHEALTHY
@@ -391,21 +275,21 @@ contract KeepaliveRegistryFuzzTest is Test {
         failed[0] = "api";
         vm.prank(executor);
         registry.recordHealthCheck(keepaliveId, KeepaliveRegistry.HealthStatus.UNHEALTHY, 1 ether, 0, 2, failed);
-        (, , , , , , , , , , , , status) = registry.keepalives(keepaliveId);
+        (,,,,,,,,,,,, status) = registry.keepalives(keepaliveId);
         assertEq(uint8(status), uint8(KeepaliveRegistry.HealthStatus.UNHEALTHY));
 
         // UNHEALTHY -> UNFUNDED
         vm.warp(block.timestamp + 61);
         vm.prank(executor);
         registry.recordHealthCheck(keepaliveId, KeepaliveRegistry.HealthStatus.UNFUNDED, 0, 0, 0, new string[](0));
-        (, , , , , , , , , , , , status) = registry.keepalives(keepaliveId);
+        (,,,,,,,,,,,, status) = registry.keepalives(keepaliveId);
         assertEq(uint8(status), uint8(KeepaliveRegistry.HealthStatus.UNFUNDED));
 
         // UNFUNDED -> HEALTHY (refunded)
         vm.warp(block.timestamp + 61);
         vm.prank(executor);
         registry.recordHealthCheck(keepaliveId, KeepaliveRegistry.HealthStatus.HEALTHY, 1 ether, 1, 1, new string[](0));
-        (, , , , , , , , , , , , status) = registry.keepalives(keepaliveId);
+        (,,,,,,,,,,,, status) = registry.keepalives(keepaliveId);
         assertEq(uint8(status), uint8(KeepaliveRegistry.HealthStatus.HEALTHY));
     }
 
@@ -431,15 +315,7 @@ contract KeepaliveRegistryFuzzTest is Test {
 
     function test_RecordHealthCheck_LargeFailedResourcesList() public {
         vm.prank(alice);
-        bytes32 keepaliveId = registry.registerKeepalive(
-            keccak256("test"),
-            0,
-            vault,
-            0.1 ether,
-            3600,
-            0,
-            false
-        );
+        bytes32 keepaliveId = registry.registerKeepalive(keccak256("test"), 0, vault, 0.1 ether, 3600, 0, false);
 
         // Create large failed resources list
         string[] memory failed = new string[](100);
@@ -448,17 +324,10 @@ contract KeepaliveRegistryFuzzTest is Test {
         }
 
         vm.prank(executor);
-        registry.recordHealthCheck(
-            keepaliveId,
-            KeepaliveRegistry.HealthStatus.UNHEALTHY,
-            0,
-            0,
-            100,
-            failed
-        );
+        registry.recordHealthCheck(keepaliveId, KeepaliveRegistry.HealthStatus.UNHEALTHY, 0, 0, 100, failed);
 
         // Verify it was stored (we can't retrieve array from public mapping directly)
-        (bytes32 id, KeepaliveRegistry.HealthStatus status, , , , ) = registry.lastHealthCheck(keepaliveId);
+        (bytes32 id, KeepaliveRegistry.HealthStatus status,,,,) = registry.lastHealthCheck(keepaliveId);
         assertEq(id, keepaliveId);
         assertEq(uint8(status), uint8(KeepaliveRegistry.HealthStatus.UNHEALTHY));
     }

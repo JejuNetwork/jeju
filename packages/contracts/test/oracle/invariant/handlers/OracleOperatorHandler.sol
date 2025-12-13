@@ -34,11 +34,7 @@ contract OracleOperatorHandler is Test {
     mapping(bytes32 => uint256) public ghost_lastPrice;
     uint256 public ghost_maxPriceDeviation;
 
-    constructor(
-        FeedRegistry _registry,
-        ReportVerifier _verifier,
-        uint256 _numOperators
-    ) {
+    constructor(FeedRegistry _registry, ReportVerifier _verifier, uint256 _numOperators) {
         registry = _registry;
         verifier = _verifier;
         numOperators = _numOperators;
@@ -58,11 +54,7 @@ contract OracleOperatorHandler is Test {
     }
 
     /// @notice Submit a price report with random parameters
-    function submitReport(
-        uint256 feedIndex,
-        uint256 priceDeviation,
-        uint256 numSigners
-    ) external {
+    function submitReport(uint256 feedIndex, uint256 priceDeviation, uint256 numSigners) external {
         if (feedIds.length == 0) return;
 
         feedIndex = bound(feedIndex, 0, feedIds.length - 1);
@@ -88,41 +80,38 @@ contract OracleOperatorHandler is Test {
             sourcesHash: keccak256(abi.encodePacked("sources", newRound))
         });
 
-        bytes32 reportHash = keccak256(abi.encodePacked(
-            report.feedId, report.price, report.confidence,
-            report.timestamp, report.round, report.sourcesHash
-        ));
+        bytes32 reportHash = keccak256(
+            abi.encodePacked(
+                report.feedId, report.price, report.confidence, report.timestamp, report.round, report.sourcesHash
+            )
+        );
 
         // Sign with operators
         bytes[] memory signatures = new bytes[](numSigners);
         for (uint256 i = 0; i < numSigners; i++) {
-            (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-                operatorPks[i],
-                keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", reportHash))
-            );
+            (uint8 v, bytes32 r, bytes32 s) =
+                vm.sign(operatorPks[i], keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", reportHash)));
             signatures[i] = abi.encodePacked(r, s, v);
         }
 
-        IReportVerifier.ReportSubmission memory submission = IReportVerifier.ReportSubmission({
-            report: report,
-            signatures: signatures
-        });
+        IReportVerifier.ReportSubmission memory submission =
+            IReportVerifier.ReportSubmission({report: report, signatures: signatures});
 
         totalReportsSubmitted++;
 
         bool accepted = verifier.submitReport(submission);
-        
+
         if (accepted) {
             totalReportsAccepted++;
             feedRounds[feedId] = newRound;
-            
+
             if (feedPrices[feedId] > 0) {
                 uint256 actualDeviation = TWAPLibrary.calculateDeviation(feedPrices[feedId], newPrice);
                 if (actualDeviation > ghost_maxPriceDeviation) {
                     ghost_maxPriceDeviation = actualDeviation;
                 }
             }
-            
+
             feedPrices[feedId] = newPrice;
             ghost_lastUpdateTime[feedId] = block.timestamp;
             ghost_lastPrice[feedId] = newPrice;

@@ -30,14 +30,16 @@ contract MockReputationProvider {
 
 contract MockPriceOracle {
     int256 public price = 1e7; // $0.10 per JEJU (8 decimals)
-    
+
     function setPrice(int256 _price) external {
         price = _price;
     }
-    
-    function latestRoundData() external view returns (
-        uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound
-    ) {
+
+    function latestRoundData()
+        external
+        view
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
+    {
         return (1, price, block.timestamp, block.timestamp, 1);
     }
 }
@@ -57,12 +59,7 @@ contract RPCStakingManagerTest is Test {
         token = new MockJEJU();
         reputationProvider = new MockReputationProvider();
         priceOracle = new MockPriceOracle();
-        manager = new RPCStakingManager(
-            address(token),
-            address(0),
-            address(priceOracle),
-            owner
-        );
+        manager = new RPCStakingManager(address(token), address(0), address(priceOracle), owner);
 
         token.transfer(user1, 100_000 ether);
         token.transfer(user2, 100_000 ether);
@@ -337,10 +334,10 @@ contract RPCStakingManagerTest is Test {
         // Stake some tokens
         vm.prank(user1);
         manager.stake(1000 ether);
-        
+
         // Owner can freeze
         manager.freezeStake(user1, "Suspected abuse");
-        
+
         assertTrue(manager.isFrozen(user1));
         assertFalse(manager.canAccess(user1));
     }
@@ -349,10 +346,10 @@ contract RPCStakingManagerTest is Test {
         // Stake some tokens
         vm.prank(user1);
         manager.stake(1000 ether);
-        
+
         // Freeze stake
         manager.freezeStake(user1, "Suspected abuse");
-        
+
         // Try to unbond - should fail
         vm.prank(user1);
         vm.expectRevert(IRPCStakingManager.StakeIsFrozen.selector);
@@ -363,16 +360,16 @@ contract RPCStakingManagerTest is Test {
         // Stake and start unbonding
         vm.prank(user1);
         manager.stake(1000 ether);
-        
+
         vm.prank(user1);
         manager.startUnbonding(500 ether);
-        
+
         // Freeze stake during unbonding
         manager.freezeStake(user1, "Investigation");
-        
+
         // Warp past unbonding period
         vm.warp(block.timestamp + 8 days);
-        
+
         // Try to complete - should fail
         vm.prank(user1);
         vm.expectRevert(IRPCStakingManager.StakeIsFrozen.selector);
@@ -382,11 +379,11 @@ contract RPCStakingManagerTest is Test {
     function testUnfreezeStake() public {
         vm.prank(user1);
         manager.stake(1000 ether);
-        
+
         // Freeze then unfreeze
         manager.freezeStake(user1, "Investigation");
         manager.unfreezeStake(user1);
-        
+
         assertFalse(manager.isFrozen(user1));
         assertTrue(manager.canAccess(user1));
     }
@@ -394,17 +391,17 @@ contract RPCStakingManagerTest is Test {
     function testSlashStake() public {
         address treasury = makeAddr("treasury");
         manager.setTreasury(treasury);
-        
+
         vm.prank(user1);
         manager.stake(1000 ether);
-        
+
         bytes32 reportId = keccak256("report-123");
         manager.slashStake(user1, 300 ether, reportId);
-        
+
         // Check stake reduced
         IRPCStakingManager.StakePosition memory pos = manager.getPosition(user1);
         assertEq(pos.stakedAmount, 700 ether);
-        
+
         // Check treasury received slashed funds
         assertEq(token.balanceOf(treasury), 300 ether);
     }
@@ -412,21 +409,21 @@ contract RPCStakingManagerTest is Test {
     function testModeratorCanFreeze() public {
         address moderator = makeAddr("moderator");
         manager.setModerator(moderator, true);
-        
+
         vm.prank(user1);
         manager.stake(1000 ether);
-        
+
         // Moderator can freeze
         vm.prank(moderator);
         manager.freezeStake(user1, "Reported by community");
-        
+
         assertTrue(manager.isFrozen(user1));
     }
 
     function testNonModeratorCannotFreeze() public {
         vm.prank(user1);
         manager.stake(1000 ether);
-        
+
         // Non-moderator cannot freeze
         vm.prank(user2);
         vm.expectRevert(IRPCStakingManager.NotModerator.selector);
@@ -436,13 +433,13 @@ contract RPCStakingManagerTest is Test {
     function testSlashMoreThanStaked() public {
         address treasury = makeAddr("treasury2");
         manager.setTreasury(treasury);
-        
+
         vm.prank(user1);
         manager.stake(100 ether);
-        
+
         bytes32 reportId = keccak256("report-456");
         manager.slashStake(user1, 500 ether, reportId);
-        
+
         IRPCStakingManager.StakePosition memory pos = manager.getPosition(user1);
         assertEq(pos.stakedAmount, 0);
         assertEq(token.balanceOf(treasury), 100 ether);
@@ -458,7 +455,7 @@ contract RPCStakingManagerTest is Test {
     function testStakeUsdValue() public {
         vm.prank(user1);
         manager.stake(100 ether); // 100 JEJU at $0.10 = $10
-        
+
         uint256 usdValue = manager.getStakeUsdValue(user1);
         assertEq(usdValue, 10e8); // $10 with 8 decimals
     }
@@ -467,19 +464,19 @@ contract RPCStakingManagerTest is Test {
         // Stake 100 JEJU - at $0.10 = $10, should be BASIC tier
         vm.prank(user1);
         manager.stake(100 ether);
-        assertEq(uint(manager.getTier(user1)), uint(IRPCStakingManager.Tier.BASIC));
-        
+        assertEq(uint256(manager.getTier(user1)), uint256(IRPCStakingManager.Tier.BASIC));
+
         // Price increases to $1, now 100 JEJU = $100 = PRO tier
         priceOracle.setPrice(1e8); // $1.00
-        assertEq(uint(manager.getTier(user1)), uint(IRPCStakingManager.Tier.PRO));
-        
+        assertEq(uint256(manager.getTier(user1)), uint256(IRPCStakingManager.Tier.PRO));
+
         // Price increases to $10, now 100 JEJU = $1000 = UNLIMITED tier
         priceOracle.setPrice(10e8); // $10.00
-        assertEq(uint(manager.getTier(user1)), uint(IRPCStakingManager.Tier.UNLIMITED));
-        
+        assertEq(uint256(manager.getTier(user1)), uint256(IRPCStakingManager.Tier.UNLIMITED));
+
         // Price crashes to $0.01, now 100 JEJU = $1 = FREE tier
         priceOracle.setPrice(1e6); // $0.01
-        assertEq(uint(manager.getTier(user1)), uint(IRPCStakingManager.Tier.FREE));
+        assertEq(uint256(manager.getTier(user1)), uint256(IRPCStakingManager.Tier.FREE));
     }
 
     function testFallbackPrice() public {
@@ -490,7 +487,7 @@ contract RPCStakingManagerTest is Test {
             address(0), // No oracle
             owner
         );
-        
+
         // Should use fallback price of $0.10
         assertEq(noOracleManager.getJejuPrice(), 1e7);
     }
@@ -498,7 +495,7 @@ contract RPCStakingManagerTest is Test {
     function testSetPriceOracle() public {
         MockPriceOracle newOracle = new MockPriceOracle();
         newOracle.setPrice(5e7); // $0.50
-        
+
         manager.setPriceOracle(address(newOracle));
         assertEq(manager.getJejuPrice(), 5e7);
     }

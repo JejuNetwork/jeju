@@ -128,9 +128,7 @@ library Tick {
 
         info.liquidityGross = liquidityGrossAfter;
 
-        info.liquidityNet = upper
-            ? info.liquidityNet - liquidityDelta
-            : info.liquidityNet + liquidityDelta;
+        info.liquidityNet = upper ? info.liquidityNet - liquidityDelta : info.liquidityNet + liquidityDelta;
     }
 
     /// @notice Clears tick data
@@ -163,8 +161,7 @@ library Tick {
             info.feeGrowthOutside0X128 = feeGrowthGlobal0X128 - info.feeGrowthOutside0X128;
             info.feeGrowthOutside1X128 = feeGrowthGlobal1X128 - info.feeGrowthOutside1X128;
             info.secondsPerLiquidityOutsideX128 =
-                secondsPerLiquidityCumulativeX128 -
-                info.secondsPerLiquidityOutsideX128;
+                secondsPerLiquidityCumulativeX128 - info.secondsPerLiquidityOutsideX128;
             info.tickCumulativeOutside = tickCumulative - info.tickCumulativeOutside;
             info.secondsOutside = time - info.secondsOutside;
             liquidityNet = info.liquidityNet;

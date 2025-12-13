@@ -11,12 +11,9 @@ interface IL2OutputOracle {
         uint128 l2BlockNumber;
     }
 
-    function proposeL2Output(
-        bytes32 _outputRoot,
-        uint256 _l2BlockNumber,
-        bytes32 _l1BlockHash,
-        uint256 _l1BlockNumber
-    ) external payable;
+    function proposeL2Output(bytes32 _outputRoot, uint256 _l2BlockNumber, bytes32 _l1BlockHash, uint256 _l1BlockNumber)
+        external
+        payable;
 
     function getL2Output(uint256 _l2OutputIndex) external view returns (OutputProposal memory);
     function latestOutputIndex() external view returns (uint256);
@@ -30,6 +27,9 @@ interface IL2OutputOracle {
 interface IL2OutputOracleStage2 {
     function isRegisteredSequencer(address sequencer) external view returns (bool);
     function deleteL2Output(uint256 _l2OutputIndex) external;
-    event OutputProposed(bytes32 indexed outputRoot, uint256 indexed l2OutputIndex, uint256 indexed l2BlockNumber, uint256 l1Timestamp);
+
+    event OutputProposed(
+        bytes32 indexed outputRoot, uint256 indexed l2OutputIndex, uint256 indexed l2BlockNumber, uint256 l1Timestamp
+    );
     event OutputDeleted(uint256 indexed l2OutputIndex, bytes32 indexed outputRoot);
 }

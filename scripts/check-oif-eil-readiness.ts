@@ -21,7 +21,7 @@ const fmt = {
 const icon = { pass: fmt.green('✓'), fail: fmt.red('✗'), warn: fmt.yellow('⚠') };
 
 const SOLVER_REGISTRY_ABI = ['function getStats() view returns (uint256,uint256,uint256)'];
-const L1_STAKE_MANAGER_ABI = ['function getProtocolStats() view returns (uint256,uint256,uint256)'];
+const _L1_STAKE_MANAGER_ABI = ['function getProtocolStats() view returns (uint256,uint256,uint256)'];
 
 interface CheckResult { item: string; status: 'pass' | 'warn' | 'fail'; action?: string }
 const results: CheckResult[] = [];

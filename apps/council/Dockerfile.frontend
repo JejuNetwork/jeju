@@ -1,0 +1,26 @@
+# Council Frontend Dockerfile
+FROM node:20-slim
+
+WORKDIR /app
+
+# Install bun
+RUN npm install -g bun
+
+# Copy package files
+COPY package.json bun.lock* ./
+COPY apps/council/app/package.json ./apps/council/app/
+
+# Install dependencies
+RUN cd apps/council/app && bun install
+
+# Copy source
+COPY apps/council/app ./apps/council/app
+
+WORKDIR /app/apps/council/app
+
+# Build
+RUN bun run build
+
+EXPOSE 3000
+
+CMD ["bun", "run", "start"]

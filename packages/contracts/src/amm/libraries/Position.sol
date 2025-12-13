@@ -21,12 +21,11 @@ library Position {
     /// @param tickLower The lower tick boundary of the position
     /// @param tickUpper The upper tick boundary of the position
     /// @return position The position info struct of the given owners' position
-    function get(
-        mapping(bytes32 => Info) storage self,
-        address owner,
-        int24 tickLower,
-        int24 tickUpper
-    ) internal view returns (Position.Info storage position) {
+    function get(mapping(bytes32 => Info) storage self, address owner, int24 tickLower, int24 tickUpper)
+        internal
+        view
+        returns (Position.Info storage position)
+    {
         position = self[keccak256(abi.encodePacked(owner, tickLower, tickUpper))];
     }
 
@@ -46,7 +45,7 @@ library Position {
 
             uint128 liquidityNext;
             if (liquidityDelta == 0) {
-                require(_self.liquidity > 0, 'NP');
+                require(_self.liquidity > 0, "NP");
                 liquidityNext = _self.liquidity;
             } else {
                 liquidityNext = liquidityDelta < 0
@@ -55,18 +54,10 @@ library Position {
             }
 
             uint128 tokensOwed0 = uint128(
-                FullMath.mulDiv(
-                    feeGrowthInside0X128 - _self.feeGrowthInside0LastX128,
-                    _self.liquidity,
-                    1 << 128
-                )
+                FullMath.mulDiv(feeGrowthInside0X128 - _self.feeGrowthInside0LastX128, _self.liquidity, 1 << 128)
             );
             uint128 tokensOwed1 = uint128(
-                FullMath.mulDiv(
-                    feeGrowthInside1X128 - _self.feeGrowthInside1LastX128,
-                    _self.liquidity,
-                    1 << 128
-                )
+                FullMath.mulDiv(feeGrowthInside1X128 - _self.feeGrowthInside1LastX128, _self.liquidity, 1 << 128)
             );
 
             if (liquidityDelta != 0) self.liquidity = liquidityNext;

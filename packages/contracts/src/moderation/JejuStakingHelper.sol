@@ -19,15 +19,16 @@ interface ISwapRouter {
         address to,
         uint256 deadline
     ) external returns (uint256[] memory amounts);
-    
-    function swapExactETHForTokens(
-        uint256 amountOutMin,
-        address[] calldata path,
-        address to,
-        uint256 deadline
-    ) external payable returns (uint256[] memory amounts);
-    
-    function getAmountsOut(uint256 amountIn, address[] calldata path) external view returns (uint256[] memory amounts);
+
+    function swapExactETHForTokens(uint256 amountOutMin, address[] calldata path, address to, uint256 deadline)
+        external
+        payable
+        returns (uint256[] memory amounts);
+
+    function getAmountsOut(uint256 amountIn, address[] calldata path)
+        external
+        view
+        returns (uint256[] memory amounts);
 }
 
 interface IModerationMarketplace {
@@ -75,12 +76,7 @@ contract JejuStakingHelper is Ownable, Pausable, ReentrancyGuard {
     address public feeRecipient;
 
     // Events
-    event SwappedToJeju(
-        address indexed user,
-        address indexed inputToken,
-        uint256 inputAmount,
-        uint256 jejuReceived
-    );
+    event SwappedToJeju(address indexed user, address indexed inputToken, uint256 inputAmount, uint256 jejuReceived);
     event SwappedETHToJeju(address indexed user, uint256 ethAmount, uint256 jejuReceived);
     event SlippageUpdated(uint256 oldSlippage, uint256 newSlippage);
     event FeeUpdated(uint256 oldFee, uint256 newFee);
@@ -91,13 +87,9 @@ contract JejuStakingHelper is Ownable, Pausable, ReentrancyGuard {
     error InvalidAmount();
     error SwapFailed();
 
-    constructor(
-        address _jejuToken,
-        address _tokenRegistry,
-        address _swapRouter,
-        address _weth,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _jejuToken, address _tokenRegistry, address _swapRouter, address _weth, address initialOwner)
+        Ownable(initialOwner)
+    {
         jejuToken = IERC20(_jejuToken);
         tokenRegistry = ITokenRegistry(_tokenRegistry);
         swapRouter = ISwapRouter(_swapRouter);
@@ -119,15 +111,11 @@ contract JejuStakingHelper is Ownable, Pausable, ReentrancyGuard {
         uint256[] memory expectedAmounts = swapRouter.getAmountsOut(msg.value, path);
         uint256 minOut = (expectedAmounts[1] * (10000 - slippageTolerance)) / 10000;
 
-        uint256[] memory amounts = swapRouter.swapExactETHForTokens{value: msg.value}(
-            minOut,
-            path,
-            address(this),
-            block.timestamp + 300
-        );
+        uint256[] memory amounts =
+            swapRouter.swapExactETHForTokens{value: msg.value}(minOut, path, address(this), block.timestamp + 300);
 
         jejuAmount = amounts[1];
-        
+
         // Take fee if set
         uint256 fee = (jejuAmount * swapFeeBps) / 10000;
         if (fee > 0 && feeRecipient != address(0)) {
@@ -147,9 +135,14 @@ contract JejuStakingHelper is Ownable, Pausable, ReentrancyGuard {
      * @param amount Amount of input token
      * @return jejuAmount Amount of JEJU received
      */
-    function swapToJeju(address token, uint256 amount) external nonReentrant whenNotPaused returns (uint256 jejuAmount) {
+    function swapToJeju(address token, uint256 amount)
+        external
+        nonReentrant
+        whenNotPaused
+        returns (uint256 jejuAmount)
+    {
         if (amount == 0) revert InvalidAmount();
-        
+
         // Transfer tokens from user
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
@@ -159,7 +152,7 @@ contract JejuStakingHelper is Ownable, Pausable, ReentrancyGuard {
         } else {
             // Verify token is registered
             if (!tokenRegistry.isRegistered(token)) revert TokenNotSupported();
-            
+
             // Swap to JEJU
             jejuAmount = _swapToJeju(token, amount);
         }
@@ -182,7 +175,11 @@ contract JejuStakingHelper is Ownable, Pausable, ReentrancyGuard {
      * @param token Input token (address(0) for ETH)
      * @param amount Amount of input token
      */
-    function getJejuQuote(address token, uint256 amount) external view returns (uint256 jejuAmount, uint256 feeAmount) {
+    function getJejuQuote(address token, uint256 amount)
+        external
+        view
+        returns (uint256 jejuAmount, uint256 feeAmount)
+    {
         if (token == address(jejuToken)) {
             jejuAmount = amount;
         } else {
@@ -191,7 +188,7 @@ contract JejuStakingHelper is Ownable, Pausable, ReentrancyGuard {
             uint256[] memory amounts = swapRouter.getAmountsOut(amount, path);
             jejuAmount = amounts[amounts.length - 1];
         }
-        
+
         feeAmount = (jejuAmount * swapFeeBps) / 10000;
         jejuAmount -= feeAmount;
     }
@@ -215,13 +212,8 @@ contract JejuStakingHelper is Ownable, Pausable, ReentrancyGuard {
         uint256 expectedOut = expectedAmounts[expectedAmounts.length - 1];
         uint256 minOut = (expectedOut * (10000 - slippageTolerance)) / 10000;
 
-        uint256[] memory amounts = swapRouter.swapExactTokensForTokens(
-            amountIn,
-            minOut,
-            path,
-            address(this),
-            block.timestamp + 300
-        );
+        uint256[] memory amounts =
+            swapRouter.swapExactTokensForTokens(amountIn, minOut, path, address(this), block.timestamp + 300);
 
         amountOut = amounts[amounts.length - 1];
         if (amountOut < minOut) revert InsufficientOutput();
@@ -268,7 +260,7 @@ contract JejuStakingHelper is Ownable, Pausable, ReentrancyGuard {
     }
 
     function rescueETH() external onlyOwner {
-        (bool success, ) = owner().call{value: address(this).balance}("");
+        (bool success,) = owner().call{value: address(this).balance}("");
         require(success, "ETH transfer failed");
     }
 

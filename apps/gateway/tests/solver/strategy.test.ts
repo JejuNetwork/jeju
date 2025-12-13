@@ -65,7 +65,7 @@ describe('Intent Evaluation - Profitable Scenarios', () => {
     });
     
     // If price unavailable, result should be unprofitable with specific reason
-    if (result.reason === 'Price feed unavailable') {
+    if (result.reason?.startsWith('Price feed unavailable')) {
       expect(result.profitable).toBe(false);
     } else {
       expect(result.profitable).toBe(true);
@@ -88,7 +88,7 @@ describe('Intent Evaluation - Profitable Scenarios', () => {
     });
     
     // If price unavailable, skip profit check
-    if (result.reason !== 'Price feed unavailable') {
+    if (!result.reason?.startsWith('Price feed unavailable')) {
       // Should be approximately 200 bps minus gas
       expect(result.expectedProfitBps).toBeLessThan(200);
       expect(result.expectedProfitBps).toBeGreaterThan(100); // After gas
@@ -113,7 +113,7 @@ describe('Intent Evaluation - Unprofitable Scenarios', () => {
     
     expect(result.profitable).toBe(false);
     // Price check happens first, but if passed, should get 'No fee'
-    expect(['No fee', 'Price feed unavailable']).toContain(result.reason);
+    expect(result.reason === 'No fee' || result.reason?.startsWith('Price feed unavailable')).toBe(true);
   });
 
   test('should reject when output equals input', async () => {
@@ -131,7 +131,7 @@ describe('Intent Evaluation - Unprofitable Scenarios', () => {
     });
     
     expect(result.profitable).toBe(false);
-    expect(['No fee', 'Price feed unavailable']).toContain(result.reason);
+    expect(result.reason === 'No fee' || result.reason?.startsWith('Price feed unavailable')).toBe(true);
   });
 
   test('should reject when profit below minimum threshold', async () => {
@@ -149,8 +149,8 @@ describe('Intent Evaluation - Unprofitable Scenarios', () => {
     });
     
     expect(result.profitable).toBe(false);
-    // Either below min or price unavailable
-    if (result.reason !== 'Price feed unavailable') {
+    // Either below min or price unavailable (with any suffix)
+    if (!result.reason?.startsWith('Price feed unavailable')) {
       expect(result.reason).toContain('bps < min');
     }
   });
@@ -173,7 +173,7 @@ describe('Intent Evaluation - Unprofitable Scenarios', () => {
     
     expect(result.profitable).toBe(false);
     // Price check happens first in current implementation
-    expect(['Exceeds max size', 'Price feed unavailable']).toContain(result.reason);
+    expect(result.reason === 'Exceeds max size' || result.reason?.startsWith('Price feed unavailable')).toBe(true);
   });
 });
 
@@ -229,7 +229,7 @@ describe('Intent Evaluation - Edge Cases', () => {
     });
     
     // If price is available, gasEstimate should be present
-    if (result.reason !== 'Price feed unavailable') {
+    if (!result.reason?.startsWith('Price feed unavailable')) {
       expect(result.gasEstimate).toBeDefined();
       expect(result.gasEstimate).toBeGreaterThan(0n);
     }
@@ -252,7 +252,7 @@ describe('Intent Evaluation - Edge Cases', () => {
     });
     
     // Very large profit - should be profitable if price is available
-    if (result.reason !== 'Price feed unavailable') {
+    if (!result.reason?.startsWith('Price feed unavailable')) {
       expect(result.profitable).toBe(true);
     } else {
       expect(result.profitable).toBe(false);
@@ -334,7 +334,7 @@ describe('Cross-Chain Scenarios', () => {
     });
     
     // Should be profitable if price is available
-    if (result.reason !== 'Price feed unavailable') {
+    if (!result.reason?.startsWith('Price feed unavailable')) {
       expect(result.profitable).toBe(true);
     }
   });

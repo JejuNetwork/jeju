@@ -12,18 +12,18 @@ contract DeployPresale is Script {
     uint256 constant MIN_CONTRIBUTION = 0.01 ether;
     uint256 constant MAX_CONTRIBUTION = 50 ether;
     uint256 constant TOKEN_PRICE = 0.00005 ether; // ~$0.15 at $3k ETH
-    
+
     // Vesting: 20% TGE, no cliff, 180 days linear
     uint256 constant TGE_PERCENT = 2000; // 20%
     uint256 constant CLIFF_DURATION = 0;
     uint256 constant VESTING_DURATION = 180 days;
-    
+
     // Timing offsets from deployment
     uint256 constant WHITELIST_OFFSET = 1 days;
     uint256 constant PUBLIC_OFFSET = 8 days;
     uint256 constant PRESALE_END_OFFSET = 22 days;
     uint256 constant TGE_OFFSET = 29 days;
-    
+
     // Presale token allocation (1 billion)
     uint256 constant PRESALE_ALLOCATION = 1_000_000_000 ether;
 
@@ -32,14 +32,14 @@ contract DeployPresale is Script {
         address deployer = vm.addr(deployerPrivateKey);
         address treasury = vm.envOr("TREASURY_ADDRESS", deployer);
         address tokenAddress = vm.envOr("JEJU_TOKEN_ADDRESS", address(0));
-        
+
         console2.log("Deployer:", deployer);
         console2.log("Treasury:", treasury);
-        
+
         vm.startBroadcast(deployerPrivateKey);
-        
+
         JejuToken token;
-        
+
         // Deploy or use existing token
         if (tokenAddress == address(0)) {
             console2.log("Deploying new JejuToken...");
@@ -49,22 +49,18 @@ contract DeployPresale is Script {
             console2.log("Using existing JejuToken at:", tokenAddress);
             token = JejuToken(tokenAddress);
         }
-        
+
         // Deploy presale
         console2.log("Deploying JejuPresale...");
-        JejuPresale presale = new JejuPresale(
-            address(token),
-            treasury,
-            deployer
-        );
+        JejuPresale presale = new JejuPresale(address(token), treasury, deployer);
         console2.log("JejuPresale deployed at:", address(presale));
-        
+
         // Configure presale timing
         uint256 whitelistStart = block.timestamp + WHITELIST_OFFSET;
         uint256 publicStart = block.timestamp + PUBLIC_OFFSET;
         uint256 presaleEnd = block.timestamp + PRESALE_END_OFFSET;
         uint256 tgeTimestamp = block.timestamp + TGE_OFFSET;
-        
+
         console2.log("Configuring presale...");
         presale.configure(
             SOFT_CAP,
@@ -77,18 +73,18 @@ contract DeployPresale is Script {
             presaleEnd,
             tgeTimestamp
         );
-        
+
         // Configure vesting
         presale.setVesting(TGE_PERCENT, CLIFF_DURATION, VESTING_DURATION);
-        
+
         // Transfer presale tokens to contract
         if (tokenAddress == address(0)) {
             console2.log("Transferring", PRESALE_ALLOCATION / 1e18, "JEJU to presale...");
             token.transfer(address(presale), PRESALE_ALLOCATION);
         }
-        
+
         vm.stopBroadcast();
-        
+
         // Log deployment summary
         console2.log("\n=== Deployment Summary ===");
         console2.log("JejuToken:", address(token));

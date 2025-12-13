@@ -12,12 +12,18 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 contract MockJEJU is ERC20 {
-    constructor() ERC20("JEJU", "JEJU") { _mint(msg.sender, 10_000_000 ether); }
-    function mint(address to, uint256 amount) external { _mint(to, amount); }
+    constructor() ERC20("JEJU", "JEJU") {
+        _mint(msg.sender, 10_000_000 ether);
+    }
+
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
 }
 
 contract Stage2IntegrationTest is Test {
     using MessageHashUtils for bytes32;
+
     SequencerRegistry public sequencerRegistry;
     GovernanceTimelock public timelock;
     DisputeGameFactory public disputeFactory;
@@ -50,16 +56,20 @@ contract Stage2IntegrationTest is Test {
         address[] memory signers = new address[](1);
         bytes[] memory signatures = new bytes[](1);
         signers[0] = validator1;
-        
+
         bytes32 outputRoot = keccak256(abi.encodePacked(BLOCK_HASH, stateRoot, ACTUAL_POST_STATE));
-        bytes32 fraudHash = keccak256(abi.encodePacked(
-            prover.FRAUD_DOMAIN(), stateRoot, claimRoot, ACTUAL_POST_STATE, BLOCK_HASH, BLOCK_NUMBER, outputRoot
-        ));
-        
+        bytes32 fraudHash = keccak256(
+            abi.encodePacked(
+                prover.FRAUD_DOMAIN(), stateRoot, claimRoot, ACTUAL_POST_STATE, BLOCK_HASH, BLOCK_NUMBER, outputRoot
+            )
+        );
+
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(VALIDATOR1_KEY, fraudHash.toEthSignedMessageHash());
         signatures[0] = abi.encodePacked(r, s, v);
-        
-        return prover.generateFraudProof(stateRoot, claimRoot, ACTUAL_POST_STATE, BLOCK_HASH, BLOCK_NUMBER, signers, signatures);
+
+        return prover.generateFraudProof(
+            stateRoot, claimRoot, ACTUAL_POST_STATE, BLOCK_HASH, BLOCK_NUMBER, signers, signatures
+        );
     }
 
     function setUp() public {
@@ -74,11 +84,7 @@ contract Stage2IntegrationTest is Test {
 
         // Deploy Stage 2 contracts
         sequencerRegistry = new SequencerRegistry(
-            address(jejuToken),
-            address(identityRegistry),
-            address(reputationRegistry),
-            treasury,
-            owner
+            address(jejuToken), address(identityRegistry), address(reputationRegistry), treasury, owner
         );
 
         timelock = new GovernanceTimelock(governance, securityCouncil, owner, 2 hours);
@@ -122,14 +128,12 @@ contract Stage2IntegrationTest is Test {
 
         // Slash sequencer1 via timelock (since ownership was transferred)
         bytes memory slashData = abi.encodeWithSelector(
-            SequencerRegistry.slash.selector,
-            sequencer1,
-            SequencerRegistry.SlashingReason.DOUBLE_SIGNING
+            SequencerRegistry.slash.selector, sequencer1, SequencerRegistry.SlashingReason.DOUBLE_SIGNING
         );
-        
+
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(sequencerRegistry), slashData, "Slash double signer");
-        
+
         vm.warp(block.timestamp + 2 hours + 1);
         timelock.execute(proposalId);
 
@@ -149,10 +153,7 @@ contract Stage2IntegrationTest is Test {
 
         // Propose upgrade (would upgrade treasury address)
         address newTreasury = makeAddr("newTreasury");
-        bytes memory data = abi.encodeWithSelector(
-            SequencerRegistry.setTreasury.selector,
-            newTreasury
-        );
+        bytes memory data = abi.encodeWithSelector(SequencerRegistry.setTreasury.selector, newTreasury);
 
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(sequencerRegistry), data, "Upgrade treasury");
@@ -169,10 +170,7 @@ contract Stage2IntegrationTest is Test {
     function testEmergencyBugfixViaTimelock() public {
         // Emergency bugfix has shorter delay
         address newTreasury = makeAddr("newTreasury");
-        bytes memory data = abi.encodeWithSelector(
-            DisputeGameFactory.setTreasury.selector,
-            newTreasury
-        );
+        bytes memory data = abi.encodeWithSelector(DisputeGameFactory.setTreasury.selector, newTreasury);
         bytes32 bugProof = keccak256("bug exists");
 
         vm.prank(securityCouncil);
@@ -182,7 +180,7 @@ contract Stage2IntegrationTest is Test {
         vm.warp(block.timestamp + emergencyDelay + 1);
 
         timelock.execute(proposalId);
-        
+
         // Verify the treasury was updated
         assertEq(disputeFactory.treasury(), newTreasury);
     }
@@ -254,10 +252,7 @@ contract Stage2IntegrationTest is Test {
 
         // 5. Propose upgrade via timelock
         address newTreasury = makeAddr("newTreasury");
-        bytes memory upgradeData = abi.encodeWithSelector(
-            SequencerRegistry.setTreasury.selector,
-            newTreasury
-        );
+        bytes memory upgradeData = abi.encodeWithSelector(SequencerRegistry.setTreasury.selector, newTreasury);
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(sequencerRegistry), upgradeData, "Upgrade");
 
@@ -316,7 +311,9 @@ contract Stage2IntegrationTest is Test {
 
         vm.prank(challenger);
         disputeFactory.createGame{value: 1 ether}(
-            sequencer1, root1, keccak256("claim1"),
+            sequencer1,
+            root1,
+            keccak256("claim1"),
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
@@ -324,7 +321,9 @@ contract Stage2IntegrationTest is Test {
         vm.deal(challenger, 200 ether);
         vm.prank(challenger);
         disputeFactory.createGame{value: 2 ether}(
-            sequencer2, root2, keccak256("claim2"),
+            sequencer2,
+            root2,
+            keccak256("claim2"),
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );

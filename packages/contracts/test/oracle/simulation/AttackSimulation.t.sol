@@ -24,7 +24,7 @@ contract AttackSimulationTest is Test {
 
     address public owner = address(0x1);
     address public attacker = address(0xBAD);
-    
+
     bytes32 public feedId;
 
     // Honest operators
@@ -61,20 +61,22 @@ contract AttackSimulationTest is Test {
         disputeGame = new DisputeGame(address(verifier), address(registry), owner);
         feeRouter = new OracleFeeRouter(address(registry), owner);
 
-        feedId = registry.createFeed(IFeedRegistry.FeedCreateParams({
-            symbol: "ETH-USD",
-            baseToken: address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2),
-            quoteToken: address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48),
-            decimals: 8,
-            heartbeatSeconds: 3600,
-            twapWindowSeconds: 1800,
-            minLiquidityUSD: 100_000 ether,
-            maxDeviationBps: 100,
-            minOracles: 3,
-            quorumThreshold: 2,
-            requiresConfidence: true,
-            category: IFeedRegistry.FeedCategory.SPOT_PRICE
-        }));
+        feedId = registry.createFeed(
+            IFeedRegistry.FeedCreateParams({
+                symbol: "ETH-USD",
+                baseToken: address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2),
+                quoteToken: address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48),
+                decimals: 8,
+                heartbeatSeconds: 3600,
+                twapWindowSeconds: 1800,
+                minLiquidityUSD: 100_000 ether,
+                maxDeviationBps: 100,
+                minOracles: 3,
+                quorumThreshold: 2,
+                requiresConfidence: true,
+                category: IFeedRegistry.FeedCategory.SPOT_PRICE
+            })
+        );
 
         vm.stopPrank();
 
@@ -110,18 +112,18 @@ contract AttackSimulationTest is Test {
         bytes32 reportHash = _computeReportHash(maliciousReport);
         bytes[] memory signatures = _signWithHonest(reportHash, 2);
 
-        IReportVerifier.ReportSubmission memory submission = IReportVerifier.ReportSubmission({
-            report: maliciousReport,
-            signatures: signatures
-        });
+        IReportVerifier.ReportSubmission memory submission =
+            IReportVerifier.ReportSubmission({report: maliciousReport, signatures: signatures});
 
         // Should be blocked by circuit breaker (>20% deviation = 5000 bps > 2000 bps)
         vm.prank(owner);
-        vm.expectRevert(abi.encodeWithSelector(
-            IReportVerifier.PriceDeviationTooLarge.selector,
-            5000, // actual deviation (50%)
-            2000  // circuit breaker threshold (20%)
-        ));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IReportVerifier.PriceDeviationTooLarge.selector,
+                5000, // actual deviation (50%)
+                2000 // circuit breaker threshold (20%)
+            )
+        );
         verifier.submitReport(submission);
 
         // Verify original price unchanged
@@ -164,10 +166,8 @@ contract AttackSimulationTest is Test {
             bytes32 reportHash = _computeReportHash(report);
             bytes[] memory signatures = _signWithHonest(reportHash, 2);
 
-            IReportVerifier.ReportSubmission memory submission = IReportVerifier.ReportSubmission({
-                report: report,
-                signatures: signatures
-            });
+            IReportVerifier.ReportSubmission memory submission =
+                IReportVerifier.ReportSubmission({report: report, signatures: signatures});
 
             vm.prank(owner);
             try verifier.submitReport(submission) returns (bool accepted) {
@@ -202,18 +202,18 @@ contract AttackSimulationTest is Test {
         // With minOracles=3, quorumThreshold=2:
         // - Attacker needs 2 colluding operators to submit false price
         // - Attacker needs to compromise 66% of minimum committee
-        
+
         uint256 minOracles = 3;
         uint256 quorumThreshold = 2;
         uint256 attackerControlNeeded = quorumThreshold;
-        
+
         // Security margin: what % of committee must be compromised
         uint256 compromisePercent = (attackerControlNeeded * 100) / minOracles;
-        
+
         console2.log("[ANALYSIS] Committee size:", minOracles);
         console2.log("[ANALYSIS] Quorum threshold:", quorumThreshold);
         console2.log("[ANALYSIS] Compromise needed:", compromisePercent, "%");
-        
+
         // For BFT, we want f < n/3 tolerance
         // With 3 nodes and quorum of 2, we can tolerate 1 byzantine
         assertTrue(minOracles - quorumThreshold >= 1, "Should tolerate at least 1 byzantine");
@@ -225,17 +225,17 @@ contract AttackSimulationTest is Test {
         uint256 stakePerOperator = 32 ether;
         uint256 operatorsNeeded = 2; // quorum threshold
         uint256 slashRate = 5000; // 50%
-        
+
         uint256 attackCost = stakePerOperator * operatorsNeeded;
         uint256 potentialSlash = (attackCost * slashRate) / 10000;
-        
+
         // For attack to be worthwhile, profit must exceed slash risk
         uint256 maxTVL = potentialSlash * 10; // Assumes 10x buffer
-        
+
         console2.log("[ANALYSIS] Attack setup cost:", attackCost / 1e18, "ETH");
         console2.log("[ANALYSIS] Potential slash:", potentialSlash / 1e18, "ETH");
         console2.log("[ANALYSIS] Max safe TVL:", maxTVL / 1e18, "ETH");
-        
+
         assertTrue(potentialSlash > 0, "Slashing should deter attacks");
     }
 
@@ -289,9 +289,7 @@ contract AttackSimulationTest is Test {
         // Attacker opens frivolous dispute
         vm.prank(attacker);
         bytes32 disputeId = disputeGame.openDispute{value: minBond}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("griefing")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("griefing")
         );
 
         // Report was valid, so dispute should be resolved against attacker
@@ -336,9 +334,7 @@ contract AttackSimulationTest is Test {
             // Attacker disputes
             vm.prank(attacker);
             bytes32 disputeId = disputeGame.openDispute{value: minBond}(
-                reportHash,
-                IDisputeGame.DisputeReason.PRICE_DEVIATION,
-                keccak256(abi.encodePacked("grief", i))
+                reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256(abi.encodePacked("grief", i))
             );
 
             // Resolve against attacker
@@ -373,10 +369,8 @@ contract AttackSimulationTest is Test {
         bytes32 reportHash = _computeReportHash(report);
         bytes[] memory signatures = _signWithHonest(reportHash, 2);
 
-        IReportVerifier.ReportSubmission memory submission = IReportVerifier.ReportSubmission({
-            report: report,
-            signatures: signatures
-        });
+        IReportVerifier.ReportSubmission memory submission =
+            IReportVerifier.ReportSubmission({report: report, signatures: signatures});
 
         vm.prank(owner);
         verifier.submitReport(submission);
@@ -394,7 +388,7 @@ contract AttackSimulationTest is Test {
         _submitHonestReportAt(2000e8, 1, t1);
 
         // Price is valid
-        (, ,, bool isValid) = verifier.getLatestPrice(feedId);
+        (,,, bool isValid) = verifier.getLatestPrice(feedId);
         assertTrue(isValid);
 
         // Market moves significantly, but attacker blocks updates
@@ -403,13 +397,13 @@ contract AttackSimulationTest is Test {
         vm.warp(t2);
 
         // Price still "valid" but actually stale
-        (, ,, isValid) = verifier.getLatestPrice(feedId);
+        (,,, isValid) = verifier.getLatestPrice(feedId);
         assertTrue(isValid, "Price still valid within heartbeat");
 
         // Just past heartbeat
         vm.warp(t2 + 200);
 
-        (, ,, isValid) = verifier.getLatestPrice(feedId);
+        (,,, isValid) = verifier.getLatestPrice(feedId);
         assertFalse(isValid, "Price should be invalid after heartbeat");
 
         bool isStale = verifier.isPriceStale(feedId);
@@ -425,14 +419,11 @@ contract AttackSimulationTest is Test {
     }
 
     function _computeReportHash(IReportVerifier.PriceReport memory report) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(
-            report.feedId,
-            report.price,
-            report.confidence,
-            report.timestamp,
-            report.round,
-            report.sourcesHash
-        ));
+        return keccak256(
+            abi.encodePacked(
+                report.feedId, report.price, report.confidence, report.timestamp, report.round, report.sourcesHash
+            )
+        );
     }
 
     function _signWithHonest(bytes32 reportHash, uint256 count) internal view returns (bytes[] memory) {

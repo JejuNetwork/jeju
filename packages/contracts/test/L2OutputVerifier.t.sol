@@ -13,11 +13,8 @@ contract MockL2OutputOracle {
     uint256 public _latestBlockNumber = 1000;
 
     function addOutput(bytes32 outputRoot, uint128 timestamp, uint128 l2BlockNumber) external {
-        outputs[outputCount] = IL2OutputOracle.OutputProposal({
-            outputRoot: outputRoot,
-            timestamp: timestamp,
-            l2BlockNumber: l2BlockNumber
-        });
+        outputs[outputCount] =
+            IL2OutputOracle.OutputProposal({outputRoot: outputRoot, timestamp: timestamp, l2BlockNumber: l2BlockNumber});
         outputCount++;
         if (l2BlockNumber > _latestBlockNumber) {
             _latestBlockNumber = l2BlockNumber;
@@ -206,8 +203,7 @@ contract L2OutputVerifierTest is Test {
         bytes32 messagePasserRoot = keccak256("message passer root");
         bytes32 blockHash = keccak256("block hash");
 
-        bytes32 expectedOutputRoot =
-            keccak256(abi.encode(bytes32(0), realStateRoot, messagePasserRoot, blockHash));
+        bytes32 expectedOutputRoot = keccak256(abi.encode(bytes32(0), realStateRoot, messagePasserRoot, blockHash));
 
         uint128 oldTimestamp = uint128(block.timestamp - 8 days);
         mockOracle.addOutput(expectedOutputRoot, oldTimestamp, 2000);
@@ -225,8 +221,7 @@ contract L2OutputVerifierTest is Test {
         bytes32 messagePasserRoot = keccak256("message passer root");
         bytes32 blockHash = keccak256("block hash");
 
-        bytes32 expectedOutputRoot =
-            keccak256(abi.encode(bytes32(0), stateRoot, messagePasserRoot, blockHash));
+        bytes32 expectedOutputRoot = keccak256(abi.encode(bytes32(0), stateRoot, messagePasserRoot, blockHash));
 
         // Add output at current timestamp (not finalized)
         mockOracle.addOutput(expectedOutputRoot, uint128(block.timestamp), 2000);
@@ -267,4 +262,3 @@ contract L2OutputVerifierTest is Test {
         assertEq(verifier.getLatestCommittedBlock(BASE_CHAIN_ID), 0);
     }
 }
-

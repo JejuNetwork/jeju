@@ -33,11 +33,10 @@ interface IRouterIntegration {
     ) external returns (uint256 amountOut);
 
     /// @notice Get quote for external routers
-    function quoteForRouter(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn
-    ) external view returns (uint256 amountOut, uint8 poolType, uint24 fee);
+    function quoteForRouter(address tokenIn, address tokenOut, uint256 amountIn)
+        external
+        view
+        returns (uint256 amountOut, uint8 poolType, uint24 fee);
 }
 
 /// @title XLP Router
@@ -82,11 +81,7 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
     // ============ Events ============
 
     event SwapV2(
-        address indexed sender,
-        address indexed tokenIn,
-        address indexed tokenOut,
-        uint256 amountIn,
-        uint256 amountOut
+        address indexed sender, address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut
     );
 
     event SwapV3(
@@ -135,12 +130,7 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
 
     // ============ Constructor ============
 
-    constructor(
-        address _v2Factory,
-        address _v3Factory,
-        address _WETH,
-        address _owner
-    ) Ownable(_owner) {
+    constructor(address _v2Factory, address _v3Factory, address _WETH, address _owner) Ownable(_owner) {
         v2Factory = _v2Factory;
         v3Factory = _v3Factory;
         WETH = _WETH;
@@ -172,10 +162,10 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
     ) external ensure(deadline) nonReentrant returns (uint256[] memory amounts) {
         amounts = _getAmountsOutV2(amountIn, path);
         if (amounts[amounts.length - 1] < amountOutMin) revert InsufficientOutputAmount();
-        
+
         IERC20(path[0]).safeTransferFrom(msg.sender, _pairForV2(path[0], path[1]), amounts[0]);
         _swapV2(amounts, path, to);
-        
+
         emit SwapV2(msg.sender, path[0], path[path.length - 1], amountIn, amounts[amounts.length - 1]);
     }
 
@@ -195,28 +185,29 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
     ) external ensure(deadline) nonReentrant returns (uint256[] memory amounts) {
         amounts = _getAmountsInV2(amountOut, path);
         if (amounts[0] > amountInMax) revert ExcessiveInputAmount();
-        
+
         IERC20(path[0]).safeTransferFrom(msg.sender, _pairForV2(path[0], path[1]), amounts[0]);
         _swapV2(amounts, path, to);
-        
+
         emit SwapV2(msg.sender, path[0], path[path.length - 1], amounts[0], amountOut);
     }
 
     /// @notice Swap exact ETH for tokens using V2 pools
-    function swapExactETHForTokensV2(
-        uint256 amountOutMin,
-        address[] calldata path,
-        address to,
-        uint256 deadline
-    ) external payable ensure(deadline) nonReentrant returns (uint256[] memory amounts) {
+    function swapExactETHForTokensV2(uint256 amountOutMin, address[] calldata path, address to, uint256 deadline)
+        external
+        payable
+        ensure(deadline)
+        nonReentrant
+        returns (uint256[] memory amounts)
+    {
         if (path[0] != WETH) revert InvalidPath();
         amounts = _getAmountsOutV2(msg.value, path);
         if (amounts[amounts.length - 1] < amountOutMin) revert InsufficientOutputAmount();
-        
+
         IWETH(WETH).deposit{value: amounts[0]}();
         if (!IWETH(WETH).transfer(_pairForV2(path[0], path[1]), amounts[0])) revert TransferFailed();
         _swapV2(amounts, path, to);
-        
+
         emit SwapV2(msg.sender, path[0], path[path.length - 1], msg.value, amounts[amounts.length - 1]);
     }
 
@@ -231,12 +222,12 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
         if (path[path.length - 1] != WETH) revert InvalidPath();
         amounts = _getAmountsOutV2(amountIn, path);
         if (amounts[amounts.length - 1] < amountOutMin) revert InsufficientOutputAmount();
-        
+
         IERC20(path[0]).safeTransferFrom(msg.sender, _pairForV2(path[0], path[1]), amounts[0]);
         _swapV2(amounts, path, address(this));
         IWETH(WETH).withdraw(amounts[amounts.length - 1]);
         _safeTransferETH(to, amounts[amounts.length - 1]);
-        
+
         emit SwapV2(msg.sender, path[0], path[path.length - 1], amountIn, amounts[amounts.length - 1]);
     }
 
@@ -349,13 +340,9 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
     // ============ V3 Callback ============
 
     /// @notice Callback for V3 swaps
-    function xlpV3SwapCallback(
-        int256 amount0Delta,
-        int256 amount1Delta,
-        bytes calldata data
-    ) external override {
+    function xlpV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) external override {
         (address tokenIn, address tokenOut, uint24 fee) = abi.decode(data, (address, address, uint24));
-        
+
         // Verify callback is from legitimate pool
         address pool = _getV3Pool(tokenIn, tokenOut, fee);
         require(msg.sender == pool, "Invalid callback");
@@ -393,11 +380,7 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
 
         IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), params.amountIn);
 
-        amountOut = _exactInputInternal(
-            params.amountIn,
-            params.recipient,
-            params.path
-        );
+        amountOut = _exactInputInternal(params.amountIn, params.recipient, params.path);
 
         if (amountOut < params.amountOutMinimum) revert InsufficientOutputAmount();
     }
@@ -488,10 +471,7 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
         // Transfer tokens via Permit2
         IPermit2(permit2).permitTransferFrom(
             permit,
-            IPermit2.SignatureTransferDetails({
-                to: _pairForV2(tokenIn, tokenOut),
-                requestedAmount: amountIn
-            }),
+            IPermit2.SignatureTransferDetails({to: _pairForV2(tokenIn, tokenOut), requestedAmount: amountIn}),
             msg.sender,
             signature
         );
@@ -500,14 +480,14 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
         address[] memory path = new address[](2);
         path[0] = tokenIn;
         path[1] = tokenOut;
-        
+
         uint256[] memory amounts = _getAmountsOutV2(amountIn, path);
         amountOut = amounts[1];
-        
+
         if (amountOut < amountOutMin) revert InsufficientOutputAmount();
-        
+
         _swapV2(amounts, path, to);
-        
+
         emit SwapV2(msg.sender, tokenIn, tokenOut, amountIn, amountOut);
     }
 
@@ -539,10 +519,7 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
         // Transfer tokens via Permit2 to this contract
         IPermit2(permit2).permitTransferFrom(
             permit,
-            IPermit2.SignatureTransferDetails({
-                to: address(this),
-                requestedAmount: amountIn
-            }),
+            IPermit2.SignatureTransferDetails({to: address(this), requestedAmount: amountIn}),
             msg.sender,
             signature
         );
@@ -588,9 +565,8 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
         if (!approvedRouters[msg.sender]) revert NotApprovedRouter();
 
         // Decode route data: (uint8 poolType, uint24 fee)
-        (uint8 poolType, uint24 fee) = routeData.length >= 4 
-            ? abi.decode(routeData, (uint8, uint24))
-            : (uint8(0), uint24(3000)); // Default to V2
+        (uint8 poolType, uint24 fee) =
+            routeData.length >= 4 ? abi.decode(routeData, (uint8, uint24)) : (uint8(0), uint24(3000)); // Default to V2
 
         // Transfer tokens from router
         IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
@@ -600,10 +576,10 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
             address[] memory path = new address[](2);
             path[0] = tokenIn;
             path[1] = tokenOut;
-            
+
             uint256[] memory amounts = _getAmountsOutV2(amountIn, path);
             amountOut = amounts[1];
-            
+
             IERC20(tokenIn).safeTransfer(_pairForV2(tokenIn, tokenOut), amountIn);
             _swapV2(amounts, path, recipient);
         } else {
@@ -638,11 +614,12 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
 
     /// @inheritdoc IRouterIntegration
     /// @notice Get quote for external routers
-    function quoteForRouter(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn
-    ) external view override returns (uint256 amountOut, uint8 poolType, uint24 fee) {
+    function quoteForRouter(address tokenIn, address tokenOut, uint256 amountIn)
+        external
+        view
+        override
+        returns (uint256 amountOut, uint8 poolType, uint24 fee)
+    {
         // Try V2 first
         address v2Pair = _pairForV2(tokenIn, tokenOut);
         if (v2Pair != address(0)) {
@@ -719,15 +696,18 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
             (address input, address output) = (path[i], path[i + 1]);
             (address token0,) = _sortTokens(input, output);
             uint256 amountOut = amounts[i + 1];
-            (uint256 amount0Out, uint256 amount1Out) = input == token0
-                ? (uint256(0), amountOut)
-                : (amountOut, uint256(0));
+            (uint256 amount0Out, uint256 amount1Out) =
+                input == token0 ? (uint256(0), amountOut) : (amountOut, uint256(0));
             address to = i < path.length - 2 ? _pairForV2(output, path[i + 2]) : _to;
             IXLPV2Pair(_pairForV2(input, output)).swap(amount0Out, amount1Out, to, new bytes(0));
         }
     }
 
-    function _getAmountsOutV2(uint256 amountIn, address[] memory path) internal view returns (uint256[] memory amounts) {
+    function _getAmountsOutV2(uint256 amountIn, address[] memory path)
+        internal
+        view
+        returns (uint256[] memory amounts)
+    {
         if (path.length < 2) revert InvalidPath();
         amounts = new uint256[](path.length);
         amounts[0] = amountIn;
@@ -737,7 +717,11 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
         }
     }
 
-    function _getAmountsInV2(uint256 amountOut, address[] memory path) internal view returns (uint256[] memory amounts) {
+    function _getAmountsInV2(uint256 amountOut, address[] memory path)
+        internal
+        view
+        returns (uint256[] memory amounts)
+    {
         if (path.length < 2) revert InvalidPath();
         amounts = new uint256[](path.length);
         amounts[amounts.length - 1] = amountOut;
@@ -764,7 +748,11 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
         return (numerator / denominator) + 1;
     }
 
-    function _getReservesV2(address tokenA, address tokenB) internal view returns (uint256 reserveA, uint256 reserveB) {
+    function _getReservesV2(address tokenA, address tokenB)
+        internal
+        view
+        returns (uint256 reserveA, uint256 reserveB)
+    {
         (address token0,) = _sortTokens(tokenA, tokenB);
         (uint112 reserve0, uint112 reserve1,) = IXLPV2Pair(_pairForV2(tokenA, tokenB)).getReserves();
         (reserveA, reserveB) = tokenA == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
@@ -785,11 +773,10 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
         pool = IXLPV3Factory(v3Factory).getPool(token0, token1, fee);
     }
 
-    function _exactInputInternal(
-        uint256 amountIn,
-        address recipient,
-        bytes memory path
-    ) internal returns (uint256 amountOut) {
+    function _exactInputInternal(uint256 amountIn, address recipient, bytes memory path)
+        internal
+        returns (uint256 amountOut)
+    {
         // Decode path: tokenIn (20 bytes) + fee (3 bytes) + tokenOut (20 bytes)
         address tokenIn;
         uint24 fee;

@@ -782,7 +782,7 @@ contract EILEdgeTest is Test {
 
         vm.startPrank(xlp1);
         crossChainPaymaster.depositETH{value: depositAmount}();
-        
+
         // ETH deposits use getXLPETH, not getXLPLiquidity (which is for ERC20)
         uint256 liquidityAfterDeposit = crossChainPaymaster.getXLPETH(xlp1);
         assertEq(liquidityAfterDeposit, depositAmount, "Deposit amount mismatch");

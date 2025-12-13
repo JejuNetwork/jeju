@@ -54,6 +54,7 @@ contract XLPV3Pool is IXLPV3Pool {
         uint128 token0;
         uint128 token1;
     }
+
     ProtocolFees public override protocolFees;
 
     uint128 public override liquidity;
@@ -68,6 +69,7 @@ contract XLPV3Pool is IXLPV3Pool {
         uint160 secondsPerLiquidityCumulativeX128;
         bool initialized;
     }
+
     Observation[65535] public override observations;
 
     // ============ Errors ============
@@ -131,15 +133,14 @@ contract XLPV3Pool is IXLPV3Pool {
     // ============ Mint ============
 
     /// @inheritdoc IXLPV3Pool
-    function mint(
-        address recipient,
-        int24 tickLower,
-        int24 tickUpper,
-        uint128 amount,
-        bytes calldata data
-    ) external override lock returns (uint256 amount0, uint256 amount1) {
+    function mint(address recipient, int24 tickLower, int24 tickUpper, uint128 amount, bytes calldata data)
+        external
+        override
+        lock
+        returns (uint256 amount0, uint256 amount1)
+    {
         if (amount == 0) revert ZeroLiquidity();
-        
+
         (, int256 amount0Int, int256 amount1Int) = _modifyPosition(
             ModifyPositionParams({
                 owner: recipient,
@@ -156,9 +157,9 @@ contract XLPV3Pool is IXLPV3Pool {
         uint256 balance1Before;
         if (amount0 > 0) balance0Before = _balance0();
         if (amount1 > 0) balance1Before = _balance1();
-        
+
         IXLPV3MintCallback(msg.sender).xlpV3MintCallback(amount0, amount1, data);
-        
+
         if (amount0 > 0 && _balance0() < balance0Before + amount0) revert InsufficientInputAmount();
         if (amount1 > 0 && _balance1() < balance1Before + amount1) revert InsufficientInputAmount();
 
@@ -168,11 +169,12 @@ contract XLPV3Pool is IXLPV3Pool {
     // ============ Burn ============
 
     /// @inheritdoc IXLPV3Pool
-    function burn(
-        int24 tickLower,
-        int24 tickUpper,
-        uint128 amount
-    ) external override lock returns (uint256 amount0, uint256 amount1) {
+    function burn(int24 tickLower, int24 tickUpper, uint128 amount)
+        external
+        override
+        lock
+        returns (uint256 amount0, uint256 amount1)
+    {
         (Position.Info storage position, int256 amount0Int, int256 amount1Int) = _modifyPosition(
             ModifyPositionParams({
                 owner: msg.sender,
@@ -186,10 +188,8 @@ contract XLPV3Pool is IXLPV3Pool {
         amount1 = uint256(-amount1Int);
 
         if (amount0 > 0 || amount1 > 0) {
-            (position.tokensOwed0, position.tokensOwed1) = (
-                position.tokensOwed0 + uint128(amount0),
-                position.tokensOwed1 + uint128(amount1)
-            );
+            (position.tokensOwed0, position.tokensOwed1) =
+                (position.tokensOwed0 + uint128(amount0), position.tokensOwed1 + uint128(amount1));
         }
 
         emit Burn(msg.sender, tickLower, tickUpper, amount, amount0, amount1);
@@ -237,11 +237,13 @@ contract XLPV3Pool is IXLPV3Pool {
         Slot0 memory slot0Start = slot0;
 
         if (zeroForOne) {
-            if (sqrtPriceLimitX96 >= slot0Start.sqrtPriceX96 || sqrtPriceLimitX96 <= TickMath.MIN_SQRT_RATIO)
+            if (sqrtPriceLimitX96 >= slot0Start.sqrtPriceX96 || sqrtPriceLimitX96 <= TickMath.MIN_SQRT_RATIO) {
                 revert PriceLimitReached();
+            }
         } else {
-            if (sqrtPriceLimitX96 <= slot0Start.sqrtPriceX96 || sqrtPriceLimitX96 >= TickMath.MAX_SQRT_RATIO)
+            if (sqrtPriceLimitX96 <= slot0Start.sqrtPriceX96 || sqrtPriceLimitX96 >= TickMath.MAX_SQRT_RATIO) {
                 revert PriceLimitReached();
+            }
         }
 
         bool exactInput = amountSpecified > 0;
@@ -261,11 +263,8 @@ contract XLPV3Pool is IXLPV3Pool {
 
             step.sqrtPriceStartX96 = state.sqrtPriceX96;
 
-            (step.tickNext, step.initialized) = tickBitmap.nextInitializedTickWithinOneWord(
-                state.tick,
-                tickSpacing,
-                zeroForOne
-            );
+            (step.tickNext, step.initialized) =
+                tickBitmap.nextInitializedTickWithinOneWord(state.tick, tickSpacing, zeroForOne);
 
             if (step.tickNext < TickMath.MIN_TICK) {
                 step.tickNext = TickMath.MIN_TICK;
@@ -381,12 +380,7 @@ contract XLPV3Pool is IXLPV3Pool {
     // ============ Flash ============
 
     /// @inheritdoc IXLPV3Pool
-    function flash(
-        address recipient,
-        uint256 amount0,
-        uint256 amount1,
-        bytes calldata data
-    ) external override lock {
+    function flash(address recipient, uint256 amount0, uint256 amount1, bytes calldata data) external override lock {
         uint128 _liquidity = liquidity;
         if (_liquidity == 0) revert ZeroLiquidity();
 
@@ -431,8 +425,8 @@ contract XLPV3Pool is IXLPV3Pool {
     function setFeeProtocol(uint8 feeProtocol0, uint8 feeProtocol1) external override {
         if (msg.sender != IXLPV3Factory(factory).owner()) revert NotAuthorized();
         require(
-            (feeProtocol0 == 0 || (feeProtocol0 >= 4 && feeProtocol0 <= 10)) &&
-            (feeProtocol1 == 0 || (feeProtocol1 >= 4 && feeProtocol1 <= 10))
+            (feeProtocol0 == 0 || (feeProtocol0 >= 4 && feeProtocol0 <= 10))
+                && (feeProtocol1 == 0 || (feeProtocol1 >= 4 && feeProtocol1 <= 10))
         );
         uint8 feeProtocolOld = slot0.feeProtocol;
         slot0.feeProtocol = feeProtocol0 + (feeProtocol1 << 4);
@@ -440,11 +434,11 @@ contract XLPV3Pool is IXLPV3Pool {
     }
 
     /// @inheritdoc IXLPV3Pool
-    function collectProtocol(
-        address recipient,
-        uint128 amount0Requested,
-        uint128 amount1Requested
-    ) external override returns (uint128 amount0, uint128 amount1) {
+    function collectProtocol(address recipient, uint128 amount0Requested, uint128 amount1Requested)
+        external
+        override
+        returns (uint128 amount0, uint128 amount1)
+    {
         if (msg.sender != IXLPV3Factory(factory).owner()) revert NotAuthorized();
 
         amount0 = amount0Requested > protocolFees.token0 ? protocolFees.token0 : amount0Requested;
@@ -481,23 +475,13 @@ contract XLPV3Pool is IXLPV3Pool {
 
     function _modifyPosition(ModifyPositionParams memory params)
         private
-        returns (
-            Position.Info storage position,
-            int256 amount0,
-            int256 amount1
-        )
+        returns (Position.Info storage position, int256 amount0, int256 amount1)
     {
         _checkTicks(params.tickLower, params.tickUpper);
 
         Slot0 memory _slot0 = slot0;
 
-        position = _updatePosition(
-            params.owner,
-            params.tickLower,
-            params.tickUpper,
-            params.liquidityDelta,
-            _slot0.tick
-        );
+        position = _updatePosition(params.owner, params.tickLower, params.tickUpper, params.liquidityDelta, _slot0.tick);
 
         if (params.liquidityDelta != 0) {
             if (_slot0.tick < params.tickLower) {
@@ -508,14 +492,10 @@ contract XLPV3Pool is IXLPV3Pool {
                 );
             } else if (_slot0.tick < params.tickUpper) {
                 amount0 = SqrtPriceMath.getAmount0Delta(
-                    _slot0.sqrtPriceX96,
-                    TickMath.getSqrtRatioAtTick(params.tickUpper),
-                    params.liquidityDelta
+                    _slot0.sqrtPriceX96, TickMath.getSqrtRatioAtTick(params.tickUpper), params.liquidityDelta
                 );
                 amount1 = SqrtPriceMath.getAmount1Delta(
-                    TickMath.getSqrtRatioAtTick(params.tickLower),
-                    _slot0.sqrtPriceX96,
-                    params.liquidityDelta
+                    TickMath.getSqrtRatioAtTick(params.tickLower), _slot0.sqrtPriceX96, params.liquidityDelta
                 );
 
                 liquidity = LiquidityMath.addDelta(liquidity, params.liquidityDelta);
@@ -529,13 +509,10 @@ contract XLPV3Pool is IXLPV3Pool {
         }
     }
 
-    function _updatePosition(
-        address owner,
-        int24 tickLower,
-        int24 tickUpper,
-        int128 liquidityDelta,
-        int24 tick
-    ) private returns (Position.Info storage position) {
+    function _updatePosition(address owner, int24 tickLower, int24 tickUpper, int128 liquidityDelta, int24 tick)
+        private
+        returns (Position.Info storage position)
+    {
         position = positions.get(owner, tickLower, tickUpper);
 
         uint256 _feeGrowthGlobal0X128 = feeGrowthGlobal0X128;
@@ -577,13 +554,8 @@ contract XLPV3Pool is IXLPV3Pool {
             }
         }
 
-        (uint256 feeGrowthInside0X128, uint256 feeGrowthInside1X128) = ticks.getFeeGrowthInside(
-            tickLower,
-            tickUpper,
-            tick,
-            _feeGrowthGlobal0X128,
-            _feeGrowthGlobal1X128
-        );
+        (uint256 feeGrowthInside0X128, uint256 feeGrowthInside1X128) =
+            ticks.getFeeGrowthInside(tickLower, tickUpper, tick, _feeGrowthGlobal0X128, _feeGrowthGlobal1X128);
 
         position.update(liquidityDelta, feeGrowthInside0X128, feeGrowthInside1X128);
 
@@ -638,7 +610,7 @@ contract XLPV3Pool is IXLPV3Pool {
 
 library SafeCast {
     function toInt256(uint256 y) internal pure returns (int256 z) {
-        require(y < 2**255);
+        require(y < 2 ** 255);
         z = int256(y);
     }
 }
@@ -651,13 +623,7 @@ interface IXLPV3PoolDeployer {
     function parameters()
         external
         view
-        returns (
-            address factory,
-            address token0,
-            address token1,
-            uint24 fee,
-            int24 tickSpacing
-        );
+        returns (address factory, address token0, address token1, uint24 fee, int24 tickSpacing);
 }
 
 interface IXLPV3Factory {

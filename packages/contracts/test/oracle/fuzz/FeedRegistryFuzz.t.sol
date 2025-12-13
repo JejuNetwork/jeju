@@ -10,7 +10,7 @@ import {IFeedRegistry} from "../../../src/oracle/interfaces/IFeedRegistry.sol";
 contract FeedRegistryFuzzTest is Test {
     FeedRegistry public registry;
     address public owner = address(0x1);
-    
+
     function setUp() public {
         vm.prank(owner);
         registry = new FeedRegistry(owner);
@@ -101,10 +101,7 @@ contract FeedRegistryFuzzTest is Test {
         assertTrue(registry.feedExists(feedId));
     }
 
-    function testFuzz_CreateFeed_QuorumThresholdBounds(
-        uint8 minOracles,
-        uint8 quorumThreshold
-    ) public {
+    function testFuzz_CreateFeed_QuorumThresholdBounds(uint8 minOracles, uint8 quorumThreshold) public {
         minOracles = uint8(bound(minOracles, 1, 21));
 
         // Test that quorum > minOracles reverts
@@ -255,10 +252,7 @@ contract FeedRegistryFuzzTest is Test {
         assertEq(allFeeds.length, createCount);
     }
 
-    function testFuzz_FeedId_Deterministic(
-        address baseToken,
-        address quoteToken
-    ) public {
+    function testFuzz_FeedId_Deterministic(address baseToken, address quoteToken) public {
         vm.assume(baseToken != address(0) && quoteToken != address(0));
         vm.assume(baseToken != quoteToken);
 
@@ -345,4 +339,3 @@ contract FeedRegistryFuzzTest is Test {
         assertEq(spec.heartbeatSeconds, 7200);
     }
 }
-

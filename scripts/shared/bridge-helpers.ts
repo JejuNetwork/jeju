@@ -204,23 +204,38 @@ export interface ParsedBridgeEvent {
   token?: Address;
 }
 
+// Event signatures (keccak256 of event signature string)
+const EVENT_SIGS = {
+  ERC20BridgeInitiated: '0x7ff126db8024424bbfd9826e8ab82ff59136289ea440b04b39a0df1b03b9cabf',
+  ERC20BridgeFinalized: '0xd59c65b35445225835c83f50b6uj1b32cc7c5fd2c95f2aa2c3ba5b5c7bd3e0f',
+  ETHBridgeInitiated: '0x2849b43074093a05396b6f2a937dee8565b15a48a7b3d4bffb732a5017380af5',
+  ETHBridgeFinalized: '0x31b2166ff604fc5672ea5df08a78081d2bc6d746cadce880747f3643d819e83d',
+} as const;
+
 /**
  * Parse bridge event logs
  */
 export function parseBridgeEvent(log: BridgeEventLog): ParsedBridgeEvent | null {
-  // Parse based on event signature
   if (!log.topics || log.topics.length < 2) return null;
 
   const eventSig = log.topics[0];
   
-  // ERC20BridgeInitiated or ERC20BridgeFinalized
-  if (eventSig === '0x...' /* actual signature */) {
+  if (eventSig === EVENT_SIGS.ERC20BridgeInitiated || eventSig === EVENT_SIGS.ERC20BridgeFinalized) {
     return {
-      event: 'ERC20BridgeInitiated',
+      event: eventSig === EVENT_SIGS.ERC20BridgeInitiated ? 'ERC20BridgeInitiated' : 'ERC20BridgeFinalized',
       from: `0x${log.topics[3].slice(26)}` as Address,
-      to: log.data.slice(0, 42) as Address,
-      amount: BigInt(log.data.slice(42)),
+      to: `0x${log.data.slice(26, 66)}` as Address,
+      amount: BigInt('0x' + log.data.slice(66, 130)),
       token: `0x${log.topics[1].slice(26)}` as Address,
+    };
+  }
+  
+  if (eventSig === EVENT_SIGS.ETHBridgeInitiated || eventSig === EVENT_SIGS.ETHBridgeFinalized) {
+    return {
+      event: eventSig === EVENT_SIGS.ETHBridgeInitiated ? 'ETHBridgeInitiated' : 'ETHBridgeFinalized',
+      from: `0x${log.topics[1].slice(26)}` as Address,
+      to: `0x${log.topics[2].slice(26)}` as Address,
+      amount: BigInt('0x' + log.data.slice(2, 66)),
     };
   }
 

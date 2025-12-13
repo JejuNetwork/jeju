@@ -182,9 +182,7 @@ contract Bazaar is ReentrancyGuard, Ownable {
 
     // ============ Constructor ============
 
-    constructor(address initialOwner, address _gameGold, address _usdc, address _feeRecipient)
-        Ownable(initialOwner)
-    {
+    constructor(address initialOwner, address _gameGold, address _usdc, address _feeRecipient) Ownable(initialOwner) {
         if (_gameGold == address(0) || _usdc == address(0) || _feeRecipient == address(0)) {
             revert InvalidAssetContract();
         }

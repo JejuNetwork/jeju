@@ -1,42 +1,94 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { System } from "@latticexyz/world/src/System.sol";
-import { WorldConfig, WorldConfigData, ItemMetadata, MobLootTable } from "../codegen/index.sol";
-import { ItemType, MobType } from "../codegen/common.sol";
+import {System} from "@latticexyz/world/src/System.sol";
+import {WorldConfig, WorldConfigData, ItemMetadata, MobLootTable} from "../codegen/index.sol";
+import {ItemType, MobType} from "../codegen/common.sol";
 
 contract AdminSystem is System {
     event WorldInitialized(address indexed admin);
     event ItemCreated(uint16 indexed itemId, string name);
     event LootTableSet(uint8 indexed mobType, uint32 coinMin, uint32 coinMax);
-    
+
     function initialize() public {
         WorldConfigData memory config = WorldConfig.get();
         require(!config.initialized, "World already initialized");
-        
+
         WorldConfig.set(true, true, false, _msgSender());
         _initializeItems();
         _initializeLootTables();
-        
+
         emit WorldInitialized(_msgSender());
     }
-    
-    function createItem(uint16 itemId, string memory name, uint8 itemType, bool stackable, int16 attackBonus, int16 strengthBonus, int16 defenseBonus, int16 rangedBonus, uint8 reqAttack, uint8 reqStrength, uint8 reqDefense, uint8 reqRanged, uint16 heals) public {
+
+    function createItem(
+        uint16 itemId,
+        string memory name,
+        uint8 itemType,
+        bool stackable,
+        int16 attackBonus,
+        int16 strengthBonus,
+        int16 defenseBonus,
+        int16 rangedBonus,
+        uint8 reqAttack,
+        uint8 reqStrength,
+        uint8 reqDefense,
+        uint8 reqRanged,
+        uint16 heals
+    ) public {
         require(_msgSender() == WorldConfig.get().adminAddress, "Not admin");
         require(itemId > 0 && bytes(name).length > 0, "Invalid item");
-        
-        ItemMetadata.set(itemId, ItemType(itemType), stackable, attackBonus, strengthBonus, defenseBonus, rangedBonus, reqAttack, reqStrength, reqDefense, reqRanged, heals, name);
+
+        ItemMetadata.set(
+            itemId,
+            ItemType(itemType),
+            stackable,
+            attackBonus,
+            strengthBonus,
+            defenseBonus,
+            rangedBonus,
+            reqAttack,
+            reqStrength,
+            reqDefense,
+            reqRanged,
+            heals,
+            name
+        );
         emit ItemCreated(itemId, name);
     }
-    
-    function setLootTable(uint8 mobType, uint32 coinMin, uint32 coinMax, uint16 itemId1, uint16 itemId1Chance, uint16 itemId2, uint16 itemId2Chance, uint16 itemId3, uint16 itemId3Chance, uint16 itemId4, uint16 itemId4Chance) public {
+
+    function setLootTable(
+        uint8 mobType,
+        uint32 coinMin,
+        uint32 coinMax,
+        uint16 itemId1,
+        uint16 itemId1Chance,
+        uint16 itemId2,
+        uint16 itemId2Chance,
+        uint16 itemId3,
+        uint16 itemId3Chance,
+        uint16 itemId4,
+        uint16 itemId4Chance
+    ) public {
         require(_msgSender() == WorldConfig.get().adminAddress, "Not admin");
         require(mobType < 9 && coinMax >= coinMin, "Invalid config");
-        
-        MobLootTable.set(MobType(mobType), coinMin, coinMax, itemId1, itemId1Chance, itemId2, itemId2Chance, itemId3, itemId3Chance, itemId4, itemId4Chance);
+
+        MobLootTable.set(
+            MobType(mobType),
+            coinMin,
+            coinMax,
+            itemId1,
+            itemId1Chance,
+            itemId2,
+            itemId2Chance,
+            itemId3,
+            itemId3Chance,
+            itemId4,
+            itemId4Chance
+        );
         emit LootTableSet(mobType, coinMin, coinMax);
     }
-    
+
     function _initializeItems() internal {
         // Resources
         createItem(1, "Logs", 3, true, 0, 0, 0, 0, 0, 0, 0, 0, 0);
@@ -90,7 +142,7 @@ contract AdminSystem is System {
         // Leg armor
         createItem(400, "Leather Legs", 1, false, 0, 0, 2, 0, 0, 0, 1, 0, 0);
     }
-    
+
     function _initializeLootTables() internal {
         setLootTable(0, 1, 5, 100, 50, 0, 0, 0, 0, 0, 0);
         setLootTable(1, 2, 8, 0, 0, 0, 0, 0, 0, 0, 0);

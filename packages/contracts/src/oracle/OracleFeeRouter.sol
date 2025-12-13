@@ -44,7 +44,11 @@ contract OracleFeeRouter is IOracleFeeRouter, Ownable, Pausable, ReentrancyGuard
     }
 
     function subscribe(bytes32[] calldata feedIds, uint256 durationMonths)
-        external payable nonReentrant whenNotPaused returns (bytes32 subscriptionId)
+        external
+        payable
+        nonReentrant
+        whenNotPaused
+        returns (bytes32 subscriptionId)
     {
         if (feedIds.length == 0 || durationMonths == 0 || durationMonths > 12) revert InvalidFeeConfig();
         for (uint256 i = 0; i < feedIds.length; i++) {
@@ -65,7 +69,9 @@ contract OracleFeeRouter is IOracleFeeRouter, Ownable, Pausable, ReentrancyGuard
         });
 
         _userSubscriptions[msg.sender].push(subscriptionId);
-        for (uint256 i = 0; i < feedIds.length; i++) _activeSubscriptions[msg.sender][feedIds[i]] = subscriptionId;
+        for (uint256 i = 0; i < feedIds.length; i++) {
+            _activeSubscriptions[msg.sender][feedIds[i]] = subscriptionId;
+        }
 
         epochAccumulatedFees += totalPrice;
         totalFeesCollected += totalPrice;
@@ -74,7 +80,10 @@ contract OracleFeeRouter is IOracleFeeRouter, Ownable, Pausable, ReentrancyGuard
     }
 
     function renewSubscription(bytes32 subscriptionId, uint256 additionalMonths)
-        external payable nonReentrant whenNotPaused
+        external
+        payable
+        nonReentrant
+        whenNotPaused
     {
         Subscription storage sub = _subscriptions[subscriptionId];
         if (sub.subscriber != msg.sender) revert SubscriptionNotFound(subscriptionId);
@@ -104,13 +113,18 @@ contract OracleFeeRouter is IOracleFeeRouter, Ownable, Pausable, ReentrancyGuard
         if (!sub.isActive) revert SubscriptionNotActive(subscriptionId);
 
         sub.isActive = false;
-        for (uint256 i = 0; i < sub.feedIds.length; i++) delete _activeSubscriptions[msg.sender][sub.feedIds[i]];
+        for (uint256 i = 0; i < sub.feedIds.length; i++) {
+            delete _activeSubscriptions[msg.sender][sub.feedIds[i]];
+        }
         emit SubscriptionCancelled(subscriptionId, 0);
         return 0;
     }
 
     function addFeedsToSubscription(bytes32 subscriptionId, bytes32[] calldata newFeedIds)
-        external payable nonReentrant whenNotPaused
+        external
+        payable
+        nonReentrant
+        whenNotPaused
     {
         Subscription storage sub = _subscriptions[subscriptionId];
         if (sub.subscriber != msg.sender) revert SubscriptionNotFound(subscriptionId);
@@ -123,7 +137,9 @@ contract OracleFeeRouter is IOracleFeeRouter, Ownable, Pausable, ReentrancyGuard
         if (msg.value < price) revert InsufficientPayment(msg.value, price);
 
         bytes32[] memory allFeeds = new bytes32[](sub.feedIds.length + newFeedIds.length);
-        for (uint256 i = 0; i < sub.feedIds.length; i++) allFeeds[i] = sub.feedIds[i];
+        for (uint256 i = 0; i < sub.feedIds.length; i++) {
+            allFeeds[i] = sub.feedIds[i];
+        }
         for (uint256 i = 0; i < newFeedIds.length; i++) {
             allFeeds[sub.feedIds.length + i] = newFeedIds[i];
             _activeSubscriptions[msg.sender][newFeedIds[i]] = subscriptionId;
@@ -171,7 +187,10 @@ contract OracleFeeRouter is IOracleFeeRouter, Ownable, Pausable, ReentrancyGuard
         if (rewards.finalized) revert AlreadyClaimed(epochNumber);
 
         uint256 totalFees = rewards.totalFees;
-        if (totalFees == 0) { rewards.finalized = true; return; }
+        if (totalFees == 0) {
+            rewards.finalized = true;
+            return;
+        }
 
         rewards.treasuryShare = (totalFees * _feeConfig.treasuryShareBps) / BPS_DENOMINATOR;
         rewards.operatorPool = (totalFees * _feeConfig.operatorShareBps) / BPS_DENOMINATOR;
@@ -194,19 +213,55 @@ contract OracleFeeRouter is IOracleFeeRouter, Ownable, Pausable, ReentrancyGuard
         emit RewardsClaimed(operatorId, msg.sender, amount);
     }
 
-    function getSubscription(bytes32 id) external view returns (Subscription memory) { return _subscriptions[id]; }
-    function getSubscriptionsByAccount(address a) external view returns (bytes32[] memory) { return _userSubscriptions[a]; }
-    function getOperatorEarnings(bytes32 id) external view returns (OperatorEarnings memory) { return _operatorEarnings[id]; }
-    function getPendingRewards(bytes32 id) external view returns (uint256) { return _operatorEarnings[id].pendingRewards; }
-    function getDelegatorPendingRewards(address, bytes32) external pure returns (uint256) { return 0; }
-    function getFeeConfig() external view returns (FeeConfig memory) { return _feeConfig; }
-    function getEpochRewards(uint256 n) external view returns (EpochRewards memory) { return _epochRewards[n]; }
-    function getCurrentEpoch() external view returns (uint256) { return currentEpoch; }
-    function getSubscriptionPrice(bytes32[] calldata f, uint256 m) external view returns (uint256) { return _calculateSubscriptionPrice(f, m); }
-    function getTotalFeesCollected() external view returns (uint256) { return totalFeesCollected; }
-    function getTreasuryBalance() external view returns (uint256) { return treasuryBalance; }
+    function getSubscription(bytes32 id) external view returns (Subscription memory) {
+        return _subscriptions[id];
+    }
 
-    function _calculateSubscriptionPrice(bytes32[] memory feedIds, uint256 months) internal view returns (uint256 total) {
+    function getSubscriptionsByAccount(address a) external view returns (bytes32[] memory) {
+        return _userSubscriptions[a];
+    }
+
+    function getOperatorEarnings(bytes32 id) external view returns (OperatorEarnings memory) {
+        return _operatorEarnings[id];
+    }
+
+    function getPendingRewards(bytes32 id) external view returns (uint256) {
+        return _operatorEarnings[id].pendingRewards;
+    }
+
+    function getDelegatorPendingRewards(address, bytes32) external pure returns (uint256) {
+        return 0;
+    }
+
+    function getFeeConfig() external view returns (FeeConfig memory) {
+        return _feeConfig;
+    }
+
+    function getEpochRewards(uint256 n) external view returns (EpochRewards memory) {
+        return _epochRewards[n];
+    }
+
+    function getCurrentEpoch() external view returns (uint256) {
+        return currentEpoch;
+    }
+
+    function getSubscriptionPrice(bytes32[] calldata f, uint256 m) external view returns (uint256) {
+        return _calculateSubscriptionPrice(f, m);
+    }
+
+    function getTotalFeesCollected() external view returns (uint256) {
+        return totalFeesCollected;
+    }
+
+    function getTreasuryBalance() external view returns (uint256) {
+        return treasuryBalance;
+    }
+
+    function _calculateSubscriptionPrice(bytes32[] memory feedIds, uint256 months)
+        internal
+        view
+        returns (uint256 total)
+    {
         for (uint256 i = 0; i < feedIds.length; i++) {
             uint256 p = feedPrices[feedIds[i]];
             total += (p == 0 ? _feeConfig.subscriptionFeePerMonth : p) * months;
@@ -231,14 +286,19 @@ contract OracleFeeRouter is IOracleFeeRouter, Ownable, Pausable, ReentrancyGuard
     }
 
     function setFeeConfig(FeeConfig calldata config) external onlyOwner {
-        if (config.treasuryShareBps + config.operatorShareBps + config.delegatorShareBps + config.disputerRewardBps != BPS_DENOMINATOR) {
+        if (
+            config.treasuryShareBps + config.operatorShareBps + config.delegatorShareBps + config.disputerRewardBps
+                != BPS_DENOMINATOR
+        ) {
             revert InvalidFeeConfig();
         }
         _feeConfig = config;
         emit FeeConfigUpdated(config.subscriptionFeePerMonth, config.perReadFee);
     }
 
-    function setFeedPrice(bytes32 feedId, uint256 monthlyPrice) external onlyOwner { feedPrices[feedId] = monthlyPrice; }
+    function setFeedPrice(bytes32 feedId, uint256 monthlyPrice) external onlyOwner {
+        feedPrices[feedId] = monthlyPrice;
+    }
 
     function withdrawTreasury(address recipient, uint256 amount) external onlyOwner {
         if (amount > treasuryBalance) revert InvalidFeeConfig();
@@ -251,8 +311,13 @@ contract OracleFeeRouter is IOracleFeeRouter, Ownable, Pausable, ReentrancyGuard
         _operatorEarnings[operatorId].pendingRewards += amount;
     }
 
-    function pause() external onlyOwner { _pause(); }
-    function unpause() external onlyOwner { _unpause(); }
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
 
     receive() external payable {
         epochAccumulatedFees += msg.value;

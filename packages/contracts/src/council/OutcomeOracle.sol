@@ -26,17 +26,16 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
  * @custom:security-contact security@jeju.network
  */
 contract OutcomeOracle is Ownable, ReentrancyGuard {
-
     // ============================================================================
     // Structs
     // ============================================================================
 
     struct OutcomeMetrics {
-        uint256 goalAchievement;      // 0-100: Did it achieve stated goals?
-        uint256 costEfficiency;        // 0-100: Was cost within expected range?
-        uint256 communityImpact;       // 0-100: Net positive community impact?
+        uint256 goalAchievement; // 0-100: Did it achieve stated goals?
+        uint256 costEfficiency; // 0-100: Was cost within expected range?
+        uint256 communityImpact; // 0-100: Net positive community impact?
         uint256 unexpectedConsequences; // 0-100: Score reduced by negative surprises
-        uint256 timeliness;            // 0-100: Was it delivered on time?
+        uint256 timeliness; // 0-100: Was it delivered on time?
     }
 
     struct OutcomeReport {
@@ -44,8 +43,8 @@ contract OutcomeOracle is Ownable, ReentrancyGuard {
         bytes32 decisionId;
         address reporter;
         OutcomeMetrics metrics;
-        uint256 overallScore;       // Weighted average 0-100
-        bytes32 evidenceHash;       // IPFS hash of evidence/analysis
+        uint256 overallScore; // Weighted average 0-100
+        bytes32 evidenceHash; // IPFS hash of evidence/analysis
         string summary;
         uint256 reportedAt;
         bool disputed;
@@ -117,11 +116,11 @@ contract OutcomeOracle is Ownable, ReentrancyGuard {
     uint256 public successThreshold = 60;
 
     /// @notice Weights for metric categories (in BPS, should sum to 10000)
-    uint256 public weightGoal = 3000;         // 30%
-    uint256 public weightCost = 2000;         // 20%
-    uint256 public weightCommunity = 2500;    // 25%
+    uint256 public weightGoal = 3000; // 30%
+    uint256 public weightCost = 2000; // 20%
+    uint256 public weightCommunity = 2500; // 25%
     uint256 public weightConsequences = 1500; // 15%
-    uint256 public weightTimeliness = 1000;   // 10%
+    uint256 public weightTimeliness = 1000; // 10%
 
     // ============================================================================
     // Events
@@ -135,37 +134,17 @@ contract OutcomeOracle is Ownable, ReentrancyGuard {
         uint256 overallScore
     );
 
-    event OutcomeDisputed(
-        bytes32 indexed reportId,
-        address indexed disputer,
-        uint256 stake
-    );
+    event OutcomeDisputed(bytes32 indexed reportId, address indexed disputer, uint256 stake);
 
-    event DisputeResolved(
-        bytes32 indexed reportId,
-        bool reportUpheld,
-        address winner
-    );
+    event DisputeResolved(bytes32 indexed reportId, bool reportUpheld, address winner);
 
-    event OutcomeFinalized(
-        bytes32 indexed reportId,
-        bytes32 indexed proposalId,
-        bool success,
-        uint256 score
-    );
+    event OutcomeFinalized(bytes32 indexed reportId, bytes32 indexed proposalId, bool success, uint256 score);
 
-    event EvaluatorAuthorized(
-        address indexed evaluator
-    );
+    event EvaluatorAuthorized(address indexed evaluator);
 
-    event EvaluatorDeauthorized(
-        address indexed evaluator
-    );
+    event EvaluatorDeauthorized(address indexed evaluator);
 
-    event BenchmarkSubmitted(
-        bytes32 indexed decisionId,
-        bool success
-    );
+    event BenchmarkSubmitted(bytes32 indexed decisionId, bool success);
 
     // ============================================================================
     // Errors
@@ -195,11 +174,7 @@ contract OutcomeOracle is Ownable, ReentrancyGuard {
     // Constructor
     // ============================================================================
 
-    constructor(
-        address _ceoAgent,
-        address _council,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _ceoAgent, address _council, address initialOwner) Ownable(initialOwner) {
         ceoAgent = _ceoAgent;
         council = _council;
     }
@@ -225,25 +200,19 @@ contract OutcomeOracle is Ownable, ReentrancyGuard {
     ) external onlyEvaluator nonReentrant returns (bytes32 reportId) {
         // Validate proposal exists and was executed (would require council interface)
         if (proposalReports[proposalId] != bytes32(0)) revert ReportAlreadyExists();
-        
+
         // Validate metrics are in range
-        if (metrics.goalAchievement > 100 ||
-            metrics.costEfficiency > 100 ||
-            metrics.communityImpact > 100 ||
-            metrics.unexpectedConsequences > 100 ||
-            metrics.timeliness > 100) {
+        if (
+            metrics.goalAchievement > 100 || metrics.costEfficiency > 100 || metrics.communityImpact > 100
+                || metrics.unexpectedConsequences > 100 || metrics.timeliness > 100
+        ) {
             revert InvalidMetrics();
         }
 
         // Calculate weighted overall score
         uint256 overallScore = _calculateOverallScore(metrics);
 
-        reportId = keccak256(abi.encodePacked(
-            proposalId,
-            decisionId,
-            msg.sender,
-            block.timestamp
-        ));
+        reportId = keccak256(abi.encodePacked(proposalId, decisionId, msg.sender, block.timestamp));
 
         reports[reportId] = OutcomeReport({
             proposalId: proposalId,
@@ -274,11 +243,11 @@ contract OutcomeOracle is Ownable, ReentrancyGuard {
      * @param evidenceHash IPFS hash of counter-evidence
      * @param reason Text explanation of dispute
      */
-    function disputeReport(
-        bytes32 reportId,
-        bytes32 evidenceHash,
-        string calldata reason
-    ) external payable nonReentrant {
+    function disputeReport(bytes32 reportId, bytes32 evidenceHash, string calldata reason)
+        external
+        payable
+        nonReentrant
+    {
         OutcomeReport storage report = reports[reportId];
         if (report.reportedAt == 0) revert ReportNotFound();
         if (report.finalized) revert AlreadyFinalized();
@@ -289,16 +258,18 @@ contract OutcomeOracle is Ownable, ReentrancyGuard {
 
         report.disputed = true;
 
-        reportDisputes[reportId].push(Dispute({
-            reportId: reportId,
-            disputer: msg.sender,
-            evidenceHash: evidenceHash,
-            reason: reason,
-            stake: msg.value,
-            disputedAt: block.timestamp,
-            resolved: false,
-            reportUpheld: false
-        }));
+        reportDisputes[reportId].push(
+            Dispute({
+                reportId: reportId,
+                disputer: msg.sender,
+                evidenceHash: evidenceHash,
+                reason: reason,
+                stake: msg.value,
+                disputedAt: block.timestamp,
+                resolved: false,
+                reportUpheld: false
+            })
+        );
 
         // Update evaluator stats
         evaluators[report.reporter].reportsDisputed++;
@@ -312,11 +283,11 @@ contract OutcomeOracle is Ownable, ReentrancyGuard {
      * @param disputeIndex Which dispute to resolve
      * @param upholdReport Whether the original report is upheld
      */
-    function resolveDispute(
-        bytes32 reportId,
-        uint256 disputeIndex,
-        bool upholdReport
-    ) external onlyOwner nonReentrant {
+    function resolveDispute(bytes32 reportId, uint256 disputeIndex, bool upholdReport)
+        external
+        onlyOwner
+        nonReentrant
+    {
         OutcomeReport storage report = reports[reportId];
         if (report.reportedAt == 0) revert ReportNotFound();
 
@@ -332,7 +303,7 @@ contract OutcomeOracle is Ownable, ReentrancyGuard {
             winner = report.reporter;
             evaluators[report.reporter].disputesWon++;
             evaluators[report.reporter].reputation += 10;
-            
+
             // Transfer stake to reporter
             payable(report.reporter).transfer(dispute.stake);
         } else {
@@ -342,7 +313,7 @@ contract OutcomeOracle is Ownable, ReentrancyGuard {
             if (evaluators[report.reporter].reputation > 10) {
                 evaluators[report.reporter].reputation -= 10;
             }
-            
+
             // Return stake to disputer
             payable(dispute.disputer).transfer(dispute.stake);
         }
@@ -389,10 +360,8 @@ contract OutcomeOracle is Ownable, ReentrancyGuard {
     function _submitBenchmark(bytes32 decisionId, bool success) internal {
         // Interface with CEOAgent.recordBenchmark
         // Note: This requires the OutcomeOracle to be the owner or have special privileges
-        (bool ok,) = ceoAgent.call(
-            abi.encodeWithSignature("recordBenchmark(bytes32,bool)", decisionId, success)
-        );
-        
+        (bool ok,) = ceoAgent.call(abi.encodeWithSignature("recordBenchmark(bytes32,bool)", decisionId, success));
+
         if (ok) {
             emit BenchmarkSubmitted(decisionId, success);
         }
@@ -459,7 +428,7 @@ contract OutcomeOracle is Ownable, ReentrancyGuard {
 
     function authorizeEvaluator(address evaluator) external onlyOwner {
         authorizedEvaluators[evaluator] = true;
-        
+
         if (evaluators[evaluator].evaluator == address(0)) {
             evaluators[evaluator] = EvaluatorInfo({
                 evaluator: evaluator,

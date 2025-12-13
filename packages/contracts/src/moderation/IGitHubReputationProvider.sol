@@ -28,9 +28,8 @@ interface IGitHubReputationProvider {
      * @return isValid Whether the attestation is valid
      * @return lastUpdated When the score was last updated
      */
-    function getAgentReputation(uint256 agentId) external view returns (
-        uint8 score,
-        bool isValid,
-        uint256 lastUpdated
-    );
+    function getAgentReputation(uint256 agentId)
+        external
+        view
+        returns (uint8 score, bool isValid, uint256 lastUpdated);
 }

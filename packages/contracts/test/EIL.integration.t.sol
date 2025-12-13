@@ -54,11 +54,8 @@ contract MockL2OutputOracle {
     uint256 public _latestBlockNumber = 1000;
 
     function addOutput(bytes32 outputRoot, uint128 timestamp, uint128 l2BlockNumber) external {
-        outputs[outputCount] = IL2OutputOracle.OutputProposal({
-            outputRoot: outputRoot,
-            timestamp: timestamp,
-            l2BlockNumber: l2BlockNumber
-        });
+        outputs[outputCount] =
+            IL2OutputOracle.OutputProposal({outputRoot: outputRoot, timestamp: timestamp, l2BlockNumber: l2BlockNumber});
         outputCount++;
         if (l2BlockNumber > _latestBlockNumber) {
             _latestBlockNumber = l2BlockNumber;
@@ -164,12 +161,8 @@ contract EILIntegrationTest is Test {
 
         // Deploy L2 contracts
         entryPoint = new MockEntryPoint();
-        l2Paymaster = new CrossChainPaymaster(
-            IEntryPoint(address(entryPoint)),
-            address(l1StakeManager),
-            L2_CHAIN_ID,
-            address(0)
-        );
+        l2Paymaster =
+            new CrossChainPaymaster(IEntryPoint(address(entryPoint)), address(l1StakeManager), L2_CHAIN_ID, address(0));
         l2Paymaster.setMessenger(address(l2Messenger));
         l2Paymaster.setTokenSupport(address(0), true);
 
@@ -249,9 +242,8 @@ contract EILIntegrationTest is Test {
         uint256 currentFee = l2Paymaster.getCurrentFee(requestId);
 
         // Create XLP signature
-        bytes32 commitment = keccak256(
-            abi.encodePacked(requestId, xlp, request.amount, currentFee, request.destinationChainId)
-        );
+        bytes32 commitment =
+            keccak256(abi.encodePacked(requestId, xlp, request.amount, currentFee, request.destinationChainId));
         bytes32 ethSignedHash = commitment.toEthSignedMessageHash();
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(xlpPrivateKey, ethSignedHash);
         bytes memory signature = abi.encodePacked(r, s, v);
@@ -359,8 +351,7 @@ contract EILIntegrationTest is Test {
         assertEq(root, outputRoot);
 
         // Verify full state root
-        bool valid =
-            l2OutputVerifier.verifyStateRoot(L2_CHAIN_ID, 2000, stateRoot, messagePasserRoot, blockHash);
+        bool valid = l2OutputVerifier.verifyStateRoot(L2_CHAIN_ID, 2000, stateRoot, messagePasserRoot, blockHash);
         assertTrue(valid);
     }
 
@@ -482,8 +473,7 @@ contract EILIntegrationTest is Test {
         );
 
         // Verify transfer recorded
-        CrossChainMessagingPaymaster.PendingTransfer memory transfer =
-            l2MessagingPaymaster.getTransfer(transferId);
+        CrossChainMessagingPaymaster.PendingTransfer memory transfer = l2MessagingPaymaster.getTransfer(transferId);
         assertEq(transfer.sender, user);
         assertEq(transfer.amount, transferAmount);
         assertFalse(transfer.completed);
@@ -496,4 +486,3 @@ contract EILIntegrationTest is Test {
         assertTrue(l2MessagingPaymaster.canComplete(address(0), transferAmount - fee));
     }
 }
-

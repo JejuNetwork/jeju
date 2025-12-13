@@ -170,12 +170,18 @@ app.post('/api/v1/triggers/execute', async (c) => c.json(await runOrchestratorCy
 const proposalAssistant = getProposalAssistant(blockchain);
 
 app.post('/api/v1/proposals/assess', async (c) => {
-  const draft = await c.req.json() as ProposalDraft;
-  if (!draft.title || !draft.description) {
-    return c.json({ error: 'title and description are required' }, 400);
+  try {
+    const draft = await c.req.json() as ProposalDraft;
+    if (!draft.title || !draft.description) {
+      return c.json({ error: 'title and description are required' }, 400);
+    }
+    const assessment = await proposalAssistant.assessQuality(draft);
+    return c.json(assessment);
+  } catch (error) {
+    console.error('[Assess] Error:', error);
+    const message = error instanceof Error ? error.message : 'Assessment failed';
+    return c.json({ error: message }, 500);
   }
-  const assessment = await proposalAssistant.assessQuality(draft);
-  return c.json(assessment);
 });
 
 app.post('/api/v1/proposals/check-duplicates', async (c) => {
@@ -605,6 +611,51 @@ app.get('/health', (c) => c.json({
   registry: { integration: !!registryConfig.integrationContract, delegation: !!registryConfig.delegationRegistry },
   endpoints: { a2a: '/a2a', mcp: '/mcp', rest: '/api/v1', agents: '/api/v1/agents', futarchy: '/api/v1/futarchy', moderation: '/api/v1/moderation', registry: '/api/v1/registry' },
 }));
+
+// Prometheus metrics (excludes /metrics and /health from request count)
+const metricsData = { requests: 0, errors: 0, startTime: Date.now() };
+app.use('*', async (c, next) => {
+  const path = c.req.path;
+  if (path !== '/metrics' && path !== '/health') metricsData.requests++;
+  await next();
+});
+app.onError((err, c) => {
+  metricsData.errors++;
+  console.error(`[Error] ${c.req.method} ${c.req.path}:`, err.message);
+  return c.json({ error: err.message }, 500);
+});
+
+app.get('/metrics', () => {
+  const mem = process.memoryUsage();
+  const uptime = (Date.now() - metricsData.startTime) / 1000;
+  const orch = orchestrator?.getStatus();
+  const activeFlags = moderation.getActiveFlags().length;
+  const lines = [
+    '# HELP council_requests_total Total HTTP requests',
+    '# TYPE council_requests_total counter',
+    `council_requests_total ${metricsData.requests}`,
+    '# HELP council_errors_total Total errors',
+    '# TYPE council_errors_total counter',
+    `council_errors_total ${metricsData.errors}`,
+    '# HELP council_uptime_seconds Service uptime',
+    '# TYPE council_uptime_seconds gauge',
+    `council_uptime_seconds ${uptime.toFixed(0)}`,
+    '# HELP council_memory_bytes Memory usage',
+    '# TYPE council_memory_bytes gauge',
+    `council_memory_bytes{type="heap"} ${mem.heapUsed}`,
+    `council_memory_bytes{type="rss"} ${mem.rss}`,
+    '# HELP council_orchestrator_cycles Total orchestrator cycles',
+    '# TYPE council_orchestrator_cycles counter',
+    `council_orchestrator_cycles ${orch?.cycleCount ?? 0}`,
+    '# HELP council_proposals_processed Total proposals processed',
+    '# TYPE council_proposals_processed counter',
+    `council_proposals_processed ${orch?.processedProposals ?? 0}`,
+    '# HELP council_moderation_flags_active Active moderation flags',
+    '# TYPE council_moderation_flags_active gauge',
+    `council_moderation_flags_active ${activeFlags}`,
+  ];
+  return new Response(lines.join('\n'), { headers: { 'Content-Type': 'text/plain' } });
+});
 
 app.get('/', (c) => c.json({
   name: 'Jeju AI Council',

@@ -76,12 +76,7 @@ contract DelegationRegistryTest is Test {
         identity = new MockIdentityRegistry();
         reputation = new MockReputationRegistry();
 
-        registry = new DelegationRegistry(
-            address(token),
-            address(identity),
-            address(reputation),
-            owner
-        );
+        registry = new DelegationRegistry(address(token), address(identity), address(reputation), owner);
 
         // Setup test accounts
         token.mint(alice, 10000 ether);

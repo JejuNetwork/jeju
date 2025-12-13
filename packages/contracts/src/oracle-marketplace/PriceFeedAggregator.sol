@@ -9,13 +9,10 @@ import {IOracleStakingManager} from "./interfaces/IOracleStakingManager.sol";
  * @notice Standard price feed interface (Chainlink-compatible)
  */
 interface IPriceFeed {
-    function latestRoundData() external view returns (
-        uint80 roundId,
-        int256 answer,
-        uint256 startedAt,
-        uint256 updatedAt,
-        uint80 answeredInRound
-    );
+    function latestRoundData()
+        external
+        view
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound);
 
     function decimals() external view returns (uint8);
     function description() external view returns (string memory);
@@ -26,13 +23,10 @@ interface IPriceFeed {
  * @notice Interface for Chainlink price feeds (fallback)
  */
 interface IChainlinkAggregator {
-    function latestRoundData() external view returns (
-        uint80 roundId,
-        int256 answer,
-        uint256 startedAt,
-        uint256 updatedAt,
-        uint80 answeredInRound
-    );
+    function latestRoundData()
+        external
+        view
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound);
     function decimals() external view returns (uint8);
 }
 
@@ -41,29 +35,26 @@ interface IChainlinkAggregator {
  * @notice Aggregates prices from Jeju oracles with Chainlink fallback
  */
 contract PriceFeedAggregator is IPriceFeed, Ownable {
-
     struct FeedConfig {
-        bytes32 jejuMarketId;           // Market ID in OracleStakingManager
-        address chainlinkFeed;          // Chainlink fallback (address(0) if none)
-        uint256 maxStalenessSeconds;    // Max age before price is stale
-        uint256 maxDeviationBps;        // Max deviation between sources
-        bool requireJejuOracle;         // If true, must have Jeju price
+        bytes32 jejuMarketId; // Market ID in OracleStakingManager
+        address chainlinkFeed; // Chainlink fallback (address(0) if none)
+        uint256 maxStalenessSeconds; // Max age before price is stale
+        uint256 maxDeviationBps; // Max deviation between sources
+        bool requireJejuOracle; // If true, must have Jeju price
         bool isActive;
     }
 
     struct PriceData {
         uint256 price;
         uint256 timestamp;
-        uint8 source;  // 0 = none, 1 = Jeju, 2 = Chainlink, 3 = both agree
+        uint8 source; // 0 = none, 1 = Jeju, 2 = Chainlink, 3 = both agree
     }
-
 
     uint8 public constant DECIMALS = 8;
     uint256 public constant BPS_DENOMINATOR = 10000;
 
     // Circuit breaker: max 20% price change in single update
     uint256 public constant MAX_PRICE_CHANGE_BPS = 2000;
-
 
     IOracleStakingManager public oracleStakingManager;
 
@@ -78,27 +69,11 @@ contract PriceFeedAggregator is IPriceFeed, Ownable {
     // Current asset being queried (for interface compatibility)
     string public currentAsset;
 
+    event FeedConfigured(string indexed asset, bytes32 jejuMarketId, address chainlinkFeed);
 
-    event FeedConfigured(
-        string indexed asset,
-        bytes32 jejuMarketId,
-        address chainlinkFeed
-    );
+    event PriceUpdated(string indexed asset, uint256 price, uint8 source, uint256 timestamp);
 
-    event PriceUpdated(
-        string indexed asset,
-        uint256 price,
-        uint8 source,
-        uint256 timestamp
-    );
-
-    event CircuitBreakerTriggered(
-        string indexed asset,
-        uint256 oldPrice,
-        uint256 newPrice,
-        uint256 deviationBps
-    );
-
+    event CircuitBreakerTriggered(string indexed asset, uint256 oldPrice, uint256 newPrice, uint256 deviationBps);
 
     error FeedNotConfigured();
     error FeedNotActive();
@@ -108,23 +83,19 @@ contract PriceFeedAggregator is IPriceFeed, Ownable {
     error CircuitBreakerActive();
     error InvalidPrice();
 
-
     constructor(address _oracleStakingManager, address initialOwner) Ownable(initialOwner) {
         oracleStakingManager = IOracleStakingManager(_oracleStakingManager);
     }
-
 
     /**
      * @notice Get latest price data (Chainlink-compatible interface)
      * @dev Uses currentAsset set by setCurrentAsset or defaults to ETH-USD
      */
-    function latestRoundData() external view returns (
-        uint80 roundId,
-        int256 answer,
-        uint256 startedAt,
-        uint256 updatedAt,
-        uint80 answeredInRound
-    ) {
+    function latestRoundData()
+        external
+        view
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
+    {
         string memory asset = bytes(currentAsset).length > 0 ? currentAsset : "ETH-USD";
         PriceData memory data = _getPrice(asset);
 
@@ -147,7 +118,6 @@ contract PriceFeedAggregator is IPriceFeed, Ownable {
         return string(abi.encodePacked(currentAsset, " Price Feed"));
     }
 
-
     /**
      * @notice Get the current price for an asset
      * @param asset Asset symbol (e.g., "BTC-USD", "ETH-USD")
@@ -155,11 +125,7 @@ contract PriceFeedAggregator is IPriceFeed, Ownable {
      * @return timestamp When price was last updated
      * @return isValid Whether price passes all validity checks
      */
-    function getPrice(string calldata asset) external view returns (
-        uint256 price,
-        uint256 timestamp,
-        bool isValid
-    ) {
+    function getPrice(string calldata asset) external view returns (uint256 price, uint256 timestamp, bool isValid) {
         PriceData memory data = _getPrice(asset);
         return (data.price, data.timestamp, data.price > 0 && data.source > 0);
     }
@@ -183,7 +149,6 @@ contract PriceFeedAggregator is IPriceFeed, Ownable {
         return data.price > 0 && data.source > 0;
     }
 
-
     function _getPrice(string memory asset) internal view returns (PriceData memory data) {
         FeedConfig storage config = feeds[asset];
 
@@ -204,10 +169,8 @@ contract PriceFeedAggregator is IPriceFeed, Ownable {
 
         // Try Chainlink fallback
         if (config.chainlinkFeed != address(0)) {
-            (chainlinkPrice, chainlinkTimestamp, chainlinkValid) = _getChainlinkPrice(
-                config.chainlinkFeed,
-                config.maxStalenessSeconds
-            );
+            (chainlinkPrice, chainlinkTimestamp, chainlinkValid) =
+                _getChainlinkPrice(config.chainlinkFeed, config.maxStalenessSeconds);
         }
 
         // Decision logic
@@ -218,17 +181,9 @@ contract PriceFeedAggregator is IPriceFeed, Ownable {
             if (deviation > config.maxDeviationBps) {
                 // Sources disagree too much - use Jeju if required, else Chainlink
                 if (config.requireJejuOracle) {
-                    data = PriceData({
-                        price: jejuPrice,
-                        timestamp: jejuTimestamp,
-                        source: 1
-                    });
+                    data = PriceData({price: jejuPrice, timestamp: jejuTimestamp, source: 1});
                 } else {
-                    data = PriceData({
-                        price: chainlinkPrice,
-                        timestamp: chainlinkTimestamp,
-                        source: 2
-                    });
+                    data = PriceData({price: chainlinkPrice, timestamp: chainlinkTimestamp, source: 2});
                 }
             } else {
                 // Sources agree - use Jeju (prefer decentralized)
@@ -239,25 +194,18 @@ contract PriceFeedAggregator is IPriceFeed, Ownable {
                 });
             }
         } else if (jejuValid) {
-            data = PriceData({
-                price: jejuPrice,
-                timestamp: jejuTimestamp,
-                source: 1
-            });
+            data = PriceData({price: jejuPrice, timestamp: jejuTimestamp, source: 1});
         } else if (chainlinkValid && !config.requireJejuOracle) {
-            data = PriceData({
-                price: chainlinkPrice,
-                timestamp: chainlinkTimestamp,
-                source: 2
-            });
+            data = PriceData({price: chainlinkPrice, timestamp: chainlinkTimestamp, source: 2});
         }
         // else: data remains zero (no valid price)
     }
 
-    function _getJejuPrice(
-        bytes32 marketId,
-        uint256 maxStaleness
-    ) internal view returns (uint256 price, uint256 timestamp, bool valid) {
+    function _getJejuPrice(bytes32 marketId, uint256 maxStaleness)
+        internal
+        view
+        returns (uint256 price, uint256 timestamp, bool valid)
+    {
         IOracleStakingManager.ConsensusPrice memory cp = oracleStakingManager.getConsensusPrice(marketId);
 
         if (cp.price == 0) return (0, 0, false);
@@ -267,16 +215,12 @@ contract PriceFeedAggregator is IPriceFeed, Ownable {
         return (cp.price, cp.timestamp, true);
     }
 
-    function _getChainlinkPrice(
-        address feed,
-        uint256 maxStaleness
-    ) internal view returns (uint256 price, uint256 timestamp, bool valid) {
-        (
-            ,
-            int256 answer,
-            ,
-            uint256 updatedAt,
-        ) = IChainlinkAggregator(feed).latestRoundData();
+    function _getChainlinkPrice(address feed, uint256 maxStaleness)
+        internal
+        view
+        returns (uint256 price, uint256 timestamp, bool valid)
+    {
+        (, int256 answer,, uint256 updatedAt,) = IChainlinkAggregator(feed).latestRoundData();
 
         if (answer <= 0) return (0, 0, false);
         if (block.timestamp - updatedAt > maxStaleness) return (0, 0, false);
@@ -299,7 +243,6 @@ contract PriceFeedAggregator is IPriceFeed, Ownable {
         uint256 diff = price1 > price2 ? price1 - price2 : price2 - price1;
         return (diff * BPS_DENOMINATOR) / ((price1 + price2) / 2);
     }
-
 
     /**
      * @notice Update the circuit breaker reference price
@@ -332,7 +275,6 @@ contract PriceFeedAggregator is IPriceFeed, Ownable {
         // Can add authorized updater list here
         return account == address(oracleStakingManager);
     }
-
 
     /**
      * @notice Configure a price feed for an asset
@@ -394,7 +336,6 @@ contract PriceFeedAggregator is IPriceFeed, Ownable {
         oracleStakingManager = IOracleStakingManager(_oracleStakingManager);
     }
 
-
     /**
      * @notice Get all configured assets
      * @return assets Array of asset symbols
@@ -431,10 +372,11 @@ contract PriceFeedAggregator is IPriceFeed, Ownable {
      * @return prices Array of prices
      * @return timestamps Array of timestamps
      */
-    function getPrices(string[] calldata assets) external view returns (
-        uint256[] memory prices,
-        uint256[] memory timestamps
-    ) {
+    function getPrices(string[] calldata assets)
+        external
+        view
+        returns (uint256[] memory prices, uint256[] memory timestamps)
+    {
         prices = new uint256[](assets.length);
         timestamps = new uint256[](assets.length);
 
@@ -444,5 +386,4 @@ contract PriceFeedAggregator is IPriceFeed, Ownable {
             timestamps[i] = data.timestamp;
         }
     }
-
 }

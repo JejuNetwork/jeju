@@ -75,7 +75,7 @@ contract XLPV3Test is Test, IXLPV3MintCallback, IXLPV3SwapCallback {
     // ============ Pool State Tests ============
 
     function testPoolState() public view {
-        (uint160 sqrtPriceX96, int24 tick, , , , , bool unlocked) = XLPV3Pool(pool).slot0();
+        (uint160 sqrtPriceX96, int24 tick,,,,, bool unlocked) = XLPV3Pool(pool).slot0();
 
         assertGt(sqrtPriceX96, 0);
         assertEq(tick, 0); // At 1:1 price
@@ -91,13 +91,8 @@ contract XLPV3Test is Test, IXLPV3MintCallback, IXLPV3SwapCallback {
         int24 tickUpper = 60;
         uint128 liquidityAmount = 1000000;
 
-        (uint256 amount0, uint256 amount1) = XLPV3Pool(pool).mint(
-            address(this),
-            tickLower,
-            tickUpper,
-            liquidityAmount,
-            ""
-        );
+        (uint256 amount0, uint256 amount1) =
+            XLPV3Pool(pool).mint(address(this), tickLower, tickUpper, liquidityAmount, "");
 
         assertGt(amount0, 0);
         assertGt(amount1, 0);
@@ -185,14 +180,8 @@ contract XLPV3Test is Test, IXLPV3MintCallback, IXLPV3SwapCallback {
         XLPV3Pool(pool).mint(address(this), tickLower, tickUpper, liquidityAmount, "");
 
         // Do several swaps
-        for (uint i = 0; i < 5; i++) {
-            XLPV3Pool(pool).swap(
-                address(this),
-                true,
-                int256(1 ether),
-                TickMath.MIN_SQRT_RATIO + 1,
-                ""
-            );
+        for (uint256 i = 0; i < 5; i++) {
+            XLPV3Pool(pool).swap(address(this), true, int256(1 ether), TickMath.MIN_SQRT_RATIO + 1, "");
         }
 
         // Fee growth should be > 0
@@ -219,4 +208,3 @@ contract XLPV3Test is Test, IXLPV3MintCallback, IXLPV3SwapCallback {
         }
     }
 }
-

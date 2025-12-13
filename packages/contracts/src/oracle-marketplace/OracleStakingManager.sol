@@ -28,14 +28,11 @@ contract OracleStakingManager is IOracleStakingManager, Ownable, Pausable, Reent
     uint256 public constant PRICE_DECIMALS = 8;
     uint256 public constant ACCURACY_BOOST_MAX = 15000; // 1.5x for perfect accuracy
 
-
     ITokenRegistry public immutable tokenRegistry;
     ISimplePriceOracle public immutable priceOracle;
 
-
     IIdentityRegistry public identityRegistry;
     IReputationRegistry public reputationRegistry;
-
 
     // Oracle storage
     mapping(bytes32 => OracleNode) public oracles;
@@ -66,7 +63,6 @@ contract OracleStakingManager is IOracleStakingManager, Ownable, Pausable, Reent
     // Parameters
     uint256 public minStakeUSD = 1000 ether; // $1,000 minimum
 
-
     error InvalidAddress();
     error TokenNotRegistered();
     error InsufficientStake(uint256 provided, uint256 required);
@@ -87,12 +83,7 @@ contract OracleStakingManager is IOracleStakingManager, Ownable, Pausable, Reent
     error NotAgentOwner();
     error ZeroAmount();
 
-
-    constructor(
-        address _tokenRegistry,
-        address _priceOracle,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _tokenRegistry, address _priceOracle, address initialOwner) Ownable(initialOwner) {
         if (_tokenRegistry == address(0)) revert InvalidAddress();
         if (_priceOracle == address(0)) revert InvalidAddress();
 
@@ -100,12 +91,12 @@ contract OracleStakingManager is IOracleStakingManager, Ownable, Pausable, Reent
         priceOracle = ISimplePriceOracle(_priceOracle);
     }
 
-
-    function registerOracle(
-        address stakingToken,
-        uint256 stakeAmount,
-        uint256 reputationAgentId
-    ) external nonReentrant whenNotPaused returns (bytes32 oracleId) {
+    function registerOracle(address stakingToken, uint256 stakeAmount, uint256 reputationAgentId)
+        external
+        nonReentrant
+        whenNotPaused
+        returns (bytes32 oracleId)
+    {
         if (stakeAmount == 0) revert ZeroAmount();
         if (!tokenRegistry.isRegistered(stakingToken)) revert TokenNotRegistered();
 
@@ -176,12 +167,7 @@ contract OracleStakingManager is IOracleStakingManager, Ownable, Pausable, Reent
         // Remove from active list
         _removeFromActiveList(oracleId);
 
-        emit UnbondingStarted(
-            oracleId,
-            msg.sender,
-            oracle.stakedAmount,
-            block.timestamp + UNBONDING_PERIOD
-        );
+        emit UnbondingStarted(oracleId, msg.sender, oracle.stakedAmount, block.timestamp + UNBONDING_PERIOD);
     }
 
     function completeUnbonding(bytes32 oracleId) external nonReentrant {
@@ -238,20 +224,15 @@ contract OracleStakingManager is IOracleStakingManager, Ownable, Pausable, Reent
         }
     }
 
-
-    function submitPrice(
-        bytes32 oracleId,
-        bytes32 marketId,
-        uint256 price
-    ) external nonReentrant whenNotPaused {
+    function submitPrice(bytes32 oracleId, bytes32 marketId, uint256 price) external nonReentrant whenNotPaused {
         _submitPrice(oracleId, marketId, price);
     }
 
-    function submitPricesBatch(
-        bytes32 oracleId,
-        bytes32[] calldata marketIds,
-        uint256[] calldata prices
-    ) external nonReentrant whenNotPaused {
+    function submitPricesBatch(bytes32 oracleId, bytes32[] calldata marketIds, uint256[] calldata prices)
+        external
+        nonReentrant
+        whenNotPaused
+    {
         if (marketIds.length != prices.length) revert ArrayLengthMismatch();
 
         for (uint256 i = 0; i < marketIds.length; i++) {
@@ -259,11 +240,7 @@ contract OracleStakingManager is IOracleStakingManager, Ownable, Pausable, Reent
         }
     }
 
-    function _submitPrice(
-        bytes32 oracleId,
-        bytes32 marketId,
-        uint256 price
-    ) internal {
+    function _submitPrice(bytes32 oracleId, bytes32 marketId, uint256 price) internal {
         OracleNode storage oracle = oracles[oracleId];
         MarketConfig storage market = markets[marketId];
 
@@ -300,7 +277,6 @@ contract OracleStakingManager is IOracleStakingManager, Ownable, Pausable, Reent
         // Try to reach consensus
         _tryReachConsensus(marketId);
     }
-
 
     function _tryReachConsensus(bytes32 marketId) internal {
         MarketConfig storage market = markets[marketId];
@@ -393,11 +369,11 @@ contract OracleStakingManager is IOracleStakingManager, Ownable, Pausable, Reent
         return (sqrtStake * reputationFactor * accuracyFactor) / BPS_DENOMINATOR;
     }
 
-    function _calculateWeightedMedian(
-        uint256[] memory prices,
-        uint256[] memory weights,
-        uint256 count
-    ) internal pure returns (uint256) {
+    function _calculateWeightedMedian(uint256[] memory prices, uint256[] memory weights, uint256 count)
+        internal
+        pure
+        returns (uint256)
+    {
         // Sort prices with weights (bubble sort - fine for small N)
         for (uint256 i = 0; i < count - 1; i++) {
             for (uint256 j = 0; j < count - i - 1; j++) {
@@ -431,11 +407,11 @@ contract OracleStakingManager is IOracleStakingManager, Ownable, Pausable, Reent
         return prices[count - 1];
     }
 
-    function _calculateConfidence(
-        uint256[] memory prices,
-        uint256 median,
-        uint256 count
-    ) internal pure returns (uint256) {
+    function _calculateConfidence(uint256[] memory prices, uint256 median, uint256 count)
+        internal
+        pure
+        returns (uint256)
+    {
         // Confidence = how many oracles are within 0.5% of median
         uint256 agreementCount = 0;
         uint256 threshold = median / 200; // 0.5%
@@ -505,16 +481,11 @@ contract OracleStakingManager is IOracleStakingManager, Ownable, Pausable, Reent
         emit OracleSlashed(oracleId, oracle.operator, slashAmount, "Price deviation exceeded threshold");
     }
 
-
     function getConsensusPrice(bytes32 marketId) external view returns (ConsensusPrice memory) {
         return consensusPrices[marketId];
     }
 
-    function getLatestPrice(bytes32 marketId) external view returns (
-        uint256 price,
-        uint256 timestamp,
-        bool isValid
-    ) {
+    function getLatestPrice(bytes32 marketId) external view returns (uint256 price, uint256 timestamp, bool isValid) {
         ConsensusPrice storage cp = consensusPrices[marketId];
         MarketConfig storage market = markets[marketId];
 
@@ -522,9 +493,7 @@ contract OracleStakingManager is IOracleStakingManager, Ownable, Pausable, Reent
         timestamp = cp.timestamp;
 
         // Valid if within heartbeat and has minimum confidence
-        isValid = market.isActive
-            && cp.timestamp > 0
-            && block.timestamp - cp.timestamp <= market.heartbeatSeconds
+        isValid = market.isActive && cp.timestamp > 0 && block.timestamp - cp.timestamp <= market.heartbeatSeconds
             && cp.confidence >= 5000; // At least 50% confidence
     }
 
@@ -548,12 +517,11 @@ contract OracleStakingManager is IOracleStakingManager, Ownable, Pausable, Reent
         return _calculateOracleWeight(oracleId);
     }
 
-    function getNetworkStats() external view returns (
-        uint256 totalOracles,
-        uint256 _totalStakedUSD,
-        uint256 totalMarkets,
-        uint256 avgAccuracy
-    ) {
+    function getNetworkStats()
+        external
+        view
+        returns (uint256 totalOracles, uint256 _totalStakedUSD, uint256 totalMarkets, uint256 avgAccuracy)
+    {
         totalOracles = activeOracleIds.length;
         _totalStakedUSD = totalStakedUSD;
         totalMarkets = allMarketIds.length;
@@ -567,7 +535,6 @@ contract OracleStakingManager is IOracleStakingManager, Ownable, Pausable, Reent
             avgAccuracy = sumAccuracy / totalOracles;
         }
     }
-
 
     function addMarket(
         bytes32 marketId,
@@ -646,18 +613,12 @@ contract OracleStakingManager is IOracleStakingManager, Ownable, Pausable, Reent
         _unpause();
     }
 
-
     function _getReputationScore(uint256 agentId) internal view returns (uint256) {
         if (address(reputationRegistry) == address(0)) return 50;
 
         // Get summary from reputation registry
         address[] memory empty = new address[](0);
-        (uint64 count, uint8 avgScore) = reputationRegistry.getSummary(
-            agentId,
-            empty,
-            bytes32(0),
-            bytes32(0)
-        );
+        (uint64 count, uint8 avgScore) = reputationRegistry.getSummary(agentId, empty, bytes32(0), bytes32(0));
 
         // If no feedback, return default
         if (count == 0) return 50;
@@ -685,7 +646,6 @@ contract OracleStakingManager is IOracleStakingManager, Ownable, Pausable, Reent
             z = (x / z + z) / 2;
         }
     }
-
 
     receive() external payable {}
 }

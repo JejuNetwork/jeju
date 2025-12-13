@@ -29,33 +29,33 @@ contract ModerationJejuIntegrationTest is Test {
 
     function setUp() public {
         vm.startPrank(owner);
-        
+
         // 1. Deploy BanManager
         banManager = new BanManager(owner, owner);
-        
+
         // 2. Deploy JejuToken with BanManager
         jeju = new JejuToken(owner, address(banManager), true);
-        
+
         // 3. Deploy ModerationMarketplace with JEJU as staking token
         marketplace = new ModerationMarketplace(
             address(banManager),
-            address(jeju),  // JEJU staking!
+            address(jeju), // JEJU staking!
             treasury,
             owner
         );
-        
+
         // 4. Set marketplace as ban-exempt in JejuToken
         jeju.setBanExempt(address(marketplace), true);
-        
+
         // 5. Authorize marketplace as moderator in BanManager
         banManager.setModerator(address(marketplace), true);
-        
+
         // 6. Fund test accounts with JEJU
         jeju.transfer(reporter, 10_000 ether);
         jeju.transfer(target, 10_000 ether);
         jeju.transfer(voter1, 10_000 ether);
         jeju.transfer(voter2, 10_000 ether);
-        
+
         vm.stopPrank();
 
         // Fund accounts with ETH for gas
@@ -186,13 +186,13 @@ contract ModerationJejuIntegrationTest is Test {
 
         // 4. Verify case state
         ModerationMarketplace.BanCase memory banCase = marketplace.getCase(caseId);
-        
+
         assertTrue(banCase.createdAt > 0, "Case should be created");
         assertEq(banCase.reporter, reporter, "Reporter should match");
         assertEq(banCase.target, target, "Target should match");
         assertEq(banCase.reporterStake, STAKE_AMOUNT, "Reporter stake recorded");
         assertEq(banCase.targetStake, STAKE_AMOUNT, "Target stake recorded");
-        
+
         // Case should be CHALLENGED since target was staked
         assertEq(uint256(banCase.status), uint256(ModerationMarketplace.BanStatus.CHALLENGED), "Should be CHALLENGED");
     }
@@ -245,7 +245,7 @@ contract ModerationJejuIntegrationTest is Test {
         if (banManager.isAddressBanned(target)) {
             // Target's stake should be conviction locked
             ModerationMarketplace.StakeInfo memory stake = marketplace.getStake(target);
-            
+
             // Target cannot unstake (will revert)
             if (stake.amount > 0) {
                 vm.prank(target);
@@ -261,17 +261,13 @@ contract ModerationJejuIntegrationTest is Test {
         // Deploy new JejuToken WITHOUT setting marketplace as ban-exempt
         vm.startPrank(owner);
         JejuToken jejuNoExempt = new JejuToken(owner, address(banManager), true);
-        
-        ModerationMarketplace marketplaceNoExempt = new ModerationMarketplace(
-            address(banManager),
-            address(jejuNoExempt),
-            treasury,
-            owner
-        );
-        
+
+        ModerationMarketplace marketplaceNoExempt =
+            new ModerationMarketplace(address(banManager), address(jejuNoExempt), treasury, owner);
+
         // Don't set ban exempt!
         // banManager.setModerator(address(marketplaceNoExempt), true);
-        
+
         jejuNoExempt.transfer(target, 10_000 ether);
         vm.stopPrank();
 

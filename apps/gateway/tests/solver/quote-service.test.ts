@@ -18,9 +18,12 @@ const mockReadContract = mock(() => Promise.resolve({
 
 const mockGetGasPrice = mock(() => Promise.resolve(20000000000n));
 
+const mockGetLogs = mock(() => Promise.resolve([]));
+
 const mockPublicClient = {
   readContract: mockReadContract,
   getGasPrice: mockGetGasPrice,
+  getLogs: mockGetLogs,
 };
 
 mock.module('viem', () => ({

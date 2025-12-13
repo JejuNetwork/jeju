@@ -31,7 +31,12 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
         uint256 timestamp;
     }
 
-    enum SlashingReason { DOUBLE_SIGNING, CENSORSHIP, DOWNTIME, GOVERNANCE_BAN }
+    enum SlashingReason {
+        DOUBLE_SIGNING,
+        CENSORSHIP,
+        DOWNTIME,
+        GOVERNANCE_BAN
+    }
 
     uint256 public constant MIN_STAKE = 1000 ether;
     uint256 public constant MAX_STAKE = 100000 ether;
@@ -56,12 +61,7 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
     event SequencerUnregistered(address indexed sequencer);
     event StakeIncreased(address indexed sequencer, uint256 amount);
     event StakeDecreased(address indexed sequencer, uint256 amount);
-    event SequencerSlashed(
-        address indexed sequencer,
-        SlashingReason reason,
-        uint256 amount,
-        uint256 remainingStake
-    );
+    event SequencerSlashed(address indexed sequencer, SlashingReason reason, uint256 amount, uint256 remainingStake);
     event BlockProposed(address indexed sequencer, uint256 blockNumber);
     event ReputationUpdated(address indexed sequencer, uint256 newScore);
 
@@ -83,8 +83,10 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
         address _treasury,
         address _owner
     ) Ownable(_owner) {
-        if (_jejuToken == address(0) || _identityRegistry == address(0) || 
-            _reputationRegistry == address(0) || _treasury == address(0)) {
+        if (
+            _jejuToken == address(0) || _identityRegistry == address(0) || _reputationRegistry == address(0)
+                || _treasury == address(0)
+        ) {
             revert InvalidAddress();
         }
 
@@ -205,9 +207,8 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
         if (seq.isSlashed) revert AlreadySlashed();
         if (!seq.isActive) revert NotActive();
 
-        uint256 slashAmount = _reason == SlashingReason.GOVERNANCE_BAN
-            ? seq.stake
-            : (seq.stake * _getSlashPercentage(_reason)) / 10000;
+        uint256 slashAmount =
+            _reason == SlashingReason.GOVERNANCE_BAN ? seq.stake : (seq.stake * _getSlashPercentage(_reason)) / 10000;
 
         uint256 remainingStake = seq.stake - slashAmount;
         seq.stake = remainingStake;
@@ -224,12 +225,7 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
 
         jejuToken.safeTransfer(treasury, slashAmount);
         slashingEvents.push(
-            SlashingEvent({
-                sequencer: _sequencer,
-                reason: _reason,
-                amount: slashAmount,
-                timestamp: block.timestamp
-            })
+            SlashingEvent({sequencer: _sequencer, reason: _reason, amount: slashAmount, timestamp: block.timestamp})
         );
 
         emit SequencerSlashed(_sequencer, _reason, slashAmount, remainingStake);
@@ -255,11 +251,7 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
         return baseWeight + repWeight;
     }
 
-    function getActiveSequencers()
-        external
-        view
-        returns (address[] memory addresses, uint256[] memory weights)
-    {
+    function getActiveSequencers() external view returns (address[] memory addresses, uint256[] memory weights) {
         uint256 count = activeSequencers.length;
         addresses = new address[](count);
         weights = new uint256[](count);
@@ -272,8 +264,7 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
 
     function _getReputationScore(uint256 _agentId) internal view returns (uint256) {
         try reputationRegistry.getSummary(_agentId, new address[](0), bytes32(0), bytes32(0)) returns (
-            uint64,
-            uint8 averageScore
+            uint64, uint8 averageScore
         ) {
             if (averageScore == 0) return 5000;
             return uint256(averageScore) * 100;
@@ -316,4 +307,3 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
         _unpause();
     }
 }
-

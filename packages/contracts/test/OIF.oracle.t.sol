@@ -504,7 +504,7 @@ contract OIFConcurrentTest is Test {
         registry.slash(solvers[0], orderId, 0.5 ether, victim);
 
         // Verify slashed amount via stakes mapping
-        (uint256 staked,,,uint256 slashed,,) = registry.stakes(solvers[0]);
+        (uint256 staked,,, uint256 slashed,,) = registry.stakes(solvers[0]);
         assertEq(slashed, 0.5 ether); // Slashed amount
         assertEq(staked, 0.5 ether); // Remaining stake
 
@@ -571,7 +571,9 @@ contract OIFDataVerificationTest is Test {
 
         // Verify actual ETH transfer (amount + gasProvided)
         uint256 recipientBalanceAfter = recipient.balance;
-        assertEq(recipientBalanceAfter - recipientBalanceBefore, fillAmount + gasProvided, "ETH transfer amount mismatch");
+        assertEq(
+            recipientBalanceAfter - recipientBalanceBefore, fillAmount + gasProvided, "ETH transfer amount mismatch"
+        );
     }
 
     function test_Verify_SolverLiquidityTracking() public {

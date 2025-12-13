@@ -9,17 +9,17 @@ pragma solidity >=0.8.24;
  * @dev This interface is automatically generated from the corresponding system contract. Do not edit manually.
  */
 interface IPlayerSystem {
-  function hyperscape__register(string memory name) external;
+    function hyperscape__register(string memory name) external;
 
-  function hyperscape__move(int32 x, int32 y, int32 z) external;
+    function hyperscape__move(int32 x, int32 y, int32 z) external;
 
-  function hyperscape__takeDamage(address player, uint32 amount) external returns (bool died);
+    function hyperscape__takeDamage(address player, uint32 amount) external returns (bool died);
 
-  function hyperscape__heal(address player, uint32 amount) external;
+    function hyperscape__heal(address player, uint32 amount) external;
 
-  function hyperscape__updateMaxHealth(address player, uint8 constitutionLevel) external;
+    function hyperscape__updateMaxHealth(address player, uint8 constitutionLevel) external;
 
-  function hyperscape__getPosition(address player) external view returns (int32 x, int32 y, int32 z);
+    function hyperscape__getPosition(address player) external view returns (int32 x, int32 y, int32 z);
 
-  function hyperscape__isAlive(address player) external view returns (bool);
+    function hyperscape__isAlive(address player) external view returns (bool);
 }

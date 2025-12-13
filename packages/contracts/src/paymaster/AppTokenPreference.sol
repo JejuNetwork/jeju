@@ -116,9 +116,7 @@ contract AppTokenPreference is Ownable {
      * @param allowFallback Whether to allow other tokens if user doesn't have preferred
      * @param minBalance Minimum balance to consider user "has" the token
      */
-    function registerApp(address appAddress, address preferredToken, bool allowFallback, uint256 minBalance)
-        external
-    {
+    function registerApp(address appAddress, address preferredToken, bool allowFallback, uint256 minBalance) external {
         if (appAddress == address(0)) revert InvalidAddress();
         if (appPreferences[appAddress].isActive) revert AppAlreadyRegistered(appAddress);
         if (preferredToken == address(0)) revert InvalidToken(preferredToken);
@@ -221,7 +219,7 @@ contract AppTokenPreference is Ownable {
      * @return bestToken Best token to use
      * @return reason Why this token was selected
      */
-    function getBestPaymentToken(address appAddress, address /* user */, TokenBalance[] calldata userBalances)
+    function getBestPaymentToken(address appAddress, address, /* user */ TokenBalance[] calldata userBalances)
         external
         view
         returns (address bestToken, string memory reason)
@@ -231,9 +229,7 @@ contract AppTokenPreference is Ownable {
         // If app has preference and user has that token
         if (pref.isActive && pref.preferredToken != address(0)) {
             for (uint256 i = 0; i < userBalances.length; i++) {
-                if (
-                    userBalances[i].token == pref.preferredToken && userBalances[i].balance >= pref.minBalance
-                ) {
+                if (userBalances[i].token == pref.preferredToken && userBalances[i].balance >= pref.minBalance) {
                     return (pref.preferredToken, "App preferred token");
                 }
             }
@@ -290,7 +286,7 @@ contract AppTokenPreference is Ownable {
     {
         // Silence unused variable warning
         user;
-        
+
         AppPreference storage pref = appPreferences[appAddress];
         if (!pref.isActive) return false;
         return token == pref.preferredToken && balance >= pref.minBalance;

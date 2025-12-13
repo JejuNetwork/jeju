@@ -35,4 +35,3 @@ contract DeployTokens is Script {
         console.log("ElizaOS:", address(elizaOS));
     }
 }
-

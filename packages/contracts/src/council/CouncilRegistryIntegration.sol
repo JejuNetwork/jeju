@@ -23,10 +23,14 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
  *
  * @custom:security-contact security@jeju.network
  */
-
 interface IIdentityRegistry {
-    enum StakeTier { NONE, SMALL, MEDIUM, HIGH }
-    
+    enum StakeTier {
+        NONE,
+        SMALL,
+        MEDIUM,
+        HIGH
+    }
+
     struct AgentRegistration {
         uint256 agentId;
         address owner;
@@ -51,8 +55,10 @@ interface IIdentityRegistry {
 }
 
 interface IReputationRegistry {
-    function getSummary(uint256 agentId, address[] calldata clients, bytes32 tag1, bytes32 tag2) 
-        external view returns (uint64 count, uint8 averageScore);
+    function getSummary(uint256 agentId, address[] calldata clients, bytes32 tag1, bytes32 tag2)
+        external
+        view
+        returns (uint64 count, uint8 averageScore);
     function getClients(uint256 agentId) external view returns (address[] memory);
 }
 
@@ -84,10 +90,10 @@ contract CouncilRegistryIntegration is Ownable, ReentrancyGuard {
     mapping(address => ProviderReputation) public providerReputations;
 
     /// @notice Weights for composite score calculation (in basis points, total 10000)
-    uint256 public stakeWeight = 3000;        // 30%
-    uint256 public reputationWeight = 4000;   // 40%
-    uint256 public activityWeight = 1500;     // 15%
-    uint256 public violationPenalty = 1500;   // 15%
+    uint256 public stakeWeight = 3000; // 30%
+    uint256 public reputationWeight = 4000; // 40%
+    uint256 public activityWeight = 1500; // 15%
+    uint256 public violationPenalty = 1500; // 15%
 
     /// @notice Minimum score for various actions
     uint256 public minScoreForProposal = 50;
@@ -136,8 +142,8 @@ contract CouncilRegistryIntegration is Ownable, ReentrancyGuard {
 
     struct VotingPower {
         uint256 baseVotes;
-        uint256 reputationMultiplier;  // 100 = 1x, 200 = 2x
-        uint256 stakeMultiplier;       // 100 = 1x, 200 = 2x
+        uint256 reputationMultiplier; // 100 = 1x, 200 = 2x
+        uint256 stakeMultiplier; // 100 = 1x, 200 = 2x
         uint256 effectiveVotes;
     }
 
@@ -155,12 +161,9 @@ contract CouncilRegistryIntegration is Ownable, ReentrancyGuard {
     // Constructor
     // ============================================================================
 
-    constructor(
-        address _identityRegistry,
-        address _reputationRegistry,
-        address _stakingContract,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _identityRegistry, address _reputationRegistry, address _stakingContract, address initialOwner)
+        Ownable(initialOwner)
+    {
         require(_identityRegistry != address(0), "Invalid identity");
         require(_reputationRegistry != address(0), "Invalid reputation");
 
@@ -184,7 +187,7 @@ contract CouncilRegistryIntegration is Ownable, ReentrancyGuard {
         }
 
         IIdentityRegistry.AgentRegistration memory agent = identityRegistry.getAgent(agentId);
-        
+
         profile.agentId = agentId;
         profile.owner = agent.owner;
         profile.stakeTier = uint8(agent.tier);
@@ -194,7 +197,8 @@ contract CouncilRegistryIntegration is Ownable, ReentrancyGuard {
         profile.isBanned = agent.isBanned;
 
         // Get reputation data
-        (uint64 count, uint8 avgScore) = reputationRegistry.getSummary(agentId, new address[](0), bytes32(0), bytes32(0));
+        (uint64 count, uint8 avgScore) =
+            reputationRegistry.getSummary(agentId, new address[](0), bytes32(0), bytes32(0));
         profile.feedbackCount = count;
         profile.averageReputation = avgScore;
 
@@ -208,11 +212,7 @@ contract CouncilRegistryIntegration is Ownable, ReentrancyGuard {
 
         // Calculate composite score
         profile.compositeScore = _calculateCompositeScore(
-            agent.stakedAmount,
-            avgScore,
-            agent.lastActivityAt,
-            profile.violationCount,
-            agent.isBanned
+            agent.stakedAmount, avgScore, agent.lastActivityAt, profile.violationCount, agent.isBanned
         );
     }
 
@@ -234,22 +234,22 @@ contract CouncilRegistryIntegration is Ownable, ReentrancyGuard {
      * @param agentId Agent ID (0 if not an agent)
      * @param baseVotes Base number of votes (e.g., token balance)
      */
-    function getVotingPower(
-        address voter,
-        uint256 agentId,
-        uint256 baseVotes
-    ) external view returns (VotingPower memory power) {
+    function getVotingPower(address voter, uint256 agentId, uint256 baseVotes)
+        external
+        view
+        returns (VotingPower memory power)
+    {
         power.baseVotes = baseVotes;
         power.reputationMultiplier = 100; // Default 1x
-        power.stakeMultiplier = 100;      // Default 1x
+        power.stakeMultiplier = 100; // Default 1x
 
         if (agentId > 0 && identityRegistry.agentExists(agentId)) {
             IIdentityRegistry.AgentRegistration memory agent = identityRegistry.getAgent(agentId);
-            
+
             // Check ownership
             if (agent.owner == voter && !agent.isBanned) {
                 // Reputation multiplier: 1x at 50 rep, up to 2x at 100 rep
-                (,uint8 avgScore) = reputationRegistry.getSummary(agentId, new address[](0), bytes32(0), bytes32(0));
+                (, uint8 avgScore) = reputationRegistry.getSummary(agentId, new address[](0), bytes32(0), bytes32(0));
                 if (avgScore >= 50) {
                     power.reputationMultiplier = 100 + ((uint256(avgScore) - 50) * 2);
                 }
@@ -279,15 +279,15 @@ contract CouncilRegistryIntegration is Ownable, ReentrancyGuard {
      */
     function addReputationProvider(address provider) external onlyOwner {
         require(!isReputationProvider[provider], "Already added");
-        
+
         uint256 agentId = IReputationProvider(provider).getProviderAgentId();
-        
+
         reputationProviders.push(provider);
         isReputationProvider[provider] = true;
-        
+
         // Initialize reputation data
         _updateProviderReputation(provider);
-        
+
         emit ReputationProviderAdded(provider, agentId);
     }
 
@@ -296,10 +296,10 @@ contract CouncilRegistryIntegration is Ownable, ReentrancyGuard {
      */
     function removeReputationProvider(address provider) external onlyOwner {
         require(isReputationProvider[provider], "Not a provider");
-        
+
         isReputationProvider[provider] = false;
         delete providerReputations[provider];
-        
+
         // Remove from array
         for (uint256 i = 0; i < reputationProviders.length; i++) {
             if (reputationProviders[i] == provider) {
@@ -308,7 +308,7 @@ contract CouncilRegistryIntegration is Ownable, ReentrancyGuard {
                 break;
             }
         }
-        
+
         emit ReputationProviderRemoved(provider);
     }
 
@@ -346,30 +346,26 @@ contract CouncilRegistryIntegration is Ownable, ReentrancyGuard {
      * @return weightedReputation Weighted average (0-100)
      * @return totalWeight Sum of provider weights used
      */
-    function getWeightedAgentReputation(uint256 agentId) 
-        external view 
-        returns (uint256 weightedReputation, uint256 totalWeight) 
+    function getWeightedAgentReputation(uint256 agentId)
+        external
+        view
+        returns (uint256 weightedReputation, uint256 totalWeight)
     {
         uint256 weightedSum = 0;
-        
+
         for (uint256 i = 0; i < reputationProviders.length; i++) {
             ProviderReputation storage pRep = providerReputations[reputationProviders[i]];
-            
+
             if (pRep.weightedScore > 0) {
                 // Get this agent's score from the provider
-                (,uint8 avgScore) = reputationRegistry.getSummary(
-                    agentId, 
-                    new address[](0), 
-                    bytes32(0), 
-                    bytes32(0)
-                );
-                
+                (, uint8 avgScore) = reputationRegistry.getSummary(agentId, new address[](0), bytes32(0), bytes32(0));
+
                 // Weight by provider's own reputation
                 weightedSum += uint256(avgScore) * pRep.weightedScore;
                 totalWeight += pRep.weightedScore;
             }
         }
-        
+
         if (totalWeight > 0) {
             weightedReputation = weightedSum / totalWeight;
         }
@@ -385,26 +381,27 @@ contract CouncilRegistryIntegration is Ownable, ReentrancyGuard {
      * @param offset Start index
      * @param limit Max results
      */
-    function searchByTag(string calldata tag, uint256 offset, uint256 limit) 
-        external view 
-        returns (SearchResult memory result) 
+    function searchByTag(string calldata tag, uint256 offset, uint256 limit)
+        external
+        view
+        returns (SearchResult memory result)
     {
         uint256[] memory allMatches = identityRegistry.getAgentsByTag(tag);
         result.total = allMatches.length;
         result.offset = offset;
         result.limit = limit;
-        
+
         if (offset >= allMatches.length) {
             result.agentIds = new uint256[](0);
             return result;
         }
-        
+
         uint256 end = offset + limit;
         if (end > allMatches.length) end = allMatches.length;
-        
+
         uint256 count = end - offset;
         result.agentIds = new uint256[](count);
-        
+
         for (uint256 i = 0; i < count; i++) {
             result.agentIds[i] = allMatches[offset + i];
         }
@@ -417,11 +414,12 @@ contract CouncilRegistryIntegration is Ownable, ReentrancyGuard {
      * @param limit Max results
      */
     function getAgentsByScore(uint256 minScore, uint256 offset, uint256 limit)
-        external view
+        external
+        view
         returns (uint256[] memory agentIds, uint256[] memory scores)
     {
         uint256[] memory allAgents = identityRegistry.getActiveAgents(0, 1000);
-        
+
         // First pass: count matches
         uint256 matchCount = 0;
         for (uint256 i = 0; i < allAgents.length; i++) {
@@ -430,21 +428,21 @@ contract CouncilRegistryIntegration is Ownable, ReentrancyGuard {
                 matchCount++;
             }
         }
-        
+
         // Handle offset
         if (offset >= matchCount) {
             return (new uint256[](0), new uint256[](0));
         }
-        
+
         uint256 resultCount = matchCount - offset;
         if (resultCount > limit) resultCount = limit;
-        
+
         agentIds = new uint256[](resultCount);
         scores = new uint256[](resultCount);
-        
+
         uint256 idx = 0;
         uint256 seen = 0;
-        
+
         for (uint256 i = 0; i < allAgents.length && idx < resultCount; i++) {
             AgentProfile memory profile = this.getAgentProfile(allAgents[i]);
             if (profile.compositeScore >= minScore && !profile.isBanned) {
@@ -464,39 +462,39 @@ contract CouncilRegistryIntegration is Ownable, ReentrancyGuard {
      */
     function getTopAgents(uint256 count) external view returns (AgentProfile[] memory) {
         uint256[] memory allAgents = identityRegistry.getActiveAgents(0, 500);
-        
+
         if (allAgents.length == 0) {
             return new AgentProfile[](0);
         }
-        
+
         uint256 resultSize = count > allAgents.length ? allAgents.length : count;
         AgentProfile[] memory result = new AgentProfile[](resultSize);
-        
+
         // Get all profiles with scores
         AgentProfile[] memory allProfiles = new AgentProfile[](allAgents.length);
         for (uint256 i = 0; i < allAgents.length; i++) {
             allProfiles[i] = this.getAgentProfile(allAgents[i]);
         }
-        
+
         // Selection sort for top N
         for (uint256 i = 0; i < resultSize; i++) {
             uint256 bestIdx = i;
             uint256 bestScore = allProfiles[i].compositeScore;
-            
+
             for (uint256 j = i + 1; j < allAgents.length; j++) {
                 if (allProfiles[j].compositeScore > bestScore && !allProfiles[j].isBanned) {
                     bestScore = allProfiles[j].compositeScore;
                     bestIdx = j;
                 }
             }
-            
+
             if (bestIdx != i) {
                 (allProfiles[i], allProfiles[bestIdx]) = (allProfiles[bestIdx], allProfiles[i]);
             }
-            
+
             result[i] = allProfiles[i];
         }
-        
+
         return result;
     }
 
@@ -511,19 +509,19 @@ contract CouncilRegistryIntegration is Ownable, ReentrancyGuard {
         if (!identityRegistry.agentExists(agentId)) {
             return (false, "Agent does not exist");
         }
-        
+
         IIdentityRegistry.AgentRegistration memory agent = identityRegistry.getAgent(agentId);
-        
+
         if (agent.isBanned) {
             return (false, "Agent is banned");
         }
-        
+
         AgentProfile memory profile = this.getAgentProfile(agentId);
-        
+
         if (profile.compositeScore < minScoreForProposal) {
             return (false, "Composite score too low");
         }
-        
+
         return (true, "");
     }
 
@@ -534,19 +532,19 @@ contract CouncilRegistryIntegration is Ownable, ReentrancyGuard {
         if (!identityRegistry.agentExists(agentId)) {
             return (false, "Agent does not exist");
         }
-        
+
         IIdentityRegistry.AgentRegistration memory agent = identityRegistry.getAgent(agentId);
-        
+
         if (agent.isBanned) {
             return (false, "Agent is banned");
         }
-        
+
         AgentProfile memory profile = this.getAgentProfile(agentId);
-        
+
         if (profile.compositeScore < minScoreForVoting) {
             return (false, "Composite score too low");
         }
-        
+
         return (true, "");
     }
 
@@ -557,23 +555,23 @@ contract CouncilRegistryIntegration is Ownable, ReentrancyGuard {
         if (!identityRegistry.agentExists(agentId)) {
             return (false, "Agent does not exist");
         }
-        
+
         IIdentityRegistry.AgentRegistration memory agent = identityRegistry.getAgent(agentId);
-        
+
         if (agent.isBanned) {
             return (false, "Agent is banned");
         }
-        
+
         if (agent.tier < IIdentityRegistry.StakeTier.MEDIUM) {
             return (false, "Insufficient stake tier for research");
         }
-        
+
         AgentProfile memory profile = this.getAgentProfile(agentId);
-        
+
         if (profile.compositeScore < minScoreForResearch) {
             return (false, "Composite score too low for research");
         }
-        
+
         return (true, "");
     }
 
@@ -589,28 +587,26 @@ contract CouncilRegistryIntegration is Ownable, ReentrancyGuard {
         bool banned
     ) internal view returns (uint256) {
         if (banned) return 0;
-        
+
         // Normalize stake to 0-100 (assuming max stake of 100 ETH)
         uint256 stakeScore = staked > 100 ether ? 100 : (staked * 100) / 100 ether;
-        
+
         // Reputation is already 0-100
         uint256 repScore = reputation;
-        
+
         // Activity score: full points if active in last 30 days, decays after
         uint256 daysSinceActivity = (block.timestamp - lastActivity) / 1 days;
         uint256 activityScore = daysSinceActivity < 30 ? 100 : (daysSinceActivity < 90 ? 50 : 10);
-        
+
         // Penalty for violations
         uint256 penaltyScore = violations > 10 ? 0 : ((10 - violations) * 10);
-        
+
         // Calculate weighted average
         uint256 composite = (
-            stakeScore * stakeWeight +
-            repScore * reputationWeight +
-            activityScore * activityWeight +
-            penaltyScore * violationPenalty
+            stakeScore * stakeWeight + repScore * reputationWeight + activityScore * activityWeight
+                + penaltyScore * violationPenalty
         ) / 10000;
-        
+
         return composite > 100 ? 100 : composite;
     }
 
@@ -623,36 +619,32 @@ contract CouncilRegistryIntegration is Ownable, ReentrancyGuard {
     function _updateProviderReputation(address provider) internal {
         ProviderReputation storage rep = providerReputations[provider];
         rep.provider = provider;
-        
+
         // Get provider's agent ID
         rep.providerAgentId = IReputationProvider(provider).getProviderAgentId();
-        
+
         // Get provider's stake if staking contract is configured
         if (stakingContract != address(0)) {
             rep.stakeAmount = IStaking(stakingContract).getStake(provider);
             rep.stakeTime = IStaking(stakingContract).getStakeTime(provider);
         }
-        
+
         // Get provider's own reputation
         if (rep.providerAgentId > 0) {
-            (,uint8 avgScore) = reputationRegistry.getSummary(
-                rep.providerAgentId, 
-                new address[](0), 
-                bytes32(0), 
-                bytes32(0)
-            );
+            (, uint8 avgScore) =
+                reputationRegistry.getSummary(rep.providerAgentId, new address[](0), bytes32(0), bytes32(0));
             rep.averageReputation = avgScore;
         }
-        
+
         rep.lastUpdated = block.timestamp;
-        
+
         // Calculate weighted score for this provider
         // Providers with more stake and higher reputation have more weight
         uint256 stakeWeight_ = rep.stakeAmount / 1e18; // Scale down
         if (stakeWeight_ > 100) stakeWeight_ = 100;
-        
+
         rep.weightedScore = (stakeWeight_ + rep.averageReputation) / 2;
-        
+
         emit ProviderReputationUpdated(provider, rep.weightedScore);
     }
 
@@ -674,11 +666,7 @@ contract CouncilRegistryIntegration is Ownable, ReentrancyGuard {
         emit WeightsUpdated(_stakeWeight, _reputationWeight, _activityWeight, _violationPenalty);
     }
 
-    function setMinScores(
-        uint256 _proposal,
-        uint256 _voting,
-        uint256 _research
-    ) external onlyOwner {
+    function setMinScores(uint256 _proposal, uint256 _voting, uint256 _research) external onlyOwner {
         require(_proposal <= 100 && _voting <= 100 && _research <= 100, "Max 100");
         minScoreForProposal = _proposal;
         minScoreForVoting = _voting;
@@ -686,11 +674,7 @@ contract CouncilRegistryIntegration is Ownable, ReentrancyGuard {
         emit MinScoresUpdated(_proposal, _voting, _research);
     }
 
-    function setRegistries(
-        address _identity,
-        address _reputation,
-        address _staking
-    ) external onlyOwner {
+    function setRegistries(address _identity, address _reputation, address _staking) external onlyOwner {
         if (_identity != address(0)) identityRegistry = IIdentityRegistry(_identity);
         if (_reputation != address(0)) reputationRegistry = IReputationRegistry(_reputation);
         if (_staking != address(0)) stakingContract = _staking;

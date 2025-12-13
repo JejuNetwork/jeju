@@ -62,8 +62,8 @@ contract ReportVerifierTest is Test {
     function test_SubmitReport() public {
         IReportVerifier.PriceReport memory report = IReportVerifier.PriceReport({
             feedId: feedId,
-            price: 2500e8,  // $2500 with 8 decimals
-            confidence: 9800,  // 98%
+            price: 2500e8, // $2500 with 8 decimals
+            confidence: 9800, // 98%
             timestamp: block.timestamp,
             round: 1,
             sourcesHash: keccak256("uniswap-v3")
@@ -76,10 +76,8 @@ contract ReportVerifierTest is Test {
         signatures[0] = _sign(signer1Pk, reportHash);
         signatures[1] = _sign(signer2Pk, reportHash);
 
-        IReportVerifier.ReportSubmission memory submission = IReportVerifier.ReportSubmission({
-            report: report,
-            signatures: signatures
-        });
+        IReportVerifier.ReportSubmission memory submission =
+            IReportVerifier.ReportSubmission({report: report, signatures: signatures});
 
         vm.prank(owner);
         bool accepted = verifier.submitReport(submission);
@@ -120,7 +118,7 @@ contract ReportVerifierTest is Test {
         // Second report with slightly different price
         IReportVerifier.PriceReport memory report2 = IReportVerifier.PriceReport({
             feedId: feedId,
-            price: 2510e8,  // $2510
+            price: 2510e8, // $2510
             confidence: 9700,
             timestamp: block.timestamp,
             round: 2,
@@ -135,7 +133,7 @@ contract ReportVerifierTest is Test {
         verifier.submitReport(IReportVerifier.ReportSubmission({report: report2, signatures: sigs2}));
 
         // Check updated price
-        (uint256 price,,, ) = verifier.getLatestPrice(feedId);
+        (uint256 price,,,) = verifier.getLatestPrice(feedId);
         assertEq(price, 2510e8);
         assertEq(verifier.getCurrentRound(feedId), 2);
     }
@@ -178,10 +176,8 @@ contract ReportVerifierTest is Test {
         bytes[] memory signatures = new bytes[](1);
         signatures[0] = _sign(signer1Pk, _computeReportHash(report));
 
-        IReportVerifier.ReportSubmission memory submission = IReportVerifier.ReportSubmission({
-            report: report,
-            signatures: signatures
-        });
+        IReportVerifier.ReportSubmission memory submission =
+            IReportVerifier.ReportSubmission({report: report, signatures: signatures});
 
         vm.expectRevert(abi.encodeWithSelector(IReportVerifier.InsufficientSignatures.selector, 1, 2));
         vm.prank(owner);
@@ -203,12 +199,10 @@ contract ReportVerifierTest is Test {
         // Same signer twice
         bytes[] memory signatures = new bytes[](2);
         signatures[0] = _sign(signer1Pk, reportHash);
-        signatures[1] = _sign(signer1Pk, reportHash);  // Duplicate!
+        signatures[1] = _sign(signer1Pk, reportHash); // Duplicate!
 
-        IReportVerifier.ReportSubmission memory submission = IReportVerifier.ReportSubmission({
-            report: report,
-            signatures: signatures
-        });
+        IReportVerifier.ReportSubmission memory submission =
+            IReportVerifier.ReportSubmission({report: report, signatures: signatures});
 
         vm.expectRevert(abi.encodeWithSelector(IReportVerifier.DuplicateSignature.selector, signer1));
         vm.prank(owner);
@@ -231,11 +225,7 @@ contract ReportVerifierTest is Test {
         sigs[0] = _sign(signer1Pk, _computeReportHash(report));
         sigs[1] = _sign(signer2Pk, _computeReportHash(report));
 
-        vm.expectRevert(abi.encodeWithSelector(
-            IReportVerifier.StaleReport.selector,
-            oldTimestamp,
-            block.timestamp
-        ));
+        vm.expectRevert(abi.encodeWithSelector(IReportVerifier.StaleReport.selector, oldTimestamp, block.timestamp));
         vm.prank(owner);
         verifier.submitReport(IReportVerifier.ReportSubmission({report: report, signatures: sigs}));
     }
@@ -265,7 +255,7 @@ contract ReportVerifierTest is Test {
         // Try to submit report with >20% deviation (circuit breaker)
         IReportVerifier.PriceReport memory report2 = IReportVerifier.PriceReport({
             feedId: feedId,
-            price: 3100e8,  // $3100 = +24% deviation
+            price: 3100e8, // $3100 = +24% deviation
             confidence: 9800,
             timestamp: block.timestamp,
             round: 2,
@@ -277,11 +267,13 @@ contract ReportVerifierTest is Test {
         sigs2[1] = _sign(signer2Pk, _computeReportHash(report2));
 
         // Should revert with PriceDeviationTooLarge
-        vm.expectRevert(abi.encodeWithSelector(
-            IReportVerifier.PriceDeviationTooLarge.selector,
-            2400,  // 24% deviation
-            2000   // 20% max
-        ));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IReportVerifier.PriceDeviationTooLarge.selector,
+                2400, // 24% deviation
+                2000 // 20% max
+            )
+        );
         vm.prank(owner);
         verifier.submitReport(IReportVerifier.ReportSubmission({report: report2, signatures: sigs2}));
     }
@@ -332,7 +324,7 @@ contract ReportVerifierTest is Test {
         assertTrue(verifier.isPriceValid(feedId));
 
         // Advance time past heartbeat
-        vm.warp(block.timestamp + 4000);  // 4000s > 3600s heartbeat
+        vm.warp(block.timestamp + 4000); // 4000s > 3600s heartbeat
 
         assertTrue(verifier.isPriceStale(feedId));
     }
@@ -349,14 +341,11 @@ contract ReportVerifierTest is Test {
     // ============ Helpers ============
 
     function _computeReportHash(IReportVerifier.PriceReport memory report) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(
-            report.feedId,
-            report.price,
-            report.confidence,
-            report.timestamp,
-            report.round,
-            report.sourcesHash
-        ));
+        return keccak256(
+            abi.encodePacked(
+                report.feedId, report.price, report.confidence, report.timestamp, report.round, report.sourcesHash
+            )
+        );
     }
 
     function _sign(uint256 privateKey, bytes32 reportHash) internal pure returns (bytes memory) {

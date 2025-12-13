@@ -1,10 +1,13 @@
 /**
  * Proposal Assistant - AI-powered proposal drafting and improvement
+ * 
+ * Includes on-chain quality attestation signing for verified submissions
  */
 
-import { keccak256, toUtf8Bytes } from 'ethers';
+import { keccak256, toUtf8Bytes, solidityPackedKeccak256, Wallet, getBytes } from 'ethers';
 import { CouncilBlockchain } from './blockchain';
 import { checkOllama, ollamaGenerate, indexProposal, findSimilarProposals } from './local-services';
+import { parseJson } from './utils';
 
 export interface ProposalDraft {
   title: string;
@@ -37,6 +40,15 @@ export interface QualityAssessment {
   assessedBy: 'ollama' | 'heuristic';
 }
 
+export interface QualityAttestation {
+  contentHash: string;
+  score: number;
+  timestamp: number;
+  submitter: string;
+  signature: string;
+  assessor: string;
+}
+
 export interface SimilarProposal {
   proposalId: string;
   title: string;
@@ -58,12 +70,6 @@ const HINTS: Record<keyof QualityCriteria, string> = {
   costBenefit: 'Provide budget and ROI.',
 };
 
-const parseJson = <T>(response: string): T | null => {
-  const match = response.replace(/```json\s*/gi, '').replace(/```\s*/g, '').match(/\{[\s\S]*\}/);
-  if (!match) return null;
-  try { return JSON.parse(match[0]); } catch { return null; }
-};
-
 const keywordScore = (text: string, keywords: string[], base: number, per: number): number =>
   Math.min(100, base + keywords.filter(k => text.includes(k)).length * per);
 
@@ -76,7 +82,12 @@ export class ProposalAssistant {
       console.warn('[ProposalAssistant] Ollama unavailable - using keyword heuristics for assessment');
       return this.assessWithHeuristics(draft);
     }
-    return this.assessWithAI(draft);
+    try {
+      return await this.assessWithAI(draft);
+    } catch (err) {
+      console.warn('[ProposalAssistant] Ollama inference failed, falling back to heuristics:', (err as Error).message);
+      return this.assessWithHeuristics(draft);
+    }
   }
 
   private async assessWithAI(draft: ProposalDraft): Promise<QualityAssessment> {
@@ -236,6 +247,70 @@ Return JSON: {"title":"...","summary":"...","description":"..."}`;
 
   getContentHash(draft: ProposalDraft): string {
     return keccak256(toUtf8Bytes(JSON.stringify({ title: draft.title, summary: draft.summary, description: draft.description, proposalType: draft.proposalType })));
+  }
+
+  /**
+   * Sign a quality attestation for on-chain verification
+   * 
+   * @param draft The proposal draft
+   * @param assessment The quality assessment result
+   * @param submitterAddress The address that will submit the proposal
+   * @param assessorKey Private key of the authorized assessor
+   * @param chainId The chain ID for replay protection
+   * @returns QualityAttestation with signature
+   */
+  async signAttestation(
+    draft: ProposalDraft,
+    assessment: QualityAssessment,
+    submitterAddress: string,
+    assessorKey: string,
+    chainId: number
+  ): Promise<QualityAttestation> {
+    if (!assessment.readyToSubmit) {
+      throw new Error(`Quality score ${assessment.overallScore} below 90 threshold`);
+    }
+
+    const contentHash = this.getContentHash(draft);
+    const score = Math.round(assessment.overallScore);
+    const timestamp = Math.floor(Date.now() / 1000);
+
+    // Build the message hash (must match QualityOracle.sol)
+    const messageHash = solidityPackedKeccak256(
+      ['string', 'bytes32', 'uint256', 'uint256', 'address', 'uint256'],
+      ['JejuQualityAttestation', contentHash, score, timestamp, submitterAddress, chainId]
+    );
+
+    // Sign with EIP-191 personal sign
+    const wallet = new Wallet(assessorKey);
+    const signature = await wallet.signMessage(getBytes(messageHash));
+
+    return {
+      contentHash,
+      score,
+      timestamp,
+      submitter: submitterAddress,
+      signature,
+      assessor: wallet.address,
+    };
+  }
+
+  /**
+   * Full workflow: assess quality and sign if ready
+   */
+  async assessAndSign(
+    draft: ProposalDraft,
+    submitterAddress: string,
+    assessorKey: string,
+    chainId: number
+  ): Promise<{ assessment: QualityAssessment; attestation: QualityAttestation | null }> {
+    const assessment = await this.assessQuality(draft);
+
+    if (!assessment.readyToSubmit) {
+      return { assessment, attestation: null };
+    }
+
+    const attestation = await this.signAttestation(draft, assessment, submitterAddress, assessorKey, chainId);
+    return { assessment, attestation };
   }
 }
 

@@ -8,7 +8,10 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract MockERC20 is ERC20 {
     constructor() ERC20("Mock", "MOCK") {}
-    function mint(address to, uint256 amount) external { _mint(to, amount); }
+
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
 }
 
 contract MockPerpMarket {
@@ -16,14 +19,14 @@ contract MockPerpMarket {
     mapping(bytes32 => uint256) public healthFactors;
     mapping(bytes32 => IPerpetualMarket.Position) public positions;
     mapping(bytes32 => uint256) public markPrices;
-    
+
     uint256 public liquidationReward = 100e18;
-    
+
     function setLiquidatable(bytes32 posId, bool isLiq, uint256 health) external {
         liquidatable[posId] = isLiq;
         healthFactors[posId] = health;
     }
-    
+
     function setPosition(bytes32 posId, uint256 size, uint256 margin, bytes32 marketId) external {
         positions[posId] = IPerpetualMarket.Position({
             positionId: posId,
@@ -40,45 +43,45 @@ contract MockPerpMarket {
             isOpen: true
         });
     }
-    
+
     function setMarkPrice(bytes32 marketId, uint256 price) external {
         markPrices[marketId] = price;
     }
-    
+
     function setLiquidationReward(uint256 reward) external {
         liquidationReward = reward;
     }
-    
+
     function isLiquidatable(bytes32 posId) external view returns (bool, uint256) {
         return (liquidatable[posId], healthFactors[posId]);
     }
-    
+
     function getPosition(bytes32 posId) external view returns (IPerpetualMarket.Position memory) {
         return positions[posId];
     }
-    
+
     function getMarkPrice(bytes32 marketId) external view returns (uint256) {
         return markPrices[marketId];
     }
-    
+
     function liquidate(bytes32) external view returns (uint256) {
         return liquidationReward;
     }
 }
 
 contract MockMarginManager {
-    // Minimal implementation
+// Minimal implementation
 }
 
 contract MockInsuranceFund {
     uint256 public coverAmount;
     bool public shouldPartialCover;
-    
+
     function setCoverBehavior(uint256 amount, bool isPartial) external {
         coverAmount = amount;
         shouldPartialCover = isPartial;
     }
-    
+
     function coverBadDebt(address, uint256 amount) external view returns (uint256) {
         if (shouldPartialCover) {
             return coverAmount < amount ? coverAmount : amount;
@@ -105,23 +108,18 @@ contract LiquidationEngineTest is Test {
 
     function setUp() public {
         vm.startPrank(owner);
-        
+
         usdc = new MockERC20();
         perpMarket = new MockPerpMarket();
         marginManager = new MockMarginManager();
         insuranceFund = new MockInsuranceFund();
-        
-        engine = new LiquidationEngine(
-            address(perpMarket),
-            address(marginManager),
-            address(insuranceFund),
-            owner
-        );
-        
+
+        engine = new LiquidationEngine(address(perpMarket), address(marginManager), address(insuranceFund), owner);
+
         // Setup default position
         perpMarket.setPosition(POSITION_1, 1e18, 1000e18, MARKET_1);
         perpMarket.setMarkPrice(MARKET_1, 50000e8);
-        
+
         vm.stopPrank();
     }
 
@@ -150,7 +148,7 @@ contract LiquidationEngineTest is Test {
 
     function test_Liquidate_MultipleKeepers() public {
         address keeper2 = address(100);
-        
+
         perpMarket.setLiquidatable(POSITION_1, true, 0.5e18);
         perpMarket.setLiquidationReward(50e18);
 
@@ -176,7 +174,7 @@ contract LiquidationEngineTest is Test {
         perpMarket.setPosition(POSITION_1, 1e18, 1000e18, MARKET_1);
         perpMarket.setPosition(POSITION_2, 2e18, 2000e18, MARKET_1);
         perpMarket.setPosition(POSITION_3, 3e18, 3000e18, MARKET_1);
-        
+
         perpMarket.setLiquidatable(POSITION_1, true, 0.5e18);
         perpMarket.setLiquidatable(POSITION_2, true, 0.4e18);
         perpMarket.setLiquidatable(POSITION_3, true, 0.3e18);
@@ -200,7 +198,7 @@ contract LiquidationEngineTest is Test {
     function test_BatchLiquidate_SomeSkipped() public {
         perpMarket.setPosition(POSITION_1, 1e18, 1000e18, MARKET_1);
         perpMarket.setPosition(POSITION_2, 2e18, 2000e18, MARKET_1);
-        
+
         perpMarket.setLiquidatable(POSITION_1, true, 0.5e18);
         perpMarket.setLiquidatable(POSITION_2, false, 1.5e18); // Not liquidatable
         perpMarket.setLiquidationReward(50e18);
@@ -342,7 +340,7 @@ contract LiquidationEngineTest is Test {
 
     function test_SetPerpMarket() public {
         address newMarket = address(999);
-        
+
         vm.prank(owner);
         engine.setPerpMarket(newMarket);
 
@@ -351,7 +349,7 @@ contract LiquidationEngineTest is Test {
 
     function test_SetMarginManager() public {
         address newManager = address(998);
-        
+
         vm.prank(owner);
         engine.setMarginManager(newManager);
 
@@ -360,7 +358,7 @@ contract LiquidationEngineTest is Test {
 
     function test_SetInsuranceFund() public {
         address newFund = address(997);
-        
+
         vm.prank(owner);
         engine.setInsuranceFund(newFund);
 
@@ -395,12 +393,7 @@ contract LiquidationEngineTest is Test {
         vm.prank(keeper);
         engine.batchLiquidate(positions);
 
-        (
-            uint256 totalLiqs,
-            uint256 totalVol,
-            uint256 totalRewards,
-            ,
-        ) = engine.getGlobalStats();
+        (uint256 totalLiqs, uint256 totalVol, uint256 totalRewards,,) = engine.getGlobalStats();
 
         assertEq(totalLiqs, 2);
         assertEq(totalVol, 3e18); // 1 + 2

@@ -27,11 +27,7 @@ contract SubscriptionHandler is Test {
     address[] public subscribers;
     mapping(address => bytes32[]) public subscriberToSubs;
 
-    constructor(
-        OracleFeeRouter _feeRouter,
-        FeedRegistry _registry,
-        bytes32 _feedId
-    ) {
+    constructor(OracleFeeRouter _feeRouter, FeedRegistry _registry, bytes32 _feedId) {
         feeRouter = _feeRouter;
         registry = _registry;
         feedId = _feedId;

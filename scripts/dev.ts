@@ -426,27 +426,26 @@ async function main() {
     console.log(`Starting with max ${maxApps} apps\n`);
   }
 
-  try {
-    // Check Docker
-    console.log(`Checking Docker...`);
-    
-    let dockerReady = false;
-    for (let i = 0; i < 30; i++) {
-      const ps = await $`docker ps`.nothrow().quiet();
-      const info = await $`docker info`.nothrow().quiet();
-      if (ps.exitCode === 0 && info.exitCode === 0) {
-        dockerReady = true;
-        console.log(`Docker ready\n`);
-        break;
-      }
-      if (i === 0) console.log(`Waiting for Docker...`);
-      await new Promise(r => setTimeout(r, 1000));
+  // Check Docker
+  console.log(`Checking Docker...`);
+  
+  let dockerReady = false;
+  for (let i = 0; i < 30; i++) {
+    const ps = await $`docker ps`.nothrow().quiet();
+    const info = await $`docker info`.nothrow().quiet();
+    if (ps.exitCode === 0 && info.exitCode === 0) {
+      dockerReady = true;
+      console.log(`Docker ready\n`);
+      break;
     }
-    
-    if (!dockerReady) {
-      console.log(`${COLORS.RED}Docker not ready. Start Docker Desktop.${COLORS.RESET}`);
-      process.exit(1);
-    }
+    if (i === 0) console.log(`Waiting for Docker...`);
+    await new Promise(r => setTimeout(r, 1000));
+  }
+  
+  if (!dockerReady) {
+    console.log(`${COLORS.RED}Docker not ready. Start Docker Desktop.${COLORS.RESET}`);
+    process.exit(1);
+  }
     
     // Port Cleanup
     console.log(`Cleaning ports...`);
@@ -820,11 +819,6 @@ async function main() {
     }
 
     await new Promise(() => {});
-  } catch (error) {
-    console.error(`Startup failed:`, error);
-    await cleanup();
-    process.exit(1);
-  }
 }
 
 // Run

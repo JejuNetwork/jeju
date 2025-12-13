@@ -27,12 +27,9 @@ import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/Messa
  * @custom:security-contact security@jeju.network
  */
 interface ISafe {
-    function execTransactionFromModule(
-        address to,
-        uint256 value,
-        bytes memory data,
-        uint8 operation
-    ) external returns (bool success);
+    function execTransactionFromModule(address to, uint256 value, bytes memory data, uint8 operation)
+        external
+        returns (bool success);
 
     function isOwner(address owner) external view returns (bool);
     function getOwners() external view returns (address[] memory);
@@ -43,9 +40,21 @@ interface ISafe {
 
 interface ICouncil {
     enum ProposalStatus {
-        SUBMITTED, COUNCIL_REVIEW, RESEARCH_PENDING, COUNCIL_FINAL,
-        CEO_QUEUE, APPROVED, EXECUTING, COMPLETED, REJECTED, VETOED,
-        FUTARCHY_PENDING, FUTARCHY_APPROVED, FUTARCHY_REJECTED, DUPLICATE, SPAM
+        SUBMITTED,
+        COUNCIL_REVIEW,
+        RESEARCH_PENDING,
+        COUNCIL_FINAL,
+        CEO_QUEUE,
+        APPROVED,
+        EXECUTING,
+        COMPLETED,
+        REJECTED,
+        VETOED,
+        FUTARCHY_PENDING,
+        FUTARCHY_APPROVED,
+        FUTARCHY_REJECTED,
+        DUPLICATE,
+        SPAM
     }
 
     struct Proposal {
@@ -85,10 +94,10 @@ contract CouncilSafeModule is Ownable, ReentrancyGuard {
         bytes32 proposalId;
         bool approved;
         bytes32 decisionHash;
-        bytes quote;           // DCAP attestation quote
-        bytes32 measurement;   // Enclave measurement
+        bytes quote; // DCAP attestation quote
+        bytes32 measurement; // Enclave measurement
         uint256 timestamp;
-        bytes signature;       // TEE operator signature
+        bytes signature; // TEE operator signature
     }
 
     struct PendingExecution {
@@ -96,7 +105,7 @@ contract CouncilSafeModule is Ownable, ReentrancyGuard {
         address target;
         uint256 value;
         bytes data;
-        uint8 operation;       // 0 = call, 1 = delegatecall
+        uint8 operation; // 0 = call, 1 = delegatecall
         uint256 createdAt;
         uint256 humanApprovals;
         bool aiApproved;
@@ -132,60 +141,25 @@ contract CouncilSafeModule is Ownable, ReentrancyGuard {
     // Events
     // ============================================================================
 
-    event ExecutionQueued(
-        bytes32 indexed executionId,
-        bytes32 indexed proposalId,
-        address target,
-        uint256 value
-    );
+    event ExecutionQueued(bytes32 indexed executionId, bytes32 indexed proposalId, address target, uint256 value);
 
-    event HumanApproval(
-        bytes32 indexed executionId,
-        address indexed approver,
-        uint256 approvalCount
-    );
+    event HumanApproval(bytes32 indexed executionId, address indexed approver, uint256 approvalCount);
 
-    event AIApproval(
-        bytes32 indexed executionId,
-        bytes32 indexed proposalId,
-        bytes32 decisionHash
-    );
+    event AIApproval(bytes32 indexed executionId, bytes32 indexed proposalId, bytes32 decisionHash);
 
-    event ExecutionCompleted(
-        bytes32 indexed executionId,
-        bytes32 indexed proposalId,
-        bool success
-    );
+    event ExecutionCompleted(bytes32 indexed executionId, bytes32 indexed proposalId, bool success);
 
-    event ExecutionCancelled(
-        bytes32 indexed executionId,
-        address indexed canceller,
-        string reason
-    );
+    event ExecutionCancelled(bytes32 indexed executionId, address indexed canceller, string reason);
 
-    event EmergencyPause(
-        address indexed pauser,
-        string reason
-    );
+    event EmergencyPause(address indexed pauser, string reason);
 
-    event EmergencyUnpause(
-        address indexed unpauser
-    );
+    event EmergencyUnpause(address indexed unpauser);
 
-    event SecurityCouncilUpdated(
-        address indexed member,
-        bool added
-    );
+    event SecurityCouncilUpdated(address indexed member, bool added);
 
-    event TEEOperatorUpdated(
-        address indexed oldOperator,
-        address indexed newOperator
-    );
+    event TEEOperatorUpdated(address indexed oldOperator, address indexed newOperator);
 
-    event TrustedMeasurementUpdated(
-        bytes32 oldMeasurement,
-        bytes32 newMeasurement
-    );
+    event TrustedMeasurementUpdated(bytes32 oldMeasurement, bytes32 newMeasurement);
 
     // ============================================================================
     // Errors
@@ -270,16 +244,14 @@ contract CouncilSafeModule is Ownable, ReentrancyGuard {
     {
         ICouncil.Proposal memory proposal = council.getProposal(proposalId);
 
-        if (proposal.status != ICouncil.ProposalStatus.APPROVED &&
-            proposal.status != ICouncil.ProposalStatus.FUTARCHY_APPROVED) {
+        if (
+            proposal.status != ICouncil.ProposalStatus.APPROVED
+                && proposal.status != ICouncil.ProposalStatus.FUTARCHY_APPROVED
+        ) {
             revert ProposalNotApproved();
         }
 
-        executionId = keccak256(abi.encodePacked(
-            proposalId,
-            executionNonce++,
-            block.timestamp
-        ));
+        executionId = keccak256(abi.encodePacked(proposalId, executionNonce++, block.timestamp));
 
         pendingExecutions[executionId] = PendingExecution({
             proposalId: proposalId,
@@ -303,11 +275,7 @@ contract CouncilSafeModule is Ownable, ReentrancyGuard {
      * @notice Human signer approves execution
      * @param executionId Execution to approve
      */
-    function approveExecution(bytes32 executionId)
-        external
-        onlySafeOwner
-        whenNotPaused
-    {
+    function approveExecution(bytes32 executionId) external onlySafeOwner whenNotPaused {
         PendingExecution storage execution = pendingExecutions[executionId];
         if (execution.createdAt == 0) revert ExecutionNotFound();
         if (execution.executed || execution.cancelled) revert ExecutionAlreadyProcessed();
@@ -326,10 +294,7 @@ contract CouncilSafeModule is Ownable, ReentrancyGuard {
      * @param executionId Execution to approve
      * @param attestation TEE attestation proving AI decision
      */
-    function aiApproveExecution(
-        bytes32 executionId,
-        TEEAttestation calldata attestation
-    )
+    function aiApproveExecution(bytes32 executionId, TEEAttestation calldata attestation)
         external
         whenNotPaused
         nonReentrant
@@ -360,12 +325,8 @@ contract CouncilSafeModule is Ownable, ReentrancyGuard {
 
         execution.executed = true;
 
-        bool success = safe.execTransactionFromModule(
-            execution.target,
-            execution.value,
-            execution.data,
-            execution.operation
-        );
+        bool success =
+            safe.execTransactionFromModule(execution.target, execution.value, execution.data, execution.operation);
 
         emit ExecutionCompleted(executionId, execution.proposalId, success);
     }
@@ -383,12 +344,8 @@ contract CouncilSafeModule is Ownable, ReentrancyGuard {
 
         execution.executed = true;
 
-        bool success = safe.execTransactionFromModule(
-            execution.target,
-            execution.value,
-            execution.data,
-            execution.operation
-        );
+        bool success =
+            safe.execTransactionFromModule(execution.target, execution.value, execution.data, execution.operation);
 
         emit ExecutionCompleted(executionId, execution.proposalId, success);
     }
@@ -396,10 +353,7 @@ contract CouncilSafeModule is Ownable, ReentrancyGuard {
     /**
      * @notice Cancel a pending execution
      */
-    function cancelExecution(bytes32 executionId, string calldata reason)
-        external
-        onlySafeOwner
-    {
+    function cancelExecution(bytes32 executionId, string calldata reason) external onlySafeOwner {
         PendingExecution storage execution = pendingExecutions[executionId];
         if (execution.createdAt == 0) revert ExecutionNotFound();
         if (execution.executed || execution.cancelled) revert ExecutionAlreadyProcessed();
@@ -413,10 +367,7 @@ contract CouncilSafeModule is Ownable, ReentrancyGuard {
     // Attestation Validation
     // ============================================================================
 
-    function _validateAttestation(
-        TEEAttestation calldata attestation,
-        bytes32 expectedProposalId
-    ) internal view {
+    function _validateAttestation(TEEAttestation calldata attestation, bytes32 expectedProposalId) internal view {
         if (attestation.proposalId != expectedProposalId) revert InvalidAttestation();
         if (!attestation.approved) revert InvalidAttestation();
         if (block.timestamp > attestation.timestamp + attestationMaxAge) revert AttestationExpired();
@@ -425,13 +376,15 @@ contract CouncilSafeModule is Ownable, ReentrancyGuard {
             if (attestation.measurement != trustedMeasurement) revert InvalidMeasurement();
         }
 
-        bytes32 messageHash = keccak256(abi.encodePacked(
-            attestation.proposalId,
-            attestation.approved,
-            attestation.decisionHash,
-            attestation.measurement,
-            attestation.timestamp
-        ));
+        bytes32 messageHash = keccak256(
+            abi.encodePacked(
+                attestation.proposalId,
+                attestation.approved,
+                attestation.decisionHash,
+                attestation.measurement,
+                attestation.timestamp
+            )
+        );
 
         bytes32 ethSignedHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         address signer = ECDSA.recover(ethSignedHash, attestation.signature);
@@ -500,9 +453,8 @@ contract CouncilSafeModule is Ownable, ReentrancyGuard {
         }
 
         // Get new council from delegation registry
-        (bool success, bytes memory data) = delegationRegistry.staticcall(
-            abi.encodeWithSignature("getSecurityCouncil()")
-        );
+        (bool success, bytes memory data) =
+            delegationRegistry.staticcall(abi.encodeWithSignature("getSecurityCouncil()"));
 
         if (success && data.length > 0) {
             address[] memory newCouncil = abi.decode(data, (address[]));
@@ -560,11 +512,7 @@ contract CouncilSafeModule is Ownable, ReentrancyGuard {
     // View Functions
     // ============================================================================
 
-    function getPendingExecution(bytes32 executionId)
-        external
-        view
-        returns (PendingExecution memory)
-    {
+    function getPendingExecution(bytes32 executionId) external view returns (PendingExecution memory) {
         return pendingExecutions[executionId];
     }
 
@@ -597,15 +545,11 @@ contract CouncilSafeModule is Ownable, ReentrancyGuard {
 
     function isExecutionReady(bytes32 executionId) external view returns (bool) {
         PendingExecution storage e = pendingExecutions[executionId];
-        return !e.executed &&
-               !e.cancelled &&
-               e.humanApprovals >= requiredHumanApprovals &&
-               e.aiApproved &&
-               block.timestamp >= e.createdAt + executionDelay;
+        return !e.executed && !e.cancelled && e.humanApprovals >= requiredHumanApprovals && e.aiApproved
+            && block.timestamp >= e.createdAt + executionDelay;
     }
 
     function version() external pure returns (string memory) {
         return "1.0.0";
     }
 }
-

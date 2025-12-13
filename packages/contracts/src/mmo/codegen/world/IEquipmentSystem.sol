@@ -9,7 +9,7 @@ pragma solidity >=0.8.24;
  * @dev This interface is automatically generated from the corresponding system contract. Do not edit manually.
  */
 interface IEquipmentSystem {
-  function hyperscape__equipItem(uint8 inventorySlot) external;
+    function hyperscape__equipItem(uint8 inventorySlot) external;
 
-  function hyperscape__unequipItem(uint8 equipSlot) external;
+    function hyperscape__unequipItem(uint8 equipSlot) external;
 }

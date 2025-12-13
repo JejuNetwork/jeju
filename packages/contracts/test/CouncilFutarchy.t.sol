@@ -29,20 +29,25 @@ contract MockPredimarketForCouncil is IPredimarket {
         return (yesVotes[sessionId], noVotes[sessionId]);
     }
 
-    function getMarket(bytes32 sessionId) external view override returns (
-        bytes32 _sessionId,
-        string memory question,
-        uint256 _yesShares,
-        uint256 _noShares,
-        uint256 liquidityParameter,
-        uint256 totalVolume,
-        uint256 createdAt,
-        bool _resolved,
-        bool _outcome,
-        uint8 gameType,
-        address gameContract,
-        MarketCategory category
-    ) {
+    function getMarket(bytes32 sessionId)
+        external
+        view
+        override
+        returns (
+            bytes32 _sessionId,
+            string memory question,
+            uint256 _yesShares,
+            uint256 _noShares,
+            uint256 liquidityParameter,
+            uint256 totalVolume,
+            uint256 createdAt,
+            bool _resolved,
+            bool _outcome,
+            uint8 gameType,
+            address gameContract,
+            MarketCategory category
+        )
+    {
         return (
             sessionId,
             "",
@@ -91,24 +96,19 @@ contract CouncilFutarchyTest is Test {
 
     function setUp() public {
         vm.startPrank(owner);
-        
+
         // Deploy mock predimarket
         predimarket = new MockPredimarketForCouncil();
-        
+
         // Deploy council (4 args)
-        council = new Council(
-            token,
-            identityRegistry,
-            reputationRegistry,
-            owner
-        );
+        council = new Council(token, identityRegistry, reputationRegistry, owner);
 
         // Set CEO agent (takes 2 args: address and agentId)
         council.setCEOAgent(ceoAgent, 1);
-        
+
         // Set predimarket via setter
         council.setPredimarket(address(predimarket));
-        
+
         vm.stopPrank();
     }
 
@@ -122,7 +122,7 @@ contract CouncilFutarchyTest is Test {
             keccak256("content"),
             address(0),
             "",
-            0   // value
+            0 // value
         );
         return proposalId;
     }
@@ -155,9 +155,9 @@ contract CouncilFutarchyTest is Test {
 
     function testGetFutarchyMarketInfo() public view {
         bytes32 proposalId = keccak256("test-proposal");
-        
+
         (bytes32 marketId, uint256 deadline, bool canResolve) = council.getFutarchyMarket(proposalId);
-        
+
         assertEq(marketId, bytes32(0));
         assertEq(deadline, 0);
         assertFalse(canResolve);
@@ -202,7 +202,7 @@ contract CouncilFutarchyTest is Test {
     function testPredimarketIntegration() public {
         // Test that we can interact with the mock predimarket
         bytes32 testSessionId = keccak256("test-session");
-        
+
         // Create a market
         IPredimarket.ModerationMetadata memory metadata = IPredimarket.ModerationMetadata({
             targetAgentId: 0,
@@ -212,11 +212,7 @@ contract CouncilFutarchyTest is Test {
         });
 
         predimarket.createModerationMarket(
-            testSessionId,
-            "Test Question",
-            1000e18,
-            IPredimarket.MarketCategory.GOVERNANCE_VETO,
-            metadata
+            testSessionId, "Test Question", 1000e18, IPredimarket.MarketCategory.GOVERNANCE_VETO, metadata
         );
 
         assertTrue(predimarket.marketsCreated(testSessionId));
@@ -237,7 +233,7 @@ contract CouncilFutarchyTest is Test {
         // Get active proposals - should include the new one
         bytes32[] memory active = council.getActiveProposals();
         bool found = false;
-        for (uint i = 0; i < active.length; i++) {
+        for (uint256 i = 0; i < active.length; i++) {
             if (active[i] == proposalId) {
                 found = true;
                 break;
@@ -257,9 +253,9 @@ contract CouncilFutarchyIntegrationTest is Test {
 
     function setUp() public {
         vm.startPrank(owner);
-        
+
         predimarket = new MockPredimarketForCouncil();
-        
+
         council = new Council(
             address(0x1234), // token
             address(0x2345), // identityRegistry
@@ -269,7 +265,7 @@ contract CouncilFutarchyIntegrationTest is Test {
 
         council.setCEOAgent(ceoAgent, 1);
         council.setPredimarket(address(predimarket));
-        
+
         vm.stopPrank();
     }
 

@@ -223,7 +223,7 @@ const X402_EIP712_TYPES = {
     { name: 'nonce', type: 'string' },
     { name: 'timestamp', type: 'uint256' },
   ],
-} as const;
+};
 
 export interface OnChainSettlementConfig {
   facilitatorAddress: Address;

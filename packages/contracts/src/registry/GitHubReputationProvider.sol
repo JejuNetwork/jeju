@@ -35,11 +35,11 @@ contract GitHubReputationProvider is Ownable {
     struct ReputationAttestation {
         address wallet;
         uint256 agentId;
-        uint8 score;           // 0-100 normalized score
-        uint256 totalScore;    // Raw total score from GitHub
-        uint256 mergedPrs;     // Number of merged PRs
-        uint256 totalCommits;  // Total commits
-        uint256 timestamp;     // When attestation was created
+        uint8 score; // 0-100 normalized score
+        uint256 totalScore; // Raw total score from GitHub
+        uint256 mergedPrs; // Number of merged PRs
+        uint256 totalCommits; // Total commits
+        uint256 timestamp; // When attestation was created
         bytes32 attestationHash;
         bool isValid;
     }
@@ -89,27 +89,13 @@ contract GitHubReputationProvider is Ownable {
 
     // ============ Events ============
 
-    event AttestationSubmitted(
-        address indexed wallet,
-        uint256 indexed agentId,
-        uint8 score,
-        bytes32 attestationHash
-    );
+    event AttestationSubmitted(address indexed wallet, uint256 indexed agentId, uint8 score, bytes32 attestationHash);
 
-    event ProfileLinked(
-        address indexed wallet,
-        string username,
-        uint256 indexed agentId
-    );
+    event ProfileLinked(address indexed wallet, string username, uint256 indexed agentId);
 
     event OracleUpdated(address indexed oldOracle, address indexed newOracle);
 
-    event ValidationRecorded(
-        address indexed wallet,
-        uint256 indexed agentId,
-        bytes32 requestHash,
-        uint8 score
-    );
+    event ValidationRecorded(address indexed wallet, uint256 indexed agentId, bytes32 requestHash, uint8 score);
 
     // ============ Errors ============
 
@@ -123,12 +109,9 @@ contract GitHubReputationProvider is Ownable {
 
     // ============ Constructor ============
 
-    constructor(
-        address _validationRegistry,
-        address _identityRegistry,
-        address _oracle,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _validationRegistry, address _identityRegistry, address _oracle, address initialOwner)
+        Ownable(initialOwner)
+    {
         require(_validationRegistry != address(0), "Invalid ValidationRegistry");
         require(_identityRegistry != address(0), "Invalid IdentityRegistry");
         require(_oracle != address(0), "Invalid oracle");
@@ -169,15 +152,7 @@ contract GitHubReputationProvider is Ownable {
         // Create attestation hash
         bytes32 attestationHash = keccak256(
             abi.encodePacked(
-                msg.sender,
-                agentId,
-                score,
-                totalScore,
-                mergedPrs,
-                totalCommits,
-                timestamp,
-                block.chainid,
-                address(this)
+                msg.sender, agentId, score, totalScore, mergedPrs, totalCommits, timestamp, block.chainid, address(this)
             )
         );
 
@@ -225,11 +200,7 @@ contract GitHubReputationProvider is Ownable {
      * @param username GitHub username
      * @param agentId Agent ID (0 if not yet registered)
      */
-    function linkProfile(
-        address wallet,
-        string calldata username,
-        uint256 agentId
-    ) external {
+    function linkProfile(address wallet, string calldata username, uint256 agentId) external {
         require(msg.sender == oracleAddress || msg.sender == owner(), "Not authorized");
 
         profiles[wallet] = GitHubProfile({
@@ -287,11 +258,11 @@ contract GitHubReputationProvider is Ownable {
      * @return isValid Whether the attestation is valid
      * @return lastUpdated When the score was last updated
      */
-    function getAgentReputation(uint256 agentId) external view returns (
-        uint8 score,
-        bool isValid,
-        uint256 lastUpdated
-    ) {
+    function getAgentReputation(uint256 agentId)
+        external
+        view
+        returns (uint8 score, bool isValid, uint256 lastUpdated)
+    {
         address wallet = agentToWallet[agentId];
         if (wallet == address(0)) {
             return (0, false, 0);
@@ -301,8 +272,7 @@ contract GitHubReputationProvider is Ownable {
         GitHubProfile storage profile = profiles[wallet];
 
         // Check if attestation is still valid (not too old)
-        bool stillValid = attestation.isValid &&
-            block.timestamp <= attestation.timestamp + MAX_ATTESTATION_AGE;
+        bool stillValid = attestation.isValid && block.timestamp <= attestation.timestamp + MAX_ATTESTATION_AGE;
 
         return (attestation.score, stillValid, profile.lastUpdated);
     }

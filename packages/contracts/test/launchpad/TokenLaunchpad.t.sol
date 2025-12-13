@@ -93,13 +93,8 @@ contract TokenLaunchpadTest is Test {
 
         // Deploy launchpad
         vm.prank(owner);
-        launchpad = new TokenLaunchpad(
-            address(xlpFactory),
-            address(weth),
-            address(lpLockerTemplate),
-            communityVault,
-            owner
-        );
+        launchpad =
+            new TokenLaunchpad(address(xlpFactory), address(weth), address(lpLockerTemplate), communityVault, owner);
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -307,19 +302,14 @@ contract TokenLaunchpadTest is Test {
 
     function test_LPLockerBasics() public {
         LPLocker locker = new LPLocker(owner);
-        
+
         // Deploy a mock LP token
         LaunchpadToken mockLP = new LaunchpadToken("LP Token", "LP", 1000e18, owner);
-        
+
         // Authorize and lock
         vm.startPrank(owner);
         mockLP.approve(address(locker), 100e18);
-        uint256 lockId = locker.lock(
-            IERC20(address(mockLP)),
-            100e18,
-            buyer1,
-            30 days
-        );
+        uint256 lockId = locker.lock(IERC20(address(mockLP)), 100e18, buyer1, 30 days);
         vm.stopPrank();
 
         LPLocker.Lock memory lockData = locker.getLock(lockId);
@@ -340,7 +330,7 @@ contract TokenLaunchpadTest is Test {
         locker.withdraw(lockId);
 
         assertEq(mockLP.balanceOf(buyer1), 100e18);
-        
+
         lockData = locker.getLock(lockId);
         assertTrue(lockData.withdrawn);
     }
@@ -348,7 +338,7 @@ contract TokenLaunchpadTest is Test {
     function test_LPLockerExtension() public {
         LPLocker locker = new LPLocker(owner);
         LaunchpadToken mockLP = new LaunchpadToken("LP Token", "LP", 1000e18, owner);
-        
+
         vm.startPrank(owner);
         mockLP.approve(address(locker), 100e18);
         uint256 lockId = locker.lock(IERC20(address(mockLP)), 100e18, buyer1, 7 days);

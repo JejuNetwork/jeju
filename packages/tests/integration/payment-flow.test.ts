@@ -17,6 +17,21 @@ import { describe, test, expect, beforeAll } from 'bun:test';
 import { createPublicClient, createWalletClient, http, parseAbi, parseEther, formatUnits, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
+// Check if localnet is available
+const rpcUrl = process.env.JEJU_RPC_URL || 'http://localhost:9545';
+let localnetAvailable = false;
+try {
+  const response = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
+    signal: AbortSignal.timeout(2000)
+  });
+  localnetAvailable = response.ok;
+} catch {
+  console.log(`Localnet not available at ${rpcUrl}, skipping payment flow tests`);
+}
+
 const TEST_CONFIG = {
   rpcUrl: process.env.JEJU_RPC_URL || 'http://localhost:9545',
   chainId: 420691,
@@ -26,7 +41,7 @@ const TEST_CONFIG = {
     cloudPaymaster: process.env.CLOUD_PAYMASTER_ADDRESS as Address
   },
   testAccount: privateKeyToAccount(
-    (process.env.TEST_PRIVATE_KEY || '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6') as \`0x\${string}\`
+    (process.env.TEST_PRIVATE_KEY || '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6') as `0x${string}`
   )
 };
 
@@ -48,7 +63,7 @@ const walletClient = createWalletClient({
   transport: http()
 });
 
-describe('Payment Flow Integration', () => {
+describe.skipIf(!localnetAvailable)('Payment Flow Integration', () => {
   let initialBalance: bigint;
   let serviceCost: bigint;
 
@@ -63,7 +78,7 @@ describe('Payment Flow Integration', () => {
       args: [TEST_CONFIG.testAccount.address]
     });
 
-    console.log(\`Initial balance: \${formatUnits(initialBalance, 18)} elizaOS\`);
+    console.log(`Initial balance: ${formatUnits(initialBalance, 18)} elizaOS`);
 
     // Get service cost for chat-completion
     const registryAbi = parseAbi([
@@ -77,7 +92,7 @@ describe('Payment Flow Integration', () => {
       args: ['chat-completion', TEST_CONFIG.testAccount.address]
     });
 
-    console.log(\`Service cost: \${formatUnits(serviceCost, 18)} elizaOS\`);
+    console.log(`Service cost: \${formatUnits(serviceCost, 18)} elizaOS`);
   });
 
   test('Should get accurate service cost quote', async () => {
@@ -118,7 +133,7 @@ describe('Payment Flow Integration', () => {
       'event ServiceUsageRecorded(address indexed user, string serviceName, uint256 cost, bytes32 sessionId, uint256 volumeDiscount)'
     ]);
 
-    const sessionId = \`0x\${Date.now().toString(16).padStart(64, '0')}\` as \`0x\${string}\`;
+    const sessionId = `0x\${Date.now().toString(16).padStart(64, '0')}` as `0x\${string}`;
 
     // Note: This will fail if we're not an authorized caller
     // In real usage, ServicePaymaster would call this
@@ -145,7 +160,7 @@ describe('Payment Flow Integration', () => {
       });
 
       expect(newBalance).toBeLessThan(initialBalance);
-      console.log(\`Balance after usage: \${formatUnits(newBalance, 18)} elizaOS\`);
+      console.log(`Balance after usage: \${formatUnits(newBalance, 18)} elizaOS`);
     } catch (error) {
       // Expected if test account is not authorized caller
       console.log('Note: Test account not authorized to record usage directly (expected)');
@@ -167,10 +182,10 @@ describe('Payment Flow Integration', () => {
 
     const [totalSpent, requestCount, lastUsedBlock, volumeDiscount] = usage;
 
-    console.log(\`User stats:\`);
-    console.log(\`  Total spent: \${formatUnits(totalSpent, 18)} elizaOS\`);
-    console.log(\`  Request count: \${requestCount}\`);
-    console.log(\`  Volume discount: \${volumeDiscount} bps\`);
+    console.log(`User stats:`);
+    console.log(`  Total spent: \${formatUnits(totalSpent, 18)} elizaOS`);
+    console.log(`  Request count: \${requestCount}`);
+    console.log(`  Volume discount: \${volumeDiscount} bps`);
 
     expect(totalSpent).toBeGreaterThanOrEqual(0n);
     expect(requestCount).toBeGreaterThanOrEqual(0n);
@@ -191,7 +206,7 @@ describe('Payment Flow Integration', () => {
 
     // Discount should be in valid range (0-2000 bps = 0-20%)
     expect(discount).toBeLessThanOrEqual(2000n);
-    console.log(\`Current volume discount: \${discount} bps (\${Number(discount) / 100}%)\`);
+    console.log(`Current volume discount: \${discount} bps (\${Number(discount) / 100}%)`);
   });
 
   test('Should have sufficient paymaster deposit for gasless transactions', async () => {
@@ -205,7 +220,7 @@ describe('Payment Flow Integration', () => {
       functionName: 'getDeposit'
     });
 
-    console.log(\`Paymaster deposit: \${formatUnits(deposit, 18)} ETH\`);
+    console.log(`Paymaster deposit: \${formatUnits(deposit, 18)} ETH`);
 
     // Should have at least some deposit for paying gas
     expect(deposit).toBeGreaterThan(0n);
@@ -239,12 +254,12 @@ describe('Payment Flow Integration', () => {
 
     const [basePriceElizaOS, demandMultiplier, totalUsageCount, totalRevenueElizaOS, isActive, minPrice, maxPrice] = service;
 
-    console.log(\`Chat-completion service:\`);
-    console.log(\`  Base price: \${formatUnits(basePriceElizaOS, 18)} elizaOS\`);
-    console.log(\`  Demand multiplier: \${demandMultiplier} bps\`);
-    console.log(\`  Total usage: \${totalUsageCount}\`);
-    console.log(\`  Total revenue: \${formatUnits(totalRevenueElizaOS, 18)} elizaOS\`);
-    console.log(\`  Is active: \${isActive}\`);
+    console.log(`Chat-completion service:`);
+    console.log(`  Base price: \${formatUnits(basePriceElizaOS, 18)} elizaOS`);
+    console.log(`  Demand multiplier: \${demandMultiplier} bps`);
+    console.log(`  Total usage: \${totalUsageCount}`);
+    console.log(`  Total revenue: \${formatUnits(totalRevenueElizaOS, 18)} elizaOS`);
+    console.log(`  Is active: \${isActive}`);
 
     expect(isActive).toBe(true);
     expect(basePriceElizaOS).toBeGreaterThan(0n);

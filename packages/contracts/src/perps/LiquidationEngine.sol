@@ -10,19 +10,16 @@ import {ILiquidationEngine, IPerpetualMarket, IInsuranceFund, IMarginManager} fr
  * @notice Manages liquidations for perpetual positions
  */
 contract LiquidationEngine is ILiquidationEngine, Ownable, ReentrancyGuard {
-
-
     uint256 public constant BPS_DENOMINATOR = 10000;
     uint256 public constant HEALTH_PRECISION = 1e18;
-
 
     IPerpetualMarket public perpMarket;
     IMarginManager public marginManager;
     IInsuranceFund public insuranceFund;
 
     // Liquidation parameters
-    uint256 public liquidationBonusBps = 500;   // 5% to liquidators
-    uint256 public insuranceFeeBps = 200;       // 2% to insurance fund
+    uint256 public liquidationBonusBps = 500; // 5% to liquidators
+    uint256 public insuranceFeeBps = 200; // 2% to insurance fund
     uint256 public maxLiquidationSizeBps = 5000; // Max 50% of position per liquidation
 
     // Stats
@@ -36,27 +33,21 @@ contract LiquidationEngine is ILiquidationEngine, Ownable, ReentrancyGuard {
     mapping(address => uint256) public keeperLiquidations;
     mapping(address => uint256) public keeperRewards;
 
-
     error PositionNotLiquidatable();
     error EmptyBatch();
     error OnlyPerpMarket();
 
-
-    constructor(
-        address _perpMarket,
-        address _marginManager,
-        address _insuranceFund,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _perpMarket, address _marginManager, address _insuranceFund, address initialOwner)
+        Ownable(initialOwner)
+    {
         perpMarket = IPerpetualMarket(_perpMarket);
         marginManager = IMarginManager(_marginManager);
         insuranceFund = IInsuranceFund(_insuranceFund);
     }
 
-
     function liquidate(bytes32 positionId) external nonReentrant returns (uint256 reward) {
         // Check if liquidatable
-        (bool canLiq, ) = perpMarket.isLiquidatable(positionId);
+        (bool canLiq,) = perpMarket.isLiquidatable(positionId);
         if (!canLiq) revert PositionNotLiquidatable();
 
         // Get position details
@@ -90,7 +81,7 @@ contract LiquidationEngine is ILiquidationEngine, Ownable, ReentrancyGuard {
         rewards = new uint256[](positionIds.length);
 
         for (uint256 i = 0; i < positionIds.length; i++) {
-            (bool canLiq, ) = perpMarket.isLiquidatable(positionIds[i]);
+            (bool canLiq,) = perpMarket.isLiquidatable(positionIds[i]);
 
             if (canLiq) {
                 IPerpetualMarket.Position memory position = perpMarket.getPosition(positionIds[i]);
@@ -117,12 +108,11 @@ contract LiquidationEngine is ILiquidationEngine, Ownable, ReentrancyGuard {
         return rewards;
     }
 
-
-    function getLiquidationParams() external view returns (
-        uint256 liquidationBonus,
-        uint256 insuranceFee,
-        uint256 maxLiquidationSize
-    ) {
+    function getLiquidationParams()
+        external
+        view
+        returns (uint256 liquidationBonus, uint256 insuranceFee, uint256 maxLiquidationSize)
+    {
         return (liquidationBonusBps, insuranceFeeBps, maxLiquidationSizeBps);
     }
 
@@ -133,11 +123,11 @@ contract LiquidationEngine is ILiquidationEngine, Ownable, ReentrancyGuard {
      * @return healthFactor Position health (< 1e18 = liquidatable)
      * @return estimatedReward Estimated keeper reward
      */
-    function checkLiquidation(bytes32 positionId) external view returns (
-        bool canLiquidate,
-        uint256 healthFactor,
-        uint256 estimatedReward
-    ) {
+    function checkLiquidation(bytes32 positionId)
+        external
+        view
+        returns (bool canLiquidate, uint256 healthFactor, uint256 estimatedReward)
+    {
         (canLiquidate, healthFactor) = perpMarket.isLiquidatable(positionId);
 
         if (canLiquidate) {
@@ -152,32 +142,26 @@ contract LiquidationEngine is ILiquidationEngine, Ownable, ReentrancyGuard {
      * @return liquidations Number of liquidations
      * @return rewards Total rewards earned
      */
-    function getKeeperStats(address keeper) external view returns (
-        uint256 liquidations,
-        uint256 rewards
-    ) {
+    function getKeeperStats(address keeper) external view returns (uint256 liquidations, uint256 rewards) {
         return (keeperLiquidations[keeper], keeperRewards[keeper]);
     }
 
     /**
      * @notice Get global liquidation statistics
      */
-    function getGlobalStats() external view returns (
-        uint256 _totalLiquidations,
-        uint256 _totalLiquidatedVolume,
-        uint256 _totalLiquidatorRewards,
-        uint256 _totalInsuranceFees,
-        uint256 _totalBadDebt
-    ) {
-        return (
-            totalLiquidations,
-            totalLiquidatedVolume,
-            totalLiquidatorRewards,
-            totalInsuranceFees,
-            totalBadDebt
-        );
+    function getGlobalStats()
+        external
+        view
+        returns (
+            uint256 _totalLiquidations,
+            uint256 _totalLiquidatedVolume,
+            uint256 _totalLiquidatorRewards,
+            uint256 _totalInsuranceFees,
+            uint256 _totalBadDebt
+        )
+    {
+        return (totalLiquidations, totalLiquidatedVolume, totalLiquidatorRewards, totalInsuranceFees, totalBadDebt);
     }
-
 
     /**
      * @notice Handle bad debt from a liquidation
@@ -186,11 +170,7 @@ contract LiquidationEngine is ILiquidationEngine, Ownable, ReentrancyGuard {
      * @param amount Bad debt amount
      * @dev Called by PerpetualMarket when liquidation results in negative equity
      */
-    function handleBadDebt(
-        bytes32 positionId,
-        address token,
-        uint256 amount
-    ) external {
+    function handleBadDebt(bytes32 positionId, address token, uint256 amount) external {
         if (msg.sender != address(perpMarket)) revert OnlyPerpMarket();
 
         // Try to cover from insurance fund
@@ -204,7 +184,6 @@ contract LiquidationEngine is ILiquidationEngine, Ownable, ReentrancyGuard {
             emit BadDebtSocialized(positionId, socialized);
         }
     }
-
 
     /**
      * @notice Update liquidation parameters
@@ -239,5 +218,4 @@ contract LiquidationEngine is ILiquidationEngine, Ownable, ReentrancyGuard {
     function setInsuranceFund(address _insuranceFund) external onlyOwner {
         insuranceFund = IInsuranceFund(_insuranceFund);
     }
-
 }

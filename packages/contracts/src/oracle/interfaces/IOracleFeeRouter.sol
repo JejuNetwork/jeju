@@ -64,46 +64,21 @@ interface IOracleFeeRouter {
         uint256 amountPaid
     );
 
-    event SubscriptionRenewed(
-        bytes32 indexed subscriptionId,
-        uint256 newEndTime,
-        uint256 amountPaid
-    );
+    event SubscriptionRenewed(bytes32 indexed subscriptionId, uint256 newEndTime, uint256 amountPaid);
 
-    event SubscriptionCancelled(
-        bytes32 indexed subscriptionId,
-        uint256 refundAmount
-    );
+    event SubscriptionCancelled(bytes32 indexed subscriptionId, uint256 refundAmount);
 
-    event ReadFeePaid(
-        bytes32 indexed feedId,
-        address indexed reader,
-        uint256 amount
-    );
+    event ReadFeePaid(bytes32 indexed feedId, address indexed reader, uint256 amount);
 
     event RewardsDistributed(
-        uint256 indexed epochNumber,
-        uint256 operatorAmount,
-        uint256 delegatorAmount,
-        uint256 treasuryAmount
+        uint256 indexed epochNumber, uint256 operatorAmount, uint256 delegatorAmount, uint256 treasuryAmount
     );
 
-    event RewardsClaimed(
-        bytes32 indexed operatorId,
-        address indexed recipient,
-        uint256 amount
-    );
+    event RewardsClaimed(bytes32 indexed operatorId, address indexed recipient, uint256 amount);
 
-    event DelegatorRewardsClaimed(
-        address indexed delegator,
-        bytes32 indexed operatorId,
-        uint256 amount
-    );
+    event DelegatorRewardsClaimed(address indexed delegator, bytes32 indexed operatorId, uint256 amount);
 
-    event FeeConfigUpdated(
-        uint256 subscriptionFee,
-        uint256 perReadFee
-    );
+    event FeeConfigUpdated(uint256 subscriptionFee, uint256 perReadFee);
 
     // ============ Errors ============
 
@@ -119,22 +94,16 @@ interface IOracleFeeRouter {
 
     // ============ Subscription Functions ============
 
-    function subscribe(
-        bytes32[] calldata feedIds,
-        uint256 durationMonths
-    ) external payable returns (bytes32 subscriptionId);
+    function subscribe(bytes32[] calldata feedIds, uint256 durationMonths)
+        external
+        payable
+        returns (bytes32 subscriptionId);
 
-    function renewSubscription(
-        bytes32 subscriptionId,
-        uint256 additionalMonths
-    ) external payable;
+    function renewSubscription(bytes32 subscriptionId, uint256 additionalMonths) external payable;
 
     function cancelSubscription(bytes32 subscriptionId) external returns (uint256 refund);
 
-    function addFeedsToSubscription(
-        bytes32 subscriptionId,
-        bytes32[] calldata newFeedIds
-    ) external payable;
+    function addFeedsToSubscription(bytes32 subscriptionId, bytes32[] calldata newFeedIds) external payable;
 
     // ============ Per-Read Payments ============
 
@@ -160,10 +129,7 @@ interface IOracleFeeRouter {
 
     function getPendingRewards(bytes32 operatorId) external view returns (uint256);
 
-    function getDelegatorPendingRewards(
-        address delegator,
-        bytes32 operatorId
-    ) external view returns (uint256);
+    function getDelegatorPendingRewards(address delegator, bytes32 operatorId) external view returns (uint256);
 
     function getFeeConfig() external view returns (FeeConfig memory);
 
@@ -171,10 +137,7 @@ interface IOracleFeeRouter {
 
     function getCurrentEpoch() external view returns (uint256);
 
-    function getSubscriptionPrice(
-        bytes32[] calldata feedIds,
-        uint256 durationMonths
-    ) external view returns (uint256);
+    function getSubscriptionPrice(bytes32[] calldata feedIds, uint256 durationMonths) external view returns (uint256);
 
     function getTotalFeesCollected() external view returns (uint256);
 

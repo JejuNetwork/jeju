@@ -62,7 +62,7 @@ contract JNSTest is Test {
     function test_Registry_SetSubnodeOwner() public {
         bytes32 testLabel = keccak256("test");
         registry.setSubnodeOwner(ROOT_NODE, testLabel, alice);
-        
+
         bytes32 testNode = keccak256(abi.encodePacked(ROOT_NODE, testLabel));
         assertEq(registry.owner(testNode), alice);
     }
@@ -71,7 +71,7 @@ contract JNSTest is Test {
         bytes32 testLabel = keccak256("test");
         registry.setSubnodeOwner(ROOT_NODE, testLabel, deployer);
         bytes32 testNode = keccak256(abi.encodePacked(ROOT_NODE, testLabel));
-        
+
         registry.setResolver(testNode, address(resolver));
         assertEq(registry.resolver(testNode), address(resolver));
     }
@@ -80,7 +80,7 @@ contract JNSTest is Test {
         bytes32 testLabel = keccak256("test");
         registry.setSubnodeOwner(ROOT_NODE, testLabel, alice);
         bytes32 testNode = keccak256(abi.encodePacked(ROOT_NODE, testLabel));
-        
+
         vm.prank(bob);
         vm.expectRevert("Not authorized");
         registry.setResolver(testNode, address(resolver));
@@ -109,10 +109,10 @@ contract JNSTest is Test {
 
     function test_Registrar_RegisterName() public {
         uint256 price = registrar.rentPrice("myname", 365 days);
-        
+
         vm.prank(alice);
         bytes32 node = registrar.register{value: price}("myname", alice, 365 days);
-        
+
         assertFalse(registrar.available("myname"));
         assertEq(registrar.ownerOf("myname"), alice);
         assertTrue(node != bytes32(0));
@@ -120,10 +120,10 @@ contract JNSTest is Test {
 
     function test_Registrar_RegisterNameMintsNFT() public {
         uint256 price = registrar.rentPrice("nfttest", 365 days);
-        
+
         vm.prank(alice);
         registrar.register{value: price}("nfttest", alice, 365 days);
-        
+
         // Check NFT ownership
         bytes32 labelhash = keccak256("nfttest");
         assertEq(registrar.ownerOf(uint256(labelhash)), alice);
@@ -143,10 +143,10 @@ contract JNSTest is Test {
 
     function test_Registrar_RejectDuplicateRegistration() public {
         uint256 price = registrar.rentPrice("unique", 365 days);
-        
+
         vm.prank(alice);
         registrar.register{value: price}("unique", alice, 365 days);
-        
+
         vm.prank(bob);
         vm.expectRevert(abi.encodeWithSelector(JNSRegistrar.NameNotAvailable.selector, "unique"));
         registrar.register{value: price}("unique", bob, 365 days);
@@ -154,15 +154,15 @@ contract JNSTest is Test {
 
     function test_Registrar_RenewName() public {
         uint256 price = registrar.rentPrice("renewable", 365 days);
-        
+
         vm.prank(alice);
         registrar.register{value: price}("renewable", alice, 365 days);
-        
+
         uint256 initialExpiry = registrar.nameExpires("renewable");
-        
+
         vm.prank(bob); // Anyone can renew
         registrar.renew{value: price}("renewable", 365 days);
-        
+
         uint256 newExpiry = registrar.nameExpires("renewable");
         assertEq(newExpiry, initialExpiry + 365 days);
     }
@@ -188,11 +188,11 @@ contract JNSTest is Test {
         uint256 price = registrar.rentPrice("addrtest", 365 days);
         vm.prank(alice);
         bytes32 node = registrar.register{value: price}("addrtest", alice, 365 days);
-        
+
         // Set address
         vm.prank(alice);
         resolver.setAddr(node, bob);
-        
+
         assertEq(resolver.addr(node), bob);
     }
 
@@ -200,10 +200,10 @@ contract JNSTest is Test {
         uint256 price = registrar.rentPrice("texttest", 365 days);
         vm.prank(alice);
         bytes32 node = registrar.register{value: price}("texttest", alice, 365 days);
-        
+
         vm.prank(alice);
         resolver.setText(node, "url", "https://example.com");
-        
+
         assertEq(resolver.text(node, "url"), "https://example.com");
     }
 
@@ -211,12 +211,12 @@ contract JNSTest is Test {
         uint256 price = registrar.rentPrice("hashtest", 365 days);
         vm.prank(alice);
         bytes32 node = registrar.register{value: price}("hashtest", alice, 365 days);
-        
+
         bytes memory ipfsHash = hex"e3010170122029f2d17be6139079dc48696d1f582a8530eb9805b561eda517e22a892c7e3f1f";
-        
+
         vm.prank(alice);
         resolver.setContenthash(node, ipfsHash);
-        
+
         assertEq(resolver.contenthash(node), ipfsHash);
     }
 
@@ -224,19 +224,15 @@ contract JNSTest is Test {
         uint256 price = registrar.rentPrice("apptest", 365 days);
         vm.prank(alice);
         bytes32 node = registrar.register{value: price}("apptest", alice, 365 days);
-        
+
         vm.prank(alice);
         resolver.setAppConfig(
-            node,
-            address(0x123),
-            bytes32("app-id"),
-            0,
-            "https://api.example.com",
-            "https://a2a.example.com"
+            node, address(0x123), bytes32("app-id"), 0, "https://api.example.com", "https://a2a.example.com"
         );
-        
-        (address appContract, bytes32 appId,, string memory endpoint, string memory a2aEndpoint,) = resolver.getAppInfo(node);
-        
+
+        (address appContract, bytes32 appId,, string memory endpoint, string memory a2aEndpoint,) =
+            resolver.getAppInfo(node);
+
         assertEq(appContract, address(0x123));
         assertEq(appId, bytes32("app-id"));
         assertEq(endpoint, "https://api.example.com");
@@ -247,7 +243,7 @@ contract JNSTest is Test {
         uint256 price = registrar.rentPrice("authtest", 365 days);
         vm.prank(alice);
         bytes32 node = registrar.register{value: price}("authtest", alice, 365 days);
-        
+
         vm.prank(bob);
         vm.expectRevert("Not authorized");
         resolver.setAddr(node, bob);
@@ -260,7 +256,7 @@ contract JNSTest is Test {
         uint256 price = registrar.rentPrice("reversename", 365 days);
         vm.prank(alice);
         registrar.register{value: price}("reversename", alice, 365 days);
-        
+
         // The reverse registrar can claim on behalf of users
         // It creates a node under addr.reverse and sets up the record
         bytes32 reverseNode = reverseRegistrar.node(alice);
@@ -271,11 +267,11 @@ contract JNSTest is Test {
         uint256 price = registrar.rentPrice("primary", 365 days);
         vm.prank(alice);
         registrar.register{value: price}("primary", alice, 365 days);
-        
+
         // Test that node computation works
         bytes32 reverseNode = reverseRegistrar.node(alice);
         assertTrue(reverseNode != bytes32(0));
-        
+
         // Test that has correct owner setup (from constructor)
         assertTrue(reverseRegistrar.isAuthorised(deployer));
     }
@@ -286,17 +282,17 @@ contract JNSTest is Test {
         uint256 price = registrar.rentPrice("transfer", 365 days);
         vm.prank(alice);
         registrar.register{value: price}("transfer", alice, 365 days);
-        
+
         bytes32 labelhash = keccak256("transfer");
         bytes32 node = keccak256(abi.encodePacked(jejuNode, labelhash));
-        
+
         // Transfer NFT
         vm.prank(alice);
         registrar.transferFrom(alice, bob, uint256(labelhash));
-        
+
         // Check NFT ownership
         assertEq(registrar.ownerOf(uint256(labelhash)), bob);
-        
+
         // Check registry ownership
         assertEq(registry.owner(node), bob);
     }
@@ -307,17 +303,17 @@ contract JNSTest is Test {
         uint256 price = registrar.rentPrice("expiring", 365 days);
         vm.prank(alice);
         registrar.register{value: price}("expiring", alice, 365 days);
-        
+
         // Fast forward past expiration
         vm.warp(block.timestamp + 366 days);
-        
+
         // Should be in grace period
         assertTrue(registrar.inGracePeriod("expiring"));
         assertFalse(registrar.available("expiring")); // Not available during grace
-        
+
         // Fast forward past grace period
         vm.warp(block.timestamp + 91 days);
-        
+
         // Now should be available
         assertTrue(registrar.available("expiring"));
     }
@@ -326,10 +322,10 @@ contract JNSTest is Test {
         uint256 price = registrar.rentPrice("refund", 365 days);
         uint256 excess = 1 ether;
         uint256 aliceBalanceBefore = alice.balance;
-        
+
         vm.prank(alice);
         registrar.register{value: price + excess}("refund", alice, 365 days);
-        
+
         // Should have refunded excess
         assertEq(alice.balance, aliceBalanceBefore - price);
     }
@@ -339,39 +335,33 @@ contract JNSTest is Test {
     function test_FullRegistrationFlow() public {
         string memory name = "fullflow";
         uint256 price = registrar.rentPrice(name, 365 days);
-        
+
         // 1. Check availability
         assertTrue(registrar.available(name));
-        
+
         // 2. Register
         vm.prank(alice);
         bytes32 node = registrar.register{value: price}(name, alice, 365 days);
-        
+
         // 3. Set resolver in registry (registrar sets it but we need to verify)
         // The registrar already sets the resolver in setSubnodeRecord
-        
+
         // 4. Set resolver records
         vm.startPrank(alice);
         resolver.setAddr(node, alice);
         resolver.setText(node, "url", "https://fullflow.example.com");
         resolver.setText(node, "description", "Full flow test");
         resolver.setAppConfig(
-            node,
-            address(0),
-            bytes32(0),
-            0,
-            "https://api.fullflow.example.com",
-            "https://a2a.fullflow.example.com"
+            node, address(0), bytes32(0), 0, "https://api.fullflow.example.com", "https://a2a.fullflow.example.com"
         );
         vm.stopPrank();
-        
+
         // 5. Verify records
         assertEq(resolver.addr(node), alice);
         assertEq(resolver.text(node, "url"), "https://fullflow.example.com");
-        
-        (,, , string memory endpoint, string memory a2aEndpoint,) = resolver.getAppInfo(node);
+
+        (,,, string memory endpoint, string memory a2aEndpoint,) = resolver.getAppInfo(node);
         assertEq(endpoint, "https://api.fullflow.example.com");
         assertEq(a2aEndpoint, "https://a2a.fullflow.example.com");
     }
 }
-

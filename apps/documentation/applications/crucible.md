@@ -359,5 +359,5 @@ containers:
 ## Next Steps
 
 - [Deploy an Agent](/guides/deploy-agent) — Create your first agent
-- [Build Agent Characters](/guides/build-character) — Design personalities
-- [Multi-Agent Systems](/guides/multi-agent) — Orchestrate agent teams
+- [Crucible App](/build/apps/crucible) — Full integration guide
+- [Trading Agent Tutorial](/tutorials/trading-agent) — Build an autonomous agent

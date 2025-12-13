@@ -32,9 +32,10 @@ contract BanManager is Ownable, Pausable {
 
     enum BanType {
         NONE,
-        ON_NOTICE,      // Immediate flag, pending market resolution
-        CHALLENGED,     // Target staked, market active
-        PERMANENT       // Market resolved, ban confirmed
+        ON_NOTICE, // Immediate flag, pending market resolution
+        CHALLENGED, // Target staked, market active
+        PERMANENT // Market resolved, ban confirmed
+
     }
 
     // ============ Structs ============
@@ -50,11 +51,11 @@ contract BanManager is Ownable, Pausable {
         bool isBanned;
         BanType banType;
         uint256 bannedAt;
-        uint256 expiresAt;      // 0 = permanent
+        uint256 expiresAt; // 0 = permanent
         string reason;
         bytes32 proposalId;
-        address reporter;        // Who initiated the ban
-        bytes32 caseId;          // ModerationMarketplace case ID
+        address reporter; // Who initiated the ban
+        bytes32 caseId; // ModerationMarketplace case ID
     }
 
     // ============ State Variables ============
@@ -96,25 +97,11 @@ contract BanManager is Ownable, Pausable {
 
     event ModeratorUpdated(address indexed moderator, bool authorized);
 
-    event OnNoticeBanApplied(
-        address indexed target,
-        address indexed reporter,
-        bytes32 indexed caseId,
-        string reason
-    );
+    event OnNoticeBanApplied(address indexed target, address indexed reporter, bytes32 indexed caseId, string reason);
 
-    event AddressBanApplied(
-        address indexed target,
-        BanType banType,
-        bytes32 indexed caseId,
-        string reason
-    );
+    event AddressBanApplied(address indexed target, BanType banType, bytes32 indexed caseId, string reason);
 
-    event AddressBanUpdated(
-        address indexed target,
-        BanType oldType,
-        BanType newType
-    );
+    event AddressBanUpdated(address indexed target, BanType oldType, BanType newType);
 
     event AddressBanRemoved(address indexed target);
 
@@ -335,12 +322,11 @@ contract BanManager is Ownable, Pausable {
      * @param caseId ModerationMarketplace case ID
      * @param reason Ban reason
      */
-    function placeOnNotice(
-        address target,
-        address reporter,
-        bytes32 caseId,
-        string calldata reason
-    ) external onlyModerator whenNotPaused {
+    function placeOnNotice(address target, address reporter, bytes32 caseId, string calldata reason)
+        external
+        onlyModerator
+        whenNotPaused
+    {
         if (target == address(0)) revert InvalidAddress();
         if (addressBans[target].isBanned && addressBans[target].banType == BanType.PERMANENT) {
             revert AlreadyBanned();
@@ -385,11 +371,11 @@ contract BanManager is Ownable, Pausable {
      * @param caseId Case ID
      * @param reason Ban reason
      */
-    function applyAddressBan(
-        address target,
-        bytes32 caseId,
-        string calldata reason
-    ) external onlyModerator whenNotPaused {
+    function applyAddressBan(address target, bytes32 caseId, string calldata reason)
+        external
+        onlyModerator
+        whenNotPaused
+    {
         if (target == address(0)) revert InvalidAddress();
 
         ExtendedBanRecord storage ban = addressBans[target];

@@ -15,58 +15,57 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
  *      - Connect to Gold.sol for token economy
  *      - Connect to Bazaar for marketplace
  *      - Connect to LiquidityPaymaster for gasless transactions
- * 
+ *
  * Moderation Flow:
  * - Games use the standard Jeju BanManager for all bans
  * - Network bans (via BanManager.banFromNetwork) block from ALL apps
  * - App bans (via BanManager.banFromApp) block from this game only
  * - Games can check bans via isPlayerAllowed()
  * - User reports go through ReportingSystem for futarchy resolution
- * 
+ *
  * Games deploy one GameIntegration contract and reference it from all game systems.
  * This avoids duplicating integration code across multiple systems.
- * 
+ *
  * @custom:security-contact security@jeju.network
  */
 contract GameIntegration is Ownable {
-    
     // ============ State Variables ============
-    
+
     /// @notice Game's agent ID in IdentityRegistry (ERC-8004)
     uint256 public gameAgentId;
-    
+
     /// @notice App ID for this game (keccak256 of game name)
     bytes32 public immutable appId;
-    
+
     /// @notice BanManager contract for moderation
     address public banManager;
-    
+
     /// @notice ReportingSystem for user reports
     address public reportingSystem;
-    
+
     /// @notice IdentityRegistry for player identity (ERC-8004)
     address public identityRegistry;
-    
+
     /// @notice Items contract (ERC-1155)
     address public itemsContract;
-    
+
     /// @notice Gold contract (ERC-20)
     address public goldContract;
-    
+
     /// @notice Bazaar marketplace
     address public bazaar;
-    
+
     /// @notice LiquidityPaymaster for gasless transactions
     address public paymaster;
-    
+
     /// @notice Mapping from player address to their agent ID
     mapping(address => uint256) public playerAgentId;
-    
+
     /// @notice Whether integration is initialized
     bool public initialized;
-    
+
     // ============ Events ============
-    
+
     event ContractsInitialized(
         address indexed banManager,
         address indexed identityRegistry,
@@ -76,29 +75,29 @@ contract GameIntegration is Ownable {
         address paymaster,
         uint256 gameAgentId
     );
-    
+
     event PlayerAgentLinked(address indexed player, uint256 indexed agentId);
     event PlayerAgentUnlinked(address indexed player, uint256 indexed agentId);
     event ContractUpdated(string indexed contractName, address indexed oldAddress, address indexed newAddress);
-    
+
     // ============ Errors ============
-    
+
     error NotInitialized();
     error AlreadyInitialized();
     error PlayerBanned(address player, uint256 agentId);
     error PlayerNotRegistered();
     error InvalidAgentId();
     error AgentNotOwned();
-    
+
     // ============ Modifiers ============
-    
+
     modifier onlyInitialized() {
         if (!initialized) revert NotInitialized();
         _;
     }
-    
+
     // ============ Constructor ============
-    
+
     /**
      * @notice Deploy GameIntegration
      * @param _appId App ID for this game (keccak256 of game name)
@@ -107,9 +106,9 @@ contract GameIntegration is Ownable {
     constructor(bytes32 _appId, address _owner) Ownable(_owner) {
         appId = _appId;
     }
-    
+
     // ============ Initialization ============
-    
+
     /**
      * @notice Initialize all Jeju contract connections
      * @param _banManager BanManager address (for moderation)
@@ -130,7 +129,7 @@ contract GameIntegration is Ownable {
         uint256 _gameAgentId
     ) external onlyOwner {
         if (initialized) revert AlreadyInitialized();
-        
+
         banManager = _banManager;
         identityRegistry = _identityRegistry;
         itemsContract = _itemsContract;
@@ -139,20 +138,14 @@ contract GameIntegration is Ownable {
         paymaster = _paymaster;
         gameAgentId = _gameAgentId;
         initialized = true;
-        
+
         emit ContractsInitialized(
-            _banManager,
-            _identityRegistry,
-            _itemsContract,
-            _goldContract,
-            _bazaar,
-            _paymaster,
-            _gameAgentId
+            _banManager, _identityRegistry, _itemsContract, _goldContract, _bazaar, _paymaster, _gameAgentId
         );
     }
-    
+
     // ============ Contract Updates ============
-    
+
     /**
      * @notice Update BanManager address
      */
@@ -161,7 +154,7 @@ contract GameIntegration is Ownable {
         banManager = _banManager;
         emit ContractUpdated("banManager", old, _banManager);
     }
-    
+
     /**
      * @notice Update ReportingSystem address
      */
@@ -170,7 +163,7 @@ contract GameIntegration is Ownable {
         reportingSystem = _reportingSystem;
         emit ContractUpdated("reportingSystem", old, _reportingSystem);
     }
-    
+
     /**
      * @notice Update IdentityRegistry address
      */
@@ -179,7 +172,7 @@ contract GameIntegration is Ownable {
         identityRegistry = _identityRegistry;
         emit ContractUpdated("identityRegistry", old, _identityRegistry);
     }
-    
+
     /**
      * @notice Update Items contract address
      */
@@ -188,7 +181,7 @@ contract GameIntegration is Ownable {
         itemsContract = _itemsContract;
         emit ContractUpdated("itemsContract", old, _itemsContract);
     }
-    
+
     /**
      * @notice Update Gold contract address
      */
@@ -197,7 +190,7 @@ contract GameIntegration is Ownable {
         goldContract = _goldContract;
         emit ContractUpdated("goldContract", old, _goldContract);
     }
-    
+
     /**
      * @notice Update Bazaar address
      */
@@ -206,7 +199,7 @@ contract GameIntegration is Ownable {
         bazaar = _bazaar;
         emit ContractUpdated("bazaar", old, _bazaar);
     }
-    
+
     /**
      * @notice Update Paymaster address
      */
@@ -215,50 +208,49 @@ contract GameIntegration is Ownable {
         paymaster = _paymaster;
         emit ContractUpdated("paymaster", old, _paymaster);
     }
-    
+
     // ============ Player Management ============
-    
+
     /**
      * @notice Link player to their ERC-8004 agent ID
      * @param agentId Agent ID to link
      */
     function linkAgentId(uint256 agentId) external onlyInitialized {
         if (agentId == 0) revert InvalidAgentId();
-        
+
         // Verify caller owns the agent (if identityRegistry is set)
         if (identityRegistry != address(0)) {
-            (bool success, bytes memory result) = identityRegistry.staticcall(
-                abi.encodeWithSignature("ownerOf(uint256)", agentId)
-            );
+            (bool success, bytes memory result) =
+                identityRegistry.staticcall(abi.encodeWithSignature("ownerOf(uint256)", agentId));
             if (!success || abi.decode(result, (address)) != msg.sender) {
                 revert AgentNotOwned();
             }
         }
-        
+
         playerAgentId[msg.sender] = agentId;
         emit PlayerAgentLinked(msg.sender, agentId);
     }
-    
+
     /**
      * @notice Unlink player from agent ID
      */
     function unlinkAgentId() external {
         uint256 agentId = playerAgentId[msg.sender];
         if (agentId == 0) revert PlayerNotRegistered();
-        
+
         delete playerAgentId[msg.sender];
         emit PlayerAgentUnlinked(msg.sender, agentId);
     }
-    
+
     /**
      * @notice Get player's agent ID
      */
     function getPlayerAgentId(address player) external view returns (uint256) {
         return playerAgentId[player];
     }
-    
+
     // ============ Ban Checking (uses standard Jeju BanManager) ============
-    
+
     /**
      * @notice Check if player is allowed (not banned from network or this app)
      * @param player Player address
@@ -272,31 +264,29 @@ contract GameIntegration is Ownable {
         if (banManager == address(0)) {
             return true; // No moderation configured
         }
-        
+
         uint256 agentId = playerAgentId[player];
-        
+
         if (agentId > 0) {
             // Player has linked agent ID - check agent-based bans
             // isAccessAllowed returns false if network banned OR app banned
-            (bool success, bytes memory result) = banManager.staticcall(
-                abi.encodeWithSignature("isAccessAllowed(uint256,bytes32)", agentId, appId)
-            );
+            (bool success, bytes memory result) =
+                banManager.staticcall(abi.encodeWithSignature("isAccessAllowed(uint256,bytes32)", agentId, appId));
             if (success && result.length >= 32 && !abi.decode(result, (bool))) {
                 return false;
             }
         }
-        
+
         // Also check address-based bans (for unregistered players or additional security)
-        (bool success2, bytes memory result2) = banManager.staticcall(
-            abi.encodeWithSignature("isAddressAccessAllowed(address,bytes32)", player, appId)
-        );
+        (bool success2, bytes memory result2) =
+            banManager.staticcall(abi.encodeWithSignature("isAddressAccessAllowed(address,bytes32)", player, appId));
         if (success2 && result2.length >= 32 && !abi.decode(result2, (bool))) {
             return false;
         }
-        
+
         return true;
     }
-    
+
     /**
      * @notice Require player is allowed (reverts if banned)
      * @param player Player address
@@ -306,7 +296,7 @@ contract GameIntegration is Ownable {
             revert PlayerBanned(player, playerAgentId[player]);
         }
     }
-    
+
     /**
      * @notice Get ban reason for a player (if banned)
      * @param player Player address
@@ -314,45 +304,40 @@ contract GameIntegration is Ownable {
      */
     function getBanReason(address player) external view returns (string memory reason) {
         if (banManager == address(0)) return "";
-        
+
         uint256 agentId = playerAgentId[player];
         if (agentId > 0) {
-            (bool success, bytes memory result) = banManager.staticcall(
-                abi.encodeWithSignature("getBanReason(uint256,bytes32)", agentId, appId)
-            );
+            (bool success, bytes memory result) =
+                banManager.staticcall(abi.encodeWithSignature("getBanReason(uint256,bytes32)", agentId, appId));
             if (success && result.length > 0) {
                 return abi.decode(result, (string));
             }
         }
-        
+
         return "";
     }
-    
+
     // ============ View Functions ============
-    
+
     /**
      * @notice Get all contract addresses
      */
-    function getContracts() external view returns (
-        address _banManager,
-        address _identityRegistry,
-        address _itemsContract,
-        address _goldContract,
-        address _bazaar,
-        address _paymaster,
-        uint256 _gameAgentId
-    ) {
-        return (
-            banManager,
-            identityRegistry,
-            itemsContract,
-            goldContract,
-            bazaar,
-            paymaster,
-            gameAgentId
-        );
+    function getContracts()
+        external
+        view
+        returns (
+            address _banManager,
+            address _identityRegistry,
+            address _itemsContract,
+            address _goldContract,
+            address _bazaar,
+            address _paymaster,
+            uint256 _gameAgentId
+        )
+    {
+        return (banManager, identityRegistry, itemsContract, goldContract, bazaar, paymaster, gameAgentId);
     }
-    
+
     /**
      * @notice Get contract version
      */

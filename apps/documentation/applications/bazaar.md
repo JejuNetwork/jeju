@@ -204,6 +204,5 @@ docker run -p 4006:4006 -e NEXT_PUBLIC_NETWORK=testnet jeju-bazaar
 
 ## Next Steps
 
-- [Become a Liquidity Provider](/guides/become-lp) — Earn trading fees
-- [Launch a Token](/guides/launch-token) — Create your own token
-- [Register a JNS Name](/guides/register-name) — Get your .jeju name
+- [DeFi Contracts](/build/contracts/overview) — Uniswap V4 integration
+- [GraphQL API](/reference/api/graphql) — Query marketplace data

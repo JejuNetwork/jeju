@@ -67,10 +67,11 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
 
     /// @notice Payment token selector
     enum PaymentToken {
-        JEJU,    // 0
-        USDC,    // 1
+        JEJU, // 0
+        USDC, // 1
         ElizaOS, // 2
-        ETH      // 3
+        ETH // 3
+
     }
 
     /// @notice ETH address constant

@@ -28,12 +28,13 @@ contract KeepaliveRegistry is Ownable, ReentrancyGuard, Pausable {
     // ============ Enums ============
 
     enum ResourceType {
-        IPFS_CONTENT,      // Frontend/static content on IPFS
-        COMPUTE_ENDPOINT,  // API/backend compute
-        TRIGGER,           // TriggerRegistry trigger
-        STORAGE,           // StorageProviderRegistry
-        AGENT,             // ERC-8004 agent
-        CUSTOM             // Custom endpoint
+        IPFS_CONTENT, // Frontend/static content on IPFS
+        COMPUTE_ENDPOINT, // API/backend compute
+        TRIGGER, // TriggerRegistry trigger
+        STORAGE, // StorageProviderRegistry
+        AGENT, // ERC-8004 agent
+        CUSTOM // Custom endpoint
+
     }
 
     enum HealthStatus {
@@ -48,22 +49,22 @@ contract KeepaliveRegistry is Ownable, ReentrancyGuard, Pausable {
 
     struct Resource {
         ResourceType resourceType;
-        string identifier;        // CID, endpoint URL, trigger ID, etc.
-        string healthEndpoint;    // Standard health check URL
-        uint256 minBalance;       // Min balance required (0 if N/A)
-        bool required;            // If false, degraded not unhealthy
+        string identifier; // CID, endpoint URL, trigger ID, etc.
+        string healthEndpoint; // Standard health check URL
+        uint256 minBalance; // Min balance required (0 if N/A)
+        bool required; // If false, degraded not unhealthy
     }
 
     struct KeepaliveConfig {
         bytes32 keepaliveId;
         address owner;
-        bytes32 jnsNode;              // JNS name node
-        uint256 agentId;              // ERC-8004 agent (0 if none)
-        address vaultAddress;         // Funding source
-        uint256 globalMinBalance;     // Min total balance
-        uint256 checkInterval;        // Seconds between health checks
-        uint256 autoFundAmount;       // Amount to auto-fund when low
-        bool autoFundEnabled;         // Enable auto-funding
+        bytes32 jnsNode; // JNS name node
+        uint256 agentId; // ERC-8004 agent (0 if none)
+        address vaultAddress; // Funding source
+        uint256 globalMinBalance; // Min total balance
+        uint256 checkInterval; // Seconds between health checks
+        uint256 autoFundAmount; // Amount to auto-fund when low
+        bool autoFundEnabled; // Enable auto-funding
         bool active;
         uint256 createdAt;
         uint256 lastCheckAt;
@@ -103,20 +104,13 @@ contract KeepaliveRegistry is Ownable, ReentrancyGuard, Pausable {
     // ============ Events ============
 
     event KeepaliveRegistered(
-        bytes32 indexed keepaliveId,
-        address indexed owner,
-        bytes32 indexed jnsNode,
-        uint256 agentId
+        bytes32 indexed keepaliveId, address indexed owner, bytes32 indexed jnsNode, uint256 agentId
     );
     event KeepaliveUpdated(bytes32 indexed keepaliveId);
     event ResourceAdded(bytes32 indexed keepaliveId, ResourceType resourceType, string identifier);
     event ResourceRemoved(bytes32 indexed keepaliveId, uint256 index);
     event HealthChecked(
-        bytes32 indexed keepaliveId,
-        HealthStatus status,
-        uint256 balance,
-        uint8 healthyResources,
-        uint8 totalResources
+        bytes32 indexed keepaliveId, HealthStatus status, uint256 balance, uint8 healthyResources, uint8 totalResources
     );
     event AutoFunded(bytes32 indexed keepaliveId, uint256 amount, address vault);
     event StatusChanged(bytes32 indexed keepaliveId, HealthStatus oldStatus, HealthStatus newStatus);
@@ -157,11 +151,7 @@ contract KeepaliveRegistry is Ownable, ReentrancyGuard, Pausable {
 
     // ============ Constructor ============
 
-    constructor(
-        address _triggerRegistry,
-        address _agentVault,
-        address _jnsRegistry
-    ) Ownable(msg.sender) {
+    constructor(address _triggerRegistry, address _agentVault, address _jnsRegistry) Ownable(msg.sender) {
         triggerRegistry = _triggerRegistry;
         agentVault = _agentVault;
         jnsRegistry = _jnsRegistry;
@@ -237,13 +227,15 @@ contract KeepaliveRegistry is Ownable, ReentrancyGuard, Pausable {
             revert InvalidResource();
         }
 
-        keepaliveResources[keepaliveId].push(Resource({
-            resourceType: resourceType,
-            identifier: identifier,
-            healthEndpoint: healthEndpoint,
-            minBalance: minBalance,
-            required: required
-        }));
+        keepaliveResources[keepaliveId].push(
+            Resource({
+                resourceType: resourceType,
+                identifier: identifier,
+                healthEndpoint: healthEndpoint,
+                minBalance: minBalance,
+                required: required
+            })
+        );
 
         emit ResourceAdded(keepaliveId, resourceType, identifier);
     }
@@ -333,12 +325,11 @@ contract KeepaliveRegistry is Ownable, ReentrancyGuard, Pausable {
     /**
      * @notice Get full status for a keepalive
      */
-    function getStatus(bytes32 keepaliveId) external view returns (
-        bool funded,
-        HealthStatus status,
-        uint256 lastCheck,
-        uint256 balance
-    ) {
+    function getStatus(bytes32 keepaliveId)
+        external
+        view
+        returns (bool funded, HealthStatus status, uint256 lastCheck, uint256 balance)
+    {
         KeepaliveConfig storage config = keepalives[keepaliveId];
         HealthCheckResult storage result = lastHealthCheck[keepaliveId];
 
@@ -351,12 +342,11 @@ contract KeepaliveRegistry is Ownable, ReentrancyGuard, Pausable {
     /**
      * @notice Get status by JNS node
      */
-    function getStatusByJNS(bytes32 jnsNode) external view returns (
-        bool exists,
-        bool funded,
-        HealthStatus status,
-        bytes32 keepaliveId
-    ) {
+    function getStatusByJNS(bytes32 jnsNode)
+        external
+        view
+        returns (bool exists, bool funded, HealthStatus status, bytes32 keepaliveId)
+    {
         keepaliveId = jnsToKeepalive[jnsNode];
         exists = keepaliveId != bytes32(0);
 
@@ -383,7 +373,7 @@ contract KeepaliveRegistry is Ownable, ReentrancyGuard, Pausable {
             return;
         }
 
-        (bool success, ) = agentVault.call(
+        (bool success,) = agentVault.call(
             abi.encodeWithSignature(
                 "spend(uint256,address,uint256,string)",
                 config.agentId,
@@ -399,7 +389,7 @@ contract KeepaliveRegistry is Ownable, ReentrancyGuard, Pausable {
     function manualFund(bytes32 keepaliveId) external payable keepaliveExists(keepaliveId) nonReentrant {
         KeepaliveConfig storage config = keepalives[keepaliveId];
 
-        (bool success, ) = config.vaultAddress.call{value: msg.value}("");
+        (bool success,) = config.vaultAddress.call{value: msg.value}("");
         if (!success) {
             revert AutoFundFailed(keepaliveId, "Transfer to vault failed");
         }
@@ -433,8 +423,7 @@ contract KeepaliveRegistry is Ownable, ReentrancyGuard, Pausable {
             bytes32 id = allKeepaliveIds[i];
             KeepaliveConfig storage config = keepalives[id];
 
-            bool needsCheck = config.lastCheckAt == 0 || 
-                              block.timestamp >= config.lastCheckAt + config.checkInterval;
+            bool needsCheck = config.lastCheckAt == 0 || block.timestamp >= config.lastCheckAt + config.checkInterval;
             if (config.active && needsCheck) {
                 result[count++] = id;
             }

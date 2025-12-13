@@ -18,7 +18,22 @@ import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
 import { $ } from 'bun';
 import { ethers } from 'ethers';
 
-describe('Node Staking System E2E (Multi-Token)', () => {
+// This E2E test starts a full localnet - only run manually with RUN_E2E_TESTS=1
+// Check if explicitly enabled and if Kurtosis is installed
+const runE2ETests = process.env.RUN_E2E_TESTS === '1';
+let kurtosisAvailable = false;
+if (runE2ETests) {
+  try {
+    const result = await $`which kurtosis`.quiet().nothrow();
+    kurtosisAvailable = result.exitCode === 0;
+  } catch {
+    console.log('Kurtosis not available, skipping node staking E2E tests');
+  }
+} else {
+  console.log('Skipping Node Staking E2E tests (set RUN_E2E_TESTS=1 to enable)');
+}
+
+describe.skipIf(!runE2ETests || !kurtosisAvailable)('Node Staking System E2E (Multi-Token)', () => {
   let provider: ethers.Provider;
   let deployer: ethers.Wallet;
   let operator1: ethers.Wallet;

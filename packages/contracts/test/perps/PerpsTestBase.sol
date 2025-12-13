@@ -69,34 +69,39 @@ abstract contract PerpsTestBase is Test {
         insuranceFund.addSupportedToken(address(weth));
 
         // Deploy MarginManager
-        marginManager = new MarginManager(
-            address(priceOracle),
-            address(tokenRegistry),
-            owner
-        );
+        marginManager = new MarginManager(address(priceOracle), address(tokenRegistry), owner);
         marginManager.addCollateralToken(address(usdc), 10000, 0); // 100% weight, no max
         marginManager.addCollateralToken(address(weth), 9500, 0); // 95% weight
 
         // Deploy PerpetualMarket
-        perpMarket = new PerpetualMarket(
-            address(marginManager),
-            address(priceFeed),
-            address(insuranceFund),
-            feeReceiver,
-            owner
-        );
+        perpMarket =
+            new PerpetualMarket(address(marginManager), address(priceFeed), address(insuranceFund), feeReceiver, owner);
 
         // Add markets
-        perpMarket.addMarket(BTC_PERP, "BTC-USD", address(0), DEFAULT_MAX_LEVERAGE, DEFAULT_MAINTENANCE_MARGIN_BPS, DEFAULT_MAKER_FEE_BPS, DEFAULT_TAKER_FEE_BPS, DEFAULT_MAX_OI);
-        perpMarket.addMarket(ETH_PERP, "ETH-USD", address(0), DEFAULT_MAX_LEVERAGE, DEFAULT_MAINTENANCE_MARGIN_BPS, DEFAULT_MAKER_FEE_BPS, DEFAULT_TAKER_FEE_BPS, DEFAULT_MAX_OI);
+        perpMarket.addMarket(
+            BTC_PERP,
+            "BTC-USD",
+            address(0),
+            DEFAULT_MAX_LEVERAGE,
+            DEFAULT_MAINTENANCE_MARGIN_BPS,
+            DEFAULT_MAKER_FEE_BPS,
+            DEFAULT_TAKER_FEE_BPS,
+            DEFAULT_MAX_OI
+        );
+        perpMarket.addMarket(
+            ETH_PERP,
+            "ETH-USD",
+            address(0),
+            DEFAULT_MAX_LEVERAGE,
+            DEFAULT_MAINTENANCE_MARGIN_BPS,
+            DEFAULT_MAKER_FEE_BPS,
+            DEFAULT_TAKER_FEE_BPS,
+            DEFAULT_MAX_OI
+        );
 
         // Deploy LiquidationEngine
-        liquidationEngine = new LiquidationEngine(
-            address(perpMarket),
-            address(marginManager),
-            address(insuranceFund),
-            owner
-        );
+        liquidationEngine =
+            new LiquidationEngine(address(perpMarket), address(marginManager), address(insuranceFund), owner);
 
         // Set authorizations
         marginManager.setAuthorizedContract(address(perpMarket), true);
@@ -128,43 +133,26 @@ abstract contract PerpsTestBase is Test {
         vm.stopPrank();
     }
 
-    function openLongPosition(
-        address trader,
-        bytes32 marketId,
-        uint256 margin,
-        uint256 size,
-        uint256 leverage
-    ) internal returns (bytes32 positionId) {
+    function openLongPosition(address trader, bytes32 marketId, uint256 margin, uint256 size, uint256 leverage)
+        internal
+        returns (bytes32 positionId)
+    {
         vm.startPrank(trader);
         usdc.approve(address(perpMarket), margin);
-        IPerpetualMarket.TradeResult memory result = perpMarket.openPosition(
-            marketId,
-            address(usdc),
-            margin,
-            size,
-            IPerpetualMarket.PositionSide.Long,
-            leverage
-        );
+        IPerpetualMarket.TradeResult memory result =
+            perpMarket.openPosition(marketId, address(usdc), margin, size, IPerpetualMarket.PositionSide.Long, leverage);
         positionId = result.positionId;
         vm.stopPrank();
     }
 
-    function openShortPosition(
-        address trader,
-        bytes32 marketId,
-        uint256 margin,
-        uint256 size,
-        uint256 leverage
-    ) internal returns (bytes32 positionId) {
+    function openShortPosition(address trader, bytes32 marketId, uint256 margin, uint256 size, uint256 leverage)
+        internal
+        returns (bytes32 positionId)
+    {
         vm.startPrank(trader);
         usdc.approve(address(perpMarket), margin);
         IPerpetualMarket.TradeResult memory result = perpMarket.openPosition(
-            marketId,
-            address(usdc),
-            margin,
-            size,
-            IPerpetualMarket.PositionSide.Short,
-            leverage
+            marketId, address(usdc), margin, size, IPerpetualMarket.PositionSide.Short, leverage
         );
         positionId = result.positionId;
         vm.stopPrank();
@@ -237,4 +225,3 @@ abstract contract PerpsTestBase is Test {
         assertTrue(pnl < 0, "Position should be unprofitable");
     }
 }
-

@@ -19,6 +19,21 @@ import { createPublicClient, createWalletClient, http, parseEther, formatEther, 
 import { privateKeyToAccount } from 'viem/accounts';
 import { execSync } from 'child_process';
 
+// Check if localnet is available
+const rpcUrl = process.env.JEJU_RPC_URL || 'http://localhost:9545';
+let localnetAvailable = false;
+try {
+  const response = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
+    signal: AbortSignal.timeout(2000)
+  });
+  localnetAvailable = response.ok;
+} catch {
+  console.log(`Localnet not available at ${rpcUrl}, skipping multi-token lifecycle tests`);
+}
+
 const TEST_CONFIG = {
   jejuRpcUrl: process.env.JEJU_RPC_URL || 'http://localhost:9545',
   chainId: 1337,
@@ -44,7 +59,7 @@ const TEST_WALLETS = {
   },
 };
 
-describe('Multi-Token Full Lifecycle', () => {
+describe.skipIf(!localnetAvailable)('Multi-Token Full Lifecycle', () => {
   let publicClient;
   let deployerWallet;
   let lpWallet;
@@ -84,7 +99,7 @@ describe('Multi-Token Full Lifecycle', () => {
     console.log('LP:', TEST_WALLETS.lp.address);
     console.log('User:', TEST_WALLETS.user.address);
     console.log('');
-  }, TEST_CONFIG.timeout);
+  });
 
   test('Step 1: Deploy CLANKER token on Jeju (simulating bridge)', async () => {
     console.log('\n📝 Step 1: Deploying Mock CLANKER...');
@@ -108,7 +123,7 @@ describe('Multi-Token Full Lifecycle', () => {
     const code = await publicClient.getBytecode({ address: clankerToken });
     expect(code).toBeTruthy();
     expect(code).not.toBe('0x');
-  }, TEST_CONFIG.timeout);
+  });
 
   test('Step 2: Deploy paymaster infrastructure for CLANKER', async () => {
     console.log('\n📝 Step 2: Deploying CLANKER Paymaster System...');
@@ -145,7 +160,7 @@ describe('Multi-Token Full Lifecycle', () => {
     clankerVault = '0x0000000000000000000000000000000000000001' as Address;
     clankerDistributor = '0x0000000000000000000000000000000000000002' as Address;
     clankerPaymaster = '0x0000000000000000000000000000000000000003' as Address;
-  }, TEST_CONFIG.timeout);
+  });
 
   test('Step 3: LP provides ETH liquidity to CLANKER vault', async () => {
     console.log('\n📝 Step 3: LP Adding ETH Liquidity...');

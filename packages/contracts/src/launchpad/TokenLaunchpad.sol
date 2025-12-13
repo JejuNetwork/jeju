@@ -17,7 +17,10 @@ import "./LPLocker.sol";
 contract TokenLaunchpad is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    enum LaunchType { BONDING_CURVE, ICO_PRESALE }
+    enum LaunchType {
+        BONDING_CURVE,
+        ICO_PRESALE
+    }
 
     struct FeeConfig {
         uint16 creatorFeeBps;
@@ -65,9 +68,18 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
     mapping(address => uint256) public tokenToLaunchId;
     mapping(address => uint256[]) public creatorLaunches;
 
-    event LaunchCreated(uint256 indexed launchId, address indexed creator, address indexed token, LaunchType launchType, uint16 creatorFeeBps, uint16 communityFeeBps);
+    event LaunchCreated(
+        uint256 indexed launchId,
+        address indexed creator,
+        address indexed token,
+        LaunchType launchType,
+        uint16 creatorFeeBps,
+        uint16 communityFeeBps
+    );
     event LaunchGraduated(uint256 indexed launchId, address indexed token, address lpPair, uint256 lpTokensLocked);
-    event FeeDistributed(uint256 indexed launchId, address indexed token, uint256 creatorAmount, uint256 communityAmount);
+    event FeeDistributed(
+        uint256 indexed launchId, address indexed token, uint256 creatorAmount, uint256 communityAmount
+    );
 
     error InvalidFeeConfig();
     error InvalidConfig();
@@ -103,8 +115,12 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
         tokenAddress = address(token);
 
         BondingCurve curve = new BondingCurve(
-            tokenAddress, curveConfig.virtualEthReserves, curveConfig.graduationTarget,
-            address(this), xlpV2Factory, weth
+            tokenAddress,
+            curveConfig.virtualEthReserves,
+            curveConfig.graduationTarget,
+            address(this),
+            xlpV2Factory,
+            weth
         );
 
         IERC20(address(token)).safeTransfer(address(curve), curveConfig.tokenSupply);
@@ -117,10 +133,16 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
         });
 
         launches[launchId] = Launch({
-            id: launchId, creator: msg.sender, token: tokenAddress,
-            launchType: LaunchType.BONDING_CURVE, feeConfig: feeConfig,
-            bondingCurve: address(curve), presale: address(0),
-            lpLocker: address(0), createdAt: block.timestamp, graduated: false
+            id: launchId,
+            creator: msg.sender,
+            token: tokenAddress,
+            launchType: LaunchType.BONDING_CURVE,
+            feeConfig: feeConfig,
+            bondingCurve: address(curve),
+            presale: address(0),
+            lpLocker: address(0),
+            createdAt: block.timestamp,
+            graduated: false
         });
 
         tokenToLaunchId[tokenAddress] = launchId;
@@ -162,9 +184,8 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
             presaleDuration: icoConfig.presaleDuration
         });
 
-        ICOPresale presale = new ICOPresale(
-            tokenAddress, msg.sender, xlpV2Factory, weth, address(locker), presaleConfig
-        );
+        ICOPresale presale =
+            new ICOPresale(tokenAddress, msg.sender, xlpV2Factory, weth, address(locker), presaleConfig);
 
         // Authorize presale to lock LP tokens
         locker.setAuthorizedLocker(address(presale), true);
@@ -180,10 +201,16 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
         });
 
         launches[launchId] = Launch({
-            id: launchId, creator: msg.sender, token: tokenAddress,
-            launchType: LaunchType.ICO_PRESALE, feeConfig: feeConfig,
-            bondingCurve: address(0), presale: address(presale),
-            lpLocker: address(locker), createdAt: block.timestamp, graduated: false
+            id: launchId,
+            creator: msg.sender,
+            token: tokenAddress,
+            launchType: LaunchType.ICO_PRESALE,
+            feeConfig: feeConfig,
+            bondingCurve: address(0),
+            presale: address(presale),
+            lpLocker: address(locker),
+            createdAt: block.timestamp,
+            graduated: false
         });
 
         tokenToLaunchId[tokenAddress] = launchId;
@@ -191,15 +218,29 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
         emit LaunchCreated(launchId, msg.sender, tokenAddress, LaunchType.ICO_PRESALE, creatorFeeBps, communityFeeBps);
     }
 
-    function getLaunch(uint256 launchId) external view returns (Launch memory) { return launches[launchId]; }
+    function getLaunch(uint256 launchId) external view returns (Launch memory) {
+        return launches[launchId];
+    }
+
     function getTokenFeeConfig(address token) external view returns (FeeConfig memory) {
         uint256 launchId = tokenToLaunchId[token];
         if (launchId == 0) revert LaunchNotFound();
         return launches[launchId].feeConfig;
     }
-    function getCreatorLaunches(address creator) external view returns (uint256[] memory) { return creatorLaunches[creator]; }
-    function launchCount() external view returns (uint256) { return nextLaunchId - 1; }
 
-    function setDefaultCommunityVault(address vault) external onlyOwner { defaultCommunityVault = vault; }
-    function setLPLockerTemplate(address template) external onlyOwner { lpLockerTemplate = template; }
+    function getCreatorLaunches(address creator) external view returns (uint256[] memory) {
+        return creatorLaunches[creator];
+    }
+
+    function launchCount() external view returns (uint256) {
+        return nextLaunchId - 1;
+    }
+
+    function setDefaultCommunityVault(address vault) external onlyOwner {
+        defaultCommunityVault = vault;
+    }
+
+    function setLPLockerTemplate(address template) external onlyOwner {
+        lpLockerTemplate = template;
+    }
 }

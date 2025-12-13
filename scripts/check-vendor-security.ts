@@ -5,7 +5,6 @@ import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 
-const VENDOR_DIR = join(process.cwd(), 'vendor');
 const ROOT_PACKAGE_JSON = join(process.cwd(), 'package.json');
 
 interface Vulnerability {
@@ -30,7 +29,7 @@ async function checkPackageOverrides(): Promise<void> {
     const overrides = packageJson.overrides || {};
     const resolutions = packageJson.resolutions || {};
     
-    const requiredOverrides = ['qs', 'socket.io-parser', 'hawk', 'playwright', '@hapi/hoek'];
+    const requiredOverrides = ['qs', 'socket.io-parser', 'hawk', 'playwright', '@hapi/hoek', 'tough-cookie', 'node-fetch'];
     const missing: string[] = [];
     
     for (const pkg of requiredOverrides) {

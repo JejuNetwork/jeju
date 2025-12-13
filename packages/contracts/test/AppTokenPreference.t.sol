@@ -59,10 +59,10 @@ contract AppTokenPreferenceTest is Test {
 
     function test_RegisterApp() public {
         vm.prank(registrant);
-        
+
         vm.expectEmit(true, true, false, true);
         emit AppPreferenceSet(hyperscapeApp, address(hyperToken), "HYPER", true, registrant);
-        
+
         preference.registerApp(hyperscapeApp, address(hyperToken), true, 1e18);
 
         AppTokenPreference.AppPreference memory pref = preference.getAppPreference(hyperscapeApp);
@@ -215,7 +215,7 @@ contract AppTokenPreferenceTest is Test {
         address[] memory defaults = new address[](2);
         defaults[0] = address(usdcToken);
         defaults[1] = address(hyperToken);
-        
+
         vm.prank(owner);
         preference.setGlobalDefaults(defaults);
 
@@ -327,7 +327,7 @@ contract AppTokenPreferenceTest is Test {
 
     function test_SetTokenRegistry() public {
         address newRegistry = address(0x7777);
-        
+
         vm.prank(owner);
         preference.setTokenRegistry(newRegistry);
 
@@ -336,7 +336,7 @@ contract AppTokenPreferenceTest is Test {
 
     function test_SetCrossChainPaymaster() public {
         address newPaymaster = address(0x8888);
-        
+
         vm.prank(owner);
         preference.setCrossChainPaymaster(newPaymaster);
 
@@ -348,7 +348,7 @@ contract AppTokenPreferenceTest is Test {
     function test_GetRegisteredApps() public {
         vm.prank(registrant);
         preference.registerApp(hyperscapeApp, address(hyperToken), true, 1e18);
-        
+
         vm.prank(registrant);
         preference.registerApp(babylonApp, address(babylonToken), true, 1e18);
 

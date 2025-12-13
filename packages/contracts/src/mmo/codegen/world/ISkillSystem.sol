@@ -9,21 +9,21 @@ pragma solidity >=0.8.24;
  * @dev This interface is automatically generated from the corresponding system contract. Do not edit manually.
  */
 interface ISkillSystem {
-  function hyperscape__grantAttackXP(address player, uint32 xp) external;
+    function hyperscape__grantAttackXP(address player, uint32 xp) external;
 
-  function hyperscape__grantStrengthXP(address player, uint32 xp) external;
+    function hyperscape__grantStrengthXP(address player, uint32 xp) external;
 
-  function hyperscape__grantDefenseXP(address player, uint32 xp) external;
+    function hyperscape__grantDefenseXP(address player, uint32 xp) external;
 
-  function hyperscape__grantConstitutionXP(address player, uint32 xp) external;
+    function hyperscape__grantConstitutionXP(address player, uint32 xp) external;
 
-  function hyperscape__grantRangedXP(address player, uint32 xp) external;
+    function hyperscape__grantRangedXP(address player, uint32 xp) external;
 
-  function hyperscape__grantWoodcuttingXP(address player, uint32 xp) external;
+    function hyperscape__grantWoodcuttingXP(address player, uint32 xp) external;
 
-  function hyperscape__grantFishingXP(address player, uint32 xp) external;
+    function hyperscape__grantFishingXP(address player, uint32 xp) external;
 
-  function hyperscape__grantFiremakingXP(address player, uint32 xp) external;
+    function hyperscape__grantFiremakingXP(address player, uint32 xp) external;
 
-  function hyperscape__grantCookingXP(address player, uint32 xp) external;
+    function hyperscape__grantCookingXP(address player, uint32 xp) external;
 }

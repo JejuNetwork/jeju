@@ -13,9 +13,17 @@ contract MockERC20 is ERC20 {
         _decimals = 18;
     }
 
-    function mint(address to, uint256 amount) external { _mint(to, amount); }
-    function burn(address from, uint256 amount) external { _burn(from, amount); }
-    function decimals() public view override returns (uint8) { return _decimals; }
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
+
+    function burn(address from, uint256 amount) external {
+        _burn(from, amount);
+    }
+
+    function decimals() public view override returns (uint8) {
+        return _decimals;
+    }
 }
 
 /// @title MockERC20WithDecimals
@@ -27,9 +35,17 @@ contract MockERC20WithDecimals is ERC20 {
         _decimals = decimals_;
     }
 
-    function mint(address to, uint256 amount) external { _mint(to, amount); }
-    function burn(address from, uint256 amount) external { _burn(from, amount); }
-    function decimals() public view override returns (uint8) { return _decimals; }
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
+
+    function burn(address from, uint256 amount) external {
+        _burn(from, amount);
+    }
+
+    function decimals() public view override returns (uint8) {
+        return _decimals;
+    }
 }
 
 /// @title MockUSDC
@@ -90,41 +106,21 @@ contract MockPriceFeed is IPriceFeedAggregator {
     mapping(string => PriceData) private priceData;
 
     function setPrice(string calldata asset, uint256 price, bool isValid) external {
-        priceData[asset] = PriceData({
-            price: price,
-            timestamp: block.timestamp,
-            isValid: isValid
-        });
+        priceData[asset] = PriceData({price: price, timestamp: block.timestamp, isValid: isValid});
     }
 
     function setPriceWithTimestamp(string calldata asset, uint256 price, uint256 timestamp, bool isValid) external {
-        priceData[asset] = PriceData({
-            price: price,
-            timestamp: timestamp,
-            isValid: isValid
-        });
+        priceData[asset] = PriceData({price: price, timestamp: timestamp, isValid: isValid});
     }
 
-    function getPrice(string calldata asset) external view returns (
-        uint256 price,
-        uint256 timestamp,
-        bool isValid
-    ) {
+    function getPrice(string calldata asset) external view returns (uint256 price, uint256 timestamp, bool isValid) {
         PriceData memory data = priceData[asset];
         return (data.price, data.timestamp, data.isValid);
     }
 
-    function batchSetPrices(
-        string[] calldata assets,
-        uint256[] calldata prices,
-        bool[] calldata validFlags
-    ) external {
+    function batchSetPrices(string[] calldata assets, uint256[] calldata prices, bool[] calldata validFlags) external {
         for (uint256 i = 0; i < assets.length; i++) {
-            priceData[assets[i]] = PriceData({
-                price: prices[i],
-                timestamp: block.timestamp,
-                isValid: validFlags[i]
-            });
+            priceData[assets[i]] = PriceData({price: prices[i], timestamp: block.timestamp, isValid: validFlags[i]});
         }
     }
 }
@@ -217,8 +213,13 @@ contract MockIdentityRegistry {
         exists[agentId] = true;
     }
 
-    function ownerOf(uint256 agentId) external view returns (address) { return owners[agentId]; }
-    function agentExists(uint256 agentId) external view returns (bool) { return exists[agentId]; }
+    function ownerOf(uint256 agentId) external view returns (address) {
+        return owners[agentId];
+    }
+
+    function agentExists(uint256 agentId) external view returns (bool) {
+        return exists[agentId];
+    }
 }
 
 /// @title MockReputationRegistry
@@ -226,8 +227,14 @@ contract MockIdentityRegistry {
 contract MockReputationRegistry {
     mapping(uint256 => uint256) public reputations;
 
-    function setReputation(uint256 agentId, uint256 score) external { reputations[agentId] = score; }
-    function getReputation(uint256 agentId) external view returns (uint256) { return reputations[agentId]; }
+    function setReputation(uint256 agentId, uint256 score) external {
+        reputations[agentId] = score;
+    }
+
+    function getReputation(uint256 agentId) external view returns (uint256) {
+        return reputations[agentId];
+    }
+
     function getSummary(uint256 agentId, address[] calldata, bytes32, bytes32) external view returns (uint64, uint8) {
         uint256 rep = reputations[agentId];
         if (rep == 0) return (0, 50);
@@ -258,11 +265,15 @@ contract MockPerpMarket {
 /// @title MockMarginManager
 /// @notice Mock margin manager for tests
 contract MockMarginManager {
-    function releaseCollateral(address, address, uint256) external pure returns (bool) { return true; }
+    function releaseCollateral(address, address, uint256) external pure returns (bool) {
+        return true;
+    }
 }
 
 /// @title MockInsuranceFund
 /// @notice Mock insurance fund for tests
 contract MockInsuranceFund {
-    function coverBadDebt(address, uint256) external pure returns (bool) { return true; }
+    function coverBadDebt(address, uint256) external pure returns (bool) {
+        return true;
+    }
 }

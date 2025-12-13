@@ -39,11 +39,8 @@ contract MockL2OutputOracleThorough {
     uint256 public _latestBlockNumber = 1000;
 
     function addOutput(bytes32 outputRoot, uint128 timestamp, uint128 l2BlockNumber) external {
-        outputs[outputCount] = IL2OutputOracle.OutputProposal({
-            outputRoot: outputRoot,
-            timestamp: timestamp,
-            l2BlockNumber: l2BlockNumber
-        });
+        outputs[outputCount] =
+            IL2OutputOracle.OutputProposal({outputRoot: outputRoot, timestamp: timestamp, l2BlockNumber: l2BlockNumber});
         outputCount++;
         if (l2BlockNumber > _latestBlockNumber) {
             _latestBlockNumber = l2BlockNumber;
@@ -135,9 +132,8 @@ contract EILThoroughTest is Test {
         verifier.registerOracle(L2_CHAIN_ID, address(oracle), false);
         l1StakeManager.setStateRootVerifier(address(verifier));
 
-        paymaster = new CrossChainPaymaster(
-            IEntryPoint(address(entryPoint)), address(l1StakeManager), L2_CHAIN_ID, address(0)
-        );
+        paymaster =
+            new CrossChainPaymaster(IEntryPoint(address(entryPoint)), address(l1StakeManager), L2_CHAIN_ID, address(0));
         paymaster.setMessenger(address(messenger));
         paymaster.setTokenSupport(address(0), true);
         paymaster.setTokenSupport(address(token), true);
@@ -302,11 +298,13 @@ contract EILThoroughTest is Test {
         // Both XLPs prepare signatures
         uint256 fee = paymaster.getCurrentFee(requestId);
 
-        bytes32 commitment0 = keccak256(abi.encodePacked(requestId, xlps[0], uint256(1 ether), fee, uint256(L1_CHAIN_ID)));
+        bytes32 commitment0 =
+            keccak256(abi.encodePacked(requestId, xlps[0], uint256(1 ether), fee, uint256(L1_CHAIN_ID)));
         (uint8 v0, bytes32 r0, bytes32 s0) = vm.sign(xlpPrivateKeys[0], commitment0.toEthSignedMessageHash());
         bytes memory sig0 = abi.encodePacked(r0, s0, v0);
 
-        bytes32 commitment1 = keccak256(abi.encodePacked(requestId, xlps[1], uint256(1 ether), fee, uint256(L1_CHAIN_ID)));
+        bytes32 commitment1 =
+            keccak256(abi.encodePacked(requestId, xlps[1], uint256(1 ether), fee, uint256(L1_CHAIN_ID)));
         (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(xlpPrivateKeys[1], commitment1.toEthSignedMessageHash());
         bytes memory sig1 = abi.encodePacked(r1, s1, v1);
 
@@ -438,9 +436,7 @@ contract EILThoroughTest is Test {
 
         // Issue voucher
         uint256 fee = paymaster.getCurrentFee(requestId);
-        bytes32 commitment = keccak256(
-            abi.encodePacked(requestId, xlps[0], transferAmount, fee, uint256(L1_CHAIN_ID))
-        );
+        bytes32 commitment = keccak256(abi.encodePacked(requestId, xlps[0], transferAmount, fee, uint256(L1_CHAIN_ID)));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(xlpPrivateKeys[0], commitment.toEthSignedMessageHash());
 
         vm.prank(xlps[0]);
@@ -472,9 +468,7 @@ contract EILThoroughTest is Test {
             );
 
             uint256 fee = paymaster.getCurrentFee(requestId);
-            bytes32 commitment = keccak256(
-                abi.encodePacked(requestId, xlps[0], amount, fee, uint256(L1_CHAIN_ID))
-            );
+            bytes32 commitment = keccak256(abi.encodePacked(requestId, xlps[0], amount, fee, uint256(L1_CHAIN_ID)));
             (uint8 v, bytes32 r, bytes32 s) = vm.sign(xlpPrivateKeys[0], commitment.toEthSignedMessageHash());
 
             vm.prank(xlps[0]);
@@ -504,14 +498,10 @@ contract EILThoroughTest is Test {
         assertTrue(valid, "Should be valid");
 
         // Check cache
-        assertTrue(
-            verifier.isOutputVerified(L2_CHAIN_ID, 2000, outputRoot), "Should be cached"
-        );
+        assertTrue(verifier.isOutputVerified(L2_CHAIN_ID, 2000, outputRoot), "Should be cached");
 
         // Different block number should not be cached
-        assertFalse(
-            verifier.isOutputVerified(L2_CHAIN_ID, 2001, outputRoot), "Different block should not be cached"
-        );
+        assertFalse(verifier.isOutputVerified(L2_CHAIN_ID, 2001, outputRoot), "Different block should not be cached");
     }
 
     // ============ Signature Edge Cases ============
@@ -527,9 +517,7 @@ contract EILThoroughTest is Test {
         uint256 fee = paymaster.getCurrentFee(requestId);
 
         // Sign with wrong chain ID
-        bytes32 wrongCommitment = keccak256(
-            abi.encodePacked(requestId, xlps[0], uint256(1 ether), fee, uint256(9999))
-        );
+        bytes32 wrongCommitment = keccak256(abi.encodePacked(requestId, xlps[0], uint256(1 ether), fee, uint256(9999)));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(xlpPrivateKeys[0], wrongCommitment.toEthSignedMessageHash());
 
         vm.prank(xlps[0]);
@@ -548,9 +536,8 @@ contract EILThoroughTest is Test {
         uint256 fee = paymaster.getCurrentFee(requestId);
 
         // Sign with wrong amount
-        bytes32 wrongCommitment = keccak256(
-            abi.encodePacked(requestId, xlps[0], uint256(2 ether), fee, uint256(L1_CHAIN_ID))
-        );
+        bytes32 wrongCommitment =
+            keccak256(abi.encodePacked(requestId, xlps[0], uint256(2 ether), fee, uint256(L1_CHAIN_ID)));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(xlpPrivateKeys[0], wrongCommitment.toEthSignedMessageHash());
 
         vm.prank(xlps[0]);
@@ -604,14 +591,7 @@ contract EILThoroughTest is Test {
         token.approve(address(paymaster), tokenAmount);
 
         bytes32 requestId = paymaster.createVoucherRequest{value: 0.1 ether}(
-            address(token),
-            tokenAmount,
-            address(token),
-            L1_CHAIN_ID,
-            user,
-            0.001 ether,
-            0.1 ether,
-            0.01 ether
+            address(token), tokenAmount, address(token), L1_CHAIN_ID, user, 0.001 ether, 0.1 ether, 0.01 ether
         );
         vm.stopPrank();
 

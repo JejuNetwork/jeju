@@ -56,20 +56,22 @@ contract EdgeCasesTest is Test {
         feeRouter = new OracleFeeRouter(address(registry), owner);
         disputeGame = new DisputeGame(address(verifier), address(registry), owner);
 
-        feedId = registry.createFeed(IFeedRegistry.FeedCreateParams({
-            symbol: "ETH-USD",
-            baseToken: WETH,
-            quoteToken: USDC,
-            decimals: 8,
-            heartbeatSeconds: 3600,
-            twapWindowSeconds: 1800,
-            minLiquidityUSD: 100_000 ether,
-            maxDeviationBps: 100,
-            minOracles: 3,
-            quorumThreshold: 2,
-            requiresConfidence: true,
-            category: IFeedRegistry.FeedCategory.SPOT_PRICE
-        }));
+        feedId = registry.createFeed(
+            IFeedRegistry.FeedCreateParams({
+                symbol: "ETH-USD",
+                baseToken: WETH,
+                quoteToken: USDC,
+                decimals: 8,
+                heartbeatSeconds: 3600,
+                twapWindowSeconds: 1800,
+                minLiquidityUSD: 100_000 ether,
+                maxDeviationBps: 100,
+                minOracles: 3,
+                quorumThreshold: 2,
+                requiresConfidence: true,
+                category: IFeedRegistry.FeedCategory.SPOT_PRICE
+            })
+        );
         vm.stopPrank();
     }
 
@@ -101,7 +103,7 @@ contract EdgeCasesTest is Test {
         IFeedRegistry.FeedCreateParams memory params = IFeedRegistry.FeedCreateParams({
             symbol: "USDC-USDC",
             baseToken: USDC,
-            quoteToken: USDC,  // Same as base
+            quoteToken: USDC, // Same as base
             decimals: 8,
             heartbeatSeconds: 3600,
             twapWindowSeconds: 1800,
@@ -206,7 +208,7 @@ contract EdgeCasesTest is Test {
     function test_ReportVerifier_ZeroPrice() public {
         IReportVerifier.PriceReport memory report = IReportVerifier.PriceReport({
             feedId: feedId,
-            price: 0,  // Zero price
+            price: 0, // Zero price
             confidence: 9800,
             timestamp: block.timestamp,
             round: 1,
@@ -227,7 +229,7 @@ contract EdgeCasesTest is Test {
         IReportVerifier.PriceReport memory report = IReportVerifier.PriceReport({
             feedId: feedId,
             price: 2500e8,
-            confidence: 10000,  // Max confidence (100%)
+            confidence: 10000, // Max confidence (100%)
             timestamp: block.timestamp,
             round: 1,
             sourcesHash: keccak256("uniswap-v3")
@@ -251,7 +253,7 @@ contract EdgeCasesTest is Test {
             feedId: feedId,
             price: 2500e8,
             confidence: 9800,
-            timestamp: block.timestamp + 1 hours,  // Future timestamp
+            timestamp: block.timestamp + 1 hours, // Future timestamp
             round: 1,
             sourcesHash: keccak256("uniswap-v3")
         });
@@ -261,11 +263,7 @@ contract EdgeCasesTest is Test {
         sigs[0] = _sign(signer1Pk, reportHash);
         sigs[1] = _sign(signer2Pk, reportHash);
 
-        vm.expectRevert(abi.encodeWithSelector(
-            IReportVerifier.StaleReport.selector,
-            report.timestamp,
-            block.timestamp
-        ));
+        vm.expectRevert(abi.encodeWithSelector(IReportVerifier.StaleReport.selector, report.timestamp, block.timestamp));
         vm.prank(owner);
         verifier.submitReport(IReportVerifier.ReportSubmission({report: report, signatures: sigs}));
     }
@@ -345,20 +343,22 @@ contract EdgeCasesTest is Test {
     function test_ReportVerifier_BatchSubmission() public {
         // Create second feed
         vm.prank(owner);
-        bytes32 feedId2 = registry.createFeed(IFeedRegistry.FeedCreateParams({
-            symbol: "BTC-USD",
-            baseToken: address(0x200),
-            quoteToken: USDC,
-            decimals: 8,
-            heartbeatSeconds: 3600,
-            twapWindowSeconds: 1800,
-            minLiquidityUSD: 100_000 ether,
-            maxDeviationBps: 100,
-            minOracles: 3,
-            quorumThreshold: 2,
-            requiresConfidence: true,
-            category: IFeedRegistry.FeedCategory.SPOT_PRICE
-        }));
+        bytes32 feedId2 = registry.createFeed(
+            IFeedRegistry.FeedCreateParams({
+                symbol: "BTC-USD",
+                baseToken: address(0x200),
+                quoteToken: USDC,
+                decimals: 8,
+                heartbeatSeconds: 3600,
+                twapWindowSeconds: 1800,
+                minLiquidityUSD: 100_000 ether,
+                maxDeviationBps: 100,
+                minOracles: 3,
+                quorumThreshold: 2,
+                requiresConfidence: true,
+                category: IFeedRegistry.FeedCategory.SPOT_PRICE
+            })
+        );
 
         IReportVerifier.ReportSubmission[] memory submissions = new IReportVerifier.ReportSubmission[](2);
 
@@ -411,9 +411,7 @@ contract EdgeCasesTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IDisputeGame.ReportNotDisputable.selector, fakeReportHash));
         vm.prank(user1);
         disputeGame.openDispute{value: 100 ether}(
-            fakeReportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("evidence")
+            fakeReportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
         );
     }
 
@@ -424,9 +422,7 @@ contract EdgeCasesTest is Test {
 
         vm.prank(user1);
         bytes32 disputeId = disputeGame.openDispute{value: 100 ether}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("evidence")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
         );
 
         // Challenge with exact bond amount
@@ -443,9 +439,7 @@ contract EdgeCasesTest is Test {
 
         vm.prank(user1);
         bytes32 disputeId = disputeGame.openDispute{value: 100 ether}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("evidence")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
         );
 
         // Challenge with more than required
@@ -462,16 +456,10 @@ contract EdgeCasesTest is Test {
 
         vm.prank(user1);
         bytes32 disputeId = disputeGame.openDispute{value: 100 ether}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("evidence")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
         );
 
-        vm.expectRevert(abi.encodeWithSelector(
-            IDisputeGame.InsufficientBond.selector,
-            50 ether,
-            100 ether
-        ));
+        vm.expectRevert(abi.encodeWithSelector(IDisputeGame.InsufficientBond.selector, 50 ether, 100 ether));
         vm.prank(user2);
         disputeGame.challengeDispute{value: 50 ether}(disputeId);
     }
@@ -482,9 +470,7 @@ contract EdgeCasesTest is Test {
 
         vm.prank(user1);
         bytes32 disputeId = disputeGame.openDispute{value: 100 ether}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("evidence")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
         );
 
         vm.expectRevert(IDisputeGame.NotAuthorizedResolver.selector);
@@ -503,9 +489,7 @@ contract EdgeCasesTest is Test {
 
         vm.prank(user1);
         bytes32 disputeId = disputeGame.openDispute{value: 100 ether}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("evidence")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
         );
 
         // Resolver should be able to resolve
@@ -522,9 +506,7 @@ contract EdgeCasesTest is Test {
 
         vm.prank(user1);
         bytes32 disputeId = disputeGame.openDispute{value: 100 ether}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("evidence")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
         );
 
         // Try to expire before deadline
@@ -547,16 +529,12 @@ contract EdgeCasesTest is Test {
         // Open disputes for both
         vm.prank(user1);
         bytes32 disputeId1 = disputeGame.openDispute{value: 100 ether}(
-            reportHash1,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("evidence1")
+            reportHash1, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence1")
         );
 
         vm.prank(user2);
         bytes32 disputeId2 = disputeGame.openDispute{value: 100 ether}(
-            reportHash2,
-            IDisputeGame.DisputeReason.STALE_DATA,
-            keccak256("evidence2")
+            reportHash2, IDisputeGame.DisputeReason.STALE_DATA, keccak256("evidence2")
         );
 
         // Check tracking
@@ -582,9 +560,7 @@ contract EdgeCasesTest is Test {
         vm.expectRevert(); // Pausable
         vm.prank(user1);
         disputeGame.openDispute{value: 100 ether}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("evidence")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
         );
 
         vm.prank(owner);
@@ -593,9 +569,7 @@ contract EdgeCasesTest is Test {
         // Should work now
         vm.prank(user1);
         bytes32 disputeId = disputeGame.openDispute{value: 100 ether}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("evidence")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
         );
         assertTrue(disputeId != bytes32(0));
     }
@@ -606,9 +580,9 @@ contract EdgeCasesTest is Test {
         vm.prank(owner);
         committee.setCommitteeConfig(
             feedId,
-            5,  // targetSize
-            3,  // minSize
-            3,  // threshold
+            5, // targetSize
+            3, // minSize
+            3, // threshold
             12 hours, // rotationPeriod
             ICommitteeManager.SelectionMode.GOVERNANCE
         );
@@ -666,20 +640,22 @@ contract EdgeCasesTest is Test {
 
         // Not allowlisted for other feed
         vm.prank(owner);
-        bytes32 feedId2 = registry.createFeed(IFeedRegistry.FeedCreateParams({
-            symbol: "BTC-USD",
-            baseToken: address(0x200),
-            quoteToken: USDC,
-            decimals: 8,
-            heartbeatSeconds: 3600,
-            twapWindowSeconds: 1800,
-            minLiquidityUSD: 100_000 ether,
-            maxDeviationBps: 100,
-            minOracles: 3,
-            quorumThreshold: 2,
-            requiresConfidence: true,
-            category: IFeedRegistry.FeedCategory.SPOT_PRICE
-        }));
+        bytes32 feedId2 = registry.createFeed(
+            IFeedRegistry.FeedCreateParams({
+                symbol: "BTC-USD",
+                baseToken: address(0x200),
+                quoteToken: USDC,
+                decimals: 8,
+                heartbeatSeconds: 3600,
+                twapWindowSeconds: 1800,
+                minLiquidityUSD: 100_000 ether,
+                maxDeviationBps: 100,
+                minOracles: 3,
+                quorumThreshold: 2,
+                requiresConfidence: true,
+                category: IFeedRegistry.FeedCategory.SPOT_PRICE
+            })
+        );
 
         assertFalse(committee.isOperatorAllowlisted(feedId2, signer3));
     }
@@ -718,14 +694,11 @@ contract EdgeCasesTest is Test {
     }
 
     function _computeReportHash(IReportVerifier.PriceReport memory report) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(
-            report.feedId,
-            report.price,
-            report.confidence,
-            report.timestamp,
-            report.round,
-            report.sourcesHash
-        ));
+        return keccak256(
+            abi.encodePacked(
+                report.feedId, report.price, report.confidence, report.timestamp, report.round, report.sourcesHash
+            )
+        );
     }
 
     function _sign(uint256 privateKey, bytes32 hash) internal pure returns (bytes memory) {

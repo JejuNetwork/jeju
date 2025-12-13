@@ -340,4 +340,3 @@ contract GameOracleTest is Test {
         oracle.revealGame(fakeSessionId, outcome, salt, "", winners, 0);
     }
 }
-

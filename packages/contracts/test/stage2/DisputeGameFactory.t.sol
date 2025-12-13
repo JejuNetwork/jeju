@@ -33,7 +33,7 @@ contract DisputeGameFactoryTest is Test {
     function setUp() public {
         validator1 = vm.addr(VALIDATOR1_KEY);
         validator2 = vm.addr(VALIDATOR2_KEY);
-        
+
         proverContract = new Prover();
         factory = new DisputeGameFactory(treasury, owner);
 
@@ -48,16 +48,26 @@ contract DisputeGameFactoryTest is Test {
         address[] memory signers = new address[](1);
         bytes[] memory signatures = new bytes[](1);
         signers[0] = validator1;
-        
+
         bytes32 outputRoot = keccak256(abi.encodePacked(BLOCK_HASH, stateRoot, ACTUAL_POST_STATE));
-        bytes32 fraudHash = keccak256(abi.encodePacked(
-            proverContract.FRAUD_DOMAIN(), stateRoot, claimRoot, ACTUAL_POST_STATE, BLOCK_HASH, BLOCK_NUMBER, outputRoot
-        ));
-        
+        bytes32 fraudHash = keccak256(
+            abi.encodePacked(
+                proverContract.FRAUD_DOMAIN(),
+                stateRoot,
+                claimRoot,
+                ACTUAL_POST_STATE,
+                BLOCK_HASH,
+                BLOCK_NUMBER,
+                outputRoot
+            )
+        );
+
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(VALIDATOR1_KEY, fraudHash.toEthSignedMessageHash());
         signatures[0] = abi.encodePacked(r, s, v);
-        
-        return proverContract.generateFraudProof(stateRoot, claimRoot, ACTUAL_POST_STATE, BLOCK_HASH, BLOCK_NUMBER, signers, signatures);
+
+        return proverContract.generateFraudProof(
+            stateRoot, claimRoot, ACTUAL_POST_STATE, BLOCK_HASH, BLOCK_NUMBER, signers, signatures
+        );
     }
 
     function _generateDefenseProof(bytes32 stateRoot, bytes32 claimRoot) internal view returns (bytes memory) {
@@ -65,24 +75,28 @@ contract DisputeGameFactoryTest is Test {
         bytes[] memory signatures = new bytes[](2);
         signers[0] = validator1;
         signers[1] = validator2;
-        
+
         bytes32 outputRoot = keccak256(abi.encodePacked(BLOCK_HASH, stateRoot, claimRoot));
-        bytes32 defenseHash = keccak256(abi.encodePacked(
-            proverContract.DEFENSE_DOMAIN(), stateRoot, claimRoot, BLOCK_HASH, BLOCK_NUMBER, outputRoot
-        ));
-        
+        bytes32 defenseHash = keccak256(
+            abi.encodePacked(
+                proverContract.DEFENSE_DOMAIN(), stateRoot, claimRoot, BLOCK_HASH, BLOCK_NUMBER, outputRoot
+            )
+        );
+
         (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(VALIDATOR1_KEY, defenseHash.toEthSignedMessageHash());
         (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(VALIDATOR2_KEY, defenseHash.toEthSignedMessageHash());
         signatures[0] = abi.encodePacked(r1, s1, v1);
         signatures[1] = abi.encodePacked(r2, s2, v2);
-        
+
         return proverContract.generateDefenseProof(stateRoot, claimRoot, BLOCK_HASH, BLOCK_NUMBER, signers, signatures);
     }
 
     function testCreateGame() public {
         vm.prank(challenger1);
         bytes32 gameId = factory.createGame{value: 1 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
@@ -99,7 +113,9 @@ contract DisputeGameFactoryTest is Test {
     function testCreateGameMinimumBond() public {
         vm.prank(challenger1);
         bytes32 gameId = factory.createGame{value: 1 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
@@ -111,7 +127,9 @@ contract DisputeGameFactoryTest is Test {
         vm.prank(challenger1);
         vm.expectRevert(DisputeGameFactory.InsufficientBond.selector);
         factory.createGame{value: 0.5 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
@@ -122,7 +140,9 @@ contract DisputeGameFactoryTest is Test {
         vm.prank(challenger1);
         vm.expectRevert(DisputeGameFactory.InvalidBond.selector);
         factory.createGame{value: 101 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
@@ -132,7 +152,9 @@ contract DisputeGameFactoryTest is Test {
         vm.deal(challenger1, 200 ether);
         vm.prank(challenger1);
         bytes32 gameId = factory.createGame{value: 100 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
@@ -147,7 +169,9 @@ contract DisputeGameFactoryTest is Test {
         vm.prank(challenger1);
         vm.expectRevert(DisputeGameFactory.ProverNotEnabled.selector);
         factory.createGame{value: 1 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.SIMPLE
         );
@@ -156,12 +180,16 @@ contract DisputeGameFactoryTest is Test {
     function testCreateMultipleGames() public {
         vm.startPrank(challenger1);
         factory.createGame{value: 1 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
         factory.createGame{value: 2 ether}(
-            proposer, INVALID_STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            INVALID_STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
@@ -178,7 +206,9 @@ contract DisputeGameFactoryTest is Test {
 
         vm.prank(randomUser);
         bytes32 gameId = factory.createGame{value: 1 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
@@ -189,7 +219,9 @@ contract DisputeGameFactoryTest is Test {
     function testResolveChallengerWins() public {
         vm.prank(challenger1);
         bytes32 gameId = factory.createGame{value: 5 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
@@ -208,7 +240,9 @@ contract DisputeGameFactoryTest is Test {
     function testResolveProposerWins() public {
         vm.prank(challenger1);
         bytes32 gameId = factory.createGame{value: 5 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
@@ -226,7 +260,9 @@ contract DisputeGameFactoryTest is Test {
     function testResolveTimeout() public {
         vm.prank(challenger1);
         bytes32 gameId = factory.createGame{value: 5 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
@@ -244,7 +280,9 @@ contract DisputeGameFactoryTest is Test {
     function testResolveTimeoutBeforeExpiry() public {
         vm.prank(challenger1);
         bytes32 gameId = factory.createGame{value: 5 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
@@ -257,7 +295,9 @@ contract DisputeGameFactoryTest is Test {
     function testResolveAlreadyResolved() public {
         vm.prank(challenger1);
         bytes32 gameId = factory.createGame{value: 5 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
@@ -297,14 +337,18 @@ contract DisputeGameFactoryTest is Test {
 
         vm.prank(challenger1);
         bytes32 game1 = factory.createGame{value: 1 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
 
         vm.prank(challenger2);
         bytes32 game2 = factory.createGame{value: 1 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.SIMPLE
         );
@@ -318,12 +362,16 @@ contract DisputeGameFactoryTest is Test {
     function testGetAllGameIds() public {
         vm.startPrank(challenger1);
         factory.createGame{value: 1 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
         factory.createGame{value: 1 ether}(
-            proposer, INVALID_STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            INVALID_STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
@@ -336,12 +384,16 @@ contract DisputeGameFactoryTest is Test {
     function testGetActiveGames() public {
         vm.startPrank(challenger1);
         bytes32 game1 = factory.createGame{value: 1 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
         bytes32 game2 = factory.createGame{value: 1 ether}(
-            proposer, INVALID_STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            INVALID_STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
@@ -361,7 +413,9 @@ contract DisputeGameFactoryTest is Test {
     function testCanResolveTimeout() public {
         vm.prank(challenger1);
         bytes32 gameId = factory.createGame{value: 1 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
@@ -374,13 +428,17 @@ contract DisputeGameFactoryTest is Test {
     function testGameIdUniqueness() public {
         vm.startPrank(challenger1);
         bytes32 game1 = factory.createGame{value: 1 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
         vm.warp(block.timestamp + 1);
         bytes32 game2 = factory.createGame{value: 1 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
@@ -391,14 +449,18 @@ contract DisputeGameFactoryTest is Test {
     function testConcurrentGameCreation() public {
         vm.prank(challenger1);
         factory.createGame{value: 1 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
 
         vm.prank(challenger2);
         factory.createGame{value: 2 ether}(
-            proposer, INVALID_STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            INVALID_STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
@@ -410,7 +472,9 @@ contract DisputeGameFactoryTest is Test {
     function testBondLockedUntilResolution() public {
         vm.prank(challenger1);
         bytes32 gameId = factory.createGame{value: 5 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
@@ -426,7 +490,9 @@ contract DisputeGameFactoryTest is Test {
     function testFullGameLifecycle() public {
         vm.prank(challenger1);
         bytes32 gameId = factory.createGame{value: 5 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
@@ -447,14 +513,18 @@ contract DisputeGameFactoryTest is Test {
     function testMultipleGamesDifferentOutcomes() public {
         vm.prank(challenger1);
         bytes32 game1 = factory.createGame{value: 5 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
 
         vm.prank(challenger2);
         bytes32 game2 = factory.createGame{value: 3 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
@@ -478,7 +548,9 @@ contract DisputeGameFactoryTest is Test {
         vm.prank(challenger1);
         vm.expectRevert();
         factory.createGame{value: 1 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );
@@ -492,7 +564,9 @@ contract DisputeGameFactoryTest is Test {
 
         vm.prank(challenger1);
         bytes32 gameId = factory.createGame{value: 1 ether}(
-            proposer, STATE_ROOT, CLAIM_ROOT,
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
             DisputeGameFactory.GameType.FAULT_DISPUTE,
             DisputeGameFactory.ProverType.CANNON
         );

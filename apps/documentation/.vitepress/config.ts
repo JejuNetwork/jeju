@@ -4,7 +4,19 @@ export default defineConfig({
   title: 'Jeju',
   description: 'OP-Stack L2 on Ethereum with 200ms Flashblocks',
   base: '/jeju/',
-  ignoreDeadLinks: [/^http:\/\/localhost/, /\/api\/.*\/README/],
+  ignoreDeadLinks: [
+    /^http:\/\/localhost/,
+    /\/api\/.*\/README/,
+    // Planned features
+    /\/build\/contracts\/tokens/,
+    /\/build\/contracts\/identity/,
+    /\/build\/contracts\/paymasters/,
+    /\/build\/contracts\/oif/,
+    /\/build\/contracts\/eil/,
+    /\/build\/contracts\/compute/,
+    /\/build\/contracts\/defi/,
+    /\/build\/contracts\/jns/,
+  ],
 
   vite: {
     server: { port: parseInt(process.env.DOCUMENTATION_PORT || '4004') },
@@ -12,9 +24,6 @@ export default defineConfig({
 
   markdown: {
     lineNumbers: true,
-    config: (md) => {
-      // Enable mermaid
-    },
   },
 
   head: [
@@ -45,8 +54,9 @@ export default defineConfig({
         text: 'Build',
         items: [
           { text: 'Quick Start', link: '/build/quick-start' },
+          { text: 'Applications', link: '/build/apps/overview' },
+          { text: 'Contracts', link: '/build/contracts/overview' },
           { text: 'Tutorials', link: '/tutorials/overview' },
-          { text: 'API Reference', link: '/reference/api/rpc' },
         ],
       },
       {
@@ -54,6 +64,14 @@ export default defineConfig({
         items: [
           { text: 'Node Operators', link: '/operate/overview' },
           { text: 'Deployment', link: '/operate/deployment' },
+        ],
+      },
+      {
+        text: 'Reference',
+        items: [
+          { text: 'API Reference', link: '/reference/api/rpc' },
+          { text: 'Contract Addresses', link: '/reference/addresses' },
+          { text: 'Environment Variables', link: '/reference/env-vars' },
         ],
       },
       { text: 'FAQ', link: '/faq' },
@@ -104,11 +122,6 @@ export default defineConfig({
           text: 'Smart Contracts',
           items: [
             { text: 'Overview', link: '/build/contracts/overview' },
-            { text: 'Tokens', link: '/build/contracts/tokens' },
-            { text: 'Identity (ERC-8004)', link: '/build/contracts/identity' },
-            { text: 'Paymasters', link: '/build/contracts/paymasters' },
-            { text: 'Intents (OIF)', link: '/build/contracts/oif' },
-            { text: 'Bridge (EIL)', link: '/build/contracts/eil' },
           ],
         },
       ],
@@ -121,6 +134,7 @@ export default defineConfig({
             { text: 'Gasless NFT Drop', link: '/tutorials/gasless-nft' },
             { text: 'Trading Agent', link: '/tutorials/trading-agent' },
             { text: 'Pay-per-Query API', link: '/tutorials/x402-api' },
+            { text: 'Register a Token', link: '/tutorials/register-token' },
           ],
         },
       ],
@@ -131,10 +145,10 @@ export default defineConfig({
           items: [
             { text: 'Overview', link: '/operate/overview' },
             { text: 'Run RPC Node', link: '/operate/rpc-node' },
-            { text: 'Run Compute Node', link: '/operate/compute-node' },
-            { text: 'Run Storage Node', link: '/operate/storage-node' },
             { text: 'Become an XLP', link: '/operate/xlp' },
             { text: 'Become a Solver', link: '/operate/solver' },
+            { text: 'Run Compute Node', link: '/operate/compute-node' },
+            { text: 'Run Storage Node', link: '/operate/storage-node' },
           ],
         },
         {
