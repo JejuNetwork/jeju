@@ -4,7 +4,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { captureScreenshot, captureUserFlow } from '@jejunetwork/tests/helpers/screenshots';
+import { captureScreenshot, captureUserFlow as _captureUserFlow } from '@jejunetwork/tests/helpers/screenshots';
 
 test.describe('Submit Report Flow', () => {
   test('should submit report with evidence', async ({ page }) => {

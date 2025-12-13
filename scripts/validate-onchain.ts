@@ -16,7 +16,7 @@
 import { ethers, type Contract, type Provider } from 'ethers';
 import { Logger } from './shared/logger';
 
-const logger = new Logger('OnChainValidator');
+const logger = new Logger({ prefix: 'OnChainValidator' });
 
 // ============================================================
 // Configuration

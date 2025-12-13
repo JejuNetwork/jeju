@@ -5,7 +5,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { captureScreenshot, captureUserFlow } from '@jejunetwork/tests/helpers/screenshots';
+import { captureScreenshot, captureUserFlow as _captureUserFlow } from '@jejunetwork/tests/helpers/screenshots';
 
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4002';
 

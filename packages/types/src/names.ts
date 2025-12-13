@@ -266,7 +266,7 @@ export interface JNSContractAddresses {
  * @param name Full name (e.g., "myapp.jeju")
  * @returns The namehash
  */
-export function computeNamehash(name: string): NodeHash {
+export function computeNamehash(_name: string): NodeHash {
   // Implementation would use viem's namehash utility
   // This is a placeholder type definition
   throw new Error('Use viem namehash implementation');
@@ -277,7 +277,7 @@ export function computeNamehash(name: string): NodeHash {
  * @param label Label without suffix (e.g., "myapp")
  * @returns The labelhash
  */
-export function computeLabelhash(label: string): LabelHash {
+export function computeLabelhash(_label: string): LabelHash {
   // Implementation would use keccak256
   // This is a placeholder type definition
   throw new Error('Use viem keccak256 implementation');

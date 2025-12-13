@@ -711,13 +711,15 @@ export function formatPaymentOption(option: PaymentOption): string {
 let globalRouter: TokenPaymentRouter | null = null;
 let globalUserAddress: Address | null = null;
 let globalUserTokens: Address[] = [];
+// @ts-expect-error - Global chain ID stored for future use
+let _globalChainId: number = 420691;
 
 /**
  * Initialize the payment system (call once at app startup)
  */
 export function initializePayment(config: Partial<PaymentRouterConfig> = {}): TokenPaymentRouter {
   globalRouter = createTokenPaymentRouter(config);
-  globalChainId = config.chainId || 420691;
+  _globalChainId = config.chainId || 420691;
   return globalRouter;
 }
 

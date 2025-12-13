@@ -14,7 +14,7 @@ interface ValidationResult {
   action?: string;
 }
 
-const results: ValidationResult[] = [];
+const validationResults: ValidationResult[] = [];
 
 function checkEnvironmentVariables(): void {
   const requiredSecrets = {
@@ -32,7 +32,7 @@ function checkEnvironmentVariables(): void {
     ],
   };
 
-  results.push({
+  validationResults.push({
     category: 'Secrets',
     status: 'warn',
     message: 'GitHub secrets must be configured in repository settings',
@@ -41,7 +41,7 @@ function checkEnvironmentVariables(): void {
 
   for (const [env, secrets] of Object.entries(requiredSecrets)) {
     for (const secret of secrets) {
-      results.push({
+      validationResults.push({
         category: 'Secrets',
         status: 'warn',
         message: `Required for ${env}: ${secret}`,
@@ -51,21 +51,21 @@ function checkEnvironmentVariables(): void {
 }
 
 function checkEnvironments(): void {
-  results.push({
+  validationResults.push({
     category: 'Environments',
     status: 'fail',
     message: 'GitHub environment "mainnet" must be created',
     action: 'Go to Settings > Environments > New environment',
   });
 
-  results.push({
+  validationResults.push({
     category: 'Environments',
     status: 'fail',
     message: 'GitHub environment "testnet" should be created',
     action: 'Go to Settings > Environments > New environment',
   });
 
-  results.push({
+  validationResults.push({
     category: 'Environments',
     status: 'warn',
     message: 'Configure mainnet environment with 2 required reviewers',
@@ -88,13 +88,13 @@ function checkWorkflowSyntax(): void {
     });
 
     if (result.status === 0) {
-      results.push({
+      validationResults.push({
         category: 'YAML Syntax',
         status: 'pass',
         message: `${file} is valid`,
       });
     } else {
-      results.push({
+      validationResults.push({
         category: 'YAML Syntax',
         status: 'fail',
         message: `${file} has syntax errors`,
@@ -109,7 +109,7 @@ function printResults(): void {
   console.log('GitHub Actions Workflows - Prerequisites Validation');
   console.log('='.repeat(70) + '\n');
 
-  const byCategory = results.reduce((acc, result) => {
+  const byCategory = validationResults.reduce((acc, result) => {
     if (!acc[result.category]) acc[result.category] = [];
     acc[result.category].push(result);
     return acc;

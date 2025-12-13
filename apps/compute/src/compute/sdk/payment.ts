@@ -190,7 +190,6 @@ export class ComputePaymentClient {
   private bundlerUrl: string | null;
   private creditManager: Contract;
   private paymasterFactory: Contract | null;
-  private _tokenRegistry: Contract | null; // Reserved for future token lookup
   private ledgerManager: Contract | null;
   private entryPoint: Contract | null;
 
@@ -209,12 +208,6 @@ export class ComputePaymentClient {
       config.paymasterFactoryAddress !== ZERO_ADDRESS
         ? new Contract(config.paymasterFactoryAddress, PAYMASTER_FACTORY_ABI, this.provider)
         : null;
-
-    this._tokenRegistry =
-      config.tokenRegistryAddress !== ZERO_ADDRESS
-        ? new Contract(config.tokenRegistryAddress, TOKEN_REGISTRY_ABI, this.provider)
-        : null;
-    void this._tokenRegistry; // Reserved for token discovery
 
     this.ledgerManager =
       config.ledgerManagerAddress !== ZERO_ADDRESS

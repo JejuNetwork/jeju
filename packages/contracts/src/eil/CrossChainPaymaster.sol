@@ -493,7 +493,15 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
     ) external payable nonReentrant returns (bytes32 requestId) {
         address[] memory empty = new address[](0);
         return _createVoucherRequest(
-            token, amount, destinationToken, destinationChainId, recipient, gasOnDestination, maxFee, feeIncrement, empty
+            token,
+            amount,
+            destinationToken,
+            destinationChainId,
+            recipient,
+            gasOnDestination,
+            maxFee,
+            feeIncrement,
+            empty
         );
     }
 
@@ -510,7 +518,15 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         address[] calldata allowedXLPs
     ) external payable nonReentrant returns (bytes32 requestId) {
         return _createVoucherRequest(
-            token, amount, destinationToken, destinationChainId, recipient, gasOnDestination, maxFee, feeIncrement, allowedXLPs
+            token,
+            amount,
+            destinationToken,
+            destinationChainId,
+            recipient,
+            gasOnDestination,
+            maxFee,
+            feeIncrement,
+            allowedXLPs
         );
     }
 
@@ -542,7 +558,9 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         }
 
         requestId = keccak256(
-            abi.encodePacked(msg.sender, token, amount, destinationChainId, block.number, block.timestamp, ++_requestNonce)
+            abi.encodePacked(
+                msg.sender, token, amount, destinationChainId, block.number, block.timestamp, ++_requestNonce
+            )
         );
 
         voucherRequests[requestId] = VoucherRequest({
@@ -573,7 +591,9 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
             emit RequestAllowlistSet(requestId, allowedXLPs);
         }
 
-        emit VoucherRequested(requestId, msg.sender, token, amount, destinationChainId, recipient, maxFee, block.number + REQUEST_TIMEOUT);
+        emit VoucherRequested(
+            requestId, msg.sender, token, amount, destinationChainId, recipient, maxFee, block.number + REQUEST_TIMEOUT
+        );
 
         if (token != address(0)) {
             IERC20(token).safeTransferFrom(msg.sender, address(this), amount);

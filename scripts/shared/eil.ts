@@ -443,7 +443,7 @@ export class EILClient {
  * Estimate fee for a cross-chain transfer
  */
 export function estimateCrossChainFee(
-  amount: bigint,
+  _amount: bigint,
   sourceChainGasPrice: bigint,
   destinationChainGasPrice: bigint
 ): bigint {

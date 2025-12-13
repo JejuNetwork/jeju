@@ -5,7 +5,7 @@
  */
 
 import { testWithSynpress } from '@synthetixio/synpress';
-import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
+import { MetaMask as _MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
 import { basicSetup } from '../../../synpress.config'
 import { connectWallet } from '../helpers/wallet-helpers';
 import { executeTransaction } from '../helpers/transaction-helpers';
@@ -590,7 +590,7 @@ test.describe('Bridge - Transaction Tracking', () => {
     }
   });
 
-  test.skip('should add completed bridge to history', async ({ page, metamask }) => {
+  test.skip('should add completed bridge to history', async ({ page: _page, metamask: _metamask }) => {
     // TODO: After successful bridge, verify it appears in history
     // Would test:
     // - Transfer shown in list

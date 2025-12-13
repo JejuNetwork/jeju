@@ -33,6 +33,7 @@ export interface TEEHardwareInfo {
   hardwareType: TEEHardwareType;
   isSecure: boolean;
   gpuType: string | null;
+  gpuCount: number;
   gpuVram: number | null;
   cpuCores: number | null;
   memory: number | null;
@@ -74,6 +75,7 @@ export interface TEEDeploymentConfig {
   cpuCores?: number;
   gpuRequired?: boolean;
   gpuType?: string;
+  gpuCount?: number;
   volumes?: Array<{
     name: string;
     path: string;

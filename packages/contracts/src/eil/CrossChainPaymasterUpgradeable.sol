@@ -127,8 +127,7 @@ contract CrossChainPaymasterUpgradeable is Initializable, OwnableUpgradeable, Re
         public
         initializer
     {
-        __Ownable_init();
-        _transferOwnership(owner);
+        __Ownable_init(owner);
 
         l1ChainId = _l1ChainId;
         l1StakeManager = _l1StakeManager;

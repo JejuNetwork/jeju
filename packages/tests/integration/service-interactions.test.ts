@@ -106,11 +106,11 @@ describe('Service Interaction Tests', () => {
       await queryGraphQL('{ __schema { queryType { name } } }');
       indexerAvailable = true;
       console.log('✅ Indexer detected and available\n');
-    } catch {
+    } catch (error) {
       console.log('⚠️  Indexer not available - skipping indexer tests\n');
       console.log('   Start indexer with: cd apps/indexer && npm run dev\n');
     }
-  });
+  }, TIMEOUT);
 
   describe('RPC ↔ Indexer Interaction', () => {
     it('should sync transaction from RPC to indexer', async () => {
@@ -153,7 +153,7 @@ describe('Service Interaction Tests', () => {
       expect(indexedTx.from.address.toLowerCase()).toBe(wallet.address.toLowerCase());
       expect(indexedTx.status).toBe('SUCCESS');
       console.log('   ✅ Indexed data matches RPC data');
-    });
+    }, TIMEOUT);
 
     it('should capture event logs in indexer', async () => {
       if (!indexerAvailable) {
@@ -176,7 +176,7 @@ describe('Service Interaction Tests', () => {
       } else {
         console.log('   ℹ️  No logs captured yet (no events emitted)');
       }
-    });
+    }, TIMEOUT);
 
     it('should track contract deployments in indexer', async () => {
       if (!indexerAvailable) {
@@ -199,7 +199,7 @@ describe('Service Interaction Tests', () => {
       } else {
         console.log('   ℹ️  No contracts deployed yet');
       }
-    });
+    }, TIMEOUT);
   });
 
   describe('Oracle → Paymaster Interaction', () => {
@@ -267,26 +267,42 @@ describe('Service Interaction Tests', () => {
 
 describe('System Health and Monitoring', () => {
   it('should verify all critical services are healthy', async () => {
+    // This test checks service health but doesn't fail if services aren't running
+    // It's informational
     const healthChecks = {
       l2RPC: false,
       indexer: false,
     };
 
     // Check L2 RPC
-    const provider = new ethers.JsonRpcProvider(RPC_URL);
     try {
-      await provider.getBlockNumber();
+      const testProvider = new ethers.JsonRpcProvider(RPC_URL);
+      await testProvider.getBlockNumber();
       healthChecks.l2RPC = true;
-    } catch {
-      console.log('   ⏭️  L2 RPC not available - skipping health verification');
+    } catch (error) {
+      console.log('   ⚠️  L2 RPC not available (expected if localnet not running)');
     }
 
     // Check Indexer
+    let indexerAvailable = false;
     try {
-      await queryGraphQL('{ blocks(limit: 1) { number } }');
-      healthChecks.indexer = true;
+      const response = await fetch(GRAPHQL_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: '{ __schema { queryType { name } } }' })
+      });
+      indexerAvailable = response.ok;
     } catch {
-      console.log('   ⏭️  Indexer not running');
+      // Indexer not available
+    }
+
+    if (indexerAvailable) {
+      try {
+        await queryGraphQL('{ blocks(limit: 1) { number } }');
+        healthChecks.indexer = true;
+      } catch (error) {
+        console.log('   ⚠️  Indexer not available');
+      }
     }
 
     console.log('\n🏥 Health Check Results:');
@@ -294,12 +310,8 @@ describe('System Health and Monitoring', () => {
     console.log(`   Indexer: ${healthChecks.indexer ? '✅' : '⏭️  Not running'}`);
     console.log('');
 
-    // Don't fail if services aren't running - this is an integration test
-    // that should skip gracefully when infrastructure is unavailable
-    if (!healthChecks.l2RPC) {
-      console.log('   ⏭️  Skipping - localnet not running');
-    }
-    expect(true).toBe(true); // Always pass - health info is advisory
+    // Don't fail if services aren't running - this is informational
+    expect(true).toBe(true);
   });
 
   it('should provide instructions for manual testing', () => {

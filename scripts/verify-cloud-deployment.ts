@@ -11,7 +11,7 @@ import { ethers } from 'ethers';
 import { Logger } from './shared/logger';
 import { CloudIntegration, type CloudConfig } from './shared/cloud-integration';
 
-const logger = new Logger('verify-deployment');
+const logger = new Logger({ prefix: 'verify-deployment' });
 
 async function main() {
   logger.info('🔍 Verifying cloud integration deployment...\n');

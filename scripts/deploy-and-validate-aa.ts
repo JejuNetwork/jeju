@@ -295,11 +295,12 @@ async function validateOnChain(paymasterAddress: Address): Promise<void> {
   });
 
   // Check deposit
-  const [deposit, isPaused] = await publicClient.readContract({
+  const statusResult = await publicClient.readContract({
     address: paymasterAddress,
     abi: SPONSORED_PAYMASTER_ABI,
     functionName: "getStatus",
   });
+  const [deposit, isPaused] = Array.isArray(statusResult) ? statusResult : [statusResult, false];
   results.push({
     check: "Paymaster Funded",
     status: deposit > 0n ? "✅" : "❌",
@@ -329,12 +330,12 @@ async function validateOnChain(paymasterAddress: Address): Promise<void> {
     address: paymasterAddress,
     abi: SPONSORED_PAYMASTER_ABI,
     functionName: "maxGasCost",
-  });
+  }) as bigint;
   const maxTxPerHour = await publicClient.readContract({
     address: paymasterAddress,
     abi: SPONSORED_PAYMASTER_ABI,
     functionName: "maxTxPerUserPerHour",
-  });
+  }) as bigint;
   results.push({
     check: "Gas Limit Config",
     status: "✅",
@@ -351,7 +352,7 @@ async function validateOnChain(paymasterAddress: Address): Promise<void> {
     address: paymasterAddress,
     abi: SPONSORED_PAYMASTER_ABI,
     functionName: "version",
-  });
+  }) as string;
   results.push({
     check: "Version",
     status: "✅",
@@ -361,12 +362,13 @@ async function validateOnChain(paymasterAddress: Address): Promise<void> {
   // Test canSponsor
   const testUser = "0x1234567890123456789012345678901234567890" as Address;
   const testTarget = "0x0000000000000000000000000000000000000001" as Address;
-  const [canSponsor, reason] = await publicClient.readContract({
+  const canSponsorResult = await publicClient.readContract({
     address: paymasterAddress,
     abi: SPONSORED_PAYMASTER_ABI,
     functionName: "canSponsor",
     args: [testUser, testTarget, parseEther("0.001")],
-  });
+  }) as [boolean, string];
+  const [canSponsor, reason] = canSponsorResult;
   results.push({
     check: "canSponsor Test",
     status: canSponsor ? "✅" : "❌",
@@ -379,7 +381,7 @@ async function validateOnChain(paymasterAddress: Address): Promise<void> {
     abi: SPONSORED_PAYMASTER_ABI,
     functionName: "getRemainingTx",
     args: [testUser],
-  });
+  }) as bigint;
   results.push({
     check: "New User Rate Limit",
     status: remaining > 0n ? "✅" : "❌",
