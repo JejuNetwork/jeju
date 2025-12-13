@@ -738,82 +738,49 @@ contract EILThoroughTest is Test {
     // ============ Fuzz Tests: Price Oracle Scenarios ============
 
     function testFuzz_TokenCost_VariableGasPrice(uint64 gasUnits) public view {
-        // Test with various gas unit counts
-        vm.assume(gasUnits >= 21000); // Min transaction gas
-        vm.assume(gasUnits <= 1_000_000); // Max reasonable gas
+        vm.assume(gasUnits >= 21000 && gasUnits <= 1_000_000);
 
-        // Calculate ETH cost at 1 gwei gas price
         uint256 gasCostETH = uint256(gasUnits) * 1 gwei;
-
-        // Test token cost calculation stays within bounds
-        // Without oracle, defaults to 1:1 + fee margin (10%)
         uint256 tokenCost = paymaster.previewTokenCost(gasUnits, 1 gwei, address(token));
 
-        // Token cost should be gas cost + 10% margin (1100/10000)
-        uint256 expectedMin = gasCostETH;
-        uint256 expectedMax = (gasCostETH * 1200) / 1000; // 20% margin max
-
-        assertTrue(tokenCost >= expectedMin, "Token cost too low");
-        assertTrue(tokenCost <= expectedMax, "Token cost too high");
+        // Token cost should be within 0-20% margin of gas cost
+        assertTrue(tokenCost >= gasCostETH, "Token cost too low");
+        assertTrue(tokenCost <= (gasCostETH * 1200) / 1000, "Token cost too high");
     }
 
     function testFuzz_Fee_VariableAmounts(uint96 transferAmount) public {
-        // Test fee calculation for various transfer amounts
-        vm.assume(transferAmount >= 0.01 ether);
-        vm.assume(transferAmount <= 1000 ether);
+        vm.assume(transferAmount >= 0.01 ether && transferAmount <= 1000 ether);
 
-        // Fee calculation in MessagingPaymaster: amount * feeBps / 10000
         uint256 fee = messagingPaymaster.calculateFee(transferAmount);
+        uint256 expectedFee = (transferAmount * 10) / 10000; // 10 bps
 
-        // Default fee is 10 bps (0.1%)
-        uint256 expectedFee = (transferAmount * 10) / 10000;
         assertEq(fee, expectedFee, "Fee calculation incorrect");
-
-        // Fee should never exceed transfer amount
         assertTrue(fee < transferAmount, "Fee exceeds transfer");
     }
 
     function testFuzz_SwapQuote_VariableLiquidity(uint64 swapAmount) public {
-        vm.assume(swapAmount >= 0.001 ether);
-        vm.assume(swapAmount <= 10 ether);
+        vm.assume(swapAmount >= 0.001 ether && swapAmount <= 10 ether);
 
-        // Get quote for swap
         (uint256 amountOut, uint256 priceImpact) = paymaster.getSwapQuote(address(0), address(token), swapAmount);
 
-        // If there's liquidity, output should be non-zero
         uint256 ethLiquidity = paymaster.getTotalLiquidity(address(0));
         if (ethLiquidity > 0) {
-            // Output should be less than or equal to token liquidity
-            uint256 tokenLiquidity = paymaster.getTotalLiquidity(address(token));
-            assertTrue(amountOut <= tokenLiquidity, "Output exceeds liquidity");
-
-            // Price impact should increase with swap size relative to pool
+            assertTrue(amountOut <= paymaster.getTotalLiquidity(address(token)), "Output exceeds liquidity");
             assertTrue(priceImpact <= 10000, "Price impact exceeds 100%");
         }
     }
 
     function testFuzz_XLPStake_RandomSlashAmount(uint96 slashAmount) public {
-        // Register XLP first
         _registerXLP(xlps[0], 10 ether);
+        vm.assume(slashAmount >= 0.01 ether && slashAmount <= 5 ether);
 
-        // Slash amount should be between 0 and stake
-        vm.assume(slashAmount >= 0.01 ether);
-        vm.assume(slashAmount <= 5 ether); // Up to 50% of stake
-
-        // Authorize slasher
         l1StakeManager.setAuthorizedSlasher(address(this), true);
 
         bytes32 voucherId = keccak256(abi.encodePacked("fuzz-slash", slashAmount));
         address victim = address(0x9999);
-        vm.deal(victim, 0);
 
-        // Get stake before
         L1StakeManager.XLPStake memory stakeBefore = l1StakeManager.getStake(xlps[0]);
-
-        // Slash
         l1StakeManager.slash(xlps[0], L2_CHAIN_ID, voucherId, slashAmount, victim);
-
-        // Verify slash amount is capped at 50% of available stake
         L1StakeManager.XLPStake memory stakeAfter = l1StakeManager.getStake(xlps[0]);
         uint256 actualSlashed = stakeBefore.stakedAmount - stakeAfter.stakedAmount;
 

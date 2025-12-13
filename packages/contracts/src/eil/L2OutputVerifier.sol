@@ -219,31 +219,10 @@ contract L2OutputVerifier is Ownable {
         return true;
     }
 
-    /**
-     * @notice Simplified verification interface for L1StakeManager compatibility
-     * @dev DESIGN DECISION: This 2-parameter overload intentionally returns false.
-     *
-     * Why this exists:
-     * - L1StakeManager calls this during dispute resolution
-     * - Full verification requires 5 parameters (chainId, blockNumber, stateRoot, messagePasserRoot, blockHash)
-     * - The 2-parameter signature cannot provide enough context for real verification
-     *
-     * Security model:
-     * - When this returns false, disputes proceed to arbitrator voting
-     * - Arbitrators review off-chain evidence before voting
-     * - This is safer than accepting unverifiable proofs
-     *
-     * For automated verification, use:
-     *   verifyStateRoot(chainId, l2BlockNumber, stateRoot, messagePasserRoot, blockHash)
-     *
-     * @param stateRoot Ignored - insufficient context
-     * @param l2BlockNumber Ignored - insufficient context
-     * @return valid Always false to trigger arbitrator review
-     */
-    function verifyStateRoot(bytes32 stateRoot, uint256 l2BlockNumber) external pure returns (bool valid) {
-        // Suppress unused variable warnings
-        stateRoot;
-        l2BlockNumber;
+    /// @notice L1StakeManager compatibility stub - returns false to trigger arbitrator review
+    /// @dev Use 5-param version for real verification. This exists because L1StakeManager
+    ///      calls this during disputes but 2 params isn't enough context for verification.
+    function verifyStateRoot(bytes32, uint256) external pure returns (bool) {
         return false;
     }
 
