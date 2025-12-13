@@ -507,8 +507,11 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
             excessRefund = msg.value - maxFee;
         }
 
-        requestId =
-            keccak256(abi.encodePacked(msg.sender, token, amount, destinationChainId, block.number, block.timestamp, ++_requestNonce));
+        requestId = keccak256(
+            abi.encodePacked(
+                msg.sender, token, amount, destinationChainId, block.number, block.timestamp, ++_requestNonce
+            )
+        );
 
         voucherRequests[requestId] = VoucherRequest({
             requester: msg.sender,
@@ -587,8 +590,11 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
             excessRefund = msg.value - maxFee;
         }
 
-        requestId =
-            keccak256(abi.encodePacked(msg.sender, token, amount, destinationChainId, block.number, block.timestamp, ++_requestNonce));
+        requestId = keccak256(
+            abi.encodePacked(
+                msg.sender, token, amount, destinationChainId, block.number, block.timestamp, ++_requestNonce
+            )
+        );
 
         voucherRequests[requestId] = VoucherRequest({
             requester: msg.sender,

@@ -1,46 +1,24 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
 /**
  * @title IQualityOracle
- * @notice Interface for proposal quality verification
+ * @notice Interface for verifying quality attestations on Council proposals
  */
 interface IQualityOracle {
     /**
-     * @notice Verify a quality attestation signature
-     * @param contentHash IPFS hash of proposal content
-     * @param score Quality score (0-100)
-     * @param timestamp When attestation was signed
-     * @param submitter Address submitting the proposal
-     * @param signature Assessor's signature
-     * @return assessor Address of the signing assessor
+     * @notice Verify a quality score attestation
+     * @param contentHash Hash of the proposal content
+     * @param qualityScore Score from 0-100
+     * @param attestationTimestamp When the attestation was made
+     * @param proposer Address of the proposal submitter
+     * @param attestationSignature Signature proving the attestation
      */
     function verifyScore(
         bytes32 contentHash,
-        uint8 score,
-        uint256 timestamp,
-        address submitter,
-        bytes calldata signature
-    ) external returns (address assessor);
-
-    /**
-     * @notice Check if an attestation would be valid (view function)
-     */
-    function checkAttestation(
-        bytes32 contentHash,
-        uint8 score,
-        uint256 timestamp,
-        address submitter,
-        bytes calldata signature
-    ) external view returns (bool valid, address assessor, string memory reason);
-
-    /**
-     * @notice Get minimum required score
-     */
-    function minScore() external view returns (uint8);
-
-    /**
-     * @notice Check if address is an authorized assessor
-     */
-    function isAssessor(address addr) external view returns (bool);
+        uint256 qualityScore,
+        uint256 attestationTimestamp,
+        address proposer,
+        bytes calldata attestationSignature
+    ) external view;
 }
