@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-x402-facilitator
+  labels:
+    app: x402-facilitator
+    release: {{ .Release.Name }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: 3402
+      protocol: TCP
+      name: http
+  selector:
+    app: x402-facilitator
+    release: {{ .Release.Name }}

@@ -1,0 +1,85 @@
+groups:
+  - name: crucible_alerts
+    interval: 30s
+    rules:
+      # Service Availability
+      - alert: CrucibleAPIDown
+        expr: up{job="crucible-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: crucible
+        annotations:
+          summary: "Crucible API is down"
+          description: "Crucible API has been unreachable for over 2 minutes"
+
+      # Error Rate
+      - alert: CrucibleHighErrorRate
+        expr: |
+          rate(crucible_requests_total{status="error"}[5m]) / 
+          (rate(crucible_requests_total{status="success"}[5m]) + rate(crucible_requests_total{status="error"}[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: crucible
+        annotations:
+          summary: "Crucible API high error rate"
+          description: "Crucible API error rate is above 10% for 5 minutes"
+
+      # Latency
+      - alert: CrucibleHighLatency
+        expr: crucible_request_latency_avg_ms > 5000
+        for: 5m
+        labels:
+          severity: warning
+          component: crucible
+        annotations:
+          summary: "Crucible API high latency"
+          description: "Average request latency is above 5 seconds"
+
+      # Agent Execution Failures
+      - alert: CrucibleNoExecutions
+        expr: increase(crucible_agent_executions_total[1h]) == 0
+        for: 1h
+        labels:
+          severity: info
+          component: crucible
+        annotations:
+          summary: "No agent executions in the last hour"
+          description: "No agent executions have been recorded in the past hour"
+
+      # Memory/Resource Alerts (if using kubernetes metrics)
+      - alert: CruciblePodMemoryHigh
+        expr: |
+          container_memory_usage_bytes{container="api", namespace=~"crucible.*"} /
+          container_spec_memory_limit_bytes{container="api", namespace=~"crucible.*"} > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: crucible
+        annotations:
+          summary: "Crucible API pod memory usage high"
+          description: "Crucible API pod is using more than 90% of memory limit"
+
+      - alert: CrucibleExecutorPodMemoryHigh
+        expr: |
+          container_memory_usage_bytes{container="executor", namespace=~"crucible.*"} /
+          container_spec_memory_limit_bytes{container="executor", namespace=~"crucible.*"} > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: crucible
+        annotations:
+          summary: "Crucible Executor pod memory usage high"
+          description: "Crucible Executor pod is using more than 90% of memory limit"
+
+      # Pod Restart Alerts
+      - alert: CruciblePodRestarts
+        expr: increase(kube_pod_container_status_restarts_total{namespace=~"crucible.*"}[1h]) > 3
+        for: 5m
+        labels:
+          severity: warning
+          component: crucible
+        annotations:
+          summary: "Crucible pod restarting frequently"
+          description: "Crucible pod has restarted more than 3 times in the last hour"

@@ -16,18 +16,28 @@
     "./helpers/screenshots": "./shared/helpers/screenshots.ts",
     "./helpers/navigation": "./shared/helpers/navigation.ts",
     "./helpers/error-detection": "./shared/helpers/error-detection.ts",
+    "./helpers/on-chain": "./shared/helpers/on-chain.ts",
     "./constants": "./shared/constants.ts",
     "./playwright.config.base": "./shared/playwright.config.base.ts",
     "./synpress.config.base": "./shared/synpress.config.base.ts",
-    "./wallet-setup": "./shared/wallet-setup/jeju.setup.ts"
+    "./wallet-setup": "./shared/wallet-setup/jeju.setup.ts",
+    "./lock-manager": "./shared/lock-manager.ts",
+    "./preflight": "./shared/preflight.ts",
+    "./warmup": "./shared/warmup.ts",
+    "./global-setup": "./shared/global-setup.ts"
   },
   "files": [
-    "shared"
+    "shared",
+    "smoke"
   ],
   "scripts": {
     "synpress:cache": "bun run synpress:cache:build",
     "synpress:cache:build": "npx synpress --force",
-    "synpress:cache:clear": "rm -rf ../../.synpress-cache"
+    "synpress:cache:clear": "rm -rf ../../.synpress-cache",
+    "smoke": "bunx playwright test --config smoke/playwright.config.ts",
+    "smoke:wallet": "bunx playwright test --config smoke/synpress.config.ts",
+    "smoke:chain": "bunx playwright test smoke/chain-preflight.spec.ts --config smoke/playwright.config.ts",
+    "preflight": "bun run smoke:chain"
   },
   "repository": {
     "type": "git",
@@ -39,15 +49,17 @@
     "tests",
     "playwright",
     "synpress",
-    "e2e"
+    "e2e",
+    "wallet"
   ],
   "dependencies": {
-    "@tenkeylabs/dappwright": "^2.11.3"
+    "@tenkeylabs/dappwright": "^2.11.3",
+    "viem": "^2.7.15"
   },
   "peerDependencies": {
-    "@playwright/test": ">=1.40.0",
+    "@playwright/test": ">=1.55.1",
     "@synthetixio/synpress": ">=4.0.0",
-    "playwright-core": ">=1.40.0"
+    "playwright-core": ">=1.55.1"
   },
   "publishConfig": {
     "access": "public"

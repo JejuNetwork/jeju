@@ -1,111 +1,94 @@
 import type { PublicClient, WalletClient } from 'viem';
+import { isNativeToken } from './contracts';
 
 interface LiquidityConfig {
-  chains: Array<{ chainId: number; name: string; rpcUrl: string }>;
-  maxExposurePerChain: string;
+  chains: Array<{ chainId: number; name: string }>;
+  refreshIntervalMs?: number;
+  verbose?: boolean;
 }
 
-interface ChainLiquidity {
-  chainId: number;
-  available: Map<string, bigint>;
-  locked: Map<string, bigint>;
-}
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 export class LiquidityManager {
   private config: LiquidityConfig;
-  private liquidity: Map<number, ChainLiquidity> = new Map();
+  private balances = new Map<number, Map<string, bigint>>();
+  private clients = new Map<number, { public: PublicClient; wallet?: WalletClient }>();
+  private refreshTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(config: LiquidityConfig) {
     this.config = config;
   }
 
   async initialize(clients: Map<number, { public: PublicClient; wallet?: WalletClient }>): Promise<void> {
-    console.log('💰 Initializing liquidity manager...');
+    this.clients = clients;
+    if (this.config.verbose) console.log('💰 Initializing liquidity...');
+    
+    await this.refresh();
+    this.refreshTimer = setInterval(() => this.refresh(), this.config.refreshIntervalMs ?? 30_000);
+  }
 
+  async refresh(): Promise<void> {
     for (const chain of this.config.chains) {
-      const client = clients.get(chain.chainId);
-      if (!client?.wallet?.account) continue;
+      const client = this.clients.get(chain.chainId);
+      const account = client?.wallet?.account;
+      if (!account) continue;
 
-      const balance = await client.public.getBalance({ address: client.wallet.account.address });
-
-      this.liquidity.set(chain.chainId, {
-        chainId: chain.chainId,
-        available: new Map([['0x0000000000000000000000000000000000000000', balance]]),
-        locked: new Map(),
-      });
-      console.log(`   ${chain.name}: ${(Number(balance) / 1e18).toFixed(4)} ETH`);
+      const balance = await client.public.getBalance({ address: account.address });
+      this.balances.set(chain.chainId, new Map([[ZERO_ADDRESS, balance]]));
+      
+      if (this.config.verbose) {
+        console.log(`   ${chain.name}: ${(Number(balance) / 1e18).toFixed(4)} ETH`);
+      }
     }
   }
 
   async hasLiquidity(chainId: number, token: string, amount: string): Promise<boolean> {
-    const chainLiquidity = this.liquidity.get(chainId);
-    if (!chainLiquidity) return false;
+    const chainBal = this.balances.get(chainId);
+    if (!chainBal) return false;
 
-    const available = chainLiquidity.available.get(token.toLowerCase()) || 0n;
-    const locked = chainLiquidity.locked.get(token.toLowerCase()) || 0n;
-    return (available - locked) >= BigInt(amount);
-  }
-
-  async lockLiquidity(chainId: number, token: string, amount: string): Promise<boolean> {
-    const chainLiquidity = this.liquidity.get(chainId);
-    if (!chainLiquidity || !(await this.hasLiquidity(chainId, token, amount))) return false;
-
-    const tokenKey = token.toLowerCase();
-    const currentLocked = chainLiquidity.locked.get(tokenKey) || 0n;
-    chainLiquidity.locked.set(tokenKey, currentLocked + BigInt(amount));
-    return true;
-  }
-
-  async unlockLiquidity(chainId: number, token: string, amount: string): Promise<void> {
-    const chainLiquidity = this.liquidity.get(chainId);
-    if (!chainLiquidity) return;
-
-    const tokenKey = token.toLowerCase();
-    const currentLocked = chainLiquidity.locked.get(tokenKey) || 0n;
-    const newLocked = currentLocked - BigInt(amount);
-    chainLiquidity.locked.set(tokenKey, newLocked > 0n ? newLocked : 0n);
-  }
-
-  async deductLiquidity(chainId: number, token: string, amount: string): Promise<void> {
-    const chainLiquidity = this.liquidity.get(chainId);
-    if (!chainLiquidity) return;
-
-    const tokenKey = token.toLowerCase();
-    const current = chainLiquidity.available.get(tokenKey) || 0n;
-    chainLiquidity.available.set(tokenKey, current - BigInt(amount));
-    await this.unlockLiquidity(chainId, token, amount);
-  }
-
-  async addLiquidity(chainId: number, token: string, amount: string): Promise<void> {
-    const chainLiquidity = this.liquidity.get(chainId);
-    if (!chainLiquidity) return;
-
-    const tokenKey = token.toLowerCase();
-    const current = chainLiquidity.available.get(tokenKey) || 0n;
-    chainLiquidity.available.set(tokenKey, current + BigInt(amount));
-  }
-
-  getAvailableLiquidity(chainId: number): Map<string, bigint> | undefined {
-    return this.liquidity.get(chainId)?.available;
-  }
-
-  getTotalLiquidity(): { chainId: number; token: string; amount: bigint }[] {
-    const result: { chainId: number; token: string; amount: bigint }[] = [];
-    for (const [chainId, liquidity] of this.liquidity) {
-      for (const [token, amount] of liquidity.available) {
-        result.push({ chainId, token, amount });
-      }
+    const key = isNativeToken(token) ? ZERO_ADDRESS : token.toLowerCase();
+    const available = chainBal.get(key) ?? 0n;
+    const required = BigInt(amount);
+    
+    if (available < required && this.config.verbose) {
+      console.log(`   💸 Insufficient: have ${(Number(available) / 1e18).toFixed(4)}, need ${(Number(required) / 1e18).toFixed(4)}`);
     }
-    return result;
+    return available >= required;
   }
 
   async recordFill(chainId: number, token: string, amount: string): Promise<void> {
-    await this.deductLiquidity(chainId, token, amount);
-    console.log(`   💸 Liquidity updated: -${(Number(amount) / 1e18).toFixed(4)} on chain ${chainId}`);
+    const chainBal = this.balances.get(chainId);
+    if (!chainBal) return;
+    
+    const key = isNativeToken(token) ? ZERO_ADDRESS : token.toLowerCase();
+    const current = chainBal.get(key) ?? 0n;
+    chainBal.set(key, current - BigInt(amount));
+    
+    if (this.config.verbose) {
+      console.log(`   💸 -${(Number(amount) / 1e18).toFixed(4)} ETH on chain ${chainId}`);
+    }
+    
+    this.refreshChain(chainId);
   }
 
-  async recordSettlement(chainId: number, token: string, amount: string): Promise<void> {
-    await this.addLiquidity(chainId, token, amount);
-    console.log(`   💰 Settlement received: +${(Number(amount) / 1e18).toFixed(4)} on chain ${chainId}`);
+  private async refreshChain(chainId: number): Promise<void> {
+    const client = this.clients.get(chainId);
+    const account = client?.wallet?.account;
+    if (!account) return;
+
+    const balance = await client.public.getBalance({ address: account.address });
+    this.balances.get(chainId)?.set(ZERO_ADDRESS, balance);
+  }
+
+  stop(): void {
+    if (this.refreshTimer) {
+      clearInterval(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+  }
+
+  getBalance(chainId: number, token: string): bigint {
+    const key = isNativeToken(token) ? ZERO_ADDRESS : token.toLowerCase();
+    return this.balances.get(chainId)?.get(key) ?? 0n;
   }
 }

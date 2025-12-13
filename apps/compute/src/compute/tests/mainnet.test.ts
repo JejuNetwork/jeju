@@ -304,7 +304,13 @@ describe('Mainnet Integration Test', () => {
   });
 
   describe('Write Operations (requires funds)', () => {
-    test.skip('can create ledger with deposit', async () => {
+    const runWriteTests = process.env.RUN_WRITE_TESTS === 'true';
+
+    test('can create ledger with deposit', async () => {
+      if (!runWriteTests) {
+        console.log('  Skipped: Set RUN_WRITE_TESTS=true to enable');
+        return;
+      }
       if (skipTests || !deployment || !wallet) return;
 
       const exists = await callFn<boolean>(
@@ -336,7 +342,11 @@ describe('Mainnet Integration Test', () => {
       expect(newExists).toBe(true);
     });
 
-    test.skip('can register as provider', async () => {
+    test('can register as provider', async () => {
+      if (!runWriteTests) {
+        console.log('  Skipped: Set RUN_WRITE_TESTS=true to enable');
+        return;
+      }
       if (skipTests || !deployment || !wallet) return;
 
       const isActive = await callFn<boolean>(
@@ -381,10 +391,11 @@ describe('Mainnet Integration Test', () => {
 console.log('\n🧪 Integration Test Suite');
 console.log('==================================\n');
 console.log('Prerequisites:');
-console.log(
-  '1. Deploy contracts: NETWORK=sepolia PRIVATE_KEY=0x... bun run src/compute/scripts/deploy-base.ts'
-);
-console.log(
-  '2. Run tests: NETWORK=sepolia PRIVATE_KEY=0x... bun test src/compute/tests/mainnet.test.ts'
-);
+console.log('1. Get Sepolia ETH from faucet: https://sepoliafaucet.com');
+console.log('2. Deploy contracts:');
+console.log('   NETWORK=sepolia PRIVATE_KEY=0x... bun run apps/compute/src/compute/scripts/deploy-base.ts');
+console.log('3. Run read-only tests:');
+console.log('   NETWORK=sepolia bun test apps/compute/src/compute/tests/mainnet.test.ts');
+console.log('4. Run write tests (requires 0.15+ ETH):');
+console.log('   NETWORK=sepolia PRIVATE_KEY=0x... RUN_WRITE_TESTS=true bun test apps/compute/src/compute/tests/mainnet.test.ts');
 console.log('');

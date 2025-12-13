@@ -1,0 +1,160 @@
+{
+  "uid": "oracle-network",
+  "title": "Jeju Oracle Network",
+  "tags": ["oracle", "jon", "prices"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "editable": true,
+  "time": {"from": "now-24h", "to": "now"},
+  "panels": [
+    {
+      "id": 1,
+      "title": "Active Feeds",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "jon_feeds_active_total", "legendFormat": "Active Feeds"}],
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "green", "value": null}]}}}
+    },
+    {
+      "id": 2,
+      "title": "Active Operators",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "jon_operators_active_total", "legendFormat": "Active Operators"}],
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "green", "value": null}]}}}
+    },
+    {
+      "id": 3,
+      "title": "Reports (24h)",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "increase(jon_reports_submitted_total[24h])", "legendFormat": "Reports"}],
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "green", "value": null}]}}}
+    },
+    {
+      "id": 4,
+      "title": "Disputes (24h)",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "increase(jon_disputes_opened_total[24h])", "legendFormat": "Disputes"}],
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "green", "value": 0}, {"color": "yellow", "value": 1}, {"color": "red", "value": 5}]}}}
+    },
+    {
+      "id": 5,
+      "title": "Total Staked",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "jon_total_staked_wei / 1e18", "legendFormat": "Staked ETH"}],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 2}}
+    },
+    {
+      "id": 6,
+      "title": "Fees Collected (24h)",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 4, "x": 20, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "increase(jon_fees_collected_total[24h]) / 1e18", "legendFormat": "Fees ETH"}],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 4}}
+    },
+    {
+      "id": 7,
+      "title": "Price Feeds - Latest Values",
+      "type": "table",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "jon_feed_latest_price", "legendFormat": "{{feed_symbol}}", "format": "table", "instant": true}
+      ],
+      "fieldConfig": {"defaults": {"custom": {"align": "auto"}}, "overrides": [{"matcher": {"id": "byName", "options": "Value"}, "properties": [{"id": "displayName", "value": "Price"}]}]},
+      "transformations": [{"id": "organize", "options": {"excludeByName": {"Time": true, "__name__": true, "instance": true, "job": true}}}]
+    },
+    {
+      "id": 8,
+      "title": "Feed Staleness",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "time() - jon_feed_last_update_timestamp", "legendFormat": "{{feed_symbol}}"}],
+      "fieldConfig": {"defaults": {"unit": "s", "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 1800}, {"color": "red", "value": 3600}]}}}
+    },
+    {
+      "id": 9,
+      "title": "Reports Submitted Rate",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "rate(jon_reports_submitted_total[5m]) * 60", "legendFormat": "{{feed_symbol}}"}],
+      "fieldConfig": {"defaults": {"unit": "rpm"}}
+    },
+    {
+      "id": 10,
+      "title": "Operator Participation",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "jon_operator_participation_score / 100", "legendFormat": "{{operator}}"}],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}}
+    },
+    {
+      "id": 11,
+      "title": "Committee Health",
+      "type": "bargauge",
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 20},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "jon_committee_active_members / jon_feed_min_oracles", "legendFormat": "{{feed_symbol}}"}],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 2, "thresholds": {"steps": [{"color": "red", "value": null}, {"color": "yellow", "value": 1}, {"color": "green", "value": 1.2}]}}}
+    },
+    {
+      "id": 12,
+      "title": "Dispute Rate",
+      "type": "timeseries",
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 20},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "rate(jon_disputes_opened_total[1h]) / rate(jon_reports_submitted_total[1h])", "legendFormat": "Dispute Rate"}],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0}}
+    },
+    {
+      "id": 13,
+      "title": "Active Subscriptions",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 26},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "jon_subscriptions_active_total", "legendFormat": "Active"}],
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "green", "value": null}]}}}
+    },
+    {
+      "id": 14,
+      "title": "Subscription Revenue (30d)",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 26},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "increase(jon_subscription_revenue_total[30d]) / 1e18", "legendFormat": "Revenue ETH"}],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 2}}
+    },
+    {
+      "id": 15,
+      "title": "Jailed Operators",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 26},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "jon_operators_jailed_total", "legendFormat": "Jailed"}],
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}}}
+    },
+    {
+      "id": 16,
+      "title": "Circuit Breaker Status",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 26},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "jon_circuit_breaker_active", "legendFormat": "Status"}],
+      "fieldConfig": {"defaults": {"mappings": [{"type": "value", "options": {"0": {"text": "OK", "color": "green"}, "1": {"text": "TRIPPED", "color": "red"}}}]}}
+    }
+  ]
+}

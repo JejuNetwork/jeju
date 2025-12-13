@@ -67,6 +67,7 @@ export const SERVICES = {
 export const PORTS = {
   a2a: Number(process.env.A2A_PORT) || 4003,
   websocket: Number(process.env.WS_PORT) || 4012,
+  rpc: Number(process.env.RPC_GATEWAY_PORT) || 4004,
 } as const;
 
 // Helper functions

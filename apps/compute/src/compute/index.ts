@@ -76,3 +76,19 @@ export { ComputeA2AServer, createComputeA2AServer } from './a2a-server';
 
 // Export MCP Server
 export { createMCPRouter } from './mcp-server';
+
+// Export Storage Integration
+export type {
+  ContainerImage,
+  ContainerPullRequest,
+  ContainerPullResult,
+  ComputeOutputUploadRequest,
+  ComputeOutputUploadResult,
+  StorageIntegrationConfig,
+  StorageProviderInfo as StorageProviderForCompute,
+} from './sdk/storage-integration';
+
+export {
+  ComputeStorageIntegration,
+  createStorageIntegration,
+} from './sdk/storage-integration';

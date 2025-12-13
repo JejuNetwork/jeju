@@ -4,53 +4,31 @@ import { EventMonitor } from './monitor';
 import { StrategyEngine } from './strategy';
 import { IS_TESTNET, getRpcUrl, getChainName } from '../config/networks.js';
 
-interface ChainConfig {
-  chainId: number;
-  name: string;
-  rpcUrl: string;
-}
+const CHAINS = (IS_TESTNET
+  ? [11155111, 84532, 421614, 11155420, 420690]
+  : [1, 8453, 42161, 10, 420691]
+).map(id => ({ chainId: id, name: getChainName(id), rpcUrl: getRpcUrl(id) }));
 
-const TESTNET_CHAINS: ChainConfig[] = [
-  { chainId: 11155111, name: getChainName(11155111), rpcUrl: getRpcUrl(11155111) },
-  { chainId: 84532, name: getChainName(84532), rpcUrl: getRpcUrl(84532) },
-  { chainId: 420690, name: getChainName(420690), rpcUrl: getRpcUrl(420690) },
-];
-
-const MAINNET_CHAINS: ChainConfig[] = [
-  { chainId: 1, name: getChainName(1), rpcUrl: getRpcUrl(1) },
-  { chainId: 8453, name: getChainName(8453), rpcUrl: getRpcUrl(8453) },
-  { chainId: 42161, name: getChainName(42161), rpcUrl: getRpcUrl(42161) },
-  { chainId: 10, name: getChainName(10), rpcUrl: getRpcUrl(10) },
-  { chainId: 420691, name: getChainName(420691), rpcUrl: getRpcUrl(420691) },
-];
-
-const SOLVER_CONFIG = {
-  chains: IS_TESTNET ? TESTNET_CHAINS : MAINNET_CHAINS,
+const CONFIG = {
+  chains: CHAINS,
   minProfitBps: 10,
   maxGasPrice: 100n * 10n ** 9n,
-  maxExposurePerChain: '10000000000000000000',
-  maxIntentSize: '5000000000000000000',
-  minReputation: 80,
-  intentCheckIntervalMs: 1000,
-  liquidityRebalanceIntervalMs: 60000,
+  maxIntentSize: '5000000000000000000', // 5 ETH
 };
 
 async function main() {
-  console.log('🤖 Starting OIF Solver Agent...');
+  console.log('🤖 Starting OIF Solver...');
 
-  const liquidityManager = new LiquidityManager(SOLVER_CONFIG);
-  const strategyEngine = new StrategyEngine(SOLVER_CONFIG);
-  const eventMonitor = new EventMonitor(SOLVER_CONFIG);
-  const agent = new SolverAgent({ config: SOLVER_CONFIG, liquidityManager, strategyEngine, eventMonitor });
+  const liquidity = new LiquidityManager({ chains: CHAINS });
+  const strategy = new StrategyEngine(CONFIG);
+  const monitor = new EventMonitor({ chains: CHAINS });
+  const agent = new SolverAgent(CONFIG, liquidity, strategy, monitor);
 
   await agent.start();
-
-  console.log(`✅ Solver Agent running`);
-  console.log(`   Chains: ${SOLVER_CONFIG.chains.map(c => c.name).join(', ')}`);
-  console.log(`   Min Profit: ${SOLVER_CONFIG.minProfitBps} bps`);
+  console.log(`✅ Running on: ${CHAINS.map(c => c.name).join(', ')}`);
 
   process.on('SIGINT', async () => {
-    console.log('\n🛑 Shutting down solver...');
+    console.log('\n🛑 Shutting down...');
     await agent.stop();
     process.exit(0);
   });
@@ -58,4 +36,6 @@ async function main() {
 
 main().catch(console.error);
 
-export { SolverAgent, LiquidityManager, EventMonitor, StrategyEngine, SOLVER_CONFIG };
+export { SolverAgent, LiquidityManager, EventMonitor, StrategyEngine };
+export * from './metrics';
+export * from './contracts';

@@ -1,16 +1,7 @@
-/**
- * Compute Marketplace SDK
- *
- * Interface for the decentralized compute marketplace:
- * - Model discovery (LLM, image, video, audio)
- * - TEE node provisioning and routing
- * - X402 payment integration with JEJU token
- * - Inference routing with TEE attestation
- */
+/** Compute Marketplace - model discovery, routing, and payment */
 
 import type { Address } from 'viem';
 import { InferenceRegistrySDK } from './inference-registry';
-import type { ExtendedSDKConfig } from './types';
 import {
   ComputePaymentClient,
   createPaymentClient,
@@ -18,8 +9,7 @@ import {
   COMPUTE_PRICING,
 } from './payment';
 import {
-  createX402PaymentRequirement,
-  X402_NETWORK_CONFIGS,
+  createPaymentRequirement,
   type X402Network,
 } from './x402';
 import type {
@@ -48,27 +38,18 @@ export interface InferenceRequest {
 }
 
 export interface InferenceInput {
-  // For LLM
   messages?: Array<{ role: string; content: string }>;
   prompt?: string;
-
-  // For image generation
   imagePrompt?: string;
   negativePrompt?: string;
   width?: number;
   height?: number;
   steps?: number;
-
-  // For video generation
   videoPrompt?: string;
   duration?: number;
   fps?: number;
-
-  // For audio
   audioPrompt?: string;
-  audioInput?: string; // Base64 for speech-to-text
-
-  // For embeddings
+  audioInput?: string;
   textToEmbed?: string;
 }
 
@@ -88,34 +69,15 @@ export interface InferenceResult {
   endpoint: string;
   teeType: TEEType;
   attestationHash?: string;
-
-  // LLM output
   content?: string;
   tokensUsed?: { input: number; output: number };
-
-  // Image output
-  images?: string[]; // Base64 or URLs
-
-  // Video output
+  images?: string[];
   videoUrl?: string;
   videoDurationSeconds?: number;
-
-  // Audio output
   audioUrl?: string;
   transcript?: string;
-
-  // Embedding output
   embedding?: number[];
-
-  // Cost
-  cost: {
-    amount: bigint;
-    currency: string;
-    paid: boolean;
-    txHash?: string;
-  };
-
-  // Timing
+  cost: { amount: bigint; currency: string; paid: boolean; txHash?: string };
   latencyMs: number;
   coldStart: boolean;
 }
@@ -130,14 +92,9 @@ export class ComputeMarketplace {
   private teeGatewayEndpoint: string | null = null;
 
   constructor(config: MarketplaceConfig) {
-    this.config = {
-      network: 'jeju-testnet',
-      preferredPaymentToken: 'JEJU',
-      ...config,
-    };
+    this.config = { network: 'jeju-testnet', preferredPaymentToken: 'JEJU', ...config };
 
-    // Initialize inference registry
-    const registryConfig: ExtendedSDKConfig = {
+    this.registry = new InferenceRegistrySDK({
       rpcUrl: config.rpcUrl,
       contracts: {
         registry: '0x0000000000000000000000000000000000000000',
@@ -145,71 +102,23 @@ export class ComputeMarketplace {
         inference: '0x0000000000000000000000000000000000000000',
         modelRegistry: config.modelRegistryAddress,
       },
-    };
-    this.registry = new InferenceRegistrySDK(registryConfig);
-
-    // Initialize payment client
-    this.payment = createPaymentClient({
-      rpcUrl: config.rpcUrl,
-      ...config.paymentConfig,
     });
+
+    this.payment = createPaymentClient({ rpcUrl: config.rpcUrl, ...config.paymentConfig });
   }
 
-  async getLLMs(): Promise<RegisteredModel[]> {
-    return this.registry.getLLMs();
-  }
+  async getLLMs(): Promise<RegisteredModel[]> { return this.registry.getLLMs(); }
+  async getImageGenerators(): Promise<RegisteredModel[]> { return this.registry.getImageGenerators(); }
+  async getVideoGenerators(): Promise<RegisteredModel[]> { return this.registry.getVideoGenerators(); }
+  async getAudioGenerators(): Promise<RegisteredModel[]> { return this.registry.getAudioGenerators(); }
+  async getSpeechToTextModels(): Promise<RegisteredModel[]> { return this.registry.getSpeechToTextModels(); }
+  async getTextToSpeechModels(): Promise<RegisteredModel[]> { return this.registry.getTextToSpeechModels(); }
+  async getEmbeddingModels(): Promise<RegisteredModel[]> { return this.registry.getEmbeddingModels(); }
+  async getMultimodalModels(): Promise<RegisteredModel[]> { return this.registry.getMultimodalModels(); }
+  async discoverModels(filter: ModelDiscoveryFilter): Promise<ModelDiscoveryResult[]> { return this.registry.discoverModels(filter); }
+  async getModel(modelId: string): Promise<RegisteredModel> { return this.registry.getModel(modelId); }
+  async getEndpoints(modelId: string): Promise<ModelEndpoint[]> { return this.registry.getEndpoints(modelId); }
 
-  /** Get all image generation models */
-  async getImageGenerators(): Promise<RegisteredModel[]> {
-    return this.registry.getImageGenerators();
-  }
-
-  /** Get all video generation models */
-  async getVideoGenerators(): Promise<RegisteredModel[]> {
-    return this.registry.getVideoGenerators();
-  }
-
-  /** Get all audio generation models */
-  async getAudioGenerators(): Promise<RegisteredModel[]> {
-    return this.registry.getAudioGenerators();
-  }
-
-  /** Get all speech-to-text models */
-  async getSpeechToTextModels(): Promise<RegisteredModel[]> {
-    return this.registry.getSpeechToTextModels();
-  }
-
-  /** Get all text-to-speech models */
-  async getTextToSpeechModels(): Promise<RegisteredModel[]> {
-    return this.registry.getTextToSpeechModels();
-  }
-
-  /** Get all embedding models */
-  async getEmbeddingModels(): Promise<RegisteredModel[]> {
-    return this.registry.getEmbeddingModels();
-  }
-
-  /** Get all multimodal models */
-  async getMultimodalModels(): Promise<RegisteredModel[]> {
-    return this.registry.getMultimodalModels();
-  }
-
-  /** Discover models with custom filters */
-  async discoverModels(filter: ModelDiscoveryFilter): Promise<ModelDiscoveryResult[]> {
-    return this.registry.discoverModels(filter);
-  }
-
-  /** Get model by ID */
-  async getModel(modelId: string): Promise<RegisteredModel> {
-    return this.registry.getModel(modelId);
-  }
-
-  /** Get available endpoints for a model */
-  async getEndpoints(modelId: string): Promise<ModelEndpoint[]> {
-    return this.registry.getEndpoints(modelId);
-  }
-
-  /** Get the best endpoint for a model (considers load, TEE, latency) */
   async getBestEndpoint(modelId: string, options?: InferenceOptions): Promise<ModelEndpoint | null> {
     const endpoints = await this.registry.getEndpoints(modelId);
     if (endpoints.length === 0) return null;
@@ -338,14 +247,9 @@ export class ComputeMarketplace {
   }
 
 
-  /** Execute inference request with automatic endpoint selection and payment */
   async inference(request: InferenceRequest): Promise<InferenceResult> {
     const startTime = Date.now();
-
-    // Get model info
     const model = await this.getModel(request.modelId);
-
-    // Find best endpoint
     let endpoint: ModelEndpoint | null = null;
     let coldStart = false;
 
@@ -379,10 +283,7 @@ export class ComputeMarketplace {
       throw new Error(`No available endpoint for model: ${request.modelId}`);
     }
 
-    // Execute inference based on model type
     const result = await this.executeInference(model, endpoint, request);
-
-    // Calculate cost
     const cost = this.calculateCost(model, result);
 
     return {
@@ -621,19 +522,13 @@ export class ComputeMarketplace {
     };
   }
 
-  private async executeMultimodal(
-    endpoint: ModelEndpoint,
-    request: InferenceRequest
-  ): Promise<Partial<InferenceResult>> {
-    // Multimodal uses LLM-style chat completions with image support
+  private async executeMultimodal(endpoint: ModelEndpoint, request: InferenceRequest): Promise<Partial<InferenceResult>> {
     return this.executeLLMInference(endpoint, request);
   }
 
 
-  /** Calculate cost based on model type and usage */
   calculateCost(model: RegisteredModel, result: Partial<InferenceResult>): bigint {
     const pricing = model.pricing;
-
     switch (model.modelType) {
       case ModelTypeEnum.LLM:
       case ModelTypeEnum.MULTIMODAL: {
@@ -660,13 +555,11 @@ export class ComputeMarketplace {
       case ModelTypeEnum.AUDIO_GEN:
       case ModelTypeEnum.SPEECH_TO_TEXT:
       case ModelTypeEnum.TEXT_TO_SPEECH: {
-        // Estimate 1 second per request for simplicity
         const audioCost = pricing.pricePerAudioSecond;
         return audioCost > pricing.minimumFee ? audioCost : pricing.minimumFee;
       }
 
       case ModelTypeEnum.EMBEDDING: {
-        // Embeddings typically charged per input token
         const inputTokens = result.tokensUsed?.input ?? 100;
         const embeddingCost = BigInt(inputTokens) * pricing.pricePerInputToken;
         return embeddingCost > pricing.minimumFee ? embeddingCost : pricing.minimumFee;
@@ -677,26 +570,16 @@ export class ComputeMarketplace {
     }
   }
 
-  /** Get X402 payment requirement for an inference request */
-  getPaymentRequirement(
-    modelId: string,
-    estimatedCost: bigint,
-    description?: string
-  ): ReturnType<typeof createX402PaymentRequirement> {
-    const network = this.config.network ?? 'jeju-testnet';
-    const networkConfig = X402_NETWORK_CONFIGS[network];
-
-    return createX402PaymentRequirement({
-      network,
-      recipient: this.config.paymentConfig?.ledgerManagerAddress ?? '0x0' as Address,
-      amount: estimatedCost,
-      asset: networkConfig.usdc,
-      resource: `/v1/inference/${modelId}`,
-      description: description ?? `Inference request for ${modelId}`,
-    });
+  getPaymentRequirement(modelId: string, estimatedCost: bigint, description?: string) {
+    return createPaymentRequirement(
+      `/v1/inference/${modelId}`,
+      estimatedCost,
+      this.config.paymentConfig?.ledgerManagerAddress ?? '0x0' as Address,
+      description ?? `Inference request for ${modelId}`,
+      this.config.network ?? 'jeju-testnet'
+    );
   }
 
-  /** Get credit balance for a user */
   async getCreditBalance(userAddress: string): Promise<{
     total: bigint;
     usdc: bigint;
@@ -713,12 +596,10 @@ export class ComputeMarketplace {
   }
 
 
-  /** Get standard compute pricing */
   static getPricing() {
     return COMPUTE_PRICING;
   }
 
-  /** Get model type name */
   static getModelTypeName(modelType: ModelType): string {
     const names: Record<ModelType, string> = {
       [ModelTypeEnum.LLM]: 'Large Language Model',
@@ -733,7 +614,6 @@ export class ComputeMarketplace {
     return names[modelType] ?? 'Unknown';
   }
 
-  /** Get capability names from bitmask */
   static getCapabilityNames(capabilities: number): string[] {
     const names: string[] = [];
     const caps = ModelCapabilityEnum;
@@ -757,12 +637,207 @@ export class ComputeMarketplace {
 
     return names;
   }
+
+  async createCronTrigger(
+    name: string,
+    cronExpression: string,
+    endpoint: string,
+    options?: {
+      description?: string;
+      method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+      timeout?: number;
+      payment?: {
+        mode: 'x402' | 'prepaid' | 'free';
+        pricePerExecution?: bigint;
+      };
+    }
+  ): Promise<string> {
+    const { getTriggerIntegration } = await import('./trigger-integration');
+    const integration = getTriggerIntegration();
+
+    return integration.registerTrigger({
+      source: 'local',
+      type: 'cron',
+      name,
+      cronExpression,
+      target: {
+        type: 'http',
+        endpoint,
+        method: options?.method ?? 'POST',
+        timeout: options?.timeout ?? 30,
+      },
+      active: true,
+      description: options?.description,
+      payment: options?.payment ? {
+        mode: options.payment.mode,
+        pricePerExecution: options.payment.pricePerExecution,
+      } : undefined,
+    });
+  }
+
+  async createWebhookTrigger(
+    name: string,
+    webhookPath: string,
+    endpoint: string,
+    options?: {
+      description?: string;
+      method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+      timeout?: number;
+      requireX402?: boolean;
+      pricePerExecution?: bigint;
+    }
+  ): Promise<string> {
+    const { getTriggerIntegration } = await import('./trigger-integration');
+    const integration = getTriggerIntegration();
+
+    return integration.registerTrigger({
+      source: 'local',
+      type: 'webhook',
+      name,
+      webhookPath,
+      target: {
+        type: 'http',
+        endpoint,
+        method: options?.method ?? 'POST',
+        timeout: options?.timeout ?? 30,
+      },
+      active: true,
+      description: options?.description,
+      payment: options?.requireX402 ? {
+        mode: 'x402',
+        pricePerExecution: options.pricePerExecution,
+      } : undefined,
+    });
+  }
+
+  async createEventTrigger(
+    name: string,
+    eventTypes: string[],
+    endpoint: string,
+    options?: {
+      description?: string;
+      method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+      timeout?: number;
+    }
+  ): Promise<string> {
+    const { getTriggerIntegration } = await import('./trigger-integration');
+    const integration = getTriggerIntegration();
+
+    return integration.registerTrigger({
+      source: 'local',
+      type: 'event',
+      name,
+      eventTypes,
+      target: {
+        type: 'http',
+        endpoint,
+        method: options?.method ?? 'POST',
+        timeout: options?.timeout ?? 30,
+      },
+      active: true,
+      description: options?.description,
+    });
+  }
+
+  async subscribeTrigger(
+    triggerId: string,
+    callbackEndpoint: string,
+    subscriberAddress: Address,
+    options?: {
+      callbackMethod?: 'GET' | 'POST' | 'PUT';
+      authToken?: string;
+      paymentMode?: 'x402' | 'prepaid' | 'free';
+      prepaidBalance?: bigint;
+      maxExecutions?: number;
+    }
+  ): Promise<{ subscriptionId: string }> {
+    const { getTriggerIntegration } = await import('./trigger-integration');
+    const integration = getTriggerIntegration();
+
+    const subscription = await integration.subscribe({
+      triggerId,
+      subscriberAddress,
+      callbackEndpoint,
+      callbackMethod: options?.callbackMethod ?? 'POST',
+      callbackAuth: options?.authToken ? {
+        type: 'bearer',
+        value: options.authToken,
+      } : undefined,
+      payment: {
+        mode: options?.paymentMode ?? 'free',
+        pricePerExecution: 0n,
+        prepaidBalance: options?.prepaidBalance,
+      },
+      maxExecutions: options?.maxExecutions,
+    });
+
+    return { subscriptionId: subscription.id };
+  }
+
+  async getTriggers(filter?: {
+    type?: 'cron' | 'webhook' | 'event';
+    active?: boolean;
+  }): Promise<Array<{
+    id: string;
+    name: string;
+    type: string;
+    active: boolean;
+    cronExpression?: string;
+    webhookPath?: string;
+    eventTypes?: string[];
+  }>> {
+    const { getTriggerIntegration } = await import('./trigger-integration');
+    const integration = getTriggerIntegration();
+
+    const triggers = integration.getTriggers({
+      type: filter?.type,
+      active: filter?.active,
+    });
+
+    return triggers.map((t) => ({
+      id: t.id,
+      name: t.name,
+      type: t.type,
+      active: t.active,
+      cronExpression: t.cronExpression,
+      webhookPath: t.webhookPath,
+      eventTypes: t.eventTypes,
+    }));
+  }
+
+  async executeTrigger(
+    triggerId: string,
+    input?: Record<string, unknown>
+  ): Promise<{
+    executionId: string;
+    status: string;
+    output?: Record<string, unknown>;
+    proof?: {
+      executorSignature: string;
+      timestamp: number;
+      outputHash: string;
+    };
+  }> {
+    const { getTriggerIntegration } = await import('./trigger-integration');
+    const integration = getTriggerIntegration();
+
+    const result = await integration.executeTrigger({
+      triggerId,
+      input,
+    });
+
+    return {
+      executionId: result.executionId,
+      status: result.status,
+      output: result.output,
+      proof: result.proof ? {
+        executorSignature: result.proof.executorSignature,
+        timestamp: result.proof.timestamp,
+        outputHash: result.proof.outputHash,
+      } : undefined,
+    };
+  }
 }
 
 
-export function createComputeMarketplace(config: MarketplaceConfig): ComputeMarketplace {
-  return new ComputeMarketplace(config);
-}
-
-// Re-export types
 export { ModelTypeEnum, TEETypeEnum, ModelCapabilityEnum };

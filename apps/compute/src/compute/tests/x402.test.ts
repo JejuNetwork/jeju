@@ -1,14 +1,4 @@
-/**
- * Compute + x402 Micropayment Integration Tests
- *
- * Comprehensive tests for x402 payment protocol integration:
- * - Configuration and network handling
- * - Payment header generation and parsing
- * - Signature verification
- * - Server 402 response handling
- * - Client-side utilities
- * - Multi-asset payment requirements
- */
+/** x402 Micropayment Integration Tests */
 
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
 import { Wallet, parseEther, verifyMessage } from 'ethers';
@@ -22,12 +12,12 @@ import {
   verifyX402Payment,
   createPaymentRequirement,
   createMultiAssetPaymentRequirement,
-  estimateInferencePrice,
+  estimatePrice,
   formatPriceUSD,
   X402Client,
   X402_CHAIN_IDS,
   X402_USDC_ADDRESSES,
-  X402_NETWORK_CONFIGS,
+  X402_NETWORKS,
   type X402Network,
   type X402PaymentRequirement,
 } from '../sdk/x402';
@@ -42,10 +32,6 @@ let testWallet: Wallet;
 let userWallet: Wallet;
 let nodeAvailable = false;
 const baseUrl = `http://localhost:${TEST_PORT}`;
-
-// ============================================================================
-// Configuration Tests
-// ============================================================================
 
 describe('x402 Configuration', () => {
   test('getX402Config returns valid configuration', () => {
@@ -98,10 +84,6 @@ describe('x402 Configuration', () => {
     }
   });
 });
-
-// ============================================================================
-// Payment Header Tests
-// ============================================================================
 
 describe('x402 Payment Headers', () => {
   beforeAll(() => {
@@ -203,10 +185,6 @@ describe('x402 Payment Headers', () => {
   });
 });
 
-// ============================================================================
-// Payment Requirement Tests
-// ============================================================================
-
 describe('x402 Payment Requirements', () => {
   beforeAll(() => {
     testWallet = new Wallet(TEST_PRIVATE_KEY);
@@ -255,27 +233,17 @@ describe('x402 Payment Requirements', () => {
   });
 });
 
-// ============================================================================
-// Pricing Tests
-// ============================================================================
-
 describe('x402 Pricing', () => {
-  test('estimateInferencePrice returns default price for any model', () => {
-    // All models get the same default price (actual pricing from registry)
-    const priceA = estimateInferencePrice('model-a');
-    const priceB = estimateInferencePrice('model-b');
-    const priceC = estimateInferencePrice('any-model');
-    
-    // All should return the same default
+  test('estimatePrice returns consistent price for same model type', () => {
+    const priceA = estimatePrice('llm', 1000);
+    const priceB = estimatePrice('llm', 1000);
     expect(priceA).toBe(priceB);
-    expect(priceB).toBe(priceC);
     expect(priceA).toBeGreaterThan(0n);
   });
 
-  test('estimateInferencePrice scales with token count', () => {
-    const basePrice = estimateInferencePrice('test-model');
-    const scaledPrice = estimateInferencePrice('test-model', 5000); // 5x tokens
-    
+  test('estimatePrice scales with token count', () => {
+    const basePrice = estimatePrice('llm', 1000);
+    const scaledPrice = estimatePrice('llm', 5000);
     expect(scaledPrice).toBeGreaterThan(basePrice);
     expect(scaledPrice).toBe(basePrice * 5n);
   });
@@ -285,10 +253,6 @@ describe('x402 Pricing', () => {
     expect(price).toBe('$3.0000');
   });
 });
-
-// ============================================================================
-// X402Client Tests
-// ============================================================================
 
 describe('X402Client', () => {
   let client: X402Client;
@@ -331,10 +295,6 @@ describe('X402Client', () => {
     expect(isValid).toBe(true);
   });
 });
-
-// ============================================================================
-// Server Integration Tests
-// ============================================================================
 
 describe('x402 Server Integration', () => {
   beforeAll(async () => {
@@ -458,22 +418,17 @@ describe('x402 Server Integration', () => {
   });
 });
 
-// ============================================================================
-// Compatibility with vendor/cloud Tests
-// ============================================================================
-
-describe('x402 Compatibility with vendor/cloud', () => {
-  test('network config matches vendor/cloud format', () => {
-    const sepoliaConfig = X402_NETWORK_CONFIGS['base-sepolia'];
+describe('x402 Protocol Compatibility', () => {
+  test('network config follows standard format', () => {
+    const sepoliaConfig = X402_NETWORKS['base-sepolia'];
     
-    // Should match vendor/cloud config/x402.json structure
     expect(sepoliaConfig.chainId).toBe(84532);
     expect(sepoliaConfig.rpcUrl).toBe('https://sepolia.base.org');
     expect(sepoliaConfig.isTestnet).toBe(true);
     expect(sepoliaConfig.usdc).toBe('0x036CbD53842c5426634e7929541eC2318f3dCF7e');
   });
 
-  test('payment requirement structure matches vendor/cloud', () => {
+  test('payment requirement structure follows X402 spec', () => {
     const requirement = createPaymentRequirement(
       '/v1/chat/completions',
       1000000n,
@@ -482,7 +437,7 @@ describe('x402 Compatibility with vendor/cloud', () => {
       'base-sepolia'
     );
     
-    // Should be compatible with vendor/cloud X402PaymentRequirements type
+    // X402 standard fields
     expect(requirement).toHaveProperty('x402Version');
     expect(requirement).toHaveProperty('error');
     expect(requirement).toHaveProperty('accepts');
@@ -496,8 +451,8 @@ describe('x402 Compatibility with vendor/cloud', () => {
     expect(accept).toHaveProperty('resource');
   });
 
-  test('creditsPerDollar matches vendor/cloud', () => {
+  test('creditsPerDollar follows standard rate', () => {
     const config = getX402Config();
-    expect(config.creditsPerDollar).toBe(100); // Same as vendor/cloud
+    expect(config.creditsPerDollar).toBe(100);
   });
 });

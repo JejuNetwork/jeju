@@ -2,6 +2,7 @@ import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useAcc
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { parseEther, type Address } from 'viem';
 import { NETWORK } from '../config';
+import { ZERO_ADDRESS } from '../lib/contracts';
 
 // Re-export shared types and utilities
 export {
@@ -90,7 +91,7 @@ export function useEILConfig() {
   const chainConfig = networkConfig.chains[chainId];
   const paymasterAddress = chainConfig?.crossChainPaymaster;
   const crossChainPaymaster = (paymasterAddress && paymasterAddress.length > 0 ? paymasterAddress : undefined) as Address | undefined;
-  const isAvailable = crossChainPaymaster && crossChainPaymaster !== '0x0000000000000000000000000000000000000000';
+  const isAvailable = crossChainPaymaster && crossChainPaymaster !== ZERO_ADDRESS;
   
   const configuredChains = SUPPORTED_CHAINS.map(supportedChain => {
     const config = networkConfig.chains[supportedChain.id.toString()];
@@ -144,7 +145,7 @@ export function useCrossChainSwap(paymasterAddress: Address | undefined) {
     const feeIncrement = parseEther('0.0001');
     const gasOnDestination = parseEther('0.001');
 
-    const isETH = params.sourceToken === '0x0000000000000000000000000000000000000000';
+    const isETH = params.sourceToken === ZERO_ADDRESS;
     const txValue = isETH ? params.amount + maxFee : maxFee;
 
     writeContract({

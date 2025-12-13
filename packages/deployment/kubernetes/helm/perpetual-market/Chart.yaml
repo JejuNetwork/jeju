@@ -1,0 +1,16 @@
+apiVersion: v2
+name: perpetual-market
+description: Jeju Perpetual Futures DEX - Keeper and API services
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+maintainers:
+  - name: Jeju Network
+    email: devops@jeju.network
+keywords:
+  - perpetual
+  - futures
+  - dex
+  - liquidation
+  - keeper
+dependencies: []

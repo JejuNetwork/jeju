@@ -1,0 +1,25 @@
+{
+  "name": "@jeju/facilitator",
+  "version": "1.0.0",
+  "description": "Jeju x402 HTTP Facilitator - Payment verification and settlement service",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "security:scan": "bash scripts/security-scan.sh",
+    "dev": "bun run src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target node --minify",
+    "start": "bun run dist/index.js",
+    "test": "bun test",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit",
+    "verify-deployment": "bun run scripts/verify-deployment.ts"
+  },
+  "dependencies": {
+    "hono": "4.6.0",
+    "viem": "2.21.0"
+  },
+  "devDependencies": {
+    "@types/bun": "1.1.0",
+    "typescript": "^5.5.4"
+  }
+}

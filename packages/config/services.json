@@ -40,6 +40,10 @@
     "monitoring": {
       "prometheus": "http://127.0.0.1:9090",
       "grafana": "http://127.0.0.1:3000"
+    },
+    "crucible": {
+      "api": "http://127.0.0.1:4020",
+      "executor": "http://127.0.0.1:4021"
     }
   },
   
@@ -80,6 +84,10 @@
     "monitoring": {
       "prometheus": "https://testnet-prometheus.jeju.network",
       "grafana": "https://testnet-grafana.jeju.network"
+    },
+    "crucible": {
+      "api": "https://testnet-crucible.jeju.network",
+      "executor": "https://testnet-crucible-executor.jeju.network"
     },
     "externalRpcs": {
       "ethSepolia": "https://ethereum-sepolia-rpc.publicnode.com",
@@ -127,6 +135,10 @@
     "monitoring": {
       "prometheus": "https://prometheus.jeju.network",
       "grafana": "https://grafana.jeju.network"
+    },
+    "crucible": {
+      "api": "https://crucible.jeju.network",
+      "executor": "https://crucible-executor.jeju.network"
     },
     "externalRpcs": {
       "ethereum": "https://eth.llamarpc.com",

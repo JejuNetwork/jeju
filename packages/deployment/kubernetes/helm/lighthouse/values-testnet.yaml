@@ -30,9 +30,10 @@ config:
   execution:
     endpoint: "http://geth-l1.l1.svc.cluster.local:8551"
   
-  # Checkpoint sync for faster initial sync
+  # Checkpoint sync disabled - all free endpoints have rate limits (429 errors)
+  # Syncing from genesis (slow but reliable, no rate limits)
   checkpoint:
-    syncUrl: "https://sepolia.beaconstate.ethstaker.cc"
+    syncUrl: ""
   
   # HTTP API for op-node blob retrieval
   http:
@@ -44,4 +45,11 @@ config:
   # Fusaka/PeerDAS settings
   fusaka:
     blobPruneDistance: 3200
+  
+  # P2P settings - use built-in Sepolia bootnodes (--network=sepolia provides them)
+  p2p:
+    port: 9000
+    discoveryPort: 9000
+    targetPeers: 100
+    bootnodes: []
 

@@ -1,16 +1,21 @@
 /**
  * End-to-End Tests for Jeju Compute Marketplace
- *
- * Tests the full flow:
- * 1. Deploy contracts to localnet/Anvil
- * 2. Register provider
- * 3. User deposits and transfers
- * 4. Start compute node
- * 5. Make inference request
- * 6. Settle on-chain
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+
+const IS_CI = process.env.CI === 'true';
+
+function skipIfNoNetwork(networkAvailable: boolean, testName: string): boolean {
+  if (!networkAvailable) {
+    if (IS_CI) {
+      throw new Error(`Test "${testName}" requires network but CI environment has no blockchain running. Start Anvil in CI workflow.`);
+    }
+    console.log(`   Skipping: network not available (run locally with Anvil for full coverage)`);
+    return true;
+  }
+  return false;
+}
 import { JsonRpcProvider, parseEther, Wallet } from 'ethers';
 import { ComputeNodeServer } from '../node/server';
 import type { AttestationReport, HardwareInfo, ProviderConfig } from '../node/types';
@@ -245,11 +250,7 @@ describe('Jeju Compute E2E', () => {
 
   describe('SDK', () => {
     test('generate auth headers', async () => {
-      if (!networkAvailable) {
-        console.log('   Skipping: network not available');
-        return;
-      }
-      // Skip if contracts not deployed (getNonce will fail)
+      if (skipIfNoNetwork(networkAvailable, 'generate auth headers')) return;
       try {
         const headers = await userSDK.generateAuthHeaders(providerWallet.address);
         expect(headers['x-jeju-address']).toBe(userWallet.address);
@@ -258,6 +259,7 @@ describe('Jeju Compute E2E', () => {
         expect(headers['x-jeju-timestamp']).toBeDefined();
       } catch (error) {
         if (String(error).includes('BAD_DATA') || String(error).includes('could not decode')) {
+          if (IS_CI) throw new Error('Contracts not deployed in CI - deployment step failed');
           console.log('   Skipping: contracts not deployed');
           return;
         }
@@ -281,16 +283,13 @@ describe('Jeju Compute E2E', () => {
 
   describe('Authenticated Requests', () => {
     test('request with auth headers', async () => {
-      if (!networkAvailable) {
-        console.log('   Skipping: network not available');
-        return;
-      }
-      // Skip if contracts not deployed
+      if (skipIfNoNetwork(networkAvailable, 'request with auth headers')) return;
       let headers;
       try {
         headers = await userSDK.generateAuthHeaders(providerWallet.address);
       } catch (error) {
         if (String(error).includes('BAD_DATA') || String(error).includes('could not decode')) {
+          if (IS_CI) throw new Error('Contracts not deployed in CI - deployment step failed');
           console.log('   Skipping: contracts not deployed');
           return;
         }

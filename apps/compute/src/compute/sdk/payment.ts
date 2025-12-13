@@ -858,12 +858,13 @@ export const COMPUTE_PRICING = {
 export function formatComputeCost(weiAmount: bigint): string {
   const eth = formatEther(weiAmount);
   const ethNum = parseFloat(eth);
+  const ethPrice = parseInt(process.env.ETH_PRICE_USD ?? '3000', 10);
 
   if (ethNum < 0.0001) {
-    return `~$${(ethNum * 3000 * 100).toFixed(2)} cents`;
+    return `~$${(ethNum * ethPrice * 100).toFixed(2)} cents`;
   }
 
-  return `${ethNum.toFixed(6)} ETH (~$${(ethNum * 3000).toFixed(2)})`;
+  return `${ethNum.toFixed(6)} ETH (~$${(ethNum * ethPrice).toFixed(2)})`;
 }
 
 export function estimateGasForOperation(operationType: 'inference' | 'rental' | 'deposit'): bigint {

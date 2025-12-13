@@ -295,7 +295,7 @@ contract RouterIntegrationTest is Test, IXLPV3MintCallback {
     function testQuoteForRouter() public view {
         uint256 amountIn = 1 ether;
 
-        (uint256 amountOut, uint8 poolType, uint24 fee) = router.quoteForRouter(
+        (uint256 amountOut, uint8 poolType,) = router.quoteForRouter(
             address(tokenA),
             address(tokenB),
             amountIn

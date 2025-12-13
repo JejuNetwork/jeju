@@ -9,16 +9,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 
 /**
  * @title JejuPresale
- * @notice Token presale contract with vesting and automatic distribution
- * @dev Modern 2025 presale mechanics with fair launch principles
- *
- * Features:
- * - Multiple contribution tiers with different bonuses
- * - Linear vesting with cliff period
- * - Automatic distribution at TGE (Token Generation Event)
- * - Refund mechanism if soft cap not reached
- * - Whitelist support for early access
- * - Multi-token contribution support (ETH, USDC, etc.)
+ * @notice Token presale with vesting
  */
 contract JejuPresale is Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;

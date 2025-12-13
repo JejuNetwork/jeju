@@ -1,0 +1,71 @@
+{{- if .Values.keeper.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "perpetual-market.fullname" . }}-keeper
+  labels:
+    {{- include "perpetual-market.labels" . | nindent 4 }}
+    app.kubernetes.io/component: keeper
+spec:
+  replicas: {{ .Values.keeper.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "perpetual-market.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: keeper
+  template:
+    metadata:
+      labels:
+        {{- include "perpetual-market.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: keeper
+    spec:
+      serviceAccountName: {{ include "perpetual-market.serviceAccountName" . }}
+      containers:
+        - name: keeper
+          image: "{{ .Values.keeper.image.repository }}:{{ .Values.keeper.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.keeper.image.pullPolicy }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.metrics.port }}
+              protocol: TCP
+          env:
+            - name: CHAIN_ID
+              value: {{ .Values.global.chainId | quote }}
+            - name: NETWORK
+              value: {{ .Values.global.network | quote }}
+            - name: CHECK_INTERVAL_MS
+              value: {{ .Values.keeper.config.checkIntervalMs | quote }}
+            - name: MIN_PROFIT_BPS
+              value: {{ .Values.keeper.config.minProfitBps | quote }}
+            - name: MAX_GAS_GWEI
+              value: {{ .Values.keeper.config.maxGasGwei | quote }}
+            - name: BATCH_SIZE
+              value: {{ .Values.keeper.config.batchSize | quote }}
+            - name: PERPETUAL_MARKET_ADDRESS
+              value: {{ .Values.contracts.perpetualMarket | quote }}
+            - name: MARGIN_MANAGER_ADDRESS
+              value: {{ .Values.contracts.marginManager | quote }}
+            - name: LIQUIDATION_ENGINE_ADDRESS
+              value: {{ .Values.contracts.liquidationEngine | quote }}
+            - name: RPC_URL
+              value: {{ .Values.rpc.primary | quote }}
+            - name: RPC_FALLBACK_URL
+              value: {{ .Values.rpc.fallback | quote }}
+          {{- with .Values.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.keeper.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: metrics
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: metrics
+            initialDelaySeconds: 10
+            periodSeconds: 10
+{{- end }}

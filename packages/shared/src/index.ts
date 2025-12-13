@@ -39,3 +39,9 @@ export {
   type ModerationStats,
   type TransactionRequest,
 } from './api/moderation';
+
+// Health Check Middleware
+export {
+  healthMiddleware,
+  healthChecks,
+} from './health-middleware';

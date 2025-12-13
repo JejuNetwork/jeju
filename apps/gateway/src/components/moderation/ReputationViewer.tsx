@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useReadContract } from 'wagmi';
 import { Shield, AlertTriangle } from 'lucide-react';
 import { MODERATION_CONTRACTS } from '../../config/moderation';
+import { ZERO_BYTES32 } from '../../lib/contracts';
 
 interface ReputationViewerProps {
   agentId: bigint;
@@ -120,7 +121,7 @@ export default function ReputationViewer({ agentId }: ReputationViewerProps) {
     address: MODERATION_CONTRACTS.BanManager as `0x${string}`,
     abi: BAN_MANAGER_ABI,
     functionName: 'getBanReason',
-    args: [agentId, '0x0000000000000000000000000000000000000000000000000000000000000000'],
+    args: [agentId, ZERO_BYTES32],
     query: { enabled: !!isNetworkBanned },
   });
   

@@ -354,7 +354,7 @@ export default function XLPDashboard() {
                 </div>
               </form>
 
-              {xlpETH && xlpETH > 0n && (
+              {xlpETH && Boolean(xlpETH > 0n) && (
                 <button
                   className="button button-secondary"
                   style={{ width: '100%', marginTop: '0.5rem' }}
@@ -496,7 +496,7 @@ export default function XLPDashboard() {
                     </p>
                   </div>
                   
-                  {stake.unbondingAmount > 0n && (
+                  {Boolean(stake.unbondingAmount > 0n) && (
                     <div style={{ 
                       padding: '1.5rem', 
                       background: 'var(--warning-soft)', 
@@ -507,7 +507,7 @@ export default function XLPDashboard() {
                       <p style={{ fontSize: '1.5rem', fontWeight: '700', margin: '0.5rem 0', color: 'var(--warning)' }}>
                         {formatEther(stake.unbondingAmount)} ETH
                       </p>
-                      {unbondingTimeRemaining && unbondingTimeRemaining > 0n && (
+                      {Boolean(unbondingTimeRemaining && unbondingTimeRemaining > 0n) && (
                         <p style={{ fontSize: '0.75rem', color: 'var(--warning)' }}>
                           {Math.ceil(Number(unbondingTimeRemaining) / 86400)} days remaining
                         </p>

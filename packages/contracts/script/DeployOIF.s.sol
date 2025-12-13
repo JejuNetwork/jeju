@@ -43,7 +43,7 @@ contract DeployOIF is Script {
             oracleAddr = address(oracle);
             console.log("HyperlaneOracle deployed to:", oracleAddr);
         } else if (keccak256(bytes(oracleType)) == keccak256(bytes("superchain"))) {
-            SuperchainOracle oracle = new SuperchainOracle();
+            SuperchainOracle oracle = new SuperchainOracle(chainId);
             oracleAddr = address(oracle);
             console.log("SuperchainOracle deployed to:", oracleAddr);
         } else {

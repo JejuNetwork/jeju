@@ -110,6 +110,13 @@ export const CORE_PORTS = {
     ENV_VAR: 'INDEXER_DB_PORT',
     get: () => parseInt(process.env.INDEXER_DB_PORT || '23798')
   },
+
+  /** x402 Facilitator - Payment verification and settlement service */
+  FACILITATOR: {
+    DEFAULT: 3402,
+    ENV_VAR: 'FACILITATOR_PORT',
+    get: () => parseInt(process.env.FACILITATOR_PORT || '3402')
+  },
 } as const;
 
 // ============================================================================
@@ -117,18 +124,28 @@ export const CORE_PORTS = {
 // ============================================================================
 
 export const VENDOR_PORTS = {
-  /** Hyperscape Client - 3D on-chain RPG */
+  /** 
+   * Hyperscape Client - 3D on-chain RPG (Vite dev server)
+   * Standalone: 3333 (default)
+   * Jeju mode: 5013 (set via VITE_PORT in jeju-manifest.json)
+   */
   HYPERSCAPE_CLIENT: {
     DEFAULT: 3333,
-    ENV_VAR: 'VENDOR_HYPERSCAPE_CLIENT_PORT',
-    get: () => parseInt(process.env.VENDOR_HYPERSCAPE_CLIENT_PORT || '3333')
+    JEJU: 5013,
+    ENV_VAR: 'VITE_PORT',
+    get: () => parseInt(process.env.VITE_PORT || process.env.VENDOR_HYPERSCAPE_CLIENT_PORT || '3333')
   },
 
-  /** Hyperscape Server - Game server */
+  /** 
+   * Hyperscape Server - Game server (Fastify + WebSockets)
+   * Standalone: 5555 (default)
+   * Jeju mode: 5014 (set via PORT in jeju-manifest.json)
+   */
   HYPERSCAPE_SERVER: {
     DEFAULT: 5555,
-    ENV_VAR: 'VENDOR_HYPERSCAPE_SERVER_PORT',
-    get: () => parseInt(process.env.VENDOR_HYPERSCAPE_SERVER_PORT || '5555')
+    JEJU: 5014,
+    ENV_VAR: 'PORT',
+    get: () => parseInt(process.env.PORT || process.env.VENDOR_HYPERSCAPE_SERVER_PORT || '5555')
   },
 
   /** Launchpad Frontend - Token launchpad UI */

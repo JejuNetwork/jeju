@@ -3,8 +3,8 @@
 
 # Pinned versions for reproducibility (December 2025)
 OP_STACK_VERSION = "v1.16.3"
-GETH_VERSION = "v1.14.12"
-OP_GETH_VERSION = "v1.101411.4"  # Based on Geth 1.14.11
+GETH_VERSION = "v1.16.7"  # Fusaka-compatible (required for PeerDAS + blob capacity)
+OP_GETH_VERSION = "v1.101603.5"  # Latest stable op-geth version
 OP_RETH_VERSION = "v1.1.2"
 
 def run(plan, args={}):

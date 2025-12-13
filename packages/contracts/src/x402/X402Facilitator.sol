@@ -25,6 +25,12 @@ import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
  * 4. Contract verifies signature, transfers tokens, emits event
  * 5. Service provides resource to user
  *
+ * IMPORTANT LIMITATIONS:
+ * - Signature verification hardcodes scheme="exact" and network="jeju"
+ * - Payments MUST be signed with these values for verification to succeed
+ * - This contract is network-specific to Jeju (chainId 420691)
+ * - For multi-network support, deploy separate contracts per network
+ *
  * @custom:security-contact security@jeju.network
  */
 contract X402Facilitator is Ownable, ReentrancyGuard, EIP712 {
@@ -47,6 +53,9 @@ contract X402Facilitator is Ownable, ReentrancyGuard, EIP712 {
 
     /// @notice Mapping of token => supported
     mapping(address => bool) public supportedTokens;
+
+    /// @notice Mapping of token => decimals (for volume normalization)
+    mapping(address => uint8) public tokenDecimals;
 
     /// @notice Mapping of service => authorized to settle
     mapping(address => bool) public authorizedServices;
@@ -140,11 +149,12 @@ contract X402Facilitator is Ownable, ReentrancyGuard, EIP712 {
         bytes32 nonceHash = keccak256(abi.encodePacked(payer, nonce));
         if (usedNonces[nonceHash]) revert NonceAlreadyUsed();
 
-        // Verify signature
-        bytes32 structHash = keccak256(
+        // Verify signature - accept both "exact" and "upto" schemes
+        bytes32 schemeHashExact = keccak256(bytes("exact"));
+        bytes32 structHashExact = keccak256(
             abi.encode(
                 PAYMENT_TYPEHASH,
-                keccak256(bytes("exact")), // scheme
+                schemeHashExact,
                 keccak256(bytes("jeju")), // network
                 token,
                 recipient,
@@ -154,9 +164,30 @@ contract X402Facilitator is Ownable, ReentrancyGuard, EIP712 {
                 timestamp
             )
         );
-
-        bytes32 digest = _hashTypedDataV4(structHash);
-        address signer = ECDSA.recover(digest, signature);
+        
+        // Try "exact" first, then "upto" if that fails
+        bytes32 digestExact = _hashTypedDataV4(structHashExact);
+        address signer = ECDSA.recover(digestExact, signature);
+        
+        if (signer != payer) {
+            // Try "upto" scheme
+            bytes32 schemeHashUpto = keccak256(bytes("upto"));
+            bytes32 structHashUpto = keccak256(
+                abi.encode(
+                    PAYMENT_TYPEHASH,
+                    schemeHashUpto,
+                    keccak256(bytes("jeju")),
+                    token,
+                    recipient,
+                    amount,
+                    keccak256(bytes(resource)),
+                    keccak256(bytes(nonce)),
+                    timestamp
+                )
+            );
+            bytes32 digestUpto = _hashTypedDataV4(structHashUpto);
+            signer = ECDSA.recover(digestUpto, signature);
+        }
 
         if (signer != payer) revert InvalidSignature();
 
@@ -178,8 +209,10 @@ contract X402Facilitator is Ownable, ReentrancyGuard, EIP712 {
 
         // Update stats
         totalSettlements++;
-        // Assume 6 decimals for USDC, convert to 18
-        totalVolumeUSD += amount * 1e12;
+        // Normalize to 18 decimals for volume tracking
+        uint8 decimals = tokenDecimals[token];
+        if (decimals == 0) decimals = 6; // Default to USDC-like tokens
+        totalVolumeUSD += amount * (10 ** (18 - decimals));
 
         emit PaymentSettled(paymentId, payer, recipient, token, amount, protocolFee, resource, block.timestamp);
     }
@@ -215,11 +248,12 @@ contract X402Facilitator is Ownable, ReentrancyGuard, EIP712 {
         bytes32 nonceHash = keccak256(abi.encodePacked(payer, nonce));
         if (usedNonces[nonceHash]) revert NonceAlreadyUsed();
 
-        // Verify payment signature
-        bytes32 structHash = keccak256(
+        // Verify payment signature - accept both "exact" and "upto" schemes
+        bytes32 schemeHashExact = keccak256(bytes("exact"));
+        bytes32 structHashExact = keccak256(
             abi.encode(
                 PAYMENT_TYPEHASH,
-                keccak256(bytes("exact")),
+                schemeHashExact,
                 keccak256(bytes("jeju")),
                 token,
                 recipient,
@@ -229,10 +263,30 @@ contract X402Facilitator is Ownable, ReentrancyGuard, EIP712 {
                 timestamp
             )
         );
-
-        bytes32 digest = _hashTypedDataV4(structHash);
-        address signer = ECDSA.recover(digest, paymentSignature);
-
+        
+        bytes32 digestExact = _hashTypedDataV4(structHashExact);
+        address signer = ECDSA.recover(digestExact, paymentSignature);
+        
+        if (signer != payer) {
+            // Try "upto" scheme
+            bytes32 schemeHashUpto = keccak256(bytes("upto"));
+            bytes32 structHashUpto = keccak256(
+                abi.encode(
+                    PAYMENT_TYPEHASH,
+                    schemeHashUpto,
+                    keccak256(bytes("jeju")),
+                    token,
+                    recipient,
+                    amount,
+                    keccak256(bytes(resource)),
+                    keccak256(bytes(nonce)),
+                    timestamp
+                )
+            );
+            bytes32 digestUpto = _hashTypedDataV4(structHashUpto);
+            signer = ECDSA.recover(digestUpto, paymentSignature);
+        }
+        
         if (signer != payer) revert InvalidSignature();
 
         // Mark nonce as used
@@ -259,7 +313,10 @@ contract X402Facilitator is Ownable, ReentrancyGuard, EIP712 {
 
         // Update stats
         totalSettlements++;
-        totalVolumeUSD += amount * 1e12;
+        // Normalize to 18 decimals for volume tracking
+        uint8 decimals = tokenDecimals[token];
+        if (decimals == 0) decimals = 6; // Default to USDC-like tokens
+        totalVolumeUSD += amount * (10 ** (18 - decimals));
 
         emit PaymentSettled(paymentId, payer, recipient, token, amount, protocolFee, resource, block.timestamp);
     }
@@ -354,6 +411,11 @@ contract X402Facilitator is Ownable, ReentrancyGuard, EIP712 {
     function setTokenSupported(address token, bool supported) external onlyOwner {
         supportedTokens[token] = supported;
         emit TokenSupported(token, supported);
+    }
+
+    function setTokenDecimals(address token, uint8 decimals) external onlyOwner {
+        require(decimals <= 18, "Invalid decimals");
+        tokenDecimals[token] = decimals;
     }
 
     function setAuthorizedService(address service, bool authorized) external onlyOwner {

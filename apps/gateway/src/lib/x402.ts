@@ -1,4 +1,5 @@
 import { parseEther } from 'viem';
+import { ZERO_ADDRESS } from './contracts';
 
 // Re-export all core x402 functionality from shared
 export {
@@ -47,7 +48,7 @@ export function createPaymentRequirement(
   amount: bigint,
   description: string,
   recipientAddress: Address,
-  tokenAddress: Address = '0x0000000000000000000000000000000000000000',
+  tokenAddress: Address = ZERO_ADDRESS,
   network: 'base-sepolia' | 'base' | 'jeju' | 'jeju-testnet' = 'jeju'
 ) {
   return sharedCreatePaymentRequirement(resource, amount, description, {

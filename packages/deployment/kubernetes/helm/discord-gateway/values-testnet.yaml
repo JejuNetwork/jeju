@@ -1,0 +1,42 @@
+# Discord Gateway - Testnet Values
+
+replicaCount: 2
+
+image:
+  repository: ghcr.io/elizaos/discord-gateway
+  tag: testnet
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+env:
+  - name: NODE_ENV
+    value: "production"
+  - name: LOG_LEVEL
+    value: "debug"
+  - name: POD_NAME
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.name
+  - name: ELIZA_CLOUD_URL
+    value: "https://testnet.elizacloud.ai"
+
+envFrom:
+  - secretRef:
+      name: discord-gateway-env
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+

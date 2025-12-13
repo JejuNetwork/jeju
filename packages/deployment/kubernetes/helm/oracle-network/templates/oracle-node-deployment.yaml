@@ -1,0 +1,75 @@
+{{- if .Values.oracleNode.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "oracle-network.fullname" . }}-node
+  labels:
+    {{- include "oracle-network.labels" . | nindent 4 }}
+    app.kubernetes.io/component: oracle-node
+spec:
+  replicas: {{ .Values.oracleNode.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "oracle-network.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: oracle-node
+  template:
+    metadata:
+      labels:
+        {{- include "oracle-network.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: oracle-node
+    spec:
+      serviceAccountName: {{ include "oracle-network.serviceAccountName" . }}
+      containers:
+        - name: oracle-node
+          image: "{{ .Values.oracleNode.image.repository }}:{{ .Values.oracleNode.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.oracleNode.image.pullPolicy }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.metrics.port }}
+              protocol: TCP
+          env:
+            - name: CHAIN_ID
+              value: {{ .Values.global.chainId | quote }}
+            - name: NETWORK
+              value: {{ .Values.global.network | quote }}
+            - name: SUBMIT_INTERVAL_MS
+              value: {{ .Values.oracleNode.config.submitIntervalMs | quote }}
+            - name: HEARTBEAT_INTERVAL_MS
+              value: {{ .Values.oracleNode.config.heartbeatIntervalMs | quote }}
+            - name: DEVIATION_THRESHOLD_BPS
+              value: {{ .Values.oracleNode.config.priceDeviationThresholdBps | quote }}
+            - name: ORACLE_STAKING_MANAGER_ADDRESS
+              value: {{ .Values.contracts.oracleStakingManager | quote }}
+            - name: PRICE_FEED_AGGREGATOR_ADDRESS
+              value: {{ .Values.contracts.priceFeedAggregator | quote }}
+            - name: RPC_URL
+              value: {{ .Values.rpc.primary | quote }}
+            - name: RPC_FALLBACK_URL
+              value: {{ .Values.rpc.fallback | quote }}
+            {{- if .Values.priceSources.chainlink.enabled }}
+            - name: CHAINLINK_ENABLED
+              value: "true"
+            {{- end }}
+            {{- if .Values.priceSources.binance.enabled }}
+            - name: BINANCE_ENDPOINT
+              value: {{ .Values.priceSources.binance.endpoint | quote }}
+            {{- end }}
+          {{- with .Values.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.oracleNode.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: metrics
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: metrics
+            initialDelaySeconds: 10
+            periodSeconds: 10
+{{- end }}

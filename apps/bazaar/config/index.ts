@@ -51,6 +51,16 @@ export const CONTRACTS = {
   
   // Payments
   predimarket: (process.env.NEXT_PUBLIC_PREDIMARKET_ADDRESS || ZERO) as Address,
+  
+  // Perpetuals
+  perpetualMarket: (process.env.NEXT_PUBLIC_PERPETUAL_MARKET_ADDRESS || ZERO) as Address,
+  marginManager: (process.env.NEXT_PUBLIC_MARGIN_MANAGER_ADDRESS || ZERO) as Address,
+  insuranceFund: (process.env.NEXT_PUBLIC_INSURANCE_FUND_ADDRESS || ZERO) as Address,
+  liquidationEngine: (process.env.NEXT_PUBLIC_LIQUIDATION_ENGINE_ADDRESS || ZERO) as Address,
+  
+  // Oracle Network
+  oracleStakingManager: (process.env.NEXT_PUBLIC_ORACLE_STAKING_MANAGER_ADDRESS || ZERO) as Address,
+  priceFeedAggregator: (process.env.NEXT_PUBLIC_PRICE_FEED_AGGREGATOR_ADDRESS || ZERO) as Address,
 } as const;
 
 // API keys (only ones that are actually public/client-safe)

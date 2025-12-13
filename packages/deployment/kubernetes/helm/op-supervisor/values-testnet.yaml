@@ -1,7 +1,7 @@
 # OP-Supervisor values for testnet
-# Note: Supervisor is for Superchain interop - optional for standalone testnet
+# Enables Superchain native interop for cross-L2 messaging
 
-replicaCount: 0  # Disabled for standalone testnet
+replicaCount: 1  # Enabled for OIF cross-chain attestations
 
 resources:
   limits:
@@ -17,15 +17,38 @@ tolerations: []
 
 config:
   datadir: "/data"
+  
   l1:
-    # Use internal L1 full node
+    # Use internal L1 full node (Sepolia)
     rpcUrl: "http://geth-l1.l1.svc.cluster.local:8545"
     beacon:
       url: "http://lighthouse.l1.svc.cluster.local:5052"
+  
   chains:
+    # Jeju Testnet (our chain)
     - name: "jeju-testnet"
       chainId: 420690
       rpcUrl: "http://reth-rpc.rpc.svc.cluster.local:8545"
       opNodeUrl: "http://op-node.op-stack.svc.cluster.local:9545"
+    
+    # Base Sepolia (via full node)
+    - name: "base-sepolia"
+      chainId: 84532
+      rpcUrl: "http://op-geth-base-sepolia.l2-base.svc.cluster.local:8545"
+      opNodeUrl: "http://op-node-base-sepolia.l2-base.svc.cluster.local:9545"
+    
+    # Optimism Sepolia (via full node)
+    - name: "optimism-sepolia"
+      chainId: 11155420
+      rpcUrl: "http://op-geth-optimism-sepolia.l2-optimism.svc.cluster.local:8545"
+      opNodeUrl: "http://op-node-optimism-sepolia.l2-optimism.svc.cluster.local:9545"
+  
   interop:
-    enabled: false  # Not connected to Superchain yet
+    enabled: true
+    # Dependency set: Chains this supervisor validates messages from
+    # These are the OP Stack chains that can send cross-L2 messages to Jeju
+    dependencySet:
+      - chainId: 84532      # Base Sepolia
+        rpcUrl: "http://op-geth-base-sepolia.l2-base.svc.cluster.local:8545"
+      - chainId: 11155420   # Optimism Sepolia
+        rpcUrl: "http://op-geth-optimism-sepolia.l2-optimism.svc.cluster.local:8545"

@@ -41,7 +41,7 @@ import {
   createCloudBridge,
   type CloudProviderBridge,
 } from '../compute/sdk/cloud-integration';
-import type { ModelType } from '../compute/sdk/types';
+import { ModelTypeEnum, type ModelType } from '../compute/sdk/types';
 
 // ============================================================================
 // Types
@@ -997,12 +997,7 @@ export class ComputeGateway {
     // Get cloud status
     this.app.get('/v1/cloud/status', async (c: Context) => {
       if (!this.cloudBridge) {
-        return c.json({
-          enabled: false,
-          endpoint: null,
-          modelCount: 0,
-          skillCount: 0,
-        });
+        return c.json({ enabled: false, endpoint: null, modelCount: 0 });
       }
       
       const status = await this.cloudBridge.getStatus();
@@ -1047,33 +1042,24 @@ export class ComputeGateway {
       return c.json(result);
     });
     
-    // Execute A2A skill on cloud
-    this.app.post('/v1/cloud/skills/:skillId', async (c: Context) => {
-      if (!this.cloudBridge) {
-        return c.json({ error: 'Cloud integration not enabled' }, 503);
-      }
-      
-      const skillId = c.req.param('skillId');
-      const body = await c.req.json<{ input: string | Record<string, unknown> }>();
-      
-      const result = await this.cloudBridge.executeSkill(skillId, body.input);
-      return c.json({ result });
+    this.app.post('/v1/cloud/skills/:skillId', (c: Context) => {
+      return c.json({ error: 'Skills not supported' }, 501);
     });
   }
   
   // Helper to parse model type from query
-  private parseModelType(type: string): number {
-    const types: Record<string, number> = {
-      llm: 0,
-      image: 1,
-      video: 2,
-      audio: 3,
-      speech_to_text: 4,
-      text_to_speech: 5,
-      embedding: 6,
-      multimodal: 7,
+  private parseModelType(type: string): ModelType {
+    const types: Record<string, ModelType> = {
+      llm: ModelTypeEnum.LLM,
+      image: ModelTypeEnum.IMAGE_GEN,
+      video: ModelTypeEnum.VIDEO_GEN,
+      audio: ModelTypeEnum.AUDIO_GEN,
+      speech_to_text: ModelTypeEnum.SPEECH_TO_TEXT,
+      text_to_speech: ModelTypeEnum.TEXT_TO_SPEECH,
+      embedding: ModelTypeEnum.EMBEDDING,
+      multimodal: ModelTypeEnum.MULTIMODAL,
     };
-    return types[type.toLowerCase()] ?? 0;
+    return types[type.toLowerCase()] ?? ModelTypeEnum.LLM;
   }
   
   // Helper to convert model type to string

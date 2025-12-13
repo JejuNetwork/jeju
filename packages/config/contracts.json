@@ -173,7 +173,7 @@
     },
     
     "eil": {
-      "l1StakeManager": "0x355281d1974BfB64F9d475d01936e5dB37396DA3",
+      "l1StakeManager": "0xBf871db95b89Fde7D13b4FAA8b8E47aB5F00C29C",
       "crossChainPaymaster": "",
       "liquidityPaymaster": ""
     }
@@ -274,7 +274,7 @@
         "oracleAdapter": "0xe1f87369beED68C52003372Fe33Db8A245317B6E"
       },
       "eil": {
-        "l1StakeManager": "0x355281d1974BfB64F9d475d01936e5dB37396DA3"
+        "l1StakeManager": "0xBf871db95b89Fde7D13b4FAA8b8E47aB5F00C29C"
       }
     },
     "baseSepolia": {

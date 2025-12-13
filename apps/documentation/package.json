@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "vitepress dev --port ${DOCUMENTATION_PORT:-4004}",
     "a2a": "bun run server/a2a-server.ts",
-    "build": "bun run docs:generate && vitepress build",
-    "docs:generate": "cd ../.. && typedoc",
+    "build": "vitepress build",
+    "build:full": "bun run docs:generate && vitepress build",
+    "docs:generate": "cd ../.. && NODE_OPTIONS='--max-old-space-size=8192' typedoc",
     "preview": "vitepress preview --port ${DOCUMENTATION_PORT:-4004}",
     "test": "bun run test:unit",
     "test:full": "bun run test:e2e && bun run test:unit",

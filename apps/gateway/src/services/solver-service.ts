@@ -1,5 +1,6 @@
 import type { Solver, SolverLeaderboardEntry, SolverLiquidity, SupportedChainId } from '@jejunetwork/types/oif';
 import * as chainService from './chain-service';
+import { ZERO_ADDRESS } from '../lib/contracts.js';
 
 const solverCache: Map<string, Solver> = new Map();
 
@@ -150,7 +151,7 @@ export class SolverService {
       const sourceTokens = solver.supportedTokens[sourceChain.toString()] || [];
       
       const supportsToken = sourceTokens.includes(token) || 
-        token === '0x0000000000000000000000000000000000000000';
+        token === ZERO_ADDRESS;
       
       return supportsSource && supportsDest && supportsToken;
     });

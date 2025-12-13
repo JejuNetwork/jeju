@@ -1,0 +1,51 @@
+{
+  "name": "autocrat",
+  "displayName": "Autocrat MEV System",
+  "description": "Protocol-owned MEV extraction and arbitrage bot system for Jeju Network",
+  "version": "0.1.0",
+  "category": "infrastructure",
+  "port": 4050,
+  "healthEndpoint": "/health",
+  "metricsEndpoint": "/metrics",
+  "dependencies": ["gateway"],
+  "env": {
+    "AUTOCRAT_PRIVATE_KEY": {
+      "required": true,
+      "description": "Private key for bot execution wallet"
+    },
+    "AUTOCRAT_TREASURY": {
+      "required": false,
+      "description": "Treasury contract address (auto-deployed if not set)"
+    },
+    "AUTOCRAT_MIN_PROFIT_BPS": {
+      "required": false,
+      "default": "10",
+      "description": "Minimum profit in basis points to execute trade"
+    },
+    "AUTOCRAT_MAX_GAS_GWEI": {
+      "required": false,
+      "default": "100",
+      "description": "Maximum gas price in gwei"
+    }
+  },
+  "skills": [
+    {
+      "id": "arbitrage",
+      "name": "DEX Arbitrage",
+      "description": "Execute profitable arbitrage trades across AMM pools",
+      "tags": ["mev", "defi", "arbitrage"]
+    },
+    {
+      "id": "liquidation",
+      "name": "Position Liquidation",
+      "description": "Liquidate underwater perpetual positions",
+      "tags": ["mev", "defi", "liquidation"]
+    },
+    {
+      "id": "solver",
+      "name": "OIF Solver",
+      "description": "Fill cross-chain intents as a registered solver",
+      "tags": ["oif", "cross-chain", "solver"]
+    }
+  ]
+}

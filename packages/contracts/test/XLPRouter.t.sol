@@ -384,7 +384,6 @@ contract XLPRouterTest is Test, IXLPV3MintCallback {
         vm.startPrank(alice);
         tokenA.approve(address(router), swapAmount);
 
-        uint256 balanceBefore = tokenB.balanceOf(alice);
         uint256 v3Out = router.exactInputSingleV3(
             address(tokenA),
             address(tokenB),

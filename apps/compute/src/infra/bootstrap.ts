@@ -7,7 +7,7 @@
  * Uses:
  * - StateManager with Arweave for permanent storage
  * - Real blockchain client for contract interaction
- * - TEE enclave (simulated locally, real via Phala dstack)
+ * - TEE enclave (simulated locally, hardware TEE in production)
  *
  * Usage:
  *   PRIVATE_KEY=0x... CONTRACT_ADDRESS=0x... bun run src/infra/bootstrap.ts

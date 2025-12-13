@@ -1,5 +1,6 @@
 import type { TokenOption } from '../components/TokenSelector';
 import { getTokenConfigs, type TokenConfig } from '../config/contracts.js';
+import { ZERO_ADDRESS } from './contracts';
 
 export interface ProtocolToken extends TokenOption {
   hasPaymaster: boolean;
@@ -44,7 +45,7 @@ export function getProtocolTokens(): ProtocolToken[] {
   const isTest = typeof process !== 'undefined' && process.env.NODE_ENV === 'test';
   if (isTest) return tokens;
 
-  return tokens.filter(t => t.address !== '0x0000000000000000000000000000000000000000');
+  return tokens.filter(t => t.address !== ZERO_ADDRESS);
 }
 
 export function getTokenBySymbol(symbol: string): TokenOption | undefined {

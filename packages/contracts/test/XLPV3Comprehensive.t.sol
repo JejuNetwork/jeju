@@ -150,8 +150,6 @@ contract XLPV3ComprehensiveTest is Test, IXLPV3MintCallback, IXLPV3SwapCallback,
 
     function testCrossTickSwap() public {
         // Add liquidity in multiple ranges
-        int24 tickSpacing = XLPV3Pool(pool).tickSpacing();
-
         // Position 1: below current price
         XLPV3Pool(pool).mint(address(this), -600, -60, 1000000000000000, "");
 
@@ -163,7 +161,6 @@ contract XLPV3ComprehensiveTest is Test, IXLPV3MintCallback, IXLPV3SwapCallback,
 
         // Large swap that crosses multiple ticks
         uint256 swapAmount = 100 ether;
-        uint256 balanceBefore = tokenB.balanceOf(address(this));
 
         (int256 amount0, int256 amount1) = XLPV3Pool(pool).swap(
             address(this),
@@ -291,7 +288,7 @@ contract XLPV3ComprehensiveTest is Test, IXLPV3MintCallback, IXLPV3SwapCallback,
         }
 
         // Check protocol fees accumulated
-        (uint128 protocolFee0, uint128 protocolFee1) = XLPV3Pool(pool).protocolFees();
+        (uint128 protocolFee0,) = XLPV3Pool(pool).protocolFees();
         assertGt(protocolFee0, 0, "Protocol should accumulate token0 fees");
 
         // Collect protocol fees
@@ -424,9 +421,6 @@ contract XLPV3ComprehensiveTest is Test, IXLPV3MintCallback, IXLPV3SwapCallback,
 
             assertEq(XLPV3Pool(tierPool).fee(), fees[i], "Fee mismatch");
             assertEq(XLPV3Pool(tierPool).tickSpacing(), expectedTickSpacing[i], "Tick spacing mismatch");
-
-            // Verify can add liquidity and swap
-            int24 spacing = expectedTickSpacing[i];
 
             // Mint callback needs to handle the new tokens
             tokenX.transfer(tierPool, 100 ether);

@@ -1,0 +1,98 @@
+groups:
+  - name: oracle-network
+    interval: 30s
+    rules:
+      - alert: OraclePriceStale
+        expr: (time() - jon_feed_last_update_timestamp) > jon_feed_heartbeat_seconds * 1.5
+        for: 2m
+        labels:
+          severity: critical
+          component: oracle
+        annotations:
+          summary: "Oracle price feed is stale"
+          description: "Feed {{ $labels.feed_symbol }} has not been updated in {{ $value }}s (heartbeat: {{ $labels.heartbeat }}s)"
+
+      - alert: OracleDisputeOpened
+        expr: increase(jon_disputes_opened_total[5m]) > 0
+        labels:
+          severity: warning
+          component: oracle
+        annotations:
+          summary: "New oracle dispute opened"
+          description: "{{ $value }} dispute(s) opened in the last 5 minutes for feed {{ $labels.feed_symbol }}"
+
+      - alert: OracleCommitteeQuorumLow
+        expr: jon_committee_active_members < jon_feed_min_oracles
+        for: 5m
+        labels:
+          severity: critical
+          component: oracle
+        annotations:
+          summary: "Oracle committee below quorum"
+          description: "Feed {{ $labels.feed_symbol }} has {{ $value }} active members but requires {{ $labels.min_oracles }}"
+
+      - alert: OracleCircuitBreakerTripped
+        expr: jon_circuit_breaker_active == 1
+        labels:
+          severity: critical
+          component: oracle
+        annotations:
+          summary: "Oracle circuit breaker activated"
+          description: "Price deviation exceeded threshold for feed {{ $labels.feed_symbol }}"
+
+      - alert: OracleOperatorJailed
+        expr: increase(jon_operator_jailed_total[1h]) > 0
+        labels:
+          severity: warning
+          component: oracle
+        annotations:
+          summary: "Oracle operator jailed"
+          description: "Operator {{ $labels.operator }} was jailed in the last hour"
+
+      - alert: OracleHighDisputeRate
+        expr: (increase(jon_disputes_opened_total[24h]) / increase(jon_reports_submitted_total[24h])) > 0.05
+        for: 1h
+        labels:
+          severity: warning
+          component: oracle
+        annotations:
+          summary: "High oracle dispute rate"
+          description: "Dispute rate is {{ $value | printf \"%.2f\" }}% (threshold: 5%)"
+
+      - alert: OracleLowParticipation
+        expr: jon_feed_participation_rate < 0.8
+        for: 15m
+        labels:
+          severity: warning
+          component: oracle
+        annotations:
+          summary: "Low oracle participation"
+          description: "Feed {{ $labels.feed_symbol }} participation is {{ $value | printf \"%.0f\" }}% (threshold: 80%)"
+
+      - alert: OracleSubscriptionExpiringSoon
+        expr: (jon_subscription_end_time - time()) < 86400 and jon_subscription_active == 1
+        labels:
+          severity: info
+          component: oracle
+        annotations:
+          summary: "Oracle subscription expiring soon"
+          description: "Subscription {{ $labels.subscription_id }} expires in {{ $value | humanizeDuration }}"
+
+      - alert: OracleFeeRouterLowBalance
+        expr: jon_fee_router_balance < 1e18
+        for: 5m
+        labels:
+          severity: warning
+          component: oracle
+        annotations:
+          summary: "Fee router balance low"
+          description: "Fee router balance is {{ $value | humanize1024 }} wei"
+
+      - alert: OracleReportVerificationFailed
+        expr: increase(jon_report_verification_failed_total[5m]) > 0
+        labels:
+          severity: warning
+          component: oracle
+        annotations:
+          summary: "Oracle report verification failed"
+          description: "{{ $value }} report(s) failed verification in the last 5 minutes"

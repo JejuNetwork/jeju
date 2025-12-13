@@ -26,7 +26,7 @@ verbosity = 2
 
 # Lint configuration - suppress known false positives and style notes
 # These are reviewed and documented below
-[lint]
+[profile.lint]
 exclude_lints = [
     # Warnings (reviewed, false positives or intentional)
     "unsafe-typecast",          # Typecasts validated by input constraints

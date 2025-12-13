@@ -1,0 +1,23 @@
+{
+  "$schema": "../../packages/config/jeju-manifest.schema.json",
+  "name": "crucible",
+  "version": "1.0.0",
+  "description": "Decentralized agent orchestration platform for autonomous AI agents",
+  "category": "core",
+  "ports": {
+    "api": 4020,
+    "executor": 4021
+  },
+  "dependencies": {
+    "contracts": ["AgentVault", "RoomRegistry", "TriggerRegistry", "ServiceRegistry", "IdentityRegistry"],
+    "services": ["compute", "storage", "indexer"]
+  },
+  "environment": {
+    "required": ["PRIVATE_KEY", "RPC_URL"],
+    "optional": ["IPFS_GATEWAY", "COMPUTE_MARKETPLACE_URL", "STORAGE_API_URL"]
+  },
+  "healthCheck": {
+    "endpoint": "/health",
+    "interval": 30
+  }
+}

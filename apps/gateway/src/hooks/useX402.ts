@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useAccount, useWalletClient, usePublicClient, useChainId } from 'wagmi';
 import { Address, Hex } from 'viem';
 import { CONTRACTS } from '../config';
+import { ZERO_ADDRESS } from '../lib/contracts';
 
 interface PaymentState {
   status: 'idle' | 'signing' | 'approving' | 'settling' | 'success' | 'error';
@@ -108,11 +109,11 @@ const CHAIN_CONFIG: Record<number, { facilitator: Address; usdc: Address }> = {
     usdc: CONTRACTS.usdc || '0x0165878A594ca255338adfa4d48449f69242Eb8F' as Address,
   },
   420690: {
-    facilitator: '0x0000000000000000000000000000000000000000' as Address,
-    usdc: '0x0000000000000000000000000000000000000000' as Address,
+    facilitator: ZERO_ADDRESS as Address,
+    usdc: ZERO_ADDRESS as Address,
   },
   84532: {
-    facilitator: '0x0000000000000000000000000000000000000000' as Address,
+    facilitator: ZERO_ADDRESS as Address,
     usdc: '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as Address,
   },
 };
@@ -150,7 +151,7 @@ export function useX402(): UseX402Return {
 
   // Load facilitator info
   useEffect(() => {
-    if (!publicClient || config.facilitator === '0x0000000000000000000000000000000000000000') {
+    if (!publicClient || config.facilitator === ZERO_ADDRESS) {
       setFacilitator(null);
       return;
     }
@@ -177,7 +178,7 @@ export function useX402(): UseX402Return {
 
   // Load USDC balance
   useEffect(() => {
-    if (!publicClient || !address || config.usdc === '0x0000000000000000000000000000000000000000') {
+    if (!publicClient || !address || config.usdc === ZERO_ADDRESS) {
       setUsdcBalance(0n);
       return;
     }
@@ -237,7 +238,7 @@ export function useX402(): UseX402Return {
       name: 'x402 Payment Protocol',
       version: '1',
       chainId,
-      verifyingContract: '0x0000000000000000000000000000000000000000' as Address,
+      verifyingContract: ZERO_ADDRESS as Address,
     };
 
     const message = {

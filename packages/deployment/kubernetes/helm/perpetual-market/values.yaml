@@ -1,0 +1,113 @@
+# Perpetual Market Configuration
+
+# Keeper service - monitors and executes liquidations
+keeper:
+  enabled: true
+  replicaCount: 2
+
+  image:
+    repository: ghcr.io/jeju-network/perps-keeper
+    pullPolicy: IfNotPresent
+    tag: ""
+
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+
+  # Liquidation keeper settings
+  config:
+    checkIntervalMs: 5000
+    minProfitBps: 50
+    maxGasGwei: 100
+    batchSize: 10
+
+# API service - provides perps data and trading endpoints
+api:
+  enabled: true
+  replicaCount: 3
+
+  image:
+    repository: ghcr.io/jeju-network/perps-api
+    pullPolicy: IfNotPresent
+    tag: ""
+
+  service:
+    type: ClusterIP
+    port: 8080
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# Funding rate updater - updates funding rates every 8 hours
+fundingUpdater:
+  enabled: true
+  replicaCount: 1
+
+  image:
+    repository: ghcr.io/jeju-network/perps-funding
+    pullPolicy: IfNotPresent
+    tag: ""
+
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  # Funding update schedule (every 8 hours)
+  schedule: "0 */8 * * *"
+
+# Shared configuration
+global:
+  network: testnet
+  chainId: 84532
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Contract addresses (populated via secrets or config)
+contracts:
+  perpetualMarket: ""
+  marginManager: ""
+  insuranceFund: ""
+  liquidationEngine: ""
+  priceFeed: ""
+
+# RPC endpoints
+rpc:
+  primary: ""
+  fallback: ""
+
+# Monitoring
+metrics:
+  enabled: true
+  port: 9090
+  path: /metrics
+
+# Environment variables from secrets
+envFrom:
+  - secretRef:
+      name: perps-env
+
+# Common labels
+commonLabels:
+  app.kubernetes.io/part-of: jeju-perps

@@ -681,14 +681,14 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
         }
 
         // Only V3 available
-        uint24[3] memory feeTiers = [uint24(500), uint24(3000), uint24(10000)];
+        uint24[3] memory v3FeeTiers = [uint24(500), uint24(3000), uint24(10000)];
         for (uint256 i = 0; i < 3; i++) {
-            address pool = _getV3Pool(tokenIn, tokenOut, feeTiers[i]);
+            address pool = _getV3Pool(tokenIn, tokenOut, v3FeeTiers[i]);
             if (pool != address(0)) {
                 uint128 liquidity = IXLPV3Pool(pool).liquidity();
                 if (liquidity > 0) {
-                    uint256 estimated = amountIn * (1e6 - feeTiers[i]) / 1e6;
-                    return (estimated, 1, feeTiers[i]);
+                    uint256 estimated = amountIn * (1e6 - v3FeeTiers[i]) / 1e6;
+                    return (estimated, 1, v3FeeTiers[i]);
                 }
             }
         }

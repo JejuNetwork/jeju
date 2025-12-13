@@ -1,7 +1,7 @@
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { useState } from 'react';
 import { Address } from 'viem';
-import { IERC20_ABI } from '../lib/contracts';
+import { IERC20_ABI, ZERO_ADDRESS } from '../lib/contracts';
 import { CONTRACTS } from '../config';
 
 export const IDENTITY_REGISTRY_ADDRESS = CONTRACTS.identityRegistry;
@@ -49,7 +49,7 @@ export function useRegistry() {
   async function registerApp(params: RegisterAppParams): Promise<{ success: boolean; error?: string; agentId?: bigint }> {
     const { tokenURI, tags, a2aEndpoint, stakeToken, stakeAmount } = params;
 
-    if (stakeToken !== '0x0000000000000000000000000000000000000000') {
+    if (stakeToken !== ZERO_ADDRESS) {
       await writeContractAsync({ address: stakeToken, abi: IERC20_ABI, functionName: 'approve', args: [REGISTRY_ADDRESS, stakeAmount] });
     }
 
@@ -58,7 +58,7 @@ export function useRegistry() {
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'registerWithStake',
       args: [tokenURI, tags, a2aEndpoint, stakeToken],
-      value: stakeToken === '0x0000000000000000000000000000000000000000' ? stakeAmount : 0n,
+      value: stakeToken === ZERO_ADDRESS ? stakeAmount : 0n,
     });
 
     setLastTx(hash);

@@ -182,6 +182,35 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
     /// @notice Total gas fees collected (in selected tokens)
     uint256 public totalGasFeesCollected;
 
+    // ============ Multi-XLP Competition State ============
+
+    /// @notice XLP statistics for competition tracking
+    mapping(address => XLPStats) public xlpStats;
+
+    /// @notice Request XLP allowlist: requestId => xlp => allowed
+    mapping(bytes32 => mapping(address => bool)) public requestAllowlist;
+
+    /// @notice Whether request has an allowlist set (if false, any XLP can bid)
+    mapping(bytes32 => bool) public requestHasAllowlist;
+
+    /// @notice XLP bid submissions for fee auction: requestId => xlp => bidBlock
+    mapping(bytes32 => mapping(address => uint256)) public xlpBids;
+
+    /// @notice All XLPs that bid on a request: requestId => XLPs array
+    mapping(bytes32 => address[]) public requestBidders;
+
+    /// @notice Total competition wins per XLP
+    mapping(address => uint256) public xlpWins;
+
+    /// @notice Total requests processed
+    uint256 public totalRequestsProcessed;
+
+    /// @notice Request nonce for unique ID generation
+    uint256 private _requestNonce;
+
+    /// @notice Total XLP competition events
+    uint256 public totalCompetitionEvents;
+
     // ============ Structs ============
 
     struct VoucherRequest {
@@ -199,6 +228,21 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         bool claimed;
         bool expired;
         bool refunded;
+        // Multi-XLP Competition fields
+        uint256 bidCount; // Number of XLP bids received
+        address winningXLP; // XLP that won the auction
+        uint256 winningFee; // Fee at which voucher was issued
+    }
+
+    /// @notice XLP competition statistics
+    struct XLPStats {
+        uint256 totalBids; // Total bids submitted
+        uint256 wonBids; // Bids won
+        uint256 lostBids; // Bids lost to competition
+        uint256 totalVolume; // Total volume fulfilled
+        uint256 totalFeesEarned; // Total fees earned
+        uint256 avgResponseTime; // Average response time in blocks
+        uint256 lastActiveBlock; // Last activity block
     }
 
     struct Voucher {
@@ -276,6 +320,27 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
 
     event FeeMarginUpdated(uint256 oldMargin, uint256 newMargin);
 
+    // Multi-XLP Competition Events
+    event XLPBidSubmitted(
+        bytes32 indexed requestId, address indexed xlp, uint256 bidFee, uint256 bidBlock, uint256 totalBids
+    );
+
+    event XLPCompetitionWon(
+        bytes32 indexed requestId, address indexed winner, uint256 winningFee, uint256 competitorCount
+    );
+
+    event XLPCompetitionLost(
+        bytes32 indexed requestId,
+        address indexed loser,
+        address indexed winner,
+        uint256 loserBidFee,
+        uint256 winnerBidFee
+    );
+
+    event RequestAllowlistSet(bytes32 indexed requestId, address[] allowedXLPs);
+
+    event XLPStatsUpdated(address indexed xlp, uint256 totalBids, uint256 wonBids, uint256 totalVolume);
+
     // ============ Errors ============
 
     error UnsupportedToken();
@@ -303,6 +368,8 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
     error InsufficientTokenAllowance();
     error InvalidPaymasterData();
     error InsufficientPoolLiquidity();
+    error XLPNotInAllowlist();
+    error XLPAlreadyBid();
 
     // ============ Constructor ============
 
@@ -313,10 +380,9 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
      * @param _chainId Chain ID of this deployment
      * @param _priceOracle Price oracle for token conversions (can be address(0) initially)
      */
-    constructor(IEntryPoint _entryPoint, address _l1StakeManager, uint256 _chainId, address _priceOracle, address _owner)
+    constructor(IEntryPoint _entryPoint, address _l1StakeManager, uint256 _chainId, address _priceOracle)
         BasePaymaster(_entryPoint)
     {
-        if (_owner != msg.sender) _transferOwnership(_owner);
         require(_l1StakeManager != address(0), "Invalid stake manager");
         l1StakeManager = _l1StakeManager;
         chainId = _chainId;
@@ -401,21 +467,7 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
 
     // ============ Voucher Request (Source Chain) ============
 
-    /**
-     * @notice Create a cross-chain transfer request
-     * @param token Token to transfer (locked on this chain)
-     * @param amount Amount to transfer
-     * @param destinationToken Token to receive on destination
-     * @param destinationChainId Destination chain ID
-     * @param recipient Address to receive funds on destination
-     * @param gasOnDestination ETH needed for gas on destination
-     * @param maxFee Maximum fee willing to pay
-     * @param feeIncrement Fee increase per block (reverse Dutch auction)
-     * @return requestId Unique request identifier
-     */
-    /**
-     * @custom:security CEI pattern: Store request and emit event before external refunds
-     */
+    /// @notice Create a cross-chain transfer request (reverse Dutch auction)
     function createVoucherRequest(
         address token,
         uint256 amount,
@@ -432,7 +484,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         if (destinationChainId == chainId) revert InvalidDestinationChain();
         if (recipient == address(0)) revert InvalidRecipient();
 
-        // Validate ETH amount
         uint256 excessRefund = 0;
         if (token == address(0)) {
             uint256 required = amount + maxFee;
@@ -443,11 +494,9 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
             excessRefund = msg.value - maxFee;
         }
 
-        // Generate unique request ID
         requestId =
-            keccak256(abi.encodePacked(msg.sender, token, amount, destinationChainId, block.number, block.timestamp));
+            keccak256(abi.encodePacked(msg.sender, token, amount, destinationChainId, block.number, block.timestamp, ++_requestNonce));
 
-        // EFFECTS: Store request FIRST (CEI pattern)
         voucherRequests[requestId] = VoucherRequest({
             requester: msg.sender,
             token: token,
@@ -462,32 +511,27 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
             createdBlock: block.number,
             claimed: false,
             expired: false,
-            refunded: false
+            refunded: false,
+            bidCount: 0,
+            winningXLP: address(0),
+            winningFee: 0
         });
 
-        // Emit event before external calls
         emit VoucherRequested(
             requestId, msg.sender, token, amount, destinationChainId, recipient, maxFee, block.number + REQUEST_TIMEOUT
         );
 
-        // INTERACTIONS: External calls LAST
-        // Transfer ERC20 tokens from user
         if (token != address(0)) {
             IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
         }
 
-        // Refund excess ETH
         if (excessRefund > 0) {
             (bool refundSuccess,) = msg.sender.call{value: excessRefund}("");
             if (!refundSuccess) revert TransferFailed();
         }
     }
 
-    /**
-     * @notice Get current fee for a request (increases over time)
-     * @param requestId Request to check
-     * @return currentFee Current fee based on elapsed blocks
-     */
+    /// @notice Get current fee for a request (increases over time via reverse Dutch auction)
     function getCurrentFee(bytes32 requestId) public view returns (uint256 currentFee) {
         VoucherRequest storage request = voucherRequests[requestId];
         if (request.requester == address(0)) return 0;
@@ -500,11 +544,133 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         }
     }
 
-    /**
-     * @notice Refund expired request to user
-     * @param requestId Request to refund
-     * @custom:security CEI pattern: Update state and emit events before external calls
-     */
+    // ============ Multi-XLP Competition Functions ============
+
+    /// @notice Create a voucher request with an XLP allowlist (empty = any XLP)
+    function createVoucherRequestWithAllowlist(
+        address token,
+        uint256 amount,
+        address destinationToken,
+        uint256 destinationChainId,
+        address recipient,
+        uint256 gasOnDestination,
+        uint256 maxFee,
+        uint256 feeIncrement,
+        address[] calldata allowedXLPs
+    ) external payable nonReentrant returns (bytes32 requestId) {
+        if (!supportedTokens[token]) revert UnsupportedToken();
+        if (amount == 0) revert InsufficientAmount();
+        if (maxFee < MIN_FEE) revert InsufficientFee();
+        if (destinationChainId == chainId) revert InvalidDestinationChain();
+        if (recipient == address(0)) revert InvalidRecipient();
+
+        uint256 excessRefund = 0;
+        if (token == address(0)) {
+            uint256 required = amount + maxFee;
+            if (msg.value < required) revert InsufficientAmount();
+            excessRefund = msg.value - required;
+        } else {
+            if (msg.value < maxFee) revert InsufficientFee();
+            excessRefund = msg.value - maxFee;
+        }
+
+        requestId =
+            keccak256(abi.encodePacked(msg.sender, token, amount, destinationChainId, block.number, block.timestamp, ++_requestNonce));
+
+        voucherRequests[requestId] = VoucherRequest({
+            requester: msg.sender,
+            token: token,
+            amount: amount,
+            destinationToken: destinationToken,
+            destinationChainId: destinationChainId,
+            recipient: recipient,
+            gasOnDestination: gasOnDestination,
+            maxFee: maxFee,
+            feeIncrement: feeIncrement,
+            deadline: block.number + REQUEST_TIMEOUT,
+            createdBlock: block.number,
+            claimed: false,
+            expired: false,
+            refunded: false,
+            bidCount: 0,
+            winningXLP: address(0),
+            winningFee: 0
+        });
+
+        // Set XLP allowlist if provided
+        if (allowedXLPs.length > 0) {
+            requestHasAllowlist[requestId] = true;
+            for (uint256 i = 0; i < allowedXLPs.length; i++) {
+                requestAllowlist[requestId][allowedXLPs[i]] = true;
+            }
+            emit RequestAllowlistSet(requestId, allowedXLPs);
+        }
+
+        emit VoucherRequested(
+            requestId, msg.sender, token, amount, destinationChainId, recipient, maxFee, block.number + REQUEST_TIMEOUT
+        );
+
+        if (token != address(0)) {
+            IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+        }
+
+        if (excessRefund > 0) {
+            (bool refundSuccess,) = msg.sender.call{value: excessRefund}("");
+            if (!refundSuccess) revert TransferFailed();
+        }
+    }
+
+    /// @notice Submit a bid to fulfill a request
+    function submitBid(bytes32 requestId) external nonReentrant {
+        VoucherRequest storage request = voucherRequests[requestId];
+
+        if (request.requester == address(0)) revert Unauthorized();
+        if (request.claimed) revert RequestAlreadyClaimed();
+        if (request.expired || block.number > request.deadline) revert RequestExpired();
+        if (requestHasAllowlist[requestId] && !requestAllowlist[requestId][msg.sender]) {
+            revert XLPNotInAllowlist();
+        }
+        if (xlpBids[requestId][msg.sender] > 0) revert XLPAlreadyBid();
+
+        xlpBids[requestId][msg.sender] = block.number;
+        requestBidders[requestId].push(msg.sender);
+        request.bidCount++;
+        xlpStats[msg.sender].totalBids++;
+        xlpStats[msg.sender].lastActiveBlock = block.number;
+
+        emit XLPBidSubmitted(requestId, msg.sender, getCurrentFee(requestId), block.number, request.bidCount);
+    }
+
+    function getRequestCompetition(bytes32 requestId)
+        external
+        view
+        returns (uint256 bidCount, uint256 currentFee, address[] memory bidders, bool hasAllowlist)
+    {
+        VoucherRequest storage request = voucherRequests[requestId];
+        return (request.bidCount, getCurrentFee(requestId), requestBidders[requestId], requestHasAllowlist[requestId]);
+    }
+
+    function isXLPAllowed(bytes32 requestId, address xlp) external view returns (bool) {
+        if (!requestHasAllowlist[requestId]) return true;
+        return requestAllowlist[requestId][xlp];
+    }
+
+    function getXLPStats(address xlp) external view returns (XLPStats memory) {
+        return xlpStats[xlp];
+    }
+
+    function getGlobalCompetitionStats()
+        external
+        view
+        returns (uint256 totalRequests, uint256 totalCompetitions, uint256 avgBidsPerRequest)
+    {
+        totalRequests = totalRequestsProcessed;
+        totalCompetitions = totalCompetitionEvents;
+        if (totalRequests > 0) {
+            avgBidsPerRequest = (totalCompetitions * 100) / totalRequests;
+        }
+    }
+
     function refundExpiredRequest(bytes32 requestId) external nonReentrant {
         VoucherRequest storage request = voucherRequests[requestId];
 
@@ -513,29 +679,22 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         if (request.refunded) revert RequestAlreadyRefunded();
         if (block.number <= request.deadline) revert RequestNotExpired();
 
-        // Cache values
         address requester = request.requester;
         address token = request.token;
         uint256 amount = request.amount;
         uint256 maxFee = request.maxFee;
 
-        // EFFECTS: Update state first
         request.expired = true;
         request.refunded = true;
 
-        // Emit events before external calls
         emit VoucherExpired(requestId, requester);
         emit FundsRefunded(requestId, requester, amount);
 
-        // INTERACTIONS: External calls last
         if (token == address(0)) {
-            // Native ETH - refund amount + maxFee
             (bool success,) = requester.call{value: amount + maxFee}("");
             if (!success) revert TransferFailed();
         } else {
-            // ERC20 - refund tokens AND the ETH fee that was collected
             IERC20(token).safeTransfer(requester, amount);
-            // Also refund the ETH fee
             if (maxFee > 0) {
                 (bool feeSuccess,) = requester.call{value: maxFee}("");
                 if (!feeSuccess) revert TransferFailed();
@@ -545,12 +704,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
 
     // ============ XLP Liquidity Management ============
 
-    /**
-     * @notice Deposit tokens as XLP liquidity (enables gas payment + cross-chain transfers)
-     * @param token Token to deposit
-     * @param amount Amount to deposit
-     * @dev XLPs earn fees from both cross-chain transfers AND gas sponsorship
-     */
     function depositLiquidity(address token, uint256 amount) external nonReentrant {
         if (!supportedTokens[token]) revert UnsupportedToken();
         if (amount == 0) revert InsufficientAmount();
@@ -562,64 +715,35 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         emit XLPDeposit(msg.sender, token, amount);
     }
 
-    /**
-     * @notice Deposit ETH for gas sponsorship and cross-chain transfers
-     * @dev ETH liquidity is used to sponsor gas for 4337 UserOperations
-     *      AND to provide gas on destination chains for cross-chain transfers
-     */
     function depositETH() external payable nonReentrant {
         if (msg.value == 0) revert InsufficientAmount();
         xlpETHDeposits[msg.sender] += msg.value;
         totalETHLiquidity += msg.value;
-
         emit XLPDeposit(msg.sender, address(0), msg.value);
     }
 
-    /**
-     * @notice Withdraw XLP token liquidity
-     * @param token Token to withdraw
-     * @param amount Amount to withdraw
-     * @custom:security CEI pattern: Update state and emit events before external calls
-     */
     function withdrawLiquidity(address token, uint256 amount) external nonReentrant {
         if (xlpDeposits[msg.sender][token] < amount) revert InsufficientXLPLiquidity();
 
-        // EFFECTS: Update state first
         xlpDeposits[msg.sender][token] -= amount;
         totalTokenLiquidity[token] -= amount;
-
-        // Emit event before external call
         emit XLPWithdraw(msg.sender, token, amount);
 
-        // INTERACTIONS: External call last
         IERC20(token).safeTransfer(msg.sender, amount);
     }
 
-    /**
-     * @notice Withdraw XLP ETH
-     * @param amount Amount to withdraw
-     * @custom:security CEI pattern: Update state and emit events before external calls
-     */
     function withdrawETH(uint256 amount) external nonReentrant {
         if (xlpETHDeposits[msg.sender] < amount) revert InsufficientXLPLiquidity();
 
-        // EFFECTS: Update state first
         xlpETHDeposits[msg.sender] -= amount;
         totalETHLiquidity -= amount;
-
-        // Emit event before external call
         emit XLPWithdraw(msg.sender, address(0), amount);
 
-        // INTERACTIONS: External call last
         (bool success,) = msg.sender.call{value: amount}("");
         if (!success) revert TransferFailed();
     }
 
-    /**
-     * @notice Update cached exchange rate for a token
-     * @param token Token address
-     * @dev Permissionless - anyone can update. Uses oracle price.
-     */
+    /// @notice Permissionless exchange rate update from oracle
     function updateExchangeRate(address token) external {
         require(address(priceOracle) != address(0), "Oracle not set");
         require(supportedTokens[token], "Token not supported");
@@ -627,14 +751,9 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         uint256 rate = priceOracle.convertAmount(address(0), token, 1 ether);
         tokenExchangeRates[token] = rate;
         exchangeRateUpdatedAt[token] = block.timestamp;
-
         emit ExchangeRateUpdated(token, rate, block.timestamp);
     }
 
-    /**
-     * @notice Batch update exchange rates for all supported tokens
-     * @param tokens Array of token addresses to update
-     */
     function batchUpdateExchangeRates(address[] calldata tokens) external {
         require(address(priceOracle) != address(0), "Oracle not set");
 
@@ -648,44 +767,23 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         }
     }
 
-    /**
-     * @notice Update verified stake for an XLP (called via cross-chain message from L1)
-     * @param xlp XLP address
-     * @param stake Verified stake amount
-     * @dev Can be called by:
-     *      - Owner (for testing/emergencies)
-     *      - L1StakeManager via CrossDomainMessenger
-     */
+    /// @notice Update XLP stake (called via L1 cross-chain message or owner)
     function updateXLPStake(address xlp, uint256 stake) external {
-        bool isOwner = msg.sender == owner();
         bool isL1Message = msg.sender == address(messenger) && messenger.xDomainMessageSender() == l1StakeManager;
-
-        require(isOwner || isL1Message, "Only owner or L1 message");
+        require(msg.sender == owner() || isL1Message, "Unauthorized");
 
         xlpVerifiedStake[xlp] = stake;
         emit XLPStakeVerified(xlp, stake);
     }
 
-    /**
-     * @notice Mark a voucher as fulfilled (cross-chain verification)
-     * @param voucherId Voucher to mark as fulfilled
-     * @dev Can be called by:
-     *      - Owner (for testing/emergencies)
-     *      - L1StakeManager via CrossDomainMessenger (relays fulfillment proof from destination)
-     *
-     * Note: In a full multi-L2 setup, this would integrate with a cross-L2 messaging
-     * protocol. For L1↔L2 flows, the L1 acts as a hub to relay fulfillment proofs.
-     */
+    /// @notice Mark voucher fulfilled (called via L1 cross-chain message or owner)
     function markVoucherFulfilled(bytes32 voucherId) external {
-        bool isOwner = msg.sender == owner();
         bool isL1Message = msg.sender == address(messenger) && messenger.xDomainMessageSender() == l1StakeManager;
-
-        require(isOwner || isL1Message, "Only owner or L1 message");
+        require(msg.sender == owner() || isL1Message, "Unauthorized");
         require(vouchers[voucherId].xlp != address(0), "Voucher not found");
         require(!vouchers[voucherId].fulfilled, "Already fulfilled");
 
         vouchers[voucherId].fulfilled = true;
-        // Get recipient from the original request
         VoucherRequest storage request = voucherRequests[vouchers[voucherId].requestId];
         emit VoucherFulfilled(voucherId, request.recipient, vouchers[voucherId].amount);
     }
@@ -709,6 +807,11 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         if (request.claimed) revert RequestAlreadyClaimed();
         if (request.expired || block.number > request.deadline) revert RequestExpired();
 
+        // Check XLP allowlist if set
+        if (requestHasAllowlist[requestId] && !requestAllowlist[requestId][msg.sender]) {
+            revert XLPNotInAllowlist();
+        }
+
         // Verify XLP has sufficient stake (10% of transfer amount, minimum 0.01 ETH)
         uint256 requiredStake = request.amount / 10;
         if (requiredStake < 0.01 ether) requiredStake = 0.01 ether;
@@ -728,8 +831,46 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
 
         // Mark request as claimed
         request.claimed = true;
+        request.winningXLP = msg.sender;
+        request.winningFee = fee;
         requestClaimedBy[requestId] = msg.sender;
         xlpActiveRequests[msg.sender]++;
+
+        // Update competition tracking
+        totalRequestsProcessed++;
+        xlpWins[msg.sender]++;
+
+        // Update XLP stats for winner
+        XLPStats storage winnerStats = xlpStats[msg.sender];
+        winnerStats.wonBids++;
+        winnerStats.totalVolume += request.amount;
+        winnerStats.totalFeesEarned += fee;
+        winnerStats.lastActiveBlock = block.number;
+
+        // Calculate response time (blocks since request created)
+        if (winnerStats.avgResponseTime == 0) {
+            winnerStats.avgResponseTime = block.number - request.createdBlock;
+        } else {
+            // Moving average
+            winnerStats.avgResponseTime = (winnerStats.avgResponseTime + block.number - request.createdBlock) / 2;
+        }
+
+        // Track competition - emit events for other bidders who lost
+        address[] storage bidders = requestBidders[requestId];
+        if (bidders.length > 1) {
+            totalCompetitionEvents++;
+            for (uint256 i = 0; i < bidders.length; i++) {
+                if (bidders[i] != msg.sender) {
+                    xlpStats[bidders[i]].lostBids++;
+                    emit XLPCompetitionLost(requestId, bidders[i], msg.sender, 0, fee);
+                }
+            }
+        }
+
+        // Emit competition won event
+        emit XLPCompetitionWon(requestId, msg.sender, fee, bidders.length > 0 ? bidders.length : 1);
+
+        emit XLPStatsUpdated(msg.sender, winnerStats.totalBids, winnerStats.wonBids, winnerStats.totalVolume);
 
         // Store voucher
         vouchers[voucherId] = Voucher({
@@ -1173,7 +1314,8 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         // Check app token preference first
         if (address(appTokenPreference) != address(0) && appAddress != address(0)) {
             // Build token balance array for preference check
-            IAppTokenPreference.TokenBalance[] memory tokenBalances = new IAppTokenPreference.TokenBalance[](tokens.length);
+            IAppTokenPreference.TokenBalance[] memory tokenBalances =
+                new IAppTokenPreference.TokenBalance[](tokens.length);
             for (uint256 i = 0; i < tokens.length; i++) {
                 tokenBalances[i] = IAppTokenPreference.TokenBalance({token: tokens[i], balance: balances[i]});
             }
@@ -1247,7 +1389,7 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
 
         // Get the preferred token - we only need the preferredToken field
         // slither-disable-next-line unused-return
-        (,address prefToken,,,,,,,) = appTokenPreference.getAppPreference(appAddress);
+        (, address prefToken,,,,,,,) = appTokenPreference.getAppPreference(appAddress);
         preferredToken = prefToken;
     }
 
@@ -1435,12 +1577,12 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
      * @return amountOut Actual output amount
      * @dev Uses xy=k formula with XLP liquidity as reserves
      */
-    function swap(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn,
-        uint256 minAmountOut
-    ) external payable nonReentrant returns (uint256 amountOut) {
+    function swap(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut)
+        external
+        payable
+        nonReentrant
+        returns (uint256 amountOut)
+    {
         if (amountIn == 0) revert InsufficientAmount();
         if (tokenIn == tokenOut) revert UnsupportedToken();
 
@@ -1513,11 +1655,11 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
      * @return amountOut Expected output
      * @return priceImpact Price impact in basis points
      */
-    function getSwapQuote(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn
-    ) external view returns (uint256 amountOut, uint256 priceImpact) {
+    function getSwapQuote(address tokenIn, address tokenOut, uint256 amountIn)
+        external
+        view
+        returns (uint256 amountOut, uint256 priceImpact)
+    {
         uint256 reserveIn = _getReserve(tokenIn);
         uint256 reserveOut = _getReserve(tokenOut);
 
@@ -1536,11 +1678,7 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
      * @return reserve0 Reserve of token0
      * @return reserve1 Reserve of token1
      */
-    function getReserves(address token0, address token1)
-        external
-        view
-        returns (uint256 reserve0, uint256 reserve1)
-    {
+    function getReserves(address token0, address token1) external view returns (uint256 reserve0, uint256 reserve1) {
         reserve0 = _getReserve(token0);
         reserve1 = _getReserve(token1);
     }
@@ -1549,11 +1687,7 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
      * @notice Calculate output amount using constant-product formula
      * @dev Implements xy=k with fee: amountOut = (amountIn * (1-fee) * reserveOut) / (reserveIn + amountIn * (1-fee))
      */
-    function _getAmountOut(
-        uint256 amountIn,
-        uint256 reserveIn,
-        uint256 reserveOut
-    ) internal view returns (uint256) {
+    function _getAmountOut(uint256 amountIn, uint256 reserveIn, uint256 reserveOut) internal view returns (uint256) {
         uint256 amountInWithFee = amountIn * (BASIS_POINTS - swapFeeBps);
         uint256 numerator = amountInWithFee * reserveOut;
         uint256 denominator = (reserveIn * BASIS_POINTS) + amountInWithFee;
@@ -1584,12 +1718,11 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
     /**
      * @notice Get AMM stats
      */
-    function getAMMStats() external view returns (
-        uint256 ethReserve,
-        uint256 swapVolume,
-        uint256 swapFees,
-        uint256 currentFeeBps
-    ) {
+    function getAMMStats()
+        external
+        view
+        returns (uint256 ethReserve, uint256 swapVolume, uint256 swapFees, uint256 currentFeeBps)
+    {
         ethReserve = totalETHLiquidity;
         swapVolume = totalSwapVolume;
         swapFees = totalSwapFees;

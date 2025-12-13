@@ -1,0 +1,433 @@
+{
+  "uid": "oif-overview",
+  "title": "OIF - Intent Framework Overview",
+  "tags": ["oif", "intents", "cross-chain", "solvers"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "editable": true,
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "🎯 Intent Framework Health",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "id": 2,
+      "title": "Active Solvers",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "datasource": { "type": "postgres", "uid": "postgres-indexer" },
+      "targets": [{
+        "rawSql": "SELECT COUNT(*) as count FROM oif_solver WHERE status = 'ACTIVE'",
+        "format": "table"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "value": 0, "color": "red" },
+              { "value": 1, "color": "yellow" },
+              { "value": 3, "color": "green" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Total Staked",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+      "datasource": { "type": "postgres", "uid": "postgres-indexer" },
+      "targets": [{
+        "rawSql": "SELECT COALESCE(SUM(staked_amount) / 1e18, 0) as eth FROM oif_solver WHERE status = 'ACTIVE'",
+        "format": "table"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ETH",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "value": 0, "color": "red" },
+              { "value": 10, "color": "yellow" },
+              { "value": 100, "color": "green" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "24h Intent Volume",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+      "datasource": { "type": "postgres", "uid": "postgres-indexer" },
+      "targets": [{
+        "rawSql": "SELECT COALESCE(SUM(input_amount) / 1e18, 0) as volume FROM oif_intent WHERE created_at > NOW() - INTERVAL '24 hours'",
+        "format": "table"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ETH",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "value": 0, "color": "blue" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Fill Success Rate",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+      "datasource": { "type": "postgres", "uid": "postgres-indexer" },
+      "targets": [{
+        "rawSql": "SELECT CASE WHEN COUNT(*) = 0 THEN 100 ELSE (COUNT(*) FILTER (WHERE status = 'FILLED') * 100.0 / COUNT(*)) END as rate FROM oif_intent",
+        "format": "table"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "value": 0, "color": "red" },
+              { "value": 80, "color": "yellow" },
+              { "value": 95, "color": "green" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Avg Fill Time",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
+      "datasource": { "type": "postgres", "uid": "postgres-indexer" },
+      "targets": [{
+        "rawSql": "SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (filled_at - created_at))), 0) as seconds FROM oif_intent WHERE status = 'FILLED' AND filled_at IS NOT NULL",
+        "format": "table"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "value": 0, "color": "green" },
+              { "value": 60, "color": "yellow" },
+              { "value": 300, "color": "red" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Active Routes",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
+      "datasource": { "type": "postgres", "uid": "postgres-indexer" },
+      "targets": [{
+        "rawSql": "SELECT COUNT(*) as count FROM oif_route WHERE is_active = true",
+        "format": "table"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "value": 0, "color": "red" },
+              { "value": 5, "color": "yellow" },
+              { "value": 10, "color": "green" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "📊 Intent Activity",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 }
+    },
+    {
+      "id": 9,
+      "title": "Intents Over Time",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "datasource": { "type": "postgres", "uid": "postgres-indexer" },
+      "targets": [{
+        "rawSql": "SELECT date_trunc('hour', created_at) as time, COUNT(*) as intents, COUNT(*) FILTER (WHERE status = 'FILLED') as filled FROM oif_intent WHERE created_at > NOW() - INTERVAL '24 hours' GROUP BY 1 ORDER BY 1",
+        "format": "time_series"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "intents" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "filled" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }]
+          }
+        ]
+      }
+    },
+    {
+      "id": 10,
+      "title": "Volume by Chain",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 6 },
+      "datasource": { "type": "postgres", "uid": "postgres-indexer" },
+      "targets": [{
+        "rawSql": "SELECT source_chain_id as chain, COALESCE(SUM(input_amount) / 1e18, 0) as volume FROM oif_intent GROUP BY source_chain_id ORDER BY volume DESC LIMIT 10",
+        "format": "table"
+      }],
+      "options": {
+        "pieType": "donut",
+        "legend": { "placement": "right" }
+      }
+    },
+    {
+      "id": 11,
+      "title": "Intent Status Distribution",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 6 },
+      "datasource": { "type": "postgres", "uid": "postgres-indexer" },
+      "targets": [{
+        "rawSql": "SELECT status, COUNT(*) as count FROM oif_intent GROUP BY status",
+        "format": "table"
+      }],
+      "options": {
+        "pieType": "pie",
+        "legend": { "placement": "right" }
+      },
+      "fieldConfig": {
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "FILLED" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "OPEN" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "EXPIRED" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }]
+          }
+        ]
+      }
+    },
+    {
+      "id": 12,
+      "title": "🤖 Solver Performance",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 }
+    },
+    {
+      "id": 13,
+      "title": "Solver Leaderboard",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+      "datasource": { "type": "postgres", "uid": "postgres-indexer" },
+      "targets": [{
+        "rawSql": "SELECT solver_address, total_fills, successful_fills, ROUND(successful_fills * 100.0 / NULLIF(total_fills, 0), 1) as success_rate, ROUND(staked_amount / 1e18, 2) as stake_eth, ROUND(total_volume / 1e18, 2) as volume_eth FROM oif_solver WHERE status = 'ACTIVE' ORDER BY total_fills DESC LIMIT 10",
+        "format": "table"
+      }],
+      "options": {
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "success_rate" },
+            "properties": [
+              { "id": "unit", "value": "percent" },
+              { "id": "custom.cellOptions", "value": { "type": "color-text" } },
+              { "id": "thresholds", "value": { "steps": [{ "value": 0, "color": "red" }, { "value": 80, "color": "yellow" }, { "value": 95, "color": "green" }] } }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 14,
+      "title": "Solver Fills Over Time",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
+      "datasource": { "type": "postgres", "uid": "postgres-indexer" },
+      "targets": [{
+        "rawSql": "SELECT date_trunc('hour', s.filled_at) as time, COUNT(*) as fills, s.solver_address FROM oif_settlement s WHERE s.filled_at > NOW() - INTERVAL '24 hours' GROUP BY 1, 3 ORDER BY 1",
+        "format": "time_series"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        }
+      }
+    },
+    {
+      "id": 15,
+      "title": "🔗 Cross-Chain Routes",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 }
+    },
+    {
+      "id": 16,
+      "title": "Route Volume Matrix",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "datasource": { "type": "postgres", "uid": "postgres-indexer" },
+      "targets": [{
+        "rawSql": "SELECT source_chain_id as from_chain, destination_chain_id as to_chain, COUNT(*) as intents, ROUND(SUM(input_amount) / 1e18, 2) as volume_eth, ROUND(AVG(EXTRACT(EPOCH FROM (filled_at - created_at))), 1) as avg_fill_sec FROM oif_intent WHERE status = 'FILLED' GROUP BY 1, 2 ORDER BY volume_eth DESC",
+        "format": "table"
+      }]
+    },
+    {
+      "id": 17,
+      "title": "Route Success Rates",
+      "type": "barchart",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "datasource": { "type": "postgres", "uid": "postgres-indexer" },
+      "targets": [{
+        "rawSql": "SELECT CONCAT(r.source_chain_id, ' → ', r.destination_chain_id) as route, COALESCE(ROUND(COUNT(*) FILTER (WHERE i.status = 'FILLED') * 100.0 / NULLIF(COUNT(*), 0), 1), 0) as success_rate FROM oif_route r LEFT JOIN oif_intent i ON r.source_chain_id = i.source_chain_id AND r.destination_chain_id = i.destination_chain_id WHERE r.is_active = true GROUP BY r.source_chain_id, r.destination_chain_id ORDER BY success_rate DESC LIMIT 10",
+        "format": "table"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "value": 0, "color": "red" },
+              { "value": 80, "color": "yellow" },
+              { "value": 95, "color": "green" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 18,
+      "title": "🔔 Settlements & Attestations",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 32 }
+    },
+    {
+      "id": 19,
+      "title": "Settlement Status",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 33 },
+      "datasource": { "type": "postgres", "uid": "postgres-indexer" },
+      "targets": [{
+        "rawSql": "SELECT COUNT(*) FILTER (WHERE status = 'PENDING') as pending, COUNT(*) FILTER (WHERE status = 'SETTLED') as settled FROM oif_settlement",
+        "format": "table"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" }
+        }
+      }
+    },
+    {
+      "id": 20,
+      "title": "Attestations (24h)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 33 },
+      "datasource": { "type": "postgres", "uid": "postgres-indexer" },
+      "targets": [{
+        "rawSql": "SELECT COUNT(*) as count FROM oif_attestation WHERE attested_at > NOW() - INTERVAL '24 hours'",
+        "format": "table"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "value": 0, "color": "blue" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 21,
+      "title": "Slashing Events",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 33 },
+      "datasource": { "type": "postgres", "uid": "postgres-indexer" },
+      "targets": [{
+        "rawSql": "SELECT COUNT(*) as count, COALESCE(SUM(slashed_amount) / 1e18, 0) as eth_slashed FROM oif_slash_event",
+        "format": "table"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "value": 0, "color": "green" },
+              { "value": 1, "color": "yellow" },
+              { "value": 5, "color": "red" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 22,
+      "title": "Recent Settlements",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 37 },
+      "datasource": { "type": "postgres", "uid": "postgres-indexer" },
+      "targets": [{
+        "rawSql": "SELECT order_id, solver_address, source_chain_id, destination_chain_id, status, ROUND(input_amount / 1e18, 4) as amount_eth, settled_at FROM oif_settlement ORDER BY created_at DESC LIMIT 20",
+        "format": "table"
+      }]
+    },
+    {
+      "id": 23,
+      "title": "Oracle Attestations",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 37 },
+      "datasource": { "type": "postgres", "uid": "postgres-indexer" },
+      "targets": [{
+        "rawSql": "SELECT date_trunc('hour', attested_at) as time, oracle_type, COUNT(*) as attestations FROM oif_attestation WHERE attested_at > NOW() - INTERVAL '24 hours' GROUP BY 1, 2 ORDER BY 1",
+        "format": "time_series"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        }
+      }
+    }
+  ]
+}

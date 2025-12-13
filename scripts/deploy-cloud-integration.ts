@@ -1,4 +1,10 @@
 #!/usr/bin/env bun
+/**
+ * @deprecated This script is vendor-specific and has been moved to vendor/cloud/scripts/deploy.ts
+ * This copy remains for backwards compatibility. For new deployments, use:
+ * cd vendor/cloud && bun run scripts/deploy.ts
+ */
+
 import { ethers } from 'ethers';
 import { Logger } from './shared/logger';
 import { 

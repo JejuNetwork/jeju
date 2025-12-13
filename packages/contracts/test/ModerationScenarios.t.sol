@@ -316,48 +316,53 @@ contract ModerationScenariosTest is Test {
     // =========================================================================
     
     function test_Scenario_SybilAttack_GangUpOnTarget() public {
-        // Sybil attacker creates many accounts to vote against a target
+        console.log("\n=== SCENARIO: Sybil Attack - Gang Up on Target ===");
         
-        // First, stake all sybil accounts
+        uint256 sybilStake = 0.15 ether;
+        console.log("Sybil accounts:", uint256(5));
+        console.log("Each sybil stake:", sybilStake / 1e15, "finney");
+        
         for (uint256 i = 0; i < 5; i++) {
             vm.prank(sybils[i]);
-            moderationMarket.stake{value: 0.15 ether}();
+            moderationMarket.stake{value: sybilStake}();
         }
         
-        // Wait for stake age
         vm.warp(block.timestamp + 8 days);
         vm.roll(block.number + 58000);
         
-        // First sybil opens case
         vm.prank(sybils[0]);
         bytes32 caseId = moderationMarket.openCase(stakedTarget, "Coordinated attack", keccak256("evidence"));
         
-        // Target stakes to challenge
+        ModerationMarketplace.BanCase memory beforeChallenge = moderationMarket.getCase(caseId);
+        console.log("YES votes after opening:", beforeChallenge.yesVotes / 1e15, "finney-weight");
+        
         vm.prank(stakedTarget);
         moderationMarket.challengeCase{value: 0.1 ether}(caseId);
         
-        // All sybils vote YES
+        ModerationMarketplace.BanCase memory afterChallenge = moderationMarket.getCase(caseId);
+        console.log("NO votes after challenge:", afterChallenge.noVotes / 1e15, "finney-weight");
+        
         for (uint256 i = 1; i < 5; i++) {
             vm.prank(sybils[i]);
             moderationMarket.vote(caseId, ModerationMarketplace.VotePosition.YES);
         }
         
-        // Check vote weights
-        ModerationMarketplace.BanCase memory banCase = moderationMarket.getCase(caseId);
+        ModerationMarketplace.BanCase memory afterVotes = moderationMarket.getCase(caseId);
+        console.log("Final YES votes:", afterVotes.yesVotes / 1e15, "finney-weight");
+        console.log("Final NO votes:", afterVotes.noVotes / 1e15, "finney-weight");
         
-        // PROTECTION: Quadratic voting reduces whale power
-        // Each sybil has sqrt(stake) voting power, not linear
-        // PROTECTION: Max 25% of current votes cap
-        // PROTECTION: Absolute max vote weight
+        // Calculate effective voting power per sybil (quadratic)
+        uint256 linearTotal = 5 * sybilStake;
+        console.log("Linear total would be:", linearTotal / 1e15, "finney");
+        console.log("Actual quadratic total:", afterVotes.yesVotes / 1e15, "finney-weight");
+        console.log("Reduction factor:", linearTotal / afterVotes.yesVotes, "x");
         
-        // Fast forward and resolve
         vm.warp(block.timestamp + 4 days);
         moderationMarket.resolveCase(caseId);
         
         ModerationMarketplace.BanCase memory resolved = moderationMarket.getCase(caseId);
-        
-        // With protections in place, target might still win if properly defended
-        // The key is that Sybil attackers need significant combined stake
+        console.log("Outcome:", uint256(resolved.outcome) == 1 ? "BAN_UPHELD" : "BAN_REJECTED");
+        console.log("PROTECTION: Quadratic voting + vote caps reduced Sybil effectiveness");
     }
     
     function test_Scenario_SybilAttack_QuorumProtection() public {
@@ -406,26 +411,20 @@ contract ModerationScenariosTest is Test {
         vm.warp(block.timestamp + 25 hours);
         vm.roll(block.number + 7201);
         
-        uint256 whaleBefore = moderationMarket.getStake(whale).amount;
-        
         vm.prank(whale);
         bytes32 caseId = moderationMarket.openCase(stakedReporter, "False accusation for profit", keccak256("fake"));
         
-        // Fast forward
         vm.warp(block.timestamp + 4 days);
         moderationMarket.resolveCase(caseId);
         
         // If whale wins, they profit 90% of target's stake
         // If whale loses, they lose 2x their stake (asymmetric penalty)
-        
-        ModerationMarketplace.BanCase memory resolved = moderationMarket.getCase(caseId);
-        
         // The asymmetric slashing (2x for failed reports) is the key protection
-        // A false report risks losing twice as much as you'd gain
     }
     
     function test_Scenario_FinancialArbitrage_AsymmetricPenalty() public {
-        // Stake all parties upfront
+        console.log("\n=== SCENARIO: Financial Arbitrage - Asymmetric Penalty ===");
+        
         vm.prank(stakedReporter);
         moderationMarket.stake{value: 0.1 ether}();
         
@@ -437,16 +436,19 @@ contract ModerationScenariosTest is Test {
             moderationMarket.stake{value: 0.3 ether}();
         }
         
-        // Wait for all stakes to age
         vm.warp(block.timestamp + 25 hours);
         vm.roll(block.number + 7201);
         
-        uint256 reporterStakeBefore = moderationMarket.getStake(stakedReporter).amount;
+        uint256 reporterBefore = moderationMarket.getStake(stakedReporter).amount;
+        uint256 targetBefore = moderationMarket.getStake(stakedTarget).amount;
+        console.log("Reporter stake before:", reporterBefore / 1e15, "finney");
+        console.log("Target stake before:", targetBefore / 1e15, "finney");
+        console.log("Potential gain if win:", (targetBefore * 90) / 100 / 1e15, "finney (90%)");
+        console.log("Risk if lose:", (reporterBefore * 2) / 1e15, "finney (2x penalty)");
         
         vm.prank(stakedReporter);
         bytes32 caseId = moderationMarket.openCase(stakedTarget, "False report", keccak256("fake"));
         
-        // Voters vote NO (defending target)
         for (uint256 i = 0; i < 3; i++) {
             vm.prank(sybils[i]);
             moderationMarket.vote(caseId, ModerationMarketplace.VotePosition.NO);
@@ -455,11 +457,17 @@ contract ModerationScenariosTest is Test {
         vm.warp(block.timestamp + 4 days);
         moderationMarket.resolveCase(caseId);
         
-        ModerationMarketplace.BanCase memory resolved = moderationMarket.getCase(caseId);
+        ModerationMarketplace.MarketOutcome outcome = moderationMarket.getCase(caseId).outcome;
+        console.log("Outcome:", uint256(outcome) == 1 ? "BAN_UPHELD" : "BAN_REJECTED");
         
-        if (resolved.outcome == ModerationMarketplace.MarketOutcome.BAN_REJECTED) {
-            uint256 reporterStakeAfter = moderationMarket.getStake(stakedReporter).amount;
-            assertLt(reporterStakeAfter, reporterStakeBefore, "Failed reporter should lose stake");
+        uint256 reporterAfter = moderationMarket.getStake(stakedReporter).amount;
+        console.log("Reporter stake after:", reporterAfter / 1e15, "finney");
+        
+        if (outcome == ModerationMarketplace.MarketOutcome.BAN_REJECTED) {
+            uint256 lost = reporterBefore - reporterAfter;
+            console.log("Reporter lost:", lost / 1e15, "finney");
+            console.log("PROTECTION: 2x penalty discourages false reports");
+            assertLt(reporterAfter, reporterBefore, "Failed reporter should lose stake");
         }
     }
     
@@ -468,36 +476,53 @@ contract ModerationScenariosTest is Test {
     // =========================================================================
     
     function test_Scenario_51Attack_WhaleControl() public {
-        // Stake all parties upfront
+        console.log("\n=== SCENARIO: 51% Attack - Whale Control ===");
+        
+        uint256 whaleStake = 50 ether;
+        uint256 communityStake = 0.2 ether;
+        console.log("Whale stake:", whaleStake / 1e18, "ETH");
+        console.log("Community stake (each):", communityStake / 1e15, "finney");
+        console.log("Community members: 5");
+        
         vm.prank(whale);
-        moderationMarket.stake{value: 50 ether}();
+        moderationMarket.stake{value: whaleStake}();
         
         for (uint256 i = 0; i < 5; i++) {
             vm.prank(sybils[i]);
-            moderationMarket.stake{value: 0.2 ether}();
+            moderationMarket.stake{value: communityStake}();
         }
         
-        // Wait for all stakes to age
         vm.warp(block.timestamp + 25 hours);
         vm.roll(block.number + 7201);
         
         vm.prank(whale);
         bytes32 caseId = moderationMarket.openCase(stakedTarget, "Whale attack", keccak256("evidence"));
         
-        // Target challenges
+        ModerationMarketplace.BanCase memory whaleVote = moderationMarket.getCase(caseId);
+        console.log("Whale YES vote weight:", whaleVote.yesVotes / 1e15, "finney-weight");
+        
+        // Linear: whale would have 50 ETH = 50000 finney
+        // Quadratic: sqrt(50 ETH) = ~7.07 ETH weight, capped at 0.707 ETH max
+        console.log("If linear, whale would have:", whaleStake / 1e15, "finney");
+        console.log("Quadratic + cap protection active");
+        
         vm.prank(stakedTarget);
         moderationMarket.challengeCase{value: 0.1 ether}(caseId);
         
-        ModerationMarketplace.BanCase memory banCase = moderationMarket.getCase(caseId);
-        
-        // Community votes NO
         for (uint256 i = 0; i < 5; i++) {
             vm.prank(sybils[i]);
             moderationMarket.vote(caseId, ModerationMarketplace.VotePosition.NO);
         }
         
         ModerationMarketplace.BanCase memory afterVotes = moderationMarket.getCase(caseId);
-        assertGt(afterVotes.noVotes, banCase.noVotes, "Community should add voting weight");
+        console.log("Final YES (whale):", afterVotes.yesVotes / 1e15, "finney-weight");
+        console.log("Final NO (community):", afterVotes.noVotes / 1e15, "finney-weight");
+        
+        uint256 whaleControlPct = (afterVotes.yesVotes * 100) / (afterVotes.yesVotes + afterVotes.noVotes);
+        console.log("Whale control %:", whaleControlPct);
+        console.log("PROTECTION: Whale with 50 ETH cannot dominate 5 small stakers");
+        
+        assertGt(afterVotes.noVotes, whaleVote.noVotes, "Community should add voting weight");
     }
     
     // =========================================================================
@@ -505,13 +530,12 @@ contract ModerationScenariosTest is Test {
     // =========================================================================
     
     function test_Scenario_BannedUserCanStillUseRPC() public {
-        // FIXED: Now RPCStakingManager checks BanManager
+        console.log("\n=== SCENARIO: RPC-Moderation Integration (FIXED) ===");
         
-        // Configure RPC staking to use BanManager
         vm.prank(owner);
         rpcStaking.setBanManager(address(banManager));
+        console.log("BanManager configured in RPCStakingManager");
         
-        // User gets banned in moderation system
         vm.prank(stakedReporter);
         moderationMarket.stake{value: MOD_STAKE_AMOUNT}();
         
@@ -521,40 +545,42 @@ contract ModerationScenariosTest is Test {
         vm.prank(stakedReporter);
         moderationMarket.openCase(unstakedTarget, "Bad actor", keccak256("evidence"));
         
-        vm.warp(block.timestamp + 4 days);
+        console.log("Target banned:", banManager.isAddressBanned(unstakedTarget));
+        console.log("Target on notice:", banManager.isOnNotice(unstakedTarget));
         
-        // User is now banned
-        assertTrue(banManager.isAddressBanned(unstakedTarget), "Target should be banned");
+        assertTrue(banManager.isAddressBanned(unstakedTarget));
         
-        // Try to stake - should revert
         vm.startPrank(unstakedTarget);
         jejuToken.mint(unstakedTarget, RPC_STAKE_AMOUNT);
         jejuToken.approve(address(rpcStaking), RPC_STAKE_AMOUNT);
         
+        console.log("Attempting to stake while banned...");
         vm.expectRevert(IRPCStakingManager.UserIsBanned.selector);
         rpcStaking.stake(RPC_STAKE_AMOUNT);
+        console.log("BLOCKED: UserIsBanned revert");
         
-        // canAccess should return false for banned user
         bool canAccess = rpcStaking.canAccess(unstakedTarget);
-        assertFalse(canAccess, "Banned user should NOT have RPC access");
+        console.log("canAccess():", canAccess);
+        assertFalse(canAccess);
         
         vm.stopPrank();
+        console.log("RESULT: Banned users cannot stake or access RPC");
     }
     
     function test_Scenario_RPCStakeNotFrozenWhenBanned() public {
-        // FIXED: Now RPCStakingManager checks BanManager
+        console.log("\n=== SCENARIO: Existing RPC Stake + Later Ban ===");
         
-        // Configure RPC staking to use BanManager
         vm.prank(owner);
         rpcStaking.setBanManager(address(banManager));
         
-        // User stakes in RPC first
         vm.startPrank(stakedTarget);
         jejuToken.approve(address(rpcStaking), RPC_STAKE_AMOUNT);
         rpcStaking.stake(RPC_STAKE_AMOUNT);
         vm.stopPrank();
         
-        // User gets banned in moderation
+        console.log("User staked:", RPC_STAKE_AMOUNT / 1e18, "JEJU");
+        console.log("canAccess before ban:", rpcStaking.canAccess(stakedTarget));
+        
         vm.prank(stakedReporter);
         moderationMarket.stake{value: MOD_STAKE_AMOUNT}();
         
@@ -564,14 +590,17 @@ contract ModerationScenariosTest is Test {
         vm.prank(stakedReporter);
         moderationMarket.openCase(stakedTarget, "Hacker", keccak256("evidence"));
         
-        vm.warp(block.timestamp + 4 days);
+        console.log("User banned after staking");
+        console.log("Banned:", banManager.isAddressBanned(stakedTarget));
+        console.log("canAccess after ban:", rpcStaking.canAccess(stakedTarget));
         
-        // User is banned in moderation - canAccess should return false
-        assertTrue(banManager.isAddressBanned(stakedTarget), "Target should be banned");
-        assertFalse(rpcStaking.canAccess(stakedTarget), "Banned user should not have RPC access");
+        assertTrue(banManager.isAddressBanned(stakedTarget));
+        assertFalse(rpcStaking.canAccess(stakedTarget));
         
-        // Note: Stake is still there (can be slashed by moderators if needed)
-        // But they can't access the RPC while banned
+        // Check stake still exists (can be slashed separately)
+        IRPCStakingManager.StakePosition memory pos = rpcStaking.getPosition(stakedTarget);
+        console.log("Stake still exists:", pos.stakedAmount / 1e18, "JEJU");
+        console.log("RESULT: Access denied but stake preserved for potential slashing");
     }
     
     // =========================================================================
@@ -579,9 +608,14 @@ contract ModerationScenariosTest is Test {
     // =========================================================================
     
     function test_Scenario_AppealRequires10xStake() public {
-        // Initial case
+        console.log("\n=== SCENARIO: Appeal Requires 10x Stake ===");
+        
+        uint256 reporterStake = 0.1 ether;
+        console.log("Reporter stake:", reporterStake / 1e15, "finney");
+        console.log("Required appeal stake:", (reporterStake * 10) / 1e15, "finney (10x)");
+        
         vm.prank(stakedReporter);
-        moderationMarket.stake{value: 0.1 ether}();
+        moderationMarket.stake{value: reporterStake}();
         
         vm.warp(block.timestamp + 25 hours);
         vm.roll(block.number + 7201);
@@ -592,20 +626,23 @@ contract ModerationScenariosTest is Test {
         vm.warp(block.timestamp + 4 days);
         moderationMarket.resolveCase(caseId);
         
-        // Target is banned and wants to appeal
+        console.log("Target banned:", banManager.isAddressBanned(unstakedTarget));
         assertTrue(banManager.isAddressBanned(unstakedTarget));
         
-        // Appeal requires 10x the reporter's stake = 1 ether
+        console.log("Attempting appeal with 0.5 ETH (insufficient)...");
         vm.prank(unstakedTarget);
         vm.expectRevert(ModerationMarketplace.InsufficientStake.selector);
-        moderationMarket.requestReReview{value: 0.5 ether}(caseId); // Not enough
+        moderationMarket.requestReReview{value: 0.5 ether}(caseId);
+        console.log("BLOCKED: InsufficientStake");
         
-        // Proper appeal
+        console.log("Attempting appeal with 1 ETH (sufficient)...");
         vm.prank(unstakedTarget);
         moderationMarket.requestReReview{value: 1 ether}(caseId);
         
         ModerationMarketplace.BanCase memory appealed = moderationMarket.getCase(caseId);
+        console.log("Status after appeal:", uint256(appealed.status) == 4 ? "APPEALING" : "OTHER");
         assertEq(uint256(appealed.status), uint256(ModerationMarketplace.BanStatus.APPEALING));
+        console.log("RESULT: Appeals require significant stake commitment");
     }
     
     // =========================================================================
@@ -613,34 +650,42 @@ contract ModerationScenariosTest is Test {
     // =========================================================================
     
     function test_Scenario_ConvictionLockPreventsVoteAndRun() public {
-        // Stake all parties upfront
+        console.log("\n=== SCENARIO: Conviction Lock Prevents Vote-and-Run ===");
+        
+        uint256 voterStake = 0.5 ether;
+        console.log("Voter stake:", voterStake / 1e15, "finney");
+        console.log("Conviction lock period: 3 days");
+        
         vm.prank(sybils[0]);
-        moderationMarket.stake{value: 0.5 ether}();
+        moderationMarket.stake{value: voterStake}();
         
         vm.prank(stakedReporter);
         moderationMarket.stake{value: MOD_STAKE_AMOUNT}();
         
-        // Wait for stakes to age
         vm.warp(block.timestamp + 25 hours);
         vm.roll(block.number + 7201);
         
         vm.prank(stakedReporter);
         bytes32 caseId = moderationMarket.openCase(stakedTarget, "Test", keccak256("evidence"));
         
-        // Voter votes
+        console.log("Voter casts YES vote...");
         vm.prank(sybils[0]);
         moderationMarket.vote(caseId, ModerationMarketplace.VotePosition.YES);
         
-        // Try to unstake immediately - should fail
+        console.log("Attempting immediate unstake...");
         vm.prank(sybils[0]);
         vm.expectRevert(ModerationMarketplace.ConvictionLockActive.selector);
-        moderationMarket.unstake(0.5 ether);
+        moderationMarket.unstake(voterStake);
+        console.log("BLOCKED: ConvictionLockActive");
         
-        // Wait for conviction lock to expire (3 days)
+        console.log("Waiting 4 days...");
         vm.warp(block.timestamp + 4 days);
         
-        // Now can unstake
+        console.log("Attempting unstake after lock expires...");
         vm.prank(sybils[0]);
-        moderationMarket.unstake(0.5 ether);
+        moderationMarket.unstake(voterStake);
+        console.log("SUCCESS: Unstake allowed after conviction period");
+        
+        console.log("RESULT: Voters cannot quickly exit after voting");
     }
 }

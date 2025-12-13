@@ -99,7 +99,7 @@ export default function AddLiquidity({ vaultAddress: propVaultAddress }: { vault
         )}
       </div>
 
-      {selectedToken && deployment && lpPosition && lpPosition.ethShares > 0n && (
+      {selectedToken && deployment && lpPosition && Boolean(lpPosition.ethShares > 0n) && (
         <div className="card">
           <h3 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>
             Your {selectedToken.symbol} LP Position

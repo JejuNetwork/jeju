@@ -2,7 +2,7 @@
 # Build static docs and serve with nginx
 # NOTE: Build context must be project root for config access
 
-FROM oven/bun:1.1-slim AS builder
+FROM oven/bun:latest AS builder
 
 # Install system dependencies including build tools
 RUN apt-get update && apt-get install -y \
@@ -15,15 +15,22 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy config first (needed for builds)
-COPY config ./config
+# Copy workspace files
+COPY package.json bun.lock ./
+COPY packages/config/package.json ./packages/config/
+COPY packages/types/package.json ./packages/types/
+COPY packages/tests/package.json ./packages/tests/
+COPY apps/documentation/package.json ./apps/documentation/
 
 # Install dependencies
-COPY apps/documentation/package.json apps/documentation/bun.lockb* ./
-RUN bun install --frozen-lockfile
+RUN bun install --no-save
 
-# Copy source
-COPY apps/documentation .
+# Copy source files
+COPY packages/config ./packages/config
+COPY packages/types ./packages/types
+COPY apps/documentation ./apps/documentation
+
+WORKDIR /app/apps/documentation
 
 # Build VitePress static site
 ENV NODE_ENV=production
@@ -65,7 +72,7 @@ server {
 EOF
 
 # Copy built site
-COPY --from=builder /app/.vitepress/dist /usr/share/nginx/html
+COPY --from=builder /app/apps/documentation/.vitepress/dist /usr/share/nginx/html
 
 EXPOSE 80
 

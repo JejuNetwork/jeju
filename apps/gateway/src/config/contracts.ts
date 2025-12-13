@@ -1,17 +1,6 @@
-/**
- * Server-side Contract Addresses
- * 
- * For server-side code (A2A server, services, etc.) that uses process.env.
- * Frontend code should import from './index.ts' which uses import.meta.env.VITE_*
- */
 import type { Address } from 'viem';
 import { NETWORK, type NetworkId } from './networks.js';
 import { ZERO_ADDRESS } from '../lib/contracts.js';
-
-// ============================================================================
-// DEPLOYED CONTRACT ADDRESSES BY NETWORK
-// These are the canonical addresses for server-side code
-// ============================================================================
 
 interface NetworkContracts {
   jejuToken: Address;
@@ -79,10 +68,6 @@ export const SOLVER_REGISTRY_ADDRESS = CONTRACTS_BY_NETWORK[NETWORK].solverRegis
 export const OIF_ORACLE_ADDRESS = CONTRACTS_BY_NETWORK[NETWORK].oifOracle;
 export const XLP_ROUTER_ADDRESS = CONTRACTS_BY_NETWORK[NETWORK].xlpRouter;
 export const LIQUIDITY_AGGREGATOR_ADDRESS = CONTRACTS_BY_NETWORK[NETWORK].liquidityAggregator;
-
-// ============================================================================
-// TOKEN CONFIGS - for server-side token operations
-// ============================================================================
 
 export interface TokenConfig {
   symbol: string;

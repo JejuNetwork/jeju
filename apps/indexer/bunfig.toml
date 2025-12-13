@@ -1,0 +1,3 @@
+[test]
+# Only run tests from the test/ directory, not tests/e2e (which are Playwright tests)
+root = "test"

@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "crucible.fullname" . }}-executor
+  labels:
+    {{- include "crucible.labels" . | nindent 4 }}
+    app.kubernetes.io/component: executor
+spec:
+  replicas: {{ .Values.replicaCount.executor }}
+  selector:
+    matchLabels:
+      {{- include "crucible.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: executor
+  template:
+    metadata:
+      labels:
+        {{- include "crucible.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: executor
+    spec:
+      serviceAccountName: {{ include "crucible.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: executor
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["bun", "run", "executor"]
+          envFrom:
+            - configMapRef:
+                name: {{ include "crucible.fullname" . }}-config
+            {{- if .Values.secrets.privateKey }}
+            - secretRef:
+                name: {{ include "crucible.fullname" . }}-secrets
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources.executor | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount } from 'wagmi';
-import { Wallet, Factory, DropletIcon, BarChart3, Zap, Server, Book, Waves, Activity, Tag, Sparkles, Droplet } from 'lucide-react';
+import { Wallet, Factory, DropletIcon, BarChart3, Zap, Server, Book, Waves, Activity, Tag, Sparkles, Droplet, Radio } from 'lucide-react';
 import { ThemeToggle } from './ThemeProvider';
 import TokenList from './TokenList';
 import RegisterToken from './RegisterToken';
@@ -17,14 +17,16 @@ import RegistryTab from './RegistryTab';
 import { IntentsTab } from './intents';
 import JNSTab from './JNSTab';
 import FaucetTab from './FaucetTab';
+import { OracleTab } from './oracle';
 
-type TabId = 'tokens' | 'deploy' | 'liquidity' | 'earnings' | 'transfer' | 'xlp' | 'nodes' | 'registry' | 'intents' | 'names' | 'faucet';
+type TabId = 'tokens' | 'deploy' | 'liquidity' | 'earnings' | 'transfer' | 'xlp' | 'nodes' | 'registry' | 'intents' | 'names' | 'faucet' | 'oracle';
 
 const TABS: { id: TabId; icon: typeof Factory; label: string }[] = [
   { id: 'registry', icon: Book, label: 'Bazaar' },
   { id: 'faucet', icon: Droplet, label: 'Faucet' },
   { id: 'transfer', icon: Zap, label: 'Transfer' },
   { id: 'intents', icon: Activity, label: 'Intents' },
+  { id: 'oracle', icon: Radio, label: 'Oracle' },
   { id: 'xlp', icon: Waves, label: 'XLP' },
   { id: 'tokens', icon: Factory, label: 'Tokens' },
   { id: 'deploy', icon: Factory, label: 'Deploy' },
@@ -79,6 +81,7 @@ export default function Dashboard() {
               {activeTab === 'intents' && <IntentsTab />}
               {activeTab === 'names' && <JNSTab />}
               {activeTab === 'faucet' && <FaucetTab />}
+              {activeTab === 'oracle' && <OracleTab />}
             </div>
           </>
         )}

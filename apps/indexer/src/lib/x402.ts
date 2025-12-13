@@ -1,12 +1,5 @@
-/**
- * x402 Payment Protocol for Indexer
- * Provides types and utilities for payment-gated API access
- */
-
 import { parseEther } from 'viem';
 import type { Address } from 'viem';
-
-// ============ Types ============
 
 export interface PaymentRequirements {
   version: string;

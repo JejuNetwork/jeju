@@ -653,6 +653,215 @@ export async function registerAsPaymentProvider(
   return hash2;
 }
 
+// ============ HTTP Facilitator Discovery ============
+
+/**
+ * Configuration for HTTP-based facilitators
+ */
+export interface HttpFacilitatorConfig {
+  url: string;
+  priority: number;
+  networks: string[];
+  name: string;
+}
+
+/**
+ * Registry of known HTTP facilitators with priority order
+ * Lower priority number = higher preference
+ */
+export const HTTP_FACILITATOR_REGISTRY: HttpFacilitatorConfig[] = [
+  {
+    url: process.env.JEJU_FACILITATOR_URL || 'http://localhost:3402',
+    priority: 1,
+    networks: ['jeju', 'jeju-testnet'],
+    name: 'Jeju Facilitator',
+  },
+  {
+    url: 'https://x402.org/facilitator',
+    priority: 2,
+    networks: ['base-sepolia', 'sepolia'],
+    name: 'x402.org Testnet Facilitator',
+  },
+  {
+    url: 'https://facilitator.cdp.coinbase.com',
+    priority: 3,
+    networks: ['base'],
+    name: 'Coinbase CDP Facilitator',
+  },
+  {
+    url: 'https://facilitator.chaoscha.in',
+    priority: 4,
+    networks: ['base-sepolia', 'base', 'ethereum-sepolia', 'ethereum'],
+    name: 'ChaosChain Facilitator',
+  },
+];
+
+/**
+ * Check if an HTTP facilitator is healthy
+ */
+export async function checkFacilitatorHealth(url: string, timeoutMs: number = 5000): Promise<boolean> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(`${url}/health`, {
+      method: 'GET',
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    return response.ok;
+  } catch {
+    clearTimeout(timeoutId);
+    return false;
+  }
+}
+
+/**
+ * Discover the best available HTTP facilitator for a network
+ * Checks health and returns first healthy facilitator in priority order
+ */
+export async function discoverHttpFacilitator(
+  network: string,
+  options?: { timeoutMs?: number; skipHealthCheck?: boolean }
+): Promise<HttpFacilitatorConfig | null> {
+  const { timeoutMs = 3000, skipHealthCheck = false } = options || {};
+
+  // Filter facilitators that support the network
+  const candidates = HTTP_FACILITATOR_REGISTRY
+    .filter((f) => f.networks.includes(network))
+    .sort((a, b) => a.priority - b.priority);
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  if (skipHealthCheck) {
+    return candidates[0];
+  }
+
+  // Check health of each candidate in priority order
+  for (const candidate of candidates) {
+    const healthy = await checkFacilitatorHealth(candidate.url, timeoutMs);
+    if (healthy) {
+      return candidate;
+    }
+  }
+
+  // No healthy facilitator found, return first candidate anyway
+  // (caller can handle the error)
+  return candidates[0];
+}
+
+/**
+ * Get all facilitators for a network (sorted by priority)
+ */
+export function getFacilitatorsForNetwork(network: string): HttpFacilitatorConfig[] {
+  return HTTP_FACILITATOR_REGISTRY
+    .filter((f) => f.networks.includes(network))
+    .sort((a, b) => a.priority - b.priority);
+}
+
+/**
+ * Verify payment via HTTP facilitator
+ */
+export async function verifyPaymentViaHttp(
+  facilitatorUrl: string,
+  paymentHeader: string,
+  paymentRequirements: {
+    scheme: string;
+    network: string;
+    maxAmountRequired: string;
+    payTo: Address;
+    asset: Address;
+    resource: string;
+  }
+): Promise<{ isValid: boolean; invalidReason: string | null; payer: Address | null }> {
+  const response = await fetch(`${facilitatorUrl}/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      x402Version: 1,
+      paymentHeader,
+      paymentRequirements,
+    }),
+  });
+
+  const result = await response.json() as {
+    isValid: boolean;
+    invalidReason: string | null;
+    payer: Address | null;
+  };
+
+  return result;
+}
+
+/**
+ * Settle payment via HTTP facilitator
+ */
+export async function settlePaymentViaHttp(
+  facilitatorUrl: string,
+  paymentHeader: string,
+  paymentRequirements: {
+    scheme: string;
+    network: string;
+    maxAmountRequired: string;
+    payTo: Address;
+    asset: Address;
+    resource: string;
+  }
+): Promise<{
+  success: boolean;
+  txHash: string | null;
+  error: string | null;
+  fee?: { human: string; base: string; bps: number };
+  net?: { human: string; base: string };
+}> {
+  const response = await fetch(`${facilitatorUrl}/settle`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      x402Version: 1,
+      paymentHeader,
+      paymentRequirements,
+    }),
+  });
+
+  const result = await response.json() as {
+    success: boolean;
+    txHash: string | null;
+    error: string | null;
+    fee?: { human: string; base: string; bps: number };
+    net?: { human: string; base: string };
+  };
+
+  return result;
+}
+
+/**
+ * Get supported schemes from HTTP facilitator
+ */
+export async function getSupportedSchemes(facilitatorUrl: string): Promise<{
+  kinds: Array<{ scheme: string; network: string }>;
+  x402Version: number;
+  facilitator: { name: string; version: string; url: string };
+} | null> {
+  try {
+    const response = await fetch(`${facilitatorUrl}/supported`, {
+      method: 'GET',
+    });
+
+    if (!response.ok) return null;
+
+    return await response.json() as {
+      kinds: Array<{ scheme: string; network: string }>;
+      x402Version: number;
+      facilitator: { name: string; version: string; url: string };
+    };
+  } catch {
+    return null;
+  }
+}
+
 // ============ HTTP Header Utilities ============
 
 /**

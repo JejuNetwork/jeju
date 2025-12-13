@@ -1,0 +1,6 @@
+apiVersion: v2
+name: x402-facilitator
+description: Jeju x402 HTTP Facilitator
+type: application
+version: 1.0.0
+appVersion: "1.0.0"

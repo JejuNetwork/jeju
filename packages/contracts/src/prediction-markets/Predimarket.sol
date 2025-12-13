@@ -8,7 +8,25 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 interface IPredictionOracle {
+    enum ContestState {
+        PENDING,
+        ACTIVE,
+        GRACE_PERIOD,
+        FINISHED,
+        CANCELLED
+    }
+
+    enum ContestMode {
+        SINGLE_WINNER,
+        TOP_THREE,
+        FULL_RANKING
+    }
+
     function getOutcome(bytes32 sessionId) external view returns (bool outcome, bool finalized);
+    function getContestInfo(bytes32 contestId)
+        external
+        view
+        returns (ContestState state, ContestMode mode, uint256 startTime, uint256 endTime, uint256 optionCount);
     function games(bytes32 sessionId)
         external
         view
@@ -66,7 +84,8 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
         MODERATION_APP_BAN,
         MODERATION_LABEL_HACKER,
         MODERATION_LABEL_SCAMMER,
-        MODERATION_APPEAL
+        MODERATION_APPEAL,
+        GOVERNANCE_VETO
     }
 
     struct ModerationMetadata {
@@ -157,6 +176,7 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
     error AlreadyClaimed();
     error UnsupportedPaymentToken();
     error NotAuthorizedCreator();
+    error TradingFrozen();
 
     constructor(address _defaultToken, address _oracle, address _treasury, address _owner) Ownable(_owner) {
         require(_defaultToken != address(0), "Invalid payment token");
@@ -263,6 +283,15 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
         emit MarketCreated(sessionId, question, liquidityParameter, gameType, gameContract);
     }
 
+    function _isTradingFrozen(Market storage market) internal view returns (bool) {
+        if (market.gameType != GameType.CONTEST || market.gameContract == address(0)) {
+            return false;
+        }
+        (IPredictionOracle.ContestState state,,,,) =
+            IPredictionOracle(market.gameContract).getContestInfo(market.sessionId);
+        return state == IPredictionOracle.ContestState.GRACE_PERIOD;
+    }
+
     /**
      * @notice Buy shares in a market with any supported token
      * @param sessionId Market ID
@@ -282,6 +311,7 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
         if (market.createdAt == 0) revert MarketNotFound();
         if (market.resolved) revert MarketAlreadyResolved();
         if (!supportedTokens[token]) revert UnsupportedPaymentToken();
+        if (_isTradingFrozen(market)) revert TradingFrozen();
 
         // Calculate shares received
         shares = calculateSharesReceived(sessionId, outcome, tokenAmount);
@@ -325,6 +355,7 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
         Market storage market = markets[sessionId];
         if (market.createdAt == 0) revert MarketNotFound();
         if (market.resolved) revert MarketAlreadyResolved();
+        if (_isTradingFrozen(market)) revert TradingFrozen();
 
         // Use default payment token
         address token = address(paymentToken);
@@ -383,6 +414,7 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
         if (market.createdAt == 0) revert MarketNotFound();
         if (market.resolved) revert MarketAlreadyResolved();
         if (!supportedTokens[token]) revert UnsupportedPaymentToken();
+        if (_isTradingFrozen(market)) revert TradingFrozen();
 
         Position storage position = positions[sessionId][msg.sender];
 
@@ -430,6 +462,7 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
         Market storage market = markets[sessionId];
         if (market.createdAt == 0) revert MarketNotFound();
         if (market.resolved) revert MarketAlreadyResolved();
+        if (_isTradingFrozen(market)) revert TradingFrozen();
 
         // Use default payment token
         address token = address(paymentToken);
@@ -666,6 +699,17 @@ contract Predimarket is ReentrancyGuard, Pausable, Ownable {
      */
     function getPosition(bytes32 sessionId, address trader) external view returns (Position memory) {
         return positions[sessionId][trader];
+    }
+
+    /**
+     * @notice Check if a market is resolved and get outcome
+     * @param sessionId Market ID
+     * @return resolved Whether market is resolved
+     * @return outcome The outcome if resolved
+     */
+    function isMarketResolved(bytes32 sessionId) external view returns (bool resolved, bool outcome) {
+        Market storage market = markets[sessionId];
+        return (market.resolved, market.outcome);
     }
 
     /**

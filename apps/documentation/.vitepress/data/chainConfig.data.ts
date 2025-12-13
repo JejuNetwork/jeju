@@ -19,8 +19,8 @@
  * ```
  */
 
-import mainnet from '@jejunetwork/config/chain/mainnet.json';
-import testnet from '@jejunetwork/config/chain/testnet.json';
+import mainnet from '../../../../packages/config/chain/mainnet.json';
+import testnet from '../../../../packages/config/chain/testnet.json';
 
 /**
  * Chain configuration interface matching the JSON structure

@@ -25,11 +25,7 @@ import {
   type ExtendedSDKConfig,
   type RegisteredModel,
 } from '../sdk/types';
-import {
-  DEFAULT_PRICING,
-  estimateInferencePrice,
-  getDetailedPriceEstimate,
-} from '../sdk/x402';
+import { DEFAULT_PRICING, estimatePrice } from '../sdk/x402';
 
 // Test configuration - no on-chain registry, tests SDK structure
 const TEST_CONFIG: ExtendedSDKConfig = {
@@ -523,46 +519,39 @@ describe('Decentralized Inference Registry', () => {
 
   describe('Model Type Pricing', () => {
     test('LLM pricing estimates correctly', () => {
-      const price = estimateInferencePrice('any-model', 1000, 'llm');
+      const price = estimatePrice('llm', 1000);
       expect(price).toBeGreaterThan(0n);
     });
 
     test('image generation pricing estimates correctly', () => {
-      const price = estimateInferencePrice('any-model', 1, 'image-generation');
+      const price = estimatePrice('image', 1);
       expect(price).toBe(DEFAULT_PRICING.IMAGE_1024);
     });
 
     test('video generation pricing scales with duration', () => {
-      const price5s = estimateInferencePrice('any-model', 5, 'video-generation');
-      const price10s = estimateInferencePrice('any-model', 10, 'video-generation');
+      const price5s = estimatePrice('video', 5);
+      const price10s = estimatePrice('video', 10);
       expect(price10s).toBe(price5s * 2n);
     });
 
     test('audio generation pricing scales with duration', () => {
-      const price10s = estimateInferencePrice('any-model', 10, 'audio-generation');
-      const price20s = estimateInferencePrice('any-model', 20, 'audio-generation');
+      const price10s = estimatePrice('audio', 10);
+      const price20s = estimatePrice('audio', 20);
       expect(price20s).toBe(price10s * 2n);
     });
 
     test('speech-to-text pricing is per minute', () => {
-      const price60s = estimateInferencePrice('any-model', 60, 'speech-to-text');
-      const price120s = estimateInferencePrice('any-model', 120, 'speech-to-text');
+      const price60s = estimatePrice('stt', 60);
+      const price120s = estimatePrice('stt', 120);
       expect(price120s).toBe(price60s * 2n);
     });
 
     test('embedding pricing scales with tokens', () => {
-      const price1k = estimateInferencePrice('any-model', 1000, 'embedding');
-      const price2k = estimateInferencePrice('any-model', 2000, 'embedding');
+      const price1k = estimatePrice('embedding', 1000);
+      const price2k = estimatePrice('embedding', 2000);
       expect(price2k).toBe(price1k * 2n);
     });
 
-    test('detailed price estimate includes breakdown', () => {
-      const estimate = getDetailedPriceEstimate('video-generation', 10);
-      expect(estimate.amount).toBeGreaterThan(0n);
-      expect(estimate.currency).toBe('ETH');
-      expect(estimate.breakdown.unitCount).toBe(10);
-      expect(estimate.breakdown.unitType).toBe('seconds');
-    });
   });
 
   describe('Filter by Model Type', () => {

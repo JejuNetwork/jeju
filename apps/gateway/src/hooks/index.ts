@@ -14,3 +14,5 @@ export * from './useOIF';
 export * from './useComputeRental';
 export * from './useX402';
 export * from './useIntentAPI';
+export * from './useRegistrySearch';
+export * from './useOracleNetwork';

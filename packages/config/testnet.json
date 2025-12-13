@@ -1,7 +1,6 @@
 {
   "network": "testnet",
   "version": "1.0.0",
-  
   "jeju": {
     "chainId": 420690,
     "networkName": "Jeju Testnet",
@@ -18,7 +17,6 @@
     "explorer": "https://explorer.testnet.jejunetwork.org",
     "blockTime": 2
   },
-  
   "l1": {
     "chainId": 11155111,
     "networkName": "Sepolia",
@@ -32,21 +30,20 @@
       "internal": "http://geth-l1.l1.svc.cluster.local:8545"
     }
   },
-  
   "api": {
     "gateway": "https://gateway.testnet.jejunetwork.org",
     "bundler": "https://bundler.testnet.jejunetwork.org",
     "indexer": "https://indexer.testnet.jejunetwork.org/graphql",
     "faucet": "https://faucet.testnet.jejunetwork.org"
   },
-  
   "contracts": {
     "jeju": {
       "entryPoint": "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789",
-      "crossChainPaymaster": "",
-      "solverRegistry": "",
-      "inputSettler": "",
-      "outputSettler": ""
+      "solverRegistry": "0x66ac1E36094E3Cfa47258589Be7Bd3cEf5884e97",
+      "simpleOracle": "0xE27b540b6fd3868Ad6420C466C8330dA3a6417BF",
+      "inputSettler": "0x96b238A30F95e9B0f34Bc82c5B55725531786f60",
+      "outputSettler": "0xE40997A7C5e472E1C90fF960d7aA16C78ab71Ae3",
+      "crossChainPaymaster": ""
     },
     "sepolia": {
       "l1StakeManager": "",
@@ -55,7 +52,6 @@
       "systemConfig": "0x586b880fB2f6831F1a1AD1E6754861008264816c"
     }
   },
-  
   "supportedChains": {
     "84532": {
       "name": "Base Sepolia",
@@ -76,11 +72,9 @@
       "crossChainPaymaster": ""
     }
   },
-  
   "deployer": {
     "address": "0x1c8D40d6E81289B5a1B6e4E3a2E34eA23d1c2A0E"
   },
-  
   "infrastructure": {
     "domain": "jejunetwork.org",
     "aws": {
