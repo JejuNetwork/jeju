@@ -525,11 +525,8 @@ contract EILIntegrationTest is Test {
         vm.prank(xlp);
         bytes32 voucherId = l2Paymaster.issueVoucher(requestId, abi.encodePacked(r, s, v));
 
-        // === Step 5: Fulfill voucher on destination with REAL signature ===
-        // This simulates what happens on the destination chain
+        // === Step 5: Fulfill voucher with real signature ===
         uint256 recipientBalanceBefore = user.balance;
-
-        // XLP signs the fulfillment
         bytes32 fulfillmentHash = keccak256(
             abi.encodePacked(
                 voucherId, requestId, xlp, address(0), transferAmount, user, uint256(0.001 ether), L2_CHAIN_ID
@@ -539,22 +536,14 @@ contract EILIntegrationTest is Test {
         (uint8 fv, bytes32 fr, bytes32 fs) = vm.sign(xlpPrivateKey, fulfillmentEthHash);
         bytes memory fulfillmentSig = abi.encodePacked(fr, fs, fv);
 
-        // Execute fulfillment (anyone can call with valid XLP signature)
         l2Paymaster.fulfillVoucher(
             voucherId, requestId, xlp, address(0), transferAmount, user, 0.001 ether, fulfillmentSig
         );
 
-        // === Step 6: Verify fulfillment ===
-        // Recipient should have received the funds
-        assertEq(
-            user.balance - recipientBalanceBefore, transferAmount + 0.001 ether, "User should receive amount + gas"
-        );
-
-        // Voucher should be marked as fulfilled
-        assertTrue(l2Paymaster.getVoucher(voucherId).fulfilled, "Voucher should be fulfilled");
-
-        // XLP liquidity should be reduced
-        assertEq(l2Paymaster.getXLPETH(xlp), 5 ether - transferAmount - 0.001 ether, "XLP ETH should be reduced");
+        // === Step 6: Verify ===
+        assertEq(user.balance - recipientBalanceBefore, transferAmount + 0.001 ether);
+        assertTrue(l2Paymaster.getVoucher(voucherId).fulfilled);
+        assertEq(l2Paymaster.getXLPETH(xlp), 5 ether - transferAmount - 0.001 ether);
     }
 
     function test_FulfillVoucher_InvalidSignature_Reverts() public {

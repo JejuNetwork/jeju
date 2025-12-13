@@ -2,6 +2,8 @@
 pragma solidity ^0.8.26;
 
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
  * @title KeyRegistry
@@ -22,12 +24,16 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
  * @custom:security-contact security@jeju.network
  */
 contract KeyRegistry is ReentrancyGuard {
+    using ECDSA for bytes32;
+    using MessageHashUtils for bytes32;
+    using MessageHashUtils for bytes32;
+
     // ============ Structs ============
 
     struct PublicKeyBundle {
         bytes32 identityKey; // Long-term X25519 public key
         bytes32 signedPreKey; // Medium-term pre-key (rotated weekly)
-        bytes32 preKeySignature; // ED25519 signature of signedPreKey
+        bytes32 preKeySignature; // Signature of signedPreKey
         uint256 preKeyTimestamp; // When signed pre-key was set
         uint256 registeredAt; // When identity key was registered
         uint256 lastUpdated; // Last update timestamp
@@ -51,12 +57,21 @@ contract KeyRegistry is ReentrancyGuard {
     // Historical keys (for decrypting old messages)
     mapping(address => bytes32[]) public keyHistory;
 
-    // ERC-8004 agent keys
+    // ERC-8004 agent keys (agentId => owner => bundle)
+    mapping(uint256 => address) public agentKeyOwner;
     mapping(uint256 => PublicKeyBundle) public agentKeyBundles;
+
+    // Permanently revoked addresses
+    mapping(address => bool) public isPermanentlyRevoked;
+
+    // Rate limiting for pre-key consumption
+    mapping(address => mapping(address => uint256)) public lastPreKeyConsumption;
 
     // Configuration
     uint256 public constant MAX_ONE_TIME_KEYS = 100;
+    uint256 public constant MAX_KEY_HISTORY = 50;
     uint256 public constant PRE_KEY_ROTATION_PERIOD = 7 days;
+    uint256 public constant PRE_KEY_CONSUMPTION_COOLDOWN = 1 hours;
 
     // ============ Events ============
 
@@ -65,7 +80,8 @@ contract KeyRegistry is ReentrancyGuard {
     event OneTimePreKeysUploaded(address indexed user, uint256 count, uint256 timestamp);
     event OneTimePreKeyConsumed(address indexed user, uint256 keyIndex, address indexed consumer);
     event KeyBundleRevoked(address indexed user, uint256 timestamp);
-    event AgentKeyRegistered(uint256 indexed agentId, bytes32 identityKey, uint256 timestamp);
+    event AgentKeyRegistered(uint256 indexed agentId, address indexed owner, bytes32 identityKey, uint256 timestamp);
+    event AgentKeyRevoked(uint256 indexed agentId, address indexed owner, uint256 timestamp);
 
     // ============ Errors ============
 
@@ -75,6 +91,10 @@ contract KeyRegistry is ReentrancyGuard {
     error TooManyPreKeys();
     error NoPreKeysAvailable();
     error KeyBundleInactive();
+    error PermanentlyRevoked();
+    error PreKeyConsumptionRateLimited();
+    error KeyHistoryFull();
+    error Unauthorized();
 
     // ============ Key Registration ============
 
@@ -82,28 +102,35 @@ contract KeyRegistry is ReentrancyGuard {
      * @notice Register a new key bundle
      * @param identityKey X25519 public identity key (32 bytes)
      * @param signedPreKey X25519 signed pre-key (32 bytes)
-     * @param preKeySignature ED25519 signature of signedPreKey
+     * @param preKeySignature ECDSA signature of the pre-key
      */
-    function registerKeyBundle(bytes32 identityKey, bytes32 signedPreKey, bytes32 preKeySignature)
+    function registerKeyBundle(bytes32 identityKey, bytes32 signedPreKey, bytes calldata preKeySignature)
         external
         nonReentrant
     {
+        if (isPermanentlyRevoked[msg.sender]) revert PermanentlyRevoked();
         if (keyBundles[msg.sender].isActive) revert KeyAlreadyRegistered();
         if (identityKey == bytes32(0)) revert InvalidKeyLength();
         if (signedPreKey == bytes32(0)) revert InvalidKeyLength();
 
+        // Verify pre-key signature
+        bytes32 message = keccak256(abi.encodePacked(signedPreKey, msg.sender, block.chainid));
+        bytes32 ethSignedHash = message.toEthSignedMessageHash();
+        address signer = ethSignedHash.recover(preKeySignature);
+        if (signer != msg.sender) revert Unauthorized();
+
         keyBundles[msg.sender] = PublicKeyBundle({
             identityKey: identityKey,
             signedPreKey: signedPreKey,
-            preKeySignature: preKeySignature,
+            preKeySignature: bytes32(keccak256(preKeySignature)), // Store hash
             preKeyTimestamp: block.timestamp,
             registeredAt: block.timestamp,
             lastUpdated: block.timestamp,
             isActive: true
         });
 
-        // Store in history
-        keyHistory[msg.sender].push(identityKey);
+        // Store in history (with limit)
+        _addToKeyHistory(msg.sender, identityKey);
 
         emit KeyBundleRegistered(msg.sender, identityKey, signedPreKey, block.timestamp);
     }
@@ -113,15 +140,21 @@ contract KeyRegistry is ReentrancyGuard {
      * @param newSignedPreKey New X25519 pre-key
      * @param newPreKeySignature Signature of new pre-key
      */
-    function rotateSignedPreKey(bytes32 newSignedPreKey, bytes32 newPreKeySignature) external {
+    function rotateSignedPreKey(bytes32 newSignedPreKey, bytes calldata newPreKeySignature) external nonReentrant {
         PublicKeyBundle storage bundle = keyBundles[msg.sender];
         if (!bundle.isActive) revert KeyNotRegistered();
         if (newSignedPreKey == bytes32(0)) revert InvalidKeyLength();
 
+        // Verify signature
+        bytes32 message = keccak256(abi.encodePacked(newSignedPreKey, msg.sender, block.chainid));
+        bytes32 ethSignedHash = message.toEthSignedMessageHash();
+        address signer = ethSignedHash.recover(newPreKeySignature);
+        if (signer != msg.sender) revert Unauthorized();
+
         bytes32 oldKey = bundle.signedPreKey;
 
         bundle.signedPreKey = newSignedPreKey;
-        bundle.preKeySignature = newPreKeySignature;
+        bundle.preKeySignature = bytes32(keccak256(newPreKeySignature));
         bundle.preKeyTimestamp = block.timestamp;
         bundle.lastUpdated = block.timestamp;
 
@@ -149,12 +182,20 @@ contract KeyRegistry is ReentrancyGuard {
 
     /**
      * @notice Consume a one-time pre-key (called when initiating conversation)
+     * @dev Rate limited to prevent DoS attacks
      * @param user Address whose pre-key to consume
      * @return preKey The one-time pre-key
      * @return keyIndex Index of the consumed key
      */
-    function consumeOneTimePreKey(address user) external returns (bytes32 preKey, uint256 keyIndex) {
+    function consumeOneTimePreKey(address user) external nonReentrant returns (bytes32 preKey, uint256 keyIndex) {
         if (!keyBundles[user].isActive) revert KeyBundleInactive();
+
+        // Rate limiting per consumer-user pair
+        uint256 lastConsumed = lastPreKeyConsumption[user][msg.sender];
+        if (block.timestamp - lastConsumed < PRE_KEY_CONSUMPTION_COOLDOWN) {
+            revert PreKeyConsumptionRateLimited();
+        }
+        lastPreKeyConsumption[user][msg.sender] = block.timestamp;
 
         OneTimePreKey[] storage keys = oneTimePreKeys[user];
         uint256 startIndex = oneTimePreKeyIndex[user];
@@ -175,7 +216,7 @@ contract KeyRegistry is ReentrancyGuard {
     }
 
     /**
-     * @notice Revoke key bundle (disables messaging)
+     * @notice Revoke key bundle (disables messaging permanently)
      */
     function revokeKeyBundle() external {
         PublicKeyBundle storage bundle = keyBundles[msg.sender];
@@ -183,6 +224,7 @@ contract KeyRegistry is ReentrancyGuard {
 
         bundle.isActive = false;
         bundle.lastUpdated = block.timestamp;
+        isPermanentlyRevoked[msg.sender] = true;
 
         // Clear one-time keys
         delete oneTimePreKeys[msg.sender];
@@ -193,26 +235,34 @@ contract KeyRegistry is ReentrancyGuard {
 
     /**
      * @notice Update identity key (requires re-establishing all conversations)
+     * @dev Cannot be used after permanent revocation
      * @param newIdentityKey New X25519 identity key
      * @param signedPreKey New signed pre-key
      * @param preKeySignature Signature of pre-key
      */
-    function updateIdentityKey(bytes32 newIdentityKey, bytes32 signedPreKey, bytes32 preKeySignature)
+    function updateIdentityKey(bytes32 newIdentityKey, bytes32 signedPreKey, bytes calldata preKeySignature)
         external
         nonReentrant
     {
+        if (isPermanentlyRevoked[msg.sender]) revert PermanentlyRevoked();
         if (newIdentityKey == bytes32(0)) revert InvalidKeyLength();
+
+        // Verify signature
+        bytes32 message = keccak256(abi.encodePacked(signedPreKey, msg.sender, block.chainid));
+        bytes32 ethSignedHash = message.toEthSignedMessageHash();
+        address signer = ethSignedHash.recover(preKeySignature);
+        if (signer != msg.sender) revert Unauthorized();
 
         // Store old key in history if exists
         PublicKeyBundle storage bundle = keyBundles[msg.sender];
         if (bundle.isActive && bundle.identityKey != bytes32(0)) {
-            keyHistory[msg.sender].push(bundle.identityKey);
+            _addToKeyHistory(msg.sender, bundle.identityKey);
         }
 
         // Update bundle
         bundle.identityKey = newIdentityKey;
         bundle.signedPreKey = signedPreKey;
-        bundle.preKeySignature = preKeySignature;
+        bundle.preKeySignature = bytes32(keccak256(preKeySignature));
         bundle.preKeyTimestamp = block.timestamp;
         bundle.registeredAt = bundle.isActive ? bundle.registeredAt : block.timestamp;
         bundle.lastUpdated = block.timestamp;
@@ -229,28 +279,66 @@ contract KeyRegistry is ReentrancyGuard {
 
     /**
      * @notice Register key bundle for an ERC-8004 agent
+     * @dev Only the caller becomes the key owner - ownership verification should happen off-chain
      * @param agentId Agent token ID
      * @param identityKey X25519 public identity key
      * @param signedPreKey X25519 signed pre-key
      * @param preKeySignature Signature of pre-key
      */
-    function registerAgentKey(uint256 agentId, bytes32 identityKey, bytes32 signedPreKey, bytes32 preKeySignature)
-        external
-    {
+    function registerAgentKey(
+        uint256 agentId,
+        bytes32 identityKey,
+        bytes32 signedPreKey,
+        bytes calldata preKeySignature
+    ) external nonReentrant {
         if (agentKeyBundles[agentId].isActive) revert KeyAlreadyRegistered();
         if (identityKey == bytes32(0)) revert InvalidKeyLength();
 
+        // Verify signature (caller proves control of signing key)
+        bytes32 message = keccak256(abi.encodePacked(agentId, signedPreKey, msg.sender, block.chainid));
+        bytes32 ethSignedHash = message.toEthSignedMessageHash();
+        address signer = ethSignedHash.recover(preKeySignature);
+        if (signer != msg.sender) revert Unauthorized();
+
+        agentKeyOwner[agentId] = msg.sender;
         agentKeyBundles[agentId] = PublicKeyBundle({
             identityKey: identityKey,
             signedPreKey: signedPreKey,
-            preKeySignature: preKeySignature,
+            preKeySignature: bytes32(keccak256(preKeySignature)),
             preKeyTimestamp: block.timestamp,
             registeredAt: block.timestamp,
             lastUpdated: block.timestamp,
             isActive: true
         });
 
-        emit AgentKeyRegistered(agentId, identityKey, block.timestamp);
+        emit AgentKeyRegistered(agentId, msg.sender, identityKey, block.timestamp);
+    }
+
+    /**
+     * @notice Revoke agent key bundle
+     * @param agentId Agent token ID
+     */
+    function revokeAgentKey(uint256 agentId) external {
+        if (agentKeyOwner[agentId] != msg.sender) revert Unauthorized();
+
+        agentKeyBundles[agentId].isActive = false;
+        agentKeyBundles[agentId].lastUpdated = block.timestamp;
+
+        emit AgentKeyRevoked(agentId, msg.sender, block.timestamp);
+    }
+
+    // ============ Internal Functions ============
+
+    function _addToKeyHistory(address user, bytes32 key) internal {
+        bytes32[] storage history = keyHistory[user];
+        if (history.length >= MAX_KEY_HISTORY) {
+            // Remove oldest entry (shift left)
+            for (uint256 i = 0; i < history.length - 1; i++) {
+                history[i] = history[i + 1];
+            }
+            history.pop();
+        }
+        history.push(key);
     }
 
     // ============ View Functions ============
@@ -334,6 +422,6 @@ contract KeyRegistry is ReentrancyGuard {
      * @notice Contract version
      */
     function version() external pure returns (string memory) {
-        return "1.0.0";
+        return "1.1.0";
     }
 }
