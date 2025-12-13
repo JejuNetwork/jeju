@@ -93,7 +93,7 @@ interface DeployConfig {
   healthEndpoint?: string;
 }
 
-interface DeployResult {
+interface _DeployResult {
   jnsNode: Hex;
   ipfsCid: string;
   keepaliveId: Hex;

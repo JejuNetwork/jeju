@@ -49,10 +49,10 @@ contract AutocratTreasury is Ownable, ReentrancyGuard, Pausable {
 
     /// @notice Distribution configuration
     struct DistributionConfig {
-        uint16 protocolBps;      // Protocol treasury share (basis points)
-        uint16 stakersBps;       // Staker rewards share
-        uint16 insuranceBps;     // Insurance fund share
-        uint16 operatorBps;      // Bot operator share
+        uint16 protocolBps; // Protocol treasury share (basis points)
+        uint16 stakersBps; // Staker rewards share
+        uint16 insuranceBps; // Insurance fund share
+        uint16 operatorBps; // Bot operator share
     }
 
     /// @notice Profit deposit record
@@ -104,11 +104,7 @@ contract AutocratTreasury is Ownable, ReentrancyGuard, Pausable {
     // ============ Events ============
 
     event ProfitDeposited(
-        address indexed operator,
-        address indexed token,
-        uint256 amount,
-        ProfitSource source,
-        bytes32 txHash
+        address indexed operator, address indexed token, uint256 amount, ProfitSource source, bytes32 txHash
     );
 
     event ProfitDistributed(
@@ -144,25 +140,17 @@ contract AutocratTreasury is Ownable, ReentrancyGuard, Pausable {
 
     // ============ Constructor ============
 
-    constructor(
-        address _protocolTreasury,
-        address _stakersRewardsPool,
-        address _insuranceFund,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _protocolTreasury, address _stakersRewardsPool, address _insuranceFund, address initialOwner)
+        Ownable(initialOwner)
+    {
         if (_protocolTreasury == address(0)) revert InvalidRecipient();
-        
+
         protocolTreasury = _protocolTreasury;
         stakersRewardsPool = _stakersRewardsPool != address(0) ? _stakersRewardsPool : _protocolTreasury;
         insuranceFund = _insuranceFund != address(0) ? _insuranceFund : _protocolTreasury;
 
         // Default distribution: 50% protocol, 30% stakers, 15% insurance, 5% operators
-        distribution = DistributionConfig({
-            protocolBps: 5000,
-            stakersBps: 3000,
-            insuranceBps: 1500,
-            operatorBps: 500
-        });
+        distribution = DistributionConfig({protocolBps: 5000, stakersBps: 3000, insuranceBps: 1500, operatorBps: 500});
 
         // Authorize the owner as initial operator
         authorizedOperators[initialOwner] = true;
@@ -178,12 +166,13 @@ contract AutocratTreasury is Ownable, ReentrancyGuard, Pausable {
      * @param source Profit source category
      * @param txHash Transaction hash of the profitable trade
      */
-    function depositProfit(
-        address token,
-        uint256 amount,
-        ProfitSource source,
-        bytes32 txHash
-    ) external payable nonReentrant whenNotPaused onlyAuthorizedOperator {
+    function depositProfit(address token, uint256 amount, ProfitSource source, bytes32 txHash)
+        external
+        payable
+        nonReentrant
+        whenNotPaused
+        onlyAuthorizedOperator
+    {
         if (amount == 0) revert ZeroAmount();
 
         // Handle token transfer
@@ -230,9 +219,7 @@ contract AutocratTreasury is Ownable, ReentrancyGuard, Pausable {
      * @param token Token to distribute (address(0) for ETH)
      */
     function distributeProfits(address token) external nonReentrant whenNotPaused {
-        uint256 balance = token == address(0) 
-            ? address(this).balance 
-            : IERC20(token).balanceOf(address(this));
+        uint256 balance = token == address(0) ? address(this).balance : IERC20(token).balanceOf(address(this));
 
         // Subtract pending operator withdrawals
         uint256 pendingOperator = _getTotalPendingOperatorWithdrawals(token);
@@ -296,12 +283,10 @@ contract AutocratTreasury is Ownable, ReentrancyGuard, Pausable {
      * @param insuranceBps Insurance fund share
      * @param operatorBps Bot operator share
      */
-    function setDistribution(
-        uint16 protocolBps,
-        uint16 stakersBps,
-        uint16 insuranceBps,
-        uint16 operatorBps
-    ) external onlyOwner {
+    function setDistribution(uint16 protocolBps, uint16 stakersBps, uint16 insuranceBps, uint16 operatorBps)
+        external
+        onlyOwner
+    {
         if (protocolBps + stakersBps + insuranceBps + operatorBps != BPS_DENOMINATOR) {
             revert InvalidDistributionConfig();
         }
@@ -416,7 +401,7 @@ contract AutocratTreasury is Ownable, ReentrancyGuard, Pausable {
 
     function _transfer(address token, address to, uint256 amount) internal {
         if (amount == 0) return;
-        
+
         if (token == address(0)) {
             (bool success,) = to.call{value: amount}("");
             require(success, "ETH transfer failed");
@@ -425,7 +410,7 @@ contract AutocratTreasury is Ownable, ReentrancyGuard, Pausable {
         }
     }
 
-    function _getTotalPendingOperatorWithdrawals(address /*token*/) internal pure returns (uint256) {
+    function _getTotalPendingOperatorWithdrawals(address /*token*/ ) internal pure returns (uint256) {
         // In a full implementation, this would iterate through operators
         // For gas efficiency, we track this separately in deposit
         return 0;

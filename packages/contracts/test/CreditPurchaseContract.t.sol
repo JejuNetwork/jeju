@@ -243,7 +243,12 @@ contract MockPriceOracleForTest is IPriceOracle {
         return true;
     }
 
-    function convertAmount(address fromToken, address toToken, uint256 amount) external view override returns (uint256) {
+    function convertAmount(address fromToken, address toToken, uint256 amount)
+        external
+        view
+        override
+        returns (uint256)
+    {
         (uint256 fromPrice,) = this.getPrice(fromToken);
         (uint256 toPrice,) = this.getPrice(toToken);
         if (toPrice == 0) return 0;

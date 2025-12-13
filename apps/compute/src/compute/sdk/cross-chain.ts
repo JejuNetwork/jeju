@@ -154,9 +154,13 @@ export class CrossChainComputeClient {
       return keccak256(toUtf8Bytes(txHash));
     }
 
+    const settler = this.inputSettler;
+    if (!settler) return keccak256(toUtf8Bytes(txHash));
+
     const event = receipt.logs.find((log) => {
       try {
-        const parsed = this.inputSettler.interface.parseLog({
+        if (!log.topics || !log.data) return false;
+        const parsed = settler.interface.parseLog({
           topics: log.topics as string[],
           data: log.data,
         });
@@ -166,7 +170,7 @@ export class CrossChainComputeClient {
       }
     });
 
-    return (event?.topics?.[1] as string) || keccak256(toUtf8Bytes(txHash));
+    return (event?.topics?.[1] as string) ?? keccak256(toUtf8Bytes(txHash));
   }
 
   private async submitOrder(orderData: string, orderType: string, openDeadlineBlocks: number, fillDeadlineBlocks: number): Promise<{ txHash: string; orderId: string }> {

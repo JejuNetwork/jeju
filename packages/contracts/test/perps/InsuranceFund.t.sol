@@ -22,12 +22,12 @@ contract InsuranceFundTest is Test {
         usdc = new MockERC20("USD Coin", "USDC");
         weth = new MockERC20("Wrapped Ether", "WETH");
         fund = new InsuranceFund(address(oracle), owner);
-        
+
         // Setup tokens
         fund.addSupportedToken(address(usdc));
         fund.addSupportedToken(address(weth));
         fund.setAuthorizedDrawer(drawer, true);
-        
+
         // Set prices ($1 USDC, $2000 WETH)
         oracle.setPrice(address(usdc), 1e18);
         oracle.setPrice(address(weth), 2000e18);
@@ -61,7 +61,7 @@ contract InsuranceFundTest is Test {
     function test_Deposit_UnsupportedToken_Reverts() public {
         MockERC20 unknown = new MockERC20("Unknown", "UNK");
         unknown.mint(user, 1000e18);
-        
+
         vm.startPrank(user);
         unknown.approve(address(fund), 1000e18);
         vm.expectRevert(InsuranceFund.TokenNotSupported.selector);
@@ -72,7 +72,7 @@ contract InsuranceFundTest is Test {
     function test_Deposit_MaxAmount() public {
         uint256 maxAmount = type(uint128).max;
         usdc.mint(user, maxAmount);
-        
+
         vm.startPrank(user);
         usdc.approve(address(fund), maxAmount);
         fund.deposit(address(usdc), maxAmount);
@@ -91,7 +91,7 @@ contract InsuranceFundTest is Test {
 
         assertEq(fund.getBalance(address(usdc)), 1000e18);
         assertEq(fund.getBalance(address(weth)), 10e18);
-        
+
         // Verify total value: $1000 + $20,000 = $21,000
         assertEq(fund.getTotalValue(), 21000e18);
     }
@@ -127,7 +127,7 @@ contract InsuranceFundTest is Test {
 
         vm.prank(drawer);
         uint256 covered = fund.coverBadDebt(address(usdc), 100e18);
-        
+
         assertEq(covered, 100e18);
         assertEq(fund.getBalance(address(usdc)), 9900e18);
         assertEq(usdc.balanceOf(drawer), 1_000_000e18 + 100e18);
@@ -144,7 +144,7 @@ contract InsuranceFundTest is Test {
         // First draw 50, then 50 more - both within rate limit
         vm.prank(drawer);
         uint256 covered = fund.coverBadDebt(address(usdc), 50e18);
-        
+
         assertEq(covered, 50e18, "Should cover requested amount");
         assertEq(fund.getBalance(address(usdc)), 450e18);
     }
@@ -189,7 +189,7 @@ contract InsuranceFundTest is Test {
         vm.stopPrank();
 
         // Get rate limit status
-        (, , uint256 maxDraw) = fund.getRateLimitStatus();
+        (,, uint256 maxDraw) = fund.getRateLimitStatus();
         assertEq(maxDraw, 2000e18, "Max draw should be 20% of $10k");
 
         // Draw exactly 20%
@@ -221,7 +221,7 @@ contract InsuranceFundTest is Test {
         // First draw - $1,000 (10% of original)
         vm.prank(drawer);
         fund.coverBadDebt(address(usdc), 1000e18);
-        
+
         // State after first draw:
         // - Balance: $9,000
         // - periodDrawnUSD: $1,000
@@ -276,7 +276,7 @@ contract InsuranceFundTest is Test {
         fund.coverBadDebt(address(usdc), 500e18);
 
         (uint256 remaining, uint256 drawn, uint256 maxDraw) = fund.getRateLimitStatus();
-        
+
         assertGt(remaining, 0, "Period should have time remaining");
         assertEq(drawn, 500e18, "Drawn should be $500");
         assertGt(maxDraw, drawn, "Max should be greater than drawn");
@@ -291,10 +291,10 @@ contract InsuranceFundTest is Test {
         vm.stopPrank();
 
         bytes32 positionId = keccak256("position-1");
-        
+
         vm.prank(drawer);
         uint256 covered = fund.coverPositionBadDebt(positionId, address(usdc), 100e18);
-        
+
         assertEq(covered, 100e18);
     }
 
@@ -307,10 +307,10 @@ contract InsuranceFundTest is Test {
         vm.stopPrank();
 
         address recipient = address(99);
-        
+
         vm.prank(owner);
         fund.emergencyWithdraw(address(usdc), 500e18, recipient);
-        
+
         assertEq(fund.getBalance(address(usdc)), 500e18);
         assertEq(usdc.balanceOf(recipient), 500e18);
     }
@@ -341,7 +341,7 @@ contract InsuranceFundTest is Test {
 
     function test_AddSupportedToken_OnlyOwner() public {
         MockERC20 newToken = new MockERC20("New Token", "NEW");
-        
+
         vm.prank(unauthorized);
         vm.expectRevert();
         fund.addSupportedToken(address(newToken));
@@ -350,7 +350,7 @@ contract InsuranceFundTest is Test {
     function test_AddSupportedToken_Duplicate() public {
         vm.prank(owner);
         fund.addSupportedToken(address(usdc)); // Already added in setUp
-        
+
         // Should not duplicate in array
         address[] memory tokens = fund.getSupportedTokens();
         uint256 usdcCount = 0;
@@ -364,7 +364,7 @@ contract InsuranceFundTest is Test {
         vm.startPrank(owner);
         fund.setAuthorizedDrawer(unauthorized, true);
         assertTrue(fund.authorizedDrawers(unauthorized));
-        
+
         fund.setAuthorizedDrawer(unauthorized, false);
         assertFalse(fund.authorizedDrawers(unauthorized));
         vm.stopPrank();
@@ -372,10 +372,10 @@ contract InsuranceFundTest is Test {
 
     function test_SetPriceOracle() public {
         MockPriceOracle newOracle = new MockPriceOracle();
-        
+
         vm.prank(owner);
         fund.setPriceOracle(address(newOracle));
-        
+
         assertEq(address(fund.priceOracle()), address(newOracle));
     }
 
@@ -391,7 +391,7 @@ contract InsuranceFundTest is Test {
         fund.coverBadDebt(address(usdc), 100e18);
 
         (uint256 deposited, uint256 badDebt, uint256 current) = fund.getStats();
-        
+
         assertEq(deposited, 1000e18, "Deposited should be $1000");
         assertEq(badDebt, 100e18, "Bad debt covered should be $100");
         assertEq(current, 900e18, "Current value should be $900");
@@ -417,7 +417,7 @@ contract InsuranceFundTest is Test {
 
         // Set USDC price to 0
         oracle.setPrice(address(usdc), 0);
-        
+
         assertEq(fund.getTotalValue(), 0, "Zero price should return zero value");
     }
 
@@ -425,9 +425,9 @@ contract InsuranceFundTest is Test {
 
     function testFuzz_Deposit(uint128 amount) public {
         vm.assume(amount > 0);
-        
+
         usdc.mint(user, amount);
-        
+
         vm.startPrank(user);
         usdc.approve(address(fund), amount);
         fund.deposit(address(usdc), amount);
@@ -438,9 +438,9 @@ contract InsuranceFundTest is Test {
 
     function testFuzz_CoverBadDebt_NeverExceedsBalance(uint128 deposit, uint128 claim) public {
         vm.assume(deposit > 0);
-        
+
         usdc.mint(user, deposit);
-        
+
         vm.startPrank(user);
         usdc.approve(address(fund), deposit);
         fund.deposit(address(usdc), deposit);
@@ -463,13 +463,13 @@ contract InsuranceFundTest is Test {
 
         vm.prank(user);
         usdc.approve(address(fund), 500e18);
-        
+
         vm.prank(user2);
         usdc.approve(address(fund), 500e18);
 
         vm.prank(user);
         fund.deposit(address(usdc), 500e18);
-        
+
         vm.prank(user2);
         fund.deposit(address(usdc), 500e18);
 
@@ -490,11 +490,10 @@ contract InsuranceFundTest is Test {
         // Both draw within rate limit
         vm.prank(drawer);
         fund.coverBadDebt(address(usdc), 5000e18);
-        
+
         vm.prank(drawer2);
         fund.coverBadDebt(address(usdc), 5000e18);
 
         assertEq(fund.getBalance(address(usdc)), 90000e18);
     }
 }
-

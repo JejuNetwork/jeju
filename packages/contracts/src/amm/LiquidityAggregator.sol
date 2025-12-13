@@ -19,9 +19,10 @@ contract LiquidityAggregator is Ownable, ReentrancyGuard {
     // ============ Pool Types ============
 
     enum PoolType {
-        V2,         // Constant product (xy=k)
-        V3,         // Concentrated liquidity
-        PAYMASTER   // CrossChainPaymaster embedded AMM
+        V2, // Constant product (xy=k)
+        V3, // Concentrated liquidity
+        PAYMASTER // CrossChainPaymaster embedded AMM
+
     }
 
     // ============ State Variables ============
@@ -82,12 +83,7 @@ contract LiquidityAggregator is Ownable, ReentrancyGuard {
 
     // ============ Constructor ============
 
-    constructor(
-        address _v2Factory,
-        address _v3Factory,
-        address _paymaster,
-        address _router
-    ) Ownable(msg.sender) {
+    constructor(address _v2Factory, address _v3Factory, address _paymaster, address _router) Ownable(msg.sender) {
         v2Factory = _v2Factory;
         v3Factory = _v3Factory;
         paymaster = _paymaster;
@@ -137,13 +133,13 @@ contract LiquidityAggregator is Ownable, ReentrancyGuard {
     /// @param tokenOut Output token
     /// @param amountIn Amount of input token
     /// @return bestQuote The best quote found
-    function getBestQuote(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn
-    ) external view returns (Quote memory bestQuote) {
+    function getBestQuote(address tokenIn, address tokenOut, uint256 amountIn)
+        external
+        view
+        returns (Quote memory bestQuote)
+    {
         Quote[] memory quotes = getAllQuotes(tokenIn, tokenOut, amountIn);
-        
+
         uint256 bestAmount = 0;
         for (uint256 i = 0; i < quotes.length; i++) {
             if (quotes[i].amountOut > bestAmount) {
@@ -158,32 +154,32 @@ contract LiquidityAggregator is Ownable, ReentrancyGuard {
     /// @param tokenOut Output token
     /// @param amountIn Amount of input token
     /// @return quotes Array of quotes from each source
-    function getAllQuotes(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn
-    ) public view returns (Quote[] memory quotes) {
+    function getAllQuotes(address tokenIn, address tokenOut, uint256 amountIn)
+        public
+        view
+        returns (Quote[] memory quotes)
+    {
         // Count available quotes
         uint256 count = 0;
         Quote memory v2Quote = _getV2Quote(tokenIn, tokenOut, amountIn);
         if (v2Quote.amountOut > 0) count++;
-        
+
         Quote memory v3Quote500 = _getV3Quote(tokenIn, tokenOut, amountIn, 500);
         if (v3Quote500.amountOut > 0) count++;
-        
+
         Quote memory v3Quote3000 = _getV3Quote(tokenIn, tokenOut, amountIn, 3000);
         if (v3Quote3000.amountOut > 0) count++;
-        
+
         Quote memory v3Quote10000 = _getV3Quote(tokenIn, tokenOut, amountIn, 10000);
         if (v3Quote10000.amountOut > 0) count++;
-        
+
         Quote memory paymasterQuote = _getPaymasterQuote(tokenIn, tokenOut, amountIn);
         if (paymasterQuote.amountOut > 0) count++;
 
         // Build quotes array
         quotes = new Quote[](count);
         uint256 idx = 0;
-        
+
         if (v2Quote.amountOut > 0) quotes[idx++] = v2Quote;
         if (v3Quote500.amountOut > 0) quotes[idx++] = v3Quote500;
         if (v3Quote3000.amountOut > 0) quotes[idx++] = v3Quote3000;
@@ -195,25 +191,22 @@ contract LiquidityAggregator is Ownable, ReentrancyGuard {
     /// @param token0 First token
     /// @param token1 Second token
     /// @return infos Array of liquidity info from each source
-    function getLiquidityInfo(
-        address token0,
-        address token1
-    ) external view returns (LiquidityInfo[] memory infos) {
+    function getLiquidityInfo(address token0, address token1) external view returns (LiquidityInfo[] memory infos) {
         // Count available pools
         uint256 count = 0;
-        
+
         address v2Pair = _getV2Pair(token0, token1);
         if (v2Pair != address(0)) count++;
-        
+
         address v3Pool500 = _getV3Pool(token0, token1, 500);
         if (v3Pool500 != address(0)) count++;
-        
+
         address v3Pool3000 = _getV3Pool(token0, token1, 3000);
         if (v3Pool3000 != address(0)) count++;
-        
+
         address v3Pool10000 = _getV3Pool(token0, token1, 10000);
         if (v3Pool10000 != address(0)) count++;
-        
+
         // Always include paymaster if set
         if (paymaster != address(0)) count++;
 
@@ -293,15 +286,11 @@ contract LiquidityAggregator is Ownable, ReentrancyGuard {
     /// @return poolType Best pool type
     /// @return pool Best pool address
     /// @return expectedOut Expected output amount
-    function getOptimalPath(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn
-    ) external view returns (
-        PoolType poolType,
-        address pool,
-        uint256 expectedOut
-    ) {
+    function getOptimalPath(address tokenIn, address tokenOut, uint256 amountIn)
+        external
+        view
+        returns (PoolType poolType, address pool, uint256 expectedOut)
+    {
         Quote memory quote = this.getBestQuote(tokenIn, tokenOut, amountIn);
         return (quote.poolType, quote.pool, quote.amountOut);
     }
@@ -313,14 +302,13 @@ contract LiquidityAggregator is Ownable, ReentrancyGuard {
     /// @param minAmountOut Minimum output
     /// @return canSwap Whether swap is possible
     /// @return reason Reason if cannot swap
-    function canExecuteSwap(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn,
-        uint256 minAmountOut
-    ) external view returns (bool canSwap, string memory reason) {
+    function canExecuteSwap(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut)
+        external
+        view
+        returns (bool canSwap, string memory reason)
+    {
         Quote memory quote = this.getBestQuote(tokenIn, tokenOut, amountIn);
-        
+
         if (quote.pool == address(0)) {
             return (false, "No liquidity");
         }
@@ -332,22 +320,21 @@ contract LiquidityAggregator is Ownable, ReentrancyGuard {
 
     // ============ Internal Quote Functions ============
 
-    function _getV2Quote(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn
-    ) internal view returns (Quote memory quote) {
+    function _getV2Quote(address tokenIn, address tokenOut, uint256 amountIn)
+        internal
+        view
+        returns (Quote memory quote)
+    {
         if (v2Factory == address(0)) return quote;
-        
+
         address pair = _getV2Pair(tokenIn, tokenOut);
         if (pair == address(0)) return quote;
 
         (uint112 reserve0, uint112 reserve1,) = IXLPV2Pair(pair).getReserves();
         address token0 = IXLPV2Pair(pair).token0();
-        
-        (uint256 reserveIn, uint256 reserveOut) = tokenIn == token0 
-            ? (uint256(reserve0), uint256(reserve1))
-            : (uint256(reserve1), uint256(reserve0));
+
+        (uint256 reserveIn, uint256 reserveOut) =
+            tokenIn == token0 ? (uint256(reserve0), uint256(reserve1)) : (uint256(reserve1), uint256(reserve0));
 
         if (reserveIn == 0 || reserveOut == 0) return quote;
 
@@ -355,23 +342,16 @@ contract LiquidityAggregator is Ownable, ReentrancyGuard {
         uint256 amountOut = (amountInWithFee * reserveOut) / (reserveIn * 1000 + amountInWithFee);
         uint256 priceImpact = (amountIn * 10000) / reserveIn;
 
-        quote = Quote({
-            poolType: PoolType.V2,
-            pool: pair,
-            amountOut: amountOut,
-            priceImpactBps: priceImpact,
-            fee: 3000
-        });
+        quote = Quote({poolType: PoolType.V2, pool: pair, amountOut: amountOut, priceImpactBps: priceImpact, fee: 3000});
     }
 
-    function _getV3Quote(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn,
-        uint24 fee
-    ) internal view returns (Quote memory quote) {
+    function _getV3Quote(address tokenIn, address tokenOut, uint256 amountIn, uint24 fee)
+        internal
+        view
+        returns (Quote memory quote)
+    {
         if (v3Factory == address(0)) return quote;
-        
+
         address pool = _getV3Pool(tokenIn, tokenOut, fee);
         if (pool == address(0)) return quote;
 
@@ -385,7 +365,7 @@ contract LiquidityAggregator is Ownable, ReentrancyGuard {
         // Estimate output based on current price and liquidity
         // This is a simplification - actual output depends on tick range
         bool zeroForOne = tokenIn < tokenOut;
-        uint256 price = zeroForOne 
+        uint256 price = zeroForOne
             ? (uint256(sqrtPriceX96) * uint256(sqrtPriceX96)) >> 192
             : (1 << 192) / (uint256(sqrtPriceX96) * uint256(sqrtPriceX96));
 
@@ -404,11 +384,11 @@ contract LiquidityAggregator is Ownable, ReentrancyGuard {
         });
     }
 
-    function _getPaymasterQuote(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn
-    ) internal view returns (Quote memory quote) {
+    function _getPaymasterQuote(address tokenIn, address tokenOut, uint256 amountIn)
+        internal
+        view
+        returns (Quote memory quote)
+    {
         if (paymaster == address(0)) return quote;
 
         // Query paymaster's embedded AMM
@@ -438,9 +418,8 @@ contract LiquidityAggregator is Ownable, ReentrancyGuard {
     function _getV3Pool(address tokenA, address tokenB, uint24 fee) internal view returns (address) {
         if (v3Factory == address(0)) return address(0);
         (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
-        (bool success, bytes memory data) = v3Factory.staticcall(
-            abi.encodeWithSignature("getPool(address,address,uint24)", token0, token1, fee)
-        );
+        (bool success, bytes memory data) =
+            v3Factory.staticcall(abi.encodeWithSignature("getPool(address,address,uint24)", token0, token1, fee));
         if (!success || data.length < 32) return address(0);
         return abi.decode(data, (address));
     }
@@ -458,10 +437,9 @@ contract LiquidityAggregator is Ownable, ReentrancyGuard {
     }
 
     function _getPaymasterInfo(address token0, address token1) internal view returns (LiquidityInfo memory info) {
-        (bool success, bytes memory data) = paymaster.staticcall(
-            abi.encodeWithSignature("getReserves(address,address)", token0, token1)
-        );
-        
+        (bool success, bytes memory data) =
+            paymaster.staticcall(abi.encodeWithSignature("getReserves(address,address)", token0, token1));
+
         uint256 r0;
         uint256 r1;
         if (success && data.length >= 64) {
@@ -479,9 +457,8 @@ contract LiquidityAggregator is Ownable, ReentrancyGuard {
     }
 
     function _getPaymasterETH() internal view returns (uint256) {
-        (bool success, bytes memory data) = paymaster.staticcall(
-            abi.encodeWithSignature("getTotalLiquidity(address)", address(0))
-        );
+        (bool success, bytes memory data) =
+            paymaster.staticcall(abi.encodeWithSignature("getTotalLiquidity(address)", address(0)));
         if (success && data.length >= 32) {
             return abi.decode(data, (uint256));
         }
@@ -489,9 +466,8 @@ contract LiquidityAggregator is Ownable, ReentrancyGuard {
     }
 
     function _getPaymasterTokenLiquidity(address token) internal view returns (uint256) {
-        (bool success, bytes memory data) = paymaster.staticcall(
-            abi.encodeWithSignature("getTotalLiquidity(address)", token)
-        );
+        (bool success, bytes memory data) =
+            paymaster.staticcall(abi.encodeWithSignature("getTotalLiquidity(address)", token));
         if (success && data.length >= 32) {
             return abi.decode(data, (uint256));
         }
@@ -499,9 +475,8 @@ contract LiquidityAggregator is Ownable, ReentrancyGuard {
     }
 
     function _getPairKey(address token0, address token1) internal pure returns (bytes32) {
-        return token0 < token1 
-            ? keccak256(abi.encodePacked(token0, token1))
-            : keccak256(abi.encodePacked(token1, token0));
+        return
+            token0 < token1 ? keccak256(abi.encodePacked(token0, token1)) : keccak256(abi.encodePacked(token1, token0));
     }
 
     function _sqrt(uint256 y) internal pure returns (uint256 z) {

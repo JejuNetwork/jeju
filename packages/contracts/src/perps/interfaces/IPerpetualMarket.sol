@@ -27,30 +27,30 @@ interface IPerpetualMarket {
         bytes32 marketId;
         PositionSide side;
         MarginType marginType;
-        uint256 size;              // Position size in base asset (8 decimals)
-        uint256 margin;            // Collateral amount (token decimals)
-        address marginToken;       // Collateral token
-        uint256 entryPrice;        // Average entry price (8 decimals)
-        int256 entryFundingIndex;  // Funding index at entry
+        uint256 size; // Position size in base asset (8 decimals)
+        uint256 margin; // Collateral amount (token decimals)
+        address marginToken; // Collateral token
+        uint256 entryPrice; // Average entry price (8 decimals)
+        int256 entryFundingIndex; // Funding index at entry
         uint256 lastUpdateTime;
         bool isOpen;
     }
 
     struct Market {
         bytes32 marketId;
-        string symbol;              // e.g., "BTC-PERP", "ETH-PERP"
-        address baseAsset;          // Underlying (address(0) for external like BTC)
-        uint256 maxLeverage;        // Max leverage (e.g., 20 = 20x)
+        string symbol; // e.g., "BTC-PERP", "ETH-PERP"
+        address baseAsset; // Underlying (address(0) for external like BTC)
+        uint256 maxLeverage; // Max leverage (e.g., 20 = 20x)
         uint256 maintenanceMarginBps; // Maintenance margin ratio (e.g., 500 = 5%)
-        uint256 takerFeeBps;        // Taker fee (e.g., 5 = 0.05%)
-        uint256 makerFeeBps;        // Maker fee (e.g., 2 = 0.02%)
-        uint256 maxOpenInterest;    // Max open interest cap
+        uint256 takerFeeBps; // Taker fee (e.g., 5 = 0.05%)
+        uint256 makerFeeBps; // Maker fee (e.g., 2 = 0.02%)
+        uint256 maxOpenInterest; // Max open interest cap
         uint256 currentOpenInterest;
         bool isActive;
     }
 
     struct FundingState {
-        int256 fundingRate;         // Current hourly funding rate (scaled by 1e18)
+        int256 fundingRate; // Current hourly funding rate (scaled by 1e18)
         int256 cumulativeFundingIndex; // Cumulative funding (scaled by 1e18)
         uint256 lastFundingTime;
     }
@@ -77,17 +77,11 @@ interface IPerpetualMarket {
     );
 
     event PositionIncreased(
-        bytes32 indexed positionId,
-        uint256 sizeIncrease,
-        uint256 marginAdded,
-        uint256 newEntryPrice
+        bytes32 indexed positionId, uint256 sizeIncrease, uint256 marginAdded, uint256 newEntryPrice
     );
 
     event PositionDecreased(
-        bytes32 indexed positionId,
-        uint256 sizeDecrease,
-        int256 realizedPnl,
-        uint256 marginReturned
+        bytes32 indexed positionId, uint256 sizeDecrease, int256 realizedPnl, uint256 marginReturned
     );
 
     event PositionClosed(
@@ -107,36 +101,15 @@ interface IPerpetualMarket {
         uint256 liquidatorReward
     );
 
-    event MarginAdded(
-        bytes32 indexed positionId,
-        uint256 amount,
-        uint256 newMargin
-    );
+    event MarginAdded(bytes32 indexed positionId, uint256 amount, uint256 newMargin);
 
-    event MarginRemoved(
-        bytes32 indexed positionId,
-        uint256 amount,
-        uint256 newMargin
-    );
+    event MarginRemoved(bytes32 indexed positionId, uint256 amount, uint256 newMargin);
 
-    event FundingUpdated(
-        bytes32 indexed marketId,
-        int256 fundingRate,
-        int256 cumulativeFundingIndex
-    );
+    event FundingUpdated(bytes32 indexed marketId, int256 fundingRate, int256 cumulativeFundingIndex);
 
-    event MarketAdded(
-        bytes32 indexed marketId,
-        string symbol,
-        uint256 maxLeverage
-    );
+    event MarketAdded(bytes32 indexed marketId, string symbol, uint256 maxLeverage);
 
-    event TradeFeeCollected(
-        bytes32 indexed positionId,
-        address indexed trader,
-        uint256 fee,
-        address feeToken
-    );
+    event TradeFeeCollected(bytes32 indexed positionId, address indexed trader, uint256 fee, address feeToken);
 
     // ============ Trading Functions ============
 
@@ -166,11 +139,9 @@ interface IPerpetualMarket {
      * @param sizeIncrease Additional size
      * @return result Trade execution result
      */
-    function increasePosition(
-        bytes32 positionId,
-        uint256 additionalMargin,
-        uint256 sizeIncrease
-    ) external returns (TradeResult memory result);
+    function increasePosition(bytes32 positionId, uint256 additionalMargin, uint256 sizeIncrease)
+        external
+        returns (TradeResult memory result);
 
     /**
      * @notice Decrease or close a position
@@ -178,10 +149,7 @@ interface IPerpetualMarket {
      * @param sizeDecrease Amount to close (use type(uint256).max for full close)
      * @return result Trade execution result
      */
-    function decreasePosition(
-        bytes32 positionId,
-        uint256 sizeDecrease
-    ) external returns (TradeResult memory result);
+    function decreasePosition(bytes32 positionId, uint256 sizeDecrease) external returns (TradeResult memory result);
 
     /**
      * @notice Add margin to a position (reduce leverage)
@@ -212,10 +180,7 @@ interface IPerpetualMarket {
      * @return canLiquidate Whether position is liquidatable
      * @return healthFactor Position health (< 1e18 = liquidatable)
      */
-    function isLiquidatable(bytes32 positionId) external view returns (
-        bool canLiquidate,
-        uint256 healthFactor
-    );
+    function isLiquidatable(bytes32 positionId) external view returns (bool canLiquidate, uint256 healthFactor);
 
     // ============ Funding ============
 
@@ -283,10 +248,7 @@ interface IPerpetualMarket {
      * @return unrealizedPnl Unrealized PnL (can be negative)
      * @return fundingPnl Pending funding PnL
      */
-    function getPositionPnl(bytes32 positionId) external view returns (
-        int256 unrealizedPnl,
-        int256 fundingPnl
-    );
+    function getPositionPnl(bytes32 positionId) external view returns (int256 unrealizedPnl, int256 fundingPnl);
 
     /**
      * @notice Get position leverage
@@ -333,25 +295,14 @@ interface IMarginManager {
         address token;
         uint256 balance;
         uint256 valueUSD;
-        uint256 weight;  // Collateral weight (e.g., 10000 = 100%, 9000 = 90%)
+        uint256 weight; // Collateral weight (e.g., 10000 = 100%, 9000 = 90%)
     }
 
-    event CollateralDeposited(
-        address indexed trader,
-        address indexed token,
-        uint256 amount
-    );
+    event CollateralDeposited(address indexed trader, address indexed token, uint256 amount);
 
-    event CollateralWithdrawn(
-        address indexed trader,
-        address indexed token,
-        uint256 amount
-    );
+    event CollateralWithdrawn(address indexed trader, address indexed token, uint256 amount);
 
-    event CollateralTokenAdded(
-        address indexed token,
-        uint256 weight
-    );
+    event CollateralTokenAdded(address indexed token, uint256 weight);
 
     /**
      * @notice Deposit collateral
@@ -462,10 +413,7 @@ interface ILiquidationEngine {
         uint256 insuranceFundContribution
     );
 
-    event BadDebtSocialized(
-        bytes32 indexed positionId,
-        uint256 badDebtAmount
-    );
+    event BadDebtSocialized(bytes32 indexed positionId, uint256 badDebtAmount);
 
     /**
      * @notice Execute liquidation
@@ -487,11 +435,10 @@ interface ILiquidationEngine {
      * @return insuranceFee Fee to insurance fund (bps)
      * @return maxLiquidationSize Max size per liquidation
      */
-    function getLiquidationParams() external view returns (
-        uint256 liquidationBonus,
-        uint256 insuranceFee,
-        uint256 maxLiquidationSize
-    );
+    function getLiquidationParams()
+        external
+        view
+        returns (uint256 liquidationBonus, uint256 insuranceFee, uint256 maxLiquidationSize);
 }
 
 /**

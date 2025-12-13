@@ -6,22 +6,22 @@ import {OutcomeOracle} from "../src/council/OutcomeOracle.sol";
 
 contract OutcomeOracleTest is Test {
     OutcomeOracle public oracle;
-    
+
     address public owner = address(1);
     address public evaluator1 = address(2);
     address public evaluator2 = address(3);
     address public user = address(4);
     address public ceoAgent = address(5);
     address public council = address(6);
-    
+
     bytes32 public proposalId = keccak256("proposal-1");
     bytes32 public decisionId = keccak256("decision-1");
     bytes32 public evidenceHash = keccak256("evidence");
-    
+
     function setUp() public {
         vm.startPrank(owner);
         oracle = new OutcomeOracle(ceoAgent, council, owner);
-        
+
         // Authorize evaluators
         oracle.authorizeEvaluator(evaluator1);
         oracle.authorizeEvaluator(evaluator2);
@@ -37,9 +37,9 @@ contract OutcomeOracleTest is Test {
     function testAuthorizeEvaluator() public {
         vm.prank(owner);
         oracle.authorizeEvaluator(user);
-        
+
         assertTrue(oracle.authorizedEvaluators(user));
-        
+
         OutcomeOracle.EvaluatorInfo memory info = oracle.getEvaluator(user);
         assertEq(info.evaluator, user);
         assertTrue(info.isActive);
@@ -49,9 +49,9 @@ contract OutcomeOracleTest is Test {
     function testDeauthorizeEvaluator() public {
         vm.prank(owner);
         oracle.deauthorizeEvaluator(evaluator1);
-        
+
         assertFalse(oracle.authorizedEvaluators(evaluator1));
-        
+
         OutcomeOracle.EvaluatorInfo memory info = oracle.getEvaluator(evaluator1);
         assertFalse(info.isActive);
     }
@@ -66,13 +66,8 @@ contract OutcomeOracleTest is Test {
         });
 
         vm.prank(evaluator1);
-        bytes32 reportId = oracle.reportOutcome(
-            proposalId,
-            decisionId,
-            metrics,
-            evidenceHash,
-            "Proposal executed successfully"
-        );
+        bytes32 reportId =
+            oracle.reportOutcome(proposalId, decisionId, metrics, evidenceHash, "Proposal executed successfully");
 
         // Verify report was created
         OutcomeOracle.OutcomeReport memory report = oracle.getReport(reportId);
@@ -81,7 +76,7 @@ contract OutcomeOracleTest is Test {
         assertEq(report.reporter, evaluator1);
         assertFalse(report.disputed);
         assertFalse(report.finalized);
-        
+
         // Overall score should be weighted average
         assertTrue(report.overallScore > 0);
         assertTrue(report.overallScore <= 100);
@@ -98,13 +93,7 @@ contract OutcomeOracleTest is Test {
 
         vm.prank(user); // Not authorized
         vm.expectRevert(OutcomeOracle.NotAuthorized.selector);
-        oracle.reportOutcome(
-            proposalId,
-            decisionId,
-            metrics,
-            evidenceHash,
-            "Test"
-        );
+        oracle.reportOutcome(proposalId, decisionId, metrics, evidenceHash, "Test");
     }
 
     function testCannotReportDuplicate() public {
@@ -137,21 +126,13 @@ contract OutcomeOracleTest is Test {
         });
 
         vm.prank(evaluator1);
-        bytes32 reportId = oracle.reportOutcome(
-            proposalId,
-            decisionId,
-            metrics,
-            evidenceHash,
-            "Test"
-        );
+        bytes32 reportId = oracle.reportOutcome(proposalId, decisionId, metrics, evidenceHash, "Test");
 
         // Dispute the report
         vm.deal(user, 1 ether);
         vm.prank(user);
         oracle.disputeReport{value: 0.01 ether}(
-            reportId,
-            keccak256("counter-evidence"),
-            "I disagree with this assessment"
+            reportId, keccak256("counter-evidence"), "I disagree with this assessment"
         );
 
         // Verify dispute was recorded

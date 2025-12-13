@@ -9,19 +9,17 @@ pragma solidity >=0.8.24;
  * @dev This interface is automatically generated from the corresponding system contract. Do not edit manually.
  */
 interface IInventorySystem {
-  function hyperscape__addItem(
-    address player,
-    uint16 itemId,
-    uint32 quantity
-  ) external returns (bool success, uint8 slot);
+    function hyperscape__addItem(address player, uint16 itemId, uint32 quantity)
+        external
+        returns (bool success, uint8 slot);
 
-  function hyperscape__removeItem(address player, uint8 slot, uint32 quantity) external returns (bool success);
+    function hyperscape__removeItem(address player, uint8 slot, uint32 quantity) external returns (bool success);
 
-  function hyperscape__moveItem(address player, uint8 fromSlot, uint8 toSlot) external;
+    function hyperscape__moveItem(address player, uint8 fromSlot, uint8 toSlot) external;
 
-  function hyperscape__hasItem(address player, uint16 itemId) external view returns (bool found, uint32 quantity);
+    function hyperscape__hasItem(address player, uint16 itemId) external view returns (bool found, uint32 quantity);
 
-  function hyperscape__getFreeSlots(address player) external view returns (uint8 freeSlots);
+    function hyperscape__getFreeSlots(address player) external view returns (uint8 freeSlots);
 
-  function hyperscape__findItem(address player, uint16 itemId) external view returns (bool found, uint8 slot);
+    function hyperscape__findItem(address player, uint16 itemId) external view returns (bool found, uint8 slot);
 }

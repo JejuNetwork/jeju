@@ -355,6 +355,5 @@ For high-throughput chains, run multiple indexer replicas with partitioned block
 
 ## Next Steps
 
-- [GraphQL Best Practices](/guides/graphql-best-practices) — Optimize queries
-- [Custom Indexing](/guides/custom-indexing) — Add new processors
-- [Real-time Apps](/guides/realtime-apps) — Build with subscriptions
+- [GraphQL Reference](/reference/api/graphql) — Full query documentation
+- [Build Apps](/build/apps/overview) — Integrate with the indexer

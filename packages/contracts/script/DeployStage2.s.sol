@@ -14,7 +14,9 @@ import "../src/registry/ReputationRegistry.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract MockJEJUToken is ERC20 {
-    constructor() ERC20("JEJU", "JEJU") { _mint(msg.sender, 10_000_000 ether); }
+    constructor() ERC20("JEJU", "JEJU") {
+        _mint(msg.sender, 10_000_000 ether);
+    }
 }
 
 contract DeployStage2 is Script {
@@ -49,15 +51,15 @@ contract DeployStage2 is Script {
         // Deploy mock dependencies for localnet if not provided
         if (jejuToken == address(0) || identityRegistry == address(0) || reputationRegistry == address(0)) {
             console.log("Deploying mock dependencies for local testing...");
-            
+
             MockJEJUToken mockToken = new MockJEJUToken();
             jejuToken = address(mockToken);
             console.log("MockJEJUToken deployed:", jejuToken);
-            
+
             IdentityRegistry idRegistry = new IdentityRegistry();
             identityRegistry = address(idRegistry);
             console.log("IdentityRegistry deployed:", identityRegistry);
-            
+
             ReputationRegistry repRegistry = new ReputationRegistry(payable(identityRegistry));
             reputationRegistry = address(repRegistry);
             console.log("ReputationRegistry deployed:", reputationRegistry);
@@ -65,22 +67,12 @@ contract DeployStage2 is Script {
         }
 
         // 1. Deploy SequencerRegistry
-        SequencerRegistry sequencerRegistry = new SequencerRegistry(
-            jejuToken,
-            identityRegistry,
-            reputationRegistry,
-            treasury,
-            deployer
-        );
+        SequencerRegistry sequencerRegistry =
+            new SequencerRegistry(jejuToken, identityRegistry, reputationRegistry, treasury, deployer);
         console.log("SequencerRegistry deployed:", address(sequencerRegistry));
 
         // 2. Deploy GovernanceTimelock
-        GovernanceTimelock timelock = new GovernanceTimelock(
-            governance,
-            securityCouncil,
-            deployer,
-            TIMELOCK_DELAY
-        );
+        GovernanceTimelock timelock = new GovernanceTimelock(governance, securityCouncil, deployer, TIMELOCK_DELAY);
         console.log("GovernanceTimelock deployed:", address(timelock));
         console.log("  - Timelock delay:", TIMELOCK_DELAY / 1 days, "days");
         console.log("  - Emergency delay:", EMERGENCY_DELAY / 1 hours, "hours");
@@ -94,26 +86,16 @@ contract DeployStage2 is Script {
         console.log("Prover deployed:", address(prover));
 
         // 5. Enable Prover in DisputeGameFactory
-        disputeFactory.setProverImplementation(
-            DisputeGameFactory.ProverType.CANNON,
-            address(prover),
-            true
-        );
+        disputeFactory.setProverImplementation(DisputeGameFactory.ProverType.CANNON, address(prover), true);
         console.log("  - Prover enabled as CANNON prover");
 
         // 6. Deploy L2OutputOracleAdapter
-        L2OutputOracleAdapter l2Adapter = new L2OutputOracleAdapter(
-            address(sequencerRegistry),
-            payable(address(disputeFactory)),
-            l2OutputOracle
-        );
+        L2OutputOracleAdapter l2Adapter =
+            new L2OutputOracleAdapter(address(sequencerRegistry), payable(address(disputeFactory)), l2OutputOracle);
         console.log("L2OutputOracleAdapter deployed:", address(l2Adapter));
 
         // 7. Deploy OptimismPortalAdapter
-        OptimismPortalAdapter portalAdapter = new OptimismPortalAdapter(
-            address(timelock),
-            securityCouncil
-        );
+        OptimismPortalAdapter portalAdapter = new OptimismPortalAdapter(address(timelock), securityCouncil);
         console.log("OptimismPortalAdapter deployed:", address(portalAdapter));
 
         // Transfer ownership to timelock for decentralization

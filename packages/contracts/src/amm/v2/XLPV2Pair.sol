@@ -18,13 +18,13 @@ contract XLPV2Pair is IXLPV2Pair, ReentrancyGuard {
 
     // ============ Constants ============
 
-    uint256 public constant override MINIMUM_LIQUIDITY = 10**3;
-    bytes4 private constant SELECTOR = bytes4(keccak256(bytes('transfer(address,uint256)')));
+    uint256 public constant override MINIMUM_LIQUIDITY = 10 ** 3;
+    bytes4 private constant SELECTOR = bytes4(keccak256(bytes("transfer(address,uint256)")));
 
     // ============ ERC20 Storage ============
 
-    string public constant override name = 'XLP V2';
-    string public constant override symbol = 'XLP-V2';
+    string public constant override name = "XLP V2";
+    string public constant override symbol = "XLP-V2";
     uint8 public constant override decimals = 18;
     uint256 public override totalSupply;
     mapping(address => uint256) public override balanceOf;
@@ -33,7 +33,8 @@ contract XLPV2Pair is IXLPV2Pair, ReentrancyGuard {
     // ============ EIP-2612 Storage ============
 
     bytes32 public override DOMAIN_SEPARATOR;
-    bytes32 public constant override PERMIT_TYPEHASH = 0x6e71edae12b1b97f4d1f60370fef10105fa2faae0126114a169c64845d6126c9;
+    bytes32 public constant override PERMIT_TYPEHASH =
+        0x6e71edae12b1b97f4d1f60370fef10105fa2faae0126114a169c64845d6126c9;
     mapping(address => uint256) public override nonces;
 
     // ============ Pair Storage ============
@@ -44,7 +45,7 @@ contract XLPV2Pair is IXLPV2Pair, ReentrancyGuard {
 
     uint112 private reserve0;
     uint112 private reserve1;
-    uint32  private blockTimestampLast;
+    uint32 private blockTimestampLast;
 
     uint256 public override price0CumulativeLast;
     uint256 public override price1CumulativeLast;
@@ -71,9 +72,9 @@ contract XLPV2Pair is IXLPV2Pair, ReentrancyGuard {
         factory = msg.sender;
         DOMAIN_SEPARATOR = keccak256(
             abi.encode(
-                keccak256('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'),
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
                 keccak256(bytes(name)),
-                keccak256(bytes('1')),
+                keccak256(bytes("1")),
                 block.chainid,
                 address(this)
             )
@@ -132,19 +133,14 @@ contract XLPV2Pair is IXLPV2Pair, ReentrancyGuard {
         return true;
     }
 
-    function permit(
-        address owner,
-        address spender,
-        uint256 value,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external override {
+    function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)
+        external
+        override
+    {
         if (deadline < block.timestamp) revert Expired();
         bytes32 digest = keccak256(
             abi.encodePacked(
-                '\x19\x01',
+                "\x19\x01",
                 DOMAIN_SEPARATOR,
                 keccak256(abi.encode(PERMIT_TYPEHASH, owner, spender, value, nonces[owner]++, deadline))
             )
@@ -159,7 +155,12 @@ contract XLPV2Pair is IXLPV2Pair, ReentrancyGuard {
 
     // ============ View Functions ============
 
-    function getReserves() public view override returns (uint112 _reserve0, uint112 _reserve1, uint32 _blockTimestampLast) {
+    function getReserves()
+        public
+        view
+        override
+        returns (uint112 _reserve0, uint112 _reserve1, uint32 _blockTimestampLast)
+    {
         _reserve0 = reserve0;
         _reserve1 = reserve1;
         _blockTimestampLast = blockTimestampLast;
@@ -169,7 +170,7 @@ contract XLPV2Pair is IXLPV2Pair, ReentrancyGuard {
 
     function _update(uint256 balance0, uint256 balance1, uint112 _reserve0, uint112 _reserve1) private {
         if (balance0 > type(uint112).max || balance1 > type(uint112).max) revert Overflow();
-        uint32 blockTimestamp = uint32(block.timestamp % 2**32);
+        uint32 blockTimestamp = uint32(block.timestamp % 2 ** 32);
         uint32 timeElapsed;
         unchecked {
             timeElapsed = blockTimestamp - blockTimestampLast;
@@ -267,7 +268,11 @@ contract XLPV2Pair is IXLPV2Pair, ReentrancyGuard {
     /// @param amount1Out Amount of token1 to receive
     /// @param to Address to receive tokens
     /// @param data Callback data for flash swaps
-    function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes calldata data) external override nonReentrant {
+    function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes calldata data)
+        external
+        override
+        nonReentrant
+    {
         if (amount0Out == 0 && amount1Out == 0) revert InsufficientOutputAmount();
         (uint112 _reserve0, uint112 _reserve1,) = getReserves();
         if (amount0Out >= _reserve0 || amount1Out >= _reserve1) revert InsufficientLiquidity();
@@ -291,7 +296,7 @@ contract XLPV2Pair is IXLPV2Pair, ReentrancyGuard {
             // 0.3% fee (997/1000)
             uint256 balance0Adjusted = balance0 * 1000 - amount0In * 3;
             uint256 balance1Adjusted = balance1 * 1000 - amount1In * 3;
-            if (balance0Adjusted * balance1Adjusted < uint256(_reserve0) * _reserve1 * (1000**2)) revert InvalidK();
+            if (balance0Adjusted * balance1Adjusted < uint256(_reserve0) * _reserve1 * (1000 ** 2)) revert InvalidK();
         }
 
         _update(balance0, balance1, _reserve0, _reserve1);
@@ -311,4 +316,3 @@ contract XLPV2Pair is IXLPV2Pair, ReentrancyGuard {
         _update(IERC20(token0).balanceOf(address(this)), IERC20(token1).balanceOf(address(this)), reserve0, reserve1);
     }
 }
-

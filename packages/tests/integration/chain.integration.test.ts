@@ -3,7 +3,16 @@ import { createPublicClient, createWalletClient, http, parseEther } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { $ } from "bun";
 
-describe("Chain Integration Tests", () => {
+// Check if Kurtosis localnet is available
+let kurtosisAvailable = false;
+try {
+  const result = await $`kurtosis enclave inspect jeju-localnet`.quiet().nothrow();
+  kurtosisAvailable = result.exitCode === 0;
+} catch {
+  console.log('Kurtosis localnet not available, skipping chain integration tests');
+}
+
+describe.skipIf(!kurtosisAvailable)("Chain Integration Tests", () => {
   let publicClient: ReturnType<typeof createPublicClient>;
   let walletClient: ReturnType<typeof createWalletClient>;
   let account: ReturnType<typeof privateKeyToAccount>;

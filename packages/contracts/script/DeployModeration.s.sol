@@ -34,7 +34,7 @@ contract DeployModeration is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
-        
+
         // Optional: Use existing contracts
         address existingBanManager = vm.envOr("BAN_MANAGER_ADDRESS", address(0));
         address treasury = vm.envOr("TREASURY_ADDRESS", deployer);
@@ -61,7 +61,7 @@ contract DeployModeration is Script {
         // 2. Deploy ModerationMarketplace
         ModerationMarketplace marketplace = new ModerationMarketplace(
             address(banManager),
-            address(0),          // ETH staking (no ERC20)
+            address(0), // ETH staking (no ERC20)
             treasury,
             deployer
         );
@@ -131,29 +131,20 @@ contract DeployModerationFull is Script {
         console.log("Deployed BanManager:", address(banManager));
 
         // 2. Deploy ReputationLabelManager
-        ReputationLabelManager labelManager = new ReputationLabelManager(
-            address(banManager),
-            predimarket,
-            deployer,
-            deployer
-        );
+        ReputationLabelManager labelManager =
+            new ReputationLabelManager(address(banManager), predimarket, deployer, deployer);
         console.log("Deployed ReputationLabelManager:", address(labelManager));
 
         // 3. Deploy ReportingSystem
         ReportingSystem reportingSystem = new ReportingSystem(
-            address(banManager),
-            address(labelManager),
-            predimarket,
-            identityRegistry,
-            deployer,
-            deployer
+            address(banManager), address(labelManager), predimarket, identityRegistry, deployer, deployer
         );
         console.log("Deployed ReportingSystem:", address(reportingSystem));
 
         // 4. Deploy ModerationMarketplace
         ModerationMarketplace marketplace = new ModerationMarketplace(
             address(banManager),
-            address(0),          // ETH staking
+            address(0), // ETH staking
             treasury,
             deployer
         );
@@ -170,4 +161,3 @@ contract DeployModerationFull is Script {
         console.log("Full deployment complete. Update deployments/moderation-system-full.json manually.");
     }
 }
-

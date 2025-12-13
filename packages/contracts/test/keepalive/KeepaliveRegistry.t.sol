@@ -47,10 +47,10 @@ contract KeepaliveRegistryTest is Test {
             testJnsNode,
             testAgentId,
             vault,
-            0.1 ether,  // globalMinBalance
-            3600,       // checkInterval
+            0.1 ether, // globalMinBalance
+            3600, // checkInterval
             0.01 ether, // autoFundAmount
-            true        // autoFundEnabled
+            true // autoFundEnabled
         );
 
         assertTrue(keepaliveId != bytes32(0));
@@ -68,7 +68,6 @@ contract KeepaliveRegistryTest is Test {
             bool active,
             uint256 createdAt,
             ,
-            
         ) = registry.keepalives(keepaliveId);
 
         assertEq(id, keepaliveId);
@@ -91,12 +90,12 @@ contract KeepaliveRegistryTest is Test {
             testAgentId,
             vault,
             0.1 ether,
-            0,          // 0 should default to 3600
+            0, // 0 should default to 3600
             0,
             false
         );
 
-        (, , , , , , uint256 checkInterval, , , , , , ) = registry.keepalives(keepaliveId);
+        (,,,,,, uint256 checkInterval,,,,,,) = registry.keepalives(keepaliveId);
         assertEq(checkInterval, 3600);
     }
 
@@ -158,14 +157,7 @@ contract KeepaliveRegistryTest is Test {
 
         vm.startPrank(alice);
 
-        registry.addResource(
-            keepaliveId,
-            KeepaliveRegistry.ResourceType.IPFS_CONTENT,
-            "QmTest123",
-            "",
-            0,
-            true
-        );
+        registry.addResource(keepaliveId, KeepaliveRegistry.ResourceType.IPFS_CONTENT, "QmTest123", "", 0, true);
 
         registry.addResource(
             keepaliveId,
@@ -176,14 +168,7 @@ contract KeepaliveRegistryTest is Test {
             true
         );
 
-        registry.addResource(
-            keepaliveId,
-            KeepaliveRegistry.ResourceType.TRIGGER,
-            "0x1234567890",
-            "",
-            0.01 ether,
-            false
-        );
+        registry.addResource(keepaliveId, KeepaliveRegistry.ResourceType.TRIGGER, "0x1234567890", "", 0.01 ether, false);
 
         vm.stopPrank();
 
@@ -211,11 +196,7 @@ contract KeepaliveRegistryTest is Test {
         bytes32 keepaliveId = registry.registerKeepalive(testJnsNode, 0, vault, 0.1 ether, 3600, 0, false);
 
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(
-            KeepaliveRegistry.NotKeepaliveOwner.selector,
-            keepaliveId,
-            bob
-        ));
+        vm.expectRevert(abi.encodeWithSelector(KeepaliveRegistry.NotKeepaliveOwner.selector, keepaliveId, bob));
         registry.addResource(keepaliveId, KeepaliveRegistry.ResourceType.IPFS_CONTENT, "cid", "", 0, true);
     }
 
@@ -237,16 +218,9 @@ contract KeepaliveRegistryTest is Test {
         string[] memory failedResources = new string[](0);
 
         vm.prank(executor);
-        registry.recordHealthCheck(
-            keepaliveId,
-            KeepaliveRegistry.HealthStatus.HEALTHY,
-            1 ether,
-            5,
-            5,
-            failedResources
-        );
+        registry.recordHealthCheck(keepaliveId, KeepaliveRegistry.HealthStatus.HEALTHY, 1 ether, 5, 5, failedResources);
 
-        (, , , , , , , , , , , uint256 lastCheckAt, KeepaliveRegistry.HealthStatus lastStatus) = registry.keepalives(keepaliveId);
+        (,,,,,,,,,,, uint256 lastCheckAt, KeepaliveRegistry.HealthStatus lastStatus) = registry.keepalives(keepaliveId);
 
         assertEq(lastCheckAt, block.timestamp);
         assertEq(uint8(lastStatus), uint8(KeepaliveRegistry.HealthStatus.HEALTHY));
@@ -260,14 +234,7 @@ contract KeepaliveRegistryTest is Test {
         failed[0] = "resource1";
 
         vm.prank(executor);
-        registry.recordHealthCheck(
-            keepaliveId,
-            KeepaliveRegistry.HealthStatus.UNHEALTHY,
-            0.05 ether,
-            3,
-            5,
-            failed
-        );
+        registry.recordHealthCheck(keepaliveId, KeepaliveRegistry.HealthStatus.UNHEALTHY, 0.05 ether, 3, 5, failed);
 
         // Public mapping getter doesn't return array members, so we check individually
         (
@@ -296,10 +263,7 @@ contract KeepaliveRegistryTest is Test {
         string[] memory failedResources = new string[](0);
 
         vm.prank(bob); // bob is not an authorized executor
-        vm.expectRevert(abi.encodeWithSelector(
-            KeepaliveRegistry.NotAuthorizedExecutor.selector,
-            bob
-        ));
+        vm.expectRevert(abi.encodeWithSelector(KeepaliveRegistry.NotAuthorizedExecutor.selector, bob));
         registry.recordHealthCheck(keepaliveId, KeepaliveRegistry.HealthStatus.HEALTHY, 1 ether, 5, 5, failedResources);
     }
 
@@ -312,9 +276,7 @@ contract KeepaliveRegistryTest is Test {
         vm.prank(executor);
         vm.expectEmit(true, false, false, true);
         emit KeepaliveRegistry.StatusChanged(
-            keepaliveId,
-            KeepaliveRegistry.HealthStatus.UNKNOWN,
-            KeepaliveRegistry.HealthStatus.HEALTHY
+            keepaliveId, KeepaliveRegistry.HealthStatus.UNKNOWN, KeepaliveRegistry.HealthStatus.HEALTHY
         );
         registry.recordHealthCheck(keepaliveId, KeepaliveRegistry.HealthStatus.HEALTHY, 1 ether, 5, 5, failedResources);
     }
@@ -344,7 +306,8 @@ contract KeepaliveRegistryTest is Test {
         vm.prank(executor);
         registry.recordHealthCheck(keepaliveId, KeepaliveRegistry.HealthStatus.HEALTHY, 1 ether, 5, 5, failedResources);
 
-        (bool funded, KeepaliveRegistry.HealthStatus status, uint256 lastCheck, uint256 balance) = registry.getStatus(keepaliveId);
+        (bool funded, KeepaliveRegistry.HealthStatus status, uint256 lastCheck, uint256 balance) =
+            registry.getStatus(keepaliveId);
 
         assertTrue(funded);
         assertEq(uint8(status), uint8(KeepaliveRegistry.HealthStatus.HEALTHY));
@@ -360,7 +323,8 @@ contract KeepaliveRegistryTest is Test {
         vm.prank(executor);
         registry.recordHealthCheck(keepaliveId, KeepaliveRegistry.HealthStatus.HEALTHY, 1 ether, 5, 5, failedResources);
 
-        (bool exists, bool funded, KeepaliveRegistry.HealthStatus status, bytes32 id) = registry.getStatusByJNS(testJnsNode);
+        (bool exists, bool funded, KeepaliveRegistry.HealthStatus status, bytes32 id) =
+            registry.getStatusByJNS(testJnsNode);
 
         assertTrue(exists);
         assertTrue(funded);
@@ -370,7 +334,8 @@ contract KeepaliveRegistryTest is Test {
 
     function test_GetStatusByJNS_NotFound() public {
         bytes32 unknownNode = keccak256("unknown");
-        (bool exists, bool funded, KeepaliveRegistry.HealthStatus status, bytes32 id) = registry.getStatusByJNS(unknownNode);
+        (bool exists, bool funded, KeepaliveRegistry.HealthStatus status, bytes32 id) =
+            registry.getStatusByJNS(unknownNode);
 
         assertFalse(exists);
         assertFalse(funded);
@@ -445,7 +410,8 @@ contract KeepaliveRegistryTest is Test {
         vm.prank(alice);
         registry.updateConfig(keepaliveId, 0.2 ether, 1800, 0.05 ether, true);
 
-        (, , , , , uint256 globalMinBalance, uint256 checkInterval, uint256 autoFundAmount, bool autoFundEnabled, , , , ) = registry.keepalives(keepaliveId);
+        (,,,,, uint256 globalMinBalance, uint256 checkInterval, uint256 autoFundAmount, bool autoFundEnabled,,,,) =
+            registry.keepalives(keepaliveId);
 
         assertEq(globalMinBalance, 0.2 ether);
         assertEq(checkInterval, 1800);

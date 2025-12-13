@@ -7,6 +7,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IPredimarket} from "./IPredimarket.sol";
+import {IQualityOracle} from "./IQualityOracle.sol";
 
 /**
  * @title Council
@@ -41,21 +42,22 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
     // ============================================================================
 
     enum ProposalStatus {
-        SUBMITTED,           // Submitted on-chain
-        COUNCIL_REVIEW,      // Council deliberating
-        RESEARCH_PENDING,    // Awaiting deep research
-        COUNCIL_FINAL,       // Final council review with research
-        CEO_QUEUE,           // Awaiting CEO decision
-        APPROVED,            // CEO approved, in grace period
-        EXECUTING,           // Being executed
-        COMPLETED,           // Fully executed
-        REJECTED,            // Rejected by council or CEO
-        VETOED,              // Vetoed during grace period
-        FUTARCHY_PENDING,    // Escalated to futarchy market
-        FUTARCHY_APPROVED,   // Futarchy market approved
-        FUTARCHY_REJECTED,   // Futarchy market rejected
-        DUPLICATE,           // Marked as duplicate
-        SPAM                 // Marked as spam
+        SUBMITTED, // Submitted on-chain
+        COUNCIL_REVIEW, // Council deliberating
+        RESEARCH_PENDING, // Awaiting deep research
+        COUNCIL_FINAL, // Final council review with research
+        CEO_QUEUE, // Awaiting CEO decision
+        APPROVED, // CEO approved, in grace period
+        EXECUTING, // Being executed
+        COMPLETED, // Fully executed
+        REJECTED, // Rejected by council or CEO
+        VETOED, // Vetoed during grace period
+        FUTARCHY_PENDING, // Escalated to futarchy market
+        FUTARCHY_APPROVED, // Futarchy market approved
+        FUTARCHY_REJECTED, // Futarchy market rejected
+        DUPLICATE, // Marked as duplicate
+        SPAM // Marked as spam
+
     }
 
     enum ProposalType {
@@ -72,10 +74,11 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
     }
 
     enum CouncilRole {
-        TREASURY,    // Reviews financial impact
-        CODE,        // Reviews technical changes
-        COMMUNITY,   // Reviews community impact
-        SECURITY     // Reviews security implications
+        TREASURY, // Reviews financial impact
+        CODE, // Reviews technical changes
+        COMMUNITY, // Reviews community impact
+        SECURITY // Reviews security implications
+
     }
 
     enum VoteType {
@@ -105,11 +108,11 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
         uint256 proposerAgentId;
         ProposalType proposalType;
         ProposalStatus status;
-        uint8 qualityScore;              // 0-100
+        uint8 qualityScore; // 0-100
         uint256 createdAt;
         uint256 councilVoteEnd;
         uint256 gracePeriodEnd;
-        bytes32 contentHash;             // IPFS hash of full content
+        bytes32 contentHash; // IPFS hash of full content
         address targetContract;
         bytes callData;
         uint256 value;
@@ -178,6 +181,12 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
     /// @notice Predimarket for veto prediction markets
     address public predimarket;
 
+    /// @notice Quality oracle for verified assessments
+    address public qualityOracle;
+
+    /// @notice Whether quality attestation is required
+    bool public requireQualityAttestation = false;
+
     /// @notice CEO agent address
     address public ceoAgent;
 
@@ -238,7 +247,7 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
     uint256 public gracePeriod = 24 hours;
     uint256 public minBackers = 0;
     uint256 public minStakeForVeto = 0.01 ether;
-    uint256 public vetoThresholdBPS = 3000;  // 30% of total stake to veto
+    uint256 public vetoThresholdBPS = 3000; // 30% of total stake to veto
     uint256 public proposalBond = 0.001 ether;
 
     // ============================================================================
@@ -263,81 +272,33 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
     );
 
     event CouncilVoteCast(
-        bytes32 indexed proposalId,
-        address indexed councilAgent,
-        CouncilRole role,
-        VoteType vote,
-        uint256 weight
+        bytes32 indexed proposalId, address indexed councilAgent, CouncilRole role, VoteType vote, uint256 weight
     );
 
     event CouncilDeliberationComplete(
-        bytes32 indexed proposalId,
-        bool approved,
-        uint256 approveVotes,
-        uint256 rejectVotes
+        bytes32 indexed proposalId, bool approved, uint256 approveVotes, uint256 rejectVotes
     );
 
-    event ResearchSubmitted(
-        bytes32 indexed proposalId,
-        bytes32 researchHash,
-        bool recommendProceed
-    );
+    event ResearchSubmitted(bytes32 indexed proposalId, bytes32 researchHash, bool recommendProceed);
 
-    event CEODecision(
-        bytes32 indexed proposalId,
-        bool approved,
-        bytes32 decisionHash
-    );
+    event CEODecision(bytes32 indexed proposalId, bool approved, bytes32 decisionHash);
 
-    event VetoVoteCast(
-        bytes32 indexed proposalId,
-        address indexed voter,
-        VetoCategory category,
-        uint256 stakedAmount
-    );
+    event VetoVoteCast(bytes32 indexed proposalId, address indexed voter, VetoCategory category, uint256 stakedAmount);
 
-    event ProposalVetoed(
-        bytes32 indexed proposalId,
-        uint256 totalVetoStake,
-        uint256 threshold
-    );
+    event ProposalVetoed(bytes32 indexed proposalId, uint256 totalVetoStake, uint256 threshold);
 
-    event ProposalExecuted(
-        bytes32 indexed proposalId,
-        address targetContract,
-        bool success
-    );
+    event ProposalExecuted(bytes32 indexed proposalId, address targetContract, bool success);
 
-    event ProposalStatusChanged(
-        bytes32 indexed proposalId,
-        ProposalStatus oldStatus,
-        ProposalStatus newStatus
-    );
+    event ProposalStatusChanged(bytes32 indexed proposalId, ProposalStatus oldStatus, ProposalStatus newStatus);
 
-    event CouncilAgentUpdated(
-        CouncilRole role,
-        address agentAddress,
-        uint256 agentId
-    );
+    event CouncilAgentUpdated(CouncilRole role, address agentAddress, uint256 agentId);
 
-    event CEOAgentUpdated(
-        address oldCEO,
-        address newCEO,
-        uint256 agentId
-    );
+    event CEOAgentUpdated(address oldCEO, address newCEO, uint256 agentId);
 
-    event ProposalEscalatedToFutarchy(
-        bytes32 indexed proposalId,
-        bytes32 indexed marketId,
-        address escalator
-    );
+    event ProposalEscalatedToFutarchy(bytes32 indexed proposalId, bytes32 indexed marketId, address escalator);
 
     event FutarchyResolved(
-        bytes32 indexed proposalId,
-        bytes32 indexed marketId,
-        bool approved,
-        uint256 yesVotes,
-        uint256 noVotes
+        bytes32 indexed proposalId, bytes32 indexed marketId, bool approved, uint256 yesVotes, uint256 noVotes
     );
 
     // ============================================================================
@@ -366,6 +327,8 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
     error FutarchyNotPending();
     error FutarchyNotResolved();
     error FutarchyDeadlineNotPassed();
+    error QualityAttestationRequired();
+    error QualityOracleNotConfigured();
 
     // ============================================================================
     // Modifiers
@@ -379,8 +342,7 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
     modifier onlyCouncil() {
         bool isCouncil = false;
         for (uint8 i = 0; i <= uint8(CouncilRole.SECURITY); i++) {
-            if (councilAgents[CouncilRole(i)].agentAddress == msg.sender && 
-                councilAgents[CouncilRole(i)].isActive) {
+            if (councilAgents[CouncilRole(i)].agentAddress == msg.sender && councilAgents[CouncilRole(i)].isActive) {
                 isCouncil = true;
                 break;
             }
@@ -398,12 +360,9 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
     // Constructor
     // ============================================================================
 
-    constructor(
-        address _governanceToken,
-        address _identityRegistry,
-        address _reputationRegistry,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _governanceToken, address _identityRegistry, address _reputationRegistry, address initialOwner)
+        Ownable(initialOwner)
+    {
         require(_governanceToken != address(0), "Invalid token");
         require(_identityRegistry != address(0), "Invalid identity registry");
         require(_reputationRegistry != address(0), "Invalid reputation registry");
@@ -418,7 +377,44 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
     // ============================================================================
 
     /**
-     * @notice Submit a proposal on-chain
+     * @notice Submit a proposal with verified quality attestation
+     * @param proposalType Type of proposal
+     * @param qualityScore Quality score from proposal agent (0-100)
+     * @param contentHash IPFS hash of full proposal content
+     * @param targetContract Contract to execute on (if applicable)
+     * @param callData Execution calldata
+     * @param value ETH value for execution
+     * @param attestationTimestamp When the quality assessment was signed
+     * @param attestationSignature Signature from authorized assessor
+     * @return proposalId Unique proposal identifier
+     */
+    function submitProposalWithAttestation(
+        ProposalType proposalType,
+        uint8 qualityScore,
+        bytes32 contentHash,
+        address targetContract,
+        bytes calldata callData,
+        uint256 value,
+        uint256 attestationTimestamp,
+        bytes calldata attestationSignature
+    ) external payable nonReentrant whenNotPaused returns (bytes32 proposalId) {
+        if (msg.value < proposalBond) {
+            revert InsufficientBond();
+        }
+        if (qualityOracle == address(0)) {
+            revert QualityOracleNotConfigured();
+        }
+
+        // Verify the quality attestation on-chain
+        IQualityOracle(qualityOracle).verifyScore(
+            contentHash, qualityScore, attestationTimestamp, msg.sender, attestationSignature
+        );
+
+        return _createProposal(proposalType, qualityScore, contentHash, targetContract, callData, value);
+    }
+
+    /**
+     * @notice Submit a proposal on-chain (legacy, may require attestation)
      * @param proposalType Type of proposal
      * @param qualityScore Quality score from proposal agent (0-100)
      * @param contentHash IPFS hash of full proposal content
@@ -435,6 +431,11 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
         bytes calldata callData,
         uint256 value
     ) external payable nonReentrant whenNotPaused returns (bytes32 proposalId) {
+        // If attestation required, reject unverified submissions
+        if (requireQualityAttestation) {
+            revert QualityAttestationRequired();
+        }
+
         if (qualityScore < minQualityScore) {
             revert InsufficientQualityScore(qualityScore, minQualityScore);
         }
@@ -442,12 +443,21 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
             revert InsufficientBond();
         }
 
-        proposalId = keccak256(abi.encodePacked(
-            msg.sender,
-            contentHash,
-            block.timestamp,
-            proposalCount
-        ));
+        return _createProposal(proposalType, qualityScore, contentHash, targetContract, callData, value);
+    }
+
+    /**
+     * @notice Internal function to create a proposal
+     */
+    function _createProposal(
+        ProposalType proposalType,
+        uint8 qualityScore,
+        bytes32 contentHash,
+        address targetContract,
+        bytes calldata callData,
+        uint256 value
+    ) internal returns (bytes32 proposalId) {
+        proposalId = keccak256(abi.encodePacked(msg.sender, contentHash, block.timestamp, proposalCount));
 
         proposals[proposalId] = Proposal({
             proposalId: proposalId,
@@ -476,14 +486,7 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
         proposerProposals[msg.sender].push(proposalId);
         proposalCount++;
 
-        emit ProposalSubmitted(
-            proposalId,
-            msg.sender,
-            0,
-            proposalType,
-            qualityScore,
-            contentHash
-        );
+        emit ProposalSubmitted(proposalId, msg.sender, 0, proposalType, qualityScore, contentHash);
 
         // Transition to council review
         _transitionStatus(proposalId, ProposalStatus.COUNCIL_REVIEW);
@@ -495,11 +498,7 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
      * @param stakeAmount Amount of governance tokens to stake
      * @param reputationWeight Reputation weight (verified off-chain)
      */
-    function backProposal(
-        bytes32 proposalId,
-        uint256 stakeAmount,
-        uint256 reputationWeight
-    ) external nonReentrant {
+    function backProposal(bytes32 proposalId, uint256 stakeAmount, uint256 reputationWeight) external nonReentrant {
         Proposal storage proposal = proposals[proposalId];
         if (proposal.proposalId == bytes32(0)) revert ProposalNotFound();
         if (hasBacked[proposalId][msg.sender]) revert AlreadyBacked();
@@ -509,26 +508,22 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
             governanceToken.safeTransferFrom(msg.sender, address(this), stakeAmount);
         }
 
-        proposalBackers[proposalId].push(BackerInfo({
-            backer: msg.sender,
-            agentId: 0,
-            stakedAmount: stakeAmount,
-            reputationWeight: reputationWeight,
-            backedAt: block.timestamp
-        }));
+        proposalBackers[proposalId].push(
+            BackerInfo({
+                backer: msg.sender,
+                agentId: 0,
+                stakedAmount: stakeAmount,
+                reputationWeight: reputationWeight,
+                backedAt: block.timestamp
+            })
+        );
 
         hasBacked[proposalId][msg.sender] = true;
         proposal.totalStaked += stakeAmount;
         proposal.totalReputation += reputationWeight;
         proposal.backerCount++;
 
-        emit ProposalBacked(
-            proposalId,
-            msg.sender,
-            0,
-            stakeAmount,
-            reputationWeight
-        );
+        emit ProposalBacked(proposalId, msg.sender, 0, stakeAmount, reputationWeight);
     }
 
     // ============================================================================
@@ -541,15 +536,10 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
      * @param vote Vote type
      * @param reasoningHash IPFS hash of reasoning
      */
-    function castCouncilVote(
-        bytes32 proposalId,
-        VoteType vote,
-        bytes32 reasoningHash
-    ) external onlyCouncil {
+    function castCouncilVote(bytes32 proposalId, VoteType vote, bytes32 reasoningHash) external onlyCouncil {
         Proposal storage proposal = proposals[proposalId];
         if (proposal.proposalId == bytes32(0)) revert ProposalNotFound();
-        if (proposal.status != ProposalStatus.COUNCIL_REVIEW &&
-            proposal.status != ProposalStatus.COUNCIL_FINAL) {
+        if (proposal.status != ProposalStatus.COUNCIL_REVIEW && proposal.status != ProposalStatus.COUNCIL_FINAL) {
             revert InvalidStatus(proposal.status, ProposalStatus.COUNCIL_REVIEW);
         }
         if (block.timestamp > proposal.councilVoteEnd) {
@@ -573,15 +563,17 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
             }
         }
 
-        votes.push(CouncilVote({
-            proposalId: proposalId,
-            councilAgent: msg.sender,
-            role: role,
-            vote: vote,
-            reasoningHash: reasoningHash,
-            votedAt: block.timestamp,
-            weight: weight
-        }));
+        votes.push(
+            CouncilVote({
+                proposalId: proposalId,
+                councilAgent: msg.sender,
+                role: role,
+                vote: vote,
+                reasoningHash: reasoningHash,
+                votedAt: block.timestamp,
+                weight: weight
+            })
+        );
 
         // Update council agent stats
         councilAgents[role].proposalsReviewed++;
@@ -596,8 +588,7 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
     function finalizeCouncilVote(bytes32 proposalId) external {
         Proposal storage proposal = proposals[proposalId];
         if (proposal.proposalId == bytes32(0)) revert ProposalNotFound();
-        if (proposal.status != ProposalStatus.COUNCIL_REVIEW &&
-            proposal.status != ProposalStatus.COUNCIL_FINAL) {
+        if (proposal.status != ProposalStatus.COUNCIL_REVIEW && proposal.status != ProposalStatus.COUNCIL_FINAL) {
             revert InvalidStatus(proposal.status, ProposalStatus.COUNCIL_REVIEW);
         }
         if (block.timestamp < proposal.councilVoteEnd) {
@@ -619,12 +610,7 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
 
         bool approved = approveWeight > rejectWeight;
 
-        emit CouncilDeliberationComplete(
-            proposalId,
-            approved,
-            approveWeight,
-            rejectWeight
-        );
+        emit CouncilDeliberationComplete(proposalId, approved, approveWeight, rejectWeight);
 
         if (approved) {
             if (proposal.status == ProposalStatus.COUNCIL_REVIEW) {
@@ -649,11 +635,10 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
      * @param researchHash IPFS hash of research report
      * @param recommendProceed Research recommendation
      */
-    function submitResearch(
-        bytes32 proposalId,
-        bytes32 researchHash,
-        bool recommendProceed
-    ) external onlyResearchOperator {
+    function submitResearch(bytes32 proposalId, bytes32 researchHash, bool recommendProceed)
+        external
+        onlyResearchOperator
+    {
         Proposal storage proposal = proposals[proposalId];
         if (proposal.proposalId == bytes32(0)) revert ProposalNotFound();
         if (proposal.status != ProposalStatus.RESEARCH_PENDING) {
@@ -686,11 +671,7 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
      * @param approved Whether to approve
      * @param decisionHash IPFS hash of decision reasoning
      */
-    function ceoDecide(
-        bytes32 proposalId,
-        bool approved,
-        bytes32 decisionHash
-    ) external onlyCEO {
+    function ceoDecide(bytes32 proposalId, bool approved, bytes32 decisionHash) external onlyCEO {
         Proposal storage proposal = proposals[proposalId];
         if (proposal.proposalId == bytes32(0)) revert ProposalNotFound();
         if (proposal.status != ProposalStatus.CEO_QUEUE) {
@@ -720,11 +701,11 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
      * @param category Veto reason category
      * @param reasonHash IPFS hash of reason
      */
-    function castVetoVote(
-        bytes32 proposalId,
-        VetoCategory category,
-        bytes32 reasonHash
-    ) external payable nonReentrant {
+    function castVetoVote(bytes32 proposalId, VetoCategory category, bytes32 reasonHash)
+        external
+        payable
+        nonReentrant
+    {
         Proposal storage proposal = proposals[proposalId];
         if (proposal.proposalId == bytes32(0)) revert ProposalNotFound();
         if (proposal.status != ProposalStatus.APPROVED) {
@@ -736,15 +717,17 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
         if (hasVetoed[proposalId][msg.sender]) revert AlreadyVetoed();
         if (msg.value < minStakeForVeto) revert InsufficientVetoStake();
 
-        vetoVotes[proposalId].push(VetoVote({
-            voter: msg.sender,
-            agentId: 0,
-            category: category,
-            reasonHash: reasonHash,
-            stakedAmount: msg.value,
-            reputationWeight: 0, // Set off-chain
-            votedAt: block.timestamp
-        }));
+        vetoVotes[proposalId].push(
+            VetoVote({
+                voter: msg.sender,
+                agentId: 0,
+                category: category,
+                reasonHash: reasonHash,
+                stakedAmount: msg.value,
+                reputationWeight: 0, // Set off-chain
+                votedAt: block.timestamp
+            })
+        );
 
         hasVetoed[proposalId][msg.sender] = true;
 
@@ -838,18 +821,11 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
         if (proposalFutarchyMarkets[proposalId] != bytes32(0)) revert FutarchyAlreadyEscalated();
 
         // Generate unique market ID
-        bytes32 marketId = keccak256(abi.encodePacked(
-            "futarchy",
-            proposalId,
-            block.timestamp
-        ));
+        bytes32 marketId = keccak256(abi.encodePacked("futarchy", proposalId, block.timestamp));
 
         // Create the futarchy market
-        string memory question = string(abi.encodePacked(
-            "Should vetoed proposal ",
-            _bytes32ToHexString(proposalId),
-            " be approved?"
-        ));
+        string memory question =
+            string(abi.encodePacked("Should vetoed proposal ", _bytes32ToHexString(proposalId), " be approved?"));
 
         IPredimarket.ModerationMetadata memory metadata = IPredimarket.ModerationMetadata({
             targetAgentId: proposal.proposerAgentId,
@@ -859,11 +835,7 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
         });
 
         IPredimarket(predimarket).createModerationMarket(
-            marketId,
-            question,
-            futarchyLiquidity,
-            IPredimarket.MarketCategory.GOVERNANCE_VETO,
-            metadata
+            marketId, question, futarchyLiquidity, IPredimarket.MarketCategory.GOVERNANCE_VETO, metadata
         );
 
         // Store the market reference
@@ -1021,11 +993,9 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
     }
 
     function _isActiveStatus(ProposalStatus status) internal pure returns (bool) {
-        return status != ProposalStatus.COMPLETED &&
-               status != ProposalStatus.REJECTED &&
-               status != ProposalStatus.FUTARCHY_REJECTED &&
-               status != ProposalStatus.DUPLICATE &&
-               status != ProposalStatus.SPAM;
+        return status != ProposalStatus.COMPLETED && status != ProposalStatus.REJECTED
+            && status != ProposalStatus.FUTARCHY_REJECTED && status != ProposalStatus.DUPLICATE
+            && status != ProposalStatus.SPAM;
     }
 
     /**
@@ -1077,11 +1047,11 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Get futarchy market info for a proposal
      */
-    function getFutarchyMarket(bytes32 proposalId) external view returns (
-        bytes32 marketId,
-        uint256 deadline,
-        bool canResolve
-    ) {
+    function getFutarchyMarket(bytes32 proposalId)
+        external
+        view
+        returns (bytes32 marketId, uint256 deadline, bool canResolve)
+    {
         marketId = proposalFutarchyMarkets[proposalId];
         deadline = futarchyDeadlines[proposalId];
         canResolve = marketId != bytes32(0) && block.timestamp >= deadline;
@@ -1091,12 +1061,10 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
     // Admin Functions
     // ============================================================================
 
-    function setCouncilAgent(
-        CouncilRole role,
-        address agentAddress,
-        uint256 agentId,
-        uint256 votingWeight
-    ) external onlyOwner {
+    function setCouncilAgent(CouncilRole role, address agentAddress, uint256 agentId, uint256 votingWeight)
+        external
+        onlyOwner
+    {
         councilAgents[role] = CouncilAgent({
             agentAddress: agentAddress,
             agentId: agentId,
@@ -1128,6 +1096,14 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
         predimarket = _predimarket;
     }
 
+    function setQualityOracle(address _qualityOracle) external onlyOwner {
+        qualityOracle = _qualityOracle;
+    }
+
+    function setRequireQualityAttestation(bool _require) external onlyOwner {
+        requireQualityAttestation = _require;
+    }
+
     function setParameters(
         uint8 _minQualityScore,
         uint256 _councilVotingPeriod,
@@ -1146,10 +1122,7 @@ contract Council is Ownable, Pausable, ReentrancyGuard {
         proposalBond = _proposalBond;
     }
 
-    function setFutarchyParameters(
-        uint256 _futarchyVotingPeriod,
-        uint256 _futarchyLiquidity
-    ) external onlyOwner {
+    function setFutarchyParameters(uint256 _futarchyVotingPeriod, uint256 _futarchyLiquidity) external onlyOwner {
         futarchyVotingPeriod = _futarchyVotingPeriod;
         futarchyLiquidity = _futarchyLiquidity;
     }

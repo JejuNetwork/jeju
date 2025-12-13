@@ -82,12 +82,12 @@ const ERC20_ABI = [
   'function transfer(address to, uint256 amount) returns (bool)',
 ];
 
-const IDENTITY_REGISTRY_ABI = [
+const _IDENTITY_REGISTRY_ABI = [
   'function registerAgent(string name, string role) payable returns (uint256)',
   'function getAgentByOwner(address) view returns (uint256)',
 ];
 
-const DELEGATION_REGISTRY_ABI = [
+const _DELEGATION_REGISTRY_ABI = [
   'function registerAsDelegate(uint256 agentId, string name, string profileHash, string[] expertise)',
   'function delegate(address to, uint256 amount, uint256 lockPeriod)',
   'function getDelegate(address) view returns (tuple(address delegate, uint256 agentId, string name, string profileHash, string[] expertise, uint256 totalDelegated, uint256 delegatorCount, uint256 registeredAt, bool isActive, uint256 proposalsVoted, uint256 proposalsCreated))',

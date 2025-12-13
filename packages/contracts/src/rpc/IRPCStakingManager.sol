@@ -9,10 +9,11 @@ interface IRPCStakingManager {
     // ============ Enums ============
 
     enum Tier {
-        FREE,      // $0 - 10 req/min
-        BASIC,     // $10 - 100 req/min
-        PRO,       // $100 - 1000 req/min
-        UNLIMITED  // $1000 - unlimited
+        FREE, // $0 - 10 req/min
+        BASIC, // $10 - 100 req/min
+        PRO, // $100 - 1000 req/min
+        UNLIMITED // $1000 - unlimited
+
     }
 
     struct StakePosition {
@@ -27,7 +28,7 @@ interface IRPCStakingManager {
 
     struct TierConfig {
         uint256 minUsdValue; // USD value in 8 decimals (e.g., 1000000000 = $10)
-        uint256 rateLimit;   // requests per minute (0 = unlimited)
+        uint256 rateLimit; // requests per minute (0 = unlimited)
     }
 
     // ============ Events ============

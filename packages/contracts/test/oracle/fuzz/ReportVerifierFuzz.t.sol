@@ -33,20 +33,22 @@ contract ReportVerifierFuzzTest is Test {
         registry = new FeedRegistry(owner);
         verifier = new ReportVerifier(address(registry), address(0), owner);
 
-        feedId = registry.createFeed(IFeedRegistry.FeedCreateParams({
-            symbol: "ETH-USD",
-            baseToken: address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2),
-            quoteToken: address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48),
-            decimals: 8,
-            heartbeatSeconds: 3600,
-            twapWindowSeconds: 1800,
-            minLiquidityUSD: 100_000 ether,
-            maxDeviationBps: 100,
-            minOracles: 3,
-            quorumThreshold: 2,
-            requiresConfidence: true,
-            category: IFeedRegistry.FeedCategory.SPOT_PRICE
-        }));
+        feedId = registry.createFeed(
+            IFeedRegistry.FeedCreateParams({
+                symbol: "ETH-USD",
+                baseToken: address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2),
+                quoteToken: address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48),
+                decimals: 8,
+                heartbeatSeconds: 3600,
+                twapWindowSeconds: 1800,
+                minLiquidityUSD: 100_000 ether,
+                maxDeviationBps: 100,
+                minOracles: 3,
+                quorumThreshold: 2,
+                requiresConfidence: true,
+                category: IFeedRegistry.FeedCategory.SPOT_PRICE
+            })
+        );
         vm.stopPrank();
     }
 
@@ -67,24 +69,21 @@ contract ReportVerifierFuzzTest is Test {
             sourcesHash: keccak256("sources")
         });
 
-        bytes32 reportHash = keccak256(abi.encodePacked(
-            report.feedId, report.price, report.confidence,
-            report.timestamp, report.round, report.sourcesHash
-        ));
+        bytes32 reportHash = keccak256(
+            abi.encodePacked(
+                report.feedId, report.price, report.confidence, report.timestamp, report.round, report.sourcesHash
+            )
+        );
 
         bytes[] memory signatures = new bytes[](2);
         for (uint256 i = 0; i < 2; i++) {
-            (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-                signerPks[i],
-                keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", reportHash))
-            );
+            (uint8 v, bytes32 r, bytes32 s) =
+                vm.sign(signerPks[i], keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", reportHash)));
             signatures[i] = abi.encodePacked(r, s, v);
         }
 
-        IReportVerifier.ReportSubmission memory submission = IReportVerifier.ReportSubmission({
-            report: report,
-            signatures: signatures
-        });
+        IReportVerifier.ReportSubmission memory submission =
+            IReportVerifier.ReportSubmission({report: report, signatures: signatures});
 
         vm.prank(owner);
         bool accepted = verifier.submitReport(submission);
@@ -109,24 +108,21 @@ contract ReportVerifierFuzzTest is Test {
             sourcesHash: keccak256("sources")
         });
 
-        bytes32 reportHash = keccak256(abi.encodePacked(
-            report.feedId, report.price, report.confidence,
-            report.timestamp, report.round, report.sourcesHash
-        ));
+        bytes32 reportHash = keccak256(
+            abi.encodePacked(
+                report.feedId, report.price, report.confidence, report.timestamp, report.round, report.sourcesHash
+            )
+        );
 
         bytes[] memory signatures = new bytes[](2);
         for (uint256 i = 0; i < 2; i++) {
-            (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-                signerPks[i],
-                keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", reportHash))
-            );
+            (uint8 v, bytes32 r, bytes32 s) =
+                vm.sign(signerPks[i], keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", reportHash)));
             signatures[i] = abi.encodePacked(r, s, v);
         }
 
-        IReportVerifier.ReportSubmission memory submission = IReportVerifier.ReportSubmission({
-            report: report,
-            signatures: signatures
-        });
+        IReportVerifier.ReportSubmission memory submission =
+            IReportVerifier.ReportSubmission({report: report, signatures: signatures});
 
         vm.prank(owner);
         bool accepted = verifier.submitReport(submission);
@@ -152,34 +148,27 @@ contract ReportVerifierFuzzTest is Test {
             sourcesHash: keccak256("sources")
         });
 
-        bytes32 reportHash = keccak256(abi.encodePacked(
-            report.feedId, report.price, report.confidence,
-            report.timestamp, report.round, report.sourcesHash
-        ));
+        bytes32 reportHash = keccak256(
+            abi.encodePacked(
+                report.feedId, report.price, report.confidence, report.timestamp, report.round, report.sourcesHash
+            )
+        );
 
         bytes[] memory signatures = new bytes[](sigCount);
         for (uint256 i = 0; i < sigCount; i++) {
-            (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-                signerPks[i],
-                keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", reportHash))
-            );
+            (uint8 v, bytes32 r, bytes32 s) =
+                vm.sign(signerPks[i], keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", reportHash)));
             signatures[i] = abi.encodePacked(r, s, v);
         }
 
-        IReportVerifier.ReportSubmission memory submission = IReportVerifier.ReportSubmission({
-            report: report,
-            signatures: signatures
-        });
+        IReportVerifier.ReportSubmission memory submission =
+            IReportVerifier.ReportSubmission({report: report, signatures: signatures});
 
         vm.prank(owner);
-        
+
         if (sigCount < 2) {
             // Below quorum
-            vm.expectRevert(abi.encodeWithSelector(
-                IReportVerifier.InsufficientSignatures.selector,
-                sigCount,
-                2
-            ));
+            vm.expectRevert(abi.encodeWithSelector(IReportVerifier.InsufficientSignatures.selector, sigCount, 2));
             verifier.submitReport(submission);
         } else {
             bool accepted = verifier.submitReport(submission);
@@ -218,27 +207,24 @@ contract ReportVerifierFuzzTest is Test {
             sourcesHash: keccak256("sources2")
         });
 
-        bytes32 reportHash = keccak256(abi.encodePacked(
-            report.feedId, report.price, report.confidence,
-            report.timestamp, report.round, report.sourcesHash
-        ));
+        bytes32 reportHash = keccak256(
+            abi.encodePacked(
+                report.feedId, report.price, report.confidence, report.timestamp, report.round, report.sourcesHash
+            )
+        );
 
         bytes[] memory signatures = new bytes[](2);
         for (uint256 i = 0; i < 2; i++) {
-            (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-                signerPks[i],
-                keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", reportHash))
-            );
+            (uint8 v, bytes32 r, bytes32 s) =
+                vm.sign(signerPks[i], keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", reportHash)));
             signatures[i] = abi.encodePacked(r, s, v);
         }
 
-        IReportVerifier.ReportSubmission memory submission = IReportVerifier.ReportSubmission({
-            report: report,
-            signatures: signatures
-        });
+        IReportVerifier.ReportSubmission memory submission =
+            IReportVerifier.ReportSubmission({report: report, signatures: signatures});
 
         vm.prank(owner);
-        
+
         // Circuit breaker at 2000 bps (20%)
         // Use a buffer to account for rounding
         if (deviationBps > 2100) {
@@ -268,24 +254,21 @@ contract ReportVerifierFuzzTest is Test {
             sourcesHash: keccak256("sources")
         });
 
-        bytes32 reportHash = keccak256(abi.encodePacked(
-            report.feedId, report.price, report.confidence,
-            report.timestamp, report.round, report.sourcesHash
-        ));
+        bytes32 reportHash = keccak256(
+            abi.encodePacked(
+                report.feedId, report.price, report.confidence, report.timestamp, report.round, report.sourcesHash
+            )
+        );
 
         bytes[] memory signatures = new bytes[](2);
         for (uint256 i = 0; i < 2; i++) {
-            (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-                signerPks[i],
-                keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", reportHash))
-            );
+            (uint8 v, bytes32 r, bytes32 s) =
+                vm.sign(signerPks[i], keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", reportHash)));
             signatures[i] = abi.encodePacked(r, s, v);
         }
 
-        IReportVerifier.ReportSubmission memory submission = IReportVerifier.ReportSubmission({
-            report: report,
-            signatures: signatures
-        });
+        IReportVerifier.ReportSubmission memory submission =
+            IReportVerifier.ReportSubmission({report: report, signatures: signatures});
 
         vm.prank(owner);
 
@@ -311,7 +294,7 @@ contract ReportVerifierFuzzTest is Test {
 
         // Use absolute timestamps to ensure proper time advancement
         uint256 baseTime = 1700000100;
-        
+
         // Submit reports sequentially
         for (uint256 i = 1; i <= numReports; i++) {
             vm.warp(baseTime + (i * 60)); // Ensure MIN_REPORT_INTERVAL is met
@@ -332,20 +315,22 @@ contract ReportVerifierFuzzTest is Test {
         bytes32[] memory feedIds = new bytes32[](batchSize);
         for (uint256 i = 0; i < batchSize; i++) {
             vm.prank(owner);
-            feedIds[i] = registry.createFeed(IFeedRegistry.FeedCreateParams({
-                symbol: string(abi.encodePacked("BATCH-", vm.toString(i))),
-                baseToken: address(uint160(0x1000 + i)),
-                quoteToken: address(uint160(0x2000 + i)),
-                decimals: 8,
-                heartbeatSeconds: 3600,
-                twapWindowSeconds: 1800,
-                minLiquidityUSD: 100_000 ether,
-                maxDeviationBps: 100,
-                minOracles: 3,
-                quorumThreshold: 2,
-                requiresConfidence: true,
-                category: IFeedRegistry.FeedCategory.SPOT_PRICE
-            }));
+            feedIds[i] = registry.createFeed(
+                IFeedRegistry.FeedCreateParams({
+                    symbol: string(abi.encodePacked("BATCH-", vm.toString(i))),
+                    baseToken: address(uint160(0x1000 + i)),
+                    quoteToken: address(uint160(0x2000 + i)),
+                    decimals: 8,
+                    heartbeatSeconds: 3600,
+                    twapWindowSeconds: 1800,
+                    minLiquidityUSD: 100_000 ether,
+                    maxDeviationBps: 100,
+                    minOracles: 3,
+                    quorumThreshold: 2,
+                    requiresConfidence: true,
+                    category: IFeedRegistry.FeedCategory.SPOT_PRICE
+                })
+            );
         }
 
         vm.warp(block.timestamp + 60);
@@ -362,24 +347,20 @@ contract ReportVerifierFuzzTest is Test {
                 sourcesHash: keccak256(abi.encodePacked("batch", i))
             });
 
-            bytes32 reportHash = keccak256(abi.encodePacked(
-                report.feedId, report.price, report.confidence,
-                report.timestamp, report.round, report.sourcesHash
-            ));
+            bytes32 reportHash = keccak256(
+                abi.encodePacked(
+                    report.feedId, report.price, report.confidence, report.timestamp, report.round, report.sourcesHash
+                )
+            );
 
             bytes[] memory signatures = new bytes[](2);
             for (uint256 j = 0; j < 2; j++) {
-                (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-                    signerPks[j],
-                    keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", reportHash))
-                );
+                (uint8 v, bytes32 r, bytes32 s) =
+                    vm.sign(signerPks[j], keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", reportHash)));
                 signatures[j] = abi.encodePacked(r, s, v);
             }
 
-            submissions[i] = IReportVerifier.ReportSubmission({
-                report: report,
-                signatures: signatures
-            });
+            submissions[i] = IReportVerifier.ReportSubmission({report: report, signatures: signatures});
         }
 
         vm.prank(owner);
@@ -419,27 +400,23 @@ contract ReportVerifierFuzzTest is Test {
             sourcesHash: keccak256(abi.encodePacked("sources", round))
         });
 
-        bytes32 reportHash = keccak256(abi.encodePacked(
-            report.feedId, report.price, report.confidence,
-            report.timestamp, report.round, report.sourcesHash
-        ));
+        bytes32 reportHash = keccak256(
+            abi.encodePacked(
+                report.feedId, report.price, report.confidence, report.timestamp, report.round, report.sourcesHash
+            )
+        );
 
         bytes[] memory signatures = new bytes[](2);
         for (uint256 i = 0; i < 2; i++) {
-            (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-                signerPks[i],
-                keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", reportHash))
-            );
+            (uint8 v, bytes32 r, bytes32 s) =
+                vm.sign(signerPks[i], keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", reportHash)));
             signatures[i] = abi.encodePacked(r, s, v);
         }
 
-        IReportVerifier.ReportSubmission memory submission = IReportVerifier.ReportSubmission({
-            report: report,
-            signatures: signatures
-        });
+        IReportVerifier.ReportSubmission memory submission =
+            IReportVerifier.ReportSubmission({report: report, signatures: signatures});
 
         vm.prank(owner);
         verifier.submitReport(submission);
     }
 }
-

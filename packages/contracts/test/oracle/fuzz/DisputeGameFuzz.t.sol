@@ -36,20 +36,22 @@ contract DisputeGameFuzzTest is Test {
         verifier = new ReportVerifier(address(registry), address(0), owner);
         disputeGame = new DisputeGame(address(verifier), address(registry), owner);
 
-        feedId = registry.createFeed(IFeedRegistry.FeedCreateParams({
-            symbol: "ETH-USD",
-            baseToken: address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2),
-            quoteToken: address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48),
-            decimals: 8,
-            heartbeatSeconds: 3600,
-            twapWindowSeconds: 1800,
-            minLiquidityUSD: 100_000 ether,
-            maxDeviationBps: 100,
-            minOracles: 3,
-            quorumThreshold: 2,
-            requiresConfidence: true,
-            category: IFeedRegistry.FeedCategory.SPOT_PRICE
-        }));
+        feedId = registry.createFeed(
+            IFeedRegistry.FeedCreateParams({
+                symbol: "ETH-USD",
+                baseToken: address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2),
+                quoteToken: address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48),
+                decimals: 8,
+                heartbeatSeconds: 3600,
+                twapWindowSeconds: 1800,
+                minLiquidityUSD: 100_000 ether,
+                maxDeviationBps: 100,
+                minOracles: 3,
+                quorumThreshold: 2,
+                requiresConfidence: true,
+                category: IFeedRegistry.FeedCategory.SPOT_PRICE
+            })
+        );
         vm.stopPrank();
 
         // Submit initial report
@@ -70,23 +72,15 @@ contract DisputeGameFuzzTest is Test {
         vm.prank(disputer);
 
         if (bondAmount < minBond) {
-            vm.expectRevert(abi.encodeWithSelector(
-                IDisputeGame.InsufficientBond.selector,
-                bondAmount,
-                minBond
-            ));
+            vm.expectRevert(abi.encodeWithSelector(IDisputeGame.InsufficientBond.selector, bondAmount, minBond));
             disputeGame.openDispute{value: bondAmount}(
-                reportHash,
-                IDisputeGame.DisputeReason.PRICE_DEVIATION,
-                keccak256("evidence")
+                reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
             );
         } else {
             bytes32 disputeId = disputeGame.openDispute{value: bondAmount}(
-                reportHash,
-                IDisputeGame.DisputeReason.PRICE_DEVIATION,
-                keccak256("evidence")
+                reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
             );
-            
+
             IDisputeGame.Dispute memory dispute = disputeGame.getDispute(disputeId);
             assertEq(dispute.bond, bondAmount);
         }
@@ -102,9 +96,7 @@ contract DisputeGameFuzzTest is Test {
 
         vm.prank(disputer);
         bytes32 disputeId = disputeGame.openDispute{value: totalBond}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("evidence")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
         );
 
         IDisputeGame.Dispute memory dispute = disputeGame.getDispute(disputeId);
@@ -121,9 +113,7 @@ contract DisputeGameFuzzTest is Test {
 
         vm.prank(disputer);
         bytes32 disputeId = disputeGame.openDispute{value: disputeBond}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("evidence")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
         );
 
         // Challenge
@@ -134,11 +124,7 @@ contract DisputeGameFuzzTest is Test {
         vm.prank(challenger);
 
         if (challengeBond < disputeBond) {
-            vm.expectRevert(abi.encodeWithSelector(
-                IDisputeGame.InsufficientBond.selector,
-                challengeBond,
-                disputeBond
-            ));
+            vm.expectRevert(abi.encodeWithSelector(IDisputeGame.InsufficientBond.selector, challengeBond, disputeBond));
             disputeGame.challengeDispute{value: challengeBond}(disputeId);
         } else {
             disputeGame.challengeDispute{value: challengeBond}(disputeId);
@@ -159,9 +145,7 @@ contract DisputeGameFuzzTest is Test {
 
         vm.prank(disputer);
         bytes32 disputeId = disputeGame.openDispute{value: 100 ether}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("evidence")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
         );
 
         vm.warp(block.timestamp + timePassed);
@@ -173,10 +157,7 @@ contract DisputeGameFuzzTest is Test {
 
         // Challenge window is 24 hours
         if (timePassed > 24 hours) {
-            vm.expectRevert(abi.encodeWithSelector(
-                IDisputeGame.ChallengeWindowClosed.selector,
-                disputeId
-            ));
+            vm.expectRevert(abi.encodeWithSelector(IDisputeGame.ChallengeWindowClosed.selector, disputeId));
             disputeGame.challengeDispute{value: 100 ether}(disputeId);
         } else {
             disputeGame.challengeDispute{value: 100 ether}(disputeId);
@@ -193,9 +174,7 @@ contract DisputeGameFuzzTest is Test {
 
         vm.prank(disputer);
         bytes32 disputeId = disputeGame.openDispute{value: 100 ether}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("evidence")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
         );
 
         IDisputeGame.Dispute memory dispute = disputeGame.getDispute(disputeId);
@@ -209,7 +188,7 @@ contract DisputeGameFuzzTest is Test {
         } else {
             uint256 disputerBalanceBefore = disputer.balance;
             disputeGame.expireDispute(disputeId);
-            
+
             // Disputer should get bond back
             assertGt(disputer.balance, disputerBalanceBefore);
         }
@@ -228,20 +207,13 @@ contract DisputeGameFuzzTest is Test {
 
             if (i == 0) {
                 bytes32 disputeId = disputeGame.openDispute{value: 100 ether}(
-                    reportHash,
-                    IDisputeGame.DisputeReason.PRICE_DEVIATION,
-                    keccak256("evidence")
+                    reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
                 );
                 assertTrue(disputeId != bytes32(0));
             } else {
-                vm.expectRevert(abi.encodeWithSelector(
-                    IDisputeGame.DisputeAlreadyExists.selector,
-                    reportHash
-                ));
+                vm.expectRevert(abi.encodeWithSelector(IDisputeGame.DisputeAlreadyExists.selector, reportHash));
                 disputeGame.openDispute{value: 100 ether}(
-                    reportHash,
-                    IDisputeGame.DisputeReason.PRICE_DEVIATION,
-                    keccak256("evidence")
+                    reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
                 );
             }
         }
@@ -256,20 +228,22 @@ contract DisputeGameFuzzTest is Test {
         // Create separate feeds to allow independent disputes
         for (uint256 i = 0; i < disputeCount; i++) {
             vm.prank(owner);
-            feedIds[i] = registry.createFeed(IFeedRegistry.FeedCreateParams({
-                symbol: string(abi.encodePacked("MULTI-", vm.toString(i))),
-                baseToken: address(uint160(0x7000 + i)),
-                quoteToken: address(uint160(0x8000 + i)),
-                decimals: 8,
-                heartbeatSeconds: 3600,
-                twapWindowSeconds: 1800,
-                minLiquidityUSD: 100_000 ether,
-                maxDeviationBps: 100,
-                minOracles: 3,
-                quorumThreshold: 2,
-                requiresConfidence: true,
-                category: IFeedRegistry.FeedCategory.SPOT_PRICE
-            }));
+            feedIds[i] = registry.createFeed(
+                IFeedRegistry.FeedCreateParams({
+                    symbol: string(abi.encodePacked("MULTI-", vm.toString(i))),
+                    baseToken: address(uint160(0x7000 + i)),
+                    quoteToken: address(uint160(0x8000 + i)),
+                    decimals: 8,
+                    heartbeatSeconds: 3600,
+                    twapWindowSeconds: 1800,
+                    minLiquidityUSD: 100_000 ether,
+                    maxDeviationBps: 100,
+                    minOracles: 3,
+                    quorumThreshold: 2,
+                    requiresConfidence: true,
+                    category: IFeedRegistry.FeedCategory.SPOT_PRICE
+                })
+            );
 
             // Submit report for each feed
             vm.warp(block.timestamp + 60);
@@ -282,17 +256,16 @@ contract DisputeGameFuzzTest is Test {
                 sourcesHash: keccak256(abi.encodePacked("multi", i))
             });
 
-            bytes32 hash = keccak256(abi.encodePacked(
-                report.feedId, report.price, report.confidence,
-                report.timestamp, report.round, report.sourcesHash
-            ));
+            bytes32 hash = keccak256(
+                abi.encodePacked(
+                    report.feedId, report.price, report.confidence, report.timestamp, report.round, report.sourcesHash
+                )
+            );
 
             bytes[] memory sigs = new bytes[](2);
             for (uint256 j = 0; j < 2; j++) {
-                (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-                    signerPks[j],
-                    keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash))
-                );
+                (uint8 v, bytes32 r, bytes32 s) =
+                    vm.sign(signerPks[j], keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash)));
                 sigs[j] = abi.encodePacked(r, s, v);
             }
 
@@ -305,9 +278,7 @@ contract DisputeGameFuzzTest is Test {
             vm.deal(disputer, 200 ether);
             vm.prank(disputer);
             disputeGame.openDispute{value: 100 ether}(
-                reportHashes[i],
-                IDisputeGame.DisputeReason.PRICE_DEVIATION,
-                keccak256(abi.encodePacked("ev", i))
+                reportHashes[i], IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256(abi.encodePacked("ev", i))
             );
         }
 
@@ -323,9 +294,7 @@ contract DisputeGameFuzzTest is Test {
 
         vm.prank(disputer);
         bytes32 disputeId = disputeGame.openDispute{value: 100 ether}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("evidence")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
         );
 
         uint256 disputerBalanceBefore = disputer.balance;
@@ -365,11 +334,7 @@ contract DisputeGameFuzzTest is Test {
         vm.deal(disputer, 200 ether);
 
         vm.prank(disputer);
-        bytes32 disputeId = disputeGame.openDispute{value: 100 ether}(
-            newReportHash,
-            reason,
-            keccak256("evidence")
-        );
+        bytes32 disputeId = disputeGame.openDispute{value: 100 ether}(newReportHash, reason, keccak256("evidence"));
 
         IDisputeGame.Dispute memory dispute = disputeGame.getDispute(disputeId);
         assertEq(uint8(dispute.reason), reasonRaw);
@@ -387,9 +352,7 @@ contract DisputeGameFuzzTest is Test {
 
         vm.prank(disputer);
         bytes32 disputeId = disputeGame.openDispute{value: bondAmount}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("evidence")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
         );
 
         uint256 afterOpenBalance = disputer.balance;
@@ -425,30 +388,25 @@ contract DisputeGameFuzzTest is Test {
             sourcesHash: keccak256(abi.encodePacked("sources", round))
         });
 
-        bytes32 hash = keccak256(abi.encodePacked(
-            report.feedId, report.price, report.confidence,
-            report.timestamp, report.round, report.sourcesHash
-        ));
+        bytes32 hash = keccak256(
+            abi.encodePacked(
+                report.feedId, report.price, report.confidence, report.timestamp, report.round, report.sourcesHash
+            )
+        );
 
         bytes[] memory signatures = new bytes[](2);
         for (uint256 i = 0; i < 2; i++) {
-            (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-                signerPks[i],
-                keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash))
-            );
+            (uint8 v, bytes32 r, bytes32 s) =
+                vm.sign(signerPks[i], keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash)));
             signatures[i] = abi.encodePacked(r, s, v);
         }
 
-        IReportVerifier.ReportSubmission memory submission = IReportVerifier.ReportSubmission({
-            report: report,
-            signatures: signatures
-        });
+        IReportVerifier.ReportSubmission memory submission =
+            IReportVerifier.ReportSubmission({report: report, signatures: signatures});
 
         vm.prank(owner);
         verifier.submitReport(submission);
 
         return hash;
     }
-
 }
-

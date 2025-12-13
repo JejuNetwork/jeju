@@ -129,7 +129,7 @@ export class LockManager {
       // Another process beat us - small delay and retry
       if (attempt < MAX_ACQUIRE_ATTEMPTS - 1) {
         const delay = 50 + Math.random() * 100;
-        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delay);
+        await new Promise(r => setTimeout(r, delay));
       }
     }
 
@@ -138,6 +138,11 @@ export class LockManager {
 
   private tryAtomicCreate(metadata: LockMetadata): boolean {
     try {
+      // Ensure directory exists (lockPath might be just filename or full path)
+      const lockDir = join(this.lockPath, '..');
+      if (lockDir !== this.lockPath && !existsSync(lockDir)) {
+        mkdirSync(lockDir, { recursive: true });
+      }
       writeFileSync(this.lockPath, JSON.stringify(metadata, null, 2), { flag: 'wx' });
       return true;
     } catch (e) {
@@ -149,6 +154,11 @@ export class LockManager {
   private tryAtomicReplace(metadata: LockMetadata): boolean {
     const tempPath = `${this.lockPath}.${randomBytes(8).toString('hex')}`;
     try {
+      // Ensure directory exists
+      const lockDir = join(this.lockPath, '..');
+      if (lockDir !== this.lockPath && !existsSync(lockDir)) {
+        mkdirSync(lockDir, { recursive: true });
+      }
       writeFileSync(tempPath, JSON.stringify(metadata, null, 2));
       // Atomic rename - if lock was modified by another process, this still works
       // but we verify ownership after

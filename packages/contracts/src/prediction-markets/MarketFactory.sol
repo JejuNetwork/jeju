@@ -12,6 +12,7 @@ interface IPredimarket {
         HYPERSCAPE,
         CUSTOM
     }
+
     function createMarket(bytes32 sessionId, string calldata question, uint256 liquidityParameter) external;
     function createMarketWithType(
         bytes32 sessionId,

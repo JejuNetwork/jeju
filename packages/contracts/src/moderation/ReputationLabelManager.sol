@@ -169,7 +169,9 @@ contract ReputationLabelManager is Ownable, Pausable, ReentrancyGuard {
 
     // ============ Constructor ============
 
-    constructor(address _banManager, address _predimarket, address _governance, address initialOwner) Ownable(initialOwner) {
+    constructor(address _banManager, address _predimarket, address _governance, address initialOwner)
+        Ownable(initialOwner)
+    {
         require(_banManager != address(0), "Invalid BanManager");
         require(_predimarket != address(0), "Invalid Predimarket");
         require(_governance != address(0), "Invalid governance");

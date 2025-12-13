@@ -64,7 +64,7 @@ contract XLPV3ComprehensiveTest is Test, IXLPV3MintCallback, IXLPV3SwapCallback,
         testTicks[5] = 60000;
         testTicks[6] = 887220;
 
-        for (uint i = 0; i < testTicks.length; i++) {
+        for (uint256 i = 0; i < testTicks.length; i++) {
             int24 tick = testTicks[i];
             uint160 sqrtPrice = TickMath.getSqrtRatioAtTick(tick);
             int24 recoveredTick = TickMath.getTickAtSqrtRatio(sqrtPrice);
@@ -98,31 +98,25 @@ contract XLPV3ComprehensiveTest is Test, IXLPV3MintCallback, IXLPV3SwapCallback,
         uint128 liquidityAmount = 1000000000000000;
 
         // Mint full range
-        (uint256 fullAmount0, uint256 fullAmount1) = XLPV3Pool(pool).mint(
-            alice,
-            fullRangeLower,
-            fullRangeUpper,
-            liquidityAmount,
-            ""
-        );
+        (uint256 fullAmount0, uint256 fullAmount1) =
+            XLPV3Pool(pool).mint(alice, fullRangeLower, fullRangeUpper, liquidityAmount, "");
 
         // Reset pool for fair comparison
         pool = factory.createPool(address(tokenA), address(tokenB), 500);
         XLPV3Pool(pool).initialize(SQRT_PRICE_1_1);
 
         // Mint narrow range with same liquidity
-        (uint256 narrowAmount0, uint256 narrowAmount1) = XLPV3Pool(pool).mint(
-            bob,
-            narrowLower,
-            narrowUpper,
-            liquidityAmount,
-            ""
-        );
+        (uint256 narrowAmount0, uint256 narrowAmount1) =
+            XLPV3Pool(pool).mint(bob, narrowLower, narrowUpper, liquidityAmount, "");
 
         // Narrow range should require LESS capital for same liquidity
         console.log("Full range capital:", fullAmount0 + fullAmount1);
         console.log("Narrow range capital:", narrowAmount0 + narrowAmount1);
-        assertLt(narrowAmount0 + narrowAmount1, fullAmount0 + fullAmount1, "Concentrated liquidity should be more capital efficient");
+        assertLt(
+            narrowAmount0 + narrowAmount1,
+            fullAmount0 + fullAmount1,
+            "Concentrated liquidity should be more capital efficient"
+        );
     }
 
     function testMultiplePositions() public {
@@ -131,14 +125,8 @@ contract XLPV3ComprehensiveTest is Test, IXLPV3MintCallback, IXLPV3SwapCallback,
         int24[3] memory upperTicks = [int24(-60), int24(120), int24(600)];
         uint128 liquidityAmount = 100000000000000;
 
-        for (uint i = 0; i < 3; i++) {
-            XLPV3Pool(pool).mint(
-                address(this),
-                lowerTicks[i],
-                upperTicks[i],
-                liquidityAmount,
-                ""
-            );
+        for (uint256 i = 0; i < 3; i++) {
+            XLPV3Pool(pool).mint(address(this), lowerTicks[i], upperTicks[i], liquidityAmount, "");
         }
 
         // Pool should have liquidity from position that includes current tick (tick 0)
@@ -174,7 +162,7 @@ contract XLPV3ComprehensiveTest is Test, IXLPV3MintCallback, IXLPV3SwapCallback,
         assertGt(amount0, 0, "Should have spent token0");
         assertLt(amount1, 0, "Should have received token1");
 
-        (,int24 newTick,,,,,) = XLPV3Pool(pool).slot0();
+        (, int24 newTick,,,,,) = XLPV3Pool(pool).slot0();
         assertLt(newTick, 0, "Price should have moved down");
     }
 
@@ -192,7 +180,7 @@ contract XLPV3ComprehensiveTest is Test, IXLPV3MintCallback, IXLPV3SwapCallback,
         uint256 feeGrowth1Before = XLPV3Pool(pool).feeGrowthGlobal1X128();
 
         // Do swaps in both directions
-        for (uint i = 0; i < 10; i++) {
+        for (uint256 i = 0; i < 10; i++) {
             // Swap token0 -> token1
             XLPV3Pool(pool).swap(address(this), true, int256(1 ether), TickMath.MIN_SQRT_RATIO + 1, "");
             // Swap token1 -> token0
@@ -219,7 +207,7 @@ contract XLPV3ComprehensiveTest is Test, IXLPV3MintCallback, IXLPV3SwapCallback,
         XLPV3Pool(pool).mint(address(this), tickLower, tickUpper, liquidityAmount, "");
 
         // Generate fees through swaps - alternate directions
-        for (uint i = 0; i < 3; i++) {
+        for (uint256 i = 0; i < 3; i++) {
             XLPV3Pool(pool).swap(address(this), true, int256(0.01 ether), TickMath.MIN_SQRT_RATIO + 1, "");
             XLPV3Pool(pool).swap(address(this), false, int256(0.01 ether), TickMath.MAX_SQRT_RATIO - 1, "");
         }
@@ -229,13 +217,8 @@ contract XLPV3ComprehensiveTest is Test, IXLPV3MintCallback, IXLPV3SwapCallback,
 
         // Collect fees
         uint256 balance0Before = tokenA.balanceOf(address(this));
-        (uint128 collected0,) = XLPV3Pool(pool).collect(
-            address(this),
-            tickLower,
-            tickUpper,
-            type(uint128).max,
-            type(uint128).max
-        );
+        (uint128 collected0,) =
+            XLPV3Pool(pool).collect(address(this), tickLower, tickUpper, type(uint128).max, type(uint128).max);
 
         assertGt(collected0, 0, "Should collect token0 fees");
         assertEq(tokenA.balanceOf(address(this)), balance0Before + collected0);
@@ -283,7 +266,7 @@ contract XLPV3ComprehensiveTest is Test, IXLPV3MintCallback, IXLPV3SwapCallback,
         XLPV3Pool(pool).mint(address(this), -887220, 887220, 100000000000000000, "");
 
         // Do swaps to generate fees
-        for (uint i = 0; i < 10; i++) {
+        for (uint256 i = 0; i < 10; i++) {
             XLPV3Pool(pool).swap(address(this), true, int256(1 ether), TickMath.MIN_SQRT_RATIO + 1, "");
         }
 
@@ -311,13 +294,7 @@ contract XLPV3ComprehensiveTest is Test, IXLPV3MintCallback, IXLPV3SwapCallback,
         if (tickLower >= tickUpper) return;
 
         // Mint
-        (uint256 amount0, uint256 amount1) = XLPV3Pool(pool).mint(
-            address(this),
-            tickLower,
-            tickUpper,
-            liquidity,
-            ""
-        );
+        (uint256 amount0, uint256 amount1) = XLPV3Pool(pool).mint(address(this), tickLower, tickUpper, liquidity, "");
 
         // Verify amounts are reasonable
         if (amount0 > 0 || amount1 > 0) {
@@ -336,7 +313,7 @@ contract XLPV3ComprehensiveTest is Test, IXLPV3MintCallback, IXLPV3SwapCallback,
 
         swapAmount = uint96(bound(swapAmount, 0.001 ether, 10 ether));
 
-        (uint160 sqrtPriceBefore,,,,,, ) = XLPV3Pool(pool).slot0();
+        (uint160 sqrtPriceBefore,,,,,,) = XLPV3Pool(pool).slot0();
 
         // Execute swap
         (int256 amount0, int256 amount1) = XLPV3Pool(pool).swap(
@@ -347,7 +324,7 @@ contract XLPV3ComprehensiveTest is Test, IXLPV3MintCallback, IXLPV3SwapCallback,
             ""
         );
 
-        (uint160 sqrtPriceAfter,,,,,, ) = XLPV3Pool(pool).slot0();
+        (uint160 sqrtPriceAfter,,,,,,) = XLPV3Pool(pool).slot0();
 
         // Verify price moved in expected direction
         if (zeroForOne) {
@@ -373,7 +350,7 @@ contract XLPV3ComprehensiveTest is Test, IXLPV3MintCallback, IXLPV3SwapCallback,
         uint256 totalVolume1;
 
         // Simulate 50 blocks of trading
-        for (uint i = 0; i < 50; i++) {
+        for (uint256 i = 0; i < 50; i++) {
             vm.roll(block.number + 1);
             vm.warp(block.timestamp + 12);
 
@@ -415,7 +392,7 @@ contract XLPV3ComprehensiveTest is Test, IXLPV3MintCallback, IXLPV3SwapCallback,
         uint24[3] memory fees = [uint24(500), uint24(3000), uint24(10000)];
         int24[3] memory expectedTickSpacing = [int24(10), int24(60), int24(200)];
 
-        for (uint i = 0; i < fees.length; i++) {
+        for (uint256 i = 0; i < fees.length; i++) {
             address tierPool = factory.createPool(address(tokenX), address(tokenY), fees[i]);
             XLPV3Pool(tierPool).initialize(SQRT_PRICE_1_1);
 

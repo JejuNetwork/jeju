@@ -43,20 +43,22 @@ contract EconomicSimulationTest is Test {
         disputeGame = new DisputeGame(address(verifier), address(registry), owner);
         feeRouter = new OracleFeeRouter(address(registry), owner);
 
-        feedId = registry.createFeed(IFeedRegistry.FeedCreateParams({
-            symbol: "ETH-USD",
-            baseToken: address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2),
-            quoteToken: address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48),
-            decimals: 8,
-            heartbeatSeconds: 3600,
-            twapWindowSeconds: 1800,
-            minLiquidityUSD: 100_000 ether,
-            maxDeviationBps: 100,
-            minOracles: 3,
-            quorumThreshold: 2,
-            requiresConfidence: true,
-            category: IFeedRegistry.FeedCategory.SPOT_PRICE
-        }));
+        feedId = registry.createFeed(
+            IFeedRegistry.FeedCreateParams({
+                symbol: "ETH-USD",
+                baseToken: address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2),
+                quoteToken: address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48),
+                decimals: 8,
+                heartbeatSeconds: 3600,
+                twapWindowSeconds: 1800,
+                minLiquidityUSD: 100_000 ether,
+                maxDeviationBps: 100,
+                minOracles: 3,
+                quorumThreshold: 2,
+                requiresConfidence: true,
+                category: IFeedRegistry.FeedCategory.SPOT_PRICE
+            })
+        );
         vm.stopPrank();
     }
 
@@ -126,9 +128,7 @@ contract EconomicSimulationTest is Test {
 
         vm.prank(honestDisputer);
         bytes32 disputeId = disputeGame.openDispute{value: minBond}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("honest")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("honest")
         );
 
         uint256 balanceBeforeResolve = honestDisputer.balance;
@@ -163,9 +163,7 @@ contract EconomicSimulationTest is Test {
 
         vm.prank(frivolousDisputer);
         bytes32 disputeId = disputeGame.openDispute{value: minBond}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("frivolous")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("frivolous")
         );
 
         // Resolve against disputer (report was valid)
@@ -240,9 +238,8 @@ contract EconomicSimulationTest is Test {
         uint256 probIncorrect = 1; // 0.1% mistakes
 
         // EV = p(correct) * reward - p(incorrect) * slash - cost
-        int256 ev = int256((probCorrect * rewardPerReport) / 1000) -
-                    int256((probIncorrect * slashAmount) / 1000) -
-                    int256(costPerReport);
+        int256 ev = int256((probCorrect * rewardPerReport) / 1000) - int256((probIncorrect * slashAmount) / 1000)
+            - int256(costPerReport);
 
         console2.log("Cost per report:", costPerReport);
         console2.log("Reward per report:", rewardPerReport);
@@ -264,7 +261,7 @@ contract EconomicSimulationTest is Test {
     function test_AttackEconomics() public pure {
         // Scenario: Attacker wants to manipulate price for a DeFi exploit
         // This models the economic security requirements
-        
+
         uint256 protocolTVL = 100_000_000 ether; // $100M TVL
         uint256 maxExploitPercent = 500; // 5% of TVL extractable (in basis points)
         uint256 potentialGain = (protocolTVL * maxExploitPercent) / 10000;
@@ -354,29 +351,25 @@ contract EconomicSimulationTest is Test {
             sourcesHash: keccak256(abi.encodePacked("econ", round))
         });
 
-        bytes32 reportHash = keccak256(abi.encodePacked(
-            report.feedId, report.price, report.confidence,
-            report.timestamp, report.round, report.sourcesHash
-        ));
+        bytes32 reportHash = keccak256(
+            abi.encodePacked(
+                report.feedId, report.price, report.confidence, report.timestamp, report.round, report.sourcesHash
+            )
+        );
 
         bytes[] memory signatures = new bytes[](2);
         for (uint256 i = 0; i < 2; i++) {
-            (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-                signerPks[i],
-                keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", reportHash))
-            );
+            (uint8 v, bytes32 r, bytes32 s) =
+                vm.sign(signerPks[i], keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", reportHash)));
             signatures[i] = abi.encodePacked(r, s, v);
         }
 
-        IReportVerifier.ReportSubmission memory submission = IReportVerifier.ReportSubmission({
-            report: report,
-            signatures: signatures
-        });
+        IReportVerifier.ReportSubmission memory submission =
+            IReportVerifier.ReportSubmission({report: report, signatures: signatures});
 
         vm.prank(owner);
         verifier.submitReport(submission);
 
         return reportHash;
     }
-
 }

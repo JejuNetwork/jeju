@@ -61,9 +61,7 @@ contract MockReputationRegistry {
         reputationScores[agentId] = score;
     }
 
-    function getSummary(uint256 agentId, address[] calldata, bytes32, bytes32) 
-        external view returns (uint64, uint8) 
-    {
+    function getSummary(uint256 agentId, address[] calldata, bytes32, bytes32) external view returns (uint64, uint8) {
         return (10, reputationScores[agentId] > 0 ? reputationScores[agentId] : 75);
     }
 }
@@ -97,7 +95,7 @@ contract BlockBuilderMarketplaceTest is Test {
         // Register agents
         vm.prank(builder1);
         agentId1 = identityRegistry.createAgent(builder1);
-        
+
         vm.prank(builder2);
         agentId2 = identityRegistry.createAgent(builder2);
 
@@ -108,11 +106,7 @@ contract BlockBuilderMarketplaceTest is Test {
         // Deploy marketplace
         vm.prank(admin);
         marketplace = new BlockBuilderMarketplace(
-            address(identityRegistry),
-            address(reputationRegistry),
-            treasuryAddr,
-            sequencer,
-            admin
+            address(identityRegistry), address(reputationRegistry), treasuryAddr, sequencer, admin
         );
 
         // Fund builders
@@ -133,7 +127,13 @@ contract BlockBuilderMarketplaceTest is Test {
             address owner,
             BlockBuilderMarketplace.AccessTier tier,
             uint256 stakeAmount,
-            ,,,,,,, // 7 skipped: submitted, included, failed, feePaid, slashed, registeredAt, lastActivityAt
+            ,
+            ,
+            ,
+            ,
+            ,
+            ,
+            , // 7 skipped: submitted, included, failed, feePaid, slashed, registeredAt, lastActivityAt
             bool isActive,
             // isSlashed
         ) = marketplace.builders(agentId1);
@@ -178,7 +178,7 @@ contract BlockBuilderMarketplaceTest is Test {
         marketplace.increaseStake{value: SILVER_STAKE}(agentId1);
         vm.stopPrank();
 
-        (,,, uint256 stakeAmount,,,,,,,,, ) = marketplace.builders(agentId1);
+        (,,, uint256 stakeAmount,,,,,,,,,) = marketplace.builders(agentId1);
         assertEq(stakeAmount, BRONZE_STAKE + SILVER_STAKE);
     }
 
@@ -216,12 +216,7 @@ contract BlockBuilderMarketplaceTest is Test {
         uint256 targetBlock = block.number + 1;
         uint256 bid = 0.1 ether;
 
-        bytes32 bundleId = marketplace.submitBundle{value: bid}(
-            agentId1,
-            targetBlock,
-            bundleHash,
-            100 gwei
-        );
+        bytes32 bundleId = marketplace.submitBundle{value: bid}(agentId1, targetBlock, bundleHash, 100 gwei);
         vm.stopPrank();
 
         assertTrue(bundleId != bytes32(0));
@@ -248,12 +243,7 @@ contract BlockBuilderMarketplaceTest is Test {
     function testRevert_SubmitBundle_NotRegistered() public {
         vm.prank(builder1);
         vm.expectRevert(BlockBuilderMarketplace.BuilderNotRegistered.selector);
-        marketplace.submitBundle{value: 0.1 ether}(
-            agentId1,
-            block.number + 1,
-            keccak256("test"),
-            100 gwei
-        );
+        marketplace.submitBundle{value: 0.1 ether}(agentId1, block.number + 1, keccak256("test"), 100 gwei);
     }
 
     function testRevert_SubmitBundle_InsufficientBid() public {
@@ -262,11 +252,7 @@ contract BlockBuilderMarketplaceTest is Test {
 
         vm.expectRevert(BlockBuilderMarketplace.InvalidBid.selector);
         marketplace.submitBundle{value: 0.0001 ether}( // Below MIN_BUNDLE_BID
-            agentId1,
-            block.number + 1,
-            keccak256("test"),
-            100 gwei
-        );
+        agentId1, block.number + 1, keccak256("test"), 100 gwei);
         vm.stopPrank();
     }
 
@@ -293,16 +279,11 @@ contract BlockBuilderMarketplaceTest is Test {
         marketplace.registerBuilder{value: GOLD_STAKE}(agentId1);
 
         uint256 bid = 0.1 ether;
-        bytes32 bundleId = marketplace.submitBundle{value: bid}(
-            agentId1,
-            block.number + 1,
-            keccak256("test"),
-            100 gwei
-        );
+        bytes32 bundleId = marketplace.submitBundle{value: bid}(agentId1, block.number + 1, keccak256("test"), 100 gwei);
         vm.stopPrank();
 
         bytes32 inclusionTxHash = keccak256("inclusion tx");
-        
+
         vm.prank(sequencer);
         marketplace.markBundleIncluded(bundleId, inclusionTxHash);
 
@@ -312,7 +293,7 @@ contract BlockBuilderMarketplaceTest is Test {
         assertEq(txHash, inclusionTxHash);
 
         // Check builder stats updated
-        (,,,, uint256 submitted, uint256 included,,,,,,, ) = marketplace.builders(agentId1);
+        (,,,, uint256 submitted, uint256 included,,,,,,,) = marketplace.builders(agentId1);
         assertEq(submitted, 1);
         assertEq(included, 1);
     }
@@ -321,12 +302,8 @@ contract BlockBuilderMarketplaceTest is Test {
         vm.startPrank(builder1);
         marketplace.registerBuilder{value: GOLD_STAKE}(agentId1);
 
-        bytes32 bundleId = marketplace.submitBundle{value: 0.1 ether}(
-            agentId1,
-            block.number + 1,
-            keccak256("test"),
-            100 gwei
-        );
+        bytes32 bundleId =
+            marketplace.submitBundle{value: 0.1 ether}(agentId1, block.number + 1, keccak256("test"), 100 gwei);
         vm.stopPrank();
 
         vm.prank(sequencer);
@@ -343,12 +320,8 @@ contract BlockBuilderMarketplaceTest is Test {
     function testRevert_MarkBundle_NotSequencer() public {
         vm.startPrank(builder1);
         marketplace.registerBuilder{value: GOLD_STAKE}(agentId1);
-        bytes32 bundleId = marketplace.submitBundle{value: 0.1 ether}(
-            agentId1,
-            block.number + 1,
-            keccak256("test"),
-            100 gwei
-        );
+        bytes32 bundleId =
+            marketplace.submitBundle{value: 0.1 ether}(agentId1, block.number + 1, keccak256("test"), 100 gwei);
         vm.stopPrank();
 
         vm.prank(attacker);
@@ -363,14 +336,14 @@ contract BlockBuilderMarketplaceTest is Test {
     function test_DeactivateBuilder() public {
         vm.startPrank(builder1);
         marketplace.registerBuilder{value: GOLD_STAKE}(agentId1);
-        
+
         uint256 balanceBefore = builder1.balance;
         marketplace.deactivateBuilder(agentId1);
         vm.stopPrank();
 
         (,,,,,,,,,,, bool isActive,) = marketplace.builders(agentId1);
         assertFalse(isActive);
-        
+
         // Stake refunded
         assertEq(builder1.balance, balanceBefore + GOLD_STAKE);
     }
@@ -384,20 +357,12 @@ contract BlockBuilderMarketplaceTest is Test {
         marketplace.registerBuilder{value: GOLD_STAKE}(agentId1);
 
         uint256 targetBlock = block.number + 1;
-        
-        bytes32 bundleId1 = marketplace.submitBundle{value: 0.1 ether}(
-            agentId1,
-            targetBlock,
-            keccak256("bundle1"),
-            100 gwei
-        );
-        
-        bytes32 bundleId2 = marketplace.submitBundle{value: 0.2 ether}(
-            agentId1,
-            targetBlock,
-            keccak256("bundle2"),
-            100 gwei
-        );
+
+        bytes32 bundleId1 =
+            marketplace.submitBundle{value: 0.1 ether}(agentId1, targetBlock, keccak256("bundle1"), 100 gwei);
+
+        bytes32 bundleId2 =
+            marketplace.submitBundle{value: 0.2 ether}(agentId1, targetBlock, keccak256("bundle2"), 100 gwei);
         vm.stopPrank();
 
         bytes32[] memory bundleIds = marketplace.getBundlesForBlock(targetBlock);
@@ -442,17 +407,13 @@ contract BlockBuilderMarketplaceTest is Test {
 
     function testFuzz_SubmitBundle(uint96 bidAmount) public {
         vm.assume(bidAmount >= MIN_BID && bidAmount <= 10 ether);
-        
+
         vm.startPrank(builder1);
         vm.deal(builder1, GOLD_STAKE + bidAmount);
         marketplace.registerBuilder{value: GOLD_STAKE}(agentId1);
 
-        bytes32 bundleId = marketplace.submitBundle{value: bidAmount}(
-            agentId1,
-            block.number + 1,
-            keccak256("test"),
-            100 gwei
-        );
+        bytes32 bundleId =
+            marketplace.submitBundle{value: bidAmount}(agentId1, block.number + 1, keccak256("test"), 100 gwei);
         vm.stopPrank();
 
         (,,, uint256 bid,,,,,) = marketplace.bundles(bundleId);

@@ -13,11 +13,7 @@ import {IPerpetualMarket, IMarginManager, IInsuranceFund} from "./interfaces/IPe
  * @notice Interface for price feed aggregator
  */
 interface IPriceFeedAggregator {
-    function getPrice(string calldata asset) external view returns (
-        uint256 price,
-        uint256 timestamp,
-        bool isValid
-    );
+    function getPrice(string calldata asset) external view returns (uint256 price, uint256 timestamp, bool isValid);
 }
 
 /**
@@ -27,15 +23,13 @@ interface IPriceFeedAggregator {
 contract PerpetualMarket is IPerpetualMarket, Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-
     uint256 public constant BPS_DENOMINATOR = 10000;
-    uint256 public constant PRICE_PRECISION = 1e8;    // 8 decimal prices
+    uint256 public constant PRICE_PRECISION = 1e8; // 8 decimal prices
     uint256 public constant FUNDING_PRECISION = 1e18;
     uint256 public constant FUNDING_INTERVAL = 8 hours;
-    uint256 public constant MAX_FUNDING_RATE = 1e16;  // 1% per 8 hours max
+    uint256 public constant MAX_FUNDING_RATE = 1e16; // 1% per 8 hours max
     uint256 public constant LIQUIDATION_FEE_BPS = 500; // 5% to liquidators
-    uint256 public constant INSURANCE_FEE_BPS = 200;   // 2% to insurance fund
-
+    uint256 public constant INSURANCE_FEE_BPS = 200; // 2% to insurance fund
 
     IMarginManager public marginManager;
     IPriceFeedAggregator public priceFeed;
@@ -61,7 +55,6 @@ contract PerpetualMarket is IPerpetualMarket, Ownable, Pausable, ReentrancyGuard
     mapping(bytes32 => uint256) public markPriceTWAP;
     mapping(bytes32 => uint256) public lastMarkUpdate;
 
-
     error MarketNotFound();
     error MarketNotActive();
     error MarketAlreadyExists();
@@ -77,7 +70,6 @@ contract PerpetualMarket is IPerpetualMarket, Ownable, Pausable, ReentrancyGuard
     error InvalidAmount();
     error FundingNotDue();
 
-
     constructor(
         address _marginManager,
         address _priceFeed,
@@ -90,7 +82,6 @@ contract PerpetualMarket is IPerpetualMarket, Ownable, Pausable, ReentrancyGuard
         insuranceFund = IInsuranceFund(_insuranceFund);
         feeReceiver = _feeReceiver;
     }
-
 
     function openPosition(
         bytes32 marketId,
@@ -114,9 +105,8 @@ contract PerpetualMarket is IPerpetualMarket, Ownable, Pausable, ReentrancyGuard
         if (marginAmount < requiredMargin) revert InsufficientMargin();
 
         // Check open interest limits
-        uint256 newOI = side == PositionSide.Long
-            ? longOpenInterest[marketId] + size
-            : shortOpenInterest[marketId] + size;
+        uint256 newOI =
+            side == PositionSide.Long ? longOpenInterest[marketId] + size : shortOpenInterest[marketId] + size;
         if (newOI > market.maxOpenInterest) revert ExceedsMaxOpenInterest();
 
         // Generate position ID
@@ -166,33 +156,20 @@ contract PerpetualMarket is IPerpetualMarket, Ownable, Pausable, ReentrancyGuard
         // Update mark price
         _updateMarkPrice(marketId, indexPrice);
 
-        result = TradeResult({
-            positionId: positionId,
-            executionPrice: indexPrice,
-            fee: fee,
-            realizedPnl: 0,
-            fundingPaid: 0
-        });
+        result =
+            TradeResult({positionId: positionId, executionPrice: indexPrice, fee: fee, realizedPnl: 0, fundingPaid: 0});
 
-        emit PositionOpened(
-            positionId,
-            msg.sender,
-            marketId,
-            side,
-            size,
-            marginAmount - fee,
-            indexPrice,
-            leverage
-        );
+        emit PositionOpened(positionId, msg.sender, marketId, side, size, marginAmount - fee, indexPrice, leverage);
 
         emit TradeFeeCollected(positionId, msg.sender, fee, marginToken);
     }
 
-    function increasePosition(
-        bytes32 positionId,
-        uint256 additionalMargin,
-        uint256 sizeIncrease
-    ) external nonReentrant whenNotPaused returns (TradeResult memory result) {
+    function increasePosition(bytes32 positionId, uint256 additionalMargin, uint256 sizeIncrease)
+        external
+        nonReentrant
+        whenNotPaused
+        returns (TradeResult memory result)
+    {
         Position storage position = positions[positionId];
         if (!position.isOpen) revert PositionNotFound();
         if (position.trader != msg.sender) revert NotPositionOwner();
@@ -252,10 +229,12 @@ contract PerpetualMarket is IPerpetualMarket, Ownable, Pausable, ReentrancyGuard
         emit PositionIncreased(positionId, sizeIncrease, additionalMargin, newEntryPrice);
     }
 
-    function decreasePosition(
-        bytes32 positionId,
-        uint256 sizeDecrease
-    ) external nonReentrant whenNotPaused returns (TradeResult memory result) {
+    function decreasePosition(bytes32 positionId, uint256 sizeDecrease)
+        external
+        nonReentrant
+        whenNotPaused
+        returns (TradeResult memory result)
+    {
         Position storage position = positions[positionId];
         if (!position.isOpen) revert PositionNotFound();
         if (position.trader != msg.sender) revert NotPositionOwner();
@@ -386,12 +365,11 @@ contract PerpetualMarket is IPerpetualMarket, Ownable, Pausable, ReentrancyGuard
         emit MarginRemoved(positionId, amount, position.margin);
     }
 
-
     function liquidate(bytes32 positionId) external nonReentrant returns (uint256 liquidatorReward) {
         Position storage position = positions[positionId];
         if (!position.isOpen) revert PositionNotFound();
 
-        (bool canLiq, ) = _isLiquidatable(positionId);
+        (bool canLiq,) = _isLiquidatable(positionId);
         if (!canLiq) revert CannotLiquidate();
 
         Market storage market = markets[position.marketId];
@@ -411,20 +389,10 @@ contract PerpetualMarket is IPerpetualMarket, Ownable, Pausable, ReentrancyGuard
         marginManager.releaseMargin(position.trader, position.marginToken, position.margin);
 
         // Pay liquidator
-        marginManager.transferMargin(
-            position.trader,
-            msg.sender,
-            position.marginToken,
-            liquidatorReward
-        );
+        marginManager.transferMargin(position.trader, msg.sender, position.marginToken, liquidatorReward);
 
         // Pay insurance fund
-        marginManager.transferMargin(
-            position.trader,
-            address(insuranceFund),
-            position.marginToken,
-            insuranceFee
-        );
+        marginManager.transferMargin(position.trader, address(insuranceFund), position.marginToken, insuranceFee);
 
         // Update open interest
         if (position.side == PositionSide.Long) {
@@ -435,33 +403,20 @@ contract PerpetualMarket is IPerpetualMarket, Ownable, Pausable, ReentrancyGuard
 
         market.currentOpenInterest -= position.size;
 
-        emit PositionLiquidated(
-            positionId,
-            position.trader,
-            msg.sender,
-            position.size,
-            indexPrice,
-            liquidatorReward
-        );
+        emit PositionLiquidated(positionId, position.trader, msg.sender, position.size, indexPrice, liquidatorReward);
     }
 
-    function isLiquidatable(bytes32 positionId) external view returns (
-        bool canLiquidate,
-        uint256 healthFactor
-    ) {
+    function isLiquidatable(bytes32 positionId) external view returns (bool canLiquidate, uint256 healthFactor) {
         return _isLiquidatable(positionId);
     }
 
-    function _isLiquidatable(bytes32 positionId) internal view returns (
-        bool canLiq,
-        uint256 healthFactor
-    ) {
+    function _isLiquidatable(bytes32 positionId) internal view returns (bool canLiq, uint256 healthFactor) {
         Position storage position = positions[positionId];
         if (!position.isOpen) return (false, 0);
 
         Market storage market = markets[position.marketId];
 
-        (uint256 price, , bool isValid) = priceFeed.getPrice(market.symbol);
+        (uint256 price,, bool isValid) = priceFeed.getPrice(market.symbol);
         if (!isValid) return (false, 0);
 
         // Calculate notional and maintenance margin in margin token decimals (18)
@@ -482,7 +437,6 @@ contract PerpetualMarket is IPerpetualMarket, Ownable, Pausable, ReentrancyGuard
         canLiq = healthFactor < FUNDING_PRECISION; // < 1.0
     }
 
-
     function updateFunding(bytes32 marketId) external {
         FundingState storage funding = fundingStates[marketId];
 
@@ -494,7 +448,7 @@ contract PerpetualMarket is IPerpetualMarket, Ownable, Pausable, ReentrancyGuard
         if (!market.isActive) revert MarketNotActive();
 
         // Get prices
-        (uint256 indexPrice, , bool isValid) = priceFeed.getPrice(market.symbol);
+        (uint256 indexPrice,, bool isValid) = priceFeed.getPrice(market.symbol);
         if (!isValid) revert OraclePriceInvalid();
 
         uint256 markPrice = markPriceTWAP[marketId];
@@ -574,7 +528,6 @@ contract PerpetualMarket is IPerpetualMarket, Ownable, Pausable, ReentrancyGuard
         return fundingPaid;
     }
 
-
     function getPosition(bytes32 positionId) external view returns (Position memory) {
         return positions[positionId];
     }
@@ -591,7 +544,7 @@ contract PerpetualMarket is IPerpetualMarket, Ownable, Pausable, ReentrancyGuard
         uint256 markPrice = markPriceTWAP[marketId];
         if (markPrice == 0) {
             Market storage market = markets[marketId];
-            (uint256 price, , ) = priceFeed.getPrice(market.symbol);
+            (uint256 price,,) = priceFeed.getPrice(market.symbol);
             return price;
         }
         return markPrice;
@@ -601,14 +554,11 @@ contract PerpetualMarket is IPerpetualMarket, Ownable, Pausable, ReentrancyGuard
         return _getValidPrice(marketId);
     }
 
-    function getPositionPnl(bytes32 positionId) external view returns (
-        int256 unrealizedPnl,
-        int256 fundingPnl
-    ) {
+    function getPositionPnl(bytes32 positionId) external view returns (int256 unrealizedPnl, int256 fundingPnl) {
         Position storage position = positions[positionId];
         if (!position.isOpen) return (0, 0);
 
-        (uint256 price, , bool isValid) = priceFeed.getPrice(markets[position.marketId].symbol);
+        (uint256 price,, bool isValid) = priceFeed.getPrice(markets[position.marketId].symbol);
         if (!isValid) return (0, 0);
 
         // Return PnL scaled to 18 decimals (margin token units)
@@ -630,7 +580,7 @@ contract PerpetualMarket is IPerpetualMarket, Ownable, Pausable, ReentrancyGuard
         Position storage position = positions[positionId];
         if (!position.isOpen || position.margin == 0) return 0;
 
-        (uint256 price, , ) = priceFeed.getPrice(markets[position.marketId].symbol);
+        (uint256 price,,) = priceFeed.getPrice(markets[position.marketId].symbol);
         uint256 notionalValue = (position.size * price) / PRICE_PRECISION;
 
         return (notionalValue * PRICE_PRECISION) / position.margin;
@@ -664,19 +614,18 @@ contract PerpetualMarket is IPerpetualMarket, Ownable, Pausable, ReentrancyGuard
         }
     }
 
-
     function _getValidPrice(bytes32 marketId) internal view returns (uint256) {
         Market storage market = markets[marketId];
-        (uint256 price, , bool isValid) = priceFeed.getPrice(market.symbol);
+        (uint256 price,, bool isValid) = priceFeed.getPrice(market.symbol);
         if (!isValid || price == 0) revert OraclePriceInvalid();
         return price;
     }
 
-    function _calculatePnL(
-        Position storage position,
-        uint256 currentPrice,
-        uint256 size
-    ) internal view returns (int256) {
+    function _calculatePnL(Position storage position, uint256 currentPrice, uint256 size)
+        internal
+        view
+        returns (int256)
+    {
         int256 priceDiff = int256(currentPrice) - int256(position.entryPrice);
 
         if (position.side == PositionSide.Short) {
@@ -692,11 +641,11 @@ contract PerpetualMarket is IPerpetualMarket, Ownable, Pausable, ReentrancyGuard
      *      PnL = size * priceDiff / 1e8 gives result in 8 decimals
      *      We scale by 1e10 to get 18 decimals
      */
-    function _calculatePnLScaled(
-        Position storage position,
-        uint256 currentPrice,
-        uint256 size
-    ) internal view returns (int256) {
+    function _calculatePnLScaled(Position storage position, uint256 currentPrice, uint256 size)
+        internal
+        view
+        returns (int256)
+    {
         int256 priceDiff = int256(currentPrice) - int256(position.entryPrice);
 
         if (position.side == PositionSide.Short) {
@@ -728,7 +677,6 @@ contract PerpetualMarket is IPerpetualMarket, Ownable, Pausable, ReentrancyGuard
         return keccak256(abi.encodePacked(trader, marketId, positionCounter, block.timestamp));
     }
 
-
     function addMarket(
         bytes32 marketId,
         string calldata symbol,
@@ -754,11 +702,8 @@ contract PerpetualMarket is IPerpetualMarket, Ownable, Pausable, ReentrancyGuard
             isActive: true
         });
 
-        fundingStates[marketId] = FundingState({
-            fundingRate: 0,
-            cumulativeFundingIndex: 0,
-            lastFundingTime: block.timestamp
-        });
+        fundingStates[marketId] =
+            FundingState({fundingRate: 0, cumulativeFundingIndex: 0, lastFundingTime: block.timestamp});
 
         allMarketIds.push(marketId);
 
@@ -799,16 +744,11 @@ contract PerpetualMarket is IPerpetualMarket, Ownable, Pausable, ReentrancyGuard
         _unpause();
     }
 
-
     function getAllMarkets() external view returns (bytes32[] memory) {
         return allMarketIds;
     }
 
-    function getMarketOpenInterest(bytes32 marketId) external view returns (
-        uint256 longOI,
-        uint256 shortOI
-    ) {
+    function getMarketOpenInterest(bytes32 marketId) external view returns (uint256 longOI, uint256 shortOI) {
         return (longOpenInterest[marketId], shortOpenInterest[marketId]);
     }
-
 }

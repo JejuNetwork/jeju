@@ -46,17 +46,10 @@ contract PerpetualMarketTest is Test {
         priceFeed.setPrice("ETH-USD", 3000 * 1e8, true); // $3,000
 
         // Deploy insurance fund
-        insuranceFund = new InsuranceFund(
-            address(priceOracle),
-            owner
-        );
+        insuranceFund = new InsuranceFund(address(priceOracle), owner);
 
         // Deploy margin manager
-        marginManager = new MarginManager(
-            address(priceOracle),
-            address(tokenRegistry),
-            owner
-        );
+        marginManager = new MarginManager(address(priceOracle), address(tokenRegistry), owner);
 
         // Deploy perp market
         perpMarket = new PerpetualMarket(
@@ -68,12 +61,8 @@ contract PerpetualMarketTest is Test {
         );
 
         // Deploy liquidation engine
-        liquidationEngine = new LiquidationEngine(
-            address(perpMarket),
-            address(marginManager),
-            address(insuranceFund),
-            owner
-        );
+        liquidationEngine =
+            new LiquidationEngine(address(perpMarket), address(marginManager), address(insuranceFund), owner);
 
         // Configure permissions
         marginManager.setAuthorizedContract(address(perpMarket), true);
@@ -99,16 +88,7 @@ contract PerpetualMarketTest is Test {
             1000000 * 1e8 // $1M max OI
         );
 
-        perpMarket.addMarket(
-            ETH_PERP,
-            "ETH-USD",
-            address(0),
-            20,
-            500,
-            5,
-            2,
-            1000000 * 1e8
-        );
+        perpMarket.addMarket(ETH_PERP, "ETH-USD", address(0), 20, 500, 5, 2, 1000000 * 1e8);
 
         vm.stopPrank();
 
@@ -172,10 +152,10 @@ contract PerpetualMarketTest is Test {
         IPerpetualMarket.TradeResult memory result = perpMarket.openPosition(
             BTC_PERP,
             address(usdc),
-            10000 * 1e18,  // margin
-            2 * 1e8,       // size (2 BTC in 8 decimals)
+            10000 * 1e18, // margin
+            2 * 1e8, // size (2 BTC in 8 decimals)
             IPerpetualMarket.PositionSide.Long,
-            10             // leverage
+            10 // leverage
         );
         vm.stopPrank();
 
@@ -196,9 +176,9 @@ contract PerpetualMarketTest is Test {
             ETH_PERP,
             address(usdc),
             5000 * 1e18,
-            10 * 1e8,  // 10 ETH
+            10 * 1e8, // 10 ETH
             IPerpetualMarket.PositionSide.Short,
-            6          // 6x leverage
+            6 // 6x leverage
         );
         vm.stopPrank();
 
@@ -216,7 +196,7 @@ contract PerpetualMarketTest is Test {
             BTC_PERP,
             address(usdc),
             5000 * 1e18,
-            1 * 1e8,  // 1 BTC
+            1 * 1e8, // 1 BTC
             IPerpetualMarket.PositionSide.Long,
             10
         );
@@ -224,7 +204,7 @@ contract PerpetualMarketTest is Test {
         // Close position
         IPerpetualMarket.TradeResult memory closeResult = perpMarket.decreasePosition(
             openResult.positionId,
-            type(uint256).max  // Full close
+            type(uint256).max // Full close
         );
         vm.stopPrank();
 
@@ -242,9 +222,9 @@ contract PerpetualMarketTest is Test {
             BTC_PERP,
             address(usdc),
             1000 * 1e18,
-            10 * 1e8,  // Would require > 20x
+            10 * 1e8, // Would require > 20x
             IPerpetualMarket.PositionSide.Long,
-            25  // 25x > max 20x
+            25 // 25x > max 20x
         );
         vm.stopPrank();
     }
@@ -259,7 +239,7 @@ contract PerpetualMarketTest is Test {
             BTC_PERP,
             address(usdc),
             5000 * 1e18,
-            1 * 1e8,  // 1 BTC at $50,000
+            1 * 1e8, // 1 BTC at $50,000
             IPerpetualMarket.PositionSide.Long,
             10
         );
@@ -268,7 +248,7 @@ contract PerpetualMarketTest is Test {
         // Price goes up 10%
         priceFeed.setPrice("BTC-USD", 55000 * 1e8, true);
 
-        (int256 unrealizedPnl, ) = perpMarket.getPositionPnl(result.positionId);
+        (int256 unrealizedPnl,) = perpMarket.getPositionPnl(result.positionId);
 
         // 1 BTC * ($55,000 - $50,000) = $5,000 profit (in 18 decimals = margin token units)
         assertEq(unrealizedPnl, 5000 * 1e18);
@@ -282,7 +262,7 @@ contract PerpetualMarketTest is Test {
             BTC_PERP,
             address(usdc),
             5000 * 1e18,
-            1 * 1e8,  // 1 BTC at $50,000
+            1 * 1e8, // 1 BTC at $50,000
             IPerpetualMarket.PositionSide.Short,
             10
         );
@@ -291,7 +271,7 @@ contract PerpetualMarketTest is Test {
         // Price goes down 10%
         priceFeed.setPrice("BTC-USD", 45000 * 1e8, true);
 
-        (int256 unrealizedPnl, ) = perpMarket.getPositionPnl(result.positionId);
+        (int256 unrealizedPnl,) = perpMarket.getPositionPnl(result.positionId);
 
         // Short profits when price goes down
         // 1 BTC * ($50,000 - $45,000) = $5,000 profit (in 18 decimals)
@@ -311,9 +291,9 @@ contract PerpetualMarketTest is Test {
             BTC_PERP,
             address(usdc),
             5000 * 1e18,
-            1 * 1e8,  // 1 BTC at $50,000
+            1 * 1e8, // 1 BTC at $50,000
             IPerpetualMarket.PositionSide.Long,
-            10  // 10x leverage
+            10 // 10x leverage
         );
         vm.stopPrank();
 
@@ -328,7 +308,7 @@ contract PerpetualMarketTest is Test {
         priceFeed.setPrice("BTC-USD", 45000 * 1e8, true); // -10%
 
         // Now should be liquidatable (margin wiped out)
-        (canLiq, ) = perpMarket.isLiquidatable(result.positionId);
+        (canLiq,) = perpMarket.isLiquidatable(result.positionId);
         assertTrue(canLiq);
     }
 

@@ -75,7 +75,7 @@ contract NFTLaunchpadTest is Test {
 
     function test_RegisterCollectionWithCustomVault() public {
         address customVault = address(0x999);
-        
+
         vm.prank(creator);
         nftLaunchpad.registerCollection(
             address(mockERC721),
@@ -286,7 +286,7 @@ contract NFTLaunchpadTest is Test {
 
     function test_CancelListing() public {
         uint256 tokenId = mockERC721.mint(seller);
-        
+
         vm.startPrank(seller);
         mockERC721.approve(address(nftLaunchpad), tokenId);
         uint256 listingId = nftLaunchpad.createListing(
@@ -298,7 +298,7 @@ contract NFTLaunchpadTest is Test {
             address(0),
             1 ether
         );
-        
+
         nftLaunchpad.cancelListing(listingId);
         vm.stopPrank();
 
@@ -310,7 +310,7 @@ contract NFTLaunchpadTest is Test {
         vm.prank(creator);
         nftLaunchpad.registerCollection(address(mockERC721), 7500, address(0)); // 75/25
 
-        (uint256 creatorFee, uint256 communityFee, address creatorAddr, address vault) = 
+        (uint256 creatorFee, uint256 communityFee, address creatorAddr, address vault) =
             nftLaunchpad.previewFees(address(mockERC721), 1 ether);
 
         assertEq(creatorFee, 0.75 ether);
@@ -325,7 +325,7 @@ contract NFTLaunchpadTest is Test {
 
     function test_CannotBuyOwnListing() public {
         uint256 tokenId = mockERC721.mint(seller);
-        
+
         vm.startPrank(seller);
         mockERC721.approve(address(nftLaunchpad), tokenId);
         uint256 listingId = nftLaunchpad.createListing(
@@ -337,7 +337,7 @@ contract NFTLaunchpadTest is Test {
             address(0),
             1 ether
         );
-        
+
         vm.expectRevert(NFTLaunchpad.CannotBuyOwn.selector);
         nftLaunchpad.buyListing{value: 1 ether}(listingId);
         vm.stopPrank();
@@ -345,7 +345,7 @@ contract NFTLaunchpadTest is Test {
 
     function test_InsufficientPayment() public {
         uint256 tokenId = mockERC721.mint(seller);
-        
+
         vm.startPrank(seller);
         mockERC721.approve(address(nftLaunchpad), tokenId);
         uint256 listingId = nftLaunchpad.createListing(

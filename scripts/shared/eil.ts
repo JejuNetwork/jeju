@@ -1,29 +1,5 @@
 /**
- * @fileoverview EIL (Ethereum Interop Layer) SDK
- * 
- * Provides utilities for:
- * - Creating cross-chain transfer requests
- * - Building multi-chain UserOp batches
- * - Signing with single signature (Merkle root)
- * - Interacting with XLP liquidity
- * 
- * @example
- * ```ts
- * import { EILClient, createCrossChainTransfer } from './shared/eil';
- * 
- * const client = new EILClient({ l1RpcUrl, l2RpcUrl, signer });
- * 
- * // Simple transfer
- * const request = await client.createTransfer({
- *   sourceToken: USDC_ARBITRUM,
- *   destinationToken: USDC_JEJU,
- *   amount: parseEther('100'),
- *   destinationChainId: 420691,
- * });
- * 
- * // Wait for XLP to fulfill
- * const result = await client.waitForFulfillment(request.requestId);
- * ```
+ * EIL (Ethereum Interop Layer) SDK - cross-chain transfers via XLP liquidity providers.
  */
 
 import { ethers, keccak256 as ethersKeccak256 } from 'ethers';

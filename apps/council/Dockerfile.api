@@ -1,0 +1,21 @@
+# Council API Dockerfile
+FROM oven/bun:1.1.45
+
+WORKDIR /app
+
+# Copy package files
+COPY package.json bun.lock* ./
+COPY apps/council/package.json ./apps/council/
+
+# Install dependencies
+RUN bun install --frozen-lockfile
+
+# Copy source
+COPY apps/council/src ./apps/council/src
+COPY packages/types ./packages/types
+
+WORKDIR /app/apps/council
+
+EXPOSE 8010
+
+CMD ["bun", "run", "src/index.ts"]

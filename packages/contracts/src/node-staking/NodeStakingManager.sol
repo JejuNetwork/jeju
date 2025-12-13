@@ -753,4 +753,3 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
     // Allow contract to receive ETH for paymaster fees
     receive() external payable {}
 }
-

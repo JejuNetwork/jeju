@@ -273,10 +273,10 @@ contract IdentityRegistryTest is Test {
     function testSetAndGetA2AEndpoint() public {
         vm.startPrank(alice);
         uint256 agentId = registry.register("ipfs://test");
-        
+
         string memory endpoint = "https://example.com/api/a2a";
         registry.setA2AEndpoint(agentId, endpoint);
-        
+
         assertEq(registry.getA2AEndpoint(agentId), endpoint);
         vm.stopPrank();
     }
@@ -284,10 +284,10 @@ contract IdentityRegistryTest is Test {
     function testSetAndGetMCPEndpoint() public {
         vm.startPrank(alice);
         uint256 agentId = registry.register("ipfs://test");
-        
+
         string memory endpoint = "https://example.com/api/mcp";
         registry.setMCPEndpoint(agentId, endpoint);
-        
+
         assertEq(registry.getMCPEndpoint(agentId), endpoint);
         vm.stopPrank();
     }
@@ -295,11 +295,11 @@ contract IdentityRegistryTest is Test {
     function testSetBothEndpoints() public {
         vm.startPrank(alice);
         uint256 agentId = registry.register("ipfs://test");
-        
+
         string memory a2a = "https://example.com/a2a";
         string memory mcp = "https://example.com/mcp";
         registry.setEndpoints(agentId, a2a, mcp);
-        
+
         assertEq(registry.getA2AEndpoint(agentId), a2a);
         assertEq(registry.getMCPEndpoint(agentId), mcp);
         vm.stopPrank();
@@ -308,7 +308,7 @@ contract IdentityRegistryTest is Test {
     function testSetServiceType() public {
         vm.startPrank(alice);
         uint256 agentId = registry.register("ipfs://test");
-        
+
         registry.setServiceType(agentId, "mcp");
         assertEq(registry.getServiceType(agentId), "mcp");
         vm.stopPrank();
@@ -317,7 +317,7 @@ contract IdentityRegistryTest is Test {
     function testGetServiceTypeDefault() public {
         vm.startPrank(alice);
         uint256 agentId = registry.register("ipfs://test");
-        
+
         // Default should be "agent"
         assertEq(registry.getServiceType(agentId), "agent");
         vm.stopPrank();
@@ -326,7 +326,7 @@ contract IdentityRegistryTest is Test {
     function testSetCategory() public {
         vm.startPrank(alice);
         uint256 agentId = registry.register("ipfs://test");
-        
+
         registry.setCategory(agentId, "ai");
         assertEq(registry.getCategory(agentId), "ai");
         vm.stopPrank();
@@ -335,10 +335,10 @@ contract IdentityRegistryTest is Test {
     function testSetX402Support() public {
         vm.startPrank(alice);
         uint256 agentId = registry.register("ipfs://test");
-        
+
         // Default should be false
         assertFalse(registry.getX402Support(agentId));
-        
+
         registry.setX402Support(agentId, true);
         assertTrue(registry.getX402Support(agentId));
         vm.stopPrank();
@@ -347,14 +347,14 @@ contract IdentityRegistryTest is Test {
     function testGetMarketplaceInfo() public {
         vm.startPrank(alice);
         uint256 agentId = registry.register("ipfs://test");
-        
+
         registry.setA2AEndpoint(agentId, "https://a2a.example.com");
         registry.setMCPEndpoint(agentId, "https://mcp.example.com");
         registry.setServiceType(agentId, "mcp");
         registry.setCategory(agentId, "utilities");
         registry.setX402Support(agentId, true);
         vm.stopPrank();
-        
+
         (
             string memory a2aEndpoint,
             string memory mcpEndpoint,
@@ -364,7 +364,7 @@ contract IdentityRegistryTest is Test {
             IdentityRegistry.StakeTier tier,
             bool banned
         ) = registry.getMarketplaceInfo(agentId);
-        
+
         assertEq(a2aEndpoint, "https://a2a.example.com");
         assertEq(mcpEndpoint, "https://mcp.example.com");
         assertEq(serviceType, "mcp");
@@ -378,16 +378,16 @@ contract IdentityRegistryTest is Test {
         // Register 3 agents
         vm.prank(alice);
         uint256 agentId1 = registry.register("ipfs://test1");
-        
+
         vm.prank(bob);
         uint256 agentId2 = registry.register("ipfs://test2");
-        
+
         vm.prank(charlie);
         uint256 agentId3 = registry.register("ipfs://test3");
-        
+
         // Get active agents
         uint256[] memory active = registry.getActiveAgents(0, 10);
-        
+
         assertEq(active.length, 3);
         assertEq(active[0], agentId1);
         assertEq(active[1], agentId2);
@@ -400,15 +400,15 @@ contract IdentityRegistryTest is Test {
             vm.prank(alice);
             registry.register("ipfs://test");
         }
-        
+
         // Get first 2
         uint256[] memory page1 = registry.getActiveAgents(0, 2);
         assertEq(page1.length, 2);
-        
+
         // Get next 2
         uint256[] memory page2 = registry.getActiveAgents(2, 2);
         assertEq(page2.length, 2);
-        
+
         // Get last 1
         uint256[] memory page3 = registry.getActiveAgents(4, 2);
         assertEq(page3.length, 1);

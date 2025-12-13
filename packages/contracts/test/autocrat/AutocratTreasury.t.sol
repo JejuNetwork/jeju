@@ -29,12 +29,7 @@ contract AutocratTreasuryTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        treasury = new AutocratTreasury(
-            protocolTreasuryAddr,
-            stakersPool,
-            insuranceFund,
-            admin
-        );
+        treasury = new AutocratTreasury(protocolTreasuryAddr, stakersPool, insuranceFund, admin);
 
         // Authorize operators
         treasury.authorizeOperator(operator1);
@@ -93,61 +88,37 @@ contract AutocratTreasuryTest is Test {
 
         vm.prank(operator1);
         treasury.depositProfit{value: amount}(
-            address(0),
-            amount,
-            AutocratTreasury.ProfitSource.DEX_ARBITRAGE,
-            keccak256("tx1")
+            address(0), amount, AutocratTreasury.ProfitSource.DEX_ARBITRAGE, keccak256("tx1")
         );
 
         // Verify total deposited
         assertEq(treasury.totalProfitsByToken(address(0)), amount);
 
         // Verify profit by source
-        assertEq(
-            treasury.totalProfitsBySource(AutocratTreasury.ProfitSource.DEX_ARBITRAGE),
-            amount
-        );
+        assertEq(treasury.totalProfitsBySource(AutocratTreasury.ProfitSource.DEX_ARBITRAGE), amount);
     }
 
     function test_DepositETHProfit_MultipleSources() public {
         vm.startPrank(operator1);
 
         treasury.depositProfit{value: 5 ether}(
-            address(0),
-            5 ether,
-            AutocratTreasury.ProfitSource.DEX_ARBITRAGE,
-            keccak256("tx1")
+            address(0), 5 ether, AutocratTreasury.ProfitSource.DEX_ARBITRAGE, keccak256("tx1")
         );
 
         treasury.depositProfit{value: 3 ether}(
-            address(0),
-            3 ether,
-            AutocratTreasury.ProfitSource.SANDWICH,
-            keccak256("tx2")
+            address(0), 3 ether, AutocratTreasury.ProfitSource.SANDWICH, keccak256("tx2")
         );
 
         treasury.depositProfit{value: 2 ether}(
-            address(0),
-            2 ether,
-            AutocratTreasury.ProfitSource.LIQUIDATION,
-            keccak256("tx3")
+            address(0), 2 ether, AutocratTreasury.ProfitSource.LIQUIDATION, keccak256("tx3")
         );
 
         vm.stopPrank();
 
         assertEq(treasury.totalProfitsByToken(address(0)), 10 ether);
-        assertEq(
-            treasury.totalProfitsBySource(AutocratTreasury.ProfitSource.DEX_ARBITRAGE),
-            5 ether
-        );
-        assertEq(
-            treasury.totalProfitsBySource(AutocratTreasury.ProfitSource.SANDWICH),
-            3 ether
-        );
-        assertEq(
-            treasury.totalProfitsBySource(AutocratTreasury.ProfitSource.LIQUIDATION),
-            2 ether
-        );
+        assertEq(treasury.totalProfitsBySource(AutocratTreasury.ProfitSource.DEX_ARBITRAGE), 5 ether);
+        assertEq(treasury.totalProfitsBySource(AutocratTreasury.ProfitSource.SANDWICH), 3 ether);
+        assertEq(treasury.totalProfitsBySource(AutocratTreasury.ProfitSource.LIQUIDATION), 2 ether);
     }
 
     function testRevert_DepositETH_NotAuthorized() public {
@@ -155,22 +126,14 @@ contract AutocratTreasuryTest is Test {
         vm.prank(attacker);
         vm.expectRevert(AutocratTreasury.UnauthorizedOperator.selector);
         treasury.depositProfit{value: 1 ether}(
-            address(0),
-            1 ether,
-            AutocratTreasury.ProfitSource.DEX_ARBITRAGE,
-            keccak256("tx")
+            address(0), 1 ether, AutocratTreasury.ProfitSource.DEX_ARBITRAGE, keccak256("tx")
         );
     }
 
     function testRevert_DepositETH_ZeroAmount() public {
         vm.prank(operator1);
         vm.expectRevert(AutocratTreasury.ZeroAmount.selector);
-        treasury.depositProfit{value: 0}(
-            address(0),
-            0,
-            AutocratTreasury.ProfitSource.DEX_ARBITRAGE,
-            keccak256("tx")
-        );
+        treasury.depositProfit{value: 0}(address(0), 0, AutocratTreasury.ProfitSource.DEX_ARBITRAGE, keccak256("tx"));
     }
 
     // =========================================================================
@@ -183,10 +146,7 @@ contract AutocratTreasuryTest is Test {
         vm.startPrank(operator1);
         token.approve(address(treasury), amount);
         treasury.depositProfit(
-            address(token),
-            amount,
-            AutocratTreasury.ProfitSource.CROSS_CHAIN_ARBITRAGE,
-            keccak256("tx")
+            address(token), amount, AutocratTreasury.ProfitSource.CROSS_CHAIN_ARBITRAGE, keccak256("tx")
         );
         vm.stopPrank();
 
@@ -198,10 +158,7 @@ contract AutocratTreasuryTest is Test {
         vm.prank(operator1);
         vm.expectRevert();
         treasury.depositProfit(
-            address(token),
-            1000 ether,
-            AutocratTreasury.ProfitSource.CROSS_CHAIN_ARBITRAGE,
-            keccak256("tx")
+            address(token), 1000 ether, AutocratTreasury.ProfitSource.CROSS_CHAIN_ARBITRAGE, keccak256("tx")
         );
     }
 
@@ -214,10 +171,7 @@ contract AutocratTreasuryTest is Test {
 
         vm.prank(operator1);
         treasury.depositProfit{value: amount}(
-            address(0),
-            amount,
-            AutocratTreasury.ProfitSource.DEX_ARBITRAGE,
-            keccak256("tx")
+            address(0), amount, AutocratTreasury.ProfitSource.DEX_ARBITRAGE, keccak256("tx")
         );
 
         // Default operator share is 5%
@@ -230,10 +184,7 @@ contract AutocratTreasuryTest is Test {
 
         vm.prank(operator1);
         treasury.depositProfit{value: amount}(
-            address(0),
-            amount,
-            AutocratTreasury.ProfitSource.DEX_ARBITRAGE,
-            keccak256("tx")
+            address(0), amount, AutocratTreasury.ProfitSource.DEX_ARBITRAGE, keccak256("tx")
         );
 
         uint256 earnings = treasury.pendingOperatorWithdrawals(operator1, address(0));
@@ -261,10 +212,7 @@ contract AutocratTreasuryTest is Test {
 
         vm.prank(operator1);
         treasury.depositProfit{value: amount}(
-            address(0),
-            amount,
-            AutocratTreasury.ProfitSource.DEX_ARBITRAGE,
-            keccak256("tx")
+            address(0), amount, AutocratTreasury.ProfitSource.DEX_ARBITRAGE, keccak256("tx")
         );
 
         // Contract balance = 100 ETH
@@ -273,7 +221,7 @@ contract AutocratTreasuryTest is Test {
         // Distribution: 50% protocol, 30% stakers, 15% insurance = 95% total
         // Remaining 5% stays in contract for operator withdrawals
         uint256 distributable = amount; // 100 ETH
-        
+
         uint256 expectedProtocol = (distributable * 5000) / 10000; // 50 ETH
         uint256 expectedStakers = (distributable * 3000) / 10000; // 30 ETH
         uint256 expectedInsurance = (distributable * 1500) / 10000; // 15 ETH
@@ -347,10 +295,7 @@ contract AutocratTreasuryTest is Test {
 
         vm.prank(operator1);
         treasury.depositProfit{value: amount}(
-            address(0),
-            amount,
-            AutocratTreasury.ProfitSource.DEX_ARBITRAGE,
-            keccak256("tx")
+            address(0), amount, AutocratTreasury.ProfitSource.DEX_ARBITRAGE, keccak256("tx")
         );
 
         assertEq(treasury.totalProfitsByToken(address(0)), amount);

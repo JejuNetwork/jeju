@@ -1,0 +1,124 @@
+version: "3.8"
+
+# Jeju AI Council - Full Development Stack
+# 
+# Usage:
+#   docker-compose up -d          # Start all services
+#   docker-compose up anvil       # Start only blockchain
+#   docker-compose logs -f api    # View API logs
+#   docker-compose down           # Stop all services
+#
+# After startup, deploy contracts:
+#   cd /packages/contracts && forge script script/DeployDAO.s.sol --rpc-url http://localhost:9545 --broadcast
+#
+# Then update the .env file with deployed addresses.
+
+services:
+  # Local Ethereum Node (Anvil)
+  anvil:
+    image: ghcr.io/foundry-rs/foundry:latest
+    container_name: jeju-anvil
+    entrypoint: ["anvil", "--host", "0.0.0.0", "--port", "9545"]
+    ports:
+      - "9545:9545"
+    healthcheck:
+      test: ["CMD", "cast", "block-number", "--rpc-url", "http://localhost:9545"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # Local LLM (Ollama)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: jeju-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # Model Installer (runs once to pull llama3.2)
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: jeju-ollama-init
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: ["ollama", "pull", "llama3.2"]
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    restart: "no"
+
+  # Council API Server
+  api:
+    build:
+      context: ../..
+      dockerfile: apps/council/Dockerfile.api
+    container_name: jeju-council-api
+    ports:
+      - "8010:8010"
+    environment:
+      - PORT=8010
+      - RPC_URL=http://anvil:9545
+      - CHAIN_ID=31337
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_MODEL=llama3.2
+      # Contract addresses - update after deployment
+      - COUNCIL_ADDRESS=${COUNCIL_ADDRESS:-0x0000000000000000000000000000000000000000}
+      - CEO_AGENT_ADDRESS=${CEO_AGENT_ADDRESS:-0x0000000000000000000000000000000000000000}
+      - GOVERNANCE_TOKEN_ADDRESS=${GOVERNANCE_TOKEN_ADDRESS:-0x0000000000000000000000000000000000000000}
+      - IDENTITY_REGISTRY_ADDRESS=${IDENTITY_REGISTRY_ADDRESS:-0x0000000000000000000000000000000000000000}
+      - REPUTATION_REGISTRY_ADDRESS=${REPUTATION_REGISTRY_ADDRESS:-0x0000000000000000000000000000000000000000}
+      - QUALITY_ORACLE_ADDRESS=${QUALITY_ORACLE_ADDRESS:-0x0000000000000000000000000000000000000000}
+      - OPERATOR_KEY=${OPERATOR_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
+    depends_on:
+      anvil:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8010/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - council_storage:/app/.council-storage
+    restart: unless-stopped
+
+  # Council Frontend
+  frontend:
+    build:
+      context: ../..
+      dockerfile: apps/council/Dockerfile.frontend
+    container_name: jeju-council-frontend
+    ports:
+      - "3001:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8010
+      - NEXT_PUBLIC_RPC_URL=http://localhost:9545
+      - NEXT_PUBLIC_CHAIN_ID=31337
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  ollama_data:
+  council_storage:
+
+networks:
+  default:
+    name: jeju-council

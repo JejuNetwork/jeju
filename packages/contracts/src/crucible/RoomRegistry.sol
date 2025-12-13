@@ -21,26 +21,29 @@ contract RoomRegistry is Ownable, ReentrancyGuard, Pausable {
     // ============ Enums ============
 
     enum RoomType {
-        COLLABORATION,  // Agents work together toward a goal
-        ADVERSARIAL,    // Red team vs blue team competition
-        DEBATE,         // Structured argument with judges
-        COUNCIL         // Governance/voting decisions
+        COLLABORATION, // Agents work together toward a goal
+        ADVERSARIAL, // Red team vs blue team competition
+        DEBATE, // Structured argument with judges
+        COUNCIL // Governance/voting decisions
+
     }
 
     enum AgentRole {
-        PARTICIPANT,    // Standard member
-        MODERATOR,      // Can manage room
-        RED_TEAM,       // Adversarial attacker
-        BLUE_TEAM,      // Adversarial defender
-        OBSERVER        // Read-only access
+        PARTICIPANT, // Standard member
+        MODERATOR, // Can manage room
+        RED_TEAM, // Adversarial attacker
+        BLUE_TEAM, // Adversarial defender
+        OBSERVER // Read-only access
+
     }
 
     enum RoomPhase {
-        SETUP,          // Room being configured
-        ACTIVE,         // Room is live
-        PAUSED,         // Temporarily paused
-        COMPLETED,      // Room finished
-        ARCHIVED        // Historical record
+        SETUP, // Room being configured
+        ACTIVE, // Room is live
+        PAUSED, // Temporarily paused
+        COMPLETED, // Room finished
+        ARCHIVED // Historical record
+
     }
 
     // ============ Structs ============
@@ -50,12 +53,12 @@ contract RoomRegistry is Ownable, ReentrancyGuard, Pausable {
         address owner;
         string name;
         string description;
-        string stateCid;        // IPFS CID for room state
+        string stateCid; // IPFS CID for room state
         RoomType roomType;
         RoomPhase phase;
         uint256 maxMembers;
         bool turnBased;
-        uint256 turnTimeout;    // seconds
+        uint256 turnTimeout; // seconds
         uint256 createdAt;
         uint256 updatedAt;
         bool active;
@@ -64,7 +67,7 @@ contract RoomRegistry is Ownable, ReentrancyGuard, Pausable {
     struct Member {
         uint256 agentId;
         AgentRole role;
-        int256 score;           // For adversarial rooms
+        int256 score; // For adversarial rooms
         uint256 joinedAt;
         uint256 lastActiveAt;
         uint256 messageCount;
@@ -75,9 +78,9 @@ contract RoomRegistry is Ownable, ReentrancyGuard, Pausable {
         uint256 maxMembers;
         bool turnBased;
         uint256 turnTimeout;
-        uint256 redTeamTarget;  // Target score for red team win
+        uint256 redTeamTarget; // Target score for red team win
         uint256 blueTeamTarget; // Target score for blue team win
-        bytes customRules;      // Encoded custom rules
+        bytes customRules; // Encoded custom rules
     }
 
     // ============ State Variables ============
@@ -171,17 +174,16 @@ contract RoomRegistry is Ownable, ReentrancyGuard, Pausable {
      * @param config Room configuration
      * @return roomId The created room ID
      */
-    function createRoom(
-        string calldata name,
-        string calldata description,
-        RoomType roomType,
-        bytes calldata config
-    ) external whenNotPaused returns (uint256 roomId) {
+    function createRoom(string calldata name, string calldata description, RoomType roomType, bytes calldata config)
+        external
+        whenNotPaused
+        returns (uint256 roomId)
+    {
         roomId = nextRoomId++;
 
         // Decode and validate config
         RoomConfig memory roomConfig = _decodeConfig(config, roomType);
-        
+
         if (roomConfig.maxMembers == 0) {
             roomConfig.maxMembers = 10;
         }
@@ -217,13 +219,9 @@ contract RoomRegistry is Ownable, ReentrancyGuard, Pausable {
      * @param agentId The agent ID (ERC-8004)
      * @param role Agent's role in the room
      */
-    function joinRoom(uint256 roomId, uint256 agentId, AgentRole role)
-        external
-        roomExists(roomId)
-        roomActive(roomId)
-    {
+    function joinRoom(uint256 roomId, uint256 agentId, AgentRole role) external roomExists(roomId) roomActive(roomId) {
         Room storage room = rooms[roomId];
-        
+
         // Check if already a member
         if (members[roomId][agentId].joinedAt != 0) {
             revert AlreadyMember(roomId, agentId);
@@ -258,19 +256,16 @@ contract RoomRegistry is Ownable, ReentrancyGuard, Pausable {
      * @param roomId The room ID
      * @param agentId The agent ID
      */
-    function leaveRoom(uint256 roomId, uint256 agentId)
-        external
-        roomExists(roomId)
-    {
+    function leaveRoom(uint256 roomId, uint256 agentId) external roomExists(roomId) {
         if (members[roomId][agentId].joinedAt == 0) {
             revert NotRoomMember(roomId, agentId);
         }
 
         members[roomId][agentId].active = false;
-        
+
         // Remove from member list (gas intensive, but necessary for accurate counts)
         _removeMemberFromList(roomId, agentId);
-        
+
         emit MemberLeft(roomId, agentId);
     }
 
@@ -279,11 +274,7 @@ contract RoomRegistry is Ownable, ReentrancyGuard, Pausable {
      * @param roomId The room ID
      * @param stateCid New state CID
      */
-    function updateRoomState(uint256 roomId, string calldata stateCid)
-        external
-        roomExists(roomId)
-        roomActive(roomId)
-    {
+    function updateRoomState(uint256 roomId, string calldata stateCid) external roomExists(roomId) roomActive(roomId) {
         Room storage room = rooms[roomId];
         room.stateCid = stateCid;
         room.updatedAt = block.timestamp;
@@ -296,11 +287,7 @@ contract RoomRegistry is Ownable, ReentrancyGuard, Pausable {
      * @param roomId The room ID
      * @param newPhase New phase
      */
-    function setPhase(uint256 roomId, RoomPhase newPhase)
-        external
-        roomExists(roomId)
-        onlyRoomOwner(roomId)
-    {
+    function setPhase(uint256 roomId, RoomPhase newPhase) external roomExists(roomId) onlyRoomOwner(roomId) {
         Room storage room = rooms[roomId];
         RoomPhase oldPhase = room.phase;
 
@@ -347,11 +334,7 @@ contract RoomRegistry is Ownable, ReentrancyGuard, Pausable {
      * @param roomId The room ID
      * @param agentId The agent posting
      */
-    function recordMessage(uint256 roomId, uint256 agentId)
-        external
-        roomExists(roomId)
-        roomActive(roomId)
-    {
+    function recordMessage(uint256 roomId, uint256 agentId) external roomExists(roomId) roomActive(roomId) {
         if (members[roomId][agentId].joinedAt == 0) {
             revert NotRoomMember(roomId, agentId);
         }
@@ -390,13 +373,11 @@ contract RoomRegistry is Ownable, ReentrancyGuard, Pausable {
     /**
      * @notice Get room info
      */
-    function getRoom(uint256 roomId) external view returns (
-        address owner,
-        string memory name,
-        string memory stateCid,
-        RoomType roomType,
-        bool active
-    ) {
+    function getRoom(uint256 roomId)
+        external
+        view
+        returns (address owner, string memory name, string memory stateCid, RoomType roomType, bool active)
+    {
         Room storage room = rooms[roomId];
         return (room.owner, room.name, room.stateCid, room.roomType, room.active);
     }
@@ -404,16 +385,13 @@ contract RoomRegistry is Ownable, ReentrancyGuard, Pausable {
     /**
      * @notice Get room members
      */
-    function getMembers(uint256 roomId) external view returns (
-        uint256[] memory agentIds,
-        AgentRole[] memory roles
-    ) {
+    function getMembers(uint256 roomId) external view returns (uint256[] memory agentIds, AgentRole[] memory roles) {
         uint256[] storage memberList = _memberLists[roomId];
         uint256 count = memberList.length;
-        
+
         agentIds = new uint256[](count);
         roles = new AgentRole[](count);
-        
+
         for (uint256 i = 0; i < count; i++) {
             uint256 agentId = memberList[i];
             agentIds[i] = agentId;
@@ -438,16 +416,13 @@ contract RoomRegistry is Ownable, ReentrancyGuard, Pausable {
     /**
      * @notice Get room scores (for adversarial)
      */
-    function getScores(uint256 roomId) external view returns (
-        uint256[] memory agentIds,
-        int256[] memory scores
-    ) {
+    function getScores(uint256 roomId) external view returns (uint256[] memory agentIds, int256[] memory scores) {
         uint256[] storage memberList = _memberLists[roomId];
         uint256 count = memberList.length;
-        
+
         agentIds = new uint256[](count);
         scores = new int256[](count);
-        
+
         for (uint256 i = 0; i < count; i++) {
             uint256 agentId = memberList[i];
             agentIds[i] = agentId;
@@ -508,7 +483,7 @@ contract RoomRegistry is Ownable, ReentrancyGuard, Pausable {
 
         // Simple decode - in production use proper ABI decode
         (uint256 maxMembers, bool turnBased, uint256 turnTimeout) = abi.decode(config, (uint256, bool, uint256));
-        
+
         return RoomConfig({
             maxMembers: maxMembers,
             turnBased: turnBased,
@@ -522,7 +497,10 @@ contract RoomRegistry is Ownable, ReentrancyGuard, Pausable {
     function _validateRoleForRoomType(RoomType roomType, AgentRole role) internal pure {
         if (roomType == RoomType.ADVERSARIAL) {
             // Adversarial rooms require red/blue team or observer roles
-            if (role != AgentRole.RED_TEAM && role != AgentRole.BLUE_TEAM && role != AgentRole.OBSERVER && role != AgentRole.MODERATOR) {
+            if (
+                role != AgentRole.RED_TEAM && role != AgentRole.BLUE_TEAM && role != AgentRole.OBSERVER
+                    && role != AgentRole.MODERATOR
+            ) {
                 revert InvalidRole();
             }
         }
@@ -534,7 +512,7 @@ contract RoomRegistry is Ownable, ReentrancyGuard, Pausable {
         // ACTIVE -> PAUSED, COMPLETED
         // PAUSED -> ACTIVE, COMPLETED
         // COMPLETED -> ARCHIVED
-        
+
         if (current == RoomPhase.SETUP && requested != RoomPhase.ACTIVE) {
             revert InvalidPhaseTransition(current, requested);
         }

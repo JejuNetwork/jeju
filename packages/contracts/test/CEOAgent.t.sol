@@ -34,12 +34,7 @@ contract CEOAgentTest is Test {
 
     function setUp() public {
         vm.prank(owner);
-        ceoAgent = new CEOAgent(
-            governanceToken,
-            councilContract,
-            INITIAL_MODEL,
-            owner
-        );
+        ceoAgent = new CEOAgent(governanceToken, councilContract, INITIAL_MODEL, owner);
 
         // Set TEE oracle
         vm.prank(owner);
@@ -59,11 +54,7 @@ contract CEOAgentTest is Test {
 
     function test_NominateModel_Success() public {
         vm.prank(staker1);
-        ceoAgent.nominateModel{value: 0.1 ether}(
-            ALT_MODEL,
-            "GPT-4o",
-            "openai"
-        );
+        ceoAgent.nominateModel{value: 0.1 ether}(ALT_MODEL, "GPT-4o", "openai");
 
         (
             string memory modelId,
@@ -77,7 +68,7 @@ contract CEOAgentTest is Test {
             ,
             ,
         ) = ceoAgent.modelCandidates(ALT_MODEL);
-        
+
         assertEq(modelId, ALT_MODEL);
         assertEq(modelName, "GPT-4o");
         assertEq(provider, "openai");
@@ -89,21 +80,13 @@ contract CEOAgentTest is Test {
     function test_NominateModel_InsufficientStake() public {
         vm.prank(staker1);
         vm.expectRevert(CEOAgent.InsufficientStake.selector);
-        ceoAgent.nominateModel{value: 0.01 ether}(
-            ALT_MODEL,
-            "GPT-4o",
-            "openai"
-        );
+        ceoAgent.nominateModel{value: 0.01 ether}(ALT_MODEL, "GPT-4o", "openai");
     }
 
     function test_NominateModel_AlreadyExists() public {
         vm.prank(staker1);
         vm.expectRevert(CEOAgent.ModelAlreadyExists.selector);
-        ceoAgent.nominateModel{value: 0.1 ether}(
-            INITIAL_MODEL,
-            "Claude",
-            "anthropic"
-        );
+        ceoAgent.nominateModel{value: 0.1 ether}(INITIAL_MODEL, "Claude", "anthropic");
     }
 
     // ============================================================================
@@ -119,19 +102,8 @@ contract CEOAgentTest is Test {
         vm.prank(staker2);
         ceoAgent.stakeOnModel{value: 1 ether}(ALT_MODEL, 500);
 
-        (
-            ,
-            ,
-            ,
-            ,
-            uint256 totalStaked,
-            uint256 totalReputation,
-            ,
-            ,
-            ,
-            ,
-        ) = ceoAgent.modelCandidates(ALT_MODEL);
-        
+        (,,,, uint256 totalStaked, uint256 totalReputation,,,,,) = ceoAgent.modelCandidates(ALT_MODEL);
+
         assertEq(totalStaked, 1.1 ether);
         assertEq(totalReputation, 500);
     }
@@ -211,7 +183,7 @@ contract CEOAgentTest is Test {
         vm.warp(block.timestamp + 31 days);
         vm.prank(voter1);
         ceoAgent.stakeOnModel{value: 1 wei}(NEW_MODEL, 1); // Trigger re-check with new staker
-        
+
         // Now NEW_MODEL should be CEO
         assertEq(ceoAgent.getCurrentModel().modelId, NEW_MODEL);
     }
@@ -222,14 +194,7 @@ contract CEOAgentTest is Test {
 
     function test_RecordDecision_Success() public {
         vm.prank(councilContract);
-        bytes32 decisionId = ceoAgent.recordDecision(
-            PROPOSAL_ID,
-            true,
-            DECISION_HASH,
-            ENCRYPTED_HASH,
-            85,
-            90
-        );
+        bytes32 decisionId = ceoAgent.recordDecision(PROPOSAL_ID, true, DECISION_HASH, ENCRYPTED_HASH, 85, 90);
 
         assertGt(uint256(decisionId), 0);
 
@@ -244,14 +209,7 @@ contract CEOAgentTest is Test {
     function test_RecordDecision_NotCouncil() public {
         vm.prank(staker1);
         vm.expectRevert(CEOAgent.NotCouncil.selector);
-        ceoAgent.recordDecision(
-            PROPOSAL_ID,
-            true,
-            DECISION_HASH,
-            ENCRYPTED_HASH,
-            85,
-            90
-        );
+        ceoAgent.recordDecision(PROPOSAL_ID, true, DECISION_HASH, ENCRYPTED_HASH, 85, 90);
     }
 
     function test_RecordDecision_UpdatesStats() public {
@@ -268,13 +226,8 @@ contract CEOAgentTest is Test {
             );
         }
 
-        (
-            string memory modelId,
-            uint256 totalDecisions,
-            uint256 approvedDecisions,
-            ,
-            uint256 approvalRate,
-        ) = ceoAgent.getCEOStats();
+        (string memory modelId, uint256 totalDecisions, uint256 approvedDecisions,, uint256 approvalRate,) =
+            ceoAgent.getCEOStats();
 
         assertEq(modelId, INITIAL_MODEL);
         assertEq(totalDecisions, 5);
@@ -288,14 +241,7 @@ contract CEOAgentTest is Test {
 
     function test_DisputeDecision_Success() public {
         vm.prank(councilContract);
-        bytes32 decisionId = ceoAgent.recordDecision(
-            PROPOSAL_ID,
-            true,
-            DECISION_HASH,
-            ENCRYPTED_HASH,
-            85,
-            90
-        );
+        bytes32 decisionId = ceoAgent.recordDecision(PROPOSAL_ID, true, DECISION_HASH, ENCRYPTED_HASH, 85, 90);
 
         vm.prank(voter1);
         ceoAgent.disputeDecision(decisionId);
@@ -313,14 +259,7 @@ contract CEOAgentTest is Test {
     function test_VoteOverride_Success() public {
         // Record and dispute decision
         vm.prank(councilContract);
-        bytes32 decisionId = ceoAgent.recordDecision(
-            PROPOSAL_ID,
-            true,
-            DECISION_HASH,
-            ENCRYPTED_HASH,
-            85,
-            90
-        );
+        bytes32 decisionId = ceoAgent.recordDecision(PROPOSAL_ID, true, DECISION_HASH, ENCRYPTED_HASH, 85, 90);
 
         vm.prank(voter1);
         ceoAgent.disputeDecision(decisionId);
@@ -339,14 +278,7 @@ contract CEOAgentTest is Test {
     function test_VoteOverride_ThresholdReached() public {
         // Record and dispute decision
         vm.prank(councilContract);
-        bytes32 decisionId = ceoAgent.recordDecision(
-            PROPOSAL_ID,
-            true,
-            DECISION_HASH,
-            ENCRYPTED_HASH,
-            85,
-            90
-        );
+        bytes32 decisionId = ceoAgent.recordDecision(PROPOSAL_ID, true, DECISION_HASH, ENCRYPTED_HASH, 85, 90);
 
         vm.prank(voter1);
         ceoAgent.disputeDecision(decisionId);
@@ -372,14 +304,7 @@ contract CEOAgentTest is Test {
 
     function test_VoteOverride_AlreadyVoted() public {
         vm.prank(councilContract);
-        bytes32 decisionId = ceoAgent.recordDecision(
-            PROPOSAL_ID,
-            true,
-            DECISION_HASH,
-            ENCRYPTED_HASH,
-            85,
-            90
-        );
+        bytes32 decisionId = ceoAgent.recordDecision(PROPOSAL_ID, true, DECISION_HASH, ENCRYPTED_HASH, 85, 90);
 
         vm.prank(voter1);
         ceoAgent.disputeDecision(decisionId);
@@ -394,14 +319,7 @@ contract CEOAgentTest is Test {
 
     function test_VoteOverride_VotingPeriodEnded() public {
         vm.prank(councilContract);
-        bytes32 decisionId = ceoAgent.recordDecision(
-            PROPOSAL_ID,
-            true,
-            DECISION_HASH,
-            ENCRYPTED_HASH,
-            85,
-            90
-        );
+        bytes32 decisionId = ceoAgent.recordDecision(PROPOSAL_ID, true, DECISION_HASH, ENCRYPTED_HASH, 85, 90);
 
         vm.prank(voter1);
         ceoAgent.disputeDecision(decisionId);
@@ -424,7 +342,7 @@ contract CEOAgentTest is Test {
         vm.prank(owner);
         ceoAgent.updateContext(newContext, "Updated DAO values");
 
-        (, , , , bytes32 contextHash, , ,) = ceoAgent.ceoState();
+        (,,,, bytes32 contextHash,,,) = ceoAgent.ceoState();
         assertEq(contextHash, newContext);
     }
 
@@ -434,7 +352,7 @@ contract CEOAgentTest is Test {
         vm.prank(teeOracle);
         ceoAgent.updateEncryptedState(newState);
 
-        (, , , , , bytes32 encryptedHash, ,) = ceoAgent.ceoState();
+        (,,,,, bytes32 encryptedHash,,) = ceoAgent.ceoState();
         assertEq(encryptedHash, newState);
     }
 
@@ -451,25 +369,13 @@ contract CEOAgentTest is Test {
     function test_RecordBenchmark_Matched() public {
         // Record decision first
         vm.prank(councilContract);
-        bytes32 decisionId = ceoAgent.recordDecision(
-            PROPOSAL_ID,
-            true,
-            DECISION_HASH,
-            ENCRYPTED_HASH,
-            85,
-            90
-        );
+        bytes32 decisionId = ceoAgent.recordDecision(PROPOSAL_ID, true, DECISION_HASH, ENCRYPTED_HASH, 85, 90);
 
         // Record multiple decisions to meet minimum
         for (uint256 i = 0; i < 10; i++) {
             vm.prank(councilContract);
             ceoAgent.recordDecision(
-                keccak256(abi.encodePacked("proposal", i)),
-                true,
-                DECISION_HASH,
-                ENCRYPTED_HASH,
-                80,
-                85
+                keccak256(abi.encodePacked("proposal", i)), true, DECISION_HASH, ENCRYPTED_HASH, 80, 85
             );
         }
 
@@ -485,24 +391,12 @@ contract CEOAgentTest is Test {
     function test_RecordBenchmark_NotMatched() public {
         // Record decisions
         vm.prank(councilContract);
-        bytes32 decisionId = ceoAgent.recordDecision(
-            PROPOSAL_ID,
-            true,
-            DECISION_HASH,
-            ENCRYPTED_HASH,
-            85,
-            90
-        );
+        bytes32 decisionId = ceoAgent.recordDecision(PROPOSAL_ID, true, DECISION_HASH, ENCRYPTED_HASH, 85, 90);
 
         for (uint256 i = 0; i < 10; i++) {
             vm.prank(councilContract);
             ceoAgent.recordDecision(
-                keccak256(abi.encodePacked("proposal", i)),
-                true,
-                DECISION_HASH,
-                ENCRYPTED_HASH,
-                80,
-                85
+                keccak256(abi.encodePacked("proposal", i)), true, DECISION_HASH, ENCRYPTED_HASH, 80, 85
             );
         }
 
@@ -525,12 +419,7 @@ contract CEOAgentTest is Test {
         for (uint256 i = 0; i < 11; i++) {
             vm.prank(councilContract);
             ceoAgent.recordDecision(
-                keccak256(abi.encodePacked("proposal", i)),
-                true,
-                DECISION_HASH,
-                ENCRYPTED_HASH,
-                80,
-                85
+                keccak256(abi.encodePacked("proposal", i)), true, DECISION_HASH, ENCRYPTED_HASH, 80, 85
             );
         }
 
@@ -568,12 +457,7 @@ contract CEOAgentTest is Test {
         for (uint256 i = 0; i < 5; i++) {
             vm.prank(councilContract);
             ceoAgent.recordDecision(
-                keccak256(abi.encodePacked("proposal", i)),
-                true,
-                DECISION_HASH,
-                ENCRYPTED_HASH,
-                80,
-                85
+                keccak256(abi.encodePacked("proposal", i)), true, DECISION_HASH, ENCRYPTED_HASH, 80, 85
             );
         }
 
@@ -597,14 +481,7 @@ contract CEOAgentTest is Test {
 
     function test_GetDecisionForProposal() public {
         vm.prank(councilContract);
-        ceoAgent.recordDecision(
-            PROPOSAL_ID,
-            true,
-            DECISION_HASH,
-            ENCRYPTED_HASH,
-            85,
-            90
-        );
+        ceoAgent.recordDecision(PROPOSAL_ID, true, DECISION_HASH, ENCRYPTED_HASH, 85, 90);
 
         CEOAgent.Decision memory decision = ceoAgent.getDecisionForProposal(PROPOSAL_ID);
         assertEq(decision.proposalId, PROPOSAL_ID);
@@ -618,11 +495,11 @@ contract CEOAgentTest is Test {
     function test_SetParameters() public {
         vm.prank(owner);
         ceoAgent.setParameters(
-            60 days,     // electionPeriod
-            5000,        // overrideThresholdBPS (50%)
-            14 days,     // overrideVotingPeriod
-            0.5 ether,   // minStakeForNomination
-            20           // minBenchmarkDecisions
+            60 days, // electionPeriod
+            5000, // overrideThresholdBPS (50%)
+            14 days, // overrideVotingPeriod
+            0.5 ether, // minStakeForNomination
+            20 // minBenchmarkDecisions
         );
 
         assertEq(ceoAgent.electionPeriod(), 60 days);
@@ -639,7 +516,7 @@ contract CEOAgentTest is Test {
         vm.prank(owner);
         ceoAgent.deactivateModel(ALT_MODEL);
 
-        (, , , , , , , bool isActive, , ,) = ceoAgent.modelCandidates(ALT_MODEL);
+        (,,,,,,, bool isActive,,,) = ceoAgent.modelCandidates(ALT_MODEL);
         assertEq(isActive, false);
     }
 

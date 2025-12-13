@@ -41,21 +41,21 @@ contract JejuPresale is Ownable, Pausable, ReentrancyGuard {
     }
 
     struct VestingSchedule {
-        uint256 tgePercent;      // Percentage unlocked at TGE (basis points)
-        uint256 cliffDuration;   // Cliff period in seconds
+        uint256 tgePercent; // Percentage unlocked at TGE (basis points)
+        uint256 cliffDuration; // Cliff period in seconds
         uint256 vestingDuration; // Total vesting duration in seconds
     }
 
     struct PresaleConfig {
-        uint256 softCap;         // Minimum ETH to raise
-        uint256 hardCap;         // Maximum ETH to raise
+        uint256 softCap; // Minimum ETH to raise
+        uint256 hardCap; // Maximum ETH to raise
         uint256 minContribution; // Minimum contribution per wallet
         uint256 maxContribution; // Maximum contribution per wallet
-        uint256 tokenPrice;      // Price per token in wei
-        uint256 whitelistStart;  // Whitelist phase start timestamp
-        uint256 publicStart;     // Public phase start timestamp
-        uint256 presaleEnd;      // Presale end timestamp
-        uint256 tgeTimestamp;    // Token Generation Event timestamp
+        uint256 tokenPrice; // Price per token in wei
+        uint256 whitelistStart; // Whitelist phase start timestamp
+        uint256 publicStart; // Public phase start timestamp
+        uint256 presaleEnd; // Presale end timestamp
+        uint256 tgeTimestamp; // Token Generation Event timestamp
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -111,11 +111,7 @@ contract JejuPresale is Ownable, Pausable, ReentrancyGuard {
     //                              CONSTRUCTOR
     // ═══════════════════════════════════════════════════════════════════════
 
-    constructor(
-        address _jejuToken,
-        address _treasury,
-        address _owner
-    ) Ownable(_owner) {
+    constructor(address _jejuToken, address _treasury, address _owner) Ownable(_owner) {
         if (_jejuToken == address(0)) revert ZeroAddress();
         if (_treasury == address(0)) revert ZeroAddress();
         jejuToken = IERC20(_jejuToken);
@@ -161,19 +157,12 @@ contract JejuPresale is Ownable, Pausable, ReentrancyGuard {
         });
     }
 
-    function setVesting(
-        uint256 _tgePercent,
-        uint256 _cliffDuration,
-        uint256 _vestingDuration
-    ) external onlyOwner {
+    function setVesting(uint256 _tgePercent, uint256 _cliffDuration, uint256 _vestingDuration) external onlyOwner {
         if (_tgePercent > 10000) revert InvalidConfig();
         // If not 100% TGE, must have vesting duration
         if (_tgePercent < 10000 && _vestingDuration == 0) revert ZeroVestingDuration();
-        vesting = VestingSchedule({
-            tgePercent: _tgePercent,
-            cliffDuration: _cliffDuration,
-            vestingDuration: _vestingDuration
-        });
+        vesting =
+            VestingSchedule({tgePercent: _tgePercent, cliffDuration: _cliffDuration, vestingDuration: _vestingDuration});
     }
 
     function setWhitelist(address[] calldata accounts, bool status) external onlyOwner {
@@ -224,12 +213,12 @@ contract JejuPresale is Ownable, Pausable, ReentrancyGuard {
 
     function calculateBonus(uint256 ethAmount) public view returns (uint256) {
         uint256 tokenAmount = (ethAmount * 1e18) / config.tokenPrice;
-        
+
         // Early bird bonus during whitelist phase
         if (currentPhase() == PresalePhase.WHITELIST) {
             return (tokenAmount * 1000) / 10000; // 10% bonus
         }
-        
+
         // Volume bonus for public phase
         if (ethAmount >= 10 ether) {
             return (tokenAmount * 500) / 10000; // 5% bonus for 10+ ETH
@@ -240,7 +229,7 @@ contract JejuPresale is Ownable, Pausable, ReentrancyGuard {
         if (ethAmount >= 1 ether) {
             return (tokenAmount * 100) / 10000; // 1% bonus for 1+ ETH
         }
-        
+
         return 0;
     }
 
@@ -271,7 +260,7 @@ contract JejuPresale is Ownable, Pausable, ReentrancyGuard {
 
         uint256 totalAllocation = contrib.tokenAllocation + contrib.bonusTokens;
         uint256 vestedAmount = calculateVestedAmount(totalAllocation);
-        
+
         return vestedAmount > contrib.claimedTokens ? vestedAmount - contrib.claimedTokens : 0;
     }
 
@@ -280,14 +269,14 @@ contract JejuPresale is Ownable, Pausable, ReentrancyGuard {
 
         // TGE unlock
         uint256 tgeUnlock = (totalAllocation * vesting.tgePercent) / 10000;
-        
+
         // If 100% TGE or no vesting duration, return full amount
         if (vesting.tgePercent == 10000 || vesting.vestingDuration == 0) {
             return totalAllocation;
         }
-        
+
         uint256 timeSinceTGE = block.timestamp - config.tgeTimestamp;
-        
+
         // During cliff period, only TGE amount is available
         if (timeSinceTGE < vesting.cliffDuration) {
             return tgeUnlock;
@@ -319,7 +308,7 @@ contract JejuPresale is Ownable, Pausable, ReentrancyGuard {
         uint256 refundAmount = contrib.ethAmount;
         contrib.refunded = true;
 
-        (bool success, ) = msg.sender.call{value: refundAmount}("");
+        (bool success,) = msg.sender.call{value: refundAmount}("");
         if (!success) revert TransferFailed();
 
         emit Refunded(msg.sender, refundAmount);
@@ -334,7 +323,7 @@ contract JejuPresale is Ownable, Pausable, ReentrancyGuard {
         if (totalRaised < config.softCap) revert SoftCapNotReached();
 
         // Transfer raised ETH to treasury
-        (bool success, ) = treasury.call{value: address(this).balance}("");
+        (bool success,) = treasury.call{value: address(this).balance}("");
         if (!success) revert TransferFailed();
 
         emit PresaleFinalized(totalRaised, totalParticipants);
@@ -342,7 +331,7 @@ contract JejuPresale is Ownable, Pausable, ReentrancyGuard {
 
     function withdrawUnsoldTokens() external onlyOwner {
         if (block.timestamp < config.tgeTimestamp) revert TGENotReached();
-        
+
         uint256 balance = jejuToken.balanceOf(address(this));
         // Safe check: only withdraw if balance exceeds sold tokens
         if (balance > totalTokensSold) {
@@ -371,25 +360,29 @@ contract JejuPresale is Ownable, Pausable, ReentrancyGuard {
     function currentPhase() public view returns (PresalePhase) {
         if (config.whitelistStart == 0) return PresalePhase.NOT_STARTED;
         if (block.timestamp < config.whitelistStart) return PresalePhase.NOT_STARTED;
-        
+
         if (block.timestamp >= config.presaleEnd) {
             if (totalRaised < config.softCap) return PresalePhase.FAILED;
             if (block.timestamp >= config.tgeTimestamp) return PresalePhase.DISTRIBUTED;
             return PresalePhase.ENDED;
         }
-        
+
         if (block.timestamp < config.publicStart) return PresalePhase.WHITELIST;
         return PresalePhase.PUBLIC;
     }
 
-    function getContribution(address account) external view returns (
-        uint256 ethAmount,
-        uint256 tokenAllocation,
-        uint256 bonusTokens,
-        uint256 claimedTokens,
-        uint256 claimable,
-        bool refunded
-    ) {
+    function getContribution(address account)
+        external
+        view
+        returns (
+            uint256 ethAmount,
+            uint256 tokenAllocation,
+            uint256 bonusTokens,
+            uint256 claimedTokens,
+            uint256 claimable,
+            bool refunded
+        )
+    {
         Contribution storage contrib = contributions[account];
         return (
             contrib.ethAmount,
@@ -401,38 +394,33 @@ contract JejuPresale is Ownable, Pausable, ReentrancyGuard {
         );
     }
 
-    function getPresaleStats() external view returns (
-        uint256 raised,
-        uint256 participants,
-        uint256 tokensSold,
-        uint256 softCap,
-        uint256 hardCap,
-        PresalePhase phase
-    ) {
-        return (
-            totalRaised,
-            totalParticipants,
-            totalTokensSold,
-            config.softCap,
-            config.hardCap,
-            currentPhase()
-        );
+    function getPresaleStats()
+        external
+        view
+        returns (
+            uint256 raised,
+            uint256 participants,
+            uint256 tokensSold,
+            uint256 softCap,
+            uint256 hardCap,
+            PresalePhase phase
+        )
+    {
+        return (totalRaised, totalParticipants, totalTokensSold, config.softCap, config.hardCap, currentPhase());
     }
 
-    function getTimeInfo() external view returns (
-        uint256 whitelistStart,
-        uint256 publicStart,
-        uint256 presaleEnd,
-        uint256 tgeTimestamp,
-        uint256 currentTime
-    ) {
-        return (
-            config.whitelistStart,
-            config.publicStart,
-            config.presaleEnd,
-            config.tgeTimestamp,
-            block.timestamp
-        );
+    function getTimeInfo()
+        external
+        view
+        returns (
+            uint256 whitelistStart,
+            uint256 publicStart,
+            uint256 presaleEnd,
+            uint256 tgeTimestamp,
+            uint256 currentTime
+        )
+    {
+        return (config.whitelistStart, config.publicStart, config.presaleEnd, config.tgeTimestamp, block.timestamp);
     }
 
     receive() external payable {

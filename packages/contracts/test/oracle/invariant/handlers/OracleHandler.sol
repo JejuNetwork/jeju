@@ -18,12 +18,7 @@ contract OracleHandler is Test {
     uint256 public lastPrice;
     uint256 public lastRound;
 
-    constructor(
-        FeedRegistry _registry,
-        ReportVerifier _verifier,
-        bytes32 _feedId,
-        address _owner
-    ) {
+    constructor(FeedRegistry _registry, ReportVerifier _verifier, bytes32 _feedId, address _owner) {
         registry = _registry;
         verifier = _verifier;
         feedId = _feedId;

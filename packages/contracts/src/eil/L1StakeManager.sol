@@ -757,9 +757,7 @@ contract L1StakeManager is Ownable, ReentrancyGuard, Pausable {
         if (paymaster == address(0)) revert ChainNotSupported();
 
         messenger.sendMessage(
-            paymaster,
-            abi.encodeWithSignature("markVoucherFulfilled(bytes32)", voucherId),
-            CROSS_CHAIN_GAS_LIMIT
+            paymaster, abi.encodeWithSignature("markVoucherFulfilled(bytes32)", voucherId), CROSS_CHAIN_GAS_LIMIT
         );
     }
 

@@ -216,9 +216,9 @@ contract PaymasterFactory is Ownable {
         }
 
         // Deploy LiquidityPaymaster (factory will be initial owner)
-        try new LiquidityPaymaster(entryPoint, token, address(_vault), address(_distributor), address(oracle), address(this)) returns (
-            LiquidityPaymaster pm
-        ) {
+        try new LiquidityPaymaster(
+            entryPoint, token, address(_vault), address(_distributor), address(oracle), address(this)
+        ) returns (LiquidityPaymaster pm) {
             _paymaster = pm;
             paymaster = payable(address(pm));
         } catch {
@@ -273,10 +273,7 @@ contract PaymasterFactory is Ownable {
      */
     function registerTokenWithCrossChain(address token) external {
         require(deployments[token].paymaster != address(0), "Token not deployed");
-        require(
-            msg.sender == deployments[token].operator || msg.sender == owner(),
-            "Not authorized"
-        );
+        require(msg.sender == deployments[token].operator || msg.sender == owner(), "Not authorized");
         if (address(crossChainPaymaster) == address(0)) revert CrossChainNotConfigured();
 
         crossChainPaymaster.setTokenSupport(token, true);

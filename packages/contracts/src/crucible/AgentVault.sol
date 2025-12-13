@@ -117,7 +117,10 @@ contract AgentVault is Ownable, ReentrancyGuard, Pausable {
 
     modifier onlyApprovedSpender(uint256 agentId) {
         address vaultAddr = vaultAddresses[agentId];
-        if (!approvedSpenders[agentId][msg.sender] && !globalExecutors[msg.sender] && vaults[vaultAddr].owner != msg.sender) {
+        if (
+            !approvedSpenders[agentId][msg.sender] && !globalExecutors[msg.sender]
+                && vaults[vaultAddr].owner != msg.sender
+        ) {
             revert NotApprovedSpender(agentId, msg.sender);
         }
         _;
@@ -158,7 +161,7 @@ contract AgentVault is Ownable, ReentrancyGuard, Pausable {
 
         // Generate deterministic vault address
         vault = _computeVaultAddress(agentId);
-        
+
         vaultAddresses[agentId] = vault;
         vaults[vault] = Vault({
             agentId: agentId,
@@ -269,14 +272,16 @@ contract AgentVault is Ownable, ReentrancyGuard, Pausable {
         totalValueLocked -= amount;
 
         // Record spend
-        _spendHistory[agentId].push(SpendRecord({
-            agentId: agentId,
-            spender: msg.sender,
-            recipient: recipient,
-            amount: amount,
-            reason: reason,
-            timestamp: block.timestamp
-        }));
+        _spendHistory[agentId].push(
+            SpendRecord({
+                agentId: agentId,
+                spender: msg.sender,
+                recipient: recipient,
+                amount: amount,
+                reason: reason,
+                timestamp: block.timestamp
+            })
+        );
 
         // Transfer funds
         (bool success,) = recipient.call{value: recipientAmount}("");
@@ -297,11 +302,7 @@ contract AgentVault is Ownable, ReentrancyGuard, Pausable {
      * @param agentId The agent ID
      * @param spender Address to approve/revoke
      */
-    function approveSpender(uint256 agentId, address spender)
-        external
-        vaultExists(agentId)
-        onlyVaultOwner(agentId)
-    {
+    function approveSpender(uint256 agentId, address spender) external vaultExists(agentId) onlyVaultOwner(agentId) {
         approvedSpenders[agentId][spender] = true;
         emit SpenderApproved(agentId, spender, true);
     }
@@ -311,11 +312,7 @@ contract AgentVault is Ownable, ReentrancyGuard, Pausable {
      * @param agentId The agent ID
      * @param spender Address to revoke
      */
-    function revokeSpender(uint256 agentId, address spender)
-        external
-        vaultExists(agentId)
-        onlyVaultOwner(agentId)
-    {
+    function revokeSpender(uint256 agentId, address spender) external vaultExists(agentId) onlyVaultOwner(agentId) {
         approvedSpenders[agentId][spender] = false;
         emit SpenderApproved(agentId, spender, false);
     }
@@ -325,11 +322,7 @@ contract AgentVault is Ownable, ReentrancyGuard, Pausable {
      * @param agentId The agent ID
      * @param limit New spend limit
      */
-    function setSpendLimit(uint256 agentId, uint256 limit)
-        external
-        vaultExists(agentId)
-        onlyVaultOwner(agentId)
-    {
+    function setSpendLimit(uint256 agentId, uint256 limit) external vaultExists(agentId) onlyVaultOwner(agentId) {
         address vaultAddr = vaultAddresses[agentId];
         uint256 oldLimit = vaults[vaultAddr].spendLimit;
         vaults[vaultAddr].spendLimit = limit;
@@ -342,11 +335,7 @@ contract AgentVault is Ownable, ReentrancyGuard, Pausable {
      * @notice Deactivate a vault (owner only)
      * @param agentId The agent ID
      */
-    function deactivateVault(uint256 agentId)
-        external
-        vaultExists(agentId)
-        onlyVaultOwner(agentId)
-    {
+    function deactivateVault(uint256 agentId) external vaultExists(agentId) onlyVaultOwner(agentId) {
         vaults[vaultAddresses[agentId]].active = false;
         emit VaultDeactivated(agentId);
     }
@@ -355,11 +344,7 @@ contract AgentVault is Ownable, ReentrancyGuard, Pausable {
      * @notice Reactivate a vault (owner only)
      * @param agentId The agent ID
      */
-    function reactivateVault(uint256 agentId)
-        external
-        vaultExists(agentId)
-        onlyVaultOwner(agentId)
-    {
+    function reactivateVault(uint256 agentId) external vaultExists(agentId) onlyVaultOwner(agentId) {
         vaults[vaultAddresses[agentId]].active = true;
         emit VaultReactivated(agentId);
     }

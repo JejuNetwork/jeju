@@ -1,14 +1,3 @@
-/**
- * OIF Solver Prometheus Metrics
- * 
- * Exposes metrics for monitoring solver performance:
- * - Intent fills (count, duration, gas)
- * - Settlement claims
- * - Liquidity tracking
- * - Error rates
- */
-
-// Metric counters (in-memory for now, can be replaced with prom-client)
 interface MetricCounter {
   labels: Record<string, string>;
   value: number;
@@ -73,9 +62,8 @@ class MetricsRegistry {
   toPrometheusFormat(): string {
     const lines: string[] = [];
 
-    // Counters
     for (const [name, metrics] of this.counters) {
-      lines.push(`# HELP ${name} Counter metric`);
+      lines.push(`# HELP ${name} counter`);
       lines.push(`# TYPE ${name} counter`);
       for (const m of metrics) {
         const labelStr = Object.entries(m.labels).map(([k, v]) => `${k}="${v}"`).join(',');
@@ -83,9 +71,8 @@ class MetricsRegistry {
       }
     }
 
-    // Histograms
     for (const [name, metrics] of this.histograms) {
-      lines.push(`# HELP ${name} Histogram metric`);
+      lines.push(`# HELP ${name} histogram`);
       lines.push(`# TYPE ${name} histogram`);
       for (const m of metrics) {
         const labelStr = Object.entries(m.labels).map(([k, v]) => `${k}="${v}"`).join(',');
@@ -98,9 +85,8 @@ class MetricsRegistry {
       }
     }
 
-    // Gauges
     for (const [name, value] of this.gauges) {
-      lines.push(`# HELP ${name} Gauge metric`);
+      lines.push(`# HELP ${name} gauge`);
       lines.push(`# TYPE ${name} gauge`);
       lines.push(`${name} ${value}`);
     }
@@ -121,37 +107,24 @@ class MetricsRegistry {
   }
 }
 
-// Global registry
 const registry = new MetricsRegistry();
 
-// Metric names
 const METRICS = {
-  // Intent processing
   INTENTS_RECEIVED: 'oif_intents_received_total',
   INTENTS_EVALUATED: 'oif_intents_evaluated_total',
   INTENTS_FILLED: 'oif_intents_filled_total',
   INTENTS_SKIPPED: 'oif_intents_skipped_total',
-  
-  // Fill performance
   FILL_DURATION_SECONDS: 'oif_fill_duration_seconds',
   FILL_GAS_USED: 'oif_fill_gas_used',
-  
-  // Settlements
   SETTLEMENTS_PENDING: 'oif_settlements_pending',
   SETTLEMENTS_CLAIMED: 'oif_settlements_claimed_total',
   SETTLEMENTS_FAILED: 'oif_settlements_failed_total',
-  
-  // Profit
   SOLVER_PROFIT_WEI: 'oif_solver_profit_wei_total',
-  
-  // Liquidity
   LIQUIDITY_AVAILABLE: 'oif_liquidity_available_wei',
 } as const;
 
-// Duration buckets in seconds
 const DURATION_BUCKETS = [0.1, 0.5, 1, 2, 5, 10, 30, 60, 120];
 
-// Helper functions
 export function recordIntentReceived(chainId: number): void {
   registry.incrementCounter(METRICS.INTENTS_RECEIVED, { chain: chainId.toString() });
 }
@@ -200,19 +173,15 @@ export function updatePendingSettlements(count: number): void {
 }
 
 export function updateLiquidity(chainId: number, _token: string, amountWei: bigint): void {
-  // Gauge keys are simple strings - use chain-specific gauge name
   registry.setGauge(`${METRICS.LIQUIDITY_AVAILABLE}_${chainId}`, Number(amountWei));
 }
 
-// Get metrics in Prometheus format
 export function getPrometheusMetrics(): string {
   return registry.toPrometheusFormat();
 }
 
-// Get metrics as JSON (for API)
 export function getMetricsJson(): ReturnType<MetricsRegistry['getMetrics']> {
   return registry.getMetrics();
 }
 
-// Export registry for testing
 export const metricsRegistry = registry;

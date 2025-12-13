@@ -25,7 +25,7 @@ interface AccessControlCondition {
   };
 }
 
-interface LitEncryptedData {
+export interface LitEncryptedData {
   ciphertext: string;
   dataToEncryptHash: string;
   accessControlConditions: AccessControlCondition[];
@@ -33,12 +33,12 @@ interface LitEncryptedData {
   encryptedAt: number;
 }
 
-interface LitDecryptionResult {
+export interface LitDecryptionResult {
   decryptedString: string;
   verified: boolean;
 }
 
-interface DecisionData {
+export interface DecisionData {
   proposalId: string;
   approved: boolean;
   reasoning: string;
@@ -48,6 +48,13 @@ interface DecisionData {
   researchSummary?: string;
   model: string;
   timestamp: number;
+}
+
+export interface AuthSig {
+  sig: string;
+  derivedVia: string;
+  signedMessage: string;
+  address: string;
 }
 
 // Environment configuration
@@ -60,6 +67,8 @@ const DA_URL = process.env.DA_URL ?? 'http://localhost:3001';
 const FALLBACK_KEY = process.env.LIT_FALLBACK_KEY ?? process.env.TEE_ENCRYPTION_SECRET ?? 'council-local-dev';
 
 let litClient: LitNodeClient | null = null;
+let litInitialized = false;
+let litAvailable = false;
 
 // Lit SDK types (imported dynamically)
 interface LitNodeClient {
@@ -90,20 +99,14 @@ interface LitSDK {
   ) => Promise<string>;
 }
 
-interface AuthSig {
-  sig: string;
-  derivedVia: string;
-  signedMessage: string;
-  address: string;
-}
-
 let LitJsSdk: LitSDK | null = null;
 
 /**
  * Initialize Lit Protocol client
  */
 async function initLitClient(): Promise<LitNodeClient | null> {
-  if (litClient?.ready) return litClient;
+  if (litInitialized) return litClient;
+  litInitialized = true;
 
   try {
     // Dynamic import to avoid breaking when Lit is not installed
@@ -116,10 +119,12 @@ async function initLitClient(): Promise<LitNodeClient | null> {
     });
 
     await litClient.connect();
+    litAvailable = true;
     console.log('[Lit] Connected to network:', LIT_NETWORK);
     return litClient;
   } catch (error) {
-    console.warn('[Lit] Failed to initialize, using fallback encryption:', (error as Error).message);
+    console.warn('[Lit] Not available, using fallback encryption:', (error as Error).message);
+    litAvailable = false;
     return null;
   }
 }
@@ -364,8 +369,8 @@ export async function canDecrypt(encryptedData: LitEncryptedData): Promise<boole
 export function getLitStatus(): { network: string; connected: boolean; fallbackMode: boolean } {
   return {
     network: LIT_NETWORK,
-    connected: litClient?.ready ?? false,
-    fallbackMode: !litClient?.ready,
+    connected: litAvailable,
+    fallbackMode: !litAvailable,
   };
 }
 
@@ -376,8 +381,6 @@ export async function disconnectLit(): Promise<void> {
   if (litClient) {
     await litClient.disconnect();
     litClient = null;
+    litAvailable = false;
   }
 }
-
-export type { LitEncryptedData, DecisionData, LitDecryptionResult, AuthSig };
-

@@ -15,7 +15,6 @@ import {ISimplePriceOracle} from "../interfaces/IPriceOracle.sol";
 contract InsuranceFund is IInsuranceFund, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-
     ISimplePriceOracle public priceOracle;
 
     // Balances per token
@@ -36,11 +35,9 @@ contract InsuranceFund is IInsuranceFund, Ownable, ReentrancyGuard {
     uint256 public periodDrawnUSD;
     uint256 public periodStart;
 
-
     event TokenAdded(address indexed token);
     event DrawerAuthorized(address indexed drawer, bool authorized);
     event EmergencyWithdrawal(address indexed token, uint256 amount, address indexed recipient);
-
 
     error TokenNotSupported();
     error Unauthorized();
@@ -48,14 +45,9 @@ contract InsuranceFund is IInsuranceFund, Ownable, ReentrancyGuard {
     error InvalidAmount();
     error RateLimitExceeded();
 
-
-    constructor(
-        address _priceOracle,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _priceOracle, address initialOwner) Ownable(initialOwner) {
         priceOracle = ISimplePriceOracle(_priceOracle);
     }
-
 
     function deposit(address token, uint256 amount) external nonReentrant {
         if (!isSupported[token]) revert TokenNotSupported();
@@ -86,7 +78,6 @@ contract InsuranceFund is IInsuranceFund, Ownable, ReentrancyGuard {
 
         emit FundsDeposited(token, amount);
     }
-
 
     function coverBadDebt(address token, uint256 amount) external nonReentrant returns (uint256 covered) {
         if (!authorizedDrawers[msg.sender] && msg.sender != owner()) {
@@ -121,11 +112,11 @@ contract InsuranceFund is IInsuranceFund, Ownable, ReentrancyGuard {
      * @param amount Amount to cover
      * @return covered Amount actually covered
      */
-    function coverPositionBadDebt(
-        bytes32 positionId,
-        address token,
-        uint256 amount
-    ) external nonReentrant returns (uint256 covered) {
+    function coverPositionBadDebt(bytes32 positionId, address token, uint256 amount)
+        external
+        nonReentrant
+        returns (uint256 covered)
+    {
         if (!authorizedDrawers[msg.sender] && msg.sender != owner()) {
             revert Unauthorized();
         }
@@ -151,7 +142,6 @@ contract InsuranceFund is IInsuranceFund, Ownable, ReentrancyGuard {
         return covered;
     }
 
-
     function getBalance(address token) external view returns (uint256) {
         return balances[token];
     }
@@ -169,14 +159,13 @@ contract InsuranceFund is IInsuranceFund, Ownable, ReentrancyGuard {
         return supportedTokens;
     }
 
-    function getStats() external view returns (
-        uint256 _totalDeposited,
-        uint256 _totalBadDebtCovered,
-        uint256 currentValueUSD
-    ) {
+    function getStats()
+        external
+        view
+        returns (uint256 _totalDeposited, uint256 _totalBadDebtCovered, uint256 currentValueUSD)
+    {
         return (totalDeposited, totalBadDebtCovered, getTotalValue());
     }
-
 
     function _getValueUSD(address token, uint256 amount) internal view returns (uint256) {
         if (amount == 0) return 0;
@@ -187,7 +176,6 @@ contract InsuranceFund is IInsuranceFund, Ownable, ReentrancyGuard {
         // Assume 18 decimal tokens and 18 decimal prices
         return (amount * price) / 1e18;
     }
-
 
     /**
      * @notice Add a supported token
@@ -217,11 +205,7 @@ contract InsuranceFund is IInsuranceFund, Ownable, ReentrancyGuard {
      * @param amount Amount to withdraw
      * @param recipient Recipient address
      */
-    function emergencyWithdraw(
-        address token,
-        uint256 amount,
-        address recipient
-    ) external onlyOwner {
+    function emergencyWithdraw(address token, uint256 amount, address recipient) external onlyOwner {
         if (balances[token] < amount) revert InsufficientFunds();
 
         balances[token] -= amount;
@@ -258,14 +242,14 @@ contract InsuranceFund is IInsuranceFund, Ownable, ReentrancyGuard {
         periodDrawnUSD += amountUSD;
     }
 
-    function getRateLimitStatus() external view returns (
-        uint256 periodRemaining,
-        uint256 drawnThisPeriod,
-        uint256 maxDraw
-    ) {
+    function getRateLimitStatus()
+        external
+        view
+        returns (uint256 periodRemaining, uint256 drawnThisPeriod, uint256 maxDraw)
+    {
         uint256 totalValueUSD = getTotalValue();
         maxDraw = (totalValueUSD * MAX_DRAW_BPS) / 10000;
-        
+
         if (block.timestamp >= periodStart + RATE_LIMIT_PERIOD) {
             periodRemaining = 0;
             drawnThisPeriod = 0;

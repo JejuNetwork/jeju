@@ -50,7 +50,7 @@ async function main() {
   console.log('Balance:', formatEther(await provider.getBalance(await deployer.getAddress())), 'ETH\n');
   
   // Deploy contracts
-  const { address: tokenAddr, contract: token } = await deploy(deployer, 'TestERC20', 
+  const { address: tokenAddr, contract: _token } = await deploy(deployer, 'TestERC20', 
     ['Jeju', 'JEJU', parseEther('1000000000')]);
   
   const { address: identityAddr, contract: identity } = await deploy(deployer, 'IdentityRegistry', []);
@@ -138,3 +138,4 @@ OPERATOR_KEY=${KEYS[0]}
 }
 
 main().catch(e => { console.error(e.message); process.exit(1); });
+

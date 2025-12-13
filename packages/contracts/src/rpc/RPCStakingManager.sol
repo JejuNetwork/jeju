@@ -43,22 +43,19 @@ contract RPCStakingManager is IRPCStakingManager, Ownable, Pausable, ReentrancyG
     address public reputationProvider;
     address public priceOracle; // Chainlink-compatible price feed
     uint256 public fallbackPrice = 1e7; // $0.10 default (8 decimals)
-    
+
     mapping(address => StakePosition) public positions;
     mapping(Tier => TierConfig) public tierConfigs;
     mapping(address => bool) public whitelisted;
     mapping(address => bool) public moderators;
-    
+
     address public treasury;
     uint256 public totalStaked;
     uint256 public totalStakers;
 
-    constructor(
-        address _jejuToken,
-        address _identityRegistry,
-        address _priceOracle,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _jejuToken, address _identityRegistry, address _priceOracle, address initialOwner)
+        Ownable(initialOwner)
+    {
         require(_jejuToken != address(0), "Invalid token");
         jejuToken = IERC20(_jejuToken);
 
@@ -69,8 +66,8 @@ contract RPCStakingManager is IRPCStakingManager, Ownable, Pausable, ReentrancyG
 
         // USD-denominated tiers (8 decimals: 1e8 = $1)
         tierConfigs[Tier.FREE] = TierConfig({minUsdValue: 0, rateLimit: 10});
-        tierConfigs[Tier.BASIC] = TierConfig({minUsdValue: 10e8, rateLimit: 100});      // $10
-        tierConfigs[Tier.PRO] = TierConfig({minUsdValue: 100e8, rateLimit: 1000});      // $100
+        tierConfigs[Tier.BASIC] = TierConfig({minUsdValue: 10e8, rateLimit: 100}); // $10
+        tierConfigs[Tier.PRO] = TierConfig({minUsdValue: 100e8, rateLimit: 1000}); // $100
         tierConfigs[Tier.UNLIMITED] = TierConfig({minUsdValue: 1000e8, rateLimit: 0}); // $1000
     }
 
@@ -244,17 +241,15 @@ contract RPCStakingManager is IRPCStakingManager, Ownable, Pausable, ReentrancyG
      */
     function getJejuPrice() public view override returns (uint256) {
         if (priceOracle == address(0)) return fallbackPrice;
-        
+
         // Chainlink AggregatorV3 interface
-        (bool success, bytes memory data) = priceOracle.staticcall(
-            abi.encodeWithSignature("latestRoundData()")
-        );
-        
+        (bool success, bytes memory data) = priceOracle.staticcall(abi.encodeWithSignature("latestRoundData()"));
+
         if (success && data.length >= 160) {
             (, int256 price,,,) = abi.decode(data, (uint80, int256, uint256, uint256, uint80));
             if (price > 0) return uint256(price);
         }
-        
+
         return fallbackPrice;
     }
 
@@ -266,9 +261,8 @@ contract RPCStakingManager is IRPCStakingManager, Ownable, Pausable, ReentrancyG
 
         // Query reputation provider for stake discount
         // Uses same interface as GitHubReputationProvider
-        (bool success, bytes memory data) = reputationProvider.staticcall(
-            abi.encodeWithSignature("getStakeDiscount(address)", user)
-        );
+        (bool success, bytes memory data) =
+            reputationProvider.staticcall(abi.encodeWithSignature("getStakeDiscount(address)", user));
 
         if (success && data.length >= 32) {
             uint256 discount = abi.decode(data, (uint256));
@@ -306,10 +300,7 @@ contract RPCStakingManager is IRPCStakingManager, Ownable, Pausable, ReentrancyG
                     abi.encodeWithSignature("getMarketplaceInfo(uint256)", pos.agentId)
                 );
                 if (success && data.length >= 224) {
-                    (, , , , , , bool banned) = abi.decode(
-                        data, 
-                        (string, string, string, string, bool, uint8, bool)
-                    );
+                    (,,,,,, bool banned) = abi.decode(data, (string, string, string, string, bool, uint8, bool));
                     if (banned) return false;
                 }
             }
@@ -343,7 +334,7 @@ contract RPCStakingManager is IRPCStakingManager, Ownable, Pausable, ReentrancyG
     function freezeStake(address user, string calldata reason) external override onlyModerator {
         StakePosition storage pos = positions[user];
         if (pos.isFrozen) revert StakeIsFrozen();
-        
+
         pos.isFrozen = true;
         emit StakeFrozen(user, reason, msg.sender);
     }
@@ -355,7 +346,7 @@ contract RPCStakingManager is IRPCStakingManager, Ownable, Pausable, ReentrancyG
     function unfreezeStake(address user) external override onlyModerator {
         StakePosition storage pos = positions[user];
         if (!pos.isFrozen) revert StakeNotFrozen();
-        
+
         pos.isFrozen = false;
         emit StakeUnfrozen(user, msg.sender);
     }
@@ -368,20 +359,20 @@ contract RPCStakingManager is IRPCStakingManager, Ownable, Pausable, ReentrancyG
      */
     function slashStake(address user, uint256 amount, bytes32 reportId) external override onlyModerator {
         StakePosition storage pos = positions[user];
-        
+
         uint256 slashable = pos.stakedAmount;
         uint256 toSlash = amount > slashable ? slashable : amount;
         if (toSlash == 0) revert InvalidAmount();
-        
+
         Tier oldTier = getTier(user);
-        
+
         pos.stakedAmount -= toSlash;
         totalStaked -= toSlash;
-        
+
         if (treasury != address(0)) {
             jejuToken.safeTransfer(treasury, toSlash);
         }
-        
+
         Tier newTier = getTier(user);
         if (oldTier != newTier) {
             emit TierChanged(user, oldTier, newTier);
@@ -483,14 +474,11 @@ contract RPCStakingManager is IRPCStakingManager, Ownable, Pausable, ReentrancyG
     /**
      * @notice Get global staking statistics
      */
-    function getStats() external view returns (
-        uint256 _totalStaked,
-        uint256 _totalStakers,
-        uint256,
-        uint256,
-        uint256,
-        uint256
-    ) {
+    function getStats()
+        external
+        view
+        returns (uint256 _totalStaked, uint256 _totalStakers, uint256, uint256, uint256, uint256)
+    {
         _totalStaked = totalStaked;
         _totalStakers = totalStakers;
         // Note: tier counts would require enumeration, returns 0 for now

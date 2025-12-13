@@ -44,6 +44,7 @@
     "test:report": "playwright show-report"
   },
   "dependencies": {
+    "@jeju/kms": "workspace:*",
     "@jeju/shared": "workspace:*",
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/contracts": "workspace:*",

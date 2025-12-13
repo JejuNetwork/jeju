@@ -58,9 +58,9 @@ contract NFTLaunchpad is ReentrancyGuard, Ownable {
 
     struct CollectionConfig {
         address creator;
-        uint16 creatorFeeBps;      // Creator's share of sale price (basis points)
-        uint16 communityFeeBps;    // Community's share of sale price (basis points)
-        address communityVault;     // Where community fees go
+        uint16 creatorFeeBps; // Creator's share of sale price (basis points)
+        uint16 communityFeeBps; // Community's share of sale price (basis points)
+        address communityVault; // Where community fees go
         bool registered;
     }
 
@@ -116,11 +116,7 @@ contract NFTLaunchpad is ReentrancyGuard, Ownable {
         address communityVault
     );
 
-    event CollectionFeeUpdated(
-        address indexed collection,
-        uint16 newCreatorFeeBps,
-        uint16 newCommunityFeeBps
-    );
+    event CollectionFeeUpdated(address indexed collection, uint16 newCreatorFeeBps, uint16 newCommunityFeeBps);
 
     event ListingCreated(
         uint256 indexed listingId,
@@ -178,13 +174,9 @@ contract NFTLaunchpad is ReentrancyGuard, Ownable {
      * @param creatorFeeBps Creator's share in basis points (0-10000)
      * @param communityVault Address to receive community fees (0 = default)
      */
-    function registerCollection(
-        address collection,
-        uint16 creatorFeeBps,
-        address communityVault
-    ) external {
+    function registerCollection(address collection, uint16 creatorFeeBps, address communityVault) external {
         if (creatorFeeBps > TOTAL_FEE_BPS) revert InvalidFeeConfig();
-        
+
         uint16 communityFeeBps = TOTAL_FEE_BPS - creatorFeeBps;
 
         collections[collection] = CollectionConfig({
@@ -264,8 +256,7 @@ contract NFTLaunchpad is ReentrancyGuard, Ownable {
             if (amount != 1) revert InvalidAmount();
             IERC721 nft = IERC721(collection);
             if (nft.ownerOf(tokenId) != msg.sender) revert NotAssetOwner();
-            if (!nft.isApprovedForAll(msg.sender, address(this)) && 
-                nft.getApproved(tokenId) != address(this)) {
+            if (!nft.isApprovedForAll(msg.sender, address(this)) && nft.getApproved(tokenId) != address(this)) {
                 revert NotApproved();
             }
         } else {
@@ -404,12 +395,11 @@ contract NFTLaunchpad is ReentrancyGuard, Ownable {
     /**
      * @notice Preview fee distribution for a sale
      */
-    function previewFees(address collection, uint256 price) external view returns (
-        uint256 creatorFee,
-        uint256 communityFee,
-        address creator,
-        address communityVault
-    ) {
+    function previewFees(address collection, uint256 price)
+        external
+        view
+        returns (uint256 creatorFee, uint256 communityFee, address creator, address communityVault)
+    {
         CollectionConfig storage config = collections[collection];
         if (!config.registered) {
             // Use defaults

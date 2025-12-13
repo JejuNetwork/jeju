@@ -4,7 +4,7 @@ import { useVotingPower } from '../hooks/useGovernance';
 import { formatTokenAmount } from '../lib/tokenUtils';
 
 export default function GovernanceTab() {
-  const { votingPower } = useVotingPower();
+  const { power } = useVotingPower();
   
   return (
     <div>
@@ -15,7 +15,7 @@ export default function GovernanceTab() {
         </p>
       </div>
       
-      {votingPower && (
+      {power && (
         <div className="card" style={{ marginBottom: '1.5rem' }}>
           <h3 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>
             <Vote size={24} style={{ display: 'inline', marginRight: '0.5rem', verticalAlign: 'middle' }} />
@@ -23,21 +23,21 @@ export default function GovernanceTab() {
           </h3>
           <div className="grid grid-3" style={{ gap: '1rem' }}>
             <div>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>From Nodes</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>Base Votes</p>
               <p style={{ fontSize: '1.5rem', fontWeight: '600', margin: '0.25rem 0' }}>
-                {formatTokenAmount(votingPower.fromNodeStaking, 18, 0)}
+                {formatTokenAmount(power.baseVotes, 18, 0)}
               </p>
             </div>
             <div>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>From LPs</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>Multiplier</p>
               <p style={{ fontSize: '1.5rem', fontWeight: '600', margin: '0.25rem 0' }}>
-                {formatTokenAmount(votingPower.fromLPPositions, 18, 0)}
+                {(power.reputationMultiplier * power.stakeMultiplier).toFixed(2)}x
               </p>
             </div>
             <div>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>Total Power</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>Effective Votes</p>
               <p style={{ fontSize: '1.5rem', fontWeight: '600', margin: '0.25rem 0', color: 'var(--accent-primary)' }}>
-                {formatTokenAmount(votingPower.total, 18, 0)}
+                {formatTokenAmount(power.effectiveVotes, 18, 0)}
               </p>
             </div>
           </div>

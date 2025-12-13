@@ -6,37 +6,39 @@ pragma solidity ^0.8.26;
  * @notice Shared types for Jeju Storage Marketplace contracts
  */
 interface IStorageTypes {
-    
     // ============ Enums ============
-    
+
     enum ProviderType {
-        IPFS_NODE,      // Self-hosted IPFS node
-        FILECOIN,       // Filecoin storage deal
-        ARWEAVE,        // Permanent Arweave storage
-        CLOUD_S3,       // S3-compatible cloud storage
-        CLOUD_VERCEL,   // Vercel Blob storage
-        CLOUD_R2,       // Cloudflare R2
-        HYBRID          // Multi-backend provider
+        IPFS_NODE, // Self-hosted IPFS node
+        FILECOIN, // Filecoin storage deal
+        ARWEAVE, // Permanent Arweave storage
+        CLOUD_S3, // S3-compatible cloud storage
+        CLOUD_VERCEL, // Vercel Blob storage
+        CLOUD_R2, // Cloudflare R2
+        HYBRID // Multi-backend provider
+
     }
-    
+
     enum StorageTier {
-        HOT,            // Fast access, higher cost
-        WARM,           // Balanced access and cost
-        COLD,           // Slow access, archival pricing
-        PERMANENT       // Permanent storage (Arweave)
+        HOT, // Fast access, higher cost
+        WARM, // Balanced access and cost
+        COLD, // Slow access, archival pricing
+        PERMANENT // Permanent storage (Arweave)
+
     }
-    
+
     enum DealStatus {
-        PENDING,        // Deal created, awaiting confirmation
-        ACTIVE,         // Deal active, data stored
-        EXPIRED,        // Deal expired
-        TERMINATED,     // Early termination
-        FAILED,         // Storage failure
-        DISPUTED        // Under dispute
+        PENDING, // Deal created, awaiting confirmation
+        ACTIVE, // Deal active, data stored
+        EXPIRED, // Deal expired
+        TERMINATED, // Early termination
+        FAILED, // Storage failure
+        DISPUTED // Under dispute
+
     }
-    
+
     // ============ Structs ============
-    
+
     struct Provider {
         address owner;
         string name;
@@ -49,14 +51,14 @@ interface IStorageTypes {
         bool active;
         bool verified;
     }
-    
+
     struct ProviderCapacity {
         uint256 totalCapacityGB;
         uint256 usedCapacityGB;
         uint256 availableCapacityGB;
         uint256 reservedCapacityGB;
     }
-    
+
     struct ProviderPricing {
         uint256 pricePerGBMonth;
         uint256 minStoragePeriodDays;
@@ -64,7 +66,7 @@ interface IStorageTypes {
         uint256 retrievalPricePerGB;
         uint256 uploadPricePerGB;
     }
-    
+
     struct ProviderInfo {
         Provider provider;
         ProviderCapacity capacity;
@@ -75,7 +77,7 @@ interface IStorageTypes {
         uint256 healthScore;
         uint256 avgLatencyMs;
     }
-    
+
     struct StorageDeal {
         bytes32 dealId;
         address user;
@@ -92,7 +94,7 @@ interface IStorageTypes {
         uint256 replicationFactor;
         uint256 retrievalCount;
     }
-    
+
     struct StorageQuote {
         address provider;
         uint256 sizeBytes;
@@ -102,27 +104,27 @@ interface IStorageTypes {
         CostBreakdown costBreakdown;
         uint256 expiresAt;
     }
-    
+
     struct CostBreakdown {
         uint256 storageCost;
         uint256 bandwidth;
         uint256 retrieval;
     }
-    
+
     struct Ledger {
         uint256 totalBalance;
         uint256 availableBalance;
         uint256 lockedBalance;
         uint256 createdAt;
     }
-    
+
     struct SubAccount {
         uint256 balance;
         uint256 pendingRefund;
         uint256 refundUnlockTime;
         bool acknowledged;
     }
-    
+
     struct UserRecord {
         uint256 totalDeals;
         uint256 activeDeals;
@@ -132,7 +134,7 @@ interface IStorageTypes {
         uint256 totalSpent;
         bool banned;
     }
-    
+
     struct ProviderRecord {
         uint256 totalDeals;
         uint256 activeDeals;
@@ -146,4 +148,3 @@ interface IStorageTypes {
         bool banned;
     }
 }
-

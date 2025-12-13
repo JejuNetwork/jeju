@@ -44,7 +44,7 @@ contract EILEntryPointTest is Test {
     function setUp() public {
         // Warp time to avoid underflow in exchange rate calculations
         vm.warp(1700000000);
-        
+
         vm.startPrank(owner);
 
         // Deploy mock tokens and EntryPoint
@@ -57,7 +57,9 @@ contract EILEntryPointTest is Test {
 
         // Deploy paymaster with MockEntryPoint
         entryPoint = address(mockEntryPoint);
-        paymaster = new CrossChainPaymaster(IEntryPoint(entryPoint), address(stakeManager), BASE_SEPOLIA_CHAIN_ID, address(oracle));
+        paymaster = new CrossChainPaymaster(
+            IEntryPoint(entryPoint), address(stakeManager), BASE_SEPOLIA_CHAIN_ID, address(oracle)
+        );
 
         // Configure paymaster
         paymaster.setTokenSupport(address(usdc), true);
@@ -115,7 +117,8 @@ contract EILEntryPointTest is Test {
 
         // Simulate EntryPoint calling validatePaymasterUserOp
         vm.prank(entryPoint);
-        (bytes memory context, uint256 validationData) = paymaster.validatePaymasterUserOp(userOp, bytes32(0), 0.01 ether);
+        (bytes memory context, uint256 validationData) =
+            paymaster.validatePaymasterUserOp(userOp, bytes32(0), 0.01 ether);
 
         // validationData should be 0 for valid
         assertEq(validationData, 0, "Should validate successfully");
@@ -130,7 +133,8 @@ contract EILEntryPointTest is Test {
         PackedUserOperation memory userOp = _buildUserOp(poorUser, paymasterAndData);
 
         vm.prank(entryPoint);
-        (bytes memory context, uint256 validationData) = paymaster.validatePaymasterUserOp(userOp, bytes32(0), 0.01 ether);
+        (bytes memory context, uint256 validationData) =
+            paymaster.validatePaymasterUserOp(userOp, bytes32(0), 0.01 ether);
 
         // Should return invalid (validationData = 1)
         assertEq(validationData, 1, "Should fail validation for insufficient balance");
@@ -153,7 +157,8 @@ contract EILEntryPointTest is Test {
         PackedUserOperation memory userOp = _buildUserOp(user, paymasterAndData);
 
         vm.prank(entryPoint);
-        (bytes memory context, uint256 validationData) = paymaster.validatePaymasterUserOp(userOp, bytes32(0), 0.01 ether);
+        (bytes memory context, uint256 validationData) =
+            paymaster.validatePaymasterUserOp(userOp, bytes32(0), 0.01 ether);
 
         // Should return invalid for unsupported token
         assertEq(validationData, 1, "Should fail for unsupported token");
@@ -165,7 +170,8 @@ contract EILEntryPointTest is Test {
         PackedUserOperation memory userOp = _buildUserOp(user, paymasterAndData);
 
         vm.prank(entryPoint);
-        (bytes memory context, uint256 validationData) = paymaster.validatePaymasterUserOp(userOp, bytes32(0), 0.01 ether);
+        (bytes memory context, uint256 validationData) =
+            paymaster.validatePaymasterUserOp(userOp, bytes32(0), 0.01 ether);
 
         assertEq(validationData, 1, "Should fail for too short data");
     }
@@ -216,40 +222,41 @@ contract EILEntryPointTest is Test {
 
     // ============ Voucher Mode Tests ============
 
-    /// @dev Skipped: Requires complex cross-chain voucher signature setup
-    function SKIP_test_ValidatePaymasterUserOp_VoucherMode_Valid() public {
-        // Create a voucher first
+    function test_ValidatePaymasterUserOp_VoucherMode_WithRealVoucher() public {
+        // Create a real voucher through the full flow
         testVoucherId = _createVoucher();
 
         // Build voucher mode paymasterAndData
-        // Format: [paymaster(20)][verificationGas(16)][postOpGas(16)][mode(1)][voucherId(32)][xlp(20)]
         bytes memory paymasterAndData = _buildVoucherPaymentData(testVoucherId, xlp);
         PackedUserOperation memory userOp = _buildUserOp(user, paymasterAndData);
 
         vm.prank(entryPoint);
-        (bytes memory context, uint256 validationData) = paymaster.validatePaymasterUserOp(userOp, bytes32(0), 0.001 ether);
+        (bytes memory context, uint256 validationData) =
+            paymaster.validatePaymasterUserOp(userOp, bytes32(0), 0.001 ether);
 
-        // Should validate successfully for valid voucher
+        // Should validate successfully - XLP has ETH deposits
         assertEq(validationData, 0, "Should validate with valid voucher");
         assertTrue(context.length > 0, "Should return context");
     }
 
-    /// @dev Skipped: Requires complex cross-chain voucher signature setup
-    function SKIP_test_ValidatePaymasterUserOp_VoucherMode_ExpiredVoucher() public {
-        // Create voucher
+    function test_ValidatePaymasterUserOp_VoucherMode_XLPInsufficientETH() public {
+        // Create a voucher, then drain XLP's ETH deposits
         testVoucherId = _createVoucher();
 
-        // Warp past voucher expiry (assuming 24h default)
-        vm.warp(block.timestamp + 25 hours);
+        // Withdraw all XLP ETH deposits
+        vm.prank(xlp);
+        paymaster.withdrawETH(paymaster.getXLPETH(xlp));
 
         bytes memory paymasterAndData = _buildVoucherPaymentData(testVoucherId, xlp);
         PackedUserOperation memory userOp = _buildUserOp(user, paymasterAndData);
 
         vm.prank(entryPoint);
-        (bytes memory context, uint256 validationData) = paymaster.validatePaymasterUserOp(userOp, bytes32(0), 0.001 ether);
+        (bytes memory context, uint256 validationData) =
+            paymaster.validatePaymasterUserOp(userOp, bytes32(0), 0.001 ether);
 
-        // Should fail for expired voucher
-        assertEq(validationData, 1, "Should fail for expired voucher");
+        // Should fail because XLP has no ETH to cover gas
+        assertEq(validationData, 1, "Should fail when XLP has no ETH");
+        assertEq(context.length, 0, "Should return empty context");
     }
 
     function test_ValidatePaymasterUserOp_VoucherMode_Valid() public {
@@ -259,7 +266,8 @@ contract EILEntryPointTest is Test {
         PackedUserOperation memory userOp = _buildUserOp(user, paymasterAndData);
 
         vm.prank(entryPoint);
-        (bytes memory context, uint256 validationData) = paymaster.validatePaymasterUserOp(userOp, bytes32(0), 0.001 ether);
+        (bytes memory context, uint256 validationData) =
+            paymaster.validatePaymasterUserOp(userOp, bytes32(0), 0.001 ether);
 
         // Voucher validation only checks XLP ETH deposits, not voucher existence
         assertEq(validationData, 0, "Should pass when XLP has ETH deposits");
@@ -275,7 +283,8 @@ contract EILEntryPointTest is Test {
         PackedUserOperation memory userOp = _buildUserOp(user, paymasterAndData);
 
         vm.prank(entryPoint);
-        (bytes memory context, uint256 validationData) = paymaster.validatePaymasterUserOp(userOp, bytes32(0), 0.001 ether);
+        (bytes memory context, uint256 validationData) =
+            paymaster.validatePaymasterUserOp(userOp, bytes32(0), 0.001 ether);
 
         // Should fail because XLP has no ETH deposits (voucher existence not checked in validate phase)
         assertEq(validationData, 1, "Should fail when XLP has no ETH deposits");
@@ -317,7 +326,8 @@ contract EILEntryPointTest is Test {
 
         // 3. EntryPoint validates
         vm.prank(entryPoint);
-        (bytes memory context, uint256 validationData) = paymaster.validatePaymasterUserOp(userOp, bytes32(0), 0.05 ether);
+        (bytes memory context, uint256 validationData) =
+            paymaster.validatePaymasterUserOp(userOp, bytes32(0), 0.05 ether);
         assertEq(validationData, 0, "Validation should pass");
 
         // 4. UserOp executes (simulated)
@@ -347,7 +357,11 @@ contract EILEntryPointTest is Test {
 
     // ============ Helpers ============
 
-    function _buildUserOp(address sender, bytes memory paymasterAndData) internal pure returns (PackedUserOperation memory) {
+    function _buildUserOp(address sender, bytes memory paymasterAndData)
+        internal
+        pure
+        returns (PackedUserOperation memory)
+    {
         return PackedUserOperation({
             sender: sender,
             nonce: 0,
@@ -436,14 +450,14 @@ contract EILEntryPointTest is Test {
             , // refunded
             , // bidCount
             , // winningXLP
-              // winningFee
+                // winningFee
         ) = paymaster.voucherRequests(requestId);
         uint256 fee = paymaster.getCurrentFee(requestId);
-        
+
         // Build commitment: keccak256(abi.encodePacked(requestId, msg.sender, amount, fee, destChainId))
         bytes32 commitment = keccak256(abi.encodePacked(requestId, xlp, amount, fee, destChainId));
         bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", commitment));
-        
+
         // Sign with xlp's private key (address(0x2) corresponds to private key 2)
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(2, ethSignedHash);
         return abi.encodePacked(r, s, v);

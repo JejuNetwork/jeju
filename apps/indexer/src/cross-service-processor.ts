@@ -362,22 +362,22 @@ export async function processCrossServiceEvents(ctx: ProcessorContext<Store>): P
     await ctx.store.upsert(accountFactory.getAll());
   }
   if (updatedStorageProviders.size > 0) {
-    await ctx.store.upsert(Array.from(updatedStorageProviders.values()));
+    await ctx.store.upsert([...updatedStorageProviders.values()]);
   }
   if (updatedComputeProviders.size > 0) {
-    await ctx.store.upsert(Array.from(updatedComputeProviders.values()));
+    await ctx.store.upsert([...updatedComputeProviders.values()]);
   }
   if (containerFiles.size > 0) {
-    await ctx.store.upsert(Array.from(containerFiles.values()));
+    await ctx.store.upsert([...containerFiles.values()]);
   }
   if (containerImages.size > 0) {
-    await ctx.store.upsert(Array.from(containerImages.values()));
+    await ctx.store.upsert([...containerImages.values()]);
   }
   if (crossServiceRequests.size > 0) {
-    await ctx.store.upsert(Array.from(crossServiceRequests.values()));
+    await ctx.store.upsert([...crossServiceRequests.values()]);
   }
   if (updatedAgents.size > 0) {
-    await ctx.store.upsert(Array.from(updatedAgents.values()));
+    await ctx.store.upsert([...updatedAgents.values()]);
   }
 
   // Log summary

@@ -9,7 +9,18 @@ import {
 } from '../../../scripts/shared/cloud-integration';
 import { Logger } from '../../../scripts/shared/logger';
 
-describe('Cloud Integration', () => {
+// Check if localnet is available
+const rpcUrl = process.env.RPC_URL || 'http://localhost:8545';
+let localnetAvailable = false;
+try {
+  const provider = new ethers.JsonRpcProvider(rpcUrl);
+  await provider.getBlockNumber();
+  localnetAvailable = true;
+} catch {
+  console.log(`Localnet not available at ${rpcUrl}, skipping cloud integration tests`);
+}
+
+describe.skipIf(!localnetAvailable)('Cloud Integration', () => {
   let integration: CloudIntegration;
   let provider: ethers.Provider;
   let signer: ethers.Signer;
@@ -238,7 +249,7 @@ describe('Cloud Integration - Security', () => {
   });
 });
 
-describe('Cloud Integration - Performance', () => {
+describe.skipIf(!localnetAvailable)('Cloud Integration - Performance', () => {
   test('should handle batch reputation updates', async () => {
     const startTime = Date.now();
     const updates = 5;

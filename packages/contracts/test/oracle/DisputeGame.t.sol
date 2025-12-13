@@ -80,10 +80,7 @@ contract DisputeGameTest is Test {
         sigs[0] = _sign(signer1Pk, reportHash);
         sigs[1] = _sign(signer2Pk, reportHash);
 
-        verifier.submitReport(IReportVerifier.ReportSubmission({
-            report: report,
-            signatures: sigs
-        }));
+        verifier.submitReport(IReportVerifier.ReportSubmission({report: report, signatures: sigs}));
 
         vm.stopPrank();
     }
@@ -91,9 +88,7 @@ contract DisputeGameTest is Test {
     function test_OpenDispute() public {
         vm.prank(disputer);
         bytes32 disputeId = disputeGame.openDispute{value: 100 ether}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("evidence-ipfs-hash")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence-ipfs-hash")
         );
 
         IDisputeGame.Dispute memory dispute = disputeGame.getDispute(disputeId);
@@ -109,9 +104,7 @@ contract DisputeGameTest is Test {
         // Open dispute
         vm.prank(disputer);
         bytes32 disputeId = disputeGame.openDispute{value: 100 ether}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("evidence")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
         );
 
         // Challenge
@@ -127,9 +120,7 @@ contract DisputeGameTest is Test {
         // Open dispute
         vm.prank(disputer);
         bytes32 disputeId = disputeGame.openDispute{value: 100 ether}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("evidence")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
         );
 
         uint256 disputerBalanceBefore = disputer.balance;
@@ -149,16 +140,16 @@ contract DisputeGameTest is Test {
         // Open dispute
         vm.prank(disputer);
         bytes32 disputeId = disputeGame.openDispute{value: 100 ether}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("evidence")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
         );
 
         uint256 disputerBalanceBefore = disputer.balance;
 
         // Resolve as invalid (disputer wins)
         vm.prank(owner);
-        disputeGame.resolveDispute(disputeId, IDisputeGame.ResolutionOutcome.REPORT_INVALID, "Report verified incorrect");
+        disputeGame.resolveDispute(
+            disputeId, IDisputeGame.ResolutionOutcome.REPORT_INVALID, "Report verified incorrect"
+        );
 
         IDisputeGame.Dispute memory dispute = disputeGame.getDispute(disputeId);
         assertEq(uint256(dispute.status), uint256(IDisputeGame.DisputeStatus.RESOLVED_INVALID));
@@ -171,9 +162,7 @@ contract DisputeGameTest is Test {
         // Open dispute
         vm.prank(disputer);
         bytes32 disputeId = disputeGame.openDispute{value: 100 ether}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("evidence")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
         );
 
         uint256 disputerBalanceBefore = disputer.balance;
@@ -193,35 +182,22 @@ contract DisputeGameTest is Test {
 
     function test_RevertInsufficientBond() public {
         vm.prank(disputer);
-        vm.expectRevert(abi.encodeWithSelector(
-            IDisputeGame.InsufficientBond.selector,
-            10 ether,
-            100 ether
-        ));
+        vm.expectRevert(abi.encodeWithSelector(IDisputeGame.InsufficientBond.selector, 10 ether, 100 ether));
         disputeGame.openDispute{value: 10 ether}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("evidence")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
         );
     }
 
     function test_RevertDuplicateDispute() public {
         vm.prank(disputer);
         disputeGame.openDispute{value: 100 ether}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("evidence")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
         );
 
         vm.prank(disputer);
-        vm.expectRevert(abi.encodeWithSelector(
-            IDisputeGame.DisputeAlreadyExists.selector,
-            reportHash
-        ));
+        vm.expectRevert(abi.encodeWithSelector(IDisputeGame.DisputeAlreadyExists.selector, reportHash));
         disputeGame.openDispute{value: 100 ether}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("evidence2")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence2")
         );
     }
 
@@ -229,9 +205,7 @@ contract DisputeGameTest is Test {
         // Open dispute
         vm.prank(disputer);
         bytes32 disputeId = disputeGame.openDispute{value: 100 ether}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("evidence")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
         );
 
         // Advance past challenge window
@@ -239,19 +213,14 @@ contract DisputeGameTest is Test {
 
         // Try to challenge
         vm.prank(challenger);
-        vm.expectRevert(abi.encodeWithSelector(
-            IDisputeGame.ChallengeWindowClosed.selector,
-            disputeId
-        ));
+        vm.expectRevert(abi.encodeWithSelector(IDisputeGame.ChallengeWindowClosed.selector, disputeId));
         disputeGame.challengeDispute{value: 100 ether}(disputeId);
     }
 
     function test_GetActiveDisputes() public {
         vm.prank(disputer);
         bytes32 disputeId1 = disputeGame.openDispute{value: 100 ether}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("evidence")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
         );
 
         bytes32[] memory active = disputeGame.getActiveDisputes();
@@ -269,9 +238,7 @@ contract DisputeGameTest is Test {
     function test_GetDisputesByDisputer() public {
         vm.prank(disputer);
         bytes32 disputeId = disputeGame.openDispute{value: 100 ether}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("evidence")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
         );
 
         bytes32[] memory disputes = disputeGame.getDisputesByDisputer(disputer);
@@ -290,14 +257,11 @@ contract DisputeGameTest is Test {
     // ============ Helpers ============
 
     function _computeReportHash(IReportVerifier.PriceReport memory report) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(
-            report.feedId,
-            report.price,
-            report.confidence,
-            report.timestamp,
-            report.round,
-            report.sourcesHash
-        ));
+        return keccak256(
+            abi.encodePacked(
+                report.feedId, report.price, report.confidence, report.timestamp, report.round, report.sourcesHash
+            )
+        );
     }
 
     function _sign(uint256 privateKey, bytes32 hash) internal pure returns (bytes memory) {

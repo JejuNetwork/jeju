@@ -9,11 +9,11 @@ pragma solidity >=0.8.24;
  * @dev This interface is automatically generated from the corresponding system contract. Do not edit manually.
  */
 interface IResourceSystem {
-  function hyperscape__spawnResource(uint8 resourceType, int32 x, int32 y, int32 z) external returns (bytes32);
+    function hyperscape__spawnResource(uint8 resourceType, int32 x, int32 y, int32 z) external returns (bytes32);
 
-  function hyperscape__chopTree(bytes32 resourceId) external returns (bool success, uint16 itemId);
+    function hyperscape__chopTree(bytes32 resourceId) external returns (bool success, uint16 itemId);
 
-  function hyperscape__fish(bytes32 resourceId) external returns (bool success, uint16 itemId);
+    function hyperscape__fish(bytes32 resourceId) external returns (bool success, uint16 itemId);
 
-  function hyperscape__lightFire(bytes32 resourceId) external returns (bool success);
+    function hyperscape__lightFire(bytes32 resourceId) external returns (bool success);
 }

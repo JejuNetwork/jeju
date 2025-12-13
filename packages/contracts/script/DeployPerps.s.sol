@@ -71,11 +71,7 @@ contract DeployPerps is Script {
         console.log("\n=== Phase 1: Oracle Marketplace ===");
 
         // Deploy OracleStakingManager
-        oracleStakingManager = new OracleStakingManager(
-            tokenRegistry,
-            priceOracle,
-            deployer
-        );
+        oracleStakingManager = new OracleStakingManager(tokenRegistry, priceOracle, deployer);
         console.log("OracleStakingManager:", address(oracleStakingManager));
 
         // Configure reputation integration if available
@@ -93,27 +89,17 @@ contract DeployPerps is Script {
             BTC_USD,
             "BTC-USD",
             address(0), // External asset
-            3600,       // 1 hour heartbeat
-            100,        // 1% deviation threshold
-            3           // Min 3 oracles
+            3600, // 1 hour heartbeat
+            100, // 1% deviation threshold
+            3 // Min 3 oracles
         );
         console.log("  - BTC-USD market added");
 
-        oracleStakingManager.addMarket(
-            ETH_USD,
-            "ETH-USD",
-            address(0),
-            3600,
-            100,
-            3
-        );
+        oracleStakingManager.addMarket(ETH_USD, "ETH-USD", address(0), 3600, 100, 3);
         console.log("  - ETH-USD market added");
 
         // Deploy PriceFeedAggregator
-        priceFeedAggregator = new PriceFeedAggregator(
-            address(oracleStakingManager),
-            deployer
-        );
+        priceFeedAggregator = new PriceFeedAggregator(address(oracleStakingManager), deployer);
         console.log("PriceFeedAggregator:", address(priceFeedAggregator));
 
         // Configure price feeds
@@ -121,37 +107,23 @@ contract DeployPerps is Script {
             "BTC-USD",
             BTC_USD,
             chainlinkBtcUsd,
-            3600,   // 1 hour max staleness
-            200,    // 2% max deviation between sources
-            false   // Don't require Jeju oracle (allow Chainlink fallback)
+            3600, // 1 hour max staleness
+            200, // 2% max deviation between sources
+            false // Don't require Jeju oracle (allow Chainlink fallback)
         );
 
-        priceFeedAggregator.configureFeed(
-            "ETH-USD",
-            ETH_USD,
-            chainlinkEthUsd,
-            3600,
-            200,
-            false
-        );
+        priceFeedAggregator.configureFeed("ETH-USD", ETH_USD, chainlinkEthUsd, 3600, 200, false);
 
         // ============ Phase 2: Perps Engine ============
 
         console.log("\n=== Phase 2: Perps Engine ===");
 
         // Deploy InsuranceFund first (needed by others)
-        insuranceFund = new InsuranceFund(
-            priceOracle,
-            deployer
-        );
+        insuranceFund = new InsuranceFund(priceOracle, deployer);
         console.log("InsuranceFund:", address(insuranceFund));
 
         // Deploy MarginManager
-        marginManager = new MarginManager(
-            priceOracle,
-            tokenRegistry,
-            deployer
-        );
+        marginManager = new MarginManager(priceOracle, tokenRegistry, deployer);
         console.log("MarginManager:", address(marginManager));
 
         // Deploy PerpetualMarket
@@ -165,12 +137,8 @@ contract DeployPerps is Script {
         console.log("PerpetualMarket:", address(perpMarket));
 
         // Deploy LiquidationEngine
-        liquidationEngine = new LiquidationEngine(
-            address(perpMarket),
-            address(marginManager),
-            address(insuranceFund),
-            deployer
-        );
+        liquidationEngine =
+            new LiquidationEngine(address(perpMarket), address(marginManager), address(insuranceFund), deployer);
         console.log("LiquidationEngine:", address(liquidationEngine));
 
         // ============ Phase 3: Configure Integrations ============
@@ -197,27 +165,18 @@ contract DeployPerps is Script {
         // Add BTC-PERP market
         perpMarket.addMarket(
             BTC_PERP,
-            "BTC-USD",          // Symbol for price feed
-            address(0),         // External asset
-            20,                 // 20x max leverage
-            500,                // 5% maintenance margin
-            5,                  // 0.05% taker fee
-            2,                  // 0.02% maker fee
-            1000000 * 1e8       // $1M max open interest
+            "BTC-USD", // Symbol for price feed
+            address(0), // External asset
+            20, // 20x max leverage
+            500, // 5% maintenance margin
+            5, // 0.05% taker fee
+            2, // 0.02% maker fee
+            1000000 * 1e8 // $1M max open interest
         );
         console.log("  - BTC-PERP market added (20x leverage)");
 
         // Add ETH-PERP market
-        perpMarket.addMarket(
-            ETH_PERP,
-            "ETH-USD",
-            address(0),
-            20,
-            500,
-            5,
-            2,
-            1000000 * 1e8
-        );
+        perpMarket.addMarket(ETH_PERP, "ETH-USD", address(0), 20, 500, 5, 2, 1000000 * 1e8);
         console.log("  - ETH-PERP market added (20x leverage)");
 
         vm.stopBroadcast();
@@ -242,21 +201,36 @@ contract DeployPerps is Script {
 // Simple mocks for localnet deployment
 contract MockTokenRegistry {
     mapping(address => bool) public isRegistered;
-    function setRegistered(address token, bool status) external { isRegistered[token] = status; }
+
+    function setRegistered(address token, bool status) external {
+        isRegistered[token] = status;
+    }
 }
 
 contract MockPriceOracle {
     mapping(address => uint256) public prices;
-    function setPrice(address token, uint256 price) external { prices[token] = price; }
-    function getPrice(address token) external view returns (uint256) { return prices[token]; }
+
+    function setPrice(address token, uint256 price) external {
+        prices[token] = price;
+    }
+
+    function getPrice(address token) external view returns (uint256) {
+        return prices[token];
+    }
 }
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract MockUSDC is ERC20 {
     constructor() ERC20("Mock USDC", "USDC") {}
-    function mint(address to, uint256 amount) external { _mint(to, amount); }
-    function decimals() public pure override returns (uint8) { return 6; }
+
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
+
+    function decimals() public pure override returns (uint8) {
+        return 6;
+    }
 }
 
 /**
@@ -270,7 +244,9 @@ contract DeployPerpsLocalnet is Script {
     bytes32 public constant ETH_USD = keccak256("ETH-USD");
 
     function run() external {
-        uint256 deployerPrivateKey = vm.envOr("DEPLOYER_PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
+        uint256 deployerPrivateKey = vm.envOr(
+            "DEPLOYER_PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80)
+        );
         address deployer = vm.addr(deployerPrivateKey);
 
         console.log("Deploying Perps DEX to Localnet");
@@ -292,11 +268,8 @@ contract DeployPerpsLocalnet is Script {
         console.log("MockUSDC:", address(usdc));
 
         // Deploy OracleStakingManager
-        OracleStakingManager oracleStakingManager = new OracleStakingManager(
-            address(tokenRegistry),
-            address(priceOracle),
-            deployer
-        );
+        OracleStakingManager oracleStakingManager =
+            new OracleStakingManager(address(tokenRegistry), address(priceOracle), deployer);
         console.log("OracleStakingManager:", address(oracleStakingManager));
 
         // Add oracle markets
@@ -304,10 +277,7 @@ contract DeployPerpsLocalnet is Script {
         oracleStakingManager.addMarket(ETH_USD, "ETH-USD", address(0), 3600, 100, 1);
 
         // Deploy PriceFeedAggregator
-        PriceFeedAggregator priceFeedAggregator = new PriceFeedAggregator(
-            address(oracleStakingManager),
-            deployer
-        );
+        PriceFeedAggregator priceFeedAggregator = new PriceFeedAggregator(address(oracleStakingManager), deployer);
         console.log("PriceFeedAggregator:", address(priceFeedAggregator));
 
         // Configure price feeds (asset, marketId, chainlinkFeed, staleness, deviation, requireJejuOracle)
@@ -320,11 +290,7 @@ contract DeployPerpsLocalnet is Script {
         console.log("InsuranceFund:", address(insuranceFund));
 
         // Deploy MarginManager
-        MarginManager marginManager = new MarginManager(
-            address(priceOracle),
-            address(tokenRegistry),
-            deployer
-        );
+        MarginManager marginManager = new MarginManager(address(priceOracle), address(tokenRegistry), deployer);
         marginManager.addCollateralToken(address(usdc), 10000, 0); // 100% weight, no max
         console.log("MarginManager:", address(marginManager));
 
@@ -333,8 +299,8 @@ contract DeployPerpsLocalnet is Script {
             address(marginManager),
             address(priceFeedAggregator),
             address(insuranceFund),
-            deployer,  // feeReceiver
-            deployer   // initialOwner
+            deployer, // feeReceiver
+            deployer // initialOwner
         );
         console.log("PerpetualMarket:", address(perpMarket));
 
@@ -343,12 +309,8 @@ contract DeployPerpsLocalnet is Script {
         perpMarket.addMarket(ETH_PERP, "ETH-PERP", address(0), 20, 100, 10, 5, 1000000 ether);
 
         // Deploy LiquidationEngine
-        LiquidationEngine liquidationEngine = new LiquidationEngine(
-            address(perpMarket),
-            address(marginManager),
-            address(insuranceFund),
-            deployer
-        );
+        LiquidationEngine liquidationEngine =
+            new LiquidationEngine(address(perpMarket), address(marginManager), address(insuranceFund), deployer);
         console.log("LiquidationEngine:", address(liquidationEngine));
 
         // Configure authorizations

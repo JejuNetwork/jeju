@@ -104,7 +104,7 @@ contract GovernanceTimelockTest is Test {
 
     function testExecuteAfterTimelock() public {
         bytes memory data = abi.encodeWithSelector(MockTarget.setValue.selector, 42);
-        
+
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(target), data, "test");
 
@@ -121,7 +121,7 @@ contract GovernanceTimelockTest is Test {
 
     function testExecuteBeforeTimelock() public {
         bytes memory data = abi.encodeWithSelector(MockTarget.setValue.selector, 42);
-        
+
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(target), data, "test");
 
@@ -132,7 +132,7 @@ contract GovernanceTimelockTest is Test {
 
     function testExecuteExactlyAtTimelock() public {
         bytes memory data = abi.encodeWithSelector(MockTarget.setValue.selector, 42);
-        
+
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(target), data, "test");
 
@@ -145,7 +145,7 @@ contract GovernanceTimelockTest is Test {
 
     function testExecuteTwice() public {
         bytes memory data = abi.encodeWithSelector(MockTarget.setValue.selector, 42);
-        
+
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(target), data, "test");
 
@@ -158,7 +158,7 @@ contract GovernanceTimelockTest is Test {
 
     function testExecuteWithRevert() public {
         bytes memory data = abi.encodeWithSelector(MockTarget.setValue.selector, 42);
-        
+
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(target), data, "test");
 
@@ -171,7 +171,7 @@ contract GovernanceTimelockTest is Test {
 
     function testExecuteCancelledProposal() public {
         bytes memory data = abi.encodeWithSelector(MockTarget.setValue.selector, 42);
-        
+
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(target), data, "test");
 
@@ -193,7 +193,7 @@ contract GovernanceTimelockTest is Test {
 
     function testCancelProposal() public {
         bytes memory data = abi.encodeWithSelector(MockTarget.setValue.selector, 42);
-        
+
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(target), data, "test");
 
@@ -206,7 +206,7 @@ contract GovernanceTimelockTest is Test {
 
     function testCancelOnlyGovernance() public {
         bytes memory data = abi.encodeWithSelector(MockTarget.setValue.selector, 42);
-        
+
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(target), data, "test");
 
@@ -217,7 +217,7 @@ contract GovernanceTimelockTest is Test {
 
     function testCancelExecutedProposal() public {
         bytes memory data = abi.encodeWithSelector(MockTarget.setValue.selector, 42);
-        
+
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(target), data, "test");
 
@@ -233,7 +233,7 @@ contract GovernanceTimelockTest is Test {
 
     function testCanExecute() public {
         bytes memory data = abi.encodeWithSelector(MockTarget.setValue.selector, 42);
-        
+
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(target), data, "test");
 
@@ -245,7 +245,7 @@ contract GovernanceTimelockTest is Test {
 
     function testCanExecuteAfterExecution() public {
         bytes memory data = abi.encodeWithSelector(MockTarget.setValue.selector, 42);
-        
+
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(target), data, "test");
 
@@ -257,7 +257,7 @@ contract GovernanceTimelockTest is Test {
 
     function testCanExecuteCancelled() public {
         bytes memory data = abi.encodeWithSelector(MockTarget.setValue.selector, 42);
-        
+
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(target), data, "test");
 
@@ -270,7 +270,7 @@ contract GovernanceTimelockTest is Test {
 
     function testTimeRemaining() public {
         bytes memory data = abi.encodeWithSelector(MockTarget.setValue.selector, 42);
-        
+
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(target), data, "test");
 
@@ -284,7 +284,7 @@ contract GovernanceTimelockTest is Test {
 
     function testTimeRemainingZeroAfterExpiry() public {
         bytes memory data = abi.encodeWithSelector(MockTarget.setValue.selector, 42);
-        
+
         vm.prank(governance);
         bytes32 proposalId = timelock.proposeUpgrade(address(target), data, "test");
 
@@ -331,7 +331,7 @@ contract GovernanceTimelockTest is Test {
 
     function testProposalIdUniqueness() public {
         bytes memory data = abi.encodeWithSelector(MockTarget.setValue.selector, 42);
-        
+
         vm.startPrank(governance);
         bytes32 id1 = timelock.proposeUpgrade(address(target), data, "test1");
         vm.warp(block.timestamp + 1);
@@ -441,4 +441,3 @@ contract GovernanceTimelockTest is Test {
         timelock.execute(proposalId);
     }
 }
-

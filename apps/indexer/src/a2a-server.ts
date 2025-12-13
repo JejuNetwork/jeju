@@ -1,95 +1,27 @@
-import express, { Request, Response, NextFunction } from 'express';
-import cors from 'cors';
-import path from 'path';
-import { getDataSource } from './lib/db';
-import { stakeRateLimiter, RATE_LIMITS } from './lib/stake-rate-limiter';
-import { search, getAgentById, getPopularTags, SearchParams } from './lib/search';
-import { mapAgentSummary, mapAgentWithSkills, mapBlockSummary, mapBlockDetail, mapTransactionSummary, mapTransactionDetail } from './lib/mappers';
-import { Block, Transaction, RegisteredAgent, NodeStake, TagIndex } from './model';
+/**
+ * Indexer A2A Server
+ * 
+ * Agent-to-agent interface for blockchain data queries.
+ * Provides indexed blockchain data via A2A protocol.
+ */
 
-const A2A_PORT = parseInt(process.env.A2A_PORT || '4351');
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 
-type AsyncHandler = (req: Request, res: Response, next: NextFunction) => Promise<void>;
-const asyncHandler = (fn: AsyncHandler) => (req: Request, res: Response, next: NextFunction) => 
-  Promise.resolve(fn(req, res, next)).catch(next);
+// ============================================================================
+// Types
+// ============================================================================
 
-const app = express();
-app.use(cors());
-app.use(express.json());
-app.use(stakeRateLimiter({ skipPaths: ['/health', '/.well-known', '/playground', '/static'] }));
-
-// Serve static files from public directory
-app.use('/static', express.static(path.join(__dirname, '../public')));
-
-// Custom styled GraphQL playground
-app.get('/playground', (_req: Request, res: Response) => {
-  res.sendFile(path.join(__dirname, '../public/playground.html'));
-});
-
-// Root redirect to playground
-app.get('/', (_req: Request, res: Response) => {
-  res.redirect('/playground');
-});
-
-// Health check
-app.get('/health', (_req: Request, res: Response) => {
-  res.json({ status: 'ok', service: 'indexer-a2a', port: A2A_PORT });
-});
-
-// A2A Agent Card
-const AGENT_CARD = {
-  protocolVersion: '0.3.0',
-  name: 'Jeju Indexer',
-  description: 'Query blockchain data, search ERC-8004 registry, and discover agents/services',
-  url: `http://localhost:${A2A_PORT}/api/a2a`,
-  preferredTransport: 'http',
-  provider: { organization: 'Jeju Network', url: 'https://jeju.network' },
-  version: '1.0.0',
-  capabilities: { 
-    streaming: false, 
-    pushNotifications: false, 
-    stateTransitionHistory: false 
-  },
-  defaultInputModes: ['text', 'data'],
-  defaultOutputModes: ['text', 'data'],
-  skills: [
-    // Search & Discovery
-    { id: 'search', name: 'Search Registry', description: 'Full-text search across agents, services, and providers', tags: ['search', 'discovery'], examples: ['Search for game agents', 'Find MCP services'] },
-    { id: 'get-agent', name: 'Get Agent Details', description: 'Get full details of an ERC-8004 registered agent', tags: ['query', 'agent'], examples: ['Get agent #123'] },
-    { id: 'list-agents', name: 'List Agents', description: 'List registered agents with filters', tags: ['query', 'agent'], examples: ['List active agents', 'Show top staked agents'] },
-    { id: 'list-tags', name: 'List Popular Tags', description: 'Get popular tags for agent discovery', tags: ['query', 'tags'], examples: ['Show popular tags'] },
-    // Blockchain Data
-    { id: 'query-blocks', name: 'Query Blocks', description: 'Query recent blocks', tags: ['query', 'blockchain'], examples: ['Show recent blocks'] },
-    { id: 'query-transactions', name: 'Query Transactions', description: 'Query recent transactions', tags: ['query', 'blockchain'], examples: ['Recent transactions'] },
-    { id: 'get-block', name: 'Get Block', description: 'Get block by number or hash', tags: ['query', 'blockchain'], examples: ['Get block 1000'] },
-    { id: 'get-transaction', name: 'Get Transaction', description: 'Get transaction by hash', tags: ['query', 'blockchain'], examples: ['Get tx 0x...'] },
-    // Node & Provider Discovery
-    { id: 'list-nodes', name: 'List Staking Nodes', description: 'List registered RPC nodes', tags: ['query', 'nodes'], examples: ['Show active nodes'] },
-    { id: 'list-providers', name: 'List Providers', description: 'List compute and storage providers', tags: ['query', 'providers'], examples: ['Show compute providers'] },
-    // Statistics
-    { id: 'get-stats', name: 'Get Statistics', description: 'Get indexer statistics', tags: ['query', 'stats'], examples: ['Show stats'] },
-  ],
-};
-
-app.get('/.well-known/agent-card.json', (_req: Request, res: Response) => {
-  res.json(AGENT_CARD);
-});
-
-// A2A message types
 interface A2ARequest {
   jsonrpc: string;
   method: string;
-  params?: { 
-    message?: { 
-      messageId: string; 
-      parts: Array<{ 
-        kind: string; 
-        text?: string;
-        data?: Record<string, string | number | boolean | string[]> 
-      }> 
-    } 
+  params?: {
+    message?: {
+      messageId: string;
+      parts: Array<{ kind: string; text?: string; data?: Record<string, unknown> }>;
+    };
   };
-  id: string | number;
+  id: number | string;
 }
 
 interface SkillResult {
@@ -97,212 +29,400 @@ interface SkillResult {
   data: Record<string, unknown>;
 }
 
-// Execute A2A skills
+// ============================================================================
+// Agent Card
+// ============================================================================
+
+const AGENT_CARD = {
+  protocolVersion: '0.3.0',
+  name: 'Jeju Indexer',
+  description: 'Blockchain data indexing service providing fast queries for on-chain events, transactions, and state',
+  url: '/a2a',
+  preferredTransport: 'http',
+  provider: { organization: 'Jeju Network', url: 'https://jeju.network' },
+  version: '1.0.0',
+  capabilities: { streaming: false, pushNotifications: false, stateTransitionHistory: true },
+  defaultInputModes: ['text', 'data'],
+  defaultOutputModes: ['text', 'data'],
+  skills: [
+    // Block/Transaction Skills
+    { id: 'get-block', name: 'Get Block', description: 'Get block by number or hash', tags: ['query', 'block'] },
+    { id: 'get-transaction', name: 'Get Transaction', description: 'Get transaction by hash', tags: ['query', 'transaction'] },
+    { id: 'get-transactions', name: 'Get Transactions', description: 'Query transactions with filters', tags: ['query', 'transactions'] },
+    { id: 'get-logs', name: 'Get Event Logs', description: 'Query decoded event logs', tags: ['query', 'events'] },
+    
+    // Account Skills
+    { id: 'get-account', name: 'Get Account', description: 'Get account info including balance and nonce', tags: ['query', 'account'] },
+    { id: 'get-account-transactions', name: 'Get Account Transactions', description: 'Get transactions for an account', tags: ['query', 'account'] },
+    { id: 'get-token-balances', name: 'Get Token Balances', description: 'Get ERC20 token balances for an account', tags: ['query', 'tokens'] },
+    { id: 'get-nft-holdings', name: 'Get NFT Holdings', description: 'Get NFTs owned by an account', tags: ['query', 'nft'] },
+    
+    // Contract Skills
+    { id: 'get-contract', name: 'Get Contract', description: 'Get contract info including ABI if verified', tags: ['query', 'contract'] },
+    { id: 'get-contract-events', name: 'Get Contract Events', description: 'Get events emitted by a contract', tags: ['query', 'events'] },
+    { id: 'get-verified-contracts', name: 'Get Verified Contracts', description: 'List verified contracts', tags: ['query', 'verified'] },
+    
+    // ERC-8004 Agent Skills
+    { id: 'get-agent', name: 'Get Agent', description: 'Get registered agent by ID', tags: ['query', 'agent'] },
+    { id: 'get-agents', name: 'Get Agents', description: 'Query registered agents with filters', tags: ['query', 'agents'] },
+    { id: 'get-agent-reputation', name: 'Get Agent Reputation', description: 'Get reputation metrics for an agent', tags: ['query', 'reputation'] },
+    { id: 'get-agent-activity', name: 'Get Agent Activity', description: 'Get on-chain activity for an agent', tags: ['query', 'activity'] },
+    
+    // OIF/EIL Skills
+    { id: 'get-intent', name: 'Get Intent', description: 'Get cross-chain intent by ID', tags: ['query', 'oif'] },
+    { id: 'get-intents', name: 'Get Intents', description: 'Query intents with filters', tags: ['query', 'oif'] },
+    { id: 'get-solver', name: 'Get Solver', description: 'Get solver info and statistics', tags: ['query', 'solver'] },
+    { id: 'get-xlp', name: 'Get XLP', description: 'Get cross-chain liquidity provider info', tags: ['query', 'xlp'] },
+    
+    // Governance Skills
+    { id: 'get-proposal', name: 'Get Proposal', description: 'Get governance proposal by ID', tags: ['query', 'governance'] },
+    { id: 'get-proposals', name: 'Get Proposals', description: 'Query governance proposals', tags: ['query', 'governance'] },
+    { id: 'get-votes', name: 'Get Votes', description: 'Get votes for a proposal', tags: ['query', 'votes'] },
+    
+    // Statistics Skills
+    { id: 'get-network-stats', name: 'Get Network Stats', description: 'Get overall network statistics', tags: ['query', 'stats'] },
+    { id: 'get-token-stats', name: 'Get Token Stats', description: 'Get token transfer statistics', tags: ['query', 'stats'] },
+    { id: 'get-defi-stats', name: 'Get DeFi Stats', description: 'Get DeFi protocol statistics', tags: ['query', 'stats'] },
+  ],
+};
+
+// ============================================================================
+// Skill Execution
+// ============================================================================
+
 async function executeSkill(skillId: string, params: Record<string, unknown>): Promise<SkillResult> {
-  const ds = await getDataSource();
-
   switch (skillId) {
-    // Search & Discovery
-    case 'search': {
-      const searchParams: SearchParams = {
-        query: (params.query as string) ?? (params.q as string),
-        endpointType: params.type as SearchParams['endpointType'],
-        tags: params.tags as string[],
-        category: params.category as SearchParams['category'],
-        minStakeTier: params.minTier as number,
-        verified: params.verified as boolean,
-        limit: Math.min(50, (params.limit as number) ?? 20),
-        offset: (params.offset as number) ?? 0,
-      };
-      const results = await search(ds, searchParams);
-      return {
-        message: `Found ${results.agents.length} agents and ${results.providers.length} providers`,
-        data: results as unknown as Record<string, unknown>,
-      };
-    }
-
-    case 'get-agent': {
-      const agentId = (params.agentId as string) ?? (params.id as string);
-      if (!agentId) {
-        return { message: 'Agent ID required', data: { error: 'Missing agentId parameter' } };
-      }
-      const agent = await getAgentById(ds, agentId);
-      if (!agent) {
-        return { message: 'Agent not found', data: { error: 'Agent not found', agentId } };
-      }
-      return { message: `Agent ${agent.name} (ID: ${agentId})`, data: agent as unknown as Record<string, unknown> };
-    }
-
-    case 'list-agents': {
-      const repo = ds.getRepository(RegisteredAgent);
-      const limit = Math.min(50, (params.limit as number) ?? 20);
-      const active = params.active !== false;
-      
-      const agents = await repo.find({
-        where: { active },
-        order: { stakeTier: 'DESC', registeredAt: 'DESC' },
-        take: limit,
-      });
-
-      return {
-        message: `Found ${agents.length} agents`,
-        data: {
-          agents: agents.map(mapAgentSummary),
-          total: agents.length,
-        },
-      };
-    }
-
-    case 'list-tags': {
-      const tags = await getPopularTags(ds, 50);
-      return {
-        message: `${tags.length} popular tags`,
-        data: { tags },
-      };
-    }
-
-    // Blockchain Data
-    case 'query-blocks': {
-      const repo = ds.getRepository(Block);
-      const limit = Math.min(50, (params.limit as number) ?? 10);
-      
-      const blocks = await repo.find({
-        order: { number: 'DESC' },
-        take: limit,
-      });
-
-      return {
-        message: `${blocks.length} recent blocks`,
-        data: {
-          blocks: blocks.map(mapBlockSummary),
-        },
-      };
-    }
-
-    case 'query-transactions': {
-      const repo = ds.getRepository(Transaction);
-      const limit = Math.min(50, (params.limit as number) ?? 10);
-      
-      const txs = await repo.find({
-        order: { blockNumber: 'DESC' },
-        take: limit,
-        relations: ['from', 'to'],
-      });
-
-      return {
-        message: `${txs.length} recent transactions`,
-        data: {
-          transactions: txs.map(mapTransactionSummary),
-        },
-      };
-    }
-
+    // Block/Transaction Skills
     case 'get-block': {
-      const blockNumber = (params.number as number) ?? (params.blockNumber as number);
-      const blockHash = (params.hash as string) ?? (params.blockHash as string);
-      
-      if (!blockNumber && !blockHash) {
-        return { message: 'Block number or hash required', data: { error: 'Missing parameter' } };
-      }
-
-      const block = await ds.getRepository(Block).findOne({
-        where: blockHash ? { hash: blockHash } : { number: blockNumber },
-      });
-
-      if (!block) {
-        return { message: 'Block not found', data: { error: 'Block not found' } };
-      }
-
+      const blockNumber = params.blockNumber as number | undefined;
+      const blockHash = params.blockHash as string | undefined;
       return {
-        message: `Block ${block.number}`,
-        data: mapBlockDetail(block),
+        message: `Block data for ${blockNumber ?? blockHash}`,
+        data: {
+          endpoint: '/graphql',
+          query: `query GetBlock($number: Int, $hash: String) {
+            blocks(where: { number_eq: $number, hash_eq: $hash }, limit: 1) {
+              number
+              hash
+              timestamp
+              transactionCount
+              gasUsed
+              gasLimit
+            }
+          }`,
+          variables: { number: blockNumber, hash: blockHash },
+        },
       };
     }
 
     case 'get-transaction': {
-      const txHash = (params.hash as string) ?? (params.txHash as string);
-      if (!txHash) {
-        return { message: 'Transaction hash required', data: { error: 'Missing hash parameter' } };
+      const hash = params.hash as string;
+      if (!hash) {
+        return { message: 'Transaction hash required', data: { error: 'Missing hash' } };
       }
-
-      const tx = await ds.getRepository(Transaction).findOne({
-        where: { hash: txHash },
-        relations: ['from', 'to'],
-      });
-
-      if (!tx) {
-        return { message: 'Transaction not found', data: { error: 'Transaction not found' } };
-      }
-
       return {
-        message: `Transaction ${tx.hash.slice(0, 10)}...`,
-        data: mapTransactionDetail(tx),
-      };
-    }
-
-    // Nodes & Providers
-    case 'list-nodes': {
-      const repo = ds.getRepository(NodeStake);
-      const active = params.active !== false;
-      
-      const nodes = await repo.find({
-        where: active ? { isActive: true } : {},
-        order: { stakedValueUSD: 'DESC' },
-        take: 50,
-      });
-
-      return {
-        message: `${nodes.length} staking nodes`,
+        message: `Transaction ${hash}`,
         data: {
-          nodes: nodes.map(n => ({
-            nodeId: n.nodeId,
-            operator: n.operator,
-            stakedAmount: n.stakedAmount.toString(),
-            rpcUrl: n.rpcUrl,
-            isActive: n.isActive,
-            uptimeScore: n.currentUptimeScore?.toString(),
-          })),
+          endpoint: '/graphql',
+          query: `query GetTx($hash: String!) {
+            transactions(where: { hash_eq: $hash }, limit: 1) {
+              hash
+              from
+              to
+              value
+              gasUsed
+              status
+              blockNumber
+              timestamp
+            }
+          }`,
+          variables: { hash },
         },
       };
     }
 
-    case 'list-providers': {
-      const results = await search(ds, { 
-        endpointType: 'rest', 
-        limit: 50 
-      });
-      
+    case 'get-logs': {
+      const { address, topics, fromBlock, toBlock, limit } = params as {
+        address?: string;
+        topics?: string[];
+        fromBlock?: number;
+        toBlock?: number;
+        limit?: number;
+      };
       return {
-        message: `${results.providers.length} providers`,
-        data: { providers: results.providers },
+        message: 'Event logs query',
+        data: {
+          endpoint: '/graphql',
+          query: `query GetLogs($address: String, $topic0: String, $fromBlock: Int, $toBlock: Int, $limit: Int) {
+            logs(where: {
+              address_eq: $address
+              topic0_eq: $topic0
+              block: { number_gte: $fromBlock, number_lte: $toBlock }
+            }, limit: $limit, orderBy: block_number_DESC) {
+              address
+              topics
+              data
+              blockNumber
+              transactionHash
+            }
+          }`,
+          variables: { address, topic0: topics?.[0], fromBlock, toBlock, limit: limit ?? 100 },
+        },
       };
     }
 
-    // Statistics
-    case 'get-stats': {
-      const [blockCount, txCount, agentCount, nodeCount] = await Promise.all([
-        ds.getRepository(Block).count(),
-        ds.getRepository(Transaction).count(),
-        ds.getRepository(RegisteredAgent).count({ where: { active: true } }),
-        ds.getRepository(NodeStake).count({ where: { isActive: true } }),
-      ]);
-
-      const latestBlock = await ds.getRepository(Block).findOne({
-        order: { number: 'DESC' },
-      });
-
-      const tagRepo = ds.getRepository(TagIndex);
-      const topTags = await tagRepo.find({ order: { agentCount: 'DESC' }, take: 5 });
-
+    // Account Skills
+    case 'get-account': {
+      const address = params.address as string;
+      if (!address) {
+        return { message: 'Address required', data: { error: 'Missing address' } };
+      }
       return {
-        message: `Indexer stats: ${blockCount} blocks, ${agentCount} agents`,
+        message: `Account ${address}`,
         data: {
-          blocks: blockCount,
-          transactions: txCount,
-          agents: agentCount,
-          nodes: nodeCount,
-          latestBlock: latestBlock?.number || 0,
-          topTags: topTags.map(t => t.tag),
+          endpoint: '/graphql',
+          query: `query GetAccount($address: String!) {
+            accounts(where: { id_eq: $address }, limit: 1) {
+              id
+              balance
+              transactionCount
+              contractCode
+            }
+          }`,
+          variables: { address: address.toLowerCase() },
+        },
+      };
+    }
+
+    case 'get-token-balances': {
+      const address = params.address as string;
+      return {
+        message: `Token balances for ${address}`,
+        data: {
+          endpoint: '/graphql',
+          query: `query GetTokenBalances($address: String!) {
+            tokenBalances(where: { account_eq: $address, balance_gt: "0" }) {
+              token { address symbol decimals name }
+              balance
+            }
+          }`,
+          variables: { address: address.toLowerCase() },
+        },
+      };
+    }
+
+    // ERC-8004 Agent Skills
+    case 'get-agent': {
+      const agentId = params.agentId as string | number;
+      return {
+        message: `Agent ${agentId}`,
+        data: {
+          endpoint: '/graphql',
+          query: `query GetAgent($agentId: BigInt!) {
+            registeredAgents(where: { agentId_eq: $agentId }, limit: 1) {
+              agentId
+              owner
+              name
+              role
+              a2aEndpoint
+              mcpEndpoint
+              isActive
+              registeredAt
+              metadata { key value }
+            }
+          }`,
+          variables: { agentId },
+        },
+      };
+    }
+
+    case 'get-agents': {
+      const { role, active, limit, offset } = params as {
+        role?: string;
+        active?: boolean;
+        limit?: number;
+        offset?: number;
+      };
+      return {
+        message: 'Query agents',
+        data: {
+          endpoint: '/graphql',
+          query: `query GetAgents($role: String, $active: Boolean, $limit: Int, $offset: Int) {
+            registeredAgents(
+              where: { role_eq: $role, isActive_eq: $active }
+              limit: $limit
+              offset: $offset
+              orderBy: registeredAt_DESC
+            ) {
+              agentId
+              owner
+              name
+              role
+              isActive
+            }
+          }`,
+          variables: { role, active, limit: limit ?? 50, offset: offset ?? 0 },
+        },
+      };
+    }
+
+    case 'get-agent-reputation': {
+      const agentId = params.agentId as string | number;
+      return {
+        message: `Reputation for agent ${agentId}`,
+        data: {
+          endpoint: '/graphql',
+          query: `query GetReputation($agentId: BigInt!) {
+            agentFeedback(where: { agentId_eq: $agentId }) {
+              score
+              tag
+              details
+              feedbackBy
+              timestamp
+            }
+            agentValidations(where: { agentId_eq: $agentId }) {
+              validated
+              validator
+              timestamp
+            }
+          }`,
+          variables: { agentId },
+        },
+      };
+    }
+
+    // OIF/EIL Skills
+    case 'get-intent': {
+      const intentId = params.intentId as string;
+      return {
+        message: `Intent ${intentId}`,
+        data: {
+          endpoint: '/graphql',
+          query: `query GetIntent($intentId: String!) {
+            oifIntents(where: { intentId_eq: $intentId }, limit: 1) {
+              intentId
+              sender
+              sourceChain
+              destinationChain
+              sourceToken
+              destinationToken
+              amount
+              status
+              solver
+              createdAt
+              settledAt
+            }
+          }`,
+          variables: { intentId },
+        },
+      };
+    }
+
+    case 'get-solver': {
+      const solverAddress = params.address as string;
+      return {
+        message: `Solver ${solverAddress}`,
+        data: {
+          endpoint: '/graphql',
+          query: `query GetSolver($address: String!) {
+            oifSolvers(where: { address_eq: $address }, limit: 1) {
+              address
+              agentId
+              stake
+              isActive
+              settledCount
+              totalVolume
+              reputation
+            }
+          }`,
+          variables: { address: solverAddress.toLowerCase() },
+        },
+      };
+    }
+
+    // Governance Skills
+    case 'get-proposal': {
+      const proposalId = params.proposalId as string;
+      return {
+        message: `Proposal ${proposalId}`,
+        data: {
+          endpoint: '/graphql',
+          query: `query GetProposal($proposalId: String!) {
+            councilProposals(where: { proposalId_eq: $proposalId }, limit: 1) {
+              proposalId
+              title
+              description
+              proposer
+              status
+              votesFor
+              votesAgainst
+              createdAt
+              executedAt
+            }
+          }`,
+          variables: { proposalId },
+        },
+      };
+    }
+
+    case 'get-proposals': {
+      const { status, limit } = params as { status?: string; limit?: number };
+      return {
+        message: 'Query proposals',
+        data: {
+          endpoint: '/graphql',
+          query: `query GetProposals($status: String, $limit: Int) {
+            councilProposals(
+              where: { status_eq: $status }
+              limit: $limit
+              orderBy: createdAt_DESC
+            ) {
+              proposalId
+              title
+              status
+              votesFor
+              votesAgainst
+              createdAt
+            }
+          }`,
+          variables: { status, limit: limit ?? 20 },
+        },
+      };
+    }
+
+    // Statistics Skills
+    case 'get-network-stats': {
+      return {
+        message: 'Network statistics',
+        data: {
+          endpoint: '/graphql',
+          query: `query GetNetworkStats {
+            networkSnapshots(limit: 1, orderBy: timestamp_DESC) {
+              totalTransactions
+              totalAccounts
+              totalContracts
+              totalTokens
+              blockNumber
+              timestamp
+            }
+          }`,
+        },
+      };
+    }
+
+    case 'get-token-stats': {
+      return {
+        message: 'Token statistics',
+        data: {
+          endpoint: '/graphql',
+          query: `query GetTokenStats {
+            tokenDistributions(limit: 10, orderBy: totalSupply_DESC) {
+              token { address symbol name }
+              holders
+              totalSupply
+              transfers24h
+            }
+          }`,
         },
       };
     }
@@ -310,91 +430,89 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
     default:
       return {
         message: 'Unknown skill',
-        data: { 
-          error: 'Skill not found', 
-          availableSkills: AGENT_CARD.skills.map(s => s.id) 
-        },
+        data: { error: 'Skill not found', availableSkills: AGENT_CARD.skills.map(s => s.id) },
       };
   }
 }
 
-app.post('/api/a2a', asyncHandler(async (req, res) => {
-  const { method, params, id } = req.body as A2ARequest;
+// ============================================================================
+// A2A Server
+// ============================================================================
 
-  if (method !== 'message/send') {
-    res.json({ jsonrpc: '2.0', id, error: { code: -32601, message: 'Method not found' } });
-    return;
-  }
+export function createIndexerA2AServer(): Hono {
+  const app = new Hono();
 
-  const message = params?.message;
-  if (!message) {
-    res.json({ jsonrpc: '2.0', id, error: { code: -32602, message: 'Invalid params' } });
-    return;
-  }
+  app.use('/*', cors());
 
-  const dataPart = message.parts.find((p) => p.kind === 'data');
-  if (!dataPart?.data) {
-    res.json({ jsonrpc: '2.0', id, error: { code: -32602, message: 'No data part' } });
-    return;
-  }
+  app.get('/.well-known/agent-card.json', (c) => c.json(AGENT_CARD));
 
-  const skillId = dataPart.data.skillId as string;
-  if (!skillId) {
-    res.json({ jsonrpc: '2.0', id, error: { code: -32602, message: 'No skillId specified' } });
-    return;
-  }
+  app.post('/', async (c) => {
+    const body = await c.req.json() as A2ARequest;
 
-  const result = await executeSkill(skillId, dataPart.data as Record<string, unknown>);
+    if (body.method !== 'message/send') {
+      return c.json({
+        jsonrpc: '2.0',
+        id: body.id,
+        error: { code: -32601, message: 'Method not found' },
+      });
+    }
 
-  res.json({
-    jsonrpc: '2.0',
-    id,
-    result: {
-      role: 'agent',
-      parts: [
-        { kind: 'text', text: result.message },
-        { kind: 'data', data: result.data },
-      ],
-      messageId: message.messageId,
-      kind: 'message',
-    },
+    const message = body.params?.message;
+    if (!message?.parts) {
+      return c.json({
+        jsonrpc: '2.0',
+        id: body.id,
+        error: { code: -32602, message: 'Invalid params' },
+      });
+    }
+
+    const dataPart = message.parts.find((p) => p.kind === 'data');
+    if (!dataPart?.data) {
+      return c.json({
+        jsonrpc: '2.0',
+        id: body.id,
+        error: { code: -32602, message: 'No data part found' },
+      });
+    }
+
+    const skillId = dataPart.data.skillId as string;
+    const result = await executeSkill(skillId, dataPart.data);
+
+    return c.json({
+      jsonrpc: '2.0',
+      id: body.id,
+      result: {
+        role: 'agent',
+        parts: [
+          { kind: 'text', text: result.message },
+          { kind: 'data', data: result.data },
+        ],
+        messageId: message.messageId,
+        kind: 'message',
+      },
+    });
   });
-}));
 
-app.get('/api/a2a/search', asyncHandler(async (req, res) => {
-  const result = await executeSkill('search', req.query as Record<string, unknown>);
-  res.json(result.data);
-}));
+  app.get('/', (c) => c.json({
+    service: 'indexer-a2a',
+    version: '1.0.0',
+    agentCard: '/.well-known/agent-card.json',
+  }));
 
-app.get('/api/a2a/agents/:id', asyncHandler(async (req, res) => {
-  const result = await executeSkill('get-agent', { agentId: req.params.id });
-  res.json(result.data);
-}));
+  return app;
+}
 
-app.get('/api/a2a/tags', asyncHandler(async (_req, res) => {
-  const result = await executeSkill('list-tags', {});
-  res.json(result.data);
-}));
-
-app.get('/api/a2a/stats', asyncHandler(async (_req, res) => {
-  const result = await executeSkill('get-stats', {});
-  res.json(result.data);
-}));
-
-app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-  console.error('[A2A] Unhandled error:', err.message, err.stack);
-  res.status(500).json({ jsonrpc: '2.0', id: null, error: { code: -32603, message: err.message } });
-});
+const A2A_PORT = parseInt(process.env.A2A_PORT || '4353');
 
 export async function startA2AServer(): Promise<void> {
-  await getDataSource();
-  app.listen(A2A_PORT, () => {
-    console.log(`🤖 A2A Server running on http://localhost:${A2A_PORT}`);
+  const app = createIndexerA2AServer();
+  
+  const server = Bun.serve({
+    port: A2A_PORT,
+    fetch: app.fetch,
   });
+
+  console.log(`📡 A2A Server running on http://localhost:${A2A_PORT}`);
 }
 
-if (require.main === module) {
-  startA2AServer().catch(console.error);
-}
-
-export { app };
+export { AGENT_CARD as INDEXER_AGENT_CARD };

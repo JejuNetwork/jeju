@@ -11,7 +11,7 @@ import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint
 /**
  * @title DeployEIL
  * @notice Deploys EIL L1StakeManager on L1 (Sepolia/Mainnet)
- * 
+ *
  * Usage:
  *   PRIVATE_KEY=... forge script script/DeployEIL.s.sol:DeployEIL \
  *     --rpc-url https://ethereum-sepolia-rpc.publicnode.com \
@@ -21,18 +21,18 @@ contract DeployEIL is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
-        
+
         console.log("Deploying EIL L1StakeManager");
         console.log("Deployer:", deployer);
-        
+
         vm.startBroadcast(deployerPrivateKey);
-        
+
         L1StakeManager stakeManager = new L1StakeManager();
-        
+
         console.log("L1StakeManager deployed:", address(stakeManager));
-        
+
         vm.stopBroadcast();
-        
+
         console.log("\n========== EIL DEPLOYMENT COMPLETE ==========");
         console.log("L1_STAKE_MANAGER=%s", address(stakeManager));
         console.log("==============================================");

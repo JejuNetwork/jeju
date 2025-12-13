@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./sdk": "./src/sdk/index.ts",
-    "./node": "./src/node/index.ts"
+    "./node": "./src/node/index.ts",
+    "./src/database/cql-adapter": "./src/database/cql-adapter.ts"
   },
   "scripts": {
     "predev": "bun run db:init && bun run db:migrate",
@@ -24,6 +25,8 @@
   },
   "dependencies": {
     "@coinbase/x402": "latest",
+    "@jeju/cql": "workspace:*",
+    "@jeju/kms": "workspace:*",
     "hono": "^4.0.0",
     "ipfs-http-client": "^60.0.0",
     "drizzle-orm": "^0.29.0",

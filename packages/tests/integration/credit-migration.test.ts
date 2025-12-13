@@ -20,6 +20,21 @@ import { describe, test, expect, beforeAll } from 'bun:test';
 import { createPublicClient, createWalletClient, http, parseAbi, parseEther, formatUnits, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
+// Check if localnet is available  
+const rpcUrl = process.env.JEJU_RPC_URL || 'http://localhost:9545';
+let localnetAvailable = false;
+try {
+  const response = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
+    signal: AbortSignal.timeout(2000)
+  });
+  localnetAvailable = response.ok;
+} catch {
+  console.log(`Localnet not available at ${rpcUrl}, skipping credit migration tests`);
+}
+
 const TEST_CONFIG = {
   rpcUrl: process.env.JEJU_RPC_URL || 'http://localhost:9545',
   chainId: 420691,
@@ -27,10 +42,10 @@ const TEST_CONFIG = {
     ElizaOSToken: process.env.ELIZAOS_TOKEN_ADDRESS as Address
   },
   adminAccount: privateKeyToAccount(
-    (process.env.MIGRATION_ADMIN_PRIVATE_KEY || process.env.DEPLOYER_PRIVATE_KEY || '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80') as \`0x\${string}\`
+    (process.env.MIGRATION_ADMIN_PRIVATE_KEY || process.env.DEPLOYER_PRIVATE_KEY || '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80') as `0x${string}`
   ),
   userAccount: privateKeyToAccount(
-    (process.env.TEST_PRIVATE_KEY || '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6') as \`0x\${string}\`
+    (process.env.TEST_PRIVATE_KEY || '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6') as `0x${string}`
   ),
   // Migration parameters
   exchangeRate: 10n, // 1 credit = 10 elizaOS tokens
@@ -55,7 +70,7 @@ const adminWalletClient = createWalletClient({
   transport: http()
 });
 
-describe('Credit Migration Integration', () => {
+describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
   let initialElizaOSBalance: bigint;
   let expectedMintAmount: bigint;
 
@@ -73,12 +88,12 @@ describe('Credit Migration Integration', () => {
       args: [TEST_CONFIG.userAccount.address]
     });
 
-    console.log(\`\nMigration Test Setup:\`);
-    console.log(\`  User address: \${TEST_CONFIG.userAccount.address}\`);
-    console.log(\`  Credits to migrate: \${TEST_CONFIG.testCreditBalance}\`);
-    console.log(\`  Exchange rate: 1 credit = \${TEST_CONFIG.exchangeRate} elizaOS\`);
-    console.log(\`  Expected mint: \${formatUnits(expectedMintAmount, 18)} elizaOS\`);
-    console.log(\`  Initial balance: \${formatUnits(initialElizaOSBalance, 18)} elizaOS\n\`);
+    console.log(`\nMigration Test Setup:`);
+    console.log(`  User address: ${TEST_CONFIG.userAccount.address}`);
+    console.log(`  Credits to migrate: ${TEST_CONFIG.testCreditBalance}`);
+    console.log(`  Exchange rate: 1 credit = ${TEST_CONFIG.exchangeRate} elizaOS`);
+    console.log(`  Expected mint: ${formatUnits(expectedMintAmount, 18)} elizaOS`);
+    console.log(`  Initial balance: ${formatUnits(initialElizaOSBalance, 18)} elizaOS\n`);
   });
 
   test('Should calculate migration amount correctly', () => {
@@ -87,7 +102,7 @@ describe('Credit Migration Integration', () => {
     const calculatedAmount = BigInt(credits) * rate * parseEther('1');
 
     expect(calculatedAmount).toBe(expectedMintAmount);
-    console.log(\`Calculated migration amount: \${formatUnits(calculatedAmount, 18)} elizaOS\`);
+    console.log(`Calculated migration amount: ${formatUnits(calculatedAmount, 18)} elizaOS`);
   });
 
   test('Should check admin has minting permissions', async () => {
@@ -111,7 +126,7 @@ describe('Credit Migration Integration', () => {
         args: [minterRole, TEST_CONFIG.adminAccount.address]
       });
 
-      console.log(\`Admin has MINTER_ROLE: \${hasRole}\`);
+      console.log(`Admin has MINTER_ROLE: ${hasRole}`);
       expect(hasRole).toBe(true);
     } catch (error) {
       // If contract is ERC20Mock, it might not have role-based access
@@ -136,8 +151,8 @@ describe('Credit Migration Integration', () => {
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash: mintTx });
 
-    console.log(\`Migration transaction: \${mintTx}\`);
-    console.log(\`Gas used: \${receipt.gasUsed.toString()}\`);
+    console.log(`Migration transaction: ${mintTx}`);
+    console.log(`Gas used: ${receipt.gasUsed.toString()}`);
 
     // Verify transaction succeeded
     expect(receipt.status).toBe('success');
@@ -156,7 +171,7 @@ describe('Credit Migration Integration', () => {
       args: [TEST_CONFIG.userAccount.address]
     });
 
-    console.log(\`New balance: \${formatUnits(newBalance, 18)} elizaOS\`);
+    console.log(`New balance: ${formatUnits(newBalance, 18)} elizaOS`);
     expect(newBalance).toBeGreaterThan(initialElizaOSBalance);
     expect(newBalance - initialElizaOSBalance).toBe(expectedMintAmount);
   });
@@ -170,7 +185,7 @@ describe('Credit Migration Integration', () => {
       functionName: 'totalSupply'
     });
 
-    console.log(\`Total elizaOS supply: \${formatUnits(totalSupply, 18)}\`);
+    console.log(`Total elizaOS supply: ${formatUnits(totalSupply, 18)}`);
     expect(totalSupply).toBeGreaterThan(0n);
   });
 
@@ -215,7 +230,7 @@ describe('Credit Migration Integration', () => {
       });
 
       expect(balanceAfter).toBe(balanceBefore - transferAmount);
-      console.log(\`Successfully transferred \${formatUnits(transferAmount, 18)} elizaOS\`);
+      console.log(`Successfully transferred ${formatUnits(transferAmount, 18)} elizaOS`);
     } else {
       console.log('Insufficient balance to test transfer');
     }
@@ -233,7 +248,7 @@ describe('Credit Migration Integration', () => {
     for (const { credits, rate } of testCases) {
       const amount = BigInt(credits) * rate * parseEther('1');
       expect(amount).toBeGreaterThan(0n);
-      console.log(\`\${credits} credits @ \${rate}x rate = \${formatUnits(amount, 18)} elizaOS\`);
+      console.log(`${credits} credits @ ${rate}x rate = ${formatUnits(amount, 18)} elizaOS`);
     }
   });
 
@@ -250,7 +265,7 @@ describe('Credit Migration Integration', () => {
       address: TEST_CONFIG.adminAccount.address
     });
 
-    console.log(\`Admin ETH balance: \${formatUnits(balance, 18)} ETH\`);
+    console.log(`Admin ETH balance: ${formatUnits(balance, 18)} ETH`);
     expect(balance).toBeGreaterThan(parseEther('0.01')); // At least 0.01 ETH for gas
   });
 });

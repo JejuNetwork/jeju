@@ -85,10 +85,7 @@ contract SponsoredPaymaster is BasePaymaster {
      * @param _entryPoint ERC-4337 EntryPoint contract
      * @param _owner Owner address (can fund, configure, and withdraw)
      */
-    constructor(
-        IEntryPoint _entryPoint,
-        address _owner
-    ) BasePaymaster(_entryPoint) {
+    constructor(IEntryPoint _entryPoint, address _owner) BasePaymaster(_entryPoint) {
         if (_owner != msg.sender) {
             _transferOwnership(_owner);
         }
@@ -116,11 +113,7 @@ contract SponsoredPaymaster is BasePaymaster {
      * - Bytes 36-51: postOpGasLimit (uint128)
      * - No custom data required - we sponsor everything
      */
-    function _validatePaymasterUserOp(
-        PackedUserOperation calldata userOp,
-        bytes32,
-        uint256 maxCost
-    )
+    function _validatePaymasterUserOp(PackedUserOperation calldata userOp, bytes32, uint256 maxCost)
         internal
         view
         override
@@ -182,12 +175,7 @@ contract SponsoredPaymaster is BasePaymaster {
      * @param context Data from validation
      * @param actualGasCost Actual gas used
      */
-    function _postOp(
-        PostOpMode,
-        bytes calldata context,
-        uint256 actualGasCost,
-        uint256
-    ) internal override {
+    function _postOp(PostOpMode, bytes calldata context, uint256 actualGasCost, uint256) internal override {
         (address user, address target,) = abi.decode(context, (address, address, uint256));
 
         // Update rate limit counter
@@ -315,12 +303,7 @@ contract SponsoredPaymaster is BasePaymaster {
      * @return totalTx Total transactions sponsored
      * @return totalGas Total gas sponsored in wei
      */
-    function getStatus() external view returns (
-        uint256 deposit,
-        bool isPaused,
-        uint256 totalTx,
-        uint256 totalGas
-    ) {
+    function getStatus() external view returns (uint256 deposit, bool isPaused, uint256 totalTx, uint256 totalGas) {
         deposit = entryPoint.balanceOf(address(this));
         isPaused = paused;
         totalTx = totalTxSponsored;
@@ -335,24 +318,25 @@ contract SponsoredPaymaster is BasePaymaster {
      * @return sponsored True if operation can be sponsored
      * @return reason Reason if cannot sponsor
      */
-    function canSponsor(address user, address target, uint256 gasCost) external view returns (
-        bool sponsored,
-        string memory reason
-    ) {
+    function canSponsor(address user, address target, uint256 gasCost)
+        external
+        view
+        returns (bool sponsored, string memory reason)
+    {
         if (paused) return (false, "Paused");
         if (gasCost > maxGasCost) return (false, "Gas too high");
         if (!whitelistedTargets[target] && !whitelistedTargets[address(0)]) {
             return (false, "Target not whitelisted");
         }
-        
+
         uint256 currentHour = block.timestamp / 1 hours;
         uint256 count = userTxCountHour[user] == currentHour ? userTxCount[user] : 0;
         if (count >= maxTxPerUserPerHour) return (false, "Rate limited");
-        
+
         if (entryPoint.balanceOf(address(this)) < gasCost) {
             return (false, "Insufficient deposit");
         }
-        
+
         return (true, "");
     }
 

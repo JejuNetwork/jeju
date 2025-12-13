@@ -49,6 +49,10 @@ packages/contracts/lib/
 # Kurtosis
 .kurtosis/
 
+# Test infrastructure
+.jeju-e2e-test.lock
+.jeju/.synpress-cache
+
 # Generated localnet deployment files (regenerated on each dev run)
 packages/contracts/deployments/localnet-complete.json
 packages/contracts/deployments/localnet-addresses.json

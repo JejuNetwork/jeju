@@ -29,15 +29,14 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
  * @custom:security-contact security@jeju.network
  */
 contract CEOAgent is Ownable, Pausable, ReentrancyGuard {
-
     // ============================================================================
     // Structs
     // ============================================================================
 
     struct ModelCandidate {
-        string modelId;           // e.g., "claude-opus-4-5-20250514"
+        string modelId; // e.g., "claude-opus-4-5-20250514"
         string modelName;
-        string provider;          // e.g., "anthropic"
+        string provider; // e.g., "anthropic"
         address nominatedBy;
         uint256 totalStaked;
         uint256 totalReputation;
@@ -45,19 +44,19 @@ contract CEOAgent is Ownable, Pausable, ReentrancyGuard {
         bool isActive;
         uint256 decisionsCount;
         uint256 approvedDecisions;
-        uint256 benchmarkScore;   // 0-10000 (100.00%)
+        uint256 benchmarkScore; // 0-10000 (100.00%)
     }
 
     struct Decision {
         bytes32 proposalId;
         string modelId;
         bool approved;
-        bytes32 decisionHash;     // IPFS hash of full reasoning
-        bytes32 encryptedHash;    // TEE-encrypted internal reasoning
-        bytes32 contextHash;      // Hash of context/values used
+        bytes32 decisionHash; // IPFS hash of full reasoning
+        bytes32 encryptedHash; // TEE-encrypted internal reasoning
+        bytes32 contextHash; // Hash of context/values used
         uint256 decidedAt;
-        uint256 confidenceScore;  // 0-100
-        uint256 alignmentScore;   // 0-100
+        uint256 confidenceScore; // 0-100
+        uint256 alignmentScore; // 0-100
         bool disputed;
         bool overridden;
     }
@@ -84,7 +83,7 @@ contract CEOAgent is Ownable, Pausable, ReentrancyGuard {
         uint256 totalDecisions;
         uint256 approvedDecisions;
         uint256 overriddenDecisions;
-        bytes32 contextHash;        // Current values/context hash
+        bytes32 contextHash; // Current values/context hash
         bytes32 encryptedStateHash; // TEE-encrypted internal state
         uint256 lastDecision;
         uint256 electionCooldown;
@@ -137,7 +136,7 @@ contract CEOAgent is Ownable, Pausable, ReentrancyGuard {
     // ============================================================================
 
     uint256 public electionPeriod = 30 days;
-    uint256 public overrideThresholdBPS = 6000;  // 60% to override
+    uint256 public overrideThresholdBPS = 6000; // 60% to override
     uint256 public overrideVotingPeriod = 7 days;
     uint256 public minStakeForNomination = 0.1 ether;
     uint256 public minBenchmarkDecisions = 10;
@@ -146,62 +145,25 @@ contract CEOAgent is Ownable, Pausable, ReentrancyGuard {
     // Events
     // ============================================================================
 
-    event ModelNominated(
-        string indexed modelId,
-        string modelName,
-        string provider,
-        address indexed nominatedBy
-    );
+    event ModelNominated(string indexed modelId, string modelName, string provider, address indexed nominatedBy);
 
-    event ModelStaked(
-        string indexed modelId,
-        address indexed staker,
-        uint256 amount,
-        uint256 reputationWeight
-    );
+    event ModelStaked(string indexed modelId, address indexed staker, uint256 amount, uint256 reputationWeight);
 
-    event ModelElected(
-        string indexed oldModel,
-        string indexed newModel,
-        uint256 totalStake
-    );
+    event ModelElected(string indexed oldModel, string indexed newModel, uint256 totalStake);
 
     event DecisionMade(
-        bytes32 indexed decisionId,
-        bytes32 indexed proposalId,
-        string modelId,
-        bool approved,
-        uint256 confidence
+        bytes32 indexed decisionId, bytes32 indexed proposalId, string modelId, bool approved, uint256 confidence
     );
 
-    event DecisionDisputed(
-        bytes32 indexed decisionId,
-        address indexed disputer
-    );
+    event DecisionDisputed(bytes32 indexed decisionId, address indexed disputer);
 
-    event DecisionOverridden(
-        bytes32 indexed decisionId,
-        uint256 overrideVotes,
-        uint256 threshold
-    );
+    event DecisionOverridden(bytes32 indexed decisionId, uint256 overrideVotes, uint256 threshold);
 
-    event ContextUpdated(
-        bytes32 oldHash,
-        bytes32 newHash,
-        string reason
-    );
+    event ContextUpdated(bytes32 oldHash, bytes32 newHash, string reason);
 
-    event BenchmarkRecorded(
-        string indexed modelId,
-        bytes32 indexed decisionId,
-        bool matched,
-        uint256 newScore
-    );
+    event BenchmarkRecorded(string indexed modelId, bytes32 indexed decisionId, bool matched, uint256 newScore);
 
-    event TEEStateUpdated(
-        bytes32 oldHash,
-        bytes32 newHash
-    );
+    event TEEStateUpdated(bytes32 oldHash, bytes32 newHash);
 
     // ============================================================================
     // Errors
@@ -236,12 +198,9 @@ contract CEOAgent is Ownable, Pausable, ReentrancyGuard {
     // Constructor
     // ============================================================================
 
-    constructor(
-        address _governanceToken,
-        address _council,
-        string memory initialModelId,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _governanceToken, address _council, string memory initialModelId, address initialOwner)
+        Ownable(initialOwner)
+    {
         require(_governanceToken != address(0), "Invalid token");
         require(_council != address(0), "Invalid council");
 
@@ -279,11 +238,11 @@ contract CEOAgent is Ownable, Pausable, ReentrancyGuard {
      * @param modelName Human-readable name
      * @param provider Model provider
      */
-    function nominateModel(
-        string calldata modelId,
-        string calldata modelName,
-        string calldata provider
-    ) external payable nonReentrant {
+    function nominateModel(string calldata modelId, string calldata modelName, string calldata provider)
+        external
+        payable
+        nonReentrant
+    {
         if (modelCandidates[modelId].nominatedAt != 0) revert ModelAlreadyExists();
         if (msg.value < minStakeForNomination) revert InsufficientStake();
 
@@ -298,17 +257,19 @@ contract CEOAgent is Ownable, Pausable, ReentrancyGuard {
             isActive: true,
             decisionsCount: 0,
             approvedDecisions: 0,
-            benchmarkScore: 5000  // Start at 50%
+            benchmarkScore: 5000 // Start at 50%
         });
         allModelIds.push(modelId);
 
-        modelStakes[modelId].push(ModelStake({
-            staker: msg.sender,
-            modelId: modelId,
-            stakedAmount: msg.value,
-            reputationWeight: 0,
-            stakedAt: block.timestamp
-        }));
+        modelStakes[modelId].push(
+            ModelStake({
+                staker: msg.sender,
+                modelId: modelId,
+                stakedAmount: msg.value,
+                reputationWeight: 0,
+                stakedAt: block.timestamp
+            })
+        );
         hasStaked[modelId][msg.sender] = true;
 
         emit ModelNominated(modelId, modelName, provider, msg.sender);
@@ -319,10 +280,7 @@ contract CEOAgent is Ownable, Pausable, ReentrancyGuard {
      * @param modelId Model to stake on
      * @param reputationWeight Reputation weight (verified off-chain)
      */
-    function stakeOnModel(
-        string calldata modelId,
-        uint256 reputationWeight
-    ) external payable nonReentrant {
+    function stakeOnModel(string calldata modelId, uint256 reputationWeight) external payable nonReentrant {
         ModelCandidate storage model = modelCandidates[modelId];
         if (model.nominatedAt == 0) revert ModelNotFound();
         if (hasStaked[modelId][msg.sender]) revert AlreadyStaked();
@@ -330,13 +288,15 @@ contract CEOAgent is Ownable, Pausable, ReentrancyGuard {
         model.totalStaked += msg.value;
         model.totalReputation += reputationWeight;
 
-        modelStakes[modelId].push(ModelStake({
-            staker: msg.sender,
-            modelId: modelId,
-            stakedAmount: msg.value,
-            reputationWeight: reputationWeight,
-            stakedAt: block.timestamp
-        }));
+        modelStakes[modelId].push(
+            ModelStake({
+                staker: msg.sender,
+                modelId: modelId,
+                stakedAmount: msg.value,
+                reputationWeight: reputationWeight,
+                stakedAt: block.timestamp
+            })
+        );
         hasStaked[modelId][msg.sender] = true;
 
         emit ModelStaked(modelId, msg.sender, msg.value, reputationWeight);
@@ -378,7 +338,7 @@ contract CEOAgent is Ownable, Pausable, ReentrancyGuard {
      */
     function _calculateModelScore(string memory modelId) internal view returns (uint256) {
         ModelCandidate storage model = modelCandidates[modelId];
-        
+
         // Score = (stake * 0.4) + (reputation * 0.3) + (benchmark * 0.3)
         uint256 stakeScore = model.totalStaked;
         uint256 repScore = model.totalReputation * 1e18 / 100; // Scale reputation
@@ -408,11 +368,7 @@ contract CEOAgent is Ownable, Pausable, ReentrancyGuard {
         uint256 confidenceScore,
         uint256 alignmentScore
     ) external onlyCouncil returns (bytes32 decisionId) {
-        decisionId = keccak256(abi.encodePacked(
-            proposalId,
-            ceoState.currentModelId,
-            block.timestamp
-        ));
+        decisionId = keccak256(abi.encodePacked(proposalId, ceoState.currentModelId, block.timestamp));
 
         decisions[decisionId] = Decision({
             proposalId: proposalId,
@@ -441,13 +397,7 @@ contract CEOAgent is Ownable, Pausable, ReentrancyGuard {
         model.decisionsCount++;
         if (approved) model.approvedDecisions++;
 
-        emit DecisionMade(
-            decisionId,
-            proposalId,
-            ceoState.currentModelId,
-            approved,
-            confidenceScore
-        );
+        emit DecisionMade(decisionId, proposalId, ceoState.currentModelId, approved, confidenceScore);
     }
 
     /**
@@ -468,11 +418,7 @@ contract CEOAgent is Ownable, Pausable, ReentrancyGuard {
      * @param override_ Whether to override
      * @param reasonHash IPFS hash of reason
      */
-    function voteOverride(
-        bytes32 decisionId,
-        bool override_,
-        bytes32 reasonHash
-    ) external payable nonReentrant {
+    function voteOverride(bytes32 decisionId, bool override_, bytes32 reasonHash) external payable nonReentrant {
         Decision storage decision = decisions[decisionId];
         if (decision.decidedAt == 0) revert DecisionNotFound();
         if (!decision.disputed) revert DecisionNotFound();
@@ -481,14 +427,16 @@ contract CEOAgent is Ownable, Pausable, ReentrancyGuard {
         }
         if (hasVotedOverride[decisionId][msg.sender]) revert AlreadyVoted();
 
-        overrideVotes[decisionId].push(OverrideVote({
-            decisionId: decisionId,
-            voter: msg.sender,
-            override_: override_,
-            weight: msg.value,
-            reasonHash: reasonHash,
-            votedAt: block.timestamp
-        }));
+        overrideVotes[decisionId].push(
+            OverrideVote({
+                decisionId: decisionId,
+                voter: msg.sender,
+                override_: override_,
+                weight: msg.value,
+                reasonHash: reasonHash,
+                votedAt: block.timestamp
+            })
+        );
         hasVotedOverride[decisionId][msg.sender] = true;
 
         // Check if override threshold reached
@@ -528,10 +476,7 @@ contract CEOAgent is Ownable, Pausable, ReentrancyGuard {
      * @param newContextHash Hash of new context
      * @param reason Reason for update
      */
-    function updateContext(
-        bytes32 newContextHash,
-        string calldata reason
-    ) external onlyOwner {
+    function updateContext(bytes32 newContextHash, string calldata reason) external onlyOwner {
         bytes32 oldHash = ceoState.contextHash;
         ceoState.contextHash = newContextHash;
         emit ContextUpdated(oldHash, newContextHash, reason);
@@ -556,10 +501,7 @@ contract CEOAgent is Ownable, Pausable, ReentrancyGuard {
      * @param decisionId Decision to benchmark
      * @param matched Whether decision matched desired outcome
      */
-    function recordBenchmark(
-        bytes32 decisionId,
-        bool matched
-    ) external onlyOwner {
+    function recordBenchmark(bytes32 decisionId, bool matched) external onlyOwner {
         Decision storage decision = decisions[decisionId];
         if (decision.decidedAt == 0) revert DecisionNotFound();
 
@@ -579,7 +521,8 @@ contract CEOAgent is Ownable, Pausable, ReentrancyGuard {
         emit BenchmarkRecorded(decision.modelId, decisionId, matched, model.benchmarkScore);
 
         // Check if poor performance triggers re-election
-        if (model.benchmarkScore < 3000) { // Below 30%
+        if (model.benchmarkScore < 3000) {
+            // Below 30%
             ceoState.electionCooldown = 0; // Allow immediate election
             _checkElection();
         }
@@ -618,14 +561,18 @@ contract CEOAgent is Ownable, Pausable, ReentrancyGuard {
         return allDecisionIds;
     }
 
-    function getCEOStats() external view returns (
-        string memory currentModelId,
-        uint256 totalDecisions,
-        uint256 approvedDecisions,
-        uint256 overriddenDecisions,
-        uint256 approvalRate,
-        uint256 overrideRate
-    ) {
+    function getCEOStats()
+        external
+        view
+        returns (
+            string memory currentModelId,
+            uint256 totalDecisions,
+            uint256 approvedDecisions,
+            uint256 overriddenDecisions,
+            uint256 approvalRate,
+            uint256 overrideRate
+        )
+    {
         currentModelId = ceoState.currentModelId;
         totalDecisions = ceoState.totalDecisions;
         approvedDecisions = ceoState.approvedDecisions;

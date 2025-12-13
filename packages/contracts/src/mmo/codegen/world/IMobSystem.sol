@@ -9,15 +9,11 @@ pragma solidity >=0.8.24;
  * @dev This interface is automatically generated from the corresponding system contract. Do not edit manually.
  */
 interface IMobSystem {
-  function hyperscape__spawnMob(
-    uint8 mobType,
-    int32 x,
-    int32 y,
-    int32 z,
-    uint16 spawnIndex
-  ) external returns (bytes32 mobId);
+    function hyperscape__spawnMob(uint8 mobType, int32 x, int32 y, int32 z, uint16 spawnIndex)
+        external
+        returns (bytes32 mobId);
 
-  function hyperscape__respawnMob(bytes32 mobId) external returns (bool);
+    function hyperscape__respawnMob(bytes32 mobId) external returns (bool);
 
-  function hyperscape__canRespawn(bytes32 mobId) external view returns (bool);
+    function hyperscape__canRespawn(bytes32 mobId) external view returns (bool);
 }

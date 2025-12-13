@@ -69,12 +69,11 @@ contract JNSRegistry is IJNS {
      * @param nodeResolver The address of the resolver
      * @param nodeTtl The TTL in seconds
      */
-    function setRecord(
-        bytes32 node,
-        address nodeOwner,
-        address nodeResolver,
-        uint64 nodeTtl
-    ) external override authorised(node) {
+    function setRecord(bytes32 node, address nodeOwner, address nodeResolver, uint64 nodeTtl)
+        external
+        override
+        authorised(node)
+    {
         _setOwner(node, nodeOwner);
         _setResolverAndTTL(node, nodeResolver, nodeTtl);
     }
@@ -87,13 +86,11 @@ contract JNSRegistry is IJNS {
      * @param nodeResolver The address of the resolver
      * @param nodeTtl The TTL in seconds
      */
-    function setSubnodeRecord(
-        bytes32 node,
-        bytes32 label,
-        address nodeOwner,
-        address nodeResolver,
-        uint64 nodeTtl
-    ) external override authorised(node) {
+    function setSubnodeRecord(bytes32 node, bytes32 label, address nodeOwner, address nodeResolver, uint64 nodeTtl)
+        external
+        override
+        authorised(node)
+    {
         bytes32 subnode = _setSubnodeOwner(node, label, nodeOwner);
         _setResolverAndTTL(subnode, nodeResolver, nodeTtl);
     }
@@ -115,11 +112,12 @@ contract JNSRegistry is IJNS {
      * @param nodeOwner The address of the new owner
      * @return The namehash of the subnode
      */
-    function setSubnodeOwner(
-        bytes32 node,
-        bytes32 label,
-        address nodeOwner
-    ) public override authorised(node) returns (bytes32) {
+    function setSubnodeOwner(bytes32 node, bytes32 label, address nodeOwner)
+        public
+        override
+        authorised(node)
+        returns (bytes32)
+    {
         return _setSubnodeOwner(node, label, nodeOwner);
     }
 
@@ -258,9 +256,3 @@ contract JNSRegistry is IJNS {
         return "1.0.0";
     }
 }
-
-
-
-
-
-

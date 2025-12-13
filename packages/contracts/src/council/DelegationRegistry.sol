@@ -52,10 +52,10 @@ contract DelegationRegistry is Ownable, ReentrancyGuard {
         address delegate;
         uint256 agentId;
         string name;
-        string profileHash;       // IPFS hash of detailed profile
-        string[] expertise;       // Areas of expertise
-        uint256 totalDelegated;   // Total voting power delegated
-        uint256 delegatorCount;   // Number of delegators
+        string profileHash; // IPFS hash of detailed profile
+        string[] expertise; // Areas of expertise
+        uint256 totalDelegated; // Total voting power delegated
+        uint256 delegatorCount; // Number of delegators
         uint256 registeredAt;
         bool isActive;
         uint256 proposalsVoted;
@@ -65,15 +65,15 @@ contract DelegationRegistry is Ownable, ReentrancyGuard {
     struct Delegation {
         address delegator;
         address delegate;
-        uint256 amount;           // Voting power delegated
+        uint256 amount; // Voting power delegated
         uint256 delegatedAt;
-        uint256 lockedUntil;      // Optional lock period
+        uint256 lockedUntil; // Optional lock period
     }
 
     struct SecurityCouncilMember {
         address member;
         uint256 agentId;
-        uint256 combinedScore;    // delegation * reputation * stake
+        uint256 combinedScore; // delegation * reputation * stake
         uint256 electedAt;
     }
 
@@ -95,9 +95,9 @@ contract DelegationRegistry is Ownable, ReentrancyGuard {
     mapping(address => bool) public isSecurityCouncilMember;
 
     uint256 public securityCouncilSize = 5;
-    uint256 public minDelegationForCouncil = 1e18;     // 1% of total (scaled)
-    uint256 public minReputationForCouncil = 80;       // 80/100
-    uint256 public minStakeForCouncil = 1 ether;       // HIGH tier equivalent
+    uint256 public minDelegationForCouncil = 1e18; // 1% of total (scaled)
+    uint256 public minReputationForCouncil = 80; // 80/100
+    uint256 public minStakeForCouncil = 1 ether; // HIGH tier equivalent
     uint256 public minDelegationLockPeriod = 7 days;
 
     uint256 public totalDelegatedPower;
@@ -106,42 +106,21 @@ contract DelegationRegistry is Ownable, ReentrancyGuard {
     // Events
     // ============================================================================
 
-    event DelegateRegistered(
-        address indexed delegate,
-        uint256 indexed agentId,
-        string name
-    );
+    event DelegateRegistered(address indexed delegate, uint256 indexed agentId, string name);
 
-    event DelegateProfileUpdated(
-        address indexed delegate,
-        string newProfileHash
-    );
+    event DelegateProfileUpdated(address indexed delegate, string newProfileHash);
 
-    event DelegateDeactivated(
-        address indexed delegate
-    );
+    event DelegateDeactivated(address indexed delegate);
 
     event VotingPowerDelegated(
-        address indexed delegator,
-        address indexed delegate,
-        uint256 amount,
-        uint256 lockedUntil
+        address indexed delegator, address indexed delegate, uint256 amount, uint256 lockedUntil
     );
 
-    event DelegationRevoked(
-        address indexed delegator,
-        address indexed previousDelegate,
-        uint256 amount
-    );
+    event DelegationRevoked(address indexed delegator, address indexed previousDelegate, uint256 amount);
 
-    event SecurityCouncilUpdated(
-        address[] newMembers
-    );
+    event SecurityCouncilUpdated(address[] newMembers);
 
-    event DelegateVoted(
-        address indexed delegate,
-        bytes32 indexed proposalId
-    );
+    event DelegateVoted(address indexed delegate, bytes32 indexed proposalId);
 
     // ============================================================================
     // Errors
@@ -162,12 +141,9 @@ contract DelegationRegistry is Ownable, ReentrancyGuard {
     // Constructor
     // ============================================================================
 
-    constructor(
-        address _governanceToken,
-        address _identityRegistry,
-        address _reputationRegistry,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _governanceToken, address _identityRegistry, address _reputationRegistry, address initialOwner)
+        Ownable(initialOwner)
+    {
         require(_governanceToken != address(0), "Invalid token");
         require(_identityRegistry != address(0), "Invalid identity");
         require(_reputationRegistry != address(0), "Invalid reputation");
@@ -222,10 +198,7 @@ contract DelegationRegistry is Ownable, ReentrancyGuard {
     /**
      * @notice Update delegate profile
      */
-    function updateProfile(
-        string calldata newProfileHash,
-        string[] calldata newExpertise
-    ) external {
+    function updateProfile(string calldata newProfileHash, string[] calldata newExpertise) external {
         Delegate storage d = delegates[msg.sender];
         if (d.registeredAt == 0) revert NotRegisteredDelegate();
 
@@ -256,11 +229,7 @@ contract DelegationRegistry is Ownable, ReentrancyGuard {
      * @param amount Amount of voting power to delegate
      * @param lockPeriod How long to lock delegation (0 for no lock)
      */
-    function delegate(
-        address to,
-        uint256 amount,
-        uint256 lockPeriod
-    ) external nonReentrant {
+    function delegate(address to, uint256 amount, uint256 lockPeriod) external nonReentrant {
         if (to == msg.sender) revert CannotDelegateToSelf();
         if (delegations[msg.sender].amount > 0) revert AlreadyDelegated();
 
@@ -270,9 +239,7 @@ contract DelegationRegistry is Ownable, ReentrancyGuard {
         uint256 balance = governanceToken.balanceOf(msg.sender);
         uint256 delegateAmount = amount > balance ? balance : amount;
 
-        uint256 lockedUntil = lockPeriod > 0
-            ? block.timestamp + lockPeriod
-            : 0;
+        uint256 lockedUntil = lockPeriod > 0 ? block.timestamp + lockPeriod : 0;
 
         delegations[msg.sender] = Delegation({
             delegator: msg.sender,
@@ -396,8 +363,7 @@ contract DelegationRegistry is Ownable, ReentrancyGuard {
             if (!d.isActive) continue;
 
             // Get stake from identity registry
-            IIdentityRegistry.AgentRegistration memory agent =
-                identityRegistry.getAgent(d.agentId);
+            IIdentityRegistry.AgentRegistration memory agent = identityRegistry.getAgent(d.agentId);
             if (agent.stakedAmount < minStakeForCouncil) continue;
             if (agent.isBanned) continue;
 
@@ -406,9 +372,7 @@ contract DelegationRegistry is Ownable, ReentrancyGuard {
             if (reputation < minReputationForCouncil) continue;
 
             // Check minimum delegation
-            uint256 delegationShare = totalDelegatedPower > 0
-                ? (d.totalDelegated * 1e18) / totalDelegatedPower
-                : 0;
+            uint256 delegationShare = totalDelegatedPower > 0 ? (d.totalDelegated * 1e18) / totalDelegatedPower : 0;
             if (delegationShare < minDelegationForCouncil / 100) continue;
 
             // Calculate combined score
@@ -432,20 +396,21 @@ contract DelegationRegistry is Ownable, ReentrancyGuard {
             }
 
             if (bestIdx != i) {
-                (eligibleAddresses[i], eligibleAddresses[bestIdx]) =
-                    (eligibleAddresses[bestIdx], eligibleAddresses[i]);
+                (eligibleAddresses[i], eligibleAddresses[bestIdx]) = (eligibleAddresses[bestIdx], eligibleAddresses[i]);
                 (scores[i], scores[bestIdx]) = (scores[bestIdx], scores[i]);
             }
 
             address member = eligibleAddresses[i];
             Delegate storage d = delegates[member];
 
-            securityCouncil.push(SecurityCouncilMember({
-                member: member,
-                agentId: d.agentId,
-                combinedScore: scores[i],
-                electedAt: block.timestamp
-            }));
+            securityCouncil.push(
+                SecurityCouncilMember({
+                    member: member,
+                    agentId: d.agentId,
+                    combinedScore: scores[i],
+                    electedAt: block.timestamp
+                })
+            );
 
             isSecurityCouncilMember[member] = true;
         }
@@ -493,11 +458,7 @@ contract DelegationRegistry is Ownable, ReentrancyGuard {
      * @notice Get recommended delegates sorted by score
      * @param limit Maximum number of delegates to return
      */
-    function getTopDelegates(uint256 limit)
-        external
-        view
-        returns (Delegate[] memory)
-    {
+    function getTopDelegates(uint256 limit) external view returns (Delegate[] memory) {
         uint256 activeCount = 0;
         for (uint256 i = 0; i < allDelegates.length; i++) {
             if (delegates[allDelegates[i]].isActive) activeCount++;
@@ -556,11 +517,7 @@ contract DelegationRegistry is Ownable, ReentrancyGuard {
         return result;
     }
 
-    function getSecurityCouncilDetails()
-        external
-        view
-        returns (SecurityCouncilMember[] memory)
-    {
+    function getSecurityCouncilDetails() external view returns (SecurityCouncilMember[] memory) {
         return securityCouncil;
     }
 
@@ -607,10 +564,7 @@ contract DelegationRegistry is Ownable, ReentrancyGuard {
         minStakeForCouncil = minStake;
     }
 
-    function setRegistries(
-        address newIdentity,
-        address newReputation
-    ) external onlyOwner {
+    function setRegistries(address newIdentity, address newReputation) external onlyOwner {
         if (newIdentity != address(0)) {
             identityRegistry = IIdentityRegistry(newIdentity);
         }
@@ -623,4 +577,3 @@ contract DelegationRegistry is Ownable, ReentrancyGuard {
         return "1.0.0";
     }
 }
-

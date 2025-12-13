@@ -183,11 +183,12 @@ contract JNSResolver is IJNSResolver {
      * @return appId The app's identifier
      * @return agentId The linked ERC-8004 agent ID
      */
-    function appRecord(bytes32 node) external view override returns (
-        address appContract,
-        bytes32 appId,
-        uint256 agentId
-    ) {
+    function appRecord(bytes32 node)
+        external
+        view
+        override
+        returns (address appContract, bytes32 appId, uint256 agentId)
+    {
         AppRecord memory record = _appRecords[node];
         return (record.appContract, record.appId, record.agentId);
     }
@@ -348,10 +349,8 @@ contract JNSResolver is IJNSResolver {
 
     function _isAuthorised(bytes32 node) internal view returns (bool) {
         address nodeOwner = jns.owner(node);
-        return nodeOwner == msg.sender ||
-               isApprovedForAll(nodeOwner, msg.sender) ||
-               isApprovedFor(nodeOwner, node, msg.sender) ||
-               jns.isApprovedForAll(nodeOwner, msg.sender);
+        return nodeOwner == msg.sender || isApprovedForAll(nodeOwner, msg.sender)
+            || isApprovedFor(nodeOwner, node, msg.sender) || jns.isApprovedForAll(nodeOwner, msg.sender);
     }
 
     // ============ View Functions ============
@@ -366,14 +365,18 @@ contract JNSResolver is IJNSResolver {
      * @return a2aEndpoint The A2A endpoint
      * @return contenthash_ The content hash
      */
-    function getAppInfo(bytes32 node) external view returns (
-        address appContract,
-        bytes32 appId,
-        uint256 agentId,
-        string memory endpoint,
-        string memory a2aEndpoint,
-        bytes memory contenthash_
-    ) {
+    function getAppInfo(bytes32 node)
+        external
+        view
+        returns (
+            address appContract,
+            bytes32 appId,
+            uint256 agentId,
+            string memory endpoint,
+            string memory a2aEndpoint,
+            bytes memory contenthash_
+        )
+    {
         AppRecord memory record = _appRecords[node];
         return (
             record.appContract,
@@ -409,13 +412,6 @@ contract JNSResolver is IJNSResolver {
      * @notice EIP-165 interface detection
      */
     function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
-        return interfaceId == type(IJNSResolver).interfaceId ||
-               interfaceId == 0x01ffc9a7; // EIP-165
+        return interfaceId == type(IJNSResolver).interfaceId || interfaceId == 0x01ffc9a7; // EIP-165
     }
 }
-
-
-
-
-
-

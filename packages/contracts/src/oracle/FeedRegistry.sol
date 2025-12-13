@@ -186,11 +186,11 @@ contract FeedRegistry is IFeedRegistry, Ownable, Pausable {
      * @param minOracles Minimum number of oracles required
      * @param quorumThreshold Signatures needed for consensus
      */
-    function setQuorumParams(
-        bytes32 feedId,
-        uint8 minOracles,
-        uint8 quorumThreshold
-    ) external onlyFeedManager feedMustExist(feedId) {
+    function setQuorumParams(bytes32 feedId, uint8 minOracles, uint8 quorumThreshold)
+        external
+        onlyFeedManager
+        feedMustExist(feedId)
+    {
         if (minOracles == 0 || quorumThreshold == 0) {
             revert InvalidFeedParams();
         }

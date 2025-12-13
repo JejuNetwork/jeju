@@ -14,7 +14,7 @@ test.describe('Council Server Smoke Tests', () => {
     const data = await response.json();
     expect(data.status).toBe('ok');
     expect(data.service).toBe('jeju-council');
-    expect(data.version).toBe('2.0.0');
+    expect(data.version).toBe('2.1.0');
   });
 
   test('root endpoint returns service info', async ({ request }) => {

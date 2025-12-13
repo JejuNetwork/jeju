@@ -1,0 +1,21 @@
+# Example Terraform variables for Jeju Messaging
+# Copy this file to terraform.tfvars and fill in values
+
+# AWS Configuration
+aws_region  = "us-east-1"
+environment = "testnet"
+
+# Relay Node Configuration  
+node_count = 3
+
+# Jeju Network Configuration
+jeju_rpc_url = "https://testnet-rpc.jeju.network"
+
+# Contract Addresses (deploy first)
+node_registry_address = "0x..."
+key_registry_address  = "0x..."
+
+# Operator Private Key (keep secret!)
+# Use AWS Secrets Manager in production
+operator_private_key = "0x..."
+

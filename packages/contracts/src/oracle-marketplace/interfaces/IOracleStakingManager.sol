@@ -25,9 +25,9 @@ interface IOracleStakingManager {
         address stakedToken;
         uint256 stakedAmount;
         uint256 stakedValueUSD;
-        uint256 reputationAgentId;    // ERC-8004 agent ID (0 if not linked)
-        uint256 reputationScore;       // Cached score (0-100)
-        uint256 accuracyScore;         // Historical accuracy (0-10000 = 0-100%)
+        uint256 reputationAgentId; // ERC-8004 agent ID (0 if not linked)
+        uint256 reputationScore; // Cached score (0-100)
+        uint256 accuracyScore; // Historical accuracy (0-10000 = 0-100%)
         uint256 totalSubmissions;
         uint256 validSubmissions;
         uint256 registrationTime;
@@ -41,16 +41,16 @@ interface IOracleStakingManager {
         uint256 timestamp;
         uint256 blockNumber;
         address oracle;
-        bool included;  // Whether included in consensus
+        bool included; // Whether included in consensus
     }
 
     struct MarketConfig {
         bytes32 marketId;
-        string symbol;              // e.g., "BTC-USD", "ETH-USD"
-        address baseToken;          // Underlying asset (address(0) for external assets)
-        uint256 heartbeatSeconds;   // Max time between updates
+        string symbol; // e.g., "BTC-USD", "ETH-USD"
+        address baseToken; // Underlying asset (address(0) for external assets)
+        uint256 heartbeatSeconds; // Max time between updates
         uint256 deviationThresholdBps; // Max deviation before forced update (basis points)
-        uint256 minOracles;         // Minimum oracles for valid price
+        uint256 minOracles; // Minimum oracles for valid price
         bool isActive;
     }
 
@@ -58,7 +58,7 @@ interface IOracleStakingManager {
         uint256 price;
         uint256 timestamp;
         uint256 oracleCount;
-        uint256 confidence;         // 0-10000 (higher = more agreement)
+        uint256 confidence; // 0-10000 (higher = more agreement)
     }
 
     // ============ Events ============
@@ -73,35 +73,15 @@ interface IOracleStakingManager {
 
     event OracleDeregistered(bytes32 indexed oracleId, address indexed operator);
 
-    event OracleSlashed(
-        bytes32 indexed oracleId,
-        address indexed operator,
-        uint256 slashAmount,
-        string reason
-    );
+    event OracleSlashed(bytes32 indexed oracleId, address indexed operator, uint256 slashAmount, string reason);
 
-    event UnbondingStarted(
-        bytes32 indexed oracleId,
-        address indexed operator,
-        uint256 amount,
-        uint256 completionTime
-    );
+    event UnbondingStarted(bytes32 indexed oracleId, address indexed operator, uint256 amount, uint256 completionTime);
 
     event StakeWithdrawn(bytes32 indexed oracleId, address indexed operator, uint256 amount);
 
-    event PriceSubmitted(
-        bytes32 indexed marketId,
-        bytes32 indexed oracleId,
-        uint256 price,
-        uint256 timestamp
-    );
+    event PriceSubmitted(bytes32 indexed marketId, bytes32 indexed oracleId, uint256 price, uint256 timestamp);
 
-    event ConsensusReached(
-        bytes32 indexed marketId,
-        uint256 price,
-        uint256 oracleCount,
-        uint256 confidence
-    );
+    event ConsensusReached(bytes32 indexed marketId, uint256 price, uint256 oracleCount, uint256 confidence);
 
     event MarketAdded(bytes32 indexed marketId, string symbol, uint256 heartbeat);
 
@@ -118,11 +98,9 @@ interface IOracleStakingManager {
      * @param reputationAgentId Optional ERC-8004 agent ID for reputation boost
      * @return oracleId Unique oracle identifier
      */
-    function registerOracle(
-        address stakingToken,
-        uint256 stakeAmount,
-        uint256 reputationAgentId
-    ) external returns (bytes32 oracleId);
+    function registerOracle(address stakingToken, uint256 stakeAmount, uint256 reputationAgentId)
+        external
+        returns (bytes32 oracleId);
 
     /**
      * @notice Start unbonding process to withdraw stake
@@ -159,11 +137,7 @@ interface IOracleStakingManager {
      * @param marketIds Array of market identifiers
      * @param prices Array of prices
      */
-    function submitPricesBatch(
-        bytes32 oracleId,
-        bytes32[] calldata marketIds,
-        uint256[] calldata prices
-    ) external;
+    function submitPricesBatch(bytes32 oracleId, bytes32[] calldata marketIds, uint256[] calldata prices) external;
 
     // ============ Consensus ============
 
@@ -181,11 +155,7 @@ interface IOracleStakingManager {
      * @return timestamp Price timestamp
      * @return isValid Whether price meets validity requirements
      */
-    function getLatestPrice(bytes32 marketId) external view returns (
-        uint256 price,
-        uint256 timestamp,
-        bool isValid
-    );
+    function getLatestPrice(bytes32 marketId) external view returns (uint256 price, uint256 timestamp, bool isValid);
 
     // ============ View Functions ============
 
@@ -199,12 +169,10 @@ interface IOracleStakingManager {
 
     function getOracleWeight(bytes32 oracleId) external view returns (uint256 weight);
 
-    function getNetworkStats() external view returns (
-        uint256 totalOracles,
-        uint256 totalStakedUSD,
-        uint256 totalMarkets,
-        uint256 avgAccuracy
-    );
+    function getNetworkStats()
+        external
+        view
+        returns (uint256 totalOracles, uint256 totalStakedUSD, uint256 totalMarkets, uint256 avgAccuracy);
 
     // ============ Admin Functions ============
 

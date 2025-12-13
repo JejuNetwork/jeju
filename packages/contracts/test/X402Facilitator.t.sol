@@ -59,17 +59,14 @@ contract X402FacilitatorTest is Test {
         string memory nonce = "test-nonce-123";
         uint256 timestamp = block.timestamp;
 
-        bytes memory signature = _signPayment(
-            address(usdc), recipient, amount, resource, nonce, timestamp
-        );
+        bytes memory signature = _signPayment(address(usdc), recipient, amount, resource, nonce, timestamp);
 
         uint256 payerBefore = usdc.balanceOf(payer);
         uint256 recipientBefore = usdc.balanceOf(recipient);
         uint256 feeBefore = usdc.balanceOf(feeRecipient);
 
-        bytes32 paymentId = facilitator.settle(
-            payer, recipient, address(usdc), amount, resource, nonce, timestamp, signature
-        );
+        bytes32 paymentId =
+            facilitator.settle(payer, recipient, address(usdc), amount, resource, nonce, timestamp, signature);
 
         assertNotEq(paymentId, bytes32(0));
 
@@ -92,14 +89,10 @@ contract X402FacilitatorTest is Test {
         string memory nonce = "expired-nonce";
         uint256 timestamp = block.timestamp - 600; // 10 minutes ago
 
-        bytes memory signature = _signPayment(
-            address(usdc), recipient, amount, resource, nonce, timestamp
-        );
+        bytes memory signature = _signPayment(address(usdc), recipient, amount, resource, nonce, timestamp);
 
         vm.expectRevert(X402Facilitator.PaymentExpired.selector);
-        facilitator.settle(
-            payer, recipient, address(usdc), amount, resource, nonce, timestamp, signature
-        );
+        facilitator.settle(payer, recipient, address(usdc), amount, resource, nonce, timestamp, signature);
     }
 
     function test_settle_revert_nonce_reuse() public {
@@ -108,20 +101,14 @@ contract X402FacilitatorTest is Test {
         string memory nonce = "reused-nonce";
         uint256 timestamp = block.timestamp;
 
-        bytes memory signature = _signPayment(
-            address(usdc), recipient, amount, resource, nonce, timestamp
-        );
+        bytes memory signature = _signPayment(address(usdc), recipient, amount, resource, nonce, timestamp);
 
         // First settle succeeds
-        facilitator.settle(
-            payer, recipient, address(usdc), amount, resource, nonce, timestamp, signature
-        );
+        facilitator.settle(payer, recipient, address(usdc), amount, resource, nonce, timestamp, signature);
 
         // Second settle with same nonce fails
         vm.expectRevert(X402Facilitator.NonceAlreadyUsed.selector);
-        facilitator.settle(
-            payer, recipient, address(usdc), amount, resource, nonce, timestamp, signature
-        );
+        facilitator.settle(payer, recipient, address(usdc), amount, resource, nonce, timestamp, signature);
     }
 
     function test_settle_revert_invalid_signature() public {
@@ -131,14 +118,10 @@ contract X402FacilitatorTest is Test {
         uint256 timestamp = block.timestamp;
 
         // Sign with wrong amount
-        bytes memory signature = _signPayment(
-            address(usdc), recipient, amount + 1, resource, nonce, timestamp
-        );
+        bytes memory signature = _signPayment(address(usdc), recipient, amount + 1, resource, nonce, timestamp);
 
         vm.expectRevert(X402Facilitator.InvalidSignature.selector);
-        facilitator.settle(
-            payer, recipient, address(usdc), amount, resource, nonce, timestamp, signature
-        );
+        facilitator.settle(payer, recipient, address(usdc), amount, resource, nonce, timestamp, signature);
     }
 
     function test_settle_revert_unsupported_token() public {
@@ -152,14 +135,10 @@ contract X402FacilitatorTest is Test {
         string memory nonce = "unsupported-token-nonce";
         uint256 timestamp = block.timestamp;
 
-        bytes memory signature = _signPayment(
-            address(otherToken), recipient, amount, resource, nonce, timestamp
-        );
+        bytes memory signature = _signPayment(address(otherToken), recipient, amount, resource, nonce, timestamp);
 
         vm.expectRevert(X402Facilitator.UnsupportedToken.selector);
-        facilitator.settle(
-            payer, recipient, address(otherToken), amount, resource, nonce, timestamp, signature
-        );
+        facilitator.settle(payer, recipient, address(otherToken), amount, resource, nonce, timestamp, signature);
     }
 
     function test_isNonceUsed() public {
@@ -168,13 +147,9 @@ contract X402FacilitatorTest is Test {
 
         uint256 amount = 1_000_000;
         uint256 timestamp = block.timestamp;
-        bytes memory signature = _signPayment(
-            address(usdc), recipient, amount, "/api/test", nonce, timestamp
-        );
+        bytes memory signature = _signPayment(address(usdc), recipient, amount, "/api/test", nonce, timestamp);
 
-        facilitator.settle(
-            payer, recipient, address(usdc), amount, "/api/test", nonce, timestamp, signature
-        );
+        facilitator.settle(payer, recipient, address(usdc), amount, "/api/test", nonce, timestamp, signature);
 
         assertTrue(facilitator.isNonceUsed(payer, nonce));
     }
@@ -188,12 +163,8 @@ contract X402FacilitatorTest is Test {
         // Do a settlement
         uint256 amount = 1_000_000;
         uint256 timestamp = block.timestamp;
-        bytes memory signature = _signPayment(
-            address(usdc), recipient, amount, "/api/test", "stats-nonce", timestamp
-        );
-        facilitator.settle(
-            payer, recipient, address(usdc), amount, "/api/test", "stats-nonce", timestamp, signature
-        );
+        bytes memory signature = _signPayment(address(usdc), recipient, amount, "/api/test", "stats-nonce", timestamp);
+        facilitator.settle(payer, recipient, address(usdc), amount, "/api/test", "stats-nonce", timestamp, signature);
 
         (settlements, volume,,) = facilitator.getStats();
         assertEq(settlements, 1);
@@ -207,17 +178,14 @@ contract X402FacilitatorTest is Test {
         uint256 timestamp = block.timestamp;
 
         // Sign with 'upto' scheme
-        bytes memory signature = _signPaymentUpto(
-            address(usdc), recipient, actualAmount, resource, nonce, timestamp
-        );
+        bytes memory signature = _signPaymentUpto(address(usdc), recipient, actualAmount, resource, nonce, timestamp);
 
         uint256 payerBefore = usdc.balanceOf(payer);
         uint256 recipientBefore = usdc.balanceOf(recipient);
         uint256 feeBefore = usdc.balanceOf(feeRecipient);
 
-        bytes32 paymentId = facilitator.settle(
-            payer, recipient, address(usdc), actualAmount, resource, nonce, timestamp, signature
-        );
+        bytes32 paymentId =
+            facilitator.settle(payer, recipient, address(usdc), actualAmount, resource, nonce, timestamp, signature);
 
         assertNotEq(paymentId, bytes32(0));
 
@@ -250,13 +218,7 @@ contract X402FacilitatorTest is Test {
             )
         );
 
-        bytes32 digest = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                facilitator.domainSeparator(),
-                structHash
-            )
-        );
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", facilitator.domainSeparator(), structHash));
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(payerKey, digest);
         return abi.encodePacked(r, s, v);
@@ -284,13 +246,7 @@ contract X402FacilitatorTest is Test {
             )
         );
 
-        bytes32 digest = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                facilitator.domainSeparator(),
-                structHash
-            )
-        );
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", facilitator.domainSeparator(), structHash));
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(payerKey, digest);
         return abi.encodePacked(r, s, v);

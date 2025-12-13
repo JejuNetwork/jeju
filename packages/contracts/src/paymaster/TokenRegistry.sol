@@ -822,7 +822,7 @@ contract TokenRegistry is Ownable, Pausable, ReentrancyGuard {
                 // slither-disable-next-line unchecked-transfer
                 try IERC20Metadata(token).transferFrom(msg.sender, address(this), testAmount) returns (bool success) {
                     if (!success) return; // Transfer reported failure, skip validation
-                    
+
                     uint256 balanceAfter = IERC20Metadata(token).balanceOf(address(this));
 
                     // Check for fee-on-transfer (received less than sent)
@@ -837,7 +837,7 @@ contract TokenRegistry is Ownable, Pausable, ReentrancyGuard {
                     }
 
                     // Return the test tokens
-                    // slither-disable-next-line unchecked-transfer  
+                    // slither-disable-next-line unchecked-transfer
                     try IERC20Metadata(token).transfer(msg.sender, testAmount) {} catch {}
                 } catch {
                     // Transfer failed - might need approval, that's OK

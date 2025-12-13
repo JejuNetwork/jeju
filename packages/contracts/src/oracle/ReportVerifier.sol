@@ -70,11 +70,7 @@ contract ReportVerifier is IReportVerifier, Ownable, Pausable, ReentrancyGuard {
 
     // ============ Constructor ============
 
-    constructor(
-        address _feedRegistry,
-        address _committeeManager,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _feedRegistry, address _committeeManager, address initialOwner) Ownable(initialOwner) {
         feedRegistry = IFeedRegistry(_feedRegistry);
         if (_committeeManager != address(0)) {
             committeeManager = ICommitteeManager(_committeeManager);
@@ -134,10 +130,11 @@ contract ReportVerifier is IReportVerifier, Ownable, Pausable, ReentrancyGuard {
      * @return signers Array of recovered signer addresses
      * @return valid Whether all signatures are valid committee members
      */
-    function verifySignatures(
-        bytes32 reportHash,
-        bytes[] calldata signatures
-    ) external view returns (address[] memory signers, bool valid) {
+    function verifySignatures(bytes32 reportHash, bytes[] calldata signatures)
+        external
+        view
+        returns (address[] memory signers, bool valid)
+    {
         signers = new address[](signatures.length);
         valid = true;
 
@@ -170,12 +167,7 @@ contract ReportVerifier is IReportVerifier, Ownable, Pausable, ReentrancyGuard {
     function getLatestPrice(bytes32 feedId)
         external
         view
-        returns (
-            uint256 price,
-            uint256 confidence,
-            uint256 timestamp,
-            bool isValid
-        )
+        returns (uint256 price, uint256 confidence, uint256 timestamp, bool isValid)
     {
         ConsensusPrice storage cp = _consensusPrices[feedId];
 
@@ -185,9 +177,7 @@ contract ReportVerifier is IReportVerifier, Ownable, Pausable, ReentrancyGuard {
 
         // Check staleness
         IFeedRegistry.FeedSpec memory spec = feedRegistry.getFeed(feedId);
-        isValid = cp.price > 0 &&
-            cp.timestamp > 0 &&
-            block.timestamp - cp.timestamp <= spec.heartbeatSeconds;
+        isValid = cp.price > 0 && cp.timestamp > 0 && block.timestamp - cp.timestamp <= spec.heartbeatSeconds;
     }
 
     /**
@@ -373,14 +363,7 @@ contract ReportVerifier is IReportVerifier, Ownable, Pausable, ReentrancyGuard {
         _lastReportTime[report.feedId] = block.timestamp;
         _processedReports[reportHash] = true;
 
-        emit ReportSubmitted(
-            report.feedId,
-            reportHash,
-            report.price,
-            report.confidence,
-            newRound,
-            signatures.length
-        );
+        emit ReportSubmitted(report.feedId, reportHash, report.price, report.confidence, newRound, signatures.length);
 
         emit ReportVerified(report.feedId, reportHash, report.price, report.timestamp);
         emit ConsensusUpdated(report.feedId, report.price, report.confidence, newRound);
@@ -399,14 +382,11 @@ contract ReportVerifier is IReportVerifier, Ownable, Pausable, ReentrancyGuard {
     }
 
     function _computeReportHash(PriceReport calldata report) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(
-            report.feedId,
-            report.price,
-            report.confidence,
-            report.timestamp,
-            report.round,
-            report.sourcesHash
-        ));
+        return keccak256(
+            abi.encodePacked(
+                report.feedId, report.price, report.confidence, report.timestamp, report.round, report.sourcesHash
+            )
+        );
     }
 
     function _toEthSignedMessageHash(bytes32 hash) internal pure returns (bytes32) {
@@ -460,11 +440,7 @@ contract ReportVerifier is IReportVerifier, Ownable, Pausable, ReentrancyGuard {
      * @param price New price
      * @param confidence Confidence band
      */
-    function emergencyPriceUpdate(
-        bytes32 feedId,
-        uint256 price,
-        uint256 confidence
-    ) external onlyOwner {
+    function emergencyPriceUpdate(bytes32 feedId, uint256 price, uint256 confidence) external onlyOwner {
         uint256 newRound = _currentRounds[feedId] + 1;
 
         ConsensusPrice memory newConsensus = ConsensusPrice({

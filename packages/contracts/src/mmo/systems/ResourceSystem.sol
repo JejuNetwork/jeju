@@ -1,10 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { System } from "@latticexyz/world/src/System.sol";
-import { Player, Resource, ResourceData, Equipment, EquipmentData, InventorySlot, InventorySlotData, GatheringSkills, GatheringSkillsData } from "../codegen/index.sol";
-import { ResourceType } from "../codegen/common.sol";
-import { XPLib } from "../libraries/XPLib.sol";
+import {System} from "@latticexyz/world/src/System.sol";
+import {
+    Player,
+    Resource,
+    ResourceData,
+    Equipment,
+    EquipmentData,
+    InventorySlot,
+    InventorySlotData,
+    GatheringSkills,
+    GatheringSkillsData
+} from "../codegen/index.sol";
+import {ResourceType} from "../codegen/common.sol";
+import {XPLib} from "../libraries/XPLib.sol";
 
 /**
  * @title ResourceSystem
@@ -14,29 +24,28 @@ import { XPLib } from "../libraries/XPLib.sol";
 contract ResourceSystem is System {
     /// @notice JejuIntegrationSystem for ban checking
     address public jejuIntegration;
-    
+
     event ResourceSpawned(bytes32 indexed resourceId, uint8 resourceType, int32 x, int32 y, int32 z);
     event ResourceHarvested(address indexed player, bytes32 indexed resourceId, uint16 itemId);
     event ResourceDepleted(bytes32 indexed resourceId);
     event JejuIntegrationSet(address indexed integration);
-    
+
     error PlayerBanned();
-    
+
     function setJejuIntegration(address _jejuIntegration) public {
         jejuIntegration = _jejuIntegration;
         emit JejuIntegrationSet(_jejuIntegration);
     }
-    
+
     function _requirePlayerAllowed(address player) internal view {
         if (jejuIntegration == address(0)) return;
-        (bool success, bytes memory result) = jejuIntegration.staticcall(
-            abi.encodeWithSignature("isPlayerAllowed(address)", player)
-        );
+        (bool success, bytes memory result) =
+            jejuIntegration.staticcall(abi.encodeWithSignature("isPlayerAllowed(address)", player));
         if (success && result.length >= 32 && !abi.decode(result, (bool))) {
             revert PlayerBanned();
         }
     }
-    
+
     /**
      * @notice Spawn a resource node
      * @param resourceType 0=TREE, 1=FISHING_SPOT, 2=FIRE
@@ -45,31 +54,28 @@ contract ResourceSystem is System {
      * @param z Z coordinate
      * @return resourceId ID of spawned resource
      */
-    function spawnResource(
-        uint8 resourceType,
-        int32 x,
-        int32 y,
-        int32 z
-    ) public returns (bytes32) {
+    function spawnResource(uint8 resourceType, int32 x, int32 y, int32 z) public returns (bytes32) {
         require(resourceType < 3, "Invalid resource type");
-        
+
         bytes32 resourceId = keccak256(abi.encodePacked(resourceType, x, y, z, block.timestamp));
-        
+
         uint32 respawnTime = _getRespawnTime(resourceType);
-        
+
         Resource.set(
             resourceId,
             ResourceType(resourceType),
-            x, y, z,
+            x,
+            y,
+            z,
             true, // available
             block.timestamp,
             respawnTime
         );
-        
+
         emit ResourceSpawned(resourceId, resourceType, x, y, z);
         return resourceId;
     }
-    
+
     /**
      * @notice Chop a tree (woodcutting)
      * @param resourceId Resource to chop
@@ -80,34 +86,34 @@ contract ResourceSystem is System {
         address player = _msgSender();
         _requirePlayerAllowed(player);
         require(Player.getExists(player), "Player not registered");
-        
+
         ResourceData memory resource = Resource.get(resourceId);
         require(resource.resourceType == ResourceType.TREE, "Not a tree");
         require(resource.available, "Resource not available");
-        
+
         // Check for hatchet
         EquipmentData memory equipment = Equipment.get(player);
         require(equipment.weapon >= 50 && equipment.weapon < 60, "Need hatchet equipped");
-        
+
         GatheringSkillsData memory skills = GatheringSkills.get(player);
         require(skills.woodcuttingLevel >= 1, "Woodcutting level too low");
-        
+
         // Add logs to inventory
         _addItemToInventory(player, 1, 1); // 1 = Logs
-        
+
         // Grant XP
         _grantWoodcuttingXP(player, 25);
-        
+
         // Deplete resource
         Resource.setAvailable(resourceId, false);
         Resource.setLastHarvestTime(resourceId, block.timestamp);
-        
+
         emit ResourceHarvested(player, resourceId, 1);
         emit ResourceDepleted(resourceId);
-        
+
         return (true, 1);
     }
-    
+
     /**
      * @notice Fish at a fishing spot
      * @param resourceId Resource to fish
@@ -118,29 +124,29 @@ contract ResourceSystem is System {
         address player = _msgSender();
         _requirePlayerAllowed(player);
         require(Player.getExists(player), "Player not registered");
-        
+
         ResourceData memory resource = Resource.get(resourceId);
         require(resource.resourceType == ResourceType.FISHING_SPOT, "Not a fishing spot");
         require(resource.available, "Resource not available");
-        
+
         // Check for fishing rod
         EquipmentData memory equipment = Equipment.get(player);
         require(equipment.weapon == 51, "Need fishing rod equipped");
-        
+
         GatheringSkillsData memory skills = GatheringSkills.get(player);
         require(skills.fishingLevel >= 1, "Fishing level too low");
-        
+
         // Add raw shrimp to inventory
         _addItemToInventory(player, 10, 1); // 10 = Raw Shrimp
-        
+
         // Grant XP
         _grantFishingXP(player, 10);
-        
+
         emit ResourceHarvested(player, resourceId, 10);
-        
+
         return (true, 10);
     }
-    
+
     /**
      * @notice Light a fire (firemaking)
      * @param resourceId Resource to light
@@ -150,35 +156,35 @@ contract ResourceSystem is System {
         address player = _msgSender();
         _requirePlayerAllowed(player);
         require(Player.getExists(player), "Player not registered");
-        
+
         ResourceData memory resource = Resource.get(resourceId);
         require(resource.resourceType == ResourceType.FIRE, "Not a fire location");
-        
+
         // Check for tinderbox and logs
         bool hasTinderbox = false;
         bool hasLogs = false;
-        
+
         for (uint8 i = 0; i < 28; i++) {
             InventorySlotData memory slot = InventorySlot.get(player, i);
             if (slot.itemId == 52) hasTinderbox = true; // Tinderbox
             if (slot.itemId == 1 && slot.quantity > 0) hasLogs = true; // Logs
         }
-        
+
         require(hasTinderbox, "Need tinderbox");
         require(hasLogs, "Need logs");
-        
+
         GatheringSkillsData memory skills = GatheringSkills.get(player);
         require(skills.firemakingLevel >= 1, "Firemaking level too low");
-        
+
         // Consume logs
         _removeItemFromInventory(player, 1, 1);
-        
+
         // Grant XP
         _grantFiremakingXP(player, 40);
-        
+
         return true;
     }
-    
+
     /**
      * @notice Get respawn time for resource type
      */
@@ -188,7 +194,7 @@ contract ResourceSystem is System {
         if (resourceType == 2) return 120; // Fire: 2 minutes
         return 60;
     }
-    
+
     /**
      * @notice Add item to inventory
      */
@@ -207,7 +213,7 @@ contract ResourceSystem is System {
         }
         revert("Inventory full");
     }
-    
+
     /**
      * @notice Remove item from inventory
      */
@@ -225,7 +231,7 @@ contract ResourceSystem is System {
         }
         revert("Item not found");
     }
-    
+
     /**
      * @notice Grant woodcutting XP
      */
@@ -236,7 +242,7 @@ contract ResourceSystem is System {
         GatheringSkills.setWoodcuttingXp(player, newXP);
         GatheringSkills.setWoodcuttingLevel(player, newLevel);
     }
-    
+
     /**
      * @notice Grant fishing XP
      */
@@ -247,7 +253,7 @@ contract ResourceSystem is System {
         GatheringSkills.setFishingXp(player, newXP);
         GatheringSkills.setFishingLevel(player, newLevel);
     }
-    
+
     /**
      * @notice Grant firemaking XP
      */

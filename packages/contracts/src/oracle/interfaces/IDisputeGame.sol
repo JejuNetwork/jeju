@@ -80,37 +80,19 @@ interface IDisputeGame {
         DisputeReason reason
     );
 
-    event DisputeChallenged(
-        bytes32 indexed disputeId,
-        address challenger,
-        uint256 additionalBond
-    );
+    event DisputeChallenged(bytes32 indexed disputeId, address challenger, uint256 additionalBond);
 
     event DisputeResolved(
-        bytes32 indexed disputeId,
-        ResolutionOutcome outcome,
-        uint256 slashAmount,
-        uint256 disputerReward
+        bytes32 indexed disputeId, ResolutionOutcome outcome, uint256 slashAmount, uint256 disputerReward
     );
 
-    event DisputeEscalated(
-        bytes32 indexed disputeId,
-        bytes32 indexed futarchyMarketId
-    );
+    event DisputeEscalated(bytes32 indexed disputeId, bytes32 indexed futarchyMarketId);
 
     event DisputeExpired(bytes32 indexed disputeId);
 
-    event SignersSlashed(
-        bytes32 indexed disputeId,
-        address[] signers,
-        uint256 totalSlashed
-    );
+    event SignersSlashed(bytes32 indexed disputeId, address[] signers, uint256 totalSlashed);
 
-    event DisputerRewarded(
-        bytes32 indexed disputeId,
-        address indexed disputer,
-        uint256 amount
-    );
+    event DisputerRewarded(bytes32 indexed disputeId, address indexed disputer, uint256 amount);
 
     // ============ Errors ============
 
@@ -127,19 +109,14 @@ interface IDisputeGame {
 
     // ============ Core Functions ============
 
-    function openDispute(
-        bytes32 reportHash,
-        DisputeReason reason,
-        bytes32 evidenceHash
-    ) external payable returns (bytes32 disputeId);
+    function openDispute(bytes32 reportHash, DisputeReason reason, bytes32 evidenceHash)
+        external
+        payable
+        returns (bytes32 disputeId);
 
     function challengeDispute(bytes32 disputeId) external payable;
 
-    function resolveDispute(
-        bytes32 disputeId,
-        ResolutionOutcome outcome,
-        string calldata resolutionNote
-    ) external;
+    function resolveDispute(bytes32 disputeId, ResolutionOutcome outcome, string calldata resolutionNote) external;
 
     function resolveDisputeAutomatic(bytes32 disputeId) external;
 
@@ -173,8 +150,5 @@ interface IDisputeGame {
 
     function getMinBond() external view returns (uint256);
 
-    function calculateSlashAmount(
-        bytes32 disputeId,
-        address[] calldata signers
-    ) external view returns (uint256);
+    function calculateSlashAmount(bytes32 disputeId, address[] calldata signers) external view returns (uint256);
 }

@@ -89,7 +89,7 @@ contract OracleIntegrationTest is Test {
         // 1. Create and submit a price report
         IReportVerifier.PriceReport memory report = IReportVerifier.PriceReport({
             feedId: feedId,
-            price: 2500e8,  // $2500
+            price: 2500e8, // $2500
             confidence: 9800,
             timestamp: block.timestamp,
             round: 1,
@@ -104,10 +104,8 @@ contract OracleIntegrationTest is Test {
         signatures[1] = _sign(signer2Pk, reportHash);
 
         vm.prank(owner);
-        bool accepted = verifier.submitReport(IReportVerifier.ReportSubmission({
-            report: report,
-            signatures: signatures
-        }));
+        bool accepted =
+            verifier.submitReport(IReportVerifier.ReportSubmission({report: report, signatures: signatures}));
         assertTrue(accepted);
 
         // 2. Verify price is stored correctly
@@ -121,7 +119,7 @@ contract OracleIntegrationTest is Test {
 
         IReportVerifier.PriceReport memory report2 = IReportVerifier.PriceReport({
             feedId: feedId,
-            price: 2505e8,  // Small change
+            price: 2505e8, // Small change
             confidence: 9750,
             timestamp: block.timestamp,
             round: 2,
@@ -134,10 +132,7 @@ contract OracleIntegrationTest is Test {
         sigs2[1] = _sign(signer2Pk, reportHash2);
 
         vm.prank(owner);
-        verifier.submitReport(IReportVerifier.ReportSubmission({
-            report: report2,
-            signatures: sigs2
-        }));
+        verifier.submitReport(IReportVerifier.ReportSubmission({report: report2, signatures: sigs2}));
 
         // Verify updated
         (price,,,) = verifier.getLatestPrice(feedId);
@@ -183,17 +178,12 @@ contract OracleIntegrationTest is Test {
         signatures[1] = _sign(signer2Pk, reportHash);
 
         vm.prank(owner);
-        verifier.submitReport(IReportVerifier.ReportSubmission({
-            report: report,
-            signatures: signatures
-        }));
+        verifier.submitReport(IReportVerifier.ReportSubmission({report: report, signatures: signatures}));
 
         // 2. Open a dispute
         vm.prank(disputer);
         bytes32 disputeId = disputeGame.openDispute{value: 100 ether}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("evidence")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
         );
 
         // 3. Verify dispute is open
@@ -271,7 +261,7 @@ contract OracleIntegrationTest is Test {
 
             IReportVerifier.PriceReport memory report = IReportVerifier.PriceReport({
                 feedId: feedId,
-                price: (2500 + i * 5) * 1e8,  // Incrementing price
+                price: (2500 + i * 5) * 1e8, // Incrementing price
                 confidence: 9800,
                 timestamp: block.timestamp,
                 round: i,
@@ -284,10 +274,7 @@ contract OracleIntegrationTest is Test {
             sigs[1] = _sign(signer2Pk, reportHash);
 
             vm.prank(owner);
-            bool accepted = verifier.submitReport(IReportVerifier.ReportSubmission({
-                report: report,
-                signatures: sigs
-            }));
+            bool accepted = verifier.submitReport(IReportVerifier.ReportSubmission({report: report, signatures: sigs}));
             assertTrue(accepted, "Report should be accepted");
         }
 
@@ -304,14 +291,11 @@ contract OracleIntegrationTest is Test {
     // ============ Helpers ============
 
     function _computeReportHash(IReportVerifier.PriceReport memory report) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(
-            report.feedId,
-            report.price,
-            report.confidence,
-            report.timestamp,
-            report.round,
-            report.sourcesHash
-        ));
+        return keccak256(
+            abi.encodePacked(
+                report.feedId, report.price, report.confidence, report.timestamp, report.round, report.sourcesHash
+            )
+        );
     }
 
     function _sign(uint256 privateKey, bytes32 reportHash) internal pure returns (bytes memory) {

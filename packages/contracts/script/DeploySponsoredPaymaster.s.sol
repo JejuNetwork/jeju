@@ -22,7 +22,8 @@ contract DeploySponsoredPaymaster is Script {
     address constant ENTRYPOINT_V07 = 0x0000000071727De22E5E9d8BAf0edAc6f37da032;
 
     function run() external {
-        uint256 deployerPrivateKey = vm.envOr("PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
+        uint256 deployerPrivateKey =
+            vm.envOr("PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
         address deployer = vm.addr(deployerPrivateKey);
 
         console.log("Deployer:", deployer);
@@ -35,10 +36,7 @@ contract DeploySponsoredPaymaster is Script {
 
         // Deploy SponsoredPaymaster
         console.log("Deploying SponsoredPaymaster...");
-        SponsoredPaymaster paymaster = new SponsoredPaymaster(
-            IEntryPoint(ENTRYPOINT_V07),
-            deployer
-        );
+        SponsoredPaymaster paymaster = new SponsoredPaymaster(IEntryPoint(ENTRYPOINT_V07), deployer);
         console.log("SponsoredPaymaster deployed at:", address(paymaster));
 
         // Fund the paymaster with 10 ETH
@@ -50,7 +48,7 @@ contract DeploySponsoredPaymaster is Script {
         paymaster.setWhitelistedTarget(address(0), true);
 
         // Verify configuration
-        (uint256 deposit, bool isPaused, , ) = paymaster.getStatus();
+        (uint256 deposit, bool isPaused,,) = paymaster.getStatus();
         console.log("Paymaster deposit:", deposit);
         console.log("Paymaster paused:", isPaused);
         console.log("All targets whitelisted:", paymaster.isWhitelisted(address(0)));
@@ -77,7 +75,8 @@ contract DeployMockEntryPoint is Script {
     address constant ENTRYPOINT_V07 = 0x0000000071727De22E5E9d8BAf0edAc6f37da032;
 
     function run() external {
-        uint256 deployerPrivateKey = vm.envOr("PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
+        uint256 deployerPrivateKey =
+            vm.envOr("PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
 
         vm.startBroadcast(deployerPrivateKey);
 

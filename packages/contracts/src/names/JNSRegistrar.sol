@@ -122,11 +122,10 @@ contract JNSRegistrar is ERC721, Ownable, ReentrancyGuard, IJNSRegistrar {
      * @param _defaultResolver Address of the default resolver
      * @param _treasury Address for fee collection
      */
-    constructor(
-        address _jns,
-        address _defaultResolver,
-        address _treasury
-    ) ERC721("Jeju Name Service", "JNS") Ownable(msg.sender) {
+    constructor(address _jns, address _defaultResolver, address _treasury)
+        ERC721("Jeju Name Service", "JNS")
+        Ownable(msg.sender)
+    {
         jns = IJNS(_jns);
         defaultResolver = _defaultResolver;
         treasury = _treasury;
@@ -180,11 +179,11 @@ contract JNSRegistrar is ERC721, Ownable, ReentrancyGuard, IJNSRegistrar {
      * @param agentOwner Address of potential agent owner for discount
      * @return The total price in wei
      */
-    function rentPriceWithDiscount(
-        string calldata name,
-        uint256 duration,
-        address agentOwner
-    ) public view returns (uint256) {
+    function rentPriceWithDiscount(string calldata name, uint256 duration, address agentOwner)
+        public
+        view
+        returns (uint256)
+    {
         return _calculatePrice(name, duration, agentOwner);
     }
 
@@ -195,11 +194,13 @@ contract JNSRegistrar is ERC721, Ownable, ReentrancyGuard, IJNSRegistrar {
      * @param duration Registration duration in seconds
      * @return node The namehash of the registered name
      */
-    function register(
-        string calldata name,
-        address owner_,
-        uint256 duration
-    ) external payable override nonReentrant returns (bytes32 node) {
+    function register(string calldata name, address owner_, uint256 duration)
+        external
+        payable
+        override
+        nonReentrant
+        returns (bytes32 node)
+    {
         return _register(name, owner_, duration, defaultResolver, new bytes[](0));
     }
 
@@ -239,9 +240,7 @@ contract JNSRegistrar is ERC721, Ownable, ReentrancyGuard, IJNSRegistrar {
         if (msg.value < price) revert InsufficientPayment(price, msg.value);
 
         // Extend expiration
-        uint256 newExpires = expires > block.timestamp
-            ? expires + duration
-            : block.timestamp + duration;
+        uint256 newExpires = expires > block.timestamp ? expires + duration : block.timestamp + duration;
 
         _expirations[labelhash] = newExpires;
         totalRevenue += price;
@@ -347,11 +346,12 @@ contract JNSRegistrar is ERC721, Ownable, ReentrancyGuard, IJNSRegistrar {
      * @param duration Registration duration
      * @return node The namehash
      */
-    function claimReserved(
-        string calldata name,
-        address owner_,
-        uint256 duration
-    ) external payable onlyOwner returns (bytes32 node) {
+    function claimReserved(string calldata name, address owner_, uint256 duration)
+        external
+        payable
+        onlyOwner
+        returns (bytes32 node)
+    {
         bytes32 labelhash = keccak256(bytes(name));
         if (!reservedNames[labelhash]) revert InvalidName();
 
@@ -383,18 +383,15 @@ contract JNSRegistrar is ERC721, Ownable, ReentrancyGuard, IJNSRegistrar {
 
     // ============ Internal Functions ============
 
-    function _register(
-        string memory name,
-        address owner_,
-        uint256 duration,
-        address resolver,
-        bytes[] memory data
-    ) internal returns (bytes32 node) {
+    function _register(string memory name, address owner_, uint256 duration, address resolver, bytes[] memory data)
+        internal
+        returns (bytes32 node)
+    {
         // Validate name
         if (!_validateName(name)) revert InvalidName();
         if (bytes(name).length < MIN_NAME_LENGTH) revert NameTooShort();
         if (duration < MIN_REGISTRATION_DURATION) revert DurationTooShort();
-        
+
         bytes32 labelhash = keccak256(bytes(name));
         if (!_isAvailable(labelhash)) revert NameNotAvailable(name);
         if (reservedNames[labelhash]) revert NameIsReserved();
@@ -435,11 +432,11 @@ contract JNSRegistrar is ERC721, Ownable, ReentrancyGuard, IJNSRegistrar {
         emit NameRegistered(node, name, owner_, block.timestamp + duration, price);
     }
 
-    function _calculatePrice(
-        string memory name,
-        uint256 duration,
-        address discountRecipient
-    ) internal view returns (uint256) {
+    function _calculatePrice(string memory name, uint256 duration, address discountRecipient)
+        internal
+        view
+        returns (uint256)
+    {
         uint256 len = bytes(name).length;
         uint256 yearlyPrice = BASE_PRICE;
 
@@ -489,8 +486,8 @@ contract JNSRegistrar is ERC721, Ownable, ReentrancyGuard, IJNSRegistrar {
 
             // Allow lowercase letters, numbers, and hyphens
             bool isLowercase = char >= 0x61 && char <= 0x7a; // a-z
-            bool isNumber = char >= 0x30 && char <= 0x39;    // 0-9
-            bool isHyphen = char == 0x2d;                     // -
+            bool isNumber = char >= 0x30 && char <= 0x39; // 0-9
+            bool isHyphen = char == 0x2d; // -
 
             if (!isLowercase && !isNumber && !isHyphen) {
                 return false;
@@ -559,11 +556,7 @@ contract JNSRegistrar is ERC721, Ownable, ReentrancyGuard, IJNSRegistrar {
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         _requireOwned(tokenId);
         string memory name = _labelNames[bytes32(tokenId)];
-        return string(abi.encodePacked(
-            "https://names.jeju.network/metadata/",
-            name,
-            ".json"
-        ));
+        return string(abi.encodePacked("https://names.jeju.network/metadata/", name, ".json"));
     }
 
     /**
@@ -579,4 +572,3 @@ contract JNSRegistrar is ERC721, Ownable, ReentrancyGuard, IJNSRegistrar {
      */
     receive() external payable {}
 }
-

@@ -23,7 +23,7 @@ import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { LockManager } from '../packages/tests/shared/lock-manager';
 import { runPreflightChecks, waitForChain } from '../packages/tests/shared/preflight';
-import { quickWarmup, discoverAppsForWarmup } from '../packages/tests/shared/warmup';
+import { quickWarmup } from '../packages/tests/shared/warmup';
 
 interface CLIOptions {
   app?: string;
@@ -203,7 +203,7 @@ async function runAppTests(app: AppTestConfig, headed: boolean): Promise<boolean
 
   const env: Record<string, string> = {
     ...process.env as Record<string, string>,
-    SYNPRESS_CACHE_DIR: join(process.cwd(), '.jeju', '.synpress-cache'),
+    SYNPRESS_CACHE_DIR: process.env.SYNPRESS_CACHE_DIR || join(process.cwd(), '.jeju', '.synpress-cache'),
   };
 
   const args = [

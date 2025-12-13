@@ -6,7 +6,6 @@ pragma solidity ^0.8.26;
  *      This copy remains for backwards compatibility with existing deployments.
  *      For new deployments, use the contract from vendor/cloud/contracts/CloudReputationProvider.sol
  */
-
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -24,7 +23,7 @@ import "../interfaces/IReputationProvider.sol";
  *
  * NOTE: This contract is vendor-specific and should be deployed from vendor/cloud.
  *       The core Jeju system uses IReputationProvider interface for abstraction.
- * 
+ *
  * @custom:deprecated Use vendor/cloud/contracts/CloudReputationProvider.sol for new deployments
  *
  * Features:
@@ -254,12 +253,12 @@ contract CloudReputationProvider is IReputationProvider, Ownable, Pausable, Reen
     /**
      * @notice Record a violation (IReputationProvider interface)
      */
-    function recordViolation(
-        uint256 agentId,
-        uint8 violationType,
-        uint8 severityScore,
-        string calldata evidence
-    ) external override nonReentrant whenNotPaused {
+    function recordViolation(uint256 agentId, uint8 violationType, uint8 severityScore, string calldata evidence)
+        external
+        override
+        nonReentrant
+        whenNotPaused
+    {
         _validateAndRecordViolation(agentId, ViolationType(violationType), severityScore, evidence);
     }
 
@@ -275,12 +274,9 @@ contract CloudReputationProvider is IReputationProvider, Ownable, Pausable, Reen
         _storeViolation(agentId, violationType, severityScore, evidence);
     }
 
-    function _storeViolation(
-        uint256 agentId,
-        ViolationType violationType,
-        uint8 severityScore,
-        string memory evidence
-    ) internal {
+    function _storeViolation(uint256 agentId, ViolationType violationType, uint8 severityScore, string memory evidence)
+        internal
+    {
         agentViolations[agentId].push(
             Violation({
                 agentId: agentId,

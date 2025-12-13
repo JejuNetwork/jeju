@@ -164,11 +164,11 @@ contract X402Facilitator is Ownable, ReentrancyGuard, EIP712 {
                 timestamp
             )
         );
-        
+
         // Try "exact" first, then "upto" if that fails
         bytes32 digestExact = _hashTypedDataV4(structHashExact);
         address signer = ECDSA.recover(digestExact, signature);
-        
+
         if (signer != payer) {
             // Try "upto" scheme
             bytes32 schemeHashUpto = keccak256(bytes("upto"));
@@ -263,10 +263,10 @@ contract X402Facilitator is Ownable, ReentrancyGuard, EIP712 {
                 timestamp
             )
         );
-        
+
         bytes32 digestExact = _hashTypedDataV4(structHashExact);
         address signer = ECDSA.recover(digestExact, paymentSignature);
-        
+
         if (signer != payer) {
             // Try "upto" scheme
             bytes32 schemeHashUpto = keccak256(bytes("upto"));
@@ -286,7 +286,7 @@ contract X402Facilitator is Ownable, ReentrancyGuard, EIP712 {
             bytes32 digestUpto = _hashTypedDataV4(structHashUpto);
             signer = ECDSA.recover(digestUpto, paymentSignature);
         }
-        
+
         if (signer != payer) revert InvalidSignature();
 
         // Mark nonce as used

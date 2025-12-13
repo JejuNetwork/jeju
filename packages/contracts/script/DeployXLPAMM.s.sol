@@ -34,19 +34,11 @@ contract DeployXLPAMM is Script {
         console.log("XLPV3Factory deployed:", address(v3Factory));
 
         // 3. Deploy Router
-        XLPRouter router = new XLPRouter(
-            address(v2Factory),
-            address(v3Factory),
-            weth,
-            deployer
-        );
+        XLPRouter router = new XLPRouter(address(v2Factory), address(v3Factory), weth, deployer);
         console.log("XLPRouter deployed:", address(router));
 
         // 4. Deploy Position Manager
-        XLPPositionManager positionManager = new XLPPositionManager(
-            address(v3Factory),
-            weth
-        );
+        XLPPositionManager positionManager = new XLPPositionManager(address(v3Factory), weth);
         console.log("XLPPositionManager deployed:", address(positionManager));
 
         vm.stopBroadcast();

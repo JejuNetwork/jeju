@@ -52,20 +52,22 @@ contract EconomicVerificationTest is Test {
         disputeGame = new DisputeGame(address(verifier), address(registry), owner);
         feeRouter = new OracleFeeRouter(address(registry), owner);
 
-        feedId = registry.createFeed(IFeedRegistry.FeedCreateParams({
-            symbol: "ETH-USD",
-            baseToken: address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2),
-            quoteToken: address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48),
-            decimals: 8,
-            heartbeatSeconds: 3600,
-            twapWindowSeconds: 1800,
-            minLiquidityUSD: 100_000 ether,
-            maxDeviationBps: 100,
-            minOracles: 3,
-            quorumThreshold: 2,
-            requiresConfidence: true,
-            category: IFeedRegistry.FeedCategory.SPOT_PRICE
-        }));
+        feedId = registry.createFeed(
+            IFeedRegistry.FeedCreateParams({
+                symbol: "ETH-USD",
+                baseToken: address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2),
+                quoteToken: address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48),
+                decimals: 8,
+                heartbeatSeconds: 3600,
+                twapWindowSeconds: 1800,
+                minLiquidityUSD: 100_000 ether,
+                maxDeviationBps: 100,
+                minOracles: 3,
+                quorumThreshold: 2,
+                requiresConfidence: true,
+                category: IFeedRegistry.FeedCategory.SPOT_PRICE
+            })
+        );
 
         vm.stopPrank();
 
@@ -87,13 +89,14 @@ contract EconomicVerificationTest is Test {
         // Expected value calculation
         // EV = P(correct) * reward - P(incorrect) * bond
         uint256 expectedReward = (bond * rewardBps) / 10000;
-        
+
         // When correct: get bond back + reward
         // When incorrect: lose bond
         int256 evCorrect = int256(bond + expectedReward);
         int256 evIncorrect = -int256(bond);
 
-        int256 expectedValue = (evCorrect * int256(correctProbability) + evIncorrect * int256(incorrectProbability)) / 10000;
+        int256 expectedValue =
+            (evCorrect * int256(correctProbability) + evIncorrect * int256(incorrectProbability)) / 10000;
 
         console2.log("=== Honest Disputer Economics ===");
         console2.log("Bond required:", bond / 1e18, "ETH");
@@ -122,8 +125,8 @@ contract EconomicVerificationTest is Test {
     function test_Economics_AttackCostVsProfit() public pure {
         // Simulate attack profitability at different TVL levels
         uint256[] memory tvlLevels = new uint256[](5);
-        tvlLevels[0] = 1_000_000 ether;   // $1M
-        tvlLevels[1] = 10_000_000 ether;  // $10M
+        tvlLevels[0] = 1_000_000 ether; // $1M
+        tvlLevels[1] = 10_000_000 ether; // $10M
         tvlLevels[2] = 100_000_000 ether; // $100M
         tvlLevels[3] = 1_000_000_000 ether; // $1B
         tvlLevels[4] = 10_000_000_000 ether; // $10B
@@ -169,7 +172,7 @@ contract EconomicVerificationTest is Test {
     function test_Economics_QuorumSecurity() public pure {
         // Calculate minimum stake needed to make collusion unprofitable
         // This analysis is for different TVL protection levels
-        
+
         uint256 maxTVL = 100_000_000 ether; // $100M protected (reasonable for early network)
         uint256 maxProfit = (maxTVL * CIRCUIT_BREAKER_BPS) / 10000; // $20M max profit
 
@@ -188,7 +191,7 @@ contract EconomicVerificationTest is Test {
         // For $100M TVL with 20% manipulation potential = $20M profit
         // With 2 operators and 50% slash: $20M / 1 = $20M stake needed per operator
         // This is high but achievable with institutional operators
-        
+
         // For smaller networks, TVL limits should be enforced
         assertTrue(requiredStakePerOperator < 100_000_000 ether, "Required stake should be theoretically achievable");
     }
@@ -199,10 +202,8 @@ contract EconomicVerificationTest is Test {
     function test_Economics_FeeDistributionSumsTo100() public view {
         IOracleFeeRouter.FeeConfig memory config = feeRouter.getFeeConfig();
 
-        uint256 totalBps = config.treasuryShareBps + 
-                          config.operatorShareBps + 
-                          config.delegatorShareBps + 
-                          config.disputerRewardBps;
+        uint256 totalBps =
+            config.treasuryShareBps + config.operatorShareBps + config.delegatorShareBps + config.disputerRewardBps;
 
         console2.log("=== Fee Distribution ===");
         console2.log("Treasury:", config.treasuryShareBps, "bps");
@@ -220,7 +221,7 @@ contract EconomicVerificationTest is Test {
 
         // Assume operator costs
         uint256 monthlyServerCost = 100 * 1e18; // $100/month
-        uint256 monthlyGasCost = 50 * 1e18;     // $50/month in gas
+        uint256 monthlyGasCost = 50 * 1e18; // $50/month in gas
         uint256 stakeOpportunityCost = (uint256(32 ether) * 5) / 1200; // 5% APY on 32 ETH / 12 months
 
         uint256 totalMonthlyCost = monthlyServerCost + monthlyGasCost + stakeOpportunityCost;
