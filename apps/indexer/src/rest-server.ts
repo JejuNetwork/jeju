@@ -3,6 +3,7 @@ import cors from 'cors';
 import { getDataSource } from './lib/db';
 import { stakeRateLimiter, getRateLimitStats, RATE_LIMITS } from './lib/stake-rate-limiter';
 import { search, getAgentById, getPopularTags, SearchParams } from './lib/search';
+import { mapAgentSummary, mapBlockSummary, mapBlockDetail, mapTransactionSummary, mapTransactionDetail } from './lib/mappers';
 import {
   Block, Transaction, Account, Contract, TokenTransfer,
   RegisteredAgent, NodeStake, ComputeProvider, StorageProvider,
@@ -105,17 +106,7 @@ app.get('/api/agents', asyncHandler(async (req, res) => {
 
   res.json({
     agents: agents.map(a => ({
-      agentId: a.agentId.toString(),
-      name: a.name,
-      description: a.description,
-      tags: a.tags,
-      stakeTier: a.stakeTier,
-      stakeAmount: a.stakeAmount.toString(),
-      active: a.active,
-      isBanned: a.isBanned,
-      a2aEndpoint: a.a2aEndpoint,
-      mcpEndpoint: a.mcpEndpoint,
-      registeredAt: a.registeredAt.toISOString(),
+      ...mapAgentSummary(a),
       owner: a.owner?.address,
     })),
     total,
@@ -149,14 +140,7 @@ app.get('/api/agents/tag/:tag', asyncHandler(async (req, res) => {
 
   res.json({
     tag,
-    agents: agents.map(a => ({
-      agentId: a.agentId.toString(),
-      name: a.name,
-      tags: a.tags,
-      stakeTier: a.stakeTier,
-      a2aEndpoint: a.a2aEndpoint,
-      mcpEndpoint: a.mcpEndpoint,
-    })),
+    agents: agents.map(mapAgentSummary),
     count: agents.length,
   });
 }));
@@ -172,14 +156,7 @@ app.get('/api/blocks', asyncHandler(async (req, res) => {
   });
 
   res.json({
-    blocks: blocks.map(b => ({
-      number: b.number,
-      hash: b.hash,
-      timestamp: b.timestamp.toISOString(),
-      transactionCount: b.transactionCount,
-      gasUsed: b.gasUsed.toString(),
-      gasLimit: b.gasLimit.toString(),
-    })),
+    blocks: blocks.map(mapBlockSummary),
   });
 }));
 
@@ -195,13 +172,7 @@ app.get('/api/blocks/:numberOrHash', asyncHandler(async (req, res) => {
   }
   
   res.json({
-    number: block.number,
-    hash: block.hash,
-    parentHash: block.parentHash,
-    timestamp: block.timestamp.toISOString(),
-    transactionCount: block.transactionCount,
-    gasUsed: block.gasUsed.toString(),
-    gasLimit: block.gasLimit.toString(),
+    ...mapBlockDetail(block),
     baseFeePerGas: block.baseFeePerGas?.toString() || null,
     size: block.size,
   });
@@ -219,14 +190,7 @@ app.get('/api/transactions', asyncHandler(async (req, res) => {
   });
 
   res.json({
-    transactions: txs.map(tx => ({
-      hash: tx.hash,
-      blockNumber: tx.blockNumber,
-      from: tx.from?.address,
-      to: tx.to?.address,
-      value: tx.value.toString(),
-      status: tx.status,
-    })),
+    transactions: txs.map(mapTransactionSummary),
   });
 }));
 
@@ -243,15 +207,8 @@ app.get('/api/transactions/:hash', asyncHandler(async (req, res) => {
   }
   
   res.json({
-    hash: tx.hash,
-    blockNumber: tx.blockNumber,
-    from: tx.from?.address,
-    to: tx.to?.address,
-    value: tx.value.toString(),
-    gasPrice: tx.gasPrice?.toString(),
+    ...mapTransactionDetail(tx),
     gasLimit: tx.gasLimit.toString(),
-    gasUsed: tx.gasUsed?.toString(),
-    status: tx.status,
     input: tx.input,
     nonce: tx.nonce,
   });

@@ -86,7 +86,6 @@ vendor/*
 # Misc
 .cache/
 .cache-synpress/
-.synpress-cache/
 vendor/
 vendor_examples/
 playwright-report/
@@ -105,4 +104,7 @@ packages/contracts/cache-root-owned/
 
 # Generated documentation
 docs/
-.jeju/
+
+# Jeju cache and test files
+.jeju/*
+!.jeju/.gitkeep

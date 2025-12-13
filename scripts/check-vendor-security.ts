@@ -30,7 +30,7 @@ async function checkPackageOverrides(): Promise<void> {
     const overrides = packageJson.overrides || {};
     const resolutions = packageJson.resolutions || {};
     
-    const requiredOverrides = ['qs', 'socket.io-parser'];
+    const requiredOverrides = ['qs', 'socket.io-parser', 'hawk', 'playwright', '@hapi/hoek'];
     const missing: string[] = [];
     
     for (const pkg of requiredOverrides) {
@@ -80,47 +80,65 @@ async function checkPackageOverrides(): Promise<void> {
 async function runSecurityAudit(): Promise<void> {
   try {
     console.log('Running security audit...');
-    const output = execSync('bun audit --audit-level=high --json 2>&1', { 
-      encoding: 'utf-8',
-      cwd: process.cwd(),
-    });
+    let output: string;
+    try {
+      output = execSync('bun audit --audit-level=high 2>&1', { 
+        encoding: 'utf-8',
+        cwd: process.cwd(),
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+    } catch (error: unknown) {
+      const execError = error as { stdout?: string; stderr?: string };
+      output = execError.stdout || execError.stderr || String(error);
+    }
     
     const vulnerabilities: Vulnerability[] = [];
+    const lines = output.split('\n');
+    let currentPackage = '';
+    let currentSeverity: 'high' | 'critical' | null = null;
+    let currentPath = '';
     
-    try {
-      const auditData = JSON.parse(output);
-      if (auditData.vulnerabilities) {
-        for (const [pkg, vuln] of Object.entries(auditData.vulnerabilities as Record<string, any>)) {
-          if (vuln.severity === 'high' || vuln.severity === 'critical') {
-            vulnerabilities.push({
-              package: pkg,
-              severity: vuln.severity,
-              title: vuln.title || vuln.name || 'Unknown',
-              path: vuln.path || 'unknown',
-            });
-          }
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      
+      const packageMatch = line.match(/^(\S+)\s+(<=|>=|~|^)([\d.]+)/);
+      if (packageMatch) {
+        currentPackage = packageMatch[1];
+        currentPath = '';
+        currentSeverity = null;
+        
+        const pathMatch = lines[i + 1]?.match(/^\s+workspace:([^\s]+)/);
+        if (pathMatch) {
+          currentPath = pathMatch[1];
         }
+        continue;
       }
-    } catch {
-      const lines = output.split('\n');
-      for (const line of lines) {
-        if (line.includes('high') || line.includes('critical')) {
-          const match = line.match(/(\S+)\s+(high|critical)/i);
-          if (match) {
-            vulnerabilities.push({
-              package: match[1],
-              severity: match[2].toLowerCase() as 'high' | 'critical',
-              title: 'Vulnerability detected',
-              path: 'unknown',
-            });
-          }
-        }
+      
+      const severityMatch = line.match(/\s+(high|critical):\s+(.+)/i);
+      if (severityMatch && currentPackage) {
+        currentSeverity = severityMatch[1].toLowerCase() as 'high' | 'critical';
+        const title = severityMatch[2].trim();
+        
+        vulnerabilities.push({
+          package: currentPackage,
+          severity: currentSeverity,
+          title,
+          path: currentPath || 'unknown',
+        });
+        
+        currentPackage = '';
+        currentSeverity = null;
+        currentPath = '';
       }
     }
     
     const vendorVulns = vulnerabilities.filter(v => 
       v.path.includes('vendor') || 
       v.path.includes('elizaos') || 
+      v.path.includes('eliza-otc-desk') ||
+      v.path.includes('eliza-cloud-v2') ||
+      v.path.includes('babylon') ||
+      v.path.includes('hyperscape') ||
       v.path.includes('squid')
     );
     

@@ -2,7 +2,6 @@ import { ethers } from 'ethers';
 import { Store } from '@subsquid/typeorm-store';
 import { ProcessorContext } from './processor';
 import {
-  Account,
   Keepalive,
   KeepaliveResource,
   KeepaliveHealthCheck,
@@ -13,6 +12,7 @@ import {
   ENSMirrorSync,
   KeepaliveStats,
 } from './model';
+import { createAccountFactory, BlockHeader, LogData } from './lib/entities';
 
 const EVENTS = {
   KEEPALIVE_REGISTERED: ethers.id('KeepaliveRegistered(bytes32,address,bytes32,uint256)'),
@@ -46,21 +46,6 @@ const ABI = {
   ]),
 };
 
-interface LogData {
-  address: string;
-  topics: string[];
-  data: string;
-  logIndex: number;
-  transactionIndex: number;
-  transaction?: { hash: string };
-}
-
-interface BlockHeader {
-  hash: string;
-  height: number;
-  timestamp: number;
-}
-
 export function isKeepaliveEvent(topic0: string): boolean {
   return KEEPALIVE_EVENT_SET.has(topic0);
 }
@@ -89,41 +74,15 @@ export async function processKeepaliveEvents(ctx: ProcessorContext<Store>): Prom
   const autoFunds: KeepaliveAutoFund[] = [];
   const mirrors = new Map<string, ENSMirror>();
   const mirrorSyncs: ENSMirrorSync[] = [];
-  const accounts = new Map<string, Account>();
+  const accountFactory = createAccountFactory();
 
   // Load existing keepalives
   const existingKeepalives = await ctx.store.find(Keepalive);
-  for (const k of existingKeepalives) {
-    keepalives.set(k.id, k);
-  }
+  for (const k of existingKeepalives) keepalives.set(k.id, k);
 
   // Load existing mirrors
   const existingMirrors = await ctx.store.find(ENSMirror);
-  for (const m of existingMirrors) {
-    mirrors.set(m.id, m);
-  }
-
-  function getOrCreateAccount(address: string, blockNumber: number, timestamp: Date): Account {
-    const id = address.toLowerCase();
-    let account = accounts.get(id);
-    if (!account) {
-      account = new Account({
-        id,
-        address: id,
-        isContract: false,
-        firstSeenBlock: blockNumber,
-        lastSeenBlock: blockNumber,
-        transactionCount: 0,
-        totalValueSent: 0n,
-        totalValueReceived: 0n,
-        labels: [],
-        firstSeenAt: timestamp,
-        lastSeenAt: timestamp,
-      });
-      accounts.set(id, account);
-    }
-    return account;
-  }
+  for (const m of existingMirrors) mirrors.set(m.id, m);
 
   for (const block of ctx.blocks) {
     const header = block.header as unknown as BlockHeader;
@@ -146,7 +105,7 @@ export async function processKeepaliveEvents(ctx: ProcessorContext<Store>): Prom
           const jnsNode = decoded.args[2] as string;
           const agentId = decoded.args[3] as bigint;
 
-          const owner = getOrCreateAccount(ownerAddr, header.height, blockTimestamp);
+          const owner = accountFactory.getOrCreate(ownerAddr, header.height, blockTimestamp);
 
           const keepalive = new Keepalive({
             id: keepaliveId,
@@ -303,7 +262,7 @@ export async function processKeepaliveEvents(ctx: ProcessorContext<Store>): Prom
           const jnsNode = decoded.args[2] as string;
           const ownerAddr = decoded.args[3] as string;
 
-          const owner = getOrCreateAccount(ownerAddr, header.height, blockTimestamp);
+          const owner = accountFactory.getOrCreate(ownerAddr, header.height, blockTimestamp);
 
           const mirror = new ENSMirror({
             id: mirrorId,
@@ -382,7 +341,7 @@ export async function processKeepaliveEvents(ctx: ProcessorContext<Store>): Prom
   }
 
   // Save all entities
-  await ctx.store.save([...accounts.values()]);
+  await ctx.store.save(accountFactory.getAll());
   await ctx.store.save([...keepalives.values()]);
   await ctx.store.save([...resources.values()]);
   await ctx.store.save(healthChecks);

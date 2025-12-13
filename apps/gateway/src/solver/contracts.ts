@@ -96,59 +96,44 @@ export const ERC20_APPROVE_ABI = [{
   stateMutability: 'nonpayable',
 }] as const;
 
-interface OifDeployment {
-  chains: Record<string, {
-    chainId: number;
-    status: string;
-    contracts: {
-      inputSettler?: string;
-      outputSettler?: string;
-      oracle?: string;
-      solverRegistry?: string;
-    };
-  }>;
-}
+type OifContracts = { inputSettler?: string; outputSettler?: string; oracle?: string; solverRegistry?: string };
+type OifContractKey = keyof OifContracts;
 
-type OifContractKey = 'inputSettler' | 'outputSettler' | 'oracle' | 'solverRegistry';
-
-function loadOifDeployments(): Record<number, OifDeployment['chains'][string]['contracts']> {
-  const out: Record<number, OifDeployment['chains'][string]['contracts']> = {};
-  const deploymentPaths = [
-    resolve(process.cwd(), '../../packages/contracts/deployments/oif-testnet.json'),
-    resolve(process.cwd(), '../../packages/contracts/deployments/oif-mainnet.json'),
-    resolve(process.cwd(), 'packages/contracts/deployments/oif-testnet.json'),
-    resolve(process.cwd(), 'packages/contracts/deployments/oif-mainnet.json'),
+// Load once, cache forever
+const deploymentCache: Record<number, OifContracts> = (() => {
+  const out: Record<number, OifContracts> = {};
+  const paths = [
+    '../../packages/contracts/deployments/oif-testnet.json',
+    '../../packages/contracts/deployments/oif-mainnet.json',
+    'packages/contracts/deployments/oif-testnet.json',
+    'packages/contracts/deployments/oif-mainnet.json',
   ];
 
-  for (const path of deploymentPaths) {
+  for (const p of paths) {
+    const path = resolve(process.cwd(), p);
     if (!existsSync(path)) continue;
-    const deployment: OifDeployment = JSON.parse(readFileSync(path, 'utf-8'));
-    for (const chain of Object.values(deployment.chains)) {
-      if (chain.status === 'deployed' && chain.contracts) {
-        out[chain.chainId] = chain.contracts;
-      }
+    const data = JSON.parse(readFileSync(path, 'utf-8'));
+    for (const chain of Object.values(data.chains || {})) {
+      const c = chain as { chainId: number; status: string; contracts?: OifContracts };
+      if (c.status === 'deployed' && c.contracts) out[c.chainId] = c.contracts;
     }
   }
   return out;
-}
+})();
 
-function loadOifContracts(key: OifContractKey): Record<number, `0x${string}`> {
-  const deployments = loadOifDeployments();
+function extractAddresses(key: OifContractKey): Record<number, `0x${string}`> {
   const out: Record<number, `0x${string}`> = {};
-
-  for (const [chainId, contracts] of Object.entries(deployments)) {
+  for (const [chainId, contracts] of Object.entries(deploymentCache)) {
     const addr = contracts[key];
-    if (addr && addr !== '') {
-      out[Number(chainId)] = addr as `0x${string}`;
-    }
+    if (addr) out[Number(chainId)] = addr as `0x${string}`;
   }
   return out;
 }
 
-export const INPUT_SETTLERS = loadOifContracts('inputSettler');
-export const OUTPUT_SETTLERS = loadOifContracts('outputSettler');
-export const ORACLES = loadOifContracts('oracle');
-export const SOLVER_REGISTRIES = loadOifContracts('solverRegistry');
+export const INPUT_SETTLERS = extractAddresses('inputSettler');
+export const OUTPUT_SETTLERS = extractAddresses('outputSettler');
+export const ORACLES = extractAddresses('oracle');
+export const SOLVER_REGISTRIES = extractAddresses('solverRegistry');
 
 /** Convert bytes32 address to 0x address format */
 export function bytes32ToAddress(b32: `0x${string}`): `0x${string}` {

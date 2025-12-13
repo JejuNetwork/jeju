@@ -1,5 +1,5 @@
-import { createWalletClient, http, type Account, type Chain, type Hash, keccak256, toHex, concat, toBytes, numberToHex } from 'viem';
-import { privateKeyToAccount, signMessage } from 'viem/accounts';
+import { createWalletClient, http, type Account, type Chain, keccak256, toBytes } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 import { mainnet, arbitrum, optimism, base } from 'viem/chains';
 import type { ChainId } from '../types';
 
@@ -143,29 +143,26 @@ export class MevBundler {
   }
 
   private async signTransaction(tx: BundleTransaction): Promise<string> {
-    const chain = CHAIN_DEFS[this.chainId] || mainnet;
+    const chain = CHAIN_DEFS[this.chainId]!;
     
-    // Build transaction request
     const txRequest = {
       to: tx.to,
       data: tx.data,
-      value: tx.value || 0n,
-      gas: tx.gas || 21000n,
-      nonce: tx.nonce,
+      value: tx.value ?? 0n,
+      gas: tx.gas ?? 21000n,
+      nonce: tx.nonce!,
       chainId: chain.id,
       ...(tx.maxFeePerGas ? {
         maxFeePerGas: tx.maxFeePerGas,
-        maxPriorityFeePerGas: tx.maxPriorityFeePerGas || tx.maxFeePerGas / 10n,
+        maxPriorityFeePerGas: tx.maxPriorityFeePerGas ?? tx.maxFeePerGas / 10n,
         type: 'eip1559' as const,
       } : {
-        gasPrice: tx.gasPrice || 30000000000n,
+        gasPrice: tx.gasPrice ?? 30000000000n,
         type: 'legacy' as const,
       }),
     };
 
-    // Sign with account
-    const signature = await this.account.signTransaction(txRequest);
-    return signature;
+    return this.account.signTransaction(txRequest);
   }
 
   private async signPayload(payload: string): Promise<string> {
@@ -216,17 +213,30 @@ export class MevBundler {
 
     const errors = results
       .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
-      .map(r => r.reason?.message || 'Unknown error');
+      .map(r => r.reason?.message ?? 'Unknown error');
 
     return { bundleHash: '', success: false, error: errors.join('; ') };
   }
 
   private async sendToBuilder(builderUrl: string, params: BundleParams): Promise<BundleResult> {
     const { signature, body } = await this.signBundle(params);
-    const result = await this.fetchRelay(builderUrl, signature, body);
 
+    const response = await fetch(builderUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Flashbots-Signature': signature,
+      },
+      body,
+    });
+
+    const result = await response.json();
     if (result.error) {
       throw new Error(result.error.message);
+    }
+
+    if (!result.result?.bundleHash) {
+      throw new Error('Bundle submission succeeded but no bundleHash returned');
     }
 
     return { bundleHash: result.result.bundleHash, success: true };
@@ -249,17 +259,7 @@ export class MevBundler {
     });
 
     const signature = await this.signPayload(body);
-
-    const response = await fetch(this.relayUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Flashbots-Signature': signature,
-      },
-      body,
-    });
-
-    const result = await response.json();
+    const result = await this.fetchRelay(this.relayUrl, signature, body);
 
     if (result.error) {
       return { success: false, error: result.error.message };
@@ -268,13 +268,13 @@ export class MevBundler {
     const bundleResult = result.result;
     return {
       success: true,
-      results: bundleResult.results?.map((r: { txHash: string; gasUsed: string; revert?: string }) => ({
+      results: bundleResult.results.map((r: { txHash: string; gasUsed: string; revert?: string }) => ({
         txHash: r.txHash,
         gasUsed: BigInt(r.gasUsed),
         revert: r.revert,
       })),
-      totalGasUsed: BigInt(bundleResult.totalGasUsed || '0'),
-      coinbaseDiff: BigInt(bundleResult.coinbaseDiff || '0'),
+      totalGasUsed: BigInt(bundleResult.totalGasUsed),
+      coinbaseDiff: BigInt(bundleResult.coinbaseDiff),
     };
   }
 
@@ -291,17 +291,8 @@ export class MevBundler {
     });
 
     const signature = await this.signPayload(body);
+    const result = await this.fetchRelay(this.relayUrl, signature, body);
 
-    const response = await fetch(this.relayUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Flashbots-Signature': signature,
-      },
-      body,
-    });
-
-    const result = await response.json();
     if (result.error || !result.result) {
       return { isIncluded: false };
     }
@@ -317,7 +308,7 @@ export class MevBundler {
       return { txHash: '', success: false, error: 'MEV-Share not available on this chain' };
     }
 
-    const chain = CHAIN_DEFS[this.chainId] || mainnet;
+    const chain = CHAIN_DEFS[this.chainId]!;
     const walletClient = createWalletClient({
       account: this.account,
       chain,
@@ -327,7 +318,7 @@ export class MevBundler {
     const signedTx = await walletClient.prepareTransactionRequest({
       to: tx.to,
       data: tx.data,
-      value: tx.value || 0n,
+      value: tx.value ?? 0n,
       gas: tx.gas,
       maxFeePerGas: tx.maxFeePerGas,
       maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
@@ -355,17 +346,8 @@ export class MevBundler {
     });
 
     const signature = await this.signPayload(body);
+    const result = await this.fetchRelay(this.mevShareUrl, signature, body);
 
-    const response = await fetch(this.mevShareUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Flashbots-Signature': signature,
-      },
-      body,
-    });
-
-    const result = await response.json();
     if (result.error) {
       return { txHash: '', success: false, error: result.error.message };
     }

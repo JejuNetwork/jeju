@@ -43,8 +43,8 @@ export class DexArbitrageStrategy {
   addPool(pool: Pool): void {
     const poolState: PoolState = {
       pool,
-      reserve0: BigInt(pool.reserve0 || '0'),
-      reserve1: BigInt(pool.reserve1 || '0'),
+      reserve0: BigInt(pool.reserve0 ?? '0'),
+      reserve1: BigInt(pool.reserve1 ?? '0'),
       lastUpdate: pool.lastUpdate || Date.now(),
     };
 

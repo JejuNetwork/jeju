@@ -1,11 +1,8 @@
+import type { Address } from 'viem';
 import type { VerifyResponse, SettleResponse, DecodedPayment, SettlementResult } from './types';
 import { formatAmount, calculateProtocolFee } from '../services/settler';
 
-export function getNetworkFromRequest(requirementsNetwork: string | undefined, defaultNetwork: string): string {
-  return requirementsNetwork ?? defaultNetwork;
-}
-
-export function buildVerifyErrorResponse(error: string, status: number = 200): VerifyResponse {
+export function buildVerifyErrorResponse(error: string): VerifyResponse {
   return {
     isValid: false,
     invalidReason: error,
@@ -15,7 +12,7 @@ export function buildVerifyErrorResponse(error: string, status: number = 200): V
   };
 }
 
-export function buildVerifySuccessResponse(signer: string, amount: string): VerifyResponse {
+export function buildVerifySuccessResponse(signer: `0x${string}`, amount: string): VerifyResponse {
   return {
     isValid: true,
     invalidReason: null,
@@ -28,8 +25,8 @@ export function buildVerifySuccessResponse(signer: string, amount: string): Veri
 export function buildSettleErrorResponse(
   network: string,
   error: string,
-  payer: string | null = null,
-  recipient: string | null = null,
+  payer: Address | null = null,
+  recipient: Address | null = null,
   amount: { human: string; base: string; symbol: string; decimals: number } | null = null,
   txHash: string | null = null
 ): SettleResponse {
@@ -73,10 +70,6 @@ export function buildSettleSuccessResponse(
     error: null,
     timestamp: Date.now(),
   };
-}
-
-export function getNetworkFromRequest(requirementsNetwork: string | undefined, defaultNetwork: string): string {
-  return requirementsNetwork ?? defaultNetwork;
 }
 
 export function formatError(error: unknown): string {

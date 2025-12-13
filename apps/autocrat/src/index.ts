@@ -66,8 +66,12 @@ class Autocrat {
       };
     }
 
+    if (!this.config.privateKey) {
+      throw new Error('AUTOCRAT_PRIVATE_KEY is required');
+    }
+
     this.executor = new TransactionExecutor(this.config.chains, {
-      privateKey: this.config.privateKey || '',
+      privateKey: this.config.privateKey,
       maxGasGwei: this.config.maxGasGwei,
       gasPriceMultiplier: this.config.gasPriceMultiplier,
       simulationTimeout: this.config.simulationTimeout,
@@ -82,15 +86,13 @@ class Autocrat {
       treasuryAddress: this.config.treasuryAddress,
       chainId: this.config.primaryChainId,
       rpcUrl: primaryChain.rpcUrl,
-      privateKey: this.config.privateKey || '',
+      privateKey: this.config.privateKey,
     });
 
     const supportedChains = this.config.chains.map(c => c.chainId);
     const crossChainConfig = this.config.strategies.find(s => s.type === 'CROSS_CHAIN_ARBITRAGE');
-    this.crossChainArb = new CrossChainArbStrategy(
-      supportedChains,
-      crossChainConfig || { type: 'CROSS_CHAIN_ARBITRAGE', enabled: false, minProfitBps: 50, maxGasGwei: 100, maxSlippageBps: 100 }
-    );
+    if (!crossChainConfig) throw new Error('CROSS_CHAIN_ARBITRAGE strategy not configured');
+    this.crossChainArb = new CrossChainArbStrategy(supportedChains, crossChainConfig);
   }
 
   async initialize(): Promise<void> {
@@ -100,11 +102,7 @@ class Autocrat {
 
     await this.collector.initialize();
 
-    if (this.config.privateKey) {
-      await this.executor.initialize();
-    } else {
-      console.warn('   ⚠️ No private key - read-only mode');
-    }
+    await this.executor.initialize();
 
     await this.treasury.initialize();
 
@@ -229,8 +227,8 @@ class Autocrat {
     }
 
     opportunities.sort((a, b) => {
-      const profitA = BigInt(a.opportunity.expectedProfit || '0');
-      const profitB = BigInt(b.opportunity.expectedProfit || '0');
+      const profitA = BigInt(a.opportunity.expectedProfit);
+      const profitB = BigInt(b.opportunity.expectedProfit);
       return profitB > profitA ? 1 : -1;
     });
 

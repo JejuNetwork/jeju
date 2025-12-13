@@ -84,7 +84,10 @@ export class StrategyEngine {
         address: CHAINLINK_ETH_USD[1],
         abi: AGGREGATOR_ABI,
         functionName: 'latestRoundData',
-      }).catch(() => null);
+      }).catch((err: Error) => {
+        console.warn(`[strategy] Chainlink price feed failed: ${err.message}`);
+        return null;
+      });
       if (result && result[1] > 0n) {
         this.ethPriceUsd = Number(result[1]) / 1e8;
         this.priceUpdatedAt = Date.now();
@@ -93,11 +96,16 @@ export class StrategyEngine {
     }
 
     // Fallback: CoinGecko API
-    const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd').catch(() => null);
+    const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd').catch((err: Error) => {
+      console.warn(`[strategy] CoinGecko API failed: ${err.message}`);
+      return null;
+    });
     if (res?.ok) {
       const data = await res.json() as { ethereum: { usd: number } };
       this.ethPriceUsd = data.ethereum.usd;
       this.priceUpdatedAt = Date.now();
+    } else if (res) {
+      console.warn(`[strategy] CoinGecko returned ${res.status}`);
     }
   }
 

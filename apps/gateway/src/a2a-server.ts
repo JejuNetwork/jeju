@@ -755,17 +755,27 @@ app.get('/api/config/tokens', (req: Request, res: Response) => {
   }
 });
 
-// XLP Pool REST API
+function validateTokenPair(token0: unknown, token1: unknown): { valid: true; token0: Address; token1: Address } | { valid: false; error: string; status: number } {
+  if (!token0 || !token1) {
+    return { valid: false, error: 'token0 and token1 required', status: 400 };
+  }
+  if (!isAddress(token0 as string)) {
+    return { valid: false, error: 'Invalid token0 address', status: 400 };
+  }
+  if (!isAddress(token1 as string)) {
+    return { valid: false, error: 'Invalid token1 address', status: 400 };
+  }
+  return { valid: true, token0: token0 as Address, token1: token1 as Address };
+}
+
 app.get('/api/pools', async (req: Request, res: Response) => {
   const { type, token0, token1 } = req.query;
   if (token0 && token1) {
-    if (!isAddress(token0 as string)) {
-      return res.status(400).json({ error: 'Invalid token0 address' });
+    const validation = validateTokenPair(token0, token1);
+    if (!validation.valid) {
+      return res.status(validation.status).json({ error: validation.error });
     }
-    if (!isAddress(token1 as string)) {
-      return res.status(400).json({ error: 'Invalid token1 address' });
-    }
-    const pools = await poolService.listPoolsForPair(token0 as Address, token1 as Address);
+    const pools = await poolService.listPoolsForPair(validation.token0, validation.token1);
     return res.json({ pools, count: pools.length });
   }
   if (type === 'v2') {
@@ -794,22 +804,30 @@ app.get('/api/pools/contracts', (_req: Request, res: Response) => {
   res.json(poolService.getContracts());
 });
 
-app.post('/api/pools/quote', async (req: Request, res: Response) => {
-  const { tokenIn, tokenOut, amountIn } = req.body;
+function validateSwapRequest(tokenIn: unknown, tokenOut: unknown, amountIn: unknown): { valid: true } | { valid: false; error: string; status: number } {
   if (!tokenIn || !tokenOut || !amountIn) {
-    return res.status(400).json({ error: 'tokenIn, tokenOut, and amountIn required' });
+    return { valid: false, error: 'tokenIn, tokenOut, and amountIn required', status: 400 };
   }
-  if (!isAddress(tokenIn)) {
-    return res.status(400).json({ error: 'Invalid tokenIn address' });
+  if (!isAddress(tokenIn as string)) {
+    return { valid: false, error: 'Invalid tokenIn address', status: 400 };
   }
-  if (!isAddress(tokenOut)) {
-    return res.status(400).json({ error: 'Invalid tokenOut address' });
+  if (!isAddress(tokenOut as string)) {
+    return { valid: false, error: 'Invalid tokenOut address', status: 400 };
   }
   const amountNum = Number(amountIn);
   if (isNaN(amountNum) || amountNum <= 0) {
-    return res.status(400).json({ error: 'Invalid amountIn: must be a positive number' });
+    return { valid: false, error: 'Invalid amountIn: must be a positive number', status: 400 };
   }
-  const quote = await poolService.getSwapQuote(tokenIn, tokenOut, amountIn);
+  return { valid: true };
+}
+
+app.post('/api/pools/quote', async (req: Request, res: Response) => {
+  const { tokenIn, tokenOut, amountIn } = req.body;
+  const validation = validateSwapRequest(tokenIn, tokenOut, amountIn);
+  if (!validation.valid) {
+    return res.status(validation.status).json({ error: validation.error });
+  }
+  const quote = await poolService.getSwapQuote(tokenIn as Address, tokenOut as Address, amountIn as string);
   if (!quote) {
     return res.status(404).json({ error: 'No liquidity available for this swap' });
   }
@@ -818,32 +836,21 @@ app.post('/api/pools/quote', async (req: Request, res: Response) => {
 
 app.post('/api/pools/quotes', async (req: Request, res: Response) => {
   const { tokenIn, tokenOut, amountIn } = req.body;
-  if (!tokenIn || !tokenOut || !amountIn) {
-    return res.status(400).json({ error: 'tokenIn, tokenOut, and amountIn required' });
+  const validation = validateSwapRequest(tokenIn, tokenOut, amountIn);
+  if (!validation.valid) {
+    return res.status(validation.status).json({ error: validation.error });
   }
-  if (!isAddress(tokenIn)) {
-    return res.status(400).json({ error: 'Invalid tokenIn address' });
-  }
-  if (!isAddress(tokenOut)) {
-    return res.status(400).json({ error: 'Invalid tokenOut address' });
-  }
-  const amountNum = Number(amountIn);
-  if (isNaN(amountNum) || amountNum <= 0) {
-    return res.status(400).json({ error: 'Invalid amountIn: must be a positive number' });
-  }
-  const quotes = await poolService.getAllSwapQuotes(tokenIn, tokenOut, amountIn);
+  const quotes = await poolService.getAllSwapQuotes(tokenIn as Address, tokenOut as Address, amountIn as string);
   res.json({ quotes, bestQuote: quotes[0] || null, count: quotes.length });
 });
 
 app.get('/api/pools/pair/:token0/:token1', async (req: Request, res: Response) => {
   const { token0, token1 } = req.params;
-  if (!isAddress(token0)) {
-    return res.status(400).json({ error: 'Invalid token0 address' });
+  const validation = validateTokenPair(token0, token1);
+  if (!validation.valid) {
+    return res.status(validation.status).json({ error: validation.error });
   }
-  if (!isAddress(token1)) {
-    return res.status(400).json({ error: 'Invalid token1 address' });
-  }
-  const pools = await poolService.listPoolsForPair(token0 as Address, token1 as Address);
+  const pools = await poolService.listPoolsForPair(validation.token0, validation.token1);
   res.json({ pools, count: pools.length });
 });
 

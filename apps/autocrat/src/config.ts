@@ -259,7 +259,7 @@ export function buildConfig(): AutocratConfig {
 
     primaryChainId: getEnvNumber('AUTOCRAT_PRIMARY_CHAIN', enabledChains[0] || 1337) as ChainId,
 
-    privateKey: process.env.AUTOCRAT_PRIVATE_KEY,
+    privateKey: getEnvString('AUTOCRAT_PRIVATE_KEY'),
     treasuryAddress: getEnvString('AUTOCRAT_TREASURY', '0x0000000000000000000000000000000000000000'),
 
     strategies: DEFAULT_STRATEGIES.map(strategy => ({

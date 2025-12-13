@@ -192,12 +192,7 @@ app.post('/resources/read', asyncHandler(async (req, res) => {
         where: { isActive: true },
         take: 100,
       });
-      contents = providers.map(p => ({
-        address: p.address,
-        name: p.name,
-        endpoint: p.endpoint,
-        agentId: p.agentId,
-      }));
+      contents = providers.map(p => mapProviderSummary(p, 'compute'));
       break;
     }
 
@@ -206,13 +201,7 @@ app.post('/resources/read', asyncHandler(async (req, res) => {
         where: { isActive: true },
         take: 100,
       });
-      contents = providers.map(p => ({
-        address: p.address,
-        name: p.name,
-        endpoint: p.endpoint,
-        agentId: p.agentId,
-        providerType: p.providerType,
-      }));
+      contents = providers.map(p => mapProviderSummary(p, 'storage'));
       break;
     }
 
@@ -221,13 +210,7 @@ app.post('/resources/read', asyncHandler(async (req, res) => {
         order: { number: 'DESC' },
         take: 20,
       });
-      contents = blocks.map(b => ({
-        number: b.number,
-        hash: b.hash,
-        timestamp: b.timestamp.toISOString(),
-        transactionCount: b.transactionCount,
-        gasUsed: b.gasUsed.toString(),
-      }));
+      contents = blocks.map(mapBlockSummary);
       break;
     }
 
@@ -237,14 +220,7 @@ app.post('/resources/read', asyncHandler(async (req, res) => {
         take: 20,
         relations: ['from', 'to'],
       });
-      contents = txs.map(tx => ({
-        hash: tx.hash,
-        blockNumber: tx.blockNumber,
-        from: tx.from?.address,
-        to: tx.to?.address,
-        value: tx.value.toString(),
-        status: tx.status,
-      }));
+      contents = txs.map(mapTransactionSummary);
       break;
     }
 
@@ -345,16 +321,9 @@ app.post('/tools/call', asyncHandler(async (req, res) => {
           .where(':tag = ANY(a.tags)', { tag: args.tag.toLowerCase() })
           .andWhere('a.active = true')
           .orderBy('a.stakeTier', 'DESC')
-          .take(args?.limit || 20)
+          .take((args?.limit as number) ?? 20)
           .getMany();
-        result = agents.map(a => ({
-          agentId: a.agentId.toString(),
-          name: a.name,
-          tags: a.tags,
-          stakeTier: a.stakeTier,
-          a2aEndpoint: a.a2aEndpoint,
-          mcpEndpoint: a.mcpEndpoint,
-        }));
+        result = agents.map(mapAgentSummary);
       }
       break;
     }
@@ -371,15 +340,7 @@ app.post('/tools/call', asyncHandler(async (req, res) => {
           result = { error: 'Block not found' };
           isError = true;
         } else {
-          result = {
-            number: block.number,
-            hash: block.hash,
-            parentHash: block.parentHash,
-            timestamp: block.timestamp.toISOString(),
-            transactionCount: block.transactionCount,
-            gasUsed: block.gasUsed.toString(),
-            gasLimit: block.gasLimit.toString(),
-          };
+          result = mapBlockDetail(block);
         }
       }
       break;
@@ -398,16 +359,7 @@ app.post('/tools/call', asyncHandler(async (req, res) => {
           result = { error: 'Transaction not found' };
           isError = true;
         } else {
-          result = {
-            hash: tx.hash,
-            blockNumber: tx.blockNumber,
-            from: tx.from?.address,
-            to: tx.to?.address,
-            value: tx.value.toString(),
-            gasPrice: tx.gasPrice?.toString(),
-            gasUsed: tx.gasUsed?.toString(),
-            status: tx.status,
-          };
+          result = mapTransactionDetail(tx);
         }
       }
       break;

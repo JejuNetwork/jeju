@@ -29,7 +29,7 @@ beforeEach(() => {
 
 // Cleanup after tests
 afterEach(() => {
-  const lockPath = join(TEST_LOCK_DIR, '.jeju-e2e-test.lock');
+  const lockPath = join(TEST_LOCK_DIR, '.jeju', '.jeju-e2e-test.lock');
   if (existsSync(lockPath)) {
     try { unlinkSync(lockPath); } catch {}
   }
@@ -276,7 +276,7 @@ describe('withTestLock - Wrapper Function', () => {
   });
 
   test('should release lock after function completes', async () => {
-    const lockPath = join(TEST_LOCK_DIR, '.jeju-e2e-test.lock');
+    const lockPath = join(TEST_LOCK_DIR, '.jeju', '.jeju-e2e-test.lock');
 
     await withTestLock(async () => {
       expect(existsSync(lockPath)).toBe(true);
@@ -286,7 +286,7 @@ describe('withTestLock - Wrapper Function', () => {
   });
 
   test('should release lock on function error', async () => {
-    const lockPath = join(TEST_LOCK_DIR, '.jeju-e2e-test.lock');
+    const lockPath = join(TEST_LOCK_DIR, '.jeju', '.jeju-e2e-test.lock');
 
     try {
       await withTestLock(async () => {

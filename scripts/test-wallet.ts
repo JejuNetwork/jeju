@@ -165,7 +165,7 @@ async function runAppWalletTests(app: WalletTestApp): Promise<boolean> {
         stdio: 'inherit',
         env: {
           ...process.env,
-          SYNPRESS_CACHE_DIR: '../../.synpress-cache',
+          SYNPRESS_CACHE_DIR: '../../.jeju/.synpress-cache',
         },
       }
     );

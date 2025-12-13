@@ -288,7 +288,7 @@ export const AutocratConfigSchema = z.object({
   primaryChainId: ChainIdSchema,
   
   // Wallet
-  privateKey: z.string().optional(),
+  privateKey: z.string(),
   treasuryAddress: z.string(),
   
   // Strategy configs

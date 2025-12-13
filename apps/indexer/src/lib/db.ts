@@ -1,7 +1,7 @@
 import { DataSource, DefaultNamingStrategy } from 'typeorm';
 
-function requireEnv(name: string, fallback?: string): string {
-  const value = process.env[name] || fallback;
+function requireEnv(name: string): string {
+  const value = process.env[name];
   if (!value) throw new Error(`Missing required environment variable: ${name}`);
   return value;
 }
@@ -9,11 +9,11 @@ function requireEnv(name: string, fallback?: string): string {
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 const DB_CONFIG = {
-  host: requireEnv('DB_HOST', IS_PRODUCTION ? undefined : 'localhost'),
-  port: parseInt(requireEnv('DB_PORT', IS_PRODUCTION ? undefined : '23798')),
-  database: requireEnv('DB_NAME', IS_PRODUCTION ? undefined : 'indexer'),
-  username: requireEnv('DB_USER', IS_PRODUCTION ? undefined : 'postgres'),
-  password: requireEnv('DB_PASS', IS_PRODUCTION ? undefined : 'postgres'),
+  host: IS_PRODUCTION ? requireEnv('DB_HOST') : (process.env.DB_HOST || 'localhost'),
+  port: parseInt(IS_PRODUCTION ? requireEnv('DB_PORT') : (process.env.DB_PORT || '23798')),
+  database: IS_PRODUCTION ? requireEnv('DB_NAME') : (process.env.DB_NAME || 'indexer'),
+  username: IS_PRODUCTION ? requireEnv('DB_USER') : (process.env.DB_USER || 'postgres'),
+  password: IS_PRODUCTION ? requireEnv('DB_PASS') : (process.env.DB_PASS || 'postgres'),
 };
 
 const POOL_CONFIG = {

@@ -12,11 +12,11 @@ import {
   StorageDeal, 
   StorageLedgerBalance,
   StorageMarketStats,
-  Account,
   StorageProviderType,
   StorageTier,
   StorageDealStatus,
 } from './model';
+import { createAccountFactory } from './lib/entities';
 import { ProcessorContext } from './processor';
 
 // Event signatures for storage contracts
@@ -89,34 +89,12 @@ export async function processStorageEvents(ctx: ProcessorContext<Store>): Promis
   const providers = new Map<string, StorageProvider>();
   const deals = new Map<string, StorageDeal>();
   const balances = new Map<string, StorageLedgerBalance>();
-  const accounts = new Map<string, Account>();
+  const accountFactory = createAccountFactory();
   
   // Load existing providers
   const existingProviders = await ctx.store.find(StorageProvider);
   for (const p of existingProviders) {
     providers.set(p.id, p);
-  }
-  
-  function getOrCreateAccount(address: string, blockNumber: number, timestamp: Date): Account {
-    const id = address.toLowerCase();
-    let account = accounts.get(id);
-    if (!account) {
-      account = new Account({
-        id,
-        address: id,
-        isContract: false,
-        firstSeenBlock: blockNumber,
-        lastSeenBlock: blockNumber,
-        transactionCount: 0,
-        totalValueSent: 0n,
-        totalValueReceived: 0n,
-        labels: [],
-        firstSeenAt: timestamp,
-        lastSeenAt: timestamp,
-      });
-      accounts.set(id, account);
-    }
-    return account;
   }
   
   async function getOrCreateProvider(address: string, timestamp: Date): Promise<StorageProvider> {
@@ -243,7 +221,7 @@ export async function processStorageEvents(ctx: ProcessorContext<Store>): Promis
         const decoded = ABI.dealCreated.parseLog({ topics, data: log.data });
         if (!decoded) continue;
         
-        const user = getOrCreateAccount(userAddr, header.height, timestamp);
+        const user = accountFactory.getOrCreate(userAddr, header.height, timestamp);
         const provider = await getOrCreateProvider(providerAddr, timestamp);
         const cost = BigInt(decoded.args.cost);
         
@@ -359,7 +337,7 @@ export async function processStorageEvents(ctx: ProcessorContext<Store>): Promis
         
         const balance = new StorageLedgerBalance({
           id: balanceId,
-          user: getOrCreateAccount(userAddr, header.height, timestamp),
+          user: accountFactory.getOrCreate(userAddr, header.height, timestamp),
           totalBalance: 0n,
           availableBalance: 0n,
           lockedBalance: 0n,
@@ -389,7 +367,7 @@ export async function processStorageEvents(ctx: ProcessorContext<Store>): Promis
   const stats = await updateStorageStats(ctx, providers, deals);
   
   // Save all entities
-  await ctx.store.upsert(Array.from(accounts.values()));
+  await ctx.store.upsert(accountFactory.getAll());
   await ctx.store.upsert(Array.from(providers.values()));
   await ctx.store.upsert(Array.from(deals.values()));
   await ctx.store.upsert(Array.from(balances.values()));

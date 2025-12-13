@@ -94,39 +94,36 @@ test.describe('Wake Page Tests', () => {
     console.log('✅ Gateway page loads correctly');
   });
 
-  test.skip('should allow funding via wallet', async ({ context, page, metamaskPage, extensionId }) => {
+  test('should allow funding via wallet when wake page is shown', async ({ context, page, metamaskPage, extensionId }) => {
     // This test requires:
-    // 1. An unfunded app to show the wake page
+    // 1. An unfunded app to show the wake page (set WAKE_PAGE_TEST_APP env var)
     // 2. A connected wallet with funds
     // 3. Actual contract interaction
+    // 
+    // If wake page is not shown, test is skipped (app may be funded or not registered)
+    // Set WAKE_PAGE_TEST_APP=unfunded-app.jeju to test with a specific app
 
+    const testApp = process.env.WAKE_PAGE_TEST_APP || 'unfunded-app.jeju';
     const metamask = new MetaMask(context, metamaskPage, PASSWORD, extensionId);
 
-    // Navigate to an unfunded app (would show wake page)
-    await page.goto(`${JNS_GATEWAY_URL}/unfunded-app.jeju/`);
+    await page.goto(`${JNS_GATEWAY_URL}/${testApp}/`);
     await page.waitForLoadState('networkidle');
 
-    // Check for wake page elements
     const fundButton = page.locator('text=Fund & Wake Up');
-    if (await fundButton.isVisible({ timeout: 5000 }).catch(() => false)) {
-      // Connect wallet first
-      await metamask.connectToDapp();
+    const wakePageVisible = await fundButton.isVisible({ timeout: 5000 }).catch(() => false);
 
-      // Click fund button
-      await fundButton.click();
-
-      // Confirm transaction in MetaMask
-      await metamask.confirmTransaction();
-
-      // Wait for page to refresh (funded status)
-      await page.waitForLoadState('networkidle', { timeout: 30000 });
-
-      // Wake page should be gone now
-      await expect(fundButton).not.toBeVisible();
-      console.log('✅ Funding flow completed');
-    } else {
-      console.log('⚠️  Wake page not shown - app may be funded or not registered');
+    if (!wakePageVisible) {
+      test.skip();
+      console.log(`⚠️  Wake page not shown for ${testApp} - app may be funded or not registered. Set WAKE_PAGE_TEST_APP to test with a specific unfunded app.`);
+      return;
     }
+
+    await metamask.connectToDapp();
+    await fundButton.click();
+    await metamask.confirmTransaction();
+    await page.waitForLoadState('networkidle', { timeout: 30000 });
+    await expect(fundButton).not.toBeVisible({ timeout: 10000 });
+    console.log('✅ Funding flow completed');
   });
 });
 

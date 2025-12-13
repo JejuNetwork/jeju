@@ -39,15 +39,15 @@
     "morgan": ">=1.10.0",
     "uglify-js": ">=3.19.0",
     "next": ">=15.1.0",
-    "hoek": ">=6.1.3",
+    "@hapi/hoek": ">=9.0.3",
     "negotiator": ">=0.6.4",
     "axios": ">=1.7.4",
     "hono": ">=4.6.10",
     "js-yaml": ">=4.0.0",
     "socket.io": ">=4.8.0",
     "glob": ">=11.0.0",
-    "hawk": ">=9.0.0",
-    "xlsx": ">=0.20.3"
+    "hawk": ">=9.0.1",
+    "playwright": ">=1.55.1"
   },
   "scripts": {
     "docs:generate": "typedoc --options packages/config/typedoc.json",
@@ -81,7 +81,7 @@
     "verify:rollback": "bun run scripts/test-rollback.ts",
     "verify:security": "bun run scripts/check-vendor-security.ts",
     "synpress:cache": "cd packages/tests && bun run synpress:cache",
-    "synpress:cache:clear": "rm -rf .synpress-cache",
+    "synpress:cache:clear": "rm -rf .jeju/.synpress-cache",
     "clean": "bun run scripts/clean.ts",
     "localnet:start": "cd packages/deployment && bun run localnet:start",
     "localnet:stop": "cd packages/deployment && bun run localnet:stop",
@@ -136,7 +136,7 @@
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
     "eslint": "^8.56.0",
-    "playwright": "^1.56.1",
+    "playwright": ">=1.55.1",
     "playwright-core": "^1.56.1",
     "prettier": "^3.2.5",
     "prettier-plugin-solidity": "^2.1.0",
@@ -160,7 +160,10 @@
     "fresh": ">=0.5.2",
     "debug": ">=2.6.9",
     "socket.io-parser": ">=4.2.4",
-    "nanoid": ">=5.0.9"
+    "nanoid": ">=5.0.9",
+    "@hapi/hoek": ">=9.0.3",
+    "hawk": ">=9.0.1",
+    "playwright": ">=1.55.1"
   },
   "engines": {
     "bun": ">=1.0.0"

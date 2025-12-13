@@ -9,7 +9,7 @@
  * - Voting power calculations
  */
 
-import { Contract, JsonRpcProvider, formatEther, parseEther } from 'ethers';
+import { Contract, JsonRpcProvider, parseEther } from 'ethers';
 
 // ============================================================================
 // Types
@@ -520,7 +520,7 @@ export class RegistryIntegrationClient {
 
   private _calculateCompositeScore(
     staked: bigint,
-    reputation: number,
+    reputation: number | bigint,
     lastActivity: bigint,
     violations: number,
     banned: boolean
@@ -528,10 +528,16 @@ export class RegistryIntegrationClient {
     if (banned) return 0;
     
     // Normalize stake (max 100 ETH)
-    const stakeScore = Math.min(100, Number(staked / parseEther('1')));
+    const stakedNum = typeof staked === 'bigint' ? Number(staked) : staked;
+    const oneEth = Number(parseEther('1'));
+    const stakeScore = Math.min(100, stakedNum / oneEth);
+    
+    // Reputation is already 0-100
+    const repScore = Number(reputation);
     
     // Activity score
-    const daysSince = (Date.now() / 1000 - Number(lastActivity)) / 86400;
+    const lastActivityNum = typeof lastActivity === 'bigint' ? Number(lastActivity) : lastActivity;
+    const daysSince = (Date.now() / 1000 - lastActivityNum) / 86400;
     const activityScore = daysSince < 30 ? 100 : daysSince < 90 ? 50 : 10;
     
     // Violation penalty
@@ -540,7 +546,7 @@ export class RegistryIntegrationClient {
     // Weighted average (30% stake, 40% rep, 15% activity, 15% penalty)
     return Math.round(
       stakeScore * 0.3 +
-      reputation * 0.4 +
+      repScore * 0.4 +
       activityScore * 0.15 +
       penaltyScore * 0.15
     );

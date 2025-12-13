@@ -421,27 +421,7 @@ contract AttackSimulationTest is Test {
     // ==================== Helper Functions ====================
 
     function _submitHonestReport(uint256 price, uint256 round) internal returns (bytes32) {
-        IReportVerifier.PriceReport memory report = IReportVerifier.PriceReport({
-            feedId: feedId,
-            price: price,
-            confidence: 100,
-            timestamp: block.timestamp,
-            round: round,
-            sourcesHash: keccak256(abi.encodePacked("honest", round))
-        });
-
-        bytes32 reportHash = _computeReportHash(report);
-        bytes[] memory signatures = _signWithHonest(reportHash, 2);
-
-        IReportVerifier.ReportSubmission memory submission = IReportVerifier.ReportSubmission({
-            report: report,
-            signatures: signatures
-        });
-
-        vm.prank(owner);
-        verifier.submitReport(submission);
-
-        return reportHash;
+        return _submitHonestReportAt(price, round, block.timestamp);
     }
 
     function _computeReportHash(IReportVerifier.PriceReport memory report) internal pure returns (bytes32) {

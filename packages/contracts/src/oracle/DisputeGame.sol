@@ -141,7 +141,7 @@ contract DisputeGame is IDisputeGame, Ownable, Pausable, ReentrancyGuard {
         uint256 reward;
 
         if (outcome == ResolutionOutcome.REPORT_INVALID) {
-            slashAmount = d.affectedSigners.length * 0.1 ether;
+            slashAmount = _calculateSlashAmount(d.affectedSigners);
             reward = (d.bond * _config.disputerRewardBps) / BPS_DENOMINATOR;
             uint256 payout = d.bond + reward;
             _transfer(d.disputer, payout > address(this).balance ? address(this).balance : payout);
@@ -186,7 +186,13 @@ contract DisputeGame is IDisputeGame, Ownable, Pausable, ReentrancyGuard {
     function isReportDisputed(bytes32 h) external view returns (bool) { return _reportDisputes[h] != bytes32(0); }
     function canDispute(bytes32 h) external view returns (bool) { return _reportDisputes[h] == bytes32(0) && reportVerifier.isReportProcessed(h); }
     function getMinBond() external view returns (uint256) { return _config.minBondUSD; }
-    function calculateSlashAmount(bytes32, address[] calldata signers) external pure returns (uint256) { return signers.length * 0.1 ether; }
+    function calculateSlashAmount(bytes32, address[] calldata signers) external pure returns (uint256) {
+        return signers.length * 0.1 ether;
+    }
+
+    function _calculateSlashAmount(address[] memory signers) internal pure returns (uint256) {
+        return signers.length * 0.1 ether;
+    }
 
     function canResolve(bytes32 disputeId) external view returns (bool) {
         Dispute storage d = _disputes[disputeId];

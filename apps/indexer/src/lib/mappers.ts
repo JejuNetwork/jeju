@@ -4,11 +4,15 @@ export function mapAgentSummary(agent: RegisteredAgent) {
   return {
     agentId: agent.agentId.toString(),
     name: agent.name,
+    description: agent.description,
     tags: agent.tags,
     stakeTier: agent.stakeTier,
+    stakeAmount: agent.stakeAmount.toString(),
+    active: agent.active,
+    isBanned: agent.isBanned,
     a2aEndpoint: agent.a2aEndpoint,
     mcpEndpoint: agent.mcpEndpoint,
-    active: agent.active,
+    registeredAt: agent.registeredAt.toISOString(),
   };
 }
 

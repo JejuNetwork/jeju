@@ -6,6 +6,7 @@ import { ethers } from 'ethers';
 import { Store } from '@subsquid/typeorm-store';
 import { ProcessorContext } from './processor';
 import { Account, PredictionMarket, MarketTrade, MarketPosition, OracleGame } from './model';
+import { createAccountFactory } from './lib/entities';
 
 const marketInterface = new ethers.Interface([
     'event MarketCreated(bytes32 indexed sessionId, string question, uint256 liquidity)',
@@ -30,29 +31,7 @@ export async function processMarketEvents(ctx: ProcessorContext<Store>): Promise
     const trades: MarketTrade[] = [];
     const positions = new Map<string, MarketPosition>();
     const oracleGames = new Map<string, OracleGame>();
-    const accounts = new Map<string, Account>();
-
-    function getOrCreateAccount(address: string, blockNumber: number, timestamp: Date): Account {
-        const id = address.toLowerCase();
-        let account = accounts.get(id);
-        if (!account) {
-            account = new Account({
-                id,
-                address: id,
-                isContract: false,
-                firstSeenBlock: blockNumber,
-                lastSeenBlock: blockNumber,
-                transactionCount: 0,
-                totalValueSent: 0n,
-                totalValueReceived: 0n,
-                labels: [],
-                firstSeenAt: timestamp,
-                lastSeenAt: timestamp
-            });
-            accounts.set(id, account);
-        }
-        return account;
-    }
+    const accountFactory = createAccountFactory();
 
     function getOrCreatePosition(marketId: string, traderId: string, market: PredictionMarket, trader: Account, timestamp: Date): MarketPosition {
         const id = `${marketId}-${traderId}`;
@@ -112,7 +91,7 @@ export async function processMarketEvents(ctx: ProcessorContext<Store>): Promise
                 const cost = BigInt(decoded.args.cost.toString());
                 const totalShares = market.yesShares + market.noShares;
                 const yesPercent = totalShares > 0n ? (market.yesShares * 10000n) / totalShares : 5000n;
-                const trader = getOrCreateAccount(buyer, block.header.height, blockTimestamp);
+                const trader = accountFactory.getOrCreate(buyer, block.header.height, blockTimestamp);
                 
                 trades.push(new MarketTrade({
                     id: `${txHash}-${log.logIndex}`,
@@ -149,7 +128,7 @@ export async function processMarketEvents(ctx: ProcessorContext<Store>): Promise
                 const payout = BigInt(decoded.args.payout.toString());
                 const totalShares = market.yesShares + market.noShares;
                 const yesPercent = totalShares > 0n ? (market.yesShares * 10000n) / totalShares : 5000n;
-                const trader = getOrCreateAccount(seller, block.header.height, blockTimestamp);
+                const trader = accountFactory.getOrCreate(seller, block.header.height, blockTimestamp);
                 
                 trades.push(new MarketTrade({
                     id: `${txHash}-${log.logIndex}`,
@@ -234,9 +213,9 @@ export async function processMarketEvents(ctx: ProcessorContext<Store>): Promise
         }
     }
 
-    await ctx.store.upsert(Array.from(accounts.values()));
-    await ctx.store.upsert(Array.from(markets.values()));
+    await ctx.store.upsert(accountFactory.getAll());
+    await ctx.store.upsert([...markets.values()]);
     await ctx.store.insert(trades);
-    await ctx.store.upsert(Array.from(positions.values()));
-    await ctx.store.upsert(Array.from(oracleGames.values()));
+    await ctx.store.upsert([...positions.values()]);
+    await ctx.store.upsert([...oracleGames.values()]);
 }

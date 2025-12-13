@@ -11,7 +11,6 @@ import {
     AgentMetadata, 
     TagUpdate, 
     RegistryStake, 
-    Account,
     AgentBanEvent,
     AgentSlashEvent,
     AgentStakeEvent,
@@ -19,6 +18,7 @@ import {
     FeedbackResponse,
     AgentValidation
 } from './model';
+import { createAccountFactory } from './lib/entities';
 import {
     AGENT_REGISTERED,
     STAKE_INCREASED,
@@ -75,7 +75,7 @@ const banManagerInterface = new ethers.Interface([
 
 export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promise<void> {
     const agents = new Map<string, RegisteredAgent>();
-    const accounts = new Map<string, Account>();
+    const accountFactory = createAccountFactory();
     const metadataUpdates: AgentMetadata[] = [];
     const tagUpdates: TagUpdate[] = [];
     const stakes: RegistryStake[] = [];
@@ -85,28 +85,6 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
     const feedbackEntries: AgentFeedback[] = [];
     const feedbackResponses: FeedbackResponse[] = [];
     const validations: AgentValidation[] = [];
-
-    function getOrCreateAccount(address: string, blockNumber: number, timestamp: Date): Account {
-        const id = address.toLowerCase();
-        let account = accounts.get(id);
-        if (!account) {
-            account = new Account({
-                id,
-                address: id,
-                isContract: false,
-                firstSeenBlock: blockNumber,
-                lastSeenBlock: blockNumber,
-                transactionCount: 0,
-                totalValueSent: 0n,
-                totalValueReceived: 0n,
-                labels: [],
-                firstSeenAt: timestamp,
-                lastSeenAt: timestamp
-            });
-            accounts.set(id, account);
-        }
-        return account;
-    }
 
     async function getOrCreateAgent(agentId: bigint, blockTimestamp: Date): Promise<RegisteredAgent | undefined> {
         const id = agentId.toString();
@@ -138,7 +116,7 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 const agentId = BigInt(log.topics[1]);
                 const id = agentId.toString();
                 const ownerAddress = '0x' + log.topics[2].slice(26);
-                const owner = getOrCreateAccount(ownerAddress, block.header.height, blockTimestamp);
+                const owner = accountFactory.getOrCreate(ownerAddress, block.header.height, blockTimestamp);
 
                 agents.set(id, new RegisteredAgent({
                     id,
@@ -399,7 +377,7 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 const agent = await getOrCreateAgent(agentId, blockTimestamp);
                 if (!agent) continue;
 
-                const client = getOrCreateAccount(clientAddress, block.header.height, blockTimestamp);
+                const client = accountFactory.getOrCreate(clientAddress, block.header.height, blockTimestamp);
 
                 feedbackEntries.push(new AgentFeedback({
                     id: `${txHash}-${log.logIndex}`,
@@ -437,7 +415,7 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 const clientAddress = '0x' + log.topics[2].slice(26);
                 const responderAddress = decoded.args.responder;
                 
-                const responder = getOrCreateAccount(responderAddress, block.header.height, blockTimestamp);
+                const responder = accountFactory.getOrCreate(responderAddress, block.header.height, blockTimestamp);
 
                 // Find the feedback entry - for now we create a reference by constructing an ID
                 // In production, we'd need to look up the actual feedback entity
@@ -466,7 +444,7 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 const agent = await getOrCreateAgent(agentId, blockTimestamp);
                 if (!agent) continue;
 
-                const validator = getOrCreateAccount(validatorAddress, block.header.height, blockTimestamp);
+                const validator = accountFactory.getOrCreate(validatorAddress, block.header.height, blockTimestamp);
 
                 validations.push(new AgentValidation({
                     id: decoded.args.requestHash,
@@ -593,8 +571,8 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
     }
 
     // Persist all entities
-    await ctx.store.upsert(Array.from(accounts.values()));
-    await ctx.store.upsert(Array.from(agents.values()));
+    await ctx.store.upsert(accountFactory.getAll());
+    await ctx.store.upsert([...agents.values()]);
     await ctx.store.insert(metadataUpdates);
     await ctx.store.insert(tagUpdates);
     await ctx.store.insert(stakes);

@@ -187,7 +187,7 @@ const WALLET_SUITES: TestSuite[] = [
     command: 'bunx playwright test --config synpress.config.ts --reporter=list',
     cwd: 'apps/bazaar',
     required: false,
-    env: { SYNPRESS_CACHE_DIR: '../../.synpress-cache' },
+    env: { SYNPRESS_CACHE_DIR: '../../.jeju/.synpress-cache' },
     skip: () => !existsSync('apps/bazaar/synpress.config.ts'),
   },
   {
@@ -195,7 +195,7 @@ const WALLET_SUITES: TestSuite[] = [
     command: 'bunx playwright test --config synpress.config.ts --reporter=list',
     cwd: 'apps/storage/app',
     required: false,
-    env: { SYNPRESS_CACHE_DIR: '../../../.synpress-cache' },
+    env: { SYNPRESS_CACHE_DIR: '../../../.jeju/.synpress-cache' },
     skip: () => !existsSync('apps/storage/app/synpress.config.ts'),
   },
   {
@@ -203,7 +203,7 @@ const WALLET_SUITES: TestSuite[] = [
     command: 'bunx playwright test --config synpress.config.ts --reporter=list',
     cwd: 'apps/compute',
     required: false,
-    env: { SYNPRESS_CACHE_DIR: '../../.synpress-cache' },
+    env: { SYNPRESS_CACHE_DIR: '../../.jeju/.synpress-cache' },
     skip: () => !existsSync('apps/compute/synpress.config.ts'),
   },
   {
@@ -211,7 +211,7 @@ const WALLET_SUITES: TestSuite[] = [
     command: 'bunx playwright test --config synpress.config.ts --reporter=list',
     cwd: 'apps/gateway',
     required: false,
-    env: { SYNPRESS_CACHE_DIR: '../../.synpress-cache' },
+    env: { SYNPRESS_CACHE_DIR: '../../.jeju/.synpress-cache' },
     skip: () => !existsSync('apps/gateway/synpress.config.ts'),
   },
 ];

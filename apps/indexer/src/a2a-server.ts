@@ -4,7 +4,7 @@ import path from 'path';
 import { getDataSource } from './lib/db';
 import { stakeRateLimiter, RATE_LIMITS } from './lib/stake-rate-limiter';
 import { search, getAgentById, getPopularTags, SearchParams } from './lib/search';
-import { mapAgentSummary, mapAgentWithSkills, mapBlockSummary, mapTransactionSummary } from './lib/mappers';
+import { mapAgentSummary, mapAgentWithSkills, mapBlockSummary, mapBlockDetail, mapTransactionSummary, mapTransactionDetail } from './lib/mappers';
 import { Block, Transaction, RegisteredAgent, NodeStake, TagIndex } from './model';
 
 const A2A_PORT = parseInt(process.env.A2A_PORT || '4351');
@@ -105,14 +105,14 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
     // Search & Discovery
     case 'search': {
       const searchParams: SearchParams = {
-        query: (params.query as string) || (params.q as string),
+        query: (params.query as string) ?? (params.q as string),
         endpointType: params.type as SearchParams['endpointType'],
         tags: params.tags as string[],
         category: params.category as SearchParams['category'],
         minStakeTier: params.minTier as number,
         verified: params.verified as boolean,
-        limit: Math.min(50, (params.limit as number) || 20),
-        offset: (params.offset as number) || 0,
+        limit: Math.min(50, (params.limit as number) ?? 20),
+        offset: (params.offset as number) ?? 0,
       };
       const results = await search(ds, searchParams);
       return {
@@ -122,7 +122,7 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
     }
 
     case 'get-agent': {
-      const agentId = (params.agentId as string) || (params.id as string);
+      const agentId = (params.agentId as string) ?? (params.id as string);
       if (!agentId) {
         return { message: 'Agent ID required', data: { error: 'Missing agentId parameter' } };
       }
@@ -135,7 +135,7 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
 
     case 'list-agents': {
       const repo = ds.getRepository(RegisteredAgent);
-      const limit = Math.min(50, (params.limit as number) || 20);
+      const limit = Math.min(50, (params.limit as number) ?? 20);
       const active = params.active !== false;
       
       const agents = await repo.find({
@@ -164,7 +164,7 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
     // Blockchain Data
     case 'query-blocks': {
       const repo = ds.getRepository(Block);
-      const limit = Math.min(50, (params.limit as number) || 10);
+      const limit = Math.min(50, (params.limit as number) ?? 10);
       
       const blocks = await repo.find({
         order: { number: 'DESC' },
@@ -174,20 +174,14 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
       return {
         message: `${blocks.length} recent blocks`,
         data: {
-          blocks: blocks.map(b => ({
-            number: b.number,
-            hash: b.hash,
-            timestamp: b.timestamp.toISOString(),
-            transactionCount: b.transactionCount,
-            gasUsed: b.gasUsed.toString(),
-          })),
+          blocks: blocks.map(mapBlockSummary),
         },
       };
     }
 
     case 'query-transactions': {
       const repo = ds.getRepository(Transaction);
-      const limit = Math.min(50, (params.limit as number) || 10);
+      const limit = Math.min(50, (params.limit as number) ?? 10);
       
       const txs = await repo.find({
         order: { blockNumber: 'DESC' },
@@ -198,28 +192,20 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
       return {
         message: `${txs.length} recent transactions`,
         data: {
-          transactions: txs.map(tx => ({
-            hash: tx.hash,
-            blockNumber: tx.blockNumber,
-            from: tx.from?.address,
-            to: tx.to?.address,
-            value: tx.value.toString(),
-            status: tx.status,
-          })),
+          transactions: txs.map(mapTransactionSummary),
         },
       };
     }
 
     case 'get-block': {
-      const blockNumber = params.number as number || params.blockNumber as number;
-      const blockHash = params.hash as string || params.blockHash as string;
+      const blockNumber = (params.number as number) ?? (params.blockNumber as number);
+      const blockHash = (params.hash as string) ?? (params.blockHash as string);
       
       if (!blockNumber && !blockHash) {
         return { message: 'Block number or hash required', data: { error: 'Missing parameter' } };
       }
 
-      const repo = ds.getRepository(Block);
-      const block = await repo.findOne({
+      const block = await ds.getRepository(Block).findOne({
         where: blockHash ? { hash: blockHash } : { number: blockNumber },
       });
 
@@ -229,26 +215,17 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
 
       return {
         message: `Block ${block.number}`,
-        data: {
-          number: block.number,
-          hash: block.hash,
-          parentHash: block.parentHash,
-          timestamp: block.timestamp.toISOString(),
-          transactionCount: block.transactionCount,
-          gasUsed: block.gasUsed.toString(),
-          gasLimit: block.gasLimit.toString(),
-        },
+        data: mapBlockDetail(block),
       };
     }
 
     case 'get-transaction': {
-      const txHash = params.hash as string || params.txHash as string;
+      const txHash = (params.hash as string) ?? (params.txHash as string);
       if (!txHash) {
         return { message: 'Transaction hash required', data: { error: 'Missing hash parameter' } };
       }
 
-      const repo = ds.getRepository(Transaction);
-      const tx = await repo.findOne({
+      const tx = await ds.getRepository(Transaction).findOne({
         where: { hash: txHash },
         relations: ['from', 'to'],
       });
@@ -259,16 +236,7 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
 
       return {
         message: `Transaction ${tx.hash.slice(0, 10)}...`,
-        data: {
-          hash: tx.hash,
-          blockNumber: tx.blockNumber,
-          from: tx.from?.address,
-          to: tx.to?.address,
-          value: tx.value.toString(),
-          gasPrice: tx.gasPrice?.toString(),
-          gasUsed: tx.gasUsed?.toString(),
-          status: tx.status,
-        },
+        data: mapTransactionDetail(tx),
       };
     }
 

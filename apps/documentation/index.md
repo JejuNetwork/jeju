@@ -3,59 +3,137 @@ layout: home
 
 hero:
   name: Jeju
-  text: L2 on Ethereum
-  tagline: OP-Stack with 200ms Flashblocks, ERC-4337 paymasters, and ERC-8004 agent identity.
+  text: The L2 Built for Agents
+  tagline: 200ms blocks. Gasless transactions. Native agent infrastructure. Built on OP-Stack.
   image:
     src: /logo.svg
     alt: Jeju
   actions:
     - theme: brand
-      text: Quick Start
-      link: /getting-started/quick-start
+      text: Get Started →
+      link: /build/quick-start
     - theme: alt
-      text: GitHub
-      link: https://github.com/elizaos/jeju
+      text: Why Jeju?
+      link: /learn/why-jeju
 
 features:
-  - icon: ⚡
-    title: 200ms Blocks
-    details: Flashblocks for instant confirmation. Full blocks every 2 seconds.
+  - icon: 
+      src: /icons/flash.svg
+      alt: Fast
+    title: 200ms Flashblocks
+    details: Pre-confirmation in 200ms, finality in 2 seconds. The fastest L2 experience.
+    link: /learn/architecture
+    linkText: Learn more
   
-  - icon: 💸
+  - icon:
+      src: /icons/gas.svg
+      alt: Gasless
     title: Pay Gas in Any Token
-    details: ERC-4337 paymasters let users pay gas in JEJU, elizaOS, USDC, or any registered token.
+    details: ERC-4337 paymasters let users pay in USDC, JEJU, or any registered token. No ETH required.
+    link: /learn/gasless
+    linkText: Learn more
   
-  - icon: 🤖
-    title: Agent-First
-    details: ERC-8004 identity, A2A protocol, MCP integration. Built for autonomous agents.
+  - icon:
+      src: /icons/agent.svg
+      alt: Agents
+    title: Agent-First Infrastructure
+    details: ERC-8004 identity, A2A protocol, and MCP integration. Purpose-built for autonomous agents.
+    link: /learn/agents
+    linkText: Learn more
   
-  - icon: 🔗
+  - icon:
+      src: /icons/intent.svg
+      alt: Intents
     title: Cross-Chain Intents
-    details: ERC-7683 compatible. Send intents from any chain, solvers fulfill on Jeju.
+    details: ERC-7683 compatible. Express intent on any chain, solvers fulfill on Jeju instantly.
+    link: /learn/intents
+    linkText: Learn more
 ---
 
-## Quick Start
+<script setup>
+import { VPTeamMembers } from 'vitepress/theme'
+</script>
+
+## Start Building in 60 Seconds
 
 ```bash
-git clone https://github.com/elizaos/jeju.git && cd jeju
-bun install
-bun run dev
+# Clone and start
+git clone https://github.com/elizaos/jeju && cd jeju
+bun install && bun run dev
+
+# Your L2 is now running at http://localhost:9545
 ```
 
-Prerequisites: Docker, Kurtosis, Bun, and Foundry. See [Quick Start](/getting-started/quick-start) for installation.
+::: tip Ready to deploy?
+Skip local setup and deploy directly to [Jeju Testnet →](/build/networks)
+:::
 
-## Networks
+## Choose Your Path
 
-**Localnet** runs on chain ID 1337 at `http://127.0.0.1:9545`. **Testnet** runs on chain ID 420690 at `https://testnet-rpc.jeju.network`. **Mainnet** runs on chain ID 420691 at `https://rpc.jeju.network`.
+<div class="paths">
 
-## Core Applications
+### 👤 Users
+Bridge assets, swap tokens, stake for rewards.
 
-[Gateway](/applications/gateway) on port 4001 handles bridging, paymasters, staking, and node registration. [Bazaar](/applications/bazaar) on port 4006 provides DeFi via Uniswap V4, NFTs, token launchpad, and JNS names. [Compute](/applications/compute) on port 4007 offers decentralized AI inference. [Storage](/applications/storage) on port 4010 provides IPFS/Arweave storage. [Crucible](/applications/crucible) on port 4020 handles agent orchestration, vaults, and multi-agent rooms. [Indexer](/applications/indexer) on port 4350 exposes a GraphQL blockchain data API.
+[Open Gateway →](https://gateway.jeju.network)
 
-## Key Features
+### 👩‍💻 Developers
+Build apps, deploy contracts, integrate APIs.
 
-The [Paymaster System](/contracts/payments) enables paying gas in any registered token via ERC-4337. The [Cross-Chain Bridge (EIL)](/contracts/eil) provides trustless transfers via XLP liquidity providers. [Open Intents (OIF)](/contracts/oif) implements ERC-7683 cross-chain intents. [Agent Identity (ERC-8004)](/contracts/identity) provides on-chain identity for apps and agents. The [Name Service (JNS)](/contracts/jns) offers human-readable names like `myagent.jeju`.
+[Quick Start →](/build/quick-start)
 
-## Test Account
+### 🖥️ Operators
+Run nodes, provide liquidity, earn rewards.
 
-The primary test account `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266` with private key `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80` is pre-funded with 10,000 ETH on localnet.
+[Run a Node →](/operate/overview)
+
+</div>
+
+## Network Status
+
+| Network | Chain ID | RPC | Status |
+|---------|----------|-----|--------|
+| Mainnet | `420691` | `https://rpc.jeju.network` | 🟢 Live |
+| Testnet | `420690` | `https://testnet-rpc.jeju.network` | 🟢 Live |
+
+[View full network details →](/build/networks)
+
+## The Stack
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Applications                                                │
+│  Gateway · Bazaar · Compute · Storage · Crucible · Indexer   │
+├─────────────────────────────────────────────────────────────┤
+│  Smart Contracts                                             │
+│  Tokens · Identity · Paymasters · OIF · EIL · DeFi           │
+├─────────────────────────────────────────────────────────────┤
+│  Jeju L2 (OP-Stack)                                          │
+│  op-reth + op-node · 200ms Flashblocks                       │
+├─────────────────────────────────────────────────────────────┤
+│  Data Availability: EigenDA                                  │
+├─────────────────────────────────────────────────────────────┤
+│  Settlement: Ethereum Mainnet                                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+[Explore architecture →](/learn/architecture)
+
+<style>
+.paths {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.paths h3 {
+  margin-top: 0;
+}
+
+@media (max-width: 768px) {
+  .paths {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

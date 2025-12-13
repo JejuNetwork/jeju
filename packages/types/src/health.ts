@@ -119,7 +119,7 @@ export interface KeepaliveConfig {
 }
 
 export interface KeepaliveResource {
-  type: ResourceType;
+  type: HealthResourceType;
   identifier: string;
   healthEndpoint: string;
   minBalance: bigint;
@@ -139,13 +139,13 @@ export interface KeepaliveStatus {
 
 // ============ Health Check Executor ============
 
-export interface HealthCheckRequest {
+export interface KeepaliveHealthCheckRequest {
   keepaliveId: string;
   resources: KeepaliveResource[];
   timeout: number;
 }
 
-export interface HealthCheckResult {
+export interface KeepaliveHealthCheckResult {
   keepaliveId: string;
   status: HealthStatus;
   timestamp: number;
@@ -157,7 +157,7 @@ export interface HealthCheckResult {
 }
 
 export interface ResourceCheckResult {
-  type: ResourceType;
+  type: HealthResourceType;
   identifier: string;
   status: HealthStatus;
   latencyMs: number;

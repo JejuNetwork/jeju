@@ -4,6 +4,7 @@ export * from './compute';
 export * from './contracts';
 export * from './defi';
 export * from './eil';
+export * from './governance';
 export * from './health';
 export * from './infrastructure';
 export * from './moderation';

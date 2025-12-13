@@ -203,7 +203,7 @@ async function runAppTests(app: AppTestConfig, headed: boolean): Promise<boolean
 
   const env: Record<string, string> = {
     ...process.env as Record<string, string>,
-    SYNPRESS_CACHE_DIR: join(process.cwd(), '.synpress-cache'),
+    SYNPRESS_CACHE_DIR: join(process.cwd(), '.jeju', '.synpress-cache'),
   };
 
   const args = [
