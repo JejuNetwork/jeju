@@ -96,30 +96,51 @@ export const ERC20_APPROVE_ABI = [{
   stateMutability: 'nonpayable',
 }] as const;
 
-interface ContractConfig {
-  chainId?: number;
-  oif?: { inputSettler?: string; outputSettler?: string; oracle?: string };
+interface OifDeployment {
+  chains: Record<string, {
+    chainId: number;
+    status: string;
+    contracts: {
+      inputSettler?: string;
+      outputSettler?: string;
+      oracle?: string;
+      solverRegistry?: string;
+    };
+  }>;
 }
 
-function loadContractsJson(): Record<string, ContractConfig> {
-  const path = resolve(process.cwd(), '../../packages/config/contracts.json');
-  if (!existsSync(path)) return {};
-  return JSON.parse(readFileSync(path, 'utf-8'));
-}
+type OifContractKey = 'inputSettler' | 'outputSettler' | 'oracle' | 'solverRegistry';
 
-type OifContractKey = 'inputSettler' | 'outputSettler' | 'oracle';
+function loadOifDeployments(): Record<number, OifDeployment['chains'][string]['contracts']> {
+  const out: Record<number, OifDeployment['chains'][string]['contracts']> = {};
+  const deploymentPaths = [
+    resolve(process.cwd(), '../../packages/contracts/deployments/oif-testnet.json'),
+    resolve(process.cwd(), '../../packages/contracts/deployments/oif-mainnet.json'),
+    resolve(process.cwd(), 'packages/contracts/deployments/oif-testnet.json'),
+    resolve(process.cwd(), 'packages/contracts/deployments/oif-mainnet.json'),
+  ];
+
+  for (const path of deploymentPaths) {
+    if (!existsSync(path)) continue;
+    const deployment: OifDeployment = JSON.parse(readFileSync(path, 'utf-8'));
+    for (const chain of Object.values(deployment.chains)) {
+      if (chain.status === 'deployed' && chain.contracts) {
+        out[chain.chainId] = chain.contracts;
+      }
+    }
+  }
+  return out;
+}
 
 function loadOifContracts(key: OifContractKey): Record<number, `0x${string}`> {
-  const contracts = loadContractsJson();
+  const deployments = loadOifDeployments();
   const out: Record<number, `0x${string}`> = {};
 
-  for (const chain of Object.values(contracts.external || {})) {
-    const c = chain as ContractConfig;
-    if (c.chainId && c.oif?.[key]) out[c.chainId] = c.oif[key] as `0x${string}`;
-  }
-  for (const net of ['testnet', 'mainnet'] as const) {
-    const cfg = contracts[net] as ContractConfig | undefined;
-    if (cfg?.chainId && cfg.oif?.[key]) out[cfg.chainId] = cfg.oif[key] as `0x${string}`;
+  for (const [chainId, contracts] of Object.entries(deployments)) {
+    const addr = contracts[key];
+    if (addr && addr !== '') {
+      out[Number(chainId)] = addr as `0x${string}`;
+    }
   }
   return out;
 }
@@ -127,6 +148,7 @@ function loadOifContracts(key: OifContractKey): Record<number, `0x${string}`> {
 export const INPUT_SETTLERS = loadOifContracts('inputSettler');
 export const OUTPUT_SETTLERS = loadOifContracts('outputSettler');
 export const ORACLES = loadOifContracts('oracle');
+export const SOLVER_REGISTRIES = loadOifContracts('solverRegistry');
 
 /** Convert bytes32 address to 0x address format */
 export function bytes32ToAddress(b32: `0x${string}`): `0x${string}` {

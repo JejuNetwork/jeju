@@ -20,13 +20,16 @@ export const RPC_URLS = {
   420691: process.env.JEJU_RPC_URL || 'https://rpc.jeju.network',
   420690: process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jeju.network',
   1337: process.env.LOCALNET_RPC_URL || 'http://localhost:9545',
-  // External chains
+  // Mainnets
   1: process.env.ETHEREUM_RPC_URL || 'https://eth.llamarpc.com',
-  11155111: process.env.SEPOLIA_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com',
   42161: process.env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc',
   10: process.env.OPTIMISM_RPC_URL || 'https://mainnet.optimism.io',
   8453: process.env.BASE_RPC_URL || 'https://mainnet.base.org',
+  // Testnets
+  11155111: process.env.SEPOLIA_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com',
   84532: process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org',
+  11155420: process.env.OPTIMISM_SEPOLIA_RPC_URL || 'https://sepolia.optimism.io',
+  421614: process.env.ARBITRUM_SEPOLIA_RPC_URL || 'https://sepolia-rollup.arbitrum.io/rpc',
 } as const;
 
 // Public block explorers
@@ -35,11 +38,13 @@ export const EXPLORER_URLS = {
   420690: 'https://testnet-explorer.jeju.network',
   1337: 'http://localhost:4000',
   1: 'https://etherscan.io',
-  11155111: 'https://sepolia.etherscan.io',
   42161: 'https://arbiscan.io',
   10: 'https://optimistic.etherscan.io',
   8453: 'https://basescan.org',
+  11155111: 'https://sepolia.etherscan.io',
   84532: 'https://sepolia.basescan.org',
+  11155420: 'https://sepolia-optimism.etherscan.io',
+  421614: 'https://sepolia.arbiscan.io',
 } as const;
 
 // Chain metadata
@@ -48,11 +53,13 @@ export const CHAINS = {
   420690: { name: 'Jeju Testnet', shortName: 'JEJU-TEST', isTestnet: true },
   1337: { name: 'Localnet', shortName: 'LOCAL', isTestnet: true },
   1: { name: 'Ethereum', shortName: 'ETH', isTestnet: false },
-  11155111: { name: 'Sepolia', shortName: 'SEP', isTestnet: true },
   42161: { name: 'Arbitrum One', shortName: 'ARB', isTestnet: false },
   10: { name: 'Optimism', shortName: 'OP', isTestnet: false },
   8453: { name: 'Base', shortName: 'BASE', isTestnet: false },
+  11155111: { name: 'Sepolia', shortName: 'SEP', isTestnet: true },
   84532: { name: 'Base Sepolia', shortName: 'BASE-SEP', isTestnet: true },
+  11155420: { name: 'Optimism Sepolia', shortName: 'OP-SEP', isTestnet: true },
+  421614: { name: 'Arbitrum Sepolia', shortName: 'ARB-SEP', isTestnet: true },
 } as const;
 
 // Service URLs (defaults, can be overridden)
