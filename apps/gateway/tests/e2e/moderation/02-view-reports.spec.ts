@@ -3,7 +3,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { captureScreenshot, captureUserFlow } from '@jejunetwork/tests/helpers/screenshots';
+import { captureScreenshot, captureUserFlow as _captureUserFlow } from '@jejunetwork/tests/helpers/screenshots';
 
 test.describe('View Reports', () => {
   test('should display active reports list', async ({ page }) => {

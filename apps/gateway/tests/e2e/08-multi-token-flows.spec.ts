@@ -4,7 +4,7 @@
  * 
  * Ensures all protocol tokens (elizaOS, CLANKER, VIRTUAL, CLANKERMON)
  * are treated equally throughout the UI
-import { captureScreenshot, captureUserFlow } from '@jejunetwork/tests/helpers/screenshots';
+import { captureScreenshot, captureUserFlow as _captureUserFlow } from '@jejunetwork/tests/helpers/screenshots';
  */
 
 import { testWithWallet as test, expect } from '../fixtures/wallet';

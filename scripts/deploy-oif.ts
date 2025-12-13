@@ -81,7 +81,6 @@ async function deployToChain(config: NetworkConfig, privateKey: string): Promise
     );
 
     let output = '';
-    let errorOutput = '';
 
     child.stdout.on('data', (data) => {
       output += data.toString();
@@ -89,7 +88,6 @@ async function deployToChain(config: NetworkConfig, privateKey: string): Promise
     });
 
     child.stderr.on('data', (data) => {
-      errorOutput += data.toString();
       process.stderr.write(data);
     });
 
