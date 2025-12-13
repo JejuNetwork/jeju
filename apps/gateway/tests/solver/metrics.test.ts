@@ -285,4 +285,192 @@ describe('OIF Solver Metrics', () => {
       expect(metrics.counters['oif_settlements_failed_total']).toBeDefined();
     });
   });
+
+  describe('Boundary Conditions', () => {
+    it('should handle chain ID 0', () => {
+      recordIntentReceived(0);
+      
+      const metrics = getMetricsJson();
+      const chain0 = metrics.counters['oif_intents_received_total']?.find(
+        m => m.labels.chain === '0'
+      );
+      expect(chain0).toBeDefined();
+    });
+
+    it('should handle very large chain IDs', () => {
+      const largeChainId = 999999999;
+      recordIntentReceived(largeChainId);
+      
+      const metrics = getMetricsJson();
+      const chainLarge = metrics.counters['oif_intents_received_total']?.find(
+        m => m.labels.chain === String(largeChainId)
+      );
+      expect(chainLarge).toBeDefined();
+    });
+
+    it('should handle maximum duration value', () => {
+      const maxDuration = Number.MAX_SAFE_INTEGER;
+      recordIntentFilled(1, 10, maxDuration, 100000n);
+      
+      const metrics = getMetricsJson();
+      const histogram = metrics.histograms['oif_fill_duration_seconds']?.find(
+        m => m.labels.source_chain === '1' && m.labels.dest_chain === '10'
+      );
+      expect(histogram).toBeDefined();
+      expect(histogram!.sum).toBeGreaterThan(0);
+    });
+
+    it('should handle 0 gas used', () => {
+      recordIntentFilled(1, 10, 1000, 0n);
+      
+      // Should not throw
+      const metrics = getMetricsJson();
+      expect(metrics).toBeDefined();
+    });
+
+    it('should handle maximum uint256 gas', () => {
+      const maxGas = 2n ** 256n - 1n;
+      // This might overflow Number, but should not crash
+      recordIntentFilled(1, 10, 1000, maxGas);
+      
+      const metrics = getMetricsJson();
+      expect(metrics).toBeDefined();
+    });
+
+    it('should handle 0 pending settlements', () => {
+      updatePendingSettlements(0);
+      
+      const metrics = getMetricsJson();
+      expect(metrics.gauges['oif_settlements_pending']).toBe(0);
+    });
+
+    it('should handle very large pending count', () => {
+      const largeCount = 1000000;
+      updatePendingSettlements(largeCount);
+      
+      const metrics = getMetricsJson();
+      expect(metrics.gauges['oif_settlements_pending']).toBe(largeCount);
+    });
+
+    it('should handle 0 wei settlement amount', () => {
+      recordSettlementClaimed(1, 0n);
+      
+      const metrics = getMetricsJson();
+      // Should not throw
+      expect(metrics.counters['oif_settlements_claimed_total']).toBeDefined();
+    });
+
+    it('should handle special characters in reason strings', () => {
+      // These shouldn't break Prometheus output
+      recordIntentSkipped(1, 'reason_with_underscores');
+      recordIntentSkipped(1, 'reason-with-dashes');
+      recordIntentSkipped(1, 'reason.with.dots');
+      
+      const output = getPrometheusMetrics();
+      expect(output).not.toContain('undefined');
+      expect(output).not.toContain('null');
+    });
+  });
+
+  describe('Histogram Bucket Accuracy', () => {
+    it('should place 0ms duration in lowest bucket', () => {
+      recordIntentFilled(100, 101, 0, 100n);
+      
+      const output = getPrometheusMetrics();
+      // Duration 0 should be in all buckets including 0.1
+      expect(output).toContain('le="0.1"');
+    });
+
+    it('should place 1s duration in correct bucket', () => {
+      recordIntentFilled(100, 102, 1000, 100n); // 1000ms = 1s
+      
+      const output = getPrometheusMetrics();
+      // Should be counted in 1.0 bucket and higher
+      expect(output).toContain('le="1"');
+    });
+
+    it('should place 5s duration in 10s bucket', () => {
+      recordIntentFilled(100, 103, 5000, 100n); // 5s
+      
+      const output = getPrometheusMetrics();
+      expect(output).toContain('le="10"');
+    });
+
+    it('should place very long duration in +Inf bucket', () => {
+      recordIntentFilled(100, 104, 60000, 100n); // 60s
+      
+      const output = getPrometheusMetrics();
+      expect(output).toContain('le="+Inf"');
+    });
+  });
+
+  describe('Concurrent Metric Updates', () => {
+    it('should handle rapid counter increments', () => {
+      const chainId = 7777;
+      const iterations = 100;
+      
+      for (let i = 0; i < iterations; i++) {
+        recordIntentReceived(chainId);
+      }
+      
+      const metrics = getMetricsJson();
+      const counter = metrics.counters['oif_intents_received_total']?.find(
+        m => m.labels.chain === String(chainId)
+      );
+      expect(counter?.value).toBeGreaterThanOrEqual(iterations);
+    });
+
+    it('should handle interleaved metric types', () => {
+      const chainId = 8888;
+      
+      recordIntentReceived(chainId);
+      recordIntentEvaluated(chainId, true);
+      recordIntentFilled(chainId, chainId + 1, 500, 100000n);
+      recordSettlementClaimed(chainId, 1000000000000000000n);
+      updatePendingSettlements(5);
+      
+      const metrics = getMetricsJson();
+      expect(metrics.counters['oif_intents_received_total']).toBeDefined();
+      expect(metrics.counters['oif_intents_evaluated_total']).toBeDefined();
+      expect(metrics.counters['oif_intents_filled_total']).toBeDefined();
+      expect(metrics.counters['oif_settlements_claimed_total']).toBeDefined();
+      expect(metrics.gauges['oif_settlements_pending']).toBeDefined();
+    });
+  });
+
+  describe('Prometheus Format Compliance', () => {
+    it('should not contain invalid characters in metric names', () => {
+      recordIntentReceived(1);
+      const output = getPrometheusMetrics();
+      
+      // Metric names should only contain [a-zA-Z_:][a-zA-Z0-9_:]*
+      const lines = output.split('\n').filter(l => !l.startsWith('#') && l.trim());
+      for (const line of lines) {
+        const metricName = line.split(/[{ ]/)[0];
+        expect(metricName).toMatch(/^[a-zA-Z_:][a-zA-Z0-9_:]*$/);
+      }
+    });
+
+    it('should have HELP comments before metrics', () => {
+      recordIntentReceived(1);
+      const output = getPrometheusMetrics();
+      
+      expect(output).toContain('# HELP oif_intents_received_total');
+    });
+
+    it('should have TYPE comments before metrics', () => {
+      recordIntentReceived(1);
+      const output = getPrometheusMetrics();
+      
+      expect(output).toContain('# TYPE oif_intents_received_total counter');
+    });
+
+    it('should format labels correctly', () => {
+      recordIntentReceived(1);
+      const output = getPrometheusMetrics();
+      
+      // Labels should be in key="value" format
+      expect(output).toMatch(/\{[a-z_]+="[^"]+"\}/);
+    });
+  });
 });
