@@ -29,10 +29,10 @@
   
   "testnet": {
     "hub": {
-      "chainId": 420690,
-      "name": "Jeju Testnet",
-      "rpcUrl": "https://testnet-rpc.jeju.network",
-      "l1StakeManager": "0x355281d1974BfB64F9d475d01936e5dB37396DA3",
+      "chainId": 11155111,
+      "name": "Ethereum Sepolia",
+      "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
+      "l1StakeManager": "0xBf871db95b89Fde7D13b4FAA8b8E47aB5F00C29C",
       "crossChainPaymaster": "",
       "status": "active"
     },
@@ -42,7 +42,7 @@
         "name": "Ethereum Sepolia",
         "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
         "crossChainPaymaster": "",
-        "l1StakeManager": "0x355281d1974BfB64F9d475d01936e5dB37396DA3",
+        "l1StakeManager": "0xBf871db95b89Fde7D13b4FAA8b8E47aB5F00C29C",
         "status": "active",
         "tokens": {
           "USDC": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238"

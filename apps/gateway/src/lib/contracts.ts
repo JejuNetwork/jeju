@@ -1,7 +1,8 @@
-import type { Address } from 'viem';
+import type { Address, Hex } from 'viem';
 
-// Canonical zero address constant
+// Canonical zero constants
 export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
+export const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex;
 
 export const TOKEN_REGISTRY_ABI = [
   {

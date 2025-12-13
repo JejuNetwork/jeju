@@ -1,0 +1,96 @@
+# Default values for Crucible
+
+replicaCount:
+  api: 2
+  executor: 1
+
+image:
+  repository: jeju/crucible
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podSecurityContext: {}
+securityContext: {}
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 4020
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations: {}
+  hosts:
+    - host: crucible.jeju.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  api:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  executor:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+config:
+  network: localnet
+  rpcUrl: http://127.0.0.1:8545
+  logLevel: info
+  logFormat: json
+  contracts:
+    agentVault: "0x0000000000000000000000000000000000000000"
+    roomRegistry: "0x0000000000000000000000000000000000000000"
+    triggerRegistry: "0x0000000000000000000000000000000000000000"
+    identityRegistry: "0x0000000000000000000000000000000000000000"
+    serviceRegistry: "0x0000000000000000000000000000000000000000"
+  services:
+    computeMarketplace: http://compute:80
+    storageApi: http://storage:80
+    ipfsGateway: http://ipfs:8080
+    indexerGraphql: http://indexer:4350/graphql
+
+secrets:
+  privateKey: ""
+
+healthCheck:
+  livenessProbe:
+    path: /health
+    initialDelaySeconds: 10
+    periodSeconds: 30
+  readinessProbe:
+    path: /health
+    initialDelaySeconds: 5
+    periodSeconds: 10

@@ -1,12 +1,12 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useAccount, useReadContract, useWriteContract } from 'wagmi';
-import { parseEther, formatEther, formatUnits, type Address } from 'viem';
+import { parseEther, formatEther, formatUnits } from 'viem';
 import { CONTRACTS, RPC_GATEWAY_URL } from '../config';
+import { ZERO_ADDRESS } from '../lib/contracts';
 
-const ZERO = '0x0000000000000000000000000000000000000000' as Address;
 const STAKING = CONTRACTS.rpcStaking;
 const TOKEN = CONTRACTS.jeju;
-const isConfigured = STAKING !== ZERO;
+const isConfigured = STAKING !== ZERO_ADDRESS;
 
 const STAKING_ABI = [
   { name: 'stake', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'amount', type: 'uint256' }], outputs: [] },
@@ -56,10 +56,10 @@ export function useRPCStaking() {
   const { data: discountData } = useReadContract({ address: enabled ? STAKING : undefined, abi: STAKING_ABI, functionName: 'getReputationDiscount', args: positionArgs, query: { enabled } });
   const { data: stakeUsdData } = useReadContract({ address: enabled ? STAKING : undefined, abi: STAKING_ABI, functionName: 'getStakeUsdValue', args: positionArgs, query: { enabled } });
   const { data: priceData } = useReadContract({ address: isConfigured ? STAKING : undefined, abi: STAKING_ABI, functionName: 'getJejuPrice', query: { enabled: isConfigured } });
-  const tokenEnabled = TOKEN !== ZERO && !!address;
+  const tokenEnabled = TOKEN !== ZERO_ADDRESS && !!address;
   const balanceArgs = tokenEnabled && address ? [address] as const : undefined;
   const { data: balanceData } = useReadContract({ address: tokenEnabled ? TOKEN : undefined, abi: ERC20_ABI, functionName: 'balanceOf', args: balanceArgs, query: { enabled: tokenEnabled } });
-  const allowanceEnabled = TOKEN !== ZERO && enabled;
+  const allowanceEnabled = TOKEN !== ZERO_ADDRESS && enabled;
   const allowanceArgs = allowanceEnabled && address ? [address, STAKING] as const : undefined;
   const { data: allowanceData, refetch: refetchAllowance } = useReadContract({ address: allowanceEnabled ? TOKEN : undefined, abi: ERC20_ABI, functionName: 'allowance', args: allowanceArgs, query: { enabled: allowanceEnabled } });
 

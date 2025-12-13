@@ -123,8 +123,8 @@ contract ContestIntegrationTest is Test {
 
         // Verify trading is rejected during grace period
         vm.startPrank(trader1);
-        // Market is not resolved yet, but in real implementation we'd check contest state
-        // For now, market still accepts trades (TODO: connect market to contest state)
+        vm.expectRevert(Predimarket.TradingFrozen.selector);
+        predimarket.buy(contestId, true, BET_AMOUNT, 0);
         vm.stopPrank();
 
         // 6. PUBLISH RESULTS (Storm wins - index 2)

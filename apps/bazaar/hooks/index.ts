@@ -16,3 +16,6 @@ export * from './nft/useNFTAuction';
 
 // Account Abstraction / Gasless transactions (ERC-4337)
 export * from './useGasless';
+
+// Perpetual Futures Trading
+export * from './perps';

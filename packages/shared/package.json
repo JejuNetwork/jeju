@@ -8,14 +8,17 @@
     ".": "./src/index.ts",
     "./hooks/useBanStatus": "./src/hooks/useBanStatus.ts",
     "./components/BanBanner": "./src/components/BanBanner.tsx",
-    "./api/moderation": "./src/api/moderation.ts"
+    "./api/moderation": "./src/api/moderation.ts",
+    "./health-middleware": "./src/health-middleware.ts"
   },
   "peerDependencies": {
     "react": "^18.0.0",
-    "viem": "^2.0.0"
+    "viem": "^2.0.0",
+    "hono": "^4.0.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",
+    "hono": "4.6.20",
     "typescript": "^5.0.0"
   }
 }

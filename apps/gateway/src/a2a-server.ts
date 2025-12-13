@@ -1,14 +1,20 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import { createPaymentRequirement, checkPayment, PAYMENT_TIERS, PaymentRequirements } from './lib/x402.js';
-import { Address } from 'viem';
+import { Address, isAddress } from 'viem';
 import { rateLimit, agentRateLimit, strictRateLimit } from './middleware/rate-limit.js';
 import { intentService } from './services/intent-service.js';
 import { routeService } from './services/route-service.js';
 import { solverService } from './services/solver-service.js';
 import { getWebSocketServer } from './services/websocket.js';
 import { faucetService } from './services/faucet-service.js';
-import { JEJU_CHAIN_ID, IS_TESTNET, getChainName, PORTS, SERVICES } from './config/networks.js';
+import { JEJU_CHAIN_ID, IS_TESTNET, getChainName, PORTS } from './config/networks.js';
+import {
+  CHAINS as RPC_CHAINS,
+  getApiKeysForAddress,
+  createApiKey,
+  RATE_LIMITS,
+} from './rpc/index.js';
 import {
   checkBanStatus,
   getModeratorProfile,
@@ -23,6 +29,7 @@ import {
   prepareChallengeTransaction,
   prepareAppealTransaction,
 } from './lib/moderation-api.js';
+import { poolService, type V2Pool, type PaymasterPool } from './services/pool-service.js';
 
 const app = express();
 const PORT = PORTS.a2a;
@@ -63,6 +70,14 @@ const GATEWAY_AGENT_CARD = {
     { id: 'get-solver-liquidity', name: 'Get Solver Liquidity', description: 'Check available liquidity for a specific solver', tags: ['solvers', 'liquidity'], examples: ['Check solver 0x... liquidity'] },
     { id: 'get-stats', name: 'Get OIF Statistics', description: 'Get global intent framework statistics', tags: ['analytics', 'stats'], examples: ['Show OIF stats', 'Total volume today?'] },
     { id: 'get-volume', name: 'Get Route Volume', description: 'Get volume statistics for a specific route', tags: ['analytics', 'volume'], examples: ['Volume on Ethereum to Arbitrum route'] },
+    // XLP Pools
+    { id: 'list-v2-pools', name: 'List V2 Pools', description: 'Get all XLP V2 constant-product AMM pools', tags: ['pools', 'v2', 'query'], examples: ['Show V2 pools', 'List XLP pairs'] },
+    { id: 'list-v3-pools', name: 'List V3 Pools', description: 'Get all XLP V3 concentrated liquidity pools', tags: ['pools', 'v3', 'query'], examples: ['Show V3 pools', 'List concentrated liquidity'] },
+    { id: 'get-pool-reserves', name: 'Get Pool Reserves', description: 'Get reserves for a specific pool', tags: ['pools', 'reserves', 'query'], examples: ['ETH/USDC reserves', 'Pool reserves'] },
+    { id: 'get-swap-quote', name: 'Get Swap Quote', description: 'Get best swap quote across V2, V3, and Paymaster AMM', tags: ['pools', 'swap', 'quote'], examples: ['Quote 1 ETH to USDC', 'Best swap route'] },
+    { id: 'get-all-swap-quotes', name: 'Get All Swap Quotes', description: 'Get quotes from all liquidity sources', tags: ['pools', 'swap', 'quotes'], examples: ['Compare all swap routes'] },
+    { id: 'get-pool-stats', name: 'Get Pool Statistics', description: 'Get aggregated XLP pool statistics', tags: ['pools', 'stats', 'analytics'], examples: ['Pool TVL', 'XLP stats'] },
+    { id: 'list-pools-for-pair', name: 'List Pools for Pair', description: 'Get all pools (V2/V3/Paymaster) for a token pair', tags: ['pools', 'discovery'], examples: ['All ETH/USDC pools', 'Available liquidity for pair'] },
     // Moderation & Governance
     { id: 'check-ban-status', name: 'Check Ban Status', description: 'Check if an address is banned or on notice', tags: ['moderation', 'ban', 'query'], examples: ['Is 0x... banned?', 'Check my ban status'] },
     { id: 'get-moderator-profile', name: 'Get Moderator Profile', description: 'Get full moderator profile including reputation, P&L, and voting power', tags: ['moderation', 'reputation', 'query'], examples: ['My moderator stats', 'Show reputation for 0x...'] },
@@ -103,6 +118,12 @@ const MCP_RESOURCES = [
   { uri: 'oif://solvers', name: 'Active Solvers', description: 'All registered solvers with reputation', mimeType: 'application/json' },
   { uri: 'oif://intents/recent', name: 'Recent Intents', description: 'Last 100 intents across all chains', mimeType: 'application/json' },
   { uri: 'oif://stats', name: 'OIF Statistics', description: 'Global intent framework statistics', mimeType: 'application/json' },
+  // XLP Pools
+  { uri: 'xlp://pools/v2', name: 'V2 Pools', description: 'All XLP V2 constant-product AMM pools', mimeType: 'application/json' },
+  { uri: 'xlp://pools/v3', name: 'V3 Pools', description: 'All XLP V3 concentrated liquidity pools (not directly enumerable)', mimeType: 'application/json' },
+  { uri: 'xlp://pools/stats', name: 'Pool Statistics', description: 'Aggregated XLP pool statistics', mimeType: 'application/json' },
+  { uri: 'xlp://tokens', name: 'Supported Tokens', description: 'Tokens available for XLP swaps', mimeType: 'application/json' },
+  { uri: 'xlp://contracts', name: 'Contract Addresses', description: 'XLP contract deployment addresses', mimeType: 'application/json' },
   // Moderation & Governance
   { uri: 'moderation://cases', name: 'Moderation Cases', description: 'All active and recent moderation cases', mimeType: 'application/json' },
   { uri: 'moderation://cases/active', name: 'Active Cases', description: 'Cases currently open for voting', mimeType: 'application/json' },
@@ -120,6 +141,13 @@ const MCP_TOOLS = [
   { name: 'track_intent', description: 'Track the status of an intent', inputSchema: { type: 'object', properties: { intentId: { type: 'string' } }, required: ['intentId'] } },
   { name: 'list_routes', description: 'List all available cross-chain routes', inputSchema: { type: 'object', properties: { sourceChain: { type: 'number' }, destinationChain: { type: 'number' } } } },
   { name: 'list_solvers', description: 'List all active solvers', inputSchema: { type: 'object', properties: { chainId: { type: 'number' }, minReputation: { type: 'number' } } } },
+  // XLP Pool Tools
+  { name: 'list_v2_pools', description: 'List all XLP V2 pools', inputSchema: { type: 'object', properties: {} } },
+  { name: 'get_pool_reserves', description: 'Get reserves for a token pair across all pool types', inputSchema: { type: 'object', properties: { token0: { type: 'string', description: 'First token address' }, token1: { type: 'string', description: 'Second token address' } }, required: ['token0', 'token1'] } },
+  { name: 'get_swap_quote', description: 'Get best swap quote from all liquidity sources', inputSchema: { type: 'object', properties: { tokenIn: { type: 'string', description: 'Input token address' }, tokenOut: { type: 'string', description: 'Output token address' }, amountIn: { type: 'string', description: 'Amount to swap (in ether units)' } }, required: ['tokenIn', 'tokenOut', 'amountIn'] } },
+  { name: 'get_all_swap_quotes', description: 'Get quotes from all liquidity sources', inputSchema: { type: 'object', properties: { tokenIn: { type: 'string', description: 'Input token address' }, tokenOut: { type: 'string', description: 'Output token address' }, amountIn: { type: 'string', description: 'Amount to swap (in ether units)' } }, required: ['tokenIn', 'tokenOut', 'amountIn'] } },
+  { name: 'get_pool_stats', description: 'Get aggregated XLP pool statistics', inputSchema: { type: 'object', properties: {} } },
+  { name: 'list_pools_for_pair', description: 'List all pools for a token pair', inputSchema: { type: 'object', properties: { token0: { type: 'string' }, token1: { type: 'string' } }, required: ['token0', 'token1'] } },
   // Moderation Tools
   { name: 'check_ban_status', description: 'Check if an address is banned', inputSchema: { type: 'object', properties: { address: { type: 'string', description: 'Wallet address to check' } }, required: ['address'] } },
   { name: 'get_moderator_profile', description: 'Get moderator profile with reputation and P&L', inputSchema: { type: 'object', properties: { address: { type: 'string', description: 'Moderator address' } }, required: ['address'] } },
@@ -218,6 +246,53 @@ async function executeSkill(skillId: string, params: Record<string, unknown>, pa
       const volume = await routeService.getVolume({ sourceChain: params.sourceChain as number, destinationChain: params.destinationChain as number, period: (params.period as '24h' | '7d' | '30d' | 'all') || 'all' });
       return { message: `Route volume: $${volume.totalVolumeUsd}`, data: volume };
     }
+    // XLP Pool Skills
+    case 'list-v2-pools': {
+      const pools = await poolService.listV2Pools();
+      return { message: `Found ${pools.length} V2 pools`, data: { pools, count: pools.length } };
+    }
+    case 'list-v3-pools': {
+      // V3 pools can't be directly enumerated - need to query specific pairs
+      const stats = await poolService.getPoolStats();
+      return { message: `${stats.v3Pools} V3 pools available. Query specific token pairs for details.`, data: { v3PoolCount: stats.v3Pools, note: 'Use list-pools-for-pair with token addresses to query V3 pools' } };
+    }
+    case 'get-pool-reserves': {
+      const token0 = params.token0 as string;
+      const token1 = params.token1 as string;
+      if (!token0 || !token1) return { message: 'Token addresses required', data: { error: 'Missing token0 or token1 parameter' } };
+      const pools = await poolService.listPoolsForPair(token0 as Address, token1 as Address);
+      const totalReserve0 = pools.reduce((sum, p) => sum + Number(p.type === 'V2' ? (p as V2Pool).reserve0 : p.type === 'PAYMASTER' ? (p as PaymasterPool).reserve0 : '0'), 0);
+      const totalReserve1 = pools.reduce((sum, p) => sum + Number(p.type === 'V2' ? (p as V2Pool).reserve1 : p.type === 'PAYMASTER' ? (p as PaymasterPool).reserve1 : '0'), 0);
+      return { message: `Found ${pools.length} pools with reserves`, data: { pools, aggregatedReserves: { reserve0: totalReserve0.toString(), reserve1: totalReserve1.toString() } } };
+    }
+    case 'get-swap-quote': {
+      const tokenIn = params.tokenIn as string;
+      const tokenOut = params.tokenOut as string;
+      const amountIn = params.amountIn as string;
+      if (!tokenIn || !tokenOut || !amountIn) return { message: 'Missing parameters', data: { error: 'tokenIn, tokenOut, and amountIn required' } };
+      const quote = await poolService.getSwapQuote(tokenIn as Address, tokenOut as Address, amountIn);
+      if (!quote) return { message: 'No liquidity available for this swap', data: { error: 'No liquidity' } };
+      return { message: `Best quote: ${amountIn} → ${quote.amountOut} via ${quote.poolType} pool (${quote.priceImpactBps / 100}% impact)`, data: { quote } };
+    }
+    case 'get-all-swap-quotes': {
+      const tokenIn = params.tokenIn as string;
+      const tokenOut = params.tokenOut as string;
+      const amountIn = params.amountIn as string;
+      if (!tokenIn || !tokenOut || !amountIn) return { message: 'Missing parameters', data: { error: 'tokenIn, tokenOut, and amountIn required' } };
+      const quotes = await poolService.getAllSwapQuotes(tokenIn as Address, tokenOut as Address, amountIn);
+      return { message: `Found ${quotes.length} quotes`, data: { quotes, bestQuote: quotes[0] } };
+    }
+    case 'get-pool-stats': {
+      const stats = await poolService.getPoolStats();
+      return { message: `XLP: ${stats.totalPools} pools, $${stats.totalLiquidityUsd} TVL`, data: stats as unknown as Record<string, unknown> };
+    }
+    case 'list-pools-for-pair': {
+      const token0 = params.token0 as string;
+      const token1 = params.token1 as string;
+      if (!token0 || !token1) return { message: 'Token addresses required', data: { error: 'Missing token0 or token1 parameter' } };
+      const pools = await poolService.listPoolsForPair(token0 as Address, token1 as Address);
+      return { message: `Found ${pools.length} pools for pair`, data: { pools, v2Count: pools.filter(p => p.type === 'V2').length, v3Count: pools.filter(p => p.type === 'V3').length, paymasterAvailable: pools.some(p => p.type === 'PAYMASTER') } };
+    }
     case 'check-ban-status': {
       const address = params.address as string;
       if (!address) return { message: 'Address required', data: { error: 'Missing address parameter' } };
@@ -314,47 +389,59 @@ async function executeSkill(skillId: string, params: Record<string, unknown>, pa
       const info = faucetService.getFaucetInfo();
       return { message: `${info.name}: Claim ${info.amountPerClaim} ${info.tokenSymbol} every ${info.cooldownHours}h`, data: info as unknown as Record<string, unknown> };
     }
-    // RPC Gateway Skills
+    // RPC Gateway Skills (using local imports)
     case 'rpc-list-chains': {
-      const chainsRes = await fetch(`${SERVICES.rpcGateway}/v1/chains`);
-      if (!chainsRes.ok) return { message: 'Failed to fetch chains', data: { error: 'RPC Gateway unavailable' } };
-      const chainsData = await chainsRes.json() as { chains: Array<{ chainId: number; name: string; shortName: string; isTestnet: boolean }> };
-      return { message: `${chainsData.chains.length} chains supported`, data: { chains: chainsData.chains } };
+      const chains = Object.values(RPC_CHAINS).map(c => ({
+        chainId: c.chainId,
+        name: c.name,
+        shortName: c.shortName,
+        isTestnet: c.isTestnet,
+        rpcEndpoint: `/v1/rpc/${c.chainId}`,
+      }));
+      return { message: `${chains.length} chains supported`, data: { chains } };
     }
     case 'rpc-get-limits': {
       const address = params.address as string;
-      if (!address) return { message: 'Address required', data: { error: 'Missing address parameter' } };
-      const usageRes = await fetch(`${SERVICES.rpcGateway}/v1/usage`, { headers: { 'X-Wallet-Address': address } });
-      if (!usageRes.ok) return { message: 'Failed to fetch limits', data: { error: 'RPC Gateway unavailable' } };
-      const usageData = await usageRes.json() as { currentTier: string; rateLimit: number; remaining: number };
-      return { message: `Tier: ${usageData.currentTier}, Limit: ${usageData.rateLimit}/min`, data: usageData as unknown as Record<string, unknown> };
+      if (!address || !isAddress(address)) return { message: 'Valid address required', data: { error: 'Missing or invalid address parameter' } };
+      const keys = getApiKeysForAddress(address as Address);
+      const activeKeys = keys.filter(k => k.isActive);
+      return {
+        message: `Tier: FREE, Limit: ${RATE_LIMITS.FREE}/min`,
+        data: { currentTier: 'FREE', rateLimit: RATE_LIMITS.FREE, apiKeys: activeKeys.length, tiers: RATE_LIMITS },
+      };
     }
     case 'rpc-get-usage': {
       const address = params.address as string;
-      if (!address) return { message: 'Address required', data: { error: 'Missing address parameter' } };
-      const usageRes = await fetch(`${SERVICES.rpcGateway}/v1/usage`, { headers: { 'X-Wallet-Address': address } });
-      if (!usageRes.ok) return { message: 'Failed to fetch usage', data: { error: 'RPC Gateway unavailable' } };
-      const usageData = await usageRes.json() as { totalRequests: number; apiKeys: number };
-      return { message: `${usageData.totalRequests} total requests, ${usageData.apiKeys} API keys`, data: usageData as unknown as Record<string, unknown> };
+      if (!address || !isAddress(address)) return { message: 'Valid address required', data: { error: 'Missing or invalid address parameter' } };
+      const keys = getApiKeysForAddress(address as Address);
+      const totalRequests = keys.reduce((sum, k) => sum + k.requestCount, 0);
+      return { message: `${totalRequests} total requests, ${keys.length} API keys`, data: { totalRequests, apiKeys: keys.length } };
     }
     case 'rpc-create-key': {
       const address = params.address as string;
       const name = (params.name as string) || 'A2A Generated';
-      if (!address) return { message: 'Address required', data: { error: 'Missing address parameter' } };
-      const keyRes = await fetch(`${SERVICES.rpcGateway}/v1/keys`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Wallet-Address': address },
-        body: JSON.stringify({ name }),
-      });
-      if (!keyRes.ok) return { message: 'Failed to create key', data: { error: 'Key creation failed' } };
-      const keyData = await keyRes.json() as { key: string; id: string; tier: string };
-      return { message: `API key created: ${keyData.key.slice(0, 15)}...`, data: { key: keyData.key, id: keyData.id, tier: keyData.tier, warning: 'Store this key securely - it will not be shown again' } };
+      if (!address || !isAddress(address)) return { message: 'Valid address required', data: { error: 'Missing or invalid address parameter' } };
+      const existingKeys = getApiKeysForAddress(address as Address);
+      if (existingKeys.filter(k => k.isActive).length >= 10) {
+        return { message: 'Maximum API keys reached (10)', data: { error: 'Maximum API keys reached' } };
+      }
+      const { key, record } = createApiKey(address as Address, name);
+      return { message: `API key created: ${key.slice(0, 15)}...`, data: { key, id: record.id, tier: record.tier, warning: 'Store this key securely - it will not be shown again' } };
     }
     case 'rpc-staking-info': {
-      const stakeRes = await fetch(`${SERVICES.rpcGateway}/v1/stake`);
-      if (!stakeRes.ok) return { message: 'Failed to fetch staking info', data: { error: 'RPC Gateway unavailable' } };
-      const stakeData = await stakeRes.json() as { tiers: Record<string, { minStake: string; rateLimit: number | string }> };
-      return { message: 'RPC rate limits based on staked JEJU. Higher stake = higher limits. 7-day unbonding period.', data: stakeData as unknown as Record<string, unknown> };
+      return {
+        message: 'RPC rate limits based on staked JEJU. Higher stake = higher limits. 7-day unbonding period.',
+        data: {
+          contract: process.env.RPC_STAKING_ADDRESS || 'Not deployed',
+          tiers: {
+            FREE: { minUsd: 0, rateLimit: 10, description: '10 requests/minute' },
+            BASIC: { minUsd: 10, rateLimit: 100, description: '100 requests/minute' },
+            PRO: { minUsd: 100, rateLimit: 1000, description: '1,000 requests/minute' },
+            UNLIMITED: { minUsd: 1000, rateLimit: 'unlimited', description: 'Unlimited requests' },
+          },
+          unbondingPeriod: '7 days',
+        },
+      };
     }
     default:
       return { message: 'Unknown skill', data: { error: 'Skill not found', availableSkills: GATEWAY_AGENT_CARD.skills.map(s => s.id) } };
@@ -437,6 +524,12 @@ app.post('/mcp/resources/read', agentRateLimit(), async (req: Request, res: Resp
     case 'oif://solvers': contents = await solverService.listSolvers(); break;
     case 'oif://intents/recent': contents = await intentService.listIntents({ limit: 100 }); break;
     case 'oif://stats': contents = await intentService.getStats(); break;
+    // XLP Pools
+    case 'xlp://pools/v2': contents = await poolService.listV2Pools(); break;
+    case 'xlp://pools/v3': contents = { note: 'V3 pools require specific token pair query', stats: await poolService.getPoolStats() }; break;
+    case 'xlp://pools/stats': contents = await poolService.getPoolStats(); break;
+    case 'xlp://tokens': contents = poolService.getTokens(); break;
+    case 'xlp://contracts': contents = poolService.getContracts(); break;
     // Moderation
     case 'moderation://cases': contents = await getModerationCases({ limit: 100 }); break;
     case 'moderation://cases/active': contents = await getModerationCases({ activeOnly: true, limit: 50 }); break;
@@ -469,6 +562,25 @@ app.post('/mcp/tools/call', agentRateLimit(), async (req: Request, res: Response
     case 'track_intent': result = await intentService.getIntent(args.intentId); break;
     case 'list_routes': result = await routeService.listRoutes(args); break;
     case 'list_solvers': result = await solverService.listSolvers(args); break;
+    // XLP Pool Tools
+    case 'list_v2_pools': result = await poolService.listV2Pools(); break;
+    case 'get_pool_reserves':
+      if (!args.token0 || !args.token1) { result = { error: 'token0 and token1 required' }; isError = true; }
+      else result = await poolService.listPoolsForPair(args.token0, args.token1);
+      break;
+    case 'get_swap_quote':
+      if (!args.tokenIn || !args.tokenOut || !args.amountIn) { result = { error: 'tokenIn, tokenOut, and amountIn required' }; isError = true; }
+      else result = await poolService.getSwapQuote(args.tokenIn, args.tokenOut, args.amountIn);
+      break;
+    case 'get_all_swap_quotes':
+      if (!args.tokenIn || !args.tokenOut || !args.amountIn) { result = { error: 'tokenIn, tokenOut, and amountIn required' }; isError = true; }
+      else result = await poolService.getAllSwapQuotes(args.tokenIn, args.tokenOut, args.amountIn);
+      break;
+    case 'get_pool_stats': result = await poolService.getPoolStats(); break;
+    case 'list_pools_for_pair':
+      if (!args.token0 || !args.token1) { result = { error: 'token0 and token1 required' }; isError = true; }
+      else result = await poolService.listPoolsForPair(args.token0, args.token1);
+      break;
     // Moderation Tools
     case 'check_ban_status': 
       if (!args.address) { result = { error: 'Address required' }; isError = true; }
@@ -643,6 +755,98 @@ app.get('/api/config/tokens', (req: Request, res: Response) => {
   }
 });
 
+// XLP Pool REST API
+app.get('/api/pools', async (req: Request, res: Response) => {
+  const { type, token0, token1 } = req.query;
+  if (token0 && token1) {
+    if (!isAddress(token0 as string)) {
+      return res.status(400).json({ error: 'Invalid token0 address' });
+    }
+    if (!isAddress(token1 as string)) {
+      return res.status(400).json({ error: 'Invalid token1 address' });
+    }
+    const pools = await poolService.listPoolsForPair(token0 as Address, token1 as Address);
+    return res.json({ pools, count: pools.length });
+  }
+  if (type === 'v2') {
+    const pools = await poolService.listV2Pools();
+    return res.json({ pools, count: pools.length });
+  }
+  const stats = await poolService.getPoolStats();
+  res.json(stats);
+});
+
+app.get('/api/pools/v2', async (_req: Request, res: Response) => {
+  const pools = await poolService.listV2Pools();
+  res.json({ pools, count: pools.length });
+});
+
+app.get('/api/pools/stats', async (_req: Request, res: Response) => {
+  const stats = await poolService.getPoolStats();
+  res.json(stats);
+});
+
+app.get('/api/pools/tokens', (_req: Request, res: Response) => {
+  res.json(poolService.getTokens());
+});
+
+app.get('/api/pools/contracts', (_req: Request, res: Response) => {
+  res.json(poolService.getContracts());
+});
+
+app.post('/api/pools/quote', async (req: Request, res: Response) => {
+  const { tokenIn, tokenOut, amountIn } = req.body;
+  if (!tokenIn || !tokenOut || !amountIn) {
+    return res.status(400).json({ error: 'tokenIn, tokenOut, and amountIn required' });
+  }
+  if (!isAddress(tokenIn)) {
+    return res.status(400).json({ error: 'Invalid tokenIn address' });
+  }
+  if (!isAddress(tokenOut)) {
+    return res.status(400).json({ error: 'Invalid tokenOut address' });
+  }
+  const amountNum = Number(amountIn);
+  if (isNaN(amountNum) || amountNum <= 0) {
+    return res.status(400).json({ error: 'Invalid amountIn: must be a positive number' });
+  }
+  const quote = await poolService.getSwapQuote(tokenIn, tokenOut, amountIn);
+  if (!quote) {
+    return res.status(404).json({ error: 'No liquidity available for this swap' });
+  }
+  res.json(quote);
+});
+
+app.post('/api/pools/quotes', async (req: Request, res: Response) => {
+  const { tokenIn, tokenOut, amountIn } = req.body;
+  if (!tokenIn || !tokenOut || !amountIn) {
+    return res.status(400).json({ error: 'tokenIn, tokenOut, and amountIn required' });
+  }
+  if (!isAddress(tokenIn)) {
+    return res.status(400).json({ error: 'Invalid tokenIn address' });
+  }
+  if (!isAddress(tokenOut)) {
+    return res.status(400).json({ error: 'Invalid tokenOut address' });
+  }
+  const amountNum = Number(amountIn);
+  if (isNaN(amountNum) || amountNum <= 0) {
+    return res.status(400).json({ error: 'Invalid amountIn: must be a positive number' });
+  }
+  const quotes = await poolService.getAllSwapQuotes(tokenIn, tokenOut, amountIn);
+  res.json({ quotes, bestQuote: quotes[0] || null, count: quotes.length });
+});
+
+app.get('/api/pools/pair/:token0/:token1', async (req: Request, res: Response) => {
+  const { token0, token1 } = req.params;
+  if (!isAddress(token0)) {
+    return res.status(400).json({ error: 'Invalid token0 address' });
+  }
+  if (!isAddress(token1)) {
+    return res.status(400).json({ error: 'Invalid token1 address' });
+  }
+  const pools = await poolService.listPoolsForPair(token0 as Address, token1 as Address);
+  res.json({ pools, count: pools.length });
+});
+
 // Faucet REST API (testnet only)
 app.get('/api/faucet/info', (_req: Request, res: Response) => {
   if (!IS_TESTNET) return res.status(403).json({ error: 'Faucet is only available on testnet' });
@@ -673,7 +877,14 @@ app.post('/api/faucet/claim', strictRateLimit(), async (req: Request, res: Respo
 });
 
 app.get('/health', (_req: Request, res: Response) => {
-  res.json({ status: 'ok', service: 'gateway-a2a', version: '1.0.0', wsClients: getWebSocketServer(Number(WS_PORT)).getClientCount() });
+  const poolHealth = poolService.getHealthStatus();
+  res.json({ 
+    status: poolHealth.configured ? 'ok' : 'degraded',
+    service: 'gateway-a2a', 
+    version: '1.0.0', 
+    wsClients: getWebSocketServer(Number(WS_PORT)).getClientCount(),
+    poolService: poolHealth,
+  });
 });
 
 getWebSocketServer(Number(WS_PORT));

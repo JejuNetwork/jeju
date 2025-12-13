@@ -24,13 +24,14 @@ config:
   l1ChainId: 11155111
   l2ChainId: 420690
   l1:
-    # Internal L1 full node - no external API dependencies
-    rpcUrl: "http://geth-l1.l1.svc.cluster.local:8545"
+    # Internal L1 full node - Reth + Prysm (Pectra/Fulu compatible)
+    rpcUrl: "http://reth-l1.l1.svc.cluster.local:8545"
     rpcKind: "standard"
     trustrpc: true
+    rpcMaxBatchSize: 20
     beacon:
-      # Internal Lighthouse beacon node
-      url: "http://lighthouse.l1.svc.cluster.local:5052"
+      # Internal Prysm beacon node
+      url: "http://prysm.l1.svc.cluster.local:3500"
   l2:
     engineRpc: "http://reth-sequencer.execution.svc.cluster.local:8551"
     engineJwtSecret: "/secrets/jwt-secret.txt"

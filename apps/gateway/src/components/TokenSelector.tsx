@@ -80,7 +80,7 @@ export default function TokenSelector({
               <div style={{ fontWeight: '600' }}>{selected.symbol}</div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                 {selected.name}
-                {showBalances && balances[selected.symbol] && (
+                {Boolean(showBalances && balances[selected.symbol]) && (
                   <span style={{ marginLeft: '0.5rem' }}>
                     • {formatTokenAmount(balances[selected.symbol], selected.decimals, 2)}
                   </span>
@@ -163,7 +163,7 @@ export default function TokenSelector({
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div style={{ fontWeight: '600' }}>{token.symbol}</div>
-                      {showBalances && balance && (
+                      {Boolean(showBalances && balance) && (
                         <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
                           {formatTokenAmount(balance, token.decimals, 2)}
                         </div>

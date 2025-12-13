@@ -1,0 +1,16 @@
+apiVersion: v2
+name: discord-gateway
+description: Multi-tenant Discord gateway service for maintaining persistent WebSocket connections to Discord
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - discord
+  - gateway
+  - websocket
+  - multi-tenant
+  - eliza
+maintainers:
+  - name: Eliza Cloud Team
+    email: cloud@eliza.ai
+

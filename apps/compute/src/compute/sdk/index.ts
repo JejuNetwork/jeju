@@ -35,6 +35,19 @@
  *
  * ## Moderation
  * - ModerationSDK: Community moderation and staking
+ *
+ * ## Triggers (Permissionless Cron/Webhooks)
+ * - TriggerIntegration: Bridge between cloud and compute triggers
+ *   - Cron triggers (up to 1/minute)
+ *   - Webhook triggers with x402 payment
+ *   - Event-based triggers
+ * - Proof of Trigger: Cryptographic proof of execution
+ *   - Executor signs proof after execution
+ *   - Subscriber can acknowledge with signature
+ *   - Verifiable on-chain or off-chain
+ * - Subscriptions: Apps subscribe to receive trigger callbacks
+ *   - Prepaid balance or x402 payment
+ *   - Execution limits and rate limiting
  */
 
 export * from './moderation';
@@ -49,13 +62,14 @@ export * from './inference-registry';
 export * from './cloud-provider';
 export * from './cloud-integration';
 
-// Re-export marketplace with explicit names to avoid conflicts
 export {
   ComputeMarketplace,
-  createComputeMarketplace,
   type MarketplaceConfig,
   type InferenceRequest as MarketplaceInferenceRequest,
   type InferenceInput,
   type InferenceOptions as MarketplaceInferenceOptions,
   type InferenceResult as MarketplaceInferenceResult,
 } from './marketplace';
+
+// Trigger Integration
+export * from './trigger-integration';

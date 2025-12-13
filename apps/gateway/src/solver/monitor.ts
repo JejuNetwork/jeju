@@ -1,5 +1,6 @@
-import { type PublicClient, parseAbiItem } from 'viem';
+import { type PublicClient } from 'viem';
 import { EventEmitter } from 'events';
+import { INPUT_SETTLERS, bytes32ToAddress } from './contracts';
 
 export interface IntentEvent {
   orderId: string;
@@ -14,65 +15,110 @@ export interface IntentEvent {
   deadline: number;
   blockNumber: bigint;
   transactionHash: string;
-  orderType?: string;
-  originData?: string;
 }
 
-interface MonitorConfig {
-  chains: Array<{ chainId: number; name: string; rpcUrl: string }>;
-  intentCheckIntervalMs: number;
+const OPEN_EVENT = {
+  type: 'event',
+  name: 'Open',
+  inputs: [
+    { name: 'orderId', type: 'bytes32', indexed: true },
+    {
+      name: 'order',
+      type: 'tuple',
+      components: [
+        { name: 'user', type: 'address' },
+        { name: 'originChainId', type: 'uint256' },
+        { name: 'openDeadline', type: 'uint32' },
+        { name: 'fillDeadline', type: 'uint32' },
+        { name: 'orderId', type: 'bytes32' },
+        {
+          name: 'maxSpent',
+          type: 'tuple[]',
+          components: [
+            { name: 'token', type: 'bytes32' },
+            { name: 'amount', type: 'uint256' },
+            { name: 'recipient', type: 'bytes32' },
+            { name: 'chainId', type: 'uint256' },
+          ],
+        },
+        {
+          name: 'minReceived',
+          type: 'tuple[]',
+          components: [
+            { name: 'token', type: 'bytes32' },
+            { name: 'amount', type: 'uint256' },
+            { name: 'recipient', type: 'bytes32' },
+            { name: 'chainId', type: 'uint256' },
+          ],
+        },
+        {
+          name: 'fillInstructions',
+          type: 'tuple[]',
+          components: [
+            { name: 'destinationChainId', type: 'uint64' },
+            { name: 'destinationSettler', type: 'bytes32' },
+            { name: 'originData', type: 'bytes' },
+          ],
+        },
+      ],
+    },
+  ],
+} as const;
+
+interface EventArgs {
+  orderId?: `0x${string}`;
+  order?: {
+    user?: `0x${string}`;
+    maxSpent?: Array<{ token: `0x${string}`; amount: bigint; recipient: `0x${string}`; chainId: bigint }>;
+    minReceived?: Array<{ token: `0x${string}`; amount: bigint; recipient: `0x${string}`; chainId: bigint }>;
+    fillDeadline?: number;
+  };
 }
-
-const OPEN_EVENT = parseAbiItem(
-  'event Open(bytes32 indexed orderId, (address user, uint256 originChainId, uint32 openDeadline, uint32 fillDeadline, bytes32 orderId, (bytes32 token, uint256 amount, bytes32 recipient, uint256 chainId)[] maxSpent, (bytes32 token, uint256 amount, bytes32 recipient, uint256 chainId)[] minReceived, (uint64 destinationChainId, bytes32 destinationSettler, bytes originData)[] fillInstructions) order)'
-);
-
-const SETTLER_ADDRESSES: Record<number, `0x${string}`> = {
-  1: '0x1111111111111111111111111111111111111111',
-  42161: '0x2222222222222222222222222222222222222222',
-  10: '0x3333333333333333333333333333333333333333',
-  420691: '0x4444444444444444444444444444444444444444',
-  11155111: '0x5555555555555555555555555555555555555555',
-};
 
 export class EventMonitor extends EventEmitter {
-  private config: MonitorConfig;
-  private clients: Map<number, { public: PublicClient }> = new Map();
-  private running = false;
+  private chains: Array<{ chainId: number; name: string }>;
   private unwatchers: Array<() => void> = [];
+  private running = false;
 
-  constructor(config: MonitorConfig) {
+  constructor(config: { chains: Array<{ chainId: number; name: string }> }) {
     super();
-    this.config = config;
+    this.chains = config.chains;
   }
 
   async start(clients: Map<number, { public: PublicClient }>): Promise<void> {
-    this.clients = clients;
     this.running = true;
-
     console.log('👁️ Starting event monitor...');
 
-    for (const chain of this.config.chains) {
+    for (const chain of this.chains) {
       const client = clients.get(chain.chainId);
-      const settlerAddress = SETTLER_ADDRESSES[chain.chainId];
-      if (!client || !settlerAddress) continue;
+      const settler = INPUT_SETTLERS[chain.chainId];
+      if (!client) continue;
+      if (!settler) {
+        console.warn(`   ⚠️ No settler for ${chain.name}, skipping`);
+        continue;
+      }
 
       const unwatch = client.public.watchContractEvent({
-        address: settlerAddress,
+        address: settler,
         abi: [OPEN_EVENT],
         eventName: 'Open',
-        onLogs: (logs) => logs.forEach(log => this.processOpenEvent(chain.chainId, log)),
-        onError: (error) => console.error(`Event watch error on ${chain.name}:`, error.message),
+        onLogs: (logs) => {
+          for (const log of logs) {
+            const event = this.parseEvent(chain.chainId, log);
+            if (event) this.emit('intent', event);
+          }
+        },
+        onError: (err) => console.error(`Event error on ${chain.name}:`, err.message),
       });
 
       this.unwatchers.push(unwatch);
-      console.log(`   ✓ Watching ${chain.name} InputSettler`);
+      console.log(`   ✓ Watching ${chain.name}`);
     }
   }
 
   async stop(): Promise<void> {
     this.running = false;
-    this.unwatchers.forEach(unwatch => unwatch());
+    this.unwatchers.forEach(fn => fn());
     this.unwatchers = [];
   }
 
@@ -80,42 +126,44 @@ export class EventMonitor extends EventEmitter {
     return this.running;
   }
 
-  getClients(): Map<number, { public: PublicClient }> {
-    return this.clients;
-  }
+  private parseEvent(
+    chainId: number,
+    log: { args: Record<string, unknown>; blockNumber: bigint; transactionHash: `0x${string}` }
+  ): IntentEvent | null {
+    const args = log.args as EventArgs;
 
-  private processOpenEvent(chainId: number, log: { args: Record<string, unknown>; blockNumber: bigint; transactionHash: `0x${string}` }): void {
-    const args = log.args as {
-      orderId: `0x${string}`;
-      order: {
-        user: `0x${string}`;
-        originChainId: bigint;
-        openDeadline: number;
-        fillDeadline: number;
-        orderId: `0x${string}`;
-        maxSpent: Array<{ token: `0x${string}`; amount: bigint; recipient: `0x${string}`; chainId: bigint }>;
-        minReceived: Array<{ token: `0x${string}`; amount: bigint; recipient: `0x${string}`; chainId: bigint }>;
-        fillInstructions: Array<{ destinationChainId: bigint; destinationSettler: `0x${string}`; originData: `0x${string}` }>;
-      };
-    };
+    // Validate required struct
+    if (!args.orderId || !args.order?.maxSpent?.[0] || !args.order?.minReceived?.[0]) {
+      console.warn('⚠️ Malformed event, skipping');
+      return null;
+    }
 
-    const order = args.order;
-    const maxSpent = order.maxSpent[0];
-    const minReceived = order.minReceived[0];
+    const spent = args.order.maxSpent[0];
+    const received = args.order.minReceived[0];
 
-    this.emit('intent', {
+    // Validate amounts and addresses
+    if (!spent.amount || spent.amount <= 0n || !received.amount || received.amount <= 0n) {
+      console.warn('⚠️ Invalid amounts, skipping');
+      return null;
+    }
+    if (!spent.token || !received.token || !received.recipient) {
+      console.warn('⚠️ Invalid addresses, skipping');
+      return null;
+    }
+
+    return {
       orderId: args.orderId,
-      user: order.user,
+      user: args.order.user || '0x',
       sourceChain: chainId,
-      destinationChain: Number(minReceived?.chainId || 0),
-      inputToken: maxSpent?.token.slice(0, 42) || '0x',
-      inputAmount: maxSpent?.amount.toString() || '0',
-      outputToken: minReceived?.token.slice(0, 42) || '0x',
-      outputAmount: minReceived?.amount.toString() || '0',
-      recipient: minReceived?.recipient.slice(0, 42) || '0x',
-      deadline: order.fillDeadline,
+      destinationChain: Number(received.chainId || 0),
+      inputToken: bytes32ToAddress(spent.token),
+      inputAmount: spent.amount.toString(),
+      outputToken: bytes32ToAddress(received.token),
+      outputAmount: received.amount.toString(),
+      recipient: bytes32ToAddress(received.recipient),
+      deadline: args.order.fillDeadline || 0,
       blockNumber: log.blockNumber,
       transactionHash: log.transactionHash,
-    } as IntentEvent);
+    };
   }
 }

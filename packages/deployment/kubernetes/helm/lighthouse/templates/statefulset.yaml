@@ -55,6 +55,9 @@ spec:
             - --port={{ .Values.config.p2p.port }}
             - --discovery-port={{ .Values.config.p2p.discoveryPort }}
             - --target-peers={{ .Values.config.p2p.targetPeers }}
+            {{- if .Values.config.p2p.bootnodes }}
+            - --boot-nodes={{ join "," .Values.config.p2p.bootnodes }}
+            {{- end }}
             # Fusaka/PeerDAS settings
             - --blob-prune-margin-epochs={{ .Values.config.fusaka.blobPruneDistance }}
           ports:

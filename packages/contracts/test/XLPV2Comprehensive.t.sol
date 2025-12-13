@@ -397,7 +397,7 @@ contract FlashBorrower is IXLPV2Callee {
         XLPV2Pair(pair).swap(0, borrowAmount, address(this), data);
     }
 
-    function xlpV2Call(address, uint256, uint256 amount1, bytes calldata data) external override {
+    function xlpV2Call(address, uint256, uint256, bytes calldata data) external override {
         require(msg.sender == pair, "Unauthorized");
 
         uint256 repayAmount = abi.decode(data, (uint256));

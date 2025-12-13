@@ -1,0 +1,29 @@
+{{- if .Values.monitoring.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ .Release.Name }}-x402-facilitator
+  labels:
+    app: x402-facilitator
+    release: {{ .Release.Name }}
+spec:
+  groups:
+    - name: x402-facilitator
+      rules:
+        - alert: FacilitatorDown
+          expr: up{job="{{ .Release.Name }}-x402-facilitator"} == 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "x402 Facilitator is down"
+            description: "x402 Facilitator has been down for more than 1 minute."
+        - alert: FacilitatorHighErrorRate
+          expr: rate(http_requests_total{job="{{ .Release.Name }}-x402-facilitator",status=~"5.."}[5m]) > 0.1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High error rate on x402 Facilitator"
+            description: "x402 Facilitator has greater than 10% error rate over the last 5 minutes."
+{{- end }}

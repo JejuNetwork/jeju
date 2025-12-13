@@ -37,8 +37,12 @@ import {
 // In production, this should be in a secure key management system
 const ORACLE_PRIVATE_KEY = process.env.ATTESTATION_ORACLE_PRIVATE_KEY as Hex | undefined;
 
-// Contract address for domain binding
-const GITHUB_REPUTATION_PROVIDER_ADDRESS = process.env.GITHUB_REPUTATION_PROVIDER_ADDRESS || "0x0000000000000000000000000000000000000000";
+// Contract address for domain binding - MUST be set for on-chain attestations
+const GITHUB_REPUTATION_PROVIDER_ADDRESS = process.env.GITHUB_REPUTATION_PROVIDER_ADDRESS;
+
+// Check if on-chain attestations are enabled
+const IS_ONCHAIN_ENABLED = GITHUB_REPUTATION_PROVIDER_ADDRESS && 
+  GITHUB_REPUTATION_PROVIDER_ADDRESS !== "0x0000000000000000000000000000000000000000";
 
 // Chain ID for the target chain
 const TARGET_CHAIN_ID = parseInt(process.env.TARGET_CHAIN_ID || "8453"); // Base mainnet
@@ -186,6 +190,7 @@ export async function GET(request: NextRequest) {
           }
         : null,
       oracleConfigured: !!ORACLE_PRIVATE_KEY,
+      onChainEnabled: IS_ONCHAIN_ENABLED,
     },
     { headers: corsHeaders }
   );
@@ -267,34 +272,38 @@ export async function POST(request: NextRequest) {
   const reputationData = await calculateUserReputation(username);
   const timestamp = Math.floor(Date.now() / 1000); // Unix timestamp in seconds
 
-  // Create attestation hash matching contract format exactly:
-  // keccak256(abi.encodePacked(wallet, agentId, score, totalScore, mergedPrs, totalCommits, timestamp, chainid, address(this)))
-  const attestationHash = keccak256(
-    encodePacked(
-      ["address", "uint256", "uint8", "uint256", "uint256", "uint256", "uint256", "uint256", "address"],
-      [
-        walletAddress.toLowerCase() as `0x${string}`,
-        BigInt(agentId || 0),
-        reputationData.normalizedScore,
-        BigInt(Math.floor(reputationData.totalScore)),
-        BigInt(reputationData.mergedPrCount),
-        BigInt(reputationData.totalCommits),
-        BigInt(timestamp),
-        BigInt(TARGET_CHAIN_ID),
-        GITHUB_REPUTATION_PROVIDER_ADDRESS as `0x${string}`,
-      ]
-    )
-  );
-
-  // Sign the attestation if oracle is configured
+  // Create attestation hash only if on-chain is properly configured
+  let attestationHash: `0x${string}` | null = null;
   let oracleSignature: string | null = null;
 
-  if (ORACLE_PRIVATE_KEY) {
-    const account = privateKeyToAccount(ORACLE_PRIVATE_KEY);
-    // Sign the EIP-191 prefixed message
-    oracleSignature = await account.signMessage({
-      message: { raw: attestationHash },
-    });
+  if (IS_ONCHAIN_ENABLED && GITHUB_REPUTATION_PROVIDER_ADDRESS) {
+    // Create attestation hash matching contract format exactly:
+    // keccak256(abi.encodePacked(wallet, agentId, score, totalScore, mergedPrs, totalCommits, timestamp, chainid, address(this)))
+    attestationHash = keccak256(
+      encodePacked(
+        ["address", "uint256", "uint8", "uint256", "uint256", "uint256", "uint256", "uint256", "address"],
+        [
+          walletAddress.toLowerCase() as `0x${string}`,
+          BigInt(agentId || 0),
+          reputationData.normalizedScore,
+          BigInt(Math.floor(reputationData.totalScore)),
+          BigInt(reputationData.mergedPrCount),
+          BigInt(reputationData.totalCommits),
+          BigInt(timestamp),
+          BigInt(TARGET_CHAIN_ID),
+          GITHUB_REPUTATION_PROVIDER_ADDRESS as `0x${string}`,
+        ]
+      )
+    );
+
+    // Sign the attestation if oracle is configured
+    if (ORACLE_PRIVATE_KEY) {
+      const account = privateKeyToAccount(ORACLE_PRIVATE_KEY);
+      // Sign the EIP-191 prefixed message
+      oracleSignature = await account.signMessage({
+        message: { raw: attestationHash },
+      });
+    }
   }
 
   // Store attestation
@@ -340,17 +349,28 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  // Build response message based on configuration
+  let message: string;
+  if (!IS_ONCHAIN_ENABLED) {
+    message = `Reputation recorded for ${username}. Score: ${reputationData.normalizedScore}/100. On-chain attestation not available (contract not configured).`;
+  } else if (!oracleSignature) {
+    message = `Attestation created but not signed (oracle not configured). Score: ${reputationData.normalizedScore}/100`;
+  } else {
+    message = `Signed attestation created for ${username}. Score: ${reputationData.normalizedScore}/100`;
+  }
+
   return NextResponse.json(
     {
       success: true,
+      onChainEnabled: IS_ONCHAIN_ENABLED,
       attestation: {
         hash: attestationHash,
         signature: oracleSignature,
         normalizedScore: reputationData.normalizedScore,
         timestamp,
         agentId: agentId || 0,
-        // Data needed for on-chain submission
-        onChainParams: {
+        // Data needed for on-chain submission (only valid if onChainEnabled)
+        onChainParams: IS_ONCHAIN_ENABLED ? {
           agentId: agentId || 0,
           score: reputationData.normalizedScore,
           totalScore: Math.floor(reputationData.totalScore),
@@ -358,11 +378,9 @@ export async function POST(request: NextRequest) {
           totalCommits: reputationData.totalCommits,
           timestamp,
           signature: oracleSignature,
-        },
+        } : null,
       },
-      message: oracleSignature
-        ? `Signed attestation created for ${username}. Score: ${reputationData.normalizedScore}/100`
-        : `Attestation created but not signed (oracle not configured). Score: ${reputationData.normalizedScore}/100`,
+      message,
     },
     { headers: corsHeaders }
   );

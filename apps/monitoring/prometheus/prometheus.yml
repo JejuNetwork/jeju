@@ -72,6 +72,22 @@ scrape_configs:
           component: 'data-availability'
     scheme: https
 
+  # Crucible Agent Orchestration
+  - job_name: 'crucible-api'
+    static_configs:
+      - targets: ['host.docker.internal:4020']
+        labels:
+          component: 'crucible'
+    metrics_path: '/metrics'
+
+  # Jeju Oracle Network
+  - job_name: 'oracle-network'
+    static_configs:
+      - targets: ['host.docker.internal:7400']
+        labels:
+          component: 'oracle'
+    metrics_path: '/metrics'
+
   # Prometheus self-monitoring
   - job_name: 'prometheus'
     static_configs:

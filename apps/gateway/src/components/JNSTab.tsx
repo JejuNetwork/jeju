@@ -5,6 +5,7 @@ import { Tag, Search, ExternalLink, Settings, RefreshCw, CheckCircle, AlertCircl
 import { useJNSLookup, useJNSRegister, useJNSResolver, useJNSReverse, type JNSRegistration, type JNSPriceQuote, type JNSAppInfo } from '../hooks/useJNS';
 import { MODERATION_CONTRACTS } from '../config/moderation';
 import { NETWORK } from '../config';
+import { ZERO_BYTES32 } from '../lib/contracts';
 
 function NameSearchCard() {
   const { address } = useAccount();
@@ -190,7 +191,7 @@ function NameSearchCard() {
                   )}
                 </span>
               </div>
-              {searchResult.appInfo && searchResult.appInfo.agentId > 0n && (
+              {searchResult.appInfo && Boolean(searchResult.appInfo.agentId > 0n) && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                   <span style={{ color: 'var(--text-secondary)' }}>Linked Agent:</span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
@@ -407,7 +408,7 @@ function NameManagerCard() {
       await setAppConfig(
         selectedName,
         resolverData.appContract,
-        '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`,
+        ZERO_BYTES32,
         resolverData.agentId,
         resolverData.endpoint,
         resolverData.a2aEndpoint

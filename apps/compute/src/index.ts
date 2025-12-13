@@ -203,3 +203,19 @@ export {
   type VerificationResult as AttestationVerificationResult,
   verifyQuote,
 } from './tee/index.js';
+
+// Storage Integration (connect compute with storage marketplace)
+export type {
+  ContainerImage,
+  ContainerPullRequest,
+  ContainerPullResult,
+  ComputeOutputUploadRequest,
+  ComputeOutputUploadResult,
+  StorageIntegrationConfig,
+  StorageProviderInfo as StorageProviderForCompute,
+} from './compute/sdk/storage-integration.js';
+
+export {
+  ComputeStorageIntegration,
+  createStorageIntegration,
+} from './compute/sdk/storage-integration.js';

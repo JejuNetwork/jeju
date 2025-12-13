@@ -1,0 +1,14 @@
+apiVersion: v2
+name: crucible
+description: Crucible - Decentralized Agent Orchestration Platform
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - agents
+  - ai
+  - orchestration
+  - decentralized
+maintainers:
+  - name: Jeju Network
+    email: devops@jeju.network

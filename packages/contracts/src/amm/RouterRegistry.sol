@@ -116,14 +116,14 @@ contract RouterRegistry is Ownable, ReentrancyGuard {
     /// @notice Register a new router
     /// @param router Router address
     /// @param name Human-readable name
-    /// @param version Version string
+    /// @param routerVersion Version string (e.g., "1.0.0")
     /// @param chainIds Supported chain IDs
     /// @param tokens Supported tokens
     /// @param feeRecipient Address to receive fees
     function registerRouter(
         address router,
         string calldata name,
-        string calldata version,
+        string calldata routerVersion,
         uint256[] calldata chainIds,
         address[] calldata tokens,
         address feeRecipient
@@ -137,7 +137,7 @@ contract RouterRegistry is Ownable, ReentrancyGuard {
         routerInfo[router] = RouterInfo({
             router: router,
             name: name,
-            version: version,
+            version: routerVersion,
             supportedChainIds: chainIds,
             supportedTokens: tokens,
             isActive: true,

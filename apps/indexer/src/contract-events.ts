@@ -44,7 +44,10 @@ export const CREDIT_DEPOSITED = eventSig('CreditDeposited(address,address,uint25
 export const CREDIT_DEDUCTED = eventSig('CreditDeducted(address,address,address,uint256,uint256)');
 export const CREDITS_PURCHASED = eventSig('CreditsPurchased(address,address,address,uint256,uint256,uint256,uint256)');
 
-// ============ Hyperscape Game Events ============
+// ============ Game Events (Generic) ============
+// NOTE: Game-specific events like Hyperscape are legacy.
+// New games should use generic GameIntegration events.
+// These are retained for backwards compatibility.
 
 export const PLAYER_REGISTERED = eventSig('PlayerRegistered(address,string)');
 export const PLAYER_MOVED = eventSig('PlayerMoved(address,int32,int32,int32)');
@@ -295,13 +298,13 @@ export const EVENT_REGISTRY: Record<string, EventCategory> = {
   [CREDIT_DEPOSITED]: { signature: CREDIT_DEPOSITED, name: 'CreditDeposited', category: 'cloud', contract: 'CreditManager' },
   [CREDITS_PURCHASED]: { signature: CREDITS_PURCHASED, name: 'CreditsPurchased', category: 'cloud', contract: 'CreditPurchaseContract' },
   
-  // Game events
-  [PLAYER_REGISTERED]: { signature: PLAYER_REGISTERED, name: 'PlayerRegistered', category: 'game', contract: 'Hyperscape' },
-  [PLAYER_MOVED]: { signature: PLAYER_MOVED, name: 'PlayerMoved', category: 'game', contract: 'Hyperscape' },
-  [PLAYER_DIED]: { signature: PLAYER_DIED, name: 'PlayerDied', category: 'game', contract: 'Hyperscape' },
-  [LEVEL_UP]: { signature: LEVEL_UP, name: 'LevelUp', category: 'game', contract: 'Hyperscape' },
-  [XP_GAINED]: { signature: XP_GAINED, name: 'XPGained', category: 'game', contract: 'Hyperscape' },
-  [MOB_KILLED]: { signature: MOB_KILLED, name: 'MobKilled', category: 'game', contract: 'Hyperscape' },
+  // Game events (generic - contract name is set dynamically)
+  [PLAYER_REGISTERED]: { signature: PLAYER_REGISTERED, name: 'PlayerRegistered', category: 'game', contract: 'GameContract' },
+  [PLAYER_MOVED]: { signature: PLAYER_MOVED, name: 'PlayerMoved', category: 'game', contract: 'GameContract' },
+  [PLAYER_DIED]: { signature: PLAYER_DIED, name: 'PlayerDied', category: 'game', contract: 'GameContract' },
+  [LEVEL_UP]: { signature: LEVEL_UP, name: 'LevelUp', category: 'game', contract: 'GameContract' },
+  [XP_GAINED]: { signature: XP_GAINED, name: 'XPGained', category: 'game', contract: 'GameContract' },
+  [MOB_KILLED]: { signature: MOB_KILLED, name: 'MobKilled', category: 'game', contract: 'GameContract' },
   [GOLD_CLAIMED]: { signature: GOLD_CLAIMED, name: 'GoldClaimed', category: 'game', contract: 'Gold' },
   [GOLD_BURNED]: { signature: GOLD_BURNED, name: 'GoldBurned', category: 'game', contract: 'Gold' },
   [GOLD_SIGNER_UPDATED]: { signature: GOLD_SIGNER_UPDATED, name: 'GameSignerUpdated', category: 'game', contract: 'Gold' },
@@ -326,7 +329,7 @@ export const EVENT_REGISTRY: Record<string, EventCategory> = {
   // Oracle events
   [FEED_POST_PUBLISHED]: { signature: FEED_POST_PUBLISHED, name: 'FeedPostPublished', category: 'oracle', contract: 'GameFeedOracle' },
   [MARKET_UPDATED]: { signature: MARKET_UPDATED, name: 'MarketUpdated', category: 'oracle', contract: 'GameFeedOracle' },
-  [SKILL_LEVEL_UP]: { signature: SKILL_LEVEL_UP, name: 'SkillLevelUp', category: 'oracle', contract: 'HyperscapeOracle' },
+  [SKILL_LEVEL_UP]: { signature: SKILL_LEVEL_UP, name: 'SkillLevelUp', category: 'oracle', contract: 'GameOracle' },
   [PRICES_UPDATED]: { signature: PRICES_UPDATED, name: 'PricesUpdated', category: 'oracle', contract: 'ManualPriceOracle' },
   
   // Registry events

@@ -147,6 +147,55 @@ export class CrossChainComputeClient {
     }
   }
 
+  // ============ Helper Methods ============
+
+  private extractOrderIdFromReceipt(receipt: { logs?: Array<{ topics: readonly string[]; data: string }> }, txHash: string): string {
+    if (!this.inputSettler || !receipt?.logs) {
+      return keccak256(toUtf8Bytes(txHash));
+    }
+
+    const event = receipt.logs.find((log) => {
+      try {
+        const parsed = this.inputSettler.interface.parseLog({
+          topics: log.topics as string[],
+          data: log.data,
+        });
+        return parsed?.name === 'Open';
+      } catch {
+        return false;
+      }
+    });
+
+    return (event?.topics?.[1] as string) || keccak256(toUtf8Bytes(txHash));
+  }
+
+  private async submitOrder(orderData: string, orderType: string, openDeadlineBlocks: number, fillDeadlineBlocks: number): Promise<{ txHash: string; orderId: string }> {
+    if (!this.inputSettler) {
+      throw new Error('InputSettler address not configured');
+    }
+
+    const signerAddress = await this.signer.getAddress();
+    const nonce = await this.inputSettler.nonces(signerAddress);
+    const currentBlock = await this.sourceProvider.getBlockNumber();
+
+    const order = {
+      originSettler: this.config.inputSettlerAddress,
+      user: signerAddress,
+      nonce,
+      originChainId: this.config.sourceChainId,
+      openDeadline: currentBlock + openDeadlineBlocks,
+      fillDeadline: currentBlock + fillDeadlineBlocks,
+      orderDataType: orderType,
+      orderData,
+    };
+
+    const tx = await this.inputSettler.open(order);
+    const receipt = await tx.wait();
+    const orderId = this.extractOrderIdFromReceipt(receipt, tx.hash);
+
+    return { txHash: tx.hash, orderId };
+  }
+
   // ============ OIF Intent-Based Methods ============
 
   /**
@@ -192,17 +241,7 @@ export class CrossChainComputeClient {
     const receipt = await tx.wait();
 
     // Parse orderId from event
-    const event = receipt?.logs?.find((log: { topics: readonly string[]; data: string }) => {
-      try {
-        const parsed = this.inputSettler?.interface.parseLog({
-          topics: log.topics as string[],
-          data: log.data,
-        });
-        return parsed?.name === 'Open';
-      } catch { return false; }
-    });
-
-    const orderId = (event as { topics?: string[] })?.topics?.[1] || keccak256(toUtf8Bytes(tx.hash));
+    const orderId = this.extractOrderIdFromReceipt(receipt, tx.hash);
 
     return {
       intentId: tx.hash,
@@ -251,17 +290,7 @@ export class CrossChainComputeClient {
     const tx = await this.inputSettler.open(order);
     const receipt = await tx.wait();
 
-    const inferenceEvent = receipt?.logs?.find((log: { topics: readonly string[]; data: string }) => {
-      try {
-        const parsed = this.inputSettler?.interface.parseLog({
-          topics: log.topics as string[],
-          data: log.data,
-        });
-        return parsed?.name === 'Open';
-      } catch { return false; }
-    });
-
-    const inferenceOrderId = (inferenceEvent as { topics?: string[] })?.topics?.[1] || keccak256(toUtf8Bytes(tx.hash));
+    const inferenceOrderId = this.extractOrderIdFromReceipt(receipt, tx.hash);
 
     return {
       intentId: tx.hash,

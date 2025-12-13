@@ -1,14 +1,19 @@
 /**
  * End-to-End Settlement Tests
- *
- * Tests the full settlement flow:
- * 1. User sends inference request with auth headers
- * 2. Provider returns response with settlement signature
- * 3. User settles on-chain
- * 4. Funds are transferred
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+
+const IS_CI = process.env.CI === 'true';
+
+function requireNetwork(networkAvailable: boolean, testName: string): void {
+  if (!networkAvailable) {
+    if (IS_CI) {
+      throw new Error(`Test "${testName}" requires network but CI has no blockchain. Start Anvil in CI workflow.`);
+    }
+    console.log(`   Skipping: network not available`);
+  }
+}
 import { JsonRpcProvider, Wallet } from 'ethers';
 import { ComputeNodeServer } from '../node/server';
 import type { ProviderConfig } from '../node/types';
@@ -106,7 +111,7 @@ describe('Settlement Flow', () => {
   describe('Settlement', () => {
     test('user can get settlement-ready response', async () => {
       if (!networkAvailable || !userSDK) {
-        console.log('   Skipping: network not available');
+        requireNetwork(networkAvailable, 'user can get settlement-ready response');
         return;
       }
       // Generate auth headers with settlement nonce
@@ -153,7 +158,7 @@ describe('Settlement Flow', () => {
 
     test('settlement signature matches expected format', async () => {
       if (!networkAvailable || !userSDK) {
-        console.log('   Skipping: network not available');
+        requireNetwork(networkAvailable, 'settlement signature matches expected format');
         return;
       }
       const headers = await userSDK.generateAuthHeaders(providerWallet.address);
@@ -188,7 +193,7 @@ describe('Settlement Flow', () => {
 
     test('token counts are accurate', async () => {
       if (!networkAvailable || !userSDK) {
-        console.log('   Skipping: network not available');
+        requireNetwork(networkAvailable, 'token counts are accurate');
         return;
       }
       const headers = await userSDK.generateAuthHeaders(providerWallet.address);

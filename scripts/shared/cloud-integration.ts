@@ -1,8 +1,19 @@
+/**
+ * @deprecated This file is deprecated. Import from '@jeju-vendor/cloud' or 'vendor/cloud/src' instead.
+ * 
+ * This file re-exports from vendor/cloud for backwards compatibility.
+ * New code should import directly from the vendor package.
+ */
+
 import { ethers } from 'ethers';
 import type { Logger } from './logger';
 import { createSignedFeedbackAuth } from './cloud-signing';
 
+// Re-export types for backwards compatibility
+// NOTE: New code should import from '@jeju-vendor/cloud' or 'vendor/cloud/src'
+
 /**
+ * @deprecated Use CloudConfig from '@jeju-vendor/cloud'
  * Cloud service integration with ERC-8004 registry and services contracts
  * Enables cloud to:
  * - Register as an agent

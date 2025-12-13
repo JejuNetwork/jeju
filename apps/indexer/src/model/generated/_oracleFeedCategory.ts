@@ -1,0 +1,11 @@
+export enum OracleFeedCategory {
+    SPOT_PRICE = "SPOT_PRICE",
+    TWAP = "TWAP",
+    FX_RATE = "FX_RATE",
+    STABLECOIN_PEG = "STABLECOIN_PEG",
+    LST_RATE = "LST_RATE",
+    L2_GAS = "L2_GAS",
+    SEQUENCER_UPTIME = "SEQUENCER_UPTIME",
+    FINALITY = "FINALITY",
+    MARKET_STATUS = "MARKET_STATUS",
+}

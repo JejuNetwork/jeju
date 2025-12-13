@@ -1,5 +1,11 @@
 'use client'
 
+/**
+ * @deprecated This page is vendor-specific and maintained in vendor/hyperscape/app/.
+ * This copy remains for backwards compatibility. For new development,
+ * use the component from vendor/hyperscape/app/page.tsx
+ */
+
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
 import { useGameItems, getRarityInfo, type GameItem } from '@/hooks/nft/useGameItems'
@@ -9,6 +15,8 @@ import { LoadingSpinner } from '@/components/LoadingSpinner'
 
 /**
  * Hyperscape Items Page
+ * 
+ * @deprecated Use vendor/hyperscape/app/page.tsx for new development
  * 
  * This is a game-specific page that uses the generic game hooks.
  * Hyperscape is just one game that uses Jeju's canonical Items.sol contract.

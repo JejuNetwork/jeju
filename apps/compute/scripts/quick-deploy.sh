@@ -80,7 +80,7 @@ if [ -n "$PINATA_API_KEY" ] && [ -n "$PINATA_SECRET_KEY" ]; then
         -H "pinata_api_key: $PINATA_API_KEY" \
         -H "pinata_secret_api_key: $PINATA_SECRET_KEY" \
         -F "file=@frontend.zip" \
-        -F "pinataMetadata={\"name\":\"babylon-frontend\"}")
+        -F "pinataMetadata={\"name\":\"jeju-compute-frontend\"}")
     
     CID=$(echo "$IPFS_RESPONSE" | grep -o '"IpfsHash":"[^"]*"' | cut -d'"' -f4)
     

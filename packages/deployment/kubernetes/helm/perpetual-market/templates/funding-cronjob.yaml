@@ -1,0 +1,41 @@
+{{- if .Values.fundingUpdater.enabled -}}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "perpetual-market.fullname" . }}-funding
+  labels:
+    {{- include "perpetual-market.labels" . | nindent 4 }}
+    app.kubernetes.io/component: funding-updater
+spec:
+  schedule: {{ .Values.fundingUpdater.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "perpetual-market.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: funding-updater
+        spec:
+          serviceAccountName: {{ include "perpetual-market.serviceAccountName" . }}
+          restartPolicy: OnFailure
+          containers:
+            - name: funding-updater
+              image: "{{ .Values.fundingUpdater.image.repository }}:{{ .Values.fundingUpdater.image.tag | default .Chart.AppVersion }}"
+              imagePullPolicy: {{ .Values.fundingUpdater.image.pullPolicy }}
+              env:
+                - name: CHAIN_ID
+                  value: {{ .Values.global.chainId | quote }}
+                - name: PERPETUAL_MARKET_ADDRESS
+                  value: {{ .Values.contracts.perpetualMarket | quote }}
+                - name: RPC_URL
+                  value: {{ .Values.rpc.primary | quote }}
+              {{- with .Values.envFrom }}
+              envFrom:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              resources:
+                {{- toYaml .Values.fundingUpdater.resources | nindent 16 }}
+{{- end }}

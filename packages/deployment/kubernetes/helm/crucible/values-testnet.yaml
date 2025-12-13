@@ -1,0 +1,60 @@
+# Testnet values for Crucible
+
+replicaCount:
+  api: 2
+  executor: 1
+
+image:
+  repository: jeju/crucible
+  tag: "testnet"
+
+ingress:
+  enabled: true
+  className: "alb"
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/certificate-arn: ${ACM_CERTIFICATE_ARN}
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+  hosts:
+    - host: testnet-crucible.jeju.network
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: crucible-tls
+      hosts:
+        - testnet-crucible.jeju.network
+
+config:
+  network: testnet
+  rpcUrl: https://sepolia.base.org
+  contracts:
+    agentVault: "0x0000000000000000000000000000000000000000"
+    roomRegistry: "0x0000000000000000000000000000000000000000"
+    triggerRegistry: "0x0000000000000000000000000000000000000000"
+    identityRegistry: "0x0000000000000000000000000000000000000000"
+    serviceRegistry: "0x0000000000000000000000000000000000000000"
+  services:
+    computeMarketplace: https://testnet-compute.jeju.network
+    storageApi: https://testnet-storage.jeju.network
+    ipfsGateway: https://testnet-ipfs.jeju.network
+    indexerGraphql: https://testnet-indexer.jeju.network/graphql
+
+resources:
+  api:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  executor:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 2Gi

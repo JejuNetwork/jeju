@@ -42,11 +42,34 @@ nodeSelector: {}
 tolerations: []
 affinity: {}
 
+# Secrets configuration - REQUIRED for production
+# Set these via --set or values file, NOT in git
+secrets:
+  create: true
+  # These must be provided at deploy time:
+  # helm upgrade --set secrets.slackWebhookUrl=$SLACK_WEBHOOK_URL
+  slackWebhookUrl: ""
+  pagerdutyServiceKey: ""
+
+# Environment variable references for secret injection
+secretEnv:
+  - name: SLACK_WEBHOOK_URL
+    valueFrom:
+      secretKeyRef:
+        name: alertmanager-credentials
+        key: slack-webhook-url
+        optional: true
+  - name: PAGERDUTY_SERVICE_KEY
+    valueFrom:
+      secretKeyRef:
+        name: alertmanager-credentials
+        key: pagerduty-service-key
+        optional: true
+
 config:
   global:
     resolve_timeout: 5m
     
-  # Route tree
   route:
     group_by: ['alertname', 'severity']
     group_wait: 30s
@@ -54,56 +77,49 @@ config:
     repeat_interval: 4h
     receiver: 'default'
     routes:
-      # Critical alerts -> PagerDuty
       - match:
           severity: critical
         receiver: 'pagerduty-critical'
         continue: true
-        
-      # Warning alerts -> Slack
       - match:
           severity: warning
         receiver: 'slack-warning'
-        
-      # Chain health alerts -> dedicated channel
       - match:
           category: chain
         receiver: 'slack-chain'
   
-  # Receivers
   receivers:
     - name: 'default'
       slack_configs:
-        - api_url: ''  # Inject from secret
+        - api_url_file: /etc/alertmanager/secrets/slack-webhook-url
           channel: '#alerts'
           send_resolved: true
     
     - name: 'pagerduty-critical'
       pagerduty_configs:
-        - service_key: ''  # Inject from secret
+        - service_key_file: /etc/alertmanager/secrets/pagerduty-service-key
           severity: critical
           description: '{{ .CommonAnnotations.summary }}'
     
     - name: 'slack-warning'
       slack_configs:
-        - api_url: ''
+        - api_url_file: /etc/alertmanager/secrets/slack-webhook-url
           channel: '#alerts-warning'
           send_resolved: true
           
     - name: 'slack-chain'
       slack_configs:
-        - api_url: ''
+        - api_url_file: /etc/alertmanager/secrets/slack-webhook-url
           channel: '#chain-health'
           send_resolved: true
           
-  # Inhibition rules
   inhibit_rules:
-    # If critical, suppress warning for same alertname
     - source_match:
         severity: 'critical'
       target_match:
         severity: 'warning'
       equal: ['alertname']
+
 
 
 

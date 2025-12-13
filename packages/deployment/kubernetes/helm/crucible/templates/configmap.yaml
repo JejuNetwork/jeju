@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "crucible.fullname" . }}-config
+  labels:
+    {{- include "crucible.labels" . | nindent 4 }}
+data:
+  NETWORK: {{ .Values.config.network | quote }}
+  RPC_URL: {{ .Values.config.rpcUrl | quote }}
+  AGENT_VAULT_ADDRESS: {{ .Values.config.contracts.agentVault | quote }}
+  ROOM_REGISTRY_ADDRESS: {{ .Values.config.contracts.roomRegistry | quote }}
+  TRIGGER_REGISTRY_ADDRESS: {{ .Values.config.contracts.triggerRegistry | quote }}
+  IDENTITY_REGISTRY_ADDRESS: {{ .Values.config.contracts.identityRegistry | quote }}
+  SERVICE_REGISTRY_ADDRESS: {{ .Values.config.contracts.serviceRegistry | quote }}
+  COMPUTE_MARKETPLACE_URL: {{ .Values.config.services.computeMarketplace | quote }}
+  STORAGE_API_URL: {{ .Values.config.services.storageApi | quote }}
+  IPFS_GATEWAY: {{ .Values.config.services.ipfsGateway | quote }}
+  INDEXER_GRAPHQL_URL: {{ .Values.config.services.indexerGraphql | quote }}
+  LOG_LEVEL: {{ .Values.config.logLevel | default "info" | quote }}
+  LOG_FORMAT: {{ .Values.config.logFormat | default "json" | quote }}

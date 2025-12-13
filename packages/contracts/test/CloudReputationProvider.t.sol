@@ -112,7 +112,7 @@ contract CloudReputationProviderTest is Test {
 
     function testRecordViolation() public {
         vm.prank(operator);
-        cloudProvider.recordViolation(
+        cloudProvider.recordViolationWithType(
             testAgentId, CloudReputationProvider.ViolationType.API_ABUSE, 60, "ipfs://evidence"
         );
 
@@ -125,9 +125,9 @@ contract CloudReputationProviderTest is Test {
     function testRecordMultipleViolations() public {
         vm.startPrank(operator);
 
-        cloudProvider.recordViolation(testAgentId, CloudReputationProvider.ViolationType.SPAM, 30, "");
-        cloudProvider.recordViolation(testAgentId, CloudReputationProvider.ViolationType.API_ABUSE, 50, "");
-        cloudProvider.recordViolation(testAgentId, CloudReputationProvider.ViolationType.HARASSMENT, 70, "");
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 30, "");
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.API_ABUSE, 50, "");
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.HARASSMENT, 70, "");
 
         vm.stopPrank();
 
@@ -139,7 +139,7 @@ contract CloudReputationProviderTest is Test {
         vm.startPrank(operator);
 
         for (uint256 i = 0; i < 5; i++) {
-            cloudProvider.recordViolation(testAgentId, CloudReputationProvider.ViolationType.SPAM, uint8(i * 10), "");
+            cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, uint8(i * 10), "");
         }
 
         vm.stopPrank();
@@ -160,8 +160,8 @@ contract CloudReputationProviderTest is Test {
     function testViolationCountsTracked() public {
         vm.startPrank(operator);
 
-        cloudProvider.recordViolation(testAgentId, CloudReputationProvider.ViolationType.SPAM, 30, "");
-        cloudProvider.recordViolation(testAgentId, CloudReputationProvider.ViolationType.SPAM, 40, "");
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 30, "");
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 40, "");
 
         vm.stopPrank();
 
@@ -171,19 +171,19 @@ contract CloudReputationProviderTest is Test {
     function testUnauthorizedCannotRecordViolation() public {
         vm.prank(user);
         vm.expectRevert(CloudReputationProvider.NotAuthorized.selector);
-        cloudProvider.recordViolation(testAgentId, CloudReputationProvider.ViolationType.SPAM, 50, "");
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 50, "");
     }
 
     function testCannotRecordViolationForNonexistentAgent() public {
         vm.prank(operator);
         vm.expectRevert(CloudReputationProvider.InvalidAgentId.selector);
-        cloudProvider.recordViolation(99999, CloudReputationProvider.ViolationType.SPAM, 50, "");
+        cloudProvider.recordViolationWithType(99999, CloudReputationProvider.ViolationType.SPAM, 50, "");
     }
 
     function testCannotRecordInvalidSeverityScore() public {
         vm.prank(operator);
         vm.expectRevert(CloudReputationProvider.InvalidScore.selector);
-        cloudProvider.recordViolation(testAgentId, CloudReputationProvider.ViolationType.SPAM, 150, "");
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 150, "");
     }
 
     // ============ Ban Proposal Tests ============
@@ -194,7 +194,7 @@ contract CloudReputationProviderTest is Test {
         vm.deal(user, 1 ether);
         vm.prank(user);
         vm.expectRevert(CloudReputationProvider.NotAuthorized.selector);
-        cloudProvider.requestBanViaGovernance{value: 0.01 ether}(
+        cloudProvider.requestBanViaGovernanceWithType{value: 0.01 ether}(
             testAgentId, CloudReputationProvider.ViolationType.HACKING
         );
     }
@@ -202,7 +202,7 @@ contract CloudReputationProviderTest is Test {
     function testCannotBanNonexistentAgent() public {
         vm.deal(owner, 1 ether);
         vm.expectRevert(CloudReputationProvider.InvalidAgentId.selector);
-        cloudProvider.requestBanViaGovernance{value: 0.01 ether}(99999, CloudReputationProvider.ViolationType.HACKING);
+        cloudProvider.requestBanViaGovernanceWithType{value: 0.01 ether}(99999, CloudReputationProvider.ViolationType.HACKING);
     }
 
     // ============ Threshold Tests ============
@@ -225,13 +225,13 @@ contract CloudReputationProviderTest is Test {
 
         vm.prank(operator);
         vm.expectRevert();
-        cloudProvider.recordViolation(testAgentId, CloudReputationProvider.ViolationType.SPAM, 50, "");
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 50, "");
 
         cloudProvider.unpause();
         assertFalse(cloudProvider.paused());
 
         vm.prank(operator);
-        cloudProvider.recordViolation(testAgentId, CloudReputationProvider.ViolationType.SPAM, 50, "");
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 50, "");
     }
 
     function testOnlyOwnerCanPause() public {
@@ -245,19 +245,19 @@ contract CloudReputationProviderTest is Test {
     function testFullViolationWorkflow() public {
         // 1. Record minor violation (as operator)
         vm.prank(operator);
-        cloudProvider.recordViolation(
+        cloudProvider.recordViolationWithType(
             testAgentId, CloudReputationProvider.ViolationType.SPAM, 30, "ipfs://minor-violation"
         );
 
         // 2. Record more serious violation (as operator)
         vm.prank(operator);
-        cloudProvider.recordViolation(
+        cloudProvider.recordViolationWithType(
             testAgentId, CloudReputationProvider.ViolationType.API_ABUSE, 60, "ipfs://api-abuse"
         );
 
         // 3. Record severe violation (as operator)
         vm.prank(operator);
-        cloudProvider.recordViolation(
+        cloudProvider.recordViolationWithType(
             testAgentId, CloudReputationProvider.ViolationType.HACKING, 95, "ipfs://hacking-evidence"
         );
 
@@ -280,5 +280,304 @@ contract CloudReputationProviderTest is Test {
         assertEq(address(cloudProvider.identityRegistry()), address(identityRegistry));
         assertEq(address(cloudProvider.reputationRegistry()), address(reputationRegistry));
         assertEq(address(cloudProvider.registryGovernance()), address(registryGovernance));
+    }
+
+    // ============ IReputationProvider Interface Tests ============
+
+    function testRecordViolationViaInterface() public {
+        // Test the uint8 interface method (IReputationProvider compliance)
+        vm.prank(operator);
+        cloudProvider.recordViolation(testAgentId, 0, 50, "ipfs://interface-test"); // 0 = API_ABUSE
+
+        CloudReputationProvider.Violation[] memory violations = cloudProvider.getAgentViolations(testAgentId, 0, 10);
+        assertEq(violations.length, 1);
+        assertEq(uint8(violations[0].violationType), 0);
+    }
+
+    function testGetProviderAgentId() public view {
+        assertEq(cloudProvider.getProviderAgentId(), cloudAgentId);
+    }
+
+    function testIsAuthorizedOperator() public view {
+        assertTrue(cloudProvider.isAuthorizedOperator(operator));
+        assertFalse(cloudProvider.isAuthorizedOperator(user));
+        // Note: isAuthorizedOperator only checks the mapping, owner permissions 
+        // are checked separately in _validateAndRecordViolation
+    }
+
+    function testVersion() public view {
+        assertEq(cloudProvider.version(), "2.0.0");
+    }
+
+    function test_GetProviderAgentId() public view {
+        assertEq(cloudProvider.getProviderAgentId(), cloudAgentId);
+    }
+
+    // ============ Boundary Condition Tests ============
+
+    function testScoreBoundaryZero() public {
+        vm.prank(operator);
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 0, "");
+
+        CloudReputationProvider.Violation[] memory violations = cloudProvider.getAgentViolations(testAgentId, 0, 1);
+        assertEq(violations[0].severityScore, 0);
+    }
+
+    function testScoreBoundaryMax() public {
+        vm.prank(operator);
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 100, "");
+
+        CloudReputationProvider.Violation[] memory violations = cloudProvider.getAgentViolations(testAgentId, 0, 1);
+        assertEq(violations[0].severityScore, 100);
+    }
+
+    function testScoreBoundaryJustOver() public {
+        vm.prank(operator);
+        vm.expectRevert(CloudReputationProvider.InvalidScore.selector);
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 101, "");
+    }
+
+    function testPaginationEmptyOffset() public view {
+        // No violations yet for a fresh agent
+        CloudReputationProvider.Violation[] memory violations = cloudProvider.getAgentViolations(testAgentId, 0, 10);
+        assertEq(violations.length, 0);
+    }
+
+    function testPaginationLargeOffset() public {
+        vm.prank(operator);
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 50, "");
+
+        // Offset beyond existing violations
+        CloudReputationProvider.Violation[] memory violations = cloudProvider.getAgentViolations(testAgentId, 100, 10);
+        assertEq(violations.length, 0);
+    }
+
+    function testPaginationZeroLimit() public {
+        vm.prank(operator);
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 50, "");
+
+        CloudReputationProvider.Violation[] memory violations = cloudProvider.getAgentViolations(testAgentId, 0, 0);
+        assertEq(violations.length, 0);
+    }
+
+    function testPaginationLargeLimit() public {
+        vm.prank(operator);
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 50, "");
+
+        // Limit larger than actual violations
+        CloudReputationProvider.Violation[] memory violations = cloudProvider.getAgentViolations(testAgentId, 0, 1000);
+        assertEq(violations.length, 1);
+    }
+
+    // ============ All Violation Types Tests ============
+
+    function testAllViolationTypes() public {
+        vm.startPrank(operator);
+
+        // Test all 11 violation types
+        cloudProvider.recordViolation(testAgentId, 0, 10, ""); // API_ABUSE
+        cloudProvider.recordViolation(testAgentId, 1, 20, ""); // RESOURCE_EXPLOITATION
+        cloudProvider.recordViolation(testAgentId, 2, 30, ""); // SCAMMING
+        cloudProvider.recordViolation(testAgentId, 3, 40, ""); // PHISHING
+        cloudProvider.recordViolation(testAgentId, 4, 50, ""); // HACKING
+        cloudProvider.recordViolation(testAgentId, 5, 60, ""); // UNAUTHORIZED_ACCESS
+        cloudProvider.recordViolation(testAgentId, 6, 70, ""); // DATA_THEFT
+        cloudProvider.recordViolation(testAgentId, 7, 80, ""); // ILLEGAL_CONTENT
+        cloudProvider.recordViolation(testAgentId, 8, 85, ""); // HARASSMENT
+        cloudProvider.recordViolation(testAgentId, 9, 90, ""); // SPAM
+        cloudProvider.recordViolation(testAgentId, 10, 95, ""); // TOS_VIOLATION
+
+        vm.stopPrank();
+
+        CloudReputationProvider.Violation[] memory violations = cloudProvider.getAgentViolations(testAgentId, 0, 20);
+        assertEq(violations.length, 11);
+
+        // Verify each type was recorded with correct severity
+        assertEq(violations[0].severityScore, 10);
+        assertEq(violations[10].severityScore, 95);
+    }
+
+    function testViolationCountsForAllTypes() public {
+        vm.startPrank(operator);
+
+        // Record 2 of each type
+        for (uint8 i = 0; i <= 10; i++) {
+            cloudProvider.recordViolation(testAgentId, i, 50, "");
+            cloudProvider.recordViolation(testAgentId, i, 50, "");
+        }
+
+        vm.stopPrank();
+
+        // Verify counts for each type
+        assertEq(cloudProvider.violationCounts(CloudReputationProvider.ViolationType.API_ABUSE), 2);
+        assertEq(cloudProvider.violationCounts(CloudReputationProvider.ViolationType.SPAM), 2);
+        assertEq(cloudProvider.violationCounts(CloudReputationProvider.ViolationType.TOS_VIOLATION), 2);
+    }
+
+    // ============ Multiple Agents Tests ============
+
+    function testMultipleAgentsWithViolations() public {
+        // Register additional agents
+        vm.prank(address(0x100));
+        uint256 agent2 = identityRegistry.register("ipfs://agent2");
+        vm.prank(address(0x101));
+        uint256 agent3 = identityRegistry.register("ipfs://agent3");
+
+        vm.startPrank(operator);
+
+        // Record violations for each agent
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 30, "");
+        cloudProvider.recordViolationWithType(agent2, CloudReputationProvider.ViolationType.HACKING, 90, "");
+        cloudProvider.recordViolationWithType(agent3, CloudReputationProvider.ViolationType.API_ABUSE, 50, "");
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.HARASSMENT, 70, "");
+
+        vm.stopPrank();
+
+        // Verify each agent has correct violations
+        assertEq(cloudProvider.getAgentViolationCount(testAgentId), 2);
+        assertEq(cloudProvider.getAgentViolationCount(agent2), 1);
+        assertEq(cloudProvider.getAgentViolationCount(agent3), 1);
+    }
+
+    // ============ Owner vs Operator Tests ============
+
+    function testOwnerCanRecordViolation() public {
+        // Owner should be able to record violations directly
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 50, "");
+
+        assertEq(cloudProvider.getAgentViolationCount(testAgentId), 1);
+    }
+
+    function testOwnerCanRecordEvenWhenNotOperator() public {
+        // Remove owner from operators (if possible) - owner should still work
+        cloudProvider.setAuthorizedOperator(owner, false);
+
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 50, "");
+        assertEq(cloudProvider.getAgentViolationCount(testAgentId), 1);
+    }
+
+    // ============ Concurrent Operations Tests ============
+
+    function testMultipleViolationsInSameBlock() public {
+        vm.startPrank(operator);
+
+        // Record many violations in same block
+        for (uint256 i = 0; i < 10; i++) {
+            cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, uint8(i * 10), "");
+        }
+
+        vm.stopPrank();
+
+        CloudReputationProvider.Violation[] memory violations = cloudProvider.getAgentViolations(testAgentId, 0, 20);
+        assertEq(violations.length, 10);
+
+        // All should have same timestamp (same block)
+        uint256 firstTimestamp = violations[0].timestamp;
+        for (uint256 i = 1; i < violations.length; i++) {
+            assertEq(violations[i].timestamp, firstTimestamp);
+        }
+    }
+
+    function testViolationsAcrossBlocks() public {
+        uint256 startTime = block.timestamp;
+        
+        vm.prank(operator);
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 30, "");
+
+        vm.warp(startTime + 100);
+
+        vm.prank(operator);
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 60, "");
+
+        CloudReputationProvider.Violation[] memory violations = cloudProvider.getAgentViolations(testAgentId, 0, 10);
+        
+        // Verify timestamps are different and second is later
+        assertTrue(violations[1].timestamp > violations[0].timestamp, "Second violation should be later");
+        assertEq(violations[1].timestamp - violations[0].timestamp, 100, "Time gap should be 100 seconds");
+    }
+
+    // ============ Reporter Address Tests ============
+
+    function testReporterAddressRecorded() public {
+        vm.prank(operator);
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 50, "");
+
+        CloudReputationProvider.Violation[] memory violations = cloudProvider.getAgentViolations(testAgentId, 0, 1);
+        assertEq(violations[0].reporter, operator);
+    }
+
+    function testDifferentReporters() public {
+        address operator2 = address(0x999);
+        cloudProvider.setAuthorizedOperator(operator2, true);
+
+        vm.prank(operator);
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 30, "");
+
+        vm.prank(operator2);
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.HARASSMENT, 50, "");
+
+        CloudReputationProvider.Violation[] memory violations = cloudProvider.getAgentViolations(testAgentId, 0, 10);
+        assertEq(violations[0].reporter, operator);
+        assertEq(violations[1].reporter, operator2);
+    }
+
+    // ============ Evidence String Tests ============
+
+    function testEmptyEvidence() public {
+        vm.prank(operator);
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 50, "");
+
+        CloudReputationProvider.Violation[] memory violations = cloudProvider.getAgentViolations(testAgentId, 0, 1);
+        assertEq(violations[0].evidence, "");
+    }
+
+    function testLongEvidence() public {
+        string memory longEvidence = "ipfs://QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG/very/long/path/to/evidence/file/with/details";
+        
+        vm.prank(operator);
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 50, longEvidence);
+
+        CloudReputationProvider.Violation[] memory violations = cloudProvider.getAgentViolations(testAgentId, 0, 1);
+        assertEq(violations[0].evidence, longEvidence);
+    }
+
+    // ============ Reentrancy Guard Tests ============
+
+    function testNoReentrancyOnRecordViolation() public {
+        // This test verifies the nonReentrant modifier is working
+        // by checking that normal operation succeeds (no revert due to reentrancy lock issues)
+        vm.prank(operator);
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 50, "first");
+        
+        vm.prank(operator);
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 60, "second");
+
+        assertEq(cloudProvider.getAgentViolationCount(testAgentId), 2);
+    }
+
+    // ============ Authorization Edge Cases ============
+
+    function testToggleOperatorAuthorization() public {
+        address testOp = address(0x888);
+
+        // Initially not authorized
+        assertFalse(cloudProvider.isAuthorizedOperator(testOp));
+
+        // Authorize
+        cloudProvider.setAuthorizedOperator(testOp, true);
+        assertTrue(cloudProvider.isAuthorizedOperator(testOp));
+
+        // Record violation while authorized
+        vm.prank(testOp);
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 50, "");
+
+        // Deauthorize
+        cloudProvider.setAuthorizedOperator(testOp, false);
+        assertFalse(cloudProvider.isAuthorizedOperator(testOp));
+
+        // Should fail now
+        vm.prank(testOp);
+        vm.expectRevert(CloudReputationProvider.NotAuthorized.selector);
+        cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 50, "");
     }
 }

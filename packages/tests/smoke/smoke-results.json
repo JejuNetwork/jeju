@@ -1,0 +1,636 @@
+{
+  "config": {
+    "configFile": "/Users/shawwalters/jeju/packages/tests/smoke/playwright.config.ts",
+    "rootDir": "/Users/shawwalters/jeju/packages/tests/smoke",
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "smoke-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "/Users/shawwalters/jeju/packages/tests/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/Users/shawwalters/jeju/packages/tests/smoke",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.spec.ts"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.57.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "chain-preflight.spec.ts",
+      "file": "chain-preflight.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Chain Infrastructure",
+          "file": "chain-preflight.spec.ts",
+          "line": 44,
+          "column": 6,
+          "specs": [
+            {
+              "title": "RPC responds to eth_blockNumber",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 1077,
+                      "error": {
+                        "message": "HttpRequestError: HTTP request failed.\n\nURL: http://localhost:9545\nRequest body: {\"method\":\"eth_blockNumber\"}\n\nDetails: fetch failed\nVersion: viem@2.41.2",
+                        "stack": "HttpRequestError: HTTP request failed.\n\nURL: http://localhost:9545\nRequest body: {\"method\":\"eth_blockNumber\"}\n\nDetails: fetch failed\nVersion: viem@2.41.2\n    at Object.request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:168:15)\n    at fn (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:148:19)\n    at request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:153:39)\n    at withRetry.delay.count.count (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/buildRequest.ts:150:22)\n    at attemptRetry (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withRetry.ts:44:22)",
+                        "cause": {
+                          "message": "TypeError: fetch failed",
+                          "stack": "TypeError: fetch failed\n    at withTimeout.errorInstance.TimeoutError.body.body (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:127:30)\n    at /Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withTimeout.ts:38:17",
+                          "cause": {
+                            "message": "AggregateError: ",
+                            "stack": "AggregateError: "
+                          }
+                        }
+                      },
+                      "errors": [
+                        {
+                          "message": "HttpRequestError: HTTP request failed.\n\nURL: http://localhost:9545\nRequest body: {\"method\":\"eth_blockNumber\"}\n\nDetails: fetch failed\nVersion: viem@2.41.2\n    at Object.request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:168:15)\n    at fn (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:148:19)\n    at request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:153:39)\n    at withRetry.delay.count.count (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/buildRequest.ts:150:22)\n    at attemptRetry (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withRetry.ts:44:22)\n[cause]: TypeError: fetch failed\n    at withTimeout.errorInstance.TimeoutError.body.body (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:127:30)\n    at /Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withTimeout.ts:38:17\n[cause]: AggregateError: "
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-12T21:21:55.702Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "c3827734730eb1056a99-bacff3ebf85c9e964a73",
+              "file": "chain-preflight.spec.ts",
+              "line": 45,
+              "column": 3
+            },
+            {
+              "title": "Chain ID matches expected",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 1076,
+                      "error": {
+                        "message": "HttpRequestError: HTTP request failed.\n\nURL: http://localhost:9545\nRequest body: {\"method\":\"eth_chainId\"}\n\nDetails: fetch failed\nVersion: viem@2.41.2",
+                        "stack": "HttpRequestError: HTTP request failed.\n\nURL: http://localhost:9545\nRequest body: {\"method\":\"eth_chainId\"}\n\nDetails: fetch failed\nVersion: viem@2.41.2\n    at Object.request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:168:15)\n    at fn (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:148:19)\n    at request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:153:39)\n    at withRetry.delay.count.count (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/buildRequest.ts:150:22)\n    at attemptRetry (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withRetry.ts:44:22)",
+                        "cause": {
+                          "message": "TypeError: fetch failed",
+                          "stack": "TypeError: fetch failed\n    at withTimeout.errorInstance.TimeoutError.body.body (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:127:30)\n    at /Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withTimeout.ts:38:17",
+                          "cause": {
+                            "message": "AggregateError: ",
+                            "stack": "AggregateError: "
+                          }
+                        }
+                      },
+                      "errors": [
+                        {
+                          "message": "HttpRequestError: HTTP request failed.\n\nURL: http://localhost:9545\nRequest body: {\"method\":\"eth_chainId\"}\n\nDetails: fetch failed\nVersion: viem@2.41.2\n    at Object.request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:168:15)\n    at fn (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:148:19)\n    at request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:153:39)\n    at withRetry.delay.count.count (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/buildRequest.ts:150:22)\n    at attemptRetry (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withRetry.ts:44:22)\n[cause]: TypeError: fetch failed\n    at withTimeout.errorInstance.TimeoutError.body.body (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:127:30)\n    at /Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withTimeout.ts:38:17\n[cause]: AggregateError: "
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-12T21:21:57.214Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "c3827734730eb1056a99-bf68f8ab08751d56d577",
+              "file": "chain-preflight.spec.ts",
+              "line": 51,
+              "column": 3
+            },
+            {
+              "title": "Test account has sufficient ETH",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 1074,
+                      "error": {
+                        "message": "HttpRequestError: HTTP request failed.\n\nURL: http://localhost:9545\nRequest body: {\"method\":\"eth_getBalance\",\"params\":[\"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\"latest\"]}\n\nDetails: fetch failed\nVersion: viem@2.41.2",
+                        "stack": "HttpRequestError: HTTP request failed.\n\nURL: http://localhost:9545\nRequest body: {\"method\":\"eth_getBalance\",\"params\":[\"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\"latest\"]}\n\nDetails: fetch failed\nVersion: viem@2.41.2\n    at Object.request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:168:15)\n    at fn (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:148:19)\n    at request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:153:39)\n    at withRetry.delay.count.count (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/buildRequest.ts:150:22)\n    at attemptRetry (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withRetry.ts:44:22)",
+                        "cause": {
+                          "message": "TypeError: fetch failed",
+                          "stack": "TypeError: fetch failed\n    at withTimeout.errorInstance.TimeoutError.body.body (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:127:30)\n    at /Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withTimeout.ts:38:17",
+                          "cause": {
+                            "message": "AggregateError: ",
+                            "stack": "AggregateError: "
+                          }
+                        }
+                      },
+                      "errors": [
+                        {
+                          "message": "HttpRequestError: HTTP request failed.\n\nURL: http://localhost:9545\nRequest body: {\"method\":\"eth_getBalance\",\"params\":[\"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\"latest\"]}\n\nDetails: fetch failed\nVersion: viem@2.41.2\n    at Object.request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:168:15)\n    at fn (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:148:19)\n    at request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:153:39)\n    at withRetry.delay.count.count (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/buildRequest.ts:150:22)\n    at attemptRetry (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withRetry.ts:44:22)\n[cause]: TypeError: fetch failed\n    at withTimeout.errorInstance.TimeoutError.body.body (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:127:30)\n    at /Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withTimeout.ts:38:17\n[cause]: AggregateError: "
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-12T21:21:58.736Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "c3827734730eb1056a99-e619a5edcc9d3802b117",
+              "file": "chain-preflight.spec.ts",
+              "line": 57,
+              "column": 3
+            },
+            {
+              "title": "Blocks are being produced",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 1075,
+                      "error": {
+                        "message": "HttpRequestError: HTTP request failed.\n\nURL: http://localhost:9545\nRequest body: {\"method\":\"eth_blockNumber\"}\n\nDetails: fetch failed\nVersion: viem@2.41.2",
+                        "stack": "HttpRequestError: HTTP request failed.\n\nURL: http://localhost:9545\nRequest body: {\"method\":\"eth_blockNumber\"}\n\nDetails: fetch failed\nVersion: viem@2.41.2\n    at Object.request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:168:15)\n    at fn (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:148:19)\n    at request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:153:39)\n    at withRetry.delay.count.count (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/buildRequest.ts:150:22)\n    at attemptRetry (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withRetry.ts:44:22)",
+                        "cause": {
+                          "message": "TypeError: fetch failed",
+                          "stack": "TypeError: fetch failed\n    at withTimeout.errorInstance.TimeoutError.body.body (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:127:30)\n    at /Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withTimeout.ts:38:17",
+                          "cause": {
+                            "message": "AggregateError: ",
+                            "stack": "AggregateError: "
+                          }
+                        }
+                      },
+                      "errors": [
+                        {
+                          "message": "HttpRequestError: HTTP request failed.\n\nURL: http://localhost:9545\nRequest body: {\"method\":\"eth_blockNumber\"}\n\nDetails: fetch failed\nVersion: viem@2.41.2\n    at Object.request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:168:15)\n    at fn (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:148:19)\n    at request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:153:39)\n    at withRetry.delay.count.count (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/buildRequest.ts:150:22)\n    at attemptRetry (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withRetry.ts:44:22)\n[cause]: TypeError: fetch failed\n    at withTimeout.errorInstance.TimeoutError.body.body (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:127:30)\n    at /Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withTimeout.ts:38:17\n[cause]: AggregateError: "
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-12T21:22:00.265Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "c3827734730eb1056a99-6031cf715b32ae55a276",
+              "file": "chain-preflight.spec.ts",
+              "line": 63,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Transaction Verification",
+          "file": "chain-preflight.spec.ts",
+          "line": 74,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Can estimate gas for simple transfer",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 1093,
+                      "error": {
+                        "message": "EstimateGasExecutionError: HTTP request failed.\n\nURL: http://localhost:9545\nRequest body: {\"method\":\"eth_estimateGas\",\"params\":[{\"from\":\"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\"to\":\"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\"value\":\"0x38d7ea4c68000\"}]}\n \nEstimate Gas Arguments:\n  from:   0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\n  to:     0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\n  value:  0.001 ETH\n\nDetails: fetch failed\nVersion: viem@2.41.2",
+                        "stack": "EstimateGasExecutionError: HTTP request failed.\n\nURL: http://localhost:9545\nRequest body: {\"method\":\"eth_estimateGas\",\"params\":[{\"from\":\"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\"to\":\"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\"value\":\"0x38d7ea4c68000\"}]}\n \nEstimate Gas Arguments:\n  from:   0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\n  to:     0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\n  value:  0.001 ETH\n\nDetails: fetch failed\nVersion: viem@2.41.2\n    at getEstimateGasError (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/errors/getEstimateGasError.ts:42:10)\n    at estimateGas (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/actions/public/estimateGas.ts:223:11)\n    at /Users/shawwalters/jeju/packages/tests/smoke/chain-preflight.spec.ts:78:25",
+                        "cause": {
+                          "message": "HttpRequestError: HTTP request failed.\n\nURL: http://localhost:9545\nRequest body: {\"method\":\"eth_estimateGas\",\"params\":[{\"from\":\"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\"to\":\"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\"value\":\"0x38d7ea4c68000\"}]}\n\nDetails: fetch failed\nVersion: viem@2.41.2",
+                          "stack": "HttpRequestError: HTTP request failed.\n\nURL: http://localhost:9545\nRequest body: {\"method\":\"eth_estimateGas\",\"params\":[{\"from\":\"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\"to\":\"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\"value\":\"0x38d7ea4c68000\"}]}\n\nDetails: fetch failed\nVersion: viem@2.41.2\n    at Object.request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:168:15)\n    at fn (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:148:19)\n    at request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:153:39)\n    at withRetry.delay.count.count (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/buildRequest.ts:150:22)\n    at attemptRetry (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withRetry.ts:44:22)",
+                          "cause": {
+                            "message": "TypeError: fetch failed",
+                            "stack": "TypeError: fetch failed\n    at withTimeout.errorInstance.TimeoutError.body.body (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:127:30)\n    at /Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withTimeout.ts:38:17",
+                            "cause": {
+                              "message": "AggregateError: ",
+                              "stack": "AggregateError: "
+                            }
+                          }
+                        },
+                        "location": {
+                          "file": "/Users/shawwalters/jeju/packages/tests/smoke/chain-preflight.spec.ts",
+                          "column": 25,
+                          "line": 78
+                        },
+                        "snippet": "  76 |     const account = privateKeyToAccount(TEST_PRIVATE_KEY);\n  77 |\n> 78 |     const gasEstimate = await publicClient.estimateGas({\n     |                         ^\n  79 |       account: account.address,\n  80 |       to: TEST_ADDRESS,\n  81 |       value: parseEther('0.001'),"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/shawwalters/jeju/packages/tests/smoke/chain-preflight.spec.ts",
+                            "column": 25,
+                            "line": 78
+                          },
+                          "message": "EstimateGasExecutionError: HTTP request failed.\n\nURL: http://localhost:9545\nRequest body: {\"method\":\"eth_estimateGas\",\"params\":[{\"from\":\"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\"to\":\"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\"value\":\"0x38d7ea4c68000\"}]}\n \nEstimate Gas Arguments:\n  from:   0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\n  to:     0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\n  value:  0.001 ETH\n\nDetails: fetch failed\nVersion: viem@2.41.2\n\n  76 |     const account = privateKeyToAccount(TEST_PRIVATE_KEY);\n  77 |\n> 78 |     const gasEstimate = await publicClient.estimateGas({\n     |                         ^\n  79 |       account: account.address,\n  80 |       to: TEST_ADDRESS,\n  81 |       value: parseEther('0.001'),\n    at getEstimateGasError (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/errors/getEstimateGasError.ts:42:10)\n    at estimateGas (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/actions/public/estimateGas.ts:223:11)\n    at /Users/shawwalters/jeju/packages/tests/smoke/chain-preflight.spec.ts:78:25\n[cause]: HttpRequestError: HTTP request failed.\n\nURL: http://localhost:9545\nRequest body: {\"method\":\"eth_estimateGas\",\"params\":[{\"from\":\"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\"to\":\"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\"value\":\"0x38d7ea4c68000\"}]}\n\nDetails: fetch failed\nVersion: viem@2.41.2\n    at Object.request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:168:15)\n    at fn (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:148:19)\n    at request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:153:39)\n    at withRetry.delay.count.count (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/buildRequest.ts:150:22)\n    at attemptRetry (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withRetry.ts:44:22)\n[cause]: TypeError: fetch failed\n    at withTimeout.errorInstance.TimeoutError.body.body (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:127:30)\n    at /Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withTimeout.ts:38:17\n[cause]: AggregateError: "
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-12T21:22:01.748Z",
+                      "annotations": [],
+                      "attachments": [],
+                      "errorLocation": {
+                        "file": "/Users/shawwalters/jeju/packages/tests/smoke/chain-preflight.spec.ts",
+                        "column": 25,
+                        "line": 78
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "c3827734730eb1056a99-35bf75fc1ec5c11760fc",
+              "file": "chain-preflight.spec.ts",
+              "line": 75,
+              "column": 3
+            },
+            {
+              "title": "Can send and confirm transaction",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 1091,
+                      "error": {
+                        "message": "HttpRequestError: HTTP request failed.\n\nURL: http://localhost:9545\nRequest body: {\"method\":\"eth_getBalance\",\"params\":[\"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\"latest\"]}\n\nDetails: fetch failed\nVersion: viem@2.41.2",
+                        "stack": "HttpRequestError: HTTP request failed.\n\nURL: http://localhost:9545\nRequest body: {\"method\":\"eth_getBalance\",\"params\":[\"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\"latest\"]}\n\nDetails: fetch failed\nVersion: viem@2.41.2\n    at Object.request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:168:15)\n    at fn (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:148:19)\n    at request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:153:39)\n    at withRetry.delay.count.count (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/buildRequest.ts:150:22)\n    at attemptRetry (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withRetry.ts:44:22)",
+                        "cause": {
+                          "message": "TypeError: fetch failed",
+                          "stack": "TypeError: fetch failed\n    at withTimeout.errorInstance.TimeoutError.body.body (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:127:30)\n    at /Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withTimeout.ts:38:17",
+                          "cause": {
+                            "message": "AggregateError: ",
+                            "stack": "AggregateError: "
+                          }
+                        }
+                      },
+                      "errors": [
+                        {
+                          "message": "HttpRequestError: HTTP request failed.\n\nURL: http://localhost:9545\nRequest body: {\"method\":\"eth_getBalance\",\"params\":[\"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\"latest\"]}\n\nDetails: fetch failed\nVersion: viem@2.41.2\n    at Object.request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:168:15)\n    at fn (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:148:19)\n    at request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:153:39)\n    at withRetry.delay.count.count (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/buildRequest.ts:150:22)\n    at attemptRetry (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withRetry.ts:44:22)\n[cause]: TypeError: fetch failed\n    at withTimeout.errorInstance.TimeoutError.body.body (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:127:30)\n    at /Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withTimeout.ts:38:17\n[cause]: AggregateError: "
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-12T21:22:03.282Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "c3827734730eb1056a99-1fd88eaeab43fb1d7bcc",
+              "file": "chain-preflight.spec.ts",
+              "line": 88,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Contract Deployment Check",
+          "file": "chain-preflight.spec.ts",
+          "line": 128,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Can verify ERC20 Factory deployment",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/shawwalters/jeju/packages/tests/smoke/chain-preflight.spec.ts",
+                        "line": 133,
+                        "column": 12
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 6,
+                      "parallelIndex": 0,
+                      "status": "skipped",
+                      "duration": 1,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-12T21:22:04.799Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/shawwalters/jeju/packages/tests/smoke/chain-preflight.spec.ts",
+                            "line": 133,
+                            "column": 12
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "c3827734730eb1056a99-f857fa65ef9027261787",
+              "file": "chain-preflight.spec.ts",
+              "line": 129,
+              "column": 3
+            },
+            {
+              "title": "Can verify NFT Marketplace deployment",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/shawwalters/jeju/packages/tests/smoke/chain-preflight.spec.ts",
+                        "line": 146,
+                        "column": 12
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 6,
+                      "parallelIndex": 0,
+                      "status": "skipped",
+                      "duration": 0,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-12T21:22:04.809Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/shawwalters/jeju/packages/tests/smoke/chain-preflight.spec.ts",
+                            "line": 146,
+                            "column": 12
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "c3827734730eb1056a99-b44aff82ffea02fdff69",
+              "file": "chain-preflight.spec.ts",
+              "line": 142,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "RPC Health",
+          "file": "chain-preflight.spec.ts",
+          "line": 156,
+          "column": 6,
+          "specs": [
+            {
+              "title": "RPC responds within acceptable time",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 6,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 1073,
+                      "error": {
+                        "message": "HttpRequestError: HTTP request failed.\n\nURL: http://localhost:9545\nRequest body: {\"method\":\"eth_blockNumber\"}\n\nDetails: fetch failed\nVersion: viem@2.41.2",
+                        "stack": "HttpRequestError: HTTP request failed.\n\nURL: http://localhost:9545\nRequest body: {\"method\":\"eth_blockNumber\"}\n\nDetails: fetch failed\nVersion: viem@2.41.2\n    at Object.request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:168:15)\n    at fn (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:148:19)\n    at request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:153:39)\n    at withRetry.delay.count.count (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/buildRequest.ts:150:22)\n    at attemptRetry (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withRetry.ts:44:22)",
+                        "cause": {
+                          "message": "TypeError: fetch failed",
+                          "stack": "TypeError: fetch failed\n    at withTimeout.errorInstance.TimeoutError.body.body (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:127:30)\n    at /Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withTimeout.ts:38:17",
+                          "cause": {
+                            "message": "AggregateError: ",
+                            "stack": "AggregateError: "
+                          }
+                        }
+                      },
+                      "errors": [
+                        {
+                          "message": "HttpRequestError: HTTP request failed.\n\nURL: http://localhost:9545\nRequest body: {\"method\":\"eth_blockNumber\"}\n\nDetails: fetch failed\nVersion: viem@2.41.2\n    at Object.request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:168:15)\n    at fn (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:148:19)\n    at request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:153:39)\n    at withRetry.delay.count.count (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/buildRequest.ts:150:22)\n    at attemptRetry (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withRetry.ts:44:22)\n[cause]: TypeError: fetch failed\n    at withTimeout.errorInstance.TimeoutError.body.body (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:127:30)\n    at /Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withTimeout.ts:38:17\n[cause]: AggregateError: "
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-12T21:22:04.813Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "c3827734730eb1056a99-c30550302087244a77cf",
+              "file": "chain-preflight.spec.ts",
+              "line": 157,
+              "column": 3
+            },
+            {
+              "title": "Can fetch latest block details",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 1075,
+                      "error": {
+                        "message": "HttpRequestError: HTTP request failed.\n\nURL: http://localhost:9545\nRequest body: {\"method\":\"eth_getBlockByNumber\",\"params\":[\"latest\",false]}\n\nDetails: fetch failed\nVersion: viem@2.41.2",
+                        "stack": "HttpRequestError: HTTP request failed.\n\nURL: http://localhost:9545\nRequest body: {\"method\":\"eth_getBlockByNumber\",\"params\":[\"latest\",false]}\n\nDetails: fetch failed\nVersion: viem@2.41.2\n    at Object.request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:168:15)\n    at fn (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:148:19)\n    at request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:153:39)\n    at withRetry.delay.count.count (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/buildRequest.ts:150:22)\n    at attemptRetry (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withRetry.ts:44:22)",
+                        "cause": {
+                          "message": "TypeError: fetch failed",
+                          "stack": "TypeError: fetch failed\n    at withTimeout.errorInstance.TimeoutError.body.body (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:127:30)\n    at /Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withTimeout.ts:38:17",
+                          "cause": {
+                            "message": "AggregateError: ",
+                            "stack": "AggregateError: "
+                          }
+                        }
+                      },
+                      "errors": [
+                        {
+                          "message": "HttpRequestError: HTTP request failed.\n\nURL: http://localhost:9545\nRequest body: {\"method\":\"eth_getBlockByNumber\",\"params\":[\"latest\",false]}\n\nDetails: fetch failed\nVersion: viem@2.41.2\n    at Object.request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:168:15)\n    at fn (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:148:19)\n    at request (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/clients/transports/http.ts:153:39)\n    at withRetry.delay.count.count (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/buildRequest.ts:150:22)\n    at attemptRetry (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withRetry.ts:44:22)\n[cause]: TypeError: fetch failed\n    at withTimeout.errorInstance.TimeoutError.body.body (/Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/rpc/http.ts:127:30)\n    at /Users/shawwalters/jeju/node_modules/.bun/viem@2.41.2+9e930878b0ba546c/node_modules/viem/utils/promise/withTimeout.ts:38:17\n[cause]: AggregateError: "
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-12T21:22:06.319Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "c3827734730eb1056a99-4d7b1cf16c537d660e21",
+              "file": "chain-preflight.spec.ts",
+              "line": 166,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2025-12-12T21:21:55.131Z",
+    "duration": 12280.546999999999,
+    "expected": 0,
+    "skipped": 2,
+    "unexpected": 8,
+    "flaky": 0
+  }
+}

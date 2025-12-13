@@ -1,0 +1,52 @@
+replicaCount: 2
+
+image:
+  repository: jeju/x402-facilitator
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 3402
+
+env:
+  X402_PRIMARY_NETWORK: "jeju"
+  NODE_ENV: "production"
+
+secrets:
+  # Set these via --set or external secret management
+  facilitatorPrivateKey: ""
+  x402FacilitatorAddress: ""
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 3402
+  initialDelaySeconds: 10
+  periodSeconds: 30
+
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 3402
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+revisionHistoryLimit: 5
+
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0
+
+monitoring:
+  enabled: true

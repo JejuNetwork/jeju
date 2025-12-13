@@ -1,0 +1,15 @@
+apiVersion: v2
+name: oracle-network
+description: Jeju Oracle Network - Decentralized price oracle with staking
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+maintainers:
+  - name: Jeju Network
+    email: devops@jeju.network
+keywords:
+  - oracle
+  - price-feed
+  - staking
+  - consensus
+dependencies: []

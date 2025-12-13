@@ -91,5 +91,4 @@ jobs:
           target: 'packages/contracts/src'
           slither-args: '--filter-paths "packages/contracts/lib" --exclude naming-convention,external-function'
           fail-on: medium
-        continue-on-error: true
 

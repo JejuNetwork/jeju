@@ -218,9 +218,11 @@ describe('Game Items', () => {
       
       const createToken = abi.default.find(
         (item: { name?: string }) => item.name === 'createToken'
-      )
+      ) as { name: string; inputs: { name: string }[] } | undefined
       
       expect(createToken).toBeDefined()
+      if (!createToken) throw new Error('createToken not found')
+      
       expect(createToken.inputs).toHaveLength(4)
       
       const inputNames = createToken.inputs.map((i: { name: string }) => i.name)

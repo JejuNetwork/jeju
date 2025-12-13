@@ -3,9 +3,9 @@
  * Re-exports shared implementation with Documentation-specific payment tiers
  */
 
-import { parseEther } from 'viem';
+import { parseEther, type Address } from 'viem';
+import { createPaymentRequirement as sharedCreatePaymentRequirement } from '../../../scripts/shared/x402';
 
-// Re-export core x402 functionality
 export {
   type PaymentRequirements,
   type PaymentScheme,
@@ -14,11 +14,6 @@ export {
   checkPayment,
 } from '../../../scripts/shared/x402';
 
-import { createPaymentRequirement as sharedCreatePaymentRequirement } from '../../../scripts/shared/x402';
-import type { Address } from 'viem';
-
-// ============ Documentation-Specific Payment Tiers ============
-
 export const PAYMENT_TIERS = {
   PREMIUM_DOCS: parseEther('0.01'),
   API_DOCS: parseEther('0.005'),
@@ -26,19 +21,22 @@ export const PAYMENT_TIERS = {
   EXAMPLES: parseEther('0.01'),
 } as const;
 
-// ============ Documentation-Specific Wrapper ============
+type Network = 'base-sepolia' | 'base' | 'jeju' | 'jeju-testnet';
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as const;
 
 export function createPaymentRequirement(
   resource: string,
   amount: bigint,
   description: string,
   recipientAddress: Address,
-  tokenAddress: Address = '0x0000000000000000000000000000000000000000',
-  network: 'base-sepolia' | 'base' | 'jeju' | 'jeju-testnet' = 'jeju'
+  tokenAddress: Address = ZERO_ADDRESS,
+  network: Network = 'jeju'
 ) {
-  return sharedCreatePaymentRequirement(resource, amount, description, {
-    recipientAddress,
-    network,
-    serviceName: 'Documentation',
-  }, tokenAddress);
+  return sharedCreatePaymentRequirement(
+    resource,
+    amount,
+    description,
+    { recipientAddress, network, serviceName: 'Documentation' },
+    tokenAddress
+  );
 }

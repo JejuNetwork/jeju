@@ -1,21 +1,35 @@
 import { defineConfig } from 'vitepress';
 
+// Helper to reduce repetition in sidebar definitions
+const sidebarSection = (text: string, base: string, items: string[][]) => [{
+  text,
+  items: items.map(([label, page]) => ({ text: label, link: `${base}/${page}` })),
+}];
+
 export default defineConfig({
   title: 'Jeju',
-  description: 'OP-Stack L3 settling on Base with Flashblocks and EigenDA',
+  description: 'OP-Stack L2 on Ethereum with 200ms Flashblocks',
   base: '/jeju/',
   ignoreDeadLinks: [
     /^http:\/\/localhost/,
-    /\/operators\//,
     /\/api\/.*\/README/,
+    // Planned guides (remove when created)
+    /\/guides\/become-lp/,
+    /\/guides\/launch-token/,
+    /\/guides\/register-name/,
+    /\/guides\/build-character/,
+    /\/guides\/multi-agent/,
+    /\/guides\/graphql-best-practices/,
+    /\/guides\/custom-indexing/,
+    /\/guides\/realtime-apps/,
+    /\/guides\/store-agent-memory/,
+    /\/guides\/ipfs-best-practices/,
   ],
-  
+
   vite: {
-    server: {
-      port: parseInt(process.env.DOCUMENTATION_PORT || '4004')
-    }
+    server: { port: parseInt(process.env.DOCUMENTATION_PORT || '4004') },
   },
-  
+
   head: [
     ['link', { rel: 'icon', href: '/jeju/favicon.ico' }],
     ['meta', { name: 'theme-color', content: '#3eaf7c' }],
@@ -26,105 +40,95 @@ export default defineConfig({
 
   themeConfig: {
     logo: '/logo.svg',
-    
+
     nav: [
       { text: 'Home', link: '/' },
       { text: 'Get Started', link: '/getting-started/quick-start' },
-      { text: 'Developers', link: '/developers/quick-start' },
-      { text: 'Network', link: '/network/testnet' },
+      { text: 'Apps', link: '/applications/overview' },
+      { text: 'Contracts', link: '/contracts/overview' },
+      { text: 'Guides', link: '/guides/overview' },
       {
-        text: 'Apps',
+        text: 'Reference',
         items: [
-          { text: 'Overview', link: '/applications/overview' },
-          { text: 'Gateway', link: '/applications/gateway' },
-          { text: 'Bazaar', link: '/applications/bazaar' },
-          { text: 'Indexer', link: '/applications/indexer' },
-        ],
-      },
-      {
-        text: 'Resources',
-        items: [
-          { text: 'Agent Registry', link: '/registry' },
-          { text: 'Contract Addresses', link: '/contracts' },
-          { text: 'Architecture', link: '/architecture' },
+          { text: 'API', link: '/api-reference/rpc' },
           { text: 'Deployment', link: '/deployment/overview' },
-          { text: 'Support', link: '/support' },
+          { text: 'CLI Commands', link: '/reference/cli' },
+          { text: 'Port Allocations', link: '/reference/ports' },
+          { text: 'Contract Addresses', link: '/reference/addresses' },
         ],
       },
     ],
 
     sidebar: {
-      '/getting-started/': [
-        {
-          text: 'Getting Started',
-          items: [
-            { text: 'Quick Start', link: '/getting-started/quick-start' },
-            { text: 'Installation', link: '/getting-started/installation' },
-            { text: 'Staking & Earning', link: '/getting-started/staking' },
-            { text: 'Token Integration', link: '/getting-started/token-integration' },
-          ],
-        },
-      ],
-      
-      '/developers/': [
-        {
-          text: 'Developers',
-          items: [
-            { text: 'Quick Start', link: '/developers/quick-start' },
-            { text: 'Local Development', link: '/developers/local-development' },
-            { text: 'Deploy Contracts', link: '/developers/deploy-contracts' },
-            { text: 'RPC Methods', link: '/developers/rpc-methods' },
-            { text: 'Run RPC Node', link: '/developers/run-rpc-node' },
-          ],
-        },
-      ],
-      
-      '/network/': [
-        {
-          text: 'Network',
-          items: [
-            { text: 'Testnet', link: '/network/testnet' },
-            { text: 'Mainnet', link: '/network/mainnet' },
-            { text: 'Wallet Setup', link: '/network/wallet-setup' },
-            { text: 'Bridging (EIL)', link: '/network/bridge' },
-          ],
-        },
-      ],
-      
-      '/applications/': [
-        {
-          text: 'Applications',
-          items: [
-            { text: 'Overview', link: '/applications/overview' },
-            { text: 'Gateway', link: '/applications/gateway' },
-            { text: 'Bazaar', link: '/applications/bazaar' },
-            { text: 'Indexer', link: '/applications/indexer' },
-            { text: 'Monitoring', link: '/applications/monitoring' },
-            { text: 'IPFS', link: '/applications/ipfs' },
-          ],
-        },
-      ],
-      
-      '/deployment/': [
-        {
-          text: 'Deployment',
-          items: [
-            { text: 'Overview', link: '/deployment/overview' },
-            { text: 'Prerequisites', link: '/deployment/prerequisites' },
-            { text: 'Testnet Checklist', link: '/deployment/testnet-checklist' },
-            { text: 'Mainnet Checklist', link: '/deployment/mainnet-checklist' },
-            { text: 'Infrastructure', link: '/deployment/infrastructure' },
-          ],
-        },
-        {
-          text: 'Operations',
-          items: [
-            { text: 'Monitoring', link: '/deployment/monitoring' },
-            { text: 'Runbooks', link: '/deployment/runbooks' },
-            { text: 'Oracle Setup', link: '/deployment/oracle-setup' },
-          ],
-        },
-      ],
+      '/getting-started/': sidebarSection('Getting Started', '/getting-started', [
+        ['Quick Start', 'quick-start'],
+        ['Networks', 'networks'],
+        ['Configuration', 'configuration'],
+        ['Test Accounts', 'test-accounts'],
+      ]),
+
+      '/applications/': sidebarSection('Applications', '/applications', [
+        ['Overview', 'overview'],
+        ['Gateway', 'gateway'],
+        ['Bazaar', 'bazaar'],
+        ['Compute', 'compute'],
+        ['Storage', 'storage'],
+        ['Crucible', 'crucible'],
+        ['Indexer', 'indexer'],
+        ['Facilitator', 'facilitator'],
+        ['Monitoring', 'monitoring'],
+      ]),
+
+      '/contracts/': sidebarSection('Smart Contracts', '/contracts', [
+        ['Overview', 'overview'],
+        ['Tokens', 'tokens'],
+        ['Identity (ERC-8004)', 'identity'],
+        ['Payments & Paymasters', 'payments'],
+        ['Open Intents (OIF)', 'oif'],
+        ['Cross-Chain (EIL)', 'eil'],
+        ['Compute', 'compute'],
+        ['Staking', 'staking'],
+        ['Name Service (JNS)', 'jns'],
+        ['DeFi', 'defi'],
+        ['Moderation', 'moderation'],
+      ]),
+
+      '/guides/': sidebarSection('User Guides', '/guides', [
+        ['Overview', 'overview'],
+        ['Become an XLP', 'become-xlp'],
+        ['Become a Solver', 'become-solver'],
+        ['Run an RPC Node', 'run-rpc-node'],
+        ['Run a Compute Node', 'run-compute-node'],
+        ['Run a Storage Node', 'run-storage-node'],
+        ['Register a Token', 'register-token'],
+        ['Register an Agent', 'register-agent'],
+        ['Deploy an Agent', 'deploy-agent'],
+        ['Gasless Transactions', 'gasless-transactions'],
+      ]),
+
+      '/api-reference/': sidebarSection('API Reference', '/api-reference', [
+        ['RPC Methods', 'rpc'],
+        ['GraphQL (Indexer)', 'graphql'],
+        ['A2A Protocol', 'a2a'],
+        ['MCP', 'mcp'],
+        ['x402 Payments', 'x402'],
+      ]),
+
+      '/deployment/': sidebarSection('Deployment', '/deployment', [
+        ['Overview', 'overview'],
+        ['Localnet', 'localnet'],
+        ['Testnet', 'testnet'],
+        ['Mainnet', 'mainnet'],
+        ['Contracts', 'contracts'],
+        ['Infrastructure', 'infrastructure'],
+      ]),
+
+      '/reference/': sidebarSection('Reference', '/reference', [
+        ['CLI Commands', 'cli'],
+        ['Port Allocations', 'ports'],
+        ['Environment Variables', 'env-vars'],
+        ['Contract Addresses', 'addresses'],
+      ]),
     },
 
     socialLinks: [
@@ -138,9 +142,7 @@ export default defineConfig({
       copyright: 'Copyright © 2025 Jeju',
     },
 
-    search: {
-      provider: 'local',
-    },
+    search: { provider: 'local' },
 
     editLink: {
       pattern: 'https://github.com/elizaos/jeju/edit/main/apps/documentation/:path',

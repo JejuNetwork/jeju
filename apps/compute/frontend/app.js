@@ -32,14 +32,26 @@ const state = {
   providers: [],
   rentals: [],
   models: [],
+  triggers: [],
+  activeServices: [],
   selectedProvider: null,
   selectedRentalId: null,
   selectedRating: 0,
+  selectedModel: null,
   filters: {
     gpuType: '',
     minMemory: 0,
     maxPrice: '',
     features: '',
+    sortBy: 'rating', // Default sort by rating
+    minRating: 0,
+    hideUnrated: false,
+  },
+  modelFilters: {
+    type: '',
+    provider: '',
+    minContext: 0,
+    sortBy: 'rating', // Default sort by rating
   },
 };
 
@@ -189,6 +201,9 @@ function renderProviders() {
   const grid = document.getElementById('provider-grid');
   let filtered = state.providers;
 
+  // Filter out banned providers first (always hidden)
+  filtered = filtered.filter(p => !p.reputation?.banned);
+
   // Apply filters
   if (state.filters.gpuType) {
     filtered = filtered.filter(p => p.resources?.gpuType === state.filters.gpuType);
@@ -203,6 +218,25 @@ function renderProviders() {
   } else if (state.filters.features === 'tee') {
     filtered = filtered.filter(p => p.resources?.teeSupported);
   }
+  
+  // Filter by minimum rating
+  if (state.filters.minRating > 0) {
+    filtered = filtered.filter(p => parseFloat(p.reputation?.avgRating || 0) >= state.filters.minRating);
+  }
+  
+  // Hide unrated if option is checked
+  if (state.filters.hideUnrated) {
+    filtered = filtered.filter(p => (p.reputation?.ratingCount || 0) > 0);
+  }
+  
+  // Sort providers
+  if (state.filters.sortBy === 'price') {
+    filtered.sort((a, b) => parseFloat(a.pricing?.pricePerHour || 0) - parseFloat(b.pricing?.pricePerHour || 0));
+  } else if (state.filters.sortBy === 'rating') {
+    filtered.sort((a, b) => parseFloat(b.reputation?.avgRating || 0) - parseFloat(a.reputation?.avgRating || 0));
+  } else if (state.filters.sortBy === 'stake') {
+    filtered.sort((a, b) => parseFloat(b.stake || 0) - parseFloat(a.stake || 0));
+  }
 
   if (filtered.length === 0) {
     grid.innerHTML = `
@@ -215,7 +249,12 @@ function renderProviders() {
     return;
   }
 
-  grid.innerHTML = filtered.map(provider => `
+  grid.innerHTML = filtered.map(provider => {
+    const rating = parseFloat(provider.reputation?.avgRating || 0);
+    const ratingCount = provider.reputation?.ratingCount || 0;
+    const ratingDisplay = ratingCount > 0 ? `★ ${rating.toFixed(1)} (${ratingCount})` : '<span class="unrated">Unrated</span>';
+    
+    return `
     <div class="provider-card" data-address="${provider.address}" data-testid="provider-card-${provider.address.slice(0, 8)}">
       <div class="provider-header">
         <div>
@@ -257,11 +296,12 @@ function renderProviders() {
           ${provider.pricing?.pricePerHour || '0.00'} <span>ETH/hr</span>
         </div>
         <div class="provider-rating">
-          ★ ${provider.reputation?.avgRating || '4.5'} (${provider.reputation?.ratingCount || 0})
+          ${ratingDisplay}
         </div>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 
   // Add click handlers
   document.querySelectorAll('.provider-card').forEach(card => {
@@ -710,6 +750,335 @@ async function submitRating() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// MODEL REGISTRY
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function loadModels() {
+  const container = document.getElementById('models-grid');
+  if (!container) return;
+  
+  container.innerHTML = '<div class="loading">Loading models...</div>';
+
+  try {
+    const response = await fetch(`${CONFIG.gatewayUrl}/api/models`);
+    if (!response.ok) throw new Error('Failed to fetch models');
+    
+    const data = await response.json();
+    state.models = data.models || [];
+    renderModels();
+  } catch (error) {
+    console.error('Load models error:', error);
+    container.innerHTML = '<div class="error-message">Failed to load models</div>';
+  }
+}
+
+function renderModels() {
+  const container = document.getElementById('models-grid');
+  if (!container) return;
+
+  let models = [...state.models];
+
+  // Apply filters
+  if (state.modelFilters.type) {
+    models = models.filter(m => m.type === state.modelFilters.type);
+  }
+  if (state.modelFilters.provider) {
+    models = models.filter(m => m.provider?.toLowerCase().includes(state.modelFilters.provider.toLowerCase()));
+  }
+  if (state.modelFilters.minContext > 0) {
+    models = models.filter(m => (m.contextWindow || 0) >= state.modelFilters.minContext);
+  }
+  
+  // Sort models
+  if (state.modelFilters.sortBy === 'price') {
+    models.sort((a, b) => {
+      const priceA = a.pricing?.pricePerToken || a.pricing?.pricePerRequest || 0;
+      const priceB = b.pricing?.pricePerToken || b.pricing?.pricePerRequest || 0;
+      return priceA - priceB;
+    });
+  } else if (state.modelFilters.sortBy === 'rating') {
+    models.sort((a, b) => parseFloat(b.providerRating || 0) - parseFloat(a.providerRating || 0));
+  }
+
+  if (models.length === 0) {
+    container.innerHTML = '<div class="empty-state">No models found</div>';
+    return;
+  }
+
+  container.innerHTML = models.map(model => `
+    <div class="model-card" data-model-id="${model.id}">
+      <div class="model-header">
+        <span class="model-type-badge ${model.type}">${formatModelType(model.type)}</span>
+        ${model.teeVerified ? '<span class="tee-badge">TEE ✓</span>' : ''}
+      </div>
+      <h3 class="model-name">${model.name}</h3>
+      <p class="model-provider">${model.provider || 'Unknown'} ${model.providerRating ? `★ ${parseFloat(model.providerRating).toFixed(1)}` : ''}</p>
+      <div class="model-stats">
+        <div class="stat">
+          <span class="stat-label">Context</span>
+          <span class="stat-value">${formatContextWindow(model.contextWindow)}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Price</span>
+          <span class="stat-value">${formatModelPrice(model.pricing)}</span>
+        </div>
+      </div>
+      <div class="model-capabilities">
+        ${(model.capabilities || []).slice(0, 3).map(c => `<span class="cap-badge">${c}</span>`).join('')}
+      </div>
+      <div class="model-actions">
+        <button class="btn btn-secondary btn-sm" onclick="viewModelDetails('${model.id}')">Details</button>
+        <button class="btn btn-primary btn-sm" onclick="useModel('${model.id}')">Use Model</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function formatModelType(type) {
+  const map = {
+    'llm': '🤖 LLM',
+    'image': '🎨 Image',
+    'audio': '🎵 Audio',
+    'video': '🎬 Video',
+    'embedding': '📊 Embedding',
+    'multimodal': '🌐 Multimodal',
+  };
+  return map[type] || type || 'Unknown';
+}
+
+function formatContextWindow(context) {
+  if (!context) return 'N/A';
+  if (context >= 1000000) return (context / 1000000).toFixed(1) + 'M';
+  if (context >= 1000) return (context / 1000).toFixed(0) + 'K';
+  return context.toString();
+}
+
+function formatModelPrice(pricing) {
+  if (!pricing) return 'Free';
+  if (pricing.pricePerToken) {
+    return '$' + (pricing.pricePerToken * 1000000).toFixed(4) + '/1M tokens';
+  }
+  if (pricing.pricePerRequest) {
+    return '$' + pricing.pricePerRequest.toFixed(4) + '/req';
+  }
+  return 'Contact';
+}
+
+function viewModelDetails(modelId) {
+  const model = state.models.find(m => m.id === modelId);
+  if (!model) return;
+  
+  state.selectedModel = model;
+  
+  const modal = document.getElementById('model-modal');
+  if (!modal) return;
+  
+  document.getElementById('model-detail-name').textContent = model.name;
+  document.getElementById('model-detail-provider').textContent = model.provider || 'Unknown';
+  document.getElementById('model-detail-type').textContent = formatModelType(model.type);
+  document.getElementById('model-detail-context').textContent = formatContextWindow(model.contextWindow);
+  document.getElementById('model-detail-price').textContent = formatModelPrice(model.pricing);
+  document.getElementById('model-detail-description').textContent = model.description || 'No description';
+  
+  const endpointsList = document.getElementById('model-endpoints-list');
+  if (endpointsList && model.endpoints) {
+    endpointsList.innerHTML = model.endpoints.map(ep => `
+      <div class="endpoint-item">
+        <span class="endpoint-url">${ep.url}</span>
+        <span class="endpoint-status ${ep.healthy ? 'healthy' : 'unhealthy'}">${ep.healthy ? '✓' : '✕'}</span>
+      </div>
+    `).join('');
+  }
+  
+  modal.classList.add('active');
+}
+
+function closeModelModal() {
+  const modal = document.getElementById('model-modal');
+  if (modal) modal.classList.remove('active');
+  state.selectedModel = null;
+}
+
+async function useModel(modelId) {
+  const model = state.models.find(m => m.id === modelId);
+  if (!model) return;
+  
+  showToast(`Selected model: ${model.name}`, 'success');
+  // Store for inference
+  localStorage.setItem('selectedModelId', modelId);
+}
+
+function applyModelFilters() {
+  state.modelFilters.type = document.getElementById('filter-model-type')?.value || '';
+  state.modelFilters.provider = document.getElementById('filter-model-provider')?.value || '';
+  state.modelFilters.minContext = parseInt(document.getElementById('filter-model-context')?.value) || 0;
+  state.modelFilters.sortBy = document.getElementById('filter-model-sort')?.value || 'rating';
+  renderModels();
+}
+
+function resetModelFilters() {
+  const typeEl = document.getElementById('filter-model-type');
+  const providerEl = document.getElementById('filter-model-provider');
+  const contextEl = document.getElementById('filter-model-context');
+  const sortEl = document.getElementById('filter-model-sort');
+  if (typeEl) typeEl.value = '';
+  if (providerEl) providerEl.value = '';
+  if (contextEl) contextEl.value = '';
+  if (sortEl) sortEl.value = 'rating';
+  state.modelFilters = { type: '', provider: '', minContext: 0, sortBy: 'rating' };
+  renderModels();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TRIGGER REGISTRY
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function loadTriggers() {
+  const container = document.getElementById('triggers-list');
+  if (!container) return;
+  
+  container.innerHTML = '<div class="loading">Loading triggers...</div>';
+
+  try {
+    const response = await fetch(`${CONFIG.gatewayUrl}/api/triggers`);
+    if (!response.ok) throw new Error('Failed to fetch triggers');
+    
+    const data = await response.json();
+    state.triggers = data.triggers || [];
+    renderTriggers();
+  } catch (error) {
+    console.error('Load triggers error:', error);
+    container.innerHTML = '<div class="error-message">Failed to load triggers</div>';
+  }
+}
+
+function renderTriggers() {
+  const container = document.getElementById('triggers-list');
+  if (!container) return;
+
+  if (state.triggers.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <p>No triggers configured</p>
+        <button class="btn btn-primary" onclick="openCreateTriggerModal()">Create Trigger</button>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = state.triggers.map(trigger => `
+    <div class="trigger-card ${trigger.active ? 'active' : 'inactive'}">
+      <div class="trigger-header">
+        <span class="trigger-type-badge ${trigger.type}">${trigger.type.toUpperCase()}</span>
+        <span class="trigger-status ${trigger.active ? 'active' : 'inactive'}">
+          ${trigger.active ? '● Active' : '○ Inactive'}
+        </span>
+      </div>
+      <h4 class="trigger-name">${trigger.name}</h4>
+      <p class="trigger-description">${trigger.description || ''}</p>
+      ${trigger.type === 'cron' ? `<code class="trigger-cron">${trigger.cronExpression}</code>` : ''}
+      <div class="trigger-stats">
+        <span>Executions: ${trigger.executionCount || 0}</span>
+        ${trigger.lastExecutedAt ? `<span>Last: ${formatTimeAgo(trigger.lastExecutedAt)}</span>` : ''}
+      </div>
+      <div class="trigger-actions">
+        <button class="btn btn-sm ${trigger.active ? 'btn-secondary' : 'btn-primary'}" 
+                onclick="toggleTrigger('${trigger.id}', ${!trigger.active})">
+          ${trigger.active ? 'Pause' : 'Resume'}
+        </button>
+        <button class="btn btn-sm btn-danger" onclick="deleteTrigger('${trigger.id}')">Delete</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function formatTimeAgo(timestamp) {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 60) return 'just now';
+  if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+  if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+  return Math.floor(seconds / 86400) + 'd ago';
+}
+
+function openCreateTriggerModal() {
+  const modal = document.getElementById('trigger-modal');
+  if (modal) modal.classList.add('active');
+}
+
+function closeTriggerModal() {
+  const modal = document.getElementById('trigger-modal');
+  if (modal) modal.classList.remove('active');
+}
+
+async function createTrigger(event) {
+  event.preventDefault();
+  
+  const form = event.target;
+  const data = {
+    name: form.querySelector('#trigger-name')?.value,
+    type: form.querySelector('#trigger-type')?.value,
+    cronExpression: form.querySelector('#trigger-cron')?.value,
+    webhookPath: form.querySelector('#trigger-webhook')?.value,
+    endpoint: form.querySelector('#trigger-endpoint')?.value,
+    description: form.querySelector('#trigger-description')?.value,
+    registerOnChain: form.querySelector('#trigger-onchain')?.checked,
+  };
+
+  try {
+    const response = await fetch(`${CONFIG.gatewayUrl}/api/triggers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) throw new Error('Failed to create trigger');
+
+    showToast('Trigger created successfully', 'success');
+    closeTriggerModal();
+    loadTriggers();
+  } catch (error) {
+    console.error('Create trigger error:', error);
+    showToast('Failed to create trigger: ' + error.message, 'error');
+  }
+}
+
+async function toggleTrigger(triggerId, active) {
+  try {
+    const response = await fetch(`${CONFIG.gatewayUrl}/api/triggers/${triggerId}/active`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ active }),
+    });
+
+    if (!response.ok) throw new Error('Failed to update trigger');
+
+    showToast(`Trigger ${active ? 'resumed' : 'paused'}`, 'success');
+    loadTriggers();
+  } catch (error) {
+    console.error('Toggle trigger error:', error);
+    showToast('Failed to update trigger: ' + error.message, 'error');
+  }
+}
+
+async function deleteTrigger(triggerId) {
+  if (!confirm('Are you sure you want to delete this trigger?')) return;
+
+  try {
+    const response = await fetch(`${CONFIG.gatewayUrl}/api/triggers/${triggerId}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) throw new Error('Failed to delete trigger');
+
+    showToast('Trigger deleted', 'success');
+    loadTriggers();
+  } catch (error) {
+    console.error('Delete trigger error:', error);
+    showToast('Failed to delete trigger: ' + error.message, 'error');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // UTILITIES
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -765,19 +1134,34 @@ function showToast(message, type = 'success') {
 }
 
 function applyFilters() {
-  state.filters.gpuType = document.getElementById('filter-gpu').value;
-  state.filters.minMemory = parseInt(document.getElementById('filter-memory').value) || 0;
-  state.filters.maxPrice = document.getElementById('filter-price').value;
-  state.filters.features = document.getElementById('filter-features').value;
+  state.filters.gpuType = document.getElementById('filter-gpu')?.value || '';
+  state.filters.minMemory = parseInt(document.getElementById('filter-memory')?.value) || 0;
+  state.filters.maxPrice = document.getElementById('filter-price')?.value || '';
+  state.filters.features = document.getElementById('filter-features')?.value || '';
+  state.filters.sortBy = document.getElementById('filter-sort')?.value || 'rating';
+  state.filters.minRating = parseFloat(document.getElementById('filter-min-rating')?.value) || 0;
+  state.filters.hideUnrated = document.getElementById('filter-hide-unrated')?.checked || false;
   renderProviders();
 }
 
 function resetFilters() {
-  document.getElementById('filter-gpu').value = '';
-  document.getElementById('filter-memory').value = '';
-  document.getElementById('filter-price').value = '';
-  document.getElementById('filter-features').value = '';
-  state.filters = { gpuType: '', minMemory: 0, maxPrice: '', features: '' };
+  const gpuEl = document.getElementById('filter-gpu');
+  const memoryEl = document.getElementById('filter-memory');
+  const priceEl = document.getElementById('filter-price');
+  const featuresEl = document.getElementById('filter-features');
+  const sortEl = document.getElementById('filter-sort');
+  const minRatingEl = document.getElementById('filter-min-rating');
+  const hideUnratedEl = document.getElementById('filter-hide-unrated');
+  
+  if (gpuEl) gpuEl.value = '';
+  if (memoryEl) memoryEl.value = '';
+  if (priceEl) priceEl.value = '';
+  if (featuresEl) featuresEl.value = '';
+  if (sortEl) sortEl.value = 'rating';
+  if (minRatingEl) minRatingEl.value = '';
+  if (hideUnratedEl) hideUnratedEl.checked = false;
+  
+  state.filters = { gpuType: '', minMemory: 0, maxPrice: '', features: '', sortBy: 'rating', minRating: 0, hideUnrated: false };
   renderProviders();
 }
 
@@ -852,8 +1236,40 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Model filters
+  const applyModelFiltersBtn = document.getElementById('apply-model-filters');
+  const resetModelFiltersBtn = document.getElementById('reset-model-filters');
+  if (applyModelFiltersBtn) applyModelFiltersBtn.addEventListener('click', applyModelFilters);
+  if (resetModelFiltersBtn) resetModelFiltersBtn.addEventListener('click', resetModelFilters);
+
+  // Model modal
+  const modelModal = document.getElementById('model-modal');
+  if (modelModal) {
+    modelModal.addEventListener('click', (e) => {
+      if (e.target.classList.contains('modal-overlay')) {
+        closeModelModal();
+      }
+    });
+  }
+
+  // Trigger form
+  const triggerForm = document.getElementById('trigger-form');
+  if (triggerForm) triggerForm.addEventListener('submit', createTrigger);
+
+  // Trigger modal
+  const triggerModal = document.getElementById('trigger-modal');
+  if (triggerModal) {
+    triggerModal.addEventListener('click', (e) => {
+      if (e.target.classList.contains('modal-overlay')) {
+        closeTriggerModal();
+      }
+    });
+  }
+
   // Load initial data
   loadProviders();
+  loadModels();
+  loadTriggers();
 });
 
 // Export for testing

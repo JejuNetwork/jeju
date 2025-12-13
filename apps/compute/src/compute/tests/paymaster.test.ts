@@ -1,14 +1,19 @@
 /**
  * Compute + ERC-4337 Paymaster Integration Tests
- *
- * Tests multi-token payment via paymasters:
- * - PaymasterFactory discovery
- * - Token balance checking
- * - Gas sponsorship flow
- * - Bundler integration (mocked when not available)
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
+
+const IS_CI = process.env.CI === 'true';
+
+function requireNetwork(networkAvailable: boolean, testName: string): void {
+  if (!networkAvailable) {
+    if (IS_CI) {
+      throw new Error(`Test "${testName}" requires network but CI has no blockchain running.`);
+    }
+    console.log(`Skipping: network not available`);
+  }
+}
 import { Wallet, parseEther, JsonRpcProvider } from 'ethers';
 import {
   ComputePaymentClient,
@@ -72,7 +77,7 @@ describe('Compute Paymaster Integration', () => {
   describe('Credit Balance Checking', () => {
     test('getCreditBalances returns structure', async () => {
       if (!networkAvailable) {
-        console.log('Skipping: network not available');
+        requireNetwork(networkAvailable, 'getCreditBalances returns structure');
         return;
       }
 
@@ -91,7 +96,7 @@ describe('Compute Paymaster Integration', () => {
 
     test('getLedgerBalance returns bigint', async () => {
       if (!networkAvailable) {
-        console.log('Skipping: network not available');
+        requireNetwork(networkAvailable, 'getLedgerBalance returns bigint');
         return;
       }
 
@@ -108,7 +113,7 @@ describe('Compute Paymaster Integration', () => {
   describe('Paymaster Discovery', () => {
     test('getAvailablePaymasters returns array', async () => {
       if (!networkAvailable) {
-        console.log('Skipping: network not available');
+        requireNetwork(networkAvailable, 'getAvailablePaymasters returns array');
         return;
       }
 
@@ -133,7 +138,7 @@ describe('Compute Paymaster Integration', () => {
 
     test('selectOptimalPaymaster handles no paymasters', async () => {
       if (!networkAvailable) {
-        console.log('Skipping: network not available');
+        requireNetwork(networkAvailable, 'selectOptimalPaymaster handles no paymasters');
         return;
       }
 
@@ -192,7 +197,7 @@ describe('Compute Paymaster Integration', () => {
   describe('Payment Flow', () => {
     test('payForCompute handles no payment methods gracefully', async () => {
       if (!networkAvailable) {
-        console.log('Skipping: network not available');
+        requireNetwork(networkAvailable, 'payForCompute handles no payment methods');
         return;
       }
 

@@ -4,13 +4,13 @@
     "../../apps/bazaar/hooks",
     "../../apps/bazaar/config",
     "../../apps/crucible/src",
-    "../../apps/ehorse/src",
     "../../apps/gateway/src/lib",
     "../../apps/gateway/src/hooks",
     "../../apps/indexer/src",
-    "../../apps/ipfs/pinning-api/src",
     "../../apps/leaderboard/src/lib",
-    "../../apps/monitoring/server"
+    "../../apps/monitoring/server",
+    "../../apps/storage/src",
+    "../../apps/compute/src"
   ],
   "entryPointStrategy": "expand",
   "tsconfig": "tsconfig.docs.json",
@@ -18,11 +18,8 @@
   "plugin": ["typedoc-plugin-markdown"],
   "readme": "none",
   "excludePrivate": true,
-  "excludeProtected": false,
   "excludeExternals": true,
-  "includeVersion": true,
   "skipErrorChecking": true,
-  "treatWarningsAsErrors": false,
   "validation": {
     "notExported": false,
     "invalidLink": false,
@@ -32,51 +29,9 @@
     "includeCategories": true,
     "includeGroups": true
   },
-  "categorizeByGroup": true,
-  "categoryOrder": [
-    "Bazaar",
-    "Crucible",
-    "eHorse",
-    "Gateway",
-    "Indexer",
-    "IPFS",
-    "Leaderboard",
-    "Monitoring"
-  ],
-  "groupOrder": [
-    "Functions",
-    "Classes",
-    "Interfaces",
-    "Type Aliases",
-    "Variables"
-  ],
+  "categoryOrder": ["Bazaar", "Crucible", "Gateway", "Indexer", "Leaderboard", "Monitoring", "Storage", "Compute"],
+  "groupOrder": ["Functions", "Classes", "Interfaces", "Type Aliases", "Variables"],
   "sort": ["source-order"],
-  "kindSortOrder": [
-    "Project",
-    "Module",
-    "Namespace",
-    "Enum",
-    "EnumMember",
-    "Variable",
-    "Function",
-    "Class",
-    "Interface",
-    "Constructor",
-    "Property",
-    "Method",
-    "CallSignature",
-    "IndexSignature",
-    "ConstructorSignature",
-    "Parameter",
-    "TypeLiteral",
-    "TypeParameter",
-    "Accessor",
-    "GetSignature",
-    "SetSignature",
-    "TypeAlias",
-    "Reference",
-    "Document"
-  ],
   "exclude": [
     "**/node_modules/**",
     "**/dist/**",
@@ -86,9 +41,5 @@
     "**/__tests__/**",
     "**/tests/**"
   ],
-  "githubPages": false,
-  "hideGenerator": false,
-  "searchInComments": true,
   "cleanOutputDir": true
 }
-

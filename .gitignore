@@ -105,3 +105,4 @@ packages/contracts/cache-root-owned/
 
 # Generated documentation
 docs/
+.jeju/

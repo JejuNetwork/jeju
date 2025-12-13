@@ -10,8 +10,9 @@ export default function NFTDetailPage() {
   const [showListModal, setShowListModal] = useState(false)
   const [showTransferModal, setShowTransferModal] = useState(false)
 
-  const id = params.id as string
-  const [nftContract, tokenId] = id?.split('-') || []
+  const rawId = params?.id
+  const id = Array.isArray(rawId) ? rawId[0] : rawId ?? ''
+  const [nftContract, tokenId] = id.split('-')
 
   const isOwner = true
 

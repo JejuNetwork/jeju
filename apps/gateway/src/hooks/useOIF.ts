@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, usePublicClient } from 'wagmi';
 import { parseEther, type Address, keccak256, encodeAbiParameters, parseAbiParameters } from 'viem';
 import { CONTRACTS } from '../config';
+import { ZERO_ADDRESS } from '../lib/contracts';
 
 const INPUT_SETTLER_ABI = [
   { inputs: [{ components: [{ name: 'originSettler', type: 'address' }, { name: 'user', type: 'address' }, { name: 'nonce', type: 'uint256' }, { name: 'originChainId', type: 'uint256' }, { name: 'openDeadline', type: 'uint32' }, { name: 'fillDeadline', type: 'uint32' }, { name: 'orderDataType', type: 'bytes32' }, { name: 'orderData', type: 'bytes' }], name: 'order', type: 'tuple' }], name: 'open', outputs: [], stateMutability: 'payable', type: 'function' },
@@ -120,7 +121,7 @@ export function useCreateIntent(inputSettlerAddress: Address | undefined) {
       abi: INPUT_SETTLER_ABI,
       functionName: 'open',
       args: [order],
-      value: params.inputToken === '0x0000000000000000000000000000000000000000' ? params.inputAmount : 0n,
+      value: params.inputToken === ZERO_ADDRESS ? params.inputAmount : 0n,
     });
   }, [address, inputSettlerAddress, publicClient, nonce, writeContract]);
 
@@ -148,7 +149,7 @@ export function useIntentStatus(inputSettlerAddress: Address | undefined, intent
     if (!order) return 'unknown';
     if (order.refunded) return 'refunded';
     if (order.filled) return 'filled';
-    if (order.solver !== '0x0000000000000000000000000000000000000000') return 'claimed';
+    if (order.solver !== ZERO_ADDRESS) return 'claimed';
     return 'open';
   }, [order]);
 

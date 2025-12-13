@@ -1,5 +1,7 @@
 #!/usr/bin/env bun
 /**
+ * @deprecated This script is vendor-specific. For new deployments, use vendor/cloud/scripts/
+ * 
  * Verify Cloud Integration Deployment
  * 
  * Checks that all contracts are deployed correctly and configured properly.

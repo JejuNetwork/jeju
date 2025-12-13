@@ -1,6 +1,6 @@
 export enum GameType {
+    GENERIC = "GENERIC",
     CALIGULAND = "CALIGULAND",
     EHORSE = "EHORSE",
     HYPERSCAPE = "HYPERSCAPE",
-    GENERIC = "GENERIC",
 }

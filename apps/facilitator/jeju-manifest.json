@@ -1,0 +1,32 @@
+{
+  "name": "facilitator",
+  "version": "1.0.0",
+  "description": "Jeju x402 HTTP Facilitator - Verify and settle x402 HTTP 402 payments on-chain",
+  "type": "service",
+  "maintainer": "jeju-network",
+  "repository": "https://github.com/jejunetwork/jeju",
+  "endpoints": {
+    "health": "/",
+    "verify": "/verify",
+    "settle": "/settle",
+    "supported": "/supported",
+    "stats": "/stats"
+  },
+  "capabilities": {
+    "x402": true,
+    "paymentVerification": true,
+    "settlement": true,
+    "eip712": true,
+    "eip3009": true,
+    "gasless": true
+  },
+  "integrations": {
+    "contracts": "@jeju/contracts"
+  },
+  "contracts": {
+    "X402Facilitator": "0x0000000000000000000000000000000000000000"
+  },
+  "ports": {
+    "main": 3402
+  }
+}

@@ -5,7 +5,21 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 interface IPredimarket {
+    enum GameType {
+        GENERIC,
+        CALIGULAND,
+        CONTEST,
+        HYPERSCAPE,
+        CUSTOM
+    }
     function createMarket(bytes32 sessionId, string calldata question, uint256 liquidityParameter) external;
+    function createMarketWithType(
+        bytes32 sessionId,
+        string calldata question,
+        uint256 liquidityParameter,
+        GameType gameType,
+        address gameContract
+    ) external;
 }
 
 interface IPredictionOracle {
@@ -86,8 +100,10 @@ contract MarketFactory is Ownable, Pausable {
         // Emit event before external call
         emit MarketAutoCreated(sessionId, question);
 
-        // INTERACTIONS: Create market LAST
-        predimarket.createMarket(sessionId, question, defaultLiquidity);
+        // INTERACTIONS: Create market LAST with CONTEST type
+        predimarket.createMarketWithType(
+            sessionId, question, defaultLiquidity, IPredimarket.GameType.CONTEST, address(oracle)
+        );
     }
 
     /**
@@ -114,8 +130,10 @@ contract MarketFactory is Ownable, Pausable {
             // Emit event before external call
             emit MarketAutoCreated(sessionId, questions[i]);
 
-            // INTERACTIONS: Create market LAST
-            predimarket.createMarket(sessionId, questions[i], defaultLiquidity);
+            // INTERACTIONS: Create market LAST with CONTEST type
+            predimarket.createMarketWithType(
+                sessionId, questions[i], defaultLiquidity, IPredimarket.GameType.CONTEST, address(oracle)
+            );
         }
     }
 
