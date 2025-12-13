@@ -578,9 +578,10 @@
     },
     "vendor/babylon/packages/contracts": {
       "name": "@babylon/contracts",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@babylon/shared": "workspace:*",
+        "@jejunetwork/contracts": "^0.2.0",
       },
       "devDependencies": {
         "@types/node": "^24.10.0",
@@ -674,6 +675,20 @@
         "drizzle-orm": "^0.44.7",
         "ethers": "^6.15.0",
         "zod": "^4.1.12",
+      },
+    },
+    "vendor/babylon/packages/moderation": {
+      "name": "@babylon/moderation",
+      "version": "1.0.0",
+      "dependencies": {
+        "viem": "^2.23.0",
+      },
+      "devDependencies": {
+        "typescript": "^5.7.0",
+      },
+      "peerDependencies": {
+        "@babylon/db": "workspace:*",
+        "@babylon/shared": "workspace:*",
       },
     },
     "vendor/babylon/packages/shared": {
@@ -2308,6 +2323,8 @@
     "@babylon/examples": ["@babylon/examples@workspace:vendor/babylon/packages/examples"],
 
     "@babylon/mcp": ["@babylon/mcp@workspace:vendor/babylon/packages/mcp"],
+
+    "@babylon/moderation": ["@babylon/moderation@workspace:vendor/babylon/packages/moderation"],
 
     "@babylon/shared": ["@babylon/shared@workspace:vendor/babylon/packages/shared"],
 
