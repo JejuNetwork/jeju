@@ -51,7 +51,7 @@ const TEE_API_KEY = process.env.TEE_API_KEY ?? process.env.PHALA_API_KEY;
 const TEE_CLOUD_URL = process.env.TEE_CLOUD_URL ?? process.env.PHALA_CLOUD_URL ?? 'https://cloud.phala.network/api/v1';
 const DCAP_ENDPOINT = process.env.DCAP_ENDPOINT ?? 'https://dcap.phala.network/verify';
 const REQUIRE_HARDWARE_TEE = process.env.REQUIRE_HARDWARE_TEE === 'true';
-const USE_LIT_ENCRYPTION = process.env.USE_LIT_ENCRYPTION !== 'false';
+const USE_ENCRYPTION = process.env.USE_ENCRYPTION !== 'false';
 const BACKUP_TO_DA = process.env.BACKUP_TO_DA !== 'false';
 
 function getDerivedKey(): Buffer {
@@ -192,7 +192,7 @@ export async function makeTEEDecision(context: TEEDecisionContext): Promise<TEED
   }
 
   // Encrypt decision with Jeju KMS
-  if (USE_LIT_ENCRYPTION) {
+  if (USE_ENCRYPTION) {
     const encryptionStatus = getEncryptionStatus();
     console.log(`[TEE] Encryption: ${encryptionStatus.provider}`);
 
@@ -212,7 +212,7 @@ export async function makeTEEDecision(context: TEEDecisionContext): Promise<TEED
       result.encrypted = await encryptDecision(decisionData);
       console.log('[TEE] Decision encrypted');
     } catch (error) {
-      console.error('[TEE] Lit encryption failed:', (error as Error).message);
+      console.error('[TEE] Encryption failed:', (error as Error).message);
     }
   }
 

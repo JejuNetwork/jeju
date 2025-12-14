@@ -393,9 +393,3 @@ export function getEncryptionStatus(): { provider: string; connected: boolean } 
 export async function disconnect(): Promise<void> {
   initialized = false;
 }
-
-// Legacy aliases for backwards compatibility during migration
-export type LitEncryptedData = EncryptedData;
-export type LitDecryptionResult = DecryptionResult;
-export const getLitStatus = getEncryptionStatus;
-export const disconnectLit = disconnect;
