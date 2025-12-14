@@ -15,6 +15,81 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { Contract, JsonRpcProvider, Wallet, parseEther, formatEther } from 'ethers';
 
+// Prometheus-compatible metrics collector
+class MetricsCollector {
+  private counters: Map<string, number> = new Map();
+  private gauges: Map<string, number> = new Map();
+  private histograms: Map<string, number[]> = new Map();
+
+  incCounter(name: string, labels: Record<string, string> = {}, value = 1): void {
+    const key = this.labelKey(name, labels);
+    this.counters.set(key, (this.counters.get(key) || 0) + value);
+  }
+
+  setGauge(name: string, value: number, labels: Record<string, string> = {}): void {
+    const key = this.labelKey(name, labels);
+    this.gauges.set(key, value);
+  }
+
+  observeHistogram(name: string, value: number, labels: Record<string, string> = {}): void {
+    const key = this.labelKey(name, labels);
+    const values = this.histograms.get(key) || [];
+    values.push(value);
+    // Keep last 1000 observations
+    if (values.length > 1000) values.shift();
+    this.histograms.set(key, values);
+  }
+
+  private labelKey(name: string, labels: Record<string, string>): string {
+    const labelStr = Object.entries(labels)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}="${v}"`)
+      .join(',');
+    return labelStr ? `${name}{${labelStr}}` : name;
+  }
+
+  toPrometheusFormat(): string {
+    const lines: string[] = [];
+
+    // Counters
+    for (const [key, value] of this.counters) {
+      lines.push(`# TYPE ${key.split('{')[0]} counter`);
+      lines.push(`${key} ${value}`);
+    }
+
+    // Gauges
+    for (const [key, value] of this.gauges) {
+      lines.push(`# TYPE ${key.split('{')[0]} gauge`);
+      lines.push(`${key} ${value}`);
+    }
+
+    // Histograms (simplified - sum, count, buckets)
+    for (const [key, values] of this.histograms) {
+      const name = key.split('{')[0];
+      const labels = key.includes('{') ? key.slice(key.indexOf('{')) : '';
+      const sorted = [...values].sort((a, b) => a - b);
+      const sum = values.reduce((a, b) => a + b, 0);
+      const count = values.length;
+
+      lines.push(`# TYPE ${name} histogram`);
+      
+      // Standard buckets
+      const buckets = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10];
+      for (const le of buckets) {
+        const bucketCount = sorted.filter(v => v <= le).length;
+        const bucketLabels = labels ? labels.replace('}', `,le="${le}"}`) : `{le="${le}"}`;
+        lines.push(`${name}_bucket${bucketLabels} ${bucketCount}`);
+      }
+      const infLabels = labels ? labels.replace('}', ',le="+Inf"}') : '{le="+Inf"}';
+      lines.push(`${name}_bucket${infLabels} ${count}`);
+      lines.push(`${name}_sum${labels} ${sum}`);
+      lines.push(`${name}_count${labels} ${count}`);
+    }
+
+    return lines.join('\n');
+  }
+}
+
 // Simple token bucket rate limiter
 class RateLimiter {
   private buckets: Map<string, { tokens: number; lastRefill: number }> = new Map();
@@ -108,6 +183,9 @@ export class ProxyCoordinatorServer {
   private rateLimiter = new RateLimiter(100, 10); // 100 burst, 10/sec refill
   private rateLimitCleanupInterval: ReturnType<typeof setInterval> | null = null;
 
+  // Prometheus metrics
+  private metrics = new MetricsCollector();
+
   constructor(config: CoordinatorConfig) {
     this.config = config;
     this.app = new Hono();
@@ -142,10 +220,12 @@ export class ProxyCoordinatorServer {
   private setupNodeEvents(): void {
     this.nodeManager.on('nodeConnected', (node) => {
       console.log('[Coordinator] Node connected:', node.address, 'region:', node.regionCode);
+      this.metrics.incCounter('proxy_node_connections_total', { region: node.regionCode, event: 'connect' });
     });
 
     this.nodeManager.on('nodeDisconnected', (node) => {
       console.log('[Coordinator] Node disconnected:', node.address);
+      this.metrics.incCounter('proxy_node_connections_total', { region: node.regionCode, event: 'disconnect' });
     });
   }
 
@@ -159,6 +239,7 @@ export class ProxyCoordinatorServer {
                        'unknown';
       
       if (!this.rateLimiter.isAllowed(clientIp)) {
+        this.metrics.incCounter('proxy_rate_limit_hits_total');
         return c.json({ error: 'Rate limit exceeded', retryAfter: 1 }, 429);
       }
       
@@ -175,6 +256,22 @@ export class ProxyCoordinatorServer {
         availableRegions: this.nodeManager.getAvailableRegions(),
         timestamp: Date.now(),
       });
+    });
+
+    // Prometheus metrics endpoint
+    this.app.get('/metrics', (c) => {
+      // Update gauges with current state
+      this.metrics.setGauge('proxy_connected_nodes', this.nodeManager.getConnectedCount());
+      this.metrics.setGauge('proxy_active_sessions', this.activeSessions.size);
+      this.metrics.setGauge('proxy_available_regions', this.nodeManager.getAvailableRegions().length);
+
+      const regionCounts = this.nodeManager.getRegionCounts();
+      for (const [region, count] of Object.entries(regionCounts)) {
+        this.metrics.setGauge('proxy_nodes_by_region', count, { region });
+      }
+
+      c.header('Content-Type', 'text/plain; version=0.0.4');
+      return c.text(this.metrics.toPrometheusFormat());
     });
 
     this.app.get('/v1/proxy/stats', async (c) => {
@@ -357,14 +454,26 @@ export class ProxyCoordinatorServer {
       };
 
       // Route the request
+      const startTime = Date.now();
       const result = await this.requestRouter.route(proxyRequest, regionCode);
+      const latencySeconds = (Date.now() - startTime) / 1000;
+
+      // Record metrics
+      this.metrics.incCounter('proxy_requests_total', { region: regionCode, status: result.success ? 'success' : 'error' });
+      this.metrics.observeHistogram('proxy_request_duration_seconds', latencySeconds, { region: regionCode });
 
       if (!result.success) {
+        this.metrics.incCounter('proxy_request_errors_total', { region: regionCode, error: 'route_failed' });
         return c.json<ApiResponse<null>>({
           success: false,
           error: result.error || 'Request failed',
           code: 'ROUTE_FAILED',
         }, 502);
+      }
+
+      // Record bytes transferred
+      if (result.bytesTransferred > 0) {
+        this.metrics.incCounter('proxy_bytes_transferred_total', { region: regionCode }, result.bytesTransferred);
       }
 
       // Update session bytes (async, don't block response)
