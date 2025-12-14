@@ -1,0 +1,389 @@
+{
+  "config": {
+    "configFile": "/home/shaw/Documents/jeju/apps/wallet/synpress.config.ts",
+    "rootDir": "/home/shaw/Documents/jeju/apps/wallet/tests",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "html",
+        {
+          "outputFolder": "playwright-report"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results-synpress.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "/home/shaw/Documents/jeju/apps/wallet/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/home/shaw/Documents/jeju/apps/wallet/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 120000
+      }
+    ],
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.57.0",
+    "workers": 1,
+    "webServer": {
+      "command": "bun run dev",
+      "url": "http://localhost:4017",
+      "reuseExistingServer": true,
+      "timeout": 120000
+    }
+  },
+  "suites": [
+    {
+      "title": "wallet-connect.spec.ts",
+      "file": "wallet-connect.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Wallet Connection",
+          "file": "wallet-connect.spec.ts",
+          "line": 14,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should display connect button when not connected",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 2868,
+                      "error": {
+                        "message": "Error: [GetExtensionId] Extension with name MetaMask not found.\nAvailable extensions: ",
+                        "stack": "Error: [GetExtensionId] Extension with name MetaMask not found.\nAvailable extensions: \n    at getExtensionId (/home/shaw/Documents/jeju/node_modules/@synthetixio/synpress-metamask/src/playwright/fixture-actions/unlockForFixture.ts:62:20)\n    at Object.context (/home/shaw/Documents/jeju/node_modules/@synthetixio/synpress-metamask/src/playwright/fixtures/metaMaskFixtures.ts:37:17)"
+                      },
+                      "errors": [
+                        {
+                          "message": "Error: [GetExtensionId] Extension with name MetaMask not found.\nAvailable extensions: \n    at getExtensionId (/home/shaw/Documents/jeju/node_modules/@synthetixio/synpress-metamask/src/playwright/fixture-actions/unlockForFixture.ts:62:20)\n    at Object.context (/home/shaw/Documents/jeju/node_modules/@synthetixio/synpress-metamask/src/playwright/fixtures/metaMaskFixtures.ts:37:17)"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-14T19:29:43.370Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/shaw/Documents/jeju/apps/wallet/test-results/wallet-connect-Wallet-Conn-4e9f7-t-button-when-not-connected-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/shaw/Documents/jeju/apps/wallet/test-results/wallet-connect-Wallet-Conn-4e9f7-t-button-when-not-connected-chromium/test-failed-2.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/shaw/Documents/jeju/apps/wallet/test-results/wallet-connect-Wallet-Conn-4e9f7-t-button-when-not-connected-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "3c760b0cecff93208947-4800266d67ecdf6273db",
+              "file": "wallet-connect.spec.ts",
+              "line": 15,
+              "column": 3
+            },
+            {
+              "title": "should connect wallet via injected connector",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 606,
+                      "error": {
+                        "message": "Error: [GetExtensionId] Extension with name MetaMask not found.\nAvailable extensions: ",
+                        "stack": "Error: [GetExtensionId] Extension with name MetaMask not found.\nAvailable extensions: \n    at getExtensionId (/home/shaw/Documents/jeju/node_modules/@synthetixio/synpress-metamask/src/playwright/fixture-actions/unlockForFixture.ts:62:20)\n    at Object.context (/home/shaw/Documents/jeju/node_modules/@synthetixio/synpress-metamask/src/playwright/fixtures/metaMaskFixtures.ts:37:17)"
+                      },
+                      "errors": [
+                        {
+                          "message": "Error: [GetExtensionId] Extension with name MetaMask not found.\nAvailable extensions: \n    at getExtensionId (/home/shaw/Documents/jeju/node_modules/@synthetixio/synpress-metamask/src/playwright/fixture-actions/unlockForFixture.ts:62:20)\n    at Object.context (/home/shaw/Documents/jeju/node_modules/@synthetixio/synpress-metamask/src/playwright/fixtures/metaMaskFixtures.ts:37:17)"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-14T19:29:47.111Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/shaw/Documents/jeju/apps/wallet/test-results/wallet-connect-Wallet-Conn-3bf5d-llet-via-injected-connector-chromium/test-failed-2.png"
+                        },
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/shaw/Documents/jeju/apps/wallet/test-results/wallet-connect-Wallet-Conn-3bf5d-llet-via-injected-connector-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/shaw/Documents/jeju/apps/wallet/test-results/wallet-connect-Wallet-Conn-3bf5d-llet-via-injected-connector-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "3c760b0cecff93208947-8a4b4fb7c6173d5fbcd3",
+              "file": "wallet-connect.spec.ts",
+              "line": 28,
+              "column": 3
+            },
+            {
+              "title": "should display connected address after connection",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 641,
+                      "error": {
+                        "message": "Error: [GetExtensionId] Extension with name MetaMask not found.\nAvailable extensions: ",
+                        "stack": "Error: [GetExtensionId] Extension with name MetaMask not found.\nAvailable extensions: \n    at getExtensionId (/home/shaw/Documents/jeju/node_modules/@synthetixio/synpress-metamask/src/playwright/fixture-actions/unlockForFixture.ts:62:20)\n    at Object.context (/home/shaw/Documents/jeju/node_modules/@synthetixio/synpress-metamask/src/playwright/fixtures/metaMaskFixtures.ts:37:17)"
+                      },
+                      "errors": [
+                        {
+                          "message": "Error: [GetExtensionId] Extension with name MetaMask not found.\nAvailable extensions: \n    at getExtensionId (/home/shaw/Documents/jeju/node_modules/@synthetixio/synpress-metamask/src/playwright/fixture-actions/unlockForFixture.ts:62:20)\n    at Object.context (/home/shaw/Documents/jeju/node_modules/@synthetixio/synpress-metamask/src/playwright/fixtures/metaMaskFixtures.ts:37:17)"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-14T19:29:48.635Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/shaw/Documents/jeju/apps/wallet/test-results/wallet-connect-Wallet-Conn-fbc7f-ed-address-after-connection-chromium/test-failed-2.png"
+                        },
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/shaw/Documents/jeju/apps/wallet/test-results/wallet-connect-Wallet-Conn-fbc7f-ed-address-after-connection-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/shaw/Documents/jeju/apps/wallet/test-results/wallet-connect-Wallet-Conn-fbc7f-ed-address-after-connection-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "3c760b0cecff93208947-894437e45b1aaf151696",
+              "file": "wallet-connect.spec.ts",
+              "line": 51,
+              "column": 3
+            },
+            {
+              "title": "should disconnect wallet",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 686,
+                      "error": {
+                        "message": "Error: [GetExtensionId] Extension with name MetaMask not found.\nAvailable extensions: ",
+                        "stack": "Error: [GetExtensionId] Extension with name MetaMask not found.\nAvailable extensions: \n    at getExtensionId (/home/shaw/Documents/jeju/node_modules/@synthetixio/synpress-metamask/src/playwright/fixture-actions/unlockForFixture.ts:62:20)\n    at Object.context (/home/shaw/Documents/jeju/node_modules/@synthetixio/synpress-metamask/src/playwright/fixtures/metaMaskFixtures.ts:37:17)"
+                      },
+                      "errors": [
+                        {
+                          "message": "Error: [GetExtensionId] Extension with name MetaMask not found.\nAvailable extensions: \n    at getExtensionId (/home/shaw/Documents/jeju/node_modules/@synthetixio/synpress-metamask/src/playwright/fixture-actions/unlockForFixture.ts:62:20)\n    at Object.context (/home/shaw/Documents/jeju/node_modules/@synthetixio/synpress-metamask/src/playwright/fixtures/metaMaskFixtures.ts:37:17)"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-14T19:29:50.155Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/shaw/Documents/jeju/apps/wallet/test-results/wallet-connect-Wallet-Connection-should-disconnect-wallet-chromium/test-failed-2.png"
+                        },
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/shaw/Documents/jeju/apps/wallet/test-results/wallet-connect-Wallet-Connection-should-disconnect-wallet-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/shaw/Documents/jeju/apps/wallet/test-results/wallet-connect-Wallet-Connection-should-disconnect-wallet-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "3c760b0cecff93208947-68294d34554b17b29d2f",
+              "file": "wallet-connect.spec.ts",
+              "line": 77,
+              "column": 3
+            },
+            {
+              "title": "should persist connection on page reload",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 626,
+                      "error": {
+                        "message": "Error: [GetExtensionId] Extension with name MetaMask not found.\nAvailable extensions: ",
+                        "stack": "Error: [GetExtensionId] Extension with name MetaMask not found.\nAvailable extensions: \n    at getExtensionId (/home/shaw/Documents/jeju/node_modules/@synthetixio/synpress-metamask/src/playwright/fixture-actions/unlockForFixture.ts:62:20)\n    at Object.context (/home/shaw/Documents/jeju/node_modules/@synthetixio/synpress-metamask/src/playwright/fixtures/metaMaskFixtures.ts:37:17)"
+                      },
+                      "errors": [
+                        {
+                          "message": "Error: [GetExtensionId] Extension with name MetaMask not found.\nAvailable extensions: \n    at getExtensionId (/home/shaw/Documents/jeju/node_modules/@synthetixio/synpress-metamask/src/playwright/fixture-actions/unlockForFixture.ts:62:20)\n    at Object.context (/home/shaw/Documents/jeju/node_modules/@synthetixio/synpress-metamask/src/playwright/fixtures/metaMaskFixtures.ts:37:17)"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-14T19:29:51.782Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/shaw/Documents/jeju/apps/wallet/test-results/wallet-connect-Wallet-Conn-d7f81-t-connection-on-page-reload-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/shaw/Documents/jeju/apps/wallet/test-results/wallet-connect-Wallet-Conn-d7f81-t-connection-on-page-reload-chromium/test-failed-2.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/shaw/Documents/jeju/apps/wallet/test-results/wallet-connect-Wallet-Conn-d7f81-t-connection-on-page-reload-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "3c760b0cecff93208947-29fa1e59cf7243b6385e",
+              "file": "wallet-connect.spec.ts",
+              "line": 111,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2025-12-14T19:29:42.211Z",
+    "duration": 10396.739,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 5,
+    "flaky": 0
+  }
+}

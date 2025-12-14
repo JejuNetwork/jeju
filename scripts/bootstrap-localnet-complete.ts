@@ -659,7 +659,7 @@ class CompleteBootstrapper {
     try {
       console.log('Deploying V4 Periphery contracts (SwapRouter, PositionManager, Quoter, StateView)...');
       
-      const cmd = `cd contracts && forge script script/DeployUniswapV4Periphery.s.sol:DeployUniswapV4Periphery \
+      const cmd = `cd packages/contracts && forge script script/DeployUniswapV4Periphery.s.sol:DeployUniswapV4Periphery \
         --rpc-url ${this.rpcUrl} \
         --private-key ${this.deployerKey} \
         --broadcast \
@@ -754,7 +754,7 @@ class CompleteBootstrapper {
 
   private deployContract(path: string, args: string[], name: string): string {
     const argsStr = args.join(' ');
-    const cmd = `cd contracts && forge create ${path} \
+    const cmd = `cd packages/contracts && forge create ${path} \
       --rpc-url ${this.rpcUrl} \
       --private-key ${this.deployerKey} \
       ${args.length > 0 ? `--constructor-args ${argsStr}` : ''} \

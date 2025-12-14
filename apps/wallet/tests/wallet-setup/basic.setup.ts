@@ -53,11 +53,20 @@ export default defineWalletSetup(PASSWORD, async (context, walletPage) => {
     blockExplorerUrl: 'https://optimistic.etherscan.io',
   });
 
-  // Add localhost for local testing
+  // Add localhost for local testing (anvil on 8545)
   await metamask.addNetwork({
     name: 'Localhost',
     rpcUrl: 'http://127.0.0.1:8545',
     chainId: 31337,
+    symbol: 'ETH',
+    blockExplorerUrl: '',
+  });
+
+  // Add Jeju Localnet (anvil on 9545)
+  await metamask.addNetwork({
+    name: 'Jeju Localnet',
+    rpcUrl: 'http://127.0.0.1:9545',
+    chainId: 1337,
     symbol: 'ETH',
     blockExplorerUrl: '',
   });

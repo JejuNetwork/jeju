@@ -1,8 +1,21 @@
 # Jeju Wallet
 
-**Agentic multi-chain wallet with seamless cross-chain UX.**
+**Fully permissionless agentic multi-chain wallet with seamless cross-chain UX.**
 
-No chain switching. No manual bridging. Pay gas with any token. Account abstraction first.
+No chain switching. No manual bridging. No external API keys. Pay gas with any token. Account abstraction first.
+
+## Platform Support
+
+| Platform | Build | Status |
+|----------|-------|--------|
+| Web App | `bun run build` | ✅ Ready |
+| Chrome Extension | `bun run build:ext:chrome` | ✅ Ready |
+| Firefox Extension | `bun run build:ext:firefox` | ✅ Ready |
+| macOS (arm64/x64) | `bun run tauri:build:mac` | ✅ Ready |
+| Windows | `bun run tauri:build:win` | ✅ Ready |
+| Linux | `bun run tauri:build:linux` | ✅ Ready |
+| Android | `bun run android:build` | ✅ Ready |
+| iOS | `bun run ios:build` | ✅ Ready |
 
 ## Features
 
@@ -11,42 +24,39 @@ No chain switching. No manual bridging. Pay gas with any token. Account abstract
 - **Multi-Token Gas Payment** - Pay gas in USDC, DAI, or any supported token
 - **Account Abstraction (ERC-4337)** - Smart accounts with gasless transactions, batching, recovery
 - **Unified Balance View** - See all assets across all chains in one place
-- **Auto Network Detection** - Automatically connect to the right chain for dApps
+- **Fully Permissionless** - No WalletConnect, no external APIs, all Jeju infrastructure
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      Jeju Wallet                            │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│  │   React UI  │  │  Tauri/Cap  │  │  Extension  │         │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘         │
-│         │                │                │                 │
-│         └────────────────┼────────────────┘                 │
-│                          │                                  │
-│  ┌───────────────────────┴───────────────────────┐         │
-│  │              Wallet Core SDK                   │         │
-│  ├───────────────────────────────────────────────┤         │
-│  │  ┌─────────┐  ┌─────────┐  ┌──────────────┐  │         │
-│  │  │   EIL   │  │   OIF   │  │      AA      │  │         │
-│  │  │ Client  │  │ Client  │  │    Client    │  │         │
-│  │  └────┬────┘  └────┬────┘  └──────┬───────┘  │         │
-│  │       │            │              │          │         │
-│  │  ┌────┴────────────┴──────────────┴────┐     │         │
-│  │  │        Gas Abstraction Layer        │     │         │
-│  │  └─────────────────────────────────────┘     │         │
-│  └───────────────────────────────────────────────┘         │
-│                          │                                  │
-├──────────────────────────┼──────────────────────────────────┤
-│                          ▼                                  │
-│  ┌───────────────────────────────────────────────┐         │
-│  │           Jeju Network Contracts               │         │
-│  ├───────────────────────────────────────────────┤         │
-│  │  CrossChainPaymaster │ InputSettler │ EntryPoint        │
-│  │  L1StakeManager      │ OutputSettler│ Bundler           │
-│  └───────────────────────────────────────────────┘         │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                       JEJU WALLET                            │
+├──────────────────────────────────────────────────────────────┤
+│  PLATFORMS                                                   │
+│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌────────┐ │
+│  │   Web   │ │Extension│ │ Desktop │ │ Android │ │  iOS   │ │
+│  │  Vite   │ │Chrome/FF│ │  Tauri  │ │Capacitor│ │Capacitor│ │
+│  └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └───┬────┘ │
+│       └───────────┴───────────┼───────────┴──────────┘      │
+│                               │                              │
+│  ┌────────────────────────────┴────────────────────────────┐ │
+│  │                    WALLET CORE SDK                       │ │
+│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌────────────┐  │ │
+│  │  │   EIL   │  │   OIF   │  │  Keyring │  │     AA     │  │ │
+│  │  │ Client  │  │ Client  │  │ Service  │  │   Client   │  │ │
+│  │  └────┬────┘  └────┬────┘  └─────┬────┘  └──────┬─────┘  │ │
+│  │       └────────────┼─────────────┴──────────────┘        │ │
+│  └────────────────────┼─────────────────────────────────────┘ │
+├───────────────────────┼──────────────────────────────────────┤
+│  JEJU INFRASTRUCTURE  │  (No External APIs)                  │
+│  ┌────────────────────┴─────────────────────────────────────┐│
+│  │  RPC:     rpc.jeju.network/{eth,base,arbitrum,optimism}  ││
+│  │  Oracle:  On-chain Jeju Oracle Network                   ││
+│  │  Indexer: Self-hosted GraphQL indexer                    ││
+│  │  Solver:  OIF decentralized solver network               ││
+│  │  Bundler: ERC-4337 bundler infrastructure                ││
+│  └──────────────────────────────────────────────────────────┘│
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ## Quick Start
@@ -58,171 +68,186 @@ bun install
 # Run development server
 bun run dev
 
-# Build for production
-bun run build
+# Run tests
+bun run test
+
+# Build all platforms
+bun run build:all
 ```
 
-## Forking Rabby Wallet
+## Development Commands
 
-This wallet is designed to be forked from [RabbyHub/Rabby](https://github.com/RabbyHub/Rabby). Here's the integration guide:
-
-### Step 1: Clone Rabby
-
+### Web App
 ```bash
-git clone https://github.com/RabbyHub/Rabby.git
-cd Rabby
+bun run dev          # Dev server at :4015
+bun run build        # Production build
+bun run preview      # Preview production build
 ```
 
-### Step 2: Install Jeju SDK
-
+### Browser Extensions
 ```bash
-# Copy the SDK from this project
-cp -r /path/to/jeju/apps/wallet/src/sdk ./src/jeju-sdk
+bun run build:ext:chrome    # Chrome (Manifest V3)
+bun run build:ext:firefox   # Firefox (Manifest V2)
+bun run build:all           # All platforms
 
-# Or install as package
-bun add @jejunetwork/contracts
+# Load in browser:
+# Chrome: chrome://extensions → Load unpacked → select dist-ext-chrome/
+# Firefox: about:debugging → Load Temporary Add-on → select dist-ext-firefox/manifest.json
 ```
 
-### Step 3: Integrate EIL for Cross-Chain
-
-Replace Rabby's bridge functionality with EIL:
-
-```typescript
-// src/background/service/cross-chain.ts
-import { EILClient } from '../jeju-sdk/eil';
-
-export class CrossChainService {
-  private eilClient: EILClient;
-
-  async transfer(params: CrossChainParams) {
-    // EIL handles atomic swaps - no manual bridging
-    return this.eilClient.createCrossChainTransfer({
-      sourceToken: params.token,
-      amount: params.amount,
-      destinationToken: params.destToken,
-      destinationChainId: params.destChain,
-      recipient: params.recipient,
-    });
-  }
-}
+### Desktop (Tauri)
+```bash
+bun run tauri:dev           # Dev with hot reload
+bun run tauri:build         # Build for current platform
+bun run tauri:build:mac     # macOS (arm64 + x64)
+bun run tauri:build:win     # Windows
+bun run tauri:build:linux   # Linux (deb + AppImage)
 ```
 
-### Step 4: Add OIF Intent Support
+### Mobile (Capacitor)
+```bash
+# Android
+bun run android:build       # Build debug APK
+bun run android:build:release  # Build release APK + AAB
+bun run android:run         # Run on device/emulator
+bun run android:open        # Open in Android Studio
 
-```typescript
-// src/background/service/intent.ts
-import { OIFClient } from '../jeju-sdk/oif';
-
-export class IntentService {
-  private oifClient: OIFClient;
-
-  async submitIntent(params: IntentParams) {
-    // Get quote from solver network
-    const quote = await this.oifClient.getQuote(params);
-    
-    // User reviews quote, then submit
-    return this.oifClient.createIntent(params);
-  }
-}
+# iOS (requires macOS)
+bun run ios:build           # Build and sync
+bun run ios:open            # Open in Xcode
+bun run ios:run             # Run on simulator
 ```
 
-### Step 5: Enable Multi-Token Gas
-
-```typescript
-// src/background/controller/wallet.ts
-import { createGasService } from '../jeju-sdk/gas-abstraction';
-
-// In transaction signing flow
-async signTransaction(tx: Transaction, gasToken?: Address) {
-  const gasService = createGasService(config);
-  
-  if (gasToken) {
-    // Pay gas with selected token via paymaster
-    const paymasterData = gasService.buildPaymasterData(chainId, gasToken);
-    tx.paymasterAndData = paymasterData;
-  }
-  
-  return this.sign(tx);
-}
+### Testing
+```bash
+bun run test                # Unit tests (Vitest)
+bun run test:watch          # Watch mode
+bun run test:coverage       # With coverage
+bun run test:e2e            # E2E tests (Playwright)
+bun run test:e2e:headed     # E2E with browser UI
 ```
 
-### Step 6: Integrate Account Abstraction
+---
 
-```typescript
-// src/background/service/smart-account.ts
-import { AAClient } from '../jeju-sdk/account-abstraction';
+## CI/CD & Release
 
-export class SmartAccountService {
-  private aaClient: AAClient;
+### GitHub Workflows
 
-  async execute(calls: Call[]) {
-    // Build UserOperation
-    const userOp = await this.aaClient.buildUserOp({
-      sender: this.smartAccountAddress,
-      calls,
-    });
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| `wallet-ci.yml` | PR/Push to main | Lint, test, build all platforms |
+| `wallet-release.yml` | Release published | Build, sign, publish to stores |
 
-    // Sign and send via bundler
-    const signedOp = await this.aaClient.signUserOp(userOp);
-    return this.aaClient.sendUserOp(signedOp);
-  }
-}
+### Artifacts Generated
+
+- **Web**: `dist/` folder, deployable to any static host
+- **Chrome**: `dist-ext-chrome/` → Chrome Web Store
+- **Firefox**: `dist-ext-firefox/` → Firefox Add-ons
+- **macOS**: `.dmg` installer (arm64 + x64)
+- **Windows**: `.msi` installer
+- **Linux**: `.deb` + `.AppImage`
+- **Android**: `.apk` (direct install) + `.aab` (Play Store)
+- **iOS**: `.ipa` → App Store Connect
+
+---
+
+## Required GitHub Secrets
+
+### Code Signing - Desktop (Tauri)
+
+| Secret | Description | How to Generate |
+|--------|-------------|-----------------|
+| `TAURI_PRIVATE_KEY` | Tauri update signing key | `bunx tauri signer generate -w ~/.tauri/jeju.key` |
+| `TAURI_KEY_PASSWORD` | Key password | Set during generation |
+
+### Code Signing - macOS
+
+| Secret | Description | How to Get |
+|--------|-------------|------------|
+| `APPLE_CERTIFICATE_BASE64` | Developer ID cert (.p12) base64 | Export from Keychain, `base64 -i cert.p12` |
+| `APPLE_CERTIFICATE_PASSWORD` | Certificate password | Set during export |
+| `APPLE_SIGNING_IDENTITY` | e.g., "Developer ID Application: Name (ID)" | Apple Developer portal |
+| `APPLE_ID` | Apple ID email | Your Apple account |
+| `APPLE_APP_PASSWORD` | App-specific password | https://appleid.apple.com |
+| `APPLE_TEAM_ID` | 10-char team ID | Apple Developer portal |
+
+### Code Signing - iOS
+
+| Secret | Description | How to Get |
+|--------|-------------|------------|
+| `IOS_CERTIFICATE_BASE64` | Distribution cert (.p12) base64 | Export from Keychain |
+| `IOS_CERTIFICATE_PASSWORD` | Certificate password | Set during export |
+| `IOS_PROVISIONING_PROFILE_BASE64` | Provisioning profile base64 | `base64 -i profile.mobileprovision` |
+| `IOS_PROVISIONING_PROFILE_NAME` | Profile name | Apple Developer portal |
+| `IOS_TEAM_ID` | Team ID | Apple Developer portal |
+| `KEYCHAIN_PASSWORD` | Temp keychain password | Any random string |
+
+### Code Signing - Android
+
+| Secret | Description | How to Generate |
+|--------|-------------|-----------------|
+| `ANDROID_KEYSTORE_BASE64` | Keystore (.jks) base64 | `keytool -genkey ...`, then `base64 -i keystore.jks` |
+| `ANDROID_KEYSTORE_PASSWORD` | Keystore password | Set during creation |
+| `ANDROID_KEY_ALIAS` | Key alias | e.g., "jeju" |
+| `ANDROID_KEY_PASSWORD` | Key password | Set during creation |
+
+### Store Publishing - App Store Connect
+
+| Secret | Description | How to Get |
+|--------|-------------|------------|
+| `APPSTORE_ISSUER_ID` | API issuer ID | https://appstoreconnect.apple.com/access/api |
+| `APPSTORE_API_KEY_ID` | API key ID | Create in App Store Connect |
+| `APPSTORE_API_PRIVATE_KEY` | .p8 file contents | Download from App Store Connect |
+
+### Store Publishing - Google Play
+
+| Secret | Description | How to Get |
+|--------|-------------|------------|
+| `GOOGLE_PLAY_SERVICE_ACCOUNT` | Service account JSON | Google Play Console → API access |
+
+### Store Publishing - Chrome Web Store
+
+| Secret | Description | How to Get |
+|--------|-------------|------------|
+| `CHROME_EXTENSION_ID` | Extension ID | Chrome Web Store dashboard |
+| `CHROME_CLIENT_ID` | OAuth client ID | Google Cloud Console |
+| `CHROME_CLIENT_SECRET` | OAuth client secret | Google Cloud Console |
+| `CHROME_REFRESH_TOKEN` | OAuth refresh token | [Token generator](https://nicholasyoder.github.io/chrome-webstore-api-token-generator/) |
+
+### Store Publishing - Firefox Add-ons
+
+| Secret | Description | How to Get |
+|--------|-------------|------------|
+| `FIREFOX_API_KEY` | AMO API key | https://addons.mozilla.org/developers/addon/api/key/ |
+| `FIREFOX_API_SECRET` | AMO API secret | Same page |
+
+---
+
+## Local Development Setup
+
+### Android Local Signing
+
+Create `android/keystore.properties`:
+```properties
+storeFile=../path/to/jeju-wallet.jks
+storePassword=your-keystore-password
+keyAlias=jeju
+keyPassword=your-key-password
 ```
 
-## Key Integration Points
-
-### 1. Automatic Chain Detection
-
-Rabby already has excellent multi-chain support. Enhance it with EIL awareness:
-
-```typescript
-// When user visits a dApp on chain X but has funds on chain Y
-const hasBalanceOnRequestedChain = await checkBalance(chainId, token);
-
-if (!hasBalanceOnRequestedChain) {
-  // Suggest cross-chain transfer via EIL
-  const transferCost = await eilClient.getCurrentFee(requestId);
-  showCrossChainPrompt({ from: userChain, to: chainId, fee: transferCost });
-}
+### Generate Android Keystore
+```bash
+keytool -genkey -v -keystore jeju-wallet.jks \
+  -keyalg RSA -keysize 2048 -validity 10000 \
+  -alias jeju -storepass YOUR_PASSWORD
 ```
 
-### 2. Gas Token Selection
-
-Add UI for selecting gas payment token:
-
-```typescript
-// components/GasTokenSelector.tsx
-function GasTokenSelector({ gasOptions, onSelect }) {
-  return (
-    <Select onChange={onSelect}>
-      {gasOptions.map(option => (
-        <Option key={option.token.address} value={option.token.address}>
-          Pay with {option.token.symbol} (~${option.usdValue.toFixed(2)})
-        </Option>
-      ))}
-    </Select>
-  );
-}
+### Generate Tauri Signing Key
+```bash
+bunx tauri signer generate -w ~/.tauri/jeju-wallet.key
 ```
 
-### 3. Transaction Simulation
-
-Rabby's transaction simulation is excellent. Extend it for cross-chain:
-
-```typescript
-// Simulate full cross-chain path
-const simulation = await simulateCrossChain({
-  sourceChain: tx.sourceChainId,
-  destChain: tx.destChainId,
-  actions: tx.steps,
-});
-
-showSimulationResult({
-  ...simulation,
-  totalFees: calculateTotalFees(simulation),
-  estimatedTime: estimateCompletionTime(simulation),
-});
-```
+---
 
 ## Contract Integration
 
@@ -237,90 +262,32 @@ The wallet integrates with these Jeju contracts:
 | `SolverRegistry` | Active solver discovery |
 | `EntryPoint` | ERC-4337 account abstraction |
 
-## Desktop (Tauri) Build
+## dApp Connection Methods
 
-```bash
-# Install Tauri CLI
-bun add -d @tauri-apps/cli
-
-# Initialize Tauri
-bun tauri init
-
-# Development
-bun tauri dev
-
-# Production build
-bun tauri build
-```
-
-## Mobile (Capacitor) Build
-
-```bash
-# Install Capacitor
-bun add @capacitor/core @capacitor/cli @capacitor/ios @capacitor/android
-
-# Initialize
-bunx cap init "Jeju Wallet" network.jeju.wallet
-
-# Add platforms
-bunx cap add ios
-bunx cap add android
-
-# Build and sync
-bun run build
-bunx cap sync
-
-# Run on device
-bunx cap run ios
-bunx cap run android
-```
-
-## Solana Support (Future)
-
-The SDK is designed to support Solana. Integration requires:
-
-1. Add `@solana/web3.js` for Solana interactions
-2. Implement Solana account management (ed25519 keys)
-3. Create Solana transaction builder
-4. Bridge EVM <-> Solana via Wormhole or similar
-
-```typescript
-// Future: Solana integration
-import { Connection, PublicKey } from '@solana/web3.js';
-
-class SolanaProvider {
-  async getBalance(publicKey: string): Promise<number> {
-    const connection = new Connection(rpcUrl);
-    return connection.getBalance(new PublicKey(publicKey));
-  }
-}
-```
-
-## Testing
-
-```bash
-# Unit tests
-bun test
-
-# E2E tests with Synpress
-bun run test:e2e
-```
+| Platform | Method | Protocol |
+|----------|--------|----------|
+| Browser Extension | `window.ethereum` | EIP-1193, EIP-6963 |
+| Mobile | Deep links | `jeju://` scheme |
+| Desktop | Protocol handler | `jeju://` scheme |
 
 ## Security Considerations
 
-1. **Key Storage**: Use platform-specific secure storage (Keychain on iOS, Keystore on Android, OS keyring on desktop)
+1. **Key Storage**: Platform-specific secure storage (Keychain iOS, Keystore Android, OS keyring desktop)
 2. **Transaction Simulation**: Always simulate before sending
 3. **Cross-Chain Verification**: Verify oracle attestations for OIF
 4. **Paymaster Trust**: Only use verified paymasters from Jeju's registry
-5. **Smart Account Recovery**: Implement social recovery for smart accounts
+5. **Smart Account Recovery**: Social recovery for smart accounts
 
-## Related Projects
+## Environment Variables
 
-- [RabbyHub/Rabby](https://github.com/RabbyHub/Rabby) - Base wallet to fork
-- [eth-infinitism/account-abstraction](https://github.com/eth-infinitism/account-abstraction) - ERC-4337 reference
-- [Uniswap/UniswapX](https://github.com/Uniswap/UniswapX) - Intent protocol reference
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `VITE_JEJU_RPC_URL` | Jeju RPC base URL | `https://rpc.jeju.network` |
+| `VITE_JEJU_INDEXER_URL` | Indexer URL | `http://localhost:4352` |
+| `VITE_JEJU_GRAPHQL_URL` | GraphQL endpoint | `http://localhost:4350/graphql` |
+| `VITE_JEJU_BUNDLER_URL` | ERC-4337 bundler | `http://localhost:4337` |
+| `VITE_JEJU_SOLVER_URL` | OIF solver API | `https://solver.jeju.network/api` |
 
 ## License
 
 MIT
-

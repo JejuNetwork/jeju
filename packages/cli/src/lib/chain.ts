@@ -1,0 +1,253 @@
+/**
+ * Chain management utilities
+ */
+
+import { execa } from 'execa';
+import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
+import { join } from 'path';
+import { createPublicClient, http, formatEther } from 'viem';
+import { logger } from './logger';
+import { checkDocker, checkKurtosis, installKurtosis, checkSocat, killPort } from './system';
+import { CHAIN_CONFIG, DEFAULT_PORTS, type NetworkType } from '../types';
+
+const KURTOSIS_DIR = '.kurtosis';
+const ENCLAVE_NAME = 'jeju-localnet';
+
+export interface ChainStatus {
+  running: boolean;
+  l1Rpc?: string;
+  l2Rpc?: string;
+  chainId?: number;
+  blockNumber?: bigint;
+}
+
+export async function getChainStatus(network: NetworkType = 'localnet'): Promise<ChainStatus> {
+  const config = CHAIN_CONFIG[network];
+  
+  try {
+    const client = createPublicClient({
+      transport: http(config.rpcUrl, { timeout: 3000 }),
+    });
+    
+    const [chainId, blockNumber] = await Promise.all([
+      client.getChainId(),
+      client.getBlockNumber(),
+    ]);
+    
+    return {
+      running: true,
+      l2Rpc: config.rpcUrl,
+      chainId,
+      blockNumber,
+    };
+  } catch {
+    return { running: false };
+  }
+}
+
+export async function checkRpcHealth(rpcUrl: string, timeout = 5000): Promise<boolean> {
+  try {
+    const client = createPublicClient({
+      transport: http(rpcUrl, { timeout }),
+    });
+    await client.getChainId();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function getAccountBalance(rpcUrl: string, address: `0x${string}`): Promise<string> {
+  try {
+    const client = createPublicClient({
+      transport: http(rpcUrl, { timeout: 5000 }),
+    });
+    const balance = await client.getBalance({ address });
+    return formatEther(balance);
+  } catch {
+    return '0';
+  }
+}
+
+export async function startLocalnet(rootDir: string): Promise<{ l1Port: number; l2Port: number }> {
+  // Check Docker
+  logger.step('Checking Docker...');
+  const dockerResult = await checkDocker();
+  if (dockerResult.status === 'error') {
+    throw new Error('Docker is required. Please install and start Docker Desktop.');
+  }
+  logger.success('Docker running');
+
+  // Check Kurtosis
+  logger.step('Checking Kurtosis...');
+  const kurtosisResult = await checkKurtosis();
+  if (kurtosisResult.status !== 'ok') {
+    logger.step('Installing Kurtosis...');
+    const installed = await installKurtosis();
+    if (!installed) {
+      throw new Error('Failed to install Kurtosis. Please install manually: https://docs.kurtosis.com/install/');
+    }
+    logger.success('Kurtosis installed');
+  } else {
+    logger.success(`Kurtosis ${kurtosisResult.message}`);
+  }
+
+  // Check socat for port forwarding
+  logger.step('Checking socat...');
+  const socatResult = await checkSocat();
+  if (socatResult.status !== 'ok') {
+    throw new Error('Socat is required for port forwarding. ' + (socatResult.details?.install || 'Please install socat.'));
+  }
+  logger.success('Socat available');
+
+  // Ensure kurtosis directory exists
+  const kurtosisDir = join(rootDir, KURTOSIS_DIR);
+  if (!existsSync(kurtosisDir)) {
+    mkdirSync(kurtosisDir, { recursive: true });
+  }
+
+  // Clean up existing enclave
+  logger.step('Cleaning up existing enclave...');
+  await execa('kurtosis', ['enclave', 'rm', '-f', ENCLAVE_NAME], { reject: false });
+
+  // Start Kurtosis engine
+  logger.step('Starting Kurtosis engine...');
+  await execa('kurtosis', ['engine', 'start'], { reject: false });
+
+  // Find kurtosis package
+  const kurtosisPackage = join(rootDir, 'packages/deployment/kurtosis/main.star');
+  if (!existsSync(kurtosisPackage)) {
+    throw new Error(`Kurtosis package not found: ${kurtosisPackage}`);
+  }
+
+  // Deploy localnet
+  logger.step('Deploying Jeju stack...');
+  await execa('kurtosis', ['run', kurtosisPackage, '--enclave', ENCLAVE_NAME], {
+    stdio: 'inherit',
+  });
+
+  // Get ports
+  logger.step('Getting port assignments...');
+  const l1PortResult = await execa('kurtosis', ['port', 'print', ENCLAVE_NAME, 'geth-l1', 'rpc']);
+  const l2PortResult = await execa('kurtosis', ['port', 'print', ENCLAVE_NAME, 'op-geth', 'rpc']);
+  
+  const l1Port = parseInt(l1PortResult.stdout.trim().split(':').pop() || '0');
+  const l2Port = parseInt(l2PortResult.stdout.trim().split(':').pop() || '0');
+
+  // Save ports config
+  const portsConfig = {
+    l1Port,
+    l2Port,
+    l1Rpc: `http://127.0.0.1:${l1Port}`,
+    l2Rpc: `http://127.0.0.1:${l2Port}`,
+    chainId: 1337,
+    timestamp: new Date().toISOString(),
+  };
+  writeFileSync(join(kurtosisDir, 'ports.json'), JSON.stringify(portsConfig, null, 2));
+
+  // Set up port forwarding to static ports
+  logger.step('Setting up port forwarding...');
+  await setupPortForwarding(l1Port, DEFAULT_PORTS.l1Rpc, 'L1 RPC');
+  await setupPortForwarding(l2Port, DEFAULT_PORTS.l2Rpc, 'L2 RPC');
+
+  // Wait for chain to be ready
+  logger.step('Waiting for chain...');
+  await waitForChain(`http://127.0.0.1:${DEFAULT_PORTS.l2Rpc}`);
+  
+  logger.success('Localnet running');
+
+  return { l1Port: DEFAULT_PORTS.l1Rpc, l2Port: DEFAULT_PORTS.l2Rpc };
+}
+
+async function setupPortForwarding(dynamicPort: number, staticPort: number, name: string): Promise<void> {
+  // Kill any existing process on the static port
+  await killPort(staticPort);
+  
+  // Start socat in background
+  const socatCmd = `socat TCP-LISTEN:${staticPort},fork,reuseaddr TCP:127.0.0.1:${dynamicPort}`;
+  const subprocess = execa('sh', ['-c', `${socatCmd} &`], {
+    detached: true,
+    stdio: 'ignore',
+  });
+  subprocess.unref();
+  
+  logger.debug(`Port forwarding: ${staticPort} -> ${dynamicPort} (${name})`);
+}
+
+async function waitForChain(rpcUrl: string, maxWait = 60000): Promise<void> {
+  const startTime = Date.now();
+  
+  while (Date.now() - startTime < maxWait) {
+    if (await checkRpcHealth(rpcUrl, 2000)) {
+      return;
+    }
+    await new Promise(r => setTimeout(r, 2000));
+  }
+  
+  throw new Error('Chain failed to start in time');
+}
+
+export async function stopLocalnet(): Promise<void> {
+  logger.step('Stopping localnet...');
+  
+  // Kill port forwarding processes
+  await killPort(DEFAULT_PORTS.l1Rpc);
+  await killPort(DEFAULT_PORTS.l2Rpc);
+  
+  // Stop Kurtosis enclave
+  await execa('kurtosis', ['enclave', 'stop', ENCLAVE_NAME], { reject: false });
+  await execa('kurtosis', ['enclave', 'rm', '-f', ENCLAVE_NAME], { reject: false });
+  
+  logger.success('Localnet stopped');
+}
+
+export function loadPortsConfig(rootDir: string): { l1Port: number; l2Port: number } | null {
+  const portsFile = join(rootDir, KURTOSIS_DIR, 'ports.json');
+  if (!existsSync(portsFile)) {
+    return null;
+  }
+  
+  try {
+    // Parse to verify valid JSON, but use default ports
+    JSON.parse(readFileSync(portsFile, 'utf-8'));
+    return {
+      l1Port: DEFAULT_PORTS.l1Rpc,
+      l2Port: DEFAULT_PORTS.l2Rpc,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function bootstrapContracts(rootDir: string, rpcUrl: string): Promise<void> {
+  const bootstrapFile = join(rootDir, 'packages/contracts/deployments/localnet-complete.json');
+  
+  if (existsSync(bootstrapFile)) {
+    logger.debug('Contracts already bootstrapped');
+    return;
+  }
+
+  logger.step('Bootstrapping contracts...');
+  
+  const bootstrapScript = join(rootDir, 'scripts/bootstrap-localnet-complete.ts');
+  if (!existsSync(bootstrapScript)) {
+    logger.warn('Bootstrap script not found, skipping contract deployment');
+    return;
+  }
+
+  try {
+    await execa('bun', ['run', bootstrapScript], {
+      cwd: rootDir,
+      env: {
+        ...process.env,
+        JEJU_RPC_URL: rpcUrl,
+        L2_RPC_URL: rpcUrl,
+      },
+      stdio: 'pipe',
+    });
+    logger.success('Contracts bootstrapped');
+  } catch (error) {
+    logger.warn('Contract bootstrap failed, continuing anyway');
+  }
+}
+

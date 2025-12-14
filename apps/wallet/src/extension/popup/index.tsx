@@ -3,32 +3,34 @@
  * 
  * Renders the wallet UI in the extension popup window.
  * Uses the same React app as web/mobile with extension-specific adaptations.
+ * 
+ * Fully permissionless - uses Jeju RPC infrastructure, no external API keys.
  */
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider, createConfig, http } from 'wagmi';
-import { mainnet, base, arbitrum, optimism, polygon } from 'wagmi/chains';
-import { injected, walletConnect } from 'wagmi/connectors';
+import { mainnet, base, arbitrum, optimism, bsc } from 'wagmi/chains';
+import { injected } from 'wagmi/connectors';
 import App from '../../App';
 import '../../index.css';
 
-// Wagmi config for extension
+// Jeju RPC - open API, no keys required
+const JEJU_RPC = 'https://rpc.jeju.network';
+
+// Wagmi config for extension - fully permissionless
 const config = createConfig({
-  chains: [mainnet, base, arbitrum, optimism, polygon],
+  chains: [mainnet, base, arbitrum, optimism, bsc],
   connectors: [
     injected(),
-    walletConnect({
-      projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID ?? 'demo',
-    }),
   ],
   transports: {
-    [mainnet.id]: http(),
-    [base.id]: http(),
-    [arbitrum.id]: http(),
-    [optimism.id]: http(),
-    [polygon.id]: http(),
+    [mainnet.id]: http(`${JEJU_RPC}/eth`),
+    [base.id]: http(`${JEJU_RPC}/base`),
+    [arbitrum.id]: http(`${JEJU_RPC}/arbitrum`),
+    [optimism.id]: http(`${JEJU_RPC}/optimism`),
+    [bsc.id]: http(`${JEJU_RPC}/bsc`),
   },
 });
 

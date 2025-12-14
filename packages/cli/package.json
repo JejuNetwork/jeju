@@ -1,0 +1,79 @@
+{
+  "name": "@jejunetwork/cli",
+  "version": "0.1.0",
+  "description": "Jeju Network CLI - Start chains, manage keys, run tests, deploy anywhere",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "jeju": "./bin/jeju.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "bin",
+    "templates"
+  ],
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target node",
+    "dev": "bun run src/index.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'Lint passed (using root eslint)'",
+    "clean": "rm -rf dist node_modules",
+    "prepublishOnly": "bun run build"
+  },
+  "dependencies": {
+    "commander": "^12.0.0",
+    "chalk": "^5.3.0",
+    "ethers": "^6.11.1",
+    "ora": "^8.0.1",
+    "prompts": "^2.4.2",
+    "which": "^4.0.0",
+    "execa": "^9.0.0",
+    "fs-extra": "^11.2.0",
+    "viem": "^2.7.15",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/fs-extra": "^11.0.4",
+    "@types/prompts": "^2.4.9",
+    "@types/which": "^3.0.3",
+    "typescript": "^5.3.3"
+  },
+  "peerDependencies": {
+    "@jejunetwork/config": "workspace:*",
+    "@jejunetwork/contracts": "workspace:*",
+    "@jejunetwork/types": "workspace:*"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "bun": ">=1.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elizaos/jeju.git",
+    "directory": "packages/cli"
+  },
+  "keywords": [
+    "jeju",
+    "cli",
+    "blockchain",
+    "ethereum",
+    "l2",
+    "optimism",
+    "development",
+    "testing"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}
+

@@ -15,6 +15,7 @@
     "vendor/*/apps/*"
   ],
   "overrides": {
+    "@jejunetwork/cli": "workspace:*",
     "@jejunetwork/contracts": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "@jejunetwork/tests": "workspace:*",
@@ -62,6 +63,8 @@
     "docs:generate": "typedoc --options packages/config/typedoc.json || echo 'Docs generation skipped (optional)'",
     "postinstall": "bun run build:packages && bun run scripts/setup-apps.ts || echo 'Setup completed with warnings'",
     "build:packages": "cd packages/types && bun run build && cd ../contracts && bun run build || echo 'Package build completed'",
+    "build:cli": "cd packages/cli && bun run build",
+    "jeju": "bun run packages/cli/src/index.ts",
     "preflight": "bun run scripts/preflight-check.ts",
     "dev": "bun run scripts/dev.ts",
     "dev:vendor": "bun run scripts/dev-with-vendor.ts",
@@ -83,6 +86,10 @@
     "test:e2e:smoke": "bun run scripts/test-e2e.ts --smoke",
     "test:e2e:list": "bun run scripts/test-e2e.ts --list",
     "test:e2e:help": "bun run scripts/test-e2e.ts --help",
+    "test:e2e:full": "bun run scripts/test-e2e-full.ts",
+    "test:e2e:full:ci": "bun run scripts/test-e2e-full.ts --ci",
+    "test:e2e:full:app": "bun run scripts/test-e2e-full.ts --app",
+    "test:e2e:wallet": "bun run scripts/test-e2e-full.ts --app=wallet",
     "test:smoke": "cd packages/tests && bun run smoke:chain",
     "test:smoke:wallet": "cd packages/tests && bun run smoke:wallet",
     "test:preflight": "cd packages/tests && bun run preflight",
@@ -122,7 +129,13 @@
     "apps:list": "bun run scripts/list-apps.ts",
     "vendor:list": "bun run scripts/list-apps.ts",
     "vendor:sync": "bun run scripts/setup-apps.ts",
-    "vendor:update": "bun run scripts/vendor-update.ts"
+    "vendor:update": "bun run scripts/vendor-update.ts",
+    "jeju:dev": "bun run packages/cli/src/index.ts dev",
+    "jeju:test": "bun run packages/cli/src/index.ts test",
+    "jeju:deploy": "bun run packages/cli/src/index.ts deploy",
+    "jeju:init": "bun run packages/cli/src/index.ts init",
+    "jeju:keys": "bun run packages/cli/src/index.ts keys",
+    "jeju:status": "bun run packages/cli/src/index.ts status"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.911.0",

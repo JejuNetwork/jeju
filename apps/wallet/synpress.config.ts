@@ -27,7 +27,7 @@ export default defineConfig({
     ['json', { outputFile: 'test-results-synpress.json' }],
   ],
   use: {
-    baseURL: 'http://localhost:4015',
+    baseURL: process.env.BASE_URL || 'http://localhost:4015',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -45,8 +45,8 @@ export default defineConfig({
   ],
   webServer: {
     command: 'bun run dev',
-    url: 'http://localhost:4015',
-    reuseExistingServer: !process.env.CI,
+    url: process.env.BASE_URL || 'http://localhost:4015',
+    reuseExistingServer: true,
     timeout: 120000,
   },
 });
