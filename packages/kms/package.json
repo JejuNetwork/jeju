@@ -1,7 +1,7 @@
 {
   "name": "@jeju/kms",
-  "version": "0.1.0",
-  "description": "Decentralized Key Management System for Jeju Network",
+  "version": "0.2.0",
+  "description": "Decentralized Key Management System for Jeju Network - MPC/TEE based, no external dependencies",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -13,6 +13,14 @@
     "./sdk": {
       "types": "./dist/sdk/index.d.ts",
       "import": "./dist/sdk/index.js"
+    },
+    "./mpc": {
+      "types": "./dist/mpc/index.d.ts",
+      "import": "./dist/mpc/index.js"
+    },
+    "./vault": {
+      "types": "./dist/vault/index.d.ts",
+      "import": "./dist/vault/index.js"
     }
   },
   "scripts": {
@@ -22,10 +30,6 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@lit-protocol/lit-node-client": "6.11.5",
-    "@lit-protocol/constants": "6.11.5",
-    "@lit-protocol/types": "6.11.5",
-    "@lit-protocol/auth-helpers": "6.11.5",
     "viem": "2.41.2"
   },
   "devDependencies": {

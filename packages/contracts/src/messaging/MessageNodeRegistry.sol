@@ -19,6 +19,12 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
  * - Geographic diversity tracking
  * - x402 micropayment integration
  *
+ * Security Features (v1.1):
+ * - Oracle stake requirements
+ * - Fee caps per period
+ * - Slashed stake recovery after cooldown
+ * - Parameter bounds validation
+ *
  * @custom:security-contact security@jeju.network
  */
 contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
@@ -41,11 +47,29 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
     }
 
     struct PerformanceMetrics {
-        uint256 uptimeScore;
-        uint256 deliveryRate;
+        uint256 uptimeScore; // 0-10000 (100.00%)
+        uint256 deliveryRate; // 0-10000 (100.00%)
         uint256 avgLatencyMs;
         uint256 lastUpdated;
     }
+
+    struct OracleInfo {
+        uint256 stakedAmount;
+        uint256 feesCredited; // Track fees credited this period
+        uint256 periodStart;
+        bool isActive;
+    }
+
+    // ============ Constants ============
+
+    uint256 public constant MIN_STAKE_FLOOR = 100 ether;
+    uint256 public constant MAX_STAKE_CEILING = 1_000_000 ether;
+    uint256 public constant MIN_HEARTBEAT_INTERVAL = 1 minutes;
+    uint256 public constant MAX_HEARTBEAT_INTERVAL = 1 days;
+    uint256 public constant MAX_PROTOCOL_FEE_BPS = 2000; // 20%
+    uint256 public constant MAX_SCORE = 10000;
+    uint256 public constant ORACLE_FEE_PERIOD = 1 days;
+    uint256 public constant SLASH_COOLDOWN = 30 days;
 
     // ============ State Variables ============
 
@@ -58,6 +82,8 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
 
     uint256 public baseFeePerMessage = 0.0001 ether;
     uint256 public protocolFeeBPS = 500;
+    uint256 public oracleMinStake = 10000 ether;
+    uint256 public maxFeesPerOraclePeriod = 100000 ether;
 
     mapping(bytes32 => NodeInfo) public nodes;
     mapping(bytes32 => PerformanceMetrics) public performance;
@@ -69,7 +95,11 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
     mapping(bytes32 => uint256) public pendingFees;
     uint256 public protocolFees;
 
-    mapping(address => bool) public isPerformanceOracle;
+    // Oracles with stake
+    mapping(address => OracleInfo) public oracles;
+
+    // Slashed node recovery
+    mapping(bytes32 => uint256) public slashTimestamp;
 
     // ============ Events ============
 
@@ -84,6 +114,9 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
     event FeesClaimed(bytes32 indexed nodeId, address indexed operator, uint256 amount);
     event ProtocolFeesClaimed(address indexed recipient, uint256 amount);
     event EndpointUpdated(bytes32 indexed nodeId, string newEndpoint);
+    event OracleRegistered(address indexed oracle, uint256 stake);
+    event OracleDeregistered(address indexed oracle);
+    event SlashedStakeRecovered(bytes32 indexed nodeId, address indexed operator, uint256 amount);
 
     // ============ Errors ============
 
@@ -96,12 +129,49 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
     error HeartbeatTooFrequent();
     error InvalidEndpoint();
     error InvalidRegion();
+    error InvalidParameter();
+    error OracleFeeLimitExceeded();
+    error SlashCooldownNotMet();
+    error OracleNotActive();
 
     // ============ Constructor ============
 
     constructor(address _stakingToken, address _initialOwner) Ownable(_initialOwner) {
         stakingToken = IERC20(_stakingToken);
-        isPerformanceOracle[_initialOwner] = true;
+    }
+
+    // ============ Oracle Management ============
+
+    /**
+     * @notice Register as a performance oracle with stake
+     * @param stakeAmount Amount to stake (must meet minimum)
+     */
+    function registerOracle(uint256 stakeAmount) external nonReentrant {
+        if (stakeAmount < oracleMinStake) revert InsufficientStake(stakeAmount, oracleMinStake);
+        if (oracles[msg.sender].isActive) revert Unauthorized();
+
+        stakingToken.safeTransferFrom(msg.sender, address(this), stakeAmount);
+
+        oracles[msg.sender] =
+            OracleInfo({stakedAmount: stakeAmount, feesCredited: 0, periodStart: block.timestamp, isActive: true});
+
+        emit OracleRegistered(msg.sender, stakeAmount);
+    }
+
+    /**
+     * @notice Deregister as oracle and withdraw stake
+     */
+    function deregisterOracle() external nonReentrant {
+        OracleInfo storage oracle = oracles[msg.sender];
+        if (!oracle.isActive) revert OracleNotActive();
+
+        uint256 stakeToReturn = oracle.stakedAmount;
+        oracle.isActive = false;
+        oracle.stakedAmount = 0;
+
+        stakingToken.safeTransfer(msg.sender, stakeToReturn);
+
+        emit OracleDeregistered(msg.sender);
     }
 
     // ============ Node Registration ============
@@ -118,11 +188,7 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
 
         stakingToken.safeTransferFrom(msg.sender, address(this), stakeAmount);
 
-        nodeId = keccak256(abi.encodePacked(msg.sender, endpoint, block.timestamp));
-
-        if (nodes[nodeId].operator != address(0)) {
-            nodeId = keccak256(abi.encodePacked(msg.sender, endpoint, block.timestamp, gasleft()));
-        }
+        nodeId = keccak256(abi.encodePacked(msg.sender, endpoint, block.timestamp, block.prevrandao));
 
         nodes[nodeId] = NodeInfo({
             nodeId: nodeId,
@@ -138,8 +204,12 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
             isSlashed: false
         });
 
-        performance[nodeId] =
-            PerformanceMetrics({uptimeScore: 10000, deliveryRate: 10000, avgLatencyMs: 0, lastUpdated: block.timestamp});
+        performance[nodeId] = PerformanceMetrics({
+            uptimeScore: MAX_SCORE,
+            deliveryRate: MAX_SCORE,
+            avgLatencyMs: 0,
+            lastUpdated: block.timestamp
+        });
 
         operatorNodes[msg.sender].push(nodeId);
         activeNodeIds.push(nodeId);
@@ -148,6 +218,9 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
         emit NodeRegistered(nodeId, msg.sender, endpoint, region, stakeAmount);
     }
 
+    /// @notice Deregister node and return stake (after minimum staking period)
+    /// @dev Timestamp comparison intentional for minimum staking enforcement
+    // slither-disable-next-line timestamp
     function deregisterNode(bytes32 nodeId) external nonReentrant {
         NodeInfo storage node = nodes[nodeId];
 
@@ -181,7 +254,7 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
         }
     }
 
-    function updateEndpoint(bytes32 nodeId, string calldata newEndpoint) external {
+    function updateEndpoint(bytes32 nodeId, string calldata newEndpoint) external nonReentrant {
         NodeInfo storage node = nodes[nodeId];
 
         if (node.operator == address(0)) revert NodeNotFound(nodeId);
@@ -193,7 +266,10 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
         emit EndpointUpdated(nodeId, newEndpoint);
     }
 
-    function heartbeat(bytes32 nodeId) external {
+    /// @notice Node heartbeat to prove liveness
+    /// @dev Timestamp comparison intentional for heartbeat frequency limiting
+    // slither-disable-next-line timestamp
+    function heartbeat(bytes32 nodeId) external nonReentrant {
         NodeInfo storage node = nodes[nodeId];
 
         if (node.operator == address(0)) revert NodeNotFound(nodeId);
@@ -209,8 +285,18 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
         emit NodeHeartbeat(nodeId, block.timestamp);
     }
 
-    function recordMessageRelay(bytes32 nodeId, uint256 messageCount) external {
-        if (!isPerformanceOracle[msg.sender]) revert Unauthorized();
+    /// @notice Record message relay and accrue fees (oracle only)
+    /// @dev Timestamp comparison intentional for fee period reset
+    // slither-disable-next-line timestamp
+    function recordMessageRelay(bytes32 nodeId, uint256 messageCount) external nonReentrant {
+        OracleInfo storage oracle = oracles[msg.sender];
+        if (!oracle.isActive) revert OracleNotActive();
+
+        // Reset period if needed (timestamp intentional for 24h period enforcement)
+        if (block.timestamp - oracle.periodStart >= ORACLE_FEE_PERIOD) {
+            oracle.feesCredited = 0;
+            oracle.periodStart = block.timestamp;
+        }
 
         NodeInfo storage node = nodes[nodeId];
         if (node.operator == address(0)) revert NodeNotFound(nodeId);
@@ -219,6 +305,12 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
         uint256 totalFee = baseFeePerMessage * messageCount;
         uint256 protocolCut = (totalFee * protocolFeeBPS) / 10000;
         uint256 nodeFee = totalFee - protocolCut;
+
+        // Check oracle fee limit
+        if (oracle.feesCredited + totalFee > maxFeesPerOraclePeriod) {
+            revert OracleFeeLimitExceeded();
+        }
+        oracle.feesCredited += totalFee;
 
         node.messagesRelayed += messageCount;
         node.feesEarned += nodeFee;
@@ -246,14 +338,21 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
 
     function updatePerformance(bytes32 nodeId, uint256 uptimeScore, uint256 deliveryRate, uint256 avgLatencyMs)
         external
+        nonReentrant
     {
-        if (!isPerformanceOracle[msg.sender]) revert Unauthorized();
+        OracleInfo storage oracle = oracles[msg.sender];
+        if (!oracle.isActive) revert OracleNotActive();
 
         NodeInfo storage node = nodes[nodeId];
         if (node.operator == address(0)) revert NodeNotFound(nodeId);
 
+        // Validate bounds
+        if (uptimeScore > MAX_SCORE) uptimeScore = MAX_SCORE;
+        if (deliveryRate > MAX_SCORE) deliveryRate = MAX_SCORE;
+
         PerformanceMetrics storage perf = performance[nodeId];
 
+        // Exponential moving average (80% old, 20% new)
         perf.uptimeScore = (perf.uptimeScore * 8 + uptimeScore * 2) / 10;
         perf.deliveryRate = (perf.deliveryRate * 8 + deliveryRate * 2) / 10;
         perf.avgLatencyMs = avgLatencyMs;
@@ -273,13 +372,48 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
         node.stakedAmount -= slashAmount;
         node.isSlashed = true;
         node.isActive = false;
+        slashTimestamp[nodeId] = block.timestamp;
 
         _removeFromActiveList(nodeId);
         _removeFromRegionList(nodeId, node.region);
 
         protocolFees += slashAmount;
 
+        // Transfer pending fees to protocol as well
+        uint256 pendingNodeFees = pendingFees[nodeId];
+        if (pendingNodeFees > 0) {
+            protocolFees += pendingNodeFees;
+            pendingFees[nodeId] = 0;
+        }
+
         emit NodeSlashed(nodeId, slashAmount, reason);
+    }
+
+    /**
+     * @notice Recover remaining stake after slash cooldown
+     * @dev Timestamp comparison intentional for cooldown enforcement
+     * @param nodeId Node ID to recover stake from
+     */
+    // slither-disable-next-line timestamp
+    function recoverSlashedStake(bytes32 nodeId) external nonReentrant {
+        NodeInfo storage node = nodes[nodeId];
+
+        if (node.operator == address(0)) revert NodeNotFound(nodeId);
+        if (node.operator != msg.sender) revert Unauthorized();
+        if (!node.isSlashed) revert Unauthorized();
+
+        uint256 slashedAt = slashTimestamp[nodeId];
+        if (block.timestamp < slashedAt + SLASH_COOLDOWN) {
+            revert SlashCooldownNotMet();
+        }
+
+        uint256 remaining = node.stakedAmount;
+        if (remaining == 0) return;
+
+        node.stakedAmount = 0;
+        stakingToken.safeTransfer(msg.sender, remaining);
+
+        emit SlashedStakeRecovered(nodeId, msg.sender, remaining);
     }
 
     // ============ View Functions ============
@@ -304,6 +438,9 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
         return operatorNodes[operator];
     }
 
+    /// @notice Check if node is healthy based on liveness and performance
+    /// @dev Timestamp comparison intentional for heartbeat staleness check
+    // slither-disable-next-line timestamp
     function isNodeHealthy(bytes32 nodeId) external view returns (bool healthy) {
         NodeInfo storage node = nodes[nodeId];
         PerformanceMetrics storage perf = performance[nodeId];
@@ -316,6 +453,14 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
         return true;
     }
 
+    /// @notice Get a random healthy node for message relay
+    /// @dev Uses block.prevrandao (RANDAO beacon) + timestamp for randomness
+    ///      This provides reasonable distribution for node selection.
+    ///      For high-value operations, consider using Chainlink VRF.
+    /// @param region Optional region filter
+    /// @return nodeId The selected node ID
+    /// @return endpoint The node's endpoint URL
+    // slither-disable-next-line weak-prng
     function getRandomHealthyNode(string calldata region)
         external
         view
@@ -331,6 +476,9 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
 
         if (candidates.length == 0) return (bytes32(0), "");
 
+        // Uses RANDAO beacon (prevrandao) which provides reasonable randomness post-merge
+        // Combined with timestamp for additional entropy
+        // slither-disable-next-line weak-prng
         uint256 seed = uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao)));
         uint256 startIdx = seed % candidates.length;
 
@@ -349,9 +497,16 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
         return (bytes32(0), "");
     }
 
+    function getOracleInfo(address oracle) external view returns (OracleInfo memory) {
+        return oracles[oracle];
+    }
+
     // ============ Admin Functions ============
 
     function setMinStake(uint256 _minStake) external onlyOwner {
+        if (_minStake < MIN_STAKE_FLOOR || _minStake > MAX_STAKE_CEILING) {
+            revert InvalidParameter();
+        }
         minStake = _minStake;
     }
 
@@ -360,20 +515,24 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
     }
 
     function setProtocolFeeBPS(uint256 _feeBPS) external onlyOwner {
-        require(_feeBPS <= 2000, "Fee too high");
+        if (_feeBPS > MAX_PROTOCOL_FEE_BPS) revert InvalidParameter();
         protocolFeeBPS = _feeBPS;
     }
 
     function setHeartbeatInterval(uint256 _interval) external onlyOwner {
+        if (_interval < MIN_HEARTBEAT_INTERVAL || _interval > MAX_HEARTBEAT_INTERVAL) {
+            revert InvalidParameter();
+        }
         heartbeatInterval = _interval;
     }
 
-    function addPerformanceOracle(address oracle) external onlyOwner {
-        isPerformanceOracle[oracle] = true;
+    function setOracleMinStake(uint256 _stake) external onlyOwner {
+        if (_stake < MIN_STAKE_FLOOR) revert InvalidParameter();
+        oracleMinStake = _stake;
     }
 
-    function removePerformanceOracle(address oracle) external onlyOwner {
-        isPerformanceOracle[oracle] = false;
+    function setMaxFeesPerOraclePeriod(uint256 _maxFees) external onlyOwner {
+        maxFeesPerOraclePeriod = _maxFees;
     }
 
     function claimProtocolFees(address recipient) external onlyOwner {
@@ -417,6 +576,6 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
     }
 
     function version() external pure returns (string memory) {
-        return "1.0.0";
+        return "1.1.0";
     }
 }

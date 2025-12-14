@@ -19,9 +19,10 @@
 import { describe, test, expect, beforeAll } from 'bun:test';
 import { createPublicClient, createWalletClient, http, parseAbi, parseEther, formatUnits, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
+import { JEJU_LOCALNET } from '../shared/constants';
 
 // Check if localnet is available  
-const rpcUrl = process.env.JEJU_RPC_URL || 'http://localhost:9545';
+const rpcUrl = JEJU_LOCALNET.rpcUrl;
 let localnetAvailable = false;
 try {
   const response = await fetch(rpcUrl, {
@@ -36,8 +37,8 @@ try {
 }
 
 const TEST_CONFIG = {
-  rpcUrl: process.env.JEJU_RPC_URL || 'http://localhost:9545',
-  chainId: 420691,
+  rpcUrl: JEJU_LOCALNET.rpcUrl,
+  chainId: JEJU_LOCALNET.chainId,
   contracts: {
     ElizaOSToken: process.env.ELIZAOS_TOKEN_ADDRESS as Address
   },

@@ -92,6 +92,18 @@ variable "enable_https" {
   default     = true
 }
 
+variable "key_registry_address" {
+  description = "KeyRegistry contract address on Jeju L2 (deployed separately)"
+  type        = string
+  default     = ""
+}
+
+variable "node_registry_address" {
+  description = "MessageNodeRegistry contract address on Jeju L2 (deployed separately)"
+  type        = string
+  default     = ""
+}
+
 locals {
   environment = "testnet"
 
@@ -722,13 +734,72 @@ output "alb_controller_role_arn" {
 output "testnet_urls" {
   description = "Testnet service URLs"
   value = {
-    rpc     = "https://testnet-rpc.${var.domain_name}"
-    ws      = "wss://testnet-ws.${var.domain_name}"
-    api     = "https://api.testnet.${var.domain_name}"
-    gateway = "https://gateway.testnet.${var.domain_name}"
-    bazaar  = "https://bazaar.testnet.${var.domain_name}"
-    docs    = "https://docs.testnet.${var.domain_name}"
+    rpc           = "https://testnet-rpc.${var.domain_name}"
+    ws            = "wss://testnet-ws.${var.domain_name}"
+    api           = "https://api.testnet.${var.domain_name}"
+    gateway       = "https://gateway.testnet.${var.domain_name}"
+    bazaar        = "https://bazaar.testnet.${var.domain_name}"
+    docs          = "https://docs.testnet.${var.domain_name}"
+    relay         = module.messaging.relay_endpoint
+    kms           = module.messaging.kms_endpoint
+    covenantsql   = module.covenantsql.http_endpoint
   }
+}
+
+output "messaging_config" {
+  description = "Messaging infrastructure configuration"
+  value = {
+    relay_endpoint           = module.messaging.relay_endpoint
+    kms_endpoint             = module.messaging.kms_endpoint
+    covenantsql_endpoint     = module.covenantsql.http_endpoint
+    covenantsql_nodes        = module.covenantsql.node_ips
+    messaging_role_arn       = module.messaging.messaging_role_arn
+    farcaster_hub            = "nemes.farcaster.xyz:2283"
+  }
+}
+
+# ============================================================
+# Module: CovenantSQL (Decentralized Database)
+# ============================================================
+module "covenantsql" {
+  source = "../../modules/covenantsql"
+
+  environment         = local.environment
+  vpc_id              = module.network.vpc_id
+  subnet_ids          = module.network.private_subnet_ids
+  node_count          = 3
+  instance_type       = "t3.medium"
+  storage_size_gb     = 100
+  key_name            = "jeju-testnet"
+  allowed_cidr_blocks = ["10.1.0.0/16"]
+
+  depends_on = [module.network]
+}
+
+# ============================================================
+# Module: Messaging Infrastructure
+# ============================================================
+module "messaging" {
+  source = "../../modules/messaging"
+
+  environment          = local.environment
+  vpc_id               = module.network.vpc_id
+  private_subnet_ids   = module.network.private_subnet_ids
+  public_subnet_ids    = module.network.public_subnet_ids
+  eks_cluster_name     = module.eks.cluster_name
+  covenantsql_endpoint = module.covenantsql.http_endpoint
+  jeju_rpc_url         = "https://testnet-rpc.${var.domain_name}"
+  key_registry_address = var.key_registry_address
+  node_registry_address = var.node_registry_address
+  farcaster_hub_url    = "nemes.farcaster.xyz:2283"
+  relay_node_count     = 3
+  kms_key_arn          = module.kms.main_key_arn
+  domain_name          = var.domain_name
+  zone_id              = module.route53.zone_id
+  acm_certificate_arn  = module.acm.certificate_arn
+  tags                 = local.common_tags
+
+  depends_on = [module.eks, module.covenantsql, module.kms, module.route53]
 }
 
 output "deployment_summary" {

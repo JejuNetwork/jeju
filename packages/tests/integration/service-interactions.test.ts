@@ -44,7 +44,7 @@ const TIMEOUT = TIMEOUTS.indexerSync;
 /**
  * Helper: Query GraphQL endpoint
  */
-async function queryGraphQL(query: string): Promise<any> {
+async function queryGraphQL(query: string): Promise<Record<string, unknown>> {
   const response = await fetch(GRAPHQL_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -55,9 +55,13 @@ async function queryGraphQL(query: string): Promise<any> {
     throw new Error(`GraphQL query failed: ${response.statusText}`);
   }
 
-  const data = await response.json();
+  const data = await response.json() as { data?: Record<string, unknown>; errors?: Array<{ message: string }> };
   if (data.errors) {
     throw new Error(`GraphQL errors: ${JSON.stringify(data.errors)}`);
+  }
+
+  if (!data.data) {
+    throw new Error('GraphQL response missing data');
   }
 
   return data.data;

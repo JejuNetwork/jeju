@@ -256,3 +256,4 @@ contract JNSRegistry is IJNS {
         return "1.0.0";
     }
 }
+

@@ -10,6 +10,17 @@ import type {
   RentalInfo, RentalPlan, CreateRentalRequest, ACLRule, GrantRequest, RevokeRequest, BlockProducerInfo,
 } from './types.js';
 
+type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+const LOG_LEVELS: Record<LogLevel, number> = { debug: 0, info: 1, warn: 2, error: 3 };
+
+function log(level: LogLevel, msg: string, data?: Record<string, unknown>) {
+  const minLevel = (process.env.LOG_LEVEL?.toLowerCase() as LogLevel) || 'info';
+  if (LOG_LEVELS[level] < LOG_LEVELS[minLevel]) return;
+  const entry = { timestamp: new Date().toISOString(), level, service: 'cql', message: msg, ...data };
+  const out = process.env.NODE_ENV === 'production' ? JSON.stringify(entry) : `[${entry.timestamp}] [${level.toUpperCase()}] [cql] ${msg}${data ? ' ' + JSON.stringify(data) : ''}`;
+  console[level === 'debug' ? 'debug' : level === 'info' ? 'info' : level === 'warn' ? 'warn' : 'error'](out);
+}
+
 class CircuitBreaker {
   private failures = 0;
   private lastFailure = 0;
@@ -21,6 +32,7 @@ class CircuitBreaker {
     if (this.state === 'open') {
       if (Date.now() - this.lastFailure > this.resetTimeMs) {
         this.state = 'half-open';
+        log('info', 'Circuit breaker half-open, attempting recovery');
       } else {
         throw new Error('Circuit breaker is open - service unavailable');
       }
@@ -28,12 +40,19 @@ class CircuitBreaker {
     
     try {
       const result = await fn();
-      if (this.state === 'half-open') { this.state = 'closed'; this.failures = 0; }
+      if (this.state === 'half-open') {
+        this.state = 'closed';
+        this.failures = 0;
+        log('info', 'Circuit breaker closed, service recovered');
+      }
       return result;
     } catch (error) {
       this.failures++;
       this.lastFailure = Date.now();
-      if (this.failures >= this.threshold) this.state = 'open';
+      if (this.failures >= this.threshold) {
+        this.state = 'open';
+        log('warn', 'Circuit breaker opened', { failures: this.failures, threshold: this.threshold });
+      }
       throw error;
     }
   }

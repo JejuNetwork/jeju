@@ -16,7 +16,7 @@
 
 import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
-import { createPublicClient, http, type Address, type Hex } from 'viem';
+import { createPublicClient, http, type Address, type Hex, keccak256 as viemKeccak256, toHex, type PublicClient } from 'viem';
 import { base, baseSepolia } from 'viem/chains';
 import { normalize } from 'viem/ens';
 
@@ -153,16 +153,15 @@ function namehash(name: string): Hex {
 
   for (let i = labels.length - 1; i >= 0; i--) {
     const label = labels[i];
-    const labelHash = keccak256(Buffer.from(label!, 'utf8'));
-    node = keccak256(Buffer.concat([Buffer.from(node.slice(2), 'hex'), Buffer.from(labelHash.slice(2), 'hex')])) as Hex;
+    const labelHash = hashBytes(Buffer.from(label!, 'utf8'));
+    node = hashBytes(Buffer.concat([Buffer.from(node.slice(2), 'hex'), Buffer.from(labelHash.slice(2), 'hex')])) as Hex;
   }
 
   return node;
 }
 
-function keccak256(data: Buffer): Hex {
-  const { keccak_256 } = require('@noble/hashes/sha3');
-  return `0x${Buffer.from(keccak_256(data)).toString('hex')}` as Hex;
+function hashBytes(data: Buffer): Hex {
+  return viemKeccak256(toHex(data));
 }
 
 /**
@@ -198,8 +197,7 @@ function getMimeType(path: string): string {
 export class JNSGateway {
   private app: Hono;
   private config: JNSGatewayConfig;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private client: any;
+  private client: PublicClient;
   private cache: Map<string, { content: ResolvedContent; expiry: number }> =
     new Map();
   private readonly CACHE_TTL = 300_000; // 5 minutes

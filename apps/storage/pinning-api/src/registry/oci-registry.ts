@@ -1,6 +1,5 @@
 /**
  * OCI Container Registry - Docker V2 API backed by IPFS/Arweave with x402 payments.
- * @see https://docs.docker.com/registry/spec/api/
  */
 
 import { Hono } from 'hono';
@@ -11,21 +10,13 @@ import type { Context } from 'hono';
 export type StorageBackend = 'ipfs' | 'arweave' | 'hybrid';
 
 export interface RegistryConfig {
-  /** Storage backend preference */
   storageBackend: StorageBackend;
-  /** IPFS API URL */
   ipfsUrl: string;
-  /** Arweave gateway URL */
   arweaveUrl: string;
-  /** Private key for Arweave uploads */
   privateKey?: string;
-  /** x402 payment recipient */
   paymentRecipient: string;
-  /** Enable public pulls (read without payment) */
   allowPublicPulls: boolean;
-  /** Maximum layer size in bytes */
   maxLayerSize: number;
-  /** Maximum manifest size in bytes */
   maxManifestSize: number;
 }
 
@@ -491,6 +482,26 @@ export class OCIRegistry {
 
     if (!session) {
       return c.json({ errors: [{ code: 'BLOB_UPLOAD_UNKNOWN', message: 'Upload not found' }] }, 404);
+    }
+
+    const contentLength = c.req.header('Content-Length');
+    const expectedSize = contentLength ? parseInt(contentLength, 10) : 0;
+    
+    // Check if this chunk would exceed max layer size
+    if (session.totalSize + expectedSize > this.config.maxLayerSize) {
+      console.error(`[Registry] Upload ${uuid} exceeds max layer size: ${session.totalSize + expectedSize} > ${this.config.maxLayerSize}`);
+      return c.json({ 
+        errors: [{ 
+          code: 'SIZE_LIMIT_EXCEEDED', 
+          message: `Layer size ${session.totalSize + expectedSize} exceeds limit ${this.config.maxLayerSize} bytes`,
+          detail: { current: session.totalSize, incoming: expectedSize, limit: this.config.maxLayerSize }
+        }] 
+      }, 413);
+    }
+
+    // Warn for large uploads that may cause memory pressure
+    if (expectedSize > 100 * 1024 * 1024) {
+      console.warn(`[Registry] Large chunk upload: ${expectedSize} bytes for ${uuid}. Consider streaming.`);
     }
 
     const contentRange = c.req.header('Content-Range');

@@ -7,6 +7,8 @@ import { describe, test, expect } from 'bun:test';
 import { ethers } from 'ethers';
 import {
   OUTPUT_SETTLER_ABI,
+  INPUT_SETTLER_ABI,
+  ORACLE_ABI,
   ERC20_APPROVE_ABI,
   INPUT_SETTLERS,
   OUTPUT_SETTLERS,
@@ -351,8 +353,6 @@ describe('Deployed Contract Verification', () => {
 });
 
 describe('INPUT_SETTLER_ABI Coverage', () => {
-  // Import the ABI
-  const { INPUT_SETTLER_ABI } = require('../../src/solver/contracts');
   
   test('settle function exists with correct signature', () => {
     const iface = new ethers.Interface(INPUT_SETTLER_ABI);
@@ -381,7 +381,6 @@ describe('INPUT_SETTLER_ABI Coverage', () => {
 });
 
 describe('ORACLE_ABI Coverage', () => {
-  const { ORACLE_ABI } = require('../../src/solver/contracts');
   
   test('hasAttested function exists', () => {
     const iface = new ethers.Interface(ORACLE_ABI);

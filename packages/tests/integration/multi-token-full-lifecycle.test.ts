@@ -18,9 +18,10 @@ import { describe, test, expect, beforeAll } from 'bun:test';
 import { createPublicClient, createWalletClient, http, parseEther, formatEther, formatUnits, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { execSync } from 'child_process';
+import { JEJU_LOCALNET, TEST_WALLETS as SHARED_WALLETS, TIMEOUTS } from '../shared/constants';
 
 // Check if localnet is available
-const rpcUrl = process.env.JEJU_RPC_URL || 'http://localhost:9545';
+const rpcUrl = JEJU_LOCALNET.rpcUrl;
 let localnetAvailable = false;
 try {
   const response = await fetch(rpcUrl, {
@@ -35,19 +36,19 @@ try {
 }
 
 const TEST_CONFIG = {
-  jejuRpcUrl: process.env.JEJU_RPC_URL || 'http://localhost:9545',
-  chainId: 1337,
-  timeout: 120000, // 2 minutes for complex flows
+  jejuRpcUrl: JEJU_LOCALNET.rpcUrl,
+  chainId: JEJU_LOCALNET.chainId,
+  timeout: TIMEOUTS.bridge, // 2 minutes for complex flows
 };
 
 const TEST_WALLETS = {
   deployer: {
-    privateKey: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as `0x${string}`,
-    address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address,
+    privateKey: SHARED_WALLETS.deployer.privateKey as `0x${string}`,
+    address: SHARED_WALLETS.deployer.address as Address,
   },
   lp: {
-    privateKey: '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as `0x${string}`,
-    address: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as Address,
+    privateKey: SHARED_WALLETS.user1.privateKey as `0x${string}`,
+    address: SHARED_WALLETS.user1.address as Address,
   },
   user: {
     privateKey: '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a' as `0x${string}`,

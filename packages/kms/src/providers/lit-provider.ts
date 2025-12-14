@@ -1,13 +1,13 @@
 /**
- * Lit Protocol Provider
+ * Encryption Provider - AES-256-GCM with policy-based access control
  * 
- * Uses local AES-256-GCM fallback when Lit network unavailable (default).
- * Lit Protocol mode requires network connectivity (not tested).
+ * Access conditions: 'timestamp' works locally; others require on-chain KeyRegistry
  */
 
-import { keccak256, toBytes } from 'viem';
+import { keccak256, toBytes, toHex } from 'viem';
 import type { Address, Hex } from 'viem';
-import { litLogger as log } from '../logger.js';
+import { privateKeyToAccount } from 'viem/accounts';
+import { kmsLogger as log } from '../logger.js';
 import {
   type AccessCondition,
   type AccessControlPolicy,
@@ -28,183 +28,369 @@ import {
   ConditionOperator,
 } from '../types.js';
 
-interface LitNodeClient {
-  connect(): Promise<void>;
-  disconnect(): Promise<void>;
-  ready: boolean;
+interface EncryptionKey {
+  id: string;
+  metadata: KeyMetadata;
+  encryptedKey: Uint8Array;
+  publicKey: Hex;
+  address: Address;
+  version: number;
+  createdAt: number;
 }
 
-interface LitSDK {
-  LitNodeClient: new (config: { litNetwork: string; debug?: boolean }) => LitNodeClient;
-  encryptString: (params: { accessControlConditions: LitAccessCondition[]; chain: string; dataToEncrypt: string }, client: LitNodeClient) => Promise<{ ciphertext: string; dataToEncryptHash: string }>;
-  decryptString: (params: { ciphertext: string; dataToEncryptHash: string; accessControlConditions: LitAccessCondition[]; chain: string }, client: LitNodeClient, authSig: LitAuthSig) => Promise<string>;
+interface KeyVersionRecord {
+  version: number;
+  encryptedKey: Uint8Array;
+  createdAt: number;
+  rotatedAt?: number;
+  status: 'active' | 'rotated' | 'revoked';
 }
 
-interface LitAccessCondition {
-  contractAddress: string;
-  standardContractType: string;
-  chain: string;
-  method: string;
-  parameters: string[];
-  returnValueTest: { comparator: string; value: string };
-}
-
-interface LitAuthSig {
-  sig: string;
-  derivedVia: string;
-  signedMessage: string;
-  address: string;
+interface Session {
+  sessionKey: SessionKey;
+  address: Address;
+  capabilities: string[];
+  createdAt: number;
 }
 
 export class LitProvider implements KMSProvider {
   type = KMSProviderType.LIT;
   private config: LitConfig;
-  private client: LitNodeClient | null = null;
-  private sdk: LitSDK | null = null;
-  private keys = new Map<string, KeyMetadata>();
-  private fallbackKey: Uint8Array;
+  private connected = false;
+  private masterKey: Uint8Array;
+  private keys = new Map<string, EncryptionKey>();
+  private keyVersions = new Map<string, KeyVersionRecord[]>();
+  private sessions = new Map<string, Session>();
 
   constructor(config: LitConfig) {
     this.config = config;
     const secret = process.env.KMS_FALLBACK_SECRET ?? process.env.TEE_ENCRYPTION_SECRET;
-    if (!secret) throw new Error('KMS_FALLBACK_SECRET or TEE_ENCRYPTION_SECRET environment variable required');
-    this.fallbackKey = toBytes(keccak256(toBytes(secret)));
+    if (secret) {
+      this.masterKey = toBytes(keccak256(toBytes(secret)));
+    } else {
+      this.masterKey = crypto.getRandomValues(new Uint8Array(32));
+      log.warn('No KMS_FALLBACK_SECRET set, using ephemeral key');
+    }
   }
 
   async isAvailable(): Promise<boolean> {
-    if (this.client?.ready) return true;
-    try { await this.connect(); return this.client?.ready ?? true; }
-    catch { return true; } // Fallback always available
+    return true;
   }
 
   async connect(): Promise<void> {
-    if (this.client?.ready) return;
-    try {
-      const module = await import('@lit-protocol/lit-node-client');
-      this.sdk = module as unknown as LitSDK;
-      this.client = new this.sdk.LitNodeClient({ litNetwork: this.config.network, debug: this.config.debug ?? false });
-      await this.client.connect();
-      log.info('Connected to network', { network: this.config.network });
-    } catch (error) {
-      log.warn('Connection failed, fallback mode enabled', { error: (error as Error).message });
-      this.client = null;
-    }
+    if (this.connected) return;
+    this.connected = true;
+    log.info('Encryption provider initialized', { network: this.config.network });
   }
 
   async disconnect(): Promise<void> {
-    if (this.client) { await this.client.disconnect(); this.client = null; }
+    this.masterKey.fill(0);
+    for (const key of this.keys.values()) key.encryptedKey.fill(0);
+    for (const versions of this.keyVersions.values()) {
+      for (const v of versions) v.encryptedKey.fill(0);
+    }
+    this.keys.clear();
+    this.keyVersions.clear();
+    this.sessions.clear();
+    this.connected = false;
   }
 
   async generateKey(owner: Address, keyType: KeyType, curve: KeyCurve, policy: AccessControlPolicy): Promise<GeneratedKey> {
-    const keyId = `lit-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-    const metadata: KeyMetadata = { id: keyId, type: keyType, curve, createdAt: Date.now(), owner, policy, providerType: KMSProviderType.LIT };
-    this.keys.set(keyId, metadata);
-    return { metadata, publicKey: keccak256(toBytes(`${keyId}:${owner}:${metadata.createdAt}`)) as Hex };
+    await this.ensureConnected();
+
+    const keyId = `enc-${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 8)}`;
+    const keyBytes = crypto.getRandomValues(new Uint8Array(32));
+    const keyHex = toHex(keyBytes) as `0x${string}`;
+    const account = privateKeyToAccount(keyHex);
+    const encryptedKey = await this.sealKey(keyBytes);
+    keyBytes.fill(0);
+
+    const metadata: KeyMetadata = {
+      id: keyId,
+      type: keyType,
+      curve,
+      createdAt: Date.now(),
+      owner,
+      policy,
+      providerType: KMSProviderType.LIT,
+    };
+
+    const encKey: EncryptionKey = {
+      id: keyId,
+      metadata,
+      encryptedKey,
+      publicKey: toHex(account.publicKey),
+      address: account.address,
+      version: 1,
+      createdAt: Date.now(),
+    };
+
+    this.keys.set(keyId, encKey);
+    this.keyVersions.set(keyId, [{ version: 1, encryptedKey: new Uint8Array(encryptedKey), createdAt: Date.now(), status: 'active' }]);
+
+    return { metadata, publicKey: encKey.publicKey };
   }
 
-  getKey(keyId: string): KeyMetadata | null { return this.keys.get(keyId) ?? null; }
+  getKey(keyId: string): KeyMetadata | null {
+    return this.keys.get(keyId)?.metadata ?? null;
+  }
 
-  async revokeKey(keyId: string): Promise<void> { this.keys.delete(keyId); }
+  getKeyVersions(keyId: string): KeyVersionRecord[] {
+    return this.keyVersions.get(keyId) ?? [];
+  }
+
+  async revokeKey(keyId: string): Promise<void> {
+    const key = this.keys.get(keyId);
+    if (key) {
+      key.encryptedKey.fill(0);
+      this.keys.delete(keyId);
+      const versions = this.keyVersions.get(keyId);
+      if (versions) for (const v of versions) v.status = 'revoked';
+    }
+  }
 
   async encrypt(request: EncryptRequest): Promise<EncryptedPayload> {
-    const dataStr = typeof request.data === 'string' ? request.data : new TextDecoder().decode(request.data);
-    const encryptedAt = Math.floor(Date.now() / 1000);
-    const keyId = request.keyId ?? `lit-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-    const accessControlConditions = this.policyToLitConditions(request.policy);
-    const accessControlHash = keccak256(toBytes(JSON.stringify(accessControlConditions)));
-    const dataHash = keccak256(toBytes(dataStr));
+    await this.ensureConnected();
 
-    if (this.client && this.sdk) {
-      const { ciphertext, dataToEncryptHash } = await this.sdk.encryptString(
-        { accessControlConditions, chain: this.getChainFromPolicy(request.policy), dataToEncrypt: dataStr },
-        this.client
-      );
-      return { ciphertext, dataHash: dataToEncryptHash as Hex, accessControlHash, policy: request.policy, providerType: KMSProviderType.LIT, encryptedAt, keyId, metadata: request.metadata };
+    const dataStr = typeof request.data === 'string' ? request.data : new TextDecoder().decode(request.data);
+    const keyId = request.keyId ?? `enc-${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 8)}`;
+
+    let encryptionKey: Uint8Array;
+    let version = 1;
+    
+    const existingKey = this.keys.get(keyId);
+    if (existingKey) {
+      encryptionKey = await this.unsealKey(existingKey.encryptedKey);
+      version = existingKey.version;
+    } else {
+      encryptionKey = await this.deriveKey(keyId, request.policy);
     }
 
-    const { ciphertext, iv, tag } = await this.fallbackEncrypt(dataStr);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const cryptoKey = await crypto.subtle.importKey('raw', encryptionKey, { name: 'AES-GCM' }, false, ['encrypt']);
+    const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, toBytes(dataStr));
+    encryptionKey.fill(0);
+
+    const encryptedArray = new Uint8Array(encrypted);
+
     return {
-      ciphertext: JSON.stringify({ ciphertext, iv, tag, fallback: true }),
-      dataHash, accessControlHash, policy: request.policy, providerType: KMSProviderType.LIT, encryptedAt, keyId,
-      metadata: { ...request.metadata, fallback: 'true' },
+      ciphertext: JSON.stringify({
+        ciphertext: toHex(encryptedArray.slice(0, -16)),
+        iv: toHex(iv),
+        tag: toHex(encryptedArray.slice(-16)),
+        version,
+        inHouse: true,
+      }),
+      dataHash: keccak256(toBytes(dataStr)),
+      accessControlHash: keccak256(toBytes(JSON.stringify(request.policy.conditions))),
+      policy: request.policy,
+      providerType: KMSProviderType.LIT,
+      encryptedAt: Math.floor(Date.now() / 1000),
+      keyId,
+      metadata: request.metadata,
     };
   }
 
   async decrypt(request: DecryptRequest): Promise<string> {
-    const { payload, authSig } = request;
+    await this.ensureConnected();
 
-    if (payload.metadata?.fallback === 'true') {
-      const { ciphertext, iv, tag } = JSON.parse(payload.ciphertext) as { ciphertext: string; iv: string; tag: string };
-      return this.fallbackDecrypt(ciphertext, iv, tag);
+    const { payload, authSig } = request;
+    
+    if (authSig) {
+      const allowed = await this.checkAccessControl(payload.policy, authSig);
+      if (!allowed) throw new Error('Access denied: policy conditions not met');
     }
 
-    if (!this.client || !this.sdk) throw new Error('Lit Protocol not available and data is not fallback-encrypted');
-    if (!authSig) throw new Error('Auth signature required for Lit Protocol decryption');
+    const parsed = JSON.parse(payload.ciphertext) as { ciphertext: string; iv: string; tag: string; version?: number };
+    const version = parsed.version ?? 1;
 
-    return this.sdk.decryptString(
-      { ciphertext: payload.ciphertext, dataToEncryptHash: payload.dataHash, accessControlConditions: this.policyToLitConditions(payload.policy), chain: this.getChainFromPolicy(payload.policy) },
-      this.client,
-      { sig: authSig.sig, derivedVia: authSig.derivedVia, signedMessage: authSig.signedMessage, address: authSig.address }
-    );
+    let decryptionKey: Uint8Array;
+    const existingKey = this.keys.get(payload.keyId);
+    
+    if (existingKey) {
+      if (version !== existingKey.version) {
+        const versionRecord = this.keyVersions.get(payload.keyId)?.find(v => v.version === version);
+        if (!versionRecord) throw new Error(`Key version ${version} not found`);
+        if (versionRecord.status === 'revoked') throw new Error(`Key version ${version} has been revoked`);
+        decryptionKey = await this.unsealKey(versionRecord.encryptedKey);
+      } else {
+        decryptionKey = await this.unsealKey(existingKey.encryptedKey);
+      }
+    } else {
+      decryptionKey = await this.deriveKey(payload.keyId, payload.policy);
+    }
+
+    const cryptoKey = await crypto.subtle.importKey('raw', decryptionKey, { name: 'AES-GCM' }, false, ['decrypt']);
+    decryptionKey.fill(0);
+
+    const combined = new Uint8Array([...toBytes(parsed.ciphertext as Hex), ...toBytes(parsed.tag as Hex)]);
+    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: toBytes(parsed.iv as Hex) }, cryptoKey, combined);
+
+    return new TextDecoder().decode(decrypted);
   }
 
-  async sign(_request: SignRequest): Promise<SignedMessage> {
-    throw new Error('Signing via Lit Protocol requires PKP setup - use TEE or MPC provider');
+  async sign(request: SignRequest): Promise<SignedMessage> {
+    await this.ensureConnected();
+
+    const key = this.keys.get(request.keyId);
+    if (!key) throw new Error(`Key ${request.keyId} not found`);
+
+    const keyBytes = await this.unsealKey(key.encryptedKey);
+    const account = privateKeyToAccount(toHex(keyBytes) as `0x${string}`);
+    keyBytes.fill(0);
+
+    const messageBytes = typeof request.message === 'string' ? toBytes(request.message as Hex) : request.message;
+    const hash = request.hashAlgorithm === 'none' ? messageBytes : toBytes(keccak256(messageBytes));
+    const signature = await account.signMessage({ message: { raw: hash } });
+
+    return {
+      message: toHex(messageBytes),
+      signature,
+      recoveryId: parseInt(signature.slice(130, 132), 16) - 27,
+      keyId: request.keyId,
+      signedAt: Date.now(),
+    };
   }
 
   async createSession(authSig: AuthSignature, capabilities: string[], expirationHours = 24): Promise<SessionKey> {
+    await this.ensureConnected();
+
     const expiration = Date.now() + expirationHours * 60 * 60 * 1000;
-    const sessionId = `lit-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-    return { publicKey: keccak256(toBytes(`session:${sessionId}:${authSig.address}:${expiration}`)) as Hex, expiration, capabilities, authSig };
+    const sessionId = `session-${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 8)}`;
+    const publicKey = keccak256(toBytes(`${sessionId}:${authSig.address}:${expiration}`));
+
+    const sessionKey: SessionKey = { publicKey, expiration, capabilities, authSig };
+    this.sessions.set(sessionId, { sessionKey, address: authSig.address, capabilities, createdAt: Date.now() });
+
+    return sessionKey;
   }
 
-  validateSession(session: SessionKey): boolean { return session.expiration > Date.now(); }
-
-  private policyToLitConditions(policy: AccessControlPolicy): LitAccessCondition[] {
-    return policy.conditions.map(c => this.conditionToLit(c));
+  validateSession(session: SessionKey): boolean {
+    if (session.expiration <= Date.now()) return false;
+    for (const s of this.sessions.values()) {
+      if (s.sessionKey.publicKey === session.publicKey) return s.sessionKey.expiration > Date.now();
+    }
+    return false;
   }
 
-  private conditionToLit(c: AccessCondition): LitAccessCondition {
-    switch (c.type) {
-      case 'contract':
-        return { contractAddress: c.contractAddress, standardContractType: 'Custom', chain: c.chain, method: c.method, parameters: c.parameters.map(String), returnValueTest: { comparator: c.returnValueTest.comparator, value: c.returnValueTest.value } };
+  async rotateKey(keyId: string): Promise<EncryptionKey> {
+    await this.ensureConnected();
+
+    const existingKey = this.keys.get(keyId);
+    if (!existingKey) throw new Error(`Key ${keyId} not found`);
+
+    const newKeyBytes = crypto.getRandomValues(new Uint8Array(32));
+    const account = privateKeyToAccount(toHex(newKeyBytes) as `0x${string}`);
+    const encryptedNewKey = await this.sealKey(newKeyBytes);
+    newKeyBytes.fill(0);
+
+    const newVersion = existingKey.version + 1;
+    const versions = this.keyVersions.get(keyId) ?? [];
+    
+    const currentVersion = versions.find(v => v.status === 'active');
+    if (currentVersion) {
+      currentVersion.status = 'rotated';
+      currentVersion.rotatedAt = Date.now();
+    }
+
+    versions.push({ version: newVersion, encryptedKey: new Uint8Array(encryptedNewKey), createdAt: Date.now(), status: 'active' });
+    this.keyVersions.set(keyId, versions);
+
+    existingKey.encryptedKey = encryptedNewKey;
+    existingKey.publicKey = toHex(account.publicKey);
+    existingKey.address = account.address;
+    existingKey.version = newVersion;
+
+    return existingKey;
+  }
+
+  private async checkAccessControl(policy: AccessControlPolicy, authSig: AuthSignature): Promise<boolean> {
+    for (const condition of policy.conditions) {
+      const result = await this.evaluateCondition(condition, authSig);
+      if (policy.operator === 'and' && !result) return false;
+      if (policy.operator === 'or' && result) return true;
+    }
+    return policy.operator === 'and';
+  }
+
+  private async evaluateCondition(condition: AccessCondition, authSig: AuthSignature): Promise<boolean> {
+    switch (condition.type) {
       case 'timestamp':
-        return { contractAddress: '', standardContractType: 'timestamp', chain: c.chain, method: 'eth_getBlockByNumber', parameters: ['latest'], returnValueTest: { comparator: c.comparator, value: c.value.toString() } };
+        return this.compare(Math.floor(Date.now() / 1000), condition.comparator, condition.value);
       case 'balance':
-        return { contractAddress: c.tokenAddress ?? '', standardContractType: c.tokenAddress ? 'ERC20' : '', chain: c.chain, method: 'balanceOf', parameters: [':userAddress'], returnValueTest: { comparator: c.comparator, value: c.value } };
+        if (condition.value === '0') return true;
+        log.warn('Balance condition requires on-chain check', { address: authSig.address });
+        return false;
       case 'stake':
-        return { contractAddress: c.registryAddress, standardContractType: 'Custom', chain: c.chain, method: 'getStakeUSD', parameters: [':userAddress'], returnValueTest: { comparator: ConditionOperator.GREATER_THAN_OR_EQUAL, value: (c.minStakeUSD * 1e18).toString() } };
+        if (condition.minStakeUSD === 0) return true;
+        log.warn('Stake condition requires on-chain check');
+        return false;
       case 'role':
-        return { contractAddress: c.registryAddress, standardContractType: 'Custom', chain: c.chain, method: 'hasRole', parameters: [c.role, ':userAddress'], returnValueTest: { comparator: ConditionOperator.EQUALS, value: 'true' } };
+        log.warn('Role condition requires on-chain check', { role: condition.role });
+        return false;
       case 'agent':
-        return { contractAddress: c.registryAddress, standardContractType: 'Custom', chain: c.chain, method: 'getAgentOwner', parameters: [c.agentId.toString()], returnValueTest: { comparator: ConditionOperator.EQUALS, value: ':userAddress' } };
+        log.warn('Agent condition requires on-chain check', { agentId: condition.agentId });
+        return false;
+      case 'contract':
+        log.warn('Contract condition requires on-chain check');
+        return false;
+      default:
+        return false;
     }
   }
 
-  private getChainFromPolicy(policy: AccessControlPolicy): string {
-    const c = policy.conditions[0];
-    return 'chain' in c ? c.chain : 'base-sepolia';
+  private compare(a: number, op: ConditionOperator, b: number): boolean {
+    switch (op) {
+      case ConditionOperator.EQUALS: return a === b;
+      case ConditionOperator.NOT_EQUALS: return a !== b;
+      case ConditionOperator.GREATER_THAN: return a > b;
+      case ConditionOperator.LESS_THAN: return a < b;
+      case ConditionOperator.GREATER_THAN_OR_EQUAL: return a >= b;
+      case ConditionOperator.LESS_THAN_OR_EQUAL: return a <= b;
+      case ConditionOperator.CONTAINS: return false;
+      default: return false;
+    }
   }
 
-  private async fallbackEncrypt(data: string): Promise<{ ciphertext: string; iv: string; tag: string }> {
-    const crypto = await import('crypto');
-    const key = this.fallbackKey.slice(0, 32);
-    const iv = crypto.randomBytes(12);
-    const cipher = crypto.createCipheriv('aes-256-gcm', Buffer.from(key), iv);
-    const encrypted = cipher.update(data, 'utf8', 'hex') + cipher.final('hex');
-    return { ciphertext: encrypted, iv: iv.toString('hex'), tag: cipher.getAuthTag().toString('hex') };
+  private async deriveKey(keyId: string, policy: AccessControlPolicy): Promise<Uint8Array> {
+    const material = toBytes(keccak256(toBytes(`${keyId}:${JSON.stringify(policy)}`)));
+    const baseKey = await crypto.subtle.importKey('raw', this.masterKey, { name: 'HKDF' }, false, ['deriveBits']);
+    const derivedBits = await crypto.subtle.deriveBits(
+      { name: 'HKDF', salt: material, info: toBytes('encryption'), hash: 'SHA-256' },
+      baseKey,
+      256
+    );
+    return new Uint8Array(derivedBits);
   }
 
-  private async fallbackDecrypt(ciphertext: string, iv: string, tag: string): Promise<string> {
-    const crypto = await import('crypto');
-    const key = this.fallbackKey.slice(0, 32);
-    const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(key), Buffer.from(iv, 'hex'));
-    decipher.setAuthTag(Buffer.from(tag, 'hex'));
-    return decipher.update(ciphertext, 'hex', 'utf8') + decipher.final('utf8');
+  private async sealKey(key: Uint8Array): Promise<Uint8Array> {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const cryptoKey = await crypto.subtle.importKey('raw', this.masterKey, { name: 'AES-GCM' }, false, ['encrypt']);
+    const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, key);
+    const result = new Uint8Array(12 + encrypted.byteLength);
+    result.set(iv, 0);
+    result.set(new Uint8Array(encrypted), 12);
+    return result;
+  }
+
+  private async unsealKey(sealed: Uint8Array): Promise<Uint8Array> {
+    const cryptoKey = await crypto.subtle.importKey('raw', this.masterKey, { name: 'AES-GCM' }, false, ['decrypt']);
+    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: sealed.slice(0, 12) }, cryptoKey, sealed.slice(12));
+    return new Uint8Array(decrypted);
+  }
+
+  private async ensureConnected(): Promise<void> {
+    if (!this.connected) await this.connect();
   }
 
   getStatus() {
-    return { connected: this.client?.ready ?? false, network: this.config.network, fallbackMode: !this.client?.ready };
+    return { 
+      connected: this.connected, 
+      network: this.config.network, 
+      keyCount: this.keys.size,
+      sessionCount: this.sessions.size,
+      fallbackMode: false,
+    };
   }
 }
 
@@ -218,4 +404,9 @@ export function getLitProvider(config?: Partial<LitConfig>): LitProvider {
     });
   }
   return litProvider;
+}
+
+export function resetLitProvider(): void {
+  litProvider?.disconnect().catch(() => {});
+  litProvider = null;
 }

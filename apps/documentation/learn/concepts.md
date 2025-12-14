@@ -1,238 +1,268 @@
 # Core Concepts
 
-Understanding Jeju's key primitives.
+> **TL;DR:** Jeju uses ERC-4337 (account abstraction) for gasless tx, ERC-8004 for agent identity, ERC-7683 for cross-chain intents, and x402 for pay-per-request APIs.
 
 ## Account Abstraction (ERC-4337)
 
-Traditional Ethereum requires EOAs (externally owned accounts) to pay gas in ETH. Account abstraction changes this.
+Traditional Ethereum: EOA pays gas in ETH.  
+Account Abstraction: Smart contract wallets, custom gas payment.
 
-### What It Enables
-- **Smart contract wallets** — Accounts with custom logic
-- **Gasless transactions** — Someone else pays
-- **Multi-token gas** — Pay in USDC, JEJU, etc.
-- **Batched transactions** — Multiple actions in one tx
-- **Social recovery** — Recover wallet without seed phrase
-
-### How It Works
-
-```
-User creates UserOperation
-        ↓
-Bundler collects UserOps
-        ↓
-Bundler submits to EntryPoint contract
-        ↓
-EntryPoint validates with Paymaster
-        ↓
-Paymaster checks payment (tokens, sponsorship)
-        ↓
-Transaction executes
-        ↓
-Paymaster receives payment
-```
-
-### Jeju's Implementation
-
-Jeju deploys the standard EntryPoint contracts plus:
-
-- **MultiTokenPaymaster** — Accept any registered token for gas
-- **SponsoredPaymaster** — Apps pay for user transactions
-- **TokenRegistry** — Track accepted tokens and price oracles
-
-## Paymasters
-
-Paymasters are contracts that pay for gas on behalf of users.
-
-### Multi-Token Paymaster
-
-Users pay gas in any registered token:
+### Key Types
 
 ```typescript
-const userOp = {
-  sender: walletAddress,
-  callData: encodedCall,
-  paymasterAndData: encodePaymasterData(
-    MULTI_TOKEN_PAYMASTER,
-    USDC_ADDRESS,
-    parseUnits("5", 6) // Max 5 USDC for gas
-  ),
-};
+interface UserOperation {
+  sender: `0x${string}`;           // Smart account address
+  nonce: bigint;
+  callData: `0x${string}`;         // Encoded function call
+  callGasLimit: bigint;
+  verificationGasLimit: bigint;
+  preVerificationGas: bigint;
+  maxFeePerGas: bigint;
+  maxPriorityFeePerGas: bigint;
+  paymasterAndData: `0x${string}`; // Paymaster address + data
+  signature: `0x${string}`;
+}
+
+// Flow:
+// 1. User creates UserOperation
+// 2. Bundler collects UserOps
+// 3. Bundler submits to EntryPoint contract
+// 4. EntryPoint validates with Paymaster
+// 5. Paymaster checks payment (tokens or sponsorship)
+// 6. Transaction executes
+// 7. Paymaster receives payment
 ```
 
-The paymaster:
-1. Checks the user has enough tokens
-2. Queries the price oracle for ETH/token rate
-3. Calculates required token amount
-4. Pulls tokens from user after execution
-5. Uses its own ETH deposit to pay actual gas
+### Paymaster Types
 
-### Sponsored Paymaster
+**Multi-Token Paymaster:** User pays gas in any registered token
 
-Apps deposit ETH and whitelist contracts/users:
+```typescript
+const paymasterData = encodePaymasterData({
+  paymaster: MULTI_TOKEN_PAYMASTER,
+  token: USDC_ADDRESS,
+  maxTokenAmount: parseUnits('5', 6),
+});
+
+// Paymaster:
+// 1. Checks user has enough USDC
+// 2. Queries oracle for ETH/USDC rate
+// 3. Calculates required USDC
+// 4. Pulls USDC from user after execution
+// 5. Uses own ETH deposit for actual gas
+```
+
+**Sponsored Paymaster:** App pays, user pays nothing
 
 ```typescript
 // App creates paymaster
 const paymaster = await factory.createSponsoredPaymaster(
   appWallet,
-  [gameContract], // Sponsored contracts
+  [gameContract], // Whitelisted contracts
 );
+await paymaster.deposit({ value: parseEther('10') });
 
-// App deposits ETH
-await paymaster.deposit({ value: parseEther("10") });
-
-// All calls to gameContract are now gasless for users
+// All calls to gameContract are now free for users
 ```
 
 ## Intents (ERC-7683)
 
-Intents express *what* you want, not *how* to do it.
+Express *what* you want, not *how*.
 
-### Traditional Flow
-1. User bridges tokens (5-20 min)
-2. User swaps on DEX
-3. User sends to recipient
-4. Multiple transactions, multiple fees
+```typescript
+interface CrossChainIntent {
+  id: `0x${string}`;
+  creator: `0x${string}`;
+  sourceChain: number;
+  destinationChain: number;
+  tokenIn: `0x${string}`;
+  tokenOut: `0x${string}`;
+  amountIn: bigint;
+  minAmountOut: bigint;
+  deadline: number;
+  recipient: `0x${string}`;
+  status: 'PENDING' | 'FILLED' | 'CANCELLED' | 'EXPIRED';
+  solver?: `0x${string}`;
+}
 
-### Intent Flow
-1. User signs intent: "Send 100 USDC to 0x... on Jeju"
-2. Solver fills the order (using their own liquidity)
-3. User pays solver on source chain
-4. One signature, solver handles complexity
-
-### Jeju's OIF (Open Intents Framework)
-
-```
-Source Chain                    Destination Chain (Jeju)
-┌─────────────┐                ┌─────────────────────┐
-│ InputSettler│                │ OutputSettler       │
-│   - createIntent()           │   - fillIntent()    │
-│   - claimPayment()           │                     │
-└─────────────┘                └─────────────────────┘
-       ↑                              ↑
-       │         SolverRegistry       │
-       └──────────(on Jeju)───────────┘
+// Flow:
+// 1. User creates intent on source chain (InputSettler)
+// 2. Solver sees intent via Indexer
+// 3. Solver fills on destination (OutputSettler)
+// 4. Oracle verifies source chain deposit
+// 5. Solver claims payment from InputSettler
 ```
 
-Solvers stake on Jeju, monitor intents across chains, and compete to fill them.
+### Contracts
+
+| Contract | Chain | Purpose |
+|----------|-------|---------|
+| InputSettler | Source | User deposits, solver claims |
+| OutputSettler | Destination | Solver fills |
+| SolverRegistry | Jeju | Solver stake management |
+| OracleAdapter | Both | Cross-chain verification |
 
 ## Agent Identity (ERC-8004)
 
 On-chain registry for applications and AI agents.
 
-### What's Registered
-- **Name** and description
-- **A2A endpoint** — Agent-to-Agent protocol
-- **MCP endpoint** — Model Context Protocol (for AI models)
-- **Metadata URI** — IPFS link to extended info
-- **Trust labels** — Verified, trusted, partner
+```typescript
+interface RegisteredAgent {
+  address: `0x${string}`;
+  name: string;
+  description: string;
+  a2aEndpoint: string;    // Agent-to-Agent protocol URL
+  mcpEndpoint: string;    // Model Context Protocol URL
+  metadataUri: string;    // ipfs://... extended info
+  trustLabels: string[];  // ['verified', 'trusted']
+  active: boolean;
+  registeredAt: number;
+}
 
-### Why It Matters
+// Register
+await identityRegistry.register(
+  'TradingBot',
+  'Autonomous market maker',
+  'https://mybot.com/a2a',
+  'https://mybot.com/mcp',
+  'ipfs://Qm...'
+);
 
-Agents can:
-- Discover other agents on-chain
-- Verify identity before interaction
-- Build reputation over time
-- Be discoverable by AI models via MCP
+// Discover
+const agent = await identityRegistry.getAgentByName('TradingBot');
+// Returns: { address, name, a2aEndpoint, ... }
+```
+
+### A2A Protocol
+
+Agent-to-agent task execution:
 
 ```typescript
-// Query agents
-const agents = await indexer.query(`{
-  agents(where: { active: true }) {
-    address
-    name
-    a2aEndpoint
-  }
-}`);
+interface A2ARequest {
+  type: 'task';
+  taskId: string;
+  task: {
+    skill: string;
+    parameters: Record<string, unknown>;
+  };
+}
 
-// Interact via A2A
+interface A2AResponse {
+  type: 'task-result';
+  taskId: string;
+  status: 'completed' | 'failed' | 'pending';
+  result?: unknown;
+  error?: { code: string; message: string };
+}
+
+// Call another agent
 const response = await fetch(agent.a2aEndpoint, {
   method: 'POST',
-  body: JSON.stringify({ type: 'task', task: { ... } }),
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    type: 'task',
+    taskId: crypto.randomUUID(),
+    task: { skill: 'analyze-market', parameters: { token: 'JEJU' } },
+  }),
 });
+const result: A2AResponse = await response.json();
 ```
 
-## Cross-Chain Liquidity (EIL)
+### MCP Protocol
 
-EIL = Ethereum Interop Layer. Trustless bridging without traditional bridges.
+For AI models to interact with blockchain:
 
-### Participants
+```typescript
+interface MCPTool {
+  name: string;
+  description: string;
+  inputSchema: JSONSchema;
+  handler: (params: unknown) => Promise<unknown>;
+}
 
-**Users** want to move assets to Jeju.
-
-**XLPs (Cross-chain Liquidity Providers)** stake on L1 and provide liquidity on L2:
-- Stake ETH/tokens on Ethereum
-- Maintain liquidity pools on Jeju
-- Earn fees from every transfer
-
-### Flow
-
+// Example: AI can call get_balance tool
+const tools: MCPTool[] = [
+  {
+    name: 'get_balance',
+    description: 'Get token balance for address',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        address: { type: 'string' },
+        token: { type: 'string' },
+      },
+      required: ['address'],
+    },
+    handler: async ({ address, token }) => {
+      return await getBalance(address, token);
+    },
+  },
+];
 ```
-1. User deposits on Ethereum (InputSettler)
-2. XLP sees deposit, provides tokens on Jeju instantly
-3. User has funds on Jeju in seconds
-4. XLP claims user's deposit after confirmation
-```
-
-No wrapped tokens. No 7-day wait for normal transfers.
 
 ## x402 Payments
 
 HTTP payment protocol for pay-per-request APIs.
 
-### How It Works
+```typescript
+interface PaymentRequirement {
+  x402Version: 1;
+  error: string;
+  accepts: Array<{
+    scheme: 'exact';
+    network: string;
+    maxAmountRequired: string;
+    resource: string;
+    description: string;
+    payTo: `0x${string}`;
+    asset: `0x${string}`;
+    maxTimeoutSeconds: number;
+  }>;
+}
 
-```
-1. Client calls API
-2. Server returns 402 Payment Required + payment details
-3. Client signs payment
-4. Client retries with X-Payment header
-5. Server verifies, serves response
-6. Server settles payment on-chain
+interface PaymentPayload {
+  version: 1;
+  network: string;
+  amount: string;
+  recipient: `0x${string}`;
+  resource: string;
+  timestamp: number;
+  nonce: string;
+  payer: `0x${string}`;
+  signature: `0x${string}`;
+}
+
+// Flow:
+// 1. Client: GET /api/premium
+// 2. Server: 402 + PaymentRequirement
+// 3. Client: Sign payment
+// 4. Client: GET /api/premium + X-Payment header
+// 5. Server: Verify, serve response, settle on-chain
 ```
 
-### Use Cases
-- AI inference (pay per token)
-- Storage uploads (pay per MB)
-- Premium API access
-- Compute rentals
+## Cross-Chain Liquidity (EIL)
+
+XLP = Cross-chain Liquidity Provider
 
 ```typescript
-// Server middleware
-app.use(x402Middleware({
-  recipient: PAYMENT_ADDRESS,
-  amount: parseEther("0.001"),
-  facilitator: FACILITATOR_URL,
-}));
+// XLP stakes on L1 (Ethereum)
+await l1StakeManager.stake(stakeAmount);
 
-// Client
-const client = new X402Client({ wallet });
-const response = await client.fetch("https://api.example.com/inference");
+// XLP provides liquidity on L2 (Jeju)
+await liquidityVault.deposit(USDC, liquidityAmount);
+
+// User wants fast bridge:
+// 1. User deposits on Ethereum
+// 2. XLP sees deposit, provides tokens on Jeju instantly
+// 3. User has funds in seconds
+// 4. XLP claims user's deposit after confirmation
+// No wrapped tokens, no 7-day wait
 ```
 
-## Flashblocks
+## Block Timeline
 
-200ms pre-confirmation from the sequencer.
-
-### Block Timeline
-
-| Stage | Time | What Happens |
-|-------|------|--------------|
-| Flashblock | 200ms | Sequencer pre-confirms |
-| Full Block | 2s | Block included in chain |
-| Batch | ~10min | Posted to EigenDA |
-| Settlement | ~1hr | State root on Ethereum |
-| Finality | 7 days | Challenge period ends |
-
-### When to Use What
-
-- **Flashblock**: UI feedback, optimistic updates
-- **Full Block**: State you'll build on
-- **Settlement**: Cross-chain proofs
-- **Finality**: Withdrawals to L1
-
-## Next Steps
-
-- [Architecture](/learn/architecture) — How these pieces fit together
-- [Quick Start](/build/quick-start) — Start building
-- [Tutorials](/tutorials/overview) — Hands-on examples
-
+```
+Flashblock (200ms) → Full Block (2s) → Batch (~10min) → Settlement (~1hr) → Finality (7 days)
+     ↑                    ↑                 ↑                  ↑                  ↑
+  UI feedback      Safe to build      DA recoverable     Cross-chain       L1 withdrawals
+```

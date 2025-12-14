@@ -8,7 +8,7 @@ import { StrategyEngine } from '../../src/solver/strategy';
 import { ethers } from 'ethers';
 
 // Shared strategy instance to allow price to be fetched once
-let sharedStrategy: StrategyEngine | null = null;
+const sharedStrategy: StrategyEngine | null = null;
 
 // Create strategy with test config
 function createStrategy(overrides: Partial<{

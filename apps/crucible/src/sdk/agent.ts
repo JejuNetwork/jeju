@@ -69,7 +69,7 @@ export class AgentSDK {
 
   async registerAgent(
     character: AgentCharacter,
-    options?: { initialFunding?: bigint }
+    options?: { initialFunding?: bigint; botType?: 'ai_agent' | 'trading_bot' | 'org_tool' }
   ): Promise<{ agentId: bigint; vaultAddress: Address; characterCid: string; stateCid: string }> {
     if (!this.walletClient) throw new Error('Wallet client required for registration');
 
@@ -190,10 +190,26 @@ export class AgentSDK {
       name = character.name;
     }
 
+    // Infer botType from character or default to ai_agent
+    let botType: 'ai_agent' | 'trading_bot' | 'org_tool' = 'ai_agent';
+    if (characterCid) {
+      try {
+        const character = await this.storage.loadCharacter(characterCid);
+        if (character.topics?.includes('trading') || character.topics?.includes('arbitrage') || character.topics?.includes('mev')) {
+          botType = 'trading_bot';
+        } else if (character.topics?.includes('org') || character.topics?.includes('todo') || character.topics?.includes('team')) {
+          botType = 'org_tool';
+        }
+      } catch {
+        // Character not found, default to ai_agent
+      }
+    }
+
     return {
       agentId,
       owner: registration.owner,
       name,
+      botType,
       characterCid,
       stateCid,
       vaultAddress,

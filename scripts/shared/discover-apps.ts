@@ -22,7 +22,7 @@ const JejuManifestSchema = z.object({
     start: z.string().optional(),
   }).optional(),
   ports: z.record(z.number()).optional(),
-  dependencies: z.array(z.enum(['contracts', 'config', 'shared', 'scripts', 'indexer', 'localnet'])).optional(),
+  dependencies: z.array(z.enum(['contracts', 'config', 'shared', 'scripts', 'indexer', 'localnet', 'compute', 'bazaar'])).optional(),
   optional: z.boolean().default(true),
   enabled: z.boolean().default(true),
   autoStart: z.boolean().default(true),

@@ -86,18 +86,37 @@ export class ExecutorSDK {
 
     this.log.info('Starting execution', { executionId, agentId: request.agentId.toString() });
 
+    const agent = await this.agentSdk.getAgent(request.agentId);
+    if (!agent) {
+      this.log.error('Agent not found', { agentId: request.agentId.toString() });
+      return this.failedResult(executionId, request.agentId, startTime);
+    }
+
+    // Route to appropriate execution handler based on bot type
+    if (agent.botType === 'trading_bot') {
+      return this.executeTradingBot(request, agent, executionId, startTime);
+    }
+
+    if (agent.botType === 'org_tool') {
+      return this.executeOrgTool(request, agent, executionId, startTime);
+    }
+
+    // Default: AI agent execution
+    return this.executeAIAgent(request, agent, executionId, startTime);
+  }
+
+  private async executeAIAgent(
+    request: ExecutionRequest,
+    agent: AgentDefinition,
+    executionId: string,
+    startTime: number
+  ): Promise<ExecutionResult> {
     const cost: ExecutionCost = {
       total: 0n, inference: 0n, storage: 0n, executionFee: 0n, currency: 'ETH',
     };
     const metadata: ExecutionMetadata = {
       startedAt: startTime, completedAt: 0, latencyMs: 0, executor: this.executorAddress,
     };
-
-    const agent = await this.agentSdk.getAgent(request.agentId);
-    if (!agent) {
-      this.log.error('Agent not found', { agentId: request.agentId.toString() });
-      return this.failedResult(executionId, request.agentId, startTime);
-    }
 
     const balance = await this.agentSdk.getVaultBalance(request.agentId);
     const estimatedCost = this.estimateCost(request.options?.maxTokens);
@@ -175,6 +194,65 @@ export class ExecutorSDK {
       newStateCid,
       cost,
       metadata,
+    };
+  }
+
+  private async executeTradingBot(
+    request: ExecutionRequest,
+    agent: AgentDefinition,
+    executionId: string,
+    startTime: number
+  ): Promise<ExecutionResult> {
+    this.log.info('Trading bot execution requested', { agentId: request.agentId.toString() });
+    const completedAt = Date.now();
+    return {
+      executionId,
+      agentId: request.agentId,
+      status: 'completed',
+      output: { response: 'Trading bot is running continuously', actions: [] },
+      cost: { total: 0n, inference: 0n, storage: 0n, executionFee: 0n, currency: 'ETH' },
+      metadata: { startedAt: startTime, completedAt, latencyMs: completedAt - startTime, executor: this.executorAddress },
+    };
+  }
+
+  private async executeOrgTool(
+    request: ExecutionRequest,
+    agent: AgentDefinition,
+    executionId: string,
+    startTime: number
+  ): Promise<ExecutionResult> {
+    this.log.info('Org tool execution requested', { agentId: request.agentId.toString() });
+
+    const [character, state] = await Promise.all([
+      this.agentSdk.loadCharacter(request.agentId),
+      this.agentSdk.loadState(request.agentId),
+    ]);
+    const context = await this.buildContext(request, state);
+    const inferenceResult = await this.compute.runInference(
+      character, request.input.message ?? '', context, request.options
+    );
+
+    const completedAt = Date.now();
+    return {
+      executionId,
+      agentId: request.agentId,
+      status: 'completed',
+      output: { response: inferenceResult.content, actions: [] },
+      cost: {
+        total: inferenceResult.cost + this.costs.storageCostWei + this.costs.executionFeeWei,
+        inference: inferenceResult.cost,
+        storage: this.costs.storageCostWei,
+        executionFee: this.costs.executionFeeWei,
+        currency: 'ETH',
+      },
+      metadata: {
+        startedAt: startTime,
+        completedAt,
+        latencyMs: completedAt - startTime,
+        executor: this.executorAddress,
+        model: inferenceResult.model,
+        tokensUsed: inferenceResult.tokensUsed,
+      },
     };
   }
 

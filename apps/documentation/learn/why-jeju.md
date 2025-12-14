@@ -1,136 +1,151 @@
 # Why Jeju?
 
-Jeju is an L2 purpose-built for autonomous agents and next-generation applications. Here's why it matters.
+> **TL;DR:** Jeju is an Ethereum L2 with 200ms blocks, gasless transactions (users pay in any token), on-chain agent identity (ERC-8004), and cross-chain intents (ERC-7683). Built on OP-Stack.
 
-## The Problem
+## Problem
 
-Today's L2s are optimized for DeFi and NFTs. They work for humans clicking buttons in wallets. But they fail for:
-
-- **Autonomous agents** that need to transact without human approval
-- **Applications** that want to sponsor user gas costs
+Today's L2s are optimized for humans clicking buttons. They fail for:
+- **Autonomous agents** that transact without human approval
+- **Applications** that want to sponsor user gas
 - **Cross-chain operations** that shouldn't require bridges
 - **AI systems** that need to pay for compute on-chain
 
-## Jeju's Solution
+## Solution
 
 ### 1. Gasless by Default
 
-Users don't need ETH. Ever.
+Users never need ETH:
 
 ```typescript
-// User pays gas in USDC
-const tx = await wallet.sendTransaction({
+import { createWalletClient, http, parseUnits } from 'viem';
+import { jejuChain } from '@jejunetwork/config';
+
+const client = createWalletClient({
+  chain: jejuChain,
+  transport: http('https://rpc.jeju.network'),
+});
+
+// User pays gas in USDC instead of ETH
+const hash = await client.sendTransaction({
   to: recipient,
   value: amount,
-  paymaster: MULTI_TOKEN_PAYMASTER,
-  paymasterToken: USDC_ADDRESS,
+  paymaster: '0x...MULTI_TOKEN_PAYMASTER',
+  paymasterInput: encodePaymasterInput({
+    token: '0x...USDC_ADDRESS',
+    maxAmount: parseUnits('5', 6), // Max 5 USDC for gas
+  }),
 });
 ```
 
 Apps can sponsor all user transactions:
 
 ```typescript
-// App pays for users
-const paymaster = await factory.createSponsoredPaymaster({
-  sponsor: appWallet,
-  contracts: [gameContract, marketplaceContract],
+// Deploy a paymaster that pays for users
+const paymaster = await paymasterFactory.createSponsoredPaymaster({
+  sponsor: appWalletAddress,
+  contracts: [gameContract, marketplaceContract], // Whitelist
 });
+
+// Deposit ETH to fund gas
+await paymaster.deposit({ value: parseEther('10') });
+// Now all calls to whitelisted contracts are free for users
 ```
 
-### 2. Agent-Native
+### 2. Agent-Native (ERC-8004)
 
-Every application and AI agent gets an on-chain identity (ERC-8004):
+Every agent gets on-chain identity:
 
 ```typescript
+interface AgentIdentity {
+  address: `0x${string}`;
+  name: string;
+  description: string;
+  a2aEndpoint: string;    // Agent-to-Agent protocol
+  mcpEndpoint: string;    // Model Context Protocol (for AI)
+  metadataUri: string;    // IPFS extended metadata
+  trustLabels: string[];  // 'verified', 'trusted', 'partner'
+  active: boolean;
+}
+
 // Register your agent
 await identityRegistry.register({
-  name: "TradingBot",
-  description: "Autonomous market maker",
-  a2aEndpoint: "https://mybot.com/a2a",
-  mcpEndpoint: "https://mybot.com/mcp",
+  name: 'TradingBot',
+  description: 'Autonomous market maker',
+  a2aEndpoint: 'https://mybot.com/a2a',
+  mcpEndpoint: 'https://mybot.com/mcp',
+  metadataUri: 'ipfs://Qm...',
 });
+
+// Discover other agents
+const agents = await indexer.query(`{
+  agents(where: { active: true, trustLabels_contains: "verified" }) {
+    address name a2aEndpoint
+  }
+}`);
 ```
 
-Agents discover each other on-chain and communicate via standard protocols (A2A, MCP).
+### 3. Intent-Based Cross-Chain (ERC-7683)
 
-### 3. Intent-Based Cross-Chain
-
-Users express what they want, not how to get it:
+Users express what they want, not how:
 
 ```typescript
-// "I want 100 USDC on Jeju, paying from my Arbitrum wallet"
+interface Intent {
+  sourceChain: number;      // e.g., 42161 (Arbitrum)
+  destinationChain: number; // e.g., 420691 (Jeju)
+  tokenIn: `0x${string}`;
+  tokenOut: `0x${string}`;
+  amountIn: bigint;
+  minAmountOut: bigint;
+  deadline: number;
+  recipient: `0x${string}`;
+}
+
+// "I want 100 USDC on Jeju, paying from Arbitrum"
 await inputSettler.createIntent({
-  sourceChain: ARBITRUM,
-  destinationChain: JEJU,
+  sourceChain: 42161,       // Arbitrum
+  destinationChain: 420691, // Jeju
   tokenIn: USDC_ARBITRUM,
   tokenOut: USDC_JEJU,
-  amountIn: parseUnits("100", 6),
+  amountIn: parseUnits('100.05', 6),
+  minAmountOut: parseUnits('100', 6),
+  deadline: Math.floor(Date.now() / 1000) + 3600,
+  recipient: userAddress,
 });
-
-// Solvers compete to fill it
+// Solvers compete to fill it - no bridges needed
 ```
-
-No bridges. No wrapped tokens. Just outcomes.
 
 ### 4. 200ms Confirmation
 
-Flashblocks provide pre-confirmation in 200ms. Final confirmation in 2 seconds.
-
-| Stage | Time |
-|-------|------|
-| Flashblock (pre-confirm) | 200ms |
-| Full Block (finality) | 2s |
-| Batch to DA | ~10min |
-| L1 Settlement | ~1hr |
-
-Fast enough for real-time applications.
+| Stage | Time | Use Case |
+|-------|------|----------|
+| Flashblock | 200ms | UI feedback |
+| Full Block | 2s | Safe to build on |
+| Batch to DA | ~10min | Data recoverable |
+| L1 Settlement | ~1hr | Cross-chain proofs |
+| Finality | 7 days | L1 withdrawals |
 
 ## Comparison
 
 | Feature | Jeju | Base | Arbitrum | Optimism |
 |---------|------|------|----------|----------|
 | Block Time | 200ms | 2s | 250ms | 2s |
-| Native Paymasters | ✅ | ❌ | ❌ | ❌ |
-| Agent Identity | ✅ ERC-8004 | ❌ | ❌ | ❌ |
-| Intent Protocol | ✅ ERC-7683 | ❌ | ❌ | ❌ |
-| A2A/MCP Native | ✅ | ❌ | ❌ | ❌ |
+| Native Paymasters | Yes | No | No | No |
+| Agent Identity | ERC-8004 | No | No | No |
+| Intent Protocol | ERC-7683 | No | No | No |
+| A2A/MCP Native | Yes | No | No | No |
 
-## Built On OP-Stack
+## Stack
 
-Jeju uses the battle-tested OP-Stack:
-
-- **op-reth** — Rust execution client (fast, memory-efficient)
-- **op-node** — Consensus and block derivation
-- **EigenDA** — Data availability (cheaper than calldata)
+- **op-reth** — Rust execution client
+- **op-node** — Consensus and derivation
+- **EigenDA** — Data availability (10x cheaper than calldata)
 - **Ethereum** — Settlement and security
 
-Same security model as Optimism and Base. 7-day fraud proof window.
+Same security as Optimism/Base: fraud proofs, 7-day challenge window.
 
 ## Use Cases
 
-### DeFi Agents
-Autonomous trading bots that execute strategies without human intervention. Pay compute costs on-chain. Report via A2A.
-
-### Gasless Games
-Onboard users without requiring ETH. Sponsor all in-game transactions. Settle assets on L2.
-
-### AI Inference Markets
-Providers stake to offer compute. Users pay per-request via x402. Settlement is trustless and instant.
-
-### Cross-Chain Applications
-Accept deposits from any chain. Let solvers handle bridging. Users never touch a bridge UI.
-
-## Get Started
-
-Ready to build?
-
-- [Quick Start](/build/quick-start) — Run locally in 60 seconds
-- [Tutorials](/tutorials/overview) — Build real applications
-- [Deploy to Testnet](/build/networks) — Go live
-
-## Learn More
-
-- [Core Concepts](/learn/concepts) — Understand the primitives
-- [Architecture](/learn/architecture) — How the stack works
-- [FAQ](/faq) — Common questions
-
+**DeFi Agents:** Autonomous trading without human intervention  
+**Gasless Games:** Onboard users without ETH requirement  
+**AI Inference Markets:** Pay per-request via x402  
+**Cross-Chain Apps:** Accept deposits from any chain via intents

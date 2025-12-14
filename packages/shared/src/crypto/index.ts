@@ -1,12 +1,7 @@
 /**
- * Cryptography Module
+ * Cryptography Module - HSM integration
  * 
- * Production-ready cryptographic primitives for Jeju:
- * - MPC key management
- * - HSM integration
- * - Key rotation
+ * For MPC/KMS functionality, use @jeju/kms
  */
 
-export * from './mpc-custody';
 export * from './hsm-integration';
-

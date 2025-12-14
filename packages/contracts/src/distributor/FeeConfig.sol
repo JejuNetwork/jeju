@@ -774,3 +774,4 @@ contract FeeConfig is Ownable, Pausable {
         return "1.0.0";
     }
 }
+

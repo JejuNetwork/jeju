@@ -19,6 +19,7 @@ replicas:
   challenger: 1
   eigenda: 2
   bundler: 3
+  crucible: 3      # Agent orchestration + MEV bots - 3 instances for HA
   gateway: 3        # 3 gateway instances with auto-scaling
   subsquid_processor: 1  # Single processor for consistency
   subsquid_api: 3        # 3 API replicas with auto-scaling
@@ -97,6 +98,22 @@ resources:
       cpu: 1000m
       memory: 2Gi
   
+  crucible:
+    api:
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+      requests:
+        cpu: 1000m
+        memory: 2Gi
+    executor:
+      limits:
+        cpu: 4000m
+        memory: 8Gi
+      requests:
+        cpu: 2000m
+        memory: 4Gi
+  
   gateway:
     limits:
       cpu: 2000m
@@ -151,6 +168,11 @@ autoscaling:
     target_cpu: 70
     target_memory: 80
   bundler:
+    min_replicas: 3
+    max_replicas: 10
+    target_cpu: 70
+    target_memory: 80
+  autocrat:
     min_replicas: 3
     max_replicas: 10
     target_cpu: 70

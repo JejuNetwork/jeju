@@ -8,9 +8,10 @@ import {
   type AgentMetadata 
 } from '../../../scripts/shared/cloud-integration';
 import { Logger } from '../../../scripts/shared/logger';
+import { L1_LOCALNET, TEST_WALLETS } from '../shared/constants';
 
-// Check if localnet is available
-const rpcUrl = process.env.RPC_URL || 'http://localhost:8545';
+// Check if localnet is available (L1 for cloud integration)
+const rpcUrl = process.env.RPC_URL || L1_LOCALNET.rpcUrl;
 let localnetAvailable = false;
 try {
   const provider = new ethers.JsonRpcProvider(rpcUrl);
@@ -29,10 +30,9 @@ describe.skipIf(!localnetAvailable)('Cloud Integration', () => {
   
   beforeAll(async () => {
     // Setup test environment
-    const rpcUrl = process.env.RPC_URL || 'http://localhost:8545';
     provider = new ethers.JsonRpcProvider(rpcUrl);
     signer = new ethers.Wallet(
-      process.env.PRIVATE_KEY || '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+      process.env.PRIVATE_KEY || TEST_WALLETS.deployer.privateKey,
       provider
     );
     

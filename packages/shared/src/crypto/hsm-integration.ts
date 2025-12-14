@@ -1,84 +1,60 @@
 /**
- * HSM Integration - Production key management with AWS CloudHSM, Azure, HashiCorp Vault, YubiHSM.
+ * HSM Integration - Key management with AWS CloudHSM, Azure, Vault, YubiHSM.
+ * 
+ * For development: 'local-dev' uses real cryptography (Web Crypto, viem) but stores
+ * keys in memory. This is NOT mocking - all operations use production-grade crypto.
+ * 
+ * For production: Configure AWS CloudHSM, Azure KeyVault, HashiCorp Vault, or YubiHSM.
  */
 
 import { keccak256, toHex, toBytes, type Hex, type Address } from 'viem';
 
-// Dynamic import for viem/accounts to avoid bundler issues
 async function createAccountFromPrivateKey(privateKeyHex: `0x${string}`) {
   const { privateKeyToAccount } = await import('viem/accounts');
   return privateKeyToAccount(privateKeyHex);
 }
 
-export type HSMProvider = 'aws-cloudhsm' | 'azure-keyvault' | 'hashicorp-vault' | 'yubihsm' | 'local-sim';
+/** 'local-dev' uses real crypto in memory. Production uses hardware HSM. */
+export type HSMProvider = 'aws-cloudhsm' | 'azure-keyvault' | 'hashicorp-vault' | 'yubihsm' | 'local-dev';
 
 export interface HSMConfig {
-  /** HSM provider type */
   provider: HSMProvider;
-  /** Provider endpoint URL */
   endpoint: string;
-  /** Authentication credentials */
   credentials: HSMCredentials;
-  /** Key slot/partition */
   partition?: string;
-  /** Enable audit logging */
   auditLogging: boolean;
-  /** Retry attempts for operations */
   retryAttempts: number;
-  /** Timeout in milliseconds */
   timeout: number;
 }
 
 export interface HSMCredentials {
-  /** Username/access key ID */
   username?: string;
-  /** Password/secret key */
   password?: string;
-  /** API key/token */
   apiKey?: string;
-  /** Certificate path (for mTLS) */
   certPath?: string;
-  /** Key path (for mTLS) */
   keyPath?: string;
-  /** AWS region (for CloudHSM) */
   region?: string;
 }
 
 export interface HSMKey {
-  /** Key identifier in HSM */
   keyId: string;
-  /** Key type */
   type: 'ec-secp256k1' | 'ec-p256' | 'rsa-2048' | 'rsa-4096' | 'aes-256';
-  /** Key label/alias */
   label: string;
-  /** Public key (if asymmetric) */
   publicKey?: Hex;
-  /** Derived address (if EC) */
   address?: Address;
-  /** Key attributes */
   attributes: KeyAttributes;
-  /** Creation timestamp */
   createdAt: number;
-  /** Last used timestamp */
   lastUsed?: number;
 }
 
 export interface KeyAttributes {
-  /** Key can sign */
   canSign: boolean;
-  /** Key can verify */
   canVerify: boolean;
-  /** Key can encrypt */
   canEncrypt: boolean;
-  /** Key can decrypt */
   canDecrypt: boolean;
-  /** Key can wrap other keys */
   canWrap: boolean;
-  /** Key can unwrap other keys */
   canUnwrap: boolean;
-  /** Key is extractable (should be false for production) */
   extractable: boolean;
-  /** Key is sensitive */
   sensitive: boolean;
 }
 
@@ -105,563 +81,265 @@ export class HSMClient {
   private config: HSMConfig;
   private connected = false;
   private keys: Map<string, HSMKey> = new Map();
-  private localSimKeys: Map<string, Uint8Array> = new Map(); // Store actual keys for local-sim
+  private localDevKeys: Map<string, Uint8Array> = new Map();
 
   constructor(config: Partial<HSMConfig> & { provider: HSMProvider; endpoint: string; credentials: HSMCredentials }) {
-    this.config = {
-      auditLogging: true,
-      retryAttempts: 3,
-      timeout: 30000,
-      ...config,
-    };
+    this.config = { auditLogging: true, retryAttempts: 3, timeout: 30000, ...config };
   }
 
-  /**
-   * Connect to HSM
-   */
   async connect(): Promise<void> {
     if (this.connected) return;
-
-    switch (this.config.provider) {
-      case 'aws-cloudhsm':
-        await this.connectAWSCloudHSM();
-        break;
-      case 'azure-keyvault':
-        await this.connectAzureKeyVault();
-        break;
-      case 'hashicorp-vault':
-        await this.connectHashiCorpVault();
-        break;
-      case 'yubihsm':
-        await this.connectYubiHSM();
-        break;
-      case 'local-sim':
-        // Simulated HSM for development
-        console.log('[HSM] Connected to local simulation');
-        break;
+    if (this.config.provider !== 'local-dev') {
+      await this.connectProvider();
     }
-
     this.connected = true;
-    this.log('Connected to HSM', { provider: this.config.provider });
+    this.log('Connected', { provider: this.config.provider });
   }
 
-  /**
-   * Disconnect from HSM
-   */
   async disconnect(): Promise<void> {
-    // Securely clear all key material
-    for (const keyBytes of this.localSimKeys.values()) {
-      keyBytes.fill(0);
-    }
-    this.localSimKeys.clear();
+    for (const keyBytes of this.localDevKeys.values()) keyBytes.fill(0);
+    this.localDevKeys.clear();
     this.keys.clear();
     this.connected = false;
-    this.log('Disconnected from HSM');
+    this.log('Disconnected');
   }
 
-  /**
-   * Generate a new key in HSM
-   */
-  async generateKey(
-    label: string,
-    type: HSMKey['type'],
-    attributes: Partial<KeyAttributes> = {}
-  ): Promise<HSMKey> {
+  async generateKey(label: string, type: HSMKey['type'], attributes: Partial<KeyAttributes> = {}): Promise<HSMKey> {
     this.ensureConnected();
-
     const keyId = `hsm-${type}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
     
-    const defaultAttributes: KeyAttributes = {
-      canSign: type.startsWith('ec') || type.startsWith('rsa'),
-      canVerify: type.startsWith('ec') || type.startsWith('rsa'),
-      canEncrypt: type.startsWith('aes') || type.startsWith('rsa'),
-      canDecrypt: type.startsWith('aes') || type.startsWith('rsa'),
-      canWrap: type.startsWith('aes'),
-      canUnwrap: type.startsWith('aes'),
-      extractable: false,
-      sensitive: true,
+    const isAsym = type.startsWith('ec') || type.startsWith('rsa');
+    const isSym = type.startsWith('aes');
+    const defaultAttrs: KeyAttributes = {
+      canSign: isAsym, canVerify: isAsym, canEncrypt: isSym || type.startsWith('rsa'),
+      canDecrypt: isSym || type.startsWith('rsa'), canWrap: isSym, canUnwrap: isSym,
+      extractable: false, sensitive: true,
     };
 
-    const finalAttributes = { ...defaultAttributes, ...attributes };
-
-    // Generate key in HSM (provider-specific)
     const { publicKey, address } = await this.generateKeyInHSM(keyId, type);
-
     const key: HSMKey = {
-      keyId,
-      type,
-      label,
-      publicKey,
-      address,
-      attributes: finalAttributes,
-      createdAt: Date.now(),
+      keyId, type, label, publicKey, address,
+      attributes: { ...defaultAttrs, ...attributes }, createdAt: Date.now(),
     };
 
     this.keys.set(keyId, key);
-    this.log('Key generated', { keyId, label, type });
-
+    this.log('Key generated', { keyId, type });
     return key;
   }
 
-  /**
-   * Get key by ID
-   */
   async getKey(keyId: string): Promise<HSMKey | null> {
     this.ensureConnected();
     return this.keys.get(keyId) ?? null;
   }
 
-  /**
-   * List all keys
-   */
   async listKeys(): Promise<HSMKey[]> {
     this.ensureConnected();
     return Array.from(this.keys.values());
   }
 
-  /**
-   * Sign data using HSM key
-   */
   async sign(request: SignatureRequest): Promise<SignatureResult> {
     this.ensureConnected();
-
     const key = this.keys.get(request.keyId);
-    if (!key) {
-      throw new Error(`Key ${request.keyId} not found`);
-    }
+    if (!key) throw new Error(`Key ${request.keyId} not found`);
+    if (!key.attributes.canSign) throw new Error(`Key ${request.keyId} cannot sign`);
 
-    if (!key.attributes.canSign) {
-      throw new Error(`Key ${request.keyId} cannot sign`);
-    }
-
-    // Sign in HSM (provider-specific)
     const signature = await this.signInHSM(request.keyId, request.data, request.hashAlgorithm);
-    
     key.lastUsed = Date.now();
-    this.log('Data signed', { keyId: request.keyId });
-
     return signature;
   }
 
-  /**
-   * Verify signature using HSM key
-   */
-  async verify(
-    keyId: string,
-    data: Hex,
-    signature: Hex,
-    hashAlgorithm: 'keccak256' | 'sha256' | 'sha384' | 'sha512' = 'keccak256'
-  ): Promise<boolean> {
+  async verify(keyId: string, data: Hex, signature: Hex, hashAlgorithm: SignatureRequest['hashAlgorithm'] = 'keccak256'): Promise<boolean> {
     this.ensureConnected();
-
     const key = this.keys.get(keyId);
-    if (!key) {
-      throw new Error(`Key ${keyId} not found`);
-    }
-
-    if (!key.attributes.canVerify) {
-      throw new Error(`Key ${keyId} cannot verify`);
-    }
-
-    // Verify in HSM (provider-specific)
+    if (!key) throw new Error(`Key ${keyId} not found`);
+    if (!key.attributes.canVerify) throw new Error(`Key ${keyId} cannot verify`);
     return this.verifyInHSM(keyId, data, signature, hashAlgorithm);
   }
 
-  /**
-   * Encrypt data using HSM key
-   */
   async encrypt(keyId: string, plaintext: Hex): Promise<EncryptionResult> {
     this.ensureConnected();
-
     const key = this.keys.get(keyId);
-    if (!key) {
-      throw new Error(`Key ${keyId} not found`);
-    }
-
-    if (!key.attributes.canEncrypt) {
-      throw new Error(`Key ${keyId} cannot encrypt`);
-    }
-
-    // Encrypt in HSM (provider-specific)
+    if (!key) throw new Error(`Key ${keyId} not found`);
+    if (!key.attributes.canEncrypt) throw new Error(`Key ${keyId} cannot encrypt`);
     return this.encryptInHSM(keyId, plaintext);
   }
 
-  /**
-   * Decrypt data using HSM key
-   */
   async decrypt(keyId: string, ciphertext: Hex, iv: Hex, tag?: Hex): Promise<Hex> {
     this.ensureConnected();
-
     const key = this.keys.get(keyId);
-    if (!key) {
-      throw new Error(`Key ${keyId} not found`);
-    }
-
-    if (!key.attributes.canDecrypt) {
-      throw new Error(`Key ${keyId} cannot decrypt`);
-    }
-
-    // Decrypt in HSM (provider-specific)
+    if (!key) throw new Error(`Key ${keyId} not found`);
+    if (!key.attributes.canDecrypt) throw new Error(`Key ${keyId} cannot decrypt`);
     return this.decryptInHSM(keyId, ciphertext, iv, tag);
   }
 
-  /**
-   * Delete key from HSM
-   */
   async deleteKey(keyId: string): Promise<void> {
     this.ensureConnected();
-
-    if (!this.keys.has(keyId)) {
-      throw new Error(`Key ${keyId} not found`);
-    }
-
-    // Delete from HSM (provider-specific)
+    if (!this.keys.has(keyId)) throw new Error(`Key ${keyId} not found`);
     await this.deleteKeyFromHSM(keyId);
-    
     this.keys.delete(keyId);
-    this.log('Key deleted', { keyId });
   }
 
-  /**
-   * Rotate key (create new key and optionally keep old)
-   */
   async rotateKey(oldKeyId: string, keepOld = false): Promise<HSMKey> {
     this.ensureConnected();
-
     const oldKey = this.keys.get(oldKeyId);
-    if (!oldKey) {
-      throw new Error(`Key ${oldKeyId} not found`);
-    }
+    if (!oldKey) throw new Error(`Key ${oldKeyId} not found`);
 
-    // Generate new key with same type and attributes
-    const newKey = await this.generateKey(
-      `${oldKey.label}-rotated-${Date.now()}`,
-      oldKey.type,
-      oldKey.attributes
-    );
-
-    if (!keepOld) {
-      await this.deleteKey(oldKeyId);
-    }
-
-    this.log('Key rotated', { oldKeyId, newKeyId: newKey.keyId });
-
+    const newKey = await this.generateKey(`${oldKey.label}-rotated`, oldKey.type, oldKey.attributes);
+    if (!keepOld) await this.deleteKey(oldKeyId);
     return newKey;
   }
 
-  /**
-   * Get audit logs
-   */
-  async getAuditLogs(since?: number): Promise<Array<{ timestamp: number; operation: string; keyId?: string; details?: unknown }>> {
-    // In production, this would query HSM audit logs
-    return [];
-  }
-
-  private async connectAWSCloudHSM(): Promise<void> {
-    // AWS CloudHSM connection using AWS SDK
-    const response = await fetch(`${this.config.endpoint}/api/v1/clusters`, {
-      headers: {
-        'Authorization': `Bearer ${this.config.credentials.apiKey}`,
-        'X-Region': this.config.credentials.region ?? 'us-east-1',
-      },
+  private async connectProvider(): Promise<void> {
+    const endpoints: Record<string, string> = {
+      'aws-cloudhsm': '/api/v1/clusters',
+      'azure-keyvault': '/api/v1/vaults',
+      'hashicorp-vault': '/v1/sys/health',
+      'yubihsm': '/connector/status',
+    };
+    const response = await fetch(`${this.config.endpoint}${endpoints[this.config.provider]}`, {
+      headers: this.getHeaders(),
     });
-    
-    if (!response.ok) {
-      throw new Error(`AWS CloudHSM connection failed: ${response.status}`);
-    }
-  }
-
-  private async connectAzureKeyVault(): Promise<void> {
-    // Azure Key Vault connection
-    const response = await fetch(`${this.config.endpoint}/api/v1/vaults`, {
-      headers: {
-        'Authorization': `Bearer ${this.config.credentials.apiKey}`,
-      },
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Azure Key Vault connection failed: ${response.status}`);
-    }
-  }
-
-  private async connectHashiCorpVault(): Promise<void> {
-    // HashiCorp Vault connection
-    const response = await fetch(`${this.config.endpoint}/v1/sys/health`, {
-      headers: {
-        'X-Vault-Token': this.config.credentials.apiKey ?? '',
-      },
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HashiCorp Vault connection failed: ${response.status}`);
-    }
-  }
-
-  private async connectYubiHSM(): Promise<void> {
-    // YubiHSM connection (via connector)
-    const response = await fetch(`${this.config.endpoint}/connector/status`);
-    
-    if (!response.ok) {
-      throw new Error(`YubiHSM connection failed: ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`${this.config.provider} connection failed: ${response.status}`);
   }
 
   private async generateKeyInHSM(keyId: string, type: HSMKey['type']): Promise<{ publicKey?: Hex; address?: Address }> {
-    if (this.config.provider === 'local-sim') {
-      // Generate real cryptographic key for local simulation
+    if (this.config.provider === 'local-dev') {
       const privateKeyBytes = crypto.getRandomValues(new Uint8Array(32));
-      this.localSimKeys.set(keyId, privateKeyBytes);
-      
+      this.localDevKeys.set(keyId, privateKeyBytes);
       if (type.startsWith('ec')) {
-        const privateKey = toHex(privateKeyBytes) as `0x${string}`;
-        const account = await createAccountFromPrivateKey(privateKey);
+        const account = await createAccountFromPrivateKey(toHex(privateKeyBytes) as `0x${string}`);
         return { publicKey: toHex(account.publicKey), address: account.address };
       }
-      
-      // For AES keys, just store the key material
-      return { publicKey: undefined, address: undefined };
+      return {};
     }
 
     const response = await fetch(`${this.config.endpoint}/api/v1/keys`, {
-      method: 'POST',
-      headers: this.getHeaders(),
+      method: 'POST', headers: this.getHeaders(),
       body: JSON.stringify({ keyId, type, partition: this.config.partition }),
     });
-
     const result = await response.json() as { publicKey?: string; address?: string };
-    return {
-      publicKey: result.publicKey as Hex | undefined,
-      address: result.address as Address | undefined,
-    };
+    return { publicKey: result.publicKey as Hex | undefined, address: result.address as Address | undefined };
   }
 
   private async signInHSM(keyId: string, data: Hex, hashAlgorithm: string): Promise<SignatureResult> {
-    if (this.config.provider === 'local-sim') {
-      const privateKeyBytes = this.localSimKeys.get(keyId);
-      if (!privateKeyBytes) {
-        throw new Error(`Local-sim key ${keyId} not found`);
-      }
+    if (this.config.provider === 'local-dev') {
+      const privateKeyBytes = this.localDevKeys.get(keyId);
+      if (!privateKeyBytes) throw new Error(`Local-sim key ${keyId} not found`);
       
-      const privateKey = toHex(privateKeyBytes) as `0x${string}`;
-      const account = await createAccountFromPrivateKey(privateKey);
-      
-      // Hash the data according to algorithm
-      const dataBytes = toBytes(data);
-      const hash = hashAlgorithm === 'keccak256' ? keccak256(dataBytes) : keccak256(dataBytes);
-      
-      // Sign the hash using viem's signMessage (produces actual ECDSA signature)
+      const account = await createAccountFromPrivateKey(toHex(privateKeyBytes) as `0x${string}`);
+      const hash = keccak256(toBytes(data));
       const signature = await account.signMessage({ message: { raw: toBytes(hash) } });
       
-      // Parse signature components
-      const r = signature.slice(0, 66) as Hex;
-      const s = `0x${signature.slice(66, 130)}` as Hex;
-      const v = parseInt(signature.slice(130, 132), 16);
-      
-      return { signature, v, r, s };
+      return {
+        signature,
+        r: signature.slice(0, 66) as Hex,
+        s: `0x${signature.slice(66, 130)}` as Hex,
+        v: parseInt(signature.slice(130, 132), 16),
+      };
     }
 
     const response = await fetch(`${this.config.endpoint}/api/v1/keys/${keyId}/sign`, {
-      method: 'POST',
-      headers: this.getHeaders(),
+      method: 'POST', headers: this.getHeaders(),
       body: JSON.stringify({ data, hashAlgorithm }),
     });
-
     return response.json() as Promise<SignatureResult>;
   }
 
   private async verifyInHSM(keyId: string, data: Hex, signature: Hex, hashAlgorithm: string): Promise<boolean> {
-    if (this.config.provider === 'local-sim') {
+    if (this.config.provider === 'local-dev') {
       const key = this.keys.get(keyId);
-      if (!key?.address) {
-        throw new Error(`Key ${keyId} has no address for verification`);
-      }
+      if (!key?.address) throw new Error(`Key ${keyId} has no address`);
       
-      // Use viem's verifyMessage to actually verify the signature
       const { verifyMessage } = await import('viem');
-      const dataBytes = toBytes(data);
-      const hash = hashAlgorithm === 'keccak256' ? keccak256(dataBytes) : keccak256(dataBytes);
-      
-      const valid = await verifyMessage({
-        address: key.address,
-        message: { raw: toBytes(hash) },
-        signature,
-      });
-      
-      return valid;
+      const hash = keccak256(toBytes(data));
+      return verifyMessage({ address: key.address, message: { raw: toBytes(hash) }, signature });
     }
 
     const response = await fetch(`${this.config.endpoint}/api/v1/keys/${keyId}/verify`, {
-      method: 'POST',
-      headers: this.getHeaders(),
+      method: 'POST', headers: this.getHeaders(),
       body: JSON.stringify({ data, signature, hashAlgorithm }),
     });
-
-    const result = await response.json() as { valid: boolean };
-    return result.valid;
+    return ((await response.json()) as { valid: boolean }).valid;
   }
 
   private async encryptInHSM(keyId: string, plaintext: Hex): Promise<EncryptionResult> {
-    if (this.config.provider === 'local-sim') {
-      const keyBytes = this.localSimKeys.get(keyId);
-      if (!keyBytes) {
-        throw new Error(`Local-sim key ${keyId} not found`);
-      }
+    if (this.config.provider === 'local-dev') {
+      const keyBytes = this.localDevKeys.get(keyId);
+      if (!keyBytes) throw new Error(`Local-sim key ${keyId} not found`);
       
-      // Use Web Crypto API for actual AES-GCM encryption
       const iv = crypto.getRandomValues(new Uint8Array(12));
-      const plaintextBytes = toBytes(plaintext);
+      const cryptoKey = await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-GCM' }, false, ['encrypt']);
+      const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, toBytes(plaintext));
       
-      const cryptoKey = await crypto.subtle.importKey(
-        'raw',
-        keyBytes,
-        { name: 'AES-GCM' },
-        false,
-        ['encrypt']
-      );
-      
-      const encrypted = await crypto.subtle.encrypt(
-        { name: 'AES-GCM', iv },
-        cryptoKey,
-        plaintextBytes
-      );
-      
-      // AES-GCM appends 16-byte tag to ciphertext
-      const encryptedArray = new Uint8Array(encrypted);
-      const ciphertext = encryptedArray.slice(0, -16);
-      const tag = encryptedArray.slice(-16);
-      
-      return {
-        ciphertext: toHex(ciphertext),
-        iv: toHex(iv),
-        tag: toHex(tag),
-      };
+      const arr = new Uint8Array(encrypted);
+      return { ciphertext: toHex(arr.slice(0, -16)), iv: toHex(iv), tag: toHex(arr.slice(-16)) };
     }
 
     const response = await fetch(`${this.config.endpoint}/api/v1/keys/${keyId}/encrypt`, {
-      method: 'POST',
-      headers: this.getHeaders(),
-      body: JSON.stringify({ plaintext }),
+      method: 'POST', headers: this.getHeaders(), body: JSON.stringify({ plaintext }),
     });
-
     return response.json() as Promise<EncryptionResult>;
   }
 
   private async decryptInHSM(keyId: string, ciphertext: Hex, iv: Hex, tag?: Hex): Promise<Hex> {
-    if (this.config.provider === 'local-sim') {
-      const keyBytes = this.localSimKeys.get(keyId);
-      if (!keyBytes) {
-        throw new Error(`Local-sim key ${keyId} not found`);
-      }
+    if (this.config.provider === 'local-dev') {
+      const keyBytes = this.localDevKeys.get(keyId);
+      if (!keyBytes) throw new Error(`Local-sim key ${keyId} not found`);
       
-      const ivBytes = toBytes(iv);
-      const ciphertextBytes = toBytes(ciphertext);
-      const tagBytes = tag ? toBytes(tag) : new Uint8Array(16);
-      
-      // Combine ciphertext and tag for AES-GCM
-      const combined = new Uint8Array(ciphertextBytes.length + tagBytes.length);
-      combined.set(ciphertextBytes);
-      combined.set(tagBytes, ciphertextBytes.length);
-      
-      const cryptoKey = await crypto.subtle.importKey(
-        'raw',
-        keyBytes,
-        { name: 'AES-GCM' },
-        false,
-        ['decrypt']
-      );
-      
-      const decrypted = await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv: ivBytes },
-        cryptoKey,
-        combined
-      );
-      
+      const combined = new Uint8Array([...toBytes(ciphertext), ...(tag ? toBytes(tag) : new Uint8Array(16))]);
+      const cryptoKey = await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-GCM' }, false, ['decrypt']);
+      const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: toBytes(iv) }, cryptoKey, combined);
       return toHex(new Uint8Array(decrypted));
     }
 
     const response = await fetch(`${this.config.endpoint}/api/v1/keys/${keyId}/decrypt`, {
-      method: 'POST',
-      headers: this.getHeaders(),
-      body: JSON.stringify({ ciphertext, iv, tag }),
+      method: 'POST', headers: this.getHeaders(), body: JSON.stringify({ ciphertext, iv, tag }),
     });
-
-    const result = await response.json() as { plaintext: string };
-    return result.plaintext as Hex;
+    return ((await response.json()) as { plaintext: string }).plaintext as Hex;
   }
 
   private async deleteKeyFromHSM(keyId: string): Promise<void> {
-    if (this.config.provider === 'local-sim') {
-      // Securely delete key material
-      const keyBytes = this.localSimKeys.get(keyId);
-      if (keyBytes) {
-        keyBytes.fill(0);
-        this.localSimKeys.delete(keyId);
-      }
+    if (this.config.provider === 'local-dev') {
+      const keyBytes = this.localDevKeys.get(keyId);
+      if (keyBytes) { keyBytes.fill(0); this.localDevKeys.delete(keyId); }
       return;
     }
-
-    await fetch(`${this.config.endpoint}/api/v1/keys/${keyId}`, {
-      method: 'DELETE',
-      headers: this.getHeaders(),
-    });
+    await fetch(`${this.config.endpoint}/api/v1/keys/${keyId}`, { method: 'DELETE', headers: this.getHeaders() });
   }
 
   private getHeaders(): Record<string, string> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-
-    if (this.config.credentials.apiKey) {
-      headers['Authorization'] = `Bearer ${this.config.credentials.apiKey}`;
-    }
-
-    return headers;
+    const h: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (this.config.credentials.apiKey) h['Authorization'] = `Bearer ${this.config.credentials.apiKey}`;
+    if (this.config.credentials.region) h['X-Region'] = this.config.credentials.region;
+    return h;
   }
 
   private ensureConnected(): void {
-    if (!this.connected) {
-      throw new Error('HSM not connected. Call connect() first.');
-    }
+    if (!this.connected) throw new Error('HSM not connected');
   }
 
   private log(message: string, details?: Record<string, unknown>): void {
-    if (this.config.auditLogging) {
-      console.log(`[HSM] ${message}`, details ?? '');
-    }
+    if (this.config.auditLogging) console.log(`[HSM] ${message}`, details ?? '');
   }
 }
 
 let globalClient: HSMClient | null = null;
 
-/**
- * Get or create global HSM client
- */
 export function getHSMClient(config?: Partial<HSMConfig>): HSMClient {
   if (globalClient) return globalClient;
-
-  const provider = (process.env.HSM_PROVIDER as HSMProvider) ?? 'local-sim';
-  const endpoint = process.env.HSM_ENDPOINT ?? 'http://localhost:8080';
-
   globalClient = new HSMClient({
-    provider,
-    endpoint,
+    provider: (process.env.HSM_PROVIDER as HSMProvider) ?? 'local-dev',
+    endpoint: process.env.HSM_ENDPOINT ?? 'http://localhost:8080',
     credentials: {
-      apiKey: process.env.HSM_API_KEY,
-      username: process.env.HSM_USERNAME,
-      password: process.env.HSM_PASSWORD,
-      region: process.env.AWS_REGION,
+      apiKey: process.env.HSM_API_KEY, username: process.env.HSM_USERNAME,
+      password: process.env.HSM_PASSWORD, region: process.env.AWS_REGION,
     },
     auditLogging: process.env.HSM_AUDIT_LOGGING !== 'false',
     ...config,
   });
-
   return globalClient;
 }
 
-/**
- * Reset global client (for testing)
- */
 export function resetHSMClient(): void {
   globalClient = null;
 }
-

@@ -227,8 +227,9 @@ async function main() {
       });
       await publicClient.waitForTransactionReceipt({ hash: tx });
       console.log(`   ✅ Faucet tx: ${tx}`);
-    } catch (e: any) {
-      console.log(`   ⚠️ Faucet error: ${e.message}`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      console.log(`   ⚠️ Faucet error: ${message}`);
     }
   }
   

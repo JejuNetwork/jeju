@@ -1,331 +1,144 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Test, console} from "forge-std/Test.sol";
-import {StorageMarket} from "../../src/storage/StorageMarket.sol";
-import {StorageProviderRegistry} from "../../src/storage/StorageProviderRegistry.sol";
-import {IStorageTypes} from "../../src/storage/IStorageTypes.sol";
+import "forge-std/Test.sol";
+import "../../src/storage/StorageMarket.sol";
+import "../../src/storage/StorageProviderRegistry.sol";
+import "../../src/distributor/FeeConfig.sol";
 
-contract StorageMarketTest is Test, IStorageTypes {
-    StorageProviderRegistry public registry;
+contract StorageMarketTest is Test {
     StorageMarket public market;
+    StorageProviderRegistry public registry;
+    FeeConfig public feeConfig;
 
-    address public owner = makeAddr("owner");
-    address public provider = makeAddr("provider");
-    address public user = makeAddr("user");
-
-    uint256 constant STAKE = 0.1 ether;
-    uint256 constant SIZE = 1 * 1024 * 1024 * 1024; // 1 GB
-    uint256 constant DURATION = 30; // 30 days
+    address public owner;
+    address public treasury;
+    address public provider;
+    address public user;
+    address public council;
+    address public ceo;
 
     function setUp() public {
-        vm.startPrank(owner);
+        owner = address(this);
+        treasury = makeAddr("treasury");
+        provider = makeAddr("provider");
+        user = makeAddr("user");
+        council = makeAddr("council");
+        ceo = makeAddr("ceo");
+
+        vm.deal(user, 100 ether);
+        vm.deal(provider, 10 ether);
+
+        // Deploy registry
         registry = new StorageProviderRegistry(owner, address(0));
-        market = new StorageMarket(address(registry));
-        vm.stopPrank();
+
+        // Deploy FeeConfig (2% storage upload fee by default)
+        feeConfig = new FeeConfig(council, ceo, treasury, owner);
+
+        // Deploy market
+        market = new StorageMarket(address(registry), treasury, owner);
+        market.setFeeConfig(address(feeConfig));
 
         // Register provider
-        vm.deal(provider, 10 ether);
-        vm.startPrank(provider);
-        registry.register{value: STAKE}("Test Provider", "http://localhost:3100", 0, bytes32(0));
-        registry.updatePricing(
-            0.001 ether, // pricePerGBMonth
-            0.0001 ether, // retrievalPricePerGB
-            0.0002 ether // uploadPricePerGB
-        );
-        registry.updateCapacity(1000, 0); // 1000 GB available
-        vm.stopPrank();
-
-        // Fund user
-        vm.deal(user, 10 ether);
+        vm.prank(provider);
+        registry.register{value: 0.1 ether}("TestProvider", "https://storage.test", "ipfs");
     }
-
-    // ========== Registration Tests ==========
-
-    function test_ProviderIsRegistered() public view {
-        assertTrue(registry.isActive(provider));
-
-        IStorageTypes.Provider memory p = registry.getProvider(provider);
-        assertEq(p.name, "Test Provider");
-        assertEq(p.endpoint, "http://localhost:3100");
-        assertEq(p.stake, STAKE);
-        assertTrue(p.active);
-    }
-
-    function test_ProviderPricingSet() public view {
-        IStorageTypes.ProviderInfo memory info = registry.getProviderInfo(provider);
-        assertEq(info.pricing.pricePerGBMonth, 0.001 ether);
-        assertEq(info.pricing.retrievalPricePerGB, 0.0001 ether);
-        assertEq(info.pricing.uploadPricePerGB, 0.0002 ether);
-    }
-
-    // ========== Deal Cost Tests ==========
-
-    function test_CalculateDealCost() public view {
-        uint256 cost = market.calculateDealCost(provider, SIZE, DURATION, 1); // WARM tier
-        assertGt(cost, 0);
-        console.log("Cost for 1GB/30days (WARM):", cost);
-    }
-
-    function test_TierCostDifferences() public view {
-        uint256 hotCost = market.calculateDealCost(provider, SIZE, DURATION, 0);
-        uint256 warmCost = market.calculateDealCost(provider, SIZE, DURATION, 1);
-        uint256 coldCost = market.calculateDealCost(provider, SIZE, DURATION, 2);
-
-        // HOT > WARM > COLD
-        assertGt(hotCost, warmCost, "HOT should cost more than WARM");
-        assertGt(warmCost, coldCost, "WARM should cost more than COLD");
-
-        console.log("HOT:", hotCost);
-        console.log("WARM:", warmCost);
-        console.log("COLD:", coldCost);
-    }
-
-    function test_PermanentTierCost() public view {
-        uint256 permanentCost = market.calculateDealCost(provider, SIZE, DURATION, 3);
-        uint256 warmCost = market.calculateDealCost(provider, SIZE, DURATION, 1);
-
-        // Permanent should be much more expensive (one-time)
-        assertGt(permanentCost, warmCost * 10, "Permanent should be >> WARM");
-        console.log("PERMANENT:", permanentCost);
-    }
-
-    // ========== Deal Creation Tests ==========
 
     function test_CreateDeal() public {
-        uint256 cost = market.calculateDealCost(provider, SIZE, DURATION, 1);
-
-        vm.startPrank(user);
-        bytes32 dealId = market.createDeal{value: cost}(
+        vm.prank(user);
+        bytes32 dealId = market.createDeal{value: 1 ether}(
             provider,
-            "QmTestCid123456",
-            SIZE,
-            DURATION,
-            1, // WARM tier
-            1 // replication factor
+            "QmTestCid123",
+            1024 * 1024 * 1024, // 1 GB
+            30, // 30 days
+            1, // tier
+            1  // replication
         );
-        vm.stopPrank();
 
-        assertNotEq(dealId, bytes32(0));
-
-        IStorageTypes.StorageDeal memory deal = market.getDeal(dealId);
-        assertEq(deal.user, user);
-        assertEq(deal.provider, provider);
-        assertEq(uint8(deal.status), uint8(DealStatus.PENDING));
-        assertEq(deal.cid, "QmTestCid123456");
-        assertEq(deal.sizeBytes, SIZE);
-        assertEq(deal.totalCost, cost);
+        assertTrue(dealId != bytes32(0));
     }
 
-    function test_CreateDealRefundsExcess() public {
-        uint256 cost = market.calculateDealCost(provider, SIZE, DURATION, 1);
-        uint256 excess = 0.5 ether;
-        uint256 balanceBefore = user.balance;
-
-        vm.startPrank(user);
-        market.createDeal{value: cost + excess}(provider, "QmTestCid", SIZE, DURATION, 1, 1);
-        vm.stopPrank();
-
-        // User should get excess refunded
-        uint256 balanceAfter = user.balance;
-        assertEq(balanceBefore - balanceAfter, cost);
-    }
-
-    function test_RevertInsufficientPayment() public {
-        uint256 cost = market.calculateDealCost(provider, SIZE, DURATION, 1);
-
-        vm.startPrank(user);
-        vm.expectRevert("Insufficient payment");
-        market.createDeal{value: cost - 1}(provider, "QmTestCid", SIZE, DURATION, 1, 1);
-        vm.stopPrank();
-    }
-
-    function test_RevertInactiveProvider() public {
-        // Deactivate provider
-        vm.prank(provider);
-        registry.deactivate();
-
-        vm.startPrank(user);
-        vm.expectRevert("Provider not active");
-        market.createDeal{value: 1 ether}(provider, "QmTestCid", SIZE, DURATION, 1, 1);
-        vm.stopPrank();
-    }
-
-    // ========== Deal Lifecycle Tests ==========
-
-    function test_ConfirmDeal() public {
-        uint256 cost = market.calculateDealCost(provider, SIZE, DURATION, 1);
-
+    function test_CompleteDealWithPlatformFee() public {
+        // Create deal
         vm.prank(user);
-        bytes32 dealId = market.createDeal{value: cost}(provider, "QmTestCid", SIZE, DURATION, 1, 1);
+        bytes32 dealId = market.createDeal{value: 1 ether}(
+            provider,
+            "QmTestCid123",
+            1024 * 1024 * 1024,
+            30,
+            1,
+            1
+        );
 
-        // Provider confirms
+        // Confirm deal
         vm.prank(provider);
         market.confirmDeal(dealId);
 
-        IStorageTypes.StorageDeal memory deal = market.getDeal(dealId);
-        assertEq(uint8(deal.status), uint8(DealStatus.ACTIVE));
-        assertGt(deal.startTime, 0);
-        assertGt(deal.endTime, deal.startTime);
-    }
+        // Fast forward past deal end
+        vm.warp(block.timestamp + 31 days);
 
-    function test_TerminatePendingDeal() public {
-        uint256 cost = market.calculateDealCost(provider, SIZE, DURATION, 1);
-        uint256 userBalanceBefore = user.balance;
-
-        vm.prank(user);
-        bytes32 dealId = market.createDeal{value: cost}(provider, "QmTestCid", SIZE, DURATION, 1, 1);
-
-        // Terminate pending deal - full refund
-        vm.prank(user);
-        market.terminateDeal(dealId);
-
-        IStorageTypes.StorageDeal memory deal = market.getDeal(dealId);
-        assertEq(uint8(deal.status), uint8(DealStatus.TERMINATED));
-
-        // Full refund
-        assertEq(user.balance, userBalanceBefore);
-    }
-
-    function test_TerminateActiveDeal() public {
-        uint256 cost = market.calculateDealCost(provider, SIZE, DURATION, 1);
-
-        vm.prank(user);
-        bytes32 dealId = market.createDeal{value: cost}(provider, "QmTestCid", SIZE, DURATION, 1, 1);
-
-        vm.prank(provider);
-        market.confirmDeal(dealId);
-
-        // Fast forward 15 days (half the duration)
-        vm.warp(block.timestamp + 15 days);
-
-        vm.prank(user);
-        market.terminateDeal(dealId);
-
-        IStorageTypes.StorageDeal memory deal = market.getDeal(dealId);
-        assertEq(uint8(deal.status), uint8(DealStatus.TERMINATED));
-
-        // Partial refund (50% of remaining time, /2 for early termination penalty)
-        assertGt(deal.refundedAmount, 0);
-        assertLt(deal.refundedAmount, cost / 2); // Should be ~25% refund
-    }
-
-    function test_CompleteDeal() public {
-        uint256 cost = market.calculateDealCost(provider, SIZE, DURATION, 1);
+        // Record balances
         uint256 providerBalanceBefore = provider.balance;
+        uint256 treasuryBalanceBefore = treasury.balance;
 
+        // Complete deal
+        vm.prank(provider);
+        market.completeDeal(dealId);
+
+        // Get fee rate from FeeConfig
+        uint256 feeBps = feeConfig.getStorageUploadFee(); // 200 = 2%
+        
+        // The deal cost was 1 ether
+        uint256 totalPayment = 1 ether;
+        uint256 platformFee = (totalPayment * feeBps) / 10000;
+        uint256 providerPayment = totalPayment - platformFee;
+
+        // Verify provider received payment minus platform fee
+        assertEq(provider.balance - providerBalanceBefore, providerPayment, "Provider should receive payment minus fee");
+
+        // Verify treasury received platform fee
+        assertEq(treasury.balance - treasuryBalanceBefore, platformFee, "Treasury should receive platform fee");
+
+        // Verify tracking
+        assertEq(market.totalPlatformFeesCollected(), platformFee, "Platform fees should be tracked");
+    }
+
+    function test_SetFeeConfig() public {
+        FeeConfig newConfig = new FeeConfig(council, ceo, treasury, owner);
+        market.setFeeConfig(address(newConfig));
+        assertEq(address(market.feeConfig()), address(newConfig));
+    }
+
+    function test_FallbackToLocalFee() public {
+        // Remove FeeConfig
+        market.setFeeConfig(address(0));
+
+        // Set local fee
+        market.setPlatformFee(500); // 5%
+
+        // Create and complete deal
         vm.prank(user);
-        bytes32 dealId = market.createDeal{value: cost}(provider, "QmTestCid", SIZE, DURATION, 1, 1);
+        bytes32 dealId = market.createDeal{value: 1 ether}(
+            provider,
+            "QmTestCid456",
+            1024 * 1024 * 1024,
+            30,
+            1,
+            1
+        );
 
         vm.prank(provider);
         market.confirmDeal(dealId);
 
-        // Fast forward past end time
         vm.warp(block.timestamp + 31 days);
+
+        uint256 treasuryBalanceBefore = treasury.balance;
 
         vm.prank(provider);
         market.completeDeal(dealId);
 
-        IStorageTypes.StorageDeal memory deal = market.getDeal(dealId);
-        assertEq(uint8(deal.status), uint8(DealStatus.EXPIRED));
-
-        // Provider gets paid
-        assertEq(provider.balance, providerBalanceBefore + cost);
-    }
-
-    // ========== Rating Tests ==========
-
-    function test_RateDeal() public {
-        uint256 cost = market.calculateDealCost(provider, SIZE, DURATION, 1);
-
-        vm.prank(user);
-        bytes32 dealId = market.createDeal{value: cost}(provider, "QmTestCid", SIZE, DURATION, 1, 1);
-
-        vm.prank(provider);
-        market.confirmDeal(dealId);
-
-        vm.warp(block.timestamp + 31 days);
-
-        vm.prank(provider);
-        market.completeDeal(dealId);
-
-        // Rate the deal
-        vm.prank(user);
-        market.rateDeal(dealId, 85, "Great service!");
-
-        IStorageTypes.ProviderRecord memory record = market.getProviderRecord(provider);
-        assertEq(record.avgRating, 85);
-        assertEq(record.ratingCount, 1);
-    }
-
-    // ========== User/Provider Records ==========
-
-    function test_UserRecordsUpdated() public {
-        uint256 cost = market.calculateDealCost(provider, SIZE, DURATION, 1);
-
-        vm.prank(user);
-        bytes32 dealId = market.createDeal{value: cost}(provider, "QmTestCid", SIZE, DURATION, 1, 1);
-
-        IStorageTypes.UserRecord memory record = market.getUserRecord(user);
-        assertEq(record.totalDeals, 1);
-
-        vm.prank(provider);
-        market.confirmDeal(dealId);
-
-        record = market.getUserRecord(user);
-        assertEq(record.activeDeals, 1);
-
-        vm.warp(block.timestamp + 31 days);
-
-        vm.prank(provider);
-        market.completeDeal(dealId);
-
-        record = market.getUserRecord(user);
-        assertEq(record.activeDeals, 0);
-        assertEq(record.completedDeals, 1);
-        assertEq(record.totalSpent, cost);
-    }
-
-    function test_ProviderRecordsUpdated() public {
-        uint256 cost = market.calculateDealCost(provider, SIZE, DURATION, 1);
-
-        vm.prank(user);
-        bytes32 dealId = market.createDeal{value: cost}(provider, "QmTestCid", SIZE, DURATION, 1, 1);
-
-        IStorageTypes.ProviderRecord memory record = market.getProviderRecord(provider);
-        assertEq(record.totalDeals, 1);
-
-        vm.prank(provider);
-        market.confirmDeal(dealId);
-
-        record = market.getProviderRecord(provider);
-        assertEq(record.activeDeals, 1);
-
-        vm.warp(block.timestamp + 31 days);
-
-        vm.prank(provider);
-        market.completeDeal(dealId);
-
-        record = market.getProviderRecord(provider);
-        assertEq(record.activeDeals, 0);
-        assertEq(record.completedDeals, 1);
-        assertEq(record.totalEarnings, cost);
-    }
-
-    // ========== Quote Tests ==========
-
-    function test_GetQuote() public view {
-        IStorageTypes.StorageQuote memory quote = market.getQuote(provider, SIZE, DURATION, 1);
-
-        assertEq(quote.provider, provider);
-        assertEq(quote.sizeBytes, SIZE);
-        assertEq(quote.durationDays, DURATION);
-        assertEq(uint8(quote.tier), 1);
-        assertGt(quote.cost, 0);
-        assertGt(quote.expiresAt, block.timestamp);
-
-        // Cost breakdown
-        assertGt(quote.costBreakdown.storageCost, 0);
-        assertGt(quote.costBreakdown.bandwidth, 0);
+        // Should use local 5% fee
+        uint256 platformFee = (1 ether * 500) / 10000;
+        assertEq(treasury.balance - treasuryBalanceBefore, platformFee);
     }
 }

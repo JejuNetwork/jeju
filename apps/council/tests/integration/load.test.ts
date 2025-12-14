@@ -1,11 +1,12 @@
 // Load Testing for Council API
 // These tests require the API to be running at API_URL (default: localhost:8010)
+// Run with REQUIRE_API=true to fail instead of skip when API is down
 import { describe, test, expect, beforeAll, setDefaultTimeout } from 'bun:test';
 
 setDefaultTimeout(30000);
 
 const API_URL = process.env.API_URL ?? 'http://localhost:8010';
-const REQUIRE_API = process.env.REQUIRE_API !== 'false'; // Default: tests fail if API down
+const REQUIRE_API = process.env.REQUIRE_API === 'true';
 
 async function checkApi(): Promise<boolean> {
   try {
@@ -41,36 +42,34 @@ async function concurrent(fn: () => Promise<Response>, count: number) {
   };
 }
 
+// Check API availability once at module load
+const apiAvailable = await checkApi();
+
+// Skip all tests if API is not available (unless REQUIRE_API=true)
+const testFn = apiAvailable ? test : test.skip;
+
+if (!apiAvailable) {
+  if (REQUIRE_API) {
+    throw new Error(`API not running at ${API_URL}. Start with: bun run dev`);
+  }
+  console.log(`⚠️  API not running at ${API_URL} - load tests skipped (set REQUIRE_API=true to fail)`);
+}
+
 describe('Load Tests', () => {
-  let apiUp = false;
-
-  beforeAll(async () => {
-    apiUp = await checkApi();
-    if (!apiUp && REQUIRE_API) {
-      throw new Error(`API not running at ${API_URL}. Start with: bun run dev`);
-    }
-    if (!apiUp) {
-      console.log(`⚠️  API not running at ${API_URL} - tests will be skipped (set REQUIRE_API=true to fail)`);
-    }
-  });
-
-  test('health endpoint latency', async () => {
-    if (!apiUp) throw new Error('API required');
+  testFn('health endpoint latency', async () => {
     const result = await benchmark('health', () => fetch(`${API_URL}/health`), 50);
     console.log(`✅ Health: avg=${result.avg.toFixed(1)}ms p95=${result.p95.toFixed(1)}ms max=${result.max.toFixed(1)}ms`);
     expect(result.avg).toBeLessThan(100);
     expect(result.p95).toBeLessThan(200);
   });
 
-  test('metrics endpoint latency', async () => {
-    if (!apiUp) throw new Error('API required');
+  testFn('metrics endpoint latency', async () => {
     const result = await benchmark('metrics', () => fetch(`${API_URL}/metrics`), 50);
     console.log(`✅ Metrics: avg=${result.avg.toFixed(1)}ms p95=${result.p95.toFixed(1)}ms`);
     expect(result.avg).toBeLessThan(100);
   });
 
-  test('assess endpoint latency', async () => {
-    if (!apiUp) throw new Error('API required');
+  testFn('assess endpoint latency', async () => {
     const check = await fetch(`${API_URL}/api/v1/proposals/assess`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -79,7 +78,7 @@ describe('Load Tests', () => {
     }).catch(() => null);
     if (!check?.ok) {
       console.log('⚠️  Assess endpoint unavailable (Ollama may not be running) - skipping');
-      return; // This specific test can skip if Ollama is down
+      return;
     }
     const result = await benchmark('assess', () => fetch(`${API_URL}/api/v1/proposals/assess`, {
       method: 'POST',
@@ -90,23 +89,20 @@ describe('Load Tests', () => {
     expect(result.avg).toBeLessThan(10000);
   });
 
-  test('concurrent requests (100)', async () => {
-    if (!apiUp) throw new Error('API required');
+  testFn('concurrent requests (100)', async () => {
     const result = await concurrent(() => fetch(`${API_URL}/health`), 100);
     console.log(`✅ Concurrent: ${result.success}/100 in ${result.durationMs.toFixed(0)}ms`);
     expect(result.success).toBeGreaterThanOrEqual(95);
   });
 
-  test('burst load (2x100 waves)', async () => {
-    if (!apiUp) throw new Error('API required');
+  testFn('burst load (2x100 waves)', async () => {
     const w1 = await concurrent(() => fetch(`${API_URL}/health`), 100);
     const w2 = await concurrent(() => fetch(`${API_URL}/health`), 100);
     console.log(`✅ Burst: wave1=${w1.success} wave2=${w2.success}`);
     expect(w1.success + w2.success).toBeGreaterThanOrEqual(190);
   });
 
-  test('sustained load (50 req @ 10/s)', async () => {
-    if (!apiUp) throw new Error('API required');
+  testFn('sustained load (50 req @ 10/s)', async () => {
     let success = 0;
     for (let i = 0; i < 50; i++) {
       const r = await fetch(`${API_URL}/health`);

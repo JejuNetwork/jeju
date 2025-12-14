@@ -227,6 +227,16 @@ releases:
       - ../helm/bundler/values.yaml
       - ../helm/bundler/values-{{ .Environment.Name }}.yaml
 
+  # Crucible (Agent Orchestration + MEV/Arbitrage Bots)
+  - name: crucible
+    namespace: jeju-apps
+    createNamespace: true
+    chart: ../helm/crucible
+    installed: {{ ne .Environment.Name "localnet" }}
+    values:
+      - ../helm/crucible/values.yaml
+      - ../helm/crucible/values-{{ .Environment.Name }}.yaml
+
   # RPC Gateway (Load Balancer + Rate Limiting)
   - name: rpc-gateway
     namespace: rpc

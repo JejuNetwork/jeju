@@ -58,6 +58,11 @@ variable "repositories" {
       name                 = "jeju/indexer-api"
       scan_on_push         = true
       image_tag_mutability = "MUTABLE"
+    },
+    {
+      name                 = "jeju/autocrat"
+      scan_on_push         = true
+      image_tag_mutability = "MUTABLE"
     }
   ]
 }

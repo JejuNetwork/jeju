@@ -554,7 +554,19 @@ describe('Cloud Integration E2E - Complete User Journey', () => {
 });
 
 // Helper function to deploy contracts via Foundry
-async function deployContracts(): Promise<{ success: boolean; addresses: any }> {
+interface DeploymentAddresses {
+  identityRegistry?: string;
+  reputationRegistry?: string;
+  validationRegistry?: string;
+  serviceRegistry?: string;
+  creditManager?: string;
+  cloudReputationProvider?: string;
+  usdc?: string;
+  elizaOS?: string;
+  priceOracle?: string;
+}
+
+async function deployContracts(): Promise<{ success: boolean; addresses: DeploymentAddresses }> {
   return new Promise((resolve, reject) => {
     logger.info('Deploying contracts with Foundry...');
     
@@ -597,7 +609,7 @@ async function deployContracts(): Promise<{ success: boolean; addresses: any }> 
   });
 }
 
-async function deployContractsFallback(): Promise<{ success: boolean; addresses: any }> {
+async function deployContractsFallback(): Promise<{ success: boolean; addresses: DeploymentAddresses }> {
   logger.info('Using fallback deployment addresses (localnet)...');
   
   // These are typical localnet deployment addresses
@@ -618,10 +630,10 @@ async function deployContractsFallback(): Promise<{ success: boolean; addresses:
   };
 }
 
-function parseDeploymentOutput(output: string): any {
+function parseDeploymentOutput(output: string): DeploymentAddresses {
   // Parse forge script output for deployed addresses
   // This is a simplified parser
-  const addresses: any = {};
+  const addresses: DeploymentAddresses = {};
   
   const lines = output.split('\n');
   for (const line of lines) {

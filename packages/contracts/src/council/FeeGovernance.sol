@@ -246,3 +246,4 @@ contract FeeGovernance {
                feeType == FEE_TYPE_NAMES;
     }
 }
+

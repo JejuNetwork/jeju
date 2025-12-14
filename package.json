@@ -11,7 +11,8 @@
     "apps/storage/pinning-api",
     "apps/storage/cache-service",
     "vendor/*",
-    "vendor/*/packages/*"
+    "vendor/*/packages/*",
+    "vendor/*/apps/*"
   ],
   "overrides": {
     "@jejunetwork/contracts": "workspace:*",
@@ -137,15 +138,17 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
-    "next": "16.0.10",
     "@account-abstraction/contracts": "^0.8.0",
     "@playwright/test": "^1.56.1",
+    "@shikijs/engine-javascript": "^3.20.0",
+    "@shikijs/transformers": "^3.20.0",
     "@synthetixio/synpress": "^4.0.0-alpha.7",
     "@types/bun": "latest",
     "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
     "eslint": "^8.56.0",
+    "next": "16.0.10",
     "playwright": ">=1.55.1",
     "playwright-core": "^1.56.1",
     "prettier": "^3.2.5",

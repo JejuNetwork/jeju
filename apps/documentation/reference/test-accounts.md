@@ -78,3 +78,4 @@ Path: `m/44'/60'/0'/0/{index}`
 3. Paste private key (without `0x` prefix)
 4. Click "Import"
 
+

@@ -227,65 +227,110 @@ export function parseDecisionData(decryptedString: string): DecisionData {
 
 /**
  * Backup encrypted decision to DA layer
+ * @throws Error if backup fails (fail-fast, no silent failures)
  */
 export async function backupToDA(
   proposalId: string,
   encryptedData: LitEncryptedData
-): Promise<{ hash: string; success: boolean }> {
-  try {
-    const response = await fetch(`${DA_URL}/api/v1/encrypted/store`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        data: JSON.stringify({
-          type: 'ceo_decision',
-          proposalId,
-          encryptedData,
-          timestamp: Date.now(),
-        }),
-        policy: {
-          conditions: [
-            {
-              type: 'timestamp',
-              chain: CHAIN_ID,
-              comparator: '>=',
-              value: encryptedData.encryptedAt + 30 * 24 * 60 * 60,
-            },
-          ],
-          operator: 'or',
-        },
-        owner: COUNCIL_ADDRESS,
-        metadata: { type: 'ceo_decision', proposalId },
+): Promise<{ keyId: string; hash: string }> {
+  const response = await fetch(`${DA_URL}/api/v1/encrypted/store`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      data: JSON.stringify({
+        type: 'ceo_decision',
+        proposalId,
+        encryptedData,
+        timestamp: Date.now(),
       }),
-    });
+      policy: {
+        conditions: [
+          {
+            type: 'timestamp',
+            chain: CHAIN_ID,
+            comparator: '>=',
+            value: encryptedData.encryptedAt + 30 * 24 * 60 * 60,
+          },
+        ],
+        operator: 'or',
+      },
+      owner: COUNCIL_ADDRESS,
+      metadata: { type: 'ceo_decision', proposalId },
+    }),
+  });
 
-    if (!response.ok) {
-      console.error('[DA] Backup failed:', response.status);
-      return { hash: '', success: false };
-    }
-
-    const result = (await response.json()) as { keyId: string; dataHash: string };
-    console.log('[DA] Decision backed up:', result.dataHash);
-    return { hash: result.dataHash, success: true };
-  } catch (error) {
-    console.error('[DA] Backup error:', (error as Error).message);
-    return { hash: '', success: false };
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`DA backup failed: ${response.status} - ${errorText}`);
   }
+
+  const result = (await response.json()) as { keyId: string; dataHash: string };
+  console.log('[DA] Decision backed up:', result.dataHash);
+  return { keyId: result.keyId, hash: result.dataHash };
 }
 
 /**
- * Retrieve encrypted decision from DA layer
- * TODO: Implement metadata-based search when DA supports it
+ * Retrieve encrypted decision from DA layer by proposalId
  */
-export async function retrieveFromDA(_proposalId: string): Promise<LitEncryptedData | null> {
-  return null;
+export async function retrieveFromDA(proposalId: string): Promise<LitEncryptedData | null> {
+  // Search for encrypted data with matching proposalId
+  const searchResponse = await fetch(`${DA_URL}/api/v1/encrypted/search`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      metadata: { type: 'ceo_decision', proposalId },
+      accessor: COUNCIL_ADDRESS,
+    }),
+  });
+
+  if (!searchResponse.ok) {
+    console.error('[DA] Search failed:', searchResponse.status);
+    return null;
+  }
+
+  const searchResult = (await searchResponse.json()) as {
+    results: Array<{ keyId: string; dataHash: string; encryptedAt: number; metadata: Record<string, string> }>;
+  };
+
+  if (searchResult.results.length === 0) {
+    return null;
+  }
+
+  // Get the most recent result
+  const latest = searchResult.results.sort((a, b) => b.encryptedAt - a.encryptedAt)[0];
+
+  // Retrieve the actual data
+  const retrieveResponse = await fetch(`${DA_URL}/api/v1/encrypted/retrieve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      keyId: latest.keyId,
+      accessor: COUNCIL_ADDRESS,
+    }),
+  });
+
+  if (!retrieveResponse.ok) {
+    console.error('[DA] Retrieve failed:', retrieveResponse.status);
+    return null;
+  }
+
+  const retrieveResult = (await retrieveResponse.json()) as { data: string };
+  const parsed = JSON.parse(retrieveResult.data) as { encryptedData: LitEncryptedData };
+  
+  return parsed.encryptedData;
 }
 
 /**
  * Check if decision can be decrypted (access conditions met)
+ * Returns true if:
+ * 1. 30 days have passed since encryption, OR
+ * 2. Proposal status is COMPLETED (7) on-chain
  */
-export async function canDecrypt(encryptedData: LitEncryptedData): Promise<boolean> {
-  // Check the timestamp condition
+export async function canDecrypt(
+  encryptedData: LitEncryptedData,
+  rpcUrl?: string
+): Promise<boolean> {
+  // Check the timestamp condition first (cheapest check)
   const now = Math.floor(Date.now() / 1000);
   const thirtyDaysAfter = encryptedData.encryptedAt + 30 * 24 * 60 * 60;
 
@@ -293,8 +338,55 @@ export async function canDecrypt(encryptedData: LitEncryptedData): Promise<boole
     return true;
   }
 
-  // In production, would check on-chain proposal status
-  return false;
+  // Check on-chain proposal status
+  const proposalCondition = encryptedData.accessControlConditions.find(
+    (c) => c.method === 'proposals' && c.contractAddress !== ''
+  );
+
+  if (!proposalCondition) {
+    return false;
+  }
+
+  const proposalId = proposalCondition.parameters[0];
+  const councilAddress = proposalCondition.contractAddress;
+  const rpc = rpcUrl ?? process.env.RPC_URL ?? 'http://localhost:8545';
+
+  // Call Council.proposals(proposalId) to get status
+  // Proposal struct returns status as 9th field (index 8)
+  const callData = `0x013cf08b${proposalId.slice(2).padStart(64, '0')}`; // proposals(uint256)
+
+  const response = await fetch(rpc, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'eth_call',
+      params: [{ to: councilAddress, data: callData }, 'latest'],
+    }),
+  });
+
+  if (!response.ok) {
+    console.error('[canDecrypt] RPC call failed');
+    return false;
+  }
+
+  const result = (await response.json()) as { result?: string; error?: { message: string } };
+  
+  if (result.error || !result.result || result.result === '0x') {
+    return false; // Proposal doesn't exist or call failed
+  }
+
+  // Status is at offset 8 * 32 = 256 bytes (each field is 32 bytes)
+  // The struct has: id, proposer, proposalType, targetContract, callData(dynamic), description(dynamic), 
+  // startTime, endTime, status, councilVotes(dynamic), yesVotes, noVotes, vetoVotes
+  // Status enum is the 9th field after fixed-size fields
+  const statusOffset = 8 * 64 + 2; // 8 fields * 32 bytes * 2 hex chars + '0x'
+  const statusHex = result.result.slice(statusOffset, statusOffset + 64);
+  const status = parseInt(statusHex, 16);
+
+  // ProposalStatus.COMPLETED = 7
+  return status === 7;
 }
 
 /**

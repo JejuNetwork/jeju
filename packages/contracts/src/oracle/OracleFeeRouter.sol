@@ -22,6 +22,16 @@ contract OracleFeeRouter is IOracleFeeRouter, Ownable, Pausable, ReentrancyGuard
     mapping(bytes32 => OperatorEarnings) private _operatorEarnings;
     mapping(uint256 => EpochRewards) private _epochRewards;
 
+    // Delegator rewards tracking: delegator => operatorId => pending rewards
+    mapping(address => mapping(bytes32 => uint256)) private _delegatorPendingRewards;
+    mapping(address => mapping(bytes32 => uint256)) private _delegatorTotalClaimed;
+    // Track delegations: delegator => operatorId => delegated amount
+    mapping(address => mapping(bytes32 => uint256)) private _delegations;
+    // Total delegated to each operator
+    mapping(bytes32 => uint256) private _operatorTotalDelegated;
+    // List of delegators per operator for reward distribution
+    mapping(bytes32 => address[]) private _operatorDelegators;
+
     uint256 public currentEpoch;
     uint256 public epochStartTime;
     uint256 public epochAccumulatedFees;
@@ -229,8 +239,16 @@ contract OracleFeeRouter is IOracleFeeRouter, Ownable, Pausable, ReentrancyGuard
         return _operatorEarnings[id].pendingRewards;
     }
 
-    function getDelegatorPendingRewards(address, bytes32) external pure returns (uint256) {
-        return 0;
+    function getDelegatorPendingRewards(address delegator, bytes32 operatorId) external view returns (uint256) {
+        return _delegatorPendingRewards[delegator][operatorId];
+    }
+
+    function getDelegation(address delegator, bytes32 operatorId) external view returns (uint256) {
+        return _delegations[delegator][operatorId];
+    }
+
+    function getOperatorTotalDelegated(bytes32 operatorId) external view returns (uint256) {
+        return _operatorTotalDelegated[operatorId];
     }
 
     function getFeeConfig() external view returns (FeeConfig memory) {
@@ -309,6 +327,68 @@ contract OracleFeeRouter is IOracleFeeRouter, Ownable, Pausable, ReentrancyGuard
     function creditOperatorRewards(bytes32 operatorId, uint256 amount) external onlyOwner {
         _operatorEarnings[operatorId].totalEarned += amount;
         _operatorEarnings[operatorId].pendingRewards += amount;
+    }
+
+    function delegateToOperator(bytes32 operatorId) external payable nonReentrant whenNotPaused {
+        if (msg.value == 0) revert InvalidFeeConfig();
+
+        if (_delegations[msg.sender][operatorId] == 0) {
+            _operatorDelegators[operatorId].push(msg.sender);
+        }
+
+        _delegations[msg.sender][operatorId] += msg.value;
+        _operatorTotalDelegated[operatorId] += msg.value;
+    }
+
+    function undelegateFromOperator(bytes32 operatorId, uint256 amount) external nonReentrant {
+        uint256 delegated = _delegations[msg.sender][operatorId];
+        if (amount > delegated) revert InvalidFeeConfig();
+
+        _delegations[msg.sender][operatorId] -= amount;
+        _operatorTotalDelegated[operatorId] -= amount;
+
+        if (_delegations[msg.sender][operatorId] == 0) {
+            _removeDelegator(operatorId, msg.sender);
+        }
+
+        _transfer(msg.sender, amount);
+    }
+
+    function claimDelegatorRewards(bytes32 operatorId) external nonReentrant returns (uint256 amount) {
+        amount = _delegatorPendingRewards[msg.sender][operatorId];
+        if (amount == 0) revert NoRewardsToClaim();
+
+        _delegatorPendingRewards[msg.sender][operatorId] = 0;
+        _delegatorTotalClaimed[msg.sender][operatorId] += amount;
+
+        _transfer(msg.sender, amount);
+        emit DelegatorRewardsClaimed(msg.sender, operatorId, amount);
+    }
+
+    function distributeDelegatorRewards(bytes32 operatorId, uint256 totalAmount) external onlyOwner {
+        uint256 totalDelegated = _operatorTotalDelegated[operatorId];
+        if (totalDelegated == 0) return;
+
+        address[] storage delegators = _operatorDelegators[operatorId];
+        for (uint256 i = 0; i < delegators.length; i++) {
+            address delegator = delegators[i];
+            uint256 delegated = _delegations[delegator][operatorId];
+            if (delegated > 0) {
+                uint256 share = (totalAmount * delegated) / totalDelegated;
+                _delegatorPendingRewards[delegator][operatorId] += share;
+            }
+        }
+    }
+
+    function _removeDelegator(bytes32 operatorId, address delegator) internal {
+        address[] storage delegators = _operatorDelegators[operatorId];
+        for (uint256 i = 0; i < delegators.length; i++) {
+            if (delegators[i] == delegator) {
+                delegators[i] = delegators[delegators.length - 1];
+                delegators.pop();
+                return;
+            }
+        }
     }
 
     function pause() external onlyOwner {

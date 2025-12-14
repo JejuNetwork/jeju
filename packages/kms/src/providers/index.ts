@@ -2,7 +2,6 @@
  * KMS Providers
  */
 
-export { LitProvider, getLitProvider } from './lit-provider.js';
-export { TEEProvider, getTEEProvider } from './tee-provider.js';
-export { MPCProvider, getMPCProvider } from './mpc-provider.js';
-
+export { LitProvider, getLitProvider, resetLitProvider } from './lit-provider.js';
+export { TEEProvider, getTEEProvider, resetTEEProvider } from './tee-provider.js';
+export { MPCProvider, getMPCProvider, resetMPCProvider } from './mpc-provider.js';

@@ -1,4 +1,10 @@
 import express, { Request, Response, NextFunction } from 'express';
+
+// Express v5 type compatibility - use type assertion for methods
+type ExpressResponse = Response & {
+  json: (body: unknown) => Response;
+  status: (code: number) => ExpressResponse;
+}
 import cors from 'cors';
 import { getDataSource } from './lib/db';
 import { stakeRateLimiter, getRateLimitStats, RATE_LIMITS } from './lib/stake-rate-limiter';
@@ -20,9 +26,11 @@ const asyncHandler = (fn: AsyncHandler) => (req: Request, res: Response, next: N
   Promise.resolve(fn(req, res, next)).catch(next);
 
 function parsePagination(query: Request['query'], defaults = { limit: 50, maxLimit: 100 }) {
+  const limitStr = Array.isArray(query.limit) ? query.limit[0] : query.limit;
+  const offsetStr = Array.isArray(query.offset) ? query.offset[0] : query.offset;
   return {
-    limit: Math.min(defaults.maxLimit, parseInt(query.limit as string) || defaults.limit),
-    offset: Math.max(0, parseInt(query.offset as string) || 0),
+    limit: Math.min(defaults.maxLimit, parseInt(String(limitStr || defaults.limit)) || defaults.limit),
+    offset: Math.max(0, parseInt(String(offsetStr || '0')) || 0),
   };
 }
 
@@ -842,10 +850,11 @@ app.get('/api/oracle/reports', asyncHandler(async (req, res) => {
   });
 }));
 
-app.get('/api/oracle/disputes', asyncHandler(async (req, res) => {
+app.get('/api/oracle/disputes', asyncHandler(async (req: Request, res: Response) => {
   const ds = await getDataSource();
   const { limit, offset } = parsePagination(req.query);
-  const status = req.query.status as string;
+  const statusParam = Array.isArray(req.query.status) ? req.query.status[0] : req.query.status;
+  const status: string | undefined = typeof statusParam === 'string' ? statusParam : undefined;
   
   let query = ds.getRepository(OracleDispute).createQueryBuilder('d')
     .leftJoinAndSelect('d.report', 'report')
@@ -857,7 +866,7 @@ app.get('/api/oracle/disputes', asyncHandler(async (req, res) => {
   
   const [disputes, total] = await query.orderBy('d.openedAt', 'DESC').take(limit).skip(offset).getManyAndCount();
 
-  res.json({
+  (res as ExpressResponse).json({
     disputes: disputes.map(d => ({
       disputeId: d.disputeId,
       reportId: d.report?.reportId,
@@ -948,7 +957,7 @@ app.get('/api/stats', asyncHandler(async (_req, res) => {
 
   const latestBlock = await ds.getRepository(Block).createQueryBuilder('b').orderBy('b.number', 'DESC').limit(1).getOne();
 
-  res.json({
+  (res as ExpressResponse).json({
     blocks: blockCount,
     transactions: txCount,
     accounts: accountCount,
@@ -976,7 +985,7 @@ app.get('/api/rate-limits', (_req, res) => {
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error('[REST] Unhandled error:', err.message, err.stack);
-  res.status(500).json({ error: 'Internal server error', message: err.message });
+  (res as ExpressResponse).status(500).json({ error: 'Internal server error', message: err.message });
 });
 
 export async function startRestServer(): Promise<void> {

@@ -13,11 +13,14 @@ import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
 import { createPublicClient, createWalletClient, http, type Address, type Hex, namehash, parseEther } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { localhost } from 'viem/chains';
+import { L1_LOCALNET, APP_PORTS, TEST_WALLETS } from '../shared/constants';
+
+const HOST = process.env.HOST || '127.0.0.1';
 
 // Test configuration
-const RPC_URL = process.env.RPC_URL ?? 'http://localhost:8545';
-const IPFS_API_URL = process.env.IPFS_API_URL ?? 'http://localhost:5001';
-const JNS_GATEWAY_URL = process.env.JNS_GATEWAY_URL ?? 'http://localhost:4005';
+const RPC_URL = process.env.RPC_URL ?? L1_LOCALNET.rpcUrl;
+const IPFS_API_URL = process.env.IPFS_API_URL ?? `http://${HOST}:5001`;
+const JNS_GATEWAY_URL = process.env.JNS_GATEWAY_URL ?? `http://${HOST}:${APP_PORTS.predimarket}`;
 
 // Contract addresses (from deployment)
 const JNS_REGISTRAR = (process.env.JNS_REGISTRAR ?? '0x0') as Address;
@@ -25,7 +28,7 @@ const JNS_RESOLVER = (process.env.JNS_RESOLVER ?? '0x0') as Address;
 const KEEPALIVE_REGISTRY = (process.env.KEEPALIVE_REGISTRY ?? '0x0') as Address;
 
 // Test wallet
-const TEST_PRIVATE_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as Hex; // Anvil default
+const TEST_PRIVATE_KEY = TEST_WALLETS.deployer.privateKey as Hex;
 const account = privateKeyToAccount(TEST_PRIVATE_KEY);
 
 const chain = {

@@ -21,6 +21,7 @@
     "clean": "rm -rf dist out cache test-results"
   },
   "dependencies": {
+    "@jeju/cql": "workspace:*",
     "ethers": "6.16.0",
     "hono": "4.10.8",
     "viem": "2.41.2",

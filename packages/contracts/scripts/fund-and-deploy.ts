@@ -87,8 +87,9 @@ async function deployToChain(chainName: string, rpcUrl: string): Promise<Record<
       contracts.IdentityRegistry = match[1];
       console.log(`      ✅ IdentityRegistry: ${match[1]}`);
     }
-  } catch (e: any) {
-    console.error("      ❌ Failed:", e.message);
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error("      ❌ Failed:", message);
   }
   
   // Deploy OIF
@@ -125,8 +126,9 @@ async function deployToChain(chainName: string, rpcUrl: string): Promise<Record<
         console.log(`      ✅ ${name}: ${match[1]}`);
       }
     }
-  } catch (e: any) {
-    console.error("      ❌ OIF deployment failed:", e.message);
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error("      ❌ OIF deployment failed:", message);
   }
   
   // Deploy MockUSDC
@@ -146,7 +148,7 @@ async function deployToChain(chainName: string, rpcUrl: string): Promise<Record<
       contracts.USDC = match[1];
       console.log(`      ✅ USDC: ${match[1]}`);
     }
-  } catch (e: any) {
+  } catch (e: unknown) {
     // Try forge create instead
     try {
       const output = execSync(
@@ -162,7 +164,7 @@ async function deployToChain(chainName: string, rpcUrl: string): Promise<Record<
         contracts.USDC = match[1];
         console.log(`      ✅ USDC: ${match[1]}`);
       }
-    } catch (e2: any) {
+    } catch (e2: unknown) {
       console.error("      ❌ USDC deployment failed");
     }
   }
@@ -183,7 +185,7 @@ async function deployToChain(chainName: string, rpcUrl: string): Promise<Record<
       contracts.ElizaOSToken = match[1];
       console.log(`      ✅ ElizaOSToken: ${match[1]}`);
     }
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("      ❌ ElizaOSToken deployment failed");
   }
   

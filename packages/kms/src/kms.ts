@@ -1,8 +1,5 @@
 /**
- * Jeju KMS - Unified Key Management Service
- * 
- * Unified interface for decentralized key management via Lit Protocol,
- * TEE enclaves, and MPC networks. Auto-fallback between providers.
+ * Jeju KMS - Unified key management via Encryption, TEE, and MPC providers
  */
 
 import type { Address } from 'viem';
@@ -34,7 +31,7 @@ type ConcreteProvider = LitProvider | TEEProvider | MPCProvider;
 
 export class KMSService {
   private config: KMSConfig;
-  private providers: Map<KMSProviderType, KMSProvider> = new Map();
+  private providers = new Map<KMSProviderType, KMSProvider>();
   private initialized = false;
 
   constructor(config: KMSConfig) {
@@ -68,10 +65,7 @@ export class KMSService {
   }
 
   private async getAvailableProvider(preferred?: KMSProviderType): Promise<ConcreteProvider> {
-    const candidates = preferred 
-      ? [preferred, this.config.defaultProvider]
-      : [this.config.defaultProvider];
-    
+    const candidates = preferred ? [preferred, this.config.defaultProvider] : [this.config.defaultProvider];
     if (this.config.fallbackEnabled) {
       candidates.push(KMSProviderType.TEE, KMSProviderType.MPC, KMSProviderType.LIT);
     }
@@ -91,9 +85,7 @@ export class KMSService {
     options: { type?: KeyType; curve?: KeyCurve; policy: AccessControlPolicy; provider?: KMSProviderType }
   ): Promise<GeneratedKey> {
     await this.ensureInitialized();
-    if (!options.policy.conditions?.length) {
-      throw new Error('Access control policy must have at least one condition');
-    }
+    if (!options.policy.conditions?.length) throw new Error('Access control policy must have at least one condition');
     const provider = await this.getAvailableProvider(options.provider);
     return provider.generateKey(owner, options.type ?? 'encryption', options.curve ?? 'secp256k1', options.policy);
   }
@@ -134,12 +126,10 @@ export class KMSService {
     await this.ensureInitialized();
     const signingTypes = [KMSProviderType.TEE, KMSProviderType.MPC];
     const preferredType = provider ?? signingTypes.find(t => this.providers.has(t));
-    if (!preferredType) throw new Error('No signing-capable provider available (TEE or MPC required)');
+    if (!preferredType) throw new Error('No signing-capable provider available');
     
     const p = await this.getAvailableProvider(preferredType);
-    if (!(p instanceof TEEProvider) && !(p instanceof MPCProvider)) {
-      throw new Error('Provider does not support signing');
-    }
+    if (!(p instanceof TEEProvider) && !(p instanceof MPCProvider)) throw new Error('Provider does not support signing');
     return p.sign(request);
   }
 
@@ -162,13 +152,11 @@ export class KMSService {
     return lit?.validateSession(session) ?? false;
   }
 
-  getStatus(): { initialized: boolean; providers: Record<string, { available: boolean; status: Record<string, unknown> }>; defaultProvider: KMSProviderType } {
+  getStatus() {
     const providers: Record<string, { available: boolean; status: Record<string, unknown> }> = {};
     for (const [type, provider] of this.providers.entries()) {
-      const p = provider as ConcreteProvider;
-      const status = p.getStatus();
-      const available = 'connected' in status ? status.connected : ('fallbackMode' in status ? status.fallbackMode : false);
-      providers[type] = { available, status };
+      const status = (provider as ConcreteProvider).getStatus() as Record<string, unknown>;
+      providers[type] = { available: Boolean(status.connected ?? status.fallbackMode ?? false), status };
     }
     return { initialized: this.initialized, providers, defaultProvider: this.config.defaultProvider };
   }

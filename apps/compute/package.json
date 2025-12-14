@@ -11,6 +11,8 @@
     "dev": "bun run src/compute/node/index.ts",
     "dev:test": "PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 bun run src/compute/node/index.ts",
     "node": "bun run src/compute/node/index.ts",
+    "mpc": "bun run src/mpc/mpc-server.ts",
+    "mpc:dev": "MPC_NODE_ID=dev-node-1 MPC_VERBOSE=true bun run src/mpc/mpc-server.ts",
     "gateway": "bun run src/gateway/index.ts",
     "serve-frontend": "bun --port 4007 frontend/index.html",
     "demo": "bun run src/compute/scripts/demo.ts",

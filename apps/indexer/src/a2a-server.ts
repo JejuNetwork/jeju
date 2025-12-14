@@ -506,13 +506,25 @@ const A2A_PORT = parseInt(process.env.A2A_PORT || '4353');
 
 export async function startA2AServer(): Promise<void> {
   const app = createIndexerA2AServer();
+  const express = await import('express');
+  const expressApp = express.default();
   
-  const server = Bun.serve({
-    port: A2A_PORT,
-    fetch: app.fetch,
+  expressApp.all('*', async (req, res) => {
+    const response = await app.fetch(new Request(`http://${req.headers.host}${req.url}`, {
+      method: req.method,
+      headers: req.headers as HeadersInit,
+      body: req.method !== 'GET' && req.method !== 'HEAD' ? JSON.stringify(req.body) : undefined,
+    }));
+    
+    res.status(response.status);
+    response.headers.forEach((value, key) => res.setHeader(key, value));
+    const body = await response.text();
+    res.send(body);
   });
 
-  console.log(`📡 A2A Server running on http://localhost:${A2A_PORT}`);
+  expressApp.listen(A2A_PORT, () => {
+    console.log(`📡 A2A Server running on http://localhost:${A2A_PORT}`);
+  });
 }
 
 export { AGENT_CARD as INDEXER_AGENT_CARD };

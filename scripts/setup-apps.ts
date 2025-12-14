@@ -6,10 +6,66 @@
  * This script is safe to fail - it's a best-effort setup
  */
 
-import { existsSync, mkdirSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { existsSync, mkdirSync, readFileSync, symlinkSync, readdirSync } from 'fs';
+import { join, relative } from 'path';
 import { $ } from 'bun';
 import { discoverVendorApps } from './shared/discover-apps';
+
+/**
+ * Ensure workspace packages are properly symlinked in node_modules
+ * Bun workspaces should do this automatically but sometimes symlinks are missing
+ */
+function ensureWorkspaceSymlinks(): void {
+  const nodeModulesPath = join(process.cwd(), 'node_modules');
+  const jejuScopePath = join(nodeModulesPath, '@jejunetwork');
+  
+  // Create @jejunetwork scope if it doesn't exist
+  if (!existsSync(jejuScopePath)) {
+    mkdirSync(jejuScopePath, { recursive: true });
+  }
+  
+  // Map of package names to their paths
+  const workspacePackages: Record<string, string> = {
+    // packages/*
+    config: 'packages/config',
+    contracts: 'packages/contracts',
+    types: 'packages/types',
+    tests: 'packages/tests',
+    deployment: 'packages/deployment',
+    shared: 'packages/shared',
+    messaging: 'packages/messaging',
+    kms: 'packages/kms',
+    cql: 'packages/cql',
+    // apps/*
+    compute: 'apps/compute',
+    gateway: 'apps/gateway',
+    crucible: 'apps/crucible',
+    documentation: 'apps/documentation',
+    monitoring: 'apps/monitoring',
+    org: 'apps/org',
+    storage: 'apps/storage',
+  };
+  
+  let linkedCount = 0;
+  
+  for (const [name, sourcePath] of Object.entries(workspacePackages)) {
+    const fullSourcePath = join(process.cwd(), sourcePath);
+    const symlinkPath = join(jejuScopePath, name);
+    
+    // Only create symlink if source exists and symlink doesn't
+    if (existsSync(fullSourcePath) && !existsSync(symlinkPath)) {
+      const relativePath = relative(jejuScopePath, fullSourcePath);
+      symlinkSync(relativePath, symlinkPath);
+      linkedCount++;
+    }
+  }
+  
+  if (linkedCount > 0) {
+    console.log(`   ✅ Created ${linkedCount} workspace symlinks`);
+  } else {
+    console.log('   ✅ Workspace symlinks verified');
+  }
+}
 
 const SYNPRESS_CACHE_DIR = '.jeju/.synpress-cache';
 
@@ -274,7 +330,12 @@ async function main() {
   
   console.log('');
 
-  // 6. Setup Synpress cache directory
+  // 6. Ensure workspace symlinks exist
+  console.log('🔗 Verifying workspace symlinks...');
+  ensureWorkspaceSymlinks();
+  console.log('');
+
+  // 7. Setup Synpress cache directory
   console.log('🧪 Setting up test infrastructure...');
   
   if (!existsSync(SYNPRESS_CACHE_DIR)) {
@@ -284,7 +345,7 @@ async function main() {
     console.log('   ✅ Synpress cache directory exists\n');
   }
 
-  // 7. Install Playwright browsers (needed for Synpress)
+  // 8. Install Playwright browsers (needed for Synpress)
   console.log('   🎭 Installing Playwright browsers...');
   const playwrightResult = await $`bunx playwright install chromium`.nothrow().quiet();
   
@@ -294,7 +355,7 @@ async function main() {
     console.log('   ⚠️  Could not install Playwright browsers (run: bunx playwright install)\n');
   }
 
-  // 8. Summary
+  // 9. Summary
   console.log('✅ Workspace setup complete\n');
   console.log('Next steps:');
   console.log('  • Start development: bun run dev');

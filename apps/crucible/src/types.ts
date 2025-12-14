@@ -7,6 +7,12 @@
 import type { Address } from 'viem';
 
 // =============================================================================
+// Bot Types
+// =============================================================================
+
+export type BotType = 'ai_agent' | 'trading_bot' | 'org_tool';
+
+// =============================================================================
 // Agent Types
 // =============================================================================
 
@@ -14,13 +20,23 @@ export interface AgentDefinition {
   agentId: bigint;
   owner: Address;
   name: string;
-  characterCid: string;
+  botType: BotType;
+  characterCid?: string;  // Optional for trading bots
   stateCid: string;
   vaultAddress: Address;
   active: boolean;
   registeredAt: number;
   lastExecutedAt: number;
   executionCount: number;
+  
+  // Trading bot specific fields
+  strategies?: TradingBotStrategy[];
+  chains?: TradingBotChain[];
+  treasuryAddress?: Address;
+  
+  // Org tool specific fields
+  orgId?: string;
+  capabilities?: string[];
 }
 
 export interface AgentCharacter {
@@ -332,12 +348,151 @@ export interface CrucibleConfig {
     triggerRegistry: Address;
     identityRegistry: Address;
     serviceRegistry: Address;
+    autocratTreasury?: Address;
   };
   services: {
     computeMarketplace: string;
     storageApi: string;
     ipfsGateway: string;
     indexerGraphql: string;
+    cqlEndpoint?: string;
+    dexCacheUrl?: string;
   };
   network: 'localnet' | 'testnet' | 'mainnet';
+}
+
+// =============================================================================
+// Trading Bot Types
+// =============================================================================
+
+export type TradingBotStrategyType = 'DEX_ARBITRAGE' | 'CROSS_CHAIN_ARBITRAGE' | 'SANDWICH' | 'LIQUIDATION' | 'SOLVER' | 'ORACLE_KEEPER';
+
+export interface TradingBotStrategy {
+  type: TradingBotStrategyType;
+  enabled: boolean;
+  minProfitBps: number;
+  maxGasGwei: number;
+  maxSlippageBps: number;
+  cooldownMs?: number;
+}
+
+export interface TradingBotChain {
+  chainId: number;
+  name: string;
+  rpcUrl: string;
+  wsUrl?: string;
+  blockTime: number;
+  isL2: boolean;
+  nativeSymbol: string;
+  explorerUrl?: string;
+}
+
+export interface TradingBotState {
+  botId: string;
+  botType: 'trading_bot';
+  lastExecution: number;
+  metrics: TradingBotMetrics;
+  opportunities: TradingBotOpportunity[];
+  config: TradingBotConfig;
+  version: number;
+}
+
+export interface TradingBotMetrics {
+  opportunitiesDetected: number;
+  opportunitiesExecuted: number;
+  opportunitiesFailed: number;
+  totalProfitWei: string;
+  totalProfitUsd: string;
+  totalGasSpent: string;
+  avgExecutionTimeMs: number;
+  uptime: number;
+  lastUpdate: number;
+  byStrategy: Record<string, {
+    detected: number;
+    executed: number;
+    failed: number;
+    profitWei: string;
+  }>;
+}
+
+export interface TradingBotOpportunity {
+  id: string;
+  type: TradingBotStrategyType;
+  chainId: number;
+  expectedProfit: string;
+  detectedAt: number;
+  status: 'DETECTED' | 'EXECUTING' | 'COMPLETED' | 'FAILED';
+}
+
+export interface TradingBotConfig {
+  strategies: TradingBotStrategy[];
+  chains: TradingBotChain[];
+  treasuryAddress?: Address;
+  maxConcurrentExecutions: number;
+  useFlashbots: boolean;
+}
+
+// =============================================================================
+// Org Tool Types
+// =============================================================================
+
+export interface OrgToolState {
+  orgId: string;
+  botId: string;
+  botType: 'org_tool';
+  todos: OrgTodo[];
+  checkinSchedules: OrgCheckinSchedule[];
+  checkinResponses: OrgCheckinResponse[];
+  teamMembers: OrgTeamMember[];
+  version: number;
+  updatedAt: number;
+}
+
+export interface OrgTodo {
+  id: string;
+  orgId: string;
+  title: string;
+  description?: string;
+  priority: 'low' | 'medium' | 'high';
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+  assigneeAgentId?: string;
+  createdBy: string;
+  dueDate?: number;
+  tags: string[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface OrgCheckinSchedule {
+  id: string;
+  orgId: string;
+  roomId?: string;
+  name: string;
+  checkinType: 'standup' | 'retrospective' | 'checkin';
+  frequency: 'daily' | 'weekdays' | 'weekly' | 'monthly';
+  timeUtc: string;
+  questions: string[];
+  active: boolean;
+  createdAt: number;
+}
+
+export interface OrgCheckinResponse {
+  id: string;
+  scheduleId: string;
+  responderAgentId: string;
+  answers: Record<string, string>;
+  submittedAt: number;
+}
+
+export interface OrgTeamMember {
+  agentId: string;
+  orgId: string;
+  role: string;
+  joinedAt: number;
+  lastActiveAt: number;
+  stats: {
+    todosCompleted: number;
+    checkinsCompleted: number;
+    contributions: number;
+  };
 }

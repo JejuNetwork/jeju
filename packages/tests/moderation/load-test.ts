@@ -69,7 +69,12 @@ describe('Moderation Load Tests', () => {
   test('Event listener handles rapid events', async () => {
     // Test event processing under load
     const eventCount = 1000;
-    const events: any[] = [];
+    interface TestEvent {
+      agentId: number;
+      reason: string;
+      timestamp: number;
+    }
+    const events: TestEvent[] = [];
 
     const startTime = performance.now();
 

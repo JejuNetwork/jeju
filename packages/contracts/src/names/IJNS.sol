@@ -105,3 +105,4 @@ interface IJNSRegistrar {
     function nameExpires(string calldata name) external view returns (uint256);
     function ownerOf(string calldata name) external view returns (address);
 }
+

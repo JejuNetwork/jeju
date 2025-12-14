@@ -1,0 +1,208 @@
+# Default values for jeju-messaging
+
+global:
+  environment: testnet
+  domain: jeju.network
+
+# Relay Node Configuration
+relay:
+  enabled: true
+  replicaCount: 3
+  
+  image:
+    repository: jeju/messaging-relay
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  serviceAccount:
+    create: true
+    annotations:
+      eks.amazonaws.com/role-arn: ""
+  
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  
+  service:
+    type: ClusterIP
+    httpPort: 3200
+    wsPort: 3201
+  
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+      nginx.ingress.kubernetes.io/websocket-services: "messaging-relay"
+    hosts:
+      - host: relay.testnet.jeju.network
+        paths:
+          - path: /
+            pathType: Prefix
+  
+  config:
+    port: 3200
+    wsPort: 3201
+    logLevel: info
+    
+    # Contract addresses (set via SSM or secrets)
+    keyRegistryAddress: ""
+    nodeRegistryAddress: ""
+    
+    # Jeju L2 RPC
+    jejuRpcUrl: "https://testnet-rpc.jeju.network"
+    
+    # CovenantSQL
+    covenantsqlNodes: ""
+    covenantsqlDatabaseId: "babylon-messaging"
+    
+    # IPFS for large payloads
+    ipfsGateway: "https://gateway.testnet.jeju.network"
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+# KMS Service Configuration
+kms:
+  enabled: true
+  replicaCount: 2
+  
+  image:
+    repository: jeju/kms-service
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  serviceAccount:
+    create: true
+    annotations:
+      eks.amazonaws.com/role-arn: ""
+  
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+  
+  service:
+    type: ClusterIP
+    port: 3300
+  
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    hosts:
+      - host: kms.testnet.jeju.network
+        paths:
+          - path: /
+            pathType: Prefix
+  
+  config:
+    port: 3300
+    logLevel: info
+    
+    # Provider configuration
+    providers:
+      local:
+        enabled: true
+        priority: 1
+      awsKms:
+        enabled: true
+        priority: 2
+        keyId: ""
+      # Future: Lit Protocol, TEE enclaves
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 60
+
+# Farcaster Hub Sync Service (connects to external hub)
+farcasterSync:
+  enabled: true
+  replicaCount: 1
+  
+  image:
+    repository: jeju/farcaster-sync
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  config:
+    hubUrl: "nemes.farcaster.xyz:2283"
+    syncInterval: 60000  # 1 minute
+    maxCastsPerUser: 100
+
+# Pod disruption budget
+podDisruptionBudget:
+  relay:
+    enabled: true
+    minAvailable: 2
+  kms:
+    enabled: true
+    minAvailable: 1
+
+# Network policies
+networkPolicy:
+  enabled: true
+  
+# Monitoring
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+  
+  alerts:
+    enabled: true
+    rules:
+      - alert: RelayNodeDown
+        expr: up{job="messaging-relay"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Messaging relay node is down"
+      
+      - alert: HighMessageLatency
+        expr: histogram_quantile(0.99, message_delivery_latency_seconds_bucket) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High message delivery latency detected"
+
+# Secrets (external references)
+secrets:
+  operatorKeys:
+    secretName: messaging-operator-keys
+    key: private-keys
+  
+  covenantsqlCredentials:
+    secretName: covenantsql-credentials
+    key: credentials
+  
+  kmsMasterKey:
+    secretName: kms-master-key
+    key: master-key
+

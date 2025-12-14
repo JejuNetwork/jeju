@@ -374,3 +374,4 @@ export function createRegistryMCPServer(registry: OCIRegistry): Hono {
   return app;
 }
 
+

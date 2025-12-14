@@ -53,6 +53,7 @@
     "wallet"
   ],
   "dependencies": {
+    "@jeju/kms": "workspace:*",
     "@jeju/shared": "workspace:*",
     "@jejunetwork/storage-pinning-api": "workspace:*",
     "@tenkeylabs/dappwright": "^2.11.3",

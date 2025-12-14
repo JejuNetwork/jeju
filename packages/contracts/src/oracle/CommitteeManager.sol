@@ -26,6 +26,9 @@ contract CommitteeManager is ICommitteeManager, Ownable, Pausable {
     mapping(bytes32 => uint256) private _lastRotationTime;
     mapping(address => bool) public committeeManagers;
 
+    // Track operator assignments: operatorAddress => array of assignments
+    mapping(address => CommitteeAssignment[]) private _operatorAssignments;
+
     constructor(address _feedRegistry, address initialOwner) Ownable(initialOwner) {
         feedRegistry = IFeedRegistry(_feedRegistry);
         committeeManagers[initialOwner] = true;
@@ -81,6 +84,7 @@ contract CommitteeManager is ICommitteeManager, Ownable, Pausable {
         _historicalCommittees[feedId][round] = committee;
         for (uint256 i = 0; i < members.length; i++) {
             _addOperatorFeed(members[i], feedId);
+            _recordAssignment(members[i], feedId, round, i == 0);
         }
         _lastRotationTime[feedId] = block.timestamp;
 
@@ -124,6 +128,7 @@ contract CommitteeManager is ICommitteeManager, Ownable, Pausable {
         _historicalCommittees[feedId][newRound] = committee;
         for (uint256 i = 0; i < members.length; i++) {
             _addOperatorFeed(members[i], feedId);
+            _recordAssignment(members[i], feedId, newRound, i == 0);
         }
         _lastRotationTime[feedId] = block.timestamp;
 
@@ -164,6 +169,7 @@ contract CommitteeManager is ICommitteeManager, Ownable, Pausable {
         newMembers[committee.members.length] = member;
         committee.members = newMembers;
         _addOperatorFeed(member, feedId);
+        _recordAssignment(member, feedId, committee.round, false);
         emit MemberAdded(feedId, committee.round, member);
     }
 
@@ -199,6 +205,7 @@ contract CommitteeManager is ICommitteeManager, Ownable, Pausable {
             emit LeaderRotated(feedId, committee.round, committee.leader);
         }
         _removeOperatorFeed(member, feedId);
+        _removeAssignment(member, feedId);
         emit MemberRemoved(feedId, committee.round, member, reason);
     }
 
@@ -260,8 +267,16 @@ contract CommitteeManager is ICommitteeManager, Ownable, Pausable {
         return _committees[feedId].leader == account;
     }
 
-    function getOperatorAssignments(bytes32) external pure returns (CommitteeAssignment[] memory) {
-        return new CommitteeAssignment[](0);
+    function getOperatorAssignments(bytes32 operatorId) external view returns (CommitteeAssignment[] memory) {
+        // operatorId is actually derived from address in OracleNetworkConnector
+        // For backward compatibility, we also accept address cast to bytes32
+        // First try to find operator by address
+        address operatorAddr = address(uint160(uint256(operatorId)));
+        return _operatorAssignments[operatorAddr];
+    }
+
+    function getOperatorAssignmentsByAddress(address operator) external view returns (CommitteeAssignment[] memory) {
+        return _operatorAssignments[operator];
     }
 
     function getOperatorFeeds(address operator) external view returns (bytes32[] memory) {
@@ -316,6 +331,38 @@ contract CommitteeManager is ICommitteeManager, Ownable, Pausable {
             if (feeds[i] == feedId) {
                 feeds[i] = feeds[feeds.length - 1];
                 feeds.pop();
+                return;
+            }
+        }
+    }
+
+    function _recordAssignment(address operator, bytes32 feedId, uint256 round, bool isLeader) internal {
+        // Remove any existing assignment for this feed (to update it)
+        _removeAssignment(operator, feedId);
+
+        // Add new assignment
+        bytes32 operatorId = operatorIds[operator];
+        if (operatorId == bytes32(0)) {
+            operatorId = bytes32(uint256(uint160(operator)));
+        }
+
+        _operatorAssignments[operator].push(
+            CommitteeAssignment({
+                operatorId: operatorId,
+                feedId: feedId,
+                round: round,
+                isLeader: isLeader,
+                assignedAt: block.timestamp
+            })
+        );
+    }
+
+    function _removeAssignment(address operator, bytes32 feedId) internal {
+        CommitteeAssignment[] storage assignments = _operatorAssignments[operator];
+        for (uint256 i = 0; i < assignments.length; i++) {
+            if (assignments[i].feedId == feedId) {
+                assignments[i] = assignments[assignments.length - 1];
+                assignments.pop();
                 return;
             }
         }

@@ -4,8 +4,14 @@
  */
 
 import { test, expect, describe } from 'bun:test';
-import { parseEther } from 'viem';
 import { PAYMENT_TIERS, createPaymentRequirement } from '../../lib/x402';
+
+// Define parseEther locally to avoid viem dependency issues
+const parseEther = (value: string): bigint => {
+  const [whole, decimal = ''] = value.split('.');
+  const paddedDecimal = decimal.padEnd(18, '0').slice(0, 18);
+  return BigInt(whole + paddedDecimal);
+};
 
 describe('Payment Tiers', () => {
   test('PREMIUM_DOCS is 0.01 ETH', () => {

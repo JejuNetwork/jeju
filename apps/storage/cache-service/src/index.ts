@@ -1,35 +1,25 @@
 /**
- * Jeju Cache Service
- *
- * Decentralized Redis-compatible cache running in TEE.
- * Provides fast, secure caching with attestation verification.
- *
- * Features:
- * - Redis-compatible API
- * - TEE attestation for security
- * - Multi-tenant namespacing
- * - Rentable cache instances
- * - A2A and MCP integration
+ * Jeju Cache Service - Decentralized Redis-compatible cache
  */
 
 import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
-import type { Address, Hex } from 'viem';
+import type { Address } from 'viem';
 import { getCacheStore, type CacheStore } from './store.js';
 import type {
-  CacheServiceConfig,
-  CacheInstance,
-  CacheRentalPlan,
-  CreateCacheRequest,
-  CacheSetRequest,
-  CacheGetRequest,
-  CacheBatchSetRequest,
-  CacheBatchGetRequest,
+  CacheServiceConfig, CacheInstance, CacheRentalPlan, CreateCacheRequest,
+  CacheSetRequest, CacheBatchSetRequest, CacheBatchGetRequest,
 } from './types.js';
 
-// ============================================================================
-// Configuration
-// ============================================================================
+type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+const LOG_LEVELS: Record<LogLevel, number> = { debug: 0, info: 1, warn: 2, error: 3 };
+function log(level: LogLevel, msg: string, data?: Record<string, unknown>) {
+  const minLevel = (process.env.LOG_LEVEL?.toLowerCase() as LogLevel) || 'info';
+  if (LOG_LEVELS[level] < LOG_LEVELS[minLevel]) return;
+  const entry = { timestamp: new Date().toISOString(), level, service: 'cache', message: msg, ...data };
+  const out = process.env.NODE_ENV === 'production' ? JSON.stringify(entry) : `[${entry.timestamp}] [${level.toUpperCase()}] [cache] ${msg}${data ? ' ' + JSON.stringify(data) : ''}`;
+  console[level](out);
+}
 
 const config: CacheServiceConfig = {
   port: parseInt(process.env.CACHE_SERVICE_PORT ?? '4015'),
@@ -396,12 +386,9 @@ export class CacheServer {
   }
 
   start(): void {
-    console.log(`[Cache Service] Starting on port ${config.port}`);
-    Bun.serve({
-      port: config.port,
-      fetch: this.app.fetch,
-    });
-    console.log(`[Cache Service] Listening on http://localhost:${config.port}`);
+    log('info', 'Starting cache service', { port: config.port });
+    Bun.serve({ port: config.port, fetch: this.app.fetch });
+    log('info', 'Cache service listening', { url: `http://localhost:${config.port}` });
   }
 
   getApp(): Hono {

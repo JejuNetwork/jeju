@@ -19,54 +19,88 @@ import {
 } from './model';
 import { createAccountFactory, BlockHeader, LogData } from './lib/entities';
 
-// Event signatures - only those we actually process
+// Event signatures - matched to actual contract events in src/oracle
 const EVENTS = {
-  FEED_CREATED: ethers.id('FeedCreated(bytes32,string,string,string,uint8,uint256,uint8,uint8)'),
+  // FeedRegistry events
+  FEED_CREATED: ethers.id('FeedCreated(bytes32,string,address,address,address)'),
+  FEED_ACTIVATED: ethers.id('FeedActivated(bytes32)'),
   FEED_DEACTIVATED: ethers.id('FeedDeactivated(bytes32)'),
-  FEED_REACTIVATED: ethers.id('FeedReactivated(bytes32)'),
-  OPERATOR_REGISTERED: ethers.id('OperatorRegistered(address,uint256,uint256)'),
-  OPERATOR_STAKED: ethers.id('OperatorStaked(address,uint256,uint256)'),
-  OPERATOR_JAILED: ethers.id('OperatorJailed(address,string)'),
-  OPERATOR_UNJAILED: ethers.id('OperatorUnjailed(address)'),
-  OPERATOR_SLASHED: ethers.id('OperatorSlashed(address,uint256,string)'),
-  COMMITTEE_MEMBER_ADDED: ethers.id('CommitteeMemberAdded(bytes32,address)'),
-  COMMITTEE_MEMBER_REMOVED: ethers.id('CommitteeMemberRemoved(bytes32,address)'),
-  REPORT_SUBMITTED: ethers.id('ReportSubmitted(bytes32,bytes32,uint256,int256,uint256,uint256)'),
-  REPORT_INVALIDATED: ethers.id('ReportInvalidated(bytes32,bytes32,string)'),
-  DISPUTE_OPENED: ethers.id('DisputeOpened(bytes32,bytes32,address,uint256,string)'),
+  FEED_UPDATED: ethers.id('FeedUpdated(bytes32,string)'),
+
+  // OracleNetworkConnector events
+  OPERATOR_REGISTERED: ethers.id('OperatorRegistered(bytes32,bytes32,uint256,address)'),
+  OPERATOR_DEACTIVATED: ethers.id('OperatorDeactivated(bytes32,string)'),
+  PERFORMANCE_RECORDED: ethers.id('PerformanceRecorded(bytes32,uint256,uint256,uint256)'),
+  ATTESTATION_WRITTEN: ethers.id('AttestationWritten(bytes32,uint256,bytes32,int8)'),
+  EPOCH_ADVANCED: ethers.id('EpochAdvanced(uint256,uint256)'),
+
+  // CommitteeManager events
+  COMMITTEE_FORMED: ethers.id('CommitteeFormed(bytes32,uint256,address[],address,uint256)'),
+  COMMITTEE_ROTATED: ethers.id('CommitteeRotated(bytes32,uint256,uint256)'),
+  MEMBER_ADDED: ethers.id('MemberAdded(bytes32,uint256,address)'),
+  MEMBER_REMOVED: ethers.id('MemberRemoved(bytes32,uint256,address,string)'),
+  LEADER_ROTATED: ethers.id('LeaderRotated(bytes32,uint256,address)'),
+
+  // ReportVerifier events
+  REPORT_SUBMITTED: ethers.id('ReportSubmitted(bytes32,bytes32,uint256,uint256,uint256,uint256)'),
+  REPORT_VERIFIED: ethers.id('ReportVerified(bytes32,bytes32,uint256,uint256)'),
+  REPORT_REJECTED: ethers.id('ReportRejected(bytes32,bytes32,string)'),
+  CONSENSUS_UPDATED: ethers.id('ConsensusUpdated(bytes32,uint256,uint256,uint256)'),
+
+  // DisputeGame events
+  DISPUTE_OPENED: ethers.id('DisputeOpened(bytes32,bytes32,bytes32,address,uint256,uint8)'),
   DISPUTE_CHALLENGED: ethers.id('DisputeChallenged(bytes32,address,uint256)'),
-  DISPUTE_RESOLVED: ethers.id('DisputeResolved(bytes32,uint8,uint256)'),
-  DISPUTE_ESCALATED: ethers.id('DisputeEscalated(bytes32)'),
-  SUBSCRIPTION_CREATED: ethers.id('SubscriptionCreated(uint256,address,bytes32[],uint256,uint256)'),
-  SUBSCRIPTION_CANCELLED: ethers.id('SubscriptionCancelled(uint256)'),
-  ATTESTATION_SUBMITTED: ethers.id('AttestationSubmitted(address,uint256,uint256,uint256,uint256,uint256)'),
+  DISPUTE_RESOLVED: ethers.id('DisputeResolved(bytes32,uint8,uint256,uint256)'),
+  DISPUTE_ESCALATED: ethers.id('DisputeEscalated(bytes32,bytes32)'),
+  DISPUTE_EXPIRED: ethers.id('DisputeExpired(bytes32)'),
+  SIGNERS_SLASHED: ethers.id('SignersSlashed(bytes32,address[],uint256)'),
+  DISPUTER_REWARDED: ethers.id('DisputerRewarded(bytes32,address,uint256)'),
+
+  // OracleFeeRouter events
+  SUBSCRIPTION_CREATED: ethers.id('SubscriptionCreated(bytes32,address,bytes32[],uint256,uint256)'),
+  SUBSCRIPTION_RENEWED: ethers.id('SubscriptionRenewed(bytes32,uint256,uint256)'),
+  SUBSCRIPTION_CANCELLED: ethers.id('SubscriptionCancelled(bytes32,uint256)'),
+  READ_FEE_PAID: ethers.id('ReadFeePaid(bytes32,address,uint256)'),
+  REWARDS_DISTRIBUTED: ethers.id('RewardsDistributed(uint256,uint256,uint256,uint256)'),
+  REWARDS_CLAIMED: ethers.id('RewardsClaimed(bytes32,address,uint256)'),
+  DELEGATOR_REWARDS_CLAIMED: ethers.id('DelegatorRewardsClaimed(address,bytes32,uint256)'),
 } as const;
 
 const ORACLE_EVENT_SET = new Set(Object.values(EVENTS));
 
-// Consolidated ABI interfaces
+// Consolidated ABI interfaces - matched to actual contract events
 const ABI = {
   registry: new ethers.Interface([
-    'event FeedCreated(bytes32 indexed feedId, string symbol, string baseToken, string quoteToken, uint8 decimals, uint256 heartbeatSeconds, uint8 minOracles, uint8 quorumThreshold)',
+    'event FeedCreated(bytes32 indexed feedId, string symbol, address baseToken, address quoteToken, address creator)',
+    'event FeedActivated(bytes32 indexed feedId)',
+    'event FeedDeactivated(bytes32 indexed feedId)',
   ]),
-  operator: new ethers.Interface([
-    'event OperatorRegistered(address indexed operator, uint256 identityId, uint256 stake)',
-    'event OperatorStaked(address indexed operator, uint256 amount, uint256 newTotal)',
-    'event OperatorSlashed(address indexed operator, uint256 amount, string reason)',
+  connector: new ethers.Interface([
+    'event OperatorRegistered(bytes32 indexed operatorId, bytes32 indexed stakingOracleId, uint256 agentId, address workerKey)',
+    'event OperatorDeactivated(bytes32 indexed operatorId, string reason)',
+    'event PerformanceRecorded(bytes32 indexed operatorId, uint256 indexed epoch, uint256 reportsSubmitted, uint256 reportsAccepted)',
+    'event AttestationWritten(bytes32 indexed operatorId, uint256 indexed agentId, bytes32 tag, int8 score)',
+  ]),
+  committee: new ethers.Interface([
+    'event CommitteeFormed(bytes32 indexed feedId, uint256 indexed round, address[] members, address leader, uint256 activeUntil)',
+    'event MemberAdded(bytes32 indexed feedId, uint256 indexed round, address indexed member)',
+    'event MemberRemoved(bytes32 indexed feedId, uint256 indexed round, address indexed member, string reason)',
   ]),
   reporting: new ethers.Interface([
-    'event ReportSubmitted(bytes32 indexed reportId, bytes32 indexed feedId, uint256 round, int256 price, uint256 confidence, uint256 timestamp)',
+    'event ReportSubmitted(bytes32 indexed feedId, bytes32 reportHash, uint256 price, uint256 confidence, uint256 round, uint256 signatureCount)',
+    'event ReportVerified(bytes32 indexed feedId, bytes32 indexed reportHash, uint256 price, uint256 timestamp)',
+    'event ConsensusUpdated(bytes32 indexed feedId, uint256 price, uint256 confidence, uint256 round)',
   ]),
   dispute: new ethers.Interface([
-    'event DisputeOpened(bytes32 indexed disputeId, bytes32 indexed reportId, address indexed disputer, uint256 bond, string reason)',
-    'event DisputeChallenged(bytes32 indexed disputeId, address indexed challenger, uint256 bond)',
-    'event DisputeResolved(bytes32 indexed disputeId, uint8 outcome, uint256 slashedAmount)',
+    'event DisputeOpened(bytes32 indexed disputeId, bytes32 reportHash, bytes32 feedId, address disputer, uint256 bond, uint8 reason)',
+    'event DisputeChallenged(bytes32 indexed disputeId, address challenger, uint256 additionalBond)',
+    'event DisputeResolved(bytes32 indexed disputeId, uint8 outcome, uint256 slashedAmount, uint256 reward)',
+    'event DisputeExpired(bytes32 indexed disputeId)',
   ]),
   subscription: new ethers.Interface([
-    'event SubscriptionCreated(uint256 indexed subscriptionId, address indexed subscriber, bytes32[] feedIds, uint256 startTime, uint256 endTime)',
-  ]),
-  attestation: new ethers.Interface([
-    'event AttestationSubmitted(address indexed operator, uint256 epoch, uint256 feedsServed, uint256 reportsSubmitted, uint256 reportsAccepted, uint256 disputesReceived)',
+    'event SubscriptionCreated(bytes32 indexed subscriptionId, address indexed subscriber, bytes32[] feedIds, uint256 duration, uint256 amountPaid)',
+    'event SubscriptionCancelled(bytes32 indexed subscriptionId, uint256 refundAmount)',
+    'event RewardsClaimed(bytes32 indexed operatorId, address indexed recipient, uint256 amount)',
   ]),
 };
 
@@ -125,11 +159,12 @@ export async function processOracleEvents(ctx: ProcessorContext<Store>): Promise
       if (eventSig === EVENTS.FEED_CREATED) {
         const decoded = ABI.registry.parseLog({ topics: log.topics, data: log.data });
         if (!decoded) continue;
-        const [feedId, symbol, baseToken, quoteToken] = decoded.args as unknown as [string, string, string, string];
+        const feedId = log.topics[1];
+        const [symbol, baseToken, quoteToken] = [decoded.args[0], decoded.args[1], decoded.args[2]] as [string, string, string];
         feeds.set(feedId, new OracleFeed({
           id: feedId, feedId, symbol, baseToken, quoteToken,
-          decimals: Number(decoded.args[4]), heartbeatSeconds: Number(decoded.args[5]),
-          minOracles: Number(decoded.args[6]), quorumThreshold: Number(decoded.args[7]),
+          decimals: 8, heartbeatSeconds: 3600, // defaults, can be fetched from contract if needed
+          minOracles: 3, quorumThreshold: 2,
           category: categoryFromSymbol(symbol), isActive: true,
           createdAt: blockTimestamp, createdTxHash: txHash, lastUpdated: blockTimestamp,
           totalReports: 0, totalDisputes: 0,
@@ -137,25 +172,27 @@ export async function processOracleEvents(ctx: ProcessorContext<Store>): Promise
         ctx.log.info(`Oracle feed: ${symbol}`);
       }
 
-      if (eventSig === EVENTS.FEED_DEACTIVATED || eventSig === EVENTS.FEED_REACTIVATED) {
-        const feed = feeds.get(log.topics[1]) || await ctx.store.get(OracleFeed, log.topics[1]);
+      if (eventSig === EVENTS.FEED_DEACTIVATED || eventSig === EVENTS.FEED_ACTIVATED) {
+        const feedId = log.topics[1];
+        const feed = feeds.get(feedId) || await ctx.store.get(OracleFeed, feedId);
         if (feed) {
-          feed.isActive = eventSig === EVENTS.FEED_REACTIVATED;
+          feed.isActive = eventSig === EVENTS.FEED_ACTIVATED;
           feed.lastUpdated = blockTimestamp;
-          feeds.set(log.topics[1], feed);
+          feeds.set(feedId, feed);
         }
       }
 
       // Operator Events
       if (eventSig === EVENTS.OPERATOR_REGISTERED) {
-        const decoded = ABI.operator.parseLog({ topics: log.topics, data: log.data });
+        const decoded = ABI.connector.parseLog({ topics: log.topics, data: log.data });
         if (!decoded) continue;
-        const addr = (decoded.args[0] as string).toLowerCase();
-        accountFactory.getOrCreate(addr, header.height, blockTimestamp);
-        operators.set(addr, new OracleOperator({
-          id: addr, address: addr,
-          identityId: BigInt(decoded.args[1].toString()),
-          stakedAmount: BigInt(decoded.args[2].toString()),
+        const operatorId = log.topics[1];
+        const workerKey = (decoded.args[3] as string).toLowerCase();
+        accountFactory.getOrCreate(workerKey, header.height, blockTimestamp);
+        operators.set(operatorId, new OracleOperator({
+          id: operatorId, address: workerKey,
+          identityId: BigInt(decoded.args[2]?.toString() || '0'),
+          stakedAmount: 0n,
           isActive: true, isJailed: false, delegatedAmount: 0n, totalSlashed: 0n,
           reportsSubmitted: 0, reportsAccepted: 0, disputesAgainst: 0, disputesLost: 0,
           participationScore: 10000, accuracyScore: 10000, uptimeScore: 10000,
@@ -164,46 +201,52 @@ export async function processOracleEvents(ctx: ProcessorContext<Store>): Promise
         }));
       }
 
-      if (eventSig === EVENTS.OPERATOR_STAKED) {
-        const decoded = ABI.operator.parseLog({ topics: log.topics, data: log.data });
-        if (!decoded) continue;
-        const addr = (decoded.args[0] as string).toLowerCase();
-        const op = operators.get(addr) || await ctx.store.get(OracleOperator, addr);
+      if (eventSig === EVENTS.OPERATOR_DEACTIVATED) {
+        const operatorId = log.topics[1];
+        const op = operators.get(operatorId) || await ctx.store.get(OracleOperator, operatorId);
         if (op) {
-          op.stakedAmount = BigInt(decoded.args[2].toString());
+          op.isActive = false;
           op.lastActiveAt = blockTimestamp;
-          operators.set(addr, op);
+          operators.set(operatorId, op);
         }
       }
 
-      if (eventSig === EVENTS.OPERATOR_JAILED || eventSig === EVENTS.OPERATOR_UNJAILED) {
-        const addr = ('0x' + log.topics[1].slice(26)).toLowerCase();
-        const op = operators.get(addr) || await ctx.store.get(OracleOperator, addr);
-        if (op) {
-          op.isJailed = eventSig === EVENTS.OPERATOR_JAILED;
-          op.lastActiveAt = blockTimestamp;
-          operators.set(addr, op);
-        }
-      }
-
-      if (eventSig === EVENTS.OPERATOR_SLASHED) {
-        const decoded = ABI.operator.parseLog({ topics: log.topics, data: log.data });
+      if (eventSig === EVENTS.PERFORMANCE_RECORDED) {
+        const decoded = ABI.connector.parseLog({ topics: log.topics, data: log.data });
         if (!decoded) continue;
-        const addr = (decoded.args[0] as string).toLowerCase();
-        const amount = BigInt(decoded.args[1].toString());
-        const op = operators.get(addr) || await ctx.store.get(OracleOperator, addr);
+        const operatorId = log.topics[1];
+        const op = operators.get(operatorId) || await ctx.store.get(OracleOperator, operatorId);
         if (op) {
-          op.totalSlashed += amount;
-          op.stakedAmount = op.stakedAmount > amount ? op.stakedAmount - amount : 0n;
+          op.reportsSubmitted += Number(decoded.args[2]);
+          op.reportsAccepted += Number(decoded.args[3]);
           op.lastActiveAt = blockTimestamp;
-          operators.set(addr, op);
+          operators.set(operatorId, op);
         }
       }
 
       // Committee Events
-      if (eventSig === EVENTS.COMMITTEE_MEMBER_ADDED) {
+      if (eventSig === EVENTS.COMMITTEE_FORMED) {
+        const decoded = ABI.committee.parseLog({ topics: log.topics, data: log.data });
+        if (!decoded) continue;
         const feedId = log.topics[1];
-        const addr = ('0x' + log.topics[2].slice(26)).toLowerCase();
+        const members = decoded.args[0] as string[];
+        const feed = feeds.get(feedId) || await ctx.store.get(OracleFeed, feedId);
+        
+        for (const memberAddr of members) {
+          const addr = memberAddr.toLowerCase();
+          const memberId = `${feedId}-${addr}`;
+          const op = operators.get(addr) || await ctx.store.get(OracleOperator, addr);
+          if (feed && op) {
+            committeeMembers.set(memberId, new OracleCommitteeMember({
+              id: memberId, feed, operator: op, isActive: true, addedAt: blockTimestamp, reportsInFeed: 0,
+            }));
+          }
+        }
+      }
+
+      if (eventSig === EVENTS.MEMBER_ADDED) {
+        const feedId = log.topics[1];
+        const addr = ('0x' + log.topics[3].slice(26)).toLowerCase();
         const memberId = `${feedId}-${addr}`;
         const feed = feeds.get(feedId) || await ctx.store.get(OracleFeed, feedId);
         const op = operators.get(addr) || await ctx.store.get(OracleOperator, addr);
@@ -214,8 +257,10 @@ export async function processOracleEvents(ctx: ProcessorContext<Store>): Promise
         }
       }
 
-      if (eventSig === EVENTS.COMMITTEE_MEMBER_REMOVED) {
-        const memberId = `${log.topics[1]}-${('0x' + log.topics[2].slice(26)).toLowerCase()}`;
+      if (eventSig === EVENTS.MEMBER_REMOVED) {
+        const feedId = log.topics[1];
+        const addr = ('0x' + log.topics[3].slice(26)).toLowerCase();
+        const memberId = `${feedId}-${addr}`;
         const member = committeeMembers.get(memberId) || await ctx.store.get(OracleCommitteeMember, memberId);
         if (member) {
           member.isActive = false;
@@ -228,17 +273,18 @@ export async function processOracleEvents(ctx: ProcessorContext<Store>): Promise
       if (eventSig === EVENTS.REPORT_SUBMITTED) {
         const decoded = ABI.reporting.parseLog({ topics: log.topics, data: log.data });
         if (!decoded) continue;
-        const [reportId, feedId] = decoded.args as unknown as [string, string];
-        const round = BigInt(decoded.args[2].toString());
-        const price = BigInt(decoded.args[3].toString());
-        const confidence = BigInt(decoded.args[4].toString());
-        const ts = Number(decoded.args[5]);
+        const feedId = log.topics[1];
+        const reportHash = decoded.args[0] as string;
+        const price = BigInt(decoded.args[1].toString());
+        const confidence = BigInt(decoded.args[2].toString());
+        const round = BigInt(decoded.args[3].toString());
+        const signatureCount = Number(decoded.args[4]);
         const feed = feeds.get(feedId) || await ctx.store.get(OracleFeed, feedId);
         const submitter = accountFactory.getOrCreate(log.address.toLowerCase(), header.height, blockTimestamp);
 
-        reports.set(reportId, new OracleReport({
-          id: reportId, reportId, feed, round, price, confidence,
-          timestamp: new Date(ts * 1000), signers: [], signatureCount: 0,
+        reports.set(reportHash, new OracleReport({
+          id: reportHash, reportId: reportHash, feed, round, price, confidence,
+          timestamp: blockTimestamp, signers: [], signatureCount,
           isDisputed: false, isValid: true, submittedAt: blockTimestamp, submittedBy: submitter,
           txHash, blockNumber: header.height,
         }));
@@ -247,18 +293,20 @@ export async function processOracleEvents(ctx: ProcessorContext<Store>): Promise
           feed.totalReports++;
           feed.latestPrice = price;
           feed.latestConfidence = confidence;
-          feed.latestTimestamp = new Date(ts * 1000);
+          feed.latestTimestamp = blockTimestamp;
           feed.latestRound = round;
           feed.lastUpdated = blockTimestamp;
           feeds.set(feedId, feed);
         }
       }
 
-      if (eventSig === EVENTS.REPORT_INVALIDATED) {
-        const report = reports.get(log.topics[1]) || await ctx.store.get(OracleReport, log.topics[1]);
+      if (eventSig === EVENTS.REPORT_REJECTED) {
+        const feedId = log.topics[1];
+        const reportHash = log.topics[2];
+        const report = reports.get(reportHash) || await ctx.store.get(OracleReport, reportHash);
         if (report) {
           report.isValid = false;
-          reports.set(log.topics[1], report);
+          reports.set(reportHash, report);
         }
       }
 
@@ -266,14 +314,21 @@ export async function processOracleEvents(ctx: ProcessorContext<Store>): Promise
       if (eventSig === EVENTS.DISPUTE_OPENED) {
         const decoded = ABI.dispute.parseLog({ topics: log.topics, data: log.data });
         if (!decoded) continue;
-        const [disputeId, reportId, disputerAddr] = decoded.args as unknown as [string, string, string];
+        const disputeId = log.topics[1];
+        const reportHash = decoded.args[0] as string;
+        const feedId = decoded.args[1] as string;
+        const disputerAddr = (decoded.args[2] as string).toLowerCase();
         const bond = BigInt(decoded.args[3].toString());
-        const reason = decoded.args[4] as string;
-        const report = reports.get(reportId) || await ctx.store.get(OracleReport, reportId);
+        const reasonCode = Number(decoded.args[4]);
+        const reasonLabels = ['PRICE_DEVIATION', 'STALE_DATA', 'INVALID_SIGNATURES', 'SOURCE_MANIPULATION', 'OTHER'];
+        const reason = reasonLabels[reasonCode] || 'UNKNOWN';
+
+        const report = reports.get(reportHash) || await ctx.store.get(OracleReport, reportHash);
+        const feed = feeds.get(feedId) || await ctx.store.get(OracleFeed, feedId);
         const disputer = accountFactory.getOrCreate(disputerAddr, header.height, blockTimestamp);
 
         const dispute = new OracleDispute({
-          id: disputeId, disputeId, report, feed: report?.feed, disputer, bond, reason,
+          id: disputeId, disputeId, report, feed, disputer, bond, reason,
           status: OracleDisputeStatus.OPEN, openedAt: blockTimestamp,
           challengeDeadline: new Date(blockTimestamp.getTime() + 86400000),
           txHash, blockNumber: header.height,
@@ -283,23 +338,23 @@ export async function processOracleEvents(ctx: ProcessorContext<Store>): Promise
         if (report) {
           report.isDisputed = true;
           report.dispute = dispute;
-          reports.set(reportId, report);
-          if (report.feed) {
-            const feed = feeds.get(report.feed.id) || await ctx.store.get(OracleFeed, report.feed.id);
-            if (feed) { feed.totalDisputes++; feeds.set(feed.id, feed); }
-          }
+          reports.set(reportHash, report);
+        }
+        if (feed) {
+          feed.totalDisputes++;
+          feeds.set(feedId, feed);
         }
       }
 
       if (eventSig === EVENTS.DISPUTE_CHALLENGED) {
         const decoded = ABI.dispute.parseLog({ topics: log.topics, data: log.data });
         if (!decoded) continue;
-        const disputeId = decoded.args[0] as string;
+        const disputeId = log.topics[1];
         const dispute = disputes.get(disputeId) || await ctx.store.get(OracleDispute, disputeId);
         if (dispute) {
           dispute.status = OracleDisputeStatus.CHALLENGED;
-          dispute.challenger = accountFactory.getOrCreate(decoded.args[1] as string, header.height, blockTimestamp);
-          dispute.challengeBond = BigInt(decoded.args[2].toString());
+          dispute.challenger = accountFactory.getOrCreate((decoded.args[0] as string).toLowerCase(), header.height, blockTimestamp);
+          dispute.challengeBond = BigInt(decoded.args[1].toString());
           disputes.set(disputeId, dispute);
         }
       }
@@ -307,24 +362,35 @@ export async function processOracleEvents(ctx: ProcessorContext<Store>): Promise
       if (eventSig === EVENTS.DISPUTE_RESOLVED) {
         const decoded = ABI.dispute.parseLog({ topics: log.topics, data: log.data });
         if (!decoded) continue;
-        const disputeId = decoded.args[0] as string;
+        const disputeId = log.topics[1];
         const dispute = disputes.get(disputeId) || await ctx.store.get(OracleDispute, disputeId);
         if (dispute) {
           dispute.status = OracleDisputeStatus.RESOLVED;
           dispute.resolvedAt = blockTimestamp;
-          const outcome = Number(decoded.args[1]);
+          const outcome = Number(decoded.args[0]);
           dispute.outcome = outcome === 0 ? OracleDisputeOutcome.VALID : 
                            outcome === 1 ? OracleDisputeOutcome.INVALID : OracleDisputeOutcome.PENDING;
-          dispute.slashedAmount = BigInt(decoded.args[2].toString());
+          dispute.slashedAmount = BigInt(decoded.args[1].toString());
           disputes.set(disputeId, dispute);
         }
       }
 
       if (eventSig === EVENTS.DISPUTE_ESCALATED) {
-        const dispute = disputes.get(log.topics[1]) || await ctx.store.get(OracleDispute, log.topics[1]);
+        const disputeId = log.topics[1];
+        const dispute = disputes.get(disputeId) || await ctx.store.get(OracleDispute, disputeId);
         if (dispute) {
           dispute.status = OracleDisputeStatus.ESCALATED;
-          disputes.set(log.topics[1], dispute);
+          disputes.set(disputeId, dispute);
+        }
+      }
+
+      if (eventSig === EVENTS.DISPUTE_EXPIRED) {
+        const disputeId = log.topics[1];
+        const dispute = disputes.get(disputeId) || await ctx.store.get(OracleDispute, disputeId);
+        if (dispute) {
+          dispute.status = OracleDisputeStatus.EXPIRED;
+          dispute.resolvedAt = blockTimestamp;
+          disputes.set(disputeId, dispute);
         }
       }
 
@@ -332,55 +398,68 @@ export async function processOracleEvents(ctx: ProcessorContext<Store>): Promise
       if (eventSig === EVENTS.SUBSCRIPTION_CREATED) {
         const decoded = ABI.subscription.parseLog({ topics: log.topics, data: log.data });
         if (!decoded) continue;
-        const subId = BigInt(decoded.args[0].toString());
-        const [startTime, endTime] = [Number(decoded.args[3]), Number(decoded.args[4])];
-        subscriptions.set(subId.toString(), new OracleSubscription({
-          id: subId.toString(), subscriptionId: subId,
-          subscriber: accountFactory.getOrCreate(decoded.args[1] as string, header.height, blockTimestamp),
-          feedIds: decoded.args[2] as string[],
-          startTime: new Date(startTime * 1000), endTime: new Date(endTime * 1000),
-          monthsPaid: Math.ceil((endTime - startTime) / 2592000),
-          totalPaid: 0n, isActive: true, createdAt: blockTimestamp, txHash,
+        const subId = log.topics[1];
+        const subscriberAddr = ('0x' + log.topics[2].slice(26)).toLowerCase();
+        const feedIdsList = decoded.args[0] as string[];
+        const duration = Number(decoded.args[1]);
+        const amountPaid = BigInt(decoded.args[2].toString());
+
+        subscriptions.set(subId, new OracleSubscription({
+          id: subId, subscriptionId: BigInt(subId),
+          subscriber: accountFactory.getOrCreate(subscriberAddr, header.height, blockTimestamp),
+          feedIds: feedIdsList,
+          startTime: blockTimestamp, 
+          endTime: new Date(blockTimestamp.getTime() + duration * 30 * 24 * 60 * 60 * 1000),
+          monthsPaid: duration,
+          totalPaid: amountPaid, isActive: true, createdAt: blockTimestamp, txHash,
         }));
       }
 
       if (eventSig === EVENTS.SUBSCRIPTION_CANCELLED) {
-        const id = BigInt(log.topics[1]).toString();
-        const sub = subscriptions.get(id) || await ctx.store.get(OracleSubscription, id);
+        const subId = log.topics[1];
+        const sub = subscriptions.get(subId) || await ctx.store.get(OracleSubscription, subId);
         if (sub) {
           sub.isActive = false;
           sub.cancelledAt = blockTimestamp;
-          subscriptions.set(id, sub);
+          subscriptions.set(subId, sub);
+        }
+      }
+
+      if (eventSig === EVENTS.REWARDS_CLAIMED) {
+        const operatorId = log.topics[1];
+        const op = operators.get(operatorId) || await ctx.store.get(OracleOperator, operatorId);
+        if (op) {
+          op.lastActiveAt = blockTimestamp;
+          operators.set(operatorId, op);
         }
       }
 
       // Attestation Events
-      if (eventSig === EVENTS.ATTESTATION_SUBMITTED) {
-        const decoded = ABI.attestation.parseLog({ topics: log.topics, data: log.data });
+      if (eventSig === EVENTS.ATTESTATION_WRITTEN) {
+        const decoded = ABI.connector.parseLog({ topics: log.topics, data: log.data });
         if (!decoded) continue;
-        const addr = (decoded.args[0] as string).toLowerCase();
-        const epoch = BigInt(decoded.args[1].toString());
-        const [feedsServed, reportsSubmitted, reportsAccepted, disputesReceived] = 
-          [2, 3, 4, 5].map(i => Number(decoded.args[i]));
-        const op = operators.get(addr) || await ctx.store.get(OracleOperator, addr);
+        const operatorId = log.topics[1];
+        const agentId = BigInt(log.topics[2]);
+        const tag = decoded.args[0] as string;
+        const score = Number(decoded.args[1]);
+        const op = operators.get(operatorId) || await ctx.store.get(OracleOperator, operatorId);
 
         if (op) {
-          const participationScore = feedsServed > 0 ? Math.min(10000, feedsServed * 100) : 0;
-          const accuracyScore = reportsSubmitted > 0 ? Math.floor((reportsAccepted / reportsSubmitted) * 10000) : 0;
-          const attestationId = `${epoch}-${addr}`;
+          const attestationId = `${operatorId}-${tag}-${header.height}`;
+          const epoch = BigInt(Math.floor(header.height / 7200)); // Approximate epoch from block
 
           attestations.set(attestationId, new OracleAttestation({
-            id: attestationId, operator: op, epoch, feedsServed, reportsSubmitted, reportsAccepted,
-            disputesReceived, participationScore, accuracyScore, attestedAt: blockTimestamp, txHash,
+            id: attestationId, operator: op, epoch, feedsServed: 0, reportsSubmitted: 0, reportsAccepted: 0,
+            disputesReceived: 0, participationScore: score > 0 ? score * 100 : 0, accuracyScore: 10000, 
+            attestedAt: blockTimestamp, txHash,
           }));
 
-          op.reportsSubmitted += reportsSubmitted;
-          op.reportsAccepted += reportsAccepted;
-          op.disputesAgainst += disputesReceived;
-          op.participationScore = participationScore;
-          op.accuracyScore = accuracyScore;
+          // Update operator scores based on tag
+          if (tag.includes('participation')) op.participationScore = Math.max(0, Math.min(10000, 5000 + score * 100));
+          if (tag.includes('accuracy')) op.accuracyScore = Math.max(0, Math.min(10000, 5000 + score * 100));
+          if (tag.includes('uptime')) op.uptimeScore = Math.max(0, Math.min(10000, 5000 + score * 100));
           op.lastActiveAt = blockTimestamp;
-          operators.set(addr, op);
+          operators.set(operatorId, op);
         }
       }
     }

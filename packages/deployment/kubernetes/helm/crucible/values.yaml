@@ -76,11 +76,14 @@ config:
     triggerRegistry: "0x0000000000000000000000000000000000000000"
     identityRegistry: "0x0000000000000000000000000000000000000000"
     serviceRegistry: "0x0000000000000000000000000000000000000000"
+    autocratTreasury: "0x0000000000000000000000000000000000000000"
   services:
     computeMarketplace: http://compute:80
     storageApi: http://storage:80
     ipfsGateway: http://ipfs:8080
     indexerGraphql: http://indexer:4350/graphql
+    cqlEndpoint: http://covenantsql:8546
+    dexCacheUrl: http://storage:80/cache
 
 secrets:
   privateKey: ""

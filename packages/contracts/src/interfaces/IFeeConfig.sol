@@ -97,3 +97,4 @@ interface IFeeConfig {
     event FeeChangeExecuted(bytes32 indexed changeId);
     event FeeChangeCancelled(bytes32 indexed changeId);
 }
+

@@ -424,3 +424,4 @@ export function handleAgentCard(): NextResponse {
   return NextResponse.json(BAZAAR_AGENT_CARD);
 }
 
+

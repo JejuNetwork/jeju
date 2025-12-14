@@ -1,18 +1,18 @@
 /**
  * CovenantSQL Adapter - Decentralized storage database with memory fallback.
+ * 
+ * WARNING: Memory mode is NOT persistent. Data is lost on restart.
+ * Set CQL_BLOCK_PRODUCER_ENDPOINT for production use.
  */
 
 export interface CQLConfig {
-  /** Block producer endpoint */
   blockProducerEndpoint: string;
-  /** Database ID */
   databaseId: string;
-  /** Private key for authentication */
   privateKey: string;
-  /** Connection timeout in ms */
   timeout: number;
-  /** Enable query logging */
   logging: boolean;
+  /** If true, throw instead of falling back to memory mode */
+  strictMode: boolean;
 }
 
 export interface Pin {
@@ -51,94 +51,99 @@ export class CQLDatabase {
       privateKey: config?.privateKey ?? process.env.CQL_PRIVATE_KEY ?? '',
       timeout: config?.timeout ?? 30000,
       logging: config?.logging ?? process.env.CQL_LOGGING === 'true',
+      strictMode: config?.strictMode ?? process.env.CQL_STRICT_MODE === 'true',
     };
-
     this.mode = this.config.blockProducerEndpoint ? 'cql' : 'memory';
+    
+    if (this.mode === 'memory') {
+      console.warn('[CQL] WARNING: No CQL_BLOCK_PRODUCER_ENDPOINT configured. Using in-memory storage.');
+      console.warn('[CQL] WARNING: Data will NOT persist across restarts.');
+    }
   }
 
   async initialize(): Promise<void> {
     if (this.initialized) return;
-
-    if (this.mode === 'cql' && !await this.healthCheck()) {
-      console.warn('[CQL] Connection failed, using memory mode');
-      this.mode = 'memory';
+    
+    if (this.mode === 'cql') {
+      const health = await this.healthCheck();
+      if (!health.healthy) {
+        if (this.config.strictMode) {
+          throw new Error(`[CQL] Connection failed (${health.error}) and strictMode is enabled. Set CQL_BLOCK_PRODUCER_ENDPOINT correctly.`);
+        }
+        console.error('[CQL] ERROR: CovenantSQL connection failed. Falling back to memory mode.');
+        console.error(`[CQL] ERROR: ${health.error}`);
+        console.error('[CQL] ERROR: This means your data will NOT persist. Fix your CQL configuration.');
+        this.mode = 'memory';
+      } else {
+        console.log(`[CQL] Connected to CovenantSQL (latency: ${health.latencyMs}ms)`);
+      }
     }
-
+    
     this.initialized = true;
     console.log(`[CQL] Initialized in ${this.mode} mode`);
   }
 
-  async healthCheck(): Promise<boolean> {
-    if (this.mode === 'memory') return true;
+  /** Returns current storage mode */
+  getMode(): 'cql' | 'memory' { return this.mode; }
 
-    const response = await fetch(`${this.config.blockProducerEndpoint}/v1/health`, {
-      signal: AbortSignal.timeout(5000),
-    }).catch((e: Error) => {
-      console.warn('[CQL] Health check failed:', e.message);
-      return null;
-    });
-    
-    return response?.ok ?? false;
+  /** Returns true if using non-persistent memory storage */
+  isMemoryMode(): boolean { return this.mode === 'memory'; }
+
+  async healthCheck(): Promise<{ healthy: boolean; error?: string; latencyMs?: number }> {
+    if (this.mode === 'memory') {
+      return { healthy: true, latencyMs: 0 };
+    }
+
+    const startTime = Date.now();
+    try {
+      const response = await fetch(`${this.config.blockProducerEndpoint}/v1/health`, {
+        signal: AbortSignal.timeout(5000),
+      });
+      const latencyMs = Date.now() - startTime;
+      
+      if (!response.ok) {
+        const error = `Health check returned ${response.status}: ${response.statusText}`;
+        console.error(`[CQL] ${error}`);
+        return { healthy: false, error, latencyMs };
+      }
+      
+      return { healthy: true, latencyMs };
+    } catch (e) {
+      const error = (e as Error).message;
+      console.error(`[CQL] Health check failed: ${error}`);
+      return { healthy: false, error, latencyMs: Date.now() - startTime };
+    }
   }
 
   async createPin(data: Omit<Pin, 'id'>): Promise<string> {
     if (this.mode === 'memory') {
       const id = this.nextId++;
-      const pin: Pin = { ...data, id };
-      this.inMemory.set(id.toString(), pin);
+      this.inMemory.set(id.toString(), { ...data, id });
       return id.toString();
     }
 
     const result = await this.query<{ lastInsertId: string }>(
       `INSERT INTO pins (cid, name, status, size_bytes, created, expires_at, origins, metadata, paid_amount, payment_token, payment_tx_hash, owner_address)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-       RETURNING id`,
-      [
-        data.cid,
-        data.name,
-        data.status,
-        data.sizeBytes,
-        data.created.toISOString(),
-        data.expiresAt?.toISOString(),
-        data.origins ? JSON.stringify(data.origins) : null,
-        data.metadata ? JSON.stringify(data.metadata) : null,
-        data.paidAmount,
-        data.paymentToken,
-        data.paymentTxHash,
-        data.ownerAddress,
-      ]
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
+      [data.cid, data.name, data.status, data.sizeBytes, data.created.toISOString(),
+       data.expiresAt?.toISOString(), data.origins ? JSON.stringify(data.origins) : null,
+       data.metadata ? JSON.stringify(data.metadata) : null, data.paidAmount,
+       data.paymentToken, data.paymentTxHash, data.ownerAddress]
     );
-
-    return result.lastInsertId;
+    return result!.lastInsertId;
   }
 
   async getPin(id: string): Promise<Pin | null> {
-    if (this.mode === 'memory') {
-      return this.inMemory.get(id) ?? null;
-    }
-
-    const result = await this.query<Pin>(
-      'SELECT * FROM pins WHERE id = $1',
-      [parseInt(id, 10)]
-    );
-
-    return result ?? null;
+    if (this.mode === 'memory') return this.inMemory.get(id) ?? null;
+    return this.query<Pin>('SELECT * FROM pins WHERE id = $1', [parseInt(id, 10)]);
   }
 
   async getPinByCid(cid: string): Promise<Pin | null> {
     if (this.mode === 'memory') {
-      for (const pin of this.inMemory.values()) {
-        if (pin.cid === cid) return pin;
-      }
+      for (const pin of this.inMemory.values()) if (pin.cid === cid) return pin;
       return null;
     }
-
-    const result = await this.query<Pin>(
-      'SELECT * FROM pins WHERE cid = $1',
-      [cid]
-    );
-
-    return result ?? null;
+    return this.query<Pin>('SELECT * FROM pins WHERE cid = $1', [cid]);
   }
 
   async listPins(options: { cid?: string; status?: string; limit?: number; offset?: number } = {}): Promise<Pin[]> {
@@ -151,88 +156,44 @@ export class CQLDatabase {
       return pins.slice(offset, offset + limit);
     }
 
-    let sql = 'SELECT * FROM pins';
-    const params: unknown[] = [];
     const conditions: string[] = [];
+    const params: unknown[] = [];
+    if (cid) { conditions.push(`cid = $${params.length + 1}`); params.push(cid); }
+    if (status) { conditions.push(`status = $${params.length + 1}`); params.push(status); }
 
-    if (cid) {
-      conditions.push(`cid = $${params.length + 1}`);
-      params.push(cid);
-    }
-    if (status) {
-      conditions.push(`status = $${params.length + 1}`);
-      params.push(status);
-    }
-
-    if (conditions.length > 0) {
-      sql += ' WHERE ' + conditions.join(' AND ');
-    }
-
-    sql += ` ORDER BY created DESC LIMIT ${limit} OFFSET ${offset}`;
-
-    return this.queryAll<Pin>(sql, params);
+    const where = conditions.length ? ' WHERE ' + conditions.join(' AND ') : '';
+    return this.queryAll<Pin>(`SELECT * FROM pins${where} ORDER BY created DESC LIMIT ${limit} OFFSET ${offset}`, params);
   }
 
   async updatePin(id: string, data: Partial<Pin>): Promise<void> {
     if (this.mode === 'memory') {
       const pin = this.inMemory.get(id);
-      if (pin) {
-        this.inMemory.set(id, { ...pin, ...data });
-      }
+      if (pin) this.inMemory.set(id, { ...pin, ...data });
       return;
     }
 
     const sets: string[] = [];
     const params: unknown[] = [];
-
-    if (data.status !== undefined) {
-      sets.push(`status = $${params.length + 1}`);
-      params.push(data.status);
-    }
-    if (data.sizeBytes !== undefined) {
-      sets.push(`size_bytes = $${params.length + 1}`);
-      params.push(data.sizeBytes);
-    }
-    if (data.expiresAt !== undefined) {
-      sets.push(`expires_at = $${params.length + 1}`);
-      params.push(data.expiresAt?.toISOString());
-    }
-
+    if (data.status !== undefined) { sets.push(`status = $${params.length + 1}`); params.push(data.status); }
+    if (data.sizeBytes !== undefined) { sets.push(`size_bytes = $${params.length + 1}`); params.push(data.sizeBytes); }
+    if (data.expiresAt !== undefined) { sets.push(`expires_at = $${params.length + 1}`); params.push(data.expiresAt?.toISOString()); }
     if (sets.length === 0) return;
 
     params.push(parseInt(id, 10));
-    await this.query(
-      `UPDATE pins SET ${sets.join(', ')} WHERE id = $${params.length}`,
-      params
-    );
+    await this.query(`UPDATE pins SET ${sets.join(', ')} WHERE id = $${params.length}`, params);
   }
 
   async deletePin(id: string): Promise<void> {
-    if (this.mode === 'memory') {
-      this.inMemory.delete(id);
-      return;
-    }
-
+    if (this.mode === 'memory') { this.inMemory.delete(id); return; }
     await this.query('DELETE FROM pins WHERE id = $1', [parseInt(id, 10)]);
   }
 
   async countPins(status?: string): Promise<number> {
     if (this.mode === 'memory') {
-      if (status) {
-        return Array.from(this.inMemory.values()).filter(p => p.status === status).length;
-      }
-      return this.inMemory.size;
+      return status ? Array.from(this.inMemory.values()).filter(p => p.status === status).length : this.inMemory.size;
     }
-
-    let sql = 'SELECT COUNT(*) as count FROM pins';
-    const params: unknown[] = [];
-
-    if (status) {
-      sql += ' WHERE status = $1';
-      params.push(status);
-    }
-
-    const result = await this.query<{ count: number }>(sql, params);
+    const sql = status ? 'SELECT COUNT(*) as count FROM pins WHERE status = $1' : 'SELECT COUNT(*) as count FROM pins';
+    const result = await this.query<{ count: number }>(sql, status ? [status] : []);
     return result?.count ?? 0;
   }
 
@@ -241,100 +202,44 @@ export class CQLDatabase {
       const pins = Array.from(this.inMemory.values());
       const totalPins = pins.filter(p => p.status === 'pinned').length;
       const totalSizeBytes = pins.reduce((sum, p) => sum + (p.sizeBytes ?? 0), 0);
-      return {
-        totalPins,
-        totalSizeBytes,
-        totalSizeGB: totalSizeBytes / (1024 ** 3),
-      };
+      return { totalPins, totalSizeBytes, totalSizeGB: totalSizeBytes / (1024 ** 3) };
     }
 
-    const countResult = await this.query<{ count: number }>(
-      "SELECT COUNT(*) as count FROM pins WHERE status = 'pinned'"
-    );
-    const totalPins = countResult?.count ?? 0;
-
-    const sizeResult = await this.query<{ total: number }>(
-      'SELECT COALESCE(SUM(size_bytes), 0) as total FROM pins'
-    );
+    const countResult = await this.query<{ count: number }>("SELECT COUNT(*) as count FROM pins WHERE status = 'pinned'");
+    const sizeResult = await this.query<{ total: number }>('SELECT COALESCE(SUM(size_bytes), 0) as total FROM pins');
     const totalSizeBytes = sizeResult?.total ?? 0;
-
-    return {
-      totalPins,
-      totalSizeBytes,
-      totalSizeGB: totalSizeBytes / (1024 ** 3),
-    };
+    return { totalPins: countResult?.count ?? 0, totalSizeBytes, totalSizeGB: totalSizeBytes / (1024 ** 3) };
   }
 
   private async query<T>(sql: string, params: unknown[] = []): Promise<T | null> {
-    if (this.mode === 'memory') {
-      return null;
-    }
+    if (this.mode === 'memory') return null;
+    if (this.config.logging) console.log(`[CQL] ${sql}`, params);
 
-    if (this.config.logging) {
-      console.log(`[CQL] ${sql}`, params);
-    }
+    const response = await fetch(`${this.config.blockProducerEndpoint}/v1/query`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Database-ID': this.config.databaseId, 'X-Private-Key': this.config.privateKey },
+      body: JSON.stringify({ sql, params }),
+      signal: AbortSignal.timeout(this.config.timeout),
+    });
 
-    try {
-      const response = await fetch(`${this.config.blockProducerEndpoint}/v1/query`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Database-ID': this.config.databaseId,
-          'X-Private-Key': this.config.privateKey,
-        },
-        body: JSON.stringify({ sql, params }),
-        signal: AbortSignal.timeout(this.config.timeout),
-      });
-
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`CQL query failed: ${error}`);
-      }
-
-      const data = await response.json() as { rows: T[] };
-      return data.rows[0] ?? null;
-    } catch (error) {
-      if (this.config.logging) {
-        console.error('[CQL] Query error:', error);
-      }
-      throw error;
-    }
+    if (!response.ok) throw new Error(`CQL query failed: ${await response.text()}`);
+    const data = await response.json() as { rows: T[] };
+    return data.rows[0] ?? null;
   }
 
   private async queryAll<T>(sql: string, params: unknown[] = []): Promise<T[]> {
-    if (this.mode === 'memory') {
-      return [];
-    }
+    if (this.mode === 'memory') return [];
+    if (this.config.logging) console.log(`[CQL] ${sql}`, params);
 
-    if (this.config.logging) {
-      console.log(`[CQL] ${sql}`, params);
-    }
+    const response = await fetch(`${this.config.blockProducerEndpoint}/v1/query`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Database-ID': this.config.databaseId, 'X-Private-Key': this.config.privateKey },
+      body: JSON.stringify({ sql, params }),
+      signal: AbortSignal.timeout(this.config.timeout),
+    });
 
-    try {
-      const response = await fetch(`${this.config.blockProducerEndpoint}/v1/query`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Database-ID': this.config.databaseId,
-          'X-Private-Key': this.config.privateKey,
-        },
-        body: JSON.stringify({ sql, params }),
-        signal: AbortSignal.timeout(this.config.timeout),
-      });
-
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`CQL query failed: ${error}`);
-      }
-
-      const data = await response.json() as { rows: T[] };
-      return data.rows;
-    } catch (error) {
-      if (this.config.logging) {
-        console.error('[CQL] Query error:', error);
-      }
-      throw error;
-    }
+    if (!response.ok) throw new Error(`CQL query failed: ${await response.text()}`);
+    return ((await response.json()) as { rows: T[] }).rows;
   }
 
   async close(): Promise<void> {
@@ -345,19 +250,12 @@ export class CQLDatabase {
 
 let globalDB: CQLDatabase | null = null;
 
-/**
- * Get or create global CQL database
- */
 export function getCQLDatabase(config?: Partial<CQLConfig>): CQLDatabase {
   if (globalDB) return globalDB;
-
   globalDB = new CQLDatabase(config);
   return globalDB;
 }
 
-/**
- * Reset global database (for testing)
- */
 export function resetCQLDatabase(): void {
   globalDB = null;
 }

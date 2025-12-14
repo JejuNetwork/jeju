@@ -77,3 +77,4 @@ export function createFullRegistryApp(config?: Partial<RegistryConfig>): Hono {
   return app;
 }
 
+

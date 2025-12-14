@@ -33,7 +33,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'bun:test';
-import { ethers } from 'ethers';
+import { ethers, type InterfaceAbi } from 'ethers';
 import {
   JEJU_LOCALNET,
   L1_LOCALNET,
@@ -124,19 +124,19 @@ interface ServiceStatus {
 interface DeployedContracts {
   token?: {
     address: string;
-    abi: any[];
+    abi: InterfaceAbi;
   };
   oracle?: {
     address: string;
-    abi: any[];
+    abi: InterfaceAbi;
   };
   vault?: {
     address: string;
-    abi: any[];
+    abi: InterfaceAbi;
   };
   paymaster?: {
     address: string;
-    abi: any[];
+    abi: InterfaceAbi;
   };
 }
 
@@ -333,7 +333,7 @@ describe.skipIf(!servicesAvailable)('Runtime Full Stack Integration', () => {
 
       if (data.decodedEvents && data.decodedEvents.length > 0) {
         console.log(`   ✅ Decoded ${data.decodedEvents.length} events`);
-        const eventNames = new Set(data.decodedEvents.map((e: any) => e.eventName));
+        const eventNames = new Set(data.decodedEvents.map((e: { eventName: string }) => e.eventName));
         console.log(`   📋 Event types: ${Array.from(eventNames).join(', ')}`);
       } else {
         console.log(`   ℹ️  No decoded events yet (no token transfers)`);
@@ -683,7 +683,7 @@ async function checkDatabase(name: string, url: string): Promise<boolean> {
 /**
  * Query GraphQL endpoint
  */
-async function queryGraphQL(query: string): Promise<any> {
+async function queryGraphQL(query: string): Promise<Record<string, unknown>> {
   const response = await fetch(CONFIG.indexer.graphqlUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -694,10 +694,14 @@ async function queryGraphQL(query: string): Promise<any> {
     throw new Error(`GraphQL query failed: ${response.statusText}`);
   }
 
-  const result = await response.json();
+  const result = await response.json() as { data?: Record<string, unknown>; errors?: Array<{ message: string }> };
   
   if (result.errors) {
     throw new Error(`GraphQL errors: ${JSON.stringify(result.errors)}`);
+  }
+
+  if (!result.data) {
+    throw new Error('GraphQL response missing data');
   }
 
   return result.data;
@@ -706,7 +710,15 @@ async function queryGraphQL(query: string): Promise<any> {
 /**
  * Get indexer statistics
  */
-async function getIndexerStats() {
+interface IndexerStats {
+  blocks: number;
+  transactions: number;
+  logs: number;
+  contracts: number;
+  accounts: number;
+}
+
+async function getIndexerStats(): Promise<IndexerStats> {
   const queries = [
     'blocks: { blocks { id } }',
     'transactions: { transactions { id } }',
@@ -715,13 +727,21 @@ async function getIndexerStats() {
     'accounts: { accounts { id } }',
   ];
 
-  const stats: any = {};
+  const stats: IndexerStats = {
+    blocks: 0,
+    transactions: 0,
+    logs: 0,
+    contracts: 0,
+    accounts: 0,
+  };
 
   for (const q of queries) {
     const [key, query] = q.split(': ');
     const data = await queryGraphQL(`{ ${query} }`);
     const results = data[Object.keys(data)[0]];
-    stats[key] = results ? results.length : 0;
+    if (key in stats && Array.isArray(results)) {
+      (stats as Record<string, number>)[key] = results.length;
+    }
   }
 
   return stats;

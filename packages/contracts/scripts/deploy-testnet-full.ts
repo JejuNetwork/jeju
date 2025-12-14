@@ -58,10 +58,15 @@ function runForgeScript(script: string, rpcUrl: string, additionalArgs: string[]
       maxBuffer: 10 * 1024 * 1024,
     });
     return output;
-  } catch (error: any) {
-    console.error("Script failed:", error.message);
-    if (error.stdout) console.log("Stdout:", error.stdout);
-    if (error.stderr) console.error("Stderr:", error.stderr);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("Script failed:", message);
+    if (error && typeof error === 'object' && 'stdout' in error) {
+      console.log("Stdout:", (error as { stdout?: string }).stdout);
+    }
+    if (error && typeof error === 'object' && 'stderr' in error) {
+      console.error("Stderr:", (error as { stderr?: string }).stderr);
+    }
     throw error;
   }
 }

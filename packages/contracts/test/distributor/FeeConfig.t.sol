@@ -258,3 +258,4 @@ contract FeeConfigTest is Test {
         assertEq(feeConfig.version(), "1.0.0");
     }
 }
+

@@ -1,29 +1,26 @@
 /**
- * @jeju/kms - Decentralized Key Management System
+ * @jeju/kms - Key Management System
  *
- * Unified interface for key management across:
- * - Lit Protocol (distributed threshold cryptography)
- * - TEE (hardware-secured enclaves)
- * - MPC (multi-party computation)
+ * Unified interface for key management:
+ * - MPC: Threshold key sharing (Shamir's Secret Sharing)
+ * - TEE: Hardware enclaves (set TEE_ENDPOINT for production)
+ * - Encryption: AES-256-GCM with policy-based access
+ * 
+ * Self-hosted - no external APIs or fees.
  *
  * @example
  * ```typescript
- * import { getKMS, encryptForAgent, decrypt } from '@jeju/kms';
+ * import { getKMS } from '@jeju/kms';
  *
- * // Initialize KMS
  * const kms = getKMS();
  * await kms.initialize();
  *
- * // Encrypt data for an agent owner
- * const encrypted = await encryptForAgent(
- *   JSON.stringify({ secret: 'data' }),
- *   REGISTRY_ADDRESS,
- *   'base-sepolia',
- *   123
- * );
+ * const encrypted = await kms.encrypt({
+ *   data: JSON.stringify({ secret: 'data' }),
+ *   policy: { conditions: [{ type: 'timestamp', value: 0 }], operator: 'and' }
+ * });
  *
- * // Decrypt with auth signature
- * const decrypted = await decrypt(encrypted, authSig);
+ * const decrypted = await kms.decrypt({ payload: encrypted });
  * ```
  */
 
@@ -34,11 +31,45 @@ export { KMSService, getKMS, resetKMS } from './kms.js';
 export {
   LitProvider,
   getLitProvider,
+  resetLitProvider,
   TEEProvider,
   getTEEProvider,
+  resetTEEProvider,
   MPCProvider,
   getMPCProvider,
+  resetMPCProvider,
 } from './providers/index.js';
+
+// MPC Coordinator
+export {
+  MPCCoordinator,
+  getMPCCoordinator,
+  resetMPCCoordinator,
+  type MPCParty,
+  type MPCKeyGenParams,
+  type MPCKeyGenResult,
+  type MPCSignRequest,
+  type MPCSignSession,
+  type MPCSignatureResult,
+  type KeyRotationParams,
+  type KeyRotationResult,
+  type KeyVersion,
+  type MPCCoordinatorConfig,
+  DEFAULT_MPC_CONFIG,
+  getMPCConfig,
+} from './mpc/index.js';
+
+// SecretVault
+export {
+  SecretVault,
+  getSecretVault,
+  resetSecretVault,
+  type Secret,
+  type SecretVersion,
+  type SecretPolicy,
+  type SecretAccessLog,
+  type VaultConfig,
+} from './vault/index.js';
 
 // Types
 export {
@@ -91,4 +122,3 @@ export { createLogger, kmsLogger } from './logger.js';
 
 // SDK utilities
 export * from './sdk/index.js';
-

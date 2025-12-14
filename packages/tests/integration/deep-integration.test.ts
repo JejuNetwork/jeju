@@ -15,9 +15,10 @@
 import { describe, it, beforeAll, afterAll, expect } from 'bun:test';
 import { createWalletClient, createPublicClient, http, parseEther } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
+import { JEJU_LOCALNET, TEST_WALLETS } from '../shared/constants';
 
-const RPC_URL = process.env.RPC_URL || 'http://localhost:9545';
-const PRIVATE_KEY = process.env.PRIVATE_KEY as `0x${string}`;
+const RPC_URL = process.env.RPC_URL || JEJU_LOCALNET.rpcUrl;
+const PRIVATE_KEY = (process.env.PRIVATE_KEY || TEST_WALLETS.deployer.privateKey) as `0x${string}`;
 
 // Check if RPC and private key are available
 let servicesAvailable = false;

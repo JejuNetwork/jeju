@@ -34,7 +34,7 @@ interface TestResult {
   name: string;
   passed: boolean;
   message?: string;
-  details?: any;
+  details?: Record<string, unknown>;
 }
 
 const results: TestResult[] = [];

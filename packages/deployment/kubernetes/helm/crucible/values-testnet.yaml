@@ -37,11 +37,18 @@ config:
     triggerRegistry: "0x0000000000000000000000000000000000000000"
     identityRegistry: "0x0000000000000000000000000000000000000000"
     serviceRegistry: "0x0000000000000000000000000000000000000000"
+    autocratTreasury: "0x0000000000000000000000000000000000000000"
   services:
     computeMarketplace: https://testnet-compute.jeju.network
     storageApi: https://testnet-storage.jeju.network
     ipfsGateway: https://testnet-ipfs.jeju.network
     indexerGraphql: https://testnet-indexer.jeju.network/graphql
+    cqlEndpoint: https://testnet-cql.jeju.network
+    dexCacheUrl: https://testnet-storage.jeju.network/cache
+
+bots:
+  enabled: true
+  initializeDefault: true
 
 resources:
   api:

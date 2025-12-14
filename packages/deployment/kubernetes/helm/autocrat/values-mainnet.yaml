@@ -1,0 +1,14 @@
+replicaCount: 3
+
+resources:
+  limits:
+    cpu: 4000m
+    memory: 8Gi
+  requests:
+    cpu: 2000m
+    memory: 4Gi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10

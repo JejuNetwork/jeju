@@ -208,7 +208,7 @@ export interface LitConfig {
 
 export interface TEEConfig {
   provider: 'phala' | 'marlin' | 'oasis';
-  endpoint: string;
+  endpoint?: string;
   apiKey?: string;
   clusterId?: string;
 }
@@ -216,7 +216,7 @@ export interface TEEConfig {
 export interface MPCConfig {
   threshold: number;
   totalParties: number;
-  coordinatorEndpoint: string;
+  coordinatorEndpoint?: string;
 }
 
 export interface KMSConfig {

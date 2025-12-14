@@ -428,11 +428,23 @@ const MCP_PORT = parseInt(process.env.MCP_PORT || '4354');
 
 export async function startMCPServer(): Promise<void> {
   const app = createIndexerMCPServer();
+  const express = await import('express');
+  const expressApp = express.default();
   
-  const server = Bun.serve({
-    port: MCP_PORT,
-    fetch: app.fetch,
+  expressApp.all('*', async (req, res) => {
+    const response = await app.fetch(new Request(`http://${req.headers.host}${req.url}`, {
+      method: req.method,
+      headers: req.headers as HeadersInit,
+      body: req.method !== 'GET' && req.method !== 'HEAD' ? JSON.stringify(req.body) : undefined,
+    }));
+    
+    res.status(response.status);
+    response.headers.forEach((value, key) => res.setHeader(key, value));
+    const body = await response.text();
+    res.send(body);
   });
 
-  console.log(`📡 MCP Server running on http://localhost:${MCP_PORT}`);
+  expressApp.listen(MCP_PORT, () => {
+    console.log(`📡 MCP Server running on http://localhost:${MCP_PORT}`);
+  });
 }

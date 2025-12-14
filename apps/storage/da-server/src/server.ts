@@ -1,12 +1,13 @@
 /**
  * JejuDA HTTP Server
- * Implements OP Stack Alt-DA interface
+ * Implements OP Stack Alt-DA interface with encrypted storage support
  */
 
 import { Hono } from 'hono';
 import { keccak256 } from 'ethers';
 import { IPFSClient } from './ipfs';
 import { CommitmentStore } from './store';
+import { createEncryptedStorageRoutes } from './encrypted-storage';
 import type { PutResponse, HealthResponse, ReadyResponse, Metrics } from './types';
 
 export interface ServerConfig {
@@ -50,6 +51,12 @@ export class DAServer {
   }
 
   private setupRoutes(): void {
+    // ============================================
+    // Encrypted Storage (KMS integration)
+    // ============================================
+    const encryptedRoutes = createEncryptedStorageRoutes();
+    this.app.route('/', encryptedRoutes);
+
     // ============================================
     // Alt-DA Interface (OP Stack spec)
     // ============================================

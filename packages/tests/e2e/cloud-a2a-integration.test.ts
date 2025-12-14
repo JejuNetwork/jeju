@@ -15,9 +15,9 @@ import { Logger } from '../../scripts/shared/logger';
 const logger = new Logger('cloud-a2a-e2e');
 
 // Test server
-let server: any;
+let server: ReturnType<typeof Bun.serve> | null = null;
 let serverPort = 3333;
-let integration: any;
+let integration: { skillId: string; agentId: string } | null = null;
 
 describe('Cloud A2A E2E - Server Setup', () => {
   beforeAll(async () => {
@@ -333,7 +333,7 @@ async function handleA2ARequest(req: Request): Promise<Response> {
       });
     }
     
-    const dataPart = message.parts.find((p: any) => p.kind === 'data');
+    const dataPart = message.parts.find((p: { kind: string; data?: Record<string, unknown> }) => p.kind === 'data');
     if (!dataPart || !dataPart.data) {
       return Response.json({
         jsonrpc: '2.0',
@@ -379,7 +379,7 @@ async function handleA2ARequest(req: Request): Promise<Response> {
   }
 }
 
-async function executeSkill(skillId: string, data: any): Promise<{ message: string; data: any }> {
+async function executeSkill(skillId: string, data: Record<string, unknown>): Promise<{ message: string; data: Record<string, unknown> }> {
   // Simulate different skills
   await new Promise(resolve => setTimeout(resolve, 100)); // Simulate processing
   

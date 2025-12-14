@@ -17,6 +17,8 @@ import { createRoomSDK } from './sdk/room';
 import { createExecutorSDK } from './sdk/executor';
 import { createLogger } from './sdk/logger';
 import { getCharacter, listCharacters } from './characters';
+import { BotInitializer } from './bots/initializer';
+import type { TradingBot } from './bots/trading-bot';
 
 const log = createLogger('Server');
 
@@ -38,12 +40,15 @@ const config: CrucibleConfig = {
     triggerRegistry: (process.env.TRIGGER_REGISTRY_ADDRESS ?? '0x0000000000000000000000000000000000000000') as `0x${string}`,
     identityRegistry: (process.env.IDENTITY_REGISTRY_ADDRESS ?? '0x0000000000000000000000000000000000000000') as `0x${string}`,
     serviceRegistry: (process.env.SERVICE_REGISTRY_ADDRESS ?? '0x0000000000000000000000000000000000000000') as `0x${string}`,
+    autocratTreasury: (process.env.AUTOCRAT_TREASURY_ADDRESS ?? '0x0000000000000000000000000000000000000000') as `0x${string}`,
   },
   services: {
     computeMarketplace: process.env.COMPUTE_MARKETPLACE_URL ?? 'http://127.0.0.1:4007',
     storageApi: process.env.STORAGE_API_URL ?? 'http://127.0.0.1:3100',
     ipfsGateway: process.env.IPFS_GATEWAY ?? 'http://127.0.0.1:3100',
     indexerGraphql: process.env.INDEXER_GRAPHQL_URL ?? 'http://127.0.0.1:4350/graphql',
+    cqlEndpoint: process.env.CQL_ENDPOINT,
+    dexCacheUrl: process.env.DEX_CACHE_URL,
   },
   network: (process.env.NETWORK as 'localnet' | 'testnet' | 'mainnet') ?? 'localnet',
 };
@@ -76,6 +81,29 @@ const agentSdk = createAgentSDK({
 const roomSdk = createRoomSDK({
   crucibleConfig: config, storage, publicClient, walletClient,
 });
+
+// Bot initialization
+let botInitializer: BotInitializer | null = null;
+let tradingBots: Map<bigint, TradingBot> = new Map();
+
+if (config.privateKey && walletClient) {
+  botInitializer = new BotInitializer({
+    crucibleConfig: config,
+    agentSdk,
+    publicClient,
+    walletClient,
+    treasuryAddress: config.contracts.autocratTreasury,
+  });
+  
+  if (process.env.BOTS_ENABLED !== 'false') {
+    botInitializer.initializeDefaultBots()
+      .then(bots => {
+        tradingBots = bots;
+        log.info('Default bots initialized', { count: bots.size });
+      })
+      .catch(err => log.error('Failed to initialize default bots', { error: String(err) }));
+  }
+}
 
 const app = new Hono();
 
@@ -333,6 +361,40 @@ app.post('/api/v1/execute', async (c) => {
       },
     },
   });
+});
+
+// Bot Management
+app.get('/api/v1/bots', async (c) => {
+  const bots = Array.from(tradingBots.entries()).map(([agentId, bot]) => ({
+    agentId: agentId.toString(),
+    metrics: bot.getMetrics(),
+    healthy: bot.isHealthy(),
+  }));
+  return c.json({ bots });
+});
+
+app.get('/api/v1/bots/:agentId/metrics', async (c) => {
+  const agentId = BigInt(c.req.param('agentId'));
+  const bot = tradingBots.get(agentId);
+  if (!bot) return c.json({ error: 'Bot not found' }, 404);
+  return c.json({ metrics: bot.getMetrics() });
+});
+
+app.post('/api/v1/bots/:agentId/stop', async (c) => {
+  const agentId = BigInt(c.req.param('agentId'));
+  const bot = tradingBots.get(agentId);
+  if (!bot) return c.json({ error: 'Bot not found' }, 404);
+  await bot.stop();
+  tradingBots.delete(agentId);
+  return c.json({ success: true });
+});
+
+app.post('/api/v1/bots/:agentId/start', async (c) => {
+  const agentId = BigInt(c.req.param('agentId'));
+  const bot = tradingBots.get(agentId);
+  if (!bot) return c.json({ error: 'Bot not found' }, 404);
+  await bot.start();
+  return c.json({ success: true });
 });
 
 // Search

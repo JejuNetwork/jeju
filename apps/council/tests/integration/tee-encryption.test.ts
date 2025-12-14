@@ -77,7 +77,7 @@ describe('TEE Encryption', () => {
   });
 });
 
-describe('Lit Protocol Fallback Encryption', () => {
+describe('Jeju KMS Encryption', () => {
   let lit: typeof import('../../src/lit-encryption');
 
   beforeAll(async () => {
@@ -89,27 +89,28 @@ describe('Lit Protocol Fallback Encryption', () => {
     councilVotes: [], model: 'test', timestamp: Date.now(),
   });
 
-  test('getLitStatus returns fallback mode without Lit', () => {
+  test('getLitStatus shows in-house KMS connected', () => {
     const status = lit.getLitStatus();
-    expect(status.connected).toBe(false);
-    expect(status.fallbackMode).toBe(true);
-    console.log('✅ Lit Protocol: fallback mode');
+    expect(status.connected).toBe(true);
+    expect(status.fallbackMode).toBe(false);
+    expect(status.network).toBe('jeju-kms');
+    console.log('✅ In-house KMS: connected');
   });
 
-  test('encryptDecision works in fallback mode', async () => {
+  test('encryptDecision works with in-house encryption', async () => {
     const encrypted = await lit.encryptDecision(makeDecision('test-encrypt'));
     expect(encrypted.dataToEncryptHash).toMatch(/^0x[a-fA-F0-9]{64}$/);
     expect(encrypted.accessControlConditions.length).toBeGreaterThan(0);
-    console.log('✅ Encrypted with fallback');
+    console.log('✅ Encrypted with in-house KMS');
   });
 
-  test('decryptDecision works in fallback mode', async () => {
+  test('decryptDecision works with in-house encryption', async () => {
     const encrypted = await lit.encryptDecision(makeDecision('test-decrypt', false));
     const decrypted = await lit.decryptDecision(encrypted);
-    expect(decrypted.verified).toBe(false);
+    expect(decrypted.verified).toBe(true); // In-house KMS always verifies
     const parsed = lit.parseDecisionData(decrypted.decryptedString);
     expect(parsed.proposalId).toBe('test-decrypt');
-    console.log('✅ Decrypted in fallback mode');
+    console.log('✅ Decrypted with in-house KMS');
   });
 
   test('accessControlConditions reference proposal', async () => {

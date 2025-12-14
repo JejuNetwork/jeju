@@ -1,0 +1,44 @@
+---
+description: TypeScript type safety rules
+alwaysApply: true
+---
+
+NEVER use `any` type. Always use proper TypeScript types.
+
+NEVER use `unknown` type unless absolutely necessary. Prefer specific types, union types, or generics instead.
+
+When `unknown` is absolutely necessary (e.g., parsing JSON from external APIs where the structure is truly unknown), use type guards or type assertions with proper validation.
+
+Examples of what NOT to do:
+```typescript
+// BAD - using any
+function processData(data: any) { ... }
+
+// BAD - using unknown when a specific type is known
+function getUser(id: string): unknown { ... }
+
+// BAD - using any for error handling
+catch (error: any) { ... }
+```
+
+Examples of what TO do:
+```typescript
+// GOOD - using specific types
+function processData(data: UserData) { ... }
+
+// GOOD - using union types
+function getUser(id: string): User | null { ... }
+
+// GOOD - using proper error types
+catch (error: Error) { ... }
+
+// GOOD - using unknown only when truly necessary with type guards
+function parseApiResponse(json: string): ApiResponse {
+  const data: unknown = JSON.parse(json);
+  if (isApiResponse(data)) {
+    return data;
+  }
+  throw new Error('Invalid API response');
+}
+```
+

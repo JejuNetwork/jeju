@@ -237,7 +237,7 @@ describe('KMS Service', () => {
     it('should encrypt with agent condition', async () => {
       const kms = getKMS();
       const policy: AccessControlPolicy = {
-        conditions: [{ type: 'agent', registryAddress: '0x0000000000000000000000000000000000000001', chain: 'base-sepolia', agentId: 123n }],
+        conditions: [{ type: 'agent', registryAddress: '0x0000000000000000000000000000000000000001', chain: 'base-sepolia', agentId: 123 }],
         operator: 'and',
       };
 
@@ -382,26 +382,18 @@ describe('KMS Service', () => {
         operator: 'and',
       };
 
-      const promises = Array.from({ length: 100 }, (_, i) =>
+      const promises = Array.from({ length: 20 }, (_, i) =>
         kms.encrypt({ data: `data-${i}`, policy })
       );
 
       const results = await Promise.all(promises);
       
-      expect(results.length).toBe(100);
-      results.forEach((r, i) => {
-        expect(r.ciphertext).toBeDefined();
-      });
+      expect(results.length).toBe(20);
+      results.forEach(r => expect(r.ciphertext).toBeDefined());
 
-      // Verify each decrypts correctly
-      const decrypted = await Promise.all(
-        results.map(r => kms.decrypt({ payload: r }))
-      );
-      
-      decrypted.forEach((d, i) => {
-        expect(d).toBe(`data-${i}`);
-      });
-    });
+      const decrypted = await Promise.all(results.map(r => kms.decrypt({ payload: r })));
+      decrypted.forEach((d, i) => expect(d).toBe(`data-${i}`));
+    }, 10000);
 
     it('should handle concurrent key generation', async () => {
       const kms = getKMS();

@@ -1,0 +1,14 @@
+apiVersion: v2
+name: autocrat
+description: MEV & Arbitrage Bot System - Protocol-owned value extraction
+type: application
+version: 1.0.0
+appVersion: "0.1.0"
+keywords:
+  - mev
+  - arbitrage
+  - trading
+  - bot
+maintainers:
+  - name: Jeju Network
+    email: ops@jeju.network
