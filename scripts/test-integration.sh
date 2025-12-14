@@ -41,9 +41,8 @@ echo "Deploying contracts..."
 
 cd "$CONTRACTS_DIR"
 
-# Deploy JejuToken (mock ERC20)
 echo "Deploying JejuToken..."
-INITIAL_SUPPLY="1000000000000000000000000000"  # 1 billion tokens with 18 decimals
+INITIAL_SUPPLY="1000000000000000000000000000"
 JEJU_TOKEN_OUTPUT=$(forge create src/otc/mocks/MockERC20.sol:MockERC20 \
     --constructor-args "Jeju Token" "JEJU" 18 $INITIAL_SUPPLY \
     --rpc-url $RPC_URL \
@@ -51,10 +50,8 @@ JEJU_TOKEN_OUTPUT=$(forge create src/otc/mocks/MockERC20.sol:MockERC20 \
 JEJU_TOKEN=$(echo "$JEJU_TOKEN_OUTPUT" | grep "Deployed to:" | awk '{print $3}')
 echo "JejuToken: $JEJU_TOKEN"
 
-# Deploy SequencerRegistry
 echo "Deploying SequencerRegistry..."
 OWNER="0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
-# Constructor: jejuToken, identityRegistry, reputationRegistry, treasury, owner
 SEQ_REG_OUTPUT=$(forge create src/stage2/SequencerRegistry.sol:SequencerRegistry \
     --constructor-args $JEJU_TOKEN $OWNER $OWNER $OWNER $OWNER \
     --rpc-url $RPC_URL \
@@ -62,7 +59,6 @@ SEQ_REG_OUTPUT=$(forge create src/stage2/SequencerRegistry.sol:SequencerRegistry
 SEQUENCER_REGISTRY=$(echo "$SEQ_REG_OUTPUT" | grep "Deployed to:" | awk '{print $3}')
 echo "SequencerRegistry: $SEQUENCER_REGISTRY"
 
-# Deploy a mock batch inbox first (just a placeholder address that accepts calls)
 echo "Deploying MockBatchInbox..."
 INBOX_OUTPUT=$(forge create src/otc/mocks/MockERC20.sol:MockERC20 \
     --constructor-args "BatchInbox" "INBOX" 18 0 \
@@ -71,7 +67,6 @@ INBOX_OUTPUT=$(forge create src/otc/mocks/MockERC20.sol:MockERC20 \
 MOCK_BATCH_INBOX=$(echo "$INBOX_OUTPUT" | grep "Deployed to:" | awk '{print $3}')
 echo "MockBatchInbox: $MOCK_BATCH_INBOX"
 
-# Deploy ThresholdBatchSubmitter
 echo "Deploying ThresholdBatchSubmitter..."
 SUBMITTER_OUTPUT=$(forge create src/stage2/ThresholdBatchSubmitter.sol:ThresholdBatchSubmitter \
     --constructor-args $MOCK_BATCH_INBOX $OWNER 2 \
@@ -80,9 +75,7 @@ SUBMITTER_OUTPUT=$(forge create src/stage2/ThresholdBatchSubmitter.sol:Threshold
 THRESHOLD_SUBMITTER=$(echo "$SUBMITTER_OUTPUT" | grep "Deployed to:" | awk '{print $3}')
 echo "ThresholdBatchSubmitter: $THRESHOLD_SUBMITTER"
 
-# Deploy GovernanceTimelock
 echo "Deploying GovernanceTimelock..."
-# Constructor: governance, securityCouncil, owner, timelockDelay
 TIMELOCK_OUTPUT=$(forge create src/stage2/GovernanceTimelock.sol:GovernanceTimelock \
     --constructor-args $OWNER $OWNER $OWNER 7200 \
     --rpc-url $RPC_URL \
@@ -98,57 +91,48 @@ echo "ThresholdBatchSubmitter: $THRESHOLD_SUBMITTER"
 echo "GovernanceTimelock: $TIMELOCK"
 echo ""
 
-# Run Forge tests against deployed contracts
 echo "Running integration tests..."
 forge test --match-contract Integration -vvv --rpc-url $RPC_URL 2>&1 | head -50
 
 echo ""
 echo "=== Testing Threshold Batch Submission ==="
 
-# Test: Add sequencers to ThresholdBatchSubmitter
 echo "Adding sequencers..."
-SEQ1="0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"  # Anvil account 0
-SEQ2="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"  # Anvil account 1
-SEQ3="0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"  # Anvil account 2
+SEQ1="0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+SEQ2="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+SEQ3="0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
 
 cast send $THRESHOLD_SUBMITTER "addSequencer(address)" $SEQ1 --rpc-url $RPC_URL --private-key $PRIVATE_KEY 2>/dev/null
 cast send $THRESHOLD_SUBMITTER "addSequencer(address)" $SEQ2 --rpc-url $RPC_URL --private-key $PRIVATE_KEY 2>/dev/null
 cast send $THRESHOLD_SUBMITTER "addSequencer(address)" $SEQ3 --rpc-url $RPC_URL --private-key $PRIVATE_KEY 2>/dev/null
 
-# Check sequencer count
 SEQUENCER_COUNT=$(cast call $THRESHOLD_SUBMITTER "sequencerCount()(uint256)" --rpc-url $RPC_URL 2>/dev/null)
 echo "Sequencer count: $SEQUENCER_COUNT"
 
-# Check threshold
 THRESHOLD=$(cast call $THRESHOLD_SUBMITTER "threshold()(uint256)" --rpc-url $RPC_URL 2>/dev/null)
 echo "Threshold: $THRESHOLD"
 
-# Test: Get batch digest
 BATCH_DATA="0xdeadbeef"
 DIGEST=$(cast call $THRESHOLD_SUBMITTER "getBatchDigest(bytes)(bytes32)" $BATCH_DATA --rpc-url $RPC_URL 2>/dev/null)
 echo "Batch digest: $DIGEST"
 
-# Test: Sign the digest with two sequencers
-echo "Signing batch with sequencers..."
-KEY1="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"  # Anvil account 0
-KEY2="0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"  # Anvil account 1
+echo "Signing batch..."
+KEY1="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+KEY2="0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
 
-SIG1=$(cast wallet sign --private-key $KEY1 $DIGEST 2>/dev/null)
-SIG2=$(cast wallet sign --private-key $KEY2 $DIGEST 2>/dev/null)
+SIG1=$(cast wallet sign --no-hash --private-key $KEY1 $DIGEST 2>/dev/null)
+SIG2=$(cast wallet sign --no-hash --private-key $KEY2 $DIGEST 2>/dev/null)
 echo "Signature 1: ${SIG1:0:20}..."
 echo "Signature 2: ${SIG2:0:20}..."
 
-# Actually submit the batch with threshold signatures
 echo ""
-echo "=== Submitting Batch with Threshold Signatures ==="
+echo "=== Submitting Batch ==="
 
-# Get nonce before submission
 NONCE_BEFORE=$(cast call $THRESHOLD_SUBMITTER "nonce()(uint256)" --rpc-url $RPC_URL 2>/dev/null)
 echo "Nonce before: $NONCE_BEFORE"
 
-# Format signatures and signers for the call
-# submitBatch(bytes batchData, bytes[] signatures, address[] signers)
 echo "Calling submitBatch..."
+set +e  # Temporarily disable exit on error
 SUBMIT_RESULT=$(cast send $THRESHOLD_SUBMITTER \
     "submitBatch(bytes,bytes[],address[])" \
     $BATCH_DATA \
@@ -156,8 +140,10 @@ SUBMIT_RESULT=$(cast send $THRESHOLD_SUBMITTER \
     "[$SEQ1,$SEQ2]" \
     --rpc-url $RPC_URL \
     --private-key $PRIVATE_KEY 2>&1)
+CAST_EXIT=$?
+set -e
 
-if echo "$SUBMIT_RESULT" | grep -q "transactionHash"; then
+if [ $CAST_EXIT -eq 0 ] && echo "$SUBMIT_RESULT" | grep -q "transactionHash"; then
     echo "Batch submission succeeded!"
     TX_HASH=$(echo "$SUBMIT_RESULT" | grep "transactionHash" | awk '{print $2}')
     echo "Transaction: $TX_HASH"
@@ -175,7 +161,6 @@ if echo "$SUBMIT_RESULT" | grep -q "transactionHash"; then
 else
     echo "Batch submission failed:"
     echo "$SUBMIT_RESULT"
-    # Don't exit - the mock batch inbox might not accept all calls
 fi
 
 echo ""

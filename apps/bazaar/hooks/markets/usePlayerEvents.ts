@@ -7,8 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { request, gql } from 'graphql-request';
-
-const INDEXER_URL = process.env.NEXT_PUBLIC_INDEXER_URL || 'http://localhost:4350/graphql';
+import { INDEXER_URL } from '@/config';
 
 const PLAYER_EVENTS_QUERY = gql`
   query GetPlayerEvents($player: String) {

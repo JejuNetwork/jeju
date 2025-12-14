@@ -38,9 +38,9 @@ describe('PUBLIC_RPCS', () => {
   });
 
   test('all URLs should be valid https URLs', () => {
-    for (const [_chainId, url] of Object.entries(PUBLIC_RPCS)) {
+    for (const url of Object.values(PUBLIC_RPCS)) {
       expect(url).toMatch(/^https:\/\/.+/);
-      expect(url.endsWith('/')).toBe(false); // No trailing slash
+      expect(url.endsWith('/')).toBe(false);
     }
   });
 });

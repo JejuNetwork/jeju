@@ -20,22 +20,22 @@ fi
 TEST_PACKAGES="${1:-./op-batcher/batcher/... ./op-node/rollup/sequencing/...}"
 echo "Testing packages: $TEST_PACKAGES"
 
-# Run tests in Docker
-# op-geth requires Go 1.24+, use gotip for now
+# Run tests in Docker with Go 1.24
 docker run --rm \
     -v "$OP_STAGE2_DIR:/workspace" \
     -w /workspace \
-    golang:1.23-alpine \
+    golang:1.24 \
     sh -c "
-        apk add --no-cache git gcc musl-dev linux-headers
-        # Build only the Stage 2 packages, skip op-geth dependency
+        apt-get update && apt-get install -y git gcc
         cd /workspace
+        echo '=== Tidying Go modules ==='
+        go mod tidy
+        echo '=== Building Stage 2 packages ==='
         go build -v ./op-batcher/batcher/...
         go build -v ./op-node/rollup/sequencing/...
-        echo 'Build successful - running unit tests...'
-        # Test without race detector to avoid op-geth import issues
-        go test -v -count=1 ./op-batcher/batcher/... || true
-        go test -v -count=1 ./op-node/rollup/sequencing/... || true
+        echo '=== Running Stage 2 tests ==='
+        go test -v -count=1 ./op-batcher/batcher/...
+        go test -v -count=1 ./op-node/rollup/sequencing/...
     "
 
 echo "=== Go tests completed ==="

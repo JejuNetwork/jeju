@@ -58,6 +58,7 @@
     "node-fetch": ">=2.6.7"
   },
   "scripts": {
+    "preinstall": "python3 -c 'import distutils' 2>/dev/null || (echo '\\n⚠️  Python distutils not found (required for native modules like better-sqlite3)\\n\\nFix with: pip3 install --user --break-system-packages setuptools\\n' && exit 1)",
     "docs:generate": "typedoc --options packages/config/typedoc.json || echo 'Docs generation skipped (optional)'",
     "postinstall": "bun run build:packages && bun run scripts/setup-apps.ts || echo 'Setup completed with warnings'",
     "build:packages": "cd packages/types && bun run build && cd ../contracts && bun run build || echo 'Package build completed'",

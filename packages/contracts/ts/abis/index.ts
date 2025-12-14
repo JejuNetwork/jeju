@@ -91,7 +91,6 @@ export const LiquidityVaultAbi = LiquidityVaultAbiJson.abi as Abi;
 export const AppTokenPreferenceAbi = AppTokenPreferenceAbiJson.abi as Abi;
 
 // Game ABIs (Hyperscape / forkable game infrastructure)
-// Note: Games use the standard Jeju BanManager for moderation (see moderation/BanManager.sol)
 export const GoldAbi = GoldAbiJson.abi as Abi;
 export const ItemsAbi = ItemsAbiJson.abi as Abi;
 export const GameIntegrationAbi = GameIntegrationAbiJson.abi as Abi;
@@ -194,4 +193,3 @@ export const ERC20WriteAbi = [
     stateMutability: 'nonpayable',
   },
 ] as const;
-

@@ -1,3 +1,6 @@
 {
-  "at": "0x2bdCC0de6bE1f7D2ee689a0342D76F52E8EFABa3"
+  "at": "0x0000000000000000000000000000000000000000",
+  "factory": "0x0000000000000000000000000000000000000000",
+  "chainId": 1337,
+  "_note": "ERC20 factory - populated after deployment"
 }

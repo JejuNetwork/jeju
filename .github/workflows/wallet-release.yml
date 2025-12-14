@@ -1,0 +1,457 @@
+name: Wallet Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.0)'
+        required: true
+      publish_stores:
+        description: 'Publish to app stores'
+        type: boolean
+        default: false
+
+concurrency:
+  group: wallet-release
+  cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: apps/wallet
+
+env:
+  VITE_WALLETCONNECT_PROJECT_ID: ${{ secrets.WALLETCONNECT_PROJECT_ID }}
+  VERSION: ${{ github.event.release.tag_name || github.event.inputs.version }}
+
+jobs:
+  # ============================================
+  # PREPARE RELEASE
+  # ============================================
+  prepare:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      version_code: ${{ steps.version.outputs.version_code }}
+    steps:
+      - name: Parse version
+        id: version
+        run: |
+          VERSION="${{ env.VERSION }}"
+          VERSION="${VERSION#v}"  # Remove 'v' prefix if present
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+          # Generate version code from version (e.g., 1.2.3 -> 10203)
+          IFS='.' read -ra PARTS <<< "$VERSION"
+          MAJOR="${PARTS[0]:-0}"
+          MINOR="${PARTS[1]:-0}"
+          PATCH="${PARTS[2]:-0}"
+          VERSION_CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
+          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+
+  # ============================================
+  # BUILD ALL PLATFORMS
+  # ============================================
+  build-web:
+    name: Build Web
+    runs-on: ubuntu-latest
+    needs: [prepare]
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build web app
+        run: bun run build
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jeju-wallet-web-${{ needs.prepare.outputs.version }}
+          path: apps/wallet/dist
+
+  build-extensions:
+    name: Build Extensions
+    runs-on: ubuntu-latest
+    needs: [prepare]
+    strategy:
+      matrix:
+        target: [chrome, firefox]
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build ${{ matrix.target }} extension
+        run: EXT_TARGET=${{ matrix.target }} bun run build:ext
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jeju-wallet-${{ matrix.target }}-${{ needs.prepare.outputs.version }}
+          path: apps/wallet/dist-ext-${{ matrix.target }}
+
+  build-desktop:
+    name: Build Desktop (${{ matrix.platform }})
+    needs: [prepare]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-arm64
+            os: macos-latest
+            target: aarch64-apple-darwin
+            bundle_type: dmg
+          - platform: macos-x64
+            os: macos-latest
+            target: x86_64-apple-darwin
+            bundle_type: dmg
+          - platform: windows
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundle_type: msi
+          - platform: linux
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            bundle_type: deb
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install system dependencies (Linux)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/wallet/src-tauri
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Update version in Tauri config
+        run: |
+          cd src-tauri
+          sed -i.bak 's/"version": "[^"]*"/"version": "${{ needs.prepare.outputs.version }}"/' tauri.conf.json
+
+      - name: Setup macOS code signing
+        if: matrix.os == 'macos-latest' && secrets.APPLE_CERTIFICATE_BASE64 != ''
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          echo "$APPLE_CERTIFICATE_BASE64" | base64 --decode > certificate.p12
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+
+      - name: Build Tauri app
+        run: bun run tauri build --target ${{ matrix.target }}
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jeju-wallet-${{ matrix.platform }}-${{ needs.prepare.outputs.version }}
+          path: |
+            apps/wallet/src-tauri/target/${{ matrix.target }}/release/bundle/${{ matrix.bundle_type }}/*
+            apps/wallet/src-tauri/target/${{ matrix.target }}/release/bundle/appimage/*.AppImage
+
+  build-android:
+    name: Build Android
+    needs: [prepare]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build web assets
+        run: bun run build
+
+      - name: Sync Capacitor
+        run: bunx cap sync android
+
+      - name: Build Android Release
+        working-directory: apps/wallet/android
+        run: |
+          ./gradlew assembleRelease bundleRelease
+        env:
+          VERSION_CODE: ${{ needs.prepare.outputs.version_code }}
+          VERSION_NAME: ${{ needs.prepare.outputs.version }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: jeju-wallet-android-apk-${{ needs.prepare.outputs.version }}
+          path: apps/wallet/android/app/build/outputs/apk/release/*.apk
+
+      - name: Upload AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: jeju-wallet-android-aab-${{ needs.prepare.outputs.version }}
+          path: apps/wallet/android/app/build/outputs/bundle/release/*.aab
+
+  build-ios:
+    name: Build iOS
+    needs: [prepare]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build web assets
+        run: bun run build
+
+      - name: Sync Capacitor
+        run: bunx cap sync ios
+
+      - name: Update version in Xcode project
+        working-directory: apps/wallet/ios/App
+        run: |
+          agvtool new-marketing-version ${{ needs.prepare.outputs.version }}
+          agvtool new-version -all ${{ needs.prepare.outputs.version_code }}
+
+      - name: Install CocoaPods dependencies
+        working-directory: apps/wallet/ios/App
+        run: pod install
+
+      - name: Setup code signing
+        env:
+          IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+          
+          echo "$IOS_CERTIFICATE_BASE64" | base64 --decode > certificate.p12
+          security import certificate.p12 -k build.keychain -P "$IOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "$IOS_PROVISIONING_PROFILE_BASE64" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+
+      - name: Build iOS Archive
+        working-directory: apps/wallet/ios/App
+        run: |
+          xcodebuild -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -archivePath build/App.xcarchive \
+            archive \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}" \
+            DEVELOPMENT_TEAM="${{ secrets.IOS_TEAM_ID }}"
+
+      - name: Export IPA
+        working-directory: apps/wallet/ios/App
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath build/App.xcarchive \
+            -exportPath build/export \
+            -exportOptionsPlist ../../ExportOptions.plist
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: jeju-wallet-ios-${{ needs.prepare.outputs.version }}
+          path: apps/wallet/ios/App/build/export/*.ipa
+
+  # ============================================
+  # ATTACH TO GITHUB RELEASE
+  # ============================================
+  attach-release:
+    name: Attach to Release
+    runs-on: ubuntu-latest
+    needs: [prepare, build-web, build-extensions, build-desktop, build-android, build-ios]
+    if: github.event_name == 'release'
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release assets
+        run: |
+          cd artifacts
+          for dir in */; do
+            name="${dir%/}"
+            if [ -d "$dir" ]; then
+              zip -r "../${name}.zip" "$dir"
+            fi
+          done
+          mv *.zip ../
+          cd ..
+
+      - name: Attach to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "*.zip"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ============================================
+  # PUBLISH TO STORES
+  # ============================================
+  publish-chrome:
+    name: Publish Chrome Extension
+    runs-on: ubuntu-latest
+    needs: [prepare, build-extensions]
+    if: (github.event_name == 'release' || github.event.inputs.publish_stores) && secrets.CHROME_EXTENSION_ID != ''
+    steps:
+      - name: Download Chrome extension
+        uses: actions/download-artifact@v4
+        with:
+          name: jeju-wallet-chrome-${{ needs.prepare.outputs.version }}
+          path: chrome-ext
+
+      - name: Zip extension
+        run: cd chrome-ext && zip -r ../jeju-wallet-chrome.zip .
+
+      - name: Publish to Chrome Web Store
+        uses: mnao305/chrome-extension-upload@v5.0.0
+        with:
+          file-path: jeju-wallet-chrome.zip
+          extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
+          client-id: ${{ secrets.CHROME_CLIENT_ID }}
+          client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
+          refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
+          publish-target: default
+
+  publish-firefox:
+    name: Publish Firefox Extension
+    runs-on: ubuntu-latest
+    needs: [prepare, build-extensions]
+    if: (github.event_name == 'release' || github.event.inputs.publish_stores) && secrets.FIREFOX_API_KEY != ''
+    steps:
+      - name: Download Firefox extension
+        uses: actions/download-artifact@v4
+        with:
+          name: jeju-wallet-firefox-${{ needs.prepare.outputs.version }}
+          path: firefox-ext
+
+      - name: Zip extension
+        run: cd firefox-ext && zip -r ../jeju-wallet-firefox.zip .
+
+      - name: Publish to Firefox Add-ons
+        uses: yayuyokitano/firefox-addon@v0.0.6-alpha
+        with:
+          api_key: ${{ secrets.FIREFOX_API_KEY }}
+          api_secret: ${{ secrets.FIREFOX_API_SECRET }}
+          guid: '{jeju-wallet@jeju.network}'
+          xpi_path: jeju-wallet-firefox.zip
+
+  publish-play-store:
+    name: Publish to Google Play
+    runs-on: ubuntu-latest
+    needs: [prepare, build-android]
+    if: (github.event_name == 'release' || github.event.inputs.publish_stores) && secrets.GOOGLE_PLAY_SERVICE_ACCOUNT != ''
+    steps:
+      - name: Download Android AAB
+        uses: actions/download-artifact@v4
+        with:
+          name: jeju-wallet-android-aab-${{ needs.prepare.outputs.version }}
+          path: android-aab
+
+      - name: Upload to Google Play (Internal)
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}
+          packageName: network.jeju.wallet
+          releaseFiles: android-aab/*.aab
+          track: internal
+          status: completed
+          whatsNewDirectory: .
+
+  publish-app-store:
+    name: Publish to App Store
+    runs-on: macos-latest
+    needs: [prepare, build-ios]
+    if: (github.event_name == 'release' || github.event.inputs.publish_stores) && secrets.APPSTORE_API_KEY_ID != ''
+    steps:
+      - name: Download iOS IPA
+        uses: actions/download-artifact@v4
+        with:
+          name: jeju-wallet-ios-${{ needs.prepare.outputs.version }}
+          path: ios-ipa
+
+      - name: Upload to TestFlight
+        uses: apple-actions/upload-testflight-build@v1
+        with:
+          app-path: ios-ipa/*.ipa
+          issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
+          api-key-id: ${{ secrets.APPSTORE_API_KEY_ID }}
+          api-private-key: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}

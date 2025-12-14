@@ -82,7 +82,6 @@ contract ThresholdBatchSubmitter is Ownable, ReentrancyGuard {
             if (recovered != signers[i]) revert InvalidSignature(recovered, i);
             if (!isSequencer[recovered]) revert NotAuthorizedSequencer(recovered);
 
-            // Check for duplicates (only need to check previous signers)
             for (uint256 j = 0; j < i; j++) {
                 if (signers[j] == recovered) revert DuplicateSigner(recovered);
             }

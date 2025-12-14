@@ -24,6 +24,15 @@ interface Check {
 
 const checks: Check[] = [
   {
+    name: "Python distutils available (for native modules)",
+    check: async () => {
+      const result = await $`python3 -c "import distutils"`.nothrow().quiet();
+      return result.exitCode === 0;
+    },
+    fix: "pip3 install --user --break-system-packages setuptools",
+    critical: true,
+  },
+  {
     name: "Kurtosis CLI installed",
     check: async () => {
       const result = await $`which kurtosis`.nothrow().quiet();

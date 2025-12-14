@@ -1,0 +1,401 @@
+/**
+ * Jeju Keyring Service
+ * Secure key management for wallet accounts
+ * Supports: HD wallets, private key import, watch-only, hardware wallets
+ */
+
+import type { Address, Hex } from 'viem';
+import { generateMnemonic, mnemonicToAccount, privateKeyToAccount, english } from 'viem/accounts';
+import { generateMnemonic as generateBip39Mnemonic, validateMnemonic } from '@scure/bip39';
+import { wordlist } from '@scure/bip39/wordlists/english';
+
+type AccountType = 'hd' | 'imported' | 'watch' | 'hardware' | 'smart';
+
+interface Account {
+  address: Address;
+  type: AccountType;
+  name: string;
+  hdPath?: string;
+  index?: number;
+  isDefault?: boolean;
+  createdAt: number;
+}
+
+interface HDAccount extends Account {
+  type: 'hd';
+  hdPath: string;
+  index: number;
+}
+
+interface ImportedAccount extends Account {
+  type: 'imported';
+}
+
+interface WatchAccount extends Account {
+  type: 'watch';
+}
+
+interface HardwareAccount extends Account {
+  type: 'hardware';
+  deviceType: 'ledger' | 'trezor' | 'keystone';
+  hdPath: string;
+}
+
+interface SmartWalletAccount extends Account {
+  type: 'smart';
+  implementation: 'safe' | 'kernel' | 'jeju';
+  ownerAddress: Address;
+}
+
+// HD Paths
+const HD_PATHS = {
+  ethereum: "m/44'/60'/0'/0",
+  ledgerLive: "m/44'/60'",
+  ledgerLegacy: "m/44'/60'/0'",
+} as const;
+
+class KeyringService {
+  private accounts: Map<Address, Account> = new Map();
+  private encryptedMnemonics: Map<string, string> = new Map(); // walletId -> encrypted mnemonic
+  private encryptedPrivateKeys: Map<Address, string> = new Map();
+  private isLocked = true;
+  private sessionKey: CryptoKey | null = null;
+
+  // Initialize keyring - must be called with password
+  async unlock(password: string): Promise<boolean> {
+    try {
+      // Derive encryption key from password
+      this.sessionKey = await this.deriveKey(password);
+      this.isLocked = false;
+      
+      // Load accounts from storage
+      await this.loadAccounts();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  lock() {
+    this.sessionKey = null;
+    this.isLocked = true;
+    // Clear sensitive data from memory
+    this.encryptedPrivateKeys.clear();
+  }
+
+  isUnlocked(): boolean {
+    return !this.isLocked && this.sessionKey !== null;
+  }
+
+  // Create new HD wallet
+  async createHDWallet(password: string): Promise<{ mnemonic: string; address: Address }> {
+    const mnemonic = generateBip39Mnemonic(wordlist, 128); // 12 words
+    const account = mnemonicToAccount(mnemonic, { path: `${HD_PATHS.ethereum}/0` });
+    
+    // Encrypt and store mnemonic
+    const walletId = crypto.randomUUID();
+    const encrypted = await this.encrypt(mnemonic, password);
+    this.encryptedMnemonics.set(walletId, encrypted);
+    
+    const hdAccount: HDAccount = {
+      address: account.address,
+      type: 'hd',
+      name: 'Account 1',
+      hdPath: HD_PATHS.ethereum,
+      index: 0,
+      isDefault: true,
+      createdAt: Date.now(),
+    };
+    
+    this.accounts.set(account.address, hdAccount);
+    await this.saveAccounts();
+    
+    return { mnemonic, address: account.address };
+  }
+
+  // Import wallet from mnemonic
+  async importMnemonic(mnemonic: string, password: string): Promise<Address> {
+    if (!validateMnemonic(mnemonic, wordlist)) {
+      throw new Error('Invalid mnemonic phrase');
+    }
+    
+    const account = mnemonicToAccount(mnemonic, { path: `${HD_PATHS.ethereum}/0` });
+    
+    // Check if already exists
+    if (this.accounts.has(account.address)) {
+      throw new Error('Account already exists');
+    }
+    
+    const walletId = crypto.randomUUID();
+    const encrypted = await this.encrypt(mnemonic, password);
+    this.encryptedMnemonics.set(walletId, encrypted);
+    
+    const hdAccount: HDAccount = {
+      address: account.address,
+      type: 'hd',
+      name: `Imported Account`,
+      hdPath: HD_PATHS.ethereum,
+      index: 0,
+      createdAt: Date.now(),
+    };
+    
+    this.accounts.set(account.address, hdAccount);
+    await this.saveAccounts();
+    
+    return account.address;
+  }
+
+  // Import private key
+  async importPrivateKey(privateKey: Hex, password: string): Promise<Address> {
+    const account = privateKeyToAccount(privateKey);
+    
+    if (this.accounts.has(account.address)) {
+      throw new Error('Account already exists');
+    }
+    
+    const encrypted = await this.encrypt(privateKey, password);
+    this.encryptedPrivateKeys.set(account.address, encrypted);
+    
+    const importedAccount: ImportedAccount = {
+      address: account.address,
+      type: 'imported',
+      name: 'Imported Account',
+      createdAt: Date.now(),
+    };
+    
+    this.accounts.set(account.address, importedAccount);
+    await this.saveAccounts();
+    
+    return account.address;
+  }
+
+  // Add watch-only address
+  addWatchAddress(address: Address, name?: string): void {
+    if (this.accounts.has(address)) {
+      throw new Error('Address already exists');
+    }
+    
+    const watchAccount: WatchAccount = {
+      address,
+      type: 'watch',
+      name: name || 'Watch Account',
+      createdAt: Date.now(),
+    };
+    
+    this.accounts.set(address, watchAccount);
+    this.saveAccounts();
+  }
+
+  // Get all accounts
+  getAccounts(): Account[] {
+    return Array.from(this.accounts.values());
+  }
+
+  // Get specific account
+  getAccount(address: Address): Account | undefined {
+    return this.accounts.get(address);
+  }
+
+  // Sign transaction
+  async signTransaction(address: Address, tx: {
+    to: Address;
+    value?: bigint;
+    data?: Hex;
+    nonce?: number;
+    gas?: bigint;
+    gasPrice?: bigint;
+    maxFeePerGas?: bigint;
+    maxPriorityFeePerGas?: bigint;
+    chainId: number;
+  }, password: string): Promise<Hex> {
+    const account = this.accounts.get(address);
+    if (!account) throw new Error('Account not found');
+    
+    if (account.type === 'watch') {
+      throw new Error('Cannot sign with watch-only account');
+    }
+    
+    const signer = await this.getSigner(address, password);
+    
+    // Build EIP-1559 or legacy transaction
+    if (tx.maxFeePerGas) {
+      return signer.signTransaction({
+        to: tx.to,
+        value: tx.value,
+        data: tx.data,
+        nonce: tx.nonce,
+        gas: tx.gas,
+        maxFeePerGas: tx.maxFeePerGas,
+        maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
+        chainId: tx.chainId,
+        type: 'eip1559',
+      });
+    }
+    
+    return signer.signTransaction({
+      to: tx.to,
+      value: tx.value,
+      data: tx.data,
+      nonce: tx.nonce,
+      gas: tx.gas,
+      gasPrice: tx.gasPrice,
+      chainId: tx.chainId,
+      type: 'legacy',
+    });
+  }
+
+  // Sign message
+  async signMessage(address: Address, message: string, password: string): Promise<Hex> {
+    const account = this.accounts.get(address);
+    if (!account) throw new Error('Account not found');
+    
+    if (account.type === 'watch') {
+      throw new Error('Cannot sign with watch-only account');
+    }
+    
+    const signer = await this.getSigner(address, password);
+    return signer.signMessage({ message });
+  }
+
+  // Sign typed data (EIP-712)
+  async signTypedData(address: Address, typedData: {
+    domain: Record<string, unknown>;
+    types: Record<string, Array<{ name: string; type: string }>>;
+    primaryType: string;
+    message: Record<string, unknown>;
+  }, password: string): Promise<Hex> {
+    const account = this.accounts.get(address);
+    if (!account) throw new Error('Account not found');
+    
+    if (account.type === 'watch') {
+      throw new Error('Cannot sign with watch-only account');
+    }
+    
+    const signer = await this.getSigner(address, password);
+    return signer.signTypedData(typedData as Parameters<typeof signer.signTypedData>[0]);
+  }
+
+  // Remove account
+  removeAccount(address: Address): void {
+    this.accounts.delete(address);
+    this.encryptedPrivateKeys.delete(address);
+    this.saveAccounts();
+  }
+
+  // Rename account
+  renameAccount(address: Address, name: string): void {
+    const account = this.accounts.get(address);
+    if (account) {
+      account.name = name;
+      this.saveAccounts();
+    }
+  }
+
+  // Export private key (requires password)
+  async exportPrivateKey(address: Address, password: string): Promise<Hex> {
+    const account = this.accounts.get(address);
+    if (!account) throw new Error('Account not found');
+    
+    if (account.type === 'watch' || account.type === 'hardware') {
+      throw new Error('Cannot export key for this account type');
+    }
+    
+    if (account.type === 'imported') {
+      const encrypted = this.encryptedPrivateKeys.get(address);
+      if (!encrypted) throw new Error('Private key not found');
+      return this.decrypt(encrypted, password) as Promise<Hex>;
+    }
+    
+    // For HD accounts, derive from mnemonic
+    // This is simplified - in production, need to track which mnemonic belongs to which account
+    throw new Error('Export not implemented for HD accounts');
+  }
+
+  private async getSigner(address: Address, password: string) {
+    const account = this.accounts.get(address);
+    if (!account) throw new Error('Account not found');
+    
+    if (account.type === 'imported') {
+      const encrypted = this.encryptedPrivateKeys.get(address);
+      if (!encrypted) throw new Error('Private key not found');
+      const privateKey = await this.decrypt(encrypted, password) as Hex;
+      return privateKeyToAccount(privateKey);
+    }
+    
+    // For HD accounts - simplified
+    throw new Error('HD signing requires mnemonic derivation');
+  }
+
+  private async deriveKey(password: string): Promise<CryptoKey> {
+    const encoder = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(password),
+      'PBKDF2',
+      false,
+      ['deriveKey']
+    );
+    
+    return crypto.subtle.deriveKey(
+      { name: 'PBKDF2', salt: encoder.encode('jeju-wallet'), iterations: 100000, hash: 'SHA-256' },
+      keyMaterial,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt']
+    );
+  }
+
+  private async encrypt(data: string, password: string): Promise<string> {
+    const key = await this.deriveKey(password);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encoder = new TextEncoder();
+    
+    const encrypted = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      encoder.encode(data)
+    );
+    
+    const combined = new Uint8Array(iv.length + encrypted.byteLength);
+    combined.set(iv);
+    combined.set(new Uint8Array(encrypted), iv.length);
+    
+    return btoa(String.fromCharCode(...combined));
+  }
+
+  private async decrypt(encrypted: string, password: string): Promise<string> {
+    const key = await this.deriveKey(password);
+    const combined = new Uint8Array(atob(encrypted).split('').map(c => c.charCodeAt(0)));
+    
+    const iv = combined.slice(0, 12);
+    const data = combined.slice(12);
+    
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      data
+    );
+    
+    return new TextDecoder().decode(decrypted);
+  }
+
+  private async loadAccounts() {
+    // Load from Tauri secure storage in production
+    const stored = localStorage.getItem('jeju-accounts');
+    if (stored) {
+      const accounts = JSON.parse(stored) as Account[];
+      accounts.forEach(a => this.accounts.set(a.address, a));
+    }
+  }
+
+  private async saveAccounts() {
+    // Save to Tauri secure storage in production
+    const accounts = Array.from(this.accounts.values());
+    localStorage.setItem('jeju-accounts', JSON.stringify(accounts));
+  }
+}
+
+export const keyringService = new KeyringService();
+export { KeyringService };
+export type { Account, HDAccount, ImportedAccount, WatchAccount, HardwareAccount, SmartWalletAccount, AccountType };
+

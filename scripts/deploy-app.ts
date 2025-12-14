@@ -93,13 +93,6 @@ interface DeployConfig {
   healthEndpoint?: string;
 }
 
-interface _DeployResult {
-  jnsNode: Hex;
-  ipfsCid: string;
-  keepaliveId: Hex;
-  gatewayUrl: string;
-}
-
 async function parseCliArgs(): Promise<DeployConfig> {
   const { values } = parseArgs({
     options: {

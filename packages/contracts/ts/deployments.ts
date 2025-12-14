@@ -28,11 +28,11 @@ import paymasterSystemLocalnet from '../deployments/paymaster-system-localnet.js
 import multiTokenSystem1337 from '../deployments/multi-token-system-1337.json';
 import eilLocalnet from '../deployments/eil-localnet.json';
 import eilTestnet from '../deployments/eil-testnet.json';
+import gameSystem1337 from '../deployments/game-system-1337.json';
 import predimarket1337 from '../deployments/predimarket-1337.json';
 import rpgTokens1337 from '../deployments/rpg-tokens-1337.json';
 import elizaToken1337 from '../deployments/eliza-token-1337.json';
 import xlpAmmLocalnet from '../deployments/xlp-amm-localnet.json';
-import gameSystem1337 from '../deployments/game-system-1337.json';
 
 // ============================================================================
 // Types for Game System
@@ -47,9 +47,9 @@ export interface GameSystemDeployment {
   gameSigner?: string | null;
   mudWorld?: string | null;
   jejuIntegrationSystem?: string | null;
-  appId?: string;
-  gameName?: string;
-  baseURI?: string;
+  appId?: string | null;
+  gameName?: string | null;
+  baseURI?: string | null;
   deployedAt?: string | null;
   chainId?: number;
 }
@@ -195,6 +195,7 @@ export function getContractAddresses(chainId: ChainId): ContractAddresses {
   const v4 = getUniswapV4(chainId);
   const identity = identitySystemDeployments[chainId];
   const paymaster = paymasterDeployments[chainId];
+  const game = gameSystemDeployments[chainId];
   const marketplace = bazaarMarketplaceDeployments[chainId];
 
   return {
@@ -262,14 +263,13 @@ export const rawDeployments = {
   identitySystem1337,
   localnetAddresses,
   paymasterSystemLocalnet,
-  multiTokenSystem1337,
   eilLocalnet,
   eilTestnet,
+  gameSystem1337,
   predimarket1337,
   rpgTokens1337,
   elizaToken1337,
   xlpAmmLocalnet,
-  gameSystem1337,
 } as const;
 
 // Re-export types
@@ -282,4 +282,3 @@ export type {
   XLPDeployment,
   ContractAddresses,
 } from './types';
-

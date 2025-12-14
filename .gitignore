@@ -111,4 +111,5 @@ docs/
 
 # Jeju cache and test files
 .jeju/*
-!.jeju/.gitkeep
+!.jeju/.gitkeepgetgrass/
+grass/

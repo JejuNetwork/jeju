@@ -1,0 +1,90 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/schema.json",
+  "productName": "Jeju Wallet",
+  "version": "0.1.0",
+  "identifier": "network.jeju.wallet",
+  "build": {
+    "beforeBuildCommand": "bun run build",
+    "beforeDevCommand": "bun run dev",
+    "devUrl": "http://localhost:4015",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Jeju Wallet",
+        "width": 420,
+        "height": 680,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "transparent": false,
+        "minWidth": 360,
+        "minHeight": 600,
+        "maxWidth": 800,
+        "maxHeight": 1200
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' https://*.jeju.network https://*.base.org https://*.arbitrum.io https://*.optimism.io wss://*.jeju.network; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    },
+    "trayIcon": {
+      "iconPath": "icons/icon.png",
+      "iconAsTemplate": true
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": [],
+    "category": "Finance",
+    "shortDescription": "Agentic multi-chain wallet with seamless cross-chain UX",
+    "longDescription": "Jeju Wallet is an agentic multi-chain wallet that provides seamless cross-chain transactions without manual bridging. Features include EIL (Ethereum Interop Layer) for trustless transfers, OIF (Open Intents Framework) for intent-based transactions, and ERC-4337 account abstraction.",
+    "copyright": "© 2024 Jeju Network",
+    "publisher": "Jeju Network",
+    "macOS": {
+      "minimumSystemVersion": "10.13",
+      "exceptionDomain": "",
+      "signingIdentity": null,
+      "providerShortName": null,
+      "entitlements": null,
+      "frameworks": []
+    },
+    "windows": {
+      "certificateThumbprint": null,
+      "timestampUrl": null,
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      }
+    },
+    "linux": {
+      "appimage": {
+        "bundleMediaFramework": false
+      },
+      "deb": {
+        "depends": [],
+        "section": "utils"
+      }
+    },
+    "createUpdaterArtifacts": "v1Compatible"
+  },
+  "plugins": {
+    "shell": {
+      "open": "^https?://"
+    },
+    "deep-link": {
+      "desktop": {
+        "schemes": ["jeju"]
+      }
+    }
+  }
+}
+

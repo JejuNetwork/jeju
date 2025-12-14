@@ -1,0 +1,15 @@
+apiVersion: v2
+name: nethermind
+description: Nethermind Ethereum client for L1 and L2 execution layer
+type: application
+version: 0.1.0
+appVersion: "1.28.0"
+keywords:
+  - ethereum
+  - execution-layer
+  - nethermind
+  - client-diversity
+maintainers:
+  - name: Jeju Network
+    url: https://jejunetwork.org
+
