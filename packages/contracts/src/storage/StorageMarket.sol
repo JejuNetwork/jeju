@@ -2,18 +2,41 @@
 pragma solidity ^0.8.26;
 
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IStorageTypes} from "./IStorageTypes.sol";
 import {StorageProviderRegistry} from "./StorageProviderRegistry.sol";
+
+interface IFeeConfigStorage {
+    function getStorageUploadFee() external view returns (uint16);
+    function getTreasury() external view returns (address);
+}
 
 /**
  * @title StorageMarket
  * @author Jeju Network
  * @notice Storage deal marketplace - creates, manages, and settles storage deals
+ * @dev V2: Added governance-controlled platform fees via FeeConfig
  */
-contract StorageMarket is IStorageTypes, ReentrancyGuard {
+contract StorageMarket is IStorageTypes, ReentrancyGuard, Ownable {
+    // ============ Constants ============
+
+    uint256 public constant BPS_DENOMINATOR = 10000;
+
     // ============ State ============
 
     StorageProviderRegistry public immutable registry;
+
+    /// @notice Fee configuration contract (governance-controlled)
+    IFeeConfigStorage public feeConfig;
+
+    /// @notice Fallback platform fee in basis points (if FeeConfig not set)
+    uint256 public platformFeeBps = 200; // 2%
+
+    /// @notice Treasury for platform fees
+    address public treasury;
+
+    /// @notice Total platform fees collected
+    uint256 public totalPlatformFeesCollected;
 
     mapping(bytes32 => StorageDeal) private _deals;
     mapping(address => bytes32[]) private _userDeals;
@@ -40,10 +63,17 @@ contract StorageMarket is IStorageTypes, ReentrancyGuard {
     event DealExtended(bytes32 indexed dealId, uint256 newEndTime, uint256 additionalCost);
     event DealRated(bytes32 indexed dealId, uint8 score);
 
+    // ============ Events ============
+
+    event PlatformFeeCollected(bytes32 indexed dealId, uint256 amount, uint256 feeBps);
+    event FeeConfigUpdated(address indexed oldConfig, address indexed newConfig);
+    event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
+
     // ============ Constructor ============
 
-    constructor(address _registry) {
+    constructor(address _registry, address _treasury, address initialOwner) Ownable(initialOwner) {
         registry = StorageProviderRegistry(_registry);
+        treasury = _treasury;
     }
 
     // ============ Deal Creation ============
@@ -175,6 +205,13 @@ contract StorageMarket is IStorageTypes, ReentrancyGuard {
         uint256 sizeGB = deal.sizeBytes / (1024 ** 3);
         if (sizeGB == 0) sizeGB = 1;
 
+        // Calculate payment and platform fee
+        uint256 totalPayment = deal.paidAmount - deal.refundedAmount;
+        uint256 currentFeeBps = _getPlatformFeeBps();
+        uint256 platformFee = (totalPayment * currentFeeBps) / BPS_DENOMINATOR;
+        uint256 providerPayment = totalPayment - platformFee;
+
+        // Update records
         _userRecords[deal.user].activeDeals--;
         _userRecords[deal.user].completedDeals++;
         _userRecords[deal.user].totalStoredGB += sizeGB;
@@ -183,16 +220,51 @@ contract StorageMarket is IStorageTypes, ReentrancyGuard {
         _providerRecords[msg.sender].activeDeals--;
         _providerRecords[msg.sender].completedDeals++;
         _providerRecords[msg.sender].totalStoredGB += sizeGB;
-        _providerRecords[msg.sender].totalEarnings += deal.totalCost - deal.refundedAmount;
-
-        // Transfer payment to provider
-        uint256 payment = deal.paidAmount - deal.refundedAmount;
-        if (payment > 0) {
-            (bool success,) = msg.sender.call{value: payment}("");
-            require(success, "Payment failed");
-        }
+        _providerRecords[msg.sender].totalEarnings += providerPayment;
+        
+        totalPlatformFeesCollected += platformFee;
 
         emit DealCompleted(dealId);
+        
+        if (platformFee > 0) {
+            emit PlatformFeeCollected(dealId, platformFee, currentFeeBps);
+        }
+
+        // Transfer payment to provider
+        if (providerPayment > 0) {
+            (bool success,) = msg.sender.call{value: providerPayment}("");
+            require(success, "Provider payment failed");
+        }
+
+        // Transfer platform fee to treasury
+        address treasuryAddr = _getTreasuryAddress();
+        if (platformFee > 0 && treasuryAddr != address(0)) {
+            (bool treasurySuccess,) = treasuryAddr.call{value: platformFee}("");
+            require(treasurySuccess, "Treasury payment failed");
+        }
+    }
+
+    /**
+     * @dev Get current platform fee in basis points from FeeConfig or local value
+     */
+    function _getPlatformFeeBps() internal view returns (uint256) {
+        if (address(feeConfig) != address(0)) {
+            return feeConfig.getStorageUploadFee();
+        }
+        return platformFeeBps;
+    }
+
+    /**
+     * @dev Get treasury address from FeeConfig or local value
+     */
+    function _getTreasuryAddress() internal view returns (address) {
+        if (address(feeConfig) != address(0)) {
+            address configTreasury = feeConfig.getTreasury();
+            if (configTreasury != address(0)) {
+                return configTreasury;
+            }
+        }
+        return treasury;
     }
 
     function failDeal(bytes32 dealId, string calldata reason) external {
@@ -313,5 +385,52 @@ contract StorageMarket is IStorageTypes, ReentrancyGuard {
 
     function getProviderRecord(address provider) external view returns (ProviderRecord memory) {
         return _providerRecords[provider];
+    }
+
+    // ============ Admin Functions ============
+
+    /**
+     * @notice Set fee configuration contract (governance-controlled)
+     */
+    function setFeeConfig(address _feeConfig) external onlyOwner {
+        address oldConfig = address(feeConfig);
+        feeConfig = IFeeConfigStorage(_feeConfig);
+        emit FeeConfigUpdated(oldConfig, _feeConfig);
+    }
+
+    /**
+     * @notice Set treasury address
+     */
+    function setTreasury(address _treasury) external onlyOwner {
+        require(_treasury != address(0), "Invalid treasury");
+        address oldTreasury = treasury;
+        treasury = _treasury;
+        emit TreasuryUpdated(oldTreasury, _treasury);
+    }
+
+    /**
+     * @notice Set platform fee (fallback if FeeConfig not set)
+     */
+    function setPlatformFee(uint256 newFeeBps) external onlyOwner {
+        require(newFeeBps <= 1000, "Fee too high"); // Max 10%
+        platformFeeBps = newFeeBps;
+    }
+
+    /**
+     * @notice Get current effective platform fee rate
+     */
+    function getEffectivePlatformFee() external view returns (uint256) {
+        return _getPlatformFeeBps();
+    }
+
+    /**
+     * @notice Get platform fee statistics
+     */
+    function getPlatformFeeStats() external view returns (
+        uint256 _totalPlatformFeesCollected,
+        uint256 _currentFeeBps,
+        address _treasury
+    ) {
+        return (totalPlatformFeesCollected, _getPlatformFeeBps(), _getTreasuryAddress());
     }
 }

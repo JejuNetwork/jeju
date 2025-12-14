@@ -8,6 +8,11 @@ import {IIdentityRegistry} from "../registry/interfaces/IIdentityRegistry.sol";
 import {IComputeRegistry} from "./interfaces/IComputeRegistry.sol";
 import {ICreditManager} from "../interfaces/IServices.sol";
 
+interface IFeeConfigCompute {
+    function getRentalFee() external view returns (uint16);
+    function getTreasury() external view returns (address);
+}
+
 /**
  * @title ComputeRental
  * @author Jeju Network
@@ -210,10 +215,17 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
     uint256 public constant MAX_RENTAL_HOURS = 720;
 
     /// @notice Platform fee percentage (basis points, 100 = 1%)
+    /// @dev Can be overridden by FeeConfig if set
     uint256 public platformFeeBps = 250; // 2.5%
 
     /// @notice Protocol treasury for fees
     address public treasury;
+
+    /// @notice Fee configuration contract (governance-controlled)
+    IFeeConfigCompute public feeConfig;
+
+    /// @notice Total platform fees collected
+    uint256 public totalPlatformFeesCollected;
 
     /// @notice Rental counter for unique IDs
     uint256 private _rentalCounter;
@@ -629,6 +641,7 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Provider completes the rental
      * @custom:security CEI pattern: Update all state before external calls
+     * @dev Platform fee is read from FeeConfig if set, otherwise uses local platformFeeBps
      */
     function completeRental(bytes32 rentalId) external nonReentrant {
         Rental storage rental = rentals[rentalId];
@@ -650,10 +663,14 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
             refundAmount = paidAmount - usedCost;
         }
 
-        // Calculate platform fee
+        // Calculate platform fee from governance-controlled FeeConfig or local value
+        uint256 currentFeeBps = _getPlatformFeeBps();
         uint256 providerPayment = usedCost;
-        uint256 platformFee = (usedCost * platformFeeBps) / 10000;
+        uint256 platformFee = (usedCost * currentFeeBps) / 10000;
         providerPayment -= platformFee;
+
+        // Get treasury address from FeeConfig if set
+        address treasuryAddr = _getTreasuryAddress();
 
         // EFFECTS: Update ALL state BEFORE external calls (CEI pattern)
         rental.status = RentalStatus.COMPLETED;
@@ -664,9 +681,14 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         providerRecords[provider].totalRentals++;
         providerRecords[provider].totalEarnings += providerPayment;
         userRecords[user].completedRentals++;
+        totalPlatformFeesCollected += platformFee;
 
         // Emit event before external calls
         emit RentalCompleted(rentalId, actualDuration, refundAmount);
+        
+        if (platformFee > 0) {
+            emit PlatformFeeCollected(rentalId, platformFee, currentFeeBps);
+        }
 
         // INTERACTIONS: External calls last
         if (refundAmount > 0) {
@@ -679,11 +701,39 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         if (!providerSuccess) revert TransferFailed();
 
         // Pay treasury
-        if (platformFee > 0) {
-            (bool treasurySuccess,) = treasury.call{value: platformFee}("");
+        if (platformFee > 0 && treasuryAddr != address(0)) {
+            (bool treasurySuccess,) = treasuryAddr.call{value: platformFee}("");
             if (!treasurySuccess) revert TransferFailed();
         }
     }
+
+    /**
+     * @dev Get current platform fee in basis points from FeeConfig or local value
+     */
+    function _getPlatformFeeBps() internal view returns (uint256) {
+        if (address(feeConfig) != address(0)) {
+            return feeConfig.getRentalFee();
+        }
+        return platformFeeBps;
+    }
+
+    /**
+     * @dev Get treasury address from FeeConfig or local value
+     */
+    function _getTreasuryAddress() internal view returns (address) {
+        if (address(feeConfig) != address(0)) {
+            address configTreasury = feeConfig.getTreasury();
+            if (configTreasury != address(0)) {
+                return configTreasury;
+            }
+        }
+        return treasury;
+    }
+
+    // ============ Platform Fee Events ============
+
+    event PlatformFeeCollected(bytes32 indexed rentalId, uint256 amount, uint256 feeBps);
+    event FeeConfigUpdated(address indexed oldConfig, address indexed newConfig);
 
     // ============ User Actions ============
 
@@ -1061,6 +1111,34 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
     function setTreasury(address newTreasury) external onlyOwner {
         require(newTreasury != address(0), "Invalid treasury");
         treasury = newTreasury;
+    }
+
+    /**
+     * @notice Set fee configuration contract (governance-controlled)
+     * @param _feeConfig Address of FeeConfig contract
+     */
+    function setFeeConfig(address _feeConfig) external onlyOwner {
+        address oldConfig = address(feeConfig);
+        feeConfig = IFeeConfigCompute(_feeConfig);
+        emit FeeConfigUpdated(oldConfig, _feeConfig);
+    }
+
+    /**
+     * @notice Get current effective platform fee rate
+     */
+    function getEffectivePlatformFee() external view returns (uint256) {
+        return _getPlatformFeeBps();
+    }
+
+    /**
+     * @notice Get platform fee statistics
+     */
+    function getPlatformFeeStats() external view returns (
+        uint256 _totalPlatformFeesCollected,
+        uint256 _currentFeeBps,
+        address _treasury
+    ) {
+        return (totalPlatformFeesCollected, _getPlatformFeeBps(), _getTreasuryAddress());
     }
 
     function setIdentityRegistry(address _registry) external onlyOwner {

@@ -27,8 +27,8 @@ contract L2OutputOracleAdapter {
         _;
     }
 
-    constructor(address _sequencerRegistry, address payable _disputeGameFactory, address _l2OutputOracle) {
-        sequencerRegistry = SequencerRegistry(_sequencerRegistry);
+    constructor(address payable _sequencerRegistry, address payable _disputeGameFactory, address _l2OutputOracle) {
+        sequencerRegistry = SequencerRegistry(payable(_sequencerRegistry));
         disputeGameFactory = DisputeGameFactory(_disputeGameFactory);
         l2OutputOracle = _l2OutputOracle;
         owner = msg.sender;

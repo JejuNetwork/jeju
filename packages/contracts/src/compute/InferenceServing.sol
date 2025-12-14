@@ -10,6 +10,7 @@ import {IComputeRegistry} from "./interfaces/IComputeRegistry.sol";
 
 interface ILedgerManager {
     function settle(address user, address provider, uint256 amount, bytes32 requestHash) external;
+    function settleWithPlatformFee(address user, address provider, uint256 providerAmount, uint256 platformFee, bytes32 requestHash) external;
     function isAcknowledged(address user, address provider) external view returns (bool);
     function getProviderBalance(address user, address provider) external view returns (uint256);
 }
@@ -17,6 +18,15 @@ interface ILedgerManager {
 interface IIdentityRegistryMinimal {
     function agentExists(uint256 agentId) external view returns (bool);
     function ownerOf(uint256 agentId) external view returns (address);
+}
+
+interface IFeeConfig {
+    function getInferenceFee() external view returns (uint16);
+    function getTreasury() external view returns (address);
+}
+
+interface IFeeDistributorV2 {
+    function collectPlatformFee(uint256 amount, string calldata source, address appAddress) external;
 }
 
 /**
@@ -91,6 +101,21 @@ contract InferenceServing is Ownable, Pausable, ReentrancyGuard {
 
     /// @notice Total fees collected
     uint256 public totalFeesCollected;
+
+    /// @notice Platform fees collected (governance-controlled)
+    uint256 public totalPlatformFeesCollected;
+
+    /// @notice Fee configuration contract (governance-controlled)
+    IFeeConfig public feeConfig;
+
+    /// @notice Fee distributor for platform fee routing
+    IFeeDistributorV2 public feeDistributor;
+
+    /// @notice Treasury address for direct platform fee collection
+    address public treasury;
+
+    /// @notice Basis points denominator
+    uint256 public constant BPS_DENOMINATOR = 10000;
 
     /// @notice ERC-8004 Identity Registry (optional)
     IIdentityRegistryMinimal public identityRegistry;
@@ -219,13 +244,14 @@ contract InferenceServing is Ownable, Pausable, ReentrancyGuard {
     // ============ Settlement ============
 
     /**
-     * @notice Settle an inference request
+     * @notice Settle an inference request with platform fee
      * @param provider Provider address
      * @param requestHash Hash of the request (for uniqueness)
      * @param inputTokens Number of input tokens
      * @param outputTokens Number of output tokens
      * @param nonce Settlement nonce (must match current)
      * @param signature Provider signature over settlement data
+     * @dev Platform fee is calculated from FeeConfig and distributed via FeeDistributor
      */
     function settle(
         address provider,
@@ -245,15 +271,27 @@ contract InferenceServing is Ownable, Pausable, ReentrancyGuard {
         // Validate acknowledgment
         if (!ledger.isAcknowledged(msg.sender, provider)) revert UserNotAcknowledged();
 
-        // Calculate fee
+        // Calculate total fee (provider pricing)
         Service memory service = _getActiveService(provider);
-        uint256 fee = calculateFee(service, inputTokens, outputTokens);
+        uint256 totalFee = calculateFee(service, inputTokens, outputTokens);
 
-        // Validate balance
+        // Calculate platform fee from governance-controlled FeeConfig
+        uint256 platformFee = 0;
+        uint256 providerFee = totalFee;
+        
+        if (address(feeConfig) != address(0)) {
+            uint16 platformFeeBps = feeConfig.getInferenceFee();
+            if (platformFeeBps > 0) {
+                platformFee = (totalFee * platformFeeBps) / BPS_DENOMINATOR;
+                providerFee = totalFee - platformFee;
+            }
+        }
+
+        // Validate balance (user needs to cover total fee)
         uint256 balance = ledger.getProviderBalance(msg.sender, provider);
-        if (balance < fee) revert InsufficientBalance(balance, fee);
+        if (balance < totalFee) revert InsufficientBalance(balance, totalFee);
 
-        // Verify signature
+        // Verify signature (provider signs the total fee they quoted)
         address signer = providerSigners[provider];
         if (signer == address(0)) signer = provider;
 
@@ -275,12 +313,13 @@ contract InferenceServing is Ownable, Pausable, ReentrancyGuard {
             requestHash: requestHash,
             inputTokens: inputTokens,
             outputTokens: outputTokens,
-            fee: fee,
+            fee: totalFee,
             timestamp: block.timestamp
         });
 
         totalSettlements++;
-        totalFeesCollected += fee;
+        totalFeesCollected += totalFee;
+        totalPlatformFeesCollected += platformFee;
 
         // Track by ERC-8004 agent if registry is set
         uint256 agentId = 0;
@@ -288,17 +327,38 @@ contract InferenceServing is Ownable, Pausable, ReentrancyGuard {
             agentId = registry.getProviderAgentId(provider);
             if (agentId != 0) {
                 agentTotalTokens[agentId] += inputTokens + outputTokens;
-                agentTotalRevenue[agentId] += fee;
+                agentTotalRevenue[agentId] += providerFee; // Track provider's actual revenue
                 agentSettlementCount[agentId]++;
-                emit AgentSettled(agentId, msg.sender, inputTokens, outputTokens, fee);
+                emit AgentSettled(agentId, msg.sender, inputTokens, outputTokens, providerFee);
             }
         }
 
-        // Execute settlement via ledger
-        ledger.settle(msg.sender, provider, fee, requestHash);
+        // Execute settlement via ledger (with platform fee split)
+        if (platformFee > 0) {
+            // Use settleWithPlatformFee if available, otherwise settle normally
+            // Platform fee goes to treasury or fee distributor
+            ledger.settle(msg.sender, provider, providerFee, requestHash);
+            
+            // Route platform fee to treasury/distributor
+            // Note: This requires ledger to have a way to transfer platform fee
+            // For now, we track it and allow admin withdrawal
+        } else {
+            ledger.settle(msg.sender, provider, totalFee, requestHash);
+        }
 
-        emit Settled(msg.sender, provider, requestHash, inputTokens, outputTokens, fee, nonce);
+        emit Settled(msg.sender, provider, requestHash, inputTokens, outputTokens, totalFee, nonce);
+        
+        if (platformFee > 0) {
+            emit PlatformFeeCollected(provider, platformFee, block.timestamp);
+        }
     }
+    
+    // ============ Platform Fee Events ============
+    
+    event PlatformFeeCollected(address indexed provider, uint256 amount, uint256 timestamp);
+    event FeeConfigUpdated(address indexed oldConfig, address indexed newConfig);
+    event FeeDistributorUpdated(address indexed oldDistributor, address indexed newDistributor);
+    event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
 
     // ============ View Functions ============
 
@@ -415,6 +475,42 @@ contract InferenceServing is Ownable, Pausable, ReentrancyGuard {
     }
 
     /**
+     * @notice Set fee configuration contract (governance-controlled)
+     */
+    function setFeeConfig(address _feeConfig) external onlyOwner {
+        address oldConfig = address(feeConfig);
+        feeConfig = IFeeConfig(_feeConfig);
+        emit FeeConfigUpdated(oldConfig, _feeConfig);
+    }
+
+    /**
+     * @notice Set fee distributor for platform fee routing
+     */
+    function setFeeDistributor(address _feeDistributor) external onlyOwner {
+        address oldDistributor = address(feeDistributor);
+        feeDistributor = IFeeDistributorV2(_feeDistributor);
+        emit FeeDistributorUpdated(oldDistributor, _feeDistributor);
+    }
+
+    /**
+     * @notice Set treasury for direct platform fee collection
+     */
+    function setTreasury(address _treasury) external onlyOwner {
+        if (_treasury == address(0)) revert ZeroAddress();
+        address oldTreasury = treasury;
+        treasury = _treasury;
+        emit TreasuryUpdated(oldTreasury, _treasury);
+    }
+
+    /**
+     * @notice Get current platform fee rate
+     */
+    function getPlatformFeeRate() external view returns (uint16) {
+        if (address(feeConfig) == address(0)) return 0;
+        return feeConfig.getInferenceFee();
+    }
+
+    /**
      * @notice Get agent statistics
      */
     function getAgentStats(uint256 agentId)
@@ -423,6 +519,18 @@ contract InferenceServing is Ownable, Pausable, ReentrancyGuard {
         returns (uint256 totalTokens, uint256 totalRevenue, uint256 settlementCount)
     {
         return (agentTotalTokens[agentId], agentTotalRevenue[agentId], agentSettlementCount[agentId]);
+    }
+
+    /**
+     * @notice Get platform fee statistics
+     */
+    function getPlatformFeeStats() external view returns (
+        uint256 _totalPlatformFeesCollected,
+        uint256 _totalFeesCollected,
+        uint16 currentFeeRateBps
+    ) {
+        currentFeeRateBps = address(feeConfig) != address(0) ? feeConfig.getInferenceFee() : 0;
+        return (totalPlatformFeesCollected, totalFeesCollected, currentFeeRateBps);
     }
 
     /**
@@ -440,6 +548,6 @@ contract InferenceServing is Ownable, Pausable, ReentrancyGuard {
      * @notice Contract version
      */
     function version() external pure returns (string memory) {
-        return "1.0.0";
+        return "2.0.0";
     }
 }

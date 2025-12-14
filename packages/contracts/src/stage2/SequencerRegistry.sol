@@ -9,6 +9,17 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../registry/IdentityRegistry.sol";
 import "../registry/ReputationRegistry.sol";
 
+interface IFeeConfigSequencer {
+    function getSequencerRevenueShare() external view returns (uint16);
+    function getTreasury() external view returns (address);
+}
+
+/**
+ * @title SequencerRegistry
+ * @author Jeju Network
+ * @notice Stage 2 Sequencer registration with staking and revenue sharing
+ * @dev V2: Added governance-controlled revenue sharing via FeeConfig
+ */
 contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
@@ -20,6 +31,8 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
         uint256 lastBlockProposed;
         uint256 blocksProposed;
         uint256 blocksMissed;
+        uint256 totalRewardsEarned;     // V2: Track total rewards
+        uint256 pendingRewards;          // V2: Unclaimed rewards
         bool isActive;
         bool isSlashed;
     }
@@ -29,6 +42,17 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
         SlashingReason reason;
         uint256 amount;
         uint256 timestamp;
+    }
+
+    /// @notice Revenue epoch for tracking sequencer rewards
+    struct RevenueEpoch {
+        uint256 epochNumber;
+        uint256 totalBlocksProduced;
+        uint256 totalRevenue;
+        uint256 sequencerShare;      // Amount for sequencers
+        uint256 treasuryShare;       // Amount for treasury
+        uint256 distributedAt;
+        bool distributed;
     }
 
     enum SlashingReason {
@@ -45,6 +69,8 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
     uint256 public constant SLASH_DOWNTIME = 1000;
     uint256 public constant DOWNTIME_THRESHOLD = 100;
     uint256 public constant REPUTATION_WEIGHT = 5000;
+    uint256 public constant BPS_DENOMINATOR = 10000;
+    uint256 public constant EPOCH_DURATION = 1 days;
 
     IERC20 public immutable jejuToken;
     IdentityRegistry public immutable identityRegistry;
@@ -57,6 +83,37 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
     uint256 public totalStaked;
     SlashingEvent[] public slashingEvents;
 
+    // ============ Revenue Sharing State ============
+
+    /// @notice Fee configuration contract (governance-controlled)
+    IFeeConfigSequencer public feeConfig;
+
+    /// @notice Fallback revenue share in basis points
+    uint256 public sequencerRevenueShareBps = 500; // 5% default
+
+    /// @notice Current epoch number
+    uint256 public currentEpoch;
+
+    /// @notice Epoch start timestamp
+    uint256 public epochStartTime;
+
+    /// @notice Revenue accumulated in current epoch
+    uint256 public epochAccumulatedRevenue;
+
+    /// @notice Revenue epochs by number
+    mapping(uint256 => RevenueEpoch) public revenueEpochs;
+
+    /// @notice Blocks proposed per sequencer per epoch
+    mapping(uint256 => mapping(address => uint256)) public epochBlocksPerSequencer;
+
+    /// @notice Total rewards distributed
+    uint256 public totalRewardsDistributed;
+
+    /// @notice Total revenue collected
+    uint256 public totalRevenueCollected;
+
+    // ============ Events ============
+
     event SequencerRegistered(address indexed sequencer, uint256 agentId, uint256 stake);
     event SequencerUnregistered(address indexed sequencer);
     event StakeIncreased(address indexed sequencer, uint256 amount);
@@ -64,6 +121,10 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
     event SequencerSlashed(address indexed sequencer, SlashingReason reason, uint256 amount, uint256 remainingStake);
     event BlockProposed(address indexed sequencer, uint256 blockNumber);
     event ReputationUpdated(address indexed sequencer, uint256 newScore);
+    event RevenueReceived(uint256 amount, uint256 epoch);
+    event EpochFinalized(uint256 indexed epoch, uint256 totalRevenue, uint256 sequencerShare, uint256 treasuryShare);
+    event RewardsClaimed(address indexed sequencer, uint256 amount);
+    event FeeConfigUpdated(address indexed oldConfig, address indexed newConfig);
 
     error NotRegistered();
     error AlreadyRegistered();
@@ -117,6 +178,8 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
             lastBlockProposed: 0,
             blocksProposed: 0,
             blocksMissed: 0,
+            totalRewardsEarned: 0,
+            pendingRewards: 0,
             isActive: true,
             isSlashed: false
         });
@@ -181,9 +244,15 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
             return;
         }
 
+        // Advance epoch if needed
+        _advanceEpochIfNeeded();
+
         _blockSigners[_blockNumber][_sequencer] = true;
         seq.lastBlockProposed = _blockNumber;
         seq.blocksProposed++;
+
+        // Track blocks per epoch for revenue sharing
+        epochBlocksPerSequencer[currentEpoch][_sequencer]++;
 
         emit BlockProposed(_sequencer, _blockNumber);
     }
@@ -242,6 +311,159 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
         }
     }
 
+    // ============ Revenue Sharing Functions ============
+
+    /**
+     * @notice Receive revenue for distribution to sequencers
+     * @dev Called by block production revenue router
+     */
+    receive() external payable {
+        _advanceEpochIfNeeded();
+        epochAccumulatedRevenue += msg.value;
+        totalRevenueCollected += msg.value;
+        emit RevenueReceived(msg.value, currentEpoch);
+    }
+
+    /**
+     * @notice Deposit revenue for sequencer rewards
+     */
+    function depositRevenue() external payable {
+        _advanceEpochIfNeeded();
+        epochAccumulatedRevenue += msg.value;
+        totalRevenueCollected += msg.value;
+        emit RevenueReceived(msg.value, currentEpoch);
+    }
+
+    /**
+     * @notice Finalize epoch and distribute rewards
+     * @dev Can be called by anyone after epoch ends
+     */
+    function finalizeEpoch(uint256 epochNumber) external nonReentrant {
+        require(epochNumber < currentEpoch, "Epoch not ended");
+        
+        RevenueEpoch storage epoch = revenueEpochs[epochNumber];
+        require(!epoch.distributed, "Already distributed");
+
+        // Get revenue share from governance or fallback
+        uint256 sharesBps = _getSequencerRevenueShareBps();
+        
+        // Calculate shares
+        uint256 sequencerShare = (epoch.totalRevenue * sharesBps) / BPS_DENOMINATOR;
+        uint256 treasuryShare = epoch.totalRevenue - sequencerShare;
+
+        epoch.sequencerShare = sequencerShare;
+        epoch.treasuryShare = treasuryShare;
+        epoch.distributedAt = block.timestamp;
+        epoch.distributed = true;
+
+        // Distribute to individual sequencers based on blocks proposed
+        if (epoch.totalBlocksProduced > 0 && sequencerShare > 0) {
+            for (uint256 i = 0; i < activeSequencers.length; i++) {
+                address sequencer = activeSequencers[i];
+                uint256 blocks = epochBlocksPerSequencer[epochNumber][sequencer];
+                if (blocks > 0) {
+                    uint256 reward = (sequencerShare * blocks) / epoch.totalBlocksProduced;
+                    sequencers[sequencer].pendingRewards += reward;
+                    sequencers[sequencer].totalRewardsEarned += reward;
+                }
+            }
+        }
+
+        totalRewardsDistributed += sequencerShare;
+
+        // Send treasury share
+        if (treasuryShare > 0 && treasury != address(0)) {
+            (bool success,) = treasury.call{value: treasuryShare}("");
+            require(success, "Treasury transfer failed");
+        }
+
+        emit EpochFinalized(epochNumber, epoch.totalRevenue, sequencerShare, treasuryShare);
+    }
+
+    /**
+     * @notice Claim pending rewards
+     */
+    function claimRewards() external nonReentrant {
+        Sequencer storage seq = sequencers[msg.sender];
+        uint256 pending = seq.pendingRewards;
+        require(pending > 0, "No rewards");
+
+        seq.pendingRewards = 0;
+
+        (bool success,) = msg.sender.call{value: pending}("");
+        require(success, "Transfer failed");
+
+        emit RewardsClaimed(msg.sender, pending);
+    }
+
+    /**
+     * @notice Get pending rewards for a sequencer
+     */
+    function getPendingRewards(address sequencer) external view returns (uint256) {
+        return sequencers[sequencer].pendingRewards;
+    }
+
+    /**
+     * @notice Get revenue epoch details
+     */
+    function getEpoch(uint256 epochNumber) external view returns (RevenueEpoch memory) {
+        return revenueEpochs[epochNumber];
+    }
+
+    /**
+     * @notice Get current effective revenue share rate
+     */
+    function getEffectiveRevenueShareBps() external view returns (uint256) {
+        return _getSequencerRevenueShareBps();
+    }
+
+    /**
+     * @dev Get revenue share from FeeConfig or fallback
+     */
+    function _getSequencerRevenueShareBps() internal view returns (uint256) {
+        if (address(feeConfig) != address(0)) {
+            return feeConfig.getSequencerRevenueShare();
+        }
+        return sequencerRevenueShareBps;
+    }
+
+    /**
+     * @dev Advance to next epoch if needed
+     */
+    function _advanceEpochIfNeeded() internal {
+        if (epochStartTime == 0) {
+            epochStartTime = block.timestamp;
+            return;
+        }
+
+        if (block.timestamp >= epochStartTime + EPOCH_DURATION) {
+            // Finalize current epoch
+            revenueEpochs[currentEpoch] = RevenueEpoch({
+                epochNumber: currentEpoch,
+                totalBlocksProduced: _countEpochBlocks(currentEpoch),
+                totalRevenue: epochAccumulatedRevenue,
+                sequencerShare: 0,
+                treasuryShare: 0,
+                distributedAt: 0,
+                distributed: false
+            });
+
+            // Start new epoch
+            currentEpoch++;
+            epochStartTime = block.timestamp;
+            epochAccumulatedRevenue = 0;
+        }
+    }
+
+    /**
+     * @dev Count total blocks in epoch
+     */
+    function _countEpochBlocks(uint256 epochNumber) internal view returns (uint256 total) {
+        for (uint256 i = 0; i < activeSequencers.length; i++) {
+            total += epochBlocksPerSequencer[epochNumber][activeSequencers[i]];
+        }
+    }
+
     function getSelectionWeight(address _sequencer) external view returns (uint256 weight) {
         Sequencer memory seq = sequencers[_sequencer];
         if (!seq.isActive) return 0;
@@ -297,6 +519,42 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
     function setTreasury(address _treasury) external onlyOwner {
         if (_treasury == address(0)) revert InvalidAddress();
         treasury = _treasury;
+    }
+
+    /**
+     * @notice Set fee configuration contract (governance-controlled)
+     */
+    function setFeeConfig(address _feeConfig) external onlyOwner {
+        address oldConfig = address(feeConfig);
+        feeConfig = IFeeConfigSequencer(_feeConfig);
+        emit FeeConfigUpdated(oldConfig, _feeConfig);
+    }
+
+    /**
+     * @notice Set sequencer revenue share (fallback if FeeConfig not set)
+     */
+    function setSequencerRevenueShare(uint256 newShareBps) external onlyOwner {
+        require(newShareBps <= 5000, "Share too high"); // Max 50%
+        sequencerRevenueShareBps = newShareBps;
+    }
+
+    /**
+     * @notice Get revenue sharing statistics
+     */
+    function getRevenueStats() external view returns (
+        uint256 _currentEpoch,
+        uint256 _epochAccumulatedRevenue,
+        uint256 _totalRevenueCollected,
+        uint256 _totalRewardsDistributed,
+        uint256 _currentShareBps
+    ) {
+        return (
+            currentEpoch,
+            epochAccumulatedRevenue,
+            totalRevenueCollected,
+            totalRewardsDistributed,
+            _getSequencerRevenueShareBps()
+        );
     }
 
     function pause() external onlyOwner {

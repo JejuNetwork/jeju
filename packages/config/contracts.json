@@ -92,6 +92,12 @@
       "l1StakeManager": "",
       "crossChainPaymaster": "0xa7Cd0542a8F4CCa6Dd021C3A0Af0E423Ad7DFfB7",
       "liquidityPaymaster": ""
+    },
+    
+    "fees": {
+      "feeConfig": "",
+      "feeDistributor": "",
+      "feeGovernance": ""
     }
   },
 
@@ -176,6 +182,12 @@
       "l1StakeManager": "0xBf871db95b89Fde7D13b4FAA8b8E47aB5F00C29C",
       "crossChainPaymaster": "",
       "liquidityPaymaster": ""
+    },
+    
+    "fees": {
+      "feeConfig": "",
+      "feeDistributor": "",
+      "feeGovernance": ""
     }
   },
 
@@ -260,6 +272,12 @@
       "l1StakeManager": "",
       "crossChainPaymaster": "",
       "liquidityPaymaster": ""
+    },
+    
+    "fees": {
+      "feeConfig": "",
+      "feeDistributor": "",
+      "feeGovernance": ""
     }
   },
 
