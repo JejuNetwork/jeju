@@ -1,0 +1,55 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+scrape_configs:
+  # L1 Execution Clients
+  - job_name: 'geth-l1'
+    static_configs:
+      - targets: ['geth-l1:6060']
+    metrics_path: /debug/metrics/prometheus
+
+  - job_name: 'reth-l1'
+    static_configs:
+      - targets: ['reth-l1:9001']
+
+  - job_name: 'nethermind-l1'
+    static_configs:
+      - targets: ['nethermind-l1:8008']
+
+  # L2 Sequencer Clients
+  - job_name: 'op-geth-sequencer-1'
+    static_configs:
+      - targets: ['op-geth-sequencer-1:6060']
+    metrics_path: /debug/metrics/prometheus
+
+  - job_name: 'op-reth-sequencer-2'
+    static_configs:
+      - targets: ['op-reth-sequencer-2:9001']
+
+  - job_name: 'op-nethermind-sequencer-3'
+    static_configs:
+      - targets: ['op-nethermind-sequencer-3:8008']
+
+  # OP Stack Services
+  - job_name: 'op-node-1'
+    static_configs:
+      - targets: ['op-node-1:7300']
+
+  - job_name: 'op-node-2'
+    static_configs:
+      - targets: ['op-node-2:7300']
+
+  - job_name: 'op-batcher'
+    static_configs:
+      - targets: ['op-batcher:7300']
+
+  - job_name: 'op-proposer'
+    static_configs:
+      - targets: ['op-proposer:7300']
+
