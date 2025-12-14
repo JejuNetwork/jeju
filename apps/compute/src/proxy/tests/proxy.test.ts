@@ -1,14 +1,15 @@
 /**
  * Jeju Proxy Network Tests
- * 
- * Tests for the decentralized proxy network components
  */
 
-import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
+import { describe, test, expect, beforeAll } from 'bun:test';
 import { Wallet } from 'ethers';
 import { ProxyNodeClient } from '../node/client';
 import { JejuProxySDK } from '../sdk/proxy-sdk';
-import { hashRegion, regionFromHash, REGION_CODES } from '../types';
+import { hashRegion, regionFromHash, REGION_CODES, getAllRegionCodes } from '../types';
+import { MysteriumAdapter, createMysteriumAdapter } from '../external/mysterium';
+import { OrchidAdapter, createOrchidAdapter } from '../external/orchid';
+import { SentinelAdapter, createSentinelAdapter } from '../external/sentinel';
 import type { RegionCode } from '../types';
 
 // Test wallet (Anvil default account #1)
@@ -160,6 +161,159 @@ describe('End-to-End Proxy Flow (requires full stack)', () => {
       // Expected to fail without full stack
       expect(result.error).toBeDefined();
     }
+  });
+});
+
+describe('Decentralized External Adapters', () => {
+  describe('MysteriumAdapter', () => {
+    test('creates adapter with config', () => {
+      const adapter = new MysteriumAdapter({
+        name: 'Test Mysterium',
+        baseUrl: 'http://localhost:4050',
+        markupBps: 500,
+      });
+
+      expect(adapter.name).toBe('Test Mysterium');
+      expect(adapter.type).toBe('mysterium');
+    });
+
+    test('createMysteriumAdapter returns null without config', () => {
+      const originalEnv = process.env.MYSTERIUM_NODE_URL;
+      delete process.env.MYSTERIUM_NODE_URL;
+      
+      const adapter = createMysteriumAdapter();
+      expect(adapter).toBeNull();
+      
+      process.env.MYSTERIUM_NODE_URL = originalEnv;
+    });
+
+    test('createMysteriumAdapter creates adapter with env config', () => {
+      const originalEnv = process.env.MYSTERIUM_NODE_URL;
+      process.env.MYSTERIUM_NODE_URL = 'http://test:4050';
+      
+      const adapter = createMysteriumAdapter();
+      expect(adapter).not.toBeNull();
+      expect(adapter?.name).toBe('Mysterium Network');
+      
+      process.env.MYSTERIUM_NODE_URL = originalEnv;
+    });
+
+    test('isAvailable returns false when node is unavailable', async () => {
+      const adapter = new MysteriumAdapter({
+        name: 'Test',
+        baseUrl: 'http://nonexistent:4050',
+        markupBps: 500,
+      });
+
+      const available = await adapter.isAvailable();
+      expect(available).toBe(false);
+    });
+
+    test('getRate returns positive value', async () => {
+      const adapter = new MysteriumAdapter({
+        name: 'Test',
+        baseUrl: 'http://localhost:4050',
+        markupBps: 500,
+      });
+
+      const rate = await adapter.getRate('US');
+      expect(rate).toBeGreaterThan(0n);
+    });
+  });
+
+  describe('OrchidAdapter', () => {
+    test('creates adapter with config', () => {
+      const adapter = new OrchidAdapter({
+        name: 'Test Orchid',
+        baseUrl: 'http://localhost:8545',
+        rpcUrl: 'http://localhost:8545',
+        markupBps: 500,
+      });
+
+      expect(adapter.name).toBe('Test Orchid');
+      expect(adapter.type).toBe('orchid');
+    });
+
+    test('createOrchidAdapter returns null without config', () => {
+      const originalRpc = process.env.ORCHID_RPC_URL;
+      const originalContract = process.env.ORCHID_STAKING_CONTRACT;
+      delete process.env.ORCHID_RPC_URL;
+      delete process.env.ORCHID_STAKING_CONTRACT;
+      
+      const adapter = createOrchidAdapter();
+      expect(adapter).toBeNull();
+      
+      process.env.ORCHID_RPC_URL = originalRpc;
+      process.env.ORCHID_STAKING_CONTRACT = originalContract;
+    });
+
+    test('getRate returns positive value', async () => {
+      const adapter = new OrchidAdapter({
+        name: 'Test',
+        baseUrl: 'http://localhost:8545',
+        rpcUrl: 'http://localhost:8545',
+        markupBps: 500,
+      });
+
+      const rate = await adapter.getRate('US');
+      expect(rate).toBeGreaterThan(0n);
+    });
+  });
+
+  describe('SentinelAdapter', () => {
+    test('creates adapter with config', () => {
+      const adapter = new SentinelAdapter({
+        name: 'Test Sentinel',
+        baseUrl: 'https://api.sentinel.co',
+        markupBps: 500,
+      });
+
+      expect(adapter.name).toBe('Test Sentinel');
+      expect(adapter.type).toBe('sentinel');
+    });
+
+    test('createSentinelAdapter returns null without config', () => {
+      const originalEnv = process.env.SENTINEL_API_URL;
+      delete process.env.SENTINEL_API_URL;
+      
+      const adapter = createSentinelAdapter();
+      expect(adapter).toBeNull();
+      
+      process.env.SENTINEL_API_URL = originalEnv;
+    });
+
+    test('createSentinelAdapter creates adapter with env config', () => {
+      const originalEnv = process.env.SENTINEL_API_URL;
+      process.env.SENTINEL_API_URL = 'https://api.sentinel.co';
+      
+      const adapter = createSentinelAdapter();
+      expect(adapter).not.toBeNull();
+      expect(adapter?.name).toBe('Sentinel Network');
+      
+      process.env.SENTINEL_API_URL = originalEnv;
+    });
+
+    test('isAvailable returns false when API is unavailable', async () => {
+      const adapter = new SentinelAdapter({
+        name: 'Test',
+        baseUrl: 'http://nonexistent:9999',
+        markupBps: 500,
+      });
+
+      const available = await adapter.isAvailable();
+      expect(available).toBe(false);
+    });
+
+    test('getRate returns positive value', async () => {
+      const adapter = new SentinelAdapter({
+        name: 'Test',
+        baseUrl: 'https://api.sentinel.co',
+        markupBps: 500,
+      });
+
+      const rate = await adapter.getRate('US');
+      expect(rate).toBeGreaterThan(0n);
+    });
   });
 });
 

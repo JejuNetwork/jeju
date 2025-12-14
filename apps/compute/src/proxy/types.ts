@@ -4,43 +4,33 @@
  */
 
 import type { Address } from 'viem';
+import { keccak256, toHex } from 'viem';
+
+// Re-export for convenience
+export type { Address };
 
 // ============ Region Types ============
 
-/**
- * Standard region codes (ISO 3166-1 alpha-2)
- */
 export const REGION_CODES = {
-  US: 'US',
-  GB: 'GB',
-  DE: 'DE',
-  FR: 'FR',
-  JP: 'JP',
-  KR: 'KR',
-  SG: 'SG',
-  AU: 'AU',
-  BR: 'BR',
-  IN: 'IN',
-  CA: 'CA',
-  NL: 'NL',
-  SE: 'SE',
-  CH: 'CH',
-  HK: 'HK',
+  US: 'US', GB: 'GB', DE: 'DE', FR: 'FR', JP: 'JP',
+  KR: 'KR', SG: 'SG', AU: 'AU', BR: 'BR', IN: 'IN',
+  CA: 'CA', NL: 'NL', SE: 'SE', CH: 'CH', HK: 'HK',
 } as const;
 
 export type RegionCode = keyof typeof REGION_CODES;
 
-export function hashRegion(region: RegionCode): `0x${string}` {
-  const { keccak256, toHex } = require('viem');
-  return keccak256(toHex(region)) as `0x${string}`;
-}
+// Pre-computed region hashes for O(1) lookup
+const REGION_HASHES = Object.fromEntries(
+  Object.keys(REGION_CODES).map((r) => [r, keccak256(toHex(r))])
+) as Record<RegionCode, `0x${string}`>;
 
-export function regionFromHash(hash: `0x${string}`): RegionCode | null {
-  for (const region of Object.keys(REGION_CODES) as RegionCode[]) {
-    if (hashRegion(region) === hash) return region;
-  }
-  return null;
-}
+const HASH_TO_REGION = Object.fromEntries(
+  Object.entries(REGION_HASHES).map(([r, h]) => [h, r])
+) as Record<string, RegionCode>;
+
+export const hashRegion = (region: RegionCode): `0x${string}` => REGION_HASHES[region];
+export const regionFromHash = (hash: `0x${string}`): RegionCode | null => HASH_TO_REGION[hash] ?? null;
+export const getAllRegionCodes = (): RegionCode[] => Object.keys(REGION_CODES) as RegionCode[];
 
 // ============ Node Types ============
 
@@ -61,7 +51,7 @@ export interface ConnectedNode extends ProxyNode {
   connectionId: string;
   connectedAt: number;
   lastHeartbeat: number;
-  currentLoad: number; // 0-100
+  currentLoad: number;
   pendingRequests: number;
   maxConcurrentRequests: number;
 }
@@ -69,15 +59,11 @@ export interface ConnectedNode extends ProxyNode {
 // ============ Session Types ============
 
 export const SessionStatus = {
-  PENDING: 0,
-  ACTIVE: 1,
-  COMPLETED: 2,
-  CANCELLED: 3,
-  EXPIRED: 4,
-  DISPUTED: 5,
+  PENDING: 0, ACTIVE: 1, COMPLETED: 2,
+  CANCELLED: 3, EXPIRED: 4, DISPUTED: 5,
 } as const;
 
-export type SessionStatusType = typeof SessionStatus[keyof typeof SessionStatus];
+export type SessionStatusType = (typeof SessionStatus)[keyof typeof SessionStatus];
 
 export interface ProxySession {
   sessionId: `0x${string}`;
@@ -92,13 +78,15 @@ export interface ProxySession {
   status: SessionStatusType;
 }
 
-// ============ Request Types ============
+// ============ Request/Response Types ============
+
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS';
 
 export interface ProxyRequest {
   requestId: string;
   sessionId: `0x${string}`;
   url: string;
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS';
+  method: HttpMethod;
   headers?: Record<string, string>;
   body?: string;
   timeout?: number;
@@ -119,7 +107,29 @@ export interface ProxyResponse {
   error?: string;
 }
 
-// ============ Coordinator Types ============
+// ============ Provider Types ============
+
+export type DecentralizedProviderType = 'mysterium' | 'orchid' | 'sentinel';
+
+export interface ExternalProviderConfig {
+  name: string;
+  type: DecentralizedProviderType;
+  endpoint?: string;
+  enabled: boolean;
+  priority: number;
+  markupBps: number;
+}
+
+export interface ExternalProxyProvider {
+  readonly name: string;
+  readonly type: DecentralizedProviderType;
+  isAvailable(): Promise<boolean>;
+  getRate(region: RegionCode): Promise<bigint>;
+  fetchViaProxy(request: ProxyRequest, region: RegionCode): Promise<ProxyResponse>;
+  getSupportedRegions(): Promise<RegionCode[]>;
+}
+
+// ============ Config Types ============
 
 export interface CoordinatorConfig {
   rpcUrl: string;
@@ -133,18 +143,6 @@ export interface CoordinatorConfig {
   maxConcurrentRequestsPerNode?: number;
   externalProviders?: ExternalProviderConfig[];
 }
-
-export interface ExternalProviderConfig {
-  name: string;
-  type: 'brightdata' | 'oxylabs' | 'mysterium';
-  apiKey: string;
-  endpoint?: string;
-  enabled: boolean;
-  priority: number; // Lower = higher priority for fallback
-  markupBps: number; // Basis points markup (100 = 1%)
-}
-
-// ============ Node Client Types ============
 
 export interface NodeClientConfig {
   coordinatorUrl: string;
@@ -161,27 +159,22 @@ export interface NodeTask {
   deadline: number;
 }
 
-// ============ WebSocket Message Types ============
+// ============ WebSocket Types ============
 
 export const WsMessageType = {
-  // Coordinator -> Node
   AUTH_REQUEST: 'AUTH_REQUEST',
   AUTH_RESPONSE: 'AUTH_RESPONSE',
   TASK_ASSIGN: 'TASK_ASSIGN',
   HEARTBEAT_REQUEST: 'HEARTBEAT_REQUEST',
-  
-  // Node -> Coordinator
   AUTH_SUBMIT: 'AUTH_SUBMIT',
   TASK_RESULT: 'TASK_RESULT',
   HEARTBEAT_RESPONSE: 'HEARTBEAT_RESPONSE',
   STATUS_UPDATE: 'STATUS_UPDATE',
-  
-  // Both
   ERROR: 'ERROR',
   DISCONNECT: 'DISCONNECT',
 } as const;
 
-export type WsMessageTypeValue = typeof WsMessageType[keyof typeof WsMessageType];
+export type WsMessageTypeValue = (typeof WsMessageType)[keyof typeof WsMessageType];
 
 export interface WsMessage {
   type: WsMessageTypeValue;
@@ -230,17 +223,6 @@ export interface StatusUpdatePayload {
   available: boolean;
 }
 
-// ============ External Provider Types ============
-
-export interface ExternalProxyProvider {
-  name: string;
-  type: ExternalProviderConfig['type'];
-  isAvailable(): Promise<boolean>;
-  getRate(region: RegionCode): Promise<bigint>; // Cost per GB in wei
-  fetchViaProxy(request: ProxyRequest, region: RegionCode): Promise<ProxyResponse>;
-  getSupportedRegions(): Promise<RegionCode[]>;
-}
-
 // ============ SDK Types ============
 
 export interface ProxySDKConfig {
@@ -255,7 +237,7 @@ export interface FetchOptions {
   sessionId?: `0x${string}`;
   timeout?: number;
   headers?: Record<string, string>;
-  method?: ProxyRequest['method'];
+  method?: HttpMethod;
   body?: string;
 }
 
@@ -272,7 +254,7 @@ export interface FetchResult {
   error?: string;
 }
 
-// ============ API Response Types ============
+// ============ API Types ============
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -295,4 +277,3 @@ export interface RegionInfo {
   averageLatencyMs: number;
   available: boolean;
 }
-

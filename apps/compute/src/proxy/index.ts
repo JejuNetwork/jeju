@@ -1,20 +1,14 @@
 /**
  * Jeju Decentralized Proxy Network
- * 
- * A permissionless bandwidth-sharing marketplace on Jeju L2.
- * 
- * Components:
- * - Coordinator: Central service that routes requests and manages payments
- * - Node Client: Runs on user machines to provide bandwidth
- * - SDK: Client library for consuming proxy services
- * - External Adapters: Fallback to third-party providers when needed
- * 
+ * Permissionless bandwidth-sharing marketplace on Jeju L2
  * @module @jeju/proxy
  */
 
 // ============ Types ============
 export type {
+  Address,
   RegionCode,
+  HttpMethod,
   ProxyNode,
   ConnectedNode,
   ProxySession,
@@ -24,6 +18,7 @@ export type {
   NodeClientConfig,
   ExternalProviderConfig,
   ExternalProxyProvider,
+  DecentralizedProviderType,
   ProxySDKConfig,
   FetchOptions,
   FetchResult,
@@ -47,39 +42,32 @@ export {
   WsMessageType,
   hashRegion,
   regionFromHash,
+  getAllRegionCodes,
 } from './types';
 
 // ============ Coordinator ============
-export {
-  ProxyCoordinatorServer,
-  startProxyCoordinator,
-} from './coordinator/server';
-
+export { ProxyCoordinatorServer, startProxyCoordinator } from './coordinator/server';
 export { NodeManager } from './coordinator/node-manager';
 export { RequestRouter } from './coordinator/request-router';
 
 // ============ Node Client ============
-export {
-  ProxyNodeClient,
-  startProxyNode,
-} from './node/client';
+export { ProxyNodeClient, startProxyNode } from './node/client';
 
 // ============ SDK ============
-export {
-  JejuProxySDK,
-  createProxySDK,
-} from './sdk/proxy-sdk';
+export { JejuProxySDK, createProxySDK } from './sdk/proxy-sdk';
 
 // ============ External Adapters ============
 export {
   BaseExternalAdapter,
   REGION_TO_COUNTRY,
-  getAllRegionCodes,
-  type ExternalAdapterConfig,
+  PriceUtils,
+  createErrorResponse,
+  createSuccessResponse,
+  executeProxiedFetch,
+  countriesToRegions,
+  type AdapterConfig,
 } from './external/adapter';
 
-export {
-  BrightDataAdapter,
-  createBrightDataAdapter,
-} from './external/brightdata';
-
+export { MysteriumAdapter, createMysteriumAdapter } from './external/mysterium';
+export { OrchidAdapter, createOrchidAdapter } from './external/orchid';
+export { SentinelAdapter, createSentinelAdapter } from './external/sentinel';

@@ -386,27 +386,109 @@ services:
       - jeju-stage2
     restart: unless-stopped
 
-  # Threshold Signer Service
-  threshold-signer:
+  # ============================================================================
+  # P2P THRESHOLD SIGNERS - One per sequencer operator
+  # Each signer holds ONLY its own private key
+  # ============================================================================
+  
+  # Signer 1 (Geth sequencer operator)
+  signer-1:
     image: oven/bun:1
-    container_name: jeju-stage2-signer
+    container_name: jeju-stage2-signer-1
     working_dir: /app
+    ports:
+      - "4100:4100"
     volumes:
       - ./scripts/stage2-poc:/app
     environment:
+      - SIGNER_PRIVATE_KEY=${SEQUENCER_1_PRIVATE_KEY}
+      - SIGNER_PORT=4100
+    command: ["bun", "run", "signer-service.ts"]
+    networks:
+      - jeju-stage2
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4100/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  # Signer 2 (Reth sequencer operator)
+  signer-2:
+    image: oven/bun:1
+    container_name: jeju-stage2-signer-2
+    working_dir: /app
+    ports:
+      - "4101:4100"
+    volumes:
+      - ./scripts/stage2-poc:/app
+    environment:
+      - SIGNER_PRIVATE_KEY=${SEQUENCER_2_PRIVATE_KEY}
+      - SIGNER_PORT=4100
+    command: ["bun", "run", "signer-service.ts"]
+    networks:
+      - jeju-stage2
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4100/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  # Signer 3 (Nethermind sequencer operator)
+  signer-3:
+    image: oven/bun:1
+    container_name: jeju-stage2-signer-3
+    working_dir: /app
+    ports:
+      - "4102:4100"
+    volumes:
+      - ./scripts/stage2-poc:/app
+    environment:
+      - SIGNER_PRIVATE_KEY=${SEQUENCER_3_PRIVATE_KEY}
+      - SIGNER_PORT=4100
+    command: ["bun", "run", "signer-service.ts"]
+    networks:
+      - jeju-stage2
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4100/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  # Signature Collector/Coordinator
+  signature-collector:
+    image: oven/bun:1
+    container_name: jeju-stage2-collector
+    working_dir: /app
+    ports:
+      - "4110:4110"
+    volumes:
+      - ./scripts/stage2-poc:/app
+      - ./packages/contracts/deployments:/app/deployments:ro
+    environment:
+      - L1_RPC_URL=http://geth-l1:8545
       - THRESHOLD_BATCH_SUBMITTER_ADDRESS=${THRESHOLD_BATCH_SUBMITTER_ADDRESS}
       - SIGNER_THRESHOLD=${SIGNER_THRESHOLD:-2}
-      - SEQUENCER_1_KEY=${SEQUENCER_1_PRIVATE_KEY}
-      - SEQUENCER_2_KEY=${SEQUENCER_2_PRIVATE_KEY}
-      - SEQUENCER_3_KEY=${SEQUENCER_3_PRIVATE_KEY}
+      - SIGNER_1_URL=http://signer-1:4100
+      - SIGNER_2_URL=http://signer-2:4100
+      - SIGNER_3_URL=http://signer-3:4100
+      - COORDINATOR_PRIVATE_KEY=${DEPLOYER_PRIVATE_KEY}
     command: >
       sh -c "
-        echo 'Starting threshold signer...' &&
-        sleep 45 &&
+        echo 'Waiting for signers...' &&
+        sleep 50 &&
+        echo 'Starting signature collector...' &&
         bun run run-signer.ts
       "
     depends_on:
-      - sequencer-registry-monitor
+      signer-1:
+        condition: service_healthy
+      signer-2:
+        condition: service_healthy
+      signer-3:
+        condition: service_healthy
     networks:
       - jeju-stage2
     restart: unless-stopped
@@ -492,11 +574,16 @@ http.server.HTTPServer((\"\", 5052), BeaconHandler).serve_forever()
       - COORDINATOR_PRIVATE_KEY=${COORDINATOR_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
       - PROXY_COORDINATOR_PORT=4020
       - PROXY_COORDINATOR_WS_PORT=4021
-      # Optional external provider credentials
-      - BRIGHTDATA_USERNAME=${BRIGHTDATA_USERNAME:-}
-      - BRIGHTDATA_PASSWORD=${BRIGHTDATA_PASSWORD:-}
-      - BRIGHTDATA_ZONE=${BRIGHTDATA_ZONE:-residential}
-    command: ["bun", "run", "src/proxy/coordinator/server.ts"]
+      # Decentralized fallback providers (optional)
+      # Mysterium Network - requires running mysterium node
+      - MYSTERIUM_NODE_URL=${MYSTERIUM_NODE_URL:-}
+      - MYSTERIUM_IDENTITY=${MYSTERIUM_IDENTITY:-}
+      # Orchid Network - requires Ethereum RPC for contract queries
+      - ORCHID_RPC_URL=${ORCHID_RPC_URL:-}
+      - ORCHID_STAKING_CONTRACT=${ORCHID_STAKING_CONTRACT:-}
+      # Sentinel Network - decentralized VPN on Cosmos
+      - SENTINEL_API_URL=${SENTINEL_API_URL:-}
+    command: ["bun", "run", "apps/compute/src/proxy/scripts/start-coordinator.ts"]
     depends_on:
       op-geth-seq-1:
         condition: service_healthy
@@ -519,7 +606,7 @@ http.server.HTTPServer((\"\", 5052), BeaconHandler).serve_forever()
       - NODE_PRIVATE_KEY=${NODE_1_PRIVATE_KEY:-0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d}
       - NODE_REGION=US
       - NODE_MAX_CONCURRENT=10
-    command: ["bun", "run", "src/proxy/node/client.ts"]
+    command: ["bun", "run", "apps/compute/src/proxy/scripts/start-node.ts"]
     depends_on:
       proxy-coordinator:
         condition: service_healthy

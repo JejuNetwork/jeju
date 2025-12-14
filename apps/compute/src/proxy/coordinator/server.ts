@@ -26,6 +26,7 @@ import type {
   SessionOpenResponse,
   RegionInfo,
   ApiResponse,
+  ExternalProxyProvider,
 } from '../types';
 import { REGION_CODES, hashRegion, SessionStatus } from '../types';
 
@@ -479,12 +480,63 @@ export class ProxyCoordinatorServer {
   getApp(): Hono {
     return this.app;
   }
+
+  /**
+   * Register an external provider for fallback routing
+   */
+  registerExternalProvider(provider: ExternalProxyProvider, priority: number): void {
+    this.requestRouter.registerExternalProvider(provider, priority);
+  }
 }
 
 /**
  * Create and start coordinator from environment
  */
 export async function startProxyCoordinator(): Promise<ProxyCoordinatorServer> {
+  // Import decentralized adapters
+  const { createMysteriumAdapter } = await import('../external/mysterium');
+  const { createOrchidAdapter } = await import('../external/orchid');
+  const { createSentinelAdapter } = await import('../external/sentinel');
+
+  // Build external providers list from environment
+  const externalProviders: CoordinatorConfig['externalProviders'] = [];
+  
+  // Check for Mysterium (decentralized)
+  if (process.env.MYSTERIUM_NODE_URL) {
+    externalProviders.push({
+      name: 'Mysterium Network',
+      type: 'mysterium',
+      endpoint: process.env.MYSTERIUM_NODE_URL,
+      enabled: true,
+      priority: 1,
+      markupBps: parseInt(process.env.MYSTERIUM_MARKUP_BPS || '500', 10),
+    });
+  }
+
+  // Check for Orchid (decentralized)
+  if (process.env.ORCHID_RPC_URL && process.env.ORCHID_STAKING_CONTRACT) {
+    externalProviders.push({
+      name: 'Orchid Network',
+      type: 'orchid',
+      endpoint: process.env.ORCHID_RPC_URL,
+      enabled: true,
+      priority: 2,
+      markupBps: parseInt(process.env.ORCHID_MARKUP_BPS || '500', 10),
+    });
+  }
+
+  // Check for Sentinel (decentralized)
+  if (process.env.SENTINEL_API_URL) {
+    externalProviders.push({
+      name: 'Sentinel Network',
+      type: 'sentinel',
+      endpoint: process.env.SENTINEL_API_URL,
+      enabled: true,
+      priority: 3,
+      markupBps: parseInt(process.env.SENTINEL_MARKUP_BPS || '500', 10),
+    });
+  }
+
   const config: CoordinatorConfig = {
     rpcUrl: process.env.JEJU_RPC_URL || 'http://127.0.0.1:9545',
     registryAddress: (process.env.PROXY_REGISTRY_ADDRESS || '0x0000000000000000000000000000000000000000') as Address,
@@ -495,14 +547,34 @@ export async function startProxyCoordinator(): Promise<ProxyCoordinatorServer> {
     heartbeatIntervalMs: 30000,
     requestTimeoutMs: 30000,
     maxConcurrentRequestsPerNode: 10,
+    externalProviders,
   };
 
   if (!config.privateKey) {
-    console.error('COORDINATOR_PRIVATE_KEY or PRIVATE_KEY required');
-    process.exit(1);
+    throw new Error('COORDINATOR_PRIVATE_KEY or PRIVATE_KEY required');
   }
 
   const server = new ProxyCoordinatorServer(config);
+
+  // Register decentralized fallback providers
+  const mysteriumAdapter = createMysteriumAdapter();
+  if (mysteriumAdapter) {
+    server.registerExternalProvider(mysteriumAdapter, 1);
+    console.log('[Coordinator] Registered Mysterium Network (decentralized fallback)');
+  }
+
+  const orchidAdapter = createOrchidAdapter();
+  if (orchidAdapter) {
+    server.registerExternalProvider(orchidAdapter, 2);
+    console.log('[Coordinator] Registered Orchid Network (decentralized fallback)');
+  }
+
+  const sentinelAdapter = createSentinelAdapter();
+  if (sentinelAdapter) {
+    server.registerExternalProvider(sentinelAdapter, 3);
+    console.log('[Coordinator] Registered Sentinel Network (decentralized fallback)');
+  }
+
   await server.start();
   return server;
 }

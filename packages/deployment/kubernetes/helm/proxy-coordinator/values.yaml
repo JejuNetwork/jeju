@@ -76,14 +76,23 @@ config:
   requestTimeoutMs: 30000
   maxConcurrentRequestsPerNode: 10
   
-  # External provider fallback (optional)
+  # Decentralized fallback providers (optional)
+  # Only permissionless, token-incentivized networks are supported
   externalProviders:
-    brightdata:
+    mysterium:
       enabled: false
-      username: ""
-      password: ""
-      zone: "residential"
-      markupBps: 1000  # 10%
+      nodeUrl: ""  # Local Mysterium node API (http://localhost:4050)
+      identity: ""
+      markupBps: 500  # 5%
+    orchid:
+      enabled: false
+      rpcUrl: ""  # Ethereum RPC for contract queries
+      stakingContract: ""
+      markupBps: 500  # 5%
+    sentinel:
+      enabled: false
+      apiUrl: ""  # Sentinel network API endpoint
+      markupBps: 500  # 5%
 
 # Ingress for external access
 ingress:

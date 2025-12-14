@@ -56,19 +56,30 @@ spec:
                 secretKeyRef:
                   name: {{ include "proxy-coordinator.fullname" . }}-secrets
                   key: coordinator-private-key
-            {{- if .Values.config.externalProviders.brightdata.enabled }}
-            - name: BRIGHTDATA_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "proxy-coordinator.fullname" . }}-secrets
-                  key: brightdata-username
-            - name: BRIGHTDATA_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "proxy-coordinator.fullname" . }}-secrets
-                  key: brightdata-password
-            - name: BRIGHTDATA_ZONE
-              value: {{ .Values.config.externalProviders.brightdata.zone | quote }}
+            # Mysterium Network (decentralized fallback)
+            {{- if .Values.config.externalProviders.mysterium.enabled }}
+            - name: MYSTERIUM_NODE_URL
+              value: {{ .Values.config.externalProviders.mysterium.nodeUrl | quote }}
+            - name: MYSTERIUM_IDENTITY
+              value: {{ .Values.config.externalProviders.mysterium.identity | quote }}
+            - name: MYSTERIUM_MARKUP_BPS
+              value: {{ .Values.config.externalProviders.mysterium.markupBps | quote }}
+            {{- end }}
+            # Orchid Network (decentralized fallback)
+            {{- if .Values.config.externalProviders.orchid.enabled }}
+            - name: ORCHID_RPC_URL
+              value: {{ .Values.config.externalProviders.orchid.rpcUrl | quote }}
+            - name: ORCHID_STAKING_CONTRACT
+              value: {{ .Values.config.externalProviders.orchid.stakingContract | quote }}
+            - name: ORCHID_MARKUP_BPS
+              value: {{ .Values.config.externalProviders.orchid.markupBps | quote }}
+            {{- end }}
+            # Sentinel Network (decentralized fallback)
+            {{- if .Values.config.externalProviders.sentinel.enabled }}
+            - name: SENTINEL_API_URL
+              value: {{ .Values.config.externalProviders.sentinel.apiUrl | quote }}
+            - name: SENTINEL_MARKUP_BPS
+              value: {{ .Values.config.externalProviders.sentinel.markupBps | quote }}
             {{- end }}
           livenessProbe:
             httpGet:

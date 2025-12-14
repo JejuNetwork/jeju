@@ -6,11 +6,15 @@ import "../src/stage2/ThresholdBatchSubmitter.sol";
 
 contract MockBatchInbox {
     bytes[] public batches;
-    
+
+    receive() external payable {
+        batches.push("");
+    }
+
     fallback() external payable {
         batches.push(msg.data);
     }
-    
+
     function getBatchCount() external view returns (uint256) {
         return batches.length;
     }
