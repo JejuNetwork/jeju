@@ -73,18 +73,18 @@ export async function switchNetwork(
 }
 
 /**
- * Add and switch to Jeju Localnet
+ * Add and switch to the network Localnet
  */
-export async function setupJejuNetwork(metamask: MetaMask): Promise<void> {
+export async function setupNetworkChain(metamask: MetaMask): Promise<void> {
   await metamask.addNetwork({
-    networkName: 'Jeju Localnet',
+    networkName: getLocalnetChain().name,
     rpcUrl: 'http://127.0.0.1:9545',
     chainId: 1337,
     symbol: 'ETH',
   });
 
-  await metamask.switchNetwork('Jeju Localnet');
-  console.log('✅ Jeju Localnet configured');
+  await metamask.switchNetwork(getLocalnetChain().name);
+  console.log('✅ Network Localnet configured');
 }
 
 /**

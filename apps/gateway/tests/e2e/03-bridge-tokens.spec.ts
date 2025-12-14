@@ -17,12 +17,12 @@ test.describe('Bridge from Ethereum Flow', () => {
   });
 
   test('should display bridge interface', async ({ page }) => {
-    await expect(page.getByText('Bridge from Ethereum to Jeju')).toBeVisible();
+    await expect(page.getByText('Bridge from Ethereum to the network')).toBeVisible();
   });
 
   test('should show elizaOS warning message', async ({ page }) => {
     // elizaOS is native and should not be bridgeable
-    await expect(page.getByText(/elizaOS is a native Jeju token/i)).toBeVisible();
+    await expect(page.getByText(/elizaOS is a native network token/i)).toBeVisible();
     await expect(page.getByText(/cannot be bridged from Ethereum/i)).toBeVisible();
   });
 
@@ -76,7 +76,7 @@ test.describe('Bridge from Ethereum Flow', () => {
     await expect(recipientInput).toBeVisible();
     
     // Bridge button should be enabled even without recipient
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeEnabled();
   });
 
@@ -92,7 +92,7 @@ test.describe('Bridge from Ethereum Flow', () => {
     await page.getByText('CLANKERMON').click();
     
     // Bridge button should be disabled
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeDisabled();
   });
 
@@ -106,7 +106,7 @@ test.describe('Bridge from Ethereum Flow', () => {
     await amountInput.fill('100');
     
     // Bridge button should remain disabled with invalid address
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeDisabled();
   });
 });

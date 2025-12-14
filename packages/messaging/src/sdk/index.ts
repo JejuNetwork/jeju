@@ -1,7 +1,7 @@
 /**
- * Jeju Messaging SDK
+ * Network Messaging SDK
  * 
- * Decentralized private messaging for Jeju L2
+ * Decentralized private messaging for Network L2
  */
 
 // Client

@@ -563,7 +563,7 @@ function NameManagerCard() {
 }
 
 function RegisteredAppsCard() {
-  // Pre-registered Jeju app names - URLs resolve via .jeju TLD in production
+  // Pre-registered network app names - URLs resolve via .jeju TLD in production
   const apps = [
     { name: 'gateway', description: 'Protocol Infrastructure Hub' },
     { name: 'bazaar', description: 'DeFi + NFT Marketplace' },
@@ -619,7 +619,7 @@ export default function JNSTab() {
   return (
     <div>
       <div style={{ marginBottom: '1.5rem' }}>
-        <h2 style={{ fontSize: 'clamp(1.25rem, 4vw, 1.5rem)', marginBottom: '0.5rem' }}>🏷️ Jeju Name Service</h2>
+        <h2 style={{ fontSize: 'clamp(1.25rem, 4vw, 1.5rem)', marginBottom: '0.5rem' }}>🏷️ Network Name Service</h2>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.9375rem' }}>
           Register decentralized names for your apps and services.
         </p>

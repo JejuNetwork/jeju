@@ -18,13 +18,13 @@ contract InventorySystem is System {
     event ItemAdded(address indexed player, uint16 itemId, uint32 quantity, uint8 slot);
     event ItemRemoved(address indexed player, uint16 itemId, uint32 quantity, uint8 slot);
     event ItemMoved(address indexed player, uint8 fromSlot, uint8 toSlot);
-    event JejuIntegrationSet(address indexed integration);
+    event GameIntegrationSet(address indexed integration);
 
     error PlayerBanned();
 
     function setJejuIntegration(address _jejuIntegration) public {
         jejuIntegration = _jejuIntegration;
-        emit JejuIntegrationSet(_jejuIntegration);
+        emit GameIntegrationSet(_jejuIntegration);
     }
 
     function _requirePlayerAllowed(address player) internal view {

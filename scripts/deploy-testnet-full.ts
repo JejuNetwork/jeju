@@ -36,7 +36,7 @@ const TESTNET_CHAINS: ChainConfig[] = [
     type: 'l1'
   },
   {
-    name: 'Jeju Testnet',
+    name: 'Testnet',
     chainId: 420690,
     rpc: process.env.JEJU_RPC || 'https://testnet-rpc.jejunetwork.org',
     type: 'l2'

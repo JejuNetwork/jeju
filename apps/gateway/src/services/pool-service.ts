@@ -4,7 +4,7 @@ import { getRpcUrl, JEJU_CHAIN_ID } from '../config/networks.js';
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
 const MAX_POOLS_TO_FETCH = 100;
 
-// Chainlink ETH/USD feeds (mainnet only - Jeju uses Ethereum price as proxy)
+// Chainlink ETH/USD feeds (mainnet only - Network uses Ethereum price as proxy)
 const CHAINLINK_ETH_USD_FEEDS: Record<number, Address> = {
   1: '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419' as Address,
   42161: '0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612' as Address,

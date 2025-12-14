@@ -2,7 +2,7 @@
  * Gas Service
  * 
  * Handles gas abstraction and multi-token gas payments.
- * Integrates with Jeju's CrossChainPaymaster for sponsored transactions.
+ * Integrates with network's CrossChainPaymaster for sponsored transactions.
  */
 
 import type { IAgentRuntime } from '@elizaos/core';

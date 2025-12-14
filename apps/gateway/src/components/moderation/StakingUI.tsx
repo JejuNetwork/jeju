@@ -224,7 +224,7 @@ export default function StakingUI({ agentId: providedAgentId }: StakingUIProps) 
           Reputation Benefits
         </h4>
         <ul className="text-sm text-gray-700 space-y-1">
-          <li>• Higher tiers increase trust across all Jeju apps</li>
+          <li>• Higher tiers increase trust across all network apps</li>
           <li>• Voting power increases with tier (Medium: 1.5x, High: 2x)</li>
           <li>• High Tier required to become Guardian</li>
           <li>• Stake is fully refundable if you de-register</li>

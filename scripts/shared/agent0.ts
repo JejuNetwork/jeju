@@ -1,7 +1,7 @@
 /**
- * @title Agent0 SDK Integration for Jeju
- * @notice Wrapper around agent0-ts SDK for registering Jeju apps as ERC-8004 agents
- * @author Jeju Network
+ * @title Agent0 SDK Integration for network
+ * @notice Wrapper around agent0-ts SDK for registering network apps as ERC-8004 agents
+ * @author the network
  * 
  * This module provides:
  * - Environment-aware SDK initialization (localnet/testnet/mainnet)
@@ -19,7 +19,7 @@ const logger = new Logger({ prefix: 'agent0' });
 
 // ============ Types ============
 
-export interface JejuManifest {
+export interface AppManifest {
   name: string;
   description: string;
   version?: string;
@@ -170,7 +170,7 @@ export function getNetworkConfig(network: 'localnet' | 'testnet' | 'mainnet'): t
 /**
  * Load jeju-manifest.json from an app directory
  */
-export function loadJejuManifest(appDir: string): JejuManifest {
+export function loadAppManifest(appDir: string): AppManifest {
   const manifestPath = resolve(appDir, 'jeju-manifest.json');
   
   if (!existsSync(manifestPath)) {
@@ -215,7 +215,7 @@ const IDENTITY_REGISTRY_ABI = [
  * Build a registration file from jeju-manifest.json
  */
 export function buildRegistrationFile(
-  manifest: JejuManifest, 
+  manifest: AppManifest, 
   appUrl: string,
   ownerAddress: string
 ): Record<string, unknown> {
@@ -290,7 +290,7 @@ export async function uploadToIPFS(
  */
 export async function registerApp(
   config: Agent0Config,
-  manifest: JejuManifest,
+  manifest: AppManifest,
   _appUrl: string,
   tokenURI?: string
 ): Promise<RegistrationResult> {
@@ -499,10 +499,10 @@ export async function findAgentsByTag(
 }
 
 /**
- * Get all registered Jeju app agents
+ * Get all registered network app agents
  */
-export async function getJejuAppAgents(config: Agent0Config): Promise<string[]> {
-  // Jeju apps should use the "jeju-app" tag
+export async function getNetworkAppAgents(config: Agent0Config): Promise<string[]> {
+  // Network apps should use the "jeju-app" tag
   return findAgentsByTag(config, 'jeju-app');
 }
 

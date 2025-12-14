@@ -343,7 +343,7 @@ async function checkApplicationContracts() {
 function printResults() {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════╗
-║  Jeju Network - Testnet Readiness Report                             ║
+║  the network - Testnet Readiness Report                             ║
 ╚══════════════════════════════════════════════════════════════════════╝
 `);
 

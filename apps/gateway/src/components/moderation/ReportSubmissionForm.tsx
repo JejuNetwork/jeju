@@ -31,7 +31,7 @@ type ReportType = 0 | 1 | 2 | 3; // NETWORK_BAN, APP_BAN, LABEL_HACKER, LABEL_SC
 type ReportSeverity = 0 | 1 | 2 | 3; // LOW, MEDIUM, HIGH, CRITICAL
 
 const REPORT_TYPES = [
-  { value: 0, label: 'Network Ban', description: 'Ban from entire Jeju network' },
+  { value: 0, label: 'Network Ban', description: 'Ban from entire network' },
   { value: 1, label: 'App Ban', description: 'Ban from specific app only' },
   { value: 2, label: 'Hacker Label', description: 'Apply HACKER label (auto network ban)' },
   { value: 3, label: 'Scammer Label', description: 'Apply SCAMMER warning label' },

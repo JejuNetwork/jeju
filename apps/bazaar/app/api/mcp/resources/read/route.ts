@@ -3,7 +3,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getJejuTokens, getLatestBlocks } from '@/lib/indexer-client';
+import { getNetworkTokens, getLatestBlocks } from '@/lib/indexer-client';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -14,7 +14,7 @@ const CORS_HEADERS = {
 async function readResource(uri: string): Promise<unknown | null> {
   switch (uri) {
     case 'bazaar://tokens': {
-      const tokens = await getJejuTokens({ limit: 50 });
+      const tokens = await getNetworkTokens({ limit: 50 });
       return {
         tokens: tokens.map((t) => ({
           address: t.address,

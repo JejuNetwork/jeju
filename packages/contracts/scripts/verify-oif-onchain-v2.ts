@@ -33,7 +33,7 @@ if (!PRIVATE_KEY) {
 const account = privateKeyToAccount(PRIVATE_KEY);
 
 const CONTRACTS = {
-  MockJejuUSDC: "0x953F6516E5d2864cE7f13186B45dE418EA665EB2" as Address,
+  MockNetworkUSDC: "0x953F6516E5d2864cE7f13186B45dE418EA665EB2" as Address,
   ElizaOSToken: "0x7af64e6aE21076DE21EFe71F243A75664a17C34b" as Address,
   SolverRegistry: "0xecfE47302D941c8ce5B0009C0ac2E6D6ee2A42de" as Address,
   SimpleOracle: "0xE30218678a940d1553b285B0eB5C5364BBF70ed9" as Address,
@@ -314,7 +314,7 @@ async function main() {
 
     // Approve
     const approveTx = await walletClient.writeContract({
-      address: CONTRACTS.MockJejuUSDC,
+      address: CONTRACTS.MockNetworkUSDC,
       abi: ERC20_ABI,
       functionName: "approve",
       args: [CONTRACTS.OutputSettler, depositAmount],
@@ -326,7 +326,7 @@ async function main() {
       address: CONTRACTS.OutputSettler,
       abi: OUTPUT_SETTLER_ABI,
       functionName: "depositLiquidity",
-      args: [CONTRACTS.MockJejuUSDC, depositAmount],
+      args: [CONTRACTS.MockNetworkUSDC, depositAmount],
     });
     const depositReceipt = await publicClient.waitForTransactionReceipt({ hash: depositTx });
 
@@ -344,7 +344,7 @@ async function main() {
       address: CONTRACTS.OutputSettler,
       abi: OUTPUT_SETTLER_ABI,
       functionName: "getSolverLiquidity",
-      args: [account.address, CONTRACTS.MockJejuUSDC],
+      args: [account.address, CONTRACTS.MockNetworkUSDC],
     });
     console.log(`   Solver liquidity: ${formatUnits(liquidity, 6)} USDC`);
   } catch (e: unknown) {
@@ -362,7 +362,7 @@ async function main() {
       address: CONTRACTS.OutputSettler,
       abi: OUTPUT_SETTLER_ABI,
       functionName: "fillDirect",
-      args: [testOrderId, CONTRACTS.MockJejuUSDC, fillAmount, account.address],
+      args: [testOrderId, CONTRACTS.MockNetworkUSDC, fillAmount, account.address],
     });
     const fillReceipt = await publicClient.waitForTransactionReceipt({ hash: fillTx });
 

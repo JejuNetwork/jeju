@@ -1,5 +1,5 @@
 /**
- * Mainnet Integration Test for Jeju Compute Marketplace
+ * Mainnet Integration Test for network Compute Marketplace
  *
  * This test validates the deployed contracts on Sepolia or Ethereum Mainnet.
  *

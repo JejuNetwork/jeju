@@ -75,7 +75,7 @@ describe('Service Integration - Indexer + IPFS + Monitoring', () => {
       if (response.ok) {
         const card = await response.json();
         console.log('✅ IPFS A2A agent card available');
-        expect(card.name).toBe('Jeju IPFS Storage Service');
+        expect(card.name).toBe('IPFS Storage Service');
         expect(card.skills).toBeDefined();
         expect(card.skills.length).toBeGreaterThan(0);
       } else {

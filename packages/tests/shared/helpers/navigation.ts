@@ -1,7 +1,7 @@
 import { Page, expect } from '@playwright/test';
 
 /**
- * Navigation helpers for Jeju dApp testing
+ * Navigation helpers for network dApp testing
  */
 
 export async function navigateToMarket(page: Page, marketId?: string) {

@@ -1,8 +1,8 @@
-// Jeju Network Token Configuration
-// This is used for the official Jeju ICO on the launchpad
+// the network Token Configuration
+// This is used for the official Network ICO on the launchpad
 
 export const JEJU_TOKENOMICS = {
-  name: 'Jeju',
+  name: 'Network',
   symbol: 'JEJU',
   decimals: 18,
   
@@ -114,7 +114,7 @@ export const JEJU_TOKENOMICS = {
   },
 } as const
 
-export type JejuAllocationKey = keyof typeof JEJU_TOKENOMICS.allocation
+export type AllocationKey = keyof typeof JEJU_TOKENOMICS.allocation
 
 // Contract addresses by network
 export const JEJU_CONTRACTS = {

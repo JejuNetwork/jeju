@@ -2,8 +2,8 @@
 pragma solidity ^0.8.26;
 
 import {Script, console2} from "forge-std/Script.sol";
-import {JejuPresale} from "../src/tokens/JejuPresale.sol";
-import {JejuToken} from "../src/tokens/JejuToken.sol";
+import {NetworkPresale} from "../src/tokens/NetworkPresale.sol";
+import {NetworkToken} from "../src/tokens/NetworkToken.sol";
 
 contract DeployPresale is Script {
     // Presale parameters
@@ -38,22 +38,22 @@ contract DeployPresale is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        JejuToken token;
+        NetworkToken token;
 
         // Deploy or use existing token
         if (tokenAddress == address(0)) {
-            console2.log("Deploying new JejuToken...");
-            token = new JejuToken(deployer, address(0), true);
-            console2.log("JejuToken deployed at:", address(token));
+            console2.log("Deploying new NetworkToken...");
+            token = new NetworkToken(deployer, address(0), true);
+            console2.log("NetworkToken deployed at:", address(token));
         } else {
-            console2.log("Using existing JejuToken at:", tokenAddress);
-            token = JejuToken(tokenAddress);
+            console2.log("Using existing NetworkToken at:", tokenAddress);
+            token = NetworkToken(tokenAddress);
         }
 
         // Deploy presale
-        console2.log("Deploying JejuPresale...");
-        JejuPresale presale = new JejuPresale(address(token), treasury, deployer);
-        console2.log("JejuPresale deployed at:", address(presale));
+        console2.log("Deploying NetworkPresale...");
+        NetworkPresale presale = new NetworkPresale(address(token), treasury, deployer);
+        console2.log("NetworkPresale deployed at:", address(presale));
 
         // Configure presale timing
         uint256 whitelistStart = block.timestamp + WHITELIST_OFFSET;
@@ -87,8 +87,8 @@ contract DeployPresale is Script {
 
         // Log deployment summary
         console2.log("\n=== Deployment Summary ===");
-        console2.log("JejuToken:", address(token));
-        console2.log("JejuPresale:", address(presale));
+        console2.log("NetworkToken:", address(token));
+        console2.log("NetworkPresale:", address(presale));
         console2.log("Treasury:", treasury);
         console2.log("\n=== Presale Config ===");
         console2.log("Soft Cap:", SOFT_CAP / 1e18, "ETH");

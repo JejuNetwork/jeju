@@ -16,12 +16,12 @@ import { AddressSchema } from './contracts';
 
 export const SupportedChainIdSchema = z.union([
   z.literal(1),        // Ethereum Mainnet
-  z.literal(11155111), // Sepolia (Jeju L1 Testnet)
+  z.literal(11155111), // Sepolia (L1 Testnet)
   z.literal(42161),    // Arbitrum One
   z.literal(10),       // Optimism
   z.literal(1337),     // Localnet
-  z.literal(420691),   // Jeju Mainnet (L2 on Ethereum)
-  z.literal(420690),   // Jeju Testnet (L2 on Sepolia)
+  z.literal(420691),   // Network Mainnet (L2 on Ethereum)
+  z.literal(420690),   // Network Testnet (L2 on Sepolia)
 ]);
 export type SupportedChainId = z.infer<typeof SupportedChainIdSchema>;
 

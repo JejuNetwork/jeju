@@ -38,7 +38,7 @@ test.describe('Complete Protocol Flow', () => {
     
     // Step 1: Bridge token from Ethereum
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
-    await expect(page.getByText('Bridge from Ethereum to Jeju')).toBeVisible();
+    await expect(page.getByText('Bridge from Ethereum to the network')).toBeVisible();
     
     // Select CLANKER
     await page.locator('.input').first().click();

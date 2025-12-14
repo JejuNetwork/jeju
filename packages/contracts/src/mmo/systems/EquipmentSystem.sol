@@ -24,13 +24,13 @@ contract EquipmentSystem is System {
 
     event ItemEquipped(address indexed player, uint8 slot, uint16 itemId);
     event ItemUnequipped(address indexed player, uint8 slot, uint16 itemId);
-    event JejuIntegrationSet(address indexed integration);
+    event GameIntegrationSet(address indexed integration);
 
     error PlayerBanned();
 
     function setJejuIntegration(address _jejuIntegration) public {
         jejuIntegration = _jejuIntegration;
-        emit JejuIntegrationSet(_jejuIntegration);
+        emit GameIntegrationSet(_jejuIntegration);
     }
 
     function _requirePlayerAllowed(address player) internal view {

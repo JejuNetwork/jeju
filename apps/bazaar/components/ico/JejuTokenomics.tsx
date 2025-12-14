@@ -1,8 +1,8 @@
 'use client'
 
-import { JEJU_TOKENOMICS, JejuAllocationKey } from '@/config/jeju-tokenomics'
+import { JEJU_TOKENOMICS, AllocationKey } from '@/config/jeju-tokenomics'
 
-const COLORS: Record<JejuAllocationKey, string> = {
+const COLORS: Record<AllocationKey, string> = {
   presale: '#22c55e',
   ecosystem: '#3b82f6',
   agentCouncil: '#8b5cf6',
@@ -11,8 +11,8 @@ const COLORS: Record<JejuAllocationKey, string> = {
   community: '#ec4899',
 }
 
-export function JejuTokenomics() {
-  const allocations = Object.entries(JEJU_TOKENOMICS.allocation) as [JejuAllocationKey, typeof JEJU_TOKENOMICS.allocation.presale][]
+export function the networkTokenomics() {
+  const allocations = Object.entries(JEJU_TOKENOMICS.allocation) as [AllocationKey, typeof JEJU_TOKENOMICS.allocation.presale][]
   
   let currentAngle = 0
   const segments = allocations.map(([key, value]) => {

@@ -3,9 +3,9 @@ import { BrowserContext } from 'playwright-core';
 import { bootstrap, Dappwright, getWallet } from '@tenkeylabs/dappwright';
 
 /**
- * Shared wallet fixture configuration for Jeju network
+ * Shared wallet fixture configuration for network
  *
- * This provides standardized wallet testing across all Jeju apps.
+ * This provides standardized wallet testing across all network apps.
  * Uses @tenkeylabs/dappwright with Playwright's fixture system.
  */
 
@@ -18,8 +18,8 @@ export const JEJU_TEST_WALLET = {
 };
 
 export const JEJU_NETWORK = {
-  name: 'Jeju Local',
-  networkName: 'Jeju Local', // Alias for dappwright compatibility
+  name: 'Network Local',
+  networkName: 'Network Local', // Alias for dappwright compatibility
   rpcUrl: process.env.L2_RPC_URL || process.env.JEJU_RPC_URL || 'http://localhost:9545',
   chainId: parseInt(process.env.CHAIN_ID || '1337'),
   symbol: 'ETH',
@@ -54,7 +54,7 @@ export const testWithWallet = base.extend<
         headless: false, // MetaMask requires headful mode
       });
 
-      // Add Jeju network to MetaMask
+      // Add network to MetaMask
       await wallet.addNetwork({
         networkName: JEJU_NETWORK.networkName,
         rpc: JEJU_NETWORK.rpcUrl,
@@ -62,7 +62,7 @@ export const testWithWallet = base.extend<
         symbol: JEJU_NETWORK.symbol,
       });
 
-      // Switch to Jeju network
+      // Switch to the network network
       await wallet.switchNetwork(JEJU_NETWORK.networkName);
 
       await use(context);
@@ -164,7 +164,7 @@ export const testWithCustomWallet = base.extend<
         headless: false,
       });
 
-      // Add Jeju network
+      // Add network
       await wallet.addNetwork({
         networkName: JEJU_NETWORK.networkName,
         rpc: JEJU_NETWORK.rpcUrl,

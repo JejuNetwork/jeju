@@ -1,5 +1,5 @@
 /**
- * Jeju Wallet Services
+ * Network Wallet Services
  */
 
 export { WalletService } from './wallet.service';

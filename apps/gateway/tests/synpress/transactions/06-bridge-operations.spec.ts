@@ -1,6 +1,6 @@
 /**
  * Bridge Transaction Tests
- * Tests token bridging from Ethereum to Jeju (approve + bridge)
+ * Tests token bridging from Ethereum to the network (approve + bridge)
  * 
  * NOTE: Currently tests UI and approval flow
  * Full bridge requires Sepolia testnet connection
@@ -32,7 +32,7 @@ test.describe('Bridge UI and Validation', () => {
     await page.waitForTimeout(500);
 
     // No amount - button disabled
-    let bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    let bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeDisabled();
 
     // Enter amount
@@ -40,7 +40,7 @@ test.describe('Bridge UI and Validation', () => {
     await page.waitForTimeout(500);
 
     // Button should be enabled
-    bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeEnabled();
 
     console.log('✅ Amount validation works');
@@ -80,7 +80,7 @@ test.describe('Bridge UI and Validation', () => {
     await page.getByPlaceholder('0.0').fill('10');
 
     // Button should be enabled
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeEnabled();
 
     console.log('✅ Custom token address mode works');
@@ -94,7 +94,7 @@ test.describe('Bridge UI and Validation', () => {
     await page.getByPlaceholder('0.0').fill('10');
 
     // Button should be disabled
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeDisabled();
 
     console.log('✅ Invalid custom address rejected');
@@ -109,7 +109,7 @@ test.describe('Bridge UI and Validation', () => {
     await page.getByPlaceholder('0.0').fill('50');
 
     // Recipient is optional - button should work without it
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeEnabled();
 
     // Add recipient
@@ -145,7 +145,7 @@ test.describe('Bridge Transaction Approval', () => {
     });
 
     // Click bridge (will trigger approval first)
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await bridgeButton.click();
 
     // Approve in MetaMask (first tx)
@@ -178,7 +178,7 @@ test.describe('Bridge Transaction Approval', () => {
     // 1. Approval transaction (done above)
     // 2. Bridge transaction
     // 3. Wait for relay
-    // 4. Verify receipt on Jeju
+    // 4. Verify receipt on the network
     // 5. Check balance updated
 
     console.log('⚠️  Full bridge transaction - requires Sepolia testnet setup');
@@ -219,7 +219,7 @@ test.describe('Bridge Error Handling', () => {
     expect(hasElizaOS).toBe(false);
 
     // Warning should be visible
-    await expect(page.getByText(/elizaOS is a native Jeju token/i)).toBeVisible();
+    await expect(page.getByText(/elizaOS is a native network token/i)).toBeVisible();
     await expect(page.getByText(/cannot be bridged from Ethereum/i)).toBeVisible();
 
     console.log('✅ elizaOS correctly excluded from bridge');
@@ -233,7 +233,7 @@ test.describe('Bridge Error Handling', () => {
 
     await page.getByPlaceholder('0.0').fill('10');
 
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await bridgeButton.click();
 
     // Reject approval

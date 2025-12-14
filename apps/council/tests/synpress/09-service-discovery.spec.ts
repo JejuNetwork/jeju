@@ -15,7 +15,7 @@ test.describe('Service Discovery', () => {
     expect(response.ok()).toBeTruthy();
     
     const card = await response.json();
-    expect(card.name).toBe('Jeju AI Council');
+    expect(card.name: getNetworkName() AI Council');
     expect(card.url).toBe('/a2a');
     expect(card.skills).toBeDefined();
     expect(Array.isArray(card.skills)).toBe(true);

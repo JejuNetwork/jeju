@@ -67,7 +67,7 @@ export const SUPPORTED_CHAINS = [
   { chainId: 1, name: 'Ethereum' },
   { chainId: 42161, name: 'Arbitrum' },
   { chainId: 10, name: 'Optimism' },
-  { chainId: 420691, name: 'Jeju' },
+  { chainId: 420691, name: 'Network' },
 ] as const;
 
 // Common tokens across chains

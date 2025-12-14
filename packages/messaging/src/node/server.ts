@@ -1,5 +1,5 @@
 /**
- * Jeju Messaging Relay Node Server
+ * Network Messaging Relay Node Server
  * 
  * Handles message routing, storage, and delivery for the decentralized
  * messaging network.
@@ -376,7 +376,7 @@ export function startRelayServer(config: NodeConfig): void {
     },
   });
   
-  console.log(`🚀 Jeju Messaging Relay Node running at http://localhost:${server.port}`);
+  console.log(`🚀 Network Messaging Relay Node running at http://localhost:${server.port}`);
   console.log(`   WebSocket: ws://localhost:${server.port}/ws`);
   console.log(`   Health: http://localhost:${server.port}/health`);
 }

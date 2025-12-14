@@ -524,11 +524,11 @@ export function createCacheA2AServer(cache: DecentralizedCache): Hono {
 
   const AGENT_CARD = {
     protocolVersion: '0.3.0',
-    name: 'Jeju Cache',
+    name: getNetworkName() Cache',
     description: 'Decentralized Redis-compatible caching service',
     url: '/cache/a2a',
     preferredTransport: 'http',
-    provider: { organization: 'Jeju Network', url: 'https://jeju.network' },
+    provider: { organization: 'the network', url: 'https://jeju.network' },
     version: '1.0.0',
     capabilities: { streaming: false, pushNotifications: false, stateTransitionHistory: false },
     defaultInputModes: ['text', 'data'],

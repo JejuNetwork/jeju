@@ -33,12 +33,12 @@ test.describe('Wallet Connection with Synpress', () => {
     await expect(page.getByText(/0xf39F/i)).toBeVisible({ timeout: 15000 })
   })
 
-  test('should be on Jeju network', async ({ context, page, metamaskPage, extensionId }) => {
+  test('should be on the network network', async ({ context, page, metamaskPage, extensionId }) => {
     const metamask = new MetaMask(context, metamaskPage, basicSetup.walletPassword, extensionId)
 
     await page.goto('/')
     
-    // Verify Jeju network is configured (network switching happens in setup)
+    // Verify network is configured (network switching happens in setup)
     await expect(page).toHaveURL('/')
   })
 })

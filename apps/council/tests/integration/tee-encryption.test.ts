@@ -77,7 +77,7 @@ describe('TEE Encryption', () => {
   });
 });
 
-describe('Jeju KMS Encryption', () => {
+describe('Network KMS Encryption', () => {
   let lit: typeof import('../../src/lit-encryption');
 
   beforeAll(async () => {

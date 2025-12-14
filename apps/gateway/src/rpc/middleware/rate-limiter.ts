@@ -23,7 +23,7 @@ const RPC_URL = process.env.JEJU_RPC_URL || 'http://localhost:9545';
 const CHAIN_ID = Number(process.env.JEJU_CHAIN_ID || 420690);
 
 const chain: Chain = {
-  id: CHAIN_ID, name: CHAIN_ID === 420691 ? 'Jeju' : 'Jeju Testnet',
+  id: CHAIN_ID, name: CHAIN_ID === 420691 ? 'Network' : 'Testnet',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: { default: { http: [RPC_URL] } },
 };

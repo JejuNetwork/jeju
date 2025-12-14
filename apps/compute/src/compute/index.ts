@@ -1,5 +1,5 @@
 /**
- * Jeju Compute Marketplace
+ * Network Compute Marketplace
  *
  * A decentralized compute network for AI inference with ERC-8004 integration.
  */
@@ -56,7 +56,7 @@ export type {
 } from './sdk';
 
 // Export SDK
-export { JejuComputeSDK, createSDK } from './sdk';
+export { ComputeSDK, createSDK } from './sdk';
 
 // Export enums
 export { GPUTypeEnum, RentalStatusEnum } from './sdk/types';

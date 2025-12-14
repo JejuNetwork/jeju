@@ -51,7 +51,7 @@ async function deploy(): Promise<DeployResult> {
 
   console.log(`
 ╔══════════════════════════════════════════════════════════════════╗
-║              Jeju Proxy Network Contract Deployment              ║
+║              Network Proxy Network Contract Deployment              ║
 ╚══════════════════════════════════════════════════════════════════╝
 
 Network:    ${network.name} (chainId: ${network.chainId})

@@ -22,12 +22,12 @@ export const CHAIN_NAMES: Record<number, string> = {
   84532: 'Base Sepolia',
   421614: 'Arbitrum Sepolia',
   11155420: 'Optimism Sepolia',
-  420690: 'Jeju Testnet',
+  420690: 'Testnet',
   1: 'Ethereum',
   8453: 'Base',
   42161: 'Arbitrum One',
   10: 'OP Mainnet',
-  420691: 'Jeju Mainnet',
+  420691: 'Mainnet',
 };
 
 export const TESTNET_CHAIN_IDS = [11155111, 84532, 421614, 11155420, 420690];

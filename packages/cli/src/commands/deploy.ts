@@ -5,100 +5,260 @@
 import { Command } from 'commander';
 import prompts from 'prompts';
 import { execa } from 'execa';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { logger } from '../lib/logger';
 import { checkRpcHealth, getAccountBalance } from '../lib/chain';
 import { hasKeys, resolvePrivateKey } from '../lib/keys';
-import { checkDocker, checkFoundry } from '../lib/system';
-import { CHAIN_CONFIG, type NetworkType, type DeploymentConfig } from '../types';
+import { checkDocker, checkFoundry, getNetworkDir } from '../lib/system';
+import { CHAIN_CONFIG, type NetworkType } from '../types';
 import { Wallet } from 'ethers';
+
+interface DeployConfig {
+  network: NetworkType;
+  lastDeployed?: string;
+  deployerAddress?: string;
+  contracts?: boolean;
+  infrastructure?: boolean;
+  apps?: boolean;
+}
+
+function getConfigPath(): string {
+  return join(getNetworkDir(), 'deploy-config.json');
+}
+
+function loadConfig(): DeployConfig | null {
+  const path = getConfigPath();
+  if (!existsSync(path)) return null;
+  try {
+    return JSON.parse(readFileSync(path, 'utf-8'));
+  } catch {
+    return null;
+  }
+}
+
+function saveConfig(config: DeployConfig): void {
+  const dir = getNetworkDir();
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(getConfigPath(), JSON.stringify(config, null, 2));
+}
 
 export const deployCommand = new Command('deploy')
   .description('Deploy to testnet or mainnet')
-  .argument('[network]', 'Network: testnet | mainnet', 'testnet')
+  .argument('[network]', 'testnet | mainnet')
   .option('--contracts', 'Deploy only contracts')
   .option('--infrastructure', 'Deploy only infrastructure')
   .option('--apps', 'Deploy only apps')
-  .option('--dry-run', 'Simulate deployment without making changes')
+  .option('--dry-run', 'Simulate without making changes')
   .option('-y, --yes', 'Skip confirmations')
   .action(async (networkArg, options) => {
-    const network = networkArg as NetworkType;
+    const savedConfig = loadConfig();
+    const isDryRun = options.dryRun === true;
+    
+    // Determine network
+    let network: NetworkType;
+    if (networkArg) {
+      network = networkArg as NetworkType;
+    } else if (savedConfig?.network && savedConfig.network !== 'localnet') {
+      const { useLastNetwork } = await prompts({
+        type: 'confirm',
+        name: 'useLastNetwork',
+        message: `Deploy to ${savedConfig.network} again?`,
+        initial: true,
+      });
+      
+      if (useLastNetwork) {
+        network = savedConfig.network;
+      } else {
+        const { selectedNetwork } = await prompts({
+          type: 'select',
+          name: 'selectedNetwork',
+          message: 'Select network:',
+          choices: [
+            { title: 'Testnet', value: 'testnet' },
+            { title: 'Mainnet', value: 'mainnet' },
+          ],
+        });
+        if (!selectedNetwork) return;
+        network = selectedNetwork;
+      }
+    } else {
+      const { selectedNetwork } = await prompts({
+        type: 'select',
+        name: 'selectedNetwork',
+        message: 'Select network:',
+        choices: [
+          { title: 'Testnet', value: 'testnet' },
+          { title: 'Mainnet', value: 'mainnet' },
+        ],
+      });
+      if (!selectedNetwork) return;
+      network = selectedNetwork;
+    }
 
     if (network === 'localnet') {
-      logger.error('Cannot deploy to localnet. Use `jeju dev` instead.');
-      process.exit(1);
+      logger.error('Use `jeju dev` for localnet');
+      return;
     }
 
     logger.header(`DEPLOY TO ${network.toUpperCase()}`);
 
-    const config: DeploymentConfig = {
-      network,
-      contracts: options.contracts || (!options.infrastructure && !options.apps),
-      infrastructure: options.infrastructure || (!options.contracts && !options.apps),
-      apps: options.apps || (!options.contracts && !options.infrastructure),
-      dryRun: options.dryRun || false,
-    };
-
-    // Pre-flight checks
-    logger.subheader('Pre-flight Checks');
+    if (isDryRun) {
+      logger.warn('DRY RUN - simulating deployment');
+    }
 
     // Check keys
-    if (!hasKeys(network)) {
-      logger.error(`No keys configured for ${network}`);
-      logger.info(`Run: jeju keys generate --network=${network}`);
-      process.exit(1);
-    }
-    logger.success('Keys configured');
+    let wallet: Wallet | null = null;
+    let balance = '0';
 
-    // Check deployer balance
-    const privateKey = resolvePrivateKey(network);
-    const wallet = new Wallet(privateKey);
-    const chainConfig = CHAIN_CONFIG[network];
-    
-    const balance = await getAccountBalance(chainConfig.rpcUrl, wallet.address as `0x${string}`);
-    const balanceNum = parseFloat(balance);
-    
-    if (balanceNum < 0.1) {
-      logger.error(`Insufficient balance: ${balance} ETH`);
-      logger.info('Fund the deployer address with at least 0.1 ETH');
-      logger.keyValue('Address', wallet.address);
-      process.exit(1);
+    if (!hasKeys(network)) {
+      if (isDryRun) {
+        logger.warn('Keys not configured (would prompt in real deploy)');
+      } else {
+        logger.warn(`No keys configured for ${network}`);
+        
+        const { generateKeys } = await prompts({
+          type: 'confirm',
+          name: 'generateKeys',
+          message: 'Generate keys now?',
+          initial: true,
+        });
+
+        if (generateKeys) {
+          const { keysCommand } = await import('./keys');
+          await keysCommand.parseAsync(['genesis', '-n', network], { from: 'user' });
+          
+          if (!hasKeys(network)) {
+            logger.error('Key generation cancelled or failed');
+            return;
+          }
+        } else {
+          logger.info('Run: jeju keys genesis -n ' + network);
+          return;
+        }
+      }
     }
-    logger.success(`Deployer funded (${balance} ETH)`);
+
+    // Get wallet info if keys exist
+    if (hasKeys(network)) {
+      logger.success('Keys configured');
+      
+      try {
+        const privateKey = resolvePrivateKey(network);
+        wallet = new Wallet(privateKey);
+        const chainConfig = CHAIN_CONFIG[network];
+        
+        try {
+          balance = await getAccountBalance(chainConfig.rpcUrl, wallet.address as `0x${string}`);
+          const balanceNum = parseFloat(balance);
+          
+          if (balanceNum < 0.1) {
+            if (isDryRun) {
+              logger.warn(`Low balance: ${balance} ETH (would fail in real deploy)`);
+            } else {
+              logger.error(`Insufficient balance: ${balance} ETH`);
+              logger.newline();
+              logger.info('Fund the deployer with at least 0.1 ETH:');
+              logger.keyValue('Address', wallet.address);
+              logger.keyValue('Network', network === 'testnet' ? 'Base Sepolia' : 'Base');
+              
+              if (network === 'testnet') {
+                logger.newline();
+                logger.info('Get testnet ETH from:');
+                logger.info('  https://www.alchemy.com/faucets/base-sepolia');
+              }
+              return;
+            }
+          } else {
+            logger.success(`Deployer funded: ${parseFloat(balance).toFixed(4)} ETH`);
+          }
+        } catch {
+          if (isDryRun) {
+            logger.warn(`Cannot connect to ${network} RPC (would fail in real deploy)`);
+          } else {
+            logger.error(`Cannot connect to ${network} RPC: ${chainConfig.rpcUrl}`);
+            return;
+          }
+        }
+      } catch {
+        if (!isDryRun) {
+          logger.error('Could not resolve deployer key');
+          return;
+        }
+      }
+    }
+
+    // Determine what to deploy
+    let deployContracts = options.contracts;
+    let deployInfra = options.infrastructure;
+    let deployApps = options.apps;
+    
+    if (!deployContracts && !deployInfra && !deployApps) {
+      if (isDryRun) {
+        // Default to all in dry-run
+        deployContracts = true;
+        deployInfra = true;
+        deployApps = true;
+      } else {
+        const { deployChoice } = await prompts({
+          type: 'select',
+          name: 'deployChoice',
+          message: 'What to deploy?',
+          choices: [
+            { title: 'Everything (contracts + infra + apps)', value: 'all' },
+            { title: 'Contracts only', value: 'contracts' },
+            { title: 'Infrastructure only', value: 'infrastructure' },
+            { title: 'Apps only', value: 'apps' },
+          ],
+        });
+        
+        if (!deployChoice) return;
+        
+        if (deployChoice === 'all') {
+          deployContracts = true;
+          deployInfra = true;
+          deployApps = true;
+        } else {
+          deployContracts = deployChoice === 'contracts';
+          deployInfra = deployChoice === 'infrastructure';
+          deployApps = deployChoice === 'apps';
+        }
+      }
+    }
 
     // Check dependencies
-    if (config.contracts) {
+    if (deployContracts && !isDryRun) {
       const foundryResult = await checkFoundry();
       if (foundryResult.status !== 'ok') {
-        logger.error('Foundry required for contract deployment');
-        process.exit(1);
+        logger.error('Foundry required for contracts');
+        logger.info('Install: curl -L https://foundry.paradigm.xyz | bash');
+        return;
       }
       logger.success('Foundry available');
     }
 
-    if (config.infrastructure) {
+    if (deployInfra && !isDryRun) {
       const dockerResult = await checkDocker();
       if (dockerResult.status !== 'ok') {
-        logger.error('Docker required for infrastructure deployment');
-        process.exit(1);
+        logger.error('Docker required for infrastructure');
+        return;
       }
       logger.success('Docker available');
     }
 
-    logger.newline();
-
     // Confirmation
-    if (!options.yes && !config.dryRun) {
-      logger.box([
-        `Network: ${network}`,
-        `Contracts: ${config.contracts ? 'Yes' : 'No'}`,
-        `Infrastructure: ${config.infrastructure ? 'Yes' : 'No'}`,
-        `Apps: ${config.apps ? 'Yes' : 'No'}`,
-        '',
-        `Deployer: ${wallet.address}`,
-        `Balance: ${balance} ETH`,
-      ]);
+    if (!options.yes && !isDryRun) {
+      logger.newline();
+      logger.subheader('Deployment Plan');
+      logger.keyValue('Network', network);
+      if (wallet) {
+        logger.keyValue('Deployer', wallet.address);
+        logger.keyValue('Balance', `${parseFloat(balance).toFixed(4)} ETH`);
+      }
+      logger.keyValue('Contracts', deployContracts ? 'Yes' : 'No');
+      logger.keyValue('Infrastructure', deployInfra ? 'Yes' : 'No');
+      logger.keyValue('Apps', deployApps ? 'Yes' : 'No');
+      logger.newline();
 
       const { proceed } = await prompts({
         type: 'confirm',
@@ -108,136 +268,140 @@ export const deployCommand = new Command('deploy')
       });
 
       if (!proceed) {
-        logger.info('Deployment cancelled');
+        logger.info('Cancelled');
         return;
       }
     }
 
-    if (config.dryRun) {
-      logger.warn('DRY RUN - No changes will be made');
-      logger.newline();
+    const rootDir = findMonorepoRoot();
+
+    // Deploy
+    if (deployContracts) {
+      await runDeployContracts(rootDir, network, isDryRun);
     }
 
-    const rootDir = process.cwd();
-
-    // Deploy contracts
-    if (config.contracts) {
-      await deployContracts(rootDir, network, config.dryRun);
+    if (deployInfra) {
+      await runDeployInfra(rootDir, network, isDryRun);
     }
 
-    // Deploy infrastructure
-    if (config.infrastructure) {
-      await deployInfrastructure(rootDir, network, config.dryRun);
+    if (deployApps) {
+      await runDeployApps(rootDir, network, isDryRun);
     }
 
-    // Deploy apps
-    if (config.apps) {
-      await deployApps(rootDir, network, config.dryRun);
+    // Save config
+    if (wallet) {
+      saveConfig({
+        network,
+        lastDeployed: new Date().toISOString(),
+        deployerAddress: wallet.address,
+        contracts: deployContracts,
+        infrastructure: deployInfra,
+        apps: deployApps,
+      });
     }
 
     // Summary
     logger.newline();
-    logger.header('DEPLOYMENT COMPLETE');
+    logger.header('DONE');
     
-    logger.subheader('Endpoints');
     if (network === 'testnet') {
-      logger.table([
-        { label: 'RPC', value: 'https://rpc.testnet.jeju.network', status: 'ok' },
-        { label: 'Explorer', value: 'https://explorer.testnet.jeju.network', status: 'ok' },
-        { label: 'Gateway', value: 'https://gateway.testnet.jeju.network', status: 'ok' },
-      ]);
+      logger.keyValue('RPC', 'https://rpc.testnet.jeju.network');
+      logger.keyValue('Explorer', 'https://explorer.testnet.jeju.network');
     } else {
-      logger.table([
-        { label: 'RPC', value: 'https://rpc.jeju.network', status: 'ok' },
-        { label: 'Explorer', value: 'https://explorer.jeju.network', status: 'ok' },
-        { label: 'Gateway', value: 'https://gateway.jeju.network', status: 'ok' },
-      ]);
+      logger.keyValue('RPC', 'https://rpc.jeju.network');
+      logger.keyValue('Explorer', 'https://explorer.jeju.network');
     }
   });
 
-async function deployContracts(rootDir: string, network: NetworkType, dryRun: boolean): Promise<void> {
-  logger.subheader('Deploying Contracts');
+function findMonorepoRoot(): string {
+  let dir = process.cwd();
+  while (dir !== '/') {
+    if (existsSync(join(dir, 'bun.lock')) && existsSync(join(dir, 'packages'))) {
+      return dir;
+    }
+    dir = join(dir, '..');
+  }
+  return process.cwd();
+}
+
+async function runDeployContracts(rootDir: string, network: NetworkType, dryRun: boolean): Promise<void> {
+  logger.subheader('Contracts');
   
   const contractsDir = join(rootDir, 'packages/contracts');
   if (!existsSync(contractsDir)) {
-    logger.warn('Contracts directory not found');
+    logger.warn('packages/contracts not found');
     return;
   }
 
-  // Build contracts
-  logger.step('Building contracts...');
+  logger.step('Building...');
   if (!dryRun) {
-    await execa('forge', ['build'], { cwd: contractsDir, stdio: 'pipe' });
+    try {
+      await execa('forge', ['build'], { cwd: contractsDir, stdio: 'pipe' });
+    } catch {
+      logger.error('Build failed');
+      return;
+    }
   }
-  logger.success('Contracts built');
+  logger.success('Built');
 
-  // Deploy using deployment script
   const deployScript = join(rootDir, `scripts/deploy/${network}.ts`);
   if (existsSync(deployScript)) {
-    logger.step('Running deployment script...');
+    logger.step('Deploying...');
     if (!dryRun) {
       await execa('bun', ['run', deployScript], {
         cwd: rootDir,
         stdio: 'inherit',
-        env: {
-          ...process.env,
-          NETWORK: network,
-          JEJU_NETWORK: network,
-        },
+        env: { ...process.env, NETWORK: network },
       });
     }
-    logger.success('Contracts deployed');
+    logger.success('Deployed');
   } else {
-    logger.warn(`Deployment script not found: ${deployScript}`);
-    logger.info('Using forge script fallback...');
-    
-    // Fallback to forge script
     const forgeScript = join(contractsDir, 'script/Deploy.s.sol');
-    if (existsSync(forgeScript) && !dryRun) {
-      const rpcUrl = CHAIN_CONFIG[network].rpcUrl;
-      await execa('forge', ['script', 'script/Deploy.s.sol', '--rpc-url', rpcUrl, '--broadcast'], {
-        cwd: contractsDir,
-        stdio: 'inherit',
-      });
-      logger.success('Contracts deployed via Forge');
+    if (existsSync(forgeScript)) {
+      logger.step('Deploying via Forge...');
+      if (!dryRun) {
+        const rpcUrl = CHAIN_CONFIG[network].rpcUrl;
+        await execa('forge', ['script', 'script/Deploy.s.sol', '--rpc-url', rpcUrl, '--broadcast'], {
+          cwd: contractsDir,
+          stdio: 'inherit',
+        });
+      }
+      logger.success('Deployed');
+    } else {
+      logger.warn('No deploy script found');
     }
   }
 }
 
-async function deployInfrastructure(rootDir: string, network: NetworkType, dryRun: boolean): Promise<void> {
-  logger.subheader('Deploying Infrastructure');
+async function runDeployInfra(rootDir: string, network: NetworkType, dryRun: boolean): Promise<void> {
+  logger.subheader('Infrastructure');
   
   const deploymentDir = join(rootDir, 'packages/deployment');
   if (!existsSync(deploymentDir)) {
-    logger.warn('Deployment package not found');
+    logger.warn('packages/deployment not found');
     return;
   }
 
-  // Run deployment script
   const deployScript = join(deploymentDir, 'scripts/deploy-full.ts');
   if (existsSync(deployScript)) {
-    logger.step('Running infrastructure deployment...');
+    logger.step('Deploying...');
     if (!dryRun) {
       await execa('bun', ['run', deployScript], {
         cwd: deploymentDir,
         stdio: 'inherit',
-        env: {
-          ...process.env,
-          NETWORK: network,
-        },
+        env: { ...process.env, NETWORK: network },
       });
     }
-    logger.success('Infrastructure deployed');
+    logger.success('Deployed');
   } else {
-    logger.warn('Infrastructure deployment script not found');
+    logger.warn('No deploy script found');
   }
 }
 
-async function deployApps(rootDir: string, network: NetworkType, dryRun: boolean): Promise<void> {
-  logger.subheader('Deploying Apps');
+async function runDeployApps(rootDir: string, network: NetworkType, dryRun: boolean): Promise<void> {
+  logger.subheader('Apps');
   
-  // Build apps
-  logger.step('Building apps...');
+  logger.step('Building...');
   if (!dryRun) {
     await execa('bun', ['run', 'build'], {
       cwd: rootDir,
@@ -245,44 +409,44 @@ async function deployApps(rootDir: string, network: NetworkType, dryRun: boolean
       reject: false,
     });
   }
-  logger.success('Apps built');
+  logger.success('Built');
 
-  // Deploy using helmfile or kubectl
   const k8sDir = join(rootDir, 'packages/deployment/kubernetes');
-  if (existsSync(k8sDir)) {
+  const helmfilePath = join(k8sDir, 'helmfile.yaml');
+  
+  if (existsSync(helmfilePath)) {
     logger.step('Deploying to Kubernetes...');
     if (!dryRun) {
-      // Check for helmfile
-      const helmfilePath = join(k8sDir, 'helmfile.yaml');
-      if (existsSync(helmfilePath)) {
-        await execa('helmfile', ['sync'], {
-          cwd: k8sDir,
-          stdio: 'inherit',
-          env: {
-            ...process.env,
-            ENVIRONMENT: network,
-          },
-        });
-      }
+      await execa('helmfile', ['sync'], {
+        cwd: k8sDir,
+        stdio: 'inherit',
+        env: { ...process.env, ENVIRONMENT: network },
+      });
     }
-    logger.success('Apps deployed to Kubernetes');
+    logger.success('Deployed');
   } else {
-    logger.info('Kubernetes manifests not found, skipping k8s deployment');
+    logger.warn('No Kubernetes manifests found');
   }
 }
 
-// Subcommand for checking deployment status
+// Status subcommand
 deployCommand
   .command('status')
   .description('Check deployment status')
-  .option('-n, --network <network>', 'Network', 'testnet')
-  .action(async (options) => {
-    const network = options.network as NetworkType;
+  .argument('[network]', 'testnet | mainnet')
+  .action(async (networkArg) => {
+    const savedConfig = loadConfig();
+    const network = (networkArg || savedConfig?.network || 'testnet') as NetworkType;
+    
+    if (network === 'localnet') {
+      logger.info('Use `jeju status` for localnet');
+      return;
+    }
+    
     const config = CHAIN_CONFIG[network];
     
-    logger.header(`DEPLOYMENT STATUS: ${network.toUpperCase()}`);
+    logger.header(`${network.toUpperCase()} STATUS`);
     
-    // Check RPC
     const rpcHealthy = await checkRpcHealth(config.rpcUrl, 5000);
     logger.table([{
       label: 'RPC',
@@ -290,16 +454,30 @@ deployCommand
       status: rpcHealthy ? 'ok' : 'error',
     }]);
     
-    // Check contract deployments
-    const rootDir = process.cwd();
+    if (savedConfig?.lastDeployed && savedConfig.network === network) {
+      logger.table([{
+        label: 'Last deployed',
+        value: new Date(savedConfig.lastDeployed).toLocaleString(),
+        status: 'ok',
+      }]);
+      if (savedConfig.deployerAddress) {
+        logger.table([{
+          label: 'Deployer',
+          value: savedConfig.deployerAddress,
+          status: 'ok',
+        }]);
+      }
+    }
+    
+    const rootDir = findMonorepoRoot();
     const deploymentsFile = join(rootDir, `packages/contracts/deployments/${network}/contracts.json`);
     
     if (existsSync(deploymentsFile)) {
       const deployments = JSON.parse(readFileSync(deploymentsFile, 'utf-8'));
-      const contractCount = Object.keys(deployments).length;
+      const count = Object.keys(deployments).length;
       logger.table([{
         label: 'Contracts',
-        value: `${contractCount} deployed`,
+        value: `${count} deployed`,
         status: 'ok',
       }]);
     } else {
@@ -310,4 +488,3 @@ deployCommand
       }]);
     }
   });
-

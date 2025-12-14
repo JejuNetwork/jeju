@@ -87,7 +87,7 @@ export interface TokenConfig {
 const TESTNET_TOKENS: TokenConfig[] = [
   {
     symbol: 'JEJU',
-    name: 'Jeju',
+    name: 'Network',
     address: TESTNET_CONTRACTS.jejuToken,
     decimals: 18,
     priceUSD: 0.05,

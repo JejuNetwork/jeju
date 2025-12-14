@@ -1,11 +1,11 @@
 /**
- * Jeju Proxy Network Tests
+ * Network Proxy Network Tests
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
 import { Wallet } from 'ethers';
 import { ProxyNodeClient } from '../node/client';
-import { JejuProxySDK } from '../sdk/proxy-sdk';
+import { ProxySDK } from '../sdk/proxy-sdk';
 import { hashRegion, regionFromHash, REGION_CODES, getAllRegionCodes } from '../types';
 import { MysteriumAdapter, createMysteriumAdapter } from '../external/mysterium';
 import { OrchidAdapter, createOrchidAdapter } from '../external/orchid';
@@ -78,11 +78,11 @@ describe('ProxyNodeClient', () => {
   });
 });
 
-describe('JejuProxySDK', () => {
-  let sdk: JejuProxySDK;
+describe('ProxySDK', () => {
+  let sdk: ProxySDK;
 
   beforeAll(() => {
-    sdk = new JejuProxySDK({
+    sdk = new ProxySDK({
       coordinatorUrl: 'http://localhost:4020',
     });
   });
@@ -124,14 +124,14 @@ describe('Integration Tests (requires running coordinator)', () => {
   });
 
   test.skipIf(!process.env.RUN_INTEGRATION_TESTS)('fetches available regions', async () => {
-    const sdk = new JejuProxySDK({ coordinatorUrl: COORDINATOR_URL });
+    const sdk = new ProxySDK({ coordinatorUrl: COORDINATOR_URL });
     const regions = await sdk.getAvailableRegions();
     
     expect(Array.isArray(regions)).toBe(true);
   });
 
   test.skipIf(!process.env.RUN_INTEGRATION_TESTS)('fetches coordinator stats', async () => {
-    const sdk = new JejuProxySDK({ coordinatorUrl: COORDINATOR_URL });
+    const sdk = new ProxySDK({ coordinatorUrl: COORDINATOR_URL });
     const stats = await sdk.getStats();
     
     expect(typeof stats.connectedNodes).toBe('number');
@@ -142,7 +142,7 @@ describe('Integration Tests (requires running coordinator)', () => {
 describe('End-to-End Proxy Flow (requires full stack)', () => {
   test.skipIf(!process.env.RUN_E2E_TESTS)('complete proxy request flow', async () => {
     const COORDINATOR_URL = process.env.PROXY_COORDINATOR_URL || 'http://localhost:4020';
-    const sdk = new JejuProxySDK({ coordinatorUrl: COORDINATOR_URL });
+    const sdk = new ProxySDK({ coordinatorUrl: COORDINATOR_URL });
 
     // This test requires:
     // 1. Running coordinator

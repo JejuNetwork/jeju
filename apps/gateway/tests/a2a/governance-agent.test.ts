@@ -15,7 +15,7 @@ describe('Governance Agent Card', () => {
     const card = await response.json();
     
     expect(card.id).toBe('jeju-futarchy-governance');
-    expect(card.name).toBe('Jeju Futarchy Governance');
+    expect(card.name: getNetworkName() Futarchy Governance');
   });
 
   test('should list futarchy-specific capabilities', async () => {

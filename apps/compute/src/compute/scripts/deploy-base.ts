@@ -1,5 +1,5 @@
 /**
- * Deploy Jeju Compute Marketplace to Ethereum (Sepolia or Mainnet)
+ * Deploy Compute Marketplace to Ethereum (Sepolia or Mainnet)
  *
  * This script deploys all compute marketplace contracts to Ethereum.
  *
@@ -101,7 +101,7 @@ async function deploy(): Promise<DeploymentResult> {
     throw new Error('PRIVATE_KEY environment variable required');
   }
 
-  console.log(`\n🚀 Deploying Jeju Compute Marketplace\n`);
+  console.log(`\n🚀 Deploying Compute Marketplace\n`);
   console.log(`Network: ${network.name} (Chain ID: ${network.chainId})`);
   console.log(`RPC: ${network.rpcUrl}\n`);
 

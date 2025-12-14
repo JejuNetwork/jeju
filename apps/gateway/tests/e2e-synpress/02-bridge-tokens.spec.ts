@@ -1,6 +1,6 @@
 /**
  * Gateway Bridge Tokens - Synpress E2E Tests
- * Tests token bridging from Ethereum to Jeju
+ * Tests token bridging from Ethereum to the network
  */
 
 import { testWithSynpress } from '@synthetixio/synpress';
@@ -24,15 +24,15 @@ test.describe('Bridge from Ethereum Flow', () => {
   });
 
   test('should display bridge interface', async ({ page }) => {
-    await expect(page.getByText('Bridge from Ethereum to Jeju')).toBeVisible();
+    await expect(page.getByText('Bridge from Ethereum to the network')).toBeVisible();
     
     // Screenshot
     await page.screenshot({ path: 'test-results/screenshots/synpress-bridge-interface.png', fullPage: true });
   });
 
   test('should show elizaOS warning (native token)', async ({ page }) => {
-    // elizaOS is native Jeju and should not be bridgeable
-    await expect(page.getByText(/elizaOS is a native Jeju token/i)).toBeVisible();
+    // elizaOS is native network and should not be bridgeable
+    await expect(page.getByText(/elizaOS is a native network token/i)).toBeVisible();
     await expect(page.getByText(/cannot be bridged from Ethereum/i)).toBeVisible();
     
     console.log('✅ Native token warning displayed');
@@ -106,7 +106,7 @@ test.describe('Bridge from Ethereum Flow', () => {
     await expect(recipientInput).toBeVisible();
     
     // Bridge button should be enabled without recipient
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeEnabled();
     
     console.log('✅ Optional recipient works');
@@ -123,7 +123,7 @@ test.describe('Bridge from Ethereum Flow', () => {
     await page.getByPlaceholder('0.0').fill('1');
     
     // Click bridge
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await bridgeButton.click();
     
     // Approve in MetaMask

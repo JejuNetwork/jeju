@@ -5,8 +5,8 @@
  * the StorageProviderInterface. This allows cloud storage to participate
  * in the decentralized marketplace alongside native IPFS/Arweave providers.
  *
- * IMPORTANT: This is the ONLY place vendor-specific code touches Jeju.
- * The compute marketplace and other Jeju components interact ONLY through
+ * IMPORTANT: This is the ONLY place vendor-specific code touches network.
+ * The compute marketplace and other network components interact ONLY through
  * the StorageProviderInterface.
  *
  * Architecture:
@@ -64,7 +64,7 @@ export interface CloudStorageProviderConfig {
  * Cloud Storage Provider
  *
  * Wraps cloud storage (Vercel/S3/R2) to implement the StorageProviderInterface.
- * This allows cloud storage to participate in the Jeju marketplace.
+ * This allows cloud storage to participate in the marketplace.
  */
 export class CloudStorageProvider implements StorageProviderInterface {
   readonly type: ProviderType = 'cloud';

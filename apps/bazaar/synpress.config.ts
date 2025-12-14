@@ -1,9 +1,9 @@
-import { createJejuSynpressConfig, createJejuWalletSetup, PASSWORD } from '@jejunetwork/tests/synpress.config.base';
+import { createSynpressConfig, createWalletSetup, PASSWORD } from '@jejunetwork/tests/synpress.config.base';
 
 const BAZAAR_PORT = parseInt(process.env.BAZAAR_PORT || '4006');
 
 // Export Playwright config - assumes server already running
-export default createJejuSynpressConfig({
+export default createSynpressConfig({
   appName: 'bazaar',
   port: BAZAAR_PORT,
   testDir: './tests/wallet',
@@ -14,7 +14,7 @@ export default createJejuSynpressConfig({
 });
 
 // Export wallet setup for Synpress
-export const basicSetup = createJejuWalletSetup();
+export const basicSetup = createWalletSetup();
 
 // Re-export password for tests that need it
 export { PASSWORD };

@@ -1,5 +1,5 @@
 /**
- * Jeju Network Standard Health Check API
+ * the network Standard Health Check API
  * 
  * All decentralized apps should implement this standard health check API
  * to enable automatic monitoring and recovery via the KeepaliveRegistry.

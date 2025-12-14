@@ -59,7 +59,7 @@ export default function LaunchTokenPage() {
       return
     }
     if (!isCorrectChain) {
-      toast.error('Please switch to Jeju network')
+      toast.error('Please switch to the network network')
       return
     }
     if (!name || !symbol) {

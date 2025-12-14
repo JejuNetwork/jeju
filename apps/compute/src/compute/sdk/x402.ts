@@ -63,8 +63,8 @@ export const X402_NETWORKS: Record<X402Network, X402NetworkConfig> = {
   'base-sepolia': { name: 'Base Sepolia', chainId: 84532, rpcUrl: 'https://sepolia.base.org', blockExplorer: 'https://sepolia.basescan.org', isTestnet: true, usdc: '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as Address },
   ethereum: { name: 'Ethereum', chainId: 1, rpcUrl: 'https://eth.llamarpc.com', blockExplorer: 'https://etherscan.io', isTestnet: false, usdc: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' as Address },
   base: { name: 'Base', chainId: 8453, rpcUrl: 'https://mainnet.base.org', blockExplorer: 'https://basescan.org', isTestnet: false, usdc: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as Address },
-  jeju: { name: 'Jeju Localnet', chainId: 9545, rpcUrl: 'http://localhost:9545', blockExplorer: '', isTestnet: true, usdc: ZERO_ADDRESS },
-  'jeju-testnet': { name: 'Jeju Testnet', chainId: 84532, rpcUrl: 'https://sepolia.base.org', blockExplorer: 'https://sepolia.basescan.org', isTestnet: true, usdc: '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as Address },
+  jeju: { name: getLocalnetChain().name, chainId: 9545, rpcUrl: 'http://localhost:9545', blockExplorer: '', isTestnet: true, usdc: ZERO_ADDRESS },
+  'jeju-testnet': { name: 'Testnet', chainId: 84532, rpcUrl: 'https://sepolia.base.org', blockExplorer: 'https://sepolia.basescan.org', isTestnet: true, usdc: '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as Address },
 };
 
 // Derived lookups for convenience

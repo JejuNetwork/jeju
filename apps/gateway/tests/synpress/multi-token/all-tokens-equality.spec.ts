@@ -382,10 +382,10 @@ test.describe('Bridge Token Filtering', () => {
     const hasElizaOS = await dropdown.getByText('elizaOS').isVisible();
     expect(hasElizaOS).toBe(false);
 
-    console.log('✅ elizaOS correctly excluded (native Jeju token)');
+    console.log('✅ elizaOS correctly excluded (native network token)');
 
     // Verify warning message shown
-    await expect(page.getByText(/elizaOS is a native Jeju token/i)).toBeVisible();
+    await expect(page.getByText(/elizaOS is a native network token/i)).toBeVisible();
     await expect(page.getByText(/cannot be bridged from Ethereum/i)).toBeVisible();
 
     await page.screenshot({

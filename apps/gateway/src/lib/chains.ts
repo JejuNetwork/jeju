@@ -2,13 +2,13 @@ import type { Chain } from 'viem';
 import { mainnet, arbitrum, optimism, sepolia, arbitrumSepolia, optimismSepolia, base, baseSepolia } from 'viem/chains';
 import { RPC_URLS, EXPLORER_URLS, CHAINS as CHAIN_META } from '../config/networks.js';
 
-// Jeju chain definitions
+// network chain definitions
 export const jejuTestnet: Chain = {
   id: 420690,
   name: CHAIN_META[420690].name,
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: { default: { http: [RPC_URLS[420690]] } },
-  blockExplorers: { default: { name: 'Jeju Explorer', url: EXPLORER_URLS[420690] } },
+  blockExplorers: { default: { name: 'Network Explorer', url: EXPLORER_URLS[420690] } },
 };
 
 export const jejuMainnet: Chain = {
@@ -16,7 +16,7 @@ export const jejuMainnet: Chain = {
   name: CHAIN_META[420691].name,
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: { default: { http: [RPC_URLS[420691]] } },
-  blockExplorers: { default: { name: 'Jeju Explorer', url: EXPLORER_URLS[420691] } },
+  blockExplorers: { default: { name: 'Network Explorer', url: EXPLORER_URLS[420691] } },
 };
 
 export const localnet: Chain = {

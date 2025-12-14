@@ -27,8 +27,8 @@ test.describe('Bridge - Complete Approval Flow', () => {
     // ===================
     // STEP 1: Verify Bridge Interface
     // ===================
-    await expect(page.getByText('Bridge from Ethereum to Jeju')).toBeVisible();
-    await expect(page.getByText(/elizaOS is a native Jeju token/i)).toBeVisible();
+    await expect(page.getByText('Bridge from Ethereum to the network')).toBeVisible();
+    await expect(page.getByText(/elizaOS is a native network token/i)).toBeVisible();
     await expect(page.getByText(/cannot be bridged from Ethereum/i)).toBeVisible();
 
     await page.screenshot({
@@ -82,7 +82,7 @@ test.describe('Bridge - Complete Approval Flow', () => {
     await expect(amountInput).toBeVisible();
 
     // Bridge button should be disabled without amount
-    let bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    let bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeDisabled();
     console.log('✅ 4/8: Bridge disabled without amount');
 
@@ -96,7 +96,7 @@ test.describe('Bridge - Complete Approval Flow', () => {
     console.log(`ℹ️  USD value: ${usdText} (expected ~$2,614 for 100 CLANKER)`);
 
     // Bridge button should now be enabled
-    bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeEnabled();
 
     await page.screenshot({
@@ -232,7 +232,7 @@ test.describe('Bridge - All Bridgeable Tokens', () => {
       });
 
       // Approve
-      const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+      const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
       await bridgeButton.click();
 
       await page.waitForTimeout(2000);
@@ -275,7 +275,7 @@ test.describe('Bridge - Custom Token Address Mode', () => {
     await page.waitForTimeout(300);
 
     // Bridge button should be enabled
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeEnabled();
 
     await page.screenshot({
@@ -310,7 +310,7 @@ test.describe('Bridge - Custom Token Address Mode', () => {
       await page.getByPlaceholder('0.0').fill('10');
       await page.waitForTimeout(300);
 
-      const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+      const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
       const enabled = await bridgeButton.isEnabled();
 
       expect(enabled).toBe(false);
@@ -322,7 +322,7 @@ test.describe('Bridge - Custom Token Address Mode', () => {
     await page.getByPlaceholder('0.0').fill('10');
     await page.waitForTimeout(300);
 
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeEnabled();
     console.log('✅ Valid custom address accepted');
   });
@@ -351,7 +351,7 @@ test.describe('Bridge - Recipient Address Handling', () => {
     expect(recipientValue).toBe(''); // Should be empty
 
     // Button should work (will default to connected address)
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeEnabled();
 
     console.log('✅ Bridge to self (empty recipient) works');
@@ -370,7 +370,7 @@ test.describe('Bridge - Recipient Address Handling', () => {
     await page.getByPlaceholder(/0x.../  ).fill(recipientAddress);
     await page.waitForTimeout(300);
 
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeEnabled();
 
     console.log('✅ Bridge to different address works');
@@ -388,7 +388,7 @@ test.describe('Bridge - Recipient Address Handling', () => {
     await page.getByPlaceholder(/0x.../).fill('invalid-recipient');
     await page.waitForTimeout(300);
 
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     
     // Might be disabled or show error
     const enabled = await bridgeButton.isEnabled();
@@ -415,7 +415,7 @@ test.describe('Bridge - Amount Validation Edge Cases', () => {
     await page.getByPlaceholder('0.0').fill('0');
     await page.waitForTimeout(300);
 
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     const enabled = await bridgeButton.isEnabled();
 
     expect(enabled).toBe(false);
@@ -494,7 +494,7 @@ test.describe('Bridge - Error Handling', () => {
 
     await page.getByPlaceholder('0.0').fill('5');
 
-    await page.getByRole('button', { name: /Bridge to Jeju/i }).click();
+    await page.getByRole('button', { name: /Bridge to the network/i }).click();
 
     // Reject approval
     await page.waitForTimeout(2000);
@@ -504,7 +504,7 @@ test.describe('Bridge - Error Handling', () => {
 
     // Form should still be usable
     await expect(page.getByPlaceholder('0.0')).toBeVisible();
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeVisible();
 
     console.log('✅ Approval rejection handled gracefully');
@@ -524,7 +524,7 @@ test.describe('Bridge - Error Handling', () => {
     // Enter unrealistic amount
     await page.getByPlaceholder('0.0').fill('99999999999');
 
-    await page.getByRole('button', { name: /Bridge to Jeju/i }).click();
+    await page.getByRole('button', { name: /Bridge to the network/i }).click();
 
     // MetaMask would show insufficient balance error
     await page.waitForTimeout(2000);
@@ -546,7 +546,7 @@ test.describe('Bridge - Transaction Tracking', () => {
     // Info panel should always be visible
     await expect(page.getByText(/Estimated Time.*~2 minutes/i)).toBeVisible();
     await expect(page.getByText(/Bridge.*OP Stack Standard Bridge/i)).toBeVisible();
-    await expect(page.getByText(/Tokens will appear on Jeju/i)).toBeVisible();
+    await expect(page.getByText(/Tokens will appear on the network/i)).toBeVisible();
 
     await page.screenshot({
       path: 'test-results/screenshots/bridge-complete/08-info-panel.png',
@@ -646,7 +646,7 @@ test.describe('Bridge - UI State Management', () => {
 
     await page.getByPlaceholder('0.0').fill('1');
 
-    await page.getByRole('button', { name: /Bridge to Jeju/i }).click();
+    await page.getByRole('button', { name: /Bridge to the network/i }).click();
 
     // Approve
     await page.waitForTimeout(2000);
@@ -675,13 +675,13 @@ test.describe('Bridge - Transaction Success Indicators', () => {
   });
 
   test.skip('should update balance after bridge confirms', async ({ page }) => {
-    // TODO: After bridge, verify balance increases on Jeju
+    // TODO: After bridge, verify balance increases on the network
 
     console.log('⚠️  Balance update - requires bridge + balance refresh');
   });
 
   test.skip('should show pending status during bridge relay', async ({ page }) => {
-    // TODO: During bridge relay (Ethereum → Jeju), show pending indicator
+    // TODO: During bridge relay (Ethereum → Network), show pending indicator
 
     console.log('⚠️  Pending status - requires bridge in progress');
   });

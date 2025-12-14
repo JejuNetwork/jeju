@@ -28,13 +28,13 @@ contract ResourceSystem is System {
     event ResourceSpawned(bytes32 indexed resourceId, uint8 resourceType, int32 x, int32 y, int32 z);
     event ResourceHarvested(address indexed player, bytes32 indexed resourceId, uint16 itemId);
     event ResourceDepleted(bytes32 indexed resourceId);
-    event JejuIntegrationSet(address indexed integration);
+    event GameIntegrationSet(address indexed integration);
 
     error PlayerBanned();
 
     function setJejuIntegration(address _jejuIntegration) public {
         jejuIntegration = _jejuIntegration;
-        emit JejuIntegrationSet(_jejuIntegration);
+        emit GameIntegrationSet(_jejuIntegration);
     }
 
     function _requirePlayerAllowed(address player) internal view {

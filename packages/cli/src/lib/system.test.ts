@@ -2,7 +2,7 @@ import { describe, test, expect } from 'bun:test';
 import {
   checkCommand,
   getSystemInfo,
-  getJejuDir,
+  getNetworkDir,
   getKeysDir,
 } from './system';
 
@@ -29,8 +29,8 @@ describe('System Utilities', () => {
     expect(info.home.startsWith('/')).toBe(true);
   });
 
-  test('getJejuDir returns path in home directory', () => {
-    const dir = getJejuDir();
+  test('getNetworkDir returns path in home directory', () => {
+    const dir = getNetworkDir();
     expect(dir).toContain('.jeju');
     expect(dir.startsWith('/')).toBe(true);
   });

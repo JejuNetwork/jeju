@@ -1,5 +1,5 @@
 /**
- * @jeju/cql - CovenantSQL Integration for Jeju Network
+ * @jeju/cql - CovenantSQL Integration for the network
  *
  * Decentralized SQL database with:
  * - BFT-Raft consensus for strong consistency

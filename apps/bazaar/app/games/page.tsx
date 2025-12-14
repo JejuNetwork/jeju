@@ -53,7 +53,7 @@ export default function GamesPage() {
           🎮 Games & Applications
         </h1>
         <p style={{ color: 'var(--text-secondary)' }}>
-          Decentralized games and applications registered on Jeju via ERC-8004
+          Decentralized games and applications registered on the network via ERC-8004
         </p>
       </div>
 

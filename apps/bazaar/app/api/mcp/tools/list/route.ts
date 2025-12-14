@@ -14,7 +14,7 @@ const MCP_TOOLS = [
   // ============ Token Tools ============
   {
     name: 'list_tokens',
-    description: 'Get list of ERC20 tokens deployed on Jeju',
+    description: 'Get list of ERC20 tokens deployed on the network',
     inputSchema: {
       type: 'object',
       properties: {
@@ -25,7 +25,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'get_latest_blocks',
-    description: 'Get recent blocks from Jeju blockchain',
+    description: 'Get recent blocks from the network blockchain',
     inputSchema: {
       type: 'object',
       properties: {
@@ -87,7 +87,7 @@ const MCP_TOOLS = [
   // ============ Moderation Tools ============
   {
     name: 'check_ban_status',
-    description: 'Check if an address is banned or on notice in the Jeju moderation system',
+    description: 'Check if an address is banned or on notice in the moderation system',
     inputSchema: {
       type: 'object',
       properties: {

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Cleanup orphaned Jeju processes
+ * Cleanup orphaned network processes
  * 
  * Kills any orphaned bun/node processes from previous dev runs
  * Use this if dev environment crashed and left processes running
@@ -12,7 +12,7 @@
 import { $ } from "bun";
 
 async function main() {
-  console.log('🧹 Cleaning up orphaned Jeju processes...\n');
+  console.log('🧹 Cleaning up orphaned network processes...\n');
   
   // Stop any running Kurtosis enclaves
   console.log('1️⃣  Stopping Kurtosis localnet...');

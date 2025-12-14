@@ -2,7 +2,7 @@
 /**
  * Deployment Script
  * 
- * Deploys the complete Jeju stack to testnet or mainnet:
+ * Deploys the complete network stack to testnet or mainnet:
  * - Smart contracts (L1 + L2)
  * - DeFi protocols  
  * - Account abstraction

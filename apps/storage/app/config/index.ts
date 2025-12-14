@@ -27,7 +27,7 @@ export const jeju = defineChain({
   },
   blockExplorers: {
     default: {
-      name: 'Jeju Explorer',
+      name: 'Network Explorer',
       url: getDefaultExplorerUrl(),
       apiUrl: `${getDefaultExplorerUrl()}/api`,
     },
@@ -73,8 +73,8 @@ function getDefaultExplorerUrl(): string {
 
 function getChainName(): string {
   switch (NETWORK) {
-    case 'mainnet': return 'Jeju';
-    case 'testnet': return 'Jeju Testnet';
-    default: return 'Jeju Localnet';
+    case 'mainnet': return 'Network';
+    case 'testnet': return 'Testnet';
+    default: return getLocalnetChain().name;
   }
 }

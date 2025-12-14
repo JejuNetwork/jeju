@@ -20,7 +20,7 @@ const CHAIN_ID = parseInt(process.env.CHAIN_ID || '1337')
 const publicClient = createPublicClient({
   chain: {
     id: CHAIN_ID,
-    name: 'Jeju',
+    name: 'Network',
     nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
     rpcUrls: { default: { http: [RPC_URL] } }
   },
@@ -74,7 +74,7 @@ test.describe('1. Wallet Connection', () => {
     }
   })
 
-  test('should be on correct network (Jeju)', async ({ context, page, metamaskPage, extensionId }) => {
+  test('should be on correct network (Network)', async ({ context, page, metamaskPage, extensionId }) => {
     const metamask = new MetaMask(context, metamaskPage, basicSetup.walletPassword, extensionId)
     await connectWallet(page, metamask)
     

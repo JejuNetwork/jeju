@@ -1,42 +1,54 @@
 /**
  * Transaction Simulation Service Tests
+ * 
+ * Tests transaction simulation using mocks.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { SimulationService } from './index';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { SupportedChainId } from '../rpc';
-
-// Mock RPC service
-vi.mock('../rpc', () => ({
-  rpcService: {
-    getClient: vi.fn().mockReturnValue({
-      estimateGas: vi.fn().mockResolvedValue(21000n),
-      getGasPrice: vi.fn().mockResolvedValue(1000000000n),
-      estimateFeesPerGas: vi.fn().mockResolvedValue({
-        maxFeePerGas: 1500000000n,
-        maxPriorityFeePerGas: 100000000n,
-      }),
-      call: vi.fn().mockResolvedValue({}),
-      readContract: vi.fn().mockResolvedValue('TOKEN'),
-    }),
-  },
-  SUPPORTED_CHAINS: { 1: {}, 8453: {} },
-}));
-
-// Mock oracle service
-vi.mock('../oracle', () => ({
-  oracleService: {
-    getNativeTokenPrice: vi.fn().mockResolvedValue(2000),
-    getTokenPrice: vi.fn().mockResolvedValue(1),
-  },
-}));
+import { SimulationService } from './index';
+import * as rpcModule from '../rpc';
+import * as oracleModule from '../oracle';
 
 describe('SimulationService', () => {
   let simulationService: SimulationService;
+  let originalGetClient: typeof rpcModule.rpcService.getClient;
+  let originalGetNativeTokenPrice: typeof oracleModule.oracleService.getNativeTokenPrice;
+  let originalGetTokenPrice: typeof oracleModule.oracleService.getTokenPrice;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    // Save originals
+    originalGetClient = rpcModule.rpcService.getClient;
+    originalGetNativeTokenPrice = oracleModule.oracleService.getNativeTokenPrice;
+    originalGetTokenPrice = oracleModule.oracleService.getTokenPrice;
+
+    // Create mock client
+    const mockClient = {
+      estimateGas: vi.fn(() => Promise.resolve(21000n)),
+      getGasPrice: vi.fn(() => Promise.resolve(1000000000n)),
+      estimateFeesPerGas: vi.fn(() => Promise.resolve({
+        maxFeePerGas: 1500000000n,
+        maxPriorityFeePerGas: 100000000n,
+      })),
+      call: vi.fn(() => Promise.resolve({})),
+      readContract: vi.fn(() => Promise.resolve('TOKEN')),
+    };
+
+    // Mock rpcService.getClient
+    rpcModule.rpcService.getClient = vi.fn(() => mockClient as unknown as ReturnType<typeof rpcModule.rpcService.getClient>);
+    
+    // Mock oracle service
+    oracleModule.oracleService.getNativeTokenPrice = vi.fn(() => Promise.resolve(2000));
+    oracleModule.oracleService.getTokenPrice = vi.fn(() => Promise.resolve(1));
+    
     simulationService = new SimulationService();
+  });
+
+  afterEach(() => {
+    // Restore originals
+    rpcModule.rpcService.getClient = originalGetClient;
+    oracleModule.oracleService.getNativeTokenPrice = originalGetNativeTokenPrice;
+    oracleModule.oracleService.getTokenPrice = originalGetTokenPrice;
   });
 
   describe('simulate', () => {
@@ -105,4 +117,3 @@ describe('SimulationService', () => {
     });
   });
 });
-

@@ -1,5 +1,5 @@
 /**
- * Jeju Wallet Agent Providers
+ * Network Wallet Agent Providers
  * State providers for the AI agent - simplified format
  */
 

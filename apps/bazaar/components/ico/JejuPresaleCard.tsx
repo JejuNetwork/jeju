@@ -51,7 +51,7 @@ const PRESALE_ABI = [
 
 const PHASES: PresalePhase[] = ['NOT_STARTED', 'WHITELIST', 'PUBLIC', 'ENDED', 'FAILED', 'DISTRIBUTED']
 
-export function JejuPresaleCard() {
+export function the networkPresaleCard() {
   const { isConnected, chain } = useAccount()
   const [amount, setAmount] = useState('')
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, mins: 0, secs: 0 })
@@ -139,7 +139,7 @@ export function JejuPresaleCard() {
       return
     }
     if (!isCorrectChain) {
-      toast.error('Please switch to Jeju network')
+      toast.error('Please switch to the network network')
       return
     }
     if (!amount || parseFloat(amount) <= 0) {

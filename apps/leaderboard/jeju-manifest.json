@@ -1,7 +1,7 @@
 {
   "$schema": "../../jeju-manifest.schema.json",
   "name": "leaderboard",
-  "displayName": "Jeju Leaderboard",
+  "displayName": "Network Leaderboard",
   "version": "1.0.0",
   "type": "vendor",
   "description": "Global leaderboard and rankings system",
@@ -17,6 +17,12 @@
   "optional": true,
   "enabled": false,
   "autoStart": false,
-  "tags": ["gaming", "social", "rankings"]
+  "tags": ["gaming", "social", "rankings"],
+  "testing": {
+    "unit": {
+      "command": "bun run test",
+      "timeout": 120000
+    }
+  }
 }
 

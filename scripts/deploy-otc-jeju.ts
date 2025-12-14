@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Deploy OTC contracts to Jeju network
+ * Deploy OTC contracts to the network network
  *
  * Usage:
  *   bun scripts/deploy-otc-jeju.ts --network testnet
@@ -47,7 +47,7 @@ function main() {
     process.exit(1);
   }
 
-  console.log(`\nDeploying OTC contracts to Jeju ${network}...`);
+  console.log(`\nDeploying OTC contracts to the network ${network}...`);
   console.log(`RPC: ${config.rpc}`);
   console.log(`Chain ID: ${config.chainId}`);
 

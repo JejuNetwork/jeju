@@ -81,8 +81,8 @@ test.describe('Swap - REAL Functionality Verification', () => {
     const buttonText = await swapButton.textContent();
     
     // VERIFY: Button shows appropriate state
-    // Should be one of: "Connect Wallet", "Switch to Jeju", or "Swap"
-    const validStates = ['Connect Wallet', 'Switch to Jeju', 'Swap', 'Contracts Not Deployed'];
+    // Should be one of: "Connect Wallet", "Switch to the network", or "Swap"
+    const validStates = ['Connect Wallet', 'Switch to the network', 'Swap', 'Contracts Not Deployed'];
     const isValidState = validStates.some(state => buttonText?.includes(state));
     
     // TEST FAILS if button shows unexpected state

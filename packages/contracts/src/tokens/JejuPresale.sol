@@ -8,10 +8,10 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
- * @title JejuPresale
+ * @title NetworkPresale
  * @notice Token presale with vesting
  */
-contract JejuPresale is Ownable, Pausable, ReentrancyGuard {
+contract NetworkPresale is Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     // ═══════════════════════════════════════════════════════════════════════

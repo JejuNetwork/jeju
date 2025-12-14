@@ -25,7 +25,7 @@ const publicClient = createPublicClient({
 });
 
 const DEPLOYED_CONTRACTS = {
-  MockJejuUSDC: "0x953F6516E5d2864cE7f13186B45dE418EA665EB2" as Address,
+  MockNetworkUSDC: "0x953F6516E5d2864cE7f13186B45dE418EA665EB2" as Address,
   ElizaOSToken: "0x7af64e6aE21076DE21EFe71F243A75664a17C34b" as Address,
   IdentityRegistry: "0x759D602d8D2E4F1ccCa12E955420cC19e64a68bd" as Address,
   SolverRegistry: "0xecfE47302D941c8ce5B0009C0ac2E6D6ee2A42de" as Address,
@@ -257,7 +257,7 @@ async function main() {
     log({
       category: "CloudConfig",
       check: "x402.json USDC matches deployment",
-      status: configUsdc.toLowerCase() === DEPLOYED_CONTRACTS.MockJejuUSDC.toLowerCase() ? "pass" : "fail",
+      status: configUsdc.toLowerCase() === DEPLOYED_CONTRACTS.MockNetworkUSDC.toLowerCase() ? "pass" : "fail",
       details: configUsdc,
     });
 

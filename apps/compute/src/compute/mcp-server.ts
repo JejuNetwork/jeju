@@ -67,7 +67,7 @@ const TRIGGER_TYPES = ['cron', 'webhook', 'event'];
 const MCP_SERVER_INFO = {
   name: 'jeju-compute',
   version: '1.0.0',
-  description: 'Jeju Compute Marketplace - Decentralized GPU/CPU rentals, AI inference, serverless triggers',
+  description: 'Compute Marketplace - Decentralized GPU/CPU rentals, AI inference, serverless triggers',
   capabilities: { resources: true, tools: true, prompts: false },
 };
 
@@ -441,7 +441,7 @@ export class ComputeMCPServer {
             result = { error: `Model ${args.model} not found` };
             isError = true;
           } else {
-            result = { provider: selectedProvider, endpoint: selectedEndpoint, usage: { steps: ['Deposit to LedgerManager', 'Acknowledge provider', 'Call endpoint with x-jeju-address header'] } };
+            result = { provider: selectedProvider, endpoint: selectedEndpoint, usage: { steps: ['Deposit to LedgerManager', 'Acknowledge provider', 'Call endpoint with x-network-address header'] } };
           }
           break;
         }

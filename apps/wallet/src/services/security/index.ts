@@ -1,5 +1,5 @@
 /**
- * Jeju Security Engine
+ * Network Security Engine
  * Transaction risk analysis and security checks
  * Ported from Rabby's security engine
  */
@@ -88,9 +88,9 @@ const DEFAULT_RULES: SecurityRule[] = [
   { id: 'unusual_recipient', name: 'New Recipient', description: 'Never sent to this address before', level: 'low', enabled: true },
 ];
 
-// Known scam addresses (would be fetched from Jeju API in production)
+// Known scam addresses (would be fetched from the network API in production)
 const SCAM_ADDRESSES = new Set<string>([
-  // Example scam addresses - in production, fetch from Jeju security API
+  // Example scam addresses - in production, fetch from the network security API
 ]);
 
 // User blacklist/whitelist
@@ -249,7 +249,7 @@ class SecurityEngine {
   }
 
   private async simulateTransaction(tx: TransactionToAnalyze): Promise<SimulationResult> {
-    // In production, call Jeju simulation API
+    // In production, call network simulation API
     // For now, return mock success
     return {
       success: true,

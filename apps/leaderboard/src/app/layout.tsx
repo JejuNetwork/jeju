@@ -9,8 +9,8 @@ import { AuthProvider } from "@/contexts/AuthContext";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Jeju Network Leaderboard",
-  description: "Stats for GitHub contributors to Jeju Network",
+  title: "the network Leaderboard",
+  description: "Stats for GitHub contributors to the network Network",
   icons: {
     icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏔️</text></svg>",
   },

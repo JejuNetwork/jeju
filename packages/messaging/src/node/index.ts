@@ -1,5 +1,5 @@
 /**
- * Jeju Messaging Relay Node
+ * Network Messaging Relay Node
  */
 
 export { createRelayServer, startRelayServer, handleWebSocket } from './server';

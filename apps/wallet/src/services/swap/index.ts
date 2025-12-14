@@ -1,6 +1,6 @@
 /**
- * Jeju Swap Service
- * Token swaps via Jeju solver network
+ * Network Swap Service
+ * Token swaps via the network solver network
  */
 
 import type { Address, Hex } from 'viem';
@@ -156,7 +156,7 @@ class SwapService {
       gasLimit: BigInt(txData.gasLimit),
     });
 
-    // Submit to Jeju (MEV-protected)
+    // Submit to the network (MEV-protected)
     const submitResponse = await fetch(`${JEJU_SOLVER_URL}/submit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -180,7 +180,7 @@ class SwapService {
   }
 
   async executeCrossChainSwap(quote: CrossChainSwapQuote, signer: { signTransaction: (tx: object) => Promise<Hex> }): Promise<{ intentId: Hex; status: string }> {
-    // Cross-chain swaps use Jeju OIF
+    // Cross-chain swaps use network OIF
     const response = await fetch(`${JEJU_SOLVER_URL}/cross-chain/swap`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

@@ -6,10 +6,10 @@ import Dashboard from './components/Dashboard';
 import { ThemeProvider, useTheme } from './components/ThemeProvider';
 import { CHAIN_ID, RPC_URL, WALLETCONNECT_PROJECT_ID, NETWORK } from './config';
 
-// Jeju chain config from centralized config
+// network chain config from centralized config
 const jejuChain = {
   id: CHAIN_ID,
-  name: NETWORK === 'mainnet' ? 'Jeju' : NETWORK === 'testnet' ? 'Jeju Testnet' : 'Jeju Localnet',
+  name: NETWORK === 'mainnet' ? 'Network' : NETWORK === 'testnet' ? 'Testnet' : getLocalnetChain().name,
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
     default: { http: [RPC_URL] },
@@ -18,7 +18,7 @@ const jejuChain = {
 } as const;
 
 const config = getDefaultConfig({
-  appName: 'Gateway Portal - Jeju Network',
+  appName: 'Gateway Portal - the network',
   projectId: WALLETCONNECT_PROJECT_ID,
   chains: [jejuChain],
   transports: {

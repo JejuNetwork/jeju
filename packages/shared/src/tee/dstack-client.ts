@@ -1,5 +1,5 @@
 /**
- * Dstack TEE Client for Jeju
+ * Dstack TEE Client for network
  * 
  * Provides a unified interface for interacting with Dstack TEE
  * Works with both simulator (development) and production TDX hardware

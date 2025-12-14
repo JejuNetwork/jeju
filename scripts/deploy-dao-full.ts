@@ -43,7 +43,7 @@ interface NetworkConfig {
 
 const NETWORKS: Record<string, NetworkConfig> = {
   localnet: {
-    name: 'Jeju Localnet',
+    name: getLocalnetChain().name,
     chainId: 31337,
     rpcUrl: process.env.RPC_URL ?? 'http://localhost:9545',
   },
@@ -133,7 +133,7 @@ async function main() {
 
   // 1. Deploy Governance Token
   const { address: tokenAddress, contract: token } = await deploy(deployer, 'TestERC20', [
-    'Jeju Governance', 'JEJU', parseEther('1000000000')
+    'Network Governance', 'JEJU', parseEther('1000000000')
   ]);
 
   // 2. Deploy IdentityRegistry

@@ -7,12 +7,92 @@
  * 3. Sets up test environment
  */
 
-import { chromium, FullConfig } from '@playwright/test';
+import { type FullConfig } from '@playwright/test';
 import { existsSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
-const JEJU_RPC = process.env.JEJU_RPC_URL || process.env.L2_RPC_URL || 'http://127.0.0.1:9545';
-const CHAIN_ID = parseInt(process.env.CHAIN_ID || '1337');
+const DEFAULT_RPC = 'http://127.0.0.1:9545';
+const DEFAULT_CHAIN_ID = 1337;
+
+interface SetupOptions {
+  rpcUrl?: string;
+  chainId?: number;
+  skipLock?: boolean;
+  skipPreflight?: boolean;
+  skipWarmup?: boolean;
+  force?: boolean;
+  apps?: string[];
+}
+
+/**
+ * Setup test environment with options
+ * Returns a cleanup function
+ */
+export async function setupTestEnvironment(options: SetupOptions = {}): Promise<() => void> {
+  const {
+    rpcUrl = process.env.L2_RPC_URL || process.env.JEJU_RPC_URL || DEFAULT_RPC,
+    chainId = parseInt(process.env.CHAIN_ID || String(DEFAULT_CHAIN_ID)),
+    skipLock = false,
+    skipPreflight = false,
+    skipWarmup = false,
+    force = false,
+    apps = [],
+  } = options;
+
+  // Set environment variables
+  process.env.L2_RPC_URL = rpcUrl;
+  process.env.JEJU_RPC_URL = rpcUrl;
+  process.env.CHAIN_ID = String(chainId);
+  
+  if (skipLock) process.env.SKIP_TEST_LOCK = 'true';
+  if (force) process.env.FORCE_TESTS = 'true';
+  if (apps.length > 0) process.env.WARMUP_APPS = apps.join(',');
+
+  // Run preflight checks unless skipped
+  if (!skipPreflight && process.env.SKIP_PREFLIGHT !== 'true') {
+    const maxAttempts = 30;
+    let chainReady = false;
+
+    for (let i = 0; i < maxAttempts; i++) {
+      try {
+        const response = await fetch(rpcUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            method: 'eth_chainId',
+            params: [],
+            id: 1,
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json() as { result: string };
+          const remoteChainId = parseInt(data.result, 16);
+          if (remoteChainId === chainId) {
+            chainReady = true;
+            break;
+          }
+        }
+      } catch {
+        // Retry
+      }
+      await new Promise(r => setTimeout(r, 2000));
+    }
+
+    if (!chainReady) {
+      throw new Error('Chain not ready');
+    }
+  }
+
+  // Return cleanup function
+  return () => {
+    // Cleanup is idempotent
+  };
+}
+
+const JEJU_RPC = process.env.JEJU_RPC_URL || process.env.L2_RPC_URL || DEFAULT_RPC;
+const CHAIN_ID = parseInt(process.env.CHAIN_ID || String(DEFAULT_CHAIN_ID));
 
 async function globalSetup(config: FullConfig) {
   console.log('\n🔧 Global Setup Starting...\n');

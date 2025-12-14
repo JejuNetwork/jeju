@@ -1,5 +1,5 @@
 /**
- * Jeju Oracle Network Node
+ * Oracle Network Node
  * Registers as operator, fetches prices, submits reports, exposes Prometheus metrics
  */
 
@@ -31,7 +31,7 @@ Optional:
 `;
 
 async function main(): Promise<void> {
-  console.log('Jeju Oracle Network Node v0.1.0\n');
+  console.log('Oracle Network Node v0.1.0\n');
 
   const config = createNodeConfig();
 

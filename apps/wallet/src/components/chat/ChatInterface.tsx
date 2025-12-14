@@ -1,14 +1,15 @@
 /**
- * Chat Interface - Decentralized AI Chat
+ * Chat Interface - ElizaOS Agent Chat
  * 
- * Uses Jeju compute network for inference.
- * No ElizaOS dependency - fully decentralized.
+ * The Network Wallet agent is an ElizaOS agent.
+ * Connects to ElizaOS server when available, falls back to inference gateway.
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Send, Loader2, Check, X, AlertTriangle, Shield, Wallet, ArrowLeftRight, HelpCircle, Sparkles, History, Zap, Cpu } from 'lucide-react';
+import { Send, Loader2, Check, X, AlertTriangle, Shield, Wallet, ArrowLeftRight, HelpCircle, Sparkles, History, Zap, Cpu, Bot } from 'lucide-react';
 import { useWallet, useMultiChainBalances, formatUsd, formatTokenAmount } from '../../hooks/useWallet';
 import { inferenceClient, type ChatResponse, type StreamChunk } from '../../lib/inferenceClient';
+import { elizaClient } from '../../lib/elizaClient';
 import type { Address } from 'viem';
 
 interface Message {
@@ -46,30 +47,43 @@ export function ChatInterface({ onActionConfirmed, onActionRejected, onActionCom
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
-  const [inferenceStatus, setInferenceStatus] = useState<'connected' | 'connecting' | 'offline'>('connecting');
+  const [agentStatus, setAgentStatus] = useState<'eliza' | 'inference' | 'connecting' | 'offline'>('connecting');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const { isConnected: walletConnected, address } = useWallet();
   const { aggregatedBalances, totalUsdValue, isLoading: balancesLoading } = useMultiChainBalances(address);
 
-  // Initialize inference client with wallet address
+  // Initialize and check available agent backends
   useEffect(() => {
     if (address) {
       inferenceClient.setWalletAddress(address as Address);
     }
 
-    // Check inference availability
-    const checkInference = async () => {
+    // Check which backend is available: ElizaOS first, then inference gateway
+    const checkBackends = async () => {
+      // Try ElizaOS first
+      const elizaAvailable = await elizaClient.isAvailable();
+      if (elizaAvailable) {
+        setAgentStatus('eliza');
+        return;
+      }
+
+      // Fall back to inference gateway
       try {
         const models = await inferenceClient.getModels();
-        setInferenceStatus(models.length > 0 ? 'connected' : 'offline');
+        if (models.length > 0) {
+          setAgentStatus('inference');
+          return;
+        }
       } catch {
-        setInferenceStatus('offline');
+        // Inference not available
       }
+
+      setAgentStatus('offline');
     };
 
-    checkInference();
+    checkBackends();
   }, [address]);
 
   // Scroll to bottom on new messages
@@ -98,7 +112,7 @@ export function ChatInterface({ onActionConfirmed, onActionRejected, onActionCom
     return context;
   }, [walletConnected, address, aggregatedBalances, totalUsdValue, balancesLoading]);
 
-  // Handle sending messages
+  // Handle sending messages - tries ElizaOS first, then inference gateway
   const handleSend = useCallback(async () => {
     if (!inputValue.trim() || isTyping) return;
 
@@ -120,7 +134,24 @@ export function ChatInterface({ onActionConfirmed, onActionRejected, onActionCom
     const contextualContent = userContent + getWalletContext();
 
     try {
-      // Use streaming for better UX
+      // Try ElizaOS agent first if available
+      if (agentStatus === 'eliza') {
+        const walletContext = { address: address || undefined, connected: walletConnected };
+        const elizaResponse = await elizaClient.chat(userContent, walletContext);
+        const actionData = parseActionFromResponse(elizaResponse.content);
+        const agentMsg: Message = {
+          id: elizaResponse.id,
+          content: elizaResponse.content,
+          isAgent: true,
+          timestamp: Date.now(),
+          metadata: { provider: 'eliza', ...actionData },
+        };
+        setMessages(prev => [...prev, agentMsg]);
+        setIsTyping(false);
+        return;
+      }
+
+      // Fall back to inference gateway (streaming)
       let fullContent = '';
       let responseData: Partial<ChatResponse> = {};
 
@@ -149,7 +180,7 @@ export function ChatInterface({ onActionConfirmed, onActionRejected, onActionCom
         isAgent: true,
         timestamp: Date.now(),
         metadata: {
-          provider: 'jeju-network',
+          provider: 'inference',
           ...actionData,
         },
       };
@@ -176,7 +207,7 @@ export function ChatInterface({ onActionConfirmed, onActionRejected, onActionCom
     } finally {
       setIsTyping(false);
     }
-  }, [inputValue, isTyping, getWalletContext, onActionCompleted]);
+  }, [inputValue, isTyping, getWalletContext, onActionCompleted, agentStatus, address, walletConnected]);
 
   // Parse actions from AI response (swap, send, etc.)
   const parseActionFromResponse = (content: string): Message['metadata'] => {
@@ -211,101 +242,20 @@ export function ChatInterface({ onActionConfirmed, onActionRejected, onActionCom
     return undefined;
   };
 
-  // Local processing fallback
-  const processLocally = useCallback((input: string): string => {
-    const cmd = input.toLowerCase().trim();
-    
-    // Portfolio commands
-    if (cmd.includes('balance') || cmd.includes('portfolio') || cmd.includes('holdings')) {
-      if (!walletConnected) return 'Please connect your wallet first.';
-      if (balancesLoading) return 'Loading your portfolio...';
-      if (aggregatedBalances.length === 0) {
-        return `**Your Portfolio**\n\nTotal Value: ${formatUsd(totalUsdValue)}\n\nNo tokens found. Deposit some to get started.`;
-      }
-      return [
-        `**Your Portfolio**\n`,
-        `**Total Value:** ${formatUsd(totalUsdValue)}\n`,
-        ...aggregatedBalances.map(a => 
-          `• **${a.symbol}**: ${formatTokenAmount(a.totalBalance)} (${formatUsd(a.totalUsdValue)})`
-        ),
-      ].join('\n');
-    }
+  // Fallback when inference API is unavailable - no fake AI responses
+  const processLocally = useCallback((_input: string): string => {
+    return `**AI Service Unavailable**
 
-    // Help commands
-    if (cmd === 'help' || cmd === '?' || cmd.includes('what can you')) {
-      return `**Jeju Wallet Agent**
+The inference server is not responding. To enable AI chat:
 
-**Portfolio:**
-• "Show portfolio" - View balances
-• "Check approvals" - Review permissions
+1. Set an API key: OPENAI_API_KEY, ANTHROPIC_API_KEY, or GROQ_API_KEY
+2. Start the inference server: \`bun run scripts/start-inference.ts\`
 
-**Trading:**
-• "Swap 0.1 ETH for USDC" - Exchange tokens
-• "Long ETH 5x" - Perpetual trading
+**You can still use the wallet directly:**
+Use the sidebar navigation to access Portfolio, Pools, Perps, Launchpad, Names, and Security features.
 
-**Transfers:**
-• "Send 0.1 ETH to 0x..." - Transfer tokens
-
-**DeFi:**
-• "Add liquidity to ETH/USDC" - Provide LP
-• "View my positions" - Check pools
-
-**Launchpad:**
-• "Trending tokens" - New launches
-• "Launch token" - Create your own
-
-**Names:**
-• "Register alice.jeju" - Get a .jeju name
-
-All transactions require confirmation.`;
-    }
-
-    // Swap commands
-    if (cmd.includes('swap') || cmd.includes('exchange') || cmd.includes('trade')) {
-      if (!walletConnected) return 'Please connect your wallet to swap tokens.';
-      return `**Token Swap**
-
-To swap tokens, specify:
-• Amount and token (e.g., "0.5 ETH")
-• Destination token (e.g., "for USDC")
-
-Example: "Swap 0.5 ETH for USDC"`;
-    }
-
-    // Send commands
-    if (cmd.includes('send') || cmd.includes('transfer')) {
-      if (!walletConnected) return 'Please connect your wallet to send tokens.';
-      return `**Send Tokens**
-
-To send, specify:
-• Amount and token
-• Recipient address or .jeju name
-
-Example: "Send 0.1 ETH to alice.jeju"`;
-    }
-
-    // Perp commands
-    if (cmd.includes('long') || cmd.includes('short') || cmd.includes('perp')) {
-      if (!walletConnected) return 'Please connect your wallet for trading.';
-      return `**Perpetual Trading**
-
-Open a position:
-• "Long ETH 5x with 100 USDC"
-• "Short BTC 10x with 0.5 ETH"
-
-Markets: ETH-PERP, BTC-PERP
-Max leverage: 20x`;
-    }
-
-    // Default
-    return `I understood: "${input}"
-
-Try these commands:
-• **portfolio** - View balances
-• **swap** - Trade tokens  
-• **send** - Transfer tokens
-• **help** - Full command list`;
-  }, [walletConnected, aggregatedBalances, balancesLoading, totalUsdValue]);
+Groq offers a free tier at https://console.groq.com/keys`;
+  }, []);
 
   // Handle action confirmation
   const handleConfirm = useCallback((message: Message) => {
@@ -343,26 +293,31 @@ Try these commands:
     <div className="flex flex-col h-full bg-background">
       {/* Status Bar */}
       <div className={`px-4 py-2 flex items-center justify-between border-b ${
-        inferenceStatus === 'connected' ? 'bg-emerald-500/5 border-emerald-500/20' : 
-        inferenceStatus === 'connecting' ? 'bg-amber-500/5 border-amber-500/20' :
+        agentStatus === 'eliza' ? 'bg-purple-500/5 border-purple-500/20' :
+        agentStatus === 'inference' ? 'bg-emerald-500/5 border-emerald-500/20' : 
+        agentStatus === 'connecting' ? 'bg-amber-500/5 border-amber-500/20' :
         'bg-red-500/5 border-red-500/20'
       }`}>
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${
-            inferenceStatus === 'connected' ? 'bg-emerald-500' : 
-            inferenceStatus === 'connecting' ? 'bg-amber-500 animate-pulse' :
+            agentStatus === 'eliza' ? 'bg-purple-500' :
+            agentStatus === 'inference' ? 'bg-emerald-500' : 
+            agentStatus === 'connecting' ? 'bg-amber-500 animate-pulse' :
             'bg-red-500'
           }`} />
           <span className={`text-xs ${
-            inferenceStatus === 'connected' ? 'text-emerald-500' : 
-            inferenceStatus === 'connecting' ? 'text-amber-500' :
+            agentStatus === 'eliza' ? 'text-purple-500' :
+            agentStatus === 'inference' ? 'text-emerald-500' : 
+            agentStatus === 'connecting' ? 'text-amber-500' :
             'text-red-500'
           }`}>
-            {inferenceStatus === 'connected' ? 'Decentralized AI' : 
-             inferenceStatus === 'connecting' ? 'Connecting to compute network...' :
+            {agentStatus === 'eliza' ? 'ElizaOS Agent' : 
+             agentStatus === 'inference' ? 'Decentralized AI' :
+             agentStatus === 'connecting' ? 'Connecting to agent...' :
              'Offline mode (local processing)'}
           </span>
-          {inferenceStatus === 'connected' && <Cpu className="w-3 h-3 text-emerald-500" />}
+          {agentStatus === 'eliza' && <Bot className="w-3 h-3 text-purple-500" />}
+          {agentStatus === 'inference' && <Cpu className="w-3 h-3 text-emerald-500" />}
         </div>
         {messages.length > 0 && (
           <button 
@@ -382,7 +337,7 @@ Try these commands:
               <Sparkles className="w-8 h-8 text-white" />
             </div>
             <h2 className="text-xl font-semibold mb-2">
-              {walletConnected ? 'How can I help?' : 'Welcome to Jeju'}
+              {walletConnected ? 'How can I help?' : 'Welcome to the network'}
             </h2>
             <p className="text-muted-foreground mb-6 max-w-md">
               {walletConnected 
@@ -408,7 +363,7 @@ Try these commands:
 
             <div className="mt-8 flex items-center gap-2 text-xs text-muted-foreground">
               <Zap className="w-3 h-3" />
-              <span>Powered by Jeju Decentralized Compute</span>
+              <span>Powered by Network Decentralized Compute</span>
             </div>
           </div>
         )}

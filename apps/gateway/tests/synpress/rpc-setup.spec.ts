@@ -111,7 +111,7 @@ test.describe('RPC Setup Tab', () => {
 
     // Should show RPC endpoints
     await expect(page.locator('text=RPC Endpoints')).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('text=Jeju')).toBeVisible();
+    await expect(page.locator('text=Network')).toBeVisible();
     await expect(page.locator('text=Ethereum')).toBeVisible();
   });
 

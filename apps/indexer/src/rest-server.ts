@@ -45,7 +45,7 @@ app.get('/health', (_req: Request, res: Response) => {
 
 app.get('/', (_req: Request, res: Response) => {
   res.json({
-    name: 'Jeju Indexer REST API',
+    name: 'Network Indexer REST API',
     version: '1.0.0',
     endpoints: {
       health: '/health',

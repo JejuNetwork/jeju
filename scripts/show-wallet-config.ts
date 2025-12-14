@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Show MetaMask wallet configuration for Jeju Localnet
+ * Show MetaMask wallet configuration for Network Localnet
  * 
  * Usage:
  *   bun run scripts/show-wallet-config.ts
@@ -9,7 +9,7 @@
 async function showWalletConfig() {
   console.log("\n╔═══════════════════════════════════════════════════════════════════════╗");
   console.log("║                                                                       ║");
-  console.log("║   🦊 Jeju Localnet - MetaMask Configuration                          ║");
+  console.log("║   🦊 Network Localnet - MetaMask Configuration                          ║");
   console.log("║                                                                       ║");
   console.log("╚═══════════════════════════════════════════════════════════════════════╝\n");
 
@@ -21,7 +21,7 @@ async function showWalletConfig() {
   // Display configuration
   console.log("═══════════════════════════════════════════════════════════════════════");
   console.log("\n📋 MetaMask Network Configuration:\n");
-  console.log(`  Network Name:   Jeju Localnet`);
+  console.log(`  Network Name:   Network Localnet`);
   console.log(`  RPC URL:        ${l2RpcUrl}  ← COPY THIS`);
   console.log(`  Chain ID:       1337`);
   console.log(`  Currency:       ETH`);
@@ -46,12 +46,12 @@ async function showWalletConfig() {
   
   console.log("═══════════════════════════════════════════════════════════════════════");
   console.log("\n⚠️  IMPORTANT NOTES:\n");
-  console.log("  • This RPC URL points to L2 (Jeju), where all apps live");
+  console.log("  • This RPC URL points to L2 (Network), where all apps live");
   console.log("  • Port 9545 is STATIC and never changes (forwarded automatically)");
   console.log("  • Port forwarding is handled by 'bun run dev'");
-  console.log("  • You can always use http://127.0.0.1:9545 for Jeju\n");
+  console.log("  • You can always use http://127.0.0.1:9545 for network\n");
   
-  console.log("✅ Ready to use Jeju apps:");
+  console.log("✅ Ready to use network apps:");
   console.log("  • Paymaster Dashboard: http://localhost:3006");
   console.log("  • Hyperscape Game:     http://localhost:3333");
   console.log("  • Cloud Platform:      http://localhost:3005");

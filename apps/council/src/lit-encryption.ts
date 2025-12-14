@@ -1,5 +1,5 @@
 /**
- * Council Encryption - CEO Decision Encryption using Jeju KMS
+ * Council Encryption - CEO Decision Encryption using the network KMS
  *
  * Uses the in-house @jeju/kms for encryption with access control policies.
  * Decryption requires:

@@ -1,5 +1,5 @@
 /**
- * Jeju Network Standard Health Check Middleware
+ * the network Standard Health Check Middleware
  * 
  * Drop-in middleware for Hono apps to implement the standard health check API.
  * This enables automatic monitoring and recovery via the KeepaliveRegistry.

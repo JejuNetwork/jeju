@@ -678,7 +678,7 @@ export class ComputeNodeServer {
 /**
  * Create and start a compute node from environment variables
  *
- * Default port is 4007 (COMPUTE_PORT) for Jeju integration
+ * Default port is 4007 (COMPUTE_PORT) for network integration
  */
 export async function startComputeNode(): Promise<ComputeNodeServer> {
   const privateKey = process.env.PRIVATE_KEY;
@@ -704,7 +704,7 @@ Generate a new wallet:
     process.exit(1);
   }
 
-  // Use COMPUTE_PORT (Jeju standard) with fallback to PORT
+  // Use COMPUTE_PORT (Network standard) with fallback to PORT
   const port = Number.parseInt(
     process.env.COMPUTE_PORT || process.env.PORT || '4007',
     10

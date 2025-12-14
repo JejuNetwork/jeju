@@ -8,9 +8,9 @@ export default defineWalletSetup(PASSWORD, async (context, walletPage) => {
   const metamask = new MetaMask(context, walletPage, PASSWORD);
   await metamask.importWallet(SEED_PHRASE);
   
-  // Add Jeju network
+  // Add network
   await metamask.addNetwork({
-    name: 'Jeju Local',
+    name: 'Network Local',
     rpcUrl: 'http://localhost:9545',
     chainId: 420691,
     symbol: 'ETH',

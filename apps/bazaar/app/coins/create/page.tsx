@@ -54,7 +54,7 @@ export default function CreateTokenPage() {
     }
 
     if (!isCorrectChain) {
-      toast.error(`Please switch to Jeju network`)
+      toast.error(`Please switch to the network network`)
       return
     }
 
@@ -91,7 +91,7 @@ export default function CreateTokenPage() {
         <h1 className="text-3xl md:text-4xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
           🪙 Create Token
         </h1>
-        <p style={{ color: 'var(--text-secondary)' }}>Launch your own ERC20 token on Jeju</p>
+        <p style={{ color: 'var(--text-secondary)' }}>Launch your own ERC20 token on the network</p>
       </div>
 
       {/* Alerts */}
@@ -103,7 +103,7 @@ export default function CreateTokenPage() {
 
       {isConnected && !isCorrectChain && (
         <div className="card p-4 mb-6 border-bazaar-error/50 bg-bazaar-error/10">
-          <p className="text-bazaar-error">Please switch to Jeju network (Chain ID: {JEJU_CHAIN_ID})</p>
+          <p className="text-bazaar-error">Please switch to the network network (Chain ID: {JEJU_CHAIN_ID})</p>
         </div>
       )}
 
@@ -190,7 +190,7 @@ export default function CreateTokenPage() {
             <ul className="text-sm space-y-1" style={{ color: 'var(--text-secondary)' }}>
               <li>✅ Automatically indexed on Bazaar</li>
               <li>✅ Tradeable on Uniswap V4</li>
-              <li>✅ Visible on Jeju Explorer</li>
+              <li>✅ Visible on the network Explorer</li>
               <li>✅ Real-time price tracking</li>
             </ul>
           </div>
@@ -205,7 +205,7 @@ export default function CreateTokenPage() {
               : !isConnected
               ? 'Connect Wallet'
               : !isCorrectChain
-              ? 'Switch to Jeju'
+              ? 'Switch to the network'
               : 'Create Token'}
           </button>
         </div>
@@ -218,7 +218,7 @@ export default function CreateTokenPage() {
         </h3>
         <ol className="space-y-3 text-sm" style={{ color: 'var(--text-secondary)' }}>
           {[
-            'Connect your wallet and switch to Jeju network',
+            'Connect your wallet and switch to the network network',
             'Fill in token details (name, symbol, supply)',
             'Deploy your ERC20 token contract',
             'Your token appears on Bazaar automatically via the indexer'

@@ -28,7 +28,7 @@ const TESTNETS: Chain[] = [
     fundAmount: '2.0' // Need 1 ETH for stake + gas
   },
   {
-    name: 'Jeju Testnet',
+    name: 'Testnet',
     chainId: 420690,
     rpc: process.env.JEJU_RPC || 'https://testnet-rpc.jejunetwork.org',
     fundAmount: '0.5'

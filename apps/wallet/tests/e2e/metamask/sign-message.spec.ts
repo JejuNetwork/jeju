@@ -30,7 +30,7 @@ test.describe('Message Signing', () => {
   test('should sign a personal message', async ({ context, page, metamaskPage, extensionId }) => {
     const metamask = new MetaMask(context, metamaskPage, PASSWORD, extensionId);
     
-    // Find sign message button/link (depends on Jeju Wallet UI)
+    // Find sign message button/link (depends on the network Wallet UI)
     const signButton = page.locator('button, [role="button"]').filter({ 
       hasText: /sign.*message/i 
     });

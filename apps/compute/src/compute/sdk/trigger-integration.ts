@@ -486,11 +486,11 @@ export class TriggerIntegration {
     
     for (const trigger of this.triggers.values()) {
       if (trigger.type === 'webhook' && trigger.webhookPath === path && trigger.active) {
-        const payerAddress = (headers?.['x-jeju-address'] || headers?.['X-Jeju-Address']) as Address | undefined;
+        const payerAddress = (headers?.['x-network-address'] || headers?.['X-Network-Address']) as Address | undefined;
         const paymentProof = headers?.['x-402-payment'] || headers?.['X-402-Payment'] || headers?.['x-payment'] || headers?.['X-Payment'];
         if (trigger.payment?.mode === 'x402') {
           if (!paymentProof) throw new Error('x402 payment required');
-          if (!payerAddress) throw new Error('x-jeju-address header required for x402 payment');
+          if (!payerAddress) throw new Error('x-network-address header required for x402 payment');
           await this.verifyPayment(trigger, paymentProof, payerAddress);
         }
         return this.executeTrigger({ triggerId: trigger.id, input: payload, payerAddress, paymentProof });

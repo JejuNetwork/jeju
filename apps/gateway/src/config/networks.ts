@@ -16,7 +16,7 @@ export const IS_TESTNET = NETWORK === 'testnet' || NETWORK === 'localnet';
 
 // Public RPC endpoints (defaults, can be overridden with *_RPC_URL env vars)
 export const RPC_URLS = {
-  // Jeju
+  // Network
   420691: process.env.JEJU_RPC_URL || 'https://rpc.jeju.network',
   420690: process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jeju.network',
   1337: process.env.LOCALNET_RPC_URL || 'http://localhost:9545',
@@ -49,8 +49,8 @@ export const EXPLORER_URLS = {
 
 // Chain metadata
 export const CHAINS = {
-  420691: { name: 'Jeju', shortName: 'JEJU', isTestnet: false },
-  420690: { name: 'Jeju Testnet', shortName: 'JEJU-TEST', isTestnet: true },
+  420691: { name: 'Network', shortName: 'JEJU', isTestnet: false },
+  420690: { name: 'Testnet', shortName: 'JEJU-TEST', isTestnet: true },
   1337: { name: 'Localnet', shortName: 'LOCAL', isTestnet: true },
   1: { name: 'Ethereum', shortName: 'ETH', isTestnet: false },
   42161: { name: 'Arbitrum One', shortName: 'ARB', isTestnet: false },

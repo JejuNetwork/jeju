@@ -25,7 +25,7 @@ test.describe('Bridge - elizaOS Exclusion (Native Token)', () => {
     const warning = page.locator('[style*="background: #fef3c7"]').filter({ hasText: /elizaOS/i });
     await expect(warning).toBeVisible();
 
-    await expect(page.getByText(/elizaOS is a native Jeju token/i)).toBeVisible();
+    await expect(page.getByText(/elizaOS is a native network token/i)).toBeVisible();
     await expect(page.getByText(/cannot be bridged from Ethereum/i)).toBeVisible();
 
     await page.screenshot({
@@ -186,7 +186,7 @@ test.describe('Bridge - Custom Token Comprehensive Testing', () => {
       await page.getByPlaceholder('0.0').fill('10');
       await page.waitForTimeout(300);
 
-      const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+      const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
       await expect(bridgeButton).toBeEnabled();
 
       console.log(`✅ Valid address accepted: ${addr.slice(0, 10)}...`);
@@ -208,7 +208,7 @@ test.describe('Bridge - Custom Token Comprehensive Testing', () => {
       await page.getByPlaceholder('0.0').fill('10');
       await page.waitForTimeout(300);
 
-      const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+      const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
       const enabled = await bridgeButton.isEnabled();
 
       expect(enabled).toBe(false);
@@ -238,7 +238,7 @@ test.describe('Bridge - Button State Management', () => {
 
   test('should disable bridge button without token selection', async ({ page }) => {
     // No token selected
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeDisabled();
 
     console.log('✅ Disabled without token');
@@ -251,7 +251,7 @@ test.describe('Bridge - Button State Management', () => {
     await page.waitForTimeout(500);
 
     // No amount entered
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeDisabled();
 
     console.log('✅ Disabled without amount');
@@ -266,7 +266,7 @@ test.describe('Bridge - Button State Management', () => {
     await page.getByPlaceholder('0.0').fill('50');
     await page.waitForTimeout(300);
 
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeEnabled();
 
     console.log('✅ Enabled with valid inputs');
@@ -280,7 +280,7 @@ test.describe('Bridge - Button State Management', () => {
 
     await page.getByPlaceholder('0.0').fill('1');
 
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await bridgeButton.click();
 
     // During transaction, button might show loading state
@@ -316,7 +316,7 @@ test.describe('Bridge - Decimal and Formatting', () => {
       await page.getByPlaceholder('0.0').fill(amount);
       await page.waitForTimeout(300);
 
-      const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+      const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
       await expect(bridgeButton).toBeEnabled();
 
       console.log(`✅ Decimal amount accepted: ${amount}`);
@@ -386,7 +386,7 @@ test.describe('Bridge - Information Display Completeness', () => {
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
-    await expect(page.getByText(/Tokens will appear on Jeju after confirmation/i)).toBeVisible();
+    await expect(page.getByText(/Tokens will appear on the network after confirmation/i)).toBeVisible();
 
     console.log('✅ Destination info displayed');
   });
@@ -434,11 +434,11 @@ test.describe('Bridge - Ethereum Network Tokens Only', () => {
       console.log(`✅ ${token} (Ethereum network) available for bridge`);
     }
 
-    // Native Jeju tokens should NOT be in list
+    // Native network tokens should NOT be in list
     const dropdown = page.locator('[style*="position: absolute"]');
     const dropdownText = await dropdown.textContent();
     
-    expect(dropdownText).not.toContain('elizaOS'); // Native Jeju
+    expect(dropdownText).not.toContain('elizaOS'); // Native Token
 
     console.log('✅ Only Ethereum network tokens shown');
   });
@@ -492,7 +492,7 @@ test.describe('Bridge - Form Reset and Clearing', () => {
     await page.waitForTimeout(300);
 
     // Should still work (defaults to sender)
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeEnabled();
 
     console.log('✅ Can clear recipient (defaults to self)');

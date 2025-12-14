@@ -246,10 +246,11 @@ export async function runAppTests(
   return results;
 }
 
-export function discoverApps(rootDir: string): AppManifest[] {
+export function discoverApps(rootDir: string, includeVendor = false): AppManifest[] {
   const apps: AppManifest[] = [];
   
-  const directories = ['apps', 'vendor'];
+  // Only include 'apps' directory by default, vendor apps are optional
+  const directories = includeVendor ? ['apps', 'vendor'] : ['apps'];
   
   for (const dir of directories) {
     const baseDir = join(rootDir, dir);

@@ -1,0 +1,106 @@
+{
+  "version": "1.0.0",
+  "description": "Jeju Federation configuration for cross-network interoperability",
+  
+  "hub": {
+    "testnet": {
+      "chainId": 11155111,
+      "name": "Sepolia",
+      "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
+      "networkRegistryAddress": "",
+      "status": "pending"
+    },
+    "mainnet": {
+      "chainId": 1,
+      "name": "Ethereum",
+      "rpcUrl": "https://eth.llamarpc.com",
+      "networkRegistryAddress": "",
+      "status": "planned"
+    }
+  },
+
+  "networks": {
+    "jeju-testnet": {
+      "chainId": 420690,
+      "name": "Jeju Testnet",
+      "rpcUrl": "https://testnet-rpc.jeju.network",
+      "explorerUrl": "https://testnet-explorer.jeju.network",
+      "wsUrl": "wss://testnet-ws.jeju.network",
+      "contracts": {
+        "identityRegistry": "",
+        "solverRegistry": "",
+        "inputSettler": "",
+        "outputSettler": "",
+        "liquidityVault": "",
+        "governance": "",
+        "oracle": "",
+        "federatedIdentity": "",
+        "federatedSolver": "",
+        "federatedLiquidity": ""
+      },
+      "isOrigin": true,
+      "status": "active"
+    },
+    "jeju-mainnet": {
+      "chainId": 420691,
+      "name": "Jeju Mainnet",
+      "rpcUrl": "https://rpc.jeju.network",
+      "explorerUrl": "https://explorer.jeju.network",
+      "wsUrl": "wss://ws.jeju.network",
+      "contracts": {
+        "identityRegistry": "",
+        "solverRegistry": "",
+        "inputSettler": "",
+        "outputSettler": "",
+        "liquidityVault": "",
+        "governance": "",
+        "oracle": "",
+        "federatedIdentity": "",
+        "federatedSolver": "",
+        "federatedLiquidity": ""
+      },
+      "isOrigin": true,
+      "status": "planned"
+    }
+  },
+
+  "trustConfig": {
+    "defaultTrust": "verified",
+    "trustLevels": {
+      "none": 0,
+      "registered": 1,
+      "verified": 2,
+      "mutual": 3
+    },
+    "requiredStakeETH": {
+      "registered": "1",
+      "verified": "10"
+    }
+  },
+
+  "crossChain": {
+    "supportedOracles": ["superchain", "hyperlane", "simple"],
+    "defaultOracle": "superchain",
+    "superchainConfig": {
+      "crossL2InboxAddress": "0x4200000000000000000000000000000000000022",
+      "l2ToL2MessengerAddress": "0x4200000000000000000000000000000000000023"
+    }
+  },
+
+  "discovery": {
+    "endpoints": [
+      "https://federation.jeju.network/api/networks",
+      "https://api.jeju.network/federation/networks"
+    ],
+    "refreshIntervalSeconds": 300,
+    "cacheEnabled": true
+  },
+
+  "governance": {
+    "networkVerificationQuorum": 3,
+    "trustEstablishmentDelay": 86400,
+    "slashingEnabled": true,
+    "slashingPercentBps": 5000
+  }
+}
+

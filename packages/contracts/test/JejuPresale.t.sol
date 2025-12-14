@@ -2,12 +2,12 @@
 pragma solidity ^0.8.26;
 
 import {Test, console2} from "forge-std/Test.sol";
-import {JejuPresale} from "../src/tokens/JejuPresale.sol";
-import {JejuToken} from "../src/tokens/JejuToken.sol";
+import {NetworkPresale} from "../src/tokens/NetworkPresale.sol";
+import {NetworkToken} from "../src/tokens/NetworkToken.sol";
 
-contract JejuPresaleTest is Test {
-    JejuPresale public presale;
-    JejuToken public token;
+contract NetworkPresaleTest is Test {
+    NetworkPresale public presale;
+    NetworkToken public token;
 
     address public owner = address(1);
     address public treasury = address(2);
@@ -30,10 +30,10 @@ contract JejuPresaleTest is Test {
         vm.startPrank(owner);
 
         // Deploy token
-        token = new JejuToken(owner, address(0), false);
+        token = new NetworkToken(owner, address(0), false);
 
         // Deploy presale
-        presale = new JejuPresale(address(token), treasury, owner);
+        presale = new NetworkPresale(address(token), treasury, owner);
 
         // Configure timing
         whitelistStart = block.timestamp + 1 hours;
@@ -75,16 +75,16 @@ contract JejuPresaleTest is Test {
     }
 
     function test_PhaseTransitions() public {
-        assertEq(uint256(presale.currentPhase()), uint256(JejuPresale.PresalePhase.NOT_STARTED));
+        assertEq(uint256(presale.currentPhase()), uint256(NetworkPresale.PresalePhase.NOT_STARTED));
 
         vm.warp(whitelistStart);
-        assertEq(uint256(presale.currentPhase()), uint256(JejuPresale.PresalePhase.WHITELIST));
+        assertEq(uint256(presale.currentPhase()), uint256(NetworkPresale.PresalePhase.WHITELIST));
 
         vm.warp(publicStart);
-        assertEq(uint256(presale.currentPhase()), uint256(JejuPresale.PresalePhase.PUBLIC));
+        assertEq(uint256(presale.currentPhase()), uint256(NetworkPresale.PresalePhase.PUBLIC));
 
         vm.warp(presaleEnd);
-        assertEq(uint256(presale.currentPhase()), uint256(JejuPresale.PresalePhase.FAILED)); // No contributions yet
+        assertEq(uint256(presale.currentPhase()), uint256(NetworkPresale.PresalePhase.FAILED)); // No contributions yet
     }
 
     function test_WhitelistContribution() public {
@@ -139,7 +139,7 @@ contract JejuPresaleTest is Test {
         vm.warp(whitelistStart);
 
         vm.prank(alice);
-        vm.expectRevert(JejuPresale.NotWhitelisted.selector);
+        vm.expectRevert(NetworkPresale.NotWhitelisted.selector);
         presale.contribute{value: 1 ether}();
     }
 
@@ -147,7 +147,7 @@ contract JejuPresaleTest is Test {
         vm.warp(publicStart);
 
         vm.prank(alice);
-        vm.expectRevert(JejuPresale.BelowMinContribution.selector);
+        vm.expectRevert(NetworkPresale.BelowMinContribution.selector);
         presale.contribute{value: 0.001 ether}();
     }
 
@@ -155,7 +155,7 @@ contract JejuPresaleTest is Test {
         vm.warp(publicStart);
 
         vm.prank(alice);
-        vm.expectRevert(JejuPresale.ExceedsMaxContribution.selector);
+        vm.expectRevert(NetworkPresale.ExceedsMaxContribution.selector);
         presale.contribute{value: 51 ether}();
     }
 
@@ -241,7 +241,7 @@ contract JejuPresaleTest is Test {
 
         // Warp past presale end (failed because soft cap not reached)
         vm.warp(presaleEnd + 1);
-        assertEq(uint256(presale.currentPhase()), uint256(JejuPresale.PresalePhase.FAILED));
+        assertEq(uint256(presale.currentPhase()), uint256(NetworkPresale.PresalePhase.FAILED));
 
         // Alice requests refund
         uint256 aliceBalanceBefore = alice.balance;
@@ -284,7 +284,7 @@ contract JejuPresaleTest is Test {
         presale.contribute{value: 50 ether}();
 
         vm.prank(owner);
-        vm.expectRevert(JejuPresale.PresaleNotEnded.selector);
+        vm.expectRevert(NetworkPresale.PresaleNotEnded.selector);
         presale.finalize();
     }
 
@@ -312,7 +312,7 @@ contract JejuPresaleTest is Test {
             uint256 tokensSold,
             uint256 softCap,
             uint256 hardCap,
-            JejuPresale.PresalePhase phase
+            NetworkPresale.PresalePhase phase
         ) = presale.getPresaleStats();
 
         assertEq(raised, 30 ether);
@@ -320,26 +320,26 @@ contract JejuPresaleTest is Test {
         assertGt(tokensSold, 0);
         assertEq(softCap, SOFT_CAP);
         assertEq(hardCap, HARD_CAP);
-        assertEq(uint256(phase), uint256(JejuPresale.PresalePhase.PUBLIC));
+        assertEq(uint256(phase), uint256(NetworkPresale.PresalePhase.PUBLIC));
     }
 
     // ============ Security Tests ============
 
     function test_RevertZeroAddressToken() public {
         vm.prank(owner);
-        vm.expectRevert(JejuPresale.ZeroAddress.selector);
-        new JejuPresale(address(0), treasury, owner);
+        vm.expectRevert(NetworkPresale.ZeroAddress.selector);
+        new NetworkPresale(address(0), treasury, owner);
     }
 
     function test_RevertZeroAddressTreasury() public {
         vm.prank(owner);
-        vm.expectRevert(JejuPresale.ZeroAddress.selector);
-        new JejuPresale(address(token), address(0), owner);
+        vm.expectRevert(NetworkPresale.ZeroAddress.selector);
+        new NetworkPresale(address(token), address(0), owner);
     }
 
     function test_RevertSetTreasuryZeroAddress() public {
         vm.prank(owner);
-        vm.expectRevert(JejuPresale.ZeroAddress.selector);
+        vm.expectRevert(NetworkPresale.ZeroAddress.selector);
         presale.setTreasury(address(0));
     }
 
@@ -348,7 +348,7 @@ contract JejuPresaleTest is Test {
         vm.warp(whitelistStart + 1);
 
         vm.prank(owner);
-        vm.expectRevert(JejuPresale.PresaleAlreadyConfigured.selector);
+        vm.expectRevert(NetworkPresale.PresaleAlreadyConfigured.selector);
         presale.configure(
             SOFT_CAP,
             HARD_CAP,
@@ -365,9 +365,9 @@ contract JejuPresaleTest is Test {
     function test_RevertZeroTokenPrice() public {
         // Deploy new presale that hasn't been configured
         vm.startPrank(owner);
-        JejuPresale newPresale = new JejuPresale(address(token), treasury, owner);
+        NetworkPresale newPresale = new NetworkPresale(address(token), treasury, owner);
 
-        vm.expectRevert(JejuPresale.ZeroTokenPrice.selector);
+        vm.expectRevert(NetworkPresale.ZeroTokenPrice.selector);
         newPresale.configure(
             SOFT_CAP,
             HARD_CAP,
@@ -384,7 +384,7 @@ contract JejuPresaleTest is Test {
 
     function test_RevertZeroVestingDuration() public {
         vm.prank(owner);
-        vm.expectRevert(JejuPresale.ZeroVestingDuration.selector);
+        vm.expectRevert(NetworkPresale.ZeroVestingDuration.selector);
         presale.setVesting(5000, 0, 0); // 50% TGE with 0 vesting duration
     }
 
@@ -406,7 +406,7 @@ contract JejuPresaleTest is Test {
 
         // Second refund reverts
         vm.prank(alice);
-        vm.expectRevert(JejuPresale.AlreadyRefunded.selector);
+        vm.expectRevert(NetworkPresale.AlreadyRefunded.selector);
         presale.refund();
     }
 
@@ -425,7 +425,7 @@ contract JejuPresaleTest is Test {
 
         // Immediate second claim should revert with nothing to claim
         vm.prank(alice);
-        vm.expectRevert(JejuPresale.NothingToClaim.selector);
+        vm.expectRevert(NetworkPresale.NothingToClaim.selector);
         presale.claim();
 
         // After vesting, second claim works
@@ -437,7 +437,7 @@ contract JejuPresaleTest is Test {
     function test_HardCapEnforced() public {
         // Deploy new presale with small hard cap
         vm.startPrank(owner);
-        JejuPresale smallPresale = new JejuPresale(address(token), treasury, owner);
+        NetworkPresale smallPresale = new NetworkPresale(address(token), treasury, owner);
 
         uint256 futureStart = block.timestamp + 100;
         smallPresale.configure(
@@ -465,7 +465,7 @@ contract JejuPresaleTest is Test {
 
         // Second contribution that would exceed hard cap
         vm.prank(bob);
-        vm.expectRevert(JejuPresale.HardCapReached.selector);
+        vm.expectRevert(NetworkPresale.HardCapReached.selector);
         smallPresale.contribute{value: 3 ether}();
     }
 

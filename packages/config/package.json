@@ -1,13 +1,14 @@
 {
   "name": "@jejunetwork/config",
   "version": "0.1.0",
-  "description": "Configuration files and utilities for Jeju Network",
+  "description": "Configuration files and utilities for the network",
   "license": "MIT",
   "type": "module",
   "main": "./index.ts",
   "types": "./index.ts",
   "exports": {
     ".": "./index.ts",
+    "./branding": "./branding.ts",
     "./network": "./network.ts",
     "./ports": "./ports.ts",
     "./chain/mainnet.json": "./chain/mainnet.json",
@@ -15,7 +16,8 @@
     "./tokens": "./tokens.json",
     "./contracts": "./contracts.json",
     "./services": "./services.json",
-    "./eil": "./eil.json"
+    "./eil": "./eil.json",
+    "./branding.json": "./branding.json"
   },
   "files": [
     "*.ts",

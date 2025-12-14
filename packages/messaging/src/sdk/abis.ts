@@ -1,5 +1,5 @@
 /**
- * Contract ABIs for Jeju Messaging
+ * Contract ABIs for network Messaging
  */
 
 export const KEY_REGISTRY_ABI = [

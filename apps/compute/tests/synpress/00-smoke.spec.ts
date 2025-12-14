@@ -13,7 +13,7 @@ const { expect } = test;
 test.describe('Smoke Tests', () => {
   test('page loads without errors', async ({ page }) => {
     await page.goto('/');
-    await expect(page).toHaveTitle(/Jeju Compute/);
+    await expect(page).toHaveTitle(/Compute/);
     
     // Check no console errors
     const errors: string[] = [];

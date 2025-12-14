@@ -134,7 +134,7 @@ describe('Dashboard File Validation', () => {
 // JEJU OVERVIEW DASHBOARD
 // ============================================================================
 
-describe('Jeju Overview Dashboard', () => {
+describe('Network Overview Dashboard', () => {
   const dashboard = loadDashboard('jeju-overview.json');
 
   test('should have correct UID', () => {

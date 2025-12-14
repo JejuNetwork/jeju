@@ -40,11 +40,11 @@ export function createRegistryA2AServer(registry: OCIRegistry): Hono {
 
   const AGENT_CARD = {
     protocolVersion: '0.3.0',
-    name: 'Jeju Container Registry',
+    name: 'Container Registry',
     description: 'Decentralized OCI-compatible container registry backed by IPFS and Arweave',
     url: '/registry/a2a',
     preferredTransport: 'http',
-    provider: { organization: 'Jeju Network', url: 'https://jeju.network' },
+    provider: { organization: 'the network', url: 'https://jeju.network' },
     version: '1.0.0',
     capabilities: { streaming: false, pushNotifications: false, stateTransitionHistory: false },
     defaultInputModes: ['text', 'data'],

@@ -33,7 +33,7 @@ async function graphqlQuery<T>(query: string, variables?: Record<string, unknown
   return json.data
 }
 
-export async function getJejuTokens(filter?: {
+export async function getNetworkTokens(filter?: {
   limit?: number
   offset?: number
   verified?: boolean

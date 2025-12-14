@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Jeju Full E2E Test Suite
+ * Network Full E2E Test Suite
  * 
  * Complete end-to-end testing that:
  * 1. Starts localnet (chain infrastructure)

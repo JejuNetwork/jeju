@@ -1,10 +1,10 @@
 /**
- * Jeju Compute SDK
+ * Network Compute SDK
  *
  * Client library for interacting with the decentralized compute marketplace.
  *
  * ## Core Features
- * - JejuComputeSDK: Inference API with on-chain settlement
+ * - ComputeSDK: Inference API with on-chain settlement
  *   - Includes rental support for SSH/Docker compute
  * - CrossChainComputeClient: Cross-chain compute via OIF/EIL
  *   - Create rentals from any L2 via intents

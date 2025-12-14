@@ -1,5 +1,5 @@
 /**
- * Jeju CLI Types
+ * Network CLI Types
  */
 
 export type NetworkType = 'localnet' | 'testnet' | 'mainnet';
@@ -68,6 +68,25 @@ export interface DeploymentConfig {
   dryRun: boolean;
 }
 
+export interface AppTestConfig {
+  unit?: {
+    command: string;
+    timeout?: number;
+  };
+  e2e?: {
+    command: string;
+    config?: string;
+    timeout?: number;
+    requiresChain?: boolean;
+    requiresWallet?: boolean;
+  };
+  integration?: {
+    command: string;
+    timeout?: number;
+  };
+  services?: string[];
+}
+
 export interface AppManifest {
   name: string;
   displayName?: string;
@@ -85,6 +104,7 @@ export interface AppManifest {
   enabled?: boolean;
   autoStart?: boolean;
   tags?: string[];
+  testing?: AppTestConfig;
 }
 
 export interface ProjectTemplate {
@@ -130,32 +150,47 @@ export const WELL_KNOWN_KEYS = {
 } as const;
 
 export const DEFAULT_PORTS = {
+  // Chain
   l1Rpc: 8545,
   l2Rpc: 9545,
   l2Ws: 9546,
+  
+  // Apps
   gateway: 4001,
   bazaar: 4006,
   compute: 4007,
+  wallet: 4015,
+  
+  // Infrastructure
   indexerGraphQL: 4350,
   prometheus: 9090,
   grafana: 4010,
   kurtosisUI: 9711,
+  
+  // Development Services
+  inference: 4100,
+  storage: 4101,
+  cron: 4102,
+  cvm: 4103,
+  cql: 4300,
+  oracle: 4301,
+  jns: 4302,
 } as const;
 
 export const CHAIN_CONFIG = {
   localnet: {
     chainId: 1337,
-    name: 'Jeju Localnet',
+    name: 'Network Localnet',
     rpcUrl: 'http://127.0.0.1:9545',
   },
   testnet: {
     chainId: 420691,
-    name: 'Jeju Testnet',
+    name: 'Testnet',
     rpcUrl: 'https://rpc.testnet.jeju.network',
   },
   mainnet: {
     chainId: 42069,
-    name: 'Jeju',
+    name: 'Network',
     rpcUrl: 'https://rpc.jeju.network',
   },
 } as const;

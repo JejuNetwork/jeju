@@ -14,14 +14,14 @@ function getExplorerUrl(): string {
 
 export const jeju = defineChain({
   id: JEJU_CHAIN_ID,
-  name: NETWORK === 'mainnet' ? 'Jeju' : NETWORK === 'testnet' ? 'Jeju Testnet' : 'Jeju Localnet',
+  name: NETWORK === 'mainnet' ? 'Network' : NETWORK === 'testnet' ? 'Testnet' : getLocalnetChain().name,
   nativeCurrency: { decimals: 18, name: 'Ether', symbol: 'ETH' },
   rpcUrls: {
     default: { http: [JEJU_RPC_URL] },
   },
   blockExplorers: {
     default: {
-      name: 'Jeju Explorer',
+      name: 'Network Explorer',
       url: getExplorerUrl(),
       apiUrl: `${getExplorerUrl()}/api`,
     },

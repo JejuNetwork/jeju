@@ -6,7 +6,7 @@
 
 import { startProxyNode } from '../node/client';
 
-console.log('Starting Jeju Proxy Node...');
+console.log('Starting Network Proxy Node...');
 
 const client = await startProxyNode();
 

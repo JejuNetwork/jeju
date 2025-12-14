@@ -131,7 +131,7 @@ describe('Container Registry Integration', () => {
 
     expect(response.status).toBe(200);
     const card = await response.json();
-    expect(card.name).toBe('Jeju Container Registry');
+    expect(card.name).toBe('Container Registry');
     expect(card.protocolVersion).toBe('0.3.0');
   });
 

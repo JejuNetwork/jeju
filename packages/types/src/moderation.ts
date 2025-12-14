@@ -1,6 +1,6 @@
 /**
  * Moderation Marketplace Types
- * Shared types for ban checking and moderation across all Jeju apps
+ * Shared types for ban checking and moderation across all network apps
  */
 
 // ============ Enums ============

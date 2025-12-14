@@ -4,7 +4,7 @@
  */
 
 import { type Address, type Hex, type PublicClient, encodeFunctionData, formatUnits, parseUnits, createPublicClient, http } from 'viem';
-import { getChainContracts, getJejuRpcUrl } from '../../sdk/chains';
+import { getChainContracts, getNetworkRpcUrl } from '../../sdk/chains';
 import { rpcService, type SupportedChainId, SUPPORTED_CHAINS } from '../rpc';
 
 const PERP_MARKET_ABI = [
@@ -122,7 +122,7 @@ export class PerpsService {
       return rpcService.getClient(this.chainId as SupportedChainId);
     }
     if (!this.clientCache.has(this.chainId)) {
-      const rpcUrl = getJejuRpcUrl(this.chainId) || 'http://localhost:8545';
+      const rpcUrl = getNetworkRpcUrl(this.chainId) || 'http://localhost:8545';
       this.clientCache.set(this.chainId, createPublicClient({ transport: http(rpcUrl) }));
     }
     return this.clientCache.get(this.chainId)!;

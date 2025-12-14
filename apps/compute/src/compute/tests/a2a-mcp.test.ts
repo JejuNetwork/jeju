@@ -43,7 +43,7 @@ describe('A2A Server', () => {
     
     const card = await response.json() as AgentCard;
     expect(card.protocolVersion).toBe('0.3.0');
-    expect(card.name).toBe('Jeju Compute Marketplace');
+    expect(card.name: getNetworkName() Compute Marketplace');
     expect(card.url).toBe('/a2a');
     expect(card.skills).toBeArray();
     expect(card.skills.length).toBeGreaterThan(5);

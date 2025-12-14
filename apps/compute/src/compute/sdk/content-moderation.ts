@@ -1,5 +1,5 @@
 /**
- * Content Moderation System for Jeju Compute Marketplace
+ * Content Moderation System for network Compute Marketplace
  *
  * Provides multi-layer content filtering for inference requests:
  * 1. Fast local filters (expletives, patterns)

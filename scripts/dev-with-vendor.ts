@@ -4,7 +4,7 @@
  */
 
 import { spawn, type Subprocess } from 'bun';
-import { discoverVendorApps, type JejuApp } from './shared/discover-apps';
+import { discoverVendorApps, type NetworkApp } from './shared/discover-apps';
 
 const processes: Subprocess[] = [];
 
@@ -13,7 +13,7 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
-async function startApp(app: JejuApp): Promise<void> {
+async function startApp(app: NetworkApp): Promise<void> {
   const devCommand = app.manifest.commands?.dev;
   if (!devCommand) return;
 

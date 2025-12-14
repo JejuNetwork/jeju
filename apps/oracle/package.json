@@ -1,7 +1,7 @@
 {
   "name": "@jeju/oracle",
   "version": "0.1.0",
-  "description": "Jeju Oracle Network Node Software",
+  "description": "Network Oracle Network Node Software",
   "type": "module",
   "main": "src/index.ts",
   "scripts": {

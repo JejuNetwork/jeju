@@ -1,5 +1,5 @@
 /**
- * JNS (Jeju Name Service) Hooks for Bazaar
+ * JNS (Network Name Service) Hooks for Bazaar
  * 
  * Provides hooks for:
  * - Listing names for sale

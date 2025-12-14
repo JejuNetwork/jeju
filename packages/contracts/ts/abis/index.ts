@@ -29,7 +29,7 @@ import BanManagerAbiJson from '../../abis/BanManager.json';
 import ModerationMarketplaceAbiJson from '../../abis/ModerationMarketplace.json';
 
 // Native token ABI
-import JejuTokenAbiJson from '../../abis/JejuToken.json';
+import NetworkTokenAbiJson from '../../abis/NetworkToken.json';
 
 // Service ABIs
 import CreditManagerAbiJson from '../../abis/CreditManager.json';
@@ -78,7 +78,7 @@ export const BanManagerAbi = BanManagerAbiJson.abi as Abi;
 export const ModerationMarketplaceAbi = ModerationMarketplaceAbiJson.abi as Abi;
 
 // Native token ABI
-export const JejuTokenAbi = JejuTokenAbiJson.abi as Abi;
+export const NetworkTokenAbi = NetworkTokenAbiJson.abi as Abi;
 
 // Service ABIs
 export const CreditManagerAbi = CreditManagerAbiJson.abi as Abi;
@@ -105,7 +105,7 @@ export { InputSettlerAbiJson, OutputSettlerAbiJson, SolverRegistryAbiJson };
 export { SimpleOracleAbiJson, HyperlaneOracleAbiJson, SuperchainOracleAbiJson };
 export { OTCAbiJson, SimplePoolOracleAbiJson, RegistrationHelperAbiJson, MockERC20AbiJson, MockAggregatorV3AbiJson };
 export { BanManagerAbiJson, ModerationMarketplaceAbiJson };
-export { JejuTokenAbiJson };
+export { NetworkTokenAbiJson };
 export { CreditManagerAbiJson, MultiTokenPaymasterAbiJson };
 export { TokenRegistryAbiJson, PaymasterFactoryAbiJson, LiquidityVaultAbiJson, AppTokenPreferenceAbiJson };
 export { GoldAbiJson, ItemsAbiJson, GameIntegrationAbiJson, PlayerTradeEscrowAbiJson };

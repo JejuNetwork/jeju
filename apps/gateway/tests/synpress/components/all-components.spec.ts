@@ -445,7 +445,7 @@ test.describe('FORM SUBMIT BUTTONS - Complete Coverage', () => {
   test('should test submit button disabled states', async ({ page }) => {
     const forms = [
       { tab: 'Registered Tokens', button: 'Register Token' },
-      { tab: 'Bridge from Ethereum', button: 'Bridge to Jeju' },
+      { tab: 'Bridge from Ethereum', button: 'Bridge to the network' },
       { tab: 'App Registry', button: 'Register App' },
     ];
 

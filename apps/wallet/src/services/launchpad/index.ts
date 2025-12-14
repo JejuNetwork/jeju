@@ -4,7 +4,7 @@
  */
 
 import { type Address, type Hex, type PublicClient, encodeFunctionData, formatUnits, parseUnits, keccak256, toHex, createPublicClient, http } from 'viem';
-import { getChainContracts, getJejuRpcUrl } from '../../sdk/chains';
+import { getChainContracts, getNetworkRpcUrl } from '../../sdk/chains';
 import { rpcService, type SupportedChainId, SUPPORTED_CHAINS } from '../rpc';
 
 const TOKEN_LAUNCHPAD_ABI = [
@@ -162,7 +162,7 @@ export class LaunchpadService {
       return rpcService.getClient(this.chainId as SupportedChainId);
     }
     if (!this.clientCache.has(this.chainId)) {
-      const rpcUrl = getJejuRpcUrl(this.chainId) || 'http://localhost:8545';
+      const rpcUrl = getNetworkRpcUrl(this.chainId) || 'http://localhost:8545';
       this.clientCache.set(this.chainId, createPublicClient({ transport: http(rpcUrl) }));
     }
     return this.clientCache.get(this.chainId)!;

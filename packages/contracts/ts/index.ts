@@ -3,7 +3,7 @@
  * @module @jejunetwork/contracts
  * 
  * This package provides:
- * - Contract ABIs for Jeju smart contracts
+ * - Contract ABIs for network smart contracts
  * - Typed deployment addresses
  * - Helper functions for getting addresses by chain/network
  * 
@@ -51,8 +51,8 @@ export {
   ERC20ReadAbi,
   ERC20WriteAbi,
   // Native token ABI
-  JejuTokenAbi,
-  JejuTokenAbiJson,
+  NetworkTokenAbi,
+  NetworkTokenAbiJson,
   // Moderation ABIs
   BanManagerAbi,
   BanManagerAbiJson,
@@ -80,7 +80,7 @@ export {
   HyperlaneOracleAbi,
   SuperchainOracleAbi,
   // Game ABIs (Hyperscape / forkable game infrastructure)
-  // Note: Games use standard Jeju BanManager for moderation
+  // Note: Games use standard network BanManager for moderation
   GoldAbi,
   ItemsAbi,
   GameIntegrationAbi,

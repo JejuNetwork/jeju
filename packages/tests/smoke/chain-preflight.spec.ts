@@ -29,7 +29,7 @@ const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address;
 
 const chain = {
   id: CHAIN_ID,
-  name: 'Jeju Local',
+  name: 'Network Local',
   nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
     default: { http: [RPC_URL] },

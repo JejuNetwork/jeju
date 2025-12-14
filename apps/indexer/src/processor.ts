@@ -1,8 +1,8 @@
 /**
- * @fileoverview Subsquid EVM processor configuration for Jeju blockchain indexer
+ * @fileoverview Subsquid EVM processor configuration for network blockchain indexer
  * @module indexer/processor
  * 
- * Configures the blockchain indexer to capture comprehensive data from the Jeju network:
+ * Configures the blockchain indexer to capture comprehensive data from the network:
  * - All blocks with full metadata
  * - All transactions (successful and failed)
  * - All event logs from all contracts
@@ -15,7 +15,7 @@
  * 
  * @example Environment configuration
  * ```bash
- * RPC_ETH_HTTP=https://rpc.jeju.network  # Required: Jeju RPC endpoint
+ * RPC_ETH_HTTP=https://rpc.jeju.network  # Required: Network RPC endpoint
  * START_BLOCK=0                           # Optional: Starting block (default: 0)
  * ```
  */
@@ -34,7 +34,7 @@ import {
 /**
  * Main blockchain processor instance
  * 
- * Configured to index the Jeju blockchain comprehensively:
+ * Configured to index the blockchain comprehensively:
  * - Connects to RPC endpoint specified in RPC_ETH_HTTP env var
  * - Waits for 10 block confirmations before considering data final
  * - Indexes ALL transactions and logs (no filtering)
@@ -71,7 +71,7 @@ export const processor = new EvmBatchProcessor()
      * Finality confirmation depth
      * 
      * Waits for 10 block confirmations before considering data final.
-     * This prevents reorg issues on Jeju. Jeju has 2s block time,
+     * This prevents reorg issues on the network. Network has 2s block time,
      * so 10 blocks = 20 seconds of confirmation time.
      */
     .setFinalityConfirmation(10)

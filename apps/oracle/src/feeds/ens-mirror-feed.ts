@@ -4,7 +4,7 @@
  * An oracle feed that reads ENS state from Ethereum mainnet and
  * reports it for the ENSMirror contract to sync to JNS.
  * 
- * This integrates with the Jeju Oracle Network to provide
+ * This integrates with the Oracle Network to provide
  * decentralized ENS resolution.
  */
 

@@ -1,0 +1,74 @@
+{
+  "name": "@jejunetwork/eliza-plugin",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "ElizaOS plugin for Jeju Network - fully decentralized compute, storage, DeFi, governance, and cross-chain",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "bun build.ts",
+    "dev": "bun --watch build.ts",
+    "test": "bun test",
+    "lint": "prettier --write ./src",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@elizaos/core": "^1.6.0",
+    "@jejunetwork/sdk": "workspace:*",
+    "@jejunetwork/config": "workspace:*",
+    "@jejunetwork/types": "workspace:*",
+    "viem": "2.41.2"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.3.3",
+    "prettier": "^3.2.5"
+  },
+  "peerDependencies": {
+    "zod": "^3.22.4"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "agentConfig": {
+    "pluginType": "elizaos:plugin:1.0.0",
+    "pluginParameters": {
+      "JEJU_PRIVATE_KEY": {
+        "type": "string",
+        "description": "Private key for Jeju wallet (hex string starting with 0x)",
+        "required": true,
+        "sensitive": true
+      },
+      "JEJU_MNEMONIC": {
+        "type": "string",
+        "description": "Mnemonic phrase for Jeju wallet (alternative to private key)",
+        "required": false,
+        "sensitive": true
+      },
+      "JEJU_NETWORK": {
+        "type": "string",
+        "description": "Network to connect to: localnet, testnet, or mainnet",
+        "required": false,
+        "default": "testnet",
+        "sensitive": false
+      },
+      "JEJU_SMART_ACCOUNT": {
+        "type": "boolean",
+        "description": "Enable ERC-4337 smart account (default: true)",
+        "required": false,
+        "default": true,
+        "sensitive": false
+      }
+    }
+  }
+}
+

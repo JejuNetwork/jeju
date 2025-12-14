@@ -75,7 +75,7 @@ export default function StorageManagerPage() {
             <h1 className="text-4xl font-bold">File Storage Manager</h1>
           </div>
           <p className="text-lg opacity-90">
-            Decentralized file storage on Jeju IPFS • Pay with any token • Zero external dependencies
+            Decentralized file storage on the network IPFS • Pay with any token • Zero external dependencies
           </p>
         </div>
       </div>
@@ -161,7 +161,7 @@ function UploadSection() {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="bg-white rounded-lg shadow-sm p-8">
-        <h2 className="text-2xl font-bold mb-6">Upload to Jeju IPFS</h2>
+        <h2 className="text-2xl font-bold mb-6">Upload to the network IPFS</h2>
 
         {/* File Selection */}
         <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center mb-6">
@@ -236,7 +236,7 @@ function UploadSection() {
             disabled={uploading}
             className="w-full py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 disabled:bg-gray-300"
           >
-            {uploading ? 'Uploading to Jeju IPFS...' : 'Upload File'}
+            {uploading ? 'Uploading to the network IPFS...' : 'Upload File'}
           </button>
         )}
 

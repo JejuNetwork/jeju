@@ -1,5 +1,5 @@
 /**
- * Jeju Oracle Network (JON) Types
+ * Oracle Network (JON) Types
  * 
  * Type definitions for the decentralized oracle network
  * providing price feeds, FX rates, stablecoin pegs, and market status

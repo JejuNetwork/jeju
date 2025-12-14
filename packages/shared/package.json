@@ -16,7 +16,8 @@
     "./db/typeorm-driver": "./src/db/typeorm-driver.ts",
     "./crypto": "./src/crypto/index.ts",
     "./crypto/mpc-custody": "./src/crypto/mpc-custody.ts",
-    "./crypto/hsm-integration": "./src/crypto/hsm-integration.ts"
+    "./crypto/hsm-integration": "./src/crypto/hsm-integration.ts",
+    "./chains": "./src/chains/index.ts"
   },
   "dependencies": {
     "viem": "^2.0.0"

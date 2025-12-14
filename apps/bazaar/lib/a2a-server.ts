@@ -1,12 +1,13 @@
 /**
  * Bazaar A2A Server
  * 
- * Agent-to-agent interface for the Jeju Bazaar marketplace.
+ * Agent-to-agent interface for the marketplace.
  * Supports token launches, ICO participation, and marketplace operations.
  */
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { createAgentCard, getServiceName } from '@jejunetwork/shared';
 
 // ============================================================================
 // Types
@@ -33,18 +34,7 @@ interface SkillResult {
 // Agent Card
 // ============================================================================
 
-export const BAZAAR_AGENT_CARD = {
-  protocolVersion: '0.3.0',
-  name: 'Jeju Bazaar',
-  description: 'Decentralized marketplace for token launches, ICOs, and NFT trading',
-  url: '/api/a2a',
-  preferredTransport: 'http',
-  provider: { organization: 'Jeju Network', url: 'https://jeju.network' },
-  version: '1.0.0',
-  capabilities: { streaming: false, pushNotifications: false, stateTransitionHistory: false },
-  defaultInputModes: ['text', 'data'],
-  defaultOutputModes: ['text', 'data'],
-  skills: [
+const BAZAAR_SKILLS = [
     // Token Launch Skills
     { id: 'list-launches', name: 'List Token Launches', description: 'Get all active and upcoming token launches', tags: ['query', 'launches'] },
     { id: 'get-launch', name: 'Get Launch Details', description: 'Get details of a specific token launch', tags: ['query', 'launch'] },
@@ -77,8 +67,13 @@ export const BAZAAR_AGENT_CARD = {
     // Analytics Skills
     { id: 'get-market-stats', name: 'Get Market Stats', description: 'Get overall marketplace statistics', tags: ['query', 'stats'] },
     { id: 'get-trending', name: 'Get Trending', description: 'Get trending tokens and collections', tags: ['query', 'trending'] },
-  ],
-};
+];
+
+export const BAZAAR_AGENT_CARD = createAgentCard({
+  name: 'Bazaar',
+  description: 'Decentralized marketplace for token launches, ICOs, and NFT trading',
+  skills: BAZAAR_SKILLS,
+});
 
 // ============================================================================
 // Skill Execution
@@ -118,7 +113,7 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
           id: launchId,
           name: 'JEJU Token',
           symbol: 'JEJU',
-          description: 'Governance and utility token for the Jeju Network',
+          description: 'Governance and utility token for the Network',
           totalSupply: '100000000',
           price: '0.05',
           currency: 'USDC',
@@ -216,8 +211,8 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
         message: 'NFT collections on Bazaar',
         data: {
           collections: [
-            { id: 'jeju-genesis', name: 'Jeju Genesis', items: 10000, floorPrice: '0.1' },
-            { id: 'jeju-agents', name: 'Jeju Agents', items: 5000, floorPrice: '0.5' },
+            { id: 'jeju-genesis', name: getNetworkName() Genesis', items: 10000, floorPrice: '0.1' },
+            { id: 'jeju-agents', name: getNetworkName() Agents', items: 5000, floorPrice: '0.5' },
           ],
         },
       };
@@ -229,7 +224,7 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
         message: `Collection ${collectionId} details`,
         data: {
           id: collectionId,
-          name: 'Jeju Genesis',
+          name: getNetworkName() Genesis',
           description: 'Genesis NFT collection for early supporters',
           totalItems: 10000,
           owners: 3500,
@@ -312,7 +307,7 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
             { symbol: 'ETH', balance: '2.5', value: '5000' },
           ],
           nfts: [
-            { collection: 'Jeju Genesis', count: 3, floorValue: '0.3' },
+            { collection: 'Genesis', count: 3, floorValue: '0.3' },
           ],
           totalValue: '5500',
         },
@@ -355,7 +350,7 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
             { symbol: 'CLANKER', change24h: 8.2 },
           ],
           collections: [
-            { name: 'Jeju Agents', volumeChange: 250 },
+            { name: getNetworkName() Agents', volumeChange: 250 },
           ],
         },
       };

@@ -120,7 +120,7 @@ test.describe('Liquidity - Deep Interaction Testing', () => {
     await page.waitForTimeout(500);
     await assertNoPageErrors(page);
     
-    const addLiquidityButton = page.locator('button').filter({ hasText: /Add Liquidity|Connect Wallet|Switch to Jeju/i }).first();
+    const addLiquidityButton = page.locator('button').filter({ hasText: /Add Liquidity|Connect Wallet|Switch to the network/i }).first();
     
     // Initial state
     const initialText = await addLiquidityButton.textContent();

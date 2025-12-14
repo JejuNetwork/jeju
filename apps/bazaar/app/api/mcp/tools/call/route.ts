@@ -3,7 +3,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getJejuTokens, getLatestBlocks, getTokenTransfers, getTokenHolders, getContractDetails } from '@/lib/indexer-client';
+import { getNetworkTokens, getLatestBlocks, getTokenTransfers, getTokenHolders, getContractDetails } from '@/lib/indexer-client';
 import {
   checkBanStatus,
   getModeratorStats,
@@ -35,7 +35,7 @@ async function callTool(
     // ============ Token Tools ============
     case 'list_tokens': {
       const limit = (args.limit as number) || 50;
-      const tokens = await getJejuTokens({ limit });
+      const tokens = await getNetworkTokens({ limit });
       return makeResult({
         tokens: tokens.map((t) => ({
           address: t.address,

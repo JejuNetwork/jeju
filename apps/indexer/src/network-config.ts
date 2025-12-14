@@ -1,5 +1,5 @@
 /**
- * Network Configuration for Jeju Indexer
+ * Network Configuration for network Indexer
  * 
  * Loads deployed contract addresses from the contracts package based on network.
  * Supports localnet (1337), testnet (420690), and mainnet (420691).
@@ -368,11 +368,11 @@ export function loadNetworkConfig(network?: NetworkType): NetworkConfig {
     }
 
     // JEJU Token deployment (localnet subfolder)
-    interface JejuTokenDeployment {
+    interface NetworkTokenDeployment {
       jejuToken?: string;
       banManager?: string;
     }
-    const jejuTokenDeployment = loadNetworkDeployment<JejuTokenDeployment>(deploymentsPath, 'localnet', 'jeju-token.json');
+    const jejuTokenDeployment = loadNetworkDeployment<NetworkTokenDeployment>(deploymentsPath, 'localnet', 'jeju-token.json');
     if (jejuTokenDeployment) {
       contracts.jeju = jejuTokenDeployment.jejuToken || contracts.jeju;
       contracts.banManager = jejuTokenDeployment.banManager || contracts.banManager;

@@ -210,8 +210,8 @@ async function saveDeployment(addresses: DeploymentResult) {
 async function main() {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════╗
-║  Jeju Network - L1 Contract Deployment                               ║
-║  Network: Sepolia (11155111) → Jeju Testnet (420690)                 ║
+║  the network - L1 Contract Deployment                               ║
+║  Network: Sepolia (11155111) → Network Testnet (420690)                 ║
 ╚══════════════════════════════════════════════════════════════════════╝
 `);
 

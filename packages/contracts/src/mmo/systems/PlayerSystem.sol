@@ -41,7 +41,7 @@ contract PlayerSystem is System {
         address indexed player, uint16 indexed itemId, bytes32 instanceId, int32 x, int32 y, int32 z, uint32 quantity
     );
     event ItemProtected(address indexed player, uint16 indexed itemId, bytes32 instanceId);
-    event JejuIntegrationSet(address indexed integration);
+    event GameIntegrationSet(address indexed integration);
 
     error PlayerBanned();
 
@@ -60,7 +60,7 @@ contract PlayerSystem is System {
     function setJejuIntegration(address _jejuIntegration) public {
         // Only callable by world/admin - MUD handles access control
         jejuIntegration = _jejuIntegration;
-        emit JejuIntegrationSet(_jejuIntegration);
+        emit GameIntegrationSet(_jejuIntegration);
     }
 
     /**

@@ -278,7 +278,7 @@ function printEnvInstructions(config: DeployerConfig): void {
 async function main() {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║  Jeju Network - Testnet Deployer Setup                                       ║
+║  the network - Testnet Deployer Setup                                       ║
 ║  Sets up deployer wallet across all testnets                                 ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 `);

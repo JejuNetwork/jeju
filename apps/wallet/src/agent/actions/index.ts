@@ -1,5 +1,5 @@
 /**
- * Jeju Wallet Agent Actions
+ * Network Wallet Agent Actions
  * Wallet actions for the AI agent - simplified format
  */
 
@@ -97,7 +97,7 @@ export const getPortfolioAction = {
 // SWAP_TOKENS
 export const swapTokensAction = {
   name: 'SWAP_TOKENS',
-  description: 'Swap tokens via Jeju solver',
+  description: 'Swap tokens via the network solver',
   similes: ['swap', 'exchange', 'trade', 'convert'],
   
   parseParams(text: string): { amount?: string; fromToken?: string; toToken?: string } {
@@ -353,7 +353,7 @@ export const helpAction = {
   async execute(): Promise<ActionResult> {
     return {
       success: true,
-      message: `**Jeju Wallet - Available Commands**\n\n` +
+      message: `**Network Wallet - Available Commands**\n\n` +
         `**Portfolio & Balances:**\n` +
         `• "Show my portfolio" - View all balances across chains\n\n` +
         `**Trading:**\n` +

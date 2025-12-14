@@ -185,7 +185,7 @@ async function main() {
   
   // Setup cloud agent and services
   const metadata: AgentMetadata = {
-    name: 'Jeju Cloud Services',
+    name: 'Cloud Services',
     description: 'Decentralized AI inference and storage platform with x402 payments',
     endpoint: process.env.CLOUD_ENDPOINT || 'https://cloud.jeju.network/a2a',
     version: '1.0.0',

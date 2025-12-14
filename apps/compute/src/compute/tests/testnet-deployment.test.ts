@@ -13,7 +13,7 @@
 
 import { describe, expect, test } from 'bun:test';
 import { Wallet, parseEther } from 'ethers';
-import { JejuComputeSDK, createSDK } from '../sdk/sdk';
+import { ComputeSDK, createSDK } from '../sdk/sdk';
 import { createInferenceRegistry } from '../sdk/inference-registry';
 import { createExternalProvider } from '../sdk/cloud-provider';
 import { createPaymentClient, COMPUTE_PRICING } from '../sdk/payment';
@@ -44,7 +44,7 @@ describe('Testnet Deployment Readiness', () => {
         },
       };
       
-      const sdk = new JejuComputeSDK(config);
+      const sdk = new ComputeSDK(config);
       expect(sdk).toBeDefined();
       expect(sdk.getAddress()).toBe('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266');
     });

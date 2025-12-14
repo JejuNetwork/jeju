@@ -185,11 +185,11 @@ export class ComputeA2AServer {
   private getAgentCard(): Record<string, unknown> {
     return {
       protocolVersion: '0.3.0',
-      name: 'Jeju Compute Marketplace',
+      name: getNetworkName() Compute Marketplace',
       description: 'Decentralized compute marketplace - rent GPUs, CPUs, TEE resources, serverless triggers, and AI inference',
       url: '/a2a',
       preferredTransport: 'http',
-      provider: { organization: 'Jeju Network', url: 'https://jeju.network' },
+      provider: { organization: 'the network', url: 'https://jeju.network' },
       version: '1.0.0',
       capabilities: { streaming: true, pushNotifications: false, stateTransitionHistory: true },
       defaultInputModes: ['text', 'data'],

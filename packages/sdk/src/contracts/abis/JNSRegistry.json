@@ -1,0 +1,27 @@
+[
+  {
+    "name": "owner",
+    "type": "function",
+    "stateMutability": "view",
+    "inputs": [{ "name": "node", "type": "bytes32" }],
+    "outputs": [{ "type": "address" }]
+  },
+  {
+    "name": "resolver",
+    "type": "function",
+    "stateMutability": "view",
+    "inputs": [{ "name": "node", "type": "bytes32" }],
+    "outputs": [{ "type": "address" }]
+  },
+  {
+    "name": "setOwner",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      { "name": "node", "type": "bytes32" },
+      { "name": "owner", "type": "address" }
+    ],
+    "outputs": []
+  }
+]
+

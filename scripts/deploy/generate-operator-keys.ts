@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Generate Operator Keys for Jeju Network
+ * Generate Operator Keys for the network
  * 
  * Generates all required keys for running the L2:
  * - Sequencer (produces L2 blocks)
@@ -40,7 +40,7 @@ function generateKey(name: string, role: string): OperatorKey {
 async function main() {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════╗
-║  Jeju Network - Operator Key Generation                              ║
+║  the network - Operator Key Generation                              ║
 ║  WARNING: Store these keys securely. They control your chain.        ║
 ╚══════════════════════════════════════════════════════════════════════╝
 `);

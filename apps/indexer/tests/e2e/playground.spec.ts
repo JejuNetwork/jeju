@@ -3,15 +3,15 @@ import { test, expect } from '@playwright/test'
 test.describe('Playground Page Load', () => {
   test('should load the playground page', async ({ page }) => {
     await page.goto('/playground')
-    await expect(page).toHaveTitle(/Jeju Indexer/)
+    await expect(page).toHaveTitle(/Network Indexer/)
   })
 
-  test('should display the Jeju branding', async ({ page }) => {
+  test('should display the branding', async ({ page }) => {
     await page.goto('/playground')
     const logo = page.locator('.jeju-logo')
     await expect(logo).toBeVisible()
     const title = page.locator('.jeju-logo-title')
-    await expect(title).toContainText('Jeju Indexer')
+    await expect(title).toContainText('Network Indexer')
   })
 
   test('should load GraphiQL', async ({ page }) => {
@@ -220,7 +220,7 @@ test.describe('Viewport Tests', () => {
 test.describe('Accessibility', () => {
   test('should have proper page title', async ({ page }) => {
     await page.goto('/playground')
-    await expect(page).toHaveTitle(/Jeju Indexer/)
+    await expect(page).toHaveTitle(/Network Indexer/)
   })
 
   test('theme toggle should have title attribute', async ({ page }) => {

@@ -111,7 +111,7 @@ export default function DeployPaymaster({ tokenAddress: propTokenAddress }: { to
               <li>LiquidityPaymaster (ERC-4337 gas sponsorship)</li>
             </ul>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0.5rem 0' }}>
-              Estimated cost: ~3M gas (~$0.01 on Jeju)
+              Estimated cost: ~3M gas (~$0.01 on the network)
             </p>
           </div>
 

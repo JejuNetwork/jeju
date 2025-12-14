@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Start Jeju localnet using Kurtosis
+ * Start network localnet using Kurtosis
  */
 
 import { $ } from "bun";
@@ -135,7 +135,7 @@ async function installKurtosis(): Promise<void> {
 }
 
 async function main() {
-  console.log("🚀 Starting Jeju Localnet...\n");
+  console.log("🚀 Starting Network Localnet...\n");
 
   if (!await checkDocker()) {
     console.error("❌ Docker is not running. Start Docker and try again.");
@@ -156,7 +156,7 @@ async function main() {
   await $`kurtosis enclave rm -f ${ENCLAVE_NAME}`.quiet().nothrow();
 
   // Start localnet
-  console.log("📦 Deploying Jeju stack...\n");
+  console.log("📦 Deploying network stack...\n");
   const result = await $`kurtosis run ${KURTOSIS_PACKAGE} --enclave ${ENCLAVE_NAME}`.nothrow();
 
   if (result.exitCode !== 0) {
@@ -177,7 +177,7 @@ async function main() {
 
   await Bun.write(join(OUTPUT_DIR, "ports.json"), JSON.stringify(portsConfig, null, 2));
 
-  console.log("\n✅ Jeju Localnet running");
+  console.log("\n✅ Network Localnet running");
   console.log(`   L1 RPC: http://127.0.0.1:${l1Port}`);
   console.log(`   L2 RPC: http://127.0.0.1:${l2Port}`);
   console.log(`\n💾 Config: ${join(OUTPUT_DIR, "ports.json")}\n`);

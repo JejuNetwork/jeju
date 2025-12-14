@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Jeju Development Environment
+ * Network Development Environment
  * 
  * Starts chain infrastructure, then core apps, then vendor apps.
  * Ctrl+C stops everything cleanly.
@@ -10,7 +10,7 @@ import { $ } from "bun";
 import { spawn, type Subprocess } from "bun";
 import { existsSync } from "fs";
 import { join } from "path";
-import { discoverAllApps, displayAppsSummary, getAutoStartApps, type JejuApp } from "./shared/discover-apps";
+import { discoverAllApps, displayAppsSummary, getAutoStartApps, type NetworkApp } from "./shared/discover-apps";
 import { CORE_PORTS, INFRA_PORTS } from "@jejunetwork/config/ports";
 
 // Configuration
@@ -91,7 +91,7 @@ process.on("unhandledRejection", async (reason) => {
 
 function printHeader() {
   console.clear();
-  console.log(`${COLORS.CYAN}${COLORS.BRIGHT}Jeju Localnet${COLORS.RESET}\n`);
+  console.log(`${COLORS.CYAN}${COLORS.BRIGHT}Network Localnet${COLORS.RESET}\n`);
 }
 
 async function healthCheck(url: string, timeout = 5000): Promise<boolean> {
@@ -301,7 +301,7 @@ async function setupPortForwarding(staticPort: number, dynamicPort: number, name
   return proc;
 }
 
-async function startJejuApp(app: JejuApp, l2RpcPort: string): Promise<void> {
+async function startNetworkApp(app: NetworkApp, l2RpcPort: string): Promise<void> {
   const devCommand = app.manifest.commands?.dev;
   if (!devCommand) return;
 
@@ -504,7 +504,7 @@ async function main() {
     const STATIC_L2_PORT = INFRA_PORTS.L2_RPC.get();
     
     await setupPortForwarding(STATIC_L1_PORT, l1RpcPortDynamic, "L1 RPC (Geth)");
-    await setupPortForwarding(STATIC_L2_PORT, l2RpcPortDynamic, "L2 RPC (Jeju)");
+    await setupPortForwarding(STATIC_L2_PORT, l2RpcPortDynamic, "L2 RPC (Network)");
     
     await new Promise(r => setTimeout(r, 1000));
     
@@ -532,7 +532,7 @@ async function main() {
     
     services.set("l2-rpc", {
       name: "L2 RPC (OP-Geth)",
-      description: "Jeju Layer 2 RPC",
+      description: "Network Layer 2 RPC",
       url: l2RpcUrl,
       port: parseInt(l2RpcPort),
       status: l2RpcHealthy ? "running" : "error",
@@ -595,7 +595,7 @@ async function main() {
         ...process.env,
         RPC_ETH_HTTP: l2RpcUrl,
         START_BLOCK: "0",
-        CHAIN_ID: "1337", // Jeju localnet chain ID
+        CHAIN_ID: "1337", // network localnet chain ID
         DB_NAME: "indexer",
         DB_PORT: indexerDBPort.toString(),
         GQL_PORT: indexerGraphQLPort.toString(),
@@ -725,10 +725,10 @@ async function main() {
       const otherCoreApps = coreAppsToStart.filter(app => !nextJsCoreApps.includes(app));
       
       for (const app of otherCoreApps) {
-        await startJejuApp(app, l2RpcPort);
+        await startNetworkApp(app, l2RpcPort);
       }
       for (const app of nextJsCoreApps) {
-        await startJejuApp(app, l2RpcPort);
+        await startNetworkApp(app, l2RpcPort);
         await new Promise(r => setTimeout(r, 3000));
       }
       
@@ -747,10 +747,10 @@ async function main() {
       const otherVendorApps = vendorAppsToStart.filter(app => !nextJsVendorApps.includes(app));
       
       for (const app of otherVendorApps) {
-        await startJejuApp(app, l2RpcPort);
+        await startNetworkApp(app, l2RpcPort);
       }
       for (const app of nextJsVendorApps) {
-        await startJejuApp(app, l2RpcPort);
+        await startNetworkApp(app, l2RpcPort);
         await new Promise(r => setTimeout(r, 3000));
       }
       

@@ -2,6 +2,8 @@
 
 OP-Stack L2 on Ethereum with 200ms Flashblocks, ERC-4337 paymasters, and ERC-8004 agent identity.
 
+**Fork-friendly**: Create your own L2 network with one command.
+
 ## Quick Start
 
 ```bash
@@ -16,6 +18,22 @@ git clone https://github.com/elizaos/jeju.git && cd jeju
 bun install
 bun run dev
 ```
+
+## Fork Your Own Network
+
+Create your own L2 network in minutes:
+
+```bash
+# Interactive wizard
+bun run jeju fork
+
+# Or with options
+bun run jeju fork --name "MyNetwork" --chain-id 123456 --yes
+```
+
+This generates everything you need: branding config, genesis, operator keys, Kubernetes manifests, and deployment scripts. Edit `branding.json` to customize your network's name, colors, URLs, and more.
+
+**[Full Forking Guide →](FORKING.md)**
 
 ## Networks
 

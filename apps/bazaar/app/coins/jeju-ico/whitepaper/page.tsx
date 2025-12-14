@@ -2,8 +2,8 @@ import Link from 'next/link'
 import { JEJU_TOKENOMICS } from '@/config/jeju-tokenomics'
 
 export const metadata = {
-  title: 'Jeju Token Whitepaper',
-  description: 'Technical whitepaper for the Jeju Network token',
+  title: 'Network Token Whitepaper',
+  description: 'Technical whitepaper for the Network token',
 }
 
 export default function WhitepaperPage() {
@@ -11,13 +11,13 @@ export default function WhitepaperPage() {
     <div className="max-w-4xl mx-auto py-12">
       <div className="mb-12">
         <Link href="/coins/jeju-ico" className="text-bazaar-primary hover:underline text-sm mb-4 inline-block">
-          ← Back to Jeju ICO
+          ← Back to the network ICO
         </Link>
         <h1 className="text-4xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
-          Jeju Token Whitepaper
+          Network Token Whitepaper
         </h1>
         <p className="text-xl" style={{ color: 'var(--text-secondary)' }}>
-          Technical documentation for JEJU, the governance and utility token of the Jeju Network.
+          Technical documentation for JEJU, the governance and utility token of the Network.
         </p>
       </div>
       
@@ -38,7 +38,7 @@ export default function WhitepaperPage() {
       {/* Sections */}
       <Section id="section-1" title="1. Abstract">
         <p>
-          Jeju Network is an OP-Stack L2 with 200ms Flashblocks. JEJU is the governance and utility token.
+          the network is an OP-Stack L2 with 200ms Flashblocks. JEJU is the governance and utility token.
         </p>
         <p className="mt-4">
           Any token can be used for payments via paymaster. JEJU provides exclusive access to governance 
@@ -46,7 +46,7 @@ export default function WhitepaperPage() {
         </p>
       </Section>
       
-      <Section id="section-2" title="2. Jeju Network Overview">
+      <Section id="section-2" title="2. the network Overview">
         <h3 className="text-lg font-semibold mt-6 mb-3" style={{ color: 'var(--text-primary)' }}>Architecture</h3>
         <ul className="list-disc pl-6 space-y-2 mt-4" style={{ color: 'var(--text-secondary)' }}>
           <li><strong>200ms Flashblocks</strong> - Near-instant finality</li>

@@ -2,7 +2,7 @@
 /**
  * Build Script
  * 
- * Builds all components of the Jeju stack:
+ * Builds all components of the stack:
  * - Smart contracts (Foundry)
  * - TypeScript packages
  * - Indexer

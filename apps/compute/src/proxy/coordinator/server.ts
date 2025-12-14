@@ -1,6 +1,6 @@
 /**
  * Proxy Coordinator Server
- * Central coordination service for the Jeju decentralized proxy network
+ * Central coordination service for the decentralized proxy network
  * 
  * Handles:
  * - Node registration and WebSocket connections
@@ -446,7 +446,7 @@ export class ProxyCoordinatorServer {
     });
 
     console.log(`
-🌐 Jeju Proxy Coordinator started
+🌐 Network Proxy Coordinator started
    HTTP API: http://localhost:${httpPort}
    WebSocket: ws://localhost:${wsPort}
    Registry: ${this.config.registryAddress}

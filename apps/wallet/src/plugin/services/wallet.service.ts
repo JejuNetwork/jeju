@@ -2,7 +2,7 @@
  * Wallet Service
  * 
  * Core service for wallet management, based on Rabby's WalletController.
- * Manages accounts, keyring, transactions, and integrates with Jeju infrastructure.
+ * Manages accounts, keyring, transactions, and integrates with network infrastructure.
  */
 
 import type { IAgentRuntime } from '@elizaos/core';
@@ -29,7 +29,7 @@ import type {
   PortfolioSummary,
 } from '../types';
 
-// Supported chains with Jeju RPC integration
+// Supported chains with Network RPC integration
 const SUPPORTED_CHAINS: Record<number, Chain> = {
   1: mainnet,
   8453: base,
@@ -54,7 +54,7 @@ export class WalletService {
   constructor() {
     this._config = {
       defaultChainId: 8453, // Base
-      useJejuInfrastructure: true,
+      useNetworkInfrastructure: true,
     };
     
     this._state = {
@@ -96,7 +96,7 @@ export class WalletService {
     
     // Initialize public clients for all supported chains
     for (const [chainId, chain] of Object.entries(SUPPORTED_CHAINS)) {
-      const rpcUrl = this.getJejuRpcUrl(Number(chainId)) || chain.rpcUrls.default.http[0];
+      const rpcUrl = this.getNetworkRpcUrl(Number(chainId)) || chain.rpcUrls.default.http[0];
       
       const publicClient = createPublicClient({
         chain,
@@ -106,7 +106,7 @@ export class WalletService {
       this._publicClients.set(Number(chainId), publicClient);
     }
     
-    runtime.logger.info('[WalletService] Initialized with Jeju infrastructure');
+    runtime.logger.info('[WalletService] Initialized with network infrastructure');
   }
   
   async stop(): Promise<void> {
@@ -116,13 +116,13 @@ export class WalletService {
   }
   
   // ============================================================================
-  // RPC Management - Jeju Integration
+  // RPC Management - Network Integration
   // ============================================================================
   
-  private getJejuRpcUrl(chainId: number): string | null {
-    if (!this._config.useJejuInfrastructure) return null;
+  private getNetworkRpcUrl(chainId: number): string | null {
+    if (!this._config.useNetworkInfrastructure) return null;
     
-    // Use Jeju Gateway RPC
+    // Use Network Gateway RPC
     const baseUrl = this._config.jejuRpcUrl || 'http://localhost:4010';
     return `${baseUrl}/rpc/${chainId}`;
   }
@@ -248,7 +248,7 @@ export class WalletService {
     const account = mnemonicToAccount(mnemonic);
     
     for (const [chainId, chain] of Object.entries(SUPPORTED_CHAINS)) {
-      const rpcUrl = this.getJejuRpcUrl(Number(chainId)) || chain.rpcUrls.default.http[0];
+      const rpcUrl = this.getNetworkRpcUrl(Number(chainId)) || chain.rpcUrls.default.http[0];
       
       const walletClient = createWalletClient({
         account,
@@ -264,7 +264,7 @@ export class WalletService {
     const account = privateKeyToAccount(privateKey);
     
     for (const [chainId, chain] of Object.entries(SUPPORTED_CHAINS)) {
-      const rpcUrl = this.getJejuRpcUrl(Number(chainId)) || chain.rpcUrls.default.http[0];
+      const rpcUrl = this.getNetworkRpcUrl(Number(chainId)) || chain.rpcUrls.default.http[0];
       
       const walletClient = createWalletClient({
         account,

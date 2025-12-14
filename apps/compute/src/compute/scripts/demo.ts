@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Jeju Compute Marketplace - End-to-End Demo
+ * Network Compute Marketplace - End-to-End Demo
  *
  * This demo shows the complete flow:
  * 1. Deploy contracts (if needed)
@@ -20,12 +20,12 @@
 import { formatEther, JsonRpcProvider, parseEther, Wallet } from 'ethers';
 import { ComputeNodeServer } from '../node/server';
 import type { ProviderConfig } from '../node/types';
-import { JejuComputeSDK } from '../sdk/sdk';
+import { ComputeSDK } from '../sdk/sdk';
 import type { InferenceResponse } from '../sdk/types';
 
-// Demo configuration - uses Jeju localnet (port 9545) by default
+// Demo configuration - uses network localnet (port 9545) by default
 const DEMO_CONFIG = {
-  // Local Jeju localnet (via Kurtosis)
+  // Local network localnet (via Kurtosis)
   localnet: {
     rpcUrl: 'http://127.0.0.1:9545',
     deployer:
@@ -51,7 +51,7 @@ const DEMO_CONFIG = {
 };
 
 async function main() {
-  // Default to localnet (Jeju's Kurtosis network) instead of standalone anvil
+  // Default to localnet (Network's Kurtosis network) instead of standalone anvil
   const network = process.env.NETWORK || 'localnet';
   const isTestnet = network === 'sepolia';
 
@@ -82,7 +82,7 @@ async function main() {
     providerKey = DEMO_CONFIG.anvil.provider;
     userKey = DEMO_CONFIG.anvil.user;
   } else {
-    // Default: localnet (Jeju Kurtosis)
+    // Default: localnet (Network Kurtosis)
     rpcUrl = process.env.JEJU_RPC_URL || DEMO_CONFIG.localnet.rpcUrl;
     deployerKey = DEMO_CONFIG.localnet.deployer;
     providerKey = DEMO_CONFIG.localnet.provider;
@@ -151,7 +151,7 @@ async function main() {
   console.log('👤 STEP 2: Register Provider');
   console.log('-'.repeat(60));
 
-  const providerSDK = new JejuComputeSDK({
+  const providerSDK = new ComputeSDK({
     rpcUrl,
     signer: providerWallet,
     contracts,
@@ -177,7 +177,7 @@ async function main() {
   console.log('🖥️  STEP 3: Start Compute Node');
   console.log('-'.repeat(60));
 
-  // Compute node port (4007 is Jeju standard, fallback to 8080 for standalone)
+  // Compute node port (4007 is network standard, fallback to 8080 for standalone)
   const computePort = parseInt(process.env.COMPUTE_PORT || '4007', 10);
   
   const nodeConfig: ProviderConfig = {
@@ -212,7 +212,7 @@ async function main() {
   console.log('💳 STEP 4: Fund User Ledger');
   console.log('-'.repeat(60));
 
-  const userSDK = new JejuComputeSDK({
+  const userSDK = new ComputeSDK({
     rpcUrl,
     signer: userWallet,
     contracts,
@@ -243,7 +243,7 @@ async function main() {
   const authHeaders = await userSDK.generateAuthHeaders(providerWallet.address);
   console.log('   Generated auth headers');
   console.log(
-    `   Settlement nonce: ${authHeaders['x-jeju-settlement-nonce']}`
+    `   Settlement nonce: ${authHeaders['x-network-settlement-nonce']}`
   );
 
   // Make request

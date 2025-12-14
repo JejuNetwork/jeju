@@ -8,7 +8,7 @@ const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { beforeEach, describe } = test;
 
 const JEJU_NETWORK = {
-  networkName: 'Jeju Network',
+  networkName: 'the network',
   rpcUrl: 'https://api.evm-alpha.atleta.network',
   chainId: 70124,
   symbol: 'JEJU',
@@ -27,7 +27,7 @@ describe('Wallet Connection with Synpress', () => {
 
   test('should load homepage and take screenshot', async ({ page }) => {
     // Verify page loads
-    await expect(page).toHaveTitle(/Jeju Network Leaderboard/i);
+    await expect(page).toHaveTitle(/the network Leaderboard/i);
 
     // Take screenshot
     await page.screenshot({
@@ -67,7 +67,7 @@ describe('Wallet Connection with Synpress', () => {
     await expect(page.locator('text=/0x[a-fA-F0-9]{4}/i')).toBeVisible({ timeout: 15000 });
   });
 
-  test('should add Jeju network to MetaMask', async ({ page, metamask }) => {
+  test('should add network to MetaMask', async ({ page, metamask }) => {
     // Connect wallet first
     const connectButton = page.getByRole('button', { name: /connect/i }).first();
     if (await connectButton.isVisible()) {
@@ -81,7 +81,7 @@ describe('Wallet Connection with Synpress', () => {
       fullPage: true
     });
 
-    // Add Jeju network
+    // Add network
     try {
       await metamask.addNetwork({
         name: JEJU_NETWORK.networkName,
@@ -94,7 +94,7 @@ describe('Wallet Connection with Synpress', () => {
       console.log('Network might already exist:', error);
     }
 
-    // Switch to Jeju network
+    // Switch to the network network
     await metamask.switchNetwork(JEJU_NETWORK.networkName);
 
     // Screenshot after network switch

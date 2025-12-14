@@ -19,12 +19,67 @@ No chain switching. No manual bridging. No external API keys. Pay gas with any t
 
 ## Features
 
+- **ElizaOS Agent Integration** - Chat-based wallet powered by ElizaOS framework
 - **Bridgeless Cross-Chain Transfers** - Use EIL (Ethereum Interop Layer) for trustless atomic swaps
 - **Intent-Based Transactions** - Express what you want via OIF (Open Intents Framework), solvers handle the rest
 - **Multi-Token Gas Payment** - Pay gas in USDC, DAI, or any supported token
 - **Account Abstraction (ERC-4337)** - Smart accounts with gasless transactions, batching, recovery
 - **Unified Balance View** - See all assets across all chains in one place
 - **Fully Permissionless** - No WalletConnect, no external APIs, all Jeju infrastructure
+
+## ElizaOS Agent
+
+The Jeju Wallet is powered by an ElizaOS agent that handles:
+- Natural language transaction requests ("Send 0.5 ETH to alice.eth")
+- Portfolio queries and DeFi guidance
+- Swap routing and cross-chain operations
+- Security analysis and transaction simulation
+
+### Agent Configuration
+
+The wallet connects to ElizaOS in this priority order:
+1. **ElizaOS Server** - If `VITE_ELIZA_API_URL` is configured
+2. **Jeju Inference Gateway** - Decentralized compute network
+3. **Local Fallback** - Basic command parsing (offline mode)
+
+### Environment Variables
+
+```bash
+# ElizaOS Configuration (optional - enables full agent features)
+VITE_ELIZA_API_URL=http://localhost:3000    # ElizaOS server URL
+VITE_ELIZA_AGENT_ID=jeju-wallet             # Agent ID to connect to
+VITE_ELIZA_WS_URL=http://localhost:3000     # WebSocket for real-time updates
+
+# Jeju Infrastructure (default RPC, no API keys needed)
+VITE_JEJU_RPC_URL=https://rpc.jeju.network
+VITE_JEJU_GATEWAY_URL=https://compute.jeju.network
+VITE_JEJU_INDEXER_URL=https://indexer.jeju.network
+```
+
+### Running with ElizaOS
+
+```bash
+# Start ElizaOS with Jeju Wallet agent
+cd apps/wallet
+bun run eliza:dev      # Starts ElizaOS with wallet plugin
+
+# Or connect to existing ElizaOS server
+VITE_ELIZA_API_URL=http://your-eliza-server:3000 bun run dev
+```
+
+### Plugin Development
+
+The wallet plugin exports actions compatible with ElizaOS:
+
+```typescript
+import { jejuWalletPlugin } from '@jeju/wallet/plugin';
+
+// Use in ElizaOS character
+export const character = {
+  plugins: [jejuWalletPlugin],
+  // ...
+};
+```
 
 ## Architecture
 
@@ -280,13 +335,65 @@ The wallet integrates with these Jeju contracts:
 
 ## Environment Variables
 
+### Inference API Keys (Required for AI Chat)
+
+The AI chat requires a real LLM API key. Set ONE of these:
+
+| Variable | Provider | Get Key |
+|----------|----------|---------|
+| `OPENAI_API_KEY` | OpenAI (GPT-4o) | https://platform.openai.com/api-keys |
+| `ANTHROPIC_API_KEY` | Anthropic (Claude) | https://console.anthropic.com/ |
+| `GROQ_API_KEY` | Groq (Llama 3.1) | https://console.groq.com/keys |
+
+Groq is recommended for development - it's the fastest and has a free tier.
+
+```bash
+# Example: Set Groq API key
+export GROQ_API_KEY=gsk_xxxxxxxxxxxxx
+```
+
+### Wallet Configuration
+
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `VITE_JEJU_RPC_URL` | Jeju RPC base URL | `https://rpc.jeju.network` |
+| `VITE_JEJU_GATEWAY_URL` | AI inference gateway | `http://localhost:4100` (dev), `https://compute.jeju.network` (prod) |
 | `VITE_JEJU_INDEXER_URL` | Indexer URL | `http://localhost:4352` |
 | `VITE_JEJU_GRAPHQL_URL` | GraphQL endpoint | `http://localhost:4350/graphql` |
 | `VITE_JEJU_BUNDLER_URL` | ERC-4337 bundler | `http://localhost:4337` |
 | `VITE_JEJU_SOLVER_URL` | OIF solver API | `https://solver.jeju.network/api` |
+
+## Network Configuration
+
+### Localnet (Development)
+```bash
+# Start local development environment
+bun run jeju dev  # or manually: anvil --chain-id 1337 --port 9545
+
+# RPC: http://localhost:9545
+# Chain ID: 1337
+# Inference: http://localhost:4100
+```
+
+### Testnet (Base Sepolia)
+```bash
+# Configure testnet
+export VITE_JEJU_RPC_URL=https://rpc.testnet.jeju.network
+export VITE_JEJU_GATEWAY_URL=https://compute.testnet.jeju.network
+
+# Deploy testnet
+bun run scripts/setup-testnet.ts
+```
+
+### Production (Base Mainnet)
+```bash
+# Configure production
+export VITE_JEJU_RPC_URL=https://rpc.jeju.network
+export VITE_JEJU_GATEWAY_URL=https://compute.jeju.network
+
+# Build for production
+bun run build
+```
 
 ## License
 

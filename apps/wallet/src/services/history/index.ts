@@ -1,6 +1,6 @@
 /**
  * Transaction History Service
- * Uses Jeju indexer for transaction data
+ * Uses network indexer for transaction data
  */
 
 import type { Address, Hex } from 'viem';
@@ -40,7 +40,7 @@ export interface FormattedTransaction {
 const pendingTxs = new Map<string, Transaction>();
 
 class HistoryService {
-  // Get transaction history from Jeju indexer
+  // Get transaction history from the network indexer
   async getHistory(
     address: Address,
     options: { chainId?: SupportedChainId; limit?: number } = {}

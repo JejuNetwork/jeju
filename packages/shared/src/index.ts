@@ -1,6 +1,6 @@
 /**
- * Jeju Shared Package
- * Common hooks, components, APIs, and utilities used across all Jeju apps
+ * Network Shared Package
+ * Common hooks, components, APIs, and utilities used across all network apps
  */
 
 // Hooks
@@ -45,3 +45,46 @@ export {
   healthMiddleware,
   healthChecks,
 } from './health-middleware';
+
+// Branding
+export {
+  getBrandingCssVars,
+  applyBrandingToDocument,
+} from './branding';
+
+// Chains
+export {
+  getLocalnetChain,
+  getTestnetChain,
+  getMainnetChain,
+  getNetworkChains,
+  getChain,
+  getProviderInfo,
+  getServiceName,
+  createAgentCard,
+} from './chains';
+
+// Federation
+export {
+  FederationClient,
+  createFederationClient,
+  FederationDiscovery,
+  createFederationDiscovery,
+  NETWORK_REGISTRY_ABI,
+  FEDERATED_IDENTITY_ABI,
+  FEDERATED_SOLVER_ABI,
+  FEDERATED_LIQUIDITY_ABI,
+  type FederationConfig,
+  type DiscoveryConfig,
+  type NetworkInfo,
+  type NetworkContracts,
+  type FederatedAgent,
+  type FederatedSolver,
+  type NetworkLiquidity,
+  type TrustRelation,
+  type RouteInfo,
+  type IdentityVerification,
+  type XLP,
+  type LiquidityRequest,
+  type CrossNetworkAttestation,
+} from './federation';

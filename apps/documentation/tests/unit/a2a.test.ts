@@ -220,7 +220,7 @@ describe('List Topics Integration', () => {
 describe('Get Page Integration', () => {
   test('reads index.md successfully', async () => {
     const content = await readFile(join(DOCS_ROOT, 'index.md'), 'utf-8');
-    expect(content).toContain('Jeju');
+    expect(content).toContain('Network');
   });
 
   test('reads nested page successfully', async () => {

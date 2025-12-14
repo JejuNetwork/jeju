@@ -233,7 +233,7 @@ function NFTsPageContent() {
           </h3>
           <p style={{ color: 'var(--text-secondary)' }}>
             {filter === 'my-nfts' 
-              ? "You don't own any items on Jeju yet."
+              ? "You don't own any items on the network yet."
               : 'No items have been minted yet.'}
           </p>
         </div>

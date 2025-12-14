@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 /**
- * Validates GitHub Actions prerequisites for Jeju deployment workflows
+ * Validates GitHub Actions prerequisites for Network deployment workflows
  * 
  * This script helps diagnose linter warnings and provides guidance on
  * configuring the required GitHub repository settings.

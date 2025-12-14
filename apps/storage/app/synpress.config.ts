@@ -1,9 +1,9 @@
-import { createJejuSynpressConfig, createJejuWalletSetup, PASSWORD, SEED_PHRASE } from '@jejunetwork/tests/synpress.config.base';
+import { createSynpressConfig, createWalletSetup, PASSWORD, SEED_PHRASE } from '@jejunetwork/tests/synpress.config.base';
 
 const STORAGE_PORT = parseInt(process.env.STORAGE_UI_PORT || '4100');
 
 // Export Playwright config
-export default createJejuSynpressConfig({
+export default createSynpressConfig({
   appName: 'storage',
   port: STORAGE_PORT,
   testDir: './tests/wallet',
@@ -13,6 +13,6 @@ export default createJejuSynpressConfig({
 });
 
 // Export wallet setup for Synpress
-export const basicSetup = createJejuWalletSetup();
+export const basicSetup = createWalletSetup();
 
 export { PASSWORD, SEED_PHRASE };

@@ -2,7 +2,7 @@
  * Account Abstraction Service
  * 
  * Handles ERC-4337 Smart Accounts and ERC-7702 delegated EOAs.
- * Integrates with Jeju's bundler and paymaster infrastructure.
+ * Integrates with network's bundler and paymaster infrastructure.
  */
 
 import type { IAgentRuntime } from '@elizaos/core';
@@ -108,7 +108,7 @@ const ACCOUNT_FACTORY_ABI = [
   },
 ] as const;
 
-// Default addresses (Jeju deployment)
+// Default addresses (Network deployment)
 const DEFAULT_ENTRY_POINT = '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789' as Address;
 const DEFAULT_ACCOUNT_FACTORY = '0x0000000000000000000000000000000000000000' as Address;
 
