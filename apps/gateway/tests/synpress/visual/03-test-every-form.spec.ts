@@ -205,7 +205,7 @@ test.describe('Form Field Validation - All Inputs', () => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 
-        const inputTypes: string[] = [];
+        const _inputTypes: string[] = [];
 
     // Check for all input types
     const textInputs = await page.locator('input[type="text"], input[placeholder]').count();

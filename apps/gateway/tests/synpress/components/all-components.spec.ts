@@ -354,8 +354,6 @@ test.describe('TOGGLE BUTTONS - Complete Coverage', () => {
         await btn.click();
         await page.waitForTimeout(200);
 
-        // Check if toggled (should have different styling)
-        const _classes = await btn.getAttribute('class');
         console.log(`✅ Category toggle: ${category}`);
       }
     }
@@ -417,7 +415,6 @@ test.describe('INPUT FIELDS - Complete Coverage', () => {
     await page.waitForTimeout(500);
 
     const minFeeInput = page.locator('input[placeholder="0"]');
-    const _maxFeeInput = page.locator('input[placeholder="200"]');
 
     if (await minFeeInput.isVisible()) {
       // Test negative numbers
