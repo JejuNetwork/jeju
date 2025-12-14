@@ -53,3 +53,8 @@ scrape_configs:
     static_configs:
       - targets: ['op-proposer:7300']
 
+  # Proxy Network
+  - job_name: 'proxy-coordinator'
+    static_configs:
+      - targets: ['proxy-coordinator:4020']
+    metrics_path: /metrics
