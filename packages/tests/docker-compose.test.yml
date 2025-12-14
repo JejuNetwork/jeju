@@ -1,16 +1,21 @@
 # Jeju Test Infrastructure
-# Real services for integration/e2e testing - NO MOCKS
+# Real services for integration/e2e testing
 #
 # Profiles:
-#   - chain: L1 + L2 only
-#   - services: Indexer, Oracle, Storage
-#   - apps: Gateway, Wallet, Bazaar, etc.
+#   - chain: L1 + L2 only (no build required)
+#   - services: Chain + databases + IPFS (no build required)
 #   - full: Everything including multi-chain
-#   - solana: Solana devnet for cross-chain testing
+#
+# Note: Apps (indexer, gateway, etc.) should be started via `bun run dev`
+# This compose file provides the infrastructure they depend on.
 #
 # Usage:
+#   jeju test --mode=integration  # Uses 'services' profile
+#   jeju test --mode=full         # Uses 'full' profile
+#
+#   # Manual:
 #   docker compose -f docker-compose.test.yml --profile chain up -d
-#   docker compose -f docker-compose.test.yml --profile full up -d
+#   docker compose -f docker-compose.test.yml --profile services up -d
 
 x-healthcheck-defaults: &healthcheck-defaults
   interval: 10s
@@ -20,12 +25,12 @@ x-healthcheck-defaults: &healthcheck-defaults
 
 services:
   # ============================================================================
-  # CHAIN LAYER
+  # CHAIN LAYER (L1 + L2)
   # ============================================================================
   
   geth-l1:
     image: ethereum/client-go:v1.14.12
-    profiles: [chain, services, apps, full]
+    profiles: [chain, services, full]
     container_name: jeju-l1
     ports:
       - "8545:8545"
@@ -48,13 +53,13 @@ services:
       - --maxpeers=0
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD", "wget", "-qO-", "http://localhost:8545"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8545 || exit 1"]
     networks:
       - jeju-test
 
   op-geth:
     image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:v1.101603.5
-    profiles: [chain, services, apps, full]
+    profiles: [chain, services, full]
     container_name: jeju-l2
     depends_on:
       geth-l1:
@@ -80,7 +85,7 @@ services:
       - --maxpeers=0
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD", "wget", "-qO-", "http://localhost:9545"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9545 || exit 1"]
     networks:
       - jeju-test
 
@@ -90,7 +95,7 @@ services:
 
   postgres:
     image: postgres:16-alpine
-    profiles: [services, apps, full]
+    profiles: [services, full]
     container_name: jeju-postgres
     environment:
       POSTGRES_USER: jeju
@@ -109,7 +114,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    profiles: [services, apps, full]
+    profiles: [services, full]
     container_name: jeju-redis
     ports:
       - "6379:6379"
@@ -120,45 +125,12 @@ services:
       - jeju-test
 
   # ============================================================================
-  # INDEXER (Subsquid)
-  # ============================================================================
-
-  indexer:
-    build:
-      context: ../../apps/indexer
-      dockerfile: Dockerfile
-    profiles: [services, apps, full]
-    container_name: jeju-indexer
-    depends_on:
-      postgres:
-        condition: service_healthy
-      op-geth:
-        condition: service_healthy
-    environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: jeju_indexer
-      DB_USER: jeju
-      DB_PASS: jeju
-      RPC_ETH_HTTP: http://op-geth:9545
-      CHAIN_ID: 1337
-      START_BLOCK: 0
-      GQL_PORT: 4350
-    ports:
-      - "4350:4350"
-    healthcheck:
-      <<: *healthcheck-defaults
-      test: ["CMD", "wget", "-qO-", "http://localhost:4350/graphql"]
-    networks:
-      - jeju-test
-
-  # ============================================================================
   # STORAGE (IPFS)
   # ============================================================================
 
   ipfs:
     image: ipfs/kubo:latest
-    profiles: [services, apps, full]
+    profiles: [services, full]
     container_name: jeju-ipfs
     ports:
       - "4001:4001"       # P2P
@@ -173,35 +145,7 @@ services:
       - jeju-test
 
   # ============================================================================
-  # ORACLE SERVICE
-  # ============================================================================
-
-  oracle:
-    build:
-      context: ../../apps/oracle
-      dockerfile: Dockerfile
-    profiles: [services, apps, full]
-    container_name: jeju-oracle
-    depends_on:
-      op-geth:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    environment:
-      RPC_URL: http://op-geth:9545
-      REDIS_URL: redis://redis:6379
-      PORT: 4301
-      CHAIN_ID: 1337
-    ports:
-      - "4301:4301"
-    healthcheck:
-      <<: *healthcheck-defaults
-      test: ["CMD", "wget", "-qO-", "http://localhost:4301/health"]
-    networks:
-      - jeju-test
-
-  # ============================================================================
-  # MONITORING
+  # MONITORING (optional)
   # ============================================================================
 
   prometheus:
@@ -210,8 +154,6 @@ services:
     container_name: jeju-prometheus
     ports:
       - "9090:9090"
-    volumes:
-      - ../../apps/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     networks:
       - jeju-test
 
@@ -226,9 +168,6 @@ services:
       GF_USERS_ALLOW_SIGN_UP: "false"
     ports:
       - "4010:3000"
-    volumes:
-      - ../../apps/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
-      - ../../apps/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
     networks:
       - jeju-test
 
@@ -277,7 +216,7 @@ services:
       - --http.corsdomain=*
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD", "wget", "-qO-", "http://localhost:8547"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8547 || exit 1"]
     networks:
       - jeju-test
 
@@ -302,7 +241,7 @@ services:
       - --nodiscover
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD", "wget", "-qO-", "http://localhost:8548"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8548 || exit 1"]
     networks:
       - jeju-test
 
@@ -315,4 +254,3 @@ volumes:
   postgres-data:
   ipfs-data:
   solana-ledger:
-

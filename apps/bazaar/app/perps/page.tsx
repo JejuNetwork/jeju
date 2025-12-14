@@ -455,7 +455,7 @@ export default function PerpsPage() {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-6">
             <Link href="/" className="text-xl font-bold text-white">
-              Jeju
+              Network
             </Link>
             <nav className="hidden md:flex items-center gap-4">
               <Link href="/swap" className="text-gray-400 hover:text-white">Swap</Link>

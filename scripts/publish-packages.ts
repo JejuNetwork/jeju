@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Publish Jeju packages to npm
+ * Publish network packages to npm
  * 
  * Handles:
  * - Converting workspace:* to real versions
