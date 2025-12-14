@@ -220,10 +220,8 @@ export async function makeTEEDecision(context: TEEDecisionContext): Promise<TEED
   if (BACKUP_TO_DA && result.litEncrypted) {
     try {
       const backup = await backupToDA(context.proposalId, result.litEncrypted);
-      if (backup.success) {
-        result.daBackupHash = backup.hash;
-        console.log('[TEE] Decision backed up to DA:', backup.hash);
-      }
+      result.daBackupHash = backup.hash;
+      console.log('[TEE] Decision backed up to DA:', backup.hash);
     } catch (error) {
       console.error('[TEE] DA backup failed:', (error as Error).message);
     }
