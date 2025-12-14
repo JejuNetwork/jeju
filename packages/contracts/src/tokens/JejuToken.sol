@@ -20,7 +20,7 @@ contract JejuToken is ERC20, Ownable {
     bool public banEnforcementEnabled;
     bool public faucetEnabled;
     mapping(address => uint256) public lastFaucetClaim;
-    
+
     mapping(address => bool) public banExempt;
 
     event BanManagerUpdated(address indexed oldManager, address indexed newManager);
@@ -35,11 +35,10 @@ contract JejuToken is ERC20, Ownable {
     error FaucetCooldownActive(uint256 nextClaimTime);
     error FaucetInsufficientBalance();
 
-    constructor(
-        address initialOwner,
-        address _banManager,
-        bool enableFaucet
-    ) ERC20("Jeju", "JEJU") Ownable(initialOwner) {
+    constructor(address initialOwner, address _banManager, bool enableFaucet)
+        ERC20("Jeju", "JEJU")
+        Ownable(initialOwner)
+    {
         _mint(initialOwner, INITIAL_SUPPLY);
         if (_banManager != address(0)) {
             banManager = IBanManager(_banManager);

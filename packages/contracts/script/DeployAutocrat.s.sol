@@ -53,24 +53,15 @@ contract DeployAutocrat is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // 1. Deploy AutocratTreasury
-        AutocratTreasury autocratTreasury = new AutocratTreasury(
-            protocolTreasury,
-            stakersRewardsPool,
-            insuranceFund,
-            deployer
-        );
+        AutocratTreasury autocratTreasury =
+            new AutocratTreasury(protocolTreasury, stakersRewardsPool, insuranceFund, deployer);
         treasury = address(autocratTreasury);
         console2.log("AutocratTreasury deployed at:", treasury);
 
         // 2. Deploy BlockBuilderMarketplace (if registries are available)
         if (identityRegistry != address(0) && reputationRegistry != address(0)) {
-            BlockBuilderMarketplace marketplace = new BlockBuilderMarketplace(
-                identityRegistry,
-                reputationRegistry,
-                treasury,
-                sequencer,
-                deployer
-            );
+            BlockBuilderMarketplace marketplace =
+                new BlockBuilderMarketplace(identityRegistry, reputationRegistry, treasury, sequencer, deployer);
             builderMarketplace = address(marketplace);
             console2.log("BlockBuilderMarketplace deployed at:", builderMarketplace);
         } else {
@@ -103,12 +94,7 @@ contract DeployAutocratLocalnet is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // Deploy Treasury with deployer as all recipients
-        AutocratTreasury treasury = new AutocratTreasury(
-            deployer,
-            deployer,
-            deployer,
-            deployer
-        );
+        AutocratTreasury treasury = new AutocratTreasury(deployer, deployer, deployer, deployer);
         console2.log("AutocratTreasury:", address(treasury));
 
         // For localnet, we skip BlockBuilderMarketplace as it requires registries

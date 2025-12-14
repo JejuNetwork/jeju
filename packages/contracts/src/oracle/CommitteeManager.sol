@@ -42,7 +42,11 @@ contract CommitteeManager is ICommitteeManager, Ownable, Pausable {
     }
 
     function formCommittee(bytes32 feedId)
-        external onlyCommitteeManager feedMustExist(feedId) whenNotPaused returns (uint256 round)
+        external
+        onlyCommitteeManager
+        feedMustExist(feedId)
+        whenNotPaused
+        returns (uint256 round)
     {
         CommitteeConfig storage config = _configs[feedId];
         if (config.feedId == bytes32(0)) {
@@ -60,7 +64,9 @@ contract CommitteeManager is ICommitteeManager, Ownable, Pausable {
 
         uint256 memberCount = eligible.length > config.targetSize ? config.targetSize : eligible.length;
         address[] memory members = new address[](memberCount);
-        for (uint256 i = 0; i < memberCount; i++) members[i] = eligible[i];
+        for (uint256 i = 0; i < memberCount; i++) {
+            members[i] = eligible[i];
+        }
 
         round = _committees[feedId].round + 1;
         Committee storage committee = _committees[feedId];
@@ -73,13 +79,20 @@ contract CommitteeManager is ICommitteeManager, Ownable, Pausable {
         committee.isActive = true;
 
         _historicalCommittees[feedId][round] = committee;
-        for (uint256 i = 0; i < members.length; i++) _addOperatorFeed(members[i], feedId);
+        for (uint256 i = 0; i < members.length; i++) {
+            _addOperatorFeed(members[i], feedId);
+        }
         _lastRotationTime[feedId] = block.timestamp;
 
         emit CommitteeFormed(feedId, round, members, members[0], committee.activeUntil);
     }
 
-    function rotateCommittee(bytes32 feedId) external onlyCommitteeManager feedMustExist(feedId) returns (uint256 newRound) {
+    function rotateCommittee(bytes32 feedId)
+        external
+        onlyCommitteeManager
+        feedMustExist(feedId)
+        returns (uint256 newRound)
+    {
         Committee storage committee = _committees[feedId];
         if (!committee.isActive) revert CommitteeNotActive(feedId);
 
@@ -89,14 +102,18 @@ contract CommitteeManager is ICommitteeManager, Ownable, Pausable {
         }
 
         uint256 oldRound = committee.round;
-        for (uint256 i = 0; i < committee.members.length; i++) _removeOperatorFeed(committee.members[i], feedId);
+        for (uint256 i = 0; i < committee.members.length; i++) {
+            _removeOperatorFeed(committee.members[i], feedId);
+        }
 
         address[] memory eligible = _getEligibleOperatorsInternal(feedId);
         if (eligible.length < config.minSize) revert InsufficientOperators(eligible.length, config.minSize);
 
         uint256 memberCount = eligible.length > config.targetSize ? config.targetSize : eligible.length;
         address[] memory members = new address[](memberCount);
-        for (uint256 i = 0; i < memberCount; i++) members[i] = eligible[i];
+        for (uint256 i = 0; i < memberCount; i++) {
+            members[i] = eligible[i];
+        }
 
         newRound = oldRound + 1;
         committee.round = newRound;
@@ -105,7 +122,9 @@ contract CommitteeManager is ICommitteeManager, Ownable, Pausable {
         committee.leader = members[0];
 
         _historicalCommittees[feedId][newRound] = committee;
-        for (uint256 i = 0; i < members.length; i++) _addOperatorFeed(members[i], feedId);
+        for (uint256 i = 0; i < members.length; i++) {
+            _addOperatorFeed(members[i], feedId);
+        }
         _lastRotationTime[feedId] = block.timestamp;
 
         emit CommitteeRotated(feedId, oldRound, newRound);
@@ -119,7 +138,10 @@ contract CommitteeManager is ICommitteeManager, Ownable, Pausable {
 
         uint256 currentIndex;
         for (uint256 i = 0; i < committee.members.length; i++) {
-            if (committee.members[i] == committee.leader) { currentIndex = i; break; }
+            if (committee.members[i] == committee.leader) {
+                currentIndex = i;
+                break;
+            }
         }
         committee.leader = committee.members[(currentIndex + 1) % committee.members.length];
         emit LeaderRotated(feedId, committee.round, committee.leader);
@@ -136,19 +158,29 @@ contract CommitteeManager is ICommitteeManager, Ownable, Pausable {
 
         _allowlist[feedId][member] = true;
         address[] memory newMembers = new address[](committee.members.length + 1);
-        for (uint256 i = 0; i < committee.members.length; i++) newMembers[i] = committee.members[i];
+        for (uint256 i = 0; i < committee.members.length; i++) {
+            newMembers[i] = committee.members[i];
+        }
         newMembers[committee.members.length] = member;
         committee.members = newMembers;
         _addOperatorFeed(member, feedId);
         emit MemberAdded(feedId, committee.round, member);
     }
 
-    function removeMember(bytes32 feedId, address member, string calldata reason) external onlyCommitteeManager feedMustExist(feedId) {
+    function removeMember(bytes32 feedId, address member, string calldata reason)
+        external
+        onlyCommitteeManager
+        feedMustExist(feedId)
+    {
         Committee storage committee = _committees[feedId];
         uint256 memberIndex;
         bool found;
         for (uint256 i = 0; i < committee.members.length; i++) {
-            if (committee.members[i] == member) { found = true; memberIndex = i; break; }
+            if (committee.members[i] == member) {
+                found = true;
+                memberIndex = i;
+                break;
+            }
         }
         if (!found) revert NotCommitteeMember(member, feedId);
 
@@ -171,11 +203,17 @@ contract CommitteeManager is ICommitteeManager, Ownable, Pausable {
     }
 
     function setCommitteeConfig(
-        bytes32 feedId, uint8 targetSize, uint8 minSize, uint8 threshold,
-        uint256 rotationPeriod, SelectionMode selectionMode
+        bytes32 feedId,
+        uint8 targetSize,
+        uint8 minSize,
+        uint8 threshold,
+        uint256 rotationPeriod,
+        SelectionMode selectionMode
     ) external onlyCommitteeManager feedMustExist(feedId) {
-        if (targetSize < minSize || targetSize > MAX_COMMITTEE_SIZE || minSize < MIN_COMMITTEE_SIZE ||
-            threshold > minSize || threshold == 0 || rotationPeriod < MIN_ROTATION_PERIOD) {
+        if (
+            targetSize < minSize || targetSize > MAX_COMMITTEE_SIZE || minSize < MIN_COMMITTEE_SIZE
+                || threshold > minSize || threshold == 0 || rotationPeriod < MIN_ROTATION_PERIOD
+        ) {
             revert InvalidCommitteeConfig();
         }
         _configs[feedId] = CommitteeConfig(feedId, targetSize, minSize, threshold, rotationPeriod, selectionMode);
@@ -183,27 +221,52 @@ contract CommitteeManager is ICommitteeManager, Ownable, Pausable {
     }
 
     function setAllowlist(bytes32 feedId, address[] calldata operators, bool allowed) external onlyCommitteeManager {
-        for (uint256 i = 0; i < operators.length; i++) _allowlist[feedId][operators[i]] = allowed;
+        for (uint256 i = 0; i < operators.length; i++) {
+            _allowlist[feedId][operators[i]] = allowed;
+        }
     }
 
     function setGlobalAllowlist(address[] calldata operators, bool allowed) external onlyOwner {
-        for (uint256 i = 0; i < operators.length; i++) _globalAllowlist[operators[i]] = allowed;
+        for (uint256 i = 0; i < operators.length; i++) {
+            _globalAllowlist[operators[i]] = allowed;
+        }
     }
 
-    function getCommittee(bytes32 feedId) external view returns (Committee memory) { return _committees[feedId]; }
-    function getCommitteeAtRound(bytes32 feedId, uint256 round) external view returns (Committee memory) { return _historicalCommittees[feedId][round]; }
-    function getCommitteeConfig(bytes32 feedId) external view returns (CommitteeConfig memory) { return _configs[feedId]; }
-    function getCurrentRound(bytes32 feedId) external view returns (uint256) { return _committees[feedId].round; }
+    function getCommittee(bytes32 feedId) external view returns (Committee memory) {
+        return _committees[feedId];
+    }
+
+    function getCommitteeAtRound(bytes32 feedId, uint256 round) external view returns (Committee memory) {
+        return _historicalCommittees[feedId][round];
+    }
+
+    function getCommitteeConfig(bytes32 feedId) external view returns (CommitteeConfig memory) {
+        return _configs[feedId];
+    }
+
+    function getCurrentRound(bytes32 feedId) external view returns (uint256) {
+        return _committees[feedId].round;
+    }
 
     function isCommitteeMember(bytes32 feedId, address account) external view returns (bool) {
         Committee storage c = _committees[feedId];
-        for (uint256 i = 0; i < c.members.length; i++) if (c.members[i] == account) return true;
+        for (uint256 i = 0; i < c.members.length; i++) {
+            if (c.members[i] == account) return true;
+        }
         return false;
     }
 
-    function isCommitteeLeader(bytes32 feedId, address account) external view returns (bool) { return _committees[feedId].leader == account; }
-    function getOperatorAssignments(bytes32) external pure returns (CommitteeAssignment[] memory) { return new CommitteeAssignment[](0); }
-    function getOperatorFeeds(address operator) external view returns (bytes32[] memory) { return _operatorFeeds[operator]; }
+    function isCommitteeLeader(bytes32 feedId, address account) external view returns (bool) {
+        return _committees[feedId].leader == account;
+    }
+
+    function getOperatorAssignments(bytes32) external pure returns (CommitteeAssignment[] memory) {
+        return new CommitteeAssignment[](0);
+    }
+
+    function getOperatorFeeds(address operator) external view returns (bytes32[] memory) {
+        return _operatorFeeds[operator];
+    }
 
     function canRotate(bytes32 feedId) external view returns (bool) {
         CommitteeConfig storage c = _configs[feedId];
@@ -215,13 +278,18 @@ contract CommitteeManager is ICommitteeManager, Ownable, Pausable {
         return c.feedId == bytes32(0) ? block.timestamp : _lastRotationTime[feedId] + c.rotationPeriod;
     }
 
-    function getEligibleOperators(bytes32 feedId) external view returns (address[] memory) { return _getEligibleOperatorsInternal(feedId); }
-    function isOperatorAllowlisted(bytes32 feedId, address operator) external view returns (bool) { return _allowlist[feedId][operator] || _globalAllowlist[operator]; }
+    function getEligibleOperators(bytes32 feedId) external view returns (address[] memory) {
+        return _getEligibleOperatorsInternal(feedId);
+    }
+
+    function isOperatorAllowlisted(bytes32 feedId, address operator) external view returns (bool) {
+        return _allowlist[feedId][operator] || _globalAllowlist[operator];
+    }
 
     function _getEligibleOperatorsInternal(bytes32 feedId) internal view returns (address[] memory) {
         Committee storage c = _committees[feedId];
         if (!c.isActive || c.members.length == 0) return new address[](0);
-        
+
         uint256 count;
         for (uint256 i; i < c.members.length; ++i) {
             if (_allowlist[feedId][c.members[i]] || _globalAllowlist[c.members[i]]) ++count;
@@ -236,18 +304,32 @@ contract CommitteeManager is ICommitteeManager, Ownable, Pausable {
 
     function _addOperatorFeed(address operator, bytes32 feedId) internal {
         bytes32[] storage feeds = _operatorFeeds[operator];
-        for (uint256 i = 0; i < feeds.length; i++) if (feeds[i] == feedId) return;
+        for (uint256 i = 0; i < feeds.length; i++) {
+            if (feeds[i] == feedId) return;
+        }
         feeds.push(feedId);
     }
 
     function _removeOperatorFeed(address operator, bytes32 feedId) internal {
         bytes32[] storage feeds = _operatorFeeds[operator];
         for (uint256 i = 0; i < feeds.length; i++) {
-            if (feeds[i] == feedId) { feeds[i] = feeds[feeds.length - 1]; feeds.pop(); return; }
+            if (feeds[i] == feedId) {
+                feeds[i] = feeds[feeds.length - 1];
+                feeds.pop();
+                return;
+            }
         }
     }
 
-    function setCommitteeManager(address manager, bool allowed) external onlyOwner { committeeManagers[manager] = allowed; }
-    function pause() external onlyOwner { _pause(); }
-    function unpause() external onlyOwner { _unpause(); }
+    function setCommitteeManager(address manager, bool allowed) external onlyOwner {
+        committeeManagers[manager] = allowed;
+    }
+
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
 }

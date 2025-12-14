@@ -262,5 +262,5 @@ docker run -p 4010:4010 \
 ## Next Steps
 
 - [Run a Storage Node](/guides/run-storage-node) — Become a provider
-- [Store Agent Memory](/guides/store-agent-memory) — Use storage with agents
-- [IPFS Best Practices](/guides/ipfs-best-practices) — Optimize your storage
+- [Run a Storage Node](/operate/storage-node) — Become a provider
+- [Storage App](/build/apps/storage) — Developer integration

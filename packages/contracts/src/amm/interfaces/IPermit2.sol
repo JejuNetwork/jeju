@@ -60,10 +60,5 @@ interface IPermit2 {
     /// @param from Sender address
     /// @param to Recipient address
     /// @param amount Amount to transfer
-    function transferFrom(
-        address token,
-        address from,
-        address to,
-        uint256 amount
-    ) external;
+    function transferFrom(address token, address from, address to, uint256 amount) external;
 }

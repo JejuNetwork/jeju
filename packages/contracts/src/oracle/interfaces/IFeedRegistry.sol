@@ -57,11 +57,7 @@ interface IFeedRegistry {
     // ============ Events ============
 
     event FeedCreated(
-        bytes32 indexed feedId,
-        string symbol,
-        address baseToken,
-        address quoteToken,
-        address indexed creator
+        bytes32 indexed feedId, string symbol, address baseToken, address quoteToken, address indexed creator
     );
 
     event FeedUpdated(bytes32 indexed feedId, string parameter);

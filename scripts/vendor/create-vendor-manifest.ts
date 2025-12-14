@@ -9,24 +9,21 @@
 import { writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
-interface _ManifestAnswers {
-  name: string;
-  displayName: string;
-  version: string;
-  description: string;
-  devCommand: string;
-  mainPort?: number;
-}
 
 async function promptUser(question: string, defaultValue?: string): Promise<string> {
   const prompt = defaultValue ? `${question} (${defaultValue}): ` : `${question}: `;
   process.stdout.write(prompt);
   
-  // Read from stdin
-  const buffer = new Uint8Array(1024);
-  const n = await Bun.stdin.read(buffer);
-  const input = new TextDecoder().decode(buffer.subarray(0, n || 0)).trim();
+  // Read from stdin using Bun's stream API
+  const reader = Bun.stdin.stream().getReader();
+  const { value, done } = await reader.read();
+  reader.releaseLock();
   
+  if (done || !value) {
+    return defaultValue || '';
+  }
+  
+  const input = new TextDecoder().decode(value).trim();
   return input || defaultValue || '';
 }
 

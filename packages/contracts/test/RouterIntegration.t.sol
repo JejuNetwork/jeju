@@ -78,12 +78,7 @@ contract RouterIntegrationTest is Test, IXLPV3MintCallback {
         weth = new MockWETH();
         v2Factory = new XLPV2Factory(address(this));
         v3Factory = new XLPV3Factory();
-        router = new XLPRouter(
-            address(v2Factory),
-            address(v3Factory),
-            address(weth),
-            address(this)
-        );
+        router = new XLPRouter(address(v2Factory), address(v3Factory), address(weth), address(this));
 
         // Deploy aggregator and registry
         aggregator = new LiquidityAggregator(
@@ -146,11 +141,7 @@ contract RouterIntegrationTest is Test, IXLPV3MintCallback {
     function testAggregatorBestQuote() public view {
         uint256 amountIn = 1 ether;
 
-        LiquidityAggregator.Quote memory quote = aggregator.getBestQuote(
-            address(tokenA),
-            address(tokenB),
-            amountIn
-        );
+        LiquidityAggregator.Quote memory quote = aggregator.getBestQuote(address(tokenA), address(tokenB), amountIn);
 
         assertGt(quote.amountOut, 0, "Should get positive output");
         assertTrue(quote.pool != address(0), "Should have pool address");
@@ -159,11 +150,7 @@ contract RouterIntegrationTest is Test, IXLPV3MintCallback {
     function testAggregatorAllQuotes() public view {
         uint256 amountIn = 1 ether;
 
-        LiquidityAggregator.Quote[] memory quotes = aggregator.getAllQuotes(
-            address(tokenA),
-            address(tokenB),
-            amountIn
-        );
+        LiquidityAggregator.Quote[] memory quotes = aggregator.getAllQuotes(address(tokenA), address(tokenB), amountIn);
 
         // Should have at least one quote (V2 is always available)
         assertGe(quotes.length, 1, "Should have at least 1 quote");
@@ -171,10 +158,7 @@ contract RouterIntegrationTest is Test, IXLPV3MintCallback {
     }
 
     function testAggregatorLiquidityInfo() public view {
-        LiquidityAggregator.LiquidityInfo[] memory infos = aggregator.getLiquidityInfo(
-            address(tokenA),
-            address(tokenB)
-        );
+        LiquidityAggregator.LiquidityInfo[] memory infos = aggregator.getLiquidityInfo(address(tokenA), address(tokenB));
 
         assertGe(infos.length, 2, "Should have liquidity info from V2 and V3");
     }
@@ -182,11 +166,8 @@ contract RouterIntegrationTest is Test, IXLPV3MintCallback {
     function testAggregatorOptimalPath() public view {
         uint256 amountIn = 1 ether;
 
-        (
-            LiquidityAggregator.PoolType poolType,
-            address pool,
-            uint256 expectedOut
-        ) = aggregator.getOptimalPath(address(tokenA), address(tokenB), amountIn);
+        (LiquidityAggregator.PoolType poolType, address pool, uint256 expectedOut) =
+            aggregator.getOptimalPath(address(tokenA), address(tokenB), amountIn);
 
         assertGt(expectedOut, 0, "Should have expected output");
         assertTrue(pool != address(0), "Should have pool");
@@ -203,14 +184,7 @@ contract RouterIntegrationTest is Test, IXLPV3MintCallback {
         tokens[0] = address(tokenA);
         tokens[1] = address(tokenB);
 
-        registry.registerRouter(
-            address(router),
-            "XLP Router",
-            "1.0.0",
-            chains,
-            tokens,
-            address(this)
-        );
+        registry.registerRouter(address(router), "XLP Router", "1.0.0", chains, tokens, address(this));
 
         assertTrue(registry.isRegisteredRouter(address(router)));
 
@@ -225,7 +199,7 @@ contract RouterIntegrationTest is Test, IXLPV3MintCallback {
             address(router),
             address(aggregator),
             address(0x123), // Mock input settler
-            address(0x456)  // Mock output settler
+            address(0x456) // Mock output settler
         );
 
         RouterRegistry.ChainRouter memory chainRouter = registry.getChainRouter(420691);
@@ -295,11 +269,7 @@ contract RouterIntegrationTest is Test, IXLPV3MintCallback {
     function testQuoteForRouter() public view {
         uint256 amountIn = 1 ether;
 
-        (uint256 amountOut, uint8 poolType,) = router.quoteForRouter(
-            address(tokenA),
-            address(tokenB),
-            amountIn
-        );
+        (uint256 amountOut, uint8 poolType,) = router.quoteForRouter(address(tokenA), address(tokenB), amountIn);
 
         assertGt(amountOut, 0, "Should get quote");
         assertTrue(poolType == 0 || poolType == 1, "Should be V2 or V3");
@@ -311,14 +281,7 @@ contract RouterIntegrationTest is Test, IXLPV3MintCallback {
         vm.startPrank(unauthorizedRouter);
 
         vm.expectRevert(XLPRouter.NotApprovedRouter.selector);
-        router.executeSwapForRouter(
-            address(tokenA),
-            address(tokenB),
-            1 ether,
-            0,
-            alice,
-            ""
-        );
+        router.executeSwapForRouter(address(tokenA), address(tokenB), 1 ether, 0, alice, "");
         vm.stopPrank();
     }
 
@@ -338,12 +301,7 @@ contract RouterIntegrationTest is Test, IXLPV3MintCallback {
         tokenA.approve(address(router), swapAmount);
 
         router.executeSwapForRouter(
-            address(tokenA),
-            address(tokenB),
-            swapAmount,
-            0,
-            alice,
-            abi.encode(uint8(0), uint24(3000))
+            address(tokenA), address(tokenB), swapAmount, 0, alice, abi.encode(uint8(0), uint24(3000))
         );
         vm.stopPrank();
 

@@ -25,11 +25,14 @@ interface IPriceOracle {
     /**
      * @notice Convert amount from one token to another using oracle prices
      * @param fromToken Source token address
-     * @param toToken Destination token address  
+     * @param toToken Destination token address
      * @param amount Amount of fromToken to convert
      * @return convertedAmount Equivalent amount in toToken
      */
-    function convertAmount(address fromToken, address toToken, uint256 amount) external view returns (uint256 convertedAmount);
+    function convertAmount(address fromToken, address toToken, uint256 amount)
+        external
+        view
+        returns (uint256 convertedAmount);
 }
 
 /**

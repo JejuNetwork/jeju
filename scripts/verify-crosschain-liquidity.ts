@@ -17,7 +17,7 @@ import { Logger } from './shared/logger';
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
 
-const logger = new Logger('verify-crosschain');
+const logger = new Logger({ prefix: 'verify-crosschain' });
 
 interface ChainStatus {
   chainId: number;

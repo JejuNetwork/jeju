@@ -6,8 +6,7 @@
  *   bun run scripts/show-wallet-config.ts
  */
 
-
-async function main() {
+async function showWalletConfig() {
   console.log("\n╔═══════════════════════════════════════════════════════════════════════╗");
   console.log("║                                                                       ║");
   console.log("║   🦊 Jeju Localnet - MetaMask Configuration                          ║");
@@ -59,5 +58,5 @@ async function main() {
   console.log("  • Launchpad:           http://localhost:3330\n");
 }
 
-main();
+showWalletConfig();
 

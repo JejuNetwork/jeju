@@ -4,7 +4,7 @@
  */
 
 import { testWithWallet as test, expect } from '../fixtures/wallet';
-import { captureScreenshot, captureUserFlow } from '@jejunetwork/tests/helpers/screenshots';
+import { captureScreenshot, captureUserFlow as _captureUserFlow } from '@jejunetwork/tests/helpers/screenshots';
 import { connectWallet } from '@jejunetwork/tests/helpers/contracts';
 
 test.describe('Bridge from Ethereum Flow', () => {

@@ -195,9 +195,9 @@ export async function processNodeStakingEvents(ctx: ProcessorContext<Store>): Pr
         }
     }
 
-    await ctx.store.upsert(Array.from(nodes.values()));
+    await ctx.store.upsert([...nodes.values()]);
     await ctx.store.insert(performanceUpdates);
     await ctx.store.insert(rewardClaims);
-    await ctx.store.upsert(Array.from(proposals.values()));
+    await ctx.store.upsert([...proposals.values()]);
     await ctx.store.insert(proposalEvents);
 }

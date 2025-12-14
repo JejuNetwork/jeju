@@ -320,7 +320,7 @@ async function main() {
 
   // Check if Sepolia has funds for bridging
   const sepoliaBalance = balances.find(b => b.network === 'Ethereum Sepolia');
-  const sepoliaHasBridgingFunds = sepoliaBalance && parseFloat(sepoliaBalance.balanceWei) > parseEther('0.1').toString();
+  const sepoliaHasBridgingFunds = sepoliaBalance && BigInt(sepoliaBalance.balanceWei) > parseEther('0.1');
   
   if (sepoliaHasBridgingFunds) {
     console.log('\n🌉 Sepolia has sufficient balance for bridging to L2s');

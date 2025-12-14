@@ -218,5 +218,4 @@ interface IIdentityRegistry is IERC721, IERC721Metadata {
      * @return supported Whether x402 is supported
      */
     function getX402Support(uint256 agentId) external view returns (bool supported);
-
 }

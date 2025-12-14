@@ -18,7 +18,6 @@ import {ICrossChainPaymaster} from "../eil/IEIL.sol";
 contract MarginManager is IMarginManager, Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-
     struct CollateralToken {
         bool isAccepted;
         uint256 weight;
@@ -33,11 +32,9 @@ contract MarginManager is IMarginManager, Ownable, Pausable, ReentrancyGuard {
         uint256 lastUpdateTime;
     }
 
-
     uint256 public constant BPS_DENOMINATOR = 10000;
     uint256 public constant PRICE_DECIMALS = 8;
     uint256 public constant VALUE_PRECISION = 1e18;
-
 
     ISimplePriceOracle public priceOracle;
     ITokenRegistry public tokenRegistry;
@@ -62,7 +59,6 @@ contract MarginManager is IMarginManager, Ownable, Pausable, ReentrancyGuard {
     // Track used vouchers to prevent double-spending
     mapping(bytes32 => bool) public usedVouchers;
 
-
     error TokenNotAccepted();
     error InsufficientBalance();
     error InsufficientAvailableMargin();
@@ -77,16 +73,10 @@ contract MarginManager is IMarginManager, Ownable, Pausable, ReentrancyGuard {
     error VoucherTokenMismatch();
     error VoucherAmountMismatch();
 
-
-    constructor(
-        address _priceOracle,
-        address _tokenRegistry,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _priceOracle, address _tokenRegistry, address initialOwner) Ownable(initialOwner) {
         priceOracle = ISimplePriceOracle(_priceOracle);
         tokenRegistry = ITokenRegistry(_tokenRegistry);
     }
-
 
     function deposit(address token, uint256 amount) external nonReentrant whenNotPaused {
         if (amount == 0) revert InvalidAmount();
@@ -114,11 +104,7 @@ contract MarginManager is IMarginManager, Ownable, Pausable, ReentrancyGuard {
         emit CollateralDeposited(msg.sender, token, amount);
     }
 
-    function depositCrossChain(
-        address token,
-        uint256 amount,
-        bytes32 voucherId
-    ) external nonReentrant whenNotPaused {
+    function depositCrossChain(address token, uint256 amount, bytes32 voucherId) external nonReentrant whenNotPaused {
         if (amount == 0) revert InvalidAmount();
         if (!collateralTokens[token].isAccepted) revert TokenNotAccepted();
         if (crossChainPaymaster == address(0)) revert Unauthorized();
@@ -184,18 +170,13 @@ contract MarginManager is IMarginManager, Ownable, Pausable, ReentrancyGuard {
         emit CollateralWithdrawn(msg.sender, token, amount);
     }
 
-
     /**
      * @notice Reserve margin for a position
      * @param trader Trader address
      * @param token Margin token
      * @param amount Amount to reserve
      */
-    function reserveMargin(
-        address trader,
-        address token,
-        uint256 amount
-    ) external onlyAuthorized {
+    function reserveMargin(address trader, address token, uint256 amount) external onlyAuthorized {
         TraderAccount storage account = traderAccounts[trader];
         uint256 available = account.balances[token] - account.reserved[token];
 
@@ -210,11 +191,7 @@ contract MarginManager is IMarginManager, Ownable, Pausable, ReentrancyGuard {
      * @param token Margin token
      * @param amount Amount to release
      */
-    function releaseMargin(
-        address trader,
-        address token,
-        uint256 amount
-    ) external onlyAuthorized {
+    function releaseMargin(address trader, address token, uint256 amount) external onlyAuthorized {
         TraderAccount storage account = traderAccounts[trader];
 
         if (amount > account.reserved[token]) {
@@ -231,12 +208,7 @@ contract MarginManager is IMarginManager, Ownable, Pausable, ReentrancyGuard {
      * @param token Margin token
      * @param amount Amount to transfer
      */
-    function transferMargin(
-        address from,
-        address to,
-        address token,
-        uint256 amount
-    ) external onlyAuthorized {
+    function transferMargin(address from, address to, address token, uint256 amount) external onlyAuthorized {
         TraderAccount storage fromAccount = traderAccounts[from];
 
         if (amount > fromAccount.balances[token]) revert InsufficientBalance();
@@ -269,12 +241,7 @@ contract MarginManager is IMarginManager, Ownable, Pausable, ReentrancyGuard {
      * @param amount Amount to deduct
      * @param recipient Fee recipient
      */
-    function deductMargin(
-        address trader,
-        address token,
-        uint256 amount,
-        address recipient
-    ) external onlyAuthorized {
+    function deductMargin(address trader, address token, uint256 amount, address recipient) external onlyAuthorized {
         TraderAccount storage account = traderAccounts[trader];
 
         if (amount > account.balances[token]) {
@@ -303,27 +270,16 @@ contract MarginManager is IMarginManager, Ownable, Pausable, ReentrancyGuard {
      * @param token Margin token
      * @param amount Amount to credit
      */
-    function creditMargin(
-        address trader,
-        address token,
-        uint256 amount
-    ) external onlyAuthorized {
+    function creditMargin(address trader, address token, uint256 amount) external onlyAuthorized {
         traderAccounts[trader].balances[token] += amount;
         totalDeposits[token] += amount;
     }
 
-
-    function getCollateralBalance(
-        address trader,
-        address token
-    ) external view returns (uint256 balance) {
+    function getCollateralBalance(address trader, address token) external view returns (uint256 balance) {
         return traderAccounts[trader].balances[token];
     }
 
-    function getReservedBalance(
-        address trader,
-        address token
-    ) external view returns (uint256 reserved) {
+    function getReservedBalance(address trader, address token) external view returns (uint256 reserved) {
         return traderAccounts[trader].reserved[token];
     }
 
@@ -331,10 +287,7 @@ contract MarginManager is IMarginManager, Ownable, Pausable, ReentrancyGuard {
         return _calculateTotalValueUSD(trader);
     }
 
-    function getAvailableCollateral(
-        address trader,
-        address token
-    ) external view returns (uint256 available) {
+    function getAvailableCollateral(address trader, address token) external view returns (uint256 available) {
         return _getAvailableBalance(trader, token);
     }
 
@@ -357,10 +310,7 @@ contract MarginManager is IMarginManager, Ownable, Pausable, ReentrancyGuard {
         return (ct.isAccepted, ct.weight);
     }
 
-    function getCollateralInfo(
-        address trader,
-        address token
-    ) external view returns (CollateralInfo memory info) {
+    function getCollateralInfo(address trader, address token) external view returns (CollateralInfo memory info) {
         TraderAccount storage account = traderAccounts[trader];
         CollateralToken storage ct = collateralTokens[token];
 
@@ -386,7 +336,6 @@ contract MarginManager is IMarginManager, Ownable, Pausable, ReentrancyGuard {
             });
         }
     }
-
 
     function _getAvailableBalance(address trader, address token) internal view returns (uint256) {
         TraderAccount storage account = traderAccounts[trader];
@@ -436,36 +385,25 @@ contract MarginManager is IMarginManager, Ownable, Pausable, ReentrancyGuard {
         return size > 0;
     }
 
-
     /**
      * @notice Add a new collateral token
      * @param token Token address
      * @param weight Collateral weight (10000 = 100%)
      * @param maxDeposit Max deposit per user (0 = unlimited)
      */
-    function addCollateralToken(
-        address token,
-        uint256 weight,
-        uint256 maxDeposit
-    ) external onlyOwner {
+    function addCollateralToken(address token, uint256 weight, uint256 maxDeposit) external onlyOwner {
         if (collateralTokens[token].isAccepted) revert TokenAlreadyAccepted();
         if (weight == 0 || weight > BPS_DENOMINATOR) revert InvalidWeight();
 
         uint8 decimals = 18;
         // Try to get decimals from token
-        (bool success, bytes memory data) = token.staticcall(
-            abi.encodeWithSignature("decimals()")
-        );
+        (bool success, bytes memory data) = token.staticcall(abi.encodeWithSignature("decimals()"));
         if (success && data.length >= 32) {
             decimals = abi.decode(data, (uint8));
         }
 
-        collateralTokens[token] = CollateralToken({
-            isAccepted: true,
-            weight: weight,
-            maxDeposit: maxDeposit,
-            decimals: decimals
-        });
+        collateralTokens[token] =
+            CollateralToken({isAccepted: true, weight: weight, maxDeposit: maxDeposit, decimals: decimals});
 
         acceptedTokens.push(token);
 
@@ -478,11 +416,7 @@ contract MarginManager is IMarginManager, Ownable, Pausable, ReentrancyGuard {
      * @param weight New weight
      * @param maxDeposit New max deposit
      */
-    function updateCollateralToken(
-        address token,
-        uint256 weight,
-        uint256 maxDeposit
-    ) external onlyOwner {
+    function updateCollateralToken(address token, uint256 weight, uint256 maxDeposit) external onlyOwner {
         if (!collateralTokens[token].isAccepted) revert TokenNotAccepted();
         if (weight == 0 || weight > BPS_DENOMINATOR) revert InvalidWeight();
 
@@ -531,7 +465,6 @@ contract MarginManager is IMarginManager, Ownable, Pausable, ReentrancyGuard {
         _unpause();
     }
 
-
     modifier onlyAuthorized() {
         if (!authorizedContracts[msg.sender] && msg.sender != owner()) {
             revert Unauthorized();
@@ -539,16 +472,11 @@ contract MarginManager is IMarginManager, Ownable, Pausable, ReentrancyGuard {
         _;
     }
 
-
     function getAcceptedTokens() external view returns (address[] memory) {
         return acceptedTokens;
     }
 
-    function getGlobalStats() external view returns (
-        uint256 _totalDepositsUSD,
-        uint256 tokenCount
-    ) {
+    function getGlobalStats() external view returns (uint256 _totalDepositsUSD, uint256 tokenCount) {
         return (totalDepositsUSD, acceptedTokens.length);
     }
-
 }

@@ -163,11 +163,18 @@ contract BondingCurve is ReentrancyGuard {
         return (realEthReserves * 10000) / graduationTarget;
     }
 
-    function getStats() external view returns (
-        uint256 price, uint256 progress, uint256 ethCollected, uint256 tokensRemaining, bool isGraduated
-    ) {
-        return (getCurrentPrice(), graduated ? 10000 : (realEthReserves * 10000) / graduationTarget,
-            realEthReserves, realTokenReserves, graduated);
+    function getStats()
+        external
+        view
+        returns (uint256 price, uint256 progress, uint256 ethCollected, uint256 tokensRemaining, bool isGraduated)
+    {
+        return (
+            getCurrentPrice(),
+            graduated ? 10000 : (realEthReserves * 10000) / graduationTarget,
+            realEthReserves,
+            realTokenReserves,
+            graduated
+        );
     }
 
     function getMarketCap() external view returns (uint256) {

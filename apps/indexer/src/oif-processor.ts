@@ -455,25 +455,25 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
   await ctx.store.upsert(accountFactory.getAll())
   
   if (intents.size > 0) {
-    await ctx.store.upsert([...intents.values()))
+    await ctx.store.upsert([...intents.values()])
   }
   if (solvers.size > 0) {
-    await ctx.store.upsert([...solvers.values()))
+    await ctx.store.upsert([...solvers.values()])
   }
   if (settlements.size > 0) {
-    await ctx.store.upsert([...settlements.values()))
+    await ctx.store.upsert([...settlements.values()])
   }
   if (attestations.size > 0) {
-    await ctx.store.upsert([...attestations.values()))
+    await ctx.store.upsert([...attestations.values()])
   }
   if (slashEvents.length > 0) {
     await ctx.store.insert(slashEvents)
   }
   if (routes.size > 0) {
-    await ctx.store.upsert([...routes.values()))
+    await ctx.store.upsert([...routes.values()])
   }
   if (chainStats.size > 0) {
-    await ctx.store.upsert([...chainStats.values()))
+    await ctx.store.upsert([...chainStats.values()])
   }
 
   // Update global stats

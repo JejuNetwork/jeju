@@ -53,12 +53,7 @@ contract CouncilTest is Test {
         token = new MockGovernanceToken();
 
         // Deploy council
-        council = new Council(
-            address(token),
-            identityRegistry,
-            reputationRegistry,
-            owner
-        );
+        council = new Council(address(token), identityRegistry, reputationRegistry, owner);
 
         // Configure council agents
         council.setCouncilAgent(Council.CouncilRole.TREASURY, treasuryAgent, 1, 100);
@@ -129,29 +124,19 @@ contract CouncilTest is Test {
         vm.prank(proposer1);
         vm.expectRevert(Council.InsufficientBond.selector);
         council.submitProposal{value: 0.0001 ether}(
-            Council.ProposalType.PARAMETER_CHANGE,
-            95,
-            CONTENT_HASH,
-            address(0),
-            "",
-            0
+            Council.ProposalType.PARAMETER_CHANGE, 95, CONTENT_HASH, address(0), "", 0
         );
     }
 
     function test_SubmitProposal_AllTypes() public {
         uint8[10] memory types = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        
+
         for (uint256 i = 0; i < types.length; i++) {
             vm.prank(proposer1);
             bytes32 proposalId = council.submitProposal{value: 0.001 ether}(
-                Council.ProposalType(types[i]),
-                95,
-                keccak256(abi.encodePacked(CONTENT_HASH, i)),
-                address(0),
-                "",
-                0
+                Council.ProposalType(types[i]), 95, keccak256(abi.encodePacked(CONTENT_HASH, i)), address(0), "", 0
             );
-            
+
             Council.Proposal memory proposal = council.getProposal(proposalId);
             assertEq(uint8(proposal.proposalType), types[i]);
         }
@@ -164,14 +149,8 @@ contract CouncilTest is Test {
     function test_BackProposal_WithStake() public {
         // Submit proposal
         vm.prank(proposer1);
-        bytes32 proposalId = council.submitProposal{value: 0.001 ether}(
-            Council.ProposalType.GRANT,
-            95,
-            CONTENT_HASH,
-            address(0),
-            "",
-            0
-        );
+        bytes32 proposalId =
+            council.submitProposal{value: 0.001 ether}(Council.ProposalType.GRANT, 95, CONTENT_HASH, address(0), "", 0);
 
         // Approve token transfer
         vm.prank(backer1);
@@ -189,14 +168,8 @@ contract CouncilTest is Test {
 
     function test_BackProposal_MultipleBackers() public {
         vm.prank(proposer1);
-        bytes32 proposalId = council.submitProposal{value: 0.001 ether}(
-            Council.ProposalType.GRANT,
-            95,
-            CONTENT_HASH,
-            address(0),
-            "",
-            0
-        );
+        bytes32 proposalId =
+            council.submitProposal{value: 0.001 ether}(Council.ProposalType.GRANT, 95, CONTENT_HASH, address(0), "", 0);
 
         // Backer 1
         vm.startPrank(backer1);
@@ -218,14 +191,8 @@ contract CouncilTest is Test {
 
     function test_BackProposal_AlreadyBacked() public {
         vm.prank(proposer1);
-        bytes32 proposalId = council.submitProposal{value: 0.001 ether}(
-            Council.ProposalType.GRANT,
-            95,
-            CONTENT_HASH,
-            address(0),
-            "",
-            0
-        );
+        bytes32 proposalId =
+            council.submitProposal{value: 0.001 ether}(Council.ProposalType.GRANT, 95, CONTENT_HASH, address(0), "", 0);
 
         vm.startPrank(backer1);
         token.approve(address(council), 2000 ether);
@@ -243,12 +210,7 @@ contract CouncilTest is Test {
     function test_CastCouncilVote_Success() public {
         vm.prank(proposer1);
         bytes32 proposalId = council.submitProposal{value: 0.001 ether}(
-            Council.ProposalType.PARAMETER_CHANGE,
-            95,
-            CONTENT_HASH,
-            address(0),
-            "",
-            0
+            Council.ProposalType.PARAMETER_CHANGE, 95, CONTENT_HASH, address(0), "", 0
         );
 
         vm.prank(treasuryAgent);
@@ -263,12 +225,7 @@ contract CouncilTest is Test {
     function test_CastCouncilVote_AllAgents() public {
         vm.prank(proposer1);
         bytes32 proposalId = council.submitProposal{value: 0.001 ether}(
-            Council.ProposalType.CODE_UPGRADE,
-            95,
-            CONTENT_HASH,
-            address(0),
-            "",
-            0
+            Council.ProposalType.CODE_UPGRADE, 95, CONTENT_HASH, address(0), "", 0
         );
 
         vm.prank(treasuryAgent);
@@ -290,12 +247,7 @@ contract CouncilTest is Test {
     function test_CastCouncilVote_NotCouncilAgent() public {
         vm.prank(proposer1);
         bytes32 proposalId = council.submitProposal{value: 0.001 ether}(
-            Council.ProposalType.PARAMETER_CHANGE,
-            95,
-            CONTENT_HASH,
-            address(0),
-            "",
-            0
+            Council.ProposalType.PARAMETER_CHANGE, 95, CONTENT_HASH, address(0), "", 0
         );
 
         vm.prank(proposer1);
@@ -306,12 +258,7 @@ contract CouncilTest is Test {
     function test_CastCouncilVote_AlreadyVoted() public {
         vm.prank(proposer1);
         bytes32 proposalId = council.submitProposal{value: 0.001 ether}(
-            Council.ProposalType.PARAMETER_CHANGE,
-            95,
-            CONTENT_HASH,
-            address(0),
-            "",
-            0
+            Council.ProposalType.PARAMETER_CHANGE, 95, CONTENT_HASH, address(0), "", 0
         );
 
         vm.prank(treasuryAgent);
@@ -328,14 +275,8 @@ contract CouncilTest is Test {
 
     function test_FinalizeCouncilVote_Approved() public {
         vm.prank(proposer1);
-        bytes32 proposalId = council.submitProposal{value: 0.001 ether}(
-            Council.ProposalType.GRANT,
-            95,
-            CONTENT_HASH,
-            address(0),
-            "",
-            0
-        );
+        bytes32 proposalId =
+            council.submitProposal{value: 0.001 ether}(Council.ProposalType.GRANT, 95, CONTENT_HASH, address(0), "", 0);
 
         // All agents vote approve
         vm.prank(treasuryAgent);
@@ -358,14 +299,8 @@ contract CouncilTest is Test {
 
     function test_FinalizeCouncilVote_Rejected() public {
         vm.prank(proposer1);
-        bytes32 proposalId = council.submitProposal{value: 0.001 ether}(
-            Council.ProposalType.GRANT,
-            95,
-            CONTENT_HASH,
-            address(0),
-            "",
-            0
-        );
+        bytes32 proposalId =
+            council.submitProposal{value: 0.001 ether}(Council.ProposalType.GRANT, 95, CONTENT_HASH, address(0), "", 0);
 
         // Majority rejects
         vm.prank(treasuryAgent);
@@ -386,14 +321,8 @@ contract CouncilTest is Test {
 
     function test_FinalizeCouncilVote_VotingPeriodNotEnded() public {
         vm.prank(proposer1);
-        bytes32 proposalId = council.submitProposal{value: 0.001 ether}(
-            Council.ProposalType.GRANT,
-            95,
-            CONTENT_HASH,
-            address(0),
-            "",
-            0
-        );
+        bytes32 proposalId =
+            council.submitProposal{value: 0.001 ether}(Council.ProposalType.GRANT, 95, CONTENT_HASH, address(0), "", 0);
 
         vm.expectRevert(Council.VotingPeriodNotEnded.selector);
         council.finalizeCouncilVote(proposalId);
@@ -477,11 +406,7 @@ contract CouncilTest is Test {
         bytes32 proposalId = _createApprovedByCEO();
 
         vm.prank(backer1);
-        council.castVetoVote{value: 0.1 ether}(
-            proposalId,
-            Council.VetoCategory.HARMFUL,
-            REASONING_HASH
-        );
+        council.castVetoVote{value: 0.1 ether}(proposalId, Council.VetoCategory.HARMFUL, REASONING_HASH);
 
         Council.VetoVote[] memory vetos = council.getVetoVotes(proposalId);
         assertEq(vetos.length, 1);
@@ -494,11 +419,7 @@ contract CouncilTest is Test {
 
         vm.prank(backer1);
         vm.expectRevert(Council.InsufficientVetoStake.selector);
-        council.castVetoVote{value: 0.001 ether}(
-            proposalId,
-            Council.VetoCategory.HARMFUL,
-            REASONING_HASH
-        );
+        council.castVetoVote{value: 0.001 ether}(proposalId, Council.VetoCategory.HARMFUL, REASONING_HASH);
     }
 
     function test_CastVetoVote_AlreadyVetoed() public {
@@ -512,20 +433,12 @@ contract CouncilTest is Test {
 
         // Cast a small veto vote (won't trigger threshold)
         vm.prank(backer2);
-        council.castVetoVote{value: 0.02 ether}(
-            proposalId,
-            Council.VetoCategory.HARMFUL,
-            REASONING_HASH
-        );
+        council.castVetoVote{value: 0.02 ether}(proposalId, Council.VetoCategory.HARMFUL, REASONING_HASH);
 
         // Try to vote again with same address
         vm.prank(backer2);
         vm.expectRevert(Council.AlreadyVetoed.selector);
-        council.castVetoVote{value: 0.02 ether}(
-            proposalId,
-            Council.VetoCategory.HARMFUL,
-            REASONING_HASH
-        );
+        council.castVetoVote{value: 0.02 ether}(proposalId, Council.VetoCategory.HARMFUL, REASONING_HASH);
     }
 
     function test_CastVetoVote_GracePeriodEnded() public {
@@ -535,11 +448,7 @@ contract CouncilTest is Test {
 
         vm.prank(backer1);
         vm.expectRevert(Council.GracePeriodEnded.selector);
-        council.castVetoVote{value: 0.1 ether}(
-            proposalId,
-            Council.VetoCategory.HARMFUL,
-            REASONING_HASH
-        );
+        council.castVetoVote{value: 0.1 ether}(proposalId, Council.VetoCategory.HARMFUL, REASONING_HASH);
     }
 
     // ============================================================================
@@ -582,7 +491,7 @@ contract CouncilTest is Test {
 
         // Manual fast track with explicit timestamps
         uint256 baseTime = block.timestamp;
-        
+
         // First council vote
         vm.prank(treasuryAgent);
         council.castCouncilVote(proposalId, Council.VoteType.APPROVE, REASONING_HASH);
@@ -633,12 +542,7 @@ contract CouncilTest is Test {
         for (uint256 i = 0; i < 5; i++) {
             vm.prank(proposer1);
             council.submitProposal{value: 0.001 ether}(
-                Council.ProposalType.GRANT,
-                95,
-                keccak256(abi.encodePacked(CONTENT_HASH, i)),
-                address(0),
-                "",
-                0
+                Council.ProposalType.GRANT, 95, keccak256(abi.encodePacked(CONTENT_HASH, i)), address(0), "", 0
             );
         }
 
@@ -655,9 +559,7 @@ contract CouncilTest is Test {
         bytes32 id2 = council.submitProposal{value: 0.001 ether}(
             Council.ProposalType.GRANT, 95, keccak256("2"), address(0), "", 0
         );
-        council.submitProposal{value: 0.001 ether}(
-            Council.ProposalType.GRANT, 95, keccak256("3"), address(0), "", 0
-        );
+        council.submitProposal{value: 0.001 ether}(Council.ProposalType.GRANT, 95, keccak256("3"), address(0), "", 0);
         vm.stopPrank();
 
         // Reject one via council vote
@@ -669,18 +571,12 @@ contract CouncilTest is Test {
 
     function test_GetProposerProposals() public {
         vm.startPrank(proposer1);
-        council.submitProposal{value: 0.001 ether}(
-            Council.ProposalType.GRANT, 95, keccak256("1"), address(0), "", 0
-        );
-        council.submitProposal{value: 0.001 ether}(
-            Council.ProposalType.BOUNTY, 95, keccak256("2"), address(0), "", 0
-        );
+        council.submitProposal{value: 0.001 ether}(Council.ProposalType.GRANT, 95, keccak256("1"), address(0), "", 0);
+        council.submitProposal{value: 0.001 ether}(Council.ProposalType.BOUNTY, 95, keccak256("2"), address(0), "", 0);
         vm.stopPrank();
 
         vm.prank(proposer2);
-        council.submitProposal{value: 0.001 ether}(
-            Council.ProposalType.POLICY, 95, keccak256("3"), address(0), "", 0
-        );
+        council.submitProposal{value: 0.001 ether}(Council.ProposalType.POLICY, 95, keccak256("3"), address(0), "", 0);
 
         bytes32[] memory p1Proposals = council.getProposerProposals(proposer1);
         bytes32[] memory p2Proposals = council.getProposerProposals(proposer2);
@@ -696,12 +592,12 @@ contract CouncilTest is Test {
     function test_SetParameters() public {
         vm.prank(owner);
         council.setParameters(
-            85,      // minQualityScore
-            2 days,  // councilVotingPeriod
-            12 hours,// gracePeriod
-            3,       // minBackers
+            85, // minQualityScore
+            2 days, // councilVotingPeriod
+            12 hours, // gracePeriod
+            3, // minBackers
             0.05 ether, // minStakeForVeto
-            5000,    // vetoThresholdBPS (50%)
+            5000, // vetoThresholdBPS (50%)
             0.002 ether // proposalBond
         );
 
@@ -720,27 +616,13 @@ contract CouncilTest is Test {
 
         vm.prank(proposer1);
         vm.expectRevert();
-        council.submitProposal{value: 0.001 ether}(
-            Council.ProposalType.GRANT,
-            95,
-            CONTENT_HASH,
-            address(0),
-            "",
-            0
-        );
+        council.submitProposal{value: 0.001 ether}(Council.ProposalType.GRANT, 95, CONTENT_HASH, address(0), "", 0);
 
         vm.prank(owner);
         council.unpause();
 
         vm.prank(proposer1);
-        council.submitProposal{value: 0.001 ether}(
-            Council.ProposalType.GRANT,
-            95,
-            CONTENT_HASH,
-            address(0),
-            "",
-            0
-        );
+        council.submitProposal{value: 0.001 ether}(Council.ProposalType.GRANT, 95, CONTENT_HASH, address(0), "", 0);
     }
 
     function test_Version() public view {
@@ -753,14 +635,8 @@ contract CouncilTest is Test {
 
     function _createApprovedByCouncil() internal returns (bytes32) {
         vm.prank(proposer1);
-        bytes32 proposalId = council.submitProposal{value: 0.001 ether}(
-            Council.ProposalType.GRANT,
-            95,
-            CONTENT_HASH,
-            address(0),
-            "",
-            0
-        );
+        bytes32 proposalId =
+            council.submitProposal{value: 0.001 ether}(Council.ProposalType.GRANT, 95, CONTENT_HASH, address(0), "", 0);
 
         // All approve
         vm.prank(treasuryAgent);

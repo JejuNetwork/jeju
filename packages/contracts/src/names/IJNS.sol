@@ -8,7 +8,7 @@ pragma solidity ^0.8.26;
  */
 interface IJNS {
     // ============ Events ============
-    
+
     event NewOwner(bytes32 indexed node, bytes32 indexed label, address owner);
     event Transfer(bytes32 indexed node, address owner);
     event NewResolver(bytes32 indexed node, address resolver);
@@ -40,7 +40,7 @@ interface IJNS {
  */
 interface IJNSResolver {
     // ============ Events ============
-    
+
     event AddrChanged(bytes32 indexed node, address addr);
     event ContenthashChanged(bytes32 indexed node, bytes hash);
     event TextChanged(bytes32 indexed node, string indexed indexedKey, string key, string value);
@@ -49,28 +49,28 @@ interface IJNSResolver {
     event NameChanged(bytes32 indexed node, string name);
 
     // ============ Address Resolution ============
-    
+
     function addr(bytes32 node) external view returns (address);
     function setAddr(bytes32 node, address addr_) external;
 
     // ============ Content Hash (IPFS/Swarm) ============
-    
+
     function contenthash(bytes32 node) external view returns (bytes memory);
     function setContenthash(bytes32 node, bytes calldata hash) external;
 
     // ============ Text Records ============
-    
+
     function text(bytes32 node, string calldata key) external view returns (string memory);
     function setText(bytes32 node, string calldata key, string calldata value) external;
 
     // ============ App Records (ERC-8004 Integration) ============
-    
+
     function appRecord(bytes32 node) external view returns (address appContract, bytes32 appId, uint256 agentId);
     function setAppRecord(bytes32 node, address appContract, bytes32 appId) external;
     function linkAgent(bytes32 node, uint256 agentId) external;
 
     // ============ Reverse Resolution ============
-    
+
     function name(bytes32 node) external view returns (string memory);
     function setName(bytes32 node, string calldata name_) external;
 }
@@ -81,13 +81,13 @@ interface IJNSResolver {
  */
 interface IJNSRegistrar {
     // ============ Events ============
-    
+
     event NameRegistered(bytes32 indexed node, string name, address indexed owner, uint256 expires, uint256 cost);
     event NameRenewed(bytes32 indexed node, string name, uint256 expires, uint256 cost);
     event NameTransferred(bytes32 indexed node, address indexed from, address indexed to);
 
     // ============ Registration ============
-    
+
     function available(string calldata name) external view returns (bool);
     function rentPrice(string calldata name, uint256 duration) external view returns (uint256);
     function register(string calldata name, address owner, uint256 duration) external payable returns (bytes32 node);
@@ -101,13 +101,7 @@ interface IJNSRegistrar {
     function renew(string calldata name, uint256 duration) external payable;
 
     // ============ View Functions ============
-    
+
     function nameExpires(string calldata name) external view returns (uint256);
     function ownerOf(string calldata name) external view returns (address);
 }
-
-
-
-
-
-

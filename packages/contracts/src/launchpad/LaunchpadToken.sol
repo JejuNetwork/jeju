@@ -19,12 +19,10 @@ contract LaunchpadToken is ERC20, Ownable {
     /// @notice Creator of the token
     address public immutable creator;
 
-    constructor(
-        string memory name_,
-        string memory symbol_,
-        uint256 totalSupply_,
-        address initialHolder_
-    ) ERC20(name_, symbol_) Ownable(initialHolder_) {
+    constructor(string memory name_, string memory symbol_, uint256 totalSupply_, address initialHolder_)
+        ERC20(name_, symbol_)
+        Ownable(initialHolder_)
+    {
         launchpad = msg.sender;
         creator = tx.origin;
         _mint(initialHolder_, totalSupply_);

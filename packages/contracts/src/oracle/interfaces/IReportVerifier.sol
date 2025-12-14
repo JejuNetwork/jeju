@@ -43,25 +43,11 @@ interface IReportVerifier {
         uint256 signerCount
     );
 
-    event ReportVerified(
-        bytes32 indexed feedId,
-        bytes32 indexed reportHash,
-        uint256 price,
-        uint256 timestamp
-    );
+    event ReportVerified(bytes32 indexed feedId, bytes32 indexed reportHash, uint256 price, uint256 timestamp);
 
-    event ReportRejected(
-        bytes32 indexed feedId,
-        bytes32 indexed reportHash,
-        string reason
-    );
+    event ReportRejected(bytes32 indexed feedId, bytes32 indexed reportHash, string reason);
 
-    event ConsensusUpdated(
-        bytes32 indexed feedId,
-        uint256 price,
-        uint256 confidence,
-        uint256 round
-    );
+    event ConsensusUpdated(bytes32 indexed feedId, uint256 price, uint256 confidence, uint256 round);
 
     // ============ Errors ============
 
@@ -82,19 +68,17 @@ interface IReportVerifier {
 
     function submitReportBatch(ReportSubmission[] calldata submissions) external returns (uint256 accepted);
 
-    function verifySignatures(
-        bytes32 reportHash,
-        bytes[] calldata signatures
-    ) external view returns (address[] memory signers, bool valid);
+    function verifySignatures(bytes32 reportHash, bytes[] calldata signatures)
+        external
+        view
+        returns (address[] memory signers, bool valid);
 
     // ============ View Functions ============
 
-    function getLatestPrice(bytes32 feedId) external view returns (
-        uint256 price,
-        uint256 confidence,
-        uint256 timestamp,
-        bool isValid
-    );
+    function getLatestPrice(bytes32 feedId)
+        external
+        view
+        returns (uint256 price, uint256 confidence, uint256 timestamp, bool isValid);
 
     function getConsensusPrice(bytes32 feedId) external view returns (ConsensusPrice memory);
 

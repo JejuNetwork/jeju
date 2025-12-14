@@ -87,12 +87,7 @@ contract XLPRouterTest is Test, IXLPV3MintCallback {
         weth = new MockWETH();
         v2Factory = new XLPV2Factory(address(this));
         v3Factory = new XLPV3Factory();
-        router = new XLPRouter(
-            address(v2Factory),
-            address(v3Factory),
-            address(weth),
-            address(this)
-        );
+        router = new XLPRouter(address(v2Factory), address(v3Factory), address(weth), address(this));
 
         // Deploy tokens
         tokenA = new TestERC20("Token A", "TKA", 18);
@@ -180,13 +175,7 @@ contract XLPRouterTest is Test, IXLPV3MintCallback {
         uint256[] memory amounts = router.getAmountsOutV2(swapAmount, path);
         uint256 balanceCBefore = tokenC.balanceOf(alice);
 
-        router.swapExactTokensForTokensV2(
-            swapAmount,
-            amounts[2] * 99 / 100,
-            path,
-            alice,
-            block.timestamp + 1 hours
-        );
+        router.swapExactTokensForTokensV2(swapAmount, amounts[2] * 99 / 100, path, alice, block.timestamp + 1 hours);
         vm.stopPrank();
 
         assertEq(tokenC.balanceOf(alice), balanceCBefore + amounts[2], "Multi-hop output mismatch");
@@ -239,7 +228,7 @@ contract XLPRouterTest is Test, IXLPV3MintCallback {
             block.timestamp + 1 hours,
             swapAmount,
             0, // min amount out
-            0  // no price limit
+            0 // no price limit
         );
         vm.stopPrank();
 
@@ -261,7 +250,7 @@ contract XLPRouterTest is Test, IXLPV3MintCallback {
         path[0] = address(tokenA);
         path[1] = address(tokenB);
 
-        for (uint i = 0; i < testAmounts.length; i++) {
+        for (uint256 i = 0; i < testAmounts.length; i++) {
             uint256 swapAmount = testAmounts[i];
 
             // Get quote
@@ -272,13 +261,7 @@ contract XLPRouterTest is Test, IXLPV3MintCallback {
             tokenA.approve(address(router), swapAmount);
             uint256 balanceBefore = tokenB.balanceOf(alice);
 
-            router.swapExactTokensForTokensV2(
-                swapAmount,
-                0,
-                path,
-                alice,
-                block.timestamp + 1 hours
-            );
+            router.swapExactTokensForTokensV2(swapAmount, 0, path, alice, block.timestamp + 1 hours);
 
             uint256 actualOut = tokenB.balanceOf(alice) - balanceBefore;
             vm.stopPrank();
@@ -309,13 +292,7 @@ contract XLPRouterTest is Test, IXLPV3MintCallback {
 
         uint256 balanceBefore = tokenB.balanceOf(alice);
 
-        router.swapExactTokensForTokensV2(
-            amount,
-            0,
-            path,
-            alice,
-            block.timestamp + 1 hours
-        );
+        router.swapExactTokensForTokensV2(amount, 0, path, alice, block.timestamp + 1 hours);
 
         assertEq(tokenB.balanceOf(alice), balanceBefore + amounts[1]);
         vm.stopPrank();
@@ -333,13 +310,7 @@ contract XLPRouterTest is Test, IXLPV3MintCallback {
 
         // Set deadline in the past
         vm.expectRevert(XLPRouter.ExpiredDeadline.selector);
-        router.swapExactTokensForTokensV2(
-            1 ether,
-            0,
-            path,
-            alice,
-            block.timestamp - 1
-        );
+        router.swapExactTokensForTokensV2(1 ether, 0, path, alice, block.timestamp - 1);
         vm.stopPrank();
     }
 
@@ -385,14 +356,7 @@ contract XLPRouterTest is Test, IXLPV3MintCallback {
         tokenA.approve(address(router), swapAmount);
 
         uint256 v3Out = router.exactInputSingleV3(
-            address(tokenA),
-            address(tokenB),
-            3000,
-            alice,
-            block.timestamp + 1 hours,
-            swapAmount,
-            0,
-            0
+            address(tokenA), address(tokenB), 3000, alice, block.timestamp + 1 hours, swapAmount, 0, 0
         );
         vm.stopPrank();
 

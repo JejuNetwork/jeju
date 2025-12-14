@@ -426,8 +426,8 @@ export function useGovernanceStats() {
 
   const refresh = useCallback(() => {
     setIsLoading(true);
-    fetchApi('/api/v1/governance/stats')
-      .then(setStats)
+    fetchApi<typeof stats>('/api/v1/governance/stats')
+      .then(data => setStats(data))
       .catch(setError)
       .finally(() => setIsLoading(false));
   }, []);

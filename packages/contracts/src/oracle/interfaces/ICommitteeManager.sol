@@ -47,37 +47,16 @@ interface ICommitteeManager {
     // ============ Events ============
 
     event CommitteeFormed(
-        bytes32 indexed feedId,
-        uint256 indexed round,
-        address[] members,
-        address leader,
-        uint256 activeUntil
+        bytes32 indexed feedId, uint256 indexed round, address[] members, address leader, uint256 activeUntil
     );
 
-    event CommitteeRotated(
-        bytes32 indexed feedId,
-        uint256 indexed oldRound,
-        uint256 indexed newRound
-    );
+    event CommitteeRotated(bytes32 indexed feedId, uint256 indexed oldRound, uint256 indexed newRound);
 
-    event MemberAdded(
-        bytes32 indexed feedId,
-        uint256 indexed round,
-        address indexed member
-    );
+    event MemberAdded(bytes32 indexed feedId, uint256 indexed round, address indexed member);
 
-    event MemberRemoved(
-        bytes32 indexed feedId,
-        uint256 indexed round,
-        address indexed member,
-        string reason
-    );
+    event MemberRemoved(bytes32 indexed feedId, uint256 indexed round, address indexed member, string reason);
 
-    event LeaderRotated(
-        bytes32 indexed feedId,
-        uint256 indexed round,
-        address indexed newLeader
-    );
+    event LeaderRotated(bytes32 indexed feedId, uint256 indexed round, address indexed newLeader);
 
     event CommitteeConfigUpdated(bytes32 indexed feedId);
 

@@ -29,7 +29,7 @@ async function checkPackageOverrides(): Promise<void> {
     const overrides = packageJson.overrides || {};
     const resolutions = packageJson.resolutions || {};
     
-    const requiredOverrides = ['qs', 'socket.io-parser', 'hawk', 'playwright', '@hapi/hoek'];
+    const requiredOverrides = ['qs', 'socket.io-parser', 'hawk', 'playwright', '@hapi/hoek', 'tough-cookie', 'node-fetch'];
     const missing: string[] = [];
     
     for (const pkg of requiredOverrides) {

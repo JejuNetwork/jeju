@@ -10,7 +10,6 @@ import {IPerpetualMarket} from "../../src/perps/interfaces/IPerpetualMarket.sol"
 /// @notice Stress tests for perpetual futures trading
 /// @dev Tests multi-trader scenarios, price volatility, and edge cases
 contract PerpsStressTest is PerpsTestBase {
-
     uint256 constant NUM_TRADERS = 50;
     uint256 constant POSITIONS_PER_TRADER = 5;
     uint256 constant BASE_MARGIN = 1_000 ether; // 1000 USDC (18 decimals)
@@ -36,7 +35,7 @@ contract PerpsStressTest is PerpsTestBase {
         bytes32[][] memory positions = new bytes32[][](NUM_TRADERS);
         for (uint256 i = 0; i < NUM_TRADERS; i++) {
             positions[i] = new bytes32[](POSITIONS_PER_TRADER);
-            
+
             for (uint256 j = 0; j < POSITIONS_PER_TRADER; j++) {
                 bytes32 marketId = j % 2 == 0 ? BTC_PERP : ETH_PERP;
                 uint256 margin = BASE_MARGIN * (j + 1);
@@ -64,7 +63,7 @@ contract PerpsStressTest is PerpsTestBase {
         // Check that half the traders (longs on BTC) are profitable
         uint256 profitableCount = 0;
         uint256 unprofitableCount = 0;
-        
+
         for (uint256 i = 0; i < NUM_TRADERS; i++) {
             for (uint256 j = 0; j < POSITIONS_PER_TRADER; j++) {
                 int256 pnl = getUnrealizedPnl(positions[i][j]);
@@ -99,24 +98,24 @@ contract PerpsStressTest is PerpsTestBase {
 
         // Simulate 24-hour volatility with 20% range
         uint256[] memory priceSteps = new uint256[](10);
-        priceSteps[0] = 51_000e8;  // +2%
-        priceSteps[1] = 49_000e8;  // -2%
-        priceSteps[2] = 47_500e8;  // -5%
-        priceSteps[3] = 52_000e8;  // +4%
-        priceSteps[4] = 55_000e8;  // +10%
-        priceSteps[5] = 48_000e8;  // -4%
-        priceSteps[6] = 46_000e8;  // -8%
-        priceSteps[7] = 50_000e8;  // 0%
-        priceSteps[8] = 54_000e8;  // +8%
-        priceSteps[9] = 52_500e8;  // +5% final
+        priceSteps[0] = 51_000e8; // +2%
+        priceSteps[1] = 49_000e8; // -2%
+        priceSteps[2] = 47_500e8; // -5%
+        priceSteps[3] = 52_000e8; // +4%
+        priceSteps[4] = 55_000e8; // +10%
+        priceSteps[5] = 48_000e8; // -4%
+        priceSteps[6] = 46_000e8; // -8%
+        priceSteps[7] = 50_000e8; // 0%
+        priceSteps[8] = 54_000e8; // +8%
+        priceSteps[9] = 52_500e8; // +5% final
 
         int256 prevPnl = 0;
         for (uint256 i = 0; i < priceSteps.length; i++) {
             setBtcPrice(priceSteps[i]);
-            
+
             (bool canLiq,) = perpMarket.isLiquidatable(positionId);
             int256 pnl = getUnrealizedPnl(positionId);
-            
+
             console.log("Step", i, "Price:", priceSteps[i] / 1e8);
             console.log("  PnL:", pnl > 0 ? uint256(pnl) : uint256(-pnl), pnl > 0 ? "(profit)" : "(loss)");
             console.log("  Liquidatable:", canLiq);
@@ -133,7 +132,7 @@ contract PerpsStressTest is PerpsTestBase {
 
         // Position should still be open at end
         assertPositionOpen(positionId);
-        
+
         // Close position with profit (final price is +5%)
         int256 finalPnl = closePosition(trader, positionId, 0.1e8);
         assertTrue(finalPnl > 0, "Should be profitable at +5%");
@@ -150,7 +149,7 @@ contract PerpsStressTest is PerpsTestBase {
         for (uint256 i = 0; i < numPairs; i++) {
             longTraders[i] = createTrader(i * 2);
             shortTraders[i] = createTrader(i * 2 + 1);
-            
+
             fundTrader(longTraders[i], 10_000e18);
             fundTrader(shortTraders[i], 10_000e18);
             depositCollateral(longTraders[i], 5_000e18);
@@ -183,7 +182,7 @@ contract PerpsStressTest is PerpsTestBase {
         // Long profits should roughly equal short losses
         assertTrue(totalLongPnl > 0, "Longs should be profitable");
         assertTrue(totalShortPnl < 0, "Shorts should be unprofitable");
-        
+
         // The sum should be close to zero (within fee margin)
         int256 netPnl = totalLongPnl + totalShortPnl;
         int256 tolerance = int256(numPairs * 100e18); // Allow for fees
@@ -254,13 +253,13 @@ contract PerpsStressTest is PerpsTestBase {
             bytes32 marketId = i % 2 == 0 ? BTC_PERP : ETH_PERP;
             uint256 margin = 1_000e18 + (i * 100e18);
             uint256 size = 0.01e8 + (i * 0.001e8);
-            
+
             if (i % 3 == 0) {
                 positions[i] = openLongPosition(trader, marketId, margin, size, 5);
             } else {
                 positions[i] = openShortPosition(trader, marketId, margin, size, 5);
             }
-            
+
             assertPositionOpen(positions[i]);
         }
 
@@ -288,17 +287,17 @@ contract PerpsStressTest is PerpsTestBase {
         // Try to open very small position - should work or revert with PositionTooSmall
         vm.startPrank(trader);
         usdc.approve(address(perpMarket), 100e18);
-        
+
         // Small but valid position
         IPerpetualMarket.TradeResult memory result = perpMarket.openPosition(
             BTC_PERP,
             address(usdc),
-            100e18,    // $100 margin
-            0.001e8,  // 0.001 BTC (~$50 notional at $50k)
+            100e18, // $100 margin
+            0.001e8, // 0.001 BTC (~$50 notional at $50k)
             IPerpetualMarket.PositionSide.Long,
             5
         );
-        
+
         assertTrue(result.positionId != bytes32(0), "Small position should be created");
         vm.stopPrank();
     }
@@ -309,4 +308,3 @@ contract PerpsStressTest is PerpsTestBase {
         return address(uint160(1000 + index));
     }
 }
-

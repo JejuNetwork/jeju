@@ -368,9 +368,9 @@ export async function processStorageEvents(ctx: ProcessorContext<Store>): Promis
   
   // Save all entities
   await ctx.store.upsert(accountFactory.getAll());
-  await ctx.store.upsert(Array.from(providers.values()));
-  await ctx.store.upsert(Array.from(deals.values()));
-  await ctx.store.upsert(Array.from(balances.values()));
+  await ctx.store.upsert([...providers.values()]);
+  await ctx.store.upsert([...deals.values()]);
+  await ctx.store.upsert([...balances.values()]);
   if (stats) {
     await ctx.store.upsert([stats]);
   }

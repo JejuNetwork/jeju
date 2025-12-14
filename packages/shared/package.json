@@ -1,7 +1,7 @@
 {
   "name": "@jeju/shared",
   "version": "1.0.0",
-  "description": "Shared hooks, components, and APIs for Jeju apps",
+  "description": "Shared hooks, components, APIs, database layer, and cryptography for Jeju apps",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
@@ -9,11 +9,20 @@
     "./hooks/useBanStatus": "./src/hooks/useBanStatus.ts",
     "./components/BanBanner": "./src/components/BanBanner.tsx",
     "./api/moderation": "./src/api/moderation.ts",
-    "./health-middleware": "./src/health-middleware.ts"
+    "./health-middleware": "./src/health-middleware.ts",
+    "./db": "./src/db/index.ts",
+    "./db/covenant-sql": "./src/db/covenant-sql.ts",
+    "./db/migration": "./src/db/migration.ts",
+    "./db/typeorm-driver": "./src/db/typeorm-driver.ts",
+    "./crypto": "./src/crypto/index.ts",
+    "./crypto/mpc-custody": "./src/crypto/mpc-custody.ts",
+    "./crypto/hsm-integration": "./src/crypto/hsm-integration.ts"
+  },
+  "dependencies": {
+    "viem": "^2.0.0"
   },
   "peerDependencies": {
     "react": "^18.0.0",
-    "viem": "^2.0.0",
     "hono": "^4.0.0"
   },
   "devDependencies": {

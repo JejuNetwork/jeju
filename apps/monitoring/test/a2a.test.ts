@@ -5,6 +5,11 @@
 
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
 import { spawn, type ChildProcess } from 'child_process';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const A2A_PORT = 9091;
 const A2A_URL = `http://localhost:${A2A_PORT}`;
@@ -30,25 +35,95 @@ let serverProcess: ChildProcess | null = null;
 let serverAvailable = false;
 
 async function checkServerAvailable(): Promise<boolean> {
-  const response = await fetch(`${A2A_URL}/.well-known/agent-card.json`).catch(() => null);
-  return response?.ok ?? false;
+  try {
+    const response = await fetch(`${A2A_URL}/.well-known/agent-card.json`, {
+      signal: AbortSignal.timeout(2000)
+    });
+    if (!response.ok) {
+      return false;
+    }
+    const text = await response.text();
+    if (!text || text.trim() === '') {
+      return false;
+    }
+    // Verify it's valid JSON
+    try {
+      const data = JSON.parse(text);
+      return data && typeof data === 'object' && data.protocolVersion !== undefined;
+    } catch {
+      return false;
+    }
+  } catch {
+    return false;
+  }
 }
 
 beforeAll(async () => {
   console.log('🚀 Starting A2A server...');
-  serverProcess = spawn('bun', ['server/a2a.ts'], {
-    cwd: process.cwd(),
-    env: { ...process.env, PROMETHEUS_URL: 'http://localhost:9090' },
-    stdio: 'pipe'
-  });
-
-  await new Promise((resolve) => setTimeout(resolve, 2000));
-  serverAvailable = await checkServerAvailable();
   
+  // Check if server is already running
+  serverAvailable = await checkServerAvailable();
   if (serverAvailable) {
-    console.log('✅ A2A server started successfully');
-  } else {
+    console.log('✅ A2A server already running');
+    return;
+  }
+  
+  // Start the server - use absolute path to avoid issues
+  const { join } = await import('path');
+  const { existsSync } = await import('fs');
+  const monitoringDir = join(__dirname, '..');
+  const serverPath = join(monitoringDir, 'server', 'a2a.ts');
+  
+  if (!existsSync(serverPath)) {
+    console.log(`⚠️  A2A server file not found at ${serverPath}`);
+    return;
+  }
+  
+  try {
+    serverProcess = spawn('bun', [serverPath], {
+      cwd: monitoringDir,
+      env: { ...process.env, PROMETHEUS_URL: 'http://localhost:9090' },
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+
+    // Collect stderr for error reporting
+    let stderrBuffer = '';
+    if (serverProcess.stderr) {
+      serverProcess.stderr.on('data', (data: Buffer) => {
+        stderrBuffer += data.toString();
+      });
+    }
+
+    // Wait for server to be ready (with retries)
+    let retries = 30; // Increased retries for slower startup
+    while (retries > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      serverAvailable = await checkServerAvailable();
+      if (serverAvailable) {
+        console.log('✅ A2A server started successfully');
+        return;
+      }
+      retries--;
+    }
+    
+    // Check for startup errors
+    if (serverProcess && !serverProcess.killed) {
+      if (stderrBuffer) {
+        console.error('❌ A2A server startup error:', stderrBuffer.substring(0, 500));
+      }
+      // Try to get exit code
+      const exitCode = serverProcess.exitCode;
+      if (exitCode !== null && exitCode !== 0) {
+        console.error(`❌ A2A server exited with code ${exitCode}`);
+      }
+    }
+  } catch (error) {
+    console.error(`❌ Failed to start A2A server: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  
+  if (!serverAvailable) {
     console.log('⚠️ A2A server not available - tests will be skipped');
+    console.log('   Make sure Prometheus is running on http://localhost:9090');
   }
 });
 

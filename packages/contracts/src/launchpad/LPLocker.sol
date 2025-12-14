@@ -32,7 +32,9 @@ contract LPLocker is ReentrancyGuard, Ownable {
     mapping(address => bool) public authorizedLockers;
     mapping(address => uint256) public totalLocked;
 
-    event Locked(uint256 indexed lockId, address indexed lpToken, address indexed beneficiary, uint256 amount, uint256 unlockTime);
+    event Locked(
+        uint256 indexed lockId, address indexed lpToken, address indexed beneficiary, uint256 amount, uint256 unlockTime
+    );
     event Withdrawn(uint256 indexed lockId, address indexed lpToken, address indexed beneficiary, uint256 amount);
     event LockExtended(uint256 indexed lockId, uint256 oldUnlockTime, uint256 newUnlockTime);
     event AuthorizedLockerUpdated(address indexed locker, bool authorized);
@@ -49,9 +51,11 @@ contract LPLocker is ReentrancyGuard, Ownable {
         authorizedLockers[_owner] = true;
     }
 
-    function lock(
-        IERC20 lpToken, uint256 amount, address beneficiary, uint256 duration
-    ) external nonReentrant returns (uint256 lockId) {
+    function lock(IERC20 lpToken, uint256 amount, address beneficiary, uint256 duration)
+        external
+        nonReentrant
+        returns (uint256 lockId)
+    {
         if (!authorizedLockers[msg.sender] && msg.sender != owner()) revert Unauthorized();
         if (amount == 0) revert InvalidAmount();
         if (duration != PERMANENT_LOCK && (duration < MIN_LOCK_DURATION || duration > MAX_LOCK_DURATION)) {
@@ -64,8 +68,12 @@ contract LPLocker is ReentrancyGuard, Ownable {
         uint256 unlockTime = duration == PERMANENT_LOCK ? PERMANENT_LOCK : block.timestamp + duration;
 
         locks[lockId] = Lock({
-            id: lockId, lpToken: lpToken, amount: amount,
-            beneficiary: beneficiary, unlockTime: unlockTime, withdrawn: false
+            id: lockId,
+            lpToken: lpToken,
+            amount: amount,
+            beneficiary: beneficiary,
+            unlockTime: unlockTime,
+            withdrawn: false
         });
 
         beneficiaryLocks[beneficiary].push(lockId);
@@ -104,9 +112,17 @@ contract LPLocker is ReentrancyGuard, Ownable {
         emit LockExtended(lockId, oldUnlockTime, newUnlockTime);
     }
 
-    function getLock(uint256 lockId) external view returns (Lock memory) { return locks[lockId]; }
-    function getBeneficiaryLocks(address beneficiary) external view returns (uint256[] memory) { return beneficiaryLocks[beneficiary]; }
-    function getTokenLocks(address lpToken) external view returns (uint256[] memory) { return tokenLocks[lpToken]; }
+    function getLock(uint256 lockId) external view returns (Lock memory) {
+        return locks[lockId];
+    }
+
+    function getBeneficiaryLocks(address beneficiary) external view returns (uint256[] memory) {
+        return beneficiaryLocks[beneficiary];
+    }
+
+    function getTokenLocks(address lpToken) external view returns (uint256[] memory) {
+        return tokenLocks[lpToken];
+    }
 
     function isWithdrawable(uint256 lockId) external view returns (bool) {
         Lock storage lockData = locks[lockId];

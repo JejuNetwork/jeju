@@ -39,20 +39,22 @@ contract OracleInvariantTest is Test {
 
         // Create test feeds
         for (uint256 i = 0; i < 3; i++) {
-            bytes32 feedId = registry.createFeed(IFeedRegistry.FeedCreateParams({
-                symbol: string(abi.encodePacked("FEED-", vm.toString(i))),
-                baseToken: address(uint160(0x1000 + i)),
-                quoteToken: address(uint160(0x2000 + i)),
-                decimals: 8,
-                heartbeatSeconds: 3600,
-                twapWindowSeconds: 1800,
-                minLiquidityUSD: 100_000 ether,
-                maxDeviationBps: 100,
-                minOracles: 3,
-                quorumThreshold: 2,
-                requiresConfidence: true,
-                category: IFeedRegistry.FeedCategory.SPOT_PRICE
-            }));
+            bytes32 feedId = registry.createFeed(
+                IFeedRegistry.FeedCreateParams({
+                    symbol: string(abi.encodePacked("FEED-", vm.toString(i))),
+                    baseToken: address(uint160(0x1000 + i)),
+                    quoteToken: address(uint160(0x2000 + i)),
+                    decimals: 8,
+                    heartbeatSeconds: 3600,
+                    twapWindowSeconds: 1800,
+                    minLiquidityUSD: 100_000 ether,
+                    maxDeviationBps: 100,
+                    minOracles: 3,
+                    quorumThreshold: 2,
+                    requiresConfidence: true,
+                    category: IFeedRegistry.FeedCategory.SPOT_PRICE
+                })
+            );
             feedIds.push(feedId);
         }
 
@@ -82,11 +84,7 @@ contract OracleInvariantTest is Test {
         uint256 maxDeviation = operatorHandler.ghost_maxPriceDeviation();
         uint256 circuitBreakerBps = 2000; // 20%
 
-        assertLe(
-            maxDeviation,
-            circuitBreakerBps,
-            "Price deviation exceeded circuit breaker"
-        );
+        assertLe(maxDeviation, circuitBreakerBps, "Price deviation exceeded circuit breaker");
     }
 
     /// @notice All stored prices must be positive
@@ -94,7 +92,7 @@ contract OracleInvariantTest is Test {
         for (uint256 i = 0; i < feedIds.length; i++) {
             bytes32 feedId = feedIds[i];
             uint256 price = operatorHandler.ghost_lastPrice(feedId);
-            
+
             // Price of 0 is only valid if never updated
             if (operatorHandler.ghost_lastUpdateTime(feedId) > 0) {
                 assertGt(price, 0, "Stored price is zero");
@@ -109,7 +107,7 @@ contract OracleInvariantTest is Test {
         for (uint256 i = 0; i < feedIds.length; i++) {
             bytes32 feedId = feedIds[i];
             uint256 round = verifier.getCurrentRound(feedId);
-            
+
             // Round should never decrease (this is implicitly enforced by storage)
             assertGe(round, 0, "Round went negative");
         }
@@ -125,11 +123,7 @@ contract OracleInvariantTest is Test {
         // Rewards come from bonds + protocol funds, so this can be exceeded
         // But the system should always have funds to pay rewards
         uint256 disputeGameBalance = address(disputeGame).balance;
-        assertGe(
-            disputeGameBalance + totalBonds,
-            0,
-            "Dispute game insolvent"
-        );
+        assertGe(disputeGameBalance + totalBonds, 0, "Dispute game insolvent");
     }
 
     /// @notice Open disputes + resolved disputes == total disputes opened
@@ -138,11 +132,7 @@ contract OracleInvariantTest is Test {
         uint256 openCount = disputerHandler.getOpenDisputeCount();
         uint256 resolvedCount = disputerHandler.getResolvedDisputeCount();
 
-        assertEq(
-            openCount + resolvedCount,
-            opened,
-            "Dispute count mismatch"
-        );
+        assertEq(openCount + resolvedCount, opened, "Dispute count mismatch");
     }
 
     /// @notice No duplicate disputes for same report
@@ -155,10 +145,7 @@ contract OracleInvariantTest is Test {
             for (uint256 j = i + 1; j < activeDisputes.length; j++) {
                 IDisputeGame.Dispute memory dispute2 = disputeGame.getDispute(activeDisputes[j]);
 
-                assertTrue(
-                    dispute1.reportHash != dispute2.reportHash,
-                    "Duplicate dispute for same report"
-                );
+                assertTrue(dispute1.reportHash != dispute2.reportHash, "Duplicate dispute for same report");
             }
         }
     }
@@ -169,7 +156,7 @@ contract OracleInvariantTest is Test {
     function invariant_trackAcceptanceRate() public view {
         uint256 submitted = operatorHandler.totalReportsSubmitted();
         uint256 accepted = operatorHandler.totalReportsAccepted();
-        
+
         // This is informational - high rejection rate may indicate:
         // 1. Round sequencing issues
         // 2. Timing constraints
@@ -197,9 +184,9 @@ contract OracleInvariantTest is Test {
     function invariant_feedsRemainValid() public view {
         for (uint256 i = 0; i < feedIds.length; i++) {
             bytes32 feedId = feedIds[i];
-            
+
             assertTrue(registry.feedExists(feedId), "Feed disappeared");
-            
+
             IFeedRegistry.FeedSpec memory spec = registry.getFeed(feedId);
             assertGt(spec.heartbeatSeconds, 0, "Invalid heartbeat");
             assertGt(spec.quorumThreshold, 0, "Invalid quorum");

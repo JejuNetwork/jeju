@@ -18,7 +18,9 @@ contract MockWETH9 {
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
 
-    receive() external payable { deposit(); }
+    receive() external payable {
+        deposit();
+    }
 
     function deposit() public payable {
         balanceOf[msg.sender] += msg.value;
@@ -62,7 +64,7 @@ contract LaunchpadSimulationTest is Test {
     address public owner = address(0x1);
     address public creator = address(0x2);
     address public communityVault = address(0x5);
-    
+
     // Multiple participants for realistic simulation
     address[] public buyers;
     uint256 constant NUM_BUYERS = 10;
@@ -87,13 +89,8 @@ contract LaunchpadSimulationTest is Test {
         lpLockerTemplate = new LPLocker(owner);
 
         vm.prank(owner);
-        launchpad = new TokenLaunchpad(
-            address(xlpFactory),
-            address(weth),
-            address(lpLockerTemplate),
-            communityVault,
-            owner
-        );
+        launchpad =
+            new TokenLaunchpad(address(xlpFactory), address(weth), address(lpLockerTemplate), communityVault, owner);
     }
 
     // =========================================================================
@@ -133,12 +130,12 @@ contract LaunchpadSimulationTest is Test {
         address seller = buyers[0];
         uint256 sellerBalance = IERC20(tokenAddress).balanceOf(seller);
         uint256 toSell = sellerBalance / 2;
-        
+
         vm.startPrank(seller);
         IERC20(tokenAddress).approve(address(curve), toSell);
         uint256 ethReceived = curve.sell(toSell, 0);
         vm.stopPrank();
-        
+
         assertGt(ethReceived, 0);
 
         // 4. More buying to trigger graduation
@@ -176,7 +173,7 @@ contract LaunchpadSimulationTest is Test {
 
         // Simulate realistic trading - each buyer buys incrementally
         uint256[] memory tokensHeld = new uint256[](NUM_BUYERS);
-        
+
         for (uint256 round = 0; round < 3; round++) {
             for (uint256 i = 0; i < NUM_BUYERS && !curve.graduated(); i++) {
                 uint256 buyAmount = 0.5 ether + (i * 0.1 ether);
@@ -232,7 +229,7 @@ contract LaunchpadSimulationTest is Test {
         IERC20(tokenAddress).approve(address(curve), toSell);
         curve.sell(toSell, 0);
         vm.stopPrank();
-        
+
         uint256 price4 = curve.getCurrentPrice();
         assertLt(price4, price3, "Price should decrease after sell");
     }
@@ -406,7 +403,10 @@ contract LaunchpadSimulationTest is Test {
         // 100% creator
         vm.prank(creator);
         (uint256 id1,) = launchpad.launchBondingCurve(
-            "All Creator", "AC", 10000, address(0),
+            "All Creator",
+            "AC",
+            10000,
+            address(0),
             TokenLaunchpad.BondingCurveConfig({
                 virtualEthReserves: 10 ether,
                 graduationTarget: 20 ether,
@@ -420,7 +420,10 @@ contract LaunchpadSimulationTest is Test {
         // 100% community
         vm.prank(creator);
         (uint256 id2,) = launchpad.launchBondingCurve(
-            "All Community", "ACO", 0, address(0),
+            "All Community",
+            "ACO",
+            0,
+            address(0),
             TokenLaunchpad.BondingCurveConfig({
                 virtualEthReserves: 10 ether,
                 graduationTarget: 20 ether,
@@ -434,7 +437,10 @@ contract LaunchpadSimulationTest is Test {
         // 50/50 split
         vm.prank(creator);
         (uint256 id3,) = launchpad.launchBondingCurve(
-            "Half Half", "HH", 5000, address(0),
+            "Half Half",
+            "HH",
+            5000,
+            address(0),
             TokenLaunchpad.BondingCurveConfig({
                 virtualEthReserves: 10 ether,
                 graduationTarget: 20 ether,
@@ -451,7 +457,10 @@ contract LaunchpadSimulationTest is Test {
 
         vm.prank(creator);
         (uint256 launchId,) = launchpad.launchBondingCurve(
-            "Custom Vault", "CV", 5000, customVault,
+            "Custom Vault",
+            "CV",
+            5000,
+            customVault,
             TokenLaunchpad.BondingCurveConfig({
                 virtualEthReserves: 10 ether,
                 graduationTarget: 20 ether,
@@ -470,7 +479,11 @@ contract LaunchpadSimulationTest is Test {
     function test_LPLockerWithICO() public {
         vm.prank(creator);
         (uint256 launchId,) = launchpad.launchICO(
-            "Locked ICO", "LOCK", TOKEN_SUPPLY, 8000, address(0),
+            "Locked ICO",
+            "LOCK",
+            TOKEN_SUPPLY,
+            8000,
+            address(0),
             TokenLaunchpad.ICOConfig({
                 presaleAllocationBps: 3000,
                 presalePrice: 0.000001 ether,
@@ -531,7 +544,11 @@ contract LaunchpadSimulationTest is Test {
     function test_MinMaxContributions() public {
         vm.prank(creator);
         (uint256 launchId,) = launchpad.launchICO(
-            "Limits Test", "LIM", TOKEN_SUPPLY, 8000, address(0),
+            "Limits Test",
+            "LIM",
+            TOKEN_SUPPLY,
+            8000,
+            address(0),
             TokenLaunchpad.ICOConfig({
                 presaleAllocationBps: 3000,
                 presalePrice: 0.000001 ether,
@@ -565,7 +582,11 @@ contract LaunchpadSimulationTest is Test {
     function test_HardCapEnforced() public {
         vm.prank(creator);
         (uint256 launchId,) = launchpad.launchICO(
-            "Hard Cap", "HARD", TOKEN_SUPPLY, 8000, address(0),
+            "Hard Cap",
+            "HARD",
+            TOKEN_SUPPLY,
+            8000,
+            address(0),
             TokenLaunchpad.ICOConfig({
                 presaleAllocationBps: 3000,
                 presalePrice: 0.000001 ether,
@@ -629,7 +650,10 @@ contract LaunchpadSimulationTest is Test {
     function test_BuySlippageProtection() public {
         vm.prank(creator);
         (uint256 launchId,) = launchpad.launchBondingCurve(
-            "Slippage Test", "SLIP", 8000, address(0),
+            "Slippage Test",
+            "SLIP",
+            8000,
+            address(0),
             TokenLaunchpad.BondingCurveConfig({
                 virtualEthReserves: 10 ether,
                 graduationTarget: 50 ether,
@@ -657,7 +681,10 @@ contract LaunchpadSimulationTest is Test {
     function test_SellSlippageProtection() public {
         vm.prank(creator);
         (uint256 launchId, address tokenAddress) = launchpad.launchBondingCurve(
-            "Slippage Test", "SLIP", 8000, address(0),
+            "Slippage Test",
+            "SLIP",
+            8000,
+            address(0),
             TokenLaunchpad.BondingCurveConfig({
                 virtualEthReserves: 10 ether,
                 graduationTarget: 50 ether,
@@ -695,7 +722,10 @@ contract LaunchpadSimulationTest is Test {
     function test_ConcurrentBuysSameBlock() public {
         vm.prank(creator);
         (uint256 launchId,) = launchpad.launchBondingCurve(
-            "Concurrent", "CONC", 8000, address(0),
+            "Concurrent",
+            "CONC",
+            8000,
+            address(0),
             TokenLaunchpad.BondingCurveConfig({
                 virtualEthReserves: 20 ether,
                 graduationTarget: 50 ether,
@@ -727,7 +757,10 @@ contract LaunchpadSimulationTest is Test {
     function test_ViewFunctions() public {
         vm.prank(creator);
         (uint256 launchId, address tokenAddress) = launchpad.launchBondingCurve(
-            "View Test", "VIEW", 7500, communityVault,
+            "View Test",
+            "VIEW",
+            7500,
+            communityVault,
             TokenLaunchpad.BondingCurveConfig({
                 virtualEthReserves: 10 ether,
                 graduationTarget: 20 ether,

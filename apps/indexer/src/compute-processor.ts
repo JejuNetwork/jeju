@@ -449,19 +449,19 @@ export async function processComputeEvents(ctx: ProcessorContext<Store>): Promis
   await ctx.store.upsert(accountFactory.getAll());
   
   if (providers.size > 0) {
-    await ctx.store.upsert(Array.from(providers.values()));
+    await ctx.store.upsert([...providers.values()]);
   }
   if (resources.size > 0) {
-    await ctx.store.upsert(Array.from(resources.values()));
+    await ctx.store.upsert([...resources.values()]);
   }
   if (rentals.size > 0) {
-    await ctx.store.upsert(Array.from(rentals.values()));
+    await ctx.store.upsert([...rentals.values()]);
   }
   if (inferenceRequests.size > 0) {
-    await ctx.store.upsert(Array.from(inferenceRequests.values()));
+    await ctx.store.upsert([...inferenceRequests.values()]);
   }
   if (balances.size > 0) {
-    await ctx.store.upsert(Array.from(balances.values()));
+    await ctx.store.upsert([...balances.values()]);
   }
 
   // Update global stats

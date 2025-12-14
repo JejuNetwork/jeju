@@ -53,12 +53,16 @@ const CHAINS: [number, Chain, string][] = [
 
 const FILL_GAS = 150_000n;
 const PRICE_STALE_MS = 5 * 60 * 1000;
+const PRICE_EMERGENCY_STALE_MS = 60 * 60 * 1000; // 1 hour - use cached price if all APIs fail
+const FALLBACK_ETH_PRICE_USD = 3500; // Emergency fallback if no price available
+const COINGECKO_RATE_LIMIT_BACKOFF_MS = 60_000; // Wait 1 min after 429
 
 export class StrategyEngine {
   private config: StrategyConfig;
   private clients = new Map<number, PublicClient>();
-  private ethPriceUsd = 0;
+  private ethPriceUsd = FALLBACK_ETH_PRICE_USD; // Start with fallback
   private priceUpdatedAt = 0;
+  private lastCoinGecko429At = 0;
 
   constructor(config: StrategyConfig) {
     this.config = config;
@@ -77,7 +81,7 @@ export class StrategyEngine {
   }
 
   private async refreshPrices(): Promise<void> {
-    // Try Chainlink first (mainnet only)
+    // Try Chainlink first (most reliable)
     const client = this.clients.get(1);
     if (client) {
       const result = await client.readContract({
@@ -95,15 +99,26 @@ export class StrategyEngine {
       }
     }
 
-    // Fallback: CoinGecko API
-    const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd').catch((err: Error) => {
+    // Skip CoinGecko if we were rate-limited recently
+    const now = Date.now();
+    if (now - this.lastCoinGecko429At < COINGECKO_RATE_LIMIT_BACKOFF_MS) {
+      return; // Use cached price
+    }
+
+    const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd', {
+      signal: AbortSignal.timeout(5000),
+    }).catch((err: Error) => {
       console.warn(`[strategy] CoinGecko API failed: ${err.message}`);
       return null;
     });
+    
     if (res?.ok) {
       const data = await res.json() as { ethereum: { usd: number } };
       this.ethPriceUsd = data.ethereum.usd;
-      this.priceUpdatedAt = Date.now();
+      this.priceUpdatedAt = now;
+    } else if (res?.status === 429) {
+      this.lastCoinGecko429At = now;
+      console.warn(`[strategy] CoinGecko rate limited, backing off for ${COINGECKO_RATE_LIMIT_BACKOFF_MS / 1000}s`);
     } else if (res) {
       console.warn(`[strategy] CoinGecko returned ${res.status}`);
     }
@@ -113,8 +128,10 @@ export class StrategyEngine {
     if (this.isPriceStale()) {
       console.warn('⚠️ ETH price stale, refreshing...');
       await this.refreshPrices();
-      if (this.isPriceStale()) {
-        return { profitable: false, expectedProfitBps: 0, reason: 'Price feed unavailable' };
+      // Only reject if price is emergency stale (>1 hour old)
+      // Use cached price for normal staleness during API outages
+      if (this.isPriceEmergencyStale()) {
+        return { profitable: false, expectedProfitBps: 0, reason: 'Price feed unavailable (>1h stale)' };
       }
     }
 
@@ -152,6 +169,15 @@ export class StrategyEngine {
   }
 
   isPriceStale(): boolean {
-    return Date.now() - this.priceUpdatedAt > PRICE_STALE_MS;
+    const age = Date.now() - this.priceUpdatedAt;
+    // If we have never successfully fetched a price, consider it stale
+    if (this.priceUpdatedAt === 0) return true;
+    // Normal staleness check
+    return age > PRICE_STALE_MS;
+  }
+
+  isPriceEmergencyStale(): boolean {
+    // Even cached prices become unusable after 1 hour
+    return Date.now() - this.priceUpdatedAt > PRICE_EMERGENCY_STALE_MS;
   }
 }

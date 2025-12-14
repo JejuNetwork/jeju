@@ -34,6 +34,7 @@
     "clean": "rm -rf dist out cache demo-output test-results"
   },
   "dependencies": {
+    "@jeju/kms": "workspace:*",
     "arweave": "^1.15.7",
     "ethers": "^6.13.0",
     "gpt-tokenizer": "^3.4.0",

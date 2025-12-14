@@ -49,7 +49,8 @@ exclude_lints = [
 
 [fuzz]
 runs = 256
-fs_permissions = [{ access = "read-write", path = "./deployments" }, { access = "read", path = "./" }]
+
+fs_permissions = [{ access = "read-write", path = "./deployments" }, { access = "read-write", path = "./broadcast" }, { access = "read", path = "./" }]
 
 # Remappings
 remappings = [

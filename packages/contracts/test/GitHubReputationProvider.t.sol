@@ -29,12 +29,8 @@ contract GitHubReputationProviderTest is Test {
         address derivedOracle = vm.addr(oraclePrivateKey);
 
         // Deploy provider
-        provider = new GitHubReputationProvider(
-            address(validationRegistry),
-            address(identityRegistry),
-            derivedOracle,
-            owner
-        );
+        provider =
+            new GitHubReputationProvider(address(validationRegistry), address(identityRegistry), derivedOracle, owner);
 
         vm.stopPrank();
 
@@ -54,36 +50,18 @@ contract GitHubReputationProviderTest is Test {
         // Create attestation hash
         bytes32 attestationHash = keccak256(
             abi.encodePacked(
-                user1,
-                agentId,
-                score,
-                totalScore,
-                mergedPrs,
-                totalCommits,
-                timestamp,
-                block.chainid,
-                address(provider)
+                user1, agentId, score, totalScore, mergedPrs, totalCommits, timestamp, block.chainid, address(provider)
             )
         );
 
         // Sign with oracle
-        bytes32 ethSignedHash = keccak256(
-            abi.encodePacked("\x19Ethereum Signed Message:\n32", attestationHash)
-        );
+        bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", attestationHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(oraclePrivateKey, ethSignedHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
         // Submit attestation
         vm.prank(user1);
-        provider.submitAttestation(
-            agentId,
-            score,
-            totalScore,
-            mergedPrs,
-            totalCommits,
-            timestamp,
-            signature
-        );
+        provider.submitAttestation(agentId, score, totalScore, mergedPrs, totalCommits, timestamp, signature);
 
         // Verify attestation stored
         (uint8 storedScore, bool isValid, uint256 lastUpdated) = provider.getAgentReputation(agentId);
@@ -105,24 +83,12 @@ contract GitHubReputationProviderTest is Test {
         uint256 timestamp = block.timestamp;
 
         // Create fake signature
-        bytes memory fakeSignature = abi.encodePacked(
-            keccak256("fake_r"),
-            keccak256("fake_s"),
-            uint8(27)
-        );
+        bytes memory fakeSignature = abi.encodePacked(keccak256("fake_r"), keccak256("fake_s"), uint8(27));
 
         // Should revert
         vm.prank(user1);
         vm.expectRevert(GitHubReputationProvider.InvalidSignature.selector);
-        provider.submitAttestation(
-            agentId,
-            score,
-            totalScore,
-            mergedPrs,
-            totalCommits,
-            timestamp,
-            fakeSignature
-        );
+        provider.submitAttestation(agentId, score, totalScore, mergedPrs, totalCommits, timestamp, fakeSignature);
     }
 
     function testRejectExpiredAttestation() public {
@@ -138,35 +104,17 @@ contract GitHubReputationProviderTest is Test {
 
         bytes32 attestationHash = keccak256(
             abi.encodePacked(
-                user1,
-                agentId,
-                score,
-                totalScore,
-                mergedPrs,
-                totalCommits,
-                timestamp,
-                block.chainid,
-                address(provider)
+                user1, agentId, score, totalScore, mergedPrs, totalCommits, timestamp, block.chainid, address(provider)
             )
         );
 
-        bytes32 ethSignedHash = keccak256(
-            abi.encodePacked("\x19Ethereum Signed Message:\n32", attestationHash)
-        );
+        bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", attestationHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(oraclePrivateKey, ethSignedHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
         vm.prank(user1);
         vm.expectRevert(GitHubReputationProvider.AttestationExpired.selector);
-        provider.submitAttestation(
-            agentId,
-            score,
-            totalScore,
-            mergedPrs,
-            totalCommits,
-            timestamp,
-            signature
-        );
+        provider.submitAttestation(agentId, score, totalScore, mergedPrs, totalCommits, timestamp, signature);
     }
 
     function testRejectNonOwner() public {
@@ -191,24 +139,14 @@ contract GitHubReputationProviderTest is Test {
             )
         );
 
-        bytes32 ethSignedHash = keccak256(
-            abi.encodePacked("\x19Ethereum Signed Message:\n32", attestationHash)
-        );
+        bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", attestationHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(oraclePrivateKey, ethSignedHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
         // user2 tries to submit for agent owned by user1
         vm.prank(user2);
         vm.expectRevert(GitHubReputationProvider.AgentNotOwned.selector);
-        provider.submitAttestation(
-            agentId,
-            score,
-            totalScore,
-            mergedPrs,
-            totalCommits,
-            timestamp,
-            signature
-        );
+        provider.submitAttestation(agentId, score, totalScore, mergedPrs, totalCommits, timestamp, signature);
     }
 
     function testStakeDiscountTiers() public {
@@ -246,7 +184,7 @@ contract GitHubReputationProviderTest is Test {
         _submitAttestationWithScore(75);
 
         // Verify it's valid
-        (uint8 score,, ) = provider.getAgentReputation(1);
+        (uint8 score,,) = provider.getAgentReputation(1);
         assertEq(score, 75);
 
         // Invalidate
@@ -254,7 +192,7 @@ contract GitHubReputationProviderTest is Test {
         provider.invalidateAttestation(user1);
 
         // Check hasReputationBoost returns false
-        (bool hasBoost, ) = provider.hasReputationBoost(user1);
+        (bool hasBoost,) = provider.hasReputationBoost(user1);
         assertFalse(hasBoost);
     }
 
@@ -267,33 +205,15 @@ contract GitHubReputationProviderTest is Test {
 
         bytes32 attestationHash = keccak256(
             abi.encodePacked(
-                user1,
-                agentId,
-                score,
-                totalScore,
-                mergedPrs,
-                totalCommits,
-                timestamp,
-                block.chainid,
-                address(provider)
+                user1, agentId, score, totalScore, mergedPrs, totalCommits, timestamp, block.chainid, address(provider)
             )
         );
 
-        bytes32 ethSignedHash = keccak256(
-            abi.encodePacked("\x19Ethereum Signed Message:\n32", attestationHash)
-        );
+        bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", attestationHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(oraclePrivateKey, ethSignedHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
         vm.prank(user1);
-        provider.submitAttestation(
-            agentId,
-            score,
-            totalScore,
-            mergedPrs,
-            totalCommits,
-            timestamp,
-            signature
-        );
+        provider.submitAttestation(agentId, score, totalScore, mergedPrs, totalCommits, timestamp, signature);
     }
 }

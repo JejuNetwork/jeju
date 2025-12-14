@@ -26,7 +26,9 @@ interface ICloudServiceRegistry {
  */
 interface ICreditManager {
     function deductCredit(address user, address token, uint256 amount) external;
-    function tryDeductCredit(address user, address token, uint256 amount) external returns (bool success, uint256 remaining);
+    function tryDeductCredit(address user, address token, uint256 amount)
+        external
+        returns (bool success, uint256 remaining);
     function balances(address user, address token) external view returns (uint256);
     function hasSufficientCredit(address user, address token, uint256 amount) external view returns (bool, uint256);
 }

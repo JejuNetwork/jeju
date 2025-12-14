@@ -25,9 +25,22 @@ import { StorageA2AServer, createStorageA2AServer } from './a2a-server';
 import { StorageMCPServer, createStorageMCPServer, createMCPRouter } from './mcp-server';
 import { StorageNodeServer, startStorageNode } from './node';
 import { createBackendManager, BackendManager } from './backends';
+import { createFullRegistryApp } from './registry';
+import { createRentalRouter, RENTAL_AGENT_CARD } from './rental-api';
+import { getCQLDatabase } from './database/cql-adapter';
 
 // Initialize backend manager with auto-detected backends
 const backendManager = createBackendManager();
+
+// Initialize container registry
+const registryApp = createFullRegistryApp({
+  storageBackend: (process.env.REGISTRY_STORAGE_BACKEND as 'ipfs' | 'arweave' | 'hybrid') ?? 'ipfs',
+  ipfsUrl: process.env.IPFS_API_URL ?? 'http://localhost:5001',
+  arweaveUrl: process.env.ARWEAVE_GATEWAY ?? 'https://arweave.net',
+  privateKey: process.env.PRIVATE_KEY,
+  paymentRecipient: process.env.REGISTRY_PAYMENT_RECIPIENT ?? process.env.X402_RECIPIENT_ADDRESS ?? '',
+  allowPublicPulls: process.env.REGISTRY_PUBLIC_PULLS === 'true',
+});
 
 // ============================================================================
 // PRODUCTION EXPORTS (100% PERMISSIONLESS)
@@ -58,8 +71,17 @@ export * from './middleware/x402';
 export * from './lib/paymaster';
 export * from './lib/erc8004';
 
+// Rental API exports
+export { createRentalRouter, RENTAL_AGENT_CARD } from './rental-api';
+
+// CQL Database exports
+export { getCQLDatabase, resetCQLDatabase } from './database/cql-adapter';
+
 // Backend exports
 export * from './backends';
+
+// Container Registry exports
+export * from './registry';
 
 // ============================================================================
 // SERVER SETUP
@@ -379,6 +401,32 @@ app.get('/backends', async (c) => {
 });
 
 // ============================================================================
+// CONTAINER REGISTRY (OCI-Compatible Docker Registry)
+// ============================================================================
+
+// Mount container registry at /registry
+app.route('/registry', registryApp);
+
+// ============================================================================
+// INFRASTRUCTURE RENTAL API (Decentralized DB & Cache)
+// ============================================================================
+
+// Mount rental API at /rental
+const rentalRouter = createRentalRouter();
+app.route('/rental', rentalRouter);
+
+// Initialize CQL database adapter (if configured)
+const useCQL = process.env.USE_CQL === 'true' || process.env.CQL_BLOCK_PRODUCER_ENDPOINT;
+if (useCQL) {
+  const cqlDb = getCQLDatabase();
+  cqlDb.initialize().then(() => {
+    console.log('[Storage] CovenantSQL database initialized');
+  }).catch((e) => {
+    console.warn('[Storage] CQL init failed, using PostgreSQL fallback:', (e as Error).message);
+  });
+}
+
+// ============================================================================
 // START SERVER
 // ============================================================================
 
@@ -386,10 +434,15 @@ const PORT = parseInt(process.env.PORT || process.env.STORAGE_PORT || '3100');
 
 // Only start server if running directly
 if (import.meta.main) {
-  console.log(`🗄️  Jeju Storage Marketplace starting...`);
+  console.log(`Storage Marketplace starting...`);
   console.log(`   Port: ${PORT}`);
   console.log(`   A2A: http://localhost:${PORT}/a2a`);
+  console.log(`   MCP: http://localhost:${PORT}/mcp`);
+  console.log(`   Registry: http://localhost:${PORT}/registry/v2`);
+  console.log(`   Rental API: http://localhost:${PORT}/rental`);
   console.log(`   Agent Card: http://localhost:${PORT}/.well-known/agent-card.json`);
+  console.log(`   CQL Mode: ${useCQL ? 'enabled' : 'disabled'}`);
+  console.log(`   Cache Service: ${process.env.CACHE_SERVICE_URL ?? 'http://localhost:4015'}`);
 
   Bun.serve({
     port: PORT,

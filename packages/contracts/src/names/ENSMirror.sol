@@ -28,14 +28,14 @@ contract ENSMirror is Ownable, ReentrancyGuard {
     // ============ Structs ============
 
     struct MirrorConfig {
-        bytes32 ensNode;           // ENS namehash
-        bytes32 jnsNode;           // JNS namehash
-        address owner;             // Mirror owner (pays for sync)
-        uint256 syncInterval;      // Min seconds between syncs
-        uint256 lastSyncAt;        // Last successful sync
-        bool mirrorContenthash;    // Sync contenthash
-        bool mirrorAddress;        // Sync ETH address
-        string[] textKeys;         // Text records to sync
+        bytes32 ensNode; // ENS namehash
+        bytes32 jnsNode; // JNS namehash
+        address owner; // Mirror owner (pays for sync)
+        uint256 syncInterval; // Min seconds between syncs
+        uint256 lastSyncAt; // Last successful sync
+        bool mirrorContenthash; // Sync contenthash
+        bool mirrorAddress; // Sync ETH address
+        string[] textKeys; // Text records to sync
         bool active;
         uint256 createdAt;
     }
@@ -46,7 +46,7 @@ contract ENSMirror is Ownable, ReentrancyGuard {
         address ethAddress;
         string[] textKeys;
         string[] textValues;
-        uint256 blockNumber;       // ENS state at this block
+        uint256 blockNumber; // ENS state at this block
         uint256 timestamp;
     }
 
@@ -60,16 +60,16 @@ contract ENSMirror is Ownable, ReentrancyGuard {
     IJNS public jnsRegistry;
     address public jnsResolver;
 
-    mapping(bytes32 => MirrorConfig) public mirrors;          // ensNode => config
-    mapping(bytes32 => bytes32) public ensMirrorIds;          // ensNode => mirrorId
-    mapping(bytes32 => bytes32) public jnsToEns;              // jnsNode => ensNode
+    mapping(bytes32 => MirrorConfig) public mirrors; // ensNode => config
+    mapping(bytes32 => bytes32) public ensMirrorIds; // ensNode => mirrorId
+    mapping(bytes32 => bytes32) public jnsToEns; // jnsNode => ensNode
 
     bytes32[] public allMirrorIds;
     mapping(address => bytes32[]) public ownerMirrors;
 
     mapping(address => bool) public authorizedOracles;
     uint8 public oracleQuorum = 2;
-    uint256 public minSyncInterval = 300;                     // 5 minutes
+    uint256 public minSyncInterval = 300; // 5 minutes
 
     // ENS chain config (Ethereum mainnet by default)
     uint256 public ensChainId = 1;
@@ -168,10 +168,10 @@ contract ENSMirror is Ownable, ReentrancyGuard {
      * @param report The ENS state report
      * @param signatures Oracle signatures on the report hash
      */
-    function submitSyncReport(
-        SyncReport calldata report,
-        OracleSignature[] calldata signatures
-    ) external nonReentrant {
+    function submitSyncReport(SyncReport calldata report, OracleSignature[] calldata signatures)
+        external
+        nonReentrant
+    {
         bytes32 mirrorId = ensMirrorIds[report.ensNode];
         MirrorConfig storage config = mirrors[mirrorId];
 
@@ -194,14 +194,16 @@ contract ENSMirror is Ownable, ReentrancyGuard {
             revert InsufficientQuorum(uint8(signatures.length), oracleQuorum);
         }
 
-        bytes32 reportHash = keccak256(abi.encode(
-            report.ensNode,
-            report.contenthash,
-            report.ethAddress,
-            report.textKeys,
-            report.textValues,
-            report.blockNumber
-        ));
+        bytes32 reportHash = keccak256(
+            abi.encode(
+                report.ensNode,
+                report.contenthash,
+                report.ethAddress,
+                report.textKeys,
+                report.textValues,
+                report.blockNumber
+            )
+        );
 
         uint8 validSignatures = 0;
         for (uint256 i = 0; i < signatures.length; i++) {
@@ -209,10 +211,7 @@ contract ENSMirror is Ownable, ReentrancyGuard {
                 continue;
             }
 
-            bytes32 ethSignedHash = keccak256(abi.encodePacked(
-                "\x19Ethereum Signed Message:\n32",
-                reportHash
-            ));
+            bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", reportHash));
 
             address signer = _recoverSigner(ethSignedHash, signatures[i].signature);
             if (signer == signatures[i].oracle) {
@@ -287,8 +286,7 @@ contract ENSMirror is Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < allMirrorIds.length && count < maxResults; i++) {
             MirrorConfig storage config = mirrors[allMirrorIds[i]];
             // Never synced (lastSyncAt == 0) or past sync interval
-            bool needsSync = config.lastSyncAt == 0 ||
-                             block.timestamp >= config.lastSyncAt + config.syncInterval;
+            bool needsSync = config.lastSyncAt == 0 || block.timestamp >= config.lastSyncAt + config.syncInterval;
             if (config.active && needsSync) {
                 result[count++] = allMirrorIds[i];
             }
@@ -311,11 +309,7 @@ contract ENSMirror is Ownable, ReentrancyGuard {
 
     // ============ Admin ============
 
-    function setActive(bytes32 mirrorId, bool active)
-        external
-        mirrorExists(mirrorId)
-        onlyMirrorOwner(mirrorId)
-    {
+    function setActive(bytes32 mirrorId, bool active) external mirrorExists(mirrorId) onlyMirrorOwner(mirrorId) {
         mirrors[mirrorId].active = active;
         emit MirrorUpdated(mirrorId);
     }

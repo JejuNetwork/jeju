@@ -814,10 +814,10 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
             msg.sender == owner || isApprovedForAll(owner, msg.sender) || getApproved(agentId) == msg.sender,
             "Not authorized"
         );
-        
+
         _metadata[agentId][KEY_A2A_ENDPOINT] = bytes(endpoint);
         agents[agentId].lastActivityAt = block.timestamp;
-        
+
         emit MetadataSet(agentId, KEY_A2A_ENDPOINT, KEY_A2A_ENDPOINT, bytes(endpoint));
     }
 
@@ -841,10 +841,10 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
             msg.sender == owner || isApprovedForAll(owner, msg.sender) || getApproved(agentId) == msg.sender,
             "Not authorized"
         );
-        
+
         _metadata[agentId][KEY_MCP_ENDPOINT] = bytes(endpoint);
         agents[agentId].lastActivityAt = block.timestamp;
-        
+
         emit MetadataSet(agentId, KEY_MCP_ENDPOINT, KEY_MCP_ENDPOINT, bytes(endpoint));
     }
 
@@ -863,23 +863,26 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
      * @param a2aEndpoint The A2A endpoint URL
      * @param mcpEndpoint The MCP endpoint URL
      */
-    function setEndpoints(uint256 agentId, string calldata a2aEndpoint, string calldata mcpEndpoint) external notBanned(agentId) {
+    function setEndpoints(uint256 agentId, string calldata a2aEndpoint, string calldata mcpEndpoint)
+        external
+        notBanned(agentId)
+    {
         address owner = ownerOf(agentId);
         require(
             msg.sender == owner || isApprovedForAll(owner, msg.sender) || getApproved(agentId) == msg.sender,
             "Not authorized"
         );
-        
+
         if (bytes(a2aEndpoint).length > 0) {
             _metadata[agentId][KEY_A2A_ENDPOINT] = bytes(a2aEndpoint);
             emit MetadataSet(agentId, KEY_A2A_ENDPOINT, KEY_A2A_ENDPOINT, bytes(a2aEndpoint));
         }
-        
+
         if (bytes(mcpEndpoint).length > 0) {
             _metadata[agentId][KEY_MCP_ENDPOINT] = bytes(mcpEndpoint);
             emit MetadataSet(agentId, KEY_MCP_ENDPOINT, KEY_MCP_ENDPOINT, bytes(mcpEndpoint));
         }
-        
+
         agents[agentId].lastActivityAt = block.timestamp;
     }
 
@@ -894,10 +897,10 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
             msg.sender == owner || isApprovedForAll(owner, msg.sender) || getApproved(agentId) == msg.sender,
             "Not authorized"
         );
-        
+
         _metadata[agentId][KEY_SERVICE_TYPE] = bytes(serviceType);
         agents[agentId].lastActivityAt = block.timestamp;
-        
+
         emit MetadataSet(agentId, KEY_SERVICE_TYPE, KEY_SERVICE_TYPE, bytes(serviceType));
     }
 
@@ -923,10 +926,10 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
             msg.sender == owner || isApprovedForAll(owner, msg.sender) || getApproved(agentId) == msg.sender,
             "Not authorized"
         );
-        
+
         _metadata[agentId][KEY_CATEGORY] = bytes(category);
         agents[agentId].lastActivityAt = block.timestamp;
-        
+
         emit MetadataSet(agentId, KEY_CATEGORY, KEY_CATEGORY, bytes(category));
     }
 
@@ -950,10 +953,10 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
             msg.sender == owner || isApprovedForAll(owner, msg.sender) || getApproved(agentId) == msg.sender,
             "Not authorized"
         );
-        
+
         _metadata[agentId][KEY_X402_SUPPORT] = abi.encode(supported);
         agents[agentId].lastActivityAt = block.timestamp;
-        
+
         emit MetadataSet(agentId, KEY_X402_SUPPORT, KEY_X402_SUPPORT, abi.encode(supported));
     }
 
@@ -1022,28 +1025,32 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
      * @return tier The stake tier
      * @return banned Whether the agent is banned
      */
-    function getMarketplaceInfo(uint256 agentId) external view returns (
-        string memory a2aEndpoint,
-        string memory mcpEndpoint,
-        string memory serviceType,
-        string memory category,
-        bool x402Supported,
-        StakeTier tier,
-        bool banned
-    ) {
+    function getMarketplaceInfo(uint256 agentId)
+        external
+        view
+        returns (
+            string memory a2aEndpoint,
+            string memory mcpEndpoint,
+            string memory serviceType,
+            string memory category,
+            bool x402Supported,
+            StakeTier tier,
+            bool banned
+        )
+    {
         require(_ownerOf(agentId) != address(0), "Agent does not exist");
-        
+
         a2aEndpoint = string(_metadata[agentId][KEY_A2A_ENDPOINT]);
         mcpEndpoint = string(_metadata[agentId][KEY_MCP_ENDPOINT]);
-        
+
         bytes memory typeData = _metadata[agentId][KEY_SERVICE_TYPE];
         serviceType = typeData.length > 0 ? string(typeData) : "agent";
-        
+
         category = string(_metadata[agentId][KEY_CATEGORY]);
-        
+
         bytes memory x402Data = _metadata[agentId][KEY_X402_SUPPORT];
         x402Supported = x402Data.length > 0 && abi.decode(x402Data, (bool));
-        
+
         tier = agents[agentId].tier;
         banned = agents[agentId].isBanned;
     }

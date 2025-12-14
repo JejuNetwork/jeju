@@ -132,12 +132,10 @@ contract Items is ERC1155, ERC1155Burnable, ERC1155Supply, Ownable {
      * @param _owner Contract owner (admin)
      * @dev Game must be registered in IdentityRegistry before deployment
      */
-    constructor(
-        string memory baseURI_,
-        uint256 _gameAgentId,
-        address _gameSigner,
-        address _owner
-    ) ERC1155(baseURI_) Ownable(_owner) {
+    constructor(string memory baseURI_, uint256 _gameAgentId, address _gameSigner, address _owner)
+        ERC1155(baseURI_)
+        Ownable(_owner)
+    {
         if (_gameSigner == address(0)) revert InvalidGameSigner();
         _baseURI = baseURI_;
         gameAgentId = _gameAgentId;
@@ -351,7 +349,7 @@ contract Items is ERC1155, ERC1155Burnable, ERC1155Supply, Ownable {
     function uri(uint256 itemId) public view override returns (string memory) {
         return string.concat(_baseURI, itemId.toString(), ".json");
     }
-    
+
     /**
      * @notice Update base URI for metadata
      * @param newBaseURI New base URI

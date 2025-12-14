@@ -1,0 +1,19 @@
+{
+  "$schema": "../../../packages/config/jeju-manifest.schema.json",
+  "name": "cache-service",
+  "displayName": "Jeju Cache Service",
+  "description": "Decentralized Redis cache running in TEE for fast, secure caching",
+  "version": "1.0.0",
+  "type": "service",
+  "port": 4015,
+  "healthCheck": "/health",
+  "dependencies": [],
+  "capabilities": {
+    "a2a": true,
+    "mcp": true,
+    "rest": true
+  },
+  "teeRequired": true,
+  "teeProviders": ["phala", "marlin", "oasis"]
+}
+

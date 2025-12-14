@@ -180,21 +180,43 @@ contract ICOPresale is ReentrancyGuard, Pausable {
         emit Refunded(msg.sender, refundAmount);
     }
 
-    function getContribution(address contributor) external view returns (
-        uint256 ethAmount, uint256 tokenAllocation, uint256 claimedTokens, uint256 claimable, bool isRefunded
-    ) {
+    function getContribution(address contributor)
+        external
+        view
+        returns (uint256 ethAmount, uint256 tokenAllocation, uint256 claimedTokens, uint256 claimable, bool isRefunded)
+    {
         Contribution storage c = contributions[contributor];
-        return (c.ethAmount, c.tokenAllocation, c.claimedTokens,
-            block.timestamp >= buyerClaimStart ? c.tokenAllocation - c.claimedTokens : 0, c.refunded);
+        return (
+            c.ethAmount,
+            c.tokenAllocation,
+            c.claimedTokens,
+            block.timestamp >= buyerClaimStart ? c.tokenAllocation - c.claimedTokens : 0,
+            c.refunded
+        );
     }
 
-    function getStatus() external view returns (
-        uint256 raised, uint256 participants, uint256 progress, uint256 timeRemaining,
-        bool isActive, bool isFinalized, bool isFailed
-    ) {
-        return (totalRaised, totalParticipants, config.hardCap > 0 ? (totalRaised * 10000) / config.hardCap : 0,
+    function getStatus()
+        external
+        view
+        returns (
+            uint256 raised,
+            uint256 participants,
+            uint256 progress,
+            uint256 timeRemaining,
+            bool isActive,
+            bool isFinalized,
+            bool isFailed
+        )
+    {
+        return (
+            totalRaised,
+            totalParticipants,
+            config.hardCap > 0 ? (totalRaised * 10000) / config.hardCap : 0,
             block.timestamp < presaleEnd ? presaleEnd - block.timestamp : 0,
-            block.timestamp >= presaleStart && block.timestamp <= presaleEnd, finalized, failed);
+            block.timestamp >= presaleStart && block.timestamp <= presaleEnd,
+            finalized,
+            failed
+        );
     }
 
     receive() external payable {}

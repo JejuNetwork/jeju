@@ -30,6 +30,7 @@ contract OracleNetworkConnector is Ownable, ReentrancyGuard {
         uint256 registeredAt;
         bool isActive;
     }
+
     mapping(bytes32 => OperatorInfo) public operators;
     bytes32[] public operatorIds;
 
@@ -41,6 +42,7 @@ contract OracleNetworkConnector is Ownable, ReentrancyGuard {
         uint256 uptimeBlocks;
         uint256 totalBlocks;
     }
+
     mapping(bytes32 => mapping(uint256 => EpochPerformance)) public operatorPerformance;
 
     uint256 public currentEpoch;
@@ -51,9 +53,13 @@ contract OracleNetworkConnector is Ownable, ReentrancyGuard {
     bytes32 public constant TAG_ORACLE_ACCURACY = keccak256("oracle:accuracy");
     bytes32 public constant TAG_ORACLE_PARTICIPATION = keccak256("oracle:participation");
 
-    event OperatorRegistered(bytes32 indexed operatorId, bytes32 indexed stakingOracleId, uint256 agentId, address workerKey);
+    event OperatorRegistered(
+        bytes32 indexed operatorId, bytes32 indexed stakingOracleId, uint256 agentId, address workerKey
+    );
     event OperatorDeactivated(bytes32 indexed operatorId, string reason);
-    event PerformanceRecorded(bytes32 indexed operatorId, uint256 indexed epoch, uint256 reportsSubmitted, uint256 reportsAccepted);
+    event PerformanceRecorded(
+        bytes32 indexed operatorId, uint256 indexed epoch, uint256 reportsSubmitted, uint256 reportsAccepted
+    );
     event AttestationWritten(bytes32 indexed operatorId, uint256 indexed agentId, bytes32 tag, int8 score);
     event EpochAdvanced(uint256 indexed oldEpoch, uint256 indexed newEpoch);
 
@@ -83,8 +89,10 @@ contract OracleNetworkConnector is Ownable, ReentrancyGuard {
         epochStartBlock = block.number;
     }
 
-    function registerOperator(bytes32 stakingOracleId, uint256 agentId, address workerKey) 
-        external nonReentrant returns (bytes32 operatorId) 
+    function registerOperator(bytes32 stakingOracleId, uint256 agentId, address workerKey)
+        external
+        nonReentrant
+        returns (bytes32 operatorId)
     {
         if (workerKey == address(0)) revert InvalidWorkerKey();
 
@@ -100,7 +108,9 @@ contract OracleNetworkConnector is Ownable, ReentrancyGuard {
 
         operatorId = keccak256(abi.encodePacked(msg.sender, stakingOracleId, agentId, block.timestamp));
         if (operators[operatorId].operatorId != bytes32(0)) revert OperatorAlreadyRegistered();
-        if (stakingOracleId != bytes32(0) && stakingToJonId[stakingOracleId] != bytes32(0)) revert OperatorAlreadyRegistered();
+        if (stakingOracleId != bytes32(0) && stakingToJonId[stakingOracleId] != bytes32(0)) {
+            revert OperatorAlreadyRegistered();
+        }
 
         operators[operatorId] = OperatorInfo({
             operatorId: operatorId,
@@ -239,15 +249,32 @@ contract OracleNetworkConnector is Ownable, ReentrancyGuard {
         OperatorInfo storage op = operators[operatorId];
         if (!op.isActive) return false;
         if (address(stakingManager) != address(0) && op.stakingOracleId != bytes32(0)) {
-            if (stakingManager.getOracleInfo(op.stakingOracleId).status != IOracleStakingManager.OracleStatus.Active) return false;
+            if (stakingManager.getOracleInfo(op.stakingOracleId).status != IOracleStakingManager.OracleStatus.Active) {
+                return false;
+            }
         }
         return true;
     }
 
-    function getOperator(bytes32 operatorId) external view returns (OperatorInfo memory) { return operators[operatorId]; }
-    function getOperatorByWorker(address workerKey) external view returns (OperatorInfo memory) { return operators[workerToOperator[workerKey]]; }
-    function getOperatorPerformance(bytes32 operatorId, uint256 epoch) external view returns (EpochPerformance memory) { return operatorPerformance[operatorId][epoch]; }
-    function getTotalOperators() external view returns (uint256) { return operatorIds.length; }
+    function getOperator(bytes32 operatorId) external view returns (OperatorInfo memory) {
+        return operators[operatorId];
+    }
+
+    function getOperatorByWorker(address workerKey) external view returns (OperatorInfo memory) {
+        return operators[workerToOperator[workerKey]];
+    }
+
+    function getOperatorPerformance(bytes32 operatorId, uint256 epoch)
+        external
+        view
+        returns (EpochPerformance memory)
+    {
+        return operatorPerformance[operatorId][epoch];
+    }
+
+    function getTotalOperators() external view returns (uint256) {
+        return operatorIds.length;
+    }
 
     function getActiveOperatorCount() external view returns (uint256 count) {
         for (uint256 i = 0; i < operatorIds.length; i++) {
@@ -255,9 +282,23 @@ contract OracleNetworkConnector is Ownable, ReentrancyGuard {
         }
     }
 
-    function setFeedRegistry(address r) external onlyOwner { feedRegistry = IFeedRegistry(r); }
-    function setCommitteeManager(address c) external onlyOwner { committeeManager = ICommitteeManager(c); }
-    function setStakingManager(address s) external onlyOwner { stakingManager = IOracleStakingManager(s); }
-    function setIdentityRegistry(address i) external onlyOwner { identityRegistry = IIdentityRegistry(i); }
-    function setReputationRegistry(address r) external onlyOwner { reputationRegistry = IReputationRegistry(r); }
+    function setFeedRegistry(address r) external onlyOwner {
+        feedRegistry = IFeedRegistry(r);
+    }
+
+    function setCommitteeManager(address c) external onlyOwner {
+        committeeManager = ICommitteeManager(c);
+    }
+
+    function setStakingManager(address s) external onlyOwner {
+        stakingManager = IOracleStakingManager(s);
+    }
+
+    function setIdentityRegistry(address i) external onlyOwner {
+        identityRegistry = IIdentityRegistry(i);
+    }
+
+    function setReputationRegistry(address r) external onlyOwner {
+        reputationRegistry = IReputationRegistry(r);
+    }
 }

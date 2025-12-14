@@ -58,13 +58,13 @@ contract FeedRegistryTest is Test {
             symbol: "BTC-USD",
             baseToken: address(0x100),
             quoteToken: USDC,
-            decimals: 0,  // Will use default
-            heartbeatSeconds: 0,  // Will use default
-            twapWindowSeconds: 0,  // Will use default
-            minLiquidityUSD: 0,  // Will use default
-            maxDeviationBps: 0,  // Will use default
-            minOracles: 0,  // Will use default
-            quorumThreshold: 0,  // Will use default
+            decimals: 0, // Will use default
+            heartbeatSeconds: 0, // Will use default
+            twapWindowSeconds: 0, // Will use default
+            minLiquidityUSD: 0, // Will use default
+            maxDeviationBps: 0, // Will use default
+            minOracles: 0, // Will use default
+            quorumThreshold: 0, // Will use default
             requiresConfidence: false,
             category: IFeedRegistry.FeedCategory.SPOT_PRICE
         });

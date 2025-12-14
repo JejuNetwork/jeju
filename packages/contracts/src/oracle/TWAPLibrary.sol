@@ -53,10 +53,11 @@ library TWAPLibrary {
      * @param weights Array of weights (e.g., liquidity)
      * @return median The weighted median price
      */
-    function calculateWeightedMedian(
-        uint256[] memory prices,
-        uint256[] memory weights
-    ) internal pure returns (uint256 median) {
+    function calculateWeightedMedian(uint256[] memory prices, uint256[] memory weights)
+        internal
+        pure
+        returns (uint256 median)
+    {
         require(prices.length == weights.length && prices.length > 0, "Invalid input");
 
         // Sort prices with weights (bubble sort - fine for small N)
@@ -123,10 +124,11 @@ library TWAPLibrary {
      * @param windowSeconds Time window for TWAP
      * @return twap The time-weighted average price
      */
-    function calculateTWAP(
-        PriceObservation[] memory observations,
-        uint256 windowSeconds
-    ) internal view returns (uint256 twap) {
+    function calculateTWAP(PriceObservation[] memory observations, uint256 windowSeconds)
+        internal
+        view
+        returns (uint256 twap)
+    {
         require(observations.length > 0, "No observations");
 
         uint256 cutoffTime = block.timestamp - windowSeconds;
@@ -156,10 +158,11 @@ library TWAPLibrary {
      * @param windowSeconds Time window for TWAP
      * @return twap The liquidity and time-weighted average price
      */
-    function calculateLiquidityWeightedTWAP(
-        PriceObservation[] memory observations,
-        uint256 windowSeconds
-    ) internal view returns (uint256 twap) {
+    function calculateLiquidityWeightedTWAP(PriceObservation[] memory observations, uint256 windowSeconds)
+        internal
+        view
+        returns (uint256 twap)
+    {
         require(observations.length > 0, "No observations");
 
         uint256 cutoffTime = block.timestamp - windowSeconds;
@@ -191,10 +194,11 @@ library TWAPLibrary {
      * @param outlierThresholdBps Maximum deviation from median before considered outlier
      * @return aggregated The aggregated price result
      */
-    function aggregateWithOutlierRejection(
-        PriceObservation[] memory observations,
-        uint256 outlierThresholdBps
-    ) internal pure returns (AggregatedPrice memory aggregated) {
+    function aggregateWithOutlierRejection(PriceObservation[] memory observations, uint256 outlierThresholdBps)
+        internal
+        pure
+        returns (AggregatedPrice memory aggregated)
+    {
         require(observations.length > 0, "No observations");
 
         if (outlierThresholdBps == 0) {
@@ -264,10 +268,11 @@ library TWAPLibrary {
      * @return price The filtered median price
      * @return validVenues Number of venues meeting liquidity requirement
      */
-    function calculateCrossVenueMedian(
-        PriceObservation[] memory observations,
-        uint256 minLiquidityUSD
-    ) internal pure returns (uint256 price, uint256 validVenues) {
+    function calculateCrossVenueMedian(PriceObservation[] memory observations, uint256 minLiquidityUSD)
+        internal
+        pure
+        returns (uint256 price, uint256 validVenues)
+    {
         // Filter by liquidity
         uint256[] memory validPrices = new uint256[](observations.length);
         uint256 count = 0;
@@ -302,10 +307,11 @@ library TWAPLibrary {
      * @param newPrice New price observation
      * @return Updated accumulator
      */
-    function updateAccumulator(
-        TWAPAccumulator memory acc,
-        uint256 newPrice
-    ) internal view returns (TWAPAccumulator memory) {
+    function updateAccumulator(TWAPAccumulator memory acc, uint256 newPrice)
+        internal
+        view
+        returns (TWAPAccumulator memory)
+    {
         if (acc.lastTimestamp == 0) {
             // First observation
             acc.lastTimestamp = block.timestamp;
@@ -402,11 +408,11 @@ library TWAPLibrary {
      * @param maxDeviationBps Maximum allowed deviation
      * @return valid Whether price is within bounds
      */
-    function isPriceValid(
-        uint256 price,
-        uint256 refPrice,
-        uint256 maxDeviationBps
-    ) internal pure returns (bool valid) {
+    function isPriceValid(uint256 price, uint256 refPrice, uint256 maxDeviationBps)
+        internal
+        pure
+        returns (bool valid)
+    {
         return calculateDeviation(price, refPrice) <= maxDeviationBps;
     }
 
@@ -417,11 +423,11 @@ library TWAPLibrary {
      * @param toDecimals Target decimals
      * @return scaledPrice Price in target decimals
      */
-    function scalePrice(
-        uint256 price,
-        uint8 fromDecimals,
-        uint8 toDecimals
-    ) internal pure returns (uint256 scaledPrice) {
+    function scalePrice(uint256 price, uint8 fromDecimals, uint8 toDecimals)
+        internal
+        pure
+        returns (uint256 scaledPrice)
+    {
         if (fromDecimals == toDecimals) return price;
 
         if (fromDecimals < toDecimals) {

@@ -1,67 +1,9 @@
 /**
- * @fileoverview Shared logging utility for consistent output across all Jeju scripts
- * @module scripts/shared/logger
- * 
- * Provides structured, colored logging with timestamps and prefixes.
- * Used throughout deployment scripts, monitoring tools, and test runners.
- * 
- * Features:
- * - Color-coded log levels (debug, info, success, warn, error)
- * - Optional timestamps
- * - Optional prefixes for context
- * - Emoji icons for quick visual scanning
- * - Log level filtering
- * - Child logger creation for scoped logging
- * 
- * @example Basic usage
- * ```ts
- * import { Logger } from './shared/logger';
- * 
- * const logger = new Logger();
- * logger.info('Starting deployment...');
- * logger.success('Contract deployed at 0x123...');
- * logger.warn('Gas price is high');
- * logger.error('Deployment failed', error);
- * ```
- * 
- * @example With configuration
- * ```ts
- * const logger = new Logger({
- *   level: 'debug',
- *   prefix: 'ORACLE',
- *   timestamp: true
- * });
- * 
- * logger.debug('Fetching prices from Uniswap...');
- * // Output: [2025-01-15T10:30:00.000Z] [ORACLE] 🔍 Fetching prices from Uniswap...
- * ```
- * 
- * @example Child loggers
- * ```ts
- * const mainLogger = new Logger({ prefix: 'DEPLOY' });
- * const contractLogger = mainLogger.child('CONTRACTS');
- * 
- * mainLogger.info('Starting deployment');
- * contractLogger.info('Deploying token');
- * // Output: [DEPLOY] [CONTRACTS] ℹ️  Deploying token
- * ```
+ * Colored logging with timestamps, prefixes, and emoji icons.
  */
 
-/**
- * Log severity levels
- * 
- * @typedef {'debug' | 'info' | 'success' | 'warn' | 'error'} LogLevel
- */
 export type LogLevel = 'debug' | 'info' | 'success' | 'warn' | 'error';
 
-/**
- * Logger configuration options
- * 
- * @interface LoggerConfig
- * @property {LogLevel} level - Minimum level to log (filters out lower levels)
- * @property {string} [prefix] - Optional prefix for all log messages
- * @property {boolean} [timestamp] - Whether to include ISO timestamps (default: true)
- */
 interface LoggerConfig {
   level: LogLevel;
   prefix?: string;
@@ -164,9 +106,6 @@ export class Logger {
     this.log('error', message, ...args);
   }
   
-  /**
-   * Create a child logger with additional prefix
-   */
   child(prefix: string): Logger {
     const childPrefix = this.config.prefix
       ? `${this.config.prefix}:${prefix}`
@@ -178,16 +117,10 @@ export class Logger {
     });
   }
   
-  /**
-   * Log a separator line
-   */
   separator(char: string = '=', length: number = 60): void {
     console.log(char.repeat(length));
   }
   
-  /**
-   * Log with box around it
-   */
   box(message: string): void {
     const lines = message.split('\n');
     const maxLength = Math.max(...lines.map(l => l.length));

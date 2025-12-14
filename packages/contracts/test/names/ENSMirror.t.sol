@@ -68,9 +68,9 @@ contract ENSMirrorTest is Test {
         bytes32 mirrorId = mirror.registerMirror(
             testEnsNode,
             testJnsNode,
-            600,    // 10 min sync interval
-            true,   // mirrorContenthash
-            true,   // mirrorAddress
+            600, // 10 min sync interval
+            true, // mirrorContenthash
+            true, // mirrorAddress
             new string[](0)
         );
 
@@ -91,7 +91,7 @@ contract ENSMirrorTest is Test {
         bytes32 mirrorId = mirror.registerMirror(
             testEnsNode,
             testJnsNode,
-            60,     // Too short, should be bumped to 300
+            60, // Too short, should be bumped to 300
             true,
             false,
             new string[](0)
@@ -108,14 +108,7 @@ contract ENSMirrorTest is Test {
         textKeys[2] = "description";
 
         vm.prank(alice);
-        bytes32 mirrorId = mirror.registerMirror(
-            testEnsNode,
-            testJnsNode,
-            600,
-            true,
-            true,
-            textKeys
-        );
+        bytes32 mirrorId = mirror.registerMirror(testEnsNode, testJnsNode, 600, true, true, textKeys);
 
         ENSMirror.MirrorConfig memory config = mirror.getMirror(mirrorId);
         assertEq(config.textKeys.length, 3);
@@ -163,33 +156,26 @@ contract ENSMirrorTest is Test {
         });
 
         // Create oracle signatures
-        bytes32 reportHash = keccak256(abi.encode(
-            report.ensNode,
-            report.contenthash,
-            report.ethAddress,
-            report.textKeys,
-            report.textValues,
-            report.blockNumber
-        ));
+        bytes32 reportHash = keccak256(
+            abi.encode(
+                report.ensNode,
+                report.contenthash,
+                report.ethAddress,
+                report.textKeys,
+                report.textValues,
+                report.blockNumber
+            )
+        );
 
-        bytes32 ethSignedHash = keccak256(abi.encodePacked(
-            "\x19Ethereum Signed Message:\n32",
-            reportHash
-        ));
+        bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", reportHash));
 
         // Sign with oracle keys
         (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(uint256(uint160(oracle1)), ethSignedHash);
         (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(uint256(uint160(oracle2)), ethSignedHash);
 
         ENSMirror.OracleSignature[] memory sigs = new ENSMirror.OracleSignature[](2);
-        sigs[0] = ENSMirror.OracleSignature({
-            oracle: oracle1,
-            signature: abi.encodePacked(r1, s1, v1)
-        });
-        sigs[1] = ENSMirror.OracleSignature({
-            oracle: oracle2,
-            signature: abi.encodePacked(r2, s2, v2)
-        });
+        sigs[0] = ENSMirror.OracleSignature({oracle: oracle1, signature: abi.encodePacked(r1, s1, v1)});
+        sigs[1] = ENSMirror.OracleSignature({oracle: oracle2, signature: abi.encodePacked(r2, s2, v2)});
 
         // Wait for sync interval
         vm.warp(block.timestamp + 601);
@@ -216,10 +202,7 @@ contract ENSMirrorTest is Test {
 
         // Only 1 signature, but quorum is 2
         ENSMirror.OracleSignature[] memory sigs = new ENSMirror.OracleSignature[](1);
-        sigs[0] = ENSMirror.OracleSignature({
-            oracle: oracle1,
-            signature: hex"0000"
-        });
+        sigs[0] = ENSMirror.OracleSignature({oracle: oracle1, signature: hex"0000"});
 
         vm.warp(block.timestamp + 601);
 
@@ -254,7 +237,7 @@ contract ENSMirrorTest is Test {
         // Since we can't easily set lastSyncAt, we'll just verify the revert message format
         // The first sync attempt will fail on signature validation anyway
         // For this test, we verify that SyncTooSoon is NOT thrown for first sync
-        
+
         // Since lastSyncAt is 0 initially, no SyncTooSoon error
         // The call will fail on signature validation instead
         vm.expectRevert(); // Will revert on signature validation, not SyncTooSoon

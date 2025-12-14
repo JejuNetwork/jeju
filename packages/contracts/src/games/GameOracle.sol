@@ -108,11 +108,7 @@ contract GameOracle is Ownable, Pausable {
     // ============ Events ============
 
     event GameCommitted(
-        bytes32 indexed sessionId,
-        string questionId,
-        uint256 questionNumber,
-        string question,
-        bytes32 commitment
+        bytes32 indexed sessionId, string questionId, uint256 questionNumber, string question, bytes32 commitment
     );
 
     event GameRevealed(bytes32 indexed sessionId, string questionId, bool outcome, uint256 winnersCount);
@@ -548,4 +544,3 @@ contract GameOracle is Ownable, Pausable {
         '{"type":"prediction-oracle","subtype":"game","name":"Game Oracle","category":"social-prediction","version":"1.0.0"}';
     }
 }
-

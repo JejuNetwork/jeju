@@ -10,7 +10,7 @@
  */
 
 import { expect, test, describe } from 'bun:test';
-import { createPublicClient, createWalletClient, http, parseEther } from 'viem';
+import { createPublicClient, createWalletClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 const TEST_WALLET = {
@@ -28,13 +28,13 @@ const jejuChain = {
   },
 } as const;
 
-const publicClient = createPublicClient({
+const _publicClient = createPublicClient({
   chain: jejuChain,
   transport: http(),
 });
 
 const account = privateKeyToAccount(TEST_WALLET.privateKey);
-const walletClient = createWalletClient({
+const _walletClient = createWalletClient({
   account,
   chain: jejuChain,
   transport: http(),
@@ -87,7 +87,7 @@ const NODE_STAKING_ABI = [
   },
 ] as const;
 
-const ERC20_ABI = [
+const _ERC20_ABI = [
   {
     type: 'function',
     name: 'approve',

@@ -26,20 +26,22 @@ contract OracleFeeRouterFuzzTest is Test {
 
         // Create multiple feeds for testing
         for (uint256 i = 0; i < 5; i++) {
-            bytes32 id = registry.createFeed(IFeedRegistry.FeedCreateParams({
-                symbol: string(abi.encodePacked("FEED-", vm.toString(i))),
-                baseToken: address(uint160(0x1000 + i)),
-                quoteToken: address(uint160(0x2000 + i)),
-                decimals: 8,
-                heartbeatSeconds: 3600,
-                twapWindowSeconds: 1800,
-                minLiquidityUSD: 100_000 ether,
-                maxDeviationBps: 100,
-                minOracles: 3,
-                quorumThreshold: 2,
-                requiresConfidence: true,
-                category: IFeedRegistry.FeedCategory.SPOT_PRICE
-            }));
+            bytes32 id = registry.createFeed(
+                IFeedRegistry.FeedCreateParams({
+                    symbol: string(abi.encodePacked("FEED-", vm.toString(i))),
+                    baseToken: address(uint160(0x1000 + i)),
+                    quoteToken: address(uint160(0x2000 + i)),
+                    decimals: 8,
+                    heartbeatSeconds: 3600,
+                    twapWindowSeconds: 1800,
+                    minLiquidityUSD: 100_000 ether,
+                    maxDeviationBps: 100,
+                    minOracles: 3,
+                    quorumThreshold: 2,
+                    requiresConfidence: true,
+                    category: IFeedRegistry.FeedCategory.SPOT_PRICE
+                })
+            );
             feedIds.push(id);
         }
         feedId = feedIds[0];
@@ -346,19 +348,21 @@ contract OracleFeeRouterFuzzTest is Test {
         }
 
         vm.prank(owner);
-        
+
         if (treasuryBps + operatorBps + delegatorBps + disputerBps != 10000) {
             vm.expectRevert();
         }
-        
-        feeRouter.setFeeConfig(IOracleFeeRouter.FeeConfig({
-            subscriptionFeePerMonth: 0.1 ether,
-            perReadFee: 0.0001 ether,
-            treasuryShareBps: treasuryBps,
-            operatorShareBps: operatorBps,
-            delegatorShareBps: delegatorBps,
-            disputerRewardBps: disputerBps
-        }));
+
+        feeRouter.setFeeConfig(
+            IOracleFeeRouter.FeeConfig({
+                subscriptionFeePerMonth: 0.1 ether,
+                perReadFee: 0.0001 ether,
+                treasuryShareBps: treasuryBps,
+                operatorShareBps: operatorBps,
+                delegatorShareBps: delegatorBps,
+                disputerRewardBps: disputerBps
+            })
+        );
     }
 
     function testFuzz_SetFeedPrice_Amount(uint256 pricePerMonth) public {
@@ -435,5 +439,4 @@ contract OracleFeeRouterFuzzTest is Test {
         vm.expectRevert();
         feeRouter.subscribe{value: 1 ether}(feeds, duration);
     }
-
 }

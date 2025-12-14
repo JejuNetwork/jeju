@@ -31,7 +31,7 @@ describe('Reward Calculation - Base Rewards', () => {
 describe('Reward Calculation - Uptime Multiplier', () => {
   test('should apply 2x multiplier for 99%+ uptime', () => {
     const BASE_REWARD = 100;
-    const UPTIME_99_PLUS = 9900; // 99.00%
+    const _UPTIME_99_PLUS = 9900; // 99.00%
     
     // 2x multiplier for excellent uptime
     const reward = BASE_REWARD * 2;
@@ -42,7 +42,7 @@ describe('Reward Calculation - Uptime Multiplier', () => {
 
   test('should apply 0.5x multiplier for poor uptime', () => {
     const BASE_REWARD = 100;
-    const UPTIME_POOR = 5000; // 50%
+    const _UPTIME_POOR = 5000; // 50%
     
     // 0.5x multiplier for poor uptime
     const reward = BASE_REWARD * 0.5;
@@ -183,7 +183,7 @@ describe('Node Operator Limits', () => {
   });
 
   test('should require minimum 1 day between claims', () => {
-    const MIN_CLAIM_INTERVAL = 1 * 24 * 60 * 60;
+    const _MIN_CLAIM_INTERVAL = 1 * 24 * 60 * 60;
     
     console.log(`✅ Minimum claim interval: 1 day`);
     console.log('   Prevents reward farming');

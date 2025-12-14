@@ -139,7 +139,9 @@ contract CloudReputationProviderTest is Test {
         vm.startPrank(operator);
 
         for (uint256 i = 0; i < 5; i++) {
-            cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, uint8(i * 10), "");
+            cloudProvider.recordViolationWithType(
+                testAgentId, CloudReputationProvider.ViolationType.SPAM, uint8(i * 10), ""
+            );
         }
 
         vm.stopPrank();
@@ -202,7 +204,9 @@ contract CloudReputationProviderTest is Test {
     function testCannotBanNonexistentAgent() public {
         vm.deal(owner, 1 ether);
         vm.expectRevert(CloudReputationProvider.InvalidAgentId.selector);
-        cloudProvider.requestBanViaGovernanceWithType{value: 0.01 ether}(99999, CloudReputationProvider.ViolationType.HACKING);
+        cloudProvider.requestBanViaGovernanceWithType{value: 0.01 ether}(
+            99999, CloudReputationProvider.ViolationType.HACKING
+        );
     }
 
     // ============ Threshold Tests ============
@@ -301,7 +305,7 @@ contract CloudReputationProviderTest is Test {
     function testIsAuthorizedOperator() public view {
         assertTrue(cloudProvider.isAuthorizedOperator(operator));
         assertFalse(cloudProvider.isAuthorizedOperator(user));
-        // Note: isAuthorizedOperator only checks the mapping, owner permissions 
+        // Note: isAuthorizedOperator only checks the mapping, owner permissions
         // are checked separately in _validateAndRecordViolation
     }
 
@@ -463,7 +467,9 @@ contract CloudReputationProviderTest is Test {
 
         // Record many violations in same block
         for (uint256 i = 0; i < 10; i++) {
-            cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, uint8(i * 10), "");
+            cloudProvider.recordViolationWithType(
+                testAgentId, CloudReputationProvider.ViolationType.SPAM, uint8(i * 10), ""
+            );
         }
 
         vm.stopPrank();
@@ -480,7 +486,7 @@ contract CloudReputationProviderTest is Test {
 
     function testViolationsAcrossBlocks() public {
         uint256 startTime = block.timestamp;
-        
+
         vm.prank(operator);
         cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 30, "");
 
@@ -490,7 +496,7 @@ contract CloudReputationProviderTest is Test {
         cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 60, "");
 
         CloudReputationProvider.Violation[] memory violations = cloudProvider.getAgentViolations(testAgentId, 0, 10);
-        
+
         // Verify timestamps are different and second is later
         assertTrue(violations[1].timestamp > violations[0].timestamp, "Second violation should be later");
         assertEq(violations[1].timestamp - violations[0].timestamp, 100, "Time gap should be 100 seconds");
@@ -532,8 +538,9 @@ contract CloudReputationProviderTest is Test {
     }
 
     function testLongEvidence() public {
-        string memory longEvidence = "ipfs://QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG/very/long/path/to/evidence/file/with/details";
-        
+        string memory longEvidence =
+            "ipfs://QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG/very/long/path/to/evidence/file/with/details";
+
         vm.prank(operator);
         cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 50, longEvidence);
 
@@ -548,7 +555,7 @@ contract CloudReputationProviderTest is Test {
         // by checking that normal operation succeeds (no revert due to reentrancy lock issues)
         vm.prank(operator);
         cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 50, "first");
-        
+
         vm.prank(operator);
         cloudProvider.recordViolationWithType(testAgentId, CloudReputationProvider.ViolationType.SPAM, 60, "second");
 

@@ -201,7 +201,7 @@ contract CreditPurchaseContract is Ownable, Pausable, ReentrancyGuard {
         if (paymentToken == ETH) {
             // CEI: Cache owner address before external calls
             address ownerAddr = owner();
-            
+
             // Pull-over-push pattern: record failed transfers instead of reverting
             (bool treasurySuccess,) = treasury.call{value: netPayment}("");
             if (!treasurySuccess) {

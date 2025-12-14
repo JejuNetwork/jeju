@@ -48,7 +48,11 @@ contract DisputeGame is IDisputeGame, Ownable, Pausable, ReentrancyGuard {
     }
 
     function openDispute(bytes32 reportHash, DisputeReason reason, bytes32 evidenceHash)
-        external payable nonReentrant whenNotPaused returns (bytes32 disputeId)
+        external
+        payable
+        nonReentrant
+        whenNotPaused
+        returns (bytes32 disputeId)
     {
         if (!reportVerifier.isReportProcessed(reportHash)) revert ReportNotDisputable(reportHash);
         if (_reportDisputes[reportHash] != bytes32(0)) revert DisputeAlreadyExists(reportHash);
@@ -176,16 +180,46 @@ contract DisputeGame is IDisputeGame, Ownable, Pausable, ReentrancyGuard {
         if (!ok) revert InsufficientBond(0, amount);
     }
 
-    function getDispute(bytes32 id) external view returns (Dispute memory) { return _disputes[id]; }
-    function getDisputeResolution(bytes32 id) external view returns (DisputeResolution memory) { return _resolutions[id]; }
-    function getDisputeConfig() external view returns (DisputeConfig memory) { return _config; }
-    function getDisputeByReport(bytes32 h) external view returns (Dispute memory) { return _disputes[_reportDisputes[h]]; }
-    function getActiveDisputes() external view returns (bytes32[] memory) { return _activeDisputes; }
-    function getDisputesByFeed(bytes32 id) external view returns (bytes32[] memory) { return _disputesByFeed[id]; }
-    function getDisputesByDisputer(address d) external view returns (bytes32[] memory) { return _disputesByDisputer[d]; }
-    function isReportDisputed(bytes32 h) external view returns (bool) { return _reportDisputes[h] != bytes32(0); }
-    function canDispute(bytes32 h) external view returns (bool) { return _reportDisputes[h] == bytes32(0) && reportVerifier.isReportProcessed(h); }
-    function getMinBond() external view returns (uint256) { return _config.minBondUSD; }
+    function getDispute(bytes32 id) external view returns (Dispute memory) {
+        return _disputes[id];
+    }
+
+    function getDisputeResolution(bytes32 id) external view returns (DisputeResolution memory) {
+        return _resolutions[id];
+    }
+
+    function getDisputeConfig() external view returns (DisputeConfig memory) {
+        return _config;
+    }
+
+    function getDisputeByReport(bytes32 h) external view returns (Dispute memory) {
+        return _disputes[_reportDisputes[h]];
+    }
+
+    function getActiveDisputes() external view returns (bytes32[] memory) {
+        return _activeDisputes;
+    }
+
+    function getDisputesByFeed(bytes32 id) external view returns (bytes32[] memory) {
+        return _disputesByFeed[id];
+    }
+
+    function getDisputesByDisputer(address d) external view returns (bytes32[] memory) {
+        return _disputesByDisputer[d];
+    }
+
+    function isReportDisputed(bytes32 h) external view returns (bool) {
+        return _reportDisputes[h] != bytes32(0);
+    }
+
+    function canDispute(bytes32 h) external view returns (bool) {
+        return _reportDisputes[h] == bytes32(0) && reportVerifier.isReportProcessed(h);
+    }
+
+    function getMinBond() external view returns (uint256) {
+        return _config.minBondUSD;
+    }
+
     function calculateSlashAmount(bytes32, address[] calldata signers) external pure returns (uint256) {
         return signers.length * 0.1 ether;
     }
@@ -201,11 +235,25 @@ contract DisputeGame is IDisputeGame, Ownable, Pausable, ReentrancyGuard {
         return block.timestamp >= d.createdAt + _config.challengeWindowSeconds;
     }
 
-    function setDisputeConfig(DisputeConfig calldata c) external onlyOwner { _config = c; }
-    function setAuthorizedResolver(address r, bool a) external onlyOwner { authorizedResolvers[r] = a; }
-    function setFutarchyMarketplace(address m) external onlyOwner { futarchyMarketplace = m; }
-    function pause() external onlyOwner { _pause(); }
-    function unpause() external onlyOwner { _unpause(); }
+    function setDisputeConfig(DisputeConfig calldata c) external onlyOwner {
+        _config = c;
+    }
+
+    function setAuthorizedResolver(address r, bool a) external onlyOwner {
+        authorizedResolvers[r] = a;
+    }
+
+    function setFutarchyMarketplace(address m) external onlyOwner {
+        futarchyMarketplace = m;
+    }
+
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
 
     receive() external payable {}
 }

@@ -84,10 +84,8 @@ export interface IntentSwapConfig {
 // ============ Intent Swap Router ============
 
 export class IntentSwapRouter {
-  private config: IntentSwapConfig;
-
-  constructor(config: IntentSwapConfig) {
-    this.config = config;
+  constructor(_config: IntentSwapConfig) {
+    // Config parameter kept for future use but not stored
   }
 
   /**

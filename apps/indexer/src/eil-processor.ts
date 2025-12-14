@@ -103,25 +103,25 @@ export async function processEILEvents(ctx: ProcessorContext<Store>): Promise<vo
 
     // Persist all entities
     if (xlps.size > 0) {
-        await ctx.store.upsert(Array.from(xlps.values()))
+        await ctx.store.upsert([...xlps.values()])
     }
     if (xlpDeposits.size > 0) {
-        await ctx.store.upsert(Array.from(xlpDeposits.values()))
+        await ctx.store.upsert([...xlpDeposits.values()])
     }
     if (voucherRequests.size > 0) {
-        await ctx.store.upsert(Array.from(voucherRequests.values()))
+        await ctx.store.upsert([...voucherRequests.values()])
     }
     if (vouchers.size > 0) {
-        await ctx.store.upsert(Array.from(vouchers.values()))
+        await ctx.store.upsert([...vouchers.values()])
     }
     if (transfers.size > 0) {
-        await ctx.store.upsert(Array.from(transfers.values()))
+        await ctx.store.upsert([...transfers.values()])
     }
     if (slashEvents.length > 0) {
         await ctx.store.insert(slashEvents)
     }
     if (chainStats.size > 0) {
-        await ctx.store.upsert(Array.from(chainStats.values()))
+        await ctx.store.upsert([...chainStats.values()])
     }
 
     // Update global stats

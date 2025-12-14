@@ -12,8 +12,13 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
  * @notice Interface for ERC-8004 Identity Registry
  */
 interface IIdentityRegistry {
-    enum StakeTier { NONE, SMALL, MEDIUM, HIGH }
-    
+    enum StakeTier {
+        NONE,
+        SMALL,
+        MEDIUM,
+        HIGH
+    }
+
     struct AgentRegistration {
         uint256 agentId;
         address owner;
@@ -25,7 +30,7 @@ interface IIdentityRegistry {
         bool isBanned;
         bool isSlashed;
     }
-    
+
     function agentExists(uint256 agentId) external view returns (bool);
     function ownerOf(uint256 agentId) external view returns (address);
     function getAgent(uint256 agentId) external view returns (AgentRegistration memory);
@@ -38,12 +43,10 @@ interface IIdentityRegistry {
  * @notice Interface for ERC-8004 Reputation Registry
  */
 interface IReputationRegistry {
-    function getSummary(
-        uint256 agentId,
-        address[] calldata clientAddresses,
-        bytes32 tag1,
-        bytes32 tag2
-    ) external view returns (uint64 count, uint8 averageScore);
+    function getSummary(uint256 agentId, address[] calldata clientAddresses, bytes32 tag1, bytes32 tag2)
+        external
+        view
+        returns (uint64 count, uint8 averageScore);
 }
 
 /**
@@ -88,30 +91,32 @@ contract BlockBuilderMarketplace is Ownable, ReentrancyGuard, Pausable {
 
     /// @notice Access tier levels based on reputation and stake
     enum AccessTier {
-        NONE,       // Not registered
-        BRONZE,     // Basic access
-        SILVER,     // Enhanced priority
-        GOLD,       // Premium access
-        PLATINUM    // Highest tier
+        NONE, // Not registered
+        BRONZE, // Basic access
+        SILVER, // Enhanced priority
+        GOLD, // Premium access
+        PLATINUM // Highest tier
+
     }
 
     /// @notice Bundle status
     enum BundleStatus {
-        PENDING,    // Awaiting inclusion
-        INCLUDED,   // Successfully included in block
-        FAILED,     // Failed to execute
-        EXPIRED,    // Target block passed
-        REFUNDED    // Bid refunded
+        PENDING, // Awaiting inclusion
+        INCLUDED, // Successfully included in block
+        FAILED, // Failed to execute
+        EXPIRED, // Target block passed
+        REFUNDED // Bid refunded
+
     }
 
     // ============ Structs ============
 
     /// @notice Builder registration
     struct BuilderRegistration {
-        uint256 agentId;                // ERC-8004 agent ID
-        address owner;                  // Builder wallet
-        AccessTier tier;                // Current access tier
-        uint256 stakeAmount;            // Additional marketplace stake
+        uint256 agentId; // ERC-8004 agent ID
+        address owner; // Builder wallet
+        AccessTier tier; // Current access tier
+        uint256 stakeAmount; // Additional marketplace stake
         uint256 totalBundlesSubmitted;
         uint256 totalBundlesIncluded;
         uint256 totalBundlesFailed;
@@ -126,25 +131,25 @@ contract BlockBuilderMarketplace is Ownable, ReentrancyGuard, Pausable {
     /// @notice Bundle submission
     struct Bundle {
         bytes32 bundleId;
-        uint256 builderId;              // Builder's agentId
-        uint256 targetBlock;            // Target block for inclusion
-        uint256 bidAmount;              // Priority fee bid
-        bytes32 bundleHash;             // Hash of transaction bundle
-        uint256 maxGasPrice;            // Max gas price willing to pay
+        uint256 builderId; // Builder's agentId
+        uint256 targetBlock; // Target block for inclusion
+        uint256 bidAmount; // Priority fee bid
+        bytes32 bundleHash; // Hash of transaction bundle
+        uint256 maxGasPrice; // Max gas price willing to pay
         uint256 submittedAt;
         BundleStatus status;
-        bytes32 inclusionTxHash;        // TX hash if included
+        bytes32 inclusionTxHash; // TX hash if included
     }
 
     /// @notice Tier requirements
     struct TierRequirements {
-        uint256 minStake;               // Minimum stake required
-        uint256 minReputation;          // Minimum reputation score (0-100)
-        uint256 minBundlesIncluded;     // Minimum successful bundles
-        uint256 maxFailureRate;         // Max failure rate in basis points
-        uint256 maxBundleSize;          // Max transactions in bundle
-        bool privateMempoolAccess;      // Can see private mempool
-        bool atomicGuarantee;           // Guaranteed atomic execution
+        uint256 minStake; // Minimum stake required
+        uint256 minReputation; // Minimum reputation score (0-100)
+        uint256 minBundlesIncluded; // Minimum successful bundles
+        uint256 maxFailureRate; // Max failure rate in basis points
+        uint256 maxBundleSize; // Max transactions in bundle
+        bool privateMempoolAccess; // Can see private mempool
+        bool atomicGuarantee; // Guaranteed atomic execution
     }
 
     // ============ Constants ============
@@ -193,13 +198,8 @@ contract BlockBuilderMarketplace is Ownable, ReentrancyGuard, Pausable {
     event BuilderTierUpdated(uint256 indexed agentId, AccessTier oldTier, AccessTier newTier);
     event BuilderSlashed(uint256 indexed agentId, uint256 amount, string reason);
     event BuilderDeactivated(uint256 indexed agentId);
-    
-    event BundleSubmitted(
-        bytes32 indexed bundleId,
-        uint256 indexed agentId,
-        uint256 targetBlock,
-        uint256 bidAmount
-    );
+
+    event BundleSubmitted(bytes32 indexed bundleId, uint256 indexed agentId, uint256 targetBlock, uint256 bidAmount);
     event BundleIncluded(bytes32 indexed bundleId, uint256 indexed blockNumber, bytes32 txHash);
     event BundleFailed(bytes32 indexed bundleId, string reason);
     event BundleExpired(bytes32 indexed bundleId);
@@ -270,14 +270,14 @@ contract BlockBuilderMarketplace is Ownable, ReentrancyGuard, Pausable {
      */
     function registerBuilder(uint256 agentId) external payable nonReentrant whenNotPaused onlyAgentOwner(agentId) {
         if (!identityRegistry.agentExists(agentId)) revert AgentNotFound();
-        
+
         IIdentityRegistry.AgentRegistration memory agent = identityRegistry.getAgent(agentId);
         if (agent.isBanned) revert AgentBanned();
         if (builders[agentId].isActive) revert BuilderAlreadyRegistered();
 
         // Calculate initial tier based on agent stake and reputation
         AccessTier tier = _calculateTier(agentId, msg.value);
-        
+
         builders[agentId] = BuilderRegistration({
             agentId: agentId,
             owner: msg.sender,
@@ -301,13 +301,19 @@ contract BlockBuilderMarketplace is Ownable, ReentrancyGuard, Pausable {
      * @notice Increase stake to upgrade tier
      * @param agentId Builder's agent ID
      */
-    function increaseStake(uint256 agentId) external payable nonReentrant builderActive(agentId) onlyAgentOwner(agentId) {
+    function increaseStake(uint256 agentId)
+        external
+        payable
+        nonReentrant
+        builderActive(agentId)
+        onlyAgentOwner(agentId)
+    {
         BuilderRegistration storage builder = builders[agentId];
         builder.stakeAmount += msg.value;
-        
+
         AccessTier oldTier = builder.tier;
         AccessTier newTier = _calculateTier(agentId, builder.stakeAmount);
-        
+
         if (newTier > oldTier) {
             builder.tier = newTier;
             emit BuilderTierUpdated(agentId, oldTier, newTier);
@@ -319,15 +325,20 @@ contract BlockBuilderMarketplace is Ownable, ReentrancyGuard, Pausable {
      * @param agentId Builder's agent ID
      * @param amount Amount to withdraw
      */
-    function withdrawStake(uint256 agentId, uint256 amount) external nonReentrant builderActive(agentId) onlyAgentOwner(agentId) {
+    function withdrawStake(uint256 agentId, uint256 amount)
+        external
+        nonReentrant
+        builderActive(agentId)
+        onlyAgentOwner(agentId)
+    {
         BuilderRegistration storage builder = builders[agentId];
         require(builder.stakeAmount >= amount, "Insufficient stake");
-        
+
         builder.stakeAmount -= amount;
-        
+
         AccessTier oldTier = builder.tier;
         AccessTier newTier = _calculateTier(agentId, builder.stakeAmount);
-        
+
         if (newTier < oldTier) {
             builder.tier = newTier;
             emit BuilderTierUpdated(agentId, oldTier, newTier);
@@ -344,9 +355,9 @@ contract BlockBuilderMarketplace is Ownable, ReentrancyGuard, Pausable {
     function deactivateBuilder(uint256 agentId) external nonReentrant onlyAgentOwner(agentId) {
         BuilderRegistration storage builder = builders[agentId];
         require(builder.isActive, "Already inactive");
-        
+
         builder.isActive = false;
-        
+
         // Refund remaining stake
         if (builder.stakeAmount > 0) {
             uint256 refund = builder.stakeAmount;
@@ -368,27 +379,24 @@ contract BlockBuilderMarketplace is Ownable, ReentrancyGuard, Pausable {
      * @param maxGasPrice Maximum gas price willing to pay
      * @return bundleId Unique bundle identifier
      */
-    function submitBundle(
-        uint256 agentId,
-        uint256 targetBlock,
-        bytes32 bundleHash,
-        uint256 maxGasPrice
-    ) external payable nonReentrant whenNotPaused builderActive(agentId) onlyAgentOwner(agentId) returns (bytes32 bundleId) {
+    function submitBundle(uint256 agentId, uint256 targetBlock, bytes32 bundleHash, uint256 maxGasPrice)
+        external
+        payable
+        nonReentrant
+        whenNotPaused
+        builderActive(agentId)
+        onlyAgentOwner(agentId)
+        returns (bytes32 bundleId)
+    {
         if (msg.value < MIN_BUNDLE_BID) revert InvalidBid();
         if (targetBlock <= block.number || targetBlock > block.number + BUNDLE_EXPIRY_BLOCKS) {
             revert InvalidTargetBlock();
         }
 
         BuilderRegistration storage builder = builders[agentId];
-        
+
         // Generate unique bundle ID
-        bundleId = keccak256(abi.encodePacked(
-            agentId,
-            targetBlock,
-            bundleHash,
-            block.timestamp,
-            totalBundlesSubmitted
-        ));
+        bundleId = keccak256(abi.encodePacked(agentId, targetBlock, bundleHash, block.timestamp, totalBundlesSubmitted));
 
         bundles[bundleId] = Bundle({
             bundleId: bundleId,
@@ -415,10 +423,7 @@ contract BlockBuilderMarketplace is Ownable, ReentrancyGuard, Pausable {
      * @param bundleId Bundle to mark
      * @param inclusionTxHash Transaction hash of inclusion
      */
-    function markBundleIncluded(
-        bytes32 bundleId,
-        bytes32 inclusionTxHash
-    ) external onlySequencer {
+    function markBundleIncluded(bytes32 bundleId, bytes32 inclusionTxHash) external onlySequencer {
         Bundle storage bundle = bundles[bundleId];
         if (bundle.bundleId == bytes32(0)) revert BundleNotFound();
         if (bundle.status != BundleStatus.PENDING) revert BundleAlreadyProcessed();
@@ -444,11 +449,7 @@ contract BlockBuilderMarketplace is Ownable, ReentrancyGuard, Pausable {
      * @param reason Failure reason
      * @param shouldSlash Whether to slash the builder
      */
-    function markBundleFailed(
-        bytes32 bundleId,
-        string calldata reason,
-        bool shouldSlash
-    ) external onlySequencer {
+    function markBundleFailed(bytes32 bundleId, string calldata reason, bool shouldSlash) external onlySequencer {
         Bundle storage bundle = bundles[bundleId];
         if (bundle.bundleId == bytes32(0)) revert BundleNotFound();
         if (bundle.status != BundleStatus.PENDING) revert BundleAlreadyProcessed();
@@ -488,7 +489,7 @@ contract BlockBuilderMarketplace is Ownable, ReentrancyGuard, Pausable {
         // Full refund for expired bundles
         BuilderRegistration storage builder = builders[bundle.builderId];
         address builderOwner = builder.owner;
-        
+
         (bool success,) = builderOwner.call{value: bundle.bidAmount}("");
         require(success, "Refund failed");
 
@@ -509,7 +510,7 @@ contract BlockBuilderMarketplace is Ownable, ReentrancyGuard, Pausable {
 
     function _slashBuilder(uint256 agentId, string memory reason) internal {
         BuilderRegistration storage builder = builders[agentId];
-        
+
         uint256 slashAmount = (builder.stakeAmount * SLASHING_PENALTY_BPS) / BPS_DENOMINATOR;
         builder.stakeAmount -= slashAmount;
         builder.totalSlashed += slashAmount;
@@ -624,7 +625,7 @@ contract BlockBuilderMarketplace is Ownable, ReentrancyGuard, Pausable {
             minStake: 0.01 ether,
             minReputation: 0,
             minBundlesIncluded: 0,
-            maxFailureRate: 5000,    // 50% max failure
+            maxFailureRate: 5000, // 50% max failure
             maxBundleSize: 5,
             privateMempoolAccess: false,
             atomicGuarantee: false
@@ -635,7 +636,7 @@ contract BlockBuilderMarketplace is Ownable, ReentrancyGuard, Pausable {
             minStake: 0.1 ether,
             minReputation: 30,
             minBundlesIncluded: 10,
-            maxFailureRate: 3000,    // 30% max failure
+            maxFailureRate: 3000, // 30% max failure
             maxBundleSize: 10,
             privateMempoolAccess: false,
             atomicGuarantee: false
@@ -646,7 +647,7 @@ contract BlockBuilderMarketplace is Ownable, ReentrancyGuard, Pausable {
             minStake: 1 ether,
             minReputation: 60,
             minBundlesIncluded: 100,
-            maxFailureRate: 2000,    // 20% max failure
+            maxFailureRate: 2000, // 20% max failure
             maxBundleSize: 20,
             privateMempoolAccess: true,
             atomicGuarantee: false
@@ -657,7 +658,7 @@ contract BlockBuilderMarketplace is Ownable, ReentrancyGuard, Pausable {
             minStake: 10 ether,
             minReputation: 80,
             minBundlesIncluded: 1000,
-            maxFailureRate: 1000,    // 10% max failure
+            maxFailureRate: 1000, // 10% max failure
             maxBundleSize: 50,
             privateMempoolAccess: true,
             atomicGuarantee: true
@@ -666,20 +667,14 @@ contract BlockBuilderMarketplace is Ownable, ReentrancyGuard, Pausable {
 
     function _calculateTier(uint256 agentId, uint256 stake) internal view returns (AccessTier) {
         // Get reputation from ERC-8004
-        (, uint8 avgScore) = reputationRegistry.getSummary(
-            agentId,
-            new address[](0),
-            bytes32(0),
-            bytes32(0)
-        );
+        (, uint8 avgScore) = reputationRegistry.getSummary(agentId, new address[](0), bytes32(0), bytes32(0));
 
         BuilderRegistration storage builder = builders[agentId];
         uint256 successfulBundles = builder.totalBundlesIncluded;
         uint256 totalBundles = builder.totalBundlesSubmitted;
-        
-        uint256 failureRate = totalBundles > 0 
-            ? ((totalBundles - successfulBundles) * BPS_DENOMINATOR) / totalBundles 
-            : 0;
+
+        uint256 failureRate =
+            totalBundles > 0 ? ((totalBundles - successfulBundles) * BPS_DENOMINATOR) / totalBundles : 0;
 
         // Check from highest to lowest tier
         if (_meetsTierRequirements(AccessTier.PLATINUM, stake, avgScore, successfulBundles, failureRate)) {
@@ -694,7 +689,7 @@ contract BlockBuilderMarketplace is Ownable, ReentrancyGuard, Pausable {
         if (_meetsTierRequirements(AccessTier.BRONZE, stake, avgScore, successfulBundles, failureRate)) {
             return AccessTier.BRONZE;
         }
-        
+
         return AccessTier.NONE;
     }
 
@@ -706,11 +701,9 @@ contract BlockBuilderMarketplace is Ownable, ReentrancyGuard, Pausable {
         uint256 failureRate
     ) internal view returns (bool) {
         TierRequirements storage req = tierRequirements[tier];
-        
-        return stake >= req.minStake &&
-               reputation >= req.minReputation &&
-               bundlesIncluded >= req.minBundlesIncluded &&
-               failureRate <= req.maxFailureRate;
+
+        return stake >= req.minStake && reputation >= req.minReputation && bundlesIncluded >= req.minBundlesIncluded
+            && failureRate <= req.maxFailureRate;
     }
 
     receive() external payable {}

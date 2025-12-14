@@ -11,8 +11,7 @@ async function safeReadContract<T>(
   client: PublicClient, 
   params: { address: Address; abi: readonly unknown[]; functionName: string; args?: readonly unknown[] }
 ): Promise<T> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return client.readContract(params as any) as Promise<T>;
+  return client.readContract(params as Parameters<typeof client.readContract>[0]) as Promise<T>;
 }
 
 // ============ Types ============

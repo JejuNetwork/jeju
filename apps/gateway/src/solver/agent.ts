@@ -3,7 +3,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { LiquidityManager } from './liquidity';
 import { StrategyEngine } from './strategy';
 import { EventMonitor, type IntentEvent } from './monitor';
-import { OUTPUT_SETTLERS, INPUT_SETTLERS, OUTPUT_SETTLER_ABI, INPUT_SETTLER_ABI, ERC20_APPROVE_ABI, ORACLE_ABI, isNativeToken } from './contracts';
+import { OUTPUT_SETTLERS, INPUT_SETTLERS, ORACLES, OUTPUT_SETTLER_ABI, INPUT_SETTLER_ABI, ERC20_APPROVE_ABI, ORACLE_ABI, isNativeToken } from './contracts';
 import { getChain } from '../lib/chains.js';
 import {
   recordIntentReceived,
@@ -30,10 +30,13 @@ interface PendingSettlement {
   fillTxHash: string;
   filledAt: number;
   retryCount: number;
+  nextRetryAt: number;
 }
 
 const MAX_SETTLEMENT_RETRIES = 5;
 const SETTLEMENT_CHECK_INTERVAL_MS = 30_000;
+const SETTLEMENT_STALE_MS = 24 * 60 * 60 * 1000; // 24 hours
+const BASE_RETRY_DELAY_MS = 30_000; // 30 seconds, doubles each retry
 
 export class SolverAgent {
   private config: SolverConfig;
@@ -90,8 +93,25 @@ export class SolverAgent {
 
   private async checkPendingSettlements(): Promise<void> {
     updatePendingSettlements(this.pendingSettlements.size);
+    const now = Date.now();
     
-    for (const [orderId, settlement] of this.pendingSettlements) {
+    // Snapshot entries to avoid mutation during iteration
+    const entries = Array.from(this.pendingSettlements.entries());
+    
+    for (const [orderId, settlement] of entries) {
+      // Clean up stale entries (older than 24 hours)
+      if (now - settlement.filledAt > SETTLEMENT_STALE_MS) {
+        this.pendingSettlements.delete(orderId);
+        recordSettlementFailed(settlement.sourceChain, 'stale');
+        console.log(`   🧹 Removed stale settlement: ${orderId.slice(0, 10)}...`);
+        continue;
+      }
+      
+      // Skip if not yet time for retry (exponential backoff)
+      if (now < settlement.nextRetryAt) {
+        continue;
+      }
+      
       const result = await this.trySettle(settlement);
       if (result.settled) {
         this.pendingSettlements.delete(orderId);
@@ -103,6 +123,11 @@ export class SolverAgent {
           this.pendingSettlements.delete(orderId);
           recordSettlementFailed(settlement.sourceChain, 'max_retries');
           console.log(`   ❌ Settlement failed after ${MAX_SETTLEMENT_RETRIES} retries: ${orderId.slice(0, 10)}...`);
+        } else {
+          // Exponential backoff: 30s, 60s, 120s, 240s, 480s
+          const backoffMs = BASE_RETRY_DELAY_MS * Math.pow(2, settlement.retryCount);
+          settlement.nextRetryAt = now + backoffMs;
+          console.log(`   ⏳ Will retry in ${backoffMs / 1000}s: ${orderId.slice(0, 10)}...`);
         }
       } else {
         this.pendingSettlements.delete(orderId);
@@ -121,22 +146,39 @@ export class SolverAgent {
     const inputSettler = INPUT_SETTLERS[settlement.sourceChain];
     if (!inputSettler) return { settled: false, retry: false, reason: 'No InputSettler on source chain' };
 
-    // Check if oracle has attested the fill
-    const oracleAddr = process.env[`OIF_ORACLE_${settlement.sourceChain}`] as `0x${string}` | undefined;
+    // Check oracle attestation if oracle is configured for this chain
+    const oracleAddr = ORACLES[settlement.sourceChain] || process.env[`OIF_ORACLE_${settlement.sourceChain}`] as `0x${string}` | undefined;
     if (oracleAddr) {
       const attested = await client.public.readContract({
         address: oracleAddr,
         abi: ORACLE_ABI,
         functionName: 'hasAttested',
         args: [settlement.orderId as `0x${string}`],
-      }).catch(() => false);
+      }).catch((err: Error) => {
+        console.warn(`Oracle check failed for ${settlement.sourceChain}: ${err.message}`);
+        return false;
+      });
       
       if (!attested) {
         return { settled: false, retry: true, reason: 'Awaiting oracle attestation' };
       }
+    } else {
+      // No oracle configured - log warning but proceed (some chains may use different attestation)
+      console.warn(`No oracle configured for chain ${settlement.sourceChain}, proceeding without attestation check`);
     }
 
-    // Try to settle on InputSettler
+    // First check if settlement is possible (canSettle)
+    const canSettle = await client.public.readContract({
+      address: inputSettler,
+      abi: INPUT_SETTLER_ABI,
+      functionName: 'canSettle',
+      args: [settlement.orderId as `0x${string}`],
+    }).catch(() => false);
+
+    if (!canSettle) {
+      return { settled: false, retry: true, reason: 'Cannot settle yet (canSettle=false)' };
+    }
+
     const chain = getChain(settlement.sourceChain);
     const settleTx = await client.wallet.writeContract({
       chain,
@@ -228,16 +270,16 @@ export class SolverAgent {
     if (fill.success) {
       recordIntentFilled(e.sourceChain, e.destinationChain, fillDurationMs, fill.gasUsed || 0n);
       console.log(`   ✅ Filled: ${fill.txHash}`);
-      
-      // Track for settlement claiming
+      const now = Date.now();
       this.pendingSettlements.set(e.orderId, {
         orderId: e.orderId,
         sourceChain: e.sourceChain,
         destChain: e.destinationChain,
         inputAmount: BigInt(e.inputAmount),
         fillTxHash: fill.txHash!,
-        filledAt: Date.now(),
+        filledAt: now,
         retryCount: 0,
+        nextRetryAt: now + BASE_RETRY_DELAY_MS, // First retry after 30s
       });
       updatePendingSettlements(this.pendingSettlements.size);
     } else {

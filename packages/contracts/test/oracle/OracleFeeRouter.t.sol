@@ -37,35 +37,39 @@ contract OracleFeeRouterTest is Test {
         feeRouter = new OracleFeeRouter(address(registry), owner);
 
         // Create feeds
-        feedId1 = registry.createFeed(IFeedRegistry.FeedCreateParams({
-            symbol: "ETH-USD",
-            baseToken: WETH,
-            quoteToken: USDC,
-            decimals: 8,
-            heartbeatSeconds: 3600,
-            twapWindowSeconds: 1800,
-            minLiquidityUSD: 100_000 ether,
-            maxDeviationBps: 100,
-            minOracles: 3,
-            quorumThreshold: 2,
-            requiresConfidence: true,
-            category: IFeedRegistry.FeedCategory.SPOT_PRICE
-        }));
+        feedId1 = registry.createFeed(
+            IFeedRegistry.FeedCreateParams({
+                symbol: "ETH-USD",
+                baseToken: WETH,
+                quoteToken: USDC,
+                decimals: 8,
+                heartbeatSeconds: 3600,
+                twapWindowSeconds: 1800,
+                minLiquidityUSD: 100_000 ether,
+                maxDeviationBps: 100,
+                minOracles: 3,
+                quorumThreshold: 2,
+                requiresConfidence: true,
+                category: IFeedRegistry.FeedCategory.SPOT_PRICE
+            })
+        );
 
-        feedId2 = registry.createFeed(IFeedRegistry.FeedCreateParams({
-            symbol: "DAI-USD",
-            baseToken: DAI,
-            quoteToken: USDC,
-            decimals: 8,
-            heartbeatSeconds: 86400,
-            twapWindowSeconds: 3600,
-            minLiquidityUSD: 50_000 ether,
-            maxDeviationBps: 50,
-            minOracles: 3,
-            quorumThreshold: 2,
-            requiresConfidence: false,
-            category: IFeedRegistry.FeedCategory.STABLECOIN_PEG
-        }));
+        feedId2 = registry.createFeed(
+            IFeedRegistry.FeedCreateParams({
+                symbol: "DAI-USD",
+                baseToken: DAI,
+                quoteToken: USDC,
+                decimals: 8,
+                heartbeatSeconds: 86400,
+                twapWindowSeconds: 3600,
+                minLiquidityUSD: 50_000 ether,
+                maxDeviationBps: 50,
+                minOracles: 3,
+                quorumThreshold: 2,
+                requiresConfidence: false,
+                category: IFeedRegistry.FeedCategory.STABLECOIN_PEG
+            })
+        );
 
         vm.stopPrank();
     }
@@ -83,7 +87,7 @@ contract OracleFeeRouterTest is Test {
         bytes32 subId = feeRouter.subscribe{value: price}(feedIds, 1);
 
         assertTrue(feeRouter.isSubscribed(subscriber1, feedId1));
-        
+
         IOracleFeeRouter.Subscription memory sub = feeRouter.getSubscription(subId);
         assertEq(sub.subscriber, subscriber1);
         assertEq(sub.feedIds.length, 1);
@@ -106,7 +110,7 @@ contract OracleFeeRouterTest is Test {
 
         assertTrue(feeRouter.isSubscribed(subscriber1, feedId1));
         assertTrue(feeRouter.isSubscribed(subscriber1, feedId2));
-        
+
         IOracleFeeRouter.Subscription memory sub = feeRouter.getSubscription(subId);
         assertEq(sub.feedIds.length, 2);
     }
@@ -167,11 +171,7 @@ contract OracleFeeRouterTest is Test {
         bytes32[] memory feedIds = new bytes32[](1);
         feedIds[0] = feedId1;
 
-        vm.expectRevert(abi.encodeWithSelector(
-            IOracleFeeRouter.InsufficientPayment.selector,
-            0.05 ether,
-            0.1 ether
-        ));
+        vm.expectRevert(abi.encodeWithSelector(IOracleFeeRouter.InsufficientPayment.selector, 0.05 ether, 0.1 ether));
         vm.prank(subscriber1);
         feeRouter.subscribe{value: 0.05 ether}(feedIds, 1);
     }
@@ -236,10 +236,7 @@ contract OracleFeeRouterTest is Test {
         vm.prank(subscriber1);
         bytes32 subId = feeRouter.subscribe{value: price}(feedIds, 1);
 
-        vm.expectRevert(abi.encodeWithSelector(
-            IOracleFeeRouter.SubscriptionNotFound.selector,
-            subId
-        ));
+        vm.expectRevert(abi.encodeWithSelector(IOracleFeeRouter.SubscriptionNotFound.selector, subId));
         vm.prank(subscriber2);
         feeRouter.renewSubscription{value: price}(subId, 1);
     }
@@ -260,7 +257,7 @@ contract OracleFeeRouterTest is Test {
         feeRouter.cancelSubscription(subId);
 
         assertFalse(feeRouter.isSubscribed(subscriber1, feedId1));
-        
+
         IOracleFeeRouter.Subscription memory sub = feeRouter.getSubscription(subId);
         assertFalse(sub.isActive);
     }
@@ -276,10 +273,7 @@ contract OracleFeeRouterTest is Test {
         vm.prank(subscriber1);
         feeRouter.cancelSubscription(subId);
 
-        vm.expectRevert(abi.encodeWithSelector(
-            IOracleFeeRouter.SubscriptionNotActive.selector,
-            subId
-        ));
+        vm.expectRevert(abi.encodeWithSelector(IOracleFeeRouter.SubscriptionNotActive.selector, subId));
         vm.prank(subscriber1);
         feeRouter.cancelSubscription(subId);
     }
@@ -315,11 +309,7 @@ contract OracleFeeRouterTest is Test {
     }
 
     function test_PayForRead_RevertInsufficientPayment() public {
-        vm.expectRevert(abi.encodeWithSelector(
-            IOracleFeeRouter.InsufficientPayment.selector,
-            0,
-            0.0001 ether
-        ));
+        vm.expectRevert(abi.encodeWithSelector(IOracleFeeRouter.InsufficientPayment.selector, 0, 0.0001 ether));
         vm.prank(subscriber1);
         feeRouter.payForRead{value: 0}(feedId1);
     }
@@ -348,7 +338,7 @@ contract OracleFeeRouterTest is Test {
         IOracleFeeRouter.EpochRewards memory rewards = feeRouter.getEpochRewards(currentEpoch);
         assertTrue(rewards.finalized);
         assertEq(rewards.totalFees, expectedFees);
-        
+
         // Check splits: treasury = 10%, operators = 70%, delegators = 15%
         assertEq(rewards.treasuryShare, (expectedFees * 1000) / 10000);
         assertEq(rewards.operatorPool, (expectedFees * 7000) / 10000);
@@ -358,10 +348,7 @@ contract OracleFeeRouterTest is Test {
     function test_DistributeEpochRewards_RevertNotFinalized() public {
         uint256 currentEpoch = feeRouter.getCurrentEpoch();
 
-        vm.expectRevert(abi.encodeWithSelector(
-            IOracleFeeRouter.EpochNotFinalized.selector,
-            currentEpoch
-        ));
+        vm.expectRevert(abi.encodeWithSelector(IOracleFeeRouter.EpochNotFinalized.selector, currentEpoch));
         feeRouter.distributeEpochRewards(currentEpoch);
     }
 
@@ -519,7 +506,7 @@ contract OracleFeeRouterTest is Test {
         feeRouter.addFeedsToSubscription{value: 0.1 ether}(subId, newFeeds);
 
         assertTrue(feeRouter.isSubscribed(subscriber1, feedId2));
-        
+
         IOracleFeeRouter.Subscription memory sub = feeRouter.getSubscription(subId);
         assertEq(sub.feedIds.length, 2);
     }

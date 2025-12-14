@@ -263,7 +263,7 @@ contract XLPV2ComprehensiveTest is Test {
         _addLiquidity(alice, 100 ether, 100 ether);
 
         // Do many swaps to accumulate fees
-        for (uint i = 0; i < 10; i++) {
+        for (uint256 i = 0; i < 10; i++) {
             _swap(bob, true, 1 ether);
             _swap(bob, false, 1 ether);
         }
@@ -310,7 +310,7 @@ contract XLPV2ComprehensiveTest is Test {
         }
 
         // Simulate 100 blocks of trading
-        for (uint i = 0; i < 100; i++) {
+        for (uint256 i = 0; i < 100; i++) {
             vm.roll(block.number + 1);
             vm.warp(block.timestamp + 12);
 

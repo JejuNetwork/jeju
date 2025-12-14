@@ -12,20 +12,39 @@
  * 7. Withdraw stakes
  */
 
-import { describe, it, before, after } from 'bun:test';
+import { describe, it, beforeAll, afterAll, expect } from 'bun:test';
 import { createWalletClient, createPublicClient, http, parseEther } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 const RPC_URL = process.env.RPC_URL || 'http://localhost:9545';
 const PRIVATE_KEY = process.env.PRIVATE_KEY as `0x${string}`;
 
-describe('Deep Integration E2E', () => {
+// Check if RPC and private key are available
+let servicesAvailable = false;
+if (PRIVATE_KEY && PRIVATE_KEY.startsWith('0x')) {
+  try {
+    const res = await fetch(RPC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
+      signal: AbortSignal.timeout(2000),
+    });
+    servicesAvailable = res.ok;
+  } catch {
+    servicesAvailable = false;
+  }
+}
+if (!servicesAvailable) {
+  console.log('⏭️  Skipping Deep Integration E2E - services not running or PRIVATE_KEY not set');
+}
+
+describe.skipIf(!servicesAvailable)('Deep Integration E2E', () => {
   let registryAddress: `0x${string}`;
   let bazaarAgentId: bigint;
   let predimarketAgentId: bigint;
   let ehorseAgentId: bigint;
 
-  before(async () => {
+  beforeAll(async () => {
     console.log('\n🚀 Setting up deep integration test...\n');
 
     // Deploy IdentityRegistryWithStaking
@@ -239,7 +258,7 @@ describe('Deep Integration E2E', () => {
     console.log('✅ Stake withdrawn and refunded');
   });
 
-  after(async () => {
+  afterAll(async () => {
     console.log('\n✅ Deep integration test complete!\n');
     console.log('Summary:');
     console.log('  - Registry deployed and configured');

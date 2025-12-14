@@ -22,21 +22,21 @@ contract ModerationMarketplaceTest is Test {
 
     function setUp() public {
         vm.startPrank(owner);
-        
+
         // Deploy BanManager
         banManager = new BanManager(owner, owner);
-        
+
         // Deploy ModerationMarketplace
         marketplace = new ModerationMarketplace(
             address(banManager),
-            address(0),  // ETH staking
+            address(0), // ETH staking
             treasury,
             owner
         );
-        
+
         // Authorize marketplace as moderator
         banManager.setModerator(address(marketplace), true);
-        
+
         vm.stopPrank();
 
         // Fund test accounts
@@ -89,7 +89,7 @@ contract ModerationMarketplaceTest is Test {
         // Stake and age
         vm.prank(reporter);
         marketplace.stake{value: 0.1 ether}();
-        
+
         vm.warp(block.timestamp + STAKE_AGE + 1);
         vm.roll(block.number + STAKE_BLOCKS + 1);
 
@@ -121,7 +121,7 @@ contract ModerationMarketplaceTest is Test {
     function testCannotBanSelf() public {
         vm.prank(reporter);
         marketplace.stake{value: 0.1 ether}();
-        
+
         vm.warp(block.timestamp + STAKE_AGE + 1);
         vm.roll(block.number + STAKE_BLOCKS + 1);
 
@@ -136,7 +136,7 @@ contract ModerationMarketplaceTest is Test {
         // Setup: stake reporter and open case
         vm.prank(reporter);
         marketplace.stake{value: 0.1 ether}();
-        
+
         vm.warp(block.timestamp + STAKE_AGE + 1);
         vm.roll(block.number + STAKE_BLOCKS + 1);
 
@@ -162,7 +162,7 @@ contract ModerationMarketplaceTest is Test {
         // Voter stakes and ages
         vm.prank(voter1);
         marketplace.stake{value: 0.1 ether}();
-        
+
         vm.warp(block.timestamp + STAKE_AGE + 1);
         vm.roll(block.number + STAKE_BLOCKS + 1);
 
@@ -183,7 +183,7 @@ contract ModerationMarketplaceTest is Test {
         // Voter stakes and ages
         vm.prank(voter1);
         marketplace.stake{value: 0.1 ether}();
-        
+
         vm.warp(block.timestamp + STAKE_AGE + 1);
         vm.roll(block.number + STAKE_BLOCKS + 1);
 
@@ -204,7 +204,7 @@ contract ModerationMarketplaceTest is Test {
         // Voter stakes and ages
         vm.prank(voter1);
         marketplace.stake{value: 0.1 ether}();
-        
+
         vm.warp(block.timestamp + STAKE_AGE + 1);
         vm.roll(block.number + STAKE_BLOCKS + 1);
 
@@ -226,7 +226,7 @@ contract ModerationMarketplaceTest is Test {
         // Add more YES votes by staking more with voter
         vm.prank(voter1);
         marketplace.stake{value: 1 ether}();
-        
+
         vm.warp(block.timestamp + STAKE_AGE + 1);
         vm.roll(block.number + STAKE_BLOCKS + 1);
 
@@ -254,7 +254,7 @@ contract ModerationMarketplaceTest is Test {
         // Add more NO votes by staking more with voter
         vm.prank(voter1);
         marketplace.stake{value: 1 ether}();
-        
+
         vm.warp(block.timestamp + STAKE_AGE + 1);
         vm.roll(block.number + STAKE_BLOCKS + 1);
 
@@ -379,7 +379,7 @@ contract ModerationMarketplaceTest is Test {
         // Voter1 stakes 1 ETH
         vm.prank(voter1);
         marketplace.stake{value: 1 ether}();
-        
+
         vm.warp(block.timestamp + STAKE_AGE + 1);
         vm.roll(block.number + STAKE_BLOCKS + 1);
 
@@ -388,7 +388,7 @@ contract ModerationMarketplaceTest is Test {
         marketplace.vote(caseId, ModerationMarketplace.VotePosition.YES);
 
         ModerationMarketplace.Vote memory vote = marketplace.getVote(caseId, voter1);
-        
+
         // Vote weight should be approximately sqrt(1 ether * 1e18) = 1e18
         // With time bonus, it should be higher
         assertTrue(vote.weight > 0);
@@ -404,7 +404,7 @@ contract ModerationMarketplaceTest is Test {
         // Voter1 stakes
         vm.prank(voter1);
         marketplace.stake{value: 0.1 ether}();
-        
+
         vm.warp(block.timestamp + STAKE_AGE + 1);
         vm.roll(block.number + STAKE_BLOCKS + 1);
 
@@ -412,12 +412,12 @@ contract ModerationMarketplaceTest is Test {
         ModerationMarketplace.BanCase memory banCase = marketplace.getCase(caseId);
         uint256 timeUntilEnd = banCase.marketOpenUntil - block.timestamp;
         assertTrue(timeUntilEnd > 0); // Should have time remaining
-        
+
         vm.prank(voter1);
         marketplace.vote(caseId, ModerationMarketplace.VotePosition.YES);
 
         ModerationMarketplace.Vote memory earlyVote = marketplace.getVote(caseId, voter1);
-        
+
         // Early voters should have bonus
         assertTrue(earlyVote.weight > 0);
     }
@@ -432,19 +432,19 @@ contract ModerationMarketplaceTest is Test {
         vm.deal(whale, 1000 ether);
         vm.prank(whale);
         marketplace.stake{value: 100 ether}();
-        
+
         vm.warp(block.timestamp + STAKE_AGE + 1);
         vm.roll(block.number + STAKE_BLOCKS + 1);
 
         // Whale votes - weight should be capped at 25% of total votes
         ModerationMarketplace.BanCase memory banCase = marketplace.getCase(caseId);
         uint256 totalVotesBefore = banCase.yesVotes + banCase.noVotes;
-        
+
         vm.prank(whale);
         marketplace.vote(caseId, ModerationMarketplace.VotePosition.YES);
 
         ModerationMarketplace.Vote memory whaleVote = marketplace.getVote(caseId, whale);
-        
+
         // Vote weight should be capped
         uint256 maxAllowedWeight = (totalVotesBefore * 2500) / 10000; // 25%
         assertTrue(whaleVote.weight <= maxAllowedWeight || totalVotesBefore == 0);
@@ -494,7 +494,7 @@ contract ModerationMarketplaceTest is Test {
 
         // Check reporter was slashed 2x (asymmetric penalty)
         ModerationMarketplace.StakeInfo memory reporterStakeAfter = marketplace.getStake(reporter);
-        
+
         // Reporter should have lost at least their original stake (up to 2x)
         assertTrue(reporterStakeAfter.amount < reporterInitialStake);
     }
@@ -568,7 +568,7 @@ contract ModerationMarketplaceTest is Test {
         // Reporter stakes and ages
         vm.prank(reporter);
         marketplace.stake{value: 0.1 ether}();
-        
+
         vm.warp(block.timestamp + STAKE_AGE + 1);
         vm.roll(block.number + STAKE_BLOCKS + 1);
 
@@ -583,4 +583,3 @@ contract ModerationMarketplaceTest is Test {
         return caseId;
     }
 }
-

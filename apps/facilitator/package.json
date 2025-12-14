@@ -15,6 +15,7 @@
     "verify-deployment": "bun run scripts/verify-deployment.ts"
   },
   "dependencies": {
+    "@jeju/kms": "workspace:*",
     "hono": "4.6.0",
     "viem": "2.21.0"
   },

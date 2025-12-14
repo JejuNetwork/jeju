@@ -499,14 +499,14 @@ processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx: Process
         `${tokenBalances.size} balances`
     )
 
-    await ctx.store.upsert(Array.from(accounts.values()))
+    await ctx.store.upsert([...accounts.values()])
     await ctx.store.insert(blocks)
     await ctx.store.insert(transactions)
-    await ctx.store.upsert(Array.from(contracts.values()))
+    await ctx.store.upsert([...contracts.values()])
     await ctx.store.insert(logs)
     await ctx.store.insert(decodedEvents)
     await ctx.store.insert(tokenTransfers)
-    await ctx.store.upsert(Array.from(tokenBalances.values()))
+    await ctx.store.upsert([...tokenBalances.values()])
     await ctx.store.insert(traces)
     
     await processGameFeedEvents(ctx)

@@ -46,7 +46,7 @@ contract DisputerHandler is Test {
     /// @notice Open a dispute on a processed report
     function openDispute(uint256 disputerIndex, bytes32 reportHash, uint256 bondAmount) external {
         if (disputers.length == 0) return;
-        
+
         disputerIndex = bound(disputerIndex, 0, disputers.length - 1);
         bondAmount = bound(bondAmount, 100 ether, 500 ether);
 
@@ -64,11 +64,9 @@ contract DisputerHandler is Test {
 
         vm.prank(disputer);
         bytes32 disputeId = disputeGame.openDispute{value: bondAmount}(
-            reportHash,
-            IDisputeGame.DisputeReason.PRICE_DEVIATION,
-            keccak256("evidence")
+            reportHash, IDisputeGame.DisputeReason.PRICE_DEVIATION, keccak256("evidence")
         );
-        
+
         openDisputes.push(disputeId);
         totalDisputesOpened++;
         totalBondsPaid += bondAmount;
@@ -89,7 +87,7 @@ contract DisputerHandler is Test {
         address challenger = disputers[challengerIndex];
 
         IDisputeGame.Dispute memory dispute = disputeGame.getDispute(disputeId);
-        
+
         if (dispute.status != IDisputeGame.DisputeStatus.OPEN) return;
         if (challenger.balance < dispute.bond) return;
 
@@ -153,5 +151,4 @@ contract DisputerHandler is Test {
         openDisputes[index] = openDisputes[openDisputes.length - 1];
         openDisputes.pop();
     }
-
 }

@@ -10,26 +10,25 @@ pragma solidity ^0.8.26;
  *      - Combat damage calculations
  *      - Hit chance calculations
  *      - Skill level requirements
- * 
+ *
  * Used by Gold.sol, Items.sol, and MUD game contracts.
- * 
+ *
  * @custom:security-contact security@jeju.network
  */
 library RPGStats {
-    
     // ============ Constants ============
-    
+
     /// @notice Maximum skill level
     uint8 public constant MAX_LEVEL = 99;
-    
+
     /// @notice XP required for level 99
     uint32 public constant MAX_XP = 13034431;
-    
+
     /// @notice Base damage multiplier (scaled by 100)
     uint16 public constant DAMAGE_MULTIPLIER = 100;
-    
+
     // ============ XP & Leveling ============
-    
+
     /**
      * @notice Calculate level from XP (RuneScape-style curve)
      * @param xp Experience points
@@ -139,7 +138,7 @@ library RPGStats {
         if (xp >= 83) return 2;
         return 1;
     }
-    
+
     /**
      * @notice Calculate XP required for a level
      * @param level Target level
@@ -148,7 +147,7 @@ library RPGStats {
     function getXPForLevel(uint8 level) internal pure returns (uint32) {
         if (level <= 1) return 0;
         if (level >= 99) return MAX_XP;
-        
+
         // Simplified calculation (precomputed values recommended in production)
         uint32 total = 0;
         for (uint8 i = 1; i < level; i++) {
@@ -156,9 +155,9 @@ library RPGStats {
         }
         return total;
     }
-    
+
     // ============ Combat Calculations ============
-    
+
     /**
      * @notice Calculate melee damage
      * @param attackLevel Attacker's attack level
@@ -178,17 +177,17 @@ library RPGStats {
         // Effective strength determines max hit
         int32 effectiveStrength = int32(uint32(strengthLevel)) + strengthBonus;
         if (effectiveStrength < 1) effectiveStrength = 1;
-        
+
         // Max hit = (effectiveStrength * 0.5) + 1.3
         uint32 maxHit = uint32(effectiveStrength) / 2 + 1;
-        
+
         // Hit chance based on attack vs defense
         int32 effectiveAttack = int32(uint32(attackLevel)) + attackBonus;
         if (effectiveAttack < 1) effectiveAttack = 1;
-        
+
         int32 attackRoll = effectiveAttack * 64;
         int32 defenseRoll = int32(uint32(defenseLevel)) * 64;
-        
+
         // Hit chance = attack / (attack + defense)
         // If successful, deal random damage up to maxHit
         // For deterministic on-chain, use block hash as seed
@@ -200,7 +199,7 @@ library RPGStats {
             return maxHit / 4;
         }
     }
-    
+
     /**
      * @notice Calculate ranged damage
      * @param rangedLevel Attacker's ranged level
@@ -209,20 +208,19 @@ library RPGStats {
      * @param defenseLevel Defender's defense level
      * @return damage Damage dealt
      */
-    function calculateRangedDamage(
-        uint8 rangedLevel,
-        int16 rangedBonus,
-        int16 ammoBonus,
-        uint8 defenseLevel
-    ) internal pure returns (uint32) {
+    function calculateRangedDamage(uint8 rangedLevel, int16 rangedBonus, int16 ammoBonus, uint8 defenseLevel)
+        internal
+        pure
+        returns (uint32)
+    {
         int32 effectiveRanged = int32(uint32(rangedLevel)) + rangedBonus + ammoBonus;
         if (effectiveRanged < 1) effectiveRanged = 1;
-        
+
         uint32 maxHit = uint32(effectiveRanged) / 2 + 1;
-        
+
         int32 attackRoll = effectiveRanged * 64;
         int32 defenseRoll = int32(uint32(defenseLevel)) * 64;
-        
+
         if (attackRoll > defenseRoll) {
             return maxHit;
         } else if (attackRoll == defenseRoll) {
@@ -231,7 +229,7 @@ library RPGStats {
             return maxHit / 4;
         }
     }
-    
+
     /**
      * @notice Calculate hit chance percentage (scaled by 100)
      * @param attackLevel Attacker's level
@@ -240,28 +238,27 @@ library RPGStats {
      * @param defenseBonus Defender's equipment bonus
      * @return chance Hit chance (0-100)
      */
-    function calculateHitChance(
-        uint8 attackLevel,
-        int16 attackBonus,
-        uint8 defenseLevel,
-        int16 defenseBonus
-    ) internal pure returns (uint8) {
+    function calculateHitChance(uint8 attackLevel, int16 attackBonus, uint8 defenseLevel, int16 defenseBonus)
+        internal
+        pure
+        returns (uint8)
+    {
         int32 effectiveAttack = int32(uint32(attackLevel)) + attackBonus;
         int32 effectiveDefense = int32(uint32(defenseLevel)) + defenseBonus;
-        
+
         if (effectiveAttack <= 0) return 5; // Minimum 5%
         if (effectiveDefense <= 0) return 95; // Maximum 95%
-        
+
         int32 chance = (effectiveAttack * 100) / (effectiveAttack + effectiveDefense);
-        
+
         if (chance < 5) return 5;
         if (chance > 95) return 95;
-        
+
         return uint8(uint32(chance));
     }
-    
+
     // ============ Combat Level ============
-    
+
     /**
      * @notice Calculate combat level (RuneScape formula)
      * @param attackLevel Attack level
@@ -284,29 +281,26 @@ library RPGStats {
     ) internal pure returns (uint8) {
         // Base = 0.25 * (Defense + Constitution + floor(Prayer/2))
         uint32 base = (uint32(defenseLevel) + uint32(constitutionLevel) + uint32(prayerLevel) / 2) / 4;
-        
+
         // Melee = 0.325 * (Attack + Strength)
         uint32 melee = (uint32(attackLevel) + uint32(strengthLevel)) * 325 / 1000;
-        
+
         // Ranged = 0.325 * floor(Ranged * 1.5)
         uint32 ranged = (uint32(rangedLevel) * 3 / 2) * 325 / 1000;
-        
+
         // Magic = 0.325 * floor(Magic * 1.5)
         uint32 magic = (uint32(magicLevel) * 3 / 2) * 325 / 1000;
-        
+
         // Combat = Base + max(Melee, Ranged, Magic)
         uint32 maxCombat = melee;
         if (ranged > maxCombat) maxCombat = ranged;
         if (magic > maxCombat) maxCombat = magic;
-        
+
         uint32 combatLevel = base + maxCombat;
-        
+
         if (combatLevel < 3) return 3;
         if (combatLevel > 126) return 126;
-        
+
         return uint8(combatLevel);
     }
 }
-
-
-

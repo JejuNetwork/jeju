@@ -4,7 +4,7 @@
  */
 
 import { testWithSynpress } from '@synthetixio/synpress';
-import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
+import { metaMaskFixtures } from '@synthetixio/synpress/playwright';
 import { basicSetup } from '../../../synpress.config'
 import { connectWallet } from '../helpers/wallet-helpers';
 import { GATEWAY_URL } from '../fixtures/test-data';
@@ -205,7 +205,7 @@ test.describe('Form Field Validation - All Inputs', () => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 
-    const inputTypes: string[] = [];
+        const inputTypes: string[] = [];
 
     // Check for all input types
     const textInputs = await page.locator('input[type="text"], input[placeholder]').count();

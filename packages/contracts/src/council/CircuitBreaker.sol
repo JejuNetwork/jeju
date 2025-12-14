@@ -46,7 +46,7 @@ contract CircuitBreaker is Ownable, ReentrancyGuard {
         uint256 pausedAt;
         address pausedBy;
         string pauseReason;
-        uint256 priority;  // 1 = critical (pause first), 10 = low priority
+        uint256 priority; // 1 = critical (pause first), 10 = low priority
     }
 
     struct PauseEvent {
@@ -96,52 +96,25 @@ contract CircuitBreaker is Ownable, ReentrancyGuard {
     // Events
     // ============================================================================
 
-    event ContractRegistered(
-        address indexed target,
-        string name,
-        uint256 priority
-    );
+    event ContractRegistered(address indexed target, string name, uint256 priority);
 
-    event ContractUnregistered(
-        address indexed target
-    );
+    event ContractUnregistered(address indexed target);
 
     event EmergencyPauseTriggered(
-        bytes32 indexed eventId,
-        address indexed target,
-        address indexed pauser,
-        string reason
+        bytes32 indexed eventId, address indexed target, address indexed pauser, string reason
     );
 
-    event GlobalEmergencyPause(
-        address indexed pauser,
-        string reason
-    );
+    event GlobalEmergencyPause(address indexed pauser, string reason);
 
-    event ContractUnpaused(
-        bytes32 indexed eventId,
-        address indexed target,
-        address indexed unpauser
-    );
+    event ContractUnpaused(bytes32 indexed eventId, address indexed target, address indexed unpauser);
 
-    event GlobalUnpause(
-        address indexed unpauser
-    );
+    event GlobalUnpause(address indexed unpauser);
 
-    event AnomalyDetected(
-        address indexed target,
-        string anomalyType,
-        uint256 value
-    );
+    event AnomalyDetected(address indexed target, string anomalyType, uint256 value);
 
-    event SecurityCouncilSynced(
-        uint256 memberCount
-    );
+    event SecurityCouncilSynced(uint256 memberCount);
 
-    event SafeUpdated(
-        address indexed oldSafe,
-        address indexed newSafe
-    );
+    event SafeUpdated(address indexed oldSafe, address indexed newSafe);
 
     // ============================================================================
     // Errors
@@ -174,11 +147,7 @@ contract CircuitBreaker is Ownable, ReentrancyGuard {
     // Constructor
     // ============================================================================
 
-    constructor(
-        address _safe,
-        address _delegationRegistry,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _safe, address _delegationRegistry, address initialOwner) Ownable(initialOwner) {
         require(_safe != address(0), "Invalid safe");
 
         safe = _safe;
@@ -207,11 +176,7 @@ contract CircuitBreaker is Ownable, ReentrancyGuard {
      * @param name Human-readable name
      * @param priority 1-10, lower = higher priority
      */
-    function registerContract(
-        address target,
-        string calldata name,
-        uint256 priority
-    ) external onlyOwner {
+    function registerContract(address target, string calldata name, uint256 priority) external onlyOwner {
         if (protectedContracts[target].isRegistered) revert ContractAlreadyRegistered();
         if (priority == 0 || priority > 10) revert InvalidPriority();
 
@@ -275,12 +240,7 @@ contract CircuitBreaker is Ownable, ReentrancyGuard {
         pc.pausedBy = msg.sender;
         pc.pauseReason = reason;
 
-        eventId = keccak256(abi.encodePacked(
-            target,
-            msg.sender,
-            block.timestamp,
-            pauseEventCount++
-        ));
+        eventId = keccak256(abi.encodePacked(target, msg.sender, block.timestamp, pauseEventCount++));
 
         pauseEvents[eventId] = PauseEvent({
             eventId: eventId,
@@ -303,11 +263,7 @@ contract CircuitBreaker is Ownable, ReentrancyGuard {
      * @notice Global emergency pause - pauses all registered contracts
      * @param reason Reason for global pause
      */
-    function globalEmergencyPause(string calldata reason)
-        external
-        onlySecurityCouncil
-        nonReentrant
-    {
+    function globalEmergencyPause(string calldata reason) external onlySecurityCouncil nonReentrant {
         if (globalPause) revert AlreadyPaused();
         if (block.timestamp < lastPauseTime + pauseCooldown) revert PauseCooldown();
 
@@ -397,10 +353,7 @@ contract CircuitBreaker is Ownable, ReentrancyGuard {
      * @param value Value being transferred
      * @return shouldPause Whether an anomaly was detected
      */
-    function checkAnomaly(address target, uint256 value)
-        external
-        returns (bool shouldPause)
-    {
+    function checkAnomaly(address target, uint256 value) external returns (bool shouldPause) {
         if (!anomalyConfig.enabled) return false;
         if (!protectedContracts[target].isRegistered) return false;
 
@@ -432,10 +385,7 @@ contract CircuitBreaker is Ownable, ReentrancyGuard {
     /**
      * @notice Auto-pause on anomaly (callable by anyone)
      */
-    function autoPauseOnAnomaly(address target, string calldata anomalyType)
-        external
-        nonReentrant
-    {
+    function autoPauseOnAnomaly(address target, string calldata anomalyType) external nonReentrant {
         ProtectedContract storage pc = protectedContracts[target];
         if (!pc.isRegistered) revert ContractNotRegistered();
         if (pc.isPaused) return;
@@ -455,12 +405,7 @@ contract CircuitBreaker is Ownable, ReentrancyGuard {
             pc.pausedBy = address(0); // Auto-paused
             pc.pauseReason = anomalyType;
 
-            bytes32 eventId = keccak256(abi.encodePacked(
-                target,
-                anomalyType,
-                block.timestamp,
-                pauseEventCount++
-            ));
+            bytes32 eventId = keccak256(abi.encodePacked(target, anomalyType, block.timestamp, pauseEventCount++));
 
             pauseEvents[eventId] = PauseEvent({
                 eventId: eventId,
@@ -565,11 +510,7 @@ contract CircuitBreaker is Ownable, ReentrancyGuard {
     // View Functions
     // ============================================================================
 
-    function getProtectedContract(address target)
-        external
-        view
-        returns (ProtectedContract memory)
-    {
+    function getProtectedContract(address target) external view returns (ProtectedContract memory) {
         return protectedContracts[target];
     }
 
@@ -630,12 +571,10 @@ contract CircuitBreaker is Ownable, ReentrancyGuard {
         delegationRegistry = IDelegationRegistry(newRegistry);
     }
 
-    function setAnomalyConfig(
-        uint256 maxTxPerBlock,
-        uint256 maxValuePerTx,
-        uint256 maxValuePerHr,
-        bool enabled
-    ) external onlyOwner {
+    function setAnomalyConfig(uint256 maxTxPerBlock, uint256 maxValuePerTx, uint256 maxValuePerHr, bool enabled)
+        external
+        onlyOwner
+    {
         anomalyConfig = AnomalyConfig({
             maxTransactionsPerBlock: maxTxPerBlock,
             maxValuePerTransaction: maxValuePerTx,
@@ -652,4 +591,3 @@ contract CircuitBreaker is Ownable, ReentrancyGuard {
         return "1.0.0";
     }
 }
-

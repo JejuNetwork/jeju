@@ -1,0 +1,20 @@
+{
+  "network": "base-sepolia",
+  "chainId": 84532,
+  "deployedAt": "2024-12-12T00:00:00Z",
+  "contracts": {
+    "CrossChainPaymasterUpgradeable": {
+      "implementation": "0x38C2bb69d56C3aB5c088756cbc2817649D45ae85",
+      "proxy": "0x1cb87737EDF2A4f8072b37EAb4a41462bC30402b"
+    },
+    "CrossChainMessagingPaymaster": "0xB9812B933BF990c1D911F392b43233fcc173Aa6A"
+  },
+  "externalContracts": {
+    "EntryPoint": "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789",
+    "USDC": "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+  },
+  "configuration": {
+    "supportedTokens": ["0x036CbD53842c5426634e7929541eC2318f3dCF7e"],
+    "registeredChains": [11155420]
+  }
+}

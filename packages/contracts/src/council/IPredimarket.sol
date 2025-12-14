@@ -13,7 +13,8 @@ interface IPredimarket {
         MODERATION_LABEL_HACKER,
         MODERATION_LABEL_SCAMMER,
         MODERATION_APPEAL,
-        GOVERNANCE_VETO  // New category for vetoed governance proposals
+        GOVERNANCE_VETO // New category for vetoed governance proposals
+
     }
 
     struct ModerationMetadata {
@@ -51,20 +52,23 @@ interface IPredimarket {
      * @notice Get market details
      * @param sessionId Market ID
      */
-    function getMarket(bytes32 sessionId) external view returns (
-        bytes32 _sessionId,
-        string memory question,
-        uint256 yesShares,
-        uint256 noShares,
-        uint256 liquidityParameter,
-        uint256 totalVolume,
-        uint256 createdAt,
-        bool resolved,
-        bool outcome,
-        uint8 gameType,
-        address gameContract,
-        MarketCategory category
-    );
+    function getMarket(bytes32 sessionId)
+        external
+        view
+        returns (
+            bytes32 _sessionId,
+            string memory question,
+            uint256 yesShares,
+            uint256 noShares,
+            uint256 liquidityParameter,
+            uint256 totalVolume,
+            uint256 createdAt,
+            bool resolved,
+            bool outcome,
+            uint8 gameType,
+            address gameContract,
+            MarketCategory category
+        );
 
     /**
      * @notice Check if market is resolved

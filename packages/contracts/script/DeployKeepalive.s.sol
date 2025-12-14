@@ -30,11 +30,7 @@ contract DeployKeepalive is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // Deploy KeepaliveRegistry
-        KeepaliveRegistry keepalive = new KeepaliveRegistry(
-            triggerRegistry,
-            agentVault,
-            jnsRegistry
-        );
+        KeepaliveRegistry keepalive = new KeepaliveRegistry(triggerRegistry, agentVault, jnsRegistry);
         console.log("KeepaliveRegistry deployed at:", address(keepalive));
 
         // Authorize deployer as executor initially

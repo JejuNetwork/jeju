@@ -1,0 +1,48 @@
+{
+  "name": "@jeju/messaging",
+  "version": "0.1.0",
+  "description": "Decentralized private messaging protocol for Jeju L2",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./sdk": {
+      "import": "./dist/sdk/index.js",
+      "types": "./dist/sdk/index.d.ts"
+    },
+    "./node": {
+      "import": "./dist/node/index.js",
+      "types": "./dist/node/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "bun test",
+    "test:e2e": "bun test src/tests/e2e.test.ts",
+    "node": "bun run src/node/index.ts",
+    "demo": "bun run src/demo/run-demo.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@noble/curves": "^1.8.1",
+    "@noble/ciphers": "^1.2.1",
+    "@noble/hashes": "^1.7.1",
+    "hono": "^4.4.0",
+    "viem": "^2.21.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/ws": "^8.5.12",
+    "typescript": "^5.5.0"
+  },
+  "peerDependencies": {
+    "viem": "^2.0.0"
+  }
+}
+

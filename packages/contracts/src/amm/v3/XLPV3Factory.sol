@@ -11,13 +11,13 @@ contract XLPV3Factory {
     // ============ State ============
 
     address public owner;
-    
+
     /// @notice Returns the pool address for a given pair of tokens and a fee, or address 0 if it does not exist
     mapping(address => mapping(address => mapping(uint24 => address))) public getPool;
-    
+
     /// @notice Returns the tick spacing for a given fee amount, or 0 if not enabled
     mapping(uint24 => int24) public feeAmountTickSpacing;
-    
+
     /// @notice All deployed pools
     address[] public allPools;
 
@@ -30,18 +30,14 @@ contract XLPV3Factory {
         uint24 fee;
         int24 tickSpacing;
     }
-    
+
     Parameters public parameters;
 
     // ============ Events ============
 
     event OwnerChanged(address indexed oldOwner, address indexed newOwner);
     event PoolCreated(
-        address indexed token0,
-        address indexed token1,
-        uint24 indexed fee,
-        int24 tickSpacing,
-        address pool
+        address indexed token0, address indexed token1, uint24 indexed fee, int24 tickSpacing, address pool
     );
     event FeeAmountEnabled(uint24 indexed fee, int24 indexed tickSpacing);
 
@@ -62,12 +58,12 @@ contract XLPV3Factory {
         emit OwnerChanged(address(0), msg.sender);
 
         // Enable default fee amounts
-        feeAmountTickSpacing[500] = 10;    // 0.05%
+        feeAmountTickSpacing[500] = 10; // 0.05%
         emit FeeAmountEnabled(500, 10);
-        
-        feeAmountTickSpacing[3000] = 60;   // 0.3%
+
+        feeAmountTickSpacing[3000] = 60; // 0.3%
         emit FeeAmountEnabled(3000, 60);
-        
+
         feeAmountTickSpacing[10000] = 200; // 1%
         emit FeeAmountEnabled(10000, 200);
     }
@@ -85,11 +81,7 @@ contract XLPV3Factory {
     /// @param tokenB The other of the two tokens in the desired pool
     /// @param fee The desired fee for the pool
     /// @return pool The address of the newly created pool
-    function createPool(
-        address tokenA,
-        address tokenB,
-        uint24 fee
-    ) external returns (address pool) {
+    function createPool(address tokenA, address tokenB, uint24 fee) external returns (address pool) {
         if (tokenA == tokenB) revert IdenticalAddresses();
         (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
         if (token0 == address(0)) revert ZeroAddress();
@@ -98,13 +90,8 @@ contract XLPV3Factory {
         if (getPool[token0][token1][fee] != address(0)) revert PoolExists();
 
         // Set parameters for pool deployment
-        parameters = Parameters({
-            factory: address(this),
-            token0: token0,
-            token1: token1,
-            fee: fee,
-            tickSpacing: tickSpacing
-        });
+        parameters =
+            Parameters({factory: address(this), token0: token0, token1: token1, fee: fee, tickSpacing: tickSpacing});
 
         pool = address(new XLPV3Pool{salt: keccak256(abi.encode(token0, token1, fee))}());
 
@@ -159,11 +146,19 @@ contract XLPV3Factory {
     /// @return pool The predicted pool address
     function computePoolAddress(address tokenA, address tokenB, uint24 fee) external view returns (address pool) {
         (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
-        pool = address(uint160(uint256(keccak256(abi.encodePacked(
-            hex'ff',
-            address(this),
-            keccak256(abi.encode(token0, token1, fee)),
-            keccak256(type(XLPV3Pool).creationCode)
-        )))));
+        pool = address(
+            uint160(
+                uint256(
+                    keccak256(
+                        abi.encodePacked(
+                            hex"ff",
+                            address(this),
+                            keccak256(abi.encode(token0, token1, fee)),
+                            keccak256(type(XLPV3Pool).creationCode)
+                        )
+                    )
+                )
+            )
+        );
     }
 }

@@ -211,5 +211,5 @@ export async function processGameFeedEvents(ctx: ProcessorContext<Store>): Promi
     await ctx.store.insert(deathEvents);
     await ctx.store.insert(killEvents);
     await ctx.store.insert(achievements);
-    await ctx.store.upsert(Array.from(playerStats.values()));
+    await ctx.store.upsert([...playerStats.values()]);
 }

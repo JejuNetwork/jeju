@@ -92,4 +92,3 @@ contract MockEntryPoint {
 
     function delegateAndRevert(address, bytes calldata) external {}
 }
-

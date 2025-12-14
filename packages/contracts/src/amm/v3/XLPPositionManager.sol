@@ -91,26 +91,11 @@ contract XLPPositionManager is ERC721Enumerable, ReentrancyGuard, Multicall, IXL
 
     // ============ Events ============
 
-    event IncreaseLiquidity(
-        uint256 indexed tokenId,
-        uint128 liquidity,
-        uint256 amount0,
-        uint256 amount1
-    );
+    event IncreaseLiquidity(uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
 
-    event DecreaseLiquidity(
-        uint256 indexed tokenId,
-        uint128 liquidity,
-        uint256 amount0,
-        uint256 amount1
-    );
+    event DecreaseLiquidity(uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
 
-    event Collect(
-        uint256 indexed tokenId,
-        address recipient,
-        uint256 amount0,
-        uint256 amount1
-    );
+    event Collect(uint256 indexed tokenId, address recipient, uint256 amount0, uint256 amount1);
 
     // ============ Errors ============
 
@@ -124,9 +109,7 @@ contract XLPPositionManager is ERC721Enumerable, ReentrancyGuard, Multicall, IXL
 
     // ============ Constructor ============
 
-    constructor(address _factory, address _WETH)
-        ERC721("XLP V3 Positions", "XLP-V3-POS")
-    {
+    constructor(address _factory, address _WETH) ERC721("XLP V3 Positions", "XLP-V3-POS") {
         factory = _factory;
         WETH = _WETH;
     }
@@ -199,12 +182,7 @@ contract XLPPositionManager is ERC721Enumerable, ReentrancyGuard, Multicall, IXL
         payable
         nonReentrant
         checkDeadline(params.deadline)
-        returns (
-            uint256 tokenId,
-            uint128 liquidity,
-            uint256 amount0,
-            uint256 amount1
-        )
+        returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)
     {
         address pool = _getPool(params.token0, params.token1, params.fee);
         if (pool == address(0)) revert InvalidPool();
@@ -229,11 +207,8 @@ contract XLPPositionManager is ERC721Enumerable, ReentrancyGuard, Multicall, IXL
         _mint(params.recipient, tokenId);
 
         // Get fee growth
-        (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) = _getFeeGrowthInside(
-            pool,
-            params.tickLower,
-            params.tickUpper
-        );
+        (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) =
+            _getFeeGrowthInside(pool, params.tickLower, params.tickUpper);
 
         // Store position
         _positions[tokenId] = Position({
@@ -265,11 +240,7 @@ contract XLPPositionManager is ERC721Enumerable, ReentrancyGuard, Multicall, IXL
         nonReentrant
         checkDeadline(params.deadline)
         isAuthorizedForToken(params.tokenId)
-        returns (
-            uint128 liquidity,
-            uint256 amount0,
-            uint256 amount1
-        )
+        returns (uint128 liquidity, uint256 amount0, uint256 amount1)
     {
         Position storage position = _positions[params.tokenId];
         address pool = _getPool(position.token0, position.token1, position.fee);
@@ -312,11 +283,7 @@ contract XLPPositionManager is ERC721Enumerable, ReentrancyGuard, Multicall, IXL
         address pool = _getPool(position.token0, position.token1, position.fee);
 
         // Burn liquidity
-        (amount0, amount1) = IXLPV3Pool(pool).burn(
-            position.tickLower,
-            position.tickUpper,
-            params.liquidity
-        );
+        (amount0, amount1) = IXLPV3Pool(pool).burn(position.tickLower, position.tickUpper, params.liquidity);
 
         require(amount0 >= params.amount0Min && amount1 >= params.amount1Min, "Price slippage");
 
@@ -356,11 +323,7 @@ contract XLPPositionManager is ERC721Enumerable, ReentrancyGuard, Multicall, IXL
 
         // Collect from pool
         (uint128 collected0, uint128 collected1) = IXLPV3Pool(pool).collect(
-            params.recipient,
-            position.tickLower,
-            position.tickUpper,
-            uint128(amount0),
-            uint128(amount1)
+            params.recipient, position.tickLower, position.tickUpper, uint128(amount0), uint128(amount1)
         );
 
         // Update position
@@ -373,10 +336,7 @@ contract XLPPositionManager is ERC721Enumerable, ReentrancyGuard, Multicall, IXL
 
     /// @notice Burns a token ID, which deletes it from the NFT contract
     /// @param tokenId The ID of the token to burn
-    function burn(uint256 tokenId)
-        external
-        isAuthorizedForToken(tokenId)
-    {
+    function burn(uint256 tokenId) external isAuthorizedForToken(tokenId) {
         Position storage position = _positions[tokenId];
         if (position.liquidity != 0 || position.tokensOwed0 != 0 || position.tokensOwed1 != 0) {
             revert NotCleared();
@@ -388,15 +348,9 @@ contract XLPPositionManager is ERC721Enumerable, ReentrancyGuard, Multicall, IXL
     // ============ Callback ============
 
     /// @inheritdoc IXLPV3MintCallback
-    function xlpV3MintCallback(
-        uint256 amount0Owed,
-        uint256 amount1Owed,
-        bytes calldata data
-    ) external override {
-        (address token0, address token1, uint24 fee, address payer) = abi.decode(
-            data,
-            (address, address, uint24, address)
-        );
+    function xlpV3MintCallback(uint256 amount0Owed, uint256 amount1Owed, bytes calldata data) external override {
+        (address token0, address token1, uint24 fee, address payer) =
+            abi.decode(data, (address, address, uint24, address));
 
         // Verify callback is from legitimate pool
         address pool = _getPool(token0, token1, fee);
@@ -427,24 +381,16 @@ contract XLPPositionManager is ERC721Enumerable, ReentrancyGuard, Multicall, IXL
 
     function _addLiquidity(AddLiquidityParams memory params)
         internal
-        returns (
-            uint128 liquidity,
-            uint256 amount0,
-            uint256 amount1
-        )
+        returns (uint128 liquidity, uint256 amount0, uint256 amount1)
     {
         // Calculate optimal liquidity amount
-        (uint160 sqrtPriceX96, , , , , , ) = IXLPV3Pool(params.pool).slot0();
+        (uint160 sqrtPriceX96,,,,,,) = IXLPV3Pool(params.pool).slot0();
 
         uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(params.tickLower);
         uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(params.tickUpper);
 
         liquidity = _getLiquidityForAmounts(
-            sqrtPriceX96,
-            sqrtRatioAX96,
-            sqrtRatioBX96,
-            params.amount0Desired,
-            params.amount1Desired
+            sqrtPriceX96, sqrtRatioAX96, sqrtRatioBX96, params.amount0Desired, params.amount1Desired
         );
 
         // Mint liquidity
@@ -481,11 +427,11 @@ contract XLPPositionManager is ERC721Enumerable, ReentrancyGuard, Multicall, IXL
         }
     }
 
-    function _getLiquidityForAmount0(
-        uint160 sqrtRatioAX96,
-        uint160 sqrtRatioBX96,
-        uint256 amount0
-    ) internal pure returns (uint128 liquidity) {
+    function _getLiquidityForAmount0(uint160 sqrtRatioAX96, uint160 sqrtRatioBX96, uint256 amount0)
+        internal
+        pure
+        returns (uint128 liquidity)
+    {
         if (sqrtRatioAX96 > sqrtRatioBX96) {
             (sqrtRatioAX96, sqrtRatioBX96) = (sqrtRatioBX96, sqrtRatioAX96);
         }
@@ -493,11 +439,11 @@ contract XLPPositionManager is ERC721Enumerable, ReentrancyGuard, Multicall, IXL
         return uint128(FullMath.mulDiv(amount0, intermediate, sqrtRatioBX96 - sqrtRatioAX96));
     }
 
-    function _getLiquidityForAmount1(
-        uint160 sqrtRatioAX96,
-        uint160 sqrtRatioBX96,
-        uint256 amount1
-    ) internal pure returns (uint128 liquidity) {
+    function _getLiquidityForAmount1(uint160 sqrtRatioAX96, uint160 sqrtRatioBX96, uint256 amount1)
+        internal
+        pure
+        returns (uint128 liquidity)
+    {
         if (sqrtRatioAX96 > sqrtRatioBX96) {
             (sqrtRatioAX96, sqrtRatioBX96) = (sqrtRatioBX96, sqrtRatioAX96);
         }
@@ -505,59 +451,32 @@ contract XLPPositionManager is ERC721Enumerable, ReentrancyGuard, Multicall, IXL
     }
 
     function _updateFees(Position storage position, address pool) internal {
-        (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) = _getFeeGrowthInside(
-            pool,
-            position.tickLower,
-            position.tickUpper
-        );
+        (uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128) =
+            _getFeeGrowthInside(pool, position.tickLower, position.tickUpper);
 
         position.tokensOwed0 += uint128(
-            FullMath.mulDiv(
-                feeGrowthInside0LastX128 - position.feeGrowthInside0LastX128,
-                position.liquidity,
-                1 << 128
-            )
+            FullMath.mulDiv(feeGrowthInside0LastX128 - position.feeGrowthInside0LastX128, position.liquidity, 1 << 128)
         );
         position.tokensOwed1 += uint128(
-            FullMath.mulDiv(
-                feeGrowthInside1LastX128 - position.feeGrowthInside1LastX128,
-                position.liquidity,
-                1 << 128
-            )
+            FullMath.mulDiv(feeGrowthInside1LastX128 - position.feeGrowthInside1LastX128, position.liquidity, 1 << 128)
         );
 
         position.feeGrowthInside0LastX128 = feeGrowthInside0LastX128;
         position.feeGrowthInside1LastX128 = feeGrowthInside1LastX128;
     }
 
-    function _getFeeGrowthInside(
-        address pool,
-        int24 tickLower,
-        int24 tickUpper
-    ) internal view returns (uint256 feeGrowthInside0X128, uint256 feeGrowthInside1X128) {
-        (, int24 tickCurrent, , , , , ) = IXLPV3Pool(pool).slot0();
-        
-        (
-            ,
-            ,
-            uint256 lowerFeeGrowthOutside0X128,
-            uint256 lowerFeeGrowthOutside1X128,
-            ,
-            ,
-            ,
-            
-        ) = IXLPV3Pool(pool).ticks(tickLower);
+    function _getFeeGrowthInside(address pool, int24 tickLower, int24 tickUpper)
+        internal
+        view
+        returns (uint256 feeGrowthInside0X128, uint256 feeGrowthInside1X128)
+    {
+        (, int24 tickCurrent,,,,,) = IXLPV3Pool(pool).slot0();
 
-        (
-            ,
-            ,
-            uint256 upperFeeGrowthOutside0X128,
-            uint256 upperFeeGrowthOutside1X128,
-            ,
-            ,
-            ,
-            
-        ) = IXLPV3Pool(pool).ticks(tickUpper);
+        (,, uint256 lowerFeeGrowthOutside0X128, uint256 lowerFeeGrowthOutside1X128,,,,) =
+            IXLPV3Pool(pool).ticks(tickLower);
+
+        (,, uint256 upperFeeGrowthOutside0X128, uint256 upperFeeGrowthOutside1X128,,,,) =
+            IXLPV3Pool(pool).ticks(tickUpper);
 
         uint256 feeGrowthGlobal0X128 = IXLPV3Pool(pool).feeGrowthGlobal0X128();
         uint256 feeGrowthGlobal1X128 = IXLPV3Pool(pool).feeGrowthGlobal1X128();

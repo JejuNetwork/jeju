@@ -16,7 +16,6 @@ import {
   useTopDelegates,
   useProposals,
   useCEOStatus,
-  useGovernanceStats,
   useCouncilHealth,
   useIsSecurityCouncilMember,
   useEligibility,
@@ -274,7 +273,7 @@ export default function GovernancePanel({ agentId }: { agentId?: string }) {
     );
   }
 
-  if (!health?.available) {
+  if (!health || health.status !== 'ok') {
     return (
       <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
         <p className="text-yellow-800 dark:text-yellow-200">

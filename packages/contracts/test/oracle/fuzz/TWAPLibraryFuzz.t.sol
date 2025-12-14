@@ -68,7 +68,7 @@ contract TWAPLibraryFuzzTest is Test {
         // Median should be within bounds
         uint256 minPrice = price1 < price2 ? (price1 < price3 ? price1 : price3) : (price2 < price3 ? price2 : price3);
         uint256 maxPrice = price1 > price2 ? (price1 > price3 ? price1 : price3) : (price2 > price3 ? price2 : price3);
-        
+
         assertGe(median, minPrice);
         assertLe(median, maxPrice);
     }
@@ -140,12 +140,8 @@ contract TWAPLibraryFuzzTest is Test {
         timestamp = bound(timestamp, block.timestamp - 1800, block.timestamp);
 
         TWAPLibrary.PriceObservation[] memory observations = new TWAPLibrary.PriceObservation[](1);
-        observations[0] = TWAPLibrary.PriceObservation({
-            price: price,
-            timestamp: timestamp,
-            liquidity: 1e24,
-            venue: address(0x1)
-        });
+        observations[0] =
+            TWAPLibrary.PriceObservation({price: price, timestamp: timestamp, liquidity: 1e24, venue: address(0x1)});
 
         uint256 twap = TWAPLibrary.calculateTWAP(observations, 1800);
 
@@ -196,9 +192,7 @@ contract TWAPLibraryFuzzTest is Test {
 
         // Ensure prices are different enough to test bias
         vm.assume(highLiqPrice != lowLiqPrice);
-        uint256 priceDiff = highLiqPrice > lowLiqPrice 
-            ? highLiqPrice - lowLiqPrice 
-            : lowLiqPrice - highLiqPrice;
+        uint256 priceDiff = highLiqPrice > lowLiqPrice ? highLiqPrice - lowLiqPrice : lowLiqPrice - highLiqPrice;
         vm.assume(priceDiff > 1e8); // At least some difference
 
         TWAPLibrary.PriceObservation[] memory observations = new TWAPLibrary.PriceObservation[](2);
@@ -226,20 +220,22 @@ contract TWAPLibraryFuzzTest is Test {
 
     // ==================== Outlier Rejection Fuzz Tests ====================
 
-    function testFuzz_AggregateWithOutlierRejection_NoOutliers(
-        uint256 price1,
-        uint256 price2,
-        uint256 price3
-    ) public pure {
+    function testFuzz_AggregateWithOutlierRejection_NoOutliers(uint256 price1, uint256 price2, uint256 price3)
+        public
+        pure
+    {
         // Prices within 5% of each other
         price1 = bound(price1, 1e10, 1e12);
         price2 = bound(price2, price1 * 98 / 100, price1 * 102 / 100);
         price3 = bound(price3, price1 * 98 / 100, price1 * 102 / 100);
 
         TWAPLibrary.PriceObservation[] memory observations = new TWAPLibrary.PriceObservation[](3);
-        observations[0] = TWAPLibrary.PriceObservation({price: price1, timestamp: 0, liquidity: 1e24, venue: address(0x1)});
-        observations[1] = TWAPLibrary.PriceObservation({price: price2, timestamp: 0, liquidity: 1e24, venue: address(0x2)});
-        observations[2] = TWAPLibrary.PriceObservation({price: price3, timestamp: 0, liquidity: 1e24, venue: address(0x3)});
+        observations[0] =
+            TWAPLibrary.PriceObservation({price: price1, timestamp: 0, liquidity: 1e24, venue: address(0x1)});
+        observations[1] =
+            TWAPLibrary.PriceObservation({price: price2, timestamp: 0, liquidity: 1e24, venue: address(0x2)});
+        observations[2] =
+            TWAPLibrary.PriceObservation({price: price3, timestamp: 0, liquidity: 1e24, venue: address(0x3)});
 
         TWAPLibrary.AggregatedPrice memory result = TWAPLibrary.aggregateWithOutlierRejection(observations, 500);
 
@@ -247,19 +243,22 @@ contract TWAPLibraryFuzzTest is Test {
         assertEq(result.sourceCount, 3);
     }
 
-    function testFuzz_AggregateWithOutlierRejection_WithOutlier(
-        uint256 normalPrice,
-        uint256 outlierMultiplier
-    ) public pure {
+    function testFuzz_AggregateWithOutlierRejection_WithOutlier(uint256 normalPrice, uint256 outlierMultiplier)
+        public
+        pure
+    {
         normalPrice = bound(normalPrice, 1e10, 1e12);
         outlierMultiplier = bound(outlierMultiplier, 2, 10); // 2x-10x deviation
 
         uint256 outlierPrice = normalPrice * outlierMultiplier;
 
         TWAPLibrary.PriceObservation[] memory observations = new TWAPLibrary.PriceObservation[](3);
-        observations[0] = TWAPLibrary.PriceObservation({price: normalPrice, timestamp: 0, liquidity: 1e24, venue: address(0x1)});
-        observations[1] = TWAPLibrary.PriceObservation({price: normalPrice, timestamp: 0, liquidity: 1e24, venue: address(0x2)});
-        observations[2] = TWAPLibrary.PriceObservation({price: outlierPrice, timestamp: 0, liquidity: 1e24, venue: address(0x3)});
+        observations[0] =
+            TWAPLibrary.PriceObservation({price: normalPrice, timestamp: 0, liquidity: 1e24, venue: address(0x1)});
+        observations[1] =
+            TWAPLibrary.PriceObservation({price: normalPrice, timestamp: 0, liquidity: 1e24, venue: address(0x2)});
+        observations[2] =
+            TWAPLibrary.PriceObservation({price: outlierPrice, timestamp: 0, liquidity: 1e24, venue: address(0x3)});
 
         TWAPLibrary.AggregatedPrice memory result = TWAPLibrary.aggregateWithOutlierRejection(observations, 500);
 
@@ -380,11 +379,7 @@ contract TWAPLibraryFuzzTest is Test {
 
     // ==================== Price Validity Fuzz Tests ====================
 
-    function testFuzz_IsPriceValid_Threshold(
-        uint256 price,
-        uint256 refPrice,
-        uint256 maxDeviationBps
-    ) public pure {
+    function testFuzz_IsPriceValid_Threshold(uint256 price, uint256 refPrice, uint256 maxDeviationBps) public pure {
         price = bound(price, 1e8, 1e14);
         refPrice = bound(refPrice, 1e8, 1e14);
         maxDeviationBps = bound(maxDeviationBps, 1, 5000);

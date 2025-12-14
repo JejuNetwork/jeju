@@ -22,7 +22,17 @@ interface IGameTreasury {
     function operator() external view returns (address);
     function updateState(string calldata _cid, bytes32 _hash) external;
     function heartbeat() external;
-    function getGameState() external view returns (string memory cid, bytes32 stateHash, uint256 version, uint256 keyVer, uint256 lastBeat, bool operatorActive);
+    function getGameState()
+        external
+        view
+        returns (
+            string memory cid,
+            bytes32 stateHash,
+            uint256 version,
+            uint256 keyVer,
+            uint256 lastBeat,
+            bool operatorActive
+        );
     function withdraw(uint256 _amount) external;
     function getWithdrawalInfo() external view returns (uint256 limit, uint256 usedToday, uint256 remaining);
     function isTakeoverAvailable() external view returns (bool);

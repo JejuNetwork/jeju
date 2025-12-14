@@ -1,9 +1,14 @@
 /**
  * Research Agent - Deep analysis for DAO proposals
+ * 
+ * Supports multiple compute backends:
+ * - Local Ollama (default)
+ * - Decentralized compute marketplace (x402 payment)
  */
 
 import { keccak256, toUtf8Bytes } from 'ethers';
 import { checkOllama, ollamaGenerate, OLLAMA_MODEL } from './local-services';
+import { parseJson } from './utils';
 
 export interface ResearchRequest {
   proposalId: string;
@@ -59,11 +64,69 @@ const CACHE_MAX = 1000;
 const cache = new Map<string, ResearchReport>();
 const evictOldest = () => { if (cache.size >= CACHE_MAX) { const first = cache.keys().next().value; if (first) cache.delete(first); } };
 
-const parseJson = <T>(response: string): T | null => {
-  const match = response.replace(/```json\s*/gi, '').replace(/```\s*/g, '').match(/\{[\s\S]*\}/);
-  if (!match) return null;
-  try { return JSON.parse(match[0]); } catch { return null; }
-};
+// Compute marketplace configuration
+const COMPUTE_URL = process.env.COMPUTE_URL ?? 'http://localhost:8020';
+const COMPUTE_ENABLED = process.env.COMPUTE_ENABLED === 'true';
+const COMPUTE_MODEL = process.env.COMPUTE_MODEL ?? 'claude-3-opus';
+
+interface ComputeInferenceRequest {
+  modelId: string;
+  input: {
+    messages: Array<{ role: string; content: string }>;
+  };
+  options?: {
+    maxTokens?: number;
+    temperature?: number;
+  };
+}
+
+interface ComputeInferenceResult {
+  requestId: string;
+  content?: string;
+  tokensUsed?: { input: number; output: number };
+  cost: { amount: string; currency: string; paid: boolean };
+  latencyMs: number;
+}
+
+async function computeMarketplaceInference(prompt: string, systemPrompt: string): Promise<string | null> {
+  if (!COMPUTE_ENABLED) return null;
+
+  const request: ComputeInferenceRequest = {
+    modelId: COMPUTE_MODEL,
+    input: {
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: prompt },
+      ],
+    },
+    options: { maxTokens: 4096, temperature: 0.7 },
+  };
+
+  const response = await fetch(`${COMPUTE_URL}/api/v1/inference`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    console.warn(`[ResearchAgent] Compute marketplace error: ${response.status}`);
+    return null;
+  }
+
+  const result = await response.json() as ComputeInferenceResult;
+  console.log(`[ResearchAgent] Compute inference: ${result.tokensUsed?.input ?? 0}/${result.tokensUsed?.output ?? 0} tokens, ${result.latencyMs}ms, ${result.cost.amount} ${result.cost.currency}`);
+  return result.content ?? null;
+}
+
+async function checkComputeMarketplace(): Promise<boolean> {
+  if (!COMPUTE_ENABLED) return false;
+  try {
+    const response = await fetch(`${COMPUTE_URL}/health`);
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
 
 export class ResearchAgent {
   async conductResearch(request: ResearchRequest): Promise<ResearchReport> {
@@ -71,19 +134,104 @@ export class ResearchAgent {
     if (cache.has(requestHash)) return cache.get(requestHash)!;
 
     const startedAt = Date.now();
+    const depth = request.depth ?? 'standard';
+    
+    // Try compute marketplace first for deep research
+    if (depth === 'deep' && await checkComputeMarketplace()) {
+      console.log('[ResearchAgent] Using compute marketplace for deep research');
+      const report = await this.generateComputeMarketplaceReport(request, requestHash, startedAt);
+      if (report) {
+        evictOldest();
+        cache.set(requestHash, report);
+        return report;
+      }
+    }
+
+    // Fall back to local Ollama
     const ollamaUp = await checkOllama();
     
+    let report: ResearchReport;
     if (!ollamaUp) {
-      console.warn('[ResearchAgent] Ollama unavailable - using keyword-based heuristics for research');
+      console.warn('[ResearchAgent] Ollama unavailable - using keyword-based heuristics');
+      report = this.generateHeuristicReport(request, requestHash, startedAt);
+    } else {
+      try {
+        report = await this.generateAIReport(request, requestHash, startedAt, depth);
+      } catch (err) {
+        console.warn('[ResearchAgent] Ollama inference failed, falling back to heuristics:', (err as Error).message);
+        report = this.generateHeuristicReport(request, requestHash, startedAt);
+      }
     }
-    
-    const report = ollamaUp
-      ? await this.generateAIReport(request, requestHash, startedAt, request.depth ?? 'standard')
-      : this.generateHeuristicReport(request, requestHash, startedAt);
 
     evictOldest();
     cache.set(requestHash, report);
     return report;
+  }
+
+  private async generateComputeMarketplaceReport(
+    request: ResearchRequest,
+    requestHash: string,
+    startedAt: number
+  ): Promise<ResearchReport | null> {
+    const prompt = `Conduct comprehensive deep research on this DAO governance proposal:
+
+ID: ${request.proposalId}
+Title: ${request.title}
+Type: ${request.proposalType ?? 'GENERAL'}
+Description: ${request.description}
+${request.references?.length ? `References: ${request.references.join(', ')}` : ''}
+
+Analyze:
+1. Technical feasibility and implementation complexity
+2. Economic impact and cost-benefit analysis  
+3. Security implications and attack vectors
+4. Community alignment and governance implications
+5. Comparable implementations and precedents
+6. Risk assessment with mitigation strategies
+7. Timeline and resource requirements
+
+Return JSON:
+{"summary":"...","recommendation":"proceed|reject|modify","confidenceLevel":0-100,"riskLevel":"low|medium|high|critical","keyFindings":[],"concerns":[],"alternatives":[],"sections":[{"title":"...","content":"...","confidence":0-100}]}`;
+
+    const content = await computeMarketplaceInference(prompt, 'Expert DAO researcher and governance analyst. Provide thorough, objective analysis. Return only valid JSON.');
+    if (!content) return null;
+
+    type ParsedReport = {
+      summary: string;
+      recommendation: string;
+      confidenceLevel: number;
+      riskLevel: string;
+      keyFindings: string[];
+      concerns: string[];
+      alternatives: string[];
+      sections: ResearchSection[];
+    };
+    const parsed = parseJson<ParsedReport>(content);
+    if (!parsed) {
+      console.warn('[ResearchAgent] Failed to parse compute marketplace response');
+      return null;
+    }
+
+    const completedAt = Date.now();
+    const rec = ['proceed', 'reject', 'modify'].includes(parsed.recommendation) ? parsed.recommendation : 'modify';
+    const risk = ['low', 'medium', 'high', 'critical'].includes(parsed.riskLevel) ? parsed.riskLevel : 'medium';
+
+    return {
+      proposalId: request.proposalId,
+      requestHash,
+      model: `compute:${COMPUTE_MODEL}`,
+      sections: parsed.sections ?? [],
+      recommendation: rec as ResearchReport['recommendation'],
+      confidenceLevel: typeof parsed.confidenceLevel === 'number' ? parsed.confidenceLevel : 60,
+      riskLevel: risk as ResearchReport['riskLevel'],
+      summary: parsed.summary ?? 'Analysis complete.',
+      keyFindings: parsed.keyFindings ?? [],
+      concerns: parsed.concerns ?? [],
+      alternatives: parsed.alternatives ?? [],
+      startedAt,
+      completedAt,
+      executionTime: completedAt - startedAt,
+    };
   }
 
   private async generateAIReport(request: ResearchRequest, requestHash: string, startedAt: number, depth: string): Promise<ResearchReport> {

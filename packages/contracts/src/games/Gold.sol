@@ -72,13 +72,7 @@ contract Gold is ERC20, Ownable {
      * @param _owner Contract owner (admin)
      * @dev Game must be registered in IdentityRegistry before deployment
      */
-    constructor(
-        string memory _name,
-        string memory _symbol,
-        uint256 _gameAgentId,
-        address _gameSigner,
-        address _owner
-    )
+    constructor(string memory _name, string memory _symbol, uint256 _gameAgentId, address _gameSigner, address _owner)
         ERC20(_name, _symbol)
         Ownable(_owner)
     {
