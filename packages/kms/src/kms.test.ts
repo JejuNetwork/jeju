@@ -2,7 +2,7 @@
  * KMS Package Tests
  * 
  * Tests FALLBACK MODE (local AES-256-GCM encryption).
- * Lit Protocol network not connected. TEE/MPC providers are stubs.
+ * TEE/MPC providers are stubs for unit testing.
  */
 
 // Set required env before imports

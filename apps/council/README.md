@@ -24,7 +24,7 @@ AI-powered DAO governance with council deliberation, CEO decisions, and on-chain
 │                    TEE Service (CEO Decisions)               │
 │                - Hardware TEE (Phala Cloud)                  │
 │                - Simulated TEE (local dev)                   │
-│                - Lit Protocol (encryption)                   │
+│                - Jeju KMS (encryption)                       │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -56,20 +56,6 @@ export REQUIRE_HARDWARE_TEE=true
 ```
 
 **Without TEE_API_KEY**: Uses simulated TEE with local AES-256-GCM encryption. This is fine for development but provides no hardware attestation guarantees.
-
-### Lit Protocol
-
-For distributed key management and conditional decryption:
-
-```bash
-# Install optional dependency
-bun add @lit-protocol/lit-node-client
-
-# Configure network
-export LIT_NETWORK=cayenne  # or 'habanero' for mainnet
-```
-
-**Without Lit Protocol**: Falls back to local AES-256-GCM encryption. Decryption is immediate (no access control conditions enforced).
 
 ### Compute Marketplace
 
