@@ -3,9 +3,12 @@ import ReactDOM from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider, createConfig, http } from 'wagmi';
 import { mainnet, base, arbitrum, optimism, bsc } from 'wagmi/chains';
-import { injected, walletConnect } from 'wagmi/connectors';
+import { injected } from 'wagmi/connectors';
 import App from './App';
 import './index.css';
+
+// Jeju RPC endpoints - fully decentralized, no API keys needed
+const JEJU_RPC = 'https://rpc.jeju.network';
 
 // Jeju localnet chain definition
 const jejuLocalnet = {
@@ -36,33 +39,22 @@ const jejuTestnet = {
 // Supported chains (popular EVM + Jeju)
 const chains = [mainnet, base, arbitrum, optimism, bsc, jejuLocalnet, jejuTestnet] as const;
 
-// WalletConnect project ID - get from cloud.walletconnect.com
-const walletConnectProjectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'jeju-wallet-demo';
-
-// Wagmi config
+// Wagmi config - fully permissionless, no external dependencies
 const config = createConfig({
   chains,
   connectors: [
+    // EIP-6963 compatible injected provider detection
     injected({
       shimDisconnect: true,
     }),
-    walletConnect({
-      projectId: walletConnectProjectId,
-      metadata: {
-        name: 'Jeju Wallet',
-        description: 'AI-powered multi-chain wallet with account abstraction',
-        url: 'https://jeju.network',
-        icons: ['https://jeju.network/icon.png'],
-      },
-      showQrModal: true,
-    }),
   ],
   transports: {
-    [mainnet.id]: http(),
-    [base.id]: http(),
-    [arbitrum.id]: http(),
-    [optimism.id]: http(),
-    [bsc.id]: http(),
+    // All RPCs go through Jeju infrastructure - open API, no keys required
+    [mainnet.id]: http(`${JEJU_RPC}/eth`),
+    [base.id]: http(`${JEJU_RPC}/base`),
+    [arbitrum.id]: http(`${JEJU_RPC}/arbitrum`),
+    [optimism.id]: http(`${JEJU_RPC}/optimism`),
+    [bsc.id]: http(`${JEJU_RPC}/bsc`),
     [jejuLocalnet.id]: http('http://localhost:8545'),
     [jejuTestnet.id]: http('https://rpc.testnet.jeju.network'),
   },
