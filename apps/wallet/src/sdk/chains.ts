@@ -243,57 +243,100 @@ export function getJejuRpcUrl(chainId: number): string | undefined {
 // ============================================================================
 
 export interface ChainContracts {
+  // Core ERC-4337
   entryPoint?: Address;
+  // Cross-chain (EIL + OIF)
   crossChainPaymaster?: Address;
   inputSettler?: Address;
   outputSettler?: Address;
   solverRegistry?: Address;
+  simpleOracle?: Address;
+  // Infrastructure
   priceOracle?: Address;
   tokenRegistry?: Address;
+  identityRegistry?: Address;
+  // DeFi
+  xlpV2Factory?: Address;
+  xlpV3Factory?: Address;
+  swapRouter?: Address;
+  positionManager?: Address;
+  liquidityAggregator?: Address;
+  // Perps
+  perpetualMarket?: Address;
+  marginManager?: Address;
+  insuranceFund?: Address;
+  liquidationEngine?: Address;
+  // Launchpad
+  tokenLaunchpad?: Address;
+  bondingCurve?: Address;
+  // Marketplace
+  bazaar?: Address;
+  // Names
+  jnsRegistry?: Address;
+  jnsRegistrar?: Address;
+  jnsResolver?: Address;
+  jnsReverseRegistrar?: Address;
+  // Tokens
+  usdc?: Address;
+  weth?: Address;
+  jeju?: Address;
 }
 
 /**
  * Contract addresses by chain.
- * 
- * NOTE: Most Jeju-specific contracts are NOT YET DEPLOYED.
- * Only EntryPoint (standard ERC-4337) addresses are set.
- * 
- * To enable full functionality, deploy contracts and update these addresses:
- * - crossChainPaymaster: EIL cross-chain transfers
- * - inputSettler/outputSettler: OIF intents
- * - solverRegistry: Solver discovery
- * - priceOracle: Gas token pricing
+ * Populated from packages/contracts/deployments/addresses.json
  */
 export const chainContracts: Record<number, ChainContracts> = {
+  // Base Sepolia Testnet - DEPLOYED
+  84532: {
+    entryPoint: '0x0000000071727De22E5E9d8BAf0edAc6f37da032' as Address,
+    // OIF contracts - DEPLOYED
+    inputSettler: '0x9bb59d0329FcCEdD99f1753D20AF50347Ad2eB75' as Address,
+    outputSettler: '0xf7ef3C6a54dA3E03A96D23864e5865E7e3EBEcF5' as Address,
+    solverRegistry: '0xecfE47302D941c8ce5B0009C0ac2E6D6ee2A42de' as Address,
+    simpleOracle: '0xE30218678a940d1553b285B0eB5C5364BBF70ed9' as Address,
+    // Identity - DEPLOYED
+    identityRegistry: '0x759D602d8D2E4F1ccCa12E955420cC19e64a68bd' as Address,
+    // Tokens - DEPLOYED
+    usdc: '0x953F6516E5d2864cE7f13186B45dE418EA665EB2' as Address,
+  },
   // Localnet - requires local deployment
   1337: {
-    entryPoint: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789' as Address,
-    // TODO: Add after running `bun run deploy:localnet`
-    // crossChainPaymaster: undefined,
-    // inputSettler: undefined,
-    // outputSettler: undefined,
+    entryPoint: '0x0000000071727De22E5E9d8BAf0edAc6f37da032' as Address,
   },
-  // Base Sepolia Testnet
-  84532: {
-    entryPoint: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789' as Address,
-    // TODO: Add after deploying to testnet
+  // Jeju L2 Testnet
+  420690: {
+    entryPoint: '0x0000000071727De22E5E9d8BAf0edAc6f37da032' as Address,
+    weth: '0x4200000000000000000000000000000000000006' as Address,
+  },
+  // Jeju L2 Mainnet
+  420691: {
+    entryPoint: '0x0000000071727De22E5E9d8BAf0edAc6f37da032' as Address,
+    weth: '0x4200000000000000000000000000000000000006' as Address,
   },
   // Base Mainnet
   8453: {
-    entryPoint: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789' as Address,
-    // TODO: Add after deploying to mainnet
+    entryPoint: '0x0000000071727De22E5E9d8BAf0edAc6f37da032' as Address,
+    weth: '0x4200000000000000000000000000000000000006' as Address,
+    usdc: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as Address,
   },
   // Ethereum Mainnet
   1: {
-    entryPoint: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789' as Address,
+    entryPoint: '0x0000000071727De22E5E9d8BAf0edAc6f37da032' as Address,
+    weth: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2' as Address,
+    usdc: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' as Address,
   },
   // Arbitrum
   42161: {
-    entryPoint: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789' as Address,
+    entryPoint: '0x0000000071727De22E5E9d8BAf0edAc6f37da032' as Address,
+    weth: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1' as Address,
+    usdc: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831' as Address,
   },
   // Optimism
   10: {
-    entryPoint: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789' as Address,
+    entryPoint: '0x0000000071727De22E5E9d8BAf0edAc6f37da032' as Address,
+    weth: '0x4200000000000000000000000000000000000006' as Address,
+    usdc: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85' as Address,
   },
 };
 

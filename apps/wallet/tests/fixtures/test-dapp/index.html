@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test dApp - Jeju Wallet Testing</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: system-ui, sans-serif; 
+      padding: 2rem; 
+      background: #1a1a2e; 
+      color: #eee;
+      min-height: 100vh;
+    }
+    h1 { margin-bottom: 1.5rem; color: #10b981; }
+    h2 { margin: 1.5rem 0 1rem; color: #6ee7b7; font-size: 1.2rem; }
+    .card {
+      background: #16213e;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    button {
+      background: #10b981;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      margin-right: 0.5rem;
+      margin-bottom: 0.5rem;
+      transition: background 0.2s;
+    }
+    button:hover { background: #059669; }
+    button:disabled { background: #374151; cursor: not-allowed; }
+    .status {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: #0f172a;
+      border-radius: 8px;
+      font-family: monospace;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .success { border-left: 4px solid #10b981; }
+    .error { border-left: 4px solid #ef4444; }
+    .pending { border-left: 4px solid #f59e0b; }
+    .provider-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    .provider-badge {
+      background: #374151;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-size: 0.875rem;
+    }
+    input {
+      background: #0f172a;
+      border: 1px solid #374151;
+      color: white;
+      padding: 0.75rem;
+      border-radius: 8px;
+      width: 100%;
+      margin-bottom: 0.5rem;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <h1>🧪 Test dApp for Wallet Testing</h1>
+  
+  <!-- EIP-6963 Provider Detection -->
+  <div class="card">
+    <h2>🔍 Provider Detection (EIP-6963)</h2>
+    <button id="requestProviders">Request Providers</button>
+    <div id="providers" class="provider-list"></div>
+    <div id="providerStatus" class="status"></div>
+  </div>
+
+  <!-- Connection -->
+  <div class="card">
+    <h2>🔗 Wallet Connection</h2>
+    <button id="connect">Connect Wallet</button>
+    <button id="disconnect" disabled>Disconnect</button>
+    <div id="connectionStatus" class="status">Not connected</div>
+  </div>
+
+  <!-- Account Info -->
+  <div class="card">
+    <h2>👤 Account Info</h2>
+    <button id="getAccounts" disabled>Get Accounts</button>
+    <button id="getChainId" disabled>Get Chain ID</button>
+    <button id="getBalance" disabled>Get Balance</button>
+    <div id="accountStatus" class="status">Connect wallet first</div>
+  </div>
+
+  <!-- Sign Message -->
+  <div class="card">
+    <h2>✍️ Sign Message (personal_sign)</h2>
+    <input type="text" id="messageInput" placeholder="Message to sign" value="Hello from Test dApp!">
+    <button id="signMessage" disabled>Sign Message</button>
+    <div id="signStatus" class="status">Connect wallet first</div>
+  </div>
+
+  <!-- Sign Typed Data (EIP-712) -->
+  <div class="card">
+    <h2>📝 Sign Typed Data (EIP-712)</h2>
+    <button id="signTypedData" disabled>Sign Permit</button>
+    <div id="typedDataStatus" class="status">Connect wallet first</div>
+  </div>
+
+  <!-- Send Transaction -->
+  <div class="card">
+    <h2>💸 Send Transaction</h2>
+    <input type="text" id="toAddress" placeholder="To Address" value="0x70997970C51812dc3A010C7d01b50e0d17dc79C8">
+    <input type="text" id="amount" placeholder="Amount (ETH)" value="0.001">
+    <button id="sendTx" disabled>Send ETH</button>
+    <div id="txStatus" class="status">Connect wallet first</div>
+  </div>
+
+  <!-- Switch Network -->
+  <div class="card">
+    <h2>🌐 Network</h2>
+    <button id="switchToBase" disabled>Switch to Base</button>
+    <button id="switchToEth" disabled>Switch to Ethereum</button>
+    <button id="addNetwork" disabled>Add Localhost</button>
+    <div id="networkStatus" class="status">Connect wallet first</div>
+  </div>
+
+  <script>
+    // State
+    let provider = null;
+    let accounts = [];
+    const providers = new Map();
+
+    // Elements
+    const $ = (id) => document.getElementById(id);
+
+    // EIP-6963 Provider Discovery
+    window.addEventListener('eip6963:announceProvider', (event) => {
+      const { info, provider: p } = event.detail;
+      providers.set(info.uuid, { info, provider: p });
+      renderProviders();
+      $('providerStatus').textContent = `Found ${providers.size} provider(s)`;
+      $('providerStatus').className = 'status success';
+    });
+
+    function renderProviders() {
+      const container = $('providers');
+      container.innerHTML = '';
+      providers.forEach(({ info }) => {
+        const badge = document.createElement('div');
+        badge.className = 'provider-badge';
+        badge.textContent = `${info.name} (${info.rdns})`;
+        badge.onclick = () => selectProvider(info.uuid);
+        container.appendChild(badge);
+      });
+    }
+
+    function selectProvider(uuid) {
+      const { info, provider: p } = providers.get(uuid);
+      provider = p;
+      $('providerStatus').textContent = `Selected: ${info.name}`;
+      $('connectionStatus').textContent = `Using ${info.name}, click Connect`;
+    }
+
+    $('requestProviders').onclick = () => {
+      window.dispatchEvent(new Event('eip6963:requestProvider'));
+      // Also check for legacy provider
+      if (window.ethereum && !providers.size) {
+        provider = window.ethereum;
+        $('providerStatus').textContent = 'Found legacy window.ethereum';
+        $('providerStatus').className = 'status success';
+      }
+    };
+
+    // Connection
+    $('connect').onclick = async () => {
+      try {
+        if (!provider && window.ethereum) provider = window.ethereum;
+        if (!provider) throw new Error('No provider found');
+
+        $('connectionStatus').textContent = 'Connecting...';
+        $('connectionStatus').className = 'status pending';
+
+        accounts = await provider.request({ method: 'eth_requestAccounts' });
+        
+        $('connectionStatus').textContent = `Connected: ${accounts[0]}`;
+        $('connectionStatus').className = 'status success';
+        
+        enableButtons(true);
+        setupListeners();
+      } catch (e) {
+        $('connectionStatus').textContent = `Error: ${e.message}`;
+        $('connectionStatus').className = 'status error';
+      }
+    };
+
+    $('disconnect').onclick = () => {
+      accounts = [];
+      $('connectionStatus').textContent = 'Disconnected';
+      $('connectionStatus').className = 'status';
+      enableButtons(false);
+    };
+
+    function enableButtons(connected) {
+      ['disconnect', 'getAccounts', 'getChainId', 'getBalance', 
+       'signMessage', 'signTypedData', 'sendTx', 
+       'switchToBase', 'switchToEth', 'addNetwork'].forEach(id => {
+        $(id).disabled = !connected;
+      });
+    }
+
+    function setupListeners() {
+      provider.on('accountsChanged', (accs) => {
+        accounts = accs;
+        $('connectionStatus').textContent = accs.length ? `Connected: ${accs[0]}` : 'Disconnected';
+      });
+      provider.on('chainChanged', (chainId) => {
+        $('networkStatus').textContent = `Chain changed to ${parseInt(chainId, 16)}`;
+        $('networkStatus').className = 'status success';
+      });
+    }
+
+    // Account Info
+    $('getAccounts').onclick = async () => {
+      try {
+        const accs = await provider.request({ method: 'eth_accounts' });
+        $('accountStatus').textContent = `Accounts:\n${accs.join('\n')}`;
+        $('accountStatus').className = 'status success';
+      } catch (e) {
+        $('accountStatus').textContent = `Error: ${e.message}`;
+        $('accountStatus').className = 'status error';
+      }
+    };
+
+    $('getChainId').onclick = async () => {
+      try {
+        const chainId = await provider.request({ method: 'eth_chainId' });
+        $('accountStatus').textContent = `Chain ID: ${parseInt(chainId, 16)} (${chainId})`;
+        $('accountStatus').className = 'status success';
+      } catch (e) {
+        $('accountStatus').textContent = `Error: ${e.message}`;
+        $('accountStatus').className = 'status error';
+      }
+    };
+
+    $('getBalance').onclick = async () => {
+      try {
+        const balance = await provider.request({ 
+          method: 'eth_getBalance', 
+          params: [accounts[0], 'latest'] 
+        });
+        const eth = parseInt(balance, 16) / 1e18;
+        $('accountStatus').textContent = `Balance: ${eth.toFixed(4)} ETH`;
+        $('accountStatus').className = 'status success';
+      } catch (e) {
+        $('accountStatus').textContent = `Error: ${e.message}`;
+        $('accountStatus').className = 'status error';
+      }
+    };
+
+    // Sign Message
+    $('signMessage').onclick = async () => {
+      try {
+        const message = $('messageInput').value;
+        const hexMessage = '0x' + Array.from(new TextEncoder().encode(message))
+          .map(b => b.toString(16).padStart(2, '0')).join('');
+        
+        $('signStatus').textContent = 'Signing...';
+        $('signStatus').className = 'status pending';
+        
+        const signature = await provider.request({
+          method: 'personal_sign',
+          params: [hexMessage, accounts[0]],
+        });
+        
+        $('signStatus').textContent = `Signature:\n${signature}`;
+        $('signStatus').className = 'status success';
+      } catch (e) {
+        $('signStatus').textContent = `Error: ${e.message}`;
+        $('signStatus').className = 'status error';
+      }
+    };
+
+    // Sign Typed Data (EIP-712)
+    $('signTypedData').onclick = async () => {
+      try {
+        const typedData = {
+          types: {
+            EIP712Domain: [
+              { name: 'name', type: 'string' },
+              { name: 'version', type: 'string' },
+              { name: 'chainId', type: 'uint256' },
+            ],
+            Permit: [
+              { name: 'owner', type: 'address' },
+              { name: 'spender', type: 'address' },
+              { name: 'value', type: 'uint256' },
+              { name: 'nonce', type: 'uint256' },
+              { name: 'deadline', type: 'uint256' },
+            ],
+          },
+          primaryType: 'Permit',
+          domain: {
+            name: 'Test Token',
+            version: '1',
+            chainId: 1,
+          },
+          message: {
+            owner: accounts[0],
+            spender: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+            value: '1000000000000000000',
+            nonce: 0,
+            deadline: Math.floor(Date.now() / 1000) + 3600,
+          },
+        };
+
+        $('typedDataStatus').textContent = 'Signing...';
+        $('typedDataStatus').className = 'status pending';
+
+        const signature = await provider.request({
+          method: 'eth_signTypedData_v4',
+          params: [accounts[0], JSON.stringify(typedData)],
+        });
+
+        $('typedDataStatus').textContent = `Signature:\n${signature}`;
+        $('typedDataStatus').className = 'status success';
+      } catch (e) {
+        $('typedDataStatus').textContent = `Error: ${e.message}`;
+        $('typedDataStatus').className = 'status error';
+      }
+    };
+
+    // Send Transaction
+    $('sendTx').onclick = async () => {
+      try {
+        const to = $('toAddress').value;
+        const amount = parseFloat($('amount').value);
+        const value = '0x' + Math.floor(amount * 1e18).toString(16);
+
+        $('txStatus').textContent = 'Sending...';
+        $('txStatus').className = 'status pending';
+
+        const txHash = await provider.request({
+          method: 'eth_sendTransaction',
+          params: [{
+            from: accounts[0],
+            to,
+            value,
+          }],
+        });
+
+        $('txStatus').textContent = `Transaction sent:\n${txHash}`;
+        $('txStatus').className = 'status success';
+      } catch (e) {
+        $('txStatus').textContent = `Error: ${e.message}`;
+        $('txStatus').className = 'status error';
+      }
+    };
+
+    // Network Switching
+    $('switchToBase').onclick = async () => {
+      try {
+        await provider.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: '0x2105' }], // 8453
+        });
+        $('networkStatus').textContent = 'Switched to Base';
+        $('networkStatus').className = 'status success';
+      } catch (e) {
+        $('networkStatus').textContent = `Error: ${e.message}`;
+        $('networkStatus').className = 'status error';
+      }
+    };
+
+    $('switchToEth').onclick = async () => {
+      try {
+        await provider.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: '0x1' }],
+        });
+        $('networkStatus').textContent = 'Switched to Ethereum';
+        $('networkStatus').className = 'status success';
+      } catch (e) {
+        $('networkStatus').textContent = `Error: ${e.message}`;
+        $('networkStatus').className = 'status error';
+      }
+    };
+
+    $('addNetwork').onclick = async () => {
+      try {
+        await provider.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: '0x7A69', // 31337
+            chainName: 'Localhost',
+            nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+            rpcUrls: ['http://127.0.0.1:8545'],
+          }],
+        });
+        $('networkStatus').textContent = 'Added Localhost network';
+        $('networkStatus').className = 'status success';
+      } catch (e) {
+        $('networkStatus').textContent = `Error: ${e.message}`;
+        $('networkStatus').className = 'status error';
+      }
+    };
+
+    // Auto-request providers on load
+    window.dispatchEvent(new Event('eip6963:requestProvider'));
+  </script>
+</body>
+</html>
+

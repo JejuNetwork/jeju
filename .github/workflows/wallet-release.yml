@@ -22,7 +22,6 @@ defaults:
     working-directory: apps/wallet
 
 env:
-  VITE_WALLETCONNECT_PROJECT_ID: ${{ secrets.WALLETCONNECT_PROJECT_ID }}
   VERSION: ${{ github.event.release.tag_name || github.event.inputs.version }}
 
 jobs:

@@ -4,13 +4,18 @@ import { ChatInterface } from './components/chat';
 import { ApprovalsView } from './components/approvals';
 import { SettingsView } from './components/settings';
 import { NFTGallery } from './components/nft';
+import { PoolsView } from './components/pools';
+import { PerpsView } from './components/perps';
+import { LaunchpadView } from './components/launchpad';
+import { NamesView } from './components/names';
 import { 
   MessageSquare, Settings, Menu, X, Wallet, RefreshCw, Shield, Image, 
-  Copy, Check, Send, ArrowDownToLine, type LucideIcon 
+  Copy, Check, Send, ArrowDownToLine, Droplets, Activity, Rocket, AtSign,
+  type LucideIcon 
 } from 'lucide-react';
 import type { Address } from 'viem';
 
-type ViewMode = 'chat' | 'portfolio' | 'nfts' | 'approvals' | 'settings';
+type ViewMode = 'chat' | 'portfolio' | 'nfts' | 'approvals' | 'settings' | 'pools' | 'perps' | 'launchpad' | 'names';
 
 interface NavItem {
   id: ViewMode;
@@ -21,7 +26,11 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { id: 'chat', label: 'Chat', icon: MessageSquare },
   { id: 'portfolio', label: 'Portfolio', icon: Wallet },
+  { id: 'pools', label: 'Pools', icon: Droplets },
+  { id: 'perps', label: 'Perps', icon: Activity },
+  { id: 'launchpad', label: 'Launch', icon: Rocket },
   { id: 'nfts', label: 'NFTs', icon: Image },
+  { id: 'names', label: 'Names', icon: AtSign },
   { id: 'approvals', label: 'Security', icon: Shield },
 ];
 
@@ -59,11 +68,35 @@ function App() {
             onRefresh={refetch}
           />
         );
+      case 'pools':
+        return address ? (
+          <PoolsView address={address as Address} />
+        ) : (
+          <ConnectPrompt message="Connect your wallet to manage liquidity pools" />
+        );
+      case 'perps':
+        return address ? (
+          <PerpsView address={address as Address} />
+        ) : (
+          <ConnectPrompt message="Connect your wallet to trade perpetuals" />
+        );
+      case 'launchpad':
+        return address ? (
+          <LaunchpadView address={address as Address} />
+        ) : (
+          <ConnectPrompt message="Connect your wallet to launch or buy tokens" />
+        );
       case 'nfts':
         return address ? (
           <NFTGallery address={address as Address} />
         ) : (
           <ConnectPrompt message="Connect your wallet to view your NFTs" />
+        );
+      case 'names':
+        return address ? (
+          <NamesView address={address as Address} />
+        ) : (
+          <ConnectPrompt message="Connect your wallet to register .jeju names" />
         );
       case 'approvals':
         return address ? (

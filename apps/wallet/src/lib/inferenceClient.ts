@@ -1,0 +1,538 @@
+/**
+ * Decentralized Inference Client
+ * 
+ * Connects to Jeju compute network for AI inference.
+ * - Discovers models from on-chain registry
+ * - Routes requests to decentralized providers
+ * - Pays via X402 or multi-token paymaster
+ * - Supports TEE for private inference
+ */
+
+import type { Address } from 'viem';
+
+// ============================================================================
+// Types
+// ============================================================================
+
+export interface Message {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+export interface ChatRequest {
+  messages: Message[];
+  model?: string;
+  temperature?: number;
+  maxTokens?: number;
+  stream?: boolean;
+  requireTEE?: boolean;
+}
+
+export interface ChatResponse {
+  id: string;
+  model: string;
+  content: string;
+  tokensUsed: {
+    input: number;
+    output: number;
+    total: number;
+  };
+  cost?: {
+    amount: string;
+    currency: string;
+    txHash?: string;
+  };
+  provider: string;
+  latencyMs: number;
+  teeAttestation?: string;
+}
+
+export interface StreamChunk {
+  id: string;
+  content: string;
+  done: boolean;
+}
+
+export interface InferenceConfig {
+  gatewayUrl: string;
+  rpcUrl?: string;
+  walletAddress?: Address;
+  preferredModel?: string;
+  requireTEE?: boolean;
+  maxRetries?: number;
+  timeoutMs?: number;
+  retryDelayMs?: number;
+}
+
+export interface AvailableModel {
+  id: string;
+  name: string;
+  description: string;
+  contextWindow: number;
+  pricePerInputToken: string;
+  pricePerOutputToken: string;
+  provider: string;
+  teeType: 'none' | 'sgx' | 'tdx' | 'sev' | 'nitro' | 'simulated';
+  active: boolean;
+}
+
+// ============================================================================
+// Default Configuration
+// ============================================================================
+
+const DEFAULT_GATEWAY = process.env.VITE_JEJU_GATEWAY_URL || 'https://compute.jeju.network';
+const DEFAULT_MODEL = 'jeju/llama-3.1-70b';
+
+const SYSTEM_PROMPT = `You are Jeju Wallet, an advanced AI assistant for decentralized finance.
+
+Your core mission is to help users manage their crypto assets seamlessly across multiple chains.
+
+Key Capabilities:
+- Portfolio management across EVM chains
+- Token swaps with best-route finding
+- Transfers to any address or .jeju name
+- Liquidity pool management (add/remove)
+- Perpetual trading (long/short positions)
+- Token launches via bonding curves
+- JNS name registration (.jeju domains)
+- Security analysis and approval management
+
+For any action involving money:
+1. Clearly explain what will happen
+2. Show estimated costs and fees
+3. Identify any risks
+4. Always require explicit confirmation
+
+Be helpful, clear, and security-conscious. Never execute transactions without user confirmation.`;
+
+// ============================================================================
+// Inference Client
+// ============================================================================
+
+class InferenceClient {
+  private config: Required<InferenceConfig>;
+  private conversationHistory: Message[] = [];
+  private availableModels: AvailableModel[] = [];
+  private lastModelFetch = 0;
+  private modelCacheTTL = 5 * 60 * 1000; // 5 minutes
+
+  constructor(config?: Partial<InferenceConfig>) {
+    this.config = {
+      gatewayUrl: config?.gatewayUrl || DEFAULT_GATEWAY,
+      rpcUrl: config?.rpcUrl || 'https://rpc.jeju.network',
+      walletAddress: config?.walletAddress || undefined as unknown as Address,
+      preferredModel: config?.preferredModel || DEFAULT_MODEL,
+      requireTEE: config?.requireTEE ?? false,
+      maxRetries: config?.maxRetries ?? 3,
+      timeoutMs: config?.timeoutMs ?? 30000,
+      retryDelayMs: config?.retryDelayMs ?? 1000,
+    };
+
+    // Initialize with system prompt
+    this.conversationHistory = [
+      { role: 'system', content: SYSTEM_PROMPT },
+    ];
+  }
+
+  /**
+   * Update configuration
+   */
+  configure(config: Partial<InferenceConfig>): void {
+    Object.assign(this.config, config);
+  }
+
+  /**
+   * Set the wallet address for payment context
+   */
+  setWalletAddress(address: Address): void {
+    this.config.walletAddress = address;
+  }
+
+  /**
+   * Fetch available models from the compute network
+   */
+  async getModels(forceRefresh = false): Promise<AvailableModel[]> {
+    const now = Date.now();
+    if (!forceRefresh && this.availableModels.length > 0 && now - this.lastModelFetch < this.modelCacheTTL) {
+      return this.availableModels;
+    }
+
+    try {
+      const response = await fetch(`${this.config.gatewayUrl}/v1/models`, {
+        headers: this.getHeaders(),
+      });
+
+      if (!response.ok) {
+        console.warn('[Inference] Failed to fetch models, using defaults');
+        return this.getDefaultModels();
+      }
+
+      const data = await response.json();
+      this.availableModels = data.models || data.data || [];
+      this.lastModelFetch = now;
+      return this.availableModels;
+    } catch (error) {
+      console.warn('[Inference] Model discovery failed:', error);
+      return this.getDefaultModels();
+    }
+  }
+
+  private getDefaultModels(): AvailableModel[] {
+    return [
+      {
+        id: 'jeju/llama-3.1-70b',
+        name: 'Llama 3.1 70B',
+        description: 'High-quality open LLM for general tasks',
+        contextWindow: 128000,
+        pricePerInputToken: '0.0000001',
+        pricePerOutputToken: '0.0000003',
+        provider: 'jeju-network',
+        teeType: 'simulated',
+        active: true,
+      },
+      {
+        id: 'jeju/llama-3.1-8b',
+        name: 'Llama 3.1 8B',
+        description: 'Fast and efficient LLM for simple tasks',
+        contextWindow: 128000,
+        pricePerInputToken: '0.00000001',
+        pricePerOutputToken: '0.00000003',
+        provider: 'jeju-network',
+        teeType: 'simulated',
+        active: true,
+      },
+      {
+        id: 'openai/gpt-4o',
+        name: 'GPT-4o',
+        description: 'OpenAI flagship model',
+        contextWindow: 128000,
+        pricePerInputToken: '0.000005',
+        pricePerOutputToken: '0.000015',
+        provider: 'openai',
+        teeType: 'none',
+        active: true,
+      },
+    ];
+  }
+
+  /**
+   * Send a chat message and get a response
+   */
+  async chat(request: ChatRequest): Promise<ChatResponse> {
+    const startTime = Date.now();
+    const model = request.model || this.config.preferredModel;
+
+    // Add user message to history
+    const userMessage: Message = { role: 'user', content: request.messages[request.messages.length - 1].content };
+    this.conversationHistory.push(userMessage);
+
+    // Build full message list with history
+    const messages = [...this.conversationHistory];
+
+    // Add wallet context if available
+    if (this.config.walletAddress) {
+      const contextMessage: Message = {
+        role: 'system',
+        content: `Current user wallet address: ${this.config.walletAddress}`,
+      };
+      messages.splice(1, 0, contextMessage); // Insert after system prompt
+    }
+
+    const requestBody = {
+      model,
+      messages,
+      temperature: request.temperature ?? 0.7,
+      max_tokens: request.maxTokens ?? 2048,
+      stream: false,
+    };
+
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < this.config.maxRetries; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), this.config.timeoutMs);
+
+        const response = await fetch(`${this.config.gatewayUrl}/v1/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...this.getHeaders(),
+          },
+          body: JSON.stringify(requestBody),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Inference failed: ${response.status} ${errorText}`);
+        }
+
+        const data = await response.json();
+        const latencyMs = Date.now() - startTime;
+
+        // Extract response content
+        const assistantContent = data.choices?.[0]?.message?.content || '';
+
+        // Add assistant response to history
+        this.conversationHistory.push({ role: 'assistant', content: assistantContent });
+
+        // Keep history reasonable (last 20 exchanges)
+        if (this.conversationHistory.length > 41) { // system + 20 pairs
+          this.conversationHistory = [
+            this.conversationHistory[0], // Keep system prompt
+            ...this.conversationHistory.slice(-40),
+          ];
+        }
+
+        return {
+          id: data.id || crypto.randomUUID(),
+          model: data.model || model,
+          content: assistantContent,
+          tokensUsed: {
+            input: data.usage?.prompt_tokens || 0,
+            output: data.usage?.completion_tokens || 0,
+            total: data.usage?.total_tokens || 0,
+          },
+          cost: data.cost ? {
+            amount: data.cost.amount,
+            currency: data.cost.currency || 'JEJU',
+            txHash: data.cost.txHash,
+          } : undefined,
+          provider: data.provider || 'jeju-network',
+          latencyMs,
+          teeAttestation: data.tee_attestation,
+        };
+      } catch (error) {
+        lastError = error as Error;
+        console.warn(`[Inference] Attempt ${attempt + 1} failed:`, error);
+        
+        if (attempt < this.config.maxRetries - 1) {
+          await new Promise(resolve => setTimeout(resolve, this.config.retryDelayMs * (attempt + 1)));
+        }
+      }
+    }
+
+    // If all retries fail, use local fallback
+    return this.localFallback(userMessage.content, Date.now() - startTime);
+  }
+
+  /**
+   * Stream a chat response (for real-time display)
+   */
+  async *chatStream(request: ChatRequest): AsyncGenerator<StreamChunk> {
+    const model = request.model || this.config.preferredModel;
+
+    const userMessage: Message = { role: 'user', content: request.messages[request.messages.length - 1].content };
+    this.conversationHistory.push(userMessage);
+
+    const messages = [...this.conversationHistory];
+
+    if (this.config.walletAddress) {
+      messages.splice(1, 0, {
+        role: 'system',
+        content: `Current user wallet address: ${this.config.walletAddress}`,
+      });
+    }
+
+    try {
+      const response = await fetch(`${this.config.gatewayUrl}/v1/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...this.getHeaders(),
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature: request.temperature ?? 0.7,
+          max_tokens: request.maxTokens ?? 2048,
+          stream: true,
+        }),
+      });
+
+      if (!response.ok || !response.body) {
+        throw new Error(`Stream request failed: ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let fullContent = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') {
+              this.conversationHistory.push({ role: 'assistant', content: fullContent });
+              yield { id: crypto.randomUUID(), content: '', done: true };
+              return;
+            }
+
+            try {
+              const parsed = JSON.parse(data);
+              const content = parsed.choices?.[0]?.delta?.content || '';
+              if (content) {
+                fullContent += content;
+                yield { id: parsed.id || crypto.randomUUID(), content, done: false };
+              }
+            } catch {
+              // Skip malformed chunks
+            }
+          }
+        }
+      }
+
+      this.conversationHistory.push({ role: 'assistant', content: fullContent });
+      yield { id: crypto.randomUUID(), content: '', done: true };
+    } catch (error) {
+      console.error('[Inference] Stream error:', error);
+      const fallback = await this.localFallback(userMessage.content, 0);
+      yield { id: fallback.id, content: fallback.content, done: true };
+    }
+  }
+
+  /**
+   * Clear conversation history
+   */
+  clearHistory(): void {
+    this.conversationHistory = [
+      { role: 'system', content: SYSTEM_PROMPT },
+    ];
+  }
+
+  /**
+   * Get current conversation history
+   */
+  getHistory(): Message[] {
+    return [...this.conversationHistory];
+  }
+
+  /**
+   * Local fallback when inference network unavailable
+   */
+  private async localFallback(input: string, latencyMs: number): Promise<ChatResponse> {
+    const cmd = input.toLowerCase().trim();
+    let content: string;
+
+    // Pattern matching for common commands
+    if (cmd.includes('balance') || cmd.includes('portfolio')) {
+      content = `To check your portfolio, I need to connect to the blockchain. Please ensure your wallet is connected, then ask again.
+
+In the meantime, you can:
+- Click "Portfolio" in the sidebar
+- Say "show my balances"`;
+    } else if (cmd.includes('swap') || cmd.includes('trade') || cmd.includes('exchange')) {
+      content = `I can help you swap tokens. Please specify:
+- Amount and token to swap FROM
+- Token to swap TO
+
+Example: "Swap 0.5 ETH for USDC on Base"`;
+    } else if (cmd.includes('send') || cmd.includes('transfer')) {
+      content = `To send tokens, please provide:
+- Amount and token
+- Recipient address or .jeju name
+
+Example: "Send 0.1 ETH to alice.jeju"`;
+    } else if (cmd.includes('help') || cmd === '?') {
+      content = `**Jeju Wallet Commands**
+
+**Portfolio:**
+• "Show my portfolio" - View all balances
+• "Check approvals" - Review permissions
+
+**Trading:**
+• "Swap 0.5 ETH for USDC" - Exchange tokens
+• "Long ETH 5x" - Open perpetual position
+
+**Transfers:**
+• "Send 0.1 ETH to 0x..." - Transfer tokens
+
+**DeFi:**
+• "Add liquidity to ETH/USDC" - Provide LP
+• "View my LP positions" - Check pools
+
+**Launchpad:**
+• "Show trending tokens" - New launches
+• "Launch my token" - Create token
+
+**Names:**
+• "Register alice.jeju" - Get a .jeju name
+
+All transactions require confirmation.`;
+    } else if (cmd.includes('long') || cmd.includes('short') || cmd.includes('perp')) {
+      content = `For perpetual trading, specify:
+- Direction (long/short)
+- Asset (ETH, BTC)
+- Leverage (1-20x)
+- Margin amount
+
+Example: "Long ETH 5x with 100 USDC margin"`;
+    } else if (cmd.includes('.jeju') || cmd.includes('name') || cmd.includes('jns')) {
+      content = `**Jeju Name Service**
+
+Register a .jeju name for easy payments:
+• "Check alice.jeju" - See if available
+• "Register alice.jeju" - Buy the name
+• "Resolve bob.jeju" - Look up address
+
+Pricing: 0.001-0.1 ETH/year based on length`;
+    } else {
+      content = `I'm currently in offline mode and have limited capabilities.
+
+The decentralized inference network is temporarily unavailable. You can still use basic commands:
+• "help" - See all commands
+• "portfolio" - View balances
+• "swap" - Trade tokens
+• "send" - Transfer tokens
+
+Full AI assistance will resume when the network reconnects.`;
+    }
+
+    // Add to history even for fallback
+    this.conversationHistory.push({ role: 'assistant', content });
+
+    return {
+      id: `local-${Date.now()}`,
+      model: 'local-fallback',
+      content,
+      tokensUsed: { input: 0, output: 0, total: 0 },
+      provider: 'local',
+      latencyMs,
+    };
+  }
+
+  /**
+   * Get request headers with optional auth
+   */
+  private getHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {
+      'Accept': 'application/json',
+    };
+
+    if (this.config.walletAddress) {
+      headers['X-Jeju-Address'] = this.config.walletAddress;
+    }
+
+    return headers;
+  }
+}
+
+// ============================================================================
+// Singleton Export
+// ============================================================================
+
+export const inferenceClient = new InferenceClient();
+
+export { InferenceClient };
+

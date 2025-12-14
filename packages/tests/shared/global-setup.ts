@@ -1,98 +1,108 @@
-/** Playwright global setup for E2E tests */
+/**
+ * Global setup for Playwright/Synpress tests
+ * 
+ * This runs once before all tests:
+ * 1. Checks if localnet is running
+ * 2. Waits for chain to be ready
+ * 3. Sets up test environment
+ */
 
-import type { FullConfig } from '@playwright/test';
-import { LockManager } from './lock-manager';
-import { runPreflightChecks, waitForChain } from './preflight';
-import { quickWarmup } from './warmup';
+import { chromium, FullConfig } from '@playwright/test';
+import { existsSync, writeFileSync, mkdirSync } from 'fs';
+import { join } from 'path';
 
-const MIN_PLAYWRIGHT_VERSION = '1.55.1';
+const JEJU_RPC = process.env.JEJU_RPC_URL || process.env.L2_RPC_URL || 'http://127.0.0.1:9545';
+const CHAIN_ID = parseInt(process.env.CHAIN_ID || '1337');
 
-function checkPlaywrightVersion(): void {
+async function globalSetup(config: FullConfig) {
+  console.log('\n🔧 Global Setup Starting...\n');
+
+  // 1. Check if chain is running
+  console.log(`Checking chain at ${JEJU_RPC}...`);
+  
+  let chainReady = false;
+  const maxAttempts = 30;
+  
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      const response = await fetch(JEJU_RPC, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'eth_chainId',
+          params: [],
+          id: 1,
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const remoteChainId = parseInt(data.result, 16);
+        
+        if (remoteChainId === CHAIN_ID) {
+          chainReady = true;
+          console.log(`✅ Chain ready (ID: ${remoteChainId})`);
+          break;
+        } else {
+          console.log(`⚠️  Chain ID mismatch: expected ${CHAIN_ID}, got ${remoteChainId}`);
+        }
+      }
+    } catch {
+      if (i === 0) {
+        console.log('   Waiting for chain...');
+      }
+    }
+    
+    await new Promise(r => setTimeout(r, 2000));
+  }
+  
+  if (!chainReady) {
+    console.error('\n❌ Chain not ready after 60 seconds');
+    console.error('   Start localnet with: jeju up\n');
+    throw new Error('Chain not ready');
+  }
+
+  // 2. Get block number
   try {
-    const pkg = require('@playwright/test/package.json');
-    const version = pkg.version as string;
-    const [major, minor, patch] = version.split('.').map(Number);
-    const [minMajor, minMinor, minPatch] = MIN_PLAYWRIGHT_VERSION.split('.').map(Number);
+    const response = await fetch(JEJU_RPC, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_blockNumber',
+        params: [],
+        id: 1,
+      }),
+    });
     
-    const current = major * 10000 + minor * 100 + patch;
-    const minimum = minMajor * 10000 + minMinor * 100 + minPatch;
-    
-    if (current < minimum) {
-      console.warn(`⚠️  Playwright ${version} has known vulnerabilities. Upgrade to >=${MIN_PLAYWRIGHT_VERSION}`);
-    }
+    const data = await response.json();
+    const blockNumber = parseInt(data.result, 16);
+    console.log(`   Block: ${blockNumber}`);
   } catch {
-    // Can't check version, continue anyway
-  }
-}
-
-let lockManager: LockManager | null = null;
-
-export default async function globalSetup(_config: FullConfig): Promise<() => void> {
-  const skipLock = process.env.SKIP_TEST_LOCK === 'true';
-  const skipPreflight = process.env.SKIP_PREFLIGHT === 'true';
-  const skipWarmup = process.env.SKIP_WARMUP === 'true';
-  const force = process.env.FORCE_TESTS === 'true';
-  const rpcUrl = process.env.L2_RPC_URL || process.env.JEJU_RPC_URL || 'http://localhost:9545';
-  const chainId = process.env.CHAIN_ID ? parseInt(process.env.CHAIN_ID) : 1337;
-  const apps = process.env.WARMUP_APPS?.split(',');
-
-  console.log('\n=== E2E GLOBAL SETUP ===\n');
-  checkPlaywrightVersion();
-
-  if (!skipLock) {
-    lockManager = new LockManager({ force });
-    const result = lockManager.acquireLock();
-    if (!result.acquired) {
-      throw new Error(result.message || 'Lock not acquired');
-    }
+    // Non-fatal
   }
 
-  if (!skipPreflight) {
-    if (!await waitForChain({ rpcUrl, chainId }, 30000)) {
-      lockManager?.releaseLock();
-      throw new Error('Chain not ready');
-    }
-    const result = await runPreflightChecks({ rpcUrl, chainId });
-    if (!result.success) {
-      lockManager?.releaseLock();
-      throw new Error('Preflight failed');
-    }
+  // 3. Create output directory
+  const outputDir = join(process.cwd(), 'test-results');
+  if (!existsSync(outputDir)) {
+    mkdirSync(outputDir, { recursive: true });
   }
 
-  if (!skipWarmup) {
-    await quickWarmup(apps);
-  }
-
-  console.log('\n=== SETUP COMPLETE ===\n');
-
-  return () => {
-    lockManager?.releaseLock();
-    lockManager = null;
+  // 4. Write test environment info
+  const envInfo = {
+    rpcUrl: JEJU_RPC,
+    chainId: CHAIN_ID,
+    startTime: new Date().toISOString(),
+    ci: !!process.env.CI,
   };
+  
+  writeFileSync(
+    join(outputDir, 'test-env.json'),
+    JSON.stringify(envInfo, null, 2)
+  );
+
+  console.log('\n✅ Global Setup Complete\n');
 }
 
-export async function globalTeardown(): Promise<void> {
-  lockManager?.releaseLock();
-  console.log('Teardown complete');
-}
-
-/** For programmatic setup - sets env vars and calls globalSetup */
-export async function setupTestEnvironment(options: {
-  skipLock?: boolean;
-  skipPreflight?: boolean;
-  skipWarmup?: boolean;
-  force?: boolean;
-  rpcUrl?: string;
-  chainId?: number;
-  apps?: string[];
-} = {}): Promise<() => void> {
-  if (options.skipLock) process.env.SKIP_TEST_LOCK = 'true';
-  if (options.skipPreflight) process.env.SKIP_PREFLIGHT = 'true';
-  if (options.skipWarmup) process.env.SKIP_WARMUP = 'true';
-  if (options.force) process.env.FORCE_TESTS = 'true';
-  if (options.rpcUrl) process.env.L2_RPC_URL = options.rpcUrl;
-  if (options.chainId) process.env.CHAIN_ID = String(options.chainId);
-  if (options.apps) process.env.WARMUP_APPS = options.apps.join(',');
-
-  return globalSetup({} as FullConfig);
-}
+export default globalSetup;

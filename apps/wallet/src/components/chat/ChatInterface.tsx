@@ -1,9 +1,15 @@
+/**
+ * Chat Interface - Decentralized AI Chat
+ * 
+ * Uses Jeju compute network for inference.
+ * No ElizaOS dependency - fully decentralized.
+ */
+
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Send, Loader2, Check, X, AlertTriangle, Shield, Wallet, ArrowLeftRight, HelpCircle, Sparkles, History, Zap } from 'lucide-react';
+import { Send, Loader2, Check, X, AlertTriangle, Shield, Wallet, ArrowLeftRight, HelpCircle, Sparkles, History, Zap, Cpu } from 'lucide-react';
 import { useWallet, useMultiChainBalances, formatUsd, formatTokenAmount } from '../../hooks/useWallet';
-import { elizaClient, type Agent } from '../../lib/elizaClient';
-import { socketManager, type MessageData } from '../../lib/socketManager';
-import { useQuery } from '@tanstack/react-query';
+import { inferenceClient, type ChatResponse, type StreamChunk } from '../../lib/inferenceClient';
+import type { Address } from 'viem';
 
 interface Message {
   id: string;
@@ -16,6 +22,9 @@ interface Message {
     actionData?: Record<string, unknown>;
     riskLevel?: 'safe' | 'low' | 'medium' | 'high' | 'critical';
     actions?: string[];
+    tokensUsed?: number;
+    latencyMs?: number;
+    provider?: string;
   };
 }
 
@@ -36,171 +45,178 @@ export function ChatInterface({ onActionConfirmed, onActionRejected, onActionCom
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
-  const [channelId, setChannelId] = useState<string | null>(null);
+  const [streamingContent, setStreamingContent] = useState('');
+  const [inferenceStatus, setInferenceStatus] = useState<'connected' | 'connecting' | 'offline'>('connecting');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const { isConnected: walletConnected, address, chain, balance } = useWallet();
+  const { isConnected: walletConnected, address } = useWallet();
   const { aggregatedBalances, totalUsdValue, isLoading: balancesLoading } = useMultiChainBalances(address);
 
-  const { data: agentsData } = useQuery({
-    queryKey: ['agents'],
-    queryFn: async () => {
-      const result = await elizaClient.agents.listAgents();
-      return result.agents;
-    },
-    staleTime: 5 * 60 * 1000,
-    retry: false,
-  });
-
-  const agent = agentsData?.[0];
-
+  // Initialize inference client with wallet address
   useEffect(() => {
-    if (!walletConnected || !address || !agent) return;
+    if (address) {
+      inferenceClient.setWalletAddress(address as Address);
+    }
 
-    const userId = address.toLowerCase();
-    const socket = socketManager.connect(userId, `User-${address.slice(0, 6)}`);
-
-    socket.on('connect', () => {
-      setIsConnected(true);
-      initializeChannel(userId, agent.id);
-    });
-
-    socket.on('disconnect', () => setIsConnected(false));
-
-    return () => {
-      socketManager.disconnect();
-      setIsConnected(false);
-    };
-  }, [walletConnected, address, agent]);
-
-  const initializeChannel = async (userId: string, agentId: string) => {
-    try {
+    // Check inference availability
+    const checkInference = async () => {
       try {
-        await elizaClient.messaging.createServer({
-          id: userId,
-          name: `${userId.slice(0, 8)}'s Wallet`,
-          sourceType: 'wallet',
-          sourceId: userId,
-          metadata: { createdBy: 'jeju-wallet', userId },
-        });
-        await elizaClient.messaging.addAgentToServer(userId, agentId);
-      } catch { /* Server may exist */ }
-
-      const { channels } = await elizaClient.messaging.getServerChannels(userId);
-      if (channels.length > 0) {
-        const latest = channels[0];
-        setChannelId(latest.id);
-        socketManager.joinChannel(latest.id, userId, { isDm: true });
-        await loadMessages(latest.id, agentId);
-      }
-    } catch (error) {
-      console.error('[Chat] Init failed:', error);
-    }
-  };
-
-  const loadMessages = async (chId: string, agentId: string) => {
-    try {
-      const { messages: loaded } = await elizaClient.messaging.getChannelMessages(chId, { limit: 50 });
-      const formatted = loaded.map((msg) => ({
-        id: msg.id,
-        content: msg.content,
-        isAgent: msg.authorId === agentId,
-        timestamp: typeof msg.createdAt === 'number' ? msg.createdAt : Date.parse(msg.createdAt as string),
-        metadata: msg.metadata as Message['metadata'],
-      }));
-      setMessages(formatted.sort((a, b) => a.timestamp - b.timestamp));
-    } catch (error) {
-      console.error('[Chat] Load failed:', error);
-    }
-  };
-
-  useEffect(() => {
-    if (!channelId || !agent) return;
-
-    const handleMessage = (data: MessageData) => {
-      const newMsg: Message = {
-        id: data.id || crypto.randomUUID(),
-        content: data.content || data.text || data.message || '',
-        isAgent: data.senderId === agent.id,
-        timestamp: typeof data.createdAt === 'number' ? data.createdAt : Date.parse(data.createdAt as string),
-        metadata: data.metadata as Message['metadata'],
-      };
-
-      setMessages((prev) => {
-        if (prev.find((m) => m.id === newMsg.id)) return prev;
-        return [...prev, newMsg].sort((a, b) => a.timestamp - b.timestamp);
-      });
-
-      if (newMsg.isAgent) {
-        setIsTyping(false);
-        if (newMsg.metadata?.actions?.includes('MULTI_STEP_SUMMARY') && onActionCompleted) {
-          onActionCompleted();
-        }
+        const models = await inferenceClient.getModels();
+        setInferenceStatus(models.length > 0 ? 'connected' : 'offline');
+      } catch {
+        setInferenceStatus('offline');
       }
     };
 
-    const unsubscribe = socketManager.onMessage(handleMessage);
-    return () => unsubscribe();
-  }, [channelId, agent, onActionCompleted]);
+    checkInference();
+  }, [address]);
 
+  // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, streamingContent]);
 
+  // Inject wallet context into messages
+  const getWalletContext = useCallback((): string => {
+    if (!walletConnected || !address) return '';
+    if (balancesLoading) return '';
+
+    let context = `\n\nCurrent wallet state:\n- Address: ${address}`;
+    context += `\n- Total Portfolio: ${formatUsd(totalUsdValue)}`;
+    
+    if (aggregatedBalances.length > 0) {
+      context += '\n- Holdings:';
+      for (const b of aggregatedBalances.slice(0, 5)) {
+        context += `\n  • ${b.symbol}: ${formatTokenAmount(b.totalBalance)} (${formatUsd(b.totalUsdValue)})`;
+      }
+      if (aggregatedBalances.length > 5) {
+        context += `\n  • ...and ${aggregatedBalances.length - 5} more`;
+      }
+    }
+
+    return context;
+  }, [walletConnected, address, aggregatedBalances, totalUsdValue, balancesLoading]);
+
+  // Handle sending messages
   const handleSend = useCallback(async () => {
     if (!inputValue.trim() || isTyping) return;
 
-    const content = inputValue.trim();
+    const userContent = inputValue.trim();
     setInputValue('');
     setIsTyping(true);
+    setStreamingContent('');
 
-    if (!channelId && address && agent) {
-      try {
-        const titleResponse = await elizaClient.messaging.generateChannelTitle(content, agent.id);
-        const newChannel = await elizaClient.messaging.createGroupChannel({
-          name: titleResponse.title || content.slice(0, 50),
-          participantIds: [address.toLowerCase(), agent.id],
-          metadata: {
-            server_id: address.toLowerCase(),
-            type: 'DM',
-            isDm: true,
-            user1: address.toLowerCase(),
-            user2: agent.id,
-            forAgent: agent.id,
-            createdAt: new Date().toISOString(),
-          },
-        });
-        setChannelId(newChannel.id);
-        socketManager.joinChannel(newChannel.id, address.toLowerCase(), { isDm: true });
-        setTimeout(() => {
-          socketManager.sendMessage(newChannel.id, content, address.toLowerCase(), {
-            userId: address.toLowerCase(),
-            isDm: true,
-            targetUserId: agent.id,
-          });
-        }, 100);
-      } catch (error) {
-        console.error('[Chat] Create channel failed:', error);
-        setIsTyping(false);
+    // Add user message
+    const userMsg: Message = {
+      id: `user-${Date.now()}`,
+      content: userContent,
+      isAgent: false,
+      timestamp: Date.now(),
+    };
+    setMessages(prev => [...prev, userMsg]);
+
+    // Append wallet context to user message for AI
+    const contextualContent = userContent + getWalletContext();
+
+    try {
+      // Use streaming for better UX
+      let fullContent = '';
+      let responseData: Partial<ChatResponse> = {};
+
+      for await (const chunk of inferenceClient.chatStream({
+        messages: [{ role: 'user', content: contextualContent }],
+        temperature: 0.7,
+        maxTokens: 2048,
+      })) {
+        if (chunk.done) {
+          responseData.id = chunk.id;
+          break;
+        }
+        fullContent += chunk.content;
+        setStreamingContent(fullContent);
       }
-      return;
+
+      // Clear streaming and add final message
+      setStreamingContent('');
+
+      // Check for action triggers in response
+      const actionData = parseActionFromResponse(fullContent);
+
+      const agentMsg: Message = {
+        id: responseData.id || `agent-${Date.now()}`,
+        content: fullContent,
+        isAgent: true,
+        timestamp: Date.now(),
+        metadata: {
+          provider: 'jeju-network',
+          ...actionData,
+        },
+      };
+      setMessages(prev => [...prev, agentMsg]);
+
+      if (actionData?.actions?.includes('MULTI_STEP_SUMMARY') && onActionCompleted) {
+        onActionCompleted();
+      }
+    } catch (error) {
+      console.error('[Chat] Inference error:', error);
+      
+      // Fallback to local processing
+      const fallbackResponse = processLocally(userContent);
+      setStreamingContent('');
+
+      const agentMsg: Message = {
+        id: `agent-${Date.now()}`,
+        content: fallbackResponse,
+        isAgent: true,
+        timestamp: Date.now(),
+        metadata: { provider: 'local' },
+      };
+      setMessages(prev => [...prev, agentMsg]);
+    } finally {
+      setIsTyping(false);
+    }
+  }, [inputValue, isTyping, getWalletContext, onActionCompleted]);
+
+  // Parse actions from AI response (swap, send, etc.)
+  const parseActionFromResponse = (content: string): Message['metadata'] => {
+    const lowerContent = content.toLowerCase();
+
+    // Detect confirmation requests
+    if (lowerContent.includes('confirm') && (
+      lowerContent.includes('swap') || 
+      lowerContent.includes('send') || 
+      lowerContent.includes('transfer') ||
+      lowerContent.includes('approve')
+    )) {
+      // Extract action type
+      let actionType = 'unknown';
+      if (lowerContent.includes('swap')) actionType = 'swap';
+      else if (lowerContent.includes('send') || lowerContent.includes('transfer')) actionType = 'send';
+      else if (lowerContent.includes('approve')) actionType = 'approve';
+
+      // Basic risk assessment
+      let riskLevel: 'safe' | 'low' | 'medium' | 'high' | 'critical' = 'low';
+      if (lowerContent.includes('unlimited') || lowerContent.includes('all')) riskLevel = 'high';
+      if (lowerContent.includes('unknown') || lowerContent.includes('unverified')) riskLevel = 'high';
+
+      return {
+        requiresConfirmation: true,
+        actionType,
+        riskLevel,
+        actionData: {},
+      };
     }
 
-    if (channelId && address && agent) {
-      socketManager.sendMessage(channelId, content, address.toLowerCase(), {
-        userId: address.toLowerCase(),
-        isDm: true,
-        targetUserId: agent.id,
-      });
-    }
-  }, [inputValue, isTyping, channelId, address, agent]);
+    return undefined;
+  };
 
+  // Local processing fallback
   const processLocally = useCallback((input: string): string => {
     const cmd = input.toLowerCase().trim();
     
-    if (cmd.includes('balance') || cmd.includes('portfolio')) {
+    // Portfolio commands
+    if (cmd.includes('balance') || cmd.includes('portfolio') || cmd.includes('holdings')) {
       if (!walletConnected) return 'Please connect your wallet first.';
       if (balancesLoading) return 'Loading your portfolio...';
       if (aggregatedBalances.length === 0) {
@@ -215,80 +231,147 @@ export function ChatInterface({ onActionConfirmed, onActionRejected, onActionCom
       ].join('\n');
     }
 
+    // Help commands
     if (cmd === 'help' || cmd === '?' || cmd.includes('what can you')) {
-      return `**I can help you with:**
+      return `**Jeju Wallet Agent**
 
-• **Portfolio** - View your balances across all chains
-• **Swap** - Exchange tokens on any supported chain  
-• **Send** - Transfer tokens to any address
-• **Bridge** - Move assets cross-chain seamlessly
-• **Approvals** - Review and revoke token permissions
-• **History** - See your recent transactions
+**Portfolio:**
+• "Show portfolio" - View balances
+• "Check approvals" - Review permissions
 
-Just tell me what you'd like to do.`;
+**Trading:**
+• "Swap 0.1 ETH for USDC" - Exchange tokens
+• "Long ETH 5x" - Perpetual trading
+
+**Transfers:**
+• "Send 0.1 ETH to 0x..." - Transfer tokens
+
+**DeFi:**
+• "Add liquidity to ETH/USDC" - Provide LP
+• "View my positions" - Check pools
+
+**Launchpad:**
+• "Trending tokens" - New launches
+• "Launch token" - Create your own
+
+**Names:**
+• "Register alice.jeju" - Get a .jeju name
+
+All transactions require confirmation.`;
     }
 
-    if (cmd.includes('history') || cmd.includes('transaction')) {
-      return `**Recent Activity**
+    // Swap commands
+    if (cmd.includes('swap') || cmd.includes('exchange') || cmd.includes('trade')) {
+      if (!walletConnected) return 'Please connect your wallet to swap tokens.';
+      return `**Token Swap**
 
-Your transaction history is being loaded from the indexer. Check the Portfolio view for detailed history.`;
+To swap tokens, specify:
+• Amount and token (e.g., "0.5 ETH")
+• Destination token (e.g., "for USDC")
+
+Example: "Swap 0.5 ETH for USDC"`;
     }
 
+    // Send commands
+    if (cmd.includes('send') || cmd.includes('transfer')) {
+      if (!walletConnected) return 'Please connect your wallet to send tokens.';
+      return `**Send Tokens**
+
+To send, specify:
+• Amount and token
+• Recipient address or .jeju name
+
+Example: "Send 0.1 ETH to alice.jeju"`;
+    }
+
+    // Perp commands
+    if (cmd.includes('long') || cmd.includes('short') || cmd.includes('perp')) {
+      if (!walletConnected) return 'Please connect your wallet for trading.';
+      return `**Perpetual Trading**
+
+Open a position:
+• "Long ETH 5x with 100 USDC"
+• "Short BTC 10x with 0.5 ETH"
+
+Markets: ETH-PERP, BTC-PERP
+Max leverage: 20x`;
+    }
+
+    // Default
     return `I understood: "${input}"
 
-I'm connecting to the agent server. Try asking about your "portfolio" or type "help" for options.`;
-  }, [walletConnected, balance, aggregatedBalances, balancesLoading, totalUsdValue]);
+Try these commands:
+• **portfolio** - View balances
+• **swap** - Trade tokens  
+• **send** - Transfer tokens
+• **help** - Full command list`;
+  }, [walletConnected, aggregatedBalances, balancesLoading, totalUsdValue]);
 
-  const handleLocalSend = useCallback(() => {
-    if (!inputValue.trim() || isTyping) return;
-    
-    const userMsg: Message = {
-      id: `user-${Date.now()}`,
-      content: inputValue.trim(),
-      isAgent: false,
-      timestamp: Date.now(),
-    };
-    setMessages(prev => [...prev, userMsg]);
-    
-    const response = processLocally(inputValue.trim());
-    setInputValue('');
-    
-    setTimeout(() => {
-      const agentMsg: Message = {
-        id: `agent-${Date.now()}`,
-        content: response,
-        isAgent: true,
-        timestamp: Date.now(),
-      };
-      setMessages(prev => [...prev, agentMsg]);
-    }, 300);
-  }, [inputValue, isTyping, processLocally]);
-
+  // Handle action confirmation
   const handleConfirm = useCallback((message: Message) => {
     if (message.metadata?.actionType && message.metadata?.actionData) {
       onActionConfirmed?.(message.metadata.actionType, message.metadata.actionData);
     }
-    setMessages(prev => [...prev, { id: `c-${Date.now()}`, content: 'Confirmed. Processing...', isAgent: true, timestamp: Date.now() }]);
+    setMessages(prev => [...prev, { 
+      id: `c-${Date.now()}`, 
+      content: 'Confirmed. Processing your request...', 
+      isAgent: true, 
+      timestamp: Date.now() 
+    }]);
   }, [onActionConfirmed]);
 
+  // Handle action rejection
   const handleReject = useCallback((message: Message) => {
     if (message.metadata?.actionType) {
       onActionRejected?.(message.metadata.actionType);
     }
-    setMessages(prev => [...prev, { id: `r-${Date.now()}`, content: 'Cancelled.', isAgent: true, timestamp: Date.now() }]);
+    setMessages(prev => [...prev, { 
+      id: `r-${Date.now()}`, 
+      content: 'Cancelled. Let me know if you need anything else.', 
+      isAgent: true, 
+      timestamp: Date.now() 
+    }]);
   }, [onActionRejected]);
 
-  const actuallyConnected = isConnected && channelId;
+  // Clear chat history
+  const clearChat = useCallback(() => {
+    setMessages([]);
+    inferenceClient.clearHistory();
+  }, []);
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Connection Status */}
-      <div className={`px-4 py-2 flex items-center gap-2 border-b ${actuallyConnected ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-amber-500/5 border-amber-500/20'}`}>
-        <div className={`w-2 h-2 rounded-full ${actuallyConnected ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-        <span className={`text-xs ${actuallyConnected ? 'text-emerald-500' : 'text-amber-500'}`}>
-          {actuallyConnected ? `Connected to ${agent?.name || 'Jeju Agent'}` : 'Local mode'}
-        </span>
-        {actuallyConnected && <Zap className="w-3 h-3 text-emerald-500" />}
+      {/* Status Bar */}
+      <div className={`px-4 py-2 flex items-center justify-between border-b ${
+        inferenceStatus === 'connected' ? 'bg-emerald-500/5 border-emerald-500/20' : 
+        inferenceStatus === 'connecting' ? 'bg-amber-500/5 border-amber-500/20' :
+        'bg-red-500/5 border-red-500/20'
+      }`}>
+        <div className="flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${
+            inferenceStatus === 'connected' ? 'bg-emerald-500' : 
+            inferenceStatus === 'connecting' ? 'bg-amber-500 animate-pulse' :
+            'bg-red-500'
+          }`} />
+          <span className={`text-xs ${
+            inferenceStatus === 'connected' ? 'text-emerald-500' : 
+            inferenceStatus === 'connecting' ? 'text-amber-500' :
+            'text-red-500'
+          }`}>
+            {inferenceStatus === 'connected' ? 'Decentralized AI' : 
+             inferenceStatus === 'connecting' ? 'Connecting to compute network...' :
+             'Offline mode (local processing)'}
+          </span>
+          {inferenceStatus === 'connected' && <Cpu className="w-3 h-3 text-emerald-500" />}
+        </div>
+        {messages.length > 0 && (
+          <button 
+            onClick={clearChat}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            Clear
+          </button>
+        )}
       </div>
 
       {/* Messages */}
@@ -322,6 +405,11 @@ I'm connecting to the agent server. Try asking about your "portfolio" or type "h
                 ))}
               </div>
             )}
+
+            <div className="mt-8 flex items-center gap-2 text-xs text-muted-foreground">
+              <Zap className="w-3 h-3" />
+              <span>Powered by Jeju Decentralized Compute</span>
+            </div>
           </div>
         )}
 
@@ -363,14 +451,37 @@ I'm connecting to the agent server. Try asking about your "portfolio" or type "h
                 </div>
               )}
               
-              <div className={`text-xs mt-2 ${msg.isAgent ? 'text-muted-foreground' : 'text-white/70'}`}>
-                {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              <div className={`flex items-center gap-2 text-xs mt-2 ${msg.isAgent ? 'text-muted-foreground' : 'text-white/70'}`}>
+                <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                {msg.metadata?.provider && msg.metadata.provider !== 'local' && (
+                  <>
+                    <span>•</span>
+                    <span className="flex items-center gap-1">
+                      <Cpu className="w-3 h-3" />
+                      {msg.metadata.provider}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           </div>
         ))}
 
-        {isTyping && (
+        {/* Streaming response */}
+        {streamingContent && (
+          <div className="flex justify-start">
+            <div className="max-w-[85%] rounded-2xl px-4 py-3 bg-card border border-border">
+              <div className="whitespace-pre-wrap text-sm leading-relaxed">{streamingContent}</div>
+              <div className="flex items-center gap-1 mt-2 text-xs text-emerald-500">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                <span>Generating...</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Loading indicator */}
+        {isTyping && !streamingContent && (
           <div className="flex justify-start">
             <div className="bg-card border border-border rounded-2xl px-4 py-3">
               <div className="flex items-center gap-2">
@@ -394,7 +505,7 @@ I'm connecting to the agent server. Try asking about your "portfolio" or type "h
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                actuallyConnected ? handleSend() : handleLocalSend();
+                handleSend();
               }
             }}
             placeholder={walletConnected ? "Ask me anything..." : "Connect wallet to start"}
@@ -403,7 +514,7 @@ I'm connecting to the agent server. Try asking about your "portfolio" or type "h
             className="flex-1 resize-none rounded-2xl border border-border bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 disabled:opacity-50 transition-all"
           />
           <button
-            onClick={actuallyConnected ? handleSend : handleLocalSend}
+            onClick={handleSend}
             disabled={!inputValue.trim() || isTyping || !walletConnected}
             className="w-12 h-12 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white disabled:opacity-50 hover:shadow-lg hover:shadow-emerald-500/20 flex items-center justify-center transition-all"
           >

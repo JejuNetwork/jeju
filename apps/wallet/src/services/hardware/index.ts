@@ -1,36 +1,19 @@
 /**
  * Hardware Wallet Service
- * Supports Ledger and Trezor via WebHID/WebUSB
+ * Unified interface for Ledger and Trezor hardware wallets
  */
 
 import type { Address, Hex } from 'viem';
-
-// WebHID types (not included in standard lib)
-interface HIDDevice {
-  vendorId: number;
-  productId: number;
-  productName: string;
-  open(): Promise<void>;
-  close(): Promise<void>;
-}
-
-interface HID {
-  requestDevice(options: { filters: Array<{ vendorId: number }> }): Promise<HIDDevice[]>;
-}
-
-declare global {
-  interface Navigator {
-    hid?: HID;
-  }
-}
+import { LedgerKeyring, ledgerKeyring, type LedgerAccount, type LedgerHDPathType } from './ledger';
+import { TrezorKeyring, trezorKeyring, type TrezorAccount, type TrezorHDPathType } from './trezor';
 
 export type HardwareWalletType = 'ledger' | 'trezor';
+export type HDPathType = LedgerHDPathType | TrezorHDPathType;
 
 export interface HardwareDevice {
   type: HardwareWalletType;
   model: string;
   connected: boolean;
-  path?: string;
 }
 
 export interface HardwareAccount {
@@ -38,259 +21,269 @@ export interface HardwareAccount {
   path: string;
   index: number;
   deviceType: HardwareWalletType;
+  publicKey?: string;
 }
 
-// HD Paths for different derivation schemes
-const HD_PATHS = {
-  ledgerLive: (index: number) => `m/44'/60'/${index}'/0/0`,
-  ledgerLegacy: (index: number) => `m/44'/60'/0'/${index}`,
-  standard: (index: number) => `m/44'/60'/0'/0/${index}`,
-} as const;
+export interface TransactionParams {
+  to: Address;
+  value: bigint;
+  data: Hex;
+  nonce: number;
+  gasLimit: bigint;
+  maxFeePerGas?: bigint;
+  maxPriorityFeePerGas?: bigint;
+  gasPrice?: bigint;
+  chainId: number;
+}
 
 class HardwareWalletService {
-  private device: HardwareDevice | null = null;
-  private transport: unknown = null;
-
-  // Check if WebHID is supported
+  private currentDevice: HardwareDevice | null = null;
+  private currentType: HardwareWalletType | null = null;
+  
+  /**
+   * Check if any hardware wallet is supported
+   */
   isSupported(): boolean {
-    return 'hid' in navigator;
+    return this.isLedgerSupported() || this.isTrezorSupported();
   }
-
-  // Get connected device
+  
+  /**
+   * Check if WebHID is supported (required for Ledger)
+   */
+  isLedgerSupported(): boolean {
+    return typeof navigator !== 'undefined' && 'hid' in navigator;
+  }
+  
+  /**
+   * Check if Trezor Connect is available
+   */
+  isTrezorSupported(): boolean {
+    return true; // Trezor Connect works in all browsers
+  }
+  
+  /**
+   * Get current connected device
+   */
   getDevice(): HardwareDevice | null {
-    return this.device;
+    return this.currentDevice;
   }
-
-  // Connect to Ledger via WebHID
+  
+  /**
+   * Connect to Ledger device
+   */
   async connectLedger(): Promise<HardwareDevice> {
-    if (!this.isSupported()) {
-      throw new Error('WebHID is not supported in this browser');
+    if (!this.isLedgerSupported()) {
+      throw new Error('WebHID is not supported in this browser. Try Chrome or Edge.');
     }
-
-    try {
-      // Request HID device access
-      // Ledger USB Vendor ID: 0x2c97
-      if (!navigator.hid) {
-        throw new Error('WebHID is not supported');
-      }
-      const devices = await navigator.hid.requestDevice({
-        filters: [{ vendorId: 0x2c97 }],
-      });
-
-      if (devices.length === 0) {
-        throw new Error('No Ledger device found. Please connect your device and try again.');
-      }
-
-      const device = devices[0];
-      await device.open();
-
-      this.device = {
-        type: 'ledger',
-        model: this.getLedgerModel(device.productId),
-        connected: true,
-        path: device.productName,
-      };
-
-      this.transport = device;
-      return this.device;
-    } catch (error) {
-      if ((error as Error).name === 'NotFoundError') {
-        throw new Error('No Ledger device selected. Please select your device.');
-      }
-      throw error;
-    }
-  }
-
-  // Connect to Trezor
-  async connectTrezor(): Promise<HardwareDevice> {
-    // Trezor uses Trezor Connect SDK which handles its own popup
-    // For now, we'll provide a stub that can be expanded
-    console.log('Trezor connection - using Trezor Connect');
     
-    this.device = {
-      type: 'trezor',
-      model: 'Trezor',
+    await ledgerKeyring.connect();
+    
+    this.currentType = 'ledger';
+    this.currentDevice = {
+      type: 'ledger',
+      model: 'Ledger',
       connected: true,
     };
-
-    return this.device;
+    
+    return this.currentDevice;
   }
-
-  // Disconnect device
+  
+  /**
+   * Connect to Trezor device
+   */
+  async connectTrezor(): Promise<HardwareDevice> {
+    await trezorKeyring.connect();
+    
+    this.currentType = 'trezor';
+    this.currentDevice = {
+      type: 'trezor',
+      model: trezorKeyring.getModel() || 'Trezor',
+      connected: true,
+    };
+    
+    return this.currentDevice;
+  }
+  
+  /**
+   * Disconnect current device
+   */
   async disconnect(): Promise<void> {
-    if (this.transport && typeof (this.transport as HIDDevice).close === 'function') {
-      await (this.transport as HIDDevice).close();
+    if (this.currentType === 'ledger') {
+      await ledgerKeyring.disconnect();
+    } else if (this.currentType === 'trezor') {
+      await trezorKeyring.disconnect();
     }
-    this.device = null;
-    this.transport = null;
+    
+    this.currentDevice = null;
+    this.currentType = null;
   }
-
-  // Get accounts from device
-  async getAccounts(
-    startIndex = 0,
-    count = 5,
-    pathType: keyof typeof HD_PATHS = 'ledgerLive'
-  ): Promise<HardwareAccount[]> {
-    if (!this.device) {
+  
+  /**
+   * Set HD path type
+   */
+  setHdPath(type: HDPathType): void {
+    if (this.currentType === 'ledger') {
+      ledgerKeyring.setHdPath(type as LedgerHDPathType);
+    } else if (this.currentType === 'trezor') {
+      trezorKeyring.setHdPath(type as TrezorHDPathType);
+    }
+  }
+  
+  /**
+   * Get accounts from device
+   */
+  async getAccounts(startIndex = 0, count = 5): Promise<HardwareAccount[]> {
+    if (!this.currentType) {
       throw new Error('No hardware wallet connected');
     }
-
-    const accounts: HardwareAccount[] = [];
-    const pathFn = HD_PATHS[pathType];
-
-    for (let i = startIndex; i < startIndex + count; i++) {
-      const path = pathFn(i);
-      const address = await this.getAddressAtPath(path);
-      
-      accounts.push({
-        address,
-        path,
-        index: i,
-        deviceType: this.device.type,
-      });
+    
+    if (this.currentType === 'ledger') {
+      const accounts = await ledgerKeyring.getAccounts(startIndex, count);
+      return accounts.map(acc => ({
+        ...acc,
+        deviceType: 'ledger' as const,
+      }));
     }
-
-    return accounts;
+    
+    if (this.currentType === 'trezor') {
+      const accounts = await trezorKeyring.getAccounts(startIndex, count);
+      return accounts.map(acc => ({
+        ...acc,
+        deviceType: 'trezor' as const,
+      }));
+    }
+    
+    throw new Error('Unknown device type');
   }
-
-  // Get address at specific HD path
-  async getAddressAtPath(path: string): Promise<Address> {
-    if (!this.device) {
+  
+  /**
+   * Add accounts to keyring
+   */
+  async addAccounts(addresses: Address[]): Promise<void> {
+    if (!this.currentType) {
       throw new Error('No hardware wallet connected');
     }
-
-    if (this.device.type === 'ledger') {
-      return this.getLedgerAddress(path);
+    
+    if (this.currentType === 'ledger') {
+      await ledgerKeyring.addAccounts(addresses);
+    } else if (this.currentType === 'trezor') {
+      await trezorKeyring.addAccounts(addresses);
     }
-
-    if (this.device.type === 'trezor') {
-      return this.getTrezorAddress(path);
-    }
-
-    throw new Error(`Unsupported device type: ${this.device.type}`);
   }
-
-  // Sign transaction
-  async signTransaction(
-    path: string,
-    tx: {
-      to: Address;
-      value: bigint;
-      data: Hex;
-      nonce: number;
-      gasLimit: bigint;
-      maxFeePerGas: bigint;
-      maxPriorityFeePerGas: bigint;
-      chainId: number;
-    }
-  ): Promise<Hex> {
-    if (!this.device) {
-      throw new Error('No hardware wallet connected');
-    }
-
-    if (this.device.type === 'ledger') {
-      return this.signLedgerTransaction(path, tx);
-    }
-
-    if (this.device.type === 'trezor') {
-      return this.signTrezorTransaction(path, tx);
-    }
-
-    throw new Error(`Unsupported device type: ${this.device.type}`);
+  
+  /**
+   * Get all added addresses
+   */
+  getAddresses(): Address[] {
+    const ledgerAddresses = ledgerKeyring.getAddresses();
+    const trezorAddresses = trezorKeyring.getAddresses();
+    return [...ledgerAddresses, ...trezorAddresses];
   }
-
-  // Sign message
-  async signMessage(path: string, message: string): Promise<Hex> {
-    if (!this.device) {
-      throw new Error('No hardware wallet connected');
+  
+  /**
+   * Get device type for an address
+   */
+  getDeviceTypeForAddress(address: Address): HardwareWalletType | null {
+    if (ledgerKeyring.getAddresses().includes(address)) {
+      return 'ledger';
     }
-
-    if (this.device.type === 'ledger') {
-      return this.signLedgerMessage(path, message);
+    if (trezorKeyring.getAddresses().includes(address)) {
+      return 'trezor';
     }
-
-    if (this.device.type === 'trezor') {
-      return this.signTrezorMessage(path, message);
-    }
-
-    throw new Error(`Unsupported device type: ${this.device.type}`);
+    return null;
   }
-
-  // Sign typed data (EIP-712)
+  
+  /**
+   * Sign transaction
+   */
+  async signTransaction(address: Address, tx: TransactionParams): Promise<Hex> {
+    const deviceType = this.getDeviceTypeForAddress(address);
+    
+    if (!deviceType) {
+      throw new Error('Address not found in any hardware wallet');
+    }
+    
+    // Ensure device is connected
+    if (deviceType === 'ledger' && !ledgerKeyring.isUnlocked()) {
+      await ledgerKeyring.connect();
+    } else if (deviceType === 'trezor' && !trezorKeyring.isUnlocked()) {
+      await trezorKeyring.connect();
+    }
+    
+    if (deviceType === 'ledger') {
+      return ledgerKeyring.signTransaction(address, tx);
+    }
+    
+    return trezorKeyring.signTransaction(address, tx);
+  }
+  
+  /**
+   * Sign personal message
+   */
+  async signMessage(address: Address, message: string): Promise<Hex> {
+    const deviceType = this.getDeviceTypeForAddress(address);
+    
+    if (!deviceType) {
+      throw new Error('Address not found in any hardware wallet');
+    }
+    
+    if (deviceType === 'ledger') {
+      if (!ledgerKeyring.isUnlocked()) await ledgerKeyring.connect();
+      return ledgerKeyring.signMessage(address, message);
+    }
+    
+    if (!trezorKeyring.isUnlocked()) await trezorKeyring.connect();
+    return trezorKeyring.signMessage(address, message);
+  }
+  
+  /**
+   * Sign typed data (EIP-712)
+   */
   async signTypedData(
-    path: string,
+    address: Address,
     domain: Record<string, unknown>,
     types: Record<string, Array<{ name: string; type: string }>>,
-    message: Record<string, unknown>
+    message: Record<string, unknown>,
+    primaryType: string
   ): Promise<Hex> {
-    if (!this.device) {
-      throw new Error('No hardware wallet connected');
+    const deviceType = this.getDeviceTypeForAddress(address);
+    
+    if (!deviceType) {
+      throw new Error('Address not found in any hardware wallet');
     }
-
-    // Both Ledger and Trezor support EIP-712 but with different APIs
-    // This is a placeholder for actual implementation
-    console.log('Signing typed data on hardware wallet:', { path, domain, types, message });
     
-    throw new Error('EIP-712 signing not yet implemented for hardware wallets');
-  }
-
-  // Ledger-specific methods
-  private async getLedgerAddress(path: string): Promise<Address> {
-    // In production, use @ledgerhq/hw-app-eth
-    // This is a placeholder showing the structure
-    console.log('Getting Ledger address at path:', path);
+    if (deviceType === 'ledger') {
+      if (!ledgerKeyring.isUnlocked()) await ledgerKeyring.connect();
+      return ledgerKeyring.signTypedData(address, domain, types, message, primaryType);
+    }
     
-    // For demo, return a derived address (in production, this comes from the device)
-    const pathHash = await crypto.subtle.digest(
-      'SHA-256',
-      new TextEncoder().encode(path)
-    );
-    const hashArray = Array.from(new Uint8Array(pathHash));
-    const address = '0x' + hashArray.slice(0, 20).map(b => b.toString(16).padStart(2, '0')).join('');
-    return address as Address;
+    if (!trezorKeyring.isUnlocked()) await trezorKeyring.connect();
+    return trezorKeyring.signTypedData(address, domain, types, message, primaryType);
   }
-
-  private async signLedgerTransaction(path: string, tx: unknown): Promise<Hex> {
-    console.log('Signing transaction on Ledger:', { path, tx });
-    // In production, use @ledgerhq/hw-app-eth signTransaction
-    throw new Error('Ledger transaction signing requires @ledgerhq/hw-app-eth');
-  }
-
-  private async signLedgerMessage(path: string, message: string): Promise<Hex> {
-    console.log('Signing message on Ledger:', { path, message });
-    // In production, use @ledgerhq/hw-app-eth signPersonalMessage
-    throw new Error('Ledger message signing requires @ledgerhq/hw-app-eth');
-  }
-
-  // Trezor-specific methods
-  private async getTrezorAddress(path: string): Promise<Address> {
-    console.log('Getting Trezor address at path:', path);
-    // In production, use TrezorConnect.ethereumGetAddress
-    throw new Error('Trezor requires @trezor/connect-web');
-  }
-
-  private async signTrezorTransaction(path: string, tx: unknown): Promise<Hex> {
-    console.log('Signing transaction on Trezor:', { path, tx });
-    throw new Error('Trezor requires @trezor/connect-web');
-  }
-
-  private async signTrezorMessage(path: string, message: string): Promise<Hex> {
-    console.log('Signing message on Trezor:', { path, message });
-    throw new Error('Trezor requires @trezor/connect-web');
-  }
-
-  // Get Ledger model from product ID
-  private getLedgerModel(productId: number): string {
-    const models: Record<number, string> = {
-      0x0001: 'Ledger Nano S',
-      0x0004: 'Ledger Nano X',
-      0x0005: 'Ledger Nano S Plus',
-      0x0006: 'Ledger Stax',
+  
+  /**
+   * Serialize for persistence
+   */
+  serialize(): Record<string, unknown> {
+    return {
+      ledger: ledgerKeyring.serialize(),
+      trezor: trezorKeyring.serialize(),
     };
-    return models[productId] || 'Ledger';
+  }
+  
+  /**
+   * Deserialize from storage
+   */
+  deserialize(data: Record<string, unknown>): void {
+    if (data.ledger) {
+      ledgerKeyring.deserialize(data.ledger as Record<string, unknown>);
+    }
+    if (data.trezor) {
+      trezorKeyring.deserialize(data.trezor as Record<string, unknown>);
+    }
   }
 }
 
 export const hardwareWalletService = new HardwareWalletService();
-export { HardwareWalletService };
-
+export { HardwareWalletService, LedgerKeyring, TrezorKeyring, ledgerKeyring, trezorKeyring };
+export type { LedgerAccount, TrezorAccount, LedgerHDPathType, TrezorHDPathType };
