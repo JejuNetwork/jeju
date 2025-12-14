@@ -12,7 +12,7 @@ let metamask: MetaMask;
 
 test.describe('Wallet Connection and the network', () => {
   test.beforeEach(async ({ context }: { context: BrowserContext }) => {
-    metamask = await setupMetaMask(context as any, {
+    metamask = await setupMetaMask(context as unknown as Parameters<typeof setupMetaMask>[0], {
       seed: 'test test test test test test test test test test test junk',
       password: 'password1234',
     });
@@ -56,7 +56,7 @@ test.describe('Wallet Connection and the network', () => {
 
     // Verify we're on the network
     const currentNetwork = await page.evaluate(() => {
-      return (window as any).ethereum?.chainId;
+      return (window as { ethereum?: { chainId?: string } }).ethereum?.chainId;
     });
     expect(currentNetwork).toBe(`0x${JEJU_NETWORK.chainId.toString(16)}`);
   });

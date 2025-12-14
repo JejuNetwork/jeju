@@ -210,7 +210,7 @@ test.describe('COMPLETE USER JOURNEY - No Errors', () => {
 });
 
 test.describe('Error Detection - Comprehensive', () => {
-  test('should detect and report any errors in console', async ({ page, metamask }) => {
+  test('should detect and report any errors in console', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
 
     const errors: string[] = [];

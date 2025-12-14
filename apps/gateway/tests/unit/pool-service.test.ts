@@ -1,5 +1,5 @@
 import { test, expect, describe, beforeEach } from 'bun:test';
-import { type Address, parseEther, formatEther } from 'viem';
+import { type Address } from 'viem';
 import { poolService } from '../../src/services/pool-service';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;

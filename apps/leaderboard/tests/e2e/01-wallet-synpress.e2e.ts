@@ -104,7 +104,7 @@ describe('Wallet Connection with Synpress', () => {
     });
 
     // Verify network switch
-    const chainId = await page.evaluate(() => (window as any).ethereum?.chainId);
+    const chainId = await page.evaluate(() => (window as { ethereum?: { chainId?: string } }).ethereum?.chainId);
     expect(chainId).toBe(`0x${JEJU_NETWORK.chainId.toString(16)}`);
   });
 

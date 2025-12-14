@@ -4,8 +4,8 @@
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
-import { createPublicClient, http, type PublicClient, formatEther, parseEther } from 'viem';
-import { mainnet, sepolia, baseSepolia, optimism, arbitrum } from 'viem/chains';
+import { createPublicClient, http, type PublicClient, parseEther } from 'viem';
+import { sepolia, baseSepolia } from 'viem/chains';
 import { INPUT_SETTLERS, OUTPUT_SETTLERS, ORACLES, OUTPUT_SETTLER_ABI } from '../../src/solver/contracts';
 
 // Chain configs for testing

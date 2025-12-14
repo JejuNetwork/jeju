@@ -6,7 +6,7 @@ import { test, expect } from '@playwright/test';
 
 
 test.describe('View Reports', () => {
-  test('should display active reports list', async ({ page }) => {
+  test('should display active reports list', async ({ _page }) => {
     await page.goto('http://localhost:3000/moderation');
 
     // Should show active reports tab
@@ -21,7 +21,7 @@ test.describe('View Reports', () => {
     });
   });
 
-  test('should navigate to agent profile', async ({ page }) => {
+  test('should navigate to agent profile', async ({ _page }) => {
     await page.goto('http://localhost:3000/moderation');
 
     // If there are reports, click on one
@@ -37,7 +37,7 @@ test.describe('View Reports', () => {
     }
   });
 
-  test('should show evidence links', async ({ page }) => {
+  test('should show evidence links', async ({ _page }) => {
     await page.goto('http://localhost:3000/moderation');
 
     // Evidence links should be present (if reports exist)

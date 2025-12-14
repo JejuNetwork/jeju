@@ -861,17 +861,29 @@ async function cmdStart(): Promise<void> {
   log('success', 'Daemon stopped.');
 }
 
-function startCronExecutor(cronService: ReturnType<typeof createNodeServices>['cron'], config: DaemonConfig) {
+function startCronExecutor(cronService: ReturnType<typeof createNodeServices>['cron'], _config: DaemonConfig) {
   log('info', 'Cron executor polling every 30 seconds');
+  let contractAvailable = true;
   
   const poll = async () => {
+    if (!contractAvailable) return; // Skip if contract not deployed
+    
     try {
       const triggers = await cronService.getActiveTriggers();
       if (triggers.length > 0) {
         log('debug', `Found ${triggers.length} active triggers`);
       }
     } catch (e) {
-      log('error', `Cron poll error: ${e}`);
+      const errorMsg = String(e);
+      // Handle contract not deployed gracefully
+      if (errorMsg.includes('returned no data') || errorMsg.includes('is not a contract')) {
+        if (contractAvailable) {
+          log('warn', 'Cron contract not deployed on this network - cron service paused');
+          contractAvailable = false;
+        }
+      } else {
+        log('error', `Cron poll error: ${e}`);
+      }
     }
   };
   
@@ -884,17 +896,32 @@ function startOracleSubmitter(
   config: DaemonConfig
 ) {
   log('info', 'Oracle submitter running every 60 seconds');
+  let contractAvailable = true;
+  let notifiedNotRegistered = false;
   
   const submit = async () => {
+    if (!contractAvailable) return;
+    
     try {
       const state = await oracleService.getState(config.walletAddress as `0x${string}`);
       if (!state.isRegistered) {
-        log('warn', 'Not registered as oracle. Run: bun run daemon register oracle');
+        if (!notifiedNotRegistered) {
+          log('warn', 'Not registered as oracle. Run: bun run daemon register oracle');
+          notifiedNotRegistered = true;
+        }
         return;
       }
       log('debug', 'Oracle check complete');
     } catch (e) {
-      log('error', `Oracle error: ${e}`);
+      const errorMsg = String(e);
+      if (errorMsg.includes('returned no data') || errorMsg.includes('is not a contract')) {
+        if (contractAvailable) {
+          log('warn', 'Oracle contract not deployed on this network - oracle service paused');
+          contractAvailable = false;
+        }
+      } else {
+        log('error', `Oracle error: ${e}`);
+      }
     }
   };
   

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 /**
  * Comprehensive E2E test suite with ERROR detection
@@ -7,7 +7,7 @@ import { test, expect } from '@playwright/test';
  */
 
 // Helper function to check for errors on the page
-async function checkForErrors(page: any, testName: string) {
+async function checkForErrors(page: Page, testName: string) {
   // Check for actual error messages (not code/variable names)
   const bodyText = await page.textContent('body');
   const hasError = bodyText && (

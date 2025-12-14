@@ -647,5 +647,16 @@ contract OracleStakingManager is IOracleStakingManager, Ownable, Pausable, Reent
         }
     }
 
+    /**
+     * @notice Withdraw accumulated ETH to owner (emergency only)
+     */
+    function withdrawETH() external onlyOwner {
+        uint256 balance = address(this).balance;
+        if (balance > 0) {
+            (bool success,) = owner().call{value: balance}("");
+            require(success, "ETH transfer failed");
+        }
+    }
+
     receive() external payable {}
 }

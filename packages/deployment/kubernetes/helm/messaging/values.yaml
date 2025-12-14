@@ -122,7 +122,7 @@ kms:
         enabled: true
         priority: 2
         keyId: ""
-      # Future: Lit Protocol, TEE enclaves
+      # Future: TEE enclaves, MPC
   
   autoscaling:
     enabled: true

@@ -290,10 +290,6 @@ SAFE_FALLBACK_HANDLER=${TESTNET_CONFIG.safeFallbackHandler}
 OLLAMA_URL=http://localhost:11434
 OLLAMA_MODEL=llama3.2:3b
 
-# Lit Protocol
-LIT_NETWORK=cayenne
-LIT_DEBUG=false
-
 # TEE Configuration
 TEE_CLOUD_URL=https://cloud.phala.network/api/v1
 DCAP_ENDPOINT=https://dcap.phala.network/verify

@@ -9,20 +9,13 @@ import { basicSetup } from '../../../synpress.config'
 import { connectWallet } from '../helpers/wallet-helpers';
 import { executeTwoStepTransaction, executeTransaction } from '../helpers/transaction-helpers';
 import { increaseTime } from '../helpers/blockchain-helpers';
-import { TIME } from '../fixtures/test-data';
-import {
-  GATEWAY_URL,
-  PROTOCOL_TOKENS,
-  TEST_NODE,
-  REGIONS,
-  calculateStakeAmount,
-} from '../fixtures/test-data';
+import { GATEWAY_URL, PROTOCOL_TOKENS, TEST_NODE, calculateStakeAmount, TIME } from '../fixtures/test-data';
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
 
 test.describe('Node Registration Transactions', () => {
-  test.beforeEach(async ({ page, metamask }) => {
+  test.beforeEach(async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Node Operators/i }).click();
@@ -31,7 +24,7 @@ test.describe('Node Registration Transactions', () => {
     await page.waitForTimeout(1000);
   });
 
-  test('should register node with elizaOS stake, earn CLANKER rewards', async ({ page, metamask }) => {
+  test('should register node with elizaOS stake, earn CLANKER rewards', async ({ _page, _metamask }) => {
     // Check node limit
     await page.getByRole('button', { name: /My Nodes/i }).click();
     await page.waitForTimeout(1000);
@@ -104,7 +97,7 @@ test.describe('Node Registration Transactions', () => {
     console.log('✅ Node registration transaction successful');
   });
 
-  test('should reject stake below $1000 minimum', async ({ page }) => {
+  test('should reject stake below $1000 minimum', async ({ _page }) => {
     // Select staking token
     const stakingSelector = page.locator('label:has-text("Staking Token")').locator('..').locator('.input');
     await stakingSelector.click();
@@ -125,7 +118,7 @@ test.describe('Node Registration Transactions', () => {
     console.log('✅ Minimum stake validation working');
   });
 
-  test('should block registration at 5 nodes limit', async ({ page }) => {
+  test('should block registration at 5 nodes limit', async ({ _page }) => {
     // Check for max nodes warning
     const maxWarning = page.getByText(/reached the maximum of 5 nodes/i);
     const atMax = await maxWarning.isVisible();
@@ -142,7 +135,7 @@ test.describe('Node Registration Transactions', () => {
 });
 
 test.describe('Claim Node Rewards Transactions', () => {
-  test.beforeEach(async ({ page, metamask }) => {
+  test.beforeEach(async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Node Operators/i }).click();
@@ -151,7 +144,7 @@ test.describe('Claim Node Rewards Transactions', () => {
     await page.waitForTimeout(1000);
   });
 
-  test('should claim rewards for node with pending rewards', async ({ page, metamask }) => {
+  test('should claim rewards for node with pending rewards', async ({ _page, _metamask }) => {
     // Check if nodes exist
     const noNodes = await page.getByText(/No Nodes Yet/i).isVisible();
 

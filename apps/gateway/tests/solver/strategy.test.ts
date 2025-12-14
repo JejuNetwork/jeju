@@ -3,12 +3,9 @@
  * Tests evaluation logic, price feeds, and edge cases
  */
 
-import { describe, test, expect, beforeAll } from 'bun:test';
+import { describe, test, expect } from 'bun:test';
 import { StrategyEngine } from '../../src/solver/strategy';
 import { ethers } from 'ethers';
-
-// Shared strategy instance to allow price to be fetched once
-const sharedStrategy: StrategyEngine | null = null;
 
 // Create strategy with test config
 function createStrategy(overrides: Partial<{

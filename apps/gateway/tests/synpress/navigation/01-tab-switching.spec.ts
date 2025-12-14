@@ -13,13 +13,13 @@ const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
 
 test.describe('Main Tab Navigation', () => {
-  test.beforeEach(async ({ page, metamask }) => {
+  test.beforeEach(async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.waitForTimeout(2000);
   });
 
-  test('should navigate through all 7 main tabs sequentially', async ({ page }) => {
+  test('should navigate through all 7 main tabs sequentially', async ({ _page }) => {
     const tabs = [
       { name: 'Registered Tokens', content: /elizaOS|Token/i },
       { name: 'Bridge from Ethereum', content: /Bridge from Ethereum/i },
@@ -55,7 +55,7 @@ test.describe('Main Tab Navigation', () => {
     console.log('✅ All 7 tabs navigated successfully');
   });
 
-  test('should maintain wallet connection across all tabs', async ({ page }) => {
+  test('should maintain wallet connection across all tabs', async ({ _page }) => {
     const tabs = ['Registered Tokens', 'Bridge from Ethereum', 'Deploy Paymaster', 'Add Liquidity', 'My Earnings', 'Node Operators', 'App Registry'];
 
     for (const tab of tabs) {
@@ -69,7 +69,7 @@ test.describe('Main Tab Navigation', () => {
     console.log('✅ Wallet connection persists across all tabs');
   });
 
-  test('should preserve tab state when navigating back', async ({ page }) => {
+  test('should preserve tab state when navigating back', async ({ _page }) => {
     // Go to Add Liquidity, select token
     await page.getByRole('button', { name: /Add Liquidity/i }).click();
     await page.waitForTimeout(1000);
@@ -94,7 +94,7 @@ test.describe('Main Tab Navigation', () => {
     console.log('✅ Tab state persists when navigating back');
   });
 
-  test('should handle rapid tab switching', async ({ page }) => {
+  test('should handle rapid tab switching', async ({ _page }) => {
     const tabs = ['Registered Tokens', 'Bridge from Ethereum', 'Add Liquidity', 'My Earnings'];
 
     // Rapidly switch tabs
@@ -114,14 +114,14 @@ test.describe('Main Tab Navigation', () => {
 });
 
 test.describe('Sub-Navigation - Node Operators', () => {
-  test.beforeEach(async ({ page, metamask }) => {
+  test.beforeEach(async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Node Operators/i }).click();
     await page.waitForTimeout(1000);
   });
 
-  test('should navigate between node sub-sections', async ({ page }) => {
+  test('should navigate between node sub-sections', async ({ _page }) => {
     const sections = [
       { name: /Network Overview/i, content: /Total Nodes/i },
       { name: /My Nodes/i, content: /My Nodes|No Nodes Yet/i },
@@ -140,7 +140,7 @@ test.describe('Sub-Navigation - Node Operators', () => {
     console.log('✅ Node sub-navigation works');
   });
 
-  test('should maintain selected section state', async ({ page }) => {
+  test('should maintain selected section state', async ({ _page }) => {
     // Go to My Nodes
     await page.getByRole('button', { name: /My Nodes/i }).click();
     await page.waitForTimeout(500);
@@ -160,14 +160,14 @@ test.describe('Sub-Navigation - Node Operators', () => {
 });
 
 test.describe('Sub-Navigation - App Registry', () => {
-  test.beforeEach(async ({ page, metamask }) => {
+  test.beforeEach(async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /App Registry/i }).click();
     await page.waitForTimeout(1000);
   });
 
-  test('should switch between Browse and Register sections', async ({ page }) => {
+  test('should switch between Browse and Register sections', async ({ _page }) => {
     // Browse Apps
     await page.getByRole('button', { name: /Browse Apps/i }).click();
     await page.waitForTimeout(500);
@@ -186,7 +186,7 @@ test.describe('Sub-Navigation - App Registry', () => {
     console.log('✅ App registry sub-navigation works');
   });
 
-  test('should navigate tag filters in Browse section', async ({ page }) => {
+  test('should navigate tag filters in Browse section', async ({ _page }) => {
     await page.getByRole('button', { name: /Browse Apps/i }).click();
     await page.waitForTimeout(500);
 
@@ -204,7 +204,7 @@ test.describe('Sub-Navigation - App Registry', () => {
 });
 
 test.describe('Browser Navigation', () => {
-  test('should handle browser back button', async ({ page, metamask }) => {
+  test('should handle browser back button', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 
@@ -223,7 +223,7 @@ test.describe('Browser Navigation', () => {
     console.log('✅ Browser back button tested');
   });
 
-  test('should handle browser forward button', async ({ page, metamask }) => {
+  test('should handle browser forward button', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 
@@ -239,7 +239,7 @@ test.describe('Browser Navigation', () => {
     console.log('✅ Browser forward button tested');
   });
 
-  test('should handle page refresh on any tab', async ({ page, metamask }) => {
+  test('should handle page refresh on any tab', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 

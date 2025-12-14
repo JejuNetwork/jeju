@@ -13,7 +13,7 @@ const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
 
 test.describe('Bridge - Network State Edge Cases', () => {
-  test('should handle disconnected wallet state', async ({ page }) => {
+  test('should handle disconnected wallet state', async ({ _page }) => {
     await page.goto(GATEWAY_URL);
     // Don't connect wallet
 
@@ -31,7 +31,7 @@ test.describe('Bridge - Network State Edge Cases', () => {
     }
   });
 
-  test('should maintain bridge form across page reloads', async ({ page, metamask }) => {
+  test('should maintain bridge form across page reloads', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
@@ -55,14 +55,14 @@ test.describe('Bridge - Network State Edge Cases', () => {
 });
 
 test.describe('Bridge - Concurrent Operations', () => {
-  test.skip('should handle multiple pending approvals', async ({ page, metamask }) => {
+  test.skip('should handle multiple pending approvals', async ({ _page, _metamask }) => {
     // TODO: Test approving multiple tokens concurrently
     // Edge case: User initiates multiple approvals quickly
 
     console.log('⚠️  Concurrent approvals - complex scenario');
   });
 
-  test.skip('should handle switching tokens mid-transaction', async ({ page }) => {
+  test.skip('should handle switching tokens mid-transaction', async ({ _page }) => {
     // TODO: What happens if user changes token while transaction pending?
 
     console.log('⚠️  Mid-transaction changes - edge case');
@@ -70,7 +70,7 @@ test.describe('Bridge - Concurrent Operations', () => {
 });
 
 test.describe('Bridge - Maximum Values', () => {
-  test('should handle maximum safe integer', async ({ page, metamask }) => {
+  test('should handle maximum safe integer', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
@@ -99,7 +99,7 @@ test.describe('Bridge - Maximum Values', () => {
     console.log('✅ Maximum value tested');
   });
 
-  test('should handle minimum positive value', async ({ page, metamask }) => {
+  test('should handle minimum positive value', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
@@ -127,7 +127,7 @@ test.describe('Bridge - Maximum Values', () => {
 });
 
 test.describe('Bridge - Input Sanitization', () => {
-  test('should reject non-numeric characters in amount', async ({ page, metamask }) => {
+  test('should reject non-numeric characters in amount', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
@@ -149,7 +149,7 @@ test.describe('Bridge - Input Sanitization', () => {
     console.log('✅ Non-numeric input handling tested');
   });
 
-  test('should handle special characters in recipient', async ({ page, metamask }) => {
+  test('should handle special characters in recipient', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
@@ -175,7 +175,7 @@ test.describe('Bridge - Input Sanitization', () => {
 });
 
 test.describe('Bridge - Approval Already Granted', () => {
-  test.skip('should skip approval if already approved', async ({ page, metamask }) => {
+  test.skip('should skip approval if already approved', async ({ _page, _metamask }) => {
     // TODO: If token already approved, should go straight to bridge
     // Would test:
     // 1. Check current allowance
@@ -185,7 +185,7 @@ test.describe('Bridge - Approval Already Granted', () => {
     console.log('⚠️  Approval skip optimization - check if implemented');
   });
 
-  test.skip('should show current allowance amount', async ({ page }) => {
+  test.skip('should show current allowance amount', async ({ _page }) => {
     // TODO: Display how much is currently approved
 
     console.log('⚠️  Allowance display - check if implemented');
@@ -193,13 +193,13 @@ test.describe('Bridge - Approval Already Granted', () => {
 });
 
 test.describe('Bridge - Transaction Timeout Handling', () => {
-  test.skip('should handle bridge transaction timeout', async ({ page, metamask }) => {
+  test.skip('should handle bridge transaction timeout', async ({ _page, _metamask }) => {
     // TODO: Simulate timeout and verify graceful handling
 
     console.log('⚠️  Transaction timeout - needs timeout simulation');
   });
 
-  test.skip('should allow retry after failed bridge', async ({ page }) => {
+  test.skip('should allow retry after failed bridge', async ({ _page }) => {
     // TODO: If bridge fails, allow user to retry
 
     console.log('⚠️  Retry mechanism - check if implemented');
@@ -207,19 +207,19 @@ test.describe('Bridge - Transaction Timeout Handling', () => {
 });
 
 test.describe('Bridge - Gas Estimation', () => {
-  test.skip('should display estimated gas cost for approval', async ({ page }) => {
+  test.skip('should display estimated gas cost for approval', async ({ _page }) => {
     // TODO: If gas estimation UI exists, test it
 
     console.log('⚠️  Gas estimation display - check if implemented');
   });
 
-  test.skip('should display estimated gas cost for bridge', async ({ page }) => {
+  test.skip('should display estimated gas cost for bridge', async ({ _page }) => {
     // TODO: Test bridge gas estimation
 
     console.log('⚠️  Bridge gas estimation - check if implemented');
   });
 
-  test.skip('should warn about high gas prices', async ({ page }) => {
+  test.skip('should warn about high gas prices', async ({ _page }) => {
     // TODO: If gas price warning exists, test it
 
     console.log('⚠️  Gas price warnings - check if implemented');
@@ -227,7 +227,7 @@ test.describe('Bridge - Gas Estimation', () => {
 });
 
 test.describe('Bridge - Mode Switching Comprehensive', () => {
-  test('should switch from Select Token to Custom Address seamlessly', async ({ page, metamask }) => {
+  test('should switch from Select Token to Custom Address seamlessly', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
@@ -274,7 +274,7 @@ test.describe('Bridge - Mode Switching Comprehensive', () => {
     console.log('✅ Mode switching seamless');
   });
 
-  test('should highlight active mode button', async ({ page, metamask }) => {
+  test('should highlight active mode button', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
@@ -302,7 +302,7 @@ test.describe('Bridge - Mode Switching Comprehensive', () => {
 });
 
 test.describe('Bridge - Accessibility and UX', () => {
-  test('should have clear labels for all inputs', async ({ page, metamask }) => {
+  test('should have clear labels for all inputs', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
@@ -315,7 +315,7 @@ test.describe('Bridge - Accessibility and UX', () => {
     console.log('✅ Input labels present');
   });
 
-  test('should have helpful placeholder text', async ({ page, metamask }) => {
+  test('should have helpful placeholder text', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
@@ -334,7 +334,7 @@ test.describe('Bridge - Accessibility and UX', () => {
     console.log('✅ Helpful placeholders present');
   });
 
-  test('should have informative helper text', async ({ page, metamask }) => {
+  test('should have informative helper text', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
@@ -355,7 +355,7 @@ test.describe('Bridge - Accessibility and UX', () => {
 });
 
 test.describe('Bridge - Complete Test Coverage Verification', () => {
-  test('MASTER: Test every bridge feature comprehensively', async ({ page, metamask }) => {
+  test('MASTER: Test every bridge feature comprehensively', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();

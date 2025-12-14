@@ -8,7 +8,7 @@ import { testWithWallet as test, expect } from '../fixtures/wallet';
 import { connectWallet } from '@jejunetwork/tests/helpers/contracts';
 
 test.describe('App Registry Flow', () => {
-  test.beforeEach(async ({ page, wallet }) => {
+  test.beforeEach(async ({ _page, wallet }) => {
     await page.goto('http://localhost:4001');
     await connectWallet(page, wallet);
     
@@ -16,16 +16,16 @@ test.describe('App Registry Flow', () => {
     await page.getByRole('button', { name: /App Registry/i }).click();
   });
 
-  test('should display app registry interface', async ({ page }) => {
+  test('should display app registry interface', async ({ _page }) => {
     await expect(page.getByText(/ERC-8004 Registry/i)).toBeVisible();
   });
 
-  test('should show browse and register sections', async ({ page }) => {
+  test('should show browse and register sections', async ({ _page }) => {
     await expect(page.getByRole('button', { name: /Browse Apps/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /Register App/i })).toBeVisible();
   });
 
-  test('should display registered apps list', async ({ page }) => {
+  test('should display registered apps list', async ({ _page }) => {
     await page.getByRole('button', { name: /Browse Apps/i }).click();
     
     // Should show tag filters
@@ -36,7 +36,7 @@ test.describe('App Registry Flow', () => {
     await expect(page.getByText('DeFi')).toBeVisible();
   });
 
-  test('should filter apps by tag', async ({ page }) => {
+  test('should filter apps by tag', async ({ _page }) => {
     await page.getByRole('button', { name: /Browse Apps/i }).click();
     
     // Click on a tag filter
@@ -46,7 +46,7 @@ test.describe('App Registry Flow', () => {
     // Empty state or filtered results should show
   });
 
-  test('should display app cards with metadata', async ({ page }) => {
+  test('should display app cards with metadata', async ({ _page }) => {
     await page.getByRole('button', { name: /Browse Apps/i }).click();
     
     const appCards = page.locator('.card').filter({ hasText: /ID:/i });
@@ -65,7 +65,7 @@ test.describe('App Registry Flow', () => {
     }
   });
 
-  test('should show A2A enabled badge for apps with endpoint', async ({ page }) => {
+  test('should show A2A enabled badge for apps with endpoint', async ({ _page }) => {
     await page.getByRole('button', { name: /Browse Apps/i }).click();
     
     const a2aBadges = page.getByText(/A2A Enabled/i);
@@ -75,7 +75,7 @@ test.describe('App Registry Flow', () => {
     expect(count >= 0).toBe(true);
   });
 
-  test('should open app detail modal on click', async ({ page }) => {
+  test('should open app detail modal on click', async ({ _page }) => {
     await page.getByRole('button', { name: /Browse Apps/i }).click();
     
     const appCards = page.locator('.card').filter({ hasText: /ID:/i });
@@ -97,7 +97,7 @@ test.describe('App Registry Flow', () => {
 });
 
 test.describe('Register New App Flow', () => {
-  test.beforeEach(async ({ page, wallet }) => {
+  test.beforeEach(async ({ _page, wallet }) => {
     await page.goto('http://localhost:4001');
     await connectWallet(page, wallet);
     
@@ -105,26 +105,26 @@ test.describe('Register New App Flow', () => {
     await page.getByRole('button', { name: /Register App/i }).click();
   });
 
-  test('should display registration form', async ({ page }) => {
+  test('should display registration form', async ({ _page }) => {
     await expect(page.getByText('Register New App')).toBeVisible();
   });
 
-  test('should have required app name field', async ({ page }) => {
+  test('should have required app name field', async ({ _page }) => {
     await expect(page.getByPlaceholder('My Awesome App')).toBeVisible();
     await expect(page.getByText(/App Name/i).filter({ hasText: '*' })).toBeVisible();
   });
 
-  test('should have optional description field', async ({ page }) => {
+  test('should have optional description field', async ({ _page }) => {
     const descriptionField = page.getByPlaceholder(/Brief description/i);
     await expect(descriptionField).toBeVisible();
   });
 
-  test('should have optional A2A endpoint field', async ({ page }) => {
+  test('should have optional A2A endpoint field', async ({ _page }) => {
     await expect(page.getByPlaceholder('https://myapp.com/a2a')).toBeVisible();
     await expect(page.getByText(/for agent discovery/i)).toBeVisible();
   });
 
-  test('should have tag selection with multiple categories', async ({ page }) => {
+  test('should have tag selection with multiple categories', async ({ _page }) => {
     await expect(page.getByText('📱 Application')).toBeVisible();
     await expect(page.getByText('🎮 Game')).toBeVisible();
     await expect(page.getByText('🏪 Marketplace')).toBeVisible();
@@ -134,7 +134,7 @@ test.describe('Register New App Flow', () => {
     await expect(page.getByText('⚙️ Service')).toBeVisible();
   });
 
-  test('should allow selecting multiple tags', async ({ page }) => {
+  test('should allow selecting multiple tags', async ({ _page }) => {
     const gameTag = page.getByRole('button', { name: /🎮 Game/i });
     const socialTag = page.getByRole('button', { name: /💬 Social/i });
     
@@ -147,13 +147,13 @@ test.describe('Register New App Flow', () => {
     await expect(socialTag).toHaveCSS('background', /#667eea/i);
   });
 
-  test('should have stake token selector', async ({ page }) => {
+  test('should have stake token selector', async ({ _page }) => {
     await expect(page.getByText(/Stake Token/i)).toBeVisible();
     await expect(page.getByText(/\.001 ETH worth/i)).toBeVisible();
     await expect(page.getByText(/Fully refundable/i)).toBeVisible();
   });
 
-  test('should calculate required stake in selected token', async ({ page }) => {
+  test('should calculate required stake in selected token', async ({ _page }) => {
     // Select stake token
     const stakeSelector = page.locator('label:has-text("Stake Token")').locator('..').locator('.input');
     await stakeSelector.click();
@@ -164,14 +164,14 @@ test.describe('Register New App Flow', () => {
     await expect(page.getByText(/≈ \$3.50 USD/i)).toBeVisible();
   });
 
-  test('should validate form before submission', async ({ page }) => {
+  test('should validate form before submission', async ({ _page }) => {
     const submitButton = page.getByRole('button', { name: /Register App/i });
     
     // Button should be disabled without required fields
     await expect(submitButton).toBeDisabled();
   });
 
-  test('should enable submit button with valid inputs', async ({ page }) => {
+  test('should enable submit button with valid inputs', async ({ _page }) => {
     // Fill app name
     await page.getByPlaceholder('My Awesome App').fill('Test App');
     
@@ -188,7 +188,7 @@ test.describe('Register New App Flow', () => {
     await expect(submitButton).toBeEnabled();
   });
 
-  test('should show refundable stake info', async ({ page }) => {
+  test('should show refundable stake info', async ({ _page }) => {
     await expect(page.getByText(/Your stake is fully refundable/i)).toBeVisible();
     await expect(page.getByText(/withdraw it anytime/i)).toBeVisible();
   });

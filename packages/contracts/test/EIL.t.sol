@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 import {Test} from "forge-std/Test.sol";
 import {L1StakeManager} from "../src/eil/L1StakeManager.sol";
 import {CrossChainPaymaster} from "../src/eil/CrossChainPaymaster.sol";
+import {FeeConfig} from "../src/distributor/FeeConfig.sol";
 import {MockEntryPoint} from "./mocks/MockEntryPoint.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
@@ -505,5 +506,34 @@ contract EILTest is Test {
         // Without preference contract, should return false
         assertFalse(hasPreferred);
         assertEq(preferredToken, address(0));
+    }
+
+    // ============ FeeConfig Integration Tests ============
+
+    function test_SetFeeConfig() public {
+        address council = makeAddr("council");
+        address ceo = makeAddr("ceo");
+        address treasury = makeAddr("treasury");
+        
+        FeeConfig feeConfig = new FeeConfig(council, ceo, treasury, deployer);
+        crossChainPaymaster.setFeeConfig(address(feeConfig));
+        
+        assertEq(address(crossChainPaymaster.feeConfig()), address(feeConfig));
+    }
+
+    function test_GetFeeMarginFromConfig() public {
+        // Deploy FeeConfig with default 10% cross-chain margin
+        address council = makeAddr("council");
+        address ceo = makeAddr("ceo");
+        address treasury = makeAddr("treasury");
+        
+        FeeConfig feeConfig = new FeeConfig(council, ceo, treasury, deployer);
+        crossChainPaymaster.setFeeConfig(address(feeConfig));
+
+        // The default crossChainMarginBps is 1000 (10%)
+        // This affects how the paymaster calculates token costs
+        // Just verify the config is connected
+        FeeConfig.DeFiFees memory defiFees = feeConfig.getDeFiFees();
+        assertEq(defiFees.crossChainMarginBps, 1000, "Default cross-chain margin should be 10%");
     }
 }

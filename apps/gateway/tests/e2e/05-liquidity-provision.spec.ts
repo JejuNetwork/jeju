@@ -8,7 +8,7 @@ import { testWithWallet as test, expect } from '../fixtures/wallet';
 import { connectWallet } from '@jejunetwork/tests/helpers/contracts';
 
 test.describe('Add Liquidity Flow', () => {
-  test.beforeEach(async ({ page, wallet }) => {
+  test.beforeEach(async ({ _page, wallet }) => {
     await page.goto('http://localhost:4001');
     await connectWallet(page, wallet);
     
@@ -16,17 +16,17 @@ test.describe('Add Liquidity Flow', () => {
     await page.getByRole('button', { name: /Add Liquidity/i }).click();
   });
 
-  test('should display add liquidity interface', async ({ page }) => {
+  test('should display add liquidity interface', async ({ _page }) => {
     await expect(page.getByText('Add ETH Liquidity')).toBeVisible();
   });
 
-  test('should show liquidity info box', async ({ page }) => {
+  test('should show liquidity info box', async ({ _page }) => {
     await expect(page.getByText(/How it works/i)).toBeVisible();
     await expect(page.getByText(/Deposit ETH to sponsor gas payments/i)).toBeVisible();
     await expect(page.getByText(/Earn fees in protocol tokens/i)).toBeVisible();
   });
 
-  test('should include all tokens in selector', async ({ page }) => {
+  test('should include all tokens in selector', async ({ _page }) => {
     await page.locator('.input').first().click();
     
     // All protocol tokens should be available
@@ -36,7 +36,7 @@ test.describe('Add Liquidity Flow', () => {
     await expect(page.getByText('CLANKERMON')).toBeVisible();
   });
 
-  test('should warn if paymaster not deployed', async ({ page }) => {
+  test('should warn if paymaster not deployed', async ({ _page }) => {
     // Select a token that might not have paymaster deployed
     await page.locator('.input').first().click();
     const tokenToTest = page.getByText('CLANKERMON');
@@ -54,7 +54,7 @@ test.describe('Add Liquidity Flow', () => {
     }
   });
 
-  test('should validate ETH amount input', async ({ page }) => {
+  test('should validate ETH amount input', async ({ _page }) => {
     // Select token with deployed paymaster
     await page.locator('.input').first().click();
     await page.getByText('elizaOS').click();
@@ -74,7 +74,7 @@ test.describe('Add Liquidity Flow', () => {
     }
   });
 
-  test('should display LP position if exists', async ({ page }) => {
+  test('should display LP position if exists', async ({ _page }) => {
     // Select token
     await page.locator('.input').first().click();
     await page.getByText('elizaOS').click();
@@ -91,7 +91,7 @@ test.describe('Add Liquidity Flow', () => {
     }
   });
 
-  test('should show fee earnings in position', async ({ page }) => {
+  test('should show fee earnings in position', async ({ _page }) => {
     await page.locator('.input').first().click();
     await page.getByText('VIRTUAL').click();
     
@@ -106,7 +106,7 @@ test.describe('Add Liquidity Flow', () => {
 });
 
 test.describe('LP Dashboard Flow', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ _page }) => {
     await setupMetaMask(metamask);
     await importTestAccount(metamask);
     await page.goto('/');
@@ -116,11 +116,11 @@ test.describe('LP Dashboard Flow', () => {
     await page.getByRole('button', { name: /My Earnings/i }).click();
   });
 
-  test('should display LP dashboard', async ({ page }) => {
+  test('should display LP dashboard', async ({ _page }) => {
     await expect(page.getByText('My LP Positions')).toBeVisible();
   });
 
-  test('should show positions for all tokens with liquidity', async ({ page }) => {
+  test('should show positions for all tokens with liquidity', async ({ _page }) => {
     // Check for position cards or empty state
     const noPositionsMsg = page.getByText(/No LP Positions/i);
     const hasNoPositions = await noPositionsMsg.isVisible();
@@ -136,7 +136,7 @@ test.describe('LP Dashboard Flow', () => {
     }
   });
 
-  test('should display claim button for positions with pending fees', async ({ page }) => {
+  test('should display claim button for positions with pending fees', async ({ _page }) => {
     // If positions exist, check for claim functionality
     const claimButtons = page.getByRole('button', { name: /Claim/i });
     const claimCount = await claimButtons.count();

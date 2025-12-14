@@ -18,3 +18,4 @@ spec:
   selector:
     {{- include "proxy-coordinator.selectorLabels" . | nindent 4 }}
 
+

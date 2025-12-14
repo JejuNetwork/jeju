@@ -14,7 +14,7 @@ const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
 
 test.describe('Paymaster Deployment Transactions', () => {
-  test.beforeEach(async ({ page, metamask }) => {
+  test.beforeEach(async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Deploy Paymaster/i }).click();
@@ -22,8 +22,8 @@ test.describe('Paymaster Deployment Transactions', () => {
   });
 
   // Test deployment for EACH protocol token
-  for (const [tokenName, tokenData] of Object.entries(PROTOCOL_TOKENS)) {
-    test(`should deploy paymaster for ${tokenData.symbol}`, async ({ page, metamask }) => {
+  for (const [_tokenName, tokenData] of Object.entries(PROTOCOL_TOKENS)) {
+    test(`should deploy paymaster for ${tokenData.symbol}`, async ({ _page, _metamask }) => {
       // Select token
       await page.locator('.input').first().click();
       await page.waitForTimeout(500);
@@ -91,7 +91,7 @@ test.describe('Paymaster Deployment Transactions', () => {
     });
   }
 
-  test('should show deployment information before deploying', async ({ page }) => {
+  test('should show deployment information before deploying', async ({ _page }) => {
     // Select any token
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
@@ -107,7 +107,7 @@ test.describe('Paymaster Deployment Transactions', () => {
     console.log('✅ Deployment information displayed');
   });
 
-  test('should validate token must be registered first', async ({ page }) => {
+  test('should validate token must be registered first', async ({ _page }) => {
     // This would test with an unregistered token
     // Implementation depends on having an unregistered token available
     

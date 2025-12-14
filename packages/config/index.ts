@@ -606,12 +606,12 @@ export function getTestnetConfig(): TestnetConfig {
 }
 
 /** Get the testnet RPC URL */
-export function gettestnetChainRpc(): string {
+export function getTestnetRpc(): string {
   return getTestnetConfig().jeju.rpc.http;
 }
 
 /** Get the testnet chain ID */
-export function gettestnetChainChainId(): number {
+export function getTestnetChainId(): number {
   return getTestnetConfig().jeju.chainId;
 }
 

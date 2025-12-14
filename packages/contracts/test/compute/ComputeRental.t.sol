@@ -500,14 +500,14 @@ contract ComputeRentalTest is Test {
 
     function test_completeRentalWithPlatformFee() public {
         // Register provider
-        _registerProvider();
+        _setupProvider();
 
         // Create rental
-        bytes32 rentalId = _createRental();
+        bytes32 rentalId = _createTestRental();
 
         // Start rental
         vm.prank(provider);
-        rental.startRental(rentalId, "ssh://192.168.1.1:22", "https://192.168.1.1:8443");
+        rental.startRental(rentalId, "192.168.1.1", 22, "container123");
 
         // Fast forward to end of rental
         vm.warp(block.timestamp + 2 hours);
@@ -521,7 +521,8 @@ contract ComputeRentalTest is Test {
         rental.completeRental(rentalId);
 
         // Get rental cost
-        (, , , , , , , uint256 totalCost, , , , ) = rental.getRental(rentalId);
+        ComputeRental.Rental memory r = rental.getRental(rentalId);
+        uint256 totalCost = r.totalCost;
 
         // Get fee rate from FeeConfig (3% rental fee by default)
         uint16 feeBps = feeConfig.getRentalFee();

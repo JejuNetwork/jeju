@@ -45,9 +45,7 @@ const SERVICE_PORTS: Record<string, { port: number; healthPath: string }> = {
   'op-geth': { port: 9545, healthPath: '/' },
   'postgres': { port: 5432, healthPath: '' },
   'redis': { port: 6379, healthPath: '' },
-  'indexer': { port: 4350, healthPath: '/graphql' },
   'ipfs': { port: 5001, healthPath: '/api/v0/id' },
-  'oracle': { port: 4301, healthPath: '/health' },
   'prometheus': { port: 9090, healthPath: '/-/healthy' },
   'grafana': { port: 4010, healthPath: '/api/health' },
   'solana': { port: 8899, healthPath: '/' },
@@ -57,9 +55,9 @@ const SERVICE_PORTS: Record<string, { port: number; healthPath: string }> = {
 
 const PROFILE_SERVICES: Record<TestProfile, string[]> = {
   chain: ['geth-l1', 'op-geth'],
-  services: ['geth-l1', 'op-geth', 'postgres', 'redis', 'indexer', 'ipfs', 'oracle'],
-  apps: ['geth-l1', 'op-geth', 'postgres', 'redis', 'indexer', 'ipfs', 'oracle'],
-  full: ['geth-l1', 'op-geth', 'postgres', 'redis', 'indexer', 'ipfs', 'oracle', 'prometheus', 'grafana', 'solana', 'arbitrum', 'base'],
+  services: ['geth-l1', 'op-geth', 'postgres', 'redis', 'ipfs'],
+  apps: ['geth-l1', 'op-geth', 'postgres', 'redis', 'ipfs'],
+  full: ['geth-l1', 'op-geth', 'postgres', 'redis', 'ipfs', 'prometheus', 'grafana', 'solana', 'arbitrum', 'base'],
   solana: ['solana'],
 };
 
@@ -254,10 +252,8 @@ export class DockerOrchestrator {
       CHAIN_ID: '1337',
       DATABASE_URL: 'postgresql://jeju:jeju@127.0.0.1:5432/jeju',
       REDIS_URL: 'redis://127.0.0.1:6379',
-      INDEXER_GRAPHQL_URL: 'http://127.0.0.1:4350/graphql',
       IPFS_API_URL: 'http://127.0.0.1:5001',
       IPFS_GATEWAY_URL: 'http://127.0.0.1:8080',
-      ORACLE_URL: 'http://127.0.0.1:4301',
     };
 
     if (this.config.profile === 'full' || this.config.profile === 'solana') {

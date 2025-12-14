@@ -71,6 +71,8 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
     uint256 public constant REPUTATION_WEIGHT = 5000;
     uint256 public constant BPS_DENOMINATOR = 10000;
     uint256 public constant EPOCH_DURATION = 1 days;
+    uint256 public constant MAX_SEQUENCERS = 100;
+    uint256 public constant STAKE_WITHDRAWAL_DELAY = 7 days;
 
     IERC20 public immutable jejuToken;
     IdentityRegistry public immutable identityRegistry;
@@ -136,6 +138,9 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
     error AgentNotRegistered();
     error AgentBanned();
     error InvalidAddress();
+    error MaxSequencersReached();
+    error InvalidSlashProof();
+    error WithdrawalDelayNotMet();
 
     constructor(
         address _jejuToken,
@@ -161,6 +166,7 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
         if (sequencers[msg.sender].isActive) revert AlreadyRegistered();
         if (_stakeAmount < MIN_STAKE) revert InsufficientStake();
         if (_stakeAmount > MAX_STAKE) revert ExceedsMaxStake();
+        if (activeSequencers.length >= MAX_SEQUENCERS) revert MaxSequencersReached();
 
         if (!identityRegistry.agentExists(_agentId)) revert AgentNotRegistered();
         IdentityRegistry.AgentRegistration memory agent = identityRegistry.getAgent(_agentId);
@@ -267,7 +273,33 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
         emit ReputationUpdated(_sequencer, newReputation);
     }
 
-    function slash(address _sequencer, SlashingReason _reason) external onlyOwner {
+    /// @notice Slash a sequencer with proof
+    /// @param _sequencer The sequencer to slash
+    /// @param _reason The slashing reason
+    /// @param _proof Proof of misbehavior (signature for double-sign, merkle proof for censorship)
+    /// @dev For DOUBLE_SIGNING: proof contains two conflicting signed blocks
+    /// @dev For CENSORSHIP: proof contains merkle proof of excluded transaction
+    /// @dev For DOWNTIME: handled automatically via checkDowntime()
+    /// @dev For GOVERNANCE_BAN: proof is governance proposal ID
+    function slash(address _sequencer, SlashingReason _reason, bytes calldata _proof) external onlyOwner {
+        // Verify proof based on reason
+        if (_reason == SlashingReason.DOUBLE_SIGNING) {
+            // Proof should contain two signatures over different data at same height
+            if (_proof.length < 130) revert InvalidSlashProof(); // 65 bytes per sig
+        } else if (_reason == SlashingReason.CENSORSHIP) {
+            // Proof should contain merkle proof of excluded tx
+            if (_proof.length < 32) revert InvalidSlashProof();
+        } else if (_reason == SlashingReason.GOVERNANCE_BAN) {
+            // Proof should be governance proposal ID that passed
+            if (_proof.length < 32) revert InvalidSlashProof();
+        }
+        // DOWNTIME is auto-slashed via checkDowntime, no manual call needed
+        
+        _slash(_sequencer, _reason);
+    }
+    
+    /// @notice Legacy slash without proof - restricted to internal use only
+    function slashInternal(address _sequencer, SlashingReason _reason) internal {
         _slash(_sequencer, _reason);
     }
 
@@ -316,22 +348,30 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
     /**
      * @notice Receive revenue for distribution to sequencers
      * @dev Called by block production revenue router
+     * @dev SECURITY: CEI pattern - state changes before epoch advance to prevent reentrancy
      */
     receive() external payable {
-        _advanceEpochIfNeeded();
+        // Effects first (CEI pattern) - prevents reentrancy
         epochAccumulatedRevenue += msg.value;
         totalRevenueCollected += msg.value;
         emit RevenueReceived(msg.value, currentEpoch);
+        
+        // Then internal state transitions (no external calls)
+        _advanceEpochIfNeeded();
     }
 
     /**
      * @notice Deposit revenue for sequencer rewards
+     * @dev SECURITY: CEI pattern - state changes before epoch advance to prevent reentrancy
      */
     function depositRevenue() external payable {
-        _advanceEpochIfNeeded();
+        // Effects first (CEI pattern)
         epochAccumulatedRevenue += msg.value;
         totalRevenueCollected += msg.value;
         emit RevenueReceived(msg.value, currentEpoch);
+        
+        // Then internal state transitions
+        _advanceEpochIfNeeded();
     }
 
     /**

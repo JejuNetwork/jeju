@@ -6,7 +6,7 @@ import { connectWallet } from '@jejunetwork/tests/helpers/contracts';
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:5173';
 
 test.describe('Gateway Complete Protocol Flow', () => {
-  test('complete gateway user journey', async ({ wallet, page }) => {
+  test('complete gateway user journey', async ({ wallet, _page }) => {
     // 1. Navigate to Gateway Portal
     await page.goto(GATEWAY_URL);
     await expect(page.getByText(/Gateway Portal/i)).toBeVisible();
@@ -50,7 +50,7 @@ test.describe('Gateway Complete Protocol Flow', () => {
     console.log('✅ Complete Gateway flow finished successfully');
   });
 
-  test('should navigate through all tabs', async ({ wallet, page }) => {
+  test('should navigate through all tabs', async ({ wallet, _page }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, wallet);
 
@@ -72,7 +72,7 @@ test.describe('Gateway Complete Protocol Flow', () => {
     console.log('✅ All tabs navigation complete');
   });
 
-  test('should maintain wallet connection across all tabs', async ({ wallet, page }) => {
+  test('should maintain wallet connection across all tabs', async ({ wallet, _page }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, wallet);
 
@@ -90,7 +90,7 @@ test.describe('Gateway Complete Protocol Flow', () => {
     console.log('✅ Wallet connection maintained across tabs');
   });
 
-  test('should show multi-token balances throughout', async ({ wallet, page }) => {
+  test('should show multi-token balances throughout', async ({ wallet, _page }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, wallet);
 

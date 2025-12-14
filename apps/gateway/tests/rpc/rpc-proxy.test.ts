@@ -49,7 +49,7 @@ describe('Endpoint Health', () => {
   test('new endpoints are healthy by default', () => {
     const health = getEndpointHealth();
     
-    for (const [_url, status] of Object.entries(health)) {
+    for (const status of Object.values(health)) {
       expect(status.healthy).toBe(true);
       expect(status.failures).toBe(0);
     }

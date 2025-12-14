@@ -9,7 +9,7 @@ import { test, expect } from '@playwright/test';
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4002';
 
 test.describe('Gateway UI Screenshots - No Wallet Required', () => {
-  test('capture all screens without wallet connection', async ({ page }) => {
+  test('capture all screens without wallet connection', async ({ _page }) => {
     // Screenshot 1: Homepage (disconnected state)
     await page.goto(GATEWAY_URL);
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
@@ -39,7 +39,7 @@ test.describe('Gateway UI Screenshots - No Wallet Required', () => {
 });
 
 test.describe('Gateway Full UI Tour (No Transactions)', () => {
-  test.skip('navigate entire UI and capture all screens', async ({ page }) => {
+  test.skip('navigate entire UI and capture all screens', async ({ _page }) => {
     // This test documents all screens but skips execution until contracts deployed
     // Un-skip when ready to capture everything
     

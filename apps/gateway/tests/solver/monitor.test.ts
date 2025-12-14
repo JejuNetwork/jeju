@@ -5,7 +5,6 @@
 
 import { describe, test, expect } from 'bun:test';
 import { EventMonitor, type IntentEvent } from '../../src/solver/monitor';
-import { bytes32ToAddress } from '../../src/solver/contracts';
 
 // Create monitor instance for testing
 const createMonitor = () => new EventMonitor({ chains: [] });

@@ -2,10 +2,14 @@
  * Network Proxy SDK
  * Client SDK for interacting with the decentralized proxy network
  * 
+ * MODES:
+ * - On-chain: Sessions are created on ProxyPayment contract with deposits
+ * - Coordinator-only: Session management delegated to coordinator (testing/development)
+ * 
  * @module @jeju/proxy/sdk
  */
 
-import { Contract, JsonRpcProvider, Wallet, parseEther, formatEther } from 'ethers';
+import { Contract, JsonRpcProvider, Wallet, parseEther, formatEther, Interface } from 'ethers';
 import type {
   ProxySDKConfig,
   RegionCode,
@@ -22,7 +26,10 @@ const PROXY_PAYMENT_ABI = [
   'function cancelSession(bytes32 sessionId)',
   'function pricePerGb() view returns (uint256)',
   'function estimateCost(uint256 estimatedBytes) view returns (uint256)',
+  'event SessionOpened(bytes32 indexed sessionId, address indexed client, bytes32 regionCode, uint256 deposit)',
 ];
+
+const paymentInterface = new Interface(PROXY_PAYMENT_ABI);
 
 interface ActiveSession {
   sessionId: `0x${string}`;
@@ -30,13 +37,17 @@ interface ActiveSession {
   deposit: bigint;
   bytesUsed: number;
   createdAt: number;
+  isOnChain: boolean;
 }
+
+type SDKMode = 'on-chain' | 'coordinator-only';
 
 export class ProxySDK {
   private config: ProxySDKConfig;
   private provider: JsonRpcProvider | null = null;
   private payment: Contract | null = null;
   private activeSessions: Map<string, ActiveSession> = new Map();
+  private mode: SDKMode;
 
   constructor(config: ProxySDKConfig) {
     this.config = config;
@@ -44,21 +55,38 @@ export class ProxySDK {
     if (config.rpcUrl && config.paymentAddress) {
       this.provider = new JsonRpcProvider(config.rpcUrl);
       this.payment = new Contract(config.paymentAddress, PROXY_PAYMENT_ABI, this.provider);
+      this.mode = 'on-chain';
+    } else {
+      this.mode = 'coordinator-only';
+      console.warn('[JejuProxy] No RPC/payment configured - running in coordinator-only mode');
     }
+  }
+
+  /** Get current SDK mode */
+  getMode(): SDKMode {
+    return this.mode;
   }
 
   /**
    * Fetch a URL through the proxy network
    */
   async fetchUrl(url: string, options: FetchOptions = {}): Promise<FetchResult> {
-    const sessionId = options.sessionId || await this.getOrCreateSession(options.regionCode || 'US');
+    const regionCode = options.regionCode || 'US';
+    
+    // Require explicit session for on-chain mode
+    if (this.mode === 'on-chain' && !options.sessionId) {
+      throw new Error(
+        'On-chain mode requires a sessionId. Call openSession() first, or pass sessionId in options.'
+      );
+    }
+
+    // For coordinator-only mode, create a session via coordinator API
+    const sessionId = options.sessionId || await this.createCoordinatorSession(regionCode);
 
     try {
       const response = await fetch(`${this.config.coordinatorUrl}/v1/proxy/fetch`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sessionId,
           url,
@@ -133,16 +161,49 @@ export class ProxySDK {
   }
 
   /**
+   * Create a coordinator-managed session (for testing/development)
+   * This does NOT create an on-chain session
+   */
+  private async createCoordinatorSession(regionCode: RegionCode): Promise<`0x${string}`> {
+    try {
+      const response = await fetch(`${this.config.coordinatorUrl}/v1/proxy/sessions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ regionCode }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to create coordinator session: ${response.status}`);
+      }
+      
+      const result = await response.json() as { sessionId: string };
+      const sessionId = result.sessionId as `0x${string}`;
+      
+      this.activeSessions.set(sessionId, {
+        sessionId,
+        regionCode,
+        deposit: 0n,
+        bytesUsed: 0,
+        createdAt: Date.now(),
+        isOnChain: false,
+      });
+      
+      return sessionId;
+    } catch (err) {
+      throw new Error(`Coordinator session creation failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
    * Get available regions
    */
   async getAvailableRegions(): Promise<RegionInfo[]> {
-    try {
-      const response = await fetch(`${this.config.coordinatorUrl}/v1/proxy/regions`);
-      const result = await response.json() as { regions: RegionInfo[] };
-      return result.regions;
-    } catch {
-      return [];
+    const response = await fetch(`${this.config.coordinatorUrl}/v1/proxy/regions`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch regions: ${response.status}`);
     }
+    const result = await response.json() as { regions: RegionInfo[] };
+    return result.regions;
   }
 
   /**
@@ -153,24 +214,19 @@ export class ProxySDK {
     availableRegions: string[];
     pricePerGb: string;
   }> {
-    try {
-      const response = await fetch(`${this.config.coordinatorUrl}/v1/proxy/stats`);
-      return await response.json() as {
-        connectedNodes: number;
-        availableRegions: string[];
-        pricePerGb: string;
-      };
-    } catch {
-      return {
-        connectedNodes: 0,
-        availableRegions: [],
-        pricePerGb: '0',
-      };
+    const response = await fetch(`${this.config.coordinatorUrl}/v1/proxy/stats`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch stats: ${response.status}`);
     }
+    return await response.json() as {
+      connectedNodes: number;
+      availableRegions: string[];
+      pricePerGb: string;
+    };
   }
 
   /**
-   * Get session details
+   * Get session details from coordinator
    */
   async getSession(sessionId: `0x${string}`): Promise<{
     sessionId: string;
@@ -187,13 +243,17 @@ export class ProxySDK {
       if (!response.ok) return null;
       return await response.json();
     } catch {
+      // Connection failed or session not found
       return null;
     }
   }
 
   /**
    * Open a new proxy session on-chain
-   * Requires a signer to be configured
+   * @param regionCode Region for proxy routing
+   * @param depositEth Amount of ETH to deposit
+   * @param signer Wallet to sign the transaction
+   * @returns sessionId from the blockchain
    */
   async openSession(
     regionCode: RegionCode,
@@ -201,19 +261,33 @@ export class ProxySDK {
     signer: Wallet
   ): Promise<`0x${string}`> {
     if (!this.payment) {
-      throw new Error('Payment contract not configured');
+      throw new Error('Payment contract not configured. Set rpcUrl and paymentAddress in config.');
     }
 
-    const paymentWithSigner = this.payment.connect(signer);
+    const connectedSigner = signer.connect(this.provider!);
+    const paymentWithSigner = this.payment.connect(connectedSigner);
     const regionHash = hashRegion(regionCode);
     const deposit = parseEther(depositEth);
 
+    console.log(`[JejuProxy] Opening session for region ${regionCode}, deposit ${depositEth} ETH`);
+    
     const tx = await paymentWithSigner.openSession(regionHash, { value: deposit });
     const receipt = await tx.wait();
+    
+    if (!receipt) {
+      throw new Error('Transaction failed - no receipt');
+    }
 
-    // Parse session ID from logs
-    // For now, return a mock ID - in production, parse from receipt.logs
-    const sessionId = receipt.logs[0]?.topics[1] as `0x${string}` || '0x0' as `0x${string}`;
+    // Parse SessionOpened event from logs
+    const sessionId = this.parseSessionOpenedEvent(receipt.logs);
+    if (!sessionId) {
+      throw new Error(
+        `Failed to parse SessionOpened event from transaction ${receipt.hash}. ` +
+        `Logs: ${JSON.stringify(receipt.logs.map((l: { topics: string[] }) => l.topics))}`
+      );
+    }
+
+    console.log(`[JejuProxy] Session opened: ${sessionId}`);
 
     this.activeSessions.set(sessionId, {
       sessionId,
@@ -221,9 +295,29 @@ export class ProxySDK {
       deposit,
       bytesUsed: 0,
       createdAt: Date.now(),
+      isOnChain: true,
     });
 
     return sessionId;
+  }
+
+  /**
+   * Parse SessionOpened event from transaction logs
+   */
+  private parseSessionOpenedEvent(logs: Array<{ topics: string[]; data: string }>): `0x${string}` | null {
+    const eventSignature = paymentInterface.getEvent('SessionOpened')!.topicHash;
+    
+    for (const log of logs) {
+      if (log.topics[0] === eventSignature) {
+        // SessionOpened has indexed sessionId as first topic after signature
+        const sessionId = log.topics[1];
+        if (sessionId && sessionId.length === 66) { // 0x + 64 hex chars
+          return sessionId as `0x${string}`;
+        }
+      }
+    }
+    
+    return null;
   }
 
   /**
@@ -234,10 +328,21 @@ export class ProxySDK {
       throw new Error('Payment contract not configured');
     }
 
-    const paymentWithSigner = this.payment.connect(signer);
+    const session = this.activeSessions.get(sessionId);
+    if (session && !session.isOnChain) {
+      // Just remove from local tracking for coordinator sessions
+      this.activeSessions.delete(sessionId);
+      return;
+    }
+
+    const connectedSigner = signer.connect(this.provider!);
+    const paymentWithSigner = this.payment.connect(connectedSigner);
+    
+    console.log(`[JejuProxy] Cancelling session: ${sessionId}`);
     const tx = await paymentWithSigner.cancelSession(sessionId);
     await tx.wait();
-
+    
+    console.log(`[JejuProxy] Session cancelled`);
     this.activeSessions.delete(sessionId);
   }
 
@@ -246,7 +351,8 @@ export class ProxySDK {
    */
   async estimateCost(bytes: number): Promise<bigint> {
     if (!this.payment) {
-      // Fallback: ~0.001 ETH per GB
+      // Fallback: ~0.001 ETH per GB (1e9 bytes)
+      // This is explicit fallback pricing, not production pricing
       return (BigInt(bytes) * parseEther('0.001')) / BigInt(1e9);
     }
 
@@ -254,43 +360,14 @@ export class ProxySDK {
   }
 
   /**
-   * Get price per GB
+   * Get price per GB from contract or fallback
    */
   async getPricePerGb(): Promise<bigint> {
     if (!this.payment) {
-      return parseEther('0.001');
+      // Explicit fallback - document this is not real pricing
+      return parseEther('0.001'); // 0.001 ETH per GB
     }
     return await this.payment.pricePerGb();
-  }
-
-  /**
-   * Get or create a session for a region
-   */
-  private async getOrCreateSession(regionCode: RegionCode): Promise<`0x${string}`> {
-    // Check for existing active session
-    for (const [id, session] of this.activeSessions) {
-      if (session.regionCode === regionCode) {
-        return session.sessionId;
-      }
-    }
-
-    // If we have a signer, create a new session on-chain
-    if (this.config.signer && this.payment) {
-      const signer = new Wallet(this.config.signer.address); // Would need private key
-      return this.openSession(regionCode, '0.01', signer);
-    }
-
-    // Return a placeholder - coordinator will handle payment
-    const mockSessionId = ('0x' + crypto.randomUUID().replace(/-/g, '')) as `0x${string}`;
-    this.activeSessions.set(mockSessionId, {
-      sessionId: mockSessionId,
-      regionCode,
-      deposit: 0n,
-      bytesUsed: 0,
-      createdAt: Date.now(),
-    });
-
-    return mockSessionId;
   }
 
   /**
@@ -306,6 +383,13 @@ export class ProxySDK {
   clearSession(sessionId: `0x${string}`): void {
     this.activeSessions.delete(sessionId);
   }
+  
+  /**
+   * Check if SDK is configured for on-chain mode
+   */
+  isOnChainEnabled(): boolean {
+    return this.payment !== null;
+  }
 }
 
 /**
@@ -319,4 +403,3 @@ export function createProxySDK(overrides?: Partial<ProxySDKConfig>): ProxySDK {
     ...overrides,
   });
 }
-

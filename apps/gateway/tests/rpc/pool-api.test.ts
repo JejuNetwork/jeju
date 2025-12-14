@@ -80,7 +80,7 @@ async function fetchJSON(url: string, options?: RequestInit) {
     });
 
     test('V2 pools have correct structure', async () => {
-      const { status, data } = await fetchJSON(`${BASE_URL}/api/pools/v2`);
+      const { data } = await fetchJSON(`${BASE_URL}/api/pools/v2`);
       if (data.pools.length > 0) {
         const pool = data.pools[0];
         expect(pool.type).toBe('V2');
@@ -193,7 +193,7 @@ async function fetchJSON(url: string, options?: RequestInit) {
     });
 
     test('handles zero amountIn', async () => {
-      const { status, data } = await fetchJSON(`${BASE_URL}/api/pools/quote`, {
+      const { status } = await fetchJSON(`${BASE_URL}/api/pools/quote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -245,7 +245,7 @@ async function fetchJSON(url: string, options?: RequestInit) {
     });
 
     test('handles same token for input and output', async () => {
-      const { status, data } = await fetchJSON(`${BASE_URL}/api/pools/quote`, {
+      const { status } = await fetchJSON(`${BASE_URL}/api/pools/quote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

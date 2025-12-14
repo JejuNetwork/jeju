@@ -54,14 +54,33 @@ class ElizaClient {
     this.baseUrl = baseUrl;
     this.agentId = agentId;
     this.userId = this.getOrCreateUserId();
-    this.authToken = localStorage.getItem('eliza-auth-token');
+    this.authToken = this.getStorage('eliza-auth-token');
+  }
+
+  private getStorage(key: string): string | null {
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem(key);
+    }
+    return null;
+  }
+
+  private setStorage(key: string, value: string): void {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(key, value);
+    }
+  }
+
+  private removeStorage(key: string): void {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(key);
+    }
   }
 
   private getOrCreateUserId(): string {
-    let userId = localStorage.getItem('eliza-user-id');
+    let userId = this.getStorage('eliza-user-id');
     if (!userId) {
       userId = `user-${crypto.randomUUID()}`;
-      localStorage.setItem('eliza-user-id', userId);
+      this.setStorage('eliza-user-id', userId);
     }
     return userId;
   }
