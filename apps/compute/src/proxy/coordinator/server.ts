@@ -14,6 +14,49 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { Contract, JsonRpcProvider, Wallet, parseEther, formatEther } from 'ethers';
+
+// Simple token bucket rate limiter
+class RateLimiter {
+  private buckets: Map<string, { tokens: number; lastRefill: number }> = new Map();
+  private readonly maxTokens: number;
+  private readonly refillRate: number; // tokens per second
+
+  constructor(maxTokens = 100, refillRate = 10) {
+    this.maxTokens = maxTokens;
+    this.refillRate = refillRate;
+  }
+
+  isAllowed(key: string): boolean {
+    const now = Date.now();
+    let bucket = this.buckets.get(key);
+
+    if (!bucket) {
+      bucket = { tokens: this.maxTokens, lastRefill: now };
+      this.buckets.set(key, bucket);
+    }
+
+    // Refill tokens
+    const elapsed = (now - bucket.lastRefill) / 1000;
+    bucket.tokens = Math.min(this.maxTokens, bucket.tokens + elapsed * this.refillRate);
+    bucket.lastRefill = now;
+
+    if (bucket.tokens >= 1) {
+      bucket.tokens -= 1;
+      return true;
+    }
+    return false;
+  }
+
+  // Cleanup stale entries periodically
+  cleanup(maxAge: number = 300000): void {
+    const now = Date.now();
+    for (const [key, bucket] of this.buckets) {
+      if (now - bucket.lastRefill > maxAge) {
+        this.buckets.delete(key);
+      }
+    }
+  }
+}
 import type { Server, ServerWebSocket } from 'bun';
 import { NodeManager } from './node-manager';
 import { RequestRouter } from './request-router';
@@ -60,6 +103,10 @@ export class ProxyCoordinatorServer {
 
   // Active sessions tracked in memory
   private activeSessions: Map<string, ProxySession> = new Map();
+  
+  // Rate limiting
+  private rateLimiter = new RateLimiter(100, 10); // 100 burst, 10/sec refill
+  private rateLimitCleanupInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(config: CoordinatorConfig) {
     this.config = config;
@@ -104,6 +151,19 @@ export class ProxyCoordinatorServer {
 
   private setupRoutes(): void {
     this.app.use('/*', cors());
+
+    // Rate limiting middleware for API endpoints
+    this.app.use('/v1/*', async (c, next) => {
+      const clientIp = c.req.header('x-forwarded-for')?.split(',')[0]?.trim() || 
+                       c.req.header('x-real-ip') || 
+                       'unknown';
+      
+      if (!this.rateLimiter.isAllowed(clientIp)) {
+        return c.json({ error: 'Rate limit exceeded', retryAfter: 1 }, 429);
+      }
+      
+      return next();
+    });
 
     // ============ Health & Info ============
 
@@ -413,6 +473,9 @@ export class ProxyCoordinatorServer {
     const httpPort = this.config.port;
     const wsPort = this.config.wsPort || httpPort + 1;
 
+    // Start rate limiter cleanup
+    this.rateLimitCleanupInterval = setInterval(() => this.rateLimiter.cleanup(), 60000);
+
     // Start node manager
     this.nodeManager.start();
 
@@ -461,6 +524,11 @@ export class ProxyCoordinatorServer {
   stop(): void {
     this.nodeManager.stop();
     
+    if (this.rateLimitCleanupInterval) {
+      clearInterval(this.rateLimitCleanupInterval);
+      this.rateLimitCleanupInterval = null;
+    }
+
     if (this.httpServer) {
       this.httpServer.stop();
       this.httpServer = null;
