@@ -14,7 +14,7 @@
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { Wallet, keccak256, getBytes, recoverAddress, toBeHex, zeroPadValue } from 'ethers';
+import { Wallet, keccak256, getBytes, recoverAddress, toBeHex, zeroPadValue, Signature } from 'ethers';
 
 interface SignRequest {
   digest: string;        // 0x-prefixed 32 byte hex
@@ -136,6 +136,64 @@ class ThresholdSignerService {
         });
       } catch (err) {
         console.error(`[Signer] Sign error:`, err);
+        return c.json<SignResponse>({
+          requestId: body.requestId,
+          signature: '',
+          signer: this.wallet.address,
+          error: err instanceof Error ? err.message : 'Unknown error',
+        }, 500);
+      }
+    });
+
+    // Sign a raw digest (for contracts using ECDSA.recover)
+    this.app.post('/sign-digest', async (c) => {
+      this.stats.requestsReceived++;
+
+      const body = await c.req.json<SignRequest>();
+
+      if (!body.digest || !body.requestId) {
+        return c.json<SignResponse>({
+          requestId: body.requestId || '',
+          signature: '',
+          signer: this.wallet.address,
+          error: 'Missing digest or requestId',
+        }, 400);
+      }
+
+      // Validate digest format
+      if (!body.digest.startsWith('0x') || body.digest.length !== 66) {
+        return c.json<SignResponse>({
+          requestId: body.requestId,
+          signature: '',
+          signer: this.wallet.address,
+          error: 'Invalid digest format - must be 0x-prefixed 32 byte hex',
+        }, 400);
+      }
+
+      try {
+        // Sign the raw digest directly (without message prefix)
+        const signingKey = this.wallet.signingKey;
+        const sig = signingKey.sign(body.digest);
+        
+        // Pack r, s, v into a single bytes signature
+        const signature = Signature.from({
+          r: sig.r,
+          s: sig.s,
+          v: sig.v,
+        }).serialized;
+
+        this.stats.signaturesIssued++;
+        this.stats.lastSignatureTime = Date.now();
+
+        console.log(`[Signer] Signed digest ${body.requestId}: ${body.digest.slice(0, 18)}...`);
+
+        return c.json<SignResponse>({
+          requestId: body.requestId,
+          signature,
+          signer: this.wallet.address,
+        });
+      } catch (err) {
+        console.error(`[Signer] Sign digest error:`, err);
         return c.json<SignResponse>({
           requestId: body.requestId,
           signature: '',
