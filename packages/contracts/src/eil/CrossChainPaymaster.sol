@@ -23,7 +23,10 @@ interface IFeeDistributor {
 }
 
 interface IFeeConfigCrossChain {
-    function getDeFiFees() external view returns (uint16 swapProtocolFeeBps, uint16 bridgeFeeBps, uint16 crossChainMarginBps);
+    function getDeFiFees()
+        external
+        view
+        returns (uint16 swapProtocolFeeBps, uint16 bridgeFeeBps, uint16 crossChainMarginBps);
     function getTreasury() external view returns (address);
 }
 
@@ -186,8 +189,8 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
     /// @notice Track fulfilled voucher hashes to prevent replay attacks
     mapping(bytes32 => bool) public fulfilledVoucherHashes;
 
-    /// @notice Gas sponsorship earnings per XLP (in ETH equivalent)
-    mapping(address => uint256) public xlpGasEarnings;
+    /// @notice Protocol's accumulated swap fees (claimable by treasury)
+    uint256 public protocolSwapFees;
 
     /// @notice Total gas fees collected (in selected tokens)
     uint256 public totalGasFeesCollected;
@@ -780,6 +783,29 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         emit XLPWithdraw(msg.sender, address(0), amount);
         _transferETH(msg.sender, amount);
     }
+
+    // ============ Protocol Fee Claiming ============
+
+    /// @notice Claim accumulated protocol swap fees (treasury only)
+    /// @dev LP fees compound into reserves; this is just protocol's cut
+    function claimProtocolFees() external nonReentrant returns (uint256 claimed) {
+        address treasury = address(feeConfig) != address(0) ? feeConfig.getTreasury() : owner();
+        require(msg.sender == treasury || msg.sender == owner(), "Only treasury");
+
+        claimed = protocolSwapFees;
+        if (claimed == 0) revert InsufficientAmount();
+
+        protocolSwapFees = 0;
+        emit ProtocolFeesClaimed(treasury, claimed);
+        _transferETH(treasury, claimed);
+    }
+
+    /// @notice Get pending protocol fees
+    function getPendingProtocolFees() external view returns (uint256) {
+        return protocolSwapFees;
+    }
+
+    event ProtocolFeesClaimed(address indexed treasury, uint256 amount);
 
     /// @notice Permissionless exchange rate update from oracle
     function updateExchangeRate(address token) external {
@@ -1649,6 +1675,16 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
 
         totalSwapVolume += amountIn;
         totalSwapFees += fee;
+
+        // Split swap fee: protocol takes a cut, rest compounds into reserves for LPs
+        // Default: 10% to protocol, 90% stays in pool for LPs
+        uint256 protocolCut = (fee * 1000) / BASIS_POINTS; // 10% default
+        if (address(feeConfig) != address(0)) {
+            (uint16 swapProtocolFeeBps,,) = feeConfig.getDeFiFees();
+            protocolCut = (fee * swapProtocolFeeBps) / BASIS_POINTS;
+        }
+        protocolSwapFees += protocolCut;
+        // Remaining fee stays in reserves - LPs benefit proportionally on withdrawal
 
         // INTERACTIONS: External calls LAST
         // Handle token input transfer

@@ -9,14 +9,30 @@ import {MockEntryPoint} from "./mocks/MockEntryPoint.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+contract MockERC20EIL is ERC20 {
+    constructor() ERC20("Mock Token", "MOCK") {}
+
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
+
+    function decimals() public pure override returns (uint8) {
+        return 6;
+    }
+}
 
 contract EILTest is Test {
     using ECDSA for bytes32;
     using MessageHashUtils for bytes32;
 
+    receive() external payable {}
+
     L1StakeManager public l1StakeManager;
     CrossChainPaymaster public crossChainPaymaster;
     MockEntryPoint public entryPoint;
+    MockERC20EIL public mockToken;
 
     address public deployer;
     address public xlp;
@@ -27,6 +43,7 @@ contract EILTest is Test {
 
     uint256 constant L1_CHAIN_ID = 1337;
     uint256 constant L2_CHAIN_ID = 420691;
+    uint256 constant DESTINATION_CHAIN_ID = 84532;
     uint256 constant MIN_STAKE = 1 ether;
 
     function setUp() public {
@@ -45,11 +62,15 @@ contract EILTest is Test {
         // Deploy contracts
         entryPoint = new MockEntryPoint();
         l1StakeManager = new L1StakeManager();
+        mockToken = new MockERC20EIL();
         crossChainPaymaster =
             new CrossChainPaymaster(IEntryPoint(address(entryPoint)), address(l1StakeManager), L2_CHAIN_ID, address(0));
 
         // Register the paymaster on L1
         l1StakeManager.registerL2Paymaster(L2_CHAIN_ID, address(crossChainPaymaster));
+
+        // Enable supported tokens
+        crossChainPaymaster.setTokenSupport(address(mockToken), true);
 
         // Enable ETH as supported token
         crossChainPaymaster.setTokenSupport(address(0), true);
@@ -514,10 +535,10 @@ contract EILTest is Test {
         address council = makeAddr("council");
         address ceo = makeAddr("ceo");
         address treasury = makeAddr("treasury");
-        
+
         FeeConfig feeConfig = new FeeConfig(council, ceo, treasury, deployer);
         crossChainPaymaster.setFeeConfig(address(feeConfig));
-        
+
         assertEq(address(crossChainPaymaster.feeConfig()), address(feeConfig));
     }
 
@@ -526,7 +547,7 @@ contract EILTest is Test {
         address council = makeAddr("council");
         address ceo = makeAddr("ceo");
         address treasury = makeAddr("treasury");
-        
+
         FeeConfig feeConfig = new FeeConfig(council, ceo, treasury, deployer);
         crossChainPaymaster.setFeeConfig(address(feeConfig));
 
@@ -535,5 +556,125 @@ contract EILTest is Test {
         // Just verify the config is connected
         FeeConfig.DeFiFees memory defiFees = feeConfig.getDeFiFees();
         assertEq(defiFees.crossChainMarginBps, 1000, "Default cross-chain margin should be 10%");
+    }
+
+    // ============ Swap Fee Distribution Tests ============
+
+    function test_SwapAccumulatesProtocolFees() public {
+        // Setup: XLP deposits liquidity
+        vm.prank(xlp);
+        crossChainPaymaster.depositETH{value: 10 ether}();
+
+        vm.prank(xlp);
+        mockToken.approve(address(crossChainPaymaster), type(uint256).max);
+
+        mockToken.mint(xlp, 10000e6);
+        vm.prank(xlp);
+        crossChainPaymaster.depositLiquidity(address(mockToken), 10000e6);
+
+        // User swaps ETH for tokens
+        uint256 swapAmount = 1 ether;
+        vm.deal(user, swapAmount);
+        vm.prank(user);
+        crossChainPaymaster.swap{value: swapAmount}(address(0), address(mockToken), swapAmount, 0);
+
+        // Check protocol fees accumulated (10% of 0.3% swap fee = 0.03%)
+        uint256 protocolFees = crossChainPaymaster.getPendingProtocolFees();
+        assertTrue(protocolFees > 0, "Protocol fees should accumulate");
+
+        // Swap fee is 30 bps = 0.3%, protocol takes 10% of that = 0.03%
+        uint256 expectedProtocolFee = (swapAmount * 30 * 1000) / (10000 * 10000); // 0.03% of swap
+        assertEq(protocolFees, expectedProtocolFee, "Protocol fee should be 10% of swap fee");
+    }
+
+    function test_ClaimProtocolFees() public {
+        // Setup: XLP deposits liquidity
+        vm.prank(xlp);
+        crossChainPaymaster.depositETH{value: 10 ether}();
+
+        mockToken.mint(xlp, 10000e6);
+        vm.prank(xlp);
+        mockToken.approve(address(crossChainPaymaster), type(uint256).max);
+        vm.prank(xlp);
+        crossChainPaymaster.depositLiquidity(address(mockToken), 10000e6);
+
+        // User swaps
+        vm.deal(user, 1 ether);
+        vm.prank(user);
+        crossChainPaymaster.swap{value: 1 ether}(address(0), address(mockToken), 1 ether, 0);
+
+        uint256 pendingFees = crossChainPaymaster.getPendingProtocolFees();
+        assertTrue(pendingFees > 0);
+
+        // Owner claims fees
+        uint256 ownerBalanceBefore = deployer.balance;
+        vm.prank(deployer);
+        crossChainPaymaster.claimProtocolFees();
+
+        assertEq(deployer.balance - ownerBalanceBefore, pendingFees);
+        assertEq(crossChainPaymaster.getPendingProtocolFees(), 0);
+    }
+
+    function test_LPFeesCompoundIntoReserves() public {
+        // Setup: XLP deposits liquidity
+        vm.prank(xlp);
+        crossChainPaymaster.depositETH{value: 10 ether}();
+
+        mockToken.mint(xlp, 10000e6);
+        vm.prank(xlp);
+        mockToken.approve(address(crossChainPaymaster), type(uint256).max);
+        vm.prank(xlp);
+        crossChainPaymaster.depositLiquidity(address(mockToken), 10000e6);
+
+        uint256 reservesBefore = crossChainPaymaster.getTotalLiquidity(address(0));
+
+        // User swaps ETH for tokens
+        vm.deal(user, 1 ether);
+        vm.prank(user);
+        crossChainPaymaster.swap{value: 1 ether}(address(0), address(mockToken), 1 ether, 0);
+
+        uint256 reservesAfter = crossChainPaymaster.getTotalLiquidity(address(0));
+
+        // Reserves should increase by swap input (minus protocol fee which is tracked separately)
+        // LP fees stay in pool as increased reserves
+        assertTrue(reservesAfter > reservesBefore, "Reserves should grow from swap input");
+    }
+
+    function test_XLPEarnsFromCrossChainFees() public {
+        // Setup XLP with stake
+        vm.prank(xlp);
+        crossChainPaymaster.depositETH{value: 5 ether}();
+        crossChainPaymaster.updateXLPStake(xlp, 10 ether);
+
+        // User creates request
+        vm.deal(user, 2 ether);
+        vm.prank(user);
+        bytes32 requestId = crossChainPaymaster.createVoucherRequest{value: 1.1 ether}(
+            address(0), 1 ether, address(0), DESTINATION_CHAIN_ID, user, 0, 0.1 ether, 0.001 ether
+        );
+
+        // XLP bids and issues voucher
+        vm.prank(xlp);
+        crossChainPaymaster.submitBid(requestId);
+
+        uint256 fee = crossChainPaymaster.getCurrentFee(requestId);
+        bytes32 commitment = keccak256(abi.encodePacked(requestId, xlp, uint256(1 ether), fee, DESTINATION_CHAIN_ID));
+        bytes32 ethSignedHash = commitment.toEthSignedMessageHash();
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(xlpPrivateKey, ethSignedHash);
+
+        vm.prank(xlp);
+        bytes32 voucherId = crossChainPaymaster.issueVoucher(requestId, abi.encodePacked(r, s, v));
+
+        // Mark fulfilled and wait for claim delay
+        crossChainPaymaster.markVoucherFulfilled(voucherId);
+        vm.roll(block.number + 200);
+
+        // XLP claims - should receive amount + fee
+        uint256 xlpBalanceBefore = xlp.balance;
+        vm.prank(xlp);
+        crossChainPaymaster.claimSourceFunds(voucherId);
+
+        uint256 xlpReceived = xlp.balance - xlpBalanceBefore;
+        assertTrue(xlpReceived > 1 ether, "XLP should receive amount + fee");
     }
 }
