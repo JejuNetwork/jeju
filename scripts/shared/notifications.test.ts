@@ -49,7 +49,7 @@ describe('Notification Utilities - AGGRESSIVE TESTS', () => {
         const message = loggedMessages[0];
         expect(message).toContain(expectedEmoji);
         expect(message).toContain('Test message');
-        expect(message).toContain('**Jeju Notification**');
+        expect(message).toContain('**Network Notification**');
       }
 
       console.log = originalLog;

@@ -8,7 +8,7 @@ interface ImportMetaEnv {
   readonly VITE_PRICE_ORACLE_ADDRESS?: string;
   readonly VITE_WALLETCONNECT_PROJECT_ID?: string;
   
-  // elizaOS Token (Native Jeju)
+  // elizaOS Token (Native Token)
   readonly VITE_ELIZAOS_TOKEN_ADDRESS?: string;
   readonly VITE_ELIZAOS_VAULT_ADDRESS?: string;
   readonly VITE_ELIZAOS_PAYMASTER_ADDRESS?: string;

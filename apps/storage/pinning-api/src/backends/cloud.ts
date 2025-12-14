@@ -1,7 +1,7 @@
 /**
  * Cloud Storage Backends
  * 
- * Full integration with cloud storage providers as Jeju storage providers:
+ * Full integration with cloud storage providers as network storage providers:
  * - Vercel Blob
  * - AWS S3
  * - Cloudflare R2

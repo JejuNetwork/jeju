@@ -1,5 +1,5 @@
 /**
- * SDK Types for Jeju Storage Marketplace
+ * SDK Types for network Storage Marketplace
  * 
  * Decentralized storage marketplace with:
  * - Multiple storage providers (IPFS nodes, cloud, Arweave)

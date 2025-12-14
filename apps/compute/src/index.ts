@@ -8,7 +8,7 @@
  * - Arweave for permanent storage (wallet-signed)
  * - AES-256-GCM for encryption (Web Crypto API)
  * - secp256k1 for signatures (Ethereum-compatible)
- * - Jeju Compute Marketplace for TEE inference (Ethereum)
+ * - Compute Marketplace for TEE inference (Ethereum)
  *
  * Target chains: Anvil (local) → Sepolia → Ethereum Mainnet
  *
@@ -53,10 +53,10 @@ export type {
   Stake,
 } from './compute/index.js';
 
-// Compute Marketplace (Jeju integrated)
+// Compute Marketplace (Network integrated)
 export {
   // SDK
-  JejuComputeSDK,
+  ComputeSDK,
   // Node
   ComputeNodeServer,
   countTokens,

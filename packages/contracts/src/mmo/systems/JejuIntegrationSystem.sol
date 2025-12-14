@@ -30,7 +30,7 @@ contract JejuIntegrationSystem is System {
 
     // ============ Events ============
 
-    event JejuIntegrationSet(address indexed gameIntegration);
+    event GameIntegrationSet(address indexed gameIntegration);
     event GameModerationSet(address indexed gameModeration);
     event PlayerAllowedChecked(address indexed player, bool allowed);
 
@@ -69,7 +69,7 @@ contract JejuIntegrationSystem is System {
         _worldAdmin = worldAdmin;
         gameIntegration = _gameIntegration;
 
-        emit JejuIntegrationSet(_gameIntegration);
+        emit GameIntegrationSet(_gameIntegration);
     }
 
     /**
@@ -79,7 +79,7 @@ contract JejuIntegrationSystem is System {
     function setGameIntegration(address _gameIntegration) public onlyWorldAdmin {
         if (_gameIntegration == address(0)) revert InvalidAddress();
         gameIntegration = _gameIntegration;
-        emit JejuIntegrationSet(_gameIntegration);
+        emit GameIntegrationSet(_gameIntegration);
     }
 
     /**

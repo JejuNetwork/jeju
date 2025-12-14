@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
- * @title Register Jeju Apps as ERC-8004 Agents
- * @notice Registers all Jeju apps with proper A2A endpoints on the IdentityRegistry
+ * @title Register Network Apps as ERC-8004 Agents
+ * @notice Registers all network apps with proper A2A endpoints on the IdentityRegistry
  * 
  * Usage:
  *   bun scripts/register-agents.ts --network localnet --list
@@ -13,12 +13,12 @@ import { resolve } from 'path';
 import { readdirSync, existsSync, readFileSync, writeFileSync } from 'fs';
 import { Logger } from './shared/logger';
 import { 
-  loadJejuManifest, 
+  loadAppManifest, 
   registerApp, 
   getAgentInfo,
   createConfigFromEnv,
   getNetworkConfig,
-  type JejuManifest,
+  type AppManifest,
   type Agent0Config
 } from './shared/agent0';
 
@@ -29,7 +29,7 @@ const logger = new Logger({ prefix: 'register-agents' });
 interface AppInfo {
   name: string;
   path: string;
-  manifest: JejuManifest;
+  manifest: AppManifest;
   agentEnabled: boolean;
   a2aEndpoint?: string;
   port?: number;
@@ -67,7 +67,7 @@ function discoverApps(): AppInfo[] {
       
       if (existsSync(manifestPath)) {
         try {
-          const manifest = loadJejuManifest(appPath);
+          const manifest = loadAppManifest(appPath);
           apps.push({
             name: manifest.name || appDir,
             path: appPath,
@@ -95,7 +95,7 @@ function discoverApps(): AppInfo[] {
       
       if (existsSync(manifestPath)) {
         try {
-          const manifest = loadJejuManifest(vendorPath);
+          const manifest = loadAppManifest(vendorPath);
           apps.push({
             name: manifest.name || vendorDir,
             path: vendorPath,
@@ -136,7 +136,7 @@ async function listApps(network: string): Promise<void> {
   const apps = discoverApps();
   const state = loadRegistrationState();
   
-  logger.info('Discovered Jeju Apps:');
+  logger.info('Discovered Network Apps:');
   logger.info('=====================');
   
   for (const app of apps) {
@@ -321,7 +321,7 @@ async function main(): Promise<void> {
   
   if (showHelp) {
     console.log(`
-Jeju Agent Registration Tool
+Network Agent Registration Tool
 
 Usage:
   bun scripts/register-agents.ts [options]

@@ -108,7 +108,7 @@ test.describe('Wallet Account Switching', () => {
 });
 
 test.describe('Network Management', () => {
-  test('should display correct network (Jeju Localnet)', async ({ page, metamask }) => {
+  test('should display correct network (Network Localnet)', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 
@@ -122,11 +122,11 @@ test.describe('Network Management', () => {
 
     await page.waitForTimeout(2000);
 
-    // Verify Jeju network logged
-    const hasJejuConfig = logs.some((log) => log.includes('1337') || log.includes('9545'));
-    expect(hasJejuConfig).toBe(true);
+    // Verify network logged
+    const hasNetworkConfig = logs.some((log) => log.includes('1337') || log.includes('9545'));
+    expect(hasNetworkConfig).toBe(true);
 
-    console.log('✅ Jeju Localnet configuration verified');
+    console.log('✅ Network Localnet configuration verified');
     console.log(`   Chain ID: 1337`);
     console.log(`   RPC: http://127.0.0.1:9545`);
   });

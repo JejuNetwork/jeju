@@ -34,7 +34,7 @@ if (!PRIVATE_KEY) {
 const account = privateKeyToAccount(PRIVATE_KEY);
 
 const CONTRACTS = {
-  MockJejuUSDC: "0x953F6516E5d2864cE7f13186B45dE418EA665EB2" as Address,
+  MockNetworkUSDC: "0x953F6516E5d2864cE7f13186B45dE418EA665EB2" as Address,
   ElizaOSToken: "0x7af64e6aE21076DE21EFe71F243A75664a17C34b" as Address,
   SolverRegistry: "0xecfE47302D941c8ce5B0009C0ac2E6D6ee2A42de" as Address,
   SimpleOracle: "0xE30218678a940d1553b285B0eB5C5364BBF70ed9" as Address,
@@ -247,7 +247,7 @@ async function main() {
   try {
     const approveAmount = parseUnits("1000", 6);
     const tx = await walletClient.writeContract({
-      address: CONTRACTS.MockJejuUSDC,
+      address: CONTRACTS.MockNetworkUSDC,
       abi: ERC20_ABI,
       functionName: "approve",
       args: [CONTRACTS.InputSettler, approveAmount],
@@ -264,7 +264,7 @@ async function main() {
 
     // Verify allowance
     const allowance = await publicClient.readContract({
-      address: CONTRACTS.MockJejuUSDC,
+      address: CONTRACTS.MockNetworkUSDC,
       abi: ERC20_ABI,
       functionName: "allowance",
       args: [account.address, CONTRACTS.InputSettler],
@@ -279,7 +279,7 @@ async function main() {
   console.log("\n📝 Creating test intent...");
   let intentId: Hex | null = null;
   try {
-    const destChainId = 420690n; // Jeju Testnet (simulated)
+    const destChainId = 420690n; // Network Testnet (simulated)
     const inputAmount = parseUnits("10", 6); // 10 USDC
     const minOutputAmount = parseUnits("9.9", 6); // Allow 1% slippage
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600); // 1 hour
@@ -290,8 +290,8 @@ async function main() {
       functionName: "createIntent",
       args: [
         destChainId,
-        CONTRACTS.MockJejuUSDC,
-        CONTRACTS.MockJejuUSDC, // Same token on dest chain for test
+        CONTRACTS.MockNetworkUSDC,
+        CONTRACTS.MockNetworkUSDC, // Same token on dest chain for test
         inputAmount,
         minOutputAmount,
         account.address, // Recipient
@@ -316,7 +316,7 @@ async function main() {
       details: {
         "Intent ID": intentId || "Not found in logs",
         "Input Amount": "10 USDC",
-        "Dest Chain": "420690 (Jeju Testnet)",
+        "Dest Chain": "420690 (Network Testnet)",
       },
     });
 
@@ -366,7 +366,7 @@ async function main() {
   try {
     const approveAmount = parseUnits("1000", 6);
     const tx = await walletClient.writeContract({
-      address: CONTRACTS.MockJejuUSDC,
+      address: CONTRACTS.MockNetworkUSDC,
       abi: ERC20_ABI,
       functionName: "approve",
       args: [CONTRACTS.OutputSettler, approveAmount],
@@ -398,7 +398,7 @@ async function main() {
         testOrderId,
         account.address, // Solver
         account.address, // Recipient
-        CONTRACTS.MockJejuUSDC,
+        CONTRACTS.MockNetworkUSDC,
         fillAmount,
       ],
     });

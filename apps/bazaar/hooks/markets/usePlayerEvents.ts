@@ -1,5 +1,5 @@
 /**
- * Generic hook for fetching player events from any game using Jeju contracts
+ * Generic hook for fetching player events from any game using the network contracts
  * 
  * Tracks player activity: skills, deaths, kills, achievements
  * Works with any game that uses GameIntegration.sol
@@ -147,7 +147,7 @@ interface PlayerEventsResponse {
 
 /**
  * Fetch player events from the indexer
- * Generic hook that works with any game using Jeju's GameIntegration
+ * Generic hook that works with any game using the network's GameIntegration
  * 
  * @param playerAddress - The player's wallet address
  */

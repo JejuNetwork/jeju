@@ -4,7 +4,7 @@
  * Renders the wallet UI in the extension popup window.
  * Uses the same React app as web/mobile with extension-specific adaptations.
  * 
- * Fully permissionless - uses Jeju RPC infrastructure, no external API keys.
+ * Fully permissionless - uses Network RPC infrastructure, no external API keys.
  */
 
 import React from 'react';
@@ -16,7 +16,7 @@ import { injected } from 'wagmi/connectors';
 import App from '../../App';
 import '../../index.css';
 
-// Jeju RPC - open API, no keys required
+// Network RPC - open API, no keys required
 const JEJU_RPC = 'https://rpc.jeju.network';
 
 // Wagmi config for extension - fully permissionless

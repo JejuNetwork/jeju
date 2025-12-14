@@ -85,7 +85,7 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
     );
     event CreditManagerUpdated(address indexed oldManager, address indexed newManager);
     event ServiceRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
-    event JejuTokenUpdated(address indexed oldToken, address indexed newToken);
+    event NativeTokenUpdated(address indexed oldToken, address indexed newToken);
 
     // ============ Errors ============
 
@@ -318,10 +318,10 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
         emit ServiceRegistryUpdated(oldRegistry, newRegistry);
     }
 
-    function setJejuToken(address _jeju) external onlyOwner {
+    function setNetworkToken(address _jeju) external onlyOwner {
         address oldToken = address(jeju);
         jeju = IERC20(_jeju);
-        emit JejuTokenUpdated(oldToken, _jeju);
+        emit NativeTokenUpdated(oldToken, _jeju);
     }
 
     function depositToEntryPoint() external payable onlyOwner {

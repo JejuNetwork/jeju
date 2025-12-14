@@ -48,7 +48,7 @@ test.describe('Complete Swap Flow with Wallet', () => {
     expect(await outputSelect.inputValue()).toBe('USDC');
     
     // 4. Verify swap button shows
-    const swapButton = page.locator('button').filter({ hasText: /Swap|Switch to Jeju|Connect Wallet/i }).first();
+    const swapButton = page.locator('button').filter({ hasText: /Swap|Switch to the network|Connect Wallet/i }).first();
     await expect(swapButton).toBeVisible();
     
     const buttonText = await swapButton.textContent();

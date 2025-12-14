@@ -2,7 +2,7 @@
  * @fileoverview Leaderboard core library exports
  * @module leaderboard/lib
  * 
- * Core utilities for the Jeju contribution leaderboard system including:
+ * Core utilities for the contribution leaderboard system including:
  * - GitHub data ingestion and processing
  * - Contributor scoring and ranking algorithms
  * - Repository analysis and statistics

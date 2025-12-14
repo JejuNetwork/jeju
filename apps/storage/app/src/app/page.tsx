@@ -152,7 +152,7 @@ export default function DashboardPage() {
       <section className="py-6 sm:py-8 md:py-12 lg:py-16">
         <div className="text-center mb-6 sm:mb-8 md:mb-12">
           <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mb-2 sm:mb-3">
-            Why Use Jeju Storage?
+            Why Use Network Storage?
           </h2>
           <p className="text-sm sm:text-base md:text-lg max-w-2xl mx-auto px-4" style={{ color: 'var(--text-secondary)' }}>
             Built for the decentralized web, powered by multiple storage providers

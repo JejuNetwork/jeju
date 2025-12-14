@@ -289,7 +289,7 @@ export function SettingsView() {
               
               <SettingToggle
                 title="MEV Protection"
-                description="Send swaps through Jeju's private mempool to prevent front-running"
+                description="Send swaps through the network's private mempool to prevent front-running"
                 enabled={settings.mevProtection}
                 onChange={(v) => updateSetting('mevProtection', v)}
               />
@@ -350,8 +350,8 @@ export function SettingsView() {
 
       <div className="pt-6 border-t border-border">
         <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>Jeju Wallet v0.1.0</span>
-          <span>Powered by Jeju Network</span>
+          <span>Network Wallet v0.1.0</span>
+          <span>Powered by the network</span>
         </div>
       </div>
     </div>

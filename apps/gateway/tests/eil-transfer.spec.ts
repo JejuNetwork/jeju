@@ -142,7 +142,7 @@ test.describe('XLP Dashboard', () => {
     // If showing registration, should have chain selector
     const hasChains = await page.locator('text=Supported Chains').isVisible()
     if (hasChains) {
-      await expect(page.locator('text=Jeju Mainnet')).toBeVisible()
+      await expect(page.locator('text=Network Mainnet')).toBeVisible()
       await expect(page.locator('text=Base')).toBeVisible()
     }
   })

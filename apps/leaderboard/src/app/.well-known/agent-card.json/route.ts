@@ -5,11 +5,11 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://jejunetwork.github
 export async function GET() {
   return NextResponse.json({
     protocolVersion: '0.3.0',
-    name: 'Jeju Leaderboard',
-    description: 'Contributor analytics and rankings for the Jeju Network',
+    name: getNetworkName() Leaderboard',
+    description: 'Contributor analytics and rankings for the Network',
     url: `${BASE_URL}/api/a2a`,
     preferredTransport: 'http',
-    provider: { organization: 'Jeju Network', url: 'https://jeju.network' },
+    provider: { organization: 'the network', url: 'https://jeju.network' },
     version: '1.0.0',
     capabilities: { streaming: false, pushNotifications: false, stateTransitionHistory: false },
     defaultInputModes: ['text', 'data'],

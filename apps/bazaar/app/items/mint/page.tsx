@@ -29,7 +29,7 @@ export default function MintNFTPage() {
           🖼️ Mint New Item
         </h1>
         <p style={{ color: 'var(--text-secondary)' }}>
-          Create your own NFT on the Jeju network
+          Create your own NFT on the network
         </p>
       </div>
 

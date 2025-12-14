@@ -1,5 +1,5 @@
 /**
- * @fileoverview Account Abstraction (ERC-4337) utilities for Jeju contracts
+ * @fileoverview Account Abstraction (ERC-4337) utilities for network contracts
  * @module @jejunetwork/contracts/aa
  *
  * This module provides helpers for gasless transactions using ERC-4337.

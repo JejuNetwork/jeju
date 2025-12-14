@@ -8,15 +8,17 @@
   "commands": {
     "dev": "bun run dev",
     "build": "bun run build",
-    "start": "bun run start"
+    "start": "bun run start",
+    "test": "bun run test"
   },
   "ports": {
     "main": 4350,
-    "api": 4350
+    "api": 4350,
+    "database": 5432
   },
-  "dependencies": ["localnet"],
-  "optional": true,
-  "enabled": false,
+  "dependencies": ["contracts"],
+  "optional": false,
+  "enabled": true,
   "autoStart": false,
   "tags": ["indexer", "graphql", "data", "jns"],
   "jns": {
@@ -33,6 +35,29 @@
     },
     "trustModels": ["open"],
     "jnsName": "indexer.jeju"
+  },
+  "healthCheck": {
+    "url": "http://localhost:4350/graphql",
+    "interval": 30000
+  },
+  "testing": {
+    "unit": {
+      "command": "bun test",
+      "timeout": 120000
+    },
+    "integration": {
+      "command": "bun test --grep integration",
+      "timeout": 180000,
+      "requiresChain": true,
+      "requiresServices": true
+    },
+    "e2e": {
+      "command": "bunx playwright test",
+      "timeout": 300000,
+      "requiresChain": true
+    },
+    "services": ["postgres", "chain"],
+    "dependencies": []
   }
 }
 

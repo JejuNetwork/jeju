@@ -234,7 +234,7 @@ async function setupVendorApps(): Promise<string[]> {
 }
 
 async function main() {
-  console.log('🔧 Setting up Jeju workspace...\n');
+  console.log('🔧 Setting up network workspace...\n');
 
   // 1. Initialize git submodules (contract libs)
   // Note: This is optional - submodules can be initialized manually if needed

@@ -247,12 +247,12 @@ const IDENTITY_REGISTRY_ABI = [
 
 export const CHAIN_CONFIGS: Record<number, { name: string; rpcUrl: string; usdc: Address }> = {
   420691: {
-    name: 'Jeju',
+    name: 'Network',
     rpcUrl: process.env.JEJU_RPC_URL || 'http://127.0.0.1:9545',
     usdc: '0x0165878A594ca255338adfa4d48449f69242Eb8F' as Address,
   },
   420690: {
-    name: 'Jeju Testnet',
+    name: 'Testnet',
     rpcUrl: 'https://testnet-rpc.jeju.network',
     usdc: '0x0000000000000000000000000000000000000000' as Address,
   },
@@ -674,7 +674,7 @@ export const HTTP_FACILITATOR_REGISTRY: HttpFacilitatorConfig[] = [
     url: process.env.JEJU_FACILITATOR_URL || 'http://localhost:3402',
     priority: 1,
     networks: ['jeju', 'jeju-testnet'],
-    name: 'Jeju Facilitator',
+    name: getNetworkName() Facilitator',
   },
   {
     url: 'https://x402.org/facilitator',

@@ -1,5 +1,5 @@
 /**
- * Test fixtures for Jeju Network testing
+ * Test fixtures for the network testing
  */
 export * from './wallet';
 export * from './synpress-wallet';

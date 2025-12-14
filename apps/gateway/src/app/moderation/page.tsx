@@ -431,7 +431,7 @@ export default function ModerationDashboard() {
           <div className="space-y-6">
             <h2 className="text-2xl font-bold">Network & App Bans</h2>
             <p className="text-gray-600">
-              Bans restrict access to the Jeju network and individual applications. All bans go through governance process.
+              Bans restrict access to the network and individual applications. All bans go through governance process.
             </p>
             
             <div className="grid md:grid-cols-2 gap-6">
@@ -441,7 +441,7 @@ export default function ModerationDashboard() {
                   Network Bans
                 </h3>
                 <p className="text-sm text-gray-600 mb-4">
-                  Complete removal from Jeju network. Applies to all apps and services. Requires high severity evidence.
+                  Complete removal from the network network. Applies to all apps and services. Requires high severity evidence.
                 </p>
                 <ul className="space-y-2 text-sm">
                   <li className="flex items-center gap-2 text-gray-700">
@@ -465,7 +465,7 @@ export default function ModerationDashboard() {
                   App-Specific Bans
                 </h3>
                 <p className="text-sm text-gray-600 mb-4">
-                  Restricted from specific application only. User can still access other Jeju apps and services.
+                  Restricted from specific application only. User can still access other network apps and services.
                 </p>
                 <ul className="space-y-2 text-sm">
                   <li className="flex items-center gap-2 text-gray-700">
@@ -569,7 +569,7 @@ function ReportCard({ reportId }: { reportId: bigint }) {
                 if (cid && cid.startsWith('Qm')) {
                   window.open(`https://ipfs.io/ipfs/${cid}`, '_blank');
                 } else {
-                  // Fallback: try using Jeju IPFS gateway with raw hash
+                  // Fallback: try using the network IPFS gateway with raw hash
                   window.open(`${IPFS_GATEWAY_URL}/ipfs/${cid || hash}`, '_blank');
                 }
               }

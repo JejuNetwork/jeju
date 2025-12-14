@@ -1,0 +1,318 @@
+# Jeju Test Infrastructure
+# Real services for integration/e2e testing - NO MOCKS
+#
+# Profiles:
+#   - chain: L1 + L2 only
+#   - services: Indexer, Oracle, Storage
+#   - apps: Gateway, Wallet, Bazaar, etc.
+#   - full: Everything including multi-chain
+#   - solana: Solana devnet for cross-chain testing
+#
+# Usage:
+#   docker compose -f docker-compose.test.yml --profile chain up -d
+#   docker compose -f docker-compose.test.yml --profile full up -d
+
+x-healthcheck-defaults: &healthcheck-defaults
+  interval: 10s
+  timeout: 5s
+  retries: 5
+  start_period: 10s
+
+services:
+  # ============================================================================
+  # CHAIN LAYER
+  # ============================================================================
+  
+  geth-l1:
+    image: ethereum/client-go:v1.14.12
+    profiles: [chain, services, apps, full]
+    container_name: jeju-l1
+    ports:
+      - "8545:8545"
+      - "8546:8546"
+    command:
+      - --dev
+      - --dev.period=1
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      - --http.api=eth,net,web3,debug,personal,admin,txpool
+      - --http.corsdomain=*
+      - --http.vhosts=*
+      - --ws
+      - --ws.addr=0.0.0.0
+      - --ws.port=8546
+      - --ws.api=eth,net,web3
+      - --ws.origins=*
+      - --nodiscover
+      - --maxpeers=0
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "wget", "-qO-", "http://localhost:8545"]
+    networks:
+      - jeju-test
+
+  op-geth:
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:v1.101603.5
+    profiles: [chain, services, apps, full]
+    container_name: jeju-l2
+    depends_on:
+      geth-l1:
+        condition: service_healthy
+    ports:
+      - "9545:9545"
+      - "9546:9546"
+    command:
+      - --dev
+      - --dev.period=2
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=9545
+      - --http.api=eth,net,web3,debug,txpool,admin
+      - --http.corsdomain=*
+      - --http.vhosts=*
+      - --ws
+      - --ws.addr=0.0.0.0
+      - --ws.port=9546
+      - --ws.api=eth,net,web3,debug
+      - --ws.origins=*
+      - --nodiscover
+      - --maxpeers=0
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "wget", "-qO-", "http://localhost:9545"]
+    networks:
+      - jeju-test
+
+  # ============================================================================
+  # DATABASE LAYER
+  # ============================================================================
+
+  postgres:
+    image: postgres:16-alpine
+    profiles: [services, apps, full]
+    container_name: jeju-postgres
+    environment:
+      POSTGRES_USER: jeju
+      POSTGRES_PASSWORD: jeju
+      POSTGRES_DB: jeju
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD-SHELL", "pg_isready -U jeju"]
+    networks:
+      - jeju-test
+
+  redis:
+    image: redis:7-alpine
+    profiles: [services, apps, full]
+    container_name: jeju-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "redis-cli", "ping"]
+    networks:
+      - jeju-test
+
+  # ============================================================================
+  # INDEXER (Subsquid)
+  # ============================================================================
+
+  indexer:
+    build:
+      context: ../../apps/indexer
+      dockerfile: Dockerfile
+    profiles: [services, apps, full]
+    container_name: jeju-indexer
+    depends_on:
+      postgres:
+        condition: service_healthy
+      op-geth:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: jeju_indexer
+      DB_USER: jeju
+      DB_PASS: jeju
+      RPC_ETH_HTTP: http://op-geth:9545
+      CHAIN_ID: 1337
+      START_BLOCK: 0
+      GQL_PORT: 4350
+    ports:
+      - "4350:4350"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "wget", "-qO-", "http://localhost:4350/graphql"]
+    networks:
+      - jeju-test
+
+  # ============================================================================
+  # STORAGE (IPFS)
+  # ============================================================================
+
+  ipfs:
+    image: ipfs/kubo:latest
+    profiles: [services, apps, full]
+    container_name: jeju-ipfs
+    ports:
+      - "4001:4001"       # P2P
+      - "5001:5001"       # API
+      - "8080:8080"       # Gateway
+    volumes:
+      - ipfs-data:/data/ipfs
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD-SHELL", "ipfs id || exit 1"]
+    networks:
+      - jeju-test
+
+  # ============================================================================
+  # ORACLE SERVICE
+  # ============================================================================
+
+  oracle:
+    build:
+      context: ../../apps/oracle
+      dockerfile: Dockerfile
+    profiles: [services, apps, full]
+    container_name: jeju-oracle
+    depends_on:
+      op-geth:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      RPC_URL: http://op-geth:9545
+      REDIS_URL: redis://redis:6379
+      PORT: 4301
+      CHAIN_ID: 1337
+    ports:
+      - "4301:4301"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "wget", "-qO-", "http://localhost:4301/health"]
+    networks:
+      - jeju-test
+
+  # ============================================================================
+  # MONITORING
+  # ============================================================================
+
+  prometheus:
+    image: prom/prometheus:latest
+    profiles: [full]
+    container_name: jeju-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../../apps/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - jeju-test
+
+  grafana:
+    image: grafana/grafana:latest
+    profiles: [full]
+    container_name: jeju-grafana
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "4010:3000"
+    volumes:
+      - ../../apps/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ../../apps/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - jeju-test
+
+  # ============================================================================
+  # SOLANA (for cross-chain testing)
+  # ============================================================================
+
+  solana:
+    image: solanalabs/solana:v1.18.22
+    profiles: [solana, full]
+    container_name: jeju-solana
+    ports:
+      - "8899:8899"      # RPC
+      - "8900:8900"      # Pubsub
+      - "9900:9900"      # Faucet
+    command:
+      - solana-test-validator
+      - --ledger=/ledger
+      - --rpc-port=8899
+      - --faucet-port=9900
+      - --no-bpf-jit
+      - --reset
+    volumes:
+      - solana-ledger:/ledger
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD-SHELL", "solana --url http://localhost:8899 cluster-version || exit 1"]
+    networks:
+      - jeju-test
+
+  # ============================================================================
+  # ARBITRUM (for cross-chain testing)
+  # ============================================================================
+
+  arbitrum:
+    image: offchainlabs/nitro-node:v2.3.4-rc.3
+    profiles: [full]
+    container_name: jeju-arbitrum
+    ports:
+      - "8547:8547"
+    command:
+      - --dev
+      - --http.addr=0.0.0.0
+      - --http.port=8547
+      - --http.api=eth,net,web3,debug
+      - --http.corsdomain=*
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "wget", "-qO-", "http://localhost:8547"]
+    networks:
+      - jeju-test
+
+  # ============================================================================
+  # BASE (for cross-chain testing)
+  # ============================================================================
+
+  base:
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:v1.101603.5
+    profiles: [full]
+    container_name: jeju-base
+    ports:
+      - "8548:8548"
+    command:
+      - --dev
+      - --dev.period=2
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=8548
+      - --http.api=eth,net,web3,debug
+      - --http.corsdomain=*
+      - --nodiscover
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "wget", "-qO-", "http://localhost:8548"]
+    networks:
+      - jeju-test
+
+networks:
+  jeju-test:
+    name: jeju-test
+    driver: bridge
+
+volumes:
+  postgres-data:
+  ipfs-data:
+  solana-ledger:
+

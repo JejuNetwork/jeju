@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 /**
- * Jeju Compute Network - Provider Onboarding
+ * Network Compute Network - Provider Onboarding
  *
- * This script helps providers join the Jeju compute network.
+ * This script helps providers join the compute network.
  * It handles:
  * 1. Wallet setup and funding check
  * 2. Contract registration with stake
@@ -79,7 +79,7 @@ const INFERENCE_ABI = [
 ];
 
 async function main() {
-  console.log('\n🚀 Jeju Compute Network - Provider Onboarding\n');
+  console.log('\n🚀 Compute Network - Provider Onboarding\n');
   console.log('='.repeat(50));
 
   // 1. Check environment

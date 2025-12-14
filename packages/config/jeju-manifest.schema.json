@@ -1,158 +1,148 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Jeju App Manifest",
-  "description": "Manifest file for Jeju applications (both core apps and vendor apps)",
+  "description": "Configuration for Jeju Network applications",
   "type": "object",
-  "required": ["name", "displayName", "version", "type"],
+  "required": ["name", "version"],
   "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Schema reference"
+    },
     "name": {
       "type": "string",
-      "pattern": "^[a-z0-9-]+$",
-      "description": "Unique identifier (kebab-case)"
+      "description": "App identifier (lowercase, no spaces)"
     },
     "displayName": {
       "type": "string",
-      "description": "Human-readable name"
+      "description": "Human-readable app name"
     },
     "version": {
       "type": "string",
-      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-z0-9.]+)?$",
+      "pattern": "^\\d+\\.\\d+\\.\\d+",
       "description": "Semantic version"
     },
     "type": {
       "type": "string",
-      "enum": ["core", "vendor", "service"],
-      "description": "App type: core (apps/), vendor (vendor/), service (MCP+A2A service)"
+      "enum": ["core", "service", "utility", "vendor"],
+      "description": "App category"
     },
     "description": {
       "type": "string",
-      "description": "Brief description of the app"
+      "description": "App description"
     },
     "commands": {
       "type": "object",
-      "description": "Available commands for this app",
+      "description": "Available commands",
       "properties": {
         "dev": { "type": "string" },
         "build": { "type": "string" },
-        "test": { "type": "string" },
-        "start": { "type": "string" }
+        "start": { "type": "string" },
+        "test": { "type": "string" }
       }
     },
     "ports": {
       "type": "object",
-      "description": "Port configuration",
+      "description": "Port assignments",
       "properties": {
-        "main": { "type": "number" },
-        "api": { "type": "number" },
-        "ui": { "type": "number" },
-        "game": { "type": "number" },
-        "auth": { "type": "number" },
-        "a2a": { "type": "number", "description": "Separate port for A2A server if not on main" },
-        "mcp": { "type": "number", "description": "Separate port for MCP server if not on main" }
+        "main": { "type": "integer" },
+        "api": { "type": "integer" },
+        "ws": { "type": "integer" }
       }
     },
     "dependencies": {
       "type": "array",
-      "items": {
-        "type": "string",
-        "enum": ["contracts", "config", "shared", "scripts", "indexer", "localnet"]
-      },
-      "description": "Required Jeju dependencies"
+      "items": { "type": "string" },
+      "description": "Required packages/apps"
     },
     "optional": {
       "type": "boolean",
-      "default": true,
-      "description": "Whether this app is optional (won't fail dev if missing)"
+      "default": false
     },
     "enabled": {
       "type": "boolean",
-      "default": true,
-      "description": "Whether this app should be started"
+      "default": true
     },
     "autoStart": {
       "type": "boolean",
-      "default": true,
-      "description": "Whether to auto-start with 'bun run dev'"
+      "default": false,
+      "description": "Auto-start with jeju dev"
     },
     "tags": {
       "type": "array",
-      "items": { "type": "string" },
-      "description": "Category tags (defi, gaming, monitoring, etc.)"
+      "items": { "type": "string" }
     },
     "healthCheck": {
       "type": "object",
       "properties": {
         "url": { "type": "string" },
-        "interval": { "type": "number" }
+        "interval": { "type": "integer" }
       }
     },
     "jns": {
       "type": "object",
-      "description": "Jeju Name Service configuration",
+      "description": "JNS registration info",
       "properties": {
-        "name": { "type": "string", "description": "JNS name (e.g., bazaar.jeju)" },
+        "name": { "type": "string" },
         "description": { "type": "string" },
-        "url": { "type": "string", "description": "Public URL" }
+        "url": { "type": "string" }
       }
     },
     "agent": {
       "type": "object",
-      "description": "ERC-8004 agent registration and protocol configuration",
+      "description": "A2A/MCP agent configuration",
       "properties": {
-        "enabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Whether to register as ERC-8004 agent"
-        },
-        "a2aEndpoint": {
-          "type": "string",
-          "description": "A2A endpoint path or full URL (e.g., /a2a, /api/a2a, http://localhost:4003/a2a)"
-        },
-        "mcpEndpoint": {
-          "type": "string",
-          "description": "MCP endpoint path or full URL (e.g., /mcp, /api/mcp)"
-        },
-        "tags": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "Agent discovery tags (e.g., jeju-app, defi, storage)"
-        },
-        "metadata": {
+        "enabled": { "type": "boolean" },
+        "a2aEndpoint": { "type": "string" },
+        "mcpEndpoint": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "metadata": { "type": "object" },
+        "trustModels": { "type": "array", "items": { "type": "string" } },
+        "x402Support": { "type": "boolean" },
+        "jnsName": { "type": "string" }
+      }
+    },
+    "testing": {
+      "type": "object",
+      "description": "Test configuration",
+      "properties": {
+        "unit": {
           "type": "object",
-          "description": "Additional agent metadata",
           "properties": {
-            "category": { "type": "string", "description": "Service category (defi, storage, compute, etc.)" },
-            "provider": { "type": "string" },
-            "features": {
-              "type": "array",
-              "items": { "type": "string" }
-            }
+            "command": { "type": "string" },
+            "timeout": { "type": "integer", "default": 120000 }
           }
         },
-        "trustModels": {
+        "integration": {
+          "type": "object",
+          "properties": {
+            "command": { "type": "string" },
+            "timeout": { "type": "integer", "default": 180000 },
+            "requiresChain": { "type": "boolean", "default": true },
+            "requiresServices": { "type": "boolean", "default": true }
+          }
+        },
+        "e2e": {
+          "type": "object",
+          "properties": {
+            "command": { "type": "string" },
+            "config": { "type": "string" },
+            "timeout": { "type": "integer", "default": 300000 },
+            "requiresChain": { "type": "boolean", "default": true },
+            "requiresWallet": { "type": "boolean", "default": false }
+          }
+        },
+        "services": {
           "type": "array",
-          "items": {
-            "type": "string",
-            "enum": ["open", "staked", "verified", "permissioned"]
-          },
-          "description": "Supported trust models"
+          "items": { "type": "string" },
+          "description": "Required services for testing"
         },
-        "x402Support": {
-          "type": "boolean",
-          "default": false,
-          "description": "Whether service supports x402 micropayments"
-        },
-        "multiTokenPayments": {
-          "type": "boolean",
-          "default": false,
-          "description": "Whether service supports ERC-4337 multi-token payments"
-        },
-        "jnsName": {
-          "type": "string",
-          "description": "JNS name for this agent"
+        "dependencies": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Other apps needed for testing"
         }
       }
     }
   }
 }
-

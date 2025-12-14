@@ -13,7 +13,6 @@ import { join } from 'path';
 async function globalTeardown(config: FullConfig) {
   console.log('\n🧹 Global Teardown Starting...\n');
 
-<<<<<<< HEAD
   const outputDir = join(process.cwd(), 'test-results');
   
   // Read test environment info
@@ -36,6 +35,3 @@ async function globalTeardown(config: FullConfig) {
 }
 
 export default globalTeardown;
-=======
-
->>>>>>> ce93f6602d8df3d6439e58ca13a16c27c167be8b

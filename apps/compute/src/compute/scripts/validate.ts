@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Jeju Compute - Comprehensive Validation Script
+ * Network Compute - Comprehensive Validation Script
  * 
  * Validates:
  * 1. Local Node - Starts and tests a local compute node

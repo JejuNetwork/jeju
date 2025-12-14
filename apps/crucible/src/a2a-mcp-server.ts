@@ -7,6 +7,8 @@
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { createAgentCard, getServiceName } from '@jejunetwork/shared';
+import { getCliBranding } from '@jejunetwork/config';
 
 // ============================================================================
 // Types
@@ -28,43 +30,43 @@ interface A2ARequest {
 // Configuration
 // ============================================================================
 
+const CRUCIBLE_SKILLS = [
+  // Compute Skills
+  { id: 'list-providers', name: 'List Providers', description: 'List available compute providers', tags: ['query', 'providers'] },
+  { id: 'get-provider', name: 'Get Provider', description: 'Get compute provider details', tags: ['query', 'provider'] },
+  { id: 'request-compute', name: 'Request Compute', description: 'Request compute resources', tags: ['action', 'compute'] },
+  { id: 'get-job-status', name: 'Get Job Status', description: 'Check compute job status', tags: ['query', 'job'] },
+  { id: 'cancel-job', name: 'Cancel Job', description: 'Cancel a running job', tags: ['action', 'job'] },
+  
+  // TEE Skills
+  { id: 'list-tee-nodes', name: 'List TEE Nodes', description: 'List available TEE nodes', tags: ['query', 'tee'] },
+  { id: 'verify-attestation', name: 'Verify Attestation', description: 'Verify TEE attestation', tags: ['action', 'attestation'] },
+  { id: 'deploy-to-tee', name: 'Deploy to TEE', description: 'Deploy workload to TEE', tags: ['action', 'tee'] },
+  
+  // Inference Skills
+  { id: 'list-models', name: 'List Models', description: 'List available inference models', tags: ['query', 'inference'] },
+  { id: 'run-inference', name: 'Run Inference', description: 'Run model inference', tags: ['action', 'inference'] },
+  { id: 'get-inference-price', name: 'Get Inference Price', description: 'Get pricing for inference', tags: ['query', 'pricing'] },
+  
+  // Storage Skills
+  { id: 'upload-to-storage', name: 'Upload to Storage', description: 'Upload data to decentralized storage', tags: ['action', 'storage'] },
+  { id: 'download-from-storage', name: 'Download from Storage', description: 'Download data from storage', tags: ['action', 'storage'] },
+];
+
 const AGENT_CARD = {
-  protocolVersion: '0.3.0',
-  name: 'Jeju Crucible',
-  description: 'Decentralized compute orchestration with TEE support',
-  url: '/a2a',
-  preferredTransport: 'http',
-  provider: { organization: 'Jeju Network', url: 'https://jeju.network' },
-  version: '1.0.0',
+  ...createAgentCard({
+    name: 'Crucible',
+    description: 'Decentralized compute orchestration with TEE support',
+    url: '/a2a',
+    skills: CRUCIBLE_SKILLS,
+  }),
   capabilities: { streaming: true, pushNotifications: false, stateTransitionHistory: true },
-  defaultInputModes: ['text', 'data'],
-  defaultOutputModes: ['text', 'data'],
-  skills: [
-    // Compute Skills
-    { id: 'list-providers', name: 'List Providers', description: 'List available compute providers', tags: ['query', 'providers'] },
-    { id: 'get-provider', name: 'Get Provider', description: 'Get compute provider details', tags: ['query', 'provider'] },
-    { id: 'request-compute', name: 'Request Compute', description: 'Request compute resources', tags: ['action', 'compute'] },
-    { id: 'get-job-status', name: 'Get Job Status', description: 'Check compute job status', tags: ['query', 'job'] },
-    { id: 'cancel-job', name: 'Cancel Job', description: 'Cancel a running job', tags: ['action', 'job'] },
-    
-    // TEE Skills
-    { id: 'list-tee-nodes', name: 'List TEE Nodes', description: 'List available TEE nodes', tags: ['query', 'tee'] },
-    { id: 'verify-attestation', name: 'Verify Attestation', description: 'Verify TEE attestation', tags: ['action', 'attestation'] },
-    { id: 'deploy-to-tee', name: 'Deploy to TEE', description: 'Deploy workload to TEE', tags: ['action', 'tee'] },
-    
-    // Inference Skills
-    { id: 'list-models', name: 'List Models', description: 'List available inference models', tags: ['query', 'inference'] },
-    { id: 'run-inference', name: 'Run Inference', description: 'Run model inference', tags: ['action', 'inference'] },
-    { id: 'get-inference-price', name: 'Get Inference Price', description: 'Get pricing for inference', tags: ['query', 'pricing'] },
-    
-    // Storage Skills
-    { id: 'upload-to-storage', name: 'Upload to Storage', description: 'Upload data to decentralized storage', tags: ['action', 'storage'] },
-    { id: 'download-from-storage', name: 'Download from Storage', description: 'Download data from storage', tags: ['action', 'storage'] },
-  ],
 };
 
+const cliBranding = getCliBranding();
+
 const MCP_SERVER_INFO = {
-  name: 'jeju-crucible',
+  name: `${cliBranding.name}-crucible`,
   version: '1.0.0',
   description: 'Decentralized compute orchestration with TEE support',
   capabilities: { resources: true, tools: true, prompts: false },
@@ -269,7 +271,7 @@ export function createCrucibleServer(): Hono {
   app.route('/mcp', createCrucibleMCPServer());
   
   app.get('/', (c) => c.json({
-    name: 'Jeju Crucible',
+    name: getServiceName('Crucible'),
     version: '1.0.0',
     endpoints: { a2a: '/a2a', mcp: '/mcp', agentCard: '/a2a/.well-known/agent-card.json' },
   }));

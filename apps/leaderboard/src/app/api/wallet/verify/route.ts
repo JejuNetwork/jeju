@@ -309,5 +309,5 @@ Nonce: ${nonce}
 Domain: ${VERIFICATION_DOMAIN}
 Purpose: ERC-8004 Identity Verification
 
-This signature proves wallet ownership and allows reputation attestation on the Jeju Network.`;
+This signature proves wallet ownership and allows reputation attestation on the Network.`;
 }

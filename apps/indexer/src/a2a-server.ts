@@ -7,6 +7,7 @@
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { createAgentCard, getServiceName } from '@jejunetwork/shared';
 
 // ============================================================================
 // Types
@@ -33,57 +34,53 @@ interface SkillResult {
 // Agent Card
 // ============================================================================
 
+const INDEXER_SKILLS = [
+  // Block/Transaction Skills
+  { id: 'get-block', name: 'Get Block', description: 'Get block by number or hash', tags: ['query', 'block'] },
+  { id: 'get-transaction', name: 'Get Transaction', description: 'Get transaction by hash', tags: ['query', 'transaction'] },
+  { id: 'get-transactions', name: 'Get Transactions', description: 'Query transactions with filters', tags: ['query', 'transactions'] },
+  { id: 'get-logs', name: 'Get Event Logs', description: 'Query decoded event logs', tags: ['query', 'events'] },
+  
+  // Account Skills
+  { id: 'get-account', name: 'Get Account', description: 'Get account info including balance and nonce', tags: ['query', 'account'] },
+  { id: 'get-account-transactions', name: 'Get Account Transactions', description: 'Get transactions for an account', tags: ['query', 'account'] },
+  { id: 'get-token-balances', name: 'Get Token Balances', description: 'Get ERC20 token balances for an account', tags: ['query', 'tokens'] },
+  { id: 'get-nft-holdings', name: 'Get NFT Holdings', description: 'Get NFTs owned by an account', tags: ['query', 'nft'] },
+];
+
+const ALL_INDEXER_SKILLS = [
+  ...INDEXER_SKILLS,
+  // Contract Skills
+  { id: 'get-contract', name: 'Get Contract', description: 'Get contract info including ABI if verified', tags: ['query', 'contract'] },
+  { id: 'get-contract-events', name: 'Get Contract Events', description: 'Get events emitted by a contract', tags: ['query', 'events'] },
+  { id: 'get-verified-contracts', name: 'Get Verified Contracts', description: 'List verified contracts', tags: ['query', 'verified'] },
+  // ERC-8004 Agent Skills
+  { id: 'get-agent', name: 'Get Agent', description: 'Get registered agent by ID', tags: ['query', 'agent'] },
+  { id: 'get-agents', name: 'Get Agents', description: 'Query registered agents with filters', tags: ['query', 'agents'] },
+  { id: 'get-agent-reputation', name: 'Get Agent Reputation', description: 'Get reputation metrics for an agent', tags: ['query', 'reputation'] },
+  { id: 'get-agent-activity', name: 'Get Agent Activity', description: 'Get on-chain activity for an agent', tags: ['query', 'activity'] },
+  // OIF/EIL Skills
+  { id: 'get-intent', name: 'Get Intent', description: 'Get cross-chain intent by ID', tags: ['query', 'oif'] },
+  { id: 'get-intents', name: 'Get Intents', description: 'Query intents with filters', tags: ['query', 'oif'] },
+  { id: 'get-solver', name: 'Get Solver', description: 'Get solver info and statistics', tags: ['query', 'solver'] },
+  { id: 'get-xlp', name: 'Get XLP', description: 'Get cross-chain liquidity provider info', tags: ['query', 'xlp'] },
+  // Governance Skills
+  { id: 'get-proposal', name: 'Get Proposal', description: 'Get governance proposal by ID', tags: ['query', 'governance'] },
+  { id: 'get-proposals', name: 'Get Proposals', description: 'Query governance proposals', tags: ['query', 'governance'] },
+  { id: 'get-votes', name: 'Get Votes', description: 'Get votes for a proposal', tags: ['query', 'votes'] },
+  // Statistics Skills
+  { id: 'get-network-stats', name: 'Get Network Stats', description: 'Get overall network statistics', tags: ['query', 'stats'] },
+  { id: 'get-token-stats', name: 'Get Token Stats', description: 'Get token transfer statistics', tags: ['query', 'stats'] },
+  { id: 'get-defi-stats', name: 'Get DeFi Stats', description: 'Get DeFi protocol statistics', tags: ['query', 'stats'] },
+];
+
 const AGENT_CARD = {
-  protocolVersion: '0.3.0',
-  name: 'Jeju Indexer',
-  description: 'Blockchain data indexing service providing fast queries for on-chain events, transactions, and state',
-  url: '/a2a',
-  preferredTransport: 'http',
-  provider: { organization: 'Jeju Network', url: 'https://jeju.network' },
-  version: '1.0.0',
+  ...createAgentCard({
+    name: 'Indexer',
+    description: 'Blockchain data indexing service providing fast queries for on-chain events, transactions, and state',
+    skills: ALL_INDEXER_SKILLS,
+  }),
   capabilities: { streaming: false, pushNotifications: false, stateTransitionHistory: true },
-  defaultInputModes: ['text', 'data'],
-  defaultOutputModes: ['text', 'data'],
-  skills: [
-    // Block/Transaction Skills
-    { id: 'get-block', name: 'Get Block', description: 'Get block by number or hash', tags: ['query', 'block'] },
-    { id: 'get-transaction', name: 'Get Transaction', description: 'Get transaction by hash', tags: ['query', 'transaction'] },
-    { id: 'get-transactions', name: 'Get Transactions', description: 'Query transactions with filters', tags: ['query', 'transactions'] },
-    { id: 'get-logs', name: 'Get Event Logs', description: 'Query decoded event logs', tags: ['query', 'events'] },
-    
-    // Account Skills
-    { id: 'get-account', name: 'Get Account', description: 'Get account info including balance and nonce', tags: ['query', 'account'] },
-    { id: 'get-account-transactions', name: 'Get Account Transactions', description: 'Get transactions for an account', tags: ['query', 'account'] },
-    { id: 'get-token-balances', name: 'Get Token Balances', description: 'Get ERC20 token balances for an account', tags: ['query', 'tokens'] },
-    { id: 'get-nft-holdings', name: 'Get NFT Holdings', description: 'Get NFTs owned by an account', tags: ['query', 'nft'] },
-    
-    // Contract Skills
-    { id: 'get-contract', name: 'Get Contract', description: 'Get contract info including ABI if verified', tags: ['query', 'contract'] },
-    { id: 'get-contract-events', name: 'Get Contract Events', description: 'Get events emitted by a contract', tags: ['query', 'events'] },
-    { id: 'get-verified-contracts', name: 'Get Verified Contracts', description: 'List verified contracts', tags: ['query', 'verified'] },
-    
-    // ERC-8004 Agent Skills
-    { id: 'get-agent', name: 'Get Agent', description: 'Get registered agent by ID', tags: ['query', 'agent'] },
-    { id: 'get-agents', name: 'Get Agents', description: 'Query registered agents with filters', tags: ['query', 'agents'] },
-    { id: 'get-agent-reputation', name: 'Get Agent Reputation', description: 'Get reputation metrics for an agent', tags: ['query', 'reputation'] },
-    { id: 'get-agent-activity', name: 'Get Agent Activity', description: 'Get on-chain activity for an agent', tags: ['query', 'activity'] },
-    
-    // OIF/EIL Skills
-    { id: 'get-intent', name: 'Get Intent', description: 'Get cross-chain intent by ID', tags: ['query', 'oif'] },
-    { id: 'get-intents', name: 'Get Intents', description: 'Query intents with filters', tags: ['query', 'oif'] },
-    { id: 'get-solver', name: 'Get Solver', description: 'Get solver info and statistics', tags: ['query', 'solver'] },
-    { id: 'get-xlp', name: 'Get XLP', description: 'Get cross-chain liquidity provider info', tags: ['query', 'xlp'] },
-    
-    // Governance Skills
-    { id: 'get-proposal', name: 'Get Proposal', description: 'Get governance proposal by ID', tags: ['query', 'governance'] },
-    { id: 'get-proposals', name: 'Get Proposals', description: 'Query governance proposals', tags: ['query', 'governance'] },
-    { id: 'get-votes', name: 'Get Votes', description: 'Get votes for a proposal', tags: ['query', 'votes'] },
-    
-    // Statistics Skills
-    { id: 'get-network-stats', name: 'Get Network Stats', description: 'Get overall network statistics', tags: ['query', 'stats'] },
-    { id: 'get-token-stats', name: 'Get Token Stats', description: 'Get token transfer statistics', tags: ['query', 'stats'] },
-    { id: 'get-defi-stats', name: 'Get DeFi Stats', description: 'Get DeFi protocol statistics', tags: ['query', 'stats'] },
-  ],
 };
 
 // ============================================================================

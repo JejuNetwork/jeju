@@ -12,7 +12,7 @@ import { type Address, createPublicClient, http, parseAbi } from 'viem';
 
 const JEJU_CHAIN = {
   id: 1337,
-  name: 'Jeju',
+  name: 'Network',
   network: 'jeju',
   nativeCurrency: { decimals: 18, name: 'Ether', symbol: 'ETH' },
   rpcUrls: {

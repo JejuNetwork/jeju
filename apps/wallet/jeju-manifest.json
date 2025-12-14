@@ -1,7 +1,7 @@
 {
   "$schema": "../../packages/config/jeju-manifest.schema.json",
   "name": "wallet",
-  "displayName": "Jeju Wallet",
+  "displayName": "Network Wallet",
   "version": "0.1.0",
   "type": "core",
   "description": "Agentic multi-chain wallet with seamless cross-chain UX. No chain switching, bridgeless transfers via EIL/OIF, account abstraction (ERC-4337), multi-token gas payment. Supports Ethereum, all major L2s, and Solana.",
@@ -13,7 +13,8 @@
     "build:extension": "bun run build:ext",
     "build:tauri": "bun run tauri build",
     "build:mobile": "bun run cap:build",
-    "start": "bun run preview"
+    "start": "bun run preview",
+    "test": "bun run test"
   },
   "ports": {
     "main": 4015,
@@ -36,9 +37,23 @@
     "capacitor",
     "solana"
   ],
+  "testing": {
+    "unit": {
+      "command": "bun test src/",
+      "timeout": 120000
+    },
+    "e2e": {
+      "command": "bunx playwright test",
+      "config": "synpress.config.ts",
+      "timeout": 600000,
+      "requiresChain": true,
+      "requiresWallet": true
+    },
+    "services": ["inference", "indexer"]
+  },
   "jns": {
     "name": "wallet.jeju",
-    "description": "Jeju Network Agentic Wallet",
+    "description": "Network Network Agentic Wallet",
     "url": "https://wallet.jeju.network"
   },
   "agent": {

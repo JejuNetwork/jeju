@@ -1,0 +1,18 @@
+{
+  "name": "{{APP_NAME}}",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "jeju dev --only={{APP_NAME}}",
+    "test": "jeju test --app={{APP_NAME}}",
+    "build": "bun run build:app",
+    "build:app": "bun build src/index.ts --outdir dist",
+    "start": "bun run dist/index.js"
+  },
+  "dependencies": {
+    "@jejunetwork/cli": "^0.1.0",
+    "@jejunetwork/contracts": "^0.2.0",
+    "@jejunetwork/types": "^0.1.0"
+  }
+}
+

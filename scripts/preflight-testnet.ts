@@ -59,7 +59,7 @@ async function checkNetworkConnectivity() {
   const networks = [
     { name: 'Sepolia', rpc: 'https://ethereum-sepolia-rpc.publicnode.com', expectedChainId: 11155111 },
     { name: 'Base Sepolia', rpc: 'https://sepolia.base.org', expectedChainId: 84532 },
-    { name: 'Jeju Testnet', rpc: 'https://testnet-rpc.jeju.network', expectedChainId: 420690 },
+    { name: 'Testnet', rpc: 'https://testnet-rpc.jeju.network', expectedChainId: 420690 },
   ];
   
   for (const net of networks) {
@@ -72,7 +72,7 @@ async function checkNetworkConnectivity() {
         addResult(`${net.name} RPC`, 'fail', `Wrong chain ID: ${network.chainId}, expected ${net.expectedChainId}`);
       }
     } catch (e) {
-      addResult(`${net.name} RPC`, net.name === 'Jeju Testnet' ? 'warn' : 'fail', `Not reachable: ${(e as Error).message.slice(0, 50)}`);
+      addResult(`${net.name} RPC`, net.name === 'Testnet' ? 'warn' : 'fail', `Not reachable: ${(e as Error).message.slice(0, 50)}`);
     }
   }
 }
@@ -174,7 +174,7 @@ async function checkEILTestnet() {
     if (eilDeployment.crossChainPaymaster && eilDeployment.crossChainPaymaster !== '') {
       addResult('EIL CrossChainPaymaster', 'pass', `Deployed: ${eilDeployment.crossChainPaymaster.slice(0, 15)}...`);
     } else {
-      addResult('EIL CrossChainPaymaster', 'warn', 'Not deployed - needs Jeju testnet RPC');
+      addResult('EIL CrossChainPaymaster', 'warn', 'Not deployed - needs network testnet RPC');
     }
     
     addResult('EIL Status', eilDeployment.status === 'complete' ? 'pass' : 'warn', eilDeployment.status);
@@ -211,7 +211,7 @@ async function checkEntryPoint() {
 
 async function main() {
   console.log('╔════════════════════════════════════════════════════════════════╗');
-  console.log('║           Jeju Testnet Deployment Preflight Check              ║');
+  console.log('║           Network Testnet Deployment Preflight Check              ║');
   console.log('╚════════════════════════════════════════════════════════════════╝');
   
   await checkEnvVars();

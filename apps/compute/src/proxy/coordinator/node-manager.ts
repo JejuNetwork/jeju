@@ -97,7 +97,7 @@ export class NodeManager extends EventEmitter {
       timestamp: Date.now(),
       payload: {
         nonce: crypto.randomUUID(),
-        message: 'Sign this message to authenticate as a Jeju proxy node',
+        message: 'Sign this message to authenticate as a network proxy node',
       },
     });
 
@@ -192,7 +192,7 @@ export class NodeManager extends EventEmitter {
     }
 
     // Verify signature
-    const message = `Jeju Proxy Node Authentication\nAddress: ${payload.address}\nNonce: ${payload.nonce}`;
+    const message = `Network Proxy Node Authentication\nAddress: ${payload.address}\nNonce: ${payload.nonce}`;
     let recoveredAddress: string;
     try {
       recoveredAddress = verifyMessage(message, payload.signature);

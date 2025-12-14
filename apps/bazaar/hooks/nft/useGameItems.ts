@@ -1,7 +1,7 @@
 /**
  * Generic hooks for game items from Items.sol (ERC-1155)
  * 
- * Works with any game using Jeju's canonical contracts.
+ * Works with any game using the network's canonical contracts.
  * 
  * AA Integration: Uses SponsoredPaymaster for gasless transactions when available.
  * Falls back to standard transactions if paymaster unavailable.

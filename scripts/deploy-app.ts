@@ -111,7 +111,7 @@ async function parseCliArgs(): Promise<DeployConfig> {
 
   if (values.help) {
     console.log(`
-Jeju Network App Deployment CLI
+the network App Deployment CLI
 
 Usage:
   bun scripts/deploy-app.ts --name <name> --dir <path> --jns <name.jeju>
@@ -129,7 +129,7 @@ Options:
 
 Environment:
   PRIVATE_KEY         Deployer private key
-  RPC_URL             Jeju RPC URL
+  RPC_URL             Network RPC URL
   IPFS_API_URL        IPFS API URL (default: http://localhost:5001)
   JNS_REGISTRAR       JNS Registrar address
   JNS_RESOLVER        JNS Resolver address

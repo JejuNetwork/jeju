@@ -1,5 +1,5 @@
 /**
- * @fileoverview Comprehensive integration test for entire Jeju localnet system
+ * @fileoverview Comprehensive integration test for entire network localnet system
  * @module tests/integration/localnet-full-system
  * 
  * Tests all services and their interactions:
@@ -77,7 +77,7 @@ describe.skipIf(!localnetAvailable)('Localnet Full System Integration', () => {
     l1Provider = new ethers.JsonRpcProvider(TEST_CONFIG.l1RpcUrl);
     console.log(`✅ Connected to L1 RPC at ${TEST_CONFIG.l1RpcUrl}`);
 
-    // Connect to L2 (Jeju localnet)
+    // Connect to L2 (Network localnet)
     l2Provider = new ethers.JsonRpcProvider(TEST_CONFIG.l2RpcUrl);
     console.log(`✅ Connected to L2 RPC at ${TEST_CONFIG.l2RpcUrl}`);
 

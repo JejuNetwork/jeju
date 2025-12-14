@@ -30,6 +30,7 @@ import {
   prepareAppealTransaction,
 } from './lib/moderation-api.js';
 import { poolService, type V2Pool, type PaymasterPool } from './services/pool-service.js';
+import { getProviderInfo } from '@jejunetwork/shared';
 
 const app = express();
 const PORT = PORTS.a2a;
@@ -47,7 +48,7 @@ const GATEWAY_AGENT_CARD = {
   description: 'Multi-token paymaster system, node staking, app registry, cross-chain intents, and protocol infrastructure',
   url: `http://localhost:${PORT}/a2a`,
   preferredTransport: 'http',
-  provider: { organization: 'Jeju Network', url: 'https://jeju.network' },
+  provider: getProviderInfo(),
   version: '1.0.0',
   capabilities: { streaming: false, pushNotifications: true, stateTransitionHistory: true },
   defaultInputModes: ['text', 'data'],
@@ -455,7 +456,7 @@ app.get('/.well-known/agent-card.json', (_req: Request, res: Response) => {
 app.get('/.well-known/governance-agent-card.json', (_req: Request, res: Response) => {
   res.json({
     id: 'jeju-futarchy-governance',
-    name: 'Jeju Futarchy Governance',
+    name: getNetworkName() Futarchy Governance',
     description: 'Market-based governance using prediction markets for parameter decisions',
     version: '1.0.0',
     protocol: 'a2a',

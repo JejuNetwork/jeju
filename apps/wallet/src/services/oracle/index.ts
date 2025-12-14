@@ -1,6 +1,6 @@
 /**
  * Oracle Service
- * Uses Jeju Oracle Network (JON) for price data
+ * Uses Oracle Network (JON) for price data
  */
 
 import * as jeju from '../jeju';

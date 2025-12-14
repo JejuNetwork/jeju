@@ -1,0 +1,292 @@
+{
+  "abi": [
+    {
+      "type": "constructor",
+      "inputs": [
+        { "name": "_appId", "type": "bytes32" },
+        { "name": "_owner", "type": "address" }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "initialize",
+      "inputs": [
+        { "name": "_banManager", "type": "address" },
+        { "name": "_identityRegistry", "type": "address" },
+        { "name": "_itemsContract", "type": "address" },
+        { "name": "_goldContract", "type": "address" },
+        { "name": "_bazaar", "type": "address" },
+        { "name": "_paymaster", "type": "address" },
+        { "name": "_gameAgentId", "type": "uint256" }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "linkAgentId",
+      "inputs": [{ "name": "agentId", "type": "uint256" }],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "unlinkAgentId",
+      "inputs": [],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "getPlayerAgentId",
+      "inputs": [{ "name": "player", "type": "address" }],
+      "outputs": [{ "name": "", "type": "uint256" }],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "isPlayerAllowed",
+      "inputs": [{ "name": "player", "type": "address" }],
+      "outputs": [{ "name": "", "type": "bool" }],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "requirePlayerAllowed",
+      "inputs": [{ "name": "player", "type": "address" }],
+      "outputs": [],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getContracts",
+      "inputs": [],
+      "outputs": [
+        { "name": "_banManager", "type": "address" },
+        { "name": "_identityRegistry", "type": "address" },
+        { "name": "_itemsContract", "type": "address" },
+        { "name": "_goldContract", "type": "address" },
+        { "name": "_bazaar", "type": "address" },
+        { "name": "_paymaster", "type": "address" },
+        { "name": "_gameAgentId", "type": "uint256" }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "setBanManager",
+      "inputs": [{ "name": "_banManager", "type": "address" }],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setIdentityRegistry",
+      "inputs": [{ "name": "_identityRegistry", "type": "address" }],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setItemsContract",
+      "inputs": [{ "name": "_itemsContract", "type": "address" }],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setGoldContract",
+      "inputs": [{ "name": "_goldContract", "type": "address" }],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setBazaar",
+      "inputs": [{ "name": "_bazaar", "type": "address" }],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setPaymaster",
+      "inputs": [{ "name": "_paymaster", "type": "address" }],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setGameModeration",
+      "inputs": [{ "name": "_gameModeration", "type": "address" }],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "appId",
+      "inputs": [],
+      "outputs": [{ "name": "", "type": "bytes32" }],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "gameAgentId",
+      "inputs": [],
+      "outputs": [{ "name": "", "type": "uint256" }],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "banManager",
+      "inputs": [],
+      "outputs": [{ "name": "", "type": "address" }],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "identityRegistry",
+      "inputs": [],
+      "outputs": [{ "name": "", "type": "address" }],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "itemsContract",
+      "inputs": [],
+      "outputs": [{ "name": "", "type": "address" }],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "goldContract",
+      "inputs": [],
+      "outputs": [{ "name": "", "type": "address" }],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "bazaar",
+      "inputs": [],
+      "outputs": [{ "name": "", "type": "address" }],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "paymaster",
+      "inputs": [],
+      "outputs": [{ "name": "", "type": "address" }],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "gameModeration",
+      "inputs": [],
+      "outputs": [{ "name": "", "type": "address" }],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "initialized",
+      "inputs": [],
+      "outputs": [{ "name": "", "type": "bool" }],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "playerAgentId",
+      "inputs": [{ "name": "", "type": "address" }],
+      "outputs": [{ "name": "", "type": "uint256" }],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "version",
+      "inputs": [],
+      "outputs": [{ "name": "", "type": "string" }],
+      "stateMutability": "pure"
+    },
+    {
+      "type": "function",
+      "name": "owner",
+      "inputs": [],
+      "outputs": [{ "name": "", "type": "address" }],
+      "stateMutability": "view"
+    },
+    {
+      "type": "event",
+      "name": "ContractsInitialized",
+      "inputs": [
+        { "name": "banManager", "type": "address", "indexed": true },
+        { "name": "identityRegistry", "type": "address", "indexed": true },
+        { "name": "itemsContract", "type": "address", "indexed": true },
+        { "name": "goldContract", "type": "address", "indexed": false },
+        { "name": "bazaar", "type": "address", "indexed": false },
+        { "name": "paymaster", "type": "address", "indexed": false },
+        { "name": "gameAgentId", "type": "uint256", "indexed": false }
+      ]
+    },
+    {
+      "type": "event",
+      "name": "PlayerAgentLinked",
+      "inputs": [
+        { "name": "player", "type": "address", "indexed": true },
+        { "name": "agentId", "type": "uint256", "indexed": true }
+      ]
+    },
+    {
+      "type": "event",
+      "name": "PlayerAgentUnlinked",
+      "inputs": [
+        { "name": "player", "type": "address", "indexed": true },
+        { "name": "agentId", "type": "uint256", "indexed": true }
+      ]
+    },
+    {
+      "type": "event",
+      "name": "ContractUpdated",
+      "inputs": [
+        { "name": "contractName", "type": "string", "indexed": true },
+        { "name": "oldAddress", "type": "address", "indexed": true },
+        { "name": "newAddress", "type": "address", "indexed": true }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "NotInitialized",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "AlreadyInitialized",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "PlayerBanned",
+      "inputs": [
+        { "name": "player", "type": "address" },
+        { "name": "agentId", "type": "uint256" }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "PlayerNotRegistered",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InvalidAgentId",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "AgentNotOwned",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InvalidAddress",
+      "inputs": []
+    }
+  ]
+}

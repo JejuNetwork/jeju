@@ -627,7 +627,7 @@ export function clearBanCache(userAddress?: Address): void {
   }
 }
 
-export async function checkJejuTransferAllowed(userAddress: Address): Promise<boolean> {
+export async function checkTransferAllowed(userAddress: Address): Promise<boolean> {
   if (!JEJU_TOKEN_ADDRESS) {
     return true; // No JEJU token configured, allow
   }
@@ -657,7 +657,7 @@ export async function checkJejuTransferAllowed(userAddress: Address): Promise<bo
  * Check if user can trade JEJU on Bazaar
  * Combines general ban check with JEJU-specific transfer check
  */
-export async function checkJejuTradeAllowed(userAddress: Address): Promise<BanCheckResult> {
+export async function checkTradeAllowed(userAddress: Address): Promise<BanCheckResult> {
   // First check general platform ban
   const generalResult = await checkUserBan(userAddress);
   if (!generalResult.allowed) {
@@ -665,7 +665,7 @@ export async function checkJejuTradeAllowed(userAddress: Address): Promise<BanCh
   }
 
   // Then check JEJU-specific ban
-  const jejuAllowed = await checkJejuTransferAllowed(userAddress);
+  const jejuAllowed = await checkTransferAllowed(userAddress);
   if (!jejuAllowed) {
     return {
       allowed: false,

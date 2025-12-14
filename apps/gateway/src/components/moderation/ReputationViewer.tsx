@@ -176,7 +176,7 @@ export default function ReputationViewer({ agentId }: ReputationViewerProps) {
             <h3 className="font-semibold">NETWORK BAN</h3>
           </div>
           <p className="text-sm text-red-600 mt-2">
-            {reputation.banReason || 'Banned from entire Jeju network'}
+            {reputation.banReason || 'Banned from entire network'}
           </p>
         </div>
       )}

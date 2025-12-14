@@ -1,10 +1,10 @@
 /**
  * Playwright Configuration
  * 
- * Supports three test modes:
- * 1. Mock tests (fast, no extension)
- * 2. MetaMask tests (with Synpress)
- * 3. Jeju Extension tests (with our extension)
+ * Live E2E tests against real network infrastructure:
+ * - network localnet for blockchain (port 9545)
+ * - Wallet dev server for UI (port 4015)
+ * - Real RPC calls and transactions
  */
 
 import { defineConfig, devices } from '@playwright/test';
@@ -12,28 +12,26 @@ import { defineConfig, devices } from '@playwright/test';
 const isCI = !!process.env.CI;
 
 export default defineConfig({
-  testDir: './tests',
+  testDir: './tests/e2e',
   
-  // Global timeout
+  // Timeout - live tests against real blockchain
   timeout: 60000,
   expect: {
     timeout: 15000,
   },
   
-  // Run tests sequentially for wallet tests
+  // Sequential for consistent chain state
   fullyParallel: false,
   forbidOnly: isCI,
   retries: isCI ? 2 : 0,
   workers: 1,
   
-  // Reporter configuration
   reporter: [
     ['list'],
     ['html', { outputFolder: 'playwright-report', open: 'never' }],
     ...(isCI ? [['github' as const]] : []),
   ],
   
-  // Global settings
   use: {
     baseURL: process.env.BASE_URL || 'http://localhost:4015',
     trace: 'on-first-retry',
@@ -42,44 +40,30 @@ export default defineConfig({
   },
   
   projects: [
-    // Mock tests - fast, no extension required
+    // Live E2E - requires network localnet running
     {
-      name: 'mock',
-      testDir: './tests/e2e/mock',
+      name: 'live',
+      testDir: './tests/e2e/live',
       use: { 
         ...devices['Desktop Chrome'],
         headless: true,
-        baseURL: process.env.BASE_URL || 'http://localhost:4015',
       },
     },
     
-    // MetaMask tests - using Synpress
+    // MetaMask - requires Synpress + headed browser
     {
       name: 'metamask',
       testDir: './tests/e2e/metamask',
       use: {
         ...devices['Desktop Chrome'],
-        headless: false, // Extensions require headed mode
+        headless: false,
       },
     },
     
-    // Jeju Extension tests
+    // Network Extension - requires extension build
     {
       name: 'jeju-extension',
       testDir: './tests/e2e/jeju-extension',
-      use: {
-        ...devices['Desktop Chrome'],
-        headless: false, // Extensions require headed mode
-      },
-    },
-    
-    // Legacy tests (existing tests)
-    {
-      name: 'legacy',
-      testMatch: [
-        'tests/*.spec.ts',
-        '!tests/e2e/**',
-      ],
       use: {
         ...devices['Desktop Chrome'],
         headless: false,
@@ -87,11 +71,11 @@ export default defineConfig({
     },
   ],
   
-  // Web server configuration
+  // Start dev server for tests
   webServer: {
     command: 'bun run dev',
     url: 'http://localhost:4015',
-    reuseExistingServer: !isCI,
+    reuseExistingServer: true,
     timeout: 120000,
   },
 });

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Jeju E2E Test Orchestrator
+ * network E2E Test Orchestrator
  *
  * Single entry point for all E2E/Synpress tests with:
  * - Test locking to prevent concurrent runs

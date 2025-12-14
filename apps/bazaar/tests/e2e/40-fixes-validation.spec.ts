@@ -11,7 +11,7 @@ test.describe('Critical Fixes Validation', () => {
     await page.waitForTimeout(1000);
     
     const body = await page.textContent('body');
-    const hasChainError = body?.includes('Switch to Jeju') || 
+    const hasChainError = body?.includes('Switch to the network') || 
                          body?.includes('Chain ID: 420691') ||
                          body?.includes('Chain ID: 42069');
     
@@ -107,7 +107,7 @@ test.describe('Critical Fixes Validation', () => {
       const body = await page.textContent('body');
       
       // Check for critical errors
-      const hasCriticalError = body?.includes('Switch to Jeju (Chain ID: 420691)') ||
+      const hasCriticalError = body?.includes('Switch to the network (Chain ID: 420691)') ||
                               body?.includes('V4 Periphery contracts not deployed') ||
                               body?.includes('$1.2M'); // LARP data
       

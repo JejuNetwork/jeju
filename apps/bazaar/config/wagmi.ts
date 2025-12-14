@@ -5,7 +5,7 @@ import { injected } from 'wagmi/connectors'
 
 const localnet = defineChain({
   id: 1337,
-  name: 'Jeju Localnet',
+  name: getLocalnetChain().name,
   nativeCurrency: {
     decimals: 18,
     name: 'Ether',

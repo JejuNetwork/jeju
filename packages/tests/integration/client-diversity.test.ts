@@ -174,7 +174,7 @@ describe('L2 Sequencer Client Diversity', () => {
     expect(availableSequencers.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('should have consistent Jeju chain ID across all sequencers', async () => {
+  it('should have consistent network chain ID across all sequencers', async () => {
     if (availableSequencers.length < 2) return;
 
     const EXPECTED_JEJU_CHAIN_ID = 420690n;

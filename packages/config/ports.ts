@@ -1,5 +1,5 @@
 /**
- * @fileoverview Centralized Port Allocation for Jeju Network
+ * @fileoverview Centralized Port Allocation for the network
  * @module config/ports
  * 
  * Port Ranges (guidelines, not strict):
@@ -127,7 +127,7 @@ export const VENDOR_PORTS = {
   /** 
    * Hyperscape Client - 3D on-chain RPG (Vite dev server)
    * Standalone: 3333 (default)
-   * Jeju mode: 5013 (set via VITE_PORT in jeju-manifest.json)
+   * Network mode: 5013 (set via VITE_PORT in jeju-manifest.json)
    */
   HYPERSCAPE_CLIENT: {
     DEFAULT: 3333,
@@ -139,7 +139,7 @@ export const VENDOR_PORTS = {
   /** 
    * Hyperscape Server - Game server (Fastify + WebSockets)
    * Standalone: 5555 (default)
-   * Jeju mode: 5014 (set via PORT in jeju-manifest.json)
+   * Network mode: 5014 (set via PORT in jeju-manifest.json)
    */
   HYPERSCAPE_SERVER: {
     DEFAULT: 5555,
@@ -183,7 +183,7 @@ export const VENDOR_PORTS = {
     get: () => parseInt(process.env.VENDOR_OTC_DESK_WORKER_PORT || '3137')
   },
 
-  /** Cloud - Jeju cloud dashboard */
+  /** Cloud - cloud dashboard */
   CLOUD: {
     DEFAULT: 5006,
     ENV_VAR: 'VENDOR_CLOUD_PORT',

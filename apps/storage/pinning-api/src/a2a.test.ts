@@ -36,7 +36,7 @@ describe('IPFS A2A Agent', () => {
     const card = await response.json();
     
     expect(card.protocolVersion).toBe('0.3.0');
-    expect(card.name).toBe('Jeju IPFS Storage Service');
+    expect(card.name).toBe('IPFS Storage Service');
     expect(card.description).toContain('Decentralized file storage');
   });
 

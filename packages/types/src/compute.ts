@@ -1,7 +1,7 @@
 /**
  * Compute Marketplace Types
  *
- * Types for the Jeju decentralized AI compute marketplace.
+ * Types for the decentralized AI compute marketplace.
  */
 
 // ============================================================================

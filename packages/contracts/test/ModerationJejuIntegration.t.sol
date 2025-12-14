@@ -4,7 +4,7 @@ pragma solidity ^0.8.26;
 import "forge-std/Test.sol";
 import "../src/moderation/BanManager.sol";
 import "../src/moderation/ModerationMarketplace.sol";
-import "../src/tokens/JejuToken.sol";
+import "../src/tokens/NetworkToken.sol";
 
 /**
  * @title ModerationJejuIntegrationTest
@@ -14,7 +14,7 @@ import "../src/tokens/JejuToken.sol";
 contract ModerationJejuIntegrationTest is Test {
     BanManager public banManager;
     ModerationMarketplace public marketplace;
-    JejuToken public jeju;
+    NetworkToken public jeju;
 
     address public owner = address(0x1);
     address public treasury = address(0x2);
@@ -33,8 +33,8 @@ contract ModerationJejuIntegrationTest is Test {
         // 1. Deploy BanManager
         banManager = new BanManager(owner, owner);
 
-        // 2. Deploy JejuToken with BanManager
-        jeju = new JejuToken(owner, address(banManager), true);
+        // 2. Deploy NetworkToken with BanManager
+        jeju = new NetworkToken(owner, address(banManager), true);
 
         // 3. Deploy ModerationMarketplace with JEJU as staking token
         marketplace = new ModerationMarketplace(
@@ -44,7 +44,7 @@ contract ModerationJejuIntegrationTest is Test {
             owner
         );
 
-        // 4. Set marketplace as ban-exempt in JejuToken
+        // 4. Set marketplace as ban-exempt in NetworkToken
         jeju.setBanExempt(address(marketplace), true);
 
         // 5. Authorize marketplace as moderator in BanManager
@@ -126,9 +126,9 @@ contract ModerationJejuIntegrationTest is Test {
 
         assertTrue(jeju.isBanned(target), "Target should be banned");
 
-        // Target should NOT be able to unstake (JejuToken blocks transfer to banned user)
+        // Target should NOT be able to unstake (NetworkToken blocks transfer to banned user)
         vm.prank(target);
-        vm.expectRevert(abi.encodeWithSelector(JejuToken.BannedUser.selector, target));
+        vm.expectRevert(abi.encodeWithSelector(NetworkToken.BannedUser.selector, target));
         marketplace.unstake(STAKE_AMOUNT);
     }
 
@@ -144,7 +144,7 @@ contract ModerationJejuIntegrationTest is Test {
 
         // Verify can't unstake while banned
         vm.prank(target);
-        vm.expectRevert(abi.encodeWithSelector(JejuToken.BannedUser.selector, target));
+        vm.expectRevert(abi.encodeWithSelector(NetworkToken.BannedUser.selector, target));
         marketplace.unstake(STAKE_AMOUNT);
 
         // Remove ban (simulating successful appeal)
@@ -249,7 +249,7 @@ contract ModerationJejuIntegrationTest is Test {
             // Target cannot unstake (will revert)
             if (stake.amount > 0) {
                 vm.prank(target);
-                vm.expectRevert(abi.encodeWithSelector(JejuToken.BannedUser.selector, target));
+                vm.expectRevert(abi.encodeWithSelector(NetworkToken.BannedUser.selector, target));
                 marketplace.unstake(stake.amount);
             }
         }
@@ -258,9 +258,9 @@ contract ModerationJejuIntegrationTest is Test {
     // ============ Edge Cases ============
 
     function testBanExemptionRequired() public {
-        // Deploy new JejuToken WITHOUT setting marketplace as ban-exempt
+        // Deploy new NetworkToken WITHOUT setting marketplace as ban-exempt
         vm.startPrank(owner);
-        JejuToken jejuNoExempt = new JejuToken(owner, address(banManager), true);
+        NetworkToken jejuNoExempt = new NetworkToken(owner, address(banManager), true);
 
         ModerationMarketplace marketplaceNoExempt =
             new ModerationMarketplace(address(banManager), address(jejuNoExempt), treasury, owner);
@@ -278,7 +278,7 @@ contract ModerationJejuIntegrationTest is Test {
         // Target should NOT be able to stake because marketplace is not ban-exempt
         vm.startPrank(target);
         jejuNoExempt.approve(address(marketplaceNoExempt), STAKE_AMOUNT);
-        vm.expectRevert(abi.encodeWithSelector(JejuToken.BannedUser.selector, target));
+        vm.expectRevert(abi.encodeWithSelector(NetworkToken.BannedUser.selector, target));
         marketplaceNoExempt.stakeTokens(STAKE_AMOUNT);
         vm.stopPrank();
     }

@@ -101,7 +101,7 @@ function makeDecision(context: TEEDecisionContext): { approved: boolean; reasoni
 async function callHardwareTEE(context: TEEDecisionContext): Promise<TEEDecisionResult> {
   if (!TEE_API_KEY) throw new Error('TEE_API_KEY required for hardware TEE');
 
-  const prompt = `You are the AI CEO of Jeju DAO. Make a final decision on this proposal.
+  const prompt = `You are the AI CEO of Network DAO. Make a final decision on this proposal.
 
 Proposal ID: ${context.proposalId}
 

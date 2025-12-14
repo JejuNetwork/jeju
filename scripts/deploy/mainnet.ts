@@ -3,7 +3,7 @@
 /**
  * Deploy to Mainnet
  * 
- * Deploys all contracts to Jeju Mainnet.
+ * Deploys all contracts to the network Mainnet.
  * Config loaded from packages/config/chain/mainnet.json
  * 
  * Requirements:
@@ -27,7 +27,7 @@ const CONTRACTS_DIR = join(process.cwd(), "packages", "contracts");
 const DEPLOYMENTS_DIR = join(CONTRACTS_DIR, "deployments", NETWORK);
 
 async function main() {
-  console.log("\n🚀 Jeju MAINNET Deployment\n");
+  console.log("\n🚀 NETWORK MAINNET Deployment\n");
   
   // Security checklist
   console.log("⚠️  MAINNET CHECKLIST:\n");

@@ -9,6 +9,7 @@ import { join } from 'path';
 import { logger } from '../lib/logger';
 import { startLocalnet, stopLocalnet, getChainStatus, bootstrapContracts } from '../lib/chain';
 import { discoverApps } from '../lib/testing';
+import { createOrchestrator, type ServicesOrchestrator } from '../services/orchestrator';
 import { DEFAULT_PORTS, WELL_KNOWN_KEYS, type AppManifest } from '../types';
 
 interface RunningService {
@@ -19,6 +20,7 @@ interface RunningService {
 
 const runningServices: RunningService[] = [];
 let isShuttingDown = false;
+let servicesOrchestrator: ServicesOrchestrator | null = null;
 
 export const devCommand = new Command('dev')
   .description('Start development environment')
@@ -26,6 +28,8 @@ export const devCommand = new Command('dev')
   .option('--only <apps>', 'Start specific apps (comma-separated)')
   .option('--skip <apps>', 'Skip specific apps (comma-separated)')
   .option('--stop', 'Stop the development environment')
+  .option('--no-inference', 'Skip starting inference service')
+  .option('--no-services', 'Skip all simulated services')
   .action(async (options) => {
     if (options.stop) {
       await stopDev();
@@ -35,7 +39,7 @@ export const devCommand = new Command('dev')
     await startDev(options);
   });
 
-async function startDev(options: { minimal?: boolean; only?: string; skip?: string }) {
+async function startDev(options: { minimal?: boolean; only?: string; skip?: string; inference?: boolean; services?: boolean }) {
   logger.header('JEJU DEV');
 
   const rootDir = process.cwd();
@@ -58,8 +62,16 @@ async function startDev(options: { minimal?: boolean; only?: string; skip?: stri
   logger.step('Bootstrapping contracts...');
   await bootstrapContracts(rootDir, l2RpcUrl);
 
+  // Start development services (inference, storage, etc.)
+  if (options.services !== false) {
+    servicesOrchestrator = createOrchestrator(rootDir);
+    await servicesOrchestrator.startAll({
+      inference: options.inference !== false,
+    });
+  }
+
   if (options.minimal) {
-    printReady(l2RpcUrl, []);
+    printReady(l2RpcUrl, runningServices, servicesOrchestrator);
     await waitForever();
     return;
   }
@@ -71,12 +83,15 @@ async function startDev(options: { minimal?: boolean; only?: string; skip?: stri
   const apps = discoverApps(rootDir);
   const appsToStart = filterApps(apps, options);
 
+  // Get service environment variables
+  const serviceEnv = servicesOrchestrator?.getEnvVars() || {};
+
   logger.step(`Starting ${appsToStart.length} apps...`);
   for (const app of appsToStart) {
-    await startApp(rootDir, app, l2RpcUrl);
+    await startApp(rootDir, app, l2RpcUrl, serviceEnv);
   }
 
-  printReady(l2RpcUrl, runningServices);
+  printReady(l2RpcUrl, runningServices, servicesOrchestrator);
   await waitForever();
 }
 
@@ -95,6 +110,11 @@ function setupSignalHandlers() {
 
     logger.newline();
     logger.step('Shutting down...');
+
+    // Stop orchestrated services
+    if (servicesOrchestrator) {
+      await servicesOrchestrator.stopAll();
+    }
 
     for (const service of runningServices) {
       if (service.process) {
@@ -166,7 +186,7 @@ async function startIndexer(rootDir: string, rpcUrl: string): Promise<void> {
   await new Promise(r => setTimeout(r, 3000));
 }
 
-async function startApp(rootDir: string, app: AppManifest, rpcUrl: string): Promise<void> {
+async function startApp(rootDir: string, app: AppManifest, rpcUrl: string, serviceEnv: Record<string, string> = {}): Promise<void> {
   const appDir = join(rootDir, 'apps', app.name);
   const vendorDir = join(rootDir, 'vendor', app.name);
   const dir = existsSync(appDir) ? appDir : vendorDir;
@@ -179,6 +199,7 @@ async function startApp(rootDir: string, app: AppManifest, rpcUrl: string): Prom
   const mainPort = app.ports?.main;
   const appEnv: Record<string, string> = {
     ...process.env as Record<string, string>,
+    ...serviceEnv, // Inject service URLs
     JEJU_RPC_URL: rpcUrl,
     RPC_URL: rpcUrl,
     CHAIN_ID: '1337',
@@ -204,7 +225,7 @@ async function startApp(rootDir: string, app: AppManifest, rpcUrl: string): Prom
   proc.catch(() => {});
 }
 
-function printReady(rpcUrl: string, services: RunningService[]) {
+function printReady(rpcUrl: string, services: RunningService[], orchestrator: ServicesOrchestrator | null) {
   console.clear();
 
   logger.header('READY');
@@ -216,8 +237,13 @@ function printReady(rpcUrl: string, services: RunningService[]) {
     { label: 'L2 RPC', value: rpcUrl, status: 'ok' },
   ]);
 
+  // Print orchestrated services
+  if (orchestrator) {
+    orchestrator.printStatus();
+  }
+
   if (services.length > 0) {
-    logger.subheader('Services');
+    logger.subheader('Apps');
     for (const svc of services) {
       const url = svc.port ? `http://127.0.0.1:${svc.port}` : 'running';
       logger.table([{ label: svc.name, value: url, status: 'ok' }]);

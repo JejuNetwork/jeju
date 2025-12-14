@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * JejuToken Deployment Script
+ * NetworkToken Deployment Script
  * 
  * Supports localnet, testnet, and mainnet deployment with:
  * - Safe (Gnosis Safe) multi-sig ownership for production
@@ -82,7 +82,7 @@ const { values: args } = parseArgs({
 
 if (args.help) {
   console.log(`
-JejuToken Deployment Script
+NetworkToken Deployment Script
 
 Usage:
   bun run scripts/deploy-jeju-token.ts [options]
@@ -140,7 +140,7 @@ interface DeploymentResult {
 }
 
 async function main() {
-  console.log('🏝️  JejuToken Deployment');
+  console.log('🏝️  NetworkToken Deployment');
   console.log('='.repeat(60));
 
   // Validate network
@@ -197,7 +197,7 @@ async function main() {
 
   // Load artifacts
   console.log('\n📦 Loading contract artifacts...');
-  const jejuTokenArtifact = loadArtifact('JejuToken');
+  const jejuTokenArtifact = loadArtifact('NetworkToken');
   const banManagerArtifact = loadArtifact('BanManager');
 
   const transactions: { hash: Hex; description: string }[] = [];
@@ -232,12 +232,12 @@ async function main() {
     }
   }
 
-  // Step 2: Deploy JejuToken
-  console.log('\n🚀 Deploying JejuToken...');
+  // Step 2: Deploy NetworkToken
+  console.log('\n🚀 Deploying NetworkToken...');
 
   if (dryRun) {
     jejuTokenAddress = '0x0000000000000000000000000000000000000002' as Address;
-    console.log(`   [DRY RUN] JejuToken would be deployed`);
+    console.log(`   [DRY RUN] NetworkToken would be deployed`);
   } else {
     const hash = await walletClient.deployContract({
       abi: jejuTokenArtifact.abi,
@@ -249,11 +249,11 @@ async function main() {
       ],
     });
 
-    transactions.push({ hash, description: 'Deploy JejuToken' });
+    transactions.push({ hash, description: 'Deploy NetworkToken' });
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
     jejuTokenAddress = receipt.contractAddress!;
-    console.log(`   JejuToken: ${jejuTokenAddress}`);
+    console.log(`   NetworkToken: ${jejuTokenAddress}`);
   }
 
   // Step 3: Set ban exemption for ModerationMarketplace (if exists)
@@ -293,7 +293,7 @@ async function main() {
   if (safeAddress && safeAddress !== account.address && !dryRun) {
     console.log('\n🔐 Transferring ownership to Safe multi-sig...');
 
-    // Transfer JejuToken ownership
+    // Transfer NetworkToken ownership
     const jejuOwnerHash = await walletClient.writeContract({
       address: jejuTokenAddress,
       abi: jejuTokenArtifact.abi,
@@ -301,9 +301,9 @@ async function main() {
       args: [safeAddress],
     });
 
-    transactions.push({ hash: jejuOwnerHash, description: 'Transfer JejuToken ownership to Safe' });
+    transactions.push({ hash: jejuOwnerHash, description: 'Transfer NetworkToken ownership to Safe' });
     await publicClient.waitForTransactionReceipt({ hash: jejuOwnerHash });
-    console.log(`   ✅ JejuToken ownership transferred to Safe`);
+    console.log(`   ✅ NetworkToken ownership transferred to Safe`);
 
     // Transfer BanManager ownership (if we deployed it)
     if (!existingBanManager) {
@@ -432,11 +432,11 @@ async function main() {
 
   // Summary
   console.log('\n' + '='.repeat(60));
-  console.log('✅ JejuToken Deployment Complete!');
+  console.log('✅ NetworkToken Deployment Complete!');
   console.log('='.repeat(60));
 
   console.log('\n📋 Addresses:');
-  console.log(`   JejuToken: ${jejuTokenAddress}`);
+  console.log(`   NetworkToken: ${jejuTokenAddress}`);
   console.log(`   BanManager: ${banManagerAddress}`);
 
   if (safeAddress) {
@@ -458,7 +458,7 @@ async function main() {
   if (verify && !dryRun) {
     console.log('\n🔍 Verifying contracts on block explorer...');
     // Run forge verify-contract commands
-    const verifyCmd = `cd ${CONTRACTS_DIR} && forge verify-contract ${jejuTokenAddress} JejuToken --chain-id ${networkConfig.chainId}`;
+    const verifyCmd = `cd ${CONTRACTS_DIR} && forge verify-contract ${jejuTokenAddress} NetworkToken --chain-id ${networkConfig.chainId}`;
     console.log(`   Run: ${verifyCmd}`);
   }
 }

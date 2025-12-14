@@ -21,7 +21,7 @@ import type {
   WalletState,
   WalletEvent,
 } from './types';
-import { chains, getJejuRpcUrl } from './chains';
+import { chains, getNetworkRpcUrl } from './chains';
 import { EILClient, createEILClient } from './eil';
 import { OIFClient, createOIFClient } from './oif';
 import { AAClient, createAAClient } from './account-abstraction';
@@ -33,7 +33,7 @@ import { GasAbstractionService, createGasService } from './gas-abstraction';
 
 export interface WalletCoreConfig {
   defaultChainId?: number;
-  useJejuRpc?: boolean;
+  useNetworkRpc?: boolean;
   bundlerUrl?: string;
   paymasterUrl?: string;
   oifApiUrl?: string;
@@ -59,7 +59,7 @@ export class WalletCore {
   constructor(config: WalletCoreConfig = {}) {
     this.config = {
       defaultChainId: 1,
-      useJejuRpc: true,
+      useNetworkRpc: true,
       ...config,
     };
 
@@ -80,8 +80,8 @@ export class WalletCore {
     // Create public clients for all supported chains
     for (const [chainId, chainConfig] of Object.entries(chains)) {
       const id = Number(chainId);
-      const rpcUrl = this.config.useJejuRpc
-        ? getJejuRpcUrl(id) ?? chainConfig.rpcUrls.default.http[0]
+      const rpcUrl = this.config.useNetworkRpc
+        ? getNetworkRpcUrl(id) ?? chainConfig.rpcUrls.default.http[0]
         : chainConfig.rpcUrls.default.http[0];
 
       const publicClient = createPublicClient({
@@ -379,7 +379,7 @@ export class WalletCore {
         id: chainId,
         name: chains[chainId].name,
         nativeCurrency: chains[chainId].nativeCurrency,
-        rpcUrls: { default: { http: [getJejuRpcUrl(chainId) ?? ''] } },
+        rpcUrls: { default: { http: [getNetworkRpcUrl(chainId) ?? ''] } },
       },
     });
 

@@ -18,7 +18,7 @@ export default function Home() {
           <span className="text-gradient">Bazaar</span>
         </h1>
         <p className="text-lg" style={{ color: 'var(--text-secondary)' }}>
-          DeFi on Jeju
+          DeFi on the network
         </p>
       </div>
 

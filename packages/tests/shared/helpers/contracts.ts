@@ -2,7 +2,7 @@ import { Dappwright } from '@tenkeylabs/dappwright';
 import { Page, expect } from '@playwright/test';
 
 /**
- * Shared contract interaction helpers for Jeju dApp testing
+ * Shared contract interaction helpers for network dApp testing
  *
  * These helpers abstract common wallet interactions and transactions,
  * reducing boilerplate and ensuring consistent patterns across tests.

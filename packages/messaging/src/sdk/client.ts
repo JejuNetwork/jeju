@@ -1,5 +1,5 @@
 /**
- * Jeju Messaging Client
+ * Network Messaging Client
  * 
  * High-level client for sending and receiving encrypted messages
  * via the decentralized relay network.

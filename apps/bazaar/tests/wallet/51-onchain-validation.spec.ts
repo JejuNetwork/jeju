@@ -21,7 +21,7 @@ const TEST_ACCOUNT = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address
 const publicClient = createPublicClient({
   chain: {
     id: CHAIN_ID,
-    name: 'Jeju',
+    name: 'Network',
     nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
     rpcUrls: { default: { http: [RPC_URL] } }
   },

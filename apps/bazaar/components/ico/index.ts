@@ -1,3 +1,3 @@
-export { JejuTokenomics } from './JejuTokenomics'
-export { JejuPresaleCard } from './JejuPresaleCard'
-export { JejuUtility } from './JejuUtility'
+export { NetworkTokenomics } from './NetworkTokenomics'
+export { NetworkPresaleCard } from './NetworkPresaleCard'
+export { NetworkUtility } from './NetworkUtility'

@@ -1,6 +1,6 @@
 /**
  * Token Approval Service
- * Uses Jeju indexer for approval data
+ * Uses network indexer for approval data
  */
 
 import type { Address, Hex } from 'viem';

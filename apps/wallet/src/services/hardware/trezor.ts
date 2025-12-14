@@ -47,7 +47,7 @@ export class TrezorKeyring {
       manifest: {
         email: 'support@jeju.network',
         appUrl: 'https://wallet.jeju.network',
-        appName: 'Jeju Wallet',
+        appName: 'Network Wallet',
       },
       transports: ['BridgeTransport', 'WebUsbTransport'],
     });

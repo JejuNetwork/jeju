@@ -87,7 +87,7 @@ export default function TokenDetailPage({ params }: PageProps) {
             <h1 className="text-2xl md:text-4xl font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
               {tokenData.address.slice(0, 6)}...{tokenData.address.slice(-4)}
             </h1>
-            <p style={{ color: 'var(--text-secondary)' }}>ERC20 Token on Jeju</p>
+            <p style={{ color: 'var(--text-secondary)' }}>ERC20 Token on the network</p>
           </div>
         </div>
 

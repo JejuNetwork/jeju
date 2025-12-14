@@ -1,5 +1,5 @@
 /**
- * Full Integration Test for Jeju Compute Marketplace
+ * Full Integration Test for network Compute Marketplace
  *
  * This test validates the entire end-to-end flow:
  * 1. Deploy contracts to Anvil

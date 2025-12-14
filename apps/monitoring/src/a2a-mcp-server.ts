@@ -14,11 +14,11 @@ import { cors } from 'hono/cors';
 
 const AGENT_CARD = {
   protocolVersion: '0.3.0',
-  name: 'Jeju Monitoring',
-  description: 'System monitoring, alerting, and health checks for the Jeju network',
+  name: getNetworkName() Monitoring',
+  description: 'System monitoring, alerting, and health checks for the network',
   url: '/a2a',
   preferredTransport: 'http',
-  provider: { organization: 'Jeju Network', url: 'https://jeju.network' },
+  provider: { organization: 'the network', url: 'https://jeju.network' },
   version: '1.0.0',
   capabilities: { streaming: true, pushNotifications: true, stateTransitionHistory: true },
   defaultInputModes: ['text', 'data'],
@@ -341,7 +341,7 @@ export function createMonitoringServer(): Hono {
   }));
   
   app.get('/', (c) => c.json({
-    name: 'Jeju Monitoring',
+    name: getNetworkName() Monitoring',
     version: '1.0.0',
     endpoints: {
       a2a: '/a2a',

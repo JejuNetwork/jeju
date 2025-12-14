@@ -1,0 +1,908 @@
+Warning: Found unknown config section in foundry.toml: [lint]
+This notation for profiles has been deprecated and may result in the profile not being registered in future versions.
+Please use [profile.lint] instead or run `forge config --fix`.
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "_jejuToken",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_treasury",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "receive",
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "calculateBonus",
+    "inputs": [
+      {
+        "name": "ethAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "calculateVestedAmount",
+    "inputs": [
+      {
+        "name": "totalAllocation",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "claim",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "config",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "softCap",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "hardCap",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "minContribution",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxContribution",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "tokenPrice",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "whitelistStart",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "publicStart",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "presaleEnd",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "tgeTimestamp",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "configure",
+    "inputs": [
+      {
+        "name": "_softCap",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_hardCap",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_minContribution",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_maxContribution",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_tokenPrice",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_whitelistStart",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_publicStart",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_presaleEnd",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_tgeTimestamp",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "contribute",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "contributions",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "ethAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "tokenAllocation",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "bonusTokens",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "claimedTokens",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "contributedAt",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "refunded",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "currentPhase",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "enum JejuPresale.PresalePhase"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "finalize",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getClaimableAmount",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getContribution",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "ethAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "tokenAllocation",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "bonusTokens",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "claimedTokens",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "claimable",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "refunded",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getPresaleStats",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "raised",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "participants",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "tokensSold",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "softCap",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "hardCap",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "phase",
+        "type": "uint8",
+        "internalType": "enum JejuPresale.PresalePhase"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getTimeInfo",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "whitelistStart",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "publicStart",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "presaleEnd",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "tgeTimestamp",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "currentTime",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "jejuToken",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IERC20"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "owner",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "pause",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "paused",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "refund",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "renounceOwnership",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setTreasury",
+    "inputs": [
+      {
+        "name": "_treasury",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setVesting",
+    "inputs": [
+      {
+        "name": "_tgePercent",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_cliffDuration",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_vestingDuration",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setWhitelist",
+    "inputs": [
+      {
+        "name": "accounts",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "status",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "totalParticipants",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "totalRaised",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "totalTokensSold",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "transferOwnership",
+    "inputs": [
+      {
+        "name": "newOwner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "treasury",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "unpause",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "vesting",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "tgePercent",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "cliffDuration",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "vestingDuration",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "whitelist",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "withdrawUnsoldTokens",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "ContributionReceived",
+    "inputs": [
+      {
+        "name": "contributor",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "ethAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "tokenAllocation",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OwnershipTransferred",
+    "inputs": [
+      {
+        "name": "previousOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Paused",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PresaleFinalized",
+    "inputs": [
+      {
+        "name": "totalRaised",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "totalParticipants",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Refunded",
+    "inputs": [
+      {
+        "name": "contributor",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TGEExecuted",
+    "inputs": [
+      {
+        "name": "timestamp",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TokensClaimed",
+    "inputs": [
+      {
+        "name": "contributor",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Unpaused",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "WhitelistUpdated",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "status",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "AlreadyRefunded",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BelowMinContribution",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "EnforcedPause",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ExceedsMaxContribution",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ExpectedPause",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "HardCapReached",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidConfig",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotWhitelisted",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NothingToClaim",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OwnableInvalidOwner",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "OwnableUnauthorizedAccount",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "PresaleAlreadyConfigured",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PresaleNotActive",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PresaleNotEnded",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ReentrancyGuardReentrantCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SafeERC20FailedOperation",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SoftCapNotReached",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TGENotReached",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransferFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroAddress",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroTokenPrice",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroVestingDuration",
+    "inputs": []
+  }
+]

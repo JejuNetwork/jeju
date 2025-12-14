@@ -246,7 +246,7 @@ async function showStatus(): Promise<void> {
 async function main(): Promise<void> {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════╗
-║                 Jeju Stage 2 Decentralization                    ║
+║                 Network Stage 2 Decentralization                    ║
 ╚══════════════════════════════════════════════════════════════════╝
 `);
 

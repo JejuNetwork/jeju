@@ -147,7 +147,7 @@ export function getBridgeableTokens(): TokenConfig[] {
 }
 
 /**
- * Get native Jeju tokens
+ * Get native network tokens
  */
 export function getNativeTokens(): TokenConfig[] {
   return getAllTokens().filter(t => t.isNative);

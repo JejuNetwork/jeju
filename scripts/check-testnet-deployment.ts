@@ -12,7 +12,7 @@ import { $ } from 'bun';
 async function main() {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════╗
-║             Jeju Testnet Deployment Status Check                     ║
+║             Network Testnet Deployment Status Check                     ║
 ╚══════════════════════════════════════════════════════════════════════╝
 `);
 

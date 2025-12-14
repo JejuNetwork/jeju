@@ -1,5 +1,5 @@
 /**
- * Jeju Wallet Plugin Types
+ * Network Wallet Plugin Types
  */
 
 import type { Address, Hex } from 'viem';
@@ -318,6 +318,6 @@ export interface SignatureRisk {
 
 export interface WalletServiceConfig {
   defaultChainId: number;
-  useJejuInfrastructure: boolean;
+  useNetworkInfrastructure: boolean;
   jejuRpcUrl?: string;
 }

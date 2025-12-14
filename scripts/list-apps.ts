@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * List all discovered Jeju apps (core + vendor)
+ * List all discovered network apps (core + vendor)
  * Run: bun run apps:list
  */
 
@@ -9,7 +9,7 @@ import { discoverAllApps, displayAppsSummary } from './shared/discover-apps';
 function main() {
   console.log('╔══════════════════════════════════════════════════════════════╗');
   console.log('║                                                              ║');
-  console.log('║                  🏪 Jeju Apps Discovery                     ║');
+  console.log('║                  🏪 Network Apps Discovery                     ║');
   console.log('║             Core Apps + Vendor Apps                          ║');
   console.log('║                                                              ║');
   console.log('╚══════════════════════════════════════════════════════════════╝');

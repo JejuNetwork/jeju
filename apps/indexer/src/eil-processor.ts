@@ -156,7 +156,7 @@ async function processVoucherRequested(
         id: requestId,
         requestId,
         requester,
-        sourceChain: 420691, // Jeju mainnet - in production, derive from contract address
+        sourceChain: 420691, // Network mainnet - in production, derive from contract address
         destinationChain: Number(decoded[2]),
         sourceToken: decoded[0],
         destinationToken: decoded[0], // Same token by default
@@ -612,14 +612,14 @@ async function getOrCreateXLP(
 
 function updateChainStats(contractAddress: string, chainStats: Map<number, EILChainStats>): void {
     // In production, map contract address to chain ID
-    const chainId = 420691 // Default to Jeju mainnet
+    const chainId = 420691 // Default to the network mainnet
     
     let stats = chainStats.get(chainId)
     if (!stats) {
         stats = new EILChainStats({
             id: chainId.toString(),
             chainId,
-            chainName: 'Jeju Mainnet',
+            chainName: 'Mainnet',
             paymasterAddress: contractAddress,
             totalVolume: 0n,
             totalTransfers: 0n,

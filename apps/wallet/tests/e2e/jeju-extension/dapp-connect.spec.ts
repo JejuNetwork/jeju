@@ -1,12 +1,12 @@
 /**
  * dApp Connection Tests
  * 
- * Tests connecting Jeju Wallet extension to external dApps
+ * Tests connecting Network Wallet extension to external dApps
  */
 
 import { test, expect } from './extension.fixture';
 
-test.describe('dApp Connection via Jeju Extension', () => {
+test.describe('dApp Connection via the network Extension', () => {
   test('should inject ethereum provider', async ({ testDappPage }) => {
     // Check if ethereum provider is injected
     const hasProvider = await testDappPage.evaluate(() => {

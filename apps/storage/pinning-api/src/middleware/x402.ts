@@ -22,7 +22,7 @@ const NETWORK_CONFIG: Record<SupportedNetwork, { chain: typeof mainnet; usdc: Ad
   'jeju': { 
     chain: {
       id: 420691,
-      name: 'Jeju',
+      name: 'Network',
       nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
       rpcUrls: { default: { http: [process.env.JEJU_RPC_URL || 'http://127.0.0.1:9545'] } },
     } as typeof mainnet,

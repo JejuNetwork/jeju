@@ -1,7 +1,7 @@
 {
   "name": "@jejunetwork/storage-pinning-api",
   "version": "2.0.0",
-  "description": "Jeju Storage Marketplace - Decentralized storage with multi-provider routing, x402 payments, and A2A/MCP agent integration",
+  "description": "Network Storage Marketplace - Decentralized storage with multi-provider routing, x402 payments, and A2A/MCP agent integration",
   "type": "module",
   "main": "src/index.ts",
   "exports": {

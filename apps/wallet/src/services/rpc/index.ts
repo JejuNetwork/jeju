@@ -1,6 +1,6 @@
 /**
- * Jeju RPC Service
- * All RPC calls go through Jeju infrastructure
+ * Network RPC Service
+ * All RPC calls go through the network infrastructure
  */
 
 import { createPublicClient, http, type PublicClient, type Chain, type Address, type Hex, formatEther } from 'viem';
@@ -17,10 +17,10 @@ export const SUPPORTED_CHAINS = {
 
 export type SupportedChainId = keyof typeof SUPPORTED_CHAINS;
 
-// Jeju RPC endpoints
+// Network RPC endpoints
 const JEJU_RPC_BASE = import.meta.env.VITE_JEJU_RPC_URL || 'https://rpc.jeju.network';
 
-export function getJejuRpc(chainId: SupportedChainId): string {
+export function getNetworkRpc(chainId: SupportedChainId): string {
   const chainNames: Record<SupportedChainId, string> = {
     1: 'eth',
     8453: 'base',
@@ -31,7 +31,7 @@ export function getJejuRpc(chainId: SupportedChainId): string {
   return `${JEJU_RPC_BASE}/${chainNames[chainId]}`;
 }
 
-// Fallback public RPCs (only used if Jeju is unavailable)
+// Fallback public RPCs (only used if network is unavailable)
 const FALLBACK_RPCS: Record<SupportedChainId, string> = {
   1: 'https://eth.llamarpc.com',
   8453: 'https://mainnet.base.org',
@@ -55,13 +55,13 @@ class RPCService {
       const chain = SUPPORTED_CHAINS[chainId];
       const client = createPublicClient({
         chain: chain as Chain,
-        transport: http(getJejuRpc(chainId), {
+        transport: http(getNetworkRpc(chainId), {
           timeout: 10000,
           retryCount: 2,
           onFetchRequest: (request) => {
             // Add X402 payment headers if needed
             const headers = new Headers(request.headers);
-            headers.set('X-Jeju-Client', 'wallet');
+            headers.set('X-Network-Client', 'wallet');
             return new Request(request.url, { ...request, headers });
           },
         }),

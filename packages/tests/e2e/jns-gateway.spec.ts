@@ -14,9 +14,9 @@
 import { testWithSynpress } from '@synthetixio/synpress';
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
 import { createPublicClient, http, type Address } from 'viem';
-import { createJejuWalletSetup, PASSWORD, TEST_WALLET_ADDRESS } from '../shared/synpress.config.base';
+import { createWalletSetup, PASSWORD, TEST_WALLET_ADDRESS } from '../shared/synpress.config.base';
 
-const basicSetup = createJejuWalletSetup();
+const basicSetup = createWalletSetup();
 const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
 
@@ -26,7 +26,7 @@ const JNS_GATEWAY_URL = `http://localhost:${JNS_GATEWAY_PORT}`;
 
 const chain = {
   id: 1337,
-  name: 'Jeju Local',
+  name: 'Network Local',
   nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
   rpcUrls: { default: { http: [RPC_URL] } },
 };
@@ -89,7 +89,7 @@ test.describe('Wake Page Tests', () => {
     await page.goto(`${JNS_GATEWAY_URL}/health`);
 
     // Check page structure is valid
-    await expect(page).toHaveTitle(/Jeju|Gateway/i);
+    await expect(page).toHaveTitle(|Network|Gateway/i);
 
     console.log('✅ Gateway page loads correctly');
   });
@@ -174,7 +174,7 @@ test.describe('Health Check Standard', () => {
     await page.goto(`${JNS_GATEWAY_URL}/health`);
     const response = JSON.parse(await page.textContent('body') || '{}');
 
-    // Check required fields per Jeju health standard
+    // Check required fields per network health standard
     expect(response).toHaveProperty('status');
     expect(response).toHaveProperty('service');
 

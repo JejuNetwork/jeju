@@ -1,6 +1,6 @@
 /**
- * Jeju Decentralized Proxy Network
- * Permissionless bandwidth-sharing marketplace on Jeju L2
+ * Network Decentralized Proxy Network
+ * Permissionless bandwidth-sharing marketplace on the network L2
  * @module @jeju/proxy
  */
 
@@ -54,7 +54,7 @@ export { RequestRouter } from './coordinator/request-router';
 export { ProxyNodeClient, startProxyNode } from './node/client';
 
 // ============ SDK ============
-export { JejuProxySDK, createProxySDK } from './sdk/proxy-sdk';
+export { ProxySDK, createProxySDK } from './sdk/proxy-sdk';
 
 // ============ External Adapters ============
 export {

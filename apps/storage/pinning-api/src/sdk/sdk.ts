@@ -1,8 +1,8 @@
 /**
- * Jeju Storage SDK
+ * Network Storage SDK
  *
  * Client library for interacting with the decentralized storage marketplace:
- * - JejuStorageSDK: Upload, pin, and retrieve files with on-chain settlement
+ * - StorageSDK: Upload, pin, and retrieve files with on-chain settlement
  * - Multi-provider support: IPFS, Cloud, Arweave
  * - Automatic best provider selection via StorageRouter
  * - ERC-4337 multi-token payments
@@ -143,10 +143,10 @@ async function sendContract(
 }
 
 // ============================================================================
-// Jeju Storage SDK
+// Network Storage SDK
 // ============================================================================
 
-export class JejuStorageSDK {
+export class StorageSDK {
   private rpcProvider: JsonRpcProvider;
   private signer: Wallet | null;
   private registry: Contract;
@@ -803,8 +803,8 @@ export function createStorageSDK(config: {
   creditManagerAddress?: string;
   paymasterFactoryAddress?: string;
   tokenRegistryAddress?: string;
-}): JejuStorageSDK {
-  return new JejuStorageSDK({
+}): StorageSDK {
+  return new StorageSDK({
     rpcUrl: config.rpcUrl,
     signer: config.privateKey ? new Wallet(config.privateKey) : undefined,
     contracts: {
@@ -822,5 +822,5 @@ export function createStorageSDK(config: {
 // Legacy Alias
 // ============================================================================
 
-export { JejuStorageSDK as StorageSDK };
+export { StorageSDK as StorageSDK };
 

@@ -1,5 +1,5 @@
 /**
- * End-to-End Tests for Jeju Compute Marketplace
+ * End-to-End Tests for network Compute Marketplace
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
@@ -19,7 +19,7 @@ function skipIfNoNetwork(networkAvailable: boolean, testName: string): boolean {
 import { JsonRpcProvider, parseEther, Wallet } from 'ethers';
 import { ComputeNodeServer } from '../node/server';
 import type { AttestationReport, HardwareInfo, ProviderConfig } from '../node/types';
-import { JejuComputeSDK } from '../sdk/sdk';
+import { ComputeSDK } from '../sdk/sdk';
 import type { InferenceResponse } from '../sdk/types';
 
 // Test response types
@@ -43,7 +43,7 @@ const TEST_ACCOUNTS = {
   user: '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a',
 };
 
-// Use Jeju localnet (9545) or fallback to Anvil (8545)
+// Use network localnet (9545) or fallback to Anvil (8545)
 const RPC_URL = process.env.JEJU_RPC_URL || 'http://127.0.0.1:9545';
 
 // Contract addresses from deployment (set via env or use defaults)
@@ -53,12 +53,12 @@ const CONTRACTS = {
   inference: process.env.INFERENCE_SERVING_ADDRESS || '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
 };
 
-describe('Jeju Compute E2E', () => {
+describe('Compute E2E', () => {
   let providerWallet: Wallet;
   let userWallet: Wallet;
   let computeNode: ComputeNodeServer;
-  let providerSDK: JejuComputeSDK;
-  let userSDK: JejuComputeSDK;
+  let providerSDK: ComputeSDK;
+  let userSDK: ComputeSDK;
   let networkAvailable = false;
 
   beforeAll(async () => {
@@ -79,13 +79,13 @@ describe('Jeju Compute E2E', () => {
     console.log('User address:', userWallet.address);
 
     // Initialize SDKs
-    providerSDK = new JejuComputeSDK({
+    providerSDK = new ComputeSDK({
       rpcUrl: RPC_URL,
       signer: providerWallet,
       contracts: CONTRACTS,
     });
 
-    userSDK = new JejuComputeSDK({
+    userSDK = new ComputeSDK({
       rpcUrl: RPC_URL,
       signer: userWallet,
       contracts: CONTRACTS,
@@ -253,10 +253,10 @@ describe('Jeju Compute E2E', () => {
       if (skipIfNoNetwork(networkAvailable, 'generate auth headers')) return;
       try {
         const headers = await userSDK.generateAuthHeaders(providerWallet.address);
-        expect(headers['x-jeju-address']).toBe(userWallet.address);
-        expect(headers['x-jeju-nonce']).toBeDefined();
-        expect(headers['x-jeju-signature']).toBeDefined();
-        expect(headers['x-jeju-timestamp']).toBeDefined();
+        expect(headers['x-network-address']).toBe(userWallet.address);
+        expect(headers['x-network-nonce']).toBeDefined();
+        expect(headers['x-network-signature']).toBeDefined();
+        expect(headers['x-network-timestamp']).toBeDefined();
       } catch (error) {
         if (String(error).includes('BAD_DATA') || String(error).includes('could not decode')) {
           if (IS_CI) throw new Error('Contracts not deployed in CI - deployment step failed');
@@ -320,7 +320,7 @@ describe('Jeju Compute E2E', () => {
 });
 
 // Run tests
-console.log('\n🧪 Running Jeju Compute E2E Tests\n');
+console.log('\n🧪 Running Compute E2E Tests\n');
 console.log('Prerequisites:');
 console.log('1. Anvil running on http://localhost:8545');
 console.log('2. Contracts deployed (or using mock addresses)');

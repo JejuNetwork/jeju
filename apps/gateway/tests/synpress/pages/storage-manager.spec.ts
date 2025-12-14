@@ -29,7 +29,7 @@ test.describe('Storage Manager - Navigation & Display', () => {
 
     // Verify page loaded
     await expect(page.getByText('File Storage Manager')).toBeVisible();
-    await expect(page.getByText(/Decentralized file storage on Jeju IPFS/i)).toBeVisible();
+    await expect(page.getByText(/Decentralized file storage on the network IPFS/i)).toBeVisible();
 
     await page.screenshot({
       path: 'test-results/screenshots/storage/01-storage-manager.png',
@@ -77,7 +77,7 @@ test.describe('File Upload Flow', () => {
     await page.waitForTimeout(1000);
   });
 
-  test('should upload file to Jeju IPFS', async ({ page }) => {
+  test('should upload file to the network IPFS', async ({ page }) => {
     // Upload Files tab (default)
     
     // Select file
@@ -261,7 +261,7 @@ test.describe('File Management', () => {
 // Note: Storage system requires IPFS service
 test.describe('Storage System Requirements', () => {
   test('should check if IPFS service available', async ({ page }) => {
-    // Check if Jeju IPFS API is running
+    // Check if IPFS API is running
     const ipfsUrl = 'http://localhost:3100';
     
     const ipfsAvailable = await page.request.get(`${ipfsUrl}/health`).then(
@@ -269,7 +269,7 @@ test.describe('Storage System Requirements', () => {
     ).catch(() => false);
 
     if (ipfsAvailable) {
-      console.log('✅ Jeju IPFS service available');
+      console.log('✅ IPFS service available');
     } else {
       console.log('⚠️  IPFS service not running on port 3100');
       console.log('   Start with: cd apps/ipfs && bun run dev');

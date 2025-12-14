@@ -2,8 +2,8 @@
  * @fileoverview Complete Multi-Token Lifecycle Integration Test
  * @module tests/integration/multi-token-full-lifecycle
  * 
- * Tests the COMPLETE user journey for bringing a new token to Jeju:
- * 1. Bridge CLANKER from Ethereum to Jeju
+ * Tests the COMPLETE user journey for bringing a new token to the network:
+ * 1. Bridge CLANKER from Ethereum to the network
  * 2. Deploy paymaster infrastructure for CLANKER
  * 3. LP provides ETH liquidity to CLANKER vault
  * 4. User pays gas with CLANKER tokens
@@ -102,7 +102,7 @@ describe.skipIf(!localnetAvailable)('Multi-Token Full Lifecycle', () => {
     console.log('');
   });
 
-  test('Step 1: Deploy CLANKER token on Jeju (simulating bridge)', async () => {
+  test('Step 1: Deploy CLANKER token on the network (simulating bridge)', async () => {
     console.log('\n📝 Step 1: Deploying Mock CLANKER...');
     
     // Deploy using forge
@@ -217,14 +217,14 @@ describe.skipIf(!localnetAvailable)('Multi-Token Full Lifecycle', () => {
     console.log('\n📝 Step 7: Final Verification...');
 
     console.log('✅ Complete lifecycle verified:');
-    console.log('   ✓ Token bridged to Jeju');
+    console.log('   ✓ Token bridged to the network');
     console.log('   ✓ Paymaster deployed');
     console.log('   ✓ LP provided ETH');
     console.log('   ✓ User paid gas with token');
     console.log('   ✓ LP earned token rewards');
     console.log('   ✓ LP claimed rewards');
     console.log('');
-    console.log('🎉 CLANKER is now a first-class token on Jeju!');
+    console.log('🎉 CLANKER is now a first-class token on the network!');
   });
 
   test('Summary: Multi-token economy works', () => {
@@ -232,7 +232,7 @@ describe.skipIf(!localnetAvailable)('Multi-Token Full Lifecycle', () => {
     console.log('MULTI-TOKEN ECONOMY VERIFICATION');
     console.log('='.repeat(70));
     console.log('');
-    console.log('✅ Users can bridge Base tokens to Jeju');
+    console.log('✅ Users can bridge Base tokens to the network');
     console.log('✅ Tokens can be used for gas payments');
     console.log('✅ ETH LPs earn fees in those tokens');
     console.log('✅ Complete economic loop functional');

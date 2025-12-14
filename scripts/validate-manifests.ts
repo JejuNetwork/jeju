@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Validate All Jeju Manifests
+ * Validate All Network Manifests
  * 
  * Checks that all jeju-manifest.json files are valid according to the schema
  * 
@@ -20,7 +20,7 @@ const COLORS = {
 function main() {
   console.log('╔══════════════════════════════════════════════════════════════╗');
   console.log('║                                                              ║');
-  console.log('║              📋 Jeju Manifest Validation                    ║');
+  console.log('║              📋 Network Manifest Validation                    ║');
   console.log('║                                                              ║');
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
 

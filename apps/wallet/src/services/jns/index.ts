@@ -1,10 +1,10 @@
 /**
- * JNS (Jeju Name Service) - ENS-compatible naming
+ * JNS (Network Name Service) - ENS-compatible naming
  * Register .jeju names, resolve addresses, reverse lookup
  */
 
 import { type Address, type Hex, type PublicClient, encodeFunctionData, namehash, labelhash, createPublicClient, http } from 'viem';
-import { getChainContracts, getJejuRpcUrl } from '../../sdk/chains';
+import { getChainContracts, getNetworkRpcUrl } from '../../sdk/chains';
 import { rpcService, type SupportedChainId, SUPPORTED_CHAINS } from '../rpc';
 
 const JNS_REGISTRAR_ABI = [
@@ -53,7 +53,7 @@ export interface JNSPricing {
   available: boolean;
 }
 
-// Default to Jeju L2 for JNS
+// Default to the network L2 for JNS
 const DEFAULT_JNS_CHAIN = 420691;
 const ONE_YEAR = 365 * 24 * 60 * 60;
 
@@ -79,7 +79,7 @@ export class JNSService {
       return rpcService.getClient(this.chainId as SupportedChainId);
     }
     if (!this.clientCache.has(this.chainId)) {
-      const rpcUrl = getJejuRpcUrl(this.chainId) || 'http://localhost:8545';
+      const rpcUrl = getNetworkRpcUrl(this.chainId) || 'http://localhost:8545';
       this.clientCache.set(this.chainId, createPublicClient({ transport: http(rpcUrl) }));
     }
     return this.clientCache.get(this.chainId)!;

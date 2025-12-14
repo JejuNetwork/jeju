@@ -671,7 +671,7 @@ export function createStorageMarketplaceClient(
     });
   }
 
-  // Add cloud if Jeju storage endpoint configured
+  // Add cloud if network storage endpoint configured
   if (process.env.JEJU_STORAGE_ENDPOINT) {
     directProviders.push({
       type: 'cloud',

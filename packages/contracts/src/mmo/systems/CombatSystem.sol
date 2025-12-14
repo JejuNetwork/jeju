@@ -36,7 +36,7 @@ contract CombatSystem is System {
     event DamageDealt(address indexed attacker, bytes32 indexed target, uint32 damage);
     event MobKilled(address indexed killer, bytes32 indexed mobId, uint256 coinsDropped);
     event LootDropped(bytes32 indexed mobId, uint16 itemId, uint32 quantity);
-    event JejuIntegrationSet(address indexed integration);
+    event GameIntegrationSet(address indexed integration);
 
     error PlayerBanned();
 
@@ -45,7 +45,7 @@ contract CombatSystem is System {
      */
     function setJejuIntegration(address _jejuIntegration) public {
         jejuIntegration = _jejuIntegration;
-        emit JejuIntegrationSet(_jejuIntegration);
+        emit GameIntegrationSet(_jejuIntegration);
     }
 
     /**

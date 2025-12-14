@@ -9,7 +9,7 @@ import { isChainSupported, getChain, CHAINS } from '../../src/rpc/config/chains.
 describe('Chain Configuration', () => {
   test('supports expected chains', () => {
     expect(isChainSupported(1)).toBe(true);       // Ethereum
-    expect(isChainSupported(420691)).toBe(true);  // Jeju
+    expect(isChainSupported(420691)).toBe(true);  // Network
     expect(isChainSupported(8453)).toBe(true);    // Base
     expect(isChainSupported(42161)).toBe(true);   // Arbitrum
     expect(isChainSupported(10)).toBe(true);      // Optimism

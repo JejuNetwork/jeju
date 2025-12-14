@@ -118,7 +118,7 @@ test.describe('Bridge - Maximum Values', () => {
     console.log(`ℹ️  Min value handling: ${value}`);
 
     // Should accept or round
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     const enabled = await bridgeButton.isEnabled();
 
     console.log(`ℹ️  Button enabled for tiny amount: ${enabled}`);
@@ -364,7 +364,7 @@ test.describe('Bridge - Complete Test Coverage Verification', () => {
     console.log('🎯 Comprehensive Bridge Test:');
 
     // 1. Warning displayed
-    await expect(page.getByText(/elizaOS is a native Jeju token/i)).toBeVisible();
+    await expect(page.getByText(/elizaOS is a native network token/i)).toBeVisible();
     console.log('   ✅ 1. elizaOS warning');
 
     // 2. Mode buttons present
@@ -407,7 +407,7 @@ test.describe('Bridge - Complete Test Coverage Verification', () => {
     console.log('   ✅ 8. Bridge information');
 
     // 9. Button enabled
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeEnabled();
     console.log('   ✅ 9. Bridge button enabled');
 

@@ -1,7 +1,7 @@
 /**
  * Shared x402 Payment Protocol Implementation
  * 
- * Shared x402 library for all Jeju apps (bazaar, gateway, compute, storage, cloud)
+ * Shared x402 library for all network apps (bazaar, gateway, compute, storage, cloud)
  * Implements Coinbase x402 specification with EIP-712 signatures
  * 
  * @see https://x402.org

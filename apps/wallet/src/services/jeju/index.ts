@@ -1,11 +1,11 @@
 /**
- * Jeju Infrastructure Integration
- * Single source of truth for all Jeju services
+ * Network Infrastructure Integration
+ * Single source of truth for all network services
  */
 
 import type { Address, Hex } from 'viem';
 
-// Jeju infrastructure URLs
+// Network infrastructure URLs
 const INDEXER_URL = import.meta.env.VITE_JEJU_INDEXER_URL || 'http://localhost:4352';
 const GRAPHQL_URL = import.meta.env.VITE_JEJU_GRAPHQL_URL || 'http://localhost:4350/graphql';
 const BUNDLER_URL = import.meta.env.VITE_JEJU_BUNDLER_URL || 'http://localhost:4337';

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Jeju Master Test Runner
+ * Network Master Test Runner
  * 
  * Runs all tests across the entire project in proper order:
  * 1. Core Setup & Utilities

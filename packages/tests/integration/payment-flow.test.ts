@@ -48,7 +48,7 @@ const TEST_CONFIG = {
 
 const jejuChain = {
   id: TEST_CONFIG.chainId,
-  name: 'Jeju',
+  name: 'Network',
   network: 'jeju',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {

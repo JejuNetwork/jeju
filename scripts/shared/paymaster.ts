@@ -1,7 +1,7 @@
 /**
  * Shared Paymaster Integration Library
  * 
- * Shared paymaster functionality for all Jeju apps.
+ * Shared paymaster functionality for all network apps.
  * Supports multi-token gas payments via PaymasterFactory.
  */
 
@@ -79,7 +79,7 @@ function getClient(config: PaymasterConfig = DEFAULT_CONFIG) {
   return createPublicClient({
     chain: {
       id: config.chainId,
-      name: 'Jeju',
+      name: 'Network',
       nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
       rpcUrls: { default: { http: [config.rpcUrl] } },
     },

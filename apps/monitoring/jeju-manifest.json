@@ -1,7 +1,7 @@
 {
   "$schema": "../../packages/config/jeju-manifest.schema.json",
   "name": "monitoring",
-  "displayName": "Jeju Monitoring",
+  "displayName": "Network Monitoring",
   "version": "1.0.0",
   "type": "core",
   "description": "Query blockchain metrics and system health via Prometheus. Exposes PromQL queries, active alerts, and scrape target status via A2A protocol.",
@@ -34,6 +34,12 @@
     "trustModels": ["open"],
     "x402Support": false,
     "jnsName": "monitoring.jeju"
+  },
+  "testing": {
+    "unit": {
+      "command": "bun test test/a2a.test.ts test/monitoring.test.ts test/on-chain-validation.test.ts",
+      "timeout": 120000
+    }
   }
 }
 

@@ -2,7 +2,7 @@ import { Page } from '@playwright/test';
 import path from 'path';
 
 /**
- * Screenshot helper utilities for Jeju E2E tests
+ * Screenshot helper utilities for network E2E tests
  *
  * These helpers ensure consistent screenshot capture across all tests
  * for visual verification and debugging.

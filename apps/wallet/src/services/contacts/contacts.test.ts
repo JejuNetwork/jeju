@@ -2,15 +2,15 @@
  * Contacts Service Tests
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ContactsService } from './index';
 
 // Mock storage
 vi.mock('../../platform/storage', () => ({
   storage: {
-    get: vi.fn().mockResolvedValue(null),
-    set: vi.fn().mockResolvedValue(undefined),
-    remove: vi.fn().mockResolvedValue(undefined),
+    get: vi.fn(() => Promise.resolve(null)),
+    set: vi.fn(() => Promise.resolve(undefined)),
+    remove: vi.fn(() => Promise.resolve(undefined)),
   },
 }));
 
@@ -18,7 +18,6 @@ describe('ContactsService', () => {
   let contactsService: ContactsService;
 
   beforeEach(async () => {
-    vi.clearAllMocks();
     contactsService = new ContactsService();
     await contactsService.initialize();
   });

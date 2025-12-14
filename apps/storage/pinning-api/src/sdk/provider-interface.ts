@@ -1,12 +1,12 @@
 /**
  * Decentralized Storage Provider Interface
  *
- * This interface defines how storage providers participate in the Jeju marketplace.
+ * This interface defines how storage providers participate in the marketplace.
  * ALL storage - whether cloud (Vercel, S3, R2) or decentralized (IPFS, Arweave) -
  * MUST implement this interface to be discoverable on the marketplace.
  *
  * KEY PRINCIPLES:
- * 1. NO vendor-specific code in Jeju core - all providers are abstracted
+ * 1. NO vendor-specific code in Network core - all providers are abstracted
  * 2. Providers register on-chain and expose a standard API
  * 3. Compute marketplace discovers providers via ERC-8004 agents
  * 4. Payment is handled via x402 protocol (permissionless)
@@ -191,7 +191,7 @@ export interface RegisteredProvider {
 
 /**
  * Interface that ALL storage providers must implement to participate
- * in the Jeju marketplace. This is the ONLY interface the compute
+ * in the marketplace. This is the ONLY interface the compute
  * marketplace uses - no vendor-specific code allowed.
  */
 export interface StorageProviderInterface {

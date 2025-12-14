@@ -303,7 +303,7 @@ BSC TESTNET (requires 0.002 BNB on mainnet OR use these):
 async function main() {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║  Jeju Network - Testnet Deployer Funding                                     ║
+║  the network - Testnet Deployer Funding                                     ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 `);
 

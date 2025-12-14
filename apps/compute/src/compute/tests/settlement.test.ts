@@ -17,7 +17,7 @@ function requireNetwork(networkAvailable: boolean, testName: string): void {
 import { JsonRpcProvider, Wallet } from 'ethers';
 import { ComputeNodeServer } from '../node/server';
 import type { ProviderConfig } from '../node/types';
-import { JejuComputeSDK } from '../sdk/sdk';
+import { ComputeSDK } from '../sdk/sdk';
 import type { InferenceResponse } from '../sdk/types';
 
 // Anvil default accounts
@@ -41,7 +41,7 @@ describe('Settlement Flow', () => {
   let providerWallet: Wallet;
   let userWallet: Wallet;
   let computeNode: ComputeNodeServer;
-  let userSDK: JejuComputeSDK;
+  let userSDK: ComputeSDK;
   let networkAvailable = false;
 
   beforeAll(async () => {
@@ -65,7 +65,7 @@ describe('Settlement Flow', () => {
     console.log(`User: ${userWallet.address}`);
 
     // Initialize user SDK
-    userSDK = new JejuComputeSDK({
+    userSDK = new ComputeSDK({
       rpcUrl: RPC_URL,
       signer: userWallet,
       contracts: CONTRACTS,

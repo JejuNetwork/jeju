@@ -1,5 +1,5 @@
 /**
- * Jeju Decentralized Proxy Network - Shared Types
+ * Network Decentralized Proxy Network - Shared Types
  * @module @jeju/proxy/types
  */
 

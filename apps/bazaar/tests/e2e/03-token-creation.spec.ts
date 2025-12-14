@@ -30,7 +30,7 @@ test.describe('Token Creation Page', () => {
     await page.goto('/coins/create')
 
     await expect(page.getByRole('heading', { name: /How it works/i })).toBeVisible()
-    await expect(page.getByText(/Connect your wallet and switch to Jeju network/i)).toBeVisible()
+    await expect(page.getByText(/Connect your wallet and switch to the network network/i)).toBeVisible()
     await expect(page.getByText(/Fill in token details \(name, symbol, supply\)/i)).toBeVisible()
     await expect(page.getByText(/Deploy your ERC20 token contract/i)).toBeVisible()
     await expect(page.getByText(/appears on Bazaar automatically via the indexer/i)).toBeVisible()
@@ -40,7 +40,7 @@ test.describe('Token Creation Page', () => {
     await page.goto('/coins/create')
 
     // Get the form submit button (inside main content, not header)
-    const createButton = page.locator('main, [role="main"]').getByRole('button', { name: /Create Token|Connect Wallet|Switch to Jeju/i }).first()
+    const createButton = page.locator('main, [role="main"]').getByRole('button', { name: /Create Token|Connect Wallet|Switch to the network/i }).first()
 
     // Button should exist
     await expect(createButton).toBeVisible()
@@ -49,9 +49,9 @@ test.describe('Token Creation Page', () => {
     if (buttonText?.includes('Connect Wallet')) {
       // Not connected, button shows "Connect Wallet"
       expect(buttonText).toContain('Connect Wallet')
-    } else if (buttonText?.includes('Switch to Jeju')) {
+    } else if (buttonText?.includes('Switch to the network')) {
       // Connected but wrong chain
-      expect(buttonText).toContain('Switch to Jeju')
+      expect(buttonText).toContain('Switch to the network')
     } else {
       // Connected and correct chain, button should be disabled without required inputs
       await expect(createButton).toBeDisabled()
@@ -61,7 +61,7 @@ test.describe('Token Creation Page', () => {
     await page.getByPlaceholder(/My Awesome Token/i).fill('Test Token')
     await page.getByPlaceholder(/MAT/i).fill('TEST')
 
-    // Still disabled if not connected (button will show "Connect Wallet" or "Switch to Jeju")
+    // Still disabled if not connected (button will show "Connect Wallet" or "Switch to the network")
     const updatedButtonText = await createButton.textContent()
     expect(updatedButtonText).toBeTruthy()
   })

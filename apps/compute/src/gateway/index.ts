@@ -266,13 +266,13 @@ export class ComputeGateway {
       throw new Error('IdentityRegistry not configured or wallet missing');
     }
 
-    const name = this.config.gatewayName || 'Jeju Compute Gateway';
+    const name: getNetworkName() Compute Gateway';
     const endpoint = this.config.gatewayEndpoint || `http://localhost:${this.config.port}`;
 
     // Create tokenURI with gateway metadata
     const tokenUri = JSON.stringify({
       name,
-      description: 'Jeju Compute Gateway - Proxy and discovery service for compute providers',
+      description: 'Compute Gateway - Proxy and discovery service for compute providers',
       type: 'compute-gateway',
       endpoint,
       version: '1.0.0',
@@ -368,11 +368,11 @@ export class ComputeGateway {
     // ========== A2A Agent Card ==========
     this.app.get('/.well-known/agent-card.json', (c) => c.json({
       protocolVersion: '0.3.0',
-      name: 'Jeju Compute Gateway',
+      name: getNetworkName() Compute Gateway',
       description: 'Decentralized compute marketplace gateway - rent GPUs, CPUs, TEE. SSH access, Docker containers, AI inference.',
       url: '/a2a',
       preferredTransport: 'http',
-      provider: { organization: 'Jeju Network', url: 'https://jeju.network' },
+      provider: { organization: 'the network', url: 'https://jeju.network' },
       version: '1.0.0',
       capabilities: { streaming: true, pushNotifications: false, stateTransitionHistory: true },
       defaultInputModes: ['text', 'data'],
@@ -456,7 +456,7 @@ export class ComputeGateway {
     // Get gateway info (including ERC-8004 agent ID)
     this.app.get('/v1/gateway/info', (c: Context) => {
       return c.json({
-        name: this.config.gatewayName || 'Jeju Compute Gateway',
+        name: getNetworkName() Compute Gateway',
         agentId: this.gatewayAgentId?.toString() ?? null,
         port: this.config.port,
         sshProxyPort: this.config.sshProxyPort,
@@ -822,7 +822,7 @@ export class ComputeGateway {
       const targetUrl = `${provider.endpoint}/${proxyPath}`;
 
       // Content moderation for inference requests
-      const userAddress = c.req.header('x-jeju-address') as Address | undefined;
+      const userAddress = c.req.header('x-network-address') as Address | undefined;
       if (this.moderationEnabled && proxyPath.includes('chat/completions')) {
         const bodyClone = await c.req.text();
         
@@ -1276,10 +1276,10 @@ export class ComputeGateway {
    * Verify auth headers
    */
   private async verifyAuth(c: Context): Promise<{ valid: boolean; reason?: string; address?: string }> {
-    const address = c.req.header('x-jeju-address');
-    const nonce = c.req.header('x-jeju-nonce');
-    const signature = c.req.header('x-jeju-signature');
-    const timestamp = c.req.header('x-jeju-timestamp');
+    const address = c.req.header('x-network-address');
+    const nonce = c.req.header('x-network-nonce');
+    const signature = c.req.header('x-network-signature');
+    const timestamp = c.req.header('x-network-timestamp');
 
     if (!address || !nonce || !signature || !timestamp) {
       return { valid: false, reason: 'Missing auth headers' };
@@ -1349,7 +1349,7 @@ export async function startComputeGateway(): Promise<ComputeGateway> {
     identityRegistryAddress: process.env.IDENTITY_REGISTRY_ADDRESS,
     reputationRegistryAddress: process.env.REPUTATION_REGISTRY_ADDRESS,
     privateKey: process.env.PRIVATE_KEY,
-    gatewayName: process.env.GATEWAY_NAME || 'Jeju Compute Gateway',
+    gatewayName: process.env.GATEWAY_NAME || 'Compute Gateway',
     gatewayEndpoint: process.env.GATEWAY_ENDPOINT,
     // Moderation config
     moderationEnabled: process.env.MODERATION_ENABLED !== 'false',

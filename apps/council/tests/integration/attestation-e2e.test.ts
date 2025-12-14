@@ -31,7 +31,7 @@ function signAttestation(
 ): { signature: string; assessor: string } {
   const messageHash = solidityPackedKeccak256(
     ['string', 'bytes32', 'uint256', 'uint256', 'address', 'uint256'],
-    ['JejuQualityAttestation', contentHash, score, timestamp, proposerAddress, chainId]
+    ['QualityAttestation', contentHash, score, timestamp, proposerAddress, chainId]
   );
   
   const wallet = new Wallet(assessorKey);

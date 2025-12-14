@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
  * @title Auto-Update Manager
- * @notice Automatically updates Jeju nodes to latest versions
+ * @notice Automatically updates network nodes to latest versions
  * 
  * Features:
  * - Checks for new releases
@@ -98,7 +98,7 @@ async function sendNotification(message: string, isError: boolean = false): Prom
   if (!CONFIG.NOTIFICATION_WEBHOOK) return;
   
   const emoji = isError ? '❌' : '✅';
-  const fullMessage = `${emoji} **Jeju Node Auto-Update**\n${message}`;
+  const fullMessage = `${emoji} **Network Node Auto-Update**\n${message}`;
   
   console.log(fullMessage);
   
@@ -374,7 +374,7 @@ async function checkForUpdates(): Promise<void> {
 // ============ Main ============
 
 async function main() {
-  console.log('🤖 Jeju Auto-Update Manager starting...');
+  console.log('🤖 Network Auto-Update Manager starting...');
   console.log(`   Check Interval: ${CONFIG.CHECK_INTERVAL / 1000}s`);
   console.log(`   Auto-Update: ${CONFIG.AUTO_UPDATE}`);
   console.log(`   Repository: ${CONFIG.GITHUB_REPO}`);

@@ -15,7 +15,7 @@ test.describe('Page Load', () => {
     });
 
     await page.goto('/');
-    await expect(page).toHaveTitle(/Jeju Compute/);
+    await expect(page).toHaveTitle(/Compute/);
     await page.waitForLoadState('networkidle');
     
     // Filter out expected errors (favicon, network requests to gateway that may not be running)
@@ -40,7 +40,7 @@ test.describe('Header Elements', () => {
   test('logo is visible', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByTestId('logo')).toBeVisible();
-    await expect(page.getByTestId('logo')).toContainText('Jeju Compute');
+    await expect(page.getByTestId('logo')).toContainText('Compute');
   });
 
   test('navigation tabs are visible', async ({ page }) => {

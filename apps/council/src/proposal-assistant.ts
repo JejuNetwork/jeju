@@ -277,7 +277,7 @@ Return JSON: {"title":"...","summary":"...","description":"..."}`;
     // Build the message hash (must match QualityOracle.sol)
     const messageHash = solidityPackedKeccak256(
       ['string', 'bytes32', 'uint256', 'uint256', 'address', 'uint256'],
-      ['JejuQualityAttestation', contentHash, score, timestamp, submitterAddress, chainId]
+      ['QualityAttestation', contentHash, score, timestamp, submitterAddress, chainId]
     );
 
     // Sign with EIP-191 personal sign

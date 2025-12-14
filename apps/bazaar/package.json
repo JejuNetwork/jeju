@@ -5,13 +5,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 4006",
+    "dev:jeju": "cd ../.. && bun run jeju:dev --only=bazaar",
     "build": "next build",
     "start": "next start -p 4006",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "SKIP_INDEXER_TESTS=true bun run test:unit",
     "test:full": "SKIP_INDEXER_TESTS=true bun run test:unit && bun run test:e2e",
-    "test:unit": "SKIP_INDEXER_TESTS=true bun test lib/__tests__/*.test.ts config/__tests__/*.test.ts",
+    "test:unit": "SKIP_INDEXER_TESTS=true bun test lib/__tests__/banCheck.test.ts lib/__tests__/indexer-client.test.ts lib/__tests__/x402.test.ts lib/__tests__/paymaster-integration.test.ts config/__tests__/*.test.ts",
     "test:e2e": "playwright test tests/e2e --reporter=dot",
     "test:e2e:headed": "playwright test tests/e2e --headed --reporter=dot",
     "test:e2e:ui": "playwright test tests/e2e --ui",
@@ -20,6 +21,7 @@
     "test:wallet:run": "playwright test tests/wallet --config=synpress.config.ts --reporter=list",
     "test:coverage": "bun test --coverage lib/__tests__/*.test.ts config/__tests__/*.test.ts",
     "test:all": "bun run test:unit && bun run test:e2e",
+    "test:jeju": "cd ../.. && bun run jeju:test --app=bazaar",
     "test:localnet": "bun test tests/integration/",
     "test:localnet:full": "bun run scripts/run-localnet-simulations.ts"
   },

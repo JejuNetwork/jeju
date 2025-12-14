@@ -96,7 +96,7 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
     event ComputePayment(address indexed user, uint256 ethAmount, uint256 tokenAmount, address token);
     event LiquidityDeposited(address indexed depositor, uint256 amount, uint256 newBalance);
     event LiquidityWithdrawn(address indexed recipient, uint256 amount, uint256 newBalance);
-    event JejuTokenUpdated(address indexed oldToken, address indexed newToken);
+    event NativeTokenUpdated(address indexed oldToken, address indexed newToken);
 
     // ============ Errors ============
 
@@ -484,10 +484,10 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
      * @notice Set JEJU token address
      * @param _jeju JEJU token contract address
      */
-    function setJejuToken(address _jeju) external onlyOwner {
+    function setNetworkToken(address _jeju) external onlyOwner {
         address oldToken = address(jeju);
         jeju = IERC20(_jeju);
-        emit JejuTokenUpdated(oldToken, _jeju);
+        emit NativeTokenUpdated(oldToken, _jeju);
     }
 
     /**

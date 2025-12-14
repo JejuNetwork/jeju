@@ -59,10 +59,10 @@ const CHAIN_DEFS: Record<number, Chain> = {
   11155111: sepolia,
 };
 
-// Custom chain for Jeju
+// Custom chain for network
 const jejuChain: Chain = {
   id: 420691,
-  name: 'Jeju',
+  name: 'Network',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
     default: { http: ['https://rpc.jeju.network'] },
@@ -71,7 +71,7 @@ const jejuChain: Chain = {
 
 const jejuTestnet: Chain = {
   id: 420690,
-  name: 'Jeju Testnet',
+  name: 'Testnet',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
     default: { http: ['https://testnet-rpc.jeju.network'] },

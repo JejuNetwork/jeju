@@ -2,14 +2,14 @@
  * Safe (Gnosis) Service Tests
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SafeService } from './index';
 
 // Mock RPC service
 vi.mock('../rpc', () => ({
   rpcService: {
-    getClient: vi.fn().mockReturnValue({
-      readContract: vi.fn().mockImplementation(({ functionName }) => {
+    getClient: () => ({
+      readContract: ({ functionName }: { functionName: string }) => {
         switch (functionName) {
           case 'getOwners':
             return Promise.resolve([
@@ -27,7 +27,7 @@ vi.mock('../rpc', () => ({
           default:
             return Promise.resolve(null);
         }
-      }),
+      },
     }),
   },
   SUPPORTED_CHAINS: { 1: {}, 8453: {} },
@@ -37,7 +37,6 @@ describe('SafeService', () => {
   let safeService: SafeService;
 
   beforeEach(() => {
-    vi.clearAllMocks();
     safeService = new SafeService();
   });
 
@@ -109,4 +108,3 @@ describe('SafeService', () => {
     });
   });
 });
-

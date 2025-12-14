@@ -1,5 +1,5 @@
 /**
- * Jeju Wallet Plugin
+ * Network Wallet Plugin
  * 
  * Provides agentic wallet capabilities including:
  * - Multi-chain wallet management (EVM)
@@ -14,6 +14,19 @@
  * - Token launchpad (bonding curves, ICO)
  * - Bazaar NFT marketplace
  */
+
+// ElizaOS Plugin (primary export)
+export { jejuWalletPlugin, jejuWalletPlugin as default } from './eliza-plugin';
+export {
+  // Providers
+  walletStateProvider,
+  portfolioProvider,
+  // Actions
+  sendTokenAction as elizaSendTokenAction,
+  swapTokenAction as elizaSwapTokenAction,
+  portfolioAction as elizaPortfolioAction,
+  registerNameAction as elizaRegisterNameAction,
+} from './eliza-plugin';
 
 // Services (used directly in the app, not through ElizaOS plugin system)
 export { WalletService } from './services/wallet.service';

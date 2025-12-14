@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { getJejuTokens } from '@/lib/indexer-client'
+import { getNetworkTokens } from '@/lib/indexer-client'
 import { JEJU_CHAIN_ID } from '@/config/chains'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 
@@ -51,7 +51,7 @@ export default function TokensPage() {
 
   const { data: coins, isLoading, error } = useQuery({
     queryKey: ['jeju-coins', filter],
-    queryFn: () => getJejuTokens({ limit: 50 }),
+    queryFn: () => getNetworkTokens({ limit: 50 }),
     refetchInterval: 10000,
   })
 
@@ -63,7 +63,7 @@ export default function TokensPage() {
           <h1 className="text-3xl md:text-4xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
             🪙 Coins
           </h1>
-          <p style={{ color: 'var(--text-secondary)' }}>Browse and trade coins on Jeju and beyond</p>
+          <p style={{ color: 'var(--text-secondary)' }}>Browse and trade coins on the network and beyond</p>
         </div>
         <div className="flex gap-2 w-full md:w-auto">
           <Link href="/coins/launch" className="btn-primary flex-1 md:flex-none text-center">
@@ -119,7 +119,7 @@ export default function TokensPage() {
             No Coins Yet
           </h3>
           <p className="mb-6" style={{ color: 'var(--text-secondary)' }}>
-            Be the first to create a coin on Jeju.
+            Be the first to create a coin on the network.
           </p>
           <Link href="/coins/create" className="btn-primary">
             Create First Coin

@@ -100,12 +100,12 @@ test.describe('Gateway Wallet Connection', () => {
     }
   });
 
-  test('should display correct network (Jeju Localnet)', async ({ page, metamask }) => {
+  test('should display correct network (Network Localnet)', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     
-    // Check that we're on Jeju network
-    const networkIndicator = page.locator('text=/Jeju|Chain ID/i');
+    // Check that we're on the network network
+    const networkIndicator = page.locator('text=|Network|Chain ID/i');
     const hasNetworkInfo = await networkIndicator.isVisible();
     
     if (hasNetworkInfo) {

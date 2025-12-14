@@ -2,7 +2,7 @@
 /**
  * Full Testnet Deployment Script
  * 
- * Orchestrates the complete deployment of Jeju Network testnet:
+ * Orchestrates the complete deployment of the network testnet:
  * 1. Generate operator keys
  * 2. Update deploy config
  * 3. Deploy L1 contracts on Sepolia
@@ -53,7 +53,7 @@ function printStatus() {
   console.clear();
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════╗
-║  Jeju Network - Full Testnet Deployment                              ║
+║  the network - Full Testnet Deployment                              ║
 ╚══════════════════════════════════════════════════════════════════════╝
 `);
   

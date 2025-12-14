@@ -1,7 +1,7 @@
 {
   "$schema": "../../../packages/config/jeju-manifest.schema.json",
   "name": "cache-service",
-  "displayName": "Jeju Cache Service",
+  "displayName": "Network Cache Service",
   "description": "Decentralized Redis cache running in TEE for fast, secure caching",
   "version": "1.0.0",
   "type": "service",

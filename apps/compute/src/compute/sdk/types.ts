@@ -1,5 +1,5 @@
 /**
- * SDK Types for Jeju Compute Marketplace
+ * SDK Types for network Compute Marketplace
  */
 
 import type { Wallet } from 'ethers';

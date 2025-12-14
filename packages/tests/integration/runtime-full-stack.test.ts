@@ -2,11 +2,11 @@
  * @fileoverview Full-stack runtime integration test
  * @module tests/integration/runtime-full-stack
  * 
- * This test suite verifies that all Jeju services work together in a running system:
+ * This test suite verifies that all network services work together in a running system:
  * 
  * Services Tested:
  * - L1 (Geth) - Settlement layer
- * - L2 (op-geth) - Jeju execution layer
+ * - L2 (op-geth) - network execution layer
  * - Indexer (Subsquid) - Data indexing
  * - Oracle Bot - Price feed updates
  * - Node Explorer - Operator dashboard

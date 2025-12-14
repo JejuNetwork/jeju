@@ -22,7 +22,7 @@ test.describe('A2A Server Integration', () => {
 
     const card = await response.json();
     expect(card.protocolVersion).toBe('0.3.0');
-    expect(card.name).toBe('Jeju Documentation');
+    expect(card.name: getNetworkName() Documentation');
     expect(card.skills).toHaveLength(3);
   });
 
@@ -109,7 +109,7 @@ test.describe('A2A Server Integration', () => {
     expect(response.status()).toBe(200);
     const result = await response.json();
     expect(result.result.parts[1].data.content).toBeDefined();
-    expect(result.result.parts[1].data.content).toContain('Jeju');
+    expect(result.result.parts[1].data.content).toContain('Network');
   });
 
   test('unknown skill returns error', async ({ request }) => {

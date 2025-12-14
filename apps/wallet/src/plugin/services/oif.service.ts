@@ -1,7 +1,7 @@
 /**
  * Open Intent Framework (OIF) Service
  * 
- * Handles intent-based transactions using Jeju's InputSettler/OutputSettler.
+ * Handles intent-based transactions using the network's InputSettler/OutputSettler.
  * Enables users to express high-level goals that solvers optimize and execute.
  */
 
@@ -23,7 +23,7 @@ import type {
   OIFServiceConfig,
 } from '../types';
 
-// InputSettler ABI (from Jeju contracts)
+// InputSettler ABI (from the network contracts)
 const INPUT_SETTLER_ABI = [
   {
     name: 'open',
@@ -76,7 +76,7 @@ const INPUT_SETTLER_ABI = [
   },
 ] as const;
 
-// OutputSettler ABI (from Jeju contracts)
+// OutputSettler ABI (from the network contracts)
 const OUTPUT_SETTLER_ABI = [
   {
     name: 'fill',
@@ -233,7 +233,7 @@ export class OIFService {
     
     const signatureData = {
       domain: {
-        name: 'JejuInputSettler',
+        name: 'InputSettler',
         version: '1',
         chainId: options.sourceChainId,
         verifyingContract: this.config.inputSettlerAddress,

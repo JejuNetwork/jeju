@@ -67,7 +67,7 @@ export default function CrossChainTransfer() {
       sourceToken: selectedToken.address as Address,
       destinationToken: selectedToken.address as Address, // Same token on destination
       amount: amountBigInt,
-      sourceChainId: 420691, // Jeju mainnet
+      sourceChainId: 420691, // Network mainnet
       destinationChainId,
       recipient: recipientAddress,
     });

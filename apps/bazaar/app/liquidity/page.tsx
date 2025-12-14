@@ -221,7 +221,7 @@ function LiquidityPageContent() {
               <div className="flex gap-3">
                 <span className="w-6 h-6 rounded-full bg-bazaar-primary/20 text-bazaar-primary flex items-center justify-center text-xs font-bold shrink-0">3</span>
                 <div>
-                  <strong>Cross-chain volume</strong> - Users on any chain can swap into Jeju tokens via your liquidity
+                  <strong>Cross-chain volume</strong> - Users on any chain can swap into the network tokens via your liquidity
                 </div>
               </div>
             </div>
@@ -239,7 +239,7 @@ function LiquidityPageContent() {
 
           {isConnected && !isCorrectChain && (
             <div className="card p-4 mb-6 border-bazaar-error/50 bg-bazaar-error/10">
-              <p className="text-bazaar-error text-sm">Switch to Jeju (Chain {JEJU_CHAIN_ID})</p>
+              <p className="text-bazaar-error text-sm">Switch to the network (Chain {JEJU_CHAIN_ID})</p>
             </div>
           )}
 

@@ -1,5 +1,5 @@
 /**
- * Cryptography utilities for Jeju Messaging
+ * Cryptography utilities for network Messaging
  * 
  * Uses:
  * - X25519 for key exchange (Curve25519 ECDH)
@@ -246,7 +246,7 @@ export function generateMessageId(): string {
  * This allows users to derive their messaging keys from their Ethereum wallet
  * 
  * @param walletAddress - User's Ethereum address
- * @param signature - Signature of a specific message (e.g., "Sign to enable Jeju Messaging")
+ * @param signature - Signature of a specific message (e.g., "Sign to enable Network Messaging")
  * @returns Derived X25519 key pair
  */
 export function deriveKeyPairFromWallet(
@@ -263,7 +263,7 @@ export function deriveKeyPairFromWallet(
 /**
  * Standard message to sign for key derivation
  */
-export const KEY_DERIVATION_MESSAGE = 'Sign this message to enable Jeju Messaging.\n\nThis signature will be used to derive your encryption keys.\nIt does not grant access to your funds.';
+export const KEY_DERIVATION_MESSAGE = 'Sign this message to enable Network Messaging.\n\nThis signature will be used to derive your encryption keys.\nIt does not grant access to your funds.';
 
 // ============ Utilities ============
 

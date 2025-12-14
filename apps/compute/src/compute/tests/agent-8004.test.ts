@@ -10,7 +10,7 @@
 
 import { describe, test, expect, beforeAll } from 'bun:test';
 import { JsonRpcProvider, parseEther } from 'ethers';
-import { createSDK, JejuComputeSDK } from '../sdk/sdk';
+import { createSDK, ComputeSDK } from '../sdk/sdk';
 import type { Provider } from '../sdk/types';
 
 // Test configuration
@@ -18,7 +18,7 @@ const TEST_RPC_URL = process.env.JEJU_RPC_URL || 'http://127.0.0.1:9545';
 const TEST_PRIVATE_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
 
 let provider: JsonRpcProvider;
-let sdk: JejuComputeSDK | null = null;
+let sdk: ComputeSDK | null = null;
 let contractsDeployed = false;
 
 // Mock contract addresses for testing types

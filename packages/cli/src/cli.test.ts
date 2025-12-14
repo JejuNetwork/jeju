@@ -30,9 +30,9 @@ describe('CLI Core', () => {
     expect(stdout).toContain('dev');
     expect(stdout).toContain('test');
     expect(stdout).toContain('deploy');
-    expect(stdout).toContain('init');
     expect(stdout).toContain('keys');
     expect(stdout).toContain('status');
+    expect(stdout).toContain('fund');
   });
 
   test('--version shows version', async () => {
@@ -45,7 +45,7 @@ describe('CLI Core', () => {
     const { stdout } = await runCLI([]);
     expect(stdout).toContain('Development');
     expect(stdout).toContain('jeju dev');
-    expect(stdout).toContain('jeju init');
+    expect(stdout).toContain('jeju deploy');
   });
 });
 
@@ -62,8 +62,11 @@ describe('test command', () => {
   test('--help shows options', async () => {
     const { stdout, exitCode } = await runCLI(['test', '--help']);
     expect(exitCode).toBe(0);
-    expect(stdout).toContain('--phase');
+    expect(stdout).toContain('--mode');
     expect(stdout).toContain('--ci');
+    expect(stdout).toContain('unit');
+    expect(stdout).toContain('integration');
+    expect(stdout).toContain('e2e');
   });
 });
 
@@ -74,15 +77,6 @@ describe('deploy command', () => {
     expect(stdout).toContain('testnet');
     expect(stdout).toContain('mainnet');
     expect(stdout).toContain('--contracts');
-  });
-});
-
-describe('init command', () => {
-  test('--help shows options', async () => {
-    const { stdout, exitCode } = await runCLI(['init', '--help']);
-    expect(exitCode).toBe(0);
-    expect(stdout).toContain('Initialize');
-    expect(stdout).toContain('--type');
   });
 });
 
@@ -104,7 +98,7 @@ describe('keys command', () => {
   test('supports burn action', async () => {
     const { stdout, exitCode } = await runCLI(['keys', '--help']);
     expect(exitCode).toBe(0);
-    expect(stdout).toContain('show | genesis | balance');
+    expect(stdout).toContain('show | genesis | burn');
   });
 });
 
@@ -120,5 +114,14 @@ describe('status command', () => {
     expect(exitCode).toBe(0);
     expect(stdout).toContain('SYSTEM CHECK');
     expect(stdout).toContain('Dependencies');
+  });
+});
+
+describe('fund command', () => {
+  test('--help shows options', async () => {
+    const { stdout, exitCode } = await runCLI(['fund', '--help']);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('Fund accounts');
+    expect(stdout).toContain('--all');
   });
 });

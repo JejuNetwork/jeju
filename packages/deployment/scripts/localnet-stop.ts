@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Stop Jeju localnet
+ * Stop network localnet
  */
 
 import { $ } from "bun";
@@ -8,7 +8,7 @@ import { $ } from "bun";
 const ENCLAVE_NAME = "jeju-localnet";
 
 async function main() {
-  console.log("🛑 Stopping Jeju Localnet...\n");
+  console.log("🛑 Stopping Network Localnet...\n");
 
   const result = await $`kurtosis enclave rm -f ${ENCLAVE_NAME}`.nothrow();
 

@@ -30,7 +30,7 @@ async function promptUser(question: string, defaultValue?: string): Promise<stri
 async function createManifest(appName: string) {
   console.log('╔══════════════════════════════════════════════════════════════╗');
   console.log('║                                                              ║');
-  console.log('║           📝 Jeju Manifest Creator                          ║');
+  console.log('║           📝 Network Manifest Creator                          ║');
   console.log('║                                                              ║');
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
 
@@ -59,7 +59,7 @@ async function createManifest(appName: string) {
 
   const displayName = await promptUser('Display Name', defaults.displayName);
   const version = await promptUser('Version', defaults.version);
-  const description = await promptUser('Description', 'A Jeju vendor application');
+  const description = await promptUser('Description', 'A network vendor application');
   const devCommand = await promptUser('Dev Command', defaults.devCommand);
   const mainPort = await promptUser('Main Port (optional)', '');
 
@@ -68,7 +68,7 @@ async function createManifest(appName: string) {
     displayName: displayName || defaults.displayName,
     version: version || defaults.version,
     type: 'vendor',
-    description: description || 'A Jeju vendor application',
+    description: description || 'A network vendor application',
     commands: {
       dev: devCommand || defaults.devCommand,
       build: 'bun run build',

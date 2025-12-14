@@ -8,7 +8,7 @@
  * - Arbitrum Sepolia
  * - Optimism Sepolia
  * - BSC Testnet
- * - Jeju Testnet (when RPC is live)
+ * - Network Testnet (when RPC is live)
  * 
  * Usage:
  *   bun run scripts/deploy/oif-multichain.ts [--chain <chainId>] [--all] [--verify]
@@ -68,7 +68,7 @@ const TESTNET_CHAINS: ChainConfig[] = [
   },
   {
     chainId: 420690,
-    name: 'Jeju Testnet',
+    name: 'Testnet',
     rpcUrl: process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jeju.network',
     oracleType: 'superchain',
     explorerUrl: 'https://testnet-explorer.jeju.network',

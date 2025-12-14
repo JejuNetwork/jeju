@@ -28,7 +28,7 @@ async function checkOpNode(): Promise<boolean> {
 async function main() {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════╗
-║  Jeju Network - L2 Genesis Generation                                ║
+║  the network - L2 Genesis Generation                                ║
 ║  Network: ${NETWORK.padEnd(59)}║
 ╚══════════════════════════════════════════════════════════════════════╝
 `);

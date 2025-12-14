@@ -14,7 +14,7 @@ export const TEST_WALLET = {
 
 const jejuLocalnet = {
   id: 1337,
-  name: 'Jeju Localnet',
+  name: getLocalnetChain().name,
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
     default: { http: ['http://127.0.0.1:9545'] },

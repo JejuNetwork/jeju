@@ -19,7 +19,7 @@ import { LoadingSpinner } from '@/components/LoadingSpinner'
  * @deprecated Use vendor/hyperscape/app/page.tsx for new development
  * 
  * This is a game-specific page that uses the generic game hooks.
- * Hyperscape is just one game that uses Jeju's canonical Items.sol contract.
+ * Hyperscape is just one game that uses network's canonical Items.sol contract.
  */
 export default function HyperscapeItemsPage() {
   const { address, isConnected } = useAccount()

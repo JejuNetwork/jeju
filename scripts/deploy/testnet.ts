@@ -3,7 +3,7 @@
 /**
  * Deploy to Testnet
  * 
- * Deploys all contracts to Jeju Testnet.
+ * Deploys all contracts to the network Testnet.
  * Config loaded from packages/config/chain/testnet.json
  * 
  * Requirements:
@@ -26,7 +26,7 @@ const CONTRACTS_DIR = join(process.cwd(), "packages", "contracts");
 const DEPLOYMENTS_DIR = join(CONTRACTS_DIR, "deployments", NETWORK);
 
 async function main() {
-  console.log(`\n🚀 Deploying to Jeju ${NETWORK.toUpperCase()}\n`);
+  console.log(`\n🚀 Deploying to the network ${NETWORK.toUpperCase()}\n`);
   
   // Load config from JSON
   const config = loadChainConfig(NETWORK);

@@ -113,7 +113,7 @@ function getNetworkConfig(network: string): NetworkConfig {
   switch (network) {
     case "localnet":
       return {
-        name: "Jeju Localnet",
+        name: getLocalnetChain().name,
         rpcUrl: process.env.JEJU_RPC_URL || "http://localhost:9545",
         chainId: 420691,
         sponsoredPaymaster: process.env.SPONSORED_PAYMASTER_ADDRESS as Address,
@@ -123,7 +123,7 @@ function getNetworkConfig(network: string): NetworkConfig {
       };
     case "testnet":
       return {
-        name: "Jeju Testnet",
+        name: "Testnet",
         rpcUrl: process.env.JEJU_TESTNET_RPC_URL || "https://testnet-rpc.jeju.network",
         chainId: 420690,
         sponsoredPaymaster: process.env.TESTNET_SPONSORED_PAYMASTER_ADDRESS as Address,
@@ -131,7 +131,7 @@ function getNetworkConfig(network: string): NetworkConfig {
       };
     case "mainnet":
       return {
-        name: "Jeju Mainnet",
+        name: "Mainnet",
         rpcUrl: process.env.JEJU_MAINNET_RPC_URL || "https://rpc.jeju.network",
         chainId: 420692,
         sponsoredPaymaster: process.env.MAINNET_SPONSORED_PAYMASTER_ADDRESS as Address,
