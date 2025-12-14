@@ -1,6 +1,6 @@
 /**
  * Chat Interface E2E Tests
- * Tests the agentic chat interface including messaging, quick actions, and confirmations
+ * Tests the agentic chat interface with decentralized inference
  */
 
 import { testWithSynpress } from '@synthetixio/synpress';
@@ -27,6 +27,13 @@ test.describe('Chat Interface - Not Connected', () => {
     const chatInput = page.locator('textarea');
     await expect(chatInput).toHaveAttribute('placeholder', /Connect wallet/i);
   });
+  
+  test('should show inference status indicator', async ({ page }) => {
+    await page.goto('/');
+    // Should show inference status (Decentralized AI, Connecting, or Offline)
+    const statusIndicator = page.locator('text=/Decentralized AI|Connecting|Offline|Local/i');
+    await expect(statusIndicator.first()).toBeVisible({ timeout: 10000 });
+  });
 });
 
 test.describe('Chat Interface - Connected', () => {
@@ -43,22 +50,21 @@ test.describe('Chat Interface - Connected', () => {
   });
 
   test('should show welcome message when chat is empty', async ({ page }) => {
-    await expect(page.locator('text=Jeju Wallet')).toBeVisible();
-    await expect(page.locator('text=/What would you like to do/i')).toBeVisible();
+    await expect(page.locator('text=/How can I help|Welcome to Jeju/i')).toBeVisible();
   });
 
   test('should show quick action buttons', async ({ page }) => {
-    await expect(page.locator('button:has-text("My Portfolio")')).toBeVisible();
-    await expect(page.locator('button:has-text("Swap Tokens")')).toBeVisible();
+    await expect(page.locator('button:has-text("Portfolio")')).toBeVisible();
+    await expect(page.locator('button:has-text("Swap")')).toBeVisible();
     await expect(page.locator('button:has-text("Help")')).toBeVisible();
   });
 
   test('should populate input when clicking quick action', async ({ page }) => {
-    const portfolioButton = page.locator('button:has-text("My Portfolio")');
+    const portfolioButton = page.locator('button:has-text("Portfolio")');
     await portfolioButton.click();
     
     const chatInput = page.locator('textarea');
-    await expect(chatInput).toHaveValue(/portfolio|balances/i);
+    await expect(chatInput).toHaveValue(/portfolio|balance/i);
   });
 
   test('should have enabled chat input', async ({ page }) => {
@@ -89,15 +95,15 @@ test.describe('Chat Interface - Connected', () => {
     await chatInput.fill('help');
     await page.keyboard.press('Enter');
     
-    // Should get a response (local mode)
-    await page.waitForTimeout(1000);
-    const response = page.locator('text=/I can help|Portfolio|Swap|Send/i');
-    await expect(response.first()).toBeVisible({ timeout: 5000 });
+    // Should get a response (local fallback or decentralized)
+    await page.waitForTimeout(2000);
+    const response = page.locator('text=/Portfolio|Swap|Send|Trading/i');
+    await expect(response.first()).toBeVisible({ timeout: 10000 });
   });
 
   test('should show connection status indicator', async ({ page }) => {
-    // Should show connection status (local mode or connected)
-    const statusIndicator = page.locator('text=/Connected|Local mode/i');
+    // Should show inference status
+    const statusIndicator = page.locator('text=/Decentralized AI|Offline|Local/i');
     await expect(statusIndicator.first()).toBeVisible();
   });
 
@@ -108,9 +114,21 @@ test.describe('Chat Interface - Connected', () => {
     
     await page.waitForTimeout(500);
     
-    // Should show timestamp (time format like 10:30:45 AM)
-    const timestamp = page.locator('text=/\\d{1,2}:\\d{2}(:\\d{2})?\\s*(AM|PM)?/i');
+    // Should show timestamp
+    const timestamp = page.locator('text=/\\d{1,2}:\\d{2}/');
     await expect(timestamp.first()).toBeVisible();
+  });
+  
+  test('should show clear button when messages exist', async ({ page }) => {
+    const chatInput = page.locator('textarea');
+    await chatInput.fill('test');
+    await page.keyboard.press('Enter');
+    
+    await page.waitForTimeout(500);
+    
+    // Clear button should appear
+    const clearButton = page.locator('button:has-text("Clear")');
+    await expect(clearButton).toBeVisible();
   });
 });
 

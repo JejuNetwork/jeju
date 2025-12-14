@@ -1,0 +1,238 @@
+/**
+ * Key management utilities
+ */
+
+import { Wallet } from 'ethers';
+import { existsSync, mkdirSync, writeFileSync, readFileSync, chmodSync } from 'fs';
+import { join } from 'path';
+import { createCipheriv, createDecipheriv, randomBytes, scrypt } from 'crypto';
+import { promisify } from 'util';
+import { getKeysDir } from './system';
+import { logger } from './logger';
+import { WELL_KNOWN_KEYS, type KeyConfig, type KeySet, type NetworkType } from '../types';
+
+const scryptAsync = promisify(scrypt);
+
+interface OperatorKeySet {
+  sequencer: KeyConfig;
+  batcher: KeyConfig;
+  proposer: KeyConfig;
+  challenger: KeyConfig;
+  admin: KeyConfig;
+  feeRecipient: KeyConfig;
+  guardian: KeyConfig;
+}
+
+export function getDevKeys(): KeyConfig[] {
+  return [...WELL_KNOWN_KEYS.dev];
+}
+
+export function getDefaultDeployerKey(network: NetworkType): KeyConfig {
+  if (network === 'localnet') {
+    return WELL_KNOWN_KEYS.dev[0];
+  }
+  
+  // For testnet/mainnet, try to load from saved keys
+  const keysDir = getKeysDir();
+  const keyFile = join(keysDir, network, 'deployer.json');
+  
+  if (existsSync(keyFile)) {
+    const data = JSON.parse(readFileSync(keyFile, 'utf-8'));
+    return data;
+  }
+  
+  throw new Error(`No deployer key configured for ${network}. Run: jeju keys generate --network=${network}`);
+}
+
+export function resolvePrivateKey(network: NetworkType): string {
+  // 1. Environment variable
+  if (process.env.PRIVATE_KEY) {
+    return process.env.PRIVATE_KEY;
+  }
+  
+  // 2. Network-specific key file
+  const keysDir = getKeysDir();
+  const keyFile = join(keysDir, network, 'deployer.json');
+  if (existsSync(keyFile)) {
+    const data = JSON.parse(readFileSync(keyFile, 'utf-8'));
+    return data.privateKey;
+  }
+  
+  // 3. Default dev key for localnet
+  if (network === 'localnet') {
+    return WELL_KNOWN_KEYS.dev[0].privateKey;
+  }
+  
+  throw new Error(`No private key configured for ${network}`);
+}
+
+export function generateKey(name: string, role: string): KeyConfig {
+  const wallet = Wallet.createRandom();
+  return {
+    name,
+    address: wallet.address,
+    privateKey: wallet.privateKey,
+    role,
+  };
+}
+
+export function generateOperatorKeys(): OperatorKeySet {
+  return {
+    sequencer: generateKey('Sequencer', 'Produces L2 blocks'),
+    batcher: generateKey('Batcher', 'Submits transaction batches to L1'),
+    proposer: generateKey('Proposer', 'Submits L2 output roots to L1'),
+    challenger: generateKey('Challenger', 'Challenges invalid output roots'),
+    admin: generateKey('Admin', 'Proxy admin owner'),
+    feeRecipient: generateKey('Fee Recipient', 'Receives sequencer fees'),
+    guardian: generateKey('Guardian', 'Superchain config guardian'),
+  };
+}
+
+export async function encryptKeySet(keySet: KeySet, password: string): Promise<Buffer> {
+  const salt = randomBytes(32);
+  const iv = randomBytes(16);
+  const key = (await scryptAsync(password, salt, 32)) as Buffer;
+  
+  const cipher = createCipheriv('aes-256-gcm', key, iv);
+  const data = JSON.stringify(keySet);
+  
+  const encrypted = Buffer.concat([
+    cipher.update(data, 'utf8'),
+    cipher.final(),
+  ]);
+  
+  const authTag = cipher.getAuthTag();
+  
+  // Format: salt (32) + iv (16) + authTag (16) + encrypted
+  return Buffer.concat([salt, iv, authTag, encrypted]);
+}
+
+export async function decryptKeySet(encrypted: Buffer, password: string): Promise<KeySet> {
+  const salt = encrypted.subarray(0, 32);
+  const iv = encrypted.subarray(32, 48);
+  const authTag = encrypted.subarray(48, 64);
+  const data = encrypted.subarray(64);
+  
+  const key = (await scryptAsync(password, salt, 32)) as Buffer;
+  
+  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(authTag);
+  
+  const decrypted = Buffer.concat([
+    decipher.update(data),
+    decipher.final(),
+  ]);
+  
+  return JSON.parse(decrypted.toString('utf8'));
+}
+
+export function saveKeys(network: NetworkType, keys: KeyConfig[], encrypt = false): string {
+  const keysDir = getKeysDir();
+  const networkDir = join(keysDir, network);
+  
+  if (!existsSync(networkDir)) {
+    mkdirSync(networkDir, { recursive: true, mode: 0o700 });
+  }
+  
+  const keySet: KeySet = {
+    network,
+    created: new Date().toISOString(),
+    keys,
+    encrypted: encrypt,
+  };
+  
+  const filename = encrypt ? 'operators.json.enc' : 'operators.json';
+  const filepath = join(networkDir, filename);
+  
+  writeFileSync(filepath, JSON.stringify(keySet, null, 2), { mode: 0o600 });
+  chmodSync(filepath, 0o600);
+  
+  // Also save deployer separately for easy access
+  const deployer = keys.find(k => k.role?.includes('admin') || k.role?.includes('deployer'));
+  if (deployer) {
+    const deployerFile = join(networkDir, 'deployer.json');
+    writeFileSync(deployerFile, JSON.stringify(deployer, null, 2), { mode: 0o600 });
+    chmodSync(deployerFile, 0o600);
+  }
+  
+  return filepath;
+}
+
+export function loadKeys(network: NetworkType): KeySet | null {
+  const keysDir = getKeysDir();
+  const keyFile = join(keysDir, network, 'operators.json');
+  
+  if (!existsSync(keyFile)) {
+    return null;
+  }
+  
+  try {
+    return JSON.parse(readFileSync(keyFile, 'utf-8'));
+  } catch {
+    return null;
+  }
+}
+
+export function hasKeys(network: NetworkType): boolean {
+  const keysDir = getKeysDir();
+  return existsSync(join(keysDir, network, 'operators.json')) ||
+         existsSync(join(keysDir, network, 'deployer.json'));
+}
+
+export function showKeyInfo(key: KeyConfig): void {
+  logger.keyValue('Name', key.name);
+  logger.keyValue('Address', key.address);
+  logger.keyValue('Role', key.role || 'N/A');
+}
+
+export function printFundingRequirements(keys: OperatorKeySet, network: NetworkType): void {
+  logger.subheader('Funding Requirements');
+  
+  const requirements = [
+    { key: keys.admin, amount: '0.5 ETH', purpose: 'L1 contract deployments' },
+    { key: keys.batcher, amount: '0.1 ETH', purpose: 'Submitting batches' },
+    { key: keys.proposer, amount: '0.1 ETH', purpose: 'Submitting proposals' },
+  ];
+  
+  for (const req of requirements) {
+    logger.info(`  ${req.key.name}: ${req.key.address}`);
+    logger.info(`    Amount: ${req.amount} (${req.purpose})`);
+    logger.newline();
+  }
+  
+  if (network === 'testnet') {
+    logger.subheader('Testnet Faucets');
+    logger.list([
+      'https://sepoliafaucet.com',
+      'https://www.alchemy.com/faucets/ethereum-sepolia',
+      'https://cloud.google.com/application/web3/faucet/ethereum/sepolia',
+    ]);
+  }
+}
+
+export function generateEntropyString(): string {
+  return randomBytes(32).toString('hex');
+}
+
+export function validatePassword(password: string): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  
+  if (password.length < 16) {
+    errors.push('Password must be at least 16 characters');
+  }
+  if (!/[A-Z]/.test(password)) {
+    errors.push('Password must contain uppercase letters');
+  }
+  if (!/[a-z]/.test(password)) {
+    errors.push('Password must contain lowercase letters');
+  }
+  if (!/[0-9]/.test(password)) {
+    errors.push('Password must contain numbers');
+  }
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    errors.push('Password must contain special characters');
+  }
+  
+  return { valid: errors.length === 0, errors };
+}
+

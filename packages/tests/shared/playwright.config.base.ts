@@ -1,204 +1,112 @@
-import { defineConfig, devices, PlaywrightTestConfig } from '@playwright/test';
-
 /**
- * Shared Playwright configuration for Jeju apps
- *
- * This provides a consistent testing setup across all apps with:
- * - Screenshot capture for visual verification
- * - Dappwright wallet support
- * - Standardized timeouts and retries
- * - CI/CD optimizations
- *
- * Usage in app's playwright.config.ts:
+ * Base Playwright configuration for Jeju apps
+ * 
+ * Usage in app playwright.config.ts:
+ * 
  * ```typescript
- * import { createJejuPlaywrightConfig } from '../../tests/shared/playwright.config.base';
- *
- * export default createJejuPlaywrightConfig({
+ * import { createPlaywrightConfig } from '@jejunetwork/tests/playwright.config.base';
+ * export default createPlaywrightConfig({
+ *   appPort: 4006,
  *   appName: 'bazaar',
- *   port: 4006,
- *   testDir: './tests/e2e',
  * });
  * ```
  */
 
-export interface JejuPlaywrightConfig {
-  /** App name for organizing test results */
-  appName: string;
+import { defineConfig, devices } from '@playwright/test';
+
+export interface PlaywrightConfigOptions {
   /** Port the app runs on */
-  port: number;
-  /** Test directory relative to app root */
-  testDir: string;
-  /** Base URL override (default: http://localhost:{port}) */
+  appPort: number;
+  /** App name for test naming */
+  appName: string;
+  /** Test directory (default: ./tests) */
+  testDir?: string;
+  /** Test match pattern (default: **\/*.test.ts, excluding wallet tests) */
+  testMatch?: string;
+  /** Test ignore pattern */
+  testIgnore?: string | string[];
+  /** Timeout in ms (default: 60000) */
+  timeout?: number;
+  /** Base URL override */
   baseURL?: string;
-  /** Whether to start web server automatically (default: true in non-CI) */
-  webServer?: boolean | {
-    command: string;
-    url?: string;
-    reuseExistingServer?: boolean;
-    timeout?: number;
-  };
-  /** Additional Playwright config overrides */
-  overrides?: Partial<PlaywrightTestConfig>;
+  /** Number of retries (default: 0 for local, 2 for CI) */
+  retries?: number;
+  /** Number of workers */
+  workers?: number;
+  /** Run tests in headless mode (default: true) */
+  headless?: boolean;
 }
 
-export function createJejuPlaywrightConfig(config: JejuPlaywrightConfig) {
+export function createPlaywrightConfig(options: PlaywrightConfigOptions) {
   const {
+    appPort,
     appName,
-    port,
-    testDir,
-    baseURL = `http://localhost:${port}`,
-    webServer = true,
-    overrides = {},
-  } = config;
-
-  const screenshotDir = `test-results/screenshots/${appName}`;
-  const videoDir = `test-results/videos/${appName}`;
+    testDir = './tests',
+    testMatch = '**/*.test.ts',
+    testIgnore = ['**/*.wallet.test.ts', '**/wallet-setup/**'],
+    timeout = 60000,
+    baseURL = `http://localhost:${appPort}`,
+    retries = process.env.CI ? 2 : 0,
+    workers = process.env.CI ? 1 : undefined,
+    headless = true,
+  } = options;
 
   return defineConfig({
     testDir,
-    fullyParallel: false,
-    workers: 1,
+    testMatch,
+    testIgnore,
+    timeout,
+    
+    fullyParallel: true,
     forbidOnly: !!process.env.CI,
-    retries: process.env.CI ? 2 : 0,
-
-    reporter: [
-      ['html', {
-        outputFolder: `playwright-report/${appName}`,
-        open: process.env.CI ? 'never' : 'on-failure',
-      }],
-      ['json', {
-        outputFile: `test-results/${appName}/results.json`
-      }],
+    retries,
+    workers,
+    
+    reporter: process.env.CI ? [
       ['list'],
-    ],
-
-    timeout: 120000, // 2 minutes per test
-
-    expect: {
-      timeout: 15000, // 15 seconds for assertions
-    },
+      ['html', { open: 'never' }],
+      ['json', { outputFile: 'test-results.json' }],
+    ] : [['list']],
 
     use: {
       baseURL,
-      trace: 'on-first-retry',
-
-      // Enable screenshot capture for ALL tests
-      screenshot: {
-        mode: 'on',
-        fullPage: true,
-      },
-
-      // Enable video recording for ALL tests
-      video: {
-        mode: 'on',
-        size: { width: 1280, height: 720 },
-      },
-
-      viewport: { width: 1280, height: 720 },
-      ignoreHTTPSErrors: true,
-      actionTimeout: 15000,
-
-      // Required for Dappwright/MetaMask
-      headless: false,
+      trace: 'retain-on-failure',
+      screenshot: 'only-on-failure',
+      video: 'retain-on-failure',
+      headless,
     },
-
-    // Output directories
-    outputDir: `test-results/${appName}/artifacts`,
 
     projects: [
       {
-        name: 'chromium',
-        use: {
-          ...devices['Desktop Chrome'],
-          // Dappwright requires headful mode
-          headless: false,
-        },
+        name: `${appName}-chromium`,
+        use: { ...devices['Desktop Chrome'] },
       },
+      // Add more browsers for CI
+      ...(process.env.CI ? [
+        {
+          name: `${appName}-firefox`,
+          use: { ...devices['Desktop Firefox'] },
+        },
+      ] : []),
     ],
 
     // Web server configuration
-    ...(webServer !== false && {
-      webServer: typeof webServer === 'boolean'
-        ? {
-            command: 'bun run dev',
-            url: baseURL,
-            reuseExistingServer: !process.env.CI,
-            timeout: 120000,
-          }
-        : webServer,
-    }),
+    webServer: process.env.CI ? undefined : {
+      command: `bun run dev`,
+      url: baseURL,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120000,
+    },
 
-    // Allow overrides
-    ...overrides,
+    // Output
+    outputDir: './test-results',
+    
+    // Environment
+    metadata: {
+      appName,
+      appPort,
+    },
   });
 }
 
-/**
- * Helper to create screenshot path for tests
- *
- * Usage in tests:
- * ```typescript
- * import { screenshotPath } from '../../tests/shared/playwright.config.base';
- *
- * await page.screenshot({
- *   path: screenshotPath('bazaar', 'homepage', '01-initial'),
- *   fullPage: true
- * });
- * ```
- */
-export function screenshotPath(
-  appName: string,
-  feature: string,
-  step: string
-): string {
-  return `test-results/screenshots/${appName}/${feature}/${step}.png`;
-}
-
-/**
- * Helper to create video path for tests
- */
-export function videoPath(
-  appName: string,
-  testName: string
-): string {
-  return `test-results/videos/${appName}/${testName}.webm`;
-}
-
-/**
- * Legacy base config for backwards compatibility
- */
-export const baseConfig = {
-  testDir: './tests',
-  fullyParallel: true,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
-
-  reporter: [
-    ['html', { outputFolder: 'playwright-report' }],
-    ['list'],
-    ['json', { outputFile: 'test-results.json' }],
-  ],
-
-  timeout: 60000,
-
-  expect: {
-    timeout: 10000,
-  },
-
-  use: {
-    trace: 'on-first-retry' as const,
-    screenshot: 'only-on-failure' as const,
-    video: 'retain-on-failure' as const,
-    viewport: { width: 1280, height: 720 },
-    ignoreHTTPSErrors: true,
-    actionTimeout: 15000,
-  },
-
-  projects: [
-    {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
-  ],
-};
+export default createPlaywrightConfig;
