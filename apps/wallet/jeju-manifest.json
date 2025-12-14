@@ -1,0 +1,62 @@
+{
+  "$schema": "../../packages/config/jeju-manifest.schema.json",
+  "name": "wallet",
+  "displayName": "Jeju Wallet",
+  "version": "0.1.0",
+  "type": "core",
+  "description": "Agentic multi-chain wallet with seamless cross-chain UX. No chain switching, bridgeless transfers via EIL/OIF, account abstraction (ERC-4337), multi-token gas payment. Supports Ethereum, all major L2s, and Solana.",
+  "commands": {
+    "dev": "bun run dev",
+    "dev:tauri": "bun run tauri dev",
+    "dev:mobile": "bun run cap:dev",
+    "build": "bun run build",
+    "build:extension": "bun run build:ext",
+    "build:tauri": "bun run tauri build",
+    "build:mobile": "bun run cap:build",
+    "start": "bun run preview"
+  },
+  "ports": {
+    "main": 4015,
+    "ws": 4016
+  },
+  "dependencies": ["contracts", "config"],
+  "optional": false,
+  "enabled": true,
+  "autoStart": false,
+  "tags": [
+    "wallet",
+    "cross-chain",
+    "eil",
+    "oif",
+    "account-abstraction",
+    "erc-4337",
+    "bridgeless",
+    "multi-chain",
+    "tauri",
+    "capacitor",
+    "solana"
+  ],
+  "jns": {
+    "name": "wallet.jeju",
+    "description": "Jeju Network Agentic Wallet",
+    "url": "https://wallet.jeju.network"
+  },
+  "agent": {
+    "enabled": true,
+    "a2aEndpoint": "http://localhost:4015/a2a",
+    "mcpEndpoint": "http://localhost:4015/mcp",
+    "tags": ["jeju-app", "wallet", "cross-chain", "intents", "aa"],
+    "metadata": {
+      "category": "wallet",
+      "provider": "jeju-network"
+    },
+    "trustModels": ["open"],
+    "x402Support": true,
+    "jnsName": "wallet.jeju"
+  },
+  "healthCheck": {
+    "url": "http://localhost:4015/health",
+    "interval": 30000
+  }
+}
+
