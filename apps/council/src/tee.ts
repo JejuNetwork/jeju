@@ -4,7 +4,7 @@
  * Provides encrypted AI decision-making with:
  * - Hardware TEE (Phala Cloud) for production
  * - Simulated TEE for development
- * - Lit Protocol integration for distributed key management
+ * - Jeju KMS for encryption
  * - DA layer backup for persistence
  */
 
@@ -13,10 +13,10 @@ import { randomBytes, createCipheriv, createDecipheriv } from 'crypto';
 import {
   encryptDecision,
   backupToDA,
-  getLitStatus,
+  getEncryptionStatus,
   type DecisionData,
-  type LitEncryptedData,
-} from './lit-encryption';
+  type EncryptedData,
+} from './encryption';
 
 export interface TEEDecisionContext {
   proposalId: string;
@@ -33,7 +33,7 @@ export interface TEEDecisionResult {
   alignmentScore: number;
   recommendations: string[];
   attestation: TEEAttestation;
-  litEncrypted?: LitEncryptedData;
+  encrypted?: EncryptedData;
   daBackupHash?: string;
 }
 
@@ -191,10 +191,10 @@ export async function makeTEEDecision(context: TEEDecisionContext): Promise<TEED
     result = makeSimulatedDecision(context);
   }
 
-  // Encrypt with Lit Protocol for distributed key management
+  // Encrypt decision with Jeju KMS
   if (USE_LIT_ENCRYPTION) {
-    const litStatus = getLitStatus();
-    console.log(`[TEE] Lit Protocol: ${litStatus.connected ? 'connected' : 'fallback mode'}`);
+    const encryptionStatus = getEncryptionStatus();
+    console.log(`[TEE] Encryption: ${encryptionStatus.provider}`);
 
     const decisionData: DecisionData = {
       proposalId: context.proposalId,
@@ -209,17 +209,17 @@ export async function makeTEEDecision(context: TEEDecisionContext): Promise<TEED
     };
 
     try {
-      result.litEncrypted = await encryptDecision(decisionData);
-      console.log('[TEE] Decision encrypted with Lit Protocol');
+      result.encrypted = await encryptDecision(decisionData);
+      console.log('[TEE] Decision encrypted');
     } catch (error) {
       console.error('[TEE] Lit encryption failed:', (error as Error).message);
     }
   }
 
   // Backup to DA layer for persistence
-  if (BACKUP_TO_DA && result.litEncrypted) {
+  if (BACKUP_TO_DA && result.encrypted) {
     try {
-      const backup = await backupToDA(context.proposalId, result.litEncrypted);
+      const backup = await backupToDA(context.proposalId, result.encrypted);
       result.daBackupHash = backup.hash;
       console.log('[TEE] Decision backed up to DA:', backup.hash);
     } catch (error) {
