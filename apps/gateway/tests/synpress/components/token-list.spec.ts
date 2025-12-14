@@ -13,14 +13,14 @@ const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
 
 test.describe('Token List Display', () => {
-  test.beforeEach(async ({ page, metamask }) => {
+  test.beforeEach(async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Registered Tokens/i }).click();
     await page.waitForTimeout(1000);
   });
 
-  test('should display token list with all registered tokens', async ({ page }) => {
+  test('should display token list with all registered tokens', async ({ _page }) => {
     // Check for token list heading
     const heading = page.getByText(/Registered Tokens \(\d+\)/i);
     const hasHeading = await heading.isVisible();
@@ -44,7 +44,7 @@ test.describe('Token List Display', () => {
     }
   });
 
-  test('should display token card with complete information', async ({ page }) => {
+  test('should display token card with complete information', async ({ _page }) => {
     const tokenCards = page.locator('.card').filter({ hasText: /decimals/i });
     const count = await tokenCards.count();
 
@@ -78,7 +78,7 @@ test.describe('Token List Display', () => {
     console.log('✅ Token card displays complete information');
   });
 
-  test('should show paymaster deployment status', async ({ page }) => {
+  test('should show paymaster deployment status', async ({ _page }) => {
     const tokenCards = page.locator('.card').filter({ hasText: /Paymaster/i });
     const count = await tokenCards.count();
 
@@ -95,7 +95,7 @@ test.describe('Token List Display', () => {
     }
   });
 
-  test('should show empty state if no tokens registered', async ({ page }) => {
+  test('should show empty state if no tokens registered', async ({ _page }) => {
     // This might not show if tokens already registered
     const emptyState = page.getByText(/No tokens registered yet/i);
     const hasEmpty = await emptyState.isVisible();
@@ -108,7 +108,7 @@ test.describe('Token List Display', () => {
     }
   });
 
-  test('should have refresh button that works', async ({ page }) => {
+  test('should have refresh button that works', async ({ _page }) => {
     const refreshButton = page.getByRole('button', { name: /Refresh/i });
     const hasRefresh = await refreshButton.isVisible();
 
@@ -125,14 +125,14 @@ test.describe('Token List Display', () => {
 });
 
 test.describe('Token Card Interactions', () => {
-  test.beforeEach(async ({ page, metamask }) => {
+  test.beforeEach(async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Registered Tokens/i }).click();
     await page.waitForTimeout(1000);
   });
 
-  test('should display fee range in basis points and percentage', async ({ page }) => {
+  test('should display fee range in basis points and percentage', async ({ _page }) => {
     const feeRangeElements = page.locator('text=/Fee Range/i');
     const count = await feeRangeElements.count();
 
@@ -147,7 +147,7 @@ test.describe('Token Card Interactions', () => {
     }
   });
 
-  test('should display transaction and volume statistics', async ({ page }) => {
+  test('should display transaction and volume statistics', async ({ _page }) => {
     const statsElements = page.locator('text=/Total Volume|Transactions/i');
     const count = await statsElements.count();
 
@@ -156,7 +156,7 @@ test.describe('Token Card Interactions', () => {
     }
   });
 
-  test('should show active/inactive status badge', async ({ page }) => {
+  test('should show active/inactive status badge', async ({ _page }) => {
     const statusBadges = page.locator('.badge-success, .badge-error, .badge');
     const count = await statusBadges.count();
 
@@ -171,7 +171,7 @@ test.describe('Token Card Interactions', () => {
 });
 
 test.describe('Token List Ordering', () => {
-  test('should display tokens in consistent order', async ({ page, metamask }) => {
+  test('should display tokens in consistent order', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Registered Tokens/i }).click();

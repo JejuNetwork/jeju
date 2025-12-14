@@ -11,16 +11,16 @@ const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
 
 test.describe('Faucet Tab', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ _page }) => {
     await page.goto('/');
   });
 
-  test('should display faucet tab in navigation', async ({ page }) => {
+  test('should display faucet tab in navigation', async ({ _page }) => {
     const faucetTab = page.getByRole('button', { name: /Faucet/i });
     await expect(faucetTab).toBeVisible();
   });
 
-  test('should navigate to faucet tab', async ({ page }) => {
+  test('should navigate to faucet tab', async ({ _page }) => {
     await page.getByRole('button', { name: /Faucet/i }).click();
     
     // Should show faucet info
@@ -29,7 +29,7 @@ test.describe('Faucet Tab', () => {
     await expect(page.getByText(/Cooldown/i)).toBeVisible();
   });
 
-  test('should display faucet configuration', async ({ page }) => {
+  test('should display faucet configuration', async ({ _page }) => {
     await page.getByRole('button', { name: /Faucet/i }).click();
     
     // Check for amount per claim
@@ -42,7 +42,7 @@ test.describe('Faucet Tab', () => {
     await expect(page.getByText(|Network/i)).toBeVisible();
   });
 
-  test('should display registration requirements', async ({ page }) => {
+  test('should display registration requirements', async ({ _page }) => {
     await page.getByRole('button', { name: /Faucet/i }).click();
     
     // Should show requirements
@@ -50,7 +50,7 @@ test.describe('Faucet Tab', () => {
     await expect(page.getByText(/ERC-8004/i)).toBeVisible();
   });
 
-  test('should show API access information', async ({ page }) => {
+  test('should show API access information', async ({ _page }) => {
     await page.getByRole('button', { name: /Faucet/i }).click();
     
     // Should display API endpoints
@@ -73,14 +73,14 @@ test.describe('Faucet with Connected Wallet', () => {
     await page.getByRole('button', { name: /Faucet/i }).click();
   });
 
-  test('should display user status section', async ({ page }) => {
+  test('should display user status section', async ({ _page }) => {
     await expect(page.getByText(/Your Status/i)).toBeVisible();
     await expect(page.getByText(/ERC-8004 Registry/i)).toBeVisible();
     await expect(page.getByText(/Cooldown/i)).toBeVisible();
     await expect(page.getByText(/Eligibility/i)).toBeVisible();
   });
 
-  test('should show registration status', async ({ page }) => {
+  test('should show registration status', async ({ _page }) => {
     // Should show either "Registered" or "Not Registered"
     const statusTexts = ['Registered', 'Not Registered'];
     const registryStatus = await page.locator('.flex.items-center.justify-between').filter({ hasText: /ERC-8004 Registry/i }).textContent();
@@ -88,18 +88,18 @@ test.describe('Faucet with Connected Wallet', () => {
     expect(statusTexts.some(s => registryStatus?.includes(s))).toBe(true);
   });
 
-  test('should have claim button', async ({ page }) => {
+  test('should have claim button', async ({ _page }) => {
     const claimButton = page.getByRole('button', { name: /Claim.*JEJU/i });
     await expect(claimButton).toBeVisible();
   });
 
-  test('should have refresh button', async ({ page }) => {
+  test('should have refresh button', async ({ _page }) => {
     // Find the refresh button by its icon
     const refreshButton = page.locator('button').filter({ has: page.locator('svg.lucide-refresh-cw') });
     await expect(refreshButton.first()).toBeVisible();
   });
 
-  test('should show registration warning if not registered', async ({ page }) => {
+  test('should show registration warning if not registered', async ({ _page }) => {
     // If user is not registered, should show warning
     const isNotRegistered = await page.getByText(/Not Registered/).isVisible().catch(() => false);
     
@@ -122,7 +122,7 @@ test.describe('Faucet Claim Flow', () => {
     await page.getByRole('button', { name: /Faucet/i }).click();
   });
 
-  test('should disable claim button when not eligible', async ({ page }) => {
+  test('should disable claim button when not eligible', async ({ _page }) => {
     // Wait for status to load
     await page.waitForTimeout(2000);
     
@@ -135,7 +135,7 @@ test.describe('Faucet Claim Flow', () => {
     }
   });
 
-  test('should show faucet balance', async ({ page }) => {
+  test('should show faucet balance', async ({ _page }) => {
     await expect(page.getByText(/Faucet Balance/i)).toBeVisible();
     // Should show a balance value
     const balanceSection = page.locator('.stat-card').filter({ hasText: /Faucet Balance/i });
@@ -144,7 +144,7 @@ test.describe('Faucet Claim Flow', () => {
 });
 
 test.describe('Faucet UI Responsiveness', () => {
-  test('should be responsive on mobile', async ({ page }) => {
+  test('should be responsive on mobile', async ({ _page }) => {
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto('/');
     
@@ -156,7 +156,7 @@ test.describe('Faucet UI Responsiveness', () => {
     await expect(page.getByText(/API Access/i)).toBeVisible();
   });
 
-  test('should be responsive on tablet', async ({ page }) => {
+  test('should be responsive on tablet', async ({ _page }) => {
     await page.setViewportSize({ width: 768, height: 1024 });
     await page.goto('/');
     

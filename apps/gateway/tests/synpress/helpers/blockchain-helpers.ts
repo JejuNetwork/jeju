@@ -214,7 +214,7 @@ export async function isContractDeployed(page: Page, address: string): Promise<b
 /**
  * Get transaction receipt
  */
-export async function getTransactionReceipt(page: Page, txHash: string): Promise<any> {
+export async function getTransactionReceipt(page: Page, txHash: string): Promise<unknown> {
   return await rpcCall(page, 'eth_getTransactionReceipt', [txHash]);
 }
 

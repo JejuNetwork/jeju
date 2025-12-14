@@ -6,7 +6,7 @@ import { connectWallet } from '@jejunetwork/tests/helpers/contracts';
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4001';
 
 test.describe('Gateway Wallet Connection', () => {
-  test('should display homepage and connect wallet with screenshots', async ({ page, wallet }) => {
+  test('should display homepage and connect wallet with screenshots', async ({ _page, wallet }) => {
     // Screenshot 1: Navigate to homepage
     await page.goto(GATEWAY_URL);
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
@@ -28,7 +28,7 @@ test.describe('Gateway Wallet Connection', () => {
     await expect(page.getByText(/0x/)).toBeVisible({ timeout: 10000 });
   });
 
-  test('should display multi-token balances with screenshots', async ({ page, wallet }) => {
+  test('should display multi-token balances with screenshots', async ({ _page, wallet }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, wallet);
     
@@ -51,7 +51,7 @@ test.describe('Gateway Wallet Connection', () => {
     console.log('📸 Screenshot 5: Balance card detail');
   });
 
-  test('should navigate all tabs with screenshots', async ({ page, wallet }) => {
+  test('should navigate all tabs with screenshots', async ({ _page, wallet }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, wallet);
     

@@ -3,7 +3,7 @@
  * @module gateway/tests/helpers/contract-helpers
  */
 
-import { PublicClient, WalletClient, encodeAbiParameters, parseAbiParameters } from 'viem';
+import type { PublicClient, WalletClient } from 'viem';
 
 // Minimal ERC20 bytecode (OpenZeppelin-style with constructor args)
 // This is the bytecode for a simple ERC20 with name, symbol, and initial supply
@@ -34,12 +34,6 @@ export async function deployTestToken(
   if (!account) {
     throw new Error('WalletClient must have an account');
   }
-
-  // Encode constructor arguments
-  const constructorArgs = encodeAbiParameters(
-    parseAbiParameters('string, string, uint256, address'),
-    [name, symbol, initialSupply, account.address]
-  );
 
   // Deploy the contract
   const hash = await walletClient.deployContract({

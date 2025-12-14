@@ -10,7 +10,7 @@ import { metaMaskFixtures } from '@synthetixio/synpress/playwright';
 import { basicSetup } from '../../../synpress.config'
 import { connectWallet } from '../helpers/wallet-helpers';
 import { executeTransaction } from '../helpers/transaction-helpers';
-import { REPORT_TYPES, SEVERITY, REPORT_BONDS } from '../fixtures/test-data';
+import { SEVERITY, REPORT_BONDS } from '../fixtures/test-data';
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
@@ -18,12 +18,12 @@ const { expect } = test;
 const MODERATION_URL = 'http://localhost:4001/moderation';
 
 test.describe('Moderation Dashboard - Navigation & Display', () => {
-  test.beforeEach(async ({ page, metamask }) => {
+  test.beforeEach(async ({ _page, _metamask }) => {
     await page.goto('http://localhost:4001');
     await connectWallet(page, metamask);
   });
 
-  test('should navigate to moderation dashboard', async ({ page }) => {
+  test('should navigate to moderation dashboard', async ({ _page }) => {
     // Navigate to moderation page
     await page.goto(MODERATION_URL);
     await page.waitForLoadState('networkidle');
@@ -40,7 +40,7 @@ test.describe('Moderation Dashboard - Navigation & Display', () => {
     console.log('✅ Moderation dashboard loaded');
   });
 
-  test('should display all tabs: Active, Resolved, Submit', async ({ page }) => {
+  test('should display all tabs: Active, Resolved, Submit', async ({ _page }) => {
     await page.goto(MODERATION_URL);
 
     await expect(page.getByRole('button', { name: /Active Reports/i })).toBeVisible();
@@ -50,7 +50,7 @@ test.describe('Moderation Dashboard - Navigation & Display', () => {
     console.log('✅ All moderation tabs present');
   });
 
-  test('should show active reports list', async ({ page }) => {
+  test('should show active reports list', async ({ _page }) => {
     await page.goto(MODERATION_URL);
     
     // Active reports tab (default)
@@ -71,14 +71,14 @@ test.describe('Moderation Dashboard - Navigation & Display', () => {
 });
 
 test.describe('Submit Report Flow', () => {
-  test.beforeEach(async ({ page, metamask }) => {
+  test.beforeEach(async ({ _page, _metamask }) => {
     await page.goto('http://localhost:4001');
     await connectWallet(page, metamask);
     await page.goto(MODERATION_URL);
     await page.waitForTimeout(1000);
   });
 
-  test('should submit report with evidence upload', async ({ page, metamask }) => {
+  test('should submit report with evidence upload', async ({ _page, _metamask }) => {
     // Click Submit Report tab
     await page.getByRole('button', { name: /Submit Report/i }).click();
     await page.waitForTimeout(1000);
@@ -135,7 +135,7 @@ test.describe('Submit Report Flow', () => {
     console.log('✅ Submit report transaction successful');
   });
 
-  test('should validate all required fields', async ({ page }) => {
+  test('should validate all required fields', async ({ _page }) => {
     await page.getByRole('button', { name: /Submit Report/i }).click();
     await page.waitForTimeout(1000);
 
@@ -146,7 +146,7 @@ test.describe('Submit Report Flow', () => {
     console.log('✅ Form validation working');
   });
 
-  test('should display correct bond for each severity level', async ({ page }) => {
+  test('should display correct bond for each severity level', async ({ _page }) => {
     await page.getByRole('button', { name: /Submit Report/i }).click();
     await page.waitForTimeout(1000);
 
@@ -167,7 +167,7 @@ test.describe('Submit Report Flow', () => {
 });
 
 test.describe('Vote on Report Flow', () => {
-  test('should vote on active report', async ({ page, metamask }) => {
+  test('should vote on active report', async ({ _page, _metamask }) => {
     await page.goto('http://localhost:4001');
     await connectWallet(page, metamask);
     await page.goto(MODERATION_URL);
@@ -220,7 +220,7 @@ test.describe('Vote on Report Flow', () => {
 });
 
 test.describe('Agent Profile Tests', () => {
-  test('should view agent profile page', async ({ page, metamask }) => {
+  test('should view agent profile page', async ({ _page, _metamask }) => {
     await page.goto('http://localhost:4001');
     await connectWallet(page, metamask);
     await page.goto(MODERATION_URL);
@@ -254,7 +254,7 @@ test.describe('Agent Profile Tests', () => {
 
 // Note: Full moderation flow requires contracts deployed
 test.describe('Moderation System Requirements', () => {
-  test('should check if moderation contracts deployed', async ({ page }) => {
+  test('should check if moderation contracts deployed', async ({ _page }) => {
     await page.goto('http://localhost:4001');
     
     // Try to navigate to moderation

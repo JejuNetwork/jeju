@@ -209,7 +209,7 @@ export class ComputeMarketplace {
       requireSecure?: boolean; 
       providerType?: string;
       preferWarm?: boolean;
-      deployment?: any;
+      deployment?: Record<string, unknown>;
     }
   ): Promise<{ endpoint: string; teeType: TEEType; coldStart: boolean; warning?: string }> {
     if (!this.teeGatewayEndpoint) {

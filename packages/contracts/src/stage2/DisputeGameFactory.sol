@@ -71,6 +71,8 @@ contract DisputeGameFactory is Ownable, ReentrancyGuard, Pausable {
     error GameNotResolved();
     error InvalidTreasury();
     error InsufficientBond();
+    error InvalidProposer();
+    error ProverValidationFailed();
 
     constructor(address _treasury, address _owner) Ownable(_owner) {
         if (_treasury == address(0)) revert InvalidTreasury();
@@ -84,7 +86,10 @@ contract DisputeGameFactory is Ownable, ReentrancyGuard, Pausable {
         GameType _gameType,
         ProverType _proverType
     ) external payable nonReentrant whenNotPaused returns (bytes32 gameId) {
+        // SECURITY: Validate inputs
+        if (_proposer == address(0)) revert InvalidProposer();
         if (!proverEnabled[_proverType]) revert ProverNotEnabled();
+        if (proverImplementations[_proverType] == address(0)) revert InvalidProver();
         if (msg.value < MIN_BOND) revert InsufficientBond();
         if (msg.value > MAX_BOND) revert InvalidBond();
 

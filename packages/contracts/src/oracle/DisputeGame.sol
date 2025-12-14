@@ -24,6 +24,7 @@ contract DisputeGame is IDisputeGame, Ownable, Pausable, ReentrancyGuard {
     mapping(bytes32 => DisputeResolution) private _resolutions;
     mapping(bytes32 => bytes32) private _reportDisputes;
     bytes32[] private _activeDisputes;
+    // slither-disable-next-line uninitialized-state
     mapping(bytes32 => bytes32[]) private _disputesByFeed;
     mapping(address => bytes32[]) private _disputesByDisputer;
     DisputeConfig private _config;

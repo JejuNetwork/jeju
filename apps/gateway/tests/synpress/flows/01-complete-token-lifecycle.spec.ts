@@ -9,8 +9,7 @@ import { testWithSynpress } from '@synthetixio/synpress';
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
 import { basicSetup } from '../../../synpress.config'
 import { connectWallet } from '../helpers/wallet-helpers';
-import { executeTransaction, executeTwoStepTransaction, waitForSuccess } from '../helpers/transaction-helpers';
-import { mineBlocks } from '../helpers/blockchain-helpers';
+import { executeTransaction } from '../helpers/transaction-helpers';
 import { GATEWAY_URL, TEST_AMOUNTS, FEE_MARGINS, PROTOCOL_TOKENS } from '../fixtures/test-data';
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup));

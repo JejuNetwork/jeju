@@ -12,26 +12,26 @@ import { connectWallet } from '@jejunetwork/tests/helpers/contracts';
 import { assertAllProtocolTokens } from '../helpers/assertions';
 
 test.describe('Multi-Token Equality Tests', () => {
-  test.beforeEach(async ({ page, wallet }) => {
+  test.beforeEach(async ({ _page, wallet }) => {
     await page.goto('http://localhost:4001');
     await connectWallet(page, wallet);
   });
 
-  test('should display all 4 protocol tokens in balance view', async ({ page }) => {
+  test('should display all 4 protocol tokens in balance view', async ({ _page }) => {
     await assertAllProtocolTokens(page);
     
     // Check for total USD value
     await expect(page.getByText(/Total:/i)).toBeVisible();
   });
 
-  test('should show elizaOS FIRST in all token lists', async ({ page }) => {
+  test('should show elizaOS FIRST in all token lists', async ({ _page }) => {
     // Balance display
     const balanceCards = page.locator('[style*="background: #f8fafc"]').filter({ hasText: /elizaOS|CLANKER|VIRTUAL|CLANKERMON/ });
     const firstCard = balanceCards.first();
     await expect(firstCard.getByText('elizaOS')).toBeVisible();
   });
 
-  test('all tokens should have equal UI treatment in selectors', async ({ page }) => {
+  test('all tokens should have equal UI treatment in selectors', async ({ _page }) => {
     // Go to liquidity tab
     await page.getByRole('button', { name: /Add Liquidity/i }).click();
     
@@ -47,7 +47,7 @@ test.describe('Multi-Token Equality Tests', () => {
     await expect(dropdown.getByText('CLANKERMON')).toBeVisible();
   });
 
-  test('all tokens should display USD values consistently', async ({ page }) => {
+  test('all tokens should display USD values consistently', async ({ _page }) => {
     const tokenCards = page.locator('[style*="background: #f8fafc"]').filter({ hasText: /elizaOS|CLANKER|VIRTUAL|CLANKERMON/ });
     const count = await tokenCards.count();
     
@@ -58,7 +58,7 @@ test.describe('Multi-Token Equality Tests', () => {
     }
   });
 
-  test('all tokens should be available for paymaster deployment', async ({ page }) => {
+  test('all tokens should be available for paymaster deployment', async ({ _page }) => {
     await page.getByRole('button', { name: /Deploy Paymaster/i }).click();
     
     await page.locator('.input').first().click();
@@ -70,7 +70,7 @@ test.describe('Multi-Token Equality Tests', () => {
     await expect(page.getByText('CLANKERMON')).toBeVisible();
   });
 
-  test('all tokens should be available for liquidity provision', async ({ page }) => {
+  test('all tokens should be available for liquidity provision', async ({ _page }) => {
     await page.getByRole('button', { name: /Add Liquidity/i }).click();
     
     await page.locator('.input').first().click();
@@ -81,7 +81,7 @@ test.describe('Multi-Token Equality Tests', () => {
     await expect(page.getByText('CLANKERMON')).toBeVisible();
   });
 
-  test('all tokens should be available for node staking', async ({ page }) => {
+  test('all tokens should be available for node staking', async ({ _page }) => {
     await page.getByRole('button', { name: /Node Operators/i }).click();
     await page.getByRole('button', { name: /Register New Node/i }).click();
     
@@ -95,7 +95,7 @@ test.describe('Multi-Token Equality Tests', () => {
     await expect(page.getByText('CLANKERMON').first()).toBeVisible();
   });
 
-  test('all tokens should be available as node rewards', async ({ page }) => {
+  test('all tokens should be available as node rewards', async ({ _page }) => {
     await page.getByRole('button', { name: /Node Operators/i }).click();
     await page.getByRole('button', { name: /Register New Node/i }).click();
     
@@ -109,7 +109,7 @@ test.describe('Multi-Token Equality Tests', () => {
     await expect(page.getByText('CLANKERMON').nth(1)).toBeVisible();
   });
 
-  test('all tokens should be available for app registry stakes', async ({ page }) => {
+  test('all tokens should be available for app registry stakes', async ({ _page }) => {
     await page.getByRole('button', { name: /App Registry/i }).click();
     await page.getByRole('button', { name: /Register App/i }).click();
     
@@ -127,7 +127,7 @@ test.describe('Multi-Token Equality Tests', () => {
     await expect(page.getByText('CLANKERMON')).toBeVisible();
   });
 
-  test('bridgeable tokens should EXCLUDE elizaOS', async ({ page }) => {
+  test('bridgeable tokens should EXCLUDE elizaOS', async ({ _page }) => {
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     
     // Open token selector
@@ -143,7 +143,7 @@ test.describe('Multi-Token Equality Tests', () => {
     await expect(dropdown.getByText('elizaOS')).not.toBeVisible();
   });
 
-  test('all tokens should show logos in dropdowns', async ({ page }) => {
+  test('all tokens should show logos in dropdowns', async ({ _page }) => {
     await page.getByRole('button', { name: /Add Liquidity/i }).click();
     
     await page.locator('.input').first().click();
@@ -157,7 +157,7 @@ test.describe('Multi-Token Equality Tests', () => {
     expect(imageCount).toBeGreaterThanOrEqual(1);
   });
 
-  test('token prices should be displayed consistently', async ({ page }) => {
+  test('token prices should be displayed consistently', async ({ _page }) => {
     await page.getByRole('button', { name: /Add Liquidity/i }).click();
     
     await page.locator('.input').first().click();
@@ -172,27 +172,27 @@ test.describe('Multi-Token Equality Tests', () => {
 });
 
 test.describe('Token-Specific Price Validation', () => {
-  test.beforeEach(async ({ page, wallet }) => {
+  test.beforeEach(async ({ _page, wallet }) => {
     await page.goto('http://localhost:4001');
     await connectWallet(page, wallet);
   });
 
-  test('elizaOS should show $0.10 price', async ({ page }) => {
+  test('elizaOS should show $0.10 price', async ({ _page }) => {
     const elizaCard = page.locator('[style*="background: #f8fafc"]').filter({ hasText: 'elizaOS' });
     await expect(elizaCard.getByText('$0.10')).toBeVisible();
   });
 
-  test('CLANKER should show $26.14 price', async ({ page }) => {
+  test('CLANKER should show $26.14 price', async ({ _page }) => {
     const clankerCard = page.locator('[style*="background: #f8fafc"]').filter({ hasText: 'CLANKER' });
     await expect(clankerCard.getByText('$26.14')).toBeVisible();
   });
 
-  test('VIRTUAL should show $1.85 price', async ({ page }) => {
+  test('VIRTUAL should show $1.85 price', async ({ _page }) => {
     const virtualCard = page.locator('[style*="background: #f8fafc"]').filter({ hasText: 'VIRTUAL' });
     await expect(virtualCard.getByText('$1.85')).toBeVisible();
   });
 
-  test('CLANKERMON should show $0.15 price', async ({ page }) => {
+  test('CLANKERMON should show $0.15 price', async ({ _page }) => {
     const clankermonCard = page.locator('[style*="background: #f8fafc"]').filter({ hasText: 'CLANKERMON' });
     await expect(clankermonCard.getByText('$0.15')).toBeVisible();
   });

@@ -6,7 +6,7 @@ let metamask: MetaMask;
 test.describe('User Interactions', () => {
   test.beforeEach(async ({ context }: { context: BrowserContext }) => {
     // Setup MetaMask for tests that need wallet
-    metamask = await setupMetaMask(context as any, {
+    metamask = await setupMetaMask(context as unknown as Parameters<typeof setupMetaMask>[0], {
       seed: 'test test test test test test test test test test test junk',
       password: 'password1234',
     });

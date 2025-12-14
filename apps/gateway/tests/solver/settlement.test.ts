@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, mock, spyOn } from 'bun:test';
+import { describe, it, expect, mock } from 'bun:test';
 
 // Mock dependencies before importing
 const mockPublicClient = {

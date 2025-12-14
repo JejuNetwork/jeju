@@ -35,9 +35,10 @@ contract TestThresholdSubmitter is Script {
             2
         );
         
-        // Add sequencers
-        submitter.addSequencer(vm.addr(SEQ1_KEY));
-        submitter.addSequencer(vm.addr(SEQ2_KEY));
+        // Add second sequencer via propose/execute flow
+        bytes32 changeId = submitter.proposeAddSequencer(vm.addr(SEQ2_KEY));
+        vm.warp(block.timestamp + 1 days + 1); // Skip time lock
+        submitter.executeAddSequencer(changeId);
         
         console.log("Submitter deployed:", address(submitter));
         console.log("Sequencer count:", submitter.sequencerCount());

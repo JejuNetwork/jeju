@@ -6,17 +6,17 @@ import { connectWallet, deployPaymaster } from '@jejunetwork/tests/helpers/contr
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:5173';
 
 test.describe('Gateway Deploy Paymaster', () => {
-  test.beforeEach(async ({ page, wallet }) => {
+  test.beforeEach(async ({ _page, wallet }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, wallet);
     await page.click('button:has-text("Deploy Paymaster")');
   });
 
-  test('should display paymaster deployment interface', async ({ page }) => {
+  test('should display paymaster deployment interface', async ({ _page }) => {
     await expect(page.getByText(/Deploy Paymaster|Paymaster Factory/i)).toBeVisible();
   });
 
-  test('should select token for paymaster', async ({ page }) => {
+  test('should select token for paymaster', async ({ _page }) => {
     const tokenSelect = page.locator('select[name*="token"], button:has-text("Select Token")').first();
     
     if (await tokenSelect.isVisible({ timeout: 5000 })) {
@@ -25,7 +25,7 @@ test.describe('Gateway Deploy Paymaster', () => {
     }
   });
 
-  test('should show deployment requirements', async ({ page }) => {
+  test('should show deployment requirements', async ({ _page }) => {
     await page.waitForTimeout(1000);
     
     // Verify deployment interface has content
@@ -34,7 +34,7 @@ test.describe('Gateway Deploy Paymaster', () => {
     expect(body!.toLowerCase()).toMatch(/deploy|paymaster|token/);
   });
 
-  test.skip('should deploy paymaster successfully', async ({ wallet, page }) => {
+  test.skip('should deploy paymaster successfully', async ({ wallet, _page }) => {
     await deployPaymaster(page, wallet, {
       token: 'elizaOS'
     });
@@ -44,7 +44,7 @@ test.describe('Gateway Deploy Paymaster', () => {
     });
   });
 
-  test('should show deployed paymasters', async ({ page }) => {
+  test('should show deployed paymasters', async ({ _page }) => {
     await page.waitForTimeout(1000);
     
     // Verify page structure

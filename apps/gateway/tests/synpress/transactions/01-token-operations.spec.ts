@@ -14,14 +14,14 @@ const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
 
 test.describe('Token Registration Transactions', () => {
-  test.beforeEach(async ({ page, metamask }) => {
+  test.beforeEach(async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Registered Tokens/i }).click();
     await page.waitForTimeout(1000);
   });
 
-  test('should register new token with valid parameters', async ({ page, metamask }) => {
+  test('should register new token with valid parameters', async ({ _page, _metamask }) => {
     // Generate random token address for testing
     const testTokenAddress = randomAddress();
 
@@ -52,7 +52,7 @@ test.describe('Token Registration Transactions', () => {
     console.log('✅ Token registration transaction successful');
   });
 
-  test('should reject registration with invalid address', async ({ page }) => {
+  test('should reject registration with invalid address', async ({ _page }) => {
     await page.getByPlaceholder('0x...').fill('not-an-address');
     await page.locator('input[placeholder="0"]').fill('0');
     await page.locator('input[placeholder="200"]').fill('200');
@@ -66,7 +66,7 @@ test.describe('Token Registration Transactions', () => {
     console.log('✅ Invalid address rejected');
   });
 
-  test('should reject min > max fee configuration', async ({ page }) => {
+  test('should reject min > max fee configuration', async ({ _page }) => {
     await page.getByPlaceholder('0x...').fill(randomAddress());
     await page.locator('input[placeholder="0"]').fill('300'); // Min
     await page.locator('input[placeholder="200"]').fill('100'); // Max (less than min)
@@ -79,7 +79,7 @@ test.describe('Token Registration Transactions', () => {
     console.log('✅ Min > Max fee rejected');
   });
 
-  test('should reject max fee > 500 bps', async ({ page }) => {
+  test('should reject max fee > 500 bps', async ({ _page }) => {
     await page.getByPlaceholder('0x...').fill(randomAddress());
     await page.locator('input[placeholder="0"]').fill('0');
     await page.locator('input[placeholder="200"]').fill('600'); // > 500 max
@@ -92,7 +92,7 @@ test.describe('Token Registration Transactions', () => {
     console.log('✅ Fee > 5% rejected');
   });
 
-  test('should display registration fee requirement', async ({ page }) => {
+  test('should display registration fee requirement', async ({ _page }) => {
     await expect(page.getByText(/Registration Fee:/i)).toBeVisible();
     await expect(page.getByText(/0.1.*ETH/i)).toBeVisible();
 

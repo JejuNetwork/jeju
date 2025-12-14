@@ -12,7 +12,7 @@
 import { testWithSynpress } from '@synthetixio/synpress';
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
 import { basicSetup } from '../../../synpress.config';
-import { connectWallet, getWalletBalance, getTokenBalance } from '../helpers/wallet-helpers';
+import { connectWallet } from '../helpers/wallet-helpers';
 import {
   getBalance,
   getBlockNumber,
@@ -467,7 +467,7 @@ test.describe('ON-CHAIN VALIDATION: Multi-Token Verification', () => {
 
     console.log('📊 Verifying on-chain balances match UI display:');
 
-    for (const [name, tokenData] of Object.entries(PROTOCOL_TOKENS)) {
+    for (const [_name, tokenData] of Object.entries(PROTOCOL_TOKENS)) {
       // Get balance from UI
       const uiBalanceElement = page.locator(`.card:has-text("${tokenData.symbol}")`).locator('p').filter({ hasText: /\d+\.\d+/ }).first();
       const uiBalanceText = await uiBalanceElement.textContent().catch(() => '0');

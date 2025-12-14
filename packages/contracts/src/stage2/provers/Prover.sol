@@ -54,7 +54,7 @@ contract Prover is IProver {
         override
         returns (bool)
     {
-        if (proof.length < 138) revert InvalidProofLength(); // Minimum: 1+1+32+32+32+8+32 = 138
+        if (proof.length < 320) revert InvalidProofLength(); // Minimum abi.encode size
 
         ProofData memory data = _decodeProof(proof);
         if (data.version != PROOF_VERSION) revert InvalidProofVersion();
@@ -146,33 +146,7 @@ contract Prover is IProver {
     }
 
     function _decodeProof(bytes calldata proof) internal pure returns (ProofData memory data) {
-        data.version = uint8(proof[0]);
-        data.proofType = uint8(proof[1]);
-        data.preStateRoot = bytes32(proof[2:34]);
-        data.postStateRoot = bytes32(proof[34:66]);
-        data.blockHash = bytes32(proof[66:98]);
-        data.blockNumber = uint64(bytes8(proof[98:106]));
-        data.outputRoot = bytes32(proof[106:138]);
-
-        if (proof.length > 138) {
-            uint8 signerCount = uint8(proof[138]);
-            data.signers = new address[](signerCount);
-            data.signatures = new bytes[](signerCount);
-
-            uint256 offset = 139;
-            for (uint8 i = 0; i < signerCount; i++) {
-                data.signers[i] = address(bytes20(proof[offset:offset + 20]));
-                offset += 20;
-            }
-            for (uint8 i = 0; i < signerCount; i++) {
-                data.signatures[i] = proof[offset:offset + 65];
-                offset += 65;
-            }
-        }
-    }
-
-    function _encodeProof(ProofData memory data) internal pure returns (bytes memory) {
-        bytes memory encoded = abi.encodePacked(
+        (
             data.version,
             data.proofType,
             data.preStateRoot,
@@ -180,17 +154,27 @@ contract Prover is IProver {
             data.blockHash,
             data.blockNumber,
             data.outputRoot,
-            uint8(data.signers.length)
+            data.signers,
+            data.signatures
+        ) = abi.decode(
+            proof,
+            (uint8, uint8, bytes32, bytes32, bytes32, uint64, bytes32, address[], bytes[])
         );
+    }
 
-        for (uint256 i = 0; i < data.signers.length; i++) {
-            encoded = abi.encodePacked(encoded, data.signers[i]);
-        }
-        for (uint256 i = 0; i < data.signatures.length; i++) {
-            encoded = abi.encodePacked(encoded, data.signatures[i]);
-        }
-
-        return encoded;
+    function _encodeProof(ProofData memory data) internal pure returns (bytes memory) {
+        // Use abi.encode for dynamic arrays to avoid hash collision risks
+        return abi.encode(
+            data.version,
+            data.proofType,
+            data.preStateRoot,
+            data.postStateRoot,
+            data.blockHash,
+            data.blockNumber,
+            data.outputRoot,
+            data.signers,
+            data.signatures
+        );
     }
 
     function _computeFraudHash(bytes32 stateRoot, bytes32 claimRoot, ProofData memory data)

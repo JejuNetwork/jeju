@@ -14,7 +14,7 @@ const { expect } = test;
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4001';
 
 test.describe('Gateway Smoke Tests', () => {
-  test('homepage should load without errors', async ({ page }) => {
+  test('homepage should load without errors', async ({ _page }) => {
     await page.goto(GATEWAY_URL);
     await page.waitForLoadState('networkidle');
     
@@ -41,7 +41,7 @@ test.describe('Gateway Smoke Tests', () => {
     await page.screenshot({ path: 'test-results/screenshots/synpress-00-homepage.png', fullPage: true });
   });
 
-  test('should connect MetaMask wallet', async ({ page, metamask }) => {
+  test('should connect MetaMask wallet', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     
     // Connect wallet
@@ -129,7 +129,7 @@ test.describe('Gateway Smoke Tests', () => {
     console.log('✅ Wallet connection persistent');
   });
 
-  test('A2A server should be running', async ({ page }) => {
+  test('A2A server should be running', async ({ _page }) => {
     // Check A2A server health
     const response = await page.request.get('http://localhost:4003/.well-known/agent-card.json');
     expect(response.status()).toBe(200);
@@ -140,7 +140,7 @@ test.describe('Gateway Smoke Tests', () => {
     console.log('✅ A2A server responding');
   });
 
-  test('RPC should be accessible', async ({ page }) => {
+  test('RPC should be accessible', async ({ _page }) => {
     // Make JSON-RPC call
     const response = await page.request.post('http://127.0.0.1:9545', {
       data: {

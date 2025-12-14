@@ -5,11 +5,17 @@
 # - L2: Multiple sequencers with client diversity
 # - Stage 2 services: SequencerRegistry, ThresholdBatchSubmitter, Challenger
 #
+# SECURITY NOTES:
+# - Use Docker secrets for JWT and private keys in production
+# - Configure CORS_ORIGINS env var to restrict origins
+# - All private keys should come from external secrets manager
+#
 # Usage:
 #   docker-compose -f docker-compose.stage2.yml up
 #
 # Prerequisites:
 #   - Set environment variables in .env.stage2
+#   - Configure secrets via Docker secrets or external KMS
 
 services:
   # ============================================================================
@@ -31,20 +37,21 @@ services:
       - --http.addr=0.0.0.0
       - --http.port=8545
       - --http.api=eth,net,web3,debug,personal,engine,admin
-      - --http.corsdomain=*
+      - --http.corsdomain=${CORS_ORIGINS:-http://localhost:3000,http://localhost:4000}
       - --ws
       - --ws.addr=0.0.0.0
       - --ws.port=8546
       - --ws.api=eth,net,web3
-      - --ws.origins=*
+      - --ws.origins=${WS_ORIGINS:-http://localhost:3000,http://localhost:4000}
       - --authrpc.addr=0.0.0.0
       - --authrpc.port=8551
-      - --authrpc.vhosts=*
-      - --authrpc.jwtsecret=/secrets/jwt-secret.txt
+      - --authrpc.vhosts=${AUTHRPC_VHOSTS:-localhost,op-node,op-batcher,op-proposer}
+      - --authrpc.jwtsecret=/run/secrets/jwt-secret
       - --nodiscover
     volumes:
       - geth-l1-data:/data
-      - ./secrets:/secrets:ro
+    secrets:
+      - jwt-secret
     networks:
       - jeju-stage2
     healthcheck:
@@ -68,19 +75,20 @@ services:
       - --http.addr=0.0.0.0
       - --http.port=8545
       - --http.api=eth,net,web3,txpool,trace
-      - --http.corsdomain=*
+      - --http.corsdomain=${CORS_ORIGINS:-http://localhost:3000,http://localhost:4000}
       - --ws
       - --ws.addr=0.0.0.0
       - --ws.port=8546
       - --ws.api=eth,net,web3
-      - --ws.origins=*
+      - --ws.origins=${WS_ORIGINS:-http://localhost:3000,http://localhost:4000}
       - --authrpc.addr=0.0.0.0
       - --authrpc.port=8551
-      - --authrpc.jwtsecret=/secrets/jwt-secret.txt
+      - --authrpc.jwtsecret=/run/secrets/jwt-secret
       - --datadir=/data
     volumes:
       - reth-l1-data:/data
-      - ./secrets:/secrets:ro
+    secrets:
+      - jwt-secret
     networks:
       - jeju-stage2
     healthcheck:
@@ -319,7 +327,8 @@ services:
       - ./packages/contracts:/contracts
       - deployer-cache:/root/.foundry
     environment:
-      - DEPLOYER_PRIVATE_KEY=${DEPLOYER_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
+      # SECURITY: Private key must be set via environment variable - no default
+      - DEPLOYER_PRIVATE_KEY_FILE=/run/secrets/deployer-key
       - RPC_URL=http://geth-l1:8545
     command: >
       sh -c "
@@ -334,6 +343,8 @@ services:
         condition: service_healthy
     networks:
       - jeju-stage2
+    secrets:
+      - deployer-key
 
   # Sequencer Registry Monitor
   sequencer-registry-monitor:
@@ -372,7 +383,8 @@ services:
       - L1_RPC_URL=http://geth-l1:8545
       - DISPUTE_GAME_FACTORY_ADDRESS=${DISPUTE_GAME_FACTORY_ADDRESS}
       - PROVER_ADDRESS=${PROVER_ADDRESS}
-      - CHALLENGER_PRIVATE_KEY=${CHALLENGER_PRIVATE_KEY:-0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d}
+      # SECURITY: Private key must be set via environment variable - no default
+      - CHALLENGER_PRIVATE_KEY_FILE=/run/secrets/challenger-key
     command: >
       sh -c "
         echo 'Waiting for contracts...' &&
@@ -384,6 +396,8 @@ services:
       - contract-deployer
     networks:
       - jeju-stage2
+    secrets:
+      - challenger-key
     restart: unless-stopped
 
   # ============================================================================
@@ -571,7 +585,8 @@ http.server.HTTPServer((\"\", 5052), BeaconHandler).serve_forever()
       - JEJU_RPC_URL=http://op-geth-seq-1:8545
       - PROXY_REGISTRY_ADDRESS=${PROXY_REGISTRY_ADDRESS:-0x0000000000000000000000000000000000000000}
       - PROXY_PAYMENT_ADDRESS=${PROXY_PAYMENT_ADDRESS:-0x0000000000000000000000000000000000000000}
-      - COORDINATOR_PRIVATE_KEY=${COORDINATOR_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
+      # SECURITY: Private key must be set via environment variable - no default
+      - COORDINATOR_PRIVATE_KEY_FILE=/run/secrets/coordinator-key
       - PROXY_COORDINATOR_PORT=4020
       - PROXY_COORDINATOR_WS_PORT=4021
       # Decentralized fallback providers (optional)
@@ -589,6 +604,8 @@ http.server.HTTPServer((\"\", 5052), BeaconHandler).serve_forever()
         condition: service_healthy
     networks:
       - jeju-stage2
+    secrets:
+      - coordinator-key
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4020/health"]
       interval: 10s
@@ -596,6 +613,7 @@ http.server.HTTPServer((\"\", 5052), BeaconHandler).serve_forever()
       retries: 5
 
   # Example proxy node (for testing)
+  # SECURITY: Use Docker secrets for private keys in production
   proxy-node-1:
     build:
       context: .
@@ -603,10 +621,13 @@ http.server.HTTPServer((\"\", 5052), BeaconHandler).serve_forever()
     container_name: jeju-stage2-proxy-node-1
     environment:
       - PROXY_COORDINATOR_URL=ws://proxy-coordinator:4021
-      - NODE_PRIVATE_KEY=${NODE_1_PRIVATE_KEY:-0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d}
+      # Private key must be set via environment variable - no defaults
+      - NODE_PRIVATE_KEY_FILE=/run/secrets/node-1-key
       - NODE_REGION=US
       - NODE_MAX_CONCURRENT=10
     command: ["bun", "run", "apps/compute/src/proxy/scripts/start-node.ts"]
+    secrets:
+      - node-1-key
     depends_on:
       proxy-coordinator:
         condition: service_healthy
@@ -627,3 +648,25 @@ volumes:
 networks:
   jeju-stage2:
     driver: bridge
+
+# Docker secrets for sensitive data
+# In production, use external secrets from Vault, AWS Secrets Manager, etc.
+secrets:
+  jwt-secret:
+    file: ${JWT_SECRET_FILE:-./secrets/jwt-secret.txt}
+  deployer-key:
+    environment: DEPLOYER_PRIVATE_KEY
+  sequencer-1-key:
+    environment: SEQUENCER_1_PRIVATE_KEY
+  sequencer-2-key:
+    environment: SEQUENCER_2_PRIVATE_KEY
+  sequencer-3-key:
+    environment: SEQUENCER_3_PRIVATE_KEY
+  signer-api-key:
+    environment: SIGNER_API_KEY
+  node-1-key:
+    environment: NODE_1_PRIVATE_KEY
+  challenger-key:
+    environment: CHALLENGER_PRIVATE_KEY
+  coordinator-key:
+    environment: COORDINATOR_PRIVATE_KEY

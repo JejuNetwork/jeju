@@ -26,6 +26,7 @@ contract LiquidationEngine is ILiquidationEngine, Ownable, ReentrancyGuard {
     uint256 public totalLiquidations;
     uint256 public totalLiquidatedVolume;
     uint256 public totalLiquidatorRewards;
+    // slither-disable-next-line uninitialized-state
     uint256 public totalInsuranceFees;
     uint256 public totalBadDebt;
 

@@ -2,7 +2,7 @@
  * Tests for the real quote-service.ts
  * These tests exercise actual service logic, not mocks
  */
-import { describe, it, expect, beforeAll, mock } from 'bun:test';
+import { describe, it, expect, mock } from 'bun:test';
 
 // Mock viem's createPublicClient to avoid real RPC calls
 const mockReadContract = mock(() => Promise.resolve({

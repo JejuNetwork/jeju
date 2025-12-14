@@ -9,7 +9,6 @@ import { testWithSynpress } from '@synthetixio/synpress';
 import { metaMaskFixtures } from '@synthetixio/synpress/playwright';
 import { basicSetup } from '../../../synpress.config'
 import { connectWallet } from '../helpers/wallet-helpers';
-import { executeTransaction } from '../helpers/transaction-helpers';
 import { STORAGE_DURATIONS, TEST_FILE } from '../fixtures/test-data';
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup));
@@ -18,12 +17,12 @@ const { expect } = test;
 const STORAGE_URL = 'http://localhost:4001/storage';
 
 test.describe('Storage Manager - Navigation & Display', () => {
-  test.beforeEach(async ({ page, metamask }) => {
+  test.beforeEach(async ({ _page, _metamask }) => {
     await page.goto('http://localhost:4001');
     await connectWallet(page, metamask);
   });
 
-  test('should navigate to storage manager page', async ({ page }) => {
+  test('should navigate to storage manager page', async ({ _page }) => {
     await page.goto(STORAGE_URL);
     await page.waitForLoadState('networkidle');
 
@@ -39,7 +38,7 @@ test.describe('Storage Manager - Navigation & Display', () => {
     console.log('✅ Storage manager page loaded');
   });
 
-  test('should display all tabs: Upload, My Files, Funding', async ({ page }) => {
+  test('should display all tabs: Upload, My Files, Funding', async ({ _page }) => {
     await page.goto(STORAGE_URL);
 
     await expect(page.getByText('Upload Files')).toBeVisible();
@@ -49,7 +48,7 @@ test.describe('Storage Manager - Navigation & Display', () => {
     console.log('✅ All storage tabs present');
   });
 
-  test('should display pricing information', async ({ page }) => {
+  test('should display pricing information', async ({ _page }) => {
     await page.goto(STORAGE_URL);
     
     // Click Funding tab
@@ -70,7 +69,7 @@ test.describe('Storage Manager - Navigation & Display', () => {
 });
 
 test.describe('File Upload Flow', () => {
-  test.beforeEach(async ({ page, metamask }) => {
+  test.beforeEach(async ({ _page, _metamask }) => {
     await page.goto('http://localhost:4001');
     await connectWallet(page, metamask);
     await page.goto(STORAGE_URL);
@@ -119,7 +118,7 @@ test.describe('File Upload Flow', () => {
     console.log('✅ File upload successful');
   });
 
-  test('should display file in My Files after upload', async ({ page }) => {
+  test('should display file in My Files after upload', async ({ _page }) => {
     // Upload a file first (or check if files exist)
     
     // Navigate to My Files
@@ -145,7 +144,7 @@ test.describe('File Upload Flow', () => {
     }
   });
 
-  test('should calculate storage price for different durations', async ({ page }) => {
+  test('should calculate storage price for different durations', async ({ _page }) => {
     // Select a test file
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles({
@@ -157,7 +156,7 @@ test.describe('File Upload Flow', () => {
     await page.waitForTimeout(1000);
 
     // Check prices for different durations
-    for (const [duration, label] of [
+    for (const [_duration, label] of [
       [STORAGE_DURATIONS.ONE_MONTH, '1 Month'],
       [STORAGE_DURATIONS.SIX_MONTHS, '6 Months'],
       [STORAGE_DURATIONS.ONE_YEAR, '1 Year'],
@@ -180,14 +179,14 @@ test.describe('File Upload Flow', () => {
 });
 
 test.describe('Storage Funding Flow', () => {
-  test.beforeEach(async ({ page, metamask }) => {
+  test.beforeEach(async ({ _page, _metamask }) => {
     await page.goto('http://localhost:4001');
     await connectWallet(page, metamask);
     await page.goto(STORAGE_URL);
     await page.waitForTimeout(1000);
   });
 
-  test('should display funding options', async ({ page }) => {
+  test('should display funding options', async ({ _page }) => {
     // Navigate to Funding tab
     await page.getByText('Funding & Payments').click();
     await page.waitForTimeout(500);
@@ -205,7 +204,7 @@ test.describe('Storage Funding Flow', () => {
     console.log('✅ Funding options displayed');
   });
 
-  test.skip('should fund storage balance with elizaOS', async ({ page, metamask }) => {
+  test.skip('should fund storage balance with elizaOS', async ({ _page, _metamask }) => {
     // TODO: Implement when funding contract ready
     
     await page.getByText('Funding & Payments').click();
@@ -219,7 +218,7 @@ test.describe('Storage Funding Flow', () => {
 });
 
 test.describe('File Management', () => {
-  test('should display file expiration warnings', async ({ page, metamask }) => {
+  test('should display file expiration warnings', async ({ _page, _metamask }) => {
     await page.goto('http://localhost:4001');
     await connectWallet(page, metamask);
     await page.goto(STORAGE_URL);
@@ -238,7 +237,7 @@ test.describe('File Management', () => {
     }
   });
 
-  test.skip('should renew file storage', async ({ page, metamask }) => {
+  test.skip('should renew file storage', async ({ _page, _metamask }) => {
     // TODO: Implement when renew functionality ready
     
     await page.goto('http://localhost:4001');

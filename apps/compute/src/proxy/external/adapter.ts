@@ -35,6 +35,14 @@ export const REGION_TO_COUNTRY: Record<RegionCode, string> = {
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
 
+/** Proxy configuration for routing through external nodes */
+export interface ProxyConfig {
+  host: string;
+  port: number;
+  protocol: 'socks5' | 'http' | 'https';
+  auth?: { username: string; password: string };
+}
+
 /** Price conversion utilities */
 export const PriceUtils = {
   /** Convert token rate to wei per GB with markup */
@@ -71,7 +79,8 @@ export function createSuccessResponse(
   request: ProxyRequest,
   response: Response,
   body: string,
-  latencyMs: number
+  latencyMs: number,
+  nodeAddress: Address = ZERO_ADDRESS
 ): ProxyResponse {
   const headers: Record<string, string> = {};
   response.headers.forEach((v, k) => { headers[k] = v; });
@@ -85,14 +94,21 @@ export function createSuccessResponse(
     body,
     bytesTransferred: new TextEncoder().encode(body).length,
     latencyMs,
-    nodeAddress: ZERO_ADDRESS,
+    nodeAddress,
   };
 }
 
-/** Execute proxied HTTP request with timeout */
+/**
+ * Execute HTTP request through a SOCKS5 proxy
+ * 
+ * Note: Bun doesn't have native SOCKS5 support in fetch().
+ * This implementation uses HTTP CONNECT for HTTPS URLs through HTTP proxies,
+ * or direct connection for testing. In production, use a SOCKS5 library.
+ */
 export async function executeProxiedFetch(
   request: ProxyRequest,
-  timeout: number
+  timeout: number,
+  proxyConfig?: ProxyConfig
 ): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -108,6 +124,42 @@ export async function executeProxiedFetch(
   }
 
   try {
+    if (proxyConfig && proxyConfig.protocol === 'http') {
+      // For HTTP proxy, we can use Bun's proxy support via environment
+      // This is a workaround - in production use socks-proxy-agent
+      const proxyUrl = proxyConfig.auth 
+        ? `http://${proxyConfig.auth.username}:${proxyConfig.auth.password}@${proxyConfig.host}:${proxyConfig.port}`
+        : `http://${proxyConfig.host}:${proxyConfig.port}`;
+      
+      // Bun supports HTTP_PROXY/HTTPS_PROXY environment variables
+      const originalProxy = process.env.HTTP_PROXY;
+      process.env.HTTP_PROXY = proxyUrl;
+      process.env.HTTPS_PROXY = proxyUrl;
+      
+      try {
+        const response = await fetch(request.url, init);
+        return response;
+      } finally {
+        if (originalProxy) {
+          process.env.HTTP_PROXY = originalProxy;
+          process.env.HTTPS_PROXY = originalProxy;
+        } else {
+          delete process.env.HTTP_PROXY;
+          delete process.env.HTTPS_PROXY;
+        }
+      }
+    }
+    
+    // SOCKS5 requires external library - document this limitation
+    if (proxyConfig && proxyConfig.protocol === 'socks5') {
+      throw new Error(
+        `SOCKS5 proxy requires socks-proxy-agent package. ` +
+        `Configure: bun add socks-proxy-agent, then use SocksProxyAgent. ` +
+        `Proxy: ${proxyConfig.host}:${proxyConfig.port}`
+      );
+    }
+
+    // No proxy configured - direct fetch (for testing/fallback)
     const response = await fetch(request.url, init);
     return response;
   } finally {
@@ -148,7 +200,13 @@ export abstract class BaseExternalAdapter implements ExternalProxyProvider {
   abstract fetchViaProxy(request: ProxyRequest, region: RegionCode): Promise<ProxyResponse>;
   abstract getSupportedRegions(): Promise<RegionCode[]>;
 
-  /** Fetch with automatic error handling */
+  /**
+   * Get the proxy configuration for this adapter
+   * Subclasses should override to return actual proxy config when connected
+   */
+  abstract getProxyConfig(): ProxyConfig | null;
+
+  /** Fetch with automatic error handling and proxy routing */
   protected async safeFetch(
     request: ProxyRequest,
     region: RegionCode,
@@ -157,12 +215,26 @@ export abstract class BaseExternalAdapter implements ExternalProxyProvider {
     const start = Date.now();
     try {
       await setupFn();
-      const response = await executeProxiedFetch(request, this.timeout);
+      
+      const proxyConfig = this.getProxyConfig();
+      if (!proxyConfig) {
+        throw new Error(`No proxy connection established for ${this.name}`);
+      }
+      
+      const response = await executeProxiedFetch(request, this.timeout, proxyConfig);
       const body = await response.text();
       return createSuccessResponse(request, response, body, Date.now() - start);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
       return createErrorResponse(request, msg, Date.now() - start);
     }
+  }
+  
+  /** Direct fetch without proxy - use only for testing or API calls to provider */
+  protected async directFetch(url: string, init?: RequestInit): Promise<Response> {
+    return fetch(url, {
+      ...init,
+      signal: AbortSignal.timeout(this.timeout),
+    });
   }
 }

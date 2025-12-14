@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'bun:test';
+import { describe, it, expect } from 'bun:test';
 import {
   recordIntentReceived,
   recordIntentEvaluated,
@@ -7,10 +7,8 @@ import {
   recordSettlementClaimed,
   recordSettlementFailed,
   updatePendingSettlements,
-  updateLiquidity,
   getPrometheusMetrics,
   getMetricsJson,
-  metricsRegistry,
 } from '../../src/solver/metrics';
 
 describe('OIF Solver Metrics', () => {

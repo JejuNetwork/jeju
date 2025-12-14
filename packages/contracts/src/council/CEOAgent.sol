@@ -624,5 +624,16 @@ contract CEOAgent is Ownable, Pausable, ReentrancyGuard {
         return "1.0.0";
     }
 
+    /**
+     * @notice Withdraw accumulated ETH to owner
+     */
+    function withdrawETH() external onlyOwner {
+        uint256 balance = address(this).balance;
+        if (balance > 0) {
+            (bool success,) = owner().call{value: balance}("");
+            require(success, "ETH transfer failed");
+        }
+    }
+
     receive() external payable {}
 }

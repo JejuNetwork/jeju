@@ -113,7 +113,7 @@ describe('Real RPC Integration', () => {
     }
     
     const { publicClient } = await createClients('jeju');
-      const chainId = await publicClient.getChainId();
+    const chainId = await publicClient.getChainId();
     
     // Accept either network mainnet (420691) or local Anvil (31337)
     const validChainIds = [420691, 31337];
@@ -383,16 +383,16 @@ describe('Concurrent Real Operations', () => {
     
     const { publicClient } = await createClients('jeju');
 
-      const calls = Array.from({ length: 10 }, () => publicClient.getChainId().catch(() => null));
-      const results = await Promise.all(calls);
+    const calls = Array.from({ length: 10 }, () => publicClient.getChainId().catch(() => null));
+    const results = await Promise.all(calls);
 
-      // All should return same chain ID (filter out nulls from failures)
-      const validResults = results.filter((id): id is number => id !== null);
+    // All should return same chain ID (filter out nulls from failures)
+    const validResults = results.filter((id): id is number => id !== null);
     expect(validResults.length).toBeGreaterThan(0);
     
     // All returned chain IDs should be the same (consistent RPC)
     const firstChainId = validResults[0];
-      for (const chainId of validResults) {
+    for (const chainId of validResults) {
       expect(chainId).toBe(firstChainId);
     }
     

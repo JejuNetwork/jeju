@@ -316,8 +316,6 @@ describe('Stop/Cleanup', () => {
     
     await manager.initialize(clients as unknown as Map<number, { public: PublicClient; wallet?: WalletClient }>);
     
-    const initialCalls = mockClient.getCalls().length;
-    
     // Wait a bit
     await new Promise(resolve => setTimeout(resolve, 50));
     

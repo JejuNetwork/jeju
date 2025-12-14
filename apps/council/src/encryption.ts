@@ -1,7 +1,7 @@
 /**
  * Council Encryption - CEO Decision Encryption using the network KMS
  *
- * Uses the in-house @jeju/kms for encryption with access control policies.
+ * Uses AES-256-GCM encryption with policy-based access control.
  * Decryption requires:
  * 1. Proposal status is COMPLETED, or
  * 2. 30 days have passed since decision
@@ -25,7 +25,7 @@ interface AccessControlCondition {
   };
 }
 
-export interface LitEncryptedData {
+export interface EncryptedData {
   ciphertext: string;
   dataToEncryptHash: string;
   accessControlConditions: AccessControlCondition[];
@@ -33,7 +33,7 @@ export interface LitEncryptedData {
   encryptedAt: number;
 }
 
-export interface LitDecryptionResult {
+export interface DecryptionResult {
   decryptedString: string;
   verified: boolean;
 }
@@ -73,7 +73,7 @@ let initialized = false;
 async function initEncryption(): Promise<void> {
   if (initialized) return;
   initialized = true;
-  console.log('[Encryption] Initialized with in-house KMS');
+  console.log('[Encryption] Initialized with Jeju KMS');
 }
 
 /**
@@ -178,7 +178,7 @@ async function decrypt(ciphertext: string, iv: string, tag: string, policyHash: 
 /**
  * Encrypt CEO decision data
  */
-export async function encryptDecision(decision: DecisionData): Promise<LitEncryptedData> {
+export async function encryptDecision(decision: DecisionData): Promise<EncryptedData> {
   await initEncryption();
   
   const dataToEncrypt = JSON.stringify(decision);
@@ -202,9 +202,9 @@ export async function encryptDecision(decision: DecisionData): Promise<LitEncryp
  * Decrypt CEO decision data
  */
 export async function decryptDecision(
-  encryptedData: LitEncryptedData,
+  encryptedData: EncryptedData,
   _authSig?: AuthSig
-): Promise<LitDecryptionResult> {
+): Promise<DecryptionResult> {
   await initEncryption();
   
   const policyHash = keccak256(toUtf8Bytes(JSON.stringify(encryptedData.accessControlConditions)));
@@ -231,7 +231,7 @@ export function parseDecisionData(decryptedString: string): DecisionData {
  */
 export async function backupToDA(
   proposalId: string,
-  encryptedData: LitEncryptedData
+  encryptedData: EncryptedData
 ): Promise<{ keyId: string; hash: string }> {
   const response = await fetch(`${DA_URL}/api/v1/encrypted/store`, {
     method: 'POST',
@@ -272,8 +272,7 @@ export async function backupToDA(
 /**
  * Retrieve encrypted decision from DA layer by proposalId
  */
-export async function retrieveFromDA(proposalId: string): Promise<LitEncryptedData | null> {
-  // Search for encrypted data with matching proposalId
+export async function retrieveFromDA(proposalId: string): Promise<EncryptedData | null> {
   const searchResponse = await fetch(`${DA_URL}/api/v1/encrypted/search`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -296,10 +295,8 @@ export async function retrieveFromDA(proposalId: string): Promise<LitEncryptedDa
     return null;
   }
 
-  // Get the most recent result
   const latest = searchResult.results.sort((a, b) => b.encryptedAt - a.encryptedAt)[0];
 
-  // Retrieve the actual data
   const retrieveResponse = await fetch(`${DA_URL}/api/v1/encrypted/retrieve`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -315,7 +312,7 @@ export async function retrieveFromDA(proposalId: string): Promise<LitEncryptedDa
   }
 
   const retrieveResult = (await retrieveResponse.json()) as { data: string };
-  const parsed = JSON.parse(retrieveResult.data) as { encryptedData: LitEncryptedData };
+  const parsed = JSON.parse(retrieveResult.data) as { encryptedData: EncryptedData };
   
   return parsed.encryptedData;
 }
@@ -327,10 +324,9 @@ export async function retrieveFromDA(proposalId: string): Promise<LitEncryptedDa
  * 2. Proposal status is COMPLETED (7) on-chain
  */
 export async function canDecrypt(
-  encryptedData: LitEncryptedData,
+  encryptedData: EncryptedData,
   rpcUrl?: string
 ): Promise<boolean> {
-  // Check the timestamp condition first (cheapest check)
   const now = Math.floor(Date.now() / 1000);
   const thirtyDaysAfter = encryptedData.encryptedAt + 30 * 24 * 60 * 60;
 
@@ -338,7 +334,6 @@ export async function canDecrypt(
     return true;
   }
 
-  // Check on-chain proposal status
   const proposalCondition = encryptedData.accessControlConditions.find(
     (c) => c.method === 'proposals' && c.contractAddress !== ''
   );
@@ -351,8 +346,6 @@ export async function canDecrypt(
   const councilAddress = proposalCondition.contractAddress;
   const rpc = rpcUrl ?? process.env.RPC_URL ?? 'http://localhost:8545';
 
-  // Call Council.proposals(proposalId) to get status
-  // Proposal struct returns status as 9th field (index 8)
   const callData = `0x013cf08b${proposalId.slice(2).padStart(64, '0')}`; // proposals(uint256)
 
   const response = await fetch(rpc, {
@@ -374,35 +367,35 @@ export async function canDecrypt(
   const result = (await response.json()) as { result?: string; error?: { message: string } };
   
   if (result.error || !result.result || result.result === '0x') {
-    return false; // Proposal doesn't exist or call failed
+    return false;
   }
 
-  // Status is at offset 8 * 32 = 256 bytes (each field is 32 bytes)
-  // The struct has: id, proposer, proposalType, targetContract, callData(dynamic), description(dynamic), 
-  // startTime, endTime, status, councilVotes(dynamic), yesVotes, noVotes, vetoVotes
-  // Status enum is the 9th field after fixed-size fields
-  const statusOffset = 8 * 64 + 2; // 8 fields * 32 bytes * 2 hex chars + '0x'
+  const statusOffset = 8 * 64 + 2;
   const statusHex = result.result.slice(statusOffset, statusOffset + 64);
   const status = parseInt(statusHex, 16);
 
-  // ProposalStatus.COMPLETED = 7
   return status === 7;
 }
 
 /**
  * Get encryption status
  */
-export function getLitStatus(): { network: string; connected: boolean; fallbackMode: boolean } {
+export function getEncryptionStatus(): { provider: string; connected: boolean } {
   return {
-    network: 'jeju-kms',
-    connected: true,
-    fallbackMode: false,
+    provider: 'jeju-kms',
+    connected: initialized,
   };
 }
 
 /**
- * Disconnect (no-op for in-house KMS)
+ * Disconnect encryption (reset state)
  */
-export async function disconnectLit(): Promise<void> {
+export async function disconnect(): Promise<void> {
   initialized = false;
 }
+
+// Legacy aliases for backwards compatibility during migration
+export type LitEncryptedData = EncryptedData;
+export type LitDecryptionResult = DecryptionResult;
+export const getLitStatus = getEncryptionStatus;
+export const disconnectLit = disconnect;

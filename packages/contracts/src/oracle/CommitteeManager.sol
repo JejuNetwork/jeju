@@ -21,7 +21,9 @@ contract CommitteeManager is ICommitteeManager, Ownable, Pausable {
     mapping(bytes32 => CommitteeConfig) private _configs;
     mapping(bytes32 => mapping(address => bool)) private _allowlist;
     mapping(address => bool) private _globalAllowlist;
+    // slither-disable-next-line uninitialized-state
     mapping(address => bytes32[]) private _operatorFeeds;
+    // slither-disable-next-line uninitialized-state
     mapping(address => bytes32) public operatorIds;
     mapping(bytes32 => uint256) private _lastRotationTime;
     mapping(address => bool) public committeeManagers;

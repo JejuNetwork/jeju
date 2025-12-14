@@ -177,30 +177,49 @@ contract GovernanceTimelock is Ownable, ReentrancyGuard, Pausable {
         return block.timestamp >= proposal.executeAfter ? 0 : proposal.executeAfter - block.timestamp;
     }
 
-    function setGovernance(address _governance) external onlyOwner {
+    /// @notice Set governance address - can only be called via executed proposal
+    /// @dev SECURITY: Owner cannot directly change governance
+    function setGovernance(address _governance) external {
+        // Only allow this contract to call itself (via executed proposal)
+        if (msg.sender != address(this)) revert NotGovernance();
+        if (_governance == address(0)) revert InvalidTarget();
         address oldGovernance = governance;
         governance = _governance;
         emit GovernanceUpdated(oldGovernance, _governance);
     }
 
-    function setSecurityCouncil(address _securityCouncil) external onlyOwner {
+    /// @notice Set security council - can only be called via executed proposal
+    /// @dev SECURITY: Owner cannot directly change security council
+    function setSecurityCouncil(address _securityCouncil) external {
+        // Only allow this contract to call itself (via executed proposal)
+        if (msg.sender != address(this)) revert NotGovernance();
+        if (_securityCouncil == address(0)) revert InvalidTarget();
         address oldCouncil = securityCouncil;
         securityCouncil = _securityCouncil;
         emit SecurityCouncilUpdated(oldCouncil, _securityCouncil);
     }
 
-    function setTimelockDelay(uint256 _newDelay) external onlyOwner {
+    /// @notice Set timelock delay - can only be called via executed proposal
+    /// @dev SECURITY: Owner cannot directly reduce timelock
+    function setTimelockDelay(uint256 _newDelay) external {
+        // Only allow this contract to call itself (via executed proposal)
+        if (msg.sender != address(this)) revert NotGovernance();
         if (_newDelay < EMERGENCY_MIN_DELAY) revert InvalidDelay();
         uint256 oldDelay = timelockDelay;
         timelockDelay = _newDelay;
         emit TimelockDelayUpdated(oldDelay, _newDelay);
     }
 
-    function pause() external onlyOwner {
+    /// @notice Pause contract - only security council can pause
+    /// @dev Pause is immediate for emergency response
+    function pause() external onlySecurityCouncil {
         _pause();
     }
 
-    function unpause() external onlyOwner {
+    /// @notice Unpause contract - requires governance via timelock
+    /// @dev SECURITY: Unpause requires full timelock to prevent bypassing governance
+    function unpause() external {
+        if (msg.sender != address(this)) revert NotGovernance();
         _unpause();
     }
 }

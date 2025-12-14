@@ -11,7 +11,7 @@ const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
 
 test.describe('RPC Setup Tab', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ _page }) => {
     await page.goto('/');
   });
 
@@ -115,7 +115,7 @@ test.describe('RPC Setup Tab', () => {
     await expect(page.locator('text=Ethereum')).toBeVisible();
   });
 
-  test('should require wallet connection', async ({ page }) => {
+  test('should require wallet connection', async ({ _page }) => {
     // Navigate to RPC tab without connecting
     const rpcTab = page.locator('text=RPC Access').or(page.locator('[data-testid="rpc-tab"]'));
     if (await rpcTab.isVisible()) {

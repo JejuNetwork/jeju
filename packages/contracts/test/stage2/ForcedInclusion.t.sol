@@ -24,10 +24,14 @@ contract ForcedInclusionTest is Test {
     address public user = address(0x1);
     address public sequencer = address(0x2);
     address public forcer = address(0x3);
+    
+    // Constants mirroring the contract
+    uint256 constant INCLUSION_WINDOW_BLOCKS = 50;
+    uint256 constant EXPIRY_WINDOW = 1 days;
 
     function setUp() public {
         batchInbox = new MockBatchInbox();
-        forceInc = new ForcedInclusion(address(batchInbox), address(0));
+        forceInc = new ForcedInclusion(address(batchInbox), address(0), address(this));
         
         vm.deal(user, 10 ether);
         vm.deal(sequencer, 10 ether);
@@ -73,8 +77,22 @@ contract ForcedInclusionTest is Test {
         
         uint256 balBefore = sequencer.balance;
         
+        // Create valid merkle proof
+        // txHash = keccak256(abi.encodePacked(sender, data, gasLimit))
+        bytes32 txHash = keccak256(abi.encodePacked(user, data, gasLimit));
+        // For a single-element tree, the proof is a sibling node
+        bytes32[] memory proof = new bytes32[](1);
+        proof[0] = bytes32(uint256(0x1234)); // sibling leaf
+        // Compute the root: min(txHash, proof[0]) || max(txHash, proof[0])
+        bytes32 batchRoot;
+        if (txHash <= proof[0]) {
+            batchRoot = keccak256(abi.encodePacked(txHash, proof[0]));
+        } else {
+            batchRoot = keccak256(abi.encodePacked(proof[0], txHash));
+        }
+        
         vm.prank(sequencer);
-        forceInc.markIncluded(txId);
+        forceInc.markIncluded(txId, batchRoot, proof);
         
         // Sequencer receives fee
         assertEq(sequencer.balance, balBefore + 0.01 ether);
@@ -82,9 +100,12 @@ contract ForcedInclusionTest is Test {
     }
 
     function testMarkIncludedNotFound() public {
+        bytes32[] memory proof = new bytes32[](1);
+        proof[0] = bytes32(uint256(1));
+        
         vm.prank(sequencer);
         vm.expectRevert(ForcedInclusion.TxNotFound.selector);
-        forceInc.markIncluded(bytes32(0));
+        forceInc.markIncluded(bytes32(0), bytes32(0), proof);
     }
 
     function testMarkIncludedAfterWindow() public {
@@ -97,11 +118,14 @@ contract ForcedInclusionTest is Test {
         bytes32 txId = keccak256(abi.encodePacked(user, data, gasLimit, block.number, block.timestamp));
         
         // Move past inclusion window
-        vm.roll(block.number + forceInc.INCLUSION_WINDOW() + 1);
+        vm.roll(block.number + INCLUSION_WINDOW_BLOCKS + 1);
+        
+        bytes32[] memory proof = new bytes32[](1);
+        proof[0] = bytes32(uint256(1));
         
         vm.prank(sequencer);
         vm.expectRevert(ForcedInclusion.WindowExpired.selector);
-        forceInc.markIncluded(txId);
+        forceInc.markIncluded(txId, bytes32(0), proof);
     }
 
     // ============ Force Include Tests ============
@@ -116,7 +140,7 @@ contract ForcedInclusionTest is Test {
         bytes32 txId = keccak256(abi.encodePacked(user, data, gasLimit, block.number, block.timestamp));
         
         // Move past inclusion window
-        vm.roll(block.number + forceInc.INCLUSION_WINDOW() + 1);
+        vm.roll(block.number + INCLUSION_WINDOW_BLOCKS + 1);
         
         uint256 balBefore = forcer.balance;
         
@@ -154,12 +178,22 @@ contract ForcedInclusionTest is Test {
         
         bytes32 txId = keccak256(abi.encodePacked(user, data, gasLimit, block.number, block.timestamp));
         
-        // Sequencer includes it
+        // Sequencer includes it with valid merkle proof
+        bytes32 txHash = keccak256(abi.encodePacked(user, data, gasLimit));
+        bytes32[] memory proof = new bytes32[](1);
+        proof[0] = bytes32(uint256(0x1234)); // sibling leaf
+        bytes32 batchRoot;
+        if (txHash <= proof[0]) {
+            batchRoot = keccak256(abi.encodePacked(txHash, proof[0]));
+        } else {
+            batchRoot = keccak256(abi.encodePacked(proof[0], txHash));
+        }
+        
         vm.prank(sequencer);
-        forceInc.markIncluded(txId);
+        forceInc.markIncluded(txId, batchRoot, proof);
         
         // Move past window
-        vm.roll(block.number + forceInc.INCLUSION_WINDOW() + 1);
+        vm.roll(block.number + INCLUSION_WINDOW_BLOCKS + 1);
         
         // Try to force include
         vm.prank(forcer);
@@ -182,7 +216,7 @@ contract ForcedInclusionTest is Test {
         assertFalse(forceInc.canForceInclude(txId));
         
         // Move past window
-        vm.roll(block.number + forceInc.INCLUSION_WINDOW() + 1);
+        vm.roll(block.number + INCLUSION_WINDOW_BLOCKS + 1);
         
         // Now can force
         assertTrue(forceInc.canForceInclude(txId));
@@ -203,7 +237,7 @@ contract ForcedInclusionTest is Test {
         assertEq(overdue.length, 0);
         
         // Move past window
-        vm.roll(block.number + forceInc.INCLUSION_WINDOW() + 1);
+        vm.roll(block.number + INCLUSION_WINDOW_BLOCKS + 1);
         
         // Now both are overdue
         overdue = forceInc.getOverdueTxs();
@@ -235,8 +269,8 @@ contract ForcedInclusionTest is Test {
         bytes32 txId = keccak256(abi.encodePacked(user, data, gasLimit, block.number, block.timestamp));
         
         // Move past expiry window
-        vm.warp(block.timestamp + forceInc.EXPIRY_WINDOW() + 1);
-        vm.roll(block.number + forceInc.INCLUSION_WINDOW() + 1);
+        vm.warp(block.timestamp + EXPIRY_WINDOW + 1);
+        vm.roll(block.number + INCLUSION_WINDOW_BLOCKS + 1);
         
         uint256 balBefore = user.balance;
         
@@ -246,4 +280,3 @@ contract ForcedInclusionTest is Test {
         assertEq(user.balance, balBefore + fee);
     }
 }
-

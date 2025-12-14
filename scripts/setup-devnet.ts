@@ -216,10 +216,6 @@ SAFE_ADDRESS=${addresses.safe}
 OLLAMA_URL=http://localhost:11434
 OLLAMA_MODEL=llama3.2:3b
 
-# Lit Protocol (disabled for devnet)
-LIT_NETWORK=cayenne
-LIT_FALLBACK_KEY=devnet-fallback-key
-
 # DA Layer
 DA_URL=http://localhost:3001
 `;

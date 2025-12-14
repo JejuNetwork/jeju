@@ -10,7 +10,7 @@ const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
 
 test.describe('Gateway Smoke Tests', () => {
-  test('should connect to Gateway and verify all features', async ({ page, metamask }) => {
+  test('should connect to Gateway and verify all features', async ({ _page, _metamask }) => {
     // Navigate to Gateway
     await page.goto('http://localhost:4001');
     await page.waitForLoadState('networkidle');
@@ -69,7 +69,7 @@ test.describe('Gateway Smoke Tests', () => {
     console.log('🎉 SMOKE TEST PASSED');
   });
 
-  test('should verify RPC connectivity', async ({ page }) => {
+  test('should verify RPC connectivity', async ({ _page }) => {
     const response = await page.request.post('http://127.0.0.1:9545', {
       data: {
         jsonrpc: '2.0',
@@ -86,7 +86,7 @@ test.describe('Gateway Smoke Tests', () => {
     console.log('✅ RPC accessible at port 9545');
   });
 
-  test('should verify A2A server', async ({ page }) => {
+  test('should verify A2A server', async ({ _page }) => {
     const response = await page.request.get('http://localhost:4003/.well-known/agent-card.json');
     expect(response.status()).toBe(200);
     

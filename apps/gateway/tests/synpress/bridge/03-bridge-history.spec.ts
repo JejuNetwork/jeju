@@ -13,14 +13,14 @@ const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
 
 test.describe('Bridge History Component', () => {
-  test.beforeEach(async ({ page, metamask }) => {
+  test.beforeEach(async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
   });
 
-  test('should display bridge history section', async ({ page }) => {
+  test('should display bridge history section', async ({ _page }) => {
     // Scroll to find history (might be below fold)
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await page.waitForTimeout(500);
@@ -37,7 +37,7 @@ test.describe('Bridge History Component', () => {
     }
   });
 
-  test('should show empty state when no transfers', async ({ page }) => {
+  test('should show empty state when no transfers', async ({ _page }) => {
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await page.waitForTimeout(500);
 
@@ -58,7 +58,7 @@ test.describe('Bridge History Component', () => {
     }
   });
 
-  test.skip('should display completed bridge transfers in history', async ({ page }) => {
+  test.skip('should display completed bridge transfers in history', async ({ _page }) => {
     // TODO: After successful bridge, verify transfer appears
     // Would show:
     // - Token symbol and amount
@@ -73,7 +73,7 @@ test.describe('Bridge History Component', () => {
     console.log('   To implement: Query Subsquid indexer or track events locally');
   });
 
-  test.skip('should show status indicators for transfers', async ({ page }) => {
+  test.skip('should show status indicators for transfers', async ({ _page }) => {
     // TODO: Test status icons
     // - Pending: Loading spinner
     // - Confirmed: Green checkmark
@@ -82,13 +82,13 @@ test.describe('Bridge History Component', () => {
     console.log('⚠️  Status indicators - requires transfer history');
   });
 
-  test.skip('should link to block explorer for transactions', async ({ page }) => {
+  test.skip('should link to block explorer for transactions', async ({ _page }) => {
     // TODO: Test transaction hash links open block explorer
 
     console.log('⚠️  Block explorer links - requires transfer history');
   });
 
-  test.skip('should show timestamp for each transfer', async ({ page }) => {
+  test.skip('should show timestamp for each transfer', async ({ _page }) => {
     // TODO: Test relative time display (e.g., "2 minutes ago")
 
     console.log('⚠️  Timestamp display - requires transfer history');
@@ -96,7 +96,7 @@ test.describe('Bridge History Component', () => {
 });
 
 test.describe('Bridge History - Filtering and Sorting', () => {
-  test.skip('should filter history by token', async ({ page }) => {
+  test.skip('should filter history by token', async ({ _page }) => {
     // TODO: If filtering UI exists, test it
     // - Show only CLANKER transfers
     // - Show only VIRTUAL transfers
@@ -105,13 +105,13 @@ test.describe('Bridge History - Filtering and Sorting', () => {
     console.log('⚠️  History filtering - check if implemented');
   });
 
-  test.skip('should sort history by date', async ({ page }) => {
+  test.skip('should sort history by date', async ({ _page }) => {
     // TODO: If sorting exists, test newest/oldest first
 
     console.log('⚠️  History sorting - check if implemented');
   });
 
-  test.skip('should paginate long history', async ({ page }) => {
+  test.skip('should paginate long history', async ({ _page }) => {
     // TODO: If pagination exists, test it
 
     console.log('⚠️  History pagination - check if implemented');
@@ -119,19 +119,19 @@ test.describe('Bridge History - Filtering and Sorting', () => {
 });
 
 test.describe('Bridge History - Real-Time Updates', () => {
-  test.skip('should add new transfer to history after bridge completes', async ({ page, metamask }) => {
+  test.skip('should add new transfer to history after bridge completes', async ({ _page, _metamask }) => {
     // TODO: Execute bridge, wait for confirmation, verify appears in history
 
     console.log('⚠️  Real-time history update - requires bridge completion');
   });
 
-  test.skip('should update transfer status from pending to confirmed', async ({ page }) => {
+  test.skip('should update transfer status from pending to confirmed', async ({ _page }) => {
     // TODO: Watch transfer status change in real-time
 
     console.log('⚠️  Status updates - requires bridge in progress');
   });
 
-  test.skip('should show failed transfers in history', async ({ page }) => {
+  test.skip('should show failed transfers in history', async ({ _page }) => {
     // TODO: Simulate failed bridge and verify it shows in history
 
     console.log('⚠️  Failed transfer display - requires failed bridge');

@@ -5,7 +5,7 @@
  * - DelegationRegistry
  * - CircuitBreaker
  * - CouncilSafeModule
- * - Lit Protocol encryption
+ * - Jeju KMS encryption
  */
 
 import { testWithSynpress } from '@synthetixio/synpress';
@@ -234,14 +234,12 @@ test.describe('Governance Infrastructure', () => {
     });
   });
 
-  test.describe('Lit Protocol Status', () => {
-    test('should have lit encryption module loaded', async ({ page }) => {
-      // Test that the server started with Lit module
+  test.describe('Encryption Status', () => {
+    test('should have encryption module loaded', async ({ page }) => {
       const response = await page.request.get(`${BASE_URL}/health`);
       expect(response.ok()).toBeTruthy();
 
-      // The lit-encryption module is loaded at startup
-      // If there were errors, the server wouldn't start
+      // The encryption module is loaded at startup
       const data = await response.json();
       expect(data.status).toBe('healthy');
     });

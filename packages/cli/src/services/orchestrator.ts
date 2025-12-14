@@ -965,6 +965,7 @@ class ServicesOrchestrator {
     };
   }
 
+  // @ts-expect-error Reserved for future use
   private async startComputeBridge(): Promise<void> {
     const port = DEFAULT_PORTS.computeBridge;
     

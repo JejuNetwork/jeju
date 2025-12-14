@@ -19,7 +19,7 @@ const BRIDGEABLE_TOKENS = Object.values(PROTOCOL_TOKENS)
   .map((t) => t.symbol);
 
 test.describe('Token Balance Display Equality', () => {
-  test('should display ALL 4 tokens in balance view with equal treatment', async ({ page, metamask }) => {
+  test('should display ALL 4 tokens in balance view with equal treatment', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.waitForTimeout(3000);
@@ -51,7 +51,7 @@ test.describe('Token Balance Display Equality', () => {
     });
   });
 
-  test('should show token logos for all tokens', async ({ page, metamask }) => {
+  test('should show token logos for all tokens', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.waitForTimeout(3000);
@@ -64,7 +64,7 @@ test.describe('Token Balance Display Equality', () => {
     console.log(`✅ ${imageCount} token logos displayed`);
   });
 
-  test('should calculate total portfolio value including all tokens', async ({ page, metamask }) => {
+  test('should calculate total portfolio value including all tokens', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.waitForTimeout(3000);
@@ -78,12 +78,12 @@ test.describe('Token Balance Display Equality', () => {
 });
 
 test.describe('Token Selector Equality', () => {
-  test.beforeEach(async ({ page, metamask }) => {
+  test.beforeEach(async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
   });
 
-  test('ALL tokens should appear in paymaster deployment selector', async ({ page }) => {
+  test('ALL tokens should appear in paymaster deployment selector', async ({ _page }) => {
     await page.getByRole('button', { name: /Deploy Paymaster/i }).click();
     await page.waitForTimeout(1000);
 
@@ -96,7 +96,7 @@ test.describe('Token Selector Equality', () => {
     }
   });
 
-  test('ALL tokens should appear in liquidity provision selector', async ({ page }) => {
+  test('ALL tokens should appear in liquidity provision selector', async ({ _page }) => {
     await page.getByRole('button', { name: /Add Liquidity/i }).click();
     await page.waitForTimeout(1000);
 
@@ -109,7 +109,7 @@ test.describe('Token Selector Equality', () => {
     }
   });
 
-  test('ALL tokens should appear in node staking selector', async ({ page }) => {
+  test('ALL tokens should appear in node staking selector', async ({ _page }) => {
     await page.getByRole('button', { name: /Node Operators/i }).click();
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: /Register New Node/i }).click();
@@ -126,7 +126,7 @@ test.describe('Token Selector Equality', () => {
     }
   });
 
-  test('ALL tokens should appear in node reward selector', async ({ page }) => {
+  test('ALL tokens should appear in node reward selector', async ({ _page }) => {
     await page.getByRole('button', { name: /Node Operators/i }).click();
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: /Register New Node/i }).click();
@@ -143,7 +143,7 @@ test.describe('Token Selector Equality', () => {
     }
   });
 
-  test('ALL tokens should appear in app registry stake selector', async ({ page }) => {
+  test('ALL tokens should appear in app registry stake selector', async ({ _page }) => {
     await page.getByRole('button', { name: /App Registry/i }).click();
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: /Register App/i }).click();
@@ -163,7 +163,7 @@ test.describe('Token Selector Equality', () => {
     }
   });
 
-  test('ONLY bridgeable tokens should appear in bridge selector', async ({ page }) => {
+  test('ONLY bridgeable tokens should appear in bridge selector', async ({ _page }) => {
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
@@ -191,12 +191,12 @@ test.describe('Token Selector Equality', () => {
 });
 
 test.describe('Price Display Consistency', () => {
-  test.beforeEach(async ({ page, metamask }) => {
+  test.beforeEach(async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
   });
 
-  test('should display correct price for each token in balance view', async ({ page }) => {
+  test('should display correct price for each token in balance view', async ({ _page }) => {
     await page.waitForTimeout(3000);
 
     const priceChecks = [
@@ -217,7 +217,7 @@ test.describe('Price Display Consistency', () => {
     }
   });
 
-  test('should show prices in all dropdowns consistently', async ({ page }) => {
+  test('should show prices in all dropdowns consistently', async ({ _page }) => {
     await page.getByRole('button', { name: /Add Liquidity/i }).click();
     await page.waitForTimeout(1000);
 
@@ -235,12 +235,12 @@ test.describe('Price Display Consistency', () => {
 });
 
 test.describe('Feature Availability Equality', () => {
-  test.beforeEach(async ({ page, metamask }) => {
+  test.beforeEach(async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
   });
 
-  test('should allow paymaster deployment for ALL tokens', async ({ page }) => {
+  test('should allow paymaster deployment for ALL tokens', async ({ _page }) => {
     await page.getByRole('button', { name: /Deploy Paymaster/i }).click();
     await page.waitForTimeout(1000);
 
@@ -260,7 +260,7 @@ test.describe('Feature Availability Equality', () => {
     }
   });
 
-  test('should allow liquidity provision for ALL tokens', async ({ page }) => {
+  test('should allow liquidity provision for ALL tokens', async ({ _page }) => {
     await page.getByRole('button', { name: /Add Liquidity/i }).click();
     await page.waitForTimeout(1000);
 
@@ -284,7 +284,7 @@ test.describe('Feature Availability Equality', () => {
     }
   });
 
-  test('should allow ALL tokens as node staking tokens', async ({ page }) => {
+  test('should allow ALL tokens as node staking tokens', async ({ _page }) => {
     await page.getByRole('button', { name: /Node Operators/i }).click();
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: /Register New Node/i }).click();
@@ -307,7 +307,7 @@ test.describe('Feature Availability Equality', () => {
     }
   });
 
-  test('should allow ALL tokens as node reward tokens', async ({ page }) => {
+  test('should allow ALL tokens as node reward tokens', async ({ _page }) => {
     await page.getByRole('button', { name: /Node Operators/i }).click();
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: /Register New Node/i }).click();
@@ -324,14 +324,14 @@ test.describe('Feature Availability Equality', () => {
 
       // Reward estimate should appear
       const estimate = page.getByText(/Estimated:/i);
-      const hasEstimate = await estimate.isVisible();
+      const _hasEstimate = await estimate.isVisible();
       
       // Estimate may not show without staking token selected
       console.log(`✅ ${token} available as reward token`);
     }
   });
 
-  test('should allow ALL tokens as app registry stake', async ({ page }) => {
+  test('should allow ALL tokens as app registry stake', async ({ _page }) => {
     await page.getByRole('button', { name: /App Registry/i }).click();
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: /Register App/i }).click();
@@ -360,7 +360,7 @@ test.describe('Feature Availability Equality', () => {
 });
 
 test.describe('Bridge Token Filtering', () => {
-  test('should EXCLUDE elizaOS from bridge (native token)', async ({ page, metamask }) => {
+  test('should EXCLUDE elizaOS from bridge (native token)', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 
@@ -394,7 +394,7 @@ test.describe('Bridge Token Filtering', () => {
     });
   });
 
-  test('should allow custom ANY Base ERC20 token', async ({ page, metamask }) => {
+  test('should allow custom ANY Base ERC20 token', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 
@@ -416,7 +416,7 @@ test.describe('Bridge Token Filtering', () => {
 });
 
 test.describe('Cross-Token Operations', () => {
-  test('should allow staking one token and earning rewards in different token', async ({ page, metamask }) => {
+  test('should allow staking one token and earning rewards in different token', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 
@@ -455,7 +455,7 @@ test.describe('Cross-Token Operations', () => {
 });
 
 test.describe('Token Information Display', () => {
-  test('should show complete token info in dropdown', async ({ page, metamask }) => {
+  test('should show complete token info in dropdown', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 

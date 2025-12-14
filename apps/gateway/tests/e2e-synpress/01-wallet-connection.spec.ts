@@ -14,7 +14,7 @@ const { expect } = test;
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4001';
 
 test.describe('Gateway Wallet Connection', () => {
-  test('should display homepage and connect wallet', async ({ page, metamask }) => {
+  test('should display homepage and connect wallet', async ({ _page, _metamask }) => {
     // Navigate to homepage
     await page.goto(GATEWAY_URL);
     await page.waitForLoadState('networkidle');
@@ -37,7 +37,7 @@ test.describe('Gateway Wallet Connection', () => {
     await page.screenshot({ path: 'test-results/screenshots/synpress-02-wallet-connected.png', fullPage: true });
   });
 
-  test('should display all protocol token balances', async ({ page, metamask }) => {
+  test('should display all protocol token balances', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     
@@ -56,7 +56,7 @@ test.describe('Gateway Wallet Connection', () => {
     await page.screenshot({ path: 'test-results/screenshots/synpress-03-token-balances.png', fullPage: true });
   });
 
-  test('should navigate through all tabs', async ({ page, metamask }) => {
+  test('should navigate through all tabs', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     
@@ -84,7 +84,7 @@ test.describe('Gateway Wallet Connection', () => {
     }
   });
 
-  test('should maintain wallet connection across tabs', async ({ page, metamask }) => {
+  test('should maintain wallet connection across tabs', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     
@@ -118,7 +118,7 @@ test.describe('Gateway Wallet Connection', () => {
 });
 
 test.describe('Gateway Multi-Token Balance Display', () => {
-  test('should show USD values for all tokens', async ({ page, metamask }) => {
+  test('should show USD values for all tokens', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     
@@ -133,7 +133,7 @@ test.describe('Gateway Multi-Token Balance Display', () => {
     console.log(`✅ Found ${count} USD value displays`);
   });
 
-  test('should show token logos', async ({ page, metamask }) => {
+  test('should show token logos', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     
@@ -147,7 +147,7 @@ test.describe('Gateway Multi-Token Balance Display', () => {
     console.log(`✅ Found ${imageCount} token logos`);
   });
 
-  test('should calculate total portfolio value', async ({ page, metamask }) => {
+  test('should calculate total portfolio value', async ({ _page, _metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     

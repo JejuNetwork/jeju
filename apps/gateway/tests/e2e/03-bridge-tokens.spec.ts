@@ -8,7 +8,7 @@ import { testWithWallet as test, expect } from '../fixtures/wallet';
 import { connectWallet } from '@jejunetwork/tests/helpers/contracts';
 
 test.describe('Bridge from Ethereum Flow', () => {
-  test.beforeEach(async ({ page, wallet }) => {
+  test.beforeEach(async ({ _page, wallet }) => {
     await page.goto('http://localhost:4001');
     await connectWallet(page, wallet);
     
@@ -20,13 +20,13 @@ test.describe('Bridge from Ethereum Flow', () => {
     await expect(page.getByText('Bridge from Ethereum to the network')).toBeVisible();
   });
 
-  test('should show elizaOS warning message', async ({ page }) => {
+  test('should show elizaOS warning message', async ({ _page }) => {
     // elizaOS is native and should not be bridgeable
     await expect(page.getByText(/elizaOS is a native network token/i)).toBeVisible();
     await expect(page.getByText(/cannot be bridged from Ethereum/i)).toBeVisible();
   });
 
-  test('should only show bridgeable tokens in selector', async ({ page }) => {
+  test('should only show bridgeable tokens in selector', async ({ _page }) => {
     // Click token selector
     await page.locator('.input').first().click();
     
@@ -40,7 +40,7 @@ test.describe('Bridge from Ethereum Flow', () => {
     await expect(dropdown.getByText('elizaOS')).not.toBeVisible();
   });
 
-  test('should allow custom token address input', async ({ page }) => {
+  test('should allow custom token address input', async ({ _page }) => {
     // Switch to custom token mode
     await page.getByRole('button', { name: /Custom Address/i }).click();
     
@@ -49,7 +49,7 @@ test.describe('Bridge from Ethereum Flow', () => {
     await expect(page.getByText(/Enter any ERC20 token address/i)).toBeVisible();
   });
 
-  test('should validate amount input', async ({ page }) => {
+  test('should validate amount input', async ({ _page }) => {
     // Select a token
     await page.locator('.input').first().click();
     await page.getByText('CLANKER').click();
@@ -65,7 +65,7 @@ test.describe('Bridge from Ethereum Flow', () => {
     await expect(page.getByText(/≈ \$/)).toBeVisible();
   });
 
-  test('should allow optional recipient address', async ({ page }) => {
+  test('should allow optional recipient address', async ({ _page }) => {
     // Select token and amount
     await page.locator('.input').first().click();
     await page.getByText('VIRTUAL').click();
@@ -80,13 +80,13 @@ test.describe('Bridge from Ethereum Flow', () => {
     await expect(bridgeButton).toBeEnabled();
   });
 
-  test('should display bridge information', async ({ page }) => {
+  test('should display bridge information', async ({ _page }) => {
     await expect(page.getByText(/Estimated Time/i)).toBeVisible();
     await expect(page.getByText(/~2 minutes/i)).toBeVisible();
     await expect(page.getByText(/OP Stack Standard Bridge/i)).toBeVisible();
   });
 
-  test('should disable bridge button without amount', async ({ page }) => {
+  test('should disable bridge button without amount', async ({ _page }) => {
     // Select token but no amount
     await page.locator('.input').first().click();
     await page.getByText('CLANKERMON').click();
@@ -96,7 +96,7 @@ test.describe('Bridge from Ethereum Flow', () => {
     await expect(bridgeButton).toBeDisabled();
   });
 
-  test('should validate custom token address format', async ({ page }) => {
+  test('should validate custom token address format', async ({ _page }) => {
     await page.getByRole('button', { name: /Custom Address/i }).click();
     
     const customInput = page.getByPlaceholder('0x...');
