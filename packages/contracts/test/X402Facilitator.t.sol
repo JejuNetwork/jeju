@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import {Test, console} from "forge-std/Test.sol";
 import {X402Facilitator} from "../src/x402/X402Facilitator.sol";
+import {FeeConfig} from "../src/distributor/FeeConfig.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract MockUSDC is ERC20 {
@@ -250,5 +251,41 @@ contract X402FacilitatorTest is Test {
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(payerKey, digest);
         return abi.encodePacked(r, s, v);
+    }
+
+    // ============ Platform Fee Tests ============
+
+    function test_SetFeeConfig() public {
+        address council = makeAddr("council");
+        address ceo = makeAddr("ceo");
+        FeeConfig feeConfig = new FeeConfig(council, ceo, feeRecipient, owner);
+        
+        vm.prank(owner);
+        facilitator.setFeeConfig(address(feeConfig));
+        assertEq(address(facilitator.feeConfig()), address(feeConfig));
+    }
+
+    function test_settle_collectsProtocolFee() public {
+        // Just verify the basic fee collection works (already tested in test_settle_success)
+        // The FeeConfig integration modifies the fee rate but the core logic is the same
+        uint256 amount = 1_000_000; // 1 USDC
+        string memory resource = "/api/test";
+        string memory nonce = "test-nonce-fee";
+        uint256 timestamp = block.timestamp;
+
+        bytes memory signature = _signPayment(address(usdc), recipient, amount, resource, nonce, timestamp);
+
+        uint256 feeRecipientBalanceBefore = usdc.balanceOf(feeRecipient);
+
+        facilitator.settle(payer, recipient, address(usdc), amount, resource, nonce, timestamp, signature);
+
+        // Default fee is 0.5% = 50 bps
+        uint256 protocolFee = (amount * 50) / 10000;
+
+        // Verify fee recipient received protocol fee
+        assertEq(usdc.balanceOf(feeRecipient) - feeRecipientBalanceBefore, protocolFee, "Fee recipient should receive protocol fee");
+
+        // Verify tracking
+        assertGt(facilitator.totalProtocolFees(), 0, "Protocol fees should be tracked");
     }
 }

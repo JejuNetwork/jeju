@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import "../src/marketplace/Bazaar.sol";
 import "../src/games/Items.sol";
 import "../src/games/Gold.sol";
+import "../src/distributor/FeeConfig.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
@@ -544,5 +545,56 @@ contract BazaarTest is Test {
     function test_Version() public view {
         string memory ver = bazaar.version();
         assertEq(ver, "1.0.0");
+    }
+
+    // ============ Platform Fee Tests ============
+
+    function test_BuyListingWithFeeConfig() public {
+        // Deploy FeeConfig and set it
+        address council = makeAddr("council");
+        address ceo = makeAddr("ceo");
+        FeeConfig feeConfig = new FeeConfig(council, ceo, feeRecipient, owner);
+        bazaar.setFeeConfig(address(feeConfig));
+
+        // Mint NFT to seller
+        uint256 tokenId = nft.mint(seller);
+
+        // Approve and list
+        vm.startPrank(seller);
+        nft.approve(address(bazaar), tokenId);
+        uint256 listingId = bazaar.createListing(
+            Bazaar.AssetType.ERC721, address(nft), tokenId, 1, Bazaar.Currency.ETH, address(0), 1 ether, 0
+        );
+        vm.stopPrank();
+
+        // Record balances
+        uint256 sellerBalanceBefore = seller.balance;
+        uint256 feeRecipientBalanceBefore = feeRecipient.balance;
+
+        // Buy
+        vm.prank(buyer);
+        bazaar.buyListing{value: 1 ether}(listingId);
+
+        // Get fee from FeeConfig (2.5% = 250 bps)
+        uint256 feeBps = feeConfig.getBazaarFee();
+        uint256 platformFee = (1 ether * feeBps) / 10000;
+        uint256 sellerPayment = 1 ether - platformFee;
+
+        // Verify seller received payment minus fee
+        assertEq(seller.balance - sellerBalanceBefore, sellerPayment, "Seller should receive payment minus fee");
+
+        // Verify fee recipient received platform fee
+        assertEq(feeRecipient.balance - feeRecipientBalanceBefore, platformFee, "Fee recipient should receive platform fee");
+
+        // Verify tracking
+        assertEq(bazaar.totalPlatformFeesCollected(), platformFee, "Platform fees should be tracked");
+    }
+
+    function test_SetFeeConfig() public {
+        address council = makeAddr("council");
+        address ceo = makeAddr("ceo");
+        FeeConfig feeConfig = new FeeConfig(council, ceo, feeRecipient, owner);
+        bazaar.setFeeConfig(address(feeConfig));
+        assertEq(address(bazaar.feeConfig()), address(feeConfig));
     }
 }

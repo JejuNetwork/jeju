@@ -499,15 +499,15 @@ contract ComputeRentalTest is Test {
     // ============ Platform Fee Tests ============
 
     function test_completeRentalWithPlatformFee() public {
-        // Register provider
-        _registerProvider();
+        // Setup provider
+        _setupProvider();
 
         // Create rental
-        bytes32 rentalId = _createRental();
+        bytes32 rentalId = _createTestRental();
 
         // Start rental
         vm.prank(provider);
-        rental.startRental(rentalId, "ssh://192.168.1.1:22", "https://192.168.1.1:8443");
+        rental.startRental(rentalId, "192.168.1.1", 22, "container123");
 
         // Fast forward to end of rental
         vm.warp(block.timestamp + 2 hours);
@@ -516,17 +516,17 @@ contract ComputeRentalTest is Test {
         uint256 providerBalanceBefore = provider.balance;
         uint256 treasuryBalanceBefore = treasury.balance;
 
+        // Get rental cost before completing
+        ComputeRental.Rental memory rentalData = rental.getRental(rentalId);
+        uint256 totalCost = rentalData.totalCost;
+
         // Complete rental
         vm.prank(provider);
         rental.completeRental(rentalId);
 
-        // Get rental cost
-        (, , , , , , , uint256 totalCost, , , , ) = rental.getRental(rentalId);
-
         // Get fee rate from FeeConfig (3% rental fee by default)
         uint16 feeBps = feeConfig.getRentalFee();
         uint256 platformFee = (totalCost * feeBps) / 10000;
-        uint256 providerPayment = totalCost - platformFee;
 
         // Verify provider received payment minus platform fee
         assertGt(provider.balance - providerBalanceBefore, 0, "Provider should receive payment");
