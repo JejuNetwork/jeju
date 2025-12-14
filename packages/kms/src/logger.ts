@@ -60,7 +60,7 @@ export function createLogger(service: string) {
 }
 
 export const kmsLogger = createLogger('kms');
-export const litLogger = createLogger('kms.lit');
+export const encLogger = createLogger('kms.enc');
 export const teeLogger = createLogger('kms.tee');
 export const mpcLogger = createLogger('kms.mpc');
 
