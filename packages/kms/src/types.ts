@@ -5,7 +5,7 @@
 import type { Address, Hex } from 'viem';
 
 export enum KMSProviderType {
-  LIT = 'lit',
+  ENCRYPTION = 'encryption',
   TEE = 'tee',
   MPC = 'mpc',
 }
@@ -201,16 +201,12 @@ export interface TEEKeyInfo {
   enclaveId: string;
 }
 
-export interface LitConfig {
-  network: 'cayenne' | 'manzano' | 'habanero' | 'datil-dev' | 'datil-test';
+export interface EncryptionConfig {
   debug?: boolean;
 }
 
 export interface TEEConfig {
-  provider: 'phala' | 'marlin' | 'oasis';
   endpoint?: string;
-  apiKey?: string;
-  clusterId?: string;
 }
 
 export interface MPCConfig {
@@ -220,7 +216,7 @@ export interface MPCConfig {
 }
 
 export interface KMSConfig {
-  providers: { lit?: LitConfig; tee?: TEEConfig; mpc?: MPCConfig };
+  providers: { encryption?: EncryptionConfig; tee?: TEEConfig; mpc?: MPCConfig };
   defaultProvider: KMSProviderType;
   defaultChain: string;
   registryAddress?: Address;

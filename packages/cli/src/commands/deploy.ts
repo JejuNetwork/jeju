@@ -429,6 +429,127 @@ async function runDeployApps(rootDir: string, network: NetworkType, dryRun: bool
   }
 }
 
+// Preflight subcommand - check everything before deploying
+deployCommand
+  .command('preflight')
+  .description('Pre-deployment checklist (keys, balance, dependencies)')
+  .argument('[network]', 'Network: testnet | mainnet', 'testnet')
+  .action(async (networkArg) => {
+    const network = networkArg as NetworkType;
+    
+    if (network === 'localnet') {
+      logger.info('For localnet, use: jeju dev');
+      return;
+    }
+
+    logger.header(`PREFLIGHT CHECK: ${network.toUpperCase()}`);
+    logger.newline();
+
+    let allOk = true;
+
+    // 1. Check keys
+    logger.subheader('1. Keys');
+    if (hasKeys(network)) {
+      const privateKey = resolvePrivateKey(network);
+      const wallet = new Wallet(privateKey);
+      logger.table([{
+        label: 'Deployer Key',
+        value: wallet.address.slice(0, 20) + '...',
+        status: 'ok',
+      }]);
+    } else {
+      logger.table([{
+        label: 'Deployer Key',
+        value: 'Not configured',
+        status: 'error',
+      }]);
+      logger.info('  Fix: jeju keys genesis -n ' + network);
+      allOk = false;
+    }
+
+    // 2. Check balance
+    logger.newline();
+    logger.subheader('2. Balance');
+    if (hasKeys(network)) {
+      const privateKey = resolvePrivateKey(network);
+      const wallet = new Wallet(privateKey);
+      const config = CHAIN_CONFIG[network];
+      
+      try {
+        const balance = await getAccountBalance(config.rpcUrl, wallet.address as `0x${string}`);
+        const balanceNum = parseFloat(balance);
+        const minBalance = 0.1;
+        
+        logger.table([{
+          label: 'ETH Balance',
+          value: `${balanceNum.toFixed(4)} ETH`,
+          status: balanceNum >= minBalance ? 'ok' : 'error',
+        }]);
+        
+        if (balanceNum < minBalance) {
+          logger.info(`  Required: ${minBalance} ETH minimum`);
+          logger.info('  Fix: Get testnet ETH from faucet:');
+          logger.info('       jeju faucet --chain base');
+          logger.info('       Or: https://www.alchemy.com/faucets/base-sepolia');
+          allOk = false;
+        }
+      } catch {
+        logger.table([{
+          label: 'ETH Balance',
+          value: 'Cannot connect to RPC',
+          status: 'error',
+        }]);
+        allOk = false;
+      }
+    } else {
+      logger.table([{
+        label: 'ETH Balance',
+        value: 'Skipped (no keys)',
+        status: 'warn',
+      }]);
+    }
+
+    // 3. Check Foundry
+    logger.newline();
+    logger.subheader('3. Dependencies');
+    const foundryResult = await checkFoundry();
+    logger.table([{
+      label: 'Foundry',
+      value: foundryResult.status === 'ok' ? 'Installed' : 'Not found',
+      status: foundryResult.status === 'ok' ? 'ok' : 'error',
+    }]);
+    
+    if (foundryResult.status !== 'ok') {
+      logger.info('  Fix: curl -L https://foundry.paradigm.xyz | bash && foundryup');
+      allOk = false;
+    }
+
+    // 4. Check contracts build
+    const rootDir = findMonorepoRoot();
+    const contractsDir = join(rootDir, 'packages/contracts');
+    const outDir = join(contractsDir, 'out');
+    
+    logger.table([{
+      label: 'Contracts',
+      value: existsSync(outDir) ? 'Built' : 'Not built',
+      status: existsSync(outDir) ? 'ok' : 'warn',
+    }]);
+    
+    if (!existsSync(outDir)) {
+      logger.info('  Fix: cd packages/contracts && forge build');
+    }
+
+    // Summary
+    logger.newline();
+    if (allOk) {
+      logger.success('All checks passed. Ready to deploy.');
+      logger.newline();
+      logger.info(`Run: jeju deploy ${network} --token`);
+    } else {
+      logger.error('Some checks failed. Fix issues above before deploying.');
+    }
+  });
+
 // Status subcommand
 deployCommand
   .command('status')

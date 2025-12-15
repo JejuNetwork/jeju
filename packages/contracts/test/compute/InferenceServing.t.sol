@@ -32,7 +32,7 @@ contract InferenceServingTest is Test {
         registry = new ComputeRegistry(owner);
         ledger = new LedgerManager(address(registry), owner);
         inference = new InferenceServing(address(registry), address(ledger), owner);
-        
+
         // Deploy FeeConfig with 5% inference fee
         feeConfig = new FeeConfig(address(0), address(0), treasury, owner);
 
@@ -143,7 +143,7 @@ contract InferenceServingTest is Test {
         // Configure platform fee collection
         inference.setFeeConfig(address(feeConfig));
         inference.setTreasury(treasury);
-        
+
         // Register service
         vm.prank(provider1);
         inference.registerService("llama-3.1-8b", "https://api.test.com/v1", 1e9, 2e9);
@@ -186,11 +186,13 @@ contract InferenceServingTest is Test {
         uint256 providerFee = totalFee - platformFee;
 
         // Verify provider received their share (minus platform fee)
-        assertEq(provider1.balance - providerBalanceBefore, providerFee, "Provider should receive totalFee - platformFee");
-        
+        assertEq(
+            provider1.balance - providerBalanceBefore, providerFee, "Provider should receive totalFee - platformFee"
+        );
+
         // CRITICAL: Verify treasury received platform fee
         assertEq(treasury.balance - treasuryBalanceBefore, platformFee, "Treasury should receive platform fee");
-        
+
         // Verify tracking
         assertEq(inference.totalPlatformFeesCollected(), platformFee, "Platform fees should be tracked");
     }

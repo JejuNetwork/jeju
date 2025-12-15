@@ -484,7 +484,6 @@ test.describe('Concurrent Validation', () => {
 
     // Test live validation
     const addressInput = page.getByPlaceholder('0x...');
-    const _submitButton = page.getByRole('button', { name: /Register Token/i });
 
     // Type invalid address character by character
     await addressInput.fill('0');

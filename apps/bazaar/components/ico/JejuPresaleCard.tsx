@@ -51,7 +51,7 @@ const PRESALE_ABI = [
 
 const PHASES: PresalePhase[] = ['NOT_STARTED', 'WHITELIST', 'PUBLIC', 'ENDED', 'FAILED', 'DISTRIBUTED']
 
-export function the networkPresaleCard() {
+export function JejuPresaleCard() {
   const { isConnected, chain } = useAccount()
   const [amount, setAmount] = useState('')
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, mins: 0, secs: 0 })
@@ -60,6 +60,7 @@ export function the networkPresaleCard() {
   const presaleAddress = chain?.id === 1337 
     ? JEJU_CONTRACTS.localnet.presale 
     : JEJU_CONTRACTS.testnet.presale
+  const isDeployed = presaleAddress !== '0x0000000000000000000000000000000000000000'
   
   // Read presale stats
   const { data: statsData } = useReadContract({
@@ -85,7 +86,7 @@ export function the networkPresaleCard() {
     tokensSold: 0n,
     softCap: JEJU_TOKENOMICS.presale.softCap,
     hardCap: JEJU_TOKENOMICS.presale.hardCap,
-    phase: 'PUBLIC', // Demo mode
+    phase: 'NOT_STARTED',
   }
   
   // Contribute
@@ -99,17 +100,51 @@ export function the networkPresaleCard() {
     }
   }, [isSuccess])
   
-  // Countdown timer
+  // Read presale config for timeline
+  const { data: configData } = useReadContract({
+    address: presaleAddress as `0x${string}`,
+    abi: [{
+      name: 'config',
+      type: 'function',
+      stateMutability: 'view',
+      inputs: [],
+      outputs: [
+        { name: 'mode', type: 'uint8' },
+        { name: 'totalTokens', type: 'uint256' },
+        { name: 'softCap', type: 'uint256' },
+        { name: 'hardCap', type: 'uint256' },
+        { name: 'minContribution', type: 'uint256' },
+        { name: 'maxContribution', type: 'uint256' },
+        { name: 'tokenPrice', type: 'uint256' },
+        { name: 'startPrice', type: 'uint256' },
+        { name: 'reservePrice', type: 'uint256' },
+        { name: 'priceDecayPerBlock', type: 'uint256' },
+        { name: 'whitelistStart', type: 'uint256' },
+        { name: 'publicStart', type: 'uint256' },
+        { name: 'presaleEnd', type: 'uint256' },
+        { name: 'tgeTimestamp', type: 'uint256' },
+      ],
+    }] as const,
+    functionName: 'config',
+    query: { enabled: isDeployed },
+  })
+  
+  const presaleEnd = configData ? Number(configData[12]) * 1000 : 0
+  const contractTokenPrice = configData ? configData[6] : 0n
+  
+  // Countdown timer - uses contract data
   useEffect(() => {
-    const endDate = new Date()
-    endDate.setDate(endDate.getDate() + 14)
+    if (!presaleEnd) {
+      setCountdown({ days: 0, hours: 0, mins: 0, secs: 0 })
+      return
+    }
     
     const timer = setInterval(() => {
-      const now = new Date().getTime()
-      const distance = endDate.getTime() - now
+      const now = Date.now()
+      const distance = Math.max(0, presaleEnd - now)
       
-      if (distance < 0) {
-        clearInterval(timer)
+      if (distance <= 0) {
+        setCountdown({ days: 0, hours: 0, mins: 0, secs: 0 })
         return
       }
       
@@ -122,9 +157,9 @@ export function the networkPresaleCard() {
     }, 1000)
     
     return () => clearInterval(timer)
-  }, [])
+  }, [presaleEnd])
   
-  const tokenPrice = JEJU_TOKENOMICS.presale.tokenPrice
+  const tokenPrice = contractTokenPrice && contractTokenPrice > 0n ? contractTokenPrice : JEJU_TOKENOMICS.presale.tokenPrice
   const tokensReceived = amount ? (parseEther(amount) * 10n ** 18n) / tokenPrice : 0n
   const bonus = stats.phase === 'WHITELIST' ? 10 : 
     amount && parseFloat(amount) >= 10 ? 5 : 
@@ -217,11 +252,15 @@ export function the networkPresaleCard() {
           <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Participants</div>
         </div>
         <div className="rounded-lg p-3 text-center" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-          <div className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>~$0.009</div>
+          <div className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+            {contractTokenPrice ? `${formatEther(contractTokenPrice)} ETH` : formatEther(JEJU_TOKENOMICS.presale.tokenPrice) + ' ETH'}
+          </div>
           <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Price</div>
         </div>
         <div className="rounded-lg p-3 text-center" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-          <div className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>20%</div>
+          <div className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+            {JEJU_TOKENOMICS.allocation.presale.vesting.tgePercent}%
+          </div>
           <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>TGE Unlock</div>
         </div>
       </div>

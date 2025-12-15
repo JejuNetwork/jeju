@@ -2,23 +2,31 @@
   "name": "@jeju/messaging",
   "version": "0.1.0",
   "description": "Decentralized private messaging protocol for Jeju L2",
+  "license": "MIT",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/sdk/index.js",
+  "types": "dist/sdk/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/sdk/index.d.ts",
+      "import": "./dist/sdk/index.js"
     },
     "./sdk": {
-      "import": "./dist/sdk/index.js",
-      "types": "./dist/sdk/index.d.ts"
+      "types": "./dist/sdk/index.d.ts",
+      "import": "./dist/sdk/index.js"
     },
     "./node": {
-      "import": "./dist/node/index.js",
-      "types": "./dist/node/index.d.ts"
+      "node": {
+        "types": "./dist/node/index.d.ts",
+        "import": "./dist/node/index.js"
+      }
     }
   },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "sideEffects": false,
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
@@ -26,8 +34,21 @@
     "test:e2e": "bun test src/tests/e2e.test.ts",
     "node": "bun run src/node/index.ts",
     "demo": "bun run src/demo/run-demo.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run build"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elizaos/jeju.git",
+    "directory": "packages/messaging"
+  },
+  "keywords": [
+    "jeju",
+    "messaging",
+    "encrypted",
+    "decentralized",
+    "privacy"
+  ],
   "dependencies": {
     "@noble/curves": "^1.8.1",
     "@noble/ciphers": "^1.2.1",
@@ -43,6 +64,9 @@
   },
   "peerDependencies": {
     "viem": "^2.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
 

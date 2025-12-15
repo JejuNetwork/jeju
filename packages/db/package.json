@@ -1,0 +1,65 @@
+{
+  "name": "@jeju/db",
+  "version": "0.1.0",
+  "description": "Database Integration for Jeju Network - Powered by CovenantSQL",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./adapters": {
+      "types": "./dist/adapters/index.d.ts",
+      "import": "./dist/adapters/index.js",
+      "require": "./dist/adapters/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "bun test",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "bun run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elizaos/jeju.git",
+    "directory": "packages/db"
+  },
+  "keywords": [
+    "jeju",
+    "covenantsql",
+    "database",
+    "decentralized",
+    "sql",
+    "db"
+  ],
+  "dependencies": {
+    "viem": "2.41.2"
+  },
+  "devDependencies": {
+    "@types/bun": "1.3.4",
+    "typescript": "5.7.3"
+  },
+  "peerDependencies": {
+    "drizzle-orm": ">=0.30.0",
+    "typeorm": ">=0.3.0"
+  },
+  "peerDependenciesMeta": {
+    "drizzle-orm": { "optional": true },
+    "typeorm": { "optional": true }
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -322,10 +322,6 @@ test.describe('Feature Availability Equality', () => {
       await page.getByText(token).nth(1).click();
       await page.waitForTimeout(500);
 
-      // Reward estimate should appear
-      const estimate = page.getByText(/Estimated:/i);
-      const _hasEstimate = await estimate.isVisible();
-      
       // Estimate may not show without staking token selected
       console.log(`✅ ${token} available as reward token`);
     }

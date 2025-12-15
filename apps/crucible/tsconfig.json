@@ -19,7 +19,7 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitAny": false,
-    "types": ["node"]
+    "types": ["node", "bun"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "tests", "src/tests"]

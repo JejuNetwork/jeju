@@ -1,0 +1,51 @@
+# CovenantSQL Miner Configuration
+# Local development configuration
+
+# Node identification (will be auto-generated per instance)
+Role: Miner
+
+# Network configuration
+ListenAddr: "0.0.0.0:4661"
+
+# Block Producer connection
+BlockProducerAddr: "cql-bp:4661"
+
+# Data directories
+DataDir: "/data"
+LogDir: "/logs"
+
+# Mining configuration
+Mining:
+  Enable: true
+  Threads: 2
+  MinGasPrice: 0
+
+# Storage configuration
+Storage:
+  Engine: "bolt"
+  Path: "/data/db"
+  SyncWrites: true
+  MaxTableSize: 104857600
+
+# Replication configuration
+Replication:
+  Enable: true
+  Factor: 2
+  SyncInterval: 5s
+
+# Metrics configuration
+Metrics:
+  Enable: true
+  PrometheusPort: 9100
+  Interval: 15s
+
+# Security configuration (development mode)
+Security:
+  EnableTLS: false
+  EnableAuth: false
+
+# Logging configuration
+Log:
+  Level: "info"
+  Format: "json"
+  Output: "stdout"

@@ -10,8 +10,7 @@ import "../src/registry/RegistryGovernance.sol";
 import "../src/services/ServiceRegistry.sol";
 import "../src/services/CreditManager.sol";
 import "../src/services/CloudReputationProvider.sol";
-import "../src/tokens/MockJejuUSDC.sol";
-import "../src/tokens/ElizaOSToken.sol";
+import {MockToken} from "../src/mocks/MockToken.sol";
 // Import PredictionOracle BEFORE Predimarket to avoid interface conflict
 import {PredictionOracle} from "../src/prediction-markets/PredictionOracle.sol";
 import {Predimarket} from "../src/prediction-markets/Predimarket.sol";
@@ -30,8 +29,8 @@ contract DeployCloudIntegration is Script {
     ServiceRegistry public serviceRegistry;
     CreditManager public creditManager;
     CloudReputationProvider public cloudReputationProvider;
-    MockJejuUSDC public usdc;
-    ElizaOSToken public elizaOS;
+    MockToken public usdc;
+    MockToken public elizaOS;
     PredictionOracle public predictionOracle;
     Predimarket public predimarket;
 
@@ -46,9 +45,8 @@ contract DeployCloudIntegration is Script {
 
         // 1. Deploy tokens
         console.log("\n1. Deploying tokens...");
-        usdc = new MockJejuUSDC(deployer);
-        // Faucet is built-in and always available
-        elizaOS = new ElizaOSToken(deployer);
+        usdc = new MockToken("USD Coin", "USDC", 18);
+        elizaOS = new MockToken("ElizaOS", "ELIZA", 18);
 
         console.log("USDC:", address(usdc));
         console.log("elizaOS:", address(elizaOS));

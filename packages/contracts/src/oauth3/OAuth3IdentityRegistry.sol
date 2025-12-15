@@ -18,9 +18,8 @@ contract OAuth3IdentityRegistry is IOAuth3IdentityRegistry, EIP712 {
         "LinkProvider(bytes32 identityId,uint8 provider,bytes32 providerId,string providerHandle,uint256 nonce,uint256 deadline)"
     );
 
-    bytes32 private constant TRANSFER_IDENTITY_TYPEHASH = keccak256(
-        "TransferIdentity(bytes32 identityId,address newOwner,uint256 nonce,uint256 deadline)"
-    );
+    bytes32 private constant TRANSFER_IDENTITY_TYPEHASH =
+        keccak256("TransferIdentity(bytes32 identityId,address newOwner,uint256 nonce,uint256 deadline)");
 
     address public teeVerifier;
     address public accountFactory;
@@ -43,33 +42,23 @@ contract OAuth3IdentityRegistry is IOAuth3IdentityRegistry, EIP712 {
         _;
     }
 
-    constructor(
-        address _teeVerifier,
-        address _accountFactory
-    ) EIP712("OAuth3IdentityRegistry", "1") {
+    constructor(address _teeVerifier, address _accountFactory) EIP712("OAuth3IdentityRegistry", "1") {
         teeVerifier = _teeVerifier;
         accountFactory = _accountFactory;
     }
 
-    function createIdentity(
-        address owner,
-        address smartAccount,
-        IdentityMetadata calldata _metadata
-    ) external returns (bytes32 identityId) {
+    function createIdentity(address owner, address smartAccount, IdentityMetadata calldata _metadata)
+        external
+        returns (bytes32 identityId)
+    {
         require(owner != address(0), "Invalid owner");
         require(ownerToIdentity[owner] == bytes32(0), "Owner already has identity");
-        
+
         if (smartAccount != address(0)) {
             require(smartAccountToIdentity[smartAccount] == bytes32(0), "Smart account already linked");
         }
 
-        identityId = keccak256(abi.encodePacked(
-            owner,
-            smartAccount,
-            block.timestamp,
-            block.chainid,
-            totalIdentities
-        ));
+        identityId = keccak256(abi.encodePacked(owner, smartAccount, block.timestamp, block.chainid, totalIdentities));
 
         identities[identityId] = Identity({
             id: identityId,
@@ -83,7 +72,7 @@ contract OAuth3IdentityRegistry is IOAuth3IdentityRegistry, EIP712 {
 
         metadata[identityId] = _metadata;
         ownerToIdentity[owner] = identityId;
-        
+
         if (smartAccount != address(0)) {
             smartAccountToIdentity[smartAccount] = identityId;
         }
@@ -105,14 +94,16 @@ contract OAuth3IdentityRegistry is IOAuth3IdentityRegistry, EIP712 {
 
         _verifyProviderProof(identityId, provider, providerId, providerHandle, proof);
 
-        linkedProviders[identityId].push(LinkedProvider({
-            provider: provider,
-            providerId: providerId,
-            providerHandle: providerHandle,
-            linkedAt: block.timestamp,
-            verified: true,
-            credentialHash: bytes32(0)
-        }));
+        linkedProviders[identityId].push(
+            LinkedProvider({
+                provider: provider,
+                providerId: providerId,
+                providerHandle: providerHandle,
+                linkedAt: block.timestamp,
+                verified: true,
+                credentialHash: bytes32(0)
+            })
+        );
 
         providerToIdentity[providerKey] = identityId;
         identities[identityId].updatedAt = block.timestamp;
@@ -121,11 +112,11 @@ contract OAuth3IdentityRegistry is IOAuth3IdentityRegistry, EIP712 {
         emit ProviderLinked(identityId, provider, providerId, providerHandle, block.timestamp);
     }
 
-    function unlinkProvider(
-        bytes32 identityId,
-        AuthProvider provider,
-        bytes32 providerId
-    ) external identityExists(identityId) onlyIdentityOwner(identityId) {
+    function unlinkProvider(bytes32 identityId, AuthProvider provider, bytes32 providerId)
+        external
+        identityExists(identityId)
+        onlyIdentityOwner(identityId)
+    {
         bytes32 providerKey = _getProviderKey(provider, providerId);
         require(providerToIdentity[providerKey] == identityId, "Provider not linked to this identity");
 
@@ -145,11 +136,10 @@ contract OAuth3IdentityRegistry is IOAuth3IdentityRegistry, EIP712 {
         emit ProviderUnlinked(identityId, provider, providerId, block.timestamp);
     }
 
-    function issueCredential(
-        bytes32 identityId,
-        AuthProvider provider,
-        bytes32 credentialHash
-    ) external identityExists(identityId) {
+    function issueCredential(bytes32 identityId, AuthProvider provider, bytes32 credentialHash)
+        external
+        identityExists(identityId)
+    {
         require(msg.sender == teeVerifier, "Only TEE verifier can issue credentials");
 
         LinkedProvider[] storage providers = linkedProviders[identityId];
@@ -164,10 +154,11 @@ contract OAuth3IdentityRegistry is IOAuth3IdentityRegistry, EIP712 {
         emit CredentialIssued(identityId, provider, credentialHash, block.timestamp);
     }
 
-    function updateMetadata(
-        bytes32 identityId,
-        IdentityMetadata calldata _metadata
-    ) external identityExists(identityId) onlyIdentityOwner(identityId) {
+    function updateMetadata(bytes32 identityId, IdentityMetadata calldata _metadata)
+        external
+        identityExists(identityId)
+        onlyIdentityOwner(identityId)
+    {
         metadata[identityId] = _metadata;
         identities[identityId].updatedAt = block.timestamp;
         identities[identityId].nonce++;
@@ -175,15 +166,16 @@ contract OAuth3IdentityRegistry is IOAuth3IdentityRegistry, EIP712 {
         emit MetadataUpdated(identityId, block.timestamp);
     }
 
-    function transferIdentity(
-        bytes32 identityId,
-        address newOwner
-    ) external identityExists(identityId) onlyIdentityOwner(identityId) {
+    function transferIdentity(bytes32 identityId, address newOwner)
+        external
+        identityExists(identityId)
+        onlyIdentityOwner(identityId)
+    {
         require(newOwner != address(0), "Invalid new owner");
         require(ownerToIdentity[newOwner] == bytes32(0), "New owner already has identity");
 
         address previousOwner = identities[identityId].owner;
-        
+
         delete ownerToIdentity[previousOwner];
         ownerToIdentity[newOwner] = identityId;
         identities[identityId].owner = newOwner;
@@ -193,14 +185,8 @@ contract OAuth3IdentityRegistry is IOAuth3IdentityRegistry, EIP712 {
         emit IdentityTransferred(identityId, previousOwner, newOwner, block.timestamp);
     }
 
-    function setSmartAccount(
-        bytes32 identityId,
-        address smartAccount
-    ) external identityExists(identityId) {
-        require(
-            msg.sender == identities[identityId].owner || msg.sender == accountFactory,
-            "Unauthorized"
-        );
+    function setSmartAccount(bytes32 identityId, address smartAccount) external identityExists(identityId) {
+        require(msg.sender == identities[identityId].owner || msg.sender == accountFactory, "Unauthorized");
         require(smartAccountToIdentity[smartAccount] == bytes32(0), "Smart account already linked");
 
         address previousAccount = identities[identityId].smartAccount;
@@ -233,19 +219,16 @@ contract OAuth3IdentityRegistry is IOAuth3IdentityRegistry, EIP712 {
         return metadata[identityId];
     }
 
-    function isProviderLinked(
-        bytes32 identityId,
-        AuthProvider provider,
-        bytes32 providerId
-    ) external view returns (bool) {
+    function isProviderLinked(bytes32 identityId, AuthProvider provider, bytes32 providerId)
+        external
+        view
+        returns (bool)
+    {
         bytes32 providerKey = _getProviderKey(provider, providerId);
         return providerToIdentity[providerKey] == identityId;
     }
 
-    function getProviderIdentity(
-        AuthProvider provider,
-        bytes32 providerId
-    ) external view returns (bytes32) {
+    function getProviderIdentity(AuthProvider provider, bytes32 providerId) external view returns (bytes32) {
         return providerToIdentity[_getProviderKey(provider, providerId)];
     }
 
@@ -261,16 +244,20 @@ contract OAuth3IdentityRegistry is IOAuth3IdentityRegistry, EIP712 {
         bytes calldata proof
     ) internal view {
         if (provider == AuthProvider.WALLET) {
-            bytes32 messageHash = _hashTypedDataV4(keccak256(abi.encode(
-                LINK_PROVIDER_TYPEHASH,
-                identityId,
-                uint8(provider),
-                providerId,
-                keccak256(bytes(providerHandle)),
-                identities[identityId].nonce,
-                block.timestamp + 1 hours
-            )));
-            
+            bytes32 messageHash = _hashTypedDataV4(
+                keccak256(
+                    abi.encode(
+                        LINK_PROVIDER_TYPEHASH,
+                        identityId,
+                        uint8(provider),
+                        providerId,
+                        keccak256(bytes(providerHandle)),
+                        identities[identityId].nonce,
+                        block.timestamp + 1 hours
+                    )
+                )
+            );
+
             address signer = messageHash.recover(proof);
             require(signer == address(uint160(uint256(providerId))), "Invalid wallet signature");
         } else if (provider == AuthProvider.FARCASTER) {
@@ -280,39 +267,30 @@ contract OAuth3IdentityRegistry is IOAuth3IdentityRegistry, EIP712 {
         }
     }
 
-    function _verifyFarcasterProof(
-        bytes32 identityId,
-        bytes32 providerId,
-        bytes calldata proof
-    ) internal view {
-        (bytes memory signature, address custodyAddress, uint256 deadline) = abi.decode(
-            proof,
-            (bytes, address, uint256)
-        );
-        
+    function _verifyFarcasterProof(bytes32 identityId, bytes32 providerId, bytes calldata proof) internal view {
+        (bytes memory signature, address custodyAddress, uint256 deadline) =
+            abi.decode(proof, (bytes, address, uint256));
+
         require(block.timestamp <= deadline, "Proof expired");
-        
-        bytes32 messageHash = keccak256(abi.encodePacked(
-            "Link Farcaster FID ",
-            uint256(providerId),
-            " to OAuth3 identity ",
-            identityId,
-            " on chain ",
-            block.chainid
-        ));
-        
+
+        bytes32 messageHash = keccak256(
+            abi.encodePacked(
+                "Link Farcaster FID ",
+                uint256(providerId),
+                " to OAuth3 identity ",
+                identityId,
+                " on chain ",
+                block.chainid
+            )
+        );
+
         address signer = ECDSA.recover(MessageHashUtils.toEthSignedMessageHash(messageHash), signature);
         require(signer == custodyAddress, "Invalid Farcaster custody signature");
     }
 
-    function _verifyTEEProof(
-        bytes32,
-        AuthProvider,
-        bytes32,
-        bytes calldata proof
-    ) internal view {
+    function _verifyTEEProof(bytes32, AuthProvider, bytes32, bytes calldata proof) internal view {
         require(proof.length >= 32, "Invalid TEE proof");
-        
+
         bytes32 attestationHash = bytes32(proof[:32]);
         require(attestationHash != bytes32(0), "Missing attestation");
     }

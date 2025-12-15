@@ -7,6 +7,8 @@ interface PriceSource {
   token: string;
   symbol: string;
   chainlinkFeed?: string;
+  pythPriceId?: string;
+  redstoneDataFeed?: string;
   dexPool?: string;
   lastPrice: bigint;
   lastUpdate: number;
@@ -16,9 +18,44 @@ interface TokenPrice {
   token: string;
   price: bigint;
   decimals: number;
-  source: 'chainlink' | 'dex' | 'api';
+  source: 'chainlink' | 'pyth' | 'redstone' | 'dex' | 'api';
   timestamp: number;
 }
+
+// Pyth Network contract addresses
+const PYTH_CONTRACTS: Record<string, string> = {
+  '1': '0x4305FB66699C3B2702D4d05CF36551390A4c69C6',      // Ethereum
+  '42161': '0xff1a0f4744e8582DF1aE09D5611b887B6a12925C',  // Arbitrum
+  '10': '0xff1a0f4744e8582DF1aE09D5611b887B6a12925C',     // Optimism
+  '8453': '0x8250f4aF4B972684F7b336503E2D6dFeDeB1487a',   // Base
+  '137': '0xff1a0f4744e8582DF1aE09D5611b887B6a12925C',    // Polygon
+  '56': '0x4D7E825f80bDf85e913E0DD2A2D54927e9dE1594',     // BSC
+};
+
+// Pyth Price Feed IDs (mainnet)
+const PYTH_PRICE_IDS: Record<string, string> = {
+  'ETH': '0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace',
+  'BTC': '0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43',
+  'USDC': '0xeaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a',
+  'SOL': '0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d',
+  'ARB': '0x3fa4252848f9f0a1480be62745a4629d9eb1322aebab8a791e344b3b9c1adcf5',
+  'OP': '0x385f64d993f7b77d8182ed5003d97c60aa3361f3cecfe711544d2d59165e9bdf',
+};
+
+// Chainlink Automation registrar addresses
+const CHAINLINK_AUTOMATION_REGISTRAR: Record<string, string> = {
+  '1': '0xDb8e8e2ccb5C033938736aa89Fe4fa1eDfD15a1d',      // Ethereum
+  '42161': '0x37D9dC70bfcd8BC77Ec2858836B923c560E891D1',  // Arbitrum
+  '10': '0x3f8aF1E3E1c4f4f05e9D3d1f7e05F8ee51cE8a5D',     // Optimism
+  '8453': '0xE226D5aCae908252CcA3F6cEFa577815B8D4a9af',   // Base
+  '137': '0x9a811502d843E5a03913d5A2cfb646c11463467A',    // Polygon
+};
+
+// Redstone Data Service endpoints  
+const REDSTONE_ENDPOINTS: Record<string, string> = {
+  mainnet: 'https://api.redstone.finance/prices',
+  testnet: 'https://api.redstone.finance/prices',
+};
 
 const CHAINLINK_FEEDS: Record<string, Record<string, string>> = {
   '1': { // Ethereum
@@ -254,9 +291,22 @@ export class OracleKeeperStrategy {
   }
 
   private async fetchExternalPrice(source: PriceSource): Promise<TokenPrice | null> {
-    // Try Chainlink first
+    // Try Chainlink first (highest trust)
     if (source.chainlinkFeed) {
       const price = await this.fetchChainlinkPrice(source.symbol, source.chainlinkFeed);
+      if (price) return price;
+    }
+
+    // Try Pyth Network (fast updates, good coverage)
+    if (source.pythPriceId || PYTH_PRICE_IDS[source.symbol]) {
+      const priceId = source.pythPriceId || PYTH_PRICE_IDS[source.symbol];
+      const price = await this.fetchPythPrice(source.symbol, priceId);
+      if (price) return price;
+    }
+
+    // Try Redstone (many assets, competitive pricing)
+    if (source.redstoneDataFeed || source.symbol) {
+      const price = await this.fetchRedstonePrice(source.symbol);
       if (price) return price;
     }
 
@@ -267,6 +317,270 @@ export class OracleKeeperStrategy {
     }
 
     return null;
+  }
+
+  /**
+   * Fetch price from Pyth Network
+   * Pyth provides fast, low-latency price updates
+   */
+  private async fetchPythPrice(symbol: string, priceId: string): Promise<TokenPrice | null> {
+    const pythContract = PYTH_CONTRACTS[String(this.chainId)];
+    if (!pythContract || !this.publicClient) return null;
+
+    const PYTH_ABI = [{
+      type: 'function',
+      name: 'getPriceUnsafe',
+      inputs: [{ name: 'id', type: 'bytes32' }],
+      outputs: [{
+        type: 'tuple',
+        components: [
+          { name: 'price', type: 'int64' },
+          { name: 'conf', type: 'uint64' },
+          { name: 'expo', type: 'int32' },
+          { name: 'publishTime', type: 'uint256' },
+        ],
+      }],
+      stateMutability: 'view',
+    }] as const;
+
+    try {
+      const result = await this.publicClient.readContract({
+        address: pythContract as `0x${string}`,
+        abi: PYTH_ABI,
+        functionName: 'getPriceUnsafe',
+        args: [priceId as `0x${string}`],
+      });
+
+      const { price, expo, publishTime } = result as { price: bigint; conf: bigint; expo: number; publishTime: bigint };
+
+      // Check staleness
+      const ageSeconds = Math.floor(Date.now() / 1000) - Number(publishTime);
+      if (ageSeconds > STALE_THRESHOLD_SEC) {
+        console.warn(`Pyth ${symbol} data is stale (${ageSeconds}s old)`);
+        return null;
+      }
+
+      // Convert to 18 decimals
+      const exponent = Math.abs(expo);
+      const priceScaled = expo < 0
+        ? price * BigInt(10 ** (18 - exponent))
+        : price * BigInt(10 ** (18 + exponent));
+
+      return {
+        token: symbol,
+        price: priceScaled,
+        decimals: 18,
+        source: 'pyth',
+        timestamp: Number(publishTime),
+      };
+    } catch (error) {
+      console.error(`Error fetching Pyth price for ${symbol}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Fetch price from Redstone Finance
+   * Provides prices for many long-tail assets
+   */
+  private async fetchRedstonePrice(symbol: string): Promise<TokenPrice | null> {
+    try {
+      const endpoint = REDSTONE_ENDPOINTS.mainnet;
+      const response = await fetch(`${endpoint}?symbols=${symbol}&provider=redstone`);
+      
+      if (!response.ok) return null;
+
+      const data = await response.json() as Record<string, { value: number; timestamp: number }>;
+      const priceData = data[symbol];
+      
+      if (!priceData) return null;
+
+      // Check staleness
+      const ageSeconds = Math.floor(Date.now() / 1000) - Math.floor(priceData.timestamp / 1000);
+      if (ageSeconds > STALE_THRESHOLD_SEC) {
+        console.warn(`Redstone ${symbol} data is stale (${ageSeconds}s old)`);
+        return null;
+      }
+
+      // Convert to 18 decimals (Redstone returns USD values)
+      const priceScaled = BigInt(Math.floor(priceData.value * 1e18));
+
+      return {
+        token: symbol,
+        price: priceScaled,
+        decimals: 18,
+        source: 'redstone',
+        timestamp: Math.floor(priceData.timestamp / 1000),
+      };
+    } catch (error) {
+      console.error(`Error fetching Redstone price for ${symbol}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Register as Chainlink Automation upkeep
+   * This earns LINK rewards for keeping oracle prices updated
+   */
+  async registerChainlinkAutomation(
+    name: string,
+    gasLimit: number = 500000,
+    linkFunding: bigint = BigInt(5e18) // 5 LINK
+  ): Promise<{ success: boolean; upkeepId?: bigint; error?: string }> {
+    const registrar = CHAINLINK_AUTOMATION_REGISTRAR[String(this.chainId)];
+    if (!registrar || !this.walletClient || !this.publicClient) {
+      return { success: false, error: 'Automation not supported on this chain' };
+    }
+
+    const REGISTRAR_ABI = [{
+      type: 'function',
+      name: 'registerUpkeep',
+      inputs: [
+        {
+          name: 'requestParams',
+          type: 'tuple',
+          components: [
+            { name: 'name', type: 'string' },
+            { name: 'encryptedEmail', type: 'bytes' },
+            { name: 'upkeepContract', type: 'address' },
+            { name: 'gasLimit', type: 'uint32' },
+            { name: 'adminAddress', type: 'address' },
+            { name: 'triggerType', type: 'uint8' },
+            { name: 'checkData', type: 'bytes' },
+            { name: 'triggerConfig', type: 'bytes' },
+            { name: 'offchainConfig', type: 'bytes' },
+            { name: 'amount', type: 'uint96' },
+          ],
+        },
+      ],
+      outputs: [{ name: 'upkeepId', type: 'uint256' }],
+      stateMutability: 'nonpayable',
+    }] as const;
+
+    try {
+      const hash = await this.walletClient.writeContract({
+        address: registrar as `0x${string}`,
+        abi: REGISTRAR_ABI,
+        functionName: 'registerUpkeep',
+        args: [{
+          name,
+          encryptedEmail: '0x' as `0x${string}`,
+          upkeepContract: this.priceOracleAddress as `0x${string}`,
+          gasLimit,
+          adminAddress: this.account.address,
+          triggerType: 0, // Conditional
+          checkData: '0x' as `0x${string}`,
+          triggerConfig: '0x' as `0x${string}`,
+          offchainConfig: '0x' as `0x${string}`,
+          amount: linkFunding,
+        }],
+      });
+
+      const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
+
+      if (receipt.status === 'reverted') {
+        return { success: false, error: 'Registration reverted' };
+      }
+
+      // Parse upkeepId from logs (simplified)
+      console.log(`   ✓ Registered Chainlink Automation: ${hash}`);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  }
+
+  /**
+   * Update price via Pyth Network with updateData
+   * This is the preferred method as it includes proof
+   */
+  async updatePriceWithPyth(
+    token: string,
+    pythUpdateData: `0x${string}`[]
+  ): Promise<{ success: boolean; txHash?: string; error?: string }> {
+    const pythContract = PYTH_CONTRACTS[String(this.chainId)];
+    if (!pythContract || !this.walletClient || !this.publicClient) {
+      return { success: false, error: 'Pyth not supported on this chain' };
+    }
+
+    const PYTH_UPDATE_ABI = [{
+      type: 'function',
+      name: 'updatePriceFeeds',
+      inputs: [{ name: 'updateData', type: 'bytes[]' }],
+      outputs: [],
+      stateMutability: 'payable',
+    }, {
+      type: 'function',
+      name: 'getUpdateFee',
+      inputs: [{ name: 'updateData', type: 'bytes[]' }],
+      outputs: [{ type: 'uint256' }],
+      stateMutability: 'view',
+    }] as const;
+
+    try {
+      // Get required fee
+      const fee = await this.publicClient.readContract({
+        address: pythContract as `0x${string}`,
+        abi: PYTH_UPDATE_ABI,
+        functionName: 'getUpdateFee',
+        args: [pythUpdateData],
+      });
+
+      // Update prices
+      const hash = await this.walletClient.writeContract({
+        address: pythContract as `0x${string}`,
+        abi: PYTH_UPDATE_ABI,
+        functionName: 'updatePriceFeeds',
+        args: [pythUpdateData],
+        value: fee,
+      });
+
+      const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
+
+      if (receipt.status === 'reverted') {
+        return { success: false, error: 'Pyth update reverted' };
+      }
+
+      this.lastUpdateByToken.set(token, Date.now());
+      console.log(`   ✓ Pyth price updated: ${hash}`);
+
+      return { success: true, txHash: hash };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  }
+
+  /**
+   * Get opportunities for oracle keeper rewards
+   */
+  getKeeperOpportunities(): Array<{
+    token: string;
+    symbol: string;
+    reason: 'stale' | 'deviation' | 'missing';
+    estimatedReward: bigint;
+  }> {
+    const opportunities: Array<{
+      token: string;
+      symbol: string;
+      reason: 'stale' | 'deviation' | 'missing';
+      estimatedReward: bigint;
+    }> = [];
+
+    for (const [token, source] of this.priceSources) {
+      const lastUpdate = this.lastUpdateByToken.get(token) ?? 0;
+      const ageSeconds = Math.floor((Date.now() - lastUpdate) / 1000);
+
+      if (ageSeconds > STALE_THRESHOLD_SEC) {
+        opportunities.push({
+          token,
+          symbol: source.symbol,
+          reason: 'stale',
+          estimatedReward: BigInt(1e15), // ~0.001 ETH estimate
+        });
+      }
+    }
+
+    return opportunities;
   }
 
   private async fetchChainlinkPrice(

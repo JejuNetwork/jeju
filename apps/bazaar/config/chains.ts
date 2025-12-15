@@ -1,25 +1,14 @@
 import { defineChain } from 'viem';
-import { CHAIN_ID, RPC_URL, NETWORK } from './index';
-import { getNetworkName, getBrandingExplorerUrl } from '@jejunetwork/config';
+import { CHAIN_ID, RPC_URL, NETWORK, NETWORK_NAME, EXPLORER_URL } from './index';
 
 export const JEJU_CHAIN_ID = CHAIN_ID;
 export const JEJU_RPC_URL = RPC_URL;
 
-const networkName = getNetworkName();
-
 function getChainName(): string {
   switch (NETWORK) {
-    case 'mainnet': return networkName;
-    case 'testnet': return `${networkName} Testnet`;
-    default: return `${networkName} Localnet`;
-  }
-}
-
-function getExplorerUrlForNetwork(): string {
-  switch (NETWORK) {
-    case 'mainnet': return getBrandingExplorerUrl('mainnet');
-    case 'testnet': return getBrandingExplorerUrl('testnet');
-    default: return 'http://localhost:4000';
+    case 'mainnet': return NETWORK_NAME;
+    case 'testnet': return `${NETWORK_NAME} Testnet`;
+    default: return `${NETWORK_NAME} Localnet`;
   }
 }
 
@@ -32,9 +21,9 @@ export const jeju = defineChain({
   },
   blockExplorers: {
     default: {
-      name: `${networkName} Explorer`,
-      url: getExplorerUrlForNetwork(),
-      apiUrl: `${getExplorerUrlForNetwork()}/api`,
+      name: `${NETWORK_NAME} Explorer`,
+      url: EXPLORER_URL,
+      apiUrl: `${EXPLORER_URL}/api`,
     },
   },
   testnet: NETWORK !== 'mainnet',

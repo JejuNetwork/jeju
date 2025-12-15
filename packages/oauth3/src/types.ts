@@ -339,6 +339,27 @@ export enum IntentStatus {
   FAILED = 'failed',
 }
 
+export interface CrossChainIntent {
+  intentId: Hex;
+  sourceChain: ChainId;
+  targetChain: ChainId;
+  sender: Address;
+  receiver: Address;
+  tokenAddress: Address;
+  amount: bigint;
+  data: Hex;
+  deadline: number;
+  signature: Hex;
+}
+
+export interface IntentSolution {
+  solverId: Address;
+  intentId: Hex;
+  executionData: Hex;
+  gasUsed: bigint;
+  timestamp: number;
+}
+
 // ============ Error Types ============
 
 export class OAuth3Error extends Error {

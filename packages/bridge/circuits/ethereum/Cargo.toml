@@ -1,0 +1,15 @@
+[package]
+name = "ethereum-consensus"
+version = "0.1.0"
+edition = "2021"
+description = "ZK proof of Ethereum sync committee consensus"
+
+[dependencies]
+sp1-zkvm = { workspace = true }
+sha2 = { workspace = true }
+serde = { workspace = true }
+serde_with = { workspace = true }
+
+[[bin]]
+name = "ethereum_consensus"
+path = "src/main.rs"

@@ -39,7 +39,7 @@ export {
   type DownloadResult,
   type GatewayHealth,
   type StorageLocation,
-} from './decentralized-storage.js';
+} from './storage.js';
 export { FileStorage, type FileStorageConfig } from './file-storage.js';
 // 100% Permissionless storage (RECOMMENDED)
 export {

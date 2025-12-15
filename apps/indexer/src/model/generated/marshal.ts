@@ -65,16 +65,12 @@ export const bigint: Marshal<bigint, string> = {
 }
 
 
-interface BigDecimalLike {
-    toString(): string;
-}
-
-export const bigdecimal: Marshal<BigDecimalLike, string> = {
-    fromJSON(value: unknown): BigDecimalLike {
+export const bigdecimal: Marshal<any, string> = {
+    fromJSON(value: unknown): bigint {
         assert(typeof value === 'string', 'invalid BigDecimal')
         return decimal.BigDecimal(value)
     },
-    toJSON(value: BigDecimalLike): string {
+    toJSON(value: any): string {
         return value.toString()
     }
 }
@@ -133,9 +129,9 @@ export function nonNull<T>(val: T | undefined | null): T {
 
 export function enumFromJson<E extends object>(json: unknown, enumObject: E): E[keyof E] {
     assert(typeof json == 'string', 'invalid enum value')
-    const val = (enumObject as Record<string, E[keyof E]>)[json]
+    let val = (enumObject as any)[json]
     assert(typeof val == 'string', `invalid enum value`)
-    return val
+    return val as any
 }
 
 

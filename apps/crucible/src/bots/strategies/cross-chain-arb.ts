@@ -36,7 +36,11 @@ const BRIDGE_COSTS: BridgeCost[] = [
 ];
 
 const PRICE_STALE_MS = 30000;
-const MIN_PRICE_DIFF_BPS = 50;
+// Profitability analysis shows cross-chain arb needs >2-3% price diff to cover:
+// - Bridge costs (~$3-6)
+// - Gas on both chains (~$10-20)
+// See arbitrage-simulation.test.ts for detailed calculations
+const MIN_PRICE_DIFF_BPS = 250; // 2.5% minimum price difference
 const OPPORTUNITY_TTL_MS = 10000;
 
 export class CrossChainArbStrategy {
@@ -225,11 +229,12 @@ export class CrossChainArbStrategy {
     // Profit = inputAmount * ((sellPrice - buyPrice) / buyPrice)
     const grossProfit = (inputAmount * (sellPrice.price - buyPrice.price)) / buyPrice.price;
 
-    const gasCostPerChain = BigInt(25e15);
+    // Gas cost calculation (synchronous, uses cached ETH price)
+    const gasCostPerChain = BigInt(25e15); // ~$75 at $3000 ETH
     const totalCost = bridgeCost.baseCost + gasCostPerChain * 2n;
 
-    const ethPriceUsd = await this.getEthPriceUsd();
-    const costInTokens = (totalCost * ethPriceUsd) / buyPrice.price;
+    // Convert gas cost to token terms using cached ETH price
+    const costInTokens = (totalCost * this.ethPriceUsd) / buyPrice.price;
 
     const netProfit = grossProfit - costInTokens;
 

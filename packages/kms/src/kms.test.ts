@@ -24,8 +24,8 @@ describe('KMS Service', () => {
   beforeEach(async () => {
     resetKMS();
     const kms = getKMS({
-      providers: { lit: { network: 'cayenne' } },
-      defaultProvider: KMSProviderType.LIT,
+      providers: { encryption: {} },
+      defaultProvider: KMSProviderType.ENCRYPTION,
       defaultChain: 'base-sepolia',
       fallbackEnabled: true,
     });
@@ -60,7 +60,7 @@ describe('KMS Service', () => {
 
     it('should auto-initialize on encrypt if not initialized', async () => {
       resetKMS();
-      const kms = getKMS({ providers: { lit: { network: 'cayenne' } }, fallbackEnabled: true });
+      const kms = getKMS({ providers: { encryption: {} }, fallbackEnabled: true });
       // Not calling initialize() explicitly
       const policy: AccessControlPolicy = {
         conditions: [{ type: 'timestamp', chain: 'base-sepolia', comparator: ConditionOperator.GREATER_THAN_OR_EQUAL, value: 0 }],
@@ -421,19 +421,18 @@ describe('KMS Service', () => {
       const status = kms.getStatus();
 
       expect(status.initialized).toBe(true);
-      expect(status.defaultProvider).toBe(KMSProviderType.LIT);
+      expect(status.defaultProvider).toBe(KMSProviderType.ENCRYPTION);
       expect(status.providers).toBeDefined();
-      expect(status.providers[KMSProviderType.LIT]).toBeDefined();
+      expect(status.providers[KMSProviderType.ENCRYPTION]).toBeDefined();
     });
 
-    it('should show fallback mode when Lit not connected', () => {
+    it('should show encryption provider status', () => {
       const kms = getKMS();
       const status = kms.getStatus();
       
-      // In test environment, Lit won't be connected
-      const litStatus = status.providers[KMSProviderType.LIT];
-      expect(litStatus).toBeDefined();
-      expect(litStatus.status).toHaveProperty('fallbackMode');
+      const encStatus = status.providers[KMSProviderType.ENCRYPTION];
+      expect(encStatus).toBeDefined();
+      expect(encStatus.status).toHaveProperty('connected');
     });
   });
 });
@@ -441,7 +440,7 @@ describe('KMS Service', () => {
 describe('SDK Functions', () => {
   beforeEach(async () => {
     resetKMS();
-    await getKMS({ providers: { lit: { network: 'cayenne' } }, fallbackEnabled: true }).initialize();
+    await getKMS({ providers: { encryption: {} }, fallbackEnabled: true }).initialize();
   });
 
   afterEach(() => resetKMS());
@@ -523,7 +522,7 @@ describe('SDK Functions', () => {
 describe('Edge Cases', () => {
   beforeEach(async () => {
     resetKMS();
-    await getKMS({ providers: { lit: { network: 'cayenne' } }, fallbackEnabled: true }).initialize();
+    await getKMS({ providers: { encryption: {} }, fallbackEnabled: true }).initialize();
   });
 
   afterEach(() => resetKMS());

@@ -21,6 +21,7 @@ import type {
   TEEType,
 } from './types';
 import { ModelTypeEnum, TEETypeEnum, ModelCapabilityEnum } from './types';
+import { getTriggerIntegration } from './trigger-integration';
 
 
 export interface MarketplaceConfig {
@@ -678,7 +679,6 @@ export class ComputeMarketplace {
       };
     }
   ): Promise<string> {
-    const { getTriggerIntegration } = await import('./trigger-integration');
     const integration = getTriggerIntegration();
 
     return integration.registerTrigger({

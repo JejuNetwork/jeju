@@ -90,11 +90,17 @@ interface IFeeConfig {
     event ComputeFeesUpdated(uint16 inferencePlatformFeeBps, uint16 rentalPlatformFeeBps, uint16 triggerPlatformFeeBps);
     event StorageFeesUpdated(uint16 uploadFeeBps, uint16 retrievalFeeBps, uint16 pinningFeeBps);
     event DeFiFeesUpdated(uint16 swapProtocolFeeBps, uint16 bridgeFeeBps, uint16 crossChainMarginBps);
-    event InfrastructureFeesUpdated(uint16 sequencerRevenueShareBps, uint16 oracleTreasuryShareBps, uint16 rpcPremiumFeeBps, uint16 messagingFeeBps);
-    event MarketplaceFeesUpdated(uint16 bazaarPlatformFeeBps, uint16 launchpadCreatorFeeBps, uint16 launchpadCommunityFeeBps, uint16 x402ProtocolFeeBps);
+    event InfrastructureFeesUpdated(
+        uint16 sequencerRevenueShareBps, uint16 oracleTreasuryShareBps, uint16 rpcPremiumFeeBps, uint16 messagingFeeBps
+    );
+    event MarketplaceFeesUpdated(
+        uint16 bazaarPlatformFeeBps,
+        uint16 launchpadCreatorFeeBps,
+        uint16 launchpadCommunityFeeBps,
+        uint16 x402ProtocolFeeBps
+    );
     event NamesFeesUpdated(uint256 baseRegistrationPrice, uint16 agentDiscountBps, uint16 renewalDiscountBps);
     event FeeChangeProposed(bytes32 indexed changeId, bytes32 feeType, uint256 effectiveAt, address proposedBy);
     event FeeChangeExecuted(bytes32 indexed changeId);
     event FeeChangeCancelled(bytes32 indexed changeId);
 }
-

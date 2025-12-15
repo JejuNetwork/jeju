@@ -2,7 +2,7 @@
 pragma solidity ^0.8.26;
 
 import "forge-std/Script.sol";
-import "../src/tokens/ElizaOSToken.sol";
+import "../src/tokens/Token.sol";
 
 /**
  * Deploy all contracts to localnet
@@ -23,16 +23,35 @@ contract DeployLocalnet is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        // Deploy ElizaOS Token
-        ElizaOSToken elizaOS = new ElizaOSToken(deployer);
-        console.log("ElizaOS Token deployed to:", address(elizaOS));
+        // Deploy JEJU Token
+        Token jeju = new Token(
+            "Jeju",
+            "JEJU",
+            1_000_000_000 * 10**18,
+            deployer,
+            10_000_000_000 * 10**18,
+            true
+        );
+        jeju.setConfig(0, 0, false, false, true); // Enable faucet
+        console.log("JEJU Token deployed to:", address(jeju));
 
-        // Could deploy more contracts here...
+        // Deploy test USDC
+        Token usdc = new Token(
+            "USD Coin",
+            "USDC",
+            100_000_000 * 10**18,
+            deployer,
+            0,
+            true
+        );
+        usdc.setConfig(0, 0, false, false, true);
+        console.log("Test USDC deployed to:", address(usdc));
 
         vm.stopBroadcast();
 
         // Save deployment info
         console.log("\n=== Deployment Summary ===");
-        console.log("ElizaOS Token:", address(elizaOS));
+        console.log("JEJU Token:", address(jeju));
+        console.log("Test USDC:", address(usdc));
     }
 }

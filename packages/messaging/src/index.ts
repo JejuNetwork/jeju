@@ -37,11 +37,12 @@
  *   }
  * });
  * ```
+ * 
+ * For relay node functionality, import from '@jeju/messaging/node' (Node.js only)
  */
 
-// Re-export SDK
+// Re-export SDK (browser-compatible)
 export * from './sdk';
 
-// Re-export node (for running relay nodes)
-export * from './node';
+// Note: Node-only exports (relay server) available via '@jeju/messaging/node'
 

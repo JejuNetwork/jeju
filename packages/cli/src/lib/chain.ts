@@ -130,16 +130,20 @@ export async function startLocalnet(rootDir: string): Promise<{ l1Port: number; 
   logger.step('Getting port assignments...');
   const l1PortResult = await execa('kurtosis', ['port', 'print', ENCLAVE_NAME, 'geth-l1', 'rpc']);
   const l2PortResult = await execa('kurtosis', ['port', 'print', ENCLAVE_NAME, 'op-geth', 'rpc']);
+  const cqlPortResult = await execa('kurtosis', ['port', 'print', ENCLAVE_NAME, 'covenantsql', 'api'], { reject: false });
   
   const l1Port = parseInt(l1PortResult.stdout.trim().split(':').pop() || '0');
   const l2Port = parseInt(l2PortResult.stdout.trim().split(':').pop() || '0');
+  const cqlPort = cqlPortResult.exitCode === 0 ? parseInt(cqlPortResult.stdout.trim().split(':').pop() || '0') : 0;
 
   // Save ports config
   const portsConfig = {
     l1Port,
     l2Port,
+    cqlPort,
     l1Rpc: `http://127.0.0.1:${l1Port}`,
     l2Rpc: `http://127.0.0.1:${l2Port}`,
+    cqlApi: cqlPort ? `http://127.0.0.1:${cqlPort}` : null,
     chainId: 1337,
     timestamp: new Date().toISOString(),
   };
@@ -149,6 +153,9 @@ export async function startLocalnet(rootDir: string): Promise<{ l1Port: number; 
   logger.step('Setting up port forwarding...');
   await setupPortForwarding(l1Port, DEFAULT_PORTS.l1Rpc, 'L1 RPC');
   await setupPortForwarding(l2Port, DEFAULT_PORTS.l2Rpc, 'L2 RPC');
+  if (cqlPort) {
+    await setupPortForwarding(cqlPort, DEFAULT_PORTS.cqlApi, 'CQL API');
+  }
 
   // Wait for chain to be ready
   logger.step('Waiting for chain...');

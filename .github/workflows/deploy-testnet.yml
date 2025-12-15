@@ -64,6 +64,39 @@ jobs:
           cache-to: type=gha,mode=max
           platforms: linux/amd64
 
+  build-covenantsql:
+    name: Build CovenantSQL (Multi-Arch)
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_TESTNET }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: login-ecr
+
+      - uses: docker/setup-buildx-action@v3
+      
+      - name: Set up QEMU for multi-arch
+        uses: docker/setup-qemu-action@v3
+
+      - name: Build and push CovenantSQL
+        uses: docker/build-push-action@v5
+        with:
+          context: ./packages/deployment/docker/covenantsql
+          file: ./packages/deployment/docker/covenantsql/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/jeju/covenantsql:testnet-${{ github.sha }}
+            ${{ steps.login-ecr.outputs.registry }}/jeju/covenantsql:testnet-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
   deploy-infrastructure:
     name: Deploy Infrastructure
     runs-on: ubuntu-latest
@@ -101,7 +134,7 @@ jobs:
   deploy-kubernetes:
     name: Deploy to Kubernetes
     runs-on: ubuntu-latest
-    needs: [build-images, deploy-infrastructure]
+    needs: [build-images, build-covenantsql, deploy-infrastructure]
     environment: testnet
     steps:
       - uses: actions/checkout@v4
@@ -137,10 +170,69 @@ jobs:
           kubectl rollout status deployment/bazaar -n jeju-apps --timeout=10m
           kubectl rollout status deployment/gateway -n jeju-apps --timeout=10m
 
+  deploy-contracts:
+    name: Deploy Compute Contracts
+    runs-on: ubuntu-latest
+    needs: deploy-kubernetes
+    environment: testnet
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+      - uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build contracts
+        working-directory: packages/contracts
+        run: forge build
+
+      - name: Deploy ComputeRegistry
+        working-directory: packages/contracts
+        env:
+          PRIVATE_KEY: ${{ secrets.DEPLOYER_PRIVATE_KEY }}
+          RPC_URL: https://testnet-rpc.jeju.network
+        run: |
+          forge script script/DeployCompute.s.sol:DeployComputeScript \
+            --rpc-url $RPC_URL \
+            --broadcast \
+            --verify
+
+      - name: Deploy WorkerRegistry
+        working-directory: packages/contracts
+        env:
+          PRIVATE_KEY: ${{ secrets.DEPLOYER_PRIVATE_KEY }}
+          RPC_URL: https://testnet-rpc.jeju.network
+        run: |
+          forge create src/compute/WorkerRegistry.sol:WorkerRegistry \
+            --rpc-url $RPC_URL \
+            --private-key $PRIVATE_KEY \
+            --verify
+
+  seed-providers:
+    name: Seed TEE Providers
+    runs-on: ubuntu-latest
+    needs: deploy-contracts
+    environment: testnet
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Seed Phala, Marlin, Oasis providers
+        env:
+          PROVIDER_PRIVATE_KEY: ${{ secrets.PROVIDER_PRIVATE_KEY }}
+          TESTNET_COMPUTE_REGISTRY_ADDRESS: ${{ secrets.TESTNET_COMPUTE_REGISTRY_ADDRESS }}
+          TESTNET_WORKER_REGISTRY_ADDRESS: ${{ secrets.TESTNET_WORKER_REGISTRY_ADDRESS }}
+          TESTNET_RPC_URL: https://testnet-rpc.jeju.network
+        run: bun scripts/seed-providers.ts --network testnet
+
   verify:
     name: Verify Deployment
     runs-on: ubuntu-latest
-    needs: deploy-kubernetes
+    needs: seed-providers
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
@@ -150,3 +242,8 @@ jobs:
         run: |
           cast block latest --rpc-url https://testnet-rpc.jeju.network
           echo "✅ Testnet RPC responding"
+
+      - name: Verify compute infrastructure
+        run: |
+          cast call ${{ secrets.TESTNET_COMPUTE_REGISTRY_ADDRESS }} "getProviderCount()(uint256)" --rpc-url https://testnet-rpc.jeju.network
+          echo "✅ ComputeRegistry responding"

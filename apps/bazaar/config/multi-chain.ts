@@ -1,8 +1,8 @@
 import { defineChain, type Chain } from 'viem'
 import { mainnet, sepolia } from 'viem/chains'
-import { getNetworkName } from '@jejunetwork/config'
+import { NETWORK_NAME } from './index'
 
-const networkName = getNetworkName()
+const networkName = NETWORK_NAME
 
 // Chain IDs enum for type safety
 export enum EvmChainIds {

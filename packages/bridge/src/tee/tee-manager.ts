@@ -1,0 +1,519 @@
+/**
+ * TEE Manager
+ *
+ * Unified TEE provider management with auto-detection and fallback.
+ *
+ * Priority order for auto-detection:
+ * 1. AWS Nitro Enclaves (if in AWS EC2 with Nitro)
+ * 2. GCP Confidential VMs (if in GCP Confidential VM)
+ * 3. Phala Network (if PHALA_ENDPOINT configured)
+ * 4. Mock (for local development)
+ */
+
+import type { Hex } from 'viem';
+import { keccak256, toBytes } from 'viem';
+import type {
+  CrossChainTransfer,
+  Hash32,
+  TEEAttestation,
+} from '../types/index.js';
+import { toHash32 } from '../types/index.js';
+import { createAWSNitroProvider } from './aws-nitro-provider.js';
+import { createGCPConfidentialProvider } from './gcp-confidential-provider.js';
+import { createMockProvider } from './mock-provider.js';
+import { createPhalaClient, PhalaClient } from './phala-client.js';
+import type {
+  AttestationRequest,
+  AttestationResponse,
+  AttestationVerification,
+  ITEEProvider,
+  TEECapability,
+  TEEEnvironment,
+  TEEProvider,
+  TEEProviderConfig,
+} from './types.js';
+
+// =============================================================================
+// TEE MANAGER
+// =============================================================================
+
+export class TEEManager {
+  private config: TEEProviderConfig;
+  private provider: ITEEProvider | null = null;
+  private initialized = false;
+  private environment: TEEEnvironment | null = null;
+
+  constructor(config?: Partial<TEEProviderConfig>) {
+    this.config = {
+      provider: 'auto',
+      timeoutMs: 30000,
+      ...config,
+    };
+  }
+
+  /**
+   * Initialize the TEE manager
+   */
+  async initialize(): Promise<void> {
+    if (this.initialized) return;
+
+    // Detect environment
+    this.environment = await this.detectEnvironment();
+    console.log(`[TEE] Detected environment: ${this.environment.provider}`);
+
+    // Select and initialize provider
+    this.provider = await this.selectProvider();
+    await this.provider.initialize();
+
+    this.initialized = true;
+  }
+
+  /**
+   * Get the active provider
+   */
+  getProvider(): ITEEProvider {
+    if (!this.provider) {
+      throw new Error('TEE Manager not initialized. Call initialize() first.');
+    }
+    return this.provider;
+  }
+
+  /**
+   * Get environment information
+   */
+  getEnvironment(): TEEEnvironment | null {
+    return this.environment;
+  }
+
+  /**
+   * Request attestation
+   */
+  async requestAttestation(
+    request: AttestationRequest
+  ): Promise<AttestationResponse> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+    return this.provider!.requestAttestation(request);
+  }
+
+  /**
+   * Verify attestation
+   */
+  async verifyAttestation(
+    attestation: AttestationResponse
+  ): Promise<AttestationVerification> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+    return this.provider!.verifyAttestation(attestation);
+  }
+
+  /**
+   * Attest a batch of transfers
+   */
+  async attestBatch(
+    batchId: Hash32,
+    transfers: CrossChainTransfer[],
+    _operatorAddress?: Hex
+  ): Promise<{
+    batchId: Hash32;
+    transfersRoot: Hash32;
+    transferCount: number;
+    attestation: AttestationResponse;
+  }> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    // Compute merkle root
+    const transfersRoot = this.computeMerkleRoot(
+      transfers.map((t) => t.transferId)
+    );
+
+    // Create attestation data
+    const attestData = keccak256(
+      new Uint8Array([
+        ...batchId,
+        ...transfersRoot,
+        ...toBytes(BigInt(transfers.length)),
+      ])
+    );
+
+    // Request attestation
+    const attestation = await this.provider!.requestAttestation({
+      data: attestData,
+      nonce: BigInt(Date.now()),
+    });
+
+    return {
+      batchId,
+      transfersRoot,
+      transferCount: transfers.length,
+      attestation,
+    };
+  }
+
+  /**
+   * Get manager status
+   */
+  async getStatus(): Promise<{
+    initialized: boolean;
+    provider: TEEProvider;
+    environment: TEEEnvironment | null;
+    providerStatus: Awaited<ReturnType<ITEEProvider['getStatus']>> | null;
+  }> {
+    return {
+      initialized: this.initialized,
+      provider: this.provider?.provider ?? 'mock',
+      environment: this.environment,
+      providerStatus: this.provider ? await this.provider.getStatus() : null,
+    };
+  }
+
+  // =============================================================================
+  // PRIVATE METHODS
+  // =============================================================================
+
+  private async detectEnvironment(): Promise<TEEEnvironment> {
+    // Check AWS Nitro
+    const awsEnv = await this.detectAWS();
+    if (awsEnv.inTEE) {
+      return awsEnv;
+    }
+
+    // Check GCP Confidential
+    const gcpEnv = await this.detectGCP();
+    if (gcpEnv.inTEE) {
+      return gcpEnv;
+    }
+
+    // Check Phala
+    if (process.env.PHALA_ENDPOINT) {
+      return {
+        provider: 'phala',
+        inTEE: false, // We're not IN the TEE, just using it
+        capabilities: ['attestation', 'key_gen'],
+        details: {
+          platform: 'phala',
+        },
+      };
+    }
+
+    // Default to mock
+    return {
+      provider: 'mock',
+      inTEE: false,
+      capabilities: ['attestation', 'key_gen'],
+      details: {
+        platform: 'local',
+      },
+    };
+  }
+
+  private async detectAWS(): Promise<TEEEnvironment> {
+    const env: TEEEnvironment = {
+      provider: 'aws',
+      inTEE: false,
+      capabilities: [],
+      details: {},
+    };
+
+    try {
+      // Check IMDS
+      const response = await fetch(
+        'http://169.254.169.254/latest/meta-data/instance-id',
+        { signal: AbortSignal.timeout(1000) }
+      );
+
+      if (response.ok) {
+        env.details.instanceId = await response.text();
+        env.details.platform = 'aws';
+
+        // Check for Nitro
+        const { existsSync } = await import('fs');
+        if (existsSync('/dev/nsm') || process.env.AWS_ENCLAVE_ID) {
+          env.inTEE = true;
+          env.capabilities = ['attestation', 'key_gen', 'persistent'];
+          env.details.enclaveId = process.env.AWS_ENCLAVE_ID;
+        }
+
+        // Get region
+        const regionResp = await fetch(
+          'http://169.254.169.254/latest/meta-data/placement/region',
+          { signal: AbortSignal.timeout(1000) }
+        );
+        if (regionResp.ok) {
+          env.details.region = await regionResp.text();
+        }
+      }
+    } catch {
+      // Not in AWS
+    }
+
+    return env;
+  }
+
+  private async detectGCP(): Promise<TEEEnvironment> {
+    const env: TEEEnvironment = {
+      provider: 'gcp',
+      inTEE: false,
+      capabilities: [],
+      details: {},
+    };
+
+    try {
+      const response = await fetch(
+        'http://metadata.google.internal/computeMetadata/v1/instance/id',
+        {
+          headers: { 'Metadata-Flavor': 'Google' },
+          signal: AbortSignal.timeout(1000),
+        }
+      );
+
+      if (response.ok) {
+        env.details.instanceId = await response.text();
+        env.details.platform = 'gcp';
+
+        // Check for Confidential VM
+        const attrsResp = await fetch(
+          'http://metadata.google.internal/computeMetadata/v1/instance/attributes/',
+          {
+            headers: { 'Metadata-Flavor': 'Google' },
+            signal: AbortSignal.timeout(1000),
+          }
+        );
+
+        if (attrsResp.ok) {
+          const attrs = await attrsResp.text();
+          if (
+            attrs.includes('confidential-compute') ||
+            attrs.includes('enable-vtpm')
+          ) {
+            env.inTEE = true;
+            env.capabilities = ['attestation', 'key_gen'];
+
+            // Check for GPU
+            const machineResp = await fetch(
+              'http://metadata.google.internal/computeMetadata/v1/instance/machine-type',
+              {
+                headers: { 'Metadata-Flavor': 'Google' },
+                signal: AbortSignal.timeout(1000),
+              }
+            );
+            if (machineResp.ok) {
+              const machineType = await machineResp.text();
+              if (machineType.includes('a3-')) {
+                env.capabilities.push('gpu');
+              }
+            }
+          }
+        }
+
+        // Get zone
+        const zoneResp = await fetch(
+          'http://metadata.google.internal/computeMetadata/v1/instance/zone',
+          {
+            headers: { 'Metadata-Flavor': 'Google' },
+            signal: AbortSignal.timeout(1000),
+          }
+        );
+        if (zoneResp.ok) {
+          const zone = await zoneResp.text();
+          env.details.region = zone.split('/').pop();
+        }
+      }
+    } catch {
+      // Not in GCP
+    }
+
+    return env;
+  }
+
+  private async selectProvider(): Promise<ITEEProvider> {
+    const requested = this.config.provider;
+
+    // If specific provider requested
+    if (requested !== 'auto') {
+      return this.createProvider(requested);
+    }
+
+    // Auto-select based on environment
+    if (!this.environment) {
+      return createMockProvider();
+    }
+
+    return this.createProvider(this.environment.provider);
+  }
+
+  private createProvider(provider: TEEProvider): ITEEProvider {
+    switch (provider) {
+      case 'aws':
+        return createAWSNitroProvider({
+          region: this.config.awsRegion,
+        });
+
+      case 'gcp':
+        return createGCPConfidentialProvider({
+          project: this.config.gcpProject ?? '',
+          zone: this.config.gcpZone,
+        });
+
+      case 'phala':
+        // Wrap PhalaClient to match ITEEProvider interface
+        return new PhalaProviderAdapter(this.config);
+
+      case 'mock':
+      default:
+        return createMockProvider();
+    }
+  }
+
+  private computeMerkleRoot(leaves: Hash32[]): Hash32 {
+    if (leaves.length === 0) {
+      return toHash32(new Uint8Array(32));
+    }
+
+    if (leaves.length === 1) {
+      return leaves[0];
+    }
+
+    let currentLevel: Uint8Array[] = leaves.map((h) => new Uint8Array(h));
+
+    while (currentLevel.length > 1) {
+      const nextLevel: Uint8Array[] = [];
+
+      for (let i = 0; i < currentLevel.length; i += 2) {
+        const left = currentLevel[i];
+        const right = currentLevel[i + 1] ?? currentLevel[i];
+
+        const combined = new Uint8Array(64);
+        combined.set(left, 0);
+        combined.set(right, 32);
+
+        const hash = keccak256(combined);
+        nextLevel.push(Buffer.from(hash.slice(2), 'hex'));
+      }
+
+      currentLevel = nextLevel;
+    }
+
+    return toHash32(currentLevel[0]);
+  }
+}
+
+// =============================================================================
+// PHALA ADAPTER
+// =============================================================================
+
+class PhalaProviderAdapter implements ITEEProvider {
+  readonly provider: TEEProvider = 'phala';
+  readonly capabilities: TEECapability[] = ['attestation', 'key_gen'];
+
+  private client: PhalaClient;
+  private config: TEEProviderConfig;
+
+  constructor(config: TEEProviderConfig) {
+    this.config = config;
+    this.client = createPhalaClient({
+      endpoint: config.endpoint,
+      apiKey: config.apiKey,
+      timeoutMs: config.timeoutMs,
+    });
+  }
+
+  async initialize(): Promise<void> {
+    await this.client.initialize();
+  }
+
+  async isAvailable(): Promise<boolean> {
+    return Boolean(this.config.endpoint ?? process.env.PHALA_ENDPOINT);
+  }
+
+  async requestAttestation(
+    request: AttestationRequest
+  ): Promise<AttestationResponse> {
+    const response = await this.client.requestAttestation({
+      data: request.data,
+      operatorAddress: '0x0000000000000000000000000000000000000000',
+      nonce: request.nonce,
+    });
+
+    return {
+      quote: response.quote,
+      measurement: response.mrEnclave,
+      reportData: response.reportData,
+      signature: response.signature,
+      timestamp: response.timestamp,
+      enclaveId: response.enclaveId,
+      provider: 'phala',
+    };
+  }
+
+  async verifyAttestation(
+    attestation: AttestationResponse
+  ): Promise<AttestationVerification> {
+    const result = await this.client.verifyAttestation({
+      quote: attestation.quote,
+      mrEnclave: attestation.measurement,
+      reportData: attestation.reportData,
+      signature: attestation.signature,
+      timestamp: attestation.timestamp,
+      enclaveId: attestation.enclaveId,
+    });
+
+    return {
+      valid: result.valid,
+      provider: 'phala',
+      measurement: attestation.measurement,
+      timestamp: attestation.timestamp,
+      errors: result.errors,
+    };
+  }
+
+  toTEEAttestation(attestation: AttestationResponse): TEEAttestation {
+    return {
+      measurement: toHash32(
+        Buffer.from(attestation.measurement.slice(2), 'hex')
+      ),
+      quote: attestation.quote,
+      publicKey: attestation.publicKey ?? new Uint8Array(33),
+      timestamp: BigInt(attestation.timestamp),
+    };
+  }
+
+  async getStatus(): Promise<{
+    available: boolean;
+    enclaveId?: string;
+    capabilities: TEECapability[];
+    lastAttestationTime?: number;
+  }> {
+    return {
+      available: await this.isAvailable(),
+      capabilities: this.capabilities,
+    };
+  }
+}
+
+// =============================================================================
+// FACTORY
+// =============================================================================
+
+let globalManager: TEEManager | null = null;
+
+export function getTEEManager(config?: Partial<TEEProviderConfig>): TEEManager {
+  if (!globalManager) {
+    globalManager = new TEEManager(config);
+  }
+  return globalManager;
+}
+
+export function createTEEManager(
+  config?: Partial<TEEProviderConfig>
+): TEEManager {
+  return new TEEManager(config);
+}
+
+export function resetTEEManager(): void {
+  globalManager = null;
+}

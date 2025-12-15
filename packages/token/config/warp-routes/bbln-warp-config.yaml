@@ -1,0 +1,28 @@
+# BBLN Token Warp Route Configuration
+# Base Sepolia (collateral) <-> Solana Devnet (synthetic)
+#
+# Deploy with:
+#   cd packages/experimental-token
+#   export HYP_KEY=0x<your_private_key>
+#   hyperlane warp deploy --config config/warp-routes/bbln-warp-config.yaml -y
+#
+# The BBLN ERC-20 token on Base Sepolia will be locked as collateral,
+# and synthetic BBLN SPL tokens will be minted on Solana Devnet
+
+# Base Sepolia - Collateral token (home chain)
+basesepolia:
+  type: collateral
+  token: "0x3586d05d61523c81d2d79c4e1132ffa1b3bcad5f"
+  owner: "0x748D2E8439c81bFD56756B5d4983EE4565b1E62C"
+  mailbox: "0x6966b0E55883d49BFB24539356a2f8A673E02039"
+  interchainGasPaymaster: "0x28B02B97a850872C4D33C3E024fab6499ad96564"
+  isNft: false
+
+# Solana Devnet - Synthetic token
+solanadevnet:
+  type: synthetic
+  name: "Babylon"
+  symbol: "BBLN"
+  decimals: 9
+  mailbox: "E588QtVUvresuXq2KoNEwAmoifCzYGpRBdHByN9KQMbi"
+  interchainGasPaymaster: "3TJMcAhHRE7JN98URK7s5eeGfmVSvL4GAgegPq5K2nYg"

@@ -1,0 +1,11 @@
+[workspace]
+members = [
+    "evm-light-client",
+    "token-bridge",
+]
+resolver = "2"
+
+[workspace.dependencies]
+anchor-lang = "0.30.0"
+anchor-spl = "0.30.0"
+solana-program = "1.18"

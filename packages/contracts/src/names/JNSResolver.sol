@@ -415,4 +415,3 @@ contract JNSResolver is IJNSResolver {
         return interfaceId == type(IJNSResolver).interfaceId || interfaceId == 0x01ffc9a7; // EIP-165
     }
 }
-

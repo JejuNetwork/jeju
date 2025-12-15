@@ -14,12 +14,15 @@ import {
   recordSettlementFailed,
   updatePendingSettlements,
 } from './metrics';
+import { ExternalProtocolAggregator, type ExternalOpportunity } from './external';
 
 interface SolverConfig {
   chains: Array<{ chainId: number; name: string; rpcUrl: string }>;
   minProfitBps: number;
   maxGasPrice: bigint;
   maxIntentSize: string;
+  enableExternalProtocols?: boolean;
+  isTestnet?: boolean;
 }
 
 interface PendingSettlement {
@@ -43,10 +46,12 @@ export class SolverAgent {
   private liquidity: LiquidityManager;
   private strategy: StrategyEngine;
   private monitor: EventMonitor;
+  private externalAggregator: ExternalProtocolAggregator | null = null;
   private clients = new Map<number, { public: PublicClient; wallet?: WalletClient }>();
   private pending = new Map<string, Promise<void>>();
   private pendingSettlements = new Map<string, PendingSettlement>();
   private settlementTimer: ReturnType<typeof setInterval> | null = null;
+  private externalProcessingTimer: ReturnType<typeof setInterval> | null = null;
   private running = false;
 
   constructor(config: SolverConfig, liquidity: LiquidityManager, strategy: StrategyEngine, monitor: EventMonitor) {
@@ -74,6 +79,29 @@ export class SolverAgent {
     this.monitor.on('intent', (e: IntentEvent) => this.handleIntent(e));
     await this.monitor.start(this.clients);
     this.startSettlementWatcher();
+
+    // Initialize external protocol aggregator for permissionless revenue (no API keys needed)
+    if (this.config.enableExternalProtocols !== false) {
+      this.externalAggregator = new ExternalProtocolAggregator(
+        {
+          chains: this.config.chains,
+          minProfitBps: this.config.minProfitBps,
+          isTestnet: this.config.isTestnet,
+          enableAcross: true,
+          enableUniswapX: true,
+          enableCow: true,
+        },
+        this.clients
+      );
+
+      this.externalAggregator.on('opportunity', (opp: ExternalOpportunity) => {
+        this.handleExternalOpportunity(opp);
+      });
+
+      await this.externalAggregator.start();
+      this.startExternalProcessing();
+    }
+
     this.running = true;
   }
 
@@ -83,8 +111,69 @@ export class SolverAgent {
       clearInterval(this.settlementTimer);
       this.settlementTimer = null;
     }
+    if (this.externalProcessingTimer) {
+      clearInterval(this.externalProcessingTimer);
+      this.externalProcessingTimer = null;
+    }
     await this.monitor.stop();
+    await this.externalAggregator?.stop();
     await Promise.all(this.pending.values());
+  }
+
+  private startExternalProcessing(): void {
+    // Process external opportunities every 2 seconds
+    this.externalProcessingTimer = setInterval(() => this.processExternalOpportunities(), 2000);
+  }
+
+  private async processExternalOpportunities(): Promise<void> {
+    if (!this.externalAggregator) return;
+
+    const opportunities = this.externalAggregator.getOpportunities(this.config.minProfitBps);
+    
+    // Process top 3 opportunities per cycle
+    for (const opp of opportunities.slice(0, 3)) {
+      if (this.pending.has(opp.id)) continue;
+
+      const promise = this.fillExternalOpportunity(opp);
+      this.pending.set(opp.id, promise);
+      await promise;
+      this.pending.delete(opp.id);
+    }
+  }
+
+  private async handleExternalOpportunity(opp: ExternalOpportunity): Promise<void> {
+    console.log(`\n💰 External ${opp.type}: ${opp.id.slice(0, 20)}... | ${opp.expectedProfitBps} bps`);
+  }
+
+  private async fillExternalOpportunity(opp: ExternalOpportunity): Promise<void> {
+    // Check liquidity
+    const destChain = opp.destinationChainId ?? opp.chainId;
+    if (!(await this.liquidity.hasLiquidity(destChain, opp.outputToken, opp.outputAmount.toString()))) {
+      console.log(`   ❌ Insufficient liquidity for ${opp.type} opportunity`);
+      return;
+    }
+
+    // Check gas price
+    const client = this.clients.get(destChain);
+    if (client) {
+      const gasPrice = await client.public.getGasPrice();
+      if (gasPrice > this.config.maxGasPrice) {
+        console.log(`   ❌ Gas too high for ${opp.type} opportunity`);
+        return;
+      }
+    }
+
+    console.log(`   🔄 Filling ${opp.type} opportunity: ${opp.id.slice(0, 20)}...`);
+    
+    const result = await this.externalAggregator!.fill(opp);
+    
+    if (result.success) {
+      console.log(`   ✅ ${opp.type} fill success: ${result.txHash}`);
+      await this.liquidity.recordFill(destChain, opp.outputToken, opp.outputAmount.toString());
+      recordIntentFilled(opp.chainId, destChain, 0, 0n);
+    } else {
+      console.log(`   ❌ ${opp.type} fill failed: ${result.error}`);
+    }
   }
 
   private startSettlementWatcher(): void {

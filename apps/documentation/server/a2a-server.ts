@@ -48,7 +48,7 @@ app.use(express.json());
 
 const AGENT_CARD = {
   protocolVersion: '0.3.0',
-  name: getNetworkName() Documentation',
+  name: `${getNetworkName()} Documentation`,
   description: 'Search and query the network documentation programmatically',
   url: `http://localhost:${PORT}/api/a2a`,
   preferredTransport: 'http',

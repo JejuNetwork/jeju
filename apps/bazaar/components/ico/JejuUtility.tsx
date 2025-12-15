@@ -12,7 +12,7 @@ const ICONS: Record<string, string> = {
   globe: '🌐',
 }
 
-export function the networkUtility() {
+export function JejuUtility() {
   return (
     <div className="card p-6">
       <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>

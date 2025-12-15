@@ -9,12 +9,15 @@ import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 
 interface IFeeConfigX402 {
-    function getMarketplaceFees() external view returns (
-        uint16 bazaarPlatformFeeBps,
-        uint16 launchpadCreatorFeeBps,
-        uint16 launchpadCommunityFeeBps,
-        uint16 x402ProtocolFeeBps
-    );
+    function getMarketplaceFees()
+        external
+        view
+        returns (
+            uint16 bazaarPlatformFeeBps,
+            uint16 launchpadCreatorFeeBps,
+            uint16 launchpadCommunityFeeBps,
+            uint16 x402ProtocolFeeBps
+        );
     function getTreasury() external view returns (address);
 }
 
@@ -478,11 +481,11 @@ contract X402Facilitator is Ownable, ReentrancyGuard, EIP712 {
     /**
      * @notice Get protocol fee statistics
      */
-    function getProtocolFeeStats() external view returns (
-        uint256 _totalProtocolFees,
-        uint256 _currentFeeBps,
-        address _recipient
-    ) {
+    function getProtocolFeeStats()
+        external
+        view
+        returns (uint256 _totalProtocolFees, uint256 _currentFeeBps, address _recipient)
+    {
         return (totalProtocolFees, _getProtocolFeeBps(), _getFeeRecipient());
     }
 

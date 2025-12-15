@@ -15,7 +15,7 @@ async function main() {
   
   console.log(`
 ┌─────────────────────────────────────────┐
-│  Network Indexer API Servers Running       │
+│   Network Indexer API Servers Running   │
 ├─────────────────────────────────────────┤
 │  GraphQL: http://localhost:4350/graphql │
 │  REST:    http://localhost:4352         │

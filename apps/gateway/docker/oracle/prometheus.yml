@@ -1,0 +1,23 @@
+# Prometheus configuration for Jeju Oracle Node
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+rule_files:
+  # Add alert rules here
+
+scrape_configs:
+  - job_name: 'jeju-oracle'
+    static_configs:
+      - targets: ['oracle:9090']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

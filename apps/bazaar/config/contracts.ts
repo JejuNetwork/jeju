@@ -5,8 +5,11 @@ import {
   getBazaarMarketplace,
   getERC20Factory,
   getXLPDeployment,
+  getLaunchpadDeployment,
+  getTokenLaunchpad,
   bazaarMarketplaceDeployments,
   erc20FactoryDeployments,
+  launchpadDeployments,
   ZERO_ADDRESS,
   isValidAddress,
   type ChainId,
@@ -52,6 +55,14 @@ export interface GameContracts {
 
 export interface TokenFactoryContracts {
   erc20Factory: Address
+}
+
+export interface LaunchpadContracts {
+  tokenLaunchpad: Address
+  lpLocker?: Address
+  weth?: Address
+  xlpV2Factory?: Address
+  communityVault?: Address
 }
 
 function buildV4Contracts(chainId: ChainId): V4Contracts {
@@ -104,6 +115,22 @@ export const TOKEN_FACTORY_CONTRACTS: Record<number, TokenFactoryContracts> = {
   [JEJU_CHAIN_ID]: buildTokenFactoryContracts(420691),
 }
 
+function buildLaunchpadContracts(chainId: ChainId): LaunchpadContracts {
+  const launchpad = getLaunchpadDeployment(chainId)
+  return {
+    tokenLaunchpad: (getTokenLaunchpad(chainId) || ZERO_ADDRESS) as Address,
+    lpLocker: launchpad.lpLockerTemplate as Address | undefined,
+    weth: launchpad.weth as Address | undefined,
+    xlpV2Factory: launchpad.xlpV2Factory as Address | undefined,
+    communityVault: launchpad.defaultCommunityVault as Address | undefined,
+  }
+}
+
+export const LAUNCHPAD_CONTRACTS: Record<number, LaunchpadContracts> = {
+  1337: buildLaunchpadContracts(1337),
+  [JEJU_CHAIN_ID]: buildLaunchpadContracts(420691),
+}
+
 export function getV4Contracts(chainId: number): V4Contracts {
   const contracts = V4_CONTRACTS[chainId]
   if (!contracts) {
@@ -134,6 +161,15 @@ export function getTokenFactoryContracts(chainId: number): TokenFactoryContracts
 export function hasTokenFactory(chainId: number): boolean {
   const contracts = getTokenFactoryContracts(chainId)
   return !!contracts?.erc20Factory && isValidAddress(contracts.erc20Factory)
+}
+
+export function getLaunchpadContracts(chainId: number): LaunchpadContracts | undefined {
+  return LAUNCHPAD_CONTRACTS[chainId]
+}
+
+export function hasLaunchpad(chainId: number): boolean {
+  const contracts = getLaunchpadContracts(chainId)
+  return !!contracts?.tokenLaunchpad && isValidAddress(contracts.tokenLaunchpad)
 }
 
 // XLP AMM Contracts (V2 + V3) - loaded from deployments

@@ -4,8 +4,11 @@ set -e
 # CovenantSQL Node Setup Script
 # Environment: ${environment}
 # Node Count: ${node_count}
+# Architecture: ${architecture}
+# Image: ${cql_image}
 
 echo "Starting CovenantSQL node setup..."
+echo "Architecture: ${architecture}"
 
 # Install dependencies
 yum update -y
@@ -26,10 +29,11 @@ if [ -b /dev/xvdf ]; then
   echo '/dev/xvdf /data/covenantsql xfs defaults,nofail 0 2' >> /etc/fstab
 fi
 
-# Get instance metadata
-INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-PRIVATE_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
-AZ=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
+# Get instance metadata (IMDSv2)
+TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id)
+PRIVATE_IP=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/local-ipv4)
+AZ=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/placement/availability-zone)
 REGION=$(echo $AZ | sed 's/[a-z]$//')
 
 # Get node index from tags
@@ -57,6 +61,7 @@ mkdir -p /data/covenantsql/data
 cat > /data/covenantsql/config/config.yaml << EOF
 # CovenantSQL Node Configuration
 # Generated for ${environment} environment
+# Architecture: ${architecture}
 
 IsTestNet: $([ "${environment}" == "testnet" ] && echo "true" || echo "false")
 
@@ -124,8 +129,10 @@ chmod 600 /data/covenantsql/config/private.key
 # Create logs directory
 mkdir -p /data/covenantsql/logs
 
-# Pull and run CovenantSQL container
-docker pull covenantsql/covenantsql:latest
+# Pull the CovenantSQL image (supports ARM64 and x86_64)
+CQL_IMAGE="${cql_image}"
+echo "Pulling CovenantSQL image: $CQL_IMAGE"
+docker pull $CQL_IMAGE
 
 # Create systemd service for CovenantSQL
 cat > /etc/systemd/system/covenantsql.service << EOF
@@ -149,7 +156,7 @@ ExecStart=/usr/bin/docker run --name covenantsql \
   -v /data/covenantsql/config:/config:ro \
   -v /data/covenantsql/data:/data \
   -v /data/covenantsql/logs:/logs \
-  covenantsql/covenantsql:latest \
+  $CQL_IMAGE \
   -config /config/config.yaml
 ExecStop=/usr/bin/docker stop covenantsql
 
@@ -199,7 +206,8 @@ cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << EOF
     "append_dimensions": {
       "InstanceId": "$INSTANCE_ID",
       "NodeIndex": "$NODE_INDEX",
-      "Environment": "${environment}"
+      "Environment": "${environment}",
+      "Architecture": "${architecture}"
     }
   }
 }
@@ -211,7 +219,7 @@ systemctl start amazon-cloudwatch-agent
 echo "CovenantSQL node setup complete."
 echo "Node: $NODE_INDEX"
 echo "IP: $PRIVATE_IP"
+echo "Architecture: ${architecture}"
+echo "Image: $CQL_IMAGE"
 echo "Client Port: 4661"
 echo "HTTP API: 8546"
-
-

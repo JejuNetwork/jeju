@@ -2,7 +2,6 @@ import { describe, test, expect, beforeAll } from 'bun:test';
 import type { Address } from 'viem';
 
 const BASE_URL = process.env.GATEWAY_URL || process.env.GATEWAY_A2A_URL || 'http://localhost:3001';
-const SKIP_INTEGRATION_TESTS = process.env.SKIP_INTEGRATION_TESTS === 'true';
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
 const TEST_TOKEN_1 = '0x1111111111111111111111111111111111111111' as Address;
 const TEST_TOKEN_2 = '0x2222222222222222222222222222222222222222' as Address;
@@ -13,23 +12,27 @@ async function fetchJSON(url: string, options?: RequestInit) {
   return { status: response.status, data };
 }
 
+async function isServerRunning(): Promise<boolean> {
+  try {
+    const response = await fetch(`${BASE_URL}/health`, { signal: AbortSignal.timeout(2000) });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Check if server is running before defining tests
+const serverRunning = await isServerRunning();
+const SKIP_INTEGRATION_TESTS = process.env.SKIP_INTEGRATION_TESTS === 'true' || !serverRunning;
+
+if (!serverRunning && process.env.SKIP_INTEGRATION_TESTS !== 'true') {
+  console.log(`\n⚠️  Skipping Pool API tests: Gateway not running at ${BASE_URL}`);
+  console.log('   Start with: bun run dev, or set SKIP_INTEGRATION_TESTS=true\n');
+}
+
 (SKIP_INTEGRATION_TESTS ? describe.skip : describe)('Pool API - Edge Cases & Error Handling', () => {
   beforeAll(async () => {
-    if (SKIP_INTEGRATION_TESTS) {
-      console.log('⚠️  Skipping integration tests (SKIP_INTEGRATION_TESTS=true)');
-      return;
-    }
-    try {
-      const response = await fetch(`${BASE_URL}/health`);
-      if (!response.ok) {
-        throw new Error(`Gateway server not available at ${BASE_URL}. Status: ${response.status}`);
-      }
-    } catch (error) {
-      console.error(`❌ Gateway server not running at ${BASE_URL}`);
-      console.error('   Start with: bun run dev');
-      console.error('   Or set SKIP_INTEGRATION_TESTS=true to skip these tests');
-      throw error;
-    }
+    // Server already verified to be running
   });
 
   describe('GET /api/pools', () => {

@@ -1,0 +1,77 @@
+{
+  "mode": "mainnet",
+  "components": {
+    "relayer": true,
+    "prover": true,
+    "beaconWatcher": true,
+    "healthMonitor": true
+  },
+  "ports": {
+    "relayer": 8081,
+    "prover": 8082,
+    "health": 8083
+  },
+  "chains": {
+    "evm": [
+      {
+        "chainId": 1,
+        "name": "Ethereum",
+        "rpcUrl": "${ETH_RPC}",
+        "beaconUrl": "${BEACON_URL}",
+        "bridgeAddress": "${ETH_BRIDGE_ADDRESS}",
+        "lightClientAddress": "${ETH_LIGHT_CLIENT_ADDRESS}"
+      },
+      {
+        "chainId": 8453,
+        "name": "Base",
+        "rpcUrl": "${BASE_RPC}",
+        "bridgeAddress": "${BASE_BRIDGE_ADDRESS}",
+        "lightClientAddress": "${BASE_LIGHT_CLIENT_ADDRESS}"
+      },
+      {
+        "chainId": 42161,
+        "name": "Arbitrum One",
+        "rpcUrl": "${ARBITRUM_RPC}",
+        "bridgeAddress": "${ARBITRUM_BRIDGE_ADDRESS}",
+        "lightClientAddress": "${ARBITRUM_LIGHT_CLIENT_ADDRESS}"
+      },
+      {
+        "chainId": 10,
+        "name": "Optimism",
+        "rpcUrl": "${OPTIMISM_RPC}",
+        "bridgeAddress": "${OPTIMISM_BRIDGE_ADDRESS}",
+        "lightClientAddress": "${OPTIMISM_LIGHT_CLIENT_ADDRESS}"
+      },
+      {
+        "chainId": 56,
+        "name": "BNB Chain",
+        "rpcUrl": "${BSC_RPC}",
+        "bridgeAddress": "${BSC_BRIDGE_ADDRESS}",
+        "lightClientAddress": "${BSC_LIGHT_CLIENT_ADDRESS}"
+      }
+    ],
+    "solana": {
+      "network": "mainnet-beta",
+      "rpcUrl": "${SOLANA_RPC}",
+      "bridgeProgramId": "${BRIDGE_PROGRAM_ID}",
+      "evmLightClientProgramId": "${EVM_LIGHT_CLIENT_PROGRAM_ID}"
+    }
+  },
+  "tee": {
+    "endpoint": "${TEE_ENDPOINT}",
+    "maxBatchSize": 50,
+    "batchTimeoutMs": 120000
+  },
+  "prover": {
+    "mode": "self-hosted",
+    "workers": 8,
+    "maxMemoryMb": 32768,
+    "timeoutMs": 900000,
+    "useMockProofs": false
+  },
+  "security": {
+    "multisigRequired": true,
+    "minValidators": 3,
+    "validatorThreshold": 2
+  }
+}

@@ -5,6 +5,7 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { getNetworkName } from '@jejunetwork/config';
 
 const COUNCIL_URL = 'http://localhost:8010';
 const CEO_URL = 'http://localhost:8004';
@@ -15,7 +16,7 @@ test.describe('Service Discovery', () => {
     expect(response.ok()).toBeTruthy();
     
     const card = await response.json();
-    expect(card.name: getNetworkName() AI Council');
+    expect(card.name).toBe(`${getNetworkName()} AI Council`);
     expect(card.url).toBe('/a2a');
     expect(card.skills).toBeDefined();
     expect(Array.isArray(card.skills)).toBe(true);

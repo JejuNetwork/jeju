@@ -1,0 +1,18 @@
+{
+  "network": "Hardhat",
+  "chainId": 31337,
+  "addresses": {
+    "token": "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
+    "vesting": "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
+    "airdrop": "0x0165878A594ca255338adfa4d48449f69242Eb8F",
+    "feeDistributor": "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853",
+    "ccaLauncher": "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6"
+  },
+  "txHashes": [
+    "0x5f9d37030dad5cf22f60c322ac60ed371a1c4eb2f5530b6d1dbfe3bc3390a75f",
+    "0x281f7b7b06bb553c43bc75376b4c6983ec307ac3750f925d3de305e1da5a0549",
+    "0x02c439ae987392c2846271eeb9a1f53170a03654872450d61a945484f39b735d",
+    "0x6c446c07415f2f98bcd6aa98e4206e17c965fd36e7c68f46f5ed85c4d7b7d9c4",
+    "0xa8cb14d555229c2ffca0535a9d4b79664ed33c9c3641e3992fcb33058d8bf127"
+  ]
+}

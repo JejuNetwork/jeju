@@ -28,8 +28,10 @@ const SWAP_SELECTORS = {
   swapETHForExactTokens: '0xfb3bdb41',
 };
 
-const MIN_VICTIM_AMOUNT = BigInt(1e17);
-const MAX_VICTIM_IMPACT_BPS = 100;
+// Profitability analysis shows sandwich needs >25 ETH victim to be profitable at 30 gwei
+// See arbitrage-simulation.test.ts for detailed calculations
+const MIN_VICTIM_AMOUNT = BigInt(25e18); // 25 ETH minimum (~$75k at $3000/ETH)
+const MAX_VICTIM_IMPACT_BPS = 100; // Cap victim impact at 1%
 const OPPORTUNITY_TTL_MS = 1000;
 
 export class SandwichStrategy {

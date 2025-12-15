@@ -1,8 +1,8 @@
 /**
- * CovenantSQL Adapter - Decentralized storage database with memory fallback.
+ * CovenantSQL Adapter - Decentralized storage database.
  * 
- * WARNING: Memory mode is NOT persistent. Data is lost on restart.
- * Set CQL_BLOCK_PRODUCER_ENDPOINT for production use.
+ * DECENTRALIZED: No fallbacks in production - CQL is required.
+ * Set CQL_BLOCK_PRODUCER_ENDPOINT for storage operations.
  */
 
 export interface CQLConfig {
@@ -11,7 +11,7 @@ export interface CQLConfig {
   privateKey: string;
   timeout: number;
   logging: boolean;
-  /** If true, throw instead of falling back to memory mode */
+  /** If true, throw instead of falling back. Default: true in production */
   strictMode: boolean;
 }
 
@@ -45,17 +45,29 @@ export class CQLDatabase {
   private mode: 'cql' | 'memory';
 
   constructor(config?: Partial<CQLConfig>) {
+    // Default to strict mode in production (NODE_ENV !== 'test')
+    const isProduction = process.env.NODE_ENV !== 'test' && process.env.CQL_STRICT_MODE !== 'false';
+    
     this.config = {
       blockProducerEndpoint: config?.blockProducerEndpoint ?? process.env.CQL_BLOCK_PRODUCER_ENDPOINT ?? '',
       databaseId: config?.databaseId ?? process.env.CQL_DATABASE_ID ?? '',
       privateKey: config?.privateKey ?? process.env.CQL_PRIVATE_KEY ?? '',
       timeout: config?.timeout ?? 30000,
       logging: config?.logging ?? process.env.CQL_LOGGING === 'true',
-      strictMode: config?.strictMode ?? process.env.CQL_STRICT_MODE === 'true',
+      strictMode: config?.strictMode ?? isProduction,
     };
     this.mode = this.config.blockProducerEndpoint ? 'cql' : 'memory';
     
     if (this.mode === 'memory') {
+      if (this.config.strictMode) {
+        throw new Error(
+          'Storage requires CovenantSQL for decentralized persistence.\n' +
+          'Set CQL_BLOCK_PRODUCER_ENDPOINT environment variable or start stack:\n' +
+          '  docker compose up -d\n' +
+          '\n' +
+          'Or set CQL_STRICT_MODE=false for testing only (data will NOT persist).'
+        );
+      }
       console.warn('[CQL] WARNING: No CQL_BLOCK_PRODUCER_ENDPOINT configured. Using in-memory storage.');
       console.warn('[CQL] WARNING: Data will NOT persist across restarts.');
     }

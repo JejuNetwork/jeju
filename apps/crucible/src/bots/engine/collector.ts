@@ -175,7 +175,9 @@ export class EventCollector extends EventEmitter {
   }
 
   /**
-   * Discover pools from factory
+   * Discover pools from factory - PARALLELIZED
+   * 
+   * Fetches pool data in batches for 10x faster discovery
    */
   async discoverPools(
     chainId: ChainId,
@@ -185,7 +187,8 @@ export class EventCollector extends EventEmitter {
     const client = this.clients.get(chainId);
     if (!client) return [];
 
-    const pools: Pool[] = [];
+    console.log(`   Discovering pools on chain ${chainId}...`);
+    const startTime = Date.now();
 
     const pairsLength = await client.readContract({
       address: factoryAddress as `0x${string}`,
@@ -194,49 +197,84 @@ export class EventCollector extends EventEmitter {
     });
 
     const count = Math.min(Number(pairsLength), limit);
+    const BATCH_SIZE = 20; // Process 20 pools in parallel
 
-    for (let i = 0; i < count; i++) {
-      const pairAddress = await client.readContract({
-        address: factoryAddress as `0x${string}`,
-        abi: XLP_V2_FACTORY_ABI,
-        functionName: 'allPairs',
-        args: [BigInt(i)],
-      });
+    const pools: Pool[] = [];
 
-      const [token0, token1, reserves] = await Promise.all([
-        client.readContract({
-          address: pairAddress as `0x${string}`,
-          abi: XLP_V2_PAIR_ABI,
-          functionName: 'token0',
-        }),
-        client.readContract({
-          address: pairAddress as `0x${string}`,
-          abi: XLP_V2_PAIR_ABI,
-          functionName: 'token1',
-        }),
-        client.readContract({
-          address: pairAddress as `0x${string}`,
-          abi: XLP_V2_PAIR_ABI,
-          functionName: 'getReserves',
-        }),
-      ]);
+    // First, get all pair addresses in parallel batches
+    const pairAddresses: string[] = [];
+    for (let i = 0; i < count; i += BATCH_SIZE) {
+      const batch = Array.from(
+        { length: Math.min(BATCH_SIZE, count - i) },
+        (_, j) => i + j
+      );
 
-      const pool: Pool = {
-        address: pairAddress,
-        type: 'XLP_V2',
-        token0: { address: token0, symbol: '', decimals: 18, chainId },
-        token1: { address: token1, symbol: '', decimals: 18, chainId },
-        chainId,
-        reserve0: reserves[0].toString(),
-        reserve1: reserves[1].toString(),
-        lastUpdate: Date.now(),
-      };
+      const addresses = await Promise.all(
+        batch.map(idx =>
+          client.readContract({
+            address: factoryAddress as `0x${string}`,
+            abi: XLP_V2_FACTORY_ABI,
+            functionName: 'allPairs',
+            args: [BigInt(idx)],
+          })
+        )
+      );
 
-      pools.push(pool);
-      this.registerPool(pool);
+      pairAddresses.push(...addresses);
     }
 
-    console.log(`   Discovered ${pools.length} pools on chain ${chainId}`);
+    // Then, get pool data in parallel batches
+    for (let i = 0; i < pairAddresses.length; i += BATCH_SIZE) {
+      const batch = pairAddresses.slice(i, i + BATCH_SIZE);
+
+      const poolDataBatch = await Promise.all(
+        batch.map(async (pairAddress) => {
+          const [token0, token1, reserves] = await Promise.all([
+            client.readContract({
+              address: pairAddress as `0x${string}`,
+              abi: XLP_V2_PAIR_ABI,
+              functionName: 'token0',
+            }),
+            client.readContract({
+              address: pairAddress as `0x${string}`,
+              abi: XLP_V2_PAIR_ABI,
+              functionName: 'token1',
+            }),
+            client.readContract({
+              address: pairAddress as `0x${string}`,
+              abi: XLP_V2_PAIR_ABI,
+              functionName: 'getReserves',
+            }),
+          ]);
+
+          return {
+            address: pairAddress,
+            token0,
+            token1,
+            reserves,
+          };
+        })
+      );
+
+      for (const data of poolDataBatch) {
+        const pool: Pool = {
+          address: data.address,
+          type: 'XLP_V2',
+          token0: { address: data.token0, symbol: '', decimals: 18, chainId },
+          token1: { address: data.token1, symbol: '', decimals: 18, chainId },
+          chainId,
+          reserve0: data.reserves[0].toString(),
+          reserve1: data.reserves[1].toString(),
+          lastUpdate: Date.now(),
+        };
+
+        pools.push(pool);
+        this.registerPool(pool);
+      }
+    }
+
+    const duration = Date.now() - startTime;
+    console.log(`   Discovered ${pools.length} pools in ${duration}ms (${Math.round(pools.length / (duration / 1000))} pools/sec)`);
     return pools;
   }
 

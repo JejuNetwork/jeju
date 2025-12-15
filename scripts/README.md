@@ -1,60 +1,65 @@
 # Scripts
 
-## Development
-
-```bash
-bun run dev              # Start everything (chain + apps)
-bun run dev -- --minimal # Chain only
-bun run test             # Run tests
-bun run clean            # Clean artifacts
-```
-
-## Localnet
-
-```bash
-bun run localnet:start   # Start local chain
-bun run localnet:stop    # Stop local chain
-bun run localnet:reset   # Reset chain
-```
-
-## Contract Deployment
-
-```bash
-export DEPLOYER_PRIVATE_KEY=0x...
-
-bun run contracts:deploy:testnet  # Deploy to testnet
-bun run contracts:deploy:mainnet  # Deploy to mainnet
-bun run contracts:deploy          # Full multi-step deployment
-```
-
-## Infrastructure Deployment
-
-```bash
-bun run infra:validate   # Validate terraform/helm
-bun run deploy:testnet   # Full testnet infra deployment
-bun run deploy:mainnet   # Full mainnet infra deployment
-```
-
-## Utilities
-
-```bash
-bun run ports            # Check ports
-bun run cleanup          # Kill orphaned processes
-bun run wallet           # Show wallet config
-```
+Utility scripts and deployment orchestration for Jeju Network.
 
 ## Structure
 
 ```
 scripts/
-├── dev.ts              # Main dev script
-├── deploy/             # Contract deployment
-├── shared/             # Shared utilities
-└── ...                 # Other utilities
-
-packages/deployment/    # Infrastructure
-├── scripts/            # Infra automation
-├── kubernetes/         # Helm charts
-├── terraform/          # AWS
-└── kurtosis/           # Local dev
+├── shared/          # Utility library (imported, not run directly)
+├── deploy/          # Deployment scripts (run via CLI or directly)
+├── bootstrap-localnet-complete.ts  # Used by CLI for localnet setup
+├── clean.ts         # Build cleanup
+└── setup-apps.ts    # Postinstall app setup
 ```
+
+## Usage
+
+Most operations should use the Jeju CLI:
+
+```bash
+# Development
+jeju dev              # Start localnet + apps
+jeju dev --minimal    # Localnet only
+jeju dev --stop       # Stop everything
+
+# Testing
+jeju test             # Run all tests
+jeju test --phase=contracts
+jeju test --app=bazaar
+
+# Deployment
+jeju deploy testnet --token
+jeju deploy mainnet --token --safe 0x...
+jeju deploy verify testnet
+jeju deploy check testnet
+
+# Status
+jeju status           # Check running services
+jeju status --check   # Full diagnostics
+
+# Keys
+jeju keys             # Show dev keys
+jeju keys genesis     # Generate production keys
+```
+
+## Deploy Scripts
+
+For specific deployment needs, scripts in `deploy/` can be run directly:
+
+```bash
+bun run scripts/deploy/token.ts --network testnet
+bun run scripts/deploy/oif.ts localnet
+bun run scripts/deploy/testnet.ts
+```
+
+## Shared Utilities
+
+The `shared/` directory contains importable utilities:
+
+- `chains.ts` - Chain configuration
+- `rpc.ts` - RPC helpers
+- `logger.ts` - Logging
+- `paymaster.ts` - Paymaster integration
+- `eil.ts` - EIL (Ethereum Intent Layer)
+- `discover-apps.ts` - App discovery

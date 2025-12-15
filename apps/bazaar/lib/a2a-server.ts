@@ -7,7 +7,41 @@
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { createAgentCard, getServiceName } from '@jejunetwork/shared';
+import { NETWORK_NAME } from '@/config';
+
+// Client-safe A2A helpers (avoiding @jejunetwork/shared which uses fs)
+function getServiceName(service: string): string {
+  return `${NETWORK_NAME} ${service}`;
+}
+
+function createAgentCard(options: {
+  name: string;
+  description: string;
+  url?: string;
+  version?: string;
+  skills?: Array<{ id: string; name: string; description: string; tags?: string[] }>;
+}) {
+  return {
+    protocolVersion: '0.3.0',
+    name: `${NETWORK_NAME} ${options.name}`,
+    description: options.description,
+    url: options.url || '/api/a2a',
+    preferredTransport: 'http',
+    provider: {
+      organization: NETWORK_NAME,
+      url: 'https://jeju.network',
+    },
+    version: options.version || '1.0.0',
+    capabilities: {
+      streaming: false,
+      pushNotifications: false,
+      stateTransitionHistory: true,
+    },
+    defaultInputModes: ['text'],
+    defaultOutputModes: ['text'],
+    skills: options.skills || [],
+  };
+}
 
 // ============================================================================
 // Types
@@ -211,8 +245,8 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
         message: 'NFT collections on Bazaar',
         data: {
           collections: [
-            { id: 'jeju-genesis', name: getNetworkName() Genesis', items: 10000, floorPrice: '0.1' },
-            { id: 'jeju-agents', name: getNetworkName() Agents', items: 5000, floorPrice: '0.5' },
+            { id: 'jeju-genesis', name: 'Jeju Genesis', items: 10000, floorPrice: '0.1' },
+            { id: 'jeju-agents', name: 'Jeju Agents', items: 5000, floorPrice: '0.5' },
           ],
         },
       };
@@ -224,7 +258,7 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
         message: `Collection ${collectionId} details`,
         data: {
           id: collectionId,
-          name: getNetworkName() Genesis',
+          name: 'Jeju Genesis',
           description: 'Genesis NFT collection for early supporters',
           totalItems: 10000,
           owners: 3500,
@@ -350,7 +384,7 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
             { symbol: 'CLANKER', change24h: 8.2 },
           ],
           collections: [
-            { name: getNetworkName() Agents', volumeChange: 250 },
+            { name: 'Jeju Agents', volumeChange: 250 },
           ],
         },
       };

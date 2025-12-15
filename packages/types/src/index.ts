@@ -1,4 +1,5 @@
 // Main types barrel export
+export * from './cdn';
 export * from './chain';
 export * from './compute';
 export * from './contracts';

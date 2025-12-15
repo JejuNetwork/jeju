@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 /**
- * Deploy Stage 2 L1 Contracts
+ * Deploy L1 Contracts
  * 
- * Deploys all Stage 2 contracts to L1:
+ * Deploys all decentralization contracts to L1:
  * - SequencerRegistry
  * - GovernanceTimelock
  * - DisputeGameFactory
@@ -31,7 +31,7 @@ interface DeploymentResult {
 }
 
 async function main() {
-  console.log('🚀 Deploying Stage 2 L1 Contracts');
+  console.log('🚀 Deploying L1 Contracts');
   console.log('='.repeat(70));
   console.log('');
 
@@ -75,19 +75,19 @@ async function main() {
   const contracts = [
     {
       name: 'SequencerRegistry',
-      path: 'src/stage2/SequencerRegistry.sol:SequencerRegistry',
+      path: 'src/sequencer/SequencerRegistry.sol:SequencerRegistry',
       args: [config.jejuToken, config.identityRegistry, config.reputationRegistry, config.treasury, config.governance],
       key: 'sequencerRegistry' as const
     },
     {
       name: 'GovernanceTimelock',
-      path: 'src/stage2/GovernanceTimelock.sol:GovernanceTimelock',
+      path: 'src/governance/GovernanceTimelock.sol:GovernanceTimelock',
       args: [config.governance, config.securityCouncil, config.governance, config.timelockDelay.toString()],
       key: 'governanceTimelock' as const
     },
     {
       name: 'DisputeGameFactory',
-      path: 'src/stage2/DisputeGameFactory.sol:DisputeGameFactory',
+      path: 'src/dispute/DisputeGameFactory.sol:DisputeGameFactory',
       args: [config.treasury, config.governance],
       key: 'disputeGameFactory' as const
     }
@@ -100,14 +100,14 @@ async function main() {
   }
 
   // Save deployment
-  const deploymentFile = join(DEPLOYMENTS_DIR, `stage2-${network}.json`);
+  const deploymentFile = join(DEPLOYMENTS_DIR, `${network}.json`);
   if (!existsSync(DEPLOYMENTS_DIR)) {
     mkdirSync(DEPLOYMENTS_DIR, { recursive: true });
   }
   writeFileSync(deploymentFile, JSON.stringify(result, null, 2));
 
   console.log('='.repeat(70));
-  console.log('✅ Stage 2 L1 Contracts Deployed!');
+  console.log('✅ L1 Contracts Deployed');
   console.log('='.repeat(70));
   console.log('');
   console.log('Contract Addresses:');
@@ -144,5 +144,4 @@ if (import.meta.main) {
   });
 }
 
-export { main as deployStage2L1 };
-
+export { main as deployL1 };

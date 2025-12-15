@@ -70,10 +70,13 @@ contract ProxyRegistry is IProxyRegistry, Ownable, Pausable, ReentrancyGuard {
      * @param regionCode Hashed region code (e.g., keccak256("US"))
      * @param endpoint Optional coordinator callback endpoint
      */
-    function register(
-        bytes32 regionCode,
-        string calldata endpoint
-    ) external payable override nonReentrant whenNotPaused {
+    function register(bytes32 regionCode, string calldata endpoint)
+        external
+        payable
+        override
+        nonReentrant
+        whenNotPaused
+    {
         if (nodes[msg.sender].registeredAt != 0) revert NodeAlreadyRegistered();
         if (regionCode == bytes32(0)) revert InvalidRegion();
         if (msg.value < minNodeStake) revert InsufficientStake(msg.value, minNodeStake);
@@ -105,10 +108,7 @@ contract ProxyRegistry is IProxyRegistry, Ownable, Pausable, ReentrancyGuard {
      * @param regionCode New region code (or 0x0 to keep current)
      * @param endpoint New endpoint (or empty to keep current)
      */
-    function updateNode(
-        bytes32 regionCode,
-        string calldata endpoint
-    ) external override {
+    function updateNode(bytes32 regionCode, string calldata endpoint) external override {
         ProxyNode storage node = nodes[msg.sender];
         if (node.registeredAt == 0) revert NodeNotRegistered();
 
@@ -203,11 +203,7 @@ contract ProxyRegistry is IProxyRegistry, Ownable, Pausable, ReentrancyGuard {
      * @param bytesServed Number of bytes transferred
      * @param successful Whether the session completed successfully
      */
-    function recordSession(
-        address node,
-        uint256 bytesServed,
-        bool successful
-    ) external override onlyCoordinator {
+    function recordSession(address node, uint256 bytesServed, bool successful) external override onlyCoordinator {
         ProxyNode storage n = nodes[node];
         if (n.registeredAt == 0) revert NodeNotRegistered();
 
@@ -322,11 +318,7 @@ contract ProxyRegistry is IProxyRegistry, Ownable, Pausable, ReentrancyGuard {
      * @param amount Amount to slash
      * @param reason Reason for slashing
      */
-    function slash(
-        address node,
-        uint256 amount,
-        string calldata reason
-    ) external override onlyOwner {
+    function slash(address node, uint256 amount, string calldata reason) external override onlyOwner {
         ProxyNode storage n = nodes[node];
         if (n.registeredAt == 0) revert NodeNotRegistered();
         if (amount > n.stake) revert SlashExceedsStake();
@@ -406,5 +398,3 @@ contract ProxyRegistry is IProxyRegistry, Ownable, Pausable, ReentrancyGuard {
         return "1.0.0";
     }
 }
-
-

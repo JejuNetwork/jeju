@@ -317,7 +317,7 @@ contract LedgerManager is Ownable, Pausable, ReentrancyGuard {
     {
         if (treasury == address(0)) revert ZeroAddress();
         if (amount == 0) return; // No-op for zero fees
-        
+
         ProviderSubAccount storage subAccount = subAccounts[user][provider];
         if (amount > subAccount.balance) revert InsufficientBalance(subAccount.balance, amount);
 

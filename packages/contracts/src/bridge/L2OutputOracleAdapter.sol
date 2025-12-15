@@ -4,7 +4,7 @@ pragma solidity ^0.8.26;
 import "../sequencer/SequencerRegistry.sol";
 import "../dispute/DisputeGameFactory.sol";
 
-/// @notice Adapter to integrate SequencerRegistry with L2OutputOracle for Stage 2
+/// @notice Adapter to integrate SequencerRegistry with L2OutputOracle for Decentralized
 contract L2OutputOracleAdapter {
     SequencerRegistry public immutable sequencerRegistry;
     DisputeGameFactory public immutable disputeGameFactory;

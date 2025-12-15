@@ -1,0 +1,18 @@
+{
+  "network": "Base Sepolia",
+  "chainId": 84532,
+  "addresses": {
+    "token": "0x3586d05d61523c81d2d79c4e1132ffa1b3bcad5f",
+    "vesting": "0xfa97325b8e21b31ab41d5471b25d2daf7e45b723",
+    "airdrop": "0x8110377fe09b00d8d6f465d4ba356a42d77878f0",
+    "feeDistributor": "0x6901ae6d65161b00d906ced529ff67e3dd01a5fc",
+    "ccaLauncher": "0xada565601aedd3285a2d4af42ffb083b9a0b01b4"
+  },
+  "txHashes": [
+    "0xc79c7b24b6cedade98a9a2fa7dca53c445f67bb13b65cd0d475007313f92ec00",
+    "0xa94ae8499e9c94a753be4a2dc9e64b5630d75117dddb9113870690f1dd80585d",
+    "0xe8ac9ffb78ffb05cc7d708edc6d638d38c1eff291ae017ffae4b9694c3289804",
+    "0xdbd01a1d9708fb7be272c4cfb4f59d9739308b9a499239bc2a4e247c4491a916",
+    "0x127ed4402d495683ba3e2f4c633c639593c6555e0ff77a46501535e21048b07e"
+  ]
+}

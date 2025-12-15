@@ -156,7 +156,11 @@ function extractPaymentEvent(receipt: TransactionReceipt): { paymentId?: Hex; pr
   };
 }
 
-async function validateSettlementPrerequisites(publicClient: PublicClient, payment: DecodedPayment): Promise<{ valid: boolean; error?: string }> {
+async function validateSettlementPrerequisites(
+  publicClient: PublicClient,
+  payment: DecodedPayment,
+  isGasless = false
+): Promise<{ valid: boolean; error?: string }> {
   const cfg = config();
   if (cfg.facilitatorAddress === ZERO_ADDRESS) {
     return { valid: false, error: 'Facilitator contract not configured' };
@@ -168,9 +172,12 @@ async function validateSettlementPrerequisites(publicClient: PublicClient, payme
   if (balance < payment.amount) {
     return { valid: false, error: `Insufficient balance: ${balance} < ${payment.amount}` };
   }
-  const allowance = await getTokenAllowance(publicClient, payment.token, payment.payer);
-  if (allowance < payment.amount) {
-    return { valid: false, error: `Insufficient allowance: ${allowance} < ${payment.amount}` };
+  // EIP-3009 gasless transfers don't require pre-approval
+  if (!isGasless) {
+    const allowance = await getTokenAllowance(publicClient, payment.token, payment.payer);
+    if (allowance < payment.amount) {
+      return { valid: false, error: `Insufficient allowance: ${allowance} < ${payment.amount}` };
+    }
   }
   return { valid: true };
 }
@@ -197,6 +204,7 @@ async function executeSettlement(
   const cfg = config();
   const settlementKey = `${payment.payer}:${payment.nonce}`;
   const { reserveNonce, markNonceFailed: markFailed, markNonceUsed: markUsed } = await getNonceManager();
+  const isGasless = functionName === 'settleWithAuthorization';
   
   const nonceReservation = await reserveNonce(publicClient, payment.payer, payment.nonce);
   if (!nonceReservation.reserved) {
@@ -205,7 +213,7 @@ async function executeSettlement(
 
   pendingSettlements.set(settlementKey, { timestamp: Date.now(), payment });
 
-  const prereq = await validateSettlementPrerequisites(publicClient, payment);
+  const prereq = await validateSettlementPrerequisites(publicClient, payment, isGasless);
   if (!prereq.valid) {
     await markFailed(payment.payer, payment.nonce);
     pendingSettlements.delete(settlementKey);

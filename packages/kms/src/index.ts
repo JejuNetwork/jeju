@@ -29,9 +29,9 @@ export { KMSService, getKMS, resetKMS } from './kms.js';
 
 // Providers
 export {
-  LitProvider,
-  getLitProvider,
-  resetLitProvider,
+  EncryptionProvider,
+  getEncryptionProvider,
+  resetEncryptionProvider,
   TEEProvider,
   getTEEProvider,
   resetTEEProvider,
@@ -82,7 +82,7 @@ export {
   // Provider types
   type KMSProvider,
   type KMSConfig,
-  type LitConfig,
+  type EncryptionConfig,
   type TEEConfig,
   type MPCConfig,
   // Access control

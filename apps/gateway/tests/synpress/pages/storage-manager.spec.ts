@@ -9,7 +9,7 @@ import { testWithSynpress } from '@synthetixio/synpress';
 import { metaMaskFixtures } from '@synthetixio/synpress/playwright';
 import { basicSetup } from '../../../synpress.config'
 import { connectWallet } from '../helpers/wallet-helpers';
-import { STORAGE_DURATIONS, TEST_FILE } from '../fixtures/test-data';
+import { TEST_FILE } from '../fixtures/test-data';
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
@@ -156,11 +156,7 @@ test.describe('File Upload Flow', () => {
     await page.waitForTimeout(1000);
 
     // Check prices for different durations
-    for (const [_duration, label] of [
-      [STORAGE_DURATIONS.ONE_MONTH, '1 Month'],
-      [STORAGE_DURATIONS.SIX_MONTHS, '6 Months'],
-      [STORAGE_DURATIONS.ONE_YEAR, '1 Year'],
-    ]) {
+    for (const label of ['1 Month', '6 Months', '1 Year']) {
       await page.getByText(label).click();
       await page.waitForTimeout(300);
       

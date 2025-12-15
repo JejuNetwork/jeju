@@ -143,6 +143,150 @@
           "description": "Other apps needed for testing"
         }
       }
+    },
+    "decentralization": {
+      "type": "object",
+      "description": "Decentralized infrastructure configuration",
+      "properties": {
+        "database": {
+          "type": "object",
+          "description": "CovenantQL database configuration",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["covenantql", "cql-sync", "none"],
+              "description": "Database mode: covenantql (direct), cql-sync (replicated from Postgres), none"
+            },
+            "databaseId": {
+              "type": "string",
+              "description": "Unique database identifier"
+            },
+            "consistency": {
+              "type": "string",
+              "enum": ["strong", "eventual", "causal"],
+              "description": "Consistency level for reads"
+            },
+            "replication": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 5,
+              "description": "Replication factor for data"
+            }
+          },
+          "required": ["type"]
+        },
+        "cache": {
+          "type": "object",
+          "description": "Decentralized cache configuration",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Whether to use decentralized cache"
+            },
+            "namespace": {
+              "type": "string",
+              "description": "Cache namespace for this app"
+            },
+            "planId": {
+              "type": "string",
+              "enum": ["basic", "standard", "premium"],
+              "description": "Cache plan tier"
+            },
+            "ttl": {
+              "type": "number",
+              "description": "Default TTL in seconds"
+            }
+          }
+        },
+        "secrets": {
+          "type": "object",
+          "description": "Vault-backed secrets configuration",
+          "properties": {
+            "required": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Required secrets (app fails to start without these)"
+            },
+            "optional": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Optional secrets (app can start without these)"
+            }
+          }
+        },
+        "triggers": {
+          "type": "array",
+          "description": "Cron, webhook, and event triggers",
+          "items": {
+            "type": "object",
+            "required": ["name", "type", "endpoint"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Unique trigger identifier"
+              },
+              "type": {
+                "type": "string",
+                "enum": ["cron", "webhook", "event"],
+                "description": "Trigger type"
+              },
+              "cronExpression": {
+                "type": "string",
+                "description": "Cron expression (for cron triggers)"
+              },
+              "webhookPath": {
+                "type": "string",
+                "description": "Webhook path (for webhook triggers)"
+              },
+              "eventTypes": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Event types to listen for (for event triggers)"
+              },
+              "endpoint": {
+                "type": "string",
+                "description": "Endpoint to call when trigger fires"
+              },
+              "description": {
+                "type": "string",
+                "description": "Human-readable description"
+              },
+              "timeout": {
+                "type": "number",
+                "description": "Execution timeout in milliseconds"
+              },
+              "retries": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 5,
+                "description": "Number of retry attempts on failure"
+              }
+            }
+          }
+        },
+        "frontend": {
+          "type": "object",
+          "description": "Frontend deployment to IPFS + JNS",
+          "properties": {
+            "ipfs": {
+              "type": "boolean",
+              "description": "Whether to deploy frontend to IPFS"
+            },
+            "jnsName": {
+              "type": "string",
+              "description": "JNS name for frontend resolution"
+            },
+            "buildDir": {
+              "type": "string",
+              "description": "Build output directory (default: dist, build, out)"
+            },
+            "spa": {
+              "type": "boolean",
+              "description": "Whether this is a single-page application"
+            }
+          }
+        }
+      }
     }
   }
 }

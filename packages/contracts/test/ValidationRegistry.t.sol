@@ -144,12 +144,13 @@ contract ValidationRegistryTest is Test {
         );
 
         // Check response
-        (address validatorAddr, uint256 agentId, uint8 response, bytes32 tag, uint256 lastUpdate) =
+        (address validatorAddr, uint256 agentId, uint8 response, bytes32 respHash, bytes32 tag, uint256 lastUpdate) =
             validationRegistry.getValidationStatus(requestHash);
 
         assertEq(validatorAddr, teeValidator);
         assertEq(agentId, serviceId);
         assertEq(response, 100);
+        assertEq(respHash, keccak256("attestation"));
         assertEq(tag, bytes32("tee-verified"));
         assertGt(lastUpdate, 0);
     }
@@ -164,7 +165,7 @@ contract ValidationRegistryTest is Test {
         vm.prank(teeValidator);
         validationRegistry.validationResponse(requestHash, 50, "ipfs://partial", bytes32(0), bytes32("in-progress"));
 
-        (,, uint8 response1, bytes32 tag1,) = validationRegistry.getValidationStatus(requestHash);
+        (,, uint8 response1,, bytes32 tag1,) = validationRegistry.getValidationStatus(requestHash);
         assertEq(response1, 50);
         assertEq(tag1, bytes32("in-progress"));
 
@@ -172,7 +173,7 @@ contract ValidationRegistryTest is Test {
         vm.prank(teeValidator);
         validationRegistry.validationResponse(requestHash, 100, "ipfs://complete", bytes32(0), bytes32("verified"));
 
-        (,, uint8 response2, bytes32 tag2,) = validationRegistry.getValidationStatus(requestHash);
+        (,, uint8 response2,, bytes32 tag2,) = validationRegistry.getValidationStatus(requestHash);
         assertEq(response2, 100);
         assertEq(tag2, bytes32("verified"));
     }
@@ -243,7 +244,7 @@ contract ValidationRegistryTest is Test {
         );
 
         // Service can now display "TEE Verified ✓" badge
-        (,, uint8 validationScore, bytes32 attestationType,) = validationRegistry.getValidationStatus(requestHash);
+        (,, uint8 validationScore,, bytes32 attestationType,) = validationRegistry.getValidationStatus(requestHash);
 
         assertEq(validationScore, 100);
         assertEq(attestationType, bytes32("sgx-verified"));
@@ -462,7 +463,7 @@ contract ValidationRegistryTest is Test {
         );
 
         // Verify TEE service is fully validated
-        (,, uint8 validation, bytes32 tag,) = validationRegistry.getValidationStatus(requestHash);
+        (,, uint8 validation,, bytes32 tag,) = validationRegistry.getValidationStatus(requestHash);
         assertEq(validation, 100);
         assertEq(tag, bytes32("sgx-attested"));
 
@@ -556,7 +557,7 @@ contract ValidationRegistryTest is Test {
             bytes32("verified")
         );
 
-        (,, uint8 response,,) = validationRegistry.getValidationStatus(requestHash);
+        (,, uint8 response,,,) = validationRegistry.getValidationStatus(requestHash);
         assertEq(response, 100);
     }
 

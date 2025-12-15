@@ -1,0 +1,18 @@
+{
+  "network": "devnet",
+  "mint": "GXEEEAuq37vT7aQvNCvcoNsE2C1pXhrNt3PsG1pph2hF",
+  "mintAuthority": "3Gi8BgTuh8TEwwBjUSRE4bnqiD9TTWAtvHWDxmxF6XpJ",
+  "deployer": "3Gi8BgTuh8TEwwBjUSRE4bnqiD9TTWAtvHWDxmxF6XpJ",
+  "initialSupplyTx": "3opVM4u8uKs8qniFV8zX7vXaCARL79ZKo9bX53FgzodcyfJCwD5znj3eMcqZoEq1bzHKoPFAwYZLSX6pLBP5C5Mx",
+  "explorerUrl": "https://explorer.solana.com/?cluster=devnet/address/GXEEEAuq37vT7aQvNCvcoNsE2C1pXhrNt3PsG1pph2hF",
+  "warpRouteConfig": {
+    "type": "synthetic",
+    "decimals": 9,
+    "remoteChains": [
+      84532
+    ],
+    "mailbox": "E588QtVUvresuXq2KoNEwAmoifCzYGpRBdHByN9KQMbi",
+    "igp": "3TJMcAhHRE7JN98URK7s5eeGfmVSvL4GAgegPq5K2nYg"
+  },
+  "timestamp": "2025-12-14T23:06:49.651Z"
+}

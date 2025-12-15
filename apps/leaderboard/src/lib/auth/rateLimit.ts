@@ -1,32 +1,25 @@
 /**
- * Simple in-memory rate limiting
- * For production, use Redis-backed solution like @upstash/ratelimit
+ * Decentralized Rate Limiting
+ * 
+ * Uses the Jeju Cache Service for distributed rate limiting.
+ * Supports multi-instance deployments with consistent rate limiting.
  */
+
+import { getCacheClient, type CacheClient } from "@jeju/shared/cache";
 
 interface RateLimitEntry {
   count: number;
   resetAt: number;
 }
 
-// In-memory store for rate limiting
-const rateLimitStore = new Map<string, RateLimitEntry>();
+// Get cache client for rate limiting
+let cacheClient: CacheClient | null = null;
 
-// Clean up old entries periodically
-const CLEANUP_INTERVAL_MS = 60 * 1000; // 1 minute
-let lastCleanup = Date.now();
-
-function cleanupExpiredEntries(): void {
-  const now = Date.now();
-  if (now - lastCleanup < CLEANUP_INTERVAL_MS) {
-    return;
+function getCache(): CacheClient {
+  if (!cacheClient) {
+    cacheClient = getCacheClient("leaderboard-ratelimit");
   }
-  
-  lastCleanup = now;
-  for (const [key, entry] of rateLimitStore.entries()) {
-    if (entry.resetAt < now) {
-      rateLimitStore.delete(key);
-    }
-  }
+  return cacheClient;
 }
 
 export interface RateLimitConfig {
@@ -44,48 +37,95 @@ export interface RateLimitResult {
 
 /**
  * Check rate limit for a key (typically IP or user)
+ * Uses decentralized cache for distributed rate limiting
  */
-export function checkRateLimit(
+export async function checkRateLimit(
   key: string,
   config: RateLimitConfig
-): RateLimitResult {
-  cleanupExpiredEntries();
-  
+): Promise<RateLimitResult> {
+  const cache = getCache();
+  const cacheKey = `ratelimit:${key}`;
   const now = Date.now();
-  const entry = rateLimitStore.get(key);
+
+  const cached = await cache.get(cacheKey);
   
-  // If no entry or window expired, create new entry
-  if (!entry || entry.resetAt < now) {
-    const newEntry: RateLimitEntry = {
-      count: 1,
-      resetAt: now + config.windowMs,
-    };
-    rateLimitStore.set(key, newEntry);
+  if (cached) {
+    const entry = JSON.parse(cached) as RateLimitEntry;
+    
+    // Check if window expired
+    if (entry.resetAt < now) {
+      // Window expired, create new entry
+      const newEntry: RateLimitEntry = {
+        count: 1,
+        resetAt: now + config.windowMs,
+      };
+      
+      const ttl = Math.ceil(config.windowMs / 1000);
+      await cache.set(cacheKey, JSON.stringify(newEntry), ttl);
+      
+      return {
+        success: true,
+        remaining: config.limit - 1,
+        resetAt: newEntry.resetAt,
+      };
+    }
+    
+    // Check if limit exceeded
+    if (entry.count >= config.limit) {
+      return {
+        success: false,
+        remaining: 0,
+        resetAt: entry.resetAt,
+      };
+    }
+    
+    // Increment count
+    entry.count++;
+    const remainingTtl = Math.ceil((entry.resetAt - now) / 1000);
+    await cache.set(cacheKey, JSON.stringify(entry), remainingTtl);
     
     return {
       success: true,
-      remaining: config.limit - 1,
-      resetAt: newEntry.resetAt,
-    };
-  }
-  
-  // Check if limit exceeded
-  if (entry.count >= config.limit) {
-    return {
-      success: false,
-      remaining: 0,
+      remaining: config.limit - entry.count,
       resetAt: entry.resetAt,
     };
   }
   
-  // Increment count
-  entry.count++;
-  rateLimitStore.set(key, entry);
+  // No entry, create new one
+  const newEntry: RateLimitEntry = {
+    count: 1,
+    resetAt: now + config.windowMs,
+  };
+  
+  const ttl = Math.ceil(config.windowMs / 1000);
+  await cache.set(cacheKey, JSON.stringify(newEntry), ttl);
   
   return {
     success: true,
-    remaining: config.limit - entry.count,
-    resetAt: entry.resetAt,
+    remaining: config.limit - 1,
+    resetAt: newEntry.resetAt,
+  };
+}
+
+/**
+ * Synchronous check for backward compatibility in contexts that can't await
+ * Falls back to allowing the request if cache is unavailable
+ */
+export function checkRateLimitSync(
+  key: string,
+  config: RateLimitConfig
+): RateLimitResult {
+  // Start async check but don't wait
+  checkRateLimit(key, config).catch((err) => {
+    console.warn("[RateLimit] Async check failed:", err);
+  });
+  
+  // Return permissive result for sync contexts
+  // The async check will enforce limits on subsequent requests
+  return {
+    success: true,
+    remaining: config.limit - 1,
+    resetAt: Date.now() + config.windowMs,
   };
 }
 

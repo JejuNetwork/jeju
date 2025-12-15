@@ -1,5 +1,26 @@
+/**
+ * DEX Arbitrage Strategy - Optimized with closed-form solutions
+ * 
+ * Features:
+ * - Optimal arbitrage sizing using mathematical formulas
+ * - Graph-based path finding for multi-hop arbitrage
+ * - Dynamic gas estimation
+ * - Cross-pool and triangular arbitrage detection
+ */
+
 import type { ChainId, Pool, ArbitrageOpportunity, StrategyConfig } from '../autocrat-types';
 import type { SyncEvent, SwapEvent } from '../engine/collector';
+import {
+  getAmountOut,
+  getSpotPrice,
+  calculateOptimalCrossPoolArbitrage,
+  calculateOptimalTriangularArbitrage,
+  calculateOptimalMultiHopArbitrage,
+  calculateNetProfit,
+  bigintSqrt,
+  bigintMin,
+  bigintMax,
+} from '../lib/math';
 
 interface PoolState {
   pool: Pool;
@@ -11,35 +32,68 @@ interface PoolState {
 interface ArbitragePath {
   pools: Pool[];
   tokenPath: string[];
+  optimalInput: bigint;
   expectedOutput: bigint;
   profit: bigint;
   profitBps: number;
+  pathType: 'cross_pool' | 'triangular' | 'multi_hop';
+}
+
+// Graph node for path finding
+interface TokenNode {
+  address: string;
+  pools: Map<string, PoolEdge>; // token address -> pool edge
+}
+
+interface PoolEdge {
+  pool: PoolState;
+  otherToken: string;
+  isToken0ToToken1: boolean;
 }
 
 const FEE_BPS = 30;
 const MIN_LIQUIDITY = BigInt(1e18);
 const OPPORTUNITY_TTL_MS = 2000;
+const MAX_PATH_LENGTH = 4;
+const MIN_TRADE_AMOUNT = BigInt(1e17); // 0.1 ETH minimum
+const MAX_TRADE_AMOUNT = BigInt(100e18); // 100 ETH maximum
+
+// Gas estimates
+const GAS_PER_SWAP = 150000n;
+const GAS_BASE = 50000n;
 
 export class DexArbitrageStrategy {
   private pools: Map<string, PoolState> = new Map();
-  private tokenPairs: Map<string, Set<string>> = new Map(); // token -> pools containing it
+  private tokenGraph: Map<string, TokenNode> = new Map();
   private opportunities: Map<string, ArbitrageOpportunity> = new Map();
   private config: StrategyConfig;
   private chainId: ChainId;
+  private currentBaseFee: bigint = BigInt(30e9); // 30 gwei default
+  private currentPriorityFee: bigint = BigInt(2e9); // 2 gwei default
 
   constructor(chainId: ChainId, config: StrategyConfig) {
     this.chainId = chainId;
     this.config = config;
   }
 
+  /**
+   * Initialize with pools and build token graph
+   */
   initialize(pools: Pool[]): void {
     console.log(`🔄 Initializing DEX arbitrage strategy with ${pools.length} pools`);
+
     for (const pool of pools) {
-      if (pool.chainId === this.chainId) this.addPool(pool);
+      if (pool.chainId === this.chainId) {
+        this.addPool(pool);
+      }
     }
-    console.log(`   Indexed ${this.pools.size} pools, ${this.tokenPairs.size} unique tokens`);
+
+    console.log(`   Indexed ${this.pools.size} pools, ${this.tokenGraph.size} unique tokens`);
   }
 
+  /**
+   * Add a pool and update the token graph
+   */
   addPool(pool: Pool): void {
     const poolState: PoolState = {
       pool,
@@ -50,35 +104,62 @@ export class DexArbitrageStrategy {
 
     this.pools.set(pool.address.toLowerCase(), poolState);
 
-    // Index by tokens
-    this.indexTokenPool(pool.token0.address, pool.address);
-    this.indexTokenPool(pool.token1.address, pool.address);
+    // Build graph edges
+    this.addToGraph(pool.token0.address, pool.token1.address, poolState, true);
+    this.addToGraph(pool.token1.address, pool.token0.address, poolState, false);
   }
 
+  /**
+   * Handle pool sync event
+   */
   onSync(event: SyncEvent): void {
     const poolState = this.pools.get(event.poolAddress.toLowerCase());
     if (!poolState) return;
+
     poolState.reserve0 = event.reserve0;
     poolState.reserve1 = event.reserve1;
     poolState.lastUpdate = Date.now();
-    this.checkArbitrageForPool(poolState);
+
+    // Check for arbitrage opportunities immediately
+    this.checkAllArbitrageForPool(poolState);
   }
 
+  /**
+   * Handle swap event
+   */
   onSwap(event: SwapEvent): void {
     const poolState = this.pools.get(event.poolAddress.toLowerCase());
     if (!poolState) return;
-    const { token0, token1 } = poolState.pool;
-    this.checkArbitrageForTokenPair(token0.address, token1.address);
+
+    // Update reserves based on swap
+    // Note: Real implementation would calculate exact reserve changes
+    this.checkAllArbitrageForPool(poolState);
   }
 
+  /**
+   * Update gas prices for profit calculation
+   */
+  updateGasPrices(baseFee: bigint, priorityFee: bigint): void {
+    this.currentBaseFee = baseFee;
+    this.currentPriorityFee = priorityFee;
+  }
+
+  /**
+   * Get current opportunities sorted by profit
+   */
   getOpportunities(): ArbitrageOpportunity[] {
     const now = Date.now();
+
+    // Clean expired opportunities
     for (const [id, opp] of this.opportunities) {
-      if (opp.expiresAt < now) this.opportunities.delete(id);
+      if (opp.expiresAt < now) {
+        this.opportunities.delete(id);
+      }
     }
+
     return Array.from(this.opportunities.values())
       .filter(o => o.status === 'DETECTED')
-      .sort((a, b) => b.expectedProfitBps - a.expectedProfitBps);
+      .sort((a, b) => Number(BigInt(b.netProfitWei) - BigInt(a.netProfitWei)));
   }
 
   markExecuting(opportunityId: string): void {
@@ -91,178 +172,365 @@ export class DexArbitrageStrategy {
     if (opp) opp.status = success ? 'COMPLETED' : 'FAILED';
   }
 
-  private indexTokenPool(token: string, pool: string): void {
-    const tokenLower = token.toLowerCase();
-    if (!this.tokenPairs.has(tokenLower)) this.tokenPairs.set(tokenLower, new Set());
-    this.tokenPairs.get(tokenLower)!.add(pool.toLowerCase());
+  // ============ Private: Graph Building ============
+
+  private addToGraph(
+    fromToken: string,
+    toToken: string,
+    poolState: PoolState,
+    isToken0ToToken1: boolean
+  ): void {
+    const from = fromToken.toLowerCase();
+    const to = toToken.toLowerCase();
+
+    if (!this.tokenGraph.has(from)) {
+      this.tokenGraph.set(from, {
+        address: from,
+        pools: new Map(),
+      });
+    }
+
+    const node = this.tokenGraph.get(from)!;
+    node.pools.set(to, {
+      pool: poolState,
+      otherToken: to,
+      isToken0ToToken1,
+    });
   }
 
-  private checkArbitrageForPool(poolState: PoolState): void {
+  // ============ Private: Arbitrage Detection ============
+
+  private checkAllArbitrageForPool(poolState: PoolState): void {
     const { token0, token1 } = poolState.pool;
+
+    // 1. Check cross-pool arbitrage (same pair, different pools)
+    this.findCrossPoolArbitrage(token0.address, token1.address);
+
+    // 2. Check triangular arbitrage starting from each token
     this.findTriangularArbitrage(token0.address);
     this.findTriangularArbitrage(token1.address);
-    this.checkCrossPoolArbitrage(poolState);
+
+    // 3. Check multi-hop paths (up to MAX_PATH_LENGTH)
+    this.findMultiHopArbitrage(token0.address);
   }
 
-  private checkArbitrageForTokenPair(token0: string, token1: string): void {
-    const pools0 = this.tokenPairs.get(token0.toLowerCase()) || new Set();
-    const pools1 = this.tokenPairs.get(token1.toLowerCase()) || new Set();
+  /**
+   * Find cross-pool arbitrage between pools trading the same pair
+   */
+  private findCrossPoolArbitrage(token0: string, token1: string): void {
+    const t0 = token0.toLowerCase();
+    const t1 = token1.toLowerCase();
 
-    const pairPools: PoolState[] = [];
-    for (const poolAddr of pools0) {
-      if (pools1.has(poolAddr)) {
-        const poolState = this.pools.get(poolAddr);
-        if (poolState) pairPools.push(poolState);
+    const node = this.tokenGraph.get(t0);
+    if (!node) return;
+
+    // Find all pools that trade t0/t1
+    const samePairPools: PoolState[] = [];
+    for (const [otherToken, edge] of node.pools) {
+      if (otherToken === t1 && this.hasMinLiquidity(edge.pool)) {
+        samePairPools.push(edge.pool);
       }
     }
-    if (pairPools.length > 1) this.checkCrossPoolArbitrageBetween(pairPools);
+
+    if (samePairPools.length < 2) return;
+
+    // Compare each pair of pools
+    for (let i = 0; i < samePairPools.length; i++) {
+      for (let j = i + 1; j < samePairPools.length; j++) {
+        const pool1 = samePairPools[i];
+        const pool2 = samePairPools[j];
+
+        // Try buying from pool1, selling to pool2
+        this.evaluateCrossPoolArb(pool1, pool2, t0, t1);
+
+        // Try buying from pool2, selling to pool1
+        this.evaluateCrossPoolArb(pool2, pool1, t0, t1);
+      }
+    }
   }
 
+  private evaluateCrossPoolArb(
+    buyPool: PoolState,
+    sellPool: PoolState,
+    token0: string,
+    token1: string
+  ): void {
+    // Determine which direction has the arbitrage
+    const buyPrice = getSpotPrice(buyPool.reserve0, buyPool.reserve1);
+    const sellPrice = getSpotPrice(sellPool.reserve0, sellPool.reserve1);
+
+    if (buyPrice >= sellPrice) return; // No arbitrage
+
+    // Calculate optimal input using closed-form solution
+    const { optimalInput, expectedProfit } = calculateOptimalCrossPoolArbitrage(
+      buyPool.reserve0,
+      buyPool.reserve1,
+      sellPool.reserve1, // Note: reversed for sell direction
+      sellPool.reserve0
+    );
+
+    if (optimalInput <= 0n || expectedProfit <= 0n) return;
+
+    // Clamp to reasonable range
+    const clampedInput = bigintMin(
+      bigintMax(optimalInput, MIN_TRADE_AMOUNT),
+      MAX_TRADE_AMOUNT
+    );
+
+    // Recalculate profit with clamped input
+    const buyOutput = getAmountOut(clampedInput, buyPool.reserve0, buyPool.reserve1);
+    const sellOutput = getAmountOut(buyOutput, sellPool.reserve1, sellPool.reserve0);
+    const actualProfit = sellOutput - clampedInput;
+
+    if (actualProfit <= 0n) return;
+
+    const profitBps = Number((actualProfit * 10000n) / clampedInput);
+    if (profitBps < this.config.minProfitBps) return;
+
+    this.recordOpportunity({
+      pools: [buyPool.pool, sellPool.pool],
+      tokenPath: [token0, token1, token0],
+      optimalInput: clampedInput,
+      expectedOutput: sellOutput,
+      profit: actualProfit,
+      profitBps,
+      pathType: 'cross_pool',
+    });
+  }
+
+  /**
+   * Find triangular arbitrage: A -> B -> C -> A
+   */
   private findTriangularArbitrage(startToken: string): void {
-    const startTokenLower = startToken.toLowerCase();
-    const startPools = this.tokenPairs.get(startTokenLower);
-    if (!startPools) return;
+    const start = startToken.toLowerCase();
+    const startNode = this.tokenGraph.get(start);
+    if (!startNode) return;
 
-    const inputAmount = BigInt(1e18);
+    // First hop: start -> token1
+    for (const [token1, edge1] of startNode.pools) {
+      if (!this.hasMinLiquidity(edge1.pool)) continue;
 
-    for (const poolAddr1 of startPools) {
-      const pool1State = this.pools.get(poolAddr1);
-      if (!pool1State || !this.hasMinLiquidity(pool1State)) continue;
+      const node1 = this.tokenGraph.get(token1);
+      if (!node1) continue;
 
-      const token1 = this.getOtherToken(pool1State.pool, startTokenLower);
-      if (!token1) continue;
+      // Second hop: token1 -> token2
+      for (const [token2, edge2] of node1.pools) {
+        if (token2 === start || !this.hasMinLiquidity(edge2.pool)) continue;
 
-      const amount1 = this.getAmountOut(inputAmount, pool1State, startTokenLower === pool1State.pool.token0.address.toLowerCase());
-      if (amount1 <= 0n) continue;
+        const node2 = this.tokenGraph.get(token2);
+        if (!node2) continue;
 
-      const pools2 = this.tokenPairs.get(token1.toLowerCase());
-      if (!pools2) continue;
+        // Third hop: token2 -> start (must complete the triangle)
+        const edge3 = node2.pools.get(start);
+        if (!edge3 || !this.hasMinLiquidity(edge3.pool)) continue;
 
-      for (const poolAddr2 of pools2) {
-        if (poolAddr2 === poolAddr1) continue;
+        // Don't reuse same pool
+        if (
+          edge1.pool.pool.address === edge2.pool.pool.address ||
+          edge2.pool.pool.address === edge3.pool.pool.address ||
+          edge1.pool.pool.address === edge3.pool.pool.address
+        ) {
+          continue;
+        }
 
-        const pool2State = this.pools.get(poolAddr2);
-        if (!pool2State || !this.hasMinLiquidity(pool2State)) continue;
+        this.evaluateTriangularArb(
+          start,
+          token1,
+          token2,
+          edge1,
+          edge2,
+          edge3
+        );
+      }
+    }
+  }
 
-        const token2 = this.getOtherToken(pool2State.pool, token1);
-        if (!token2 || token2.toLowerCase() === startTokenLower) continue;
+  private evaluateTriangularArb(
+    start: string,
+    token1: string,
+    token2: string,
+    edge1: PoolEdge,
+    edge2: PoolEdge,
+    edge3: PoolEdge
+  ): void {
+    // Get reserves for each swap direction
+    const [r1In, r1Out] = edge1.isToken0ToToken1
+      ? [edge1.pool.reserve0, edge1.pool.reserve1]
+      : [edge1.pool.reserve1, edge1.pool.reserve0];
 
-        const amount2 = this.getAmountOut(amount1, pool2State, token1.toLowerCase() === pool2State.pool.token0.address.toLowerCase());
-        if (amount2 <= 0n) continue;
+    const [r2In, r2Out] = edge2.isToken0ToToken1
+      ? [edge2.pool.reserve0, edge2.pool.reserve1]
+      : [edge2.pool.reserve1, edge2.pool.reserve0];
 
-        const pools3 = this.tokenPairs.get(token2.toLowerCase());
-        if (!pools3) continue;
+    const [r3In, r3Out] = edge3.isToken0ToToken1
+      ? [edge3.pool.reserve0, edge3.pool.reserve1]
+      : [edge3.pool.reserve1, edge3.pool.reserve0];
 
-        for (const poolAddr3 of pools3) {
-          if (poolAddr3 === poolAddr1 || poolAddr3 === poolAddr2) continue;
+    // Calculate optimal input using numerical optimization
+    const { optimalInput, expectedProfit } = calculateOptimalTriangularArbitrage(
+      r1In, r1Out,
+      r2In, r2Out,
+      r3In, r3Out
+    );
 
-          const pool3State = this.pools.get(poolAddr3);
-          if (!pool3State || !this.hasMinLiquidity(pool3State)) continue;
+    if (optimalInput <= 0n || expectedProfit <= 0n) return;
 
-          const otherToken = this.getOtherToken(pool3State.pool, token2);
-          if (!otherToken || otherToken.toLowerCase() !== startTokenLower) continue;
+    // Clamp input
+    const clampedInput = bigintMin(
+      bigintMax(optimalInput, MIN_TRADE_AMOUNT),
+      MAX_TRADE_AMOUNT
+    );
 
-          // Calculate final output
-          const amount3 = this.getAmountOut(
-            amount2,
-            pool3State,
-            token2.toLowerCase() === pool3State.pool.token0.address.toLowerCase()
-          );
-          if (amount3 <= 0n) continue;
+    // Recalculate with clamped input
+    const out1 = getAmountOut(clampedInput, r1In, r1Out);
+    const out2 = getAmountOut(out1, r2In, r2Out);
+    const out3 = getAmountOut(out2, r3In, r3Out);
+    const actualProfit = out3 - clampedInput;
 
-          // Check profitability
-          const profit = amount3 - inputAmount;
-          const profitBps = Number((profit * 10000n) / inputAmount);
+    if (actualProfit <= 0n) return;
 
-          if (profitBps >= this.config.minProfitBps) {
-            this.recordOpportunity({
-              pools: [pool1State.pool, pool2State.pool, pool3State.pool],
-              tokenPath: [startToken, token1, token2, startToken],
-              expectedOutput: amount3,
-              profit,
-              profitBps,
-            });
-          }
+    const profitBps = Number((actualProfit * 10000n) / clampedInput);
+    if (profitBps < this.config.minProfitBps) return;
+
+    this.recordOpportunity({
+      pools: [edge1.pool.pool, edge2.pool.pool, edge3.pool.pool],
+      tokenPath: [start, token1, token2, start],
+      optimalInput: clampedInput,
+      expectedOutput: out3,
+      profit: actualProfit,
+      profitBps,
+      pathType: 'triangular',
+    });
+  }
+
+  /**
+   * Find multi-hop arbitrage using BFS
+   */
+  private findMultiHopArbitrage(startToken: string): void {
+    const start = startToken.toLowerCase();
+    const startNode = this.tokenGraph.get(start);
+    if (!startNode) return;
+
+    // BFS to find profitable cycles back to start
+    interface PathState {
+      token: string;
+      pools: PoolEdge[];
+      visited: Set<string>;
+    }
+
+    const queue: PathState[] = [];
+
+    // Initialize with first-hop paths
+    for (const [nextToken, edge] of startNode.pools) {
+      if (!this.hasMinLiquidity(edge.pool)) continue;
+
+      queue.push({
+        token: nextToken,
+        pools: [edge],
+        visited: new Set([start, nextToken]),
+      });
+    }
+
+    while (queue.length > 0) {
+      const state = queue.shift()!;
+
+      // Check if path length exceeded
+      if (state.pools.length >= MAX_PATH_LENGTH) continue;
+
+      const currentNode = this.tokenGraph.get(state.token);
+      if (!currentNode) continue;
+
+      for (const [nextToken, edge] of currentNode.pools) {
+        if (!this.hasMinLiquidity(edge.pool)) continue;
+
+        // Don't reuse same pool
+        if (state.pools.some(e => e.pool.pool.address === edge.pool.pool.address)) continue;
+
+        if (nextToken === start && state.pools.length >= 2) {
+          // Found a cycle back to start - evaluate it
+          this.evaluateMultiHopArb(start, [...state.pools, edge]);
+        } else if (!state.visited.has(nextToken) && state.pools.length < MAX_PATH_LENGTH - 1) {
+          // Continue exploring
+          const newVisited = new Set(state.visited);
+          newVisited.add(nextToken);
+          queue.push({
+            token: nextToken,
+            pools: [...state.pools, edge],
+            visited: newVisited,
+          });
         }
       }
     }
   }
 
-  private checkCrossPoolArbitrage(poolState: PoolState): void {
-    const { token0, token1 } = poolState.pool;
+  private evaluateMultiHopArb(startToken: string, edges: PoolEdge[]): void {
+    // Build pool array for calculation
+    const pools = edges.map(edge => {
+      const [reserveIn, reserveOut] = edge.isToken0ToToken1
+        ? [edge.pool.reserve0, edge.pool.reserve1]
+        : [edge.pool.reserve1, edge.pool.reserve0];
+      return { reserveIn, reserveOut };
+    });
 
-    // Find other pools with the same pair
-    const pools0 = this.tokenPairs.get(token0.address.toLowerCase()) || new Set();
-    const pools1 = this.tokenPairs.get(token1.address.toLowerCase()) || new Set();
+    // Calculate optimal input
+    const { optimalInput, expectedProfit } = calculateOptimalMultiHopArbitrage(pools);
 
-    const samePairPools: PoolState[] = [poolState];
+    if (optimalInput <= 0n || expectedProfit <= 0n) return;
 
-    for (const poolAddr of pools0) {
-      if (pools1.has(poolAddr) && poolAddr !== poolState.pool.address.toLowerCase()) {
-        const otherPool = this.pools.get(poolAddr);
-        if (otherPool && this.hasMinLiquidity(otherPool)) {
-          samePairPools.push(otherPool);
-        }
-      }
+    // Clamp input
+    const clampedInput = bigintMin(
+      bigintMax(optimalInput, MIN_TRADE_AMOUNT),
+      MAX_TRADE_AMOUNT
+    );
+
+    // Recalculate with clamped input
+    let current = clampedInput;
+    for (const pool of pools) {
+      current = getAmountOut(current, pool.reserveIn, pool.reserveOut);
+      if (current <= 0n) return;
+    }
+    const actualProfit = current - clampedInput;
+
+    if (actualProfit <= 0n) return;
+
+    const profitBps = Number((actualProfit * 10000n) / clampedInput);
+    if (profitBps < this.config.minProfitBps) return;
+
+    // Build token path
+    const tokenPath = [startToken];
+    for (const edge of edges) {
+      tokenPath.push(edge.otherToken);
     }
 
-    if (samePairPools.length > 1) {
-      this.checkCrossPoolArbitrageBetween(samePairPools);
-    }
+    this.recordOpportunity({
+      pools: edges.map(e => e.pool.pool),
+      tokenPath,
+      optimalInput: clampedInput,
+      expectedOutput: current,
+      profit: actualProfit,
+      profitBps,
+      pathType: 'multi_hop',
+    });
   }
 
-  private checkCrossPoolArbitrageBetween(pools: PoolState[]): void {
-    if (pools.length < 2) return;
-
-    // Compare prices between all pool pairs
-    for (let i = 0; i < pools.length; i++) {
-      for (let j = i + 1; j < pools.length; j++) {
-        const pool1 = pools[i];
-        const pool2 = pools[j];
-
-        // Calculate price in each pool
-        const price1 = this.getPrice(pool1);
-        const price2 = this.getPrice(pool2);
-
-        if (price1 === 0n || price2 === 0n) continue;
-
-        // Check if there's a profitable spread
-        const priceDiff = price1 > price2 ? price1 - price2 : price2 - price1;
-        const avgPrice = (price1 + price2) / 2n;
-        const spreadBps = Number((priceDiff * 10000n) / avgPrice);
-
-        // Need spread > 2 * fee (0.6%) to be profitable
-        if (spreadBps > FEE_BPS * 2 + this.config.minProfitBps) {
-          // Buy from cheaper pool, sell to more expensive
-          const [buyPool, sellPool] = price1 < price2 ? [pool1, pool2] : [pool2, pool1];
-
-          const inputAmount = this.calculateOptimalAmount(buyPool, sellPool);
-          const buyOutput = this.getAmountOut(inputAmount, buyPool, true);
-          const sellOutput = this.getAmountOut(buyOutput, sellPool, false);
-
-          const profit = sellOutput - inputAmount;
-          const profitBps = Number((profit * 10000n) / inputAmount);
-
-          if (profitBps >= this.config.minProfitBps) {
-            this.recordOpportunity({
-              pools: [buyPool.pool, sellPool.pool],
-              tokenPath: [
-                buyPool.pool.token0.address,
-                buyPool.pool.token1.address,
-                sellPool.pool.token0.address,
-              ],
-              expectedOutput: sellOutput,
-              profit,
-              profitBps,
-            });
-          }
-        }
-      }
-    }
-  }
+  // ============ Private: Opportunity Recording ============
 
   private recordOpportunity(path: ArbitragePath): void {
-    const id = `arb-${this.chainId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    // Calculate gas cost
+    const gasUnits = GAS_BASE + GAS_PER_SWAP * BigInt(path.pools.length);
+    const netProfit = calculateNetProfit(
+      path.profit,
+      gasUnits,
+      this.currentBaseFee,
+      this.currentPriorityFee
+    );
+
+    // Skip if not profitable after gas
+    if (netProfit <= 0n) {
+      return;
+    }
+
+    const id = `arb-${this.chainId}-${path.pathType}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
     const opportunity: ArbitrageOpportunity = {
       id,
@@ -281,108 +549,46 @@ export class DexArbitrageStrategy {
         chainId: this.chainId,
       },
       path: path.pools,
-      inputAmount: BigInt(1e18).toString(),
+      inputAmount: path.optimalInput.toString(),
       expectedOutput: path.expectedOutput.toString(),
       expectedProfit: path.profit.toString(),
       expectedProfitBps: path.profitBps,
-      gasEstimate: (200000n * BigInt(path.pools.length)).toString(),
-      netProfitWei: path.profit.toString(),
-      netProfitUsd: this.calculateUsdProfit(path.profit, path.tokenPath[0]),
+      gasEstimate: gasUnits.toString(),
+      netProfitWei: netProfit.toString(),
+      netProfitUsd: this.calculateUsdProfit(netProfit),
       detectedAt: Date.now(),
       expiresAt: Date.now() + OPPORTUNITY_TTL_MS,
       status: 'DETECTED',
     };
 
-    this.opportunities.set(id, opportunity);
-
-    console.log(
-      `📊 Arbitrage detected: ${path.profitBps} bps profit via ${path.pools.length} pools`
+    // Only keep if better than existing opportunity with same path
+    const existingKey = `${path.pools.map(p => p.address).join('-')}`;
+    const existing = Array.from(this.opportunities.values()).find(
+      o => o.path.map(p => p.address).join('-') === existingKey
     );
-  }
 
-  private getAmountOut(
-    amountIn: bigint,
-    poolState: PoolState,
-    zeroForOne: boolean
-  ): bigint {
-    const [reserveIn, reserveOut] = zeroForOne
-      ? [poolState.reserve0, poolState.reserve1]
-      : [poolState.reserve1, poolState.reserve0];
+    if (!existing || BigInt(existing.netProfitWei) < netProfit) {
+      if (existing) {
+        this.opportunities.delete(existing.id);
+      }
+      this.opportunities.set(id, opportunity);
 
-    if (reserveIn === 0n || reserveOut === 0n || amountIn === 0n) {
-      return 0n;
+      console.log(
+        `📊 ${path.pathType} arb: ${path.profitBps} bps, ` +
+        `${Number(netProfit) / 1e18} ETH net, ` +
+        `${path.pools.length} pools, ` +
+        `optimal input: ${Number(path.optimalInput) / 1e18} ETH`
+      );
     }
-
-    const amountInWithFee = amountIn * 997n;
-    const numerator = amountInWithFee * reserveOut;
-    const denominator = reserveIn * 1000n + amountInWithFee;
-
-    return numerator / denominator;
   }
 
-  /**
-   * Get price as token1/token0 ratio (scaled by 1e18)
-   */
-  private getPrice(poolState: PoolState): bigint {
-    if (poolState.reserve0 === 0n) return 0n;
-    return (poolState.reserve1 * BigInt(1e18)) / poolState.reserve0;
-  }
-
-  /**
-   * Check if pool has minimum liquidity
-   */
   private hasMinLiquidity(poolState: PoolState): boolean {
     return poolState.reserve0 >= MIN_LIQUIDITY && poolState.reserve1 >= MIN_LIQUIDITY;
   }
 
-  /**
-   * Get the other token in the pool
-   */
-  private getOtherToken(pool: Pool, token: string): string | null {
-    const tokenLower = token.toLowerCase();
-    if (pool.token0.address.toLowerCase() === tokenLower) {
-      return pool.token1.address;
-    }
-    if (pool.token1.address.toLowerCase() === tokenLower) {
-      return pool.token0.address;
-    }
-    return null;
-  }
-
-  /**
-   * Calculate optimal trade amount for cross-pool arbitrage
-   * This is simplified - real implementation would solve the optimization problem
-   */
-  private calculateOptimalAmount(buyPool: PoolState, sellPool: PoolState): bigint {
-    // Use geometric mean of reserves as rough estimate
-    // BigInt doesn't support fractional exponents, so we use sqrt twice
-    const product = buyPool.reserve0 * buyPool.reserve1 * sellPool.reserve0 * sellPool.reserve1;
-    const avgReserve = this.bigintSqrt(this.bigintSqrt(product));
-
-    // Trade about 1% of pool to minimize price impact
-    return avgReserve / 100n;
-  }
-
-  private bigintSqrt(n: bigint): bigint {
-    if (n < 0n) return 0n;
-    if (n < 2n) return n;
-    
-    let x = n;
-    let y = (x + 1n) / 2n;
-    while (y < x) {
-      x = y;
-      y = (x + n / x) / 2n;
-    }
-    return x;
-  }
-
-  private calculateUsdProfit(profitWei: bigint, tokenAddress: string): string {
-    if (tokenAddress.toLowerCase() === '0x0000000000000000000000000000000000000000') {
-      const ethPriceUsd = 3000;
-      const profitEth = Number(profitWei) / 1e18;
-      return (profitEth * ethPriceUsd).toFixed(2);
-    }
-    const profitTokens = Number(profitWei) / 1e18;
-    return profitTokens.toFixed(2);
+  private calculateUsdProfit(profitWei: bigint): string {
+    const ethPriceUsd = 3000;
+    const profitEth = Number(profitWei) / 1e18;
+    return (profitEth * ethPriceUsd).toFixed(2);
   }
 }

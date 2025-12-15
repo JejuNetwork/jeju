@@ -691,19 +691,6 @@
     },
     {
       "type": "function",
-      "name": "setJejuToken",
-      "inputs": [
-        {
-          "name": "_jeju",
-          "type": "address",
-          "internalType": "address"
-        }
-      ],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "type": "function",
       "name": "setLedgerManager",
       "inputs": [
         {
@@ -723,6 +710,19 @@
           "name": "newMin",
           "type": "uint256",
           "internalType": "uint256"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setNetworkToken",
+      "inputs": [
+        {
+          "name": "_jeju",
+          "type": "address",
+          "internalType": "address"
         }
       ],
       "outputs": [],
@@ -1076,25 +1076,6 @@
     },
     {
       "type": "event",
-      "name": "NativeTokenUpdated",
-      "inputs": [
-        {
-          "name": "oldToken",
-          "type": "address",
-          "indexed": true,
-          "internalType": "address"
-        },
-        {
-          "name": "newToken",
-          "type": "address",
-          "indexed": true,
-          "internalType": "address"
-        }
-      ],
-      "anonymous": false
-    },
-    {
-      "type": "event",
       "name": "LedgerManagerUpdated",
       "inputs": [
         {
@@ -1177,6 +1158,25 @@
           "type": "uint256",
           "indexed": false,
           "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "NativeTokenUpdated",
+      "inputs": [
+        {
+          "name": "oldToken",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "newToken",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
         }
       ],
       "anonymous": false

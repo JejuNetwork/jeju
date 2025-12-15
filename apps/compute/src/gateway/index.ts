@@ -266,7 +266,7 @@ export class ComputeGateway {
       throw new Error('IdentityRegistry not configured or wallet missing');
     }
 
-    const name: getNetworkName() Compute Gateway';
+    const name = `${getNetworkName()} Compute Gateway`;
     const endpoint = this.config.gatewayEndpoint || `http://localhost:${this.config.port}`;
 
     // Create tokenURI with gateway metadata
@@ -368,7 +368,7 @@ export class ComputeGateway {
     // ========== A2A Agent Card ==========
     this.app.get('/.well-known/agent-card.json', (c) => c.json({
       protocolVersion: '0.3.0',
-      name: getNetworkName() Compute Gateway',
+      name: `${getNetworkName()} Compute Gateway`,
       description: 'Decentralized compute marketplace gateway - rent GPUs, CPUs, TEE. SSH access, Docker containers, AI inference.',
       url: '/a2a',
       preferredTransport: 'http',
@@ -456,7 +456,7 @@ export class ComputeGateway {
     // Get gateway info (including ERC-8004 agent ID)
     this.app.get('/v1/gateway/info', (c: Context) => {
       return c.json({
-        name: getNetworkName() Compute Gateway',
+        name: `${getNetworkName()} Compute Gateway`,
         agentId: this.gatewayAgentId?.toString() ?? null,
         port: this.config.port,
         sshProxyPort: this.config.sshProxyPort,

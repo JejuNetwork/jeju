@@ -1,0 +1,59 @@
+{
+  "mode": "testnet",
+  "components": {
+    "relayer": true,
+    "prover": true,
+    "beaconWatcher": true,
+    "healthMonitor": true
+  },
+  "ports": {
+    "relayer": 8081,
+    "prover": 8082,
+    "health": 8083
+  },
+  "chains": {
+    "evm": [
+      {
+        "chainId": 84532,
+        "name": "Base Sepolia",
+        "rpcUrl": "${BASE_SEPOLIA_RPC}",
+        "beaconUrl": "${BEACON_URL}",
+        "bridgeAddress": "${BASE_BRIDGE_ADDRESS}",
+        "lightClientAddress": "${BASE_LIGHT_CLIENT_ADDRESS}"
+      },
+      {
+        "chainId": 11155111,
+        "name": "Ethereum Sepolia",
+        "rpcUrl": "${ETH_SEPOLIA_RPC}",
+        "beaconUrl": "${BEACON_URL}",
+        "bridgeAddress": "${ETH_BRIDGE_ADDRESS}",
+        "lightClientAddress": "${ETH_LIGHT_CLIENT_ADDRESS}"
+      },
+      {
+        "chainId": 421614,
+        "name": "Arbitrum Sepolia",
+        "rpcUrl": "${ARBITRUM_SEPOLIA_RPC}",
+        "bridgeAddress": "${ARBITRUM_BRIDGE_ADDRESS}",
+        "lightClientAddress": "${ARBITRUM_LIGHT_CLIENT_ADDRESS}"
+      }
+    ],
+    "solana": {
+      "network": "devnet",
+      "rpcUrl": "${SOLANA_DEVNET_RPC}",
+      "bridgeProgramId": "${BRIDGE_PROGRAM_ID}",
+      "evmLightClientProgramId": "${EVM_LIGHT_CLIENT_PROGRAM_ID}"
+    }
+  },
+  "tee": {
+    "endpoint": "${TEE_ENDPOINT}",
+    "maxBatchSize": 20,
+    "batchTimeoutMs": 60000
+  },
+  "prover": {
+    "mode": "self-hosted",
+    "workers": 4,
+    "maxMemoryMb": 16384,
+    "timeoutMs": 600000,
+    "useMockProofs": false
+  }
+}

@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /// @title Prover
 /// @notice Fraud proof verification using validator signatures and merkle proofs.
-/// @dev POC prover uses signatures. For true Stage 2, integrate Cannon MIPS prover.
+/// @dev POC prover uses signatures. For true Decentralized, integrate Cannon MIPS prover.
 ///      See eth-optimism/contracts-bedrock for PreimageOracle.sol and MIPS.sol
 contract Prover is IProver {
     using ECDSA for bytes32;

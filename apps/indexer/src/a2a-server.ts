@@ -7,7 +7,44 @@
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { createAgentCard, getServiceName } from '@jejunetwork/shared';
+
+// Local agent card creator (avoids React dependency from shared package)
+function createAgentCard(options: {
+  name: string;
+  description: string;
+  url?: string;
+  version?: string;
+  skills?: Array<{ id: string; name: string; description: string; tags?: string[] }>;
+}): {
+  protocolVersion: string;
+  name: string;
+  description: string;
+  url: string;
+  preferredTransport: string;
+  provider: { organization: string; url: string };
+  version: string;
+  capabilities: { streaming: boolean; pushNotifications: boolean; stateTransitionHistory: boolean };
+  defaultInputModes: string[];
+  defaultOutputModes: string[];
+  skills: Array<{ id: string; name: string; description: string; tags?: string[] }>;
+} {
+  return {
+    protocolVersion: '0.3.0',
+    name: `Network ${options.name}`,
+    description: options.description,
+    url: options.url || '/api/a2a',
+    preferredTransport: 'http',
+    provider: {
+      organization: 'Network',
+      url: 'https://network.io',
+    },
+    version: options.version || '1.0.0',
+    capabilities: { streaming: false, pushNotifications: false, stateTransitionHistory: false },
+    defaultInputModes: ['text'],
+    defaultOutputModes: ['text'],
+    skills: options.skills || [],
+  };
+}
 
 // ============================================================================
 // Types
@@ -499,29 +536,18 @@ export function createIndexerA2AServer(): Hono {
   return app;
 }
 
-const A2A_PORT = parseInt(process.env.A2A_PORT || '4353');
+const A2A_PORT = parseInt(process.env.A2A_PORT || '4351');
 
 export async function startA2AServer(): Promise<void> {
   const app = createIndexerA2AServer();
-  const express = await import('express');
-  const expressApp = express.default();
+  const { serve } = await import('@hono/node-server');
   
-  expressApp.all('*', async (req, res) => {
-    const response = await app.fetch(new Request(`http://${req.headers.host}${req.url}`, {
-      method: req.method,
-      headers: req.headers as HeadersInit,
-      body: req.method !== 'GET' && req.method !== 'HEAD' ? JSON.stringify(req.body) : undefined,
-    }));
-    
-    res.status(response.status);
-    response.headers.forEach((value, key) => res.setHeader(key, value));
-    const body = await response.text();
-    res.send(body);
+  serve({
+    fetch: app.fetch,
+    port: A2A_PORT,
   });
-
-  expressApp.listen(A2A_PORT, () => {
-    console.log(`📡 A2A Server running on http://localhost:${A2A_PORT}`);
-  });
+  
+  console.log(`📡 A2A Server running on http://localhost:${A2A_PORT}`);
 }
 
 export { AGENT_CARD as INDEXER_AGENT_CARD };

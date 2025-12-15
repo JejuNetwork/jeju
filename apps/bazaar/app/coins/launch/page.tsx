@@ -1,57 +1,141 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAccount } from 'wagmi'
 import { JEJU_CHAIN_ID } from '@/config/chains'
+import { hasLaunchpad } from '@/config/contracts'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import { useTokenLaunchpad, type BondingCurveConfig, type ICOConfig } from '@/hooks/launchpad'
+import { parseEther, formatEther } from 'viem'
 
-type LaunchType = 'bonding' | 'ico'
+type LaunchType = 'bonding' | 'ico' | 'modern'
+type LaunchPreset = 'pump' | 'ico' | 'degen' | 'custom'
 
-interface BondingConfig {
-  virtualEth: string
-  graduationTarget: string
-  tokenSupply: string
+// Preset configurations
+const PRESETS: Record<LaunchPreset, { name: string; description: string; emoji: string }> = {
+  pump: {
+    name: 'Pump Style',
+    description: 'Bonding curve that graduates to LP. Fair launch, no presale, instant trading.',
+    emoji: '📈',
+  },
+  ico: {
+    name: 'ICO Style',
+    description: 'Traditional presale with soft/hard caps, LP lock, and buyer vesting.',
+    emoji: '💰',
+  },
+  degen: {
+    name: 'Modern Degen',
+    description: 'Short presale, small team allo, holder fees, creator fees. Fast and fair.',
+    emoji: '🚀',
+  },
+  custom: {
+    name: 'Custom',
+    description: 'Configure everything yourself. Full control over all parameters.',
+    emoji: '⚙️',
+  },
 }
 
-interface ICOConfig {
-  presaleAllocation: number
-  presalePrice: string
-  lpFunding: number
-  lpLockDuration: number
-  buyerLockDuration: number
-  softCap: string
-  hardCap: string
-  presaleDuration: number
+// Default configurations for each preset
+const DEFAULT_BONDING_CONFIG: BondingCurveConfig = {
+  virtualEthReserves: '30',
+  graduationTarget: '10',
+  tokenSupply: '1000000000',
+}
+
+const DEFAULT_ICO_CONFIG: ICOConfig = {
+  presaleAllocationBps: 3000, // 30%
+  presalePrice: '0.0001',
+  lpFundingBps: 8000, // 80%
+  lpLockDuration: 30 * 24 * 60 * 60, // 30 days
+  buyerLockDuration: 7 * 24 * 60 * 60, // 7 days
+  softCap: '5',
+  hardCap: '50',
+  presaleDuration: 7 * 24 * 60 * 60, // 7 days
+}
+
+// Degen preset (shorter presale, smaller allocations)
+const DEGEN_ICO_CONFIG: ICOConfig = {
+  presaleAllocationBps: 1500, // 15%
+  presalePrice: '0.00005',
+  lpFundingBps: 9000, // 90%
+  lpLockDuration: 90 * 24 * 60 * 60, // 90 days
+  buyerLockDuration: 0, // No lock
+  softCap: '2',
+  hardCap: '20',
+  presaleDuration: 2 * 24 * 60 * 60, // 2 days
 }
 
 export default function LaunchTokenPage() {
-  const { isConnected, chain } = useAccount()
+  const { isConnected, chain, address } = useAccount()
   const isCorrectChain = chain?.id === JEJU_CHAIN_ID || chain?.id === 1337
+  const launchpadAvailable = hasLaunchpad(chain?.id || JEJU_CHAIN_ID)
+  const successToastShown = useRef(false)
 
+  // Launchpad hook
+  const {
+    isAvailable,
+    launchpadAddress,
+    launchCount,
+    defaultCommunityVault,
+    txHash,
+    isPending,
+    isSuccess,
+    error,
+    launchBondingCurve,
+    launchICO,
+  } = useTokenLaunchpad(chain?.id || JEJU_CHAIN_ID)
+
+  // Form state
   const [name, setName] = useState('')
   const [symbol, setSymbol] = useState('')
   const [creatorFeePercent, setCreatorFeePercent] = useState(80)
   const [communityVault, setCommunityVault] = useState('')
+  const [preset, setPreset] = useState<LaunchPreset>('pump')
   const [launchType, setLaunchType] = useState<LaunchType>('bonding')
-  const [isLaunching, setIsLaunching] = useState(false)
 
-  const [bondingConfig, setBondingConfig] = useState<BondingConfig>({
-    virtualEth: '30',
-    graduationTarget: '10',
-    tokenSupply: '1000000000',
-  })
+  const [bondingConfig, setBondingConfig] = useState<BondingCurveConfig>(DEFAULT_BONDING_CONFIG)
+  const [icoConfig, setICOConfig] = useState<ICOConfig>(DEFAULT_ICO_CONFIG)
 
-  const [icoConfig, setICOConfig] = useState<ICOConfig>({
-    presaleAllocation: 30,
-    presalePrice: '0.0001',
-    lpFunding: 80,
-    lpLockDuration: 30,
-    buyerLockDuration: 7,
-    softCap: '5',
-    hardCap: '50',
-    presaleDuration: 7,
-  })
+  // Update launch type based on preset
+  useEffect(() => {
+    if (preset === 'pump') {
+      setLaunchType('bonding')
+      setBondingConfig(DEFAULT_BONDING_CONFIG)
+      setCreatorFeePercent(80)
+    } else if (preset === 'ico') {
+      setLaunchType('ico')
+      setICOConfig(DEFAULT_ICO_CONFIG)
+      setCreatorFeePercent(50)
+    } else if (preset === 'degen') {
+      setLaunchType('ico')
+      setICOConfig(DEGEN_ICO_CONFIG)
+      setCreatorFeePercent(70)
+    }
+  }, [preset])
+
+  // Handle success
+  useEffect(() => {
+    if (isSuccess && txHash && !successToastShown.current) {
+      successToastShown.current = true
+      toast.success(`Token ${symbol} launched successfully.`, {
+        description: 'Your token is now live and tradeable.',
+        action: {
+          label: 'View Token',
+          onClick: () => window.location.href = '/coins',
+        },
+      })
+    }
+  }, [isSuccess, txHash, symbol])
+
+  // Handle error
+  useEffect(() => {
+    if (error) {
+      toast.error('Launch failed', {
+        description: error.message,
+      })
+    }
+  }, [error])
 
   const handleLaunch = () => {
     if (!isConnected) {
@@ -66,11 +150,28 @@ export default function LaunchTokenPage() {
       toast.error('Please fill in token name and symbol')
       return
     }
+    if (!isAvailable) {
+      toast.error('Launchpad not available on this network')
+      return
+    }
 
-    toast.info('Launchpad contract deployment coming soon', {
-      description: 'This feature will be available after contract deployment',
+    successToastShown.current = false
+    const creatorFeeBps = Math.round(creatorFeePercent * 100)
+    const vaultAddress = communityVault || null
+
+    if (launchType === 'bonding') {
+      launchBondingCurve(name, symbol, creatorFeeBps, vaultAddress as `0x${string}` | null, bondingConfig)
+    } else {
+      const totalSupply = preset === 'degen' ? '1000000000' : '1000000000'
+      launchICO(name, symbol, totalSupply, creatorFeeBps, vaultAddress as `0x${string}` | null, icoConfig)
+    }
+
+    toast.info(`Launching ${symbol}...`, {
+      description: 'Please confirm the transaction in your wallet',
     })
   }
+
+  const isLaunching = isPending
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -81,14 +182,67 @@ export default function LaunchTokenPage() {
         <p style={{ color: 'var(--text-secondary)' }}>
           Launch your token with zero platform fees - 100% to creators and community
         </p>
+        {launchCount !== undefined && (
+          <p className="text-sm mt-2" style={{ color: 'var(--text-tertiary)' }}>
+            {Number(launchCount)} tokens launched on this network
+          </p>
+        )}
       </div>
 
+      {/* Alerts */}
       {!isConnected && (
         <div className="card p-4 mb-6 border-bazaar-warning/50 bg-bazaar-warning/10">
           <p className="text-bazaar-warning">Please connect your wallet to launch a token</p>
         </div>
       )}
 
+      {isConnected && !isCorrectChain && (
+        <div className="card p-4 mb-6 border-bazaar-error/50 bg-bazaar-error/10">
+          <p className="text-bazaar-error">Please switch to Jeju network</p>
+        </div>
+      )}
+
+      {isConnected && isCorrectChain && !isAvailable && (
+        <div className="card p-4 mb-6 border-bazaar-warning/50 bg-bazaar-warning/10">
+          <p className="text-bazaar-warning">
+            Launchpad contracts not yet deployed on this network. 
+            <br />
+            <span className="text-sm">Run: bun run scripts/deploy-launchpad.ts --network=localnet</span>
+          </p>
+        </div>
+      )}
+
+      {/* Preset Selection */}
+      <div className="card p-5 md:p-6 mb-6">
+        <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+          Choose Launch Style
+        </h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {(Object.keys(PRESETS) as LaunchPreset[]).map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setPreset(p)}
+              className={`p-4 rounded-xl border-2 text-left transition-all ${
+                preset === p
+                  ? 'border-bazaar-primary bg-bazaar-primary/10'
+                  : 'border-[var(--border-primary)] hover:border-bazaar-primary/50'
+              }`}
+              data-testid={`preset-${p}-btn`}
+            >
+              <div className="text-2xl mb-2">{PRESETS[p].emoji}</div>
+              <h3 className="font-semibold text-sm mb-1" style={{ color: 'var(--text-primary)' }}>
+                {PRESETS[p].name}
+              </h3>
+              <p className="text-xs line-clamp-2" style={{ color: 'var(--text-secondary)' }}>
+                {PRESETS[p].description}
+              </p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Token Details */}
       <div className="card p-5 md:p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
           Token Details
@@ -124,6 +278,7 @@ export default function LaunchTokenPage() {
         </div>
       </div>
 
+      {/* Fee Distribution */}
       <div className="card p-5 md:p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
           Fee Distribution
@@ -160,58 +315,14 @@ export default function LaunchTokenPage() {
             type="text"
             value={communityVault}
             onChange={(e) => setCommunityVault(e.target.value)}
-            placeholder="0x... (leave empty for default)"
+            placeholder={defaultCommunityVault || '0x... (leave empty for default)'}
             className="input font-mono text-sm"
           />
         </div>
       </div>
 
-      <div className="card p-5 md:p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-          Launch Type
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <button
-            type="button"
-            onClick={() => setLaunchType('bonding')}
-            className={`p-4 rounded-xl border-2 text-left transition-all ${
-              launchType === 'bonding'
-                ? 'border-bazaar-primary bg-bazaar-primary/10'
-                : 'border-[var(--border-primary)] hover:border-bazaar-primary/50'
-            }`}
-            data-testid="bonding-type-btn"
-          >
-            <div className="text-2xl mb-2">📈</div>
-            <h3 className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
-              Pump Style
-            </h3>
-            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-              Bonding curve that graduates to LP when target is reached.
-            </p>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setLaunchType('ico')}
-            className={`p-4 rounded-xl border-2 text-left transition-all ${
-              launchType === 'ico'
-                ? 'border-bazaar-primary bg-bazaar-primary/10'
-                : 'border-[var(--border-primary)] hover:border-bazaar-primary/50'
-            }`}
-            data-testid="ico-type-btn"
-          >
-            <div className="text-2xl mb-2">💰</div>
-            <h3 className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
-              ICO Style
-            </h3>
-            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-              Presale that funds LP with configurable lock periods.
-            </p>
-          </button>
-        </div>
-      </div>
-
-      {launchType === 'bonding' && (
+      {/* Bonding Curve Settings */}
+      {launchType === 'bonding' && preset !== 'custom' && (
         <div className="card p-5 md:p-6 mb-6">
           <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
             Bonding Curve Settings
@@ -228,7 +339,7 @@ export default function LaunchTokenPage() {
                 className="input"
               />
               <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                Sets initial price
+                Sets initial price curve
               </p>
             </div>
             <div>
@@ -241,6 +352,9 @@ export default function LaunchTokenPage() {
                 onChange={(e) => setBondingConfig({ ...bondingConfig, graduationTarget: e.target.value })}
                 className="input"
               />
+              <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                ETH raised to graduate to LP
+              </p>
             </div>
             <div>
               <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
@@ -254,26 +368,39 @@ export default function LaunchTokenPage() {
               />
             </div>
           </div>
+
+          {/* Initial price estimate */}
+          <div className="mt-4 p-3 rounded-lg bg-[var(--bg-secondary)]">
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              <strong>Initial Price:</strong>{' '}
+              {(parseFloat(bondingConfig.virtualEth) / parseFloat(bondingConfig.tokenSupply) * 1e18).toExponential(4)} ETH
+            </p>
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              <strong>Market Cap at Launch:</strong> ~{parseFloat(bondingConfig.virtualEth).toFixed(2)} ETH
+            </p>
+          </div>
         </div>
       )}
 
-      {launchType === 'ico' && (
+      {/* ICO/Presale Settings */}
+      {launchType === 'ico' && preset !== 'custom' && (
         <div className="card p-5 md:p-6 mb-6">
           <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-            ICO Presale Settings
+            {preset === 'degen' ? 'Fast Presale Settings' : 'ICO Presale Settings'}
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-                Presale Allocation: {icoConfig.presaleAllocation}%
+                Presale Allocation: {icoConfig.presaleAllocationBps / 100}%
               </label>
               <input
                 type="range"
-                min="10"
-                max="50"
-                value={icoConfig.presaleAllocation}
-                onChange={(e) => setICOConfig({ ...icoConfig, presaleAllocation: Number(e.target.value) })}
+                min="500"
+                max="5000"
+                step="100"
+                value={icoConfig.presaleAllocationBps}
+                onChange={(e) => setICOConfig({ ...icoConfig, presaleAllocationBps: Number(e.target.value) })}
                 className="w-full accent-bazaar-primary"
               />
             </div>
@@ -283,7 +410,7 @@ export default function LaunchTokenPage() {
               </label>
               <input
                 type="number"
-                step="0.0001"
+                step="0.00001"
                 value={icoConfig.presalePrice}
                 onChange={(e) => setICOConfig({ ...icoConfig, presalePrice: e.target.value })}
                 className="input"
@@ -319,14 +446,15 @@ export default function LaunchTokenPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-                LP Funding: {icoConfig.lpFunding}%
+                LP Funding: {icoConfig.lpFundingBps / 100}%
               </label>
               <input
                 type="range"
-                min="50"
-                max="100"
-                value={icoConfig.lpFunding}
-                onChange={(e) => setICOConfig({ ...icoConfig, lpFunding: Number(e.target.value) })}
+                min="5000"
+                max="10000"
+                step="500"
+                value={icoConfig.lpFundingBps}
+                onChange={(e) => setICOConfig({ ...icoConfig, lpFundingBps: Number(e.target.value) })}
                 className="w-full accent-bazaar-primary"
               />
             </div>
@@ -339,50 +467,63 @@ export default function LaunchTokenPage() {
                 onChange={(e) => setICOConfig({ ...icoConfig, lpLockDuration: Number(e.target.value) })}
                 className="input"
               >
-                <option value={7}>1 week</option>
-                <option value={30}>1 month</option>
-                <option value={90}>3 months</option>
-                <option value={180}>6 months</option>
+                <option value={7 * 24 * 60 * 60}>1 week</option>
+                <option value={30 * 24 * 60 * 60}>1 month</option>
+                <option value={90 * 24 * 60 * 60}>3 months</option>
+                <option value={180 * 24 * 60 * 60}>6 months</option>
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-                Buyer Token Lock
+                Presale Duration
               </label>
               <select
-                value={icoConfig.buyerLockDuration}
-                onChange={(e) => setICOConfig({ ...icoConfig, buyerLockDuration: Number(e.target.value) })}
+                value={icoConfig.presaleDuration}
+                onChange={(e) => setICOConfig({ ...icoConfig, presaleDuration: Number(e.target.value) })}
                 className="input"
               >
-                <option value={7}>1 week</option>
-                <option value={30}>1 month</option>
-                <option value={90}>3 months</option>
-                <option value={180}>6 months</option>
+                <option value={24 * 60 * 60}>1 day</option>
+                <option value={2 * 24 * 60 * 60}>2 days</option>
+                <option value={3 * 24 * 60 * 60}>3 days</option>
+                <option value={7 * 24 * 60 * 60}>7 days</option>
+                <option value={14 * 24 * 60 * 60}>14 days</option>
               </select>
             </div>
           </div>
         </div>
       )}
 
+      {/* Launch Summary */}
       <div className="card p-5 md:p-6 mb-6 border-bazaar-primary/30 bg-bazaar-primary/5">
         <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
           Launch Summary
         </h2>
         <div className="space-y-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
           <p><strong>Token:</strong> {name || 'Not set'} ({symbol || 'N/A'})</p>
-          <p><strong>Launch Type:</strong> {launchType === 'bonding' ? 'Pump Style' : 'ICO Style'}</p>
+          <p><strong>Launch Style:</strong> {PRESETS[preset].name}</p>
+          <p><strong>Type:</strong> {launchType === 'bonding' ? 'Bonding Curve' : 'ICO Presale'}</p>
           <p><strong>Fee Split:</strong> {creatorFeePercent}% creator, {100 - creatorFeePercent}% community</p>
           <p><strong>Platform Fee:</strong> 0% (totally free)</p>
+          {launchType === 'bonding' && (
+            <p><strong>Graduation:</strong> Token migrates to LP pool when {bondingConfig.graduationTarget} ETH raised</p>
+          )}
+          {launchType === 'ico' && (
+            <>
+              <p><strong>Presale:</strong> {icoConfig.presaleAllocationBps / 100}% of supply at {icoConfig.presalePrice} ETH</p>
+              <p><strong>LP Lock:</strong> {icoConfig.lpLockDuration / 86400} days</p>
+            </>
+          )}
         </div>
       </div>
 
+      {/* Launch Button */}
       <button
         onClick={handleLaunch}
-        disabled={!isConnected || !isCorrectChain || isLaunching || !name || !symbol}
+        disabled={!isConnected || !isCorrectChain || isLaunching || !name || !symbol || !isAvailable}
         className="btn-primary w-full py-4 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
         data-testid="launch-btn"
       >
-        {isLaunching ? 'Launching...' : !isConnected ? 'Connect Wallet' : 'Launch Token'}
+        {isLaunching ? 'Launching...' : !isConnected ? 'Connect Wallet' : !isAvailable ? 'Launchpad Not Deployed' : 'Launch Token'}
       </button>
 
       <div className="text-center mt-6">

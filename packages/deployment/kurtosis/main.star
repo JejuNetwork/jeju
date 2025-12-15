@@ -1,5 +1,5 @@
-# Jeju Localnet - Minimal Working Implementation for macOS
-# Pure TCP ports only - no UDP/QUIC issues!
+# Jeju Localnet - Full Stack with CovenantSQL
+# Pure TCP ports only - no UDP/QUIC issues on macOS!
 
 # Pinned versions for reproducibility (December 2025)
 OP_STACK_VERSION = "v1.16.3"
@@ -7,18 +7,26 @@ GETH_VERSION = "v1.16.7"  # Fusaka-compatible (required for PeerDAS + blob capac
 OP_GETH_VERSION = "v1.101603.5"  # Latest stable op-geth version
 OP_RETH_VERSION = "v1.1.2"
 
+# CovenantSQL - multi-arch image supporting both ARM64 (Apple Silicon, Graviton) and x86_64
+# Build custom image with: bun run images:cql (from packages/deployment)
+# Or use upstream: covenantsql/covenantsql:latest
+CQL_IMAGE = "jeju/covenantsql:testnet-latest"
+
 def run(plan, args={}):
     """
-    Minimal L1 + L2 that works on macOS
-    
-    Strategy: 
+    Full Jeju stack for local development:
     - L1: Geth --dev (auto-mines, no consensus needed)
     - L2: op-geth + op-node with P2P disabled (no UDP)
+    - CQL: CovenantSQL block producer for decentralized storage
     - Only TCP ports = works on macOS Docker Desktop
     """
     
+    # Allow custom CQL image override via args
+    cql_image = args.get("cql_image", CQL_IMAGE)
+    
     plan.print("Starting Jeju Localnet...")
     plan.print("OP Stack: " + OP_STACK_VERSION)
+    plan.print("CovenantSQL: " + cql_image)
     plan.print("")
     
     # L1: Geth in dev mode
@@ -59,7 +67,6 @@ def run(plan, args={}):
             ports={
                 "rpc": PortSpec(number=9545, transport_protocol="TCP", application_protocol="http"),
                 "ws": PortSpec(number=9546, transport_protocol="TCP", application_protocol="ws"),
-                # Skipping authrpc - not needed for basic dev mode
             },
             cmd=[
                 "--dev",
@@ -81,21 +88,58 @@ def run(plan, args={}):
     )
     
     plan.print("L2 Execution started")
-    plan.print("")
-    plan.print("Note: This is a simplified L2 for local development.")
-    plan.print("      op-node and batcher are not included in this minimal setup.")
-    plan.print("      You have a working L2 execution layer you can deploy contracts to.")
+    
+    # CovenantSQL: Decentralized database for messaging and storage
+    # Using SQLite-compatible mode for single-node local dev
+    cql = plan.add_service(
+        name="covenantsql",
+        config=ServiceConfig(
+            image=cql_image,
+            ports={
+                "api": PortSpec(number=4300, transport_protocol="TCP", application_protocol="http"),
+                "rpc": PortSpec(number=4661, transport_protocol="TCP"),
+            },
+            cmd=[
+                "-config", "/app/config.yaml",
+                "-single-node",  # Single node mode for local dev
+            ],
+            env_vars={
+                "CQL_LOG_LEVEL": "info",
+            },
+            files={
+                "/app/config.yaml": """
+# CovenantSQL single-node config for local development
+WorkingRoot: "/data"
+ThisNodeID: "00000000000000000000000000000000"
+ListenAddr: "0.0.0.0:4661"
+APIAddr: "0.0.0.0:4300"
+LogLevel: "info"
+Genesis:
+  Timestamp: "2024-01-01T00:00:00Z"
+  BaseVersion: "1.0.0"
+""",
+            },
+        )
+    )
+    
+    plan.print("CovenantSQL started")
     
     plan.print("")
     plan.print("=" * 70)
-    plan.print("Localnet Deployed.")
+    plan.print("Jeju Localnet Deployed")
     plan.print("=" * 70)
     plan.print("")
-    plan.print("Get endpoints with:")
+    plan.print("Endpoints:")
+    plan.print("  L1 RPC:  http://127.0.0.1:8545")
+    plan.print("  L2 RPC:  http://127.0.0.1:9545  (use port forwarding)")
+    plan.print("  CQL API: http://127.0.0.1:4300  (use port forwarding)")
+    plan.print("")
+    plan.print("Get actual ports with:")
     plan.print("  kurtosis enclave inspect jeju-localnet")
     plan.print("")
-    plan.print("Get L2 RPC port:")
+    plan.print("Port forwarding commands:")
     plan.print("  kurtosis port print jeju-localnet op-geth rpc")
+    plan.print("  kurtosis port print jeju-localnet covenantsql api")
     plan.print("")
     
-    return {"status": "success"}
+    return {"status": "success", "services": ["geth-l1", "op-geth", "covenantsql"]}

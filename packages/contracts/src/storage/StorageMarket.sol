@@ -221,11 +221,11 @@ contract StorageMarket is IStorageTypes, ReentrancyGuard, Ownable {
         _providerRecords[msg.sender].completedDeals++;
         _providerRecords[msg.sender].totalStoredGB += sizeGB;
         _providerRecords[msg.sender].totalEarnings += providerPayment;
-        
+
         totalPlatformFeesCollected += platformFee;
 
         emit DealCompleted(dealId);
-        
+
         if (platformFee > 0) {
             emit PlatformFeeCollected(dealId, platformFee, currentFeeBps);
         }
@@ -426,11 +426,11 @@ contract StorageMarket is IStorageTypes, ReentrancyGuard, Ownable {
     /**
      * @notice Get platform fee statistics
      */
-    function getPlatformFeeStats() external view returns (
-        uint256 _totalPlatformFeesCollected,
-        uint256 _currentFeeBps,
-        address _treasury
-    ) {
+    function getPlatformFeeStats()
+        external
+        view
+        returns (uint256 _totalPlatformFeesCollected, uint256 _currentFeeBps, address _treasury)
+    {
         return (totalPlatformFeesCollected, _getPlatformFeeBps(), _getTreasuryAddress());
     }
 }

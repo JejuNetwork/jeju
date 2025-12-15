@@ -52,7 +52,7 @@ contract StorageMarketTest is Test {
             1024 * 1024 * 1024, // 1 GB
             30, // 30 days
             1, // tier
-            1  // replication
+            1 // replication
         );
 
         assertTrue(dealId != bytes32(0));
@@ -61,16 +61,9 @@ contract StorageMarketTest is Test {
     function test_CompleteDealWithPlatformFee() public {
         // Create deal - calculate cost first
         uint256 cost = market.calculateDealCost(provider, 1024 * 1024 * 1024, 30, 1);
-        
+
         vm.prank(user);
-        bytes32 dealId = market.createDeal{value: cost}(
-            provider,
-            "QmTestCid123",
-            1024 * 1024 * 1024,
-            30,
-            1,
-            1
-        );
+        bytes32 dealId = market.createDeal{value: cost}(provider, "QmTestCid123", 1024 * 1024 * 1024, 30, 1, 1);
 
         // Confirm deal
         vm.prank(provider);
@@ -86,10 +79,10 @@ contract StorageMarketTest is Test {
         // Complete deal
         vm.prank(provider);
         market.completeDeal(dealId);
-        
+
         // Get fee rate from FeeConfig
         uint256 feeBps = feeConfig.getStorageUploadFee(); // 200 = 2%
-        
+
         // The total payment is the deal cost
         uint256 totalPayment = cost;
         uint256 platformFee = (totalPayment * feeBps) / 10000;
@@ -122,14 +115,7 @@ contract StorageMarketTest is Test {
         uint256 cost = market.calculateDealCost(provider, 1024 * 1024 * 1024, 30, 1);
 
         vm.prank(user);
-        bytes32 dealId = market.createDeal{value: cost}(
-            provider,
-            "QmTestCid456",
-            1024 * 1024 * 1024,
-            30,
-            1,
-            1
-        );
+        bytes32 dealId = market.createDeal{value: cost}(provider, "QmTestCid456", 1024 * 1024 * 1024, 30, 1, 1);
 
         vm.prank(provider);
         market.confirmDeal(dealId);

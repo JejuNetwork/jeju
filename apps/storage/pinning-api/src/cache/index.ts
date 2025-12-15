@@ -2,6 +2,6 @@
  * Decentralized Cache Module
  */
 
-export * from './decentralized-cache';
+export * from './cache';
 
 

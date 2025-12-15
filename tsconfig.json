@@ -18,7 +18,7 @@
     "noFallthroughCasesInSwitch": true,
     "allowSyntheticDefaultImports": true,
     "jsx": "react-jsx",
-    "types": ["bun-types"],
+    "types": ["bun"],
     "paths": {
       "@/*": ["./*"],
       "@types/*": ["./types/*"],

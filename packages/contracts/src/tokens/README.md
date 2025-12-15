@@ -1,170 +1,188 @@
-# JejuToken
+# Jeju Token Contracts
 
-The native ERC-20 token for Jeju Network with integrated ban enforcement.
+Canonical, consolidated token contracts for Jeju Network.
 
-## Overview
+## Contracts
 
-| Property | Value |
-|----------|-------|
-| Name | Jeju |
-| Symbol | JEJU |
-| Decimals | 18 |
-| Initial Supply | 1,000,000,000 (1B) |
-| Max Supply | 10,000,000,000 (10B) |
-| Standard | ERC-20 + Custom Extensions |
+### Token.sol
 
-## Features
+Universal ERC-20 token with trading fees, cross-chain support, and moderation.
 
-### Ban Enforcement
-Integrates with `BanManager` to prevent banned users from transferring tokens:
-- Banned senders cannot transfer (blocked at `_update`)
-- Banned receivers cannot receive tokens
-- **Exception**: Transfers TO ban-exempt addresses (e.g., ModerationMarketplace) are allowed
+**Features:**
+- ERC20 with Permit (EIP-2612) for gasless approvals
+- EIP-3009 for gasless transfers (meta-transactions)
+- Trading fees: creator, holder rewards, treasury, burn (Clanker/Skycloud-style)
+- LP fees configurable at creation
+- Cross-chain via Hyperlane (lock/unlock on home, burn/mint on synthetic)
+- Ban enforcement via moderation system
+- Anti-whale: max wallet and transaction limits
+- Faucet for testnet
 
-This exception is critical for allowing banned users to stake tokens to appeal their ban.
+**Fee Structure:**
+| Fee Type | Description |
+|----------|-------------|
+| Creator Fee | % to token creator on each trade |
+| Holder Fee | % distributed to holders/stakers |
+| Treasury Fee | % to protocol treasury |
+| Burn Fee | % burned (deflationary) |
+| LP Fee | % on liquidity/bridge operations |
 
-### Ban Exemption
+**Usage:**
 ```solidity
-mapping(address => bool) public banExempt;
+// Deploy with 1B supply, 10B max, as home chain
+Token token = new Token(
+    "My Token",
+    "TOKEN",
+    1_000_000_000 * 10**18,  // initial supply
+    owner,
+    10_000_000_000 * 10**18, // max supply (0 = unlimited)
+    true                      // is home chain
+);
 
-function setBanExempt(address account, bool exempt) external onlyOwner;
+// Configure fees: 1% creator, 1% holders, 0.5% treasury, 0.5% burn
+token.setFees(
+    100,                      // creatorFeeBps
+    100,                      // holderFeeBps  
+    50,                       // treasuryFeeBps
+    50,                       // burnFeeBps
+    25,                       // lpFeeBps
+    creatorWallet,
+    holderRewardPool,
+    treasury
+);
+
+// Anti-whale: 2% max wallet, 1% max transaction
+token.setConfig(200, 100, true, false, true);
 ```
 
-Set the ModerationMarketplace as ban-exempt to enable appeals:
+### Presale.sol
+
+Universal presale contract supporting fixed price and CCA (Continuous Clearing Auction).
+
+**Modes:**
+1. **Fixed Price**: Traditional presale with set token price
+2. **CCA Auction**: Reverse Dutch auction where price decays, all pay clearing price
+
+**Features:**
+- Whitelist/early bird phase with bonus
+- Volume-based bonuses (1 ETH, 5 ETH, 10 ETH tiers)
+- Holder bonuses (existing token holders get multiplier)
+- Vesting with TGE unlock, cliff, and linear vesting
+- Cross-chain contribution support via Hyperlane
+- Refund mechanism for failed presales
+
+**Usage (Fixed Price):**
 ```solidity
-jejuToken.setBanExempt(moderationMarketplace, true);
+Presale presale = new Presale(tokenAddress, treasury, owner);
+
+presale.configure(
+    Presale.PresaleMode.FIXED_PRICE,
+    100_000_000 * 10**18,   // 100M tokens
+    100 ether,              // soft cap
+    1000 ether,             // hard cap
+    0.1 ether,              // min contribution
+    10 ether,               // max contribution
+    0.001 ether,            // price per token
+    0, 0, 0,                // CCA params (unused)
+    whitelistStart,
+    publicStart,
+    presaleEnd,
+    tgeTimestamp
+);
+
+// 20% at TGE, 3 month cliff, 9 month linear vest
+presale.setVesting(2000, 90 days, 270 days);
+
+// Bonuses: 10% whitelist, 50% holder, volume bonuses
+presale.setBonuses(1000, 5000, 100, 300, 500, existingTokenAddr, 1000 * 10**18);
 ```
 
-### Faucet (Dev/Testnet)
+**Usage (CCA Auction):**
 ```solidity
-uint256 public constant FAUCET_AMOUNT = 10_000 * 10**18; // 10k JEJU
-uint256 public constant FAUCET_COOLDOWN = 1 hours;
+presale.configure(
+    Presale.PresaleMode.CCA_AUCTION,
+    100_000_000 * 10**18,
+    100 ether, 1000 ether,
+    0.1 ether, 10 ether,
+    0,                       // token price (unused)
+    0.005 ether,            // start price
+    0.001 ether,            // reserve price
+    1e12,                   // decay per block
+    ...
+);
 
-function faucet() external;                    // Claim to msg.sender
-function faucetTo(address recipient) external; // Claim to another address
+// After auction ends, set clearing price
+presale.setClearingPrice(0.002 ether, participantAddresses);
 ```
 
-The faucet is enabled on localnet and testnet, disabled on mainnet.
+### EIP3009Token.sol
 
-### Minting
-```solidity
-function mint(address to, uint256 amount) external onlyOwner;
-```
-
-Owner can mint up to `MAX_SUPPLY`. Used for treasury allocation, rewards, etc.
-
-## Deployment
-
-### Localnet
-```bash
-bun run scripts/deploy-jeju-token.ts --network localnet
-```
-
-### Testnet (with multi-sig)
-```bash
-bun run scripts/deploy-jeju-token.ts --network testnet --safe 0x...
-```
-
-### Mainnet (requires multi-sig)
-```bash
-bun run scripts/deploy-jeju-token.ts --network mainnet --safe 0x...
-```
-
-### Foundry
-```bash
-# Basic deployment
-forge script script/DeployJejuToken.s.sol:DeployJejuToken --rpc-url $RPC_URL --broadcast
-
-# Full ecosystem (BanManager + TokenRegistry)
-forge script script/DeployJejuToken.s.sol:DeployJejuTokenFull --rpc-url $RPC_URL --broadcast
-```
+Lightweight ERC-20 with EIP-3009 gasless transfer support. Use Token.sol for full features.
 
 ## Integration
 
-### Reading Token State
-```typescript
-import { JejuTokenAbi } from '@jejunetwork/contracts';
+### For New Tokens
 
-const balance = await client.readContract({
-  address: JEJU_ADDRESS,
-  abi: JejuTokenAbi,
-  functionName: 'balanceOf',
-  args: [userAddress],
-});
-
-const isBanned = await client.readContract({
-  address: JEJU_ADDRESS,
-  abi: JejuTokenAbi,
-  functionName: 'isBanned',
-  args: [userAddress],
-});
-```
-
-### Paymaster Integration
-JejuToken works with the multi-token paymaster system. Register in TokenRegistry:
-```typescript
-await tokenRegistry.registerToken(
-  jejuAddress,
-  priceOracleAddress,
-  0,     // 0% min fee
-  200,   // 2% max fee
-  bytes32(0)
-);
-```
-
-### Ban Flow
-1. User reported in ModerationMarketplace
-2. If vote passes, `BanManager.applyAddressBan()` called
-3. JejuToken's `_update()` checks `banManager.isAddressBanned()`
-4. Banned user can still transfer TO ModerationMarketplace to appeal
-
-## Security
-
-### Multi-Sig Ownership
-For production deployments, ownership should be transferred to a Safe multi-sig:
 ```solidity
-jejuToken.transferOwnership(safeAddress);
-banManager.transferOwnership(safeAddress);
+import {Token} from "@jeju/contracts/tokens/Token.sol";
+
+contract MyToken is Token {
+    constructor() Token("My Token", "MTK", 1e27, msg.sender, 0, true) {
+        // Configure fees, moderation, cross-chain as needed
+    }
+}
 ```
 
-### Critical Functions (Owner Only)
-- `mint()` - Create new tokens
-- `setBanManager()` - Change ban enforcement source
-- `setBanEnforcement()` - Toggle ban enforcement
-- `setBanExempt()` - Set ban exemption for addresses
-- `setFaucetEnabled()` - Toggle faucet
+### For Presales
 
-### External Dependencies
-- `BanManager`: Trusted external call in `_update()`
-- Malicious BanManager could DOS the token
+```typescript
+const presale = new Presale__factory(signer).deploy(
+    tokenAddress,
+    treasuryAddress,
+    ownerAddress
+);
 
-## Events
+await presale.configure(...);
+await presale.setVesting(...);
+await token.transfer(presale.address, tokensForSale);
+```
 
-| Event | Parameters |
-|-------|------------|
-| `BanManagerUpdated` | oldManager, newManager |
-| `BanEnforcementToggled` | enabled |
-| `BanExemptUpdated` | account, exempt |
-| `FaucetToggled` | enabled |
-| `FaucetClaimed` | claimer, amount |
+### Cross-Chain Setup
 
-## Errors
+```solidity
+// On home chain
+token.setHyperlane(mailboxAddr, igpAddr, homeChainDomain);
+token.setRouter(84532, bytes32(uint256(uint160(baseSepoliaRouter))));
 
-| Error | Description |
-|-------|-------------|
-| `BannedUser(address)` | Transfer blocked due to ban |
-| `MaxSupplyExceeded()` | Mint would exceed 10B cap |
-| `FaucetDisabled()` | Faucet not enabled |
-| `FaucetCooldownActive(nextClaimTime)` | Must wait before claiming again |
-| `FaucetInsufficientBalance()` | Owner has insufficient balance |
+// On synthetic chain
+Token syntheticToken = new Token("Token", "TKN", 0, owner, 0, false);
+syntheticToken.setHyperlane(mailboxAddr, igpAddr, homeChainDomain);
+syntheticToken.setRouter(1, bytes32(uint256(uint160(mainnetRouter))));
+```
 
-## Addresses
+## Vendor Integration
 
-| Network | JejuToken | BanManager |
-|---------|-----------|------------|
-| Localnet | Deployed on demand | Deployed with token |
-| Testnet | TBD | TBD |
-| Mainnet | TBD | TBD |
+Vendor tokens (like Babylon) should import the base contracts:
+
+```solidity
+// In vendor/babylon/contracts/BabylonToken.sol
+import {Token} from "@jeju/contracts/tokens/Token.sol";
+
+contract BabylonToken is Token {
+    uint256 public constant TOTAL_SUPPLY = 1_000_000_000 * 10**18;
+    
+    constructor(address owner) Token(
+        "Babylon",
+        "BBLN", 
+        TOTAL_SUPPLY,
+        owner,
+        TOTAL_SUPPLY, // fixed supply
+        true
+    ) {
+        // BBLN-specific configuration
+    }
+}
+```
 
 ## License
 

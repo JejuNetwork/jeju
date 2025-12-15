@@ -24,6 +24,7 @@ const STEPS = {
   VALIDATE: process.env.SKIP_VALIDATE !== "true",
   TERRAFORM: process.env.SKIP_TERRAFORM !== "true",
   IMAGES: process.env.SKIP_IMAGES !== "true",
+  CQL_IMAGE: process.env.BUILD_CQL_IMAGE === "true" || process.env.USE_ARM64_CQL === "true",
   KUBERNETES: process.env.SKIP_KUBERNETES !== "true",
   VERIFY: process.env.SKIP_VERIFY !== "true"
 };
@@ -70,6 +71,13 @@ async function main() {
   if (STEPS.IMAGES) {
     await step("Building and pushing Docker images", async () => {
       await $`NETWORK=${NETWORK} bun run ${join(ROOT, "scripts/build-images.ts")} --push`;
+    });
+  }
+
+  // Step 3.5: CovenantSQL image (for ARM64 support)
+  if (STEPS.CQL_IMAGE) {
+    await step("Building and pushing CovenantSQL multi-arch image", async () => {
+      await $`NETWORK=${NETWORK} bun run ${join(ROOT, "scripts/build-covenantsql.ts")} --push`;
     });
   }
 

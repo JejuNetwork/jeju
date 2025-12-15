@@ -1,3 +1,13 @@
+# ============================================================================
+# Jeju Gateway - Decentralized Deployment Configuration
+# 
+# DECENTRALIZED: High availability with no single points of failure
+# - Minimum 3 replicas across different nodes
+# - Pod disruption budget ensures availability during updates
+# - Health checks with proper timeouts
+# - Graceful shutdown for connection draining
+# ============================================================================
+
 replicaCount: 3
 
 image:
@@ -13,6 +23,9 @@ serviceAccount:
   annotations: {}
   name: ""
 
+# Graceful shutdown: Allow 30s for connections to drain
+terminationGracePeriodSeconds: 30
+
 service:
   type: ClusterIP
   port: 80
@@ -23,6 +36,8 @@ ingress:
   className: "nginx"
   annotations:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
   hosts:
     - host: gateway.testnet.jeju.network
       paths:
@@ -41,26 +56,40 @@ resources:
     cpu: 250m
     memory: 256Mi
 
+# Decentralized: Autoscaling for permissionless load handling
 autoscaling:
   enabled: true
   minReplicas: 3
   maxReplicas: 20
   targetCPUUtilizationPercentage: 70
 
+# Decentralized: Pod Disruption Budget ensures high availability
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2  # At least 2 pods always available
+
 env:
   - name: NODE_ENV
     value: "production"
+  # Decentralized: Require CQL, no fallbacks
+  - name: CQL_REQUIRED
+    value: "true"
+  - name: CQL_STRICT_MODE
+    value: "true"
 
 envFrom:
   - secretRef:
       name: gateway-env
 
+# Health checks with appropriate timeouts for decentralized dependencies
 livenessProbe:
   httpGet:
     path: /health
     port: 80
-  initialDelaySeconds: 10
+  initialDelaySeconds: 15
   periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
 
 readinessProbe:
   httpGet:
@@ -68,4 +97,17 @@ readinessProbe:
     port: 80
   initialDelaySeconds: 5
   periodSeconds: 5
+  timeoutSeconds: 3
+  successThreshold: 1
+  failureThreshold: 3
+
+# Startup probe allows more time for decentralized service connections
+startupProbe:
+  httpGet:
+    path: /health
+    port: 80
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 30
 

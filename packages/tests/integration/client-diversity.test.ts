@@ -172,17 +172,17 @@ describe('L2 Sequencer Client Diversity', () => {
   it('should have at least one L2 sequencer available', () => {
     // In local dev without docker-compose, no L2 is expected
     if (availableSequencers.length === 0) {
-      console.warn('WARNING: No L2 sequencers available. Run docker-compose.stage2.yml for full testing.');
+      console.warn('WARNING: No L2 sequencers available. Run docker-compose.decentralized.yml for full testing.');
     }
     // This is a warning, not a failure for local dev
     expect(true).toBe(true);
   });
 
-  it('should have multiple sequencers for Stage 2 decentralization', () => {
+  it('should have multiple sequencers for decentralization', () => {
     if (availableSequencers.length < 2) {
-      console.warn('WARNING: Less than 2 sequencers running. Not Stage 2 compliant.');
+      console.warn('WARNING: Less than 2 sequencers running. Not decentralization compliant.');
     }
-    // For true Stage 2, we need at least 2 sequencers
+    // For true decentralization, we need at least 2 sequencers
     // But for local dev, 0 is acceptable
     expect(availableSequencers.length).toBeGreaterThanOrEqual(0);
   });
@@ -347,7 +347,7 @@ describe('Client Diversity Summary', () => {
     console.log(`\nSummary:`);
     console.log(`  L1 Clients: ${l1Healthy}/${L1_CLIENTS.length} healthy`);
     console.log(`  L2 Sequencers: ${l2Healthy}/${L2_CLIENTS.length} healthy`);
-    console.log(`  Stage 2 Ready: ${l1Healthy >= 2 && l2Healthy >= 2 ? 'YES' : 'NO'}`);
+    console.log(`  Decentralization Ready: ${l1Healthy >= 2 && l2Healthy >= 2 ? 'YES' : 'NO'}`);
     console.log('');
 
     expect(true).toBe(true); // Always pass, this is just a report

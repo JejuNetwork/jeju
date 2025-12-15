@@ -1,0 +1,46 @@
+# Testnet values for Jeju Compute Services
+
+common:
+  rpcUrl: "https://testnet-rpc.jeju.network"
+  registryAddress: ""  # Set by CI/CD
+  workerRegistryAddress: ""  # Set by CI/CD
+  
+computeNode:
+  replicaCount: 2
+  image:
+    tag: testnet-latest
+  env:
+    NODE_ENV: testnet
+
+workerRuntime:
+  replicaCount: 2
+  image:
+    tag: testnet-latest
+  autoscaling:
+    minReplicas: 2
+    maxReplicas: 5
+
+mpcNode:
+  replicaCount: 3
+  image:
+    tag: testnet-latest
+  env:
+    MPC_NETWORK_ID: jeju-testnet
+
+ingress:
+  hosts:
+    - host: compute-testnet.jeju.network
+      paths:
+        - path: /
+          pathType: Prefix
+          service: computeNode
+        - path: /workers
+          pathType: Prefix
+          service: workerRuntime
+        - path: /mpc
+          pathType: Prefix
+          service: mpcNode
+  tls:
+    - secretName: compute-testnet-tls
+      hosts:
+        - compute-testnet.jeju.network

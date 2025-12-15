@@ -1,0 +1,159 @@
+# Default values for Jeju Compute Services
+
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+
+# Common settings
+common:
+  rpcUrl: ""
+  registryAddress: ""
+  workerRegistryAddress: ""
+  ledgerAddress: ""
+  inferenceAddress: ""
+
+# Compute Node - AI inference + GPU rentals
+computeNode:
+  enabled: true
+  replicaCount: 2
+  
+  image:
+    repository: jeju/compute
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 4007
+  
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
+    limits:
+      cpu: "2000m"
+      memory: "2Gi"
+  
+  env:
+    SERVICE: node
+    COMPUTE_PORT: "4007"
+  
+  # GPU support (for TEE nodes)
+  gpu:
+    enabled: false
+    count: 1
+    type: nvidia-tesla-t4
+  
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# Worker Runtime - Serverless JavaScript execution
+workerRuntime:
+  enabled: true
+  replicaCount: 3
+  
+  image:
+    repository: jeju/compute
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 4020
+  
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "256Mi"
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+  
+  env:
+    SERVICE: workers
+    WORKER_SERVER_PORT: "4020"
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+  
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# MPC Node - Threshold signing
+mpcNode:
+  enabled: true
+  replicaCount: 3  # Minimum for 2-of-3 threshold
+  
+  image:
+    repository: jeju/compute
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 4010
+  
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "256Mi"
+    limits:
+      cpu: "1000m"
+      memory: "512Mi"
+  
+  env:
+    SERVICE: mpc
+    MPC_PORT: "4010"
+    MPC_THRESHOLD: "2"
+    MPC_TOTAL_SHARES: "3"
+  
+  nodeSelector: {}
+  tolerations: []
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/component: mpc
+            topologyKey: kubernetes.io/hostname
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: compute.jeju.network
+      paths:
+        - path: /
+          pathType: Prefix
+          service: computeNode
+        - path: /workers
+          pathType: Prefix
+          service: workerRuntime
+        - path: /mpc
+          pathType: Prefix
+          service: mpcNode
+  tls:
+    - secretName: compute-tls
+      hosts:
+        - compute.jeju.network
+
+# Service account
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1

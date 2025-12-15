@@ -8,35 +8,36 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {IIdentityRegistry} from "../registry/interfaces/IIdentityRegistry.sol";
 import {ILiquidityVault} from "../interfaces/IPaymaster.sol";
+import {FeeConfig} from "./FeeConfig.sol";
 
 /**
  * @title FeeDistributor
  * @author Jeju Network
- * @notice Distributes transaction fees between app developers, liquidity providers, AND contributors
- * @dev Implements 3-way split: 45% apps, 45% LPs, 10% contributors with monthly contributor rewards.
+ * @notice Distributes transaction fees with CONFIGURABLE splits via FeeConfig
+ * @dev Fee splits are governance-controlled via FeeConfig contract.
  *
- * Architecture:
- * - Receives elizaOS tokens from paymaster after each transaction
- * - Splits fees: 45% to app, 45% to LPs, 10% to contributor pool
- * - Contributor pool accumulates monthly
- * - Oracle submits monthly snapshot with pro-rata contributor shares
- * - Contributors claim their allocated rewards
+ * Features:
+ * - Fee splits read from FeeConfig contract (governance-controlled)
+ * - Dynamic fee adjustments via DAO
+ * - Platform fee collection from compute/storage
  *
  * Fee Flow:
- * 1. User pays 100 elizaOS for gas
- * 2. Distributor splits: 45 to app, 45 to LPs, 10 to contributor pool
- * 3. Monthly: Oracle submits snapshot with contributor allocations
- * 4. Contributors claim their share from pool
- *
- * Contributor Distribution:
- * - Monthly snapshots with contributor addresses and pro-rata shares
- * - Per-share accounting for gas-efficient distribution
- * - Pull-based claiming (contributors initiate)
+ * 1. User pays tokens for gas/services
+ * 2. Distributor reads current splits from FeeConfig
+ * 3. Splits fees: X% to app, Y% to LPs, Z% to contributor pool
+ * 4. LPs split further: A% ETH LPs, B% token LPs
+ * 5. Monthly: Oracle submits snapshot with contributor allocations
+ * 6. Contributors claim their share from pool
  *
  * @custom:security-contact security@jeju.network
  */
 contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
     using SafeERC20 for IERC20;
+
+    // ============ Constants ============
+
+    uint256 public constant BPS_DENOMINATOR = 10000;
+    uint256 public constant PERIOD_DURATION = 30 days;
 
     // ============ State Variables ============
 
@@ -46,28 +47,14 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
     /// @notice Liquidity vault that receives LP portion of fees
     ILiquidityVault public immutable liquidityVault;
 
+    /// @notice Fee configuration contract (governance-controlled)
+    FeeConfig public feeConfig;
+
     /// @notice Authorized paymaster contract that triggers distributions
     address public paymaster;
 
     /// @notice Authorized oracle address that submits contributor snapshots
     address public contributorOracle;
-
-    // ============ Fee Split Ratios (Basis Points) ============
-
-    /// @notice App developer share of total fees (45% = 4500 basis points)
-    uint256 public constant APP_SHARE = 4500;
-
-    /// @notice Liquidity provider share of total fees (45% = 4500 basis points)
-    uint256 public constant LP_SHARE = 4500;
-
-    /// @notice Contributor share of total fees (10% = 1000 basis points)
-    uint256 public constant CONTRIBUTOR_SHARE = 1000;
-
-    /// @notice ETH LP share of LP portion (70% = 7000 basis points)
-    uint256 public constant ETH_LP_SHARE = 7000;
-
-    /// @notice Token LP share of LP portion (30% = 3000 basis points)
-    uint256 public constant TOKEN_LP_SHARE = 3000;
 
     // ============ App & LP Accounting ============
 
@@ -114,8 +101,16 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
     /// @notice Period start timestamps
     mapping(uint256 => uint256) public periodStartTime;
 
-    /// @notice Period duration (30 days)
-    uint256 public constant PERIOD_DURATION = 30 days;
+    // ============ Platform Fee Collection ============
+
+    /// @notice Platform fees collected from compute services
+    uint256 public computeFeesCollected;
+
+    /// @notice Platform fees collected from storage services
+    uint256 public storageFeesCollected;
+
+    /// @notice Platform fees collected from other sources
+    uint256 public otherFeesCollected;
 
     // ============ ERC-8004 Integration ============
 
@@ -135,18 +130,19 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
         uint256 appAmount,
         uint256 lpAmount,
         uint256 ethLPAmount,
-        uint256 elizaLPAmount,
+        uint256 tokenLPAmount,
         uint256 contributorAmount,
         uint256 timestamp
     );
+    event PlatformFeeCollected(string indexed source, uint256 amount, uint256 timestamp);
     event AppClaimed(address indexed app, uint256 amount);
     event PaymasterSet(address indexed paymaster);
-    event ContributorPoolUpdated(uint256 period, uint256 newBalance);
     event SnapshotSubmitted(uint256 indexed period, uint256 totalPool, uint256 contributorCount, uint256 totalShares);
     event SnapshotFinalized(uint256 indexed period, uint256 timestamp);
     event ContributorClaimed(address indexed contributor, uint256 indexed period, uint256 amount);
     event ContributorOracleSet(address indexed oracle);
     event PeriodStarted(uint256 indexed period, uint256 startTime);
+    event FeeConfigUpdated(address indexed oldConfig, address indexed newConfig);
     event IdentityRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
     event AppAgentLinked(address indexed app, uint256 indexed agentId);
 
@@ -162,21 +158,21 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
     error AlreadyClaimed();
     error InvalidSnapshot();
     error ArrayLengthMismatch();
+    error InvalidAgentId();
+    error NotAgentOwner();
 
     // ============ Constructor ============
 
-    /**
-     * @notice Constructs the FeeDistributor with required dependencies
-     * @param _rewardToken Address of the reward token contract
-     * @param _liquidityVault Address of the liquidity vault contract
-     * @param initialOwner Address that will own the contract
-     */
-    constructor(address _rewardToken, address _liquidityVault, address initialOwner) Ownable(initialOwner) {
+    constructor(address _rewardToken, address _liquidityVault, address _feeConfig, address initialOwner)
+        Ownable(initialOwner)
+    {
         if (_rewardToken == address(0)) revert InvalidAddress();
         if (_liquidityVault == address(0)) revert InvalidAddress();
+        if (_feeConfig == address(0)) revert InvalidAddress();
 
         rewardToken = IERC20(_rewardToken);
         liquidityVault = ILiquidityVault(_liquidityVault);
+        feeConfig = FeeConfig(_feeConfig);
 
         // Initialize first period
         currentPeriod = 0;
@@ -190,36 +186,29 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
      * @notice Distribute transaction fees between app, LPs, and contributor pool
      * @param amount Total reward tokens collected from user as fees
      * @param appAddress Wallet address that will receive the app's share
-     * @dev Implements 45/45/10 fee split with contributor allocation
-     *
-     * Distribution Flow:
-     * 1. Transfer tokens from paymaster to this contract
-     * 2. Calculate 3-way split: 45% app, 45% LP, 10% contributors
-     * 3. Credit app's share to their claimable earnings
-     * 4. Transfer LP portion to vault
-     * 5. Accumulate contributor portion in monthly pool
-     */
-    /**
-     * @custom:security CEI pattern: Update all state before liquidityVault call
+     * @dev Reads fee splits from FeeConfig contract for governance control
      */
     function distributeFees(uint256 amount, address appAddress) external nonReentrant whenNotPaused {
         if (msg.sender != paymaster) revert OnlyPaymaster();
         if (amount == 0) revert InvalidAmount();
         if (appAddress == address(0)) revert InvalidAddress();
 
-        // Transfer tokens from paymaster to this contract (trusted source)
+        // Transfer tokens from paymaster to this contract
         rewardToken.safeTransferFrom(msg.sender, address(this), amount);
 
-        // Calculate 3-way split
-        uint256 appAmount = (amount * APP_SHARE) / 10000;
-        uint256 lpAmount = (amount * LP_SHARE) / 10000;
-        uint256 contributorAmount = amount - appAmount - lpAmount; // 10%
+        // Read current fee splits from governance-controlled FeeConfig
+        FeeConfig.DistributionFees memory fees = feeConfig.getDistributionFees();
+
+        // Calculate splits using governance-controlled percentages
+        uint256 appAmount = (amount * fees.appShareBps) / BPS_DENOMINATOR;
+        uint256 lpAmount = (amount * fees.lpShareBps) / BPS_DENOMINATOR;
+        uint256 contributorAmount = amount - appAmount - lpAmount;
 
         // Split LP portion between ETH and token LPs
-        uint256 ethLPAmount = (lpAmount * ETH_LP_SHARE) / 10000;
+        uint256 ethLPAmount = (lpAmount * fees.ethLpShareBps) / BPS_DENOMINATOR;
         uint256 tokenLPAmount = lpAmount - ethLPAmount;
 
-        // EFFECTS: Update ALL state FIRST (CEI pattern)
+        // EFFECTS: Update all state first (CEI pattern)
         appEarnings[appAddress] += appAmount;
         totalAppEarnings += appAmount;
 
@@ -234,12 +223,79 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
         totalContributorEarnings += contributorAmount;
         totalDistributed += amount;
 
-        // Emit event before external call to vault
+        // Emit event before external call
         emit FeesDistributed(
             appAddress, appAmount, lpAmount, ethLPAmount, tokenLPAmount, contributorAmount, block.timestamp
         );
 
         // INTERACTIONS: External call to vault LAST
+        rewardToken.forceApprove(address(liquidityVault), lpAmount);
+        liquidityVault.distributeFees(ethLPAmount, tokenLPAmount);
+    }
+
+    /**
+     * @notice Collect platform fees from compute/storage services
+     * @param amount Amount of fees collected
+     * @param source Source of the fees (compute, storage, other)
+     * @param appAddress App that generated the fees (for revenue sharing)
+     */
+    function collectPlatformFee(uint256 amount, string calldata source, address appAddress)
+        external
+        nonReentrant
+        whenNotPaused
+    {
+        if (amount == 0) revert InvalidAmount();
+
+        // Transfer tokens to this contract
+        rewardToken.safeTransferFrom(msg.sender, address(this), amount);
+
+        // Track by source
+        bytes32 sourceHash = keccak256(bytes(source));
+        if (sourceHash == keccak256("compute")) {
+            computeFeesCollected += amount;
+        } else if (sourceHash == keccak256("storage")) {
+            storageFeesCollected += amount;
+        } else {
+            otherFeesCollected += amount;
+        }
+
+        emit PlatformFeeCollected(source, amount, block.timestamp);
+
+        // Distribute the fees using standard distribution
+        _distributeInternal(amount, appAddress);
+    }
+
+    /**
+     * @dev Internal distribution logic
+     */
+    function _distributeInternal(uint256 amount, address appAddress) internal {
+        FeeConfig.DistributionFees memory fees = feeConfig.getDistributionFees();
+
+        uint256 appAmount = (amount * fees.appShareBps) / BPS_DENOMINATOR;
+        uint256 lpAmount = (amount * fees.lpShareBps) / BPS_DENOMINATOR;
+        uint256 contributorAmount = amount - appAmount - lpAmount;
+
+        uint256 ethLPAmount = (lpAmount * fees.ethLpShareBps) / BPS_DENOMINATOR;
+        uint256 tokenLPAmount = lpAmount - ethLPAmount;
+
+        if (appAddress != address(0)) {
+            appEarnings[appAddress] += appAmount;
+            totalAppEarnings += appAmount;
+
+            uint256 agentId = appAgentId[appAddress];
+            if (agentId > 0) {
+                agentTotalEarnings[agentId] += appAmount;
+            }
+        } else {
+            // If no app, add to contributor pool
+            contributorAmount += appAmount;
+        }
+
+        totalLPEarnings += lpAmount;
+        contributorPoolBalance += contributorAmount;
+        totalContributorEarnings += contributorAmount;
+        totalDistributed += amount;
+
         rewardToken.forceApprove(address(liquidityVault), lpAmount);
         liquidityVault.distributeFees(ethLPAmount, tokenLPAmount);
     }
@@ -254,7 +310,6 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
         if (amount == 0) revert NoEarningsToClaim();
 
         appEarnings[msg.sender] = 0;
-
         rewardToken.safeTransfer(msg.sender, amount);
 
         emit AppClaimed(msg.sender, amount);
@@ -268,7 +323,6 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
         if (amount == 0) revert NoEarningsToClaim();
 
         appEarnings[msg.sender] = 0;
-
         rewardToken.safeTransfer(recipient, amount);
 
         emit AppClaimed(msg.sender, amount);
@@ -277,20 +331,7 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
     // ============ Contributor Snapshot Functions ============
 
     /**
-     * @notice Submit monthly contributor snapshot (called by authorized oracle)
-     * @param period Period number (must be current period)
-     * @param contributors Array of contributor addresses
-     * @param shares Array of pro-rata shares (sum should equal totalShares)
-     * @dev Uses per-share accounting for gas efficiency.
-     *      Oracle calculates shares based on weighted leaderboard scores.
-     *
-     * Example:
-     * - Contributor A: 500 shares (50%)
-     * - Contributor B: 300 shares (30%)
-     * - Contributor C: 200 shares (20%)
-     * - Total: 1000 shares
-     * - Pool: 10,000 tokens
-     * - A claims: (500 * 10,000) / 1000 = 5,000 tokens
+     * @notice Submit monthly contributor snapshot
      */
     function submitMonthlySnapshot(uint256 period, address[] calldata contributors, uint256[] calldata shares)
         external
@@ -302,15 +343,12 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
         if (snapshots[period].finalized) revert SnapshotAlreadyFinalized();
 
         MonthlySnapshot storage snapshot = snapshots[period];
-
-        // Store snapshot data
         snapshot.period = period;
         snapshot.totalPool = contributorPoolBalance;
         snapshot.contributors = contributors;
         snapshot.shares = shares;
         snapshot.timestamp = block.timestamp;
 
-        // Calculate total shares
         uint256 totalShares = 0;
         for (uint256 i = 0; i < shares.length; i++) {
             snapshot.contributorShares[contributors[i]] = shares[i];
@@ -323,20 +361,14 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
 
     /**
      * @notice Finalize monthly snapshot and start new period
-     * @dev Can only be called after snapshot is submitted.
-     *      Moves to next period and resets contributor pool.
      */
     function finalizeSnapshot(uint256 period) external {
         if (msg.sender != contributorOracle) revert OnlyOracle();
         if (snapshots[period].finalized) revert SnapshotAlreadyFinalized();
 
-        // Finalize snapshot
         snapshots[period].finalized = true;
-
-        // Reset pool balance for next period
         contributorPoolBalance = 0;
 
-        // Start new period
         currentPeriod++;
         periodStartTime[currentPeriod] = block.timestamp;
 
@@ -346,8 +378,6 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
 
     /**
      * @notice Claim contributor rewards for a specific period
-     * @param period Period to claim rewards from
-     * @dev Uses per-share accounting: reward = (userShares * totalPool) / totalShares
      */
     function claimContributorReward(uint256 period) external nonReentrant {
         MonthlySnapshot storage snapshot = snapshots[period];
@@ -359,24 +389,19 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
         if (userShares == 0) revert NoEarningsToClaim();
         if (snapshot.totalShares == 0) revert InvalidSnapshot();
 
-        // Calculate pro-rata reward
         uint256 reward = (userShares * snapshot.totalPool) / snapshot.totalShares;
         if (reward == 0) revert NoEarningsToClaim();
 
-        // Mark as claimed
         snapshot.claimed[msg.sender] = true;
         snapshot.claimedCount++;
 
-        // Transfer reward
         rewardToken.safeTransfer(msg.sender, reward);
 
         emit ContributorClaimed(msg.sender, period, reward);
     }
 
     /**
-     * @notice Claim rewards from multiple periods in one transaction
-     * @param periods Array of period numbers to claim from
-     * @dev Gas-efficient batch claiming
+     * @notice Claim rewards from multiple periods
      */
     function claimMultiplePeriods(uint256[] calldata periods) external nonReentrant {
         uint256 totalReward = 0;
@@ -385,49 +410,58 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
             uint256 period = periods[i];
             MonthlySnapshot storage snapshot = snapshots[period];
 
-            // Skip if already claimed or not finalized
             if (!snapshot.finalized || snapshot.claimed[msg.sender]) {
                 continue;
             }
 
             uint256 userShares = snapshot.contributorShares[msg.sender];
-
-            // Skip if no shares or invalid snapshot
             if (userShares == 0 || snapshot.totalShares == 0) {
                 continue;
             }
 
-            // Calculate reward
             uint256 reward = (userShares * snapshot.totalPool) / snapshot.totalShares;
-            if (reward == 0) continue; // Skip zero rewards
+            if (reward == 0) continue;
 
             totalReward += reward;
-
-            // Mark as claimed
             snapshot.claimed[msg.sender] = true;
             snapshot.claimedCount++;
 
             emit ContributorClaimed(msg.sender, period, reward);
         }
 
-        // Revert if no rewards to claim
         if (totalReward == 0) revert NoEarningsToClaim();
-
-        // Single transfer for all periods
         rewardToken.safeTransfer(msg.sender, totalReward);
     }
 
     // ============ View Functions ============
 
     /**
-     * @notice Get claimable earnings for an app address
+     * @notice Get current fee splits from governance
+     */
+    function getCurrentFeeSplits()
+        external
+        view
+        returns (
+            uint16 appShareBps,
+            uint16 lpShareBps,
+            uint16 contributorShareBps,
+            uint16 ethLpShareBps,
+            uint16 tokenLpShareBps
+        )
+    {
+        FeeConfig.DistributionFees memory fees = feeConfig.getDistributionFees();
+        return (fees.appShareBps, fees.lpShareBps, fees.contributorShareBps, fees.ethLpShareBps, fees.tokenLpShareBps);
+    }
+
+    /**
+     * @notice Get claimable earnings for an app
      */
     function getEarnings(address app) external view returns (uint256) {
         return appEarnings[app];
     }
 
     /**
-     * @notice Get claimable contributor reward for a specific period
+     * @notice Get claimable contributor reward for a period
      */
     function getContributorReward(address contributor, uint256 period)
         external
@@ -435,7 +469,6 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
         returns (uint256 reward, bool claimed, bool finalized)
     {
         MonthlySnapshot storage snapshot = snapshots[period];
-
         finalized = snapshot.finalized;
         claimed = snapshot.claimed[contributor];
 
@@ -450,108 +483,7 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
     }
 
     /**
-     * @notice Get total claimable rewards across all periods
-     */
-    function getTotalClaimableRewards(address contributor) external view returns (uint256 total) {
-        for (uint256 i = 0; i <= currentPeriod; i++) {
-            MonthlySnapshot storage snapshot = snapshots[i];
-
-            if (!snapshot.finalized || snapshot.claimed[contributor]) {
-                continue;
-            }
-
-            uint256 userShares = snapshot.contributorShares[contributor];
-            if (userShares > 0 && snapshot.totalShares > 0) {
-                total += (userShares * snapshot.totalPool) / snapshot.totalShares;
-            }
-        }
-    }
-
-    /**
-     * @notice Get list of periods with unclaimed rewards
-     */
-    function getUnclaimedPeriods(address contributor) external view returns (uint256[] memory) {
-        uint256[] memory tempPeriods = new uint256[](currentPeriod + 1);
-        uint256 count = 0;
-
-        for (uint256 i = 0; i <= currentPeriod; i++) {
-            MonthlySnapshot storage snapshot = snapshots[i];
-
-            if (snapshot.finalized && !snapshot.claimed[contributor] && snapshot.contributorShares[contributor] > 0) {
-                tempPeriods[count] = i;
-                count++;
-            }
-        }
-
-        // Resize array
-        uint256[] memory unclaimedPeriods = new uint256[](count);
-        for (uint256 i = 0; i < count; i++) {
-            unclaimedPeriods[i] = tempPeriods[i];
-        }
-
-        return unclaimedPeriods;
-    }
-
-    /**
-     * @notice Get snapshot details for a period
-     */
-    function getSnapshot(uint256 period)
-        external
-        view
-        returns (
-            uint256 totalPool,
-            uint256 totalShares,
-            uint256 contributorCount,
-            uint256 claimedCount,
-            uint256 timestamp,
-            bool finalized
-        )
-    {
-        MonthlySnapshot storage snapshot = snapshots[period];
-        return (
-            snapshot.totalPool,
-            snapshot.totalShares,
-            snapshot.contributors.length,
-            snapshot.claimedCount,
-            snapshot.timestamp,
-            snapshot.finalized
-        );
-    }
-
-    /**
-     * @notice Get snapshot contributors and their shares
-     * @param period Period number
-     * @return contributors Array of contributor addresses
-     * @return shares Array of pro-rata shares
-     * @dev Used by AirdropManager to read snapshot data
-     */
-    function getSnapshotContributors(uint256 period)
-        external
-        view
-        returns (address[] memory contributors, uint256[] memory shares)
-    {
-        MonthlySnapshot storage snapshot = snapshots[period];
-        return (snapshot.contributors, snapshot.shares);
-    }
-
-    /**
-     * @notice Preview how fees would be distributed for a given amount
-     */
-    function previewDistribution(uint256 amount)
-        external
-        pure
-        returns (uint256 appAmount, uint256 ethLPAmount, uint256 tokenLPAmount, uint256 contributorAmount)
-    {
-        appAmount = (amount * APP_SHARE) / 10000;
-        uint256 lpAmount = (amount * LP_SHARE) / 10000;
-        contributorAmount = (amount * CONTRIBUTOR_SHARE) / 10000;
-
-        ethLPAmount = (lpAmount * ETH_LP_SHARE) / 10000;
-        tokenLPAmount = lpAmount - ethLPAmount;
-    }
-
-    /**
-     * @notice Get global fee distribution statistics
+     * @notice Get global statistics
      */
     function getStats()
         external
@@ -561,71 +493,46 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
             uint256 _totalAppEarnings,
             uint256 _totalLPEarnings,
             uint256 _totalContributorEarnings,
-            uint256 pendingAppClaims,
+            uint256 _computeFeesCollected,
+            uint256 _storageFeesCollected,
             uint256 _contributorPoolBalance,
             uint256 _currentPeriod
         )
     {
-        _totalDistributed = totalDistributed;
-        _totalAppEarnings = totalAppEarnings;
-        _totalLPEarnings = totalLPEarnings;
-        _totalContributorEarnings = totalContributorEarnings;
-        _contributorPoolBalance = contributorPoolBalance;
-        _currentPeriod = currentPeriod;
-
-        // Current contract balance (apps pending + contributor pool)
-        pendingAppClaims = rewardToken.balanceOf(address(this)) - contributorPoolBalance;
-    }
-
-    // ============ Admin Functions ============
-
-    /**
-     * @notice Set the authorized paymaster contract address
-     */
-    function setPaymaster(address _paymaster) external onlyOwner {
-        if (_paymaster == address(0)) revert InvalidAddress();
-        paymaster = _paymaster;
-        emit PaymasterSet(_paymaster);
+        return (
+            totalDistributed,
+            totalAppEarnings,
+            totalLPEarnings,
+            totalContributorEarnings,
+            computeFeesCollected,
+            storageFeesCollected,
+            contributorPoolBalance,
+            currentPeriod
+        );
     }
 
     /**
-     * @notice Set the authorized contributor oracle address
+     * @notice Preview distribution for a given amount
      */
-    function setContributorOracle(address _oracle) external onlyOwner {
-        if (_oracle == address(0)) revert InvalidAddress();
-        contributorOracle = _oracle;
-        emit ContributorOracleSet(_oracle);
-    }
+    function previewDistribution(uint256 amount)
+        external
+        view
+        returns (uint256 appAmount, uint256 ethLPAmount, uint256 tokenLPAmount, uint256 contributorAmount)
+    {
+        FeeConfig.DistributionFees memory fees = feeConfig.getDistributionFees();
 
-    /**
-     * @notice Emergency pause
-     */
-    function pause() external onlyOwner {
-        _pause();
-    }
+        appAmount = (amount * fees.appShareBps) / BPS_DENOMINATOR;
+        uint256 lpAmount = (amount * fees.lpShareBps) / BPS_DENOMINATOR;
+        contributorAmount = amount - appAmount - lpAmount;
 
-    /**
-     * @notice Unpause
-     */
-    function unpause() external onlyOwner {
-        _unpause();
-    }
-
-    /**
-     * @notice Returns the contract version
-     */
-    function version() external pure returns (string memory) {
-        return "1.0.0";
+        ethLPAmount = (lpAmount * fees.ethLpShareBps) / BPS_DENOMINATOR;
+        tokenLPAmount = lpAmount - ethLPAmount;
     }
 
     // ============ ERC-8004 Integration ============
 
-    error InvalidAgentId();
-    error NotAgentOwner();
-
     /**
      * @notice Set the ERC-8004 Identity Registry
-     * @param _identityRegistry Address of the IdentityRegistry contract
      */
     function setIdentityRegistry(address _identityRegistry) external onlyOwner {
         address oldRegistry = address(identityRegistry);
@@ -635,8 +542,6 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
 
     /**
      * @notice Link an app address to an ERC-8004 agent ID
-     * @param app App address to link
-     * @param agentId ERC-8004 agent ID
      */
     function linkAppToAgent(address app, uint256 agentId) external {
         if (address(identityRegistry) == address(0)) revert InvalidAddress();
@@ -649,8 +554,6 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
 
     /**
      * @notice Check if an app is verified as an ERC-8004 agent
-     * @param app App address to check
-     * @return True if app is linked to a verified agent
      */
     function isVerifiedApp(address app) external view returns (bool) {
         uint256 agentId = appAgentId[app];
@@ -661,8 +564,6 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
 
     /**
      * @notice Get app's agent ID
-     * @param app App address
-     * @return Agent ID (0 if not linked)
      */
     function getAppAgentId(address app) external view returns (uint256) {
         return appAgentId[app];
@@ -670,10 +571,41 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
 
     /**
      * @notice Get total earnings by agent ID
-     * @param agentId ERC-8004 agent ID
-     * @return Total earnings accumulated by this agent
      */
     function getAgentEarnings(uint256 agentId) external view returns (uint256) {
         return agentTotalEarnings[agentId];
+    }
+
+    // ============ Admin Functions ============
+
+    function setPaymaster(address _paymaster) external onlyOwner {
+        if (_paymaster == address(0)) revert InvalidAddress();
+        paymaster = _paymaster;
+        emit PaymasterSet(_paymaster);
+    }
+
+    function setContributorOracle(address _oracle) external onlyOwner {
+        if (_oracle == address(0)) revert InvalidAddress();
+        contributorOracle = _oracle;
+        emit ContributorOracleSet(_oracle);
+    }
+
+    function setFeeConfig(address _feeConfig) external onlyOwner {
+        if (_feeConfig == address(0)) revert InvalidAddress();
+        address oldConfig = address(feeConfig);
+        feeConfig = FeeConfig(_feeConfig);
+        emit FeeConfigUpdated(oldConfig, _feeConfig);
+    }
+
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+    function version() external pure returns (string memory) {
+        return "2.0.0";
     }
 }

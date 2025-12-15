@@ -115,7 +115,7 @@ async function main() {
   const rpc = process.env.L1_RPC_URL || 'http://127.0.0.1:8545';
   let addr = process.env.FORCED_INCLUSION_ADDRESS;
 
-  const file = join(DEPLOYMENTS_DIR, `stage2-${network}.json`);
+  const file = join(DEPLOYMENTS_DIR, `${network}.json`);
   if (existsSync(file)) addr = addr || JSON.parse(readFileSync(file, 'utf-8')).forcedInclusion;
   if (!addr) { console.error('FORCED_INCLUSION_ADDRESS required'); process.exit(1); }
 

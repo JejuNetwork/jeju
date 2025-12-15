@@ -1,0 +1,20 @@
+[package]
+name = "evm-light-client"
+version = "0.1.0"
+description = "EVM Light Client on Solana - Verifies Ethereum consensus via ZK proofs"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "evm_light_client"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = { workspace = true }
+solana-program = { workspace = true }

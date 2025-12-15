@@ -2,12 +2,11 @@
 pragma solidity ^0.8.26;
 
 import "forge-std/Script.sol";
-import "../src/tokens/MockJejuUSDC.sol";
-import "../src/tokens/ElizaOSToken.sol";
+import "../src/tokens/Token.sol";
 
 /**
  * @title DeployTokens
- * @notice Deploys test USDC and ElizaOS tokens
+ * @notice Deploys test tokens using the canonical Token contract
  */
 contract DeployTokens is Script {
     function run() external {
@@ -19,19 +18,36 @@ contract DeployTokens is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        // Deploy Mock USDC
-        MockJejuUSDC usdc = new MockJejuUSDC(deployer);
-        console.log("MockJejuUSDC deployed to:", address(usdc));
+        // Deploy test USDC (100M supply, 6 decimals simulated via lower initial supply)
+        Token usdc = new Token(
+            "USD Coin",
+            "USDC",
+            100_000_000 * 10**18,
+            deployer,
+            0, // unlimited
+            true
+        );
+        // Enable faucet for testing
+        usdc.setConfig(0, 0, false, false, true);
+        console.log("Test USDC deployed to:", address(usdc));
 
-        // Deploy ElizaOS Token
-        ElizaOSToken elizaOS = new ElizaOSToken(deployer);
-        console.log("ElizaOSToken deployed to:", address(elizaOS));
+        // Deploy test governance token (1B supply)
+        Token govToken = new Token(
+            "Governance Token",
+            "GOV",
+            1_000_000_000 * 10**18,
+            deployer,
+            10_000_000_000 * 10**18, // 10B max
+            true
+        );
+        govToken.setConfig(0, 0, false, false, true);
+        console.log("Governance Token deployed to:", address(govToken));
 
         vm.stopBroadcast();
 
         console.log("");
         console.log("=== Token Deployment Complete ===");
         console.log("USDC:", address(usdc));
-        console.log("ElizaOS:", address(elizaOS));
+        console.log("GOV:", address(govToken));
     }
 }

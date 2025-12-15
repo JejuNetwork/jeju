@@ -1,0 +1,204 @@
+/**
+ * @jeju/oauth3
+ * 
+ * Fully decentralized OAuth3 authentication with:
+ * - TEE-backed key management (dstack CVM)
+ * - FROST threshold MPC signing
+ * - Cross-chain identity support
+ * - JNS integration for app/identity resolution
+ * - Decentralized storage for sessions and credentials
+ * - Compute marketplace integration for TEE nodes
+ */
+
+// Core types
+export * from './types.js';
+
+// Decentralized Infrastructure
+export {
+  // JNS Integration
+  OAuth3JNSService,
+  createOAuth3JNSService,
+  resetOAuth3JNSService,
+  type OAuth3JNSConfig,
+  type OAuth3AppJNS,
+  type IdentityJNS,
+  type TEENodeJNS,
+  type JNSRecords,
+} from './infrastructure/jns-integration.js';
+
+export {
+  // Decentralized Storage
+  OAuth3StorageService,
+  createOAuth3StorageService,
+  resetOAuth3StorageService,
+  type StorageConfig,
+  type StoredSession,
+  type StoredCredential,
+  type StorageResult,
+  type StorageTier,
+} from './infrastructure/storage-integration.js';
+
+export {
+  // Compute Integration
+  OAuth3ComputeService,
+  createOAuth3ComputeService,
+  resetOAuth3ComputeService,
+  type ComputeConfig,
+  type ComputeProvider,
+  type OAuth3NodeDeployment,
+  type DeployNodeParams,
+} from './infrastructure/compute-integration.js';
+
+export {
+  // Decentralized Discovery
+  OAuth3DecentralizedDiscovery,
+  createDecentralizedDiscovery,
+  resetDecentralizedDiscovery,
+  type DecentralizedConfig,
+  type DiscoveredNode,
+  type DiscoveredApp,
+} from './infrastructure/discovery.js';
+
+export {
+  // Threshold Encryption
+  ThresholdEncryptionService,
+  createThresholdEncryption,
+  deriveLocalEncryptionKey,
+  type ThresholdKeyConfig,
+  type EncryptedPayload,
+  type DecryptionShare,
+} from './infrastructure/threshold-encryption.js';
+
+export {
+  // x402 Payments
+  X402PaymentClient,
+  createX402PaymentClient,
+  resetX402PaymentClient,
+  calculateStorageFee,
+  calculateComputeFee,
+  type PaymentConfig,
+  type PaymentRequest,
+  type PaymentAuthorization,
+  type PaymentReceipt,
+} from './infrastructure/x402-payments.js';
+
+export {
+  // Contract ABIs
+  JNS_REGISTRY_ABI,
+  JNS_RESOLVER_ABI,
+  OAUTH3_APP_REGISTRY_ABI,
+  OAUTH3_IDENTITY_REGISTRY_ABI,
+  OAUTH3_TEE_VERIFIER_ABI,
+  namehash,
+  labelhash,
+} from './infrastructure/abis.js';
+
+export {
+  // Shared Config
+  CONTRACTS,
+  CHAIN_IDS,
+  DEFAULT_RPC,
+  DEFAULT_IPFS_API,
+  DEFAULT_IPFS_GATEWAY,
+  MIN_STAKE,
+  ATTESTATION_VALIDITY_MS,
+  CACHE_EXPIRY_MS,
+  ZERO_ADDRESS,
+  getNetworkType,
+  getContracts,
+  type NetworkType,
+} from './infrastructure/config.js';
+
+// TEE Agent
+export { DstackAuthAgent, startAuthAgent } from './tee/dstack-agent.js';
+
+// MPC/FROST Signing
+export {
+  FROSTCoordinator,
+  generateKeyShares,
+  generateSigningCommitment,
+  generateSignatureShare,
+  aggregateSignatures,
+  verifySignature,
+  publicKeyToAddress,
+  type FROSTKeyShare,
+  type FROSTSigningCommitment,
+  type FROSTSignatureShare,
+  type FROSTSignature,
+  type FROSTCluster,
+} from './mpc/frost-signing.js';
+
+// Farcaster Provider
+export {
+  FarcasterProvider,
+  farcasterProvider,
+  type FarcasterProfile,
+  type FarcasterSigner,
+  type FarcasterCast,
+  type FarcasterFrameContext,
+} from './providers/farcaster.js';
+
+// Social OAuth Providers (Google, Apple, Twitter, GitHub, Discord)
+export {
+  GoogleProvider,
+  AppleProvider,
+  TwitterProvider,
+  GitHubProvider,
+  DiscordProvider,
+  createOAuthProvider,
+  type OAuthConfig,
+  type OAuthState,
+  type OAuthToken,
+  type OAuthProfile,
+} from './providers/social.js';
+
+// Verifiable Credentials
+export {
+  VerifiableCredentialIssuer,
+  VerifiableCredentialVerifier,
+  createCredentialHash,
+  credentialToOnChainAttestation,
+  didFromAddress,
+  addressFromDid,
+  type CredentialIssuanceParams,
+  type CredentialVerificationResult,
+  type CredentialPresentation,
+} from './credentials/verifiable-credentials.js';
+
+// Multi-tenant Council
+export {
+  MultiTenantCouncilManager,
+  createMultiTenantCouncilManager,
+  type CouncilDeployment,
+  type CEOConfig,
+  type CouncilAgentConfig,
+} from './council/multi-tenant.js';
+
+// SDK Client
+export {
+  OAuth3Client,
+  createOAuth3Client,
+  type OAuth3Config,
+  type LoginOptions,
+  type LinkOptions,
+  type SignMessageOptions,
+  type TransactionOptions,
+  type OAuth3EventType,
+  type OAuth3Event,
+  type OAuth3EventHandler,
+} from './sdk/client.js';
+
+// Cross-chain Identity (Open Intents)
+export {
+  CrossChainIdentityManager,
+  crossChainIdentityManager,
+  ChainId,
+  encodeTransferIntent,
+  encodeContractCallIntent,
+  computeIntentHash,
+  type SupportedChain,
+  type CrossChainIdentityState,
+  type ChainIdentityState,
+  type IdentitySyncIntent,
+  type CrossChainAuthIntent,
+} from './intents/cross-chain-identity.js';

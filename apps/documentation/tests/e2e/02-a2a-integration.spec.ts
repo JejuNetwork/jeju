@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { getNetworkName } from '@jejunetwork/config';
 
 const A2A_PORT = process.env.DOCUMENTATION_A2A_PORT || '7778';
 const A2A_BASE_URL = `http://localhost:${A2A_PORT}`;
@@ -22,7 +23,7 @@ test.describe('A2A Server Integration', () => {
 
     const card = await response.json();
     expect(card.protocolVersion).toBe('0.3.0');
-    expect(card.name: getNetworkName() Documentation');
+    expect(card.name).toBe(`${getNetworkName()} Documentation`);
     expect(card.skills).toHaveLength(3);
   });
 

@@ -8,9 +8,11 @@ A decentralized compute marketplace built on ERC-8004 for AI inference and gener
 
 - **🤖 AI Inference** - OpenAI-compatible API for AI model serving
 - **🖥️ Compute Rentals** - Rent GPU/CPU resources by the hour (vast.ai-style)
+- **⚡ Serverless Workers** - Deploy JavaScript/TypeScript workers (Cloudflare Workers-style)
 - **🔐 SSH Access** - Secure shell access to rented machines
 - **🐳 Docker Support** - Run custom containers with startup scripts
 - **📡 Gateway Proxy** - Access resources without P2P connectivity
+- **🔒 TEE Execution** - Run on Phala, Marlin, Oasis, or any registered TEE provider
 
 ## Goals
 
@@ -72,11 +74,43 @@ A decentralized compute marketplace built on ERC-8004 for AI inference and gener
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+## Serverless Workers
+
+Deploy JavaScript/TypeScript workers that run on any TEE provider:
+
+```bash
+# Start the worker runtime server
+bun run src/compute/workers/server.ts
+
+# Deploy a worker
+curl -X POST http://localhost:4020/api/v1/workers \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "hello-world",
+    "code": "export default { fetch(request) { return new Response(\"Hello from Jeju!\"); } }",
+    "routes": ["/hello/*"]
+  }'
+
+# Invoke via route
+curl http://localhost:4020/w/hello/test
+```
+
+### Worker Features
+- **JavaScript/TypeScript** - Full ES2022+ support
+- **Fetch API** - Standard `fetch()` for HTTP requests
+- **Crypto API** - Web Crypto for cryptographic operations  
+- **Route Patterns** - Wildcard routing (`/api/*`, `/users/:id`)
+- **Cron Triggers** - Scheduled execution via cron expressions
+- **TEE Attestation** - Verifiable execution on trusted hardware
+
 ## Smart Contracts
 
 Located in `packages/contracts/src/compute/`:
 
 - **ComputeRegistry** - ERC-8004 extension for compute providers
+- **WorkerRegistry** - Serverless worker deployments and versioning
+- **TriggerRegistry** - Cron/webhook/event triggers
+- **JobRegistry** - Training job queue with TEE workers
 - **ComputeRental** - Session management, escrow, SSH key storage
 - **LedgerManager** - User ledger and payment management
 - **InferenceServing** - Payment settlement for inference jobs
@@ -194,9 +228,66 @@ NETWORK=mainnet bun run deploy:mainnet
 | Platform | TEE Type | Status |
 |----------|----------|--------|
 | Intel TDX | Hardware | Production |
+| Intel SGX | Hardware | Production |
+| AMD SEV | Hardware | Production |
+| AWS Nitro | Hardware | Production |
 | NVIDIA H100/H200 | GPU TEE | Production |
 | Apple MLX | Secure Enclave | Beta |
 | Simulated | None | Testing only |
+
+## TEE Provider Networks
+
+Providers register permissionlessly via `ComputeRegistry`. Jeju seeds the network with nodes on:
+
+### Phala Network
+- **TEE Type**: Intel SGX/TDX via dStack
+- **Capabilities**: Inference, Workers, Secrets management
+- **Attestation**: DCAP verification
+
+### Marlin Protocol  
+- **TEE Type**: Intel TDX via Oyster
+- **Capabilities**: Workers, ZK proving (Kalypso)
+- **Attestation**: On-chain via Marlin contracts
+
+### Oasis Network
+- **TEE Type**: Intel SGX via Sapphire ParaTime
+- **Capabilities**: Confidential compute, Workers
+- **Attestation**: ROFL (Runtime Off-chain Logic)
+
+## Provider Funding Requirements
+
+To operate TEE nodes, providers need native tokens on each network:
+
+### Testnet
+
+| Provider | Token | Amount | Purpose |
+|----------|-------|--------|---------|
+| Phala | PHA | 100 PHA | Compute credits |
+| Marlin | POND | 1,000 POND | Operator stake |
+| Oasis | TEST ROSE | 100 ROSE | Deployment gas |
+| Jeju | ETH | 0.1 ETH | Provider stake |
+
+### Mainnet
+
+| Provider | Token | Amount | Purpose |
+|----------|-------|--------|---------|
+| Phala | PHA | 10,000 PHA | Compute credits + staking |
+| Marlin | POND + MPond | 100,000 POND | Operator stake + delegation |
+| Oasis | ROSE | 10,000 ROSE | Deployment + gas reserve |
+| Jeju | ETH | 1.0 ETH | Provider stake |
+
+### Seeding Providers
+
+```bash
+# Seed testnet providers (dry run)
+bun scripts/seed-providers.ts --network testnet --dry-run
+
+# Seed specific provider
+bun scripts/seed-providers.ts --network testnet --provider phala
+
+# Seed all providers
+PROVIDER_PRIVATE_KEY=0x... bun scripts/seed-providers.ts --network testnet
+```
 
 ## Project Structure
 
@@ -219,7 +310,7 @@ apps/compute/
 
 ### Compute Node
 ```bash
-PRIVATE_KEY=           # Provider wallet key
+PRIVATE_KEY=           # Provider wallet key (required)
 REGISTRY_ADDRESS=      # ComputeRegistry contract
 RENTAL_ADDRESS=        # ComputeRental contract
 RPC_URL=               # Ethereum RPC endpoint
@@ -227,6 +318,17 @@ COMPUTE_PORT=4007      # Node API port
 SSH_PORT=2222          # SSH server port
 DOCKER_ENABLED=true    # Enable container support
 MAX_RENTALS=10         # Max concurrent rentals
+```
+
+### MPC Node (Threshold Signing)
+```bash
+MPC_NODE_ID=           # Unique node identifier (auto-generated if not set)
+MPC_PORT=4010          # MPC server port (default: 4010)
+MPC_NETWORK_ID=        # Network ID: jeju-localnet | jeju-testnet | jeju-mainnet
+MPC_THRESHOLD=1        # Signing threshold (default: 1)
+MPC_TOTAL_SHARES=1     # Total key shares (default: 1)
+MPC_PEERS=             # Comma-separated peer list: nodeId@endpoint,...
+MPC_VERBOSE=false      # Enable verbose logging
 ```
 
 ### Compute Gateway
@@ -237,6 +339,60 @@ REGISTRY_ADDRESS=      # ComputeRegistry contract
 RENTAL_ADDRESS=        # ComputeRental contract
 RPC_URL=               # Ethereum RPC endpoint
 ```
+
+### Worker Runtime
+```bash
+WORKER_SERVER_PORT=4020         # Worker API port
+WORKER_REGISTRY_ADDRESS=        # WorkerRegistry contract
+RPC_URL=                        # Ethereum RPC endpoint
+WORKER_DEFAULT_TIMEOUT_MS=30000 # Default execution timeout
+WORKER_DEFAULT_MEMORY_MB=128    # Default memory limit
+```
+
+### Provider Seeding
+```bash
+PROVIDER_PRIVATE_KEY=           # Wallet for registering providers
+TESTNET_COMPUTE_REGISTRY_ADDRESS=  # Testnet registry
+MAINNET_COMPUTE_REGISTRY_ADDRESS=  # Mainnet registry
+TESTNET_WORKER_REGISTRY_ADDRESS=   # Testnet worker registry
+MAINNET_WORKER_REGISTRY_ADDRESS=   # Mainnet worker registry
+```
+
+## MPC Node
+
+The MPC (Multi-Party Computation) node provides threshold key management and signing for decentralized authentication. It auto-detects local TEE hardware capability.
+
+### Quick Start
+
+```bash
+# Start local MPC node (auto-detects TEE capability)
+bun run mpc:dev
+
+# Start with custom config
+MPC_NODE_ID=node-1 bun run mpc
+```
+
+### TEE Detection
+
+The node automatically detects available TEE hardware:
+
+| Platform | TEE Type | Detection |
+|----------|----------|-----------|
+| Intel TDX | Hardware TEE | `/dev/tdx_guest` |
+| AMD SEV | Hardware TEE | `/dev/sev-guest` |
+| NVIDIA H100 | GPU TEE | `nvidia-smi` |
+| Simulated | Software | Fallback for dev |
+
+For devnet, real TEE is optional - the node runs in simulated mode if no TEE hardware is detected.
+
+### MPC Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Node health + TEE attestation |
+| `/mpc/keygen` | POST | Generate threshold key for user |
+| `/mpc/sign` | POST | Sign message with threshold key |
+| `/mpc/status` | GET | Node status and metrics |
 
 ## Related Projects
 

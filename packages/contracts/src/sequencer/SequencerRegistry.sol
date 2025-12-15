@@ -17,7 +17,7 @@ interface IFeeConfigSequencer {
 /**
  * @title SequencerRegistry
  * @author Jeju Network
- * @notice Stage 2 Sequencer registration with staking and revenue sharing
+ * @notice Decentralized Sequencer registration with staking and revenue sharing
  * @dev V2: Added governance-controlled revenue sharing via FeeConfig
  */
 contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
@@ -31,8 +31,8 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
         uint256 lastBlockProposed;
         uint256 blocksProposed;
         uint256 blocksMissed;
-        uint256 totalRewardsEarned;     // V2: Track total rewards
-        uint256 pendingRewards;          // V2: Unclaimed rewards
+        uint256 totalRewardsEarned; // V2: Track total rewards
+        uint256 pendingRewards; // V2: Unclaimed rewards
         bool isActive;
         bool isSlashed;
     }
@@ -49,8 +49,8 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
         uint256 epochNumber;
         uint256 totalBlocksProduced;
         uint256 totalRevenue;
-        uint256 sequencerShare;      // Amount for sequencers
-        uint256 treasuryShare;       // Amount for treasury
+        uint256 sequencerShare; // Amount for sequencers
+        uint256 treasuryShare; // Amount for treasury
         uint256 distributedAt;
         bool distributed;
     }
@@ -380,13 +380,13 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
      */
     function finalizeEpoch(uint256 epochNumber) external nonReentrant {
         require(epochNumber < currentEpoch, "Epoch not ended");
-        
+
         RevenueEpoch storage epoch = revenueEpochs[epochNumber];
         require(!epoch.distributed, "Already distributed");
 
         // Get revenue share from governance or fallback
         uint256 sharesBps = _getSequencerRevenueShareBps();
-        
+
         // Calculate shares
         uint256 sequencerShare = (epoch.totalRevenue * sharesBps) / BPS_DENOMINATOR;
         uint256 treasuryShare = epoch.totalRevenue - sequencerShare;
@@ -581,13 +581,17 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
     /**
      * @notice Get revenue sharing statistics
      */
-    function getRevenueStats() external view returns (
-        uint256 _currentEpoch,
-        uint256 _epochAccumulatedRevenue,
-        uint256 _totalRevenueCollected,
-        uint256 _totalRewardsDistributed,
-        uint256 _currentShareBps
-    ) {
+    function getRevenueStats()
+        external
+        view
+        returns (
+            uint256 _currentEpoch,
+            uint256 _epochAccumulatedRevenue,
+            uint256 _totalRevenueCollected,
+            uint256 _totalRewardsDistributed,
+            uint256 _currentShareBps
+        )
+    {
         return (
             currentEpoch,
             epochAccumulatedRevenue,

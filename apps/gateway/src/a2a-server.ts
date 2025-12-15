@@ -456,7 +456,7 @@ app.get('/.well-known/agent-card.json', (_req: Request, res: Response) => {
 app.get('/.well-known/governance-agent-card.json', (_req: Request, res: Response) => {
   res.json({
     id: 'jeju-futarchy-governance',
-    name: getNetworkName() Futarchy Governance',
+    name: `${getNetworkName()} Futarchy Governance`,
     description: 'Market-based governance using prediction markets for parameter decisions',
     version: '1.0.0',
     protocol: 'a2a',

@@ -4,10 +4,11 @@
  */
 
 import { useState, useCallback } from 'react';
-import { Shield, Bell, Globe, Key, ChevronRight, Check, Usb, Loader2, AlertCircle } from 'lucide-react';
+import { Shield, Bell, Globe, Key, ChevronRight, Check, Usb, Loader2, AlertCircle, Link2 } from 'lucide-react';
 import { SUPPORTED_CHAINS, type SupportedChainId } from '../../services/rpc';
 import { swapService } from '../../services/swap';
 import { hardwareWalletService, type HardwareDevice, type HardwareWalletType } from '../../services/hardware';
+import { LinkedAccounts } from '../auth';
 
 interface SettingSection {
   id: string;
@@ -17,6 +18,7 @@ interface SettingSection {
 }
 
 const SECTIONS: SettingSection[] = [
+  { id: 'accounts', title: 'Linked Accounts', description: 'Social login & recovery options', icon: Link2 },
   { id: 'security', title: 'Security', description: 'Transaction protection and approvals', icon: Shield },
   { id: 'hardware', title: 'Hardware Wallet', description: 'Connect Ledger or Trezor', icon: Usb },
   { id: 'notifications', title: 'Notifications', description: 'Alerts and updates', icon: Bell },
@@ -75,6 +77,9 @@ export function SettingsView() {
 
   const renderSection = () => {
     switch (activeSection) {
+      case 'accounts':
+        return <LinkedAccounts />;
+
       case 'security':
         return (
           <div className="space-y-6">

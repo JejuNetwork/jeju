@@ -2,8 +2,8 @@
 pragma solidity ^0.8.26;
 
 /// @title IOptimismPortal
-/// @notice Interface for OP Stack OptimismPortal with Stage 2 modifications
-/// @dev This interface shows what changes are needed to OptimismPortal for Stage 2
+/// @notice Interface for OP Stack OptimismPortal with Decentralized modifications
+/// @dev This interface shows what changes are needed to OptimismPortal for Decentralized
 interface IOptimismPortal {
     function depositTransaction(address _to, uint256 _value, uint64 _gasLimit, bool _isCreation, bytes memory _data)
         external
@@ -22,9 +22,9 @@ interface IOptimismPortal {
     function governanceTimelock() external view returns (address);
 }
 
-/// @title IOptimismPortalStage2
-/// @notice Additional interface for Stage 2 specific functions
-interface IOptimismPortalStage2 {
+/// @title IOptimismPortalDecentralized
+/// @notice Additional interface for Decentralized specific functions
+interface IOptimismPortalDecentralized {
     function pause() external;
     function unpause() external;
     function setGasPayingToken(address _token, uint8 _decimals, bytes32 _name, bytes32 _symbol) external;

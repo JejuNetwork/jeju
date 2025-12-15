@@ -1,0 +1,24 @@
+[package]
+name = "evmsol-geyser-plugin"
+version = "0.1.0"
+edition = "2021"
+description = "Geyser plugin for capturing Solana consensus data for ZK light client"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "evmsol_geyser_plugin"
+
+[dependencies]
+solana-geyser-plugin-interface = "1.18"
+solana-sdk = "1.18"
+solana-transaction-status = "1.18"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+log = "0.4"
+env_logger = "0.11"
+bs58 = "0.5"
+reqwest = { version = "0.11", features = ["json"] }
+
+[features]
+default = []

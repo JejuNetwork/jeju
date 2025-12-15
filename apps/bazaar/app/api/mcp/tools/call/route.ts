@@ -15,6 +15,8 @@ import {
   prepareVoteTransaction,
   prepareChallengeTransaction,
 } from '@/lib/moderation-api';
+import { getV4Contracts } from '@/config/contracts';
+import { JEJU_CHAIN_ID } from '@/config/chains';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -97,8 +99,6 @@ async function callTool(
     }
 
     case 'swap_tokens': {
-      const { getV4Contracts } = await import('@/config/contracts');
-      const { JEJU_CHAIN_ID } = await import('@/config/chains');
       const v4Contracts = getV4Contracts(JEJU_CHAIN_ID);
 
       return makeResult({

@@ -22,7 +22,7 @@ test.describe('Paymaster Deployment Transactions', () => {
   });
 
   // Test deployment for EACH protocol token
-  for (const [_tokenName, tokenData] of Object.entries(PROTOCOL_TOKENS)) {
+  for (const tokenData of Object.values(PROTOCOL_TOKENS)) {
     test(`should deploy paymaster for ${tokenData.symbol}`, async ({ page, metamask }) => {
       // Select token
       await page.locator('.input').first().click();

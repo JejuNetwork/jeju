@@ -84,6 +84,22 @@ export interface SignedPayment {
   signature: Hex;
 }
 
+export interface GaslessPaymentParams extends PaymentParams {
+  /** Validity period for EIP-3009 authorization in seconds (default: 300) */
+  validitySeconds?: number;
+}
+
+export interface EIP3009Authorization {
+  validAfter: number;
+  validBefore: number;
+  authNonce: Hex;
+  authSignature: Hex;
+}
+
+export interface SignedGaslessPayment extends SignedPayment {
+  authParams: EIP3009Authorization;
+}
+
 export interface FacilitatorInfo {
   address: Address;
   name: string;
@@ -548,6 +564,137 @@ export class X402Client {
     ]);
 
     return { balance, symbol, decimals };
+  }
+
+  /**
+   * Generate EIP-3009 authorization nonce
+   */
+  generateAuthNonce(): Hex {
+    const bytes = new Uint8Array(32);
+    crypto.getRandomValues(bytes);
+    return ('0x' + Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')) as Hex;
+  }
+
+  /**
+   * Create and sign a gasless payment with EIP-3009 authorization
+   * User signs once, facilitator pays for gas
+   */
+  async createSignedGaslessPayment(params: GaslessPaymentParams): Promise<SignedGaslessPayment> {
+    if (!this.account || !this.walletClient) {
+      throw new Error('Wallet not connected');
+    }
+
+    const token = params.token || CHAIN_CONFIGS[this.config.chainId]?.usdc;
+    if (!token) throw new Error('No token specified and no default USDC for chain');
+
+    // First create the standard x402 payment signature
+    const signedPayment = await this.createSignedPayment(params);
+
+    // Now create EIP-3009 authorization signature
+    const validitySeconds = params.validitySeconds ?? 300;
+    const now = Math.floor(Date.now() / 1000);
+    const validAfter = now - 60; // Valid from 1 min ago (clock skew tolerance)
+    const validBefore = now + validitySeconds;
+    const authNonce = this.generateAuthNonce();
+
+    // Get token name for EIP-712 domain
+    const tokenSymbol = await this.publicClient.readContract({
+      address: token,
+      abi: ERC20_ABI,
+      functionName: 'symbol',
+    }) as string;
+    const tokenName = tokenSymbol === 'USDC' ? 'USD Coin' : tokenSymbol;
+
+    const authDomain = {
+      name: tokenName,
+      version: '1',
+      chainId: this.config.chainId,
+      verifyingContract: token,
+    };
+
+    const authTypes = {
+      TransferWithAuthorization: [
+        { name: 'from', type: 'address' },
+        { name: 'to', type: 'address' },
+        { name: 'value', type: 'uint256' },
+        { name: 'validAfter', type: 'uint256' },
+        { name: 'validBefore', type: 'uint256' },
+        { name: 'nonce', type: 'bytes32' },
+      ],
+    };
+
+    const authMessage = {
+      from: this.account.address,
+      to: this.config.facilitatorAddress, // Transfer to facilitator
+      value: params.amount,
+      validAfter: BigInt(validAfter),
+      validBefore: BigInt(validBefore),
+      nonce: authNonce,
+    };
+
+    const authSignature = await this.walletClient.signTypedData({
+      account: this.account,
+      domain: authDomain,
+      types: authTypes,
+      primaryType: 'TransferWithAuthorization',
+      message: authMessage,
+    });
+
+    return {
+      ...signedPayment,
+      authParams: {
+        validAfter,
+        validBefore,
+        authNonce,
+        authSignature,
+      },
+    };
+  }
+
+  /**
+   * Execute a gasless payment (no approval needed, user doesn't pay gas)
+   */
+  async payGasless(params: GaslessPaymentParams): Promise<PaymentResult> {
+    const signedPayment = await this.createSignedGaslessPayment(params);
+    
+    // Submit to facilitator's gasless endpoint
+    const facilitatorUrl = process.env.JEJU_FACILITATOR_URL || 'http://localhost:3402';
+    
+    const response = await fetch(`${facilitatorUrl}/settle/gasless`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        x402Version: 1,
+        paymentHeader: encodePaymentHeader(signedPayment),
+        paymentRequirements: {
+          scheme: 'exact',
+          network: 'jeju',
+          maxAmountRequired: params.amount.toString(),
+          payTo: params.recipient,
+          asset: signedPayment.token,
+          resource: params.resource,
+        },
+        authParams: signedPayment.authParams,
+      }),
+    });
+
+    const result = await response.json() as {
+      success: boolean;
+      txHash: string | null;
+      paymentId?: string;
+      error: string | null;
+    };
+
+    return {
+      success: result.success,
+      paymentId: (result.paymentId || '0x') as Hex,
+      txHash: (result.txHash || '0x') as Hex,
+      payer: signedPayment.payer,
+      recipient: signedPayment.recipient,
+      amount: signedPayment.amount,
+      protocolFee: 0n, // Would need to parse from response
+      timestamp: signedPayment.timestamp,
+    };
   }
 }
 
