@@ -318,11 +318,16 @@ export class JNSGateway {
   private async setToCache(name: string, content: ResolvedContent): Promise<void> {
     // Set in decentralized cache
     if (this.decentralizedCache) {
-      await this.decentralizedCache.set(
-        `jns:${name}`,
-        JSON.stringify(content),
-        Math.floor(this.CACHE_TTL / 1000)
-      ).catch(() => {});
+      try {
+        await this.decentralizedCache.set(
+          `jns:${name}`,
+          JSON.stringify(content),
+          Math.floor(this.CACHE_TTL / 1000)
+        );
+      } catch (e) {
+        // Cache write failure is non-critical, continue with local cache only
+        console.debug(`Failed to write to decentralized cache for ${name}:`, e);
+      }
     }
     
     // Set in local cache

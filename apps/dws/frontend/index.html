@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DWS Dashboard</title>
+  <style>
+    :root { --bg: #0a0a0f; --fg: #e4e4e7; --accent: #3b82f6; --card: #18181b; --border: #27272a; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--fg); min-height: 100vh; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+    h1 { font-size: 1.5rem; font-weight: 600; }
+    .status { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 0.5rem; padding: 1.5rem; }
+    .card h2 { font-size: 1rem; margin-bottom: 1rem; color: var(--accent); }
+    .stat { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+    .stat:last-child { border-bottom: none; }
+    .stat-value { font-weight: 600; }
+    .upload-zone { border: 2px dashed var(--border); border-radius: 0.5rem; padding: 2rem; text-align: center; margin-top: 1rem; cursor: pointer; }
+    .upload-zone:hover { border-color: var(--accent); }
+    #files { margin-top: 1rem; }
+    .file { display: flex; justify-content: space-between; padding: 0.5rem; background: var(--bg); border-radius: 0.25rem; margin-top: 0.5rem; font-size: 0.875rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>DWS Dashboard</h1>
+      <div class="status"><span class="dot"></span> Connected</div>
+    </header>
+    <div class="grid">
+      <div class="card">
+        <h2>Storage</h2>
+        <div class="stat"><span>Backends</span><span class="stat-value" id="backends">-</span></div>
+        <div class="stat"><span>Total Size</span><span class="stat-value" id="storage-size">-</span></div>
+        <div class="upload-zone" id="drop-zone">Drop files here or click to upload</div>
+        <input type="file" id="file-input" hidden>
+        <div id="files"></div>
+      </div>
+      <div class="card">
+        <h2>Compute</h2>
+        <div class="stat"><span>Models</span><span class="stat-value" id="models">-</span></div>
+        <div class="stat"><span>Inferences</span><span class="stat-value" id="inferences">0</span></div>
+        <div class="stat"><span>Uptime</span><span class="stat-value" id="uptime">-</span></div>
+      </div>
+      <div class="card">
+        <h2>CDN</h2>
+        <div class="stat"><span>Cache Entries</span><span class="stat-value" id="cache-entries">-</span></div>
+        <div class="stat"><span>Hit Rate</span><span class="stat-value" id="hit-rate">-</span></div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const BASE = '';
+    async function load() {
+      const [health, storage, compute, cdn] = await Promise.all([
+        fetch(`${BASE}/health`).then(r => r.json()),
+        fetch(`${BASE}/storage/stats`).then(r => r.json()),
+        fetch(`${BASE}/compute/metrics`).then(r => r.json()),
+        fetch(`${BASE}/cdn/stats`).then(r => r.json()),
+      ]);
+      document.getElementById('backends').textContent = health.backends?.available?.length || 0;
+      document.getElementById('storage-size').textContent = `${storage.totalSizeGB || 0} GB`;
+      document.getElementById('models').textContent = health.services?.compute?.models?.length || 1;
+      document.getElementById('uptime').textContent = `${Math.floor((compute.uptime || 0) / 60000)}m`;
+      document.getElementById('cache-entries').textContent = cdn.entries || 0;
+      document.getElementById('hit-rate').textContent = `${((cdn.hitRate || 0) * 100).toFixed(1)}%`;
+    }
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const filesDiv = document.getElementById('files');
+    dropZone.onclick = () => fileInput.click();
+    dropZone.ondragover = e => { e.preventDefault(); dropZone.style.borderColor = '#3b82f6'; };
+    dropZone.ondragleave = () => { dropZone.style.borderColor = '#27272a'; };
+    dropZone.ondrop = async e => { e.preventDefault(); dropZone.style.borderColor = '#27272a'; await uploadFile(e.dataTransfer.files[0]); };
+    fileInput.onchange = async e => { if (e.target.files[0]) await uploadFile(e.target.files[0]); };
+    async function uploadFile(file) {
+      const form = new FormData(); form.append('file', file);
+      const res = await fetch(`${BASE}/storage/upload`, { method: 'POST', body: form });
+      const data = await res.json();
+      filesDiv.innerHTML += `<div class="file"><span>${file.name}</span><span>${data.cid?.slice(0, 16)}...</span></div>`;
+    }
+    load();
+  </script>
+</body>
+</html>

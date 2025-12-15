@@ -54,7 +54,6 @@ const root = document.getElementById('root');
 if (root) {
   ReactDOM.createRoot(root).render(
     <React.StrictMode>
-      {/* @ts-expect-error - React 18 type compat with wagmi */}
       <WagmiProvider config={config}>
         <QueryClientProvider client={queryClient}>
           <App />

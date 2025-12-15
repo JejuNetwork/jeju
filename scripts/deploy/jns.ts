@@ -16,7 +16,10 @@
  *   bun run scripts/deploy/jns.ts --mainnet     # Deploy to mainnet
  */
 
-import { ethers } from 'ethers';
+import { createPublicClient, createWalletClient, http, keccak256, toUtf8Bytes, concat, encodeDeployData, getContractAddress, type Address, type Chain, type Hex } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { waitForTransactionReceipt, readContract } from 'viem/actions';
+import { parseAbi } from 'viem';
 import { existsSync, mkdirSync } from 'fs';
 
 // Network configuration
@@ -68,54 +71,101 @@ async function getArtifact(name: string) {
 
 // Deploy a contract
 async function deployContract(
-  wallet: ethers.Wallet,
+  publicClient: ReturnType<typeof createPublicClient>,
+  walletClient: ReturnType<typeof createWalletClient>,
+  account: ReturnType<typeof privateKeyToAccount>,
   name: string,
   args: (string | bigint)[] = []
-): Promise<ethers.Contract> {
+): Promise<Address> {
   console.log(`  Deploying ${name}...`);
   
   const artifact = await getArtifact(name);
-  const factory = new ethers.ContractFactory(artifact.abi, artifact.bytecode.object, wallet);
   
-  const contract = await factory.deploy(...args);
-  await contract.waitForDeployment();
+  const deployData = encodeDeployData({
+    abi: artifact.abi,
+    bytecode: artifact.bytecode.object as Hex,
+    args,
+  });
   
-  const address = await contract.getAddress();
-  console.log(`  ✅ ${name}: ${address}`);
+  const nonce = await publicClient.getTransactionCount({
+    address: account.address,
+  });
   
-  return contract as ethers.Contract;
+  const txHash = await walletClient.sendTransaction({
+    data: deployData,
+    account,
+  });
+  
+  const receipt = await waitForTransactionReceipt(publicClient, {
+    hash: txHash,
+    timeout: 120_000,
+  });
+  
+  if (receipt.status !== 'success') {
+    throw new Error(`Deployment failed: ${name} (tx: ${txHash})`);
+  }
+  
+  let address: Address;
+  if (receipt.contractAddress) {
+    address = receipt.contractAddress;
+  } else {
+    address = getContractAddress({
+      from: account.address,
+      nonce: BigInt(nonce),
+    });
+  }
+  
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+  
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const code = await publicClient.getCode({ address });
+    if (code && code !== '0x') {
+      console.log(`  ✅ ${name}: ${address}`);
+      return address;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+  }
+  
+  throw new Error(`Contract not found at expected address: ${address} (tx: ${txHash})`);
 }
 
 // Compute namehash (ENS algorithm)
-function namehash(name: string): string {
-  let node = '0x' + '0'.repeat(64);
+function namehash(name: string): `0x${string}` {
+  let node = '0x' + '0'.repeat(64) as `0x${string}`;
   
   if (name === '') return node;
   
   const labels = name.split('.').reverse();
   for (const label of labels) {
-    const labelHash = ethers.keccak256(ethers.toUtf8Bytes(label));
-    node = ethers.keccak256(ethers.concat([node, labelHash]));
+    const labelHash = keccak256(toUtf8Bytes(label));
+    node = keccak256(concat([node, labelHash]));
   }
   
   return node;
 }
 
 // Compute labelhash
-function labelhash(label: string): string {
-  return ethers.keccak256(ethers.toUtf8Bytes(label));
+function labelhash(label: string): `0x${string}` {
+  return keccak256(toUtf8Bytes(label));
 }
 
 async function main() {
-  // Setup provider and wallet
-  const provider = new ethers.JsonRpcProvider(RPC_URL);
-  const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+  const chain = { id: network === 'mainnet' ? 8453 : network === 'testnet' ? 84532 : 31337, name: network } as Chain;
+  const publicClient = createPublicClient({
+    chain,
+    transport: http(RPC_URL),
+  });
+  const account = privateKeyToAccount(PRIVATE_KEY as `0x${string}`);
+  const walletClient = createWalletClient({
+    account,
+    chain,
+    transport: http(RPC_URL),
+  });
   
-  console.log(`Deployer: ${wallet.address}`);
-  const balance = await provider.getBalance(wallet.address);
-  console.log(`Balance: ${ethers.formatEther(balance)} ETH\n`);
+  console.log(`Deployer: ${account.address}`);
+  const balance = await publicClient.getBalance({ address: account.address });
+  console.log(`Balance: ${formatEther(balance)} ETH\n`);
 
-  // Check for existing Identity Registry
   const deploymentsPath = `packages/contracts/deployments/${network}`;
   let identityRegistryAddress = '';
   
@@ -127,67 +177,84 @@ async function main() {
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
   console.log('1️⃣  Deploying Core Contracts...\n');
 
-  // Deploy JNS Registry
-  const registry = await deployContract(wallet, 'JNSRegistry');
-  const registryAddress = await registry.getAddress();
-
-  // Deploy JNS Resolver
-  const resolver = await deployContract(wallet, 'JNSResolver', [registryAddress]);
-  const resolverAddress = await resolver.getAddress();
-
-  // Deploy JNS Registrar
-  const registrar = await deployContract(wallet, 'JNSRegistrar', [
+  const registryAddress = await deployContract(publicClient, walletClient, account, 'JNSRegistry', []);
+  const resolverAddress = await deployContract(publicClient, walletClient, account, 'JNSResolver', [registryAddress]);
+  const registrarAddress = await deployContract(publicClient, walletClient, account, 'JNSRegistrar', [
     registryAddress,
     resolverAddress,
-    wallet.address, // Treasury
+    account.address,
   ]);
-  const registrarAddress = await registrar.getAddress();
-
-  // Deploy Reverse Registrar
-  const reverseRegistrar = await deployContract(wallet, 'JNSReverseRegistrar', [
+  const reverseRegistrarAddress = await deployContract(publicClient, walletClient, account, 'JNSReverseRegistrar', [
     registryAddress,
     resolverAddress,
   ]);
-  const reverseRegistrarAddress = await reverseRegistrar.getAddress();
 
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
   console.log('2️⃣  Setting Up Registry...\n');
 
-  // Set up .jeju TLD
   console.log('  Setting up .jeju TLD...');
   const rootNode = '0x' + '0'.repeat(64);
   const jejuLabel = labelhash('jeju');
   const jejuNode = namehash('jeju');
   
   // Grant registrar ownership of .jeju
-  let tx = await registry.setSubnodeOwner(rootNode, jejuLabel, registrarAddress);
-  await tx.wait();
+  const registryAbi = parseAbi(['function setSubnodeOwner(bytes32 node, bytes32 label, address owner)']);
+  let hash = await walletClient.writeContract({
+    address: registryAddress,
+    abi: registryAbi,
+    functionName: 'setSubnodeOwner',
+    args: [rootNode as `0x${string}`, jejuLabel, registrarAddress],
+    account,
+  });
+  await waitForTransactionReceipt(publicClient, { hash });
   console.log('  ✅ .jeju TLD created and assigned to Registrar');
 
-  // Set up reverse namespace
   console.log('  Setting up reverse namespace...');
   const reverseLabel = labelhash('reverse');
   const addrLabel = labelhash('addr');
   
-  tx = await registry.setSubnodeOwner(rootNode, reverseLabel, wallet.address);
-  await tx.wait();
+  hash = await walletClient.writeContract({
+    address: registryAddress,
+    abi: registryAbi,
+    functionName: 'setSubnodeOwner',
+    args: [rootNode as `0x${string}`, reverseLabel, account.address],
+    account,
+  });
+  await waitForTransactionReceipt(publicClient, { hash });
   
   const reverseNode = namehash('reverse');
-  tx = await registry.setSubnodeOwner(reverseNode, addrLabel, reverseRegistrarAddress);
-  await tx.wait();
+  hash = await walletClient.writeContract({
+    address: registryAddress,
+    abi: registryAbi,
+    functionName: 'setSubnodeOwner',
+    args: [reverseNode, addrLabel, reverseRegistrarAddress],
+    account,
+  });
+  await waitForTransactionReceipt(publicClient, { hash });
   console.log('  ✅ addr.reverse namespace created');
 
-  // Link Identity Registry if available
   if (identityRegistryAddress) {
     console.log('  Linking ERC-8004 Identity Registry...');
     
-    const resolverContract = new ethers.Contract(resolverAddress, JNS_RESOLVER_ABI, wallet);
-    tx = await resolverContract.setIdentityRegistry(identityRegistryAddress);
-    await tx.wait();
+    const resolverAbi = parseAbi(JNS_RESOLVER_ABI);
+    hash = await walletClient.writeContract({
+      address: resolverAddress,
+      abi: resolverAbi,
+      functionName: 'setIdentityRegistry',
+      args: [identityRegistryAddress as Address],
+      account,
+    });
+    await waitForTransactionReceipt(publicClient, { hash });
     
-    const registrarContract = new ethers.Contract(registrarAddress, JNS_REGISTRAR_ABI, wallet);
-    tx = await registrarContract.setIdentityRegistry(identityRegistryAddress);
-    await tx.wait();
+    const registrarAbi = parseAbi(JNS_REGISTRAR_ABI);
+    hash = await walletClient.writeContract({
+      address: registrarAddress,
+      abi: registrarAbi,
+      functionName: 'setIdentityRegistry',
+      args: [identityRegistryAddress as Address],
+      account,
+    });
+    await waitForTransactionReceipt(publicClient, { hash });
     
     console.log('  ✅ Identity Registry linked');
   }
@@ -195,32 +262,36 @@ async function main() {
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
   console.log('3️⃣  Registering Canonical App Names...\n');
 
-  // Canonical app names to register
   const appNames = [
-    { name: 'gateway', owner: wallet.address },
-    { name: 'bazaar', owner: wallet.address },
-    { name: 'compute', owner: wallet.address },
-    { name: 'storage', owner: wallet.address },
-    { name: 'indexer', owner: wallet.address },
-    { name: 'cloud', owner: wallet.address },
-    { name: 'docs', owner: wallet.address },
-    { name: 'monitoring', owner: wallet.address },
+    { name: 'gateway', owner: account.address },
+    { name: 'bazaar', owner: account.address },
+    { name: 'compute', owner: account.address },
+    { name: 'storage', owner: account.address },
+    { name: 'indexer', owner: account.address },
+    { name: 'cloud', owner: account.address },
+    { name: 'docs', owner: account.address },
+    { name: 'monitoring', owner: account.address },
   ];
 
-  const registrarContract = new ethers.Contract(registrarAddress, JNS_REGISTRAR_ABI, wallet);
-  const oneYear = 365 * 24 * 60 * 60;
+  const registrarAbi = parseAbi(JNS_REGISTRAR_ABI);
+  const oneYear = BigInt(365 * 24 * 60 * 60);
 
   for (const app of appNames) {
     console.log(`  Registering ${app.name}.jeju...`);
-    tx = await registrarContract.claimReserved(app.name, app.owner, oneYear);
-    await tx.wait();
+    hash = await walletClient.writeContract({
+      address: registrarAddress,
+      abi: registrarAbi,
+      functionName: 'claimReserved',
+      args: [app.name, app.owner as Address, oneYear],
+      account,
+    });
+    await waitForTransactionReceipt(publicClient, { hash });
     console.log(`  ✅ ${app.name}.jeju registered`);
   }
 
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
   console.log('4️⃣  Saving Deployment...\n');
 
-  // Save deployment
   if (!existsSync(deploymentsPath)) {
     mkdirSync(deploymentsPath, { recursive: true });
   }
@@ -228,7 +299,7 @@ async function main() {
   const deployment = {
     network,
     timestamp: new Date().toISOString(),
-    deployer: wallet.address,
+    deployer: account.address,
     contracts: {
       JNSRegistry: registryAddress,
       JNSResolver: resolverAddress,
@@ -249,7 +320,6 @@ async function main() {
     JSON.stringify(deployment, null, 2)
   );
 
-  // Also update main deployment file
   let mainDeployment: Record<string, string> = {};
   if (existsSync(`${deploymentsPath}/deployment.json`)) {
     mainDeployment = await Bun.file(`${deploymentsPath}/deployment.json`).json();

@@ -2,7 +2,7 @@
  * Liquidity Deployer (EVM-only)
  * 
  * Adds liquidity to DEXes on EVM chains.
- * For Solana liquidity deployment, use @jeju/solana-dex package.
+ * For Solana liquidity deployment, use @jeju/solana package.
  */
 
 import {

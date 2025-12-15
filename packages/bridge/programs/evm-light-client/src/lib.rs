@@ -51,6 +51,12 @@ pub mod evm_light_client {
         genesis_state_root: [u8; 32],
         sync_committee_root: [u8; 32],
     ) -> Result<()> {
+        // CRITICAL: Prevent initialization with placeholder verification keys
+        require!(
+            !vk::is_placeholder(),
+            ErrorCode::PlaceholderVerificationKeys
+        );
+
         let state = &mut ctx.accounts.state;
 
         state.admin = ctx.accounts.admin.key();
@@ -275,6 +281,9 @@ pub enum ErrorCode {
 
     #[msg("Invalid state proof")]
     InvalidStateProof,
+
+    #[msg("CRITICAL: Verification keys are placeholders - deploy real keys before mainnet")]
+    PlaceholderVerificationKeys,
 }
 
 // VERIFICATION HELPERS

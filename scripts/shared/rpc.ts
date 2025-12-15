@@ -1,57 +1,48 @@
-/**
- * @title Shared RPC Utilities
- * @notice RPC failover and helper functions
- */
+import { createPublicClient, http, type PublicClient, type Chain, type TransactionReceipt } from 'viem';
+import { mainnet } from 'viem/chains';
 
-import { ethers } from 'ethers';
-
-/**
- * RPC Provider with automatic failover
- */
 export class FailoverProvider {
-  private providers: ethers.JsonRpcProvider[];
+  private clients: PublicClient[];
   private currentIndex: number = 0;
   private name: string;
   private onFailover?: () => void;
+  private chain: Chain;
   
-  constructor(urls: string[] | string, name: string = 'RPC', onFailover?: () => void) {
+  constructor(urls: string[] | string, name: string = 'RPC', chain?: Chain, onFailover?: () => void) {
     const urlArray = typeof urls === 'string' ? urls.split(',').map(u => u.trim()) : urls;
     this.name = name;
-    this.providers = urlArray.map(url => new ethers.JsonRpcProvider(url));
+    this.chain = chain || mainnet;
+    this.clients = urlArray.map(url => createPublicClient({
+      chain: this.chain,
+      transport: http(url),
+    }));
     this.onFailover = onFailover;
     
-    if (this.providers.length === 0) {
+    if (this.clients.length === 0) {
       throw new Error('At least one RPC URL required');
     }
     
-    if (this.providers.length > 1) {
-      console.log(`✅ ${name} provider initialized with ${urls.length} RPC endpoint(s)`);
+    if (this.clients.length > 1) {
+      console.log(`✅ ${name} provider initialized with ${urlArray.length} RPC endpoint(s)`);
     }
   }
   
-  async getProvider(): Promise<ethers.Provider> {
-    // Try current provider first
+  async getProvider(): Promise<PublicClient> {
     try {
-      await this.providers[this.currentIndex].getBlockNumber();
-      return this.providers[this.currentIndex];
-    } catch (error) {
+      await this.clients[this.currentIndex].getBlockNumber();
+      return this.clients[this.currentIndex];
+    } catch {
       console.warn(`⚠️  ${this.name} RPC ${this.currentIndex} failed, trying fallback...`);
+      this.onFailover?.();
       
-      // Notify failover callback
-      if (this.onFailover) {
-        this.onFailover();
-      }
-      
-      // Try other providers
-      for (let i = 0; i < this.providers.length; i++) {
+      for (let i = 0; i < this.clients.length; i++) {
         if (i === this.currentIndex) continue;
-        
         try {
-          await this.providers[i].getBlockNumber();
+          await this.clients[i].getBlockNumber();
           this.currentIndex = i;
           console.log(`✅ ${this.name} switched to RPC ${i}`);
-          return this.providers[i];
-        } catch (err) {
+          return this.clients[i];
+        } catch {
           console.warn(`⚠️  ${this.name} RPC ${i} also failed`);
         }
       }
@@ -60,82 +51,79 @@ export class FailoverProvider {
     }
   }
   
-  /**
-   * Get provider with retry logic
-   */
-  async getProviderWithRetry(maxRetries: number = 3, delayMs: number = 1000): Promise<ethers.Provider> {
+  async getProviderWithRetry(maxRetries = 3, delayMs = 1000): Promise<PublicClient> {
+    let lastError: Error | null = null;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         return await this.getProvider();
       } catch (error) {
-        if (attempt === maxRetries) throw error;
+        lastError = error instanceof Error ? error : new Error(String(error));
+        if (attempt === maxRetries) break;
         console.log(`Retry ${attempt}/${maxRetries} in ${delayMs}ms...`);
         await new Promise(resolve => setTimeout(resolve, delayMs));
       }
     }
-    throw new Error('Unreachable');
+    throw lastError || new Error('Failed to get provider after retries');
   }
 }
 
-/**
- * Check if RPC is responding
- */
-export async function checkRPC(rpcUrl: string, timeout: number = 5000): Promise<boolean> {
+export async function checkRPC(rpcUrl: string, timeout = 5000): Promise<boolean> {
   try {
-    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const client = createPublicClient({
+      transport: http(rpcUrl),
+    });
     
-    const timeoutPromise = new Promise((_, reject) => {
+    const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error('Timeout')), timeout);
     });
     
     await Promise.race([
-      provider.getBlockNumber(),
+      client.getBlockNumber(),
       timeoutPromise,
     ]);
     
     return true;
-  } catch {
+  } catch (error) {
+    console.warn(`RPC check failed for ${rpcUrl}:`, error instanceof Error ? error.message : String(error));
     return false;
   }
 }
 
-/**
- * Get network information
- */
-export async function getNetworkInfo(provider: ethers.Provider): Promise<{
+export async function getNetworkInfo(client: PublicClient): Promise<{
   chainId: bigint;
-  blockNumber: number;
+  blockNumber: bigint;
   gasPrice: bigint;
 }> {
-  const [network, blockNumber, feeData] = await Promise.all([
-    provider.getNetwork(),
-    provider.getBlockNumber(),
-    provider.getFeeData(),
+  const [chainId, blockNumber, gasPrice] = await Promise.all([
+    client.getChainId(),
+    client.getBlockNumber(),
+    client.getGasPrice(),
   ]);
   
   return {
-    chainId: network.chainId,
+    chainId: BigInt(chainId),
     blockNumber,
-    gasPrice: feeData.gasPrice || 0n,
+    gasPrice,
   };
 }
 
-/**
- * Wait for transaction with timeout
- */
 export async function waitForTransaction(
-  provider: ethers.Provider,
-  txHash: string,
-  confirmations: number = 1,
-  timeout: number = 300000 // 5 minutes
-): Promise<ethers.TransactionReceipt | null> {
-  const timeoutPromise = new Promise<null>((_, reject) => {
-    setTimeout(() => reject(new Error('Transaction timeout')), timeout);
+  client: PublicClient,
+  txHash: `0x${string}`,
+  confirmations = 1,
+  timeout = 300000
+): Promise<TransactionReceipt> {
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error(`Transaction timeout after ${timeout}ms: ${txHash}`)), timeout);
   });
   
-  return Promise.race([
-    provider.waitForTransaction(txHash, confirmations),
-    timeoutPromise,
-  ]);
+  try {
+    return await Promise.race([
+      client.waitForTransactionReceipt({ hash: txHash, confirmations }),
+      timeoutPromise,
+    ]);
+  } catch (error) {
+    throw new Error(`Failed to wait for transaction ${txHash}: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 

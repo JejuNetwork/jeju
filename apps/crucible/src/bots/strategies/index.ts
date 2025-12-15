@@ -19,3 +19,11 @@ export { LiquidationStrategy } from './liquidation';
 export { SolverStrategy } from './solver';
 export { OracleKeeperStrategy } from './oracle-keeper';
 export { LiquidityManager, type UnifiedPosition, type RebalanceAction, type PoolAnalysis } from './liquidity-manager';
+export { 
+  YieldFarmingStrategy, 
+  type YieldOpportunity, 
+  type FarmPosition, 
+  type YieldFarmingConfig,
+  type YieldSource,
+  type RiskLevel,
+} from './yield-farming';

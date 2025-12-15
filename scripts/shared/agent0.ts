@@ -1,23 +1,12 @@
-/**
- * @title Agent0 SDK Integration for network
- * @notice Wrapper around agent0-ts SDK for registering network apps as ERC-8004 agents
- * @author the network
- * 
- * This module provides:
- * - Environment-aware SDK initialization (localnet/testnet/mainnet)
- * - App registration helpers
- * - Agent discovery utilities
- * - Integration with jeju-manifest.json files
- */
-
-import { ethers, Wallet } from 'ethers';
+import { createPublicClient, createWalletClient, http, type PublicClient, type WalletClient, type Address, type Chain, keccak256, toUtf8Bytes, zeroAddress } from 'viem';
+import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
+import { readContract, waitForTransactionReceipt } from 'viem/actions';
+import { parseAbi } from 'viem';
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
 import { Logger } from './logger';
 
 const logger = new Logger({ prefix: 'agent0' });
-
-// ============ Types ============
 
 export interface AppManifest {
   name: string;
@@ -37,7 +26,6 @@ export interface AppManifest {
   dependencies?: string[];
   tags?: string[];
   healthcheck?: string;
-  // ERC-8004 Agent Registration Config
   agent?: {
     enabled?: boolean;
     a2aEndpoint?: string;
@@ -74,8 +62,6 @@ export interface AgentInfo {
   chainId: number;
 }
 
-// ============ Network Configuration ============
-
 const NETWORK_CONFIG: Record<string, {
   chainId: number;
   rpcUrl: string;
@@ -89,7 +75,6 @@ const NETWORK_CONFIG: Record<string, {
     chainId: 1337,
     rpcUrl: 'http://localhost:8545',
     registries: {
-      // These will be set from deployment files
       IDENTITY: '',
       REPUTATION: '',
       VALIDATION: '',
@@ -181,18 +166,30 @@ export function loadAppManifest(appDir: string): AppManifest {
 }
 
 /**
- * Create ethers provider and signer for a network
+ * Create viem client and account for a network
  */
-export function createSigner(config: Agent0Config): { provider: ethers.JsonRpcProvider; signer: Wallet } {
+export function createSigner(config: Agent0Config): { client: PublicClient; walletClient: WalletClient; account: PrivateKeyAccount } {
   const networkConfig = getNetworkConfig(config.network);
-  const provider = new ethers.JsonRpcProvider(networkConfig.rpcUrl);
-  const signer = new Wallet(config.privateKey, provider);
-  return { provider, signer };
+  const account = privateKeyToAccount(config.privateKey as `0x${string}`);
+  const chain = { id: networkConfig.chainId, name: config.network } as Chain;
+  
+  const client = createPublicClient({
+    chain,
+    transport: http(networkConfig.rpcUrl),
+  });
+  
+  const walletClient = createWalletClient({
+    account,
+    chain,
+    transport: http(networkConfig.rpcUrl),
+  });
+  
+  return { client, walletClient, account };
 }
 
 // ============ Minimal ABI for IdentityRegistry ============
 
-const IDENTITY_REGISTRY_ABI = [
+const IDENTITY_REGISTRY_ABI = parseAbi([
   'function register(string calldata tokenURI_) external returns (uint256 agentId)',
   'function register(string calldata tokenURI_, tuple(string key, bytes value)[] calldata metadata) external returns (uint256 agentId)',
   'function setAgentUri(uint256 agentId, string calldata newTokenURI) external',
@@ -207,7 +204,7 @@ const IDENTITY_REGISTRY_ABI = [
   'function getAgentsByTag(string calldata tag) external view returns (uint256[] memory)',
   'event Registered(uint256 indexed agentId, address indexed owner, uint8 tier, uint256 stakedAmount, string tokenURI)',
   'event AgentUriUpdated(uint256 indexed agentId, string newTokenURI)',
-];
+]);
 
 // ============ Registration Functions ============
 
@@ -295,20 +292,14 @@ export async function registerApp(
   tokenURI?: string
 ): Promise<RegistrationResult> {
   const networkConfig = getNetworkConfig(config.network);
-  const { signer } = createSigner(config);
+  const { client, walletClient, account } = createSigner(config);
   
   if (!networkConfig.registries.IDENTITY) {
     throw new Error(`IdentityRegistry not deployed on ${config.network}`);
   }
   
-  const identityRegistry = new ethers.Contract(
-    networkConfig.registries.IDENTITY,
-    IDENTITY_REGISTRY_ABI,
-    signer
-  );
-  
   // Get owner address for logging
-  const ownerAddress = await signer.getAddress();
+  const ownerAddress = account.address;
   
   // Use provided tokenURI or empty string (can be set later)
   const finalTokenURI = tokenURI || '';
@@ -318,20 +309,31 @@ export async function registerApp(
   logger.info(`  Owner: ${ownerAddress}`);
   
   // Call register
-  const tx = await identityRegistry.register(finalTokenURI);
-  const receipt = await tx.wait();
+  const hash = await walletClient.writeContract({
+    address: networkConfig.registries.IDENTITY as Address,
+    abi: IDENTITY_REGISTRY_ABI,
+    functionName: 'register',
+    args: [finalTokenURI],
+    account,
+  });
+  
+  const receipt = await waitForTransactionReceipt(client, { hash });
   
   // Extract agentId from logs
   const registeredEvent = receipt.logs.find(
-    (log: ethers.Log) => log.topics[0] === ethers.id('Registered(uint256,address,uint8,uint256,string)')
+    (log) => log.topics[0] === keccak256(toUtf8Bytes('Registered(uint256,address,uint8,uint256,string)'))
   );
   
   let agentId: string;
-  if (registeredEvent) {
-    agentId = ethers.toBigInt(registeredEvent.topics[1]).toString();
+  if (registeredEvent && registeredEvent.topics[1]) {
+    agentId = BigInt(registeredEvent.topics[1]).toString();
   } else {
     // Fallback: get totalAgents and assume it's the latest
-    const total = await identityRegistry.totalAgents();
+    const total = await readContract(client, {
+      address: networkConfig.registries.IDENTITY as Address,
+      abi: IDENTITY_REGISTRY_ABI,
+      functionName: 'totalAgents',
+    });
     agentId = total.toString();
   }
   
@@ -339,19 +341,25 @@ export async function registerApp(
   
   logger.success(`Agent registered successfully!`);
   logger.info(`  Agent ID: ${formattedAgentId}`);
-  logger.info(`  TX Hash: ${receipt.hash}`);
+  logger.info(`  TX Hash: ${hash}`);
   
   // Set tags if configured
   if (manifest.agent?.tags && manifest.agent.tags.length > 0) {
     logger.info(`Setting tags: ${manifest.agent.tags.join(', ')}`);
-    const tagTx = await identityRegistry.updateTags(agentId, manifest.agent.tags);
-    await tagTx.wait();
+    const tagHash = await walletClient.writeContract({
+      address: networkConfig.registries.IDENTITY as Address,
+      abi: IDENTITY_REGISTRY_ABI,
+      functionName: 'updateTags',
+      args: [BigInt(agentId), manifest.agent.tags],
+      account,
+    });
+    await waitForTransactionReceipt(client, { hash: tagHash });
   }
   
   return {
     agentId: formattedAgentId,
     tokenURI: finalTokenURI,
-    txHash: receipt.hash,
+    txHash: hash,
     chainId: networkConfig.chainId,
   };
 }
@@ -365,25 +373,26 @@ export async function updateAgentUri(
   newTokenURI: string
 ): Promise<string> {
   const networkConfig = getNetworkConfig(config.network);
-  const { signer } = createSigner(config);
-  
-  const identityRegistry = new ethers.Contract(
-    networkConfig.registries.IDENTITY,
-    IDENTITY_REGISTRY_ABI,
-    signer
-  );
+  const { client, walletClient, account } = createSigner(config);
   
   // Parse agentId (format: chainId:tokenId)
   const tokenId = agentId.includes(':') ? agentId.split(':')[1] : agentId;
   
   logger.info(`Updating agent ${agentId} URI to: ${newTokenURI}`);
   
-  const tx = await identityRegistry.setAgentUri(tokenId, newTokenURI);
-  const receipt = await tx.wait();
+  const hash = await walletClient.writeContract({
+    address: networkConfig.registries.IDENTITY as Address,
+    abi: IDENTITY_REGISTRY_ABI,
+    functionName: 'setAgentUri',
+    args: [BigInt(tokenId), newTokenURI],
+    account,
+  });
   
-  logger.success(`Agent URI updated! TX: ${receipt.hash}`);
+  await waitForTransactionReceipt(client, { hash });
   
-  return receipt.hash;
+  logger.success(`Agent URI updated! TX: ${hash}`);
+  
+  return hash;
 }
 
 /**
@@ -396,24 +405,21 @@ export async function updateAgentMetadata(
   value: string
 ): Promise<string> {
   const networkConfig = getNetworkConfig(config.network);
-  const { signer } = createSigner(config);
-  
-  const identityRegistry = new ethers.Contract(
-    networkConfig.registries.IDENTITY,
-    IDENTITY_REGISTRY_ABI,
-    signer
-  );
+  const { client, walletClient, account } = createSigner(config);
   
   const tokenId = agentId.includes(':') ? agentId.split(':')[1] : agentId;
   
-  const tx = await identityRegistry.setMetadata(
-    tokenId,
-    key,
-    ethers.toUtf8Bytes(value)
-  );
-  const receipt = await tx.wait();
+  const hash = await walletClient.writeContract({
+    address: networkConfig.registries.IDENTITY as Address,
+    abi: IDENTITY_REGISTRY_ABI,
+    functionName: 'setMetadata',
+    args: [BigInt(tokenId), key, toUtf8Bytes(value)],
+    account,
+  });
   
-  return receipt.hash;
+  await waitForTransactionReceipt(client, { hash });
+  
+  return hash;
 }
 
 // ============ Discovery Functions ============
@@ -426,27 +432,40 @@ export async function getAgentInfo(
   agentId: string
 ): Promise<AgentInfo | null> {
   const networkConfig = getNetworkConfig(config.network);
-  const provider = new ethers.JsonRpcProvider(networkConfig.rpcUrl);
-  
-  const identityRegistry = new ethers.Contract(
-    networkConfig.registries.IDENTITY,
-    IDENTITY_REGISTRY_ABI,
-    provider
-  );
+  const chain = { id: networkConfig.chainId, name: config.network } as Chain;
+  const client = createPublicClient({
+    chain,
+    transport: http(networkConfig.rpcUrl),
+  });
   
   const tokenId = agentId.includes(':') ? agentId.split(':')[1] : agentId;
   
   // Check if agent exists
-  const exists = await identityRegistry.agentExists(tokenId);
+  const exists = await readContract(client, {
+    address: networkConfig.registries.IDENTITY as Address,
+    abi: IDENTITY_REGISTRY_ABI,
+    functionName: 'agentExists',
+    args: [BigInt(tokenId)],
+  });
   if (!exists) {
     return null;
   }
   
   // Get token URI
-  const tokenURI = await identityRegistry.tokenURI(tokenId);
+  const tokenURI = await readContract(client, {
+    address: networkConfig.registries.IDENTITY as Address,
+    abi: IDENTITY_REGISTRY_ABI,
+    functionName: 'tokenURI',
+    args: [BigInt(tokenId)],
+  });
   
   // Get tags
-  const tags = await identityRegistry.getAgentTags(tokenId);
+  const tags = await readContract(client, {
+    address: networkConfig.registries.IDENTITY as Address,
+    abi: IDENTITY_REGISTRY_ABI,
+    functionName: 'getAgentTags',
+    args: [BigInt(tokenId)],
+  });
   
   // If tokenURI is an IPFS or HTTP URL, fetch the registration file
   let registrationFile: Record<string, unknown> = {};
@@ -486,16 +505,19 @@ export async function findAgentsByTag(
   tag: string
 ): Promise<string[]> {
   const networkConfig = getNetworkConfig(config.network);
-  const provider = new ethers.JsonRpcProvider(networkConfig.rpcUrl);
+  const chain = { id: networkConfig.chainId, name: config.network } as Chain;
+  const client = createPublicClient({
+    chain,
+    transport: http(networkConfig.rpcUrl),
+  });
   
-  const identityRegistry = new ethers.Contract(
-    networkConfig.registries.IDENTITY,
-    IDENTITY_REGISTRY_ABI,
-    provider
-  );
-  
-  const agentIds = await identityRegistry.getAgentsByTag(tag);
-  return agentIds.map((id: bigint) => `${networkConfig.chainId}:${id.toString()}`);
+  const agentIds = await readContract(client, {
+    address: networkConfig.registries.IDENTITY as Address,
+    abi: IDENTITY_REGISTRY_ABI,
+    functionName: 'getAgentsByTag',
+    args: [tag],
+  });
+  return (agentIds as bigint[]).map((id) => `${networkConfig.chainId}:${id.toString()}`);
 }
 
 /**

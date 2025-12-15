@@ -2,7 +2,7 @@
  * Oracle Processor - Indexes Oracle Network (JON) events
  */
 
-import { ethers } from 'ethers';
+import { keccak256, stringToHex } from 'viem';
 import { Store } from '@subsquid/typeorm-store';
 import { ProcessorContext } from './processor';
 import {
@@ -22,48 +22,48 @@ import { createAccountFactory, BlockHeader, LogData } from './lib/entities';
 // Event signatures - matched to actual contract events in src/oracle
 const EVENTS = {
   // FeedRegistry events
-  FEED_CREATED: ethers.id('FeedCreated(bytes32,string,address,address,address)'),
-  FEED_ACTIVATED: ethers.id('FeedActivated(bytes32)'),
-  FEED_DEACTIVATED: ethers.id('FeedDeactivated(bytes32)'),
-  FEED_UPDATED: ethers.id('FeedUpdated(bytes32,string)'),
+  FEED_CREATED: keccak256(stringToHex('FeedCreated(bytes32,string,address,address,address)')),
+  FEED_ACTIVATED: keccak256(stringToHex('FeedActivated(bytes32)')),
+  FEED_DEACTIVATED: keccak256(stringToHex('FeedDeactivated(bytes32)')),
+  FEED_UPDATED: keccak256(stringToHex('FeedUpdated(bytes32,string)')),
 
   // OracleNetworkConnector events
-  OPERATOR_REGISTERED: ethers.id('OperatorRegistered(bytes32,bytes32,uint256,address)'),
-  OPERATOR_DEACTIVATED: ethers.id('OperatorDeactivated(bytes32,string)'),
-  PERFORMANCE_RECORDED: ethers.id('PerformanceRecorded(bytes32,uint256,uint256,uint256)'),
-  ATTESTATION_WRITTEN: ethers.id('AttestationWritten(bytes32,uint256,bytes32,int8)'),
-  EPOCH_ADVANCED: ethers.id('EpochAdvanced(uint256,uint256)'),
+  OPERATOR_REGISTERED: keccak256(stringToHex('OperatorRegistered(bytes32,bytes32,uint256,address)')),
+  OPERATOR_DEACTIVATED: keccak256(stringToHex('OperatorDeactivated(bytes32,string)')),
+  PERFORMANCE_RECORDED: keccak256(stringToHex('PerformanceRecorded(bytes32,uint256,uint256,uint256)')),
+  ATTESTATION_WRITTEN: keccak256(stringToHex('AttestationWritten(bytes32,uint256,bytes32,int8)')),
+  EPOCH_ADVANCED: keccak256(stringToHex('EpochAdvanced(uint256,uint256)')),
 
   // CommitteeManager events
-  COMMITTEE_FORMED: ethers.id('CommitteeFormed(bytes32,uint256,address[],address,uint256)'),
-  COMMITTEE_ROTATED: ethers.id('CommitteeRotated(bytes32,uint256,uint256)'),
-  MEMBER_ADDED: ethers.id('MemberAdded(bytes32,uint256,address)'),
-  MEMBER_REMOVED: ethers.id('MemberRemoved(bytes32,uint256,address,string)'),
-  LEADER_ROTATED: ethers.id('LeaderRotated(bytes32,uint256,address)'),
+  COMMITTEE_FORMED: keccak256(stringToHex('CommitteeFormed(bytes32,uint256,address[],address,uint256)')),
+  COMMITTEE_ROTATED: keccak256(stringToHex('CommitteeRotated(bytes32,uint256,uint256)')),
+  MEMBER_ADDED: keccak256(stringToHex('MemberAdded(bytes32,uint256,address)')),
+  MEMBER_REMOVED: keccak256(stringToHex('MemberRemoved(bytes32,uint256,address,string)')),
+  LEADER_ROTATED: keccak256(stringToHex('LeaderRotated(bytes32,uint256,address)')),
 
   // ReportVerifier events
-  REPORT_SUBMITTED: ethers.id('ReportSubmitted(bytes32,bytes32,uint256,uint256,uint256,uint256)'),
-  REPORT_VERIFIED: ethers.id('ReportVerified(bytes32,bytes32,uint256,uint256)'),
-  REPORT_REJECTED: ethers.id('ReportRejected(bytes32,bytes32,string)'),
-  CONSENSUS_UPDATED: ethers.id('ConsensusUpdated(bytes32,uint256,uint256,uint256)'),
+  REPORT_SUBMITTED: keccak256(stringToHex('ReportSubmitted(bytes32,bytes32,uint256,uint256,uint256,uint256)')),
+  REPORT_VERIFIED: keccak256(stringToHex('ReportVerified(bytes32,bytes32,uint256,uint256)')),
+  REPORT_REJECTED: keccak256(stringToHex('ReportRejected(bytes32,bytes32,string)')),
+  CONSENSUS_UPDATED: keccak256(stringToHex('ConsensusUpdated(bytes32,uint256,uint256,uint256)')),
 
   // DisputeGame events
-  DISPUTE_OPENED: ethers.id('DisputeOpened(bytes32,bytes32,bytes32,address,uint256,uint8)'),
-  DISPUTE_CHALLENGED: ethers.id('DisputeChallenged(bytes32,address,uint256)'),
-  DISPUTE_RESOLVED: ethers.id('DisputeResolved(bytes32,uint8,uint256,uint256)'),
-  DISPUTE_ESCALATED: ethers.id('DisputeEscalated(bytes32,bytes32)'),
-  DISPUTE_EXPIRED: ethers.id('DisputeExpired(bytes32)'),
-  SIGNERS_SLASHED: ethers.id('SignersSlashed(bytes32,address[],uint256)'),
-  DISPUTER_REWARDED: ethers.id('DisputerRewarded(bytes32,address,uint256)'),
+  DISPUTE_OPENED: keccak256(stringToHex('DisputeOpened(bytes32,bytes32,bytes32,address,uint256,uint8)')),
+  DISPUTE_CHALLENGED: keccak256(stringToHex('DisputeChallenged(bytes32,address,uint256)')),
+  DISPUTE_RESOLVED: keccak256(stringToHex('DisputeResolved(bytes32,uint8,uint256,uint256)')),
+  DISPUTE_ESCALATED: keccak256(stringToHex('DisputeEscalated(bytes32,bytes32)')),
+  DISPUTE_EXPIRED: keccak256(stringToHex('DisputeExpired(bytes32)')),
+  SIGNERS_SLASHED: keccak256(stringToHex('SignersSlashed(bytes32,address[],uint256)')),
+  DISPUTER_REWARDED: keccak256(stringToHex('DisputerRewarded(bytes32,address,uint256)')),
 
   // OracleFeeRouter events
-  SUBSCRIPTION_CREATED: ethers.id('SubscriptionCreated(bytes32,address,bytes32[],uint256,uint256)'),
-  SUBSCRIPTION_RENEWED: ethers.id('SubscriptionRenewed(bytes32,uint256,uint256)'),
-  SUBSCRIPTION_CANCELLED: ethers.id('SubscriptionCancelled(bytes32,uint256)'),
-  READ_FEE_PAID: ethers.id('ReadFeePaid(bytes32,address,uint256)'),
-  REWARDS_DISTRIBUTED: ethers.id('RewardsDistributed(uint256,uint256,uint256,uint256)'),
-  REWARDS_CLAIMED: ethers.id('RewardsClaimed(bytes32,address,uint256)'),
-  DELEGATOR_REWARDS_CLAIMED: ethers.id('DelegatorRewardsClaimed(address,bytes32,uint256)'),
+  SUBSCRIPTION_CREATED: keccak256(stringToHex('SubscriptionCreated(bytes32,address,bytes32[],uint256,uint256)')),
+  SUBSCRIPTION_RENEWED: keccak256(stringToHex('SubscriptionRenewed(bytes32,uint256,uint256)')),
+  SUBSCRIPTION_CANCELLED: keccak256(stringToHex('SubscriptionCancelled(bytes32,uint256)')),
+  READ_FEE_PAID: keccak256(stringToHex('ReadFeePaid(bytes32,address,uint256)')),
+  REWARDS_DISTRIBUTED: keccak256(stringToHex('RewardsDistributed(uint256,uint256,uint256,uint256)')),
+  REWARDS_CLAIMED: keccak256(stringToHex('RewardsClaimed(bytes32,address,uint256)')),
+  DELEGATOR_REWARDS_CLAIMED: keccak256(stringToHex('DelegatorRewardsClaimed(address,bytes32,uint256)')),
 } as const;
 
 const ORACLE_EVENT_SET = new Set(Object.values(EVENTS));

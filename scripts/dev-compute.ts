@@ -33,25 +33,18 @@ const services: Service[] = [
     healthCheck: RPC_URL,
   },
   {
-    name: 'compute-node',
-    command: ['bun', 'run', 'dev:test'],
-    cwd: 'apps/compute',
-    env: { COMPUTE_PORT: '4007', RPC_URL },
-    port: 4007,
+    name: 'dws-server',
+    command: ['bun', 'run', 'dev'],
+    cwd: 'apps/dws',
+    env: { DWS_PORT: '4030', RPC_URL },
+    port: 4030,
   },
   {
-    name: 'worker-runtime',
-    command: ['bun', 'run', 'workers:dev'],
-    cwd: 'apps/compute',
-    env: { WORKER_SERVER_PORT: '4020', RPC_URL },
-    port: 4020,
-  },
-  {
-    name: 'mpc-node',
-    command: ['bun', 'run', 'mpc:dev'],
-    cwd: 'apps/compute',
-    env: { MPC_PORT: '4010', RPC_URL },
-    port: 4010,
+    name: 'dws-node',
+    command: ['bun', 'run', 'node'],
+    cwd: 'apps/dws',
+    env: { DWS_NODE_PORT: '4031', RPC_URL, PRIVATE_KEY: TEST_PRIVATE_KEY },
+    port: 4031,
   },
 ];
 
@@ -220,7 +213,7 @@ Available services:
 Deploy a worker:
   curl -X POST http://127.0.0.1:4020/api/v1/workers \\
     -H "Content-Type: application/json" \\
-    -d '{"name":"hello","code":"export default { fetch() { return { status: 200, body: \"Hello!\" }; } }"}'
+    -d '{"name":"hello","code":"export default { fetch() { return { status: 200, body: \\"Hello!\\" }; } }"}'
 
 Press Ctrl+C to stop all services.
 `);

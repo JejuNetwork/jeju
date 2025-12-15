@@ -38,7 +38,8 @@ let FROSTCoordinator: FROSTCoordinatorType | null = null;
 async function loadFROST(): Promise<void> {
   if (!FROSTCoordinator) {
     const oauth3 = await import('@jeju/oauth3');
-    FROSTCoordinator = oauth3.FROSTCoordinator as FROSTCoordinatorType;
+    // Cast to unknown first to avoid type mismatch with dynamic import
+    FROSTCoordinator = oauth3.FROSTCoordinator as unknown as FROSTCoordinatorType;
   }
 }
 

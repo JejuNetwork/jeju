@@ -1,9 +1,11 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useSignMessage } from 'wagmi';
-import { CONTRACTS, LEADERBOARD_API_URL } from '../config';
+import { CONTRACTS, LEADERBOARD_API_URL, CHAIN_ID } from '../config';
 import { ZERO_ADDRESS } from '../lib/contracts';
 
 const LEADERBOARD_API = LEADERBOARD_API_URL;
+// Use CAIP-2 format for chain ID
+const LEADERBOARD_CHAIN_ID = `eip155:${CHAIN_ID}`;
 
 // Contract address - queries will be skipped if not configured
 const GITHUB_REPUTATION_PROVIDER_ADDRESS = CONTRACTS.githubReputationProvider;
@@ -165,7 +167,7 @@ export function useGitHubReputation() {
 
     try {
       const response = await fetch(
-        `${LEADERBOARD_API}/api/attestation?wallet=${targetAddress}&chainId=eip155:1`
+        `${LEADERBOARD_API}/api/attestation?wallet=${targetAddress}&chainId=${LEADERBOARD_CHAIN_ID}`
       );
 
       if (!response.ok) {
@@ -235,7 +237,7 @@ export function useGitHubReputation() {
           signature,
           message,
           timestamp,
-          chainId: 'eip155:1',
+          chainId: LEADERBOARD_CHAIN_ID,
         }),
       });
 
@@ -282,7 +284,7 @@ export function useGitHubReputation() {
         body: JSON.stringify({
           username,
           walletAddress: address,
-          chainId: 'eip155:1',
+          chainId: LEADERBOARD_CHAIN_ID,
           agentId,
         }),
       });
@@ -374,7 +376,7 @@ export function useGitHubReputation() {
           attestationHash,
           txHash: hash,
           walletAddress: address,
-          chainId: 'eip155:1',
+          chainId: LEADERBOARD_CHAIN_ID,
         }),
       });
 
@@ -425,7 +427,7 @@ export function useGitHubReputation() {
           walletAddress: address,
           agentId,
           registryAddress,
-          chainId: 'eip155:1',
+          chainId: LEADERBOARD_CHAIN_ID,
         }),
       });
 

@@ -7,11 +7,11 @@
  * Note: indexed parameters don't affect the signature - all param types are included.
  */
 
-import { ethers } from 'ethers';
+import { keccak256, toBytes, stringToHex } from 'viem';
 
 // Helper to calculate event signatures
 export function eventSig(signature: string): string {
-  return ethers.id(signature);
+  return keccak256(stringToHex(signature));
 }
 
 // ============ ERC Token Standards ============

@@ -334,8 +334,8 @@ export default function LaunchTokenPage() {
               </label>
               <input
                 type="number"
-                value={bondingConfig.virtualEth}
-                onChange={(e) => setBondingConfig({ ...bondingConfig, virtualEth: e.target.value })}
+                value={bondingConfig.virtualEthReserves}
+                onChange={(e) => setBondingConfig({ ...bondingConfig, virtualEthReserves: e.target.value })}
                 className="input"
               />
               <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
@@ -373,10 +373,10 @@ export default function LaunchTokenPage() {
           <div className="mt-4 p-3 rounded-lg bg-[var(--bg-secondary)]">
             <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               <strong>Initial Price:</strong>{' '}
-              {(parseFloat(bondingConfig.virtualEth) / parseFloat(bondingConfig.tokenSupply) * 1e18).toExponential(4)} ETH
+              {(parseFloat(bondingConfig.virtualEthReserves) / parseFloat(bondingConfig.tokenSupply) * 1e18).toExponential(4)} ETH
             </p>
             <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-              <strong>Market Cap at Launch:</strong> ~{parseFloat(bondingConfig.virtualEth).toFixed(2)} ETH
+              <strong>Market Cap at Launch:</strong> ~{parseFloat(bondingConfig.virtualEthReserves).toFixed(2)} ETH
             </p>
           </div>
         </div>

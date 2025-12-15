@@ -2,7 +2,7 @@
  * Game Feed Processor - Indexes GameFeedOracle events
  */
 
-import { ethers } from 'ethers';
+import { keccak256, stringToHex, parseAbi } from 'viem';
 import { Store } from '@subsquid/typeorm-store';
 import { ProcessorContext } from './processor';
 import { 
@@ -13,7 +13,7 @@ import {
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
-const gameFeedInterface = new ethers.Interface([
+const gameFeedInterface = parseAbi([
     'event FeedPostPublished(bytes32 indexed sessionId, bytes32 indexed postId, address indexed author, string content, uint8 gameDay, uint256 timestamp)',
     'event MarketUpdated(bytes32 indexed sessionId, uint8 yesOdds, uint8 noOdds, uint256 totalVolume, uint8 gameDay, uint256 timestamp)',
     'event GamePhaseChanged(bytes32 indexed sessionId, string phase, uint8 day, uint256 timestamp)',
@@ -23,13 +23,13 @@ const gameFeedInterface = new ethers.Interface([
     'event AchievementUnlocked(address indexed player, string achievementId, string achievementType, uint256 value)'
 ]);
 
-const FEED_POST = ethers.id('FeedPostPublished(bytes32,bytes32,address,string,uint8,uint256)');
-const MARKET_UPDATE = ethers.id('MarketUpdated(bytes32,uint8,uint8,uint256,uint8,uint256)');
-const PHASE_CHANGE = ethers.id('GamePhaseChanged(bytes32,string,uint8,uint256)');
-const SKILL_EVENT = ethers.id('SkillLeveledUp(address,string,uint8,uint256)');
-const DEATH_EVENT = ethers.id('PlayerDied(address,address,string,uint256)');
-const KILL_EVENT = ethers.id('PlayerKilled(address,address,string,uint256)');
-const ACHIEVEMENT = ethers.id('AchievementUnlocked(address,string,string,uint256)');
+const FEED_POST = keccak256(stringToHex('FeedPostPublished(bytes32,bytes32,address,string,uint8,uint256)'));
+const MARKET_UPDATE = keccak256(stringToHex('MarketUpdated(bytes32,uint8,uint8,uint256,uint8,uint256)'));
+const PHASE_CHANGE = keccak256(stringToHex('GamePhaseChanged(bytes32,string,uint8,uint256)'));
+const SKILL_EVENT = keccak256(stringToHex('SkillLeveledUp(address,string,uint8,uint256)'));
+const DEATH_EVENT = keccak256(stringToHex('PlayerDied(address,address,string,uint256)'));
+const KILL_EVENT = keccak256(stringToHex('PlayerKilled(address,address,string,uint256)'));
+const ACHIEVEMENT = keccak256(stringToHex('AchievementUnlocked(address,string,string,uint256)'));
 
 function getOrCreatePlayerStats(playerStats: Map<string, PlayerStats>, player: string, timestamp: Date): PlayerStats {
     let stats = playerStats.get(player);

@@ -147,13 +147,13 @@ async function startBridge(options: {
   akashNetwork: string;
   port: string;
 }): Promise<void> {
-  logger.header('COMPUTE BRIDGE');
+  logger.header('DWS NODE');
 
   const rootDir = process.cwd();
-  const computeDir = join(rootDir, 'apps/compute');
+  const dwsDir = join(rootDir, 'apps/dws');
 
-  if (!existsSync(computeDir)) {
-    logger.error('Compute app not found');
+  if (!existsSync(dwsDir)) {
+    logger.error('DWS app not found');
     process.exit(1);
   }
 
@@ -170,14 +170,14 @@ async function startBridge(options: {
       ? 'https://rpc.testnet.jeju.network'
       : 'https://rpc.jeju.network';
 
-  logger.step(`Starting compute bridge on port ${options.port}...`);
+  logger.step(`Starting DWS node on port ${options.port}...`);
   logger.keyValue('Network', options.network);
   logger.keyValue('Akash Network', options.akashNetwork);
   logger.keyValue('RPC URL', rpcUrl);
 
   const proc = spawn({
-    cmd: ['bun', 'run', 'bridge'],
-    cwd: computeDir,
+    cmd: ['bun', 'run', 'node'],
+    cwd: dwsDir,
     stdout: 'inherit',
     stderr: 'inherit',
     env: {

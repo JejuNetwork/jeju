@@ -19,6 +19,8 @@ import {
   createWalletClient,
   http,
   parseAbi,
+  decodeFunctionResult,
+  encodeFunctionData,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
@@ -221,6 +223,16 @@ export class WarpRouteDeployer {
       throw new Error(`Hyperlane not deployed on chain ${chainId}`);
     }
 
+    // Simulate to get return value (deployed address)
+    const { result: ismAddress } = await clients.public.simulateContract({
+      address: addresses.ismFactory,
+      abi: HYPERLANE_ISM_FACTORY_ABI,
+      functionName: 'deploy',
+      args: [config.validators, config.threshold],
+      account: clients.wallet.account,
+    });
+
+    // Execute deployment
     const hash = await clients.wallet.writeContract({
       address: addresses.ismFactory,
       abi: HYPERLANE_ISM_FACTORY_ABI,
@@ -228,14 +240,11 @@ export class WarpRouteDeployer {
       args: [config.validators, config.threshold],
     });
 
-    const receipt = await clients.public.waitForTransactionReceipt({ hash });
+    await clients.public.waitForTransactionReceipt({ hash });
     
-    // Parse ISM address from deployment event
-    // In production, decode the logs to get the actual address
-    console.log(`ISM deployed on chain ${chainId}: ${hash}`);
+    console.log(`ISM deployed on chain ${chainId} at ${ismAddress}: ${hash}`);
     
-    // Return placeholder - in production, parse from logs
-    return '0x0000000000000000000000000000000000000001' as Address;
+    return ismAddress;
   }
 
   /**
@@ -258,10 +267,21 @@ export class WarpRouteDeployer {
 
     let hash: Hex;
     let functionName: string;
+    let warpRouteAddress: Address;
+    let tokenAddress: Address;
 
     switch (chain.tokenType) {
       case 'native':
         functionName = 'deployNative';
+        const nativeSimulation = await clients.public.simulateContract({
+          address: addresses.warpFactory,
+          abi: HYPERLANE_WARP_FACTORY_ABI,
+          functionName: 'deployNative',
+          args: [chain.mailbox, ismAddress, chain.igp, chain.owner],
+          account: clients.wallet.account,
+        });
+        warpRouteAddress = nativeSimulation.result;
+        tokenAddress = '0x0000000000000000000000000000000000000000' as Address; // Native token
         hash = await clients.wallet.writeContract({
           address: addresses.warpFactory,
           abi: HYPERLANE_WARP_FACTORY_ABI,
@@ -275,6 +295,15 @@ export class WarpRouteDeployer {
           throw new Error('Token address required for collateral warp route');
         }
         functionName = 'deployCollateral';
+        const collateralSimulation = await clients.public.simulateContract({
+          address: addresses.warpFactory,
+          abi: HYPERLANE_WARP_FACTORY_ABI,
+          functionName: 'deployCollateral',
+          args: [chain.tokenAddress, chain.mailbox, ismAddress, chain.igp, chain.owner],
+          account: clients.wallet.account,
+        });
+        warpRouteAddress = collateralSimulation.result;
+        tokenAddress = chain.tokenAddress;
         hash = await clients.wallet.writeContract({
           address: addresses.warpFactory,
           abi: HYPERLANE_WARP_FACTORY_ABI,
@@ -285,6 +314,16 @@ export class WarpRouteDeployer {
 
       case 'synthetic':
         functionName = 'deploySynthetic';
+        const syntheticSimulation = await clients.public.simulateContract({
+          address: addresses.warpFactory,
+          abi: HYPERLANE_WARP_FACTORY_ABI,
+          functionName: 'deploySynthetic',
+          args: [config.decimals, config.name, config.symbol, chain.mailbox, ismAddress, chain.igp, chain.owner],
+          account: clients.wallet.account,
+        });
+        warpRouteAddress = syntheticSimulation.result;
+        // For synthetic, the warp route address IS the token address
+        tokenAddress = warpRouteAddress;
         hash = await clients.wallet.writeContract({
           address: addresses.warpFactory,
           abi: HYPERLANE_WARP_FACTORY_ABI,
@@ -295,13 +334,12 @@ export class WarpRouteDeployer {
     }
 
     await clients.public.waitForTransactionReceipt({ hash });
-    console.log(`Warp route (${functionName}) deployed on chain ${chain.chainId}: ${hash}`);
+    console.log(`Warp route (${functionName}) deployed on chain ${chain.chainId} at ${warpRouteAddress}: ${hash}`);
 
-    // Return placeholder addresses - in production, parse from logs
     return {
       chainId: chain.chainId,
-      warpRouteAddress: '0x0000000000000000000000000000000000000002' as Address,
-      tokenAddress: chain.tokenAddress ?? '0x0000000000000000000000000000000000000000' as Address,
+      warpRouteAddress,
+      tokenAddress,
       ismAddress,
       deploymentTx: hash,
     };

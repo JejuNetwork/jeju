@@ -431,7 +431,7 @@ class CompleteBootstrapper {
 
     // Auto-register all local tokens (JEJU first as preferred)
     const tokens = [
-      { address: contracts.jeju, symbol: 'JEJU', name: getNetworkName() Token', minFee: 0, maxFee: 100 },
+      { address: contracts.jeju, symbol: 'JEJU', name: `${getNetworkName()} Token`, minFee: 0, maxFee: 100 },
       { address: contracts.usdc, symbol: 'USDC', name: 'USD Coin', minFee: 50, maxFee: 200 },
       { address: contracts.elizaOS, symbol: 'elizaOS', name: 'elizaOS Token', minFee: 100, maxFee: 300 },
       { address: contracts.weth, symbol: 'WETH', name: 'Wrapped Ether', minFee: 0, maxFee: 100 }

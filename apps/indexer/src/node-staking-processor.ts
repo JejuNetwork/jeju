@@ -2,14 +2,14 @@
  * Node Staking Processor - Indexes node registration, performance, and governance
  */
 
-import { ethers } from 'ethers';
+import { keccak256, stringToHex, parseAbi, decodeEventLog } from 'viem';
 import { Store } from '@subsquid/typeorm-store';
 import { ProcessorContext } from './processor';
 import { NodeStake, PerformanceUpdate, RewardClaim, GovernanceProposal, GovernanceEvent } from './model';
 
 const EMPTY_BYTES32 = Buffer.from('0000000000000000000000000000000000000000000000000000000000000000', 'hex');
 
-const nodeStakingInterface = new ethers.Interface([
+const nodeStakingInterface = parseAbi([
     'event NodeRegistered(bytes32 indexed nodeId, address indexed operator, address stakedToken, uint256 stakedAmount, string rpcUrl, uint8 region)',
     'event PerformanceUpdated(bytes32 indexed nodeId, uint256 uptimeScore, uint256 requestsServed, uint256 avgResponseTime)',
     'event RewardsClaimed(bytes32 indexed nodeId, address indexed operator, address rewardToken, uint256 amount, uint256 paymasterFeesETH)',
@@ -19,13 +19,13 @@ const nodeStakingInterface = new ethers.Interface([
     'event ProposalVetoed(bytes32 indexed proposalId, address admin, string reason)'
 ]);
 
-const NODE_REGISTERED = ethers.id('NodeRegistered(bytes32,address,address,uint256,string,uint8)');
-const PERFORMANCE_UPDATED = ethers.id('PerformanceUpdated(bytes32,uint256,uint256,uint256)');
-const REWARDS_CLAIMED = ethers.id('RewardsClaimed(bytes32,address,address,uint256,uint256)');
-const NODE_SLASHED = ethers.id('NodeSlashed(bytes32,address,string)');
-const PROPOSAL_CREATED = ethers.id('ProposalCreated(bytes32,string,uint256,uint256,address)');
-const PROPOSAL_EXECUTED = ethers.id('ProposalExecuted(bytes32,bool)');
-const PROPOSAL_VETOED = ethers.id('ProposalVetoed(bytes32,address,string)');
+const NODE_REGISTERED = keccak256(stringToHex('NodeRegistered(bytes32,address,address,uint256,string,uint8)'));
+const PERFORMANCE_UPDATED = keccak256(stringToHex('PerformanceUpdated(bytes32,uint256,uint256,uint256)'));
+const REWARDS_CLAIMED = keccak256(stringToHex('RewardsClaimed(bytes32,address,address,uint256,uint256)'));
+const NODE_SLASHED = keccak256(stringToHex('NodeSlashed(bytes32,address,string)'));
+const PROPOSAL_CREATED = keccak256(stringToHex('ProposalCreated(bytes32,string,uint256,uint256,address)'));
+const PROPOSAL_EXECUTED = keccak256(stringToHex('ProposalExecuted(bytes32,bool)'));
+const PROPOSAL_VETOED = keccak256(stringToHex('ProposalVetoed(bytes32,address,string)'));
 
 export async function processNodeStakingEvents(ctx: ProcessorContext<Store>): Promise<void> {
     const nodes = new Map<string, NodeStake>();
@@ -42,8 +42,8 @@ export async function processNodeStakingEvents(ctx: ProcessorContext<Store>): Pr
             
             if (eventSig === NODE_REGISTERED) {
                 const nodeId = log.topics[1];
-                const decoded = nodeStakingInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const decoded = decodeEventLog({ abi: nodeStakingInterface, topics: log.topics as [`0x${string}`, ...`0x${string}`[]], data: log.data as `0x${string}` });
+                if (!decoded || decoded.eventName !== 'NodeRegistered') continue;
                 
                 nodes.set(nodeId, new NodeStake({
                     id: nodeId,
@@ -64,8 +64,8 @@ export async function processNodeStakingEvents(ctx: ProcessorContext<Store>): Pr
             }
             else if (eventSig === PERFORMANCE_UPDATED) {
                 const nodeId = log.topics[1];
-                const decoded = nodeStakingInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const decoded = decodeEventLog({ abi: nodeStakingInterface, topics: log.topics as [`0x${string}`, ...`0x${string}`[]], data: log.data as `0x${string}` });
+                if (decoded.eventName !== 'PerformanceUpdated') continue;
                 
                 const node = nodes.get(nodeId);
                 if (node) {
@@ -87,8 +87,8 @@ export async function processNodeStakingEvents(ctx: ProcessorContext<Store>): Pr
             }
             else if (eventSig === REWARDS_CLAIMED) {
                 const nodeId = log.topics[1];
-                const decoded = nodeStakingInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const decoded = decodeEventLog({ abi: nodeStakingInterface, topics: log.topics as [`0x${string}`, ...`0x${string}`[]], data: log.data as `0x${string}` });
+                if (decoded.eventName !== 'RewardsClaimed') continue;
                 
                 const node = nodes.get(nodeId);
                 if (node) {
@@ -119,8 +119,8 @@ export async function processNodeStakingEvents(ctx: ProcessorContext<Store>): Pr
             }
             else if (eventSig === PROPOSAL_CREATED) {
                 const proposalId = log.topics[1];
-                const decoded = nodeStakingInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const decoded = decodeEventLog({ abi: nodeStakingInterface, topics: log.topics as [`0x${string}`, ...`0x${string}`[]], data: log.data as `0x${string}` });
+                if (decoded.eventName !== 'ProposalCreated') continue;
                 
                 const proposal = new GovernanceProposal({
                     id: proposalId,
@@ -154,8 +154,8 @@ export async function processNodeStakingEvents(ctx: ProcessorContext<Store>): Pr
                 const proposalId = log.topics[1];
                 const proposal = proposals.get(proposalId);
                 if (proposal) {
-                    const decoded = nodeStakingInterface.parseLog({ topics: log.topics, data: log.data });
-                    if (!decoded) continue;
+                    const decoded = decodeEventLog({ abi: nodeStakingInterface, topics: log.topics as [`0x${string}`, ...`0x${string}`[]], data: log.data as `0x${string}` });
+                    if (decoded.eventName !== 'ProposalExecuted') continue;
                     
                     proposal.executed = true;
                     
@@ -175,8 +175,8 @@ export async function processNodeStakingEvents(ctx: ProcessorContext<Store>): Pr
                 const proposalId = log.topics[1];
                 const proposal = proposals.get(proposalId);
                 if (proposal) {
-                    const decoded = nodeStakingInterface.parseLog({ topics: log.topics, data: log.data });
-                    if (!decoded) continue;
+                    const decoded = decodeEventLog({ abi: nodeStakingInterface, topics: log.topics as [`0x${string}`, ...`0x${string}`[]], data: log.data as `0x${string}` });
+                    if (decoded.eventName !== 'ProposalVetoed') continue;
                     
                     proposal.vetoed = true;
                     

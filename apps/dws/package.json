@@ -1,0 +1,37 @@
+{
+  "name": "@jejunetwork/dws",
+  "version": "1.0.0",
+  "description": "Decentralized Web Services (storage + compute + cdn)",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./sdk": "./src/sdk/index.ts",
+    "./cdn": "./src/cdn/index.ts",
+    "./cdn/edge": "./src/cdn/edge/index.ts",
+    "./cdn/sdk": "./src/cdn/sdk/index.ts"
+  },
+  "scripts": {
+    "dev": "bun run src/server/index.ts",
+    "start": "bun run src/server/index.ts",
+    "test": "bun test src/tests src/cdn/tests",
+    "typecheck": "tsc --noEmit",
+    "cdn:edge": "bun run src/cdn/edge/index.ts",
+    "cdn:coordinator": "bun run src/cdn/routing/coordinator.ts",
+    "cdn:gateway": "bun run src/cdn/gateway/jns-gateway.ts",
+    "proxy:coordinator": "bun run src/proxy/scripts/start-coordinator.ts",
+    "proxy:node": "bun run src/proxy/scripts/start-node.ts",
+    "triggers": "bun run src/triggers/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target bun"
+  },
+  "dependencies": {
+    "@jejunetwork/types": "workspace:*",
+    "ethers": "^6.13.4",
+    "hono": "^4.6.12",
+    "lru-cache": "^11.2.4",
+    "viem": "2.41.2"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

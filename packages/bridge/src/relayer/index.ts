@@ -3,9 +3,9 @@
  */
 
 export {
-  createRelayerService,
-  type EVMChainConfig,
-  type RelayerConfig,
-  RelayerService,
-  type SolanaChainConfig,
-} from './service.js';
+	createRelayerService,
+	type EVMChainConfig,
+	type RelayerConfig,
+	RelayerService,
+	type SolanaChainConfig,
+} from "./service.js";

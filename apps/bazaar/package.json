@@ -26,6 +26,8 @@
     "test:localnet:full": "bun run scripts/run-localnet-simulations.ts"
   },
   "dependencies": {
+    "@babylon/shared": "workspace:vendor/babylon/packages/shared",
+    "@jeju/oauth3": "workspace:*",
     "@jeju/shared": "workspace:*",
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/contracts": "workspace:*",

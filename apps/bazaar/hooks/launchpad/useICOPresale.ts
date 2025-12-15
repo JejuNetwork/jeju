@@ -223,21 +223,23 @@ export function useICOPresale(presaleAddress: Address | null) {
   }
 
   // Check if user can claim
-  const canClaim =
+  const canClaim: boolean = Boolean(
     parsedStatus?.isFinalized &&
     !parsedStatus?.isFailed &&
     parsedContribution &&
     parsedContribution.claimable > 0n &&
     buyerClaimStart &&
     BigInt(Math.floor(Date.now() / 1000)) >= (buyerClaimStart as bigint)
+  )
 
   // Check if user can refund
-  const canRefund =
+  const canRefund: boolean = Boolean(
     parsedStatus?.isFinalized &&
     parsedStatus?.isFailed &&
     parsedContribution &&
     parsedContribution.ethAmount > 0n &&
     !parsedContribution.isRefunded
+  )
 
   return {
     // State
@@ -246,7 +248,7 @@ export function useICOPresale(presaleAddress: Address | null) {
     tokenAddress: tokenAddress as Address | undefined,
     creator: creator as Address | undefined,
     status: parsedStatus,
-    contribution: parsedContribution,
+    contribution: parsedContribution as UserContribution | undefined,
     config: config as {
       presaleAllocationBps: bigint
       presalePrice: bigint

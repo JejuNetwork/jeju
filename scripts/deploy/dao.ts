@@ -6,12 +6,14 @@
  * Start anvil first: anvil --port 9545
  */
 
-import { ethers, ContractFactory, Wallet, JsonRpcProvider, parseEther, formatEther } from 'ethers';
+import { createPublicClient, createWalletClient, http, type Address, parseEther, formatEther, keccak256, toUtf8Bytes, type Chain } from 'viem';
+import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
+import { deployContract, readContract, waitForTransactionReceipt, getBalance } from 'viem/actions';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 const OUT = join(import.meta.dir, '../packages/contracts/out');
-const COUNCIL_DIR = join(import.meta.dir, '../apps/council');
+const AUTOCRAT_DIR = join(import.meta.dir, '../apps/autocrat');
 
 const KEYS = [
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80', // Deployer
@@ -23,73 +25,161 @@ const KEYS = [
 
 function load(name: string) {
   const art = JSON.parse(readFileSync(join(OUT, `${name}.sol`, `${name}.json`), 'utf-8'));
-  return { abi: art.abi, bytecode: art.bytecode.object };
+  return { abi: art.abi, bytecode: art.bytecode.object as `0x${string}` };
 }
 
-async function deploy(w: Wallet, name: string, args: unknown[]) {
+async function deploy(
+  walletClient: ReturnType<typeof createWalletClient>,
+  account: PrivateKeyAccount,
+  client: ReturnType<typeof createPublicClient>,
+  name: string,
+  args: unknown[]
+) {
   const { abi, bytecode } = load(name);
-  const f = new ContractFactory(abi, bytecode, w);
-  const c = await f.deploy(...args);
-  await c.waitForDeployment();
-  const addr = await c.getAddress();
-  console.log(`✓ ${name}: ${addr}`);
-  return { address: addr, contract: new ethers.Contract(addr, abi, w) };
+  const hash = await deployContract(walletClient, {
+    abi,
+    bytecode,
+    args,
+    account,
+  });
+  const receipt = await waitForTransactionReceipt(client, { hash });
+  const address = receipt.contractAddress;
+  if (!address) {
+    throw new Error(`Failed to deploy ${name}`);
+  }
+  console.log(`✓ ${name}: ${address}`);
+  return { address, abi };
 }
 
 async function main() {
   console.log('\n=== JEJU DAO DEPLOYMENT ===\n');
   
-  const provider = new JsonRpcProvider('http://127.0.0.1:9545');
-  await provider.getBlockNumber().catch(() => {
+  const rpcUrl = 'http://127.0.0.1:9545';
+  const chain = { id: 31337, name: 'local' } as Chain;
+  
+  const client = createPublicClient({
+    chain,
+    transport: http(rpcUrl),
+  });
+  
+  await client.getBlockNumber().catch(() => {
     console.error('Cannot connect to anvil. Run: anvil --port 9545');
     process.exit(1);
   });
   
-  const deployer = new Wallet(KEYS[0], provider);
-  console.log('Deployer:', await deployer.getAddress());
-  console.log('Balance:', formatEther(await provider.getBalance(await deployer.getAddress())), 'ETH\n');
+  const deployerAccount = privateKeyToAccount(KEYS[0] as `0x${string}`);
+  const walletClient = createWalletClient({
+    account: deployerAccount,
+    chain,
+    transport: http(rpcUrl),
+  });
+  
+  console.log('Deployer:', deployerAccount.address);
+  console.log('Balance:', formatEther(await getBalance(client, { address: deployerAccount.address })), 'ETH\n');
   
   // Deploy contracts
-  const { address: tokenAddr } = await deploy(deployer, 'TestERC20', 
+  const { address: tokenAddr } = await deploy(walletClient, deployerAccount, client, 'TestERC20', 
     ['Network', 'JEJU', parseEther('1000000000')]);
   
-  const { address: identityAddr, contract: identity } = await deploy(deployer, 'IdentityRegistry', []);
+  const { address: identityAddr, abi: identityAbi } = await deploy(walletClient, deployerAccount, client, 'IdentityRegistry', []);
   
-  const { address: reputationAddr } = await deploy(deployer, 'ReputationRegistry', [identityAddr]);
+  const { address: reputationAddr } = await deploy(walletClient, deployerAccount, client, 'ReputationRegistry', [identityAddr]);
   
-  const { address: councilAddr, contract: council } = await deploy(deployer, 'Council',
-    [tokenAddr, identityAddr, reputationAddr, await deployer.getAddress()]);
+  const { address: councilAddr, abi: councilAbi } = await deploy(walletClient, deployerAccount, client, 'Council',
+    [tokenAddr, identityAddr, reputationAddr, deployerAccount.address]);
   
-  const { address: ceoAddr } = await deploy(deployer, 'CEOAgent',
-    [tokenAddr, councilAddr, 'claude-opus-4-5', await deployer.getAddress()]);
+  const { address: ceoAddr } = await deploy(walletClient, deployerAccount, client, 'CEOAgent',
+    [tokenAddr, councilAddr, 'claude-opus-4-5', deployerAccount.address]);
   
   console.log('\n--- Configuring ---\n');
   
   // Set CEO
-  await (await council.setCEOAgent(ceoAddr, 1)).wait();
+  const setCEOHash = await walletClient.writeContract({
+    address: councilAddr,
+    abi: councilAbi,
+    functionName: 'setCEOAgent',
+    args: [ceoAddr, 1],
+    account: deployerAccount,
+  });
+  await waitForTransactionReceipt(client, { hash: setCEOHash });
   console.log('✓ CEO agent configured');
   
   // Set research operator
-  await (await council.setResearchOperator(await deployer.getAddress(), true)).wait();
+  const setOpHash = await walletClient.writeContract({
+    address: councilAddr,
+    abi: councilAbi,
+    functionName: 'setResearchOperator',
+    args: [deployerAccount.address, true],
+    account: deployerAccount,
+  });
+  await waitForTransactionReceipt(client, { hash: setOpHash });
   console.log('✓ Research operator configured');
   
   // Register council agents
   const roles = ['Treasury', 'Code', 'Community', 'Security'];
-  const agents: Record<string, { address: string; agentId: number }> = {};
+  const agents: Record<string, { address: Address; agentId: number }> = {};
+  
+  const IDENTITY_REGISTER_ABI = [
+    {
+      name: 'register',
+      type: 'function',
+      inputs: [{ name: 'tokenURI', type: 'string' }],
+      outputs: [{ name: '', type: 'uint256' }],
+      stateMutability: 'nonpayable',
+    },
+    {
+      name: 'Transfer',
+      type: 'event',
+      inputs: [
+        { name: 'from', type: 'address', indexed: true },
+        { name: 'to', type: 'address', indexed: true },
+        { name: 'tokenId', type: 'uint256', indexed: true },
+      ],
+    },
+  ] as const;
+  
+  const COUNCIL_SET_AGENT_ABI = [
+    {
+      name: 'setCouncilAgent',
+      type: 'function',
+      inputs: [
+        { name: 'index', type: 'uint256' },
+        { name: 'agent', type: 'address' },
+        { name: 'agentId', type: 'uint256' },
+        { name: 'weight', type: 'uint256' },
+      ],
+      outputs: [],
+      stateMutability: 'nonpayable',
+    },
+  ] as const;
   
   for (let i = 0; i < 4; i++) {
-    const w = new Wallet(KEYS[i + 1], provider);
-    const addr = await w.getAddress();
+    const account = privateKeyToAccount(KEYS[i + 1] as `0x${string}`);
+    const addr = account.address;
     
     // Register in identity
-    const tx = await identity.connect(w).register(`ipfs://agent-${roles[i].toLowerCase()}`);
-    const r = await tx.wait();
-    const evt = r.logs.find((l: { topics: string[] }) => 
-      l.topics[0] === ethers.id('Transfer(address,address,uint256)'));
-    const agentId = evt ? parseInt(evt.topics[3], 16) : i + 1;
+    const registerHash = await walletClient.writeContract({
+      address: identityAddr,
+      abi: IDENTITY_REGISTER_ABI,
+      functionName: 'register',
+      args: [`ipfs://agent-${roles[i].toLowerCase()}`],
+      account,
+    });
+    const receipt = await waitForTransactionReceipt(client, { hash: registerHash });
+    const evt = receipt.logs.find((l) => 
+      l.topics[0] === keccak256(toUtf8Bytes('Transfer(address,address,uint256)'))
+    );
+    const agentId = evt && evt.topics[3] ? Number(BigInt(evt.topics[3])) : i + 1;
     
     // Set as council agent
-    await (await council.setCouncilAgent(i, addr, agentId, 100)).wait();
+    const setAgentHash = await walletClient.writeContract({
+      address: councilAddr,
+      abi: COUNCIL_SET_AGENT_ABI,
+      functionName: 'setCouncilAgent',
+      args: [BigInt(i), addr, BigInt(agentId), 100n],
+      account: deployerAccount,
+    });
+    await waitForTransactionReceipt(client, { hash: setAgentHash });
     
     agents[roles[i]] = { address: addr, agentId };
     console.log(`✓ ${roles[i]}: ID=${agentId}`);
@@ -102,7 +192,7 @@ async function main() {
     chainId: 31337,
     rpcUrl: 'http://127.0.0.1:9545',
     timestamp: new Date().toISOString(),
-    deployer: await deployer.getAddress(),
+    deployer: deployerAccount.address,
     contracts: {
       GovernanceToken: tokenAddr,
       IdentityRegistry: identityAddr,
@@ -116,7 +206,7 @@ async function main() {
     },
   };
   
-  writeFileSync(join(COUNCIL_DIR, 'deployment-localnet.json'), JSON.stringify(deployment, null, 2));
+  writeFileSync(join(AUTOCRAT_DIR, 'deployment-localnet.json'), JSON.stringify(deployment, null, 2));
   console.log('✓ Saved deployment-localnet.json');
   
   const env = `RPC_URL=http://127.0.0.1:9545
@@ -128,13 +218,13 @@ IDENTITY_REGISTRY_ADDRESS=${identityAddr}
 REPUTATION_REGISTRY_ADDRESS=${reputationAddr}
 OPERATOR_KEY=${KEYS[0]}
 `;
-  writeFileSync(join(COUNCIL_DIR, '.env.localnet'), env);
+  writeFileSync(join(AUTOCRAT_DIR, '.env.localnet'), env);
   console.log('✓ Saved .env.localnet');
   
   console.log('\n=== DONE ===\n');
   console.log('Council:', councilAddr);
   console.log('CEOAgent:', ceoAddr);
-  console.log('\nNext: cp apps/council/.env.localnet apps/council/.env');
+  console.log('\nNext: cp apps/autocrat/.env.localnet apps/autocrat/.env');
 }
 
 main().catch(e => { console.error(e.message); process.exit(1); });

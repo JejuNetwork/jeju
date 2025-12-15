@@ -34,6 +34,10 @@ import {
   OAuth3JNSService,
   createOAuth3JNSService,
 } from '../infrastructure/jns-integration.js';
+import {
+  FROSTCoordinator,
+  type FROSTSignature,
+} from '../mpc/frost-signing.js';
 
 const DSTACK_SOCKET = process.env.DSTACK_SOCKET ?? '/var/run/dstack.sock';
 
@@ -54,6 +58,10 @@ interface AuthAgentConfig {
   // Infrastructure
   jnsGateway?: string;
   storageEndpoint?: string;
+  // MPC settings
+  mpcEnabled?: boolean;
+  mpcThreshold?: number;
+  mpcTotalParties?: number;
 }
 
 interface OAuthTokenResponse {
@@ -103,6 +111,8 @@ export class DstackAuthAgent {
   private decentralizedStore: DecentralizedSessionStore | null = null;
   private nodePrivateKey: Uint8Array;
   private nodeAccount: ReturnType<typeof privateKeyToAccount>;
+  private mpcCoordinator: FROSTCoordinator | null = null;
+  private mpcInitialized = false;
 
   constructor(config: AuthAgentConfig) {
     this.config = config;
@@ -128,7 +138,23 @@ export class DstackAuthAgent {
     this.nodePrivateKey = toBytes(config.privateKey);
     this.nodeAccount = privateKeyToAccount(config.privateKey);
 
+    // Initialize MPC coordinator if enabled
+    if (config.mpcEnabled) {
+      const threshold = config.mpcThreshold ?? 2;
+      const totalParties = config.mpcTotalParties ?? 3;
+      this.mpcCoordinator = new FROSTCoordinator(config.clusterId, threshold, totalParties);
+    }
+
     this.setupRoutes();
+  }
+
+  /**
+   * Initialize MPC cluster for threshold signing
+   */
+  async initializeMPC(): Promise<void> {
+    if (!this.mpcCoordinator || this.mpcInitialized) return;
+    await this.mpcCoordinator.initializeCluster();
+    this.mpcInitialized = true;
   }
 
   private setupRoutes(): void {
@@ -749,8 +775,18 @@ export class DstackAuthAgent {
       throw new Error('Session expired');
     }
 
-    const account = privateKeyToAccount(session.signingKey as Hex);
-    const signature = await account.signMessage({ message: { raw: toBytes(message) } });
+    let signature: Hex;
+
+    // Use MPC signing if coordinator is initialized
+    if (this.mpcCoordinator && this.mpcInitialized) {
+      const frostSig = await this.mpcCoordinator.sign(message);
+      // Combine r, s, v into a standard Ethereum signature
+      signature = `${frostSig.r}${frostSig.s.slice(2)}${frostSig.v.toString(16).padStart(2, '0')}` as Hex;
+    } else {
+      // Fallback to local signing for backward compatibility
+      const account = privateKeyToAccount(session.signingKey as Hex);
+      signature = await account.signMessage({ message: { raw: toBytes(message) } });
+    }
 
     const attestation = await this.getAttestation(keccak256(toBytes(`sign:${message}`)));
 
@@ -908,6 +944,8 @@ export class DstackAuthAgent {
 }
 
 export async function startAuthAgent(): Promise<DstackAuthAgent> {
+  const mpcEnabled = process.env.MPC_ENABLED === 'true';
+  
   const config: AuthAgentConfig = {
     nodeId: process.env.OAUTH3_NODE_ID ?? `node-${crypto.randomUUID().slice(0, 8)}`,
     clusterId: process.env.OAUTH3_CLUSTER_ID ?? 'oauth3-cluster',
@@ -923,9 +961,20 @@ export async function startAuthAgent(): Promise<DstackAuthAgent> {
     // Infrastructure
     jnsGateway: process.env.JNS_GATEWAY ?? process.env.GATEWAY_API ?? 'http://localhost:4020',
     storageEndpoint: process.env.STORAGE_API_ENDPOINT ?? 'http://localhost:4010',
+    // MPC configuration
+    mpcEnabled,
+    mpcThreshold: parseInt(process.env.MPC_THRESHOLD ?? '2'),
+    mpcTotalParties: parseInt(process.env.MPC_TOTAL_PARTIES ?? '3'),
   };
 
   const agent = new DstackAuthAgent(config);
+  
+  // Initialize MPC if enabled
+  if (mpcEnabled) {
+    await agent.initializeMPC();
+    console.log(`MPC initialized: threshold=${config.mpcThreshold}/${config.mpcTotalParties}`);
+  }
+  
   await agent.start(parseInt(process.env.OAUTH3_PORT ?? '4200'));
   
   return agent;

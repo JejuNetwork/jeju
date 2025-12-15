@@ -1,328 +1,5 @@
 #!/usr/bin/env bun
 /**
-<<<<<<< HEAD
- * Jeju Network Startup Script
- * 
- * Starts all infrastructure services and validates they're healthy
- * before allowing applications to start. Ensures a fully permissionless,
- * resilient network with no single points of failure.
- * 
- * Services Started:
- * - IPFS (storage)
- * - Cache Service (Redis-compatible)
- * - DA Server (data availability with vault)
- * - JNS Gateway (name resolution)
- * - Trigger Service (compute triggers)
- * - PostgreSQL (for Subsquid indexer)
- * 
- * Usage:
- *   bun run scripts/start.ts
- *   bun run scripts/start.ts --wait-only  # Just wait for services
- *   bun run scripts/start.ts --check      # Health check only
- */
-
-import { execSync, spawn } from 'child_process';
-import { existsSync } from 'fs';
-import { join } from 'path';
-
-interface ServiceHealth {
-  name: string;
-  url: string;
-  healthy: boolean;
-  error?: string;
-  latencyMs?: number;
-}
-
-interface StartupResult {
-  success: boolean;
-  services: ServiceHealth[];
-  errors: string[];
-}
-
-const SERVICES = [
-  { name: 'IPFS', url: 'http://localhost:5001/api/v0/id', method: 'POST', healthPath: '' },
-  { name: 'Cache', url: 'http://localhost:4115/health', method: 'GET', healthPath: '/health' },
-  { name: 'DA Server', url: 'http://localhost:4010/health', method: 'GET', healthPath: '/health' },
-  { name: 'PostgreSQL', url: 'postgres://localhost:5434', method: 'TCP', port: 5434 },
-];
-
-const MAX_RETRIES = 30;
-const RETRY_DELAY_MS = 2000;
-
-async function checkServiceHealth(service: typeof SERVICES[0]): Promise<ServiceHealth> {
-  const startTime = Date.now();
-  
-  if (service.method === 'TCP') {
-    const net = await import('net');
-    return new Promise((resolve) => {
-      const socket = new net.Socket();
-      socket.setTimeout(5000);
-      
-      socket.on('connect', () => {
-        socket.destroy();
-        resolve({
-          name: service.name,
-          url: service.url,
-          healthy: true,
-          latencyMs: Date.now() - startTime,
-        });
-      });
-      
-      socket.on('error', (err) => {
-        socket.destroy();
-        resolve({
-          name: service.name,
-          url: service.url,
-          healthy: false,
-          error: err.message,
-          latencyMs: Date.now() - startTime,
-        });
-      });
-      
-      socket.on('timeout', () => {
-        socket.destroy();
-        resolve({
-          name: service.name,
-          url: service.url,
-          healthy: false,
-          error: 'Connection timeout',
-          latencyMs: Date.now() - startTime,
-        });
-      });
-      
-      socket.connect(service.port!, 'localhost');
-    });
-  }
-  
-  const response = await fetch(service.url, {
-    method: service.method as 'GET' | 'POST',
-    signal: AbortSignal.timeout(5000),
-  }).catch((e: Error) => ({ ok: false, error: e.message }));
-  
-  const latencyMs = Date.now() - startTime;
-  
-  if ('error' in response) {
-    return {
-      name: service.name,
-      url: service.url,
-      healthy: false,
-      error: response.error,
-      latencyMs,
-    };
-  }
-  
-  return {
-    name: service.name,
-    url: service.url,
-    healthy: response.ok,
-    error: response.ok ? undefined : `HTTP ${response.status}`,
-    latencyMs,
-  };
-}
-
-async function waitForServices(): Promise<ServiceHealth[]> {
-  console.log('⏳ Waiting for services to be healthy...\n');
-  
-  const results: ServiceHealth[] = [];
-  
-  for (const service of SERVICES) {
-    console.log(`   Checking ${service.name}...`);
-    
-    let healthy = false;
-    let lastHealth: ServiceHealth | null = null;
-    
-    for (let attempt = 0; attempt < MAX_RETRIES && !healthy; attempt++) {
-      lastHealth = await checkServiceHealth(service);
-      healthy = lastHealth.healthy;
-      
-      if (!healthy && attempt < MAX_RETRIES - 1) {
-        await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
-        process.stdout.write(`   Retry ${attempt + 1}/${MAX_RETRIES}...\r`);
-      }
-    }
-    
-    if (healthy && lastHealth) {
-      console.log(`   ✅ ${service.name} healthy (${lastHealth.latencyMs}ms)`);
-    } else if (lastHealth) {
-      console.log(`   ❌ ${service.name} FAILED: ${lastHealth.error}`);
-    }
-    
-    results.push(lastHealth!);
-  }
-  
-  return results;
-}
-
-async function startDockerCompose(): Promise<void> {
-  const composePath = join(process.cwd(), 'docker-compose.yml');
-  
-  if (!existsSync(composePath)) {
-    throw new Error(`docker-compose.yml not found at ${composePath}`);
-  }
-  
-  console.log('🐳 Starting Docker Compose services...\n');
-  
-  execSync('docker compose up -d', {
-    cwd: process.cwd(),
-    stdio: 'inherit',
-  });
-  
-  console.log('');
-}
-
-async function startLocalnet(): Promise<void> {
-  console.log('⛓️  Starting localnet...\n');
-  
-  const checkCmd = 'cast block-number --rpc-url http://127.0.0.1:9545 2>/dev/null';
-  try {
-    execSync(checkCmd, { encoding: 'utf-8', stdio: 'pipe' });
-    console.log('   ✅ Localnet already running\n');
-    return;
-  } catch {
-    // Not running, start it
-  }
-  
-  const proc = spawn('bun', ['run', 'localnet:start'], {
-    cwd: process.cwd(),
-    detached: true,
-    stdio: 'ignore',
-  });
-  proc.unref();
-  
-  for (let i = 0; i < MAX_RETRIES; i++) {
-    try {
-      execSync(checkCmd, { encoding: 'utf-8', stdio: 'pipe' });
-      console.log('   ✅ Localnet started\n');
-      return;
-    } catch {
-      await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
-    }
-  }
-  
-  throw new Error('Localnet failed to start');
-}
-
-async function bootstrapContracts(): Promise<void> {
-  console.log('📝 Bootstrapping contracts...\n');
-  
-  const deploymentPath = join(process.cwd(), 'packages/contracts/deployments/localnet-complete.json');
-  if (existsSync(deploymentPath)) {
-    console.log('   ✅ Contracts already deployed\n');
-    return;
-  }
-  
-  execSync('bun run scripts/bootstrap-localnet-complete.ts', {
-    cwd: process.cwd(),
-    stdio: 'inherit',
-  });
-  
-  console.log('');
-}
-
-async function printEnvVars(): Promise<void> {
-  console.log('📋 Environment variables for apps:\n');
-  console.log('   export COVENANTSQL_NODES=http://localhost:4661');
-  console.log('   export IPFS_GATEWAY_URL=http://localhost:4180');
-  console.log('   export IPFS_API_URL=http://localhost:5001');
-  console.log('   export CACHE_SERVICE_URL=http://localhost:4115');
-  console.log('   export DA_SERVER_URL=http://localhost:4010');
-  console.log('   export JEJU_RPC_URL=http://localhost:9545');
-  console.log('');
-}
-
-async function main(): Promise<StartupResult> {
-  const args = process.argv.slice(2);
-  const checkOnly = args.includes('--check');
-  const waitOnly = args.includes('--wait-only');
-  
-  console.log('\n');
-  console.log('╔═══════════════════════════════════════════════════════════════════╗');
-  console.log('║                    JEJU NETWORK STARTUP                           ║');
-  console.log('║                   100% Permissionless                             ║');
-  console.log('╚═══════════════════════════════════════════════════════════════════╝');
-  console.log('\n');
-  
-  const errors: string[] = [];
-  
-  if (checkOnly) {
-    const health = await Promise.all(SERVICES.map(checkServiceHealth));
-    console.log('Service Health:\n');
-    for (const h of health) {
-      const status = h.healthy ? '✅' : '❌';
-      const latency = h.latencyMs ? ` (${h.latencyMs}ms)` : '';
-      const error = h.error ? ` - ${h.error}` : '';
-      console.log(`   ${status} ${h.name}${latency}${error}`);
-    }
-    console.log('');
-    
-    const allHealthy = health.every(h => h.healthy);
-    return { success: allHealthy, services: health, errors };
-  }
-  
-  if (!waitOnly) {
-    try {
-      await startDockerCompose();
-    } catch (e) {
-      const error = `Docker Compose failed: ${(e as Error).message}`;
-      console.error(`❌ ${error}`);
-      errors.push(error);
-    }
-  }
-  
-  const services = await waitForServices();
-  const allHealthy = services.every(s => s.healthy);
-  
-  if (!allHealthy) {
-    console.log('\n❌ Some services failed to start. Check Docker logs:');
-    console.log('   docker compose logs');
-    console.log('');
-    
-    for (const s of services.filter(s => !s.healthy)) {
-      errors.push(`${s.name}: ${s.error}`);
-    }
-    
-    return { success: false, services, errors };
-  }
-  
-  if (!waitOnly) {
-    try {
-      await startLocalnet();
-      await bootstrapContracts();
-    } catch (e) {
-      const error = `Chain setup failed: ${(e as Error).message}`;
-      console.error(`❌ ${error}`);
-      errors.push(error);
-      return { success: false, services, errors };
-    }
-  }
-  
-  await printEnvVars();
-  
-  console.log('╔═══════════════════════════════════════════════════════════════════╗');
-  console.log('║                    ✅ NETWORK READY                               ║');
-  console.log('╠═══════════════════════════════════════════════════════════════════╣');
-  console.log('║  All services are healthy and running.                            ║');
-  console.log('║  No fallbacks. No single points of failure.                       ║');
-  console.log('║                                                                   ║');
-  console.log('║  Start apps: bun run dev                                          ║');
-  console.log('║  Stop all:   docker compose down && bun run localnet:stop         ║');
-  console.log('╚═══════════════════════════════════════════════════════════════════╝');
-  console.log('\n');
-  
-  return { success: true, services, errors };
-}
-
-if (import.meta.main) {
-  main().then((result) => {
-    process.exit(result.success ? 0 : 1);
-  }).catch((e) => {
-    console.error('❌ Startup failed:', e);
-    process.exit(1);
-  });
-}
-
-export { main as start, checkServiceHealth, waitForServices };
-=======
  * Start Decentralized Stack
  * 
  * This script starts the complete decentralized infrastructure:
@@ -336,19 +13,25 @@ export { main as start, checkServiceHealth, waitForServices };
  *   bun run scripts/start.ts
  *   bun run scripts/start.ts --deploy-contracts
  *   bun run scripts/start.ts --stop
+ *   bun run scripts/start.ts --status
  */
 
 import { $ } from 'bun';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { logger } from './shared/logger';
 
 const ROOT = join(import.meta.dir, '..');
 const SECRETS_DIR = join(ROOT, 'secrets');
 const DEPLOYMENTS_DIR = join(ROOT, 'packages/contracts/deployments');
-const COMPOSE_FILE = join(ROOT, 'docker-compose.decentralized.yml');
+const COMPOSE_FILE = join(ROOT, 'docker-compose.yml');
 
-// Default private keys for local development (DO NOT USE IN PRODUCTION)
-const DEV_KEYS = {
+const isProduction = process.env.NODE_ENV === 'production' || process.env.NETWORK === 'mainnet' || process.env.NETWORK === 'testnet';
+const isLocalDev = !isProduction;
+
+// Default private keys ONLY for local development (NEVER used in production)
+// In production, all keys MUST come from environment variables or secrets manager
+const DEV_KEYS = isLocalDev ? {
   deployer: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
   sequencer1: '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d',
   sequencer2: '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a',
@@ -357,27 +40,128 @@ const DEV_KEYS = {
   proposer: '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba',
   challenger: '0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e',
   coordinator: '0x4bbbf85ce3377467afe5d46f804f221813b2bb87f24d81f60f1fcdbf7cbf4356',
-};
+} : null;
+
+function validateAddress(address: string, name: string): void {
+  if (!address || address === '0x0000000000000000000000000000000000000000') {
+    throw new Error(`${name} address is not set or is zero address`);
+  }
+  if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+    throw new Error(`${name} address is invalid: ${address}`);
+  }
+}
+
+function validatePrivateKey(key: string | undefined, name: string): void {
+  if (!key) {
+    throw new Error(`${name} private key is not set`);
+  }
+  if (!/^0x[a-fA-F0-9]{64}$/.test(key)) {
+    throw new Error(`${name} private key is invalid format`);
+  }
+}
+
+function getPrivateKey(keyName: string, envVar: string): string {
+  if (isProduction) {
+    const key = process.env[envVar];
+    if (!key) {
+      throw new Error(`Production mode requires ${envVar} environment variable. Hardcoded keys are not allowed in production.`);
+    }
+    validatePrivateKey(key, envVar);
+    return key;
+  }
+  
+  // Local dev: use env var if set, otherwise fall back to dev key
+  const envKey = process.env[envVar];
+  if (envKey) {
+    validatePrivateKey(envKey, envVar);
+    return envKey;
+  }
+  
+  if (!DEV_KEYS) {
+    throw new Error(`DEV_KEYS not available and ${envVar} not set`);
+  }
+  
+  const devKey = DEV_KEYS[keyName as keyof typeof DEV_KEYS];
+  if (!devKey) {
+    throw new Error(`Dev key ${keyName} not found and ${envVar} not set`);
+  }
+  
+  logger.warn(`Using default dev key for ${keyName}. Set ${envVar} to use custom key.`);
+  return devKey;
+}
+
+function validateRequiredEnvVars(): void {
+  if (isProduction) {
+    const requiredVars = [
+      'DEPLOYER_PRIVATE_KEY',
+      'SEQUENCER_1_PRIVATE_KEY',
+      'SEQUENCER_2_PRIVATE_KEY',
+      'SEQUENCER_3_PRIVATE_KEY',
+    ];
+
+    const missing: string[] = [];
+    for (const varName of requiredVars) {
+      const value = process.env[varName];
+      if (!value) {
+        missing.push(varName);
+      } else {
+        try {
+          validatePrivateKey(value, varName);
+        } catch (e) {
+          throw new Error(`Invalid ${varName}: ${(e as Error).message}`);
+        }
+      }
+    }
+
+    if (missing.length > 0) {
+      throw new Error(`Production mode requires all environment variables: ${missing.join(', ')}\nDo not use hardcoded keys in production.`);
+    }
+    
+    logger.info('Production mode: All required environment variables validated');
+  } else {
+    logger.info('Local dev mode: Using default dev keys (set env vars to override)');
+  }
+}
 
 async function ensureSecrets(): Promise<void> {
   if (!existsSync(SECRETS_DIR)) {
     mkdirSync(SECRETS_DIR, { recursive: true });
+    logger.debug(`Created secrets directory: ${SECRETS_DIR}`);
   }
 
   const jwtPath = join(SECRETS_DIR, 'jwt-secret.txt');
   if (!existsSync(jwtPath)) {
     const jwt = `0x${Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('hex')}`;
     writeFileSync(jwtPath, jwt);
-    console.log('✓ Generated JWT secret');
+    logger.success('Generated JWT secret');
+  } else {
+    logger.debug('JWT secret already exists');
   }
 }
 
 async function createEnvFile(): Promise<void> {
   const envPath = join(ROOT, '.env');
   
+  // In production, don't create .env file - use environment variables directly
+  if (isProduction) {
+    logger.info('Production mode: Skipping .env file creation. Use environment variables or secrets manager.');
+    return;
+  }
+  
+  // Only create .env in local dev mode
+  if (existsSync(envPath)) {
+    logger.debug('.env file already exists, skipping creation');
+    return;
+  }
+  
+  if (!DEV_KEYS) {
+    throw new Error('Cannot create .env file: DEV_KEYS not available');
+  }
+  
   const env = `
 # Decentralized Development Environment
 # Generated by scripts/start.ts
+# WARNING: This file contains development keys. Never commit to version control.
 
 # Deployer
 DEPLOYER_PRIVATE_KEY=${DEV_KEYS.deployer}
@@ -409,22 +193,79 @@ PROXY_PAYMENT_ADDRESS=
 `.trim();
 
   writeFileSync(envPath, env);
-  console.log('✓ Created .env');
+  logger.success('Created .env file for local development');
+}
+
+async function checkL1Health(rpcUrl: string, maxRetries = 30): Promise<boolean> {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const resp = await fetch(rpcUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
+        signal: AbortSignal.timeout(5000),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.result) {
+          return true;
+        }
+      }
+    } catch {
+      // Continue retrying
+    }
+    await Bun.sleep(1000);
+  }
+  return false;
 }
 
 async function deployContracts(): Promise<Record<string, string>> {
-  console.log('\n📜 Deploying contracts...\n');
+  logger.info('Deploying contracts...');
 
-  process.chdir(join(ROOT, 'packages/contracts'));
+  if (!existsSync(join(ROOT, 'packages/contracts'))) {
+    throw new Error(`packages/contracts directory not found at ${join(ROOT, 'packages/contracts')}`);
+  }
+
+  const contractsDir = join(ROOT, 'packages/contracts');
+  process.chdir(contractsDir);
   
+  // Check if DeployStage2.s.sol exists
+  const deployScript = join(contractsDir, 'script/DeployStage2.s.sol');
+  if (!existsSync(deployScript)) {
+    throw new Error(`Deploy script not found: ${deployScript}`);
+  }
+
+  // Get deployer key (production-safe)
+  const deployerKey = getPrivateKey('deployer', 'DEPLOYER_PRIVATE_KEY');
+  const rpcUrl = process.env.L1_RPC_URL || 'http://localhost:8545';
+  
+  logger.debug(`Using RPC: ${rpcUrl}`);
+  logger.debug(`Deploy script: ${deployScript}`);
+
   // Deploy using Forge
-  const result = await $`forge script script/Deploy.s.sol:Deploy \
-    --rpc-url http://localhost:8545 \
-    --broadcast \
-    --legacy \
-    --private-key ${DEV_KEYS.deployer} 2>&1`.text();
+  let result: string;
+  try {
+    result = await $`forge script script/DeployStage2.s.sol:DeployStage2 \
+      --rpc-url ${rpcUrl} \
+      --broadcast \
+      --legacy \
+      --private-key ${deployerKey} 2>&1`.text();
+    
+    logger.debug('Forge deployment output received');
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`Forge deployment command failed: ${errorMessage}`);
+    throw new Error(`Contract deployment command failed: ${errorMessage}`);
+  }
   
-  console.log(result);
+  logger.info('Deployment output:', result.substring(0, 500));
+
+  // Check if deployment actually succeeded
+  if (result.includes('Error') || result.includes('FAILED') || result.includes('revert')) {
+    const errorOutput = result.substring(0, 1000);
+    logger.error(`Contract deployment failed. Output: ${errorOutput}`);
+    throw new Error(`Contract deployment failed. Check logs for details. Output preview: ${errorOutput.substring(0, 200)}`);
+  }
 
   // Parse addresses from output
   const addresses: Record<string, string> = {};
@@ -433,6 +274,7 @@ async function deployContracts(): Promise<Record<string, string>> {
   for (const match of addressMatches) {
     const name = match[1].toLowerCase().replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase();
     addresses[name] = match[2];
+    validateAddress(match[2], name);
   }
 
   // Save deployment file
@@ -441,7 +283,7 @@ async function deployContracts(): Promise<Record<string, string>> {
   }
 
   const deploymentPath = join(DEPLOYMENTS_DIR, 'localnet.json');
-  writeFileSync(deploymentPath, JSON.stringify({
+  const deploymentData = {
     network: 'localnet',
     chainId: 1337,
     deployer: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
@@ -452,72 +294,103 @@ async function deployContracts(): Promise<Record<string, string>> {
     prover: addresses.prover || '',
     l2OutputOracleAdapter: addresses.l2_output_oracle_adapter || '',
     optimismPortalAdapter: addresses.optimism_portal_adapter || '',
-  }, null, 2));
+  };
 
-  console.log(`\n✓ Deployment saved to ${deploymentPath}`);
+  // Validate all addresses before saving
+  for (const [key, value] of Object.entries(deploymentData)) {
+    if (key !== 'network' && key !== 'chainId' && key !== 'deployer' && key !== 'timestamp') {
+      if (value && value !== '') {
+        validateAddress(value, key);
+      }
+    }
+  }
+
+  writeFileSync(deploymentPath, JSON.stringify(deploymentData, null, 2));
+
+  logger.success(`Deployment saved to ${deploymentPath}`);
+  logger.info(`Deployed ${Object.keys(addresses).length} contracts`);
   return addresses;
 }
 
 async function startServices(): Promise<void> {
-  console.log('\n🚀 Starting decentralized services...\n');
+  logger.info('Starting decentralized services...');
+
+  if (!existsSync(COMPOSE_FILE)) {
+    throw new Error(`Docker compose file not found: ${COMPOSE_FILE}`);
+  }
 
   // Start docker-compose
   process.chdir(ROOT);
   
-  await $`docker-compose -f ${COMPOSE_FILE} up -d geth-l1 2>&1`.text();
-  console.log('✓ Started L1 Geth');
-
-  // Wait for L1 to be ready
-  console.log('⏳ Waiting for L1...');
-  await Bun.sleep(5000);
-  
-  // Check L1 health
-  let l1Ready = false;
-  for (let i = 0; i < 30; i++) {
-    try {
-      const resp = await fetch('http://localhost:8545', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
-      });
-      if (resp.ok) {
-        l1Ready = true;
-        break;
-      }
-    } catch {
-      await Bun.sleep(1000);
-    }
+  try {
+    await $`docker compose -f ${COMPOSE_FILE} up -d geth-l1 2>&1`.text();
+    logger.success('Started L1 Geth');
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`Failed to start L1 Geth: ${errorMessage}`);
+    throw new Error(`Failed to start L1 Geth: ${errorMessage}`);
   }
+
+  // Wait for L1 to be ready with proper health check
+  logger.info('Waiting for L1 to be ready...');
+  const l1Ready = await checkL1Health('http://localhost:8545');
 
   if (!l1Ready) {
-    console.error('✗ L1 not ready after 30s');
-    process.exit(1);
+    logger.error('L1 not ready after 30s - health check failed');
+    throw new Error('L1 not ready after 30s. Check Docker logs: docker compose logs geth-l1');
   }
-  console.log('✓ L1 is ready');
+  logger.success('L1 is ready');
 
   // Deploy contracts if requested
   if (process.argv.includes('--deploy-contracts')) {
-    await deployContracts();
+    try {
+      await deployContracts();
+    } catch (error) {
+      logger.error(`Contract deployment failed: ${error instanceof Error ? error.message : String(error)}`);
+      if (error instanceof Error && error.stack) {
+        logger.debug(`Stack trace: ${error.stack}`);
+      }
+      throw error;
+    }
   }
 
   // Start remaining services
-  await $`docker-compose -f ${COMPOSE_FILE} up -d 2>&1`.text();
-  console.log('✓ Started all services');
+  try {
+    await $`docker compose -f ${COMPOSE_FILE} up -d 2>&1`.text();
+    logger.success('Started all services');
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`Failed to start remaining services: ${errorMessage}`);
+    throw new Error(`Failed to start services: ${errorMessage}`);
+  }
 }
 
 async function stopServices(): Promise<void> {
-  console.log('\n🛑 Stopping services...\n');
+  logger.info('Stopping services...');
   
   process.chdir(ROOT);
-  await $`docker-compose -f ${COMPOSE_FILE} down 2>&1`.text();
-  console.log('✓ Stopped all services');
+  try {
+    await $`docker compose -f ${COMPOSE_FILE} down 2>&1`.text();
+    logger.success('Stopped all services');
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`Failed to stop services: ${errorMessage}`);
+    throw new Error(`Failed to stop services: ${errorMessage}`);
+  }
 }
 
 async function showStatus(): Promise<void> {
-  console.log('\n📊 Status\n');
+  logger.info('Checking service status...');
 
   process.chdir(ROOT);
-  const status = await $`docker-compose -f ${COMPOSE_FILE} ps --format json 2>&1`.text();
+  let status: string;
+  try {
+    status = await $`docker compose -f ${COMPOSE_FILE} ps --format json 2>&1`.text();
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`Failed to get service status: ${errorMessage}`);
+    throw new Error(`Failed to get service status: ${errorMessage}`);
+  }
   
   try {
     const services = status.split('\n').filter(Boolean).map(line => {
@@ -528,21 +401,28 @@ async function showStatus(): Promise<void> {
       }
     }).filter(Boolean);
 
-    console.log('Service'.padEnd(30) + 'Status'.padEnd(15) + 'Ports');
-    console.log('-'.repeat(70));
+    logger.info('Service Status:');
+    logger.info('Service'.padEnd(30) + 'Status'.padEnd(15) + 'Ports');
+    logger.info('-'.repeat(70));
 
     for (const svc of services) {
       const name = (svc.Name || svc.Service || 'unknown').padEnd(30);
       const state = (svc.State || svc.Status || 'unknown').padEnd(15);
       const ports = svc.Ports || svc.Publishers?.map((p: { PublishedPort: number }) => p.PublishedPort).join(', ') || '';
-      console.log(`${name}${state}${ports}`);
+      const isHealthy = state.toLowerCase().includes('running') || state.toLowerCase().includes('up');
+      if (isHealthy) {
+        logger.info(`${name}${state}${ports}`);
+      } else {
+        logger.warn(`${name}${state}${ports}`);
+      }
     }
-  } catch {
-    console.log(status);
+  } catch (error) {
+    logger.warn(`Failed to parse service status: ${error instanceof Error ? error.message : String(error)}`);
+    logger.info('Raw status:', status);
   }
 
   // Check endpoints
-  console.log('\n🔌 Endpoints:\n');
+  logger.info('Endpoint Health:');
   
   const endpoints = [
     { name: 'L1 Geth', url: 'http://localhost:8545' },
@@ -559,50 +439,101 @@ async function showStatus(): Promise<void> {
   for (const ep of endpoints) {
     try {
       const resp = await fetch(ep.url, { signal: AbortSignal.timeout(2000) });
-      console.log(`  ${ep.name.padEnd(20)} ${resp.ok ? '✓' : '✗'} ${ep.url}`);
-    } catch {
-      console.log(`  ${ep.name.padEnd(20)} ✗ ${ep.url}`);
+      if (resp.ok) {
+        logger.info(`  ${ep.name.padEnd(20)} ✓ ${ep.url}`);
+      } else {
+        logger.warn(`  ${ep.name.padEnd(20)} ✗ ${ep.url} (HTTP ${resp.status})`);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.warn(`  ${ep.name.padEnd(20)} ✗ ${ep.url} (${errorMessage})`);
     }
   }
 }
 
 async function main(): Promise<void> {
-  console.log(`
-╔══════════════════════════════════════════════════════════════════╗
-║                    Network Decentralization                       ║
-╚══════════════════════════════════════════════════════════════════╝
-`);
+  logger.box(`
+Network Decentralization
+Mode: ${isProduction ? 'PRODUCTION' : 'LOCAL DEVELOPMENT'}
+  `);
 
   if (process.argv.includes('--stop')) {
-    await stopServices();
+    try {
+      await stopServices();
+    } catch (error) {
+      logger.error(`Failed to stop services: ${error instanceof Error ? error.message : String(error)}`);
+      if (error instanceof Error && error.stack) {
+        logger.debug(`Stack trace: ${error.stack}`);
+      }
+      process.exit(1);
+    }
     return;
   }
 
   if (process.argv.includes('--status')) {
-    await showStatus();
+    try {
+      await showStatus();
+    } catch (error) {
+      logger.error(`Failed to show status: ${error instanceof Error ? error.message : String(error)}`);
+      if (error instanceof Error && error.stack) {
+        logger.debug(`Stack trace: ${error.stack}`);
+      }
+      process.exit(1);
+    }
     return;
   }
 
   // Ensure prerequisites
-  await ensureSecrets();
-  await createEnvFile();
+  try {
+    await ensureSecrets();
+    await createEnvFile();
+  } catch (error) {
+    logger.error(`Failed to setup prerequisites: ${error instanceof Error ? error.message : String(error)}`);
+    if (error instanceof Error && error.stack) {
+      logger.debug(`Stack trace: ${error.stack}`);
+    }
+    process.exit(1);
+  }
+  
+  // Validate required environment variables
+  try {
+    validateRequiredEnvVars();
+  } catch (error) {
+    logger.error(`Environment validation failed: ${error instanceof Error ? error.message : String(error)}`);
+    if (error instanceof Error && error.stack) {
+      logger.debug(`Stack trace: ${error.stack}`);
+    }
+    process.exit(1);
+  }
   
   // Start services
-  await startServices();
+  try {
+    await startServices();
+  } catch (error) {
+    logger.error(`Failed to start services: ${error instanceof Error ? error.message : String(error)}`);
+    if (error instanceof Error && error.stack) {
+      logger.debug(`Stack trace: ${error.stack}`);
+    }
+    process.exit(1);
+  }
   
   // Show status
   await Bun.sleep(5000);
-  await showStatus();
+  try {
+    await showStatus();
+  } catch (error) {
+    logger.warn(`Failed to show status: ${error instanceof Error ? error.message : String(error)}`);
+  }
 
-  console.log(`
-╔══════════════════════════════════════════════════════════════════╗
-║  Services running. Use --status to check, --stop to shutdown.   ║
-╚══════════════════════════════════════════════════════════════════╝
-`);
+  logger.box(`
+Services running. Use --status to check, --stop to shutdown.
+  `);
 }
 
 main().catch(err => {
-  console.error('Error:', err);
+  logger.error(`Fatal error: ${err instanceof Error ? err.message : String(err)}`);
+  if (err instanceof Error && err.stack) {
+    logger.error(`Stack trace: ${err.stack}`);
+  }
   process.exit(1);
 });
->>>>>>> 85cacfe8c2dcc33c81338e0d1acfaed656c52cde

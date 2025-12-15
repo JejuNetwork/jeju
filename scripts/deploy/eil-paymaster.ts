@@ -13,7 +13,10 @@
  *   bun run scripts/deploy/eil-paymaster.ts --all                # All configured L2s
  */
 
-import { ethers } from 'ethers';
+import { createPublicClient, createWalletClient, http, parseEther, formatEther, getChainId, type Address, type Chain } from 'viem';
+import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
+import { waitForTransactionReceipt, getBalance, readContract } from 'viem/actions';
+import { parseAbi } from 'viem';
 import { Logger } from '../shared/logger';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
@@ -83,9 +86,10 @@ function saveContractsConfig(contracts: Record<string, unknown>): void {
 }
 
 async function checkChainConnectivity(rpcUrl: string, expectedChainId: number): Promise<boolean> {
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
-  const network = await provider.getNetwork();
-  return Number(network.chainId) === expectedChainId;
+  const chain: Chain = { id: expectedChainId, name: 'Chain', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [rpcUrl] } } };
+  const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
+  const chainId = await getChainId(publicClient);
+  return chainId === expectedChainId;
 }
 
 async function deployPaymaster(
@@ -101,20 +105,21 @@ async function deployPaymaster(
     return { success: false, error: `Cannot connect to ${chain.name} RPC` };
   }
 
-  const provider = new ethers.JsonRpcProvider(chain.rpcUrl);
-  const wallet = new ethers.Wallet(privateKey, provider);
+  const account = privateKeyToAccount(privateKey as `0x${string}`);
+  const chainConfig: Chain = { id: chain.chainId, name: chain.name, nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [chain.rpcUrl] } } };
+  const publicClient = createPublicClient({ chain: chainConfig, transport: http(chain.rpcUrl) });
 
   // Check balance
-  const balance = await provider.getBalance(wallet.address);
-  if (balance < ethers.parseEther('0.01')) {
+  const balance = await getBalance(publicClient, { address: account.address });
+  if (balance < parseEther('0.01')) {
     return { 
       success: false, 
-      error: `Insufficient balance on ${chain.name}: ${ethers.formatEther(balance)} ETH` 
+      error: `Insufficient balance on ${chain.name}: ${formatEther(balance)} ETH` 
     };
   }
 
-  logger.info(`  Deployer: ${wallet.address}`);
-  logger.info(`  Balance: ${ethers.formatEther(balance)} ETH`);
+  logger.info(`  Deployer: ${account.address}`);
+  logger.info(`  Balance: ${formatEther(balance)} ETH`);
   logger.info(`  L1StakeManager: ${l1StakeManager}`);
   logger.info(`  EntryPoint: ${ENTRY_POINT_V06}`);
 
@@ -189,36 +194,51 @@ async function registerPaymasterOnL1(
 ): Promise<boolean> {
   logger.info(`\nRegistering paymaster on L1StakeManager for chain ${l2ChainId}...`);
 
-  const provider = new ethers.JsonRpcProvider(l1RpcUrl);
-  const wallet = new ethers.Wallet(privateKey, provider);
+  const account = privateKeyToAccount(privateKey as `0x${string}`);
+  const l1Chain: Chain = { id: 1, name: 'L1', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [l1RpcUrl] } } };
+  const publicClient = createPublicClient({ chain: l1Chain, transport: http(l1RpcUrl) });
+  const walletClient = createWalletClient({ account, chain: l1Chain, transport: http(l1RpcUrl) });
 
-  const abi = [
+  const STAKE_MANAGER_ABI = parseAbi([
     'function registerL2Paymaster(uint256 chainId, address paymaster) external',
     'function l2Paymasters(uint256 chainId) external view returns (address)',
     'function owner() external view returns (address)',
-  ];
-
-  const contract = new ethers.Contract(l1StakeManager, abi, wallet);
+  ]);
 
   // Check if already registered
-  const existing = await contract.l2Paymasters(l2ChainId);
+  const existing = await readContract(publicClient, {
+    address: l1StakeManager as Address,
+    abi: STAKE_MANAGER_ABI,
+    functionName: 'l2Paymasters',
+    args: [BigInt(l2ChainId)],
+  });
   if (existing.toLowerCase() === paymasterAddress.toLowerCase()) {
     logger.info(`  Already registered`);
     return true;
   }
 
   // Check ownership
-  const owner = await contract.owner();
-  if (owner.toLowerCase() !== wallet.address.toLowerCase()) {
+  const owner = await readContract(publicClient, {
+    address: l1StakeManager as Address,
+    abi: STAKE_MANAGER_ABI,
+    functionName: 'owner',
+  });
+  if (owner.toLowerCase() !== account.address.toLowerCase()) {
     logger.error(`  Not owner of L1StakeManager (owner: ${owner})`);
     return false;
   }
 
   // Register
-  const tx = await contract.registerL2Paymaster(l2ChainId, paymasterAddress);
-  logger.info(`  Transaction: ${tx.hash}`);
+  const hash = await walletClient.writeContract({
+    address: l1StakeManager as Address,
+    abi: STAKE_MANAGER_ABI,
+    functionName: 'registerL2Paymaster',
+    args: [BigInt(l2ChainId), paymasterAddress as Address],
+    account,
+  });
+  logger.info(`  Transaction: ${hash}`);
   
-  await tx.wait();
+  await waitForTransactionReceipt(publicClient, { hash });
   logger.success(`  Registered successfully`);
 
   return true;
@@ -241,8 +261,8 @@ async function main() {
     process.exit(1);
   }
 
-  const wallet = new ethers.Wallet(privateKey);
-  logger.info(`Deployer: ${wallet.address}\n`);
+  const account = privateKeyToAccount(privateKey as `0x${string}`);
+  logger.info(`Deployer: ${account.address}\n`);
 
   // Load EIL config
   const eilConfig = loadEILConfig();

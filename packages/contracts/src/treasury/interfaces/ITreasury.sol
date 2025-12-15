@@ -123,3 +123,5 @@ interface IProfitTreasury is ITreasury {
     function getRecipients() external view returns (address protocol, address stakers, address insurance);
 }
 
+
+

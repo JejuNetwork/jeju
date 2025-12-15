@@ -754,26 +754,26 @@ class ServicesOrchestrator {
   }
 
   private async startStorage(): Promise<void> {
-    const storagePath = join(this.rootDir, 'apps/storage');
+    const dwsPath = join(this.rootDir, 'apps/dws');
 
-    if (!existsSync(storagePath)) {
-      logger.warn('Storage app not found, skipping');
+    if (!existsSync(dwsPath)) {
+      logger.warn('DWS app not found, skipping storage');
       return;
     }
 
     const proc = spawn({
       cmd: ['bun', 'run', 'dev'],
-      cwd: storagePath,
+      cwd: dwsPath,
       stdout: 'ignore',
       stderr: 'ignore',
       env: {
         ...process.env,
-        PORT: String(DEFAULT_PORTS.storage),
+        DWS_PORT: String(DEFAULT_PORTS.storage),
       },
     });
 
     this.services.set('storage', {
-      name: 'Storage',
+      name: 'DWS (Storage)',
       type: 'process',
       port: DEFAULT_PORTS.storage,
       process: proc,
@@ -781,7 +781,7 @@ class ServicesOrchestrator {
       healthCheck: '/health',
     });
 
-    logger.success(`Storage service starting on port ${DEFAULT_PORTS.storage}`);
+    logger.success(`DWS service starting on port ${DEFAULT_PORTS.storage}`);
   }
 
   private async startCron(): Promise<void> {
@@ -981,31 +981,28 @@ class ServicesOrchestrator {
       return;
     }
 
-    const computePath = join(this.rootDir, 'apps/compute');
+    const dwsPath = join(this.rootDir, 'apps/dws');
     
-    if (!existsSync(computePath)) {
-      logger.warn('Compute app not found, skipping bridge');
+    if (!existsSync(dwsPath)) {
+      logger.warn('DWS app not found, skipping compute');
       return;
     }
 
     const proc = spawn({
-      cmd: ['bun', 'run', 'bridge'],
-      cwd: computePath,
+      cmd: ['bun', 'run', 'node'],
+      cwd: dwsPath,
       stdout: 'ignore',
       stderr: 'ignore',
       env: {
         ...process.env,
-        PORT: String(port),
+        DWS_NODE_PORT: String(port),
         JEJU_RPC_URL: this.rpcUrl,
-        ENABLE_AKASH: 'true',
-        AKASH_NETWORK: 'testnet',
-        ENABLE_EXTERNAL_PROVIDERS: 'true',
         NETWORK: 'localnet',
       },
     });
 
     this.services.set('computeBridge', {
-      name: 'Compute Bridge',
+      name: 'DWS Node',
       type: 'process',
       port,
       process: proc,
@@ -1013,7 +1010,7 @@ class ServicesOrchestrator {
       healthCheck: '/health',
     });
 
-    logger.success(`Compute Bridge starting on port ${port}`);
+    logger.success(`DWS Node starting on port ${port}`);
   }
 
   private async waitForServices(): Promise<void> {

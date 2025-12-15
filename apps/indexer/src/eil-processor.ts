@@ -11,25 +11,25 @@ import {
     EILTransfer, XLPSlashEvent, EILStats, EILChainStats,
     VoucherRequestStatus, VoucherStatus, TransferStatus, Account
 } from './model'
-import { ethers } from 'ethers'
+import { keccak256, stringToHex } from 'viem'
 import { BlockHeader, LogData } from './lib/entities'
 
 // Event signatures for CrossChainPaymaster
-const VOUCHER_REQUESTED = ethers.id('VoucherRequested(bytes32,address,address,uint256,uint256,address,uint256,uint256)')
-const VOUCHER_ISSUED = ethers.id('VoucherIssued(bytes32,bytes32,address,uint256)')
-const VOUCHER_FULFILLED = ethers.id('VoucherFulfilled(bytes32,address,uint256)')
-const VOUCHER_EXPIRED = ethers.id('VoucherExpired(bytes32,address)')
-const FUNDS_REFUNDED = ethers.id('FundsRefunded(bytes32,address,uint256)')
-const XLP_DEPOSIT = ethers.id('XLPDeposit(address,address,uint256)')
-const XLP_WITHDRAW = ethers.id('XLPWithdraw(address,address,uint256)')
-const SOURCE_FUNDS_CLAIMED = ethers.id('SourceFundsClaimed(bytes32,address,uint256,uint256)')
+const VOUCHER_REQUESTED = keccak256(stringToHex('VoucherRequested(bytes32,address,address,uint256,uint256,address,uint256,uint256)'))
+const VOUCHER_ISSUED = keccak256(stringToHex('VoucherIssued(bytes32,bytes32,address,uint256)'))
+const VOUCHER_FULFILLED = keccak256(stringToHex('VoucherFulfilled(bytes32,address,uint256)'))
+const VOUCHER_EXPIRED = keccak256(stringToHex('VoucherExpired(bytes32,address)'))
+const FUNDS_REFUNDED = keccak256(stringToHex('FundsRefunded(bytes32,address,uint256)'))
+const XLP_DEPOSIT = keccak256(stringToHex('XLPDeposit(address,address,uint256)'))
+const XLP_WITHDRAW = keccak256(stringToHex('XLPWithdraw(address,address,uint256)'))
+const SOURCE_FUNDS_CLAIMED = keccak256(stringToHex('SourceFundsClaimed(bytes32,address,uint256,uint256)'))
 
 // Event signatures for L1StakeManager  
-const XLP_REGISTERED = ethers.id('XLPRegistered(address,uint256,uint256[])')
-const STAKE_DEPOSITED = ethers.id('StakeDeposited(address,uint256,uint256)')
-const UNBONDING_STARTED = ethers.id('UnbondingStarted(address,uint256,uint256)')
-const STAKE_WITHDRAWN = ethers.id('StakeWithdrawn(address,uint256)')
-const XLP_SLASHED = ethers.id('XLPSlashed(address,bytes32,uint256,address)')
+const XLP_REGISTERED = keccak256(stringToHex('XLPRegistered(address,uint256,uint256[])'))
+const STAKE_DEPOSITED = keccak256(stringToHex('StakeDeposited(address,uint256,uint256)'))
+const UNBONDING_STARTED = keccak256(stringToHex('UnbondingStarted(address,uint256,uint256)'))
+const STAKE_WITHDRAWN = keccak256(stringToHex('StakeWithdrawn(address,uint256)'))
+const XLP_SLASHED = keccak256(stringToHex('XLPSlashed(address,bytes32,uint256,address)'))
 
 const EIL_EVENT_SIGNATURES = new Set([
     VOUCHER_REQUESTED, VOUCHER_ISSUED, VOUCHER_FULFILLED, VOUCHER_EXPIRED,

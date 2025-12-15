@@ -6,11 +6,10 @@
     "../../apps/crucible/src",
     "../../apps/gateway/src/lib",
     "../../apps/gateway/src/hooks",
+    "../../apps/gateway/src/leaderboard",
     "../../apps/indexer/src",
-    "../../apps/leaderboard/src/lib",
     "../../apps/monitoring/server",
-    "../../apps/storage/src",
-    "../../apps/compute/src"
+    "../../apps/dws/src"
   ],
   "entryPointStrategy": "expand",
   "tsconfig": "tsconfig.docs.json",
@@ -29,7 +28,7 @@
     "includeCategories": true,
     "includeGroups": true
   },
-  "categoryOrder": ["Bazaar", "Crucible", "Gateway", "Indexer", "Leaderboard", "Monitoring", "Storage", "Compute"],
+  "categoryOrder": ["Bazaar", "Crucible", "Gateway", "Indexer", "Monitoring", "DWS"],
   "groupOrder": ["Functions", "Classes", "Interfaces", "Type Aliases", "Variables"],
   "sort": ["source-order"],
   "exclude": [

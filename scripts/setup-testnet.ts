@@ -330,7 +330,7 @@ REQUIRE_HARDWARE_TEE=false
   console.log('2. Enable SafeModule via Safe UI');
   console.log('3. Register test delegates');
   console.log('4. Run integration tests:');
-  console.log('   cd apps/council && bun test:testnet');
+  console.log('   cd apps/autocrat && bun test:testnet');
 }
 
 main().catch((error) => {

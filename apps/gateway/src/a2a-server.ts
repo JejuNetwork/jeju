@@ -453,24 +453,6 @@ app.get('/.well-known/agent-card.json', (_req: Request, res: Response) => {
   res.json(GATEWAY_AGENT_CARD);
 });
 
-app.get('/.well-known/governance-agent-card.json', (_req: Request, res: Response) => {
-  res.json({
-    id: 'jeju-futarchy-governance',
-    name: `${getNetworkName()} Futarchy Governance`,
-    description: 'Market-based governance using prediction markets for parameter decisions',
-    version: '1.0.0',
-    protocol: 'a2a',
-    protocolVersion: '0.3.0',
-    capabilities: { governance: true, futarchy: true, predictionMarkets: true },
-    skills: [
-      { id: 'get-active-quests', name: 'Get Active Governance Quests', description: 'Returns all active futarchy governance quests', inputs: [], outputs: { quests: 'array' }, endpoint: '/a2a/governance' },
-      { id: 'get-voting-power', name: 'Get Voting Power', description: 'Calculate voting power from stakes', inputs: [{ name: 'address', type: 'string', required: true }], outputs: { breakdown: 'object' }, endpoint: '/a2a/governance' },
-      { id: 'create-quest', name: 'Create Governance Quest', description: 'Propose new governance change with futarchy markets', inputs: [{ name: 'title', type: 'string', required: true }, { name: 'objective', type: 'string', required: true }], outputs: { questId: 'string' }, endpoint: '/a2a/governance' },
-    ],
-    endpoints: { jsonrpc: `http://localhost:${PORT}/a2a/governance`, rest: `http://localhost:${PORT}/api/governance` },
-    metadata: { governance_type: 'futarchy', voting_mechanism: 'stake_weighted' },
-  });
-});
 
 app.post('/a2a', agentRateLimit(), async (req: Request, res: Response) => {
   const body: A2ARequest = req.body;

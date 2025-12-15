@@ -9,7 +9,7 @@
     "./hooks/useBanStatus": "./src/hooks/useBanStatus.ts",
     "./components/BanBanner": "./src/components/BanBanner.tsx",
     "./api/moderation": "./src/api/moderation.ts",
-"./health-middleware": "./src/health-middleware.ts",
+    "./health-middleware": "./src/health-middleware.ts",
     "./db": "./src/db/index.ts",
     "./db/covenant-sql": "./src/db/covenant-sql.ts",
     "./db/migration": "./src/db/migration.ts",
@@ -27,6 +27,7 @@
     "hono": "^4.0.0"
   },
   "devDependencies": {
+    "@types/node": "^25.0.2",
     "@types/react": "^18.2.0",
     "hono": "4.6.20",
     "typescript": "^5.0.0"

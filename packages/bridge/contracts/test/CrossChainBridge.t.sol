@@ -601,6 +601,113 @@ contract CrossChainBridgeTest is Test {
         mockLC.setBankHash(100, bankHash);
         assertEq(mockLC.getBankHash(100), bankHash);
     }
+
+    // =============================================================================
+    // PAUSE TESTS
+    // =============================================================================
+
+    function test_Pause() public {
+        assertFalse(bridge.paused());
+        bridge.pause();
+        assertTrue(bridge.paused());
+    }
+
+    function test_Unpause() public {
+        bridge.pause();
+        assertTrue(bridge.paused());
+        bridge.unpause();
+        assertFalse(bridge.paused());
+    }
+
+    function test_RevertWhen_PauseByNonAdmin() public {
+        vm.prank(user);
+        vm.expectRevert(CrossChainBridge.OnlyAdmin.selector);
+        bridge.pause();
+    }
+
+    function test_RevertWhen_UnpauseByNonAdmin() public {
+        bridge.pause();
+        vm.prank(user);
+        vm.expectRevert(CrossChainBridge.OnlyAdmin.selector);
+        bridge.unpause();
+    }
+
+    function test_RevertWhen_InitiateTransferWhilePaused() public {
+        bridge.pause();
+        
+        vm.deal(user, 1 ether);
+        vm.prank(user);
+        vm.expectRevert(CrossChainBridge.ContractPaused.selector);
+        bridge.initiateTransfer{value: 200 gwei}(
+            address(testToken),
+            bytes32(uint256(uint160(user))),
+            1 ether,
+            SOLANA_CHAIN_ID,
+            ""
+        );
+    }
+
+    function test_RevertWhen_CompleteTransferWhilePaused() public {
+        MockSolanaLightClient mockLC = new MockSolanaLightClient();
+        MockGroth16Verifier mockVerifier = new MockGroth16Verifier();
+        
+        CrossChainBridge pausableBridge = new CrossChainBridge(
+            address(mockLC),
+            address(mockVerifier),
+            100 gwei,
+            1 gwei
+        );
+        
+        CrossChainToken pausableToken = new CrossChainToken(
+            "Test",
+            "TST",
+            18,
+            block.chainid,
+            0,
+            address(0)
+        );
+        
+        pausableToken.setBridgeAuthorization(address(pausableBridge), true);
+        pausableBridge.registerToken(address(pausableToken), SOLANA_MINT, false);
+        mockLC.setSlotVerified(100, true);
+        
+        pausableBridge.pause();
+        
+        bytes32 transferId = keccak256("test");
+        uint256[8] memory proof;
+        uint256[] memory publicInputs = new uint256[](0);
+        
+        vm.expectRevert(CrossChainBridge.ContractPaused.selector);
+        pausableBridge.completeTransfer(
+            transferId,
+            address(pausableToken),
+            bytes32(uint256(1)),
+            user,
+            1 ether,
+            100,
+            proof,
+            publicInputs
+        );
+    }
+
+    function test_InitiateTransferAfterUnpause() public {
+        bridge.pause();
+        bridge.unpause();
+        
+        uint256 fee = bridge.getTransferFee(SOLANA_CHAIN_ID, 0);
+        
+        vm.deal(user, 1 ether);
+        vm.prank(user);
+        bytes32 transferId = bridge.initiateTransfer{value: fee}(
+            address(testToken),
+            bytes32(uint256(uint160(user))),
+            1 ether,
+            SOLANA_CHAIN_ID,
+            ""
+        );
+        
+        assertNotEq(transferId, bytes32(0));
+    }
 }
 
 /**

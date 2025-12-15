@@ -7,9 +7,6 @@
     "packages/*",
     "apps/*",
     "apps/*/app",
-    "apps/storage/da-server",
-    "apps/storage/pinning-api",
-    "apps/storage/cache-service",
     "vendor/*",
     "vendor/*/packages/*",
     "vendor/*/apps/*"

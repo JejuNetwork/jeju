@@ -142,27 +142,46 @@ if (verifyResult.exitCode !== 0) {
   console.log("✅ Contracts verified\n");
 }
 
-// Step 7: Generate deployment report
-console.log("7️⃣  Generating Deployment Report...\n");
-
-const deploymentFile = `packages/contracts/deployments/${network}/deployment.json`;
-if (existsSync(deploymentFile)) {
-  const deploymentData = await Bun.file(deploymentFile).json();
+  // Step 7: Backup current deployment (for rollback)
+  console.log("7️⃣  Creating deployment backup...\n");
   
-  console.log("📋 Deployment Summary:");
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  console.log(`Network:           ${network.toUpperCase()}`);
-  console.log(`Settlement Layer:  Ethereum ${isMainnet ? 'Mainnet' : 'Sepolia'} (Chain ID ${l1ChainId})`);
-  console.log(`L2 Chain ID:       ${isMainnet ? '420691' : '420690'}`);
-  console.log(`Timestamp:         ${new Date().toISOString()}`);
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  const deploymentFile = `packages/contracts/deployments/${network}/deployment.json`;
+  const backupsDir = `packages/contracts/deployments/backups/${network}`;
   
-  console.log("\n📦 Deployed Contracts:");
-  for (const [name, address] of Object.entries(deploymentData)) {
-    console.log(`  ${name.padEnd(30)} ${address}`);
+  if (existsSync(deploymentFile)) {
+    const timestamp = Date.now();
+    const backupDir = `${backupsDir}/backup-${timestamp}`;
+    
+    // Create backup directory
+    await $`mkdir -p ${backupDir}`.nothrow();
+    
+    // Copy deployment file to backup
+    await $`cp ${deploymentFile} ${backupDir}/deployment.json`.nothrow();
+    
+    console.log(`✅ Backup created: ${backupDir}`);
+    console.log(`   Rollback with: bun run scripts/rollback-deployment.ts --network=${network} --backup=backup-${timestamp}\n`);
   }
-  console.log("");
-}
+
+  // Step 8: Generate deployment report
+  console.log("8️⃣  Generating Deployment Report...\n");
+
+  if (existsSync(deploymentFile)) {
+    const deploymentData = await Bun.file(deploymentFile).json();
+    
+    console.log("📋 Deployment Summary:");
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log(`Network:           ${network.toUpperCase()}`);
+    console.log(`Settlement Layer:  Ethereum ${isMainnet ? 'Mainnet' : 'Sepolia'} (Chain ID ${l1ChainId})`);
+    console.log(`L2 Chain ID:       ${isMainnet ? '420691' : '420690'}`);
+    console.log(`Timestamp:         ${new Date().toISOString()}`);
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    
+    console.log("\n📦 Deployed Contracts:");
+    for (const [name, address] of Object.entries(deploymentData)) {
+      console.log(`  ${name.padEnd(30)} ${address}`);
+    }
+    console.log("");
+  }
 
 console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 console.log(`🎉 ${network.toUpperCase()} deployment complete!\n`);

@@ -5,7 +5,8 @@
  * from the vendor/cloud package directly.
  */
 
-import { ethers } from 'ethers';
+import { keccak256, encodeAbiParameters, decodeAbiParameters, toHex, type Address, type Hex, recoverAddress, hashMessage, type PrivateKeyAccount } from 'viem';
+import { signMessage } from 'viem/accounts';
 
 /**
  * @deprecated Use from '@jeju-vendor/cloud'
@@ -106,17 +107,17 @@ export async function createSignedFeedbackAuth(
  * Batch create signed authorizations for multiple agents
  */
 export async function createBatchSignedAuths(
-  signer: ethers.Signer,
+  account: PrivateKeyAccount,
   agentIds: bigint[],
-  clientAddress: string,
-  reputationRegistryAddress: string,
+  clientAddress: Address,
+  reputationRegistryAddress: Address,
   chainId: bigint = 31337n
-): Promise<Map<bigint, string>> {
-  const auths = new Map<bigint, string>();
+): Promise<Map<bigint, Hex>> {
+  const auths = new Map<bigint, Hex>();
   
   for (const agentId of agentIds) {
     const auth = await createSignedFeedbackAuth(
-      signer,
+      account,
       agentId,
       clientAddress,
       reputationRegistryAddress,
@@ -132,43 +133,58 @@ export async function createBatchSignedAuths(
  * Verify a signed feedback authorization (for testing)
  */
 export function verifyFeedbackAuth(
-  signedAuth: string,
-  expectedSigner: string
+  signedAuth: Hex,
+  expectedSigner: Address
 ): boolean {
   try {
-    // Extract struct data (first 224 bytes)
-    const structData = signedAuth.slice(0, 2 + 224 * 2); // 0x + hex chars
+    // Extract struct data (first 224 bytes = 448 hex chars)
+    const structData = signedAuth.slice(0, 2 + 448) as Hex;
     
     // Extract signature (last 65 bytes = 130 hex chars)
-    const r = '0x' + signedAuth.slice(-130, -66);
-    const s = '0x' + signedAuth.slice(-66, -2);
-    const v = parseInt(signedAuth.slice(-2), 16);
+    const r = ('0x' + signedAuth.slice(-130, -66)) as Hex;
+    const s = ('0x' + signedAuth.slice(-66, -2)) as Hex;
+    const v = BigInt('0x' + signedAuth.slice(-2));
     
     // Decode struct
-    const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-      ['uint256', 'address', 'uint64', 'uint256', 'uint256', 'address', 'address'],
+    const decoded = decodeAbiParameters(
+      [
+        { type: 'uint256' },
+        { type: 'address' },
+        { type: 'uint64' },
+        { type: 'uint256' },
+        { type: 'uint256' },
+        { type: 'address' },
+        { type: 'address' },
+      ],
       structData
     );
     
     // Hash struct
-    const structHash = ethers.keccak256(
-      ethers.AbiCoder.defaultAbiCoder().encode(
-        ['uint256', 'address', 'uint64', 'uint256', 'uint256', 'address', 'address'],
-        decoded
-      )
+    const encoded = encodeAbiParameters(
+      [
+        { type: 'uint256' },
+        { type: 'address' },
+        { type: 'uint64' },
+        { type: 'uint256' },
+        { type: 'uint256' },
+        { type: 'address' },
+        { type: 'address' },
+      ],
+      decoded
     );
+    const structHash = keccak256(encoded);
     
     // EIP-191 format
-    const messageHash = ethers.hashMessage(ethers.getBytes(structHash));
+    const messageHash = hashMessage({ raw: structHash });
     
     // Recover signer
-    const recoveredSigner = ethers.recoverAddress(
-      messageHash,
-      { r, s, v }
-    );
+    const recoveredSigner = recoverAddress({
+      hash: messageHash,
+      signature: (r + s.slice(2) + toHex(v).slice(2)) as Hex,
+    });
     
     return recoveredSigner.toLowerCase() === expectedSigner.toLowerCase();
-  } catch (error) {
+  } catch {
     return false;
   }
 }

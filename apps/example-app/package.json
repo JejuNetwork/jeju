@@ -1,0 +1,34 @@
+{
+  "name": "@jejunetwork/example-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run src/server/index.ts",
+    "dev:frontend": "bun run --hot src/frontend/dev.ts",
+    "build": "bun run build.ts",
+    "start": "bun run dist/server/index.js",
+    "test": "bun test",
+    "test:e2e": "bun test src/tests/e2e.test.ts",
+    "test:synpress": "synpress run --config synpress.config.ts",
+    "deploy": "bun run deploy.ts",
+    "migrate": "bun run src/db/migrate.ts",
+    "seed": "bun run scripts/seed.ts"
+  },
+  "dependencies": {
+    "@jeju/db": "workspace:*",
+    "@jeju/kms": "workspace:*",
+    "@jeju/oauth3": "workspace:*",
+    "@jejunetwork/sdk": "workspace:*",
+    "@jejunetwork/config": "workspace:*",
+    "hono": "^4.7.0",
+    "viem": "^2.21.0",
+    "ethers": "^6.13.4"
+  },
+  "devDependencies": {
+    "@synthetixio/synpress": "^4.0.0",
+    "@playwright/test": "^1.45.0",
+    "@types/bun": "latest",
+    "typescript": "^5.7.0"
+  }
+}

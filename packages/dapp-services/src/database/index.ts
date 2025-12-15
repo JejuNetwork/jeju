@@ -4,7 +4,7 @@
  * Provides decentralized SQL database access via CovenantSQL.
  */
 
-import { getCQL, type CQLClient } from '@jeju/cql';
+import { getCQL, type CQLClient } from '@jeju/db';
 import type { Address, Hex } from 'viem';
 
 export interface DatabaseConfig {

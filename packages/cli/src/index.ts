@@ -28,6 +28,7 @@ import { statusCommand } from './commands/status';
 import { fundCommand } from './commands/fund';
 import { forkCommand } from './commands/fork';
 import { computeCommand } from './commands/compute';
+import { initCommand } from './commands/init';
 
 const cli = getCliBranding();
 const networkName = getNetworkName();
@@ -79,12 +80,14 @@ program.addCommand(statusCommand);
 program.addCommand(fundCommand);
 program.addCommand(forkCommand);
 program.addCommand(computeCommand);
+program.addCommand(initCommand);
 
 // Default: show help
 program.action(() => {
   printBanner();
   
   console.log(chalk.bold('Development:\n'));
+  console.log('  ' + chalk.cyan(`${cliName} init`) + '             Create new dApp from template');
   console.log('  ' + chalk.cyan(`${cliName} dev`) + '              Start localnet + apps');
   console.log('  ' + chalk.cyan(`${cliName} dev --minimal`) + '    Localnet only');
   console.log('  ' + chalk.cyan(`${cliName} status`) + '           Check what is running\n');

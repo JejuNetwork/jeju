@@ -124,7 +124,7 @@ function discoverAppTests(): TestSuite[] {
       }
     }
     
-    // Check for nested apps (e.g., apps/storage/app)
+    // Check for nested apps (e.g., apps/dws)
     const nestedDirs = existsSync(appPath) ? 
       readdirSync(appPath, { withFileTypes: true })
         .filter(d => d.isDirectory())
@@ -191,20 +191,12 @@ const WALLET_SUITES: TestSuite[] = [
     skip: () => !existsSync('apps/bazaar/synpress.config.ts'),
   },
   {
-    name: 'Storage Wallet',
+    name: 'DWS Wallet',
     command: 'bunx playwright test --config synpress.config.ts --reporter=list',
-    cwd: 'apps/storage/app',
-    required: false,
-    env: { SYNPRESS_CACHE_DIR: '../../../.jeju/.synpress-cache' },
-    skip: () => !existsSync('apps/storage/app/synpress.config.ts'),
-  },
-  {
-    name: 'Compute Wallet',
-    command: 'bunx playwright test --config synpress.config.ts --reporter=list',
-    cwd: 'apps/compute',
+    cwd: 'apps/dws',
     required: false,
     env: { SYNPRESS_CACHE_DIR: '../../.jeju/.synpress-cache' },
-    skip: () => !existsSync('apps/compute/synpress.config.ts'),
+    skip: () => !existsSync('apps/dws/synpress.config.ts'),
   },
   {
     name: 'Gateway Wallet',

@@ -185,7 +185,7 @@ function discoverApps(): AppConfig[] {
       }
     }
 
-    // Check for nested app (e.g., apps/storage/app)
+    // Check for nested app (e.g., apps/dws/app)
     const nestedAppPath = join(appPath, 'app');
     if (existsSync(join(nestedAppPath, 'synpress.config.ts'))) {
       const nestedPackage = existsSync(join(nestedAppPath, 'package.json'))
@@ -238,7 +238,9 @@ async function cleanup(keepRunning: boolean): Promise<void> {
   for (const proc of runningProcesses) {
     try {
       proc.kill();
-    } catch {}
+    } catch (_error) {
+      // Ignore kill errors
+    }
   }
 
   // Stop localnet
@@ -249,7 +251,9 @@ async function cleanup(keepRunning: boolean): Promise<void> {
       stdout: 'ignore',
       stderr: 'ignore',
     }).exited;
-  } catch {}
+  } catch (_error) {
+    // Ignore cleanup errors
+  }
 
   console.log('[E2E] Cleanup complete');
 }
@@ -297,7 +301,9 @@ async function startLocalnet(verbose: boolean): Promise<boolean> {
         console.log('[E2E] Localnet ready');
         return true;
       }
-    } catch {}
+    } catch (_error) {
+      // Ignore health check errors
+    }
     await new Promise(r => setTimeout(r, 2000));
   }
 

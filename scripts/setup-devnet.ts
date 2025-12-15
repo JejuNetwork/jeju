@@ -284,10 +284,10 @@ DA_URL=http://localhost:3001
   console.log(`   Council:    ${addresses.council}`);
 
   console.log('\n📌 NEXT STEPS:');
-  console.log('1. Copy .env.devnet to apps/council/.env');
+  console.log('1. Copy .env.devnet to apps/autocrat/.env');
   console.log('2. Start anvil if not running: anvil');
-  console.log('3. Start council API: cd apps/council && bun run dev');
-  console.log('4. Run tests: cd apps/council && bun test');
+  console.log('3. Start autocrat API: cd apps/autocrat && bun run dev');
+  console.log('4. Run tests: cd apps/autocrat && bun test');
 }
 
 function getMockERC20Bytecode(): string {

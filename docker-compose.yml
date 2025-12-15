@@ -1,21 +1,27 @@
-# Jeju Infrastructure Stack
+# Jeju Decentralized Stage 2 L2 Ethereum Stack
 #
-# Provides the full infrastructure for local development:
-# - IPFS: Decentralized storage
-# - CovenantSQL: Decentralized SQL database with BFT consensus
-# - Cache Service: Redis-compatible cache
-# - DA Server: Data availability with vault integration
-# - JNS Gateway: Name resolution and frontend serving
-# - PostgreSQL: For Indexer (Subsquid requirement only)
+# Complete infrastructure for decentralized Stage 2 L2 Ethereum rollup:
+# - Infrastructure: IPFS, PostgreSQL, CovenantSQL, DWS, JNS Gateway, Trigger Service
+# - L1: Multi-client (Geth, Reth, Nethermind)
+# - L2: Multi-client sequencers (Geth, Reth, Nethermind)
+# - Stage 2: SequencerRegistry, ThresholdBatchSubmitter, Challenger
+# - Monitoring: Prometheus, Grafana
+# - Proxy: Decentralized bandwidth marketplace
 #
 # Usage:
 #   docker compose up -d
 #   bun run dev
+#
+# Prerequisites:
+#   - Set environment variables in .env
+#   - Configure secrets in ./secrets/
 
 services:
   # ============================================================================
-  # IPFS - Decentralized Storage
+  # INFRASTRUCTURE SERVICES
   # ============================================================================
+  
+  # IPFS - Decentralized Storage
   ipfs:
     image: ipfs/kubo:latest
     container_name: jeju-ipfs
@@ -39,10 +45,8 @@ services:
       retries: 3
     restart: unless-stopped
 
-  # ============================================================================
   # PostgreSQL - ONLY for Indexer (Subsquid requires it)
   # All other apps should use CovenantSQL
-  # ============================================================================
   postgres:
     image: postgres:15-alpine
     container_name: jeju-postgres
@@ -64,10 +68,8 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # ============================================================================
   # CovenantSQL - Decentralized SQL Database with BFT Consensus
   # Primary database for all apps (replaces centralized PostgreSQL)
-  # ============================================================================
   covenantsql:
     image: covenantsql/covenantsql:latest
     container_name: jeju-cql
@@ -89,68 +91,39 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # ============================================================================
-  # Cache Service - Decentralized Redis-compatible Cache
-  # ============================================================================
-  cache-service:
+  # DWS - Decentralized Web Services (Storage, Compute, CDN)
+  dws:
     build:
-      context: ./apps/storage/cache-service
+      context: ./apps/dws
       dockerfile: Dockerfile
-    container_name: jeju-cache
-    hostname: cache
+    container_name: jeju-dws
+    hostname: dws
     ports:
-      - "4115:4015"  # Map to 4115 externally to avoid conflicts
+      - "4030:4030"  # API
+      - "4031:4031"  # Node
+      - "4032:4032"  # Gateway
     environment:
-      - CACHE_SERVICE_PORT=4015
-      - CACHE_DEFAULT_TTL=3600
-      - CACHE_MAX_MEMORY_MB=512
-      - LOG_LEVEL=info
-    volumes:
-      - cache-data:/data
-    networks:
-      - jeju
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O-", "http://localhost:4015/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-    restart: unless-stopped
-
-  # ============================================================================
-  # DA Server - Data Availability with Vault
-  # ============================================================================
-  da-server:
-    build:
-      context: ./apps/storage/da-server
-      dockerfile: Dockerfile
-    container_name: jeju-da
-    hostname: da
-    ports:
-      - "4010:4010"
-    environment:
-      - PORT=4010
+      - DWS_PORT=4030
+      - DWS_NODE_PORT=4031
+      - DWS_GATEWAY_PORT=4032
       - IPFS_API_URL=http://ipfs:5001
       - IPFS_GATEWAY_URL=http://ipfs:8080
-      - DATA_DIR=/data
-      - VAULT_ENCRYPTION_SECRET=${VAULT_ENCRYPTION_SECRET:-dev-vault-secret-change-in-production}
       - LOG_LEVEL=info
     depends_on:
       ipfs:
         condition: service_healthy
     volumes:
-      - da-data:/data
+      - dws-data:/data
     networks:
       - jeju
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:4010/health"]
+      test: ["CMD", "curl", "-sf", "http://localhost:4030/health"]
       interval: 10s
       timeout: 5s
       retries: 3
     restart: unless-stopped
 
-  # ============================================================================
   # JNS Gateway - Frontend Serving via JNS
-  # ============================================================================
   jns-gateway:
     build:
       context: ./apps/gateway
@@ -161,7 +134,7 @@ services:
       - "4005:4005"
     environment:
       - JNS_GATEWAY_PORT=4005
-      - JEJU_RPC_URL=${JEJU_RPC_URL:-http://host.docker.internal:9545}
+      - JEJU_RPC_URL=http://op-geth-sequencer-1:8545
       - JNS_REGISTRY_ADDRESS=${JNS_REGISTRY_ADDRESS:-0x0000000000000000000000000000000000000000}
       - JNS_RESOLVER_ADDRESS=${JNS_RESOLVER_ADDRESS:-0x0000000000000000000000000000000000000000}
       - IPFS_GATEWAY_URL=http://ipfs:8080
@@ -169,10 +142,10 @@ services:
     depends_on:
       ipfs:
         condition: service_healthy
+      op-geth-sequencer-1:
+        condition: service_healthy
     networks:
       - jeju
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:4005/health"]
       interval: 10s
@@ -180,12 +153,10 @@ services:
       retries: 3
     restart: unless-stopped
 
-  # ============================================================================
-  # Compute Trigger Service
-  # ============================================================================
+  # DWS Trigger Service (part of DWS)
   trigger-service:
     build:
-      context: ./apps/compute
+      context: ./apps/dws
       dockerfile: Dockerfile.trigger
     container_name: jeju-triggers
     hostname: triggers
@@ -193,21 +164,661 @@ services:
       - "4016:4016"
     environment:
       - TRIGGER_PORT=4016
-      - JEJU_RPC_URL=${JEJU_RPC_URL:-http://host.docker.internal:9545}
+      - JEJU_RPC_URL=http://op-geth-sequencer-1:8545
       - TRIGGER_REGISTRY_ADDRESS=${TRIGGER_REGISTRY_ADDRESS:-0x0000000000000000000000000000000000000000}
       - PRIVATE_KEY=${PRIVATE_KEY:-}
       - POLL_INTERVAL_MS=60000
       - MAX_CONCURRENT_EXECUTIONS=10
+    depends_on:
+      op-geth-sequencer-1:
+        condition: service_healthy
     networks:
       - jeju
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:4016/health"]
       interval: 10s
       timeout: 5s
       retries: 3
     restart: unless-stopped
+
+  # ============================================================================
+  # L1 EXECUTION LAYER - Multi-Client (Geth, Reth, Nethermind)
+  # ============================================================================
+  
+  # L1 Geth - Primary L1 node
+  geth-l1:
+    image: ethereum/client-go:v1.14.11
+    container_name: jeju-geth-l1
+    ports:
+      - "8545:8545"
+      - "8546:8546"
+      - "8551:8551"
+    command:
+      - --dev
+      - --dev.period=12
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      - --http.api=eth,net,web3,debug,personal,engine,admin
+      - --http.corsdomain=*
+      - --ws
+      - --ws.addr=0.0.0.0
+      - --ws.port=8546
+      - --ws.api=eth,net,web3
+      - --ws.origins=*
+      - --authrpc.addr=0.0.0.0
+      - --authrpc.port=8551
+      - --authrpc.vhosts=*
+      - --authrpc.jwtsecret=/secrets/jwt-secret.txt
+      - --nodiscover
+    volumes:
+      - geth-l1-data:/data
+      - ./secrets:/secrets:ro
+    networks:
+      - jeju
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:8545"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # L1 Reth - Secondary L1 node for client diversity
+  reth-l1:
+    image: ghcr.io/paradigmxyz/reth:v1.1.2
+    container_name: jeju-reth-l1
+    ports:
+      - "8645:8545"
+      - "8646:8546"
+    command:
+      - node
+      - --dev
+      - --dev.block-time=12000ms
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      - --http.api=eth,net,web3,txpool,trace
+      - --http.corsdomain=*
+      - --ws
+      - --ws.addr=0.0.0.0
+      - --ws.port=8546
+      - --ws.api=eth,net,web3
+      - --ws.origins=*
+      - --authrpc.addr=0.0.0.0
+      - --authrpc.port=8551
+      - --authrpc.jwtsecret=/secrets/jwt-secret.txt
+      - --datadir=/data
+    volumes:
+      - reth-l1-data:/data
+      - ./secrets:/secrets:ro
+    networks:
+      - jeju
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8545"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # L1 Nethermind - Third L1 node for client diversity
+  nethermind-l1:
+    image: nethermind/nethermind:1.28.0
+    container_name: jeju-nethermind-l1
+    ports:
+      - "8745:8545"
+      - "8746:8546"
+    command:
+      - --config=none
+      - --Init.ChainSpecPath=/chainspec/dev.json
+      - --JsonRpc.Enabled=true
+      - --JsonRpc.Host=0.0.0.0
+      - --JsonRpc.Port=8545
+      - --JsonRpc.EnabledModules=Eth,Subscribe,Trace,TxPool,Web3,Personal,Proof,Net
+      - --Init.WebSocketsEnabled=true
+      - --JsonRpc.WebSocketsPort=8546
+      - --JsonRpc.EnginePort=8551
+      - --JsonRpc.JwtSecretFile=/secrets/jwt-secret.txt
+      - --datadir=/data
+      - --log=INFO
+    volumes:
+      - nethermind-l1-data:/data
+      - ./secrets:/secrets:ro
+      - ./packages/deployment/chainspecs:/chainspec:ro
+    networks:
+      - jeju
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8545/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ============================================================================
+  # L2 EXECUTION LAYER - Multi-Client Sequencers
+  # ============================================================================
+  
+  # L2 Geth Sequencer (Primary)
+  op-geth-sequencer-1:
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:v1.101315.2
+    container_name: jeju-op-geth-seq-1
+    ports:
+      - "9545:8545"
+      - "9546:8546"
+    environment:
+      - GETH_SEQUENCER=true
+    command:
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      - --http.api=eth,net,web3,debug,txpool
+      - --http.corsdomain=*
+      - --ws
+      - --ws.addr=0.0.0.0
+      - --ws.port=8546
+      - --ws.api=eth,net,web3
+      - --ws.origins=*
+      - --authrpc.addr=0.0.0.0
+      - --authrpc.port=8551
+      - --authrpc.vhosts=*
+      - --authrpc.jwtsecret=/secrets/jwt-secret.txt
+      - --datadir=/data
+      - --rollup.sequencerhttp=http://op-node-1:8547
+      - --rollup.disabletxpoolgossip=false
+    volumes:
+      - op-geth-seq-1-data:/data
+      - ./secrets:/secrets:ro
+    depends_on:
+      geth-l1:
+        condition: service_healthy
+    networks:
+      - jeju
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:8545"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # L2 Reth Sequencer (Secondary)
+  op-reth-sequencer-2:
+    image: ghcr.io/paradigmxyz/op-reth:v1.1.2
+    container_name: jeju-op-reth-seq-2
+    ports:
+      - "9645:8545"
+      - "9646:8546"
+    command:
+      - node
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      - --http.api=eth,net,web3,txpool,trace
+      - --http.corsdomain=*
+      - --ws
+      - --ws.addr=0.0.0.0
+      - --ws.port=8546
+      - --ws.api=eth,net,web3
+      - --ws.origins=*
+      - --authrpc.addr=0.0.0.0
+      - --authrpc.port=8551
+      - --authrpc.jwtsecret=/secrets/jwt-secret.txt
+      - --datadir=/data
+      - --rollup.sequencer-http=http://op-node-2:8547
+    volumes:
+      - op-reth-seq-2-data:/data
+      - ./secrets:/secrets:ro
+    depends_on:
+      geth-l1:
+        condition: service_healthy
+    networks:
+      - jeju
+
+  # L2 Nethermind Sequencer (Tertiary)
+  op-nethermind-sequencer-3:
+    image: nethermind/nethermind:1.28.0
+    container_name: jeju-op-nethermind-seq-3
+    ports:
+      - "9745:8545"
+      - "9746:8546"
+    command:
+      - --config=op-mainnet
+      - --JsonRpc.Enabled=true
+      - --JsonRpc.Host=0.0.0.0
+      - --JsonRpc.Port=8545
+      - --JsonRpc.EnabledModules=Eth,Subscribe,TxPool,Web3,Net
+      - --Init.WebSocketsEnabled=true
+      - --JsonRpc.WebSocketsPort=8546
+      - --JsonRpc.EnginePort=8551
+      - --JsonRpc.JwtSecretFile=/secrets/jwt-secret.txt
+      - --datadir=/data
+      - --log=INFO
+    volumes:
+      - op-nethermind-seq-3-data:/data
+      - ./secrets:/secrets:ro
+      - ./packages/deployment/chainspecs:/chainspec:ro
+    depends_on:
+      geth-l1:
+        condition: service_healthy
+    networks:
+      - jeju
+
+  # ============================================================================
+  # OP STACK SERVICES
+  # ============================================================================
+  
+  # OP Node 1 (for Geth sequencer)
+  op-node-1:
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-node:v1.9.4
+    container_name: jeju-op-node-1
+    ports:
+      - "7545:8545"
+      - "7547:8547"
+    environment:
+      - OP_NODE_L1_ETH_RPC=http://geth-l1:8545
+      - OP_NODE_L1_BEACON=http://beacon-mock:5052
+      - OP_NODE_L2_ENGINE_RPC=http://op-geth-sequencer-1:8551
+      - OP_NODE_L2_ENGINE_AUTH=/secrets/jwt-secret.txt
+      - OP_NODE_SEQUENCER_ENABLED=true
+      - OP_NODE_SEQUENCER_L1_CONFS=0
+      - OP_NODE_P2P_DISABLE=true
+    volumes:
+      - ./secrets:/secrets:ro
+      - ./config:/config:ro
+    depends_on:
+      - op-geth-sequencer-1
+    networks:
+      - jeju
+
+  # OP Node 2 (for Reth sequencer)
+  op-node-2:
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-node:v1.9.4
+    container_name: jeju-op-node-2
+    ports:
+      - "7645:8545"
+      - "7647:8547"
+    environment:
+      - OP_NODE_L1_ETH_RPC=http://reth-l1:8545
+      - OP_NODE_L1_BEACON=http://beacon-mock:5052
+      - OP_NODE_L2_ENGINE_RPC=http://op-reth-sequencer-2:8551
+      - OP_NODE_L2_ENGINE_AUTH=/secrets/jwt-secret.txt
+      - OP_NODE_SEQUENCER_ENABLED=true
+      - OP_NODE_SEQUENCER_L1_CONFS=0
+      - OP_NODE_P2P_DISABLE=true
+    volumes:
+      - ./secrets:/secrets:ro
+      - ./config:/config:ro
+    depends_on:
+      - op-reth-sequencer-2
+    networks:
+      - jeju
+
+  # OP Batcher with Threshold Signing
+  op-batcher:
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-batcher:v1.9.4
+    container_name: jeju-op-batcher
+    environment:
+      - OP_BATCHER_L1_ETH_RPC=http://geth-l1:8545
+      - OP_BATCHER_L2_ETH_RPC=http://op-geth-sequencer-1:8545
+      - OP_BATCHER_ROLLUP_RPC=http://op-node-1:8547
+      - OP_BATCHER_PRIVATE_KEY=${BATCHER_PRIVATE_KEY}
+      - OP_BATCHER_THRESHOLD_ENABLED=true
+      - OP_BATCHER_THRESHOLD_SUBMITTER=${THRESHOLD_BATCH_SUBMITTER_ADDRESS}
+    volumes:
+      - ./secrets:/secrets:ro
+    depends_on:
+      - op-node-1
+    networks:
+      - jeju
+
+  # OP Proposer
+  op-proposer:
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-proposer:v1.9.4
+    container_name: jeju-op-proposer
+    environment:
+      - OP_PROPOSER_L1_ETH_RPC=http://geth-l1:8545
+      - OP_PROPOSER_ROLLUP_RPC=http://op-node-1:8547
+      - OP_PROPOSER_PRIVATE_KEY=${PROPOSER_PRIVATE_KEY}
+    volumes:
+      - ./secrets:/secrets:ro
+    depends_on:
+      - op-node-1
+    networks:
+      - jeju
+
+  # ============================================================================
+  # STAGE 2 DECENTRALIZATION SERVICES
+  # ============================================================================
+  
+  # Contract Deployer
+  contract-deployer:
+    image: ghcr.io/foundry-rs/foundry:latest
+    container_name: jeju-contract-deployer
+    working_dir: /contracts
+    volumes:
+      - ./packages/contracts:/contracts
+      - deployer-cache:/root/.foundry
+    environment:
+      - DEPLOYER_PRIVATE_KEY=${DEPLOYER_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
+      - RPC_URL=http://geth-l1:8545
+    command: >
+      sh -c "
+        until cast block-number --rpc-url $$RPC_URL > /dev/null 2>&1; do echo 'Waiting for L1...'; sleep 2; done &&
+        echo 'Deploying Stage 2 contracts...' &&
+        if [ -f script/DeployStage2.s.sol ]; then
+          forge script script/DeployStage2.s.sol:DeployStage2 --rpc-url $$RPC_URL --broadcast --legacy || exit 1
+        else
+          echo 'Warning: DeployStage2.s.sol not found, skipping deployment'
+        fi &&
+        echo 'Deployment complete'
+      "
+    depends_on:
+      geth-l1:
+        condition: service_healthy
+    networks:
+      - jeju
+
+  # Sequencer Registry Monitor
+  sequencer-registry-monitor:
+    image: oven/bun:1
+    container_name: jeju-sequencer-registry-monitor
+    working_dir: /app
+    volumes:
+      - ./scripts:/app/scripts
+      - ./packages/contracts/deployments:/app/deployments:ro
+    environment:
+      - L1_RPC_URL=http://geth-l1:8545
+      - SEQUENCER_REGISTRY_ADDRESS=${SEQUENCER_REGISTRY_ADDRESS}
+      - NODE_ENV=development
+    command: >
+      sh -c "
+        until curl -sf http://geth-l1:8545 > /dev/null 2>&1; do echo 'Waiting for L1...'; sleep 2; done &&
+        until [ -f /app/deployments/localnet.json ]; do echo 'Waiting for contracts...'; sleep 2; done &&
+        echo 'Starting sequencer registry monitor...' &&
+        cd /app/scripts/sequencer &&
+        bun run run-consensus.ts
+      "
+    depends_on:
+      contract-deployer:
+        condition: service_completed_successfully
+      geth-l1:
+        condition: service_healthy
+    networks:
+      - jeju
+    restart: unless-stopped
+
+  # Challenger Service
+  challenger:
+    image: oven/bun:1
+    container_name: jeju-challenger
+    working_dir: /app
+    volumes:
+      - ./scripts:/app/scripts
+      - ./packages/contracts/deployments:/app/deployments:ro
+    environment:
+      - L1_RPC_URL=http://geth-l1:8545
+      - DISPUTE_GAME_FACTORY_ADDRESS=${DISPUTE_GAME_FACTORY_ADDRESS}
+      - PROVER_ADDRESS=${PROVER_ADDRESS}
+      - CHALLENGER_PRIVATE_KEY=${CHALLENGER_PRIVATE_KEY:-0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d}
+    command: >
+      sh -c "
+        until curl -sf http://geth-l1:8545 > /dev/null 2>&1; do echo 'Waiting for L1...'; sleep 2; done &&
+        until [ -f /app/deployments/localnet.json ]; do echo 'Waiting for contracts...'; sleep 2; done &&
+        echo 'Starting challenger...' &&
+        cd /app/scripts/dispute &&
+        bun run run-challenger.ts
+      "
+    depends_on:
+      contract-deployer:
+        condition: service_completed_successfully
+      geth-l1:
+        condition: service_healthy
+    networks:
+      - jeju
+    restart: unless-stopped
+
+  # ============================================================================
+  # P2P THRESHOLD SIGNERS - One per sequencer operator
+  # Each signer holds ONLY its own private key
+  # ============================================================================
+  
+  # Signer 1 (Geth sequencer operator)
+  signer-1:
+    image: oven/bun:1
+    container_name: jeju-signer-1
+    working_dir: /app
+    ports:
+      - "4100:4100"
+    volumes:
+      - ./scripts:/app/scripts
+    environment:
+      - SIGNER_PRIVATE_KEY=${SEQUENCER_1_PRIVATE_KEY}
+      - SIGNER_PORT=4100
+    command: >
+      sh -c "
+        cd /app/scripts/sequencer &&
+        bun run signer-service.ts
+      "
+    networks:
+      - jeju
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4100/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  # Signer 2 (Reth sequencer operator)
+  signer-2:
+    image: oven/bun:1
+    container_name: jeju-signer-2
+    working_dir: /app
+    ports:
+      - "4101:4100"
+    volumes:
+      - ./scripts:/app/scripts
+    environment:
+      - SIGNER_PRIVATE_KEY=${SEQUENCER_2_PRIVATE_KEY}
+      - SIGNER_PORT=4100
+    command: >
+      sh -c "
+        cd /app/scripts/sequencer &&
+        bun run signer-service.ts
+      "
+    networks:
+      - jeju
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4100/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  # Signer 3 (Nethermind sequencer operator)
+  signer-3:
+    image: oven/bun:1
+    container_name: jeju-signer-3
+    working_dir: /app
+    ports:
+      - "4102:4100"
+    volumes:
+      - ./scripts:/app/scripts
+    environment:
+      - SIGNER_PRIVATE_KEY=${SEQUENCER_3_PRIVATE_KEY}
+      - SIGNER_PORT=4100
+    command: >
+      sh -c "
+        cd /app/scripts/sequencer &&
+        bun run signer-service.ts
+      "
+    networks:
+      - jeju
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4100/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  # Signature Collector/Coordinator
+  signature-collector:
+    image: oven/bun:1
+    container_name: jeju-signature-collector
+    working_dir: /app
+    ports:
+      - "4110:4110"
+    volumes:
+      - ./scripts:/app/scripts
+      - ./packages/contracts/deployments:/app/deployments:ro
+    environment:
+      - L1_RPC_URL=http://geth-l1:8545
+      - THRESHOLD_BATCH_SUBMITTER_ADDRESS=${THRESHOLD_BATCH_SUBMITTER_ADDRESS}
+      - SIGNER_THRESHOLD=${SIGNER_THRESHOLD:-2}
+      - SIGNER_1_URL=http://signer-1:4100
+      - SIGNER_2_URL=http://signer-2:4100
+      - SIGNER_3_URL=http://signer-3:4100
+      - COORDINATOR_PRIVATE_KEY=${DEPLOYER_PRIVATE_KEY}
+    command: >
+      sh -c "
+        until curl -sf http://signer-1:4100/health > /dev/null 2>&1; do echo 'Waiting for signer-1...'; sleep 2; done &&
+        until curl -sf http://signer-2:4100/health > /dev/null 2>&1; do echo 'Waiting for signer-2...'; sleep 2; done &&
+        until curl -sf http://signer-3:4100/health > /dev/null 2>&1; do echo 'Waiting for signer-3...'; sleep 2; done &&
+        echo 'Starting signature collector...' &&
+        cd /app/scripts/sequencer &&
+        bun run run-signer.ts || echo 'run-signer.ts not found, skipping signature collector'
+      "
+    depends_on:
+      signer-1:
+        condition: service_healthy
+      signer-2:
+        condition: service_healthy
+      signer-3:
+        condition: service_healthy
+    networks:
+      - jeju
+    restart: unless-stopped
+
+  # Beacon Mock (for dev mode)
+  beacon-mock:
+    image: alpine:3.19
+    container_name: jeju-beacon-mock
+    command: >
+      sh -c "
+        apk add --no-cache python3 &&
+        python3 -c '
+import http.server
+import json
+
+class BeaconHandler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header(\"Content-type\", \"application/json\")
+        self.end_headers()
+        if \"/eth/v1/beacon/genesis\" in self.path:
+            self.wfile.write(json.dumps({\"data\": {\"genesis_time\": \"0\"}}).encode())
+        else:
+            self.wfile.write(json.dumps({\"data\": {}}).encode())
+    def log_message(self, format, *args): pass
+
+http.server.HTTPServer((\"\", 5052), BeaconHandler).serve_forever()
+        '
+      "
+    ports:
+      - "5052:5052"
+    networks:
+      - jeju
+
+  # ============================================================================
+  # MONITORING
+  # ============================================================================
+  
+  prometheus:
+    image: prom/prometheus:v2.47.2
+    container_name: jeju-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./packages/deployment/monitoring:/etc/prometheus
+      - prometheus-data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus-stage2.yml
+      - --storage.tsdb.path=/prometheus
+    networks:
+      - jeju
+
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: jeju-grafana
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./config/grafana:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+    networks:
+      - jeju
+
+  # ============================================================================
+  # PROXY NETWORK - Decentralized Bandwidth Marketplace
+  # ============================================================================
+
+  proxy-coordinator:
+    build:
+      context: ./apps/dws
+      dockerfile: Dockerfile
+    container_name: jeju-proxy-coordinator
+    ports:
+      - "4020:4020"   # HTTP API
+      - "4021:4021"   # WebSocket for nodes
+    environment:
+      - JEJU_RPC_URL=http://op-geth-sequencer-1:8545
+      - PROXY_REGISTRY_ADDRESS=${PROXY_REGISTRY_ADDRESS:-0x0000000000000000000000000000000000000000}
+      - PROXY_PAYMENT_ADDRESS=${PROXY_PAYMENT_ADDRESS:-0x0000000000000000000000000000000000000000}
+      - COORDINATOR_PRIVATE_KEY=${COORDINATOR_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
+      - PROXY_COORDINATOR_PORT=4020
+      - PROXY_COORDINATOR_WS_PORT=4021
+      # Decentralized fallback providers (optional)
+      # Mysterium Network - requires running mysterium node
+      - MYSTERIUM_NODE_URL=${MYSTERIUM_NODE_URL:-}
+      - MYSTERIUM_IDENTITY=${MYSTERIUM_IDENTITY:-}
+      # Orchid Network - requires Ethereum RPC for contract queries
+      - ORCHID_RPC_URL=${ORCHID_RPC_URL:-}
+      - ORCHID_STAKING_CONTRACT=${ORCHID_STAKING_CONTRACT:-}
+      # Sentinel Network - decentralized VPN on Cosmos
+      - SENTINEL_API_URL=${SENTINEL_API_URL:-}
+    command: >
+      sh -c "
+        until curl -sf http://op-geth-sequencer-1:8545 > /dev/null 2>&1; do echo 'Waiting for L2...'; sleep 2; done &&
+        bun run src/proxy/scripts/start-coordinator.ts
+      "
+    depends_on:
+      op-geth-sequencer-1:
+        condition: service_healthy
+    networks:
+      - jeju
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4020/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Example proxy node (for testing)
+  proxy-node-1:
+    build:
+      context: ./apps/dws
+      dockerfile: Dockerfile
+    container_name: jeju-proxy-node-1
+    environment:
+      - PROXY_COORDINATOR_URL=ws://proxy-coordinator:4021
+      - NODE_PRIVATE_KEY=${NODE_1_PRIVATE_KEY:-0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d}
+      - NODE_REGION=US
+      - NODE_MAX_CONCURRENT=10
+    command: >
+      sh -c "
+        until curl -sf http://proxy-coordinator:4020/health > /dev/null 2>&1; do echo 'Waiting for coordinator...'; sleep 2; done &&
+        bun run src/proxy/scripts/start-node.ts
+      "
+    depends_on:
+      proxy-coordinator:
+        condition: service_healthy
+    networks:
+      - jeju
 
 networks:
   jeju:
@@ -216,7 +827,15 @@ networks:
 
 volumes:
   ipfs-data:
-  cache-data:
-  da-data:
+  dws-data:
   postgres-data:
   cql-data:
+  geth-l1-data:
+  reth-l1-data:
+  nethermind-l1-data:
+  op-geth-seq-1-data:
+  op-reth-seq-2-data:
+  op-nethermind-seq-3-data:
+  deployer-cache:
+  prometheus-data:
+  grafana-data:

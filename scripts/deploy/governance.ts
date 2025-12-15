@@ -14,7 +14,10 @@
  *   bun scripts/deploy-governance.ts --network mainnet
  */
 
-import { ethers, JsonRpcProvider, Wallet, parseEther, formatEther } from 'ethers';
+import { createPublicClient, createWalletClient, http, parseEther, formatEther, encodeDeployData, encodeFunctionData, getContractAddress, zeroAddress, zeroHash, keccak256, getAddress, type Address, type Chain } from 'viem';
+import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
+import { waitForTransactionReceipt, getBalance, readContract, getLogs, decodeEventLog } from 'viem/actions';
+import { parseAbi } from 'viem';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
@@ -67,32 +70,33 @@ const NETWORKS: Record<string, NetworkConfig> = {
 };
 
 // Contract ABIs (minimal for deployment)
-const DELEGATION_REGISTRY_ABI = [
+const DELEGATION_REGISTRY_ABI = parseAbi([
   'constructor(address governanceToken, address identityRegistry, address reputationRegistry, address initialOwner)',
   'function version() view returns (string)',
-];
+]);
 
-const CIRCUIT_BREAKER_ABI = [
+const CIRCUIT_BREAKER_ABI = parseAbi([
   'constructor(address safe, address delegationRegistry, address initialOwner)',
   'function version() view returns (string)',
   'function registerContract(address target, string name, uint256 priority)',
-];
+]);
 
-const COUNCIL_SAFE_MODULE_ABI = [
+const COUNCIL_SAFE_MODULE_ABI = parseAbi([
   'constructor(address safe, address council, address teeOperator, bytes32 trustedMeasurement, address initialOwner)',
   'function version() view returns (string)',
-];
+]);
 
-const SAFE_FACTORY_ABI = [
+const SAFE_FACTORY_ABI = parseAbi([
   'function createProxyWithNonce(address singleton, bytes memory initializer, uint256 saltNonce) returns (address proxy)',
-];
+  'event ProxyCreation(address proxy, address singleton)',
+]);
 
-const SAFE_ABI = [
+const SAFE_ABI = parseAbi([
   'function setup(address[] calldata owners, uint256 threshold, address to, bytes calldata data, address fallbackHandler, address paymentToken, uint256 payment, address payable paymentReceiver)',
   'function enableModule(address module)',
   'function getOwners() view returns (address[])',
   'function getThreshold() view returns (uint256)',
-];
+]);
 
 // Parse arguments
 const args = process.argv.slice(2);
@@ -117,11 +121,13 @@ async function main() {
     throw new Error('DEPLOYER_PRIVATE_KEY or PRIVATE_KEY required');
   }
 
-  const provider = new JsonRpcProvider(network.rpcUrl);
-  const wallet = new Wallet(privateKey, provider);
+  const account = privateKeyToAccount(privateKey as `0x${string}`);
+  const chain: Chain = { id: network.chainId, name: networkArg, nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [network.rpcUrl] } } };
+  const publicClient = createPublicClient({ chain, transport: http(network.rpcUrl) });
+  const walletClient = createWalletClient({ account, chain, transport: http(network.rpcUrl) });
 
-  console.log(`\nDeployer: ${wallet.address}`);
-  const balance = await provider.getBalance(wallet.address);
+  console.log(`\nDeployer: ${account.address}`);
+  const balance = await getBalance(publicClient, { address: account.address });
   console.log(`Balance: ${formatEther(balance)} ETH`);
 
   if (balance < parseEther('0.1')) {
@@ -173,41 +179,55 @@ async function main() {
   console.log('\n📦 Step 1: Deploying Gnosis Safe...');
 
   if (network.safeFactory !== '0x0000000000000000000000000000000000000000') {
-    const safeFactory = new ethers.Contract(network.safeFactory, SAFE_FACTORY_ABI, wallet);
-
     // Initial owners: deployer + 2 additional signers from env
-    const signer2 = process.env.SAFE_SIGNER_2 ?? wallet.address;
-    const signer3 = process.env.SAFE_SIGNER_3 ?? wallet.address;
-    const owners = [wallet.address, signer2, signer3].filter((v, i, a) => a.indexOf(v) === i);
-    const threshold = Math.min(2, owners.length);
+    const signer2 = (process.env.SAFE_SIGNER_2 ?? account.address) as Address;
+    const signer3 = (process.env.SAFE_SIGNER_3 ?? account.address) as Address;
+    const owners = [account.address, signer2, signer3].filter((v, i, a) => a.indexOf(v) === i) as Address[];
+    const threshold = BigInt(Math.min(2, owners.length));
 
     console.log(`  Owners (${owners.length}):`, owners);
     console.log(`  Threshold: ${threshold}`);
 
     // Encode setup call
-    const safeInterface = new ethers.Interface(SAFE_ABI);
-    const setupData = safeInterface.encodeFunctionData('setup', [
-      owners,
-      threshold,
-      ethers.ZeroAddress, // to
-      '0x', // data
-      network.safeFallbackHandler,
-      ethers.ZeroAddress, // paymentToken
-      0, // payment
-      ethers.ZeroAddress, // paymentReceiver
-    ]);
+    const setupData = encodeFunctionData({
+      abi: SAFE_ABI,
+      functionName: 'setup',
+      args: [
+        owners,
+        threshold,
+        zeroAddress, // to
+        '0x' as `0x${string}`, // data
+        network.safeFallbackHandler as Address,
+        zeroAddress, // paymentToken
+        0n, // payment
+        zeroAddress, // paymentReceiver
+      ],
+    });
 
-    const saltNonce = Date.now();
+    const saltNonce = BigInt(Date.now());
 
     if (!dryRun) {
-      const tx = await safeFactory.createProxyWithNonce(network.safeSingleton, setupData, saltNonce);
-      const receipt = await tx.wait();
+      const hash = await walletClient.writeContract({
+        address: network.safeFactory as Address,
+        abi: SAFE_FACTORY_ABI,
+        functionName: 'createProxyWithNonce',
+        args: [network.safeSingleton as Address, setupData, saltNonce],
+        account,
+      });
+      const receipt = await waitForTransactionReceipt(publicClient, { hash });
 
       // Parse ProxyCreation event
-      const proxyCreatedTopic = ethers.id('ProxyCreation(address,address)');
-      const proxyEvent = receipt.logs.find((l: { topics: string[] }) => l.topics[0] === proxyCreatedTopic);
-      if (proxyEvent) {
-        deployedAddresses.safe = ethers.getAddress('0x' + proxyEvent.topics[1].slice(26));
+      const logs = await getLogs(publicClient, {
+        address: network.safeFactory as Address,
+        event: SAFE_FACTORY_ABI[1],
+        fromBlock: receipt.blockNumber,
+        toBlock: receipt.blockNumber,
+      });
+      if (logs.length > 0) {
+        const decoded = decodeEventLog({ abi: SAFE_FACTORY_ABI, data: logs[0].data, topics: logs[0].topics });
+        if (decoded.eventName === 'ProxyCreation' && 'proxy' in decoded.args) {
+          deployedAddresses.safe = getAddress(decoded.args.proxy as string);
+        }
       }
 
       console.log(`  ✅ Safe deployed: ${deployedAddresses.safe}`);
@@ -216,24 +236,32 @@ async function main() {
     }
   } else {
     console.log('  ⚠️  Skipping Safe deployment on localnet (no factory)');
-    deployedAddresses.safe = wallet.address; // Use deployer as "Safe" for localnet
+    deployedAddresses.safe = account.address; // Use deployer as "Safe" for localnet
   }
 
   // Step 2: Deploy DelegationRegistry
   console.log('\n📦 Step 2: Deploying DelegationRegistry...');
 
   const delegationBytecode = await loadBytecode('DelegationRegistry');
-  const delegationFactory = new ethers.ContractFactory(DELEGATION_REGISTRY_ABI, delegationBytecode, wallet);
-
+  
   if (!dryRun) {
-    const delegationRegistry = await delegationFactory.deploy(
-      governanceToken,
-      identityRegistry,
-      reputationRegistry,
-      wallet.address
-    );
-    await delegationRegistry.waitForDeployment();
-    deployedAddresses.delegationRegistry = await delegationRegistry.getAddress();
+    const deployData = encodeDeployData({
+      abi: DELEGATION_REGISTRY_ABI,
+      bytecode: delegationBytecode as `0x${string}`,
+      args: [
+        governanceToken as Address,
+        identityRegistry as Address,
+        reputationRegistry as Address,
+        account.address,
+      ],
+    });
+    
+    const nonce = await publicClient.getTransactionCount({ address: account.address });
+    const hash = await walletClient.sendTransaction({ data: deployData, account });
+    const receipt = await waitForTransactionReceipt(publicClient, { hash });
+    
+    const address = receipt.contractAddress || getContractAddress({ from: account.address, nonce: BigInt(nonce) });
+    deployedAddresses.delegationRegistry = address;
     console.log(`  ✅ DelegationRegistry: ${deployedAddresses.delegationRegistry}`);
   } else {
     console.log('  [DRY RUN] Would deploy DelegationRegistry');
@@ -243,22 +271,35 @@ async function main() {
   console.log('\n📦 Step 3: Deploying CircuitBreaker...');
 
   const circuitBreakerBytecode = await loadBytecode('CircuitBreaker');
-  const circuitBreakerFactory = new ethers.ContractFactory(CIRCUIT_BREAKER_ABI, circuitBreakerBytecode, wallet);
-
+  
   if (!dryRun) {
-    const circuitBreaker = await circuitBreakerFactory.deploy(
-      deployedAddresses.safe,
-      deployedAddresses.delegationRegistry,
-      wallet.address
-    );
-    await circuitBreaker.waitForDeployment();
-    deployedAddresses.circuitBreaker = await circuitBreaker.getAddress();
+    const deployData = encodeDeployData({
+      abi: CIRCUIT_BREAKER_ABI,
+      bytecode: circuitBreakerBytecode as `0x${string}`,
+      args: [
+        deployedAddresses.safe as Address,
+        deployedAddresses.delegationRegistry as Address,
+        account.address,
+      ],
+    });
+    
+    const nonce = await publicClient.getTransactionCount({ address: account.address });
+    const hash = await walletClient.sendTransaction({ data: deployData, account });
+    const receipt = await waitForTransactionReceipt(publicClient, { hash });
+    
+    const address = receipt.contractAddress || getContractAddress({ from: account.address, nonce: BigInt(nonce) });
+    deployedAddresses.circuitBreaker = address;
     console.log(`  ✅ CircuitBreaker: ${deployedAddresses.circuitBreaker}`);
 
     // Register Council contract for protection
-    const cb = new ethers.Contract(deployedAddresses.circuitBreaker, CIRCUIT_BREAKER_ABI, wallet);
-    const registerTx = await cb.registerContract(council, 'Council', 1);
-    await registerTx.wait();
+    const registerHash = await walletClient.writeContract({
+      address: deployedAddresses.circuitBreaker as Address,
+      abi: CIRCUIT_BREAKER_ABI,
+      functionName: 'registerContract',
+      args: [council as Address, 'Council', 1n],
+      account,
+    });
+    await waitForTransactionReceipt(publicClient, { hash: registerHash });
     console.log('  ✅ Registered Council for circuit breaker protection');
   } else {
     console.log('  [DRY RUN] Would deploy CircuitBreaker');
@@ -267,29 +308,37 @@ async function main() {
   // Step 4: Deploy CouncilSafeModule
   console.log('\n📦 Step 4: Deploying CouncilSafeModule...');
 
-  const teeOperator = process.env.TEE_OPERATOR_ADDRESS ?? wallet.address;
-  const trustedMeasurement = process.env.TRUSTED_MEASUREMENT ?? ethers.ZeroHash;
+  const teeOperator = (process.env.TEE_OPERATOR_ADDRESS ?? account.address) as Address;
+  const trustedMeasurement = (process.env.TRUSTED_MEASUREMENT ?? zeroHash) as `0x${string}`;
 
   const councilModuleBytecode = await loadBytecode('CouncilSafeModule');
-  const councilModuleFactory = new ethers.ContractFactory(COUNCIL_SAFE_MODULE_ABI, councilModuleBytecode, wallet);
-
+  
   if (!dryRun) {
-    const councilModule = await councilModuleFactory.deploy(
-      deployedAddresses.safe,
-      council,
-      teeOperator,
-      trustedMeasurement,
-      wallet.address
-    );
-    await councilModule.waitForDeployment();
-    deployedAddresses.councilSafeModule = await councilModule.getAddress();
+    const deployData = encodeDeployData({
+      abi: COUNCIL_SAFE_MODULE_ABI,
+      bytecode: councilModuleBytecode as `0x${string}`,
+      args: [
+        deployedAddresses.safe as Address,
+        council as Address,
+        teeOperator,
+        trustedMeasurement,
+        account.address,
+      ],
+    });
+    
+    const nonce = await publicClient.getTransactionCount({ address: account.address });
+    const hash = await walletClient.sendTransaction({ data: deployData, account });
+    const receipt = await waitForTransactionReceipt(publicClient, { hash });
+    
+    const address = receipt.contractAddress || getContractAddress({ from: account.address, nonce: BigInt(nonce) });
+    deployedAddresses.councilSafeModule = address;
     console.log(`  ✅ CouncilSafeModule: ${deployedAddresses.councilSafeModule}`);
   } else {
     console.log('  [DRY RUN] Would deploy CouncilSafeModule');
   }
 
   // Step 5: Enable module on Safe
-  if (!dryRun && deployedAddresses.safe !== wallet.address) {
+  if (!dryRun && deployedAddresses.safe !== account.address) {
     console.log('\n📦 Step 5: Enabling module on Safe...');
     console.log('  ⚠️  Manual step required: Call enableModule on Safe');
     console.log(`     Safe: ${deployedAddresses.safe}`);

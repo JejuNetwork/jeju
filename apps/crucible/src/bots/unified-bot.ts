@@ -28,14 +28,17 @@ import { DexArbitrageStrategy } from './strategies/dex-arbitrage';
 import { CrossChainArbStrategy } from './strategies/cross-chain-arb';
 import { SolanaArbStrategy, SOLANA_CHAIN_ID } from './strategies/solana-arb';
 import { LiquidityManager, type UnifiedPosition, type RebalanceAction, type LiquidityManagerConfig } from './strategies/liquidity-manager';
+import { YieldFarmingStrategy, type YieldOpportunity, type YieldFarmingConfig } from './strategies/yield-farming';
 import { SolanaDexAggregator } from './solana/dex-adapters';
 
 // Engine imports
 import { Collector, type SyncEvent, type SwapEvent } from './engine/collector';
 import { Executor } from './engine/executor';
 import { RiskManager } from './engine/risk-manager';
-// Treasury integration - requires proper config
-// import { TreasuryManager } from './engine/treasury';
+
+// Contract integrations (EIL/XLP/OIF)
+import { XLPManager, type XLPConfig, type XLPProfile, type LiquidityRequest } from './contracts/eil-xlp';
+import { OIFSolver, type OIFSolverConfig, type OpenIntent, IntentStatus } from './contracts/oif-solver';
 
 // ============ Types ============
 
@@ -56,6 +59,8 @@ export interface UnifiedBotConfig {
   enableSandwich: boolean;
   enableLiquidation: boolean;
   enableSolver: boolean;
+  enableXLP: boolean;  // Cross-chain Liquidity Provider mode
+  enableYieldFarming: boolean;  // Cross-chain yield optimization
   
   // Risk parameters
   minProfitBps: number;
@@ -65,6 +70,15 @@ export interface UnifiedBotConfig {
   
   // LP parameters
   lpConfig?: Partial<LiquidityManagerConfig>;
+  
+  // XLP parameters (FederatedLiquidity integration)
+  xlpConfig?: Partial<XLPConfig>;
+  
+  // OIF Solver parameters
+  oifSolverName?: string;
+  
+  // Yield farming parameters
+  yieldFarmingConfig?: Partial<YieldFarmingConfig>;
 }
 
 export interface BotStats {
@@ -76,6 +90,18 @@ export interface BotStats {
   pendingOpportunities: number;
   liquidityPositions: number;
   lastTradeAt: number;
+  // XLP stats
+  xlpActive: boolean;
+  xlpTotalEarned: string;
+  xlpPendingRequests: number;
+  // OIF stats
+  oifActive: boolean;
+  oifOpenIntents: number;
+  oifProfitableIntents: number;
+  // Yield farming stats
+  yieldFarmingActive: boolean;
+  yieldOpportunities: number;
+  avgYieldApr: number;
 }
 
 export interface TradeResult {
@@ -108,11 +134,17 @@ export class UnifiedBot extends EventEmitter {
   private crossChainArb: CrossChainArbStrategy | null = null;
   private solanaArb: SolanaArbStrategy | null = null;
   private liquidityManager: LiquidityManager | null = null;
+  private yieldFarming: YieldFarmingStrategy | null = null;
   
   // Engine components
   private collectors: Map<ChainId, Collector> = new Map();
   private executor: Executor | null = null;
   private riskManager: RiskManager | null = null;
+  
+  // Cross-chain integrations (EIL/XLP/OIF)
+  private xlpManagers: Map<ChainId, XLPManager> = new Map();
+  private oifSolver: OIFSolver | null = null;
+  private xlpProfile: XLPProfile | null = null;
   
   // Stats
   private trades: TradeResult[] = [];
@@ -235,6 +267,115 @@ export class UnifiedBot extends EventEmitter {
       });
       console.log('   ✓ Liquidity Management enabled');
     }
+
+    // XLP (Cross-chain Liquidity Provider) integration
+    if (this.config.enableXLP && this.config.evmPrivateKey && this.config.xlpConfig) {
+      console.log('🌉 Initializing XLP (Cross-chain Liquidity Provider)...');
+      
+      for (const chainId of this.config.evmChains) {
+        const rpcUrl = process.env[`RPC_URL_${chainId}`];
+        const federatedLiquidity = process.env[`FEDERATED_LIQUIDITY_${chainId}`] as Address | undefined;
+        const liquidityAggregator = process.env[`LIQUIDITY_AGGREGATOR_${chainId}`] as Address | undefined;
+        
+        if (rpcUrl && federatedLiquidity && liquidityAggregator) {
+          const xlpManager = new XLPManager({
+            chainId,
+            rpcUrl,
+            privateKey: this.config.evmPrivateKey,
+            federatedLiquidityAddress: federatedLiquidity,
+            liquidityAggregatorAddress: liquidityAggregator,
+          });
+          
+          this.xlpManagers.set(chainId, xlpManager);
+          
+          // Check if already registered as XLP
+          const profile = await xlpManager.getXLPProfile();
+          if (profile) {
+            this.xlpProfile = profile;
+            console.log(`   Chain ${chainId}: XLP active, earned ${profile.totalEarned} total`);
+          } else {
+            console.log(`   Chain ${chainId}: Not registered as XLP`);
+          }
+        }
+      }
+      
+      if (this.xlpManagers.size > 0) {
+        console.log(`   ✓ XLP enabled on ${this.xlpManagers.size} chains`);
+      }
+    }
+
+    // OIF Solver integration
+    if (this.config.enableSolver && this.config.evmPrivateKey) {
+      console.log('🔮 Initializing OIF Solver...');
+      
+      const chainConfigs: OIFSolverConfig['chainConfigs'] = {};
+      
+      for (const chainId of this.config.evmChains) {
+        const rpcUrl = process.env[`RPC_URL_${chainId}`];
+        const inputSettler = process.env[`OIF_INPUT_SETTLER_${chainId}`] as Address | undefined;
+        const outputSettler = process.env[`OIF_OUTPUT_SETTLER_${chainId}`] as Address | undefined;
+        const solverRegistry = process.env[`OIF_SOLVER_REGISTRY_${chainId}`] as Address | undefined;
+        
+        if (rpcUrl && inputSettler && outputSettler && solverRegistry) {
+          chainConfigs[chainId] = {
+            rpcUrl,
+            inputSettlerAddress: inputSettler,
+            outputSettlerAddress: outputSettler,
+            solverRegistryAddress: solverRegistry,
+          };
+        }
+      }
+      
+      if (Object.keys(chainConfigs).length > 0) {
+        this.oifSolver = new OIFSolver({
+          name: this.config.oifSolverName ?? 'jeju-unified-bot',
+          chainConfigs,
+          privateKey: this.config.evmPrivateKey,
+          minProfitBps: this.config.minProfitBps,
+          maxSlippageBps: this.config.maxSlippageBps,
+        });
+        
+        console.log(`   ✓ OIF Solver enabled on ${Object.keys(chainConfigs).length} chains`);
+      }
+    }
+
+    // Yield Farming Strategy
+    if (this.config.enableYieldFarming) {
+      console.log('🌾 Initializing Yield Farming Strategy...');
+      
+      const rpcUrls: Record<string, string> = {
+        'mainnet-beta': process.env.SOLANA_RPC_URL ?? 'https://api.mainnet-beta.solana.com',
+        'devnet': 'https://api.devnet.solana.com',
+        'localnet': 'http://127.0.0.1:8899',
+      };
+
+      this.yieldFarming = new YieldFarmingStrategy({
+        chains: this.config.evmChains,
+        solanaNetwork: this.config.solanaNetwork,
+        minApr: this.config.yieldFarmingConfig?.minApr ?? 1,
+        maxRiskScore: this.config.yieldFarmingConfig?.maxRiskScore ?? 60,
+        preferRealYield: this.config.yieldFarmingConfig?.preferRealYield ?? true,
+        minTvl: this.config.yieldFarmingConfig?.minTvl ?? 1000000,
+        maxPositionPercent: this.config.yieldFarmingConfig?.maxPositionPercent ?? 20,
+        autoCompound: this.config.yieldFarmingConfig?.autoCompound ?? true,
+        autoRebalance: this.config.yieldFarmingConfig?.autoRebalance ?? true,
+        rebalanceThreshold: this.config.yieldFarmingConfig?.rebalanceThreshold ?? 10,
+        maxProtocolExposure: this.config.yieldFarmingConfig?.maxProtocolExposure ?? 30,
+        maxChainExposure: this.config.yieldFarmingConfig?.maxChainExposure ?? 50,
+        minProfitBps: this.config.minProfitBps,
+        maxSlippageBps: this.config.maxSlippageBps,
+      });
+
+      await this.yieldFarming.initialize(rpcUrls[this.config.solanaNetwork]);
+      
+      // Listen for opportunities
+      this.yieldFarming.on('opportunities', (opps: YieldOpportunity[]) => {
+        console.log(`   Found ${opps.length} yield farming opportunities`);
+        this.emit('yield-opportunities', opps);
+      });
+
+      console.log('   ✓ Yield Farming enabled');
+    }
   }
 
   private async initializeEngine(): Promise<void> {
@@ -305,6 +446,9 @@ export class UnifiedBot extends EventEmitter {
     if (this.config.enableCrossChain) activeStrategies.push('cross-chain');
     if (this.config.enableSolanaArb) activeStrategies.push('solana-arb');
     if (this.config.enableLiquidity) activeStrategies.push('liquidity');
+    if (this.config.enableXLP && this.xlpManagers.size > 0) activeStrategies.push('xlp');
+    if (this.config.enableSolver && this.oifSolver) activeStrategies.push('oif-solver');
+    if (this.config.enableYieldFarming && this.yieldFarming) activeStrategies.push('yield-farming');
 
     const successfulTrades = this.trades.filter(t => t.success).length;
 
@@ -317,7 +461,125 @@ export class UnifiedBot extends EventEmitter {
       pendingOpportunities: this.getPendingOpportunityCount(),
       liquidityPositions: this.liquidityManager?.getPositions().length ?? 0,
       lastTradeAt: this.trades[this.trades.length - 1]?.timestamp ?? 0,
+      // XLP stats
+      xlpActive: this.xlpProfile?.isActive ?? false,
+      xlpTotalEarned: this.xlpProfile?.totalEarned.toString() ?? '0',
+      xlpPendingRequests: 0, // Updated asynchronously
+      // OIF stats
+      oifActive: this.oifSolver !== null,
+      oifOpenIntents: 0, // Updated asynchronously
+      oifProfitableIntents: 0, // Updated asynchronously
+      // Yield farming stats
+      yieldFarmingActive: this.yieldFarming !== null,
+      yieldOpportunities: this.yieldFarming?.getAllOpportunities().length ?? 0,
+      avgYieldApr: this.yieldFarming?.getStats().avgRealYieldApr ?? 0,
     };
+  }
+
+  /**
+   * Get XLP stats (async)
+   */
+  async getXLPStats(): Promise<{
+    pendingRequests: LiquidityRequest[];
+    totalEthLiquidity: bigint;
+    totalTokenLiquidity: bigint;
+    activeXLPs: number;
+  }> {
+    if (this.xlpManagers.size === 0) {
+      return { pendingRequests: [], totalEthLiquidity: 0n, totalTokenLiquidity: 0n, activeXLPs: 0 };
+    }
+
+    // Get stats from first available manager
+    const manager = this.xlpManagers.values().next().value;
+    if (!manager) {
+      return { pendingRequests: [], totalEthLiquidity: 0n, totalTokenLiquidity: 0n, activeXLPs: 0 };
+    }
+
+    const [pendingRequests, liquidity, activeXLPs] = await Promise.all([
+      manager.getPendingRequests(),
+      manager.getTotalFederatedLiquidity(),
+      manager.getActiveXLPs(),
+    ]);
+
+    return {
+      pendingRequests,
+      totalEthLiquidity: liquidity.totalEth,
+      totalTokenLiquidity: liquidity.totalToken,
+      activeXLPs: activeXLPs.length,
+    };
+  }
+
+  /**
+   * Get OIF solver stats (async)
+   */
+  async getOIFStats(): Promise<{
+    totalIntents: number;
+    profitableIntents: number;
+    totalPotentialProfit: bigint;
+    avgProfitBps: number;
+  }> {
+    if (!this.oifSolver) {
+      return { totalIntents: 0, profitableIntents: 0, totalPotentialProfit: 0n, avgProfitBps: 0 };
+    }
+
+    return this.oifSolver.getStats();
+  }
+
+  /**
+   * Fulfill an XLP liquidity request
+   */
+  async fulfillXLPRequest(chainId: ChainId, requestId: `0x${string}`): Promise<`0x${string}` | null> {
+    const manager = this.xlpManagers.get(chainId);
+    if (!manager) return null;
+
+    return manager.fulfillRequest(requestId, '0x' as `0x${string}`);
+  }
+
+  /**
+   * Fill an OIF intent
+   */
+  async fillOIFIntent(intent: OpenIntent): Promise<`0x${string}` | null> {
+    if (!this.oifSolver) return null;
+
+    return this.oifSolver.fillIntent(intent, '0x' as `0x${string}`);
+  }
+
+  /**
+   * Get yield farming opportunities
+   */
+  getYieldOpportunities(limit = 20): YieldOpportunity[] {
+    if (!this.yieldFarming) return [];
+    return this.yieldFarming.getBestOpportunities(limit);
+  }
+
+  /**
+   * Get yield farming stats
+   */
+  getYieldStats(): {
+    totalOpportunities: number;
+    byChain: Record<string, number>;
+    byProtocol: Record<string, number>;
+    avgApr: number;
+    avgRealYieldApr: number;
+    bestOpportunity: YieldOpportunity | null;
+    totalTvl: number;
+  } | null {
+    if (!this.yieldFarming) return null;
+    return this.yieldFarming.getStats();
+  }
+
+  /**
+   * Verify yield for an opportunity
+   */
+  async verifyYield(opportunityId: string): Promise<{
+    verified: boolean;
+    onChainApr: number;
+    reportedApr: number;
+    discrepancy: number;
+    method: string;
+  }> {
+    if (!this.yieldFarming) throw new Error('Yield farming not enabled');
+    return this.yieldFarming.verifyApr(opportunityId);
   }
 
   /**
