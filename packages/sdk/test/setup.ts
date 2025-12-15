@@ -131,47 +131,25 @@ function releaseLock(): void {
 }
 
 /**
- * Start localnet using jeju CLI
+ * Start localnet using Anvil
  */
 async function startLocalnet(): Promise<void> {
   const root = findRoot();
-  console.log("Starting localnet...");
+  console.log("Starting Anvil localnet...");
   
-  // Check if Kurtosis is available (preferred)
-  let useKurtosis = false;
-  try {
-    await execa("which", ["kurtosis"]);
-    useKurtosis = true;
-  } catch {
-    // Kurtosis not available
-  }
-  
-  if (useKurtosis) {
-    // Use Kurtosis for proper L1/L2 setup
-    const proc = execa("kurtosis", [
-      "run",
-      "github.com/ethpandaops/optimism-package",
-      "--args-file", join(root, "packages/deployment/kurtosis/localnet.yaml"),
-    ], {
-      cwd: root,
-      stdio: "pipe",
-      detached: true,
-    });
-    startedProcesses.push(proc);
-  } else {
-    // Fallback: Use Anvil for simple testing
-    const proc = execa("anvil", [
-      "--port", "8545",
-      "--chain-id", "1337",
-      "--accounts", "10",
-      "--balance", "10000",
-    ], {
-      cwd: root,
-      stdio: "pipe",
-      detached: true,
-    });
-    startedProcesses.push(proc);
-  }
+  // Use Anvil for testing
+  const proc = execa("anvil", [
+    "--port", "8545",
+    "--chain-id", "1337",
+    "--accounts", "10",
+    "--balance", "10000",
+    "--silent",
+  ], {
+    cwd: root,
+    stdio: "pipe",
+    detached: true,
+  });
+  startedProcesses.push(proc);
   
   await waitForService("Chain", TEST_RPC_URL, true, STARTUP_TIMEOUT);
 }
