@@ -104,8 +104,8 @@ test.describe('Gateway Wallet Connection', () => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     
-    // Check that we're on the network network
-    const networkIndicator = page.locator('text=|Network|Chain ID/i');
+    // Check that we're on the network
+    const networkIndicator = page.locator('text=/Network|Chain ID/i');
     const hasNetworkInfo = await networkIndicator.isVisible();
     
     if (hasNetworkInfo) {
