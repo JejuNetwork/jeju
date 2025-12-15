@@ -1,9 +1,9 @@
 /**
- * Jeju Wallet Services
- * Core services using Jeju infrastructure
+ * Network Wallet Services
+ * Core services using the network infrastructure
  */
 
-// Jeju infrastructure (indexer, bundler, graphql)
+// Network infrastructure (indexer, bundler, graphql)
 export * as jeju from './jeju';
 
 // Core services

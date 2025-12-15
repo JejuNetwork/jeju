@@ -1,6 +1,6 @@
 /**
- * Jeju IPFS Client for Bazaar
- * Uses LOCAL Jeju IPFS infrastructure (no Pinata/external services)
+ * IPFS Client for Bazaar
+ * Uses LOCAL IPFS infrastructure (no Pinata/external services)
  */
 import { IPFS_API_URL, IPFS_GATEWAY_URL } from '../config';
 
@@ -8,7 +8,7 @@ const JEJU_IPFS_API = IPFS_API_URL;
 const JEJU_IPFS_GATEWAY = IPFS_GATEWAY_URL;
 
 /**
- * Upload file to Jeju IPFS (local nodes, x402 payments)
+ * Upload file to the network IPFS (local nodes, x402 payments)
  * @returns Real IPFS CID hash
  */
 export async function uploadToIPFS(file: File): Promise<string> {
@@ -36,7 +36,7 @@ export async function uploadToIPFS(file: File): Promise<string> {
 }
 
 /**
- * Upload JSON data to Jeju IPFS
+ * Upload JSON data to the network IPFS
  * @returns Real IPFS CID hash
  */
 export async function uploadJSONToIPFS(data: Record<string, unknown>): Promise<string> {

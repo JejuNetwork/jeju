@@ -2,7 +2,7 @@
  * @fileoverview Service interaction integration tests
  * @module tests/integration/service-interactions
  * 
- * Tests interactions between all Jeju services:
+ * Tests interactions between all network services:
  * - RPC ← Indexer (blockchain data sync)
  * - Oracle ← Contracts (price feed consumption)
  * - Paymaster ← Vault (liquidity provision)
@@ -222,7 +222,7 @@ describe('Service Interaction Tests', () => {
     it('should test oracle update flow', async () => {
       console.log('   ℹ️  Oracle update flow:');
       console.log('       1. Oracle bot reads prices from Ethereum');
-      console.log('       2. Bot calls updatePrices() on Jeju oracle');
+      console.log('       2. Bot calls updatePrices() on the network oracle');
       console.log('       3. Paymaster reads updated prices');
       console.log('       4. Paymaster calculates elizaOS fees');
       console.log('   ℹ️  See scripts/oracle-updater.ts for bot implementation');

@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitepress';
 
 export default defineConfig({
-  title: 'Jeju',
+  title: 'Network',
   description: 'OP-Stack L2 on Ethereum with 200ms Flashblocks',
   base: '/jeju/',
   ignoreDeadLinks: [
@@ -31,21 +31,21 @@ export default defineConfig({
     ['meta', { name: 'theme-color', content: '#0EA5E9' }],
     ['meta', { name: 'og:type', content: 'website' }],
     ['meta', { name: 'og:locale', content: 'en' }],
-    ['meta', { name: 'og:site_name', content: 'Jeju' }],
-    ['meta', { name: 'og:title', content: 'Jeju - L2 Built for Agents' }],
+    ['meta', { name: 'og:site_name', content: 'Network' }],
+    ['meta', { name: getNetworkName() - L2 Built for Agents' }],
     ['meta', { name: 'og:description', content: 'OP-Stack L2 with 200ms blocks, gasless transactions, and native agent infrastructure.' }],
   ],
 
   themeConfig: {
     logo: '/logo.svg',
-    siteTitle: 'Jeju',
+    siteTitle: 'Network',
 
     nav: [
       { text: 'Docs', link: '/learn/why-jeju' },
       {
         text: 'Learn',
         items: [
-          { text: 'Why Jeju?', link: '/learn/why-jeju' },
+          { text: 'Why Network?', link: '/learn/why-jeju' },
           { text: 'Core Concepts', link: '/learn/concepts' },
           { text: 'Architecture', link: '/learn/architecture' },
         ],
@@ -82,7 +82,7 @@ export default defineConfig({
         {
           text: 'Introduction',
           items: [
-            { text: 'Why Jeju?', link: '/learn/why-jeju' },
+            { text: 'Why Network?', link: '/learn/why-jeju' },
             { text: 'Core Concepts', link: '/learn/concepts' },
             { text: 'Architecture', link: '/learn/architecture' },
           ],
@@ -194,7 +194,7 @@ export default defineConfig({
 
     footer: {
       message: 'Released under the MIT License.',
-      copyright: 'Copyright © 2025 Jeju Network',
+      copyright: 'Copyright © 2025 the network',
     },
 
     search: { provider: 'local' },

@@ -54,7 +54,7 @@ export function createFullRegistryApp(config?: Partial<RegistryConfig>): Hono {
   // Root info
   app.get('/', (c) => {
     return c.json({
-      name: 'Jeju Container Registry',
+      name: 'Container Registry',
       version: '1.0.0',
       description: 'Decentralized OCI-compatible container registry',
       features: [

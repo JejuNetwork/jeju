@@ -1,9 +1,16 @@
 /**
- * @fileoverview A2A (Agent-to-Agent) server for Jeju network monitoring
+ * @fileoverview A2A (Agent-to-Agent) server for network monitoring
  * @module monitoring/server/a2a
  * 
  * Exposes Prometheus metrics and network health status via the A2A protocol,
  * enabling AI agents to programmatically query blockchain network metrics.
+ */
+
+import { getNetworkName } from '@jejunetwork/config';
+
+const networkName = getNetworkName();
+
+/*
  * 
  * Features:
  * - Execute PromQL queries against Prometheus
@@ -57,11 +64,11 @@ function formatVolume(amount: string): string {
 app.get('/.well-known/agent-card.json', (_req, res) => {
   res.json({
     protocolVersion: '0.3.0',
-    name: 'Jeju Monitoring',
+    name: `${networkName} Monitoring`,
     description: 'Query blockchain metrics and system health via Prometheus',
     url: 'http://localhost:9091/api/a2a',
     preferredTransport: 'http',
-    provider: { organization: 'Jeju Network', url: 'https://jeju.network' },
+    provider: { organization: 'the network', url: 'https://jeju.network' },
     version: '1.0.0',
     capabilities: { 
       streaming: false, 

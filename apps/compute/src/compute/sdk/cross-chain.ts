@@ -10,14 +10,14 @@
  * import { CrossChainComputeClient } from './cross-chain';
  * 
  * const client = new CrossChainComputeClient({
- *   computeChainId: 420691, // Jeju
+ *   computeChainId: 420691, // Network
  *   sourceChainId: 42161,   // Arbitrum
  *   sourceRpcUrl: 'https://arb1.arbitrum.io/rpc',
  *   computeRpcUrl: 'http://localhost:8545',
  *   signer,
  * });
  * 
- * // Create rental from Arbitrum, executes on Jeju
+ * // Create rental from Arbitrum, executes on the network
  * const { rentalId } = await client.createCrossChainRental({
  *   provider: '0x...',
  *   durationHours: 2,

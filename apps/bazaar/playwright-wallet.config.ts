@@ -1,8 +1,8 @@
-import { createJejuPlaywrightConfig } from '@jejunetwork/tests/playwright.config.base';
+import { createPlaywrightConfig } from '@jejunetwork/tests/playwright.config.base';
 
 const BAZAAR_PORT = process.env.BAZAAR_PORT || '4006';
 
-export default createJejuPlaywrightConfig({
+export default createPlaywrightConfig({
   appName: 'bazaar-wallet',
   port: parseInt(BAZAAR_PORT),
   testDir: './tests/e2e-wallet',

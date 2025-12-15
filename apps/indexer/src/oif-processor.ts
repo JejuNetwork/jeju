@@ -152,7 +152,7 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
         )
 
         const user = accountFactory.getOrCreate(userAddr, header.height, blockTimestamp)
-        const sourceChainId = 420691 // Jeju mainnet
+        const sourceChainId = 420691 // Network mainnet
         const destChainId = Number(decoded[2])
 
         const intent = new OIFIntent({
@@ -486,14 +486,14 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
 }
 
 function updateChainStats(contractAddress: string, blockNumber: number, chainStats: Map<number, OIFChainStats>): void {
-  const chainId = 420691 // Default to Jeju mainnet
+  const chainId = 420691 // Default to the network mainnet
 
   let stats = chainStats.get(chainId)
   if (!stats) {
     stats = new OIFChainStats({
       id: chainId.toString(),
       chainId,
-      chainName: 'Jeju Mainnet',
+      chainName: 'Mainnet',
       inputSettlerAddress: contractAddress,
       outputSettlerAddress: '',
       totalIntents: 0,

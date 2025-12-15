@@ -265,6 +265,7 @@ export class ProverService {
 
   private async runProver(request: ProofRequest<unknown>): Promise<ProofResult> {
     const startTime = Date.now();
+    const isDev = process.env.NODE_ENV !== 'production';
 
     console.log(`[Prover] Starting proof ${request.id} (${request.type})`);
 
@@ -288,6 +289,16 @@ export class ProverService {
         throw new Error(`Unknown proof type: ${request.type}`);
     }
 
+    // Check if program exists
+    const programExists = await Bun.file(programPath).exists();
+    if (!programExists) {
+      if (isDev) {
+        console.warn(`[Prover] DEV MODE: Program ${programPath} not found, using stub`);
+        return this.generateDevProof(request, startTime);
+      }
+      throw new Error(`SP1 program not found: ${programPath}`);
+    }
+
     // Serialize inputs
     const inputsJson = JSON.stringify(request.inputs, (_, v) =>
       typeof v === 'bigint' ? v.toString() : v
@@ -298,30 +309,39 @@ export class ProverService {
     const outputFile = `/tmp/proof_output_${request.id}.json`;
     await Bun.write(inputFile, inputsJson);
 
-    // Run SP1 prover
-    // In production, this would call the actual SP1 CLI or SDK
+    // Run SP1 prover using cargo-prove
     const proc = spawn({
       cmd: [
-        'sp1-prover',
+        'cargo', 'prove', 'prove',
         '--program', programPath,
         '--input', inputFile,
         '--output', outputFile,
-        '--prove',
       ],
       stdout: 'pipe',
       stderr: 'pipe',
+      env: {
+        ...process.env,
+        SP1_PROVER: this.config.proverMode ?? 'local',
+      },
     });
 
     const exitCode = await proc.exited;
 
     if (exitCode !== 0) {
-      // For local development, generate a mock proof
-      console.log(`[Prover] SP1 not available, generating mock proof for ${request.id}`);
-      return this.generateMockProof(request, startTime);
+      const stderr = await new Response(proc.stderr).text();
+      if (isDev) {
+        console.warn(`[Prover] DEV MODE: SP1 failed, using stub. Error: ${stderr}`);
+        return this.generateDevProof(request, startTime);
+      }
+      throw new Error(`SP1 prover failed (exit ${exitCode}): ${stderr}`);
     }
 
     // Read output
-    const outputData = await Bun.file(outputFile).json();
+    const outputFile_ = Bun.file(outputFile);
+    if (!await outputFile_.exists()) {
+      throw new Error(`SP1 prover did not generate output file`);
+    }
+    const outputData = await outputFile_.json();
 
     const generationTimeMs = Date.now() - startTime;
     console.log(`[Prover] Completed proof ${request.id} in ${generationTimeMs}ms`);
@@ -336,21 +356,33 @@ export class ProverService {
     };
   }
 
-  private async generateMockProof(
+  /**
+   * Generate a development-only stub proof.
+   * WARNING: These proofs will NOT verify on-chain.
+   * Only use for local development and testing.
+   */
+  private async generateDevProof(
     request: ProofRequest<unknown>,
     startTime: number
   ): Promise<ProofResult> {
+    console.warn('[Prover] DEVELOPMENT STUB - proof will NOT verify on-chain');
+
     // Simulate proof generation time
     await Bun.sleep(100);
 
+    // Generate deterministic "proof" based on request ID for reproducibility
+    const encoder = new TextEncoder();
+    const requestHash = await crypto.subtle.digest('SHA-256', encoder.encode(request.id));
+
     const proofBytes = new Uint8Array(256);
-    crypto.getRandomValues(proofBytes);
+    proofBytes.set(new Uint8Array(requestHash));
 
     const publicInputs = new Uint8Array(64);
-    crypto.getRandomValues(publicInputs);
+    publicInputs.set(new Uint8Array(requestHash).slice(0, 32));
 
     const vkeyHash = new Uint8Array(32);
-    crypto.getRandomValues(vkeyHash);
+    // Dev vkey hash starts with 0xDEADBEEF to make it obvious
+    vkeyHash.set([0xDE, 0xAD, 0xBE, 0xEF]);
 
     const proof: SP1Proof = {
       proof: proofBytes,
@@ -358,11 +390,11 @@ export class ProverService {
       vkeyHash: toHash32(vkeyHash),
     };
 
-    // Generate mock Groth16 proof elements
+    // Dev Groth16 proof with obvious placeholder values
     const groth16: Groth16Proof = {
-      a: [BigInt(1), BigInt(2)],
-      b: [[BigInt(3), BigInt(4)], [BigInt(5), BigInt(6)]],
-      c: [BigInt(7), BigInt(8)],
+      a: [BigInt('0xDEADBEEF'), BigInt('0xCAFEBABE')],
+      b: [[BigInt('0x11111111'), BigInt('0x22222222')], [BigInt('0x33333333'), BigInt('0x44444444')]],
+      c: [BigInt('0x55555555'), BigInt('0x66666666')],
     };
 
     return {

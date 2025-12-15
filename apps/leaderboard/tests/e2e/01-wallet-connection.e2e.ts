@@ -2,7 +2,7 @@ import { test, expect, BrowserContext } from '@playwright/test';
 import { MetaMask, getMetaMask, setupMetaMask } from '@tenkeylabs/dappwright';
 
 const JEJU_NETWORK = {
-  networkName: 'Jeju',
+  networkName: 'Network',
   rpcUrl: 'https://api.evm-alpha.atleta.network',
   chainId: 70124,
   symbol: 'JEJU',
@@ -10,7 +10,7 @@ const JEJU_NETWORK = {
 
 let metamask: MetaMask;
 
-test.describe('Wallet Connection and Jeju Network', () => {
+test.describe('Wallet Connection and the network', () => {
   test.beforeEach(async ({ context }: { context: BrowserContext }) => {
     metamask = await setupMetaMask(context as unknown as Parameters<typeof setupMetaMask>[0], {
       seed: 'test test test test test test test test test test test junk',
@@ -33,7 +33,7 @@ test.describe('Wallet Connection and Jeju Network', () => {
     await expect(page.locator('text=/0x[a-fA-F0-9]{4,}/i').first()).toBeVisible({ timeout: 10000 });
   });
 
-  test('should add and connect to Jeju network', async ({ page }) => {
+  test('should add and connect to the network network', async ({ page }) => {
     await page.goto('/');
 
     // Connect wallet first
@@ -43,7 +43,7 @@ test.describe('Wallet Connection and Jeju Network', () => {
       await metamask.approve();
     }
 
-    // Add Jeju network to MetaMask
+    // Add network to MetaMask
     try {
       await metamask.addNetwork(JEJU_NETWORK);
     } catch (e) {
@@ -51,10 +51,10 @@ test.describe('Wallet Connection and Jeju Network', () => {
       console.log('Network already added or error:', e);
     }
 
-    // Switch to Jeju network
+    // Switch to the network network
     await metamask.switchNetwork(JEJU_NETWORK.networkName);
 
-    // Verify we're on the Jeju network
+    // Verify we're on the network
     const currentNetwork = await page.evaluate(() => {
       return (window as { ethereum?: { chainId?: string } }).ethereum?.chainId;
     });

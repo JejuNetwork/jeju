@@ -7,7 +7,7 @@ import { test, expect } from '@playwright/test';
 
 
 test.describe('Submit Report Flow', () => {
-  test('should submit report with evidence', async ({ _page }) => {
+  test('should submit report with evidence', async ({ page }) => {
     // Navigate to moderation page
     await page.goto('http://localhost:3000/moderation');
 
@@ -56,7 +56,7 @@ test.describe('Submit Report Flow', () => {
     // 4. Verify report created
   });
 
-  test('should validate required fields', async ({ _page }) => {
+  test('should validate required fields', async ({ page }) => {
     await page.goto('http://localhost:3000/moderation');
     await page.getByRole('button', { name: /Submit Report/i }).click();
 
@@ -67,7 +67,7 @@ test.describe('Submit Report Flow', () => {
     await expect(submitButton).toBeDisabled();
   });
 
-  test('should display bond requirements correctly', async ({ _page }) => {
+  test('should display bond requirements correctly', async ({ page }) => {
     await page.goto('http://localhost:3000/moderation');
     await page.getByRole('button', { name: /Submit Report/i }).click();
 

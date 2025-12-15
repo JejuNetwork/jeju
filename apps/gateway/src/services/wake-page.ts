@@ -26,7 +26,7 @@ export function generateWakePage(data: WakePageData): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(data.appName)} - Needs Funding | Jeju Network</title>
+  <title>${escapeHtml(data.appName)} - Needs Funding | the network</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍊</text></svg>">
   <style>
     :root {
@@ -239,7 +239,7 @@ export function generateWakePage(data: WakePageData): string {
 <body>
   <div class="container">
     <div class="logo">🍊</div>
-    <div class="brand">Jeju Network</div>
+    <div class="brand">the network</div>
     
     <div class="card">
       <div class="status-icon">💤</div>
@@ -273,7 +273,7 @@ export function generateWakePage(data: WakePageData): string {
       </div>
       
       <p class="info-text">
-        This app runs on the <a href="https://jeju.network" target="_blank">Jeju Network</a> - 
+        This app runs on the <a href="https://jeju.network" target="_blank">the network</a> - 
         a decentralized compute platform. Once funded, the app will automatically restart 
         and become available at <strong>${escapeHtml(data.jnsName)}</strong>.
       </p>

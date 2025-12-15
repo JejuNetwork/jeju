@@ -1,0 +1,107 @@
+{{- if .Values.bot.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "crucible.fullname" . }}-bot
+  labels:
+    {{- include "crucible.labels" . | nindent 4 }}
+    app.kubernetes.io/component: bot
+spec:
+  replicas: {{ .Values.replicaCount.bot }}
+  selector:
+    matchLabels:
+      {{- include "crucible.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: bot
+  template:
+    metadata:
+      labels:
+        {{- include "crucible.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: bot
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "4020"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: {{ include "crucible.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: bot
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["bun", "run", "bot"]
+          ports:
+            - name: rest
+              containerPort: 4020
+              protocol: TCP
+            - name: a2a
+              containerPort: 4021
+              protocol: TCP
+            - name: mcp
+              containerPort: 4022
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "crucible.fullname" . }}-config
+            {{- if .Values.secrets.privateKey }}
+            - secretRef:
+                name: {{ include "crucible.fullname" . }}-secrets
+            {{- end }}
+          env:
+            - name: BOT_REST_PORT
+              value: "4020"
+            - name: BOT_A2A_PORT
+              value: "4021"
+            - name: BOT_MCP_PORT
+              value: "4022"
+            {{- if .Values.bot.enableArbitrage }}
+            - name: ENABLE_ARBITRAGE
+              value: "true"
+            {{- end }}
+            {{- if .Values.bot.enableCrossChain }}
+            - name: ENABLE_CROSS_CHAIN
+              value: "true"
+            {{- end }}
+            {{- if .Values.bot.enableSolanaArb }}
+            - name: ENABLE_SOLANA_ARB
+              value: "true"
+            {{- end }}
+            {{- if .Values.bot.enableLiquidity }}
+            - name: ENABLE_LIQUIDITY
+              value: "true"
+            {{- end }}
+            {{- with .Values.bot.solanaRpcUrl }}
+            - name: SOLANA_RPC_URL
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.bot.solanaNetwork }}
+            - name: SOLANA_NETWORK
+              value: {{ . | quote }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4020
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4020
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources.bot | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

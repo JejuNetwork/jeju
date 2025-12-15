@@ -29,7 +29,7 @@ const createStubAction = (
   ): Promise<ActionResult> => {
     runtime.logger.warn(`[${name}] Action NOT IMPLEMENTED - this is a stub`);
     const errorText = `Action "${name}" is not yet implemented. This feature requires:\n` +
-      `1. Deploy Jeju contracts (CrossChainPaymaster, InputSettler, etc.)\n` +
+      `1. Deploy network contracts (CrossChainPaymaster, InputSettler, etc.)\n` +
       `2. Implement the action handler in /plugin/actions/\n\n` +
       `See README.md for setup instructions.`;
     callback?.({ text: errorText, content: { error: 'NOT_IMPLEMENTED', stub: true } });

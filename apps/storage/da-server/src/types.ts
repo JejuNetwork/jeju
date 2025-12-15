@@ -1,5 +1,5 @@
 /**
- * JejuDA Type Definitions
+ * NetworkDA Type Definitions
  */
 
 export interface CommitmentData {

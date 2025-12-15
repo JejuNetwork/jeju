@@ -75,5 +75,16 @@
     "Council": "0x0000000000000000000000000000000000000000",
     "ProposalRegistry": "0x0000000000000000000000000000000000000000",
     "CEOAgent": "0x0000000000000000000000000000000000000000"
+  },
+  "testing": {
+    "unit": {
+      "command": "bun test tests/integration/compute-marketplace.test.ts",
+      "timeout": 60000
+    },
+    "e2e": {
+      "command": "bunx playwright test tests/synpress",
+      "timeout": 300000,
+      "requiresChain": true
+    }
   }
 }

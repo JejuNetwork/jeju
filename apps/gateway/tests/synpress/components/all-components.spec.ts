@@ -13,12 +13,12 @@ const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
 
 test.describe('SLIDERS - Complete Coverage', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
   });
 
-  test('should test fee margin slider on Deploy Paymaster', async ({ _page }) => {
+  test('should test fee margin slider on Deploy Paymaster', async ({ page }) => {
     await page.getByRole('button', { name: /Deploy Paymaster/i }).click();
     await page.waitForTimeout(1000);
 
@@ -77,12 +77,12 @@ test.describe('SLIDERS - Complete Coverage', () => {
 });
 
 test.describe('DROPDOWNS - Complete Coverage', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
   });
 
-  test('should test token selector dropdown on Bridge', async ({ _page }) => {
+  test('should test token selector dropdown on Bridge', async ({ page }) => {
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
@@ -124,7 +124,7 @@ test.describe('DROPDOWNS - Complete Coverage', () => {
     });
   });
 
-  test('should test region dropdown on Node Registration', async ({ _page }) => {
+  test('should test region dropdown on Node Registration', async ({ page }) => {
     await page.getByRole('button', { name: /Node Operators/i }).click();
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: /Register New Node/i }).click();
@@ -162,7 +162,7 @@ test.describe('DROPDOWNS - Complete Coverage', () => {
     });
   });
 
-  test('should close dropdown on outside click', async ({ _page }) => {
+  test('should close dropdown on outside click', async ({ page }) => {
     await page.getByRole('button', { name: /Add Liquidity/i }).click();
     await page.waitForTimeout(1000);
 
@@ -182,7 +182,7 @@ test.describe('DROPDOWNS - Complete Coverage', () => {
     console.log('✅ Dropdown closes on outside click');
   });
 
-  test('should close dropdown on ESC key', async ({ _page }) => {
+  test('should close dropdown on ESC key', async ({ page }) => {
     await page.getByRole('button', { name: /Deploy Paymaster/i }).click();
     await page.waitForTimeout(1000);
 
@@ -201,12 +201,12 @@ test.describe('DROPDOWNS - Complete Coverage', () => {
 });
 
 test.describe('MODALS - Complete Coverage', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
   });
 
-  test('should open and close app detail modal', async ({ _page }) => {
+  test('should open and close app detail modal', async ({ page }) => {
     await page.getByRole('button', { name: /App Registry/i }).click();
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: /Browse Apps/i }).click();
@@ -255,7 +255,7 @@ test.describe('MODALS - Complete Coverage', () => {
     }
   });
 
-  test('should test RainbowKit wallet modal', async ({ _page }) => {
+  test('should test RainbowKit wallet modal', async ({ page }) => {
     // Disconnect first if connected
     const walletButton = page.locator('button:has-text(/0x/)');
     if (await walletButton.isVisible()) {
@@ -295,12 +295,12 @@ test.describe('MODALS - Complete Coverage', () => {
 });
 
 test.describe('TOGGLE BUTTONS - Complete Coverage', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
   });
 
-  test('should test bridge mode toggle (Select Token / Custom Address)', async ({ _page }) => {
+  test('should test bridge mode toggle (Select Token / Custom Address)', async ({ page }) => {
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
@@ -332,7 +332,7 @@ test.describe('TOGGLE BUTTONS - Complete Coverage', () => {
     });
   });
 
-  test('should test category toggle buttons on App Registry', async ({ _page }) => {
+  test('should test category toggle buttons on App Registry', async ({ page }) => {
     await page.getByRole('button', { name: /App Registry/i }).click();
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: /Register App/i }).click();
@@ -366,12 +366,12 @@ test.describe('TOGGLE BUTTONS - Complete Coverage', () => {
 });
 
 test.describe('INPUT FIELDS - Complete Coverage', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
   });
 
-  test('should test all text input fields', async ({ _page }) => {
+  test('should test all text input fields', async ({ page }) => {
     const inputTests = [
       { tab: 'Registered Tokens', placeholder: '0x...', type: 'address' },
       { tab: 'Bridge from Ethereum', placeholder: '0.0', type: 'amount' },
@@ -410,7 +410,7 @@ test.describe('INPUT FIELDS - Complete Coverage', () => {
     }
   });
 
-  test('should test number input constraints', async ({ _page }) => {
+  test('should test number input constraints', async ({ page }) => {
     await page.getByRole('button', { name: /Registered Tokens/i }).click();
     await page.waitForTimeout(500);
 
@@ -434,15 +434,15 @@ test.describe('INPUT FIELDS - Complete Coverage', () => {
 });
 
 test.describe('FORM SUBMIT BUTTONS - Complete Coverage', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
   });
 
-  test('should test submit button disabled states', async ({ _page }) => {
+  test('should test submit button disabled states', async ({ page }) => {
     const forms = [
       { tab: 'Registered Tokens', button: 'Register Token' },
-      { tab: 'Bridge from Ethereum', button: 'Bridge to Jeju' },
+      { tab: 'Bridge from Ethereum', button: 'Bridge to the network' },
       { tab: 'App Registry', button: 'Register App' },
     ];
 
@@ -463,14 +463,14 @@ test.describe('FORM SUBMIT BUTTONS - Complete Coverage', () => {
     }
   });
 
-  test('should test submit button loading states', async ({ _page, _metamask }) => {
+  test('should test submit button loading states', async ({ page, metamask }) => {
     // This test would trigger a transaction and verify loading spinner
     console.log('ℹ️ Loading state test requires transaction execution');
   });
 });
 
 test.describe('SCROLLABLE AREAS - Complete Coverage', () => {
-  test('should test scrolling in token list', async ({ _page, _metamask }) => {
+  test('should test scrolling in token list', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.waitForTimeout(2000);
@@ -486,7 +486,7 @@ test.describe('SCROLLABLE AREAS - Complete Coverage', () => {
     console.log('✅ Page scroll tested');
   });
 
-  test('should test scrolling in dropdown with many items', async ({ _page, _metamask }) => {
+  test('should test scrolling in dropdown with many items', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 
@@ -513,7 +513,7 @@ test.describe('SCROLLABLE AREAS - Complete Coverage', () => {
 });
 
 test.describe('HOVER STATES - Complete Coverage', () => {
-  test('should test hover effects on all buttons', async ({ _page, _metamask }) => {
+  test('should test hover effects on all buttons', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.waitForTimeout(2000);
@@ -536,7 +536,7 @@ test.describe('HOVER STATES - Complete Coverage', () => {
     console.log('✅ Button hover states tested');
   });
 
-  test('should test hover effects on cards', async ({ _page, _metamask }) => {
+  test('should test hover effects on cards', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.waitForTimeout(2000);

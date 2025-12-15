@@ -3,7 +3,7 @@
  */
 import { countTokens } from '../node/inference';
 import { ModerationSDK, StakeType } from '../sdk/moderation';
-import { JejuComputeSDK } from '../sdk/sdk';
+import { ComputeSDK } from '../sdk/sdk';
 
 console.log('🔍 SDK Verification\n');
 
@@ -19,9 +19,9 @@ console.log(
 );
 
 // 2. Test SDK initialization
-console.log('2. JejuComputeSDK Initialization:');
+console.log('2. ComputeSDK Initialization:');
 try {
-  const sdk = new JejuComputeSDK({
+  const sdk = new ComputeSDK({
     rpcUrl: 'http://localhost:8545',
     contracts: {
       registry: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',

@@ -51,7 +51,7 @@ async function main() {
   
   // Deploy contracts
   const { address: tokenAddr } = await deploy(deployer, 'TestERC20', 
-    ['Jeju', 'JEJU', parseEther('1000000000')]);
+    ['Network', 'JEJU', parseEther('1000000000')]);
   
   const { address: identityAddr, contract: identity } = await deploy(deployer, 'IdentityRegistry', []);
   

@@ -98,17 +98,17 @@ contract DeployLocal is Script {
         // Register tokens in bridge (mock Solana addresses)
         bridge.registerToken(
             address(usdc),
-            bytes32(uint256(0xUSDC << 192)),
+            bytes32(keccak256("USDC_MINT")),
             true
         );
         bridge.registerToken(
             address(weth),
-            bytes32(uint256(0xWETH << 192)),
+            bytes32(keccak256("WETH_MINT")),
             true
         );
         bridge.registerToken(
             address(xct),
-            bytes32(uint256(0xXCT0 << 192)),
+            bytes32(keccak256("XCT_MINT")),
             true
         );
 

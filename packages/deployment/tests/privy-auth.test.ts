@@ -1,7 +1,7 @@
 /**
  * Privy Authentication Integration Tests
  *
- * Tests the Privy authentication flow for Jeju apps:
+ * Tests the Privy authentication flow for network apps:
  * - Token verification
  * - User lookup
  * - Wallet address extraction

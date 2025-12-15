@@ -1,5 +1,5 @@
 /**
- * Council Encryption - CEO Decision Encryption using Jeju KMS
+ * Council Encryption - CEO Decision Encryption using the network KMS
  *
  * Uses AES-256-GCM encryption with policy-based access control.
  * Decryption requires:
@@ -73,7 +73,7 @@ let initialized = false;
 async function initEncryption(): Promise<void> {
   if (initialized) return;
   initialized = true;
-  console.log('[Encryption] Initialized with Jeju KMS');
+  console.log('[Encryption] Initialized with network KMS');
 }
 
 /**

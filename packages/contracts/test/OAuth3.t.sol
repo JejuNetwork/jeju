@@ -382,11 +382,13 @@ contract OAuth3Test is Test {
         assertEq(activeNodes.length, 2);
     }
 
-    function testFail_registerNodeInsufficientStake() public {
+    function test_RevertWhen_registerNodeInsufficientStake() public {
         bytes32 nodeId = keccak256("low-stake-node");
         bytes memory attestation = _createMockAttestation();
 
         vm.deal(address(this), 0.5 ether);
+        
+        vm.expectRevert("Insufficient stake");
         teeVerifier.registerNode{value: 0.5 ether}(nodeId, attestation, keccak256("key"));
     }
 

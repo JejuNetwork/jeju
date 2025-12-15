@@ -76,4 +76,3 @@ export type {
   // Events
   CQLEvent,
 } from './types.js';
-

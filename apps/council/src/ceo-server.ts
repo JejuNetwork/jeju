@@ -101,10 +101,10 @@ app.use('/*', cors());
 app.get('/.well-known/agent-card.json', (c) => c.json({
   protocolVersion: '0.3.0',
   name: 'Eliza - AI CEO',
-  description: 'AI CEO of Jeju DAO. Makes final decisions on proposals with TEE attestation.',
+  description: 'AI CEO of Network DAO. Makes final decisions on proposals with TEE attestation.',
   url: '/a2a',
   preferredTransport: 'http',
-  provider: { organization: 'Jeju Network', url: 'https://jeju.network' },
+  provider: { organization: 'the network', url: 'https://jeju.network' },
   version: '1.0.0',
   capabilities: {
     streaming: false,
@@ -513,7 +513,7 @@ async function processCEOMessage(runtime: AgentRuntime, text: string): Promise<s
   }
 
   // Default response
-  return `I am Eliza, the AI CEO of Jeju DAO. I can help you with:
+  return `I am Eliza, the AI CEO of Network DAO. I can help you with:
 
 • Make decisions on proposals (provide proposal ID)
 • View governance dashboard
@@ -551,7 +551,7 @@ app.get('/health', async (c) => {
 app.get('/', (c) => c.json({
   name: 'Eliza - AI CEO',
   version: '1.0.0',
-  description: 'AI CEO of Jeju DAO with ElizaOS runtime',
+  description: 'AI CEO of Network DAO with ElizaOS runtime',
   endpoints: {
     a2a: '/a2a',
     mcp: '/mcp',

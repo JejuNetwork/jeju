@@ -20,13 +20,13 @@ const BRIDGE_COSTS: BridgeCost[] = [
   { sourceChainId: 1, destChainId: 42161, baseCost: BigInt(1e15), timeSec: 600 }, // ~$3
   { sourceChainId: 1, destChainId: 10, baseCost: BigInt(1e15), timeSec: 600 },
   { sourceChainId: 1, destChainId: 8453, baseCost: BigInt(1e15), timeSec: 600 },
-  { sourceChainId: 1, destChainId: 420691, baseCost: BigInt(5e14), timeSec: 300 }, // Jeju
+  { sourceChainId: 1, destChainId: 420691, baseCost: BigInt(5e14), timeSec: 300 }, // Network
   // L2 -> Ethereum (7 day withdrawal, or fast via EIL)
   { sourceChainId: 42161, destChainId: 1, baseCost: BigInt(2e15), timeSec: 60 }, // Fast via EIL
   { sourceChainId: 10, destChainId: 1, baseCost: BigInt(2e15), timeSec: 60 },
   { sourceChainId: 8453, destChainId: 1, baseCost: BigInt(2e15), timeSec: 60 },
-  { sourceChainId: 420691, destChainId: 1, baseCost: BigInt(1e15), timeSec: 30 }, // Jeju fast
-  // L2 <-> L2 (via Jeju or fast bridges)
+  { sourceChainId: 420691, destChainId: 1, baseCost: BigInt(1e15), timeSec: 30 }, // Network fast
+  // L2 <-> L2 (via the network or fast bridges)
   { sourceChainId: 42161, destChainId: 10, baseCost: BigInt(1e15), timeSec: 120 },
   { sourceChainId: 42161, destChainId: 8453, baseCost: BigInt(1e15), timeSec: 120 },
   { sourceChainId: 10, destChainId: 8453, baseCost: BigInt(1e15), timeSec: 120 },
@@ -90,8 +90,8 @@ export class CrossChainArbStrategy {
       lastUpdate: Date.now(),
     });
 
-    // Check for arbitrage opportunities
-    this.checkArbitrageForToken(token);
+    // Check for arbitrage opportunities (fire and forget)
+    void this.checkArbitrageForToken(token);
   }
 
   /**
@@ -153,7 +153,7 @@ export class CrossChainArbStrategy {
 
   // ============ Private Methods ============
 
-  private checkArbitrageForToken(tokenAddress: string): void {
+  private async checkArbitrageForToken(tokenAddress: string): Promise<void> {
     const tokenLower = tokenAddress.toLowerCase();
     const now = Date.now();
 
@@ -195,7 +195,7 @@ export class CrossChainArbStrategy {
     if (!bridgeCost) return;
 
     // Calculate optimal trade size and expected profit
-    const { inputAmount, profit, netProfit } = this.calculateOptimalTrade(
+    const { inputAmount, profit, netProfit } = await this.calculateOptimalTrade(
       minPrice,
       maxPrice,
       bridgeCost
@@ -211,11 +211,11 @@ export class CrossChainArbStrategy {
     this.recordOpportunity(tokenLower, minPrice, maxPrice, inputAmount, profit, netProfit, priceDiffBps, bridgeCost);
   }
 
-  private calculateOptimalTrade(
+  private async calculateOptimalTrade(
     buyPrice: ChainPrice,
     sellPrice: ChainPrice,
     bridgeCost: BridgeCost
-  ): { inputAmount: bigint; profit: bigint; netProfit: bigint } {
+  ): Promise<{ inputAmount: bigint; profit: bigint; netProfit: bigint }> {
     // Simple calculation: trade up to 1% of smaller reserve
     const maxTradeSize = (buyPrice.reserve < sellPrice.reserve ? buyPrice.reserve : sellPrice.reserve) / 100n;
 

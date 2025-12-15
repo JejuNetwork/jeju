@@ -12,13 +12,13 @@ export default defineWalletSetup(PASSWORD, async (context, walletPage) => {
   await metamask.importWallet(SEED_PHRASE)
 
   await metamask.addNetwork({
-    name: 'Jeju Local',
+    name: 'Network Local',
     rpcUrl: JEJU_RPC_URL,
     chainId: JEJU_CHAIN_ID,
     symbol: 'ETH',
   })
 
-  await metamask.switchNetwork('Jeju Local')
+  await metamask.switchNetwork('Network Local')
 })
 
 export { PASSWORD, SEED_PHRASE }

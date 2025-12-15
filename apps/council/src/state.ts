@@ -57,8 +57,8 @@ async function getCQLClient(): Promise<CQLClient> {
     if (!cqlNodes && CQL_REQUIRED) {
       throw new Error(
         'Council requires CovenantSQL for decentralized state storage.\n' +
-        'Set COVENANTSQL_NODES environment variable or start decentralized stack:\n' +
-        '  docker compose -f docker-compose.decentralized.yml up -d\n' +
+        'Set COVENANTSQL_NODES environment variable or start stack:\n' +
+        '  docker compose up -d\n' +
         '\n' +
         'Or set CQL_REQUIRED=false for local testing only (not recommended for production).'
       );

@@ -1,7 +1,7 @@
 /**
- * Jeju Compute SDK
+ * Network Compute SDK
  *
- * Client library for interacting with the Jeju Compute Marketplace
+ * Client library for interacting with the Compute Marketplace
  */
 
 import {
@@ -165,9 +165,9 @@ import {
 import type { Address } from 'viem';
 
 /**
- * Jeju Compute SDK
+ * Network Compute SDK
  */
-export class JejuComputeSDK {
+export class ComputeSDK {
   private rpcProvider: JsonRpcProvider;
   private signer: Wallet | null;
   private registry: Contract;
@@ -1431,8 +1431,8 @@ export function createSDK(config: {
   ledgerAddress: string;
   inferenceAddress: string;
   rentalAddress?: string;
-}): JejuComputeSDK {
-  return new JejuComputeSDK({
+}): ComputeSDK {
+  return new ComputeSDK({
     rpcUrl: config.rpcUrl,
     signer: config.privateKey ? new Wallet(config.privateKey) : undefined,
     contracts: {

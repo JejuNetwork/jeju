@@ -1,0 +1,387 @@
+import {
+  createPublicClient,
+  createWalletClient,
+  http,
+  type PublicClient,
+  type WalletClient,
+  type Address,
+  type Hex,
+  type Chain,
+  keccak256,
+  encodePacked,
+  encodeAbiParameters,
+  parseAbiParameters,
+} from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import type {
+  FederationConfig,
+  NetworkInfo,
+  NetworkContracts,
+  FederatedAgent,
+  FederatedSolver,
+  NetworkLiquidity,
+  TrustRelation,
+  RouteInfo,
+  IdentityVerification,
+  XLP,
+} from './types';
+import { NETWORK_REGISTRY_ABI, FEDERATED_IDENTITY_ABI, FEDERATED_SOLVER_ABI, FEDERATED_LIQUIDITY_ABI } from './abis';
+
+export class FederationClient {
+  private config: FederationConfig;
+  private hubClient: PublicClient;
+  private localClient: PublicClient;
+  private walletClient?: WalletClient;
+
+  constructor(config: FederationConfig) {
+    this.config = config;
+    this.hubClient = createPublicClient({ transport: http(config.hubRpcUrl) });
+    this.localClient = createPublicClient({ transport: http(config.localRpcUrl) });
+  }
+
+  setWallet(privateKey: Hex): void {
+    const account = privateKeyToAccount(privateKey);
+    this.walletClient = createWalletClient({
+      account,
+      transport: http(this.config.hubRpcUrl),
+    });
+  }
+
+  async registerNetwork(
+    name: string,
+    rpcUrl: string,
+    explorerUrl: string,
+    wsUrl: string,
+    contracts: NetworkContracts,
+    genesisHash: Hex,
+    stake: bigint
+  ): Promise<Hex> {
+    if (!this.walletClient) throw new Error('Wallet not configured');
+
+    const hash = await this.walletClient.writeContract({
+      address: this.config.networkRegistryAddress,
+      abi: NETWORK_REGISTRY_ABI,
+      functionName: 'registerNetwork',
+      args: [
+        BigInt(this.config.localChainId),
+        name,
+        rpcUrl,
+        explorerUrl,
+        wsUrl,
+        contracts,
+        genesisHash,
+      ],
+      value: stake,
+      chain: null,
+      account: this.walletClient.account!,
+    });
+
+    return hash;
+  }
+
+  async updateNetwork(
+    name: string,
+    rpcUrl: string,
+    explorerUrl: string,
+    wsUrl: string
+  ): Promise<Hex> {
+    if (!this.walletClient) throw new Error('Wallet not configured');
+
+    return this.walletClient.writeContract({
+      address: this.config.networkRegistryAddress,
+      abi: NETWORK_REGISTRY_ABI,
+      functionName: 'updateNetwork',
+      args: [BigInt(this.config.localChainId), name, rpcUrl, explorerUrl, wsUrl],
+      chain: null,
+      account: this.walletClient.account!,
+    });
+  }
+
+  async updateContracts(contracts: NetworkContracts): Promise<Hex> {
+    if (!this.walletClient) throw new Error('Wallet not configured');
+
+    return this.walletClient.writeContract({
+      address: this.config.networkRegistryAddress,
+      abi: NETWORK_REGISTRY_ABI,
+      functionName: 'updateContracts',
+      args: [BigInt(this.config.localChainId), contracts],
+      chain: null,
+      account: this.walletClient.account!,
+    });
+  }
+
+  async establishTrust(targetChainId: number): Promise<Hex> {
+    if (!this.walletClient) throw new Error('Wallet not configured');
+
+    return this.walletClient.writeContract({
+      address: this.config.networkRegistryAddress,
+      abi: NETWORK_REGISTRY_ABI,
+      functionName: 'establishTrust',
+      args: [BigInt(this.config.localChainId), BigInt(targetChainId)],
+      chain: null,
+      account: this.walletClient.account!,
+    });
+  }
+
+  async revokeTrust(targetChainId: number): Promise<Hex> {
+    if (!this.walletClient) throw new Error('Wallet not configured');
+
+    return this.walletClient.writeContract({
+      address: this.config.networkRegistryAddress,
+      abi: NETWORK_REGISTRY_ABI,
+      functionName: 'revokeTrust',
+      args: [BigInt(this.config.localChainId), BigInt(targetChainId)],
+      chain: null,
+      account: this.walletClient.account!,
+    });
+  }
+
+  async getNetwork(chainId: number): Promise<NetworkInfo> {
+    const result = await this.hubClient.readContract({
+      address: this.config.networkRegistryAddress,
+      abi: NETWORK_REGISTRY_ABI,
+      functionName: 'getNetwork',
+      args: [BigInt(chainId)],
+    }) as NetworkInfo;
+    return result;
+  }
+
+  async getActiveNetworks(): Promise<number[]> {
+    const result = await this.hubClient.readContract({
+      address: this.config.networkRegistryAddress,
+      abi: NETWORK_REGISTRY_ABI,
+      functionName: 'getActiveNetworks',
+    }) as bigint[];
+    return result.map(n => Number(n));
+  }
+
+  async getVerifiedNetworks(): Promise<number[]> {
+    const result = await this.hubClient.readContract({
+      address: this.config.networkRegistryAddress,
+      abi: NETWORK_REGISTRY_ABI,
+      functionName: 'getVerifiedNetworks',
+    }) as bigint[];
+    return result.map(n => Number(n));
+  }
+
+  async getTrustedPeers(chainId: number): Promise<number[]> {
+    const result = await this.hubClient.readContract({
+      address: this.config.networkRegistryAddress,
+      abi: NETWORK_REGISTRY_ABI,
+      functionName: 'getTrustedPeers',
+      args: [BigInt(chainId)],
+    }) as bigint[];
+    return result.map(n => Number(n));
+  }
+
+  async isTrusted(sourceChainId: number, targetChainId: number): Promise<boolean> {
+    return this.hubClient.readContract({
+      address: this.config.networkRegistryAddress,
+      abi: NETWORK_REGISTRY_ABI,
+      functionName: 'isTrusted',
+      args: [BigInt(sourceChainId), BigInt(targetChainId)],
+    }) as Promise<boolean>;
+  }
+
+  async isMutuallyTrusted(chainA: number, chainB: number): Promise<boolean> {
+    return this.hubClient.readContract({
+      address: this.config.networkRegistryAddress,
+      abi: NETWORK_REGISTRY_ABI,
+      functionName: 'isMutuallyTrusted',
+      args: [BigInt(chainA), BigInt(chainB)],
+    }) as Promise<boolean>;
+  }
+
+  async federateLocalAgent(localAgentId: number, signature: Hex): Promise<Hex> {
+    if (!this.walletClient || !this.config.federatedIdentityAddress) {
+      throw new Error('Wallet or FederatedIdentity not configured');
+    }
+
+    return this.walletClient.writeContract({
+      address: this.config.federatedIdentityAddress,
+      abi: FEDERATED_IDENTITY_ABI,
+      functionName: 'federateLocalAgent',
+      args: [BigInt(localAgentId), signature],
+      chain: null,
+      account: this.walletClient.account!,
+    });
+  }
+
+  async verifyIdentity(originChainId: number, originAgentId: number): Promise<IdentityVerification> {
+    if (!this.config.federatedIdentityAddress) {
+      throw new Error('FederatedIdentity not configured');
+    }
+
+    const [isValid, federatedId, reputation] = await this.localClient.readContract({
+      address: this.config.federatedIdentityAddress,
+      abi: FEDERATED_IDENTITY_ABI,
+      functionName: 'verifyIdentity',
+      args: [BigInt(originChainId), BigInt(originAgentId)],
+    }) as [boolean, Hex, bigint];
+
+    let attestedNetworks: number[] = [];
+    if (isValid) {
+      const attestations = await this.localClient.readContract({
+        address: this.config.federatedIdentityAddress,
+        abi: FEDERATED_IDENTITY_ABI,
+        functionName: 'getAttestations',
+        args: [federatedId],
+      }) as Array<{ targetChainId: bigint }>;
+      attestedNetworks = attestations.map(a => Number(a.targetChainId));
+    }
+
+    return {
+      isValid,
+      federatedId,
+      reputation: Number(reputation),
+      attestedNetworks,
+    };
+  }
+
+  async federateSolver(supportedChains: number[]): Promise<Hex> {
+    if (!this.walletClient || !this.config.federatedSolverAddress) {
+      throw new Error('Wallet or FederatedSolver not configured');
+    }
+
+    return this.walletClient.writeContract({
+      address: this.config.federatedSolverAddress,
+      abi: FEDERATED_SOLVER_ABI,
+      functionName: 'federateLocalSolver',
+      args: [supportedChains.map(c => BigInt(c))],
+      chain: null,
+      account: this.walletClient.account!,
+    });
+  }
+
+  async getSolversForRoute(sourceChainId: number, destChainId: number): Promise<Hex[]> {
+    if (!this.config.federatedSolverAddress) {
+      throw new Error('FederatedSolver not configured');
+    }
+
+    return this.localClient.readContract({
+      address: this.config.federatedSolverAddress,
+      abi: FEDERATED_SOLVER_ABI,
+      functionName: 'getSolversForRoute',
+      args: [BigInt(sourceChainId), BigInt(destChainId)],
+    }) as Promise<Hex[]>;
+  }
+
+  async getBestSolverForRoute(sourceChainId: number, destChainId: number): Promise<{
+    solverId: Hex;
+    stake: bigint;
+    successRate: number;
+  }> {
+    if (!this.config.federatedSolverAddress) {
+      throw new Error('FederatedSolver not configured');
+    }
+
+    const [solverId, stake, successRate] = await this.localClient.readContract({
+      address: this.config.federatedSolverAddress,
+      abi: FEDERATED_SOLVER_ABI,
+      functionName: 'getBestSolverForRoute',
+      args: [BigInt(sourceChainId), BigInt(destChainId)],
+    }) as [Hex, bigint, bigint];
+
+    return {
+      solverId,
+      stake,
+      successRate: Number(successRate),
+    };
+  }
+
+  async registerXLP(supportedChains: number[]): Promise<Hex> {
+    if (!this.walletClient || !this.config.federatedLiquidityAddress) {
+      throw new Error('Wallet or FederatedLiquidity not configured');
+    }
+
+    return this.walletClient.writeContract({
+      address: this.config.federatedLiquidityAddress,
+      abi: FEDERATED_LIQUIDITY_ABI,
+      functionName: 'registerXLP',
+      args: [supportedChains.map(c => BigInt(c))],
+      chain: null,
+      account: this.walletClient.account!,
+    });
+  }
+
+  async getTotalFederatedLiquidity(): Promise<{ totalEth: bigint; totalToken: bigint }> {
+    if (!this.config.federatedLiquidityAddress) {
+      throw new Error('FederatedLiquidity not configured');
+    }
+
+    const [totalEth, totalToken] = await this.localClient.readContract({
+      address: this.config.federatedLiquidityAddress,
+      abi: FEDERATED_LIQUIDITY_ABI,
+      functionName: 'getTotalFederatedLiquidity',
+    }) as [bigint, bigint];
+
+    return { totalEth, totalToken };
+  }
+
+  async getBestNetworkForLiquidity(amount: bigint): Promise<{ chainId: number; available: bigint }> {
+    if (!this.config.federatedLiquidityAddress) {
+      throw new Error('FederatedLiquidity not configured');
+    }
+
+    const [chainId, available] = await this.localClient.readContract({
+      address: this.config.federatedLiquidityAddress,
+      abi: FEDERATED_LIQUIDITY_ABI,
+      functionName: 'getBestNetworkForLiquidity',
+      args: [amount],
+    }) as [bigint, bigint];
+
+    return { chainId: Number(chainId), available };
+  }
+
+  async createLiquidityRequest(
+    token: Address,
+    amount: bigint,
+    targetChainId: number
+  ): Promise<Hex> {
+    if (!this.walletClient || !this.config.federatedLiquidityAddress) {
+      throw new Error('Wallet or FederatedLiquidity not configured');
+    }
+
+    const isETH = token === '0x0000000000000000000000000000000000000000';
+
+    return this.walletClient.writeContract({
+      address: this.config.federatedLiquidityAddress,
+      abi: FEDERATED_LIQUIDITY_ABI,
+      functionName: 'createRequest',
+      args: [token, amount, BigInt(targetChainId)],
+      value: isETH ? amount : 0n,
+      chain: null,
+      account: this.walletClient.account!,
+    });
+  }
+
+  async getXLPsForRoute(sourceChain: number, destChain: number): Promise<Address[]> {
+    if (!this.config.federatedLiquidityAddress) {
+      throw new Error('FederatedLiquidity not configured');
+    }
+
+    return this.localClient.readContract({
+      address: this.config.federatedLiquidityAddress,
+      abi: FEDERATED_LIQUIDITY_ABI,
+      functionName: 'getXLPsForRoute',
+      args: [BigInt(sourceChain), BigInt(destChain)],
+    }) as Promise<Address[]>;
+  }
+
+  computeFederatedAgentId(chainId: number, agentId: number): Hex {
+    return keccak256(
+      encodePacked(['string', 'uint256', 'string', 'uint256'], ['jeju:federated:', BigInt(chainId), ':', BigInt(agentId)])
+    );
+  }
+
+  computeFederatedSolverId(solver: Address, chainId: number): Hex {
+    return keccak256(
+      encodePacked(['string', 'uint256', 'string', 'address'], ['jeju:solver:', BigInt(chainId), ':', solver])
+    );
+  }
+}
+
+export function createFederationClient(config: FederationConfig): FederationClient {
+  return new FederationClient(config);
+}
+

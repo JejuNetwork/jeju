@@ -1,12 +1,47 @@
 /**
  * Bazaar A2A Server
  * 
- * Agent-to-agent interface for the Jeju Bazaar marketplace.
+ * Agent-to-agent interface for the marketplace.
  * Supports token launches, ICO participation, and marketplace operations.
  */
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { NETWORK_NAME } from '@/config';
+
+// Client-safe A2A helpers (avoiding @jejunetwork/shared which uses fs)
+function getServiceName(service: string): string {
+  return `${NETWORK_NAME} ${service}`;
+}
+
+function createAgentCard(options: {
+  name: string;
+  description: string;
+  url?: string;
+  version?: string;
+  skills?: Array<{ id: string; name: string; description: string; tags?: string[] }>;
+}) {
+  return {
+    protocolVersion: '0.3.0',
+    name: `${NETWORK_NAME} ${options.name}`,
+    description: options.description,
+    url: options.url || '/api/a2a',
+    preferredTransport: 'http',
+    provider: {
+      organization: NETWORK_NAME,
+      url: 'https://jeju.network',
+    },
+    version: options.version || '1.0.0',
+    capabilities: {
+      streaming: false,
+      pushNotifications: false,
+      stateTransitionHistory: true,
+    },
+    defaultInputModes: ['text'],
+    defaultOutputModes: ['text'],
+    skills: options.skills || [],
+  };
+}
 
 // ============================================================================
 // Types
@@ -33,18 +68,7 @@ interface SkillResult {
 // Agent Card
 // ============================================================================
 
-export const BAZAAR_AGENT_CARD = {
-  protocolVersion: '0.3.0',
-  name: 'Jeju Bazaar',
-  description: 'Decentralized marketplace for token launches, ICOs, and NFT trading',
-  url: '/api/a2a',
-  preferredTransport: 'http',
-  provider: { organization: 'Jeju Network', url: 'https://jeju.network' },
-  version: '1.0.0',
-  capabilities: { streaming: false, pushNotifications: false, stateTransitionHistory: false },
-  defaultInputModes: ['text', 'data'],
-  defaultOutputModes: ['text', 'data'],
-  skills: [
+const BAZAAR_SKILLS = [
     // Token Launch Skills
     { id: 'list-launches', name: 'List Token Launches', description: 'Get all active and upcoming token launches', tags: ['query', 'launches'] },
     { id: 'get-launch', name: 'Get Launch Details', description: 'Get details of a specific token launch', tags: ['query', 'launch'] },
@@ -77,8 +101,13 @@ export const BAZAAR_AGENT_CARD = {
     // Analytics Skills
     { id: 'get-market-stats', name: 'Get Market Stats', description: 'Get overall marketplace statistics', tags: ['query', 'stats'] },
     { id: 'get-trending', name: 'Get Trending', description: 'Get trending tokens and collections', tags: ['query', 'trending'] },
-  ],
-};
+];
+
+export const BAZAAR_AGENT_CARD = createAgentCard({
+  name: 'Bazaar',
+  description: 'Decentralized marketplace for token launches, ICOs, and NFT trading',
+  skills: BAZAAR_SKILLS,
+});
 
 // ============================================================================
 // Skill Execution
@@ -118,7 +147,7 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
           id: launchId,
           name: 'JEJU Token',
           symbol: 'JEJU',
-          description: 'Governance and utility token for the Jeju Network',
+          description: 'Governance and utility token for the Network',
           totalSupply: '100000000',
           price: '0.05',
           currency: 'USDC',
@@ -312,7 +341,7 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
             { symbol: 'ETH', balance: '2.5', value: '5000' },
           ],
           nfts: [
-            { collection: 'Jeju Genesis', count: 3, floorValue: '0.3' },
+            { collection: 'Genesis', count: 3, floorValue: '0.3' },
           ],
           totalValue: '5500',
         },

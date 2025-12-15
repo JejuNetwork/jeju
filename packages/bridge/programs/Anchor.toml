@@ -3,12 +3,12 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-evm_light_client = "EVMLightClient1111111111111111111111111111"
-token_bridge = "TokenBridge11111111111111111111111111111111"
+evm_light_client = "EVMLightCL1111111111111111111111111111111111"
+token_bridge = "TknBridge1111111111111111111111111111111111"
 
 [programs.devnet]
-evm_light_client = "EVMLightClient1111111111111111111111111111"
-token_bridge = "TokenBridge11111111111111111111111111111111"
+evm_light_client = "EVMLightCL1111111111111111111111111111111111"
+token_bridge = "TknBridge1111111111111111111111111111111111"
 
 [registry]
 url = "https://api.apr.dev"

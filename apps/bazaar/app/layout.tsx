@@ -25,10 +25,10 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Bazaar - Agent Marketplace on Jeju',
-  description: 'The fun, light-hearted marketplace for tokens, NFTs, prediction markets, and more. Trade, swap, and discover on Jeju.',
-  keywords: ['DeFi', 'NFT', 'marketplace', 'tokens', 'prediction markets', 'Jeju', 'crypto'],
-  authors: [{ name: 'Jeju Network' }],
+  title: 'Bazaar - Agent Marketplace on the network',
+  description: 'The fun, light-hearted marketplace for tokens, NFTs, prediction markets, and more. Trade, swap, and discover on the network.',
+  keywords: ['DeFi', 'NFT', 'marketplace', 'tokens', 'prediction markets', 'Network', 'crypto'],
+  authors: [{ name: 'the network' }],
 }
 
 export const viewport: Viewport = {
@@ -86,7 +86,7 @@ export default function RootLayout({
                     <span className="font-bold text-gradient">Bazaar</span>
                   </div>
                   <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
-                    Powered by Jeju Network
+                    Powered by the network
                   </p>
                 </div>
               </div>

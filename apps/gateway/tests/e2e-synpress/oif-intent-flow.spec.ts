@@ -23,7 +23,7 @@ const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
 
 test.describe('OIF Cross-Chain Intent Flow', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     // Navigate to Gateway
     await page.goto('/');
     
@@ -35,7 +35,7 @@ test.describe('OIF Cross-Chain Intent Flow', () => {
     }
   });
 
-  test('should display OIF contracts status', async ({ _page }) => {
+  test('should display OIF contracts status', async ({ page }) => {
     // Navigate to Cross-Chain Intent section (could be its own tab or part of transfer)
     const intentTab = page.locator('text=Cross-Chain Intent').first();
     const transferTab = page.locator('text=Cross-Chain Transfer').first();
@@ -54,7 +54,7 @@ test.describe('OIF Cross-Chain Intent Flow', () => {
     expect(hasOIF || hasIntent || hasTransfer).toBe(true);
   });
 
-  test('should show available chains for cross-chain intents', async ({ _page }) => {
+  test('should show available chains for cross-chain intents', async ({ page }) => {
     const transferTab = page.locator('text=Cross-Chain Transfer').first();
     if (await transferTab.isVisible()) {
       await transferTab.click();
@@ -68,7 +68,7 @@ test.describe('OIF Cross-Chain Intent Flow', () => {
     expect(hasChainSelector).toBe(true);
   });
 
-  test('should display solver/XLP liquidity info', async ({ _page }) => {
+  test('should display solver/XLP liquidity info', async ({ page }) => {
     const transferTab = page.locator('text=Cross-Chain Transfer').first();
     if (await transferTab.isVisible()) {
       await transferTab.click();
@@ -83,7 +83,7 @@ test.describe('OIF Cross-Chain Intent Flow', () => {
     expect(hasLiquidity || hasXLP || hasSolver).toBe(true);
   });
 
-  test('should validate amount input', async ({ _page }) => {
+  test('should validate amount input', async ({ page }) => {
     const transferTab = page.locator('text=Cross-Chain Transfer').first();
     if (await transferTab.isVisible()) {
       await transferTab.click();
@@ -113,7 +113,7 @@ test.describe('OIF Cross-Chain Intent Flow', () => {
     }
   });
 
-  test('should show fee estimate for cross-chain transfer', async ({ _page }) => {
+  test('should show fee estimate for cross-chain transfer', async ({ page }) => {
     const transferTab = page.locator('text=Cross-Chain Transfer').first();
     if (await transferTab.isVisible()) {
       await transferTab.click();
@@ -138,7 +138,7 @@ test.describe('OIF Cross-Chain Intent Flow', () => {
     }
   });
 
-  test('should show time estimate for settlement', async ({ _page }) => {
+  test('should show time estimate for settlement', async ({ page }) => {
     const transferTab = page.locator('text=Cross-Chain Transfer').first();
     if (await transferTab.isVisible()) {
       await transferTab.click();
@@ -153,7 +153,7 @@ test.describe('OIF Cross-Chain Intent Flow', () => {
     expect(hasTime || hasMinutes || hasSeconds || hasInstant).toBe(true);
   });
 
-  test('should explain OIF protocol', async ({ _page }) => {
+  test('should explain OIF protocol', async ({ page }) => {
     const transferTab = page.locator('text=Cross-Chain Transfer').first();
     if (await transferTab.isVisible()) {
       await transferTab.click();
@@ -169,7 +169,7 @@ test.describe('OIF Cross-Chain Intent Flow', () => {
 });
 
 test.describe('OIF Intent History', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto('/');
     
     const connectButton = page.locator('button:has-text("Connect Wallet")');
@@ -179,7 +179,7 @@ test.describe('OIF Intent History', () => {
     }
   });
 
-  test('should show intent history section', async ({ _page }) => {
+  test('should show intent history section', async ({ page }) => {
     // Navigate to history tab or section
     const historyTab = page.locator('text=History').first();
     const activityTab = page.locator('text=Activity').first();
@@ -201,7 +201,7 @@ test.describe('OIF Intent History', () => {
     expect(hasHistory).toBe(true);
   });
 
-  test('should show empty state for new users', async ({ _page }) => {
+  test('should show empty state for new users', async ({ page }) => {
     const historyTab = page.locator('text=History').first();
     if (await historyTab.isVisible()) {
       await historyTab.click();
@@ -219,7 +219,7 @@ test.describe('OIF Intent History', () => {
 });
 
 test.describe('OIF Solver Integration', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto('/');
     
     const connectButton = page.locator('button:has-text("Connect Wallet")');
@@ -229,7 +229,7 @@ test.describe('OIF Solver Integration', () => {
     }
   });
 
-  test('should show solver status when available', async ({ _page }) => {
+  test('should show solver status when available', async ({ page }) => {
     // Navigate to solver/XLP section if it exists
     const xlpTab = page.locator('text=XLP').first();
     const solverTab = page.locator('text=Solver').first();
@@ -248,7 +248,7 @@ test.describe('OIF Solver Integration', () => {
     expect(hasActive || hasOnline || hasStake || true).toBe(true);
   });
 
-  test('should display contract addresses for transparency', async ({ _page }) => {
+  test('should display contract addresses for transparency', async ({ page }) => {
     // Look for contract address display
     const hasAddress = await page.locator('text=0x').isVisible();
     const hasContract = await page.locator('text=Contract').isVisible();
@@ -261,7 +261,7 @@ test.describe('OIF Solver Integration', () => {
 });
 
 test.describe('Cross-Chain Route Validation', () => {
-  test('Sepolia to Base Sepolia route should be valid', async ({ _page, _metamask }) => {
+  test('Sepolia to Base Sepolia route should be valid', async ({ page, metamask }) => {
     await page.goto('/');
     
     const connectButton = page.locator('button:has-text("Connect Wallet")');

@@ -1,5 +1,5 @@
 /**
- * Standard Bridge ABI and Helpers for Ethereum ↔ Jeju Token Transfers
+ * Standard Bridge ABI and Helpers for Ethereum ↔ Network Token Transfers
  */
 
 import type { Address } from 'viem';
@@ -145,7 +145,7 @@ export const OP_STACK_PREDEPLOYS = {
 } as const;
 
 /**
- * Bridge configuration for Ethereum ↔ Jeju
+ * Bridge configuration for Ethereum ↔ Network
  */
 export interface BridgeParams {
   sourceChain: 'ethereum' | 'jeju';
@@ -160,8 +160,8 @@ export interface BridgeParams {
  * Calculate estimated bridge time
  */
 export function estimateBridgeTime(params: BridgeParams): number {
-  // Ethereum → Jeju: ~15 minutes
-  // Jeju → Ethereum: 7 days (challenge period)
+  // Ethereum → Network: ~15 minutes
+  // Network → Ethereum: 7 days (challenge period)
   if (params.sourceChain === 'ethereum' && params.destinationChain === 'jeju') {
     return 900; // 15 minutes in seconds
   }

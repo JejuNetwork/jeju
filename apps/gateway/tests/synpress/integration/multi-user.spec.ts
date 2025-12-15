@@ -13,7 +13,7 @@ const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
 
 test.describe('Multi-User LP Scenarios', () => {
-  test('should show different LP positions for different users', async ({ _page, _metamask }) => {
+  test('should show different LP positions for different users', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 
@@ -37,7 +37,7 @@ test.describe('Multi-User LP Scenarios', () => {
     console.log('✅ User-specific LP positions tested');
   });
 
-  test.skip('should not show other users LP positions', async ({ _page }) => {
+  test.skip('should not show other users LP positions', async ({ page }) => {
     // TODO: Switch to second account and verify positions are different
     // Requires: await metamask.switchAccount(1);
 
@@ -46,7 +46,7 @@ test.describe('Multi-User LP Scenarios', () => {
 });
 
 test.describe('Multi-User Node Scenarios', () => {
-  test('should show only operator-owned nodes in My Nodes', async ({ _page, _metamask }) => {
+  test('should show only operator-owned nodes in My Nodes', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 
@@ -72,7 +72,7 @@ test.describe('Multi-User Node Scenarios', () => {
     }
   });
 
-  test('should show all network nodes in Network Overview', async ({ _page, _metamask }) => {
+  test('should show all network nodes in Network Overview', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 
@@ -93,7 +93,7 @@ test.describe('Multi-User Node Scenarios', () => {
 });
 
 test.describe('Multi-User App Registry Scenarios', () => {
-  test('should show all registered apps in browse (not just owned)', async ({ _page, _metamask }) => {
+  test('should show all registered apps in browse (not just owned)', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 
@@ -130,7 +130,7 @@ test.describe('Multi-User App Registry Scenarios', () => {
     console.log('✅ All apps visible in browse (multi-user)');
   });
 
-  test('should show owner actions only for owned apps', async ({ _page, _metamask }) => {
+  test('should show owner actions only for owned apps', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 
@@ -171,7 +171,7 @@ test.describe('Multi-User App Registry Scenarios', () => {
 });
 
 test.describe('Ownership Validation', () => {
-  test('should prevent non-owners from managing apps', async ({ _page, _metamask }) => {
+  test('should prevent non-owners from managing apps', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 
@@ -209,7 +209,7 @@ test.describe('Ownership Validation', () => {
 });
 
 test.describe('Network-Wide vs User-Specific Data', () => {
-  test('should distinguish network stats from user stats', async ({ _page, _metamask }) => {
+  test('should distinguish network stats from user stats', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 

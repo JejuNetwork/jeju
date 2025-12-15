@@ -1,6 +1,6 @@
 /**
- * Jeju Shared Package
- * Common hooks, components, APIs, database, cache, secrets, triggers, and utilities for Jeju apps
+ * Network Shared Package
+ * Common hooks, components, APIs, and utilities used across all network apps
  */
 
 // Hooks
@@ -46,57 +46,45 @@ export {
   healthChecks,
 } from './health-middleware';
 
-// Decentralized Cache
+// Branding
 export {
-  getCacheClient,
-  getCacheRentalClient,
-  resetCacheClients,
-  resetCacheRentalClient,
-  type CacheClient,
-  type CacheClientConfig,
-  type CacheStats,
-  type CacheInstance,
-  type CacheRentalPlan,
-  CacheRentalClient,
-} from './cache';
+  getBrandingCssVars,
+  applyBrandingToDocument,
+} from './branding';
 
-// Decentralized Secrets
+// Chains
 export {
-  getSecretsLoader,
-  initializeSecrets,
-  loadSecretsFromEnv,
-  validateSecrets,
-  resetSecretsLoaders,
-  type SecretsLoader,
-  type SecretsConfig,
-  type SecretMetadata,
-  type AppSecretsConfig,
-} from './secrets';
+  getLocalnetChain,
+  getTestnetChain,
+  getMainnetChain,
+  getNetworkChains,
+  getChain,
+  getProviderInfo,
+  getServiceName,
+  createAgentCard,
+} from './chains';
 
-// Decentralized Triggers
+// Federation
 export {
-  getTriggerClient,
-  registerAppTriggers,
-  unregisterAppTriggers,
-  resetTriggerClient,
-  type TriggerClient,
-  type TriggerConfig,
-  type Trigger,
-  type CreateTriggerRequest,
-  type TriggerProof,
-  type TriggerStats,
-  type AppTriggerConfig,
-  type AppTriggersConfig,
-} from './triggers';
-
-// Node Authentication
-export {
-  NodeAuth,
-  getNodeAuth,
-  resetNodeAuth,
-  getNodeAddress,
-  nodeSign,
-  initializeNode,
-  type NodeIdentity,
-  type NodeAuthConfig,
-} from './node-auth';
+  FederationClient,
+  createFederationClient,
+  FederationDiscovery,
+  createFederationDiscovery,
+  NETWORK_REGISTRY_ABI,
+  FEDERATED_IDENTITY_ABI,
+  FEDERATED_SOLVER_ABI,
+  FEDERATED_LIQUIDITY_ABI,
+  type FederationConfig,
+  type DiscoveryConfig,
+  type NetworkInfo,
+  type NetworkContracts,
+  type FederatedAgent,
+  type FederatedSolver,
+  type NetworkLiquidity,
+  type TrustRelation,
+  type RouteInfo,
+  type IdentityVerification,
+  type XLP,
+  type LiquidityRequest,
+  type CrossNetworkAttestation,
+} from './federation';

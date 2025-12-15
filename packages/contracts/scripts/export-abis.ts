@@ -17,7 +17,7 @@ const CONTRACTS_TO_EXPORT = [
   { file: 'Bazaar.sol', contract: 'Bazaar' },
   { file: 'IdentityRegistry.sol', contract: 'IdentityRegistry' },
   // Tokens
-  { file: 'JejuToken.sol', contract: 'JejuToken' },
+  { file: 'NetworkToken.sol', contract: 'NetworkToken' },
   // Moderation
   { file: 'BanManager.sol', contract: 'BanManager' },
   { file: 'ModerationMarketplace.sol', contract: 'ModerationMarketplace' },
@@ -42,6 +42,11 @@ const CONTRACTS_TO_EXPORT = [
   { file: 'RegistrationHelper.sol', contract: 'RegistrationHelper' },
   { file: 'MockERC20.sol', contract: 'MockERC20' },
   { file: 'MockAggregator.sol', contract: 'MockAggregatorV3' },
+  // Federation
+  { file: 'NetworkRegistry.sol', contract: 'NetworkRegistry' },
+  { file: 'FederatedIdentity.sol', contract: 'FederatedIdentity' },
+  { file: 'FederatedSolver.sol', contract: 'FederatedSolver' },
+  { file: 'FederatedLiquidity.sol', contract: 'FederatedLiquidity' },
 ];
 
 async function fileExists(path: string): Promise<boolean> {

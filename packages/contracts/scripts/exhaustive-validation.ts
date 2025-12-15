@@ -40,7 +40,7 @@ const DEPLOYER = "0x5dB1268e424da5C26451e4a8B9C221e6DE3C3064" as Address;
 const CHAIN_ID = 84532n;
 
 const CONTRACTS = {
-  MockJejuUSDC: "0x953F6516E5d2864cE7f13186B45dE418EA665EB2" as Address,
+  MockNetworkUSDC: "0x953F6516E5d2864cE7f13186B45dE418EA665EB2" as Address,
   ElizaOSToken: "0x7af64e6aE21076DE21EFe71F243A75664a17C34b" as Address,
   IdentityRegistry: "0x759D602d8D2E4F1ccCa12E955420cC19e64a68bd" as Address,
   SolverRegistry: "0xecfE47302D941c8ce5B0009C0ac2E6D6ee2A42de" as Address,
@@ -199,12 +199,12 @@ async function main() {
   console.log("2️⃣ TOKEN CONTRACT VALIDATION");
   console.log("━".repeat(80));
 
-  // MockJejuUSDC
-  const usdcName = await publicClient.readContract({ address: CONTRACTS.MockJejuUSDC, abi: ERC20_ABI, functionName: "name" });
-  const usdcSymbol = await publicClient.readContract({ address: CONTRACTS.MockJejuUSDC, abi: ERC20_ABI, functionName: "symbol" });
-  const usdcDecimals = await publicClient.readContract({ address: CONTRACTS.MockJejuUSDC, abi: ERC20_ABI, functionName: "decimals" });
-  const usdcOwner = await publicClient.readContract({ address: CONTRACTS.MockJejuUSDC, abi: ERC20_ABI, functionName: "owner" });
-  const usdcBalance = await publicClient.readContract({ address: CONTRACTS.MockJejuUSDC, abi: ERC20_ABI, functionName: "balanceOf", args: [DEPLOYER] });
+  // MockNetworkUSDC
+  const usdcName = await publicClient.readContract({ address: CONTRACTS.MockNetworkUSDC, abi: ERC20_ABI, functionName: "name" });
+  const usdcSymbol = await publicClient.readContract({ address: CONTRACTS.MockNetworkUSDC, abi: ERC20_ABI, functionName: "symbol" });
+  const usdcDecimals = await publicClient.readContract({ address: CONTRACTS.MockNetworkUSDC, abi: ERC20_ABI, functionName: "decimals" });
+  const usdcOwner = await publicClient.readContract({ address: CONTRACTS.MockNetworkUSDC, abi: ERC20_ABI, functionName: "owner" });
+  const usdcBalance = await publicClient.readContract({ address: CONTRACTS.MockNetworkUSDC, abi: ERC20_ABI, functionName: "balanceOf", args: [DEPLOYER] });
 
   validate("USDC", "name = 'USD Coin'", "USD Coin", usdcName);
   validate("USDC", "symbol = 'USDC'", "USDC", usdcSymbol);
@@ -277,7 +277,7 @@ async function main() {
   const outputChainId = await publicClient.readContract({ address: CONTRACTS.OutputSettler, abi: OUTPUT_SETTLER_ABI, functionName: "chainId" });
   const outputVersion = await publicClient.readContract({ address: CONTRACTS.OutputSettler, abi: OUTPUT_SETTLER_ABI, functionName: "version" });
   const outputOwner = await publicClient.readContract({ address: CONTRACTS.OutputSettler, abi: OUTPUT_SETTLER_ABI, functionName: "owner" });
-  const outputLiquidity = await publicClient.readContract({ address: CONTRACTS.OutputSettler, abi: OUTPUT_SETTLER_ABI, functionName: "getSolverLiquidity", args: [DEPLOYER, CONTRACTS.MockJejuUSDC] });
+  const outputLiquidity = await publicClient.readContract({ address: CONTRACTS.OutputSettler, abi: OUTPUT_SETTLER_ABI, functionName: "getSolverLiquidity", args: [DEPLOYER, CONTRACTS.MockNetworkUSDC] });
   const outputETH = await publicClient.readContract({ address: CONTRACTS.OutputSettler, abi: OUTPUT_SETTLER_ABI, functionName: "getSolverETH", args: [DEPLOYER] });
 
   validateNum("OutputSettler", "chainId = 84532", CHAIN_ID, outputChainId);
@@ -382,7 +382,7 @@ async function main() {
   if (existsSync(x402Path)) {
     const x402 = JSON.parse(readFileSync(x402Path, "utf-8"));
     
-    validate("x402.json", "base-sepolia.usdc", CONTRACTS.MockJejuUSDC.toLowerCase(), x402.networks["base-sepolia"].usdc.toLowerCase());
+    validate("x402.json", "base-sepolia.usdc", CONTRACTS.MockNetworkUSDC.toLowerCase(), x402.networks["base-sepolia"].usdc.toLowerCase());
     validate("x402.json", "base-sepolia.chainId", "84532", String(x402.networks["base-sepolia"].chainId));
     
     if (x402.oifContracts?.["base-sepolia"]) {

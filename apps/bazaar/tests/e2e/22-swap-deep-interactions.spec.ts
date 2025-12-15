@@ -128,7 +128,7 @@ test.describe('Swap - Deep Interaction Testing', () => {
     await assertNoPageErrors(page);
     
     // Find swap button with more flexible selector
-    const swapButton = page.getByRole('button', { name: /Swap|Connect Wallet|Switch to Jeju|Contracts Not Deployed/i });
+    const swapButton = page.getByRole('button', { name: /Swap|Connect Wallet|Switch to the network|Contracts Not Deployed/i });
     const buttonExists = await swapButton.first().isVisible({ timeout: 5000 });
     
     if (buttonExists) {

@@ -14,14 +14,14 @@ const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
 
 test.describe('Add Liquidity Transactions', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Add Liquidity/i }).click();
     await page.waitForTimeout(1000);
   });
 
-  test('should add 0.1 ETH liquidity to elizaOS vault', async ({ _page, _metamask }) => {
+  test('should add 0.1 ETH liquidity to elizaOS vault', async ({ page, metamask }) => {
     // Select elizaOS
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
@@ -65,7 +65,7 @@ test.describe('Add Liquidity Transactions', () => {
     console.log('✅ Add liquidity transaction successful');
   });
 
-  test('should add liquidity to multiple token vaults', async ({ _page, _metamask }) => {
+  test('should add liquidity to multiple token vaults', async ({ page, metamask }) => {
     const tokensToTest = ['elizaOS', 'CLANKER', 'VIRTUAL'];
 
     for (const tokenSymbol of tokensToTest) {
@@ -108,7 +108,7 @@ test.describe('Add Liquidity Transactions', () => {
     }
   });
 
-  test('should reject liquidity below minimum (if enforced)', async ({ _page }) => {
+  test('should reject liquidity below minimum (if enforced)', async ({ page }) => {
     // Select token
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
@@ -135,14 +135,14 @@ test.describe('Add Liquidity Transactions', () => {
 });
 
 test.describe('Remove Liquidity Transactions', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Add Liquidity/i }).click();
     await page.waitForTimeout(1000);
   });
 
-  test('should remove all liquidity from position', async ({ _page, _metamask }) => {
+  test('should remove all liquidity from position', async ({ page, metamask }) => {
     // Select elizaOS
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
@@ -194,14 +194,14 @@ test.describe('Remove Liquidity Transactions', () => {
 });
 
 test.describe('Claim Fees Transactions', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /My Earnings/i }).click();
     await page.waitForTimeout(1000);
   });
 
-  test('should claim LP fees for token with pending fees', async ({ _page, _metamask }) => {
+  test('should claim LP fees for token with pending fees', async ({ page, metamask }) => {
     // Check for claim buttons
     const claimButtons = page.getByRole('button', { name: /Claim/i });
     const count = await claimButtons.count();
@@ -242,7 +242,7 @@ test.describe('Claim Fees Transactions', () => {
     console.log('✅ Claim fees transaction successful');
   });
 
-  test('should show empty state if no positions', async ({ _page }) => {
+  test('should show empty state if no positions', async ({ page }) => {
     const emptyState = page.getByText(/No LP Positions/i);
     const hasEmpty = await emptyState.isVisible();
 

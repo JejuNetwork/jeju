@@ -1,0 +1,81 @@
+{
+  "name": "@jejunetwork/sdk",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Network SDK - Full protocol access for compute, storage, DeFi, governance, and cross-chain",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./compute": {
+      "types": "./dist/compute/index.d.ts",
+      "import": "./dist/compute/index.js"
+    },
+    "./storage": {
+      "types": "./dist/storage/index.d.ts",
+      "import": "./dist/storage/index.js"
+    },
+    "./defi": {
+      "types": "./dist/defi/index.d.ts",
+      "import": "./dist/defi/index.js"
+    },
+    "./governance": {
+      "types": "./dist/governance/index.d.ts",
+      "import": "./dist/governance/index.js"
+    },
+    "./names": {
+      "types": "./dist/names/index.d.ts",
+      "import": "./dist/names/index.js"
+    },
+    "./identity": {
+      "types": "./dist/identity/index.d.ts",
+      "import": "./dist/identity/index.js"
+    },
+    "./crosschain": {
+      "types": "./dist/crosschain/index.d.ts",
+      "import": "./dist/crosschain/index.js"
+    },
+    "./payments": {
+      "types": "./dist/payments/index.d.ts",
+      "import": "./dist/payments/index.js"
+    },
+    "./a2a": {
+      "types": "./dist/a2a/index.d.ts",
+      "import": "./dist/a2a/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "bun build.ts",
+    "dev": "bun --watch build.ts",
+    "test": "bun test",
+    "test:unit": "bun test src/**/*.test.ts",
+    "test:integration": "JEJU_NETWORK=localnet bun test test/integration",
+    "test:e2e": "JEJU_NETWORK=testnet bun test test/e2e",
+    "lint": "prettier --write ./src",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "viem": "2.41.2",
+    "permissionless": "^0.2.34",
+    "@jejunetwork/types": "workspace:*",
+    "@jejunetwork/config": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.3.3",
+    "prettier": "^3.2.5"
+  },
+  "peerDependencies": {
+    "zod": "^3.22.4"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
+

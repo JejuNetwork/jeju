@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     service: 'bazaar-a2a',
     version: '1.0.0',
-    description: 'Jeju Bazaar A2A Server',
+    description: 'Network Bazaar A2A Server',
     agentCard: '/api/a2a?card=true',
   });
 }

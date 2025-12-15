@@ -1,5 +1,5 @@
 /**
- * Deploy Messaging Contracts to Jeju Localnet
+ * Deploy Messaging Contracts to the network Localnet
  * 
  * Usage: bun run scripts/deploy-contracts.ts
  */
@@ -21,11 +21,11 @@ import { foundry } from 'viem/chains';
 const RPC_URL = process.env.RPC_URL ?? 'http://127.0.0.1:9545';
 const PRIVATE_KEY = process.env.PRIVATE_KEY ?? '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
 
-// Jeju localnet chain config
+// network localnet chain config
 const jejuLocalnet = {
   ...foundry,
   id: 1337,
-  name: 'Jeju Localnet',
+  name: getLocalnetChain().name,
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
     default: { http: [RPC_URL] },
@@ -45,7 +45,7 @@ const MOCK_TOKEN_BYTECODE = `0x608060405234801561001057600080fd5b50604051610a3a3
 // ============ Main Deployment ============
 
 async function main() {
-  console.log('🚀 Deploying Jeju Messaging Contracts\n');
+  console.log('🚀 Deploying Network Messaging Contracts\n');
   console.log('RPC URL:', RPC_URL);
   
   // Create clients

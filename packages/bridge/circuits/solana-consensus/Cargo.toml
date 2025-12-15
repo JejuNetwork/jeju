@@ -1,14 +1,16 @@
 [package]
-name = "solana-consensus"
+name = "solana-tower-bft"
 version = "0.1.0"
 edition = "2021"
-description = "SP1 ZK program for Solana consensus verification (Tower BFT)"
+description = "SP1 ZK program for Solana Tower BFT consensus verification"
 
 [dependencies]
 sp1-zkvm = { workspace = true }
 serde = { workspace = true }
+serde_with = { workspace = true }
+ed25519-dalek = { workspace = true }
 hex = { workspace = true }
 
 [[bin]]
-name = "solana-consensus"
+name = "solana_tower_bft"
 path = "src/main.rs"

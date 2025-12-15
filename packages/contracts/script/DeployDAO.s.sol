@@ -5,9 +5,9 @@ import "forge-std/Script.sol";
 import {MockToken} from "../src/mocks/MockToken.sol";
 import "../src/registry/IdentityRegistry.sol";
 import "../src/registry/ReputationRegistry.sol";
-import "../src/council/Council.sol";
-import "../src/council/CEOAgent.sol";
-import "../src/council/QualityOracle.sol";
+import "../src/governance/council/Council.sol";
+import "../src/governance/council/CEOAgent.sol";
+import "../src/oracle/QualityOracle.sol";
 
 /**
  * @title DeployDAO

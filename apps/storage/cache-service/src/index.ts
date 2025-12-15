@@ -1,5 +1,5 @@
 /**
- * Jeju Cache Service - Decentralized Redis-compatible cache
+ * Network Cache Service - Decentralized Redis-compatible cache
  */
 
 import { Hono, type Context } from 'hono';

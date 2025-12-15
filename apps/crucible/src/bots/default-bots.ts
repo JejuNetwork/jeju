@@ -66,7 +66,7 @@ export const DEFAULT_CHAINS: Record<string, TradingBotChain> = {
   },
   jeju: {
     chainId: 420691,
-    name: 'Jeju',
+    name: 'Network',
     rpcUrl: process.env.JEJU_RPC_URL || 'https://rpc.jeju.network',
     blockTime: 200,
     isL2: true,
@@ -75,7 +75,7 @@ export const DEFAULT_CHAINS: Record<string, TradingBotChain> = {
   },
   jejuTestnet: {
     chainId: 420690,
-    name: 'Jeju Testnet',
+    name: 'Testnet',
     rpcUrl: process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jeju.network',
     blockTime: 200,
     isL2: true,

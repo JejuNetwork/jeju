@@ -34,8 +34,8 @@ export async function generateMetadata({
   // Get the latest weekly summary for meta description if available
   const description =
     userData?.weeklySummaries && userData.weeklySummaries.length > 0
-      ? userData.weeklySummaries[0].summary || "Jeju Network contributor profile"
-      : "Jeju Network contributor profile";
+      ? userData.weeklySummaries[0].summary || "the network contributor profile"
+      : "the network contributor profile";
 
   return {
     title: userData ? `${userData.username}` : "Profile Not Found",

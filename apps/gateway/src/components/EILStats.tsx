@@ -24,7 +24,7 @@ const CHAIN_ICONS: Record<number, string> = {
 };
 
 const CHAIN_NAMES: Record<number, string> = {
-  1: 'Ethereum', 11155111: 'Sepolia', 42161: 'Arbitrum', 10: 'Optimism', 420691: 'Jeju', 420690: 'Jeju Testnet',
+  1: 'Ethereum', 11155111: 'Sepolia', 42161: 'Arbitrum', 10: 'Optimism', 420691: 'Network', 420690: 'Testnet',
 };
 
 async function fetchEILStats(): Promise<{ stats: EILStatsData; chainStats: EILChainStats[] }> {

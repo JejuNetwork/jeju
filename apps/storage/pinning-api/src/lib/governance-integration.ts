@@ -58,7 +58,7 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
 
 const JEJU_CHAIN = {
   id: parseInt(process.env.CHAIN_ID || '1337'),
-  name: 'Jeju',
+  name: 'Network',
   network: 'jeju',
   nativeCurrency: { decimals: 18, name: 'Ether', symbol: 'ETH' },
   rpcUrls: {

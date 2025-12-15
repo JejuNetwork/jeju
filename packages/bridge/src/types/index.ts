@@ -1,19 +1,7 @@
 /**
- * Core Types for EVM↔Solana ZK Light Client Interoperability
- *
- * This module defines all type primitives for:
- * - Solana consensus verification on EVM
- * - EVM consensus verification on Solana
- * - Cross-chain token bridges
- * - ZK proof structures
- * - TEE batching and caching
+ * Core Types for EVM↔Solana ZK Light Client Bridge
  */
 
-// =============================================================================
-// PRIMITIVE TYPES
-// =============================================================================
-
-/** 32-byte hash (Solana pubkey, EVM address padded, etc.) */
 export type Hash32 = Uint8Array & { readonly __brand: 'Hash32' };
 
 /** 64-byte signature (Ed25519) */
@@ -41,11 +29,6 @@ export interface SP1Proof {
   vkeyHash: Hash32;
 }
 
-// =============================================================================
-// SOLANA CONSENSUS TYPES
-// =============================================================================
-
-/** Solana slot number */
 export type Slot = bigint;
 
 /** Solana epoch number */
@@ -108,9 +91,7 @@ export interface SolanaStateCommitment {
   provenAt: bigint;
 }
 
-// =============================================================================
 // ETHEREUM CONSENSUS TYPES (for EVM→Solana direction)
-// =============================================================================
 
 /** Ethereum beacon block root */
 export interface BeaconBlockRoot {
@@ -154,9 +135,7 @@ export interface EthereumStateCommitment {
   provenAt: bigint;
 }
 
-// =============================================================================
 // CROSS-CHAIN TOKEN TYPES
-// =============================================================================
 
 /** Supported chains */
 export enum ChainId {
@@ -279,9 +258,7 @@ export interface TransferRecord {
   };
 }
 
-// =============================================================================
 // CROSS-CHAIN EXECUTION TYPES
-// =============================================================================
 
 /** Types of cross-chain operations beyond token transfers */
 export enum CrossChainOperationType {
@@ -345,9 +322,7 @@ export interface AccountProof {
   blockNumber: bigint;
 }
 
-// =============================================================================
 // TEE BATCHING TYPES
-// =============================================================================
 
 /** TEE attestation for proof batching */
 export interface TEEAttestation {
@@ -407,9 +382,7 @@ export interface TEEBatchingConfig {
   teeEndpoint: string;
 }
 
-// =============================================================================
 // LIGHT CLIENT STATE TYPES
-// =============================================================================
 
 /** Solana light client state on EVM */
 export interface SolanaLightClientState {
@@ -445,9 +418,7 @@ export interface EthereumLightClientState {
   programId: Uint8Array;
 }
 
-// =============================================================================
 // CONFIGURATION TYPES
-// =============================================================================
 
 /** Chain RPC configuration */
 export interface ChainRPCConfig {
@@ -493,9 +464,7 @@ export interface ProverConfig {
   };
 }
 
-// =============================================================================
 // HELPER FUNCTIONS
-// =============================================================================
 
 /** Create a Hash32 from bytes */
 export function toHash32(bytes: Uint8Array): Hash32 {

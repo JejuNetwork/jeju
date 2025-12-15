@@ -1,5 +1,5 @@
 /**
- * End-to-End Demo: Jeju Decentralized Messaging
+ * End-to-End Demo: Network Decentralized Messaging
  * 
  * This demo shows the full flow:
  * 1. Start a relay node
@@ -45,7 +45,7 @@ function createDemoUser(name: string): DemoUser {
 // ============ Demo Flow ============
 
 async function runDemo(): Promise<void> {
-  console.log('🔐 Jeju Decentralized Messaging - E2E Demo\n');
+  console.log('🔐 Network Decentralized Messaging - E2E Demo\n');
   console.log('='.repeat(50));
   
   // Step 1: Start relay node

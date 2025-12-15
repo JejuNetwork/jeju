@@ -54,11 +54,11 @@ export interface RentalPricing {
 
 export const RENTAL_AGENT_CARD = {
   protocolVersion: '0.3.0',
-  name: 'Jeju Infrastructure Rental',
+  name: `${getNetworkName()} Infrastructure Rental`,
   description: 'Decentralized infrastructure rental for databases, caches, storage, and compute',
   url: '/rental/a2a',
   preferredTransport: 'http',
-  provider: { organization: 'Jeju Network', url: 'https://jeju.network' },
+  provider: { organization: 'the network', url: 'https://jeju.network' },
   version: '1.0.0',
   capabilities: { streaming: false, pushNotifications: true, stateTransitionHistory: true },
   defaultInputModes: ['text', 'data'],
@@ -487,7 +487,7 @@ export function createRentalRouter(): Hono {
   // Root info
   app.get('/', (c) => {
     return c.json({
-      name: 'Jeju Infrastructure Rental',
+      name: `${getNetworkName()} Infrastructure Rental`,
       version: '1.0.0',
       endpoints: {
         rest: '/rental',

@@ -1,5 +1,5 @@
 /**
- * Type definitions for Jeju Messaging SDK
+ * Type definitions for network Messaging SDK
  */
 
 import type { SerializedEncryptedMessage } from './crypto';
@@ -166,7 +166,7 @@ export type MessageEventHandler = (event: MessageEvent) => void;
 // ============ Client Config ============
 
 export interface MessagingClientConfig {
-  /** Jeju RPC URL */
+  /** Network RPC URL */
   rpcUrl: string;
   
   /** Relay node URL (optional, will discover from chain) */

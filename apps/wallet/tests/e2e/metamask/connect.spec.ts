@@ -1,7 +1,7 @@
 /**
  * MetaMask Connection E2E Tests
  * 
- * Tests Jeju Wallet's wagmi integration with MetaMask
+ * Tests Network Wallet's wagmi integration with MetaMask
  */
 
 import { testWithSynpress } from '@synthetixio/synpress';
@@ -9,6 +9,9 @@ import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
 import { expect } from '@playwright/test';
 import basicSetup, { PASSWORD } from '../../wallet-setup/basic.setup';
 import { TEST_ACCOUNTS } from '../../fixtures/accounts';
+
+// Re-export expect for convenience
+export { expect };
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup));
 

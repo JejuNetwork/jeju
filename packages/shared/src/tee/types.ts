@@ -1,5 +1,5 @@
 /**
- * TEE types for Jeju
+ * TEE types for network
  */
 
 export interface AttestationQuote {

@@ -3,6 +3,7 @@
  */
 
 import { describe, expect, test, beforeAll } from 'bun:test';
+import { getNetworkName } from '@jejunetwork/config';
 
 // Type definitions for test responses
 interface AgentCard {
@@ -43,7 +44,7 @@ describe('A2A Server', () => {
     
     const card = await response.json() as AgentCard;
     expect(card.protocolVersion).toBe('0.3.0');
-    expect(card.name).toBe('Jeju Compute Marketplace');
+    expect(card.name).toBe(`${getNetworkName()} Compute Marketplace`);
     expect(card.url).toBe('/a2a');
     expect(card.skills).toBeArray();
     expect(card.skills.length).toBeGreaterThan(5);

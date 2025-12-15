@@ -1,7 +1,7 @@
 {
   "name": "@jejunetwork/documentation",
   "version": "1.0.0",
-  "description": "Jeju documentation site powered by VitePress",
+  "description": "Network documentation site powered by VitePress",
   "type": "module",
   "scripts": {
     "dev": "vitepress dev --port ${DOCUMENTATION_PORT:-4004}",

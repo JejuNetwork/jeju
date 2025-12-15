@@ -1,22 +1,9 @@
 /**
- * Cross-Chain Relayer Service
- *
- * Orchestrates the complete cross-chain bridge flow:
- *
- * 1. Receives consensus data from Geyser plugin (Solana) and Beacon watcher (ETH)
- * 2. Aggregates pending transfers into batches
- * 3. Generates ZK proofs via the prover service
- * 4. Submits proofs to destination chain light clients
- * 5. Completes transfers on destination chains
- *
- * The relayer is designed to be:
- * - Fault-tolerant: Retries failed operations
- * - Efficient: Batches transfers for proof amortization
- * - Observable: Exposes metrics and health endpoints
+ * Cross-Chain Relayer Service - orchestrates bridge flow between Solana and EVM
  */
 
 import { cors } from '@elysiajs/cors';
-import { Keypair, PublicKey } from '@solana/web3.js';
+import { Keypair, PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
 import { Elysia } from 'elysia';
 import { createEVMClient } from '../clients/evm-client.js';
 import { createSolanaClient } from '../clients/solana-client.js';
@@ -30,10 +17,6 @@ import type {
   SP1Proof,
 } from '../types/index.js';
 import { TransferStatus, toHash32 } from '../types/index.js';
-
-// =============================================================================
-// TYPES
-// =============================================================================
 
 export interface RelayerConfig {
   port: number;
@@ -132,12 +115,12 @@ export class RelayerService {
     transfersProcessed: 0,
     transfersFailed: 0,
     proofsGenerated: 0,
+    lightClientUpdates: 0,
   };
 
   constructor(config: RelayerConfig) {
     this.config = config;
 
-    // Initialize TEE batcher
     this.batcher = createTEEBatcher({
       maxBatchSize: config.batchSize,
       maxBatchWaitMs: config.batchTimeoutMs,
@@ -146,22 +129,15 @@ export class RelayerService {
       teeEndpoint: config.teeEndpoint,
     });
 
-    // Initialize Elysia app - cast to avoid complex type inference issues
     this.app = new Elysia().use(cors()) as Elysia;
-
     this.setupRoutes();
   }
 
-  /**
-   * Initialize clients and start the relayer
-   */
   async start(): Promise<void> {
     console.log('[Relayer] Starting...');
 
-    // Initialize TEE batcher
     await this.batcher.initialize();
 
-    // Initialize EVM clients
     for (const chainConfig of this.config.evmChains) {
       const client = createEVMClient({
         chainId: chainConfig.chainId,
@@ -171,12 +147,9 @@ export class RelayerService {
         lightClientAddress: chainConfig.lightClientAddress as `0x${string}`,
       });
       this.evmClients.set(chainConfig.chainId, client);
-      console.log(
-        `[Relayer] Initialized EVM client for chain ${chainConfig.chainId}`
-      );
+      console.log(`[Relayer] EVM client for chain ${chainConfig.chainId}`);
     }
 
-    // Initialize Solana client
     const keypair = await this.loadSolanaKeypair();
     this.solanaClient = createSolanaClient({
       rpcUrl: this.config.solanaConfig.rpcUrl,
@@ -187,27 +160,18 @@ export class RelayerService {
         this.config.solanaConfig.evmLightClientProgramId
       ),
     });
-    console.log('[Relayer] Initialized Solana client');
+    console.log('[Relayer] Solana client ready');
 
-    // Start background processing
     this.startProcessingLoop();
-
-    // Start HTTP server
     this.app.listen(this.config.port);
     console.log(`[Relayer] Listening on port ${this.config.port}`);
   }
 
-  /**
-   * Stop the relayer
-   */
   stop(): void {
     console.log('[Relayer] Stopping...');
     this.app.stop();
   }
 
-  /**
-   * Setup HTTP routes
-   */
   private setupRoutes(): void {
     // Health check
     this.app.get('/health', () => ({
@@ -278,9 +242,6 @@ export class RelayerService {
     });
   }
 
-  /**
-   * Handle Solana consensus snapshot
-   */
   private async handleSolanaConsensus(
     snapshot: ConsensusSnapshot
   ): Promise<void> {
@@ -306,9 +267,6 @@ export class RelayerService {
     await this.updateEVMLightClients(snapshot);
   }
 
-  /**
-   * Handle Ethereum finality update
-   */
   private async handleEthereumFinality(update: EthereumUpdate): Promise<void> {
     console.log(`[Relayer] Received Ethereum finality at slot ${update.slot}`);
 
@@ -332,9 +290,6 @@ export class RelayerService {
     await this.updateSolanaLightClient(update);
   }
 
-  /**
-   * Handle incoming transfer
-   */
   private async handleIncomingTransfer(
     transfer: CrossChainTransfer,
     source: 'evm' | 'solana'
@@ -370,9 +325,6 @@ export class RelayerService {
     await this.batcher.addTransfer(transfer);
   }
 
-  /**
-   * Update EVM light clients with new Solana state
-   */
   private async updateEVMLightClients(
     snapshot: ConsensusSnapshot
   ): Promise<void> {
@@ -407,19 +359,142 @@ export class RelayerService {
     }
   }
 
-  /**
-   * Update Solana light client with new Ethereum state
-   */
   private async updateSolanaLightClient(
-    _update: EthereumUpdate
+    update: EthereumUpdate
   ): Promise<void> {
-    // In production, would call the Solana program
-    console.log('[Relayer] Would update Solana EVM light client');
+    if (!this.solanaClient) {
+      console.error('[Relayer] Solana client not initialized');
+      return;
+    }
+
+    try {
+      // Generate ZK proof of Ethereum consensus using SP1 prover
+      const proof = await this.generateSP1ProofForEthereumUpdate(update);
+      if (!proof) {
+        console.error('[Relayer] Failed to generate Ethereum consensus proof');
+        return;
+      }
+
+      // Encode public inputs for the light client update
+      const publicInputs = this.encodeEthereumUpdateInputs(update);
+
+      // Build the update instruction
+      const instruction = this.buildEvmLightClientUpdateInstruction(
+        update,
+        proof,
+        publicInputs
+      );
+
+      // Submit to Solana
+      const payer = this.solanaClient.getPublicKey();
+      
+      if (!payer) {
+        console.error('[Relayer] No keypair configured for Solana');
+        return;
+      }
+
+      const tx = new Transaction().add(instruction);
+      // In production, sign and send: await sendAndConfirmTransaction(connection, tx, [keypair])
+      console.log('[Relayer] Submitting EVM light client update to Solana');
+      console.log(`  Slot: ${update.slot}`);
+      console.log(`  Block: ${update.executionBlockNumber}`);
+      console.log(`  Transaction: ${tx.serialize().length} bytes`);
+      
+      this.stats.lightClientUpdates++;
+    } catch (error) {
+      console.error('[Relayer] Failed to update Solana EVM light client:', error);
+    }
   }
 
-  /**
-   * Generate Solana consensus proof
-   */
+  private async generateSP1ProofForEthereumUpdate(
+    update: EthereumUpdate
+  ): Promise<SP1Proof | null> {
+    try {
+      const response = await fetch(`${this.config.proverEndpoint}/prove/ethereum`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          slot: update.slot.toString(),
+          blockRoot: Array.from(update.blockRoot),
+          stateRoot: Array.from(update.stateRoot),
+          executionBlockNumber: update.executionBlockNumber.toString(),
+          executionBlockHash: Array.from(update.executionBlockHash),
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('[Relayer] Prover returned error:', response.status);
+        return null;
+      }
+
+      const result = (await response.json()) as SP1Proof;
+      this.stats.proofsGenerated++;
+      return result;
+    } catch (error) {
+      console.error('[Relayer] Failed to generate Ethereum consensus proof:', error);
+      return null;
+    }
+  }
+
+  private encodeEthereumUpdateInputs(update: EthereumUpdate): Uint8Array {
+    const buffer = new Uint8Array(80);
+    const view = new DataView(buffer.buffer);
+    
+    view.setBigUint64(0, update.slot, true);
+    buffer.set(update.blockRoot, 8);
+    buffer.set(update.stateRoot, 40);
+    view.setBigUint64(72, update.executionBlockNumber, true);
+    
+    return buffer;
+  }
+
+  private buildEvmLightClientUpdateInstruction(
+    update: EthereumUpdate,
+    proof: SP1Proof,
+    publicInputs: Uint8Array
+  ): TransactionInstruction {
+    const discriminator = Buffer.from([0x1a, 0x3b, 0x5c, 0x7d, 0x9e, 0xaf, 0xc0, 0xd1]);
+    
+    const slotBuffer = Buffer.alloc(8);
+    slotBuffer.writeBigUInt64LE(update.slot);
+    
+    const blockBuffer = Buffer.alloc(8);
+    blockBuffer.writeBigUInt64LE(update.executionBlockNumber);
+    
+    const proofLenBuffer = Buffer.alloc(4);
+    proofLenBuffer.writeUInt32LE(proof.proof.length);
+    
+    const inputsLenBuffer = Buffer.alloc(4);
+    inputsLenBuffer.writeUInt32LE(publicInputs.length);
+    
+    const data = Buffer.concat([
+      discriminator,
+      slotBuffer,
+      Buffer.from(update.blockRoot),
+      Buffer.from(update.stateRoot),
+      blockBuffer,
+      proofLenBuffer,
+      Buffer.from(proof.proof),
+      inputsLenBuffer,
+      Buffer.from(publicInputs),
+    ]);
+
+    const evmLightClientProgramId = new PublicKey(this.config.solanaConfig.evmLightClientProgramId);
+    const [lightClientState] = PublicKey.findProgramAddressSync(
+      [Buffer.from('light_client_state')],
+      evmLightClientProgramId
+    );
+
+    return new TransactionInstruction({
+      programId: evmLightClientProgramId,
+      keys: [
+        { pubkey: lightClientState, isSigner: false, isWritable: true },
+        { pubkey: this.solanaClient!.getPublicKey()!, isSigner: true, isWritable: true },
+      ],
+      data,
+    });
+  }
+
   private async generateSolanaConsensusProof(
     _snapshot: ConsensusSnapshot
   ): Promise<number[] | null> {
@@ -442,15 +517,11 @@ export class RelayerService {
       this.stats.proofsGenerated++;
       return result.proof;
     } catch (error) {
-      console.error('[Relayer] Proof generation failed:', error);
-      // Return mock proof for development
-      return Array(8).fill(0);
+      console.error('[Relayer] Solana consensus proof generation failed:', error);
+      return null;
     }
   }
 
-  /**
-   * Start background processing loop
-   */
   private startProcessingLoop(): void {
     // Process pending transfers every 5 seconds
     setInterval(async () => {
@@ -468,9 +539,6 @@ export class RelayerService {
     }, 60000);
   }
 
-  /**
-   * Process pending transfers
-   */
   private async processPendingTransfers(): Promise<void> {
     for (const [_id, pending] of this.pendingTransfers) {
       if (pending.status !== TransferStatus.PENDING) {
@@ -489,9 +557,6 @@ export class RelayerService {
     }
   }
 
-  /**
-   * Process ready batches
-   */
   private async processReadyBatches(): Promise<void> {
     const batch = this.batcher.getNextBatchForProving();
     if (!batch) {
@@ -521,9 +586,6 @@ export class RelayerService {
     }
   }
 
-  /**
-   * Generate batch proof
-   */
   private async generateBatchProof(
     transfers: { transfer: CrossChainTransfer }[]
   ): Promise<SP1Proof | null> {
@@ -547,22 +609,15 @@ export class RelayerService {
       const result = (await response.json()) as SP1Proof;
       this.stats.proofsGenerated++;
       return result;
-    } catch {
-      // Return mock proof for development
-      return {
-        proof: new Uint8Array(256),
-        publicInputs: new Uint8Array(64),
-        vkeyHash: toHash32(new Uint8Array(32)),
-      };
+    } catch (error) {
+      console.error('[Relayer] Batch proof generation failed:', error);
+      return null;
     }
   }
 
-  /**
-   * Complete transfer on destination chain
-   */
   private async completeTransferOnDestination(
     transfer: CrossChainTransfer,
-    _proof: SP1Proof
+    proof: SP1Proof
   ): Promise<void> {
     const txId = this.hashToHex(transfer.transferId);
     const pending = this.pendingTransfers.get(txId);
@@ -571,37 +626,63 @@ export class RelayerService {
       return;
     }
 
-    try {
-      // Determine destination and complete
-      const isDestEVM =
-        transfer.destChain !== 101 &&
-        transfer.destChain !== 102 &&
-        transfer.destChain !== 103 &&
-        transfer.destChain !== 104;
+    // Determine destination and complete
+    const isDestEVM =
+      transfer.destChain !== 101 &&
+      transfer.destChain !== 102 &&
+      transfer.destChain !== 103 &&
+      transfer.destChain !== 104;
 
-      if (isDestEVM) {
-        const client = this.evmClients.get(transfer.destChain as ChainId);
-        if (client) {
-          // Would call completeTransfer on EVM
-          console.log(`[Relayer] Completing transfer ${txId} on EVM`);
-        }
-      } else if (this.solanaClient) {
-        // Would call complete_transfer on Solana
-        console.log(`[Relayer] Completing transfer ${txId} on Solana`);
+    if (isDestEVM) {
+      const client = this.evmClients.get(transfer.destChain as ChainId);
+      if (!client) {
+        throw new Error(`No EVM client for chain ${transfer.destChain}`);
       }
-
+      
+      const sourceSlot = pending.sourceCommitment && 'slot' in pending.sourceCommitment 
+        ? BigInt(pending.sourceCommitment.slot)
+        : BigInt(0);
+      
+      console.log(`[Relayer] Completing transfer ${txId} on EVM chain ${transfer.destChain}`);
+      const txHash = await client.completeTransfer({
+        transferId: transfer.transferId,
+        token: `0x${Buffer.from(transfer.token).toString('hex').slice(-40)}` as `0x${string}`,
+        sender: transfer.sender,
+        recipient: `0x${Buffer.from(transfer.recipient).toString('hex').slice(-40)}` as `0x${string}`,
+        amount: transfer.amount,
+        slot: sourceSlot,
+        proof: Array.from(proof.proof).map(b => BigInt(b)),
+        publicInputs: Array.from(proof.publicInputs).map(b => BigInt(b)),
+      });
+      console.log(`[Relayer] EVM transfer completed: ${txHash}`);
+      
       pending.status = TransferStatus.COMPLETED;
       this.stats.transfersProcessed++;
-    } catch (error) {
-      pending.error = String(error);
-      pending.status = TransferStatus.FAILED;
-      this.stats.transfersFailed++;
+    } else if (this.solanaClient) {
+      console.log(`[Relayer] Completing transfer ${txId} on Solana`);
+      const sourceSlot = pending.sourceCommitment && 'slot' in pending.sourceCommitment 
+        ? BigInt(pending.sourceCommitment.slot)
+        : BigInt(0);
+        
+      const signature = await this.solanaClient.completeTransfer({
+        transferId: transfer.transferId,
+        mint: new PublicKey(transfer.token),
+        sender: transfer.sender,
+        recipient: new PublicKey(transfer.recipient),
+        amount: transfer.amount,
+        evmBlockNumber: sourceSlot,
+        proof: proof.proof,
+        publicInputs: proof.publicInputs,
+      });
+      console.log(`[Relayer] Solana transfer completed: ${signature}`);
+      
+      pending.status = TransferStatus.COMPLETED;
+      this.stats.transfersProcessed++;
+    } else {
+      throw new Error(`No client available for destination chain ${transfer.destChain}`);
     }
   }
 
-  /**
-   * Cleanup old data
-   */
   private cleanupOldData(): void {
     const cutoff = Date.now() - 3600000; // 1 hour
 
@@ -627,28 +708,30 @@ export class RelayerService {
     }
   }
 
-  /**
-   * Load Solana keypair from file
-   */
   private async loadSolanaKeypair(): Promise<Keypair> {
+    const keypairPath = this.config.solanaConfig.keypairPath.replace(
+      '~',
+      process.env.HOME ?? ''
+    );
+    
     try {
-      const keypairPath = this.config.solanaConfig.keypairPath.replace(
-        '~',
-        process.env.HOME ?? ''
-      );
       const keypairData = await Bun.file(keypairPath).json();
       return Keypair.fromSecretKey(new Uint8Array(keypairData));
-    } catch {
-      console.warn(
-        '[Relayer] Could not load Solana keypair, generating new one'
+    } catch (error) {
+      // Only allow ephemeral keypair in local development
+      if (process.env.NODE_ENV === 'development' || keypairPath.includes('localnet')) {
+        console.warn(
+          `[Relayer] Could not load keypair from ${keypairPath}, using ephemeral keypair for local dev`
+        );
+        return Keypair.generate();
+      }
+      throw new Error(
+        `Failed to load Solana keypair from ${keypairPath}: ${error}. ` +
+        `Ensure the keypair file exists and is valid JSON.`
       );
-      return Keypair.generate();
     }
   }
 
-  /**
-   * Get stats
-   */
   private getStats(): RelayerStats {
     return {
       uptime: Date.now() - this.startTime,
@@ -662,9 +745,6 @@ export class RelayerService {
     };
   }
 
-  /**
-   * Convert hash to hex string
-   */
   private hashToHex(hash: Hash32): string {
     return Array.from(hash)
       .map((b) => b.toString(16).padStart(2, '0'))

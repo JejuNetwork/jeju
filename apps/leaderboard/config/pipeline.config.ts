@@ -125,6 +125,6 @@ export default {
     max_tokens: 2000,
     endpoint: "https://openrouter.ai/api/v1/chat/completions",
     apiKey: openrouterApiKey || "",
-    projectContext: `Jeju Network builds decentralized blockchain infrastructure for Web3 applications, focusing on scalability, security, and developer experience.`,
+    projectContext: `the network builds decentralized blockchain infrastructure for Web3 applications, focusing on scalability, security, and developer experience.`,
   },
 } as const satisfies PipelineConfig;

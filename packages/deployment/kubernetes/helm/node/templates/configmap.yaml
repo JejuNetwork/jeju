@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "jeju-node.fullname" . }}-config
+  labels:
+    {{- include "jeju-node.labels" . | nindent 4 }}
+data:
+  config.json: |
+    {
+      "version": "1.0.0",
+      "network": {{ .Values.network | quote }},
+      "rpcUrl": {{ .Values.rpcUrl | quote }},
+      "chainId": {{ .Values.chainId }},
+      "services": {
+        "compute": {{ .Values.services.compute.enabled }},
+        "storage": {{ .Values.services.storage.enabled }},
+        "oracle": {{ .Values.services.oracle.enabled }},
+        "proxy": {{ .Values.services.proxy.enabled }},
+        "cron": {{ .Values.services.cron.enabled }},
+        "rpc": {{ .Values.services.rpc.enabled }},
+        "xlp": {{ .Values.services.xlp.enabled }},
+        "solver": {{ .Values.services.solver.enabled }},
+        "sequencer": {{ .Values.services.sequencer.enabled }}
+      },
+      "computeConfig": {
+        "type": "cpu",
+        "cpuCores": {{ .Values.services.compute.cpuCores }},
+        "gpuIds": [],
+        "useDocker": true,
+        "pricePerHour": {{ .Values.services.compute.pricePerHour | quote }},
+        "acceptNonTee": {{ .Values.services.compute.acceptNonTee }}
+      },
+      "bots": {
+        "dex_arb": {{ .Values.bots.dexArb.enabled }},
+        "cross_chain_arb": {{ .Values.bots.crossChainArb.enabled }},
+        "sandwich": {{ .Values.bots.sandwich.enabled }},
+        "liquidation": {{ .Values.bots.liquidation.enabled }},
+        "oracle_keeper": {{ .Values.bots.oracleKeeper.enabled }},
+        "solver": {{ .Values.bots.solver.enabled }}
+      },
+      "botConfig": {
+        "capitalAllocation": {{ .Values.bots.capitalAllocation | quote }},
+        "maxGasGwei": {{ .Values.bots.maxGasGwei }},
+        "minProfitBps": {{ .Values.bots.minProfitBps }}
+      },
+      "autoClaim": {{ .Values.earnings.autoClaim }},
+      "autoStake": {{ .Values.earnings.autoStake }},
+      "autoClaimThreshold": {{ .Values.earnings.autoClaimThreshold | quote }},
+      "logLevel": {{ .Values.logLevel | quote }}
+    }
+

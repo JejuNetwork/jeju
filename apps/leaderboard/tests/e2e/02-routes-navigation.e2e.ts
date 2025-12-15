@@ -4,7 +4,7 @@ import { captureScreenshot, captureUserFlow } from '../../../../packages/tests/s
 test.describe('Routes Navigation', () => {
   test('should navigate to home page', async ({ page }) => {
     await page.goto('/');
-    await expect(page).toHaveTitle(/Jeju.*Leaderboard/i);
+    await expect(page).toHaveTitle(|Network.*Leaderboard/i);
     await expect(page.locator('h1, h2').first()).toBeVisible();
   });
 

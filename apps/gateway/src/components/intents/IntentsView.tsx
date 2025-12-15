@@ -17,8 +17,8 @@ const CHAIN_NAMES: Record<number, string> = {
   11155111: 'Sepolia',
   42161: 'Arbitrum',
   10: 'Optimism',
-  420691: 'Jeju',
-  420690: 'Jeju Testnet',
+  420691: 'Network',
+  420690: 'Testnet',
   1337: 'Localnet',
 };
 

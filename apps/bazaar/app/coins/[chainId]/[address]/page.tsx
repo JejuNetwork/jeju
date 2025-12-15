@@ -408,10 +408,13 @@ function PresalePanel({ presaleAddress, tokenAddress }: { presaleAddress: Addres
   )
 }
 
+import { use } from 'react'
+
 export default function TokenDetailPage({ params }: PageProps) {
+  const resolvedParams = use(params)
   const { isConnected } = useAccount()
-  const chainId = parseInt(params.chainId)
-  const tokenAddress = params.address as Address
+  const chainId = parseInt(resolvedParams.chainId)
+  const tokenAddress = resolvedParams.address as Address
 
   // Check if token was launched via launchpad
   const launchpadContracts = getLaunchpadContracts(chainId)
@@ -433,20 +436,20 @@ export default function TokenDetailPage({ params }: PageProps) {
   })
 
   const { data: tokenData, isLoading: isLoadingToken } = useQuery({
-    queryKey: ['token-details', params.address],
-    queryFn: () => getContractDetails(params.address),
+    queryKey: ['token-details', resolvedParams.address],
+    queryFn: () => getContractDetails(resolvedParams.address),
     refetchInterval: 10000,
   })
 
   const { data: transfers, isLoading: isLoadingTransfers } = useQuery({
-    queryKey: ['token-transfers', params.address],
-    queryFn: () => getTokenTransfers(params.address, 20),
+    queryKey: ['token-transfers', resolvedParams.address],
+    queryFn: () => getTokenTransfers(resolvedParams.address, 20),
     refetchInterval: 10000,
   })
 
   const { data: holders, isLoading: isLoadingHolders } = useQuery({
-    queryKey: ['token-holders', params.address],
-    queryFn: () => getTokenHolders(params.address, 20),
+    queryKey: ['token-holders', resolvedParams.address],
+    queryFn: () => getTokenHolders(resolvedParams.address, 20),
     refetchInterval: 10000,
   })
 
@@ -544,7 +547,7 @@ export default function TokenDetailPage({ params }: PageProps) {
           {hasBondingCurve && (
             <BondingCurvePanel
               bondingCurveAddress={launch!.bondingCurve}
-              tokenAddress={params.address}
+              tokenAddress={resolvedParams.address}
             />
           )}
 
@@ -552,7 +555,7 @@ export default function TokenDetailPage({ params }: PageProps) {
           {hasPresale && (
             <PresalePanel
               presaleAddress={launch!.presale}
-              tokenAddress={params.address}
+              tokenAddress={resolvedParams.address}
             />
           )}
 
@@ -565,7 +568,7 @@ export default function TokenDetailPage({ params }: PageProps) {
               <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>
                 This token trades on the DEX. Use the swap interface to buy or sell.
               </p>
-              <a href={`/swap?token=${params.address}`} className="btn-primary inline-block">
+              <a href={`/swap?token=${resolvedParams.address}`} className="btn-primary inline-block">
                 Go to Swap
               </a>
             </div>

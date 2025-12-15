@@ -21,10 +21,10 @@ export interface ChainConfig {
 const JEJU_RPC_BASE = process.env.JEJU_RPC_BASE || 'https://rpc.jeju.network';
 
 export const CHAINS: Record<number, ChainConfig> = {
-  // Jeju Networks
+  // the networks
   420691: {
     chainId: 420691,
-    name: 'Jeju',
+    name: 'Network',
     shortName: 'JEJU',
     rpcUrl: process.env.JEJU_RPC_URL || `${JEJU_RPC_BASE}/jeju`,
     fallbackRpcs: [],
@@ -34,7 +34,7 @@ export const CHAINS: Record<number, ChainConfig> = {
   },
   420690: {
     chainId: 420690,
-    name: 'Jeju Testnet',
+    name: 'Testnet',
     shortName: 'JEJU-TEST',
     rpcUrl: process.env.JEJU_TESTNET_RPC_URL || `${JEJU_RPC_BASE}/jeju-testnet`,
     fallbackRpcs: [],

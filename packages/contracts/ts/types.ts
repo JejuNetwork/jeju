@@ -1,5 +1,5 @@
 /**
- * @fileoverview Contract types for Jeju smart contracts
+ * @fileoverview Contract types for network smart contracts
  * @module @jejunetwork/contracts/types
  */
 
@@ -17,9 +17,9 @@ export const CHAIN_IDS = {
   // Local development
   localnet: 1337,
   anvil: 31337,         // Foundry Anvil
-  // Jeju networks
-  testnet: 420690,      // Jeju Testnet
-  testnetL2: 420691,    // Jeju Testnet L2 (legacy)
+  // networks
+  testnet: 420690,      // Network Testnet
+  testnetL2: 420691,    // Network Testnet L2 (legacy)
   // Ethereum networks
   sepolia: 11155111,    // Sepolia Testnet
   mainnetL1: 1,         // Ethereum Mainnet

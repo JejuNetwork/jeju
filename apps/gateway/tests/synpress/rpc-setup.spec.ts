@@ -11,7 +11,7 @@ const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
 
 test.describe('RPC Setup Tab', () => {
-  test.beforeEach(async ({ _page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto('/');
   });
 
@@ -111,11 +111,11 @@ test.describe('RPC Setup Tab', () => {
 
     // Should show RPC endpoints
     await expect(page.locator('text=RPC Endpoints')).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('text=Jeju')).toBeVisible();
+    await expect(page.locator('text=Network')).toBeVisible();
     await expect(page.locator('text=Ethereum')).toBeVisible();
   });
 
-  test('should require wallet connection', async ({ _page }) => {
+  test('should require wallet connection', async ({ page }) => {
     // Navigate to RPC tab without connecting
     const rpcTab = page.locator('text=RPC Access').or(page.locator('[data-testid="rpc-tab"]'));
     if (await rpcTab.isVisible()) {

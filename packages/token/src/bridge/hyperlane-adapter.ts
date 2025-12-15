@@ -2,7 +2,9 @@
  * Hyperlane Adapter
  *
  * Provides cross-chain messaging and token bridging via Hyperlane.
- * Used for EVM chain interconnectivity.
+ * This adapter is for EVM↔EVM bridging only.
+ * 
+ * For Solana bridging, use @jeju/zksolbridge package instead.
  */
 
 import {
@@ -10,15 +12,16 @@ import {
   http,
   keccak256,
   type Address,
+  type Chain,
   type Hex,
   type PublicClient,
 } from 'viem';
 import { mainnet, optimism, base, arbitrum, polygon, bsc, avalanche, sepolia, baseSepolia, arbitrumSepolia } from 'viem/chains';
-import { CHAIN_TO_DOMAIN, getDomainId } from '../config/domains';
-import type { ChainConfig, ChainId, MultisigISMConfig, WarpRouteConfig } from '../types';
+import { getDomainId } from '../config/domains';
+import type { ChainConfig, ChainId, MultisigISMConfig } from '../types';
 
 // Map EVM chain IDs to viem chains
-const VIEM_CHAINS: Record<number, typeof mainnet> = {
+const VIEM_CHAINS: Record<number, Chain> = {
   1: mainnet,
   10: optimism,
   8453: base,
@@ -31,13 +34,47 @@ const VIEM_CHAINS: Record<number, typeof mainnet> = {
   421614: arbitrumSepolia,
 };
 
+// ============================================================================
+// Types
+// ============================================================================
+
+export interface WarpRouteDeployment {
+  chainId: ChainId;
+  address: Address;
+  tokenType: 'native' | 'synthetic' | 'collateral';
+  tokenAddress?: Address;
+  deployedAt: number;
+}
+
+export interface CrossChainTransferParams {
+  sourceChain: ChainId;
+  destinationChain: ChainId;
+  token: Address;
+  amount: bigint;
+  recipient: Address;
+  sender: Address;
+}
+
+export interface TransferQuote {
+  amount: bigint;
+  fee: bigint;
+  estimatedTime: number; // seconds
+  route: {
+    sourceChain: ChainId;
+    destinationChain: ChainId;
+    warpRoute: Address;
+  };
+}
+
+// ============================================================================
+// Hyperlane Adapter (EVM-only)
+// ============================================================================
+
 export class HyperlaneAdapter {
-  private readonly chains: ChainConfig[];
   private readonly warpRoutes: Record<ChainId, Address>;
   private readonly clients: Map<number, PublicClient>;
 
   constructor(chains: ChainConfig[], warpRoutes: Record<ChainId, Address>) {
-    this.chains = chains;
     this.warpRoutes = warpRoutes;
     this.clients = new Map();
 
@@ -56,6 +93,10 @@ export class HyperlaneAdapter {
     }
   }
 
+  // ============================================================================
+  // Domain & Address Utilities
+  // ============================================================================
+
   /**
    * Get the Hyperlane domain ID for a chain
    */
@@ -66,8 +107,8 @@ export class HyperlaneAdapter {
   /**
    * Convert an EVM address to bytes32 format
    */
-  addressToBytes32(address: string): Hex {
-    const clean = address.startsWith('0x') ? address.slice(2) : address;
+  addressToBytes32(address: Address): Hex {
+    const clean = address.slice(2);
     return `0x${clean.toLowerCase().padStart(64, '0')}` as Hex;
   }
 
@@ -92,11 +133,11 @@ export class HyperlaneAdapter {
   }
 
   /**
-   * Get a public client for a chain
+   * Get a public client for an EVM chain
    */
   getClient(chainId: ChainId): PublicClient {
     if (typeof chainId !== 'number') {
-      throw new Error(`No client for chain ${chainId} - SVM chains use SolanaAdapter`);
+      throw new Error(`Invalid EVM chain ID: ${chainId}`);
     }
     const client = this.clients.get(chainId);
     if (!client) {
@@ -105,44 +146,68 @@ export class HyperlaneAdapter {
     return client;
   }
 
+  // ============================================================================
+  // Warp Route Configuration
+  // ============================================================================
+
   /**
-   * Generate warp route configuration for deployment
+   * Generate warp route configuration for EVM deployment
    */
   generateWarpRouteConfig(
     tokenAddress: Address,
-    chains: ChainId[],
-    homeChainId: ChainId,
-    owner: Address,
-    validators: string[],
-    threshold: number
-  ): Record<ChainId, WarpRouteConfig> {
-    const configs: Record<ChainId, WarpRouteConfig> = {} as Record<ChainId, WarpRouteConfig>;
-
-    const ismConfig: MultisigISMConfig = {
-      type: 'multisig',
-      validators,
-      threshold,
+    ismConfig: MultisigISMConfig,
+    isNative: boolean = false
+  ): {
+    tokenType: 'native' | 'collateral';
+    token: Address;
+    mailbox: Address;
+    ism: MultisigISMConfig;
+  } {
+    return {
+      tokenType: isNative ? 'native' : 'collateral',
+      token: tokenAddress,
+      mailbox: '0x0000000000000000000000000000000000000000' as Address, // Set per-chain
+      ism: ismConfig,
     };
-
-    for (const chainId of chains) {
-      const isHome = chainId === homeChainId;
-      configs[chainId] = {
-        tokenType: isHome ? 'collateral' : 'synthetic',
-        tokenAddress: isHome ? tokenAddress : '0x0000000000000000000000000000000000000000' as Address,
-        owner,
-        ismConfig,
-      };
-    }
-
-    return configs;
   }
+
+  // ============================================================================
+  // Cross-Chain Transfers
+  // ============================================================================
+
+  /**
+   * Get quote for cross-chain transfer
+   */
+  async getTransferQuote(params: CrossChainTransferParams): Promise<TransferQuote> {
+    // Estimate interchain gas
+    // In production, query Hyperlane IGP contracts
+    const baseFee = 50000n; // Base fee in wei
+    const gasPrice = 20n * 10n ** 9n; // 20 gwei
+    const estimatedGas = 200000n;
+    const fee = baseFee + (gasPrice * estimatedGas);
+
+    return {
+      amount: params.amount,
+      fee,
+      estimatedTime: 300, // 5 minutes typical for Hyperlane
+      route: {
+        sourceChain: params.sourceChain,
+        destinationChain: params.destinationChain,
+        warpRoute: this.getWarpRoute(params.sourceChain),
+      },
+    };
+  }
+
+  // ============================================================================
+  // Utility Methods
+  // ============================================================================
 
   /**
    * Generate a deterministic deployment salt
    */
   getDeploymentSalt(symbol: string, version: number): Hex {
     const data = `${symbol}:${version}`;
-    return keccak256(Buffer.from(data) as Hex);
+    return keccak256(`0x${Buffer.from(data).toString('hex')}` as Hex);
   }
 
   /**
@@ -158,4 +223,36 @@ export class HyperlaneAdapter {
     const hash = keccak256(data as Hex);
     return `0x${hash.slice(-40)}` as Address;
   }
+
+  /**
+   * Get all configured warp routes
+   */
+  getAllWarpRoutes(): Map<ChainId, Address> {
+    const routes = new Map<ChainId, Address>();
+    for (const [chainId, address] of Object.entries(this.warpRoutes)) {
+      routes.set(chainId as ChainId, address);
+    }
+    return routes;
+  }
+
+  /**
+   * Check if a chain is supported
+   */
+  isChainSupported(chainId: ChainId): boolean {
+    return chainId in this.warpRoutes;
+  }
+}
+
+// ============================================================================
+// Factory Function
+// ============================================================================
+
+/**
+ * Create a Hyperlane adapter with default configuration
+ */
+export function createHyperlaneAdapter(
+  chains: ChainConfig[],
+  warpRoutes: Record<ChainId, Address>
+): HyperlaneAdapter {
+  return new HyperlaneAdapter(chains, warpRoutes);
 }

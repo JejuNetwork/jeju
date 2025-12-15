@@ -3,9 +3,9 @@ pragma solidity ^0.8.26;
 
 import "forge-std/Script.sol";
 import {MockToken} from "../src/mocks/MockToken.sol";
-import {PredictionOracle} from "../src/prediction-markets/PredictionOracle.sol";
-import {Predimarket} from "../src/prediction-markets/Predimarket.sol";
-import {MarketFactory} from "../src/prediction-markets/MarketFactory.sol";
+import {PredictionOracle} from "../src/prediction/PredictionOracle.sol";
+import {PredictionMarket} from "../src/prediction/PredictionMarket.sol";
+import {MarketFactory} from "../src/prediction/MarketFactory.sol";
 
 /**
  * @title DeployPredimarketFull
@@ -41,9 +41,9 @@ contract DeployPredimarketFull is Script {
         console.log("   PredictionOracle:", oracle);
         console.log("");
 
-        // 3. Deploy Predimarket
-        console.log("3/4 Deploying Predimarket...");
-        Predimarket predimarket = new Predimarket(
+        // 3. Deploy PredictionMarket
+        console.log("3/4 Deploying PredictionMarket...");
+        PredictionMarket predimarket = new PredictionMarket(
             elizaToken,
             oracle,
             deployer, // treasury

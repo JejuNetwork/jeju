@@ -13,7 +13,7 @@ const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
 
 test.describe('Network Statistics Display', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Node Operators/i }).click();
@@ -22,7 +22,7 @@ test.describe('Network Statistics Display', () => {
     await page.waitForTimeout(1000);
   });
 
-  test('should display network overview stats', async ({ _page }) => {
+  test('should display network overview stats', async ({ page }) => {
     await expect(page.getByText('Network Overview')).toBeVisible();
 
     // Should show 3 main stats
@@ -38,7 +38,7 @@ test.describe('Network Statistics Display', () => {
     console.log('✅ Network overview stats displayed');
   });
 
-  test('should display actual stat values', async ({ _page }) => {
+  test('should display actual stat values', async ({ page }) => {
     const totalNodesElement = page.locator('p:has-text("Total Nodes")').locator('../..').locator('p').nth(1);
     const totalStakedElement = page.locator('p:has-text("Total Staked")').locator('../..').locator('p').nth(1);
     const totalRewardsElement = page.locator('p:has-text("Rewards Claimed")').locator('../..').locator('p').nth(1);
@@ -58,7 +58,7 @@ test.describe('Network Statistics Display', () => {
     console.log('✅ Network stat values displayed');
   });
 
-  test('should show operator network share if has nodes', async ({ _page }) => {
+  test('should show operator network share if has nodes', async ({ page }) => {
     // Check for "Your Network Share" section
     const yourShare = page.getByText(/Your Network Share/i);
     const hasShare = await yourShare.isVisible();
@@ -73,7 +73,7 @@ test.describe('Network Statistics Display', () => {
     }
   });
 
-  test('should display ownership meter', async ({ _page }) => {
+  test('should display ownership meter', async ({ page }) => {
     const ownershipText = page.getByText(/Network Ownership/i);
     const hasOwnership = await ownershipText.isVisible();
 
@@ -95,7 +95,7 @@ test.describe('Network Statistics Display', () => {
     }
   });
 
-  test('should show warning when approaching ownership limit', async ({ _page }) => {
+  test('should show warning when approaching ownership limit', async ({ page }) => {
     const warning = page.getByText(/Approaching Ownership Limit/i);
     const hasWarning = await warning.isVisible();
 
@@ -109,7 +109,7 @@ test.describe('Network Statistics Display', () => {
     }
   });
 
-  test('should display tips for maximizing rewards', async ({ _page }) => {
+  test('should display tips for maximizing rewards', async ({ page }) => {
     // Tips section
     const tips = page.getByText(/Tips for Maximizing Rewards/i);
     const hasTips = await tips.isVisible();
@@ -124,12 +124,12 @@ test.describe('Network Statistics Display', () => {
 });
 
 test.describe('Network Stats Real-Time Updates', () => {
-  test.skip('should update stats after node registration', async ({ _page }) => {
+  test.skip('should update stats after node registration', async ({ page }) => {
     // TODO: Register node and verify network stats increase
     console.log('⚠️  Stats update verification - needs before/after comparison');
   });
 
-  test.skip('should update stats after rewards claimed', async ({ _page }) => {
+  test.skip('should update stats after rewards claimed', async ({ page }) => {
     // TODO: Claim rewards and verify total rewards increases
     console.log('⚠️  Rewards stat update - needs before/after comparison');
   });

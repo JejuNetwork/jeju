@@ -121,7 +121,7 @@ export async function startLocalnet(rootDir: string): Promise<{ l1Port: number; 
   }
 
   // Deploy localnet
-  logger.step('Deploying Jeju stack...');
+  logger.step('Deploying network stack...');
   await execa('kurtosis', ['run', kurtosisPackage, '--enclave', ENCLAVE_NAME], {
     stdio: 'inherit',
   });

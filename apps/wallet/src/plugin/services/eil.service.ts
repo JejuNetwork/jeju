@@ -1,7 +1,7 @@
 /**
  * Ethereum Interop Layer (EIL) Service
  * 
- * Handles cross-chain operations using Jeju's CrossChainPaymaster.
+ * Handles cross-chain operations using the network's CrossChainPaymaster.
  * Enables bridgeless, trustless cross-chain swaps and transfers.
  */
 
@@ -22,7 +22,7 @@ import type {
   EILServiceConfig,
 } from '../types';
 
-// CrossChainPaymaster ABI (from Jeju contracts)
+// CrossChainPaymaster ABI (from the network contracts)
 const CROSS_CHAIN_PAYMASTER_ABI = [
   {
     name: 'createVoucherRequest',

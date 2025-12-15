@@ -172,7 +172,7 @@ test.describe('Liquidity Page - XLP Section', () => {
     await page.click('text=Cross-Chain XLP')
     
     await expect(page.locator('text=Supported Chains')).toBeVisible()
-    await expect(page.locator('text=Jeju')).toBeVisible()
+    await expect(page.locator('text=Network')).toBeVisible()
     await expect(page.locator('text=Base')).toBeVisible()
   })
 

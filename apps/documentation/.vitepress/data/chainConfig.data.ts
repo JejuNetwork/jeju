@@ -1,5 +1,5 @@
 /**
- * @fileoverview VitePress data loader for Jeju chain configurations
+ * @fileoverview VitePress data loader for network chain configurations
  * @module documentation/.vitepress/data/chainConfig.data
  * 
  * Provides build-time loading of chain configurations for documentation components.
@@ -26,7 +26,7 @@ import testnet from '@jejunetwork/config/chain/testnet.json' with { type: 'json'
  * Chain configuration interface matching the JSON structure
  * 
  * @interface ChainConfig
- * @property {number} chainId - Chain ID of the Jeju network
+ * @property {number} chainId - Chain ID of the network
  * @property {number} networkId - Network ID (usually same as chainId)
  * @property {string} name - Human-readable network name
  * @property {string} rpcUrl - HTTP RPC endpoint URL
@@ -58,7 +58,7 @@ export interface ChainConfig {
     decimals: number;
   };
   contracts: {
-    /** L2 contracts deployed on Jeju (predeploys at fixed addresses) */
+    /** L2 contracts deployed on the network (predeploys at fixed addresses) */
     l2: Record<string, string>;
     /** L1 contracts deployed on Base (deployment-specific addresses) */
     l1: Record<string, string>;
@@ -69,8 +69,8 @@ export interface ChainConfig {
  * Container for both mainnet and testnet configurations
  * 
  * @interface ChainConfigs
- * @property {ChainConfig} mainnet - Jeju Mainnet configuration
- * @property {ChainConfig} testnet - Jeju Testnet configuration
+ * @property {ChainConfig} mainnet - Network Mainnet configuration
+ * @property {ChainConfig} testnet - Network Testnet configuration
  */
 export interface ChainConfigs {
   mainnet: ChainConfig;

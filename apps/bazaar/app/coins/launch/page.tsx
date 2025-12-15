@@ -38,7 +38,7 @@ const PRESETS: Record<LaunchPreset, { name: string; description: string; emoji: 
 
 // Default configurations for each preset
 const DEFAULT_BONDING_CONFIG: BondingCurveConfig = {
-  virtualEth: '30',
+  virtualEthReserves: '30',
   graduationTarget: '10',
   tokenSupply: '1000000000',
 }
@@ -143,7 +143,7 @@ export default function LaunchTokenPage() {
       return
     }
     if (!isCorrectChain) {
-      toast.error('Please switch to Jeju network')
+      toast.error('Please switch to the network network')
       return
     }
     if (!name || !symbol) {

@@ -1,5 +1,5 @@
 /**
- * @fileoverview Deployment address exports for Jeju contracts
+ * @fileoverview Deployment address exports for network contracts
  * @module @jejunetwork/contracts/deployments
  */
 

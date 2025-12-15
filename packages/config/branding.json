@@ -1,0 +1,118 @@
+{
+  "$schema": "./branding.schema.json",
+  "version": "1.0.0",
+  
+  "network": {
+    "name": "Jeju",
+    "displayName": "Jeju Network",
+    "tagline": "The modern EVM chain for agents and humans",
+    "description": "A decentralized L2 network built on the OP Stack, designed for AI agents and human users to transact seamlessly.",
+    "shortDescription": "AI-native L2 network",
+    "keywords": ["L2", "AI", "agents", "EVM", "OP Stack", "blockchain"]
+  },
+
+  "chains": {
+    "testnet": {
+      "name": "Jeju Testnet",
+      "chainId": 420690,
+      "symbol": "ETH",
+      "explorerName": "Jeju Explorer"
+    },
+    "mainnet": {
+      "name": "Jeju Mainnet", 
+      "chainId": 420691,
+      "symbol": "ETH",
+      "explorerName": "Jeju Explorer"
+    }
+  },
+
+  "urls": {
+    "website": "https://jeju.network",
+    "docs": "https://docs.jeju.network",
+    "explorer": {
+      "testnet": "https://testnet-explorer.jeju.network",
+      "mainnet": "https://explorer.jeju.network"
+    },
+    "rpc": {
+      "testnet": "https://testnet-rpc.jeju.network",
+      "mainnet": "https://rpc.jeju.network"
+    },
+    "api": {
+      "testnet": "https://testnet-api.jeju.network",
+      "mainnet": "https://api.jeju.network"
+    },
+    "gateway": {
+      "testnet": "https://testnet.jeju.network",
+      "mainnet": "https://app.jeju.network"
+    },
+    "github": "https://github.com/jeju-network/jeju",
+    "twitter": "https://twitter.com/jejunetwork",
+    "discord": "https://discord.gg/jeju",
+    "telegram": "https://t.me/jejunetwork"
+  },
+
+  "tokens": {
+    "native": {
+      "name": "Ether",
+      "symbol": "ETH",
+      "decimals": 18
+    },
+    "governance": {
+      "name": "Jeju Token",
+      "symbol": "JEJU",
+      "decimals": 18
+    }
+  },
+
+  "branding": {
+    "primaryColor": "#6366f1",
+    "secondaryColor": "#8b5cf6",
+    "accentColor": "#06b6d4",
+    "backgroundColor": "#0f172a",
+    "textColor": "#f8fafc",
+    "logo": {
+      "light": "/assets/logo-light.svg",
+      "dark": "/assets/logo-dark.svg",
+      "icon": "/assets/icon.svg"
+    },
+    "favicon": "/favicon.ico"
+  },
+
+  "features": {
+    "flashblocks": true,
+    "flashblocksSubBlockTime": 200,
+    "blockTime": 2000,
+    "erc4337": true,
+    "crossChain": true,
+    "governance": true,
+    "staking": true,
+    "identityRegistry": true
+  },
+
+  "legal": {
+    "companyName": "Jeju Network Foundation",
+    "termsUrl": "https://jeju.network/terms",
+    "privacyUrl": "https://jeju.network/privacy",
+    "copyrightYear": 2024
+  },
+
+  "support": {
+    "email": "support@jeju.network",
+    "discordChannel": "#support"
+  },
+
+  "cli": {
+    "name": "jeju",
+    "displayName": "Jeju CLI",
+    "banner": [
+      "     ██╗███████╗     ██╗██╗   ██╗",
+      "     ██║██╔════╝     ██║██║   ██║",
+      "     ██║█████╗       ██║██║   ██║",
+      "██   ██║██╔══╝  ██   ██║██║   ██║",
+      "╚█████╔╝███████╗╚█████╔╝╚██████╔╝",
+      " ╚════╝ ╚══════╝ ╚════╝  ╚═════╝ "
+    ]
+  }
+}
+
+

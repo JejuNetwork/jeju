@@ -14,7 +14,7 @@ const { expect } = test;
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4001';
 
 test.describe('App Registry Flow', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     
@@ -23,21 +23,21 @@ test.describe('App Registry Flow', () => {
     await page.waitForTimeout(1000);
   });
 
-  test('should display app registry interface', async ({ _page }) => {
+  test('should display app registry interface', async ({ page }) => {
     await expect(page.getByText(/ERC-8004 Registry/i)).toBeVisible();
     
     // Screenshot
     await page.screenshot({ path: 'test-results/screenshots/synpress-app-registry.png', fullPage: true });
   });
 
-  test('should show browse and register sections', async ({ _page }) => {
+  test('should show browse and register sections', async ({ page }) => {
     await expect(page.getByRole('button', { name: /Browse Apps/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /Register App/i })).toBeVisible();
     
     console.log('✅ Browse and Register sections available');
   });
 
-  test('should display tag filters', async ({ _page }) => {
+  test('should display tag filters', async ({ page }) => {
     await page.getByRole('button', { name: /Browse Apps/i }).click();
     await page.waitForTimeout(500);
     
@@ -51,7 +51,7 @@ test.describe('App Registry Flow', () => {
     console.log('✅ Tag filters displayed');
   });
 
-  test('should filter apps by tag', async ({ _page }) => {
+  test('should filter apps by tag', async ({ page }) => {
     await page.getByRole('button', { name: /Browse Apps/i }).click();
     
     // Click Games filter
@@ -61,7 +61,7 @@ test.describe('App Registry Flow', () => {
     console.log('✅ Tag filtering works');
   });
 
-  test('should display registered apps or empty state', async ({ _page }) => {
+  test('should display registered apps or empty state', async ({ page }) => {
     await page.getByRole('button', { name: /Browse Apps/i }).click();
     await page.waitForTimeout(1000);
     
@@ -80,7 +80,7 @@ test.describe('App Registry Flow', () => {
     }
   });
 
-  test('should show A2A enabled badge for apps with endpoints', async ({ _page }) => {
+  test('should show A2A enabled badge for apps with endpoints', async ({ page }) => {
     await page.getByRole('button', { name: /Browse Apps/i }).click();
     await page.waitForTimeout(1000);
     
@@ -91,7 +91,7 @@ test.describe('App Registry Flow', () => {
     expect(count >= 0).toBe(true);
   });
 
-  test('should display registration form', async ({ _page }) => {
+  test('should display registration form', async ({ page }) => {
     await page.getByRole('button', { name: /Register App/i }).click();
     
     await expect(page.getByText('Register New App')).toBeVisible();
@@ -100,7 +100,7 @@ test.describe('App Registry Flow', () => {
     await page.screenshot({ path: 'test-results/screenshots/synpress-app-register.png', fullPage: true });
   });
 
-  test('should have all required form fields', async ({ _page }) => {
+  test('should have all required form fields', async ({ page }) => {
     await page.getByRole('button', { name: /Register App/i }).click();
     
     // Check for required fields
@@ -111,7 +111,7 @@ test.describe('App Registry Flow', () => {
     console.log('✅ All form fields present');
   });
 
-  test('should allow multiple tag selection', async ({ _page }) => {
+  test('should allow multiple tag selection', async ({ page }) => {
     await page.getByRole('button', { name: /Register App/i }).click();
     
     // Check tags available
@@ -127,7 +127,7 @@ test.describe('App Registry Flow', () => {
     console.log('✅ Multiple tag selection works');
   });
 
-  test('should have stake token selector with all protocol tokens', async ({ _page }) => {
+  test('should have stake token selector with all protocol tokens', async ({ page }) => {
     await page.getByRole('button', { name: /Register App/i }).click();
     
     // Fill required fields first
@@ -148,7 +148,7 @@ test.describe('App Registry Flow', () => {
     console.log('✅ All tokens available for app registry stake');
   });
 
-  test('should calculate required stake', async ({ _page }) => {
+  test('should calculate required stake', async ({ page }) => {
     await page.getByRole('button', { name: /Register App/i }).click();
     
     // Fill fields
@@ -168,7 +168,7 @@ test.describe('App Registry Flow', () => {
     console.log('✅ Required stake calculated');
   });
 
-  test('should show refundable stake info', async ({ _page }) => {
+  test('should show refundable stake info', async ({ page }) => {
     await page.getByRole('button', { name: /Register App/i }).click();
     
     await expect(page.getByText(/Your stake is fully refundable/i)).toBeVisible();
@@ -177,7 +177,7 @@ test.describe('App Registry Flow', () => {
     console.log('✅ Refundable stake info shown');
   });
 
-  test('should validate form before enabling submit', async ({ _page }) => {
+  test('should validate form before enabling submit', async ({ page }) => {
     await page.getByRole('button', { name: /Register App/i }).click();
     
     const submitButton = page.getByRole('button', { name: /Register App$/i });
@@ -200,7 +200,7 @@ test.describe('App Registry Flow', () => {
     console.log('✅ Form validation works');
   });
 
-  test.skip('should register app successfully', async ({ _page, _metamask }) => {
+  test.skip('should register app successfully', async ({ page, metamask }) => {
     // Skip - requires gas
     
     await page.getByRole('button', { name: /Register App/i }).click();

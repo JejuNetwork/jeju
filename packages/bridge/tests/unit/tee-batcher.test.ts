@@ -91,10 +91,89 @@ describe('TEE Batcher', () => {
       const nextBatch = batcher.getNextBatchForProving();
       expect(nextBatch).toBeNull();
     });
+
+    it('should track batch status correctly', async () => {
+      const transfer = createMockTransfer(1);
+      const result = await batcher.addTransfer(transfer);
+      
+      const batchId = Array.from(result.batchId)
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+      const status = batcher.getBatchStatus(batchId);
+      
+      expect(status).not.toBeNull();
+      expect(status!.status).toBe('accumulating');
+    });
+
+    it('should return null for non-existent batch', () => {
+      const status = batcher.getBatchStatus('nonexistent');
+      expect(status).toBeNull();
+    });
+  });
+
+  describe('validation', () => {
+    it('should reject transfer with zero amount', async () => {
+      const transfer = createMockTransfer(1);
+      transfer.amount = BigInt(0);
+      
+      expect(batcher.addTransfer(transfer)).rejects.toThrow('Transfer amount must be positive');
+    });
+
+    it('should reject transfer with empty sender', async () => {
+      const transfer = createMockTransfer(1);
+      transfer.sender = new Uint8Array(0);
+      
+      expect(batcher.addTransfer(transfer)).rejects.toThrow('Sender address required');
+    });
+
+    it('should reject transfer with empty recipient', async () => {
+      const transfer = createMockTransfer(1);
+      transfer.recipient = new Uint8Array(0);
+      
+      expect(batcher.addTransfer(transfer)).rejects.toThrow('Recipient address required');
+    });
+
+    it('should reject transfer with negative amount', async () => {
+      const transfer = createMockTransfer(1);
+      transfer.amount = BigInt(-100);
+      
+      expect(batcher.addTransfer(transfer)).rejects.toThrow('Transfer amount must be positive');
+    });
+  });
+
+  describe('cost estimation', () => {
+    it('should increase cost for transfers with payload', async () => {
+      const t1 = createMockTransfer(1);
+      t1.payload = new Uint8Array(0);
+      
+      const t2 = createMockTransfer(2);
+      t2.payload = new Uint8Array(100).fill(0xab);
+      
+      // Create fresh batchers to isolate tests
+      const b1 = createTEEBatcher(config);
+      await b1.initialize();
+      const b2 = createTEEBatcher(config);
+      await b2.initialize();
+      
+      const r1 = await b1.addTransfer(t1);
+      const r2 = await b2.addTransfer(t2);
+      
+      expect(r2.estimatedCost).toBeGreaterThan(r1.estimatedCost);
+    });
+  });
+
+  describe('attestation', () => {
+    it('should have valid attestation structure', async () => {
+      const attestation = batcher.getAttestation();
+      expect(attestation).not.toBeNull();
+      expect(attestation!.measurement.length).toBe(32);
+      expect(attestation!.quote.length).toBeGreaterThan(0);
+      expect(attestation!.publicKey.length).toBe(33);
+      expect(attestation!.timestamp).toBeGreaterThan(BigInt(0));
+    });
   });
 });
 
-// Helper to create mock transfers
 function createMockTransfer(nonce: number): CrossChainTransfer {
   return {
     transferId: toHash32(new Uint8Array(32).map((_, i) => (nonce + i) % 256)),

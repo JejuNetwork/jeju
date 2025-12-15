@@ -252,7 +252,7 @@ export const OTC_LISTING_CANCELLED = eventSig('ListingCancelled(uint256)');
 export const OTC_LISTING_UPDATED = eventSig('ListingUpdated(uint256,uint256,uint256)');
 export const OTC_SWAP_EXECUTED = eventSig('SwapExecuted(uint256,address,address,uint256,uint256)');
 
-// ============ JEJU Token Events (JejuToken.sol) ============
+// ============ JEJU Token Events (NetworkToken.sol) ============
 
 export const BAN_ENFORCEMENT_TOGGLED = eventSig('BanEnforcementToggled(bool)');
 export const BAN_MANAGER_UPDATED = eventSig('BanManagerUpdated(address,address)');
@@ -407,10 +407,10 @@ export const EVENT_REGISTRY: Record<string, EventCategory> = {
   [TOKEN_CREATED]: { signature: TOKEN_CREATED, name: 'TokenCreated', category: 'token', contract: 'SimpleERC20Factory' },
 
   // JEJU Token events
-  [BAN_ENFORCEMENT_TOGGLED]: { signature: BAN_ENFORCEMENT_TOGGLED, name: 'BanEnforcementToggled', category: 'token', contract: 'JejuToken' },
-  [BAN_MANAGER_UPDATED]: { signature: BAN_MANAGER_UPDATED, name: 'BanManagerUpdated', category: 'token', contract: 'JejuToken' },
-  [FAUCET_CLAIMED]: { signature: FAUCET_CLAIMED, name: 'FaucetClaimed', category: 'token', contract: 'JejuToken' },
-  [FAUCET_TOGGLED]: { signature: FAUCET_TOGGLED, name: 'FaucetToggled', category: 'token', contract: 'JejuToken' },
+  [BAN_ENFORCEMENT_TOGGLED]: { signature: BAN_ENFORCEMENT_TOGGLED, name: 'BanEnforcementToggled', category: 'token', contract: 'NetworkToken' },
+  [BAN_MANAGER_UPDATED]: { signature: BAN_MANAGER_UPDATED, name: 'BanManagerUpdated', category: 'token', contract: 'NetworkToken' },
+  [FAUCET_CLAIMED]: { signature: FAUCET_CLAIMED, name: 'FaucetClaimed', category: 'token', contract: 'NetworkToken' },
+  [FAUCET_TOGGLED]: { signature: FAUCET_TOGGLED, name: 'FaucetToggled', category: 'token', contract: 'NetworkToken' },
 };
 
 // ============ Contract Type Detection ============

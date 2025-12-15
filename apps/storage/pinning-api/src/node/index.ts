@@ -1,5 +1,5 @@
 /**
- * Jeju Storage Node
+ * Network Storage Node
  *
  * A decentralized storage marketplace node supporting:
  * - IPFS pinning and retrieval

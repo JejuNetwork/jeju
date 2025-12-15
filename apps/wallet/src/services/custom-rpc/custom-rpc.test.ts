@@ -2,20 +2,20 @@
  * Custom RPC Service Tests
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CustomRPCService } from './index';
 
 // Mock storage
 vi.mock('../../platform/storage', () => ({
   storage: {
-    get: vi.fn().mockResolvedValue(null),
-    set: vi.fn().mockResolvedValue(undefined),
-    remove: vi.fn().mockResolvedValue(undefined),
+    get: vi.fn(() => Promise.resolve(null)),
+    set: vi.fn(() => Promise.resolve(undefined)),
+    remove: vi.fn(() => Promise.resolve(undefined)),
   },
 }));
 
 // Mock fetch for RPC testing - handles different chain IDs
-global.fetch = vi.fn().mockImplementation((url: string) => {
+const mockFetch = vi.fn((url: string) => {
   let chainIdResult = '0x1'; // Default to mainnet
   
   if (url.includes('base')) chainIdResult = '0x2105'; // Base (8453)
@@ -27,12 +27,12 @@ global.fetch = vi.fn().mockImplementation((url: string) => {
     json: () => Promise.resolve({ result: chainIdResult }),
   });
 });
+globalThis.fetch = mockFetch as unknown as typeof fetch;
 
 describe('CustomRPCService', () => {
   let customRPCService: CustomRPCService;
 
   beforeEach(async () => {
-    vi.clearAllMocks();
     customRPCService = new CustomRPCService();
     await customRPCService.initialize();
   });

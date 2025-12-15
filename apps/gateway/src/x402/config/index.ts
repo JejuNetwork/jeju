@@ -4,6 +4,7 @@
 
 import type { Address } from 'viem';
 import { getPrimaryChainConfig, ZERO_ADDRESS } from '../lib/chains';
+import { getServiceName } from '@jejunetwork/shared';
 
 export interface FacilitatorConfig {
   port: number;
@@ -57,7 +58,7 @@ export function getConfig(): FacilitatorConfig {
     feeRecipient: getEnvAddress('FEE_RECIPIENT_ADDRESS', ZERO_ADDRESS),
     maxPaymentAge: parseInt(process.env.MAX_PAYMENT_AGE || '300', 10),
     minAmount: BigInt(process.env.MIN_PAYMENT_AMOUNT || '1'),
-    serviceName: 'Jeju x402 Facilitator',
+    serviceName: getServiceName('x402 Facilitator'),
     serviceVersion: '1.0.0',
     serviceUrl: process.env.FACILITATOR_URL || `http://localhost:${port}`,
     kmsEnabled,

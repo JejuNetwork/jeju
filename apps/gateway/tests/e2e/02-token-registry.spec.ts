@@ -6,12 +6,12 @@ import { connectWallet } from '@jejunetwork/tests/helpers/contracts';
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:5173';
 
 test.describe('Gateway Token Registry', () => {
-  test.beforeEach(async ({ _page, wallet }) => {
+  test.beforeEach(async ({ page, wallet }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, wallet);
   });
 
-  test('should display registered tokens list', async ({ _page }) => {
+  test('should display registered tokens list', async ({ page }) => {
     // Click Registered Tokens tab
     await page.click('button:has-text("Registered Tokens")');
     
@@ -19,7 +19,7 @@ test.describe('Gateway Token Registry', () => {
     await expect(page.getByText(/elizaOS|CLANKER|VIRTUAL|CLANKERMON/i)).toBeVisible();
   });
 
-  test('should show token details', async ({ _page }) => {
+  test('should show token details', async ({ page }) => {
     await page.click('button:has-text("Registered Tokens")');
     await page.waitForTimeout(1000);
     
@@ -27,7 +27,7 @@ test.describe('Gateway Token Registry', () => {
     await expect(page.getByText(/Address|Contract|Paymaster/i)).toBeVisible();
   });
 
-  test('should display token balances', async ({ _page }) => {
+  test('should display token balances', async ({ page }) => {
     await page.click('button:has-text("Registered Tokens")');
     await page.waitForTimeout(1000);
     
@@ -36,7 +36,7 @@ test.describe('Gateway Token Registry', () => {
     expect(body).toBeTruthy();
   });
 
-  test('should show paymaster status for each token', async ({ _page }) => {
+  test('should show paymaster status for each token', async ({ page }) => {
     await page.click('button:has-text("Registered Tokens")');
     await page.waitForTimeout(1000);
     

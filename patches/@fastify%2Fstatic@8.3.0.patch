@@ -1,0 +1,19 @@
+diff --git a/index.js b/index.js
+index 86b47dc63bc2a32e388ec35a23fd2facd1e2de2d..4ba04e6dae334a2107fd20d4b8bf123292e8d853 100644
+--- a/index.js
++++ b/index.js
+@@ -15,7 +15,13 @@ const endForwardSlashRegex = /\/$/u
+ const asteriskRegex = /\*/gu
+ 
+ const supportedEncodings = ['br', 'gzip', 'deflate']
+-send.mime.default_type = 'application/octet-stream'
++// Wrapped in try-catch for mime v3 compatibility (default_type is read-only)
++try {
++  send.mime.default_type = 'application/octet-stream'
++} catch {
++  // In mime v3+, default_type is not settable - files without extension
++  // will use the default content type from the mime package
++}
+ const encodingExtensionMap = {
+   br: '.br',
+   gzip: '.gz'

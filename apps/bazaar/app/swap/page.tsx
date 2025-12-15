@@ -97,7 +97,7 @@ export default function SwapPage() {
       })
     } else {
       if (!isCorrectChain) {
-        toast.error('Switch to Jeju')
+        toast.error('Switch to the network')
         return
       }
 
@@ -120,7 +120,7 @@ export default function SwapPage() {
 
       {isConnected && !isCorrectChain && !isCrossChain && (
         <div className="card p-4 mb-6 border-bazaar-error/50 bg-bazaar-error/10">
-          <p className="text-bazaar-error text-sm">Switch to Jeju (Chain {JEJU_CHAIN_ID})</p>
+          <p className="text-bazaar-error text-sm">Switch to the network (Chain {JEJU_CHAIN_ID})</p>
         </div>
       )}
 

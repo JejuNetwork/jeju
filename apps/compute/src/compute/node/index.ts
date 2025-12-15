@@ -1,5 +1,5 @@
 /**
- * Jeju Compute Node
+ * Network Compute Node
  *
  * A decentralized compute marketplace node supporting:
  * - Standard inference API

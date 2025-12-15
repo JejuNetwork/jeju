@@ -13,7 +13,7 @@ const CORS_HEADERS = {
 const MCP_SERVER_INFO = {
   name: 'bazaar',
   version: '1.0.0',
-  description: 'Jeju DeFi + NFT Marketplace',
+  description: 'Network DeFi + NFT Marketplace',
   capabilities: {
     resources: true,
     tools: true,

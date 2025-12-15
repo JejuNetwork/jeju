@@ -229,8 +229,8 @@ async function main() {
     .catch(() => false);
   
   if (!vaultHealth && !dryRun) {
-    console.error('\n❌ Vault service not available. Start decentralized infrastructure first:');
-    console.error('   bun scripts/start-decentralized.ts');
+    console.error('\n❌ Vault service not available. Start infrastructure first:');
+    console.error('   bun run start');
     process.exit(1);
   }
   

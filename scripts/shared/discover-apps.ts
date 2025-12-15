@@ -9,7 +9,7 @@ import { join } from 'path';
 import { z } from 'zod';
 
 // Schema for jeju manifest validation
-const JejuManifestSchema = z.object({
+const AppManifestSchema = z.object({
   name: z.string().regex(/^[a-z0-9-]+$/),
   displayName: z.string().optional(),
   version: z.string().regex(/^\d+\.\d+\.\d+(-[a-z0-9.]+)?$/),
@@ -33,24 +33,24 @@ const JejuManifestSchema = z.object({
   }).optional(),
 });
 
-export type JejuManifest = z.infer<typeof JejuManifestSchema>;
+export type AppManifest = z.infer<typeof AppManifestSchema>;
 
-export interface JejuApp {
+export interface NetworkApp {
   name: string;
   path: string;
-  manifest: JejuManifest;
+  manifest: AppManifest;
   exists: boolean;
   type: 'core' | 'vendor';
 }
 
 /**
- * Discover all Jeju apps in a directory
+ * Discover all network apps in a directory
  */
 function discoverAppsInDirectory(
   baseDir: string,
   type: 'core' | 'vendor'
-): JejuApp[] {
-  const apps: JejuApp[] = [];
+): NetworkApp[] {
+  const apps: NetworkApp[] = [];
 
   // Check if directory exists
   if (!existsSync(baseDir)) {
@@ -85,10 +85,10 @@ function discoverAppsInDirectory(
     const manifestContent = readFileSync(manifestPath, 'utf-8');
     const manifestData = JSON.parse(manifestContent);
     
-    const result = JejuManifestSchema.safeParse(manifestData);
+    const result = AppManifestSchema.safeParse(manifestData);
     
     if (!result.success) {
-      console.error(`[JejuApps] ${entry}: Invalid manifest:`, result.error.errors);
+      console.error(`[NetworkApps] ${entry}: Invalid manifest:`, result.error.errors);
       continue;
     }
 
@@ -112,9 +112,9 @@ function discoverAppsInDirectory(
 }
 
 /**
- * Discover all Jeju apps (core + vendor)
+ * Discover all network apps (core + vendor)
  */
-export function discoverAllApps(rootDir: string = process.cwd()): JejuApp[] {
+export function discoverAllApps(rootDir: string = process.cwd()): NetworkApp[] {
   const coreApps = discoverAppsInDirectory(join(rootDir, 'apps'), 'core');
   const vendorApps = discoverAppsInDirectory(join(rootDir, 'vendor'), 'vendor');
   
@@ -124,21 +124,21 @@ export function discoverAllApps(rootDir: string = process.cwd()): JejuApp[] {
 /**
  * Discover only core apps
  */
-export function discoverCoreApps(rootDir: string = process.cwd()): JejuApp[] {
+export function discoverCoreApps(rootDir: string = process.cwd()): NetworkApp[] {
   return discoverAppsInDirectory(join(rootDir, 'apps'), 'core');
 }
 
 /**
  * Discover only vendor apps
  */
-export function discoverVendorApps(rootDir: string = process.cwd()): JejuApp[] {
+export function discoverVendorApps(rootDir: string = process.cwd()): NetworkApp[] {
   return discoverAppsInDirectory(join(rootDir, 'vendor'), 'vendor');
 }
 
 /**
  * Get a specific app by name
  */
-export function getApp(name: string, rootDir: string = process.cwd()): JejuApp | null {
+export function getApp(name: string, rootDir: string = process.cwd()): NetworkApp | null {
   const apps = discoverAllApps(rootDir);
   return apps.find(app => app.name === name) || null;
 }
@@ -154,7 +154,7 @@ export function hasApp(name: string, rootDir: string = process.cwd()): boolean {
 /**
  * Get all enabled apps that should auto-start
  */
-export function getAutoStartApps(rootDir: string = process.cwd()): JejuApp[] {
+export function getAutoStartApps(rootDir: string = process.cwd()): NetworkApp[] {
   return discoverAllApps(rootDir).filter(
     app => app.manifest.enabled && app.manifest.autoStart !== false && app.exists
   );
@@ -168,11 +168,11 @@ export function displayAppsSummary(rootDir: string = process.cwd()): void {
   const vendorApps = discoverVendorApps(rootDir);
 
   if (coreApps.length === 0 && vendorApps.length === 0) {
-    console.log('\n📦 Jeju Apps: None discovered');
+    console.log('\n📦 Network Apps: None discovered');
     return;
   }
 
-  console.log('\n📦 Jeju Apps Discovered:');
+  console.log('\n📦 Network Apps Discovered:');
 
   if (coreApps.length > 0) {
     console.log('\n🏢 Core Apps:');
@@ -247,5 +247,5 @@ export function getAppCommand(
   return app.manifest.commands?.[command] || null;
 }
 
-export { JejuManifestSchema };
+export { AppManifestSchema };
 

@@ -51,7 +51,7 @@ describe('CHAIN_NAMES', () => {
     expect(CHAIN_NAMES[84532]).toBe('Base Sepolia');
     expect(CHAIN_NAMES[421614]).toBe('Arbitrum Sepolia');
     expect(CHAIN_NAMES[11155420]).toBe('Optimism Sepolia');
-    expect(CHAIN_NAMES[420690]).toBe('Jeju Testnet');
+    expect(CHAIN_NAMES[420690]).toBe('Testnet');
   });
 
   test('should have human-readable names for all mainnets', () => {
@@ -59,7 +59,7 @@ describe('CHAIN_NAMES', () => {
     expect(CHAIN_NAMES[8453]).toBe('Base');
     expect(CHAIN_NAMES[42161]).toBe('Arbitrum One');
     expect(CHAIN_NAMES[10]).toBe('OP Mainnet');
-    expect(CHAIN_NAMES[420691]).toBe('Jeju Mainnet');
+    expect(CHAIN_NAMES[420691]).toBe('Mainnet');
   });
 
   test('coverage: every PUBLIC_RPCS key has a CHAIN_NAMES entry', () => {
@@ -80,7 +80,7 @@ describe('TESTNET_CHAIN_IDS', () => {
     expect(TESTNET_CHAIN_IDS).toContain(84532);    // Base Sepolia
     expect(TESTNET_CHAIN_IDS).toContain(421614);   // Arbitrum Sepolia
     expect(TESTNET_CHAIN_IDS).toContain(11155420); // Optimism Sepolia
-    expect(TESTNET_CHAIN_IDS).toContain(420690);   // Jeju Testnet
+    expect(TESTNET_CHAIN_IDS).toContain(420690);   // Network Testnet
   });
 
   test('should not contain mainnet chains', () => {
@@ -102,7 +102,7 @@ describe('MAINNET_CHAIN_IDS', () => {
     expect(MAINNET_CHAIN_IDS).toContain(8453);   // Base
     expect(MAINNET_CHAIN_IDS).toContain(42161);  // Arbitrum One
     expect(MAINNET_CHAIN_IDS).toContain(10);     // OP Mainnet
-    expect(MAINNET_CHAIN_IDS).toContain(420691); // Jeju Mainnet
+    expect(MAINNET_CHAIN_IDS).toContain(420691); // Network Mainnet
   });
 
   test('should not contain testnet chains', () => {

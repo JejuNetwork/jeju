@@ -1,5 +1,5 @@
 /**
- * Commitment Store for JejuDA
+ * Commitment Store for NetworkDA
  * Maps commitments to CIDs with persistence
  */
 

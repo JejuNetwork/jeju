@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 /**
- * Deploy Jeju ICO Launchpad for localnet/testnet
+ * Deploy Network ICO Launchpad for localnet/testnet
  * 
  * Deploys:
- * 1. JejuPresale contract with official tokenomics
+ * 1. NetworkPresale contract with official tokenomics
  * 2. Example NFT collection for testing
  * 3. JEJU/ETH AMM liquidity pool
  * 
@@ -26,7 +26,7 @@ const { values: args } = parseArgs({
 
 if (args.help) {
   console.log(`
-Deploy Jeju ICO Launchpad
+Deploy Network ICO Launchpad
 
 Usage:
   bun run scripts/deploy-jeju-launchpad.ts [options]
@@ -56,7 +56,7 @@ const NETWORKS = {
   },
 } as const
 
-// Jeju ICO Configuration
+// Network ICO Configuration
 const JEJU_ICO_CONFIG = {
   // Presale config
   softCap: 10n * 10n ** 18n, // 10 ETH for testing (1000 ETH in prod)
@@ -90,7 +90,7 @@ interface DeploymentResult {
   deployedAt: string
 }
 
-class JejuLaunchpadDeployer {
+class LaunchpadDeployer {
   private rpcUrl: string
   private chainId: number
   private privateKey: string
@@ -108,7 +108,7 @@ class JejuLaunchpadDeployer {
   }
 
   async deploy(): Promise<DeploymentResult> {
-    console.log('🏝️  Jeju ICO Launchpad Deployment')
+    console.log('🏝️  Network ICO Launchpad Deployment')
     console.log('='.repeat(60))
     console.log(`Network: ${network} (chainId: ${this.chainId})`)
     console.log(`Deployer: ${this.deployerAddress}`)
@@ -132,14 +132,14 @@ class JejuLaunchpadDeployer {
     result.contracts.xlpV2Router = existing.xlpV2Router || ''
     console.log('')
 
-    // Step 2: Deploy JejuPresale
-    console.log('🎟️  STEP 2: Deploying JejuPresale')
+    // Step 2: Deploy NetworkPresale
+    console.log('🎟️  STEP 2: Deploying NetworkPresale')
     console.log('-'.repeat(60))
-    result.contracts.jejuPresale = await this.deployJejuPresale(result.contracts.jejuToken)
+    result.contracts.jejuPresale = await this.deployNetworkPresale(result.contracts.jejuToken)
     console.log('')
 
     // Step 3: Configure Presale
-    console.log('⚙️  STEP 3: Configuring JejuPresale')
+    console.log('⚙️  STEP 3: Configuring NetworkPresale')
     console.log('-'.repeat(60))
     await this.configurePresale(result.contracts.jejuPresale)
     console.log('')
@@ -159,7 +159,7 @@ class JejuLaunchpadDeployer {
     // Step 6: Create JEJU/ETH Liquidity Pool
     console.log('💧 STEP 6: Creating JEJU/ETH Liquidity Pool')
     console.log('-'.repeat(60))
-    result.contracts.jejuEthPair = await this.createJejuEthPool(
+    result.contracts.jejuEthPair = await this.createEthPool(
       result.contracts.jejuToken,
       result.contracts.xlpV2Factory,
     )
@@ -222,9 +222,9 @@ class JejuLaunchpadDeployer {
     if (!jejuToken) {
       console.log('  ⚠️  JEJU Token not found, deploying...')
       jejuToken = this.deployContract(
-        'src/tokens/JejuToken.sol:JejuToken',
+        'src/tokens/NetworkToken.sol:NetworkToken',
         [this.deployerAddress, this.deployerAddress, 'true'], // owner, banManager, enableFaucet
-        'JejuToken'
+        'NetworkToken'
       )
     }
 
@@ -240,11 +240,11 @@ class JejuLaunchpadDeployer {
     return { jejuToken, xlpV2Factory, xlpV2Router }
   }
 
-  private async deployJejuPresale(jejuToken: string): Promise<string> {
+  private async deployNetworkPresale(jejuToken: string): Promise<string> {
     return this.deployContract(
-      'src/tokens/JejuPresale.sol:JejuPresale',
+      'src/tokens/NetworkPresale.sol:NetworkPresale',
       [jejuToken, this.deployerAddress, this.deployerAddress], // token, treasury, owner
-      'JejuPresale'
+      'NetworkPresale'
     )
   }
 
@@ -292,12 +292,12 @@ class JejuLaunchpadDeployer {
   private async deployExampleNFT(): Promise<string> {
     return this.deployContract(
       'src/marketplace/MockERC721.sol:MockERC721',
-      ['"Jeju Test NFT"', '"JNFT"'], // name, symbol
+      ['"Network Test NFT"', '"JNFT"'], // name, symbol
       'Example NFT (MockERC721)'
     )
   }
 
-  private async createJejuEthPool(jejuToken: string, xlpV2Factory: string): Promise<string> {
+  private async createEthPool(jejuToken: string, xlpV2Factory: string): Promise<string> {
     // Get WETH address (OP Stack standard)
     const weth = '0x4200000000000000000000000000000000000006'
     
@@ -410,7 +410,7 @@ class JejuLaunchpadDeployer {
   private printSummary(result: DeploymentResult): void {
     console.log('')
     console.log('='.repeat(60))
-    console.log('✅ Jeju ICO Launchpad Deployed')
+    console.log('✅ Network ICO Launchpad Deployed')
     console.log('='.repeat(60))
     console.log('')
     console.log('📋 Contracts:')
@@ -439,7 +439,7 @@ class JejuLaunchpadDeployer {
 }
 
 // Run
-const deployer = new JejuLaunchpadDeployer()
+const deployer = new LaunchpadDeployer()
 deployer.deploy().catch((error) => {
   console.error('❌ Deployment failed:', error)
   process.exit(1)

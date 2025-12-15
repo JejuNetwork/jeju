@@ -28,7 +28,7 @@ function getUsdcAddress(envKey: string, defaultAddress: Address, network: string
 export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
   jeju: {
     chainId: 420691,
-    name: 'Jeju',
+    name: 'Network',
     network: 'jeju',
     rpcUrl: getRpcUrl('JEJU_RPC_URL', 'http://127.0.0.1:9545'),
     usdc: getUsdcAddress('JEJU_USDC_ADDRESS', '0x0165878A594ca255338adfa4d48449f69242Eb8F', 'jeju'),
@@ -37,7 +37,7 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
   },
   'jeju-testnet': {
     chainId: 420690,
-    name: 'Jeju Testnet',
+    name: 'Testnet',
     network: 'jeju-testnet',
     rpcUrl: getRpcUrl('JEJU_TESTNET_RPC_URL', 'https://testnet-rpc.jeju.network'),
     usdc: ZERO_ADDRESS,

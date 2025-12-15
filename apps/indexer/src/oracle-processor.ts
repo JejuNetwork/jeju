@@ -1,5 +1,5 @@
 /**
- * Oracle Processor - Indexes Jeju Oracle Network (JON) events
+ * Oracle Processor - Indexes Oracle Network (JON) events
  */
 
 import { ethers } from 'ethers';

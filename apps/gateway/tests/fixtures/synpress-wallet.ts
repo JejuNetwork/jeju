@@ -3,7 +3,7 @@
  * Re-exports from centralized @jejunetwork/tests package
  */
 
-import { createJejuWalletSetup } from '@jejunetwork/tests/synpress.config.base';
+import { createWalletSetup } from '@jejunetwork/tests/synpress.config.base';
 
 export {
   test,
@@ -28,14 +28,14 @@ export {
   TEST_WALLET_ADDRESS,
   JEJU_CHAIN_ID,
   JEJU_RPC_URL,
-  createJejuWalletSetup,
+  createWalletSetup,
 } from '@jejunetwork/tests/synpress.config.base';
 
 // Re-export MetaMask class for use in tests
 export { MetaMask } from '@synthetixio/synpress/playwright';
 
 // Default export for tests that import: import basicSetup from '../fixtures/synpress-wallet'
-const basicSetup = createJejuWalletSetup();
+const basicSetup = createWalletSetup();
 export default basicSetup;
 
 // Legacy exports for backwards compatibility
@@ -47,8 +47,8 @@ export const JEJU_TEST_WALLET = {
 };
 
 export const JEJU_NETWORK = {
-  name: 'Jeju Local',
-  networkName: 'Jeju Local', // Alias for backwards compatibility
+  name: 'Network Local',
+  networkName: 'Network Local', // Alias for backwards compatibility
   rpcUrl: process.env.L2_RPC_URL || process.env.JEJU_RPC_URL || 'http://localhost:9545',
   chainId: parseInt(process.env.CHAIN_ID || '1337'),
   symbol: 'ETH',

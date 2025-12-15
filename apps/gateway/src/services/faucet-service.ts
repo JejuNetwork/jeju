@@ -147,7 +147,7 @@ export async function claimFromFaucet(address: Address): Promise<FaucetClaimResu
 
 export function getFaucetInfo(): FaucetInfo {
   return {
-    name: IS_TESTNET ? 'Jeju Testnet Faucet' : 'Jeju Faucet',
+    name: `${getChainName(JEJU_CHAIN_ID)} Faucet`,
     description: 'Get JEJU tokens for testing. Requires ERC-8004 registry registration.',
     tokenSymbol: 'JEJU',
     amountPerClaim: formatEther(FAUCET_CONFIG.amountPerClaim),

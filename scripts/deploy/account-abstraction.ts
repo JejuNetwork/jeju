@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Deploy Account Abstraction Infrastructure for Jeju Network
+ * Deploy Account Abstraction Infrastructure for the network
  *
  * This script deploys:
  * 1. EntryPoint v0.7 (if not already deployed)
@@ -98,7 +98,7 @@ async function main() {
   // Create clients
   const chain = {
     id: config.chainId,
-    name: `Jeju ${config.network}`,
+    name: getNetworkName() ${config.network}`,
     nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
     rpcUrls: { default: { http: [config.rpcUrl] } },
   };

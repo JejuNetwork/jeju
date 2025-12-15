@@ -31,6 +31,36 @@ describe('Type Utilities', () => {
       expect(hash[0]).toBe(0x01);
       expect(hash[31]).toBe(0x01);
     });
+
+    // Edge cases
+    it('should throw for 33-byte array (too long)', () => {
+      const bytes = new Uint8Array(33);
+      expect(() => toHash32(bytes)).toThrow();
+    });
+
+    it('should throw for empty array', () => {
+      const bytes = new Uint8Array(0);
+      expect(() => toHash32(bytes)).toThrow();
+    });
+
+    it('should handle all zeros', () => {
+      const bytes = new Uint8Array(32).fill(0x00);
+      const hash = toHash32(bytes);
+      expect(hash.every(b => b === 0)).toBe(true);
+    });
+
+    it('should handle all 0xFF (max byte value)', () => {
+      const bytes = new Uint8Array(32).fill(0xff);
+      const hash = toHash32(bytes);
+      expect(hash.every(b => b === 0xff)).toBe(true);
+    });
+
+    it('should be same reference (cast, not copy)', () => {
+      const bytes = new Uint8Array(32).fill(0xab);
+      const hash = toHash32(bytes);
+      bytes[0] = 0x00; // mutate original
+      expect(hash[0]).toBe(0x00); // hash shares reference
+    });
   });
 
   describe('isEVMChain', () => {

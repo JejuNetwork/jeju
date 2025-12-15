@@ -1,6 +1,19 @@
 # Why Jeju?
 
-> **TL;DR:** Jeju is an Ethereum L2 with 200ms blocks, gasless transactions (users pay in any token), on-chain agent identity (ERC-8004), and cross-chain intents (ERC-7683). Built on OP-Stack.
+> **TL;DR:** Jeju is both an Ethereum L2 and a framework for launching your own appchain. Every Jeju network gets 200ms blocks, gasless transactions, on-chain agent identity (ERC-8004), and cross-chain intents (ERC-7683). All built on OP-Stack.
+
+## Two Things at Once
+
+**Jeju is a network:** A production L2 on Ethereum with all the features below.
+
+**Jeju is a framework:** Fork it, rename it, deploy your own appchain. Every network you launch automatically connects to the Jeju ecosystem with cross-chain identity, shared liquidity, and intent routing.
+
+```bash
+# Launch your own Jeju-powered network
+jeju fork --name "MyChain" --chain-id 123456
+```
+
+[Learn how to fork →](/guides/fork-network)
 
 ## Problem
 

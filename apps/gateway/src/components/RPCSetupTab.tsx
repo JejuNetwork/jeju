@@ -9,7 +9,7 @@ const formatUsd = (v: number) => v.toLocaleString('en-US', { style: 'currency', 
 const formatNum = (v: number) => v.toLocaleString('en-US');
 
 const CHAINS = [
-  { name: 'Jeju', chainId: 420691 }, { name: 'Jeju Testnet', chainId: 420690, testnet: true },
+  { name: 'Network', chainId: 420691 }, { name: 'Testnet', chainId: 420690, testnet: true },
   { name: 'Ethereum', chainId: 1 }, { name: 'Base', chainId: 8453 }, { name: 'Arbitrum', chainId: 42161 }, { name: 'Optimism', chainId: 10 },
 ];
 

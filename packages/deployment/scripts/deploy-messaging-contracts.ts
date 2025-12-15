@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Deploy Messaging Contracts to Jeju L2
+ * Deploy Messaging Contracts to the network L2
  * 
  * Deploys KeyRegistry and MessageNodeRegistry contracts for decentralized messaging.
  * 
@@ -20,17 +20,17 @@ const NETWORKS = {
   testnet: {
     rpcUrl: process.env.JEJU_TESTNET_RPC_URL ?? 'https://testnet-rpc.jeju.network',
     chainId: 11235813,
-    name: 'Jeju Testnet',
+    name: 'Testnet',
   },
   mainnet: {
     rpcUrl: process.env.JEJU_MAINNET_RPC_URL ?? 'https://rpc.jeju.network',
     chainId: 11235814,
-    name: 'Jeju Mainnet',
+    name: 'Mainnet',
   },
   localnet: {
     rpcUrl: process.env.JEJU_LOCALNET_RPC_URL ?? 'http://localhost:8545',
     chainId: 31337,
-    name: 'Jeju Localnet',
+    name: 'Localnet',
   },
 } as const;
 

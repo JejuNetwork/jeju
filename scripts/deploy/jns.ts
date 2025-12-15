@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * JNS (Jeju Name Service) Deployment Script
+ * JNS (Network Name Service) Deployment Script
  * 
  * Deploys the complete JNS stack:
  * - JNSRegistry: Core name registry
@@ -8,7 +8,7 @@
  * - JNSRegistrar: Name registration controller (ERC-721)
  * - JNSReverseRegistrar: Reverse resolution
  * 
- * Also registers canonical names for all Jeju apps.
+ * Also registers canonical name: getNetworkName() apps.
  * 
  * Usage:
  *   bun run scripts/deploy/jns.ts               # Deploy to localnet
@@ -36,7 +36,7 @@ const PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY ||
 console.log(`
 ╔═══════════════════════════════════════════════════════════╗
 ║                                                           ║
-║   🏷️  JNS - Jeju Name Service Deployment                  ║
+║   🏷️  JNS - Network Name Service Deployment                  ║
 ║   Network: ${network.padEnd(44)}║
 ║   Decentralized naming for hosted apps                   ║
 ║                                                           ║

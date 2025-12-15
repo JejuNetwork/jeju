@@ -1,5 +1,5 @@
 /**
- * JejuDA HTTP Server
+ * NetworkDA HTTP Server
  * Implements OP Stack Alt-DA interface with encrypted storage support
  */
 
@@ -256,7 +256,7 @@ jejuda_uptime_seconds ${(Date.now() - this.startTime) / 1000}
 
     console.log(`
 ╔═══════════════════════════════════════════════════════════╗
-║                      JejuDA Server                         ║
+║                      NetworkDA Server                         ║
 ║           Native Data Availability for OP Stack            ║
 ╠═══════════════════════════════════════════════════════════╣
 ║  IPFS API:      ${this.config.ipfsApiUrl.padEnd(38)}║
@@ -271,7 +271,7 @@ jejuda_uptime_seconds ${(Date.now() - this.startTime) / 1000}
       fetch: this.app.fetch,
     });
 
-    console.log(`JejuDA server listening on port ${this.config.port}`);
+    console.log(`NetworkDA server listening on port ${this.config.port}`);
   }
 }
 

@@ -1,8 +1,8 @@
-// Jeju Network Token Configuration
-// This is used for the official Jeju ICO on the launchpad
+// the network Token Configuration
+// This is used for the official Network ICO on the launchpad
 
 export const JEJU_TOKENOMICS = {
-  name: 'Jeju',
+  name: 'Network',
   symbol: 'JEJU',
   decimals: 18,
   
@@ -114,19 +114,22 @@ export const JEJU_TOKENOMICS = {
   },
 } as const
 
-export type JejuAllocationKey = keyof typeof JEJU_TOKENOMICS.allocation
+export type AllocationKey = keyof typeof JEJU_TOKENOMICS.allocation
 
 // Contract addresses by network
 export const JEJU_CONTRACTS = {
   localnet: {
-    token: '0x0000000000000000000000000000000000000000' as const,
-    presale: '0x0000000000000000000000000000000000000000' as const,
+    banManager: '0x5FbDB2315678afecb367f032d93F642f64180aa3' as const,
+    token: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512' as const,
+    presale: '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707' as const,
   },
   testnet: {
+    banManager: '0x0000000000000000000000000000000000000000' as const,
     token: '0x0000000000000000000000000000000000000000' as const,
     presale: '0x0000000000000000000000000000000000000000' as const,
   },
   mainnet: {
+    banManager: '0x0000000000000000000000000000000000000000' as const,
     token: '0x0000000000000000000000000000000000000000' as const,
     presale: '0x0000000000000000000000000000000000000000' as const,
   },

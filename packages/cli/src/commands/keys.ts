@@ -18,7 +18,6 @@ import { join } from 'path';
 import { randomBytes, createHash } from 'crypto';
 import { Wallet, keccak256, toUtf8Bytes } from 'ethers';
 import { logger } from '../lib/logger';
-import { getAccountBalance, checkRpcHealth } from '../lib/chain';
 import {
   getDevKeys,
   encryptKeySet,
@@ -27,13 +26,13 @@ import {
   type OperatorKeySet,
 } from '../lib/keys';
 import { getKeysDir } from '../lib/system';
-import { CHAIN_CONFIG, type NetworkType, type KeyConfig, type KeySet } from '../types';
+import { type NetworkType, type KeyConfig, type KeySet } from '../types';
 
 export const keysCommand = new Command('keys')
-  .description('Key management and genesis ceremony')
-  .argument('[action]', 'show | genesis | balance | burn', 'show')
+  .description('Manage keys')
+  .argument('[action]', 'show | genesis | burn', 'show')
   .option('-n, --network <network>', 'Network', 'localnet')
-  .option('--private', 'Show private keys (danger)')
+  .option('--private', 'Show private keys')
   .action(async (action, options) => {
     const network = options.network as NetworkType;
     
@@ -43,9 +42,6 @@ export const keysCommand = new Command('keys')
         break;
       case 'genesis':
         await runGenesis(network);
-        break;
-      case 'balance':
-        await showBalances(network);
         break;
       case 'burn':
         await burnKeys(network);
@@ -1223,50 +1219,3 @@ async function showKeys(network: NetworkType, showPrivate: boolean) {
   }
 }
 
-async function showBalances(network: NetworkType) {
-  logger.header('BALANCES');
-
-  const config = CHAIN_CONFIG[network];
-  const rpcUrl = network === 'localnet'
-    ? 'http://127.0.0.1:9545'
-    : config.rpcUrl;
-
-  const healthy = await checkRpcHealth(rpcUrl, 3000);
-  if (!healthy) {
-    logger.error(`Cannot connect to ${network} RPC`);
-    if (network === 'localnet') {
-      logger.info('Start with: jeju dev');
-    }
-    return;
-  }
-
-  let addresses: Record<string, string> = {};
-  
-  if (network === 'localnet') {
-    const keys = getDevKeys();
-    addresses = Object.fromEntries(
-      keys.map((k, i) => [`Account ${i}`, k.address])
-    );
-  } else {
-    const keysDir = getKeysDir();
-    const addressesPath = join(keysDir, network, 'addresses.json');
-    
-    if (!existsSync(addressesPath)) {
-      logger.warn(`No keys configured for ${network}`);
-      return;
-    }
-    
-    addresses = JSON.parse(readFileSync(addressesPath, 'utf-8'));
-  }
-
-  for (const [name, address] of Object.entries(addresses)) {
-    const balance = await getAccountBalance(rpcUrl, address as `0x${string}`);
-    const status = parseFloat(balance) > 0 ? 'ok' : 'warn';
-    
-    logger.table([{
-      label: name,
-      value: `${balance} ETH`,
-      status,
-    }]);
-  }
-}

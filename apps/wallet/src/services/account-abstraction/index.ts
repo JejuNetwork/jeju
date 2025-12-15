@@ -1,6 +1,6 @@
 /**
  * Account Abstraction Service
- * Uses Jeju paymaster contracts and bundler
+ * Uses network paymaster contracts and bundler
  */
 
 import type { Address, Hex, PublicClient } from 'viem';
@@ -10,7 +10,7 @@ import { rpcService, SupportedChainId, SUPPORTED_CHAINS } from '../rpc';
 // ERC-4337 Entry Point (v0.7)
 const ENTRY_POINT_V07 = '0x0000000071727De22E5E9d8BAf0edAc6f37da032' as Address;
 
-// Jeju contract addresses (from deployments)
+// Network contract addresses (from deployments)
 // Contract addresses per chain - add more as contracts are deployed
 const JEJU_CONTRACTS: Record<number, { entryPoint: Address; factory: Address; sponsoredPaymaster?: Address }> = {
   1337: {
@@ -217,7 +217,7 @@ class AccountAbstractionService {
     return { ...userOp, signature };
   }
 
-  // Send UserOperation via Jeju bundler
+  // Send UserOperation via the network bundler
   async sendUserOperation(userOp: UserOperation, chainId: SupportedChainId): Promise<Hex> {
     const entryPoint = getEntryPoint(chainId);
     return jeju.sendUserOperation(chainId, this.serializeUserOp(userOp), entryPoint);

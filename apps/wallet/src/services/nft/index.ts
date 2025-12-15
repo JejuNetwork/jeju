@@ -1,6 +1,6 @@
 /**
  * NFT Service
- * Uses Jeju indexer for NFT data
+ * Uses network indexer for NFT data
  */
 
 import type { Address, Hex } from 'viem';

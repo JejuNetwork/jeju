@@ -18,7 +18,7 @@ describe('Route Navigation and Screenshots', () => {
     });
 
     // Verify page loads
-    await expect(page).toHaveTitle(/Jeju Network Leaderboard/i);
+    await expect(page).toHaveTitle(/the network Leaderboard/i);
     await expect(page.locator('main')).toBeVisible();
   });
 

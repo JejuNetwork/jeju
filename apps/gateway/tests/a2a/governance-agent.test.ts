@@ -4,6 +4,7 @@
  */
 
 import { expect, test, describe } from 'bun:test';
+import { getNetworkName } from '@jejunetwork/config';
 
 const GOVERNANCE_CARD_URL = 'http://localhost:4003/.well-known/governance-agent-card.json';
 
@@ -15,7 +16,7 @@ describe('Governance Agent Card', () => {
     const card = await response.json();
     
     expect(card.id).toBe('jeju-futarchy-governance');
-    expect(card.name).toBe('Jeju Futarchy Governance');
+    expect(card.name).toBe(`${getNetworkName()} Futarchy Governance`);
   });
 
   test('should list futarchy-specific capabilities', async () => {

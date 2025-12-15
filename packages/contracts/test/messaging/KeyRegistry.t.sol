@@ -2,10 +2,10 @@
 pragma solidity ^0.8.26;
 
 import {Test, console} from "forge-std/Test.sol";
-import {KeyRegistry} from "../../src/messaging/KeyRegistry.sol";
+import {MessagingKeyRegistry} from "../../src/messaging/MessagingKeyRegistry.sol";
 
 contract KeyRegistryTest is Test {
-    KeyRegistry public registry;
+    MessagingKeyRegistry public registry;
 
     uint256 alicePrivateKey = 0xA11CE;
     uint256 bobPrivateKey = 0xB0B;
@@ -19,7 +19,7 @@ contract KeyRegistryTest is Test {
     bytes32 public bobSignedPreKey = bytes32(uint256(5));
 
     function setUp() public {
-        registry = new KeyRegistry();
+        registry = new MessagingKeyRegistry();
         alice = vm.addr(alicePrivateKey);
         bob = vm.addr(bobPrivateKey);
     }

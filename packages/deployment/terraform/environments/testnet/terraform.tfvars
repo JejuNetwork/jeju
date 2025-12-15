@@ -9,7 +9,7 @@ wait_for_acm_validation = false  # Don't wait - cert may not be ready
 enable_https         = false  # Enable after ACM validates
 
 # CovenantSQL ARM64 Configuration
-# Set to true to use Graviton (ARM64) instances for ~40% cost savings
+# ARM64 (Graviton) instances provide ~40% cost savings
 # Requires: CQL image must be built and pushed to ECR first
 # Run: NETWORK=testnet bun run images:cql:push
-use_arm64_cql        = false
+use_arm64_cql        = true

@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeAll } from 'bun:test';
-import { getJejuTokens, getTokenTransfers, getTokenHolders } from '../indexer-client';
+import { getNetworkTokens, getTokenTransfers, getTokenHolders } from '../indexer-client';
 
 // Check if indexer is available
 let indexerAvailable = false;
@@ -24,12 +24,12 @@ describe('Indexer Client', () => {
     }
   });
 
-  test('should fetch Jeju tokens', async () => {
+  test('should fetch network tokens', async () => {
     if (!indexerAvailable) {
       console.log('⏭️ Skipping: Indexer not available');
       return;
     }
-    const tokens = await getJejuTokens({ limit: 10 });
+    const tokens = await getNetworkTokens({ limit: 10 });
     expect(tokens).toBeDefined();
     expect(Array.isArray(tokens)).toBe(true);
   });
@@ -39,7 +39,7 @@ describe('Indexer Client', () => {
       console.log('⏭️ Skipping: Indexer not available');
       return;
     }
-    const tokens = await getJejuTokens({ limit: 5 });
+    const tokens = await getNetworkTokens({ limit: 5 });
     expect(Array.isArray(tokens)).toBe(true);
     if (tokens.length > 0) {
       expect(tokens.length).toBeLessThanOrEqual(5);
@@ -79,7 +79,7 @@ describe('Indexer Client', () => {
   });
   
   test('indexer client module should be importable', () => {
-    expect(typeof getJejuTokens).toBe('function');
+    expect(typeof getNetworkTokens).toBe('function');
     expect(typeof getTokenTransfers).toBe('function');
     expect(typeof getTokenHolders).toBe('function');
   });

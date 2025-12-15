@@ -1076,7 +1076,7 @@
     },
     {
       "type": "event",
-      "name": "JejuTokenUpdated",
+      "name": "NativeTokenUpdated",
       "inputs": [
         {
           "name": "oldToken",

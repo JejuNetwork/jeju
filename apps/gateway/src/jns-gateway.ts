@@ -513,7 +513,7 @@ export async function startJNSGateway(): Promise<JNSGateway> {
   if (!ipfsGatewayUrl) {
     throw new Error(
       'JNS Gateway requires IPFS_GATEWAY_URL environment variable. ' +
-      'Start local IPFS: docker compose -f docker-compose.decentralized.yml up -d ipfs'
+      'Start local IPFS: docker compose up -d ipfs'
     );
   }
 

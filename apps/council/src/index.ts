@@ -1,5 +1,5 @@
 /**
- * Jeju Council - AI DAO Governance
+ * Network Council - AI DAO Governance
  *
  * PRODUCTION ASSUMPTIONS:
  * 1. Ollama must be running at OLLAMA_URL (default: localhost:11434)
@@ -61,7 +61,7 @@ function getConfig(): CouncilConfig {
       predimarket: addr('PREDIMARKET_ADDRESS'),
     },
     agents: {
-      ceo: agent('eliza-ceo', 'Eliza', 'AI CEO of Jeju DAO'),
+      ceo: agent('eliza-ceo', 'Eliza', 'AI CEO of Network DAO'),
       council: [
         agent('council-treasury', 'Treasury', 'Financial review'),
         agent('council-code', 'Code', 'Technical review'),
@@ -658,7 +658,7 @@ app.get('/metrics', () => {
 });
 
 app.get('/', (c) => c.json({
-  name: 'Jeju AI Council',
+  name: `${getNetworkName()} AI Council`,
   version: '2.1.0',
   description: 'Fully autonomous reputation-based DAO with AI CEO',
   endpoints: {

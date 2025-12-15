@@ -10,7 +10,7 @@ const VIEWPORTS = {
 
 test.describe('Disconnected State - All Viewport Sizes', () => {
   for (const [name, viewport] of Object.entries(VIEWPORTS)) {
-    test(`landing page renders correctly on ${name}`, async ({ _page }) => {
+    test(`landing page renders correctly on ${name}`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await page.goto(GATEWAY_URL);
       await page.waitForLoadState('networkidle');
@@ -29,7 +29,7 @@ test.describe('Disconnected State - All Viewport Sizes', () => {
 });
 
 test.describe('Header Responsive Tests', () => {
-  test('header title visible on all sizes', async ({ _page }) => {
+  test('header title visible on all sizes', async ({ page }) => {
     for (const [, viewport] of Object.entries(VIEWPORTS)) {
       await page.setViewportSize(viewport);
       await page.goto(GATEWAY_URL);
@@ -37,7 +37,7 @@ test.describe('Header Responsive Tests', () => {
     }
   });
 
-  test('connect button accessible on mobile', async ({ _page }) => {
+  test('connect button accessible on mobile', async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.mobile);
     await page.goto(GATEWAY_URL);
     
@@ -51,7 +51,7 @@ test.describe('Header Responsive Tests', () => {
 });
 
 test.describe('Card Responsive Tests', () => {
-  test('main card visible and readable on mobile', async ({ _page }) => {
+  test('main card visible and readable on mobile', async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.mobile);
     await page.goto(GATEWAY_URL);
     
@@ -65,7 +65,7 @@ test.describe('Card Responsive Tests', () => {
 });
 
 test.describe('CSS Responsive Classes', () => {
-  test('nav-tab class applies correct flex styles', async ({ _page }) => {
+  test('nav-tab class applies correct flex styles', async ({ page }) => {
     await page.goto(GATEWAY_URL);
     await page.waitForLoadState('networkidle');
 
@@ -76,7 +76,7 @@ test.describe('CSS Responsive Classes', () => {
     expect(hasGradient).toBe(true);
   });
 
-  test('button class has correct base styles', async ({ _page }) => {
+  test('button class has correct base styles', async ({ page }) => {
     await page.goto(GATEWAY_URL);
     await page.waitForLoadState('networkidle');
 
@@ -93,7 +93,7 @@ test.describe('CSS Responsive Classes', () => {
 });
 
 test.describe('Touch Target Size Validation', () => {
-  test('all buttons have adequate tap targets on mobile', async ({ _page }) => {
+  test('all buttons have adequate tap targets on mobile', async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.mobile);
     await page.goto(GATEWAY_URL);
     
@@ -112,7 +112,7 @@ test.describe('Touch Target Size Validation', () => {
 
 test.describe('No Horizontal Overflow', () => {
   for (const [name, viewport] of Object.entries(VIEWPORTS)) {
-    test(`no horizontal scroll on ${name}`, async ({ _page }) => {
+    test(`no horizontal scroll on ${name}`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await page.goto(GATEWAY_URL);
       await page.waitForLoadState('networkidle');
@@ -127,7 +127,7 @@ test.describe('No Horizontal Overflow', () => {
 });
 
 test.describe('CSS Grid Responsiveness', () => {
-  test('grid classes apply correct columns', async ({ _page }) => {
+  test('grid classes apply correct columns', async ({ page }) => {
     await page.goto(GATEWAY_URL);
 
     // Test desktop
@@ -154,7 +154,7 @@ test.describe('CSS Grid Responsiveness', () => {
 
 test.describe('Visual Regression Snapshots', () => {
   for (const [name, viewport] of Object.entries(VIEWPORTS)) {
-    test(`visual snapshot at ${name}`, async ({ _page }) => {
+    test(`visual snapshot at ${name}`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await page.goto(GATEWAY_URL);
       await page.waitForLoadState('networkidle');

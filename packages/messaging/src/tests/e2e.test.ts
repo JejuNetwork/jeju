@@ -1,5 +1,5 @@
 /**
- * End-to-End Tests for Jeju Messaging
+ * End-to-End Tests for network Messaging
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';

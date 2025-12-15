@@ -1,5 +1,5 @@
 /**
- * JejuDA - Native Data Availability Server
+ * NetworkDA - Native Data Availability Server
  * 
  * Entry point for the DA server
  */
@@ -16,6 +16,6 @@ const config = {
 const server = new DAServer(config);
 
 server.start().catch((error) => {
-  console.error('Failed to start JejuDA server:', error);
+  console.error('Failed to start NetworkDA server:', error);
   process.exit(1);
 });

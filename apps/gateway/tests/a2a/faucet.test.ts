@@ -65,7 +65,7 @@ describe('Faucet A2A Skills', () => {
     
     const dataPart = result.result.parts.find((p: { kind: string }) => p.kind === 'data');
     expect(dataPart).toBeDefined();
-    expect(dataPart.data.name).toBe('Jeju Testnet Faucet');
+    expect(dataPart.data.name).toBe('Network Testnet Faucet');
     expect(dataPart.data.tokenSymbol).toBe('JEJU');
     expect(dataPart.data.cooldownHours).toBe(12);
     expect(dataPart.data.requirements).toBeDefined();
@@ -191,7 +191,7 @@ describe('Faucet MCP Tools', () => {
     expect(result.isError).toBe(false);
     
     const data = JSON.parse(result.content[0].text);
-    expect(data.name).toBe('Jeju Testnet Faucet');
+    expect(data.name).toBe('Network Testnet Faucet');
     expect(data.tokenSymbol).toBe('JEJU');
   });
 
@@ -260,7 +260,7 @@ describe('Faucet MCP Tools', () => {
     expect(result.contents[0].uri).toBe('faucet://info');
     
     const data = JSON.parse(result.contents[0].text);
-    expect(data.name).toBe('Jeju Testnet Faucet');
+    expect(data.name).toBe('Network Testnet Faucet');
   });
 });
 
@@ -271,13 +271,13 @@ describe('Faucet REST API', () => {
     expect(response.status).toBe(200);
     
     const data = await response.json();
-    expect(data.name).toBe('Jeju Testnet Faucet');
+    expect(data.name).toBe('Network Testnet Faucet');
     expect(data.description).toContain('JEJU tokens');
     expect(data.tokenSymbol).toBe('JEJU');
     expect(data.amountPerClaim).toBe('100');
     expect(data.cooldownHours).toBe(12);
     expect(data.chainId).toBe(420690);
-    expect(data.chainName).toBe('Jeju Testnet');
+    expect(data.chainName).toBe('Testnet');
     expect(data.requirements).toBeDefined();
     expect(data.requirements.length).toBe(2);
   });

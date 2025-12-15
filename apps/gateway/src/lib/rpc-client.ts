@@ -1,6 +1,6 @@
 /**
  * RPC Gateway SDK
- * Client library for accessing Jeju RPC Gateway
+ * Client library for accessing Network RPC Gateway
  */
 
 import { ethers } from 'ethers';

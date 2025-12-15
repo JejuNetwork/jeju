@@ -1,5 +1,5 @@
 /**
- * Jeju Keyring Service
+ * Network Keyring Service
  * Secure key management for wallet accounts
  * Supports: HD wallets, private key import, watch-only, hardware wallets
  */

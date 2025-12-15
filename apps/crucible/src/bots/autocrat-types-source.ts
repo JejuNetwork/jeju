@@ -24,8 +24,8 @@ export const ChainIdSchema = z.union([
   z.literal(56),       // BSC
   z.literal(97),       // BSC Testnet
   z.literal(1337),     // Localnet
-  z.literal(420691),   // Jeju Mainnet
-  z.literal(420690),   // Jeju Testnet
+  z.literal(420691),   // Network Mainnet
+  z.literal(420690),   // Network Testnet
 ]);
 export type ChainId = z.infer<typeof ChainIdSchema>;
 

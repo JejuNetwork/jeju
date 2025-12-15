@@ -1,5 +1,5 @@
 /**
- * TEE (Trusted Execution Environment) integration for Jeju
+ * TEE (Trusted Execution Environment) integration for network
  * 
  * Supports:
  * - Dstack simulator for development

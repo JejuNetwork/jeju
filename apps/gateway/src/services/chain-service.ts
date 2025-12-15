@@ -204,7 +204,7 @@ export async function fetchSolverInfo(solverAddress: Address): Promise<SolverInf
     return null;
   }
 
-  // Registry lives on Jeju testnet (420690) or mainnet (420691)
+  // Registry lives on the network testnet (420690) or mainnet (420691)
   const { JEJU_CHAIN_ID } = await import('../config/networks.js');
   const client = getClient(JEJU_CHAIN_ID);
   
@@ -228,7 +228,7 @@ export async function fetchRegistryStats(): Promise<{
     return null;
   }
 
-  // Registry lives on Jeju testnet (420690) or mainnet (420691)
+  // Registry lives on the network testnet (420690) or mainnet (420691)
   const { JEJU_CHAIN_ID } = await import('../config/networks.js');
   const client = getClient(JEJU_CHAIN_ID);
   

@@ -1,7 +1,7 @@
 /**
  * Token Payment Router
  *
- * The single entry point for all payment operations on Jeju.
+ * The single entry point for all payment operations on the network.
  * Works with ANY app, ANY token, ANY chain.
  *
  * Features:
@@ -535,8 +535,8 @@ export class TokenPaymentRouter {
       42161: 'Arbitrum',
       10: 'Optimism',
       8453: 'Base',
-      420691: 'Jeju',
-      420690: 'Jeju Testnet',
+      420691: 'Network',
+      420690: 'Testnet',
       11155111: 'Sepolia',
     };
     return CHAIN_NAMES[chainId] || `Chain ${chainId}`;

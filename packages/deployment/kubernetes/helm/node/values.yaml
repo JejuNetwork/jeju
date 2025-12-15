@@ -1,0 +1,112 @@
+# Default values for jeju-node
+replicaCount: 1
+
+image:
+  repository: jeju/node
+  pullPolicy: IfNotPresent
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# Network configuration
+network: "testnet"
+rpcUrl: "https://testnet-rpc.jeju.network"
+chainId: 420691
+
+# Wallet configuration (use secrets in production)
+wallet:
+  secretName: "jeju-node-wallet"
+  secretKey: "private-key"
+
+# Service configuration
+services:
+  compute:
+    enabled: true
+    cpuCores: 4
+    pricePerHour: "0.01"
+    acceptNonTee: true
+  storage:
+    enabled: false
+    capacityGB: 100
+  oracle:
+    enabled: false
+  proxy:
+    enabled: true
+  cron:
+    enabled: true
+  rpc:
+    enabled: false
+  xlp:
+    enabled: false
+  solver:
+    enabled: false
+  sequencer:
+    enabled: false
+
+# Bot configuration
+bots:
+  dexArb:
+    enabled: false
+  crossChainArb:
+    enabled: false
+  sandwich:
+    enabled: false
+  liquidation:
+    enabled: false
+  oracleKeeper:
+    enabled: false
+  solver:
+    enabled: false
+  capitalAllocation: "1.0"
+  maxGasGwei: 50
+  minProfitBps: 50
+
+# Earnings configuration
+earnings:
+  autoClaim: true
+  autoClaimThreshold: "0.1"
+  autoStake: false
+
+# Logging
+logLevel: "info"
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext: {}
+
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# GPU support
+gpu:
+  enabled: false
+  count: 1
+  type: "nvidia.com/gpu"
+
+# Persistence for local state
+persistence:
+  enabled: true
+  storageClass: ""
+  size: 10Gi
+  accessMode: ReadWriteOnce
+

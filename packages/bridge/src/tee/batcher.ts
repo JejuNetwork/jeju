@@ -1,16 +1,5 @@
 /**
- * TEE Batching Service
- *
- * Aggregates cross-chain transfers into batches for efficient ZK proving.
- * Uses TEE attestation for pre-verification caching to reduce redundant work.
- *
- * Architecture:
- * 1. Transfers arrive and are validated/cached in TEE
- * 2. TEE attests to the batch contents
- * 3. Prover generates ZK proof for entire batch
- * 4. Single proof verifies all transfers
- *
- * This reduces per-transfer proof cost significantly.
+ * TEE Batching - aggregates transfers for efficient ZK proving
  */
 
 import type {
@@ -24,10 +13,6 @@ import type {
 } from '../types/index.js';
 import { toHash32 } from '../types/index.js';
 
-// =============================================================================
-// BATCH STATE
-// =============================================================================
-
 interface BatchState {
   id: Hash32;
   transfers: TEECacheEntry[];
@@ -35,10 +20,6 @@ interface BatchState {
   estimatedTotalCost: bigint;
   status: 'accumulating' | 'ready' | 'proving' | 'proven';
 }
-
-// =============================================================================
-// TEE BATCHER
-// =============================================================================
 
 export class TEEBatcher {
   private config: TEEBatchingConfig;
@@ -51,19 +32,11 @@ export class TEEBatcher {
     this.config = config;
   }
 
-  /**
-   * Initialize the batcher with TEE attestation
-   */
   async initialize(): Promise<void> {
-    // In production, this would initialize the TEE enclave
-    // and generate an attestation quote
     this.attestation = await this.generateAttestation();
     console.log('[TEE] Batcher initialized with attestation');
   }
 
-  /**
-   * Add a transfer to the current batch
-   */
   async addTransfer(transfer: CrossChainTransfer): Promise<{
     batchId: Hash32;
     position: number;
@@ -110,9 +83,6 @@ export class TEEBatcher {
     };
   }
 
-  /**
-   * Get batch status
-   */
   getBatchStatus(batchId: string): BatchState | null {
     if (
       this.currentBatch &&
@@ -123,9 +93,6 @@ export class TEEBatcher {
     return this.pendingBatches.get(batchId) ?? null;
   }
 
-  /**
-   * Get next batch ready for proving
-   */
   getNextBatchForProving(): BatchState | null {
     for (const [, batch] of this.pendingBatches) {
       if (batch.status === 'ready') {
@@ -136,9 +103,6 @@ export class TEEBatcher {
     return null;
   }
 
-  /**
-   * Mark batch as proven
-   */
   markBatchProven(batchId: string, proof: SP1Proof): ProofBatch {
     const batch = this.pendingBatches.get(batchId);
     if (!batch) {
@@ -167,16 +131,9 @@ export class TEEBatcher {
     return proofBatch;
   }
 
-  /**
-   * Get TEE attestation for verification
-   */
   getAttestation(): TEEAttestation | null {
     return this.attestation;
   }
-
-  // =============================================================================
-  // PRIVATE METHODS
-  // =============================================================================
 
   private createNewBatch(): BatchState {
     const id = this.generateBatchId();
@@ -273,8 +230,6 @@ export class TEEBatcher {
   private async computePartialState(
     transfer: CrossChainTransfer
   ): Promise<Uint8Array> {
-    // In production, this would compute a partial proof state
-    // that can be efficiently combined with other transfers
     const encoder = new TextEncoder();
     const data = JSON.stringify({
       transferId: Array.from(transfer.transferId),
@@ -332,10 +287,6 @@ export class TEEBatcher {
       .join('');
   }
 }
-
-// =============================================================================
-// FACTORY
-// =============================================================================
 
 export function createTEEBatcher(config: TEEBatchingConfig): TEEBatcher {
   return new TEEBatcher(config);

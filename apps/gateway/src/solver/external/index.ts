@@ -3,12 +3,14 @@
  * 
  * Permissionless integrations with external intent/order protocols
  * to earn solver/filler fees by leveraging Jeju's liquidity.
+ * 
+ * All integrations are fully permissionless - no API keys required.
  */
 
 export { AcrossAdapter, type AcrossDeposit } from './across';
 export { UniswapXAdapter, type UniswapXOrder } from './uniswapx';
-export { OneInchAdapter, type OneInchLimitOrder } from './oneinch';
-export { CowProtocolSolver, type CowAuction } from './cow';
+export { CowProtocolSolver, COW_SETTLEMENT, COW_VAULT_RELAYER, type CowAuction, type CowOrder, type CowQuote, type CowOrderParams, type CowSolution } from './cow';
+export { CowSolverValidator, printSolverReport, printComparisonReport, type SolverMetrics, type CompetitionResult } from './cow-validator';
 export { ExternalProtocolAggregator } from './aggregator';
 
 // Chain configurations for external protocols

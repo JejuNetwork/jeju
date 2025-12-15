@@ -8,7 +8,7 @@ import { testWithWallet as test, expect } from '../fixtures/wallet';
 import { connectWallet } from '@jejunetwork/tests/helpers/contracts';
 
 test.describe('Node Staking Flow', () => {
-  test.beforeEach(async ({ _page, wallet }) => {
+  test.beforeEach(async ({ page, wallet }) => {
     await page.goto('http://localhost:4001');
     await connectWallet(page, wallet);
     
@@ -16,11 +16,11 @@ test.describe('Node Staking Flow', () => {
     await page.getByRole('button', { name: /Node Operators/i }).click();
   });
 
-  test('should display node staking interface', async ({ _page }) => {
+  test('should display node staking interface', async ({ page }) => {
     await expect(page.getByText(/Multi-Token Node Staking/i)).toBeVisible();
   });
 
-  test('should show network overview section', async ({ _page }) => {
+  test('should show network overview section', async ({ page }) => {
     // Click Network Overview
     await page.getByRole('button', { name: /Network Overview/i }).click();
     
@@ -30,7 +30,7 @@ test.describe('Node Staking Flow', () => {
     await expect(page.getByText(/Rewards Claimed/i)).toBeVisible();
   });
 
-  test('should show my nodes section', async ({ _page }) => {
+  test('should show my nodes section', async ({ page }) => {
     await page.getByRole('button', { name: /My Nodes/i }).click();
     
     // Either shows nodes or empty state
@@ -42,13 +42,13 @@ test.describe('Node Staking Flow', () => {
     }
   });
 
-  test('should display register node form', async ({ _page }) => {
+  test('should display register node form', async ({ page }) => {
     await page.getByRole('button', { name: /Register New Node/i }).click();
     
     await expect(page.getByText('Register New Node')).toBeVisible();
   });
 
-  test('should have staking token selector', async ({ _page }) => {
+  test('should have staking token selector', async ({ page }) => {
     await page.getByRole('button', { name: /Register New Node/i }).click();
     
     // Staking token selector should show all protocol tokens
@@ -56,14 +56,14 @@ test.describe('Node Staking Flow', () => {
     await expect(page.getByText(/what you'll lock up/i)).toBeVisible();
   });
 
-  test('should have reward token selector (can be different)', async ({ _page }) => {
+  test('should have reward token selector (can be different)', async ({ page }) => {
     await page.getByRole('button', { name: /Register New Node/i }).click();
     
     await expect(page.getByText(/Reward Token/i)).toBeVisible();
     await expect(page.getByText(/what you want to earn/i)).toBeVisible();
   });
 
-  test('should validate minimum stake amount', async ({ _page }) => {
+  test('should validate minimum stake amount', async ({ page }) => {
     await page.getByRole('button', { name: /Register New Node/i }).click();
     
     // Select staking token
@@ -78,7 +78,7 @@ test.describe('Node Staking Flow', () => {
     await expect(page.getByText(/need \$1,000 minimum/i)).toBeVisible();
   });
 
-  test('should calculate USD value of stake', async ({ _page }) => {
+  test('should calculate USD value of stake', async ({ page }) => {
     await page.getByRole('button', { name: /Register New Node/i }).click();
     
     const stakingSelector = page.locator('label:has-text("Staking Token")').locator('..').locator('.input');
@@ -92,7 +92,7 @@ test.describe('Node Staking Flow', () => {
     await expect(page.getByText(/\$/)).toBeVisible();
   });
 
-  test('should have RPC URL input field', async ({ _page }) => {
+  test('should have RPC URL input field', async ({ page }) => {
     await page.getByRole('button', { name: /Register New Node/i }).click();
     
     await expect(page.getByText('RPC URL')).toBeVisible();
@@ -100,7 +100,7 @@ test.describe('Node Staking Flow', () => {
     await expect(rpcInput).toBeVisible();
   });
 
-  test('should have geographic region selector', async ({ _page }) => {
+  test('should have geographic region selector', async ({ page }) => {
     await page.getByRole('button', { name: /Register New Node/i }).click();
     
     await expect(page.getByText('Geographic Region')).toBeVisible();
@@ -109,7 +109,7 @@ test.describe('Node Staking Flow', () => {
     await expect(regionSelect).toBeVisible();
   });
 
-  test('should show bonus for underserved regions', async ({ _page }) => {
+  test('should show bonus for underserved regions', async ({ page }) => {
     await page.getByRole('button', { name: /Register New Node/i }).click();
     
     // Region dropdown should show bonuses
@@ -124,7 +124,7 @@ test.describe('Node Staking Flow', () => {
     expect(saOption).toContain('+50%');
   });
 
-  test('should show staking requirements', async ({ _page }) => {
+  test('should show staking requirements', async ({ page }) => {
     await page.getByRole('button', { name: /Register New Node/i }).click();
     
     await expect(page.getByText(/Minimum staking period/i)).toBeVisible();
@@ -132,7 +132,7 @@ test.describe('Node Staking Flow', () => {
     await expect(page.getByText(/99%\+ uptime/i)).toBeVisible();
   });
 
-  test('should estimate monthly rewards', async ({ _page }) => {
+  test('should estimate monthly rewards', async ({ page }) => {
     await page.getByRole('button', { name: /Register New Node/i }).click();
     
     // Select reward token
@@ -145,7 +145,7 @@ test.describe('Node Staking Flow', () => {
     await expect(page.getByText(/\/month/i)).toBeVisible();
   });
 
-  test('should enforce max 5 nodes per operator', async ({ _page }) => {
+  test('should enforce max 5 nodes per operator', async ({ page }) => {
     await page.getByRole('button', { name: /Register New Node/i }).click();
     
     // Check for max nodes warning (if operator has 5 nodes)
@@ -161,7 +161,7 @@ test.describe('Node Staking Flow', () => {
 });
 
 test.describe('My Nodes Management', () => {
-  test.beforeEach(async ({ _page, wallet }) => {
+  test.beforeEach(async ({ page, wallet }) => {
     await page.goto('http://localhost:4001');
     await connectWallet(page, wallet);
     
@@ -169,7 +169,7 @@ test.describe('My Nodes Management', () => {
     await page.getByRole('button', { name: /My Nodes/i }).click();
   });
 
-  test('should display my nodes list', async ({ _page }) => {
+  test('should display my nodes list', async ({ page }) => {
     // Either shows nodes or empty state
     const noNodesMsg = page.getByText(/No Nodes Yet/i);
     const myNodesHeading = page.getByText(/My Nodes \(/i);
@@ -180,7 +180,7 @@ test.describe('My Nodes Management', () => {
     expect(hasEmpty || hasNodes).toBe(true);
   });
 
-  test('should show node details in cards', async ({ _page }) => {
+  test('should show node details in cards', async ({ page }) => {
     const nodeCards = page.locator('.card').filter({ hasText: /Node ID:/i });
     const count = await nodeCards.count();
     
@@ -198,7 +198,7 @@ test.describe('My Nodes Management', () => {
     }
   });
 
-  test('should show claim rewards button', async ({ _page }) => {
+  test('should show claim rewards button', async ({ page }) => {
     const nodeCards = page.locator('.card').filter({ hasText: /Node ID:/i });
     const count = await nodeCards.count();
     
@@ -208,7 +208,7 @@ test.describe('My Nodes Management', () => {
     }
   });
 
-  test('should show deregister button with timing info', async ({ _page }) => {
+  test('should show deregister button with timing info', async ({ page }) => {
     const nodeCards = page.locator('.card').filter({ hasText: /Node ID:/i });
     const count = await nodeCards.count();
     

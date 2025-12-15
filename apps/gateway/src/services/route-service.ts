@@ -8,8 +8,8 @@ const CHAINS = [
   { chainId: 11155111, name: 'Sepolia', isL2: false },
   { chainId: 42161, name: 'Arbitrum One', isL2: true },
   { chainId: 10, name: 'Optimism', isL2: true },
-  { chainId: 420691, name: 'Jeju Mainnet', isL2: true },
-  { chainId: 420690, name: 'Jeju Testnet', isL2: true },
+  { chainId: 420691, name: 'Mainnet', isL2: true },
+  { chainId: 420690, name: 'Testnet', isL2: true },
   { chainId: 1337, name: 'Localnet', isL2: true },
 ];
 

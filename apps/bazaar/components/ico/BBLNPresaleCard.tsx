@@ -5,69 +5,87 @@ import { formatEther, parseEther } from 'viem'
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { toast } from 'sonner'
 
-type AuctionPhase = 'NOT_STARTED' | 'EARLY_BIRD' | 'PUBLIC_AUCTION' | 'CLEARING' | 'DISTRIBUTION' | 'COMPLETED'
+// Phase enum from canonical Presale.sol
+type PresalePhase = 'NOT_STARTED' | 'WHITELIST' | 'PUBLIC' | 'ENDED' | 'CLEARING' | 'DISTRIBUTION' | 'FAILED'
 
-interface AuctionStats {
-  totalTokens: bigint
-  committed: bigint
-  allocated: bigint
-  bidders: number
+interface PresaleStats {
+  raised: bigint
+  participants: number
+  tokensSold: bigint
+  softCap: bigint
+  hardCap: bigint
   currentPrice: bigint
-  clearingPrice: bigint
-  phase: AuctionPhase
+  phase: PresalePhase
 }
 
-interface BidInfo {
+interface ContributionInfo {
   ethAmount: bigint
-  maxPrice: bigint
-  allocation: bigint
+  tokenAllocation: bigint
+  bonusTokens: bigint
+  claimedTokens: bigint
+  claimable: bigint
   refundAmount: bigint
-  isElizaHolder: boolean
   claimed: boolean
   refunded: boolean
 }
 
+// Canonical Presale ABI from @jeju/contracts
 const BBLN_PRESALE_ABI = [
   {
-    name: 'bid',
+    name: 'contributeWithMaxPrice',
     type: 'function',
     stateMutability: 'payable',
     inputs: [{ name: 'maxPrice', type: 'uint256' }],
     outputs: [],
   },
   {
-    name: 'claimAll',
+    name: 'contribute',
+    type: 'function',
+    stateMutability: 'payable',
+    inputs: [],
+    outputs: [],
+  },
+  {
+    name: 'claim',
     type: 'function',
     stateMutability: 'nonpayable',
     inputs: [],
     outputs: [],
   },
   {
-    name: 'getAuctionStats',
+    name: 'claimRefund',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [],
+    outputs: [],
+  },
+  {
+    name: 'getPresaleStats',
     type: 'function',
     stateMutability: 'view',
     inputs: [],
     outputs: [
-      { name: 'totalTokens', type: 'uint256' },
-      { name: 'committed', type: 'uint256' },
-      { name: 'allocated', type: 'uint256' },
-      { name: 'bidders', type: 'uint256' },
-      { name: 'currentPrice', type: 'uint256' },
-      { name: 'clearing', type: 'uint256' },
+      { name: 'raised', type: 'uint256' },
+      { name: 'participants', type: 'uint256' },
+      { name: 'tokensSold', type: 'uint256' },
+      { name: 'softCap', type: 'uint256' },
+      { name: 'hardCap', type: 'uint256' },
+      { name: 'price', type: 'uint256' },
       { name: 'phase', type: 'uint8' },
     ],
   },
   {
-    name: 'getBid',
+    name: 'getContribution',
     type: 'function',
     stateMutability: 'view',
-    inputs: [{ name: 'bidder', type: 'address' }],
+    inputs: [{ name: 'account', type: 'address' }],
     outputs: [
       { name: 'ethAmount', type: 'uint256' },
-      { name: 'maxPrice', type: 'uint256' },
-      { name: 'allocation', type: 'uint256' },
+      { name: 'tokenAllocation', type: 'uint256' },
+      { name: 'bonusTokens', type: 'uint256' },
+      { name: 'claimedTokens', type: 'uint256' },
+      { name: 'claimable', type: 'uint256' },
       { name: 'refundAmount', type: 'uint256' },
-      { name: 'isElizaHolder', type: 'bool' },
       { name: 'claimed', type: 'bool' },
       { name: 'refunded', type: 'bool' },
     ],
@@ -85,13 +103,21 @@ const BBLN_PRESALE_ABI = [
     stateMutability: 'view',
     inputs: [
       { name: 'ethAmount', type: 'uint256' },
-      { name: 'isElizaHolder', type: 'bool' },
+      { name: 'isWhitelist', type: 'bool' },
+      { name: 'isHolder', type: 'bool' },
     ],
     outputs: [{ name: '', type: 'uint256' }],
   },
+  {
+    name: 'currentPhase',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint8' }],
+  },
 ] as const
 
-const PHASES: AuctionPhase[] = ['NOT_STARTED', 'EARLY_BIRD', 'PUBLIC_AUCTION', 'CLEARING', 'DISTRIBUTION', 'COMPLETED']
+const PHASES: PresalePhase[] = ['NOT_STARTED', 'WHITELIST', 'PUBLIC', 'ENDED', 'CLEARING', 'DISTRIBUTION', 'FAILED']
 
 // BBLN Tokenomics (from packages/token/src/config/tokenomics.ts)
 const BBLN_TOKENOMICS = {
@@ -127,40 +153,40 @@ export function BBLNPresaleCard() {
   
   const isDeployed = presaleAddress !== '0x0000000000000000000000000000000000000000'
   
-  // Read auction stats
+  // Read presale stats
   const { data: statsData } = useReadContract({
     address: presaleAddress as `0x${string}`,
     abi: BBLN_PRESALE_ABI,
-    functionName: 'getAuctionStats',
+    functionName: 'getPresaleStats',
     query: {
       enabled: isDeployed,
       refetchInterval: 10000,
     },
   })
   
-  const stats: AuctionStats = statsData ? {
-    totalTokens: statsData[0],
-    committed: statsData[1],
-    allocated: statsData[2],
-    bidders: Number(statsData[3]),
-    currentPrice: statsData[4],
-    clearingPrice: statsData[5],
+  const stats: PresaleStats = statsData ? {
+    raised: statsData[0],
+    participants: Number(statsData[1]),
+    tokensSold: statsData[2],
+    softCap: statsData[3],
+    hardCap: statsData[4],
+    currentPrice: statsData[5],
     phase: PHASES[Number(statsData[6])] ?? 'NOT_STARTED',
   } : {
-    totalTokens: BBLN_TOKENOMICS.publicSaleTokens * 10n ** 18n,
-    committed: 0n,
-    allocated: 0n,
-    bidders: 0,
-    currentPrice: parseEther('0.001'), // Demo price
-    clearingPrice: 0n,
-    phase: 'PUBLIC_AUCTION', // Demo mode
+    raised: 0n,
+    participants: 0,
+    tokensSold: 0n,
+    softCap: 0n,
+    hardCap: 0n,
+    currentPrice: 0n,
+    phase: 'NOT_STARTED',
   }
   
-  // Read user's bid
-  const { data: bidData } = useReadContract({
+  // Read user's contribution
+  const { data: contributionData } = useReadContract({
     address: presaleAddress as `0x${string}`,
     abi: BBLN_PRESALE_ABI,
-    functionName: 'getBid',
+    functionName: 'getContribution',
     args: [address ?? '0x0000000000000000000000000000000000000000'],
     query: {
       enabled: isDeployed && !!address,
@@ -168,14 +194,15 @@ export function BBLNPresaleCard() {
     },
   })
   
-  const userBid: BidInfo | null = bidData ? {
-    ethAmount: bidData[0],
-    maxPrice: bidData[1],
-    allocation: bidData[2],
-    refundAmount: bidData[3],
-    isElizaHolder: bidData[4],
-    claimed: bidData[5],
-    refunded: bidData[6],
+  const userContribution: ContributionInfo | null = contributionData ? {
+    ethAmount: contributionData[0],
+    tokenAllocation: contributionData[1],
+    bonusTokens: contributionData[2],
+    claimedTokens: contributionData[3],
+    claimable: contributionData[4],
+    refundAmount: contributionData[5],
+    claimed: contributionData[6],
+    refunded: contributionData[7],
   } : null
   
   // Preview allocation
@@ -183,7 +210,7 @@ export function BBLNPresaleCard() {
     address: presaleAddress as `0x${string}`,
     abi: BBLN_PRESALE_ABI,
     functionName: 'previewAllocation',
-    args: [amount ? parseEther(amount) : 0n, false],
+    args: [amount ? parseEther(amount) : 0n, false, false], // [ethAmount, isWhitelist, isHolder]
     query: {
       enabled: isDeployed && !!amount && parseFloat(amount) > 0,
     },
@@ -211,13 +238,49 @@ export function BBLNPresaleCard() {
     }
   }, [claimSuccess])
   
-  // Countdown timer
+  // Read presale config for timeline
+  const { data: configData } = useReadContract({
+    address: presaleAddress as `0x${string}`,
+    abi: [{
+      name: 'config',
+      type: 'function',
+      stateMutability: 'view',
+      inputs: [],
+      outputs: [
+        { name: 'mode', type: 'uint8' },
+        { name: 'totalTokens', type: 'uint256' },
+        { name: 'softCap', type: 'uint256' },
+        { name: 'hardCap', type: 'uint256' },
+        { name: 'minContribution', type: 'uint256' },
+        { name: 'maxContribution', type: 'uint256' },
+        { name: 'tokenPrice', type: 'uint256' },
+        { name: 'startPrice', type: 'uint256' },
+        { name: 'reservePrice', type: 'uint256' },
+        { name: 'priceDecayPerBlock', type: 'uint256' },
+        { name: 'whitelistStart', type: 'uint256' },
+        { name: 'publicStart', type: 'uint256' },
+        { name: 'presaleEnd', type: 'uint256' },
+        { name: 'tgeTimestamp', type: 'uint256' },
+      ],
+    }] as const,
+    functionName: 'config',
+    query: {
+      enabled: isDeployed,
+    },
+  })
+
+  const presaleEnd = configData ? Number(configData[12]) * 1000 : 0
+
+  // Countdown timer - uses contract data
   useEffect(() => {
-    const endTime = new Date('2025-01-15T00:00:00Z').getTime() // Demo end date
-    
+    if (!presaleEnd) {
+      setCountdown({ days: 0, hours: 0, mins: 0, secs: 0 })
+      return
+    }
+
     const timer = setInterval(() => {
       const now = Date.now()
-      const diff = Math.max(0, endTime - now)
+      const diff = Math.max(0, presaleEnd - now)
       
       setCountdown({
         days: Math.floor(diff / (1000 * 60 * 60 * 24)),
@@ -228,7 +291,7 @@ export function BBLNPresaleCard() {
     }, 1000)
     
     return () => clearInterval(timer)
-  }, [])
+  }, [presaleEnd])
   
   const handleBid = () => {
     if (!amount || parseFloat(amount) <= 0) {
@@ -236,25 +299,35 @@ export function BBLNPresaleCard() {
       return
     }
     
-    writeBid({
-      address: presaleAddress as `0x${string}`,
-      abi: BBLN_PRESALE_ABI,
-      functionName: 'bid',
-      args: [maxPrice ? parseEther(maxPrice) : 0n],
-      value: parseEther(amount),
-    })
+    // Use contributeWithMaxPrice if max price specified, otherwise contribute
+    if (maxPrice && parseFloat(maxPrice) > 0) {
+      writeBid({
+        address: presaleAddress as `0x${string}`,
+        abi: BBLN_PRESALE_ABI,
+        functionName: 'contributeWithMaxPrice',
+        args: [parseEther(maxPrice)],
+        value: parseEther(amount),
+      })
+    } else {
+      writeBid({
+        address: presaleAddress as `0x${string}`,
+        abi: BBLN_PRESALE_ABI,
+        functionName: 'contribute',
+        value: parseEther(amount),
+      })
+    }
   }
   
   const handleClaim = () => {
     writeClaim({
       address: presaleAddress as `0x${string}`,
       abi: BBLN_PRESALE_ABI,
-      functionName: 'claimAll',
+      functionName: 'claim',
     })
   }
   
-  const progressPercent = stats.totalTokens > 0n
-    ? Number((stats.allocated * 100n) / stats.totalTokens)
+  const progressPercent = stats.hardCap > 0n
+    ? Number((stats.raised * 100n) / stats.hardCap)
     : 0
   
   const formatPrice = (wei: bigint) => {
@@ -282,12 +355,15 @@ export function BBLNPresaleCard() {
           </div>
         </div>
         <div className={`rounded-full px-3 py-1 text-xs font-medium ${
-          stats.phase === 'PUBLIC_AUCTION' ? 'bg-green-500/20 text-green-400' :
-          stats.phase === 'EARLY_BIRD' ? 'bg-amber-500/20 text-amber-400' :
+          stats.phase === 'PUBLIC' ? 'bg-green-500/20 text-green-400' :
+          stats.phase === 'WHITELIST' ? 'bg-amber-500/20 text-amber-400' :
           stats.phase === 'CLEARING' ? 'bg-blue-500/20 text-blue-400' :
+          stats.phase === 'DISTRIBUTION' ? 'bg-green-500/20 text-green-400' :
           'bg-gray-500/20 text-gray-400'
         }`}>
-          {stats.phase.replace('_', ' ')}
+          {stats.phase === 'PUBLIC' ? 'Public Auction' : 
+           stats.phase === 'WHITELIST' ? 'Early Bird' : 
+           stats.phase.replace('_', ' ')}
         </div>
       </div>
       
@@ -321,16 +397,16 @@ export function BBLNPresaleCard() {
       {/* Stats */}
       <div className="mb-6 space-y-3">
         <div className="flex justify-between text-sm">
-          <span className="text-amber-300/70">Total Committed</span>
-          <span className="font-medium text-amber-100">{formatEther(stats.committed)} ETH</span>
+          <span className="text-amber-300/70">Total Raised</span>
+          <span className="font-medium text-amber-100">{formatEther(stats.raised)} ETH</span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-amber-300/70">Participants</span>
-          <span className="font-medium text-amber-100">{stats.bidders.toLocaleString()}</span>
+          <span className="font-medium text-amber-100">{stats.participants.toLocaleString()}</span>
         </div>
         <div className="flex justify-between text-sm">
-          <span className="text-amber-300/70">Tokens Available</span>
-          <span className="font-medium text-amber-100">{formatTokens(stats.totalTokens)} BBLN</span>
+          <span className="text-amber-300/70">Tokens Sold</span>
+          <span className="font-medium text-amber-100">{formatTokens(stats.tokensSold)} BBLN</span>
         </div>
         
         {/* Progress bar */}
@@ -348,31 +424,37 @@ export function BBLNPresaleCard() {
         </div>
       </div>
       
-      {/* User's Bid */}
-      {userBid && userBid.ethAmount > 0n && (
+      {/* User's Contribution */}
+      {userContribution && userContribution.ethAmount > 0n && (
         <div className="mb-6 rounded-lg border border-amber-500/20 bg-amber-950/20 p-4">
-          <h3 className="mb-3 text-sm font-medium text-amber-300">Your Bid</h3>
+          <h3 className="mb-3 text-sm font-medium text-amber-300">Your Contribution</h3>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-amber-300/70">Committed</span>
-              <span className="text-amber-100">{formatEther(userBid.ethAmount)} ETH</span>
+              <span className="text-amber-100">{formatEther(userContribution.ethAmount)} ETH</span>
             </div>
-            {userBid.allocation > 0n && (
+            {userContribution.tokenAllocation > 0n && (
               <div className="flex justify-between">
                 <span className="text-amber-300/70">Allocation</span>
-                <span className="text-amber-100">{formatTokens(userBid.allocation)} BBLN</span>
+                <span className="text-amber-100">{formatTokens(userContribution.tokenAllocation)} BBLN</span>
               </div>
             )}
-            {userBid.isElizaHolder && (
-              <div className="mt-2 flex items-center gap-2 text-xs text-green-400">
-                <span>✓</span>
-                <span>ELIZA Holder Bonus (1.5x)</span>
+            {userContribution.bonusTokens > 0n && (
+              <div className="flex justify-between">
+                <span className="text-amber-300/70">Bonus</span>
+                <span className="text-green-400">+{formatTokens(userContribution.bonusTokens)} BBLN</span>
+              </div>
+            )}
+            {userContribution.claimable > 0n && (
+              <div className="flex justify-between">
+                <span className="text-amber-300/70">Claimable</span>
+                <span className="text-amber-100">{formatTokens(userContribution.claimable)} BBLN</span>
               </div>
             )}
           </div>
           
           {/* Claim button */}
-          {stats.phase === 'DISTRIBUTION' && !userBid.claimed && userBid.allocation > 0n && (
+          {stats.phase === 'DISTRIBUTION' && !userContribution.claimed && userContribution.claimable > 0n && (
             <button
               onClick={handleClaim}
               disabled={isClaiming || isConfirmingClaim}
@@ -385,7 +467,7 @@ export function BBLNPresaleCard() {
       )}
       
       {/* Bid Form */}
-      {(stats.phase === 'EARLY_BIRD' || stats.phase === 'PUBLIC_AUCTION') && (
+      {(stats.phase === 'WHITELIST' || stats.phase === 'PUBLIC') && (
         <div className="space-y-4">
           <div>
             <label className="mb-2 block text-sm text-amber-300/70">Bid Amount (ETH)</label>

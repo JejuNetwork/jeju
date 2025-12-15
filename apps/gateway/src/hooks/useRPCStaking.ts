@@ -19,7 +19,7 @@ const STAKING_ABI = [
   { name: 'getTier', type: 'function', stateMutability: 'view', inputs: [{ name: 'user', type: 'address' }], outputs: [{ name: '', type: 'uint8' }] },
   { name: 'getRateLimit', type: 'function', stateMutability: 'view', inputs: [{ name: 'user', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
   { name: 'getStakeUsdValue', type: 'function', stateMutability: 'view', inputs: [{ name: 'user', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
-  { name: 'getJejuPrice', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint256' }] },
+  { name: 'getTokenPrice', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint256' }] },
   { name: 'getReputationDiscount', type: 'function', stateMutability: 'view', inputs: [{ name: 'user', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
 ] as const;
 
@@ -55,7 +55,7 @@ export function useRPCStaking() {
   const { data: rateLimitData } = useReadContract({ address: enabled ? STAKING : undefined, abi: STAKING_ABI, functionName: 'getRateLimit', args: positionArgs, query: { enabled } });
   const { data: discountData } = useReadContract({ address: enabled ? STAKING : undefined, abi: STAKING_ABI, functionName: 'getReputationDiscount', args: positionArgs, query: { enabled } });
   const { data: stakeUsdData } = useReadContract({ address: enabled ? STAKING : undefined, abi: STAKING_ABI, functionName: 'getStakeUsdValue', args: positionArgs, query: { enabled } });
-  const { data: priceData } = useReadContract({ address: isConfigured ? STAKING : undefined, abi: STAKING_ABI, functionName: 'getJejuPrice', query: { enabled: isConfigured } });
+  const { data: priceData } = useReadContract({ address: isConfigured ? STAKING : undefined, abi: STAKING_ABI, functionName: 'getTokenPrice', query: { enabled: isConfigured } });
   const tokenEnabled = TOKEN !== ZERO_ADDRESS && !!address;
   const balanceArgs = tokenEnabled && address ? [address] as const : undefined;
   const { data: balanceData } = useReadContract({ address: tokenEnabled ? TOKEN : undefined, abi: ERC20_ABI, functionName: 'balanceOf', args: balanceArgs, query: { enabled: tokenEnabled } });

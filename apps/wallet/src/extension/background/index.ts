@@ -298,5 +298,5 @@ chrome.alarms.onAlarm.addListener(() => {
   // Periodic check to keep service worker active
 });
 
-console.log('Jeju Wallet background script initialized');
+console.log('Network Wallet background script initialized');
 

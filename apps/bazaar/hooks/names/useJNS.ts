@@ -1,5 +1,5 @@
 /**
- * JNS (Jeju Name Service) Hooks for Bazaar
+ * JNS (Network Name Service) Hooks for Bazaar
  * 
  * Provides hooks for:
  * - Listing names for sale
@@ -9,7 +9,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
-import { type Address, type Hash, formatEther, parseEther, namehash } from 'viem';
+import { type Address, type Hash, formatEther, parseEther, namehash, keccak256, toBytes } from 'viem';
 import { CONTRACTS } from '@/config';
 
 // Contract addresses from centralized config
@@ -185,7 +185,6 @@ export function useJNSList() {
     setError(null);
 
     // Compute labelhash (tokenId)
-    const { keccak256, toBytes } = await import('viem');
     const labelhash = keccak256(toBytes(name));
     const tokenId = BigInt(labelhash);
 

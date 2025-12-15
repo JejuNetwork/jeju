@@ -139,7 +139,7 @@ describe('Cloud Integration E2E - Agent Registration', () => {
     logger.info('🤖 Registering cloud agent...');
     
     const metadata: AgentMetadata = {
-      name: 'Jeju Cloud Services E2E Test',
+      name: 'Cloud Services E2E Test',
       description: 'Cloud service for E2E testing',
       endpoint: 'http://localhost:3000/a2a',
       version: '1.0.0-test',

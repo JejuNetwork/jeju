@@ -1,0 +1,40 @@
+[
+  {
+    "name": "addr",
+    "type": "function",
+    "stateMutability": "view",
+    "inputs": [{ "name": "node", "type": "bytes32" }],
+    "outputs": [{ "type": "address" }]
+  },
+  {
+    "name": "text",
+    "type": "function",
+    "stateMutability": "view",
+    "inputs": [
+      { "name": "node", "type": "bytes32" },
+      { "name": "key", "type": "string" }
+    ],
+    "outputs": [{ "type": "string" }]
+  },
+  {
+    "name": "setAddr",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      { "name": "node", "type": "bytes32" },
+      { "name": "addr", "type": "address" }
+    ],
+    "outputs": []
+  },
+  {
+    "name": "setText",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      { "name": "node", "type": "bytes32" },
+      { "name": "key", "type": "string" },
+      { "name": "value", "type": "string" }
+    ],
+    "outputs": []
+  }
+]

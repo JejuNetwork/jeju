@@ -1,5 +1,5 @@
 /**
- * Jeju Name Service (JNS) Types
+ * Network Name Service (JNS) Types
  * 
  * Type definitions for the decentralized naming system
  * that integrates with ERC-8004 and hosted apps
@@ -152,7 +152,7 @@ export interface JNSPriceQuote {
 
 // ============ App Registry Integration ============
 
-/** Canonical JNS names for Jeju apps */
+/** Canonical JNS names for network apps */
 export const JEJU_APP_NAMES = {
   GATEWAY: 'gateway.jeju',
   BAZAAR: 'bazaar.jeju',
@@ -165,7 +165,7 @@ export const JEJU_APP_NAMES = {
   MONITORING: 'monitoring.jeju',
 } as const;
 
-export type JejuAppName = typeof JEJU_APP_NAMES[keyof typeof JEJU_APP_NAMES];
+export type NetworkAppName = typeof JEJU_APP_NAMES[keyof typeof JEJU_APP_NAMES];
 
 /** Mapping of app names to their JNS configurations */
 export interface JNSAppRegistry {

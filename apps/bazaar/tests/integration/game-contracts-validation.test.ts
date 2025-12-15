@@ -18,6 +18,8 @@ import {
   getGameIntegration,
   GameIntegrationAbi,
 } from '@jejunetwork/contracts'
+import { useGameItems, useMintItem, useBurnItem } from '@/hooks/nft/useGameItems'
+import { getGameContracts } from '@/config/contracts'
 
 const LOCALNET_RPC = process.env.LOCALNET_RPC || 'http://localhost:8545'
 const CHAIN_ID = 1337
@@ -285,18 +287,14 @@ describe('Game Contracts On-Chain Validation', () => {
 })
 
 describe('Web2 Fallback Validation', () => {
-  test('hooks should work without chain connection', async () => {
+  test('hooks should work without chain connection', () => {
     // This validates the web2 mode works correctly
-    const { useGameItems, useMintItem, useBurnItem } = await import('@/hooks/nft/useGameItems')
-    
     expect(typeof useGameItems).toBe('function')
     expect(typeof useMintItem).toBe('function')
     expect(typeof useBurnItem).toBe('function')
   })
 
-  test('config should handle missing contracts gracefully', async () => {
-    const { getGameContracts } = await import('@/config/contracts')
-    
+  test('config should handle missing contracts gracefully', () => {
     // Should not throw for unknown chain
     const contracts = getGameContracts(999999)
     expect(contracts).toBeDefined()

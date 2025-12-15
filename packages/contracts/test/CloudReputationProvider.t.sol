@@ -6,8 +6,8 @@ import "../src/services/CloudReputationProvider.sol";
 import "../src/registry/IdentityRegistry.sol";
 import "../src/registry/ReputationRegistry.sol";
 import "../src/registry/RegistryGovernance.sol";
-import {Predimarket} from "../src/prediction-markets/Predimarket.sol";
-import {PredictionOracle} from "../src/prediction-markets/PredictionOracle.sol";
+import {PredictionMarket} from "../src/prediction/PredictionMarket.sol";
+import {PredictionOracle} from "../src/prediction/PredictionOracle.sol";
 import {MockToken} from "../src/mocks/MockToken.sol";
 
 contract CloudReputationProviderTest is Test {
@@ -15,7 +15,7 @@ contract CloudReputationProviderTest is Test {
     IdentityRegistry public identityRegistry;
     ReputationRegistry public reputationRegistry;
     RegistryGovernance public registryGovernance;
-    Predimarket public predimarket;
+    PredictionMarket public predimarket;
     PredictionOracle public predictionOracle;
     MockToken public elizaToken;
 
@@ -35,7 +35,7 @@ contract CloudReputationProviderTest is Test {
         // Deploy prediction market infrastructure
         elizaToken = new MockToken("ElizaOS", "ELIZA", 18);
         predictionOracle = new PredictionOracle(owner);
-        predimarket = new Predimarket(address(elizaToken), address(predictionOracle), owner, owner);
+        predimarket = new PredictionMarket(address(elizaToken), address(predictionOracle), owner, owner);
 
         // Deploy registry governance
         registryGovernance = new RegistryGovernance(

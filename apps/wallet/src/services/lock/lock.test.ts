@@ -2,15 +2,15 @@
  * Lock Service Tests
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { LockService } from './index';
 
-// Mock secure storage
+// Mock secure storage module
 vi.mock('../../platform/secure-storage', () => ({
   secureStorage: {
-    get: vi.fn().mockResolvedValue(null),
-    set: vi.fn().mockResolvedValue(undefined),
-    remove: vi.fn().mockResolvedValue(undefined),
+    get: vi.fn(() => Promise.resolve(null)),
+    set: vi.fn(() => Promise.resolve(undefined)),
+    remove: vi.fn(() => Promise.resolve(undefined)),
   },
 }));
 
@@ -18,7 +18,6 @@ describe('LockService', () => {
   let lockService: LockService;
 
   beforeEach(() => {
-    vi.clearAllMocks();
     lockService = new LockService();
   });
 
@@ -81,13 +80,13 @@ describe('LockService', () => {
 
   describe('onLockChange', () => {
     it('should register callback', () => {
-      const callback = vi.fn();
+      const callback = vi.fn(() => {});
       const unsubscribe = lockService.onLockChange(callback);
       expect(typeof unsubscribe).toBe('function');
     });
 
     it('should unsubscribe callback', () => {
-      const callback = vi.fn();
+      const callback = vi.fn(() => {});
       const unsubscribe = lockService.onLockChange(callback);
       unsubscribe();
       // Should not throw

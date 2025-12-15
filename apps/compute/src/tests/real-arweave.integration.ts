@@ -27,7 +27,7 @@ describe.skipIf(!PRIVATE_KEY)('Arweave Upload/Download', () => {
 
     const testData = {
       timestamp: Date.now(),
-      message: 'Hello from Jeju Compute!',
+      message: 'Hello from the network Compute!',
       random: Math.random(),
     };
 

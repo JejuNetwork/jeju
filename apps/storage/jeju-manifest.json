@@ -1,7 +1,7 @@
 {
   "$schema": "../../packages/config/jeju-manifest.schema.json",
   "name": "storage",
-  "displayName": "Jeju Storage Marketplace",
+  "displayName": "Network Storage Marketplace",
   "version": "2.0.0",
   "type": "core",
   "description": "Decentralized storage marketplace with multi-provider routing (IPFS, Cloud, Arweave), x402 micropayments, ERC-4337 multi-token payments, and A2A/MCP agent integration. Replace Pinata/Infura with self-hosted or marketplace infrastructure.",
@@ -52,5 +52,16 @@
     "x402Support": true,
     "multiTokenPayments": true,
     "jnsName": "storage.jeju"
+  },
+  "testing": {
+    "unit": {
+      "command": "bun run test",
+      "timeout": 180000
+    },
+    "e2e": {
+      "command": "bun run test:e2e",
+      "timeout": 300000,
+      "requiresChain": true
+    }
   }
 }

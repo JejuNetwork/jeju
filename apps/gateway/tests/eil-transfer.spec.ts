@@ -18,7 +18,7 @@ const test = testWithSynpress(metaMaskFixtures(basicSetup))
 const { expect } = test
 
 test.describe('EIL Cross-Chain Transfer', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     // Navigate to Gateway
     await page.goto('/')
     
@@ -27,7 +27,7 @@ test.describe('EIL Cross-Chain Transfer', () => {
     await metamask.connectToDapp()
   })
 
-  test('should display EIL stats when navigating to transfer tab', async ({ _page }) => {
+  test('should display EIL stats when navigating to transfer tab', async ({ page }) => {
     // Click Cross-Chain Transfer tab
     await page.click('text=Cross-Chain Transfer')
     
@@ -38,7 +38,7 @@ test.describe('EIL Cross-Chain Transfer', () => {
     await expect(page.locator('text=Success Rate')).toBeVisible()
   })
 
-  test('should display cross-chain transfer form', async ({ _page }) => {
+  test('should display cross-chain transfer form', async ({ page }) => {
     await page.click('text=Cross-Chain Transfer')
     
     // Verify form elements
@@ -48,7 +48,7 @@ test.describe('EIL Cross-Chain Transfer', () => {
     await expect(page.locator('text=Amount')).toBeVisible()
   })
 
-  test('should allow selecting destination chain', async ({ _page }) => {
+  test('should allow selecting destination chain', async ({ page }) => {
     await page.click('text=Cross-Chain Transfer')
     
     // Click on Ethereum chain option
@@ -59,7 +59,7 @@ test.describe('EIL Cross-Chain Transfer', () => {
     await expect(ethereumButton).toHaveCSS('border-color', 'rgb(59, 130, 246)')
   })
 
-  test('should show estimated fees and time', async ({ _page }) => {
+  test('should show estimated fees and time', async ({ page }) => {
     await page.click('text=Cross-Chain Transfer')
     
     // Verify fee information is displayed
@@ -69,7 +69,7 @@ test.describe('EIL Cross-Chain Transfer', () => {
     await expect(page.locator('text=EIL (Trustless)')).toBeVisible()
   })
 
-  test('should show info banner about EIL', async ({ _page }) => {
+  test('should show info banner about EIL', async ({ page }) => {
     await page.click('text=Cross-Chain Transfer')
     
     // Verify EIL explanation banner
@@ -77,7 +77,7 @@ test.describe('EIL Cross-Chain Transfer', () => {
     await expect(page.locator('text=Sign once')).toBeVisible()
   })
 
-  test('should disable transfer button when amount is empty', async ({ _page }) => {
+  test('should disable transfer button when amount is empty', async ({ page }) => {
     await page.click('text=Cross-Chain Transfer')
     
     // Find transfer button
@@ -87,7 +87,7 @@ test.describe('EIL Cross-Chain Transfer', () => {
     await expect(transferButton).toBeDisabled()
   })
 
-  test('should show EIL not configured message when contracts not deployed', async ({ _page }) => {
+  test('should show EIL not configured message when contracts not deployed', async ({ page }) => {
     // If EIL is not configured, should show warning
     await page.click('text=Cross-Chain Transfer')
     
@@ -100,13 +100,13 @@ test.describe('EIL Cross-Chain Transfer', () => {
 })
 
 test.describe('XLP Dashboard', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto('/')
     await page.click('text=Connect Wallet')
     await metamask.connectToDapp()
   })
 
-  test('should display XLP dashboard tabs', async ({ _page }) => {
+  test('should display XLP dashboard tabs', async ({ page }) => {
     await page.click('text=XLP Dashboard')
     
     // Verify tabs are visible
@@ -116,7 +116,7 @@ test.describe('XLP Dashboard', () => {
     await expect(page.locator('text=History')).toBeVisible()
   })
 
-  test('should show L1 stake information on overview tab', async ({ _page }) => {
+  test('should show L1 stake information on overview tab', async ({ page }) => {
     await page.click('text=XLP Dashboard')
     
     // Verify stake info
@@ -124,7 +124,7 @@ test.describe('XLP Dashboard', () => {
     await expect(page.locator('text=L2 ETH Liquidity')).toBeVisible()
   })
 
-  test('should show registration form for new XLPs', async ({ _page }) => {
+  test('should show registration form for new XLPs', async ({ page }) => {
     await page.click('text=XLP Dashboard')
     await page.click('button:has-text("Stake")')
     
@@ -135,19 +135,19 @@ test.describe('XLP Dashboard', () => {
     expect(hasRegForm || hasStakeManagement).toBe(true)
   })
 
-  test('should show supported chains selector', async ({ _page }) => {
+  test('should show supported chains selector', async ({ page }) => {
     await page.click('text=XLP Dashboard')
     await page.click('button:has-text("Stake")')
     
     // If showing registration, should have chain selector
     const hasChains = await page.locator('text=Supported Chains').isVisible()
     if (hasChains) {
-      await expect(page.locator('text=Jeju Mainnet')).toBeVisible()
+      await expect(page.locator('text=Network Mainnet')).toBeVisible()
       await expect(page.locator('text=Base')).toBeVisible()
     }
   })
 
-  test('should show liquidity deposit form', async ({ _page }) => {
+  test('should show liquidity deposit form', async ({ page }) => {
     await page.click('text=XLP Dashboard')
     await page.click('button:has-text("Liquidity")')
     
@@ -156,7 +156,7 @@ test.describe('XLP Dashboard', () => {
     await expect(page.locator('text=Deposit ETH')).toBeVisible()
   })
 
-  test('should show XLP info banner', async ({ _page }) => {
+  test('should show XLP info banner', async ({ page }) => {
     await page.click('text=XLP Dashboard')
     
     // Verify info banner

@@ -11,7 +11,7 @@ export const TEST_PASSWORD = 'TestPassword123_';
 
 // Derived accounts from standard test mnemonic
 export const TEST_ACCOUNTS = {
-  // Account 0 (default)
+  // Account 0 (default) - same as dev wallet
   primary: {
     address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as const,
     privateKey: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as const,
@@ -30,10 +30,11 @@ export const TEST_ACCOUNTS = {
 
 // Network configurations for testing
 export const TEST_NETWORKS = {
-  localhost: {
-    chainId: 31337,
-    name: 'Localhost',
-    rpcUrl: 'http://127.0.0.1:8545',
+  // network localnet (default for E2E)
+  jeju: {
+    chainId: 1337,
+    name: 'Jeju Localnet',
+    rpcUrl: 'http://127.0.0.1:9545',
     symbol: 'ETH',
   },
   baseSepolia: {
@@ -52,20 +53,19 @@ export const TEST_NETWORKS = {
   },
 } as const;
 
-// Test tokens
+// Test tokens on Base
 export const TEST_TOKENS = {
   usdc: {
-    address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as const, // Base USDC
+    address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as const,
     symbol: 'USDC',
     decimals: 6,
   },
   weth: {
-    address: '0x4200000000000000000000000000000000000006' as const, // Base WETH
+    address: '0x4200000000000000000000000000000000000006' as const,
     symbol: 'WETH',
     decimals: 18,
   },
 } as const;
 
 export type TestAccount = typeof TEST_ACCOUNTS.primary;
-export type TestNetwork = typeof TEST_NETWORKS.localhost;
-
+export type TestNetwork = typeof TEST_NETWORKS.jeju;

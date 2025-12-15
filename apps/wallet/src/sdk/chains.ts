@@ -1,10 +1,13 @@
 /**
- * @fileoverview Chain configuration for Jeju Wallet
+ * @fileoverview Chain configuration for network Wallet
  * Supports Ethereum L1, major L2s, and prepares for Solana
  */
 
 import type { Address } from 'viem';
 import type { ChainConfig, SolanaConfig } from './types';
+import { getLocalnetChain, getTestnetChain, getNetworkName, getBrandingRpcUrl } from '../config/branding';
+
+const networkName = getNetworkName();
 
 // ============================================================================
 // EVM Chain Configurations
@@ -148,10 +151,10 @@ export const chains: Record<number, ChainConfig> = {
     oifSupported: true,
   },
 
-  // Jeju Localnet
+  // Network Localnet
   1337: {
     id: 1337,
-    name: 'Jeju Localnet',
+    name: `${networkName} Localnet`,
     network: 'localnet',
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     rpcUrls: {
@@ -166,18 +169,18 @@ export const chains: Record<number, ChainConfig> = {
     oifSupported: true,
   },
 
-  // Jeju L2 (future)
+  // Network L2 (future)
   420691: {
     id: 420691,
-    name: 'Jeju L2',
+    name: `${networkName} L2`,
     network: 'jeju-l2',
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     rpcUrls: {
-      default: { http: ['https://l2.jeju.network/rpc'] },
+      default: { http: [getBrandingRpcUrl(420691)] },
       jeju: { http: ['https://l2.jeju.network/rpc'] },
     },
     blockExplorers: {
-      default: { name: 'Jeju Explorer', url: 'https://explorer.jeju.network' },
+      default: { name: 'Network Explorer', url: 'https://explorer.jeju.network' },
     },
     eilSupported: true,
     oifSupported: true,
@@ -233,7 +236,7 @@ export function getTestnetChains(): ChainConfig[] {
   return Object.values(chains).filter((c) => c.testnet);
 }
 
-export function getJejuRpcUrl(chainId: number): string | undefined {
+export function getNetworkRpcUrl(chainId: number): string | undefined {
   const chain = chains[chainId];
   return chain?.rpcUrls.jeju?.http[0] ?? chain?.rpcUrls.default.http[0];
 }
@@ -304,12 +307,12 @@ export const chainContracts: Record<number, ChainContracts> = {
   1337: {
     entryPoint: '0x0000000071727De22E5E9d8BAf0edAc6f37da032' as Address,
   },
-  // Jeju L2 Testnet
+  // Network L2 Testnet
   420690: {
     entryPoint: '0x0000000071727De22E5E9d8BAf0edAc6f37da032' as Address,
     weth: '0x4200000000000000000000000000000000000006' as Address,
   },
-  // Jeju L2 Mainnet
+  // Network L2 Mainnet
   420691: {
     entryPoint: '0x0000000071727De22E5E9d8BAf0edAc6f37da032' as Address,
     weth: '0x4200000000000000000000000000000000000006' as Address,

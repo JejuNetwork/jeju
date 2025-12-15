@@ -1,6 +1,6 @@
 /**
  * Shared Ban Status Hook
- * Used across all Jeju apps to check and display user ban status
+ * Used across all network apps to check and display user ban status
  */
 
 import { useEffect, useState, useCallback } from 'react';

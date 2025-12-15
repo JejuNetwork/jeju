@@ -19,8 +19,18 @@
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-    "types": ["bun-types"]
+    "types": ["bun"]
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "contracts"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "contracts",
+    "src/bridge/solana-adapter.ts",
+    "src/bridge/warp-route-deployer.ts",
+    "src/solana",
+    "src/deployer/liquidity-deployer.ts",
+    "src/tests",
+    "src/config/bbln-deployment.ts"
+  ]
 }

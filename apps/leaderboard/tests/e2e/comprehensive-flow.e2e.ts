@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * Comprehensive E2E test suite for Jeju Network Leaderboard
+ * Comprehensive E2E test suite for the network Leaderboard
  * Tests all pages, navigation, UI interactions, and captures screenshots
  */
 

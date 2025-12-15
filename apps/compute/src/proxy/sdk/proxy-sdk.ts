@@ -1,6 +1,6 @@
 /**
- * Jeju Proxy SDK
- * Client SDK for interacting with the Jeju decentralized proxy network
+ * Network Proxy SDK
+ * Client SDK for interacting with the decentralized proxy network
  * 
  * MODES:
  * - On-chain: Sessions are created on ProxyPayment contract with deposits
@@ -42,7 +42,7 @@ interface ActiveSession {
 
 type SDKMode = 'on-chain' | 'coordinator-only';
 
-export class JejuProxySDK {
+export class ProxySDK {
   private config: ProxySDKConfig;
   private provider: JsonRpcProvider | null = null;
   private payment: Contract | null = null;
@@ -68,7 +68,7 @@ export class JejuProxySDK {
   }
 
   /**
-   * Fetch a URL through the Jeju proxy network
+   * Fetch a URL through the proxy network
    */
   async fetchUrl(url: string, options: FetchOptions = {}): Promise<FetchResult> {
     const regionCode = options.regionCode || 'US';
@@ -395,8 +395,8 @@ export class JejuProxySDK {
 /**
  * Create SDK from environment
  */
-export function createProxySDK(overrides?: Partial<ProxySDKConfig>): JejuProxySDK {
-  return new JejuProxySDK({
+export function createProxySDK(overrides?: Partial<ProxySDKConfig>): ProxySDK {
+  return new ProxySDK({
     coordinatorUrl: process.env.PROXY_COORDINATOR_URL || 'http://localhost:4020',
     rpcUrl: process.env.JEJU_RPC_URL,
     paymentAddress: process.env.PROXY_PAYMENT_ADDRESS as Address | undefined,

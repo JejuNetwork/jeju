@@ -14,7 +14,7 @@ const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
 
 test.describe('Balance Display Tests', () => {
-  test('should display all 4 protocol token balances', async ({ _page, _metamask }) => {
+  test('should display all 4 protocol token balances', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.waitForTimeout(3000);
@@ -38,7 +38,7 @@ test.describe('Balance Display Tests', () => {
     });
   });
 
-  test('should show zero balance correctly', async ({ _page, _metamask }) => {
+  test('should show zero balance correctly', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.waitForTimeout(3000);
@@ -54,7 +54,7 @@ test.describe('Balance Display Tests', () => {
     console.log('✅ Zero balance display works');
   });
 
-  test('should format large balances correctly', async ({ _page, _metamask }) => {
+  test('should format large balances correctly', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.waitForTimeout(3000);
@@ -70,7 +70,7 @@ test.describe('Balance Display Tests', () => {
     console.log('✅ Large number formatting works');
   });
 
-  test('should display token logos', async ({ _page, _metamask }) => {
+  test('should display token logos', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.waitForTimeout(3000);
@@ -83,7 +83,7 @@ test.describe('Balance Display Tests', () => {
     console.log(`✅ ${logoCount} token logos displayed`);
   });
 
-  test('should calculate total portfolio value', async ({ _page, _metamask }) => {
+  test('should calculate total portfolio value', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.waitForTimeout(3000);
@@ -102,7 +102,7 @@ test.describe('Balance Display Tests', () => {
 });
 
 test.describe('Balance Updates After Transactions', () => {
-  test('should update balance after adding liquidity', async ({ _page, _metamask }) => {
+  test('should update balance after adding liquidity', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.waitForTimeout(3000);
@@ -149,7 +149,7 @@ test.describe('Balance Updates After Transactions', () => {
     console.log('✅ Balance update after liquidity transaction');
   });
 
-  test('should update token balance after claiming fees', async ({ _page, _metamask }) => {
+  test('should update token balance after claiming fees', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 
@@ -180,7 +180,7 @@ test.describe('Balance Updates After Transactions', () => {
     console.log('✅ Token balance updated after claim');
   });
 
-  test('should refresh balances on demand', async ({ _page, _metamask }) => {
+  test('should refresh balances on demand', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.waitForTimeout(3000);
@@ -207,14 +207,14 @@ test.describe('Balance Updates After Transactions', () => {
 });
 
 test.describe('Token Approval Status', () => {
-  test.skip('should display approval status for tokens', async ({ _page }) => {
+  test.skip('should display approval status for tokens', async ({ page }) => {
     // TODO: If approval status UI exists, test it
     // Would show which tokens are approved for which contracts
 
     console.log('⚠️  Approval status display - check if implemented');
   });
 
-  test.skip('should revoke token approvals', async ({ _page, _metamask }) => {
+  test.skip('should revoke token approvals', async ({ page, metamask }) => {
     // TODO: If revoke functionality exists
     // await revokeApproval(page, metamask, tokenAddress, spenderAddress);
 
@@ -223,7 +223,7 @@ test.describe('Token Approval Status', () => {
 });
 
 test.describe('Balance Precision and Formatting', () => {
-  test('should handle decimal precision correctly', async ({ _page, _metamask }) => {
+  test('should handle decimal precision correctly', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.waitForTimeout(3000);
@@ -236,7 +236,7 @@ test.describe('Balance Precision and Formatting', () => {
     console.log(`✅ ${count} decimal balances displayed`);
   });
 
-  test('should display very small balances correctly', async ({ _page, _metamask }) => {
+  test('should display very small balances correctly', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.waitForTimeout(3000);
@@ -254,14 +254,14 @@ test.describe('Balance Precision and Formatting', () => {
 });
 
 test.describe('Real-Time Balance Updates', () => {
-  test.skip('should update balance in real-time when transaction confirms', async ({ _page, _metamask }) => {
+  test.skip('should update balance in real-time when transaction confirms', async ({ page, metamask }) => {
     // TODO: Monitor balance element and verify it updates
     // when transaction is mined (without page reload)
 
     console.log('⚠️  Real-time updates - needs observation');
   });
 
-  test.skip('should show pending transaction indicator', async ({ _page }) => {
+  test.skip('should show pending transaction indicator', async ({ page }) => {
     // TODO: Check for pending tx indicators while transaction confirming
 
     console.log('⚠️  Pending indicator - check if implemented');

@@ -19,7 +19,7 @@ interface HyperscapeStatsPanelProps {
  * 
  * @deprecated Use vendor/hyperscape/components/HyperscapeStatsPanel.tsx for new development
  * 
- * Uses generic player events hook - works with any Jeju-integrated game
+ * Uses generic player events hook - works with any network-integrated game
  */
 export function HyperscapeStatsPanel({ playerAddress, className = '' }: HyperscapeStatsPanelProps) {
   const [selectedTab, setSelectedTab] = useState<'skills' | 'combat' | 'achievements'>('skills');

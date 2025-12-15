@@ -53,7 +53,29 @@ export {
   LiquidationStrategy,
   SolverStrategy,
   OracleKeeperStrategy,
+  SolanaArbStrategy,
+  LiquidityManager,
+  type UnifiedPosition,
+  type RebalanceAction,
+  type PoolAnalysis,
 } from './strategies';
+
+// ============ Solana DEX Adapters ============
+export {
+  SolanaDexAggregator,
+  JupiterAdapter,
+  RaydiumAdapter,
+  OrcaAdapter,
+  MeteoraAdapter,
+  type SwapQuote,
+  type LiquidityPool as SolanaPool,
+  type LiquidityPosition as SolanaPosition,
+  type DexSource,
+} from './solana';
+
+// ============ Unified Bot ============
+export { UnifiedBot, type UnifiedBotConfig, type BotStats, type TradeResult } from './unified-bot';
+export { startBotAPIServer, main as startBot } from './api-server';
 
 // ============ Engine (Infrastructure) ============
 export {

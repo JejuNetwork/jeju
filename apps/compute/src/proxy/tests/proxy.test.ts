@@ -1,11 +1,11 @@
 /**
- * Jeju Proxy Network Tests - Comprehensive Coverage
+ * Network Proxy Network Tests - Comprehensive Coverage
  */
 
 import { describe, test, expect, beforeAll, beforeEach, afterEach } from 'bun:test';
 import { Wallet, parseEther } from 'ethers';
 import { ProxyNodeClient } from '../node/client';
-import { JejuProxySDK, createProxySDK } from '../sdk/proxy-sdk';
+import { ProxySDK, createProxySDK } from '../sdk/proxy-sdk';
 import {
   hashRegion,
   regionFromHash,
@@ -345,14 +345,14 @@ describe('ProxyNodeClient', () => {
 });
 
 // ============================================================================
-// JejuProxySDK Tests
+// ProxySDK Tests
 // ============================================================================
 
-describe('JejuProxySDK', () => {
-  let sdk: JejuProxySDK;
+describe('ProxySDK', () => {
+  let sdk: ProxySDK;
 
   beforeEach(() => {
-    sdk = new JejuProxySDK({
+    sdk = new ProxySDK({
       coordinatorUrl: 'http://localhost:4020',
     });
   });
@@ -362,7 +362,7 @@ describe('JejuProxySDK', () => {
   });
 
   test('creates SDK with full config', () => {
-    const fullSdk = new JejuProxySDK({
+    const fullSdk = new ProxySDK({
       coordinatorUrl: 'http://localhost:4020',
       rpcUrl: 'http://localhost:8545',
       paymentAddress: '0x1234567890123456789012345678901234567890',
@@ -710,7 +710,7 @@ describe('Concurrent Operations', () => {
   });
 
   test('multiple SDK instances can exist simultaneously', async () => {
-    const sdks = Array.from({ length: 5 }, () => new JejuProxySDK({
+    const sdks = Array.from({ length: 5 }, () => new ProxySDK({
       coordinatorUrl: 'http://localhost:4020',
     }));
 
@@ -750,7 +750,7 @@ describe('Integration Tests (requires running coordinator)', () => {
   });
 
   test.skipIf(!shouldRun)('SDK can fetch available regions', async () => {
-    const sdk = new JejuProxySDK({ coordinatorUrl: COORDINATOR_URL });
+    const sdk = new ProxySDK({ coordinatorUrl: COORDINATOR_URL });
     const regions = await sdk.getAvailableRegions();
 
     expect(Array.isArray(regions)).toBe(true);
@@ -763,7 +763,7 @@ describe('Integration Tests (requires running coordinator)', () => {
   });
 
   test.skipIf(!shouldRun)('SDK can fetch coordinator stats', async () => {
-    const sdk = new JejuProxySDK({ coordinatorUrl: COORDINATOR_URL });
+    const sdk = new ProxySDK({ coordinatorUrl: COORDINATOR_URL });
     const stats = await sdk.getStats();
 
     expect(typeof stats.connectedNodes).toBe('number');
@@ -777,7 +777,7 @@ describe('End-to-End Flow (requires full stack)', () => {
 
   test.skipIf(!shouldRun)('complete proxy request flow with real URL', async () => {
     const COORDINATOR_URL = process.env.PROXY_COORDINATOR_URL || 'http://localhost:4020';
-    const sdk = new JejuProxySDK({ coordinatorUrl: COORDINATOR_URL });
+    const sdk = new ProxySDK({ coordinatorUrl: COORDINATOR_URL });
 
     const result = await sdk.fetchUrl('https://httpbin.org/get', {
       regionCode: 'US',
@@ -888,5 +888,134 @@ describe('RateLimiter', () => {
     await new Promise(resolve => setTimeout(resolve, 10));
     limiter.cleanup(5); // 5ms threshold
     expect(limiter.getBucketCount()).toBe(0);
+  });
+});
+
+// ============================================================================
+// Metrics Collector Unit Tests  
+// ============================================================================
+
+describe('MetricsCollector', () => {
+  class TestMetricsCollector {
+    private counters: Map<string, number> = new Map();
+    private gauges: Map<string, number> = new Map();
+    private histograms: Map<string, number[]> = new Map();
+
+    incCounter(name: string, labels: Record<string, string> = {}, value = 1): void {
+      const key = this.labelKey(name, labels);
+      this.counters.set(key, (this.counters.get(key) || 0) + value);
+    }
+
+    setGauge(name: string, value: number, labels: Record<string, string> = {}): void {
+      const key = this.labelKey(name, labels);
+      this.gauges.set(key, value);
+    }
+
+    observeHistogram(name: string, value: number, labels: Record<string, string> = {}): void {
+      const key = this.labelKey(name, labels);
+      const values = this.histograms.get(key) || [];
+      values.push(value);
+      if (values.length > 1000) values.shift();
+      this.histograms.set(key, values);
+    }
+
+    private labelKey(name: string, labels: Record<string, string>): string {
+      const labelStr = Object.entries(labels)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([k, v]) => `${k}="${v}"`)
+        .join(',');
+      return labelStr ? `${name}{${labelStr}}` : name;
+    }
+
+    getCounter(name: string, labels: Record<string, string> = {}): number {
+      return this.counters.get(this.labelKey(name, labels)) || 0;
+    }
+
+    getGauge(name: string, labels: Record<string, string> = {}): number {
+      return this.gauges.get(this.labelKey(name, labels)) || 0;
+    }
+
+    getHistogram(name: string, labels: Record<string, string> = {}): number[] {
+      return this.histograms.get(this.labelKey(name, labels)) || [];
+    }
+
+    toPrometheusFormat(): string {
+      const lines: string[] = [];
+      for (const [key, value] of this.counters) {
+        lines.push(`# TYPE ${key.split('{')[0]} counter`);
+        lines.push(`${key} ${value}`);
+      }
+      for (const [key, value] of this.gauges) {
+        lines.push(`# TYPE ${key.split('{')[0]} gauge`);
+        lines.push(`${key} ${value}`);
+      }
+      return lines.join('\n');
+    }
+  }
+
+  test('increments counters correctly', () => {
+    const metrics = new TestMetricsCollector();
+    
+    metrics.incCounter('requests_total');
+    metrics.incCounter('requests_total');
+    metrics.incCounter('requests_total', {}, 5);
+    
+    expect(metrics.getCounter('requests_total')).toBe(7);
+  });
+
+  test('counters with labels are separate', () => {
+    const metrics = new TestMetricsCollector();
+    
+    metrics.incCounter('requests_total', { region: 'US' });
+    metrics.incCounter('requests_total', { region: 'JP' });
+    metrics.incCounter('requests_total', { region: 'US' }, 2);
+    
+    expect(metrics.getCounter('requests_total', { region: 'US' })).toBe(3);
+    expect(metrics.getCounter('requests_total', { region: 'JP' })).toBe(1);
+  });
+
+  test('sets gauges correctly', () => {
+    const metrics = new TestMetricsCollector();
+    
+    metrics.setGauge('connected_nodes', 5);
+    expect(metrics.getGauge('connected_nodes')).toBe(5);
+    
+    metrics.setGauge('connected_nodes', 10);
+    expect(metrics.getGauge('connected_nodes')).toBe(10);
+  });
+
+  test('records histogram observations', () => {
+    const metrics = new TestMetricsCollector();
+    
+    metrics.observeHistogram('request_duration', 0.1);
+    metrics.observeHistogram('request_duration', 0.2);
+    metrics.observeHistogram('request_duration', 0.3);
+    
+    const values = metrics.getHistogram('request_duration');
+    expect(values).toEqual([0.1, 0.2, 0.3]);
+  });
+
+  test('generates Prometheus format', () => {
+    const metrics = new TestMetricsCollector();
+    
+    metrics.incCounter('requests_total');
+    metrics.setGauge('active_sessions', 3);
+    
+    const output = metrics.toPrometheusFormat();
+    
+    expect(output).toContain('# TYPE requests_total counter');
+    expect(output).toContain('requests_total 1');
+    expect(output).toContain('# TYPE active_sessions gauge');
+    expect(output).toContain('active_sessions 3');
+  });
+
+  test('label key sorts alphabetically', () => {
+    const metrics = new TestMetricsCollector();
+    
+    // Labels in different order should produce same key
+    metrics.incCounter('test', { z: '1', a: '2' });
+    metrics.incCounter('test', { a: '2', z: '1' });
+    
+    expect(metrics.getCounter('test', { a: '2', z: '1' })).toBe(2);
   });
 });

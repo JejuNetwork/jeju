@@ -1,0 +1,96 @@
+{
+  "$schema": "../../packages/config/jeju-manifest.schema.json",
+  "name": "dapp-template",
+  "displayName": "Decentralized App Template",
+  "version": "1.0.0",
+  "type": "app",
+  "description": "A production-ready template for building fully decentralized applications on Jeju Network. Includes: CQL database, IPFS storage, KMS encryption, Cron triggers, JNS naming, REST API, A2A protocol, MCP tools, and x402 payments.",
+  "commands": {
+    "dev": "bun run src/server/index.ts",
+    "dev:frontend": "bun run --hot src/frontend/dev.ts",
+    "build": "bun run build.ts",
+    "start": "bun run dist/server/index.js",
+    "test": "bun test",
+    "test:e2e": "bun run src/tests/e2e.test.ts",
+    "test:synpress": "synpress run --config synpress.config.ts",
+    "deploy": "bun run deploy.ts",
+    "migrate": "bun run src/db/migrate.ts"
+  },
+  "ports": {
+    "main": 4500,
+    "frontend": 4501
+  },
+  "dependencies": ["contracts", "config"],
+  "optional": false,
+  "enabled": true,
+  "autoStart": false,
+  "tags": ["template", "dapp", "full-stack", "decentralized", "a2a", "mcp", "cql", "kms", "jns", "storage", "compute", "cron", "cache", "x402"],
+  "jns": {
+    "name": "template.jeju",
+    "description": "Decentralized App Template",
+    "url": "https://template.jeju.network"
+  },
+  "healthCheck": {
+    "url": "http://localhost:4500/health",
+    "interval": 30000
+  },
+  "agent": {
+    "enabled": true,
+    "a2aEndpoint": "/a2a",
+    "mcpEndpoint": "/mcp",
+    "tags": ["jeju-app", "template", "dapp"],
+    "metadata": {
+      "category": "template",
+      "provider": "jeju-network",
+      "features": ["full-decentralization", "ai-integration", "scheduled-tasks", "encrypted-data", "x402-payments"]
+    },
+    "trustModels": ["open", "staked"],
+    "x402Support": true,
+    "multiTokenPayments": true,
+    "jnsName": "template.jeju"
+  },
+  "services": {
+    "database": {
+      "type": "cql",
+      "databaseId": "dapp-template-db"
+    },
+    "cache": {
+      "type": "compute",
+      "provider": "redis-compatible"
+    },
+    "storage": {
+      "type": "ipfs",
+      "tier": "hot"
+    },
+    "secrets": {
+      "type": "kms",
+      "provider": "mpc"
+    },
+    "triggers": {
+      "type": "cron",
+      "schedules": ["cleanup", "reminders", "sync"]
+    }
+  },
+  "testing": {
+    "e2e": {
+      "command": "bun run src/tests/e2e.test.ts",
+      "timeout": 120000,
+      "requiresChain": true
+    },
+    "synpress": {
+      "command": "synpress run --config synpress.config.ts",
+      "timeout": 180000,
+      "requiresChain": true,
+      "requiresWallet": true
+    }
+  },
+  "template": {
+    "isTemplate": true,
+    "variables": {
+      "APP_NAME": "Your App Name",
+      "JNS_NAME": "yourapp.jeju",
+      "DATABASE_ID": "yourapp-db",
+      "DESCRIPTION": "Your app description"
+    }
+  }
+}

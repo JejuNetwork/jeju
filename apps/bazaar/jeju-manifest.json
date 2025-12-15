@@ -40,5 +40,23 @@
     "trustModels": ["open"],
     "x402Support": true,
     "jnsName": "bazaar.jeju"
+  },
+  "testing": {
+    "unit": {
+      "command": "bun run test:unit",
+      "timeout": 120000
+    },
+    "e2e": {
+      "command": "bunx playwright test tests/e2e",
+      "timeout": 300000,
+      "requiresChain": true
+    },
+    "wallet": {
+      "command": "bunx playwright test tests/wallet --config=synpress.config.ts",
+      "timeout": 600000,
+      "requiresChain": true,
+      "requiresWallet": true
+    },
+    "services": ["contracts", "indexer"]
   }
 }
