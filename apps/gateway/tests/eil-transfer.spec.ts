@@ -12,7 +12,7 @@
 
 import { testWithSynpress } from '@synthetixio/synpress'
 import { metaMaskFixtures } from '@synthetixio/synpress/playwright'
-import { basicSetup } from '../../synpress.config'
+import { basicSetup } from '../synpress.config'
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup))
 const { expect } = test
