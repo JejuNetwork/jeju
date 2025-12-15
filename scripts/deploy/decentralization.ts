@@ -27,6 +27,7 @@ interface Deployment {
   prover: string;
   l2OutputOracleAdapter: string;
   optimismPortalAdapter: string;
+  thresholdBatchSubmitter: string;
   deployer: string;
   timestamp: number;
   network: string;
@@ -98,15 +99,16 @@ async function main() {
     console.log('='.repeat(60));
     console.log('');
     console.log('Contract Addresses:');
-    console.log(`  JEJU Token:             ${deployment.jejuToken}`);
-    console.log(`  Identity Registry:      ${deployment.identityRegistry}`);
-    console.log(`  Reputation Registry:    ${deployment.reputationRegistry}`);
-    console.log(`  Sequencer Registry:     ${deployment.sequencerRegistry}`);
-    console.log(`  Governance Timelock:    ${deployment.governanceTimelock}`);
-    console.log(`  Dispute Game Factory:   ${deployment.disputeGameFactory}`);
-    console.log(`  Prover:                 ${deployment.prover}`);
-    console.log(`  L2OutputOracleAdapter:  ${deployment.l2OutputOracleAdapter}`);
-    console.log(`  OptimismPortalAdapter:  ${deployment.optimismPortalAdapter}`);
+    console.log(`  JEJU Token:               ${deployment.jejuToken}`);
+    console.log(`  Identity Registry:        ${deployment.identityRegistry}`);
+    console.log(`  Reputation Registry:      ${deployment.reputationRegistry}`);
+    console.log(`  Sequencer Registry:       ${deployment.sequencerRegistry}`);
+    console.log(`  Governance Timelock:      ${deployment.governanceTimelock}`);
+    console.log(`  Dispute Game Factory:     ${deployment.disputeGameFactory}`);
+    console.log(`  Prover:                   ${deployment.prover}`);
+    console.log(`  L2OutputOracleAdapter:    ${deployment.l2OutputOracleAdapter}`);
+    console.log(`  OptimismPortalAdapter:    ${deployment.optimismPortalAdapter}`);
+    console.log(`  ThresholdBatchSubmitter:  ${deployment.thresholdBatchSubmitter}`);
     console.log('');
     console.log(`💾 Saved to: ${deploymentFile}`);
     console.log('');
@@ -131,6 +133,7 @@ function parseDeploymentOutput(output: string, deployer: string, network: string
     prover: '',
     l2OutputOracleAdapter: '',
     optimismPortalAdapter: '',
+    thresholdBatchSubmitter: '',
     deployer,
     timestamp: Date.now(),
     network
@@ -147,6 +150,7 @@ function parseDeploymentOutput(output: string, deployer: string, network: string
     ['prover', /Prover deployed: (0x[a-fA-F0-9]{40})/],
     ['l2OutputOracleAdapter', /L2OutputOracleAdapter deployed: (0x[a-fA-F0-9]{40})/],
     ['optimismPortalAdapter', /OptimismPortalAdapter deployed: (0x[a-fA-F0-9]{40})/],
+    ['thresholdBatchSubmitter', /ThresholdBatchSubmitter deployed: (0x[a-fA-F0-9]{40})/],
   ];
 
   for (const [key, pattern] of patterns) {
