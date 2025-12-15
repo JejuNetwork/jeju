@@ -2,11 +2,11 @@
 pragma solidity ^0.8.26;
 
 import "forge-std/Test.sol";
-import "../../src/sequencer/SequencerRegistry.sol";
-import "../../src/governance/GovernanceTimelock.sol";
-import "../../src/dispute/DisputeGameFactory.sol";
-import "../../src/registry/IdentityRegistry.sol";
-import "../../src/registry/ReputationRegistry.sol";
+import "../src/sequencer/SequencerRegistry.sol";
+import "../src/governance/GovernanceTimelock.sol";
+import "../src/dispute/DisputeGameFactory.sol";
+import "../src/registry/IdentityRegistry.sol";
+import "../src/registry/ReputationRegistry.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract MockJEJU is ERC20 {

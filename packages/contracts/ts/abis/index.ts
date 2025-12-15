@@ -8,6 +8,8 @@ import ERC20AbiJson from '../../abis/ERC20.json';
 import ERC20FactoryAbiJson from '../../abis/ERC20Factory.json';
 import BazaarAbiJson from '../../abis/Bazaar.json';
 import IdentityRegistryAbiJson from '../../abis/IdentityRegistry.json';
+import ReputationRegistryAbiJson from '../../abis/ReputationRegistry.json';
+import ValidationRegistryAbiJson from '../../abis/ValidationRegistry.json';
 
 // OIF (Open Intents Framework) ABIs
 import InputSettlerAbiJson from '../../abis/InputSettler.json';
@@ -64,6 +66,8 @@ export const ERC20Abi = ERC20AbiJson.abi as Abi;
 export const ERC20FactoryAbi = ERC20FactoryAbiJson.abi as Abi;
 export const BazaarAbi = BazaarAbiJson.abi as Abi;
 export const IdentityRegistryAbi = IdentityRegistryAbiJson.abi as Abi;
+export const ReputationRegistryAbi = ReputationRegistryAbiJson.abi as Abi;
+export const ValidationRegistryAbi = ValidationRegistryAbiJson.abi as Abi;
 
 // OIF ABIs
 export const InputSettlerAbi = InputSettlerAbiJson.abi as Abi;
@@ -114,7 +118,7 @@ export const LPLockerAbi = LPLockerAbiJson.abi as Abi;
 export const LaunchpadTokenAbi = LaunchpadTokenAbiJson.abi as Abi;
 
 // Export the full JSON files for those who need address + abi
-export { ERC20AbiJson, ERC20FactoryAbiJson, BazaarAbiJson, IdentityRegistryAbiJson };
+export { ERC20AbiJson, ERC20FactoryAbiJson, BazaarAbiJson, IdentityRegistryAbiJson, ReputationRegistryAbiJson, ValidationRegistryAbiJson };
 export { InputSettlerAbiJson, OutputSettlerAbiJson, SolverRegistryAbiJson };
 export { SimpleOracleAbiJson, HyperlaneOracleAbiJson, SuperchainOracleAbiJson };
 export { OTCAbiJson, SimplePoolOracleAbiJson, RegistrationHelperAbiJson, MockERC20AbiJson, MockAggregatorV3AbiJson };
