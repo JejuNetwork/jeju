@@ -154,8 +154,11 @@ describe('Signer Service Integration', () => {
   });
 
   test('concurrent requests are handled correctly', async () => {
-    const requests = Array.from({ length: 5 }, (_, i) => {
-      const digest = keccak256(toUtf8Bytes(`concurrent-${i}`));
+    await new Promise(r => setTimeout(r, 1100)); // Wait for rate limit reset
+    
+    // Only 3 concurrent requests to stay under rate limit
+    const requests = Array.from({ length: 3 }, (_, i) => {
+      const digest = keccak256(toUtf8Bytes(`concurrent-${i}-${Date.now()}`));
       const requestId = `concurrent-${i}-${Date.now()}`;
       return signRequest(digest, requestId);
     });
@@ -171,11 +174,13 @@ describe('Signer Service Integration', () => {
   });
 
   test('different digests produce different signatures', async () => {
+    await new Promise(r => setTimeout(r, 1100)); // Wait for rate limit reset
+    
     const digest1 = keccak256(toUtf8Bytes('unique-message-1'));
     const digest2 = keccak256(toUtf8Bytes('unique-message-2'));
     
     const res1 = await signRequest(digest1, `diff1-${Date.now()}`);
-    await new Promise(r => setTimeout(r, 200)); // Avoid rate limit
+    await new Promise(r => setTimeout(r, 150)); // Small delay
     const res2 = await signRequest(digest2, `diff2-${Date.now()}`);
     
     const data1 = await res1.json();
