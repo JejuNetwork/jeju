@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
 import "../src/sequencer/SequencerRegistry.sol";
+import "../src/sequencer/ThresholdBatchSubmitter.sol";
 import "../src/governance/GovernanceTimelock.sol";
 import "../src/dispute/DisputeGameFactory.sol";
 import "../src/dispute/provers/Prover.sol";
@@ -98,10 +99,25 @@ contract DeployDecentralization is Script {
         OptimismPortalAdapter portalAdapter = new OptimismPortalAdapter(address(timelock), securityCouncil);
         console.log("OptimismPortalAdapter deployed:", address(portalAdapter));
 
+        // 8. Deploy ThresholdBatchSubmitter
+        // Batch inbox is the address where batches are submitted on L1
+        address batchInbox = vm.envOr("BATCH_INBOX", address(0x4200000000000000000000000000000000000015));
+        uint256 batcherThreshold = vm.envOr("SIGNER_THRESHOLD", uint256(2));
+        
+        ThresholdBatchSubmitter thresholdBatcher = new ThresholdBatchSubmitter(
+            batchInbox,
+            deployer,
+            batcherThreshold
+        );
+        console.log("ThresholdBatchSubmitter deployed:", address(thresholdBatcher));
+        console.log("  - Batch inbox:", batchInbox);
+        console.log("  - Threshold:", batcherThreshold);
+
         // Transfer ownership to timelock for decentralization
         sequencerRegistry.transferOwnership(address(timelock));
         disputeFactory.transferOwnership(address(timelock));
         l2Adapter.transferOwnership(address(timelock));
+        thresholdBatcher.transferOwnership(address(timelock));
         console.log("");
         console.log("Ownership transferred to GovernanceTimelock");
 
@@ -119,5 +135,6 @@ contract DeployDecentralization is Script {
         console.log("  Prover:", address(prover));
         console.log("  L2OutputOracleAdapter:", address(l2Adapter));
         console.log("  OptimismPortalAdapter:", address(portalAdapter));
+        console.log("  ThresholdBatchSubmitter:", address(thresholdBatcher));
     }
 }
