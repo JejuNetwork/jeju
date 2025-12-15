@@ -7,8 +7,7 @@
  * 3. Frontrun profitable DEX swaps
  */
 
-import { type Address, type Hash, type Hex, createPublicClient, webSocket, http } from 'viem';
-import { mainnet, arbitrum, base, optimism, polygon } from 'viem/chains';
+import { type Address, type Hash, type Hex } from 'viem';
 import { EventEmitter } from 'events';
 
 // Mempool data providers
@@ -88,6 +87,7 @@ export interface PendingTx {
 
 export interface SwapIntent {
   tx: PendingTx;
+  chainId: number;
   router: Address;
   selector: string;
   tokenIn: Address;
@@ -302,6 +302,7 @@ export class MempoolMonitor extends EventEmitter {
         
         return {
           tx,
+          chainId: tx.chainId,
           router: tx.to,
           selector,
           tokenIn: '0x0000000000000000000000000000000000000000' as Address, // Would decode from path
@@ -323,6 +324,7 @@ export class MempoolMonitor extends EventEmitter {
         
         return {
           tx,
+          chainId: tx.chainId,
           router: tx.to,
           selector,
           tokenIn,

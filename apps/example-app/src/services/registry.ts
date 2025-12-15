@@ -20,7 +20,7 @@ import {
   type TEEAttestation,
   TEEProvider,
   ChainId,
-} from '@jeju/oauth3';
+} from '@jejunetwork/oauth3';
 import { getNetworkName } from '@jejunetwork/config';
 
 // Chain IDs for different networks

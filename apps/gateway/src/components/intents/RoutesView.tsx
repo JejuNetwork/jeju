@@ -1,6 +1,6 @@
 import { ArrowRight, Activity, Clock, CheckCircle } from 'lucide-react';
 import { useRoutes } from '../../hooks/useIntentAPI';
-import type { IntentRoute } from '@jejunetwork/types/oif';
+import type { IntentRoute } from '@jejunetwork/types';
 
 const CHAIN_NAMES: Record<number, string> = {
   1: 'Ethereum',

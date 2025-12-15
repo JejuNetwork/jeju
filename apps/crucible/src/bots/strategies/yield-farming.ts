@@ -474,10 +474,11 @@ export class YieldFarmingStrategy extends EventEmitter {
           abi: AAVE_POOL_ABI,
           functionName: 'getReserveData',
           args: [market.address as Address],
-        }) as { currentLiquidityRate: bigint };
+        }) as readonly [bigint, bigint, bigint, bigint, bigint, bigint, number, number, Address, Address, Address, Address, bigint, bigint, bigint];
 
         // Convert ray (27 decimals) to APR percentage
-        const supplyApr = Number(reserveData.currentLiquidityRate) / 1e27 * 100;
+        // currentLiquidityRate is at index 2
+        const supplyApr = Number(reserveData[2]) / 1e27 * 100;
 
         if (supplyApr > 0) {
           opportunities.push({
@@ -1102,7 +1103,7 @@ export class YieldFarmingStrategy extends EventEmitter {
   }
 
   private getTokenAddress(chainId: ChainId, symbol: string): string | undefined {
-    const tokens: Record<ChainId, Record<string, string>> = {
+    const tokens: Partial<Record<ChainId, Record<string, string>>> = {
       1: {
         USDC: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
         USDT: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
@@ -1126,7 +1127,7 @@ export class YieldFarmingStrategy extends EventEmitter {
         DAI: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb',
         WETH: '0x4200000000000000000000000000000000000006',
       },
-    } as Record<ChainId, Record<string, string>>;
+    };
 
     return tokens[chainId]?.[symbol];
   }
@@ -1203,5 +1204,6 @@ export class YieldFarmingStrategy extends EventEmitter {
     };
   }
 }
+
 
 

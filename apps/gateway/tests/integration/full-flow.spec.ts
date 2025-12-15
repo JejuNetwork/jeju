@@ -4,7 +4,7 @@
  */
 
 import { testWithWallet as test, expect } from '../fixtures/wallet';
-import { connectWallet } from '@jejunetwork/tests/helpers/contracts';
+import { connectWallet } from '@jejunetwork/tests';
 
 test.describe('Complete Protocol Flow', () => {
   test('full token lifecycle: register → deploy → add liquidity → earn fees', async ({ page, wallet }) => {

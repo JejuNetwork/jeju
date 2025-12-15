@@ -1,6 +1,6 @@
 /** ERC-8004 Agent Identity & Reputation */
 
-import { createPublicClient, createWalletClient, http, keccak256, toUtf8Bytes, zeroAddress, zeroHash, type Address, type Chain, type PublicClient, type WalletClient } from 'viem';
+import { createPublicClient, createWalletClient, http, keccak256, stringToHex, zeroAddress, zeroHash, type Address, type Chain, type PublicClient, type WalletClient } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { readContract, waitForTransactionReceipt } from 'viem/actions';
 import { parseAbi } from 'viem';
@@ -101,7 +101,7 @@ export class ERC8004Client {
     });
     const receipt = await waitForTransactionReceipt(this.client, { hash });
     
-    const transferEventSig = keccak256(toUtf8Bytes('Transfer(address,address,uint256)'));
+    const transferEventSig = keccak256(stringToHex('Transfer(address,address,uint256)'));
     const transferEvent = receipt.logs.find((log) => log.topics[0] === transferEventSig);
     
     if (!transferEvent || !transferEvent.topics[3]) {
@@ -240,10 +240,10 @@ export class ERC8004Client {
       args: [
         agentId,
         score,
-        keccak256(toUtf8Bytes(tag)),
+        keccak256(stringToHex(tag)),
         ZERO32,
         details ?? '',
-        details ? keccak256(toUtf8Bytes(details)) : ZERO32,
+        details ? keccak256(stringToHex(details)) : ZERO32,
         '0x' as `0x${string}`,
       ],
       account: this.account,
@@ -259,7 +259,7 @@ export class ERC8004Client {
     if (validator === zeroAddress) throw new Error('Invalid validator address');
     if (!requestUri || requestUri.trim().length === 0) throw new Error('Request URI is required');
 
-    const requestHash = keccak256(toUtf8Bytes(`${agentId}-${validator}-${requestUri}-${Date.now()}`));
+    const requestHash = keccak256(stringToHex(`${agentId}-${validator}-${requestUri}-${Date.now()}`));
     const hash = await this.walletClient.writeContract({
       address: this.validationAddress,
       abi: VALIDATION_ABI,

@@ -2,7 +2,7 @@
  * Hyperlane Warp Route Deployer (EVM-only)
  * 
  * Automates deployment of Hyperlane warp routes across EVM chains.
- * For Solana bridging, use @jeju/zksolbridge package instead.
+ * For Solana bridging, use @jejunetwork/zksolbridge package instead.
  * 
  * Supports:
  * - Native token bridging (ETH)

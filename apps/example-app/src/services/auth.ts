@@ -1,7 +1,7 @@
 /**
  * OAuth3 Authentication Service
  *
- * Wraps the @jeju/oauth3 SDK for decentralized authentication with:
+ * Wraps the @jejunetwork/oauth3 SDK for decentralized authentication with:
  * - TEE-backed key management
  * - MPC threshold signing
  * - Session management
@@ -18,11 +18,11 @@ import {
   type OAuth3Identity,
   type DiscoveredApp,
   type DiscoveredNode,
-} from '@jeju/oauth3';
+} from '@jejunetwork/oauth3';
 import { getNetworkName } from '@jejunetwork/config';
 import type { Address, Hex } from 'viem';
 
-export { AuthProvider } from '@jeju/oauth3';
+export { AuthProvider } from '@jejunetwork/oauth3';
 
 export interface OAuth3Service {
   initialize(): Promise<{ app: DiscoveredApp; nodes: DiscoveredNode[] }>;

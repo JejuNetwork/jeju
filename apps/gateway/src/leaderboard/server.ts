@@ -787,6 +787,203 @@ app.post('/api/a2a', async (c) => {
   });
 });
 
+// ============================================================================
+// DWS Integration Endpoints (Git and NPM contributions)
+// ============================================================================
+
+/**
+ * POST /api/contributions/jeju-git
+ * Record Git activity from DWS Git service
+ */
+app.post('/api/contributions/jeju-git', async (c) => {
+  const service = c.req.header('x-jeju-service');
+  if (service !== 'dws-git') {
+    return c.json({ error: 'Invalid service header' }, 401);
+  }
+
+  const body = await c.req.json<{
+    username?: string;
+    walletAddress?: Address;
+    source: string;
+    scores: { commits: number; prs: number; issues: number; reviews: number };
+    contributions: Array<{
+      type: string;
+      repoId: string;
+      timestamp: number;
+      metadata: Record<string, unknown>;
+    }>;
+    timestamp: number;
+  }>();
+
+  // Get username from wallet if not provided
+  let username = body.username;
+  if (!username && body.walletAddress) {
+    const mapping = await query<{ username: string }>(
+      'SELECT username FROM wallet_mappings WHERE wallet_address = ?',
+      [body.walletAddress.toLowerCase()]
+    );
+    if (mapping.length > 0) {
+      username = mapping[0].username;
+    }
+  }
+
+  if (!username) {
+    return c.json({ error: 'No username mapping found for wallet' }, 400);
+  }
+
+  // Calculate score from contributions
+  const WEIGHTS = {
+    commit: 5,
+    pr_open: 50,
+    pr_merge: 100,
+    branch: 10,
+    merge: 20,
+    issue: 20,
+    review: 30,
+  };
+
+  let totalScore = 0;
+  for (const contribution of body.contributions) {
+    const weight = WEIGHTS[contribution.type as keyof typeof WEIGHTS] || 5;
+    totalScore += weight;
+  }
+
+  // Store in daily scores
+  const date = new Date().toISOString().split('T')[0];
+  const scoreId = `${username}_${date}_jeju-git`;
+
+  await exec(
+    `INSERT INTO user_daily_scores (id, username, date, score, pr_score, issue_score, review_score, comment_score, metrics, category, timestamp, last_updated)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'jeju-git', ?, ?)
+     ON CONFLICT(id) DO UPDATE SET 
+       score = score + excluded.score,
+       pr_score = pr_score + excluded.pr_score,
+       issue_score = issue_score + excluded.issue_score,
+       review_score = review_score + excluded.review_score,
+       last_updated = excluded.last_updated`,
+    [
+      scoreId,
+      username,
+      date,
+      totalScore,
+      (body.scores?.prs || 0) * 50,
+      (body.scores?.issues || 0) * 20,
+      (body.scores?.reviews || 0) * 30,
+      (body.scores?.commits || 0) * 5,
+      JSON.stringify({ contributions: body.contributions.length, source: 'jeju-git' }),
+      new Date().toISOString(),
+      new Date().toISOString(),
+    ]
+  );
+
+  return c.json({ success: true, scoreAdded: totalScore });
+});
+
+/**
+ * POST /api/contributions/jeju-npm
+ * Record NPM activity from DWS NPM service
+ */
+app.post('/api/contributions/jeju-npm', async (c) => {
+  const service = c.req.header('x-jeju-service');
+  if (service !== 'dws-npm') {
+    return c.json({ error: 'Invalid service header' }, 401);
+  }
+
+  const body = await c.req.json<{
+    walletAddress: Address;
+    source: string;
+    score: number;
+    contribution: {
+      type: string;
+      packageId: string;
+      packageName: string;
+      timestamp: number;
+      metadata: Record<string, unknown>;
+    };
+  }>();
+
+  // Get username from wallet
+  const mapping = await query<{ username: string }>(
+    'SELECT username FROM wallet_mappings WHERE wallet_address = ?',
+    [body.walletAddress.toLowerCase()]
+  );
+
+  let username = 'anonymous';
+  if (mapping.length > 0) {
+    username = mapping[0].username;
+  }
+
+  // Store NPM contribution score
+  const date = new Date().toISOString().split('T')[0];
+  const scoreId = `${username}_${date}_jeju-npm`;
+
+  await exec(
+    `INSERT INTO user_daily_scores (id, username, date, score, pr_score, issue_score, review_score, comment_score, metrics, category, timestamp, last_updated)
+     VALUES (?, ?, ?, ?, 0, 0, 0, 0, ?, 'jeju-npm', ?, ?)
+     ON CONFLICT(id) DO UPDATE SET 
+       score = score + excluded.score,
+       last_updated = excluded.last_updated`,
+    [
+      scoreId,
+      username,
+      date,
+      body.score,
+      JSON.stringify({ packageName: body.contribution.packageName, type: body.contribution.type }),
+      new Date().toISOString(),
+      new Date().toISOString(),
+    ]
+  );
+
+  return c.json({ success: true, scoreAdded: body.score });
+});
+
+/**
+ * POST /api/packages/downloads
+ * Record package download counts (for popularity tracking)
+ */
+app.post('/api/packages/downloads', async (c) => {
+  const service = c.req.header('x-jeju-service');
+  if (service !== 'dws-npm') {
+    return c.json({ error: 'Invalid service header' }, 401);
+  }
+
+  const body = await c.req.json<{
+    packageId: string;
+    packageName: string;
+    downloadCount: number;
+    timestamp: number;
+  }>();
+
+  // Store package download stats (could be used for trending packages)
+  await exec(
+    `INSERT INTO package_stats (package_id, package_name, download_count, last_updated)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(package_id) DO UPDATE SET 
+       download_count = download_count + excluded.download_count,
+       last_updated = excluded.last_updated`,
+    [body.packageId, body.packageName, body.downloadCount, new Date().toISOString()]
+  );
+
+  return c.json({ success: true });
+});
+
+/**
+ * GET /api/wallet-mappings
+ * Get all wallet to username mappings (for DWS integration)
+ */
+app.get('/api/wallet-mappings', async (c) => {
+  const mappings = await query<{ wallet_address: string; username: string }>(
+    'SELECT wallet_address, username FROM wallet_mappings'
+  );
+
+  return c.json({
+    mappings: mappings.map(m => ({
+      walletAddress: m.wallet_address,
+      username: m.username,
+    })),
+  });
+});
+
 // Initialize database on first request
 let dbInitialized = false;
 app.use('*', async (_c, next) => {

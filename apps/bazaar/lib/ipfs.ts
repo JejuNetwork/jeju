@@ -1,10 +1,11 @@
 /**
- * IPFS Client for Bazaar
- * Uses LOCAL IPFS infrastructure (no Pinata/external services)
+ * Storage Client for Bazaar
+ * Uses DWS (Decentralized Web Services) for all storage operations
  */
-import { IPFS_API_URL, IPFS_GATEWAY_URL } from '../config';
+import { DWS_URL, IPFS_GATEWAY_URL } from '../config';
 
-const JEJU_IPFS_API = IPFS_API_URL;
+// DWS storage endpoint
+const DWS_STORAGE = `${DWS_URL}/storage`;
 const JEJU_IPFS_GATEWAY = IPFS_GATEWAY_URL;
 
 /**
@@ -15,7 +16,7 @@ export async function uploadToIPFS(file: File): Promise<string> {
   const formData = new FormData();
   formData.append('file', file);
   
-  const response = await fetch(`${JEJU_IPFS_API}/upload`, {
+  const response = await fetch(`${DWS_STORAGE}/upload`, {
     method: 'POST',
     headers: {
       'X-Duration-Months': '1',

@@ -11,7 +11,7 @@ import {
     EILTransfer, XLPSlashEvent, EILStats, EILChainStats,
     VoucherRequestStatus, VoucherStatus, TransferStatus, Account
 } from './model'
-import { keccak256, stringToHex } from 'viem'
+import { keccak256, stringToHex, decodeAbiParameters } from 'viem'
 import { BlockHeader, LogData } from './lib/entities'
 
 // Event signatures for CrossChainPaymaster
@@ -145,9 +145,16 @@ async function processVoucherRequested(
     const requesterAddr = '0x' + log.topics[2].slice(26)
 
     // Decode data: token, amount, destinationChainId, recipient, maxFee, deadline
-    const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-        ['address', 'uint256', 'uint256', 'address', 'uint256', 'uint256'],
-        log.data
+    const decoded = decodeAbiParameters(
+        [
+            { type: 'address' },
+            { type: 'uint256' },
+            { type: 'uint256' },
+            { type: 'address' },
+            { type: 'uint256' },
+            { type: 'uint256' },
+        ],
+        log.data as `0x${string}`
     )
 
     const requester = await getOrCreateAccount(ctx, requesterAddr, header.height, timestamp)
@@ -411,7 +418,10 @@ async function processSourceFundsClaimed(
     const xlpAddr = '0x' + log.topics[2].slice(26)
     
     // Decode amount and fee from data
-    const decoded = ethers.AbiCoder.defaultAbiCoder().decode(['uint256', 'uint256'], log.data)
+    const decoded = decodeAbiParameters(
+        [{ type: 'uint256' }, { type: 'uint256' }],
+        log.data as `0x${string}`
+    )
     const amount = decoded[0]
     const fee = decoded[1]
 
@@ -433,7 +443,10 @@ async function processXLPRegistered(
     const xlpAddr = '0x' + log.topics[1].slice(26)
     
     // Decode stakedAmount and chains from data
-    const decoded = ethers.AbiCoder.defaultAbiCoder().decode(['uint256', 'uint256[]'], log.data)
+    const decoded = decodeAbiParameters(
+        [{ type: 'uint256' }, { type: 'uint256[]' }],
+        log.data as `0x${string}`
+    )
     const stakedAmount = decoded[0]
     const chains = decoded[1].map((c: bigint) => Number(c))
 
@@ -452,7 +465,10 @@ async function processStakeDeposited(
     const xlpAddr = '0x' + log.topics[1].slice(26)
     
     // Decode amount and totalStake
-    const decoded = ethers.AbiCoder.defaultAbiCoder().decode(['uint256', 'uint256'], log.data)
+    const decoded = decodeAbiParameters(
+        [{ type: 'uint256' }, { type: 'uint256' }],
+        log.data as `0x${string}`
+    )
     const totalStake = decoded[1]
 
     const xlp = xlps.get(xlpAddr.toLowerCase())
@@ -471,7 +487,10 @@ async function processUnbondingStarted(
     const xlpAddr = '0x' + log.topics[1].slice(26)
     
     // Decode amount and unbondingComplete
-    const decoded = ethers.AbiCoder.defaultAbiCoder().decode(['uint256', 'uint256'], log.data)
+    const decoded = decodeAbiParameters(
+        [{ type: 'uint256' }, { type: 'uint256' }],
+        log.data as `0x${string}`
+    )
     const amount = decoded[0]
     const unbondingComplete = decoded[1]
 
@@ -513,7 +532,10 @@ async function processXLPSlashed(
     const voucherId = log.topics[2]
     
     // Decode amount and victim
-    const decoded = ethers.AbiCoder.defaultAbiCoder().decode(['uint256', 'address'], log.data)
+    const decoded = decodeAbiParameters(
+        [{ type: 'uint256' }, { type: 'address' }],
+        log.data as `0x${string}`
+    )
     const amount = decoded[0]
     const victim = decoded[1]
 

@@ -12,10 +12,11 @@
 
 import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
-import { Contract, JsonRpcProvider, keccak256 as ethersKeccak256, toUtf8Bytes } from 'ethers';
+import { createPublicClient, http, readContract, keccak256, stringToBytes, type Address, type Chain } from 'viem';
+import { parseAbi } from 'viem';
 import { EdgeCache, getEdgeCache } from '../cache/edge-cache';
 import { OriginFetcher, getOriginFetcher } from '../cache/origin-fetcher';
-import type { Address } from 'viem';
+import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 
 // ============================================================================
 // Types
@@ -40,16 +41,16 @@ interface ContentHash {
 // ABI
 // ============================================================================
 
-const JNS_REGISTRY_ABI = [
+const JNS_REGISTRY_ABI = parseAbi([
   'function resolver(bytes32 node) view returns (address)',
   'function owner(bytes32 node) view returns (address)',
-];
+]);
 
-const JNS_RESOLVER_ABI = [
+const JNS_RESOLVER_ABI = parseAbi([
   'function contenthash(bytes32 node) view returns (bytes)',
   'function text(bytes32 node, string key) view returns (string)',
   'function addr(bytes32 node) view returns (address)',
-];
+]);
 
 // ============================================================================
 // JNS Gateway
@@ -60,9 +61,9 @@ export class JNSGateway {
   private config: JNSGatewayConfig;
   private cache: EdgeCache;
   private originFetcher: OriginFetcher;
-  private provider: JsonRpcProvider;
-  private registry: Contract;
-  private defaultResolver: Contract;
+  private publicClient: ReturnType<typeof createPublicClient>;
+  private registryAddress: Address;
+  private defaultResolverAddress: Address;
 
   // Content hash cache (JNS name -> content hash)
   private contentHashCache: Map<string, { hash: ContentHash; expiresAt: number }> = new Map();
@@ -88,9 +89,10 @@ export class JNSGateway {
       },
     ]);
 
-    this.provider = new JsonRpcProvider(config.rpcUrl);
-    this.registry = new Contract(config.jnsRegistryAddress, JNS_REGISTRY_ABI, this.provider);
-    this.defaultResolver = new Contract(config.jnsResolverAddress, JNS_RESOLVER_ABI, this.provider);
+    const chain = inferChainFromRpcUrl(config.rpcUrl);
+    this.publicClient = createPublicClient({ chain, transport: http(config.rpcUrl) });
+    this.registryAddress = config.jnsRegistryAddress;
+    this.defaultResolverAddress = config.jnsResolverAddress;
 
     this.setupRoutes();
   }
@@ -184,14 +186,24 @@ export class JNSGateway {
     const node = this.namehash(name);
 
     // Get resolver
-    const resolverAddress = await this.registry.resolver(node).catch(() => null);
+    const resolverAddress = await readContract(this.publicClient, {
+      address: this.registryAddress,
+      abi: JNS_REGISTRY_ABI,
+      functionName: 'resolver',
+      args: [node as `0x${string}`],
+    }).catch(() => null as Address | null);
     
-    const resolver = resolverAddress && resolverAddress !== '0x0000000000000000000000000000000000000000'
-      ? new Contract(resolverAddress, JNS_RESOLVER_ABI, this.provider)
-      : this.defaultResolver;
+    const resolverAddr = resolverAddress && resolverAddress !== '0x0000000000000000000000000000000000000000'
+      ? resolverAddress
+      : this.defaultResolverAddress;
 
     // Get content hash
-    const contenthashBytes = await resolver.contenthash(node).catch(() => null);
+    const contenthashBytes = await readContract(this.publicClient, {
+      address: resolverAddr,
+      abi: JNS_RESOLVER_ABI,
+      functionName: 'contenthash',
+      args: [node as `0x${string}`],
+    }).catch(() => null as `0x${string}` | null);
     
     if (!contenthashBytes || contenthashBytes === '0x') {
       return null;
@@ -232,11 +244,11 @@ export class JNSGateway {
   }
 
   private keccak256(str: string): string {
-    return ethersKeccak256(toUtf8Bytes(str));
+    return keccak256(stringToBytes(str));
   }
 
   private keccak256Buffer(buf: Buffer): string {
-    return ethersKeccak256(buf);
+    return keccak256(new Uint8Array(buf) as `0x${string}`);
   }
 
   /**

@@ -30,21 +30,23 @@ export * from './cache';
 export * from './providers';
 
 // Routing
-export * from './routing';
+// Note: Routing coordinator has external dependencies
+// export * from './routing';
 
 // Gateway (JNS resolution like eth.link)
-export * from './gateway';
+// Note: Gateway has external dependencies
+// export * from './gateway';
 
 // SDK
 export * from './sdk';
 
-// Edge Node Entry Points
-export { EdgeNodeServer } from './edge/server';
-export { startEdgeNode } from './edge';
+// Edge Node Entry Points - has external dependencies on scripts/shared
+// export { EdgeNodeServer } from './edge/server';
+// export { startEdgeNode } from './edge';
 
-// Coordinator Entry Point
-export { CDNCoordinator, startCoordinator } from './routing/coordinator';
+// Coordinator Entry Point - has external dependencies on scripts/shared
+// export { CDNCoordinator, startCoordinator } from './routing/coordinator';
 
-// JNS Gateway Entry Point
-export { JNSGateway, startJNSGateway } from './gateway/jns-gateway';
+// JNS Gateway Entry Point - has external dependencies on scripts/shared
+// export { JNSGateway, startJNSGateway } from './gateway/jns-gateway';
 

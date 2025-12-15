@@ -5,7 +5,7 @@
  * 
  * Usage in app:
  * ```typescript
- * import { createAppConfig } from '@jejunetwork/tests/playwright.config.base';
+ * import { createAppConfig } from '@jejunetwork/tests';
  * export default createAppConfig({ name: 'my-app', port: 4000 });
  * ```
  */
@@ -138,3 +138,6 @@ export const SEED_PHRASE = 'test test test test test test test test test test te
 export const PASSWORD = 'Tester@1234';
 
 export default createAppConfig;
+
+// Alias for backwards compatibility
+export const createPlaywrightConfig = createAppConfig;

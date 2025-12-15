@@ -10,7 +10,7 @@
 
 import { describe, test, expect, beforeEach, mock } from 'bun:test';
 import { OrgAgent } from './org-agent';
-import { CQLClient } from '@jeju/db';
+import { CQLClient } from '@jejunetwork/db';
 import type { OrgTodo, OrgCheckinSchedule, OrgCheckinResponse, OrgTeamMember } from '../types';
 
 describe('OrgAgent', () => {

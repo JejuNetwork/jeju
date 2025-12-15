@@ -48,7 +48,7 @@ curl -X POST http://localhost:4010/api/upload \
 ### Via SDK
 
 ```typescript
-import { StorageClient } from '@jeju/storage-sdk';
+import { StorageClient } from '@jejunetwork/storage-sdk';
 
 const storage = new StorageClient({
   endpoint: 'https://storage.jeju.network',

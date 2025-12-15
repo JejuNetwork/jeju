@@ -1,5 +1,7 @@
 /**
  * DWS Storage Routes
+ * 
+ * Supports both native DWS API and IPFS-compatible API for OAuth3 integration.
  */
 
 import { Hono } from 'hono';
@@ -7,6 +9,10 @@ import type { BackendManager } from '../../storage/backends';
 
 export function createStorageRouter(backendManager: BackendManager): Hono {
   const router = new Hono();
+
+  // ============================================
+  // Native DWS API
+  // ============================================
 
   router.get('/health', async (c) => {
     const backends = backendManager.listBackends();
@@ -52,16 +58,66 @@ export function createStorageRouter(backendManager: BackendManager): Hono {
     });
   });
 
-  router.head('/exists/:cid', async (c) => {
-    const cid = c.req.param('cid');
-    const exists = await backendManager.exists(cid);
-    return exists ? c.body(null, 200) : c.body(null, 404);
-  });
-
   router.get('/exists/:cid', async (c) => {
     const cid = c.req.param('cid');
     const exists = await backendManager.exists(cid);
     return c.json({ cid, exists });
+  });
+
+  // ============================================
+  // IPFS-Compatible API (for OAuth3 integration)
+  // ============================================
+
+  // IPFS add endpoint: POST /api/v0/add
+  router.post('/api/v0/add', async (c) => {
+    const formData = await c.req.formData();
+    const file = formData.get('file');
+    if (!(file instanceof File)) {
+      return c.json({ error: 'file required' }, 400);
+    }
+    const content = Buffer.from(await file.arrayBuffer());
+    const result = await backendManager.upload(content, { filename: file.name });
+    // Return IPFS-compatible format
+    return c.json({ Hash: result.cid, Size: String(content.length), Name: file.name });
+  });
+
+  // IPFS id endpoint: POST /api/v0/id (for health check)
+  router.post('/api/v0/id', async (c) => {
+    const health = await backendManager.healthCheck();
+    const allHealthy = Object.values(health).every(h => h);
+    if (!allHealthy) {
+      return c.json({ error: 'Storage backends unhealthy' }, 503);
+    }
+    return c.json({
+      ID: 'dws-storage',
+      AgentVersion: 'dws/1.0.0',
+      Addresses: [],
+    });
+  });
+
+  // IPFS pin/rm endpoint: POST /api/v0/pin/rm (no-op for now)
+  router.post('/api/v0/pin/rm', async (c) => {
+    const arg = c.req.query('arg');
+    if (!arg) {
+      return c.json({ error: 'arg required' }, 400);
+    }
+    // For local storage, we don't actually need to unpin
+    return c.json({ Pins: [arg] });
+  });
+
+  // IPFS gateway: GET /ipfs/:cid
+  router.get('/ipfs/:cid', async (c) => {
+    const cid = c.req.param('cid');
+    const result = await backendManager.download(cid).catch((e: Error) => ({ error: e.message }));
+    if ('error' in result) {
+      return c.json({ error: 'Not found' }, 404);
+    }
+    return new Response(result.content, {
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'X-Ipfs-Path': `/ipfs/${cid}`,
+      },
+    });
   });
 
   return router;

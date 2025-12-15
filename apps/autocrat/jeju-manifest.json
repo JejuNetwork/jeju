@@ -21,10 +21,9 @@
     "deepResearch": true
   },
   "integrations": {
-    "compute": "@jeju/compute",
-    "storage": "@jeju/storage",
-    "leaderboard": "@jeju/leaderboard",
-    "contracts": "@jeju/contracts"
+    "dws": "@jejunetwork/dws",
+    "leaderboard": "@jejunetwork/leaderboard",
+    "contracts": "@jejunetwork/contracts"
   },
   "agents": [
     {

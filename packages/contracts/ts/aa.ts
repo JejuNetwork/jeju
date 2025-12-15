@@ -15,7 +15,7 @@
  *   getSponsoredPaymasterData,
  *   getLiquidityPaymasterData,
  *   ENTRYPOINT_V07_ADDRESS,
- * } from '@jejunetwork/contracts/aa';
+ * } from '@jejunetwork/contracts';
  *
  * // For free game transactions:
  * const paymasterData = getSponsoredPaymasterData(SPONSORED_PAYMASTER_ADDRESS);

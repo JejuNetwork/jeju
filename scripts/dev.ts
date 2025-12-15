@@ -11,7 +11,7 @@ import { spawn, type Subprocess } from "bun";
 import { existsSync } from "fs";
 import { join } from "path";
 import { discoverAllApps, displayAppsSummary, getAutoStartApps, type NetworkApp } from "./shared/discover-apps";
-import { CORE_PORTS, INFRA_PORTS } from "@jejunetwork/config/ports";
+import { CORE_PORTS, INFRA_PORTS } from "@jejunetwork/config";
 
 // Configuration
 const minimal = process.argv.includes("--minimal");

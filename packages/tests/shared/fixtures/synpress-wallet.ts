@@ -8,7 +8,7 @@ import { createWalletSetup, TEST_WALLET_ADDRESS } from '../synpress.config.base'
  *
  * Usage:
  * ```typescript
- * import { test, expect, connectAndVerify } from '@jejunetwork/tests/fixtures/synpress-wallet';
+ * import { test, expect, connectAndVerify } from '@jejunetwork/tests';
  *
  * test('should connect wallet and trade', async ({ context, page, metamaskPage, extensionId }) => {
  *   const metamask = new MetaMask(context, metamaskPage, walletPassword, extensionId);

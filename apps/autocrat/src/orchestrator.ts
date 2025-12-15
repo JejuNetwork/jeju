@@ -2,7 +2,7 @@
  * Autocrat Orchestrator - drives proposal lifecycle
  */
 
-import { createPublicClient, createWalletClient, http, keccak256, toUtf8Bytes, type Address, type Chain, type PublicClient, type WalletClient } from 'viem';
+import { createPublicClient, createWalletClient, http, keccak256, stringToHex, type Address, type Chain, type PublicClient, type WalletClient } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { readContract, waitForTransactionReceipt } from 'viem/actions';
 import { parseAbi } from 'viem';
@@ -194,7 +194,7 @@ export class AutocratOrchestrator {
             address: this.councilAddress,
             abi: COUNCIL_WRITE_ABI,
             functionName: 'castAutocratVote',
-            args: [proposalId as `0x${string}`, voteValue, keccak256(toUtf8Bytes(reasoningHash))],
+            args: [proposalId as `0x${string}`, voteValue, keccak256(stringToHex(reasoningHash))],
             account: this.account,
           });
           await waitForTransactionReceipt(this.client, { hash });
@@ -243,7 +243,7 @@ export class AutocratOrchestrator {
         address: this.councilAddress,
         abi: COUNCIL_WRITE_ABI,
         functionName: 'recordResearch',
-        args: [proposalId as `0x${string}`, keccak256(toUtf8Bytes(report.requestHash))],
+        args: [proposalId as `0x${string}`, keccak256(stringToHex(report.requestHash))],
         account: this.account,
       });
       await waitForTransactionReceipt(this.client, { hash });
@@ -323,7 +323,7 @@ export class AutocratOrchestrator {
         args: [
           proposalId as `0x${string}`,
           teeDecision.approved,
-          keccak256(toUtf8Bytes(decisionHash)),
+          keccak256(stringToHex(decisionHash)),
           teeDecision.encryptedHash as `0x${string}`,
           BigInt(teeDecision.confidenceScore),
           BigInt(teeDecision.alignmentScore),

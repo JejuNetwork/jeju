@@ -9,7 +9,7 @@
  */
 
 import { getRegistryService } from '../src/services/registry';
-import { AuthProvider, TEEProvider } from '@jeju/oauth3';
+import { AuthProvider, TEEProvider } from '@jejunetwork/oauth3';
 import { getNetworkName } from '@jejunetwork/config';
 import type { Address, Hex } from 'viem';
 

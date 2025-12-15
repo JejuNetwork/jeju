@@ -13,6 +13,8 @@ import {
 
 describe('Yield Farming Strategy', () => {
   const defaultConfig: YieldFarmingConfig = {
+    type: 'YIELD_FARMING',
+    enabled: true,
     chains: [1, 42161, 10, 8453],
     solanaNetwork: 'mainnet-beta',
     minApr: 1,
@@ -26,6 +28,7 @@ describe('Yield Farming Strategy', () => {
     maxProtocolExposure: 30,
     maxChainExposure: 50,
     minProfitBps: 50,
+    maxGasGwei: 100,
     maxSlippageBps: 100,
   };
 
@@ -423,5 +426,6 @@ describe('APR Calculations', () => {
     expect(apr).toBeCloseTo(36.4, 1);
   });
 });
+
 
 

@@ -96,7 +96,7 @@ Returns payments verified, payments settled, total volume, and fees collected.
 ### Server Middleware
 
 ```typescript
-import { verifyPayment, settlePayment } from '@jeju/x402';
+import { verifyPayment, settlePayment } from '@jejunetwork/x402';
 
 async function x402Middleware(req, res, next) {
   const requirements = getRequirements(req);
@@ -126,7 +126,7 @@ async function x402Middleware(req, res, next) {
 ### Client
 
 ```typescript
-import { X402Client } from '@jeju/x402-client';
+import { X402Client } from '@jejunetwork/x402-client';
 
 const client = new X402Client({ wallet });
 

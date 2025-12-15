@@ -1,13 +1,19 @@
 /**
- * @jeju/oauth3
+ * @jejunetwork/oauth3
  * 
  * Fully decentralized OAuth3 authentication with:
- * - TEE-backed key management (dstack CVM)
- * - FROST threshold MPC signing
- * - Cross-chain identity support
+ * - TEE-backed key management (dstack CVM or Phala CVM)
+ * - FROST threshold MPC signing (2-of-3 by default)
+ * - Cross-chain identity support via Open Intents
  * - JNS integration for app/identity resolution
- * - Decentralized storage for sessions and credentials
- * - Compute marketplace integration for TEE nodes
+ * - Decentralized storage (IPFS) for sessions and credentials
+ * - Compute marketplace integration for TEE node discovery
+ * - W3C Verifiable Credentials for identity attestations
+ * 
+ * Deployment modes:
+ * - localnet: Local development with simulated TEE (chain 420691)
+ * - testnet: Jeju Testnet with real TEE (chain 420690)
+ * - mainnet: Jeju Mainnet production (chain 420692)
  */
 
 // Core types
@@ -97,16 +103,25 @@ export {
   // Shared Config
   CONTRACTS,
   CHAIN_IDS,
+  RPC_URLS,
+  IPFS_ENDPOINTS,
   DEFAULT_RPC,
   DEFAULT_IPFS_API,
   DEFAULT_IPFS_GATEWAY,
   MIN_STAKE,
+  MPC_DEFAULTS,
   ATTESTATION_VALIDITY_MS,
   CACHE_EXPIRY_MS,
   ZERO_ADDRESS,
   getNetworkType,
   getContracts,
+  getRpcUrl,
+  getIPFSEndpoints,
+  getEnvironmentConfig,
+  getAgentConfig,
   type NetworkType,
+  type TEEMode,
+  type OAuth3AgentConfig,
 } from './infrastructure/config.js';
 
 // TEE Agent

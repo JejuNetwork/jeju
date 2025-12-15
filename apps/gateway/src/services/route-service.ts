@@ -1,4 +1,4 @@
-import type { IntentRoute, SupportedChainId } from '@jejunetwork/types/oif';
+import type { IntentRoute, SupportedChainId } from '@jejunetwork/types';
 import { INPUT_SETTLER_ADDRESS, OUTPUT_SETTLER_ADDRESS } from '../config/contracts.js';
 import { ZERO_ADDRESS } from '../lib/contracts.js';
 

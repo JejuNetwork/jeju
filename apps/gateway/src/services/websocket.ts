@@ -1,6 +1,6 @@
 import { WebSocketServer, WebSocket, type RawData } from 'ws';
 import { createServer } from 'http';
-import type { Intent } from '@jejunetwork/types/oif';
+import type { Intent } from '@jejunetwork/types';
 
 interface WebSocketClient {
   ws: WebSocket;

@@ -3,7 +3,7 @@
  * Handles: IdentityRegistry, ReputationRegistry, ValidationRegistry, BanManager, ReportingSystem
  */
 
-import { ethers } from 'ethers';
+import { parseAbi, decodeEventLog, decodeAbiParameters, zeroHash, bytesToString, toHex } from 'viem';
 import { Store } from '@subsquid/typeorm-store';
 import { ProcessorContext } from './processor';
 import { 
@@ -43,7 +43,7 @@ import {
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 // ABI for decoding events
-const identityRegistryInterface = new ethers.Interface([
+const identityRegistryInterface = parseAbi([
     'event Registered(uint256 indexed agentId, address indexed owner, uint8 tier, uint256 stakedAmount, string tokenURI)',
     'event StakeIncreased(uint256 indexed agentId, uint8 oldTier, uint8 newTier, uint256 addedAmount)',
     'event StakeWithdrawn(uint256 indexed agentId, address indexed owner, uint256 amount)',
@@ -55,18 +55,18 @@ const identityRegistryInterface = new ethers.Interface([
     'event MetadataSet(uint256 indexed agentId, string indexed indexedKey, string key, bytes value)',
 ]);
 
-const reputationRegistryInterface = new ethers.Interface([
+const reputationRegistryInterface = parseAbi([
     'event NewFeedback(uint256 indexed agentId, address indexed clientAddress, uint8 score, bytes32 tag1, bytes32 tag2, string fileuri, bytes32 filehash)',
     'event FeedbackRevoked(uint256 indexed agentId, address indexed clientAddress, uint64 feedbackIndex)',
     'event ResponseAppended(uint256 indexed agentId, address indexed clientAddress, uint64 feedbackIndex, address responder, string responseUri, bytes32 responseHash)',
 ]);
 
-const validationRegistryInterface = new ethers.Interface([
+const validationRegistryInterface = parseAbi([
     'event ValidationRequest(address indexed validatorAddress, uint256 indexed agentId, string requestUri, bytes32 requestHash)',
     'event ValidationResponse(address indexed validatorAddress, uint256 indexed agentId, bytes32 indexed requestHash, uint8 response, string responseUri, bytes32 responseHash, bytes32 tag)',
 ]);
 
-const banManagerInterface = new ethers.Interface([
+const banManagerInterface = parseAbi([
     'event NetworkBanApplied(uint256 indexed agentId, string reason, bytes32 indexed proposalId, uint256 timestamp)',
     'event AppBanApplied(uint256 indexed agentId, bytes32 indexed appId, string reason, bytes32 indexed proposalId, uint256 timestamp)',
     'event NetworkBanRemoved(uint256 indexed agentId, uint256 timestamp)',
@@ -110,8 +110,11 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
             // ============ IdentityRegistry Events ============
 
             if (topic0 === AGENT_REGISTERED) {
-                const decoded = identityRegistryInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const decoded = decodeEventLog({
+                  abi: identityRegistryInterface,
+                  topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+                  data: log.data as `0x${string}`,
+                });
 
                 const agentId = BigInt(log.topics[1]);
                 const id = agentId.toString();
@@ -147,8 +150,11 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 }));
             }
             else if (topic0 === STAKE_INCREASED) {
-                const decoded = identityRegistryInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const decoded = decodeEventLog({
+                  abi: identityRegistryInterface,
+                  topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+                  data: log.data as `0x${string}`,
+                });
 
                 const agentId = BigInt(log.topics[1]);
                 const agent = await getOrCreateAgent(agentId, blockTimestamp);
@@ -176,8 +182,11 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 }));
             }
             else if (topic0 === STAKE_WITHDRAWN) {
-                const decoded = identityRegistryInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const decoded = decodeEventLog({
+                  abi: identityRegistryInterface,
+                  topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+                  data: log.data as `0x${string}`,
+                });
 
                 const agentId = BigInt(log.topics[1]);
                 const agent = await getOrCreateAgent(agentId, blockTimestamp);
@@ -205,8 +214,11 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 agent.active = false;
             }
             else if (topic0 === AGENT_BANNED) {
-                const decoded = identityRegistryInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const decoded = decodeEventLog({
+                  abi: identityRegistryInterface,
+                  topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+                  data: log.data as `0x${string}`,
+                });
 
                 const agentId = BigInt(log.topics[1]);
                 const agent = await getOrCreateAgent(agentId, blockTimestamp);
@@ -245,8 +257,11 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 }));
             }
             else if (topic0 === AGENT_SLASHED) {
-                const decoded = identityRegistryInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const decoded = decodeEventLog({
+                  abi: identityRegistryInterface,
+                  topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+                  data: log.data as `0x${string}`,
+                });
 
                 const agentId = BigInt(log.topics[1]);
                 const agent = await getOrCreateAgent(agentId, blockTimestamp);
@@ -269,8 +284,11 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 }));
             }
             else if (topic0 === TAGS_UPDATED) {
-                const decoded = identityRegistryInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const decoded = decodeEventLog({
+                  abi: identityRegistryInterface,
+                  topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+                  data: log.data as `0x${string}`,
+                });
 
                 const agentId = BigInt(log.topics[1]);
                 const agent = await getOrCreateAgent(agentId, blockTimestamp);
@@ -292,8 +310,11 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 }));
             }
             else if (topic0 === AGENT_URI_UPDATED) {
-                const decoded = identityRegistryInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const decoded = decodeEventLog({
+                  abi: identityRegistryInterface,
+                  topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+                  data: log.data as `0x${string}`,
+                });
 
                 const agentId = BigInt(log.topics[1]);
                 const agent = await getOrCreateAgent(agentId, blockTimestamp);
@@ -303,8 +324,11 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 agent.lastActivityAt = blockTimestamp;
             }
             else if (topic0 === METADATA_SET) {
-                const decoded = identityRegistryInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const decoded = decodeEventLog({
+                  abi: identityRegistryInterface,
+                  topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+                  data: log.data as `0x${string}`,
+                });
 
                 const agentId = BigInt(log.topics[1]);
                 const agent = await getOrCreateAgent(agentId, blockTimestamp);
@@ -313,9 +337,9 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 const key = decoded.args.key;
                 let value: string;
                 try {
-                    value = ethers.toUtf8String(decoded.args.value);
+                    value = bytesToString(decoded.args.value as `0x${string}`);
                 } catch {
-                    value = ethers.hexlify(decoded.args.value);
+                    value = toHex(decoded.args.value as Uint8Array);
                 }
 
                 // Update agent fields based on key
@@ -329,7 +353,7 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 else if (key === 'x402Support') {
                     // x402Support is encoded as bool - decode it properly
                     try {
-                        const decodedBool = ethers.AbiCoder.defaultAbiCoder().decode(['bool'], decoded.args.value)[0];
+                        const decodedBool = decodeAbiParameters([{ type: 'bool' }], decoded.args.value as `0x${string}`)[0];
                         agent.x402Support = decodedBool;
                         value = decodedBool ? 'true' : 'false'; // Store as readable string
                     } catch {
@@ -369,8 +393,11 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
             // ============ ReputationRegistry Events ============
 
             else if (topic0 === NEW_FEEDBACK) {
-                const decoded = reputationRegistryInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const decoded = decodeEventLog({
+                  abi: reputationRegistryInterface,
+                  topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+                  data: log.data as `0x${string}`,
+                });
 
                 const agentId = BigInt(log.topics[1]);
                 const clientAddress = '0x' + log.topics[2].slice(26);
@@ -384,10 +411,10 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                     agent,
                     client,
                     score: Number(decoded.args.score),
-                    tag1: decoded.args.tag1 !== ethers.ZeroHash ? decoded.args.tag1 : null,
-                    tag2: decoded.args.tag2 !== ethers.ZeroHash ? decoded.args.tag2 : null,
+                    tag1: decoded.args.tag1 !== zeroHash ? decoded.args.tag1 : null,
+                    tag2: decoded.args.tag2 !== zeroHash ? decoded.args.tag2 : null,
                     fileUri: decoded.args.fileuri || null,
-                    fileHash: decoded.args.filehash !== ethers.ZeroHash ? decoded.args.filehash : null,
+                    fileHash: decoded.args.filehash !== zeroHash ? decoded.args.filehash : null,
                     isRevoked: false,
                     timestamp: blockTimestamp,
                     txHash,
@@ -395,8 +422,11 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 }));
             }
             else if (topic0 === FEEDBACK_REVOKED) {
-                const decoded = reputationRegistryInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const decoded = decodeEventLog({
+                  abi: reputationRegistryInterface,
+                  topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+                  data: log.data as `0x${string}`,
+                });
 
                 // Mark existing feedback as revoked
                 const agentId = BigInt(log.topics[1]);
@@ -408,8 +438,11 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 ctx.log.info(`Feedback revoked: agent ${agentId}, client ${clientAddress}, index ${feedbackIndex}`);
             }
             else if (topic0 === RESPONSE_APPENDED) {
-                const decoded = reputationRegistryInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const decoded = decodeEventLog({
+                  abi: reputationRegistryInterface,
+                  topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+                  data: log.data as `0x${string}`,
+                });
 
                 const agentId = BigInt(log.topics[1]);
                 const clientAddress = '0x' + log.topics[2].slice(26);
@@ -426,7 +459,7 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                     feedback: { id: feedbackId } as AgentFeedback, // Reference by ID
                     responder,
                     responseUri: decoded.args.responseUri,
-                    responseHash: decoded.args.responseHash !== ethers.ZeroHash ? decoded.args.responseHash : null,
+                    responseHash: decoded.args.responseHash !== zeroHash ? decoded.args.responseHash : null,
                     timestamp: blockTimestamp,
                     txHash,
                     blockNumber: block.header.height
@@ -436,8 +469,11 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
             // ============ ValidationRegistry Events ============
 
             else if (topic0 === VALIDATION_REQUEST) {
-                const decoded = validationRegistryInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const decoded = decodeEventLog({
+                  abi: validationRegistryInterface,
+                  topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+                  data: log.data as `0x${string}`,
+                });
 
                 const validatorAddress = '0x' + log.topics[1].slice(26);
                 const agentId = BigInt(log.topics[2]);
@@ -459,8 +495,11 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 }));
             }
             else if (topic0 === VALIDATION_RESPONSE) {
-                const decoded = validationRegistryInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const decoded = decodeEventLog({
+                  abi: validationRegistryInterface,
+                  topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+                  data: log.data as `0x${string}`,
+                });
 
                 const requestHash = log.topics[3];
                 
@@ -469,8 +508,8 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 if (existingValidation) {
                     existingValidation.response = Number(decoded.args.response);
                     existingValidation.responseUri = decoded.args.responseUri || null;
-                    existingValidation.responseHash = decoded.args.responseHash !== ethers.ZeroHash ? decoded.args.responseHash : null;
-                    existingValidation.tag = decoded.args.tag !== ethers.ZeroHash ? decoded.args.tag : null;
+                    existingValidation.responseHash = decoded.args.responseHash !== zeroHash ? decoded.args.responseHash : null;
+                    existingValidation.tag = decoded.args.tag !== zeroHash ? decoded.args.tag : null;
                     existingValidation.status = 'responded';
                     existingValidation.respondedAt = blockTimestamp;
                     existingValidation.responseTxHash = txHash;
@@ -482,8 +521,11 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
             // ============ BanManager Events ============
 
             else if (topic0 === NETWORK_BAN_APPLIED) {
-                const decoded = banManagerInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const decoded = decodeEventLog({
+                  abi: banManagerInterface,
+                  topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+                  data: log.data as `0x${string}`,
+                });
 
                 const agentId = BigInt(log.topics[1]);
                 const proposalId = log.topics[2];
@@ -506,8 +548,11 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 }));
             }
             else if (topic0 === APP_BAN_APPLIED) {
-                const decoded = banManagerInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const decoded = decodeEventLog({
+                  abi: banManagerInterface,
+                  topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+                  data: log.data as `0x${string}`,
+                });
 
                 const agentId = BigInt(log.topics[1]);
                 const appId = log.topics[2];

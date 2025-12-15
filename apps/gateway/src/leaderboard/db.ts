@@ -1,11 +1,11 @@
 /**
  * Leaderboard Database Layer
  * 
- * Uses @jeju/db (CQL) for decentralized storage.
+ * Uses @jejunetwork/db (CQL) for decentralized storage.
  * Schema matches the original leaderboard data model.
  */
 
-import { createDatabaseService, type DatabaseService, type QueryParam } from '@jeju/dapp-services/database';
+import { createDatabaseService, type DatabaseService, type QueryParam } from '@jejunetwork/shared';
 import { LEADERBOARD_CONFIG } from './config.js';
 
 // Database instance
@@ -281,6 +281,21 @@ async function createSchema(database: DatabaseService): Promise<void> {
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(wallet_address, chain_id, agent_id)
     )`,
+    // DWS integration tables
+    `CREATE TABLE IF NOT EXISTS wallet_mappings (
+      id INTEGER PRIMARY KEY,
+      wallet_address TEXT NOT NULL UNIQUE,
+      username TEXT NOT NULL,
+      verified INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS package_stats (
+      package_id TEXT PRIMARY KEY,
+      package_name TEXT NOT NULL,
+      download_count INTEGER NOT NULL DEFAULT 0,
+      last_updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`,
   ];
 
   const indexes = [
@@ -301,6 +316,8 @@ async function createSchema(database: DatabaseService): Promise<void> {
     'CREATE INDEX IF NOT EXISTS idx_attestations_wallet ON reputation_attestations(wallet_address)',
     'CREATE INDEX IF NOT EXISTS idx_agent_links_user_id ON agent_identity_links(user_id)',
     'CREATE INDEX IF NOT EXISTS idx_agent_links_agent_id ON agent_identity_links(agent_id)',
+    'CREATE INDEX IF NOT EXISTS idx_wallet_mappings_username ON wallet_mappings(username)',
+    'CREATE INDEX IF NOT EXISTS idx_package_stats_name ON package_stats(package_name)',
   ];
 
   // Execute DDL

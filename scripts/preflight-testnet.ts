@@ -13,7 +13,9 @@
  *   bun run scripts/preflight-testnet.ts
  */
 
-import { ethers } from 'ethers';
+import { createPublicClient, http, getBalance, getCode, formatEther, type Address } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { inferChainFromRpcUrl } from './shared/chain-utils';
 
 interface CheckResult {
   name: string;
@@ -64,12 +66,13 @@ async function checkNetworkConnectivity() {
   
   for (const net of networks) {
     try {
-      const provider = new ethers.JsonRpcProvider(net.rpc);
-      const network = await provider.getNetwork();
-      if (Number(network.chainId) === net.expectedChainId) {
-        addResult(`${net.name} RPC`, 'pass', `Connected (Chain ID: ${network.chainId})`);
+      const chainObj = inferChainFromRpcUrl(net.rpc);
+      const publicClient = createPublicClient({ chain: chainObj, transport: http(net.rpc) });
+      const chainId = await publicClient.getChainId();
+      if (Number(chainId) === net.expectedChainId) {
+        addResult(`${net.name} RPC`, 'pass', `Connected (Chain ID: ${chainId})`);
       } else {
-        addResult(`${net.name} RPC`, 'fail', `Wrong chain ID: ${network.chainId}, expected ${net.expectedChainId}`);
+        addResult(`${net.name} RPC`, 'fail', `Wrong chain ID: ${chainId}, expected ${net.expectedChainId}`);
       }
     } catch (e) {
       addResult(`${net.name} RPC`, net.name === 'Testnet' ? 'warn' : 'fail', `Not reachable: ${(e as Error).message.slice(0, 50)}`);
@@ -86,7 +89,7 @@ async function checkDeployerBalance() {
     return;
   }
   
-  const wallet = new ethers.Wallet(pk);
+  const account = privateKeyToAccount(pk as `0x${string}`);
   
   const networks = [
     { name: 'Sepolia', rpc: 'https://ethereum-sepolia-rpc.publicnode.com', minBalance: 0.5 },
@@ -95,9 +98,10 @@ async function checkDeployerBalance() {
   
   for (const net of networks) {
     try {
-      const provider = new ethers.JsonRpcProvider(net.rpc);
-      const balance = await provider.getBalance(wallet.address);
-      const ethBalance = Number(ethers.formatEther(balance));
+      const chainObj = inferChainFromRpcUrl(net.rpc);
+      const publicClient = createPublicClient({ chain: chainObj, transport: http(net.rpc) });
+      const balance = await getBalance(publicClient, { address: account.address });
+      const ethBalance = Number(formatEther(balance));
       
       if (ethBalance >= net.minBalance) {
         addResult(`${net.name} Balance`, 'pass', `${ethBalance.toFixed(4)} ETH (min: ${net.minBalance})`);
@@ -124,8 +128,9 @@ async function checkContractDeployments() {
   
   for (const c of contracts) {
     try {
-      const provider = new ethers.JsonRpcProvider(c.rpc);
-      const code = await provider.getCode(c.address);
+      const chainObj = inferChainFromRpcUrl(c.rpc);
+      const publicClient = createPublicClient({ chain: chainObj, transport: http(c.rpc) });
+      const code = await getCode(publicClient, { address: c.address as Address });
       
       if (code !== '0x' && code.length > 2) {
         addResult(c.name, 'pass', `Deployed at ${c.address.slice(0, 10)}...`);
@@ -195,8 +200,9 @@ async function checkEntryPoint() {
   
   for (const net of networks) {
     try {
-      const provider = new ethers.JsonRpcProvider(net.rpc);
-      const code = await provider.getCode(entryPointV6);
+      const chainObj = inferChainFromRpcUrl(net.rpc);
+      const publicClient = createPublicClient({ chain: chainObj, transport: http(net.rpc) });
+      const code = await getCode(publicClient, { address: entryPointV6 as Address });
       
       if (code !== '0x' && code.length > 100) {
         addResult(`EntryPoint v0.6 (${net.name})`, 'pass', 'Available');

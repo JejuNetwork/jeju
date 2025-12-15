@@ -1,5 +1,5 @@
 /**
- * @jeju/kms - Key Management Types
+ * @jejunetwork/kms - Key Management Types
  */
 
 import type { Address, Hex } from 'viem';

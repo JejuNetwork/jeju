@@ -1,0 +1,146 @@
+/**
+ * OAuth3 Proxy Route
+ * 
+ * Proxies requests to the OAuth3 TEE agent for authentication.
+ * This allows DWS to serve as a unified API gateway.
+ */
+
+import { Hono } from 'hono';
+
+const OAUTH3_AGENT_URL = process.env.OAUTH3_AGENT_URL || 'http://localhost:4200';
+
+export function createOAuth3Router(): Hono {
+  const app = new Hono();
+
+  // Health check
+  app.get('/health', async (c) => {
+    const response = await fetch(`${OAUTH3_AGENT_URL}/health`).catch(() => null);
+    if (!response?.ok) {
+      return c.json({ status: 'unhealthy', agent: OAUTH3_AGENT_URL }, 503);
+    }
+    const data = await response.json();
+    return c.json({ status: 'healthy', agent: OAUTH3_AGENT_URL, ...data });
+  });
+
+  // Get TEE attestation
+  app.get('/attestation', async (c) => {
+    const response = await fetch(`${OAUTH3_AGENT_URL}/attestation`);
+    if (!response.ok) {
+      return c.json({ error: 'Failed to get attestation' }, response.status);
+    }
+    return c.json(await response.json());
+  });
+
+  // Initialize OAuth flow
+  app.post('/auth/init', async (c) => {
+    const body = await c.req.json();
+    const response = await fetch(`${OAUTH3_AGENT_URL}/auth/init`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return c.json(await response.json(), response.status);
+  });
+
+  // OAuth callback
+  app.post('/auth/callback', async (c) => {
+    const body = await c.req.json();
+    const response = await fetch(`${OAUTH3_AGENT_URL}/auth/callback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return c.json(await response.json(), response.status);
+  });
+
+  // Wallet auth
+  app.post('/auth/wallet', async (c) => {
+    const body = await c.req.json();
+    const response = await fetch(`${OAUTH3_AGENT_URL}/auth/wallet`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return c.json(await response.json(), response.status);
+  });
+
+  // Farcaster auth
+  app.post('/auth/farcaster', async (c) => {
+    const body = await c.req.json();
+    const response = await fetch(`${OAUTH3_AGENT_URL}/auth/farcaster`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return c.json(await response.json(), response.status);
+  });
+
+  // Get session
+  app.get('/session/:sessionId', async (c) => {
+    const sessionId = c.req.param('sessionId');
+    const response = await fetch(`${OAUTH3_AGENT_URL}/session/${sessionId}`);
+    return c.json(await response.json(), response.status);
+  });
+
+  // Refresh session
+  app.post('/session/:sessionId/refresh', async (c) => {
+    const sessionId = c.req.param('sessionId');
+    const response = await fetch(`${OAUTH3_AGENT_URL}/session/${sessionId}/refresh`, {
+      method: 'POST',
+    });
+    return c.json(await response.json(), response.status);
+  });
+
+  // Delete session (logout)
+  app.delete('/session/:sessionId', async (c) => {
+    const sessionId = c.req.param('sessionId');
+    const response = await fetch(`${OAUTH3_AGENT_URL}/session/${sessionId}`, {
+      method: 'DELETE',
+    });
+    return c.json(await response.json(), response.status);
+  });
+
+  // Sign message
+  app.post('/sign', async (c) => {
+    const body = await c.req.json();
+    const response = await fetch(`${OAUTH3_AGENT_URL}/sign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return c.json(await response.json(), response.status);
+  });
+
+  // Issue credential
+  app.post('/credential/issue', async (c) => {
+    const body = await c.req.json();
+    const response = await fetch(`${OAUTH3_AGENT_URL}/credential/issue`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return c.json(await response.json(), response.status);
+  });
+
+  // Verify credential
+  app.post('/credential/verify', async (c) => {
+    const body = await c.req.json();
+    const response = await fetch(`${OAUTH3_AGENT_URL}/credential/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return c.json(await response.json(), response.status);
+  });
+
+  // Infrastructure health
+  app.get('/infrastructure/health', async (c) => {
+    const response = await fetch(`${OAUTH3_AGENT_URL}/infrastructure/health`);
+    if (!response.ok) {
+      return c.json({ error: 'OAuth3 agent unavailable' }, 503);
+    }
+    return c.json(await response.json());
+  });
+
+  return app;
+}

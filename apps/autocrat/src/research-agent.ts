@@ -6,7 +6,7 @@
  * - Decentralized compute marketplace (x402 payment)
  */
 
-import { keccak256, toUtf8Bytes } from 'viem';
+import { keccak256, stringToHex } from 'viem';
 import { checkOllama, ollamaGenerate, OLLAMA_MODEL } from './local-services';
 import { parseJson } from './utils';
 
@@ -130,7 +130,7 @@ async function checkComputeMarketplace(): Promise<boolean> {
 
 export class ResearchAgent {
   async conductResearch(request: ResearchRequest): Promise<ResearchReport> {
-    const requestHash = keccak256(toUtf8Bytes(JSON.stringify(request)));
+    const requestHash = keccak256(stringToHex(JSON.stringify(request)));
     if (cache.has(requestHash)) return cache.get(requestHash)!;
 
     const startedAt = Date.now();

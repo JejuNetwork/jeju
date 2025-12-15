@@ -4,7 +4,7 @@
  * Creates the schema for the Todo application in CQL
  */
 
-import { getCQL } from '@jeju/db';
+import { getCQL } from '@jejunetwork/db';
 
 const DATABASE_ID = process.env.CQL_DATABASE_ID || 'todo-experimental';
 

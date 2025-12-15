@@ -5,8 +5,8 @@
  * DECENTRALIZED: No fallbacks - CQL is required for production.
  */
 
-import { getCQL, type CQLClient } from "@jeju/db";
-import { getCacheClient, type CacheClient } from "@jeju/shared/cache";
+import { getCQL, type CQLClient } from "@jejunetwork/db";
+import { getCacheClient, type CacheClient } from "@jejunetwork/shared";
 
 const CQL_DATABASE_ID = process.env.COVENANTSQL_DATABASE_ID ?? "council";
 const CQL_REQUIRED = process.env.CQL_REQUIRED !== "false";

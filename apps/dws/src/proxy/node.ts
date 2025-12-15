@@ -5,7 +5,7 @@
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { Wallet } from 'ethers';
+import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 
 const app = new Hono();
 app.use('/*', cors({ origin: '*' }));
@@ -15,7 +15,7 @@ const region = process.env.NODE_REGION || 'US';
 const maxConcurrent = parseInt(process.env.NODE_MAX_CONCURRENT || '10', 10);
 let currentConnections = 0;
 
-let wallet: Wallet | null = null;
+let account: PrivateKeyAccount | null = null;
 let address: string | null = null;
 
 async function initializeWallet(): Promise<void> {
@@ -25,8 +25,8 @@ async function initializeWallet(): Promise<void> {
     return;
   }
 
-  wallet = new Wallet(privateKey);
-  address = await wallet.getAddress();
+  account = privateKeyToAccount(privateKey as `0x${string}`);
+  address = account.address;
   console.log(`[DWS Proxy Node] Initialized with address: ${address}`);
 }
 

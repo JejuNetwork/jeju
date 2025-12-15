@@ -18,8 +18,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@jeju/shared": ["../../packages/shared/src/index.ts"],
-      "@jeju/shared/*": ["../../packages/shared/src/*"]
+      "@jejunetwork/shared": ["../../packages/shared/src/index.ts"],
+      "@jejunetwork/shared/*": ["../../packages/shared/src/*"]
     }
   },
   "include": ["src"],

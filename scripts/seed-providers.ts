@@ -9,9 +9,10 @@
  *   bun scripts/seed-providers.ts --network mainnet --provider phala
  */
 
-import { Wallet, JsonRpcProvider, Contract, parseEther, formatEther } from 'ethers';
-import type { Address } from 'viem';
-import { keccak256, toBytes, toHex } from 'viem';
+import { createPublicClient, createWalletClient, http, parseEther, formatEther, readContract, writeContract, waitForTransactionReceipt, getBalance, keccak256, toBytes, type Address } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { parseAbi } from 'viem';
+import { inferChainFromRpcUrl } from './shared/chain-utils';
 
 interface ProviderConfig {
   name: string;
@@ -118,7 +119,7 @@ const MAINNET_PROVIDERS: ProviderConfig[] = [
   },
 ];
 
-const COMPUTE_REGISTRY_ABI = [
+const COMPUTE_REGISTRY_ABI = parseAbi([
   'function register(string name, string endpoint, bytes32 attestationHash) payable',
   'function registerWithAgent(string name, string endpoint, bytes32 attestationHash, uint256 agentId) payable',
   'function addCapability(string model, uint256 pricePerInputToken, uint256 pricePerOutputToken, uint256 maxContextLength)',
@@ -126,12 +127,12 @@ const COMPUTE_REGISTRY_ABI = [
   'function getProvider(address) view returns (address owner, string name, string endpoint, bytes32 attestationHash, uint256 stake, uint256 registeredAt, uint256 agentId, bool active)',
   'function isActive(address) view returns (bool)',
   'function minProviderStake() view returns (uint256)',
-];
+]);
 
-const WORKER_REGISTRY_ABI = [
+const WORKER_REGISTRY_ABI = parseAbi([
   'function addEndpoint(bytes32 workerId, string endpoint, bytes32 attestationHash, uint8 teeType)',
   'function getActiveWorkers() view returns (bytes32[])',
-];
+]);
 
 interface SeedConfig {
   network: 'localnet' | 'testnet' | 'mainnet';
@@ -139,12 +140,12 @@ interface SeedConfig {
   dryRun?: boolean;
 }
 
-async function generateAttestation(wallet: Wallet, endpoint: string, teeType: number): Promise<string> {
+async function generateAttestation(accountAddress: Address, endpoint: string, teeType: number): Promise<`0x${string}`> {
   const message = JSON.stringify({
     endpoint,
     teeType,
     timestamp: Date.now(),
-    address: wallet.address,
+    address: accountAddress,
   });
   const hash = keccak256(toBytes(message));
   return hash;
@@ -152,8 +153,10 @@ async function generateAttestation(wallet: Wallet, endpoint: string, teeType: nu
 
 async function seedProvider(
   provider: ProviderConfig,
-  registry: Contract,
-  wallet: Wallet,
+  publicClient: ReturnType<typeof createPublicClient>,
+  walletClient: ReturnType<typeof createWalletClient>,
+  registryAddress: Address,
+  accountAddress: Address,
   dryRun: boolean
 ): Promise<void> {
   console.log(`\n📡 Seeding provider: ${provider.name}`);
@@ -163,15 +166,26 @@ async function seedProvider(
   console.log(`   Stake: ${formatEther(provider.stake)} ETH`);
 
   // Check if already registered
-  const [existing] = await registry.getProvider(wallet.address).catch(() => [null]);
-  if (existing && existing !== '0x0000000000000000000000000000000000000000') {
+  const existing = await readContract(publicClient, {
+    address: registryAddress,
+    abi: COMPUTE_REGISTRY_ABI,
+    functionName: 'getProvider',
+    args: [accountAddress],
+  }).catch(() => null);
+  
+  if (existing && existing[0] !== '0x0000000000000000000000000000000000000000') {
     console.log(`   ⚠️  Already registered, updating endpoint...`);
     
     if (!dryRun) {
-      const attestation = await generateAttestation(wallet, provider.endpoint, provider.teeType);
-      const tx = await registry.updateEndpoint(provider.endpoint, attestation);
-      await tx.wait();
-      console.log(`   ✅ Endpoint updated: ${tx.hash}`);
+      const attestation = await generateAttestation(accountAddress, provider.endpoint, provider.teeType);
+      const hash = await walletClient.writeContract({
+        address: registryAddress,
+        abi: COMPUTE_REGISTRY_ABI,
+        functionName: 'updateEndpoint',
+        args: [provider.endpoint, attestation],
+      });
+      await waitForTransactionReceipt(publicClient, { hash });
+      console.log(`   ✅ Endpoint updated: ${hash}`);
     } else {
       console.log(`   [DRY RUN] Would update endpoint`);
     }
@@ -179,28 +193,43 @@ async function seedProvider(
   }
 
   // Check minimum stake
-  const minStake = await registry.minProviderStake();
+  const minStake = await readContract(publicClient, {
+    address: registryAddress,
+    abi: COMPUTE_REGISTRY_ABI,
+    functionName: 'minProviderStake',
+  });
   const stake = provider.stake > minStake ? provider.stake : minStake;
 
   // Generate attestation
-  const attestation = await generateAttestation(wallet, provider.endpoint, provider.teeType);
+  const attestation = await generateAttestation(accountAddress, provider.endpoint, provider.teeType);
 
   if (!dryRun) {
     console.log(`   Registering with stake ${formatEther(stake)} ETH...`);
-    const tx = await registry.register(provider.name, provider.endpoint, attestation, { value: stake });
-    await tx.wait();
-    console.log(`   ✅ Registered: ${tx.hash}`);
+    const hash = await walletClient.writeContract({
+      address: registryAddress,
+      abi: COMPUTE_REGISTRY_ABI,
+      functionName: 'register',
+      args: [provider.name, provider.endpoint, attestation],
+      value: stake,
+    });
+    await waitForTransactionReceipt(publicClient, { hash });
+    console.log(`   ✅ Registered: ${hash}`);
 
     // Add model capabilities
     for (const model of provider.models) {
       console.log(`   Adding capability: ${model}`);
-      const capTx = await registry.addCapability(
-        model,
-        parseEther('0.0000001'), // Price per input token
-        parseEther('0.0000003'), // Price per output token
-        128000 // Max context length
-      );
-      await capTx.wait();
+      const capHash = await walletClient.writeContract({
+        address: registryAddress,
+        abi: COMPUTE_REGISTRY_ABI,
+        functionName: 'addCapability',
+        args: [
+          model,
+          parseEther('0.0000001'), // Price per input token
+          parseEther('0.0000003'), // Price per output token
+          128000n // Max context length
+        ],
+      });
+      await waitForTransactionReceipt(publicClient, { hash: capHash });
     }
   } else {
     console.log(`   [DRY RUN] Would register with stake ${formatEther(stake)} ETH`);
@@ -210,8 +239,10 @@ async function seedProvider(
 
 async function seedWorkerEndpoints(
   provider: ProviderConfig,
-  workerRegistry: Contract,
-  wallet: Wallet,
+  publicClient: ReturnType<typeof createPublicClient>,
+  walletClient: ReturnType<typeof createWalletClient>,
+  workerRegistryAddress: Address,
+  accountAddress: Address,
   dryRun: boolean
 ): Promise<void> {
   if (!provider.capabilities.includes('workers')) {
@@ -222,20 +253,29 @@ async function seedWorkerEndpoints(
   console.log(`   Adding worker endpoints...`);
 
   // Get all active workers
-  const workerIds = await workerRegistry.getActiveWorkers();
+  const workerIds = await readContract(publicClient, {
+    address: workerRegistryAddress,
+    abi: WORKER_REGISTRY_ABI,
+    functionName: 'getActiveWorkers',
+  });
   console.log(`   Found ${workerIds.length} active workers`);
 
   for (const workerId of workerIds) {
-    const attestation = await generateAttestation(wallet, provider.endpoint, provider.teeType);
+    const attestation = await generateAttestation(accountAddress, provider.endpoint, provider.teeType);
 
     if (!dryRun) {
-      const tx = await workerRegistry.addEndpoint(
-        workerId,
-        `${provider.endpoint}/workers`,
-        attestation,
-        provider.teeType
-      );
-      await tx.wait();
+      const hash = await walletClient.writeContract({
+        address: workerRegistryAddress,
+        abi: WORKER_REGISTRY_ABI,
+        functionName: 'addEndpoint',
+        args: [
+          workerId as `0x${string}`,
+          `${provider.endpoint}/workers`,
+          attestation,
+          provider.teeType as number
+        ],
+      });
+      await waitForTransactionReceipt(publicClient, { hash });
       console.log(`   ✅ Added endpoint for worker ${workerId.slice(0, 10)}...`);
     } else {
       console.log(`   [DRY RUN] Would add endpoint for worker ${workerId.slice(0, 10)}...`);
@@ -324,23 +364,21 @@ async function main() {
     process.exit(1);
   }
 
-  const ethProvider = new JsonRpcProvider(rpcUrl);
-  const wallet = new Wallet(privateKey, ethProvider);
-  const registry = new Contract(registryAddress, COMPUTE_REGISTRY_ABI, wallet);
-  const workerRegistry = workerRegistryAddress
-    ? new Contract(workerRegistryAddress, WORKER_REGISTRY_ABI, wallet)
-    : null;
+  const chain = inferChainFromRpcUrl(rpcUrl);
+  const account = privateKeyToAccount(privateKey as `0x${string}`);
+  const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
+  const walletClient = createWalletClient({ chain, transport: http(rpcUrl), account });
 
-  console.log(`\n🔑 Seeding with wallet: ${wallet.address}`);
-  const balance = await ethProvider.getBalance(wallet.address);
+  console.log(`\n🔑 Seeding with wallet: ${account.address}`);
+  const balance = await getBalance(publicClient, { address: account.address });
   console.log(`   Balance: ${formatEther(balance)} ETH`);
 
   // Seed each provider
   for (const provider of filteredProviders) {
-    await seedProvider(provider, registry, wallet, config.dryRun ?? false);
+    await seedProvider(provider, publicClient, walletClient, registryAddress as Address, account.address, config.dryRun ?? false);
     
-    if (workerRegistry && provider.capabilities.includes('workers')) {
-      await seedWorkerEndpoints(provider, workerRegistry, wallet, config.dryRun ?? false);
+    if (workerRegistryAddress && provider.capabilities.includes('workers')) {
+      await seedWorkerEndpoints(provider, publicClient, walletClient, workerRegistryAddress as Address, account.address, config.dryRun ?? false);
     }
   }
 

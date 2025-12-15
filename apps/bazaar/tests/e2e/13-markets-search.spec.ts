@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { assertNoPageErrors } from '@jejunetwork/tests/helpers/error-detection';
+import { assertNoPageErrors } from '@jejunetwork/tests';
 
 test.describe('Markets Search and Filtering', () => {
   test('should have search input', async ({ page }) => {

@@ -94,19 +94,19 @@ jobs:
         working-directory: packages/contracts
         run: bun run build
 
-      - name: Build @jeju/kms
+      - name: Build @jejunetwork/kms
         working-directory: packages/kms
         run: bun run build
 
-      - name: Build @jeju/db
+      - name: Build @jejunetwork/db
         working-directory: packages/db
         run: bun run build
 
-      - name: Build @jeju/messaging
+      - name: Build @jejunetwork/messaging
         working-directory: packages/messaging
         run: bun run build
 
-      - name: Build @jeju/oauth3
+      - name: Build @jejunetwork/oauth3
         working-directory: packages/oauth3
         run: bun run build
 
@@ -191,49 +191,49 @@ jobs:
             npm publish --access public --provenance || echo "Package may already exist at this version"
           fi
 
-      - name: Publish @jeju/kms
+      - name: Publish @jejunetwork/kms
         working-directory: packages/kms
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
-            echo "DRY RUN: Would publish @jeju/kms"
+            echo "DRY RUN: Would publish @jejunetwork/kms"
             npm pack --dry-run
           else
             npm publish --access public --provenance || echo "Package may already exist at this version"
           fi
 
-      - name: Publish @jeju/db
+      - name: Publish @jejunetwork/db
         working-directory: packages/db
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
-            echo "DRY RUN: Would publish @jeju/db"
+            echo "DRY RUN: Would publish @jejunetwork/db"
             npm pack --dry-run
           else
             npm publish --access public --provenance || echo "Package may already exist at this version"
           fi
 
-      - name: Publish @jeju/shared
+      - name: Publish @jejunetwork/shared
         working-directory: packages/shared
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
-            echo "DRY RUN: Would publish @jeju/shared"
+            echo "DRY RUN: Would publish @jejunetwork/shared"
             npm pack --dry-run
           else
             npm publish --access public --provenance || echo "Package may already exist at this version"
           fi
 
-      - name: Publish @jeju/oauth3
+      - name: Publish @jejunetwork/oauth3
         working-directory: packages/oauth3
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
-            echo "DRY RUN: Would publish @jeju/oauth3"
+            echo "DRY RUN: Would publish @jejunetwork/oauth3"
             npm pack --dry-run
           else
             npm publish --access public --provenance || echo "Package may already exist at this version"
@@ -243,13 +243,13 @@ jobs:
         working-directory: packages/oauth3
         run: bun test || echo "OAuth3 tests skipped"
 
-      - name: Publish @jeju/messaging
+      - name: Publish @jejunetwork/messaging
         working-directory: packages/messaging
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
-            echo "DRY RUN: Would publish @jeju/messaging"
+            echo "DRY RUN: Would publish @jejunetwork/messaging"
             npm pack --dry-run
           else
             npm publish --access public --provenance || echo "Package may already exist at this version"
@@ -293,17 +293,17 @@ jobs:
             | @jejunetwork/types | ${{ steps.version.outputs.version }} |
             | @jejunetwork/config | ${{ steps.version.outputs.version }} |
             | @jejunetwork/contracts | ${{ steps.version.outputs.version }} |
-            | @jeju/kms | ${{ steps.version.outputs.version }} |
-            | @jeju/db | ${{ steps.version.outputs.version }} |
-            | @jeju/shared | ${{ steps.version.outputs.version }} |
-            | @jeju/oauth3 | ${{ steps.version.outputs.version }} |
-            | @jeju/messaging | ${{ steps.version.outputs.version }} |
+            | @jejunetwork/kms | ${{ steps.version.outputs.version }} |
+            | @jejunetwork/db | ${{ steps.version.outputs.version }} |
+            | @jejunetwork/shared | ${{ steps.version.outputs.version }} |
+            | @jejunetwork/oauth3 | ${{ steps.version.outputs.version }} |
+            | @jejunetwork/messaging | ${{ steps.version.outputs.version }} |
             | @jejunetwork/cli | ${{ steps.version.outputs.version }} |
             | @jejunetwork/tests | ${{ steps.version.outputs.version }} |
             
             Install via npm:
             ```bash
             npm install @jejunetwork/contracts@${{ steps.version.outputs.version }}
-            npm install @jeju/kms@${{ steps.version.outputs.version }}
-            npm install @jeju/db@${{ steps.version.outputs.version }}
+            npm install @jejunetwork/kms@${{ steps.version.outputs.version }}
+            npm install @jejunetwork/db@${{ steps.version.outputs.version }}
             ```

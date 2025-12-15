@@ -1,4 +1,4 @@
-import { createSynpressConfig, createWalletSetup, PASSWORD } from '@jejunetwork/tests/synpress.config.base';
+import { createSynpressConfig, createWalletSetup, PASSWORD } from '@jejunetwork/tests';
 
 const BAZAAR_PORT = parseInt(process.env.BAZAAR_PORT || '4006');
 

@@ -284,6 +284,8 @@ export class SolverStrategy {
         if (allowance < intent.outputAmount) {
           console.log(`   Approving token...`);
           const approveHash = await destClient.wallet.writeContract({
+            chain: destClient.wallet.chain,
+            account: destClient.wallet.account!,
             address: intent.outputToken as `0x${string}`,
             abi: ERC20_ABI,
             functionName: 'approve',
@@ -297,6 +299,8 @@ export class SolverStrategy {
       const isNativeToken = intent.outputToken === ZERO_ADDRESS;
 
       const hash = await destClient.wallet.writeContract({
+        chain: destClient.wallet.chain,
+        account: destClient.wallet.account!,
         address: outputSettler as `0x${string}`,
         abi: OUTPUT_SETTLER_ABI,
         functionName: 'fill',

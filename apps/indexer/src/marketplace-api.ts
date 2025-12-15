@@ -1,4 +1,4 @@
-import { ethers } from 'ethers';
+import { formatEther } from 'viem';
 import { DataSource } from 'typeorm';
 import {
   ComputeProvider,
@@ -128,7 +128,7 @@ export async function searchProviders(
         agentId: p.agentId || null,
         type: 'compute',
         isActive: p.isActive,
-        stake: ethers.formatEther(p.stakeAmount || 0n),
+        stake: formatEther(p.stakeAmount || 0n),
         registeredAt: p.registeredAt.toISOString(),
         teeCapable: false,
       });
@@ -157,11 +157,11 @@ export async function searchProviders(
         agentId: p.agentId || null,
         type: 'storage',
         isActive: p.isActive,
-        stake: ethers.formatEther(p.stakeAmount || 0n),
+        stake: formatEther(p.stakeAmount || 0n),
         registeredAt: p.registeredAt.toISOString(),
         providerType: p.providerType,
         totalCapacityGB: Number(p.totalCapacityGB || 0n),
-        pricePerGBMonth: ethers.formatEther(p.pricePerGBMonth || 0n),
+        pricePerGBMonth: formatEther(p.pricePerGBMonth || 0n),
         supportedTiers: p.supportedTiers || [],
       });
     }
@@ -210,9 +210,9 @@ export async function getProviderByAddress(
       endpoint: computeProvider.endpoint,
       agentId: computeProvider.agentId,
       isActive: computeProvider.isActive,
-      stake: ethers.formatEther(computeProvider.stakeAmount || 0n),
+      stake: formatEther(computeProvider.stakeAmount || 0n),
       totalRentals: computeProvider.totalRentals,
-      totalEarnings: ethers.formatEther(computeProvider.totalEarnings || 0n),
+      totalEarnings: formatEther(computeProvider.totalEarnings || 0n),
       registeredAt: computeProvider.registeredAt.toISOString(),
     };
   }
@@ -224,12 +224,12 @@ export async function getProviderByAddress(
       providerType: storageProvider.providerType,
       agentId: storageProvider.agentId,
       isActive: storageProvider.isActive,
-      stake: ethers.formatEther(storageProvider.stakeAmount || 0n),
+      stake: formatEther(storageProvider.stakeAmount || 0n),
       totalCapacityGB: Number(storageProvider.totalCapacityGB || 0n),
       usedCapacityGB: Number(storageProvider.usedCapacityGB || 0n),
-      pricePerGBMonth: ethers.formatEther(storageProvider.pricePerGBMonth || 0n),
+      pricePerGBMonth: formatEther(storageProvider.pricePerGBMonth || 0n),
       totalDeals: storageProvider.totalDeals,
-      totalEarnings: ethers.formatEther(storageProvider.totalEarnings || 0n),
+      totalEarnings: formatEther(storageProvider.totalEarnings || 0n),
       registeredAt: storageProvider.registeredAt.toISOString(),
     };
   }
@@ -420,8 +420,8 @@ export async function getMarketplaceStats(dataSource: DataSource): Promise<Marke
       agentLinkedProviders: agentLinkedCompute.length,
       totalRentals,
       activeRentals,
-      totalStakedETH: ethers.formatEther(totalComputeStake),
-      totalEarningsETH: ethers.formatEther(totalComputeEarnings),
+      totalStakedETH: formatEther(totalComputeStake),
+      totalEarningsETH: formatEther(totalComputeEarnings),
       avgPricePerHourETH: '0',
     },
     storage: {
@@ -432,7 +432,7 @@ export async function getMarketplaceStats(dataSource: DataSource): Promise<Marke
       activeDeals,
       totalCapacityTB: totalCapacity / 1024,
       usedCapacityTB: usedCapacity / 1024,
-      totalStakedETH: ethers.formatEther(totalStorageStake),
+      totalStakedETH: formatEther(totalStorageStake),
       avgPricePerGBMonthETH: '0',
     },
     crossService: {

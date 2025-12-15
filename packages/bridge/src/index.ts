@@ -1,5 +1,5 @@
 /**
- * @jeju/zksolbridge
+ * @jejunetwork/zksolbridge
  *
  * Permissionless Solana↔EVM ZK Light Client Interoperability Layer
  *
@@ -37,6 +37,31 @@ export {
 	SolanaClient,
 	type SolanaClientConfig,
 } from "./clients/index.js";
+
+export {
+	createHyperliquidClient,
+	HyperliquidClient,
+	type HyperliquidClientConfig,
+	hyperliquidChain,
+} from "./clients/hyperliquid-client.js";
+
+// =============================================================================
+// ROUTER EXPORTS
+// =============================================================================
+
+export {
+	createRouter,
+	CrossChainRouter,
+	type RouterConfig,
+	type Route,
+	type RouteRequest,
+	type RouteStep,
+	type ChainInfo,
+	ChainType,
+	BridgeMechanism,
+	SUPPORTED_CHAINS,
+	ASTER_CONTRACTS,
+} from "./router/index.js";
 
 // =============================================================================
 // TEE EXPORTS

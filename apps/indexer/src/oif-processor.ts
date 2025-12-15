@@ -146,9 +146,9 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
         // data = (inputToken, inputAmount, destinationChainId, recipient, fillDeadline)
         const orderId = log.topics[1]
         const userAddr = '0x' + log.topics[2].slice(26)
-        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-          ['address', 'uint256', 'uint256', 'address', 'uint32'],
-          log.data
+        const decoded = decodeAbiParameters(
+          [{ type: 'address' }, { type: 'uint256' }, { type: 'uint256' }, { type: 'address' }, { type: 'uint32' }],
+          log.data as `0x${string}`
         )
 
         const user = accountFactory.getOrCreate(userAddr, header.height, blockTimestamp)
@@ -202,9 +202,9 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
         // data = (token, amount)
         const orderId = log.topics[1]
         const solverAddr = '0x' + log.topics[2].slice(26)
-        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-          ['address', 'uint256'],
-          log.data
+        const decoded = decodeAbiParameters(
+          [{ type: 'address' }, { type: 'uint256' }],
+          log.data as `0x${string}`
         )
 
         let intent = intents.get(orderId) || await ctx.store.get(OIFIntent, orderId)
@@ -296,9 +296,9 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
 
       if (eventSig === SOLVER_REGISTERED) {
         const solverAddr = '0x' + log.topics[1].slice(26)
-        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-          ['uint256', 'uint256[]'],
-          log.data
+        const decoded = decodeAbiParameters(
+          [{ type: 'uint256' }, { type: 'uint256[]' }],
+          log.data as `0x${string}`
         )
 
         const solver = await getOrCreateSolver(solverAddr, blockTimestamp)
@@ -313,9 +313,9 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
 
       if (eventSig === SOLVER_STAKE_DEPOSITED) {
         const solverAddr = '0x' + log.topics[1].slice(26)
-        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-          ['uint256', 'uint256'],
-          log.data
+        const decoded = decodeAbiParameters(
+          [{ type: 'uint256' }, { type: 'uint256' }],
+          log.data as `0x${string}`
         )
 
         const solver = await getOrCreateSolver(solverAddr, blockTimestamp)
@@ -373,7 +373,7 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
         // topics[0] = sig, topics[1] = solver, topics[2] = orderId
         // data = (success)
         const solverAddr = '0x' + log.topics[1].slice(26)
-        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(['bool'], log.data)
+        const decoded = decodeAbiParameters([{ type: 'bool' }], log.data as `0x${string}`)
 
         const success = decoded[0]
         const solver = await getOrCreateSolver(solverAddr, blockTimestamp)
@@ -401,7 +401,7 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
         // data = (timestamp)
         const orderId = log.topics[1]
         const attesterAddr = '0x' + log.topics[2].slice(26)
-        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(['uint256'], log.data)
+        const decoded = decodeAbiParameters([{ type: 'uint256' }], log.data as `0x${string}`)
 
         const attestationId = `${orderId}-${txHash}`
         const intent = intents.get(orderId) || await ctx.store.get(OIFIntent, orderId)

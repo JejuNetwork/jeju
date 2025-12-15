@@ -3,7 +3,7 @@
  * Supports local storage and IPFS with extensible backend system
  */
 
-import { keccak256 } from 'ethers';
+import { keccak256, toBytes } from 'viem';
 import type { BackendType } from '../types';
 
 interface StorageBackend {
@@ -22,7 +22,7 @@ class LocalBackend implements StorageBackend {
   type: BackendType = 'local';
 
   async upload(content: Buffer): Promise<{ cid: string; url: string }> {
-    const cid = keccak256(content).slice(2, 50);
+    const cid = keccak256(toBytes(content)).slice(2, 50);
     localStorage.set(cid, content);
     return { cid, url: `/storage/download/${cid}` };
   }

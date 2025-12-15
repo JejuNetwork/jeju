@@ -185,7 +185,7 @@ export class CDNService {
 
     // Start edge node as subprocess
     this.edgeNodeProcess = Bun.spawn({
-      cmd: ['bun', 'run', '@jeju/cdn/edge'],
+      cmd: ['bun', 'run', '@jejunetwork/cdn/edge'],
       env: {
         ...process.env,
         CDN_NODE_ID: nodeId,
