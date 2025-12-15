@@ -13,6 +13,7 @@ import { createDefiModule, type DefiModule } from "./defi";
 import { createGovernanceModule, type GovernanceModule } from "./governance";
 import { createNamesModule, type NamesModule } from "./names";
 import { createIdentityModule, type IdentityModule } from "./identity";
+import { createValidationModule, type ValidationModule } from "./validation";
 import { createCrossChainModule, type CrossChainModule } from "./crosschain";
 import { createPaymentsModule, type PaymentsModule } from "./payments";
 import { createA2AModule, type A2AModule } from "./a2a";
@@ -60,6 +61,8 @@ export interface JejuClient {
   readonly names: NamesModule;
   /** Identity - ERC-8004, reputation, moderation */
   readonly identity: IdentityModule;
+  /** Validation - ERC-8004 validation registry */
+  readonly validation: ValidationModule;
   /** Cross-chain - EIL + OIF transfers and intents */
   readonly crosschain: CrossChainModule;
   /** Payments - Paymasters, x402, credits */
@@ -106,6 +109,7 @@ export async function createJejuClient(
   const governance = createGovernanceModule(wallet, network);
   const names = createNamesModule(wallet, network);
   const identity = createIdentityModule(wallet, network);
+  const validation = createValidationModule(wallet, network, wallet.publicClient);
   const crosschain = createCrossChainModule(wallet, network);
   const payments = createPaymentsModule(wallet, network);
   const a2a = createA2AModule(wallet, network, servicesConfig);
@@ -123,6 +127,7 @@ export async function createJejuClient(
     governance,
     names,
     identity,
+    validation,
     crosschain,
     payments,
     a2a,

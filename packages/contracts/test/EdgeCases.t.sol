@@ -1164,7 +1164,7 @@ contract GovernanceTimelockEdgeCasesTest is Test {
         GovernanceTimelock.Proposal memory normalProposal = timelock.getProposal(normalId);
         GovernanceTimelock.Proposal memory emergencyProposal = timelock.getProposal(emergencyId);
 
-        // Stage 2: Emergency delay is 7 days, normal uses configured timelockDelay
+        // Decentralization: Emergency delay is 7 days, normal uses configured timelockDelay
         assertEq(emergencyProposal.executeAfter, block.timestamp + timelock.EMERGENCY_MIN_DELAY());
         assertEq(normalProposal.executeAfter, block.timestamp + DELAY);
     }

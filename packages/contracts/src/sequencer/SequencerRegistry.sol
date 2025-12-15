@@ -17,7 +17,7 @@ interface IFeeConfigSequencer {
 /**
  * @title SequencerRegistry
  * @author Jeju Network
- * @notice Stage 2 Sequencer registration with staking and revenue sharing
+ * @notice Decentralized Sequencer registration with staking and revenue sharing
  * @dev V2: Added governance-controlled revenue sharing via FeeConfig
  */
 contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {

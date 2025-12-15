@@ -309,7 +309,7 @@ contract GovernanceTimelockTest is Test {
         GovernanceTimelock.Proposal memory proposal = timelock.getProposal(proposalId);
         uint256 emergencyDelay = timelock.EMERGENCY_MIN_DELAY();
         assertEq(proposal.executeAfter, block.timestamp + emergencyDelay);
-        // Stage 2: Emergency delay is 7 days, not shorter than standard (both can be same or emergency can be less)
+        // Decentralization: Emergency delay is 7 days, not shorter than standard (both can be same or emergency can be less)
         assertEq(emergencyDelay, 7 days);
     }
 
@@ -371,7 +371,7 @@ contract GovernanceTimelockTest is Test {
     // ============ Admin Functions ============
 
     function testSetTimelockDelay() public {
-        // Stage 2: Minimum delay is 7 days, must go through proposal
+        // Decentralization: Minimum delay is 7 days, must go through proposal
         uint256 newDelay = 14 days;
         
         bytes memory callData = abi.encodeWithSelector(timelock.setTimelockDelay.selector, newDelay);

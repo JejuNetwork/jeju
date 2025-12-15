@@ -46,7 +46,7 @@ contract ReentrantForcer {
     }
 }
 
-/// @title Boundary and Edge Case Tests for Stage 2 Contracts
+/// @title Boundary and Edge Case Tests for Decentralization Contracts
 contract BoundaryTests is Test {
     receive() external payable {}
     ThresholdBatchSubmitter public submitter;

@@ -34,6 +34,7 @@ export * from "./defi";
 export * from "./governance";
 export * from "./names";
 export * from "./identity";
+export * from "./validation";
 export * from "./crosschain";
 export * from "./payments";
 export * from "./a2a";

@@ -36,6 +36,10 @@
       "types": "./dist/identity/index.d.ts",
       "import": "./dist/identity/index.js"
     },
+    "./validation": {
+      "types": "./dist/validation/index.d.ts",
+      "import": "./dist/validation/index.js"
+    },
     "./crosschain": {
       "types": "./dist/crosschain/index.d.ts",
       "import": "./dist/crosschain/index.js"

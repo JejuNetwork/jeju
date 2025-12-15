@@ -51,6 +51,7 @@ contract ValidationRegistry is IValidationRegistry {
         address validatorAddress;
         uint256 agentId;
         uint8 response;
+        bytes32 responseHash;
         bytes32 tag;
         uint256 lastUpdate;
     }
@@ -179,6 +180,7 @@ contract ValidationRegistry is IValidationRegistry {
             validatorAddress: request.validatorAddress,
             agentId: request.agentId,
             response: response,
+            responseHash: responseHash,
             tag: tag,
             lastUpdate: block.timestamp
         });
@@ -192,19 +194,20 @@ contract ValidationRegistry is IValidationRegistry {
 
     /**
      * @notice Get validation status for a request
-     * @dev Returns default values (address(0), 0, 0, 0, 0) for pending requests without responses
+     * @dev Returns default values (address(0), 0, 0, 0, 0, 0) for pending requests without responses
      * @dev To distinguish pending from non-existent requests, check if request exists via _requestExists
      * @param requestHash The request hash
      * @return validatorAddress The validator address (address(0) if no response yet)
      * @return agentId The agent ID (0 if no response yet)
      * @return response The validation response (0-100, or 0 if no response yet)
+     * @return responseHash The response hash (bytes32(0) if no response yet)
      * @return tag The response tag (bytes32(0) if no response yet)
      * @return lastUpdate Timestamp of last update (0 if no response yet)
      */
     function getValidationStatus(bytes32 requestHash)
         external
         view
-        returns (address validatorAddress, uint256 agentId, uint8 response, bytes32 tag, uint256 lastUpdate)
+        returns (address validatorAddress, uint256 agentId, uint8 response, bytes32 responseHash, bytes32 tag, uint256 lastUpdate)
     {
         Response storage resp = _responses[requestHash];
 
@@ -213,7 +216,7 @@ contract ValidationRegistry is IValidationRegistry {
         // - Non-existent request: validatorAddress == 0 && !_requestExists[requestHash]
         // - Pending request: validatorAddress == 0 && _requestExists[requestHash]
         // - Responded request: validatorAddress != 0
-        return (resp.validatorAddress, resp.agentId, resp.response, resp.tag, resp.lastUpdate);
+        return (resp.validatorAddress, resp.agentId, resp.response, resp.responseHash, resp.tag, resp.lastUpdate);
     }
 
     /**

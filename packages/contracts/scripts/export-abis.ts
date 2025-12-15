@@ -15,7 +15,10 @@ const CONTRACTS_TO_EXPORT = [
   { file: 'ERC20.sol', contract: 'ERC20' },
   { file: 'SimpleERC20Factory.sol', contract: 'SimpleERC20Factory', outputName: 'ERC20Factory' },
   { file: 'Bazaar.sol', contract: 'Bazaar' },
+  // ERC-8004 Registry Contracts
   { file: 'IdentityRegistry.sol', contract: 'IdentityRegistry' },
+  { file: 'ReputationRegistry.sol', contract: 'ReputationRegistry' },
+  { file: 'ValidationRegistry.sol', contract: 'ValidationRegistry' },
   // Tokens
   { file: 'NetworkToken.sol', contract: 'NetworkToken' },
   // Moderation

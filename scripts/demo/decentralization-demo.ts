@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 /**
- * Stage 2 POC Demo Scenarios
+ * Decentralization Demo Scenarios
  * 
- * Demonstrates Stage 2 features:
+ * Demonstrates decentralization features:
  * 1. Multiple sequencers producing blocks
  * 2. Sequencer failure (chain continues)
  * 3. Censorship resistance (forced inclusion)
@@ -25,16 +25,16 @@ interface DeploymentResult {
 }
 
 async function main() {
-  console.log('🎬 Stage 2 POC Demo Scenarios');
+  console.log('🎬 Decentralization Demo Scenarios');
   console.log('='.repeat(70));
   console.log('');
 
   const network = process.env.NETWORK || 'localnet';
-  const deploymentFile = join(DEPLOYMENTS_DIR, `stage2-${network}.json`);
+  const deploymentFile = join(DEPLOYMENTS_DIR, `${network}.json`);
 
   if (!existsSync(deploymentFile)) {
     console.error('❌ Deployment file not found:', deploymentFile);
-    console.error('   Run: bun run scripts/stage2-poc/deploy-l1.ts');
+    console.error('   Run: bun run scripts/deploy/decentralization.ts');
     process.exit(1);
   }
 

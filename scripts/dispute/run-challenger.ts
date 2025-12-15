@@ -248,7 +248,7 @@ async function main(): Promise<void> {
   let disputeGameFactoryAddr = process.env.DISPUTE_GAME_FACTORY_ADDRESS;
   let l2OutputOracleAddr = process.env.L2_OUTPUT_ORACLE_ADDRESS;
 
-  const deploymentFile = join(DEPLOYMENTS_DIR, `stage2-${network}.json`);
+  const deploymentFile = join(DEPLOYMENTS_DIR, `${network}.json`);
   if (existsSync(deploymentFile)) {
     const deployment = JSON.parse(readFileSync(deploymentFile, 'utf-8'));
     disputeGameFactoryAddr = disputeGameFactoryAddr || deployment.disputeGameFactory;

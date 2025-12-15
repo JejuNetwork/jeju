@@ -22,7 +22,7 @@ contract MockJEJUConfig is ERC20 {
 }
 
 /// @title SequencerConfigurationTest
-/// @notice Tests that validate proper Stage 2 sequencer configuration
+/// @notice Tests that validate proper Decentralization sequencer configuration
 contract SequencerConfigurationTest is Test {
     SequencerRegistry public registry;
     ThresholdBatchSubmitter public batchSubmitter;
@@ -69,7 +69,7 @@ contract SequencerConfigurationTest is Test {
         identityRegistry = new IdentityRegistry();
         reputationRegistry = new ReputationRegistry(payable(address(identityRegistry)));
 
-        // Deploy Stage 2 contracts
+        // Deploy Decentralization contracts
         registry = new SequencerRegistry(
             address(token),
             address(identityRegistry),
@@ -142,9 +142,9 @@ contract SequencerConfigurationTest is Test {
     }
 
     function test_SequencerRegistry_WithdrawDelayMeetsStage2Requirements() public view {
-        // Stage 2 requires at least 7 days withdraw delay to allow for dispute resolution
+        // Decentralization requires at least 7 days withdraw delay to allow for dispute resolution
         uint256 delay = registry.STAKE_WITHDRAWAL_DELAY();
-        assertGe(delay, 7 days, "Withdraw delay must be >= 7 days for Stage 2");
+        assertGe(delay, 7 days, "Withdraw delay must be >= 7 days for Decentralization");
     }
 
     function test_SequencerRegistry_MultipleSequencersCanRegister() public {
@@ -166,9 +166,9 @@ contract SequencerConfigurationTest is Test {
     // =========================================================================
 
     function test_ThresholdBatchSubmitter_ThresholdMeetsStage2Requirements() public view {
-        // Stage 2 requires threshold of at least 2 to prevent single point of failure
+        // Decentralization requires threshold of at least 2 to prevent single point of failure
         uint256 threshold = batchSubmitter.threshold();
-        assertGe(threshold, 2, "Threshold must be >= 2 for Stage 2");
+        assertGe(threshold, 2, "Threshold must be >= 2 for Decentralization");
     }
 
     function test_ThresholdBatchSubmitter_RequiresMultipleSigners() public {
@@ -207,9 +207,9 @@ contract SequencerConfigurationTest is Test {
     // =========================================================================
 
     function test_GovernanceTimelock_DelayMeetsStage2Requirements() public view {
-        // Stage 2 requires 30-day timelock for upgrades
+        // Decentralization requires 30-day timelock for upgrades
         uint256 delay = timelock.TIMELOCK_DELAY();
-        assertGe(delay, 30 days, "Timelock delay must be >= 30 days for Stage 2");
+        assertGe(delay, 30 days, "Timelock delay must be >= 30 days for Decentralization");
     }
 
     function test_GovernanceTimelock_EmergencyDelayIsConstrained() public view {
@@ -228,9 +228,9 @@ contract SequencerConfigurationTest is Test {
     // =========================================================================
 
     function test_DisputeGameFactory_TimeoutMeetsStage2Requirements() public view {
-        // Stage 2 requires adequate time for dispute resolution
+        // Decentralization requires adequate time for dispute resolution
         uint256 timeout = disputeFactory.GAME_TIMEOUT();
-        assertGe(timeout, 7 days, "Game timeout must be >= 7 days for Stage 2");
+        assertGe(timeout, 7 days, "Game timeout must be >= 7 days for Decentralization");
     }
 
     function test_DisputeGameFactory_TreasuryIsConfigured() public view {
@@ -292,7 +292,7 @@ contract SequencerConfigurationTest is Test {
     }
 
     function test_Stage2ChecklistComplete() public view {
-        // Stage 2 Decentralization Checklist
+        // Decentralization Decentralization Checklist
         
         // 1. Multiple sequencers can participate
         assertTrue(registry.MIN_STAKE() > 0, "Staking enabled");

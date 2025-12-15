@@ -78,13 +78,14 @@ interface IValidationRegistry {
      * @return validatorAddress The validator address
      * @return agentId The agent ID
      * @return response The validation response (0-100)
+     * @return responseHash The response hash
      * @return tag The response tag
      * @return lastUpdate Timestamp of last update
      */
     function getValidationStatus(bytes32 requestHash)
         external
         view
-        returns (address validatorAddress, uint256 agentId, uint8 response, bytes32 tag, uint256 lastUpdate);
+        returns (address validatorAddress, uint256 agentId, uint8 response, bytes32 responseHash, bytes32 tag, uint256 lastUpdate);
 
     /**
      * @notice Get aggregated validation summary for an agent

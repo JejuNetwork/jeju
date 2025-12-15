@@ -37,6 +37,11 @@
           "name": "_revenueWallet",
           "type": "address",
           "internalType": "address"
+        },
+        {
+          "name": "_owner",
+          "type": "address",
+          "internalType": "address"
         }
       ],
       "stateMutability": "nonpayable"
@@ -301,7 +306,7 @@
     },
     {
       "type": "function",
-      "name": "setJejuToken",
+      "name": "setNetworkToken",
       "inputs": [
         {
           "name": "_jeju",

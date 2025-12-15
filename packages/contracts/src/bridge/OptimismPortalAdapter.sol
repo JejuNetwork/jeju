@@ -3,7 +3,7 @@ pragma solidity ^0.8.26;
 
 import "../governance/GovernanceTimelock.sol";
 
-/// @notice Adapter to integrate GovernanceTimelock with OptimismPortal for Stage 2
+/// @notice Adapter to integrate GovernanceTimelock with OptimismPortal for Decentralized
 contract OptimismPortalAdapter {
     bytes4 private constant UPGRADE_TO = bytes4(keccak256("upgradeTo(address)"));
     bytes4 private constant UPGRADE_AND_CALL = bytes4(keccak256("upgradeToAndCall(address,bytes)"));

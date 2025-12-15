@@ -82,7 +82,7 @@ contract Stage2IntegrationTest is Test {
         jejuToken = new MockJEJU();
         prover = new Prover();
 
-        // Deploy Stage 2 contracts
+        // Deploy Decentralization contracts
         sequencerRegistry = new SequencerRegistry(
             address(jejuToken), address(identityRegistry), address(reputationRegistry), treasury, owner
         );

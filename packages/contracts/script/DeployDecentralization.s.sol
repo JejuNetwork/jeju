@@ -38,7 +38,7 @@ contract DeployStage2 is Script {
         address l2OutputOracle = vm.envOr("L2_OUTPUT_ORACLE", address(0));
 
         console.log("==================================================");
-        console.log("Deploying Stage 2 Infrastructure");
+        console.log("Deploying Decentralized Infrastructure");
         console.log("==================================================");
         console.log("Deployer:", deployer);
         console.log("Treasury:", treasury);
@@ -109,7 +109,7 @@ contract DeployStage2 is Script {
 
         console.log("");
         console.log("==================================================");
-        console.log("Stage 2 Deployment Complete");
+        console.log("Decentralized Deployment Complete");
         console.log("==================================================");
         console.log("");
         console.log("Addresses:");

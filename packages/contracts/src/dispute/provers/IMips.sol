@@ -9,7 +9,7 @@ pragma solidity ^0.8.26;
  * The MIPS VM executes MIPS instructions to verify state transitions.
  * It uses a PreimageOracle for loading external data during execution.
  *
- * For Stage 2 integration:
+ * For Decentralized integration:
  * 1. Deploy MIPS.sol from Optimism monorepo
  * 2. Deploy PreimageOracle.sol
  * 3. Update CannonProver to use real MIPS address
@@ -108,7 +108,7 @@ library DisputeTypes {
     /// @notice The maximum depth of the game tree.
     uint256 constant MAX_GAME_DEPTH = 73;
 
-    /// @notice The duration of the game (7 days for Stage 2).
+    /// @notice The duration of the game (7 days for Decentralized).
     uint256 constant GAME_DURATION = 7 days;
 
     /// @notice The absolute prestate hash (genesis state).

@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 /**
- * Setup OP Stack Fork for Stage 2 POC
+ * Setup OP Stack Fork
  * 
- * Clones the Optimism monorepo and prepares it for Stage 2 modifications.
- * This creates a fork in vendor/optimism-stage2/ that we can modify.
+ * Clones the Optimism monorepo and prepares it for modifications.
+ * This creates a fork in vendor/optimism/ that we can modify.
  */
 
 import { $ } from 'bun';
@@ -12,12 +12,12 @@ import { join } from 'path';
 
 const ROOT = join(import.meta.dir, '../..');
 const VENDOR_DIR = join(ROOT, 'vendor');
-const OPTIMISM_DIR = join(VENDOR_DIR, 'optimism-stage2');
+const OPTIMISM_DIR = join(VENDOR_DIR, 'optimism');
 const OPTIMISM_REPO = 'https://github.com/ethereum-optimism/optimism.git';
 const OPTIMISM_VERSION = 'op-node/v1.9.4'; // Pin to stable version
 
 async function main() {
-  console.log('🚀 Setting up OP Stack Fork for Stage 2 POC');
+  console.log('🚀 Setting up OP Stack Fork');
   console.log('='.repeat(70));
   console.log('');
 
@@ -26,7 +26,7 @@ async function main() {
     console.log('⚠️  OP Stack fork already exists at:', OPTIMISM_DIR);
     console.log('   Delete it first if you want to re-clone.');
     console.log('');
-    console.log('   rm -rf vendor/optimism-stage2');
+    console.log('   rm -rf vendor/optimism');
     return;
   }
 
@@ -57,9 +57,8 @@ async function main() {
     console.log('✅ OP Stack fork setup complete!');
     console.log('');
     console.log('Next steps:');
-    console.log('  1. Review the plan: STAGE2_POC_PLAN.md');
-    console.log('  2. Start implementing contracts: packages/contracts/src/stage2/');
-    console.log('  3. Modify OP Stack components in: vendor/optimism-stage2/');
+    console.log('  1. Start implementing contracts: packages/contracts/src/');
+    console.log('  2. Modify OP Stack components in: vendor/optimism/');
     console.log('');
 
   } catch (error) {
@@ -76,4 +75,3 @@ if (import.meta.main) {
 }
 
 export { main as setupOptimismFork };
-

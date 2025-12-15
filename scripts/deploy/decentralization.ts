@@ -1,10 +1,10 @@
 #!/usr/bin/env bun
 /**
- * Stage 2 Full Stack Deployment
+ * Full Stack Deployment
  * 
- * Deploys and verifies all Stage 2 contracts and services:
+ * Deploys and verifies all decentralization contracts and services:
  * 1. Mock dependencies (JEJU token, Identity/Reputation registries)
- * 2. Core Stage 2 contracts (SequencerRegistry, GovernanceTimelock, DisputeGameFactory)
+ * 2. Core contracts (SequencerRegistry, GovernanceTimelock, DisputeGameFactory)
  * 3. Prover and adapters
  */
 
@@ -17,7 +17,7 @@ const ROOT = join(import.meta.dir, '../..');
 const CONTRACTS_DIR = join(ROOT, 'packages/contracts');
 const DEPLOYMENTS_DIR = join(CONTRACTS_DIR, 'deployments');
 
-interface Stage2Deployment {
+interface Deployment {
   jejuToken: string;
   identityRegistry: string;
   reputationRegistry: string;
@@ -33,7 +33,7 @@ interface Stage2Deployment {
 }
 
 async function main() {
-  console.log('🚀 Stage 2 Full Stack Deployment');
+  console.log('🚀 Full Stack Deployment');
   console.log('='.repeat(60));
   console.log('');
 
@@ -71,7 +71,7 @@ async function main() {
   console.log('📦 Deploying contracts via Forge...');
   console.log('');
 
-  const forgeCmd = `cd ${CONTRACTS_DIR} && DEPLOYER_PRIVATE_KEY=${deployerKey} BASESCAN_API_KEY=dummy ETHERSCAN_API_KEY=dummy forge script script/DeployStage2.s.sol:DeployStage2 --rpc-url ${rpcUrl} --broadcast --legacy 2>&1`;
+  const forgeCmd = `cd ${CONTRACTS_DIR} && DEPLOYER_PRIVATE_KEY=${deployerKey} BASESCAN_API_KEY=dummy ETHERSCAN_API_KEY=dummy forge script script/Deploy.s.sol:Deploy --rpc-url ${rpcUrl} --broadcast --legacy 2>&1`;
 
   try {
     const output = execSync(forgeCmd, { encoding: 'utf-8', maxBuffer: 100 * 1024 * 1024 });
@@ -89,12 +89,12 @@ async function main() {
     if (!existsSync(DEPLOYMENTS_DIR)) {
       mkdirSync(DEPLOYMENTS_DIR, { recursive: true });
     }
-    const deploymentFile = join(DEPLOYMENTS_DIR, `stage2-${network}.json`);
+    const deploymentFile = join(DEPLOYMENTS_DIR, `${network}.json`);
     writeFileSync(deploymentFile, JSON.stringify(deployment, null, 2));
 
     console.log('');
     console.log('='.repeat(60));
-    console.log('✅ Stage 2 Deployment Complete');
+    console.log('✅ Deployment Complete');
     console.log('='.repeat(60));
     console.log('');
     console.log('Contract Addresses:');
@@ -120,8 +120,8 @@ async function main() {
   }
 }
 
-function parseDeploymentOutput(output: string, deployer: string, network: string): Stage2Deployment {
-  const deployment: Stage2Deployment = {
+function parseDeploymentOutput(output: string, deployer: string, network: string): Deployment {
+  const deployment: Deployment = {
     jejuToken: '',
     identityRegistry: '',
     reputationRegistry: '',
@@ -137,7 +137,7 @@ function parseDeploymentOutput(output: string, deployer: string, network: string
   };
 
   // Parse addresses from Forge output
-  const patterns: [keyof Stage2Deployment, RegExp][] = [
+  const patterns: [keyof Deployment, RegExp][] = [
     ['jejuToken', /MockJEJUToken deployed: (0x[a-fA-F0-9]{40})/],
     ['identityRegistry', /IdentityRegistry deployed: (0x[a-fA-F0-9]{40})/],
     ['reputationRegistry', /ReputationRegistry deployed: (0x[a-fA-F0-9]{40})/],
@@ -159,7 +159,7 @@ function parseDeploymentOutput(output: string, deployer: string, network: string
   return deployment;
 }
 
-async function verifyDeployment(provider: ethers.Provider, deployment: Stage2Deployment): Promise<void> {
+async function verifyDeployment(provider: ethers.Provider, deployment: Deployment): Promise<void> {
   console.log('🔍 Verifying deployment...');
   console.log('');
 

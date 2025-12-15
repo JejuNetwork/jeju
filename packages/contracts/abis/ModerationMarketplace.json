@@ -32,7 +32,46 @@
     },
     {
       "type": "function",
+      "name": "ABSOLUTE_MAX_VOTE_WEIGHT",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "APPEAL_VOTING_PERIOD",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "CONSECUTIVE_WIN_THRESHOLD",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "CONVICTION_LOCK_PERIOD",
       "inputs": [],
       "outputs": [
         {
@@ -110,7 +149,46 @@
     },
     {
       "type": "function",
+      "name": "MAX_ACTIVE_REPORTS",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "MAX_APPEAL_COUNT",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "MAX_REPORTS_PER_DAY",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "MAX_REPORTS_PER_WEEK",
       "inputs": [],
       "outputs": [
         {
@@ -162,7 +240,46 @@
     },
     {
       "type": "function",
+      "name": "MIN_COMBINED_QUORUM_STAKE",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "MIN_QUORUM_BPS",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "MIN_QUORUM_PARTICIPANT_STAKE",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "MIN_QUORUM_STAKE_AGE",
       "inputs": [],
       "outputs": [
         {
@@ -214,6 +331,19 @@
     },
     {
       "type": "function",
+      "name": "PROGRESSIVE_COOLDOWN_HOURS",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "QUADRATIC_SCALE",
       "inputs": [],
       "outputs": [
@@ -228,6 +358,32 @@
     {
       "type": "function",
       "name": "REPORT_COOLDOWN",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "REP_DECAY_GRACE_WEEKS",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "REP_DECAY_PER_WEEK",
       "inputs": [],
       "outputs": [
         {
@@ -649,6 +805,25 @@
     },
     {
       "type": "function",
+      "name": "convictionLockUntil",
+      "inputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "getAllCaseIds",
       "inputs": [],
       "outputs": [
@@ -817,6 +992,30 @@
     },
     {
       "type": "function",
+      "name": "getConvictionLockStatus",
+      "inputs": [
+        {
+          "name": "user",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "canUnstake",
+          "type": "bool",
+          "internalType": "bool"
+        },
+        {
+          "name": "lockUntil",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "getModeratorPnL",
       "inputs": [
         {
@@ -884,6 +1083,41 @@
               "name": "reportCooldownUntil",
               "type": "uint256",
               "internalType": "uint256"
+            },
+            {
+              "name": "dailyReportCount",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "weeklyReportCount",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "reportDayStart",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "reportWeekStart",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "consecutiveWins",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "lastActivityTimestamp",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "activeReportCount",
+              "type": "uint256",
+              "internalType": "uint256"
             }
           ]
         }
@@ -903,6 +1137,89 @@
       "outputs": [
         {
           "name": "quorum",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getQuorumRequirements",
+      "inputs": [
+        {
+          "name": "target",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "combinedStakeRequired",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "currentCombinedStake",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "participantsRequired",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "currentParticipants",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "stakeAgeRequired",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getReportLimits",
+      "inputs": [
+        {
+          "name": "user",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "dailyUsed",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "dailyLimit",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "weeklyUsed",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "weeklyLimit",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "activeReports",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "activeLimit",
           "type": "uint256",
           "internalType": "uint256"
         }
@@ -1070,6 +1387,19 @@
     },
     {
       "type": "function",
+      "name": "gitHubReputationProvider",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "contract IGitHubReputationProvider"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "hasReportedTarget",
       "inputs": [
         {
@@ -1199,6 +1529,41 @@
         },
         {
           "name": "reportCooldownUntil",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "dailyReportCount",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "weeklyReportCount",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "reportDayStart",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "reportWeekStart",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "consecutiveWins",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "lastActivityTimestamp",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "activeReportCount",
           "type": "uint256",
           "internalType": "uint256"
         }
@@ -1332,6 +1697,30 @@
     },
     {
       "type": "function",
+      "name": "quorumParticipantStakeAge",
+      "inputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "renounceOwnership",
       "inputs": [],
       "outputs": [],
@@ -1358,6 +1747,19 @@
           "name": "caseId",
           "type": "bytes32",
           "internalType": "bytes32"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setGitHubReputationProvider",
+      "inputs": [
+        {
+          "name": "provider",
+          "type": "address",
+          "internalType": "address"
         }
       ],
       "outputs": [],
@@ -2087,6 +2489,16 @@
     },
     {
       "type": "error",
+      "name": "BannedUserCannotReport",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "BannedUserCannotVote",
+      "inputs": []
+    },
+    {
+      "type": "error",
       "name": "CannotBanSelf",
       "inputs": []
     },
@@ -2103,6 +2515,16 @@
     {
       "type": "error",
       "name": "CaseNotFound",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "ConvictionLockActive",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "DailyReportLimitReached",
       "inputs": []
     },
     {
@@ -2174,7 +2596,17 @@
     },
     {
       "type": "error",
+      "name": "QuorumCombinedStakeTooLow",
+      "inputs": []
+    },
+    {
+      "type": "error",
       "name": "QuorumNotReached",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "QuorumStakeAgeTooYoung",
       "inputs": []
     },
     {
@@ -2215,6 +2647,11 @@
     },
     {
       "type": "error",
+      "name": "TooManyActiveReports",
+      "inputs": []
+    },
+    {
+      "type": "error",
       "name": "TooManyEvidenceItems",
       "inputs": []
     },
@@ -2231,6 +2668,11 @@
     {
       "type": "error",
       "name": "VotingNotEnded",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "WeeklyReportLimitReached",
       "inputs": []
     }
   ]

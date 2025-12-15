@@ -75,12 +75,13 @@ contract RegistryIntegrationTest is Test {
         );
 
         // 6. Check validation status
-        (address validatorAddr, uint256 validatedAgentId, uint8 response, bytes32 tag, uint256 lastUpdate) =
+        (address validatorAddr, uint256 validatedAgentId, uint8 response, bytes32 respHash, bytes32 tag, uint256 lastUpdate) =
             validationRegistry.getValidationStatus(requestHash);
 
         assertEq(validatorAddr, validator);
         assertEq(validatedAgentId, agentId);
         assertEq(response, 95);
+        assertEq(respHash, keccak256("result-data"));
         assertEq(tag, bytes32("approved"));
         assertGt(lastUpdate, 0);
     }
@@ -189,7 +190,7 @@ contract RegistryIntegrationTest is Test {
             requestHash, 90, "ipfs://response", keccak256("result"), bytes32("approved")
         );
 
-        (,, uint8 response,,) = validationRegistry.getValidationStatus(requestHash);
+        (,, uint8 response,,,) = validationRegistry.getValidationStatus(requestHash);
         assertEq(response, 90);
     }
 }

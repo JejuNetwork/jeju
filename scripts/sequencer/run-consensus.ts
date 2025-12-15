@@ -9,12 +9,12 @@ const ROOT = join(import.meta.dir, '../..');
 const DEPLOYMENTS_DIR = join(ROOT, 'packages/contracts/deployments');
 
 async function main() {
-  console.log('🔄 Stage 2 Consensus Coordinator\n');
+  console.log('🔄 Consensus Coordinator\n');
 
   const network = process.env.NETWORK || 'localnet';
   const rpcUrl = process.env.L1_RPC_URL || 'http://127.0.0.1:8545';
   const blockInterval = parseInt(process.env.BLOCK_INTERVAL || '2000', 10);
-  const deploymentFile = join(DEPLOYMENTS_DIR, `stage2-${network}.json`);
+  const deploymentFile = join(DEPLOYMENTS_DIR, `${network}.json`);
 
   console.log(`Network: ${network}, RPC: ${rpcUrl}, Interval: ${blockInterval}ms\n`);
 

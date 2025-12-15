@@ -2,8 +2,8 @@
 pragma solidity ^0.8.26;
 
 /// @title IL2OutputOracle
-/// @notice Interface for OP Stack L2OutputOracle with Stage 2 modifications
-/// @dev This interface shows what changes are needed to L2OutputOracle for Stage 2
+/// @notice Interface for OP Stack L2OutputOracle with Decentralized modifications
+/// @dev This interface shows what changes are needed to L2OutputOracle for Decentralized
 interface IL2OutputOracle {
     struct OutputProposal {
         bytes32 outputRoot;
@@ -23,7 +23,7 @@ interface IL2OutputOracle {
 }
 
 /// @title IL2OutputOracleStage2
-/// @notice Additional interface for Stage 2 specific functions
+/// @notice Additional interface for Decentralized specific functions
 interface IL2OutputOracleStage2 {
     function isRegisteredSequencer(address sequencer) external view returns (bool);
     function deleteL2Output(uint256 _l2OutputIndex) external;

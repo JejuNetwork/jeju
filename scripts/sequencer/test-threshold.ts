@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 /**
- * Test Stage 2 Contracts
+ * Test Decentralization Contracts
  * 
- * Comprehensive tests for all Stage 2 contracts.
+ * Comprehensive tests for all decentralization contracts.
  */
 
 import { ethers } from 'ethers';
@@ -13,17 +13,17 @@ const ROOT = join(import.meta.dir, '../..');
 const DEPLOYMENTS_DIR = join(ROOT, 'packages/contracts/deployments');
 
 async function main() {
-  console.log('🧪 Testing Stage 2 Contracts');
+  console.log('🧪 Testing Decentralization Contracts');
   console.log('='.repeat(70));
   console.log('');
 
   const network = process.env.NETWORK || 'localnet';
   const rpcUrl = process.env.L1_RPC_URL || 'http://127.0.0.1:8545';
-  const deploymentFile = join(DEPLOYMENTS_DIR, `stage2-${network}.json`);
+  const deploymentFile = join(DEPLOYMENTS_DIR, `${network}.json`);
 
   if (!existsSync(deploymentFile)) {
     console.error('❌ Deployment file not found');
-    console.error('   Run: bun run scripts/stage2-poc/deploy-l1.ts');
+    console.error('   Run: bun run scripts/deploy/decentralization.ts');
     process.exit(1);
   }
 
