@@ -9,13 +9,19 @@ import {
   type IAgentRuntime,
   type Memory,
   type State,
-} from '@elizaos/core';
-import { JEJU_SERVICE_NAME, type JejuService } from '../service';
+} from "@elizaos/core";
+import { JEJU_SERVICE_NAME, type JejuService } from "../service";
 
 export const uploadFileAction: Action = {
-  name: 'UPLOAD_FILE',
-  description: 'Upload a file to the network decentralized storage (IPFS)',
-  similes: ['upload file', 'store file', 'save to ipfs', 'pin file', 'upload to storage'],
+  name: "UPLOAD_FILE",
+  description: "Upload a file to the network decentralized storage (IPFS)",
+  similes: [
+    "upload file",
+    "store file",
+    "save to ipfs",
+    "pin file",
+    "upload to storage",
+  ],
 
   validate: async (runtime: IAgentRuntime) => {
     const service = runtime.getService(JEJU_SERVICE_NAME);
@@ -27,12 +33,12 @@ export const uploadFileAction: Action = {
     message: Memory,
     _state: State | undefined,
     _options: Record<string, unknown>,
-    callback?: HandlerCallback
+    callback?: HandlerCallback,
   ) => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
 
-    const text = message.content.text ?? '';
+    const text = message.content.text ?? "";
 
     // Check for JSON data to upload
     const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -70,10 +76,10 @@ Gateway URL: ${result.gatewayUrl}`,
     }
 
     // Upload text content
-    const content = text.replace(/upload|file|store|save|ipfs/gi, '').trim();
+    const content = text.replace(/upload|file|store|save|ipfs/gi, "").trim();
     if (content) {
       const data = new TextEncoder().encode(content);
-      const result = await client.storage.upload(data, { name: 'content.txt' });
+      const result = await client.storage.upload(data, { name: "content.txt" });
 
       callback?.({
         text: `Content uploaded to IPFS.
@@ -85,27 +91,35 @@ Gateway URL: ${result.gatewayUrl}`,
       return;
     }
 
-    callback?.({ text: 'Please provide content to upload (text, JSON, or URL).' });
+    callback?.({
+      text: "Please provide content to upload (text, JSON, or URL).",
+    });
   },
 
   examples: [
     [
       {
-        user: '{{user1}}',
+        name: "user",
         content: { text: 'Upload this data: {"name": "test", "value": 123}' },
       },
       {
-        user: '{{agent}}',
-        content: { text: 'File uploaded to IPFS. CID: Qm...' },
+        name: "agent",
+        content: { text: "File uploaded to IPFS. CID: Qm..." },
       },
     ],
-  ] as ActionExample[][],
+  ],
 };
 
 export const retrieveFileAction: Action = {
-  name: 'RETRIEVE_FILE',
-  description: 'Retrieve a file from the network storage by CID',
-  similes: ['get file', 'retrieve file', 'download', 'fetch from ipfs', 'get cid'],
+  name: "RETRIEVE_FILE",
+  description: "Retrieve a file from the network storage by CID",
+  similes: [
+    "get file",
+    "retrieve file",
+    "download",
+    "fetch from ipfs",
+    "get cid",
+  ],
 
   validate: async (runtime: IAgentRuntime) => {
     const service = runtime.getService(JEJU_SERVICE_NAME);
@@ -117,17 +131,19 @@ export const retrieveFileAction: Action = {
     message: Memory,
     _state: State | undefined,
     _options: Record<string, unknown>,
-    callback?: HandlerCallback
+    callback?: HandlerCallback,
   ) => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
 
-    const text = message.content.text ?? '';
+    const text = message.content.text ?? "";
 
     // Extract CID
     const cidMatch = text.match(/Qm[a-zA-Z0-9]{44}|bafy[a-zA-Z0-9]+/);
     if (!cidMatch) {
-      callback?.({ text: 'Please provide an IPFS CID (starting with Qm or bafy).' });
+      callback?.({
+        text: "Please provide an IPFS CID (starting with Qm or bafy).",
+      });
       return;
     }
 
@@ -148,7 +164,7 @@ export const retrieveFileAction: Action = {
     callback?.({
       text: `Retrieved content (${data.length} bytes):
 
-${text_content.slice(0, 1000)}${text_content.length > 1000 ? '...' : ''}`,
+${text_content.slice(0, 1000)}${text_content.length > 1000 ? "..." : ""}`,
       content: {
         cid,
         size: data.length,
@@ -161,14 +177,13 @@ ${text_content.slice(0, 1000)}${text_content.length > 1000 ? '...' : ''}`,
   examples: [
     [
       {
-        user: '{{user1}}',
-        content: { text: 'Retrieve QmXxxxxx' },
+        name: "user",
+        content: { text: "Retrieve QmXxxxxx" },
       },
       {
-        user: '{{agent}}',
-        content: { text: 'Retrieved content (1234 bytes): ...' },
+        name: "agent",
+        content: { text: "Retrieved content (1234 bytes): ..." },
       },
     ],
-  ] as ActionExample[][],
+  ],
 };
-

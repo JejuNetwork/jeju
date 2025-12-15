@@ -2,11 +2,15 @@
  * Network Service - Manages SDK lifecycle
  */
 
-import { type IAgentRuntime, Service, logger } from '@elizaos/core';
-import { createJejuClient, type JejuClient, type JejuClientConfig } from '@jejunetwork/sdk';
-import type { NetworkType } from '@jejunetwork/types';
-import type { Hex } from 'viem';
-import { getNetworkName } from '@jejunetwork/config';
+import { type IAgentRuntime, Service, logger } from "@elizaos/core";
+import {
+  createJejuClient,
+  type JejuClient,
+  type JejuClientConfig,
+} from "@jejunetwork/sdk";
+import type { NetworkType } from "@jejunetwork/types";
+import type { Hex } from "viem";
+import { getNetworkName } from "@jejunetwork/config";
 
 const networkName = getNetworkName();
 const networkNameLower = networkName.toLowerCase();
@@ -40,13 +44,20 @@ export class JejuService extends Service {
     const service = new JejuService(runtime);
 
     // Get configuration - support both JEJU_ and NETWORK_ prefixes
-    const privateKey = (runtime.getSetting('NETWORK_PRIVATE_KEY') || runtime.getSetting('JEJU_PRIVATE_KEY')) as Hex | undefined;
-    const mnemonic = (runtime.getSetting('NETWORK_MNEMONIC') || runtime.getSetting('JEJU_MNEMONIC')) as string | undefined;
-    const network = (runtime.getSetting('NETWORK_TYPE') || runtime.getSetting('JEJU_NETWORK') as NetworkType) || 'testnet';
-    const smartAccount = (runtime.getSetting('NETWORK_SMART_ACCOUNT') || runtime.getSetting('JEJU_SMART_ACCOUNT')) !== 'false';
+    const privateKey = (runtime.getSetting("NETWORK_PRIVATE_KEY") ||
+      runtime.getSetting("JEJU_PRIVATE_KEY")) as Hex | undefined;
+    const mnemonic = (runtime.getSetting("NETWORK_MNEMONIC") ||
+      runtime.getSetting("JEJU_MNEMONIC")) as string | undefined;
+    const network =
+      runtime.getSetting("NETWORK_TYPE") ||
+      (runtime.getSetting("JEJU_NETWORK") as NetworkType) ||
+      "testnet";
+    const smartAccount =
+      (runtime.getSetting("NETWORK_SMART_ACCOUNT") ||
+        runtime.getSetting("JEJU_SMART_ACCOUNT")) !== "false";
 
     if (!privateKey && !mnemonic) {
-      throw new Error('NETWORK_PRIVATE_KEY or NETWORK_MNEMONIC required');
+      throw new Error("NETWORK_PRIVATE_KEY or NETWORK_MNEMONIC required");
     }
 
     const config: JejuClientConfig = {
@@ -62,7 +73,10 @@ export class JejuService extends Service {
     await service.refreshWalletData();
 
     // Set up refresh interval (every 60 seconds)
-    service.refreshInterval = setInterval(() => service.refreshWalletData(), 60000);
+    service.refreshInterval = setInterval(
+      () => service.refreshWalletData(),
+      60000,
+    );
 
     logger.log(`${networkName} service initialized on ${network}`);
     logger.log(`Address: ${service.client.address}`);
@@ -72,7 +86,9 @@ export class JejuService extends Service {
   }
 
   static async stop(runtime: IAgentRuntime): Promise<void> {
-    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService | undefined;
+    const service = runtime.getService(JEJU_SERVICE_NAME) as
+      | JejuService
+      | undefined;
     if (service) {
       await service.stop();
     }
@@ -123,4 +139,3 @@ export class JejuService extends Service {
     return cached;
   }
 }
-

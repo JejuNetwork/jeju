@@ -8,18 +8,28 @@ import {
   type Provider,
   type ProviderResult,
   type State,
-} from '@elizaos/core';
-import { formatEther } from 'viem';
-import { getNetworkName } from '@jejunetwork/config';
-import { JEJU_SERVICE_NAME, type JejuService, type JejuWalletData } from '../service';
+} from "@elizaos/core";
+import { formatEther } from "viem";
+import { getNetworkName } from "@jejunetwork/config";
+import {
+  JEJU_SERVICE_NAME,
+  type JejuService,
+  type JejuWalletData,
+} from "../service";
 
 const networkName = getNetworkName();
 
 export const jejuWalletProvider: Provider = {
   name: `${networkName}WalletProvider`,
 
-  async get(runtime: IAgentRuntime, _message: Memory, state?: State): Promise<ProviderResult> {
-    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService | undefined;
+  async get(
+    runtime: IAgentRuntime,
+    _message: Memory,
+    state?: State,
+  ): Promise<ProviderResult> {
+    const service = runtime.getService(JEJU_SERVICE_NAME) as
+      | JejuService
+      | undefined;
 
     if (!service) {
       return {
@@ -40,13 +50,13 @@ export const jejuWalletProvider: Provider = {
     }
 
     const balanceFormatted = formatEther(BigInt(walletData.balance));
-    const agentName = state?.agentName || 'The agent';
+    const agentName = state?.agentName || "The agent";
 
     const text = `${agentName}'s ${networkName} Wallet:
 Address: ${walletData.address}
 Network: ${walletData.network} (Chain ID: ${walletData.chainId})
 Balance: ${balanceFormatted} ETH
-Account Type: ${walletData.isSmartAccount ? 'Smart Account (ERC-4337)' : 'EOA'}`;
+Account Type: ${walletData.isSmartAccount ? "Smart Account (ERC-4337)" : "EOA"}`;
 
     return {
       text,
@@ -68,4 +78,3 @@ Account Type: ${walletData.isSmartAccount ? 'Smart Account (ERC-4337)' : 'EOA'}`
     };
   },
 };
-

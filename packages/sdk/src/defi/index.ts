@@ -6,15 +6,15 @@ import {
   type Address,
   type Hex,
   encodeFunctionData,
-  formatEther,
-  parseEther,
-  parseUnits,
   getContract,
   erc20Abi,
-} from 'viem';
-import type { NetworkType } from '@jejunetwork/types';
-import type { JejuWallet } from '../wallet';
-import { getContract as getContractAddress, getServicesConfig } from '../config';
+} from "viem";
+import type { NetworkType } from "@jejunetwork/types";
+import type { JejuWallet } from "../wallet";
+import {
+  getContract as getContractAddress,
+  getServicesConfig,
+} from "../config";
 
 export interface Token {
   address: Address;
@@ -100,128 +100,144 @@ export interface DefiModule {
   collectFees(positionId: bigint): Promise<Hex>;
 
   // Launchpad
-  launchToken(params: LaunchTokenParams): Promise<{ tokenAddress: Address; txHash: Hex }>;
+  launchToken(
+    params: LaunchTokenParams,
+  ): Promise<{ tokenAddress: Address; txHash: Hex }>;
 }
 
 const SWAP_ROUTER_ABI = [
   {
-    name: 'exactInputSingle',
-    type: 'function',
-    stateMutability: 'payable',
+    name: "exactInputSingle",
+    type: "function",
+    stateMutability: "payable",
     inputs: [
       {
-        name: 'params',
-        type: 'tuple',
+        name: "params",
+        type: "tuple",
         components: [
-          { name: 'tokenIn', type: 'address' },
-          { name: 'tokenOut', type: 'address' },
-          { name: 'fee', type: 'uint24' },
-          { name: 'recipient', type: 'address' },
-          { name: 'amountIn', type: 'uint256' },
-          { name: 'amountOutMinimum', type: 'uint256' },
-          { name: 'sqrtPriceLimitX96', type: 'uint160' },
+          { name: "tokenIn", type: "address" },
+          { name: "tokenOut", type: "address" },
+          { name: "fee", type: "uint24" },
+          { name: "recipient", type: "address" },
+          { name: "amountIn", type: "uint256" },
+          { name: "amountOutMinimum", type: "uint256" },
+          { name: "sqrtPriceLimitX96", type: "uint160" },
         ],
       },
     ],
-    outputs: [{ type: 'uint256' }],
+    outputs: [{ type: "uint256" }],
   },
 ] as const;
 
 const POSITION_MANAGER_ABI = [
   {
-    name: 'mint',
-    type: 'function',
-    stateMutability: 'payable',
+    name: "mint",
+    type: "function",
+    stateMutability: "payable",
     inputs: [
       {
-        name: 'params',
-        type: 'tuple',
+        name: "params",
+        type: "tuple",
         components: [
-          { name: 'token0', type: 'address' },
-          { name: 'token1', type: 'address' },
-          { name: 'fee', type: 'uint24' },
-          { name: 'tickLower', type: 'int24' },
-          { name: 'tickUpper', type: 'int24' },
-          { name: 'amount0Desired', type: 'uint256' },
-          { name: 'amount1Desired', type: 'uint256' },
-          { name: 'amount0Min', type: 'uint256' },
-          { name: 'amount1Min', type: 'uint256' },
-          { name: 'recipient', type: 'address' },
-          { name: 'deadline', type: 'uint256' },
+          { name: "token0", type: "address" },
+          { name: "token1", type: "address" },
+          { name: "fee", type: "uint24" },
+          { name: "tickLower", type: "int24" },
+          { name: "tickUpper", type: "int24" },
+          { name: "amount0Desired", type: "uint256" },
+          { name: "amount1Desired", type: "uint256" },
+          { name: "amount0Min", type: "uint256" },
+          { name: "amount1Min", type: "uint256" },
+          { name: "recipient", type: "address" },
+          { name: "deadline", type: "uint256" },
         ],
       },
     ],
     outputs: [
-      { name: 'tokenId', type: 'uint256' },
-      { name: 'liquidity', type: 'uint128' },
-      { name: 'amount0', type: 'uint256' },
-      { name: 'amount1', type: 'uint256' },
+      { name: "tokenId", type: "uint256" },
+      { name: "liquidity", type: "uint128" },
+      { name: "amount0", type: "uint256" },
+      { name: "amount1", type: "uint256" },
     ],
   },
   {
-    name: 'decreaseLiquidity',
-    type: 'function',
-    stateMutability: 'nonpayable',
+    name: "decreaseLiquidity",
+    type: "function",
+    stateMutability: "nonpayable",
     inputs: [
       {
-        name: 'params',
-        type: 'tuple',
+        name: "params",
+        type: "tuple",
         components: [
-          { name: 'tokenId', type: 'uint256' },
-          { name: 'liquidity', type: 'uint128' },
-          { name: 'amount0Min', type: 'uint256' },
-          { name: 'amount1Min', type: 'uint256' },
-          { name: 'deadline', type: 'uint256' },
+          { name: "tokenId", type: "uint256" },
+          { name: "liquidity", type: "uint128" },
+          { name: "amount0Min", type: "uint256" },
+          { name: "amount1Min", type: "uint256" },
+          { name: "deadline", type: "uint256" },
         ],
       },
     ],
     outputs: [
-      { name: 'amount0', type: 'uint256' },
-      { name: 'amount1', type: 'uint256' },
+      { name: "amount0", type: "uint256" },
+      { name: "amount1", type: "uint256" },
     ],
   },
   {
-    name: 'collect',
-    type: 'function',
-    stateMutability: 'nonpayable',
+    name: "collect",
+    type: "function",
+    stateMutability: "nonpayable",
     inputs: [
       {
-        name: 'params',
-        type: 'tuple',
+        name: "params",
+        type: "tuple",
         components: [
-          { name: 'tokenId', type: 'uint256' },
-          { name: 'recipient', type: 'address' },
-          { name: 'amount0Max', type: 'uint128' },
-          { name: 'amount1Max', type: 'uint128' },
+          { name: "tokenId", type: "uint256" },
+          { name: "recipient", type: "address" },
+          { name: "amount0Max", type: "uint128" },
+          { name: "amount1Max", type: "uint128" },
         ],
       },
     ],
     outputs: [
-      { name: 'amount0', type: 'uint256' },
-      { name: 'amount1', type: 'uint256' },
+      { name: "amount0", type: "uint256" },
+      { name: "amount1", type: "uint256" },
     ],
   },
 ] as const;
 
 const ERC20_FACTORY_ABI = [
   {
-    name: 'createToken',
-    type: 'function',
-    stateMutability: 'nonpayable',
+    name: "createToken",
+    type: "function",
+    stateMutability: "nonpayable",
     inputs: [
-      { name: 'name', type: 'string' },
-      { name: 'symbol', type: 'string' },
-      { name: 'totalSupply', type: 'uint256' },
+      { name: "name", type: "string" },
+      { name: "symbol", type: "string" },
+      { name: "totalSupply", type: "uint256" },
     ],
-    outputs: [{ type: 'address' }],
+    outputs: [{ type: "address" }],
   },
 ] as const;
 
-export function createDefiModule(wallet: JejuWallet, network: NetworkType): DefiModule {
-  const swapRouterAddress = getContractAddress('defi', 'swapRouter', network) as Address;
-  const positionManagerAddress = getContractAddress('defi', 'positionManager', network) as Address;
-  const poolManagerAddress = getContractAddress('defi', 'poolManager', network) as Address;
-  const tokenFactoryAddress = getContractAddress('registry', 'tokenFactory', network) as Address;
+export function createDefiModule(
+  wallet: JejuWallet,
+  network: NetworkType,
+): DefiModule {
+  const swapRouterAddress = getContractAddress(
+    "defi",
+    "swapRouter",
+    network,
+  ) as Address;
+  const positionManagerAddress = getContractAddress(
+    "defi",
+    "positionManager",
+    network,
+  ) as Address;
+  const tokenFactoryAddress = getContractAddress(
+    "registry",
+    "tokenFactory",
+    network,
+  ) as Address;
   const services = getServicesConfig(network);
 
   async function getToken(address: Address): Promise<Token> {
@@ -242,7 +258,7 @@ export function createDefiModule(wallet: JejuWallet, network: NetworkType): Defi
 
   async function getBalance(tokenAddress: Address): Promise<bigint> {
     // Native ETH
-    if (tokenAddress === '0x0000000000000000000000000000000000000000') {
+    if (tokenAddress === "0x0000000000000000000000000000000000000000") {
       return wallet.getBalance();
     }
 
@@ -255,10 +271,14 @@ export function createDefiModule(wallet: JejuWallet, network: NetworkType): Defi
     return (await token.read.balanceOf([wallet.address])) as bigint;
   }
 
-  async function approve(token: Address, spender: Address, amount: bigint): Promise<Hex> {
+  async function approve(
+    token: Address,
+    spender: Address,
+    amount: bigint,
+  ): Promise<Hex> {
     const data = encodeFunctionData({
       abi: erc20Abi,
-      functionName: 'approve',
+      functionName: "approve",
       args: [spender, amount],
     });
 
@@ -268,8 +288,8 @@ export function createDefiModule(wallet: JejuWallet, network: NetworkType): Defi
   async function getSwapQuote(params: SwapParams): Promise<SwapQuote> {
     // Fetch quote from the API
     const response = await fetch(`${services.gateway.api}/quote`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         tokenIn: params.tokenIn,
         tokenOut: params.tokenOut,
@@ -306,7 +326,7 @@ export function createDefiModule(wallet: JejuWallet, network: NetworkType): Defi
 
   async function swap(quote: SwapQuote): Promise<Hex> {
     // Approve if not native ETH
-    if (quote.tokenIn !== '0x0000000000000000000000000000000000000000') {
+    if (quote.tokenIn !== "0x0000000000000000000000000000000000000000") {
       await approve(quote.tokenIn, swapRouterAddress, quote.amountIn);
     }
 
@@ -314,7 +334,7 @@ export function createDefiModule(wallet: JejuWallet, network: NetworkType): Defi
 
     const data = encodeFunctionData({
       abi: SWAP_ROUTER_ABI,
-      functionName: 'exactInputSingle',
+      functionName: "exactInputSingle",
       args: [
         {
           tokenIn: quote.tokenIn,
@@ -328,14 +348,18 @@ export function createDefiModule(wallet: JejuWallet, network: NetworkType): Defi
       ],
     });
 
-    const value = quote.tokenIn === '0x0000000000000000000000000000000000000000' ? quote.amountIn : 0n;
+    const value =
+      quote.tokenIn === "0x0000000000000000000000000000000000000000"
+        ? quote.amountIn
+        : 0n;
 
     return wallet.sendTransaction({ to: swapRouterAddress, data, value });
   }
 
   async function listPools(): Promise<PoolInfo[]> {
     const response = await fetch(`${services.gateway.api}/pools`);
-    if (!response.ok) throw new Error(`Failed to list pools: ${response.statusText}`);
+    if (!response.ok)
+      throw new Error(`Failed to list pools: ${response.statusText}`);
 
     const data = (await response.json()) as {
       pools: Array<{
@@ -356,7 +380,11 @@ export function createDefiModule(wallet: JejuWallet, network: NetworkType): Defi
     }));
   }
 
-  async function getPool(token0: Address, token1: Address, fee: number): Promise<PoolInfo> {
+  async function getPool(
+    token0: Address,
+    token1: Address,
+    fee: number,
+  ): Promise<PoolInfo> {
     const pools = await listPools();
     const pool = pools.find(
       (p) =>
@@ -364,10 +392,10 @@ export function createDefiModule(wallet: JejuWallet, network: NetworkType): Defi
           p.token1.address.toLowerCase() === token1.toLowerCase()) ||
           (p.token0.address.toLowerCase() === token1.toLowerCase() &&
             p.token1.address.toLowerCase() === token0.toLowerCase())) &&
-        p.fee === fee
+        p.fee === fee,
     );
 
-    if (!pool) throw new Error('Pool not found');
+    if (!pool) throw new Error("Pool not found");
     return pool;
   }
 
@@ -383,7 +411,7 @@ export function createDefiModule(wallet: JejuWallet, network: NetworkType): Defi
 
     const data = encodeFunctionData({
       abi: POSITION_MANAGER_ABI,
-      functionName: 'mint',
+      functionName: "mint",
       args: [
         {
           token0: params.token0,
@@ -404,17 +432,20 @@ export function createDefiModule(wallet: JejuWallet, network: NetworkType): Defi
     return wallet.sendTransaction({ to: positionManagerAddress, data });
   }
 
-  async function removeLiquidity(positionId: bigint, percentage: number): Promise<Hex> {
+  async function removeLiquidity(
+    positionId: bigint,
+    percentage: number,
+  ): Promise<Hex> {
     const positions = await listPositions();
     const position = positions.find((p) => p.positionId === positionId);
-    if (!position) throw new Error('Position not found');
+    if (!position) throw new Error("Position not found");
 
     const liquidityToRemove = (position.liquidity * BigInt(percentage)) / 100n;
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 1800);
 
     const data = encodeFunctionData({
       abi: POSITION_MANAGER_ABI,
-      functionName: 'decreaseLiquidity',
+      functionName: "decreaseLiquidity",
       args: [
         {
           tokenId: positionId,
@@ -430,7 +461,9 @@ export function createDefiModule(wallet: JejuWallet, network: NetworkType): Defi
   }
 
   async function listPositions(): Promise<LiquidityPosition[]> {
-    const response = await fetch(`${services.gateway.api}/positions/${wallet.address}`);
+    const response = await fetch(
+      `${services.gateway.api}/positions/${wallet.address}`,
+    );
     if (!response.ok) return [];
 
     const data = (await response.json()) as {
@@ -461,13 +494,13 @@ export function createDefiModule(wallet: JejuWallet, network: NetworkType): Defi
   async function collectFees(positionId: bigint): Promise<Hex> {
     const data = encodeFunctionData({
       abi: POSITION_MANAGER_ABI,
-      functionName: 'collect',
+      functionName: "collect",
       args: [
         {
           tokenId: positionId,
           recipient: wallet.address,
-          amount0Max: BigInt('340282366920938463463374607431768211455'), // uint128 max
-          amount1Max: BigInt('340282366920938463463374607431768211455'),
+          amount0Max: BigInt("340282366920938463463374607431768211455"), // uint128 max
+          amount1Max: BigInt("340282366920938463463374607431768211455"),
         },
       ],
     });
@@ -476,20 +509,25 @@ export function createDefiModule(wallet: JejuWallet, network: NetworkType): Defi
   }
 
   async function launchToken(
-    params: LaunchTokenParams
+    params: LaunchTokenParams,
   ): Promise<{ tokenAddress: Address; txHash: Hex }> {
     const data = encodeFunctionData({
       abi: ERC20_FACTORY_ABI,
-      functionName: 'createToken',
+      functionName: "createToken",
       args: [params.name, params.symbol, params.totalSupply],
     });
 
-    const txHash = await wallet.sendTransaction({ to: tokenFactoryAddress, data });
+    const txHash = await wallet.sendTransaction({
+      to: tokenFactoryAddress,
+      data,
+    });
 
     // Get the created token address from the transaction receipt
-    const receipt = await wallet.publicClient.waitForTransactionReceipt({ hash: txHash });
-    const log = receipt.logs.find((l) => l.topics[0] === '0x...');
-    const tokenAddress = (log?.address ?? '0x0') as Address;
+    const receipt = await wallet.publicClient.waitForTransactionReceipt({
+      hash: txHash,
+    });
+    const log = receipt.logs.find((l) => l.topics[0] === "0x...");
+    const tokenAddress = (log?.address ?? "0x0") as Address;
 
     return { tokenAddress, txHash };
   }
@@ -509,4 +547,3 @@ export function createDefiModule(wallet: JejuWallet, network: NetworkType): Defi
     launchToken,
   };
 }
-

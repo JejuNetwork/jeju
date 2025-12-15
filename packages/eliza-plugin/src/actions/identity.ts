@@ -9,13 +9,19 @@ import {
   type IAgentRuntime,
   type Memory,
   type State,
-} from '@elizaos/core';
-import { JEJU_SERVICE_NAME, type JejuService } from '../service';
+} from "@elizaos/core";
+import { JEJU_SERVICE_NAME, type JejuService } from "../service";
 
 export const registerAgentAction: Action = {
-  name: 'REGISTER_AGENT',
-  description: 'Register as an agent on the network Identity Registry (ERC-8004)',
-  similes: ['register agent', 'create identity', 'register identity', 'join network'],
+  name: "REGISTER_AGENT",
+  description:
+    "Register as an agent on the network Identity Registry (ERC-8004)",
+  similes: [
+    "register agent",
+    "create identity",
+    "register identity",
+    "join network",
+  ],
 
   validate: async (runtime: IAgentRuntime) => {
     const service = runtime.getService(JEJU_SERVICE_NAME);
@@ -27,7 +33,7 @@ export const registerAgentAction: Action = {
     message: Memory,
     state: State | undefined,
     _options: Record<string, unknown>,
-    callback?: HandlerCallback
+    callback?: HandlerCallback,
   ) => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
@@ -39,22 +45,24 @@ export const registerAgentAction: Action = {
         text: `Already registered as agent.
 Agent ID: ${existing.agentId}
 Name: ${existing.name}
-Tags: ${existing.tags.join(', ')}`,
+Tags: ${existing.tags.join(", ")}`,
         content: existing,
       });
       return;
     }
 
-    const text = message.content.text ?? '';
-    const agentName = state?.agentName || 'NetworkAgent';
+    const text = message.content.text ?? "";
+    const agentName = state?.agentName || "NetworkAgent";
 
     // Extract tags from message
     const tagMatch = text.match(/tags?:\s*([^.]+)/i);
     const tags = tagMatch
       ? tagMatch[1].split(/[,\s]+/).filter((t) => t.length > 0)
-      : ['ai', 'assistant'];
+      : ["ai", "assistant"];
 
-    callback?.({ text: `Registering agent "${agentName}" with tags: ${tags.join(', ')}...` });
+    callback?.({
+      text: `Registering agent "${agentName}" with tags: ${tags.join(", ")}...`,
+    });
 
     const { agentId, txHash } = await client.identity.register({
       name: agentName,
@@ -65,7 +73,7 @@ Tags: ${existing.tags.join(', ')}`,
       text: `Agent registered successfully.
 Agent ID: ${agentId}
 Name: ${agentName}
-Tags: ${tags.join(', ')}
+Tags: ${tags.join(", ")}
 Transaction: ${txHash}
 
 You can now participate in governance and access reputation features.`,
@@ -76,14 +84,13 @@ You can now participate in governance and access reputation features.`,
   examples: [
     [
       {
-        user: '{{user1}}',
-        content: { text: 'Register as an agent with tags: trading, defi' },
+        name: "user",
+        content: { text: "Register as an agent with tags: trading, defi" },
       },
       {
-        user: '{{agent}}',
-        content: { text: 'Agent registered successfully. Agent ID: 123...' },
+        name: "agent",
+        content: { text: "Agent registered successfully. Agent ID: 123..." },
       },
     ],
-  ] as ActionExample[][],
+  ],
 };
-

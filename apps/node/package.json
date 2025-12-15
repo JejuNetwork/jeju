@@ -1,7 +1,7 @@
 {
   "name": "@jejunetwork/node",
   "version": "0.1.0",
-  "description": "Network Node - Run infrastructure and earn rewards",
+  "description": "Jeju Node - Run infrastructure and earn rewards",
   "type": "module",
   "bin": {
     "jeju-node": "./src/cli.ts"
@@ -13,9 +13,10 @@
     "build:tauri": "tauri build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "daemon": "bun run src/daemon/index.ts",
-    "daemon:all": "bun run src/daemon/index.ts --all",
-    "daemon:minimal": "bun run src/daemon/index.ts --minimal",
+    "app": "bun run src/app/index.ts",
+    "app:start": "bun run src/app/index.ts start",
+    "app:status": "bun run src/app/index.ts status",
+    "app:setup": "bun run src/app/index.ts setup",
     "test": "bun test src tests/integration",
     "test:unit": "bun test src",
     "test:e2e": "playwright test tests/e2e",
@@ -61,4 +62,3 @@
     "vite": "^5.0.12"
   }
 }
-

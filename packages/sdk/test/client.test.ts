@@ -3,7 +3,8 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
-import { createJejuClient, type JejuClient } from '../src';
+import { createJejuClient } from '../src/client';
+import type { JejuClient } from '../src/client';
 import { privateKeyToAccount } from 'viem/accounts';
 import { generatePrivateKey } from 'viem/accounts';
 
@@ -26,7 +27,7 @@ describe('JejuClient', () => {
 
   test('has correct network info', () => {
     expect(client.network).toBe('localnet');
-    expect(client.chainId).toBe(420690);
+    expect(client.chainId).toBe(1337);
   });
 
   test('has all modules', () => {

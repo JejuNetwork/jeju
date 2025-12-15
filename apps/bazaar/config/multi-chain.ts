@@ -1,5 +1,8 @@
 import { defineChain, type Chain } from 'viem'
 import { mainnet, sepolia } from 'viem/chains'
+import { getNetworkName } from '@jejunetwork/config'
+
+const networkName = getNetworkName()
 
 // Chain IDs enum for type safety
 export enum EvmChainIds {
@@ -43,13 +46,13 @@ export const jejuTestnet = defineChain({
 
 export const jejuLocalnet = defineChain({
   id: 1337,
-  name: getLocalnetChain().name,
+  name: `${networkName} Localnet`,
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
     default: { http: [process.env.NEXT_PUBLIC_JEJU_RPC_URL || 'http://localhost:9545'] },
   },
   blockExplorers: {
-    default: { name: 'Blockscout', url: 'http://localhost:4004' },
+    default: { name: `${networkName} Explorer`, url: 'http://localhost:4004' },
   },
   testnet: true,
 })
@@ -118,9 +121,9 @@ export const CHAIN_BLOCK_EXPLORER: Record<EvmChainIds, string> = {
 export const CHAIN_NAMES: Record<EvmChainIds, string> = {
   [EvmChainIds.EthereumMainnet]: 'Ethereum',
   [EvmChainIds.EthereumSepolia]: 'Sepolia',
-  [EvmChainIds.mainnetChain]: 'Network',
-  [EvmChainIds.testnetChain]: 'Testnet',
-  [EvmChainIds.localnetChain]: getLocalnetChain().name,
+  [EvmChainIds.mainnetChain]: networkName,
+  [EvmChainIds.testnetChain]: `${networkName} Testnet`,
+  [EvmChainIds.localnetChain]: `${networkName} Localnet`,
 }
 
 // Chain availability helper

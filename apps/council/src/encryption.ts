@@ -73,7 +73,7 @@ let initialized = false;
 async function initEncryption(): Promise<void> {
   if (initialized) return;
   initialized = true;
-  console.log('[Encryption] Initialized with Jeju KMS');
+  console.log('[Encryption] Initialized with network KMS');
 }
 
 /**

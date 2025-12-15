@@ -151,7 +151,7 @@ describe('A2A Monitoring Server', () => {
     }
     const card = JSON.parse(text) as AgentCard;
     expect(card.protocolVersion).toBe('0.3.0');
-    expect(card.name: getNetworkName() Monitoring');
+    expect(card.name).toBe('Jeju Monitoring');
     expect(card.description).toContain('Prometheus');
     expect(card.skills).toBeArray();
     expect(card.skills.length).toBe(6);

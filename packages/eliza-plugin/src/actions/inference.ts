@@ -9,13 +9,19 @@ import {
   type IAgentRuntime,
   type Memory,
   type State,
-} from '@elizaos/core';
-import { JEJU_SERVICE_NAME, type JejuService } from '../service';
+} from "@elizaos/core";
+import { JEJU_SERVICE_NAME, type JejuService } from "../service";
 
 export const runInferenceAction: Action = {
-  name: 'RUN_INFERENCE',
-  description: 'Run AI inference on the network decentralized compute',
-  similes: ['run inference', 'ai inference', 'call model', 'use llm', 'generate text'],
+  name: "RUN_INFERENCE",
+  description: "Run AI inference on the network decentralized compute",
+  similes: [
+    "run inference",
+    "ai inference",
+    "call model",
+    "use llm",
+    "generate text",
+  ],
 
   validate: async (runtime: IAgentRuntime) => {
     const service = runtime.getService(JEJU_SERVICE_NAME);
@@ -27,7 +33,7 @@ export const runInferenceAction: Action = {
     message: Memory,
     _state: State | undefined,
     _options: Record<string, unknown>,
-    callback?: HandlerCallback
+    callback?: HandlerCallback,
   ) => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
@@ -36,21 +42,22 @@ export const runInferenceAction: Action = {
     const models = await client.compute.listModels();
 
     if (models.length === 0) {
-      callback?.({ text: 'No inference models available on the network.' });
+      callback?.({ text: "No inference models available on the network." });
       return;
     }
 
     // Use the prompt from the message
-    const prompt = message.content.text ?? '';
+    const prompt = message.content.text ?? "";
 
     // Find a suitable model (prefer llama or gpt)
-    const model = models.find((m) => /llama|gpt|mistral/i.test(m.model)) ?? models[0];
+    const model =
+      models.find((m) => /llama|gpt|mistral/i.test(m.model)) ?? models[0];
 
     callback?.({ text: `Running inference on ${model.model}...` });
 
     const result = await client.compute.inference({
       model: model.model,
-      messages: [{ role: 'user', content: prompt }],
+      messages: [{ role: "user", content: prompt }],
     });
 
     callback?.({
@@ -72,14 +79,13 @@ Tokens: ${result.usage.totalTokens}`,
   examples: [
     [
       {
-        user: '{{user1}}',
-        content: { text: 'Run inference: What is the meaning of life?' },
+        name: "user",
+        content: { text: "Run inference: What is the meaning of life?" },
       },
       {
-        user: '{{agent}}',
-        content: { text: 'Running inference on llama-3-70b... [response]' },
+        name: "agent",
+        content: { text: "Running inference on llama-3-70b... [response]" },
       },
     ],
-  ] as ActionExample[][],
+  ],
 };
-

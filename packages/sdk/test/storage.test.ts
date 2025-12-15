@@ -3,7 +3,7 @@
  */
 
 import { describe, test, expect } from 'bun:test';
-import { createJejuClient, type JejuClient } from '../src';
+import { createJejuClient } from '../src/client';
 import { generatePrivateKey } from 'viem/accounts';
 
 describe('Storage Module', () => {

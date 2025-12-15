@@ -9,18 +9,20 @@ import {
   type Chain,
   type Hex,
   type PublicClient,
-  type Transport,
   type WalletClient,
   createPublicClient,
   createWalletClient,
   http,
-} from 'viem';
-import { privateKeyToAccount, mnemonicToAccount } from 'viem/accounts';
-import { createSmartAccountClient, type SmartAccountClient } from 'permissionless';
-import { toSimpleSmartAccount } from 'permissionless/accounts';
-import { createPimlicoClient } from 'permissionless/clients/pimlico';
-import type { NetworkType } from '@jejunetwork/types';
-import { getChainConfig, getContract, getServicesConfig } from './config';
+} from "viem";
+import { privateKeyToAccount, mnemonicToAccount } from "viem/accounts";
+import {
+  createSmartAccountClient,
+  type SmartAccountClient,
+} from "permissionless";
+import { toSimpleSmartAccount } from "permissionless/accounts";
+import { createPimlicoClient } from "permissionless/clients/pimlico";
+import type { NetworkType } from "@jejunetwork/types";
+import { getChainConfig, getContract, getServicesConfig } from "./config";
 
 export interface WalletConfig {
   privateKey?: Hex;
@@ -38,7 +40,11 @@ export interface JejuWallet {
   smartAccountClient?: SmartAccountClient;
   isSmartAccount: boolean;
   chain: Chain;
-  sendTransaction: (params: { to: Address; value?: bigint; data?: Hex }) => Promise<Hex>;
+  sendTransaction: (params: {
+    to: Address;
+    value?: bigint;
+    data?: Hex;
+  }) => Promise<Hex>;
   signMessage: (message: string) => Promise<Hex>;
   getBalance: () => Promise<bigint>;
 }
@@ -49,17 +55,17 @@ function getNetworkChain(network: NetworkType): Chain {
 
   return {
     id: config.chainId,
-    name: config.networkName,
+    name: config.name,
     nativeCurrency: {
-      name: 'Ether',
-      symbol: 'ETH',
+      name: "Ether",
+      symbol: "ETH",
       decimals: 18,
     },
     rpcUrls: {
       default: { http: [services.rpc.l2] },
     },
     blockExplorers: {
-      default: { name: 'Explorer', url: services.explorer },
+      default: { name: "Explorer", url: services.explorer },
     },
   };
 }
@@ -77,7 +83,7 @@ export async function createWallet(config: WalletConfig): Promise<JejuWallet> {
   } else if (config.mnemonic) {
     account = mnemonicToAccount(config.mnemonic);
   } else {
-    throw new Error('Wallet requires privateKey, mnemonic, or account');
+    throw new Error("Wallet requires privateKey, mnemonic, or account");
   }
 
   const publicClient = createPublicClient({
@@ -97,17 +103,26 @@ export async function createWallet(config: WalletConfig): Promise<JejuWallet> {
   let effectiveAddress: Address = account.address;
 
   if (useSmartAccount) {
-    const entryPoint = getContract('payments', 'entryPoint', config.network) as Address;
-    const factoryAddress = getContract('payments', 'accountFactory', config.network) as Address;
+    const entryPoint = getContract(
+      "payments",
+      "entryPoint",
+      config.network,
+    ) as Address;
+    const factoryAddress = getContract(
+      "payments",
+      "accountFactory",
+      config.network,
+    ) as Address;
 
     // Only create smart account if contracts are deployed
-    if (entryPoint && factoryAddress && entryPoint !== '0x') {
+    if (entryPoint && factoryAddress && entryPoint !== "0x") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const smartAccount = await toSimpleSmartAccount({
         client: publicClient,
-        owner: account,
+        owner: account as any,
         entryPoint: {
           address: entryPoint,
-          version: '0.7',
+          version: "0.7",
         },
         factoryAddress,
       });
@@ -118,16 +133,17 @@ export async function createWallet(config: WalletConfig): Promise<JejuWallet> {
         transport: http(bundlerUrl),
         entryPoint: {
           address: entryPoint,
-          version: '0.7',
+          version: "0.7",
         },
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       smartAccountClient = createSmartAccountClient({
         account: smartAccount,
         chain,
         bundlerTransport: http(bundlerUrl),
         paymaster: pimlicoClient,
-      });
+      } as any);
 
       effectiveAddress = smartAccount.address;
     }
@@ -144,10 +160,11 @@ export async function createWallet(config: WalletConfig): Promise<JejuWallet> {
 
     async sendTransaction({ to, value, data }) {
       if (smartAccountClient) {
-        const hash = await smartAccountClient.sendTransaction({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const hash = await (smartAccountClient as any).sendTransaction({
           to,
           value: value ?? 0n,
-          data: data ?? '0x',
+          data: data ?? "0x",
         });
         return hash;
       }
@@ -155,7 +172,7 @@ export async function createWallet(config: WalletConfig): Promise<JejuWallet> {
       const hash = await walletClient.sendTransaction({
         to,
         value: value ?? 0n,
-        data: data ?? '0x',
+        data: data ?? "0x",
         chain,
         account,
       });
@@ -173,4 +190,3 @@ export async function createWallet(config: WalletConfig): Promise<JejuWallet> {
 
   return wallet;
 }
-

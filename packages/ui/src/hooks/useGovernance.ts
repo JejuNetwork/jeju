@@ -2,11 +2,16 @@
  * Governance hook
  */
 
-import { useCallback, useState } from 'react';
-import type { Hex } from 'viem';
-import { useNetworkContext } from '../context';
-import type { ProposalInfo, CreateProposalParams, VoteParams, DelegateInfo } from '@jejunetwork/sdk';
-import type { ProposalStatus } from '@jejunetwork/types';
+import { useCallback, useState } from "react";
+import type { Hex } from "viem";
+import { useNetworkContext } from "../context";
+import type {
+  ProposalInfo,
+  CreateProposalParams,
+  VoteParams,
+  DelegateInfo,
+} from "@jejunetwork/sdk";
+import type { ProposalStatus } from "@jejunetwork/types";
 
 export function useGovernance() {
   const { client } = useNetworkContext();
@@ -15,15 +20,15 @@ export function useGovernance() {
 
   const listProposals = useCallback(
     async (status?: ProposalStatus): Promise<ProposalInfo[]> => {
-      if (!client) throw new Error('Not connected');
+      if (!client) throw new Error("Not connected");
       return client.governance.listProposals(status);
     },
-    [client]
+    [client],
   );
 
   const createProposal = useCallback(
     async (params: CreateProposalParams): Promise<Hex> => {
-      if (!client) throw new Error('Not connected');
+      if (!client) throw new Error("Not connected");
       setIsLoading(true);
       setError(null);
 
@@ -31,12 +36,12 @@ export function useGovernance() {
       setIsLoading(false);
       return txHash;
     },
-    [client]
+    [client],
   );
 
   const vote = useCallback(
     async (params: VoteParams): Promise<Hex> => {
-      if (!client) throw new Error('Not connected');
+      if (!client) throw new Error("Not connected");
       setIsLoading(true);
       setError(null);
 
@@ -44,16 +49,16 @@ export function useGovernance() {
       setIsLoading(false);
       return txHash;
     },
-    [client]
+    [client],
   );
 
   const getVotingPower = useCallback(async (): Promise<bigint> => {
-    if (!client) throw new Error('Not connected');
+    if (!client) throw new Error("Not connected");
     return client.governance.getVotingPower();
   }, [client]);
 
   const listDelegates = useCallback(async (): Promise<DelegateInfo[]> => {
-    if (!client) throw new Error('Not connected');
+    if (!client) throw new Error("Not connected");
     return client.governance.listDelegates();
   }, [client]);
 
@@ -67,4 +72,3 @@ export function useGovernance() {
     listDelegates,
   };
 }
-

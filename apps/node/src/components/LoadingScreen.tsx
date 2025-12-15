@@ -1,5 +1,8 @@
 import { Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { getNetworkName } from '@jejunetwork/config';
+
+const networkName = getNetworkName();
 
 interface LoadingScreenProps {
   message?: string;
@@ -24,7 +27,7 @@ export function LoadingScreen({ message = 'Initializing...' }: LoadingScreenProp
           <Zap size={40} className="text-white" />
         </motion.div>
         
-        <h1 className="text-2xl font-bold gradient-text mb-2">Network Node</h1>
+        <h1 className="text-2xl font-bold gradient-text mb-2">{networkName} Node</h1>
         
         <motion.div
           initial={{ opacity: 0 }}

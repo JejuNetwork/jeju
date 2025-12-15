@@ -1,6 +1,10 @@
 # Guides
 
-Step-by-step guides for common operations on Jeju Network.
+Step-by-step guides for common operations on the network.
+
+## Launch Your Own Network
+
+[Fork Network](/guides/fork-network) - Create your own L2 appchain with one command. Every network you launch becomes part of the Jeju ecosystem.
 
 ## Earning Opportunities
 
@@ -8,7 +12,7 @@ Step-by-step guides for common operations on Jeju Network.
 
 [Become a Solver](/guides/become-solver) to fill cross-chain intents. Requires 0.5 ETH stake.
 
-[Run an RPC Node](/guides/run-rpc-node) to operate infrastructure. Requires 1,000 JEJU stake.
+[Run an RPC Node](/guides/run-rpc-node) to operate infrastructure. Requires stake.
 
 [Run a Compute Node](/guides/run-compute-node) to provide AI inference. Requires 0.1 ETH stake.
 

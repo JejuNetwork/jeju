@@ -2,9 +2,9 @@
  * Compute hook
  */
 
-import { useCallback, useState } from 'react';
-import type { Address, Hex } from 'viem';
-import { useNetworkContext } from '../context';
+import { useCallback, useState } from "react";
+import type { Address, Hex } from "viem";
+import { useNetworkContext } from "../context";
 import type {
   ProviderInfo,
   RentalInfo,
@@ -12,7 +12,7 @@ import type {
   InferenceParams,
   InferenceResult,
   ListProvidersOptions,
-} from '@jejunetwork/sdk';
+} from "@jejunetwork/sdk";
 
 export function useCompute() {
   const { client } = useNetworkContext();
@@ -21,7 +21,7 @@ export function useCompute() {
 
   const listProviders = useCallback(
     async (options?: ListProvidersOptions): Promise<ProviderInfo[]> => {
-      if (!client) throw new Error('Not connected');
+      if (!client) throw new Error("Not connected");
       setIsLoading(true);
       setError(null);
 
@@ -29,23 +29,23 @@ export function useCompute() {
       setIsLoading(false);
       return providers;
     },
-    [client]
+    [client],
   );
 
   const getQuote = useCallback(
     async (
       provider: Address,
-      durationHours: number
+      durationHours: number,
     ): Promise<{ cost: bigint; costFormatted: string }> => {
-      if (!client) throw new Error('Not connected');
+      if (!client) throw new Error("Not connected");
       return client.compute.getQuote(provider, durationHours);
     },
-    [client]
+    [client],
   );
 
   const createRental = useCallback(
     async (params: CreateRentalParams): Promise<Hex> => {
-      if (!client) throw new Error('Not connected');
+      if (!client) throw new Error("Not connected");
       setIsLoading(true);
       setError(null);
 
@@ -53,25 +53,25 @@ export function useCompute() {
       setIsLoading(false);
       return txHash;
     },
-    [client]
+    [client],
   );
 
   const listMyRentals = useCallback(async (): Promise<RentalInfo[]> => {
-    if (!client) throw new Error('Not connected');
+    if (!client) throw new Error("Not connected");
     return client.compute.listMyRentals();
   }, [client]);
 
   const cancelRental = useCallback(
     async (rentalId: Hex): Promise<Hex> => {
-      if (!client) throw new Error('Not connected');
+      if (!client) throw new Error("Not connected");
       return client.compute.cancelRental(rentalId);
     },
-    [client]
+    [client],
   );
 
   const inference = useCallback(
     async (params: InferenceParams): Promise<InferenceResult> => {
-      if (!client) throw new Error('Not connected');
+      if (!client) throw new Error("Not connected");
       setIsLoading(true);
       setError(null);
 
@@ -79,7 +79,7 @@ export function useCompute() {
       setIsLoading(false);
       return result;
     },
-    [client]
+    [client],
   );
 
   return {
@@ -93,4 +93,3 @@ export function useCompute() {
     inference,
   };
 }
-

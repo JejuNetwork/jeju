@@ -5,7 +5,9 @@
 
 import type { Address } from 'viem';
 import type { ChainConfig, SolanaConfig } from './types';
-import { getLocalnetChain, getTestnetChain } from '@jeju/shared/chains';
+import { getLocalnetChain, getTestnetChain, getNetworkName, getBrandingRpcUrl } from '../config/branding';
+
+const networkName = getNetworkName();
 
 // ============================================================================
 // EVM Chain Configurations
@@ -152,7 +154,7 @@ export const chains: Record<number, ChainConfig> = {
   // Network Localnet
   1337: {
     id: 1337,
-    name: getLocalnetChain().name,
+    name: `${networkName} Localnet`,
     network: 'localnet',
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     rpcUrls: {
@@ -170,11 +172,11 @@ export const chains: Record<number, ChainConfig> = {
   // Network L2 (future)
   420691: {
     id: 420691,
-    name: 'Network L2',
+    name: `${networkName} L2`,
     network: 'jeju-l2',
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     rpcUrls: {
-      default: { http: ['https://l2.jeju.network/rpc'] },
+      default: { http: [getBrandingRpcUrl(420691)] },
       jeju: { http: ['https://l2.jeju.network/rpc'] },
     },
     blockExplorers: {

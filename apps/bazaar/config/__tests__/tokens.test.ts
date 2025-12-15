@@ -88,7 +88,7 @@ describe('JEJU Token Integration', () => {
   test('JEJU should be retrievable by symbol', () => {
     const jeju = getTokenBySymbol('JEJU');
     expect(jeju).toBeDefined();
-    expect(jeju?.name).toBe('Network');
+    expect(jeju?.name).toBe('Jeju');
     expect(jeju?.decimals).toBe(18);
   });
 });

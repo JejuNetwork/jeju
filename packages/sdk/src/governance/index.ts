@@ -2,10 +2,18 @@
  * Governance Module - Proposals, voting, delegation
  */
 
-import { type Address, type Hex, encodeFunctionData, formatEther, parseEther } from 'viem';
-import type { NetworkType, ProposalType, ProposalStatus, VoteType } from '@jejunetwork/types';
-import type { JejuWallet } from '../wallet';
-import { getContract as getContractAddress, getServicesConfig } from '../config';
+import { type Address, type Hex, encodeFunctionData } from "viem";
+import type {
+  NetworkType,
+  ProposalType,
+  ProposalStatus,
+  VoteType,
+} from "@jejunetwork/types";
+import type { JejuWallet } from "../wallet";
+import {
+  getContract as getContractAddress,
+  getServicesConfig,
+} from "../config";
 
 export interface ProposalInfo {
   proposalId: Hex;
@@ -84,62 +92,62 @@ export interface GovernanceModule {
 
 const COUNCIL_ABI = [
   {
-    name: 'createProposal',
-    type: 'function',
-    stateMutability: 'nonpayable',
+    name: "createProposal",
+    type: "function",
+    stateMutability: "nonpayable",
     inputs: [
-      { name: 'proposalType', type: 'uint8' },
-      { name: 'contentHash', type: 'bytes32' },
-      { name: 'target', type: 'address' },
-      { name: 'callData', type: 'bytes' },
-      { name: 'value', type: 'uint256' },
+      { name: "proposalType", type: "uint8" },
+      { name: "contentHash", type: "bytes32" },
+      { name: "target", type: "address" },
+      { name: "callData", type: "bytes" },
+      { name: "value", type: "uint256" },
     ],
-    outputs: [{ type: 'bytes32' }],
+    outputs: [{ type: "bytes32" }],
   },
   {
-    name: 'getProposal',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'proposalId', type: 'bytes32' }],
+    name: "getProposal",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "proposalId", type: "bytes32" }],
     outputs: [
       {
-        type: 'tuple',
+        type: "tuple",
         components: [
-          { name: 'proposer', type: 'address' },
-          { name: 'proposerAgentId', type: 'uint256' },
-          { name: 'proposalType', type: 'uint8' },
-          { name: 'status', type: 'uint8' },
-          { name: 'qualityScore', type: 'uint256' },
-          { name: 'createdAt', type: 'uint256' },
-          { name: 'councilVoteEnd', type: 'uint256' },
-          { name: 'gracePeriodEnd', type: 'uint256' },
-          { name: 'contentHash', type: 'bytes32' },
-          { name: 'targetContract', type: 'address' },
-          { name: 'callData', type: 'bytes' },
-          { name: 'value', type: 'uint256' },
-          { name: 'totalStaked', type: 'uint256' },
-          { name: 'backerCount', type: 'uint256' },
-          { name: 'hasResearch', type: 'bool' },
-          { name: 'ceoApproved', type: 'bool' },
+          { name: "proposer", type: "address" },
+          { name: "proposerAgentId", type: "uint256" },
+          { name: "proposalType", type: "uint8" },
+          { name: "status", type: "uint8" },
+          { name: "qualityScore", type: "uint256" },
+          { name: "createdAt", type: "uint256" },
+          { name: "councilVoteEnd", type: "uint256" },
+          { name: "gracePeriodEnd", type: "uint256" },
+          { name: "contentHash", type: "bytes32" },
+          { name: "targetContract", type: "address" },
+          { name: "callData", type: "bytes" },
+          { name: "value", type: "uint256" },
+          { name: "totalStaked", type: "uint256" },
+          { name: "backerCount", type: "uint256" },
+          { name: "hasResearch", type: "bool" },
+          { name: "ceoApproved", type: "bool" },
         ],
       },
     ],
   },
   {
-    name: 'backProposal',
-    type: 'function',
-    stateMutability: 'payable',
-    inputs: [{ name: 'proposalId', type: 'bytes32' }],
+    name: "backProposal",
+    type: "function",
+    stateMutability: "payable",
+    inputs: [{ name: "proposalId", type: "bytes32" }],
     outputs: [],
   },
   {
-    name: 'castVote',
-    type: 'function',
-    stateMutability: 'nonpayable',
+    name: "castVote",
+    type: "function",
+    stateMutability: "nonpayable",
     inputs: [
-      { name: 'proposalId', type: 'bytes32' },
-      { name: 'vote', type: 'uint8' },
-      { name: 'reasonHash', type: 'bytes32' },
+      { name: "proposalId", type: "bytes32" },
+      { name: "vote", type: "uint8" },
+      { name: "reasonHash", type: "bytes32" },
     ],
     outputs: [],
   },
@@ -147,61 +155,73 @@ const COUNCIL_ABI = [
 
 const DELEGATION_ABI = [
   {
-    name: 'delegate',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [{ name: 'delegateTo', type: 'address' }],
+    name: "delegate",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "delegateTo", type: "address" }],
     outputs: [],
   },
   {
-    name: 'undelegate',
-    type: 'function',
-    stateMutability: 'nonpayable',
+    name: "undelegate",
+    type: "function",
+    stateMutability: "nonpayable",
     inputs: [],
     outputs: [],
   },
   {
-    name: 'getDelegation',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'delegator', type: 'address' }],
-    outputs: [{ type: 'address' }],
+    name: "getDelegation",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "delegator", type: "address" }],
+    outputs: [{ type: "address" }],
   },
   {
-    name: 'getVotingPower',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'account', type: 'address' }],
-    outputs: [{ type: 'uint256' }],
+    name: "getVotingPower",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ type: "uint256" }],
   },
 ] as const;
 
-export function createGovernanceModule(wallet: JejuWallet, network: NetworkType): GovernanceModule {
-  const councilAddress = getContractAddress('governance', 'council', network) as Address;
-  const delegationAddress = getContractAddress('governance', 'delegation', network) as Address;
+export function createGovernanceModule(
+  wallet: JejuWallet,
+  network: NetworkType,
+): GovernanceModule {
+  const councilAddress = getContractAddress(
+    "governance",
+    "council",
+    network,
+  ) as Address;
+  const delegationAddress = getContractAddress(
+    "governance",
+    "delegation",
+    network,
+  ) as Address;
   const services = getServicesConfig(network);
 
   async function createProposal(params: CreateProposalParams): Promise<Hex> {
     // Upload content to IPFS
     const content = { title: params.title, description: params.description };
     const response = await fetch(`${services.storage.api}/upload`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(content),
     });
 
-    if (!response.ok) throw new Error('Failed to upload proposal content');
+    if (!response.ok) throw new Error("Failed to upload proposal content");
     const { cid } = (await response.json()) as { cid: string };
-    const contentHash = `0x${Buffer.from(cid).toString('hex').padEnd(64, '0')}` as Hex;
+    const contentHash =
+      `0x${Buffer.from(cid).toString("hex").padEnd(64, "0")}` as Hex;
 
     const data = encodeFunctionData({
       abi: COUNCIL_ABI,
-      functionName: 'createProposal',
+      functionName: "createProposal",
       args: [
         params.type,
         contentHash,
-        params.targetContract ?? '0x0000000000000000000000000000000000000000',
-        params.callData ?? '0x',
+        params.targetContract ?? "0x0000000000000000000000000000000000000000",
+        params.callData ?? "0x",
         params.value ?? 0n,
       ],
     });
@@ -210,18 +230,22 @@ export function createGovernanceModule(wallet: JejuWallet, network: NetworkType)
   }
 
   async function getProposal(proposalId: Hex): Promise<ProposalInfo> {
-    const response = await fetch(`${services.gateway.api}/governance/proposals/${proposalId}`);
-    if (!response.ok) throw new Error('Failed to fetch proposal');
+    const response = await fetch(
+      `${services.gateway.api}/governance/proposals/${proposalId}`,
+    );
+    if (!response.ok) throw new Error("Failed to fetch proposal");
     return (await response.json()) as ProposalInfo;
   }
 
-  async function listProposals(status?: ProposalStatus): Promise<ProposalInfo[]> {
+  async function listProposals(
+    status?: ProposalStatus,
+  ): Promise<ProposalInfo[]> {
     const url = status
       ? `${services.gateway.api}/governance/proposals?status=${status}`
       : `${services.gateway.api}/governance/proposals`;
 
     const response = await fetch(url);
-    if (!response.ok) throw new Error('Failed to list proposals');
+    if (!response.ok) throw new Error("Failed to list proposals");
 
     const data = (await response.json()) as { proposals: ProposalInfo[] };
     return data.proposals;
@@ -230,7 +254,7 @@ export function createGovernanceModule(wallet: JejuWallet, network: NetworkType)
   async function backProposal(proposalId: Hex, amount: bigint): Promise<Hex> {
     const data = encodeFunctionData({
       abi: COUNCIL_ABI,
-      functionName: 'backProposal',
+      functionName: "backProposal",
       args: [proposalId],
     });
 
@@ -239,12 +263,12 @@ export function createGovernanceModule(wallet: JejuWallet, network: NetworkType)
 
   async function vote(params: VoteParams): Promise<Hex> {
     const reasonHash = params.reason
-      ? (`0x${Buffer.from(params.reason).toString('hex').slice(0, 64).padEnd(64, '0')}` as Hex)
-      : ('0x0000000000000000000000000000000000000000000000000000000000000000' as Hex);
+      ? (`0x${Buffer.from(params.reason).toString("hex").slice(0, 64).padEnd(64, "0")}` as Hex)
+      : ("0x0000000000000000000000000000000000000000000000000000000000000000" as Hex);
 
     const data = encodeFunctionData({
       abi: COUNCIL_ABI,
-      functionName: 'castVote',
+      functionName: "castVote",
       args: [params.proposalId, params.vote, reasonHash],
     });
 
@@ -253,7 +277,7 @@ export function createGovernanceModule(wallet: JejuWallet, network: NetworkType)
 
   async function getVotingPower(): Promise<bigint> {
     const response = await fetch(
-      `${services.gateway.api}/governance/voting-power/${wallet.address}`
+      `${services.gateway.api}/governance/voting-power/${wallet.address}`,
     );
     if (!response.ok) return 0n;
     const data = (await response.json()) as { power: string };
@@ -263,7 +287,7 @@ export function createGovernanceModule(wallet: JejuWallet, network: NetworkType)
   async function delegate(delegateTo: Address): Promise<Hex> {
     const data = encodeFunctionData({
       abi: DELEGATION_ABI,
-      functionName: 'delegate',
+      functionName: "delegate",
       args: [delegateTo],
     });
 
@@ -273,7 +297,7 @@ export function createGovernanceModule(wallet: JejuWallet, network: NetworkType)
   async function undelegate(): Promise<Hex> {
     const data = encodeFunctionData({
       abi: DELEGATION_ABI,
-      functionName: 'undelegate',
+      functionName: "undelegate",
       args: [],
     });
 
@@ -281,7 +305,9 @@ export function createGovernanceModule(wallet: JejuWallet, network: NetworkType)
   }
 
   async function listDelegates(): Promise<DelegateInfo[]> {
-    const response = await fetch(`${services.gateway.api}/governance/delegates`);
+    const response = await fetch(
+      `${services.gateway.api}/governance/delegates`,
+    );
     if (!response.ok) return [];
     const data = (await response.json()) as { delegates: DelegateInfo[] };
     return data.delegates;
@@ -289,7 +315,7 @@ export function createGovernanceModule(wallet: JejuWallet, network: NetworkType)
 
   async function getMyDelegate(): Promise<DelegateInfo | null> {
     const response = await fetch(
-      `${services.gateway.api}/governance/delegation/${wallet.address}`
+      `${services.gateway.api}/governance/delegation/${wallet.address}`,
     );
     if (!response.ok) return null;
     return (await response.json()) as DelegateInfo;
@@ -337,4 +363,3 @@ export function createGovernanceModule(wallet: JejuWallet, network: NetworkType)
     getStats,
   };
 }
-

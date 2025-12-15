@@ -18,28 +18,28 @@
  * ```
  */
 
-import type { Plugin } from '@elizaos/core';
-import { getNetworkName, getNetworkDescription } from '@jejunetwork/config';
+import type { Plugin } from "@elizaos/core";
+import { getNetworkName, getNetworkDescription } from "@jejunetwork/config";
 
 // Actions
-import { rentGpuAction } from './actions/compute';
-import { runInferenceAction } from './actions/inference';
-import { createTriggerAction } from './actions/triggers';
-import { uploadFileAction, retrieveFileAction } from './actions/storage';
-import { swapTokensAction, addLiquidityAction } from './actions/defi';
-import { createProposalAction, voteAction } from './actions/governance';
-import { registerNameAction, resolveNameAction } from './actions/names';
-import { registerAgentAction } from './actions/identity';
-import { crossChainTransferAction } from './actions/crosschain';
-import { checkBalanceAction } from './actions/payments';
+import { rentGpuAction } from "./actions/compute";
+import { runInferenceAction } from "./actions/inference";
+import { createTriggerAction } from "./actions/triggers";
+import { uploadFileAction, retrieveFileAction } from "./actions/storage";
+import { swapTokensAction, addLiquidityAction } from "./actions/defi";
+import { createProposalAction, voteAction } from "./actions/governance";
+import { registerNameAction, resolveNameAction } from "./actions/names";
+import { registerAgentAction } from "./actions/identity";
+import { crossChainTransferAction } from "./actions/crosschain";
+import { checkBalanceAction } from "./actions/payments";
 
 // Providers
-import { jejuWalletProvider } from './providers/wallet';
-import { jejuComputeProvider } from './providers/compute';
-import { jejuDefiProvider } from './providers/defi';
+import { jejuWalletProvider } from "./providers/wallet";
+import { jejuComputeProvider } from "./providers/compute";
+import { jejuDefiProvider } from "./providers/defi";
 
 // Service
-import { JejuService } from './service';
+import { JejuService } from "./service";
 
 const networkName = getNetworkName().toLowerCase();
 
@@ -89,8 +89,11 @@ export const jejuPlugin: Plugin = {
 export default jejuPlugin;
 
 // Re-export SDK for direct use
-export { createJejuClient, type JejuClient, type JejuClientConfig } from '@jejunetwork/sdk';
+export {
+  createJejuClient,
+  type JejuClient,
+  type JejuClientConfig,
+} from "@jejunetwork/sdk";
 
 // Re-export service
-export { JejuService } from './service';
-
+export { JejuService } from "./service";

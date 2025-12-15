@@ -23,7 +23,7 @@ export const INFRA_PORTS = {
 
 export const JEJU_LOCALNET = {
   chainId: 1337,
-  name: getLocalnetChain().name,
+  name: 'Localnet',
   rpcUrl: process.env.JEJU_RPC_URL || process.env.L2_RPC_URL || `http://127.0.0.1:${process.env.L2_RPC_PORT || INFRA_PORTS.l2Rpc}`,
   wsUrl: process.env.L2_WS_URL || `ws://127.0.0.1:${process.env.L2_WS_PORT || INFRA_PORTS.l2Ws}`,
 } as const;

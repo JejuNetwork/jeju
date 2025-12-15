@@ -2,25 +2,20 @@
  * Cross-chain Module - EIL + OIF
  */
 
-import {
-  type Address,
-  type Hex,
-  encodeFunctionData,
-  formatEther,
-  parseEther,
-  createPublicClient,
-  http,
-} from 'viem';
-import type { NetworkType } from '@jejunetwork/types';
-import type { JejuWallet } from '../wallet';
+import { type Address, type Hex, encodeFunctionData } from "viem";
+import type { NetworkType } from "@jejunetwork/types";
+import type { JejuWallet } from "../wallet";
 import {
   getContract as getContractAddress,
   getServicesConfig,
-  getEILChains,
-  getEILChainById,
-} from '../config';
+} from "../config";
 
-export type SupportedChain = 'jeju' | 'base' | 'optimism' | 'arbitrum' | 'ethereum';
+export type SupportedChain =
+  | "jeju"
+  | "base"
+  | "optimism"
+  | "arbitrum"
+  | "ethereum";
 
 export interface CrossChainQuote {
   quoteId: string;
@@ -33,7 +28,7 @@ export interface CrossChainQuote {
   fee: bigint;
   feePercent: number;
   estimatedTimeSeconds: number;
-  route: 'eil' | 'oif';
+  route: "eil" | "oif";
   solver?: Address;
   xlp?: Address;
   validUntil: number;
@@ -45,7 +40,7 @@ export interface TransferParams {
   token: Address;
   amount: bigint;
   recipient?: Address;
-  preferredRoute?: 'eil' | 'oif';
+  preferredRoute?: "eil" | "oif";
 }
 
 export interface IntentParams {
@@ -58,7 +53,7 @@ export interface IntentParams {
 
 export interface IntentStatus {
   intentId: Hex;
-  status: 'open' | 'pending' | 'filled' | 'expired' | 'cancelled' | 'failed';
+  status: "open" | "pending" | "filled" | "expired" | "cancelled" | "failed";
   solver?: Address;
   fillTxHash?: Hex;
   createdAt: number;
@@ -110,89 +105,89 @@ export interface CrossChainModule {
   getChainId(chain: SupportedChain): number;
 }
 
-const INPUT_SETTLER_ABI = [
+const _INPUT_SETTLER_ABI = [
   {
-    name: 'open',
-    type: 'function',
-    stateMutability: 'payable',
+    name: "open",
+    type: "function",
+    stateMutability: "payable",
     inputs: [
       {
-        name: 'order',
-        type: 'tuple',
+        name: "order",
+        type: "tuple",
         components: [
-          { name: 'originSettler', type: 'address' },
-          { name: 'user', type: 'address' },
-          { name: 'nonce', type: 'uint256' },
-          { name: 'originChainId', type: 'uint64' },
-          { name: 'openDeadline', type: 'uint32' },
-          { name: 'fillDeadline', type: 'uint32' },
-          { name: 'orderDataType', type: 'bytes32' },
-          { name: 'orderData', type: 'bytes' },
+          { name: "originSettler", type: "address" },
+          { name: "user", type: "address" },
+          { name: "nonce", type: "uint256" },
+          { name: "originChainId", type: "uint64" },
+          { name: "openDeadline", type: "uint32" },
+          { name: "fillDeadline", type: "uint32" },
+          { name: "orderDataType", type: "bytes32" },
+          { name: "orderData", type: "bytes" },
         ],
       },
-      { name: 'signature', type: 'bytes' },
-      { name: 'originFillerData', type: 'bytes' },
+      { name: "signature", type: "bytes" },
+      { name: "originFillerData", type: "bytes" },
     ],
     outputs: [],
   },
   {
-    name: 'resolve',
-    type: 'function',
-    stateMutability: 'view',
+    name: "resolve",
+    type: "function",
+    stateMutability: "view",
     inputs: [
       {
-        name: 'order',
-        type: 'tuple',
+        name: "order",
+        type: "tuple",
         components: [
-          { name: 'originSettler', type: 'address' },
-          { name: 'user', type: 'address' },
-          { name: 'nonce', type: 'uint256' },
-          { name: 'originChainId', type: 'uint64' },
-          { name: 'openDeadline', type: 'uint32' },
-          { name: 'fillDeadline', type: 'uint32' },
-          { name: 'orderDataType', type: 'bytes32' },
-          { name: 'orderData', type: 'bytes' },
+          { name: "originSettler", type: "address" },
+          { name: "user", type: "address" },
+          { name: "nonce", type: "uint256" },
+          { name: "originChainId", type: "uint64" },
+          { name: "openDeadline", type: "uint32" },
+          { name: "fillDeadline", type: "uint32" },
+          { name: "orderDataType", type: "bytes32" },
+          { name: "orderData", type: "bytes" },
         ],
       },
-      { name: 'originFillerData', type: 'bytes' },
+      { name: "originFillerData", type: "bytes" },
     ],
     outputs: [
       {
-        name: 'resolved',
-        type: 'tuple',
+        name: "resolved",
+        type: "tuple",
         components: [
-          { name: 'user', type: 'address' },
-          { name: 'originChainId', type: 'uint64' },
-          { name: 'openDeadline', type: 'uint32' },
-          { name: 'fillDeadline', type: 'uint32' },
-          { name: 'orderId', type: 'bytes32' },
+          { name: "user", type: "address" },
+          { name: "originChainId", type: "uint64" },
+          { name: "openDeadline", type: "uint32" },
+          { name: "fillDeadline", type: "uint32" },
+          { name: "orderId", type: "bytes32" },
           {
-            name: 'maxSpent',
-            type: 'tuple[]',
+            name: "maxSpent",
+            type: "tuple[]",
             components: [
-              { name: 'token', type: 'address' },
-              { name: 'amount', type: 'uint256' },
-              { name: 'recipient', type: 'address' },
-              { name: 'chainId', type: 'uint64' },
+              { name: "token", type: "address" },
+              { name: "amount", type: "uint256" },
+              { name: "recipient", type: "address" },
+              { name: "chainId", type: "uint64" },
             ],
           },
           {
-            name: 'minReceived',
-            type: 'tuple[]',
+            name: "minReceived",
+            type: "tuple[]",
             components: [
-              { name: 'token', type: 'address' },
-              { name: 'amount', type: 'uint256' },
-              { name: 'recipient', type: 'address' },
-              { name: 'chainId', type: 'uint64' },
+              { name: "token", type: "address" },
+              { name: "amount", type: "uint256" },
+              { name: "recipient", type: "address" },
+              { name: "chainId", type: "uint64" },
             ],
           },
           {
-            name: 'fillInstructions',
-            type: 'tuple[]',
+            name: "fillInstructions",
+            type: "tuple[]",
             components: [
-              { name: 'destinationChainId', type: 'uint64' },
-              { name: 'destinationSettler', type: 'address' },
-              { name: 'originData', type: 'bytes' },
+              { name: "destinationChainId", type: "uint64" },
+              { name: "destinationSettler", type: "address" },
+              { name: "originData", type: "bytes" },
             ],
           },
         ],
@@ -203,31 +198,31 @@ const INPUT_SETTLER_ABI = [
 
 const XLP_STAKE_MANAGER_ABI = [
   {
-    name: 'stake',
-    type: 'function',
-    stateMutability: 'payable',
+    name: "stake",
+    type: "function",
+    stateMutability: "payable",
     inputs: [],
     outputs: [],
   },
   {
-    name: 'depositLiquidity',
-    type: 'function',
-    stateMutability: 'payable',
-    inputs: [{ name: 'chainId', type: 'uint256' }],
+    name: "depositLiquidity",
+    type: "function",
+    stateMutability: "payable",
+    inputs: [{ name: "chainId", type: "uint256" }],
     outputs: [],
   },
   {
-    name: 'getXLP',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'xlp', type: 'address' }],
+    name: "getXLP",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "xlp", type: "address" }],
     outputs: [
       {
-        type: 'tuple',
+        type: "tuple",
         components: [
-          { name: 'stakedAmount', type: 'uint256' },
-          { name: 'stakedAt', type: 'uint256' },
-          { name: 'status', type: 'uint8' },
+          { name: "stakedAmount", type: "uint256" },
+          { name: "stakedAt", type: "uint256" },
+          { name: "status", type: "uint8" },
         ],
       },
     ],
@@ -242,23 +237,27 @@ const CHAIN_IDS: Record<SupportedChain, number> = {
   ethereum: 1,
 };
 
-export function createCrossChainModule(wallet: JejuWallet, network: NetworkType): CrossChainModule {
-  const inputSettlerAddress = getContractAddress('oif', 'inputSettler', network) as Address;
-  const solverRegistryAddress = getContractAddress('oif', 'solverRegistry', network) as Address;
-  const xlpStakeManagerAddress = getContractAddress('eil', 'l1StakeManager', network) as Address;
-  const crossChainPaymasterAddress = getContractAddress('eil', 'crossChainPaymaster', network) as Address;
+export function createCrossChainModule(
+  wallet: JejuWallet,
+  network: NetworkType,
+): CrossChainModule {
+  const xlpStakeManagerAddress = getContractAddress(
+    "eil",
+    "l1StakeManager",
+    network,
+  ) as Address;
   const services = getServicesConfig(network);
 
   async function getQuote(params: TransferParams): Promise<CrossChainQuote> {
     const quotes = await getQuotes(params);
-    if (quotes.length === 0) throw new Error('No quotes available');
+    if (quotes.length === 0) throw new Error("No quotes available");
     return quotes[0];
   }
 
   async function getQuotes(params: TransferParams): Promise<CrossChainQuote[]> {
     const response = await fetch(`${services.oif.aggregator}/quotes`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         sourceChain: params.from,
         destinationChain: params.to,
@@ -269,7 +268,8 @@ export function createCrossChainModule(wallet: JejuWallet, network: NetworkType)
       }),
     });
 
-    if (!response.ok) throw new Error(`Failed to get quotes: ${response.statusText}`);
+    if (!response.ok)
+      throw new Error(`Failed to get quotes: ${response.statusText}`);
 
     const data = (await response.json()) as {
       quotes: Array<{
@@ -283,7 +283,7 @@ export function createCrossChainModule(wallet: JejuWallet, network: NetworkType)
         fee: string;
         feePercent: number;
         estimatedTimeSeconds: number;
-        route: 'eil' | 'oif';
+        route: "eil" | "oif";
         solver?: Address;
         xlp?: Address;
         validUntil: number;
@@ -299,23 +299,30 @@ export function createCrossChainModule(wallet: JejuWallet, network: NetworkType)
   }
 
   async function transferViaEIL(quote: CrossChainQuote): Promise<Hex> {
-    if (quote.route !== 'eil') throw new Error('Quote is not for EIL route');
+    if (quote.route !== "eil") throw new Error("Quote is not for EIL route");
 
     // Create voucher request via API
     const response = await fetch(`${services.oif.aggregator}/eil/voucher`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'x-jeju-address': wallet.address,
+        "Content-Type": "application/json",
+        "x-jeju-address": wallet.address,
       },
       body: JSON.stringify({
         quoteId: quote.quoteId,
       }),
     });
 
-    if (!response.ok) throw new Error(`Failed to create voucher request: ${response.statusText}`);
+    if (!response.ok)
+      throw new Error(
+        `Failed to create voucher request: ${response.statusText}`,
+      );
 
-    const data = (await response.json()) as { txData: Hex; to: Address; value: string };
+    const data = (await response.json()) as {
+      txData: Hex;
+      to: Address;
+      value: string;
+    };
 
     return wallet.sendTransaction({
       to: data.to,
@@ -330,10 +337,10 @@ export function createCrossChainModule(wallet: JejuWallet, network: NetworkType)
 
     // Build intent via API
     const response = await fetch(`${services.oif.aggregator}/intents`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'x-jeju-address': wallet.address,
+        "Content-Type": "application/json",
+        "x-jeju-address": wallet.address,
       },
       body: JSON.stringify({
         sourceChain: params.sourceChain,
@@ -352,9 +359,14 @@ export function createCrossChainModule(wallet: JejuWallet, network: NetworkType)
       }),
     });
 
-    if (!response.ok) throw new Error(`Failed to create intent: ${response.statusText}`);
+    if (!response.ok)
+      throw new Error(`Failed to create intent: ${response.statusText}`);
 
-    const data = (await response.json()) as { txData: Hex; to: Address; value: string };
+    const data = (await response.json()) as {
+      txData: Hex;
+      to: Address;
+      value: string;
+    };
 
     return wallet.sendTransaction({
       to: data.to,
@@ -364,13 +376,17 @@ export function createCrossChainModule(wallet: JejuWallet, network: NetworkType)
   }
 
   async function getIntentStatus(intentId: Hex): Promise<IntentStatus> {
-    const response = await fetch(`${services.oif.aggregator}/intents/${intentId}`);
-    if (!response.ok) throw new Error('Failed to get intent status');
+    const response = await fetch(
+      `${services.oif.aggregator}/intents/${intentId}`,
+    );
+    if (!response.ok) throw new Error("Failed to get intent status");
     return (await response.json()) as IntentStatus;
   }
 
   async function listMyIntents(): Promise<IntentStatus[]> {
-    const response = await fetch(`${services.oif.aggregator}/intents?user=${wallet.address}`);
+    const response = await fetch(
+      `${services.oif.aggregator}/intents?user=${wallet.address}`,
+    );
     if (!response.ok) return [];
 
     const data = (await response.json()) as { intents: IntentStatus[] };
@@ -378,12 +394,15 @@ export function createCrossChainModule(wallet: JejuWallet, network: NetworkType)
   }
 
   async function cancelIntent(intentId: Hex): Promise<Hex> {
-    const response = await fetch(`${services.oif.aggregator}/intents/${intentId}/cancel`, {
-      method: 'POST',
-      headers: { 'x-jeju-address': wallet.address },
-    });
+    const response = await fetch(
+      `${services.oif.aggregator}/intents/${intentId}/cancel`,
+      {
+        method: "POST",
+        headers: { "x-jeju-address": wallet.address },
+      },
+    );
 
-    if (!response.ok) throw new Error('Failed to cancel intent');
+    if (!response.ok) throw new Error("Failed to cancel intent");
 
     const data = (await response.json()) as { txData: Hex; to: Address };
     return wallet.sendTransaction({ to: data.to, data: data.txData });
@@ -400,7 +419,7 @@ export function createCrossChainModule(wallet: JejuWallet, network: NetworkType)
   async function becomeXLP(stakeAmount: bigint): Promise<Hex> {
     const data = encodeFunctionData({
       abi: XLP_STAKE_MANAGER_ABI,
-      functionName: 'stake',
+      functionName: "stake",
       args: [],
     });
 
@@ -411,12 +430,15 @@ export function createCrossChainModule(wallet: JejuWallet, network: NetworkType)
     });
   }
 
-  async function provideXLPLiquidity(chain: SupportedChain, amount: bigint): Promise<Hex> {
+  async function provideXLPLiquidity(
+    chain: SupportedChain,
+    amount: bigint,
+  ): Promise<Hex> {
     const chainId = CHAIN_IDS[chain];
 
     const data = encodeFunctionData({
       abi: XLP_STAKE_MANAGER_ABI,
-      functionName: 'depositLiquidity',
+      functionName: "depositLiquidity",
       args: [BigInt(chainId)],
     });
 
@@ -436,7 +458,7 @@ export function createCrossChainModule(wallet: JejuWallet, network: NetworkType)
   }
 
   async function transfer(quote: CrossChainQuote): Promise<Hex> {
-    if (quote.route === 'eil') {
+    if (quote.route === "eil") {
       return transferViaEIL(quote);
     }
 
@@ -446,7 +468,11 @@ export function createCrossChainModule(wallet: JejuWallet, network: NetworkType)
       destinationChain: quote.destinationChain,
       inputs: [{ token: quote.sourceToken, amount: quote.amountIn }],
       outputs: [
-        { token: quote.destinationToken, amount: quote.amountOut, recipient: wallet.address },
+        {
+          token: quote.destinationToken,
+          amount: quote.amountOut,
+          recipient: wallet.address,
+        },
       ],
     });
   }
@@ -476,4 +502,3 @@ export function createCrossChainModule(wallet: JejuWallet, network: NetworkType)
     getChainId,
   };
 }
-

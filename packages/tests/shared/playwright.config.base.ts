@@ -11,7 +11,6 @@
  */
 
 import { defineConfig, devices, type PlaywrightTestConfig } from '@playwright/test';
-import { join } from 'path';
 
 export interface AppConfigOptions {
   name: string;

@@ -2,10 +2,14 @@
  * Names hook
  */
 
-import { useCallback, useState } from 'react';
-import type { Address, Hex } from 'viem';
-import { useNetworkContext } from '../context';
-import type { NameInfo, RegisterNameParams, NameRecords } from '@jejunetwork/sdk';
+import { useCallback, useState } from "react";
+import type { Address, Hex } from "viem";
+import { useNetworkContext } from "../context";
+import type {
+  NameInfo,
+  RegisterNameParams,
+  NameRecords,
+} from "@jejunetwork/sdk";
 
 export function useNames() {
   const { client } = useNetworkContext();
@@ -14,23 +18,23 @@ export function useNames() {
 
   const resolve = useCallback(
     async (name: string): Promise<Address | null> => {
-      if (!client) throw new Error('Not connected');
+      if (!client) throw new Error("Not connected");
       return client.names.resolve(name);
     },
-    [client]
+    [client],
   );
 
   const reverseResolve = useCallback(
     async (address: Address): Promise<string | null> => {
-      if (!client) throw new Error('Not connected');
+      if (!client) throw new Error("Not connected");
       return client.names.reverseResolve(address);
     },
-    [client]
+    [client],
   );
 
   const register = useCallback(
     async (params: RegisterNameParams): Promise<Hex> => {
-      if (!client) throw new Error('Not connected');
+      if (!client) throw new Error("Not connected");
       setIsLoading(true);
       setError(null);
 
@@ -38,36 +42,36 @@ export function useNames() {
       setIsLoading(false);
       return txHash;
     },
-    [client]
+    [client],
   );
 
   const listMyNames = useCallback(async (): Promise<NameInfo[]> => {
-    if (!client) throw new Error('Not connected');
+    if (!client) throw new Error("Not connected");
     return client.names.listMyNames();
   }, [client]);
 
   const isAvailable = useCallback(
     async (name: string): Promise<boolean> => {
-      if (!client) throw new Error('Not connected');
+      if (!client) throw new Error("Not connected");
       return client.names.isAvailable(name);
     },
-    [client]
+    [client],
   );
 
   const getPrice = useCallback(
     async (name: string, years: number): Promise<bigint> => {
-      if (!client) throw new Error('Not connected');
+      if (!client) throw new Error("Not connected");
       return client.names.getRegistrationPrice(name, years);
     },
-    [client]
+    [client],
   );
 
   const setRecords = useCallback(
     async (name: string, records: NameRecords): Promise<Hex> => {
-      if (!client) throw new Error('Not connected');
+      if (!client) throw new Error("Not connected");
       return client.names.setRecords(name, records);
     },
-    [client]
+    [client],
   );
 
   return {
@@ -82,4 +86,3 @@ export function useNames() {
     setRecords,
   };
 }
-

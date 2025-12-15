@@ -2,7 +2,7 @@
  * SDK Configuration - Re-exports from @jejunetwork/config with SDK-specific helpers
  */
 
-import type { NetworkType } from '@jejunetwork/types';
+import type { NetworkType } from "@jejunetwork/types";
 
 // Re-export all config utilities
 export {
@@ -23,7 +23,7 @@ export {
   type NetworkContracts,
   type ServicesConfig,
   type ContractCategoryName,
-} from '@jejunetwork/config';
+} from "@jejunetwork/config";
 
 export interface SDKConfig {
   network: NetworkType;
@@ -32,7 +32,10 @@ export interface SDKConfig {
   indexerUrl?: string;
 }
 
-export function resolveConfig(network: NetworkType, overrides?: Partial<SDKConfig>): SDKConfig {
+export function resolveConfig(
+  network: NetworkType,
+  overrides?: Partial<SDKConfig>,
+): SDKConfig {
   return {
     network,
     rpcUrl: overrides?.rpcUrl,

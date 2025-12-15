@@ -270,7 +270,7 @@ describe('X402Client', () => {
   test('getNetworkConfig returns correct config', () => {
     const config = client.getNetworkConfig();
     expect(config.chainId).toBe(9545); // network localnet
-    expect(config.name).toBe(getLocalnetChain().name);
+    expect(config.name).toBe('Jeju Localnet');
   });
 
   test('generatePayment creates valid header', async () => {

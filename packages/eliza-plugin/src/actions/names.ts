@@ -9,14 +9,20 @@ import {
   type IAgentRuntime,
   type Memory,
   type State,
-} from '@elizaos/core';
-import { formatEther } from 'viem';
-import { JEJU_SERVICE_NAME, type JejuService } from '../service';
+} from "@elizaos/core";
+import { formatEther } from "viem";
+import { JEJU_SERVICE_NAME, type JejuService } from "../service";
 
 export const registerNameAction: Action = {
-  name: 'REGISTER_NAME',
-  description: 'Register a .jeju name on the network Name Service (JNS)',
-  similes: ['register name', 'buy name', 'get domain', 'register domain', 'claim name'],
+  name: "REGISTER_NAME",
+  description: "Register a .jeju name on the network Name Service (JNS)",
+  similes: [
+    "register name",
+    "buy name",
+    "get domain",
+    "register domain",
+    "claim name",
+  ],
 
   validate: async (runtime: IAgentRuntime) => {
     const service = runtime.getService(JEJU_SERVICE_NAME);
@@ -28,17 +34,19 @@ export const registerNameAction: Action = {
     message: Memory,
     _state: State | undefined,
     _options: Record<string, unknown>,
-    callback?: HandlerCallback
+    callback?: HandlerCallback,
   ) => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
 
-    const text = message.content.text ?? '';
+    const text = message.content.text ?? "";
 
     // Extract name
     const nameMatch = text.match(/([a-z0-9-]+)(?:\.jeju)?/i);
     if (!nameMatch) {
-      callback?.({ text: 'Please specify a name to register. Example: "Register myagent.jeju"' });
+      callback?.({
+        text: 'Please specify a name to register. Example: "Register myagent.jeju"',
+      });
       return;
     }
 
@@ -48,7 +56,9 @@ export const registerNameAction: Action = {
     // Check availability
     const available = await client.names.isAvailable(fullName);
     if (!available) {
-      callback?.({ text: `${fullName} is already registered. Try a different name.` });
+      callback?.({
+        text: `${fullName} is already registered. Try a different name.`,
+      });
       return;
     }
 
@@ -81,21 +91,29 @@ You can now set records with "Set address for ${fullName}"`,
   examples: [
     [
       {
-        user: '{{user1}}',
-        content: { text: 'Register myagent.jeju' },
+        name: "user",
+        content: { text: "Register myagent.jeju" },
       },
       {
-        user: '{{agent}}',
-        content: { text: 'Name registered successfully. Name: myagent.jeju...' },
+        name: "agent",
+        content: {
+          text: "Name registered successfully. Name: myagent.jeju...",
+        },
       },
     ],
-  ] as ActionExample[][],
+  ],
 };
 
 export const resolveNameAction: Action = {
-  name: 'RESOLVE_NAME',
-  description: 'Resolve a .jeju name to an address',
-  similes: ['resolve name', 'lookup name', 'find address', 'who is', 'what address'],
+  name: "RESOLVE_NAME",
+  description: "Resolve a .jeju name to an address",
+  similes: [
+    "resolve name",
+    "lookup name",
+    "find address",
+    "who is",
+    "what address",
+  ],
 
   validate: async (runtime: IAgentRuntime) => {
     const service = runtime.getService(JEJU_SERVICE_NAME);
@@ -107,17 +125,19 @@ export const resolveNameAction: Action = {
     message: Memory,
     _state: State | undefined,
     _options: Record<string, unknown>,
-    callback?: HandlerCallback
+    callback?: HandlerCallback,
   ) => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
 
-    const text = message.content.text ?? '';
+    const text = message.content.text ?? "";
 
     // Extract name
     const nameMatch = text.match(/([a-z0-9-]+\.jeju)/i);
     if (!nameMatch) {
-      callback?.({ text: 'Please specify a .jeju name to resolve. Example: "Resolve gateway.jeju"' });
+      callback?.({
+        text: 'Please specify a .jeju name to resolve. Example: "Resolve gateway.jeju"',
+      });
       return;
     }
 
@@ -135,8 +155,8 @@ export const resolveNameAction: Action = {
     callback?.({
       text: `${name} resolves to:
 Address: ${address}
-${records.a2aEndpoint ? `A2A Endpoint: ${records.a2aEndpoint}` : ''}
-${info ? `Owner: ${info.owner}` : ''}`,
+${records.a2aEndpoint ? `A2A Endpoint: ${records.a2aEndpoint}` : ""}
+${info ? `Owner: ${info.owner}` : ""}`,
       content: { name, address, records, info },
     });
   },
@@ -144,14 +164,13 @@ ${info ? `Owner: ${info.owner}` : ''}`,
   examples: [
     [
       {
-        user: '{{user1}}',
-        content: { text: 'Resolve gateway.jeju' },
+        name: "user",
+        content: { text: "Resolve gateway.jeju" },
       },
       {
-        user: '{{agent}}',
-        content: { text: 'gateway.jeju resolves to: 0x...' },
+        name: "agent",
+        content: { text: "gateway.jeju resolves to: 0x..." },
       },
     ],
-  ] as ActionExample[][],
+  ],
 };
-

@@ -5,7 +5,7 @@
  * Requires: docker compose --profile chain up
  */
 
-import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
+import { describe, test, expect, beforeAll } from 'bun:test';
 import { createPublicClient, http, parseEther } from 'viem';
 
 const L1_RPC = process.env.L1_RPC_URL || 'http://127.0.0.1:8545';

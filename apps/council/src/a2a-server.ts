@@ -8,6 +8,7 @@ import { formatEther, parseEther } from 'ethers';
 import type { CouncilConfig } from './types';
 import { CouncilBlockchain } from './blockchain';
 import { councilAgentRuntime, type DeliberationRequest } from './agents';
+import { getNetworkName, getWebsiteUrl } from '@jejunetwork/config';
 import { storeVote, getVotes, generateResearch, getResearch, store, checkOllama, ollamaGenerate, OLLAMA_MODEL } from './local-services';
 import { ZERO_ADDRESS, assessClarity, assessCompleteness, assessFeasibility, assessAlignment, assessImpact, assessRisk, assessCostBenefit, calculateQualityScore, assessProposalWithAI } from './shared';
 import { getTEEMode } from './tee';
@@ -70,11 +71,11 @@ export class CouncilA2AServer {
   private getAgentCard() {
     return {
       protocolVersion: '0.3.0',
-      name: getNetworkName() AI Council',
+      name: `${getNetworkName()} AI Council`,
       description: 'AI-governed DAO with CEO, council agents, and reputation-weighted proposals',
       url: '/a2a',
       preferredTransport: 'http',
-      provider: { organization: 'the network', url: 'https://jeju.network' },
+      provider: { organization: getNetworkName(), url: getWebsiteUrl() },
       version: '1.0.0',
       capabilities: { streaming: false, pushNotifications: false, stateTransitionHistory: true },
       defaultInputModes: ['text', 'data'],

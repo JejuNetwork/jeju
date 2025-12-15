@@ -9,10 +9,10 @@ import {
   type IAgentRuntime,
   type Memory,
   type State,
-} from '@elizaos/core';
-import { type Address, parseEther, formatEther } from 'viem';
-import { JEJU_SERVICE_NAME, type JejuService } from '../service';
-import type { SupportedChain } from '@jejunetwork/sdk';
+} from "@elizaos/core";
+import { type Address, parseEther, formatEther } from "viem";
+import { JEJU_SERVICE_NAME, type JejuService } from "../service";
+import type { SupportedChain } from "@jejunetwork/sdk";
 
 function parseTransferParams(text: string): {
   amount?: bigint;
@@ -20,7 +20,12 @@ function parseTransferParams(text: string): {
   to?: SupportedChain;
   token?: string;
 } {
-  const params: { amount?: bigint; from?: SupportedChain; to?: SupportedChain; token?: string } = {};
+  const params: {
+    amount?: bigint;
+    from?: SupportedChain;
+    to?: SupportedChain;
+    token?: string;
+  } = {};
 
   // Extract amount
   const amountMatch = text.match(/(\d+(?:\.\d+)?)\s*(eth|usdc|jeju)?/i);
@@ -30,22 +35,34 @@ function parseTransferParams(text: string): {
   }
 
   // Extract chains
-  const chains: SupportedChain[] = ['jeju', 'base', 'optimism', 'arbitrum', 'ethereum'];
+  const chains: SupportedChain[] = [
+    "jeju",
+    "base",
+    "optimism",
+    "arbitrum",
+    "ethereum",
+  ];
   for (const chain of chains) {
     if (text.toLowerCase().includes(`from ${chain}`)) params.from = chain;
     if (text.toLowerCase().includes(`to ${chain}`)) params.to = chain;
   }
 
   // Default from chain to jeju
-  if (!params.from && params.to) params.from = 'jeju';
+  if (!params.from && params.to) params.from = "jeju";
 
   return params;
 }
 
 export const crossChainTransferAction: Action = {
-  name: 'CROSS_CHAIN_TRANSFER',
-  description: 'Transfer tokens cross-chain using the network EIL/OIF',
-  similes: ['bridge', 'cross chain', 'transfer to', 'send to chain', 'bridge tokens'],
+  name: "CROSS_CHAIN_TRANSFER",
+  description: "Transfer tokens cross-chain using the network EIL/OIF",
+  similes: [
+    "bridge",
+    "cross chain",
+    "transfer to",
+    "send to chain",
+    "bridge tokens",
+  ],
 
   validate: async (runtime: IAgentRuntime) => {
     const service = runtime.getService(JEJU_SERVICE_NAME);
@@ -57,25 +74,25 @@ export const crossChainTransferAction: Action = {
     message: Memory,
     _state: State | undefined,
     _options: Record<string, unknown>,
-    callback?: HandlerCallback
+    callback?: HandlerCallback,
   ) => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
 
-    const params = parseTransferParams(message.content.text ?? '');
+    const params = parseTransferParams(message.content.text ?? "");
 
     if (!params.amount || !params.to) {
       callback?.({
         text: `Please specify amount and destination chain.
 Example: "Bridge 1 ETH from jeju to base"
 
-Supported chains: ${client.crosschain.getSupportedChains().join(', ')}`,
+Supported chains: ${client.crosschain.getSupportedChains().join(", ")}`,
       });
       return;
     }
 
-    const from = params.from ?? 'jeju';
-    const token = '0x0000000000000000000000000000000000000000' as Address; // ETH
+    const from = params.from ?? "jeju";
+    const token = "0x0000000000000000000000000000000000000000" as Address; // ETH
 
     callback?.({
       text: `Getting quote for ${formatEther(params.amount)} ETH from ${from} to ${params.to}...`,
@@ -123,24 +140,25 @@ The transfer will complete in approximately ${quote.estimatedTimeSeconds} second
   examples: [
     [
       {
-        user: '{{user1}}',
-        content: { text: 'Bridge 1 ETH from jeju to base' },
+        name: "user",
+        content: { text: "Bridge 1 ETH from jeju to base" },
       },
       {
-        user: '{{agent}}',
-        content: { text: 'Cross-chain transfer initiated. From: jeju → To: base...' },
+        name: "agent",
+        content: {
+          text: "Cross-chain transfer initiated. From: jeju → To: base...",
+        },
       },
     ],
     [
       {
-        user: '{{user1}}',
-        content: { text: 'Send 0.5 ETH to arbitrum' },
+        name: "user",
+        content: { text: "Send 0.5 ETH to arbitrum" },
       },
       {
-        user: '{{agent}}',
-        content: { text: 'Getting quote for 0.5 ETH from jeju to arbitrum...' },
+        name: "agent",
+        content: { text: "Getting quote for 0.5 ETH from jeju to arbitrum..." },
       },
     ],
-  ] as ActionExample[][],
+  ],
 };
-

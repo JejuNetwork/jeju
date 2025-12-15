@@ -4,7 +4,7 @@
  * Provides encrypted AI decision-making with:
  * - Hardware TEE (Phala Cloud) for production
  * - Simulated TEE for development
- * - Jeju KMS for encryption
+ * - Network KMS for encryption
  * - DA layer backup for persistence
  */
 
@@ -191,7 +191,7 @@ export async function makeTEEDecision(context: TEEDecisionContext): Promise<TEED
     result = makeSimulatedDecision(context);
   }
 
-  // Encrypt decision with Jeju KMS
+  // Encrypt decision with network KMS
   if (USE_LIT_ENCRYPTION) {
     const encryptionStatus = getEncryptionStatus();
     console.log(`[TEE] Encryption: ${encryptionStatus.provider}`);

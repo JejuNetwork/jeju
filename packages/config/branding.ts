@@ -325,6 +325,31 @@ export function getGovernanceToken(): TokenBranding {
   return getBranding().tokens.governance;
 }
 
+/** Get website URL */
+export function getWebsiteUrl(): string {
+  return getBranding().urls.website;
+}
+
+/** Get explorer URL for a specific network */
+export function getExplorerUrl(network: 'testnet' | 'mainnet'): string {
+  return getBranding().urls.explorer[network];
+}
+
+/** Get RPC URL for a specific network */
+export function getRpcUrl(network: 'testnet' | 'mainnet'): string {
+  return getBranding().urls.rpc[network];
+}
+
+/** Get API URL for a specific network */
+export function getApiUrl(network: 'testnet' | 'mainnet'): string {
+  return getBranding().urls.api[network];
+}
+
+/** Get gateway URL for a specific network */
+export function getGatewayUrl(network: 'testnet' | 'mainnet'): string {
+  return getBranding().urls.gateway[network];
+}
+
 // ============================================================================
 // Template Helpers
 // ============================================================================

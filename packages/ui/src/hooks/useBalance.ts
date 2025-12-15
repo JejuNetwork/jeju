@@ -2,9 +2,9 @@
  * Balance hook
  */
 
-import { useEffect, useState, useCallback } from 'react';
-import { formatEther } from 'viem';
-import { useNetworkContext } from '../context';
+import { useEffect, useState, useCallback } from "react";
+import { formatEther } from "viem";
+import { useNetworkContext } from "../context";
 
 export function useBalance() {
   const { client } = useNetworkContext();
@@ -25,7 +25,9 @@ export function useBalance() {
 
   useEffect(() => {
     if (client) {
-      refetch().catch((e) => setError(e instanceof Error ? e : new Error(String(e))));
+      refetch().catch((e) =>
+        setError(e instanceof Error ? e : new Error(String(e))),
+      );
     }
   }, [client, refetch]);
 
@@ -37,4 +39,3 @@ export function useBalance() {
     refetch,
   };
 }
-

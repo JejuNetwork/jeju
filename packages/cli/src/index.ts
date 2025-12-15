@@ -134,7 +134,7 @@ try {
   }
   
   if (err.code === 'commander.unknownCommand') {
-    console.error(chalk.red(`\nUnknown command. Run 'jeju --help' for available commands.\n`));
+    console.error(chalk.red(`\nUnknown command. Run '${cliName} --help' for available commands.\n`));
     process.exit(1);
   }
   

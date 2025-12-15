@@ -124,7 +124,7 @@ export const X402_NETWORK_CONFIGS: Record<X402Network, X402NetworkConfig> = {
     usdc: X402_USDC_ADDRESSES.ethereum,
   },
   jeju: {
-    name: getLocalnetChain().name,
+    name: 'Network',
     chainId: 9545,
     rpcUrl: X402_RPC_URLS.jeju,
     blockExplorer: '',

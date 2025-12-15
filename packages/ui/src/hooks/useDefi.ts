@@ -2,10 +2,16 @@
  * DeFi hook
  */
 
-import { useCallback, useState } from 'react';
-import type { Address, Hex } from 'viem';
-import { useNetworkContext } from '../context';
-import type { SwapParams, SwapQuote, PoolInfo, LiquidityPosition, AddLiquidityParams } from '@jejunetwork/sdk';
+import { useCallback, useState } from "react";
+import type { Address, Hex } from "viem";
+import { useNetworkContext } from "../context";
+import type {
+  SwapParams,
+  SwapQuote,
+  PoolInfo,
+  LiquidityPosition,
+  AddLiquidityParams,
+} from "@jejunetwork/sdk";
 
 export function useDefi() {
   const { client } = useNetworkContext();
@@ -14,15 +20,15 @@ export function useDefi() {
 
   const getSwapQuote = useCallback(
     async (params: SwapParams): Promise<SwapQuote> => {
-      if (!client) throw new Error('Not connected');
+      if (!client) throw new Error("Not connected");
       return client.defi.getSwapQuote(params);
     },
-    [client]
+    [client],
   );
 
   const swap = useCallback(
     async (quote: SwapQuote): Promise<Hex> => {
-      if (!client) throw new Error('Not connected');
+      if (!client) throw new Error("Not connected");
       setIsLoading(true);
       setError(null);
 
@@ -30,17 +36,17 @@ export function useDefi() {
       setIsLoading(false);
       return txHash;
     },
-    [client]
+    [client],
   );
 
   const listPools = useCallback(async (): Promise<PoolInfo[]> => {
-    if (!client) throw new Error('Not connected');
+    if (!client) throw new Error("Not connected");
     return client.defi.listPools();
   }, [client]);
 
   const addLiquidity = useCallback(
     async (params: AddLiquidityParams): Promise<Hex> => {
-      if (!client) throw new Error('Not connected');
+      if (!client) throw new Error("Not connected");
       setIsLoading(true);
       setError(null);
 
@@ -48,28 +54,28 @@ export function useDefi() {
       setIsLoading(false);
       return txHash;
     },
-    [client]
+    [client],
   );
 
   const listPositions = useCallback(async (): Promise<LiquidityPosition[]> => {
-    if (!client) throw new Error('Not connected');
+    if (!client) throw new Error("Not connected");
     return client.defi.listPositions();
   }, [client]);
 
   const collectFees = useCallback(
     async (positionId: bigint): Promise<Hex> => {
-      if (!client) throw new Error('Not connected');
+      if (!client) throw new Error("Not connected");
       return client.defi.collectFees(positionId);
     },
-    [client]
+    [client],
   );
 
   const getBalance = useCallback(
     async (token: Address): Promise<bigint> => {
-      if (!client) throw new Error('Not connected');
+      if (!client) throw new Error("Not connected");
       return client.defi.getBalance(token);
     },
-    [client]
+    [client],
   );
 
   return {
@@ -84,4 +90,3 @@ export function useDefi() {
     getBalance,
   };
 }
-
