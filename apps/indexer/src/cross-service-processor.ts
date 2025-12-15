@@ -13,7 +13,7 @@
  * 4. ERC-8004 agent-based discovery
  */
 
-import { ethers } from 'ethers';
+import { keccak256, stringToHex, decodeAbiParameters, formatEther } from 'viem';
 import { Store } from '@subsquid/typeorm-store';
 import { ProcessorContext } from './processor';
 import {
@@ -41,19 +41,19 @@ const ZERO_BYTES = new Uint8Array(20);
 // Event signatures for cross-service operations
 const EVENT_SIGNATURES = {
   // Container stored in storage for compute use
-  ContainerStored: ethers.id('ContainerStored(string,address,address,uint256)'),
+  ContainerStored: keccak256(stringToHex('ContainerStored(string,address,address,uint256)')),
   
   // Container pulled from storage by compute provider
-  ContainerPulled: ethers.id('ContainerPulled(bytes32,string,address,address)'),
+  ContainerPulled: keccak256(stringToHex('ContainerPulled(bytes32,string,address,address)')),
   
   // Compute rental started with container from storage
-  RentalWithContainer: ethers.id('RentalWithContainer(bytes32,string,address,address)'),
+  RentalWithContainer: keccak256(stringToHex('RentalWithContainer(bytes32,string,address,address)')),
   
   // Compute output stored to storage
-  OutputStored: ethers.id('OutputStored(bytes32,string,address,address)'),
+  OutputStored: keccak256(stringToHex('OutputStored(bytes32,string,address,address)')),
   
   // Agent linked to both compute and storage provider
-  FullStackAgentRegistered: ethers.id('FullStackAgentRegistered(uint256,address,address)'),
+  FullStackAgentRegistered: keccak256(stringToHex('FullStackAgentRegistered(uint256,address,address)')),
 };
 
 const CROSS_SERVICE_TOPIC_SET = new Set(Object.values(EVENT_SIGNATURES));
@@ -89,9 +89,9 @@ export async function processCrossServiceEvents(ctx: ProcessorContext<Store>): P
       // ============ Container Stored Event ============
       // ContainerStored(string cid, address uploader, address storageProvider, uint256 sizeBytes)
       if (eventSig === EVENT_SIGNATURES.ContainerStored) {
-        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-          ['string', 'address', 'address', 'uint256'],
-          log.data
+        const decoded = decodeAbiParameters(
+          [{ type: 'string' }, { type: 'address' }, { type: 'address' }, { type: 'uint256' }],
+          log.data as `0x${string}`
         );
 
         const cid = decoded[0] as string;
@@ -171,9 +171,9 @@ export async function processCrossServiceEvents(ctx: ProcessorContext<Store>): P
       // ContainerPulled(bytes32 rentalId, string cid, address computeProvider, address storageProvider)
       if (eventSig === EVENT_SIGNATURES.ContainerPulled) {
         const rentalId = log.topics[1];
-        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-          ['string', 'address', 'address'],
-          log.data
+        const decoded = decodeAbiParameters(
+          [{ type: 'string' }, { type: 'address' }, { type: 'address' }],
+          log.data as `0x${string}`
         );
 
         const cid = decoded[0] as string;
@@ -247,9 +247,9 @@ export async function processCrossServiceEvents(ctx: ProcessorContext<Store>): P
       // RentalWithContainer(bytes32 rentalId, string cid, address computeProvider, address storageProvider)
       if (eventSig === EVENT_SIGNATURES.RentalWithContainer) {
         const rentalId = log.topics[1];
-        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-          ['string', 'address', 'address'],
-          log.data
+        const decoded = decodeAbiParameters(
+          [{ type: 'string' }, { type: 'address' }, { type: 'address' }],
+          log.data as `0x${string}`
         );
 
         const cid = decoded[0];
@@ -272,9 +272,9 @@ export async function processCrossServiceEvents(ctx: ProcessorContext<Store>): P
       // OutputStored(bytes32 rentalId, string cid, address computeProvider, address storageProvider)
       if (eventSig === EVENT_SIGNATURES.OutputStored) {
         const rentalId = log.topics[1];
-        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-          ['string', 'address', 'address'],
-          log.data
+        const decoded = decodeAbiParameters(
+          [{ type: 'string' }, { type: 'address' }, { type: 'address' }],
+          log.data as `0x${string}`
         );
 
         const cid = decoded[0];
@@ -440,7 +440,7 @@ export async function getMarketplaceStats(ctx: ProcessorContext<Store>): Promise
       totalProviders: computeProviders.length,
       activeProviders: activeComputeProviders.length,
       agentLinked: agentLinkedCompute.length,
-      totalStaked: ethers.formatEther(totalComputeStake),
+      totalStaked: formatEther(totalComputeStake),
     },
     storage: {
       totalProviders: storageProviders.length,

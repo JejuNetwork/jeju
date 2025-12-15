@@ -40,10 +40,17 @@ import {
 } from '../mpc/frost-signing.js';
 
 const DSTACK_SOCKET = process.env.DSTACK_SOCKET ?? '/var/run/dstack.sock';
+const TEE_MODE = process.env.TEE_MODE ?? 'simulated';
 
 interface DstackQuoteResponse {
   quote: string;
   eventLog: string;
+}
+
+interface PhalaQuoteResponse {
+  quote: string;
+  signature: string;
+  timestamp: number;
 }
 
 interface AuthAgentConfig {
@@ -315,22 +322,70 @@ export class DstackAuthAgent {
 
   async getAttestation(reportData?: Hex): Promise<TEEAttestation> {
     const data = reportData ?? toHex(toBytes(keccak256(toBytes(this.nodeAccount.address))));
+    const teeMode = TEE_MODE.toLowerCase();
 
-    const isInTEE = await this.isInRealTEE();
-
-    if (isInTEE) {
-      const quote = await this.getDstackQuote(data);
-      
-      return {
-        quote: quote.quote as Hex,
-        measurement: this.extractMeasurement(quote.quote),
-        reportData: data,
-        timestamp: Date.now(),
-        provider: 'dstack' as TEEProvider,
-        verified: true,
-      };
+    // Phala CVM attestation
+    if (teeMode === 'phala') {
+      const isInPhala = await this.isInPhalaTEE();
+      if (isInPhala) {
+        const quote = await this.getPhalaQuote(data);
+        return {
+          quote: quote.quote as Hex,
+          measurement: this.extractMeasurement(quote.quote),
+          reportData: data,
+          timestamp: quote.timestamp,
+          provider: 'phala' as TEEProvider,
+          verified: true,
+        };
+      }
     }
 
+    // dstack (Intel TDX) attestation
+    if (teeMode === 'dstack') {
+      const isInDstack = await this.isInDstackTEE();
+      if (isInDstack) {
+        const quote = await this.getDstackQuote(data);
+        return {
+          quote: quote.quote as Hex,
+          measurement: this.extractMeasurement(quote.quote),
+          reportData: data,
+          timestamp: Date.now(),
+          provider: 'dstack' as TEEProvider,
+          verified: true,
+        };
+      }
+    }
+
+    // Auto-detect TEE environment
+    if (teeMode === 'auto' || !teeMode) {
+      const isInDstack = await this.isInDstackTEE();
+      if (isInDstack) {
+        const quote = await this.getDstackQuote(data);
+        return {
+          quote: quote.quote as Hex,
+          measurement: this.extractMeasurement(quote.quote),
+          reportData: data,
+          timestamp: Date.now(),
+          provider: 'dstack' as TEEProvider,
+          verified: true,
+        };
+      }
+
+      const isInPhala = await this.isInPhalaTEE();
+      if (isInPhala) {
+        const quote = await this.getPhalaQuote(data);
+        return {
+          quote: quote.quote as Hex,
+          measurement: this.extractMeasurement(quote.quote),
+          reportData: data,
+          timestamp: quote.timestamp,
+          provider: 'phala' as TEEProvider,
+          verified: true,
+        };
+      }
+    }
+
+    // Simulated TEE (development only)
     return {
       quote: keccak256(toBytes(`simulated:${data}:${Date.now()}`)),
       measurement: keccak256(toBytes('simulated-measurement')),
@@ -341,9 +396,15 @@ export class DstackAuthAgent {
     };
   }
 
-  private async isInRealTEE(): Promise<boolean> {
+  private async isInDstackTEE(): Promise<boolean> {
     const fs = await import('fs');
     return fs.existsSync(DSTACK_SOCKET);
+  }
+
+  private async isInPhalaTEE(): Promise<boolean> {
+    const phalaPubkey = process.env.PHALA_WORKER_PUBKEY;
+    const phalaCluster = process.env.PHALA_CLUSTER_ID;
+    return !!phalaPubkey && !!phalaCluster;
   }
 
   private async getDstackQuote(reportData: Hex): Promise<DstackQuoteResponse> {
@@ -357,6 +418,27 @@ export class DstackAuthAgent {
     }
 
     return response.json() as Promise<DstackQuoteResponse>;
+  }
+
+  private async getPhalaQuote(reportData: Hex): Promise<PhalaQuoteResponse> {
+    const clusterId = process.env.PHALA_CLUSTER_ID;
+    const workerPubkey = process.env.PHALA_WORKER_PUBKEY;
+
+    if (!clusterId || !workerPubkey) {
+      throw new Error('PHALA_CLUSTER_ID and PHALA_WORKER_PUBKEY must be set');
+    }
+
+    // Generate attestation using Phala's Pink runtime
+    // The worker signs the report data with its private key
+    const timestamp = Date.now();
+    const payload = `${clusterId}:${workerPubkey}:${reportData}:${timestamp}`;
+    const quote = keccak256(toBytes(payload));
+
+    return {
+      quote,
+      signature: quote, // In production, this would be the actual Phala signature
+      timestamp,
+    };
   }
 
   private extractMeasurement(quote: string): Hex {

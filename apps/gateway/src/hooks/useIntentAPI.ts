@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import type { Intent, IntentRoute, Solver, OIFStats, IntentQuote, SolverLeaderboardEntry } from '@jejunetwork/types/oif';
+import type { Intent, IntentRoute, Solver, OIFStats, IntentQuote, SolverLeaderboardEntry } from '@jejunetwork/types';
 import { OIF_AGGREGATOR_URL } from '../config';
 
 const API_BASE = OIF_AGGREGATOR_URL;

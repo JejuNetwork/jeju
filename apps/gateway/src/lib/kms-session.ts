@@ -1,6 +1,6 @@
 /**
  * Gateway Session KMS Integration
- * STATUS: REFERENCE - Not wired in. Uses @jeju/kms when available.
+ * STATUS: REFERENCE - Not wired in. Uses @jejunetwork/kms when available.
  */
 
 import type { Address, Hex } from 'viem';
@@ -10,7 +10,7 @@ export interface GatewaySession { sessionId: string; userAddress: Address; creat
 export type SessionPermission = 'bridge' | 'stake' | 'provide_liquidity' | 'deploy_paymaster' | 'admin';
 export interface EncryptedSession { encryptedData: EncryptedPayload; sessionId: string; expiresAt: number }
 
-function notImplemented(): never { throw new Error('@jeju/kms not yet implemented'); }
+function notImplemented(): never { throw new Error('@jejunetwork/kms not yet implemented'); }
 
 export class SessionManager {
   private initialized = false;

@@ -15,9 +15,12 @@
  *   bun scripts/setup-testnet.ts --verify-only   # Only verify
  */
 
-import { ethers, JsonRpcProvider, Wallet, parseEther, formatEther } from 'ethers';
+import { createPublicClient, createWalletClient, http, parseEther, formatEther, getBalance, getCode, readContract, writeContract, waitForTransactionReceipt, type Address } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { parseAbi } from 'viem';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { inferChainFromRpcUrl } from './shared/chain-utils';
 
 interface TestnetConfig {
   rpcUrl: string;
@@ -53,25 +56,25 @@ const TESTNET_CONFIG: TestnetConfig = {
 };
 
 // ABIs
-const DELEGATION_REGISTRY_ABI = [
+const DELEGATION_REGISTRY_ABI = parseAbi([
   'function registerAsDelegate(uint256 agentId, string name, string profileHash, string[] expertise)',
   'function updateSecurityCouncil()',
   'function getSecurityCouncil() view returns (address[])',
   'function version() view returns (string)',
-];
+]);
 
-const CIRCUIT_BREAKER_ABI = [
+const CIRCUIT_BREAKER_ABI = parseAbi([
   'function registerContract(address target, string name, uint256 priority)',
   'function syncSecurityCouncil()',
   'function getSecurityCouncilMembers() view returns (address[])',
   'function version() view returns (string)',
-];
+]);
 
-const COUNCIL_SAFE_MODULE_ABI = [
+const COUNCIL_SAFE_MODULE_ABI = parseAbi([
   'function addSecurityCouncilMember(address member)',
   'function syncSecurityCouncilFromDelegation(address delegationRegistry)',
   'function version() view returns (string)',
-];
+]);
 
 const args = process.argv.slice(2);
 const skipDeploy = args.includes('--skip-deploy');
@@ -87,13 +90,15 @@ async function main() {
     throw new Error('TESTNET_PRIVATE_KEY or PRIVATE_KEY required');
   }
 
-  const provider = new JsonRpcProvider(TESTNET_CONFIG.rpcUrl);
-  const wallet = new Wallet(privateKey, provider);
+  const chain = inferChainFromRpcUrl(TESTNET_CONFIG.rpcUrl);
+  const publicClient = createPublicClient({ chain, transport: http(TESTNET_CONFIG.rpcUrl) });
+  const account = privateKeyToAccount(privateKey as `0x${string}`);
+  const walletClient = createWalletClient({ chain, transport: http(TESTNET_CONFIG.rpcUrl), account });
 
   console.log(`\nNetwork: Base Sepolia (Chain ID: ${TESTNET_CONFIG.chainId})`);
-  console.log(`Operator: ${wallet.address}`);
+  console.log(`Operator: ${account.address}`);
 
-  const balance = await provider.getBalance(wallet.address);
+  const balance = await getBalance(publicClient, { address: account.address });
   console.log(`Balance: ${formatEther(balance)} ETH`);
 
   if (balance < parseEther('0.01')) {
@@ -135,7 +140,7 @@ async function main() {
         process.exit(1);
       }
     } else {
-      const code = await provider.getCode(contract.address);
+      const code = await getCode(publicClient, { address: contract.address as Address });
       if (code === '0x') {
         console.error(`   ❌ ${contract.name} has no code at ${contract.address}`);
       } else {
@@ -188,11 +193,15 @@ async function main() {
 
   if (addresses.circuitBreaker && addresses.council) {
     console.log('   Registering Council with CircuitBreaker...');
-    const circuitBreaker = new ethers.Contract(addresses.circuitBreaker, CIRCUIT_BREAKER_ABI, wallet);
 
     try {
-      const tx = await circuitBreaker.registerContract(addresses.council, 'Council', 1);
-      await tx.wait();
+      const hash = await walletClient.writeContract({
+        address: addresses.circuitBreaker as Address,
+        abi: CIRCUIT_BREAKER_ABI,
+        functionName: 'registerContract',
+        args: [addresses.council as Address, 'Council', 1n],
+      });
+      await waitForTransactionReceipt(publicClient, { hash });
       console.log('   ✅ Council registered for protection');
     } catch (error) {
       const msg = (error as Error).message;
@@ -206,16 +215,19 @@ async function main() {
 
   if (addresses.delegationRegistry) {
     console.log('   Updating security council...');
-    const delegationRegistry = new ethers.Contract(
-      addresses.delegationRegistry,
-      DELEGATION_REGISTRY_ABI,
-      wallet
-    );
 
     try {
-      const tx = await delegationRegistry.updateSecurityCouncil();
-      await tx.wait();
-      const council = await delegationRegistry.getSecurityCouncil();
+      const hash = await walletClient.writeContract({
+        address: addresses.delegationRegistry as Address,
+        abi: DELEGATION_REGISTRY_ABI,
+        functionName: 'updateSecurityCouncil',
+      });
+      await waitForTransactionReceipt(publicClient, { hash });
+      const council = await readContract(publicClient, {
+        address: addresses.delegationRegistry as Address,
+        abi: DELEGATION_REGISTRY_ABI,
+        functionName: 'getSecurityCouncil',
+      });
       console.log(`   ✅ Security council updated: ${council.length} members`);
     } catch (error) {
       console.error('   ⚠️  Failed to update security council:', (error as Error).message);
@@ -226,12 +238,18 @@ async function main() {
   console.log('\n📦 Step 4: Syncing security council...');
 
   if (addresses.circuitBreaker && addresses.delegationRegistry) {
-    const circuitBreaker = new ethers.Contract(addresses.circuitBreaker, CIRCUIT_BREAKER_ABI, wallet);
-
     try {
-      const tx = await circuitBreaker.syncSecurityCouncil();
-      await tx.wait();
-      const members = await circuitBreaker.getSecurityCouncilMembers();
+      const hash = await walletClient.writeContract({
+        address: addresses.circuitBreaker as Address,
+        abi: CIRCUIT_BREAKER_ABI,
+        functionName: 'syncSecurityCouncil',
+      });
+      await waitForTransactionReceipt(publicClient, { hash });
+      const members = await readContract(publicClient, {
+        address: addresses.circuitBreaker as Address,
+        abi: CIRCUIT_BREAKER_ABI,
+        functionName: 'getSecurityCouncilMembers',
+      });
       console.log(`   ✅ CircuitBreaker synced: ${members.length} members`);
     } catch (error) {
       console.error('   ⚠️  Failed to sync CircuitBreaker:', (error as Error).message);
@@ -239,11 +257,14 @@ async function main() {
   }
 
   if (addresses.councilSafeModule && addresses.delegationRegistry) {
-    const safeModule = new ethers.Contract(addresses.councilSafeModule, COUNCIL_SAFE_MODULE_ABI, wallet);
-
     try {
-      const tx = await safeModule.syncSecurityCouncilFromDelegation(addresses.delegationRegistry);
-      await tx.wait();
+      const hash = await walletClient.writeContract({
+        address: addresses.councilSafeModule as Address,
+        abi: COUNCIL_SAFE_MODULE_ABI,
+        functionName: 'syncSecurityCouncilFromDelegation',
+        args: [addresses.delegationRegistry as Address],
+      });
+      await waitForTransactionReceipt(publicClient, { hash });
       console.log('   ✅ SafeModule synced with delegation registry');
     } catch (error) {
       console.error('   ⚠️  Failed to sync SafeModule:', (error as Error).message);
@@ -267,7 +288,7 @@ CHAIN_ID=${TESTNET_CONFIG.chainId}
 EXPLORER_URL=${TESTNET_CONFIG.explorerUrl}
 
 # Operator (DO NOT COMMIT THIS FILE WITH REAL KEYS)
-OPERATOR_ADDRESS=${wallet.address}
+OPERATOR_ADDRESS=${account.address}
 
 # Contract Addresses
 GOVERNANCE_TOKEN_ADDRESS=${addresses.governanceToken ?? ''}

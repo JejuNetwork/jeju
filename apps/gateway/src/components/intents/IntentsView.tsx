@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Clock, CheckCircle, XCircle, AlertCircle, ArrowRight, ExternalLink } from 'lucide-react';
 import { useIntents } from '../../hooks/useIntentAPI';
-import type { Intent, IntentStatus } from '@jejunetwork/types/oif';
+import type { Intent, IntentStatus } from '@jejunetwork/types';
 
 const STATUS_CONFIG: Record<IntentStatus, { color: string; icon: React.ReactNode; label: string }> = {
   open: { color: 'var(--chain-jeju)', icon: <Clock size={14} />, label: 'Open' },

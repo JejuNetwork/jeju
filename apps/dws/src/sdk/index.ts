@@ -2,35 +2,39 @@
  * DWS SDK
  */
 
-import { type Signer } from 'ethers';
+import { type Account, signMessage } from 'viem';
 import type { AuthHeaders, InferenceRequest, InferenceResponse, UploadResult } from '../types';
 
 export interface DWSSDKConfig {
   baseUrl: string;
-  signer?: Signer;
+  account?: Account;
 }
 
 export class DWSSDK {
   private baseUrl: string;
-  private signer?: Signer;
+  private account?: Account;
   private address?: string;
 
   constructor(config: DWSSDKConfig) {
     this.baseUrl = config.baseUrl.replace(/\/$/, '');
-    this.signer = config.signer;
+    this.account = config.account;
+    if (this.account) this.address = this.account.address;
   }
 
   async connect(): Promise<void> {
-    if (this.signer) this.address = await this.signer.getAddress();
+    if (this.account) this.address = this.account.address;
   }
 
   async generateAuthHeaders(): Promise<AuthHeaders> {
-    if (!this.signer) throw new Error('Signer required');
-    if (!this.address) this.address = await this.signer.getAddress();
+    if (!this.account) throw new Error('Account required');
+    if (!this.address) this.address = this.account.address;
 
     const timestamp = Date.now().toString();
     const nonce = Math.random().toString(36).slice(2);
-    const signature = await this.signer.signMessage(`DWS Auth\nTimestamp: ${timestamp}\nNonce: ${nonce}`);
+    const signature = await signMessage({
+      account: this.account,
+      message: `DWS Auth\nTimestamp: ${timestamp}\nNonce: ${nonce}`,
+    });
 
     return { 'x-jeju-address': this.address, 'x-jeju-nonce': nonce, 'x-jeju-signature': signature, 'x-jeju-timestamp': timestamp };
   }
@@ -42,7 +46,7 @@ export class DWSSDK {
     if (options?.permanent) formData.append('permanent', 'true');
 
     const headers: Record<string, string> = {};
-    if (this.signer) Object.assign(headers, await this.generateAuthHeaders());
+    if (this.account) Object.assign(headers, await this.generateAuthHeaders());
 
     const response = await fetch(`${this.baseUrl}/storage/upload`, { method: 'POST', headers, body: formData });
     if (!response.ok) throw new Error(`Upload failed: ${response.statusText}`);

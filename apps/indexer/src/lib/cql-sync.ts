@@ -7,7 +7,7 @@
  * Would sync indexer data from PostgreSQL to CovenantSQL for decentralized reads.
  */
 
-import { CovenantSQLClient, type QueryResult } from '@jeju/db';
+import { CovenantSQLClient, type QueryResult } from '@jejunetwork/db';
 import type { DataSource, EntityMetadata } from 'typeorm';
 
 // ============================================================================

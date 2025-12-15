@@ -1,4 +1,4 @@
-import { createPublicClient, http, readContract, type Address, type Chain } from 'viem';
+import { createPublicClient, http, readContract, keccak256, stringToHex, type Address, type Chain } from 'viem';
 import { parseAbi } from 'viem';
 
 export interface CrossServiceProvider {
@@ -542,16 +542,16 @@ export function createCrossServiceClient(): CrossServiceClient {
 
 export const CROSS_SERVICE_EVENTS = {
   // Container stored for compute use
-  ContainerStored: ethers.id('ContainerStored(string,address,address,uint256)'),
+  ContainerStored: keccak256(stringToHex('ContainerStored(string,address,address,uint256)')),
   
   // Container pulled by compute provider
-  ContainerPulled: ethers.id('ContainerPulled(bytes32,string,address,address)'),
+  ContainerPulled: keccak256(stringToHex('ContainerPulled(bytes32,string,address,address)')),
   
   // Cross-service request created
-  CrossServiceRequestCreated: ethers.id('CrossServiceRequestCreated(bytes32,address,string,address)'),
+  CrossServiceRequestCreated: keccak256(stringToHex('CrossServiceRequestCreated(bytes32,address,string,address)')),
   
   // Cross-service request completed
-  CrossServiceRequestCompleted: ethers.id('CrossServiceRequestCompleted(bytes32,bool)'),
+  CrossServiceRequestCompleted: keccak256(stringToHex('CrossServiceRequestCompleted(bytes32,bool)')),
 };
 
 export const CROSS_SERVICE_EVENT_SET = new Set(Object.values(CROSS_SERVICE_EVENTS));

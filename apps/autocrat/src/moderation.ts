@@ -1,6 +1,6 @@
 /** Web-of-Trust Moderation */
 
-import { keccak256, toUtf8Bytes } from 'viem';
+import { keccak256, stringToHex } from 'viem';
 import { writeFile, readFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
@@ -81,7 +81,7 @@ export class ModerationSystem {
     if (stake < STAKE[flagType]) throw new Error(`Minimum stake for ${flagType} is ${STAKE[flagType]}`);
 
     const s = this.getModeratorStats(flagger);
-    const flagId = keccak256(toUtf8Bytes(`${proposalId}-${flagger}-${flagType}-${Date.now()}`)).slice(0, 18);
+    const flagId = keccak256(stringToHex(`${proposalId}-${flagger}-${flagType}-${Date.now()}`)).slice(0, 18);
     const flag: ProposalFlag = { flagId, proposalId, flagger, flagType, reason, evidence, stake, reputation: s.reputation, upvotes: 0, downvotes: 0, createdAt: Date.now(), resolved: false };
 
     evict(flags, MAX_FLAGS);

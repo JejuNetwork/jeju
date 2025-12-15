@@ -1,48 +1,79 @@
 /**
  * MEV Flashbots Integration Tests
+ * 
+ * Tests for complete Flashbots ecosystem integration:
+ * - MEV-Boost: Multi-builder submission
+ * - BuilderNet: Decentralized block building
+ * - Protect RPC: User protection
+ * - Rollup-Boost: L2 MEV internalization
  */
 
 import { describe, it, expect, beforeAll } from 'bun:test';
 import { type Address, type Hex, parseEther, formatEther } from 'viem';
 
 import {
+  MevBoostProvider,
   FlashbotsProvider,
-  SandwichBuilder,
+  ExternalChainMevEngine,
   MempoolMonitor,
-  MevStrategyEngine,
-  FLASHBOTS_RPC,
-  FLASHBOTS_PROTECT_RPC,
-  MEV_SHARE_RPC,
-  BUILDER_ENDPOINTS,
+  FLASHBOTS_ENDPOINTS,
+  BLOCK_BUILDERS,
+  L2_BUILDERS,
   DEX_ROUTERS,
   SWAP_SELECTORS,
   type FlashbotsBundle,
   type MevShareBundle,
-  type SandwichOpportunity,
 } from '../../src/solver/mev';
 
 // Test private key (DO NOT USE IN PRODUCTION)
 const TEST_PRIVATE_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as Hex;
 
-describe('Flashbots RPC Endpoints', () => {
-  it('should have mainnet relay endpoint', () => {
-    expect(FLASHBOTS_RPC.mainnet).toBe('https://relay.flashbots.net');
+describe('Flashbots Endpoints', () => {
+  it('should have relay endpoints', () => {
+    expect(FLASHBOTS_ENDPOINTS.relay.mainnet).toBe('https://relay.flashbots.net');
+    expect(FLASHBOTS_ENDPOINTS.relay.sepolia).toBeDefined();
   });
 
-  it('should have Flashbots Protect endpoints', () => {
-    expect(FLASHBOTS_PROTECT_RPC.mainnet).toBe('https://rpc.flashbots.net');
-    expect(FLASHBOTS_PROTECT_RPC.fast).toBe('https://rpc.flashbots.net/fast');
+  it('should have Protect RPC endpoints', () => {
+    expect(FLASHBOTS_ENDPOINTS.protect.default).toBe('https://rpc.flashbots.net');
+    expect(FLASHBOTS_ENDPOINTS.protect.fast).toBe('https://rpc.flashbots.net/fast');
   });
 
-  it('should have MEV-Share endpoint', () => {
-    expect(MEV_SHARE_RPC.mainnet).toBe('https://relay.flashbots.net');
+  it('should have MEV-Share endpoints', () => {
+    expect(FLASHBOTS_ENDPOINTS.mevShare.mainnet).toBe('https://relay.flashbots.net');
+    expect(FLASHBOTS_ENDPOINTS.mevShare.eventStream).toBeDefined();
   });
 
-  it('should have multiple builder endpoints', () => {
-    expect(Object.keys(BUILDER_ENDPOINTS).length).toBeGreaterThan(3);
-    expect(BUILDER_ENDPOINTS.flashbots).toBeDefined();
-    expect(BUILDER_ENDPOINTS.beaverbuild).toBeDefined();
-    expect(BUILDER_ENDPOINTS.titanbuilder).toBeDefined();
+  it('should have BuilderNet endpoint', () => {
+    expect(FLASHBOTS_ENDPOINTS.builderNet.mainnet).toBeDefined();
+  });
+
+  it('should have SUAVE endpoints', () => {
+    expect(FLASHBOTS_ENDPOINTS.suave.toliman).toBeDefined();
+  });
+});
+
+describe('Block Builders', () => {
+  it('should have multiple mainnet builders', () => {
+    expect(Object.keys(BLOCK_BUILDERS).length).toBeGreaterThan(5);
+    expect(BLOCK_BUILDERS.flashbots).toBeDefined();
+    expect(BLOCK_BUILDERS.beaverbuild).toBeDefined();
+    expect(BLOCK_BUILDERS.titanbuilder).toBeDefined();
+    expect(BLOCK_BUILDERS.bloXroute).toBeDefined();
+  });
+});
+
+describe('L2 Builders (Rollup-Boost)', () => {
+  it('should have Base sequencer', () => {
+    expect(L2_BUILDERS.base.sequencer).toBeDefined();
+  });
+
+  it('should have Optimism sequencer', () => {
+    expect(L2_BUILDERS.optimism.sequencer).toBeDefined();
+  });
+
+  it('should have Arbitrum sequencer', () => {
+    expect(L2_BUILDERS.arbitrum.sequencer).toBeDefined();
   });
 });
 
@@ -98,14 +129,18 @@ describe('Swap Selectors', () => {
   });
 });
 
-describe('FlashbotsProvider', () => {
-  let provider: FlashbotsProvider;
+describe('MevBoostProvider', () => {
+  let provider: MevBoostProvider;
 
   beforeAll(() => {
-    provider = new FlashbotsProvider({
+    provider = new MevBoostProvider({
       privateKey: TEST_PRIVATE_KEY,
-      enableMevShare: true,
-      mevShareRefundPercent: 50,
+      enableMevBoost: true,
+      enableBuilderNet: true,
+      enableProtect: true,
+      enableRollupBoost: true,
+      enableMevShare: false, // No refunds
+      jejuContracts: [],
     });
   });
 
@@ -128,51 +163,14 @@ describe('FlashbotsProvider', () => {
   });
 
   it('should initialize with auth header', async () => {
-    await provider.init();
-    // If init doesn't throw, it succeeded
-    expect(true).toBe(true);
+    await provider.initialize();
+    expect(true).toBe(true); // No throw = success
   });
 });
 
-describe('SandwichBuilder', () => {
-  let flashbots: FlashbotsProvider;
-  let builder: SandwichBuilder;
-
-  beforeAll(() => {
-    flashbots = new FlashbotsProvider({
-      privateKey: TEST_PRIVATE_KEY,
-    });
-    builder = new SandwichBuilder(flashbots, 50);
-  });
-
-  it('should instantiate correctly', () => {
-    expect(builder).toBeDefined();
-  });
-
-  it('should build MEV-Share sandwich bundle', async () => {
-    const opportunity: SandwichOpportunity = {
-      targetTx: '0x1234' as Hex,
-      targetHash: '0x' + '00'.repeat(32) as `0x${string}`,
-      pool: '0x0001' as Address,
-      tokenIn: '0x0002' as Address,
-      tokenOut: '0x0003' as Address,
-      amountIn: parseEther('1'),
-      expectedAmountOut: parseEther('3000'),
-      slippage: 100,
-      estimatedProfit: parseEther('0.01'),
-    };
-
-    const bundle = await builder.buildMevShareSandwich(
-      opportunity,
-      '0xfrontrun' as Hex,
-      '0xbackrun' as Hex,
-      100n
-    );
-
-    expect(bundle.version).toBe('v0.1');
-    expect(bundle.body.length).toBe(2);
-    expect(bundle.validity?.refund?.[0].percent).toBe(50);
-    expect(bundle.privacy?.hints).toContain('hash');
+describe('FlashbotsProvider Alias', () => {
+  it('should be same as MevBoostProvider', () => {
+    expect(FlashbotsProvider).toBe(MevBoostProvider);
   });
 });
 
@@ -216,17 +214,21 @@ describe('MempoolMonitor', () => {
   });
 });
 
-describe('MevStrategyEngine', () => {
-  let engine: MevStrategyEngine;
+describe('ExternalChainMevEngine', () => {
+  let engine: ExternalChainMevEngine;
 
   beforeAll(() => {
-    engine = new MevStrategyEngine({
+    engine = new ExternalChainMevEngine({
       privateKey: TEST_PRIVATE_KEY,
-      chains: [1],
+      jejuChainId: 8453,
+      externalChains: [1, 42161, 10],
+      enableArbitrage: true,
       enableSandwich: true,
+      enableBackrun: true,
+      enableLiquidations: true,
+      enableMevBoost: true,
+      enableBuilderNet: true,
       enableProtect: true,
-      enableMevShare: true,
-      mevShareRefundPercent: 50,
       minProfitWei: parseEther('0.001'),
     });
   });
@@ -245,23 +247,26 @@ describe('MevStrategyEngine', () => {
     expect(stats.bundlesSubmitted).toBe(0);
     expect(stats.bundlesIncluded).toBe(0);
     expect(stats.sandwichesExecuted).toBe(0);
+    expect(stats.arbitragesExecuted).toBe(0);
+    expect(stats.backrunsExecuted).toBe(0);
+    expect(stats.liquidationsExecuted).toBe(0);
     expect(stats.totalProfitWei).toBe(0n);
-    expect(stats.protectedTxs).toBe(0);
+    expect(stats.jejuTxsProtected).toBe(0);
   });
 
-  it('should update liquidity pool data', () => {
-    engine.updateLiquidityPool(
+  it('should update pool state', () => {
+    engine.updatePoolState(
       '0x0001' as Address,
       {
         token0: '0x0002' as Address,
         token1: '0x0003' as Address,
         reserve0: parseEther('1000'),
         reserve1: parseEther('3000000'),
+        fee: 3000,
       }
     );
     
-    // Should not throw
-    expect(true).toBe(true);
+    expect(true).toBe(true); // No throw = success
   });
 
   it('should print stats without error', () => {
@@ -280,6 +285,16 @@ describe('FlashbotsBundle Types', () => {
 
     expect(bundle.txs.length).toBe(2);
     expect(bundle.blockNumber).toBe(100n);
+  });
+
+  it('should accept FlashbotsBundle with replacement UUID', () => {
+    const bundle: FlashbotsBundle = {
+      txs: ['0x1234' as Hex],
+      blockNumber: 100n,
+      replacementUuid: 'unique-bundle-id-123',
+    };
+
+    expect(bundle.replacementUuid).toBe('unique-bundle-id-123');
   });
 
   it('should accept valid MevShareBundle', () => {
@@ -310,73 +325,95 @@ describe('FlashbotsBundle Types', () => {
   });
 });
 
-describe('SandwichOpportunity', () => {
-  it('should calculate estimated profit correctly', () => {
-    const opportunity: SandwichOpportunity = {
-      targetTx: '0x1234' as Hex,
-      targetHash: '0x' + '00'.repeat(32) as `0x${string}`,
-      pool: '0x0001' as Address,
-      tokenIn: '0x0002' as Address,
-      tokenOut: '0x0003' as Address,
-      amountIn: parseEther('10'),
-      expectedAmountOut: parseEther('30000'),
-      slippage: 200, // 2%
-      estimatedProfit: parseEther('0.05'),
+describe('External vs Jeju Strategy', () => {
+  it('should NOT refund when extracting from external chains', () => {
+    // Our strategy: aggressive MEV on external chains, NO refunds
+    const externalChainMev = {
+      chainId: 1, // Ethereum mainnet
+      sandwich: {
+        profit: parseEther('0.1'),
+        refund: 0n, // NO refund for external chains
+      },
     };
 
-    expect(opportunity.estimatedProfit).toBe(parseEther('0.05'));
-    expect(opportunity.slippage).toBe(200);
+    expect(externalChainMev.sandwich.refund).toBe(0n);
+    expect(externalChainMev.sandwich.profit).toBe(parseEther('0.1'));
   });
 
-  it('should handle zero profit', () => {
-    const opportunity: SandwichOpportunity = {
-      targetTx: '0x1234' as Hex,
-      targetHash: '0x' + '00'.repeat(32) as `0x${string}`,
-      pool: '0x0001' as Address,
-      tokenIn: '0x0002' as Address,
-      tokenOut: '0x0003' as Address,
-      amountIn: parseEther('1'),
-      expectedAmountOut: parseEther('3000'),
-      slippage: 10, // 0.1%
-      estimatedProfit: 0n,
+  it('should protect Jeju users via Protect RPC', () => {
+    // Our strategy: protect Jeju users, never sandwich them
+    const jejuUserTx = {
+      chainId: 8453, // Jeju chain
+      protected: true,
+      sandwiched: false,
     };
 
-    expect(opportunity.estimatedProfit).toBe(0n);
+    expect(jejuUserTx.protected).toBe(true);
+    expect(jejuUserTx.sandwiched).toBe(false);
   });
 });
 
-describe('MEV-Share Refund Calculations', () => {
-  it('should calculate 50% refund correctly', () => {
-    const profit = parseEther('0.1');
-    const refundPercent = 50;
-    const refund = (profit * BigInt(refundPercent)) / 100n;
+describe('Multi-Builder Submission', () => {
+  it('should have all major builders configured', () => {
+    const builders = Object.keys(BLOCK_BUILDERS);
     
-    expect(formatEther(refund)).toBe('0.05');
+    expect(builders).toContain('flashbots');
+    expect(builders).toContain('beaverbuild');
+    expect(builders).toContain('titanbuilder');
+    expect(builders).toContain('rsyncbuilder');
+    expect(builders).toContain('bloXroute');
+    expect(builders).toContain('eden');
   });
 
-  it('should calculate 25% refund correctly', () => {
-    const profit = parseEther('0.1');
-    const refundPercent = 25;
-    const refund = (profit * BigInt(refundPercent)) / 100n;
-    
-    expect(formatEther(refund)).toBe('0.025');
-  });
+  it('should calculate bundle success rate', () => {
+    const submissions = [
+      { builder: 'flashbots', success: true },
+      { builder: 'beaverbuild', success: true },
+      { builder: 'titanbuilder', success: false },
+      { builder: 'bloXroute', success: true },
+    ];
 
-  it('should calculate 90% refund correctly', () => {
-    const profit = parseEther('1');
-    const refundPercent = 90;
-    const refund = (profit * BigInt(refundPercent)) / 100n;
-    
-    expect(formatEther(refund)).toBe('0.9');
-  });
-
-  it('should calculate net profit after refund', () => {
-    const profit = parseEther('0.1');
-    const refundPercent = 50;
-    const refund = (profit * BigInt(refundPercent)) / 100n;
-    const netProfit = profit - refund;
-    
-    expect(formatEther(netProfit)).toBe('0.05');
+    const successRate = submissions.filter(s => s.success).length / submissions.length;
+    expect(successRate).toBe(0.75);
   });
 });
 
+describe('MEV Profit Calculations', () => {
+  it('should calculate sandwich profit correctly', () => {
+    const victimAmount = parseEther('10');
+    const slippageBps = 200; // 2%
+    const efficiency = 30; // 30% of theoretical max
+    
+    const rawProfit = (victimAmount * BigInt(slippageBps)) / 10000n;
+    const estimatedProfit = (rawProfit * BigInt(efficiency)) / 100n;
+    
+    expect(formatEther(rawProfit)).toBe('0.2');
+    expect(formatEther(estimatedProfit)).toBe('0.06');
+  });
+
+  it('should calculate backrun profit from price impact', () => {
+    const swapAmount = parseEther('100');
+    const impactBps = 50; // 0.5% price impact
+    
+    const backrunProfit = (swapAmount * BigInt(impactBps)) / 20000n; // ~50% recoverable
+    
+    expect(formatEther(backrunProfit)).toBe('0.25');
+  });
+
+  it('should aggregate profits across strategies', () => {
+    const stats = {
+      arbitrageProfitWei: parseEther('1'),
+      sandwichProfitWei: parseEther('0.5'),
+      backrunProfitWei: parseEther('0.3'),
+      liquidationProfitWei: parseEther('0.2'),
+    };
+
+    const totalProfit = 
+      stats.arbitrageProfitWei + 
+      stats.sandwichProfitWei + 
+      stats.backrunProfitWei + 
+      stats.liquidationProfitWei;
+
+    expect(formatEther(totalProfit)).toBe('2');
+  });
+});

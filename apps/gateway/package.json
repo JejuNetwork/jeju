@@ -63,10 +63,9 @@
     "test:report": "playwright show-report"
   },
   "dependencies": {
-    "@jeju/dapp-services": "workspace:*",
-    "@jeju/kms": "workspace:*",
-    "@jeju/oauth3": "workspace:*",
-    "@jeju/shared": "workspace:*",
+    "@jejunetwork/kms": "workspace:*",
+    "@jejunetwork/oauth3": "workspace:*",
+    "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/contracts": "workspace:*",
     "@jejunetwork/types": "workspace:*",

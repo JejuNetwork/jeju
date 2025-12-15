@@ -45,7 +45,7 @@
     "verify": "bun run test:data"
   },
   "dependencies": {
-    "@jeju/db": "workspace:*",
+    "@jejunetwork/db": "workspace:*",
     "@subsquid/evm-abi": "0.3.0",
     "@subsquid/evm-codec": "0.3.0",
     "@subsquid/evm-processor": "1.19.1",

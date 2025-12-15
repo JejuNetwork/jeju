@@ -10,7 +10,7 @@
  * but becomes transparent after execution or timeout.
  */
 
-import { keccak256, toUtf8Bytes } from 'viem';
+import { keccak256, stringToHex } from 'viem';
 
 // Types for encrypted data
 interface AccessControlCondition {
@@ -184,10 +184,10 @@ export async function encryptDecision(decision: DecisionData): Promise<Encrypted
   const dataToEncrypt = JSON.stringify(decision);
   const encryptedAt = Math.floor(Date.now() / 1000);
   const accessControlConditions = createAccessConditions(decision.proposalId, encryptedAt);
-  const policyHash = keccak256(toUtf8Bytes(JSON.stringify(accessControlConditions)));
+  const policyHash = keccak256(stringToHex(JSON.stringify(accessControlConditions)));
 
   const { ciphertext, iv, tag } = await encrypt(dataToEncrypt, policyHash);
-  const dataToEncryptHash = keccak256(toUtf8Bytes(dataToEncrypt));
+  const dataToEncryptHash = keccak256(stringToHex(dataToEncrypt));
 
   return {
     ciphertext: JSON.stringify({ ciphertext, iv, tag, version: 1 }),
@@ -207,7 +207,7 @@ export async function decryptDecision(
 ): Promise<DecryptionResult> {
   await initEncryption();
   
-  const policyHash = keccak256(toUtf8Bytes(JSON.stringify(encryptedData.accessControlConditions)));
+  const policyHash = keccak256(stringToHex(JSON.stringify(encryptedData.accessControlConditions)));
   const { ciphertext, iv, tag } = JSON.parse(encryptedData.ciphertext) as {
     ciphertext: string;
     iv: string;

@@ -27,10 +27,11 @@
   },
   "dependencies": {
     "@babylon/shared": "workspace:vendor/babylon/packages/shared",
-    "@jeju/oauth3": "workspace:*",
-    "@jeju/shared": "workspace:*",
+    "@jejunetwork/oauth3": "workspace:*",
+    "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/contracts": "workspace:*",
+    "@jejunetwork/dws": "workspace:*",
     "next": "^14.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

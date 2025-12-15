@@ -12,7 +12,7 @@ export { UniswapXAdapter, type UniswapXOrder } from './uniswapx';
 export { CowProtocolSolver, COW_SETTLEMENT, COW_VAULT_RELAYER, type CowAuction, type CowOrder, type CowQuote, type CowOrderParams, type CowSolution } from './cow';
 export { CowSolverValidator, printSolverReport, printComparisonReport, type SolverMetrics, type CompetitionResult } from './cow-validator';
 export { CowSolverOptimizer, printOptimizationReport, type LiquidityPool, type PriceFeed, type OptimizedSolution } from './cow-optimizer';
-export { ExternalProtocolAggregator } from './aggregator';
+export { ExternalProtocolAggregator, type ExternalOpportunity, type ExternalOpportunityType, type AggregatorConfig } from './aggregator';
 
 // Price Oracle (Chainlink integration)
 export { 

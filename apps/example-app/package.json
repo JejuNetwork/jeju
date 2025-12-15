@@ -16,9 +16,9 @@
     "seed": "bun run scripts/seed.ts"
   },
   "dependencies": {
-    "@jeju/db": "workspace:*",
-    "@jeju/kms": "workspace:*",
-    "@jeju/oauth3": "workspace:*",
+    "@jejunetwork/db": "workspace:*",
+    "@jejunetwork/kms": "workspace:*",
+    "@jejunetwork/oauth3": "workspace:*",
     "@jejunetwork/sdk": "workspace:*",
     "@jejunetwork/config": "workspace:*",
     "hono": "^4.7.0",

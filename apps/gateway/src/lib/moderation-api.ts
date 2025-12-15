@@ -8,7 +8,7 @@ import {
   type AgentLabels,
   type ModerationStats,
   type TransactionRequest,
-} from '@jeju/shared';
+} from '@jejunetwork/shared';
 import { baseSepolia } from 'viem/chains';
 import { getRpcUrl } from '../config/networks.js';
 import { 

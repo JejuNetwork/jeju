@@ -9,7 +9,7 @@
  * Falls back to in-memory storage in localnet when CQL is unavailable.
  */
 
-import { getCQL, type CQLClient } from '@jeju/db';
+import { getCQL, type CQLClient } from '@jejunetwork/db';
 import type { Address } from 'viem';
 import type { Todo, CreateTodoInput, UpdateTodoInput } from '../types';
 

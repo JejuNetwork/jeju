@@ -16,7 +16,10 @@
  *   XLP_KEY - XLP private key for initial liquidity
  */
 
-import { ethers } from 'ethers';
+import { createPublicClient, createWalletClient, http, parseEther, formatEther, getBalance, readContract, writeContract, waitForTransactionReceipt, zeroAddress, sendTransaction, type Address } from 'viem';
+import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
+import { parseAbi } from 'viem';
+import { inferChainFromRpcUrl } from './scripts/shared/chain-utils';
 import { writeFileSync } from 'fs';
 
 // ============ Configuration ============
@@ -92,9 +95,9 @@ function error(msg: string) {
   console.error(`\x1b[31m✗ ${msg}\x1b[0m`);
 }
 
-async function getBalance(provider: ethers.Provider, address: string): Promise<string> {
-  const balance = await provider.getBalance(address);
-  return ethers.formatEther(balance);
+async function getBalanceFormatted(publicClient: ReturnType<typeof createPublicClient>, address: Address): Promise<string> {
+  const balance = await getBalance(publicClient, { address });
+  return formatEther(balance);
 }
 
 // ============ Deployment Functions ============
@@ -108,15 +111,17 @@ interface DeploymentResult {
 
 async function deployToChain(
   chain: ChainConfig,
-  deployerWallet: ethers.Wallet,
+  deployerPrivateKey: `0x${string}`,
   _existingContracts: Record<number, Record<string, string>>
 ): Promise<DeploymentResult> {
   log(`\n========== Deploying to ${chain.name} (${chain.chainId}) ==========`);
   
-  const provider = new ethers.JsonRpcProvider(chain.rpc);
-  const deployer = deployerWallet.connect(provider);
+  const chainObj = inferChainFromRpcUrl(chain.rpc);
+  const publicClient = createPublicClient({ chain: chainObj, transport: http(chain.rpc) });
+  const account = privateKeyToAccount(deployerPrivateKey);
+  const walletClient = createWalletClient({ account, chain: chainObj, transport: http(chain.rpc) });
   
-  const balance = await getBalance(provider, deployer.address);
+  const balance = await getBalanceFormatted(publicClient, account.address);
   log(`Deployer balance: ${balance} ETH`);
   
   if (parseFloat(balance) < 0.01) {
@@ -133,18 +138,18 @@ async function deployToChain(
     // For now, deploy non-upgradeable version
     // In production, use Create2Factory + proxy
     // Placeholder - actual deployment would use forge
-    contracts.l1StakeManager = ethers.ZeroAddress; // Will be filled by forge
+    contracts.l1StakeManager = zeroAddress; // Will be filled by forge
     
     success(`L1StakeManager: ${contracts.l1StakeManager}`);
   } else {
     // Deploy L2 contracts
     log('Deploying CrossChainPaymaster...');
-    contracts.crossChainPaymaster = ethers.ZeroAddress; // Will be filled by forge
+    contracts.crossChainPaymaster = zeroAddress; // Will be filled by forge
     
     log('Deploying OIF contracts...');
-    contracts.solverRegistry = ethers.ZeroAddress;
-    contracts.inputSettler = ethers.ZeroAddress;
-    contracts.outputSettler = ethers.ZeroAddress;
+    contracts.solverRegistry = zeroAddress;
+    contracts.inputSettler = zeroAddress;
+    contracts.outputSettler = zeroAddress;
     
     success(`CrossChainPaymaster: ${contracts.crossChainPaymaster}`);
     success(`SolverRegistry: ${contracts.solverRegistry}`);
@@ -160,27 +165,29 @@ async function deployToChain(
 
 async function fundXLP(
   chains: ChainConfig[],
-  xlpWallet: ethers.Wallet,
-  deployerWallet: ethers.Wallet
+  xlpAddress: Address,
+  deployerPrivateKey: `0x${string}`
 ) {
   log('\n========== Funding XLP on all chains ==========');
   
-  const fundAmount = ethers.parseEther('0.5'); // 0.5 ETH per chain
+  const fundAmount = parseEther('0.5'); // 0.5 ETH per chain
   
   for (const chain of chains) {
-    const provider = new ethers.JsonRpcProvider(chain.rpc);
-    const deployer = deployerWallet.connect(provider);
-    
-    const xlpBalance = await getBalance(provider, xlpWallet.address);
+    const chainObj = inferChainFromRpcUrl(chain.rpc);
+    const publicClient = createPublicClient({ chain: chainObj, transport: http(chain.rpc) });
+    const deployerAccount = privateKeyToAccount(deployerPrivateKey);
+    const walletClient = createWalletClient({ account: deployerAccount, chain: chainObj, transport: http(chain.rpc) });
+    const xlpBalance = await getBalanceFormatted(publicClient, xlpAddress);
     log(`${chain.name}: XLP balance = ${xlpBalance} ETH`);
     
     if (parseFloat(xlpBalance) < 0.1) {
       log(`Funding XLP on ${chain.name}...`);
-      const tx = await deployer.sendTransaction({
-        to: xlpWallet.address,
-        value: fundAmount
+      const hash = await sendTransaction(walletClient, {
+        to: xlpAddress,
+        value: fundAmount,
+        account: deployerAccount,
       });
-      await tx.wait();
+      await waitForTransactionReceipt(publicClient, { hash });
       success(`Funded XLP with 0.5 ETH on ${chain.name}`);
     } else {
       success(`XLP already funded on ${chain.name}`);
@@ -189,8 +196,8 @@ async function fundXLP(
 }
 
 async function registerXLP(
-  _deployerWallet: ethers.Wallet,
-  xlpWallet: ethers.Wallet,
+  _deployerPrivateKey: `0x${string}`,
+  xlpPrivateKey: `0x${string}`,
   deployments: Record<number, DeploymentResult>
 ) {
   log('\n========== Registering XLP ==========');
@@ -199,29 +206,38 @@ async function registerXLP(
   const sepoliaChain = TESTNET_CHAINS.find(c => c.chainId === 11155111);
   if (!sepoliaChain) throw new Error('Sepolia not found');
   
-  const provider = new ethers.JsonRpcProvider(sepoliaChain.rpc);
-  const xlp = xlpWallet.connect(provider);
+  const chainObj = inferChainFromRpcUrl(sepoliaChain.rpc);
+  const publicClient = createPublicClient({ chain: chainObj, transport: http(sepoliaChain.rpc) });
+  const xlpAccount = privateKeyToAccount(xlpPrivateKey);
+  const walletClient = createWalletClient({ account: xlpAccount, chain: chainObj, transport: http(sepoliaChain.rpc) });
   
   const l1StakeManager = deployments[11155111]?.contracts.l1StakeManager;
-  if (!l1StakeManager || l1StakeManager === ethers.ZeroAddress) {
+  if (!l1StakeManager || l1StakeManager === zeroAddress) {
     error('L1StakeManager not deployed yet');
     return;
   }
   
-  const stakeManager = new ethers.Contract(l1StakeManager, L1_STAKE_MANAGER_ABI, xlp);
+  const L1_STAKE_MANAGER_ABI_PARSED = parseAbi(L1_STAKE_MANAGER_ABI);
   
   // Get L2 chain IDs
   const l2ChainIds = TESTNET_CHAINS
     .filter(c => c.type === 'l2')
-    .map(c => c.chainId);
+    .map(c => BigInt(c.chainId));
   
   log(`Registering XLP for chains: ${l2ChainIds.join(', ')}`);
   
-  const stakeAmount = ethers.parseEther('1'); // 1 ETH stake
+  const stakeAmount = parseEther('1'); // 1 ETH stake
   
   try {
-    const tx = await stakeManager.register(l2ChainIds, { value: stakeAmount });
-    await tx.wait();
+    const hash = await walletClient.writeContract({
+      address: l1StakeManager as Address,
+      abi: L1_STAKE_MANAGER_ABI_PARSED,
+      functionName: 'register',
+      args: [l2ChainIds],
+      value: stakeAmount,
+      account: xlpAccount,
+    });
+    await waitForTransactionReceipt(publicClient, { hash });
     success(`XLP registered with 1 ETH stake`);
   } catch (e: unknown) {
     const err = e as Error;
@@ -234,7 +250,7 @@ async function registerXLP(
 }
 
 async function depositXLPLiquidity(
-  xlpWallet: ethers.Wallet,
+  xlpPrivateKey: `0x${string}`,
   deployments: Record<number, DeploymentResult>
 ) {
   log('\n========== Depositing XLP Liquidity ==========');
@@ -246,22 +262,26 @@ async function depositXLPLiquidity(
       continue;
     }
     
-    const provider = new ethers.JsonRpcProvider(chain.rpc);
-    const xlp = xlpWallet.connect(provider);
+    const chainObj = inferChainFromRpcUrl(chain.rpc);
+    const publicClient = createPublicClient({ chain: chainObj, transport: http(chain.rpc) });
+    const xlpAccount = privateKeyToAccount(xlpPrivateKey);
+    const walletClient = createWalletClient({ account: xlpAccount, chain: chainObj, transport: http(chain.rpc) });
     
-    const paymaster = new ethers.Contract(
-      deployment.contracts.crossChainPaymaster,
-      CROSS_CHAIN_PAYMASTER_ABI,
-      xlp
-    );
+    const CROSS_CHAIN_PAYMASTER_ABI_PARSED = parseAbi(CROSS_CHAIN_PAYMASTER_ABI);
     
-    const depositAmount = ethers.parseEther('0.1');
+    const depositAmount = parseEther('0.1');
     
     log(`Depositing 0.1 ETH liquidity on ${chain.name}...`);
     
     try {
-      const tx = await paymaster.depositETH({ value: depositAmount });
-      await tx.wait();
+      const hash = await walletClient.writeContract({
+        address: deployment.contracts.crossChainPaymaster as Address,
+        abi: CROSS_CHAIN_PAYMASTER_ABI_PARSED,
+        functionName: 'depositETH',
+        value: depositAmount,
+        account: xlpAccount,
+      });
+      await waitForTransactionReceipt(publicClient, { hash });
       success(`Deposited 0.1 ETH on ${chain.name}`);
     } catch (e: unknown) {
       error(`Failed to deposit on ${chain.name}: ${(e as Error).message}`);
@@ -285,18 +305,19 @@ async function main() {
     process.exit(1);
   }
   
-  const deployerWallet = new ethers.Wallet(deployerKey) as ethers.Wallet;
-  const xlpWallet = (xlpKey ? new ethers.Wallet(xlpKey) : ethers.Wallet.createRandom()) as ethers.Wallet;
+  const deployerAccount = privateKeyToAccount(deployerKey as `0x${string}`);
+  const xlpAccount = xlpKey ? privateKeyToAccount(xlpKey as `0x${string}`) : privateKeyToAccount(generatePrivateKey());
   
-  log(`Deployer: ${deployerWallet.address}`);
-  log(`XLP: ${xlpWallet.address}`);
+  log(`Deployer: ${deployerAccount.address}`);
+  log(`XLP: ${xlpAccount.address}`);
   
   // Check balances on all chains
   log('\n========== Checking Balances ==========');
   for (const chain of TESTNET_CHAINS) {
     try {
-      const provider = new ethers.JsonRpcProvider(chain.rpc);
-      const balance = await getBalance(provider, deployerWallet.address);
+      const chainObj = inferChainFromRpcUrl(chain.rpc);
+      const publicClient = createPublicClient({ chain: chainObj, transport: http(chain.rpc) });
+      const balance = await getBalanceFormatted(publicClient, deployerAccount.address);
       log(`${chain.name}: ${balance} ETH`);
     } catch (e) {
       error(`${chain.name}: Unable to connect`);
@@ -313,7 +334,7 @@ async function main() {
       const existingContracts = Object.fromEntries(
         Object.entries(deployments).map(([chainId, result]) => [chainId, result.contracts])
       ) as Record<number, Record<string, string>>;
-      deployments[l1Chain.chainId] = await deployToChain(l1Chain, deployerWallet, existingContracts);
+      deployments[l1Chain.chainId] = await deployToChain(l1Chain, deployerKey as `0x${string}`, existingContracts);
     } catch (e) {
       error(`L1 deployment failed: ${(e as Error).message}`);
     }
@@ -325,7 +346,7 @@ async function main() {
       const existingContracts = Object.fromEntries(
         Object.entries(deployments).map(([chainId, result]) => [chainId, result.contracts])
       ) as Record<number, Record<string, string>>;
-      deployments[chain.chainId] = await deployToChain(chain, deployerWallet, existingContracts);
+      deployments[chain.chainId] = await deployToChain(chain, deployerKey as `0x${string}`, existingContracts);
     } catch (e) {
       error(`${chain.name} deployment failed: ${(e as Error).message}`);
     }
@@ -333,21 +354,21 @@ async function main() {
   
   // Fund XLP
   try {
-    await fundXLP(TESTNET_CHAINS, xlpWallet, deployerWallet);
+    await fundXLP(TESTNET_CHAINS, xlpAccount.address, deployerKey as `0x${string}`);
   } catch (e) {
     error(`XLP funding failed: ${(e as Error).message}`);
   }
   
   // Register XLP
   try {
-    await registerXLP(deployerWallet, xlpWallet, deployments);
+    await registerXLP(deployerKey as `0x${string}`, (xlpKey || generatePrivateKey()) as `0x${string}`, deployments);
   } catch (e) {
     error(`XLP registration failed: ${(e as Error).message}`);
   }
   
   // Deposit liquidity
   try {
-    await depositXLPLiquidity(xlpWallet, deployments);
+    await depositXLPLiquidity((xlpKey || generatePrivateKey()) as `0x${string}`, deployments);
   } catch (e) {
     error(`Liquidity deposit failed: ${(e as Error).message}`);
   }

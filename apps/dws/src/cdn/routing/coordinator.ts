@@ -11,9 +11,11 @@
 import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
-import { Wallet, JsonRpcProvider, Contract } from 'ethers';
+import { createPublicClient, createWalletClient, http, readContract, writeContract, waitForTransactionReceipt, type Address, type Chain } from 'viem';
+import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
+import { parseAbi } from 'viem';
 import { GeoRouter, getGeoRouter } from './geo-router';
-import type { Address } from 'viem';
+import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 import type {
   CoordinatorConfig,
   ConnectedEdgeNode,
@@ -29,15 +31,15 @@ import type { CDNRegion } from '@jejunetwork/types';
 // ABI
 // ============================================================================
 
-const CDN_REGISTRY_ABI = [
+const CDN_REGISTRY_ABI = parseAbi([
   'function getEdgeNode(bytes32 nodeId) view returns (tuple(bytes32 nodeId, address operator, string endpoint, uint8 region, uint8 providerType, uint8 status, uint256 stake, uint256 registeredAt, uint256 lastSeen, uint256 agentId))',
   'function getActiveNodesInRegion(uint8 region) view returns (bytes32[])',
   'function completeInvalidation(bytes32 requestId, uint256 nodesProcessed) external',
-];
+]);
 
-const CDN_BILLING_ABI = [
+const CDN_BILLING_ABI = parseAbi([
   'function recordUsage(address user, address provider, uint256 bytesEgress, uint256 requests, uint256 storageBytes, tuple(uint256 pricePerGBEgress, uint256 pricePerMillionRequests, uint256 pricePerGBStorage) rates) external',
-];
+]);
 
 // ============================================================================
 // Coordinator Server
@@ -47,9 +49,11 @@ export class CDNCoordinator {
   private app: Hono;
   private config: CoordinatorConfig;
   private router: GeoRouter;
-  private wallet: Wallet;
-  private registry: Contract;
-  private billing: Contract;
+  private account: PrivateKeyAccount;
+  private publicClient: ReturnType<typeof createPublicClient>;
+  private walletClient: ReturnType<typeof createWalletClient>;
+  private registryAddress: Address;
+  private billingAddress: Address;
 
   // Connected nodes via WebSocket
   private connectedNodes: Map<string, { ws: WebSocket; node: ConnectedEdgeNode }> = new Map();
@@ -69,10 +73,14 @@ export class CDNCoordinator {
     this.app = new Hono();
     this.router = getGeoRouter();
 
-    const provider = new JsonRpcProvider(config.rpcUrl);
-    this.wallet = new Wallet(process.env.PRIVATE_KEY ?? '', provider);
-    this.registry = new Contract(config.registryAddress, CDN_REGISTRY_ABI, this.wallet);
-    this.billing = new Contract(config.billingAddress, CDN_BILLING_ABI, this.wallet);
+    const privateKey = process.env.PRIVATE_KEY;
+    if (!privateKey) throw new Error('PRIVATE_KEY required');
+    this.account = privateKeyToAccount(privateKey as `0x${string}`);
+    const chain = inferChainFromRpcUrl(config.rpcUrl);
+    this.publicClient = createPublicClient({ chain, transport: http(config.rpcUrl) });
+    this.walletClient = createWalletClient({ account: this.account, chain, transport: http(config.rpcUrl) });
+    this.registryAddress = config.registryAddress;
+    this.billingAddress = config.billingAddress;
 
     this.setupRoutes();
     this.startHealthChecker();
@@ -197,7 +205,12 @@ export class CDNCoordinator {
       : `0x${body.nodeId.padStart(64, '0')}`;
 
     try {
-      const onChainNode = await this.registry.getEdgeNode(nodeIdBytes);
+      const onChainNode = await readContract(this.publicClient, {
+        address: this.registryAddress,
+        abi: CDN_REGISTRY_ABI,
+        functionName: 'getEdgeNode',
+        args: [nodeIdBytes as `0x${string}`],
+      }) as { operator: Address };
       if (!onChainNode || onChainNode.operator === '0x0000000000000000000000000000000000000000') {
         return c.json({ error: 'Node not registered on-chain' }, 400);
       }
@@ -360,7 +373,13 @@ export class CDNCoordinator {
         ? request.requestId
         : `0x${request.requestId.padStart(64, '0')}`;
       
-      await this.registry.completeInvalidation(requestIdBytes, progress.nodesProcessed);
+      await this.walletClient.writeContract({
+        address: this.registryAddress,
+        abi: CDN_REGISTRY_ABI,
+        functionName: 'completeInvalidation',
+        args: [requestIdBytes as `0x${string}`, BigInt(progress.nodesProcessed)],
+        account: this.account,
+      });
     } catch {
       // Chain reporting failed, but invalidation still succeeded
     }

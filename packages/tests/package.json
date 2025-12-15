@@ -58,8 +58,8 @@
     "wallet"
   ],
   "dependencies": {
-    "@jeju/kms": "workspace:*",
-    "@jeju/shared": "workspace:*",
+    "@jejunetwork/kms": "workspace:*",
+    "@jejunetwork/shared": "workspace:*",
     "@tenkeylabs/dappwright": "^2.11.3",
     "hono": "^4.0.0",
     "pg": "^8.13.3",

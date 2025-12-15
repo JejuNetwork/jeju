@@ -1,4 +1,4 @@
-# @jeju/zksolbridge
+# @jejunetwork/zksolbridge
 
 Trustless Solana↔EVM bridge using ZK Light Client verification. No validators, no multisigs, just cryptographic proofs.
 
@@ -9,7 +9,7 @@ Trustless Solana↔EVM bridge using ZK Light Client verification. No validators,
 | **Hyperlane** | ✅ Fast, cheap, battle-tested | ⚠️ Limited support |
 | **ZK Light Client** | Overkill (use Hyperlane) | ✅ Only trustless option |
 
-**This package is specifically for Solana connections.** For EVM-to-EVM bridging, use Hyperlane via `@jeju/token`.
+**This package is specifically for Solana connections.** For EVM-to-EVM bridging, use Hyperlane via `@jejunetwork/token`.
 
 ## Architecture
 
@@ -18,11 +18,11 @@ Trustless Solana↔EVM bridge using ZK Light Client verification. No validators,
 │                    JEJU CROSS-CHAIN INFRASTRUCTURE                       │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
-│  EVM ←────────────────→ EVM         Use @jeju/token (Hyperlane)         │
+│  EVM ←────────────────→ EVM         Use @jejunetwork/token (Hyperlane)         │
 │        Fast (3-5 min)                                                    │
 │        Validator security                                                │
 │                                                                          │
-│  EVM ←────────────────→ Solana      Use @jeju/zksolbridge (this pkg)    │
+│  EVM ←────────────────→ Solana      Use @jejunetwork/zksolbridge (this pkg)    │
 │        Trustless (10-15 min)                                             │
 │        ZK proof security                                                 │
 │                                                                          │
@@ -168,5 +168,5 @@ packages/bridge/
 
 ## Related Packages
 
-- `@jeju/token` - EVM↔EVM bridging via Hyperlane warp routes
+- `@jejunetwork/token` - EVM↔EVM bridging via Hyperlane warp routes
 - `packages/contracts/src/oif/` - Cross-chain OIF with Hyperlane oracle option

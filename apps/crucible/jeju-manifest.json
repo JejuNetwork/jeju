@@ -10,11 +10,11 @@
   },
   "dependencies": {
     "contracts": ["AgentVault", "RoomRegistry", "TriggerRegistry", "ServiceRegistry", "IdentityRegistry"],
-    "services": ["compute", "storage", "indexer"]
+    "services": ["dws", "indexer"]
   },
   "environment": {
     "required": ["PRIVATE_KEY", "RPC_URL"],
-    "optional": ["IPFS_GATEWAY", "COMPUTE_MARKETPLACE_URL", "STORAGE_API_URL"]
+    "optional": ["DWS_URL", "IPFS_GATEWAY"]
   },
   "healthCheck": {
     "endpoint": "/health",

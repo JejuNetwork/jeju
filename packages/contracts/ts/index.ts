@@ -151,6 +151,8 @@ export {
   getTokenLaunchpad,
   // Raw deployments
   rawDeployments,
+  // Types
+  type GameSystemDeployment,
 } from './deployments';
 
 // ============================================================================
@@ -191,4 +193,76 @@ export {
   LiquidityPaymasterAbi as LiquidityPaymasterMinimalAbi,
   EntryPointAbi as EntryPointMinimalAbi,
 } from './aa';
+
+// ============================================================================
+// CAIP (Chain Agnostic Improvement Proposals)
+// ============================================================================
+
+export {
+  // Chain identification (CAIP-2)
+  parseChainId,
+  formatChainId,
+  getChainInfo,
+  evmChainIdToCAIP2,
+  caip2ToEvmChainId,
+  isEvmChain,
+  isSolanaChain,
+  getSolanaCluster,
+  solanaClusterToCAIP2,
+  getAllChains,
+  getMainnetChains,
+  getTestnetChains,
+  CHAINS,
+  SOLANA_MAINNET_GENESIS,
+  SOLANA_DEVNET_GENESIS,
+  SOLANA_TESTNET_GENESIS,
+  type ChainNamespace,
+  type ChainId as CAIPChainId,
+  type ChainInfo,
+  // Account identification (CAIP-10)
+  parseAccountId,
+  formatAccountId,
+  createUniversalAddress,
+  isValidAccountId,
+  isValidSolanaAddress,
+  isValidEvmAddress,
+  evmAddressToCAIP10,
+  solanaAddressToCAIP10,
+  caip10ToEvmAddress,
+  caip10ToSolanaPublicKey,
+  createMultiChainAddress,
+  bytes32ToAddress,
+  areAddressesEqual,
+  shortenAddress,
+  type AccountId,
+  type UniversalAddress,
+  type MultiChainAddress,
+  // Asset identification (CAIP-19)
+  parseAssetType,
+  formatAssetType,
+  getAssetInfo,
+  isValidAssetType,
+  nativeCurrencyToCAIP19,
+  erc20ToCAIP19,
+  splTokenToCAIP19,
+  erc721ToCAIP19,
+  caip19ToErc20Address,
+  caip19ToSplMint,
+  findEquivalentAsset,
+  getAssetChainMap,
+  SLIP44,
+  KNOWN_ASSETS,
+  CROSS_CHAIN_ASSETS,
+  type AssetNamespace,
+  type AssetType,
+  type AssetInfo,
+  type CrossChainAsset,
+  // Unified utilities
+  parseUniversalId,
+  isValidCAIP,
+  getCAIPType,
+  caip,
+  CAIPBuilder,
+  type UniversalId,
+} from './caip';
 

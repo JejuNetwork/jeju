@@ -47,7 +47,7 @@ import {
   createJejuSynpressConfig,
   createJejuWalletSetup,
   PASSWORD,
-} from '@jejunetwork/tests/synpress.config.base';
+} from '@jejunetwork/tests';
 
 const PORT = parseInt(process.env.MY_APP_PORT || '4000');
 
@@ -71,7 +71,7 @@ import {
   verifyTransactionMined,
   verifyBalanceChanged,
   getEthBalance,
-} from '@jejunetwork/tests/helpers/on-chain';
+} from '@jejunetwork/tests';
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
@@ -119,7 +119,7 @@ test('should execute swap and verify on-chain', async ({
 ### 3. Use Test Locking (for CI)
 
 ```typescript
-import { withTestLock } from '@jejunetwork/tests/lock-manager';
+import { withTestLock } from '@jejunetwork/tests';
 
 async function runTests() {
   await withTestLock(async () => {

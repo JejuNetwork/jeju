@@ -1,5 +1,5 @@
 /**
- * @jeju/db - Database Integration for Jeju Network (Powered by CovenantSQL)
+ * @jejunetwork/db - Database Integration for Jeju Network (Powered by CovenantSQL)
  *
  * Decentralized SQL database with:
  * - BFT-Raft consensus for strong consistency
@@ -9,7 +9,7 @@
  *
  * @example
  * ```typescript
- * import { getDB, createRental } from '@jeju/db';
+ * import { getDB, createRental } from '@jejunetwork/db';
  *
  * // Create a database rental
  * const cql = getCQL();

@@ -16,10 +16,10 @@ import { type PublicClient, type WalletClient, type Address, formatUnits } from 
 import { EventEmitter } from 'events';
 
 import { PriceOracle, type TokenPrice } from './price-oracle';
-import { DexAggregator, type DexQuote, INTERMEDIATE_TOKENS } from './dex-aggregator';
-import { JITLiquidityProvider, type JITOpportunity } from './jit-liquidity';
-import { CowSolverOptimizer, type OptimizedSolution, type LiquidityPool } from './cow-optimizer';
-import { CowProtocolSolver, type CowAuction, type CowOrder } from './cow';
+import { DexAggregator } from './dex-aggregator';
+import { JITLiquidityProvider } from './jit-liquidity';
+import { CowSolverOptimizer, type LiquidityPool } from './cow-optimizer';
+import { CowProtocolSolver, type CowAuction } from './cow';
 import { AcrossAdapter, type AcrossDeposit } from './across';
 import { UniswapXAdapter, type UniswapXOrder } from './uniswapx';
 
@@ -72,7 +72,6 @@ export interface SolverStats {
 
 export class EnhancedSolver extends EventEmitter {
   private config: SolverConfig;
-  private clients: Map<number, { public: PublicClient; wallet?: WalletClient }> = new Map();
   
   // Components
   private priceOracle: PriceOracle | null = null;
@@ -107,7 +106,7 @@ export class EnhancedSolver extends EventEmitter {
   }
 
   async initialize(clients: Map<number, { public: PublicClient; wallet?: WalletClient }>): Promise<void> {
-    this.clients = clients;
+    // clients passed to sub-components during initialization
     console.log('🚀 Initializing Enhanced Solver...');
 
     // Initialize price oracle (first client)
@@ -241,7 +240,10 @@ export class EnhancedSolver extends EventEmitter {
     const solution = this.cowOptimizer.buildOptimizedSolution(auction);
     if (!solution) return;
 
-    const stats = this.cowOptimizer.getStats(solution);
+    // Log solution stats
+    const solutionStats = this.cowOptimizer.getStats(solution);
+    const totalRoutes = solutionStats.directRoutes + solutionStats.multiHopRoutes + solutionStats.cowMatches;
+    console.log(`   CoW solution: ${totalRoutes}/${auction.orders.length} orders, avg surplus: ${solutionStats.avgSurplusBps} bps`);
     
     // Register opportunities from the solution
     for (const order of auction.orders) {
@@ -453,17 +455,20 @@ export class EnhancedSolver extends EventEmitter {
       depositId,
       originChainId,
       destinationChainId: opportunity.chainId,
-      depositor: '0x' as Address,
-      recipient: '0x' as Address,
+      depositor: '0x0000000000000000000000000000000000000000' as Address,
+      recipient: '0x0000000000000000000000000000000000000000' as Address,
       inputToken: opportunity.sellToken,
       outputToken: opportunity.buyToken,
       inputAmount: opportunity.sellAmount,
       outputAmount: opportunity.minBuyAmount,
+      relayerFeePct: 0n,
       quoteTimestamp: Math.floor(Date.now() / 1000),
       fillDeadline: opportunity.deadline,
       exclusivityDeadline: 0,
-      exclusiveRelayer: '0x' as Address,
+      exclusiveRelayer: '0x0000000000000000000000000000000000000000' as Address,
       message: '0x' as `0x${string}`,
+      transactionHash: '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`,
+      blockNumber: 0n,
     };
 
     const result = await this.acrossAdapter.fill(deposit);

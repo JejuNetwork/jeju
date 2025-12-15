@@ -459,6 +459,8 @@ export class OracleKeeperStrategy {
 
     try {
       const hash = await this.walletClient.writeContract({
+        chain: this.walletClient.chain,
+        account: this.account,
         address: registrar as `0x${string}`,
         abi: REGISTRAR_ABI,
         functionName: 'registerUpkeep',
@@ -528,6 +530,8 @@ export class OracleKeeperStrategy {
 
       // Update prices
       const hash = await this.walletClient.writeContract({
+        chain: this.walletClient.chain,
+        account: this.account,
         address: pythContract as `0x${string}`,
         abi: PYTH_UPDATE_ABI,
         functionName: 'updatePriceFeeds',
@@ -641,6 +645,8 @@ export class OracleKeeperStrategy {
 
     try {
       const hash = await this.walletClient.writeContract({
+        chain: this.walletClient.chain,
+        account: this.account,
         address: this.priceOracleAddress as `0x${string}`,
         abi: PRICE_ORACLE_ABI,
         functionName: 'setPrice',

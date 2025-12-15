@@ -1,7 +1,7 @@
 {
   "name": "@jejunetwork/contracts",
   "version": "0.2.0",
-  "description": "Network smart contract ABIs, types, and deployment addresses. Includes game contracts (Gold, Items, GameIntegration) for Hyperscape and forkable games.",
+  "description": "Network smart contract ABIs, types, deployment addresses, and CAIP cross-chain utilities. Includes game contracts (Gold, Items, GameIntegration) for Hyperscape and forkable games.",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -20,7 +20,23 @@
       "import": "./dist/deployments.js",
       "types": "./dist/deployments.d.ts"
     },
-    "./deployments/*": "./deployments/*.json"
+    "./deployments/*": "./deployments/*.json",
+    "./caip": {
+      "import": "./dist/caip/index.js",
+      "types": "./dist/caip/index.d.ts"
+    },
+    "./caip/chains": {
+      "import": "./dist/caip/chains.js",
+      "types": "./dist/caip/chains.d.ts"
+    },
+    "./caip/addresses": {
+      "import": "./dist/caip/addresses.js",
+      "types": "./dist/caip/addresses.d.ts"
+    },
+    "./caip/assets": {
+      "import": "./dist/caip/assets.js",
+      "types": "./dist/caip/assets.d.ts"
+    }
   },
   "files": [
     "dist",
@@ -59,7 +75,11 @@
     "erc-1155",
     "hyperscape"
   ],
+  "dependencies": {
+    "@solana/web3.js": "^1.95.4"
+  },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "typescript": "^5.3.3"
   },
   "peerDependencies": {

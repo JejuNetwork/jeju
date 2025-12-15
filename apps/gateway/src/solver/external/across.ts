@@ -96,18 +96,19 @@ const IS_DEPOSIT_FILLED_ABI = [{
 
 export class AcrossAdapter extends EventEmitter {
   private clients: Map<number, { public: PublicClient; wallet?: WalletClient }>;
+  private supportedChains: number[];
   private spokePoolAddresses: Record<number, Address>;
   private unwatchers: Array<() => void> = [];
   private running = false;
-  private isTestnet: boolean;
 
   constructor(
     clients: Map<number, { public: PublicClient; wallet?: WalletClient }>,
+    supportedChains: number[],
     isTestnet = false
   ) {
     super();
     this.clients = clients;
-    this.isTestnet = isTestnet;
+    this.supportedChains = supportedChains;
     this.spokePoolAddresses = isTestnet ? ACROSS_SPOKE_POOLS_TESTNET : ACROSS_SPOKE_POOLS;
   }
 
@@ -116,8 +117,14 @@ export class AcrossAdapter extends EventEmitter {
     this.running = true;
     console.log('🌉 Starting Across Protocol monitor...');
 
-    for (const [chainId, spokePool] of Object.entries(this.spokePoolAddresses)) {
-      const client = this.clients.get(Number(chainId));
+    for (const chainId of this.supportedChains) {
+      const spokePool = this.spokePoolAddresses[chainId];
+      if (!spokePool) {
+        console.log(`   ⚠️ No Across SpokePool for chain ${chainId}, skipping`);
+        continue;
+      }
+      
+      const client = this.clients.get(chainId);
       if (!client) {
         console.log(`   ⚠️ No client for chain ${chainId}, skipping Across`);
         continue;
@@ -243,13 +250,12 @@ export class AcrossAdapter extends EventEmitter {
     };
 
     const hash = await client.wallet.writeContract({
+      chain: client.wallet.chain,
+      account: client.wallet.account!,
       address: spokePool,
       abi: FILL_RELAY_ABI,
       functionName: 'fillV3Relay',
       args: [relayData, BigInt(deposit.originChainId)],
-      value: deposit.outputToken === '0x0000000000000000000000000000000000000000' 
-        ? deposit.outputAmount 
-        : BigInt(0),
     });
 
     const receipt = await client.public.waitForTransactionReceipt({ hash });

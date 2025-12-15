@@ -6,7 +6,8 @@
  * unavailable networks with helpful warnings instead of hard failures.
  */
 
-import type { NetworkType } from '@jejunetwork/types/chain';
+import type { NetworkType } from '@jejunetwork/types';
+import { getLocalnetChain } from '@jejunetwork/shared';
 
 interface NetworkCheckResult {
   available: boolean;

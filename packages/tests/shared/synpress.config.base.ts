@@ -5,7 +5,7 @@
  * 
  * Usage in app:
  * ```typescript
- * import { createSynpressConfig, createWalletSetup } from '@jejunetwork/tests/synpress.config.base';
+ * import { createSynpressConfig, createWalletSetup } from '@jejunetwork/tests';
  * export default createSynpressConfig({ name: 'my-app', port: 4000 });
  * export const basicSetup = createWalletSetup();
  * ```
@@ -117,7 +117,7 @@ export interface WalletSetupOptions {
  * ```typescript
  * import { defineWalletSetup } from '@synthetixio/synpress';
  * import { MetaMask } from '@synthetixio/synpress/playwright';
- * import { createWalletSetup, PASSWORD, JEJU_CHAIN } from '@jejunetwork/tests/synpress.config.base';
+ * import { createWalletSetup, PASSWORD, JEJU_CHAIN } from '@jejunetwork/tests';
  * 
  * export default defineWalletSetup(PASSWORD, async (context, walletPage) => {
  *   const metamask = new MetaMask(context, walletPage, PASSWORD);

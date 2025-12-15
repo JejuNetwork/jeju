@@ -7,7 +7,7 @@
 
 import type { Address, Hex } from 'viem';
 import { verifyMessage, keccak256, toBytes } from 'viem';
-import { verifyToken, type TokenClaims } from '@jeju/kms';
+import { verifyToken, type TokenClaims } from '@jejunetwork/kms';
 import { LEADERBOARD_CONFIG } from './config.js';
 import { query } from './db.js';
 

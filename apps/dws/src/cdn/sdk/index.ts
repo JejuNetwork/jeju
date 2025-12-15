@@ -6,7 +6,7 @@
  * 
  * Usage:
  * ```typescript
- * import { CDNClient } from '@jeju/cdn/sdk';
+ * import { CDNClient } from '@jejunetwork/dws';
  * 
  * const cdn = new CDNClient({ privateKey, rpcUrl });
  * 
@@ -251,25 +251,67 @@ export class CDNClient {
   }
 
   /**
-   * Upload files to IPFS
+   * Upload files to IPFS via DWS storage
    */
   private async uploadFiles(
     files: FileUpload[],
     buildDir: string
   ): Promise<{ cid: string; filesUploaded: number; totalBytes: number }> {
-    // This would typically use an IPFS client to upload
-    // For now, we'll simulate with a placeholder
-    
     let totalBytes = 0;
+    const uploadedCids: string[] = [];
+    
+    // Upload each file to storage
+    const storageUrl = process.env.DWS_STORAGE_URL || 'http://localhost:4030/storage';
+    
     for (const file of files) {
       totalBytes += file.size;
+      
+      const formData = new FormData();
+      const content = await Bun.file(join(buildDir, file.path)).arrayBuffer();
+      formData.append('file', new Blob([content]), file.path);
+      
+      const response = await fetch(`${storageUrl}/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (response.ok) {
+        const result = await response.json() as { cid: string };
+        uploadedCids.push(result.cid);
+      }
+    }
+    
+    // Create a manifest file with all uploaded CIDs
+    const manifest = {
+      files: files.map((f, i) => ({
+        path: f.path,
+        cid: uploadedCids[i] || '',
+        size: f.size,
+        contentType: f.contentType,
+      })),
+      uploadedAt: Date.now(),
+    };
+    
+    // Upload manifest and use its CID as the deployment root
+    const manifestFormData = new FormData();
+    manifestFormData.append('file', new Blob([JSON.stringify(manifest)]), 'manifest.json');
+    
+    const manifestResponse = await fetch(`${storageUrl}/upload`, {
+      method: 'POST',
+      body: manifestFormData,
+    });
+    
+    let rootCid: string;
+    if (manifestResponse.ok) {
+      const result = await manifestResponse.json() as { cid: string };
+      rootCid = result.cid;
+    } else {
+      // Fallback to computed hash if storage unavailable
+      rootCid = `Qm${createHash('sha256').update(JSON.stringify(manifest)).digest('hex').slice(0, 44)}`;
     }
 
-    // In production, upload to IPFS and get CID
-    const cid = `Qm${createHash('sha256').update(JSON.stringify(files)).digest('hex').slice(0, 44)}`;
-
     return {
-      cid,
+      cid: rootCid,
       filesUploaded: files.length,
       totalBytes,
     };

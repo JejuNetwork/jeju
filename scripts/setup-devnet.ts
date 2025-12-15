@@ -13,9 +13,12 @@
  *   bun scripts/setup-devnet.ts
  */
 
-import { ethers, JsonRpcProvider, Wallet, parseEther, formatEther, keccak256, toUtf8Bytes } from 'ethers';
+import { createPublicClient, createWalletClient, http, parseEther, formatEther, keccak256, stringToBytes, encodeDeployData, getContractAddress, getBalance, readContract, writeContract, waitForTransactionReceipt, type Address } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { parseAbi } from 'viem';
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
+import { inferChainFromRpcUrl } from './shared/chain-utils';
 
 // Test wallets with known private keys (Anvil default accounts)
 const TEST_ACCOUNTS = [
@@ -75,12 +78,11 @@ interface DeployedAddresses {
 }
 
 // Minimal ABIs for setup
-const ERC20_ABI = [
-  'constructor(string name, string symbol)',
+const ERC20_ABI = parseAbi([
   'function mint(address to, uint256 amount)',
   'function balanceOf(address) view returns (uint256)',
   'function transfer(address to, uint256 amount) returns (bool)',
-];
+]);
 
 const RPC_URL = process.env.DEVNET_RPC_URL ?? 'http://localhost:8545';
 
@@ -88,21 +90,23 @@ async function main() {
   console.log('🚀 Setting up Development Network');
   console.log('='.repeat(60));
 
-  const provider = new JsonRpcProvider(RPC_URL);
+  const chain = inferChainFromRpcUrl(RPC_URL);
+  const publicClient = createPublicClient({ chain, transport: http(RPC_URL) });
 
   // Check if anvil is running
   try {
-    await provider.getBlockNumber();
+    await publicClient.getBlockNumber();
   } catch {
     console.error('❌ Cannot connect to RPC at', RPC_URL);
     console.error('   Start anvil with: anvil');
     process.exit(1);
   }
 
-  const deployer = new Wallet(TEST_ACCOUNTS[0].privateKey, provider);
-  console.log(`\nDeployer: ${deployer.address}`);
+  const deployerAccount = privateKeyToAccount(TEST_ACCOUNTS[0].privateKey as `0x${string}`);
+  const walletClient = createWalletClient({ chain, transport: http(RPC_URL), account: deployerAccount });
+  console.log(`\nDeployer: ${deployerAccount.address}`);
 
-  const balance = await provider.getBalance(deployer.address);
+  const balance = await getBalance(publicClient, { address: deployerAccount.address });
   console.log(`Balance: ${formatEther(balance)} ETH`);
 
   // Create output directory
@@ -115,21 +119,29 @@ async function main() {
 
   // Step 1: Deploy mock governance token
   console.log('\n📦 Step 1: Deploying mock JEJU token...');
-  const tokenFactory = new ethers.ContractFactory(
-    ERC20_ABI,
-    getMockERC20Bytecode(),
-    deployer
-  );
-  const token = await tokenFactory.deploy('Network Token', 'JEJU');
-  await token.waitForDeployment();
-  addresses.governanceToken = await token.getAddress();
+  const deployData = encodeDeployData({
+    abi: parseAbi(['constructor(string name, string symbol)']),
+    bytecode: getMockERC20Bytecode() as `0x${string}`,
+    args: ['Network Token', 'JEJU'],
+  });
+  const nonce = await publicClient.getTransactionCount({ address: deployerAccount.address });
+  const hash = await walletClient.sendTransaction({
+    data: deployData,
+  });
+  const receipt = await waitForTransactionReceipt(publicClient, { hash });
+  addresses.governanceToken = receipt.contractAddress ?? getContractAddress({ from: deployerAccount.address, nonce: BigInt(nonce) });
   console.log(`   Token: ${addresses.governanceToken}`);
 
   // Mint tokens to test accounts
-  const tokenContract = new ethers.Contract(addresses.governanceToken, ERC20_ABI, deployer);
   for (const account of TEST_ACCOUNTS) {
-    const wallet = new Wallet(account.privateKey, provider);
-    await tokenContract.mint(wallet.address, parseEther('10000'));
+    const accountObj = privateKeyToAccount(account.privateKey as `0x${string}`);
+    const mintHash = await walletClient.writeContract({
+      address: addresses.governanceToken as Address,
+      abi: ERC20_ABI,
+      functionName: 'mint',
+      args: [accountObj.address, parseEther('10000')],
+    });
+    await waitForTransactionReceipt(publicClient, { hash: mintHash });
     console.log(`   Minted 10,000 JEJU to ${account.name}`);
   }
 
@@ -138,11 +150,11 @@ async function main() {
 
   // For devnet, we'll use the deployer address as stand-ins
   // In a real setup, these would be full contract deployments
-  addresses.identityRegistry = deployer.address;
-  addresses.reputationRegistry = deployer.address;
-  addresses.council = deployer.address;
-  addresses.ceoAgent = deployer.address;
-  addresses.predimarket = deployer.address;
+  addresses.identityRegistry = deployerAccount.address;
+  addresses.reputationRegistry = deployerAccount.address;
+  addresses.council = deployerAccount.address;
+  addresses.ceoAgent = deployerAccount.address;
+  addresses.predimarket = deployerAccount.address;
 
   console.log('   Using deployer as mock registries for devnet');
 
@@ -151,10 +163,10 @@ async function main() {
   console.log('   (Run full deployment with: bun scripts/deploy-governance.ts --network=localnet)');
 
   // For now, use mock addresses
-  addresses.delegationRegistry = deployer.address;
-  addresses.circuitBreaker = deployer.address;
-  addresses.councilSafeModule = deployer.address;
-  addresses.safe = deployer.address;
+  addresses.delegationRegistry = deployerAccount.address;
+  addresses.circuitBreaker = deployerAccount.address;
+  addresses.councilSafeModule = deployerAccount.address;
+  addresses.safe = deployerAccount.address;
 
   // Step 4: Create wallet configuration file
   console.log('\n📦 Step 4: Creating wallet configuration...');
@@ -164,10 +176,10 @@ async function main() {
     chainId: 31337,
     rpcUrl: RPC_URL,
     accounts: TEST_ACCOUNTS.map((account) => {
-      const wallet = new Wallet(account.privateKey, provider);
+      const accountObj = privateKeyToAccount(account.privateKey as `0x${string}`);
       return {
         name: account.name,
-        address: wallet.address,
+        address: accountObj.address,
         privateKey: account.privateKey,
         role: account.role,
       };
@@ -192,12 +204,12 @@ CHAIN_ID=31337
 DEPLOYER_PRIVATE_KEY=${TEST_ACCOUNTS[0].privateKey}
 
 # Safe Signers (3/4 policy)
-SAFE_SIGNER_1=${new Wallet(TEST_ACCOUNTS[1].privateKey).address}
-SAFE_SIGNER_2=${new Wallet(TEST_ACCOUNTS[2].privateKey).address}
-SAFE_SIGNER_3=${new Wallet(TEST_ACCOUNTS[3].privateKey).address}
+SAFE_SIGNER_1=${privateKeyToAccount(TEST_ACCOUNTS[1].privateKey as `0x${string}`).address}
+SAFE_SIGNER_2=${privateKeyToAccount(TEST_ACCOUNTS[2].privateKey as `0x${string}`).address}
+SAFE_SIGNER_3=${privateKeyToAccount(TEST_ACCOUNTS[3].privateKey as `0x${string}`).address}
 
 # TEE Operator
-TEE_OPERATOR_ADDRESS=${new Wallet(TEST_ACCOUNTS[4].privateKey).address}
+TEE_OPERATOR_ADDRESS=${privateKeyToAccount(TEST_ACCOUNTS[4].privateKey as `0x${string}`).address}
 TEE_OPERATOR_KEY=${TEST_ACCOUNTS[4].privateKey}
 
 # Contract Addresses
@@ -229,7 +241,7 @@ DA_URL=http://localhost:3001
   const fixtures = {
     proposals: [
       {
-        id: keccak256(toUtf8Bytes('proposal-1')),
+        id: keccak256(stringToBytes('proposal-1')),
         title: 'Test Proposal 1',
         description: 'A test proposal for development',
         type: 0,
@@ -237,7 +249,7 @@ DA_URL=http://localhost:3001
         status: 'APPROVED',
       },
       {
-        id: keccak256(toUtf8Bytes('proposal-2')),
+        id: keccak256(stringToBytes('proposal-2')),
         title: 'Test Proposal 2',
         description: 'Another test proposal',
         type: 1,
@@ -247,13 +259,13 @@ DA_URL=http://localhost:3001
     ],
     delegates: [
       {
-        address: new Wallet(TEST_ACCOUNTS[5].privateKey).address,
+        address: privateKeyToAccount(TEST_ACCOUNTS[5].privateKey as `0x${string}`).address,
         name: 'Alice',
         expertise: ['treasury', 'defi'],
         delegated: '5000',
       },
       {
-        address: new Wallet(TEST_ACCOUNTS[6].privateKey).address,
+        address: privateKeyToAccount(TEST_ACCOUNTS[6].privateKey as `0x${string}`).address,
         name: 'Bob',
         expertise: ['security', 'smart-contracts'],
         delegated: '3000',
@@ -271,10 +283,15 @@ DA_URL=http://localhost:3001
 
   console.log('\n📋 Test Accounts:');
   for (const account of TEST_ACCOUNTS) {
-    const wallet = new Wallet(account.privateKey, provider);
-    const bal = await provider.getBalance(wallet.address);
-    const tokenBal = await tokenContract.balanceOf(wallet.address);
-    console.log(`   ${account.name.padEnd(16)} ${wallet.address}`);
+    const accountObj = privateKeyToAccount(account.privateKey as `0x${string}`);
+    const bal = await getBalance(publicClient, { address: accountObj.address });
+    const tokenBal = await readContract(publicClient, {
+      address: addresses.governanceToken as Address,
+      abi: ERC20_ABI,
+      functionName: 'balanceOf',
+      args: [accountObj.address],
+    });
+    console.log(`   ${account.name.padEnd(16)} ${accountObj.address}`);
     console.log(`                    ${formatEther(bal)} ETH | ${formatEther(tokenBal)} JEJU`);
   }
 

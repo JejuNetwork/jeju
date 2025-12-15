@@ -1,7 +1,6 @@
 import { expect } from '@playwright/test';
 
-import { testWithWallet as test } from '@jejunetwork/tests/fixtures/wallet';
-import { connectWallet } from '@jejunetwork/tests/helpers/contracts';
+import { testWithWallet as test, connectWallet } from '@jejunetwork/tests';
 
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4001';
 

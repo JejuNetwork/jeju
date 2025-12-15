@@ -15,6 +15,15 @@ export {
   GLOBAL_SETUP_PATH, GLOBAL_TEARDOWN_PATH,
 } from './synpress.config.base';
 
+// Playwright config
+export {
+  createAppConfig,
+  createPlaywrightConfig,
+  getTestEnv,
+  TEST_ACCOUNTS,
+  type AppConfigOptions,
+} from './playwright.config.base';
+
 // Test infrastructure
 export { LockManager, withTestLock, type LockMetadata, type LockManagerOptions } from './lock-manager';
 export { runPreflightChecks, quickHealthCheck, waitForChain, type PreflightConfig, type PreflightResult, type PreflightCheck } from './preflight';

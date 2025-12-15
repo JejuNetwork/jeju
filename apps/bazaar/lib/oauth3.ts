@@ -15,10 +15,10 @@ import {
   type OAuth3Session,
   type OAuth3Config,
   type VerifiableCredential,
-} from '@jeju/oauth3';
+} from '@jejunetwork/oauth3';
 import type { Address, Hex } from 'viem';
 
-export { AuthProvider } from '@jeju/oauth3';
+export { AuthProvider } from '@jejunetwork/oauth3';
 
 export interface BazaarAuthConfig {
   appId?: string;

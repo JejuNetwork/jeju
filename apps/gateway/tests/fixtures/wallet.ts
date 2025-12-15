@@ -9,7 +9,7 @@ export {
   testWithConnectedWallet,
   JEJU_TEST_WALLET as TEST_WALLET,
   JEJU_NETWORK
-} from '@jejunetwork/tests/fixtures/wallet';
+} from '@jejunetwork/tests';
 
 export { expect } from '@playwright/test';
 

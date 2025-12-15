@@ -4,7 +4,7 @@
  * Includes on-chain quality attestation signing for verified submissions
  */
 
-import { keccak256, toUtf8Bytes, encodePacked, type Address } from 'viem';
+import { keccak256, stringToHex, encodePacked, type Address } from 'viem';
 import { privateKeyToAccount, signMessage } from 'viem/accounts';
 import { AutocratBlockchain } from './blockchain';
 import { checkOllama, ollamaGenerate, indexProposal, findSimilarProposals } from './local-services';
@@ -247,7 +247,7 @@ Return JSON: {"title":"...","summary":"...","description":"..."}`;
   }
 
   getContentHash(draft: ProposalDraft): string {
-    return keccak256(toUtf8Bytes(JSON.stringify({ title: draft.title, summary: draft.summary, description: draft.description, proposalType: draft.proposalType })));
+    return keccak256(stringToHex(JSON.stringify({ title: draft.title, summary: draft.summary, description: draft.description, proposalType: draft.proposalType })));
   }
 
   /**

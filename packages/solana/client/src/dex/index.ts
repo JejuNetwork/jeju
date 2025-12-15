@@ -1,5 +1,5 @@
 /**
- * @jeju/solana DEX Module
+ * @jejunetwork/solana DEX Module
  *
  * Unified Solana DEX SDK supporting:
  * - Jupiter (Aggregator)

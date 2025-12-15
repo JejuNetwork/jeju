@@ -5,7 +5,7 @@
  * This enables automatic monitoring and recovery via the KeepaliveRegistry.
  * 
  * Usage:
- *   import { healthMiddleware } from '@jeju/shared/health-middleware';
+ *   import { healthMiddleware } from '@jejunetwork/shared';
  *   
  *   const app = new Hono();
  *   app.route('/health', healthMiddleware({

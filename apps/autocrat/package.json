@@ -1,5 +1,5 @@
 {
-  "name": "@jeju/autocrat",
+  "name": "@jejunetwork/autocrat",
   "version": "1.0.0",
   "description": "AI Council DAO - Autonomous governance with AI CEO, council agents, and reputation-weighted proposals",
   "main": "src/index.ts",
@@ -19,7 +19,8 @@
   "dependencies": {
     "@elizaos/core": "^1.6.4",
     "@anthropic-ai/sdk": "^0.30.0",
-    "@jeju/oauth3": "workspace:*",
+    "@jejunetwork/oauth3": "workspace:*",
+    "@jejunetwork/dws": "workspace:*",
     "ai": "^5.0.52",
     "ethers": "^6.13.4",
     "hono": "^4.6.5",

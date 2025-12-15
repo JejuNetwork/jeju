@@ -124,7 +124,7 @@ Lightweight ERC-20 with EIP-3009 gasless transfer support. Use Token.sol for ful
 ### For New Tokens
 
 ```solidity
-import {Token} from "@jeju/contracts/tokens/Token.sol";
+import {Token} from "@jejunetwork/contracts/tokens/Token.sol";
 
 contract MyToken is Token {
     constructor() Token("My Token", "MTK", 1e27, msg.sender, 0, true) {
@@ -166,7 +166,7 @@ Vendor tokens (like Babylon) should import the base contracts:
 
 ```solidity
 // In vendor/babylon/contracts/BabylonToken.sol
-import {Token} from "@jeju/contracts/tokens/Token.sol";
+import {Token} from "@jejunetwork/contracts/tokens/Token.sol";
 
 contract BabylonToken is Token {
     uint256 public constant TOTAL_SUPPLY = 1_000_000_000 * 10**18;

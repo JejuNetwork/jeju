@@ -9,7 +9,8 @@
  */
 
 import { describe, test, expect } from 'bun:test';
-import { ethers } from 'ethers';
+import { generatePrivateKey, privateKeyToAccount, parseEther, parseUnits, formatEther } from 'viem';
+import { generateMnemonic, mnemonicToAccount } from 'viem/accounts';
 import {
   EILClient,
   estimateCrossChainFee,
@@ -30,7 +31,7 @@ const TEST_CONFIG: EILConfig = {
   l2ChainId: 420690,
 };
 
-const TEST_WALLET = ethers.Wallet.createRandom();
+const TEST_WALLET = privateKeyToAccount(generatePrivateKey());
 
 describe('EIL SDK', () => {
   describe('EILClient', () => {
@@ -66,7 +67,7 @@ describe('EIL SDK', () => {
             chainId: 8453,
             target: '0x2222222222222222222222222222222222222222',
             calldata: '0x87654321',
-            value: ethers.parseEther('0.1'),
+            value: parseEther('0.1'),
             gasLimit: 150000n,
           },
         ];
@@ -129,7 +130,7 @@ describe('EIL SDK', () => {
           chainId: i % 4 + 1,
           target: `0x${(i + 1).toString(16).padStart(40, '0')}` as `0x${string}`,
           calldata: `0x${i.toString(16).padStart(8, '0')}`,
-          value: BigInt(i) * ethers.parseEther('0.01'),
+            value: BigInt(i) * parseEther('0.01'),
           gasLimit: BigInt(21000 + i * 1000),
         }));
 
@@ -294,9 +295,9 @@ describe('EIL SDK', () => {
 
   describe('estimateCrossChainFee()', () => {
     test('should calculate fee with both gas prices', () => {
-      const amount = ethers.parseEther('100');
-      const sourceGasPrice = ethers.parseUnits('20', 'gwei');
-      const destGasPrice = ethers.parseUnits('10', 'gwei');
+      const amount = parseEther('100');
+      const sourceGasPrice = parseUnits('20', 'gwei');
+      const destGasPrice = parseUnits('10', 'gwei');
       
       const fee = estimateCrossChainFee(amount, sourceGasPrice, destGasPrice);
       
@@ -305,43 +306,43 @@ describe('EIL SDK', () => {
 
     test('should include base fee', () => {
       const fee = estimateCrossChainFee(
-        ethers.parseEther('1'),
+        parseEther('1'),
         0n,
         0n
       );
       
       // Should still have base fee even with zero gas
-      const baseFee = ethers.parseEther('0.0005');
+      const baseFee = parseEther('0.0005');
       expect(fee).toBeGreaterThanOrEqual(baseFee);
     });
 
     test('should scale with gas prices', () => {
-      const amount = ethers.parseEther('100');
+      const amount = parseEther('100');
       
       const lowFee = estimateCrossChainFee(
         amount,
-        ethers.parseUnits('10', 'gwei'),
-        ethers.parseUnits('10', 'gwei')
+        parseUnits('10', 'gwei'),
+        parseUnits('10', 'gwei')
       );
       
       const highFee = estimateCrossChainFee(
         amount,
-        ethers.parseUnits('100', 'gwei'),
-        ethers.parseUnits('100', 'gwei')
+        parseUnits('100', 'gwei'),
+        parseUnits('100', 'gwei')
       );
       
       expect(highFee).toBeGreaterThan(lowFee);
     });
 
     test('should handle zero gas prices', () => {
-      const fee = estimateCrossChainFee(ethers.parseEther('1'), 0n, 0n);
+      const fee = estimateCrossChainFee(parseEther('1'), 0n, 0n);
       expect(fee).toBeDefined();
       expect(fee).toBeGreaterThan(0n); // Base fee
     });
 
     test('should handle very high gas prices', () => {
-      const extremeGas = ethers.parseUnits('10000', 'gwei');
-      const fee = estimateCrossChainFee(ethers.parseEther('1'), extremeGas, extremeGas);
+      const extremeGas = parseUnits('10000', 'gwei');
+      const fee = estimateCrossChainFee(parseEther('1'), extremeGas, extremeGas);
       expect(fee).toBeDefined();
     });
   });
@@ -354,8 +355,8 @@ describe('EIL SDK', () => {
         destinationChain: 8453,
         sourceToken: '0x1111111111111111111111111111111111111111',
         destinationToken: '0x2222222222222222222222222222222222222222',
-        amount: ethers.parseEther('100'),
-        maxFee: ethers.parseEther('0.01'),
+        amount: parseEther('100'),
+        maxFee: parseEther('0.01'),
         recipient: '0x3333333333333333333333333333333333333333',
         deadline: Date.now() + 3600000,
       };
@@ -405,7 +406,7 @@ describe('EIL SDK', () => {
 
   describe('calculateOptimalFee()', () => {
     test('should return maxFee and feeIncrement', () => {
-      const baseFee = ethers.parseEther('0.001');
+      const baseFee = parseEther('0.001');
       const result = calculateOptimalFee(baseFee);
       
       expect(result.maxFee).toBeDefined();
@@ -413,7 +414,7 @@ describe('EIL SDK', () => {
     });
 
     test('should scale with urgency multiplier', () => {
-      const baseFee = ethers.parseEther('0.001');
+      const baseFee = parseEther('0.001');
       
       const normal = calculateOptimalFee(baseFee, 1);
       const urgent = calculateOptimalFee(baseFee, 2);
@@ -422,7 +423,7 @@ describe('EIL SDK', () => {
     });
 
     test('should calculate increment as fraction of maxFee', () => {
-      const baseFee = ethers.parseEther('0.001');
+      const baseFee = parseEther('0.001');
       const result = calculateOptimalFee(baseFee, 1);
       
       // Increment should be maxFee / 50
@@ -437,7 +438,7 @@ describe('EIL SDK', () => {
     });
 
     test('should handle fractional urgency', () => {
-      const baseFee = ethers.parseEther('0.001');
+      const baseFee = parseEther('0.001');
       const result = calculateOptimalFee(baseFee, 0.5);
       
       expect(result.maxFee).toBeGreaterThan(0n);
@@ -445,7 +446,7 @@ describe('EIL SDK', () => {
     });
 
     test('should handle high urgency', () => {
-      const baseFee = ethers.parseEther('0.001');
+      const baseFee = parseEther('0.001');
       const result = calculateOptimalFee(baseFee, 10);
       
       expect(result.maxFee).toBeGreaterThan(baseFee * 9n);
@@ -458,9 +459,9 @@ describe('EIL SDK', () => {
       
       // 1. Estimate fee
       const baseFee = estimateCrossChainFee(
-        ethers.parseEther('100'),
-        ethers.parseUnits('20', 'gwei'),
-        ethers.parseUnits('10', 'gwei')
+        parseEther('100'),
+        parseUnits('20', 'gwei'),
+        parseUnits('10', 'gwei')
       );
       expect(baseFee).toBeGreaterThan(0n);
       
@@ -475,7 +476,7 @@ describe('EIL SDK', () => {
           chainId: TEST_CONFIG.l2ChainId,
           target: '0x1111111111111111111111111111111111111111',
           calldata: '0x12345678',
-          value: ethers.parseEther('0.1'),
+          value: parseEther('0.1'),
           gasLimit: 100000n,
         },
       ];

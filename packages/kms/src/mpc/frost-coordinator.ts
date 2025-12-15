@@ -1,7 +1,7 @@
 /**
  * FROST Coordinator - True Threshold ECDSA
  * 
- * Integrates with @jeju/oauth3 FROST implementation for true threshold
+ * Integrates with @jejunetwork/oauth3 FROST implementation for true threshold
  * signing where the private key is NEVER reconstructed.
  * 
  * This is a wrapper around the OAuth3 FROST implementation that provides
@@ -37,7 +37,7 @@ let FROSTCoordinator: FROSTCoordinatorType | null = null;
 
 async function loadFROST(): Promise<void> {
   if (!FROSTCoordinator) {
-    const oauth3 = await import('@jeju/oauth3');
+    const oauth3 = await import('@jejunetwork/oauth3');
     // Cast to unknown first to avoid type mismatch with dynamic import
     FROSTCoordinator = oauth3.FROSTCoordinator as unknown as FROSTCoordinatorType;
   }

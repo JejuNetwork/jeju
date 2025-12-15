@@ -2,7 +2,7 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
-      "name": "@jeju/council-app",
+      "name": "@jejunetwork/council-app",
       "dependencies": {
         "@tanstack/react-query": "^5.79.0",
         "lucide-react": "^0.511.0",

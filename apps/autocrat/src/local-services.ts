@@ -1,19 +1,26 @@
 /**
  * Local Services - storage and inference for council
+ * Uses DWS (Decentralized Web Services) for storage and compute
  */
 
-import { keccak256, toUtf8Bytes } from 'viem';
+import { keccak256, stringToHex } from 'viem';
 import { mkdir, writeFile, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 
 const storageDir = join(process.cwd(), '.autocrat-storage');
 
+// DWS endpoints for decentralized storage and compute
+const DWS_URL = process.env.DWS_URL ?? 'http://localhost:4030';
+const DWS_STORAGE = `${DWS_URL}/storage`;
+const DWS_COMPUTE = `${DWS_URL}/compute`;
+
 // Bounded caches to prevent memory exhaustion
 const CACHE_MAX = 1000;
 const evict = <K, V>(m: Map<K, V>) => { if (m.size >= CACHE_MAX) { const first = m.keys().next().value; if (first !== undefined) m.delete(first); } };
 const storageCache = new Map<string, unknown>();
 
+// Fallback to local Ollama if DWS compute unavailable
 const OLLAMA_URL = process.env.OLLAMA_URL ?? 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? 'llama3.2:3b';
 
@@ -23,7 +30,7 @@ export async function initStorage(): Promise<void> {
 
 export async function store(data: unknown): Promise<string> {
   const content = JSON.stringify(data);
-  const hash = keccak256(toUtf8Bytes(content)).slice(2, 50);
+  const hash = keccak256(stringToHex(content)).slice(2, 50);
   await writeFile(join(storageDir, `${hash}.json`), content, 'utf-8');
   evict(storageCache);
   storageCache.set(hash, data);
@@ -39,13 +46,14 @@ export async function retrieve<T>(hash: string): Promise<T | null> {
   return data;
 }
 
+async function checkDWSCompute(): Promise<boolean> {
+  const r = await fetch(`${DWS_COMPUTE}/health`, { signal: AbortSignal.timeout(2000) }).catch(() => null);
+  return r?.ok ?? false;
+}
+
 async function checkOllama(): Promise<boolean> {
-  try {
-    const r = await fetch(`${OLLAMA_URL}/api/tags`, { signal: AbortSignal.timeout(2000) });
-    return r.ok;
-  } catch {
-    return false;
-  }
+  const r = await fetch(`${OLLAMA_URL}/api/tags`, { signal: AbortSignal.timeout(2000) }).catch(() => null);
+  return r?.ok ?? false;
 }
 
 async function ollamaGenerate(prompt: string, system: string): Promise<string> {
@@ -63,10 +71,37 @@ interface InferenceRequest {
   systemPrompt?: string;
 }
 
+async function dwsGenerate(prompt: string, system: string): Promise<string> {
+  const r = await fetch(`${DWS_COMPUTE}/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: prompt },
+      ],
+      temperature: 0.7,
+      max_tokens: 500,
+    }),
+  });
+  if (!r.ok) throw new Error(`DWS compute error: ${r.status}`);
+  const data = await r.json() as { choices?: Array<{ message?: { content: string } }>; content?: string };
+  return data.choices?.[0]?.message?.content ?? data.content ?? '';
+}
+
 export async function inference(request: InferenceRequest): Promise<string> {
-  const available = await checkOllama();
-  if (!available) {
-    throw new Error('LLM unavailable: Ollama not running. Start with: ollama serve');
+  // Try DWS compute first for decentralized inference
+  const dwsAvailable = await checkDWSCompute();
+  if (dwsAvailable) {
+    const prompt = request.messages.map(m => `${m.role}: ${m.content}`).join('\n');
+    const system = request.systemPrompt ?? 'You are a helpful AI assistant for DAO governance.';
+    return dwsGenerate(prompt, system);
+  }
+
+  // Fallback to local Ollama
+  const ollamaAvailable = await checkOllama();
+  if (!ollamaAvailable) {
+    throw new Error('LLM unavailable: Neither DWS compute nor Ollama available');
   }
 
   const prompt = request.messages.map(m => `${m.role}: ${m.content}`).join('\n');
@@ -124,11 +159,6 @@ export function getVotes(proposalId: string): Array<{ role: string; vote: string
 const researchStore = new Map<string, { report: string; model: string; completedAt: number }>();
 
 export async function generateResearch(proposalId: string, description: string): Promise<{ report: string; model: string }> {
-  const available = await checkOllama();
-  if (!available) {
-    throw new Error('LLM unavailable: Cannot generate research without Ollama');
-  }
-
   const prompt = `Analyze this DAO proposal and provide a research report:
 
 Proposal ID: ${proposalId}
@@ -142,7 +172,26 @@ Provide analysis covering:
 
 Be specific and actionable.`;
 
-  const report = await ollamaGenerate(prompt, 'You are a research analyst for DAO governance. Provide thorough, objective analysis.');
+  const system = 'You are a research analyst for DAO governance. Provide thorough, objective analysis.';
+
+  // Try DWS compute first
+  const dwsAvailable = await checkDWSCompute();
+  if (dwsAvailable) {
+    const report = await dwsGenerate(prompt, system);
+    const result = { report, model: 'dws-compute', completedAt: Date.now() };
+    evict(researchStore);
+    researchStore.set(proposalId, result);
+    await store({ type: 'research', proposalId, ...result });
+    return result;
+  }
+
+  // Fallback to Ollama
+  const ollamaAvailable = await checkOllama();
+  if (!ollamaAvailable) {
+    throw new Error('LLM unavailable: Cannot generate research');
+  }
+
+  const report = await ollamaGenerate(prompt, system);
   const result = { report, model: OLLAMA_MODEL, completedAt: Date.now() };
   evict(researchStore);
   researchStore.set(proposalId, result);

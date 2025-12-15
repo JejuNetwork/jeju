@@ -13,8 +13,10 @@ import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { compress } from 'hono/compress';
 import { logger } from 'hono/logger';
-import { Wallet, JsonRpcProvider, Contract } from 'ethers';
-import type { Address } from 'viem';
+import { createPublicClient, createWalletClient, http, readContract, writeContract, signMessage, waitForTransactionReceipt, type Address, type Chain } from 'viem';
+import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
+import { parseAbi } from 'viem';
+import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 import { EdgeCache, getEdgeCache } from '../cache/edge-cache';
 import { OriginFetcher, getOriginFetcher } from '../cache/origin-fetcher';
 import type {
@@ -32,11 +34,11 @@ import type { CacheStatus, EdgeNodeStatus } from '@jejunetwork/types';
 // ABI
 // ============================================================================
 
-const CDN_REGISTRY_ABI = [
+const CDN_REGISTRY_ABI = parseAbi([
   'function updateNodeStatus(bytes32 nodeId, uint8 status) external',
   'function reportNodeMetrics(bytes32 nodeId, uint256 currentLoad, uint256 bandwidthUsage, uint256 activeConnections, uint256 requestsPerSecond, uint256 bytesServedTotal, uint256 requestsTotal, uint256 cacheHitRate, uint256 avgResponseTime) external',
   'function reportUsage(bytes32 nodeId, uint256 periodStart, uint256 periodEnd, uint256 bytesEgress, uint256 bytesIngress, uint256 requests, uint256 cacheHits, uint256 cacheMisses, bytes signature) external',
-];
+]);
 
 // ============================================================================
 // Edge Node Server
@@ -47,8 +49,10 @@ export class EdgeNodeServer {
   private config: EdgeNodeConfig;
   private cache: EdgeCache;
   private originFetcher: OriginFetcher;
-  private wallet: Wallet;
-  private registry: Contract;
+  private account: PrivateKeyAccount;
+  private publicClient: ReturnType<typeof createPublicClient>;
+  private walletClient: ReturnType<typeof createWalletClient>;
+  private registryAddress: Address;
   private nodeIdBytes: string;
 
   // Metrics
@@ -84,9 +88,11 @@ export class EdgeNodeServer {
     this.originFetcher = getOriginFetcher(config.origins);
 
     // Initialize wallet and contract
-    const provider = new JsonRpcProvider(config.rpcUrl);
-    this.wallet = new Wallet(config.privateKey, provider);
-    this.registry = new Contract(config.registryAddress, CDN_REGISTRY_ABI, this.wallet);
+    this.account = privateKeyToAccount(config.privateKey as `0x${string}`);
+    const chain = inferChainFromRpcUrl(config.rpcUrl);
+    this.publicClient = createPublicClient({ chain, transport: http(config.rpcUrl) });
+    this.walletClient = createWalletClient({ account: this.account, chain, transport: http(config.rpcUrl) });
+    this.registryAddress = config.registryAddress;
     
     // Convert nodeId to bytes32
     this.nodeIdBytes = config.nodeId.startsWith('0x') 
@@ -622,17 +628,24 @@ export class EdgeNodeServer {
     setInterval(async () => {
       const metrics = this.getMetrics();
       
-      await this.registry.reportNodeMetrics(
-        this.nodeIdBytes,
-        Math.round(metrics.cacheHitRate * 10000), // basis points
-        Math.round(metrics.bandwidthMbps * 1000), // kbps
-        metrics.activeConnections,
-        Math.round(metrics.requestsPerSecond * 100),
-        metrics.bytesServedTotal,
-        metrics.requestsTotal,
-        Math.round(metrics.cacheHitRate * 10000),
-        Math.round(metrics.avgLatencyMs)
-      ).catch((e: Error) => {
+      const hash = await this.walletClient.writeContract({
+        address: this.registryAddress,
+        abi: CDN_REGISTRY_ABI,
+        functionName: 'reportNodeMetrics',
+        args: [
+          this.nodeIdBytes as `0x${string}`,
+          BigInt(Math.round(metrics.currentLoad)),
+          BigInt(Math.round(metrics.bandwidthUsage)),
+          BigInt(metrics.activeConnections),
+          BigInt(Math.round(metrics.requestsPerSecond)),
+          BigInt(metrics.bytesServedTotal),
+          BigInt(metrics.requestsTotal),
+          BigInt(Math.round(metrics.cacheHitRate * 10000)),
+          BigInt(Math.round(metrics.avgLatencyMs)),
+        ],
+        account: this.account,
+      });
+      await waitForTransactionReceipt(this.publicClient, { hash }).catch((e: Error) => {
         console.error('[EdgeNode] Failed to report metrics:', e.message);
       });
     }, intervalMs);
@@ -649,19 +662,29 @@ export class EdgeNodeServer {
       
       // Create usage signature
       const usageData = `${this.nodeIdBytes}:${this.usagePeriodStart}:${periodEnd}:${this.periodBytesEgress}:${this.periodRequests}`;
-      const signature = await this.wallet.signMessage(usageData);
+      const signature = await signMessage({
+        account: this.account,
+        message: usageData,
+      });
 
-      await this.registry.reportUsage(
-        this.nodeIdBytes,
-        Math.floor(this.usagePeriodStart / 1000),
-        Math.floor(periodEnd / 1000),
-        this.periodBytesEgress,
-        this.periodBytesIngress,
-        this.periodRequests,
-        this.periodCacheHits,
-        this.periodCacheMisses,
-        signature
-      ).catch((e: Error) => {
+      const hash = await this.walletClient.writeContract({
+        address: this.registryAddress,
+        abi: CDN_REGISTRY_ABI,
+        functionName: 'reportUsage',
+        args: [
+          this.nodeIdBytes as `0x${string}`,
+          BigInt(Math.floor(this.usagePeriodStart / 1000)),
+          BigInt(Math.floor(periodEnd / 1000)),
+          BigInt(this.periodBytesEgress),
+          BigInt(this.periodBytesIngress),
+          BigInt(this.periodRequests),
+          BigInt(this.periodCacheHits),
+          BigInt(this.periodCacheMisses),
+          signature as `0x${string}`,
+        ],
+        account: this.account,
+      });
+      await waitForTransactionReceipt(this.publicClient, { hash }).catch((e: Error) => {
         console.error('[EdgeNode] Failed to report usage:', e.message);
       });
 

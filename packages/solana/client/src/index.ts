@@ -1,5 +1,5 @@
 /**
- * @jeju/solana
+ * @jejunetwork/solana
  *
  * Unified Solana SDK for Jeju Network
  *

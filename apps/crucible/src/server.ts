@@ -31,6 +31,9 @@ const metrics = {
   startTime: Date.now(),
 };
 
+// DWS URL for all decentralized services (storage, compute, CDN)
+const DWS_URL = process.env.DWS_URL ?? 'http://127.0.0.1:4030';
+
 const config: CrucibleConfig = {
   rpcUrl: process.env.RPC_URL ?? 'http://127.0.0.1:8545',
   privateKey: process.env.PRIVATE_KEY,
@@ -43,9 +46,10 @@ const config: CrucibleConfig = {
     autocratTreasury: (process.env.AUTOCRAT_TREASURY_ADDRESS ?? '0x0000000000000000000000000000000000000000') as `0x${string}`,
   },
   services: {
-    computeMarketplace: process.env.COMPUTE_MARKETPLACE_URL ?? 'http://127.0.0.1:4007',
-    storageApi: process.env.STORAGE_API_URL ?? 'http://127.0.0.1:3100',
-    ipfsGateway: process.env.IPFS_GATEWAY ?? 'http://127.0.0.1:3100',
+    dwsUrl: DWS_URL,
+    computeMarketplace: `${DWS_URL}/compute`,
+    storageApi: `${DWS_URL}/storage`,
+    ipfsGateway: process.env.IPFS_GATEWAY ?? `${DWS_URL}/storage`,
     indexerGraphql: process.env.INDEXER_GRAPHQL_URL ?? 'http://127.0.0.1:4350/graphql',
     cqlEndpoint: process.env.CQL_ENDPOINT,
     dexCacheUrl: process.env.DEX_CACHE_URL,

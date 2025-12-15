@@ -55,8 +55,8 @@ export interface UniswapXOrder {
   orderStatus: 'open' | 'filled' | 'expired' | 'cancelled';
 }
 
-// UniswapX execute function
-const EXECUTE_ABI = [{
+// UniswapX execute function (reserved for batch fills)
+const _EXECUTE_ABI = [{
   type: 'function',
   name: 'execute',
   inputs: [
@@ -97,8 +97,8 @@ const EXECUTE_ABI = [{
   stateMutability: 'nonpayable',
 }] as const;
 
-// Fill callback interface
-const FILL_CALLBACK_ABI = [{
+// Fill callback interface (reserved for advanced fills)
+const _FILL_CALLBACK_ABI = [{
   type: 'function',
   name: 'reactorCallback',
   inputs: [
@@ -134,23 +134,33 @@ const FILL_CALLBACK_ABI = [{
   stateMutability: 'nonpayable',
 }] as const;
 
+// Reserve ABIs for future batch/callback implementations
+void _EXECUTE_ABI;
+void _FILL_CALLBACK_ABI;
+
 export class UniswapXAdapter extends EventEmitter {
   private clients: Map<number, { public: PublicClient; wallet?: WalletClient }>;
   private supportedChains: number[];
   private pollInterval: ReturnType<typeof setInterval> | null = null;
   private running = false;
   private processedOrders = new Set<string>();
-  private isTestnet: boolean;
+  private pendingOrders = new Map<string, UniswapXOrder>();
 
   constructor(
     clients: Map<number, { public: PublicClient; wallet?: WalletClient }>,
     supportedChains: number[],
-    isTestnet = false
+    _isTestnet = false
   ) {
     super();
     this.clients = clients;
     this.supportedChains = supportedChains;
-    this.isTestnet = isTestnet;
+  }
+
+  /**
+   * Get a pending order by hash
+   */
+  getPendingOrder(orderHash: string): UniswapXOrder | undefined {
+    return this.pendingOrders.get(orderHash);
   }
 
   async start(): Promise<void> {
@@ -182,6 +192,7 @@ export class UniswapXAdapter extends EventEmitter {
         for (const order of orders) {
           if (this.processedOrders.has(order.orderHash)) continue;
           this.processedOrders.add(order.orderHash);
+          this.pendingOrders.set(order.orderHash, order);
           
           console.log(`🦄 UniswapX order: ${order.orderHash.slice(0, 10)}... on chain ${chainId}`);
           this.emit('order', order);
@@ -190,7 +201,14 @@ export class UniswapXAdapter extends EventEmitter {
         // Cleanup old processed orders (keep last 1000)
         if (this.processedOrders.size > 1000) {
           const arr = Array.from(this.processedOrders);
-          this.processedOrders = new Set(arr.slice(-500));
+          const toKeep = new Set(arr.slice(-500));
+          // Also cleanup pendingOrders
+          for (const hash of this.pendingOrders.keys()) {
+            if (!toKeep.has(hash)) {
+              this.pendingOrders.delete(hash);
+            }
+          }
+          this.processedOrders = toKeep;
         }
       } catch (err) {
         console.error(`UniswapX API error for chain ${chainId}:`, err);
@@ -308,6 +326,8 @@ export class UniswapXAdapter extends EventEmitter {
     }] as const;
 
     const hash = await client.wallet.writeContract({
+      chain: client.wallet.chain,
+      account: client.wallet.account!,
       address: reactor,
       abi: EXECUTE_SINGLE_ABI,
       functionName: 'executeSingle',
@@ -341,13 +361,18 @@ export class UniswapXAdapter extends EventEmitter {
     }
     
     // During decay - linear interpolation
+    // Amount increases during decay (worse for filler)
     const elapsed = BigInt(now - order.decayStartTime);
     const duration = BigInt(order.decayEndTime - order.decayStartTime);
+    const decayProgress = duration > 0n ? (elapsed * 10000n) / duration : 0n;
     
     let totalOutput = 0n;
     for (const output of order.outputs) {
-      // Amount increases during decay (worse for filler)
-      totalOutput += output.amount;
+      // Apply decay: startAmount + (endAmount - startAmount) * progress
+      // Since we only have final amount, estimate start as 95% of final
+      const startAmount = (output.amount * 95n) / 100n;
+      const decayedAmount = startAmount + ((output.amount - startAmount) * decayProgress) / 10000n;
+      totalOutput += decayedAmount;
     }
     
     return totalOutput;

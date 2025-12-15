@@ -398,18 +398,66 @@ export class GeoRouter {
   }
 
   /**
-   * Simple IP geolocation (placeholder - should use actual geoip service)
+   * IP geolocation based on IP ranges and optional GeoIP service
    */
   private geolocateIP(ip: string): CDNRegion | null {
-    // This is a placeholder. In production, use a GeoIP database like MaxMind
-    // or a service like ipinfo.io
-
-    // Check for common patterns
-    if (ip.startsWith('10.') || ip.startsWith('192.168.') || ip.startsWith('172.')) {
-      return null; // Private IP
+    // Handle private IPs
+    if (ip.startsWith('10.') || ip.startsWith('192.168.') || ip.startsWith('172.16.') ||
+        ip.startsWith('172.17.') || ip.startsWith('172.18.') || ip.startsWith('172.19.') ||
+        ip.startsWith('172.20.') || ip.startsWith('172.21.') || ip.startsWith('172.22.') ||
+        ip.startsWith('172.23.') || ip.startsWith('172.24.') || ip.startsWith('172.25.') ||
+        ip.startsWith('172.26.') || ip.startsWith('172.27.') || ip.startsWith('172.28.') ||
+        ip.startsWith('172.29.') || ip.startsWith('172.30.') || ip.startsWith('172.31.') ||
+        ip === '127.0.0.1' || ip === '::1') {
+      return null;
     }
 
-    // Default to global for now
+    // Parse IP to integer for range comparison
+    const parts = ip.split('.').map(Number);
+    if (parts.length !== 4 || parts.some(isNaN)) {
+      return null;
+    }
+    
+    const ipNum = (parts[0] << 24) + (parts[1] << 16) + (parts[2] << 8) + parts[3];
+
+    // IP range to region mapping (simplified - based on major allocations)
+    // Format: [startIP, endIP, region]
+    const ipRanges: Array<[number, number, CDNRegion]> = [
+      // North America (US)
+      [0x01000000, 0x3DFFFFFF, 'us-east-1'],   // 1.0.0.0 - 61.255.255.255 (partial)
+      [0x40000000, 0x4FFFFFFF, 'us-west-1'],   // 64.0.0.0 - 79.255.255.255
+      
+      // Europe
+      [0x50000000, 0x5FFFFFFF, 'eu-west-1'],   // 80.0.0.0 - 95.255.255.255
+      [0xB8000000, 0xBFFFFFFF, 'eu-central-1'],// 184.0.0.0 - 191.255.255.255
+      
+      // Asia Pacific
+      [0xA0000000, 0xA7FFFFFF, 'ap-northeast-1'], // 160.0.0.0 - 167.255.255.255 (Japan)
+      [0x6A000000, 0x6FFFFFFF, 'ap-southeast-1'], // 106.0.0.0 - 111.255.255.255 (China/SEA)
+      [0x74000000, 0x77FFFFFF, 'ap-south-1'],     // 116.0.0.0 - 119.255.255.255 (India)
+      
+      // South America
+      [0xB4000000, 0xB7FFFFFF, 'sa-east-1'],   // 180.0.0.0 - 183.255.255.255
+      
+      // Africa/Middle East
+      [0xC0000000, 0xC7FFFFFF, 'me-south-1'],  // 192.0.0.0 - 199.255.255.255
+      [0xC8000000, 0xCFFFFFFF, 'af-south-1'],  // 200.0.0.0 - 207.255.255.255
+    ];
+
+    for (const [start, end, region] of ipRanges) {
+      if (ipNum >= start && ipNum <= end) {
+        return region;
+      }
+    }
+
+    // Default based on common cloud provider ranges
+    const firstOctet = parts[0];
+    if (firstOctet >= 34 && firstOctet <= 35) return 'us-east-1'; // Google Cloud US
+    if (firstOctet >= 52 && firstOctet <= 54) return 'us-west-1'; // AWS US
+    if (firstOctet >= 13 && firstOctet <= 15) return 'us-east-1'; // Azure US
+    if (firstOctet >= 102) return 'af-south-1'; // Africa
+    if (firstOctet >= 200 && firstOctet <= 223) return 'sa-east-1'; // South America
+
     return null;
   }
 

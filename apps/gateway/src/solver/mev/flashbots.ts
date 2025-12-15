@@ -1,55 +1,99 @@
 /**
- * Flashbots MEV Integration
+ * Complete Flashbots Ecosystem Integration
  * 
- * Complete integration with Flashbots ecosystem:
- * - Flashbots Protect: Private transaction submission (avoid being sandwiched)
- * - Flashbots Builder: Direct bundle submission for priority inclusion
- * - MEV-Share: Fair MEV redistribution when extracting from users
- * - MEV-Boost: Builder API compatibility
+ * Integrates ALL Flashbots technologies:
  * 
- * Philosophy:
- * - Protect Jeju users from MEV extraction
- * - Extract MEV from non-Jeju DEX swaps
- * - Share extracted MEV fairly via MEV-Share
+ * 1. MEV-Boost: Proposer-builder separation for mainnet validators
+ * 2. BuilderNet: Decentralized block building network with TEEs
+ * 3. Rollup-Boost: L2 sequencer MEV internalization
+ * 4. Protect RPC: Private transaction submission for user protection
+ * 5. SUAVE: Programmable privacy MEV (future)
+ * 
+ * Strategy:
+ * - ON JEJU: Use Protect RPC to shield users from external MEV
+ * - ON EXTERNAL CHAINS: Extract MEV via MEV-Boost + multi-builder submission
+ * - CROSS-CHAIN: Use Rollup-Boost for sequencing revenue
  */
 
-import { type Address, type Hash, type Hex, createWalletClient, http, keccak256, encodePacked, concat, toHex } from 'viem';
+import { type Address, type Hash, type Hex, keccak256, toHex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { mainnet } from 'viem/chains';
 import { EventEmitter } from 'events';
 
-// Flashbots endpoints
-export const FLASHBOTS_RPC = {
-  mainnet: 'https://relay.flashbots.net',
-  goerli: 'https://relay-goerli.flashbots.net',
-  sepolia: 'https://relay-sepolia.flashbots.net',
-};
+// ============================================================================
+// FLASHBOTS ENDPOINTS
+// ============================================================================
 
-export const FLASHBOTS_PROTECT_RPC = {
-  mainnet: 'https://rpc.flashbots.net',
-  fast: 'https://rpc.flashbots.net/fast', // Faster inclusion, less privacy
-};
+export const FLASHBOTS_ENDPOINTS = {
+  // MEV-Boost Relays
+  relay: {
+    mainnet: 'https://relay.flashbots.net',
+    goerli: 'https://relay-goerli.flashbots.net',
+    sepolia: 'https://relay-sepolia.flashbots.net',
+    holesky: 'https://relay-holesky.flashbots.net',
+  },
+  
+  // Protect RPC (Private Mempool)
+  protect: {
+    default: 'https://rpc.flashbots.net',
+    fast: 'https://rpc.flashbots.net/fast', // Faster, less privacy
+    bundle: 'https://rpc.flashbots.net/bundle', // Bundle-specific
+  },
+  
+  // MEV-Share
+  mevShare: {
+    mainnet: 'https://relay.flashbots.net',
+    eventStream: 'https://mev-share.flashbots.net',
+  },
+  
+  // BuilderNet (TEE-based decentralized building)
+  builderNet: {
+    mainnet: 'https://buildernet.flashbots.net',
+  },
+  
+  // SUAVE (Toliman Testnet)
+  suave: {
+    toliman: 'https://rpc.toliman.suave.flashbots.net',
+    rigil: 'https://rpc.rigil.suave.flashbots.net', // Older testnet
+  },
+} as const;
 
-export const MEV_SHARE_RPC = {
-  mainnet: 'https://relay.flashbots.net',
-};
-
-export const BUILDER_ENDPOINTS = {
+// Block Builders for multi-submission
+export const BLOCK_BUILDERS = {
   flashbots: 'https://relay.flashbots.net',
   beaverbuild: 'https://rpc.beaverbuild.org',
   titanbuilder: 'https://rpc.titanbuilder.xyz',
   rsyncbuilder: 'https://rsync-builder.xyz',
   builder0x69: 'https://builder0x69.io',
-};
+  bloXroute: 'https://mev.api.blxrbdn.com',
+  eden: 'https://api.edennetwork.io/v1/bundle',
+  builderAI: 'https://buildai.net',
+} as const;
 
-// MEV-Share hint types
+// L2 Builder Endpoints (for Rollup-Boost)
+export const L2_BUILDERS = {
+  base: {
+    sequencer: 'https://mainnet-sequencer.base.org',
+  },
+  optimism: {
+    sequencer: 'https://mainnet-sequencer.optimism.io',
+  },
+  arbitrum: {
+    sequencer: 'https://arb1-sequencer.arbitrum.io/rpc',
+  },
+} as const;
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
 export type MevShareHint = 
   | 'calldata'
   | 'contract_address' 
   | 'function_selector'
   | 'logs'
   | 'hash'
-  | 'tx_hash';
+  | 'tx_hash'
+  | 'default_logs';
 
 export interface FlashbotsBundle {
   txs: Hex[];
@@ -57,12 +101,13 @@ export interface FlashbotsBundle {
   minTimestamp?: number;
   maxTimestamp?: number;
   revertingTxHashes?: Hash[];
+  replacementUuid?: string; // For bundle replacement
 }
 
 export interface MevShareBundle {
   version: 'v0.1';
   inclusion: {
-    block: string;
+    block: string; // hex block number
     maxBlock?: string;
   };
   body: Array<{
@@ -85,167 +130,259 @@ export interface MevShareBundle {
   };
 }
 
-export interface SandwichOpportunity {
-  targetTx: Hex;
-  targetHash: Hash;
-  pool: Address;
-  tokenIn: Address;
-  tokenOut: Address;
-  amountIn: bigint;
-  expectedAmountOut: bigint;
-  slippage: number;
-  estimatedProfit: bigint;
-  frontrunTx?: Hex;
-  backrunTx?: Hex;
+export interface MevShareEvent {
+  hash: Hash;
+  logs: Array<{
+    address: Address;
+    topics: Hex[];
+    data: Hex;
+  }>;
+  txs: Array<{
+    to: Address;
+    functionSelector: Hex;
+    callData?: Hex;
+  }>;
+  mevGasPrice?: bigint;
+  gasUsed?: bigint;
+}
+
+export interface RollupBoostBlock {
+  parentHash: Hash;
+  timestamp: number;
+  transactions: Hex[];
+  gasLimit: bigint;
+  baseFeePerGas: bigint;
+  priorityOrdering?: boolean; // Verifiable priority ordering
+  flashblock?: boolean; // Near-instant confirmation
+}
+
+export interface SuaveBundle {
+  txs: Hex[];
+  allowedPeekers: Address[]; // Who can see the bundle content
+  allowedBuilders: Address[]; // Who can build with it
+  blockNumber: bigint;
+  confidentialData?: Hex; // Encrypted data for TEE
+}
+
+export interface BundleSimulation {
+  success: boolean;
+  results: Array<{
+    txHash: Hash;
+    gasUsed: bigint;
+    value: bigint;
+    error?: string;
+  }>;
+  totalGasUsed: bigint;
+  totalProfit: bigint;
+  coinbaseDiff: bigint;
+  ethSentToCoinbase: bigint;
 }
 
 export interface FlashbotsConfig {
   privateKey: Hex;
-  builderEndpoints?: string[];
-  enableMevShare?: boolean;
-  mevShareRefundPercent?: number; // Percent to refund to victim (0-100)
+  chainId?: number;
+  enableMevBoost?: boolean;
+  enableBuilderNet?: boolean;
+  enableRollupBoost?: boolean;
   enableProtect?: boolean;
-  maxBlocksInFuture?: number;
+  enableMevShare?: boolean;
+  enableSuave?: boolean;
+  builders?: string[];
+  maxBlocksAhead?: number;
   simulateFirst?: boolean;
+  jejuContracts?: Address[]; // Contracts to protect from MEV
 }
 
-export class FlashbotsProvider extends EventEmitter {
+// ============================================================================
+// MEV-BOOST PROVIDER
+// ============================================================================
+
+export class MevBoostProvider extends EventEmitter {
   private config: Required<FlashbotsConfig>;
   private signingKey: ReturnType<typeof privateKeyToAccount>;
   private authHeader: string = '';
-
+  
   constructor(config: FlashbotsConfig) {
     super();
     this.config = {
-      builderEndpoints: Object.values(BUILDER_ENDPOINTS),
-      enableMevShare: true,
-      mevShareRefundPercent: 50, // Default: 50% back to user
+      chainId: 1,
+      enableMevBoost: true,
+      enableBuilderNet: true,
+      enableRollupBoost: true,
       enableProtect: true,
-      maxBlocksInFuture: 25,
+      enableMevShare: true,
+      enableSuave: false, // Not production yet
+      builders: Object.values(BLOCK_BUILDERS),
+      maxBlocksAhead: 25,
       simulateFirst: true,
+      jejuContracts: [],
       ...config,
     };
     
     this.signingKey = privateKeyToAccount(config.privateKey);
   }
-
-  /**
-   * Initialize auth header for Flashbots API
-   */
-  async init(): Promise<void> {
-    // Sign a message to create auth header
+  
+  async initialize(): Promise<void> {
     const message = keccak256(toHex(Date.now().toString()));
     const signature = await this.signingKey.signMessage({ message });
     this.authHeader = `${this.signingKey.address}:${signature}`;
     
-    console.log('Flashbots provider initialized');
-    console.log(`   Signing address: ${this.signingKey.address}`);
-    console.log(`   MEV-Share enabled: ${this.config.enableMevShare}`);
-    console.log(`   MEV-Share refund: ${this.config.mevShareRefundPercent}%`);
+    console.log('MEV-Boost Provider initialized');
+    console.log(`   Address: ${this.signingKey.address}`);
+    console.log(`   MEV-Boost: ${this.config.enableMevBoost}`);
+    console.log(`   BuilderNet: ${this.config.enableBuilderNet}`);
+    console.log(`   Rollup-Boost: ${this.config.enableRollupBoost}`);
+    console.log(`   Protect RPC: ${this.config.enableProtect}`);
+    console.log(`   MEV-Share: ${this.config.enableMevShare}`);
+    console.log(`   SUAVE: ${this.config.enableSuave}`);
   }
-
+  
+  // ==========================================================================
+  // PROTECT RPC - Shield Jeju users from MEV
+  // ==========================================================================
+  
   /**
-   * Submit transaction via Flashbots Protect (private mempool)
-   * Prevents our transactions from being sandwiched
+   * Submit transaction via Protect RPC (private mempool)
+   * Use for Jeju user transactions to prevent frontrunning/sandwiching
    */
-  async submitProtected(signedTx: Hex): Promise<{ hash: Hash; status: string }> {
-    const response = await fetch(FLASHBOTS_PROTECT_RPC.mainnet, {
+  async submitProtected(
+    signedTx: Hex,
+    options?: {
+      fast?: boolean; // Use fast mode (less privacy, faster inclusion)
+      maxBlockNumber?: bigint; // Max block for inclusion
+      builders?: string[]; // Specific builders to target
+    }
+  ): Promise<{ hash: Hash; status: string }> {
+    const endpoint = options?.fast 
+      ? FLASHBOTS_ENDPOINTS.protect.fast 
+      : FLASHBOTS_ENDPOINTS.protect.default;
+    
+    const preferences: Record<string, unknown> = {};
+    if (options?.maxBlockNumber) {
+      preferences.maxBlockNumber = `0x${options.maxBlockNumber.toString(16)}`;
+    }
+    if (options?.builders) {
+      preferences.builders = options.builders;
+    }
+    
+    const response = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         jsonrpc: '2.0',
         id: 1,
-        method: 'eth_sendRawTransaction',
-        params: [signedTx],
+        method: 'eth_sendPrivateTransaction',
+        params: [{
+          tx: signedTx,
+          preferences: Object.keys(preferences).length > 0 ? preferences : undefined,
+        }],
       }),
     });
-
+    
     const result = await response.json() as { result?: Hash; error?: { message: string } };
     
     if (result.error) {
-      throw new Error(`Flashbots Protect error: ${result.error.message}`);
+      throw new Error(`Protect RPC error: ${result.error.message}`);
     }
-
+    
+    this.emit('protectedTx', { hash: result.result });
+    return { hash: result.result as Hash, status: 'pending' };
+  }
+  
+  /**
+   * Cancel a pending protected transaction
+   */
+  async cancelProtected(txHash: Hash): Promise<boolean> {
+    const response = await fetch(FLASHBOTS_ENDPOINTS.protect.default, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'eth_cancelPrivateTransaction',
+        params: [{ txHash }],
+      }),
+    });
+    
+    const result = await response.json() as { result?: boolean; error?: { message: string } };
+    return result.result ?? false;
+  }
+  
+  /**
+   * Get status of protected transaction
+   */
+  async getProtectedStatus(txHash: Hash): Promise<{
+    status: 'pending' | 'included' | 'failed' | 'cancelled';
+    includedBlock?: bigint;
+  }> {
+    const response = await fetch(FLASHBOTS_ENDPOINTS.protect.default, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'eth_getPrivateTransactionStatus',
+        params: [txHash],
+      }),
+    });
+    
+    const result = await response.json() as { 
+      result?: { status: string; includedBlock?: string }; 
+      error?: { message: string } 
+    };
+    
     return {
-      hash: result.result as Hash,
-      status: 'pending',
+      status: (result.result?.status as 'pending' | 'included' | 'failed' | 'cancelled') ?? 'pending',
+      includedBlock: result.result?.includedBlock ? BigInt(result.result.includedBlock) : undefined,
     };
   }
-
+  
+  // ==========================================================================
+  // MEV-BOOST - Multi-builder bundle submission
+  // ==========================================================================
+  
   /**
    * Submit bundle to Flashbots relay
    */
   async submitBundle(bundle: FlashbotsBundle): Promise<{ bundleHash: Hash }> {
-    const body = {
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'eth_sendBundle',
-      params: [{
-        txs: bundle.txs,
-        blockNumber: `0x${bundle.blockNumber.toString(16)}`,
-        minTimestamp: bundle.minTimestamp,
-        maxTimestamp: bundle.maxTimestamp,
-        revertingTxHashes: bundle.revertingTxHashes,
-      }],
-    };
-
-    const response = await fetch(FLASHBOTS_RPC.mainnet, {
+    const response = await fetch(FLASHBOTS_ENDPOINTS.relay.mainnet, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Flashbots-Signature': this.authHeader,
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'eth_sendBundle',
+        params: [{
+          txs: bundle.txs,
+          blockNumber: `0x${bundle.blockNumber.toString(16)}`,
+          minTimestamp: bundle.minTimestamp,
+          maxTimestamp: bundle.maxTimestamp,
+          revertingTxHashes: bundle.revertingTxHashes,
+          replacementUuid: bundle.replacementUuid,
+        }],
+      }),
     });
-
+    
     const result = await response.json() as { result?: { bundleHash: Hash }; error?: { message: string } };
     
     if (result.error) {
       throw new Error(`Bundle submission error: ${result.error.message}`);
     }
-
-    return { bundleHash: result.result?.bundleHash as Hash };
-  }
-
-  /**
-   * Submit bundle via MEV-Share for fair redistribution
-   * When we sandwich, a portion goes back to the "victim"
-   */
-  async submitMevShareBundle(bundle: MevShareBundle): Promise<{ bundleHash: Hash }> {
-    const body = {
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'mev_sendBundle',
-      params: [bundle],
-    };
-
-    const response = await fetch(MEV_SHARE_RPC.mainnet, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Flashbots-Signature': this.authHeader,
-      },
-      body: JSON.stringify(body),
-    });
-
-    const result = await response.json() as { result?: { bundleHash: Hash }; error?: { message: string } };
     
-    if (result.error) {
-      throw new Error(`MEV-Share submission error: ${result.error.message}`);
-    }
-
+    this.emit('bundleSubmitted', { bundleHash: result.result?.bundleHash, blockNumber: bundle.blockNumber });
     return { bundleHash: result.result?.bundleHash as Hash };
   }
-
+  
   /**
-   * Submit to multiple builders for maximum inclusion probability
+   * Submit bundle to ALL builders for maximum inclusion probability
    */
-  async submitToBuilders(bundle: FlashbotsBundle): Promise<Map<string, { success: boolean; bundleHash?: Hash; error?: string }>> {
+  async submitToAllBuilders(bundle: FlashbotsBundle): Promise<Map<string, { success: boolean; bundleHash?: Hash; error?: string }>> {
     const results = new Map<string, { success: boolean; bundleHash?: Hash; error?: string }>();
-
-    const submissions = this.config.builderEndpoints.map(async (endpoint) => {
+    
+    const submissions = this.config.builders.map(async (endpoint) => {
       try {
         const response = await fetch(endpoint, {
           method: 'POST',
@@ -263,7 +400,7 @@ export class FlashbotsProvider extends EventEmitter {
             }],
           }),
         });
-
+        
         const result = await response.json() as { result?: { bundleHash: Hash }; error?: { message: string } };
         
         if (result.error) {
@@ -275,62 +412,80 @@ export class FlashbotsProvider extends EventEmitter {
         results.set(endpoint, { success: false, error: err instanceof Error ? err.message : 'Unknown error' });
       }
     });
-
+    
     await Promise.all(submissions);
+    
+    const successCount = [...results.values()].filter(r => r.success).length;
+    this.emit('multiBuilderSubmission', { 
+      successCount, 
+      totalBuilders: this.config.builders.length,
+      blockNumber: bundle.blockNumber 
+    });
+    
     return results;
   }
-
+  
   /**
    * Simulate bundle before submission
    */
-  async simulateBundle(bundle: FlashbotsBundle): Promise<{
-    success: boolean;
-    results: Array<{ txHash: Hash; gasUsed: bigint; value: bigint }>;
-    error?: string;
-  }> {
-    const body = {
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'eth_callBundle',
-      params: [{
-        txs: bundle.txs,
-        blockNumber: `0x${bundle.blockNumber.toString(16)}`,
-        stateBlockNumber: 'latest',
-      }],
-    };
-
-    const response = await fetch(FLASHBOTS_RPC.mainnet, {
+  async simulateBundle(bundle: FlashbotsBundle): Promise<BundleSimulation> {
+    const response = await fetch(FLASHBOTS_ENDPOINTS.relay.mainnet, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Flashbots-Signature': this.authHeader,
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'eth_callBundle',
+        params: [{
+          txs: bundle.txs,
+          blockNumber: `0x${bundle.blockNumber.toString(16)}`,
+          stateBlockNumber: 'latest',
+        }],
+      }),
     });
-
+    
     const result = await response.json() as { 
       result?: { 
-        results: Array<{ txHash: string; gasUsed: string; value: string }> 
+        results: Array<{ txHash: string; gasUsed: string; value: string; error?: string }>;
+        totalGasUsed: string;
+        coinbaseDiff: string;
+        ethSentToCoinbase: string;
       }; 
       error?: { message: string } 
     };
     
     if (result.error) {
-      return { success: false, results: [], error: result.error.message };
+      return { 
+        success: false, 
+        results: [], 
+        totalGasUsed: 0n, 
+        totalProfit: 0n, 
+        coinbaseDiff: 0n, 
+        ethSentToCoinbase: 0n 
+      };
     }
-
+    
+    const r = result.result!;
     return {
-      success: true,
-      results: result.result?.results.map(r => ({
-        txHash: r.txHash as Hash,
-        gasUsed: BigInt(r.gasUsed),
-        value: BigInt(r.value),
-      })) ?? [],
+      success: r.results.every(tx => !tx.error),
+      results: r.results.map(tx => ({
+        txHash: tx.txHash as Hash,
+        gasUsed: BigInt(tx.gasUsed),
+        value: BigInt(tx.value),
+        error: tx.error,
+      })),
+      totalGasUsed: BigInt(r.totalGasUsed),
+      totalProfit: BigInt(r.coinbaseDiff),
+      coinbaseDiff: BigInt(r.coinbaseDiff),
+      ethSentToCoinbase: BigInt(r.ethSentToCoinbase),
     };
   }
-
+  
   /**
-   * Get bundle stats after submission
+   * Get bundle stats
    */
   async getBundleStats(bundleHash: Hash, blockNumber: bigint): Promise<{
     isHighPriority: boolean;
@@ -338,271 +493,413 @@ export class FlashbotsProvider extends EventEmitter {
     isSimulated: boolean;
     simulatedAt?: string;
     receivedAt?: string;
+    consideredByBuildersAt?: string[];
   }> {
-    const body = {
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'flashbots_getBundleStats',
-      params: [{ bundleHash, blockNumber: `0x${blockNumber.toString(16)}` }],
-    };
-
-    const response = await fetch(FLASHBOTS_RPC.mainnet, {
+    const response = await fetch(FLASHBOTS_ENDPOINTS.relay.mainnet, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Flashbots-Signature': this.authHeader,
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'flashbots_getBundleStatsV2',
+        params: [{ bundleHash, blockNumber: `0x${blockNumber.toString(16)}` }],
+      }),
     });
-
-    const result = await response.json() as { 
-      result?: { 
-        isHighPriority: boolean;
-        isSentToMiners: boolean;
-        isSimulated: boolean;
-        simulatedAt?: string;
-        receivedAt?: string;
-      }; 
-      error?: { message: string } 
-    };
+    
+    const result = await response.json() as { result?: Record<string, unknown>; error?: { message: string } };
     
     if (result.error) {
       throw new Error(`getBundleStats error: ${result.error.message}`);
     }
-
-    return result.result!;
-  }
-
-  /**
-   * Check if a transaction is from a Jeju user (should be protected, not sandwiched)
-   */
-  isJejuTransaction(tx: { to?: Address; data?: Hex }): boolean {
-    // Check if tx is to our contracts
-    const JEJU_CONTRACTS = [
-      // Add Jeju contract addresses here
-    ];
     
-    if (tx.to && JEJU_CONTRACTS.includes(tx.to.toLowerCase() as Address)) {
+    return result.result as {
+      isHighPriority: boolean;
+      isSentToMiners: boolean;
+      isSimulated: boolean;
+      simulatedAt?: string;
+      receivedAt?: string;
+      consideredByBuildersAt?: string[];
+    };
+  }
+  
+  // ==========================================================================
+  // MEV-SHARE - Extract MEV while sharing value
+  // ==========================================================================
+  
+  /**
+   * Subscribe to MEV-Share event stream
+   * Returns pending transactions that opted into MEV-Share
+   */
+  async subscribeMevShareEvents(callback: (event: MevShareEvent) => void): Promise<() => void> {
+    const eventSource = new EventSource(FLASHBOTS_ENDPOINTS.mevShare.eventStream);
+    
+    eventSource.onmessage = (event) => {
+      const data = JSON.parse(event.data) as {
+        hash: string;
+        logs: Array<{ address: string; topics: string[]; data: string }>;
+        txs: Array<{ to: string; functionSelector: string; callData?: string }>;
+        mevGasPrice?: string;
+        gasUsed?: string;
+      };
+      
+      callback({
+        hash: data.hash as Hash,
+        logs: data.logs.map(log => ({
+          address: log.address as Address,
+          topics: log.topics as Hex[],
+          data: log.data as Hex,
+        })),
+        txs: data.txs.map(tx => ({
+          to: tx.to as Address,
+          functionSelector: tx.functionSelector as Hex,
+          callData: tx.callData as Hex | undefined,
+        })),
+        mevGasPrice: data.mevGasPrice ? BigInt(data.mevGasPrice) : undefined,
+        gasUsed: data.gasUsed ? BigInt(data.gasUsed) : undefined,
+      });
+    };
+    
+    eventSource.onerror = (error) => {
+      this.emit('mevShareError', error);
+    };
+    
+    return () => eventSource.close();
+  }
+  
+  /**
+   * Submit MEV-Share bundle (backrun opportunity)
+   */
+  async submitMevShareBundle(bundle: MevShareBundle): Promise<{ bundleHash: Hash }> {
+    const response = await fetch(FLASHBOTS_ENDPOINTS.mevShare.mainnet, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Flashbots-Signature': this.authHeader,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'mev_sendBundle',
+        params: [bundle],
+      }),
+    });
+    
+    const result = await response.json() as { result?: { bundleHash: Hash }; error?: { message: string } };
+    
+    if (result.error) {
+      throw new Error(`MEV-Share submission error: ${result.error.message}`);
+    }
+    
+    return { bundleHash: result.result?.bundleHash as Hash };
+  }
+  
+  // ==========================================================================
+  // BUILDERNET - Decentralized block building with TEEs
+  // ==========================================================================
+  
+  /**
+   * Submit bundle to BuilderNet
+   * BuilderNet uses TEEs for verifiable, decentralized block building
+   */
+  async submitToBuilderNet(bundle: FlashbotsBundle): Promise<{ bundleHash: Hash }> {
+    if (!this.config.enableBuilderNet) {
+      throw new Error('BuilderNet not enabled');
+    }
+    
+    const response = await fetch(FLASHBOTS_ENDPOINTS.builderNet.mainnet, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Flashbots-Signature': this.authHeader,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'eth_sendBundle',
+        params: [{
+          txs: bundle.txs,
+          blockNumber: `0x${bundle.blockNumber.toString(16)}`,
+        }],
+      }),
+    });
+    
+    const result = await response.json() as { result?: { bundleHash: Hash }; error?: { message: string } };
+    
+    if (result.error) {
+      throw new Error(`BuilderNet error: ${result.error.message}`);
+    }
+    
+    return { bundleHash: result.result?.bundleHash as Hash };
+  }
+  
+  // ==========================================================================
+  // ROLLUP-BOOST - L2 sequencer MEV internalization
+  // ==========================================================================
+  
+  /**
+   * Submit L2 block to sequencer with priority ordering
+   * For use when Jeju is acting as a rollup
+   */
+  async submitL2Block(
+    chain: 'base' | 'optimism' | 'arbitrum',
+    block: RollupBoostBlock
+  ): Promise<{ blockHash: Hash }> {
+    if (!this.config.enableRollupBoost) {
+      throw new Error('Rollup-Boost not enabled');
+    }
+    
+    const endpoint = L2_BUILDERS[chain].sequencer;
+    
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Flashbots-Signature': this.authHeader,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'flashblocks_submitBlock',
+        params: [{
+          parentHash: block.parentHash,
+          timestamp: block.timestamp,
+          transactions: block.transactions,
+          gasLimit: `0x${block.gasLimit.toString(16)}`,
+          baseFeePerGas: `0x${block.baseFeePerGas.toString(16)}`,
+          priorityOrdering: block.priorityOrdering,
+          flashblock: block.flashblock,
+        }],
+      }),
+    });
+    
+    const result = await response.json() as { result?: { blockHash: Hash }; error?: { message: string } };
+    
+    if (result.error) {
+      throw new Error(`Rollup-Boost error: ${result.error.message}`);
+    }
+    
+    return { blockHash: result.result?.blockHash as Hash };
+  }
+  
+  // ==========================================================================
+  // SUAVE - Programmable privacy MEV (Experimental)
+  // ==========================================================================
+  
+  /**
+   * Submit confidential compute request to SUAVE
+   * Note: SUAVE is still in testnet (Toliman)
+   */
+  async submitSuaveBundle(bundle: SuaveBundle): Promise<{ requestId: Hash }> {
+    if (!this.config.enableSuave) {
+      throw new Error('SUAVE not enabled');
+    }
+    
+    const response = await fetch(FLASHBOTS_ENDPOINTS.suave.toliman, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'eth_sendConfidentialRequest',
+        params: [{
+          txs: bundle.txs,
+          allowedPeekers: bundle.allowedPeekers,
+          allowedBuilders: bundle.allowedBuilders,
+          blockNumber: `0x${bundle.blockNumber.toString(16)}`,
+          confidentialInputs: bundle.confidentialData,
+        }],
+      }),
+    });
+    
+    const result = await response.json() as { result?: { requestId: Hash }; error?: { message: string } };
+    
+    if (result.error) {
+      throw new Error(`SUAVE error: ${result.error.message}`);
+    }
+    
+    return { requestId: result.result?.requestId as Hash };
+  }
+  
+  // ==========================================================================
+  // HELPER METHODS
+  // ==========================================================================
+  
+  /**
+   * Check if a transaction should be protected (Jeju user transaction)
+   */
+  isJejuTransaction(tx: { to?: Address; from?: Address; data?: Hex }): boolean {
+    if (tx.to && this.config.jejuContracts.includes(tx.to.toLowerCase() as Address)) {
       return true;
     }
-    
-    // Check for Jeju-specific function selectors in calldata
-    const JEJU_SELECTORS = [
-      // Add Jeju function selectors here
-    ];
-    
-    if (tx.data) {
-      const selector = tx.data.slice(0, 10);
-      if (JEJU_SELECTORS.includes(selector)) {
-        return true;
-      }
-    }
-    
     return false;
   }
-}
-
-/**
- * Sandwich Attack Builder
- * Only targets non-Jeju transactions
- */
-export class SandwichBuilder {
-  private flashbots: FlashbotsProvider;
-  private mevShareRefundPercent: number;
-
-  constructor(flashbots: FlashbotsProvider, mevShareRefundPercent: number = 50) {
-    this.flashbots = flashbots;
-    this.mevShareRefundPercent = mevShareRefundPercent;
-  }
-
+  
   /**
-   * Analyze a pending transaction for sandwich opportunity
+   * Get current block number from relay
    */
-  async analyzeTx(
-    pendingTx: {
-      hash: Hash;
-      to: Address;
-      data: Hex;
-      value: bigint;
-      gasPrice?: bigint;
-      maxFeePerGas?: bigint;
-    },
-    pools: Map<Address, { token0: Address; token1: Address; reserve0: bigint; reserve1: bigint }>
-  ): Promise<SandwichOpportunity | null> {
-    // Skip Jeju transactions
-    if (this.flashbots.isJejuTransaction(pendingTx)) {
-      return null;
-    }
-
-    // Parse swap function calls
-    const swapData = this.parseSwapCall(pendingTx.data);
-    if (!swapData) return null;
-
-    // Find the pool
-    const pool = pools.get(swapData.pool);
-    if (!pool) return null;
-
-    // Calculate profit opportunity
-    const profit = this.calculateSandwichProfit(
-      swapData.amountIn,
-      swapData.amountOutMin,
-      pool.reserve0,
-      pool.reserve1,
-      swapData.tokenIn === pool.token0
-    );
-
-    if (profit.estimatedProfit <= 0n) return null;
-
-    // Minimum profit threshold (e.g., 0.001 ETH after gas)
-    const MIN_PROFIT = BigInt(1e15);
-    if (profit.estimatedProfit < MIN_PROFIT) return null;
-
-    return {
-      targetTx: pendingTx.data,
-      targetHash: pendingTx.hash,
-      pool: swapData.pool,
-      tokenIn: swapData.tokenIn,
-      tokenOut: swapData.tokenOut,
-      amountIn: swapData.amountIn,
-      expectedAmountOut: swapData.amountOutMin,
-      slippage: Number((swapData.amountIn - swapData.amountOutMin) * 10000n / swapData.amountIn),
-      estimatedProfit: profit.estimatedProfit,
-    };
-  }
-
-  /**
-   * Build sandwich bundle with MEV-Share for fair redistribution
-   */
-  async buildMevShareSandwich(
-    opportunity: SandwichOpportunity,
-    frontrunTx: Hex,
-    backrunTx: Hex,
-    targetBlockNumber: bigint
-  ): Promise<MevShareBundle> {
-    // MEV-Share bundle with refund to victim
-    return {
-      version: 'v0.1',
-      inclusion: {
-        block: `0x${targetBlockNumber.toString(16)}`,
-        maxBlock: `0x${(targetBlockNumber + 5n).toString(16)}`,
-      },
-      body: [
-        { tx: frontrunTx, canRevert: false },
-        // Note: victim tx is not included, it's matched by the relay
-        { tx: backrunTx, canRevert: false },
-      ],
-      validity: {
-        // Refund a percentage of profit to the victim
-        refund: [
-          {
-            bodyIdx: 1, // backrun tx
-            percent: this.mevShareRefundPercent,
-          },
-        ],
-      },
-      privacy: {
-        hints: ['hash', 'logs'], // Only reveal hash and logs
-        builders: ['flashbots'], // Submit to Flashbots builder
-      },
-    };
-  }
-
-  /**
-   * Parse common DEX swap function calls
-   */
-  private parseSwapCall(data: Hex): {
-    pool: Address;
-    tokenIn: Address;
-    tokenOut: Address;
-    amountIn: bigint;
-    amountOutMin: bigint;
-  } | null {
-    const selector = data.slice(0, 10);
-
-    // Uniswap V2 swapExactTokensForTokens
-    if (selector === '0x38ed1739') {
-      // Decode: swapExactTokensForTokens(uint256 amountIn, uint256 amountOutMin, address[] path, address to, uint256 deadline)
-      const amountIn = BigInt(`0x${data.slice(10, 74)}`);
-      const amountOutMin = BigInt(`0x${data.slice(74, 138)}`);
-      
-      // Path is at offset, first address is tokenIn, last is tokenOut
-      // This is simplified - real implementation would decode the full path
-      return null; // Need proper ABI decoding
-    }
-
-    // Uniswap V3 exactInputSingle
-    if (selector === '0x414bf389') {
-      // Decode ExactInputSingleParams
-      return null; // Need proper ABI decoding
-    }
-
-    return null;
-  }
-
-  /**
-   * Calculate potential sandwich profit
-   */
-  private calculateSandwichProfit(
-    victimAmountIn: bigint,
-    victimAmountOutMin: bigint,
-    reserve0: bigint,
-    reserve1: bigint,
-    isToken0ToToken1: boolean
-  ): { estimatedProfit: bigint; optimalFrontrunAmount: bigint } {
-    // Calculate victim's slippage tolerance
-    const reserveIn = isToken0ToToken1 ? reserve0 : reserve1;
-    const reserveOut = isToken0ToToken1 ? reserve1 : reserve0;
-
-    // Simplified profit calculation
-    // Real implementation would use optimal frontrun amount calculation
-    const slippageBps = Number((victimAmountIn * 10000n) / victimAmountOutMin - 10000n);
+  async getCurrentBlock(): Promise<bigint> {
+    const response = await fetch(FLASHBOTS_ENDPOINTS.relay.mainnet, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'eth_blockNumber',
+        params: [],
+      }),
+    });
     
-    // If slippage > 1%, there's potential profit
-    if (slippageBps > 100) {
-      // Rough estimate: profit = slippage * amount * efficiency_factor
-      const rawProfit = (victimAmountIn * BigInt(slippageBps)) / 10000n;
-      const efficiency = 30n; // 30% of theoretical max
-      const estimatedProfit = (rawProfit * efficiency) / 100n;
-      
-      return {
-        estimatedProfit,
-        optimalFrontrunAmount: victimAmountIn / 10n, // Simplified
-      };
-    }
-
-    return { estimatedProfit: 0n, optimalFrontrunAmount: 0n };
+    const result = await response.json() as { result?: string };
+    return BigInt(result.result ?? '0');
   }
 }
 
-/**
- * Print MEV stats
- */
-export function printMevStats(stats: {
+// ============================================================================
+// MEV EXTRACTION STRATEGY ENGINE
+// ============================================================================
+
+export interface MevStats {
   bundlesSubmitted: number;
   bundlesIncluded: number;
-  totalProfit: bigint;
-  totalRefunded: bigint;
-  sandwichCount: number;
-  protectedTxCount: number;
-}): void {
-  console.log('\n' + '='.repeat(60));
-  console.log('MEV STATISTICS');
-  console.log('='.repeat(60));
-  
-  console.log(`\nBUNDLE PERFORMANCE`);
-  console.log(`   Submitted:     ${stats.bundlesSubmitted}`);
-  console.log(`   Included:      ${stats.bundlesIncluded}`);
-  console.log(`   Inclusion:     ${((stats.bundlesIncluded / stats.bundlesSubmitted) * 100).toFixed(1)}%`);
-  
-  console.log(`\nPROFIT DISTRIBUTION`);
-  console.log(`   Total Profit:  ${Number(stats.totalProfit) / 1e18} ETH`);
-  console.log(`   User Refunds:  ${Number(stats.totalRefunded) / 1e18} ETH`);
-  console.log(`   Net Profit:    ${Number(stats.totalProfit - stats.totalRefunded) / 1e18} ETH`);
-  
-  console.log(`\nACTIVITY`);
-  console.log(`   Sandwiches:    ${stats.sandwichCount}`);
-  console.log(`   Protected Txs: ${stats.protectedTxCount}`);
-  
-  console.log('='.repeat(60));
+  totalExtracted: bigint;
+  protectedTxs: number;
+  externalChainMev: bigint;
 }
 
+export class FlashbotsStrategyEngine extends EventEmitter {
+  private provider: MevBoostProvider;
+  private stats: MevStats;
+  private mevShareUnsubscribe: (() => void) | null = null;
+  
+  constructor(provider: MevBoostProvider) {
+    super();
+    this.provider = provider;
+    this.stats = {
+      bundlesSubmitted: 0,
+      bundlesIncluded: 0,
+      totalExtracted: 0n,
+      protectedTxs: 0,
+      externalChainMev: 0n,
+    };
+  }
+  
+  async start(): Promise<void> {
+    console.log('Flashbots Strategy Engine started');
+    
+    // Subscribe to MEV-Share events for backrun opportunities
+    this.mevShareUnsubscribe = await this.provider.subscribeMevShareEvents(
+      (event) => this.handleMevShareEvent(event)
+    );
+  }
+  
+  async stop(): Promise<void> {
+    if (this.mevShareUnsubscribe) {
+      this.mevShareUnsubscribe();
+      this.mevShareUnsubscribe = null;
+    }
+    console.log('Flashbots Strategy Engine stopped');
+  }
+  
+  /**
+   * Submit Jeju user transaction with protection
+   */
+  async submitProtectedTransaction(signedTx: Hex): Promise<{ hash: Hash }> {
+    const result = await this.provider.submitProtected(signedTx);
+    this.stats.protectedTxs++;
+    return { hash: result.hash };
+  }
+  
+  /**
+   * Submit arbitrage bundle to all builders
+   */
+  async submitArbitrageBundle(
+    txs: Hex[],
+    targetBlock: bigint,
+    expectedProfit: bigint
+  ): Promise<{ success: boolean; bundleHash?: Hash }> {
+    const bundle: FlashbotsBundle = {
+      txs,
+      blockNumber: targetBlock,
+    };
+    
+    // Simulate first
+    const simulation = await this.provider.simulateBundle(bundle);
+    if (!simulation.success) {
+      return { success: false };
+    }
+    
+    // Only submit if profitable
+    if (simulation.totalProfit < expectedProfit) {
+      return { success: false };
+    }
+    
+    // Submit to all builders
+    const results = await this.provider.submitToAllBuilders(bundle);
+    
+    const successfulSubmissions = [...results.values()].filter(r => r.success);
+    this.stats.bundlesSubmitted++;
+    
+    if (successfulSubmissions.length > 0) {
+      this.stats.externalChainMev += simulation.totalProfit;
+      return { 
+        success: true, 
+        bundleHash: successfulSubmissions[0].bundleHash 
+      };
+    }
+    
+    return { success: false };
+  }
+  
+  /**
+   * Handle MEV-Share event - look for backrun opportunities
+   */
+  private handleMevShareEvent(event: MevShareEvent): void {
+    // Analyze the event for profitable backrun
+    // This is where you'd implement backrun logic
+    this.emit('mevShareOpportunity', event);
+  }
+  
+  /**
+   * Get current MEV stats
+   */
+  getStats(): MevStats {
+    return { ...this.stats };
+  }
+  
+  /**
+   * Print stats summary
+   */
+  printStats(): void {
+    console.log('\n' + '═'.repeat(60));
+    console.log('FLASHBOTS MEV STATISTICS');
+    console.log('═'.repeat(60));
+    
+    console.log(`\n📦 BUNDLES`);
+    console.log(`   Submitted:        ${this.stats.bundlesSubmitted}`);
+    console.log(`   Included:         ${this.stats.bundlesIncluded}`);
+    const inclusionRate = this.stats.bundlesSubmitted > 0 
+      ? ((this.stats.bundlesIncluded / this.stats.bundlesSubmitted) * 100).toFixed(1) 
+      : '0.0';
+    console.log(`   Inclusion Rate:   ${inclusionRate}%`);
+    
+    console.log(`\n💰 REVENUE`);
+    console.log(`   Total Extracted:  ${Number(this.stats.totalExtracted) / 1e18} ETH`);
+    console.log(`   External MEV:     ${Number(this.stats.externalChainMev) / 1e18} ETH`);
+    
+    console.log(`\n🛡️ PROTECTION`);
+    console.log(`   Protected Txs:    ${this.stats.protectedTxs}`);
+    
+    console.log('═'.repeat(60));
+  }
+}
+
+// ============================================================================
+// EXPORTS
+// ============================================================================
+
+export {
+  MevBoostProvider as FlashbotsProvider, // Backwards compatibility
+};

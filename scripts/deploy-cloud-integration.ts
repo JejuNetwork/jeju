@@ -5,7 +5,9 @@
  * cd vendor/cloud && bun run scripts/deploy.ts
  */
 
-import { ethers } from 'ethers';
+import { createPublicClient, createWalletClient, http, encodeDeployData, getContractAddress, waitForTransactionReceipt, type Address, type Chain } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { parseAbi } from 'viem';
 import { Logger } from './shared/logger';
 import { 
   CloudIntegration, 
@@ -16,6 +18,7 @@ import {
 import fs from 'fs';
 import path from 'path';
 import { rawDeployments, getContractAddresses } from '@jejunetwork/contracts';
+import { inferChainFromRpcUrl } from './shared/chain-utils';
 
 const logger = new Logger('deploy-cloud-integration');
 
@@ -33,7 +36,9 @@ interface DeploymentAddresses {
  * Deploy CloudReputationProvider contract
  */
 async function deployCloudReputationProvider(
-  signer: ethers.Signer,
+  publicClient: ReturnType<typeof createPublicClient>,
+  walletClient: ReturnType<typeof createWalletClient>,
+  accountAddress: Address,
   addresses: DeploymentAddresses
 ): Promise<string> {
   logger.info('📝 Compiling CloudReputationProvider...');
@@ -55,20 +60,19 @@ async function deployCloudReputationProvider(
   
   logger.info('🚀 Deploying CloudReputationProvider...');
   
-  const factory = new ethers.ContractFactory(
-    artifact.abi,
-    artifact.bytecode.object,
-    signer
-  );
+  const deployData = encodeDeployData({
+    abi: parseAbi(artifact.abi),
+    bytecode: artifact.bytecode.object as `0x${string}`,
+    args: [
+      addresses.identityRegistry as Address,
+      addresses.reputationRegistry as Address,
+      accountAddress,
+    ],
+  });
   
-  const contract = await factory.deploy(
-    addresses.identityRegistry,
-    addresses.reputationRegistry,
-    await signer.getAddress()
-  );
-  
-  await contract.waitForDeployment();
-  const address = await contract.getAddress();
+  const hash = await walletClient.sendTransaction({ data: deployData });
+  const receipt = await waitForTransactionReceipt(publicClient, { hash });
+  const address = receipt.contractAddress ?? getContractAddress({ from: accountAddress, nonce: BigInt(0) });
   
   logger.success(`✓ CloudReputationProvider deployed at: ${address}`);
   
@@ -80,7 +84,7 @@ async function deployCloudReputationProvider(
  */
 async function setupCloudIntegration(
   integration: CloudIntegration,
-  signer: ethers.Signer,
+  account: ReturnType<typeof privateKeyToAccount>,
   metadata: AgentMetadata
 ): Promise<void> {
   logger.info('🤖 Registering cloud service as agent...');
@@ -91,7 +95,7 @@ async function setupCloudIntegration(
   
   // Register cloud agent
   const agentId = await integration.registerCloudAgent(
-    signer,
+    account,
     metadata,
     tokenURI
   );
@@ -100,7 +104,7 @@ async function setupCloudIntegration(
   
   // Register cloud services
   logger.info('📋 Registering cloud services in ServiceRegistry...');
-  await integration.registerServices(signer, defaultCloudServices);
+  await integration.registerServices(account, defaultCloudServices);
   logger.success(`✓ Registered ${defaultCloudServices.length} services`);
   
   // Set cloud as authorized operator
@@ -140,24 +144,32 @@ async function main() {
   const privateKey = process.env.PRIVATE_KEY || 
     '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'; // Anvil default
   
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
-  const signer = new ethers.Wallet(privateKey, provider);
-  const cloudAgentSigner = new ethers.Wallet(
-    process.env.CLOUD_AGENT_KEY || '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a',
-    provider
+  const chain = inferChainFromRpcUrl(rpcUrl);
+  const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
+  const account = privateKeyToAccount(privateKey as `0x${string}`);
+  const walletClient = createWalletClient({ chain, transport: http(rpcUrl), account });
+  const cloudAgentAccount = privateKeyToAccount(
+    (process.env.CLOUD_AGENT_KEY || '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a') as `0x${string}`
   );
   
-  logger.info(`\nDeploying from: ${await signer.getAddress()}`);
-  logger.info(`Network: ${(await provider.getNetwork()).name} (${(await provider.getNetwork()).chainId})\n`);
+  const chainId = await publicClient.getChainId();
+  logger.info(`\nDeploying from: ${account.address}`);
+  logger.info(`Network: ${chain.name} (${chainId})\n`);
   
   // Deploy CloudReputationProvider if not already deployed
   if (!addresses.cloudReputationProvider) {
     addresses.cloudReputationProvider = await deployCloudReputationProvider(
-      signer,
+      publicClient,
+      walletClient,
+      account.address,
       addresses
     );
     
     // Save updated addresses
+    const addressesPath = path.join(__dirname, '../config/addresses/localnet.json');
+    if (!fs.existsSync(path.dirname(addressesPath))) {
+      fs.mkdirSync(path.dirname(addressesPath), { recursive: true });
+    }
     fs.writeFileSync(
       addressesPath,
       JSON.stringify(addresses, null, 2)
@@ -170,15 +182,16 @@ async function main() {
   
   // Initialize CloudIntegration
   const config: CloudConfig = {
-    identityRegistryAddress: addresses.identityRegistry,
-    reputationRegistryAddress: addresses.reputationRegistry,
-    cloudReputationProviderAddress: addresses.cloudReputationProvider,
-    serviceRegistryAddress: addresses.serviceRegistry,
-    creditManagerAddress: addresses.creditManager,
-    provider,
+    identityRegistryAddress: addresses.identityRegistry as Address,
+    reputationRegistryAddress: addresses.reputationRegistry as Address,
+    cloudReputationProviderAddress: addresses.cloudReputationProvider as Address,
+    serviceRegistryAddress: addresses.serviceRegistry as Address,
+    creditManagerAddress: addresses.creditManager as Address,
+    rpcUrl,
+    chain,
     logger,
-    cloudAgentSigner,
-    chainId: (await provider.getNetwork()).chainId
+    cloudAgentAccount,
+    chainId: BigInt(chainId),
   };
   
   const integration = new CloudIntegration(config);
@@ -200,7 +213,7 @@ async function main() {
     ]
   };
   
-  await setupCloudIntegration(integration, signer, metadata);
+  await setupCloudIntegration(integration, account, metadata);
   
   logger.success('\n=== Cloud Integration Deployment Complete ===');
   logger.info('\nNext steps:');

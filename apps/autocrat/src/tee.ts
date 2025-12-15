@@ -7,7 +7,7 @@
  * - DA layer backup for persistence
  */
 
-import { keccak256, toUtf8Bytes } from 'viem';
+import { keccak256, stringToHex } from 'viem';
 import { randomBytes, createCipheriv, createDecipheriv } from 'crypto';
 import {
   encryptDecision,
@@ -50,7 +50,7 @@ const BACKUP_TO_DA = process.env.BACKUP_TO_DA !== 'false';
 
 function getDerivedKey(): Buffer {
   const secret = process.env.TEE_ENCRYPTION_SECRET ?? 'council-local-dev-key';
-  const hash = keccak256(toUtf8Bytes(secret));
+  const hash = keccak256(stringToHex(secret));
   return Buffer.from(hash.slice(2, 66), 'hex');
 }
 
@@ -122,7 +122,7 @@ async function callRemoteTEE(context: TEEDecisionContext): Promise<TEEDecisionRe
     approved: data.approved,
     publicReasoning: data.reasoning,
     encryptedReasoning,
-    encryptedHash: keccak256(toUtf8Bytes(encryptedReasoning)),
+    encryptedHash: keccak256(stringToHex(encryptedReasoning)),
     confidenceScore: data.confidence,
     alignmentScore: data.alignment,
     recommendations: data.recommendations,
@@ -140,11 +140,11 @@ function makeLocalDecision(context: TEEDecisionContext): TEEDecisionResult {
     approved,
     publicReasoning: reasoning,
     encryptedReasoning,
-    encryptedHash: keccak256(toUtf8Bytes(encryptedReasoning)),
+    encryptedHash: keccak256(stringToHex(encryptedReasoning)),
     confidenceScore: confidence,
     alignmentScore: alignment,
     recommendations,
-    attestation: { provider: 'local', quote: keccak256(toUtf8Bytes(`local:${Date.now()}`)), timestamp: Date.now(), verified: true },
+    attestation: { provider: 'local', quote: keccak256(stringToHex(`local:${Date.now()}`)), timestamp: Date.now(), verified: true },
   };
 }
 

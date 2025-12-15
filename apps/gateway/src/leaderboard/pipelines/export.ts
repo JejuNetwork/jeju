@@ -6,7 +6,7 @@
 
 import { query, initLeaderboardDB } from '../db.js';
 import { LEADERBOARD_CONFIG } from '../config.js';
-import { createDWSSDK } from '@jejunetwork/dws/sdk';
+import { createDWSSDK } from '@jejunetwork/dws';
 
 export interface ExportOptions {
   /** Specific repository to export */

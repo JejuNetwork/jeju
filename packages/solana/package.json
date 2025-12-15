@@ -1,5 +1,5 @@
 {
-  "name": "@jeju/solana",
+  "name": "@jejunetwork/solana",
   "version": "0.1.0",
   "description": "Jeju Network Solana SDK - OIF, Launchpad, and DEX aggregation",
   "type": "module",

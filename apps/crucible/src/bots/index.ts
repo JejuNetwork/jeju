@@ -12,7 +12,7 @@
  *   FlashLoanExecutor,
  *   GasOracle,
  *   RiskManager,
- * } from '@jejunetwork/crucible/bots';
+ * } from '@jejunetwork/crucible';
  * 
  * // Initialize components
  * const gasOracle = new GasOracle();

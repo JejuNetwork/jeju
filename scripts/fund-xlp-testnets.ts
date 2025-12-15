@@ -11,7 +11,9 @@
  *   DEPLOYER_KEY=... XLP_ADDRESS=... bun scripts/fund-xlp-testnets.ts
  */
 
-import { ethers } from 'ethers';
+import { createPublicClient, createWalletClient, http, parseEther, formatEther, getBalance, sendTransaction, waitForTransactionReceipt, type Address } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { inferChainFromRpcUrl } from './shared/chain-utils';
 
 interface Chain {
   name: string;
@@ -71,25 +73,26 @@ async function main() {
     process.exit(1);
   }
 
-  const deployer = new ethers.Wallet(deployerKey);
-  console.log(`Deployer: ${deployer.address}`);
+  const deployerAccount = privateKeyToAccount(deployerKey as `0x${string}`);
+  console.log(`Deployer: ${deployerAccount.address}`);
   console.log(`XLP:      ${xlpAddress}\n`);
 
   for (const chain of TESTNETS) {
     console.log(`\n=== ${chain.name} (${chain.chainId}) ===`);
     
     try {
-      const provider = new ethers.JsonRpcProvider(chain.rpc);
-      const wallet = deployer.connect(provider);
+      const chainObj = inferChainFromRpcUrl(chain.rpc);
+      const publicClient = createPublicClient({ chain: chainObj, transport: http(chain.rpc) });
+      const walletClient = createWalletClient({ account: deployerAccount, chain: chainObj, transport: http(chain.rpc) });
       
       // Check balances
-      const deployerBalance = await provider.getBalance(deployer.address);
-      const xlpBalance = await provider.getBalance(xlpAddress);
+      const deployerBalance = await getBalance(publicClient, { address: deployerAccount.address });
+      const xlpBalance = await getBalance(publicClient, { address: xlpAddress as Address });
       
-      console.log(`Deployer: ${ethers.formatEther(deployerBalance)} ETH`);
-      console.log(`XLP:      ${ethers.formatEther(xlpBalance)} ETH`);
+      console.log(`Deployer: ${formatEther(deployerBalance)} ETH`);
+      console.log(`XLP:      ${formatEther(xlpBalance)} ETH`);
       
-      const requiredAmount = ethers.parseEther(chain.fundAmount);
+      const requiredAmount = parseEther(chain.fundAmount);
       
       if (xlpBalance >= requiredAmount) {
         console.log(`✓ XLP already funded`);
@@ -98,20 +101,21 @@ async function main() {
       
       const needed = requiredAmount - xlpBalance;
       
-      if (deployerBalance < needed + ethers.parseEther('0.01')) {
+      if (deployerBalance < needed + parseEther('0.01')) {
         console.log(`⚠ Deployer has insufficient balance`);
         continue;
       }
       
-      console.log(`Sending ${ethers.formatEther(needed)} ETH to XLP...`);
+      console.log(`Sending ${formatEther(needed)} ETH to XLP...`);
       
-      const tx = await wallet.sendTransaction({
-        to: xlpAddress,
-        value: needed
+      const hash = await sendTransaction(walletClient, {
+        to: xlpAddress as Address,
+        value: needed,
+        account: deployerAccount,
       });
       
-      await tx.wait();
-      console.log(`✓ Funded: ${tx.hash}`);
+      await waitForTransactionReceipt(publicClient, { hash });
+      console.log(`✓ Funded: ${hash}`);
       
     } catch (error) {
       console.error(`❌ Error: ${(error as Error).message}`);
@@ -122,9 +126,10 @@ async function main() {
   
   for (const chain of TESTNETS) {
     try {
-      const provider = new ethers.JsonRpcProvider(chain.rpc);
-      const balance = await provider.getBalance(xlpAddress);
-      console.log(`${chain.name}: ${ethers.formatEther(balance)} ETH`);
+      const chainObj = inferChainFromRpcUrl(chain.rpc);
+      const publicClient = createPublicClient({ chain: chainObj, transport: http(chain.rpc) });
+      const balance = await getBalance(publicClient, { address: xlpAddress as Address });
+      console.log(`${chain.name}: ${formatEther(balance)} ETH`);
     } catch {
       console.log(`${chain.name}: Unable to check`);
     }

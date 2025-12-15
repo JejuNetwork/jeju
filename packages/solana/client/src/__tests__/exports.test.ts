@@ -7,7 +7,7 @@ import * as Solana from '../index';
 // Use a real connection for testing (can be any valid RPC endpoint)
 const connection = new Connection('https://api.devnet.solana.com');
 
-describe('@jeju/solana exports', () => {
+describe('@jejunetwork/solana exports', () => {
   describe('OIF exports', () => {
     it('exports OIFClient class', () => {
       expect(Solana.OIFClient).toBeDefined();

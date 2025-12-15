@@ -1,5 +1,5 @@
 /**
- * @jeju/ui - React hooks for network SDK
+ * @jejunetwork/ui - React hooks for network SDK
  *
  * @example
  * ```tsx

@@ -1,32 +1,36 @@
 /**
- * MEV Infrastructure
+ * MEV Infrastructure - Complete Flashbots Integration
  * 
- * Complete Flashbots ecosystem integration:
- * - Flashbots Protect: Private tx submission
- * - Flashbots Builder: Direct bundle submission
- * - MEV-Share: Fair MEV redistribution
- * - MEV-Boost: Builder API compatibility
+ * Integrates ALL Flashbots technologies:
  * 
- * Philosophy:
- * - Protect Jeju users from MEV extraction
- * - Extract MEV from non-Jeju DEX swaps
- * - Share extracted MEV fairly via MEV-Share (50% default)
+ * 1. MEV-Boost: Multi-builder bundle submission
+ * 2. BuilderNet: Decentralized block building with TEEs
+ * 3. Rollup-Boost: L2 sequencer MEV internalization
+ * 4. Protect RPC: Private tx submission for user protection
+ * 5. SUAVE: Programmable privacy MEV (future)
+ * 
+ * Strategy:
+ * - ON JEJU: Use Protect RPC - never extract MEV from our users
+ * - ON EXTERNAL CHAINS: Aggressive MEV via all builders
  */
 
-// Flashbots Provider & Bundle Building
+// Flashbots Provider (MEV-Boost, BuilderNet, Protect, etc.)
 export {
-  FlashbotsProvider,
-  SandwichBuilder,
-  printMevStats,
-  FLASHBOTS_RPC,
-  FLASHBOTS_PROTECT_RPC,
-  MEV_SHARE_RPC,
-  BUILDER_ENDPOINTS,
+  MevBoostProvider,
+  FlashbotsProvider, // Backwards compatibility alias
+  FlashbotsStrategyEngine,
+  FLASHBOTS_ENDPOINTS,
+  BLOCK_BUILDERS,
+  L2_BUILDERS,
   type FlashbotsBundle,
   type MevShareBundle,
-  type SandwichOpportunity,
+  type MevShareEvent,
+  type RollupBoostBlock,
+  type SuaveBundle,
+  type BundleSimulation,
   type FlashbotsConfig,
   type MevShareHint,
+  type MevStats as FlashbotsMevStats,
 } from './flashbots';
 
 // Mempool Monitoring
@@ -40,10 +44,10 @@ export {
   type MempoolConfig,
 } from './mempool';
 
-// MEV Strategy Engine
+// MEV Strategy Engine (External Chain Focus)
 export {
-  MevStrategyEngine,
-  type MevStrategyConfig,
+  ExternalChainMevEngine,
+  MevStrategyEngine, // Backwards compatibility alias
+  type ExternalMevConfig,
   type MevStats,
 } from './strategy';
-

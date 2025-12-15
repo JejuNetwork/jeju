@@ -1,7 +1,7 @@
 /**
  * useAuth - OAuth3 Authentication Hook
  * 
- * Uses the @jeju/oauth3 SDK for decentralized authentication:
+ * Uses the @jejunetwork/oauth3 SDK for decentralized authentication:
  * - Wallet (MetaMask, WalletConnect, etc.)
  * - Social (Google, Apple, Twitter, GitHub, Discord)
  * - Farcaster
@@ -17,7 +17,7 @@ import {
   AuthProvider as OAuth3AuthProvider,
   type OAuth3Client,
   type OAuth3Session,
-} from '@jeju/oauth3';
+} from '@jejunetwork/oauth3';
 
 export type AuthProvider = 
   | 'wallet'
