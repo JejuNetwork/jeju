@@ -25,7 +25,8 @@
  * ```
  */
 
-export { createJejuClient, JejuClient, type JejuClientConfig } from "./client";
+export { createJejuClient } from "./client";
+export type { JejuClient, JejuClientConfig } from "./client";
 
 // Module exports
 export * from "./compute";

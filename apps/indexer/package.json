@@ -1,7 +1,7 @@
 {
   "name": "squid",
   "version": "1.0.0",
-  "description": "Comprehensive blockchain indexer for Jeju",
+  "description": "Comprehensive blockchain indexer with GraphQL API",
   "scripts": {
     "build": "rm -rf lib && tsc",
     "predev": "bun run db:cleanup && bun run db:up && bun run db:wait && bun run db:create && bun run db:migrate",

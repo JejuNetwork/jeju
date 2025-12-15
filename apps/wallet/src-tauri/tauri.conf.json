@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/schema.json",
-  "productName": "Jeju Wallet",
+  "productName": "Network Wallet",
   "version": "0.1.0",
   "identifier": "network.jeju.wallet",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Jeju Wallet",
+        "title": "Network Wallet",
         "width": 420,
         "height": 680,
         "resizable": true,
@@ -46,9 +46,9 @@
     "resources": [],
     "category": "Finance",
     "shortDescription": "Agentic multi-chain wallet with seamless cross-chain UX",
-    "longDescription": "Jeju Wallet is an agentic multi-chain wallet that provides seamless cross-chain transactions without manual bridging. Features include EIL (Ethereum Interop Layer) for trustless transfers, OIF (Open Intents Framework) for intent-based transactions, and ERC-4337 account abstraction.",
-    "copyright": "© 2024 Jeju Network",
-    "publisher": "Jeju Network",
+    "longDescription": "Network Wallet is an agentic multi-chain wallet that provides seamless cross-chain transactions without manual bridging. Features include EIL (Ethereum Interop Layer) for trustless transfers, OIF (Open Intents Framework) for intent-based transactions, and ERC-4337 account abstraction.",
+    "copyright": "© 2025 Network",
+    "publisher": "Network",
     "macOS": {
       "minimumSystemVersion": "10.13",
       "exceptionDomain": "",
