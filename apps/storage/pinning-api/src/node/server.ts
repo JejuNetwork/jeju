@@ -1,7 +1,7 @@
 /**
  * Storage Node Server
  *
- * Storage provider node for the Jeju Storage Marketplace:
+ * Storage provider node for the Storage Marketplace:
  * - IPFS pinning and retrieval
  * - x402 payment verification
  * - On-chain deal settlement

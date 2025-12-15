@@ -75,8 +75,8 @@ export type StakeStatus = 'idle' | 'pending' | 'complete' | 'error';
 // ============ Supported Chains ============
 
 export const SUPPORTED_CHAINS: ChainInfo[] = [
-  { id: 420691, name: 'Jeju', icon: '🏝️', rpcUrl: 'https://rpc.jeju.network', isSource: true, isDestination: true },
-  { id: 420690, name: 'Jeju Testnet', icon: '🏝️', rpcUrl: 'https://testnet-rpc.jeju.network', isSource: true, isDestination: true },
+  { id: 420691, name: 'Network', icon: '🏝️', rpcUrl: 'https://rpc.jeju.network', isSource: true, isDestination: true },
+  { id: 420690, name: 'Testnet', icon: '🏝️', rpcUrl: 'https://testnet-rpc.jeju.network', isSource: true, isDestination: true },
   { id: 42161, name: 'Arbitrum', icon: '🔵', rpcUrl: 'https://arb1.arbitrum.io/rpc', isSource: true, isDestination: true },
   { id: 10, name: 'Optimism', icon: '🔴', rpcUrl: 'https://mainnet.optimism.io', isSource: true, isDestination: true },
   { id: 1, name: 'Ethereum', icon: '💎', rpcUrl: 'https://eth.llamarpc.com', isSource: true, isDestination: true },

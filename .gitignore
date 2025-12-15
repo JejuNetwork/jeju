@@ -102,6 +102,14 @@ test-results/
 # Private keys - NEVER commit
 packages/deployment/.keys/
 
+# Secrets - NEVER commit
+secrets/
+*.secret
+*.key
+jwt-secret.txt
+*.pem
+*.p12
+
 # Root-owned build artifacts (delete with sudo rm -rf)
 packages/contracts/out-root-owned/
 packages/contracts/cache-root-owned/
@@ -113,3 +121,4 @@ docs/
 .jeju/*
 !.jeju/.gitkeepgetgrass/
 grass/
+.fork/google-cloud-sdk/

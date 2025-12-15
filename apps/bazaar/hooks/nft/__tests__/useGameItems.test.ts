@@ -9,43 +9,38 @@
 
 import { describe, test, expect } from 'bun:test'
 import { getRarityInfo } from '../useGameItems'
+import * as useGameItemsModule from '../useGameItems'
+import { ItemsAbi, GoldAbi, gameSystemDeployments, getGameItems, getGameGold, getGameIntegration } from '@jejunetwork/contracts'
 
 describe('useGameItems Hooks', () => {
   describe('exports', () => {
-    test('should export useGameItems', async () => {
-      const module = await import('../useGameItems')
-      expect(typeof module.useGameItems).toBe('function')
+    test('should export useGameItems', () => {
+      expect(typeof useGameItemsModule.useGameItems).toBe('function')
     })
 
-    test('should export useGameItemMetadata', async () => {
-      const module = await import('../useGameItems')
-      expect(typeof module.useGameItemMetadata).toBe('function')
+    test('should export useGameItemMetadata', () => {
+      expect(typeof useGameItemsModule.useGameItemMetadata).toBe('function')
     })
 
-    test('should export useGameItemBalance', async () => {
-      const module = await import('../useGameItems')
-      expect(typeof module.useGameItemBalance).toBe('function')
+    test('should export useGameItemBalance', () => {
+      expect(typeof useGameItemsModule.useGameItemBalance).toBe('function')
     })
 
-    test('should export useMintItem', async () => {
-      const module = await import('../useGameItems')
-      expect(typeof module.useMintItem).toBe('function')
+    test('should export useMintItem', () => {
+      expect(typeof useGameItemsModule.useMintItem).toBe('function')
     })
 
-    test('should export useBurnItem', async () => {
-      const module = await import('../useGameItems')
-      expect(typeof module.useBurnItem).toBe('function')
+    test('should export useBurnItem', () => {
+      expect(typeof useGameItemsModule.useBurnItem).toBe('function')
     })
 
-    test('should export getRarityInfo', async () => {
-      const module = await import('../useGameItems')
-      expect(typeof module.getRarityInfo).toBe('function')
+    test('should export getRarityInfo', () => {
+      expect(typeof useGameItemsModule.getRarityInfo).toBe('function')
     })
 
-    test('should export GameItem type', async () => {
-      const module = await import('../useGameItems')
+    test('should export GameItem type', () => {
       // Type exports don't have runtime presence, but we can check the module loads
-      expect(module).toBeDefined()
+      expect(useGameItemsModule).toBeDefined()
     })
   })
 
@@ -139,8 +134,7 @@ describe('useGameItems Hooks', () => {
 })
 
 describe('Contract ABI Integration', () => {
-  test('ItemsAbi from @jejunetwork/contracts has required functions', async () => {
-    const { ItemsAbi } = await import('@jejunetwork/contracts')
+  test('ItemsAbi from @jejunetwork/contracts has required functions', () => {
     
     const functions = (ItemsAbi as readonly { type: string; name?: string }[])
       .filter(item => item.type === 'function')
@@ -161,8 +155,7 @@ describe('Contract ABI Integration', () => {
     expect(functions).toContain('createItemType')
   })
 
-  test('ItemsAbi has required events', async () => {
-    const { ItemsAbi } = await import('@jejunetwork/contracts')
+  test('ItemsAbi has required events', () => {
     
     const events = (ItemsAbi as readonly { type: string; name?: string }[])
       .filter(item => item.type === 'event')
@@ -176,8 +169,7 @@ describe('Contract ABI Integration', () => {
     expect(events).toContain('TransferBatch')
   })
 
-  test('GoldAbi from @jejunetwork/contracts has required functions', async () => {
-    const { GoldAbi } = await import('@jejunetwork/contracts')
+  test('GoldAbi from @jejunetwork/contracts has required functions', () => {
     
     const functions = (GoldAbi as readonly { type: string; name?: string }[])
       .filter(item => item.type === 'function')
@@ -194,8 +186,7 @@ describe('Contract ABI Integration', () => {
     expect(functions).toContain('burn')
   })
 
-  test('GoldAbi has required events', async () => {
-    const { GoldAbi } = await import('@jejunetwork/contracts')
+  test('GoldAbi has required events', () => {
     
     const events = (GoldAbi as readonly { type: string; name?: string }[])
       .filter(item => item.type === 'event')
@@ -208,15 +199,13 @@ describe('Contract ABI Integration', () => {
 })
 
 describe('Deployment Configuration', () => {
-  test('gameSystemDeployments exports correctly', async () => {
-    const { gameSystemDeployments } = await import('@jejunetwork/contracts')
+  test('gameSystemDeployments exports correctly', () => {
     
     expect(gameSystemDeployments).toBeDefined()
     expect(typeof gameSystemDeployments).toBe('object')
   })
 
-  test('getGameItems helper works', async () => {
-    const { getGameItems } = await import('@jejunetwork/contracts')
+  test('getGameItems helper works', () => {
     
     expect(typeof getGameItems).toBe('function')
     // Returns undefined if not deployed (which is fine for test)
@@ -224,16 +213,14 @@ describe('Deployment Configuration', () => {
     expect(result === undefined || typeof result === 'string').toBe(true)
   })
 
-  test('getGameGold helper works', async () => {
-    const { getGameGold } = await import('@jejunetwork/contracts')
+  test('getGameGold helper works', () => {
     
     expect(typeof getGameGold).toBe('function')
     const result = getGameGold(1337)
     expect(result === undefined || typeof result === 'string').toBe(true)
   })
 
-  test('getGameIntegration helper works', async () => {
-    const { getGameIntegration } = await import('@jejunetwork/contracts')
+  test('getGameIntegration helper works', () => {
     
     expect(typeof getGameIntegration).toBe('function')
     const result = getGameIntegration(1337)

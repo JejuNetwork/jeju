@@ -32,14 +32,14 @@ describe('generateWakePage', () => {
   test('should include app name in title', () => {
     const html = generateWakePage(baseData);
 
-    expect(html).toContain('<title>myapp - Needs Funding | Jeju Network</title>');
+    expect(html).toContain('<title>myapp - Needs Funding | the network</title>');
   });
 
   test('should include Jeju branding', () => {
     const html = generateWakePage(baseData);
 
-    expect(html).toContain('🍊'); // Jeju orange emoji
-    expect(html).toContain('Jeju Network');
+    expect(html).toContain('🍊'); // Network orange emoji
+    expect(html).toContain('the network');
     expect(html).toContain('--jeju-orange');
   });
 

@@ -64,7 +64,7 @@ test.describe('EVERY FORM TEST - Complete Form Validation', () => {
     await page.getByPlaceholder(/0x.../).fill('0x70997970C51812dc3A010C7d01b50e0d17dc79C8');
     await page.waitForTimeout(500);
 
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     if (await bridgeButton.isEnabled()) {
       formsWorking.push('✅ Bridge Form');
       console.log('✅ Form 2/6: Bridge Token - All fields work');
@@ -201,7 +201,7 @@ test.describe('EVERY FORM TEST - Complete Form Validation', () => {
 });
 
 test.describe('Form Field Validation - All Inputs', () => {
-  test('should test all input types across all forms', async ({ _page, _metamask }) => {
+  test('should test all input types across all forms', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 

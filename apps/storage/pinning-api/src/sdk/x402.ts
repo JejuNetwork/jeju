@@ -1,8 +1,8 @@
 /**
- * x402 Payment Protocol for Jeju Storage Marketplace
+ * x402 Payment Protocol for network Storage Marketplace
  *
  * Implements HTTP 402 Payment Required protocol for micropayments.
- * Compatible with @coinbase/x402 and Jeju compute x402 implementation.
+ * Compatible with @coinbase/x402 and network compute x402 implementation.
  */
 
 import type { Address } from 'viem';
@@ -124,7 +124,7 @@ export const X402_NETWORK_CONFIGS: Record<X402Network, X402NetworkConfig> = {
     usdc: X402_USDC_ADDRESSES.ethereum,
   },
   jeju: {
-    name: 'Jeju Localnet',
+    name: 'Network',
     chainId: 9545,
     rpcUrl: X402_RPC_URLS.jeju,
     blockExplorer: '',
@@ -132,7 +132,7 @@ export const X402_NETWORK_CONFIGS: Record<X402Network, X402NetworkConfig> = {
     usdc: ZERO_ADDRESS,
   },
   'jeju-testnet': {
-    name: 'Jeju Testnet (Sepolia)',
+    name: 'Network Testnet (Sepolia)',
     chainId: 11155111,
     rpcUrl: X402_RPC_URLS['jeju-testnet'],
     blockExplorer: 'https://sepolia.etherscan.io',
@@ -564,7 +564,7 @@ export class StorageX402Client {
 
     const headers = new Headers(options.headers);
     headers.set('X-Payment', paymentHeader);
-    headers.set('x-jeju-address', this.signer.address);
+    headers.set('x-network-address', this.signer.address);
 
     return fetch(url, { ...options, headers });
   }

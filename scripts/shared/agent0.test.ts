@@ -5,12 +5,12 @@
 
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
 import { 
-  loadJejuManifest, 
+  loadAppManifest, 
   getNetworkConfig, 
   buildRegistrationFile,
   detectNetwork,
   createConfigFromEnv,
-  type JejuManifest
+  type AppManifest
 } from './agent0';
 import { resolve } from 'path';
 import { writeFileSync, rmSync, mkdirSync, existsSync } from 'fs';
@@ -45,7 +45,7 @@ describe('Agent0 SDK Integration', () => {
     });
   });
   
-  describe('loadJejuManifest', () => {
+  describe('loadAppManifest', () => {
     const testDir = resolve(__dirname, '__test_manifest__');
     
     beforeAll(() => {
@@ -78,7 +78,7 @@ describe('Agent0 SDK Integration', () => {
         JSON.stringify(testManifest, null, 2)
       );
       
-      const loaded = loadJejuManifest(testDir);
+      const loaded = loadAppManifest(testDir);
       expect(loaded.name).toBe('test-app');
       expect(loaded.description).toBe('Test application');
       expect(loaded.agent?.enabled).toBe(true);
@@ -86,13 +86,13 @@ describe('Agent0 SDK Integration', () => {
     });
     
     test('should throw for missing manifest', () => {
-      expect(() => loadJejuManifest('/nonexistent/path')).toThrow();
+      expect(() => loadAppManifest('/nonexistent/path')).toThrow();
     });
   });
   
   describe('buildRegistrationFile', () => {
     test('should build registration file from manifest', () => {
-      const manifest: JejuManifest = {
+      const manifest: AppManifest = {
         name: 'test-agent',
         description: 'A test agent',
         version: '1.0.0',
@@ -115,7 +115,7 @@ describe('Agent0 SDK Integration', () => {
     });
     
     test('should build A2A endpoint from relative path', () => {
-      const manifest: JejuManifest = {
+      const manifest: AppManifest = {
         name: 'test',
         description: 'Test',
         agent: {
@@ -131,7 +131,7 @@ describe('Agent0 SDK Integration', () => {
     });
     
     test('should use absolute A2A endpoint when provided', () => {
-      const manifest: JejuManifest = {
+      const manifest: AppManifest = {
         name: 'test',
         description: 'Test',
         agent: {
@@ -147,7 +147,7 @@ describe('Agent0 SDK Integration', () => {
     });
     
     test('should include MCP endpoint when configured', () => {
-      const manifest: JejuManifest = {
+      const manifest: AppManifest = {
         name: 'test',
         description: 'Test',
         agent: {
@@ -164,7 +164,7 @@ describe('Agent0 SDK Integration', () => {
     });
     
     test('should default trustModels to open', () => {
-      const manifest: JejuManifest = {
+      const manifest: AppManifest = {
         name: 'test',
         description: 'Test'
       };
@@ -174,7 +174,7 @@ describe('Agent0 SDK Integration', () => {
     });
     
     test('should include custom metadata', () => {
-      const manifest: JejuManifest = {
+      const manifest: AppManifest = {
         name: 'test',
         description: 'Test',
         version: '2.0.0',
@@ -254,7 +254,7 @@ describe('Agent0 Manifest Loading - Real Apps', () => {
   const appsDir = resolve(__dirname, '../../apps');
   
   test('should load bazaar manifest with agent config', () => {
-    const manifest = loadJejuManifest(resolve(appsDir, 'bazaar'));
+    const manifest = loadAppManifest(resolve(appsDir, 'bazaar'));
     
     expect(manifest.name).toBe('bazaar');
     expect(manifest.agent?.enabled).toBe(true);
@@ -263,7 +263,7 @@ describe('Agent0 Manifest Loading - Real Apps', () => {
   });
   
   test('should load gateway manifest with agent config', () => {
-    const manifest = loadJejuManifest(resolve(appsDir, 'gateway'));
+    const manifest = loadAppManifest(resolve(appsDir, 'gateway'));
     
     expect(manifest.name).toBe('gateway');
     expect(manifest.agent?.enabled).toBe(true);
@@ -273,7 +273,7 @@ describe('Agent0 Manifest Loading - Real Apps', () => {
   // Note: apps/ipfs was removed from the project
   
   test('should load compute manifest with agent config', () => {
-    const manifest = loadJejuManifest(resolve(appsDir, 'compute'));
+    const manifest = loadAppManifest(resolve(appsDir, 'compute'));
     
     expect(manifest.name).toBe('compute');
     expect(manifest.agent?.enabled).toBe(true);
@@ -282,7 +282,7 @@ describe('Agent0 Manifest Loading - Real Apps', () => {
   });
   
   test('should load monitoring manifest with agent config', () => {
-    const manifest = loadJejuManifest(resolve(appsDir, 'monitoring'));
+    const manifest = loadAppManifest(resolve(appsDir, 'monitoring'));
     
     expect(manifest.name).toBe('monitoring');
     expect(manifest.agent?.enabled).toBe(true);
@@ -290,7 +290,7 @@ describe('Agent0 Manifest Loading - Real Apps', () => {
   });
   
   test('should load indexer manifest with agent config', () => {
-    const manifest = loadJejuManifest(resolve(appsDir, 'indexer'));
+    const manifest = loadAppManifest(resolve(appsDir, 'indexer'));
     
     expect(manifest.name).toBe('indexer');
     expect(manifest.agent?.enabled).toBe(true);
@@ -299,7 +299,7 @@ describe('Agent0 Manifest Loading - Real Apps', () => {
 
 describe('Registration File Structure Validation', () => {
   test('should produce valid ERC-8004 registration file structure', () => {
-    const manifest: JejuManifest = {
+    const manifest: AppManifest = {
       name: 'Complete Test Agent',
       description: 'A fully configured test agent for validation',
       version: '1.0.0',

@@ -1,10 +1,4 @@
 import express, { Request, Response, NextFunction } from 'express';
-
-// Express v5 type compatibility - use type assertion for methods
-type ExpressResponse = Response & {
-  json: (body: unknown) => Response;
-  status: (code: number) => ExpressResponse;
-}
 import cors from 'cors';
 import { getDataSource } from './lib/db';
 import { stakeRateLimiter, getRateLimitStats, RATE_LIMITS } from './lib/stake-rate-limiter';
@@ -45,7 +39,7 @@ app.get('/health', (_req: Request, res: Response) => {
 
 app.get('/', (_req: Request, res: Response) => {
   res.json({
-    name: 'Jeju Indexer REST API',
+    name: 'Network Indexer REST API',
     version: '1.0.0',
     endpoints: {
       health: '/health',
@@ -866,7 +860,7 @@ app.get('/api/oracle/disputes', asyncHandler(async (req: Request, res: Response)
   
   const [disputes, total] = await query.orderBy('d.openedAt', 'DESC').take(limit).skip(offset).getManyAndCount();
 
-  (res as ExpressResponse).json({
+  res.json({
     disputes: disputes.map(d => ({
       disputeId: d.disputeId,
       reportId: d.report?.reportId,
@@ -957,7 +951,7 @@ app.get('/api/stats', asyncHandler(async (_req, res) => {
 
   const latestBlock = await ds.getRepository(Block).createQueryBuilder('b').orderBy('b.number', 'DESC').limit(1).getOne();
 
-  (res as ExpressResponse).json({
+  res.json({
     blocks: blockCount,
     transactions: txCount,
     accounts: accountCount,
@@ -985,7 +979,7 @@ app.get('/api/rate-limits', (_req, res) => {
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error('[REST] Unhandled error:', err.message, err.stack);
-  (res as ExpressResponse).status(500).json({ error: 'Internal server error', message: err.message });
+  res.status(500).json({ error: 'Internal server error', message: err.message });
 });
 
 export async function startRestServer(): Promise<void> {

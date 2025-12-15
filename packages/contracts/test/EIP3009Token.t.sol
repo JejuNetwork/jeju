@@ -63,6 +63,9 @@ contract EIP3009TokenTest is Test {
         vm.prank(owner);
         token.setConfig(0, 0, false, false, true);
         
+        // Warp past cooldown
+        vm.warp(block.timestamp + token.faucetCooldown() + 1);
+        
         vm.prank(bob);
         token.faucet();
         

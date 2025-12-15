@@ -126,10 +126,10 @@ export class LockManager {
         return { acquired: true };
       }
 
-      // Another process beat us - small delay and retry
+      // Another process beat us - small synchronous delay and retry
       if (attempt < MAX_ACQUIRE_ATTEMPTS - 1) {
         const delay = 50 + Math.random() * 100;
-        await new Promise(r => setTimeout(r, delay));
+        Bun.sleepSync(delay);
       }
     }
 

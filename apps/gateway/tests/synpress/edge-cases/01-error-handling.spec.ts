@@ -13,12 +13,12 @@ const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
 
 test.describe('Transaction Rejection Handling', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
   });
 
-  test('should handle user rejecting add liquidity transaction', async ({ _page, _metamask }) => {
+  test('should handle user rejecting add liquidity transaction', async ({ page, metamask }) => {
     await page.getByRole('button', { name: /Add Liquidity/i }).click();
     await page.waitForTimeout(1000);
 
@@ -55,7 +55,7 @@ test.describe('Transaction Rejection Handling', () => {
     console.log('✅ Transaction rejection handled gracefully');
   });
 
-  test('should handle rejected node registration', async ({ _page, _metamask }) => {
+  test('should handle rejected node registration', async ({ page, metamask }) => {
     await page.getByRole('button', { name: /Node Operators/i }).click();
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: /Register New Node/i }).click();
@@ -98,12 +98,12 @@ test.describe('Transaction Rejection Handling', () => {
 });
 
 test.describe('Form Validation Errors', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
   });
 
-  test('should show validation error for invalid token address in registration', async ({ _page }) => {
+  test('should show validation error for invalid token address in registration', async ({ page }) => {
     await page.getByRole('button', { name: /Registered Tokens/i }).click();
     await page.waitForTimeout(1000);
 
@@ -124,7 +124,7 @@ test.describe('Form Validation Errors', () => {
     console.log('✅ Invalid address validation shown');
   });
 
-  test('should show validation for RPC URL in node registration', async ({ _page }) => {
+  test('should show validation for RPC URL in node registration', async ({ page }) => {
     await page.getByRole('button', { name: /Node Operators/i }).click();
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: /Register New Node/i }).click();
@@ -151,7 +151,7 @@ test.describe('Form Validation Errors', () => {
     console.log('✅ RPC URL validation working');
   });
 
-  test('should validate app name required in registry', async ({ _page }) => {
+  test('should validate app name required in registry', async ({ page }) => {
     await page.getByRole('button', { name: /App Registry/i }).click();
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: /Register App/i }).click();
@@ -172,7 +172,7 @@ test.describe('Form Validation Errors', () => {
 });
 
 test.describe('Insufficient Balance Errors', () => {
-  test('should show error when insufficient ETH for liquidity', async ({ _page, _metamask }) => {
+  test('should show error when insufficient ETH for liquidity', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     
@@ -204,7 +204,7 @@ test.describe('Insufficient Balance Errors', () => {
 });
 
 test.describe('Network and Connection Errors', () => {
-  test('should handle disconnected wallet gracefully', async ({ _page }) => {
+  test('should handle disconnected wallet gracefully', async ({ page }) => {
     await page.goto(GATEWAY_URL);
     
     // Without connecting wallet
@@ -215,24 +215,24 @@ test.describe('Network and Connection Errors', () => {
     console.log('✅ Disconnected state handled correctly');
   });
 
-  test.skip('should detect wrong network and show warning', async ({ _page, _metamask }) => {
+  test.skip('should detect wrong network and show warning', async ({ page, metamask }) => {
     // TODO: Switch to different network and verify warning
     console.log('⚠️  Wrong network test - needs network switching implementation');
   });
 
-  test.skip('should handle RPC connection failures', async ({ _page }) => {
+  test.skip('should handle RPC connection failures', async ({ page }) => {
     // TODO: Simulate RPC down and test graceful degradation
     console.log('⚠️  RPC failure test - needs error injection');
   });
 });
 
 test.describe('Empty State Tests', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
   });
 
-  test('should show empty state for LP positions if none exist', async ({ _page }) => {
+  test('should show empty state for LP positions if none exist', async ({ page }) => {
     await page.getByRole('button', { name: /My Earnings/i }).click();
     await page.waitForTimeout(1000);
 
@@ -249,7 +249,7 @@ test.describe('Empty State Tests', () => {
     }
   });
 
-  test('should show empty state for nodes if none registered', async ({ _page }) => {
+  test('should show empty state for nodes if none registered', async ({ page }) => {
     await page.getByRole('button', { name: /Node Operators/i }).click();
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: /My Nodes/i }).click();
@@ -268,7 +268,7 @@ test.describe('Empty State Tests', () => {
     }
   });
 
-  test('should show empty state for apps if none registered', async ({ _page }) => {
+  test('should show empty state for apps if none registered', async ({ page }) => {
     await page.getByRole('button', { name: /App Registry/i }).click();
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: /Browse Apps/i }).click();

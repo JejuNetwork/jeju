@@ -115,7 +115,7 @@ describe('RPC Utilities', () => {
         'https://rpc.jeju.network',
         'https://rpc-backup.jeju.network',
         LOCALNET_RPC,
-      ], 'Jeju');
+      ], 'Network');
 
       console.log('   1. Created failover provider with 3 endpoints');
       console.log('   2. Provider automatically tries each endpoint');

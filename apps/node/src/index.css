@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply bg-volcanic-950 text-volcanic-100;
+  }
+  
+  * {
+    @apply border-volcanic-800;
+  }
+  
+  ::-webkit-scrollbar {
+    @apply w-2 h-2;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-volcanic-900 rounded;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-volcanic-700 rounded hover:bg-volcanic-600;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-volcanic-900/50 backdrop-blur-sm border border-volcanic-800 rounded-xl p-4;
+  }
+  
+  .card-hover {
+    @apply card transition-all duration-200 hover:border-jeju-500/50 hover:shadow-lg hover:shadow-jeju-500/10;
+  }
+  
+  .btn {
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-primary {
+    @apply btn bg-jeju-600 text-white hover:bg-jeju-500 active:bg-jeju-700;
+  }
+  
+  .btn-secondary {
+    @apply btn bg-volcanic-800 text-volcanic-200 hover:bg-volcanic-700 active:bg-volcanic-900;
+  }
+  
+  .btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-500 active:bg-red-700;
+  }
+  
+  .btn-ghost {
+    @apply btn text-volcanic-400 hover:text-volcanic-200 hover:bg-volcanic-800/50;
+  }
+  
+  .input {
+    @apply w-full px-3 py-2 bg-volcanic-900 border border-volcanic-700 rounded-lg 
+           text-volcanic-100 placeholder:text-volcanic-500
+           focus:outline-none focus:ring-2 focus:ring-jeju-500/50 focus:border-jeju-500
+           transition-all duration-200;
+  }
+  
+  .label {
+    @apply block text-sm font-medium text-volcanic-300 mb-1;
+  }
+  
+  .status-dot {
+    @apply w-2 h-2 rounded-full;
+  }
+  
+  .status-healthy {
+    @apply status-dot bg-jeju-500 shadow-lg shadow-jeju-500/50;
+  }
+  
+  .status-warning {
+    @apply status-dot bg-yellow-500 shadow-lg shadow-yellow-500/50;
+  }
+  
+  .status-error {
+    @apply status-dot bg-red-500 shadow-lg shadow-red-500/50;
+  }
+  
+  .status-offline {
+    @apply status-dot bg-volcanic-600;
+  }
+  
+  .gradient-text {
+    @apply bg-gradient-to-r from-jeju-400 to-jeju-600 bg-clip-text text-transparent;
+  }
+  
+  .glow {
+    @apply shadow-lg shadow-jeju-500/20;
+  }
+}
+
+@layer utilities {
+  .animate-gradient {
+    background-size: 200% 200%;
+    animation: gradient 8s ease infinite;
+  }
+}
+

@@ -1,5 +1,5 @@
 /**
- * IPFS Client for JejuDA
+ * IPFS Client for NetworkDA
  */
 
 import type { IPFSAddResponse, IPFSIDResponse } from './types';

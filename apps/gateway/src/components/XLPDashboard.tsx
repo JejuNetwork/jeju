@@ -77,8 +77,8 @@ async function fetchXLPVoucherHistory(xlpAddress: string): Promise<VoucherHistor
 type TabType = 'overview' | 'liquidity' | 'stake' | 'history';
 
 const SUPPORTED_CHAINS = [
-  { id: 420691, name: 'Jeju Mainnet' },
-  { id: 420690, name: 'Jeju Testnet' },
+  { id: 420691, name: 'Mainnet' },
+  { id: 420690, name: 'Testnet' },
   { id: 1, name: 'Ethereum' },
   { id: 42161, name: 'Arbitrum' },
   { id: 10, name: 'Optimism' },

@@ -43,5 +43,24 @@
   "healthCheck": {
     "url": "http://localhost:4003/health",
     "interval": 30000
+  },
+  "testing": {
+    "unit": {
+      "command": "bun run test:unit",
+      "timeout": 120000
+    },
+    "integration": {
+      "command": "bun run test:rpc",
+      "timeout": 120000,
+      "requiresServices": true
+    },
+    "e2e": {
+      "command": "bunx playwright test tests/synpress",
+      "config": "synpress.config.ts",
+      "timeout": 600000,
+      "requiresChain": true,
+      "requiresWallet": true
+    },
+    "services": ["contracts"]
   }
 }

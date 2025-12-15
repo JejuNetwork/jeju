@@ -455,7 +455,7 @@ export default function PerpsPage() {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-6">
             <Link href="/" className="text-xl font-bold text-white">
-              Jeju
+              Network
             </Link>
             <nav className="hidden md:flex items-center gap-4">
               <Link href="/swap" className="text-gray-400 hover:text-white">Swap</Link>
@@ -474,7 +474,7 @@ export default function PerpsPage() {
           <div className="text-center py-20">
             <h1 className="text-3xl font-bold mb-4">Perpetuals Coming Soon</h1>
             <p className="text-gray-400">
-              The Jeju Perpetual Futures DEX is currently being deployed.
+              The Network Perpetual Futures DEX is currently being deployed.
             </p>
           </div>
         ) : (

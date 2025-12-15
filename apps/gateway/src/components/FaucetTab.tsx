@@ -105,7 +105,7 @@ export default function FaucetTab() {
         </div>
         
         <p className="text-secondary mb-4">
-          {info?.description || 'Get JEJU tokens for testing on the Jeju testnet.'}
+          {info?.description || 'Get JEJU tokens for testing on the testnet.'}
         </p>
 
         {/* Stats Grid */}

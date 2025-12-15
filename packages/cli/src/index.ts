@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Jeju CLI - Development toolchain for Jeju Network
+ * Network CLI - Development toolchain
  * 
  * Core Commands:
  *   dev      Start development environment
@@ -17,15 +17,21 @@ import { readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { logger } from './lib/logger';
+import { getCliBranding, getNetworkName, getNetworkTagline } from '@jejunetwork/config';
 
 // Import commands
 import { devCommand } from './commands/dev';
 import { testCommand } from './commands/test';
 import { deployCommand } from './commands/deploy';
-import { initCommand } from './commands/init';
 import { keysCommand } from './commands/keys';
 import { statusCommand } from './commands/status';
-import { tokenCommand } from './commands/token';
+import { fundCommand } from './commands/fund';
+import { forkCommand } from './commands/fork';
+import { computeCommand } from './commands/compute';
+
+const cli = getCliBranding();
+const networkName = getNetworkName();
+const cliName = cli.name;
 
 function getVersion(): string {
   try {
@@ -43,22 +49,16 @@ function getVersion(): string {
 }
 
 function printBanner() {
-  console.log(chalk.cyan(`
-     ██╗███████╗     ██╗██╗   ██╗
-     ██║██╔════╝     ██║██║   ██║
-     ██║█████╗       ██║██║   ██║
-██   ██║██╔══╝  ██   ██║██║   ██║
-╚█████╔╝███████╗╚█████╔╝╚██████╔╝
- ╚════╝ ╚══════╝ ╚════╝  ╚═════╝ 
-`));
-  console.log(chalk.dim('  The modern EVM chain for agents and humans\n'));
+  const banner = cli.banner.join('\n');
+  console.log(chalk.cyan('\n' + banner));
+  console.log(chalk.dim(`  ${getNetworkTagline()}\n`));
 }
 
 const program = new Command();
 
 program
-  .name('jeju')
-  .description('Jeju Network CLI - Build, test, and deploy')
+  .name(cliName)
+  .description(`${networkName} CLI - Build, test, and deploy`)
   .version(getVersion())
   .option('-v, --verbose', 'Verbose output')
   .option('-q, --quiet', 'Quiet mode')
@@ -70,40 +70,52 @@ program
     });
   });
 
-// Core commands only
+// Core commands
 program.addCommand(devCommand);
 program.addCommand(testCommand);
 program.addCommand(deployCommand);
-program.addCommand(initCommand);
 program.addCommand(keysCommand);
 program.addCommand(statusCommand);
-program.addCommand(tokenCommand);
+program.addCommand(fundCommand);
+program.addCommand(forkCommand);
+program.addCommand(computeCommand);
 
 // Default: show help
 program.action(() => {
   printBanner();
   
   console.log(chalk.bold('Development:\n'));
-  console.log('  ' + chalk.cyan('jeju dev') + '              Start localnet + apps');
-  console.log('  ' + chalk.cyan('jeju dev --minimal') + '    Localnet only');
-  console.log('  ' + chalk.cyan('jeju test') + '             Run all tests');
-  console.log('  ' + chalk.cyan('jeju status') + '           Check what\'s running\n');
+  console.log('  ' + chalk.cyan(`${cliName} dev`) + '              Start localnet + apps');
+  console.log('  ' + chalk.cyan(`${cliName} dev --minimal`) + '    Localnet only');
+  console.log('  ' + chalk.cyan(`${cliName} status`) + '           Check what is running\n');
   
-  console.log(chalk.bold('Projects:\n'));
-  console.log('  ' + chalk.cyan('jeju init my-agent') + '    Create new project\n');
+  console.log(chalk.bold('Testing:\n'));
+  console.log('  ' + chalk.cyan(`${cliName} test`) + '             Run all tests');
+  console.log('  ' + chalk.cyan(`${cliName} test --phase=contracts`) + ' Forge tests only');
+  console.log('  ' + chalk.cyan(`${cliName} test --app=wallet`) + ' Test specific app\n');
   
-  console.log(chalk.bold('Keys & Deployment:\n'));
-  console.log('  ' + chalk.cyan('jeju keys') + '             Show/manage keys');
-  console.log('  ' + chalk.cyan('jeju keys genesis') + '     Secure key ceremony');
-  console.log('  ' + chalk.cyan('jeju deploy testnet') + '   Deploy to testnet');
-  console.log('  ' + chalk.cyan('jeju deploy mainnet') + '   Deploy to mainnet\n');
+  console.log(chalk.bold('Accounts:\n'));
+  console.log('  ' + chalk.cyan(`${cliName} keys`) + '             Show keys');
+  console.log('  ' + chalk.cyan(`${cliName} fund`) + '             Show balances');
+  console.log('  ' + chalk.cyan(`${cliName} fund 0x...`) + '       Fund address');
+  console.log('  ' + chalk.cyan(`${cliName} fund --all`) + '       Fund all dev accounts\n');
   
-  console.log(chalk.bold('Tokens:\n'));
-  console.log('  ' + chalk.cyan('jeju token deploy jeju') + '    Deploy JEJU cross-chain');
-  console.log('  ' + chalk.cyan('jeju token status <token>') + ' Check deployment status');
-  console.log('  ' + chalk.cyan('jeju token bridge') + '         Bridge tokens cross-chain\n');
+  console.log(chalk.bold('Deploy:\n'));
+  console.log('  ' + chalk.cyan(`${cliName} keys genesis`) + '     Generate production keys');
+  console.log('  ' + chalk.cyan(`${cliName} deploy testnet`) + '   Deploy to testnet');
+  console.log('  ' + chalk.cyan(`${cliName} deploy mainnet`) + '   Deploy to mainnet\n');
   
-  console.log(chalk.dim('Run `jeju <command> --help` for details.\n'));
+  console.log(chalk.bold('Federation:\n'));
+  console.log('  ' + chalk.cyan(`${cliName} fork`) + '             Fork your own network');
+  console.log('  ' + chalk.cyan(`${cliName} fork list`) + '        List existing forks\n');
+  
+  console.log(chalk.bold('Compute:\n'));
+  console.log('  ' + chalk.cyan(`${cliName} compute status`) + '   Check compute services');
+  console.log('  ' + chalk.cyan(`${cliName} compute bridge`) + '   Start external compute bridge');
+  console.log('  ' + chalk.cyan(`${cliName} compute offerings`) + ' List available compute');
+  console.log('  ' + chalk.cyan(`${cliName} compute deploy <image>`) + ' Deploy container\n');
+  
+  console.log(chalk.dim(`Run \`${cliName} <command> --help\` for details.\n`));
 });
 
 program.exitOverride();
@@ -122,7 +134,7 @@ try {
   }
   
   if (err.code === 'commander.unknownCommand') {
-    console.error(chalk.red(`\nUnknown command. Run 'jeju --help' for available commands.\n`));
+    console.error(chalk.red(`\nUnknown command. Run '${cliName} --help' for available commands.\n`));
     process.exit(1);
   }
   

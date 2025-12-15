@@ -1,7 +1,7 @@
 /**
  * Ban Banner Component
  * Displays a prominent banner when user is banned or on notice
- * Used across all Jeju apps
+ * Used across all network apps
  */
 
 'use client';

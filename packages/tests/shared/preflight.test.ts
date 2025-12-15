@@ -146,7 +146,9 @@ describe('runPreflightChecks - Config Validation', () => {
   });
 
   test('should handle empty config object', async () => {
-    const result = await runPreflightChecks({});
+    const result = await runPreflightChecks({
+      timeout: 2000, // Add timeout to prevent slow defaults
+    });
 
     // Uses all defaults, will fail if no local chain
     expect(typeof result.success).toBe('boolean');

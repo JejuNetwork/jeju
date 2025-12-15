@@ -155,7 +155,7 @@ export default function DashboardPage() {
 
       {/* Features */}
       <section className="py-8">
-        <h2 className="text-2xl font-bold text-center mb-8">Why Use Jeju Storage?</h2>
+        <h2 className="text-2xl font-bold text-center mb-8">Why Use Network Storage?</h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {[
             {

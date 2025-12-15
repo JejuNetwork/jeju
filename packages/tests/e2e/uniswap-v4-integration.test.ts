@@ -1,7 +1,7 @@
 /**
  * Uniswap V4 Integration Tests
  *
- * Tests the complete V4 deployment and functionality on Jeju localnet
+ * Tests the complete V4 deployment and functionality on the network localnet
  *
  * Prerequisites:
  * - Localnet running (bun run localnet:start)

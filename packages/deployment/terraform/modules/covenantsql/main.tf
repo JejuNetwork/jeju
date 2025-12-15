@@ -29,9 +29,9 @@ variable "instance_type" {
 }
 
 variable "use_arm64" {
-  description = "Use ARM64 (Graviton) instances instead of x86_64"
+  description = "Use ARM64 (Graviton) instances instead of x86_64 - recommended for cost savings"
   type        = bool
-  default     = false
+  default     = true  # ARM64 is default for ~40% cost savings
 }
 
 variable "arm_instance_type" {

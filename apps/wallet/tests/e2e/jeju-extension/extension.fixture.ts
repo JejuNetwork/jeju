@@ -1,14 +1,17 @@
 /**
- * Jeju Extension Fixture
+ * Network Extension Fixture
  * 
- * Loads the Jeju Wallet extension for E2E testing against external dApps
+ * Loads the Wallet extension for E2E testing against external dApps
  */
 
-import { test as base, chromium, BrowserContext, Page } from '@playwright/test';
+import { test as base, chromium, type BrowserContext, type Page } from '@playwright/test';
 import path from 'path';
 import { execSync } from 'child_process';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '../../..');
 const EXTENSION_PATH = path.join(ROOT_DIR, 'dist-ext-chrome');
 
@@ -17,7 +20,7 @@ function ensureExtensionBuilt(): string {
   const manifestPath = path.join(EXTENSION_PATH, 'manifest.json');
   
   if (!fs.existsSync(manifestPath)) {
-    console.log('Building Jeju Wallet extension...');
+    console.log('Building Network Wallet extension...');
     execSync('bun run build:ext:chrome', { 
       cwd: ROOT_DIR,
       stdio: 'inherit',
@@ -28,14 +31,14 @@ function ensureExtensionBuilt(): string {
 }
 
 // Extended fixture with extension context
-interface JejuExtensionFixtures {
+interface ExtensionFixtures {
   extensionContext: BrowserContext;
   extensionPage: Page;
   extensionId: string;
   testDappPage: Page;
 }
 
-export const test = base.extend<JejuExtensionFixtures>({
+export const test = base.extend<ExtensionFixtures>({
   // Create context with extension loaded
   extensionContext: async ({}, use) => {
     const extensionPath = ensureExtensionBuilt();

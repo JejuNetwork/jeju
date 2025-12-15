@@ -77,7 +77,7 @@ describe('External Links', () => {
 
   test('File view links (storage)', () => {
     console.log('✅ External link: IPFS file view');
-    console.log('   Opens Jeju IPFS gateway');
+    console.log('   Opens IPFS gateway');
     expect(true).toBe(true);
   });
 

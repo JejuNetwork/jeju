@@ -62,8 +62,8 @@ export class CQLDatabase {
       if (this.config.strictMode) {
         throw new Error(
           'Storage requires CovenantSQL for decentralized persistence.\n' +
-          'Set CQL_BLOCK_PRODUCER_ENDPOINT environment variable or start decentralized stack:\n' +
-          '  docker compose -f docker-compose.decentralized.yml up -d\n' +
+          'Set CQL_BLOCK_PRODUCER_ENDPOINT environment variable or start stack:\n' +
+          '  docker compose up -d\n' +
           '\n' +
           'Or set CQL_STRICT_MODE=false for testing only (data will NOT persist).'
         );

@@ -119,7 +119,7 @@ describe('Cross-Chain Compute Integration', () => {
         durationHours: 2,
         sshPublicKey: 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ...',
         containerImage: 'nvidia/cuda:12.0-runtime-ubuntu22.04',
-        startupScript: 'echo "Hello from Jeju"',
+        startupScript: 'echo "Hello from the network"',
         paymentToken: '0x0000000000000000000000000000000000000000',
         paymentAmount: parseEther('0.1'),
         gasOnDestination: parseEther('0.001'),

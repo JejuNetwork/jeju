@@ -3,7 +3,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getJejuTokens, getLatestBlocks, getTokenTransfers, getTokenHolders, getContractDetails } from '@/lib/indexer-client';
+import { getNetworkTokens, getLatestBlocks, getTokenTransfers, getTokenHolders, getContractDetails } from '@/lib/indexer-client';
 import {
   checkBanStatus,
   getModeratorStats,
@@ -15,6 +15,8 @@ import {
   prepareVoteTransaction,
   prepareChallengeTransaction,
 } from '@/lib/moderation-api';
+import { getV4Contracts } from '@/config/contracts';
+import { JEJU_CHAIN_ID } from '@/config/chains';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -35,7 +37,7 @@ async function callTool(
     // ============ Token Tools ============
     case 'list_tokens': {
       const limit = (args.limit as number) || 50;
-      const tokens = await getJejuTokens({ limit });
+      const tokens = await getNetworkTokens({ limit });
       return makeResult({
         tokens: tokens.map((t) => ({
           address: t.address,
@@ -97,8 +99,6 @@ async function callTool(
     }
 
     case 'swap_tokens': {
-      const { getV4Contracts } = await import('@/config/contracts');
-      const { JEJU_CHAIN_ID } = await import('@/config/chains');
       const v4Contracts = getV4Contracts(JEJU_CHAIN_ID);
 
       return makeResult({

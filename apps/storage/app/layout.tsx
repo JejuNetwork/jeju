@@ -24,10 +24,10 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Storage - Decentralized File Storage on Jeju',
+  title: 'Storage - Decentralized File Storage on the network',
   description: 'Upload, store, and share files across IPFS, cloud, and permanent storage. Pay with crypto, no logins required.',
-  keywords: ['IPFS', 'storage', 'decentralized', 'files', 'crypto', 'Jeju', 'Arweave', 'cloud'],
-  authors: [{ name: 'Jeju Network' }],
+  keywords: ['IPFS', 'storage', 'decentralized', 'files', 'crypto', 'Network', 'Arweave', 'cloud'],
+  authors: [{ name: 'the network' }],
 }
 
 export const viewport: Viewport = {
@@ -83,7 +83,7 @@ export default function RootLayout({
                     <span className="font-bold text-gradient">Storage</span>
                   </div>
                   <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
-                    Powered by Jeju Network • IPFS • Arweave • Cloud
+                    Powered by the network • IPFS • Arweave • Cloud
                   </p>
                 </div>
               </div>

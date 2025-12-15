@@ -91,7 +91,7 @@ const DEAL_STATUS = ['PENDING', 'ACTIVE', 'EXPIRED', 'TERMINATED', 'FAILED', 'DI
 const MCP_SERVER_INFO = {
   name: 'jeju-storage',
   version: '2.0.0',
-  description: 'Jeju Storage Marketplace - Decentralized IPFS/Cloud/Arweave storage with x402 payments',
+  description: 'Network Storage Marketplace - Decentralized IPFS/Cloud/Arweave storage with x402 payments',
   capabilities: { 
     resources: true, 
     tools: true, 
@@ -463,7 +463,7 @@ export class StorageMCPServer {
     // Call tool (with x402 payment support)
     this.app.post('/tools/call', async (c) => {
       const { name, arguments: args } = await c.req.json<{ name: string; arguments: Record<string, unknown> }>();
-      const userAddress = c.req.header('x-jeju-address');
+      const userAddress = c.req.header('x-network-address');
       const paymentHeader = c.req.header('x-payment');
 
       const result = await this.callTool(name, args || {}, userAddress, paymentHeader);
@@ -492,7 +492,7 @@ export class StorageMCPServer {
       tools: MCP_TOOLS.length,
       authentication: {
         schemes: ['x402'],
-        headers: ['x-payment', 'x-jeju-address'],
+        headers: ['x-payment', 'x-network-address'],
       },
     }));
 
@@ -681,7 +681,7 @@ export class StorageMCPServer {
             schemes: ['exact', 'credit', 'paymaster'],
           },
           headers: {
-            required: ['x-payment', 'x-jeju-address'],
+            required: ['x-payment', 'x-network-address'],
             format: 'scheme=exact;network=jeju;payload=<signature>;amount=<wei>',
           },
           credits: {
@@ -1108,7 +1108,7 @@ export class StorageMCPServer {
           requirement,
           headers: {
             'x-payment': 'scheme=exact;network=jeju;payload=<signature>;amount=<wei>',
-            'x-jeju-address': '<your-wallet-address>',
+            'x-network-address': '<your-wallet-address>',
           },
         });
       }
@@ -1183,7 +1183,7 @@ export class StorageMCPServer {
           method: 'POST',
           headers: {
             'X-Payment': paymentHeader,
-            'x-jeju-address': userAddress || '',
+            'x-network-address': userAddress || '',
             'Content-Type': 'multipart/form-data',
           },
           estimatedCostETH: formatEther(cost),
@@ -1219,7 +1219,7 @@ export class StorageMCPServer {
           endpoint: '/pins',
           method: 'POST',
           body: { cid, name: args.name || cid },
-          headers: { 'X-Payment': paymentHeader, 'x-jeju-address': userAddress || '' },
+          headers: { 'X-Payment': paymentHeader, 'x-network-address': userAddress || '' },
         });
       }
 

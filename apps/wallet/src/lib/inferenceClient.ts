@@ -1,7 +1,7 @@
 /**
  * Decentralized Inference Client
  * 
- * Connects to Jeju compute network for AI inference.
+ * Connects to the network compute network for AI inference.
  * - Discovers models from on-chain registry
  * - Routes requests to decentralized providers
  * - Pays via X402 or multi-token paymaster
@@ -80,10 +80,13 @@ export interface AvailableModel {
 // Default Configuration
 // ============================================================================
 
-const DEFAULT_GATEWAY = process.env.VITE_JEJU_GATEWAY_URL || 'https://compute.jeju.network';
+// Auto-detect local gateway for development
+const isLocalDev = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+const DEFAULT_GATEWAY = import.meta.env.VITE_JEJU_GATEWAY_URL || 
+  (isLocalDev ? 'http://localhost:4100' : 'https://compute.jeju.network');
 const DEFAULT_MODEL = 'jeju/llama-3.1-70b';
 
-const SYSTEM_PROMPT = `You are Jeju Wallet, an advanced AI assistant for decentralized finance.
+const SYSTEM_PROMPT = `You are Network Wallet, an advanced AI assistant for decentralized finance.
 
 Your core mission is to help users manage their crypto assets seamlessly across multiple chains.
 
@@ -420,94 +423,34 @@ class InferenceClient {
 
   /**
    * Local fallback when inference network unavailable
+   * No fake AI responses - be honest about the limitation
    */
-  private async localFallback(input: string, latencyMs: number): Promise<ChatResponse> {
-    const cmd = input.toLowerCase().trim();
-    let content: string;
+  private async localFallback(_input: string, latencyMs: number): Promise<ChatResponse> {
+    const content = `**AI Service Unavailable**
 
-    // Pattern matching for common commands
-    if (cmd.includes('balance') || cmd.includes('portfolio')) {
-      content = `To check your portfolio, I need to connect to the blockchain. Please ensure your wallet is connected, then ask again.
+The inference service is not responding. This could mean:
+- The local inference server isn't running
+- No API key is configured (OPENAI_API_KEY, ANTHROPIC_API_KEY, or GROQ_API_KEY)
+- Network connectivity issues
 
-In the meantime, you can:
-- Click "Portfolio" in the sidebar
-- Say "show my balances"`;
-    } else if (cmd.includes('swap') || cmd.includes('trade') || cmd.includes('exchange')) {
-      content = `I can help you swap tokens. Please specify:
-- Amount and token to swap FROM
-- Token to swap TO
+**You can still use the wallet:**
+Use the sidebar to access all features directly - Portfolio, Pools, Perps, Launchpad, Names, and Security.
 
-Example: "Swap 0.5 ETH for USDC on Base"`;
-    } else if (cmd.includes('send') || cmd.includes('transfer')) {
-      content = `To send tokens, please provide:
-- Amount and token
-- Recipient address or .jeju name
+**To enable AI chat:**
+1. Get an API key from OpenAI, Anthropic, or Groq
+2. Set the environment variable
+3. Restart the inference server
 
-Example: "Send 0.1 ETH to alice.jeju"`;
-    } else if (cmd.includes('help') || cmd === '?') {
-      content = `**Jeju Wallet Commands**
+Groq offers a free tier and is the fastest option.`;
 
-**Portfolio:**
-• "Show my portfolio" - View all balances
-• "Check approvals" - Review permissions
-
-**Trading:**
-• "Swap 0.5 ETH for USDC" - Exchange tokens
-• "Long ETH 5x" - Open perpetual position
-
-**Transfers:**
-• "Send 0.1 ETH to 0x..." - Transfer tokens
-
-**DeFi:**
-• "Add liquidity to ETH/USDC" - Provide LP
-• "View my LP positions" - Check pools
-
-**Launchpad:**
-• "Show trending tokens" - New launches
-• "Launch my token" - Create token
-
-**Names:**
-• "Register alice.jeju" - Get a .jeju name
-
-All transactions require confirmation.`;
-    } else if (cmd.includes('long') || cmd.includes('short') || cmd.includes('perp')) {
-      content = `For perpetual trading, specify:
-- Direction (long/short)
-- Asset (ETH, BTC)
-- Leverage (1-20x)
-- Margin amount
-
-Example: "Long ETH 5x with 100 USDC margin"`;
-    } else if (cmd.includes('.jeju') || cmd.includes('name') || cmd.includes('jns')) {
-      content = `**Jeju Name Service**
-
-Register a .jeju name for easy payments:
-• "Check alice.jeju" - See if available
-• "Register alice.jeju" - Buy the name
-• "Resolve bob.jeju" - Look up address
-
-Pricing: 0.001-0.1 ETH/year based on length`;
-    } else {
-      content = `I'm currently in offline mode and have limited capabilities.
-
-The decentralized inference network is temporarily unavailable. You can still use basic commands:
-• "help" - See all commands
-• "portfolio" - View balances
-• "swap" - Trade tokens
-• "send" - Transfer tokens
-
-Full AI assistance will resume when the network reconnects.`;
-    }
-
-    // Add to history even for fallback
     this.conversationHistory.push({ role: 'assistant', content });
 
     return {
       id: `local-${Date.now()}`,
-      model: 'local-fallback',
+      model: 'offline',
       content,
       tokensUsed: { input: 0, output: 0, total: 0 },
-      provider: 'local',
+      provider: 'offline',
       latencyMs,
     };
   }
@@ -521,7 +464,7 @@ Full AI assistance will resume when the network reconnects.`;
     };
 
     if (this.config.walletAddress) {
-      headers['X-Jeju-Address'] = this.config.walletAddress;
+      headers['X-Network-Address'] = this.config.walletAddress;
     }
 
     return headers;

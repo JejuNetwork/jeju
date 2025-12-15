@@ -1,5 +1,5 @@
 /**
- * Jeju CLI Library exports
+ * Network CLI Library exports
  */
 
 export * from './logger';

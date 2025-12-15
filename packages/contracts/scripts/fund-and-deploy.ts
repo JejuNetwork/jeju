@@ -136,7 +136,7 @@ async function deployToChain(chainName: string, rpcUrl: string): Promise<Record<
   try {
     // Create a simple deploy script inline
     const output = execSync(
-      `cast send --rpc-url ${rpcUrl} --private-key ${PRIVATE_KEY} --create $(cat out/MockJejuUSDC.sol/MockJejuUSDC.json | jq -r '.bytecode.object')$(cast abi-encode "constructor(address)" ${account.address}) 2>&1`,
+      `cast send --rpc-url ${rpcUrl} --private-key ${PRIVATE_KEY} --create $(cat out/MockNetworkUSDC.sol/MockNetworkUSDC.json | jq -r '.bytecode.object')$(cast abi-encode "constructor(address)" ${account.address}) 2>&1`,
       {
         cwd: "/Users/shawwalters/jeju/packages/contracts",
         encoding: "utf-8",
@@ -152,7 +152,7 @@ async function deployToChain(chainName: string, rpcUrl: string): Promise<Record<
     // Try forge create instead
     try {
       const output = execSync(
-        `forge create src/tokens/MockJejuUSDC.sol:MockJejuUSDC --rpc-url ${rpcUrl} --private-key ${PRIVATE_KEY} --constructor-args ${account.address} --legacy`,
+        `forge create src/tokens/MockNetworkUSDC.sol:MockNetworkUSDC --rpc-url ${rpcUrl} --private-key ${PRIVATE_KEY} --constructor-args ${account.address} --legacy`,
         {
           cwd: "/Users/shawwalters/jeju/packages/contracts",
           encoding: "utf-8",

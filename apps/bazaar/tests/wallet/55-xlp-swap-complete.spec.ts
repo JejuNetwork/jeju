@@ -269,7 +269,7 @@ test.describe('XLP Liquidity Page Integration', () => {
     await page.waitForTimeout(WAIT_SHORT)
 
     const body = await page.textContent('body')
-    const hasChains = ['Ethereum', 'Base', 'Arbitrum', 'Optimism', 'Jeju'].some(chain => body?.includes(chain))
+    const hasChains = ['Ethereum', 'Base', 'Arbitrum', 'Optimism', 'Network'].some(chain => body?.includes(chain))
     expect(hasChains).toBe(true)
   })
 

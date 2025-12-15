@@ -1,5 +1,5 @@
 /**
- * JejuDA Server Tests
+ * NetworkDA Server Tests
  */
 
 import { describe, test, expect, beforeAll, afterAll, mock } from 'bun:test';
@@ -75,7 +75,7 @@ afterAll(() => {
   globalThis.fetch = originalFetch;
 });
 
-describe('JejuDA Server', () => {
+describe('NetworkDA Server', () => {
   let server: DAServer;
 
   beforeAll(async () => {
@@ -91,7 +91,7 @@ describe('JejuDA Server', () => {
   describe('PUT /put', () => {
     test('stores data and returns commitment', async () => {
       const app = server.getApp();
-      const testData = Buffer.from('Hello, JejuDA!');
+      const testData = Buffer.from('Hello, NetworkDA!');
       const expectedCommitment = keccak256(testData);
 
       const response = await app.request('/put', {

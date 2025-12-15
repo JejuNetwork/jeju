@@ -140,7 +140,7 @@ async function handleGetLeaderboard(limit?: number): Promise<{ message: string; 
   }));
 
   return {
-    message: `Top ${contributors.length} contributors on the Jeju Network leaderboard`,
+    message: `Top ${contributors.length} contributors on the Network leaderboard`,
     data: {
       contributors,
       totalContributors: contributors.length,

@@ -93,7 +93,7 @@ export default function BridgeToken() {
 
   return (
     <div className="card">
-      <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Bridge from Ethereum to Jeju</h2>
+      <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Bridge from Ethereum to the network</h2>
       
       <form onSubmit={handleBridge}>
         <div style={{ marginBottom: '1rem' }}>
@@ -190,7 +190,7 @@ export default function BridgeToken() {
             <strong>Bridge:</strong> OP Stack Standard Bridge
           </p>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-            Tokens will appear on Jeju after confirmation
+            Tokens will appear on the network after confirmation
           </p>
         </div>
 
@@ -213,7 +213,7 @@ export default function BridgeToken() {
             (useCustomToken ? !customTokenAddress || !customTokenAddress.startsWith('0x') : !selectedToken)
           }
         >
-          {isPending || isConfirming ? 'Bridging...' : 'Bridge to Jeju'}
+          {isPending || isConfirming ? 'Bridging...' : 'Bridge to the network'}
         </button>
       </form>
     </div>

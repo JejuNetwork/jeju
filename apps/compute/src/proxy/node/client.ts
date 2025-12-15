@@ -1,8 +1,8 @@
 /**
  * Proxy Node Client
- * Runs on user machines to provide bandwidth to the Jeju proxy network
+ * Runs on user machines to provide bandwidth to the proxy network
  * 
- * Can be run standalone or embedded in the Jeju wallet
+ * Can be run standalone or embedded in the wallet
  * 
  * @module @jeju/proxy/node
  */
@@ -184,7 +184,7 @@ export class ProxyNodeClient extends EventEmitter {
     const { nonce } = message.payload as { nonce: string };
 
     // Sign authentication message
-    const authMessage = `Jeju Proxy Node Authentication\nAddress: ${this.wallet.address}\nNonce: ${nonce}`;
+    const authMessage = `Network Proxy Node Authentication\nAddress: ${this.wallet.address}\nNonce: ${nonce}`;
     const signature = await this.wallet.signMessage(authMessage);
 
     const authPayload: AuthSubmitPayload = {

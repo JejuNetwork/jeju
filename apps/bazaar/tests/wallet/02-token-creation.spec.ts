@@ -50,7 +50,7 @@ test.describe('Token Creation with Wallet', () => {
     await page.getByPlaceholder(/My Awesome Token/i).fill('Test');
     await page.getByPlaceholder(/MAT/i).fill('TST');
     
-    const createButton = page.locator('main').getByRole('button', { name: /Create Token|Switch to Jeju/i }).first();
+    const createButton = page.locator('main').getByRole('button', { name: /Create Token|Switch to the network/i }).first();
     
     // Button should be visible and interactive
     await expect(createButton).toBeVisible();

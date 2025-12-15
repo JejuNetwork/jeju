@@ -1,5 +1,5 @@
 /**
- * @fileoverview Jeju Network Configuration
+ * @fileoverview Network Configuration
  * @module config
  * 
  * Config-First Architecture:
@@ -8,19 +8,21 @@
  * 
  * Config Files:
  * - chain/*.json     Network settings (RPC, chain ID, bridge contracts)
- * - contracts.json   All contract addresses (Jeju + external chains)
+ * - contracts.json   All contract addresses (network + external chains)
  * - services.json    API URLs per network
  * - tokens.json      Token metadata
  * - chains.json      Node infrastructure (for deployment)
  * - ports.ts         Port allocations (local dev)
+ * - branding.json    Network branding (name, colors, URLs)
  * 
  * @example
  * ```ts
- * import { getConfig, getContract, getServiceUrl } from '@jejunetwork/config';
+ * import { getConfig, getContract, getServiceUrl, getNetworkName } from '@jejunetwork/config';
  * 
  * const config = getConfig();
  * const solver = getContract('oif', 'solverRegistry');
  * const indexer = getServiceUrl('indexer', 'graphql');
+ * const name = getNetworkName(); // Returns network name from branding.json
  * ```
  */
 
@@ -340,7 +342,7 @@ export function getBridgeContractAddress(
 // Config
 // ============================================================================
 
-export interface JejuConfig {
+export interface NetworkConfig {
   network: NetworkType;
   chain: ChainConfig;
   services: ServicesConfig;
@@ -348,7 +350,7 @@ export interface JejuConfig {
 }
 
 /** Get full config for current network */
-export function getConfig(network?: NetworkType): JejuConfig {
+export function getConfig(network?: NetworkType): NetworkConfig {
   const net = network || getCurrentNetwork();
   return {
     network: net,
@@ -603,13 +605,13 @@ export function getTestnetConfig(): TestnetConfig {
   return loadJson<TestnetConfig>('testnet.json');
 }
 
-/** Get the Jeju testnet RPC URL */
-export function getJejuTestnetRpc(): string {
+/** Get the testnet RPC URL */
+export function getTestnetRpc(): string {
   return getTestnetConfig().jeju.rpc.http;
 }
 
-/** Get the Jeju testnet chain ID */
-export function getJejuTestnetChainId(): number {
+/** Get the testnet chain ID */
+export function getTestnetChainId(): number {
   return getTestnetConfig().jeju.chainId;
 }
 
@@ -622,3 +624,148 @@ export function getTestnetChainIds(): number[] {
     ...Object.values(config.supportedChains).map(() => 0) // Will need actual chain IDs
   ].filter(Boolean);
 }
+
+// ============================================================================
+// Federation Config
+// ============================================================================
+
+export interface FederationHubConfig {
+  chainId: number;
+  name: string;
+  rpcUrl: string;
+  networkRegistryAddress: string;
+  status: 'active' | 'pending' | 'planned';
+}
+
+export interface FederationNetworkConfig {
+  chainId: number;
+  name: string;
+  rpcUrl: string;
+  explorerUrl: string;
+  wsUrl: string;
+  contracts: {
+    identityRegistry: string;
+    solverRegistry: string;
+    inputSettler: string;
+    outputSettler: string;
+    liquidityVault: string;
+    governance: string;
+    oracle: string;
+    federatedIdentity: string;
+    federatedSolver: string;
+    federatedLiquidity: string;
+  };
+  isOrigin: boolean;
+  status: 'active' | 'pending' | 'planned';
+}
+
+export interface FederationFullConfig {
+  version: string;
+  hub: {
+    testnet: FederationHubConfig;
+    mainnet: FederationHubConfig;
+  };
+  networks: Record<string, FederationNetworkConfig>;
+  trustConfig: {
+    defaultTrust: string;
+    trustLevels: Record<string, number>;
+    requiredStakeETH: Record<string, string>;
+  };
+  crossChain: {
+    supportedOracles: string[];
+    defaultOracle: string;
+    superchainConfig: {
+      crossL2InboxAddress: string;
+      l2ToL2MessengerAddress: string;
+    };
+  };
+  discovery: {
+    endpoints: string[];
+    refreshIntervalSeconds: number;
+    cacheEnabled: boolean;
+  };
+  governance: {
+    networkVerificationQuorum: number;
+    trustEstablishmentDelay: number;
+    slashingEnabled: boolean;
+    slashingPercentBps: number;
+  };
+}
+
+let federationCache: FederationFullConfig | null = null;
+
+function loadFederationConfig(): FederationFullConfig {
+  if (!federationCache) federationCache = loadJson<FederationFullConfig>('federation.json');
+  return federationCache;
+}
+
+/** Get federation hub config for current network type */
+export function getFederationHub(network?: NetworkType): FederationHubConfig {
+  const net = network || getCurrentNetwork();
+  const config = loadFederationConfig();
+  return net === 'mainnet' ? config.hub.mainnet : config.hub.testnet;
+}
+
+/** Get all federated networks */
+export function getFederatedNetworks(): Record<string, FederationNetworkConfig> {
+  return loadFederationConfig().networks;
+}
+
+/** Get a specific federated network by name */
+export function getFederatedNetwork(name: string): FederationNetworkConfig | undefined {
+  return loadFederationConfig().networks[name];
+}
+
+/** Get federation cross-chain config */
+export function getFederationCrossChainConfig() {
+  return loadFederationConfig().crossChain;
+}
+
+/** Get the full federation config */
+export function getFederationConfig(): FederationFullConfig {
+  return loadFederationConfig();
+}
+
+/** Get federation discovery endpoints */
+export function getFederationDiscoveryEndpoints(): string[] {
+  return loadFederationConfig().discovery.endpoints;
+}
+
+// ============================================================================
+// Branding Config
+// ============================================================================
+
+export {
+  getBranding,
+  getNetworkName,
+  getNetworkDisplayName,
+  getNetworkTagline,
+  getNetworkDescription,
+  getChainBranding,
+  getUrls,
+  getVisualBranding,
+  getFeatures,
+  getCliBranding,
+  getLegal,
+  getSupport,
+  getNativeToken,
+  getGovernanceToken,
+  getWebsiteUrl,
+  getExplorerUrl as getBrandingExplorerUrl,
+  getRpcUrl as getBrandingRpcUrl,
+  getApiUrl,
+  getGatewayUrl,
+  interpolate,
+  generateForkBranding,
+  setConfigPath,
+  clearBrandingCache,
+  type BrandingConfig,
+  type ChainBranding,
+  type TokenBranding,
+  type UrlsBranding,
+  type VisualBranding,
+  type FeaturesBranding,
+  type LegalBranding,
+  type SupportBranding,
+  type CliBranding,
+} from './branding';

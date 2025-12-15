@@ -1,7 +1,7 @@
 {
   "name": "@jejunetwork/storage",
   "version": "2.0.0",
-  "description": "Jeju Storage Marketplace - Decentralized storage with multi-provider routing, x402 micropayments, and A2A/MCP integration",
+  "description": "Network Storage Marketplace - Decentralized storage with multi-provider routing, x402 micropayments, and A2A/MCP integration",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"bun run dev:api\" \"bun run dev:app\"",

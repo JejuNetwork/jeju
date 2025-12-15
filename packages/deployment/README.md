@@ -66,7 +66,7 @@ For more control over individual services:
 docker-compose -f docker-compose.stage2.yml up
 
 # Decentralized messaging stack
-docker-compose -f docker-compose.decentralized.yml up
+docker compose up
 ```
 
 ### 3. AWS Deployment (EKS)

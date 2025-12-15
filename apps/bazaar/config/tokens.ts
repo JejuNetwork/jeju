@@ -1,5 +1,4 @@
 import { Address } from 'viem'
-import tokenConfig from '@jejunetwork/config/tokens'
 
 export interface TokenInfo {
   address: Address | string
@@ -14,7 +13,40 @@ export interface TokenInfo {
   hasPaymaster?: boolean
 }
 
-export const TOKENS: Record<string, TokenInfo> = tokenConfig.tokens as Record<string, TokenInfo>
+// Client-safe token configuration
+export const TOKENS: Record<string, TokenInfo> = {
+  ETH: {
+    address: '0x0000000000000000000000000000000000000000',
+    name: 'Ether',
+    symbol: 'ETH',
+    decimals: 18,
+    isNative: true,
+    hasPaymaster: true,
+  },
+  WETH: {
+    address: process.env.NEXT_PUBLIC_WETH_ADDRESS || '0x4200000000000000000000000000000000000006',
+    name: 'Wrapped Ether',
+    symbol: 'WETH',
+    decimals: 18,
+    hasPaymaster: true,
+  },
+  JEJU: {
+    address: process.env.NEXT_PUBLIC_JEJU_TOKEN_ADDRESS || '0x0000000000000000000000000000000000000000',
+    name: 'Jeju',
+    symbol: 'JEJU',
+    decimals: 18,
+    hasPaymaster: true,
+    description: 'Native governance token',
+  },
+  USDC: {
+    address: process.env.NEXT_PUBLIC_USDC_ADDRESS || '0x0000000000000000000000000000000000000000',
+    name: 'USD Coin',
+    symbol: 'USDC',
+    decimals: 6,
+    hasPaymaster: true,
+  },
+}
+
 export const NATIVE_TOKEN: TokenInfo = TOKENS.ETH
 export const WRAPPED_NATIVE: TokenInfo = TOKENS.WETH
 export const PREFERRED_TOKEN: TokenInfo | undefined = TOKENS.JEJU

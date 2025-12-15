@@ -1,5 +1,5 @@
 /**
- * A2A Server for Jeju Documentation
+ * A2A Server for network Documentation
  * Enables agents to search and query documentation programmatically
  */
 
@@ -48,11 +48,11 @@ app.use(express.json());
 
 const AGENT_CARD = {
   protocolVersion: '0.3.0',
-  name: 'Jeju Documentation',
-  description: 'Search and query Jeju Network documentation programmatically',
+  name: `${getNetworkName()} Documentation`,
+  description: 'Search and query the network documentation programmatically',
   url: `http://localhost:${PORT}/api/a2a`,
   preferredTransport: 'http',
-  provider: { organization: 'Jeju Network', url: 'https://jeju.network' },
+  provider: { organization: 'the network', url: 'https://jeju.network' },
   version: '1.0.0',
   capabilities: { streaming: false, pushNotifications: false, stateTransitionHistory: false },
   defaultInputModes: ['text', 'data'],

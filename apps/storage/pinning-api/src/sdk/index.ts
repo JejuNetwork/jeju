@@ -1,5 +1,5 @@
 /**
- * Jeju Storage SDK
+ * Network Storage SDK
  *
  * Decentralized storage marketplace with:
  * - Multi-provider support (IPFS, Cloud, Arweave)
@@ -29,7 +29,7 @@ export * from './provider-interface';
 export * from './marketplace-client';
 
 // Re-export commonly used items
-export { JejuStorageSDK, createStorageSDK, StorageSDK } from './sdk';
+export { StorageSDK, createStorageSDK, StorageSDK } from './sdk';
 export { StoragePaymentClient, createStoragePaymentClient, ZERO_ADDRESS } from './payment';
 export { StorageRouter, createStorageRouter, createBackendForProvider } from './router';
 export {

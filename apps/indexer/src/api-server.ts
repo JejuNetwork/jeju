@@ -8,14 +8,14 @@ import { startA2AServer } from './a2a-server';
 import { startMCPServer } from './mcp-server';
 
 async function main() {
-  console.log('🚀 Starting Jeju Indexer API servers...');
+  console.log('🚀 Starting Network Indexer API servers...');
   
   await getDataSource();
   await Promise.all([startRestServer(), startA2AServer(), startMCPServer()]);
   
   console.log(`
 ┌─────────────────────────────────────────┐
-│  Jeju Indexer API Servers Running       │
+│   Network Indexer API Servers Running   │
 ├─────────────────────────────────────────┤
 │  GraphQL: http://localhost:4350/graphql │
 │  REST:    http://localhost:4352         │

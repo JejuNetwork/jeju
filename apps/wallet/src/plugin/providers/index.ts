@@ -1,5 +1,5 @@
 /**
- * Jeju Wallet Providers
+ * Network Wallet Providers
  * 
  * Providers expose wallet state and data to the agent's context.
  */

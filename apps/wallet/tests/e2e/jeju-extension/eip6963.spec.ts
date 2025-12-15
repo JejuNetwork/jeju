@@ -1,7 +1,7 @@
 /**
  * EIP-6963 Provider Announcement Tests
  * 
- * Tests that Jeju Wallet properly announces itself via EIP-6963
+ * Tests that Network Wallet properly announces itself via EIP-6963
  */
 
 import { test, expect } from './extension.fixture';
@@ -14,7 +14,7 @@ test.describe('EIP-6963 Provider Discovery', () => {
     // Wait for provider announcements
     await testDappPage.waitForTimeout(2000);
     
-    // Check if Jeju Wallet was announced
+    // Check if Network Wallet was announced
     const providerStatus = await testDappPage.locator('#providerStatus').textContent();
     
     // Should find at least one provider
@@ -29,7 +29,7 @@ test.describe('EIP-6963 Provider Discovery', () => {
     const providers = testDappPage.locator('.provider-badge');
     const count = await providers.count();
     
-    // Should have at least one provider (Jeju or detected ethereum)
+    // Should have at least one provider (Network or detected ethereum)
     expect(count).toBeGreaterThanOrEqual(0); // Soft check
     
     if (count > 0) {

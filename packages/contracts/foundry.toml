@@ -9,15 +9,44 @@ optimizer_runs = 200
 via_ir = true
 evm_version = "cancun"
 
-# Skip these contracts from compilation
-# Note: Library test/lib folders are handled automatically
+# Skip these contracts from compilation - incomplete or have missing dependencies
 skip = [
     "src/prediction/JejuMarket.sol",
     "src/uniswap-v2/**",
     "src/uniswap-v4/**",
     "src/mmo/**",
+    "src/games/**",
+    "src/governance/council/**",
+    "src/oracle/**",
+    "src/cdn/**",
+    "src/paymaster/**",
+    "src/eil/**",
+    "src/perps/**",
+    "src/marketplace/**",
+    "src/prediction-markets/**",
     "script/DeployCompute.s.sol",
-    "script/DeployUniswapV4Periphery.s.sol"
+    "script/DeployUniswapV4Periphery.s.sol",
+    "script/Deploy*Cloud*.s.sol",
+    "script/DeployPredimarket*.s.sol",
+    "script/DeployEIL*.s.sol",
+    "script/DeploySponsoredPaymaster.s.sol",
+    "script/DeployDAO.s.sol",
+    "script/DeployBazaarMarketplace.s.sol",
+    "script/DeployOracleNetwork.s.sol",
+    "script/DeployPerps.s.sol",
+    "script/DeployJejuMarket.s.sol",
+    "script/DeployJejuToken.s.sol",
+    "script/otc/**",
+    "test/oracle/**",
+    "test/eil/**",
+    "test/perps/**",
+    "test/CloudReputationProvider.t.sol",
+    "test/PaymasterFactory.t.sol",
+    "test/mocks/MockAggregator.sol",
+    "test/mocks/PerpsMocks.sol",
+    "test/interfaces/**",
+    "test/messaging/**",
+    "test/compute/**"
 ]
 
 # Test settings

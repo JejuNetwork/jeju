@@ -14,7 +14,7 @@ const { expect } = test;
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4001';
 
 test.describe('Add Liquidity Flow', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     
@@ -23,14 +23,14 @@ test.describe('Add Liquidity Flow', () => {
     await page.waitForTimeout(1000);
   });
 
-  test('should display add liquidity interface', async ({ _page }) => {
+  test('should display add liquidity interface', async ({ page }) => {
     await expect(page.getByText('Add ETH Liquidity')).toBeVisible();
     
     // Screenshot
     await page.screenshot({ path: 'test-results/screenshots/synpress-liquidity-interface.png', fullPage: true });
   });
 
-  test('should show liquidity information box', async ({ _page }) => {
+  test('should show liquidity information box', async ({ page }) => {
     await expect(page.getByText(/How it works/i)).toBeVisible();
     await expect(page.getByText(/Deposit ETH to sponsor gas payments/i)).toBeVisible();
     await expect(page.getByText(/Earn fees in protocol tokens/i)).toBeVisible();
@@ -38,7 +38,7 @@ test.describe('Add Liquidity Flow', () => {
     console.log('✅ Liquidity info box displayed');
   });
 
-  test('should include all protocol tokens', async ({ _page }) => {
+  test('should include all protocol tokens', async ({ page }) => {
     // Open token selector
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
@@ -52,7 +52,7 @@ test.describe('Add Liquidity Flow', () => {
     console.log('✅ All tokens available for liquidity');
   });
 
-  test('should validate ETH amount input', async ({ _page }) => {
+  test('should validate ETH amount input', async ({ page }) => {
     // Select token with deployed paymaster
     await page.locator('.input').first().click();
     await page.getByText('elizaOS').click();
@@ -72,7 +72,7 @@ test.describe('Add Liquidity Flow', () => {
     }
   });
 
-  test('should warn if paymaster not deployed', async ({ _page }) => {
+  test('should warn if paymaster not deployed', async ({ page }) => {
     // Select a token that might not have paymaster
     await page.locator('.input').first().click();
     await page.getByText('CLANKERMON').click();
@@ -88,7 +88,7 @@ test.describe('Add Liquidity Flow', () => {
     }
   });
 
-  test('should display LP position if exists', async ({ _page }) => {
+  test('should display LP position if exists', async ({ page }) => {
     // Select token
     await page.locator('.input').first().click();
     await page.getByText('elizaOS').click();
@@ -113,7 +113,7 @@ test.describe('Add Liquidity Flow', () => {
     }
   });
 
-  test.skip('should add liquidity successfully', async ({ _page, _metamask }) => {
+  test.skip('should add liquidity successfully', async ({ page, metamask }) => {
     // Skip in most runs - requires gas
     
     // Select token
@@ -139,7 +139,7 @@ test.describe('Add Liquidity Flow', () => {
 });
 
 test.describe('LP Dashboard', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     
@@ -148,14 +148,14 @@ test.describe('LP Dashboard', () => {
     await page.waitForTimeout(1000);
   });
 
-  test('should display LP dashboard', async ({ _page }) => {
+  test('should display LP dashboard', async ({ page }) => {
     await expect(page.getByText('My LP Positions')).toBeVisible();
     
     // Screenshot
     await page.screenshot({ path: 'test-results/screenshots/synpress-lp-dashboard.png', fullPage: true });
   });
 
-  test('should show all LP positions or empty state', async ({ _page }) => {
+  test('should show all LP positions or empty state', async ({ page }) => {
     // Check for positions or empty state
     const emptyState = page.getByText(/No LP Positions/i);
     const positionCards = page.locator('.card').filter({ hasText: /Position/i });
@@ -173,7 +173,7 @@ test.describe('LP Dashboard', () => {
     }
   });
 
-  test('should show claim fees button for positions with pending fees', async ({ _page }) => {
+  test('should show claim fees button for positions with pending fees', async ({ page }) => {
     const claimButtons = page.getByRole('button', { name: /Claim/i });
     const count = await claimButtons.count();
     
@@ -186,7 +186,7 @@ test.describe('LP Dashboard', () => {
     expect(count >= 0).toBe(true);
   });
 
-  test.skip('should claim fees successfully', async ({ _page, _metamask }) => {
+  test.skip('should claim fees successfully', async ({ page, metamask }) => {
     // Skip - requires existing LP position with fees
     
     // Click first claim button

@@ -1,0 +1,23 @@
+[features]
+seeds = false
+skip-lint = false
+
+[programs.localnet]
+jeju_launchpad = "JejuLauncher1111111111111111111111111111111"
+
+[programs.devnet]
+jeju_launchpad = "JejuLauncher1111111111111111111111111111111"
+
+[programs.mainnet]
+jeju_launchpad = "JejuLauncher1111111111111111111111111111111"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+

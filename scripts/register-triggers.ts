@@ -161,8 +161,8 @@ async function main() {
   const stats = await client.getStats().catch(() => null);
   
   if (!stats) {
-    console.error('\n❌ Trigger service not available. Start decentralized infrastructure first:');
-    console.error('   bun scripts/start-decentralized.ts');
+    console.error('\n❌ Trigger service not available. Start infrastructure first:');
+    console.error('   bun run start');
     process.exit(1);
   }
   

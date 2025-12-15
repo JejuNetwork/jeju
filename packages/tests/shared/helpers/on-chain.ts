@@ -47,7 +47,7 @@ function getPublicClient(rpcUrl?: string): PublicClient {
   const client = createPublicClient({
     chain: {
       id: DEFAULT_CHAIN_ID,
-      name: 'Jeju',
+      name: 'Network',
       nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
       rpcUrls: { default: { http: [url] } },
     } as Chain,

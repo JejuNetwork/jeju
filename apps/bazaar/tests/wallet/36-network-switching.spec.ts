@@ -12,7 +12,7 @@ const test = testWithSynpress(metaMaskFixtures(basicSetup))
 const { expect } = test
 
 test.describe('Network Switching', () => {
-  test('should verify currently on Jeju network', async ({ context, page, metamaskPage, extensionId }) => {
+  test('should verify currently on the network network', async ({ context, page, metamaskPage, extensionId }) => {
     const metamask = new MetaMask(context, metamaskPage, basicSetup.walletPassword, extensionId)
 
     await page.goto('/')
@@ -24,12 +24,12 @@ test.describe('Network Switching', () => {
     await page.goto('/tokens/create')
     await page.waitForTimeout(1000)
     
-    // Should NOT show network switch warning for Jeju
-    const switchWarning = page.getByText(/Switch to Jeju|Wrong network/i)
+    // Should NOT show network switch warning for network
+    const switchWarning = page.getByText(/Switch to the network|Wrong network/i)
     const hasWarning = await switchWarning.isVisible()
     
     expect(hasWarning).toBe(false)
-    console.log('✅ Verified on Jeju network')
+    console.log('✅ Verified on the network network')
   })
 
   test('should detect and show wrong network warning', async ({ context, page, metamaskPage, extensionId }) => {
@@ -57,7 +57,7 @@ test.describe('Network Switching', () => {
     await page.waitForTimeout(1000)
     
     // Should show network switch warning
-    const switchWarning = page.getByText(/Switch to Jeju|Chain ID: 1337|Please switch/i)
+    const switchWarning = page.getByText(/Switch to the network|Chain ID: 1337|Please switch/i)
     const hasWarning = await switchWarning.isVisible()
     
     if (hasWarning) {
@@ -65,17 +65,17 @@ test.describe('Network Switching', () => {
       console.log('✅ Wrong network warning displayed')
     }
     
-    // Switch back to Jeju
-    await metamask.switchNetwork('Jeju Local')
+    // Switch back to the network
+    await metamask.switchNetwork('Network Local')
     await page.waitForTimeout(2000)
     await page.reload()
     await page.waitForTimeout(1000)
     
     // Warning should be gone
-    const warningAfter = await page.getByText(/Switch to Jeju/i).isVisible()
+    const warningAfter = await page.getByText(/Switch to the network/i).isVisible()
     expect(warningAfter).toBe(false)
     
-    console.log('✅ Switched back to Jeju')
+    console.log('✅ Switched back to the network')
   })
 
   test('should update contract addresses when switching networks', async ({ context, page, metamaskPage, extensionId }) => {
@@ -86,7 +86,7 @@ test.describe('Network Switching', () => {
     await metamask.connectToDapp()
     await expect(page.getByText(/0xf39F/i)).toBeVisible({ timeout: 15000 })
     
-    // On Jeju (1337), contracts should work
+    // On Network (1337), contracts should work
     await page.goto('/swap')
     await page.waitForTimeout(1000)
     
@@ -109,7 +109,7 @@ test.describe('Network Switching', () => {
     // Button should show different state (contracts not on this network)
     const buttonOnTestnet = await swapButton.textContent()
     
-    console.log(`Button on Jeju: ${buttonOnJeju}`)
+    console.log(`Button on the network: ${buttonOnJeju}`)
     console.log(`Button on Testnet: ${buttonOnTestnet}`)
     
     // Should show warning or disabled state
@@ -117,7 +117,7 @@ test.describe('Network Switching', () => {
                              buttonOnTestnet?.includes('Contracts Not Deployed')
     
     // Switch back
-    await metamask.switchNetwork('Jeju Local')
+    await metamask.switchNetwork('Network Local')
     await page.waitForTimeout(1000)
     
     console.log('✅ Contract addresses update based on network')
@@ -154,8 +154,8 @@ test.describe('Network Switching', () => {
       console.log('✅ Wallet stayed connected during network switch')
     }
     
-    // Switch back to Jeju
-    await metamask.switchNetwork('Jeju Local')
+    // Switch back to the network
+    await metamask.switchNetwork('Network Local')
     await page.waitForTimeout(1000)
   })
 
@@ -198,7 +198,7 @@ test.describe('Network Switching', () => {
       // App should handle gracefully
       
       // Switch back
-      await metamask.switchNetwork('Jeju Local')
+      await metamask.switchNetwork('Network Local')
       await page.waitForTimeout(1000)
       
       console.log('✅ Network switch during transaction handled')

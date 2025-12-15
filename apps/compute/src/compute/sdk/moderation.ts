@@ -1,5 +1,5 @@
 /**
- * Moderation SDK for Jeju Compute Marketplace
+ * Moderation SDK for network Compute Marketplace
  *
  * Provides interfaces for:
  * - Staking as user/provider/guardian (ComputeStaking)
@@ -101,7 +101,7 @@ async function sendContract(
 // ============ SDK ============
 
 /**
- * Moderation SDK for Jeju Compute Marketplace
+ * Moderation SDK for network Compute Marketplace
  *
  * Only includes functionality for deployed contracts:
  * - ComputeStaking: User/Provider/Guardian staking

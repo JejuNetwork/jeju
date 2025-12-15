@@ -7,7 +7,7 @@ import { testWithWallet as test, expect } from '../fixtures/wallet';
 import { connectWallet } from '@jejunetwork/tests/helpers/contracts';
 
 test.describe('Complete Protocol Flow', () => {
-  test('full token lifecycle: register → deploy → add liquidity → earn fees', async ({ _page, wallet }) => {
+  test('full token lifecycle: register → deploy → add liquidity → earn fees', async ({ page, wallet }) => {
     await page.goto('http://localhost:4001');
     await connectWallet(page, wallet);
     
@@ -32,13 +32,13 @@ test.describe('Complete Protocol Flow', () => {
     await expect(page.getByText('My LP Positions')).toBeVisible();
   });
 
-  test('bridge → deploy → liquidity → earnings flow', async ({ _page, wallet }) => {
+  test('bridge → deploy → liquidity → earnings flow', async ({ page, wallet }) => {
     await page.goto('http://localhost:4001');
     await connectWallet(page, wallet);
     
     // Step 1: Bridge token from Ethereum
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
-    await expect(page.getByText('Bridge from Ethereum to Jeju')).toBeVisible();
+    await expect(page.getByText('Bridge from Ethereum to the network')).toBeVisible();
     
     // Select CLANKER
     await page.locator('.input').first().click();
@@ -57,7 +57,7 @@ test.describe('Complete Protocol Flow', () => {
     await page.getByRole('button', { name: /My Earnings/i }).click();
   });
 
-  test('node staking complete flow: stake → register → monitor → claim', async ({ _page, wallet }) => {
+  test('node staking complete flow: stake → register → monitor → claim', async ({ page, wallet }) => {
     await page.goto('http://localhost:4001');
     await connectWallet(page, wallet);
     
@@ -76,7 +76,7 @@ test.describe('Complete Protocol Flow', () => {
     await expect(page.getByText('Register New Node')).toBeVisible();
   });
 
-  test('app registry complete flow: browse → register → discover', async ({ _page, wallet }) => {
+  test('app registry complete flow: browse → register → discover', async ({ page, wallet }) => {
     await page.goto('http://localhost:4001');
     await connectWallet(page, wallet);
     

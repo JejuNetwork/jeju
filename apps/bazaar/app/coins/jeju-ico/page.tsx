@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { JejuPresaleCard, JejuTokenomics, JejuUtility } from '@/components/ico'
+import { NetworkPresaleCard, NetworkTokenomics, NetworkUtility } from '@/components/ico'
 
 export default function JejuICOPage() {
   return (
@@ -17,11 +17,11 @@ export default function JejuICOPage() {
         </div>
         
         <h1 className="text-4xl md:text-5xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
-          <span className="text-bazaar-primary">Jeju</span> Token
+          <span className="text-bazaar-primary">Network</span> Token
         </h1>
         
         <p className="text-lg max-w-2xl mx-auto mb-8" style={{ color: 'var(--text-secondary)' }}>
-          Governance and utility token for the Jeju Network. 
+          Governance and utility token for the Network. 
           Stake in moderation, vote on proposals, and power the ecosystem.
         </p>
         
@@ -40,9 +40,9 @@ export default function JejuICOPage() {
       
       {/* Main Content */}
       <div className="grid lg:grid-cols-2 gap-8 py-8">
-        <JejuPresaleCard />
+        <NetworkPresaleCard />
         <div className="space-y-6">
-          <JejuUtility />
+          <NetworkUtility />
           
           {/* Timeline */}
           <div className="card p-6">
@@ -53,7 +53,7 @@ export default function JejuICOPage() {
               <TimelineItem 
                 status="complete" 
                 title="Infrastructure" 
-                description="Jeju L2, contracts, platform" 
+                description="Network L2, contracts, platform" 
               />
               <TimelineItem 
                 status="active" 
@@ -76,7 +76,7 @@ export default function JejuICOPage() {
       </div>
       
       {/* Tokenomics */}
-      <JejuTokenomics />
+      <NetworkTokenomics />
       
       {/* Links */}
       <div className="flex flex-wrap justify-center gap-4 py-12">

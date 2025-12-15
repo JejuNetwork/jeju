@@ -1,8 +1,11 @@
 import { defineChain } from 'viem'
+import { getNetworkName } from '@jejunetwork/config'
+
+const networkName = getNetworkName()
 
 export const jejuLocalnet = defineChain({
   id: 8545,
-  name: 'Jeju Localnet',
+  name: `${networkName} Localnet`,
   nativeCurrency: {
     decimals: 18,
     name: 'Ether',
@@ -15,7 +18,7 @@ export const jejuLocalnet = defineChain({
 
 export const jejuTestnet = defineChain({
   id: 84532,
-  name: 'Jeju Testnet (Base Sepolia)',
+  name: `${networkName} Testnet (Base Sepolia)`,
   nativeCurrency: {
     decimals: 18,
     name: 'Ether',

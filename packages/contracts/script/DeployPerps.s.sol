@@ -3,9 +3,9 @@ pragma solidity ^0.8.26;
 
 import {Script, console} from "forge-std/Script.sol";
 
-// Oracle Marketplace
-import {OracleStakingManager} from "../src/oracle-marketplace/OracleStakingManager.sol";
-import {PriceFeedAggregator} from "../src/oracle-marketplace/PriceFeedAggregator.sol";
+// Oracle
+import {OracleStakingManager} from "../src/oracle/OracleStakingManager.sol";
+import {PriceFeedAggregator} from "../src/oracle/PriceFeedAggregator.sol";
 
 // Perps Engine
 import {PerpetualMarket} from "../src/perps/PerpetualMarket.sol";

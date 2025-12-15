@@ -13,7 +13,7 @@ const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
 
 test.describe('Wallet Connection Flow', () => {
-  test('should connect wallet via RainbowKit', async ({ _page, _metamask }) => {
+  test('should connect wallet via RainbowKit', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await page.waitForLoadState('networkidle');
 
@@ -43,7 +43,7 @@ test.describe('Wallet Connection Flow', () => {
     console.log('✅ Wallet connection successful');
   });
 
-  test('should maintain connection across page navigation', async ({ _page, _metamask }) => {
+  test('should maintain connection across page navigation', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 
@@ -64,7 +64,7 @@ test.describe('Wallet Connection Flow', () => {
     console.log('✅ Connection persists across navigation');
   });
 
-  test('should maintain connection across page reload', async ({ _page, _metamask }) => {
+  test('should maintain connection across page reload', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 
@@ -87,7 +87,7 @@ test.describe('Wallet Connection Flow', () => {
 });
 
 test.describe('Wallet Account Switching', () => {
-  test.skip('should handle switching accounts in MetaMask', async ({ _page, _metamask }) => {
+  test.skip('should handle switching accounts in MetaMask', async ({ page, metamask }) => {
     // TODO: Implement when Synpress supports account switching
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
@@ -101,14 +101,14 @@ test.describe('Wallet Account Switching', () => {
     console.log('⚠️  Account switching - needs Synpress enhancement');
   });
 
-  test.skip('should update balances when switching accounts', async ({ _page }) => {
+  test.skip('should update balances when switching accounts', async ({ page }) => {
     // TODO: After account switch, verify balances update
     console.log('⚠️  Balance update on account switch - needs implementation');
   });
 });
 
 test.describe('Network Management', () => {
-  test('should display correct network (Jeju Localnet)', async ({ _page, _metamask }) => {
+  test('should display correct network (Network Localnet)', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 
@@ -122,16 +122,16 @@ test.describe('Network Management', () => {
 
     await page.waitForTimeout(2000);
 
-    // Verify Jeju network logged
-    const hasJejuConfig = logs.some((log) => log.includes('1337') || log.includes('9545'));
-    expect(hasJejuConfig).toBe(true);
+    // Verify network logged
+    const hasNetworkConfig = logs.some((log) => log.includes('1337') || log.includes('9545'));
+    expect(hasNetworkConfig).toBe(true);
 
-    console.log('✅ Jeju Localnet configuration verified');
+    console.log('✅ Network Localnet configuration verified');
     console.log(`   Chain ID: 1337`);
     console.log(`   RPC: http://127.0.0.1:9545`);
   });
 
-  test.skip('should warn if wrong network connected', async ({ _page, _metamask }) => {
+  test.skip('should warn if wrong network connected', async ({ page, metamask }) => {
     // TODO: Switch to different network and verify warning
     // await metamask.switchNetwork('Ethereum Mainnet');
     // await expect(page.getByText(/Wrong Network/i)).toBeVisible();
@@ -139,14 +139,14 @@ test.describe('Network Management', () => {
     console.log('⚠️  Wrong network warning - needs implementation');
   });
 
-  test.skip('should prompt network switch if on wrong chain', async ({ _page }) => {
+  test.skip('should prompt network switch if on wrong chain', async ({ page }) => {
     // TODO: Test network switch prompt
     console.log('⚠️  Network switch prompt - needs testing');
   });
 });
 
 test.describe('Wallet Disconnection', () => {
-  test.skip('should disconnect wallet via UI', async ({ _page, _metamask }) => {
+  test.skip('should disconnect wallet via UI', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 
@@ -166,21 +166,21 @@ test.describe('Wallet Disconnection', () => {
 });
 
 test.describe('Connection Error Handling', () => {
-  test.skip('should handle MetaMask locked', async ({ _page }) => {
+  test.skip('should handle MetaMask locked', async ({ page }) => {
     // TODO: Lock MetaMask and try to connect
     // Should show appropriate error
 
     console.log('⚠️  Locked wallet handling - needs MetaMask lock simulation');
   });
 
-  test.skip('should handle MetaMask not installed', async ({ _page }) => {
+  test.skip('should handle MetaMask not installed', async ({ page }) => {
     // TODO: Test without MetaMask extension
     // Should show install prompt
 
     console.log('⚠️  No wallet error - needs non-MetaMask browser');
   });
 
-  test('should handle connection rejection', async ({ _page, _metamask }) => {
+  test('should handle connection rejection', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
 
     // Click connect

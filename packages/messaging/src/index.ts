@@ -1,7 +1,7 @@
 /**
  * @jeju/messaging
  * 
- * Decentralized private messaging protocol for Jeju L2
+ * Decentralized private messaging protocol for Network L2
  * 
  * Features:
  * - End-to-end encryption (X25519 + AES-256-GCM)

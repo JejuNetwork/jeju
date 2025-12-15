@@ -5,6 +5,11 @@
  * All sensitive operations (key generation, signing, token exchange) 
  * happen inside the TEE with attestation.
  * 
+ * Now with fully decentralized infrastructure:
+ * - JNS for app resolution
+ * - IPFS/decentralized storage for sessions and credentials
+ * - Compute marketplace integration
+ * 
  * @see https://github.com/Dstack-TEE/dstack
  */
 
@@ -21,6 +26,14 @@ import type {
   VerifiableCredential,
   FarcasterIdentity,
 } from '../types.js';
+import {
+  OAuth3StorageService,
+  createOAuth3StorageService,
+} from '../infrastructure/storage-integration.js';
+import {
+  OAuth3JNSService,
+  createOAuth3JNSService,
+} from '../infrastructure/jns-integration.js';
 
 const DSTACK_SOCKET = process.env.DSTACK_SOCKET ?? '/var/run/dstack.sock';
 
@@ -38,6 +51,9 @@ interface AuthAgentConfig {
   appRegistryAddress: Address;
   chainRpcUrl: string;
   chainId: number;
+  // Infrastructure
+  jnsGateway?: string;
+  storageEndpoint?: string;
 }
 
 interface OAuthTokenResponse {
@@ -63,6 +79,12 @@ interface SessionStore {
   credentials: Map<string, VerifiableCredential>;
 }
 
+interface DecentralizedSessionStore {
+  storage: OAuth3StorageService;
+  jns: OAuth3JNSService;
+  pendingAuths: Map<string, PendingAuth>; // Still in-memory for short-lived auth flows
+}
+
 interface PendingAuth {
   sessionId: Hex;
   provider: AuthProvider;
@@ -78,6 +100,7 @@ export class DstackAuthAgent {
   private app: Hono;
   private config: AuthAgentConfig;
   private store: SessionStore;
+  private decentralizedStore: DecentralizedSessionStore | null = null;
   private nodePrivateKey: Uint8Array;
   private nodeAccount: ReturnType<typeof privateKeyToAccount>;
 
@@ -88,6 +111,18 @@ export class DstackAuthAgent {
       sessions: new Map(),
       pendingAuths: new Map(),
       credentials: new Map(),
+    };
+
+    // Initialize storage
+    this.decentralizedStore = {
+      storage: createOAuth3StorageService({
+        ipfsApiEndpoint: config.storageEndpoint,
+        ipfsGatewayEndpoint: config.storageEndpoint,
+      }),
+      jns: createOAuth3JNSService({
+        rpcUrl: config.chainRpcUrl,
+      }),
+      pendingAuths: new Map(),
     };
 
     this.nodePrivateKey = toBytes(config.privateKey);
@@ -159,14 +194,24 @@ export class DstackAuthAgent {
 
     this.app.get('/session/:sessionId', async (c) => {
       const sessionId = c.req.param('sessionId') as Hex;
-      const session = this.store.sessions.get(sessionId);
+      
+      // Try decentralized storage first
+      let session: OAuth3Session | null = null;
+      if (this.decentralizedStore) {
+        session = await this.decentralizedStore.storage.retrieveSession(sessionId);
+      }
+      
+      // Fallback to local store
+      if (!session) {
+        session = this.store.sessions.get(sessionId) || null;
+      }
       
       if (!session) {
         return c.json({ error: 'Session not found' }, 404);
       }
 
       if (session.expiresAt < Date.now()) {
-        this.store.sessions.delete(sessionId);
+        await this.deleteSession(sessionId);
         return c.json({ error: 'Session expired' }, 401);
       }
 
@@ -175,7 +220,15 @@ export class DstackAuthAgent {
 
     this.app.post('/session/:sessionId/refresh', async (c) => {
       const sessionId = c.req.param('sessionId') as Hex;
-      const session = this.store.sessions.get(sessionId);
+      
+      // Try decentralized storage first
+      let session: OAuth3Session | null = null;
+      if (this.decentralizedStore) {
+        session = await this.decentralizedStore.storage.retrieveSession(sessionId);
+      }
+      if (!session) {
+        session = this.store.sessions.get(sessionId) || null;
+      }
 
       if (!session) {
         return c.json({ error: 'Session not found' }, 404);
@@ -187,8 +240,18 @@ export class DstackAuthAgent {
 
     this.app.delete('/session/:sessionId', async (c) => {
       const sessionId = c.req.param('sessionId') as Hex;
-      this.store.sessions.delete(sessionId);
+      await this.deleteSession(sessionId);
       return c.json({ success: true });
+    });
+
+    // Health endpoint with infrastructure status
+    this.app.get('/infrastructure/health', async (c) => {
+      const health = {
+        tee: true,
+        storage: this.decentralizedStore ? await this.decentralizedStore.storage.isHealthy() : false,
+        jns: this.decentralizedStore ? await this.decentralizedStore.jns.isAvailable('health.jeju').catch(() => false) !== false : false,
+      };
+      return c.json(health);
     });
 
     this.app.post('/sign', async (c) => {
@@ -633,9 +696,25 @@ export class DstackAuthAgent {
       attestation,
     };
 
+    // Store in decentralized storage
+    if (this.decentralizedStore) {
+      await this.decentralizedStore.storage.storeSession(session);
+    }
+    
+    // Also keep in local cache for fast access
     this.store.sessions.set(sessionId, session);
 
     return session;
+  }
+
+  private async deleteSession(sessionId: Hex): Promise<void> {
+    // Delete from decentralized storage
+    if (this.decentralizedStore) {
+      await this.decentralizedStore.storage.deleteSession(sessionId);
+    }
+    
+    // Delete from local cache
+    this.store.sessions.delete(sessionId);
   }
 
   private async refreshSession(session: OAuth3Session): Promise<OAuth3Session> {
@@ -649,6 +728,12 @@ export class DstackAuthAgent {
       attestation: await this.getAttestation(),
     };
 
+    // Update in decentralized storage
+    if (this.decentralizedStore) {
+      await this.decentralizedStore.storage.storeSession(newSession);
+    }
+    
+    // Update local cache
     this.store.sessions.set(session.sessionId, newSession);
     return newSession;
   }
@@ -728,6 +813,12 @@ export class DstackAuthAgent {
     const signature = await this.nodeAccount.signMessage({ message: { raw: toBytes(credentialHash) } });
     credential.proof.proofValue = signature;
 
+    // Store in decentralized storage
+    if (this.decentralizedStore) {
+      await this.decentralizedStore.storage.storeCredential(credential);
+    }
+    
+    // Also keep in local cache
     this.store.credentials.set(credentialId, credential);
 
     return credential;
@@ -782,9 +873,17 @@ export class DstackAuthAgent {
   async start(port: number): Promise<void> {
     const attestation = await this.getAttestation();
     
+    // Check decentralized infrastructure health
+    let storageHealthy = false;
+    let jnsHealthy = false;
+    if (this.decentralizedStore) {
+      storageHealthy = await this.decentralizedStore.storage.isHealthy();
+      jnsHealthy = await this.decentralizedStore.jns.isAvailable('health.jeju').catch(() => false) !== false;
+    }
+    
     console.log(`
 ╔═══════════════════════════════════════════════════════════╗
-║              OAuth3 dstack TEE Auth Agent                  ║
+║         OAuth3 Decentralized TEE Auth Agent                ║
 ╠═══════════════════════════════════════════════════════════╣
 ║  Node ID:      ${this.config.nodeId.slice(0, 38).padEnd(38)}║
 ║  Cluster:      ${this.config.clusterId.slice(0, 38).padEnd(38)}║
@@ -792,6 +891,12 @@ export class DstackAuthAgent {
 ║  TEE Provider: ${(attestation.provider as string).padEnd(38)}║
 ║  Verified:     ${String(attestation.verified).padEnd(38)}║
 ║  Port:         ${String(port).padEnd(38)}║
+╠═══════════════════════════════════════════════════════════╣
+║  Decentralized Infrastructure                              ║
+║  ───────────────────────────────────────                   ║
+║  Storage:      ${(storageHealthy ? '✓ Connected' : '✗ Unavailable').padEnd(38)}║
+║  JNS:          ${(jnsHealthy ? '✓ Connected' : '✗ Unavailable').padEnd(38)}║
+║  Compute:      ${'✓ Running in TEE'.padEnd(38)}║
 ╚═══════════════════════════════════════════════════════════╝
 `);
 
@@ -815,6 +920,9 @@ export async function startAuthAgent(): Promise<DstackAuthAgent> {
       '0x0000000000000000000000000000000000000000') as Address,
     chainRpcUrl: process.env.JEJU_RPC_URL ?? 'http://localhost:9545',
     chainId: parseInt(process.env.CHAIN_ID ?? '420691'),
+    // Infrastructure
+    jnsGateway: process.env.JNS_GATEWAY ?? process.env.GATEWAY_API ?? 'http://localhost:4020',
+    storageEndpoint: process.env.STORAGE_API_ENDPOINT ?? 'http://localhost:4010',
   };
 
   const agent = new DstackAuthAgent(config);

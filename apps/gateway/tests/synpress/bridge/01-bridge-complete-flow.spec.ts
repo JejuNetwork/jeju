@@ -14,19 +14,19 @@ const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
 
 test.describe('Bridge - Complete Approval Flow', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
   });
 
-  test('COMPLETE: Select CLANKER → Approve → Simulate Bridge → Verify', async ({ _page, _metamask }) => {
+  test('COMPLETE: Select CLANKER → Approve → Simulate Bridge → Verify', async ({ page, metamask }) => {
     // ===================
     // STEP 1: Verify Bridge Interface
     // ===================
-    await expect(page.getByText('Bridge from Ethereum to Jeju')).toBeVisible();
-    await expect(page.getByText(/elizaOS is a native Jeju token/i)).toBeVisible();
+    await expect(page.getByText('Bridge from Ethereum to the network')).toBeVisible();
+    await expect(page.getByText(/elizaOS is a native network token/i)).toBeVisible();
     await expect(page.getByText(/cannot be bridged from Ethereum/i)).toBeVisible();
 
     await page.screenshot({
@@ -80,7 +80,7 @@ test.describe('Bridge - Complete Approval Flow', () => {
     await expect(amountInput).toBeVisible();
 
     // Bridge button should be disabled without amount
-    let bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    let bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeDisabled();
     console.log('✅ 4/8: Bridge disabled without amount');
 
@@ -94,7 +94,7 @@ test.describe('Bridge - Complete Approval Flow', () => {
     console.log(`ℹ️  USD value: ${usdText} (expected ~$2,614 for 100 CLANKER)`);
 
     // Bridge button should now be enabled
-    bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeEnabled();
 
     await page.screenshot({
@@ -203,7 +203,7 @@ test.describe('Bridge - All Bridgeable Tokens', () => {
   ];
 
   for (const token of bridgeableTokens) {
-    test(`should approve ${token.symbol} for bridge`, async ({ _page, _metamask }) => {
+    test(`should approve ${token.symbol} for bridge`, async ({ page, metamask }) => {
       await page.goto(GATEWAY_URL);
       await connectWallet(page, metamask);
       await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
@@ -230,7 +230,7 @@ test.describe('Bridge - All Bridgeable Tokens', () => {
       });
 
       // Approve
-      const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+      const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
       await bridgeButton.click();
 
       await page.waitForTimeout(2000);
@@ -250,7 +250,7 @@ test.describe('Bridge - All Bridgeable Tokens', () => {
 });
 
 test.describe('Bridge - Custom Token Address Mode', () => {
-  test('COMPLETE: Custom token flow with approval', async ({ _page, _metamask }) => {
+  test('COMPLETE: Custom token flow with approval', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
@@ -273,7 +273,7 @@ test.describe('Bridge - Custom Token Address Mode', () => {
     await page.waitForTimeout(300);
 
     // Bridge button should be enabled
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeEnabled();
 
     await page.screenshot({
@@ -287,7 +287,7 @@ test.describe('Bridge - Custom Token Address Mode', () => {
     // But UI validation passes
   });
 
-  test('should validate custom token address format', async ({ _page, _metamask }) => {
+  test('should validate custom token address format', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
@@ -308,7 +308,7 @@ test.describe('Bridge - Custom Token Address Mode', () => {
       await page.getByPlaceholder('0.0').fill('10');
       await page.waitForTimeout(300);
 
-      const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+      const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
       const enabled = await bridgeButton.isEnabled();
 
       expect(enabled).toBe(false);
@@ -320,21 +320,21 @@ test.describe('Bridge - Custom Token Address Mode', () => {
     await page.getByPlaceholder('0.0').fill('10');
     await page.waitForTimeout(300);
 
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeEnabled();
     console.log('✅ Valid custom address accepted');
   });
 });
 
 test.describe('Bridge - Recipient Address Handling', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
   });
 
-  test('should bridge to self when recipient empty', async ({ _page }) => {
+  test('should bridge to self when recipient empty', async ({ page }) => {
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
     await page.getByText('VIRTUAL').click();
@@ -349,13 +349,13 @@ test.describe('Bridge - Recipient Address Handling', () => {
     expect(recipientValue).toBe(''); // Should be empty
 
     // Button should work (will default to connected address)
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeEnabled();
 
     console.log('✅ Bridge to self (empty recipient) works');
   });
 
-  test('should bridge to specified recipient address', async ({ _page }) => {
+  test('should bridge to specified recipient address', async ({ page }) => {
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
     await page.getByText('CLANKERMON').click();
@@ -368,13 +368,13 @@ test.describe('Bridge - Recipient Address Handling', () => {
     await page.getByPlaceholder(/0x.../  ).fill(recipientAddress);
     await page.waitForTimeout(300);
 
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeEnabled();
 
     console.log('✅ Bridge to different address works');
   });
 
-  test('should validate recipient address format', async ({ _page }) => {
+  test('should validate recipient address format', async ({ page }) => {
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
     await page.getByText('VIRTUAL').click();
@@ -386,7 +386,7 @@ test.describe('Bridge - Recipient Address Handling', () => {
     await page.getByPlaceholder(/0x.../).fill('invalid-recipient');
     await page.waitForTimeout(300);
 
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     
     // Might be disabled or show error
     const enabled = await bridgeButton.isEnabled();
@@ -397,14 +397,14 @@ test.describe('Bridge - Recipient Address Handling', () => {
 });
 
 test.describe('Bridge - Amount Validation Edge Cases', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
   });
 
-  test('should handle zero amount', async ({ _page }) => {
+  test('should handle zero amount', async ({ page }) => {
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
     await page.getByText('CLANKER').click();
@@ -413,14 +413,14 @@ test.describe('Bridge - Amount Validation Edge Cases', () => {
     await page.getByPlaceholder('0.0').fill('0');
     await page.waitForTimeout(300);
 
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     const enabled = await bridgeButton.isEnabled();
 
     expect(enabled).toBe(false);
     console.log('✅ Zero amount rejected');
   });
 
-  test('should handle negative amount', async ({ _page }) => {
+  test('should handle negative amount', async ({ page }) => {
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
     await page.getByText('VIRTUAL').click();
@@ -437,7 +437,7 @@ test.describe('Bridge - Amount Validation Edge Cases', () => {
     console.log('✅ Negative amount handling tested');
   });
 
-  test('should handle very large amount', async ({ _page }) => {
+  test('should handle very large amount', async ({ page }) => {
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
     await page.getByText('CLANKERMON').click();
@@ -458,7 +458,7 @@ test.describe('Bridge - Amount Validation Edge Cases', () => {
     console.log('✅ Very large amount handled');
   });
 
-  test('should handle high decimal precision', async ({ _page }) => {
+  test('should handle high decimal precision', async ({ page }) => {
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
     await page.getByText('VIRTUAL').click();
@@ -479,7 +479,7 @@ test.describe('Bridge - Amount Validation Edge Cases', () => {
 });
 
 test.describe('Bridge - Error Handling', () => {
-  test('should handle approval rejection gracefully', async ({ _page, _metamask }) => {
+  test('should handle approval rejection gracefully', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
@@ -492,7 +492,7 @@ test.describe('Bridge - Error Handling', () => {
 
     await page.getByPlaceholder('0.0').fill('5');
 
-    await page.getByRole('button', { name: /Bridge to Jeju/i }).click();
+    await page.getByRole('button', { name: /Bridge to the network/i }).click();
 
     // Reject approval
     await page.waitForTimeout(2000);
@@ -502,13 +502,13 @@ test.describe('Bridge - Error Handling', () => {
 
     // Form should still be usable
     await expect(page.getByPlaceholder('0.0')).toBeVisible();
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeVisible();
 
     console.log('✅ Approval rejection handled gracefully');
   });
 
-  test('should show insufficient balance error (via MetaMask)', async ({ _page, _metamask }) => {
+  test('should show insufficient balance error (via MetaMask)', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
@@ -522,7 +522,7 @@ test.describe('Bridge - Error Handling', () => {
     // Enter unrealistic amount
     await page.getByPlaceholder('0.0').fill('99999999999');
 
-    await page.getByRole('button', { name: /Bridge to Jeju/i }).click();
+    await page.getByRole('button', { name: /Bridge to the network/i }).click();
 
     // MetaMask would show insufficient balance error
     await page.waitForTimeout(2000);
@@ -535,7 +535,7 @@ test.describe('Bridge - Error Handling', () => {
 });
 
 test.describe('Bridge - Transaction Tracking', () => {
-  test('should display bridge information panel', async ({ _page, _metamask }) => {
+  test('should display bridge information panel', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
@@ -544,7 +544,7 @@ test.describe('Bridge - Transaction Tracking', () => {
     // Info panel should always be visible
     await expect(page.getByText(/Estimated Time.*~2 minutes/i)).toBeVisible();
     await expect(page.getByText(/Bridge.*OP Stack Standard Bridge/i)).toBeVisible();
-    await expect(page.getByText(/Tokens will appear on Jeju/i)).toBeVisible();
+    await expect(page.getByText(/Tokens will appear on the network/i)).toBeVisible();
 
     await page.screenshot({
       path: 'test-results/screenshots/bridge-complete/08-info-panel.png',
@@ -554,7 +554,7 @@ test.describe('Bridge - Transaction Tracking', () => {
     console.log('✅ Bridge information panel complete');
   });
 
-  test('should display bridge history section', async ({ _page, _metamask }) => {
+  test('should display bridge history section', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
@@ -588,7 +588,7 @@ test.describe('Bridge - Transaction Tracking', () => {
     }
   });
 
-  test.skip('should add completed bridge to history', async ({ page: _page, metamask: _metamask }) => {
+  test.skip('should add completed bridge to history', async ({ page, metamask }) => {
     // TODO: After successful bridge, verify it appears in history
     // Would test:
     // - Transfer shown in list
@@ -603,14 +603,14 @@ test.describe('Bridge - Transaction Tracking', () => {
 });
 
 test.describe('Bridge - UI State Management', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
   });
 
-  test('should maintain selection when switching between modes', async ({ _page }) => {
+  test('should maintain selection when switching between modes', async ({ page }) => {
     // Select token in normal mode
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
@@ -636,7 +636,7 @@ test.describe('Bridge - UI State Management', () => {
     console.log('✅ Mode switching clears previous selection');
   });
 
-  test('should clear form after successful bridge', async ({ _page, _metamask }) => {
+  test('should clear form after successful bridge', async ({ page, metamask }) => {
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
     await page.getByText('VIRTUAL').click();
@@ -644,7 +644,7 @@ test.describe('Bridge - UI State Management', () => {
 
     await page.getByPlaceholder('0.0').fill('1');
 
-    await page.getByRole('button', { name: /Bridge to Jeju/i }).click();
+    await page.getByRole('button', { name: /Bridge to the network/i }).click();
 
     // Approve
     await page.waitForTimeout(2000);
@@ -662,7 +662,7 @@ test.describe('Bridge - UI State Management', () => {
 });
 
 test.describe('Bridge - Transaction Success Indicators', () => {
-  test.skip('should display success message with transaction hash', async ({ _page }) => {
+  test.skip('should display success message with transaction hash', async ({ page }) => {
     // TODO: After successful bridge, verify:
     // - Success message displayed
     // - Transaction hash shown
@@ -672,14 +672,14 @@ test.describe('Bridge - Transaction Success Indicators', () => {
     console.log('⚠️  Success indicators - requires completed bridge');
   });
 
-  test.skip('should update balance after bridge confirms', async ({ _page }) => {
-    // TODO: After bridge, verify balance increases on Jeju
+  test.skip('should update balance after bridge confirms', async ({ page }) => {
+    // TODO: After bridge, verify balance increases on the network
 
     console.log('⚠️  Balance update - requires bridge + balance refresh');
   });
 
-  test.skip('should show pending status during bridge relay', async ({ _page }) => {
-    // TODO: During bridge relay (Ethereum → Jeju), show pending indicator
+  test.skip('should show pending status during bridge relay', async ({ page }) => {
+    // TODO: During bridge relay (Ethereum → Network), show pending indicator
 
     console.log('⚠️  Pending status - requires bridge in progress');
   });

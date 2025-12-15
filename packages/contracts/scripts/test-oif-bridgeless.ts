@@ -250,7 +250,7 @@ async function main() {
   │                                                          │
   │  STEP 1: User creates intent on Source Chain            │
   │  "I want to send 100 USDC from Base Sepolia             │
-  │   and receive 100 USDC on Jeju Testnet"                 │
+  │   and receive 100 USDC on the network Testnet"                 │
   │                                                          │
   │  STEP 2: Solver monitors intents via Aggregator         │
   │  Solver has liquidity on BOTH chains                    │
@@ -279,7 +279,7 @@ async function main() {
 
   console.log("\n✅ OIF System Ready for Cross-Chain Intents!");
   console.log("\nNext steps:");
-  console.log("1. Deploy same contracts to Jeju Testnet (when RPC live)");
+  console.log("1. Deploy same contracts to the network Testnet (when RPC live)");
   console.log("2. Configure cross-chain routes via SuperchainOracle");
   console.log("3. Register solvers with liquidity on both chains");
   console.log("4. Users can create intents and get instant fills!");

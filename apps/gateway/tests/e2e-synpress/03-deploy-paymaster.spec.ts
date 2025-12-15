@@ -14,7 +14,7 @@ const { expect } = test;
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4001';
 
 test.describe('Deploy Paymaster Flow', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     
@@ -23,7 +23,7 @@ test.describe('Deploy Paymaster Flow', () => {
     await page.waitForTimeout(1000);
   });
 
-  test('should display deployment interface', async ({ _page }) => {
+  test('should display deployment interface', async ({ page }) => {
     await expect(page.getByText('Deploy Paymaster')).toBeVisible();
     await expect(page.getByText(/Factory deploys/i)).toBeVisible();
     
@@ -31,7 +31,7 @@ test.describe('Deploy Paymaster Flow', () => {
     await page.screenshot({ path: 'test-results/screenshots/synpress-deploy-interface.png', fullPage: true });
   });
 
-  test('should include ALL tokens in selector (including elizaOS)', async ({ _page }) => {
+  test('should include ALL tokens in selector (including elizaOS)', async ({ page }) => {
     // Open token selector
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
@@ -45,7 +45,7 @@ test.describe('Deploy Paymaster Flow', () => {
     console.log('✅ All tokens available for paymaster deployment');
   });
 
-  test('should show fee margin slider', async ({ _page }) => {
+  test('should show fee margin slider', async ({ page }) => {
     // Select a token
     await page.locator('.input').first().click();
     await page.getByText('elizaOS').click();
@@ -65,7 +65,7 @@ test.describe('Deploy Paymaster Flow', () => {
     }
   });
 
-  test('should show deployment information', async ({ _page }) => {
+  test('should show deployment information', async ({ page }) => {
     // Select token
     await page.locator('.input').first().click();
     await page.getByText('CLANKER').click();
@@ -79,7 +79,7 @@ test.describe('Deploy Paymaster Flow', () => {
     console.log('✅ Deployment components listed');
   });
 
-  test('should warn if token not registered', async ({ _page }) => {
+  test('should warn if token not registered', async ({ page }) => {
     // This test checks for the warning message when token isn't registered
     // Will vary depending on which tokens are already registered
     
@@ -103,7 +103,7 @@ test.describe('Deploy Paymaster Flow', () => {
     console.log('✅ Deployment state validation working');
   });
 
-  test('should warn if paymaster already deployed', async ({ _page }) => {
+  test('should warn if paymaster already deployed', async ({ page }) => {
     // Select elizaOS (likely to be deployed)
     await page.locator('.input').first().click();
     await page.getByText('elizaOS').click();
@@ -122,7 +122,7 @@ test.describe('Deploy Paymaster Flow', () => {
     }
   });
 
-  test.skip('should deploy paymaster successfully', async ({ _page, _metamask }) => {
+  test.skip('should deploy paymaster successfully', async ({ page, metamask }) => {
     // Skip in most runs - requires gas and changes blockchain state
     
     // Select a token without paymaster

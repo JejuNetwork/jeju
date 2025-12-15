@@ -40,7 +40,7 @@ describe('Configuration Loaders', () => {
       const config = loadChainConfig('mainnet');
       
       expect(config.chainId).toBe(420691);
-      expect(config.name).toBe('Jeju');
+      expect(config.name).toBe('Network');
       expect(config.rpcUrl).toBe('https://rpc.jeju.network');
       expect(config.l1ChainId).toBe(1); // Ethereum mainnet
       expect(config.flashblocksEnabled).toBe(true);
@@ -50,7 +50,7 @@ describe('Configuration Loaders', () => {
       const config = loadChainConfig('testnet');
       
       expect(config.chainId).toBe(420690);
-      expect(config.name).toBe('Jeju Testnet');
+      expect(config.name).toBe('Testnet');
       expect(config.rpcUrl).toBe('https://testnet-rpc.jeju.network');
       expect(config.l1ChainId).toBe(11155111); // Sepolia
     });
@@ -59,7 +59,7 @@ describe('Configuration Loaders', () => {
       const config = loadChainConfig('localnet');
       
       expect(config.chainId).toBe(1337);
-      expect(config.name).toBe('Jeju Localnet');
+      expect(config.name).toBe(getLocalnetChain().name);
       expect(config.rpcUrl).toBe('http://127.0.0.1:9545');
       expect(config.l1ChainId).toBe(1337);
     });

@@ -14,7 +14,7 @@ const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
 
 test.describe('App Registration Transactions', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /App Registry/i }).click();
@@ -23,7 +23,7 @@ test.describe('App Registration Transactions', () => {
     await page.waitForTimeout(1000);
   });
 
-  test('should register app with elizaOS stake', async ({ _page, _metamask }) => {
+  test('should register app with elizaOS stake', async ({ page, metamask }) => {
     // Fill form
     await page.getByPlaceholder('My Awesome App').fill(TEST_APP.name + ' elizaOS');
     await page.getByPlaceholder(/Brief description/i).fill(TEST_APP.description);
@@ -64,7 +64,7 @@ test.describe('App Registration Transactions', () => {
     console.log('✅ App registered with elizaOS stake');
   });
 
-  test('should register app with VIRTUAL stake', async ({ _page, _metamask }) => {
+  test('should register app with VIRTUAL stake', async ({ page, metamask }) => {
     await page.getByPlaceholder('My Awesome App').fill(TEST_APP.name + ' VIRTUAL');
     await page.getByPlaceholder(/Brief description/i).fill('Testing with VIRTUAL stake');
     await page.getByRole('button', { name: /💰 DeFi/i }).click();
@@ -96,7 +96,7 @@ test.describe('App Registration Transactions', () => {
     }
   });
 
-  test('should register app with A2A endpoint', async ({ _page, _metamask }) => {
+  test('should register app with A2A endpoint', async ({ page, metamask }) => {
     await page.getByPlaceholder('My Awesome App').fill('A2A Test App');
     await page.getByPlaceholder(/Brief description/i).fill('App with A2A endpoint');
     await page.getByPlaceholder('https://myapp.com/a2a').fill(TEST_APP.a2aEndpoint);
@@ -125,7 +125,7 @@ test.describe('App Registration Transactions', () => {
     console.log('✅ App registered with A2A endpoint');
   });
 
-  test('should register app with multiple tags', async ({ _page, _metamask }) => {
+  test('should register app with multiple tags', async ({ page, metamask }) => {
     await page.getByPlaceholder('My Awesome App').fill('Multi-Tag App');
     
     // Select multiple tags
@@ -151,7 +151,7 @@ test.describe('App Registration Transactions', () => {
     console.log('✅ App registered with multiple tags');
   });
 
-  test('should enforce tag limit (max 10)', async ({ _page }) => {
+  test('should enforce tag limit (max 10)', async ({ page }) => {
     // Try to select more than 10 tags (if limit enforced)
     const allTags = [
       '📱 Application',
@@ -175,7 +175,7 @@ test.describe('App Registration Transactions', () => {
 });
 
 test.describe('App Stake Withdrawal Transactions', () => {
-  test('should withdraw stake and de-register app', async ({ _page, _metamask }) => {
+  test('should withdraw stake and de-register app', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 
@@ -231,7 +231,7 @@ test.describe('App Stake Withdrawal Transactions', () => {
 });
 
 test.describe('App Registry Validation', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /App Registry/i }).click();
@@ -240,7 +240,7 @@ test.describe('App Registry Validation', () => {
     await page.waitForTimeout(1000);
   });
 
-  test('should require app name', async ({ _page }) => {
+  test('should require app name', async ({ page }) => {
     // Try to submit without name
     const submitButton = page.getByRole('button', { name: /Register App$/i });
     await expect(submitButton).toBeDisabled();
@@ -254,7 +254,7 @@ test.describe('App Registry Validation', () => {
     console.log('✅ App name validation enforced');
   });
 
-  test('should require at least one tag', async ({ _page }) => {
+  test('should require at least one tag', async ({ page }) => {
     await page.getByPlaceholder('My Awesome App').fill('Test App');
 
     const submitButton = page.getByRole('button', { name: /Register App$/i });
@@ -269,7 +269,7 @@ test.describe('App Registry Validation', () => {
     console.log('✅ Tag requirement enforced');
   });
 
-  test('should require stake token selection', async ({ _page }) => {
+  test('should require stake token selection', async ({ page }) => {
     await page.getByPlaceholder('My Awesome App').fill('Test App');
     await page.getByRole('button', { name: /🎮 Game/i }).click();
 
@@ -289,7 +289,7 @@ test.describe('App Registry Validation', () => {
     console.log('✅ Stake token requirement enforced');
   });
 
-  test('should calculate required stake for each token', async ({ _page }) => {
+  test('should calculate required stake for each token', async ({ page }) => {
     await page.getByPlaceholder('My Awesome App').fill('Test');
     await page.getByRole('button', { name: /🎮 Game/i }).click();
 
@@ -319,7 +319,7 @@ test.describe('App Registry Validation', () => {
     console.log('✅ Required stake calculated for all tokens');
   });
 
-  test('should validate A2A endpoint URL format', async ({ _page }) => {
+  test('should validate A2A endpoint URL format', async ({ page }) => {
     await page.getByPlaceholder('My Awesome App').fill('Test');
     await page.getByRole('button', { name: /🎮 Game/i }).click();
 
@@ -343,7 +343,7 @@ test.describe('App Registry Validation', () => {
 });
 
 test.describe('App Stake Approval and Registration', () => {
-  test('should approve CLANKER before registering app', async ({ _page, _metamask }) => {
+  test('should approve CLANKER before registering app', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 
@@ -392,12 +392,12 @@ test.describe('App Stake Approval and Registration', () => {
 });
 
 test.describe('App Edit and Update Transactions', () => {
-  test.skip('should edit app metadata', async ({ _page, _metamask }) => {
+  test.skip('should edit app metadata', async ({ page, metamask }) => {
     // TODO: Implement when edit functionality available
     console.log('⚠️  Edit app transaction - needs implementation');
   });
 
-  test.skip('should update A2A endpoint', async ({ _page, _metamask }) => {
+  test.skip('should update A2A endpoint', async ({ page, metamask }) => {
     // TODO: Implement when update functionality available
     console.log('⚠️  Update A2A endpoint - needs implementation');
   });

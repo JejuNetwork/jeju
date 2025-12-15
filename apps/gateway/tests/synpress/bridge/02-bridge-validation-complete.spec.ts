@@ -13,19 +13,19 @@ const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
 
 test.describe('Bridge - elizaOS Exclusion (Native Token)', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
   });
 
-  test('should display warning that elizaOS cannot be bridged', async ({ _page }) => {
+  test('should display warning that elizaOS cannot be bridged', async ({ page }) => {
     // Warning should be prominently displayed
     const warning = page.locator('[style*="background: #fef3c7"]').filter({ hasText: /elizaOS/i });
     await expect(warning).toBeVisible();
 
-    await expect(page.getByText(/elizaOS is a native Jeju token/i)).toBeVisible();
+    await expect(page.getByText(/elizaOS is a native network token/i)).toBeVisible();
     await expect(page.getByText(/cannot be bridged from Ethereum/i)).toBeVisible();
 
     await page.screenshot({
@@ -36,7 +36,7 @@ test.describe('Bridge - elizaOS Exclusion (Native Token)', () => {
     console.log('✅ elizaOS warning displayed');
   });
 
-  test('should NOT show elizaOS in token dropdown', async ({ _page }) => {
+  test('should NOT show elizaOS in token dropdown', async ({ page }) => {
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
 
@@ -52,7 +52,7 @@ test.describe('Bridge - elizaOS Exclusion (Native Token)', () => {
     console.log('✅ elizaOS excluded from dropdown');
   });
 
-  test('should only show 3 bridgeable tokens (not 4)', async ({ _page }) => {
+  test('should only show 3 bridgeable tokens (not 4)', async ({ page }) => {
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
 
@@ -68,14 +68,14 @@ test.describe('Bridge - elizaOS Exclusion (Native Token)', () => {
 });
 
 test.describe('Bridge - USD Price Calculations', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
   });
 
-  test('should calculate USD value for CLANKER correctly', async ({ _page }) => {
+  test('should calculate USD value for CLANKER correctly', async ({ page }) => {
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
     await page.getByText('CLANKER').click();
@@ -94,7 +94,7 @@ test.describe('Bridge - USD Price Calculations', () => {
     console.log(`✅ CLANKER USD: ${usdText} (expected ~$2,614)`);
   });
 
-  test('should calculate USD value for VIRTUAL correctly', async ({ _page }) => {
+  test('should calculate USD value for VIRTUAL correctly', async ({ page }) => {
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
     await page.getByText('VIRTUAL').click();
@@ -113,7 +113,7 @@ test.describe('Bridge - USD Price Calculations', () => {
     console.log(`✅ VIRTUAL USD: ${usdText} (expected ~$185)`);
   });
 
-  test('should calculate USD value for CLANKERMON correctly', async ({ _page }) => {
+  test('should calculate USD value for CLANKERMON correctly', async ({ page }) => {
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
     await page.getByText('CLANKERMON').click();
@@ -132,7 +132,7 @@ test.describe('Bridge - USD Price Calculations', () => {
     console.log(`✅ CLANKERMON USD: ${usdText} (expected ~$15)`);
   });
 
-  test('should update USD when amount changes', async ({ _page }) => {
+  test('should update USD when amount changes', async ({ page }) => {
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
     await page.getByText('CLANKER').click();
@@ -158,7 +158,7 @@ test.describe('Bridge - USD Price Calculations', () => {
 });
 
 test.describe('Bridge - Custom Token Comprehensive Testing', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
@@ -167,14 +167,14 @@ test.describe('Bridge - Custom Token Comprehensive Testing', () => {
     await page.waitForTimeout(500);
   });
 
-  test('should show helper text for custom tokens', async ({ _page }) => {
+  test('should show helper text for custom tokens', async ({ page }) => {
     await expect(page.getByText(/Enter any ERC20 token address from Ethereum/i)).toBeVisible();
     await expect(page.getByText(/Make sure the token exists on both networks/i)).toBeVisible();
 
     console.log('✅ Custom token helper text displayed');
   });
 
-  test('should accept valid ERC20 address formats', async ({ _page }) => {
+  test('should accept valid ERC20 address formats', async ({ page }) => {
     const validAddresses = [
       '0x1234567890123456789012345678901234567890', // Lowercase
       '0xABCDEF1234567890ABCDEF1234567890ABCDEF12', // Uppercase
@@ -186,14 +186,14 @@ test.describe('Bridge - Custom Token Comprehensive Testing', () => {
       await page.getByPlaceholder('0.0').fill('10');
       await page.waitForTimeout(300);
 
-      const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+      const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
       await expect(bridgeButton).toBeEnabled();
 
       console.log(`✅ Valid address accepted: ${addr.slice(0, 10)}...`);
     }
   });
 
-  test('should reject invalid custom addresses', async ({ _page }) => {
+  test('should reject invalid custom addresses', async ({ page }) => {
     const invalidAddresses = [
       '', // Empty
       '0x', // Just prefix
@@ -208,7 +208,7 @@ test.describe('Bridge - Custom Token Comprehensive Testing', () => {
       await page.getByPlaceholder('0.0').fill('10');
       await page.waitForTimeout(300);
 
-      const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+      const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
       const enabled = await bridgeButton.isEnabled();
 
       expect(enabled).toBe(false);
@@ -216,7 +216,7 @@ test.describe('Bridge - Custom Token Comprehensive Testing', () => {
     }
   });
 
-  test('should handle extremely long input in custom address', async ({ _page }) => {
+  test('should handle extremely long input in custom address', async ({ page }) => {
     const longInput = '0x' + '1234567890'.repeat(10); // 100+ chars
     await page.getByPlaceholder('0x...').fill(longInput);
 
@@ -229,35 +229,35 @@ test.describe('Bridge - Custom Token Comprehensive Testing', () => {
 });
 
 test.describe('Bridge - Button State Management', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
   });
 
-  test('should disable bridge button without token selection', async ({ _page }) => {
+  test('should disable bridge button without token selection', async ({ page }) => {
     // No token selected
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeDisabled();
 
     console.log('✅ Disabled without token');
   });
 
-  test('should disable bridge button without amount', async ({ _page }) => {
+  test('should disable bridge button without amount', async ({ page }) => {
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
     await page.getByText('VIRTUAL').click();
     await page.waitForTimeout(500);
 
     // No amount entered
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeDisabled();
 
     console.log('✅ Disabled without amount');
   });
 
-  test('should enable bridge button with valid token and amount', async ({ _page }) => {
+  test('should enable bridge button with valid token and amount', async ({ page }) => {
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
     await page.getByText('CLANKERMON').click();
@@ -266,13 +266,13 @@ test.describe('Bridge - Button State Management', () => {
     await page.getByPlaceholder('0.0').fill('50');
     await page.waitForTimeout(300);
 
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeEnabled();
 
     console.log('✅ Enabled with valid inputs');
   });
 
-  test('should show loading state during transaction', async ({ _page, _metamask }) => {
+  test('should show loading state during transaction', async ({ page, metamask }) => {
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
     await page.getByText('VIRTUAL').click();
@@ -280,7 +280,7 @@ test.describe('Bridge - Button State Management', () => {
 
     await page.getByPlaceholder('0.0').fill('1');
 
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await bridgeButton.click();
 
     // During transaction, button might show loading state
@@ -297,14 +297,14 @@ test.describe('Bridge - Button State Management', () => {
 });
 
 test.describe('Bridge - Decimal and Formatting', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
   });
 
-  test('should accept decimal amounts', async ({ _page }) => {
+  test('should accept decimal amounts', async ({ page }) => {
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
     await page.getByText('VIRTUAL').click();
@@ -316,14 +316,14 @@ test.describe('Bridge - Decimal and Formatting', () => {
       await page.getByPlaceholder('0.0').fill(amount);
       await page.waitForTimeout(300);
 
-      const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+      const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
       await expect(bridgeButton).toBeEnabled();
 
       console.log(`✅ Decimal amount accepted: ${amount}`);
     }
   });
 
-  test('should handle copy-pasted amounts with spaces', async ({ _page }) => {
+  test('should handle copy-pasted amounts with spaces', async ({ page }) => {
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
     await page.getByText('CLANKER').click();
@@ -339,7 +339,7 @@ test.describe('Bridge - Decimal and Formatting', () => {
     console.log('✅ Spaces handling tested');
   });
 
-  test('should format large numbers with commas in USD display', async ({ _page }) => {
+  test('should format large numbers with commas in USD display', async ({ page }) => {
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
     await page.getByText('CLANKER').click();
@@ -358,7 +358,7 @@ test.describe('Bridge - Decimal and Formatting', () => {
 });
 
 test.describe('Bridge - Information Display Completeness', () => {
-  test('should display estimated bridge time', async ({ _page, _metamask }) => {
+  test('should display estimated bridge time', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
@@ -369,7 +369,7 @@ test.describe('Bridge - Information Display Completeness', () => {
     console.log('✅ Estimated time displayed');
   });
 
-  test('should display bridge type (OP Stack)', async ({ _page, _metamask }) => {
+  test('should display bridge type (OP Stack)', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
@@ -380,18 +380,18 @@ test.describe('Bridge - Information Display Completeness', () => {
     console.log('✅ Bridge type displayed');
   });
 
-  test('should display destination information', async ({ _page, _metamask }) => {
+  test('should display destination information', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
 
-    await expect(page.getByText(/Tokens will appear on Jeju after confirmation/i)).toBeVisible();
+    await expect(page.getByText(/Tokens will appear on the network after confirmation/i)).toBeVisible();
 
     console.log('✅ Destination info displayed');
   });
 
-  test('should show all bridge information together', async ({ _page, _metamask }) => {
+  test('should show all bridge information together', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
@@ -414,7 +414,7 @@ test.describe('Bridge - Information Display Completeness', () => {
 });
 
 test.describe('Bridge - Ethereum Network Tokens Only', () => {
-  test('should only accept tokens from Ethereum network', async ({ _page, _metamask }) => {
+  test('should only accept tokens from Ethereum network', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
@@ -434,25 +434,25 @@ test.describe('Bridge - Ethereum Network Tokens Only', () => {
       console.log(`✅ ${token} (Ethereum network) available for bridge`);
     }
 
-    // Native Jeju tokens should NOT be in list
+    // Native network tokens should NOT be in list
     const dropdown = page.locator('[style*="position: absolute"]');
     const dropdownText = await dropdown.textContent();
     
-    expect(dropdownText).not.toContain('elizaOS'); // Native Jeju
+    expect(dropdownText).not.toContain('elizaOS'); // Native Token
 
     console.log('✅ Only Ethereum network tokens shown');
   });
 });
 
 test.describe('Bridge - Form Reset and Clearing', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
     await page.waitForTimeout(1000);
   });
 
-  test('should clear amount when changing tokens', async ({ _page }) => {
+  test('should clear amount when changing tokens', async ({ page }) => {
     // Select token and enter amount
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
@@ -475,7 +475,7 @@ test.describe('Bridge - Form Reset and Clearing', () => {
     console.log('✅ Token change behavior tested');
   });
 
-  test('should allow clearing recipient address', async ({ _page }) => {
+  test('should allow clearing recipient address', async ({ page }) => {
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
     await page.getByText('VIRTUAL').click();
@@ -492,7 +492,7 @@ test.describe('Bridge - Form Reset and Clearing', () => {
     await page.waitForTimeout(300);
 
     // Should still work (defaults to sender)
-    const bridgeButton = page.getByRole('button', { name: /Bridge to Jeju/i });
+    const bridgeButton = page.getByRole('button', { name: /Bridge to the network/i });
     await expect(bridgeButton).toBeEnabled();
 
     console.log('✅ Can clear recipient (defaults to self)');
@@ -500,7 +500,7 @@ test.describe('Bridge - Form Reset and Clearing', () => {
 });
 
 test.describe('Bridge - Visual Feedback', () => {
-  test('should highlight selected token in dropdown', async ({ _page, _metamask }) => {
+  test('should highlight selected token in dropdown', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
@@ -520,7 +520,7 @@ test.describe('Bridge - Visual Feedback', () => {
     console.log('✅ Selected token displayed in selector');
   });
 
-  test('should show token logo in selector', async ({ _page, _metamask }) => {
+  test('should show token logo in selector', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();

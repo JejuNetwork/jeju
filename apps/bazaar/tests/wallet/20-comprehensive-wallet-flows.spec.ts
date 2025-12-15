@@ -93,7 +93,7 @@ test.describe('Comprehensive Wallet Flows', () => {
     await expect(page.getByText(/0xf39F/i)).toBeVisible()
   })
 
-  test('should verify network is Jeju (1337)', async ({ context, page, metamaskPage, extensionId }) => {
+  test('should verify network is Network (1337)', async ({ context, page, metamaskPage, extensionId }) => {
     const metamask = new MetaMask(context, metamaskPage, basicSetup.walletPassword, extensionId)
 
     await page.goto('/')
@@ -107,11 +107,11 @@ test.describe('Comprehensive Wallet Flows', () => {
     await page.goto('/tokens/create')
     
     // Should NOT show network switch warning
-    const networkWarning = page.getByText(/Switch to Jeju/i)
+    const networkWarning = page.getByText(/Switch to the network/i)
     const warningVisible = await networkWarning.isVisible()
     
     if (warningVisible) {
-      throw new Error('Wrong network! Should be on Jeju (1337)')
+      throw new Error('Wrong network! Should be on the network (1337)')
     }
   })
 

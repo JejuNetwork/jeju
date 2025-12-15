@@ -16,7 +16,7 @@
  * After running this, localnet is 100% ready for:
  * ✅ Agent payments (x402 + credit system)
  * ✅ Token swaps (Uniswap V4)
- * ✅ Bridge operations (Base ↔ Jeju)
+ * ✅ Bridge operations (Base ↔ Network)
  * ✅ All services accepting payments
  * ✅ Zero-latency prepaid system
  * 
@@ -194,7 +194,7 @@ class CompleteBootstrapper {
     // Step 5.6.1: Deploy JEJU Token
     console.log('🏝️  STEP 5.6.1: Deploying JEJU Token');
     console.log('-'.repeat(70));
-    result.contracts.jeju = await this.deployJejuToken(result.contracts.banManager);
+    result.contracts.jeju = await this.deployNetworkToken(result.contracts.banManager);
     console.log('');
 
     // Step 5.7: Deploy Compute Marketplace
@@ -288,7 +288,7 @@ class CompleteBootstrapper {
     }
 
     return this.deployContract(
-      'src/tokens/JejuUSDC.sol:JejuUSDC',
+      'src/tokens/NetworkUSDC.sol:NetworkUSDC',
       [this.deployerAddress, '100000000000000', 'true'],
       'USDC (with EIP-3009 x402 support)'
     );
@@ -431,7 +431,7 @@ class CompleteBootstrapper {
 
     // Auto-register all local tokens (JEJU first as preferred)
     const tokens = [
-      { address: contracts.jeju, symbol: 'JEJU', name: 'Jeju Token', minFee: 0, maxFee: 100 },
+      { address: contracts.jeju, symbol: 'JEJU', name: getNetworkName() Token', minFee: 0, maxFee: 100 },
       { address: contracts.usdc, symbol: 'USDC', name: 'USD Coin', minFee: 50, maxFee: 200 },
       { address: contracts.elizaOS, symbol: 'elizaOS', name: 'elizaOS Token', minFee: 100, maxFee: 300 },
       { address: contracts.weth, symbol: 'WETH', name: 'Wrapped Ether', minFee: 0, maxFee: 100 }
@@ -508,13 +508,13 @@ class CompleteBootstrapper {
     }
   }
 
-  private async deployJejuToken(banManager: string): Promise<string> {
+  private async deployNetworkToken(banManager: string): Promise<string> {
     try {
       // Deploy JEJU token with faucet enabled
       const jeju = this.deployContractFromPackages(
-        'src/tokens/JejuToken.sol:JejuToken',
+        'src/tokens/NetworkToken.sol:NetworkToken',
         [this.deployerAddress, banManager, 'true'],
-        'JejuToken'
+        'NetworkToken'
       );
 
       console.log('     ✨ Faucet enabled (10,000 JEJU per claim)');
@@ -841,7 +841,7 @@ VITE_MULTI_TOKEN_PAYMASTER_ADDRESS="${result.contracts.universalPaymaster}"
     // Also create .env snippet
     const envPath = join(process.cwd(), '.env.localnet');
     const envContent = `
-# Jeju Localnet - Complete Bootstrap
+# Network Localnet - Complete Bootstrap
 # Generated: ${new Date().toISOString()}
 
 # Network
@@ -926,7 +926,7 @@ ${result.testWallets.map((w, i) => `TEST_ACCOUNT_${i + 1}_KEY="${w.privateKey}"`
     console.log('');
     console.log('🎯 What Works Now:');
     console.log('   ✅ JEJU token');
-    console.log('   ✅ x402 payments with USDC on Jeju');
+    console.log('   ✅ x402 payments with USDC on the network');
     console.log('   ✅ Prepaid credit system (zero-latency!)');
     console.log('   ✅ Multi-token support (JEJU, USDC, elizaOS, ETH)');
     console.log('   ✅ Account abstraction (gasless transactions)');

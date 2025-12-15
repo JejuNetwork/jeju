@@ -73,12 +73,12 @@ test.describe('Logo and Branding', () => {
     await page.goto('/');
     const logo = page.getByTestId('logo');
     await expect(logo).toBeVisible();
-    await expect(logo).toContainText('Jeju Compute');
+    await expect(logo).toContainText('Compute');
   });
 
   test('should have correct page title', async ({ page }) => {
     await page.goto('/');
-    await expect(page).toHaveTitle(/Jeju Compute Marketplace/);
+    await expect(page).toHaveTitle(/Compute Marketplace/);
   });
 });
 

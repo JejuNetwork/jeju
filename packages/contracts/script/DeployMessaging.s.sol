@@ -3,7 +3,7 @@ pragma solidity ^0.8.26;
 
 import {Script, console} from "forge-std/Script.sol";
 import {MessageNodeRegistry} from "../src/messaging/MessageNodeRegistry.sol";
-import {KeyRegistry} from "../src/messaging/KeyRegistry.sol";
+import {MessagingKeyRegistry} from "../src/messaging/MessagingKeyRegistry.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
@@ -20,7 +20,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract DeployMessaging is Script {
     // Deployed addresses
     MessageNodeRegistry public nodeRegistry;
-    KeyRegistry public keyRegistry;
+    MessagingKeyRegistry public keyRegistry;
     address public stakingToken;
 
     function run() external {
@@ -43,10 +43,10 @@ contract DeployMessaging is Script {
             console.log("\nUsing existing staking token:", stakingToken);
         }
 
-        // 2. Deploy KeyRegistry
-        console.log("\nDeploying KeyRegistry...");
-        keyRegistry = new KeyRegistry();
-        console.log("KeyRegistry deployed:", address(keyRegistry));
+        // 2. Deploy MessagingKeyRegistry
+        console.log("\nDeploying MessagingKeyRegistry...");
+        keyRegistry = new MessagingKeyRegistry();
+        console.log("MessagingKeyRegistry deployed:", address(keyRegistry));
 
         // 3. Deploy MessageNodeRegistry
         console.log("\nDeploying MessageNodeRegistry...");
@@ -57,7 +57,7 @@ contract DeployMessaging is Script {
 
         // Output deployment summary
         console.log("\n=== Deployment Summary ===");
-        console.log("KeyRegistry:", address(keyRegistry));
+        console.log("MessagingKeyRegistry:", address(keyRegistry));
         console.log("MessageNodeRegistry:", address(nodeRegistry));
         console.log("StakingToken:", stakingToken);
 

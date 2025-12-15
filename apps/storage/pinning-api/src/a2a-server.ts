@@ -198,11 +198,11 @@ export class StorageA2AServer {
   private getAgentCard(): Record<string, unknown> {
     return {
       protocolVersion: '0.3.0',
-      name: 'Jeju Storage Marketplace',
+      name: `${getNetworkName()} Storage Marketplace`,
       description: 'Decentralized storage marketplace with x402 payments - IPFS pinning, cloud storage, permanent Arweave storage',
       url: '/a2a',
       preferredTransport: 'http',
-      provider: { organization: 'Jeju Network', url: 'https://jeju.network' },
+      provider: { organization: 'the network', url: 'https://jeju.network' },
       version: '2.0.0',
       capabilities: { streaming: false, pushNotifications: false, stateTransitionHistory: true },
       defaultInputModes: ['text', 'data', 'binary'],

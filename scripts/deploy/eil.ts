@@ -4,7 +4,7 @@
  * 
  * Deploys:
  * - L1StakeManager on L1 (Base/Ethereum)
- * - CrossChainPaymaster on L2 (Jeju)
+ * - CrossChainPaymaster on L2 (Network)
  * 
  * Usage:
  *   bun run scripts/deploy/eil.ts [network]

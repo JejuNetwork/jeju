@@ -2,36 +2,36 @@
  * Ledger Hardware Wallet Tests
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { LedgerKeyring } from './ledger';
 
 // Mock TransportWebHID
 vi.mock('@ledgerhq/hw-transport-webhid', () => ({
   default: {
-    isSupported: vi.fn().mockResolvedValue(true),
-    create: vi.fn().mockResolvedValue({
-      close: vi.fn(),
-    }),
+    isSupported: vi.fn(() => Promise.resolve(true)),
+    create: vi.fn(() => Promise.resolve({
+      close: vi.fn(() => {}),
+    })),
   },
 }));
 
 // Mock LedgerEth
 vi.mock('@ledgerhq/hw-app-eth', () => ({
-  default: vi.fn().mockImplementation(() => ({
-    getAddress: vi.fn().mockResolvedValue({
+  default: vi.fn(() => ({
+    getAddress: vi.fn(() => Promise.resolve({
       address: '0x1234567890abcdef1234567890abcdef12345678',
       publicKey: '0xpubkey',
-    }),
-    signTransaction: vi.fn().mockResolvedValue({
+    })),
+    signTransaction: vi.fn(() => Promise.resolve({
       v: '1b',
       r: '0000000000000000000000000000000000000000000000000000000000000001',
       s: '0000000000000000000000000000000000000000000000000000000000000002',
-    }),
-    signPersonalMessage: vi.fn().mockResolvedValue({
+    })),
+    signPersonalMessage: vi.fn(() => Promise.resolve({
       v: '1b',
       r: '0000000000000000000000000000000000000000000000000000000000000001',
       s: '0000000000000000000000000000000000000000000000000000000000000002',
-    }),
+    })),
   })),
 }));
 

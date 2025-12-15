@@ -32,7 +32,7 @@ interface NetworkConfig {
 
 const NETWORKS: Record<string, NetworkConfig> = {
   localnet: {
-    name: 'Jeju Localnet',
+    name: getLocalnetChain().name,
     chainId: 8545,
     rpcUrl: process.env.RPC_URL ?? 'http://localhost:9545',
     governanceToken: process.env.GOVERNANCE_TOKEN ?? '0x0000000000000000000000000000000000000000',
@@ -40,7 +40,7 @@ const NETWORKS: Record<string, NetworkConfig> = {
     reputationRegistry: process.env.REPUTATION_REGISTRY ?? '0x0000000000000000000000000000000000000000',
   },
   testnet: {
-    name: 'Jeju Testnet',
+    name: 'Testnet',
     chainId: 84532,
     rpcUrl: process.env.RPC_URL ?? 'https://sepolia.base.org',
     governanceToken: process.env.GOVERNANCE_TOKEN ?? '0x0000000000000000000000000000000000000000',
@@ -48,7 +48,7 @@ const NETWORKS: Record<string, NetworkConfig> = {
     reputationRegistry: process.env.REPUTATION_REGISTRY ?? '0x0000000000000000000000000000000000000000',
   },
   mainnet: {
-    name: 'Jeju Mainnet',
+    name: 'Mainnet',
     chainId: 8453,
     rpcUrl: process.env.RPC_URL ?? 'https://mainnet.base.org',
     governanceToken: process.env.GOVERNANCE_TOKEN ?? '',

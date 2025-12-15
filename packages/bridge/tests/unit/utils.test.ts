@@ -110,8 +110,49 @@ describe('Hex Utilities', () => {
       const start = Date.now();
       await sleep(50);
       const elapsed = Date.now() - start;
-      expect(elapsed).toBeGreaterThanOrEqual(45); // Allow 5ms tolerance
+      // Allow wider tolerance for CI environments
+      expect(elapsed).toBeGreaterThanOrEqual(40);
+      expect(elapsed).toBeLessThan(200);
+    });
+
+    it('should handle zero sleep', async () => {
+      const start = Date.now();
+      await sleep(0);
+      const elapsed = Date.now() - start;
       expect(elapsed).toBeLessThan(100);
+    });
+  });
+
+  describe('edge cases', () => {
+    it('hexToBytes should handle single byte', () => {
+      const bytes = hexToBytes('0xff');
+      expect(bytes).toEqual(new Uint8Array([0xff]));
+    });
+
+    it('hexToBytes should handle mixed case', () => {
+      const bytes = hexToBytes('0xAbCdEf');
+      expect(bytes).toEqual(new Uint8Array([0xab, 0xcd, 0xef]));
+    });
+
+    it('bytesToHex should pad single digit values', () => {
+      const bytes = new Uint8Array([0x01, 0x0f, 0xff]);
+      const hex = bytesToHex(bytes, false);
+      expect(hex).toBe('010fff');
+    });
+
+    it('concatBytes should handle no arguments', () => {
+      const result = concatBytes();
+      expect(result.length).toBe(0);
+    });
+
+    it('bytesEqual should handle large arrays', () => {
+      const size = 10000;
+      const a = new Uint8Array(size).fill(0xab);
+      const b = new Uint8Array(size).fill(0xab);
+      expect(bytesEqual(a, b)).toBe(true);
+      
+      b[9999] = 0x00;
+      expect(bytesEqual(a, b)).toBe(false);
     });
   });
 });

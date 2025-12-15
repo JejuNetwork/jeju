@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'network.jeju.wallet',
-  appName: 'Jeju Wallet',
+  appName: 'Network Wallet',
   webDir: 'dist',
   
   // Server configuration for live reload during development
@@ -17,7 +17,7 @@ const config: CapacitorConfig = {
   // iOS-specific configuration
   ios: {
     contentInset: 'automatic',
-    scheme: 'Jeju Wallet',
+    scheme: 'Network Wallet',
     backgroundColor: '#0a0a0a',
     preferredContentMode: 'mobile',
     // Universal links

@@ -1,5 +1,5 @@
 /**
- * Test helpers for Jeju Network testing
+ * Test helpers for the network testing
  */
 export * from './contracts';
 export * from './screenshots';

@@ -12,21 +12,26 @@
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 
-use sha2::{Digest, Sha256};
-use ed25519_dalek::{Signature, VerifyingKey, Verifier};
+use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, Bytes};
+use sha2::{Digest, Sha256};
 
 /// Maximum signatures per batch
 const MAX_SIGNATURES: usize = 64;
 
 /// Single signature entry
+#[serde_as]
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SignatureEntry {
     /// Public key (32 bytes)
+    #[serde_as(as = "Bytes")]
     pub pubkey: [u8; 32],
     /// Message being signed
+    #[serde_as(as = "Bytes")]
     pub message: Vec<u8>,
     /// Signature (64 bytes)
+    #[serde_as(as = "Bytes")]
     pub signature: [u8; 64],
 }
 
@@ -37,11 +42,14 @@ pub struct BatchInputs {
 }
 
 /// Batch outputs (public inputs)
+#[serde_as]
 #[derive(Serialize, Deserialize)]
 pub struct BatchOutputs {
     /// Hash of all verified messages
+    #[serde_as(as = "Bytes")]
     pub messages_hash: [u8; 32],
     /// Hash of all public keys
+    #[serde_as(as = "Bytes")]
     pub pubkeys_hash: [u8; 32],
     /// Number of valid signatures
     pub count: u32,
@@ -61,11 +69,11 @@ fn main() {
 
     for entry in &inputs.entries {
         // Verify signature
-        let pubkey = VerifyingKey::from_bytes(&entry.pubkey)
-            .expect("Invalid public key");
+        let pubkey = VerifyingKey::from_bytes(&entry.pubkey).expect("Invalid public key");
         let signature = Signature::from_bytes(&entry.signature);
 
-        pubkey.verify(&entry.message, &signature)
+        pubkey
+            .verify(&entry.message, &signature)
             .expect("Signature verification failed");
 
         // Accumulate hashes

@@ -1,0 +1,55 @@
+# Mainnet configuration
+network: "mainnet"
+rpcUrl: "https://rpc.jeju.network"
+chainId: 420690
+
+services:
+  compute:
+    enabled: true
+    cpuCores: 8
+    pricePerHour: "0.01"
+    acceptNonTee: false  # Require TEE on mainnet
+  storage:
+    enabled: true
+    capacityGB: 500
+  oracle:
+    enabled: true
+  proxy:
+    enabled: true
+  cron:
+    enabled: true
+  rpc:
+    enabled: true
+
+bots:
+  dexArb:
+    enabled: true
+  crossChainArb:
+    enabled: true
+  liquidation:
+    enabled: true
+  oracleKeeper:
+    enabled: true
+  solver:
+    enabled: true
+  capitalAllocation: "5.0"
+  maxGasGwei: 100
+  minProfitBps: 25
+
+earnings:
+  autoClaim: true
+  autoClaimThreshold: "0.5"
+  autoStake: true
+
+resources:
+  limits:
+    cpu: 8000m
+    memory: 16Gi
+  requests:
+    cpu: 4000m
+    memory: 8Gi
+
+gpu:
+  enabled: true
+  count: 1
+

@@ -21,17 +21,17 @@ const NETWORK_CONFIGS: Record<NetworkType, { rpcUrl: string; chainId: number; na
   localnet: {
     rpcUrl: process.env.JEJU_RPC_URL || 'http://127.0.0.1:9545',
     chainId: 1337,
-    name: 'Jeju Localnet',
+    name: getLocalnetChain().name,
   },
   testnet: {
     rpcUrl: process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jeju.network',
     chainId: 420690,
-    name: 'Jeju Testnet',
+    name: 'Testnet',
   },
   mainnet: {
     rpcUrl: process.env.JEJU_MAINNET_RPC_URL || 'https://rpc.jeju.network',
     chainId: 420691,
-    name: 'Jeju Mainnet',
+    name: 'Mainnet',
   },
 };
 

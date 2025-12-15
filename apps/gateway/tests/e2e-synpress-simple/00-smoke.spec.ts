@@ -65,7 +65,7 @@ test.describe('Gateway Smoke Tests', () => {
     }
   });
 
-  test('RPC should be accessible', async ({ _page }) => {
+  test('RPC should be accessible', async ({ page }) => {
     const response = await page.request.post('http://127.0.0.1:9545', {
       data: {
         jsonrpc: '2.0',

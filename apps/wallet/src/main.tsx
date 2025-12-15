@@ -4,40 +4,20 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider, createConfig, http } from 'wagmi';
 import { mainnet, base, arbitrum, optimism, bsc } from 'wagmi/chains';
 import { injected } from 'wagmi/connectors';
+import { getUrls, getLocalnetChain, getTestnetChain } from './config/branding';
 import App from './App';
 import './index.css';
 
-// Jeju RPC endpoints - fully decentralized, no API keys needed
-const JEJU_RPC = 'https://rpc.jeju.network';
+// RPC endpoints from branding config
+const urls = getUrls();
+const NETWORK_RPC = import.meta.env.VITE_NETWORK_RPC_URL || urls.rpc.mainnet;
 
-// Jeju localnet chain definition
-const jejuLocalnet = {
-  id: 1337,
-  name: 'Jeju Localnet',
-  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: {
-    default: { http: ['http://localhost:8545'] },
-  },
-  blockExplorers: {
-    default: { name: 'Local', url: 'http://localhost:4000' },
-  },
-} as const;
+// Chain definitions from shared config
+const networkLocalnet = getLocalnetChain();
+const networkTestnet = getTestnetChain();
 
-// Jeju testnet chain definition  
-const jejuTestnet = {
-  id: 420691,
-  name: 'Jeju Testnet',
-  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: {
-    default: { http: ['https://rpc.testnet.jeju.network'] },
-  },
-  blockExplorers: {
-    default: { name: 'Jeju Explorer', url: 'https://explorer.testnet.jeju.network' },
-  },
-} as const;
-
-// Supported chains (popular EVM + Jeju)
-const chains = [mainnet, base, arbitrum, optimism, bsc, jejuLocalnet, jejuTestnet] as const;
+// Supported chains (popular EVM + network chains)
+const chains = [mainnet, base, arbitrum, optimism, bsc, networkLocalnet, networkTestnet] as const;
 
 // Wagmi config - fully permissionless, no external dependencies
 const config = createConfig({
@@ -49,14 +29,14 @@ const config = createConfig({
     }),
   ],
   transports: {
-    // All RPCs go through Jeju infrastructure - open API, no keys required
-    [mainnet.id]: http(`${JEJU_RPC}/eth`),
-    [base.id]: http(`${JEJU_RPC}/base`),
-    [arbitrum.id]: http(`${JEJU_RPC}/arbitrum`),
-    [optimism.id]: http(`${JEJU_RPC}/optimism`),
-    [bsc.id]: http(`${JEJU_RPC}/bsc`),
-    [jejuLocalnet.id]: http('http://localhost:8545'),
-    [jejuTestnet.id]: http('https://rpc.testnet.jeju.network'),
+    // All RPCs go through network infrastructure - open API, no keys required
+    [mainnet.id]: http(`${NETWORK_RPC}/eth`),
+    [base.id]: http(`${NETWORK_RPC}/base`),
+    [arbitrum.id]: http(`${NETWORK_RPC}/arbitrum`),
+    [optimism.id]: http(`${NETWORK_RPC}/optimism`),
+    [bsc.id]: http(`${NETWORK_RPC}/bsc`),
+    [networkLocalnet.id]: http('http://localhost:9545'),
+    [networkTestnet.id]: http(urls.rpc.testnet),
   },
 });
 

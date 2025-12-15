@@ -8,6 +8,7 @@ import { formatEther, parseEther } from 'ethers';
 import type { CouncilConfig } from './types';
 import { CouncilBlockchain } from './blockchain';
 import { councilAgentRuntime, type DeliberationRequest } from './agents';
+import { getNetworkName, getWebsiteUrl } from '@jejunetwork/config';
 import { storeVote, getVotes, generateResearch, getResearch, store, checkOllama, ollamaGenerate, OLLAMA_MODEL } from './local-services';
 import { ZERO_ADDRESS, assessClarity, assessCompleteness, assessFeasibility, assessAlignment, assessImpact, assessRisk, assessCostBenefit, calculateQualityScore, assessProposalWithAI } from './shared';
 import { getTEEMode } from './tee';
@@ -70,11 +71,11 @@ export class CouncilA2AServer {
   private getAgentCard() {
     return {
       protocolVersion: '0.3.0',
-      name: 'Jeju AI Council',
+      name: `${getNetworkName()} AI Council`,
       description: 'AI-governed DAO with CEO, council agents, and reputation-weighted proposals',
       url: '/a2a',
       preferredTransport: 'http',
-      provider: { organization: 'Jeju Network', url: 'https://jeju.network' },
+      provider: { organization: getNetworkName(), url: getWebsiteUrl() },
       version: '1.0.0',
       capabilities: { streaming: false, pushNotifications: false, stateTransitionHistory: true },
       defaultInputModes: ['text', 'data'],
@@ -139,7 +140,7 @@ export class CouncilA2AServer {
     }
 
     const systemPrompts: Record<string, string> = {
-      ceo: 'You are Eliza, AI CEO of Jeju DAO. Make decisive governance decisions.',
+      ceo: 'You are Eliza, AI CEO of Network DAO. Make decisive governance decisions.',
       treasury: 'You are the Treasury Guardian. Analyze financial implications.',
       code: 'You are the Code Guardian. Review technical feasibility.',
       community: 'You are the Community Guardian. Assess community impact.',
@@ -417,7 +418,7 @@ ${votes.map(v => `- ${v.role}: ${v.vote} (${v.confidence}%) - ${v.reasoning}`).j
 
 Provide your decision as: APPROVED or REJECTED, with reasoning.`;
 
-    const response = await ollamaGenerate(prompt, 'You are Eliza, AI CEO of Jeju DAO. Make decisive, well-reasoned governance decisions.');
+    const response = await ollamaGenerate(prompt, 'You are Eliza, AI CEO of Network DAO. Make decisive, well-reasoned governance decisions.');
     const approved = response.toLowerCase().includes('approved') && !response.toLowerCase().includes('rejected');
 
     const decision = {

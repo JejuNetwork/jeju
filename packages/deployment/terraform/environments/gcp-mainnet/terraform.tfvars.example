@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: © 2025 Jeju Network
+# SPDX-License-Identifier: Apache-2.0
+# GCP Mainnet - Production Configuration
+
+project_id       = "your-gcp-project-id"
+region           = "us-central1"
+secondary_region = "us-east1"
+
+domain_name     = "jeju.network"
+create_dns_zone = false  # Use existing zone from testnet
+
+enable_cloud_armor = true
+

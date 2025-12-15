@@ -50,7 +50,7 @@ describe('Token Equality and Completeness', () => {
 
     it('should have complete configuration', () => {
       const jeju = protocolTokens.find(t => t.symbol === 'JEJU');
-      expect(jeju?.name).toBe('Jeju');
+      expect(jeju?.name).toBe('Network');
       expect(jeju?.decimals).toBe(18);
       expect(jeju?.priceUSD).toBe(0.05);
       expect(jeju?.logoUrl).toBeDefined();

@@ -1,7 +1,7 @@
 /**
  * Bazaar MCP Server
  * 
- * Model Context Protocol interface for the Jeju Bazaar marketplace.
+ * Model Context Protocol interface for the Bazaar marketplace.
  */
 
 import type { NextRequest } from 'next/server';

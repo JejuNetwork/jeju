@@ -1,0 +1,1564 @@
+{
+  "abi": [
+    {
+      "type": "constructor",
+      "inputs": [
+        {
+          "name": "initialOwner",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "_treasury",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "BASIS_POINTS",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "activateToken",
+      "inputs": [
+        {
+          "name": "tokenAddress",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "addSupportedChain",
+      "inputs": [
+        {
+          "name": "chainId",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "paymaster",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "chainPaymasters",
+      "inputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "crossChainConfigs",
+      "inputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "chainId",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "tokenAddress",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "paymasterAddress",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "liquidity",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "isActive",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "deactivateToken",
+      "inputs": [
+        {
+          "name": "tokenAddress",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "disableCrossChain",
+      "inputs": [
+        {
+          "name": "localToken",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "chainId",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "enableCrossChain",
+      "inputs": [
+        {
+          "name": "localToken",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "chainId",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "tokenOnChain",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "findBestChainForGas",
+      "inputs": [
+        {
+          "name": "localToken",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "requiredLiquidity",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "bestChainId",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "availableLiquidity",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getActiveTokens",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "addresses",
+          "type": "address[]",
+          "internalType": "address[]"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getAllTokens",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "addresses",
+          "type": "address[]",
+          "internalType": "address[]"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getCrossChainConfig",
+      "inputs": [
+        {
+          "name": "localToken",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "chainId",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "config",
+          "type": "tuple",
+          "internalType": "struct TokenRegistry.CrossChainConfig",
+          "components": [
+            {
+              "name": "chainId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "tokenAddress",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "paymasterAddress",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "liquidity",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "isActive",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ]
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getRegistryStats",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "total",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "active",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "totalVolumeAllTokens",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "totalTxAllTokens",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getSupportedChains",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256[]",
+          "internalType": "uint256[]"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getTokenConfig",
+      "inputs": [
+        {
+          "name": "tokenAddress",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "config",
+          "type": "tuple",
+          "internalType": "struct TokenRegistry.TokenConfig",
+          "components": [
+            {
+              "name": "tokenAddress",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "name",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "symbol",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "decimals",
+              "type": "uint8",
+              "internalType": "uint8"
+            },
+            {
+              "name": "oracleAddress",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "minFeeMargin",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "maxFeeMargin",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "isActive",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "registrant",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "registrationTime",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "totalVolume",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "totalTransactions",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "metadataHash",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "crossChainEnabled",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "totalLiquidity",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ]
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getTokenCrossChainInfo",
+      "inputs": [
+        {
+          "name": "localToken",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "chainIds",
+          "type": "uint256[]",
+          "internalType": "uint256[]"
+        },
+        {
+          "name": "liquidity",
+          "type": "uint256[]",
+          "internalType": "uint256[]"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getTokensByRegistrant",
+      "inputs": [
+        {
+          "name": "registrant",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "addresses",
+          "type": "address[]",
+          "internalType": "address[]"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getTotalTokens",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "count",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "globalMaxFeeMargin",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "globalMinFeeMargin",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "isChainSupported",
+      "inputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "isTokenSupported",
+      "inputs": [
+        {
+          "name": "tokenAddress",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "supported",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "isValidFeeMargin",
+      "inputs": [
+        {
+          "name": "tokenAddress",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "feeMargin",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "valid",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "owner",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "pause",
+      "inputs": [],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "paused",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "registerToken",
+      "inputs": [
+        {
+          "name": "tokenAddress",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "oracleAddress",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "minFeeMargin",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "maxFeeMargin",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "metadataHash",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "tokenId",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "payable"
+    },
+    {
+      "type": "function",
+      "name": "registerToken",
+      "inputs": [
+        {
+          "name": "tokenAddress",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "oracleAddress",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "minFeeMargin",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "maxFeeMargin",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "tokenId",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "payable"
+    },
+    {
+      "type": "function",
+      "name": "registrationFee",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "removeSupportedChain",
+      "inputs": [
+        {
+          "name": "chainId",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "renounceOwnership",
+      "inputs": [],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setGlobalFeeLimits",
+      "inputs": [
+        {
+          "name": "newMinFeeMargin",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "newMaxFeeMargin",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setRegistrationFee",
+      "inputs": [
+        {
+          "name": "newFee",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setTreasury",
+      "inputs": [
+        {
+          "name": "newTreasury",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "supportedChainIds",
+      "inputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "tokenList",
+      "inputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "tokens",
+      "inputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "tokenAddress",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "symbol",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "decimals",
+          "type": "uint8",
+          "internalType": "uint8"
+        },
+        {
+          "name": "oracleAddress",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "minFeeMargin",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "maxFeeMargin",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "isActive",
+          "type": "bool",
+          "internalType": "bool"
+        },
+        {
+          "name": "registrant",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "registrationTime",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "totalVolume",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "totalTransactions",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "metadataHash",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "crossChainEnabled",
+          "type": "bool",
+          "internalType": "bool"
+        },
+        {
+          "name": "totalLiquidity",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "totalCrossChainLiquidity",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "totalFeesCollected",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "transferOwnership",
+      "inputs": [
+        {
+          "name": "newOwner",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "treasury",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "unpause",
+      "inputs": [],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "updateCrossChainLiquidity",
+      "inputs": [
+        {
+          "name": "localToken",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "chainId",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "newLiquidity",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "updateMetadata",
+      "inputs": [
+        {
+          "name": "tokenAddress",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "metadataHash",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "updateTokenVolume",
+      "inputs": [
+        {
+          "name": "tokenAddress",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "volumeIncrease",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "version",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "string",
+          "internalType": "string"
+        }
+      ],
+      "stateMutability": "pure"
+    },
+    {
+      "type": "function",
+      "name": "withdrawFees",
+      "inputs": [],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "event",
+      "name": "ChainPaymasterRegistered",
+      "inputs": [
+        {
+          "name": "chainId",
+          "type": "uint256",
+          "indexed": true,
+          "internalType": "uint256"
+        },
+        {
+          "name": "paymaster",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "CrossChainDisabled",
+      "inputs": [
+        {
+          "name": "token",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "chainId",
+          "type": "uint256",
+          "indexed": true,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "CrossChainEnabled",
+      "inputs": [
+        {
+          "name": "token",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "chainId",
+          "type": "uint256",
+          "indexed": true,
+          "internalType": "uint256"
+        },
+        {
+          "name": "tokenOnChain",
+          "type": "address",
+          "indexed": false,
+          "internalType": "address"
+        },
+        {
+          "name": "paymaster",
+          "type": "address",
+          "indexed": false,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "CrossChainLiquidityUpdated",
+      "inputs": [
+        {
+          "name": "token",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "chainId",
+          "type": "uint256",
+          "indexed": true,
+          "internalType": "uint256"
+        },
+        {
+          "name": "newLiquidity",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "GlobalFeeLimitsUpdated",
+      "inputs": [
+        {
+          "name": "oldMin",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "oldMax",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "newMin",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "newMax",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "MetadataUpdated",
+      "inputs": [
+        {
+          "name": "token",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "metadataHash",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "OwnershipTransferred",
+      "inputs": [
+        {
+          "name": "previousOwner",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "newOwner",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "Paused",
+      "inputs": [
+        {
+          "name": "account",
+          "type": "address",
+          "indexed": false,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "RegistrationFeeUpdated",
+      "inputs": [
+        {
+          "name": "oldFee",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "newFee",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "SupportedChainAdded",
+      "inputs": [
+        {
+          "name": "chainId",
+          "type": "uint256",
+          "indexed": true,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "SupportedChainRemoved",
+      "inputs": [
+        {
+          "name": "chainId",
+          "type": "uint256",
+          "indexed": true,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "TokenActivated",
+      "inputs": [
+        {
+          "name": "token",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "activatedBy",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "TokenDeactivated",
+      "inputs": [
+        {
+          "name": "token",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "deactivatedBy",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "TokenRegistered",
+      "inputs": [
+        {
+          "name": "token",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "registrant",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "indexed": false,
+          "internalType": "string"
+        },
+        {
+          "name": "symbol",
+          "type": "string",
+          "indexed": false,
+          "internalType": "string"
+        },
+        {
+          "name": "oracle",
+          "type": "address",
+          "indexed": false,
+          "internalType": "address"
+        },
+        {
+          "name": "minFeeMargin",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "maxFeeMargin",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "registrationFee",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "TokenVolumeUpdated",
+      "inputs": [
+        {
+          "name": "token",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "newVolume",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "newTxCount",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "TreasuryUpdated",
+      "inputs": [
+        {
+          "name": "oldTreasury",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "newTreasury",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "Unpaused",
+      "inputs": [
+        {
+          "name": "account",
+          "type": "address",
+          "indexed": false,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "error",
+      "name": "ChainNotSupported",
+      "inputs": [
+        {
+          "name": "chainId",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "CrossChainNotEnabled",
+      "inputs": [
+        {
+          "name": "token",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "chainId",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "EnforcedPause",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "ExpectedPause",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "FeeOnTransferToken",
+      "inputs": [
+        {
+          "name": "token",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "FeesOutsideGlobalBounds",
+      "inputs": [
+        {
+          "name": "min",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "max",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "InsufficientRegistrationFee",
+      "inputs": [
+        {
+          "name": "required",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "provided",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "InvalidFeeRange",
+      "inputs": [
+        {
+          "name": "min",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "max",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "InvalidOracle",
+      "inputs": [
+        {
+          "name": "oracle",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "InvalidToken",
+      "inputs": [
+        {
+          "name": "token",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "InvalidTreasury",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "OwnableInvalidOwner",
+      "inputs": [
+        {
+          "name": "owner",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "OwnableUnauthorizedAccount",
+      "inputs": [
+        {
+          "name": "account",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "ReentrancyGuardReentrantCall",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "TokenAlreadyRegistered",
+      "inputs": [
+        {
+          "name": "token",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "TokenNotRegistered",
+      "inputs": [
+        {
+          "name": "token",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "TransferFailed",
+      "inputs": []
+    }
+  ]
+}

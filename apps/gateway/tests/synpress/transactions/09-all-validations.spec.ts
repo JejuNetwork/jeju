@@ -13,14 +13,14 @@ const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
 
 test.describe('Token Registry Validations', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Registered Tokens/i }).click();
     await page.waitForTimeout(1000);
   });
 
-  test('should validate address format (invalid characters)', async ({ _page }) => {
+  test('should validate address format (invalid characters)', async ({ page }) => {
     await page.getByPlaceholder('0x...').fill('0xGGGGGG'); // Invalid hex
     await page.locator('input[placeholder="0"]').fill('0');
     await page.locator('input[placeholder="200"]').fill('200');
@@ -31,7 +31,7 @@ test.describe('Token Registry Validations', () => {
     console.log('✅ Invalid hex rejected');
   });
 
-  test('should validate address length (too short)', async ({ _page }) => {
+  test('should validate address length (too short)', async ({ page }) => {
     await page.getByPlaceholder('0x...').fill('0x123'); // Too short
     await page.locator('input[placeholder="0"]').fill('0');
     await page.locator('input[placeholder="200"]').fill('200');
@@ -42,7 +42,7 @@ test.describe('Token Registry Validations', () => {
     console.log('✅ Short address rejected');
   });
 
-  test('should enforce min fee <= max fee', async ({ _page }) => {
+  test('should enforce min fee <= max fee', async ({ page }) => {
     await page.getByPlaceholder('0x...').fill(randomAddress());
     await page.locator('input[placeholder="0"]').fill('300');
     await page.locator('input[placeholder="200"]').fill('100'); // Max < Min
@@ -53,7 +53,7 @@ test.describe('Token Registry Validations', () => {
     console.log('✅ Min > Max rejected');
   });
 
-  test('should enforce max fee <= 500 bps (5%)', async ({ _page }) => {
+  test('should enforce max fee <= 500 bps (5%)', async ({ page }) => {
     await page.getByPlaceholder('0x...').fill(randomAddress());
     await page.locator('input[placeholder="0"]').fill('0');
     await page.locator('input[placeholder="200"]').fill('600'); // > 500
@@ -64,7 +64,7 @@ test.describe('Token Registry Validations', () => {
     console.log('✅ Fee > 5% rejected');
   });
 
-  test('should accept valid fee range', async ({ _page }) => {
+  test('should accept valid fee range', async ({ page }) => {
     await page.getByPlaceholder('0x...').fill(randomAddress());
     await page.locator('input[placeholder="0"]').fill(FEE_MARGINS.MIN.toString());
     await page.locator('input[placeholder="200"]').fill(FEE_MARGINS.MAX.toString());
@@ -82,14 +82,14 @@ test.describe('Token Registry Validations', () => {
 });
 
 test.describe('Liquidity Amount Validations', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Add Liquidity/i }).click();
     await page.waitForTimeout(1000);
   });
 
-  test('should validate ETH amount is positive', async ({ _page }) => {
+  test('should validate ETH amount is positive', async ({ page }) => {
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
     await page.getByText('elizaOS').click();
@@ -112,7 +112,7 @@ test.describe('Liquidity Amount Validations', () => {
     }
   });
 
-  test('should validate ETH amount decimal precision', async ({ _page }) => {
+  test('should validate ETH amount decimal precision', async ({ page }) => {
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
     await page.getByText('elizaOS').click();
@@ -132,7 +132,7 @@ test.describe('Liquidity Amount Validations', () => {
     }
   });
 
-  test('should warn about gas reserve when using max ETH', async ({ _page }) => {
+  test('should warn about gas reserve when using max ETH', async ({ page }) => {
     await page.locator('.input').first().click();
     await page.waitForTimeout(500);
     await page.getByText('elizaOS').click();
@@ -150,7 +150,7 @@ test.describe('Liquidity Amount Validations', () => {
 });
 
 test.describe('Node Stake Validations', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Node Operators/i }).click();
@@ -159,7 +159,7 @@ test.describe('Node Stake Validations', () => {
     await page.waitForTimeout(1000);
   });
 
-  test('should enforce minimum $1000 stake value', async ({ _page }) => {
+  test('should enforce minimum $1000 stake value', async ({ page }) => {
     // Select staking token
     const stakingSelector = page.locator('label:has-text("Staking Token")').locator('..').locator('.input');
     await stakingSelector.click();
@@ -196,7 +196,7 @@ test.describe('Node Stake Validations', () => {
     console.log('✅ Minimum stake validation working correctly');
   });
 
-  test('should validate RPC URL format', async ({ _page }) => {
+  test('should validate RPC URL format', async ({ page }) => {
     // Fill required fields
     const stakingSelector = page.locator('label:has-text("Staking Token")').locator('..').locator('.input');
     await stakingSelector.click();
@@ -238,7 +238,7 @@ test.describe('Node Stake Validations', () => {
     console.log('✅ RPC URL validation tested');
   });
 
-  test('should enforce max 5 nodes per operator', async ({ _page }) => {
+  test('should enforce max 5 nodes per operator', async ({ page }) => {
     // Check for max nodes warning
     const maxWarning = page.getByText(/reached the maximum of 5 nodes/i);
     const atMax = await maxWarning.isVisible();
@@ -256,7 +256,7 @@ test.describe('Node Stake Validations', () => {
 });
 
 test.describe('App Registry Validations', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /App Registry/i }).click();
@@ -265,7 +265,7 @@ test.describe('App Registry Validations', () => {
     await page.waitForTimeout(1000);
   });
 
-  test('should validate app name is required', async ({ _page }) => {
+  test('should validate app name is required', async ({ page }) => {
     const submitButton = page.getByRole('button', { name: /Register App$/i });
     await expect(submitButton).toBeDisabled();
 
@@ -277,7 +277,7 @@ test.describe('App Registry Validations', () => {
     console.log('✅ App name required');
   });
 
-  test('should validate at least one tag selected', async ({ _page }) => {
+  test('should validate at least one tag selected', async ({ page }) => {
     await page.getByPlaceholder('My Awesome App').fill('Test App');
 
     const submitButton = page.getByRole('button', { name: /Register App$/i });
@@ -292,7 +292,7 @@ test.describe('App Registry Validations', () => {
     console.log('✅ Tag selection required');
   });
 
-  test('should validate stake token selected', async ({ _page }) => {
+  test('should validate stake token selected', async ({ page }) => {
     await page.getByPlaceholder('My Awesome App').fill('Test App');
     await page.getByRole('button', { name: /🎮 Game/i }).click();
 
@@ -312,7 +312,7 @@ test.describe('App Registry Validations', () => {
     console.log('✅ Stake token required');
   });
 
-  test('should validate description character limit (if enforced)', async ({ _page }) => {
+  test('should validate description character limit (if enforced)', async ({ page }) => {
     const description = page.getByPlaceholder(/Brief description/i);
 
     // Enter very long description
@@ -331,7 +331,7 @@ test.describe('App Registry Validations', () => {
 });
 
 test.describe('Input Sanitization', () => {
-  test('should handle special characters in app name', async ({ _page, _metamask }) => {
+  test('should handle special characters in app name', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /App Registry/i }).click();
@@ -358,7 +358,7 @@ test.describe('Input Sanitization', () => {
     console.log('✅ Special character handling tested');
   });
 
-  test('should handle special characters in description', async ({ _page, _metamask }) => {
+  test('should handle special characters in description', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /App Registry/i }).click();
@@ -378,7 +378,7 @@ test.describe('Input Sanitization', () => {
 });
 
 test.describe('Numeric Input Validations', () => {
-  test('should validate fee margin slider bounds', async ({ _page, _metamask }) => {
+  test('should validate fee margin slider bounds', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Deploy Paymaster/i }).click();
@@ -413,7 +413,7 @@ test.describe('Numeric Input Validations', () => {
     console.log('✅ Slider bounds enforced');
   });
 
-  test('should validate stake amount precision', async ({ _page, _metamask }) => {
+  test('should validate stake amount precision', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Node Operators/i }).click();
@@ -438,7 +438,7 @@ test.describe('Numeric Input Validations', () => {
 });
 
 test.describe('Multi-Field Form Validation', () => {
-  test('should enable submit only when all required fields filled', async ({ _page, _metamask }) => {
+  test('should enable submit only when all required fields filled', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /App Registry/i }).click();
@@ -476,7 +476,7 @@ test.describe('Multi-Field Form Validation', () => {
 });
 
 test.describe('Concurrent Validation', () => {
-  test('should validate form on every field change', async ({ _page, _metamask }) => {
+  test('should validate form on every field change', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Registered Tokens/i }).click();
@@ -506,14 +506,14 @@ test.describe('Concurrent Validation', () => {
 });
 
 test.describe('Balance Sufficiency Validations', () => {
-  test.skip('should check token balance before allowing transaction', async ({ _page, _metamask }) => {
+  test.skip('should check token balance before allowing transaction', async ({ page, metamask }) => {
     // TODO: Test that UI checks balance before allowing staking
     // If balance < required stake, should show error
 
     console.log('⚠️  Balance check before stake - needs implementation verification');
   });
 
-  test.skip('should check ETH balance before gas-heavy operations', async ({ _page }) => {
+  test.skip('should check ETH balance before gas-heavy operations', async ({ page }) => {
     // TODO: Check if UI warns about insufficient ETH for gas
 
     console.log('⚠️  Gas balance check - needs implementation verification');

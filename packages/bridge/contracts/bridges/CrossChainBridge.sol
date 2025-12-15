@@ -27,9 +27,6 @@ contract CrossChainBridge is ICrossChainBridge {
     using SolanaTypes for SolanaTypes.Slot;
     using SolanaTypes for SolanaTypes.Pubkey;
 
-    // =============================================================================
-    // STATE
-    // =============================================================================
 
     /// @notice Solana light client for state verification
     ISolanaLightClient public immutable solanaLightClient;
@@ -76,9 +73,6 @@ contract CrossChainBridge is ICrossChainBridge {
     /// @notice Pending outbound transfers
     bytes32[] public pendingOutbound;
 
-    // =============================================================================
-    // STRUCTS
-    // =============================================================================
 
     struct TransferRecord {
         TransferRequest request;
@@ -87,17 +81,11 @@ contract CrossChainBridge is ICrossChainBridge {
         bytes32 completedTxHash;
     }
 
-    // =============================================================================
-    // EVENTS
-    // =============================================================================
 
     event TokenRegistered(address indexed token, bytes32 indexed solanaMint, bool isHome);
     event FeeUpdated(uint256 baseFee, uint256 feePerByte);
     event FeesCollected(address indexed collector, uint256 amount);
 
-    // =============================================================================
-    // ERRORS
-    // =============================================================================
 
     error TokenNotRegistered();
     error TransferAlreadyCompleted();
@@ -105,20 +93,14 @@ contract CrossChainBridge is ICrossChainBridge {
     error InvalidProof();
     error SlotNotVerified();
     error OnlyAdmin();
-    error TransferFailed();
+    error TokenTransferFailed();
 
-    // =============================================================================
-    // MODIFIERS
-    // =============================================================================
 
     modifier onlyAdmin() {
         if (msg.sender != admin) revert OnlyAdmin();
         _;
     }
 
-    // =============================================================================
-    // CONSTRUCTOR
-    // =============================================================================
 
     constructor(
         address _solanaLightClient,
@@ -135,9 +117,7 @@ contract CrossChainBridge is ICrossChainBridge {
         feeCollector = msg.sender;
     }
 
-    // =============================================================================
     // TRANSFER INITIATION (EVM → Solana)
-    // =============================================================================
 
     /**
      * @notice Initiate a cross-chain transfer to Solana
@@ -166,7 +146,7 @@ contract CrossChainBridge is ICrossChainBridge {
         if (isTokenHome[token]) {
             // Lock tokens in bridge
             bool success = tokenContract.transferFrom(msg.sender, address(this), amount);
-            if (!success) revert TransferFailed();
+            if (!success) revert TokenTransferFailed();
         } else {
             // Burn wrapped tokens
             tokenContract.bridgeBurn(msg.sender, amount);
@@ -203,9 +183,7 @@ contract CrossChainBridge is ICrossChainBridge {
         }
     }
 
-    // =============================================================================
     // TRANSFER COMPLETION (Solana → EVM)
-    // =============================================================================
 
     /**
      * @notice Complete a transfer from Solana
@@ -257,7 +235,7 @@ contract CrossChainBridge is ICrossChainBridge {
         if (isTokenHome[token]) {
             // Unlock tokens from bridge
             bool success = tokenContract.transfer(recipient, amount);
-            if (!success) revert TransferFailed();
+            if (!success) revert TokenTransferFailed();
         } else {
             // Mint wrapped tokens
             tokenContract.bridgeMint(recipient, amount);
@@ -266,9 +244,7 @@ contract CrossChainBridge is ICrossChainBridge {
         emit TransferCompleted(transferId, token, sender, recipient, amount);
     }
 
-    // =============================================================================
     // TOKEN REGISTRATION
-    // =============================================================================
 
     /**
      * @notice Register a token for cross-chain transfers
@@ -285,9 +261,6 @@ contract CrossChainBridge is ICrossChainBridge {
         emit TokenRegistered(token, solanaMint, _isHomeChain);
     }
 
-    // =============================================================================
-    // VIEW FUNCTIONS
-    // =============================================================================
 
     function getTransferStatus(
         bytes32 transferId
@@ -318,9 +291,6 @@ contract CrossChainBridge is ICrossChainBridge {
         return pendingOutbound.length;
     }
 
-    // =============================================================================
-    // ADMIN FUNCTIONS
-    // =============================================================================
 
     function setFees(uint256 _baseFee, uint256 _feePerByte) external onlyAdmin {
         baseFee = _baseFee;
@@ -343,9 +313,7 @@ contract CrossChainBridge is ICrossChainBridge {
         admin = newAdmin;
     }
 
-    // =============================================================================
     // RECEIVE
-    // =============================================================================
 
     receive() external payable {}
 }

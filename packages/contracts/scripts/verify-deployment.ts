@@ -24,7 +24,7 @@ const PRIVATE_KEY = (process.env.PRIVATE_KEY || process.env.MAINNET_PRIVATE_KEY)
 const DEPLOYER = "0x5dB1268e424da5C26451e4a8B9C221e6DE3C3064" as Address;
 
 const CONTRACTS = {
-  MockJejuUSDC: "0x953F6516E5d2864cE7f13186B45dE418EA665EB2" as Address,
+  MockNetworkUSDC: "0x953F6516E5d2864cE7f13186B45dE418EA665EB2" as Address,
   ElizaOSToken: "0x7af64e6aE21076DE21EFe71F243A75664a17C34b" as Address,
   IdentityRegistry: "0x759D602d8D2E4F1ccCa12E955420cC19e64a68bd" as Address,
   SolverRegistry: "0xecfE47302D941c8ce5B0009C0ac2E6D6ee2A42de" as Address,
@@ -146,22 +146,22 @@ async function main() {
   console.log("2️⃣ VERIFYING TOKEN CONTRACTS");
   console.log("=".repeat(60) + "\n");
 
-  // MockJejuUSDC
+  // MockNetworkUSDC
   try {
     const [name, symbol, decimals] = await Promise.all([
-      publicClient.readContract({ address: CONTRACTS.MockJejuUSDC, abi: ERC20_ABI, functionName: "name" }),
-      publicClient.readContract({ address: CONTRACTS.MockJejuUSDC, abi: ERC20_ABI, functionName: "symbol" }),
-      publicClient.readContract({ address: CONTRACTS.MockJejuUSDC, abi: ERC20_ABI, functionName: "decimals" }),
+      publicClient.readContract({ address: CONTRACTS.MockNetworkUSDC, abi: ERC20_ABI, functionName: "name" }),
+      publicClient.readContract({ address: CONTRACTS.MockNetworkUSDC, abi: ERC20_ABI, functionName: "symbol" }),
+      publicClient.readContract({ address: CONTRACTS.MockNetworkUSDC, abi: ERC20_ABI, functionName: "decimals" }),
     ]);
     logResult({
-      name: "MockJejuUSDC token info",
+      name: "MockNetworkUSDC token info",
       status: "pass",
       message: "Token configured correctly",
       details: { Name: name, Symbol: symbol, Decimals: decimals.toString() },
     });
   } catch (e: unknown) {
     const error = e as Error;
-    logResult({ name: "MockJejuUSDC token info", status: "fail", message: error.message });
+    logResult({ name: "MockNetworkUSDC token info", status: "fail", message: error.message });
   }
 
   // ElizaOSToken
@@ -186,14 +186,14 @@ async function main() {
   if (walletClient && account) {
     try {
       const balanceBefore = await publicClient.readContract({
-        address: CONTRACTS.MockJejuUSDC,
+        address: CONTRACTS.MockNetworkUSDC,
         abi: ERC20_ABI,
         functionName: "balanceOf",
         args: [account.address],
       });
 
       const tx = await walletClient.writeContract({
-        address: CONTRACTS.MockJejuUSDC,
+        address: CONTRACTS.MockNetworkUSDC,
         abi: ERC20_ABI,
         functionName: "faucet",
         args: [],
@@ -201,7 +201,7 @@ async function main() {
       await publicClient.waitForTransactionReceipt({ hash: tx });
 
       const balanceAfter = await publicClient.readContract({
-        address: CONTRACTS.MockJejuUSDC,
+        address: CONTRACTS.MockNetworkUSDC,
         abi: ERC20_ABI,
         functionName: "balanceOf",
         args: [account.address],
@@ -228,7 +228,7 @@ async function main() {
       const testRecipient = "0x0000000000000000000000000000000000000001" as Address;
       
       const tx = await walletClient.writeContract({
-        address: CONTRACTS.MockJejuUSDC,
+        address: CONTRACTS.MockNetworkUSDC,
         abi: ERC20_ABI,
         functionName: "transfer",
         args: [testRecipient, testAmount],

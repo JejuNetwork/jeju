@@ -1,5 +1,5 @@
 /**
- * Market Processor - Indexes JejuMarket and PredictionOracle events
+ * Market Processor - Indexes NetworkMarket and PredictionOracle events
  */
 
 import { ethers } from 'ethers';

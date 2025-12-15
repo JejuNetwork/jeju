@@ -6,70 +6,40 @@
 
 import { defineWalletSetup } from '@synthetixio/synpress';
 import { MetaMask } from '@synthetixio/synpress/playwright';
+import { TEST_MNEMONIC, TEST_PASSWORD, TEST_NETWORKS } from '../fixtures/accounts';
 
-// Test seed phrase - NEVER use in production
-const SEED_PHRASE = 'test test test test test test test test test test test junk';
-const PASSWORD = 'TestPassword123_';
-
-export default defineWalletSetup(PASSWORD, async (context, walletPage) => {
-  const metamask = new MetaMask(context, walletPage, PASSWORD);
+export default defineWalletSetup(TEST_PASSWORD, async (context, walletPage) => {
+  const metamask = new MetaMask(context, walletPage, TEST_PASSWORD);
   
   // Import the test wallet
-  await metamask.importWallet(SEED_PHRASE);
+  await metamask.importWallet(TEST_MNEMONIC);
   
-  // Add Base network (Jeju's primary chain)
+  // Add Network Localnet (primary for E2E)
   await metamask.addNetwork({
-    name: 'Base',
-    rpcUrl: 'https://mainnet.base.org',
-    chainId: 8453,
-    symbol: 'ETH',
-    blockExplorerUrl: 'https://basescan.org',
+    name: TEST_NETWORKS.jeju.name,
+    rpcUrl: TEST_NETWORKS.jeju.rpcUrl,
+    chainId: TEST_NETWORKS.jeju.chainId,
+    symbol: TEST_NETWORKS.jeju.symbol,
+    blockExplorerUrl: '',
+  });
+  
+  // Add Base network
+  await metamask.addNetwork({
+    name: TEST_NETWORKS.base.name,
+    rpcUrl: TEST_NETWORKS.base.rpcUrl,
+    chainId: TEST_NETWORKS.base.chainId,
+    symbol: TEST_NETWORKS.base.symbol,
+    blockExplorerUrl: TEST_NETWORKS.base.blockExplorer,
   });
   
   // Add Base Sepolia testnet
   await metamask.addNetwork({
-    name: 'Base Sepolia',
-    rpcUrl: 'https://sepolia.base.org',
-    chainId: 84532,
-    symbol: 'ETH',
-    blockExplorerUrl: 'https://sepolia.basescan.org',
-  });
-  
-  // Add Arbitrum
-  await metamask.addNetwork({
-    name: 'Arbitrum One',
-    rpcUrl: 'https://arb1.arbitrum.io/rpc',
-    chainId: 42161,
-    symbol: 'ETH',
-    blockExplorerUrl: 'https://arbiscan.io',
-  });
-  
-  // Add Optimism
-  await metamask.addNetwork({
-    name: 'Optimism',
-    rpcUrl: 'https://mainnet.optimism.io',
-    chainId: 10,
-    symbol: 'ETH',
-    blockExplorerUrl: 'https://optimistic.etherscan.io',
-  });
-
-  // Add localhost for local testing (anvil on 8545)
-  await metamask.addNetwork({
-    name: 'Localhost',
-    rpcUrl: 'http://127.0.0.1:8545',
-    chainId: 31337,
-    symbol: 'ETH',
-    blockExplorerUrl: '',
-  });
-
-  // Add Jeju Localnet (anvil on 9545)
-  await metamask.addNetwork({
-    name: 'Jeju Localnet',
-    rpcUrl: 'http://127.0.0.1:9545',
-    chainId: 1337,
-    symbol: 'ETH',
-    blockExplorerUrl: '',
+    name: TEST_NETWORKS.baseSepolia.name,
+    rpcUrl: TEST_NETWORKS.baseSepolia.rpcUrl,
+    chainId: TEST_NETWORKS.baseSepolia.chainId,
+    symbol: TEST_NETWORKS.baseSepolia.symbol,
+    blockExplorerUrl: TEST_NETWORKS.baseSepolia.blockExplorer,
   });
 });
 
-export { PASSWORD, SEED_PHRASE };
+export { TEST_PASSWORD as PASSWORD, TEST_MNEMONIC as SEED_PHRASE };

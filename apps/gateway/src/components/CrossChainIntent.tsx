@@ -7,7 +7,7 @@ const CHAINS = [
   { id: 1, name: 'Ethereum', color: 'var(--chain-ethereum)' },
   { id: 42161, name: 'Arbitrum', color: 'var(--chain-arbitrum)' },
   { id: 10, name: 'Optimism', color: 'var(--chain-optimism)' },
-  { id: 420691, name: 'Jeju', color: 'var(--chain-jeju)' },
+  { id: 420691, name: 'Network', color: 'var(--chain-jeju)' },
   { id: 11155111, name: 'Sepolia', color: 'var(--accent-primary)' },
 ];
 

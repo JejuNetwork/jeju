@@ -1,7 +1,7 @@
 /**
  * Decentralized Database Layer
  * 
- * CovenantSQL driver and migration tools for Jeju apps.
+ * CovenantSQL driver and migration tools for network apps.
  * Supports strong and eventual consistency modes.
  */
 

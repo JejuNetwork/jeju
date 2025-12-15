@@ -113,7 +113,7 @@ describe('Category Selection Buttons - Register App', () => {
 describe('Action Buttons - Form Submissions', () => {
   const actionButtons = [
     { name: 'Register Token', form: 'Token registration' },
-    { name: 'Bridge to Jeju', form: 'Bridge token' },
+    { name: 'Bridge to the network', form: 'Bridge token' },
     { name: 'Deploy Paymaster', form: 'Paymaster deployment' },
     { name: 'Add Liquidity', form: 'Liquidity provision' },
     { name: 'Remove Liquidity', form: 'Liquidity removal' },

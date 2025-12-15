@@ -8,7 +8,7 @@ description = "ZK proof of Ethereum sync committee consensus"
 sp1-zkvm = { workspace = true }
 sha2 = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
+serde_with = { workspace = true }
 
 [[bin]]
 name = "ethereum_consensus"

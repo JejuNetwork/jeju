@@ -6,6 +6,7 @@
  * (e.g., jeju-deployment.ts, or in vendor packages).
  */
 
+import type { Address } from 'viem';
 import type {
   FeeDistribution,
   TokenAllocation,
@@ -162,7 +163,7 @@ export function createTokenEconomics(
     swapFeeBps?: number;
     maxWalletPercent?: number;
     maxTxPercent?: number;
-    feeExemptAddresses?: string[];
+    feeExemptAddresses?: Address[];
   } = {}
 ): TokenEconomics {
   return {

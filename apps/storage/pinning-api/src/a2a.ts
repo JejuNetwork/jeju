@@ -30,12 +30,12 @@ const PAYMENT_RECIPIENT = (process.env.X402_RECIPIENT_ADDRESS ||
  */
 export const AGENT_CARD = {
   protocolVersion: '0.3.0',
-  name: 'Jeju IPFS Storage Service',
+  name: 'IPFS Storage Service',
   description: 'Decentralized file storage with x402 micropayments. Upload, pin, and retrieve files. All paid operations require x402 payment header.',
   url: 'http://localhost:3100/a2a',
   preferredTransport: 'http',
   provider: {
-    organization: 'Jeju Network',
+    organization: 'the network',
     url: 'https://jeju.network',
   },
   version: '1.1.0',

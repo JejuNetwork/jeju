@@ -20,8 +20,9 @@
 
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer, MintTo, Burn};
+use solana_program::keccak;
 
-declare_id!("TokenBridge11111111111111111111111111111111");
+declare_id!("TknBridge1111111111111111111111111111111111");
 
 /// Maximum payload size for cross-chain messages
 pub const MAX_PAYLOAD_SIZE: usize = 1024;
@@ -68,7 +69,7 @@ pub mod token_bridge {
 
         msg!("Token registered: {} <-> 0x{}", 
             ctx.accounts.mint.key(),
-            hex::encode(evm_token)
+            hex::encode(&evm_token)
         );
 
         Ok(())
@@ -152,21 +153,24 @@ pub mod token_bridge {
 
         msg!("Transfer initiated: {} tokens to 0x{}", 
             amount,
-            hex::encode(evm_recipient)
+            hex::encode(&evm_recipient)
         );
 
         Ok(())
     }
 
     /// Complete a transfer from EVM to Solana
+    /// 
+    /// The relayer provides a Merkle-Patricia proof showing the transfer exists
+    /// in the EVM bridge contract's storage. The proof is verified against the
+    /// state root maintained by the EVM light client.
     pub fn complete_transfer(
         ctx: Context<CompleteTransfer>,
         transfer_id: [u8; 32],
         evm_sender: [u8; 20],
         amount: u64,
         evm_block_number: u64,
-        proof: [u8; GROTH16_PROOF_SIZE],
-        public_inputs: Vec<u8>,
+        proof_data: Vec<u8>, // Serialized Merkle-Patricia proof
     ) -> Result<()> {
         let state = &ctx.accounts.state;
         let token_config = &ctx.accounts.token_config;
@@ -178,17 +182,18 @@ pub mod token_bridge {
         let completion_record = &ctx.accounts.completion_record;
         require!(!completion_record.completed, ErrorCode::TransferAlreadyCompleted);
 
-        // Verify the ZK proof via EVM light client CPI
-        // This proves the transfer was included in a verified EVM block
+        // Verify the Merkle proof via EVM light client CPI
+        // This proves the transfer was included in the verified EVM state
         verify_evm_transfer(
-            &ctx.accounts.evm_light_client,
+            &ctx.accounts.evm_light_client_program,
+            &ctx.accounts.light_client_state,
+            &state.evm_bridge_address,
             &transfer_id,
             &evm_sender,
             &ctx.accounts.recipient.key().to_bytes(),
             amount,
             evm_block_number,
-            &proof,
-            &public_inputs,
+            &proof_data,
         )?;
 
         // Mint or unlock tokens
@@ -249,7 +254,7 @@ pub mod token_bridge {
 
         msg!("Transfer completed: {} tokens from 0x{}", 
             amount,
-            hex::encode(evm_sender)
+            hex::encode(&evm_sender)
         );
 
         Ok(())
@@ -386,13 +391,19 @@ pub struct CompleteTransfer<'info> {
         init,
         payer = relayer,
         space = 8 + CompletionRecord::INIT_SPACE,
-        seeds = [b"completion", &transfer_id],
+        seeds = [b"completion", transfer_id.as_ref()],
         bump
     )]
     pub completion_record: Account<'info, CompletionRecord>,
 
+    /// CHECK: EVM light client program for CPI
+    pub evm_light_client_program: AccountInfo<'info>,
+
     /// CHECK: EVM light client state account for verification
-    pub evm_light_client: AccountInfo<'info>,
+    #[account(
+        constraint = light_client_state.owner == &state.evm_light_client @ ErrorCode::InvalidLightClient
+    )]
+    pub light_client_state: AccountInfo<'info>,
 
     #[account(mut)]
     pub mint: Account<'info, Mint>,
@@ -434,6 +445,7 @@ pub struct AdminAction<'info> {
 pub struct BridgeState {
     pub admin: Pubkey,
     pub evm_light_client: Pubkey,
+    pub evm_bridge_address: [u8; 20], // Address of bridge contract on EVM
     pub evm_chain_id: u64,
     pub transfer_nonce: u64,
     pub total_locked: u64,
@@ -531,6 +543,9 @@ pub enum ErrorCode {
 
     #[msg("EVM proof verification failed")]
     EVMProofFailed,
+
+    #[msg("Invalid light client account")]
+    InvalidLightClient,
 }
 
 // =============================================================================
@@ -543,38 +558,104 @@ fn generate_transfer_id(
     amount: u64,
     nonce: u64,
 ) -> [u8; 32] {
-    let mut data = Vec::new();
+    // Build transfer data for hashing
+    let mut data = Vec::with_capacity(32 + 20 + 8 + 8);
     data.extend_from_slice(sender.as_ref());
     data.extend_from_slice(evm_recipient);
     data.extend_from_slice(&amount.to_le_bytes());
     data.extend_from_slice(&nonce.to_le_bytes());
 
-    // Simple hash (in production, use proper hash)
-    let mut result = [0u8; 32];
-    for (i, byte) in data.iter().enumerate() {
-        result[i % 32] ^= byte;
-    }
-    result
+    // Use keccak256 for cryptographically secure hashing
+    keccak::hash(&data).to_bytes()
 }
 
-fn verify_evm_transfer(
-    _evm_light_client: &AccountInfo,
-    _transfer_id: &[u8; 32],
-    _evm_sender: &[u8; 20],
-    _recipient: &[u8; 32],
-    _amount: u64,
+/// Verify an EVM transfer by checking the bridge contract's storage via the light client
+///
+/// This function verifies that a transfer was initiated on the EVM chain by:
+/// 1. Computing the storage slot where the transfer is recorded in the EVM bridge contract
+/// 2. Verifying the storage value matches the expected transfer details
+/// 3. Using the EVM light client's state proof verification
+fn verify_evm_transfer<'info>(
+    evm_light_client: &AccountInfo<'info>,
+    light_client_state: &AccountInfo<'info>,
+    evm_bridge_address: &[u8; 20],
+    transfer_id: &[u8; 32],
+    evm_sender: &[u8; 20],
+    recipient: &[u8; 32],
+    amount: u64,
     _evm_block_number: u64,
-    _proof: &[u8; GROTH16_PROOF_SIZE],
-    _public_inputs: &[u8],
+    proof_data: &[u8],
 ) -> Result<()> {
-    // TODO: CPI to EVM light client to verify proof
-    // This would:
-    // 1. Verify the ZK proof matches the claimed transfer
-    // 2. Verify the block number is included in the light client
-    // 3. Verify the state root matches
+    // Compute the storage slot for this transfer in the EVM bridge contract
+    // The EVM bridge stores transfers at: keccak256(transfer_id . TRANSFERS_MAPPING_SLOT)
+    // TRANSFERS_MAPPING_SLOT is typically 0 for the first storage mapping
+    let storage_slot = compute_evm_storage_slot(transfer_id, 0);
 
-    msg!("EVM transfer verification (simulated)");
+    // Compute expected value - the hash of the transfer details
+    // The EVM bridge stores: keccak256(sender, recipient, amount)
+    let expected_value = compute_transfer_hash(evm_sender, recipient, amount);
+
+    // Serialize proof for CPI call
+    // The proof_data is already in the format expected by verify_account_proof
+
+    // Build CPI to evm-light-client's verify_account_proof
+    let cpi_program = evm_light_client.clone();
+    let cpi_accounts = evm_light_client::cpi::accounts::VerifyProof {
+        state: light_client_state.clone(),
+    };
+    let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+
+    // Call the verification CPI
+    let result = evm_light_client::cpi::verify_account_proof(
+        cpi_ctx,
+        *evm_bridge_address,
+        storage_slot,
+        expected_value,
+        proof_data.to_vec(),
+    )?;
+
+    // Extract the returned boolean value
+    let is_valid = result.get();
+    if !is_valid {
+        msg!("EVM transfer verification failed: state proof invalid");
+        return Err(ErrorCode::EVMProofFailed.into());
+    }
+
+    msg!("EVM transfer verified successfully");
     Ok(())
+}
+
+/// Compute the storage slot for a mapping entry in EVM
+/// For mapping(bytes32 => bytes32), slot = keccak256(key . mapping_slot)
+fn compute_evm_storage_slot(key: &[u8; 32], mapping_slot: u64) -> [u8; 32] {
+    let mut data = Vec::with_capacity(64);
+    data.extend_from_slice(key);
+    
+    // Pad mapping slot to 32 bytes (big-endian for EVM)
+    let mut slot_bytes = [0u8; 32];
+    slot_bytes[24..32].copy_from_slice(&mapping_slot.to_be_bytes());
+    data.extend_from_slice(&slot_bytes);
+
+    keccak::hash(&data).to_bytes()
+}
+
+/// Compute the hash of transfer details as stored in EVM bridge
+fn compute_transfer_hash(sender: &[u8; 20], recipient: &[u8; 32], amount: u64) -> [u8; 32] {
+    let mut data = Vec::with_capacity(60);
+    
+    // Pad sender to 32 bytes (left-pad with zeros for EVM address)
+    let mut sender_padded = [0u8; 32];
+    sender_padded[12..32].copy_from_slice(sender);
+    data.extend_from_slice(&sender_padded);
+    
+    data.extend_from_slice(recipient);
+    
+    // Amount as 32-byte big-endian
+    let mut amount_bytes = [0u8; 32];
+    amount_bytes[24..32].copy_from_slice(&amount.to_be_bytes());
+    data.extend_from_slice(&amount_bytes);
+
+    keccak::hash(&data).to_bytes()
 }
 
 // Hex encoding helper

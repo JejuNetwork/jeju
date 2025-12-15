@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 /**
- * Jeju Token Localnet Deployment Script
+ * Network Token Localnet Deployment Script
  * 
- * Deploys JejuToken with full ecosystem setup for local development:
- * - JejuToken with faucet enabled
+ * Deploys NetworkToken with full ecosystem setup for local development:
+ * - NetworkToken with faucet enabled
  * - BanManager integration
  * - TokenRegistry registration
  * - Liquidity pool setup (if available)
@@ -57,7 +57,7 @@ interface DeploymentResult {
 }
 
 async function main() {
-  console.log("🏝️  Jeju Token Localnet Deployment");
+  console.log("🏝️  Network Token Localnet Deployment");
   console.log("=".repeat(50));
   
   // Setup clients
@@ -85,7 +85,7 @@ async function main() {
   
   // Load artifacts
   console.log("\n📦 Loading contract artifacts...");
-  const jejuTokenArtifact = loadArtifact("JejuToken");
+  const jejuTokenArtifact = loadArtifact("NetworkToken");
   const banManagerArtifact = loadArtifact("BanManager");
   
   // Deploy BanManager
@@ -100,8 +100,8 @@ async function main() {
   const banManagerAddress = banManagerReceipt.contractAddress;
   console.log(`   BanManager: ${banManagerAddress}`);
   
-  // Deploy JejuToken
-  console.log("\n🚀 Deploying JejuToken...");
+  // Deploy NetworkToken
+  console.log("\n🚀 Deploying NetworkToken...");
   const jejuTokenHash = await walletClient.deployContract({
     abi: jejuTokenArtifact.abi,
     bytecode: jejuTokenArtifact.bytecode,
@@ -114,9 +114,9 @@ async function main() {
   
   const jejuTokenReceipt = await publicClient.waitForTransactionReceipt({ hash: jejuTokenHash });
   const jejuTokenAddress = jejuTokenReceipt.contractAddress;
-  console.log(`   JejuToken: ${jejuTokenAddress}`);
+  console.log(`   NetworkToken: ${jejuTokenAddress}`);
   
-  // Get JejuToken contract
+  // Get NetworkToken contract
   const jeju = getContract({
     address: jejuTokenAddress as `0x${string}`,
     abi: jejuTokenArtifact.abi,
@@ -225,10 +225,10 @@ async function main() {
   
   // Summary
   console.log("\n" + "=".repeat(50));
-  console.log("✅ Jeju Token Deployment Complete!");
+  console.log("✅ Network Token Deployment Complete!");
   console.log("=".repeat(50));
   console.log("\nAddresses:");
-  console.log(`  JejuToken: ${jejuTokenAddress}`);
+  console.log(`  NetworkToken: ${jejuTokenAddress}`);
   console.log(`  BanManager: ${banManagerAddress}`);
   console.log("\nTest Commands:");
   console.log(`  # Get faucet tokens:`);

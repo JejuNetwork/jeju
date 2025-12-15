@@ -15,7 +15,7 @@ const { expect } = test;
 const ALL_TOKENS = Object.values(PROTOCOL_TOKENS).map((t) => t.symbol);
 
 test.describe('Token Selector - Paymaster Deployment Context', () => {
-  test('should show all 4 tokens in paymaster selector', async ({ _page, _metamask }) => {
+  test('should show all 4 tokens in paymaster selector', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Deploy Paymaster/i }).click();
@@ -37,7 +37,7 @@ test.describe('Token Selector - Paymaster Deployment Context', () => {
     console.log('✅ All 4 tokens in paymaster selector');
   });
 
-  test('should show token details in dropdown', async ({ _page, _metamask }) => {
+  test('should show token details in dropdown', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Deploy Paymaster/i }).click();
@@ -63,7 +63,7 @@ test.describe('Token Selector - Paymaster Deployment Context', () => {
 });
 
 test.describe('Token Selector - Liquidity Context', () => {
-  test('should show all 4 tokens in liquidity selector with balances', async ({ _page, _metamask }) => {
+  test('should show all 4 tokens in liquidity selector with balances', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Add Liquidity/i }).click();
@@ -79,7 +79,7 @@ test.describe('Token Selector - Liquidity Context', () => {
     console.log('✅ All 4 tokens in liquidity selector');
   });
 
-  test('should update selector when tokens selected', async ({ _page, _metamask }) => {
+  test('should update selector when tokens selected', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Add Liquidity/i }).click();
@@ -102,7 +102,7 @@ test.describe('Token Selector - Liquidity Context', () => {
 });
 
 test.describe('Token Selector - Node Staking Context', () => {
-  test('should show all tokens in both staking and reward selectors', async ({ _page, _metamask }) => {
+  test('should show all tokens in both staking and reward selectors', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Node Operators/i }).click();
@@ -141,7 +141,7 @@ test.describe('Token Selector - Node Staking Context', () => {
     });
   });
 
-  test('should allow selecting different token for rewards vs staking', async ({ _page, _metamask }) => {
+  test('should allow selecting different token for rewards vs staking', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Node Operators/i }).click();
@@ -176,7 +176,7 @@ test.describe('Token Selector - Node Staking Context', () => {
 });
 
 test.describe('Token Selector - Bridge Context (Filtering)', () => {
-  test('should ONLY show bridgeable tokens (exclude elizaOS)', async ({ _page, _metamask }) => {
+  test('should ONLY show bridgeable tokens (exclude elizaOS)', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click();
@@ -205,7 +205,7 @@ test.describe('Token Selector - Bridge Context (Filtering)', () => {
 });
 
 test.describe('Token Selector - App Registry Context', () => {
-  test('should show all tokens in registry stake selector', async ({ _page, _metamask }) => {
+  test('should show all tokens in registry stake selector', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /App Registry/i }).click();
@@ -233,7 +233,7 @@ test.describe('Token Selector - App Registry Context', () => {
     });
   });
 
-  test('should update required stake when token changes', async ({ _page, _metamask }) => {
+  test('should update required stake when token changes', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /App Registry/i }).click();
@@ -271,7 +271,7 @@ test.describe('Token Selector - App Registry Context', () => {
 });
 
 test.describe('Token Selector UI Interactions', () => {
-  test('should open and close dropdown correctly', async ({ _page, _metamask }) => {
+  test('should open and close dropdown correctly', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Add Liquidity/i }).click();
@@ -296,7 +296,7 @@ test.describe('Token Selector UI Interactions', () => {
     console.log('✅ Dropdown open/close works');
   });
 
-  test('should close dropdown when selecting token', async ({ _page, _metamask }) => {
+  test('should close dropdown when selecting token', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Add Liquidity/i }).click();
@@ -316,7 +316,7 @@ test.describe('Token Selector UI Interactions', () => {
     console.log('✅ Dropdown closes on selection');
   });
 
-  test.skip('should support keyboard navigation in dropdown', async ({ _page, _metamask }) => {
+  test.skip('should support keyboard navigation in dropdown', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /Add Liquidity/i }).click();

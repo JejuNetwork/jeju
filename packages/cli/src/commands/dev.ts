@@ -1,18 +1,15 @@
 /**
  * jeju dev - Start development environment
- * 
- * DECENTRALIZED: Starts all infrastructure services before apps.
- * No fallbacks - services must be healthy before proceeding.
  */
 
 import { Command } from 'commander';
 import { execa } from 'execa';
-import { execSync } from 'child_process';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { logger } from '../lib/logger';
 import { startLocalnet, stopLocalnet, getChainStatus, bootstrapContracts } from '../lib/chain';
 import { discoverApps } from '../lib/testing';
+import { createOrchestrator, type ServicesOrchestrator } from '../services/orchestrator';
 import { DEFAULT_PORTS, WELL_KNOWN_KEYS, type AppManifest } from '../types';
 
 interface RunningService {
@@ -23,6 +20,7 @@ interface RunningService {
 
 const runningServices: RunningService[] = [];
 let isShuttingDown = false;
+let servicesOrchestrator: ServicesOrchestrator | null = null;
 
 export const devCommand = new Command('dev')
   .description('Start development environment')
@@ -30,8 +28,8 @@ export const devCommand = new Command('dev')
   .option('--only <apps>', 'Start specific apps (comma-separated)')
   .option('--skip <apps>', 'Skip specific apps (comma-separated)')
   .option('--stop', 'Stop the development environment')
-  .option('--decentralized', 'Start full decentralized stack (IPFS, CQL, Cache)')
-  .option('--no-docker', 'Skip Docker services (use if already running)')
+  .option('--no-inference', 'Skip starting inference service')
+  .option('--no-services', 'Skip all simulated services')
   .action(async (options) => {
     if (options.stop) {
       await stopDev();
@@ -41,19 +39,11 @@ export const devCommand = new Command('dev')
     await startDev(options);
   });
 
-async function startDev(options: { minimal?: boolean; only?: string; skip?: string; decentralized?: boolean; docker?: boolean }) {
+async function startDev(options: { minimal?: boolean; only?: string; skip?: string; inference?: boolean; services?: boolean }) {
   logger.header('JEJU DEV');
 
   const rootDir = process.cwd();
-  const decentralized = options.decentralized ?? (process.env.DECENTRALIZED === 'true');
-  const skipDocker = options.docker === false;
-  
   setupSignalHandlers();
-
-  // Start decentralized infrastructure if requested
-  if (decentralized && !skipDocker) {
-    await startDecentralizedStack(rootDir);
-  }
 
   // Check if already running
   const status = await getChainStatus('localnet');
@@ -72,8 +62,16 @@ async function startDev(options: { minimal?: boolean; only?: string; skip?: stri
   logger.step('Bootstrapping contracts...');
   await bootstrapContracts(rootDir, l2RpcUrl);
 
+  // Start development services (inference, storage, etc.)
+  if (options.services !== false) {
+    servicesOrchestrator = createOrchestrator(rootDir);
+    await servicesOrchestrator.startAll({
+      inference: options.inference !== false,
+    });
+  }
+
   if (options.minimal) {
-    printReady(l2RpcUrl, [], decentralized);
+    printReady(l2RpcUrl, runningServices, servicesOrchestrator);
     await waitForever();
     return;
   }
@@ -85,61 +83,16 @@ async function startDev(options: { minimal?: boolean; only?: string; skip?: stri
   const apps = discoverApps(rootDir);
   const appsToStart = filterApps(apps, options);
 
+  // Get service environment variables
+  const serviceEnv = servicesOrchestrator?.getEnvVars() || {};
+
   logger.step(`Starting ${appsToStart.length} apps...`);
   for (const app of appsToStart) {
-    await startApp(rootDir, app, l2RpcUrl, decentralized);
+    await startApp(rootDir, app, l2RpcUrl, serviceEnv);
   }
 
-  printReady(l2RpcUrl, runningServices, decentralized);
+  printReady(l2RpcUrl, runningServices, servicesOrchestrator);
   await waitForever();
-}
-
-async function startDecentralizedStack(rootDir: string): Promise<void> {
-  const composePath = join(rootDir, 'docker-compose.decentralized.yml');
-  
-  if (!existsSync(composePath)) {
-    logger.warn('docker-compose.decentralized.yml not found, skipping...');
-    return;
-  }
-
-  logger.step('Starting decentralized infrastructure...');
-  
-  try {
-    execSync('docker compose -f docker-compose.decentralized.yml up -d', {
-      cwd: rootDir,
-      stdio: 'pipe',
-    });
-    
-    // Wait for services to be healthy
-    logger.step('Waiting for services to be healthy...');
-    
-    const services = [
-      { name: 'IPFS', url: 'http://localhost:5001/api/v0/id', method: 'POST' },
-      { name: 'Cache', url: 'http://localhost:4115/health', method: 'GET' },
-    ];
-    
-    for (const service of services) {
-      let healthy = false;
-      for (let i = 0; i < 30 && !healthy; i++) {
-        const response = await fetch(service.url, { method: service.method as 'GET' | 'POST', signal: AbortSignal.timeout(5000) }).catch(() => null);
-        healthy = response?.ok ?? false;
-        if (!healthy) await new Promise(r => setTimeout(r, 2000));
-      }
-      
-      if (healthy) {
-        logger.success(`${service.name} ready`);
-        runningServices.push({ name: service.name });
-      } else {
-        throw new Error(`${service.name} failed to start`);
-      }
-    }
-    
-    logger.success('Decentralized stack ready');
-  } catch (e) {
-    logger.error('Failed to start decentralized stack: ' + (e as Error).message);
-    logger.warn('Run: docker compose -f docker-compose.decentralized.yml logs');
-    throw e;
-  }
 }
 
 async function stopDev() {
@@ -157,6 +110,11 @@ function setupSignalHandlers() {
 
     logger.newline();
     logger.step('Shutting down...');
+
+    // Stop orchestrated services
+    if (servicesOrchestrator) {
+      await servicesOrchestrator.stopAll();
+    }
 
     for (const service of runningServices) {
       if (service.process) {
@@ -228,7 +186,7 @@ async function startIndexer(rootDir: string, rpcUrl: string): Promise<void> {
   await new Promise(r => setTimeout(r, 3000));
 }
 
-async function startApp(rootDir: string, app: AppManifest, rpcUrl: string, decentralized = false): Promise<void> {
+async function startApp(rootDir: string, app: AppManifest, rpcUrl: string, serviceEnv: Record<string, string> = {}): Promise<void> {
   const appDir = join(rootDir, 'apps', app.name);
   const vendorDir = join(rootDir, 'vendor', app.name);
   const dir = existsSync(appDir) ? appDir : vendorDir;
@@ -241,21 +199,11 @@ async function startApp(rootDir: string, app: AppManifest, rpcUrl: string, decen
   const mainPort = app.ports?.main;
   const appEnv: Record<string, string> = {
     ...process.env as Record<string, string>,
+    ...serviceEnv, // Inject service URLs
     JEJU_RPC_URL: rpcUrl,
     RPC_URL: rpcUrl,
     CHAIN_ID: '1337',
   };
-
-  // Decentralized stack environment variables
-  if (decentralized) {
-    appEnv.DECENTRALIZED = 'true';
-    appEnv.CQL_REQUIRED = 'true';
-    appEnv.COVENANTSQL_NODES = 'http://localhost:4661';
-    appEnv.IPFS_API_URL = 'http://localhost:5001';
-    appEnv.IPFS_GATEWAY_URL = 'http://localhost:4180';
-    appEnv.CACHE_SERVICE_URL = 'http://localhost:4115';
-    appEnv.DA_SERVER_URL = 'http://localhost:4010';
-  }
 
   if (mainPort) {
     appEnv.PORT = String(mainPort);
@@ -277,22 +225,11 @@ async function startApp(rootDir: string, app: AppManifest, rpcUrl: string, decen
   proc.catch(() => {});
 }
 
-function printReady(rpcUrl: string, services: RunningService[], decentralized = false) {
+function printReady(rpcUrl: string, services: RunningService[], orchestrator: ServicesOrchestrator | null) {
   console.clear();
 
   logger.header('READY');
   logger.info('Press Ctrl+C to stop\n');
-
-  if (decentralized) {
-    logger.subheader('Decentralized Stack');
-    logger.table([
-      { label: 'IPFS API', value: 'http://127.0.0.1:5001', status: 'ok' },
-      { label: 'IPFS Gateway', value: 'http://127.0.0.1:4180', status: 'ok' },
-      { label: 'CQL', value: 'http://127.0.0.1:4661', status: 'ok' },
-      { label: 'Cache', value: 'http://127.0.0.1:4115', status: 'ok' },
-    ]);
-    logger.success('100% Decentralized - No Fallbacks\n');
-  }
 
   logger.subheader('Chain');
   logger.table([
@@ -300,8 +237,13 @@ function printReady(rpcUrl: string, services: RunningService[], decentralized = 
     { label: 'L2 RPC', value: rpcUrl, status: 'ok' },
   ]);
 
+  // Print orchestrated services
+  if (orchestrator) {
+    orchestrator.printStatus();
+  }
+
   if (services.length > 0) {
-    logger.subheader('Services');
+    logger.subheader('Apps');
     for (const svc of services) {
       const url = svc.port ? `http://127.0.0.1:${svc.port}` : 'running';
       logger.table([{ label: svc.name, value: url, status: 'ok' }]);

@@ -1,11 +1,5 @@
 /**
  * Solana Client for Cross-Chain Bridge
- *
- * Provides high-level interface for:
- * - Initiating transfers from Solana to EVM
- * - Completing transfers from EVM to Solana
- * - Querying bridge state
- * - Managing SPL tokens
  */
 
 import {
@@ -18,6 +12,7 @@ import {
   Transaction,
   TransactionInstruction,
 } from '@solana/web3.js';
+import { keccak_256 } from '@noble/hashes/sha3';
 import type { ChainId, Hash32 } from '../types/index.js';
 import { TransferStatus, toHash32 } from '../types/index.js';
 
@@ -77,21 +72,12 @@ async function getAccount(
   return { amount };
 }
 
-// =============================================================================
-// PROGRAM INSTRUCTIONS
-// =============================================================================
-
-// Bridge program instruction discriminators
 const INSTRUCTION_DISCRIMINATORS = {
   INITIATE_TRANSFER: Buffer.from([0x01]),
   COMPLETE_TRANSFER: Buffer.from([0x02]),
   UPDATE_LIGHT_CLIENT: Buffer.from([0x03]),
   REGISTER_TOKEN: Buffer.from([0x04]),
 };
-
-// =============================================================================
-// CLIENT TYPES
-// =============================================================================
 
 export interface SolanaClientConfig {
   rpcUrl: string;
@@ -107,10 +93,6 @@ export interface TransferResult {
   status: (typeof TransferStatus)[keyof typeof TransferStatus];
 }
 
-// =============================================================================
-// SOLANA CLIENT
-// =============================================================================
-
 export class SolanaClient {
   private config: SolanaClientConfig;
   private connection: Connection;
@@ -125,13 +107,6 @@ export class SolanaClient {
     }
   }
 
-  // =============================================================================
-  // TRANSFER OPERATIONS
-  // =============================================================================
-
-  /**
-   * Initiate a cross-chain transfer to EVM
-   */
   async initiateTransfer(params: {
     mint: PublicKey;
     recipient: Uint8Array; // 20-byte EVM address (padded to 32)
@@ -331,6 +306,8 @@ export class SolanaClient {
       const account = await getAccount(this.connection, tokenAccount);
       return account.amount;
     } catch {
+      // Account doesn't exist or is not initialized - return 0 balance
+      // This is expected behavior for tokens the user has never held
       return BigInt(0);
     }
   }
@@ -402,12 +379,8 @@ export class SolanaClient {
       Buffer.from(Date.now().toString()),
     ]);
 
-    // Simple hash (in production, use a proper hash function)
-    const hash = new Uint8Array(32);
-    for (let i = 0; i < data.length; i++) {
-      hash[i % 32] ^= data[i];
-    }
-    return hash;
+    // Use keccak256 for cryptographically secure transfer ID generation
+    return keccak_256(data);
   }
 
   private encodeInitiateTransfer(params: {
@@ -481,11 +454,25 @@ export class SolanaClient {
   getConnection(): Connection {
     return this.connection;
   }
-}
 
-// =============================================================================
-// FACTORY
-// =============================================================================
+  /**
+   * Send an instruction as a transaction
+   */
+  async sendInstruction(instruction: TransactionInstruction): Promise<string> {
+    if (!this.keypair) {
+      throw new Error('Keypair not configured');
+    }
+
+    const transaction = new Transaction().add(instruction);
+    const signature = await sendAndConfirmTransaction(
+      this.connection,
+      transaction,
+      [this.keypair]
+    );
+
+    return signature;
+  }
+}
 
 export function createSolanaClient(config: SolanaClientConfig): SolanaClient {
   return new SolanaClient(config);

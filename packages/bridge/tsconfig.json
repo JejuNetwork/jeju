@@ -19,7 +19,7 @@
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-    "types": ["bun-types"]
+    "types": ["bun"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "contracts", "circuits", "programs"]

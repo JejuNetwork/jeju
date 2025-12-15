@@ -1,120 +1,163 @@
 /**
- * Base Synpress configuration for Jeju apps
+ * Base Synpress Configuration for Wallet E2E Tests
  * 
- * Usage in app synpress.config.ts:
+ * Apps should extend this config for MetaMask/wallet testing.
  * 
+ * Usage in app:
  * ```typescript
- * import { createSynpressConfig } from '@jejunetwork/tests/synpress.config.base';
- * export default createSynpressConfig({
- *   appPort: 4006,
- *   appName: 'bazaar',
- * });
+ * import { createSynpressConfig, createWalletSetup } from '@jejunetwork/tests/synpress.config.base';
+ * export default createSynpressConfig({ name: 'my-app', port: 4000 });
+ * export const basicSetup = createWalletSetup();
  * ```
  */
 
-import { defineConfig, devices } from '@playwright/test';
-import { join } from 'path';
+import { defineConfig, devices, type PlaywrightTestConfig } from '@playwright/test';
+import { TEST_ACCOUNTS, SEED_PHRASE, PASSWORD } from './playwright.config.base';
+
+export { TEST_ACCOUNTS, SEED_PHRASE, PASSWORD };
 
 export interface SynpressConfigOptions {
-  /** Port the app runs on */
-  appPort: number;
-  /** App name for test naming */
-  appName: string;
-  /** Test directory (default: ./tests) */
+  name: string;
+  port: number;
   testDir?: string;
-  /** Test match pattern (default: **\/*.wallet.test.ts) */
-  testMatch?: string;
-  /** Timeout in ms (default: 120000) */
   timeout?: number;
-  /** Base URL override */
   baseURL?: string;
-  /** Number of retries (default: 0 for local, 2 for CI) */
-  retries?: number;
-  /** Number of workers (default: 1) */
-  workers?: number;
+  webServer?: {
+    command: string;
+    timeout?: number;
+  };
 }
 
-export const JEJU_WALLET_CONFIG = {
-  seed: 'test test test test test test test test test test test junk',
-  password: 'Tester@1234',
-  address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-  privateKey: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
-};
-
-export const JEJU_NETWORK_CONFIG = {
-  networkName: 'Jeju Local',
-  rpcUrl: process.env.JEJU_RPC_URL || process.env.L2_RPC_URL || 'http://localhost:9545',
-  chainId: parseInt(process.env.CHAIN_ID || '1337'),
+/**
+ * network localnet chain configuration for MetaMask
+ */
+export const JEJU_CHAIN = {
+  chainId: 1337,
+  chainIdHex: '0x539',
+  name: 'Network Localnet',
+  rpcUrl: 'http://127.0.0.1:9545',
   symbol: 'ETH',
-};
+  blockExplorerUrl: '',
+} as const;
 
-export function createSynpressConfig(options: SynpressConfigOptions) {
+/**
+ * Create Synpress-compatible Playwright config
+ */
+export function createSynpressConfig(options: SynpressConfigOptions): PlaywrightTestConfig {
   const {
-    appPort,
-    appName,
-    testDir = './tests',
-    testMatch = '**/*.wallet.test.ts',
-    timeout = 120000,
-    baseURL = `http://localhost:${appPort}`,
-    retries = process.env.CI ? 2 : 0,
-    workers = 1,
+    name,
+    port,
+    testDir = './tests/wallet',
+    timeout = 300000,
+    baseURL = `http://localhost:${port}`,
+    webServer,
   } = options;
-
-  // Synpress cache directory
-  const synpressCacheDir = process.env.SYNPRESS_CACHE_DIR || join(process.cwd(), '../../.jeju/.synpress-cache');
 
   return defineConfig({
     testDir,
-    testMatch,
-    timeout,
-    
-    // Synpress requires headful mode
-    fullyParallel: false,
+    fullyParallel: false, // Synpress requires sequential
     forbidOnly: !!process.env.CI,
-    retries,
-    workers,
-    
-    reporter: process.env.CI ? [
+    retries: process.env.CI ? 2 : 0,
+    workers: 1, // Synpress requires single worker
+    timeout,
+
+    expect: {
+      timeout: 30000,
+    },
+
+    reporter: [
       ['list'],
-      ['json', { outputFile: `test-results-synpress.json` }],
-    ] : [['list']],
+      ['html', { outputFolder: `synpress-report-${name}` }],
+      ['json', { outputFile: `synpress-results-${name}.json` }],
+    ],
 
     use: {
       baseURL,
       trace: 'retain-on-failure',
       screenshot: 'only-on-failure',
       video: 'retain-on-failure',
-      
-      // Synpress specific
-      headless: false,
-      viewport: { width: 1280, height: 720 },
+      actionTimeout: 30000,
+      navigationTimeout: 30000,
     },
 
     projects: [
       {
-        name: `${appName}-wallet`,
-        testMatch,
+        name: 'chromium',
         use: {
           ...devices['Desktop Chrome'],
+          viewport: { width: 1280, height: 720 },
         },
       },
     ],
 
-    // Global setup for wallet
-    globalSetup: require.resolve('./global-setup'),
-    globalTeardown: require.resolve('./global-teardown'),
-
-    // Output
-    outputDir: './test-results',
-    
-    // Environment
-    metadata: {
-      appName,
-      appPort,
-      network: 'localnet',
-      walletAddress: JEJU_WALLET_CONFIG.address,
-    },
+    webServer: webServer
+      ? {
+          command: webServer.command,
+          url: baseURL,
+          reuseExistingServer: true,
+          timeout: webServer.timeout || 120000,
+        }
+      : undefined,
   });
+}
+
+/**
+ * Wallet setup configuration for Synpress
+ */
+export interface WalletSetupOptions {
+  seedPhrase?: string;
+  password?: string;
+  addNetworkChain?: boolean;
+}
+
+/**
+ * Create wallet setup for Synpress
+ * 
+ * Usage with @synthetixio/synpress:
+ * ```typescript
+ * import { defineWalletSetup } from '@synthetixio/synpress';
+ * import { MetaMask } from '@synthetixio/synpress/playwright';
+ * import { createWalletSetup, PASSWORD, JEJU_CHAIN } from '@jejunetwork/tests/synpress.config.base';
+ * 
+ * export default defineWalletSetup(PASSWORD, async (context, walletPage) => {
+ *   const metamask = new MetaMask(context, walletPage, PASSWORD);
+ *   await metamask.importWallet(SEED_PHRASE);
+ *   await metamask.addNetwork(JEJU_CHAIN);
+ * });
+ * ```
+ */
+export function createWalletSetup(options: WalletSetupOptions = {}) {
+  const {
+    seedPhrase = SEED_PHRASE,
+    password = PASSWORD,
+    addNetworkChain = true,
+  } = options;
+
+  return {
+    seedPhrase,
+    walletPassword: password,
+    addNetworkChain,
+    jejuChain: JEJU_CHAIN,
+    testAccounts: TEST_ACCOUNTS,
+  };
+}
+
+/**
+ * Helper to connect MetaMask and verify connection
+ */
+export async function connectAndVerify(
+  page: { locator: (selector: string) => { click: () => Promise<void>; getAttribute: (attr: string) => Promise<string | null> } },
+  metamask: { connectToDapp: () => Promise<void> }
+): Promise<string> {
+  await page.locator('[data-testid="connect-wallet"]').click();
+  await metamask.connectToDapp();
+  
+  const address = await page.locator('[data-testid="wallet-address"]').getAttribute('data-address');
+  if (!address) {
+    throw new Error('Failed to get connected wallet address');
+  }
+  
+  return address;
 }
 
 export default createSynpressConfig;

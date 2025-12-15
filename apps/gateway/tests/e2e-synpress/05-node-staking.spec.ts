@@ -14,7 +14,7 @@ const { expect } = test;
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4001';
 
 test.describe('Node Staking Flow', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     
@@ -23,14 +23,14 @@ test.describe('Node Staking Flow', () => {
     await page.waitForTimeout(1000);
   });
 
-  test('should display node staking interface', async ({ _page }) => {
+  test('should display node staking interface', async ({ page }) => {
     await expect(page.getByText(/Multi-Token Node Staking/i)).toBeVisible();
     
     // Screenshot
     await page.screenshot({ path: 'test-results/screenshots/synpress-node-staking.png', fullPage: true });
   });
 
-  test('should show network overview', async ({ _page }) => {
+  test('should show network overview', async ({ page }) => {
     await page.getByRole('button', { name: /Network Overview/i }).click();
     
     await expect(page.getByText('Network Overview')).toBeVisible();
@@ -41,7 +41,7 @@ test.describe('Node Staking Flow', () => {
     console.log('✅ Network overview displayed');
   });
 
-  test('should show my nodes section', async ({ _page }) => {
+  test('should show my nodes section', async ({ page }) => {
     await page.getByRole('button', { name: /My Nodes/i }).click();
     await page.waitForTimeout(1000);
     
@@ -57,7 +57,7 @@ test.describe('Node Staking Flow', () => {
     }
   });
 
-  test('should display register node form', async ({ _page }) => {
+  test('should display register node form', async ({ page }) => {
     await page.getByRole('button', { name: /Register New Node/i }).click();
     
     await expect(page.getByText('Register New Node')).toBeVisible();
@@ -66,7 +66,7 @@ test.describe('Node Staking Flow', () => {
     await page.screenshot({ path: 'test-results/screenshots/synpress-node-register.png', fullPage: true });
   });
 
-  test('should have all protocol tokens for staking', async ({ _page }) => {
+  test('should have all protocol tokens for staking', async ({ page }) => {
     await page.getByRole('button', { name: /Register New Node/i }).click();
     
     // Open staking token selector
@@ -83,7 +83,7 @@ test.describe('Node Staking Flow', () => {
     console.log('✅ All tokens available for node staking');
   });
 
-  test('should allow different reward token than staking token', async ({ _page }) => {
+  test('should allow different reward token than staking token', async ({ page }) => {
     await page.getByRole('button', { name: /Register New Node/i }).click();
     
     // Select staking token
@@ -100,7 +100,7 @@ test.describe('Node Staking Flow', () => {
     console.log('✅ Can stake elizaOS and earn CLANKER rewards');
   });
 
-  test('should validate minimum stake amount', async ({ _page }) => {
+  test('should validate minimum stake amount', async ({ page }) => {
     await page.getByRole('button', { name: /Register New Node/i }).click();
     
     // Select staking token
@@ -118,7 +118,7 @@ test.describe('Node Staking Flow', () => {
     console.log('✅ Minimum stake validation works');
   });
 
-  test('should calculate USD value of stake', async ({ _page }) => {
+  test('should calculate USD value of stake', async ({ page }) => {
     await page.getByRole('button', { name: /Register New Node/i }).click();
     
     // Select staking token
@@ -136,7 +136,7 @@ test.describe('Node Staking Flow', () => {
     console.log('✅ USD value calculation works');
   });
 
-  test('should show geographic bonus for underserved regions', async ({ _page }) => {
+  test('should show geographic bonus for underserved regions', async ({ page }) => {
     await page.getByRole('button', { name: /Register New Node/i }).click();
     
     // Find region dropdown
@@ -156,7 +156,7 @@ test.describe('Node Staking Flow', () => {
     console.log('✅ Geographic bonuses displayed');
   });
 
-  test('should show staking requirements', async ({ _page }) => {
+  test('should show staking requirements', async ({ page }) => {
     await page.getByRole('button', { name: /Register New Node/i }).click();
     
     await expect(page.getByText(/Minimum staking period/i)).toBeVisible();
@@ -166,7 +166,7 @@ test.describe('Node Staking Flow', () => {
     console.log('✅ Staking requirements shown');
   });
 
-  test('should estimate monthly rewards', async ({ _page }) => {
+  test('should estimate monthly rewards', async ({ page }) => {
     await page.getByRole('button', { name: /Register New Node/i }).click();
     
     // Select reward token
@@ -182,7 +182,7 @@ test.describe('Node Staking Flow', () => {
     console.log('✅ Reward estimation displayed');
   });
 
-  test('should enforce max 5 nodes per operator', async ({ _page }) => {
+  test('should enforce max 5 nodes per operator', async ({ page }) => {
     await page.getByRole('button', { name: /Register New Node/i }).click();
     
     // Check for max nodes warning
@@ -200,7 +200,7 @@ test.describe('Node Staking Flow', () => {
     }
   });
 
-  test.skip('should register node successfully', async ({ _page, _metamask }) => {
+  test.skip('should register node successfully', async ({ page, metamask }) => {
     // Skip - requires gas and changes state
     
     await page.getByRole('button', { name: /Register New Node/i }).click();

@@ -4,7 +4,7 @@
  * ASSUMPTIONS:
  * - Test wallet 0xf39Fd6... is Anvil account #0 with 10k ETH
  * - Private key 0xac097... is the well-known Anvil test key (NOT A SECRET)
- * - Default RPC at localhost:9545 is Jeju localnet
+ * - Default RPC at localhost:9545 is network localnet
  * - Chain ID 1337 is localnet (use CHAIN_ID env for others)
  * 
  * CHECKS PERFORMED:
@@ -53,7 +53,7 @@ const TEST_WALLET_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Addr
 function createChain(rpcUrl: string, chainId: number): Chain {
   return {
     id: chainId,
-    name: 'Jeju Local',
+    name: 'Network Local',
     nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
     rpcUrls: { default: { http: [rpcUrl] } },
   };

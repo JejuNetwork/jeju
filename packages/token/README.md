@@ -1,15 +1,32 @@
 # @jeju/token
 
-Cross-chain token deployment and Hyperlane Warp Routes for JEJU and custom tokens.
+Cross-chain token deployment and Hyperlane Warp Routes for EVM chains.
+
+## Bridge Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│               JEJU CROSS-CHAIN TOKEN BRIDGING               │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  EVM ←──────────────→ EVM          This package (Hyperlane) │
+│       Fast (3-5 min)                                         │
+│       Validator security                                     │
+│                                                              │
+│  EVM ←──────────────→ Solana       @jeju/zksolbridge (ZK)   │
+│       Trustless (10-15 min)                                  │
+│       Cryptographic proofs                                   │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ## Features
 
 | Feature | Description |
 |---------|-------------|
 | **JEJU Token** | Native token of Jeju Network, home chain on Jeju L2 |
-| **Hyperlane Warp Routes** | Token bridging across EVM chains + Solana |
+| **Hyperlane Warp Routes** | Fast token bridging across EVM chains |
 | **DAO-Governed Fees** | Configurable fees via Council/CEOAgent governance |
-| **Solana Support** | SPL token deployment and warp route integration |
 | **Custom Tokens** | Deploy your own cross-chain tokens |
 
 ## Quick Start
@@ -171,9 +188,10 @@ bun run scripts/deploy-jeju.ts --network testnet
 
 ## Related Packages
 
-- `@jeju/zksolbridge` - ZK light client Solana↔EVM bridge
+- `@jeju/zksolbridge` - Trustless ZK bridge for Solana↔EVM (use this for Solana)
 - `packages/contracts/src/tokens/` - Token smart contracts
-- `apps/bazaar/` - Token ICO UI
+- `packages/contracts/src/hyperlane/` - Hyperlane infrastructure contracts
+- `apps/bazaar/` - Token trading UI
 
 ## Testing
 

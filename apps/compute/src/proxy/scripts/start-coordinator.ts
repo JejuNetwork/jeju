@@ -6,7 +6,7 @@
 
 import { startProxyCoordinator } from '../coordinator/server';
 
-console.log('Starting Jeju Proxy Coordinator...');
+console.log('Starting Network Proxy Coordinator...');
 
 const server = await startProxyCoordinator();
 

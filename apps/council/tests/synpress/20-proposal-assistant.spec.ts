@@ -6,17 +6,17 @@ test.describe('Proposal Assistant API', () => {
   test('assess proposal with complete content', async ({ request }) => {
     const response = await request.post(`${API_BASE}/api/v1/proposals/assess`, {
       data: {
-        title: 'Implement Cross-Chain Bridge for Jeju Network',
-        summary: 'This proposal aims to implement a cross-chain bridge enabling asset transfers between Jeju and other EVM chains.',
+        title: 'Implement Cross-Chain Bridge for the network',
+        summary: 'This proposal aims to implement a cross-chain bridge enabling asset transfers between the network and other EVM chains.',
         description: `
 ## Problem
-Currently, Jeju Network operates in isolation, limiting liquidity and user adoption.
+Currently, the network operates in isolation, limiting liquidity and user adoption.
 
 ## Solution
 Implement a trustless bridge using MPC signatures and fraud proofs.
 
 ## Implementation
-1. Deploy bridge contracts on Jeju and target chains
+1. Deploy bridge contracts on the network and target chains
 2. Set up MPC validator network
 3. Implement fraud proof system
 4. Create user-friendly UI

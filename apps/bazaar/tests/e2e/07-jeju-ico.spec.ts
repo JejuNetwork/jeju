@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 
-test.describe('Jeju ICO Page', () => {
+test.describe('Network ICO Page', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/coins/jeju-ico')
     await page.waitForLoadState('networkidle')
@@ -9,7 +9,7 @@ test.describe('Jeju ICO Page', () => {
   test('renders hero section with correct content', async ({ page }) => {
     // Check title
     await expect(page.locator('h1').first()).toBeVisible()
-    await expect(page.locator('h1').first()).toContainText('Jeju')
+    await expect(page.locator('h1').first()).toContainText('Network')
     
     // Check description contains key text
     await expect(page.locator('text=Governance and utility token').first()).toBeVisible()
@@ -153,7 +153,7 @@ test.describe('Jeju ICO Page', () => {
   })
 })
 
-test.describe('Jeju ICO Whitepaper Page', () => {
+test.describe('Network ICO Whitepaper Page', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/coins/jeju-ico/whitepaper')
     await page.waitForLoadState('networkidle')
@@ -177,7 +177,7 @@ test.describe('Jeju ICO Whitepaper Page', () => {
   })
 
   test('has back link to ICO page', async ({ page }) => {
-    const backLink = page.getByRole('link', { name: /Back to Jeju ICO/ })
+    const backLink = page.getByRole('link', { name: /Back to the network ICO/ })
     await expect(backLink).toBeVisible()
     await expect(backLink).toHaveAttribute('href', '/coins/jeju-ico')
   })

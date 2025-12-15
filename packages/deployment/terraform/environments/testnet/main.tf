@@ -784,8 +784,8 @@ module "covenantsql" {
   key_name            = "jeju-testnet"
   allowed_cidr_blocks = ["10.1.0.0/16"]
   
-  # Use custom ECR image for ARM64 support
-  ecr_registry  = var.use_arm64_cql ? module.ecr.registry_url : ""
+  # Always use custom ECR image for consistency and ARM64 support
+  ecr_registry  = module.ecr.registry_url
   cql_image_tag = "${local.environment}-latest"
 
   depends_on = [module.network, module.ecr]

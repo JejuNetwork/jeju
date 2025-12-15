@@ -1,16 +1,16 @@
 [package]
-name = "token-transfer"
+name = "state-proof"
 version = "0.1.0"
 edition = "2021"
-description = "ZK proof of token transfer inclusion"
+description = "ZK proof of state and token transfer inclusion"
 
 [dependencies]
 sp1-zkvm = { workspace = true }
 sha2 = { workspace = true }
+sha3 = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
 serde_with = { workspace = true }
 
 [[bin]]
-name = "token_transfer"
+name = "state_proof"
 path = "src/main.rs"

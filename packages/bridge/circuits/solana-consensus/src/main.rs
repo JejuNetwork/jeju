@@ -1,47 +1,56 @@
 //! Solana Consensus ZK Program
 //!
-//! This SP1 program verifies Solana consensus by proving:
+//! Verifies Solana consensus by proving:
 //! 1. A supermajority (2/3+) of stake has voted for a slot
 //! 2. The votes are from valid validators (Ed25519 signatures)
 //! 3. The bank hash is correctly derived
-//!
-//! This enables trustless verification of Solana state on EVM chains.
 
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 
+use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, Bytes};
 
 /// Validator vote to be verified
+#[serde_as]
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ValidatorVote {
     /// Validator's public key (32 bytes, Ed25519)
+    #[serde_as(as = "Bytes")]
     pub pubkey: [u8; 32],
     /// Vote signature (64 bytes, Ed25519)
+    #[serde_as(as = "Bytes")]
     pub signature: [u8; 64],
     /// Slot being voted on
     pub slot: u64,
     /// Bank hash being voted on
+    #[serde_as(as = "Bytes")]
     pub bank_hash: [u8; 32],
 }
 
 /// Epoch stake information
+#[serde_as]
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ValidatorStake {
     /// Validator's public key
+    #[serde_as(as = "Bytes")]
     pub pubkey: [u8; 32],
     /// Stake amount in lamports
     pub stake: u64,
 }
 
 /// Consensus verification input
+#[serde_as]
 #[derive(Serialize, Deserialize)]
 pub struct ConsensusInput {
     /// Slot being verified
     pub slot: u64,
     /// Expected bank hash
+    #[serde_as(as = "Bytes")]
     pub bank_hash: [u8; 32],
     /// Previous bank hash (parent)
+    #[serde_as(as = "Bytes")]
     pub parent_bank_hash: [u8; 32],
     /// Validator votes
     pub votes: Vec<ValidatorVote>,
@@ -52,11 +61,13 @@ pub struct ConsensusInput {
 }
 
 /// Output proving consensus was verified
+#[serde_as]
 #[derive(Serialize, Deserialize)]
 pub struct ConsensusOutput {
     /// Slot that was verified
     pub slot: u64,
     /// Bank hash that was verified
+    #[serde_as(as = "Bytes")]
     pub bank_hash: [u8; 32],
     /// Total stake that voted
     pub voted_stake: u64,
@@ -91,8 +102,7 @@ fn main() {
         assert_eq!(vote.slot, input.slot, "Vote for wrong slot");
         assert_eq!(vote.bank_hash, input.bank_hash, "Vote for wrong bank hash");
 
-        // Verify Ed25519 signature
-        // In real impl, use ed25519-dalek or SP1's precompiles
+        // Verify Ed25519 signature in-circuit
         let sig_valid = verify_ed25519_signature(
             &vote.pubkey,
             &vote.signature,
@@ -126,37 +136,19 @@ fn main() {
     sp1_zkvm::io::commit(&output);
 }
 
-/// Create the message that validators sign
-fn create_vote_message(slot: u64, bank_hash: &[u8; 32]) -> [u8; 40] {
-    let mut message = [0u8; 40];
-    message[..8].copy_from_slice(&slot.to_le_bytes());
-    message[8..40].copy_from_slice(bank_hash);
+fn create_vote_message(slot: u64, bank_hash: &[u8; 32]) -> Vec<u8> {
+    let mut message = Vec::with_capacity(40);
+    message.extend_from_slice(&slot.to_le_bytes());
+    message.extend_from_slice(bank_hash);
     message
 }
 
-/// Verify Ed25519 signature
-/// In production, use SP1's Ed25519 precompile for efficiency
-fn verify_ed25519_signature(
-    pubkey: &[u8; 32],
-    signature: &[u8; 64],
-    message: &[u8],
-) -> bool {
-    // SP1 provides ed25519 verification as a precompile
-    // This is a placeholder that does basic structure validation
-    // In real impl: sp1_precompiles::ed25519::verify(pubkey, message, signature)
-
-    // Basic validation
-    if pubkey.iter().all(|&b| b == 0) {
+fn verify_ed25519_signature(pubkey: &[u8; 32], signature: &[u8; 64], message: &[u8]) -> bool {
+    let Ok(verifying_key) = VerifyingKey::from_bytes(pubkey) else {
         return false;
-    }
-    if signature.iter().all(|&b| b == 0) {
+    };
+    let Ok(sig) = Signature::from_slice(signature) else {
         return false;
-    }
-    if message.is_empty() {
-        return false;
-    }
-
-    // For the ZK circuit, we assume signatures passed basic validation
-    // The heavy crypto is handled by SP1's precompiles
-    true
+    };
+    verifying_key.verify(message, &sig).is_ok()
 }

@@ -3,42 +3,64 @@
  * 
  * TypeScript SDK for integrating OAuth3 authentication into web applications.
  * Supports all authentication providers and credential management.
+ * 
+ * Now with full decentralized infrastructure:
+ * - JNS for app discovery
+ * - Decentralized TEE node selection
+ * - IPFS storage for credentials
  */
 
 import {
-  keccak256,
-  toBytes,
   toHex,
   createPublicClient,
-  createWalletClient,
   http,
   type Address,
   type Hex,
   type PublicClient,
-  type WalletClient,
 } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import type {
+import {
   AuthProvider,
-  OAuth3Identity,
-  OAuth3Session,
-  OAuth3App,
-  LinkedProvider,
-  VerifiableCredential,
-  FarcasterIdentity,
-  TEEAttestation,
+  type OAuth3Identity,
+  type OAuth3Session,
+  type OAuth3App,
+  type LinkedProvider,
+  type VerifiableCredential,
+  type FarcasterIdentity,
+  type TEEAttestation,
 } from '../types.js';
 import { FarcasterProvider } from '../providers/farcaster.js';
+import {
+  OAuth3DecentralizedDiscovery,
+  createDecentralizedDiscovery,
+  type DiscoveredApp,
+  type DiscoveredNode,
+} from '../infrastructure/discovery.js';
+import {
+  OAuth3StorageService,
+  createOAuth3StorageService,
+} from '../infrastructure/storage-integration.js';
+import {
+  OAuth3JNSService,
+  createOAuth3JNSService,
+} from '../infrastructure/jns-integration.js';
 
 export interface OAuth3Config {
-  appId: Hex;
+  /** App ID (hex) or JNS name (e.g., 'myapp.oauth3.jeju') */
+  appId: Hex | string;
   redirectUri: string;
-  teeAgentUrl: string;
-  rpcUrl: string;
-  chainId: number;
-  identityRegistryAddress: Address;
-  appRegistryAddress: Address;
-  accountFactoryAddress: Address;
+  /** TEE agent URL - if not provided, will use decentralized discovery */
+  teeAgentUrl?: string;
+  rpcUrl?: string;
+  chainId?: number;
+  identityRegistryAddress?: Address;
+  appRegistryAddress?: Address;
+  accountFactoryAddress?: Address;
+  /** JNS gateway endpoint */
+  jnsGateway?: string;
+  /** Storage API endpoint */
+  storageEndpoint?: string;
+  /** Enable fully decentralized mode */
+  decentralized?: boolean;
 }
 
 export interface LoginOptions {
@@ -88,26 +110,137 @@ export class OAuth3Client {
   private publicClient: PublicClient;
   private farcasterProvider: FarcasterProvider;
   private eventHandlers: Map<OAuth3EventType, Set<OAuth3EventHandler>> = new Map();
+  
+  // Decentralized infrastructure
+  private discovery: OAuth3DecentralizedDiscovery | null = null;
+  private storage: OAuth3StorageService | null = null;
+  private jns: OAuth3JNSService | null = null;
+  private discoveredApp: DiscoveredApp | null = null;
+  private currentNode: DiscoveredNode | null = null;
 
   constructor(config: OAuth3Config) {
     this.config = config;
     this.publicClient = createPublicClient({
-      transport: http(config.rpcUrl),
+      transport: http(config.rpcUrl || 'http://localhost:9545'),
     });
     this.farcasterProvider = new FarcasterProvider();
+
+    // Initialize decentralized services if enabled
+    if (config.decentralized !== false) {
+      this.discovery = createDecentralizedDiscovery({
+        rpcUrl: config.rpcUrl,
+        chainId: config.chainId,
+        ipfsApiEndpoint: config.storageEndpoint,
+      });
+      this.storage = createOAuth3StorageService({
+        ipfsApiEndpoint: config.storageEndpoint,
+      });
+      this.jns = createOAuth3JNSService({
+        rpcUrl: config.rpcUrl,
+        chainId: config.chainId,
+      });
+    }
+
     this.loadSession();
+  }
+
+  /**
+   * Initialize the client with decentralized discovery
+   * Call this before login to discover the app and TEE nodes
+   */
+  async initialize(): Promise<{ app: DiscoveredApp; nodes: DiscoveredNode[] }> {
+    if (!this.discovery) {
+      throw new Error('Decentralized mode not enabled');
+    }
+
+    // Discover the app
+    const appId = this.config.appId as string;
+    this.discoveredApp = await this.discovery.discoverApp(appId);
+    
+    if (!this.discoveredApp) {
+      throw new Error(`App not found: ${appId}`);
+    }
+
+    // Get available TEE nodes
+    const nodes = await this.discovery.discoverNodes();
+    
+    // Select the best node
+    this.currentNode = await this.discovery.getBestNode();
+
+    return {
+      app: this.discoveredApp,
+      nodes,
+    };
+  }
+
+  /**
+   * Get the current TEE agent URL (from config or discovered node)
+   */
+  private getTeeAgentUrl(): string {
+    if (this.config.teeAgentUrl) {
+      return this.config.teeAgentUrl;
+    }
+    if (this.currentNode) {
+      return this.currentNode.endpoint;
+    }
+    throw new Error('No TEE agent URL configured. Call initialize() first or provide teeAgentUrl in config.');
+  }
+
+  /**
+   * Failover to next available TEE node
+   */
+  private async failoverToNextNode(): Promise<void> {
+    if (!this.discovery) return;
+
+    const nodes = await this.discovery.discoverNodes();
+    const currentEndpoint = this.currentNode?.endpoint;
+    
+    // Find a healthy node that isn't the current one
+    const nextNode = nodes.find(n => n.healthy && n.endpoint !== currentEndpoint);
+    
+    if (nextNode) {
+      this.currentNode = nextNode;
+      this.emit('error', { type: 'failover', previousNode: currentEndpoint, newNode: nextNode.endpoint });
+    } else {
+      throw new Error('No healthy TEE nodes available');
+    }
   }
 
   async login(options: LoginOptions): Promise<OAuth3Session> {
     this.emit('login', { provider: options.provider, status: 'started' });
 
-    switch (options.provider) {
-      case 'wallet' as AuthProvider:
-        return this.loginWithWallet();
-      case 'farcaster' as AuthProvider:
-        return this.loginWithFarcaster();
-      default:
-        return this.loginWithOAuth(options);
+    // If decentralized mode and not initialized, do auto-initialization
+    if (this.discovery && !this.currentNode) {
+      await this.initialize();
+    }
+
+    try {
+      let session: OAuth3Session;
+      
+      switch (options.provider) {
+        case AuthProvider.WALLET:
+          session = await this.loginWithWallet();
+          break;
+        case AuthProvider.FARCASTER:
+          session = await this.loginWithFarcaster();
+          break;
+        default:
+          session = await this.loginWithOAuth(options);
+      }
+
+      // Store session in decentralized storage
+      if (this.storage) {
+        await this.storage.storeSession(session);
+      }
+
+      return session;
+    } catch (error) {
+      // Try failover on error
+      if (this.discovery && this.currentNode) {
+        await this.failoverToNextNode();
+        return this.login(options);
+      }
+      throw error;
     }
   }
 
@@ -130,14 +263,17 @@ export class OAuth3Client {
       params: [message, address],
     }) as Hex;
 
-    const response = await fetch(`${this.config.teeAgentUrl}/auth/wallet`, {
+    const teeAgentUrl = this.getTeeAgentUrl();
+    const appId = this.discoveredApp?.appId || this.config.appId;
+
+    const response = await fetch(`${teeAgentUrl}/auth/wallet`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         address,
         signature,
         message,
-        appId: this.config.appId,
+        appId,
       }),
     });
 
@@ -173,7 +309,10 @@ export class OAuth3Client {
 
     const result = await this.requestFarcasterSignature(signatureRequest);
 
-    const response = await fetch(`${this.config.teeAgentUrl}/auth/farcaster`, {
+    const teeAgentUrl = this.getTeeAgentUrl();
+    const appId = this.discoveredApp?.appId || this.config.appId;
+
+    const response = await fetch(`${teeAgentUrl}/auth/farcaster`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -181,7 +320,7 @@ export class OAuth3Client {
         custodyAddress: result.custodyAddress,
         signature: result.signature,
         message: result.message,
-        appId: this.config.appId,
+        appId,
       }),
     });
 
@@ -197,12 +336,15 @@ export class OAuth3Client {
   }
 
   private async loginWithOAuth(options: LoginOptions): Promise<OAuth3Session> {
-    const initResponse = await fetch(`${this.config.teeAgentUrl}/auth/init`, {
+    const teeAgentUrl = this.getTeeAgentUrl();
+    const appId = this.discoveredApp?.appId || this.config.appId;
+
+    const initResponse = await fetch(`${teeAgentUrl}/auth/init`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         provider: options.provider,
-        appId: this.config.appId,
+        appId,
         redirectUri: this.config.redirectUri,
       }),
     });
@@ -246,7 +388,7 @@ export class OAuth3Client {
         window.removeEventListener('message', handleMessage);
         popup?.close();
 
-        const callbackResponse = await fetch(`${this.config.teeAgentUrl}/auth/callback`, {
+        const callbackResponse = await fetch(`${teeAgentUrl}/auth/callback`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ state, code }),
@@ -278,9 +420,16 @@ export class OAuth3Client {
   async logout(): Promise<void> {
     if (!this.session) return;
 
-    await fetch(`${this.config.teeAgentUrl}/session/${this.session.sessionId}`, {
+    const teeAgentUrl = this.getTeeAgentUrl();
+
+    await fetch(`${teeAgentUrl}/session/${this.session.sessionId}`, {
       method: 'DELETE',
     });
+
+    // Remove from decentralized storage
+    if (this.storage) {
+      await this.storage.deleteSession(this.session.sessionId);
+    }
 
     this.clearSession();
     this.emit('logout', {});
@@ -323,7 +472,9 @@ export class OAuth3Client {
       ? toHex(new TextEncoder().encode(options.message))
       : toHex(options.message);
 
-    const response = await fetch(`${this.config.teeAgentUrl}/sign`, {
+    const teeAgentUrl = this.getTeeAgentUrl();
+
+    const response = await fetch(`${teeAgentUrl}/sign`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -333,6 +484,11 @@ export class OAuth3Client {
     });
 
     if (!response.ok) {
+      // Try failover
+      if (this.discovery) {
+        await this.failoverToNextNode();
+        return this.signMessage(options);
+      }
       throw new Error(`Signing failed: ${response.status}`);
     }
 
@@ -349,7 +505,9 @@ export class OAuth3Client {
       throw new Error('Not logged in');
     }
 
-    const response = await fetch(`${this.config.teeAgentUrl}/credential/issue`, {
+    const teeAgentUrl = this.getTeeAgentUrl();
+
+    const response = await fetch(`${teeAgentUrl}/credential/issue`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -365,11 +523,20 @@ export class OAuth3Client {
       throw new Error(`Credential issuance failed: ${response.status}`);
     }
 
-    return response.json() as Promise<VerifiableCredential>;
+    const credential = await response.json() as VerifiableCredential;
+
+    // Store credential in decentralized storage
+    if (this.storage) {
+      await this.storage.storeCredential(credential);
+    }
+
+    return credential;
   }
 
   async verifyCredential(credential: VerifiableCredential): Promise<boolean> {
-    const response = await fetch(`${this.config.teeAgentUrl}/credential/verify`, {
+    const teeAgentUrl = this.getTeeAgentUrl();
+
+    const response = await fetch(`${teeAgentUrl}/credential/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ credential }),
@@ -383,8 +550,42 @@ export class OAuth3Client {
     return valid;
   }
 
+  /**
+   * Retrieve a credential from decentralized storage
+   */
+  async retrieveCredential(credentialId: string): Promise<VerifiableCredential | null> {
+    if (!this.storage) {
+      throw new Error('Decentralized storage not enabled');
+    }
+    return this.storage.retrieveCredential(credentialId);
+  }
+
+  /**
+   * List all credentials for the current identity
+   */
+  async listCredentials(): Promise<VerifiableCredential[]> {
+    if (!this.session || !this.storage) {
+      return [];
+    }
+
+    const subjectDid = `did:ethr:${this.config.chainId || 420691}:${this.session.smartAccount}`;
+    const storedCredentials = await this.storage.listCredentialsForSubject(subjectDid);
+    
+    const credentials: VerifiableCredential[] = [];
+    for (const stored of storedCredentials) {
+      const credential = await this.storage.retrieveCredential(stored.credentialId);
+      if (credential) {
+        credentials.push(credential);
+      }
+    }
+
+    return credentials;
+  }
+
   async getAttestation(): Promise<TEEAttestation> {
-    const response = await fetch(`${this.config.teeAgentUrl}/attestation`);
+    const teeAgentUrl = this.getTeeAgentUrl();
+
+    const response = await fetch(`${teeAgentUrl}/attestation`);
     
     if (!response.ok) {
       throw new Error(`Failed to get attestation: ${response.status}`);
@@ -398,8 +599,10 @@ export class OAuth3Client {
       throw new Error('No session to refresh');
     }
 
+    const teeAgentUrl = this.getTeeAgentUrl();
+
     const response = await fetch(
-      `${this.config.teeAgentUrl}/session/${this.session.sessionId}/refresh`,
+      `${teeAgentUrl}/session/${this.session.sessionId}/refresh`,
       { method: 'POST' }
     );
 
@@ -409,9 +612,67 @@ export class OAuth3Client {
 
     const newSession = await response.json() as OAuth3Session;
     this.setSession(newSession);
+
+    // Update in decentralized storage
+    if (this.storage) {
+      await this.storage.storeSession(newSession);
+    }
+
     this.emit('sessionRefresh', { session: newSession });
 
     return newSession;
+  }
+
+  // ============ Decentralized Infrastructure Access ============
+
+  /**
+   * Get the discovered app details
+   */
+  getDiscoveredApp(): DiscoveredApp | null {
+    return this.discoveredApp;
+  }
+
+  /**
+   * Get the current TEE node
+   */
+  getCurrentNode(): DiscoveredNode | null {
+    return this.currentNode;
+  }
+
+  /**
+   * Get the JNS service for name resolution
+   */
+  getJNS(): OAuth3JNSService | null {
+    return this.jns;
+  }
+
+  /**
+   * Get the storage service for credential management
+   */
+  getStorage(): OAuth3StorageService | null {
+    return this.storage;
+  }
+
+  /**
+   * Get the discovery service
+   */
+  getDiscovery(): OAuth3DecentralizedDiscovery | null {
+    return this.discovery;
+  }
+
+  /**
+   * Check infrastructure health
+   */
+  async checkInfrastructureHealth(): Promise<{
+    jns: boolean;
+    storage: boolean;
+    teeNode: boolean;
+  }> {
+    return {
+      jns: this.jns ? await this.jns.isAvailable('health.jeju').catch(() => false) !== false : false,
+      storage: this.storage ? await this.storage.isHealthy() : false,
+      teeNode: this.currentNode ? this.currentNode.healthy : false,
+    };
   }
 
   getSession(): OAuth3Session | null {

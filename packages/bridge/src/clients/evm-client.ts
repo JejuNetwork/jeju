@@ -1,11 +1,5 @@
 /**
  * EVM Client for Cross-Chain Bridge
- *
- * Provides high-level interface for:
- * - Initiating transfers from EVM to Solana
- * - Completing transfers from Solana to EVM
- * - Querying bridge state
- * - Managing cross-chain tokens
  */
 
 import {
@@ -23,10 +17,6 @@ import {
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import type { ChainId, Hash32 } from '../types/index.js';
 import { TransferStatus, toHash32 } from '../types/index.js';
-
-// =============================================================================
-// CONTRACT ABIS
-// =============================================================================
 
 const BRIDGE_ABI = parseAbi([
   'function initiateTransfer(address token, bytes32 recipient, uint256 amount, uint256 destChainId, bytes payload) payable returns (bytes32)',
@@ -53,10 +43,6 @@ const TOKEN_ABI = parseAbi([
   'function transfer(address to, uint256 amount) returns (bool)',
 ]);
 
-// =============================================================================
-// CLIENT TYPES
-// =============================================================================
-
 export interface EVMClientConfig {
   chainId: ChainId;
   rpcUrl: string;
@@ -64,10 +50,6 @@ export interface EVMClientConfig {
   bridgeAddress: Address;
   lightClientAddress: Address;
 }
-
-// =============================================================================
-// EVM CLIENT
-// =============================================================================
 
 export class EVMClient {
   private config: EVMClientConfig;
@@ -452,10 +434,6 @@ export class EVMClient {
     return this.config.chainId;
   }
 }
-
-// =============================================================================
-// FACTORY
-// =============================================================================
 
 export function createEVMClient(config: EVMClientConfig): EVMClient {
   return new EVMClient(config);

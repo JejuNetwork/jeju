@@ -88,7 +88,7 @@ test.describe('Complete User Journey with Synpress', () => {
 
     // Swap
     await page.goto('/swap');
-    const swapButton = page.getByRole('button', { name: /Swap|Switch to Jeju/i }).first();
+    const swapButton = page.getByRole('button', { name: /Swap|Switch to the network/i }).first();
     await expect(swapButton).toBeVisible();
     const buttonText = await swapButton.textContent();
     expect(buttonText).not.toContain('Connect Wallet');

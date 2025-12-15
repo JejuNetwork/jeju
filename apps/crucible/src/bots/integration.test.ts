@@ -109,13 +109,13 @@ describe('Trading Bot Integration', () => {
       expect(allChains.has(1)).toBe(true); // Ethereum
       expect(allChains.has(42161)).toBe(true); // Arbitrum
       expect(allChains.has(8453)).toBe(true); // Base
-      expect(allChains.has(420691)).toBe(true); // Jeju
+      expect(allChains.has(420691)).toBe(true); // Network
     });
 
     test('should have appropriate chain selection per strategy', () => {
       DEFAULT_BOTS.forEach(bot => {
         if (bot.strategies[0]?.type === 'LIQUIDATION') {
-          // Liquidation should focus on Jeju where perpetual market exists
+          // Liquidation should focus on the network where perpetual market exists
           expect(bot.chains.includes(420691) || bot.chains.includes(420690)).toBe(true);
         }
         

@@ -2,6 +2,8 @@
 
 OP-Stack L2 on Ethereum with 200ms Flashblocks, ERC-4337 paymasters, and ERC-8004 agent identity.
 
+**Jeju is both a network and a framework.** Use it, or fork it to launch your own appchain.
+
 ## Quick Start
 
 ```bash
@@ -16,6 +18,22 @@ git clone https://github.com/elizaos/jeju.git && cd jeju
 bun install
 bun run dev
 ```
+
+## Fork Your Own Network
+
+Every network you launch becomes part of the Jeju ecosystem:
+
+```bash
+# Interactive wizard
+bun run jeju fork
+
+# Or with options
+bun run jeju fork --name "MyNetwork" --chain-id 123456 --yes
+```
+
+This generates everything you need: branding config, genesis, operator keys, Kubernetes manifests, and deployment scripts. Edit `branding.json` to customize your network's name, colors, URLs, and more.
+
+**[Full Forking Guide →](apps/documentation/guides/fork-network.md)**
 
 ## Networks
 

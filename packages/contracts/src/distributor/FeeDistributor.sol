@@ -11,16 +11,15 @@ import {ILiquidityVault} from "../interfaces/IPaymaster.sol";
 import {FeeConfig} from "./FeeConfig.sol";
 
 /**
- * @title FeeDistributorV2
+ * @title FeeDistributor
  * @author Jeju Network
  * @notice Distributes transaction fees with CONFIGURABLE splits via FeeConfig
- * @dev V2 upgrade: Fee splits are now governance-controlled, not hardcoded.
+ * @dev Fee splits are governance-controlled via FeeConfig contract.
  *
- * Changes from V1:
+ * Features:
  * - Fee splits read from FeeConfig contract (governance-controlled)
- * - No more hardcoded APP_SHARE, LP_SHARE, CONTRIBUTOR_SHARE
- * - Supports dynamic fee adjustments via DAO
- * - Added platform fee collection from compute/storage
+ * - Dynamic fee adjustments via DAO
+ * - Platform fee collection from compute/storage
  *
  * Fee Flow:
  * 1. User pays tokens for gas/services
@@ -32,7 +31,7 @@ import {FeeConfig} from "./FeeConfig.sol";
  *
  * @custom:security-contact security@jeju.network
  */
-contract FeeDistributorV2 is ReentrancyGuard, Ownable, Pausable {
+contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
     using SafeERC20 for IERC20;
 
     // ============ Constants ============

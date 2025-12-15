@@ -13,7 +13,7 @@ const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
 
 test.describe('App Detail Modal', () => {
-  test.beforeEach(async ({ _page, _metamask }) => {
+  test.beforeEach(async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
     await page.getByRole('button', { name: /App Registry/i }).click();
@@ -22,7 +22,7 @@ test.describe('App Detail Modal', () => {
     await page.waitForTimeout(1000);
   });
 
-  test('should open app detail modal when clicking app card', async ({ _page }) => {
+  test('should open app detail modal when clicking app card', async ({ page }) => {
     // Find app cards
     const appCards = page.locator('.card').filter({ hasText: /ID:/i });
     const count = await appCards.count();
@@ -48,7 +48,7 @@ test.describe('App Detail Modal', () => {
     console.log('✅ App detail modal opens');
   });
 
-  test('should close modal with X button', async ({ _page }) => {
+  test('should close modal with X button', async ({ page }) => {
     const appCards = page.locator('.card').filter({ hasText: /ID:/i });
     const count = await appCards.count();
 
@@ -75,7 +75,7 @@ test.describe('App Detail Modal', () => {
     console.log('✅ Modal closes with X button');
   });
 
-  test('should close modal with Escape key', async ({ _page }) => {
+  test('should close modal with Escape key', async ({ page }) => {
     const appCards = page.locator('.card').filter({ hasText: /ID:/i });
     const count = await appCards.count();
 
@@ -101,7 +101,7 @@ test.describe('App Detail Modal', () => {
     console.log('✅ Modal closes with Escape key');
   });
 
-  test('should close modal when clicking outside', async ({ _page }) => {
+  test('should close modal when clicking outside', async ({ page }) => {
     const appCards = page.locator('.card').filter({ hasText: /ID:/i });
     const count = await appCards.count();
 
@@ -127,7 +127,7 @@ test.describe('App Detail Modal', () => {
     console.log('✅ Modal closes when clicking outside');
   });
 
-  test('should display all app details in modal', async ({ _page }) => {
+  test('should display all app details in modal', async ({ page }) => {
     const appCards = page.locator('.card').filter({ hasText: /ID:/i });
     const count = await appCards.count();
 
@@ -152,7 +152,7 @@ test.describe('App Detail Modal', () => {
     console.log('✅ App detail modal shows all information');
   });
 
-  test('should show owner actions only for owner', async ({ _page }) => {
+  test('should show owner actions only for owner', async ({ page }) => {
     const appCards = page.locator('.card').filter({ hasText: /ID:/i });
     const count = await appCards.count();
 
@@ -181,7 +181,7 @@ test.describe('App Detail Modal', () => {
 });
 
 test.describe('RainbowKit Wallet Modal', () => {
-  test('should open wallet connection modal', async ({ _page }) => {
+  test('should open wallet connection modal', async ({ page }) => {
     await page.goto(GATEWAY_URL);
 
     // Click connect button
@@ -204,7 +204,7 @@ test.describe('RainbowKit Wallet Modal', () => {
     console.log('✅ RainbowKit modal opens');
   });
 
-  test.skip('should open account modal when clicking connected address', async ({ _page, _metamask }) => {
+  test.skip('should open account modal when clicking connected address', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 
@@ -220,7 +220,7 @@ test.describe('RainbowKit Wallet Modal', () => {
 });
 
 test.describe('Transaction Confirmation Modal (MetaMask)', () => {
-  test('should display MetaMask confirmation for transactions', async ({ _page, _metamask }) => {
+  test('should display MetaMask confirmation for transactions', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 
@@ -256,7 +256,7 @@ test.describe('Transaction Confirmation Modal (MetaMask)', () => {
 });
 
 test.describe('Loading and Transition States', () => {
-  test('should show loading state while data loads', async ({ _page, _metamask }) => {
+  test('should show loading state while data loads', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
     await connectWallet(page, metamask);
 
@@ -277,7 +277,7 @@ test.describe('Loading and Transition States', () => {
     }
   });
 
-  test('should show skeleton loaders for balance cards', async ({ _page, _metamask }) => {
+  test('should show skeleton loaders for balance cards', async ({ page, metamask }) => {
     await page.goto(GATEWAY_URL);
 
     // Before connecting, might see skeleton
@@ -298,7 +298,7 @@ test.describe('Loading and Transition States', () => {
 });
 
 test.describe('Mobile Navigation', () => {
-  test.skip('should show hamburger menu on mobile viewport', async ({ _page, _metamask }) => {
+  test.skip('should show hamburger menu on mobile viewport', async ({ page, metamask }) => {
     await page.setViewportSize({ width: 375, height: 667 }); // iPhone size
     
     await page.goto(GATEWAY_URL);

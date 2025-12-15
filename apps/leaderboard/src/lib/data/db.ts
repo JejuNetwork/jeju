@@ -37,8 +37,8 @@ export async function initializeDatabase(): Promise<void> {
   if (!cqlNodes && config.cqlRequired) {
     throw new Error(
       'Leaderboard requires CovenantSQL for decentralized storage.\n' +
-      'Set COVENANTSQL_NODES environment variable or start decentralized stack:\n' +
-      '  docker compose -f docker-compose.decentralized.yml up -d\n' +
+      'Set COVENANTSQL_NODES environment variable or start stack:\n' +
+      '  docker compose up -d\n' +
       '\n' +
       'Or set CQL_REQUIRED=false for testing (not recommended for production).'
     );

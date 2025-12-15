@@ -9,8 +9,8 @@
  * - Arbitrum One (42161)
  * - Optimism (10)
  * - Base (8453)
- * - Jeju Mainnet (420691)
- * - Jeju Testnet (420690)
+ * - Network Mainnet (420691)
+ * - Network Testnet (420690)
  */
 
 import { createPublicClient, http, Address, parseAbi, PublicClient } from 'viem';
@@ -108,7 +108,7 @@ const DEFAULT_CHAINS: ChainConfig[] = [
   },
   {
     chainId: 420691,
-    name: 'Jeju',
+    name: 'Network',
     rpcUrl: process.env.JEJU_RPC_URL || 'http://127.0.0.1:9545',
     nativeCurrency: { symbol: 'ETH', decimals: 18 },
     tokens: [

@@ -11,7 +11,7 @@
  * 4. Earn relayer fee (typically 5-15 bps)
  */
 
-import { type PublicClient, type WalletClient, parseAbiItem, type Address, encodeFunctionData } from 'viem';
+import { type PublicClient, type WalletClient, parseAbiItem, type Address, keccak256, encodeAbiParameters, parseAbiParameters } from 'viem';
 import { EventEmitter } from 'events';
 
 // Across SpokePool addresses (mainnet)
@@ -213,7 +213,7 @@ export class AcrossAdapter extends EventEmitter {
       args: [relayHash],
     });
 
-    if (fillStatus > 0n) {
+    if (fillStatus > BigInt(0)) {
       return { success: false, error: 'Already filled' };
     }
 
@@ -249,7 +249,7 @@ export class AcrossAdapter extends EventEmitter {
       args: [relayData, BigInt(deposit.originChainId)],
       value: deposit.outputToken === '0x0000000000000000000000000000000000000000' 
         ? deposit.outputAmount 
-        : 0n,
+        : BigInt(0),
     });
 
     const receipt = await client.public.waitForTransactionReceipt({ hash });
@@ -263,38 +263,26 @@ export class AcrossAdapter extends EventEmitter {
   }
 
   private computeRelayHash(deposit: AcrossDeposit): `0x${string}` {
-    // Simplified relay hash - in production use proper Across SDK
-    const encoded = encodeFunctionData({
-      abi: [{
-        type: 'function',
-        name: 'hash',
-        inputs: [
-          { name: 'depositor', type: 'address' },
-          { name: 'recipient', type: 'address' },
-          { name: 'inputToken', type: 'address' },
-          { name: 'outputToken', type: 'address' },
-          { name: 'inputAmount', type: 'uint256' },
-          { name: 'outputAmount', type: 'uint256' },
-          { name: 'originChainId', type: 'uint256' },
-          { name: 'depositId', type: 'uint32' },
-        ],
-        outputs: [{ type: 'bytes32' }],
-        stateMutability: 'pure',
-      }],
-      functionName: 'hash',
-      args: [
+    // Compute relay hash per Across V3 spec
+    const encoded = encodeAbiParameters(
+      parseAbiParameters('address,address,address,address,address,uint256,uint256,uint256,uint32,uint32,uint32,bytes'),
+      [
         deposit.depositor,
         deposit.recipient,
+        deposit.exclusiveRelayer,
         deposit.inputToken,
         deposit.outputToken,
         deposit.inputAmount,
         deposit.outputAmount,
         BigInt(deposit.originChainId),
         deposit.depositId,
-      ],
-    });
-    // Return keccak of the encoded data (simplified)
-    return encoded.slice(0, 66) as `0x${string}`;
+        deposit.fillDeadline,
+        deposit.exclusivityDeadline,
+        deposit.message,
+      ]
+    );
+    
+    return keccak256(encoded);
   }
 
   /**
@@ -303,22 +291,22 @@ export class AcrossAdapter extends EventEmitter {
   evaluateProfitability(
     deposit: AcrossDeposit,
     gasPrice: bigint,
-    ethPriceUsd: number
+    _ethPriceUsd: number
   ): { profitable: boolean; expectedProfitBps: number; reason?: string } {
     // Relayer fee is input - output
     const fee = deposit.inputAmount - deposit.outputAmount;
     
     // Estimate gas cost (~200k gas for fill)
-    const gasCost = 200000n * gasPrice;
+    const gasCost = BigInt(200000) * gasPrice;
     
     // Net profit
     const netProfit = fee - gasCost;
     
-    if (netProfit <= 0n) {
+    if (netProfit <= BigInt(0)) {
       return { profitable: false, expectedProfitBps: 0, reason: 'Gas exceeds fee' };
     }
 
-    const profitBps = Number((netProfit * 10000n) / deposit.inputAmount);
+    const profitBps = Number((netProfit * BigInt(10000)) / deposit.inputAmount);
     
     // Minimum 5 bps profit
     if (profitBps < 5) {

@@ -1,5 +1,5 @@
 /**
- * @fileoverview Jeju Wallet SDK - Unified cross-chain wallet interface
+ * @fileoverview Network Wallet SDK - Unified cross-chain wallet interface
  * @module @jeju/wallet/sdk
  *
  * Provides seamless cross-chain UX through:

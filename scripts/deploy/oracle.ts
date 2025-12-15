@@ -71,7 +71,7 @@ async function main() {
   
   console.log('');
   console.log('==========================================');
-  console.log('Jeju Oracle Network Deployment');
+  console.log('Oracle Network Deployment');
   console.log('==========================================');
   console.log(`Network: ${network}`);
   console.log(`RPC: ${config.rpc}`);

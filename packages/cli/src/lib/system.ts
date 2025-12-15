@@ -191,20 +191,20 @@ export function getSystemInfo(): { os: string; arch: string; home: string } {
   };
 }
 
-export function getJejuDir(): string {
+export function getNetworkDir(): string {
   return join(homedir(), '.jeju');
 }
 
 export function getKeysDir(): string {
-  return join(getJejuDir(), 'keys');
+  return join(getNetworkDir(), 'keys');
 }
 
 export function getConfigPath(): string {
-  return join(getJejuDir(), 'config.json');
+  return join(getNetworkDir(), 'config.json');
 }
 
 export function jejuDirExists(): boolean {
-  return existsSync(getJejuDir());
+  return existsSync(getNetworkDir());
 }
 
 export async function installKurtosis(): Promise<boolean> {

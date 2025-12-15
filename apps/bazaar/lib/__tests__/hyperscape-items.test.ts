@@ -2,7 +2,7 @@
  * Game Items Integration Tests
  * 
  * Tests for Items.sol (ERC-1155) integration in Bazaar
- * These tests work with any game that uses Jeju's canonical Items.sol contract
+ * These tests work with any game that uses network's canonical Items.sol contract
  */
 
 import { describe, test, expect } from 'bun:test'

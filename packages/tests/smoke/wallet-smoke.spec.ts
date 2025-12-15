@@ -15,9 +15,9 @@ import { testWithSynpress } from '@synthetixio/synpress';
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
 import { createPublicClient, http, parseEther, formatEther, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { createJejuWalletSetup, PASSWORD, TEST_WALLET_ADDRESS } from '../shared/synpress.config.base';
+import { createWalletSetup, PASSWORD, TEST_WALLET_ADDRESS } from '../shared/synpress.config.base';
 
-const basicSetup = createJejuWalletSetup();
+const basicSetup = createWalletSetup();
 const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
 
@@ -28,7 +28,7 @@ const BAZAAR_PORT = parseInt(process.env.BAZAAR_PORT || '4006');
 
 const chain = {
   id: CHAIN_ID,
-  name: 'Jeju Local',
+  name: 'Network Local',
   nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
   rpcUrls: { default: { http: [RPC_URL] } },
 };
@@ -154,8 +154,8 @@ test.describe('MetaMask Network Smoke Tests', () => {
     const metamask = new MetaMask(context, metamaskPage, PASSWORD, extensionId);
 
     // Get current network from MetaMask
-    // The wallet setup should have already configured Jeju Local
-    console.log('✅ Wallet setup includes Jeju Local network configuration');
+    // The wallet setup should have already configured Network Local
+    console.log('✅ Wallet setup includes Network Local network configuration');
 
     // Verify RPC is reachable
     const isHealthy = await publicClient.getChainId().then(() => true).catch(() => false);

@@ -48,7 +48,7 @@ test.describe('Swap Interactions with Synpress', () => {
     await page.goto('/swap');
     
     // Swap button should be visible
-    const swapButton = page.getByRole('button', { name: /Swap|Switch to Jeju/i });
+    const swapButton = page.getByRole('button', { name: /Swap|Switch to the network/i });
     await expect(swapButton.first()).toBeVisible();
   });
 });

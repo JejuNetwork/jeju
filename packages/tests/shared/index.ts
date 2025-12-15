@@ -9,7 +9,7 @@ export {
 } from './fixtures/synpress-wallet';
 
 export {
-  createJejuSynpressConfig, createJejuWalletSetup, createSmokeTestConfig,
+  createSynpressConfig, createWalletSetup, createSmokeTestConfig,
   SEED_PHRASE, PASSWORD, TEST_WALLET_ADDRESS,
   JEJU_CHAIN_ID, JEJU_RPC_URL, SYNPRESS_CACHE_DIR,
   GLOBAL_SETUP_PATH, GLOBAL_TEARDOWN_PATH,

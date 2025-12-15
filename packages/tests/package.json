@@ -31,6 +31,11 @@
     "smoke"
   ],
   "scripts": {
+    "test": "bun test",
+    "test:unit": "bun test shared/",
+    "test:integration": "bun test integration/",
+    "test:cross-chain": "bun test cross-chain/",
+    "test:e2e": "bunx playwright test",
     "synpress:cache": "bun run synpress:cache:build",
     "synpress:cache:build": "npx synpress --force",
     "synpress:cache:clear": "rm -rf ../../.jeju/.synpress-cache",
@@ -53,14 +58,12 @@
     "wallet"
   ],
   "dependencies": {
-    "@jeju/kms": ">=0.1.0",
-    "@jeju/shared": ">=0.1.0",
+    "@jeju/kms": "workspace:*",
+    "@jeju/shared": "workspace:*",
     "@tenkeylabs/dappwright": "^2.11.3",
     "hono": "^4.0.0",
+    "pg": "^8.13.3",
     "viem": "^2.7.15"
-  },
-  "optionalDependencies": {
-    "@jejunetwork/storage-pinning-api": ">=0.1.0"
   },
   "peerDependencies": {
     "@playwright/test": ">=1.55.1",

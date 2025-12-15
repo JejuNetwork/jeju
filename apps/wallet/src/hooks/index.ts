@@ -1,5 +1,5 @@
 /**
- * @fileoverview React hooks for Jeju Wallet
+ * @fileoverview React hooks for network Wallet
  */
 
 export * from './useWallet';

@@ -408,6 +408,164 @@ contract PresaleTest is Test {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    //                              CCA INTEGRATION TEST
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function test_CCAFullFlow() public {
+        // Setup CCA auction
+        Token ccaToken = new Token("CCA Token", "CCA", TOKEN_SUPPLY, owner, 0, true);
+        Presale ccaPresale = new Presale(address(ccaToken), treasury, owner);
+
+        vm.startPrank(owner);
+        ccaPresale.configure(
+            Presale.PresaleMode.CCA_AUCTION,
+            PRESALE_ALLOCATION,
+            SOFT_CAP,
+            HARD_CAP,
+            MIN_CONTRIBUTION,
+            MAX_CONTRIBUTION,
+            0,
+            0.01 ether, // start price
+            0.001 ether, // reserve price
+            1e12, // decay
+            whitelistStart,
+            publicStart,
+            presaleEnd,
+            tgeTimestamp
+        );
+        ccaPresale.setVesting(10000, 0, 0); // 100% TGE
+        ccaToken.transfer(address(ccaPresale), PRESALE_ALLOCATION);
+        vm.stopPrank();
+
+        // === Phase 1: Contributions ===
+        vm.warp(publicStart);
+
+        // User1 contributes 5 ETH
+        vm.prank(user1);
+        ccaPresale.contribute{value: 5 ether}();
+
+        // User2 contributes 5 ETH (soft cap reached)
+        vm.prank(user2);
+        ccaPresale.contribute{value: 5 ether}();
+
+        assertEq(ccaPresale.totalRaised(), 10 ether);
+
+        // === Phase 2: Presale ends, set clearing price ===
+        vm.warp(presaleEnd + 1);
+        assertEq(uint256(ccaPresale.currentPhase()), uint256(Presale.Phase.CLEARING));
+
+        address[] memory contributors = new address[](2);
+        contributors[0] = user1;
+        contributors[1] = user2;
+
+        // Set clearing price at 0.002 ETH per token
+        uint256 clearingPrice = 0.002 ether;
+        vm.prank(owner);
+        ccaPresale.setClearingPrice(clearingPrice, contributors);
+
+        // Verify allocations calculated correctly
+        (uint256 eth1, uint256 alloc1,,,,,, ) = ccaPresale.getContribution(user1);
+        (uint256 eth2, uint256 alloc2,,,,,, ) = ccaPresale.getContribution(user2);
+
+        assertEq(eth1, 5 ether);
+        assertEq(eth2, 5 ether);
+        // 5 ETH / 0.002 ETH per token = 2500 tokens
+        assertEq(alloc1, 2500 * 10**18);
+        assertEq(alloc2, 2500 * 10**18);
+
+        // === Phase 3: TGE - Claim tokens ===
+        vm.warp(tgeTimestamp);
+
+        uint256 claimable1 = ccaPresale.getClaimableAmount(user1);
+        assertEq(claimable1, 2500 * 10**18);
+
+        vm.prank(user1);
+        ccaPresale.claim();
+
+        assertEq(ccaToken.balanceOf(user1), 2500 * 10**18);
+
+        vm.prank(user2);
+        ccaPresale.claim();
+
+        assertEq(ccaToken.balanceOf(user2), 2500 * 10**18);
+
+        // === Phase 4: Finalize ===
+        uint256 treasuryBefore = treasury.balance;
+        vm.prank(owner);
+        ccaPresale.finalize();
+
+        assertEq(treasury.balance, treasuryBefore + 10 ether);
+    }
+
+    function test_CCAWithMaxPrice() public {
+        // Setup CCA auction
+        Token ccaToken = new Token("CCA2 Token", "CCA2", TOKEN_SUPPLY, owner, 0, true);
+        Presale ccaPresale = new Presale(address(ccaToken), treasury, owner);
+
+        vm.startPrank(owner);
+        ccaPresale.configure(
+            Presale.PresaleMode.CCA_AUCTION,
+            PRESALE_ALLOCATION,
+            SOFT_CAP,
+            HARD_CAP,
+            MIN_CONTRIBUTION,
+            MAX_CONTRIBUTION,
+            0,
+            0.01 ether,
+            0.001 ether,
+            1e12,
+            whitelistStart,
+            publicStart,
+            presaleEnd,
+            tgeTimestamp
+        );
+        ccaPresale.setVesting(10000, 0, 0);
+        ccaToken.transfer(address(ccaPresale), PRESALE_ALLOCATION);
+        vm.stopPrank();
+
+        vm.warp(publicStart);
+
+        // User1 bids without max price
+        vm.prank(user1);
+        ccaPresale.contribute{value: 5 ether}();
+
+        // User2 bids with max price of 0.0015 ETH
+        vm.prank(user2);
+        ccaPresale.contributeWithMaxPrice{value: 5 ether}(0.0015 ether);
+
+        // User3 bids normally
+        vm.prank(user3);
+        ccaPresale.contribute{value: 5 ether}();
+
+        vm.warp(presaleEnd + 1);
+
+        address[] memory contributors = new address[](3);
+        contributors[0] = user1;
+        contributors[1] = user2;
+        contributors[2] = user3;
+
+        // Set clearing at 0.002 ETH (above user2's max)
+        vm.prank(owner);
+        ccaPresale.setClearingPrice(0.002 ether, contributors);
+
+        // User1 and user3 get allocation
+        (, uint256 alloc1,,,,,, ) = ccaPresale.getContribution(user1);
+        (, uint256 alloc3,,,,,, ) = ccaPresale.getContribution(user3);
+        assertEq(alloc1, 2500 * 10**18);
+        assertEq(alloc3, 2500 * 10**18);
+
+        // User2 gets refund instead
+        (,, , , , uint256 refund2, , ) = ccaPresale.getContribution(user2);
+        assertEq(refund2, 5 ether);
+
+        // User2 claims refund
+        uint256 balBefore = user2.balance;
+        vm.prank(user2);
+        ccaPresale.claimRefund();
+        assertEq(user2.balance, balBefore + 5 ether);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     //                              VIEW TESTS
     // ═══════════════════════════════════════════════════════════════════════════
 

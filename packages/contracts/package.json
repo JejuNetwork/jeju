@@ -1,7 +1,7 @@
 {
   "name": "@jejunetwork/contracts",
   "version": "0.2.0",
-  "description": "Jeju Network smart contract ABIs, types, and deployment addresses. Includes game contracts (Gold, Items, GameIntegration) for Hyperscape and forkable games.",
+  "description": "Network smart contract ABIs, types, and deployment addresses. Includes game contracts (Gold, Items, GameIntegration) for Hyperscape and forkable games.",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",

@@ -1,5 +1,5 @@
 /**
- * Jeju KMS - Unified key management via Encryption, TEE, and MPC providers
+ * Network KMS - Unified key management via Encryption, TEE, and MPC providers
  */
 
 import type { Address } from 'viem';

@@ -5,6 +5,7 @@
   "description": "Gateway Portal - Protocol Infrastructure Hub. Bridge tokens, deploy paymasters, provide ETH liquidity, run nodes, earn rewards. Protocol power = paymaster + liquidity. Supports elizaOS, CLANKER, VIRTUAL, CLANKERMON + any ERC20.",
   "scripts": {
     "dev": "concurrently \"vite\" \"bun src/a2a-server.ts\" \"bun src/rpc-server.ts\" \"bun src/x402-server.ts\"",
+    "dev:jeju": "cd ../.. && bun run jeju:dev --only=gateway",
     "dev:ui": "vite",
     "dev:a2a": "bun src/a2a-server.ts",
     "dev:rpc": "bun src/rpc-server.ts",
@@ -51,6 +52,7 @@
     "test:integration": "playwright test tests/integration/",
     "test:watch": "bun test --watch",
     "test:all": "bun run test && bun run test:e2e",
+    "test:jeju": "cd ../.. && bun run jeju:test --app=gateway",
     "test:report": "playwright show-report"
   },
   "dependencies": {

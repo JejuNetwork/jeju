@@ -1,81 +1,27 @@
 {
-  "$schema": "../../packages/config/jeju-manifest.schema.json",
+  "$schema": "../../jeju-manifest.schema.json",
   "name": "leaderboard",
-  "displayName": "Jeju Leaderboard",
-  "version": "2.0.0",
-  "type": "core",
-  "description": "Global contributor leaderboard with GitHub analytics, ERC-8004 reputation attestations, and AI-generated summaries",
+  "displayName": "Network Leaderboard",
+  "version": "1.0.0",
+  "type": "vendor",
+  "description": "Global leaderboard and rankings system",
   "commands": {
     "dev": "bun run dev",
     "build": "bun run build",
-    "start": "bun run start",
-    "test": "bun run test"
+    "start": "bun run start"
   },
   "ports": {
     "main": 5012
   },
-  "dependencies": ["contracts", "config"],
-  "optional": false,
-  "enabled": true,
-  "autoStart": true,
-  "tags": ["leaderboard", "reputation", "github", "analytics", "erc-8004"],
-  "jns": {
-    "name": "leaderboard.jeju",
-    "description": "Jeju Contributor Leaderboard",
-    "url": "https://leaderboard.jeju.network"
-  },
-  "healthCheck": {
-    "url": "http://localhost:5012/api/health",
-    "interval": 30000
-  },
-  "agent": {
-    "enabled": true,
-    "a2aEndpoint": "/api/a2a",
-    "mcpEndpoint": "/api/mcp",
-    "tags": ["jeju-app", "leaderboard", "reputation", "analytics"],
-    "metadata": {
-      "category": "analytics",
-      "provider": "jeju-network",
-      "features": ["github-analytics", "reputation-scoring", "ai-summaries"]
-    },
-    "trustModels": ["open", "staked"],
-    "x402Support": false,
-    "jnsName": "leaderboard.jeju"
-  },
-  "decentralization": {
-    "database": {
-      "type": "covenantql",
-      "databaseId": "leaderboard",
-      "consistency": "strong"
-    },
-    "cache": {
-      "enabled": true,
-      "namespace": "leaderboard",
-      "planId": "basic"
-    },
-    "secrets": {
-      "required": ["GITHUB_TOKEN"],
-      "optional": ["ANTHROPIC_API_KEY", "OPENAI_API_KEY"]
-    },
-    "triggers": [
-      {
-        "name": "pipeline-sync",
-        "type": "cron",
-        "cronExpression": "0 * * * *",
-        "endpoint": "/api/pipeline/run",
-        "description": "Hourly GitHub data synchronization"
-      },
-      {
-        "name": "score-calculation",
-        "type": "cron",
-        "cronExpression": "30 * * * *",
-        "endpoint": "/api/pipeline/scores",
-        "description": "Hourly score recalculation"
-      }
-    ],
-    "frontend": {
-      "ipfs": true,
-      "jnsName": "leaderboard.jeju"
+  "dependencies": ["indexer"],
+  "optional": true,
+  "enabled": false,
+  "autoStart": false,
+  "tags": ["gaming", "social", "rankings"],
+  "testing": {
+    "unit": {
+      "command": "bun run test",
+      "timeout": 120000
     }
   }
 }

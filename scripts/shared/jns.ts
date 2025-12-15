@@ -1,5 +1,5 @@
 /**
- * JNS (Jeju Name Service) Shared Client Utilities
+ * JNS (Network Name Service) Shared Client Utilities
  * 
  * Provides:
  * - Name resolution (name → address)
@@ -321,21 +321,21 @@ export const JEJU_APPS = {
   monitoring: 'monitoring.jeju',
 } as const;
 
-export type JejuApp = keyof typeof JEJU_APPS;
+export type NetworkApp = keyof typeof JEJU_APPS;
 
 /**
- * Get the JNS name for a Jeju app
+ * Get the JNS name: getNetworkName() app
  */
-export function getAppJNSName(app: JejuApp): string {
+export function getAppJNSName(app: NetworkApp): string {
   return JEJU_APPS[app];
 }
 
 /**
- * Resolve a Jeju app to its endpoint
+ * Resolve a network app to its endpoint
  */
 export async function resolveAppEndpoint(
   client: JNSClient,
-  app: JejuApp
+  app: NetworkApp
 ): Promise<string | null> {
   const name = getAppJNSName(app);
   const record = await client.resolve(name);

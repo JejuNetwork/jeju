@@ -25,7 +25,7 @@ export async function sendNotification(
   config?: NotificationConfig
 ): Promise<void> {
   const emoji = EMOJI_MAP[level];
-  const fullMessage = `${emoji} **Jeju Notification**\n${message}`;
+  const fullMessage = `${emoji} **Network Notification**\n${message}`;
   
   console.log(fullMessage);
   

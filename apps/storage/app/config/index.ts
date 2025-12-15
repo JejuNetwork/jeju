@@ -6,6 +6,9 @@
  * - NEXT_PUBLIC_* env vars override at build time
  */
 import { defineChain } from 'viem';
+import { getNetworkName as getConfigNetworkName } from '@jejunetwork/config';
+
+const networkName = getConfigNetworkName();
 
 // Network selection
 export const NETWORK = (process.env.NEXT_PUBLIC_NETWORK || 'localnet') as 'localnet' | 'testnet' | 'mainnet';
@@ -27,7 +30,7 @@ export const jeju = defineChain({
   },
   blockExplorers: {
     default: {
-      name: 'Jeju Explorer',
+      name: 'Network Explorer',
       url: getDefaultExplorerUrl(),
       apiUrl: `${getDefaultExplorerUrl()}/api`,
     },
@@ -73,8 +76,8 @@ function getDefaultExplorerUrl(): string {
 
 function getChainName(): string {
   switch (NETWORK) {
-    case 'mainnet': return 'Jeju';
-    case 'testnet': return 'Jeju Testnet';
-    default: return 'Jeju Localnet';
+    case 'mainnet': return networkName;
+    case 'testnet': return `${networkName} Testnet`;
+    default: return `${networkName} Localnet`;
   }
 }

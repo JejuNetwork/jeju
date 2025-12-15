@@ -247,7 +247,7 @@ interface RouteInfo {
 
 function RouteCard({ route }: { route: RouteInfo }) {
   const chains: Record<number, string> = {
-    1: 'Ethereum', 8453: 'Base', 42161: 'Arbitrum', 10: 'Optimism', 137: 'Polygon', 1337: 'Jeju',
+    1: 'Ethereum', 8453: 'Base', 42161: 'Arbitrum', 10: 'Optimism', 137: 'Polygon', 1337: 'Network',
   }
   const getChain = (id: number) => chains[id] || `${id}`
 

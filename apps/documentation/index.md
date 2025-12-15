@@ -80,12 +80,17 @@ Bridge assets, swap tokens, stake for rewards.
 ### 👩‍💻 Developers
 Build apps, deploy contracts, integrate APIs.
 
-[Quick Start →](/build/quick-start)
+[Quick Start →](/getting-started/quick-start)
 
 ### 🖥️ Operators
 Run nodes, provide liquidity, earn rewards.
 
 [Run a Node →](/operate/overview)
+
+### 🚀 Launch Your Own Chain
+Fork Jeju to create your own branded L2.
+
+[Fork Network →](/guides/fork-network)
 
 </div>
 
@@ -122,7 +127,7 @@ Run nodes, provide liquidity, earn rewards.
 <style>
 .paths {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 1.5rem;
   margin: 2rem 0;
 }
@@ -131,7 +136,13 @@ Run nodes, provide liquidity, earn rewards.
   margin-top: 0;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 960px) {
+  .paths {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
   .paths {
     grid-template-columns: 1fr;
   }
