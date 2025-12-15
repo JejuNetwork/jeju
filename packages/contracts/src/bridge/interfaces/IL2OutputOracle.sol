@@ -22,9 +22,9 @@ interface IL2OutputOracle {
     function sequencerRegistry() external view returns (address);
 }
 
-/// @title IL2OutputOracleStage2
+/// @title IL2OutputOracleDecentralized
 /// @notice Additional interface for Decentralized specific functions
-interface IL2OutputOracleStage2 {
+interface IL2OutputOracleDecentralized {
     function isRegisteredSequencer(address sequencer) external view returns (bool);
     function deleteL2Output(uint256 _l2OutputIndex) external;
 

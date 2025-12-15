@@ -6,7 +6,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-OP_STAGE2_DIR="$PROJECT_ROOT/vendor/optimism-stage2"
+OP_DECENTRALIZED_DIR="$PROJECT_ROOT/vendor/optimism-decentralized"
 
 echo "=== Testing Go code with Docker (Go 1.23) ==="
 
@@ -22,7 +22,7 @@ echo "Testing packages: $TEST_PACKAGES"
 
 # Run tests in Docker with Go 1.24
 docker run --rm \
-    -v "$OP_STAGE2_DIR:/workspace" \
+    -v "$OP_DECENTRALIZED_DIR:/workspace" \
     -w /workspace \
     golang:1.24 \
     sh -c "
@@ -30,10 +30,10 @@ docker run --rm \
         cd /workspace
         echo '=== Tidying Go modules ==='
         go mod tidy
-        echo '=== Building Stage 2 packages ==='
+        echo '=== Building Decentralization packages ==='
         go build -v ./op-batcher/batcher/...
         go build -v ./op-node/rollup/sequencing/...
-        echo '=== Running Stage 2 tests ==='
+        echo '=== Running Decentralization tests ==='
         go test -v -count=1 ./op-batcher/batcher/...
         go test -v -count=1 ./op-node/rollup/sequencing/...
     "

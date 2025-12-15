@@ -19,7 +19,7 @@ contract MockJEJUToken is ERC20 {
     }
 }
 
-contract DeployStage2 is Script {
+contract DeployDecentralization is Script {
     // Configuration
     uint256 constant TIMELOCK_DELAY = 30 days;
     uint256 constant EMERGENCY_DELAY = 1 hours;

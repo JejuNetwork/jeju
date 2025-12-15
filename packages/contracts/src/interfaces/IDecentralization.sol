@@ -2,7 +2,7 @@
 pragma solidity ^0.8.26;
 
 /**
- * @title IStage2Contracts
+ * @title IDecentralization
  * @notice Interfaces for Decentralized contracts integration
  */
 interface ISequencerRegistry {

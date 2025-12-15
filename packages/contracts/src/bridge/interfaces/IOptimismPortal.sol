@@ -22,9 +22,9 @@ interface IOptimismPortal {
     function governanceTimelock() external view returns (address);
 }
 
-/// @title IOptimismPortalStage2
+/// @title IOptimismPortalDecentralized
 /// @notice Additional interface for Decentralized specific functions
-interface IOptimismPortalStage2 {
+interface IOptimismPortalDecentralized {
     function pause() external;
     function unpause() external;
     function setGasPayingToken(address _token, uint8 _decimals, bytes32 _name, bytes32 _symbol) external;

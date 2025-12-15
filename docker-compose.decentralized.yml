@@ -320,7 +320,7 @@ services:
       - jeju-decentralized
 
   # ============================================================================
-  # STAGE 2 DECENTRALIZATION SERVICES
+  # DECENTRALIZATION SERVICES
   # ============================================================================
   
   # Contract Deployer
