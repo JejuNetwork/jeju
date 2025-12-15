@@ -2,30 +2,23 @@
 pragma solidity ^0.8.26;
 
 import "../interfaces/IProver.sol";
+import "../interfaces/IMips.sol";
 
 /// @title CannonProver
 /// @notice Adapter that integrates with Optimism's Cannon MIPS VM for real fraud proofs
 /// @dev This contract wraps the Cannon VM to provide fraud proof verification
-///      compatible with our DisputeGameFactory
-interface IMIPS {
-    function step(bytes calldata stateData, bytes calldata proof, bytes32 localContext) 
-        external returns (bytes32 postState);
-}
-
-interface IPreimageOracle {
-    function readPreimage(bytes32 key, uint256 offset) 
-        external view returns (bytes32 dat, uint256 datLen);
-    function loadLocalData(
-        uint256 ident,
-        bytes32 localContext,
-        bytes32 word,
-        uint256 size,
-        uint256 partOffset
-    ) external returns (bytes32 key);
-}
-
-/// @title CannonProver  
-/// @notice Real fraud proof verification using Cannon MIPS VM
+///      compatible with our DisputeGameFactory.
+///
+/// CANNON INTEGRATION GUIDE:
+/// 1. Deploy MIPS.sol from optimism contracts-bedrock
+/// 2. Deploy PreimageOracle.sol  
+/// 3. Deploy this CannonProver with MIPS and Oracle addresses
+/// 4. Register CannonProver with DisputeGameFactory
+/// 5. Configure op-challenger with matching Cannon binary
+///
+/// The MIPS VM executes single instructions at a time, enabling
+/// interactive bisection games to find the exact instruction
+/// where a fault occurred.
 contract CannonProver is IProver {
     /// @notice The Cannon MIPS VM contract
     IMIPS public immutable mips;

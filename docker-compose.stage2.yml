@@ -168,6 +168,11 @@ services:
         condition: service_healthy
     networks:
       - jeju-stage2
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:8545"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   # L2 Reth Sequencer (Secondary)
   op-reth-sequencer-2:
@@ -509,29 +514,25 @@ services:
 
   # Beacon Mock (for dev mode)
   beacon-mock:
-    image: alpine:3.19
+    image: python:3.11-alpine
     container_name: jeju-stage2-beacon-mock
-    command: >
-      sh -c "
-        apk add --no-cache python3 &&
-        python3 -c '
-import http.server
-import json
-
-class BeaconHandler(http.server.BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header(\"Content-type\", \"application/json\")
-        self.end_headers()
-        if \"/eth/v1/beacon/genesis\" in self.path:
-            self.wfile.write(json.dumps({\"data\": {\"genesis_time\": \"0\"}}).encode())
-        else:
-            self.wfile.write(json.dumps({\"data\": {}}).encode())
-    def log_message(self, format, *args): pass
-
-http.server.HTTPServer((\"\", 5052), BeaconHandler).serve_forever()
-        '
-      "
+    command:
+      - python3
+      - -c
+      - |
+        import http.server
+        import json
+        class BeaconHandler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(200)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                if "/eth/v1/beacon/genesis" in self.path:
+                    self.wfile.write(json.dumps({"data": {"genesis_time": "0"}}).encode())
+                else:
+                    self.wfile.write(json.dumps({"data": {}}).encode())
+            def log_message(self, format, *args): pass
+        http.server.HTTPServer(("", 5052), BeaconHandler).serve_forever()
     ports:
       - "5052:5052"
     networks:
@@ -582,7 +583,7 @@ http.server.HTTPServer((\"\", 5052), BeaconHandler).serve_forever()
       - "4020:4020"   # HTTP API
       - "4021:4021"   # WebSocket for nodes
     environment:
-      - JEJU_RPC_URL=http://op-geth-seq-1:8545
+      - JEJU_RPC_URL=http://op-geth-sequencer-1:8545
       - PROXY_REGISTRY_ADDRESS=${PROXY_REGISTRY_ADDRESS:-0x0000000000000000000000000000000000000000}
       - PROXY_PAYMENT_ADDRESS=${PROXY_PAYMENT_ADDRESS:-0x0000000000000000000000000000000000000000}
       # SECURITY: Private key must be set via environment variable - no default
@@ -600,7 +601,7 @@ http.server.HTTPServer((\"\", 5052), BeaconHandler).serve_forever()
       - SENTINEL_API_URL=${SENTINEL_API_URL:-}
     command: ["bun", "run", "apps/compute/src/proxy/scripts/start-coordinator.ts"]
     depends_on:
-      op-geth-seq-1:
+      op-geth-sequencer-1:
         condition: service_healthy
     networks:
       - jeju-stage2

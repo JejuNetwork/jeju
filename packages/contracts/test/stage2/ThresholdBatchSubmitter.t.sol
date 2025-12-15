@@ -289,21 +289,16 @@ contract ThresholdBatchSubmitterTest is Test {
     function testRemoveSequencerMaintainsMinThreshold() public {
         // threshold=2, count=3
         bytes32 changeId1 = submitter.proposeRemoveSequencer(seq3);
-        vm.warp(block.timestamp + ADMIN_TIMELOCK_DELAY + 1);
+        skip(ADMIN_TIMELOCK_DELAY + 1);
         submitter.executeRemoveSequencer(changeId1);
         
         // threshold=2, count=2 - at minimum
         assertEq(submitter.threshold(), 2);
         assertEq(submitter.sequencerCount(), 2);
         
-        // Now try to remove another - need to warp AFTER proposing
-        // Record timestamp BEFORE proposing
-        uint256 proposalTime = block.timestamp;
+        // Now try to remove another
         bytes32 changeId2 = submitter.proposeRemoveSequencer(seq2);
-        
-        // Warp relative to the proposal time, not current timestamp
-        // The proposal was made at proposalTime, so we need to be at proposalTime + delay
-        vm.warp(proposalTime + ADMIN_TIMELOCK_DELAY + 1);
+        skip(ADMIN_TIMELOCK_DELAY + 1);
         submitter.executeRemoveSequencer(changeId2);
         
         // Threshold stays at MIN_THRESHOLD=2, but count is 1

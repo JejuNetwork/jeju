@@ -166,18 +166,16 @@ contract CannonProverTest is Test {
         prover.verifyProof(preStateRoot, postStateRoot, shortProof);
     }
 
-    function test_VerifyProof_PreStateMismatch() public {
+    function test_VerifyProof_PreStateMismatch() public view {
         bytes memory stateData = hex"deadbeef";
         bytes memory memoryProof = hex"";
         bytes32 localContext = bytes32(0);
         
-        // Use a different pre-state root than what the stateData hashes to
         bytes32 wrongPreStateRoot = bytes32(uint256(999));
         bytes32 postStateRoot = bytes32(uint256(1));
         
         bytes memory proof = abi.encode(stateData, memoryProof, localContext);
         
-        // Should return false (pre-state doesn't match)
         bool isFraud = prover.verifyProof(wrongPreStateRoot, postStateRoot, proof);
         assertFalse(isFraud, "Pre-state mismatch should fail verification");
     }
@@ -202,7 +200,7 @@ contract CannonProverTest is Test {
         assertTrue(isValid, "Defense should be valid when states match");
     }
 
-    function test_VerifyDefenseProof_InvalidDefense() public {
+    function test_VerifyDefenseProof_InvalidDefense() public view {
         bytes memory stateData = hex"cafebabe";
         bytes memory memoryProof = hex"";
         bytes32 localContext = bytes32(0);

@@ -11,7 +11,7 @@
  * 6. Reputation-based selection
  */
 
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 
 const ROOT = join(import.meta.dir, '../..');
