@@ -68,6 +68,7 @@ async function main() {
   await Promise.all([
     validateTerraform("testnet"),
     validateTerraform("mainnet"),
+    validateTerraform("gcp-testnet"),
     validateHelm(),
     validateKurtosis()
   ]);

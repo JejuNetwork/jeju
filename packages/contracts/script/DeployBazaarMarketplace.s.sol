@@ -4,7 +4,7 @@ pragma solidity ^0.8.26;
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 import {Bazaar} from "../src/marketplace/Bazaar.sol";
-import {MockJejuUSDC} from "../src/tokens/MockJejuUSDC.sol";
+import {MockToken} from "../src/mocks/MockToken.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract MockGold is ERC20 {
@@ -23,7 +23,7 @@ contract DeployBazaarMarketplace is Script {
 
         // Deploy mock tokens for testing
         MockGold gold = new MockGold();
-        MockJejuUSDC usdc = new MockJejuUSDC(deployer);
+        MockToken usdc = new MockToken("USD Coin", "USDC", 18);
 
         goldAddr = address(gold);
         usdcAddr = address(usdc);

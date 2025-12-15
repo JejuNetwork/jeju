@@ -1,0 +1,52 @@
+# BBLN Warp Route Configuration - Testnet
+#
+# Deploy with Hyperlane CLI:
+#   hyperlane warp deploy --config bbln-testnet.yaml
+#
+# After updating the token addresses below, verify with:
+#   hyperlane warp verify
+
+# Base Sepolia - Collateral (home chain for EVM)
+# The BBLN ERC-20 token is locked here when bridging to Solana
+basesepolia:
+  type: collateral
+  # BBLN Token deployed on Base Sepolia
+  token: "0x3586d05d61523c81d2d79c4e1132ffa1b3bcad5f"
+  # Hyperlane mailbox on Base Sepolia
+  mailbox: "0x6966b0E55883d49BFB24539356a2f8A673E02039"
+  # Interchain Gas Paymaster
+  interchainGasPaymaster: "0x28B02B97a850872C4D33C3E024fab6499ad96564"
+  # Owner address (deployer)
+  owner: "0x748D2E8439c81bFD56756B5d4983EE4565b1E62C"
+
+# Solana Devnet - Synthetic
+# BBLN SPL tokens are minted/burned here when bridging
+solanatestnet:
+  type: synthetic
+  # Name and symbol for the synthetic token
+  name: "Babylon"
+  symbol: "BBLN"
+  # 9 decimals (Solana standard)
+  decimals: 9
+  # Hyperlane mailbox on Solana Devnet
+  mailbox: "E588QtVUvresuXq2KoNEwAmoifCzYGpRBdHByN9KQMbi"
+  # Interchain Gas Paymaster
+  interchainGasPaymaster: "3TJMcAhHRE7JN98URK7s5eeGfmVSvL4GAgegPq5K2nYg"
+
+# Sepolia - Synthetic (optional, for ETH mainnet testing)
+# sepolia:
+#   type: synthetic
+#   name: "Babylon"
+#   symbol: "BBLN"
+#   decimals: 18
+#   mailbox: "0xfFAEF09B3cd11D9b20d1a19bECca54EEC2884766"
+#   interchainGasPaymaster: "0x6f2756380FD49228AE25Aa7F2817993cB74Ecc56"
+
+# Arbitrum Sepolia - Synthetic (optional)
+# arbitrumsepolia:
+#   type: synthetic
+#   name: "Babylon"
+#   symbol: "BBLN"
+#   decimals: 18
+#   mailbox: "0x598facE78a4302f11E3de0bee1894Da0b2Cb71F8"
+#   interchainGasPaymaster: "0x940E4b4e3Bb8dBD1b60A9D95F5a8d4b94C0a01bB"

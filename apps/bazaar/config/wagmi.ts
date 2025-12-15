@@ -2,13 +2,11 @@ import { http, createConfig } from 'wagmi'
 import { defineChain } from 'viem'
 import { jeju, JEJU_RPC_URL } from './chains'
 import { injected } from 'wagmi/connectors'
-import { getNetworkName } from '@jejunetwork/config'
-
-const networkName = getNetworkName()
+import { NETWORK_NAME } from './index'
 
 const localnet = defineChain({
   id: 1337,
-  name: `${networkName} Localnet`,
+  name: `${NETWORK_NAME} Localnet`,
   nativeCurrency: {
     decimals: 18,
     name: 'Ether',
@@ -21,7 +19,7 @@ const localnet = defineChain({
   },
   blockExplorers: {
     default: {
-      name: `${networkName} Explorer`,
+      name: `${NETWORK_NAME} Explorer`,
       url: 'http://localhost:4004',
     },
   },

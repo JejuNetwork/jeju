@@ -104,6 +104,12 @@ variable "node_registry_address" {
   default     = ""
 }
 
+variable "use_arm64_cql" {
+  description = "Use ARM64 (Graviton) instances for CovenantSQL - requires custom ECR image"
+  type        = bool
+  default     = false
+}
+
 locals {
   environment = "testnet"
 
@@ -753,6 +759,8 @@ output "messaging_config" {
     kms_endpoint             = module.messaging.kms_endpoint
     covenantsql_endpoint     = module.covenantsql.http_endpoint
     covenantsql_nodes        = module.covenantsql.node_ips
+    covenantsql_architecture = module.covenantsql.architecture
+    covenantsql_image        = module.covenantsql.cql_image
     messaging_role_arn       = module.messaging.messaging_role_arn
     farcaster_hub            = "nemes.farcaster.xyz:2283"
   }
@@ -760,6 +768,7 @@ output "messaging_config" {
 
 # ============================================================
 # Module: CovenantSQL (Decentralized Database)
+# ARM64 (Graviton) support for cost optimization
 # ============================================================
 module "covenantsql" {
   source = "../../modules/covenantsql"
@@ -768,12 +777,18 @@ module "covenantsql" {
   vpc_id              = module.network.vpc_id
   subnet_ids          = module.network.private_subnet_ids
   node_count          = 3
-  instance_type       = "t3.medium"
+  instance_type       = "t3.medium"      # x86 instance type (fallback)
+  arm_instance_type   = "t4g.medium"     # ARM instance type (Graviton)
+  use_arm64           = var.use_arm64_cql
   storage_size_gb     = 100
   key_name            = "jeju-testnet"
   allowed_cidr_blocks = ["10.1.0.0/16"]
+  
+  # Always use custom ECR image for consistency and ARM64 support
+  ecr_registry  = module.ecr.registry_url
+  cql_image_tag = "${local.environment}-latest"
 
-  depends_on = [module.network]
+  depends_on = [module.network, module.ecr]
 }
 
 # ============================================================

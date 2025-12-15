@@ -35,7 +35,7 @@ function ensureWorkspaceSymlinks(): void {
     shared: 'packages/shared',
     messaging: 'packages/messaging',
     kms: 'packages/kms',
-    cql: 'packages/cql',
+    db: 'packages/db',
     // apps/*
     compute: 'apps/compute',
     gateway: 'apps/gateway',

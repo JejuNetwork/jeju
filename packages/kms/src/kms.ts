@@ -23,11 +23,11 @@ import {
   type ThresholdSignature,
   type ThresholdSignRequest,
 } from './types.js';
-import { LitProvider, getLitProvider } from './providers/lit-provider.js';
+import { EncryptionProvider, getEncryptionProvider } from './providers/encryption-provider.js';
 import { TEEProvider, getTEEProvider } from './providers/tee-provider.js';
 import { MPCProvider, getMPCProvider } from './providers/mpc-provider.js';
 
-type ConcreteProvider = LitProvider | TEEProvider | MPCProvider;
+type ConcreteProvider = EncryptionProvider | TEEProvider | MPCProvider;
 
 export class KMSService {
   private config: KMSConfig;
@@ -42,7 +42,7 @@ export class KMSService {
     if (this.initialized) return;
 
     const providerConfigs: [KMSProviderType, (() => KMSProvider) | undefined][] = [
-      [KMSProviderType.LIT, this.config.providers.lit ? () => getLitProvider(this.config.providers.lit) : undefined],
+      [KMSProviderType.ENCRYPTION, this.config.providers.encryption ? () => getEncryptionProvider(this.config.providers.encryption) : undefined],
       [KMSProviderType.TEE, this.config.providers.tee ? () => getTEEProvider(this.config.providers.tee) : undefined],
       [KMSProviderType.MPC, this.config.providers.mpc ? () => getMPCProvider(this.config.providers.mpc) : undefined],
     ];
@@ -67,7 +67,7 @@ export class KMSService {
   private async getAvailableProvider(preferred?: KMSProviderType): Promise<ConcreteProvider> {
     const candidates = preferred ? [preferred, this.config.defaultProvider] : [this.config.defaultProvider];
     if (this.config.fallbackEnabled) {
-      candidates.push(KMSProviderType.TEE, KMSProviderType.MPC, KMSProviderType.LIT);
+      candidates.push(KMSProviderType.TEE, KMSProviderType.MPC, KMSProviderType.ENCRYPTION);
     }
 
     for (const type of candidates) {
@@ -142,21 +142,21 @@ export class KMSService {
 
   async createSession(authSig: AuthSignature, capabilities: string[], expirationHours = 24): Promise<SessionKey> {
     await this.ensureInitialized();
-    const lit = this.providers.get(KMSProviderType.LIT) as LitProvider | undefined;
-    if (!lit) throw new Error('Lit provider required for session management');
-    return lit.createSession(authSig, capabilities, expirationHours);
+    const enc = this.providers.get(KMSProviderType.ENCRYPTION) as EncryptionProvider | undefined;
+    if (!enc) throw new Error('Encryption provider required for session management');
+    return enc.createSession(authSig, capabilities, expirationHours);
   }
 
   validateSession(session: SessionKey): boolean {
-    const lit = this.providers.get(KMSProviderType.LIT) as LitProvider | undefined;
-    return lit?.validateSession(session) ?? false;
+    const enc = this.providers.get(KMSProviderType.ENCRYPTION) as EncryptionProvider | undefined;
+    return enc?.validateSession(session) ?? false;
   }
 
   getStatus() {
     const providers: Record<string, { available: boolean; status: Record<string, unknown> }> = {};
     for (const [type, provider] of this.providers.entries()) {
       const status = (provider as ConcreteProvider).getStatus() as Record<string, unknown>;
-      providers[type] = { available: Boolean(status.connected ?? status.fallbackMode ?? false), status };
+      providers[type] = { available: Boolean(status.connected ?? false), status };
     }
     return { initialized: this.initialized, providers, defaultProvider: this.config.defaultProvider };
   }
@@ -172,11 +172,11 @@ export function getKMS(config?: Partial<KMSConfig>): KMSService {
   if (!kmsService) {
     kmsService = new KMSService({
       providers: {
-        lit: config?.providers?.lit ?? { network: (process.env.LIT_NETWORK as 'cayenne') ?? 'cayenne', debug: process.env.LIT_DEBUG === 'true' },
-        tee: config?.providers?.tee ?? (process.env.TEE_ENDPOINT ? { provider: (process.env.TEE_PROVIDER as 'phala') ?? 'phala', endpoint: process.env.TEE_ENDPOINT, apiKey: process.env.TEE_API_KEY } : undefined),
+        encryption: config?.providers?.encryption ?? { debug: process.env.KMS_DEBUG === 'true' },
+        tee: config?.providers?.tee ?? (process.env.TEE_ENDPOINT ? { endpoint: process.env.TEE_ENDPOINT } : undefined),
         mpc: config?.providers?.mpc ?? (process.env.MPC_COORDINATOR_ENDPOINT ? { threshold: parseInt(process.env.MPC_THRESHOLD ?? '2'), totalParties: parseInt(process.env.MPC_TOTAL_PARTIES ?? '3'), coordinatorEndpoint: process.env.MPC_COORDINATOR_ENDPOINT } : undefined),
       },
-      defaultProvider: (config?.defaultProvider ?? process.env.KMS_DEFAULT_PROVIDER as KMSProviderType) ?? KMSProviderType.LIT,
+      defaultProvider: (config?.defaultProvider ?? process.env.KMS_DEFAULT_PROVIDER as KMSProviderType) ?? KMSProviderType.ENCRYPTION,
       defaultChain: config?.defaultChain ?? process.env.KMS_DEFAULT_CHAIN ?? 'base-sepolia',
       registryAddress: config?.registryAddress,
       fallbackEnabled: config?.fallbackEnabled ?? true,

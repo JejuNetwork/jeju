@@ -2,8 +2,8 @@
 pragma solidity ^0.8.26;
 
 /**
- * @title IStage2Contracts
- * @notice Interfaces for Stage 2 contracts integration
+ * @title IDecentralization
+ * @notice Interfaces for Decentralized contracts integration
  */
 interface ISequencerRegistry {
     function register(uint256 _agentId, uint256 _stakeAmount) external;

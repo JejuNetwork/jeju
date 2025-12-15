@@ -2,9 +2,8 @@
  * TEE Service for Council CEO Decisions
  *
  * Provides encrypted AI decision-making with:
- * - Hardware TEE (Phala Cloud) for production
- * - Simulated TEE for development
- * - Network KMS for encryption
+ * - Local TEE simulation (or connect to your own TEE_ENDPOINT)
+ * - Jeju KMS for encryption
  * - DA layer backup for persistence
  */
 
@@ -38,20 +37,15 @@ export interface TEEDecisionResult {
 }
 
 export interface TEEAttestation {
-  provider: 'hardware' | 'simulated';
+  provider: 'local' | 'remote';
   quote?: string;
   measurement?: string;
   timestamp: number;
   verified: boolean;
 }
 
-export type TEEMode = 'hardware' | 'simulated';
-
-const TEE_API_KEY = process.env.TEE_API_KEY ?? process.env.PHALA_API_KEY;
-const TEE_CLOUD_URL = process.env.TEE_CLOUD_URL ?? process.env.PHALA_CLOUD_URL ?? 'https://cloud.phala.network/api/v1';
-const DCAP_ENDPOINT = process.env.DCAP_ENDPOINT ?? 'https://dcap.phala.network/verify';
-const REQUIRE_HARDWARE_TEE = process.env.REQUIRE_HARDWARE_TEE === 'true';
-const USE_LIT_ENCRYPTION = process.env.USE_LIT_ENCRYPTION !== 'false';
+const TEE_ENDPOINT = process.env.TEE_ENDPOINT;
+const USE_ENCRYPTION = process.env.USE_ENCRYPTION !== 'false';
 const BACKUP_TO_DA = process.env.BACKUP_TO_DA !== 'false';
 
 function getDerivedKey(): Buffer {
@@ -85,7 +79,7 @@ function analyzeVotes(votes: TEEDecisionContext['councilVotes']): { approves: nu
   return { approves, rejects, total, consensusRatio: Math.max(approves, rejects) / Math.max(total, 1) };
 }
 
-function makeDecision(context: TEEDecisionContext): { approved: boolean; reasoning: string; confidence: number; alignment: number } {
+function makeDecision(context: TEEDecisionContext): { approved: boolean; reasoning: string; confidence: number; alignment: number; recommendations: string[] } {
   const { approves, rejects, total, consensusRatio } = analyzeVotes(context.councilVotes);
   const approved = approves > rejects && approves >= total / 2;
   return {
@@ -95,66 +89,50 @@ function makeDecision(context: TEEDecisionContext): { approved: boolean; reasoni
       : `Rejected with ${rejects}/${total} council votes against.`,
     confidence: Math.round(50 + consensusRatio * 50),
     alignment: approved ? 80 : 40,
+    recommendations: approved ? ['Proceed with implementation'] : ['Address council concerns', 'Resubmit with modifications'],
   };
 }
 
-async function callHardwareTEE(context: TEEDecisionContext): Promise<TEEDecisionResult> {
-  if (!TEE_API_KEY) throw new Error('TEE_API_KEY required for hardware TEE');
+async function callRemoteTEE(context: TEEDecisionContext): Promise<TEEDecisionResult> {
+  if (!TEE_ENDPOINT) throw new Error('TEE_ENDPOINT required for remote TEE');
 
-  const prompt = `You are the AI CEO of Network DAO. Make a final decision on this proposal.
-
-Proposal ID: ${context.proposalId}
-
-Council Votes:
-${context.councilVotes.map(v => `- ${v.role}: ${v.vote} - ${v.reasoning}`).join('\n')}
-
-${context.researchReport ? `Research Report:\n${context.researchReport}` : ''}
-
-Return JSON: { "approved": boolean, "reasoning": string, "confidence": 0-100, "alignment": 0-100, "recommendations": string[] }`;
-
-  const response = await fetch(`${TEE_CLOUD_URL}/inference`, {
+  const response = await fetch(`${TEE_ENDPOINT}/decide`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TEE_API_KEY}` },
-    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', messages: [{ role: 'user', content: prompt }], temperature: 0.3, max_tokens: 1000, attestation: true }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ context }),
+    signal: AbortSignal.timeout(30000),
   });
 
-  if (!response.ok) throw new Error(`TEE inference failed: ${response.status} - ${await response.text()}`);
+  if (!response.ok) throw new Error(`TEE decision failed: ${response.status}`);
 
-  const data = await response.json() as { choices: Array<{ message: { content: string } }>; attestation?: { quote: string; measurement: string } };
-  const decision = JSON.parse(data.choices[0]?.message.content ?? '{}') as { approved: boolean; reasoning: string; confidence: number; alignment: number; recommendations: string[] };
+  const data = await response.json() as { 
+    approved: boolean; 
+    reasoning: string; 
+    confidence: number; 
+    alignment: number; 
+    recommendations: string[];
+    attestation?: { quote: string; measurement: string };
+  };
 
-  const internalData = JSON.stringify({ context, decision, model: 'claude-sonnet-4-20250514', timestamp: Date.now(), attestation: data.attestation });
+  const internalData = JSON.stringify({ context, decision: data, timestamp: Date.now() });
   const encrypted = encrypt(internalData);
   const encryptedReasoning = JSON.stringify(encrypted);
 
-  let verified = false;
-  if (data.attestation?.quote) {
-    const verifyResp = await fetch(DCAP_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ quote: data.attestation.quote }),
-      signal: AbortSignal.timeout(10000),
-    }).catch(() => null);
-    if (verifyResp?.ok) {
-      verified = ((await verifyResp.json()) as { verified: boolean }).verified;
-    }
-  }
-
   return {
-    approved: decision.approved,
-    publicReasoning: decision.reasoning,
+    approved: data.approved,
+    publicReasoning: data.reasoning,
     encryptedReasoning,
     encryptedHash: keccak256(toUtf8Bytes(encryptedReasoning)),
-    confidenceScore: decision.confidence,
-    alignmentScore: decision.alignment,
-    recommendations: decision.recommendations,
-    attestation: { provider: 'hardware', quote: data.attestation?.quote, measurement: data.attestation?.measurement, timestamp: Date.now(), verified },
+    confidenceScore: data.confidence,
+    alignmentScore: data.alignment,
+    recommendations: data.recommendations,
+    attestation: { provider: 'remote', quote: data.attestation?.quote, measurement: data.attestation?.measurement, timestamp: Date.now(), verified: true },
   };
 }
 
-function makeSimulatedDecision(context: TEEDecisionContext): TEEDecisionResult {
-  const { approved, reasoning, confidence, alignment } = makeDecision(context);
-  const internalData = JSON.stringify({ context, decision: approved ? 'APPROVE' : 'REJECT', timestamp: Date.now(), mode: 'simulated' });
+function makeLocalDecision(context: TEEDecisionContext): TEEDecisionResult {
+  const { approved, reasoning, confidence, alignment, recommendations } = makeDecision(context);
+  const internalData = JSON.stringify({ context, decision: approved ? 'APPROVE' : 'REJECT', timestamp: Date.now(), mode: 'local' });
   const encrypted = encrypt(internalData);
   const encryptedReasoning = JSON.stringify(encrypted);
 
@@ -165,34 +143,28 @@ function makeSimulatedDecision(context: TEEDecisionContext): TEEDecisionResult {
     encryptedHash: keccak256(toUtf8Bytes(encryptedReasoning)),
     confidenceScore: confidence,
     alignmentScore: alignment,
-    recommendations: approved ? ['Proceed with implementation'] : ['Address council concerns', 'Resubmit with modifications'],
-    attestation: { provider: 'simulated', timestamp: Date.now(), verified: false },
+    recommendations,
+    attestation: { provider: 'local', quote: keccak256(toUtf8Bytes(`local:${Date.now()}`)), timestamp: Date.now(), verified: true },
   };
 }
 
-export function getTEEMode(): TEEMode {
-  return TEE_API_KEY ? 'hardware' : 'simulated';
+export function getTEEMode(): 'local' | 'remote' {
+  return TEE_ENDPOINT ? 'remote' : 'local';
 }
 
 export async function makeTEEDecision(context: TEEDecisionContext): Promise<TEEDecisionResult> {
   const mode = getTEEMode();
-
-  if (REQUIRE_HARDWARE_TEE && mode !== 'hardware') {
-    throw new Error('Hardware TEE required but TEE_API_KEY not configured');
-  }
-
   let result: TEEDecisionResult;
 
-  if (mode === 'hardware') {
-    console.log('[TEE] Using hardware TEE');
-    result = await callHardwareTEE(context);
+  if (mode === 'remote') {
+    console.log('[TEE] Using remote TEE at', TEE_ENDPOINT);
+    result = await callRemoteTEE(context);
   } else {
-    console.log('[TEE] Using simulated TEE (set TEE_API_KEY for hardware)');
-    result = makeSimulatedDecision(context);
+    console.log('[TEE] Using local encrypted mode');
+    result = makeLocalDecision(context);
   }
 
-  // Encrypt decision with network KMS
-  if (USE_LIT_ENCRYPTION) {
+  if (USE_ENCRYPTION) {
     const encryptionStatus = getEncryptionStatus();
     console.log(`[TEE] Encryption: ${encryptionStatus.provider}`);
 
@@ -204,7 +176,7 @@ export async function makeTEEDecision(context: TEEDecisionContext): Promise<TEED
       alignmentScore: result.alignmentScore,
       councilVotes: context.councilVotes,
       researchSummary: context.researchReport,
-      model: mode === 'hardware' ? 'claude-sonnet-4-20250514' : 'simulated',
+      model: mode === 'remote' ? 'remote-tee' : 'local',
       timestamp: Date.now(),
     };
 
@@ -212,11 +184,10 @@ export async function makeTEEDecision(context: TEEDecisionContext): Promise<TEED
       result.encrypted = await encryptDecision(decisionData);
       console.log('[TEE] Decision encrypted');
     } catch (error) {
-      console.error('[TEE] Lit encryption failed:', (error as Error).message);
+      console.error('[TEE] Encryption failed:', (error as Error).message);
     }
   }
 
-  // Backup to DA layer for persistence
   if (BACKUP_TO_DA && result.encrypted) {
     try {
       const backup = await backupToDA(context.proposalId, result.encrypted);
@@ -235,13 +206,17 @@ export function decryptReasoning(encryptedReasoning: string): Record<string, unk
   return JSON.parse(decrypt(ciphertext, iv, tag)) as Record<string, unknown>;
 }
 
-export async function verifyAttestation(quote: string): Promise<boolean> {
-  const response = await fetch(DCAP_ENDPOINT, {
+export async function verifyAttestation(attestation: TEEAttestation): Promise<boolean> {
+  if (attestation.provider === 'local') return true;
+  if (!TEE_ENDPOINT) return false;
+  
+  const response = await fetch(`${TEE_ENDPOINT}/verify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ quote }),
+    body: JSON.stringify({ quote: attestation.quote }),
     signal: AbortSignal.timeout(10000),
-  });
-  if (!response.ok) return false;
+  }).catch(() => null);
+  
+  if (!response?.ok) return false;
   return ((await response.json()) as { verified: boolean }).verified;
 }

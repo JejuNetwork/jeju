@@ -54,7 +54,7 @@ export interface RentalPricing {
 
 export const RENTAL_AGENT_CARD = {
   protocolVersion: '0.3.0',
-  name: getNetworkName() Infrastructure Rental',
+  name: `${getNetworkName()} Infrastructure Rental`,
   description: 'Decentralized infrastructure rental for databases, caches, storage, and compute',
   url: '/rental/a2a',
   preferredTransport: 'http',
@@ -487,7 +487,7 @@ export function createRentalRouter(): Hono {
   // Root info
   app.get('/', (c) => {
     return c.json({
-      name: getNetworkName() Infrastructure Rental',
+      name: `${getNetworkName()} Infrastructure Rental`,
       version: '1.0.0',
       endpoints: {
         rest: '/rental',

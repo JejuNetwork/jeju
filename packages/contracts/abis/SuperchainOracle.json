@@ -1,6 +1,17 @@
 {
   "abi": [
     {
+      "type": "constructor",
+      "inputs": [
+        {
+          "name": "_localChainId",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
       "type": "function",
       "name": "CROSS_L2_INBOX",
       "inputs": [],
@@ -8,7 +19,7 @@
         {
           "name": "",
           "type": "address",
-          "internalType": "address"
+          "internalType": "contract ICrossL2Inbox"
         }
       ],
       "stateMutability": "view"
@@ -21,7 +32,7 @@
         {
           "name": "",
           "type": "address",
-          "internalType": "address"
+          "internalType": "contract IL2ToL2CrossDomainMessenger"
         }
       ],
       "stateMutability": "view"
@@ -104,6 +115,78 @@
     },
     {
       "type": "function",
+      "name": "getIdentifierInfo",
+      "inputs": [
+        {
+          "name": "proof",
+          "type": "bytes",
+          "internalType": "bytes"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "origin",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "blockNumber",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "logIndex",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "timestamp",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "chainId",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "pure"
+    },
+    {
+      "type": "function",
+      "name": "handleCrossChainFill",
+      "inputs": [
+        {
+          "name": "orderId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "outputToken",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "recipient",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "fillBlock",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
       "name": "hasAttested",
       "inputs": [
         {
@@ -123,6 +206,19 @@
     },
     {
       "type": "function",
+      "name": "localChainId",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "owner",
       "inputs": [],
       "outputs": [
@@ -130,6 +226,25 @@
           "name": "",
           "type": "address",
           "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "processedMessages",
+      "inputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool",
+          "internalType": "bool"
         }
       ],
       "stateMutability": "view"
@@ -162,6 +277,19 @@
     },
     {
       "type": "function",
+      "name": "requireInboxVerification",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "setAttester",
       "inputs": [
         {
@@ -171,6 +299,19 @@
         },
         {
           "name": "authorized",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setRequireInboxVerification",
+      "inputs": [
+        {
+          "name": "_require",
           "type": "bool",
           "internalType": "bool"
         }
@@ -191,6 +332,24 @@
           "name": "valid",
           "type": "bool",
           "internalType": "bool"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setTrustedOutputSettler",
+      "inputs": [
+        {
+          "name": "chainId",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "settler",
+          "type": "address",
+          "internalType": "address"
         }
       ],
       "outputs": [],
@@ -226,6 +385,25 @@
       ],
       "outputs": [],
       "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "trustedOutputSettlers",
+      "inputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
     },
     {
       "type": "function",
@@ -342,13 +520,82 @@
       "anonymous": false
     },
     {
+      "type": "event",
+      "name": "SuperchainMessageVerified",
+      "inputs": [
+        {
+          "name": "messageHash",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "orderId",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "sourceChain",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "TrustedOutputSettlerSet",
+      "inputs": [
+        {
+          "name": "chainId",
+          "type": "uint256",
+          "indexed": true,
+          "internalType": "uint256"
+        },
+        {
+          "name": "settler",
+          "type": "address",
+          "indexed": false,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
       "type": "error",
       "name": "AlreadyAttested",
       "inputs": []
     },
     {
       "type": "error",
+      "name": "InboxVerificationFailed",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InvalidIdentifier",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InvalidSourceChain",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "MessageAlreadyProcessed",
+      "inputs": []
+    },
+    {
+      "type": "error",
       "name": "NotAttested",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "OrderIdMismatch",
       "inputs": []
     },
     {
@@ -375,7 +622,17 @@
     },
     {
       "type": "error",
+      "name": "SameChainNotAllowed",
+      "inputs": []
+    },
+    {
+      "type": "error",
       "name": "UnauthorizedAttester",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "UntrustedOutputSettler",
       "inputs": []
     }
   ]

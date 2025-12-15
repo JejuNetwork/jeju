@@ -76,3 +76,6 @@
 	path = vendor/otaku
 	url = git@github.com:elizaos/otaku.git
 	ignore = untracked
+[submodule "packages/bridge/contracts/lib/forge-std"]
+	path = packages/bridge/contracts/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std

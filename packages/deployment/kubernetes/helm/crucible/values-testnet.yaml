@@ -3,6 +3,7 @@
 replicaCount:
   api: 2
   executor: 1
+  bot: 1
 
 image:
   repository: jeju/crucible
@@ -46,9 +47,17 @@ config:
     cqlEndpoint: https://testnet-cql.jeju.network
     dexCacheUrl: https://testnet-storage.jeju.network/cache
 
-bots:
+# MEV + LP Bot configuration for testnet
+bot:
   enabled: true
-  initializeDefault: true
+  enableArbitrage: true
+  enableCrossChain: true
+  enableSolanaArb: true
+  enableLiquidity: true
+  solanaRpcUrl: "https://api.devnet.solana.com"
+  solanaNetwork: "devnet"
+  minProfitBps: 100  # Higher threshold for testnet
+  maxSlippageBps: 200
 
 resources:
   api:
@@ -65,3 +74,10 @@ resources:
     limits:
       cpu: 2000m
       memory: 2Gi
+  bot:
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+    limits:
+      cpu: 4000m
+      memory: 8Gi

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: © 2025 Jeju Network
 # SPDX-License-Identifier: Apache-2.0
 # Jeju Network - GCP Testnet Environment
-# 1:1 equivalent to AWS testnet for cost comparison
+# Complete infrastructure on Google Cloud Platform
 
 terraform {
   required_version = ">= 1.5.0"
@@ -30,8 +30,8 @@ terraform {
   }
 
   backend "gcs" {
-    bucket = "jeju-terraform-state-testnet-gen-lang-client-0955518213"
-    prefix = "gcp-testnet"
+    bucket = "jeju-terraform-state-testnet"
+    prefix = "terraform/state"
   }
 }
 
@@ -39,7 +39,7 @@ terraform {
 # Variables
 # ============================================================
 variable "project_id" {
-  description = "GCP Project ID"
+  description = "GCP project ID"
   type        = string
 }
 
@@ -72,7 +72,7 @@ locals {
   common_labels = {
     project     = "jeju-network"
     environment = "testnet"
-    managed-by  = "terraform"
+    managed_by  = "terraform"
   }
 }
 
@@ -142,7 +142,6 @@ module "cloud_dns" {
 
 # ============================================================
 # Module: GKE Cluster
-# Equivalent to AWS EKS with similar node pools
 # ============================================================
 module "gke" {
   source = "../../modules/gcp/gke"
@@ -161,7 +160,7 @@ module "gke" {
   node_pools = [
     {
       name          = "general"
-      machine_type  = "e2-standard-2" # 2 vCPU each
+      machine_type  = "e2-standard-2"
       min_count     = 1
       max_count     = 4
       initial_count = 2
@@ -172,7 +171,7 @@ module "gke" {
     },
     {
       name          = "rpc"
-      machine_type  = "e2-standard-2" # 2 vCPU each
+      machine_type  = "e2-standard-2"
       min_count     = 1
       max_count     = 3
       initial_count = 1
@@ -189,7 +188,7 @@ module "gke" {
     },
     {
       name          = "indexer"
-      machine_type  = "e2-standard-2" # 2 vCPU each
+      machine_type  = "e2-standard-2"
       min_count     = 1
       max_count     = 2
       initial_count = 1
@@ -205,7 +204,6 @@ module "gke" {
 
 # ============================================================
 # Module: Cloud SQL (PostgreSQL)
-# Equivalent to AWS RDS
 # ============================================================
 module "cloudsql" {
   source = "../../modules/gcp/cloudsql"
@@ -215,10 +213,10 @@ module "cloudsql" {
   region                        = var.region
   vpc_id                        = module.network.vpc_id
   private_service_connection_id = module.network.private_service_connection_id
-  tier                          = "db-custom-2-8192" # 2 vCPU, 8GB (~db.t3.medium)
+  tier                          = "db-custom-2-8192"
   disk_size_gb                  = 100
   disk_autoresize_limit         = 500
-  availability_type             = "REGIONAL" # HA like multi-az
+  availability_type             = "REGIONAL"
   backup_retention_days         = 7
   database_version              = "POSTGRES_15"
 
@@ -227,7 +225,6 @@ module "cloudsql" {
 
 # ============================================================
 # Module: Artifact Registry
-# Equivalent to AWS ECR
 # ============================================================
 module "artifact_registry" {
   source = "../../modules/gcp/artifact-registry"
@@ -239,7 +236,6 @@ module "artifact_registry" {
 
 # ============================================================
 # Module: Cloud Armor (WAF)
-# Equivalent to AWS WAF
 # ============================================================
 module "cloud_armor" {
   source = "../../modules/gcp/cloud-armor"
@@ -253,7 +249,6 @@ module "cloud_armor" {
 
 # ============================================================
 # Module: Cloud KMS
-# Equivalent to AWS KMS
 # ============================================================
 resource "google_kms_key_ring" "main" {
   name     = "jeju-${local.environment}-keyring"
@@ -309,7 +304,7 @@ output "gke_cluster_endpoint" {
   value       = module.gke.cluster_endpoint
 }
 
-output "cloudsql_connection" {
+output "cloudsql_connection_name" {
   description = "Cloud SQL connection name"
   value       = module.cloudsql.connection_name
 }
@@ -369,6 +364,9 @@ output "next_steps" {
     
     4. Deploy contracts:
        bun run scripts/deploy/oif-multichain.ts --all
+    
+    5. Cloud SQL Proxy (for local access):
+       cloud-sql-proxy ${module.cloudsql.connection_name}
     ═══════════════════════════════════════════════════════════════════
   EOT
 }
@@ -408,4 +406,3 @@ output "cost_comparison" {
     }
   }
 }
-

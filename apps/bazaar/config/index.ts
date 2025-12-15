@@ -12,6 +12,7 @@ import type { Address } from 'viem';
 
 // Build-time network selection
 export const NETWORK = (process.env.NEXT_PUBLIC_NETWORK || 'localnet') as 'localnet' | 'testnet' | 'mainnet';
+export const NETWORK_NAME = process.env.NEXT_PUBLIC_NETWORK_NAME || 'Jeju';
 
 // Chain configuration
 export const CHAIN_ID = parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || getDefaultChainId());

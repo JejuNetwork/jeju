@@ -20,6 +20,7 @@ const PACKAGES = [
   'types',
   'config', 
   'contracts',
+  'sdk',
   'cli',
 ];
 

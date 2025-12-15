@@ -1,53 +1,62 @@
-# Contract Deployment
+# Deploy Scripts
 
-Scripts for deploying smart contracts to Jeju networks.
+Deployment scripts for various Jeju Network components.
 
-## Quick Start
+## Primary Usage
+
+Use the Jeju CLI for most deployments:
 
 ```bash
-export DEPLOYER_PRIVATE_KEY=0x...
+jeju deploy testnet --token        # Deploy JejuToken
+jeju deploy mainnet --token --safe 0x...
+jeju deploy verify testnet         # Verify on explorer
+jeju deploy check testnet          # Check on-chain state
+```
 
-# Deploy to testnet
-bun run contracts:deploy:testnet
+## Direct Script Usage
 
-# Deploy to mainnet  
-bun run contracts:deploy:mainnet
+For specific component deployments:
 
-# Full deployment (L1 + L2 + DeFi + AA + verification)
-bun run contracts:deploy -- --network testnet
+```bash
+# Token & Core
+bun run scripts/deploy/token.ts --network testnet
+bun run scripts/deploy/testnet.ts
+bun run scripts/deploy/mainnet.ts
+
+# Infrastructure
+bun run scripts/deploy/account-abstraction.ts
+bun run scripts/deploy/eil.ts
+bun run scripts/deploy/eil-paymaster.ts
+
+# Protocols
+bun run scripts/deploy/oif.ts localnet
+bun run scripts/deploy/defi-protocols.ts
+bun run scripts/deploy/jns.ts
+
+# DAO & Governance
+bun run scripts/deploy/dao.ts
+bun run scripts/deploy/governance.ts
+bun run scripts/deploy/council.ts
 ```
 
 ## Scripts
 
 | Script | Description |
 |--------|-------------|
-| `testnet.ts` | Deploy core contracts to testnet |
-| `mainnet.ts` | Deploy core contracts to mainnet |
-| `l1-contracts.ts` | Deploy L1 contracts only |
-| `eil.ts` | Deploy EIL (cross-chain) contracts |
-| `defi-protocols.ts` | Deploy DeFi protocols |
-| `account-abstraction.ts` | Deploy AA infrastructure |
-
-## Config
-
-Networks defined in `packages/config/chain/*.json`.
-
-Required environment variables:
-```bash
-DEPLOYER_PRIVATE_KEY=0x...
-ETHERSCAN_API_KEY=...  # Optional, for verification
-```
-
-## Addresses
-
-Saved to `packages/contracts/deployments/<network>/deployment.json`.
-
-```typescript
-import { getContractAddress } from '@jejunetwork/config';
-const registry = getContractAddress('identityRegistry');
-```
-
-## Notes
-
-- Get testnet ETH: https://www.alchemy.com/faucets/base-sepolia
-- For infrastructure deployment, see `packages/deployment/`
+| `token.ts` | JejuToken + BanManager deployment |
+| `testnet.ts` | Full testnet deployment |
+| `mainnet.ts` | Production deployment |
+| `account-abstraction.ts` | AA infrastructure |
+| `eil.ts` | Ethereum Intent Layer |
+| `eil-paymaster.ts` | EIL Paymaster |
+| `oif.ts` | Oracle Integration Framework |
+| `oif-multichain.ts` | Multi-chain OIF |
+| `defi-protocols.ts` | DeFi protocol setup |
+| `jns.ts` | Jeju Name Service |
+| `dao.ts` | DAO contracts |
+| `governance.ts` | Governance setup |
+| `council.ts` | Council deployment |
+| `launchpad.ts` | Token launchpad |
+| `oracle.ts` | Oracle network |
+| `otc.ts` | OTC trading |
+| `generate-operator-keys.ts` | Generate operator keys |

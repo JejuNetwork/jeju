@@ -8,6 +8,12 @@ spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
+  # Decentralized: Ensure zero downtime during rolling updates
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       {{- include "gateway.selectorLabels" . | nindent 6 }}
@@ -17,6 +23,16 @@ spec:
         {{- include "gateway.selectorLabels" . | nindent 8 }}
     spec:
       serviceAccountName: {{ include "gateway.serviceAccountName" . }}
+      # Decentralized: Graceful shutdown for clean connection draining
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds | default 30 }}
+      # Decentralized: Spread pods across nodes for fault tolerance
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "gateway.selectorLabels" . | nindent 14 }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 101
@@ -30,6 +46,9 @@ spec:
           containerPort: 80
           protocol: TCP
         env:
+          # Decentralized: Require CQL, no fallbacks in production
+          - name: CQL_REQUIRED
+            value: "true"
           {{- toYaml .Values.env | nindent 12 }}
         {{- with .Values.envFrom }}
         envFrom:
@@ -39,6 +58,11 @@ spec:
           {{- toYaml .Values.livenessProbe | nindent 12 }}
         readinessProbe:
           {{- toYaml .Values.readinessProbe | nindent 12 }}
+        # Startup probe allows more time for initial startup
+        {{- if .Values.startupProbe }}
+        startupProbe:
+          {{- toYaml .Values.startupProbe | nindent 12 }}
+        {{- end }}
         resources:
           {{- toYaml .Values.resources | nindent 12 }}
 

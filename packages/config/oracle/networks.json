@@ -1,0 +1,87 @@
+{
+  "localnet": {
+    "chainId": 1337,
+    "rpcUrl": "http://localhost:8545",
+    "contracts": {
+      "feedRegistry": null,
+      "reportVerifier": null,
+      "committeeManager": null,
+      "feeRouter": null,
+      "networkConnector": null
+    },
+    "priceSources": {
+      "ETH-USD": {
+        "type": "manual",
+        "decimals": 8
+      }
+    },
+    "settings": {
+      "pollIntervalMs": 10000,
+      "heartbeatIntervalMs": 60000,
+      "metricsPort": 9090
+    }
+  },
+  "testnet": {
+    "chainId": 84532,
+    "rpcUrl": "${BASE_SEPOLIA_RPC_URL}",
+    "contracts": {
+      "feedRegistry": null,
+      "reportVerifier": null,
+      "committeeManager": null,
+      "feeRouter": null,
+      "networkConnector": null
+    },
+    "priceSources": {
+      "ETH-USD": {
+        "type": "chainlink",
+        "address": "0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1",
+        "decimals": 8
+      },
+      "USDC-USD": {
+        "type": "chainlink",
+        "address": "0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165",
+        "decimals": 8
+      }
+    },
+    "settings": {
+      "pollIntervalMs": 60000,
+      "heartbeatIntervalMs": 300000,
+      "metricsPort": 9090
+    }
+  },
+  "mainnet": {
+    "chainId": 8453,
+    "rpcUrl": "${BASE_MAINNET_RPC_URL}",
+    "contracts": {
+      "feedRegistry": null,
+      "reportVerifier": null,
+      "committeeManager": null,
+      "feeRouter": null,
+      "networkConnector": null
+    },
+    "priceSources": {
+      "ETH-USD": {
+        "type": "chainlink",
+        "address": "0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70",
+        "decimals": 8
+      },
+      "USDC-USD": {
+        "type": "chainlink",
+        "address": "0x7e860098F58bBFC8648a4311b374B1D669a2bc6B",
+        "decimals": 8
+      },
+      "WETH-USDC-TWAP": {
+        "type": "uniswap_v3",
+        "address": "0xd0b53D9277642d899DF5C87A3966A349A798F224",
+        "decimals": 8,
+        "token0Decimals": 18,
+        "token1Decimals": 6
+      }
+    },
+    "settings": {
+      "pollIntervalMs": 60000,
+      "heartbeatIntervalMs": 300000,
+      "metricsPort": 9090
+    }
+  }
+}

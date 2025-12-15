@@ -57,6 +57,7 @@ jobs:
           bun test src/compute/tests/x402.test.ts
           bun test src/compute/tests/sdk.test.ts
           bun test src/compute/tests/auth.test.ts
+          bun test src/compute/tests/workers.test.ts
 
   integration-tests:
     name: Integration Tests (with Anvil)

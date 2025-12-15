@@ -1,0 +1,16 @@
+[package]
+name = "ed25519-aggregation"
+version = "0.1.0"
+edition = "2021"
+description = "ZK proof of batch Ed25519 signature verification"
+
+[dependencies]
+sp1-zkvm = { workspace = true }
+sha2 = { workspace = true }
+ed25519-dalek = { workspace = true }
+serde = { workspace = true }
+serde_with = { workspace = true }
+
+[[bin]]
+name = "ed25519_aggregation"
+path = "src/main.rs"

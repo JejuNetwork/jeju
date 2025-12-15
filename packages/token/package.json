@@ -1,0 +1,44 @@
+{
+  "name": "@jeju/token",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Cross-chain token deployment and Hyperlane Warp Routes for BBLN, JEJU, and custom tokens",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "build:contracts": "forge build --root contracts",
+    "test": "bun test src/tests/*.test.ts",
+    "test:contracts": "forge test --root contracts -vvv",
+    "deploy": "bun run src/cli/deploy.ts",
+    "deploy:local": "bun run src/cli/deploy.ts --network local",
+    "deploy:testnet": "bun run scripts/deploy-testnet.ts",
+    "deploy:testnet:dry-run": "bun run scripts/deploy-testnet.ts --dry-run",
+    "deploy:hyperlane:jeju": "bun run scripts/deploy-hyperlane-jeju.ts",
+    "deploy:hyperlane:jeju:dry-run": "bun run scripts/deploy-hyperlane-jeju.ts --dry-run",
+    "deploy:solana": "bun run scripts/deploy-solana.ts",
+    "deploy:solana:dry-run": "bun run scripts/deploy-solana.ts --dry-run",
+    "demo": "bun run src/cli/demo.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check src/",
+    "check": "bun run typecheck && bun run lint && bun run test",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "viem": "2.21.0",
+    "@solana/web3.js": "1.95.0",
+    "@solana/spl-token": "0.4.0",
+    "@coral-xyz/anchor": "0.30.0",
+    "bs58": "6.0.0",
+    "commander": "12.0.0",
+    "dotenv": "16.4.0"
+  },
+  "devDependencies": {
+    "@types/bun": "1.1.14",
+    "typescript": "5.6.3"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  }
+}

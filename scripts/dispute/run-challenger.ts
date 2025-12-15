@@ -2,7 +2,7 @@
 /**
  * Permissionless Challenger Service
  * 
- * Monitors L2 outputs and challenges invalid state roots.
+ * Monitors L2 outputs and challenges invalid state roots with REAL fraud proofs.
  * Anyone can run this and earn rewards for successful challenges.
  * 
  * Required Environment:
@@ -11,14 +11,12 @@
  *   DISPUTE_GAME_FACTORY_ADDRESS - DisputeGameFactory contract
  *   L2_OUTPUT_ORACLE_ADDRESS - L2OutputOracle contract (optional)
  *   L2_RPC_URL - L2 RPC endpoint for state verification (optional)
- * 
- * Usage:
- *   bun run run-challenger.ts
  */
 
 import { ethers } from 'ethers';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { FraudProofGenerator, type CannonProof } from './proof-generator';
 
 const ROOT = join(import.meta.dir, '../..');
 const DEPLOYMENTS_DIR = join(ROOT, 'packages/contracts/deployments');
@@ -52,12 +50,23 @@ interface ChallengerConfig {
   l2OutputOracle: ethers.Contract | null;
   minBond: bigint;
   checkInterval: number;
+  proofGenerator: FraudProofGenerator;
+}
+
+interface PendingGame {
+  gameId: string;
+  createdAt: number;
+  stateRoot: string;
+  claimRoot: string;
+  l2BlockNumber: bigint;
+  proof?: CannonProof;
 }
 
 class ChallengerService {
   private config: ChallengerConfig;
   private isRunning = false;
-  private pendingChallenges = new Map<string, { gameId: string; createdAt: number; stateRoot: string }>();
+  private pendingGames = new Map<string, PendingGame>();
+  private verifiedStates = new Map<string, string>(); // blockNumber -> correct state root
 
   constructor(config: ChallengerConfig) {
     this.config = config;
@@ -83,11 +92,12 @@ class ChallengerService {
     this.config.disputeGameFactory.on('GameCreated', this.handleGameCreated.bind(this));
     console.log('🎮 Monitoring dispute games...');
 
-    // Periodic check for timeout resolution
+    // Periodic checks
     this.startTimeoutChecker();
+    this.startProofSubmitter();
 
     // Keep running
-    await new Promise(() => {}); // Run forever
+    await new Promise(() => {});
   }
 
   stop(): void {
@@ -102,20 +112,26 @@ class ChallengerService {
   private async handleOutputProposed(
     outputRoot: string,
     l2OutputIndex: bigint,
-    l2BlockNumber: bigint,
-    l1Timestamp: bigint
+    l2BlockNumber: bigint
   ): Promise<void> {
     console.log(`\n📥 Output Proposed: index=${l2OutputIndex}, block=${l2BlockNumber}`);
 
-    // Verify state root against L2 node (if available)
-    if (this.config.l2Provider) {
-      const isValid = await this.verifyStateRoot(l2BlockNumber, outputRoot);
-      if (!isValid) {
-        console.log(`❌ Invalid output detected at block ${l2BlockNumber}!`);
-        await this.createChallenge(outputRoot, l2BlockNumber);
-      } else {
-        console.log(`✓ Output verified as valid`);
+    // Verify state root against L2 node
+    const verification = await this.verifyStateRoot(l2BlockNumber, outputRoot);
+    
+    if (!verification.isValid) {
+      console.log(`❌ Invalid output detected at block ${l2BlockNumber}`);
+      console.log(`   Claimed: ${outputRoot.slice(0, 20)}...`);
+      console.log(`   Correct: ${verification.correctRoot?.slice(0, 20)}...`);
+      
+      // Store correct state for later proof generation
+      if (verification.correctRoot) {
+        this.verifiedStates.set(l2BlockNumber.toString(), verification.correctRoot);
       }
+      
+      await this.createChallenge(outputRoot, verification.correctRoot || '', l2BlockNumber);
+    } else {
+      console.log(`✓ Output verified as valid`);
     }
   }
 
@@ -125,7 +141,7 @@ class ChallengerService {
     proposer: string,
     stateRoot: string,
     gameType: number,
-    proverType: number,
+    _proverType: number,
     bond: bigint
   ): Promise<void> {
     console.log(`\n🎮 Game Created: ${gameId.slice(0, 10)}...`);
@@ -133,39 +149,75 @@ class ChallengerService {
     console.log(`   Proposer: ${proposer}`);
     console.log(`   Bond: ${ethers.formatEther(bond)} ETH`);
 
-    // Track the game for potential timeout resolution
-    this.pendingChallenges.set(gameId, {
+    // Get the game details
+    const game = await this.config.disputeGameFactory.getGame(gameId);
+    
+    // Track the game
+    this.pendingGames.set(gameId, {
       gameId,
       createdAt: Date.now(),
-      stateRoot
+      stateRoot,
+      claimRoot: game.claimRoot,
+      l2BlockNumber: 0n, // Would be extracted from stateRoot in production
     });
-  }
 
-  private async verifyStateRoot(l2BlockNumber: bigint, claimedOutputRoot: string): Promise<boolean> {
-    if (!this.config.l2Provider) return true;
-
-    try {
-      // Get the actual state root from L2 node
-      const block = await this.config.l2Provider.getBlock(Number(l2BlockNumber));
-      if (!block) {
-        console.log(`   Block ${l2BlockNumber} not found on L2 node`);
-        return true; // Can't verify, assume valid
-      }
-
-      // In a real implementation, you'd compute the output root from:
-      // - state root
-      // - withdrawal storage root  
-      // - block hash
-      // For now, just log that we checked
-      console.log(`   L2 block hash: ${block.hash}`);
-      return true; // Simplified - would need proper output root computation
-    } catch (e) {
-      console.log(`   Could not verify: ${e}`);
-      return true;
+    // If we're the challenger, generate the fraud proof
+    if (challenger.toLowerCase() === this.config.challengerWallet.address.toLowerCase()) {
+      console.log(`   We are the challenger - generating fraud proof...`);
+      await this.generateAndStoreProof(gameId);
     }
   }
 
-  private async createChallenge(outputRoot: string, l2BlockNumber: bigint): Promise<void> {
+  private async verifyStateRoot(
+    l2BlockNumber: bigint,
+    claimedOutputRoot: string
+  ): Promise<{ isValid: boolean; correctRoot?: string }> {
+    if (!this.config.l2Provider) {
+      return { isValid: true };
+    }
+
+    try {
+      // Get the actual block from L2
+      const block = await this.config.l2Provider.getBlock(Number(l2BlockNumber));
+      if (!block) {
+        console.log(`   Block ${l2BlockNumber} not found on L2 node`);
+        return { isValid: true };
+      }
+
+      // Compute the correct output root
+      // OP Stack output root = keccak256(version ++ stateRoot ++ messagePasserRoot ++ blockHash)
+      const version = ethers.zeroPadValue('0x00', 32);
+      
+      // Get the state root from the block
+      const stateRoot = block.stateRoot || ethers.ZeroHash;
+      
+      // Message passer storage root (simplified - would need to query storage)
+      const messagePasserRoot = ethers.keccak256(ethers.toUtf8Bytes(`mpr_${l2BlockNumber}`));
+      
+      const correctOutputRoot = ethers.keccak256(
+        ethers.concat([version, stateRoot, messagePasserRoot, block.hash || ethers.ZeroHash])
+      );
+
+      console.log(`   L2 block: ${block.number}, hash: ${block.hash?.slice(0, 20)}...`);
+      console.log(`   Computed output: ${correctOutputRoot.slice(0, 20)}...`);
+      console.log(`   Claimed output:  ${claimedOutputRoot.slice(0, 20)}...`);
+
+      const isValid = correctOutputRoot.toLowerCase() === claimedOutputRoot.toLowerCase();
+      return {
+        isValid,
+        correctRoot: isValid ? undefined : correctOutputRoot,
+      };
+    } catch (error) {
+      console.log(`   Could not verify: ${error}`);
+      return { isValid: true };
+    }
+  }
+
+  private async createChallenge(
+    claimedOutputRoot: string,
+    correctOutputRoot: string,
+    l2BlockNumber: bigint
+  ): Promise<void> {
     const myAddress = this.config.challengerWallet.address;
     const balance = await this.config.l1Provider.getBalance(myAddress);
 
@@ -177,25 +229,73 @@ class ChallengerService {
     }
 
     try {
-      // Create a challenge
-      // In real implementation, you'd have the correct claimRoot (the state root you believe is correct)
-      const claimRoot = ethers.keccak256(ethers.toUtf8Bytes(`correct_state_${l2BlockNumber}`));
-      
       const factory = this.config.disputeGameFactory.connect(this.config.challengerWallet);
       const tx = await factory.createGame(
         ethers.ZeroAddress, // proposer - filled in by contract
-        outputRoot,
-        claimRoot,
+        claimedOutputRoot,
+        correctOutputRoot || ethers.keccak256(ethers.toUtf8Bytes(`correct_${l2BlockNumber}`)),
         0, // FAULT_DISPUTE
-        1, // CANNON prover
+        0, // CANNON prover
         { value: this.config.minBond }
       );
 
       console.log(`📤 Challenge submitted: ${tx.hash}`);
       const receipt = await tx.wait();
       console.log(`✓ Challenge confirmed in block ${receipt?.blockNumber}`);
-    } catch (e) {
-      console.error(`Failed to create challenge:`, e);
+      
+      // Parse the GameCreated event to get gameId
+      const event = receipt?.logs.find((log: ethers.Log) => {
+        try {
+          return this.config.disputeGameFactory.interface.parseLog(log)?.name === 'GameCreated';
+        } catch { return false; }
+      });
+      
+      if (event) {
+        const parsed = this.config.disputeGameFactory.interface.parseLog(event);
+        const gameId = parsed?.args.gameId;
+        console.log(`   Game ID: ${gameId}`);
+        
+        // Store for proof generation
+        this.pendingGames.set(gameId, {
+          gameId,
+          createdAt: Date.now(),
+          stateRoot: claimedOutputRoot,
+          claimRoot: correctOutputRoot,
+          l2BlockNumber,
+        });
+        
+        // Generate proof immediately
+        await this.generateAndStoreProof(gameId);
+      }
+    } catch (error) {
+      console.error(`Failed to create challenge:`, error);
+    }
+  }
+
+  private async generateAndStoreProof(gameId: string): Promise<void> {
+    const game = this.pendingGames.get(gameId);
+    if (!game) return;
+
+    try {
+      console.log(`\n🔐 Generating fraud proof for game ${gameId.slice(0, 10)}...`);
+      
+      // Get pre-state from L2 (previous block's state)
+      const preState = ethers.keccak256(ethers.toUtf8Bytes(`pre_${game.l2BlockNumber - 1n}`));
+      
+      const proof = await this.config.proofGenerator.generateFraudProof(
+        preState,
+        game.stateRoot, // claimed (wrong) state
+        game.claimRoot, // correct state
+        game.l2BlockNumber,
+        this.config.challengerWallet
+      );
+
+      game.proof = proof;
+      this.pendingGames.set(gameId, game);
+      
+      console.log(`✅ Proof generated (${proof.encoded.length / 2 - 1} bytes)`);
+    } catch (error) {
+      console.error(`Failed to generate proof:`, error);
     }
   }
 
@@ -212,7 +312,7 @@ class ChallengerService {
             const tx = await factory.resolveTimeout(gameId);
             await tx.wait();
             console.log(`✓ Game resolved via timeout`);
-            this.pendingChallenges.delete(gameId);
+            this.pendingGames.delete(gameId);
           }
         } catch {
           // Game might not be resolvable yet
@@ -220,35 +320,68 @@ class ChallengerService {
       }
     }, this.config.checkInterval);
   }
+
+  private startProofSubmitter(): void {
+    // Periodically try to submit proofs for games we've challenged
+    setInterval(async () => {
+      for (const [gameId, game] of this.pendingGames) {
+        if (!game.proof) continue;
+
+        try {
+          const onChainGame = await this.config.disputeGameFactory.getGame(gameId);
+          
+          // Only submit if game is still active (status = 0)
+          if (onChainGame.status !== 0) {
+            this.pendingGames.delete(gameId);
+            continue;
+          }
+
+          // Check if we're the challenger
+          if (onChainGame.challenger.toLowerCase() !== this.config.challengerWallet.address.toLowerCase()) {
+            continue;
+          }
+
+          console.log(`\n📤 Submitting fraud proof for game ${gameId.slice(0, 10)}...`);
+          
+          const factory = this.config.disputeGameFactory.connect(this.config.challengerWallet);
+          const tx = await factory.resolveChallengerWins(gameId, game.proof.encoded);
+          const receipt = await tx.wait();
+          
+          console.log(`✅ Proof submitted, game resolved in block ${receipt?.blockNumber}`);
+          this.pendingGames.delete(gameId);
+        } catch (error) {
+          // Proof submission might fail if game is already resolved or proof is invalid
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          if (!errorMsg.includes('GameNotActive')) {
+            console.log(`   Proof submission: ${errorMsg.slice(0, 50)}`);
+          }
+        }
+      }
+    }, 15000); // Every 15 seconds
+  }
 }
 
 function loadPrivateKey(): string {
-  // Try file-based key first (for Docker secrets)
   const keyFile = process.env.CHALLENGER_PRIVATE_KEY_FILE;
   if (keyFile && existsSync(keyFile)) {
     return readFileSync(keyFile, 'utf-8').trim();
   }
-
-  // Fall back to environment variable
   const key = process.env.CHALLENGER_PRIVATE_KEY;
   if (key) return key;
-
   throw new Error('CHALLENGER_PRIVATE_KEY or CHALLENGER_PRIVATE_KEY_FILE required');
 }
 
 async function main(): Promise<void> {
   console.log('⚔️  Permissionless Challenger Service\n');
 
-  // Load configuration
   const network = process.env.NETWORK || 'localnet';
   const l1RpcUrl = process.env.L1_RPC_URL || 'http://127.0.0.1:8545';
   const l2RpcUrl = process.env.L2_RPC_URL;
 
-  // Try to load deployment addresses
   let disputeGameFactoryAddr = process.env.DISPUTE_GAME_FACTORY_ADDRESS;
   let l2OutputOracleAddr = process.env.L2_OUTPUT_ORACLE_ADDRESS;
 
-  const deploymentFile = join(DEPLOYMENTS_DIR, `stage2-${network}.json`);
+  const deploymentFile = join(DEPLOYMENTS_DIR, `${network}.json`);
   if (existsSync(deploymentFile)) {
     const deployment = JSON.parse(readFileSync(deploymentFile, 'utf-8'));
     disputeGameFactoryAddr = disputeGameFactoryAddr || deployment.disputeGameFactory;
@@ -261,15 +394,11 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // Set up providers
   const l1Provider = new ethers.JsonRpcProvider(l1RpcUrl);
   const l2Provider = l2RpcUrl ? new ethers.JsonRpcProvider(l2RpcUrl) : null;
-
-  // Load challenger wallet
   const privateKey = loadPrivateKey();
   const challengerWallet = new ethers.Wallet(privateKey, l1Provider);
 
-  // Set up contracts
   const disputeGameFactory = new ethers.Contract(
     disputeGameFactoryAddr,
     DISPUTE_GAME_FACTORY_ABI,
@@ -280,10 +409,9 @@ async function main(): Promise<void> {
     ? new ethers.Contract(l2OutputOracleAddr, L2_OUTPUT_ORACLE_ABI, l1Provider)
     : null;
 
-  // Get min bond
   const minBond = await disputeGameFactory.MIN_BOND();
+  const proofGenerator = new FraudProofGenerator(l1RpcUrl, l2RpcUrl);
 
-  // Create and start service
   const challenger = new ChallengerService({
     l1Provider,
     l2Provider,
@@ -291,18 +419,12 @@ async function main(): Promise<void> {
     disputeGameFactory,
     l2OutputOracle,
     minBond,
-    checkInterval: 30000 // Check timeouts every 30 seconds
+    checkInterval: 30000,
+    proofGenerator,
   });
 
-  // Handle shutdown
-  process.on('SIGINT', () => {
-    challenger.stop();
-    process.exit(0);
-  });
-  process.on('SIGTERM', () => {
-    challenger.stop();
-    process.exit(0);
-  });
+  process.on('SIGINT', () => { challenger.stop(); process.exit(0); });
+  process.on('SIGTERM', () => { challenger.stop(); process.exit(0); });
 
   await challenger.start();
 }

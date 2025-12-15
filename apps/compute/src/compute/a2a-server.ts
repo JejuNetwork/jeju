@@ -185,7 +185,7 @@ export class ComputeA2AServer {
   private getAgentCard(): Record<string, unknown> {
     return {
       protocolVersion: '0.3.0',
-      name: getNetworkName() Compute Marketplace',
+      name: `${getNetworkName()} Compute Marketplace`,
       description: 'Decentralized compute marketplace - rent GPUs, CPUs, TEE resources, serverless triggers, and AI inference',
       url: '/a2a',
       preferredTransport: 'http',

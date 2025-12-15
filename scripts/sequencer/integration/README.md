@@ -1,6 +1,6 @@
-# Stage 2 Integration Components
+# Decentralization Integration Components
 
-Adapters connecting Stage 2 contracts with OP Stack components.
+Adapters connecting Decentralization contracts with OP Stack components.
 
 ## Components
 
@@ -9,7 +9,7 @@ Adapters connecting Stage 2 contracts with OP Stack components.
 - Loads sequencers from SequencerRegistry
 - Selects sequencers using weighted selection
 
-**Usage**: `bun run scripts/stage2-poc/run-consensus.ts`
+**Usage**: `bun run scripts/sequencer/run-consensus.ts`
 
 ### ThresholdSigner
 - Threshold signing for batches (2/3+ required)
@@ -22,7 +22,7 @@ Adapters connecting Stage 2 contracts with OP Stack components.
 ### Challenger Service
 Self-contained permissionless challenger that monitors outputs and creates disputes.
 
-**Usage**: `CHALLENGER_PRIVATE_KEY=... bun run scripts/stage2-poc/run-challenger.ts`
+**Usage**: `CHALLENGER_PRIVATE_KEY=... bun run scripts/sequencer/run-challenger.ts`
 
 ## Integration Points
 

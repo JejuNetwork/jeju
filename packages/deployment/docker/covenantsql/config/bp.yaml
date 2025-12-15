@@ -1,0 +1,62 @@
+# CovenantSQL Block Producer Configuration
+# Local development configuration
+
+# Node identification
+NodeID: "00000000000000000000000000000001"
+Role: BlockProducer
+
+# Network configuration
+ListenAddr: "0.0.0.0:4661"
+RPCAddr: "0.0.0.0:4662"
+KayakAddr: "0.0.0.0:4663"
+HTTPAddr: "0.0.0.0:8546"
+
+# Data directories
+DataDir: "/data"
+LogDir: "/logs"
+
+# Genesis configuration
+Genesis:
+  TargetPeers: 3
+  MinPeers: 1
+  BlockInterval: 3s
+  MaxBlockSize: 2097152
+
+# Storage configuration
+Storage:
+  Engine: "bolt"
+  Path: "/data/db"
+  SyncWrites: true
+  CompactionInterval: 300
+
+# Consensus configuration
+Consensus:
+  Type: "kayak"
+  HeartbeatInterval: 1s
+  ElectionTimeout: 5s
+  MaxInflightBlocks: 256
+
+# API configuration
+API:
+  Enable: true
+  EnableCORS: true
+  CORSOrigins: ["*"]
+  RateLimit: 1000
+  Timeout: 30s
+
+# Metrics configuration
+Metrics:
+  Enable: true
+  PrometheusPort: 9100
+  Interval: 15s
+
+# Security configuration (development mode - minimal security)
+Security:
+  EnableTLS: false
+  EnableAuth: false
+
+# Logging configuration
+Log:
+  Level: "info"
+  Format: "json"
+  Output: "stdout"

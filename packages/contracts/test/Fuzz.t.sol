@@ -19,7 +19,7 @@ contract MockJEJU is ERC20 {
     }
 }
 
-contract Stage2FuzzTest is Test {
+contract DecentralizationFuzzTest is Test {
     SequencerRegistry public sequencerRegistry;
     GovernanceTimelock public timelock;
     DisputeGameFactory public disputeFactory;

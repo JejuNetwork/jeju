@@ -8,7 +8,8 @@
  * - Secrets (KMS)
  * - Triggers (Cron)
  * - Naming (JNS)
- * - Protocols (A2A, MCP)
+ * - Protocols (A2A, MCP, Unified Server)
+ * - Middleware (ERC-8004, x402)
  * - Deployment
  */
 
@@ -30,9 +31,44 @@ export { createCronService, type CronService, type CronConfig, type CronJob } fr
 // JNS
 export { createJNSService, type JNSService, type JNSConfig, type JNSRecords } from './jns/index.js';
 
-// Protocols
+// Legacy Protocol Factories (kept for backwards compatibility)
 export { createA2AServer, type A2AConfig, type A2ASkill, type AgentCard } from './protocols/a2a.js';
 export { createMCPServer, type MCPConfig, type MCPTool, type MCPResource } from './protocols/mcp.js';
+
+// Unified Protocol Server (recommended)
+export {
+  createUnifiedServer,
+  startServer,
+  createServerlessHandler,
+  skillSuccess,
+  skillError,
+  skillRequiresPayment,
+  type UnifiedServerConfig,
+  type SkillResult,
+  type SkillContext,
+  type A2ASkill as Skill,
+  type MCPResource as Resource,
+  type MCPTool as Tool,
+  type MCPPrompt as Prompt,
+  type PaymentRequirement,
+  type ServerInstance,
+} from './protocols/server.js';
+
+// Protocol Middleware
+export {
+  configureERC8004,
+  configureX402,
+  configureProtocolMiddleware,
+  erc8004Middleware,
+  x402Middleware,
+  getAgentInfo,
+  createPaymentRequirement,
+  verifyX402Payment,
+  type ERC8004Config,
+  type X402Config,
+  type ProtocolMiddlewareConfig,
+  type AgentInfo,
+} from './protocols/middleware.js';
 
 // Deployment
 export { deployApp, type DeployConfig, type DeployResult } from './deploy/index.js';

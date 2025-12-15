@@ -8,11 +8,11 @@ describe('TEE Encryption', () => {
     tee = await import('../../src/tee');
   });
 
-  test('getTEEMode returns simulated without API key', () => {
-    expect(tee.getTEEMode()).toBe('simulated');
+  test('getTEEMode returns local without TEE_ENDPOINT', () => {
+    expect(tee.getTEEMode()).toBe('local');
   });
 
-  test('makeTEEDecision works in simulated mode', async () => {
+  test('makeTEEDecision works in local mode', async () => {
     const result = await tee.makeTEEDecision({
       proposalId: 'test-proposal-123',
       councilVotes: [
@@ -26,7 +26,7 @@ describe('TEE Encryption', () => {
     expect(typeof result.approved).toBe('boolean');
     expect(result.encryptedHash).toMatch(/^0x[a-fA-F0-9]{64}$/);
     expect(result.confidenceScore).toBeGreaterThanOrEqual(0);
-    expect(result.attestation.provider).toBe('simulated');
+    expect(result.attestation.provider).toBe('local');
     console.log(`✅ TEE decision: ${result.approved ? 'APPROVED' : 'REJECTED'} (${result.confidenceScore}%)`);
   });
 

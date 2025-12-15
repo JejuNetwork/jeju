@@ -1,0 +1,59 @@
+{{- if .Values.computeNode.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "compute.fullname" . }}-node
+  labels:
+    {{- include "compute.labels" . | nindent 4 }}
+    app.kubernetes.io/component: node
+spec:
+  type: {{ .Values.computeNode.service.type }}
+  ports:
+    - port: {{ .Values.computeNode.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "compute.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: node
+{{- end }}
+---
+{{- if .Values.workerRuntime.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "compute.fullname" . }}-workers
+  labels:
+    {{- include "compute.labels" . | nindent 4 }}
+    app.kubernetes.io/component: workers
+spec:
+  type: {{ .Values.workerRuntime.service.type }}
+  ports:
+    - port: {{ .Values.workerRuntime.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "compute.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: workers
+{{- end }}
+---
+{{- if .Values.mpcNode.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "compute.fullname" . }}-mpc
+  labels:
+    {{- include "compute.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mpc
+spec:
+  type: {{ .Values.mpcNode.service.type }}
+  ports:
+    - port: {{ .Values.mpcNode.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "compute.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: mpc
+{{- end }}

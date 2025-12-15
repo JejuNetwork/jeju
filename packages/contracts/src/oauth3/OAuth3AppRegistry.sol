@@ -40,22 +40,14 @@ contract OAuth3AppRegistry is IOAuth3AppRegistry {
         teeVerifier = _teeVerifier;
     }
 
-    function registerApp(
-        string calldata name,
-        string calldata description,
-        address council,
-        AppConfig calldata config
-    ) external returns (bytes32 appId) {
+    function registerApp(string calldata name, string calldata description, address council, AppConfig calldata config)
+        external
+        returns (bytes32 appId)
+    {
         require(bytes(name).length > 0, "Name required");
         require(config.redirectUris.length > 0, "Redirect URIs required");
 
-        appId = keccak256(abi.encodePacked(
-            msg.sender,
-            name,
-            block.timestamp,
-            block.chainid,
-            totalApps
-        ));
+        appId = keccak256(abi.encodePacked(msg.sender, name, block.timestamp, block.chainid, totalApps));
 
         apps[appId] = App({
             appId: appId,
@@ -72,14 +64,11 @@ contract OAuth3AppRegistry is IOAuth3AppRegistry {
         bytes32 clientId = _generateClientId(appId);
         bytes32 clientSecretHash = _generateClientSecretHash(appId, block.timestamp);
 
-        appCredentials[appId] = AppCredentials({
-            clientId: clientId,
-            clientSecretHash: clientSecretHash
-        });
+        appCredentials[appId] = AppCredentials({clientId: clientId, clientSecretHash: clientSecretHash});
 
         clientIdToApp[clientId] = appId;
         ownerApps[msg.sender].push(appId);
-        
+
         if (council != address(0)) {
             councilApps[council].push(appId);
         }
@@ -89,12 +78,11 @@ contract OAuth3AppRegistry is IOAuth3AppRegistry {
         emit AppRegistered(appId, msg.sender, council, name, block.timestamp);
     }
 
-    function updateApp(
-        bytes32 appId,
-        string calldata name,
-        string calldata description,
-        AppConfig calldata config
-    ) external appExists(appId) onlyAppOwner(appId) {
+    function updateApp(bytes32 appId, string calldata name, string calldata description, AppConfig calldata config)
+        external
+        appExists(appId)
+        onlyAppOwner(appId)
+    {
         require(bytes(name).length > 0, "Name required");
         require(config.redirectUris.length > 0, "Redirect URIs required");
 
@@ -105,17 +93,19 @@ contract OAuth3AppRegistry is IOAuth3AppRegistry {
         emit AppUpdated(appId, block.timestamp);
     }
 
-    function rotateCredentials(bytes32 appId) external appExists(appId) onlyAppOwner(appId) returns (bytes32 newClientId) {
+    function rotateCredentials(bytes32 appId)
+        external
+        appExists(appId)
+        onlyAppOwner(appId)
+        returns (bytes32 newClientId)
+    {
         bytes32 oldClientId = appCredentials[appId].clientId;
         delete clientIdToApp[oldClientId];
 
         newClientId = _generateClientId(appId);
         bytes32 newSecretHash = _generateClientSecretHash(appId, block.timestamp);
 
-        appCredentials[appId] = AppCredentials({
-            clientId: newClientId,
-            clientSecretHash: newSecretHash
-        });
+        appCredentials[appId] = AppCredentials({clientId: newClientId, clientSecretHash: newSecretHash});
 
         clientIdToApp[newClientId] = appId;
 
@@ -136,7 +126,7 @@ contract OAuth3AppRegistry is IOAuth3AppRegistry {
         require(newOwner != address(0), "Invalid new owner");
 
         address previousOwner = apps[appId].owner;
-        
+
         _removeFromOwnerApps(previousOwner, appId);
         ownerApps[newOwner].push(appId);
         apps[appId].owner = newOwner;
@@ -146,15 +136,15 @@ contract OAuth3AppRegistry is IOAuth3AppRegistry {
 
     function updateCouncil(bytes32 appId, address newCouncil) external appExists(appId) onlyAppOwner(appId) {
         address previousCouncil = apps[appId].council;
-        
+
         if (previousCouncil != address(0)) {
             _removeFromCouncilApps(previousCouncil, appId);
         }
-        
+
         if (newCouncil != address(0)) {
             councilApps[newCouncil].push(appId);
         }
-        
+
         apps[appId].council = newCouncil;
         emit AppUpdated(appId, block.timestamp);
     }
@@ -187,7 +177,7 @@ contract OAuth3AppRegistry is IOAuth3AppRegistry {
     function validateRedirectUri(bytes32 appId, string calldata uri) external view returns (bool) {
         string[] storage uris = appConfigs[appId].redirectUris;
         bytes32 uriHash = keccak256(bytes(uri));
-        
+
         for (uint256 i = 0; i < uris.length; i++) {
             if (keccak256(bytes(uris[i])) == uriHash) {
                 return true;
@@ -196,16 +186,17 @@ contract OAuth3AppRegistry is IOAuth3AppRegistry {
         return false;
     }
 
-    function isProviderAllowed(
-        bytes32 appId,
-        IOAuth3IdentityRegistry.AuthProvider provider
-    ) external view returns (bool) {
+    function isProviderAllowed(bytes32 appId, IOAuth3IdentityRegistry.AuthProvider provider)
+        external
+        view
+        returns (bool)
+    {
         IOAuth3IdentityRegistry.AuthProvider[] storage providers = appConfigs[appId].allowedProviders;
-        
+
         if (providers.length == 0) {
             return true;
         }
-        
+
         for (uint256 i = 0; i < providers.length; i++) {
             if (providers[i] == provider) {
                 return true;
@@ -219,22 +210,11 @@ contract OAuth3AppRegistry is IOAuth3AppRegistry {
     }
 
     function _generateClientId(bytes32 appId) internal view returns (bytes32) {
-        return keccak256(abi.encodePacked(
-            "oauth3_client",
-            appId,
-            block.timestamp,
-            block.prevrandao
-        ));
+        return keccak256(abi.encodePacked("oauth3_client", appId, block.timestamp, block.prevrandao));
     }
 
     function _generateClientSecretHash(bytes32 appId, uint256 timestamp) internal view returns (bytes32) {
-        return keccak256(abi.encodePacked(
-            "oauth3_secret",
-            appId,
-            timestamp,
-            block.prevrandao,
-            msg.sender
-        ));
+        return keccak256(abi.encodePacked("oauth3_secret", appId, timestamp, block.prevrandao, msg.sender));
     }
 
     function _removeFromOwnerApps(address owner, bytes32 appId) internal {

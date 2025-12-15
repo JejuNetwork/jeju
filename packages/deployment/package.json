@@ -22,6 +22,10 @@
     
     "images:build": "bun run scripts/build-images.ts",
     "images:push": "bun run scripts/build-images.ts --push",
+    "images:cql": "bun run scripts/build-covenantsql.ts",
+    "images:cql:push": "bun run scripts/build-covenantsql.ts --push",
+    "images:cql:arm": "bun run scripts/build-covenantsql.ts --arm-only",
+    "images:cql:x86": "bun run scripts/build-covenantsql.ts --x86-only",
     
     "k8s:deploy": "bun run scripts/helmfile.ts sync",
     "k8s:diff": "bun run scripts/helmfile.ts diff",
@@ -40,7 +44,7 @@
     "@types/bun": "latest"
   },
   "peerDependencies": {
-    "@jejunetwork/config": "workspace:*"
+    "@jejunetwork/config": ">=0.1.0"
   }
 }
 

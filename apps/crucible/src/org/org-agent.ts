@@ -4,7 +4,7 @@
  * Decentralized organization management using CQL database and DEX cache
  */
 
-import { CQLClient } from '@jeju/cql';
+import { CQLClient } from '@jeju/db';
 import type { OrgTodo, OrgCheckinSchedule, OrgCheckinResponse, OrgTeamMember } from '../types';
 import { createLogger, type Logger } from '../sdk/logger';
 

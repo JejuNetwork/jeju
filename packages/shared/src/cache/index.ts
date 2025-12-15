@@ -1,0 +1,363 @@
+/**
+ * Decentralized Cache Client
+ * 
+ * Redis-compatible cache client that connects to the Jeju Cache Service.
+ * Supports namespacing, TTL, batch operations, and TEE-backed instances.
+ */
+
+import type { Address } from 'viem';
+
+export interface CacheClientConfig {
+  endpoint: string;
+  namespace: string;
+  defaultTtl?: number;
+  timeout?: number;
+}
+
+export interface CacheClient {
+  get(key: string): Promise<string | null>;
+  set(key: string, value: string, ttl?: number): Promise<void>;
+  delete(key: string): Promise<boolean>;
+  mget(keys: string[]): Promise<Map<string, string | null>>;
+  mset(entries: Array<{ key: string; value: string; ttl?: number }>): Promise<void>;
+  keys(pattern?: string): Promise<string[]>;
+  ttl(key: string): Promise<number>;
+  expire(key: string, ttl: number): Promise<boolean>;
+  clear(): Promise<void>;
+  getStats(): Promise<CacheStats>;
+}
+
+export interface CacheStats {
+  totalKeys: number;
+  namespaces: number;
+  usedMemoryMb: number;
+  totalMemoryMb: number;
+  hits: number;
+  misses: number;
+  hitRate: number;
+  totalInstances: number;
+}
+
+export interface CacheInstance {
+  id: string;
+  owner: Address;
+  namespace: string;
+  maxMemoryMb: number;
+  usedMemoryMb: number;
+  keyCount: number;
+  createdAt: number;
+  expiresAt: number;
+  status: 'creating' | 'running' | 'stopped' | 'expired' | 'error';
+}
+
+export interface CacheRentalPlan {
+  id: string;
+  name: string;
+  maxMemoryMb: number;
+  maxKeys: number;
+  pricePerHour: string;
+  pricePerMonth: string;
+  teeRequired: boolean;
+}
+
+class DecentralizedCacheClient implements CacheClient {
+  private config: Required<CacheClientConfig>;
+
+  constructor(config: CacheClientConfig) {
+    this.config = {
+      defaultTtl: 3600,
+      timeout: 5000,
+      ...config,
+    };
+  }
+
+  async get(key: string): Promise<string | null> {
+    const url = new URL('/cache/get', this.config.endpoint);
+    url.searchParams.set('key', key);
+    url.searchParams.set('namespace', this.config.namespace);
+
+    const response = await fetch(url.toString(), {
+      signal: AbortSignal.timeout(this.config.timeout),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Cache get failed: ${response.statusText}`);
+    }
+
+    const data = await response.json() as { value: string | null; found: boolean };
+    return data.found ? data.value : null;
+  }
+
+  async set(key: string, value: string, ttl?: number): Promise<void> {
+    const response = await fetch(`${this.config.endpoint}/cache/set`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        key,
+        value,
+        ttl: ttl ?? this.config.defaultTtl,
+        namespace: this.config.namespace,
+      }),
+      signal: AbortSignal.timeout(this.config.timeout),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Cache set failed: ${response.statusText}`);
+    }
+  }
+
+  async delete(key: string): Promise<boolean> {
+    const url = new URL('/cache/delete', this.config.endpoint);
+    url.searchParams.set('key', key);
+    url.searchParams.set('namespace', this.config.namespace);
+
+    const response = await fetch(url.toString(), {
+      method: 'DELETE',
+      signal: AbortSignal.timeout(this.config.timeout),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Cache delete failed: ${response.statusText}`);
+    }
+
+    const data = await response.json() as { success: boolean };
+    return data.success;
+  }
+
+  async mget(keys: string[]): Promise<Map<string, string | null>> {
+    const response = await fetch(`${this.config.endpoint}/cache/mget`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        keys,
+        namespace: this.config.namespace,
+      }),
+      signal: AbortSignal.timeout(this.config.timeout),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Cache mget failed: ${response.statusText}`);
+    }
+
+    const data = await response.json() as { entries: Record<string, string | null> };
+    return new Map(Object.entries(data.entries));
+  }
+
+  async mset(entries: Array<{ key: string; value: string; ttl?: number }>): Promise<void> {
+    const response = await fetch(`${this.config.endpoint}/cache/mset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        entries,
+        namespace: this.config.namespace,
+      }),
+      signal: AbortSignal.timeout(this.config.timeout),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Cache mset failed: ${response.statusText}`);
+    }
+  }
+
+  async keys(pattern?: string): Promise<string[]> {
+    const url = new URL('/cache/keys', this.config.endpoint);
+    url.searchParams.set('namespace', this.config.namespace);
+    if (pattern) {
+      url.searchParams.set('pattern', pattern);
+    }
+
+    const response = await fetch(url.toString(), {
+      signal: AbortSignal.timeout(this.config.timeout),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Cache keys failed: ${response.statusText}`);
+    }
+
+    const data = await response.json() as { keys: string[] };
+    return data.keys;
+  }
+
+  async ttl(key: string): Promise<number> {
+    const url = new URL('/cache/ttl', this.config.endpoint);
+    url.searchParams.set('key', key);
+    url.searchParams.set('namespace', this.config.namespace);
+
+    const response = await fetch(url.toString(), {
+      signal: AbortSignal.timeout(this.config.timeout),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Cache ttl failed: ${response.statusText}`);
+    }
+
+    const data = await response.json() as { ttl: number };
+    return data.ttl;
+  }
+
+  async expire(key: string, ttl: number): Promise<boolean> {
+    const response = await fetch(`${this.config.endpoint}/cache/expire`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        key,
+        ttl,
+        namespace: this.config.namespace,
+      }),
+      signal: AbortSignal.timeout(this.config.timeout),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Cache expire failed: ${response.statusText}`);
+    }
+
+    const data = await response.json() as { success: boolean };
+    return data.success;
+  }
+
+  async clear(): Promise<void> {
+    const url = new URL('/cache/clear', this.config.endpoint);
+    url.searchParams.set('namespace', this.config.namespace);
+
+    const response = await fetch(url.toString(), {
+      method: 'DELETE',
+      signal: AbortSignal.timeout(this.config.timeout),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Cache clear failed: ${response.statusText}`);
+    }
+  }
+
+  async getStats(): Promise<CacheStats> {
+    const response = await fetch(`${this.config.endpoint}/stats`, {
+      signal: AbortSignal.timeout(this.config.timeout),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Cache stats failed: ${response.statusText}`);
+    }
+
+    const data = await response.json() as { stats: CacheStats };
+    return data.stats;
+  }
+}
+
+// Cache for rental management
+export class CacheRentalClient {
+  private endpoint: string;
+  private timeout: number;
+
+  constructor(endpoint: string, timeout = 5000) {
+    this.endpoint = endpoint;
+    this.timeout = timeout;
+  }
+
+  async listPlans(): Promise<CacheRentalPlan[]> {
+    const response = await fetch(`${this.endpoint}/plans`, {
+      signal: AbortSignal.timeout(this.timeout),
+    });
+
+    if (!response.ok) {
+      throw new Error(`List plans failed: ${response.statusText}`);
+    }
+
+    const data = await response.json() as { plans: CacheRentalPlan[] };
+    return data.plans;
+  }
+
+  async createInstance(planId: string, namespace?: string, durationHours = 720): Promise<CacheInstance> {
+    const response = await fetch(`${this.endpoint}/instances`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ planId, namespace, durationHours }),
+      signal: AbortSignal.timeout(this.timeout),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Create instance failed: ${response.statusText}`);
+    }
+
+    const data = await response.json() as { instance: CacheInstance };
+    return data.instance;
+  }
+
+  async getInstance(id: string): Promise<CacheInstance | null> {
+    const response = await fetch(`${this.endpoint}/instances/${id}`, {
+      signal: AbortSignal.timeout(this.timeout),
+    });
+
+    if (response.status === 404) {
+      return null;
+    }
+
+    if (!response.ok) {
+      throw new Error(`Get instance failed: ${response.statusText}`);
+    }
+
+    const data = await response.json() as { instance: CacheInstance };
+    return data.instance;
+  }
+
+  async listInstances(): Promise<CacheInstance[]> {
+    const response = await fetch(`${this.endpoint}/instances`, {
+      signal: AbortSignal.timeout(this.timeout),
+    });
+
+    if (!response.ok) {
+      throw new Error(`List instances failed: ${response.statusText}`);
+    }
+
+    const data = await response.json() as { instances: CacheInstance[] };
+    return data.instances;
+  }
+
+  async deleteInstance(id: string): Promise<void> {
+    const response = await fetch(`${this.endpoint}/instances/${id}`, {
+      method: 'DELETE',
+      signal: AbortSignal.timeout(this.timeout),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Delete instance failed: ${response.statusText}`);
+    }
+  }
+}
+
+// Singleton cache clients per namespace
+const cacheClients = new Map<string, CacheClient>();
+
+export function getCacheClient(namespace: string): CacheClient {
+  const existing = cacheClients.get(namespace);
+  if (existing) return existing;
+
+  const endpoint = process.env.CACHE_SERVICE_URL ?? 'http://localhost:4015';
+
+  const client = new DecentralizedCacheClient({
+    endpoint,
+    namespace,
+    defaultTtl: parseInt(process.env.CACHE_DEFAULT_TTL ?? '3600', 10),
+    timeout: parseInt(process.env.CACHE_TIMEOUT ?? '5000', 10),
+  });
+
+  cacheClients.set(namespace, client);
+  return client;
+}
+
+export function resetCacheClients(): void {
+  cacheClients.clear();
+}
+
+let rentalClient: CacheRentalClient | null = null;
+
+export function getCacheRentalClient(): CacheRentalClient {
+  if (rentalClient) return rentalClient;
+
+  const endpoint = process.env.CACHE_SERVICE_URL ?? 'http://localhost:4015';
+  rentalClient = new CacheRentalClient(endpoint);
+  return rentalClient;
+}
+
+export function resetCacheRentalClient(): void {
+  rentalClient = null;
+}

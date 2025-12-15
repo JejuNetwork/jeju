@@ -1,7 +1,7 @@
 {
   "name": "jeju",
   "version": "0.1.0",
-  "description": "A modern EVM chain for for agents and humans",
+  "description": "A modern EVM chain for agents and humans",
   "type": "module",
   "workspaces": [
     "packages/*",
@@ -17,7 +17,8 @@
   "overrides": {
     "viem": "2.41.2",
     "qs": ">=6.13.0",
-    "express": ">=4.21.0",
+    "express": "5.0.1",
+    "node-fetch": "2.7.0",
     "ws": ">=8.18.0",
     "body-parser": ">=1.20.3",
     "cookie": ">=0.7.0",
@@ -51,8 +52,7 @@
     "got": ">=11.8.5",
     "tunnel-agent": ">=0.6.0",
     "tsup": ">=8.5.1",
-    "tough-cookie": ">=4.1.3",
-    "node-fetch": ">=2.6.7"
+    "tough-cookie": ">=4.1.3"
   },
   "scripts": {
     "preinstall": "python3 -c 'import distutils' 2>/dev/null || (echo '\\n⚠️  Python distutils not found (required for native modules like better-sqlite3)\\n\\nFix with: pip3 install --user --break-system-packages setuptools\\n' && exit 1)",
@@ -66,6 +66,7 @@
     "jeju": "bun run packages/cli/src/index.ts",
     "preflight": "bun run scripts/preflight-check.ts",
     "dev": "bun run scripts/dev.ts",
+    "start": "bun run scripts/start.ts",
     "dev:vendor": "bun run scripts/dev-with-vendor.ts",
     "wallet": "bun run scripts/show-wallet-config.ts",
     "ports": "bun run scripts/check-ports.ts",
@@ -139,6 +140,10 @@
     "jeju:keys": "bun run packages/cli/src/index.ts keys",
     "jeju:status": "bun run packages/cli/src/index.ts status",
     "jeju:fund": "bun run packages/cli/src/index.ts fund",
+    "status": "bun run packages/cli/src/index.ts status",
+    "keys": "bun run packages/cli/src/index.ts keys",
+    "init": "bun run packages/cli/src/index.ts init",
+    "deploy": "bun run packages/cli/src/index.ts deploy",
     "publish:packages": "bun run scripts/publish-packages.ts",
     "publish:packages:dry": "bun run scripts/publish-packages.ts --dry-run",
     "link:packages": "cd packages/types && bun link && cd ../config && bun link && cd ../contracts && bun link && cd ../cli && bun link"
@@ -146,6 +151,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.911.0",
     "@eth-optimism/sdk": "^3.2.0",
+    "@hono/node-server": "^1.19.7",
     "@noble/curves": "^2.0.1",
     "@openzeppelin/contracts": "^5.0.2",
     "@safe-global/safe-core-sdk": "^3.3.5",
@@ -185,7 +191,8 @@
   "resolutions": {
     "viem": "2.41.2",
     "qs": ">=6.13.0",
-    "express": ">=4.21.0",
+    "express": "5.0.1",
+    "node-fetch": "2.7.0",
     "ws": ">=8.18.0",
     "body-parser": ">=1.20.3",
     "cookie": ">=0.7.0",
@@ -198,8 +205,7 @@
     "@hapi/hoek": ">=9.0.3",
     "hawk": ">=9.0.1",
     "playwright": ">=1.55.1",
-    "tough-cookie": ">=4.1.3",
-    "node-fetch": ">=2.6.7"
+    "tough-cookie": ">=4.1.3"
   },
   "engines": {
     "bun": ">=1.0.0"
@@ -246,5 +252,8 @@
       "@typescript-eslint/no-var-requires": "off",
       "no-console": "off"
     }
+  },
+  "patchedDependencies": {
+    "@fastify/static@8.3.0": "patches/@fastify%2Fstatic@8.3.0.patch"
   }
 }

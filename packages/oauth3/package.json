@@ -2,13 +2,66 @@
   "name": "@jeju/oauth3",
   "version": "0.1.0",
   "description": "Decentralized OAuth3 authentication with TEE-backed key management",
+  "license": "MIT",
   "type": "module",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
-  "scripts": {
-    "test": "bun test",
-    "typecheck": "tsc --noEmit"
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./sdk": {
+      "types": "./dist/sdk/client.d.ts",
+      "import": "./dist/sdk/client.js"
+    },
+    "./tee": {
+      "types": "./dist/tee/dstack-agent.d.ts",
+      "import": "./dist/tee/dstack-agent.js"
+    },
+    "./mpc": {
+      "types": "./dist/mpc/frost-signing.d.ts",
+      "import": "./dist/mpc/frost-signing.js"
+    },
+    "./credentials": {
+      "types": "./dist/credentials/verifiable-credentials.d.ts",
+      "import": "./dist/credentials/verifiable-credentials.js"
+    }
   },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "bun run build",
+    "start:agent": "bun run src/tee/dstack-agent.ts",
+    "start:demo": "bun run src/demo/server.ts",
+    "docker:local": "docker compose -f docker/dstack.compose.yaml --profile local up",
+    "docker:testnet": "docker compose -f docker/dstack.compose.yaml --profile testnet up"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elizaos/jeju.git",
+    "directory": "packages/oauth3"
+  },
+  "keywords": [
+    "jeju",
+    "oauth3",
+    "authentication",
+    "tee",
+    "dstack",
+    "mpc",
+    "frost",
+    "farcaster",
+    "verifiable-credentials",
+    "decentralized"
+  ],
   "dependencies": {
     "@noble/curves": "^1.4.0",
     "@noble/hashes": "^1.4.0",
@@ -18,5 +71,8 @@
   "devDependencies": {
     "@types/bun": "^1.1.0",
     "typescript": "^5.5.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

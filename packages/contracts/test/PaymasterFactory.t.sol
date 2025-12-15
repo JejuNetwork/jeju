@@ -6,7 +6,7 @@ import {PaymasterFactory} from "../src/paymaster/PaymasterFactory.sol";
 import {TokenRegistry} from "../src/paymaster/TokenRegistry.sol";
 import {LiquidityPaymaster} from "../src/paymaster/LiquidityPaymaster.sol";
 import {LiquidityVault} from "../src/liquidity/LiquidityVault.sol";
-import {FeeDistributor} from "../src/distributor/FeeDistributor.sol";
+import {FeeDistributorV2 as FeeDistributor} from "../src/distributor/FeeDistributor.sol";
 import {PriceOracle} from "../src/oracle/PriceOracle.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";

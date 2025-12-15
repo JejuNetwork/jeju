@@ -235,8 +235,8 @@ async function handleResourceRead(uri: string): Promise<NextResponse> {
     case 'bazaar://collections':
       contents = {
         collections: [
-          { id: 'jeju-genesis', name: getNetworkName() Genesis', items: 10000 },
-          { id: 'jeju-agents', name: getNetworkName() Agents', items: 5000 },
+          { id: 'jeju-genesis', name: 'Jeju Genesis', items: 10000 },
+          { id: 'jeju-agents', name: 'Jeju Agents', items: 5000 },
         ],
       };
       break;
@@ -252,7 +252,7 @@ async function handleResourceRead(uri: string): Promise<NextResponse> {
     case 'bazaar://trending':
       contents = {
         tokens: [{ symbol: 'JEJU', change: 15.5 }],
-        collections: [{ name: getNetworkName() Agents', change: 250 }],
+        collections: [{ name: 'Jeju Agents', change: 250 }],
       };
       break;
 
@@ -317,7 +317,7 @@ async function handleToolCall(name: string, args: Record<string, unknown>): Prom
     case 'get_collection':
       result = {
         id: args.collectionId,
-        name: getNetworkName() Genesis',
+        name: 'Jeju Genesis',
         items: 10000,
         floorPrice: '0.1',
       };

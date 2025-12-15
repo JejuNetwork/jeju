@@ -20,7 +20,7 @@ let server: ReturnType<typeof Bun.serve> | null = null;
 
   async function startTestServer(): Promise<void> {
     // Import dynamically to avoid circular deps
-    const { ThresholdSignerService } = await import('../../../scripts/stage2-poc/signer-service.ts');
+    const { ThresholdSignerService } = await import('../../../scripts/sequencer/signer-service.ts');
     const service = new ThresholdSignerService(TEST_PRIVATE_KEY, TEST_API_KEY, []);
   
   server = Bun.serve({

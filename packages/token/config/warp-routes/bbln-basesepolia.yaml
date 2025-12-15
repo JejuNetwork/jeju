@@ -1,0 +1,14 @@
+# BBLN Token Warp Route - Base Sepolia Only
+# This deploys the collateral warp route on Base Sepolia
+#
+# Deploy with:
+#   export HYP_KEY=0x<your_private_key>
+#   hyperlane warp deploy --config config/warp-routes/bbln-basesepolia.yaml -y
+
+basesepolia:
+  type: collateral
+  token: "0x3586d05d61523c81d2d79c4e1132ffa1b3bcad5f"
+  owner: "0x748D2E8439c81bFD56756B5d4983EE4565b1E62C"
+  mailbox: "0x6966b0E55883d49BFB24539356a2f8A673E02039"
+  interchainGasPaymaster: "0x28B02B97a850872C4D33C3E024fab6499ad96564"
+  isNft: false

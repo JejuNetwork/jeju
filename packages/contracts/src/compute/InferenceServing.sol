@@ -328,7 +328,7 @@ contract InferenceServing is Ownable, Pausable, ReentrancyGuard {
 
         // Execute settlement via ledger
         ledger.settle(msg.sender, provider, providerFee, requestHash);
-        
+
         // Transfer platform fee to treasury
         if (platformFee > 0 && treasury != address(0)) {
             ledger.settlePlatformFee(msg.sender, provider, treasury, platformFee);
@@ -337,9 +337,9 @@ contract InferenceServing is Ownable, Pausable, ReentrancyGuard {
 
         emit Settled(msg.sender, provider, requestHash, inputTokens, outputTokens, totalFee, nonce);
     }
-    
+
     // ============ Platform Fee Events ============
-    
+
     event PlatformFeeCollected(address indexed provider, uint256 amount, uint256 feeBps);
     event FeeConfigUpdated(address indexed oldConfig, address indexed newConfig);
     event FeeDistributorUpdated(address indexed oldDistributor, address indexed newDistributor);
@@ -509,11 +509,11 @@ contract InferenceServing is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Get platform fee statistics
      */
-    function getPlatformFeeStats() external view returns (
-        uint256 _totalPlatformFeesCollected,
-        uint256 _totalFeesCollected,
-        uint16 currentFeeRateBps
-    ) {
+    function getPlatformFeeStats()
+        external
+        view
+        returns (uint256 _totalPlatformFeesCollected, uint256 _totalFeesCollected, uint16 currentFeeRateBps)
+    {
         currentFeeRateBps = address(feeConfig) != address(0) ? feeConfig.getInferenceFee() : 0;
         return (totalPlatformFeesCollected, totalFeesCollected, currentFeeRateBps);
     }

@@ -325,6 +325,20 @@ releases:
     values:
       - ../helm/faucet/values.yaml
 
+  # ==========================================================================
+  # Compute Services (AI, Workers, MPC)
+  # ==========================================================================
+
+  # Compute (AI Inference, Workers, MPC)
+  - name: compute
+    namespace: compute
+    createNamespace: true
+    chart: ../helm/compute
+    installed: {{ ne .Environment.Name "localnet" }}
+    values:
+      - ../helm/compute/values.yaml
+      - ../helm/compute/values-{{ .Environment.Name }}.yaml
+
   # Alertmanager (Alert Routing)
   - name: alertmanager
     namespace: monitoring

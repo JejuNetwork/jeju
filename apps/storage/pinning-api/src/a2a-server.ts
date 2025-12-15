@@ -198,7 +198,7 @@ export class StorageA2AServer {
   private getAgentCard(): Record<string, unknown> {
     return {
       protocolVersion: '0.3.0',
-      name: getNetworkName() Storage Marketplace',
+      name: `${getNetworkName()} Storage Marketplace`,
       description: 'Decentralized storage marketplace with x402 payments - IPFS pinning, cloud storage, permanent Arweave storage',
       url: '/a2a',
       preferredTransport: 'http',

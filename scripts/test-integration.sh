@@ -1,13 +1,13 @@
 #!/bin/bash
 set -e
 
-# Integration test that deploys Stage 2 contracts to Anvil and tests end-to-end
+# Integration test that deploys Decentralization contracts to Anvil and tests end-to-end
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CONTRACTS_DIR="$PROJECT_ROOT/packages/contracts"
 
-echo "=== Stage 2 Integration Test ==="
+echo "=== Decentralization Integration Test ==="
 
 # Check if Anvil is available
 if ! command -v anvil &> /dev/null; then
@@ -52,7 +52,7 @@ echo "JejuToken: $JEJU_TOKEN"
 
 echo "Deploying SequencerRegistry..."
 OWNER="0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
-SEQ_REG_OUTPUT=$(forge create src/stage2/SequencerRegistry.sol:SequencerRegistry \
+SEQ_REG_OUTPUT=$(forge create src/sequencer/SequencerRegistry.sol:SequencerRegistry \
     --constructor-args $JEJU_TOKEN $OWNER $OWNER $OWNER $OWNER \
     --rpc-url $RPC_URL \
     --private-key $PRIVATE_KEY 2>&1)
@@ -68,7 +68,7 @@ MOCK_BATCH_INBOX=$(echo "$INBOX_OUTPUT" | grep "Deployed to:" | awk '{print $3}'
 echo "MockBatchInbox: $MOCK_BATCH_INBOX"
 
 echo "Deploying ThresholdBatchSubmitter..."
-SUBMITTER_OUTPUT=$(forge create src/stage2/ThresholdBatchSubmitter.sol:ThresholdBatchSubmitter \
+SUBMITTER_OUTPUT=$(forge create src/sequencer/ThresholdBatchSubmitter.sol:ThresholdBatchSubmitter \
     --constructor-args $MOCK_BATCH_INBOX $OWNER 2 \
     --rpc-url $RPC_URL \
     --private-key $PRIVATE_KEY 2>&1)
@@ -76,7 +76,7 @@ THRESHOLD_SUBMITTER=$(echo "$SUBMITTER_OUTPUT" | grep "Deployed to:" | awk '{pri
 echo "ThresholdBatchSubmitter: $THRESHOLD_SUBMITTER"
 
 echo "Deploying GovernanceTimelock..."
-TIMELOCK_OUTPUT=$(forge create src/stage2/GovernanceTimelock.sol:GovernanceTimelock \
+TIMELOCK_OUTPUT=$(forge create src/governance/GovernanceTimelock.sol:GovernanceTimelock \
     --constructor-args $OWNER $OWNER $OWNER 7200 \
     --rpc-url $RPC_URL \
     --private-key $PRIVATE_KEY 2>&1)

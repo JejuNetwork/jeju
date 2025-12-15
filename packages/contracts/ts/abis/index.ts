@@ -50,6 +50,13 @@ import PlayerTradeEscrowAbiJson from '../../abis/PlayerTradeEscrow.json';
 // Paymaster ABIs (ERC-4337 Account Abstraction)
 import SponsoredPaymasterAbiJson from '../../abis/SponsoredPaymaster.json';
 
+// Launchpad ABIs
+import TokenLaunchpadAbiJson from '../../abis/TokenLaunchpad.json';
+import BondingCurveAbiJson from '../../abis/BondingCurve.json';
+import ICOPresaleAbiJson from '../../abis/ICOPresale.json';
+import LPLockerAbiJson from '../../abis/LPLocker.json';
+import LaunchpadTokenAbiJson from '../../abis/LaunchpadToken.json';
+
 import type { Abi } from 'viem';
 
 // Extract and type the ABIs
@@ -99,6 +106,13 @@ export const PlayerTradeEscrowAbi = PlayerTradeEscrowAbiJson.abi as Abi;
 // Paymaster ABIs (ERC-4337 Account Abstraction)
 export const SponsoredPaymasterAbi = SponsoredPaymasterAbiJson.abi as Abi;
 
+// Launchpad ABIs
+export const TokenLaunchpadAbi = TokenLaunchpadAbiJson.abi as Abi;
+export const BondingCurveAbi = BondingCurveAbiJson.abi as Abi;
+export const ICOPresaleAbi = ICOPresaleAbiJson.abi as Abi;
+export const LPLockerAbi = LPLockerAbiJson.abi as Abi;
+export const LaunchpadTokenAbi = LaunchpadTokenAbiJson.abi as Abi;
+
 // Export the full JSON files for those who need address + abi
 export { ERC20AbiJson, ERC20FactoryAbiJson, BazaarAbiJson, IdentityRegistryAbiJson };
 export { InputSettlerAbiJson, OutputSettlerAbiJson, SolverRegistryAbiJson };
@@ -110,6 +124,7 @@ export { CreditManagerAbiJson, MultiTokenPaymasterAbiJson };
 export { TokenRegistryAbiJson, PaymasterFactoryAbiJson, LiquidityVaultAbiJson, AppTokenPreferenceAbiJson };
 export { GoldAbiJson, ItemsAbiJson, GameIntegrationAbiJson, PlayerTradeEscrowAbiJson };
 export { SponsoredPaymasterAbiJson };
+export { TokenLaunchpadAbiJson, BondingCurveAbiJson, ICOPresaleAbiJson, LPLockerAbiJson, LaunchpadTokenAbiJson };
 
 // Common ABI fragments for convenience
 export const ERC20ReadAbi = [

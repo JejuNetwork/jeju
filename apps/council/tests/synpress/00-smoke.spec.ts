@@ -5,6 +5,7 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { getNetworkName } from '@jejunetwork/config';
 
 test.describe('Council Server Smoke Tests', () => {
   test('health endpoint returns ok', async ({ request }) => {
@@ -22,7 +23,7 @@ test.describe('Council Server Smoke Tests', () => {
     expect(response.ok()).toBeTruthy();
     
     const data = await response.json();
-    expect(data.name: getNetworkName() AI Council');
+    expect(data.name).toBe(`${getNetworkName()} AI Council`);
     expect(data.endpoints).toBeDefined();
     expect(data.endpoints.a2a).toBe('/a2a');
     expect(data.endpoints.mcp).toBe('/mcp');
@@ -33,7 +34,7 @@ test.describe('Council Server Smoke Tests', () => {
     expect(response.ok()).toBeTruthy();
     
     const card = await response.json();
-    expect(card.name: getNetworkName() AI Council');
+    expect(card.name).toBe(`${getNetworkName()} AI Council`);
     expect(card.protocolVersion).toBe('0.3.0');
     expect(card.skills).toBeDefined();
     expect(card.skills.length).toBeGreaterThan(0);

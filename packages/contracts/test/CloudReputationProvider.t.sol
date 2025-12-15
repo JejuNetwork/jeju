@@ -6,18 +6,18 @@ import "../src/services/CloudReputationProvider.sol";
 import "../src/registry/IdentityRegistry.sol";
 import "../src/registry/ReputationRegistry.sol";
 import "../src/registry/RegistryGovernance.sol";
-import {Predimarket} from "../src/prediction-markets/Predimarket.sol";
-import {PredictionOracle} from "../src/prediction-markets/PredictionOracle.sol";
-import "../src/tokens/ElizaOSToken.sol";
+import {PredictionMarket} from "../src/prediction/PredictionMarket.sol";
+import {PredictionOracle} from "../src/prediction/PredictionOracle.sol";
+import {MockToken} from "../src/mocks/MockToken.sol";
 
 contract CloudReputationProviderTest is Test {
     CloudReputationProvider public cloudProvider;
     IdentityRegistry public identityRegistry;
     ReputationRegistry public reputationRegistry;
     RegistryGovernance public registryGovernance;
-    Predimarket public predimarket;
+    PredictionMarket public predimarket;
     PredictionOracle public predictionOracle;
-    ElizaOSToken public elizaToken;
+    MockToken public elizaToken;
 
     address public owner = address(this);
     address public operator = address(0x1);
@@ -33,9 +33,9 @@ contract CloudReputationProviderTest is Test {
         reputationRegistry = new ReputationRegistry(payable(address(identityRegistry)));
 
         // Deploy prediction market infrastructure
-        elizaToken = new ElizaOSToken(owner);
+        elizaToken = new MockToken("ElizaOS", "ELIZA", 18);
         predictionOracle = new PredictionOracle(owner);
-        predimarket = new Predimarket(address(elizaToken), address(predictionOracle), owner, owner);
+        predimarket = new PredictionMarket(address(elizaToken), address(predictionOracle), owner, owner);
 
         // Deploy registry governance
         registryGovernance = new RegistryGovernance(

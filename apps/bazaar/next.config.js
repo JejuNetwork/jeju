@@ -2,10 +2,9 @@
 const nextConfig = {
   reactStrictMode: true,
   output: 'standalone', // Enable standalone output for Docker
-  // Skip legacy error page generation - we use App Router error handling
-  experimental: {
-    missingSuspenseWithCSRBailout: false,
-  },
+  experimental: {},
+  // Turbopack configuration (Next.js 16+)
+  turbopack: {},
   images: {
     remotePatterns: [
       {

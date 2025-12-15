@@ -18,6 +18,14 @@ export interface NetworkConfig {
 }
 
 export interface ContractAddresses {
+  // Oracle Network (JON)
+  feedRegistry: string | null;
+  reportVerifier: string | null;
+  committeeManager: string | null;
+  oracleFeeRouter: string | null;
+  disputeGame: string | null;
+  oracleNetworkConnector: string | null;
+
   // Infrastructure
   entryPoint: string | null;
   priceOracle: string | null;
@@ -227,6 +235,14 @@ export function loadNetworkConfig(network?: NetworkType): NetworkConfig {
 
   // Initialize empty addresses
   const contracts: ContractAddresses = {
+    // Oracle Network
+    feedRegistry: null,
+    reportVerifier: null,
+    committeeManager: null,
+    oracleFeeRouter: null,
+    disputeGame: null,
+    oracleNetworkConnector: null,
+    // Infrastructure
     entryPoint: null,
     priceOracle: null,
     serviceRegistry: null,
@@ -481,6 +497,29 @@ export function loadNetworkConfig(network?: NetworkType): NetworkConfig {
       contracts.l1StakeManager = eil.l1StakeManager || contracts.l1StakeManager;
       contracts.crossChainPaymaster = eil.crossChainPaymaster || contracts.crossChainPaymaster;
     }
+  }
+
+  // Load Oracle Network addresses from packages/config/oracle/networks.json
+  const oracleConfigPath = join(process.cwd(), '..', '..', 'packages', 'config', 'oracle', 'networks.json');
+  interface OracleNetworkConfig {
+    [network: string]: {
+      contracts: {
+        feedRegistry: string | null;
+        reportVerifier: string | null;
+        committeeManager: string | null;
+        feeRouter: string | null;
+        networkConnector: string | null;
+      };
+    };
+  }
+  const oracleConfig = loadJsonFile<OracleNetworkConfig>(oracleConfigPath);
+  if (oracleConfig && oracleConfig[net]?.contracts) {
+    const oracleContracts = oracleConfig[net].contracts;
+    contracts.feedRegistry = oracleContracts.feedRegistry;
+    contracts.reportVerifier = oracleContracts.reportVerifier;
+    contracts.committeeManager = oracleContracts.committeeManager;
+    contracts.oracleFeeRouter = oracleContracts.feeRouter;
+    contracts.oracleNetworkConnector = oracleContracts.networkConnector;
   }
 
   return {

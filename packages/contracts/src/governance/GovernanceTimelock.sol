@@ -23,7 +23,7 @@ contract GovernanceTimelock is Ownable, ReentrancyGuard, Pausable {
     }
 
     uint256 public constant TIMELOCK_DELAY = 30 days;
-    // Stage 2: Emergency path still requires 7-day delay (not 1 hour)
+    // Decentralized: Emergency path still requires 7-day delay (not 1 hour)
     // SC can only pause immediately, not upgrade
     uint256 public constant EMERGENCY_MIN_DELAY = 7 days;
     address public governance;

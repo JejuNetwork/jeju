@@ -3,6 +3,7 @@
 replicaCount:
   api: 2
   executor: 1
+  bot: 1
 
 image:
   repository: jeju/crucible
@@ -53,6 +54,25 @@ resources:
     limits:
       cpu: 1000m
       memory: 1Gi
+  bot:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+
+# MEV + LP Bot configuration
+bot:
+  enabled: true
+  enableArbitrage: true
+  enableCrossChain: true
+  enableSolanaArb: false  # Disabled by default, enable for Solana networks
+  enableLiquidity: true
+  solanaRpcUrl: ""
+  solanaNetwork: "mainnet-beta"
+  minProfitBps: 50
+  maxSlippageBps: 100
 
 autoscaling:
   enabled: false

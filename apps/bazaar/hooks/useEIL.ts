@@ -46,8 +46,26 @@ import {
   type AppPreference,
 } from '../../../scripts/shared/eil-hooks'
 
-// Load config from JSON
-import eilConfig from '@jejunetwork/config/eil'
+// EIL config - hardcoded for client-side use
+const eilConfig = {
+  version: '1.0.0',
+  lastUpdated: '2024-12-01',
+  entryPoint: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789',
+  l2Messenger: '0x4200000000000000000000000000000000000007',
+  supportedTokens: ['ETH', 'WETH', 'USDC', 'JEJU'],
+  testnet: {
+    hub: { chainId: 420690, name: 'Jeju Testnet', l1StakeManager: '', status: 'active' },
+    chains: {} as Record<string, EILChainConfig>,
+  },
+  mainnet: {
+    hub: { chainId: 420691, name: 'Jeju Mainnet', l1StakeManager: '', status: 'planned' },
+    chains: {} as Record<string, EILChainConfig>,
+  },
+  localnet: {
+    hub: { chainId: 1337, name: 'Jeju Localnet', l1StakeManager: '', status: 'active' },
+    chains: {} as Record<string, EILChainConfig>,
+  },
+} as EILConfig
 
 // ============ EIL Config Hook ============
 

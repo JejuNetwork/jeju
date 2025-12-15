@@ -161,6 +161,16 @@ export interface ModerationSystemDeployment {
   chainId?: number;
 }
 
+export interface LaunchpadDeployment {
+  tokenLaunchpad?: Address;
+  lpLockerTemplate?: Address;
+  defaultCommunityVault?: Address;
+  xlpV2Factory?: Address;
+  weth?: Address;
+  deployedAt?: string;
+  chainId?: number;
+}
+
 // ============================================================================
 // Contract Address Types
 // ============================================================================
@@ -204,6 +214,10 @@ export interface ContractAddresses {
   elizaOS?: Address;
   goldToken?: Address;
   jeju?: Address;
+  
+  // Launchpad
+  tokenLaunchpad?: Address;
+  lpLockerTemplate?: Address;
 }
 
 // ============================================================================

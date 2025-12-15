@@ -467,7 +467,7 @@ test.describe('ON-CHAIN VALIDATION: Multi-Token Verification', () => {
 
     console.log('📊 Verifying on-chain balances match UI display:');
 
-    for (const [_name, tokenData] of Object.entries(PROTOCOL_TOKENS)) {
+    for (const tokenData of Object.values(PROTOCOL_TOKENS)) {
       // Get balance from UI
       const uiBalanceElement = page.locator(`.card:has-text("${tokenData.symbol}")`).locator('p').filter({ hasText: /\d+\.\d+/ }).first();
       const uiBalanceText = await uiBalanceElement.textContent().catch(() => '0');

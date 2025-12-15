@@ -28,6 +28,30 @@ variable "instance_type" {
   default     = "t3.medium"
 }
 
+variable "use_arm64" {
+  description = "Use ARM64 (Graviton) instances instead of x86_64 - recommended for cost savings"
+  type        = bool
+  default     = true  # ARM64 is default for ~40% cost savings
+}
+
+variable "arm_instance_type" {
+  description = "EC2 instance type for ARM64 nodes (used when use_arm64 is true)"
+  type        = string
+  default     = "t4g.medium"
+}
+
+variable "ecr_registry" {
+  description = "ECR registry URL for custom CovenantSQL image"
+  type        = string
+  default     = ""
+}
+
+variable "cql_image_tag" {
+  description = "CovenantSQL Docker image tag"
+  type        = string
+  default     = "latest"
+}
+
 variable "storage_size_gb" {
   description = "EBS volume size in GB per node"
   type        = number
@@ -210,8 +234,8 @@ data "aws_subnet" "selected" {
 # Launch Template for CovenantSQL nodes
 resource "aws_launch_template" "covenantsql" {
   name_prefix   = "jeju-covenantsql-${var.environment}-"
-  image_id      = data.aws_ami.amazon_linux_2.id
-  instance_type = var.instance_type
+  image_id      = local.selected_ami
+  instance_type = local.selected_instance
   key_name      = var.key_name
 
   iam_instance_profile {
@@ -240,6 +264,8 @@ resource "aws_launch_template" "covenantsql" {
     environment           = var.environment
     node_count            = var.node_count
     private_key_ssm_param = var.private_key_ssm_param
+    architecture          = local.architecture
+    cql_image             = local.cql_image
   }))
 
   tag_specifications {
@@ -284,8 +310,8 @@ resource "aws_volume_attachment" "covenantsql_data" {
   instance_id = aws_instance.covenantsql[count.index].id
 }
 
-# Amazon Linux 2 AMI
-data "aws_ami" "amazon_linux_2" {
+# Amazon Linux 2 AMI - x86_64
+data "aws_ami" "amazon_linux_2_x86" {
   most_recent = true
   owners      = ["amazon"]
 
@@ -298,6 +324,29 @@ data "aws_ami" "amazon_linux_2" {
     name   = "virtualization-type"
     values = ["hvm"]
   }
+}
+
+# Amazon Linux 2 AMI - ARM64 (Graviton)
+data "aws_ami" "amazon_linux_2_arm64" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["amzn2-ami-hvm-*-arm64-gp2"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+}
+
+locals {
+  selected_ami       = var.use_arm64 ? data.aws_ami.amazon_linux_2_arm64.id : data.aws_ami.amazon_linux_2_x86.id
+  selected_instance  = var.use_arm64 ? var.arm_instance_type : var.instance_type
+  architecture       = var.use_arm64 ? "arm64" : "x86_64"
+  cql_image          = var.ecr_registry != "" ? "${var.ecr_registry}/jeju/covenantsql:${var.cql_image_tag}" : "covenantsql/covenantsql:latest"
 }
 
 # Internal Network Load Balancer for client connections
@@ -437,4 +486,17 @@ output "security_group_id" {
   value       = aws_security_group.covenantsql.id
 }
 
+output "architecture" {
+  description = "CPU architecture of CovenantSQL nodes"
+  value       = local.architecture
+}
 
+output "instance_type_used" {
+  description = "EC2 instance type for CovenantSQL nodes"
+  value       = local.selected_instance
+}
+
+output "cql_image" {
+  description = "CovenantSQL Docker image being used"
+  value       = local.cql_image
+}

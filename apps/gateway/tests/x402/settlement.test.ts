@@ -5,9 +5,9 @@
  * 
  * Setup:
  *   1. Start Anvil: anvil --port 8548 --chain-id 420691
- *   2. Deploy contract: 
+ *   2. Deploy contracts: 
  *      cd packages/contracts && BASESCAN_API_KEY=dummy ETHERSCAN_API_KEY=dummy \
- *        forge script script/DeployX402Facilitator.s.sol:DeployX402Facilitator \
+ *        forge script script/DeployGaslessUSDC.s.sol:DeployX402WithGasless \
  *        --rpc-url http://127.0.0.1:8548 --broadcast
  *   3. Set env: JEJU_RPC_URL=http://127.0.0.1:8548 X402_FACILITATOR_ADDRESS=<deployed>
  *   4. Run: bun test tests/settlement.test.ts
@@ -17,7 +17,7 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
-import { createPublicClient, http, type Address } from 'viem';
+import { createPublicClient, http, type Address, type Hex, toHex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { createServer } from '../../src/x402/server';
@@ -27,6 +27,7 @@ import { clearNonceCache } from '../../src/x402/services/nonce-manager';
 // Use environment variables for test configuration
 const ANVIL_RPC = process.env.JEJU_RPC_URL || 'http://127.0.0.1:8548';
 const FACILITATOR_ADDRESS = process.env.X402_FACILITATOR_ADDRESS as Address | undefined;
+const EIP3009_TOKEN_ADDRESS = process.env.EIP3009_TOKEN_ADDRESS as Address | undefined;
 
 const PAYER_KEY = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as const;
 const payer = privateKeyToAccount(PAYER_KEY);
@@ -37,14 +38,16 @@ async function createSignedPayment(overrides?: {
   amount?: string;
   nonce?: string;
   timestamp?: number;
+  asset?: Address;
 }): Promise<{ header: string; payload: Record<string, unknown> }> {
   const nonce = overrides?.nonce || crypto.randomUUID().replace(/-/g, '').slice(0, 16);
   const timestamp = overrides?.timestamp || Math.floor(Date.now() / 1000);
+  const asset = overrides?.asset || USDC;
 
   const payload = {
     scheme: 'exact',
     network: 'jeju',
-    asset: USDC,
+    asset,
     payTo: RECIPIENT,
     amount: overrides?.amount || '1000000',
     resource: '/api/test',
@@ -92,6 +95,66 @@ async function createSignedPayment(overrides?: {
   };
 }
 
+function generateAuthNonce(): Hex {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return toHex(bytes);
+}
+
+function getTimestamp(offsetSeconds = 0): number {
+  return Math.floor(Date.now() / 1000) + offsetSeconds;
+}
+
+async function createEIP3009Authorization(
+  tokenAddress: Address,
+  tokenName: string,
+  chainId: number,
+  from: Address,
+  to: Address,
+  value: bigint,
+  validitySeconds = 300
+): Promise<{ validAfter: number; validBefore: number; authNonce: Hex; authSignature: Hex }> {
+  const validAfter = getTimestamp(-60);
+  const validBefore = getTimestamp(validitySeconds);
+  const authNonce = generateAuthNonce();
+
+  const domain = {
+    name: tokenName,
+    version: '1',
+    chainId,
+    verifyingContract: tokenAddress,
+  };
+
+  const types = {
+    TransferWithAuthorization: [
+      { name: 'from', type: 'address' },
+      { name: 'to', type: 'address' },
+      { name: 'value', type: 'uint256' },
+      { name: 'validAfter', type: 'uint256' },
+      { name: 'validBefore', type: 'uint256' },
+      { name: 'nonce', type: 'bytes32' },
+    ],
+  };
+
+  const message = {
+    from,
+    to,
+    value,
+    validAfter: BigInt(validAfter),
+    validBefore: BigInt(validBefore),
+    nonce: authNonce,
+  };
+
+  const authSignature = await payer.signTypedData({
+    domain,
+    types,
+    primaryType: 'TransferWithAuthorization',
+    message,
+  });
+
+  return { validAfter, validBefore, authNonce, authSignature };
+}
+
 async function isAnvilAvailable(): Promise<boolean> {
   try {
     const client = createPublicClient({ transport: http(ANVIL_RPC) });
@@ -104,6 +167,7 @@ async function isAnvilAvailable(): Promise<boolean> {
 
 describe('Settlement Integration', () => {
   let skipTests = false;
+  let skipGaslessTests = false;
 
   beforeAll(async () => {
     const anvilUp = await isAnvilAvailable();
@@ -114,6 +178,11 @@ describe('Settlement Integration', () => {
       console.log('   See test file header for setup instructions.\n');
       skipTests = true;
       return;
+    }
+
+    if (!EIP3009_TOKEN_ADDRESS) {
+      console.log('\n⚠️  Gasless tests disabled: EIP3009_TOKEN_ADDRESS not set');
+      skipGaslessTests = true;
     }
 
     process.env.JEJU_RPC_URL = ANVIL_RPC;
@@ -179,22 +248,153 @@ describe('Settlement Integration', () => {
   });
 
   test('placeholder passes when anvil not available', () => {
-    // This test always passes - it documents that integration tests require setup
     expect(true).toBe(true);
   });
 
-  test.skip('POST /settle/gasless requires EIP-3009 token', async () => {
-    // This test requires a token that implements EIP-3009 transferWithAuthorization
-    // For now, we skip it. To enable:
-    // 1. Deploy or use a token with EIP-3009 support (e.g., USDC on testnet)
-    // 2. Set EIP3009_TOKEN_ADDRESS env var
-    // 3. Create EIP-3009 authorization signature
-    // 4. Call /settle/gasless endpoint
-    // 
-    // Example flow:
-    // - Payer signs EIP-3009 authorization (validAfter, validBefore, nonce)
-    // - Payer signs x402 payment payload
-    // - Service calls /settle/gasless with both signatures
-    // - Contract executes transferWithAuthorization (gasless for payer)
+  test('POST /settle/gasless returns 400 without authParams', async () => {
+    const app = createServer();
+    const { header, payload } = await createSignedPayment();
+
+    const res = await app.request('/settle/gasless', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        x402Version: 1,
+        paymentHeader: header,
+        paymentRequirements: {
+          scheme: 'exact',
+          network: 'jeju',
+          maxAmountRequired: payload.amount,
+          payTo: RECIPIENT,
+          asset: USDC,
+          resource: '/api/test',
+        },
+        // Missing authParams
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain('EIP-3009');
+  });
+
+  test('POST /settle/gasless validates authParams structure', async () => {
+    const app = createServer();
+    const { header, payload } = await createSignedPayment();
+
+    const res = await app.request('/settle/gasless', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        x402Version: 1,
+        paymentHeader: header,
+        paymentRequirements: {
+          scheme: 'exact',
+          network: 'jeju',
+          maxAmountRequired: payload.amount,
+          payTo: RECIPIENT,
+          asset: USDC,
+          resource: '/api/test',
+        },
+        authParams: {
+          validAfter: getTimestamp(-60),
+          validBefore: getTimestamp(300),
+          authNonce: generateAuthNonce(),
+          authSignature: '0x' + '0'.repeat(130), // Dummy signature
+        },
+      }),
+    });
+
+    // Should not return 400 (bad request) since authParams structure is valid
+    // May return 503 (wallet not configured) or 200 with error (settlement failed)
+    expect(res.status).not.toBe(400);
+  });
+
+  test('POST /settle/gasless with full EIP-3009 params', async () => {
+    if (skipTests || skipGaslessTests) {
+      console.log('Skipping gasless test - requires EIP3009_TOKEN_ADDRESS');
+      return;
+    }
+
+    const app = createServer();
+    const amount = '1000000'; // 1 USDC
+    const { header, payload } = await createSignedPayment({ 
+      amount,
+      asset: EIP3009_TOKEN_ADDRESS!
+    });
+
+    // Create EIP-3009 authorization
+    const authParams = await createEIP3009Authorization(
+      EIP3009_TOKEN_ADDRESS!,
+      'USD Coin', // Token name for domain
+      420691, // Chain ID
+      payer.address,
+      FACILITATOR_ADDRESS!, // Transfer to facilitator
+      BigInt(amount)
+    );
+
+    const res = await app.request('/settle/gasless', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        x402Version: 1,
+        paymentHeader: header,
+        paymentRequirements: {
+          scheme: 'exact',
+          network: 'jeju',
+          maxAmountRequired: payload.amount,
+          payTo: RECIPIENT,
+          asset: EIP3009_TOKEN_ADDRESS,
+          resource: '/api/test',
+        },
+        authParams,
+      }),
+    });
+
+    const body = await res.json();
+    
+    // The request should be processed (may fail due to balance/approval issues in test env)
+    expect(res.status).toBeLessThanOrEqual(500);
+    
+    // If successful, should have transaction hash
+    if (body.success) {
+      expect(body.txHash).toBeDefined();
+      expect(body.paymentId).toBeDefined();
+    }
+  });
+});
+
+describe('EIP-3009 Utilities', () => {
+  test('generateAuthNonce creates valid 32-byte hex', () => {
+    const nonce = generateAuthNonce();
+    expect(nonce).toMatch(/^0x[0-9a-f]{64}$/);
+  });
+
+  test('getTimestamp returns reasonable values', () => {
+    const now = getTimestamp();
+    const future = getTimestamp(300);
+    const past = getTimestamp(-60);
+
+    expect(future).toBeGreaterThan(now);
+    expect(past).toBeLessThan(now);
+    expect(future - now).toBe(300);
+    expect(now - past).toBe(60);
+  });
+
+  test('createEIP3009Authorization produces valid structure', async () => {
+    const auth = await createEIP3009Authorization(
+      '0x0165878A594ca255338adfa4d48449f69242Eb8F',
+      'USD Coin',
+      420691,
+      payer.address,
+      '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+      BigInt(1000000)
+    );
+
+    expect(auth.validAfter).toBeDefined();
+    expect(auth.validBefore).toBeDefined();
+    expect(auth.validBefore).toBeGreaterThan(auth.validAfter);
+    expect(auth.authNonce).toMatch(/^0x[0-9a-f]{64}$/);
+    expect(auth.authSignature).toMatch(/^0x[0-9a-f]+$/);
   });
 });

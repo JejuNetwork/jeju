@@ -1,0 +1,23 @@
+{{- if and .Values.workerRuntime.enabled .Values.workerRuntime.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "compute.fullname" . }}-workers
+  labels:
+    {{- include "compute.labels" . | nindent 4 }}
+    app.kubernetes.io/component: workers
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "compute.fullname" . }}-workers
+  minReplicas: {{ .Values.workerRuntime.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.workerRuntime.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.workerRuntime.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}

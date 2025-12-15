@@ -11,7 +11,7 @@ const COLORS: Record<AllocationKey, string> = {
   community: '#ec4899',
 }
 
-export function the networkTokenomics() {
+export function JejuTokenomics() {
   const allocations = Object.entries(JEJU_TOKENOMICS.allocation) as [AllocationKey, typeof JEJU_TOKENOMICS.allocation.presale][]
   
   let currentAngle = 0

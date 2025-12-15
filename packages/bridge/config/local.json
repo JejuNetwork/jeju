@@ -1,0 +1,42 @@
+{
+  "mode": "local",
+  "components": {
+    "relayer": true,
+    "prover": true,
+    "beaconWatcher": false,
+    "healthMonitor": true
+  },
+  "ports": {
+    "relayer": 8081,
+    "prover": 8082,
+    "health": 8083
+  },
+  "chains": {
+    "evm": [
+      {
+        "chainId": 31337,
+        "name": "Local EVM (Anvil)",
+        "rpcUrl": "http://127.0.0.1:8545",
+        "bridgeAddress": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+        "lightClientAddress": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+      }
+    ],
+    "solana": {
+      "rpcUrl": "http://127.0.0.1:8899",
+      "bridgeProgramId": "TokenBridge11111111111111111111111111111111",
+      "evmLightClientProgramId": "EVMLightClient1111111111111111111111111111"
+    }
+  },
+  "tee": {
+    "endpoint": "http://127.0.0.1:8080",
+    "maxBatchSize": 10,
+    "batchTimeoutMs": 30000
+  },
+  "prover": {
+    "mode": "self-hosted",
+    "workers": 2,
+    "maxMemoryMb": 8192,
+    "timeoutMs": 300000,
+    "useMockProofs": true
+  }
+}

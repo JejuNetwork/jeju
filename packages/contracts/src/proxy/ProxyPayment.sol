@@ -37,12 +37,13 @@ contract ProxyPayment is Ownable, Pausable, ReentrancyGuard {
     }
 
     enum SessionStatus {
-        PENDING,    // Created, waiting for node assignment
-        ACTIVE,     // Node assigned, serving requests
-        COMPLETED,  // Successfully closed
-        CANCELLED,  // Cancelled by client before use
-        EXPIRED,    // Timed out
-        DISPUTED    // Under dispute
+        PENDING, // Created, waiting for node assignment
+        ACTIVE, // Node assigned, serving requests
+        COMPLETED, // Successfully closed
+        CANCELLED, // Cancelled by client before use
+        EXPIRED, // Timed out
+        DISPUTED // Under dispute
+
     }
 
     // ============ State Variables ============
@@ -88,17 +89,9 @@ contract ProxyPayment is Ownable, Pausable, ReentrancyGuard {
 
     // ============ Events ============
 
-    event SessionOpened(
-        bytes32 indexed sessionId,
-        address indexed client,
-        bytes32 regionCode,
-        uint256 deposit
-    );
+    event SessionOpened(bytes32 indexed sessionId, address indexed client, bytes32 regionCode, uint256 deposit);
 
-    event SessionAssigned(
-        bytes32 indexed sessionId,
-        address indexed node
-    );
+    event SessionAssigned(bytes32 indexed sessionId, address indexed node);
 
     event SessionClosed(
         bytes32 indexed sessionId,
@@ -109,16 +102,9 @@ contract ProxyPayment is Ownable, Pausable, ReentrancyGuard {
         uint256 clientRefund
     );
 
-    event SessionCancelled(
-        bytes32 indexed sessionId,
-        address indexed client,
-        uint256 refund
-    );
+    event SessionCancelled(bytes32 indexed sessionId, address indexed client, uint256 refund);
 
-    event PayoutClaimed(
-        address indexed node,
-        uint256 amount
-    );
+    event PayoutClaimed(address indexed node, uint256 amount);
 
     event PriceUpdated(uint256 oldPrice, uint256 newPrice);
 
@@ -139,11 +125,7 @@ contract ProxyPayment is Ownable, Pausable, ReentrancyGuard {
 
     // ============ Constructor ============
 
-    constructor(
-        address initialOwner,
-        address _registry,
-        address _treasury
-    ) Ownable(initialOwner) {
+    constructor(address initialOwner, address _registry, address _treasury) Ownable(initialOwner) {
         registry = IProxyRegistry(_registry);
         treasury = _treasury;
     }
@@ -162,16 +144,10 @@ contract ProxyPayment is Ownable, Pausable, ReentrancyGuard {
      * @param regionCode Desired region for proxy node
      * @return sessionId Unique session identifier
      */
-    function openSession(
-        bytes32 regionCode
-    ) external payable nonReentrant whenNotPaused returns (bytes32 sessionId) {
+    function openSession(bytes32 regionCode) external payable nonReentrant whenNotPaused returns (bytes32 sessionId) {
         if (msg.value < minDeposit) revert InvalidDeposit(msg.value, minDeposit);
 
-        sessionId = keccak256(abi.encodePacked(
-            msg.sender,
-            block.timestamp,
-            _sessionNonce++
-        ));
+        sessionId = keccak256(abi.encodePacked(msg.sender, block.timestamp, _sessionNonce++));
 
         sessions[sessionId] = Session({
             sessionId: sessionId,
@@ -196,10 +172,7 @@ contract ProxyPayment is Ownable, Pausable, ReentrancyGuard {
      * @param sessionId Session to assign
      * @param node Node address to assign
      */
-    function assignNode(
-        bytes32 sessionId,
-        address node
-    ) external onlyCoordinator {
+    function assignNode(bytes32 sessionId, address node) external onlyCoordinator {
         Session storage session = sessions[sessionId];
         if (session.createdAt == 0) revert SessionNotFound();
         if (session.status != SessionStatus.PENDING) revert SessionNotPending();
@@ -218,10 +191,7 @@ contract ProxyPayment is Ownable, Pausable, ReentrancyGuard {
      * @param sessionId Session to close
      * @param bytesServed Total bytes transferred
      */
-    function closeSession(
-        bytes32 sessionId,
-        uint256 bytesServed
-    ) external onlyCoordinator nonReentrant {
+    function closeSession(bytes32 sessionId, uint256 bytesServed) external onlyCoordinator nonReentrant {
         Session storage session = sessions[sessionId];
         if (session.createdAt == 0) revert SessionNotFound();
         if (session.status != SessionStatus.ACTIVE) revert SessionNotActive();
@@ -255,14 +225,7 @@ contract ProxyPayment is Ownable, Pausable, ReentrancyGuard {
         // Record session in registry
         registry.recordSession(session.node, bytesServed, true);
 
-        emit SessionClosed(
-            sessionId,
-            session.node,
-            bytesServed,
-            nodePayout,
-            protocolFee,
-            clientRefund
-        );
+        emit SessionClosed(sessionId, session.node, bytesServed, nodePayout, protocolFee, clientRefund);
     }
 
     /**
@@ -292,9 +255,10 @@ contract ProxyPayment is Ownable, Pausable, ReentrancyGuard {
     function expireSession(bytes32 sessionId) external nonReentrant {
         Session storage session = sessions[sessionId];
         if (session.createdAt == 0) revert SessionNotFound();
-        if (session.status == SessionStatus.COMPLETED ||
-            session.status == SessionStatus.CANCELLED ||
-            session.status == SessionStatus.EXPIRED) {
+        if (
+            session.status == SessionStatus.COMPLETED || session.status == SessionStatus.CANCELLED
+                || session.status == SessionStatus.EXPIRED
+        ) {
             revert SessionAlreadyClosed();
         }
         if (block.timestamp < session.createdAt + sessionTimeout) {
@@ -383,9 +347,10 @@ contract ProxyPayment is Ownable, Pausable, ReentrancyGuard {
     function isSessionExpired(bytes32 sessionId) external view returns (bool) {
         Session storage session = sessions[sessionId];
         if (session.createdAt == 0) return false;
-        if (session.status == SessionStatus.COMPLETED ||
-            session.status == SessionStatus.CANCELLED ||
-            session.status == SessionStatus.EXPIRED) {
+        if (
+            session.status == SessionStatus.COMPLETED || session.status == SessionStatus.CANCELLED
+                || session.status == SessionStatus.EXPIRED
+        ) {
             return false; // Already closed
         }
         return block.timestamp >= session.createdAt + sessionTimeout;
@@ -467,5 +432,3 @@ contract ProxyPayment is Ownable, Pausable, ReentrancyGuard {
      */
     receive() external payable {}
 }
-
-

@@ -1,6 +1,11 @@
 /**
  * MPC Module - Threshold ECDSA for Ethereum
+ * 
+ * Provides two implementations:
+ * - MPCCoordinator: Shamir's Secret Sharing (key reconstructed during signing)
+ * - FROSTMPCCoordinator: True threshold ECDSA (key NEVER reconstructed)
  */
 
 export * from './types.js';
 export * from './coordinator.js';
+export * from './frost-coordinator.js';

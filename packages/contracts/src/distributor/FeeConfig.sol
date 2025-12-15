@@ -43,65 +43,85 @@ contract FeeConfig is Ownable, Pausable {
 
     /// @notice Fee distribution splits (must sum to 10000)
     struct DistributionFees {
-        uint16 appShareBps;           // App developer share
-        uint16 lpShareBps;            // Liquidity provider share
-        uint16 contributorShareBps;   // Contributor pool share
-        uint16 ethLpShareBps;         // ETH LP portion of LP share
-        uint16 tokenLpShareBps;       // Token LP portion of LP share
+        uint16 appShareBps; // App developer share
+        uint16 lpShareBps; // Liquidity provider share
+        uint16 contributorShareBps; // Contributor pool share
+        uint16 ethLpShareBps; // ETH LP portion of LP share
+        uint16 tokenLpShareBps; // Token LP portion of LP share
     }
 
     /// @notice Compute network fees
     struct ComputeFees {
-        uint16 inferencePlatformFeeBps;  // Platform cut on inference
-        uint16 rentalPlatformFeeBps;     // Platform cut on rentals
-        uint16 triggerPlatformFeeBps;    // Platform cut on triggers
+        uint16 inferencePlatformFeeBps; // Platform cut on inference
+        uint16 rentalPlatformFeeBps; // Platform cut on rentals
+        uint16 triggerPlatformFeeBps; // Platform cut on triggers
     }
 
     /// @notice Storage network fees
     struct StorageFees {
-        uint16 uploadFeeBps;        // Fee on uploads
-        uint16 retrievalFeeBps;     // Fee on retrievals
-        uint16 pinningFeeBps;       // Fee on pinning services
+        uint16 uploadFeeBps; // Fee on uploads
+        uint16 retrievalFeeBps; // Fee on retrievals
+        uint16 pinningFeeBps; // Fee on pinning services
     }
 
     /// @notice DeFi fees
     struct DeFiFees {
-        uint16 swapProtocolFeeBps;      // AMM protocol fee
-        uint16 bridgeFeeBps;            // Cross-chain bridge fee
-        uint16 crossChainMarginBps;     // Cross-chain paymaster margin
+        uint16 swapProtocolFeeBps; // AMM protocol fee
+        uint16 bridgeFeeBps; // Cross-chain bridge fee
+        uint16 crossChainMarginBps; // Cross-chain paymaster margin
     }
 
     /// @notice Infrastructure fees
     struct InfrastructureFees {
-        uint16 sequencerRevenueShareBps;  // Sequencer block production share
-        uint16 oracleTreasuryShareBps;    // Oracle treasury share
-        uint16 rpcPremiumFeeBps;          // RPC premium tier fee
-        uint16 messagingFeeBps;           // Cross-chain messaging fee
+        uint16 sequencerRevenueShareBps; // Sequencer block production share
+        uint16 oracleTreasuryShareBps; // Oracle treasury share
+        uint16 rpcPremiumFeeBps; // RPC premium tier fee
+        uint16 messagingFeeBps; // Cross-chain messaging fee
     }
 
     /// @notice Marketplace fees
     struct MarketplaceFees {
-        uint16 bazaarPlatformFeeBps;      // NFT/item marketplace fee
-        uint16 launchpadCreatorFeeBps;    // Default creator fee
-        uint16 launchpadCommunityFeeBps;  // Default community fee
-        uint16 x402ProtocolFeeBps;        // HTTP 402 protocol fee
+        uint16 bazaarPlatformFeeBps; // NFT/item marketplace fee
+        uint16 launchpadCreatorFeeBps; // Default creator fee
+        uint16 launchpadCommunityFeeBps; // Default community fee
+        uint16 x402ProtocolFeeBps; // HTTP 402 protocol fee
     }
 
     /// @notice Name service fees
     struct NamesFees {
-        uint256 baseRegistrationPrice;    // Base price per year (wei)
-        uint16 agentDiscountBps;          // Discount for ERC-8004 agents
-        uint16 renewalDiscountBps;        // Discount for renewals
+        uint256 baseRegistrationPrice; // Base price per year (wei)
+        uint16 agentDiscountBps; // Discount for ERC-8004 agents
+        uint16 renewalDiscountBps; // Discount for renewals
+    }
+
+    /// @notice Cross-chain token fees (BBLN, JEJU, custom tokens)
+    /// @dev Configurable via governance for XLP incentives, bridge fees, burn rates
+    struct TokenFees {
+        uint16 xlpRewardShareBps; // XLP reward share from bridge fees (default 8000 = 80%)
+        uint16 protocolShareBps; // Protocol treasury share (default 1000 = 10%)
+        uint16 burnShareBps; // Deflationary burn share (default 1000 = 10%)
+        uint16 transferFeeBps; // Transfer fee (default 0, can enable for specific tokens)
+        uint16 bridgeFeeMinBps; // Minimum bridge fee floor (default 5 = 0.05%)
+        uint16 bridgeFeeMaxBps; // Maximum bridge fee cap (default 100 = 1%)
+        uint16 xlpMinStakeBps; // Min XLP stake as % of transfer (default 1000 = 10%)
+        uint16 zkProofDiscountBps; // Discount for ZK-verified transfers (default 2000 = 20% off)
+    }
+
+    /// @notice Per-token fee overrides (address(0) = default)
+    struct TokenOverride {
+        address token;
+        bool hasOverride;
+        TokenFees fees;
     }
 
     /// @notice Pending fee change for timelock
     struct PendingFeeChange {
-        bytes32 feeType;          // Which fee category
-        bytes data;               // Encoded new values
-        uint256 proposedAt;       // When proposed
-        uint256 effectiveAt;      // When it takes effect
-        address proposedBy;       // Who proposed it
-        bool executed;            // Whether executed
+        bytes32 feeType; // Which fee category
+        bytes data; // Encoded new values
+        uint256 proposedAt; // When proposed
+        uint256 effectiveAt; // When it takes effect
+        address proposedBy; // Who proposed it
+        bool executed; // Whether executed
     }
 
     // ============================================================================
@@ -116,6 +136,13 @@ contract FeeConfig is Ownable, Pausable {
     InfrastructureFees public infrastructureFees;
     MarketplaceFees public marketplaceFees;
     NamesFees public namesFees;
+    TokenFees public tokenFees;
+
+    /// @notice Per-token fee overrides (for BBLN, JEJU, etc.)
+    mapping(address => TokenOverride) public tokenOverrides;
+
+    /// @notice List of tokens with overrides
+    address[] public tokensWithOverrides;
 
     /// @notice Authorized addresses
     address public council;
@@ -132,31 +159,12 @@ contract FeeConfig is Ownable, Pausable {
     // Events
     // ============================================================================
 
-    event DistributionFeesUpdated(
-        uint16 appShareBps,
-        uint16 lpShareBps,
-        uint16 contributorShareBps
-    );
-    event ComputeFeesUpdated(
-        uint16 inferencePlatformFeeBps,
-        uint16 rentalPlatformFeeBps,
-        uint16 triggerPlatformFeeBps
-    );
-    event StorageFeesUpdated(
-        uint16 uploadFeeBps,
-        uint16 retrievalFeeBps,
-        uint16 pinningFeeBps
-    );
-    event DeFiFeesUpdated(
-        uint16 swapProtocolFeeBps,
-        uint16 bridgeFeeBps,
-        uint16 crossChainMarginBps
-    );
+    event DistributionFeesUpdated(uint16 appShareBps, uint16 lpShareBps, uint16 contributorShareBps);
+    event ComputeFeesUpdated(uint16 inferencePlatformFeeBps, uint16 rentalPlatformFeeBps, uint16 triggerPlatformFeeBps);
+    event StorageFeesUpdated(uint16 uploadFeeBps, uint16 retrievalFeeBps, uint16 pinningFeeBps);
+    event DeFiFeesUpdated(uint16 swapProtocolFeeBps, uint16 bridgeFeeBps, uint16 crossChainMarginBps);
     event InfrastructureFeesUpdated(
-        uint16 sequencerRevenueShareBps,
-        uint16 oracleTreasuryShareBps,
-        uint16 rpcPremiumFeeBps,
-        uint16 messagingFeeBps
+        uint16 sequencerRevenueShareBps, uint16 oracleTreasuryShareBps, uint16 rpcPremiumFeeBps, uint16 messagingFeeBps
     );
     event MarketplaceFeesUpdated(
         uint16 bazaarPlatformFeeBps,
@@ -164,17 +172,22 @@ contract FeeConfig is Ownable, Pausable {
         uint16 launchpadCommunityFeeBps,
         uint16 x402ProtocolFeeBps
     );
-    event NamesFeesUpdated(
-        uint256 baseRegistrationPrice,
-        uint16 agentDiscountBps,
-        uint16 renewalDiscountBps
+    event NamesFeesUpdated(uint256 baseRegistrationPrice, uint16 agentDiscountBps, uint16 renewalDiscountBps);
+    event TokenFeesUpdated(
+        uint16 xlpRewardShareBps,
+        uint16 protocolShareBps,
+        uint16 burnShareBps,
+        uint16 bridgeFeeMinBps,
+        uint16 bridgeFeeMaxBps
     );
-    event FeeChangeProposed(
-        bytes32 indexed changeId,
-        bytes32 feeType,
-        uint256 effectiveAt,
-        address proposedBy
+    event TokenOverrideSet(
+        address indexed token,
+        uint16 xlpRewardShareBps,
+        uint16 protocolShareBps,
+        uint16 burnShareBps
     );
+    event TokenOverrideRemoved(address indexed token);
+    event FeeChangeProposed(bytes32 indexed changeId, bytes32 feeType, uint256 effectiveAt, address proposedBy);
     event FeeChangeExecuted(bytes32 indexed changeId);
     event FeeChangeCancelled(bytes32 indexed changeId);
     event CouncilUpdated(address indexed oldCouncil, address indexed newCouncil);
@@ -218,14 +231,9 @@ contract FeeConfig is Ownable, Pausable {
     // Constructor
     // ============================================================================
 
-    constructor(
-        address _council,
-        address _ceo,
-        address _treasury,
-        address initialOwner
-    ) Ownable(initialOwner) {
+    constructor(address _council, address _ceo, address _treasury, address initialOwner) Ownable(initialOwner) {
         if (_treasury == address(0)) revert InvalidAddress();
-        
+
         council = _council;
         ceo = _ceo;
         treasury = _treasury;
@@ -240,30 +248,18 @@ contract FeeConfig is Ownable, Pausable {
             appShareBps: 4500,
             lpShareBps: 4500,
             contributorShareBps: 1000,
-            ethLpShareBps: 7000,  // 70% of LP share to ETH LPs
+            ethLpShareBps: 7000, // 70% of LP share to ETH LPs
             tokenLpShareBps: 3000 // 30% of LP share to token LPs
         });
 
         // Compute: 5% inference, 3% rentals, 2% triggers
-        computeFees = ComputeFees({
-            inferencePlatformFeeBps: 500,
-            rentalPlatformFeeBps: 300,
-            triggerPlatformFeeBps: 200
-        });
+        computeFees = ComputeFees({inferencePlatformFeeBps: 500, rentalPlatformFeeBps: 300, triggerPlatformFeeBps: 200});
 
         // Storage: 2% upload, 1% retrieval, 1% pinning
-        storageFees = StorageFees({
-            uploadFeeBps: 200,
-            retrievalFeeBps: 100,
-            pinningFeeBps: 100
-        });
+        storageFees = StorageFees({uploadFeeBps: 200, retrievalFeeBps: 100, pinningFeeBps: 100});
 
         // DeFi: 0.05% swap, 0.1% bridge, 10% cross-chain margin
-        defiFees = DeFiFees({
-            swapProtocolFeeBps: 5,
-            bridgeFeeBps: 10,
-            crossChainMarginBps: 1000
-        });
+        defiFees = DeFiFees({swapProtocolFeeBps: 5, bridgeFeeBps: 10, crossChainMarginBps: 1000});
 
         // Infrastructure: 5% sequencer, 10% oracle, 0% RPC, 0.1% messaging
         infrastructureFees = InfrastructureFees({
@@ -282,10 +278,18 @@ contract FeeConfig is Ownable, Pausable {
         });
 
         // Names: 0.001 ETH/year base, 5% agent discount, 10% renewal discount
-        namesFees = NamesFees({
-            baseRegistrationPrice: 0.001 ether,
-            agentDiscountBps: 500,
-            renewalDiscountBps: 1000
+        namesFees = NamesFees({baseRegistrationPrice: 0.001 ether, agentDiscountBps: 500, renewalDiscountBps: 1000});
+
+        // Token: 80% XLP rewards, 10% protocol, 10% burn, 0% transfer, 0.05%-1% bridge
+        tokenFees = TokenFees({
+            xlpRewardShareBps: 8000, // 80% to XLP liquidity providers
+            protocolShareBps: 1000, // 10% to protocol treasury
+            burnShareBps: 1000, // 10% deflationary burn
+            transferFeeBps: 0, // No transfer fee by default
+            bridgeFeeMinBps: 5, // 0.05% minimum bridge fee
+            bridgeFeeMaxBps: 100, // 1% maximum bridge fee
+            xlpMinStakeBps: 1000, // XLP must stake 10% of transfer amount
+            zkProofDiscountBps: 2000 // 20% discount for ZK-verified transfers
         });
 
         lastUpdated[keccak256("distribution")] = block.timestamp;
@@ -295,6 +299,7 @@ contract FeeConfig is Ownable, Pausable {
         lastUpdated[keccak256("infrastructure")] = block.timestamp;
         lastUpdated[keccak256("marketplace")] = block.timestamp;
         lastUpdated[keccak256("names")] = block.timestamp;
+        lastUpdated[keccak256("token")] = block.timestamp;
     }
 
     // ============================================================================
@@ -306,17 +311,16 @@ contract FeeConfig is Ownable, Pausable {
      * @param feeType Category of fee to change
      * @param newValues Encoded new fee values
      */
-    function proposeFeeChange(
-        bytes32 feeType,
-        bytes calldata newValues
-    ) external onlyCouncil returns (bytes32 changeId) {
+    function proposeFeeChange(bytes32 feeType, bytes calldata newValues)
+        external
+        onlyCouncil
+        returns (bytes32 changeId)
+    {
         changeId = keccak256(abi.encodePacked(feeType, newValues, block.timestamp, msg.sender));
-        
+
         // Check if this is a fee increase (requires timelock)
         bool isIncrease = _isIncrease(feeType, newValues);
-        uint256 effectiveAt = isIncrease 
-            ? block.timestamp + FEE_INCREASE_TIMELOCK 
-            : block.timestamp;
+        uint256 effectiveAt = isIncrease ? block.timestamp + FEE_INCREASE_TIMELOCK : block.timestamp;
 
         pendingChanges[changeId] = PendingFeeChange({
             feeType: feeType,
@@ -336,7 +340,7 @@ contract FeeConfig is Ownable, Pausable {
      */
     function executeFeeChange(bytes32 changeId) external onlyCEO {
         PendingFeeChange storage change = pendingChanges[changeId];
-        
+
         if (change.proposedAt == 0) revert ChangeNotFound(changeId);
         if (change.executed) revert AlreadyExecuted();
         if (block.timestamp < change.effectiveAt) {
@@ -357,7 +361,7 @@ contract FeeConfig is Ownable, Pausable {
      */
     function cancelFeeChange(bytes32 changeId) external onlyGovernance {
         PendingFeeChange storage change = pendingChanges[changeId];
-        
+
         if (change.proposedAt == 0) revert ChangeNotFound(changeId);
         if (change.executed) revert AlreadyExecuted();
 
@@ -402,11 +406,10 @@ contract FeeConfig is Ownable, Pausable {
     /**
      * @notice Update compute fees directly
      */
-    function setComputeFees(
-        uint16 inferencePlatformFeeBps,
-        uint16 rentalPlatformFeeBps,
-        uint16 triggerPlatformFeeBps
-    ) external onlyOwner {
+    function setComputeFees(uint16 inferencePlatformFeeBps, uint16 rentalPlatformFeeBps, uint16 triggerPlatformFeeBps)
+        external
+        onlyOwner
+    {
         if (inferencePlatformFeeBps > MAX_FEE_BPS) revert FeeTooHigh(inferencePlatformFeeBps, MAX_FEE_BPS);
         if (rentalPlatformFeeBps > MAX_FEE_BPS) revert FeeTooHigh(rentalPlatformFeeBps, MAX_FEE_BPS);
         if (triggerPlatformFeeBps > MAX_FEE_BPS) revert FeeTooHigh(triggerPlatformFeeBps, MAX_FEE_BPS);
@@ -424,20 +427,13 @@ contract FeeConfig is Ownable, Pausable {
     /**
      * @notice Update storage fees directly
      */
-    function setStorageFees(
-        uint16 uploadFeeBps,
-        uint16 retrievalFeeBps,
-        uint16 pinningFeeBps
-    ) external onlyOwner {
+    function setStorageFees(uint16 uploadFeeBps, uint16 retrievalFeeBps, uint16 pinningFeeBps) external onlyOwner {
         if (uploadFeeBps > MAX_FEE_BPS) revert FeeTooHigh(uploadFeeBps, MAX_FEE_BPS);
         if (retrievalFeeBps > MAX_FEE_BPS) revert FeeTooHigh(retrievalFeeBps, MAX_FEE_BPS);
         if (pinningFeeBps > MAX_FEE_BPS) revert FeeTooHigh(pinningFeeBps, MAX_FEE_BPS);
 
-        storageFees = StorageFees({
-            uploadFeeBps: uploadFeeBps,
-            retrievalFeeBps: retrievalFeeBps,
-            pinningFeeBps: pinningFeeBps
-        });
+        storageFees =
+            StorageFees({uploadFeeBps: uploadFeeBps, retrievalFeeBps: retrievalFeeBps, pinningFeeBps: pinningFeeBps});
 
         lastUpdated[keccak256("storage")] = block.timestamp;
         emit StorageFeesUpdated(uploadFeeBps, retrievalFeeBps, pinningFeeBps);
@@ -446,11 +442,10 @@ contract FeeConfig is Ownable, Pausable {
     /**
      * @notice Update DeFi fees directly
      */
-    function setDeFiFees(
-        uint16 swapProtocolFeeBps,
-        uint16 bridgeFeeBps,
-        uint16 crossChainMarginBps
-    ) external onlyOwner {
+    function setDeFiFees(uint16 swapProtocolFeeBps, uint16 bridgeFeeBps, uint16 crossChainMarginBps)
+        external
+        onlyOwner
+    {
         if (swapProtocolFeeBps > MAX_FEE_BPS) revert FeeTooHigh(swapProtocolFeeBps, MAX_FEE_BPS);
         if (bridgeFeeBps > MAX_FEE_BPS) revert FeeTooHigh(bridgeFeeBps, MAX_FEE_BPS);
         if (crossChainMarginBps > MAX_FEE_BPS) revert FeeTooHigh(crossChainMarginBps, MAX_FEE_BPS);
@@ -486,10 +481,7 @@ contract FeeConfig is Ownable, Pausable {
 
         lastUpdated[keccak256("infrastructure")] = block.timestamp;
         emit InfrastructureFeesUpdated(
-            sequencerRevenueShareBps,
-            oracleTreasuryShareBps,
-            rpcPremiumFeeBps,
-            messagingFeeBps
+            sequencerRevenueShareBps, oracleTreasuryShareBps, rpcPremiumFeeBps, messagingFeeBps
         );
     }
 
@@ -516,21 +508,17 @@ contract FeeConfig is Ownable, Pausable {
 
         lastUpdated[keccak256("marketplace")] = block.timestamp;
         emit MarketplaceFeesUpdated(
-            bazaarPlatformFeeBps,
-            launchpadCreatorFeeBps,
-            launchpadCommunityFeeBps,
-            x402ProtocolFeeBps
+            bazaarPlatformFeeBps, launchpadCreatorFeeBps, launchpadCommunityFeeBps, x402ProtocolFeeBps
         );
     }
 
     /**
      * @notice Update names fees directly
      */
-    function setNamesFees(
-        uint256 baseRegistrationPrice,
-        uint16 agentDiscountBps,
-        uint16 renewalDiscountBps
-    ) external onlyOwner {
+    function setNamesFees(uint256 baseRegistrationPrice, uint16 agentDiscountBps, uint16 renewalDiscountBps)
+        external
+        onlyOwner
+    {
         if (agentDiscountBps > BPS_DENOMINATOR) revert FeeTooHigh(agentDiscountBps, BPS_DENOMINATOR);
         if (renewalDiscountBps > BPS_DENOMINATOR) revert FeeTooHigh(renewalDiscountBps, BPS_DENOMINATOR);
 
@@ -542,6 +530,119 @@ contract FeeConfig is Ownable, Pausable {
 
         lastUpdated[keccak256("names")] = block.timestamp;
         emit NamesFeesUpdated(baseRegistrationPrice, agentDiscountBps, renewalDiscountBps);
+    }
+
+    /**
+     * @notice Update default token fees directly
+     * @param xlpRewardShareBps XLP reward share (default 8000 = 80%)
+     * @param protocolShareBps Protocol treasury share (default 1000 = 10%)
+     * @param burnShareBps Deflationary burn share (default 1000 = 10%)
+     * @param bridgeFeeMinBps Minimum bridge fee (default 5 = 0.05%)
+     * @param bridgeFeeMaxBps Maximum bridge fee (default 100 = 1%)
+     */
+    function setTokenFees(
+        uint16 xlpRewardShareBps,
+        uint16 protocolShareBps,
+        uint16 burnShareBps,
+        uint16 transferFeeBps,
+        uint16 bridgeFeeMinBps,
+        uint16 bridgeFeeMaxBps,
+        uint16 xlpMinStakeBps,
+        uint16 zkProofDiscountBps
+    ) external onlyOwner {
+        // Fee distribution must sum to 100%
+        if (xlpRewardShareBps + protocolShareBps + burnShareBps != BPS_DENOMINATOR) {
+            revert InvalidFeeSum();
+        }
+        if (bridgeFeeMinBps > bridgeFeeMaxBps) revert FeeTooHigh(bridgeFeeMinBps, bridgeFeeMaxBps);
+        if (bridgeFeeMaxBps > MAX_FEE_BPS) revert FeeTooHigh(bridgeFeeMaxBps, MAX_FEE_BPS);
+        if (transferFeeBps > MAX_FEE_BPS) revert FeeTooHigh(transferFeeBps, MAX_FEE_BPS);
+        if (zkProofDiscountBps > BPS_DENOMINATOR) revert FeeTooHigh(zkProofDiscountBps, BPS_DENOMINATOR);
+
+        tokenFees = TokenFees({
+            xlpRewardShareBps: xlpRewardShareBps,
+            protocolShareBps: protocolShareBps,
+            burnShareBps: burnShareBps,
+            transferFeeBps: transferFeeBps,
+            bridgeFeeMinBps: bridgeFeeMinBps,
+            bridgeFeeMaxBps: bridgeFeeMaxBps,
+            xlpMinStakeBps: xlpMinStakeBps,
+            zkProofDiscountBps: zkProofDiscountBps
+        });
+
+        lastUpdated[keccak256("token")] = block.timestamp;
+        emit TokenFeesUpdated(xlpRewardShareBps, protocolShareBps, burnShareBps, bridgeFeeMinBps, bridgeFeeMaxBps);
+    }
+
+    /**
+     * @notice Set fee override for a specific token (BBLN, JEJU, etc.)
+     * @param token Token address
+     * @param xlpRewardShareBps XLP reward share for this token
+     * @param protocolShareBps Protocol share for this token
+     * @param burnShareBps Burn share for this token
+     * @param transferFeeBps Transfer fee for this token
+     * @param bridgeFeeMinBps Minimum bridge fee for this token
+     * @param bridgeFeeMaxBps Maximum bridge fee for this token
+     */
+    function setTokenOverride(
+        address token,
+        uint16 xlpRewardShareBps,
+        uint16 protocolShareBps,
+        uint16 burnShareBps,
+        uint16 transferFeeBps,
+        uint16 bridgeFeeMinBps,
+        uint16 bridgeFeeMaxBps,
+        uint16 xlpMinStakeBps,
+        uint16 zkProofDiscountBps
+    ) external onlyOwner {
+        require(token != address(0), "Invalid token");
+        if (xlpRewardShareBps + protocolShareBps + burnShareBps != BPS_DENOMINATOR) {
+            revert InvalidFeeSum();
+        }
+
+        bool isNew = !tokenOverrides[token].hasOverride;
+
+        tokenOverrides[token] = TokenOverride({
+            token: token,
+            hasOverride: true,
+            fees: TokenFees({
+                xlpRewardShareBps: xlpRewardShareBps,
+                protocolShareBps: protocolShareBps,
+                burnShareBps: burnShareBps,
+                transferFeeBps: transferFeeBps,
+                bridgeFeeMinBps: bridgeFeeMinBps,
+                bridgeFeeMaxBps: bridgeFeeMaxBps,
+                xlpMinStakeBps: xlpMinStakeBps,
+                zkProofDiscountBps: zkProofDiscountBps
+            })
+        });
+
+        if (isNew) {
+            tokensWithOverrides.push(token);
+        }
+
+        emit TokenOverrideSet(token, xlpRewardShareBps, protocolShareBps, burnShareBps);
+    }
+
+    /**
+     * @notice Remove fee override for a token (reverts to default)
+     * @param token Token address
+     */
+    function removeTokenOverride(address token) external onlyOwner {
+        require(tokenOverrides[token].hasOverride, "No override exists");
+
+        delete tokenOverrides[token];
+
+        // Remove from array
+        for (uint256 i = 0; i < tokensWithOverrides.length; i++) {
+            if (tokensWithOverrides[i] == token) {
+                tokensWithOverrides[i] = tokensWithOverrides[tokensWithOverrides.length - 1];
+                tokensWithOverrides.pop();
+                break;
+            }
+        }
+
+        emit TokenOverrideRemoved(token);
     }
 
     // ============================================================================
@@ -654,6 +755,69 @@ contract FeeConfig is Ownable, Pausable {
     }
 
     /**
+     * @notice Get default token fees
+     */
+    function getTokenFees() external view returns (TokenFees memory) {
+        return tokenFees;
+    }
+
+    /**
+     * @notice Get token fees for a specific token (returns override if exists, else default)
+     * @param token Token address
+     * @return fees Token fees (override or default)
+     * @return hasOverride Whether this token has a custom override
+     */
+    function getTokenFeesFor(address token) external view returns (TokenFees memory fees, bool hasOverride) {
+        TokenOverride storage override_ = tokenOverrides[token];
+        if (override_.hasOverride) {
+            return (override_.fees, true);
+        }
+        return (tokenFees, false);
+    }
+
+    /**
+     * @notice Get XLP reward share for a token
+     * @param token Token address (or address(0) for default)
+     */
+    function getXlpRewardShare(address token) external view returns (uint16) {
+        if (token != address(0) && tokenOverrides[token].hasOverride) {
+            return tokenOverrides[token].fees.xlpRewardShareBps;
+        }
+        return tokenFees.xlpRewardShareBps;
+    }
+
+    /**
+     * @notice Get bridge fee bounds for a token
+     * @param token Token address (or address(0) for default)
+     * @return minBps Minimum bridge fee
+     * @return maxBps Maximum bridge fee
+     */
+    function getBridgeFeeBounds(address token) external view returns (uint16 minBps, uint16 maxBps) {
+        if (token != address(0) && tokenOverrides[token].hasOverride) {
+            return (tokenOverrides[token].fees.bridgeFeeMinBps, tokenOverrides[token].fees.bridgeFeeMaxBps);
+        }
+        return (tokenFees.bridgeFeeMinBps, tokenFees.bridgeFeeMaxBps);
+    }
+
+    /**
+     * @notice Get ZK proof discount for a token
+     * @param token Token address (or address(0) for default)
+     */
+    function getZkProofDiscount(address token) external view returns (uint16) {
+        if (token != address(0) && tokenOverrides[token].hasOverride) {
+            return tokenOverrides[token].fees.zkProofDiscountBps;
+        }
+        return tokenFees.zkProofDiscountBps;
+    }
+
+    /**
+     * @notice Get list of all tokens with fee overrides
+     */
+    function getTokensWithOverrides() external view returns (address[] memory) {
+        return tokensWithOverrides;
+    }
+
+    /**
      * @notice Get treasury address
      */
     function getTreasury() external view returns (address) {
@@ -701,29 +865,32 @@ contract FeeConfig is Ownable, Pausable {
             return false;
         } else if (feeType == keccak256("compute")) {
             (uint16 inference, uint16 rental, uint16 trigger) = abi.decode(newValues, (uint16, uint16, uint16));
-            return inference > computeFees.inferencePlatformFeeBps ||
-                   rental > computeFees.rentalPlatformFeeBps ||
-                   trigger > computeFees.triggerPlatformFeeBps;
+            return inference > computeFees.inferencePlatformFeeBps || rental > computeFees.rentalPlatformFeeBps
+                || trigger > computeFees.triggerPlatformFeeBps;
         } else if (feeType == keccak256("storage")) {
             (uint16 upload, uint16 retrieval, uint16 pinning) = abi.decode(newValues, (uint16, uint16, uint16));
-            return upload > storageFees.uploadFeeBps ||
-                   retrieval > storageFees.retrievalFeeBps ||
-                   pinning > storageFees.pinningFeeBps;
+            return upload > storageFees.uploadFeeBps || retrieval > storageFees.retrievalFeeBps
+                || pinning > storageFees.pinningFeeBps;
         } else if (feeType == keccak256("defi")) {
             (uint16 swap, uint16 bridge, uint16 crossChain) = abi.decode(newValues, (uint16, uint16, uint16));
-            return swap > defiFees.swapProtocolFeeBps ||
-                   bridge > defiFees.bridgeFeeBps ||
-                   crossChain > defiFees.crossChainMarginBps;
+            return swap > defiFees.swapProtocolFeeBps || bridge > defiFees.bridgeFeeBps
+                || crossChain > defiFees.crossChainMarginBps;
         } else if (feeType == keccak256("infrastructure")) {
-            (uint16 seq, uint16 oracle, uint16 rpc, uint16 msg_) = abi.decode(newValues, (uint16, uint16, uint16, uint16));
-            return seq > infrastructureFees.sequencerRevenueShareBps ||
-                   oracle > infrastructureFees.oracleTreasuryShareBps ||
-                   rpc > infrastructureFees.rpcPremiumFeeBps ||
-                   msg_ > infrastructureFees.messagingFeeBps;
+            (uint16 seq, uint16 oracle, uint16 rpc, uint16 msg_) =
+                abi.decode(newValues, (uint16, uint16, uint16, uint16));
+            return seq > infrastructureFees.sequencerRevenueShareBps
+                || oracle > infrastructureFees.oracleTreasuryShareBps || rpc > infrastructureFees.rpcPremiumFeeBps
+                || msg_ > infrastructureFees.messagingFeeBps;
         } else if (feeType == keccak256("marketplace")) {
-            (uint16 bazaar, , , uint16 x402) = abi.decode(newValues, (uint16, uint16, uint16, uint16));
-            return bazaar > marketplaceFees.bazaarPlatformFeeBps ||
-                   x402 > marketplaceFees.x402ProtocolFeeBps;
+            (uint16 bazaar,,, uint16 x402) = abi.decode(newValues, (uint16, uint16, uint16, uint16));
+            return bazaar > marketplaceFees.bazaarPlatformFeeBps || x402 > marketplaceFees.x402ProtocolFeeBps;
+        } else if (feeType == keccak256("token")) {
+            // Token fee changes - check if bridge fees or transfer fees increase
+            (,,,uint16 transferFee, uint16 bridgeMin, uint16 bridgeMax,,) =
+                abi.decode(newValues, (uint16, uint16, uint16, uint16, uint16, uint16, uint16, uint16));
+            return transferFee > tokenFees.transferFeeBps 
+                || bridgeMin > tokenFees.bridgeFeeMinBps 
+                || bridgeMax > tokenFees.bridgeFeeMaxBps;
         }
         return true; // Default to timelock for unknown types
     }
@@ -733,7 +900,7 @@ contract FeeConfig is Ownable, Pausable {
      */
     function _applyFeeChange(bytes32 feeType, bytes memory data) internal {
         if (feeType == keccak256("distribution")) {
-            (uint16 app, uint16 lp, uint16 contrib, uint16 ethLp, uint16 tokenLp) = 
+            (uint16 app, uint16 lp, uint16 contrib, uint16 ethLp, uint16 tokenLp) =
                 abi.decode(data, (uint16, uint16, uint16, uint16, uint16));
             distributionFees = DistributionFees(app, lp, contrib, ethLp, tokenLp);
             emit DistributionFeesUpdated(app, lp, contrib);
@@ -754,7 +921,7 @@ contract FeeConfig is Ownable, Pausable {
             infrastructureFees = InfrastructureFees(seq, oracle, rpc, msg_);
             emit InfrastructureFeesUpdated(seq, oracle, rpc, msg_);
         } else if (feeType == keccak256("marketplace")) {
-            (uint16 bazaar, uint16 creator, uint16 community, uint16 x402) = 
+            (uint16 bazaar, uint16 creator, uint16 community, uint16 x402) =
                 abi.decode(data, (uint16, uint16, uint16, uint16));
             marketplaceFees = MarketplaceFees(bazaar, creator, community, x402);
             emit MarketplaceFeesUpdated(bazaar, creator, community, x402);
@@ -762,6 +929,14 @@ contract FeeConfig is Ownable, Pausable {
             (uint256 base, uint16 agent, uint16 renewal) = abi.decode(data, (uint256, uint16, uint16));
             namesFees = NamesFees(base, agent, renewal);
             emit NamesFeesUpdated(base, agent, renewal);
+        } else if (feeType == keccak256("token")) {
+            (
+                uint16 xlpReward, uint16 protocol, uint16 burn,
+                uint16 transfer, uint16 bridgeMin, uint16 bridgeMax,
+                uint16 xlpMinStake, uint16 zkDiscount
+            ) = abi.decode(data, (uint16, uint16, uint16, uint16, uint16, uint16, uint16, uint16));
+            tokenFees = TokenFees(xlpReward, protocol, burn, transfer, bridgeMin, bridgeMax, xlpMinStake, zkDiscount);
+            emit TokenFeesUpdated(xlpReward, protocol, burn, bridgeMin, bridgeMax);
         }
 
         lastUpdated[feeType] = block.timestamp;
@@ -771,7 +946,6 @@ contract FeeConfig is Ownable, Pausable {
      * @notice Get contract version
      */
     function version() external pure returns (string memory) {
-        return "1.0.0";
+        return "1.1.0";
     }
 }
-

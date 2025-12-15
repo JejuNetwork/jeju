@@ -15,6 +15,8 @@
     "./jns": "./src/jns/index.ts",
     "./a2a": "./src/protocols/a2a.ts",
     "./mcp": "./src/protocols/mcp.ts",
+    "./server": "./src/protocols/server.ts",
+    "./middleware": "./src/protocols/middleware.ts",
     "./deploy": "./src/deploy/index.ts"
   },
   "scripts": {
@@ -22,9 +24,10 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@jeju/cql": "workspace:*",
+    "@jeju/db": "workspace:*",
     "@jeju/kms": "workspace:*",
     "@jejunetwork/config": "workspace:*",
+    "@jeju/shared": "workspace:*",
     "hono": "^4.7.0",
     "viem": "^2.21.0",
     "ethers": "^6.13.4"

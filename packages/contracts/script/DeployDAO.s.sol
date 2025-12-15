@@ -2,12 +2,12 @@
 pragma solidity ^0.8.26;
 
 import "forge-std/Script.sol";
-import "../src/mocks/TestERC20.sol";
+import {MockToken} from "../src/mocks/MockToken.sol";
 import "../src/registry/IdentityRegistry.sol";
 import "../src/registry/ReputationRegistry.sol";
-import "../src/council/Council.sol";
-import "../src/council/CEOAgent.sol";
-import "../src/council/QualityOracle.sol";
+import "../src/governance/council/Council.sol";
+import "../src/governance/council/CEOAgent.sol";
+import "../src/oracle/QualityOracle.sol";
 
 /**
  * @title DeployDAO
@@ -29,7 +29,7 @@ contract DeployDAO is Script {
         vm.startBroadcast(deployerKey);
 
         // 1. Deploy Governance Token
-        TestERC20 token = new TestERC20("Jeju Governance", "JEJU", 1_000_000_000 ether);
+        MockToken token = new MockToken("Jeju Governance", "JEJU", 18);
         console.log("GovernanceToken:", address(token));
 
         // 2. Deploy Identity Registry

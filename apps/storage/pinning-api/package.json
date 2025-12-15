@@ -25,7 +25,7 @@
   },
   "dependencies": {
     "@coinbase/x402": "latest",
-    "@jeju/cql": "workspace:*",
+    "@jeju/db": "workspace:*",
     "@jeju/kms": "workspace:*",
     "hono": "^4.0.0",
     "ipfs-http-client": "^60.0.0",

@@ -14,6 +14,7 @@ import type {
   PaymasterSystemDeployment,
   XLPDeployment,
   ContractAddresses,
+  LaunchpadDeployment,
 } from './types';
 import { CHAIN_IDS, ZERO_ADDRESS, isValidAddress } from './types';
 
@@ -33,6 +34,7 @@ import predimarket1337 from '../deployments/predimarket-1337.json';
 import rpgTokens1337 from '../deployments/rpg-tokens-1337.json';
 import elizaToken1337 from '../deployments/eliza-token-1337.json';
 import xlpAmmLocalnet from '../deployments/xlp-amm-localnet.json';
+import launchpadLocalnet from '../deployments/launchpad-localnet.json';
 
 // ============================================================================
 // Types for Game System
@@ -93,6 +95,11 @@ export const gameSystemDeployments: Partial<Record<ChainId, GameSystemDeployment
   420691: gameSystem1337 as GameSystemDeployment,
 };
 
+export const launchpadDeployments: Partial<Record<ChainId, LaunchpadDeployment>> = {
+  1337: launchpadLocalnet as LaunchpadDeployment,
+  420691: launchpadLocalnet as LaunchpadDeployment,
+};
+
 // ============================================================================
 // Helper Functions
 // ============================================================================
@@ -136,6 +143,22 @@ export function getIdentityRegistry(chainId: ChainId): Address | undefined {
  */
 export function getXLPDeployment(chainId: ChainId): XLPDeployment {
   return xlpDeployments[chainId] ?? {};
+}
+
+/**
+ * Get Launchpad deployment for a chain
+ */
+export function getLaunchpadDeployment(chainId: ChainId): LaunchpadDeployment {
+  return launchpadDeployments[chainId] ?? {};
+}
+
+/**
+ * Get TokenLaunchpad address for a chain
+ */
+export function getTokenLaunchpad(chainId: ChainId): Address | undefined {
+  const deployment = launchpadDeployments[chainId];
+  const address = deployment?.tokenLaunchpad;
+  return isValidAddress(address) ? address : undefined;
 }
 
 /**
@@ -197,6 +220,7 @@ export function getContractAddresses(chainId: ChainId): ContractAddresses {
   const paymaster = paymasterDeployments[chainId];
   const game = gameSystemDeployments[chainId];
   const marketplace = bazaarMarketplaceDeployments[chainId];
+  const launchpad = launchpadDeployments[chainId];
 
   return {
     // Identity & Registry
@@ -229,6 +253,10 @@ export function getContractAddresses(chainId: ChainId): ContractAddresses {
     usdc: identity?.usdc as Address | undefined,
     elizaOS: identity?.elizaOS as Address | undefined,
     goldToken: marketplace?.goldToken as Address | undefined,
+    
+    // Launchpad
+    tokenLaunchpad: getTokenLaunchpad(chainId),
+    lpLockerTemplate: launchpad?.lpLockerTemplate as Address | undefined,
   };
 }
 
@@ -270,6 +298,7 @@ export const rawDeployments = {
   rpgTokens1337,
   elizaToken1337,
   xlpAmmLocalnet,
+  launchpadLocalnet,
 } as const;
 
 // Re-export types
@@ -281,4 +310,5 @@ export type {
   PaymasterSystemDeployment,
   XLPDeployment,
   ContractAddresses,
+  LaunchpadDeployment,
 } from './types';

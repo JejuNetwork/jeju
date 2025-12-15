@@ -161,7 +161,7 @@ test.describe('Network ICO Whitepaper Page', () => {
 
   test('renders whitepaper content', async ({ page }) => {
     // Check title
-    await expect(page.getByRole('heading', { name: getNetworkName() Token Whitepaper' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Jeju Token Whitepaper' })).toBeVisible()
     
     // Check table of contents
     await expect(page.locator('text=Contents').first()).toBeVisible()

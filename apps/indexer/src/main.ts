@@ -1,11 +1,14 @@
 /**
  * Main indexer processor - comprehensive blockchain data indexing
+ * 
+ * Data flows: Blockchain -> PostgreSQL (primary) -> CovenantSQL (decentralized reads)
  */
 
 // Initialize network configuration and register known contracts
 import './init';
 
 import {TypeormDatabase} from '@subsquid/typeorm-store'
+import { getCQLSync } from './lib/cql-sync'
 import {
     Block, Transaction, Account, Log, Contract, TokenTransfer, 
     DecodedEvent, Trace, TransactionStatus, TokenStandard, 
@@ -88,7 +91,19 @@ interface TraceData {
     }
 }
 
+// Initialize CQL sync for decentralized reads
+const cqlSync = getCQLSync();
+
 processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx: ProcessorContext<Store>) => {
+    // Initialize CQL sync with TypeORM data source on first run
+    if (ctx.blocks.length > 0 && !cqlSync.getStats().running) {
+        const dataSource = (ctx.store as unknown as { em: { connection: { createQueryRunner: () => unknown } } }).em?.connection;
+        if (dataSource) {
+            cqlSync.initialize(dataSource as Parameters<typeof cqlSync.initialize>[0])
+                .then(() => cqlSync.start())
+                .catch((err: Error) => ctx.log.warn(`CQL sync failed to start: ${err.message}`));
+        }
+    }
     const blocks: Block[] = []
     const transactions: Transaction[] = []
     const logs: Log[] = []

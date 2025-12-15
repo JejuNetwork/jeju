@@ -1,0 +1,184 @@
+# dstack OAuth3 Auth Agent Deployment
+# 
+# This compose file deploys the OAuth3 TEE Auth Agent cluster
+# using dstack for TEE (Intel TDX) support.
+#
+# For local development (simulated TEE):
+#   docker compose -f dstack.compose.yaml --profile local up
+#
+# For testnet deployment (real TEE):
+#   docker compose -f dstack.compose.yaml --profile testnet up
+
+services:
+  # ============================================
+  # Local Development (Simulated TEE)
+  # ============================================
+  oauth3-agent-local:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    profiles: [local]
+    environment:
+      - OAUTH3_NODE_ID=oauth3-local-1
+      - OAUTH3_CLUSTER_ID=oauth3-local-cluster
+      - OAUTH3_PORT=4200
+      - MPC_ENDPOINT=http://mpc-coordinator:4100
+      - JEJU_RPC_URL=http://host.docker.internal:9545
+      - CHAIN_ID=420691
+      - TEE_MODE=simulated
+      - LOG_LEVEL=debug
+    ports:
+      - "4200:4200"
+    depends_on:
+      - mpc-coordinator
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  mpc-coordinator:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.mpc
+    profiles: [local]
+    environment:
+      - MPC_NODE_ID=mpc-local-1
+      - MPC_CLUSTER_ID=oauth3-mpc-cluster
+      - MPC_PORT=4100
+      - MPC_THRESHOLD=2
+      - MPC_TOTAL_PARTIES=3
+      - LOG_LEVEL=debug
+    ports:
+      - "4100:4100"
+
+  # ============================================
+  # Testnet Deployment (Real TEE via dstack)
+  # ============================================
+  oauth3-agent-1:
+    image: ghcr.io/dstack-tee/dstack-runner:latest
+    profiles: [testnet]
+    privileged: true
+    devices:
+      - /dev/tdx-guest:/dev/tdx-guest
+    environment:
+      - DSTACK_APP_ID=oauth3-auth-agent
+      - DSTACK_INSTANCE_ID=oauth3-agent-1
+      - OAUTH3_NODE_ID=oauth3-testnet-1
+      - OAUTH3_CLUSTER_ID=oauth3-testnet-cluster
+      - OAUTH3_PORT=4200
+      - MPC_ENDPOINT=http://oauth3-agent-2:4100
+      - JEJU_RPC_URL=${JEJU_TESTNET_RPC_URL:-https://testnet.jeju.network}
+      - CHAIN_ID=420691
+      - TEE_MODE=dstack
+      - LOG_LEVEL=info
+      # OAuth Provider Credentials (encrypted in TEE)
+      - OAUTH_GOOGLE_CLIENT_ID=${OAUTH_GOOGLE_CLIENT_ID}
+      - OAUTH_GITHUB_CLIENT_ID=${OAUTH_GITHUB_CLIENT_ID}
+      - OAUTH_TWITTER_CLIENT_ID=${OAUTH_TWITTER_CLIENT_ID}
+      - OAUTH_DISCORD_CLIENT_ID=${OAUTH_DISCORD_CLIENT_ID}
+      # Farcaster Integration
+      - NEYNAR_API_KEY=${NEYNAR_API_KEY}
+      - FARCASTER_HUB_URL=${FARCASTER_HUB_URL:-https://hub.pinata.cloud}
+    volumes:
+      - oauth3-data-1:/data
+      - /var/run/dstack.sock:/var/run/dstack.sock
+    ports:
+      - "4200:4200"
+    networks:
+      - oauth3-network
+    deploy:
+      resources:
+        reservations:
+          memory: 4G
+
+  oauth3-agent-2:
+    image: ghcr.io/dstack-tee/dstack-runner:latest
+    profiles: [testnet]
+    privileged: true
+    devices:
+      - /dev/tdx-guest:/dev/tdx-guest
+    environment:
+      - DSTACK_APP_ID=oauth3-auth-agent
+      - DSTACK_INSTANCE_ID=oauth3-agent-2
+      - OAUTH3_NODE_ID=oauth3-testnet-2
+      - OAUTH3_CLUSTER_ID=oauth3-testnet-cluster
+      - OAUTH3_PORT=4201
+      - MPC_ENDPOINT=http://oauth3-agent-1:4100
+      - JEJU_RPC_URL=${JEJU_TESTNET_RPC_URL:-https://testnet.jeju.network}
+      - CHAIN_ID=420691
+      - TEE_MODE=dstack
+      - LOG_LEVEL=info
+      - OAUTH_GOOGLE_CLIENT_ID=${OAUTH_GOOGLE_CLIENT_ID}
+      - OAUTH_GITHUB_CLIENT_ID=${OAUTH_GITHUB_CLIENT_ID}
+      - OAUTH_TWITTER_CLIENT_ID=${OAUTH_TWITTER_CLIENT_ID}
+      - OAUTH_DISCORD_CLIENT_ID=${OAUTH_DISCORD_CLIENT_ID}
+      - NEYNAR_API_KEY=${NEYNAR_API_KEY}
+      - FARCASTER_HUB_URL=${FARCASTER_HUB_URL:-https://hub.pinata.cloud}
+    volumes:
+      - oauth3-data-2:/data
+      - /var/run/dstack.sock:/var/run/dstack.sock
+    ports:
+      - "4201:4201"
+    networks:
+      - oauth3-network
+    deploy:
+      resources:
+        reservations:
+          memory: 4G
+
+  oauth3-agent-3:
+    image: ghcr.io/dstack-tee/dstack-runner:latest
+    profiles: [testnet]
+    privileged: true
+    devices:
+      - /dev/tdx-guest:/dev/tdx-guest
+    environment:
+      - DSTACK_APP_ID=oauth3-auth-agent
+      - DSTACK_INSTANCE_ID=oauth3-agent-3
+      - OAUTH3_NODE_ID=oauth3-testnet-3
+      - OAUTH3_CLUSTER_ID=oauth3-testnet-cluster
+      - OAUTH3_PORT=4202
+      - MPC_ENDPOINT=http://oauth3-agent-1:4100
+      - JEJU_RPC_URL=${JEJU_TESTNET_RPC_URL:-https://testnet.jeju.network}
+      - CHAIN_ID=420691
+      - TEE_MODE=dstack
+      - LOG_LEVEL=info
+      - OAUTH_GOOGLE_CLIENT_ID=${OAUTH_GOOGLE_CLIENT_ID}
+      - OAUTH_GITHUB_CLIENT_ID=${OAUTH_GITHUB_CLIENT_ID}
+      - OAUTH_TWITTER_CLIENT_ID=${OAUTH_TWITTER_CLIENT_ID}
+      - OAUTH_DISCORD_CLIENT_ID=${OAUTH_DISCORD_CLIENT_ID}
+      - NEYNAR_API_KEY=${NEYNAR_API_KEY}
+      - FARCASTER_HUB_URL=${FARCASTER_HUB_URL:-https://hub.pinata.cloud}
+    volumes:
+      - oauth3-data-3:/data
+      - /var/run/dstack.sock:/var/run/dstack.sock
+    ports:
+      - "4202:4202"
+    networks:
+      - oauth3-network
+    deploy:
+      resources:
+        reservations:
+          memory: 4G
+
+  # Load balancer for testnet agents
+  oauth3-lb:
+    image: nginx:alpine
+    profiles: [testnet]
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "4200:80"
+    networks:
+      - oauth3-network
+    depends_on:
+      - oauth3-agent-1
+      - oauth3-agent-2
+      - oauth3-agent-3
+
+networks:
+  oauth3-network:
+    driver: bridge
+
+volumes:
+  oauth3-data-1:
+  oauth3-data-2:
+  oauth3-data-3:

@@ -21,7 +21,7 @@ contract MockJEJU is ERC20 {
     }
 }
 
-contract Stage2IntegrationTest is Test {
+contract DecentralizationIntegrationTest is Test {
     using MessageHashUtils for bytes32;
 
     SequencerRegistry public sequencerRegistry;
@@ -82,7 +82,7 @@ contract Stage2IntegrationTest is Test {
         jejuToken = new MockJEJU();
         prover = new Prover();
 
-        // Deploy Stage 2 contracts
+        // Deploy Decentralization contracts
         sequencerRegistry = new SequencerRegistry(
             address(jejuToken), address(identityRegistry), address(reputationRegistry), treasury, owner
         );
@@ -232,7 +232,7 @@ contract Stage2IntegrationTest is Test {
 
     // ============ Full Lifecycle Integration ============
 
-    function testFullStage2Lifecycle() public {
+    function testFullDecentralizationLifecycle() public {
         // 1. Register sequencers
         vm.startPrank(sequencer1);
         jejuToken.approve(address(sequencerRegistry), 10000 ether);

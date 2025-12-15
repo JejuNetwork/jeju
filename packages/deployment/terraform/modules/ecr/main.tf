@@ -63,6 +63,11 @@ variable "repositories" {
       name                 = "jeju/autocrat"
       scan_on_push         = true
       image_tag_mutability = "MUTABLE"
+    },
+    {
+      name                 = "jeju/covenantsql"
+      scan_on_push         = true
+      image_tag_mutability = "MUTABLE"
     }
   ]
 }
@@ -227,5 +232,10 @@ output "pull_policy_arn" {
 output "push_policy_arn" {
   description = "ARN of ECR push policy"
   value       = aws_iam_policy.ecr_push.arn
+}
+
+output "registry_url" {
+  description = "ECR registry URL (without repository path)"
+  value       = length(aws_ecr_repository.repos) > 0 ? split("/", values(aws_ecr_repository.repos)[0].repository_url)[0] : ""
 }
 

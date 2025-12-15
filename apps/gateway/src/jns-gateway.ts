@@ -77,7 +77,6 @@ interface JNSGatewayConfig {
   jnsRegistryAddress: Address;
   ipfsGatewayUrl: string;
   defaultResolver?: Address;
-  fallbackIpfsGateways?: string[];
 }
 
 interface ResolvedContent {
@@ -199,9 +198,10 @@ export class JNSGateway {
   private config: JNSGatewayConfig;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private client: any;
-  private cache: Map<string, { content: ResolvedContent; expiry: number }> =
+  private localCache: Map<string, { content: ResolvedContent; expiry: number }> =
     new Map();
   private readonly CACHE_TTL = 300_000; // 5 minutes
+  private decentralizedCache: import('@jeju/shared/cache').CacheClient | null = null;
 
   constructor(config: JNSGatewayConfig) {
     this.config = config;
@@ -277,13 +277,66 @@ export class JNSGateway {
   }
 
   /**
+   * Initialize decentralized cache
+   */
+  private async initDecentralizedCache(): Promise<void> {
+    if (this.decentralizedCache) return;
+    
+    try {
+      const { getCacheClient } = await import('@jeju/shared/cache');
+      this.decentralizedCache = getCacheClient('jns-gateway');
+      console.log('[JNS Gateway] Decentralized cache initialized');
+    } catch {
+      console.log('[JNS Gateway] Decentralized cache not available, using local cache');
+    }
+  }
+
+  /**
+   * Get from cache (decentralized first, then local)
+   */
+  private async getFromCache(name: string): Promise<ResolvedContent | null> {
+    // Try decentralized cache first
+    if (this.decentralizedCache) {
+      const cached = await this.decentralizedCache.get(`jns:${name}`).catch(() => null);
+      if (cached) {
+        return JSON.parse(cached) as ResolvedContent;
+      }
+    }
+    
+    // Fall back to local cache
+    const localCached = this.localCache.get(name);
+    if (localCached && localCached.expiry > Date.now()) {
+      return localCached.content;
+    }
+    
+    return null;
+  }
+
+  /**
+   * Set to cache (both decentralized and local)
+   */
+  private async setToCache(name: string, content: ResolvedContent): Promise<void> {
+    // Set in decentralized cache
+    if (this.decentralizedCache) {
+      await this.decentralizedCache.set(
+        `jns:${name}`,
+        JSON.stringify(content),
+        Math.floor(this.CACHE_TTL / 1000)
+      ).catch(() => {});
+    }
+    
+    // Set in local cache
+    this.localCache.set(name, { content, expiry: Date.now() + this.CACHE_TTL });
+  }
+
+  /**
    * Resolve JNS name to content
    */
   async resolveJNS(name: string): Promise<ResolvedContent | null> {
     // Check cache
-    const cached = this.cache.get(name);
-    if (cached && cached.expiry > Date.now()) {
-      return cached.content;
+    const cached = await this.getFromCache(name);
+    if (cached) {
+      return cached;
     }
 
     const node = namehash(name);
@@ -316,7 +369,7 @@ export class JNSGateway {
     const content = decodeContenthash(contenthash);
 
     if (content) {
-      this.cache.set(name, { content, expiry: Date.now() + this.CACHE_TTL });
+      await this.setToCache(name, content);
     }
 
     return content;
@@ -338,66 +391,65 @@ export class JNSGateway {
 
   /**
    * Serve content from IPFS
+   * 
+   * DECENTRALIZED: Uses only our configured IPFS gateway - no centralized fallbacks.
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async serveIpfsContent(c: Context<any>, cid: string, path: string): Promise<Response> {
-    const gateways = [
-      this.config.ipfsGatewayUrl,
-      ...(this.config.fallbackIpfsGateways ?? []),
-    ];
+    const gateway = this.config.ipfsGatewayUrl;
+    const url = `${gateway}/ipfs/${cid}${path}`;
 
-    let lastError: Error | null = null;
+    const response = await fetch(url, {
+      headers: { Accept: '*/*' },
+      signal: AbortSignal.timeout(30000), // 30s timeout for our own IPFS node
+    }).catch((e: unknown) => {
+      console.error(`[JNS Gateway] IPFS fetch failed: ${e}`);
+      return null;
+    });
 
-    for (const gateway of gateways) {
-      const url = `${gateway}/ipfs/${cid}${path}`;
+    if (response?.ok) {
+      const contentType = response.headers.get('content-type') ?? getMimeType(path);
 
-      const response = await fetch(url, {
-        headers: { Accept: '*/*' },
-        signal: AbortSignal.timeout(10000),
-      }).catch((e: unknown) => {
-        lastError = e instanceof Error ? e : new Error(String(e));
-        return null;
+      return new Response(response.body, {
+        status: 200,
+        headers: {
+          'Content-Type': contentType,
+          'Cache-Control': 'public, max-age=31536000, immutable',
+          'X-Content-CID': cid,
+          'X-Gateway': gateway,
+        },
       });
+    }
 
-      if (response?.ok) {
-        const contentType =
-          response.headers.get('content-type') ?? getMimeType(path);
+    // Try index.html for directory paths (SPA support)
+    if (response?.status === 404 && !path.includes('.')) {
+      const indexUrl = `${gateway}/ipfs/${cid}/index.html`;
+      const indexResponse = await fetch(indexUrl, {
+        signal: AbortSignal.timeout(30000),
+      }).catch(() => null);
 
-        return new Response(response.body, {
+      if (indexResponse?.ok) {
+        return new Response(indexResponse.body, {
           status: 200,
           headers: {
-            'Content-Type': contentType,
-            'Cache-Control': 'public, max-age=31536000, immutable',
+            'Content-Type': 'text/html',
+            'Cache-Control': 'public, max-age=3600',
             'X-Content-CID': cid,
             'X-Gateway': gateway,
+            'X-SPA-Index': 'true',
           },
         });
       }
-
-      // Try index.html for directory paths (SPA support)
-      if (response?.status === 404 && !path.includes('.')) {
-        const indexUrl = `${gateway}/ipfs/${cid}/index.html`;
-        const indexResponse = await fetch(indexUrl, {
-          signal: AbortSignal.timeout(10000),
-        }).catch(() => null);
-
-        if (indexResponse?.ok) {
-          return new Response(indexResponse.body, {
-            status: 200,
-            headers: {
-              'Content-Type': 'text/html',
-              'Cache-Control': 'public, max-age=3600',
-              'X-Content-CID': cid,
-              'X-Gateway': gateway,
-              'X-SPA-Fallback': 'true',
-            },
-          });
-        }
-      }
     }
 
-    return c.text(
-      `Failed to fetch content: ${(lastError as Error | null)?.message ?? 'Unknown error'}`,
+    return c.json(
+      { 
+        error: 'Content not available',
+        cid,
+        gateway,
+        status: response?.status ?? 'connection_failed',
+        message: 'IPFS content not found. Ensure content is pinned to the network.'
+      },
       502
     );
   }
@@ -425,6 +477,9 @@ export class JNSGateway {
   }
 
   async start(): Promise<void> {
+    // Initialize decentralized cache
+    await this.initDecentralizedCache();
+    
     console.log(`
 ╔═══════════════════════════════════════════════════════════╗
 ║                      JNS Gateway                           ║
@@ -448,21 +503,32 @@ export class JNSGateway {
 
 /**
  * Start JNS Gateway from environment
+ * 
+ * DECENTRALIZED: No fallback to centralized IPFS gateways.
+ * Requires local IPFS node or configured IPFS_GATEWAY_URL.
  */
 export async function startJNSGateway(): Promise<JNSGateway> {
+  const ipfsGatewayUrl = process.env.IPFS_GATEWAY_URL;
+  
+  if (!ipfsGatewayUrl) {
+    throw new Error(
+      'JNS Gateway requires IPFS_GATEWAY_URL environment variable. ' +
+      'Start local IPFS: docker compose up -d ipfs'
+    );
+  }
+
+  const jnsRegistryAddress = process.env.JNS_REGISTRY_ADDRESS;
+  if (!jnsRegistryAddress || jnsRegistryAddress === '0x0000000000000000000000000000000000000000') {
+    console.warn('[JNS Gateway] JNS_REGISTRY_ADDRESS not set - name resolution will fail until contracts are deployed');
+  }
+
   const config: JNSGatewayConfig = {
     port: parseInt(process.env.JNS_GATEWAY_PORT ?? '4005', 10),
     rpcUrl: process.env.JEJU_RPC_URL ?? process.env.RPC_URL ?? 'http://localhost:9545',
-    jnsRegistryAddress: (process.env.JNS_REGISTRY_ADDRESS ??
-      '0x0000000000000000000000000000000000000000') as Address,
-    ipfsGatewayUrl:
-      process.env.IPFS_GATEWAY_URL ?? 'https://dweb.link',
+    jnsRegistryAddress: (jnsRegistryAddress ?? '0x0000000000000000000000000000000000000000') as Address,
+    ipfsGatewayUrl,
     defaultResolver: process.env.JNS_RESOLVER_ADDRESS as Address | undefined,
-    fallbackIpfsGateways: [
-      'https://ipfs.io',
-      'https://cloudflare-ipfs.com',
-      'https://gateway.pinata.cloud',
-    ],
+    // No fallback gateways - we require our own IPFS infrastructure
   };
 
   const gateway = new JNSGateway(config);

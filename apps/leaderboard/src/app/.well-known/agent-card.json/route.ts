@@ -5,7 +5,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://jejunetwork.github
 export async function GET() {
   return NextResponse.json({
     protocolVersion: '0.3.0',
-    name: getNetworkName() Leaderboard',
+    name: `${getNetworkName()} Leaderboard`,
     description: 'Contributor analytics and rankings for the Network',
     url: `${BASE_URL}/api/a2a`,
     preferredTransport: 'http',

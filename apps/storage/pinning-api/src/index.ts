@@ -415,16 +415,16 @@ app.route('/registry', registryApp);
 const rentalRouter = createRentalRouter();
 app.route('/rental', rentalRouter);
 
-// Initialize CQL database adapter (if configured)
-const useCQL = process.env.USE_CQL === 'true' || process.env.CQL_BLOCK_PRODUCER_ENDPOINT;
-if (useCQL) {
-  const cqlDb = getCQLDatabase();
-  cqlDb.initialize().then(() => {
-    console.log('[Storage] CovenantSQL database initialized');
-  }).catch((e) => {
-    console.warn('[Storage] CQL init failed, using PostgreSQL fallback:', (e as Error).message);
-  });
-}
+// Initialize CQL database adapter - required for decentralized storage
+const cqlDb = getCQLDatabase();
+cqlDb.initialize().then(() => {
+  console.log(`[Storage] Database initialized (mode: ${cqlDb.getMode()})`);
+}).catch((e) => {
+  console.error('[Storage] Database initialization failed:', (e as Error).message);
+  if (process.env.NODE_ENV !== 'test') {
+    process.exit(1);
+  }
+});
 
 // ============================================================================
 // START SERVER

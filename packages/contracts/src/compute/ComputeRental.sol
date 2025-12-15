@@ -685,7 +685,7 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
 
         // Emit event before external calls
         emit RentalCompleted(rentalId, actualDuration, refundAmount);
-        
+
         if (platformFee > 0) {
             emit PlatformFeeCollected(rentalId, platformFee, currentFeeBps);
         }
@@ -1133,11 +1133,11 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Get platform fee statistics
      */
-    function getPlatformFeeStats() external view returns (
-        uint256 _totalPlatformFeesCollected,
-        uint256 _currentFeeBps,
-        address _treasury
-    ) {
+    function getPlatformFeeStats()
+        external
+        view
+        returns (uint256 _totalPlatformFeesCollected, uint256 _currentFeeBps, address _treasury)
+    {
         return (totalPlatformFeesCollected, _getPlatformFeeBps(), _getTreasuryAddress());
     }
 

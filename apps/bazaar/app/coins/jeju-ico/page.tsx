@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { NetworkPresaleCard, NetworkTokenomics, NetworkUtility } from '@/components/ico'
 
-export default function the networkICOPage() {
+export default function JejuICOPage() {
   return (
     <div className="max-w-6xl mx-auto">
       {/* Hero */}

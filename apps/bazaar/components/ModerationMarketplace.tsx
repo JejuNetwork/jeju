@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { formatEther, parseEther, Address } from 'viem';
 import { CONTRACTS } from '@/config';
+import { uploadToIPFS, cidToBytes32 } from '../lib/ipfs';
 import { 
   Shield, 
   AlertTriangle, 
@@ -910,8 +911,6 @@ function ReportForm({ canReport, isLoading }: { canReport: boolean; isLoading: b
     setUploading(true);
     setUploadError(null);
     
-    // Import dynamically to avoid SSR issues
-    const { uploadToIPFS, cidToBytes32 } = await import('../lib/ipfs');
     const cid = await uploadToIPFS(file);
     setEvidenceHash(cidToBytes32(cid));
     setUploading(false);
