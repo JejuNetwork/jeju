@@ -2,7 +2,7 @@
  * Core network hook
  */
 
-import { useNetworkContext } from '../context';
+import { useNetworkContext } from "../context";
 
 export function useJeju() {
   const { client, isLoading, error } = useNetworkContext();
@@ -18,4 +18,3 @@ export function useJeju() {
     isSmartAccount: client?.isSmartAccount ?? false,
   };
 }
-

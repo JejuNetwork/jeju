@@ -4,8 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider, createConfig, http } from 'wagmi';
 import { mainnet, base, arbitrum, optimism, bsc } from 'wagmi/chains';
 import { injected } from 'wagmi/connectors';
-import { getUrls } from '@jejunetwork/config';
-import { getLocalnetChain, getTestnetChain } from '@jeju/shared/chains';
+import { getUrls, getLocalnetChain, getTestnetChain } from './config/branding';
 import App from './App';
 import './index.css';
 

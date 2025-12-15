@@ -13,7 +13,7 @@ import { TEST_CONFIG, assertInfrastructureRunning } from '../setup';
 // Define network localnet chain
 const jejuLocalnet = {
   id: TEST_CONFIG.chainId,
-  name: getLocalnetChain().name,
+  name: 'Jeju Localnet',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: { default: { http: [TEST_CONFIG.rpcUrl] } },
 };

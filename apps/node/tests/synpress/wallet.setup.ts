@@ -21,7 +21,7 @@ export default defineWalletSetup(PASSWORD, async (context, walletPage) => {
   });
   
   await metamask.addNetwork({
-    name: getLocalnetChain().name,
+    name: 'Jeju Localnet',
     rpcUrl: 'http://localhost:8545',
     chainId: 1337,
     symbol: 'ETH',

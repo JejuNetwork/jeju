@@ -390,9 +390,9 @@ export async function checkUserBan(userAddress: Address): Promise<BanCheckResult
 }
 
 /**
- * Check if user can trade on Bazaar
+ * Simple check if user can trade on Bazaar (returns boolean only)
  */
-export async function checkTradeAllowed(userAddress: Address): Promise<boolean> {
+export async function isTradeAllowed(userAddress: Address): Promise<boolean> {
   const result = await checkUserBan(userAddress);
   return result.allowed;
 }

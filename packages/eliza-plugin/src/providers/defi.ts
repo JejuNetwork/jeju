@@ -8,18 +8,24 @@ import {
   type Provider,
   type ProviderResult,
   type State,
-} from '@elizaos/core';
-import { formatEther } from 'viem';
-import { getNetworkName } from '@jejunetwork/config';
-import { JEJU_SERVICE_NAME, type JejuService } from '../service';
+} from "@elizaos/core";
+import { formatEther } from "viem";
+import { getNetworkName } from "@jejunetwork/config";
+import { JEJU_SERVICE_NAME, type JejuService } from "../service";
 
 const networkName = getNetworkName();
 
 export const jejuDefiProvider: Provider = {
   name: `${networkName}DefiProvider`,
 
-  async get(runtime: IAgentRuntime, _message: Memory, state?: State): Promise<ProviderResult> {
-    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService | undefined;
+  async get(
+    runtime: IAgentRuntime,
+    _message: Memory,
+    state?: State,
+  ): Promise<ProviderResult> {
+    const service = runtime.getService(JEJU_SERVICE_NAME) as
+      | JejuService
+      | undefined;
 
     if (!service) {
       return {
@@ -36,7 +42,13 @@ export const jejuDefiProvider: Provider = {
 
     const text = `Active Pools: ${pools.length}
 Your LP Positions: ${positions.length}
-${pools.slice(0, 3).map((p) => `- ${p.token0.symbol}/${p.token1.symbol}: TVL ${formatEther(p.liquidity)}`).join('\n')}`;
+${pools
+  .slice(0, 3)
+  .map(
+    (p) =>
+      `- ${p.token0.symbol}/${p.token1.symbol}: TVL ${formatEther(p.liquidity)}`,
+  )
+  .join("\n")}`;
 
     return {
       text,
@@ -51,4 +63,3 @@ ${pools.slice(0, 3).map((p) => `- ${p.token0.symbol}/${p.token1.symbol}: TVL ${f
     };
   },
 };
-

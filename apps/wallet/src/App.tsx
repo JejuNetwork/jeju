@@ -14,6 +14,9 @@ import {
   type LucideIcon 
 } from 'lucide-react';
 import type { Address } from 'viem';
+import { getNetworkName } from './config/branding';
+
+const networkName = getNetworkName();
 
 type ViewMode = 'chat' | 'portfolio' | 'nfts' | 'approvals' | 'settings' | 'pools' | 'perps' | 'launchpad' | 'names';
 
@@ -128,7 +131,7 @@ function App() {
                 <span className="text-xl font-bold text-white">J</span>
               </div>
               <div>
-                <h1 className="text-lg font-semibold">Network</h1>
+                <h1 className="text-lg font-semibold">{networkName}</h1>
                 <p className="text-xs text-muted-foreground">Agentic Wallet</p>
               </div>
             </div>
@@ -269,7 +272,7 @@ function App() {
             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
               <span className="text-sm font-bold text-white">J</span>
             </div>
-            <span className="font-semibold">Network</span>
+            <span className="font-semibold">{networkName}</span>
           </div>
           {isConnected && (
             <span className="text-xs font-medium text-emerald-400">{formatUsd(totalUsdValue)}</span>

@@ -2,10 +2,14 @@
  * Identity hook
  */
 
-import { useCallback, useState } from 'react';
-import type { Hex } from 'viem';
-import { useNetworkContext } from '../context';
-import type { AgentInfo, RegisterAgentParams, ReputationScore } from '@jejunetwork/sdk';
+import { useCallback, useState } from "react";
+import type { Hex } from "viem";
+import { useNetworkContext } from "../context";
+import type {
+  AgentInfo,
+  RegisterAgentParams,
+  ReputationScore,
+} from "@jejunetwork/sdk";
 
 export function useIdentity() {
   const { client } = useNetworkContext();
@@ -13,13 +17,15 @@ export function useIdentity() {
   const [error, setError] = useState<Error | null>(null);
 
   const getMyAgent = useCallback(async (): Promise<AgentInfo | null> => {
-    if (!client) throw new Error('Not connected');
+    if (!client) throw new Error("Not connected");
     return client.identity.getMyAgent();
   }, [client]);
 
   const register = useCallback(
-    async (params: RegisterAgentParams): Promise<{ agentId: bigint; txHash: Hex }> => {
-      if (!client) throw new Error('Not connected');
+    async (
+      params: RegisterAgentParams,
+    ): Promise<{ agentId: bigint; txHash: Hex }> => {
+      if (!client) throw new Error("Not connected");
       setIsLoading(true);
       setError(null);
 
@@ -27,24 +33,25 @@ export function useIdentity() {
       setIsLoading(false);
       return result;
     },
-    [client]
+    [client],
   );
 
   const getReputation = useCallback(
     async (agentId: bigint): Promise<ReputationScore> => {
-      if (!client) throw new Error('Not connected');
+      if (!client) throw new Error("Not connected");
       return client.identity.getReputation(agentId);
     },
-    [client]
+    [client],
   );
 
-  const getMyReputation = useCallback(async (): Promise<ReputationScore | null> => {
-    if (!client) throw new Error('Not connected');
-    return client.identity.getMyReputation();
-  }, [client]);
+  const getMyReputation =
+    useCallback(async (): Promise<ReputationScore | null> => {
+      if (!client) throw new Error("Not connected");
+      return client.identity.getMyReputation();
+    }, [client]);
 
   const amIBanned = useCallback(async (): Promise<boolean> => {
-    if (!client) throw new Error('Not connected');
+    if (!client) throw new Error("Not connected");
     return client.identity.amIBanned();
   }, [client]);
 
@@ -58,4 +65,3 @@ export function useIdentity() {
     amIBanned,
   };
 }
-

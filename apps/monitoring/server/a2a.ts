@@ -4,6 +4,13 @@
  * 
  * Exposes Prometheus metrics and network health status via the A2A protocol,
  * enabling AI agents to programmatically query blockchain network metrics.
+ */
+
+import { getNetworkName } from '@jejunetwork/config';
+
+const networkName = getNetworkName();
+
+/*
  * 
  * Features:
  * - Execute PromQL queries against Prometheus
@@ -57,7 +64,7 @@ function formatVolume(amount: string): string {
 app.get('/.well-known/agent-card.json', (_req, res) => {
   res.json({
     protocolVersion: '0.3.0',
-    name: getNetworkName() Monitoring',
+    name: `${networkName} Monitoring`,
     description: 'Query blockchain metrics and system health via Prometheus',
     url: 'http://localhost:9091/api/a2a',
     preferredTransport: 'http',

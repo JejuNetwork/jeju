@@ -189,7 +189,7 @@ class NetworkProvider {
   getProviderInfo() {
     return {
       uuid: 'c2a0e8c4-6c6b-4f3a-8d4e-9f0b1a2c3d4e',
-      name: getNetworkName() Wallet',
+      name: 'Network Wallet',
       icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgdmlld0JveD0iMCAwIDEyOCAxMjgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEyOCIgaGVpZ2h0PSIxMjgiIHJ4PSIyNCIgZmlsbD0iIzEwQjk4MSIvPjx0ZXh0IHg9IjY0IiB5PSI4MCIgZm9udC1zaXplPSI2NCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0id2hpdGUiIGZvbnQtZmFtaWx5PSJzeXN0ZW0tdWkiIGZvbnQtd2VpZ2h0PSJib2xkIj5KPC90ZXh0Pjwvc3ZnPg==',
       rdns: 'network.jeju.wallet',
     };

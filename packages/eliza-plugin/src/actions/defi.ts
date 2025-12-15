@@ -9,9 +9,9 @@ import {
   type IAgentRuntime,
   type Memory,
   type State,
-} from '@elizaos/core';
-import { type Address, parseEther, formatEther } from 'viem';
-import { JEJU_SERVICE_NAME, type JejuService } from '../service';
+} from "@elizaos/core";
+import { type Address, parseEther, formatEther } from "viem";
+import { JEJU_SERVICE_NAME, type JejuService } from "../service";
 
 function parseSwapParams(text: string): {
   amountIn?: bigint;
@@ -38,9 +38,9 @@ function parseSwapParams(text: string): {
 }
 
 export const swapTokensAction: Action = {
-  name: 'SWAP_TOKENS',
-  description: 'Swap tokens on the network DEX (Uniswap V4)',
-  similes: ['swap', 'exchange', 'trade', 'convert', 'buy', 'sell tokens'],
+  name: "SWAP_TOKENS",
+  description: "Swap tokens on the network DEX (Uniswap V4)",
+  similes: ["swap", "exchange", "trade", "convert", "buy", "sell tokens"],
 
   validate: async (runtime: IAgentRuntime) => {
     const service = runtime.getService(JEJU_SERVICE_NAME);
@@ -52,12 +52,12 @@ export const swapTokensAction: Action = {
     message: Memory,
     _state: State | undefined,
     _options: Record<string, unknown>,
-    callback?: HandlerCallback
+    callback?: HandlerCallback,
   ) => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
 
-    const params = parseSwapParams(message.content.text ?? '');
+    const params = parseSwapParams(message.content.text ?? "");
 
     if (!params.amountIn || !params.tokenIn || !params.tokenOut) {
       callback?.({
@@ -68,17 +68,21 @@ export const swapTokensAction: Action = {
 
     // Get token addresses (simplified - would need token registry lookup)
     const tokenAddresses: Record<string, Address> = {
-      ETH: '0x0000000000000000000000000000000000000000',
-      WETH: '0x4200000000000000000000000000000000000006',
+      ETH: "0x0000000000000000000000000000000000000000",
+      WETH: "0x4200000000000000000000000000000000000006",
       // Would be populated from token registry
     };
 
     const tokenIn =
-      tokenAddresses[params.tokenIn] ?? ('0x0000000000000000000000000000000000000000' as Address);
+      tokenAddresses[params.tokenIn] ??
+      ("0x0000000000000000000000000000000000000000" as Address);
     const tokenOut =
-      tokenAddresses[params.tokenOut] ?? ('0x0000000000000000000000000000000000000000' as Address);
+      tokenAddresses[params.tokenOut] ??
+      ("0x0000000000000000000000000000000000000000" as Address);
 
-    callback?.({ text: `Getting quote for ${formatEther(params.amountIn)} ${params.tokenIn} → ${params.tokenOut}...` });
+    callback?.({
+      text: `Getting quote for ${formatEther(params.amountIn)} ${params.tokenIn} → ${params.tokenOut}...`,
+    });
 
     const quote = await client.defi.getSwapQuote({
       tokenIn,
@@ -114,31 +118,39 @@ Swapped ${formatEther(quote.amountIn)} ${params.tokenIn} for ${formatEther(quote
   examples: [
     [
       {
-        user: '{{user1}}',
-        content: { text: 'Swap 100 USDC for JEJU' },
+        name: "user",
+        content: { text: "Swap 100 USDC for JEJU" },
       },
       {
-        user: '{{agent}}',
-        content: { text: 'Swap executed successfully. Swapped 100 USDC for 5000 JEJU...' },
+        name: "agent",
+        content: {
+          text: "Swap executed successfully. Swapped 100 USDC for 5000 JEJU...",
+        },
       },
     ],
     [
       {
-        user: '{{user1}}',
-        content: { text: 'Exchange 1 ETH to USDC' },
+        name: "user",
+        content: { text: "Exchange 1 ETH to USDC" },
       },
       {
-        user: '{{agent}}',
-        content: { text: 'Quote received: 1 ETH → 2500 USDC...' },
+        name: "agent",
+        content: { text: "Quote received: 1 ETH → 2500 USDC..." },
       },
     ],
-  ] as ActionExample[][],
+  ],
 };
 
 export const addLiquidityAction: Action = {
-  name: 'ADD_LIQUIDITY',
-  description: 'Add liquidity to a pool on the network DEX',
-  similes: ['add liquidity', 'provide liquidity', 'lp', 'become lp', 'pool liquidity'],
+  name: "ADD_LIQUIDITY",
+  description: "Add liquidity to a pool on the network DEX",
+  similes: [
+    "add liquidity",
+    "provide liquidity",
+    "lp",
+    "become lp",
+    "pool liquidity",
+  ],
 
   validate: async (runtime: IAgentRuntime) => {
     const service = runtime.getService(JEJU_SERVICE_NAME);
@@ -150,19 +162,24 @@ export const addLiquidityAction: Action = {
     message: Memory,
     _state: State | undefined,
     _options: Record<string, unknown>,
-    callback?: HandlerCallback
+    callback?: HandlerCallback,
   ) => {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
     const client = service.getClient();
 
-    const text = message.content.text ?? '';
+    const text = message.content.text ?? "";
 
     // Parse amounts and tokens
     const matches = text.matchAll(/(\d+(?:\.\d+)?)\s*(\w+)/gi);
     const tokens: Array<{ amount: bigint; symbol: string }> = [];
 
     for (const match of matches) {
-      if (['add', 'liquidity', 'pool', 'to', 'and'].includes(match[2].toLowerCase())) continue;
+      if (
+        ["add", "liquidity", "pool", "to", "and"].includes(
+          match[2].toLowerCase(),
+        )
+      )
+        continue;
       tokens.push({
         amount: parseEther(match[1]),
         symbol: match[2].toUpperCase(),
@@ -181,8 +198,8 @@ export const addLiquidityAction: Action = {
     });
 
     // Would need to resolve token addresses from registry
-    const token0 = '0x0000000000000000000000000000000000000000' as Address;
-    const token1 = '0x0000000000000000000000000000000000000000' as Address;
+    const token0 = "0x0000000000000000000000000000000000000000" as Address;
+    const token1 = "0x0000000000000000000000000000000000000000" as Address;
 
     const txHash = await client.defi.addLiquidity({
       token0,
@@ -208,14 +225,13 @@ Pool: ${tokens[0].symbol}/${tokens[1].symbol}`,
   examples: [
     [
       {
-        user: '{{user1}}',
-        content: { text: 'Add liquidity 1 ETH and 2000 USDC' },
+        name: "user",
+        content: { text: "Add liquidity 1 ETH and 2000 USDC" },
       },
       {
-        user: '{{agent}}',
-        content: { text: 'Liquidity added successfully. Pool: ETH/USDC...' },
+        name: "agent",
+        content: { text: "Liquidity added successfully. Pool: ETH/USDC..." },
       },
     ],
-  ] as ActionExample[][],
+  ],
 };
-

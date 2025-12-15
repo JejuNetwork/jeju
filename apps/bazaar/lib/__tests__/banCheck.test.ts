@@ -3,7 +3,7 @@
  */
 
 import { describe, test, expect } from 'bun:test';
-import { checkUserBan, checkTradeAllowed, checkTransferAllowed, checkTradeAllowed, BanType, getBanTypeLabel } from '../banCheck';
+import { checkUserBan, isTradeAllowed, checkTransferAllowed, checkTradeAllowed, BanType, getBanTypeLabel } from '../banCheck';
 
 describe('banCheck', () => {
   test('checkUserBan should return allowed=true when ban manager not configured', async () => {
@@ -11,8 +11,8 @@ describe('banCheck', () => {
     expect(result.allowed).toBe(true);
   });
   
-  test('checkTradeAllowed should return true when ban manager not configured', async () => {
-    const result = await checkTradeAllowed('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as `0x${string}`);
+  test('isTradeAllowed should return true when ban manager not configured', async () => {
+    const result = await isTradeAllowed('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as `0x${string}`);
     expect(result).toBe(true);
   });
 });
@@ -37,4 +37,3 @@ describe('Ban Type Labels', () => {
     expect(getBanTypeLabel(BanType.PERMANENT)).toBe('Permanently Banned');
   });
 });
-

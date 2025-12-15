@@ -26,7 +26,7 @@ const SECONDARY_WALLET = {
 
 const jejuLocalnet = {
   id: 1337,
-  name: getLocalnetChain().name,
+  name: 'Jeju Localnet',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
     default: { http: ['http://127.0.0.1:9545'] },

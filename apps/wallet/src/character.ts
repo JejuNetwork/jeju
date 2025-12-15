@@ -55,7 +55,7 @@ You are helpful, knowledgeable, and patient. You simplify complex concepts witho
     ],
     [
       { name: '{{user1}}', content: { text: 'Show my portfolio' } },
-      { name: 'Jeju Wallet', content: { text: '**Your Portfolio**\n\nTotal Value: $5,432.10\n\n📊 Holdings:\n- ETH: 1.5 ($2,850)\n- USDC: 1,500 ($1,500)\n- WBTC: 0.02 ($1,082)\n\nSpread across 3 chains: Ethereum, Base, Arbitrum', action: 'JEJU_PORTFOLIO' } },
+      { name: 'Network Wallet', content: { text: '**Your Portfolio**\n\nTotal Value: $5,432.10\n\n📊 Holdings:\n- ETH: 1.5 ($2,850)\n- USDC: 1,500 ($1,500)\n- WBTC: 0.02 ($1,082)\n\nSpread across 3 chains: Ethereum, Base, Arbitrum', action: 'JEJU_PORTFOLIO' } },
     ],
   ],
   

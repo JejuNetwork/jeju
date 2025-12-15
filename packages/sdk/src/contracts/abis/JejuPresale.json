@@ -1,6 +1,3 @@
-Warning: Found unknown config section in foundry.toml: [lint]
-This notation for profiles has been deprecated and may result in the profile not being registered in future versions.
-Please use [profile.lint] instead or run `forge config --fix`.
 [
   {
     "type": "constructor",

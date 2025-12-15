@@ -33,7 +33,7 @@ export const TEST_NETWORKS = {
   // network localnet (default for E2E)
   jeju: {
     chainId: 1337,
-    name: getLocalnetChain().name,
+    name: 'Jeju Localnet',
     rpcUrl: 'http://127.0.0.1:9545',
     symbol: 'ETH',
   },

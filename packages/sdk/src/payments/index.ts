@@ -7,13 +7,15 @@ import {
   type Hex,
   encodeFunctionData,
   formatEther,
-  parseEther,
   getContract,
   erc20Abi,
-} from 'viem';
-import type { NetworkType } from '@jejunetwork/types';
-import type { JejuWallet } from '../wallet';
-import { getContract as getContractAddress, getServicesConfig } from '../config';
+} from "viem";
+import type { NetworkType } from "@jejunetwork/types";
+import type { JejuWallet } from "../wallet";
+import {
+  getContract as getContractAddress,
+  getServicesConfig,
+} from "../config";
 
 export interface PaymasterInfo {
   address: Address;
@@ -39,7 +41,7 @@ export interface X402Receipt {
 }
 
 export interface CreditBalance {
-  service: 'compute' | 'storage' | 'inference';
+  service: "compute" | "storage" | "inference";
   balance: bigint;
   balanceFormatted: string;
 }
@@ -60,107 +62,114 @@ export interface PaymentsModule {
   // LP (Provide liquidity for paymasters)
   provideLiquidity(paymaster: Address, ethAmount: bigint): Promise<Hex>;
   withdrawLiquidity(paymaster: Address, shares: bigint): Promise<Hex>;
-  getLPPosition(paymaster: Address): Promise<{ ethShares: bigint; tokenShares: bigint }>;
+  getLPPosition(
+    paymaster: Address,
+  ): Promise<{ ethShares: bigint; tokenShares: bigint }>;
 
   // x402 micropayments
   createX402Payment(params: X402PaymentParams): Promise<X402Receipt>;
   verifyX402Receipt(receipt: X402Receipt): Promise<boolean>;
 
   // Prepaid credits
-  getCredits(service: 'compute' | 'storage' | 'inference'): Promise<CreditBalance>;
-  depositCredits(service: 'compute' | 'storage' | 'inference', amount: bigint): Promise<Hex>;
-  withdrawCredits(service: 'compute' | 'storage' | 'inference', amount: bigint): Promise<Hex>;
+  getCredits(
+    service: "compute" | "storage" | "inference",
+  ): Promise<CreditBalance>;
+  depositCredits(
+    service: "compute" | "storage" | "inference",
+    amount: bigint,
+  ): Promise<Hex>;
+  withdrawCredits(
+    service: "compute" | "storage" | "inference",
+    amount: bigint,
+  ): Promise<Hex>;
 }
 
 const PAYMASTER_FACTORY_ABI = [
   {
-    name: 'getPaymaster',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'token', type: 'address' }],
-    outputs: [{ type: 'address' }],
+    name: "getPaymaster",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "token", type: "address" }],
+    outputs: [{ type: "address" }],
   },
   {
-    name: 'createPaymasterWithVault',
-    type: 'function',
-    stateMutability: 'payable',
-    inputs: [{ name: 'token', type: 'address' }],
+    name: "createPaymasterWithVault",
+    type: "function",
+    stateMutability: "payable",
+    inputs: [{ name: "token", type: "address" }],
     outputs: [
-      { name: 'paymaster', type: 'address' },
-      { name: 'vault', type: 'address' },
+      { name: "paymaster", type: "address" },
+      { name: "vault", type: "address" },
     ],
   },
   {
-    name: 'getAllPaymasters',
-    type: 'function',
-    stateMutability: 'view',
+    name: "getAllPaymasters",
+    type: "function",
+    stateMutability: "view",
     inputs: [],
-    outputs: [
-      { type: 'address[]' },
-      { type: 'address[]' },
-    ],
+    outputs: [{ type: "address[]" }, { type: "address[]" }],
   },
 ] as const;
 
 const LIQUIDITY_VAULT_ABI = [
   {
-    name: 'depositETH',
-    type: 'function',
-    stateMutability: 'payable',
+    name: "depositETH",
+    type: "function",
+    stateMutability: "payable",
     inputs: [],
-    outputs: [{ type: 'uint256' }],
+    outputs: [{ type: "uint256" }],
   },
   {
-    name: 'withdrawETH',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [{ name: 'shares', type: 'uint256' }],
-    outputs: [{ type: 'uint256' }],
+    name: "withdrawETH",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "shares", type: "uint256" }],
+    outputs: [{ type: "uint256" }],
   },
   {
-    name: 'getPosition',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'account', type: 'address' }],
+    name: "getPosition",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "account", type: "address" }],
     outputs: [
-      { name: 'ethShares', type: 'uint256' },
-      { name: 'tokenShares', type: 'uint256' },
+      { name: "ethShares", type: "uint256" },
+      { name: "tokenShares", type: "uint256" },
     ],
   },
   {
-    name: 'totalLiquidity',
-    type: 'function',
-    stateMutability: 'view',
+    name: "totalLiquidity",
+    type: "function",
+    stateMutability: "view",
     inputs: [],
-    outputs: [{ type: 'uint256' }],
+    outputs: [{ type: "uint256" }],
   },
 ] as const;
 
 const CREDIT_MANAGER_ABI = [
   {
-    name: 'balanceOf',
-    type: 'function',
-    stateMutability: 'view',
+    name: "balanceOf",
+    type: "function",
+    stateMutability: "view",
     inputs: [
-      { name: 'account', type: 'address' },
-      { name: 'serviceId', type: 'uint8' },
+      { name: "account", type: "address" },
+      { name: "serviceId", type: "uint8" },
     ],
-    outputs: [{ type: 'uint256' }],
+    outputs: [{ type: "uint256" }],
   },
   {
-    name: 'deposit',
-    type: 'function',
-    stateMutability: 'payable',
-    inputs: [{ name: 'serviceId', type: 'uint8' }],
+    name: "deposit",
+    type: "function",
+    stateMutability: "payable",
+    inputs: [{ name: "serviceId", type: "uint8" }],
     outputs: [],
   },
   {
-    name: 'withdraw',
-    type: 'function',
-    stateMutability: 'nonpayable',
+    name: "withdraw",
+    type: "function",
+    stateMutability: "nonpayable",
     inputs: [
-      { name: 'serviceId', type: 'uint8' },
-      { name: 'amount', type: 'uint256' },
+      { name: "serviceId", type: "uint8" },
+      { name: "amount", type: "uint256" },
     ],
     outputs: [],
   },
@@ -172,9 +181,20 @@ const SERVICE_IDS = {
   inference: 2,
 } as const;
 
-export function createPaymentsModule(wallet: JejuWallet, network: NetworkType): PaymentsModule {
-  const paymasterFactoryAddress = getContractAddress('payments', 'paymasterFactory', network) as Address;
-  const creditManagerAddress = getContractAddress('payments', 'creditManager', network) as Address;
+export function createPaymentsModule(
+  wallet: JejuWallet,
+  network: NetworkType,
+): PaymentsModule {
+  const paymasterFactoryAddress = getContractAddress(
+    "payments",
+    "paymasterFactory",
+    network,
+  ) as Address;
+  const creditManagerAddress = getContractAddress(
+    "payments",
+    "creditManager",
+    network,
+  ) as Address;
   const services = getServicesConfig(network);
 
   async function getBalance(): Promise<bigint> {
@@ -182,7 +202,7 @@ export function createPaymentsModule(wallet: JejuWallet, network: NetworkType): 
   }
 
   async function getTokenBalance(token: Address): Promise<bigint> {
-    if (token === '0x0000000000000000000000000000000000000000') {
+    if (token === "0x0000000000000000000000000000000000000000") {
       return wallet.getBalance();
     }
 
@@ -195,14 +215,16 @@ export function createPaymentsModule(wallet: JejuWallet, network: NetworkType): 
     return (await tokenContract.read.balanceOf([wallet.address])) as bigint;
   }
 
-  async function getTokenBalances(tokens: Address[]): Promise<Map<Address, bigint>> {
+  async function getTokenBalances(
+    tokens: Address[],
+  ): Promise<Map<Address, bigint>> {
     const balances = new Map<Address, bigint>();
 
     await Promise.all(
       tokens.map(async (token) => {
         const balance = await getTokenBalance(token);
         balances.set(token, balance);
-      })
+      }),
     );
 
     return balances;
@@ -234,13 +256,19 @@ export function createPaymentsModule(wallet: JejuWallet, network: NetworkType): 
 
   async function getPaymaster(token: Address): Promise<PaymasterInfo | null> {
     const paymasters = await listPaymasters();
-    return paymasters.find((p) => p.token.toLowerCase() === token.toLowerCase()) ?? null;
+    return (
+      paymasters.find((p) => p.token.toLowerCase() === token.toLowerCase()) ??
+      null
+    );
   }
 
-  async function deployPaymaster(token: Address, initialDeposit: bigint): Promise<Hex> {
+  async function deployPaymaster(
+    token: Address,
+    initialDeposit: bigint,
+  ): Promise<Hex> {
     const data = encodeFunctionData({
       abi: PAYMASTER_FACTORY_ABI,
-      functionName: 'createPaymasterWithVault',
+      functionName: "createPaymasterWithVault",
       args: [token],
     });
 
@@ -251,19 +279,24 @@ export function createPaymentsModule(wallet: JejuWallet, network: NetworkType): 
     });
   }
 
-  async function provideLiquidity(paymaster: Address, ethAmount: bigint): Promise<Hex> {
+  async function provideLiquidity(
+    paymaster: Address,
+    ethAmount: bigint,
+  ): Promise<Hex> {
     const pm = await getPaymaster(paymaster);
-    if (!pm) throw new Error('Paymaster not found');
+    if (!pm) throw new Error("Paymaster not found");
 
     // Get vault address from API
-    const response = await fetch(`${services.gateway.api}/paymasters/${paymaster}`);
-    if (!response.ok) throw new Error('Failed to get paymaster info');
+    const response = await fetch(
+      `${services.gateway.api}/paymasters/${paymaster}`,
+    );
+    if (!response.ok) throw new Error("Failed to get paymaster info");
 
     const data = (await response.json()) as { vault: Address };
 
     const txData = encodeFunctionData({
       abi: LIQUIDITY_VAULT_ABI,
-      functionName: 'depositETH',
+      functionName: "depositETH",
       args: [],
     });
 
@@ -274,15 +307,20 @@ export function createPaymentsModule(wallet: JejuWallet, network: NetworkType): 
     });
   }
 
-  async function withdrawLiquidity(paymaster: Address, shares: bigint): Promise<Hex> {
-    const response = await fetch(`${services.gateway.api}/paymasters/${paymaster}`);
-    if (!response.ok) throw new Error('Failed to get paymaster info');
+  async function withdrawLiquidity(
+    paymaster: Address,
+    shares: bigint,
+  ): Promise<Hex> {
+    const response = await fetch(
+      `${services.gateway.api}/paymasters/${paymaster}`,
+    );
+    if (!response.ok) throw new Error("Failed to get paymaster info");
 
     const data = (await response.json()) as { vault: Address };
 
     const txData = encodeFunctionData({
       abi: LIQUIDITY_VAULT_ABI,
-      functionName: 'withdrawETH',
+      functionName: "withdrawETH",
       args: [shares],
     });
 
@@ -290,21 +328,26 @@ export function createPaymentsModule(wallet: JejuWallet, network: NetworkType): 
   }
 
   async function getLPPosition(
-    paymaster: Address
+    paymaster: Address,
   ): Promise<{ ethShares: bigint; tokenShares: bigint }> {
     const response = await fetch(
-      `${services.gateway.api}/paymasters/${paymaster}/position/${wallet.address}`
+      `${services.gateway.api}/paymasters/${paymaster}/position/${wallet.address}`,
     );
     if (!response.ok) return { ethShares: 0n, tokenShares: 0n };
 
-    const data = (await response.json()) as { ethShares: string; tokenShares: string };
+    const data = (await response.json()) as {
+      ethShares: string;
+      tokenShares: string;
+    };
     return {
       ethShares: BigInt(data.ethShares),
       tokenShares: BigInt(data.tokenShares),
     };
   }
 
-  async function createX402Payment(params: X402PaymentParams): Promise<X402Receipt> {
+  async function createX402Payment(
+    params: X402PaymentParams,
+  ): Promise<X402Receipt> {
     const timestamp = Math.floor(Date.now() / 1000);
     const message = `x402:${params.resource}:${params.maxAmount.toString()}:${timestamp}`;
     const signature = await wallet.signMessage(message);
@@ -319,8 +362,8 @@ export function createPaymentsModule(wallet: JejuWallet, network: NetworkType): 
 
   async function verifyX402Receipt(receipt: X402Receipt): Promise<boolean> {
     const response = await fetch(`${services.gateway.api}/x402/verify`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(receipt),
     });
 
@@ -330,9 +373,11 @@ export function createPaymentsModule(wallet: JejuWallet, network: NetworkType): 
     return data.valid;
   }
 
-  async function getCredits(service: 'compute' | 'storage' | 'inference'): Promise<CreditBalance> {
+  async function getCredits(
+    service: "compute" | "storage" | "inference",
+  ): Promise<CreditBalance> {
     if (!creditManagerAddress) {
-      return { service, balance: 0n, balanceFormatted: '0' };
+      return { service, balance: 0n, balanceFormatted: "0" };
     }
 
     const creditManager = getContract({
@@ -354,14 +399,14 @@ export function createPaymentsModule(wallet: JejuWallet, network: NetworkType): 
   }
 
   async function depositCredits(
-    service: 'compute' | 'storage' | 'inference',
-    amount: bigint
+    service: "compute" | "storage" | "inference",
+    amount: bigint,
   ): Promise<Hex> {
-    if (!creditManagerAddress) throw new Error('Credit manager not configured');
+    if (!creditManagerAddress) throw new Error("Credit manager not configured");
 
     const data = encodeFunctionData({
       abi: CREDIT_MANAGER_ABI,
-      functionName: 'deposit',
+      functionName: "deposit",
       args: [SERVICE_IDS[service]],
     });
 
@@ -373,14 +418,14 @@ export function createPaymentsModule(wallet: JejuWallet, network: NetworkType): 
   }
 
   async function withdrawCredits(
-    service: 'compute' | 'storage' | 'inference',
-    amount: bigint
+    service: "compute" | "storage" | "inference",
+    amount: bigint,
   ): Promise<Hex> {
-    if (!creditManagerAddress) throw new Error('Credit manager not configured');
+    if (!creditManagerAddress) throw new Error("Credit manager not configured");
 
     const data = encodeFunctionData({
       abi: CREDIT_MANAGER_ABI,
-      functionName: 'withdraw',
+      functionName: "withdraw",
       args: [SERVICE_IDS[service], amount],
     });
 
@@ -404,4 +449,3 @@ export function createPaymentsModule(wallet: JejuWallet, network: NetworkType): 
     withdrawCredits,
   };
 }
-

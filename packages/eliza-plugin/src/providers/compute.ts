@@ -8,17 +8,23 @@ import {
   type Provider,
   type ProviderResult,
   type State,
-} from '@elizaos/core';
-import { getNetworkName } from '@jejunetwork/config';
-import { JEJU_SERVICE_NAME, type JejuService } from '../service';
+} from "@elizaos/core";
+import { getNetworkName } from "@jejunetwork/config";
+import { JEJU_SERVICE_NAME, type JejuService } from "../service";
 
 const networkName = getNetworkName();
 
 export const jejuComputeProvider: Provider = {
   name: `${networkName}ComputeProvider`,
 
-  async get(runtime: IAgentRuntime, _message: Memory, state?: State): Promise<ProviderResult> {
-    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService | undefined;
+  async get(
+    runtime: IAgentRuntime,
+    _message: Memory,
+    state?: State,
+  ): Promise<ProviderResult> {
+    const service = runtime.getService(JEJU_SERVICE_NAME) as
+      | JejuService
+      | undefined;
 
     if (!service) {
       return {
@@ -30,13 +36,21 @@ export const jejuComputeProvider: Provider = {
 
     const client = service.getClient();
 
-    const providers = await client.compute.listProviders({ gpuType: 'NVIDIA_H100' });
+    const providers = await client.compute.listProviders({
+      gpuType: "NVIDIA_H100",
+    });
     const myRentals = await client.compute.listMyRentals();
-    const activeRentals = myRentals.filter((r) => r.status === 'ACTIVE');
+    const activeRentals = myRentals.filter((r) => r.status === "ACTIVE");
 
     const text = `Available GPU Providers: ${providers.length}
 Active Rentals: ${activeRentals.length}
-${providers.slice(0, 3).map((p) => `- ${p.name}: ${p.resources?.gpuType} x${p.resources?.gpuCount} @ ${p.pricing?.pricePerHourFormatted} ETH/hr`).join('\n')}`;
+${providers
+  .slice(0, 3)
+  .map(
+    (p) =>
+      `- ${p.name}: ${p.resources?.gpuType} x${p.resources?.gpuCount} @ ${p.pricing?.pricePerHourFormatted} ETH/hr`,
+  )
+  .join("\n")}`;
 
     return {
       text,
@@ -51,4 +65,3 @@ ${providers.slice(0, 3).map((p) => `- ${p.name}: ${p.resources?.gpuType} x${p.re
     };
   },
 };
-

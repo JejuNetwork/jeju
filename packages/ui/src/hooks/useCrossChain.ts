@@ -2,10 +2,15 @@
  * Cross-chain hook
  */
 
-import { useCallback, useState } from 'react';
-import type { Hex } from 'viem';
-import { useNetworkContext } from '../context';
-import type { TransferParams, CrossChainQuote, IntentStatus, SupportedChain } from '@jejunetwork/sdk';
+import { useCallback, useState } from "react";
+import type { Hex } from "viem";
+import { useNetworkContext } from "../context";
+import type {
+  TransferParams,
+  CrossChainQuote,
+  IntentStatus,
+  SupportedChain,
+} from "@jejunetwork/sdk";
 
 export function useCrossChain() {
   const { client } = useNetworkContext();
@@ -14,23 +19,23 @@ export function useCrossChain() {
 
   const getQuote = useCallback(
     async (params: TransferParams): Promise<CrossChainQuote> => {
-      if (!client) throw new Error('Not connected');
+      if (!client) throw new Error("Not connected");
       return client.crosschain.getQuote(params);
     },
-    [client]
+    [client],
   );
 
   const getQuotes = useCallback(
     async (params: TransferParams): Promise<CrossChainQuote[]> => {
-      if (!client) throw new Error('Not connected');
+      if (!client) throw new Error("Not connected");
       return client.crosschain.getQuotes(params);
     },
-    [client]
+    [client],
   );
 
   const transfer = useCallback(
     async (quote: CrossChainQuote): Promise<Hex> => {
-      if (!client) throw new Error('Not connected');
+      if (!client) throw new Error("Not connected");
       setIsLoading(true);
       setError(null);
 
@@ -38,16 +43,16 @@ export function useCrossChain() {
       setIsLoading(false);
       return txHash;
     },
-    [client]
+    [client],
   );
 
   const listMyIntents = useCallback(async (): Promise<IntentStatus[]> => {
-    if (!client) throw new Error('Not connected');
+    if (!client) throw new Error("Not connected");
     return client.crosschain.listMyIntents();
   }, [client]);
 
   const getSupportedChains = useCallback((): SupportedChain[] => {
-    if (!client) throw new Error('Not connected');
+    if (!client) throw new Error("Not connected");
     return client.crosschain.getSupportedChains();
   }, [client]);
 
@@ -61,4 +66,3 @@ export function useCrossChain() {
     getSupportedChains,
   };
 }
-

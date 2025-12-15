@@ -2,10 +2,20 @@
  * Network React Context
  */
 
-import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { createJejuClient, type JejuClient, type JejuClientConfig } from '@jejunetwork/sdk';
-import type { NetworkType } from '@jejunetwork/types';
-import type { Hex, Account } from 'viem';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
+import {
+  createJejuClient,
+  type JejuClient,
+  type JejuClientConfig,
+} from "@jejunetwork/sdk";
+import type { NetworkType } from "@jejunetwork/types";
+import type { Hex, Account } from "viem";
 
 export interface NetworkContextValue {
   client: JejuClient | null;
@@ -31,7 +41,7 @@ export interface NetworkProviderProps {
 
 export function NetworkProvider({
   children,
-  network = 'testnet',
+  network = "testnet",
   privateKey,
   mnemonic,
   account,
@@ -73,11 +83,12 @@ export function NetworkProvider({
   }, [network, privateKey, mnemonic, smartAccount, rpcUrl]);
 
   return (
-    <NetworkContext.Provider value={{ client, isLoading, error }}>{children}</NetworkContext.Provider>
+    <NetworkContext.Provider value={{ client, isLoading, error }}>
+      {children}
+    </NetworkContext.Provider>
   );
 }
 
 export function useNetworkContext(): NetworkContextValue {
   return useContext(NetworkContext);
 }
-

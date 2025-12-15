@@ -25,24 +25,24 @@
  * ```
  */
 
-export { createJejuClient, JejuClient, type JejuClientConfig } from './client';
+export { createJejuClient, JejuClient, type JejuClientConfig } from "./client";
 
 // Module exports
-export * from './compute';
-export * from './storage';
-export * from './defi';
-export * from './governance';
-export * from './names';
-export * from './identity';
-export * from './crosschain';
-export * from './payments';
-export * from './a2a';
+export * from "./compute";
+export * from "./storage";
+export * from "./defi";
+export * from "./governance";
+export * from "./names";
+export * from "./identity";
+export * from "./crosschain";
+export * from "./payments";
+export * from "./a2a";
 
 // Wallet utilities
-export * from './wallet';
+export * from "./wallet";
 
 // Contract utilities
-export * from './contracts';
+export * from "./contracts";
 
 // Re-export types
 export type {
@@ -51,7 +51,7 @@ export type {
   InferenceRequest,
   InferenceResponse,
   ComputeResources,
-} from '@jejunetwork/types';
+} from "@jejunetwork/types";
 
 export type {
   Intent,
@@ -59,12 +59,11 @@ export type {
   Solver,
   VoucherRequest,
   Voucher,
-} from '@jejunetwork/types';
+} from "@jejunetwork/types";
 
 export type {
   Proposal,
   ProposalStatus,
   ProposalType,
   VoteType,
-} from '@jejunetwork/types';
-
+} from "@jejunetwork/types";

@@ -2,10 +2,9 @@
  * A2A Module - Agent-to-agent protocol client
  */
 
-import type { Address, Hex } from 'viem';
-import type { NetworkType } from '@jejunetwork/types';
-import type { JejuWallet } from '../wallet';
-import type { ServicesConfig } from '../config';
+import type { NetworkType } from "@jejunetwork/types";
+import type { JejuWallet } from "../wallet";
+import type { ServicesConfig } from "../config";
 
 export interface AgentCard {
   protocolVersion: string;
@@ -29,7 +28,10 @@ export interface AgentSkill {
   tags: string[];
   inputSchema?: {
     type: string;
-    properties: Record<string, { type: string; description?: string; required?: boolean }>;
+    properties: Record<
+      string,
+      { type: string; description?: string; required?: boolean }
+    >;
     required?: string[];
   };
   outputs?: Record<string, string>;
@@ -37,8 +39,12 @@ export interface AgentSkill {
 }
 
 export interface A2AMessage {
-  role: 'user' | 'agent';
-  parts: Array<{ kind: 'text' | 'data'; text?: string; data?: Record<string, unknown> }>;
+  role: "user" | "agent";
+  parts: Array<{
+    kind: "text" | "data";
+    text?: string;
+    data?: Record<string, unknown>;
+  }>;
   messageId: string;
 }
 
@@ -69,7 +75,11 @@ export interface A2AModule {
 
   // Communication
   call(endpoint: string, request: A2ARequest): Promise<A2AResponse>;
-  callSkill(endpoint: string, skillId: string, params?: Record<string, unknown>): Promise<A2AResponse>;
+  callSkill(
+    endpoint: string,
+    skillId: string,
+    params?: Record<string, unknown>,
+  ): Promise<A2AResponse>;
 
   // network services shortcuts
   callCompute(request: A2ARequest): Promise<A2AResponse>;
@@ -80,14 +90,14 @@ export interface A2AModule {
   stream(
     endpoint: string,
     request: A2ARequest,
-    onMessage: (msg: A2AMessage) => void
+    onMessage: (msg: A2AMessage) => void,
   ): Promise<void>;
 }
 
 export function createA2AModule(
   wallet: JejuWallet,
-  network: NetworkType,
-  services: ServicesConfig
+  _network: NetworkType,
+  services: ServicesConfig,
 ): A2AModule {
   let messageCounter = 0;
 
@@ -97,33 +107,37 @@ export function createA2AModule(
     const signature = await wallet.signMessage(message);
 
     return {
-      'Content-Type': 'application/json',
-      'x-jeju-address': wallet.address,
-      'x-jeju-timestamp': timestamp,
-      'x-jeju-signature': signature,
+      "Content-Type": "application/json",
+      "x-jeju-address": wallet.address,
+      "x-jeju-timestamp": timestamp,
+      "x-jeju-signature": signature,
     };
   }
 
   async function discover(endpoint: string): Promise<AgentCard> {
-    const cardUrl = endpoint.endsWith('/')
+    const cardUrl = endpoint.endsWith("/")
       ? `${endpoint}.well-known/agent-card.json`
       : `${endpoint}/.well-known/agent-card.json`;
 
     const response = await fetch(cardUrl);
-    if (!response.ok) throw new Error(`Failed to discover agent at ${endpoint}`);
+    if (!response.ok)
+      throw new Error(`Failed to discover agent at ${endpoint}`);
 
     return (await response.json()) as AgentCard;
   }
 
   async function discoverByJNS(name: string): Promise<DiscoveredAgent> {
     // Resolve JNS to get A2A endpoint
-    const normalized = name.endsWith('.jeju') ? name : `${name}.jeju`;
-    const response = await fetch(`${services.gateway.api}/jns/records/${normalized}`);
+    const normalized = name.endsWith(".jeju") ? name : `${name}.jeju`;
+    const response = await fetch(
+      `${services.gateway.api}/jns/records/${normalized}`,
+    );
 
     if (!response.ok) throw new Error(`JNS name ${normalized} not found`);
 
     const records = (await response.json()) as { a2aEndpoint?: string };
-    if (!records.a2aEndpoint) throw new Error(`No A2A endpoint for ${normalized}`);
+    if (!records.a2aEndpoint)
+      throw new Error(`No A2A endpoint for ${normalized}`);
 
     const card = await discover(records.a2aEndpoint);
 
@@ -143,23 +157,26 @@ export function createA2AModule(
     return data.agents;
   }
 
-  async function call(endpoint: string, request: A2ARequest): Promise<A2AResponse> {
+  async function call(
+    endpoint: string,
+    request: A2ARequest,
+  ): Promise<A2AResponse> {
     const headers = await buildAuthHeaders();
     if (request.paymentHeader) {
-      headers['x-payment'] = request.paymentHeader;
+      headers["x-payment"] = request.paymentHeader;
     }
 
     const messageId = `msg-${++messageCounter}-${Date.now()}`;
 
     const body = {
-      jsonrpc: '2.0',
-      method: 'message/send',
+      jsonrpc: "2.0",
+      method: "message/send",
       params: {
         message: {
           messageId,
           parts: [
             {
-              kind: 'data',
+              kind: "data",
               data: {
                 skillId: request.skillId,
                 params: request.params ?? {},
@@ -171,9 +188,9 @@ export function createA2AModule(
       id: messageCounter,
     };
 
-    const a2aUrl = endpoint.endsWith('/a2a') ? endpoint : `${endpoint}/a2a`;
+    const a2aUrl = endpoint.endsWith("/a2a") ? endpoint : `${endpoint}/a2a`;
     const response = await fetch(a2aUrl, {
-      method: 'POST',
+      method: "POST",
       headers,
       body: JSON.stringify(body),
     });
@@ -182,7 +199,11 @@ export function createA2AModule(
       jsonrpc: string;
       id: number;
       result?: {
-        parts: Array<{ kind: string; text?: string; data?: Record<string, unknown> }>;
+        parts: Array<{
+          kind: string;
+          text?: string;
+          data?: Record<string, unknown>;
+        }>;
       };
       error?: { code: number; message: string; data?: unknown };
     };
@@ -190,7 +211,7 @@ export function createA2AModule(
     if (result.error) {
       if (result.error.code === 402) {
         return {
-          message: 'Payment required',
+          message: "Payment required",
           data: {},
           error: result.error,
         };
@@ -198,11 +219,11 @@ export function createA2AModule(
       throw new Error(`A2A error: ${result.error.message}`);
     }
 
-    const textPart = result.result?.parts.find((p) => p.kind === 'text');
-    const dataPart = result.result?.parts.find((p) => p.kind === 'data');
+    const textPart = result.result?.parts.find((p) => p.kind === "text");
+    const dataPart = result.result?.parts.find((p) => p.kind === "data");
 
     return {
-      message: textPart?.text ?? '',
+      message: textPart?.text ?? "",
       data: dataPart?.data ?? {},
     };
   }
@@ -210,7 +231,7 @@ export function createA2AModule(
   async function callSkill(
     endpoint: string,
     skillId: string,
-    params?: Record<string, unknown>
+    params?: Record<string, unknown>,
   ): Promise<A2AResponse> {
     return call(endpoint, { skillId, params });
   }
@@ -230,20 +251,20 @@ export function createA2AModule(
   async function stream(
     endpoint: string,
     request: A2ARequest,
-    onMessage: (msg: A2AMessage) => void
+    onMessage: (msg: A2AMessage) => void,
   ): Promise<void> {
     const headers = await buildAuthHeaders();
     const messageId = `msg-${++messageCounter}-${Date.now()}`;
 
     const body = {
-      jsonrpc: '2.0',
-      method: 'message/stream',
+      jsonrpc: "2.0",
+      method: "message/stream",
       params: {
         message: {
           messageId,
           parts: [
             {
-              kind: 'data',
+              kind: "data",
               data: {
                 skillId: request.skillId,
                 params: request.params ?? {},
@@ -255,20 +276,20 @@ export function createA2AModule(
       id: messageCounter,
     };
 
-    const a2aUrl = endpoint.endsWith('/a2a') ? endpoint : `${endpoint}/a2a`;
+    const a2aUrl = endpoint.endsWith("/a2a") ? endpoint : `${endpoint}/a2a`;
     const response = await fetch(a2aUrl, {
-      method: 'POST',
+      method: "POST",
       headers,
       body: JSON.stringify(body),
     });
 
     if (!response.ok) throw new Error(`Stream failed: ${response.statusText}`);
-    if (!response.body) throw new Error('No response body');
+    if (!response.body) throw new Error("No response body");
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
 
-    let buffer = '';
+    let buffer = "";
 
     while (true) {
       const { done, value } = await reader.read();
@@ -277,13 +298,13 @@ export function createA2AModule(
       buffer += decoder.decode(value, { stream: true });
 
       // Parse SSE events
-      const lines = buffer.split('\n');
-      buffer = lines.pop() ?? '';
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
 
       for (const line of lines) {
-        if (line.startsWith('data: ')) {
+        if (line.startsWith("data: ")) {
           const data = line.slice(6);
-          if (data === '[DONE]') return;
+          if (data === "[DONE]") return;
 
           const parsed = JSON.parse(data) as A2AMessage;
           onMessage(parsed);
@@ -304,4 +325,3 @@ export function createA2AModule(
     stream,
   };
 }
-

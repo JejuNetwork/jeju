@@ -1,0 +1,37 @@
+# Testnet configuration
+network: "testnet"
+rpcUrl: "https://testnet-rpc.jeju.network"
+chainId: 420691
+
+services:
+  compute:
+    enabled: true
+    cpuCores: 4
+    pricePerHour: "0.005"
+    acceptNonTee: true
+  storage:
+    enabled: true
+    capacityGB: 100
+  oracle:
+    enabled: true
+  proxy:
+    enabled: true
+  cron:
+    enabled: true
+
+bots:
+  dexArb:
+    enabled: true
+  liquidation:
+    enabled: true
+  oracleKeeper:
+    enabled: true
+
+resources:
+  limits:
+    cpu: 4000m
+    memory: 8Gi
+  requests:
+    cpu: 1000m
+    memory: 2Gi
+

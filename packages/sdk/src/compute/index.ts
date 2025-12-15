@@ -9,31 +9,37 @@ import {
   parseEther,
   encodeFunctionData,
   getContract,
-} from 'viem';
-import type { NetworkType } from '@jejunetwork/types';
-import type { JejuWallet } from '../wallet';
-import { getContract as getContractAddress, getServicesConfig } from '../config';
+} from "viem";
+import type { NetworkType } from "@jejunetwork/types";
+import type { JejuWallet } from "../wallet";
+import { getContract as getContractAddress } from "../config";
 import {
   COMPUTE_REGISTRY_ABI,
   COMPUTE_RENTAL_ABI,
   INFERENCE_ABI,
   TRIGGER_REGISTRY_ABI,
-} from '../contracts';
+} from "../contracts";
 
 const GPU_TYPES = [
-  'NONE',
-  'NVIDIA_RTX_4090',
-  'NVIDIA_A100_40GB',
-  'NVIDIA_A100_80GB',
-  'NVIDIA_H100',
-  'NVIDIA_H200',
-  'AMD_MI300X',
-  'APPLE_M1_MAX',
-  'APPLE_M2_ULTRA',
-  'APPLE_M3_MAX',
+  "NONE",
+  "NVIDIA_RTX_4090",
+  "NVIDIA_A100_40GB",
+  "NVIDIA_A100_80GB",
+  "NVIDIA_H100",
+  "NVIDIA_H200",
+  "AMD_MI300X",
+  "APPLE_M1_MAX",
+  "APPLE_M2_ULTRA",
+  "APPLE_M3_MAX",
 ] as const;
 
-const RENTAL_STATUS = ['PENDING', 'ACTIVE', 'COMPLETED', 'CANCELLED', 'DISPUTED'] as const;
+const RENTAL_STATUS = [
+  "PENDING",
+  "ACTIVE",
+  "COMPLETED",
+  "CANCELLED",
+  "DISPUTED",
+] as const;
 
 export type GPUType = (typeof GPU_TYPES)[number];
 export type RentalStatus = (typeof RENTAL_STATUS)[number];
@@ -109,7 +115,7 @@ export interface InferenceModel {
 
 export interface InferenceParams {
   model: string;
-  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
+  messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
   temperature?: number;
   maxTokens?: number;
   stream?: boolean;
@@ -129,7 +135,7 @@ export interface InferenceResult {
 export interface TriggerInfo {
   triggerId: Hex;
   owner: Address;
-  type: 'cron' | 'webhook' | 'event';
+  type: "cron" | "webhook" | "event";
   name: string;
   endpoint: string;
   active: boolean;
@@ -139,7 +145,7 @@ export interface TriggerInfo {
 }
 
 export interface CreateTriggerParams {
-  type: 'cron' | 'webhook' | 'event';
+  type: "cron" | "webhook" | "event";
   name: string;
   endpoint: string;
   cronExpression?: string;
@@ -152,7 +158,10 @@ export interface ComputeModule {
   getProvider(address: Address): Promise<ProviderInfo>;
 
   // Rentals
-  getQuote(provider: Address, durationHours: number): Promise<{ cost: bigint; costFormatted: string }>;
+  getQuote(
+    provider: Address,
+    durationHours: number,
+  ): Promise<{ cost: bigint; costFormatted: string }>;
   createRental(params: CreateRentalParams): Promise<Hex>;
   getRental(rentalId: Hex): Promise<RentalInfo>;
   listMyRentals(): Promise<RentalInfo[]>;
@@ -171,12 +180,30 @@ export interface ComputeModule {
   depositPrepaid(amount: bigint): Promise<Hex>;
 }
 
-export function createComputeModule(wallet: JejuWallet, network: NetworkType): ComputeModule {
-  const registryAddress = getContractAddress('compute', 'registry', network) as Address;
-  const rentalAddress = getContractAddress('compute', 'rental', network) as Address;
-  const inferenceAddress = getContractAddress('compute', 'inference', network) as Address;
-  const triggerAddress = getContractAddress('compute', 'triggerRegistry', network) as Address;
-  const services = getServicesConfig(network);
+export function createComputeModule(
+  wallet: JejuWallet,
+  network: NetworkType,
+): ComputeModule {
+  const registryAddress = getContractAddress(
+    "compute",
+    "registry",
+    network,
+  ) as Address;
+  const rentalAddress = getContractAddress(
+    "compute",
+    "rental",
+    network,
+  ) as Address;
+  const inferenceAddress = getContractAddress(
+    "compute",
+    "inference",
+    network,
+  ) as Address;
+  const triggerAddress = getContractAddress(
+    "compute",
+    "triggerRegistry",
+    network,
+  ) as Address;
 
   const registry = getContract({
     address: registryAddress,
@@ -204,7 +231,9 @@ export function createComputeModule(wallet: JejuWallet, network: NetworkType): C
       })
     : null;
 
-  async function listProviders(options?: ListProvidersOptions): Promise<ProviderInfo[]> {
+  async function listProviders(
+    options?: ListProvidersOptions,
+  ): Promise<ProviderInfo[]> {
     const addresses = (await registry.read.getAllProviders()) as Address[];
     const providers: ProviderInfo[] = [];
 
@@ -245,12 +274,20 @@ export function createComputeModule(wallet: JejuWallet, network: NetworkType): C
         dockerEnabled: boolean;
       };
 
-      const gpuType = GPU_TYPES[resources.resources.gpuType] ?? 'NONE';
+      const gpuType = GPU_TYPES[resources.resources.gpuType] ?? "NONE";
 
       // Apply filters
       if (options?.gpuType && gpuType !== options.gpuType) continue;
-      if (options?.minGpuCount && Number(resources.resources.gpuCount) < options.minGpuCount) continue;
-      if (options?.maxPricePerHour && resources.pricing.pricePerHour > options.maxPricePerHour) continue;
+      if (
+        options?.minGpuCount &&
+        Number(resources.resources.gpuCount) < options.minGpuCount
+      )
+        continue;
+      if (
+        options?.maxPricePerHour &&
+        resources.pricing.pricePerHour > options.maxPricePerHour
+      )
+        continue;
       if (options?.teeRequired && !resources.resources.teeSupported) continue;
       if (options?.sshRequired && !resources.sshEnabled) continue;
       if (options?.dockerRequired && !resources.dockerEnabled) continue;
@@ -289,13 +326,18 @@ export function createComputeModule(wallet: JejuWallet, network: NetworkType): C
 
   async function getProvider(address: Address): Promise<ProviderInfo> {
     const providers = await listProviders();
-    const provider = providers.find((p) => p.address.toLowerCase() === address.toLowerCase());
+    const provider = providers.find(
+      (p) => p.address.toLowerCase() === address.toLowerCase(),
+    );
     if (!provider) throw new Error(`Provider ${address} not found`);
     return provider;
   }
 
   async function getQuote(provider: Address, durationHours: number) {
-    const cost = (await rental.read.calculateRentalCost([provider, BigInt(durationHours)])) as bigint;
+    const cost = (await rental.read.calculateRentalCost([
+      provider,
+      BigInt(durationHours),
+    ])) as bigint;
     return { cost, costFormatted: formatEther(cost) };
   }
 
@@ -304,13 +346,13 @@ export function createComputeModule(wallet: JejuWallet, network: NetworkType): C
 
     const data = encodeFunctionData({
       abi: COMPUTE_RENTAL_ABI,
-      functionName: 'createRental',
+      functionName: "createRental",
       args: [
         params.provider,
         BigInt(params.durationHours),
-        params.sshPublicKey ?? '',
-        params.containerImage ?? '',
-        params.startupScript ?? '',
+        params.sshPublicKey ?? "",
+        params.containerImage ?? "",
+        params.startupScript ?? "",
       ],
     });
 
@@ -343,7 +385,7 @@ export function createComputeModule(wallet: JejuWallet, network: NetworkType): C
       rentalId: r.rentalId,
       user: r.user,
       provider: r.provider,
-      status: RENTAL_STATUS[r.status] ?? 'PENDING',
+      status: RENTAL_STATUS[r.status] ?? "PENDING",
       startTime: Number(r.startTime),
       endTime: Number(r.endTime),
       totalCost: r.totalCost,
@@ -356,7 +398,9 @@ export function createComputeModule(wallet: JejuWallet, network: NetworkType): C
   }
 
   async function listMyRentals(): Promise<RentalInfo[]> {
-    const rentalIds = (await rental.read.getUserRentals([wallet.address])) as Hex[];
+    const rentalIds = (await rental.read.getUserRentals([
+      wallet.address,
+    ])) as Hex[];
     const rentals: RentalInfo[] = [];
 
     for (const id of rentalIds.slice(-20)) {
@@ -369,20 +413,23 @@ export function createComputeModule(wallet: JejuWallet, network: NetworkType): C
   async function cancelRental(rentalId: Hex): Promise<Hex> {
     const data = encodeFunctionData({
       abi: COMPUTE_RENTAL_ABI,
-      functionName: 'cancelRental',
+      functionName: "cancelRental",
       args: [rentalId],
     });
 
     return wallet.sendTransaction({ to: rentalAddress, data });
   }
 
-  async function extendRental(rentalId: Hex, additionalHours: number): Promise<Hex> {
+  async function extendRental(
+    rentalId: Hex,
+    additionalHours: number,
+  ): Promise<Hex> {
     const r = await getRental(rentalId);
     const { cost } = await getQuote(r.provider, additionalHours);
 
     const data = encodeFunctionData({
       abi: COMPUTE_RENTAL_ABI,
-      functionName: 'extendRental',
+      functionName: "extendRental",
       args: [rentalId, BigInt(additionalHours)],
     });
 
@@ -394,7 +441,9 @@ export function createComputeModule(wallet: JejuWallet, network: NetworkType): C
     const models: InferenceModel[] = [];
 
     for (const provider of providers.slice(0, 20)) {
-      const services = (await inference.read.getServices([provider.address])) as Array<{
+      const services = (await inference.read.getServices([
+        provider.address,
+      ])) as Array<{
         provider: Address;
         model: string;
         endpoint: string;
@@ -420,17 +469,19 @@ export function createComputeModule(wallet: JejuWallet, network: NetworkType): C
     return models;
   }
 
-  async function inferenceCall(params: InferenceParams): Promise<InferenceResult> {
+  async function inferenceCall(
+    params: InferenceParams,
+  ): Promise<InferenceResult> {
     const models = await listModels();
     const model = models.find((m) => m.model === params.model);
     if (!model) throw new Error(`Model ${params.model} not found`);
 
     // Call the provider's inference endpoint
     const response = await fetch(`${model.endpoint}/v1/chat/completions`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'x-jeju-address': wallet.address,
+        "Content-Type": "application/json",
+        "x-jeju-address": wallet.address,
       },
       body: JSON.stringify({
         model: params.model,
@@ -449,13 +500,17 @@ export function createComputeModule(wallet: JejuWallet, network: NetworkType): C
       id: string;
       model: string;
       choices: Array<{ message: { content: string } }>;
-      usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
+      usage: {
+        prompt_tokens: number;
+        completion_tokens: number;
+        total_tokens: number;
+      };
     };
 
     return {
       id: data.id,
       model: data.model,
-      content: data.choices[0]?.message?.content ?? '',
+      content: data.choices[0]?.message?.content ?? "",
       usage: {
         promptTokens: data.usage.prompt_tokens,
         completionTokens: data.usage.completion_tokens,
@@ -467,7 +522,9 @@ export function createComputeModule(wallet: JejuWallet, network: NetworkType): C
   async function listTriggers(): Promise<TriggerInfo[]> {
     if (!triggerRegistry) return [];
 
-    const triggerIds = (await triggerRegistry.read.getOwnerTriggers([wallet.address])) as Hex[];
+    const triggerIds = (await triggerRegistry.read.getOwnerTriggers([
+      wallet.address,
+    ])) as Hex[];
     const triggers: TriggerInfo[] = [];
 
     for (const id of triggerIds) {
@@ -478,7 +535,7 @@ export function createComputeModule(wallet: JejuWallet, network: NetworkType): C
   }
 
   async function getTrigger(triggerId: Hex): Promise<TriggerInfo> {
-    if (!triggerRegistry) throw new Error('Trigger registry not configured');
+    if (!triggerRegistry) throw new Error("Trigger registry not configured");
 
     const t = (await triggerRegistry.read.getTrigger([triggerId])) as [
       Address,
@@ -491,12 +548,12 @@ export function createComputeModule(wallet: JejuWallet, network: NetworkType): C
       bigint,
     ];
 
-    const typeMap = ['cron', 'webhook', 'event'] as const;
+    const typeMap = ["cron", "webhook", "event"] as const;
 
     return {
       triggerId,
       owner: t[0],
-      type: typeMap[t[1]] ?? 'webhook',
+      type: typeMap[t[1]] ?? "webhook",
       name: t[2],
       endpoint: t[3],
       active: t[4],
@@ -507,35 +564,38 @@ export function createComputeModule(wallet: JejuWallet, network: NetworkType): C
   }
 
   async function createTrigger(params: CreateTriggerParams): Promise<Hex> {
-    if (!triggerRegistry || !triggerAddress) throw new Error('Trigger registry not configured');
+    if (!triggerRegistry || !triggerAddress)
+      throw new Error("Trigger registry not configured");
 
     const typeMap = { cron: 0, webhook: 1, event: 2 };
     const data = encodeFunctionData({
       abi: TRIGGER_REGISTRY_ABI,
-      functionName: 'registerTrigger',
+      functionName: "registerTrigger",
       args: [
         typeMap[params.type],
         params.name,
         params.endpoint,
-        params.cronExpression ?? '',
+        params.cronExpression ?? "",
         params.agentId ?? 0n,
       ],
     });
 
     return wallet.sendTransaction({
       to: triggerAddress,
-      value: parseEther('0.01'),
+      value: parseEther("0.01"),
       data,
     });
   }
 
   async function getPrepaidBalance(): Promise<bigint> {
     if (!triggerRegistry) return 0n;
-    return (await triggerRegistry.read.prepaidBalances([wallet.address])) as bigint;
+    return (await triggerRegistry.read.prepaidBalances([
+      wallet.address,
+    ])) as bigint;
   }
 
   async function depositPrepaid(amount: bigint): Promise<Hex> {
-    if (!triggerAddress) throw new Error('Trigger registry not configured');
+    if (!triggerAddress) throw new Error("Trigger registry not configured");
     return wallet.sendTransaction({ to: triggerAddress, value: amount });
   }
 
@@ -557,4 +617,3 @@ export function createComputeModule(wallet: JejuWallet, network: NetworkType): C
     depositPrepaid,
   };
 }
-

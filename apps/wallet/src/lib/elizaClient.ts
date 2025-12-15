@@ -110,12 +110,12 @@ class ElizaClient {
 
   setAuthToken(token: string) {
     this.authToken = token;
-    localStorage.setItem('eliza-auth-token', token);
+    this.setStorage('eliza-auth-token', token);
   }
 
   clearAuthToken() {
     this.authToken = null;
-    localStorage.removeItem('eliza-auth-token');
+    this.removeStorage('eliza-auth-token');
   }
 
   // Chat API - primary interface for wallet

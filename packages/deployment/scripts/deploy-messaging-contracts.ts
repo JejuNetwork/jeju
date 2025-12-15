@@ -30,7 +30,7 @@ const NETWORKS = {
   localnet: {
     rpcUrl: process.env.JEJU_LOCALNET_RPC_URL ?? 'http://localhost:8545',
     chainId: 31337,
-    name: getLocalnetChain().name,
+    name: 'Localnet',
   },
 } as const;
 

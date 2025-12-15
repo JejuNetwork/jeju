@@ -12,6 +12,9 @@ import {
 import { useAppStore } from '../store';
 import type { ViewType } from '../types';
 import clsx from 'clsx';
+import { getNetworkName } from '@jejunetwork/config';
+
+const networkName = getNetworkName();
 
 const navItems: { id: ViewType; label: string; icon: React.ReactNode }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
@@ -38,7 +41,7 @@ export function Sidebar() {
             <Zap size={24} className="text-white" />
           </div>
           <div>
-            <h1 className="font-bold text-lg gradient-text">Network Node</h1>
+            <h1 className="font-bold text-lg gradient-text">{networkName} Node</h1>
             <p className="text-xs text-volcanic-500">v0.1.0</p>
           </div>
         </div>
