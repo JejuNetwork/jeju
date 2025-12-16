@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import type { InferenceRequest } from '../../types';
 import type { Address } from 'viem';
+import { computeJobState, initializeDWSState } from '../../state.js';
 
 type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
 
@@ -19,10 +20,13 @@ interface ComputeJob {
   submittedBy: Address;
 }
 
-const jobs = new Map<string, ComputeJob>();
+// Active jobs tracking (for in-process execution)
 const activeJobs = new Set<string>();
 const MAX_CONCURRENT = 5;
 const DEFAULT_TIMEOUT = 300000;
+
+// Initialize CQL state
+initializeDWSState().catch(console.error);
 
 const SHELL_CONFIG: Record<string, { path: string; args: (cmd: string) => string[] }> = {
   bash: { path: '/bin/bash', args: (cmd) => ['-c', cmd] },
@@ -35,15 +39,16 @@ const SHELL_CONFIG: Record<string, { path: string; args: (cmd: string) => string
 export function createComputeRouter(): Hono {
   const app = new Hono();
 
-  app.get('/health', (c) =>
-    c.json({
+  app.get('/health', async (c) => {
+    const queued = await computeJobState.getQueued();
+    return c.json({
       service: 'dws-compute',
       status: 'healthy',
       activeJobs: activeJobs.size,
       maxConcurrent: MAX_CONCURRENT,
-      queuedJobs: [...jobs.values()].filter((j) => j.status === 'queued').length,
-    })
-  );
+      queuedJobs: queued.length,
+    });
+  });
 
   app.post('/chat/completions', async (c) => {
     const inferenceUrl = process.env.INFERENCE_API_URL;
@@ -155,77 +160,107 @@ export function createComputeRouter(): Hono {
       submittedBy: submitter,
     };
 
-    jobs.set(jobId, job);
+    await computeJobState.save(job);
     processQueue();
 
     return c.json({ jobId, status: job.status }, 201);
   });
 
-  app.get('/jobs/:jobId', (c) => {
-    const job = jobs.get(c.req.param('jobId'));
-    if (!job) return c.json({ error: 'Job not found' }, 404);
+  app.get('/jobs/:jobId', async (c) => {
+    const row = await computeJobState.get(c.req.param('jobId'));
+    if (!row) return c.json({ error: 'Job not found' }, 404);
 
     return c.json({
-      jobId: job.jobId,
-      status: job.status,
-      output: job.output,
-      exitCode: job.exitCode,
-      startedAt: job.startedAt,
-      completedAt: job.completedAt,
-      duration: job.completedAt && job.startedAt ? job.completedAt - job.startedAt : null,
+      jobId: row.job_id,
+      status: row.status,
+      output: row.output,
+      exitCode: row.exit_code,
+      startedAt: row.started_at,
+      completedAt: row.completed_at,
+      duration: row.completed_at && row.started_at ? row.completed_at - row.started_at : null,
     });
   });
 
-  app.post('/jobs/:jobId/cancel', (c) => {
-    const job = jobs.get(c.req.param('jobId'));
-    if (!job) return c.json({ error: 'Job not found' }, 404);
-    if (job.status === 'completed' || job.status === 'failed') {
+  app.post('/jobs/:jobId/cancel', async (c) => {
+    const row = await computeJobState.get(c.req.param('jobId'));
+    if (!row) return c.json({ error: 'Job not found' }, 404);
+    if (row.status === 'completed' || row.status === 'failed') {
       return c.json({ error: 'Job already finished' }, 400);
     }
 
-    job.status = 'cancelled';
-    job.completedAt = Date.now();
-    activeJobs.delete(job.jobId);
+    const job: ComputeJob = {
+      jobId: row.job_id,
+      command: row.command,
+      shell: row.shell,
+      env: JSON.parse(row.env),
+      workingDir: row.working_dir ?? undefined,
+      timeout: row.timeout,
+      status: 'cancelled',
+      output: row.output,
+      exitCode: row.exit_code,
+      startedAt: row.started_at,
+      completedAt: Date.now(),
+      submittedBy: row.submitted_by as Address,
+    };
 
-    return c.json({ jobId: job.jobId, status: 'cancelled' });
+    await computeJobState.save(job);
+    activeJobs.delete(row.job_id);
+
+    return c.json({ jobId: row.job_id, status: 'cancelled' });
   });
 
-  app.get('/jobs', (c) => {
+  app.get('/jobs', async (c) => {
     const submitter = c.req.header('x-jeju-address')?.toLowerCase();
     const statusFilter = c.req.query('status');
     const limit = parseInt(c.req.query('limit') || '20');
 
-    const filtered = [...jobs.values()]
-      .filter((j) => (!submitter || j.submittedBy.toLowerCase() === submitter) && (!statusFilter || j.status === statusFilter))
-      .sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0))
-      .slice(0, limit);
+    const rows = await computeJobState.list({
+      submittedBy: submitter,
+      status: statusFilter ?? undefined,
+      limit,
+    });
 
     return c.json({
-      jobs: filtered.map((j) => ({
-        jobId: j.jobId,
+      jobs: rows.map((j) => ({
+        jobId: j.job_id,
         status: j.status,
-        exitCode: j.exitCode,
-        startedAt: j.startedAt,
-        completedAt: j.completedAt,
+        exitCode: j.exit_code,
+        startedAt: j.started_at,
+        completedAt: j.completed_at,
       })),
-      total: jobs.size,
+      total: rows.length,
     });
   });
 
   return app;
 }
 
-function processQueue(): void {
+async function processQueue(): Promise<void> {
   if (activeJobs.size >= MAX_CONCURRENT) return;
 
-  const next = [...jobs.values()].find((j) => j.status === 'queued');
+  const queued = await computeJobState.getQueued();
+  const next = queued[0];
   if (!next) return;
 
-  activeJobs.add(next.jobId);
-  next.status = 'running';
-  next.startedAt = Date.now();
+  const job: ComputeJob = {
+    jobId: next.job_id,
+    command: next.command,
+    shell: next.shell,
+    env: JSON.parse(next.env),
+    workingDir: next.working_dir ?? undefined,
+    timeout: next.timeout,
+    status: 'running',
+    output: '',
+    exitCode: null,
+    startedAt: Date.now(),
+    completedAt: null,
+    submittedBy: next.submitted_by as Address,
+  };
 
-  executeJob(next);
+  activeJobs.add(job.jobId);
+  await computeJobState.save(job);
+
+  executeJob(job);
 }
 
 async function executeJob(job: ComputeJob): Promise<void> {
@@ -260,11 +295,13 @@ async function executeJob(job: ComputeJob): Promise<void> {
   finishJob(job, output.join(''), await proc.exited);
 }
 
-function finishJob(job: ComputeJob, output: string, exitCode: number): void {
+async function finishJob(job: ComputeJob, output: string, exitCode: number): Promise<void> {
   job.output = output;
   job.exitCode = exitCode;
   job.status = exitCode === 0 ? 'completed' : 'failed';
   job.completedAt = Date.now();
+  
+  await computeJobState.save(job);
   activeJobs.delete(job.jobId);
   processQueue();
 }

@@ -155,3 +155,95 @@ describe('fund command', () => {
     expect(stdout).toContain('--all');
   });
 });
+
+describe('dws command', () => {
+  test('--help shows all subcommands', async () => {
+    const { stdout, exitCode } = await runCLI(['dws', '--help']);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('Decentralized Web Services');
+    expect(stdout).toContain('status');
+    expect(stdout).toContain('start');
+    expect(stdout).toContain('upload');
+    expect(stdout).toContain('download');
+    expect(stdout).toContain('repos');
+    expect(stdout).toContain('repo');
+    expect(stdout).toContain('create-repo');
+    expect(stdout).toContain('pkg-search');
+    expect(stdout).toContain('pkg-info');
+    expect(stdout).toContain('workflows');
+    expect(stdout).toContain('runs');
+    expect(stdout).toContain('cdn-status');
+  });
+
+  test('status subcommand exists', async () => {
+    const { stdout, exitCode } = await runCLI(['dws', 'status', '--help']);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('Check DWS services status');
+  });
+
+  test('start subcommand has network option', async () => {
+    const { stdout, exitCode } = await runCLI(['dws', 'start', '--help']);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('--network');
+    expect(stdout).toContain('--port');
+  });
+
+  test('repos subcommand has user filter', async () => {
+    const { stdout, exitCode } = await runCLI(['dws', 'repos', '--help']);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('--user');
+    expect(stdout).toContain('--limit');
+  });
+
+  test('create-repo subcommand has options', async () => {
+    const { stdout, exitCode } = await runCLI(['dws', 'create-repo', '--help']);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('--description');
+    expect(stdout).toContain('--private');
+  });
+});
+
+describe('compute command', () => {
+  test('--help shows all subcommands', async () => {
+    const { stdout, exitCode } = await runCLI(['compute', '--help']);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('DWS compute operations');
+    expect(stdout).toContain('status');
+    expect(stdout).toContain('start');
+    expect(stdout).toContain('node');
+    expect(stdout).toContain('submit');
+    expect(stdout).toContain('jobs');
+    expect(stdout).toContain('job');
+    expect(stdout).toContain('cancel');
+    expect(stdout).toContain('inference');
+  });
+
+  test('submit subcommand has options', async () => {
+    const { stdout, exitCode } = await runCLI(['compute', 'submit', '--help']);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('--shell');
+    expect(stdout).toContain('--timeout');
+    expect(stdout).toContain('--address');
+  });
+
+  test('jobs subcommand has filters', async () => {
+    const { stdout, exitCode } = await runCLI(['compute', 'jobs', '--help']);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('--status');
+    expect(stdout).toContain('--limit');
+  });
+
+  test('inference subcommand has model option', async () => {
+    const { stdout, exitCode } = await runCLI(['compute', 'inference', '--help']);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('--model');
+    expect(stdout).toContain('--system');
+  });
+
+  test('node subcommand has network option', async () => {
+    const { stdout, exitCode } = await runCLI(['compute', 'node', '--help']);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('--network');
+    expect(stdout).toContain('--port');
+  });
+});

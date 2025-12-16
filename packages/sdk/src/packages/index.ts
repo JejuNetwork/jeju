@@ -403,6 +403,7 @@ export class JejuPkgSDK {
       throw new Error('Wallet client and registry address required for on-chain operations');
     }
 
+    // @ts-expect-error - chain inferred at runtime from RPC
     const hash = await this.walletClient.writeContract({
       address: this.config.registryAddress,
       abi: PACKAGE_REGISTRY_ABI,
@@ -424,6 +425,7 @@ export class JejuPkgSDK {
       throw new Error('Wallet client and registry address required for on-chain operations');
     }
 
+    // @ts-expect-error - chain inferred at runtime from RPC
     const hash = await this.walletClient.writeContract({
       address: this.config.registryAddress,
       abi: PACKAGE_REGISTRY_ABI,
@@ -439,6 +441,7 @@ export class JejuPkgSDK {
       throw new Error('Wallet client and registry address required for on-chain operations');
     }
 
+    // @ts-expect-error - chain inferred at runtime from RPC
     const hash = await this.walletClient.writeContract({
       address: this.config.registryAddress,
       abi: PACKAGE_REGISTRY_ABI,

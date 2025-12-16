@@ -53,8 +53,8 @@ describe('BotInitializer', () => {
   let initializer: BotInitializer;
 
   beforeEach(() => {
-    // Clear mock call history by resetting calls array
-    (mockAgentSdk.registerAgent as ReturnType<typeof mock>).mock.calls = [];
+    // Use mockClear to reset mock call history
+    (mockAgentSdk.registerAgent as ReturnType<typeof mock>).mockClear();
     initializer = new BotInitializer({
       crucibleConfig: baseConfig,
       agentSdk: mockAgentSdk,
@@ -64,7 +64,9 @@ describe('BotInitializer', () => {
   });
 
   afterEach(async () => {
-    await initializer.stopAll();
+    if (initializer) {
+      await initializer.stopAll();
+    }
   });
 
   describe('getDefaultBotsForNetwork', () => {

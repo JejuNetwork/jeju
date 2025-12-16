@@ -28,9 +28,12 @@ import {ERC8004ProviderMixin} from "../registry/ERC8004ProviderMixin.sol";
  *
  * @custom:security-contact security@jeju.network
  */
+import {ModerationMixin} from "../moderation/ModerationMixin.sol";
+
 contract RPCProviderRegistry is ProviderRegistryBase {
     using SafeERC20 for IERC20;
     using ERC8004ProviderMixin for ERC8004ProviderMixin.Data;
+    using ModerationMixin for ModerationMixin.Data;
 
     // ============ Enums ============
 

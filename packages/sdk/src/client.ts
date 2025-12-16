@@ -18,7 +18,10 @@ import { createCrossChainModule, type CrossChainModule } from "./crosschain";
 import { createNFTModule, type NFTModule } from "./nfts";
 import { createPaymentsModule, type PaymentsModule } from "./payments";
 import { createA2AModule, type A2AModule } from "./a2a";
-import { getServicesConfig, getChainConfig } from "./config";
+import { createGamesModule, type GamesModule } from "./games";
+import { createContainersModule, type ContainersModule } from "./containers";
+import { createLaunchpadModule, type LaunchpadModule } from "./launchpad";
+import { getServicesConfig, getChainConfig, getContractAddresses } from "./config";
 import { getNetworkName } from "@jejunetwork/config";
 
 export interface JejuClientConfig {
@@ -72,6 +75,12 @@ export interface JejuClient {
   readonly payments: PaymentsModule;
   /** A2A - Agent protocol client */
   readonly a2a: A2AModule;
+  /** Games - Game integration contracts (Babylon, Hyperscape) */
+  readonly games: GamesModule;
+  /** Containers - OCI container registry */
+  readonly containers: ContainersModule;
+  /** Launchpad - Token and NFT launches */
+  readonly launchpad: LaunchpadModule;
 
   /** Get native balance */
   getBalance(): Promise<bigint>;
@@ -105,6 +114,9 @@ export async function createJejuClient(
     network,
   });
 
+  // Get contract addresses for modules that need them
+  const contractAddresses = getContractAddresses(network);
+
   // Create modules
   const compute = createComputeModule(wallet, network);
   const storage = createStorageModule(wallet, network);
@@ -117,6 +129,17 @@ export async function createJejuClient(
   const nfts = createNFTModule(wallet, network);
   const payments = createPaymentsModule(wallet, network);
   const a2a = createA2AModule(wallet, network, servicesConfig);
+
+  // Create extended modules (may not be available on all networks)
+  const games = contractAddresses.gameIntegration
+    ? createGamesModule(wallet, network)
+    : createStubGamesModule();
+  const containers = contractAddresses.containerRegistry
+    ? createContainersModule(wallet, network)
+    : createStubContainersModule();
+  const launchpad = contractAddresses.tokenLaunchpad
+    ? createLaunchpadModule(wallet, network)
+    : createStubLaunchpadModule();
 
   const client: JejuClient = {
     network,
@@ -136,10 +159,103 @@ export async function createJejuClient(
     nfts,
     payments,
     a2a,
+    games,
+    containers,
+    launchpad,
 
     getBalance: () => wallet.getBalance(),
     sendTransaction: (params) => wallet.sendTransaction(params),
   };
 
   return client;
+}
+
+// Stub modules for when contracts are not available
+function createStubGamesModule(): GamesModule {
+  const notAvailable = (): never => {
+    throw new Error("GameIntegration contract not deployed on this network");
+  };
+  return {
+    getContracts: notAvailable,
+    getGameAgentId: notAvailable,
+    isPlayerAllowed: notAvailable,
+    getPlayerAgentId: notAvailable,
+    linkAgentId: notAvailable,
+    unlinkAgentId: notAvailable,
+    getGoldBalance: notAvailable,
+    getGoldTotalSupply: notAvailable,
+    transferGold: notAvailable,
+    approveGold: notAvailable,
+    mintGold: notAvailable,
+    burnGold: notAvailable,
+    getItemBalance: notAvailable,
+    getItemBalances: notAvailable,
+    getItemUri: notAvailable,
+    mintItem: notAvailable,
+    mintItems: notAvailable,
+    burnItem: notAvailable,
+    transferItem: notAvailable,
+    transferItems: notAvailable,
+    setItemApprovalForAll: notAvailable,
+    isItemApprovedForAll: notAvailable,
+    getPlayerInfo: notAvailable,
+    getGameStats: notAvailable,
+  };
+}
+
+function createStubContainersModule(): ContainersModule {
+  const notAvailable = (): never => {
+    throw new Error("ContainerRegistry contract not deployed on this network");
+  };
+  return {
+    createRepository: notAvailable,
+    getRepository: notAvailable,
+    getRepositoryByName: notAvailable,
+    listMyRepositories: notAvailable,
+    starRepository: notAvailable,
+    unstarRepository: notAvailable,
+    grantAccess: notAvailable,
+    revokeAccess: notAvailable,
+    hasAccess: notAvailable,
+    publishImage: notAvailable,
+    getManifest: notAvailable,
+    getManifestByTag: notAvailable,
+    recordPull: notAvailable,
+    signImage: notAvailable,
+    getRepoId: () => {
+      throw new Error("ContainerRegistry contract not deployed on this network");
+    },
+    parseImageReference: () => {
+      throw new Error("ContainerRegistry contract not deployed on this network");
+    },
+  };
+}
+
+function createStubLaunchpadModule(): LaunchpadModule {
+  const notAvailable = (): never => {
+    throw new Error("Launchpad contracts not deployed on this network");
+  };
+  return {
+    createToken: notAvailable,
+    createPresale: notAvailable,
+    contribute: notAvailable,
+    claim: notAvailable,
+    refund: notAvailable,
+    finalizePresale: notAvailable,
+    getPresale: notAvailable,
+    getUserContribution: notAvailable,
+    listActivePresales: notAvailable,
+    createBondingCurve: notAvailable,
+    buyFromCurve: notAvailable,
+    sellToCurve: notAvailable,
+    getCurve: notAvailable,
+    getBuyPrice: notAvailable,
+    getSellPrice: notAvailable,
+    listActiveCurves: notAvailable,
+    lockLP: notAvailable,
+    unlockLP: notAvailable,
+    extendLPLock: notAvailable,
+    getLPLock: notAvailable,
+    listMyLPLocks: notAvailable,
+  };
 }

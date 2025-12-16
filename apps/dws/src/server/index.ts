@@ -23,7 +23,11 @@ import { createGitRouter } from './routes/git';
 import { createPkgRouter } from './routes/pkg';
 import { createCIRouter } from './routes/ci';
 import { createOAuth3Router } from './routes/oauth3';
+import { createAPIMarketplaceRouter } from './routes/api-marketplace';
+import { createContainerRouter } from './routes/containers';
 import { createBackendManager } from '../storage/backends';
+import { initializeMarketplace } from '../api-marketplace';
+import { initializeContainerSystem } from '../containers';
 import { GitRepoManager } from '../git/repo-manager';
 import { PkgRegistryManager } from '../pkg/registry-manager';
 import { WorkflowEngine } from '../ci/workflow-engine';
@@ -203,7 +207,7 @@ app.get('/', (c) => {
     name: 'DWS',
     description: 'Decentralized Web Services',
     version: '1.0.0',
-    services: ['storage', 'compute', 'cdn', 'git', 'pkg', 'ci', 'oauth3'],
+    services: ['storage', 'compute', 'cdn', 'git', 'pkg', 'ci', 'oauth3', 'api-marketplace', 'containers'],
     endpoints: {
       storage: '/storage/*',
       compute: '/compute/*',
@@ -212,6 +216,8 @@ app.get('/', (c) => {
       pkg: '/pkg/*',
       ci: '/ci/*',
       oauth3: '/oauth3/*',
+      api: '/api/*',
+      containers: '/containers/*',
       a2a: '/a2a/*',
       mcp: '/mcp/*',
     },
@@ -225,8 +231,14 @@ app.route('/git', createGitRouter({ repoManager, backend: backendManager }));
 app.route('/pkg', createPkgRouter({ registryManager, backend: backendManager }));
 app.route('/ci', createCIRouter({ workflowEngine, repoManager, backend: backendManager }));
 app.route('/oauth3', createOAuth3Router());
+app.route('/api', createAPIMarketplaceRouter());
+app.route('/containers', createContainerRouter());
 app.route('/a2a', createA2ARouter());
 app.route('/mcp', createMCPRouter());
+
+// Initialize services
+initializeMarketplace();
+initializeContainerSystem();
 
 // Serve frontend - from IPFS when configured, fallback to local
 app.get('/app', async (c) => {

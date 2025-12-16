@@ -81,6 +81,40 @@ import { reportAgentAction, listModerationCasesAction } from "./actions/moderati
 // Extended Actions - Nodes
 import { listNodesAction, getNodeStatsAction } from "./actions/nodes";
 
+// Extended Actions - Games (Babylon/Hyperscape)
+import {
+  getPlayerInfoAction,
+  getGoldBalanceAction,
+  transferGoldAction,
+  getItemBalanceAction,
+  transferItemAction,
+  linkAgentAction,
+  getGameStatsAction,
+} from "./actions/games";
+
+// Extended Actions - Containers (OCI Registry)
+import {
+  createRepoAction,
+  getRepoInfoAction,
+  listMyReposAction,
+  getManifestAction,
+  starRepoAction,
+  grantAccessAction,
+} from "./actions/containers";
+
+// Extended Actions - Launchpad
+import {
+  createTokenAction,
+  createPresaleAction,
+  contributePresaleAction,
+  listPresalesAction,
+  createBondingCurveAction,
+  buyFromCurveAction,
+  sellToCurveAction,
+  listCurvesAction,
+  lockLPAction,
+} from "./actions/launchpad";
+
 // Providers
 import { jejuWalletProvider } from "./providers/wallet";
 import { jejuComputeProvider } from "./providers/compute";
@@ -164,6 +198,34 @@ export const jejuPlugin: Plugin = {
     // === A2A Protocol ===
     callAgentAction,
     discoverAgentsAction,
+
+    // === Games (Babylon/Hyperscape) ===
+    getPlayerInfoAction,
+    getGoldBalanceAction,
+    transferGoldAction,
+    getItemBalanceAction,
+    transferItemAction,
+    linkAgentAction,
+    getGameStatsAction,
+
+    // === Containers (OCI Registry) ===
+    createRepoAction,
+    getRepoInfoAction,
+    listMyReposAction,
+    getManifestAction,
+    starRepoAction,
+    grantAccessAction,
+
+    // === Launchpad ===
+    createTokenAction,
+    createPresaleAction,
+    contributePresaleAction,
+    listPresalesAction,
+    createBondingCurveAction,
+    buyFromCurveAction,
+    sellToCurveAction,
+    listCurvesAction,
+    lockLPAction,
   ],
 };
 

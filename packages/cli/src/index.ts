@@ -38,6 +38,7 @@ import { serviceCommand } from './commands/service';
 import { publishCommand } from './commands/publish';
 import { infraCommand } from './commands/infra';
 import { tokenCommand } from './commands/token';
+import { dwsCommand } from './commands/dws';
 
 const cli = getCliBranding();
 const networkName = getNetworkName();
@@ -99,6 +100,7 @@ program.addCommand(serviceCommand);
 program.addCommand(publishCommand);
 program.addCommand(infraCommand);
 program.addCommand(tokenCommand);
+program.addCommand(dwsCommand);
 
 // Default: show help
 program.action(() => {
@@ -160,11 +162,19 @@ program.action(() => {
   console.log('  ' + chalk.cyan(`${cliName} fork`) + '             Fork your own network');
   console.log('  ' + chalk.cyan(`${cliName} fork list`) + '        List existing forks\n');
   
+  console.log(chalk.bold('DWS (Decentralized Web Services):\n'));
+  console.log('  ' + chalk.cyan(`${cliName} dws status`) + '        Check all DWS services');
+  console.log('  ' + chalk.cyan(`${cliName} dws start`) + '         Start DWS server');
+  console.log('  ' + chalk.cyan(`${cliName} dws upload <file>`) + ' Upload to storage');
+  console.log('  ' + chalk.cyan(`${cliName} dws repos`) + '         List Git repositories');
+  console.log('  ' + chalk.cyan(`${cliName} dws pkg-search`) + '    Search packages\n');
+  
   console.log(chalk.bold('Compute:\n'));
-  console.log('  ' + chalk.cyan(`${cliName} compute status`) + '   Check compute services');
-  console.log('  ' + chalk.cyan(`${cliName} compute bridge`) + '   Start external compute bridge');
-  console.log('  ' + chalk.cyan(`${cliName} compute offerings`) + ' List available compute');
-  console.log('  ' + chalk.cyan(`${cliName} compute deploy <image>`) + ' Deploy container\n');
+  console.log('  ' + chalk.cyan(`${cliName} compute status`) + '    Check compute status');
+  console.log('  ' + chalk.cyan(`${cliName} compute start`) + '     Start DWS server');
+  console.log('  ' + chalk.cyan(`${cliName} compute submit`) + '    Submit compute job');
+  console.log('  ' + chalk.cyan(`${cliName} compute jobs`) + '      List compute jobs');
+  console.log('  ' + chalk.cyan(`${cliName} compute inference`) + ' Run inference request\n');
   
   console.log(chalk.dim(`Run \`${cliName} <command> --help\` for details.\n`));
 });

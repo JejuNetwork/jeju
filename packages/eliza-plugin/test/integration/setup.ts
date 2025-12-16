@@ -164,42 +164,50 @@ async function deployContracts(): Promise<void> {
 }
 
 async function startServices(): Promise<void> {
-  // Skip service startup in CI or when SKIP_SERVICES is set
-  if (process.env.CI || process.env.SKIP_SERVICES) {
-    console.log("Skipping app service startup (use SKIP_SERVICES=0 to enable)");
+  // Skip service startup - services should be started externally
+  // Use `bun run dev` or docker-compose to start services
+  console.log("⚠ Service auto-start disabled. Start services manually with: jeju dev");
+  
+  if (!process.env.START_SERVICES) {
+    console.log("⚠ Set START_SERVICES=1 to attempt service startup");
     return;
   }
   
   const root = findRoot();
   
   const services = [
-    { name: "Storage", dir: "apps/storage", port: 4010, cmd: "bun run dev:api" },
-    { name: "Compute", dir: "apps/compute", port: 4007, cmd: "bun run dev" },
-    { name: "Gateway", dir: "apps/gateway", port: 4003, cmd: "bun run start:a2a" },
+    { name: "Gateway", dir: "apps/gateway", port: 4003, cmd: "bun run dev:a2a" },
+    { name: "DWS", dir: "apps/dws", port: 4007, cmd: "bun run dev:server" },
   ];
   
   for (const svc of services) {
     const svcDir = join(root, svc.dir);
-    if (!existsSync(svcDir)) {
-      console.log(`⚠ ${svc.name} directory not found`);
+    const pkgJson = join(svcDir, "package.json");
+    
+    if (!existsSync(pkgJson)) {
+      console.log(`⚠ ${svc.name} package.json not found at ${svcDir}`);
       continue;
     }
     
     console.log(`Starting ${svc.name}...`);
     
-    const [cmd, ...args] = svc.cmd.split(" ");
-    const proc = execa(cmd, args, {
-      cwd: svcDir,
-      stdio: "pipe",
-      detached: true,
-      env: {
-        ...process.env,
-        PORT: String(svc.port),
-        RPC_URL: TEST_RPC_URL,
-        CHAIN_ID: "1337",
-      },
-    });
-    startedProcesses.push(proc);
+    try {
+      const [cmd, ...args] = svc.cmd.split(" ");
+      const proc = execa(cmd, args, {
+        cwd: svcDir,
+        stdio: "pipe",
+        detached: true,
+        env: {
+          ...process.env,
+          PORT: String(svc.port),
+          RPC_URL: TEST_RPC_URL,
+          CHAIN_ID: "1337",
+        },
+      });
+      startedProcesses.push(proc);
+    } catch {
+      console.log(`⚠ Failed to start ${svc.name}`);
+    }
   }
   
   // Wait for services with short timeout (10s each)
