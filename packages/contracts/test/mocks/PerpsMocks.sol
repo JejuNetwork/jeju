@@ -2,7 +2,12 @@
 pragma solidity ^0.8.26;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {IPriceFeedAggregator} from "../../src/perps/PerpetualMarket.sol";
+
+/// @title IPriceFeedAggregator
+/// @notice Interface for price feed aggregator used by perpetual markets
+interface IPriceFeedAggregator {
+    function getPrice(string calldata asset) external view returns (uint256 price, uint256 timestamp, bool isValid);
+}
 
 /// @title MockERC20
 /// @notice Standard mintable ERC20 for testing (18 decimals default)

@@ -42,4 +42,20 @@ contract MockAggregatorV3 is IAggregatorV3 {
     function decimals() external view returns (uint8) {
         return _decimals;
     }
+
+    function description() external pure returns (string memory) {
+        return "Mock Price Feed";
+    }
+
+    function version() external pure returns (uint256) {
+        return 1;
+    }
+
+    function getRoundData(uint80 roundId_)
+        external
+        view
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
+    {
+        return (roundId_, _answer, _startedAt, _updatedAt, roundId_);
+    }
 }

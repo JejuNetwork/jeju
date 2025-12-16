@@ -40,7 +40,7 @@ contract KeyRegistryTest is Test {
         vm.prank(alice);
         registry.registerKeyBundle(aliceIdentityKey, aliceSignedPreKey, sig);
 
-        KeyRegistry.PublicKeyBundle memory bundle = registry.getKeyBundle(alice);
+        MessagingKeyRegistry.PublicKeyBundle memory bundle = registry.getKeyBundle(alice);
 
         assertEq(bundle.identityKey, aliceIdentityKey);
         assertEq(bundle.signedPreKey, aliceSignedPreKey);
@@ -52,7 +52,7 @@ contract KeyRegistryTest is Test {
         bytes memory sig = _signPreKey(aliceSignedPreKey, alice, alicePrivateKey);
 
         vm.expectEmit(true, false, false, true);
-        emit KeyRegistry.KeyBundleRegistered(alice, aliceIdentityKey, aliceSignedPreKey, block.timestamp);
+        emit MessagingKeyRegistry.KeyBundleRegistered(alice, aliceIdentityKey, aliceSignedPreKey, block.timestamp);
 
         vm.prank(alice);
         registry.registerKeyBundle(aliceIdentityKey, aliceSignedPreKey, sig);
@@ -64,7 +64,7 @@ contract KeyRegistryTest is Test {
         vm.prank(alice);
         registry.registerKeyBundle(aliceIdentityKey, aliceSignedPreKey, sig);
 
-        vm.expectRevert(KeyRegistry.KeyAlreadyRegistered.selector);
+        vm.expectRevert(MessagingKeyRegistry.KeyAlreadyRegistered.selector);
         vm.prank(alice);
         registry.registerKeyBundle(aliceIdentityKey, aliceSignedPreKey, sig);
     }
@@ -72,7 +72,7 @@ contract KeyRegistryTest is Test {
     function test_RevertWhen_InvalidIdentityKey() public {
         bytes memory sig = _signPreKey(aliceSignedPreKey, alice, alicePrivateKey);
 
-        vm.expectRevert(KeyRegistry.InvalidKeyLength.selector);
+        vm.expectRevert(MessagingKeyRegistry.InvalidKeyLength.selector);
         vm.prank(alice);
         registry.registerKeyBundle(bytes32(0), aliceSignedPreKey, sig);
     }
@@ -81,7 +81,7 @@ contract KeyRegistryTest is Test {
         // Sign with wrong key
         bytes memory badSig = _signPreKey(aliceSignedPreKey, alice, bobPrivateKey);
 
-        vm.expectRevert(KeyRegistry.Unauthorized.selector);
+        vm.expectRevert(MessagingKeyRegistry.Unauthorized.selector);
         vm.prank(alice);
         registry.registerKeyBundle(aliceIdentityKey, aliceSignedPreKey, badSig);
     }
@@ -99,14 +99,14 @@ contract KeyRegistryTest is Test {
         vm.prank(alice);
         registry.rotateSignedPreKey(newPreKey, newSig);
 
-        KeyRegistry.PublicKeyBundle memory bundle = registry.getKeyBundle(alice);
+        MessagingKeyRegistry.PublicKeyBundle memory bundle = registry.getKeyBundle(alice);
         assertEq(bundle.signedPreKey, newPreKey);
     }
 
     function test_RevertWhen_RotateWithoutRegistration() public {
         bytes memory sig = _signPreKey(aliceSignedPreKey, alice, alicePrivateKey);
 
-        vm.expectRevert(KeyRegistry.KeyNotRegistered.selector);
+        vm.expectRevert(MessagingKeyRegistry.KeyNotRegistered.selector);
         vm.prank(alice);
         registry.rotateSignedPreKey(aliceSignedPreKey, sig);
     }
@@ -174,7 +174,7 @@ contract KeyRegistryTest is Test {
         registry.consumeOneTimePreKey(alice);
 
         // Second consumption from same address is rate limited
-        vm.expectRevert(KeyRegistry.PreKeyConsumptionRateLimited.selector);
+        vm.expectRevert(MessagingKeyRegistry.PreKeyConsumptionRateLimited.selector);
         vm.prank(bob);
         registry.consumeOneTimePreKey(alice);
 
@@ -192,7 +192,7 @@ contract KeyRegistryTest is Test {
         vm.prank(alice);
         registry.registerKeyBundle(aliceIdentityKey, aliceSignedPreKey, sig);
 
-        vm.expectRevert(KeyRegistry.NoPreKeysAvailable.selector);
+        vm.expectRevert(MessagingKeyRegistry.NoPreKeysAvailable.selector);
         vm.prank(bob);
         registry.consumeOneTimePreKey(alice);
     }
@@ -207,7 +207,7 @@ contract KeyRegistryTest is Test {
         vm.prank(alice);
         registry.revokeKeyBundle();
 
-        KeyRegistry.PublicKeyBundle memory bundle = registry.getKeyBundle(alice);
+        MessagingKeyRegistry.PublicKeyBundle memory bundle = registry.getKeyBundle(alice);
         assertFalse(bundle.isActive);
         assertTrue(registry.isPermanentlyRevoked(alice));
     }
@@ -221,7 +221,7 @@ contract KeyRegistryTest is Test {
         registry.revokeKeyBundle();
 
         // Cannot register again
-        vm.expectRevert(KeyRegistry.PermanentlyRevoked.selector);
+        vm.expectRevert(MessagingKeyRegistry.PermanentlyRevoked.selector);
         vm.prank(alice);
         registry.registerKeyBundle(aliceIdentityKey, aliceSignedPreKey, sig);
     }
@@ -237,7 +237,7 @@ contract KeyRegistryTest is Test {
         bytes32 newKey = bytes32(uint256(999));
         bytes memory newSig = _signPreKey(aliceSignedPreKey, alice, alicePrivateKey);
 
-        vm.expectRevert(KeyRegistry.PermanentlyRevoked.selector);
+        vm.expectRevert(MessagingKeyRegistry.PermanentlyRevoked.selector);
         vm.prank(alice);
         registry.updateIdentityKey(newKey, aliceSignedPreKey, newSig);
     }
@@ -270,7 +270,7 @@ contract KeyRegistryTest is Test {
         vm.prank(alice);
         registry.updateIdentityKey(newIdentityKey, aliceSignedPreKey, newSig);
 
-        KeyRegistry.PublicKeyBundle memory bundle = registry.getKeyBundle(alice);
+        MessagingKeyRegistry.PublicKeyBundle memory bundle = registry.getKeyBundle(alice);
         assertEq(bundle.identityKey, newIdentityKey);
 
         bytes32[] memory history = registry.getKeyHistory(alice);
@@ -288,7 +288,7 @@ contract KeyRegistryTest is Test {
         vm.prank(alice);
         registry.registerAgentKey(agentId, aliceIdentityKey, aliceSignedPreKey, sig);
 
-        KeyRegistry.PublicKeyBundle memory bundle = registry.getAgentKeyBundle(agentId);
+        MessagingKeyRegistry.PublicKeyBundle memory bundle = registry.getAgentKeyBundle(agentId);
 
         assertEq(bundle.identityKey, aliceIdentityKey);
         assertTrue(bundle.isActive);
@@ -305,7 +305,7 @@ contract KeyRegistryTest is Test {
         vm.prank(alice);
         registry.revokeAgentKey(agentId);
 
-        KeyRegistry.PublicKeyBundle memory bundle = registry.getAgentKeyBundle(agentId);
+        MessagingKeyRegistry.PublicKeyBundle memory bundle = registry.getAgentKeyBundle(agentId);
         assertFalse(bundle.isActive);
     }
 
@@ -316,7 +316,7 @@ contract KeyRegistryTest is Test {
         vm.prank(alice);
         registry.registerAgentKey(agentId, aliceIdentityKey, aliceSignedPreKey, sig);
 
-        vm.expectRevert(KeyRegistry.Unauthorized.selector);
+        vm.expectRevert(MessagingKeyRegistry.Unauthorized.selector);
         vm.prank(bob);
         registry.revokeAgentKey(agentId);
     }
@@ -336,7 +336,7 @@ contract KeyRegistryTest is Test {
         users[0] = alice;
         users[1] = bob;
 
-        KeyRegistry.PublicKeyBundle[] memory bundles = registry.getKeyBundles(users);
+        MessagingKeyRegistry.PublicKeyBundle[] memory bundles = registry.getKeyBundles(users);
 
         assertEq(bundles.length, 2);
         assertEq(bundles[0].identityKey, aliceIdentityKey);

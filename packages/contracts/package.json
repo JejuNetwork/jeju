@@ -80,6 +80,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "solhint": "^6.0.1",
     "typescript": "^5.3.3"
   },
   "peerDependencies": {

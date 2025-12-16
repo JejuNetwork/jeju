@@ -28,6 +28,8 @@ export interface ServiceConfig {
   cron: boolean;
   cvm: boolean;
   computeBridge: boolean;
+  git: boolean;
+  npm: boolean;
 }
 
 export interface RunningService {
@@ -54,6 +56,8 @@ const DEFAULT_PORTS = {
   cron: 4102,
   cvm: 4103,
   computeBridge: 4031, // DWS compute node port
+  git: 4020,
+  npm: 4021,
 };
 
 async function isPortInUse(port: number): Promise<boolean> {
@@ -95,6 +99,8 @@ class ServicesOrchestrator {
       cron: config.cron ?? true,
       cvm: config.cvm ?? false,
       computeBridge: config.computeBridge ?? true, // DWS compute enabled by default
+      git: config.git ?? true,
+      npm: config.npm ?? true,
     };
 
     logger.step('Starting development services...');
@@ -109,6 +115,8 @@ class ServicesOrchestrator {
     if (enabledServices.cron) await this.startCron();
     if (enabledServices.cvm) await this.startCVM();
     if (enabledServices.computeBridge) await this.startComputeBridge();
+    if (enabledServices.git) await this.startGit();
+    if (enabledServices.npm) await this.startNpm();
 
     // Wait for services to be ready
     await this.waitForServices();
@@ -1101,6 +1109,291 @@ class ServicesOrchestrator {
     };
   }
 
+  private async startGit(): Promise<void> {
+    const port = DEFAULT_PORTS.git;
+    
+    if (await isPortInUse(port)) {
+      logger.info(`JejuGit already running on port ${port}`);
+      this.services.set('git', {
+        name: 'JejuGit',
+        type: 'server',
+        port,
+        url: `http://localhost:${port}`,
+        healthCheck: '/api/v1/health',
+      });
+      return;
+    }
+
+    const gitPath = join(this.rootDir, 'apps/git');
+    
+    if (existsSync(gitPath)) {
+      const proc = spawn({
+        cmd: ['bun', 'run', 'dev'],
+        cwd: gitPath,
+        stdout: 'ignore',
+        stderr: 'ignore',
+        env: {
+          ...process.env,
+          GIT_PORT: String(port),
+          JEJU_RPC_URL: this.rpcUrl,
+        },
+      });
+
+      this.services.set('git', {
+        name: 'JejuGit',
+        type: 'process',
+        port,
+        process: proc,
+        url: `http://localhost:${port}`,
+        healthCheck: '/api/v1/health',
+      });
+
+      logger.success(`JejuGit starting on port ${port}`);
+      return;
+    }
+
+    // Create mock git server
+    const server = await this.createMockGit();
+    this.services.set('git', {
+      name: 'JejuGit (Mock)',
+      type: 'mock',
+      port,
+      server,
+      url: `http://localhost:${port}`,
+      healthCheck: '/api/v1/health',
+    });
+    logger.info(`JejuGit mock service on port ${port}`);
+  }
+
+  private async createMockGit(): Promise<MockServer> {
+    const port = DEFAULT_PORTS.git;
+    const repositories = new Map<string, { name: string; owner: string; description: string; stars: number; visibility: string }>();
+
+    const server = Bun.serve({
+      port,
+      async fetch(req) {
+        const url = new URL(req.url);
+
+        if (url.pathname === '/api/v1/health') {
+          return Response.json({ 
+            status: 'ok', 
+            mock: true,
+            storageBackend: 'memory',
+            totalRepositories: repositories.size,
+          });
+        }
+
+        if (url.pathname === '/api/v1/repos') {
+          if (req.method === 'GET') {
+            return Response.json({ 
+              total_count: repositories.size,
+              items: Array.from(repositories.values()).map(r => ({
+                id: `${r.owner}/${r.name}`,
+                name: r.name,
+                full_name: `${r.owner}/${r.name}`,
+                owner: { login: r.owner },
+                description: r.description,
+                visibility: r.visibility,
+                stargazers_count: r.stars,
+                forks_count: 0,
+                default_branch: 'main',
+                topics: [],
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              })),
+            });
+          }
+          if (req.method === 'POST') {
+            const body = await req.json() as { name: string; description?: string; visibility?: string };
+            const owner = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+            const repo = {
+              name: body.name,
+              owner,
+              description: body.description || '',
+              stars: 0,
+              visibility: body.visibility || 'public',
+            };
+            repositories.set(`${owner}/${body.name}`, repo);
+            return Response.json({
+              id: `${owner}/${body.name}`,
+              name: body.name,
+              full_name: `${owner}/${body.name}`,
+              ...repo,
+            }, { status: 201 });
+          }
+        }
+
+        // Match repo routes
+        const repoMatch = url.pathname.match(/^\/api\/v1\/repos\/([^/]+)\/([^/]+)$/);
+        if (repoMatch) {
+          const repoId = `${repoMatch[1]}/${repoMatch[2]}`;
+          const repo = repositories.get(repoId);
+          if (repo) {
+            return Response.json({
+              id: repoId,
+              name: repo.name,
+              full_name: repoId,
+              owner: { login: repo.owner },
+              description: repo.description,
+              visibility: repo.visibility,
+              stargazers_count: repo.stars,
+              forks_count: 0,
+              default_branch: 'main',
+            });
+          }
+          return Response.json({ error: 'Repository not found' }, { status: 404 });
+        }
+
+        // Git info/refs (for git clone)
+        if (url.pathname.endsWith('/info/refs')) {
+          return Response.json({ error: 'Mock git server - use API' }, { status: 501 });
+        }
+
+        return Response.json({ error: 'Not found' }, { status: 404 });
+      },
+    });
+
+    return {
+      stop: async () => server.stop(),
+    };
+  }
+
+  private async startNpm(): Promise<void> {
+    const port = DEFAULT_PORTS.npm;
+    
+    if (await isPortInUse(port)) {
+      logger.info(`JejuPkg already running on port ${port}`);
+      this.services.set('npm', {
+        name: 'JejuPkg',
+        type: 'server',
+        port,
+        url: `http://localhost:${port}`,
+        healthCheck: '/-/registry/health',
+      });
+      return;
+    }
+
+    const storagePath = join(this.rootDir, 'apps/storage/pinning-api');
+    
+    if (existsSync(storagePath)) {
+      // The npm registry is part of the storage/pinning-api service
+      // We'll start the pinning-api with NPM registry enabled
+      const proc = spawn({
+        cmd: ['bun', 'run', 'dev'],
+        cwd: storagePath,
+        stdout: 'ignore',
+        stderr: 'ignore',
+        env: {
+          ...process.env,
+          NPM_PORT: String(port),
+          JEJU_RPC_URL: this.rpcUrl,
+          ENABLE_NPM_REGISTRY: 'true',
+        },
+      });
+
+      this.services.set('npm', {
+        name: 'JejuPkg',
+        type: 'process',
+        port,
+        process: proc,
+        url: `http://localhost:${port}`,
+        healthCheck: '/-/registry/health',
+      });
+
+      logger.success(`JejuPkg starting on port ${port}`);
+      return;
+    }
+
+    // Create mock npm registry
+    const server = await this.createMockNpm();
+    this.services.set('npm', {
+      name: 'JejuPkg (Mock)',
+      type: 'mock',
+      port,
+      server,
+      url: `http://localhost:${port}`,
+      healthCheck: '/-/registry/health',
+    });
+    logger.info(`JejuPkg mock service on port ${port}`);
+  }
+
+  private async createMockNpm(): Promise<MockServer> {
+    const port = DEFAULT_PORTS.npm;
+    const packages = new Map<string, { name: string; versions: Record<string, object>; 'dist-tags': Record<string, string> }>();
+
+    const server = Bun.serve({
+      port,
+      async fetch(req) {
+        const url = new URL(req.url);
+
+        if (url.pathname === '/-/registry/health') {
+          return Response.json({ 
+            status: 'ok', 
+            mock: true,
+            storageBackend: 'memory',
+            totalPackages: packages.size,
+          });
+        }
+
+        if (url.pathname === '/') {
+          return Response.json({
+            db_name: 'jeju-registry',
+            doc_count: packages.size,
+          });
+        }
+
+        // Search
+        if (url.pathname === '/-/v1/search') {
+          const text = url.searchParams.get('text') || '';
+          const results = Array.from(packages.values())
+            .filter(p => p.name.includes(text))
+            .map(p => ({
+              package: {
+                name: p.name,
+                version: p['dist-tags'].latest,
+                description: '',
+              },
+              score: { final: 0.5 },
+            }));
+          return Response.json({ objects: results, total: results.length });
+        }
+
+        // Get package
+        const pkgMatch = url.pathname.match(/^\/([^/]+(?:\/[^/]+)?)$/);
+        if (pkgMatch && req.method === 'GET') {
+          const pkgName = decodeURIComponent(pkgMatch[1]);
+          const pkg = packages.get(pkgName);
+          if (pkg) {
+            return Response.json(pkg);
+          }
+          return Response.json({ error: 'not_found' }, { status: 404 });
+        }
+
+        // Publish package
+        if (pkgMatch && req.method === 'PUT') {
+          const pkgName = decodeURIComponent(pkgMatch[1]);
+          const body = await req.json() as {
+            name: string;
+            versions: Record<string, object>;
+            'dist-tags': Record<string, string>;
+          };
+          packages.set(pkgName, {
+            name: body.name,
+            versions: body.versions,
+            'dist-tags': body['dist-tags'],
+          });
+          return Response.json({ ok: true, id: pkgName }, { status: 201 });
+        }
+
+        return Response.json({ error: 'Not found' }, { status: 404 });
+      },
+    });
+
+    return {
+      stop: async () => server.stop(),
+    };
+  }
+
   private async waitForServices(): Promise<void> {
     const maxWait = 30000;
     const startTime = Date.now();
@@ -1132,7 +1425,7 @@ class ServicesOrchestrator {
     logger.newline();
     logger.subheader('Development Services');
 
-    const sortOrder = ['inference', 'cql', 'oracle', 'indexer', 'jns', 'storage', 'cron', 'cvm', 'computeBridge'];
+    const sortOrder = ['inference', 'cql', 'oracle', 'indexer', 'jns', 'storage', 'cron', 'cvm', 'computeBridge', 'git', 'npm'];
     const sorted = Array.from(this.services.entries()).sort(
       ([a], [b]) => sortOrder.indexOf(a) - sortOrder.indexOf(b)
     );
@@ -1228,6 +1521,20 @@ class ServicesOrchestrator {
       env.COMPUTE_BRIDGE_URL = computeBridge.url!;
       env.JEJU_COMPUTE_BRIDGE_URL = computeBridge.url!;
       env.COMPUTE_MARKETPLACE_URL = computeBridge.url!;
+    }
+
+    const git = this.services.get('git');
+    if (git) {
+      env.JEJUGIT_URL = git.url!;
+      env.NEXT_PUBLIC_JEJUGIT_URL = git.url!;
+    }
+
+    const npm = this.services.get('npm');
+    if (npm) {
+      env.JEJUPKG_URL = npm.url!;
+      env.NEXT_PUBLIC_JEJUPKG_URL = npm.url!;
+      // For npm CLI configuration
+      env.npm_config_registry = npm.url!;
     }
 
     return env;

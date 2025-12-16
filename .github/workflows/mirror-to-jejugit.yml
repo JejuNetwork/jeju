@@ -1,0 +1,55 @@
+name: Mirror to JejuGit
+
+on:
+  push:
+    branches:
+      - main
+      - hyperscape
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to mirror'
+        required: false
+        default: 'main'
+
+env:
+  JEJUGIT_URL: ${{ secrets.JEJUGIT_URL || 'https://git.jeju.network' }}
+
+jobs:
+  mirror-to-jejugit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Configure JejuGit remote
+        run: |
+          # Add JejuGit as a remote
+          git remote add jejugit ${{ env.JEJUGIT_URL }}/jeju/jeju.git || git remote set-url jejugit ${{ env.JEJUGIT_URL }}/jeju/jeju.git
+          
+          # Configure authentication
+          git config --global credential.helper store
+          echo "https://${{ secrets.JEJUGIT_TOKEN }}:x-oauth-basic@${JEJUGIT_URL#https://}" > ~/.git-credentials
+
+      - name: Push to JejuGit
+        run: |
+          BRANCH="${{ github.event.inputs.branch || github.ref_name }}"
+          echo "Mirroring branch: $BRANCH"
+          
+          # Push the branch
+          git push jejugit "$BRANCH:$BRANCH" --force || echo "Push failed, JejuGit may be initializing"
+          
+          # Push tags
+          git push jejugit --tags --force || true
+
+      - name: Update JejuGit repository metadata
+        if: success()
+        run: |
+          # Call JejuGit API to update repository metadata
+          curl -X POST "${{ env.JEJUGIT_URL }}/api/v1/repos/jeju/jeju/sync" \
+            -H "Authorization: Bearer ${{ secrets.JEJUGIT_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"source": "github", "sourceUrl": "${{ github.server_url }}/${{ github.repository }}"}'

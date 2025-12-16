@@ -39,7 +39,7 @@ test.describe('Faucet Tab', () => {
     await expect(page.getByText(/12 hours/i)).toBeVisible();
     
     // Check for network info
-    await expect(page.getByText(|Network/i)).toBeVisible();
+    await expect(page.getByText(/Network/i)).toBeVisible();
   });
 
   test('should display registration requirements', async ({ page }) => {
