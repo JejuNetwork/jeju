@@ -7,7 +7,6 @@ import "../src/sequencer/SequencerRegistry.sol";
 import "../src/sequencer/ThresholdBatchSubmitter.sol";
 import "../src/governance/GovernanceTimelock.sol";
 import "../src/dispute/DisputeGameFactory.sol";
-import "../src/dispute/provers/Prover.sol";
 import "../src/dispute/provers/CannonProver.sol";
 import "../src/bridge/L2OutputOracleAdapter.sol";
 import "../src/bridge/OptimismPortalAdapter.sol";
@@ -193,26 +192,9 @@ contract DeployDecentralization is Script {
         console.log("DisputeGameFactory deployed:", address(disputeFactory));
         console.log("  - Dispute timeout:", DISPUTE_TIMEOUT / 1 days, "days");
 
-        // Deploy legacy Prover (signature-based, for testing ONLY)
-        // WARNING: This prover is NOT suitable for production - it uses signatures
-        // instead of actual computation verification. A single validator can fake fraud.
-        Prover legacyProver = new Prover();
-        console.log("Prover (legacy/testing):", address(legacyProver));
-
-        // Enable CannonProver (real fraud proofs) 
+        // Enable CannonProver (real MIPS fraud proofs)
         disputeFactory.setProverImplementation(DisputeGameFactory.ProverType.CANNON, address(cannonProver), true);
-        console.log("  - CannonProver enabled as CANNON prover");
-        
-        // SECURITY: Legacy prover is DISABLED by default for production safety
-        // Only enable for local testing where real MIPS isn't deployed
-        bool enableLegacyProver = vm.envOr("ENABLE_LEGACY_PROVER", false);
-        if (enableLegacyProver) {
-            disputeFactory.setProverImplementation(DisputeGameFactory.ProverType.SIMPLE, address(legacyProver), true);
-            console.log("  - WARNING: LegacyProver enabled (testing only, NOT Stage 2 compliant)");
-        } else {
-            disputeFactory.setProverImplementation(DisputeGameFactory.ProverType.SIMPLE, address(legacyProver), false);
-            console.log("  - LegacyProver DISABLED (set ENABLE_LEGACY_PROVER=true for testing)");
-        }
+        console.log("  - CannonProver enabled");
         console.log("");
 
         // ============================================================
@@ -285,9 +267,8 @@ contract DeployDecentralization is Script {
         console.log("");
         console.log("Fraud Proof System:");
         console.log("  PreimageOracle:", preimageOracleAddress);
-        console.log("  MIPS64:", mipsAddress);
+        console.log("  MIPS:", mipsAddress);
         console.log("  CannonProver:", address(cannonProver));
-        console.log("  LegacyProver:", address(legacyProver));
         console.log("");
         console.log("Bridge Adapters:");
         console.log("  L2OutputOracleAdapter:", address(l2Adapter));

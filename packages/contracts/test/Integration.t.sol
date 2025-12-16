@@ -5,11 +5,10 @@ import "forge-std/Test.sol";
 import "../src/sequencer/SequencerRegistry.sol";
 import "../src/governance/GovernanceTimelock.sol";
 import "../src/dispute/DisputeGameFactory.sol";
-import "../src/dispute/provers/Prover.sol";
 import "../src/registry/IdentityRegistry.sol";
 import "../src/registry/ReputationRegistry.sol";
+import "./mocks/MockProver.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 contract MockJEJU is ERC20 {
     constructor() ERC20("JEJU", "JEJU") {
@@ -22,12 +21,10 @@ contract MockJEJU is ERC20 {
 }
 
 contract DecentralizationIntegrationTest is Test {
-    using MessageHashUtils for bytes32;
-
     SequencerRegistry public sequencerRegistry;
     GovernanceTimelock public timelock;
     DisputeGameFactory public disputeFactory;
-    Prover public prover;
+    MockProver public prover;
     IdentityRegistry public identityRegistry;
     ReputationRegistry public reputationRegistry;
     MockJEJU public jejuToken;
@@ -40,49 +37,16 @@ contract DecentralizationIntegrationTest is Test {
     address public sequencer2 = makeAddr("sequencer2");
     address public challenger = makeAddr("challenger");
 
-    uint256 constant VALIDATOR1_KEY = 0x1;
-    uint256 constant VALIDATOR2_KEY = 0x2;
-    address validator1;
-    address validator2;
-
     uint256 public agentId1;
     uint256 public agentId2;
 
-    bytes32 constant BLOCK_HASH = keccak256("blockHash");
-    uint64 constant BLOCK_NUMBER = 12345;
-    bytes32 constant ACTUAL_POST_STATE = keccak256("actualPostState");
-
-    function _generateFraudProof(bytes32 stateRoot, bytes32 claimRoot) internal view returns (bytes memory) {
-        address[] memory signers = new address[](1);
-        bytes[] memory signatures = new bytes[](1);
-        signers[0] = validator1;
-
-        bytes32 outputRoot = keccak256(abi.encodePacked(BLOCK_HASH, stateRoot, ACTUAL_POST_STATE));
-        bytes32 fraudHash = keccak256(
-            abi.encodePacked(
-                prover.FRAUD_DOMAIN(), stateRoot, claimRoot, ACTUAL_POST_STATE, BLOCK_HASH, BLOCK_NUMBER, outputRoot
-            )
-        );
-
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(VALIDATOR1_KEY, fraudHash.toEthSignedMessageHash());
-        signatures[0] = abi.encodePacked(r, s, v);
-
-        return prover.generateFraudProof(
-            stateRoot, claimRoot, ACTUAL_POST_STATE, BLOCK_HASH, BLOCK_NUMBER, signers, signatures
-        );
-    }
-
     function setUp() public {
-        validator1 = vm.addr(VALIDATOR1_KEY);
-        validator2 = vm.addr(VALIDATOR2_KEY);
-
         vm.startPrank(owner);
         identityRegistry = new IdentityRegistry();
         reputationRegistry = new ReputationRegistry(payable(address(identityRegistry)));
         jejuToken = new MockJEJU();
-        prover = new Prover();
+        prover = new MockProver();
 
-        // Deploy Decentralization contracts
         sequencerRegistry = new SequencerRegistry(
             address(jejuToken), address(identityRegistry), address(reputationRegistry), treasury, owner
         );
@@ -92,20 +56,17 @@ contract DecentralizationIntegrationTest is Test {
         disputeFactory = new DisputeGameFactory(treasury, owner);
         disputeFactory.setProverImplementation(DisputeGameFactory.ProverType.CANNON, address(prover), true);
 
-        // Transfer ownership to timelock for upgrade tests
         disputeFactory.transferOwnership(address(timelock));
         sequencerRegistry.transferOwnership(address(timelock));
 
         vm.stopPrank();
 
-        // Register agents
         vm.prank(sequencer1);
         agentId1 = identityRegistry.register("ipfs://agent1");
 
         vm.prank(sequencer2);
         agentId2 = identityRegistry.register("ipfs://agent2");
 
-        // Fund accounts
         jejuToken.mint(sequencer1, 100_000 ether);
         jejuToken.mint(sequencer2, 100_000 ether);
         vm.deal(challenger, 100 ether);
@@ -223,8 +184,8 @@ contract DecentralizationIntegrationTest is Test {
             DisputeGameFactory.ProverType.CANNON
         );
 
-        bytes memory proof = _generateFraudProof(invalidStateRoot, claimRoot);
-        disputeFactory.resolveChallengerWins(gameId, proof);
+        // MockProver returns true by default for fraud proofs
+        disputeFactory.resolveChallengerWins(gameId, "");
 
         // Challenger wins, gets bond back
         assertGt(challenger.balance, 95 ether); // Got bond back
@@ -262,8 +223,7 @@ contract DecentralizationIntegrationTest is Test {
             DisputeGameFactory.ProverType.CANNON
         );
 
-        bytes memory proof = _generateFraudProof(invalidRoot, claimRoot);
-        disputeFactory.resolveChallengerWins(gameId, proof);
+        disputeFactory.resolveChallengerWins(gameId, "");
 
         // 5. Propose upgrade via timelock
         address newTreasury = makeAddr("newTreasury");
