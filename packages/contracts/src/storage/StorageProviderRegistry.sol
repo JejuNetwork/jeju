@@ -7,20 +7,9 @@ import {IStorageTypes} from "./IStorageTypes.sol";
 
 /**
  * @title StorageProviderRegistry
- * @author Jeju Network
  * @notice Registry for decentralized storage providers with ERC-8004 agent integration
- * @dev Providers stake ETH, set pricing, and manage capacity. Optional agent linking.
- *      Inherits from ProviderRegistryBase for standardized ERC-8004 and moderation integration
- *
- * ERC-8004 Integration:
- * - Providers can link to an ERC-8004 agent for identity verification
- * - Agent ownership is verified on-chain via IdentityRegistry
- * - Consumers can discover providers by agentId
- * - Agent reputation feeds into provider trust scores
  */
 contract StorageProviderRegistry is IStorageTypes, ProviderRegistryBase {
-    // ============ State ============
-
     mapping(address => Provider) private _providers;
     mapping(address => ProviderCapacity) private _capacities;
     mapping(address => ProviderPricing) private _pricing;
@@ -30,14 +19,11 @@ contract StorageProviderRegistry is IStorageTypes, ProviderRegistryBase {
     mapping(address => uint256) private _healthScores;
     mapping(address => uint256) private _avgLatencies;
 
-    // ============ Events ============
-
     event ProviderRegistered(
         address indexed provider, string name, string endpoint, ProviderType providerType, uint256 agentId
     );
-    event StorageProviderUpdated(address indexed provider); // Renamed to avoid conflict with base
+    event StorageProviderUpdated(address indexed provider);
 
-    // ============ Errors ============
 
     error InvalidProviderType();
     error InvalidEndpoint();
@@ -52,15 +38,6 @@ contract StorageProviderRegistry is IStorageTypes, ProviderRegistryBase {
         uint256 _minProviderStake
     ) ProviderRegistryBase(_owner, _identityRegistry, _banManager, _minProviderStake) {}
 
-    // ============ Registration ============
-
-    /**
-     * @notice Register as a storage provider (without ERC-8004 agent)
-     * @param name Provider display name
-     * @param endpoint API endpoint URL
-     * @param providerType Storage backend type (IPFS, Cloud, etc.)
-     * @param attestationHash Hash of hardware/TEE attestation
-     */
     function register(string calldata name, string calldata endpoint, uint8 providerType, bytes32 attestationHash)
         external
         payable
@@ -75,14 +52,6 @@ contract StorageProviderRegistry is IStorageTypes, ProviderRegistryBase {
         _storeProviderData(msg.sender, name, endpoint, ProviderType(providerType), attestationHash, 0);
     }
 
-    /**
-     * @notice Register as a storage provider with ERC-8004 agent verification
-     * @param name Provider display name
-     * @param endpoint API endpoint URL
-     * @param providerType Storage backend type
-     * @param attestationHash Hash of hardware attestation
-     * @param agentId ERC-8004 agent ID for identity verification
-     */
     function registerWithAgent(
         string calldata name,
         string calldata endpoint,
@@ -98,9 +67,6 @@ contract StorageProviderRegistry is IStorageTypes, ProviderRegistryBase {
         _storeProviderData(msg.sender, name, endpoint, ProviderType(providerType), attestationHash, agentId);
     }
 
-    /**
-     * @dev Store provider-specific data after base registration
-     */
     function _storeProviderData(
         address provider,
         string calldata name,
@@ -122,11 +88,9 @@ contract StorageProviderRegistry is IStorageTypes, ProviderRegistryBase {
             verified: false
         });
 
-        // Default supported tiers
         _supportedTiers[provider].push(StorageTier.HOT);
         _supportedTiers[provider].push(StorageTier.WARM);
         _supportedTiers[provider].push(StorageTier.COLD);
-
         _replicationFactors[provider] = 1;
 
         emit ProviderRegistered(provider, name, endpoint, providerType, agentId);
@@ -166,7 +130,7 @@ contract StorageProviderRegistry is IStorageTypes, ProviderRegistryBase {
 
     function updateCapacity(uint256 totalCapacityGB, uint256 usedCapacityGB) external {
         if (_providers[msg.sender].registeredAt == 0) revert ProviderNotRegistered();
-        if (totalCapacityGB < usedCapacityGB) revert InvalidProviderType(); // Reuse error
+        if (totalCapacityGB < usedCapacityGB) revert InvalidProviderType();
 
         _capacities[msg.sender] = ProviderCapacity({
             totalCapacityGB: totalCapacityGB,
@@ -211,7 +175,6 @@ contract StorageProviderRegistry is IStorageTypes, ProviderRegistryBase {
         emit ProviderReactivated(msg.sender);
     }
 
-    // ============ Staking ============
 
     function addStake() external payable nonReentrant {
         Provider storage provider = _providers[msg.sender];
@@ -237,7 +200,6 @@ contract StorageProviderRegistry is IStorageTypes, ProviderRegistryBase {
         emit StakeWithdrawn(msg.sender, amount);
     }
 
-    // ============ View Functions ============
 
     function getProvider(address provider) external view returns (Provider memory) {
         return _providers[provider];
@@ -295,14 +257,13 @@ contract StorageProviderRegistry is IStorageTypes, ProviderRegistryBase {
         return _pricing[provider];
     }
 
-    // ============ Admin ============
 
     function verifyProvider(address provider) external onlyOwner {
         _providers[provider].verified = true;
     }
 
     function setHealthScore(address provider, uint256 score) external onlyOwner {
-        if (score > 100) revert InvalidProviderType(); // Reuse error
+        if (score > 100) revert InvalidProviderType();
         _healthScores[provider] = score;
     }
 
@@ -315,10 +276,6 @@ contract StorageProviderRegistry is IStorageTypes, ProviderRegistryBase {
         _ipfsGateways[provider] = gateway;
     }
 
-    /**
-     * @notice Get all providers linked to ERC-8004 agents
-     * @return providers Array of provider addresses with linked agents
-     */
     function getAgentLinkedProviders() external view returns (address[] memory) {
         uint256 linkedCount = 0;
         for (uint256 i = 0; i < providerList.length; i++) {

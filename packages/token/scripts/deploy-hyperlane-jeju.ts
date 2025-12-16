@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @deprecated Use 'jeju token deploy hyperlane' instead
+ * @deprecated Use 'jeju token deploy:hyperlane' instead
  * 
  * Deploy Hyperlane infrastructure to Jeju Testnet
  * 
@@ -12,8 +12,8 @@
  * Then updates the config file with the deployed addresses.
  * 
  * Usage:
- *   jeju token deploy hyperlane --network testnet
- *   jeju token deploy hyperlane --network testnet --dry-run
+ *   jeju token deploy:hyperlane --network testnet
+ *   jeju token deploy:hyperlane --network testnet --dry-run
  */
 
 import { createPublicClient, createWalletClient, http, type Hex, type Address } from 'viem';

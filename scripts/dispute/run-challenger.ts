@@ -123,7 +123,9 @@ class ChallengerService {
         args: [latest],
       });
       await this.handleOutputProposed(output[0] as `0x${string}`, latest, output[2] as bigint);
-    } catch {}
+    } catch {
+      // Ignore polling errors - will retry on next poll
+    }
   }
 
   private async pollGames(): Promise<void> {
@@ -150,7 +152,9 @@ class ChallengerService {
           game[7] as bigint
         );
       }
-    } catch {}
+    } catch {
+      // Ignore polling errors - will retry on next poll
+    }
   }
 
   private async handleOutputProposed(

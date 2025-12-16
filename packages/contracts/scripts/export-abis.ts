@@ -1,6 +1,11 @@
 /**
+ * @deprecated Use 'jeju build abis' instead
+ * 
  * @fileoverview Export ABIs from forge build artifacts
  * Run after `forge build` to update abis/ folder
+ * 
+ * Usage:
+ *   jeju build abis
  */
 
 import { readFile, writeFile, mkdir, access } from 'fs/promises';

@@ -117,4 +117,24 @@ buildCommand
     });
   });
 
+buildCommand
+  .command('abis')
+  .description('Export contract ABIs from forge build artifacts')
+  .action(async () => {
+    const rootDir = findMonorepoRoot();
+    const scriptPath = join(rootDir, 'packages/contracts/scripts/export-abis.ts');
+    
+    if (!existsSync(scriptPath)) {
+      logger.error('Export ABIs script not found');
+      return;
+    }
+    
+    logger.step('Exporting contract ABIs...');
+    await execa('bun', ['run', scriptPath], {
+      cwd: rootDir,
+      stdio: 'inherit',
+    });
+    logger.success('ABIs exported');
+  });
+
 export { buildCommand };

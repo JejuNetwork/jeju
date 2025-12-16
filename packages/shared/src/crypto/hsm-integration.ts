@@ -268,8 +268,12 @@ export class HSMClient {
       if (!keyBytes) throw new Error(`Local-sim key ${keyId} not found`);
       
       const iv = crypto.getRandomValues(new Uint8Array(12));
-      const cryptoKey = await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-GCM' }, false, ['encrypt']);
-      const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, toBytes(plaintext));
+      // Create a proper ArrayBuffer from the Uint8Array for Web Crypto API
+      const keyBuffer = new ArrayBuffer(keyBytes.length);
+      new Uint8Array(keyBuffer).set(keyBytes);
+      const cryptoKey = await crypto.subtle.importKey('raw', keyBuffer, { name: 'AES-GCM' }, false, ['encrypt']);
+      const plaintextBytes = new Uint8Array(toBytes(plaintext));
+      const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, plaintextBytes);
       
       const arr = new Uint8Array(encrypted);
       return { ciphertext: toHex(arr.slice(0, -16)), iv: toHex(iv), tag: toHex(arr.slice(-16)) };
@@ -287,8 +291,12 @@ export class HSMClient {
       if (!keyBytes) throw new Error(`Local-sim key ${keyId} not found`);
       
       const combined = new Uint8Array([...toBytes(ciphertext), ...(tag ? toBytes(tag) : new Uint8Array(16))]);
-      const cryptoKey = await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-GCM' }, false, ['decrypt']);
-      const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: toBytes(iv) }, cryptoKey, combined);
+      const ivBytes = new Uint8Array(toBytes(iv));
+      // Create a proper ArrayBuffer from the Uint8Array for Web Crypto API
+      const keyBuffer = new ArrayBuffer(keyBytes.length);
+      new Uint8Array(keyBuffer).set(keyBytes);
+      const cryptoKey = await crypto.subtle.importKey('raw', keyBuffer, { name: 'AES-GCM' }, false, ['decrypt']);
+      const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: ivBytes }, cryptoKey, combined);
       return toHex(new Uint8Array(decrypted));
     }
 

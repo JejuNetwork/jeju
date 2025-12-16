@@ -190,6 +190,25 @@ contract OracleRegistry is IOracleRegistry, Ownable {
     }
 
     /**
+     * @notice Register a TWAP oracle (uses TWAPOracle contract)
+     */
+    function registerTWAPOracle(
+        address token,
+        uint256 heartbeat
+    ) external onlyOwner {
+        oracles[token] = OracleInfo({
+            feed: address(twapOracle),
+            pythId: bytes32(0),
+            heartbeat: heartbeat,
+            decimals: OUTPUT_DECIMALS,
+            oracleType: OracleType.TWAP,
+            active: true
+        });
+
+        emit OracleRegistered(token, address(twapOracle), bytes32(0), OracleType.TWAP);
+    }
+
+    /**
      * @notice Register a custom oracle
      */
     function registerOracle(
@@ -211,11 +230,42 @@ contract OracleRegistry is IOracleRegistry, Ownable {
     }
 
     /**
+     * @notice Register a fallback oracle for a token
+     * @dev Used when primary oracle fails or is stale
+     */
+    function registerFallbackOracle(
+        address token,
+        OracleType oracleType,
+        address feed,
+        bytes32 pythId,
+        uint256 heartbeat,
+        uint8 decimals
+    ) external onlyOwner {
+        fallbackOracles[token] = OracleInfo({
+            feed: feed,
+            pythId: pythId,
+            heartbeat: heartbeat,
+            decimals: decimals,
+            oracleType: oracleType,
+            active: true
+        });
+
+        emit FallbackOracleRegistered(token, feed, oracleType);
+    }
+
+    /**
      * @notice Deactivate an oracle
      */
     function deactivateOracle(address token) external onlyOwner {
         oracles[token].active = false;
         emit OracleDeactivated(token);
+    }
+
+    /**
+     * @notice Deactivate a fallback oracle
+     */
+    function deactivateFallbackOracle(address token) external onlyOwner {
+        fallbackOracles[token].active = false;
     }
 
     // ============ Price Fetching ============
@@ -233,16 +283,72 @@ contract OracleRegistry is IOracleRegistry, Ownable {
             revert OracleInactive(token);
         }
 
-        if (info.oracleType == OracleType.PYTH) {
-            price = _getPythPrice(info);
-        } else if (info.oracleType == OracleType.CHAINLINK) {
-            price = _getChainlinkPrice(info, token);
-        } else {
-            price = _getCustomPrice(info, token);
+        // Try primary oracle
+        bool primarySuccess;
+        (primarySuccess, price) = _tryGetPrice(info, token);
+
+        // If primary fails and fallback is enabled, try fallback
+        if (!primarySuccess && useFallback) {
+            OracleInfo storage fallbackInfo = fallbackOracles[token];
+            if (fallbackInfo.active && (fallbackInfo.feed != address(0) || fallbackInfo.pythId != bytes32(0))) {
+                (bool fallbackSuccess, uint256 fallbackPrice) = _tryGetPrice(fallbackInfo, token);
+                if (fallbackSuccess) {
+                    price = fallbackPrice;
+                }
+            }
         }
 
         if (price == 0) {
             revert InvalidPrice(token);
+        }
+    }
+
+    /**
+     * @notice Get price with fallback and deviation check
+     * @dev Returns both primary and fallback prices for comparison
+     */
+    function getPriceWithValidation(address token) external view returns (
+        uint256 primaryPrice,
+        uint256 fallbackPrice,
+        uint256 deviation,
+        bool isValid
+    ) {
+        OracleInfo storage info = oracles[token];
+        OracleInfo storage fallbackInfo = fallbackOracles[token];
+
+        (bool primarySuccess, uint256 pPrice) = _tryGetPrice(info, token);
+        (bool fallbackSuccess, uint256 fPrice) = _tryGetPrice(fallbackInfo, token);
+
+        primaryPrice = pPrice;
+        fallbackPrice = fPrice;
+
+        if (primarySuccess && fallbackSuccess && pPrice > 0 && fPrice > 0) {
+            uint256 diff = pPrice > fPrice ? pPrice - fPrice : fPrice - pPrice;
+            uint256 avg = (pPrice + fPrice) / 2;
+            deviation = (diff * 10000) / avg;
+            isValid = deviation <= maxPriceDeviation;
+        } else {
+            deviation = 0;
+            isValid = primarySuccess || fallbackSuccess;
+        }
+    }
+
+    /**
+     * @notice Try to get price from an oracle, returns success status
+     */
+    function _tryGetPrice(OracleInfo storage info, address token) internal view returns (bool success, uint256 price) {
+        if (info.feed == address(0) && info.pythId == bytes32(0)) {
+            return (false, 0);
+        }
+
+        if (info.oracleType == OracleType.PYTH) {
+            return _tryGetPythPrice(info);
+        } else if (info.oracleType == OracleType.CHAINLINK) {
+            return _tryGetChainlinkPrice(info, token);
+        } else if (info.oracleType == OracleType.TWAP) {
+            return _tryGetTWAPPrice(token);
+        } else {
+            return _tryGetCustomPrice(info, token);
         }
     }
 
@@ -317,69 +423,108 @@ contract OracleRegistry is IOracleRegistry, Ownable {
 
     // ============ Internal Functions ============
 
-    function _getPythPrice(OracleInfo storage info) internal view returns (uint256) {
-        IPyth.Price memory price = pyth.getPriceNoOlderThan(info.pythId, info.heartbeat);
+    function _tryGetPythPrice(OracleInfo storage info) internal view returns (bool success, uint256 price) {
+        try pyth.getPriceNoOlderThan(info.pythId, info.heartbeat) returns (IPyth.Price memory pythPrice) {
+            int256 priceInt = int256(pythPrice.price);
+            int32 expo = pythPrice.expo;
 
-        // Convert Pyth price to OUTPUT_DECIMALS
-        int256 priceInt = int256(price.price);
-        int32 expo = price.expo;
-
-        // Pyth prices can have negative exponents (e.g., -8 means divide by 10^8)
-        if (expo >= 0) {
-            return uint256(priceInt) * (10 ** uint256(int256(expo))) * (10 ** OUTPUT_DECIMALS);
-        } else {
-            int256 absExpo = -expo;
-            uint256 scaleFactor = 10 ** OUTPUT_DECIMALS;
-            uint256 divisor = 10 ** uint256(absExpo);
-
-            // Scale up first, then divide
-            return (uint256(priceInt) * scaleFactor) / divisor;
+            if (expo >= 0) {
+                price = uint256(priceInt) * (10 ** uint256(int256(expo))) * (10 ** OUTPUT_DECIMALS);
+            } else {
+                int256 absExpo = -expo;
+                uint256 scaleFactor = 10 ** OUTPUT_DECIMALS;
+                uint256 divisor = 10 ** uint256(absExpo);
+                price = (uint256(priceInt) * scaleFactor) / divisor;
+            }
+            success = price > 0;
+        } catch {
+            success = false;
+            price = 0;
         }
     }
 
-    function _getChainlinkPrice(OracleInfo storage info, address token) internal view returns (uint256) {
-        (, int256 answer, , uint256 updatedAt, ) = IChainlinkFeed(info.feed).latestRoundData();
+    function _tryGetChainlinkPrice(OracleInfo storage info, address) internal view returns (bool success, uint256 price) {
+        try IChainlinkFeed(info.feed).latestRoundData() returns (
+            uint80,
+            int256 answer,
+            uint256,
+            uint256 updatedAt,
+            uint80
+        ) {
+            uint256 staleness = block.timestamp - updatedAt;
+            if (staleness > info.heartbeat || answer <= 0) {
+                return (false, 0);
+            }
 
-        // Check staleness
-        uint256 staleness = block.timestamp - updatedAt;
-        if (staleness > info.heartbeat) {
-            revert PriceStale(token, staleness);
-        }
-
-        if (answer <= 0) {
-            revert InvalidPrice(token);
-        }
-
-        // Normalize to OUTPUT_DECIMALS
-        if (info.decimals > OUTPUT_DECIMALS) {
-            return uint256(answer) / (10 ** (info.decimals - OUTPUT_DECIMALS));
-        } else {
-            return uint256(answer) * (10 ** (OUTPUT_DECIMALS - info.decimals));
+            if (info.decimals > OUTPUT_DECIMALS) {
+                price = uint256(answer) / (10 ** (info.decimals - OUTPUT_DECIMALS));
+            } else {
+                price = uint256(answer) * (10 ** (OUTPUT_DECIMALS - info.decimals));
+            }
+            success = true;
+        } catch {
+            success = false;
+            price = 0;
         }
     }
 
-    function _getCustomPrice(OracleInfo storage info, address token) internal view returns (uint256) {
-        // Custom feeds expected to have latestAnswer() function
-        (bool success, bytes memory data) = info.feed.staticcall(
+    function _tryGetTWAPPrice(address token) internal view returns (bool success, uint256 price) {
+        if (address(twapOracle) == address(0)) {
+            return (false, 0);
+        }
+
+        try twapOracle.isValidTWAP(token) returns (bool isValid) {
+            if (!isValid) {
+                return (false, 0);
+            }
+        } catch {
+            return (false, 0);
+        }
+
+        try twapOracle.getPrice(token) returns (uint256 twapPrice) {
+            success = twapPrice > 0;
+            price = twapPrice;
+        } catch {
+            success = false;
+            price = 0;
+        }
+    }
+
+    function _tryGetCustomPrice(OracleInfo storage info, address) internal view returns (bool success, uint256 price) {
+        (bool callSuccess, bytes memory data) = info.feed.staticcall(
             abi.encodeWithSignature("latestAnswer()")
         );
 
-        if (!success || data.length == 0) {
-            revert InvalidPrice(token);
+        if (!callSuccess || data.length == 0) {
+            return (false, 0);
         }
 
         int256 answer = abi.decode(data, (int256));
-
         if (answer <= 0) {
-            revert InvalidPrice(token);
+            return (false, 0);
         }
 
-        // Normalize to OUTPUT_DECIMALS
         if (info.decimals > OUTPUT_DECIMALS) {
-            return uint256(answer) / (10 ** (info.decimals - OUTPUT_DECIMALS));
+            price = uint256(answer) / (10 ** (info.decimals - OUTPUT_DECIMALS));
         } else {
-            return uint256(answer) * (10 ** (OUTPUT_DECIMALS - info.decimals));
+            price = uint256(answer) * (10 ** (OUTPUT_DECIMALS - info.decimals));
         }
+        success = true;
+    }
+
+    // ============ Admin Functions ============
+
+    function setTWAPOracle(address twapOracle_) external onlyGovernance {
+        twapOracle = ITWAPOracle(twapOracle_);
+        emit TWAPOracleUpdated(twapOracle_);
+    }
+
+    function setUseFallback(bool enabled) external onlyGovernance {
+        useFallback = enabled;
+    }
+
+    function setMaxPriceDeviation(uint256 deviationBps) external onlyGovernance {
+        maxPriceDeviation = deviationBps;
     }
 }
 

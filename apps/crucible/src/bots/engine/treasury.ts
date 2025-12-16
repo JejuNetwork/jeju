@@ -93,6 +93,8 @@ export class TreasuryManager {
 
       if (allowance < amount) {
         const approveHash = await this.walletClient.writeContract({
+          chain: this.walletClient.chain,
+          account: this.account,
           address: token as `0x${string}`,
           abi: ERC20_ABI,
           functionName: 'approve',
@@ -114,6 +116,7 @@ export class TreasuryManager {
     });
 
     const hash = await this.walletClient.sendTransaction({
+      chain: this.walletClient.chain,
       account: this.account,
       to: this.treasuryAddress as `0x${string}`,
       data: data as `0x${string}`,
@@ -177,6 +180,8 @@ export class TreasuryManager {
     }
 
     const hash = await this.walletClient.writeContract({
+      chain: this.walletClient.chain,
+      account: this.account,
       address: this.treasuryAddress as `0x${string}`,
       abi: AUTOCRAT_TREASURY_ABI,
       functionName: 'withdrawOperatorEarnings',

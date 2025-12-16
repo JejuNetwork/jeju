@@ -13,6 +13,9 @@ import {
 
 describe('Yield Farming Strategy', () => {
   const defaultConfig: YieldFarmingConfig = {
+    type: 'YIELD_FARMING',
+    enabled: true,
+    maxGasGwei: 100,
     chains: [1, 42161, 10, 8453],
     solanaNetwork: 'mainnet-beta',
     minApr: 1,
@@ -423,6 +426,7 @@ describe('APR Calculations', () => {
     expect(apr).toBeCloseTo(36.4, 1);
   });
 });
+
 
 
 

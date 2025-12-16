@@ -8,42 +8,17 @@ import "./interfaces/IReputationRegistry.sol";
 
 /**
  * @title ReputationRegistry
- * @dev ERC-8004 v1.0 Reputation Registry - Reference Implementation
- * @notice On-chain feedback system with cryptographic authorization
- *
- * This contract implements the Reputation Registry as specified in ERC-8004 v1.0.
- * It provides a standard interface for posting and fetching feedback signals with
- * on-chain storage and aggregation capabilities.
- *
- * Key Features:
- * - Cryptographic feedback authorization (EIP-191/ERC-1271)
- * - On-chain feedback storage with scores (0-100)
- * - Tag-based categorization system
- * - IPFS/URI support with integrity hashes
- * - Feedback revocation
- * - Response appending by any party
- * - On-chain aggregation for composability
- *
- * @author ChaosChain Labs
+ * @notice ERC-8004 v1.0 Reputation Registry - On-chain feedback system
  */
 contract ReputationRegistry is IReputationRegistry {
     using ECDSA for bytes32;
 
-    // ============ Constants ============
-
-    /// @notice Maximum URI length to prevent gas griefing
     uint256 public constant MAX_URI_LENGTH = 2048;
-
-    // ============ Errors ============
 
     error URITooLong();
 
-    // ============ State Variables ============
-
-    /// @dev Reference to the IdentityRegistry
     IdentityRegistry public immutable identityRegistry;
 
-    /// @dev Struct to store feedback data
     struct Feedback {
         uint8 score;
         bytes32 tag1;
@@ -62,47 +37,18 @@ contract ReputationRegistry is IReputationRegistry {
         address signerAddress;
     }
 
-    /// @dev agentId => clientAddress => feedbackIndex => Feedback
     mapping(uint256 => mapping(address => mapping(uint64 => Feedback))) private _feedback;
-
-    /// @dev agentId => clientAddress => last feedback index
     mapping(uint256 => mapping(address => uint64)) private _lastIndex;
-
-    /// @dev agentId => list of client addresses
     mapping(uint256 => address[]) private _clients;
-
-    /// @dev agentId => clientAddress => exists in clients array
     mapping(uint256 => mapping(address => bool)) private _clientExists;
-
-    /// @dev agentId => clientAddress => feedbackIndex => responder => response count
     mapping(uint256 => mapping(address => mapping(uint64 => mapping(address => uint64)))) private _responseCount;
-
-    /// @dev Size of FeedbackAuth struct in bytes (7 fields × 32 bytes each)
     uint256 private constant FEEDBACK_AUTH_STRUCT_SIZE = 224;
 
-    // ============ Constructor ============
-
-    /**
-     * @dev Constructor sets the identity registry reference
-     * @param _identityRegistry Address of the IdentityRegistry contract
-     */
     constructor(address payable _identityRegistry) {
         require(_identityRegistry != address(0), "Invalid registry address");
         identityRegistry = IdentityRegistry(_identityRegistry);
     }
 
-    // ============ Core Functions ============
-
-    /**
-     * @notice Give feedback for an agent
-     * @param agentId The agent receiving feedback
-     * @param score The feedback score (0-100)
-     * @param tag1 First tag for categorization (optional)
-     * @param tag2 Second tag for categorization (optional)
-     * @param fileuri URI pointing to off-chain feedback data (optional)
-     * @param filehash KECCAK-256 hash of the file content (optional for IPFS)
-     * @param feedbackAuth Signed authorization from the agent
-     */
     function giveFeedback(
         uint256 agentId,
         uint8 score,
@@ -112,33 +58,21 @@ contract ReputationRegistry is IReputationRegistry {
         bytes32 filehash,
         bytes memory feedbackAuth
     ) external {
-        // Validate score
         require(score <= 100, "Score must be 0-100");
-
-        // Prevent gas griefing via huge URIs
         if (bytes(fileuri).length > MAX_URI_LENGTH) revert URITooLong();
-
-        // Verify agent exists
         require(identityRegistry.agentExists(agentId), "Agent does not exist");
 
-        // Decode and verify feedback authorization
         FeedbackAuth memory auth = _decodeFeedbackAuth(feedbackAuth);
-
-        // Verify authorization parameters
         require(auth.agentId == agentId, "AgentId mismatch");
         require(auth.clientAddress == msg.sender, "ClientAddress mismatch");
         require(auth.chainId == block.chainid, "ChainId mismatch");
         require(auth.identityRegistry == address(identityRegistry), "Registry mismatch");
         require(block.timestamp < auth.expiry, "Authorization expired");
 
-        // Get current index for this client-agent pair
         uint64 currentIndex = _lastIndex[agentId][msg.sender] + 1;
         require(currentIndex <= auth.indexLimit, "Index limit exceeded");
 
-        // Verify signer is owner or approved operator
         address agentOwner = identityRegistry.ownerOf(agentId);
-
-        // SECURITY: Prevent self-feedback to maintain integrity
         require(msg.sender != agentOwner, "Self-feedback not allowed");
         require(
             auth.signerAddress == agentOwner || identityRegistry.isApprovedForAll(agentOwner, auth.signerAddress)
@@ -146,8 +80,7 @@ contract ReputationRegistry is IReputationRegistry {
             "Invalid signer"
         );
 
-        // Extract signature (last 65 bytes: r=32, s=32, v=1)
-        require(feedbackAuth.length >= 289, "Invalid auth data length"); // 224 + 65
+        require(feedbackAuth.length >= 289, "Invalid auth data length");
 
         bytes32 r;
         bytes32 s;

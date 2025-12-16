@@ -7,7 +7,7 @@
 import { privateKeyToAccount } from 'viem/accounts';
 import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
-import type { Address, Hex } from 'viem';
+import type { Address } from 'viem';
 import { createStorageService } from './storage';
 import { createJNSService, setupDAppJNS } from './jns';
 import { createCronService } from './cron';
@@ -163,14 +163,9 @@ async function deployFrontendToIPFS(buildDir: string, owner: Address): Promise<s
   
   collectFiles(buildDir);
   
-  // Upload as JSON manifest (simple approach)
-  // In production, this would be a proper directory upload
-  const manifest = {
-    files: files.map(f => ({
-      path: f.path,
-      size: f.content.length,
-    })),
-  };
+  // TODO: In production, upload manifest alongside files
+  // For now, just upload index.html directly
+  void files.length; // Track file count for future manifest upload
   
   // Upload main index.html first
   const indexFile = files.find(f => f.path === 'index.html');

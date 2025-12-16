@@ -5,6 +5,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ProviderRegistryBase} from "../registry/ProviderRegistryBase.sol";
 import {ERC8004ProviderMixin} from "../registry/ERC8004ProviderMixin.sol";
+import {ModerationMixin} from "../moderation/ModerationMixin.sol";
 
 /**
  * @title RPCProviderRegistry

@@ -667,7 +667,7 @@ export function createJejuGitSDK(config: GitSDKConfig): JejuGitSDK {
 export function createDefaultGitSDK(): JejuGitSDK {
   return new JejuGitSDK({
     rpcUrl: process.env.JEJU_RPC_URL ?? 'http://127.0.0.1:9545',
-    gitServerUrl: process.env.JEJUGIT_URL ?? 'http://localhost:4020',
+    gitServerUrl: process.env.JEJUGIT_URL ?? 'http://localhost:4030/git',
     registryAddress: process.env.GIT_REGISTRY_ADDRESS as Address | undefined,
   });
 }
