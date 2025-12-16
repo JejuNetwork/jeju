@@ -4,7 +4,7 @@ pragma solidity ^0.8.26;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
-import "./provers/Prover.sol";
+import "./provers/IProver.sol";
 
 contract DisputeGameFactory is Ownable, ReentrancyGuard, Pausable {
     struct DisputeGame {
@@ -27,7 +27,6 @@ contract DisputeGameFactory is Ownable, ReentrancyGuard, Pausable {
     }
     enum ProverType {
         CANNON,
-        SIMPLE,
         ALTERNATIVE
     }
     enum GameStatus {

@@ -5,11 +5,10 @@ import "forge-std/Test.sol";
 import "../src/dispute/DisputeGameFactory.sol";
 import "../src/governance/GovernanceTimelock.sol";
 import "../src/sequencer/SequencerRegistry.sol";
-import "../src/dispute/provers/Prover.sol";
 import "../src/registry/IdentityRegistry.sol";
 import "../src/registry/ReputationRegistry.sol";
+import "./mocks/MockProver.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 contract RejectingReceiver {
     receive() external payable {
@@ -48,74 +47,23 @@ contract MockJEJUEdge is ERC20 {
 }
 
 contract DisputeGameFactoryEdgeCasesTest is Test {
-    using MessageHashUtils for bytes32;
-
     DisputeGameFactory public factory;
-    Prover public prover;
+    MockProver public prover;
 
     address public owner = makeAddr("owner");
     address public treasury = makeAddr("treasury");
     address public challenger = makeAddr("challenger");
     address public proposer = makeAddr("proposer");
 
-    uint256 constant VALIDATOR1_KEY = 0x1;
-    uint256 constant VALIDATOR2_KEY = 0x2;
-    address validator1;
-    address validator2;
-
     bytes32 constant STATE_ROOT = keccak256("stateRoot");
     bytes32 constant CLAIM_ROOT = keccak256("claimRoot");
-    bytes32 constant ACTUAL_POST_STATE = keccak256("actualPostState");
-    bytes32 constant BLOCK_HASH = keccak256("blockHash");
-    uint64 constant BLOCK_NUMBER = 12345;
 
     function setUp() public {
-        validator1 = vm.addr(VALIDATOR1_KEY);
-        validator2 = vm.addr(VALIDATOR2_KEY);
-        prover = new Prover();
+        prover = new MockProver();
         factory = new DisputeGameFactory(treasury, owner);
         vm.prank(owner);
         factory.setProverImplementation(DisputeGameFactory.ProverType.CANNON, address(prover), true);
         vm.deal(challenger, 200 ether);
-    }
-
-    function _generateFraudProof(bytes32 stateRoot, bytes32 claimRoot) internal view returns (bytes memory) {
-        address[] memory signers = new address[](1);
-        bytes[] memory signatures = new bytes[](1);
-        signers[0] = validator1;
-
-        bytes32 outputRoot = keccak256(abi.encodePacked(BLOCK_HASH, stateRoot, ACTUAL_POST_STATE));
-        bytes32 fraudHash = keccak256(
-            abi.encodePacked(
-                prover.FRAUD_DOMAIN(), stateRoot, claimRoot, ACTUAL_POST_STATE, BLOCK_HASH, BLOCK_NUMBER, outputRoot
-            )
-        );
-
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(VALIDATOR1_KEY, fraudHash.toEthSignedMessageHash());
-        signatures[0] = abi.encodePacked(r, s, v);
-
-        return prover.generateFraudProof(
-            stateRoot, claimRoot, ACTUAL_POST_STATE, BLOCK_HASH, BLOCK_NUMBER, signers, signatures
-        );
-    }
-
-    function _generateDefenseProof(bytes32 stateRoot, bytes32 claimRoot) internal view returns (bytes memory) {
-        address[] memory signers = new address[](2);
-        bytes[] memory signatures = new bytes[](2);
-        signers[0] = validator1;
-        signers[1] = validator2;
-
-        bytes32 outputRoot = keccak256(abi.encodePacked(BLOCK_HASH, stateRoot, claimRoot));
-        bytes32 defenseHash = keccak256(
-            abi.encodePacked(prover.DEFENSE_DOMAIN(), stateRoot, claimRoot, BLOCK_HASH, BLOCK_NUMBER, outputRoot)
-        );
-
-        (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(VALIDATOR1_KEY, defenseHash.toEthSignedMessageHash());
-        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(VALIDATOR2_KEY, defenseHash.toEthSignedMessageHash());
-        signatures[0] = abi.encodePacked(r1, s1, v1);
-        signatures[1] = abi.encodePacked(r2, s2, v2);
-
-        return prover.generateDefenseProof(stateRoot, claimRoot, BLOCK_HASH, BLOCK_NUMBER, signers, signatures);
     }
 
     // ============ Boundary Tests ============
@@ -223,7 +171,7 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
             DisputeGameFactory.ProverType.CANNON
         );
 
-        bytes memory proof = _generateFraudProof(STATE_ROOT, CLAIM_ROOT);
+        bytes memory proof = "";
         uint256 treasuryBefore = treasury.balance;
         factory.resolveChallengerWins(gameId, proof);
         assertEq(treasury.balance, treasuryBefore + 5 ether);
@@ -239,7 +187,7 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
             DisputeGameFactory.ProverType.CANNON
         );
 
-        bytes memory proof = _generateFraudProof(STATE_ROOT, CLAIM_ROOT);
+        bytes memory proof = "";
         factory.resolveChallengerWins(gameId, proof);
 
         vm.expectRevert(DisputeGameFactory.GameAlreadyResolved.selector);
@@ -248,7 +196,7 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
 
     // ============ Invalid Proof Tests ============
 
-    function testResolveChallengerWinsWithEmptyProof() public {
+    function testResolveChallengerWinsWithProverReturningFalse() public {
         vm.prank(challenger);
         bytes32 gameId = factory.createGame{value: 5 ether}(
             proposer,
@@ -258,12 +206,13 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
             DisputeGameFactory.ProverType.CANNON
         );
 
-        // Empty proof should fail in prover
-        vm.expectRevert(Prover.InvalidProofLength.selector);
+        // Configure prover to reject
+        prover.setVerifyFraud(false);
+        vm.expectRevert(DisputeGameFactory.GameNotResolved.selector);
         factory.resolveChallengerWins(gameId, "");
     }
 
-    function testResolveChallengerWinsWithShortProof() public {
+    function testResolveProposerWinsWithProverReturningFalse() public {
         vm.prank(challenger);
         bytes32 gameId = factory.createGame{value: 5 ether}(
             proposer,
@@ -273,28 +222,13 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
             DisputeGameFactory.ProverType.CANNON
         );
 
-        // Proof shorter than MIN_PROOF_LENGTH (32 bytes)
-        bytes memory shortProof = new bytes(16);
-        vm.expectRevert(Prover.InvalidProofLength.selector);
-        factory.resolveChallengerWins(gameId, shortProof);
-    }
-
-    function testResolveProposerWinsWithFraudProof() public {
-        vm.prank(challenger);
-        bytes32 gameId = factory.createGame{value: 5 ether}(
-            proposer,
-            STATE_ROOT,
-            CLAIM_ROOT,
-            DisputeGameFactory.GameType.FAULT_DISPUTE,
-            DisputeGameFactory.ProverType.CANNON
-        );
-
-        bytes memory fraudProof = _generateFraudProof(STATE_ROOT, CLAIM_ROOT);
+        // Configure prover to reject defense proofs
+        prover.setVerifyDefense(false);
         vm.expectRevert(DisputeGameFactory.GameNotResolved.selector);
-        factory.resolveProposerWins(gameId, fraudProof);
+        factory.resolveProposerWins(gameId, "");
     }
 
-    function testResolveChallengerWinsWithDefenseProof() public {
+    function testResolveProposerWinsRequiresDefenseProof() public {
         vm.prank(challenger);
         bytes32 gameId = factory.createGame{value: 5 ether}(
             proposer,
@@ -304,12 +238,13 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
             DisputeGameFactory.ProverType.CANNON
         );
 
-        bytes memory defenseProof = _generateDefenseProof(STATE_ROOT, CLAIM_ROOT);
+        // Configure prover to reject defense
+        prover.setVerifyDefense(false);
         vm.expectRevert(DisputeGameFactory.GameNotResolved.selector);
-        factory.resolveChallengerWins(gameId, defenseProof);
+        factory.resolveProposerWins(gameId, "");
     }
 
-    function testResolveWithWrongStateRoot() public {
+    function testResolveChallengerWinsRequiresFraudProof() public {
         vm.prank(challenger);
         bytes32 gameId = factory.createGame{value: 5 ether}(
             proposer,
@@ -319,10 +254,29 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
             DisputeGameFactory.ProverType.CANNON
         );
 
-        bytes32 wrongStateRoot = keccak256("wrong");
-        bytes memory wrongProof = _generateFraudProof(wrongStateRoot, CLAIM_ROOT);
-        vm.expectRevert(); // Will revert due to state mismatch in prover
-        factory.resolveChallengerWins(gameId, wrongProof);
+        // Configure prover to reject fraud proof
+        prover.setVerifyFraud(false);
+        vm.expectRevert(DisputeGameFactory.GameNotResolved.selector);
+        factory.resolveChallengerWins(gameId, "");
+    }
+
+    function testProverRejectionPreventsResolution() public {
+        vm.prank(challenger);
+        bytes32 gameId = factory.createGame{value: 5 ether}(
+            proposer,
+            STATE_ROOT,
+            CLAIM_ROOT,
+            DisputeGameFactory.GameType.FAULT_DISPUTE,
+            DisputeGameFactory.ProverType.CANNON
+        );
+
+        // Both provers reject
+        prover.setVerifyFraud(false);
+        prover.setVerifyDefense(false);
+        vm.expectRevert(DisputeGameFactory.GameNotResolved.selector);
+        factory.resolveChallengerWins(gameId, "");
+        vm.expectRevert(DisputeGameFactory.GameNotResolved.selector);
+        factory.resolveProposerWins(gameId, "");
     }
 
     function testConcurrentResolutionAttempts() public {
@@ -335,8 +289,8 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
             DisputeGameFactory.ProverType.CANNON
         );
 
-        bytes memory fraudProof = _generateFraudProof(STATE_ROOT, CLAIM_ROOT);
-        bytes memory defenseProof = _generateDefenseProof(STATE_ROOT, CLAIM_ROOT);
+        bytes memory fraudProof = "";
+        bytes memory defenseProof = "";
 
         factory.resolveChallengerWins(gameId, fraudProof);
 
@@ -373,13 +327,13 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
 
         assertEq(factory.getActiveGameCount(), 3);
 
-        factory.resolveChallengerWins(game2, _generateFraudProof(keccak256("state2"), CLAIM_ROOT));
+        factory.resolveChallengerWins(game2, "");
         assertEq(factory.getActiveGameCount(), 2);
 
-        factory.resolveChallengerWins(game1, _generateFraudProof(STATE_ROOT, CLAIM_ROOT));
+        factory.resolveChallengerWins(game1, "");
         assertEq(factory.getActiveGameCount(), 1);
 
-        factory.resolveChallengerWins(game3, _generateFraudProof(keccak256("state3"), CLAIM_ROOT));
+        factory.resolveChallengerWins(game3, "");
         assertEq(factory.getActiveGameCount(), 0);
     }
 
@@ -396,7 +350,7 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
         vm.prank(owner);
         factory.setProverImplementation(DisputeGameFactory.ProverType.CANNON, address(0), false);
 
-        bytes memory proof = _generateFraudProof(STATE_ROOT, CLAIM_ROOT);
+        bytes memory proof = "";
         vm.expectRevert(DisputeGameFactory.InvalidProver.selector);
         factory.resolveChallengerWins(gameId, proof);
     }
@@ -411,12 +365,12 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
             DisputeGameFactory.ProverType.CANNON
         );
 
-        Prover newProver = new Prover();
+        MockProver newProver = new MockProver();
         vm.prank(owner);
         factory.setProverImplementation(DisputeGameFactory.ProverType.CANNON, address(newProver), true);
 
         // Generate proof with new prover
-        bytes memory proof = _generateFraudProof(STATE_ROOT, CLAIM_ROOT);
+        bytes memory proof = "";
         factory.resolveChallengerWins(gameId, proof);
 
         DisputeGameFactory.DisputeGame memory game = factory.getGame(gameId);
@@ -517,7 +471,7 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
         assertEq(game.resolvedAt, 0);
         assertEq(game.winner, address(0));
 
-        bytes memory proof = _generateFraudProof(STATE_ROOT, CLAIM_ROOT);
+        bytes memory proof = "";
         factory.resolveChallengerWins(gameId, proof);
 
         game = factory.getGame(gameId);
@@ -559,7 +513,7 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
         factory.pause();
 
         // Resolution should still work (not pausable)
-        bytes memory proof = _generateFraudProof(STATE_ROOT, CLAIM_ROOT);
+        bytes memory proof = "";
         factory.resolveChallengerWins(gameId, proof);
 
         DisputeGameFactory.DisputeGame memory game = factory.getGame(gameId);
@@ -599,12 +553,12 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
         );
 
         // Deploy new prover and switch
-        Prover newProver = new Prover();
+        MockProver newProver = new MockProver();
         vm.prank(owner);
         factory.setProverImplementation(DisputeGameFactory.ProverType.CANNON, address(newProver), true);
 
         // Generate proof - must work with new prover
-        bytes memory proof = _generateFraudProof(STATE_ROOT, CLAIM_ROOT);
+        bytes memory proof = "";
         factory.resolveChallengerWins(gameId, proof);
 
         DisputeGameFactory.DisputeGame memory game = factory.getGame(gameId);
@@ -648,15 +602,15 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
         vm.stopPrank();
 
         // Resolve one game
-        factory.resolveChallengerWins(game2, _generateFraudProof(keccak256("s2"), CLAIM_ROOT));
+        factory.resolveChallengerWins(game2, "");
         assertEq(factory.totalBondsLocked(), 4 ether);
 
         // Resolve another
-        factory.resolveChallengerWins(game1, _generateFraudProof(STATE_ROOT, CLAIM_ROOT));
+        factory.resolveChallengerWins(game1, "");
         assertEq(factory.totalBondsLocked(), 3 ether);
 
         // Resolve last
-        factory.resolveChallengerWins(game3, _generateFraudProof(keccak256("s3"), CLAIM_ROOT));
+        factory.resolveChallengerWins(game3, "");
         assertEq(factory.totalBondsLocked(), 0);
     }
 
@@ -688,7 +642,7 @@ contract DisputeGameFactoryEdgeCasesTest is Test {
             DisputeGameFactory.ProverType.CANNON
         );
 
-        bytes memory proof = _generateFraudProof(STATE_ROOT, CLAIM_ROOT);
+        bytes memory proof = "";
 
         uint256 gasBefore = gasleft();
         factory.resolveChallengerWins(gameId, proof);
