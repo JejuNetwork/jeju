@@ -4,7 +4,7 @@
  * Decentralized organization management using CQL database and DEX cache
  */
 
-import { CQLClient } from '@jeju/db';
+import { CQLClient, type QueryParam } from '@jeju/db';
 import type { OrgTodo, OrgCheckinSchedule, OrgCheckinResponse, OrgTeamMember } from '../types';
 import { createLogger, type Logger } from '../sdk/logger';
 
@@ -166,7 +166,7 @@ export class OrgAgent {
     limit?: number;
   } = {}): Promise<{ todos: OrgTodo[]; total: number }> {
     const conditions: string[] = ['org_id = ?'];
-    const queryParams: unknown[] = [this.config.orgId];
+    const queryParams: QueryParam[] = [this.config.orgId];
 
     if (params.status) {
       conditions.push('status = ?');
@@ -237,7 +237,7 @@ export class OrgAgent {
     dueDate?: number | null;
     tags?: string[];
   }): Promise<OrgTodo> {
-    const fields: Array<[string, unknown]> = [
+    const fields: Array<[string, QueryParam | undefined]> = [
       ['title', updates.title],
       ['description', updates.description],
       ['priority', updates.priority],
@@ -248,7 +248,7 @@ export class OrgAgent {
     ];
 
     const setClauses: string[] = [];
-    const values: unknown[] = [];
+    const values: QueryParam[] = [];
 
     for (const [field, value] of fields) {
       if (value !== undefined) {

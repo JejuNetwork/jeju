@@ -323,7 +323,7 @@ export class LiquidationStrategy {
       address: this.perpetualMarketAddress as `0x${string}`,
       abi: PERPETUAL_MARKET_ABI,
       functionName: 'getMarkPrice',
-      args: [marketId],
+      args: [marketId as `0x${string}`],
     }) as bigint;
 
     const currentPrice = priceResult;

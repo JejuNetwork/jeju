@@ -5,7 +5,7 @@
 import { type Address, type PublicClient, type WalletClient, parseAbi } from 'viem';
 import type {
   ExecutionRequest, ExecutionResult, ExecutionCost, ExecutionMetadata,
-  AgentAction, AgentTrigger, CrucibleConfig, RoomMessage,
+  AgentAction, AgentTrigger, CrucibleConfig, RoomMessage, AgentDefinition,
 } from '../types';
 import { CrucibleStorage } from './storage';
 import { CrucibleCompute } from './compute';

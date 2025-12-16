@@ -14,7 +14,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { Connection, PublicKey, VersionedTransaction, TransactionMessage } from '@solana/web3.js';
+import { Connection, PublicKey, VersionedTransaction, TransactionMessage, SystemProgram } from '@solana/web3.js';
 import WebSocket from 'ws';
 
 // ============ Configuration ============
@@ -407,27 +407,87 @@ export class SolanaMempoolMonitor extends EventEmitter {
     tx: PendingSolanaTx,
     swapIx: ParsedInstruction
   ): SolanaArbOpportunity | null {
-    // Check if swap is large enough
-    // In production, would query token accounts to get actual amounts
-
-    // For now, use priority fee as proxy for swap importance
-    if (tx.priorityFee < 5000) return null; // Skip low-priority txs
-
-    // Create backrun opportunity
+    // Parse actual token amounts from the swap instruction
+    const inputMint = swapIx.data.inputMint || '';
+    const outputMint = swapIx.data.outputMint || '';
+    
+    // Parse amounts - Jupiter/Raydium encode these differently
+    let inputAmount = BigInt(0);
+    let outputAmount = BigInt(0);
+    
+    if (swapIx.data.inAmount) {
+      inputAmount = BigInt(swapIx.data.inAmount);
+    } else if (swapIx.data.baseAmount) {
+      // Raydium format
+      inputAmount = BigInt(swapIx.data.baseAmount);
+    }
+    
+    if (swapIx.data.outAmount) {
+      outputAmount = BigInt(swapIx.data.outAmount);
+    } else if (swapIx.data.quoteAmount) {
+      outputAmount = BigInt(swapIx.data.quoteAmount);
+    }
+    
+    // Check minimum value (roughly 1 SOL = 1e9 lamports, tokens vary)
+    // SOL mint: So11111111111111111111111111111111111111112
+    const SOL_MINT = 'So11111111111111111111111111111111111111112';
+    const isSolInput = inputMint === SOL_MINT;
+    const isSolOutput = outputMint === SOL_MINT;
+    
+    // Determine if swap is large enough
+    // For SOL: 1e9 lamports = 1 SOL
+    // For tokens: estimate based on amount (e.g., USDC has 6 decimals)
+    let valueLamports = BigInt(0);
+    if (isSolInput) {
+      valueLamports = inputAmount;
+    } else if (isSolOutput) {
+      valueLamports = outputAmount;
+    } else {
+      // Estimate value: assume average token has 6-9 decimals
+      // For significant arb, we want at least $100 worth
+      // Skip small swaps entirely based on priority fee as fallback
+      if (tx.priorityFee < 5000 && inputAmount < BigInt(1e8)) {
+        return null;
+      }
+      // Use input amount as proxy (not ideal but better than priority fee alone)
+      valueLamports = inputAmount;
+    }
+    
+    // Minimum 1 SOL value for backrun
+    const MIN_VALUE = BigInt(1e9);
+    if (valueLamports < MIN_VALUE && !isSolInput && !isSolOutput) {
+      return null;
+    }
+    
+    // Calculate expected profit based on price impact
+    // Larger swaps create more price impact to capture
+    const slippageBps = swapIx.data.slippageBps || 50; // Default 0.5% if not specified
+    const priceImpactEstimate = Math.min(slippageBps / 10000, 0.03); // Cap at 3%
+    
+    // Profit estimate: capture fraction of price movement after their swap
+    // Typically can capture 20-50% of the reversion
+    const captureRate = 0.3;
+    const expectedProfitLamports = Number(valueLamports) * priceImpactEstimate * captureRate;
+    
+    // Skip if profit too low
+    if (expectedProfitLamports < MIN_PROFIT_LAMPORTS) {
+      return null;
+    }
+    
     const id = `backrun-${tx.signature.slice(0, 16)}`;
 
     const opportunity: SolanaArbOpportunity = {
       id,
       type: 'backrun',
       targetTx: tx,
-      expectedProfit: tx.priorityFee * 0.1, // Rough estimate: 10% of their priority fee
-      priority: tx.priorityFee,
+      expectedProfit: expectedProfitLamports,
+      priority: tx.priorityFee + Math.floor(expectedProfitLamports * 0.1), // Bid based on expected profit
       route: {
-        inputMint: swapIx.data.inputMint || '',
-        outputMint: swapIx.data.outputMint || '',
-        inputAmount: BigInt(0),
-        expectedOutput: BigInt(0),
-        priceImpact: 0,
+        inputMint,
+        outputMint,
+        inputAmount,
+        expectedOutput: outputAmount,
+        priceImpact: priceImpactEstimate,
         dexes: [swapIx.program],
       },
       expiresAt: Date.now() + 2000, // 2 second expiry

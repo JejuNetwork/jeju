@@ -462,34 +462,41 @@ export class FundingArbStrategy extends EventEmitter {
       grouping: 'na',
     };
 
-    // Create EIP-712 typed data for Hyperliquid
+    // Hyperliquid uses EIP-712 typed data signing with a specific domain
+    // chainId 1337 is used for L1 action signing (not 998 which is HyperEVM)
     const domain = {
-      name: 'Exchange',
+      name: 'HyperliquidSignTransaction',
       version: '1',
-      chainId: 42161, // Arbitrum
+      chainId: 1337,
       verifyingContract: '0x0000000000000000000000000000000000000000' as const,
     };
 
     const types = {
-      Agent: [
-        { name: 'source', type: 'string' },
-        { name: 'connectionId', type: 'bytes32' },
+      'HyperliquidTransaction:Approve': [
+        { name: 'hyperliquidChain', type: 'string' },
+        { name: 'signatureChainId', type: 'uint64' },
+        { name: 'nonce', type: 'uint64' },
       ],
     };
 
-    // Sign the action
+    // Sign the action using correct Hyperliquid L1 signing format
     const account = privateKeyToAccount(this.evmPrivateKey);
-    const connectionId = `0x${'0'.repeat(64)}` as `0x${string}`;
 
     const signature = await account.signTypedData({
       domain,
       types,
-      primaryType: 'Agent',
+      primaryType: 'HyperliquidTransaction:Approve',
       message: {
-        source: 'a',
-        connectionId,
+        hyperliquidChain: 'Mainnet',
+        signatureChainId: BigInt(1337),
+        nonce: BigInt(nonce),
       },
     });
+
+    // Parse signature into r, s, v components
+    const r = signature.slice(0, 66);
+    const s = `0x${signature.slice(66, 130)}`;
+    const v = parseInt(signature.slice(130, 132), 16);
 
     // Submit order to Hyperliquid
     const orderResponse = await fetch(`${HYPERLIQUID_API}/exchange`, {
@@ -498,11 +505,7 @@ export class FundingArbStrategy extends EventEmitter {
       body: JSON.stringify({
         action: orderAction,
         nonce,
-        signature: {
-          r: signature.slice(0, 66),
-          s: `0x${signature.slice(66, 130)}`,
-          v: parseInt(signature.slice(130, 132), 16),
-        },
+        signature: { r, s, v },
         vaultAddress: null,
       }),
     });
@@ -622,6 +625,7 @@ export class FundingArbStrategy extends EventEmitter {
         to: usdcAddress,
         data: approveData,
         account,
+        chain: null,
       });
       await clients.public.waitForTransactionReceipt({ hash: approveHash });
 
@@ -644,6 +648,7 @@ export class FundingArbStrategy extends EventEmitter {
         to: swapRouterAddress,
         data: swapData,
         account,
+        chain: null,
       });
 
       await clients.public.waitForTransactionReceipt({ hash: swapHash });
@@ -678,6 +683,7 @@ export class FundingArbStrategy extends EventEmitter {
         to: tokenAddress,
         data: approveData,
         account,
+        chain: null,
       });
       await clients.public.waitForTransactionReceipt({ hash: approveHash });
 
@@ -700,6 +706,7 @@ export class FundingArbStrategy extends EventEmitter {
         to: swapRouterAddress,
         data: swapData,
         account,
+        chain: null,
       });
 
       await clients.public.waitForTransactionReceipt({ hash: swapHash });
@@ -718,8 +725,6 @@ export class FundingArbStrategy extends EventEmitter {
     const closeSide = side === 'long' ? 'short' : 'long';
     console.log(`   Closing ${side} spot position: $${sizeUsd} ${asset}`);
     return this.openSpotHedge(asset, closeSide, sizeUsd);
-
-    return { success: true, txHash: `spot-close-${asset}-${Date.now()}` };
   }
 
   // ============ Analytics ============

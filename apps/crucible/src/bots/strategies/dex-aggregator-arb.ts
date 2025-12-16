@@ -19,6 +19,8 @@ import {
   http,
   type Address,
   type Hex,
+  type PublicClient,
+  type WalletClient,
   encodeFunctionData,
   parseAbi,
   formatUnits,
@@ -107,7 +109,7 @@ const TOKENS: Record<string, Record<number, Address>> = {
     42161: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
   },
   DAI: {
-    1: '0x6B175474E89094C44Da98b954EescdeCB5BB',
+    1: '0x6B175474E89094C44Da98b954EedeAC495271d0F', // DAI on Ethereum mainnet
     42161: '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1',
     10: '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1',
     8453: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb',
@@ -187,10 +189,7 @@ export class DexAggregatorArbStrategy extends EventEmitter {
   };
 
   private account: PrivateKeyAccount;
-  private clients: Map<number, {
-    public: ReturnType<typeof createPublicClient>;
-    wallet: ReturnType<typeof createWalletClient>;
-  }> = new Map();
+  private clients: Map<number, { public: PublicClient; wallet: WalletClient }> = new Map();
 
   private opportunities: Map<string, DexArbOpportunity> = new Map();
   private running = false;
@@ -243,7 +242,10 @@ export class DexAggregatorArbStrategy extends EventEmitter {
         transport: http(rpcUrl),
       });
 
-      this.clients.set(chainId, { public: publicClient, wallet: walletClient });
+      this.clients.set(chainId, {
+        public: publicClient as PublicClient,
+        wallet: walletClient as WalletClient,
+      });
     }
   }
 
@@ -511,92 +513,156 @@ export class DexAggregatorArbStrategy extends EventEmitter {
 
     console.log(`🔄 Executing DEX arb: ${opportunity.id}`);
 
-    const aavePool = AAVE_POOL[opportunity.chainId];
-    if (!aavePool) {
-      return { success: false, error: 'Flash loan not available on this chain' };
-    }
-
     const tokenA = TOKENS[opportunity.tokenA]?.[opportunity.chainId];
-    if (!tokenA) {
-      return { success: false, error: `Token ${opportunity.tokenA} not found on chain ${opportunity.chainId}` };
+    const tokenB = TOKENS[opportunity.tokenB]?.[opportunity.chainId];
+
+    if (!tokenA || !tokenB) {
+      return { success: false, error: `Tokens not found on chain ${opportunity.chainId}` };
     }
 
-    console.log(`   Flash loan: ${formatUnits(opportunity.buyQuote.inputAmount, 6)} ${opportunity.tokenA}`);
     console.log(`   Buy on ${opportunity.buyFrom}: ${opportunity.tokenA} → ${opportunity.tokenB}`);
     console.log(`   Sell on ${opportunity.sellTo}: ${opportunity.tokenB} → ${opportunity.tokenA}`);
     console.log(`   Expected profit: $${opportunity.netProfitUsd.toFixed(2)}`);
 
-    // Execute flash loan with callback
-    const flashLoanAbi = parseAbi([
-      'function flashLoanSimple(address receiverAddress, address asset, uint256 amount, bytes calldata params, uint16 referralCode) external',
+    // Execute sequential swaps (capital required)
+    // For atomic flash loan execution, deploy the FlashLoanArbitrageur contract
+
+    const buyRouter = this.getRouterAddress(opportunity.buyFrom, opportunity.chainId);
+    const sellRouter = this.getRouterAddress(opportunity.sellTo, opportunity.chainId);
+
+    const ERC20_ABI = parseAbi([
+      'function approve(address spender, uint256 amount) returns (bool)',
+      'function balanceOf(address owner) view returns (uint256)',
     ]);
 
-    // Encode the arbitrage params for the callback
-    const arbParams = this.encodeArbParams(opportunity);
+    const SWAP_ROUTER_ABI = parseAbi([
+      'function exactInputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 amountIn, uint256 amountOutMinimum, uint160 sqrtPriceLimitX96)) external payable returns (uint256 amountOut)',
+    ]);
 
-    // Get a deployed arbitrage executor contract address
-    const executorAddress = this.getExecutorAddress(opportunity.chainId);
-    if (!executorAddress) {
-      return { success: false, error: 'No executor contract deployed on this chain' };
-    }
-
-    // Execute flash loan
-    const flashLoanData = encodeFunctionData({
-      abi: flashLoanAbi,
-      functionName: 'flashLoanSimple',
-      args: [
-        executorAddress,
-        tokenA,
-        opportunity.buyQuote.inputAmount,
-        arbParams,
-        0, // referral code
-      ],
+    // Step 1: Approve tokenA for buy router
+    const approveData1 = encodeFunctionData({
+      abi: ERC20_ABI,
+      functionName: 'approve',
+      args: [buyRouter, opportunity.buyQuote.inputAmount],
     });
 
-    const hash = await clients.wallet.sendTransaction({
-      to: aavePool,
-      data: flashLoanData,
+    const approveHash1 = await clients.wallet.sendTransaction({
+      account: this.account,
+      chain: null,
+      to: tokenA,
+      data: approveData1,
+    });
+    await clients.public.waitForTransactionReceipt({ hash: approveHash1 });
+
+    // Step 2: Execute buy swap (tokenA -> tokenB)
+    let buyHash: Hex;
+    if (opportunity.buyQuote.txData) {
+      // Use pre-built tx data from aggregator
+      buyHash = await clients.wallet.sendTransaction({
+        account: this.account,
+        chain: null,
+        to: buyRouter,
+        data: opportunity.buyQuote.txData as Hex,
+      });
+    } else {
+      // Build Uniswap V3 swap
+      const buyData = encodeFunctionData({
+        abi: SWAP_ROUTER_ABI,
+        functionName: 'exactInputSingle',
+        args: [{
+          tokenIn: tokenA,
+          tokenOut: tokenB,
+          fee: 3000,
+          recipient: this.account.address,
+          amountIn: opportunity.buyQuote.inputAmount,
+          amountOutMinimum: (opportunity.buyQuote.outputAmount * 99n) / 100n, // 1% slippage
+          sqrtPriceLimitX96: 0n,
+        }],
+      });
+      buyHash = await clients.wallet.sendTransaction({
+        account: this.account,
+        chain: null,
+        to: buyRouter,
+        data: buyData,
+      });
+    }
+
+    const buyReceipt = await clients.public.waitForTransactionReceipt({ hash: buyHash });
+    if (buyReceipt.status === 'reverted') {
+      return { success: false, error: 'Buy swap reverted', txHash: buyHash };
+    }
+    console.log(`   ✓ Buy swap: ${buyHash}`);
+
+    // Step 3: Get actual tokenB balance received
+    const tokenBBalance = await clients.public.readContract({
+      address: tokenB,
+      abi: ERC20_ABI,
+      functionName: 'balanceOf',
+      args: [this.account.address],
     });
 
-    console.log(`   Tx submitted: ${hash}`);
+    // Step 4: Approve tokenB for sell router
+    const approveData2 = encodeFunctionData({
+      abi: ERC20_ABI,
+      functionName: 'approve',
+      args: [sellRouter, tokenBBalance],
+    });
 
-    const receipt = await clients.public.waitForTransactionReceipt({ hash });
+    const approveHash2 = await clients.wallet.sendTransaction({
+      account: this.account,
+      chain: null,
+      to: tokenB,
+      data: approveData2,
+    });
+    await clients.public.waitForTransactionReceipt({ hash: approveHash2 });
 
-    if (receipt.status === 'reverted') {
-      return { success: false, error: 'Transaction reverted', txHash: hash };
+    // Step 5: Execute sell swap (tokenB -> tokenA)
+    let sellHash: Hex;
+    if (opportunity.sellQuote.txData) {
+      sellHash = await clients.wallet.sendTransaction({
+        account: this.account,
+        chain: null,
+        to: sellRouter,
+        data: opportunity.sellQuote.txData as Hex,
+      });
+    } else {
+      const sellData = encodeFunctionData({
+        abi: SWAP_ROUTER_ABI,
+        functionName: 'exactInputSingle',
+        args: [{
+          tokenIn: tokenB,
+          tokenOut: tokenA,
+          fee: 3000,
+          recipient: this.account.address,
+          amountIn: tokenBBalance,
+          amountOutMinimum: opportunity.buyQuote.inputAmount, // At least break even
+          sqrtPriceLimitX96: 0n,
+        }],
+      });
+      sellHash = await clients.wallet.sendTransaction({
+        account: this.account,
+        chain: null,
+        to: sellRouter,
+        data: sellData,
+      });
     }
+
+    const sellReceipt = await clients.public.waitForTransactionReceipt({ hash: sellHash });
+    if (sellReceipt.status === 'reverted') {
+      return { success: false, error: 'Sell swap reverted', txHash: sellHash };
+    }
+    console.log(`   ✓ Sell swap: ${sellHash}`);
 
     this.stats.tradesExecuted++;
     this.stats.totalProfitUsd += opportunity.netProfitUsd;
 
-    console.log(`   ✓ Arbitrage executed successfully`);
+    console.log(`   ✓ Arbitrage complete. Profit: ~$${opportunity.netProfitUsd.toFixed(2)}`);
 
     return {
       success: true,
-      txHash: hash,
+      txHash: sellHash,
       profit: opportunity.netProfitUsd,
     };
-  }
-
-  private encodeArbParams(opportunity: DexArbOpportunity): Hex {
-    // Encode: buyRouter, buyData, sellRouter, sellData, minProfit
-    const buyRouter = this.getRouterAddress(opportunity.buyFrom, opportunity.chainId);
-    const sellRouter = this.getRouterAddress(opportunity.sellTo, opportunity.chainId);
-
-    // ABI encode the params
-    const params = encodeFunctionData({
-      abi: parseAbi(['function execute(address buyRouter, bytes buyData, address sellRouter, bytes sellData, uint256 minProfit)']),
-      functionName: 'execute',
-      args: [
-        buyRouter,
-        opportunity.buyQuote.txData || '0x',
-        sellRouter,
-        opportunity.sellQuote.txData || '0x',
-        BigInt(Math.floor(opportunity.netProfitUsd * 1e6)), // min profit in USDC decimals
-      ],
-    });
-
-    return params;
   }
 
   private getRouterAddress(aggregator: string, chainId: number): Address {
@@ -621,23 +687,7 @@ export class DexAggregatorArbStrategy extends EventEmitter {
       },
     };
 
-    return routers[aggregator]?.[chainId] || '0x0000000000000000000000000000000000000000' as Address;
-  }
-
-  private getExecutorAddress(chainId: number): Address | null {
-    // These would be pre-deployed arbitrage executor contracts
-    const executors: Record<number, Address> = {
-      1: '0x0000000000000000000000000000000000000000' as Address, // Deploy needed
-      42161: '0x0000000000000000000000000000000000000000' as Address,
-      10: '0x0000000000000000000000000000000000000000' as Address,
-      8453: '0x0000000000000000000000000000000000000000' as Address,
-    };
-
-    const addr = executors[chainId];
-    if (!addr || addr === '0x0000000000000000000000000000000000000000') {
-      return null;
-    }
-    return addr;
+    return routers[aggregator]?.[chainId] || UNISWAP_QUOTER[chainId];
   }
 }
 

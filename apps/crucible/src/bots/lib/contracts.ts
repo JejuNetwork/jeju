@@ -265,6 +265,13 @@ export const PERPETUAL_MARKET_ABI = [
     stateMutability: 'view',
   },
   {
+    type: 'function',
+    name: 'getMarkPrice',
+    inputs: [{ name: 'marketId', type: 'bytes32' }],
+    outputs: [{ name: 'price', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
     type: 'event',
     name: 'PositionOpened',
     inputs: [

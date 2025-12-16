@@ -8,14 +8,12 @@
  * - Cost optimization
  */
 
-import type { Address } from 'viem';
 import type {
-  RoutingDecision,
   RouteRequest,
   ConnectedEdgeNode,
   EdgeNodeMetrics,
 } from '../types';
-import type { CDNRegion, GeoLocation } from '@jejunetwork/types';
+import type { CDNRegion } from '@jejunetwork/types';
 
 // ============================================================================
 // Region Mapping
