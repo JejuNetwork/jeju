@@ -3,6 +3,8 @@
  */
 
 import type { NetworkType } from "@jejunetwork/types";
+import type { Address } from "viem";
+import { getContract } from "@jejunetwork/config";
 
 // Re-export all config utilities
 export {
@@ -24,6 +26,83 @@ export {
   type ServicesConfig,
   type ContractCategoryName,
 } from "@jejunetwork/config";
+
+/** Contract addresses for SDK modules */
+export interface ContractAddresses {
+  // Core contracts
+  identityRegistry?: Address;
+  validationRegistry?: Address;
+  agentRegistry?: Address;
+  computeMarketplace?: Address;
+  storageMarketplace?: Address;
+  jnsRegistry?: Address;
+  jnsResolver?: Address;
+  governor?: Address;
+  governorToken?: Address;
+
+  // Extended contracts (may not be available on all networks)
+  gameIntegration?: Address;
+  containerRegistry?: Address;
+  tokenLaunchpad?: Address;
+  bondingCurve?: Address;
+  lpLocker?: Address;
+  gitRegistry?: Address;
+  packageRegistry?: Address;
+
+  // DeFi contracts
+  routerV3?: Address;
+  positionManager?: Address;
+  xlpFactory?: Address;
+
+  // Cross-chain contracts
+  inputSettler?: Address;
+  solverRegistry?: Address;
+}
+
+/** Get all contract addresses for a network */
+export function getContractAddresses(network: NetworkType): ContractAddresses {
+  // Type-safe contract lookup that returns undefined if not found
+  const tryGetContract = (category: string, name: string): Address | undefined => {
+    try {
+      // @ts-expect-error - category names may vary by deployment
+      const addr = getContract(network, category, name);
+      return addr as Address;
+    } catch {
+      return undefined;
+    }
+  };
+
+  return {
+    // Core
+    identityRegistry: tryGetContract("identity", "IdentityRegistry"),
+    validationRegistry: tryGetContract("identity", "ValidationRegistry"),
+    agentRegistry: tryGetContract("identity", "AgentRegistry"),
+    computeMarketplace: tryGetContract("compute", "ComputeMarketplace"),
+    storageMarketplace: tryGetContract("storage", "StorageMarketplace"),
+    jnsRegistry: tryGetContract("names", "JNSRegistry"),
+    jnsResolver: tryGetContract("names", "JNSResolver"),
+    governor: tryGetContract("governance", "Governor"),
+    governorToken: tryGetContract("governance", "GovernorToken"),
+
+    // Extended
+    gameIntegration: tryGetContract("games", "GameIntegration"),
+    containerRegistry: tryGetContract("containers", "ContainerRegistry"),
+    tokenLaunchpad: tryGetContract("launchpad", "TokenLaunchpad"),
+    bondingCurve: tryGetContract("launchpad", "BondingCurve"),
+    lpLocker: tryGetContract("launchpad", "LPLocker"),
+    gitRegistry: tryGetContract("developer", "GitRegistry"),
+    packageRegistry: tryGetContract("developer", "PackageRegistry"),
+
+    // DeFi
+    routerV3: tryGetContract("defi", "RouterV3"),
+    positionManager: tryGetContract("defi", "NonfungiblePositionManager"),
+    xlpFactory: tryGetContract("defi", "XLPFactory"),
+
+    // Cross-chain
+    inputSettler: tryGetContract("crosschain", "InputSettler"),
+    solverRegistry: tryGetContract("crosschain", "SolverRegistry"),
+  };
+}
 
 export interface SDKConfig {
   network: NetworkType;

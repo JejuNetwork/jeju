@@ -63,12 +63,14 @@
     "test:report": "playwright show-report"
   },
   "dependencies": {
+    "@jejunetwork/db": "workspace:*",
     "@jejunetwork/kms": "workspace:*",
     "@jejunetwork/oauth3": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/contracts": "workspace:*",
     "@jejunetwork/types": "workspace:*",
+    "@jejunetwork/sdk": "workspace:*",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "viem": "^2.38.3",

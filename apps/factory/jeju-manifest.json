@@ -1,0 +1,20 @@
+{
+  "name": "factory",
+  "version": "1.0.0",
+  "description": "Developer coordination hub - bounties, jobs, git, packages, containers, models, project management",
+  "type": "app",
+  "port": 4009,
+  "dependencies": {
+    "contracts": ["BountyRegistry", "GuardianRegistry", "ContainerRegistry", "ModelRegistry", "ProjectBoard", "IdentityRegistry", "ReputationRegistry", "RepoRegistry", "PackageRegistry", "ModerationMarketplace"],
+    "services": ["indexer", "dws", "messaging"]
+  },
+  "healthcheck": {
+    "endpoint": "/api/health",
+    "interval": 30
+  },
+  "env": {
+    "required": ["NEXT_PUBLIC_CHAIN_ID", "NEXT_PUBLIC_RPC_URL"],
+    "optional": ["GITHUB_TOKEN", "LINEAR_API_KEY", "NPM_TOKEN", "NEYNAR_API_KEY", "FARCASTER_CHANNEL_ID"]
+  }
+}
+

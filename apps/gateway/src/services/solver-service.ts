@@ -1,8 +1,13 @@
+/**
+ * Solver Service - Decentralized Solver Management
+ * 
+ * Persists solver data to CovenantSQL for decentralized storage.
+ */
+
 import type { Solver, SolverLeaderboardEntry, SolverLiquidity, SupportedChainId } from '@jejunetwork/types';
 import * as chainService from './chain-service';
 import { ZERO_ADDRESS } from '../lib/contracts.js';
-
-const solverCache: Map<string, Solver> = new Map();
+import { solverState, initializeState } from './state.js';
 
 const KNOWN_SOLVER_ADDRESSES: string[] = (process.env.OIF_DEV_SOLVER_ADDRESSES || '')
   .split(',')
@@ -20,11 +25,19 @@ interface LeaderboardParams {
 }
 
 export class SolverService {
+  private initialized = false;
+  
   constructor() {
-    this.initializeSolverCache();
+    this.initialize();
   }
 
-  private async initializeSolverCache(): Promise<void> {
+  private async initialize(): Promise<void> {
+    await initializeState();
+    await this.syncKnownSolvers();
+    this.initialized = true;
+  }
+
+  private async syncKnownSolvers(): Promise<void> {
     for (const address of KNOWN_SOLVER_ADDRESSES) {
       await this.refreshSolverFromChain(address as `0x${string}`);
     }
@@ -62,38 +75,38 @@ export class SolverService {
         lastActiveAt: Date.now(),
       };
       
-      solverCache.set(address.toLowerCase(), solver);
+      await solverState.save(solver);
       return solver;
     }
     
-    return solverCache.get(address.toLowerCase()) || null;
+    // Return cached version if chain lookup fails
+    return solverState.get(address);
   }
 
   async listSolvers(params?: ListSolversParams): Promise<Solver[]> {
-    if (solverCache.size === 0) {
-      await this.initializeSolverCache();
+    if (!this.initialized) {
+      await this.initialize();
     }
 
-    let solvers = Array.from(solverCache.values());
+    let solvers = await solverState.list({
+      status: params?.active !== false ? 'active' : undefined,
+      minReputation: params?.minReputation,
+    });
 
     if (params?.chainId) {
       const chainId = params.chainId as SupportedChainId;
       solvers = solvers.filter(s => s.supportedChains.includes(chainId));
-    }
-    if (params?.minReputation) {
-      solvers = solvers.filter(s => s.reputation >= params.minReputation!);
-    }
-    if (params?.active !== false) {
-      solvers = solvers.filter(s => s.status === 'active');
     }
 
     return solvers.sort((a, b) => b.reputation - a.reputation);
   }
 
   async getSolver(address: string): Promise<Solver | null> {
-    const cached = solverCache.get(address.toLowerCase());
+    // Check CQL first
+    const cached = await solverState.get(address);
     if (cached) return cached;
 
+    // Refresh from chain
     return this.refreshSolverFromChain(address as `0x${string}`);
   }
 
@@ -156,9 +169,28 @@ export class SolverService {
       return supportsSource && supportsDest && supportsToken;
     });
   }
+
+  async updateSolverStats(address: string, stats: {
+    totalFills?: number;
+    successfulFills?: number;
+    volumeUsd?: string;
+    feesUsd?: string;
+  }): Promise<void> {
+    const solver = await this.getSolver(address);
+    if (!solver) return;
+
+    if (stats.totalFills !== undefined) solver.totalFills = stats.totalFills;
+    if (stats.successfulFills !== undefined) solver.successfulFills = stats.successfulFills;
+    if (stats.volumeUsd !== undefined) solver.totalVolumeUsd = stats.volumeUsd;
+    if (stats.feesUsd !== undefined) solver.totalFeesEarnedUsd = stats.feesUsd;
+    
+    solver.failedFills = solver.totalFills - solver.successfulFills;
+    solver.successRate = solver.totalFills > 0 ? (solver.successfulFills / solver.totalFills) * 100 : 0;
+    solver.reputation = Math.min(100, solver.successRate);
+    solver.lastActiveAt = Date.now();
+
+    await solverState.save(solver);
+  }
 }
 
 export const solverService = new SolverService();
-
-
-

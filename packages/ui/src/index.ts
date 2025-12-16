@@ -24,6 +24,7 @@
 
 export {
   NetworkProvider,
+  NetworkProvider as JejuProvider, // Alias for convenience
   useNetworkContext,
   type NetworkContextValue,
 } from "./context";

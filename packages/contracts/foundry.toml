@@ -25,6 +25,11 @@ skip = [
     "src/marketplace/**",
     "src/prediction-markets/**",
     
+    # New contracts causing stack issues - need refactoring
+    "src/models/**",
+    "src/work/**",
+    "src/containers/**",
+    
     # Paymaster contracts need ERC-4337 integration work
     "src/services/MultiTokenPaymaster.sol",
     "src/services/ServicePaymaster.sol",

@@ -4,13 +4,13 @@ import { IERC20_ABI, ZERO_ADDRESS } from '../lib/contracts.js';
 import { JEJU_CHAIN_ID, getRpcUrl, getChainName, IS_TESTNET } from '../config/networks.js';
 import { JEJU_TOKEN_ADDRESS, IDENTITY_REGISTRY_ADDRESS } from '../config/contracts.js';
 import { jejuTestnet } from '../lib/chains.js';
+import { faucetState, initializeState } from './state.js';
 
 const FAUCET_CONFIG = {
   cooldownMs: 12 * 60 * 60 * 1000,
   amountPerClaim: parseEther('100'),
   jejuTokenAddress: JEJU_TOKEN_ADDRESS,
   identityRegistryAddress: IDENTITY_REGISTRY_ADDRESS,
-  // Only secret that stays in env
   faucetPrivateKey: process.env.FAUCET_PRIVATE_KEY,
 };
 
@@ -18,7 +18,8 @@ const IDENTITY_REGISTRY_ABI = [
   { type: 'function', name: 'balanceOf', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ type: 'uint256' }], stateMutability: 'view' },
 ] as const;
 
-const claimHistory = new Map<string, number>();
+// Initialize state on module load
+initializeState().catch(console.error);
 
 const publicClient = createPublicClient({ chain: jejuTestnet, transport: http(getRpcUrl(JEJU_CHAIN_ID)) });
 
@@ -57,12 +58,10 @@ export interface FaucetInfo {
 }
 
 async function isRegisteredAgent(address: Address): Promise<boolean> {
-  // Skip registry check in test mode or if explicitly disabled
   if (process.env.NODE_ENV === 'test' || process.env.FAUCET_SKIP_REGISTRY === 'true') {
     return true;
   }
   
-  // If no registry configured, deny access (requires explicit skip in dev)
   if (FAUCET_CONFIG.identityRegistryAddress === ZERO_ADDRESS) {
     return false;
   }
@@ -76,8 +75,8 @@ async function isRegisteredAgent(address: Address): Promise<boolean> {
   return balance > 0n;
 }
 
-function getCooldownRemaining(address: string): number {
-  const lastClaim = claimHistory.get(address.toLowerCase());
+async function getCooldownRemaining(address: string): Promise<number> {
+  const lastClaim = await faucetState.getLastClaim(address);
   if (!lastClaim) return 0;
   return Math.max(0, FAUCET_CONFIG.cooldownMs - (Date.now() - lastClaim));
 }
@@ -100,13 +99,13 @@ export async function getFaucetStatus(address: Address): Promise<FaucetStatus> {
     return { eligible: false, isRegistered: false, cooldownRemaining: 0, nextClaimAt: null, amountPerClaim: formatEther(FAUCET_CONFIG.amountPerClaim), faucetBalance: '0' };
   }
 
-  const [isRegistered, cooldownRemaining, faucetBalance] = await Promise.all([
+  const [isRegistered, cooldownRemaining, faucetBalance, lastClaim] = await Promise.all([
     isRegisteredAgent(address),
     getCooldownRemaining(address),
     getFaucetBalance(),
+    faucetState.getLastClaim(address),
   ]);
 
-  const lastClaim = claimHistory.get(address.toLowerCase());
   return {
     eligible: isRegistered && cooldownRemaining === 0 && faucetBalance >= FAUCET_CONFIG.amountPerClaim,
     isRegistered,
@@ -123,7 +122,7 @@ export async function claimFromFaucet(address: Address): Promise<FaucetClaimResu
   const isRegistered = await isRegisteredAgent(address);
   if (!isRegistered) return { success: false, error: 'Address must be registered in the ERC-8004 Identity Registry' };
 
-  const cooldownRemaining = getCooldownRemaining(address);
+  const cooldownRemaining = await getCooldownRemaining(address);
   if (cooldownRemaining > 0) return { success: false, error: 'Faucet cooldown active', cooldownRemaining };
 
   const faucetBalance = await getFaucetBalance();
@@ -141,7 +140,7 @@ export async function claimFromFaucet(address: Address): Promise<FaucetClaimResu
     args: [address, FAUCET_CONFIG.amountPerClaim],
   });
 
-  claimHistory.set(address.toLowerCase(), Date.now());
+  await faucetState.recordClaim(address);
   return { success: true, txHash: hash, amount: formatEther(FAUCET_CONFIG.amountPerClaim) };
 }
 

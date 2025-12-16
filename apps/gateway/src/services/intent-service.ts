@@ -1,3 +1,9 @@
+/**
+ * Intent Service - Decentralized Cross-Chain Intent Management
+ * 
+ * Persists intents to CovenantSQL for decentralized storage.
+ */
+
 import { keccak256, encodeAbiParameters, parseAbiParameters } from 'viem';
 import type { 
   Intent, 
@@ -8,29 +14,7 @@ import type {
 import * as chainService from './chain-service';
 import { quoteService } from './quote-service.js';
 import { ZERO_ADDRESS } from '../lib/contracts.js';
-
-// In-memory cache for intents
-const intentCache: Map<string, Intent> = new Map();
-
-// Stats cache
-let statsCache: OIFStats = {
-  totalIntents: 0,
-  totalVolume: '0',
-  totalVolumeUsd: '0',
-  totalFees: '0',
-  totalFeesUsd: '0',
-  totalSolvers: 0,
-  activeSolvers: 0,
-  totalSolverStake: '0',
-  totalRoutes: 0,
-  activeRoutes: 0,
-  avgFillTimeSeconds: 0,
-  successRate: 0,
-  last24hIntents: 0,
-  last24hVolume: '0',
-  last24hFees: '0',
-  lastUpdated: Date.now(),
-};
+import { intentState, routeState, solverState, initializeState } from './state.js';
 
 interface CreateIntentParams {
   sourceChain: number;
@@ -60,8 +44,14 @@ interface ListIntentsParams {
 
 export class IntentService {
   private chainWatchers: Array<() => void> = [];
+  private statsRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   
   constructor() {
+    this.initialize();
+  }
+
+  private async initialize(): Promise<void> {
+    await initializeState();
     this.startChainWatchers();
     this.refreshStats();
   }
@@ -70,7 +60,7 @@ export class IntentService {
     const chains = [1, 42161, 10, 11155111];
     
     for (const chainId of chains) {
-      const unwatch = chainService.watchOrders(chainId, (log) => {
+      const unwatch = chainService.watchOrders(chainId, async (log) => {
         const intent: Intent = {
           intentId: log.orderId,
           user: log.user,
@@ -89,7 +79,7 @@ export class IntentService {
           createdAt: Date.now(),
         };
         
-        intentCache.set(log.orderId, intent);
+        await intentState.save(intent);
         console.log(`[IntentService] New intent: ${log.orderId.slice(0, 10)}...`);
       });
       
@@ -101,16 +91,12 @@ export class IntentService {
     const registryStats = await chainService.fetchRegistryStats();
     
     if (registryStats) {
-      statsCache = {
-        ...statsCache,
-        totalSolverStake: registryStats.totalStaked.toString(),
-        activeSolvers: Number(registryStats.activeSolvers),
-        totalSolvers: Number(registryStats.activeSolvers),
-        lastUpdated: Date.now(),
-      };
+      // Update solver count from chain
+      const solvers = await solverState.list({ status: 'active' });
+      console.log(`[IntentService] Stats refreshed: ${solvers.length} active solvers`);
     }
     
-    setTimeout(() => this.refreshStats(), 30000);
+    this.statsRefreshTimer = setTimeout(() => this.refreshStats(), 30000);
   }
 
   async createIntent(params: CreateIntentParams): Promise<Intent> {
@@ -150,9 +136,11 @@ export class IntentService {
       createdAt: now,
     };
 
-    intentCache.set(intentId, intent);
-    statsCache.totalIntents++;
-    statsCache.last24hIntents++;
+    await intentState.save(intent);
+
+    // Update route stats
+    const routeId = `${params.sourceChain}-${params.destinationChain}`;
+    await routeState.incrementVolume(routeId, BigInt(params.amount));
 
     return intent;
   }
@@ -162,13 +150,15 @@ export class IntentService {
   }
 
   async getIntent(intentId: string): Promise<Intent | undefined> {
-    let intent = intentCache.get(intentId);
+    // Check CQL first
+    const intent = await intentState.get(intentId);
     if (intent) return intent;
 
+    // Fallback to chain lookup
     for (const chainId of [1, 42161, 10, 11155111]) {
       const order = await chainService.fetchOrder(chainId, intentId as `0x${string}`);
       if (order && order.user !== ZERO_ADDRESS) {
-        intent = {
+        const chainIntent: Intent = {
           intentId: intentId as `0x${string}`,
           user: order.user,
           nonce: '0',
@@ -192,8 +182,10 @@ export class IntentService {
           filledAt: order.filled ? Date.now() : undefined,
           solver: order.solver !== ZERO_ADDRESS ? order.solver : undefined,
         };
-        intentCache.set(intentId, intent);
-        return intent;
+        
+        // Cache in CQL
+        await intentState.save(chainIntent);
+        return chainIntent;
       }
     }
 
@@ -201,7 +193,7 @@ export class IntentService {
   }
 
   async cancelIntent(intentId: string, user: string): Promise<{ success: boolean; message: string }> {
-    const intent = intentCache.get(intentId);
+    const intent = await intentState.get(intentId);
     if (!intent) {
       return { success: false, message: 'Intent not found' };
     }
@@ -212,33 +204,42 @@ export class IntentService {
       return { success: false, message: 'Intent cannot be cancelled' };
     }
     
-    intent.status = 'expired';
+    await intentState.updateStatus(intentId, 'expired', { cancelledAt: Date.now() });
     return { success: true, message: 'Intent marked for cancellation' };
   }
 
   async listIntents(params?: ListIntentsParams): Promise<Intent[]> {
-    let intents = Array.from(intentCache.values());
-
-    if (params?.user) {
-      intents = intents.filter(i => i.user.toLowerCase() === params.user!.toLowerCase());
-    }
-    if (params?.status) {
-      intents = intents.filter(i => i.status === params.status);
-    }
-    if (params?.sourceChain) {
-      intents = intents.filter(i => i.sourceChainId === params.sourceChain);
-    }
-    if (params?.limit) {
-      intents = intents.slice(0, params.limit);
-    }
-
-    return intents.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    return intentState.list({
+      user: params?.user,
+      status: params?.status,
+      sourceChain: params?.sourceChain,
+      limit: params?.limit ?? 50,
+    });
   }
 
   async getStats(): Promise<OIFStats> {
+    const [totalIntents, openIntents, solvers] = await Promise.all([
+      intentState.count(),
+      intentState.count({ status: 'open' }),
+      solverState.list({ status: 'active' }),
+    ]);
+
     return {
-      ...statsCache,
-      totalIntents: intentCache.size,
+      totalIntents,
+      totalVolume: '0',
+      totalVolumeUsd: '0',
+      totalFees: '0',
+      totalFeesUsd: '0',
+      totalSolvers: solvers.length,
+      activeSolvers: solvers.length,
+      totalSolverStake: solvers.reduce((sum, s) => sum + BigInt(s.stakedAmount), 0n).toString(),
+      totalRoutes: 0,
+      activeRoutes: 0,
+      avgFillTimeSeconds: 0,
+      successRate: 0,
+      last24hIntents: openIntents,
+      last24hVolume: '0',
+      last24hFees: '0',
       lastUpdated: Date.now(),
     };
   }
@@ -249,17 +250,15 @@ export class IntentService {
     avgFillTime: number;
     successRate: number;
   }> {
-    const chainIntents = Array.from(intentCache.values()).filter(
-      i => i.sourceChainId === chainId
-    );
+    const intents = await intentState.list({ sourceChain: chainId, limit: 1000 });
     
-    const totalVolume = chainIntents.reduce(
+    const totalVolume = intents.reduce(
       (sum, i) => sum + BigInt(i.inputs[0]?.amount || '0'),
       0n
     );
 
-    const filledIntents = chainIntents.filter(i => i.status === 'filled');
-    const failedIntents = chainIntents.filter(i => i.status === 'expired');
+    const filledIntents = intents.filter(i => i.status === 'filled');
+    const failedIntents = intents.filter(i => i.status === 'expired');
     const totalCompleted = filledIntents.length + failedIntents.length;
 
     const avgFillTime = filledIntents.length > 0
@@ -274,7 +273,7 @@ export class IntentService {
       : 0;
 
     return {
-      totalIntents: chainIntents.length,
+      totalIntents: intents.length,
       totalVolume: totalVolume.toString(),
       avgFillTime: Math.round(avgFillTime),
       successRate: Math.round(successRate * 10) / 10,
@@ -285,11 +284,11 @@ export class IntentService {
     for (const unwatch of this.chainWatchers) {
       unwatch();
     }
+    if (this.statsRefreshTimer) {
+      clearTimeout(this.statsRefreshTimer);
+    }
   }
 }
 
 // Export singleton instance
 export const intentService = new IntentService();
-
-
-

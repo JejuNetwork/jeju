@@ -41,6 +41,11 @@ export * from "./nfts";
 export * from "./payments";
 export * from "./a2a";
 
+// Extended modules
+export * from "./games";
+export * from "./containers";
+export * from "./launchpad";
+
 // Developer tools
 export * from "./git";
 export * from "./packages";
