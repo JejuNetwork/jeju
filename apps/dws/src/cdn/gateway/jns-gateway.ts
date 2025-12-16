@@ -11,6 +11,7 @@
  */
 
 import { Hono, type Context } from 'hono';
+import type { StatusCode } from 'hono/utils/http-status';
 import { cors } from 'hono/cors';
 import { createPublicClient, http, keccak256, stringToBytes, type Address } from 'viem';
 import { parseAbi } from 'viem';
@@ -100,6 +101,7 @@ export class JNSGateway {
     ]);
 
     const chain = inferChainFromRpcUrl(config.rpcUrl);
+    // @ts-expect-error viem version type mismatch in monorepo
     this.publicClient = createPublicClient({ chain, transport: http(config.rpcUrl) });
     this.registryAddress = config.jnsRegistryAddress;
     this.defaultResolverAddress = config.jnsResolverAddress;
@@ -357,7 +359,7 @@ export class JNSGateway {
     const result = await this.originFetcher.fetch(fullPath, 'ipfs');
     
     if (!result.success) {
-      return c.json({ error: result.error }, { status: result.status || 502 });
+      return c.json({ error: result.error }, (result.status || 502) as StatusCode);
     }
 
     // Cache immutable IPFS content
@@ -386,7 +388,7 @@ export class JNSGateway {
     const result = await this.originFetcher.fetch(fullPath, 'ipfs');
     
     if (!result.success) {
-      return c.json({ error: result.error }, { status: result.status || 502 });
+      return c.json({ error: result.error }, (result.status || 502) as StatusCode);
     }
 
     // Cache IPNS content with shorter TTL
@@ -440,7 +442,7 @@ export class JNSGateway {
     const result = await this.originFetcher.fetch(fullPath, 'arweave');
     
     if (!result.success) {
-      return c.json({ error: result.error }, { status: result.status || 502 });
+      return c.json({ error: result.error }, (result.status || 502) as StatusCode);
     }
 
     // Arweave is permanent

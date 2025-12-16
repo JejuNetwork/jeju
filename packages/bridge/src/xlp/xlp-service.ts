@@ -22,7 +22,6 @@ import {
   http,
   parseAbi,
   formatUnits,
-  parseUnits,
   encodeFunctionData,
 } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
@@ -65,9 +64,7 @@ const DEFAULT_ALLOCATION: Record<number, number> = {
   8453: 30,   // Base - 30% (Jeju home)
 };
 
-// Rebalance thresholds
-const REBALANCE_THRESHOLD_PERCENT = 10; // Rebalance if off by >10%
-const MIN_REBALANCE_VALUE_USD = 1000; // Minimum value to rebalance
+const REBALANCE_THRESHOLD_PERCENT = 10;
 
 // Token addresses by chain
 const TOKENS: Record<string, Record<number, Address>> = {
@@ -137,13 +134,15 @@ export interface XLPStats {
 
 // ============ XLP Service ============
 
+type ChainClients = {
+  public: ReturnType<typeof createPublicClient>;
+  wallet: ReturnType<typeof createWalletClient>;
+};
+
 export class XLPService extends EventEmitter {
   private config: XLPConfig;
   private account: PrivateKeyAccount;
-  private clients: Map<number, {
-    public: ReturnType<typeof createPublicClient>;
-    wallet: ReturnType<typeof createWalletClient>;
-  }> = new Map();
+  private clients: Map<number, ChainClients> = new Map();
 
   private positions: Map<string, LiquidityPosition> = new Map();
   private routeVolumes: Map<string, RouteStats> = new Map();
@@ -183,7 +182,7 @@ export class XLPService extends EventEmitter {
         transport: http(rpcUrl),
       });
 
-      this.clients.set(chainId, { public: publicClient, wallet: walletClient });
+      this.clients.set(chainId, { public: publicClient, wallet: walletClient } as ChainClients);
     }
   }
 
@@ -257,12 +256,13 @@ export class XLPService extends EventEmitter {
     });
 
     const approveHash = await clients.wallet.sendTransaction({
+      chain: null,
+      account: this.account,
       to: tokenAddress,
       data: approveData,
     });
     await clients.public.waitForTransactionReceipt({ hash: approveHash });
 
-    // Deposit
     const depositData = encodeFunctionData({
       abi: XLP_POOL_ABI,
       functionName: 'deposit',
@@ -270,6 +270,8 @@ export class XLPService extends EventEmitter {
     });
 
     const hash = await clients.wallet.sendTransaction({
+      chain: null,
+      account: this.account,
       to: poolAddress,
       data: depositData,
     });
@@ -304,6 +306,8 @@ export class XLPService extends EventEmitter {
     });
 
     const hash = await clients.wallet.sendTransaction({
+      chain: null,
+      account: this.account,
       to: poolAddress,
       data: withdrawData,
     });
@@ -351,11 +355,13 @@ export class XLPService extends EventEmitter {
     });
 
     const hash = await clients.wallet.sendTransaction({
+      chain: null,
+      account: this.account,
       to: poolAddress,
       data: fillData,
     });
 
-    const receipt = await clients.public.waitForTransactionReceipt({ hash });
+    await clients.public.waitForTransactionReceipt({ hash });
 
     // Update stats
     this.stats.fillsCompleted++;
@@ -421,11 +427,13 @@ export class XLPService extends EventEmitter {
     });
 
     const hash = await clients.wallet.sendTransaction({
+      chain: null,
+      account: this.account,
       to: poolAddress,
       data: claimData,
     });
 
-    const receipt = await clients.public.waitForTransactionReceipt({ hash });
+    await clients.public.waitForTransactionReceipt({ hash });
 
     // Would parse actual fee amount from logs
     // For now, return estimated
@@ -452,24 +460,14 @@ export class XLPService extends EventEmitter {
 
     if (totalValue === 0n) return;
 
-    const rebalances: Array<{
-      fromChain: number;
-      toChain: number;
-      token: string;
-      amount: bigint;
-    }> = [];
-
-    // Calculate current allocation per chain
     const chainValues: Record<number, bigint> = {};
     for (const [key, position] of this.positions) {
       const chainId = Number(key.split('-')[0]);
       chainValues[chainId] = (chainValues[chainId] || 0n) + position.balance;
     }
 
-    // Find over/under allocated chains
     for (const [chainId, targetPct] of Object.entries(allocation)) {
       const currentValue = chainValues[Number(chainId)] || 0n;
-      const targetValue = (totalValue * BigInt(targetPct)) / 100n;
       const currentPct = Number(currentValue * 100n / totalValue);
 
       const diff = currentPct - Number(targetPct);
@@ -549,7 +547,7 @@ export class XLPService extends EventEmitter {
   }
 
   private async fetchPositions(): Promise<void> {
-    for (const [chainId, clients] of this.clients) {
+    for (const [chainId] of this.clients) {
       const poolAddress = this.config.xlpPoolAddresses[chainId];
       if (!poolAddress) continue;
 

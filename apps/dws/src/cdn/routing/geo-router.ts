@@ -10,6 +10,7 @@
 
 import type {
   RouteRequest,
+  RoutingDecision,
   ConnectedEdgeNode,
   EdgeNodeMetrics,
 } from '../types';

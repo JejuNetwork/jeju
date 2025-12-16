@@ -48,18 +48,30 @@
     "cdn": {
       "enabled": true,
       "regions": ["global"],
+      "cacheRules": [
+        { "pattern": "/assets/**", "ttl": 31536000, "immutable": true },
+        { "pattern": "/graphql", "ttl": 0 }
+      ],
       "apiCaching": {
         "enabled": true,
         "defaultTtl": 5,
         "varyHeaders": ["x-jeju-address"]
       },
-      "serviceWorker": false
+      "serviceWorker": true
+    },
+    "frontend": {
+      "ipfs": true,
+      "arweave": true,
+      "jnsName": "indexer.jeju",
+      "buildDir": "public",
+      "spa": false,
+      "fallbackOrigins": ["https://indexer.jeju.network"]
     },
     "robustness": {
-      "multiOrigin": false,
-      "offlineSupport": false,
+      "multiOrigin": true,
+      "offlineSupport": true,
       "p2pFallback": true,
-      "contentAddressed": false
+      "contentAddressed": true
     }
   },
   "testing": {

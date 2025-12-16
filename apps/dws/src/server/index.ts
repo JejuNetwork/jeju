@@ -31,8 +31,6 @@ import {
   createDecentralizedServices, 
   type P2PCoordinator, 
   type DistributedRateLimiter,
-  type DecentralizedFrontend,
-  type NodeDiscovery,
 } from '../decentralized';
 
 // Rate limiter store
@@ -300,9 +298,9 @@ app.get('/_internal/peers', (c) => {
   const peers = p2pCoordinator?.getPeers() ?? [];
   return c.json({ 
     peers: peers.map(p => ({ 
-      nodeId: p.nodeId, 
       endpoint: p.endpoint, 
-      status: p.status 
+      owner: p.owner,
+      stake: p.stake.toString(),
     })) 
   });
 });

@@ -436,7 +436,7 @@ export class PullRequestsManager {
     const now = Date.now();
 
     // Check if all reviews are approved (or no reviews required)
-    const approvedReviews = pr.reviews.filter(r => r.state === 'approved');
+    void pr.reviews.filter(r => r.state === 'approved'); // approvedReviews available if needed
     const changesRequestedReviews = pr.reviews.filter(r => r.state === 'changes_requested');
     if (changesRequestedReviews.length > 0) {
       throw new Error('Cannot merge: changes requested');

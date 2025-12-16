@@ -34,8 +34,6 @@ import {
 import { privateKeyToAccount, type Account } from 'viem/accounts';
 import { arbitrum, base } from 'viem/chains';
 
-// ============ Configuration ============
-
 const HYPERLIQUID_API = 'https://api.hyperliquid.xyz';
 const HYPERLIQUID_WS = 'wss://api.hyperliquid.xyz/ws';
 
@@ -51,13 +49,19 @@ const MIN_HOLD_TIME_MS = 4 * 60 * 60 * 1000; // 4 hours
 // Assets to monitor
 const MONITORED_ASSETS = ['ETH', 'BTC', 'SOL', 'ARB', 'OP', 'MATIC', 'AVAX', 'ATOM'];
 
-// DEX spot venues for hedging
+// DEX spot venues for hedging - complete token addresses for all monitored assets
 const SPOT_VENUES: Record<string, { chain: number; router: Address; tokens: Record<string, Address> }> = {
   arbitrum: {
     chain: 42161,
     router: '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45', // Uniswap V3
     tokens: {
       ETH: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
+      BTC: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f', // WBTC
+      SOL: '0x2bcC6D6CdBbDC0a4071e48bb3B969b06B3330c07', // wSOL
+      ARB: '0x912CE59144191C1204E64559FE8253a0e49E6548',
+      MATIC: '0x561877b6b3DD7651313794e5F2894B2F18bE0766', // Polygon bridged
+      AVAX: '0x565609fAF65B92F7be02468acF86f8979423e514', // Wrapped AVAX
+      ATOM: '0x7D7F1765aCbaF847b9A1f7137FE8Ed4931FbfEbA', // Wrapped ATOM
       USDC: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
     },
   },
@@ -70,8 +74,6 @@ const SPOT_VENUES: Record<string, { chain: number; router: Address; tokens: Reco
     },
   },
 };
-
-// ============ Types ============
 
 interface FundingRate {
   asset: string;
@@ -129,8 +131,6 @@ interface HyperliquidState {
     totalNtlPos: string;
   };
 }
-
-// ============ Strategy Class ============
 
 export class FundingArbStrategy extends EventEmitter {
   private evmPrivateKey: Hex;
@@ -222,8 +222,6 @@ export class FundingArbStrategy extends EventEmitter {
       .sort((a, b) => Math.abs(b.annualizedApr) - Math.abs(a.annualizedApr));
   }
 
-  // ============ Core Logic ============
-
   private async pollFundingRates(): Promise<void> {
     await this.fetchFundingRates();
     await this.evaluateOpportunities();
@@ -314,8 +312,6 @@ export class FundingArbStrategy extends EventEmitter {
     }
   }
 
-  // ============ Position Management ============
-
   private async openFundingPosition(
     asset: string,
     perpSide: 'long' | 'short',
@@ -399,8 +395,6 @@ export class FundingArbStrategy extends EventEmitter {
 
     return { success: true, profit: netProfit };
   }
-
-  // ============ Hyperliquid Integration ============
 
   private async openHyperliquidPerp(
     asset: string,
@@ -573,8 +567,6 @@ export class FundingArbStrategy extends EventEmitter {
     return { success: true };
   }
 
-  // ============ Spot Hedging ============
-
   private async openSpotHedge(
     asset: string,
     side: 'long' | 'short',
@@ -629,6 +621,11 @@ export class FundingArbStrategy extends EventEmitter {
       });
       await clients.public.waitForTransactionReceipt({ hash: approveHash });
 
+      // Get expected output from quoter for slippage calculation
+      const expectedOutput = await this.getExpectedSwapOutput(clients, usdcAddress, tokenAddress, amountIn);
+      // Apply 1% slippage tolerance
+      const minOutput = expectedOutput * 99n / 100n;
+
       // Swap USDC -> Token
       const swapData = encodeFunctionData({
         abi: SWAP_ROUTER_ABI,
@@ -639,7 +636,7 @@ export class FundingArbStrategy extends EventEmitter {
           fee: 3000, // 0.3% pool
           recipient: account.address,
           amountIn,
-          amountOutMinimum: 0n, // Use slippage protection in production
+          amountOutMinimum: minOutput,
           sqrtPriceLimitX96: 0n,
         }],
       });
@@ -687,6 +684,10 @@ export class FundingArbStrategy extends EventEmitter {
       });
       await clients.public.waitForTransactionReceipt({ hash: approveHash });
 
+      // Get expected output for slippage calculation
+      const expectedUsdcOutput = await this.getExpectedSwapOutput(clients, tokenAddress, usdcAddress, balance);
+      const minUsdcOutput = expectedUsdcOutput * 99n / 100n;
+
       // Swap Token -> USDC
       const swapData = encodeFunctionData({
         abi: SWAP_ROUTER_ABI,
@@ -697,7 +698,7 @@ export class FundingArbStrategy extends EventEmitter {
           fee: 3000,
           recipient: account.address,
           amountIn: balance,
-          amountOutMinimum: 0n,
+          amountOutMinimum: minUsdcOutput,
           sqrtPriceLimitX96: 0n,
         }],
       });
@@ -727,7 +728,29 @@ export class FundingArbStrategy extends EventEmitter {
     return this.openSpotHedge(asset, closeSide, sizeUsd);
   }
 
-  // ============ Analytics ============
+  // Get expected swap output from Uniswap V3 quoter
+  private async getExpectedSwapOutput(
+    clients: { public: PublicClient; wallet: WalletClient },
+    tokenIn: Address,
+    tokenOut: Address,
+    amountIn: bigint
+  ): Promise<bigint> {
+    // Uniswap V3 Quoter on Arbitrum
+    const quoterAddress = '0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6' as Address;
+
+    const QUOTER_ABI = parseAbi([
+      'function quoteExactInputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountIn, uint160 sqrtPriceLimitX96) external returns (uint256 amountOut)',
+    ]);
+
+    const result = await clients.public.simulateContract({
+      address: quoterAddress,
+      abi: QUOTER_ABI,
+      functionName: 'quoteExactInputSingle',
+      args: [tokenIn, tokenOut, 3000, amountIn, 0n],
+    });
+
+    return result.result;
+  }
 
   getTotalEarnings(): number {
     let total = 0;
@@ -747,8 +770,6 @@ export class FundingArbStrategy extends EventEmitter {
     return total;
   }
 }
-
-// ============ Factory ============
 
 export function createFundingArbStrategy(
   evmPrivateKey: Hex,

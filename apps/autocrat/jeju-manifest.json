@@ -1,15 +1,55 @@
 {
-  "name": "council",
+  "$schema": "../../packages/config/jeju-manifest.schema.json",
+  "name": "autocrat",
+  "displayName": "Autocrat DAO",
   "version": "1.0.0",
-  "description": "AI Council DAO - Fully autonomous governance with AI CEO and council agents",
-  "type": "service",
+  "type": "core",
+  "description": "AI-powered autonomous governance with futarchy, deep research, and multi-agent decision making",
   "maintainer": "jeju-network",
   "repository": "https://github.com/jejunetwork/jeju",
+  "commands": {
+    "dev": "bun run dev",
+    "build": "bun run build",
+    "start": "bun run start",
+    "test": "bun test tests/integration"
+  },
+  "ports": {
+    "main": 4007,
+    "api": 4008
+  },
+  "dependencies": ["contracts", "config", "dws"],
+  "optional": false,
+  "enabled": true,
+  "autoStart": true,
+  "tags": ["governance", "dao", "ai", "futarchy", "proposals", "voting", "research"],
   "endpoints": {
     "a2a": "/a2a",
     "mcp": "/mcp",
     "rest": "/api/v1",
     "health": "/health"
+  },
+  "jns": {
+    "name": "autocrat.jeju",
+    "description": "AI-Powered Autonomous Governance",
+    "url": "https://autocrat.jeju.network"
+  },
+  "healthCheck": {
+    "url": "http://localhost:4007/health",
+    "interval": 30000
+  },
+  "agent": {
+    "enabled": true,
+    "a2aEndpoint": "/a2a",
+    "mcpEndpoint": "/mcp",
+    "tags": ["jeju-app", "governance", "dao", "proposals", "voting", "futarchy"],
+    "metadata": {
+      "category": "governance",
+      "provider": "jeju-network",
+      "features": ["ai-agents", "futarchy", "deep-research", "multi-agent"]
+    },
+    "trustModels": ["open", "staked"],
+    "x402Support": true,
+    "jnsName": "autocrat.jeju"
   },
   "capabilities": {
     "governance": true,
@@ -21,41 +61,40 @@
     "deepResearch": true
   },
   "integrations": {
-    "compute": "@jeju/compute",
-    "storage": "@jeju/storage",
-    "leaderboard": "@jeju/leaderboard",
-    "contracts": "@jeju/contracts"
+    "dws": "@jejunetwork/dws",
+    "leaderboard": "@jejunetwork/leaderboard",
+    "contracts": "@jejunetwork/contracts"
   },
   "agents": [
     {
-      "id": "eliza-ceo",
+      "id": "autocrat-ceo",
       "name": "Eliza",
       "role": "CEO",
       "description": "AI CEO - Final decision maker for approved proposals",
       "model": "claude-opus-4-5-20250514"
     },
     {
-      "id": "council-treasury",
+      "id": "autocrat-treasury",
       "name": "Treasury Guardian",
-      "role": "Council",
+      "role": "Guardian",
       "description": "Reviews financial impact and treasury implications"
     },
     {
-      "id": "council-code",
+      "id": "autocrat-code",
       "name": "Code Guardian",
-      "role": "Council",
+      "role": "Guardian",
       "description": "Reviews technical proposals and code changes"
     },
     {
-      "id": "council-community",
+      "id": "autocrat-community",
       "name": "Community Guardian",
-      "role": "Council",
+      "role": "Guardian",
       "description": "Reviews community impact and social implications"
     },
     {
-      "id": "council-security",
+      "id": "autocrat-security",
       "name": "Security Guardian",
-      "role": "Council",
+      "role": "Guardian",
       "description": "Reviews security implications and risk assessment"
     },
     {
@@ -68,13 +107,38 @@
       "id": "research-agent",
       "name": "Deep Researcher",
       "role": "Research",
-      "description": "Conducts deep research on approved proposals using Opus 4.5"
+      "description": "Conducts deep research on approved proposals"
     }
   ],
   "contracts": {
-    "Council": "0x0000000000000000000000000000000000000000",
+    "Autocrat": "0x0000000000000000000000000000000000000000",
     "ProposalRegistry": "0x0000000000000000000000000000000000000000",
-    "CEOAgent": "0x0000000000000000000000000000000000000000"
+    "AgentRegistry": "0x0000000000000000000000000000000000000000"
+  },
+  "decentralization": {
+    "cdn": {
+      "enabled": true,
+      "regions": ["global"],
+      "cacheRules": [
+        { "pattern": "/_next/static/**", "ttl": 31536000, "immutable": true },
+        { "pattern": "/api/**", "ttl": 0 },
+        { "pattern": "/**/*.html", "ttl": 300, "staleWhileRevalidate": 86400 }
+      ],
+      "serviceWorker": true
+    },
+    "frontend": {
+      "ipfs": true,
+      "arweave": true,
+      "jnsName": "autocrat.jeju",
+      "buildDir": "app/.next",
+      "spa": false
+    },
+    "robustness": {
+      "multiOrigin": true,
+      "offlineSupport": true,
+      "p2pFallback": true,
+      "contentAddressed": true
+    }
   },
   "testing": {
     "unit": {

@@ -342,3 +342,6 @@ export interface AgentConfig {
   endpoint: string;
   systemPrompt: string;
 }
+
+// AutocratConfig is an alias for CouncilConfig for backwards compatibility
+export type AutocratConfig = CouncilConfig;

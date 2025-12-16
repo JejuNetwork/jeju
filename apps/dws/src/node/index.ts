@@ -7,7 +7,13 @@ import { cors } from 'hono/cors';
 import { createPublicClient, createWalletClient, http, formatEther, type Address, type PublicClient, type WalletClient } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { getBalance } from 'viem/actions';
-import { inferChainFromRpcUrl } from '../../../../scripts/shared/chain-utils';
+import { base, baseSepolia, localhost } from 'viem/chains';
+
+function inferChainFromRpcUrl(rpcUrl: string) {
+  if (rpcUrl.includes('base-sepolia') || rpcUrl.includes('84532')) return baseSepolia;
+  if (rpcUrl.includes('base') && !rpcUrl.includes('localhost')) return base;
+  return localhost;
+}
 
 const app = new Hono();
 app.use('/*', cors({ origin: '*' }));
@@ -18,7 +24,8 @@ const ipfsApiUrl = process.env.IPFS_API_URL || 'http://localhost:5001';
 
 let account: PrivateKeyAccount | null = null;
 let publicClient: PublicClient | null = null;
-let walletClient: WalletClient | null = null;
+// @ts-expect-error Reserved for write operations
+let _walletClient: WalletClient | null = null;
 let address: Address | null = null;
 
 const pinnedCids = new Map<string, { size: number; pinnedAt: number }>();
@@ -33,8 +40,9 @@ async function initializeWallet(): Promise<void> {
   account = privateKeyToAccount(privateKey as `0x${string}`);
   const chain = inferChainFromRpcUrl(rpcUrl);
 
+  // @ts-expect-error viem version type mismatch in monorepo
   publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
-  walletClient = createWalletClient({ account, chain, transport: http(rpcUrl) });
+  _walletClient = createWalletClient({ account, chain, transport: http(rpcUrl) });
   address = account.address;
 
   console.log(`[DWS Node] Initialized with address: ${address}`);

@@ -16,8 +16,7 @@
  * - Solver fees from intent fulfillment
  */
 
-import { type Address, type Hex, parseAbi, encodeFunctionData } from 'viem';
-import type { PublicClient, WalletClient } from 'viem';
+import type { Address } from 'viem';
 
 // ============ Chain Types ============
 
@@ -222,8 +221,6 @@ export interface RouterConfig {
 
 export class CrossChainRouter {
   private config: RouterConfig;
-  private evmClients: Map<number, PublicClient> = new Map();
-  private walletClients: Map<number, WalletClient> = new Map();
 
   constructor(config: RouterConfig) {
     this.config = config;
@@ -327,7 +324,7 @@ export class CrossChainRouter {
   /**
    * Check for MEV/arbitrage opportunities along route
    */
-  async findArbOpportunity(route: Route): Promise<{
+  async findArbOpportunity(_route: Route): Promise<{
     hasOpportunity: boolean;
     expectedProfit: bigint;
     strategy: 'sandwich' | 'backrun' | 'cross_chain_arb' | null;
@@ -460,7 +457,7 @@ export class CrossChainRouter {
     };
   }
 
-  private async checkIdentity(sender: Address): Promise<{ allowed: boolean; reason?: string }> {
+  private async checkIdentity(_sender: Address): Promise<{ allowed: boolean; reason?: string }> {
     if (!this.config.identityRegistryAddress) {
       return { allowed: true };
     }

@@ -160,7 +160,7 @@ class ServicesOrchestrator {
       logger.info(`CQL already running on port ${port}`);
       this.services.set('cql', {
         name: 'CQL',
-        type: 'mock',
+        type: 'server',
         port,
         url: `http://localhost:${port}`,
         healthCheck: '/health',
@@ -168,39 +168,31 @@ class ServicesOrchestrator {
       return;
     }
 
-    // Check if CQL block producer is available
-    const cqlPath = join(this.rootDir, 'packages/cql');
+    // Start SQLite-backed CQL server from packages/db
+    const dbPath = join(this.rootDir, 'packages/db');
+    const dataDir = join(this.rootDir, '.data/cql');
     
-    if (!existsSync(cqlPath)) {
-      // Create mock CQL service
-      const server = await this.createMockCQL();
-      this.services.set('cql', {
-        name: 'CQL (Mock)',
-        type: 'mock',
-        port,
-        server,
-        url: `http://localhost:${port}`,
-        healthCheck: '/health',
-      });
-      logger.info(`CQL mock service on port ${port}`);
-      return;
+    // Ensure data directory exists
+    if (!existsSync(dataDir)) {
+      mkdirSync(dataDir, { recursive: true });
     }
 
-    // Start actual CQL block producer (if available)
     const proc = spawn({
-      cmd: ['bun', 'run', 'dev'],
-      cwd: cqlPath,
-      stdout: 'ignore',
-      stderr: 'ignore',
+      cmd: ['bun', 'run', 'server'],
+      cwd: dbPath,
+      stdout: 'inherit',
+      stderr: 'inherit',
       env: {
         ...process.env,
         PORT: String(port),
-        RPC_URL: this.rpcUrl,
+        CQL_PORT: String(port),
+        CQL_DATA_DIR: dataDir,
+        CQL_DEBUG: 'true',
       },
     });
 
     this.services.set('cql', {
-      name: 'CQL',
+      name: 'CQL (SQLite)',
       type: 'process',
       port,
       process: proc,
@@ -208,58 +200,7 @@ class ServicesOrchestrator {
       healthCheck: '/health',
     });
 
-    logger.success(`CQL service starting on port ${port}`);
-  }
-
-  private async createMockCQL(): Promise<MockServer> {
-    // Simple mock CQL server using Bun.serve
-    const port = DEFAULT_PORTS.cql;
-    const databases = new Map<string, object[]>();
-
-    const server = Bun.serve({
-      port,
-      fetch(req) {
-        const url = new URL(req.url);
-
-        if (url.pathname === '/health') {
-          return Response.json({ status: 'ok', mock: true });
-        }
-
-        if (url.pathname === '/api/v1/status') {
-          return Response.json({
-            blockHeight: 1,
-            nodeCount: 1,
-            status: 'running',
-            mock: true,
-          });
-        }
-
-        if (url.pathname === '/api/v1/query' && req.method === 'POST') {
-          return Response.json({
-            rows: [],
-            rowCount: 0,
-            columns: [],
-            executionTime: 1,
-            blockHeight: 1,
-          });
-        }
-
-        if (url.pathname.startsWith('/api/v1/databases')) {
-          if (req.method === 'POST') {
-            const id = `db-${Date.now()}`;
-            databases.set(id, []);
-            return Response.json({ id, status: 'created' });
-          }
-          return Response.json({ databases: Array.from(databases.keys()) });
-        }
-
-        return Response.json({ error: 'Not found' }, { status: 404 });
-      },
-    });
-
-    return {
-      stop: async () => server.stop(),
-    };
+    logger.success(`CQL database starting on port ${port} (data: ${dataDir})`);
   }
 
   private async startOracle(): Promise<void> {

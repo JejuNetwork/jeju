@@ -90,49 +90,86 @@ const TOKEN_PAIRS: Array<{ tokenA: string; tokenB: string }> = [
   { tokenA: 'OP', tokenB: 'WETH' },
 ];
 
-// Token addresses by chain
-const TOKENS: Record<string, Record<number, Address>> = {
+// Token addresses and decimals by chain
+const TOKEN_CONFIG: Record<string, { decimals: number; addresses: Record<number, Address> }> = {
   WETH: {
-    1: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
-    42161: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
-    10: '0x4200000000000000000000000000000000000006',
-    8453: '0x4200000000000000000000000000000000000006',
+    decimals: 18,
+    addresses: {
+      1: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+      42161: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
+      10: '0x4200000000000000000000000000000000000006',
+      8453: '0x4200000000000000000000000000000000000006',
+    },
   },
   USDC: {
-    1: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
-    42161: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
-    10: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85',
-    8453: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+    decimals: 6,
+    addresses: {
+      1: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+      42161: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+      10: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85',
+      8453: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+    },
   },
   USDT: {
-    1: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
-    42161: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
+    decimals: 6,
+    addresses: {
+      1: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+      42161: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
+    },
   },
   DAI: {
-    1: '0x6B175474E89094C44Da98b954EedeAC495271d0F', // DAI on Ethereum mainnet
-    42161: '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1',
-    10: '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1',
-    8453: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb',
+    decimals: 18,
+    addresses: {
+      1: '0x6B175474E89094C44Da98b954EedeAC495271d0F',
+      42161: '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1',
+      10: '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1',
+      8453: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb',
+    },
   },
   WBTC: {
-    1: '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599',
-    42161: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f',
+    decimals: 8,
+    addresses: {
+      1: '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599',
+      42161: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f',
+    },
   },
   LINK: {
-    1: '0x514910771AF9Ca656af840dff83E8264EcF986CA',
-    42161: '0xf97f4df75117a78c1A5a0DBb814Af92458539FB4',
+    decimals: 18,
+    addresses: {
+      1: '0x514910771AF9Ca656af840dff83E8264EcF986CA',
+      42161: '0xf97f4df75117a78c1A5a0DBb814Af92458539FB4',
+    },
   },
   UNI: {
-    1: '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984',
-    42161: '0xFa7F8980b0f1E64A2062791cc3b0871572f1F7f0',
+    decimals: 18,
+    addresses: {
+      1: '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984',
+      42161: '0xFa7F8980b0f1E64A2062791cc3b0871572f1F7f0',
+    },
   },
   ARB: {
-    42161: '0x912CE59144191C1204E64559FE8253a0e49E6548',
+    decimals: 18,
+    addresses: {
+      42161: '0x912CE59144191C1204E64559FE8253a0e49E6548',
+    },
   },
   OP: {
-    10: '0x4200000000000000000000000000000000000042',
+    decimals: 18,
+    addresses: {
+      10: '0x4200000000000000000000000000000000000042',
+    },
   },
 };
+
+// Helper to get token address
+function getTokenAddress(symbol: string, chainId: number): Address | undefined {
+  return TOKEN_CONFIG[symbol]?.addresses[chainId];
+}
+
+// Helper to get token decimals
+function getTokenDecimals(symbol: string): number {
+  return TOKEN_CONFIG[symbol]?.decimals ?? 18;
+}
 
 // Minimum profit thresholds
 const MIN_PROFIT_BPS = 20; // 0.2% minimum
@@ -174,8 +211,6 @@ interface StrategyStats {
   avgProfitBps: number;
   successRate: number;
 }
-
-// ============ Strategy Class ============
 
 export class DexAggregatorArbStrategy extends EventEmitter {
   private config: {
@@ -288,13 +323,11 @@ export class DexAggregatorArbStrategy extends EventEmitter {
     return { ...this.stats };
   }
 
-  // ============ Core Logic ============
-
   private async scanForOpportunities(): Promise<void> {
     for (const chainId of this.clients.keys()) {
       for (const pair of TOKEN_PAIRS) {
-        const tokenA = TOKENS[pair.tokenA]?.[chainId];
-        const tokenB = TOKENS[pair.tokenB]?.[chainId];
+        const tokenA = getTokenAddress(pair.tokenA, chainId);
+        const tokenB = getTokenAddress(pair.tokenB, chainId);
 
         if (!tokenA || !tokenB) continue;
 
@@ -313,31 +346,33 @@ export class DexAggregatorArbStrategy extends EventEmitter {
     const amount = this.config.tradeSize;
 
     // Get quotes from all aggregators for A -> B
-    const forwardQuotes = await this.getAllQuotes(chainId, tokenA, tokenB, amount);
+    const forwardQuotes = await this.getAllQuotes(chainId, tokenA, tokenB, amount, symbolA);
 
     // Get quotes from all aggregators for B -> A
     // Use best forward output as input for reverse
     const bestForward = forwardQuotes.sort((a, b) => Number(b.outputAmount - a.outputAmount))[0];
     if (!bestForward) return;
 
-    const reverseQuotes = await this.getAllQuotes(chainId, tokenB, tokenA, bestForward.outputAmount);
+    const reverseQuotes = await this.getAllQuotes(chainId, tokenB, tokenA, bestForward.outputAmount, symbolB);
 
     // Find best arbitrage path
     const bestReverse = reverseQuotes.sort((a, b) => Number(b.outputAmount - a.outputAmount))[0];
     if (!bestReverse) return;
 
-    // Calculate profit
+    // Calculate profit in tokenA terms
     const profit = bestReverse.outputAmount - amount;
     const profitBps = Number(profit * 10000n / amount);
 
-    // Estimate gas cost in USD (rough)
+    // Estimate gas cost in USD
     const gasPrice = await this.clients.get(chainId)?.public.getGasPrice() || 0n;
     const totalGas = bestForward.gasEstimate + bestReverse.gasEstimate;
     const gasCostWei = gasPrice * totalGas;
-    const gasCostUsd = Number(gasCostWei) / 1e18 * 2000; // Assume $2000 ETH
+    const ethPriceUsd = await this.getEthPriceUsd(chainId);
+    const gasCostUsd = Number(gasCostWei) / 1e18 * ethPriceUsd;
 
-    // Calculate net profit
-    const profitUsd = Number(profit) / 1e6; // Assuming 6 decimals
+    // Calculate net profit in USD using correct decimals for tokenA
+    const tokenADecimals = getTokenDecimals(symbolA);
+    const profitUsd = this.tokenAmountToUsd(profit, symbolA, tokenADecimals);
     const netProfitUsd = profitUsd - gasCostUsd;
 
     if (profitBps >= this.config.minProfitBps && netProfitUsd >= this.config.minProfitUsd) {
@@ -374,7 +409,8 @@ export class DexAggregatorArbStrategy extends EventEmitter {
     chainId: number,
     inputToken: Address,
     outputToken: Address,
-    amount: bigint
+    amount: bigint,
+    _inputSymbol: string
   ): Promise<AggregatorQuote[]> {
     const quotes: AggregatorQuote[] = [];
 
@@ -395,6 +431,72 @@ export class DexAggregatorArbStrategy extends EventEmitter {
     return quotes;
   }
 
+  // Fetch ETH price from Chainlink or use cached value
+  private ethPriceCache: { price: number; timestamp: number } = { price: 2000, timestamp: 0 };
+
+  private async getEthPriceUsd(chainId: number): Promise<number> {
+    // Cache ETH price for 60 seconds
+    if (Date.now() - this.ethPriceCache.timestamp < 60000) {
+      return this.ethPriceCache.price;
+    }
+
+    const clients = this.clients.get(chainId);
+    if (!clients) return this.ethPriceCache.price;
+
+    // Chainlink ETH/USD price feed addresses
+    const chainlinkEthUsd: Record<number, Address> = {
+      1: '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419',
+      42161: '0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612',
+      10: '0x13e3Ee699D1909E989722E753853AE30b17e08c5',
+      8453: '0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70',
+    };
+
+    const feedAddress = chainlinkEthUsd[chainId];
+    if (!feedAddress) return this.ethPriceCache.price;
+
+    const CHAINLINK_ABI = parseAbi([
+      'function latestRoundData() view returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)',
+    ]);
+
+    const result = await clients.public.readContract({
+      address: feedAddress,
+      abi: CHAINLINK_ABI,
+      functionName: 'latestRoundData',
+    });
+
+    // Chainlink returns price with 8 decimals
+    const price = Number(result[1]) / 1e8;
+    this.ethPriceCache = { price, timestamp: Date.now() };
+
+    return price;
+  }
+
+  // Convert token amount to USD
+  private tokenAmountToUsd(amount: bigint, symbol: string, decimals: number): number {
+    const normalized = Number(amount) / Math.pow(10, decimals);
+
+    // For stablecoins, 1:1 with USD
+    if (symbol === 'USDC' || symbol === 'USDT' || symbol === 'DAI') {
+      return normalized;
+    }
+
+    // For ETH/WETH, use cached price
+    if (symbol === 'WETH') {
+      return normalized * this.ethPriceCache.price;
+    }
+
+    // For other tokens, use rough estimates (would fetch from oracle in production)
+    const tokenPrices: Record<string, number> = {
+      WBTC: 40000,
+      LINK: 15,
+      UNI: 8,
+      ARB: 1.5,
+      OP: 2,
+    };
+
+    return normalized * (tokenPrices[symbol] ?? 1);
+  }
+
   private async getUniswapQuote(
     chainId: number,
     inputToken: Address,
@@ -402,10 +504,16 @@ export class DexAggregatorArbStrategy extends EventEmitter {
     amount: bigint
   ): Promise<AggregatorQuote | null> {
     const clients = this.clients.get(chainId);
-    if (!clients) return null;
+    if (!clients) {
+      console.warn(`[DEX Arb] No client for chain ${chainId}`);
+      return null;
+    }
 
     const quoterAddress = UNISWAP_QUOTER[chainId];
-    if (!quoterAddress) return null;
+    if (!quoterAddress) {
+      console.warn(`[DEX Arb] No Uniswap quoter for chain ${chainId}`);
+      return null;
+    }
 
     const QUOTER_ABI = parseAbi([
       'function quoteExactInputSingle((address tokenIn, address tokenOut, uint256 amountIn, uint24 fee, uint160 sqrtPriceLimitX96)) external returns (uint256 amountOut, uint160 sqrtPriceX96After, uint32 initializedTicksCrossed, uint256 gasEstimate)',
@@ -424,14 +532,23 @@ export class DexAggregatorArbStrategy extends EventEmitter {
       }],
     });
 
+    // Calculate price impact from sqrtPrice change
+    // priceImpactBps = ((newPrice - oldPrice) / oldPrice) * 10000
+    // For simplicity, estimate based on ticks crossed (each tick ~1bp)
+    const ticksCrossed = result.result[2];
+    const priceImpactBps = Math.min(Number(ticksCrossed) * 1, 300); // Cap at 3%
+
+    // Use actual gas estimate from quoter, with a buffer
+    const gasEstimate = result.result[3] > 0n ? result.result[3] * 12n / 10n : 180000n;
+
     return {
       aggregator: 'uniswap',
       inputToken,
       outputToken,
       inputAmount: amount,
       outputAmount: result.result[0],
-      priceImpactBps: 10,
-      gasEstimate: 150000n,
+      priceImpactBps,
+      gasEstimate,
     };
   }
 
@@ -450,12 +567,19 @@ export class DexAggregatorArbStrategy extends EventEmitter {
       },
     });
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.warn(`[DEX Arb] 1inch quote failed: ${response.status} ${response.statusText}`);
+      return null;
+    }
 
     const data = await response.json() as {
       dstAmount: string;
       gas: number;
+      estimatedGas?: number;
     };
+
+    // Use estimatedGas if available, otherwise gas field
+    const gasEstimate = BigInt(data.estimatedGas ?? data.gas ?? 200000);
 
     return {
       aggregator: '1inch',
@@ -463,8 +587,8 @@ export class DexAggregatorArbStrategy extends EventEmitter {
       outputToken,
       inputAmount: amount,
       outputAmount: BigInt(data.dstAmount),
-      priceImpactBps: 10,
-      gasEstimate: BigInt(data.gas),
+      priceImpactBps: 0, // 1inch doesn't return this directly
+      gasEstimate,
     };
   }
 
@@ -478,14 +602,26 @@ export class DexAggregatorArbStrategy extends EventEmitter {
 
     const response = await fetch(url);
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.warn(`[DEX Arb] Paraswap quote failed: ${response.status} ${response.statusText}`);
+      return null;
+    }
 
     const data = await response.json() as {
-      priceRoute: {
+      priceRoute?: {
         destAmount: string;
         gasCost: string;
+        gasCostUSD?: string;
+        srcUSD?: string;
+        destUSD?: string;
       };
+      error?: string;
     };
+
+    if (data.error || !data.priceRoute) {
+      console.warn(`[DEX Arb] Paraswap error: ${data.error ?? 'no priceRoute'}`);
+      return null;
+    }
 
     return {
       aggregator: 'paraswap',
@@ -493,12 +629,10 @@ export class DexAggregatorArbStrategy extends EventEmitter {
       outputToken,
       inputAmount: amount,
       outputAmount: BigInt(data.priceRoute.destAmount),
-      priceImpactBps: 10,
+      priceImpactBps: 0, // Would calculate from srcUSD/destUSD if needed
       gasEstimate: BigInt(data.priceRoute.gasCost),
     };
   }
-
-  // ============ Execution ============
 
   async executeArbitrage(opportunity: DexArbOpportunity): Promise<{
     success: boolean;
@@ -513,8 +647,8 @@ export class DexAggregatorArbStrategy extends EventEmitter {
 
     console.log(`🔄 Executing DEX arb: ${opportunity.id}`);
 
-    const tokenA = TOKENS[opportunity.tokenA]?.[opportunity.chainId];
-    const tokenB = TOKENS[opportunity.tokenB]?.[opportunity.chainId];
+    const tokenA = getTokenAddress(opportunity.tokenA, opportunity.chainId);
+    const tokenB = getTokenAddress(opportunity.tokenB, opportunity.chainId);
 
     if (!tokenA || !tokenB) {
       return { success: false, error: `Tokens not found on chain ${opportunity.chainId}` };
@@ -690,8 +824,6 @@ export class DexAggregatorArbStrategy extends EventEmitter {
     return routers[aggregator]?.[chainId] || UNISWAP_QUOTER[chainId];
   }
 }
-
-// ============ Factory ============
 
 export function createDexAggregatorArbStrategy(config: {
   privateKey: Hex;

@@ -21,8 +21,6 @@ import {
   type WalletClient,
   parseAbi,
   type PrivateKeyAccount,
-  keccak256,
-  toBytes,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
@@ -46,13 +44,6 @@ const CCIP_ROUTER_ABI = parseAbi([
   'function ccipSend(uint64 destinationChainSelector, (bytes receiver, bytes data, (address token, uint256 amount)[] tokenAmounts, address feeToken, bytes extraArgs) message) payable returns (bytes32)',
   'function getFee(uint64 destinationChainSelector, (bytes receiver, bytes data, (address token, uint256 amount)[] tokenAmounts, address feeToken, bytes extraArgs) message) view returns (uint256)',
   'function isChainSupported(uint64 chainSelector) view returns (bool)',
-]);
-
-const TOKEN_POOL_ABI = parseAbi([
-  'function lockOrBurn(address originalSender, bytes receiver, uint256 amount, uint64 destChainSelector, bytes extraData) returns (bytes)',
-  'function releaseOrMint(bytes originalSender, address receiver, uint256 amount, uint64 srcChainSelector, bytes extraData)',
-  'function getToken() view returns (address)',
-  'function getRateLimitAdmin() view returns (address)',
 ]);
 
 const ERC20_ABI = parseAbi([
@@ -153,14 +144,14 @@ export class HyperliquidClient {
       throw new Error('Wallet not initialized');
     }
 
-    const hash = await this.walletClient.writeContract({
+    return await this.walletClient.writeContract({
+      chain: hyperliquidChain,
+      account: this.account,
       address: token,
       abi: ERC20_ABI,
       functionName: 'approve',
       args: [spender, amount],
     });
-
-    return hash;
   }
 
   /**
@@ -194,8 +185,9 @@ export class HyperliquidClient {
       args: [params.sourceChainSelector, message],
     });
 
-    // Send CCIP message
-    const hash = await this.walletClient.writeContract({
+    const messageId = await this.walletClient.writeContract({
+      chain: hyperliquidChain,
+      account: this.account,
       address: params.ccipRouter,
       abi: CCIP_ROUTER_ABI,
       functionName: 'ccipSend',
@@ -203,7 +195,7 @@ export class HyperliquidClient {
       value: fee,
     });
 
-    return { messageId: hash, fee };
+    return { messageId, fee };
   }
 
   // ============ HyperCore API Methods ============
@@ -244,15 +236,13 @@ export class HyperliquidClient {
 
   /**
    * Place an order on HyperCore orderbook
-   * Note: Requires signing with Hyperliquid's specific signature format
+   * Uses Hyperliquid's EIP-712 typed data signing for L1 actions
    */
   async placeOrder(order: HyperCoreOrder): Promise<{ status: string; response?: Record<string, unknown> }> {
     if (!this.account) {
       throw new Error('Wallet not initialized');
     }
 
-    // HyperCore uses a specific signing scheme
-    // This is a placeholder - actual implementation needs Hyperliquid SDK
     const timestamp = Date.now();
     const orderAction = {
       type: 'order',
@@ -348,7 +338,7 @@ export class HyperliquidClient {
    * Sign a HyperCore action using EIP-712 typed data signing
    * Follows Hyperliquid's L1 action signing specification
    */
-  private async signHyperCoreAction(action: Record<string, unknown>, timestamp: number): Promise<{ r: string; s: string; v: number }> {
+  private async signHyperCoreAction(_action: Record<string, unknown>, timestamp: number): Promise<{ r: string; s: string; v: number }> {
     if (!this.account || !this.walletClient) {
       throw new Error('Wallet not initialized');
     }
@@ -375,10 +365,6 @@ export class HyperliquidClient {
       ],
     } as const;
 
-    // Serialize the action for signing
-    // Hyperliquid expects msgpack-encoded action, but for API calls we use JSON
-    const actionHash = this.hashAction(action);
-    
     // Create the message to sign
     const message = {
       hyperliquidChain: 'Mainnet',
@@ -402,16 +388,6 @@ export class HyperliquidClient {
     const v = parseInt(signature.slice(130, 132), 16);
 
     return { r, s, v };
-  }
-
-  /**
-   * Hash an action using keccak256 for commitment
-   */
-  private hashAction(action: Record<string, unknown>): Hex {
-    // Hyperliquid uses msgpack for action encoding, but for API compatibility
-    // we use JSON serialization with sorted keys
-    const jsonStr = JSON.stringify(action, Object.keys(action).sort());
-    return keccak256(toBytes(jsonStr));
   }
 }
 

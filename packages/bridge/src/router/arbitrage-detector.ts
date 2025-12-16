@@ -20,8 +20,6 @@
  *    - Capture MEV on Solana side
  */
 
-import { type Address } from 'viem';
-
 // ============ Types ============
 
 export interface PriceQuote {
@@ -79,27 +77,9 @@ export interface JitoTransaction {
   signers: string[];
 }
 
-// ============ Price Feeds ============
-
-interface PriceFeed {
-  chain: string;
-  dex: string;
-  getPrice(tokenIn: string, tokenOut: string, amount: bigint): Promise<PriceQuote | null>;
-}
-
-// Jupiter (Solana aggregator)
 const JUPITER_API = 'https://quote-api.jup.ag/v6';
-
-// Raydium (Solana AMM)
-const RAYDIUM_API = 'https://api-v3.raydium.io';
-
-// Hyperliquid
 const HYPERLIQUID_API = 'https://api.hyperliquid.xyz';
 
-// Aster DEX
-const ASTER_API = 'https://api.aster.xyz';
-
-// Common token addresses
 const SOLANA_TOKENS: Record<string, string> = {
   SOL: 'So11111111111111111111111111111111111111112',
   USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
@@ -107,31 +87,14 @@ const SOLANA_TOKENS: Record<string, string> = {
   WETH: '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs',
 };
 
-const EVM_TOKENS: Record<string, Record<number, Address>> = {
-  USDC: {
-    1: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
-    8453: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-    42161: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
-  },
-  WETH: {
-    1: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
-    8453: '0x4200000000000000000000000000000000000006',
-    42161: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
-  },
-};
-
 // ============ Arbitrage Detector ============
 
 export class ArbitrageDetector {
   private opportunities: Map<string, ArbOpportunity> = new Map();
-  private priceCache: Map<string, PriceQuote> = new Map();
   private minProfitBps: number;
   private running = false;
   private pollInterval: ReturnType<typeof setInterval> | null = null;
-  
-  // Jito settings
   private jitoBlockEngineUrl = 'https://mainnet.block-engine.jito.wtf';
-  private jitoTipAccount = 'DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL';
 
   constructor(config: { minProfitBps?: number } = {}) {
     this.minProfitBps = config.minProfitBps ?? 100; // 1% default
@@ -488,15 +451,15 @@ export class ArbitrageDetector {
     if (!quoterAddress) return null;
 
     try {
-      const { createPublicClient, http, encodeFunctionData } = await import('viem');
+      const { createPublicClient, http } = await import('viem');
       const { mainnet, arbitrum, optimism, base } = await import('viem/chains');
       
-      const chains: Record<number, typeof mainnet> = {
-        1: mainnet, 42161: arbitrum, 10: optimism, 8453: base,
-      };
+      const chains = { 1: mainnet, 42161: arbitrum, 10: optimism, 8453: base } as const;
+      const chain = chains[chainId as keyof typeof chains];
+      if (!chain) return null;
 
       const client = createPublicClient({
-        chain: chains[chainId],
+        chain,
         transport: http(),
       });
 

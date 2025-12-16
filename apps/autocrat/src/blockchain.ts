@@ -39,6 +39,7 @@ export class AutocratBlockchain {
   constructor(config: AutocratConfig) {
     this.config = config;
     const chain = inferChainFromRpcUrl(config.rpcUrl);
+    // @ts-expect-error viem version type mismatch in monorepo
     this.client = createPublicClient({
       chain,
       transport: http(config.rpcUrl),

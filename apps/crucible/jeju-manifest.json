@@ -49,19 +49,22 @@
       "regions": ["global"],
       "cacheRules": [
         { "pattern": "/static/**", "ttl": 31536000, "immutable": true },
-        { "pattern": "/api/**", "ttl": 0 }
+        { "pattern": "/api/**", "ttl": 0 },
+        { "pattern": "/**/*.html", "ttl": 60, "staleWhileRevalidate": 3600 }
       ],
-      "serviceWorker": false
+      "serviceWorker": true
     },
     "frontend": {
       "ipfs": true,
+      "arweave": true,
       "jnsName": "crucible.jeju",
       "buildDir": "dist",
-      "spa": true
+      "spa": true,
+      "fallbackOrigins": ["https://crucible.jeju.network"]
     },
     "robustness": {
       "multiOrigin": true,
-      "offlineSupport": false,
+      "offlineSupport": true,
       "p2pFallback": true,
       "contentAddressed": true
     }

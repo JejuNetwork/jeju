@@ -111,19 +111,17 @@ describe('ABI Definitions', () => {
     expect(ERC20_APPROVE_ABI[0].inputs).toHaveLength(2);
   });
 
-  test('ABIs can be used with viem parseAbi', () => {
-    const outputAbi = parseAbi(OUTPUT_SETTLER_ABI);
-    const erc20Abi = parseAbi(ERC20_APPROVE_ABI);
-
-    expect(outputAbi.find(f => f.type === 'function' && f.name === 'fillDirect')).toBeDefined();
-    expect(outputAbi.find(f => f.type === 'function' && f.name === 'isFilled')).toBeDefined();
-    expect(erc20Abi.find(f => f.type === 'function' && f.name === 'approve')).toBeDefined();
+  test('ABIs can be used with viem encodeFunctionData', () => {
+    // ABIs are already parsed objects, use them directly
+    expect(OUTPUT_SETTLER_ABI.find(f => f.type === 'function' && f.name === 'fillDirect')).toBeDefined();
+    expect(OUTPUT_SETTLER_ABI.find(f => f.type === 'function' && f.name === 'isFilled')).toBeDefined();
+    expect(ERC20_APPROVE_ABI.find(f => f.type === 'function' && f.name === 'approve')).toBeDefined();
   });
 
   test('fillDirect ABI encodes correctly', () => {
-    const abi = parseAbi(OUTPUT_SETTLER_ABI);
+    // Use the ABI directly - it's already a parsed ABI object
     const data = encodeFunctionData({
-      abi,
+      abi: OUTPUT_SETTLER_ABI,
       functionName: 'fillDirect',
       args: [
         '0x' + 'ab'.repeat(32) as `0x${string}`,
@@ -172,9 +170,8 @@ describe('Edge Cases', () => {
   });
 
   test('fillDirect with zero amount', () => {
-    const abi = parseAbi(OUTPUT_SETTLER_ABI);
     const data = encodeFunctionData({
-      abi,
+      abi: OUTPUT_SETTLER_ABI,
       functionName: 'fillDirect',
       args: [
         '0x' + '00'.repeat(32) as `0x${string}`,
@@ -187,10 +184,9 @@ describe('Edge Cases', () => {
   });
 
   test('fillDirect with max uint256', () => {
-    const abi = parseAbi(OUTPUT_SETTLER_ABI);
     const maxUint256 = 2n ** 256n - 1n;
     const data = encodeFunctionData({
-      abi,
+      abi: OUTPUT_SETTLER_ABI,
       functionName: 'fillDirect',
       args: [
         '0x' + 'ff'.repeat(32) as `0x${string}`,
@@ -202,15 +198,14 @@ describe('Edge Cases', () => {
     expect(data).toBeDefined();
 
     // Verify decoding works
-    const decoded = decodeFunctionData({ abi, data });
+    const decoded = decodeFunctionData({ abi: OUTPUT_SETTLER_ABI, data });
     expect(decoded.args[2]).toBe(maxUint256);
   });
 
   test('approve with max uint256 (infinite approval)', () => {
-    const abi = parseAbi(ERC20_APPROVE_ABI);
     const maxUint256 = 2n ** 256n - 1n;
     const data = encodeFunctionData({
-      abi,
+      abi: ERC20_APPROVE_ABI,
       functionName: 'approve',
       args: [
         '0x' + '11'.repeat(20) as `0x${string}`,
@@ -218,7 +213,7 @@ describe('Edge Cases', () => {
       ],
     });
     
-    const decoded = decodeFunctionData({ abi, data });
+    const decoded = decodeFunctionData({ abi: ERC20_APPROVE_ABI, data });
     expect(decoded.args[1]).toBe(maxUint256);
   });
 });
@@ -288,7 +283,6 @@ describe('Boundary Conditions - isNativeToken', () => {
 
 describe('ABI Encoding/Decoding Roundtrip', () => {
   test('fillDirect encodes and decodes identically', () => {
-    const abi = parseAbi(OUTPUT_SETTLER_ABI);
     const params = [
       '0x' + 'ab'.repeat(32) as `0x${string}`,
       '0x' + '11'.repeat(20) as `0x${string}`,
@@ -296,8 +290,8 @@ describe('ABI Encoding/Decoding Roundtrip', () => {
       '0x' + '22'.repeat(20) as `0x${string}`,
     ] as const;
     
-    const encoded = encodeFunctionData({ abi, functionName: 'fillDirect', args: params });
-    const decoded = decodeFunctionData({ abi, data: encoded });
+    const encoded = encodeFunctionData({ abi: OUTPUT_SETTLER_ABI, functionName: 'fillDirect', args: params });
+    const decoded = decodeFunctionData({ abi: OUTPUT_SETTLER_ABI, data: encoded });
     
     expect(decoded.args[0]).toBe(params[0]);
     expect(decoded.args[1].toLowerCase()).toBe(params[1]);
@@ -306,17 +300,15 @@ describe('ABI Encoding/Decoding Roundtrip', () => {
   });
 
   test('isFilled encodes orderId correctly', () => {
-    const abi = parseAbi(OUTPUT_SETTLER_ABI);
     const orderId = '0x' + 'deadbeef'.repeat(8) as `0x${string}`;
     
-    const encoded = encodeFunctionData({ abi, functionName: 'isFilled', args: [orderId] });
-    const decoded = decodeFunctionData({ abi, data: encoded });
+    const encoded = encodeFunctionData({ abi: OUTPUT_SETTLER_ABI, functionName: 'isFilled', args: [orderId] });
+    const decoded = decodeFunctionData({ abi: OUTPUT_SETTLER_ABI, data: encoded });
     
     expect(decoded.args[0]).toBe(orderId);
   });
 
   test('approve handles various amounts', () => {
-    const abi = parseAbi(ERC20_APPROVE_ABI);
     const testAmounts = [
       0n,
       1n,
@@ -327,8 +319,8 @@ describe('ABI Encoding/Decoding Roundtrip', () => {
     ];
     
     for (const amount of testAmounts) {
-      const encoded = encodeFunctionData({ abi, functionName: 'approve', args: [zeroAddress, amount] });
-      const decoded = decodeFunctionData({ abi, data: encoded });
+      const encoded = encodeFunctionData({ abi: ERC20_APPROVE_ABI, functionName: 'approve', args: [zeroAddress, amount] });
+      const decoded = decodeFunctionData({ abi: ERC20_APPROVE_ABI, data: encoded });
       expect(decoded.args[1]).toBe(amount);
     }
   });

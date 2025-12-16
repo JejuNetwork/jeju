@@ -123,6 +123,8 @@ export class SolanaMempoolMonitor extends EventEmitter {
   private opportunities: Map<string, SolanaArbOpportunity> = new Map();
   private processedTxs: Set<string> = new Set();
   private programIds: Map<string, string> = new Map();
+  // Cache token account -> mint mappings to avoid repeated RPC calls
+  private tokenAccountMints: Map<string, string> = new Map();
 
   constructor(rpcUrl: string) {
     super();
@@ -131,6 +133,53 @@ export class SolanaMempoolMonitor extends EventEmitter {
     // Index program IDs
     for (const [name, address] of Object.entries(MONITORED_PROGRAMS)) {
       this.programIds.set(address, name);
+    }
+
+    // Pre-populate common mints
+    this.tokenAccountMints.set('So11111111111111111111111111111111111111112', 'So11111111111111111111111111111111111111112'); // Native SOL
+  }
+
+  // Fetch the mint address for a token account
+  private async getTokenAccountMint(tokenAccount: string): Promise<string> {
+    // Check cache first
+    const cached = this.tokenAccountMints.get(tokenAccount);
+    if (cached) return cached;
+
+    // Token account data layout: mint (32 bytes) at offset 0
+    const accountInfo = await this.connection.getAccountInfo(new PublicKey(tokenAccount));
+    if (!accountInfo || accountInfo.data.length < 32) {
+      return tokenAccount; // Return as-is if can't fetch
+    }
+
+    // First 32 bytes of token account data is the mint address
+    const mintBytes = accountInfo.data.slice(0, 32);
+    const mint = new PublicKey(mintBytes).toBase58();
+
+    // Cache for future lookups
+    this.tokenAccountMints.set(tokenAccount, mint);
+    return mint;
+  }
+
+  // Resolve mints for a parsed instruction (best effort, async)
+  private async resolveMints(ix: ParsedInstruction): Promise<void> {
+    if (!ix.data.inputMint || !ix.data.outputMint) return;
+
+    // Only resolve if they look like token accounts (not already mints)
+    // SOL mint is 44 chars, but token accounts are also 44 chars
+    // Check if already in common mints
+    const commonMints = new Set([
+      'So11111111111111111111111111111111111111112', // SOL
+      'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
+      'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', // USDT
+      'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', // Bonk
+      'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN', // JUP
+    ]);
+
+    if (!commonMints.has(ix.data.inputMint)) {
+      ix.data.inputMint = await this.getTokenAccountMint(ix.data.inputMint);
+    }
+    if (!commonMints.has(ix.data.outputMint)) {
+      ix.data.outputMint = await this.getTokenAccountMint(ix.data.outputMint);
     }
   }
 
@@ -260,6 +309,18 @@ export class SolanaMempoolMonitor extends EventEmitter {
     const parsedTx = this.parseTransaction(tx, txData);
     if (!parsedTx) return;
 
+    // Resolve token account mints asynchronously, then analyze
+    this.resolveAndAnalyze(parsedTx);
+  }
+
+  private async resolveAndAnalyze(parsedTx: PendingSolanaTx): Promise<void> {
+    // Resolve mint addresses for swap instructions
+    for (const ix of parsedTx.instructions) {
+      if (ix.type === 'swap') {
+        await this.resolveMints(ix);
+      }
+    }
+
     // Analyze for opportunities
     const opportunities = this.analyzeForOpportunities(parsedTx);
 
@@ -338,20 +399,60 @@ export class SolanaMempoolMonitor extends EventEmitter {
     data: Uint8Array,
     accounts: string[]
   ): ParsedInstruction | null {
-    // Jupiter route instruction discriminator
-    const discriminator = data.slice(0, 8);
+    // Jupiter route instruction layout:
+    // - 8 bytes: discriminator
+    // - 1 byte: route plan length
+    // - variable: route plan
+    // - 8 bytes (u64): in_amount
+    // - 8 bytes (u64): quoted_out_amount
+    // - 2 bytes (u16): slippage_bps
+    // - 1 byte (u8): platform_fee_bps
+    
+    if (data.length < 27 || accounts.length < 4) return null;
 
-    // Common Jupiter swap accounts layout
-    // [tokenProgram, user, userSource, userDest, ...]
-    if (accounts.length < 4) return null;
+    // Parse amounts from instruction data
+    // Jupiter v6 uses different layouts, attempt common patterns
+    let inAmount: bigint;
+    let outAmount: bigint;
+    let slippageBps: number;
 
+    // Try to parse common Jupiter route instruction format
+    // Layout after discriminator varies, but amounts are typically at offset 8+1+N
+    // For simplicity, parse from end where amounts are more predictable
+    const dataView = new DataView(data.buffer, data.byteOffset, data.byteLength);
+
+    // SharedAccountsRoute layout (most common):
+    // discriminator(8) + id(1) + routePlanLen(1) + routePlan(variable) + inAmount(8) + quotedOutAmount(8) + slippageBps(2)
+    // Try to find amounts by scanning for u64 values that look like token amounts
+    
+    // Simple heuristic: last 18 bytes often contain: inAmount(8) + outAmount(8) + slippageBps(2)
+    if (data.length >= 26) {
+      const offset = data.length - 18;
+      inAmount = dataView.getBigUint64(offset, true); // little-endian
+      outAmount = dataView.getBigUint64(offset + 8, true);
+      slippageBps = dataView.getUint16(offset + 16, true);
+    } else {
+      // Fallback: no amount data available
+      inAmount = BigInt(0);
+      outAmount = BigInt(0);
+      slippageBps = 50;
+    }
+
+    // Note: accounts[2] and accounts[3] are TOKEN ACCOUNTS, not mints
+    // The actual mint requires fetching token account info from chain
+    // For now, use token accounts and note this limitation
+    // In production, would cache token account -> mint mappings
+    
     return {
       program: 'jupiter',
       programId,
       type: 'swap',
       data: {
-        inputMint: accounts[2], // userSource token account
-        outputMint: accounts[3], // userDest token account
+        inputMint: accounts[2], // userSource token account (ideally fetch mint)
+        outputMint: accounts[3], // userDest token account (ideally fetch mint)
+        inAmount: inAmount.toString(),
+        outAmount: outAmount.toString(),
+        slippageBps,
         accounts,
       },
     };
@@ -362,16 +463,44 @@ export class SolanaMempoolMonitor extends EventEmitter {
     data: Uint8Array,
     accounts: string[]
   ): ParsedInstruction | null {
-    // Raydium AMM swap accounts layout
-    // [amm, authority, userSource, userDest, poolSource, poolDest, ...]
-    if (accounts.length < 6) return null;
+    // Raydium AMM swap instruction layout:
+    // - 1 byte: instruction discriminator (0x09 = swap)
+    // - 8 bytes (u64): amount_in
+    // - 8 bytes (u64): minimum_amount_out
+    
+    // Accounts layout:
+    // [tokenProgram, amm, ammAuthority, ammOpenOrders, ammTargetOrders, poolCoinTokenAccount, poolPcTokenAccount, serumProgram, serumMarket, serumBids, serumAsks, serumEventQueue, serumCoinVaultAccount, serumPcVaultAccount, serumVaultSigner, userSourceTokenAccount, userDestTokenAccount, userOwner]
+    
+    if (data.length < 17 || accounts.length < 17) return null;
+
+    const dataView = new DataView(data.buffer, data.byteOffset, data.byteLength);
+    
+    // Check for swap instruction discriminator
+    const discriminator = data[0];
+    if (discriminator !== 0x09) {
+      // Not a swap instruction
+      return {
+        program: 'raydium_amm',
+        programId,
+        type: 'unknown',
+        data: { amm: accounts[1], accounts },
+      };
+    }
+
+    // Parse amounts
+    const amountIn = dataView.getBigUint64(1, true);
+    const minimumAmountOut = dataView.getBigUint64(9, true);
 
     return {
       program: 'raydium_amm',
       programId,
       type: 'swap',
       data: {
-        amm: accounts[0],
+        amm: accounts[1],
+        inputMint: accounts[15], // userSourceTokenAccount (ideally fetch mint)
+        outputMint: accounts[16], // userDestTokenAccount (ideally fetch mint)
+        baseAmount: amountIn.toString(),
+        quoteAmount: minimumAmountOut.toString(),
         accounts,
       },
     };
