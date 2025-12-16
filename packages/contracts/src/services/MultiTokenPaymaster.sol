@@ -105,7 +105,8 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
         address _priceOracle,
         address _revenueWallet,
         address _owner
-    ) BasePaymaster(_entryPoint, _owner) {
+    ) BasePaymaster(_entryPoint) {
+        _transferOwnership(_owner);
         require(_usdc != address(0), "Invalid USDC");
         require(_elizaOS != address(0), "Invalid elizaOS");
         require(_creditManager != address(0), "Invalid credit manager");

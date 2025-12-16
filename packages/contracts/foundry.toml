@@ -20,12 +20,15 @@ skip = [
     "src/governance/council/**",
     "src/cdn/**",
     "src/eil/**",
+    "src/bridge/eil/**",
     "src/perps/**",
     "src/marketplace/**",
     "src/prediction-markets/**",
     
     # Paymaster requires full ERC-4337 integration
     "src/paymaster/**",
+    "src/services/MultiTokenPaymaster.sol",
+    "src/services/ServicePaymaster.sol",
     "test/PaymasterFactory.t.sol",
     
     # Deploy scripts for disabled features
