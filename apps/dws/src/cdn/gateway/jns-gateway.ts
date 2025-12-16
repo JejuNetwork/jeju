@@ -71,7 +71,7 @@ export class JNSGateway {
   private config: JNSGatewayConfig;
   private cache: EdgeCache;
   private originFetcher: OriginFetcher;
-  private publicClient: ReturnType<typeof createPublicClient>;
+  private publicClient: Awaited<ReturnType<typeof createPublicClient>>;
   private registryAddress: Address;
   private defaultResolverAddress: Address;
 
@@ -196,7 +196,7 @@ export class JNSGateway {
     const node = this.namehash(name);
 
     // Get resolver
-    const resolverAddress = await readContract(this.publicClient, {
+    const resolverAddress = await this.publicClient.readContract({
       address: this.registryAddress,
       abi: JNS_REGISTRY_ABI,
       functionName: 'resolver',
@@ -211,7 +211,7 @@ export class JNSGateway {
       : this.defaultResolverAddress;
 
     // Get content hash
-    const contenthashBytes = await readContract(this.publicClient, {
+    const contenthashBytes = await this.publicClient.readContract({
       address: resolverAddr,
       abi: JNS_RESOLVER_ABI,
       functionName: 'contenthash',
@@ -264,7 +264,7 @@ export class JNSGateway {
   }
 
   private keccak256Buffer(buf: Buffer): string {
-    return keccak256(new Uint8Array(buf) as `0x${string}`);
+    return keccak256(`0x${buf.toString('hex')}` as `0x${string}`);
   }
 
   /**
@@ -350,14 +350,14 @@ export class JNSGateway {
     // Try cache first
     const { entry, status } = this.cache.get(fullPath);
     if (entry && status === 'HIT') {
-      return this.buildResponse(c, entry.data, entry.metadata.headers, 200, status);
+      return this.buildResponse(entry.data, entry.metadata.headers, 200, status);
     }
 
     // Fetch from IPFS gateway
     const result = await this.originFetcher.fetch(fullPath, 'ipfs');
     
     if (!result.success) {
-      return c.json({ error: result.error }, result.status || 502);
+      return c.json({ error: result.error }, { status: result.status || 502 });
     }
 
     // Cache immutable IPFS content
@@ -368,7 +368,7 @@ export class JNSGateway {
       immutable: true, // IPFS CIDs are immutable
     });
 
-    return this.buildResponse(c, result.body, result.headers, 200, 'MISS');
+    return this.buildResponse(result.body, result.headers, 200, 'MISS');
   }
 
   /**
@@ -380,13 +380,13 @@ export class JNSGateway {
     // Shorter cache for IPNS (can change)
     const { entry, status } = this.cache.get(fullPath);
     if (entry && status === 'HIT') {
-      return this.buildResponse(c, entry.data, entry.metadata.headers, 200, status);
+      return this.buildResponse(entry.data, entry.metadata.headers, 200, status);
     }
 
     const result = await this.originFetcher.fetch(fullPath, 'ipfs');
     
     if (!result.success) {
-      return c.json({ error: result.error }, result.status || 502);
+      return c.json({ error: result.error }, { status: result.status || 502 });
     }
 
     // Cache IPNS content with shorter TTL
@@ -398,7 +398,7 @@ export class JNSGateway {
       immutable: false,
     });
 
-    return this.buildResponse(c, result.body, result.headers, 200, 'MISS');
+    return this.buildResponse(result.body, result.headers, 200, 'MISS');
   }
 
   /**
@@ -434,13 +434,13 @@ export class JNSGateway {
     
     const { entry, status } = this.cache.get(fullPath);
     if (entry && status === 'HIT') {
-      return this.buildResponse(c, entry.data, entry.metadata.headers, 200, status);
+      return this.buildResponse(entry.data, entry.metadata.headers, 200, status);
     }
 
     const result = await this.originFetcher.fetch(fullPath, 'arweave');
     
     if (!result.success) {
-      return c.json({ error: result.error }, result.status || 502);
+      return c.json({ error: result.error }, { status: result.status || 502 });
     }
 
     // Arweave is permanent
@@ -451,20 +451,19 @@ export class JNSGateway {
       immutable: true,
     });
 
-    return this.buildResponse(c, result.body, result.headers, 200, 'MISS');
+    return this.buildResponse(result.body, result.headers, 200, 'MISS');
   }
 
   /**
    * Build response with CDN headers
    */
   private buildResponse(
-    c: Context,
     body: Buffer,
     headers: Record<string, string>,
     status: number,
     cacheStatus: string
   ): Response {
-    return new Response(body, {
+    return new Response(new Uint8Array(body), {
       status,
       headers: {
         ...headers,

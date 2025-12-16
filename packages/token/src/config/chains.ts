@@ -1,7 +1,7 @@
 import type { ChainConfig, ChainId } from '../types';
 
 // Jeju Hyperlane addresses - populated after deployment
-// Run `bun run deploy:hyperlane:jeju` to deploy and update these
+// Run `jeju token deploy:hyperlane` to deploy and update these
 const JEJU_HYPERLANE_DEFAULTS = {
   // These will be set after running the deployment script
   // which generates src/config/jeju-hyperlane.ts
@@ -236,7 +236,7 @@ export const MAINNET_CHAINS: ChainConfig[] = [
 ];
 
 // Jeju Testnet (L2 on Sepolia) - For integration with Jeju Network
-// Run `bun run scripts/deploy-hyperlane-jeju.ts` to deploy Hyperlane
+// Run `jeju token deploy:hyperlane --network testnet` to deploy Hyperlane
 export const jejuTestnet: ChainConfig = {
   chainId: 420690,
   chainType: 'evm',

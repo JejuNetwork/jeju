@@ -71,23 +71,50 @@ contract MockPyth {
     }
 }
 
+contract MockTWAPOracle {
+    mapping(address => uint256) private _prices;
+    mapping(address => bool) private _isValid;
+
+    function setPrice(address token, uint256 price) external {
+        _prices[token] = price;
+        _isValid[token] = true;
+    }
+
+    function setInvalid(address token) external {
+        _isValid[token] = false;
+    }
+
+    function getPrice(address token) external view returns (uint256) {
+        return _prices[token];
+    }
+
+    function isValidTWAP(address token) external view returns (bool) {
+        return _isValid[token];
+    }
+
+    function getPriceDeviation(address) external pure returns (uint256) {
+        return 50; // 0.5%
+    }
+}
+
 contract OracleRegistryTest is Test {
     OracleRegistry public registry;
     MockChainlinkFeed public ethFeed;
     MockChainlinkFeed public btcFeed;
     MockPyth public pyth;
+    MockTWAPOracle public twapOracleMock;
     
     address public owner = address(1);
     address public governance = address(2);
-    address public twapOracle = address(3);
     address public weth = address(0x1111);
     address public wbtc = address(0x2222);
     
     function setUp() public {
         pyth = new MockPyth();
+        twapOracleMock = new MockTWAPOracle();
         
         vm.prank(owner);
-        registry = new OracleRegistry(address(pyth), twapOracle, governance);
+        registry = new OracleRegistry(address(pyth), address(twapOracleMock), governance);
         
         // Deploy mock Chainlink feeds
         ethFeed = new MockChainlinkFeed(3000_00000000, 8); // $3000 with 8 decimals
@@ -232,6 +259,232 @@ contract OracleRegistryTest is Test {
         uint256 price = registry.getPrice(weth);
         // Should be normalized to 8 decimals
         assertEq(price, 3000_00000000);
+    }
+
+    // ============ TWAP Oracle Tests ============
+
+    function test_RegisterTWAPOracle() public {
+        twapOracleMock.setPrice(weth, 3000_00000000);
+
+        vm.prank(owner);
+        registry.registerTWAPOracle(weth, 900); // 15 min heartbeat
+
+        OracleRegistry.OracleType oracleType = registry.getOracleType(weth);
+        assertEq(uint(oracleType), uint(OracleRegistry.OracleType.TWAP));
+    }
+
+    function test_GetTWAPPrice() public {
+        twapOracleMock.setPrice(weth, 3000_00000000);
+
+        vm.prank(owner);
+        registry.registerTWAPOracle(weth, 900);
+
+        uint256 price = registry.getPrice(weth);
+        assertEq(price, 3000_00000000);
+    }
+
+    function test_TWAPFallsBackOnInvalid() public {
+        twapOracleMock.setInvalid(weth);
+
+        vm.prank(owner);
+        registry.registerTWAPOracle(weth, 900);
+
+        // Should revert as TWAP is invalid and no fallback
+        vm.expectRevert();
+        registry.getPrice(weth);
+    }
+
+    // ============ Fallback Oracle Tests ============
+
+    function test_RegisterFallbackOracle() public {
+        vm.startPrank(owner);
+        
+        // Register Chainlink as primary
+        registry.registerChainlinkOracle(weth, address(ethFeed), 3600);
+        
+        // Register TWAP as fallback
+        twapOracleMock.setPrice(weth, 3050_00000000);
+        registry.registerFallbackOracle(
+            weth,
+            OracleRegistry.OracleType.TWAP,
+            address(twapOracleMock),
+            bytes32(0),
+            900,
+            8
+        );
+        
+        vm.stopPrank();
+
+        // Primary should work
+        uint256 price = registry.getPrice(weth);
+        assertEq(price, 3000_00000000);
+    }
+
+    function test_FallbackUsedWhenPrimaryStale() public {
+        vm.warp(10000);
+        
+        vm.startPrank(owner);
+        
+        // Register Chainlink as primary with short heartbeat
+        registry.registerChainlinkOracle(weth, address(ethFeed), 60);
+        
+        // Register TWAP as fallback
+        twapOracleMock.setPrice(weth, 3050_00000000);
+        registry.registerFallbackOracle(
+            weth,
+            OracleRegistry.OracleType.TWAP,
+            address(twapOracleMock),
+            bytes32(0),
+            900,
+            8
+        );
+        
+        vm.stopPrank();
+
+        // Make primary stale
+        ethFeed.setStale(block.timestamp);
+
+        // Should use fallback
+        uint256 price = registry.getPrice(weth);
+        assertEq(price, 3050_00000000);
+    }
+
+    function test_GetPriceWithValidation() public {
+        vm.startPrank(owner);
+        
+        registry.registerChainlinkOracle(weth, address(ethFeed), 3600);
+        
+        twapOracleMock.setPrice(weth, 3030_00000000); // 1% different
+        registry.registerFallbackOracle(
+            weth,
+            OracleRegistry.OracleType.TWAP,
+            address(twapOracleMock),
+            bytes32(0),
+            900,
+            8
+        );
+        
+        vm.stopPrank();
+
+        (
+            uint256 primaryPrice,
+            uint256 fallbackPrice,
+            uint256 deviation,
+            bool isValid
+        ) = registry.getPriceWithValidation(weth);
+
+        assertEq(primaryPrice, 3000_00000000);
+        assertEq(fallbackPrice, 3030_00000000);
+        assertGt(deviation, 0);
+        assertTrue(isValid); // Within 5% default
+    }
+
+    function test_SetUseFallback() public {
+        vm.prank(governance);
+        registry.setUseFallback(false);
+        
+        assertFalse(registry.useFallback());
+    }
+
+    function test_SetMaxPriceDeviation() public {
+        vm.prank(governance);
+        registry.setMaxPriceDeviation(200); // 2%
+        
+        assertEq(registry.maxPriceDeviation(), 200);
+    }
+
+    function test_SetTWAPOracle() public {
+        MockTWAPOracle newTwap = new MockTWAPOracle();
+        
+        vm.prank(governance);
+        registry.setTWAPOracle(address(newTwap));
+        
+        assertEq(address(registry.twapOracle()), address(newTwap));
+    }
+
+    // ============ Priority Tests ============
+
+    function test_OraclePriority_PythFirst() public {
+        bytes32 pythId = bytes32(uint256(1));
+        
+        // Set Pyth price
+        pyth.setPrice(pythId, 3100_00000000, -8);
+
+        vm.startPrank(owner);
+        registry.registerPythOracle(weth, pythId, 60);
+        
+        // Also register Chainlink fallback
+        registry.registerFallbackOracle(
+            weth,
+            OracleRegistry.OracleType.CHAINLINK,
+            address(ethFeed),
+            bytes32(0),
+            3600,
+            8
+        );
+        vm.stopPrank();
+
+        // Should use Pyth (primary)
+        uint256 price = registry.getPrice(weth);
+        assertEq(price, 3100_00000000);
+    }
+
+    function test_ChainlinkFallsToTWAP() public {
+        vm.warp(10000);
+        
+        vm.startPrank(owner);
+        
+        // Register Chainlink as primary
+        registry.registerChainlinkOracle(weth, address(ethFeed), 60);
+        
+        // Register TWAP as fallback
+        twapOracleMock.setPrice(weth, 2950_00000000);
+        registry.registerFallbackOracle(
+            weth,
+            OracleRegistry.OracleType.TWAP,
+            address(twapOracleMock),
+            bytes32(0),
+            900,
+            8
+        );
+        
+        vm.stopPrank();
+
+        // Make Chainlink stale
+        ethFeed.setStale(block.timestamp);
+
+        uint256 price = registry.getPrice(weth);
+        assertEq(price, 2950_00000000);
+    }
+
+    function test_DeactivateFallbackOracle() public {
+        vm.warp(10000);
+        
+        vm.startPrank(owner);
+        
+        registry.registerChainlinkOracle(weth, address(ethFeed), 60);
+        
+        twapOracleMock.setPrice(weth, 3050_00000000);
+        registry.registerFallbackOracle(
+            weth,
+            OracleRegistry.OracleType.TWAP,
+            address(twapOracleMock),
+            bytes32(0),
+            900,
+            8
+        );
+        
+        // Deactivate fallback
+        registry.deactivateFallbackOracle(weth);
+        
+        vm.stopPrank();
+
+        // Make primary stale
+        ethFeed.setStale(block.timestamp);
+
+        // Should revert as fallback is deactivated
+        vm.expectRevert();
+        registry.getPrice(weth);
     }
 }
 

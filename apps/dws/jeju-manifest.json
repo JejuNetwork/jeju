@@ -60,6 +60,25 @@
     "multiTokenPayments": true,
     "jnsName": "dws.jeju"
   },
+  "decentralization": {
+    "cdn": {
+      "enabled": true,
+      "regions": ["global"],
+      "cacheRules": [
+        { "pattern": "/ipfs/**", "ttl": 31536000, "immutable": true },
+        { "pattern": "/ipns/**", "ttl": 300, "staleWhileRevalidate": 3600 },
+        { "pattern": "/ar/**", "ttl": 31536000, "immutable": true },
+        { "pattern": "/api/**", "ttl": 0 }
+      ],
+      "serviceWorker": false
+    },
+    "robustness": {
+      "multiOrigin": true,
+      "offlineSupport": false,
+      "p2pFallback": true,
+      "contentAddressed": true
+    }
+  },
   "testing": {
     "unit": {
       "command": "bun run test",

@@ -4,7 +4,7 @@
  * Provides decentralized cron triggers via the compute network.
  */
 
-import type { Address, Hex } from 'viem';
+import type { Address } from 'viem';
 
 export interface CronConfig {
   endpoint?: string;
@@ -46,13 +46,13 @@ export interface CronJob {
 
 class CronServiceImpl implements CronService {
   private endpoint: string;
-  private webhookBase: string;
   private available = true;
   private localJobs = new Map<string, CronJob>();
 
   constructor(config: CronConfig) {
     this.endpoint = config.endpoint || process.env.CRON_ENDPOINT || 'http://localhost:4200/cron';
-    this.webhookBase = config.webhookBase || process.env.WEBHOOK_BASE || 'http://localhost:4500';
+    // webhookBase is available in config for future use
+    void config.webhookBase;
   }
 
   async register(job: CronJobConfig): Promise<CronJob> {

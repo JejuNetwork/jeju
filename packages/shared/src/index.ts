@@ -176,7 +176,7 @@ export {
   type CovenantSQLConfig,
   type ConsistencyLevel,
   type QueryOptions,
-  type QueryResult,
+  type QueryResult as CovenantQueryResult,
   type TransactionContext,
   type TableSchema,
   type ColumnDefinition,
@@ -200,6 +200,18 @@ export {
   type SignatureResult,
   type EncryptionResult,
 } from './crypto';
+
+// Service Worker
+export {
+  registerServiceWorker,
+  unregisterServiceWorker,
+  checkForUpdates,
+  sendMessageToSW,
+  skipWaiting,
+  cacheUrls,
+  clearCache,
+  type SWRegistrationOptions,
+} from './service-worker';
 
 // Protocol Servers
 export {

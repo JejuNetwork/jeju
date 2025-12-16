@@ -970,6 +970,46 @@ deployCommand
     });
   });
 
+deployCommand
+  .command('contracts-testnet')
+  .description('Deploy all contracts to testnet (Sepolia and Base Sepolia)')
+  .action(async () => {
+    const rootDir = findMonorepoRoot();
+    const scriptPath = join(rootDir, 'packages/contracts/scripts/deploy-testnet-full.ts');
+    
+    if (!existsSync(scriptPath)) {
+      logger.error('Contracts testnet deployment script not found');
+      return;
+    }
+    
+    logger.header('DEPLOY CONTRACTS TO TESTNET');
+    await execa('bun', ['run', scriptPath], {
+      cwd: rootDir,
+      stdio: 'inherit',
+    });
+  });
+
+deployCommand
+  .command('sync-configs')
+  .description('Sync contract addresses across config files')
+  .option('--network <network>', 'Network to sync', 'base-sepolia')
+  .action(async (options: { network: string }) => {
+    const rootDir = findMonorepoRoot();
+    const scriptPath = join(rootDir, 'packages/contracts/scripts/sync-configs.ts');
+    
+    if (!existsSync(scriptPath)) {
+      logger.error('Sync configs script not found');
+      return;
+    }
+    
+    logger.step('Syncing contract addresses...');
+    await execa('bun', ['run', scriptPath, '--network', options.network], {
+      cwd: rootDir,
+      stdio: 'inherit',
+    });
+    logger.success('Configs synced');
+  });
+
 // Helper function to run deploy scripts
 async function runDeployScript(scriptName: string, network: string, options: Record<string, unknown> = {}) {
   const rootDir = findMonorepoRoot();

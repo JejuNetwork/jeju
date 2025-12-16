@@ -61,8 +61,8 @@ export class EdgeNodeServer {
   private cache: EdgeCache;
   private originFetcher: OriginFetcher;
   private account: PrivateKeyAccount;
-  private publicClient: ReturnType<typeof createPublicClient>;
-  private walletClient: ReturnType<typeof createWalletClient>;
+  private publicClient: Awaited<ReturnType<typeof createPublicClient>>;
+  private walletClient: Awaited<ReturnType<typeof createWalletClient>>;
   private registryAddress: Address;
   private nodeIdBytes: string;
 
@@ -326,7 +326,7 @@ export class EdgeNodeServer {
 
       return c.json(
         { error: originResult.error, origin: originResult.origin },
-        originResult.status || 502
+        { status: originResult.status || 502 }
       );
     }
 

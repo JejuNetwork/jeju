@@ -11,9 +11,11 @@ import {
   type NodeMetrics,
   type CreateRunOptions,
 } from './training';
+import { P2PTrainingNetwork, createP2PNetwork, type P2PConfig, type BlobReference } from './p2p';
 
 export { RunState, PrivacyMode, GPUTier } from './training';
 export type { CoordinatorConfig, ModelConfig, NodeMetrics } from './training';
+export type { BlobReference, P2PConfig } from './p2p';
 
 export interface DistributedTrainingConfig {
   publicClient: PublicClient;
@@ -24,11 +26,10 @@ export interface DistributedTrainingConfig {
     rewards: Address;
     performance: Address;
     registry: Address;
+    identityRegistry: Address;
   };
-  p2p?: {
-    endpointUrl?: string;
-    discoveryUrl?: string;
-  };
+  rpcUrl: string;
+  selfEndpoint: string;
   storage?: {
     ipfsGateway?: string;
     hfToken?: string;
@@ -86,6 +87,7 @@ export class DistributedTrainingClient {
   private config: DistributedTrainingConfig;
   private activeRuns: Map<string, TrainingJobStatus> = new Map();
   private p2pEndpoint: P2PEndpoint | null = null;
+  private p2pNetwork: P2PTrainingNetwork | null = null;
   private unwatchFns: (() => void)[] = [];
 
   constructor(config: DistributedTrainingConfig) {
@@ -96,6 +98,21 @@ export class DistributedTrainingClient {
       chain: config.chain,
       addresses: config.contracts,
     });
+  }
+
+  async startP2P(): Promise<void> {
+    if (!this.p2pNetwork) {
+      this.p2pNetwork = createP2PNetwork({
+        rpcUrl: this.config.rpcUrl,
+        identityRegistryAddress: this.config.contracts.identityRegistry,
+        selfEndpoint: this.config.selfEndpoint,
+      });
+    }
+    await this.p2pNetwork.start();
+  }
+
+  getP2PNetwork(): P2PTrainingNetwork | null {
+    return this.p2pNetwork;
   }
 
   async submitJob(config: TrainingJobConfig): Promise<Hex> {
@@ -369,33 +386,26 @@ export class DistributedTrainingClient {
       encodeAbiParameters(parseAbiParameters('address, uint256'), [account.address, BigInt(Date.now())])
     );
 
-    // If Iroh endpoint is configured, connect to it
-    const p2pConfig = this.config.p2p;
-    if (p2pConfig?.endpointUrl) {
-      // Connect to Iroh discovery service
-      const response = await fetch(`${p2pConfig.endpointUrl}/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          endpointId,
-          publicKey: account.address,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to register P2P endpoint: ${response.statusText}`);
+    // Only start P2P if selfEndpoint and rpcUrl are properly configured
+    if (this.config.selfEndpoint && this.config.rpcUrl && !this.config.rpcUrl.includes('localhost:8545')) {
+      if (!this.p2pNetwork) {
+        this.p2pNetwork = createP2PNetwork({
+          rpcUrl: this.config.rpcUrl,
+          identityRegistryAddress: this.config.contracts.identityRegistry,
+          selfEndpoint: this.config.selfEndpoint,
+        });
       }
+      await this.p2pNetwork.start();
+      const peers = await this.p2pNetwork.getPeers();
 
-      const data = (await response.json()) as { addresses: string[] };
       return {
         endpointId,
         publicKey: account.address,
-        addresses: data.addresses,
+        addresses: peers.map((p) => p.endpoint),
       };
     }
 
-    // Fallback: local-only mode (no P2P connectivity)
-    // This is valid for testing but won't work for real distributed training
+    // Local-only mode for testing
     return {
       endpointId,
       publicKey: account.address,

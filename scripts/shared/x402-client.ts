@@ -821,7 +821,7 @@ export const HTTP_FACILITATOR_REGISTRY: HttpFacilitatorConfig[] = [
     url: process.env.JEJU_FACILITATOR_URL || 'http://localhost:3402',
     priority: 1,
     networks: ['jeju', 'jeju-testnet'],
-    name: getNetworkName() Facilitator',
+    name: `${getNetworkName()} Facilitator`,
   },
   {
     url: 'https://x402.org/facilitator',

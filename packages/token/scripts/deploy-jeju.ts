@@ -1,15 +1,15 @@
 #!/usr/bin/env bun
 /**
- * @deprecated Use 'jeju token deploy jeju' instead
+ * @deprecated Use 'jeju token deploy:jeju' instead
  * 
  * JEJU Token Deployment Script
  *
  * Deploys the JEJU token to the specified network (localnet, testnet, or mainnet).
  *
  * Usage:
- *   jeju token deploy jeju --network localnet
- *   jeju token deploy jeju --network testnet
- *   jeju token deploy jeju --network mainnet --dry-run
+ *   jeju token deploy:jeju --network localnet
+ *   jeju token deploy:jeju --network testnet
+ *   jeju token deploy:jeju --network mainnet --dry-run
  *
  * Environment:
  *   PRIVATE_KEY - Deployer private key

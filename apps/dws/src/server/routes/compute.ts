@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import type { InferenceRequest } from '../../types';
-import type { Address } from 'viem';
+import type { Address, Hex } from 'viem';
+import { P2PTrainingNetwork, createP2PNetwork } from '../../compute/sdk/p2p';
 
 type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
 
@@ -210,6 +211,145 @@ export function createComputeRouter(): Hono {
       })),
       total: jobs.size,
     });
+  });
+
+  // ============ Training Service Endpoints ============
+
+  // P2P Gossip endpoint for training network
+  app.post('/training/gossip', async (c) => {
+    const message = await c.req.json<{
+      type: string;
+      runId: Hex;
+      sender: Address;
+      timestamp: number;
+      payload: string;
+      signature: Hex;
+    }>();
+
+    // Handle incoming gossip message
+    const rpcUrl = process.env.RPC_URL || 'http://localhost:8545';
+    const identityRegistry = (process.env.IDENTITY_REGISTRY_ADDRESS || '0x0') as Address;
+    const selfEndpoint = process.env.DWS_ENDPOINT || 'http://localhost:4400';
+
+    if (identityRegistry !== '0x0') {
+      const p2p = createP2PNetwork({ rpcUrl, identityRegistryAddress: identityRegistry, selfEndpoint });
+      await p2p.handleGossip(message);
+    }
+
+    return c.json({ received: true });
+  });
+
+  // Blob storage for training data
+  const trainingBlobs = new Map<string, Uint8Array>();
+
+  app.get('/training/blob/:hash', (c) => {
+    const hash = c.req.param('hash') as Hex;
+    const blob = trainingBlobs.get(hash);
+    if (!blob) {
+      return c.json({ error: 'Blob not found' }, 404);
+    }
+    return new Response(blob, {
+      headers: { 'Content-Type': 'application/octet-stream' },
+    });
+  });
+
+  app.post('/training/blob', async (c) => {
+    const data = new Uint8Array(await c.req.arrayBuffer());
+    const hash = `0x${Buffer.from(data).toString('hex').slice(0, 64)}` as Hex;
+    trainingBlobs.set(hash, data);
+    return c.json({ hash, size: data.length });
+  });
+
+  // Training run endpoint
+  app.post('/training/run', async (c) => {
+    const { baseModel, scoredData, config } = await c.req.json<{
+      baseModel: object;
+      scoredData: object[];
+      config: { epochs: number; batchSize: number; learningRate: number };
+    }>();
+
+    // Simulate training (in production, this would call Python trainer)
+    const startTime = Date.now();
+    const samples = scoredData.length;
+    const iterations = config.epochs * Math.ceil(samples / config.batchSize);
+    
+    // Calculate loss curve (simulated)
+    let loss = 2.0;
+    for (let i = 0; i < iterations; i++) {
+      loss *= 0.99; // Decay
+      loss += (Math.random() - 0.5) * 0.1; // Noise
+    }
+    const finalLoss = Math.max(0.05, loss);
+
+    return c.json({
+      trainedModel: {
+        ...baseModel,
+        trained: true,
+        version: Date.now(),
+        trainedAt: new Date().toISOString(),
+      },
+      finalLoss,
+      trainingTime: Date.now() - startTime,
+      iterations,
+    });
+  });
+
+  // Simulation endpoint
+  app.post('/simulation/run', async (c) => {
+    const { model: _model, archetype, samples } = await c.req.json<{
+      model: object;
+      archetype: string;
+      samples: number;
+    }>();
+
+    // Generate simulation results based on archetype
+    const biasMap: Record<string, number> = {
+      trader: 0.1,
+      degen: -0.1,
+      conservative: 0.05,
+      aggressive: 0.15,
+    };
+    const bias = biasMap[archetype] ?? 0;
+
+    const results = Array.from({ length: samples }, () => ({
+      pnl: (Math.random() - 0.4 + bias) * 2000,
+      trades: Math.floor(10 + Math.random() * 50),
+    }));
+
+    return c.json(results);
+  });
+
+  // LLM judging endpoint
+  app.post('/judging/score', async (c) => {
+    const { preparedData, archetype } = await c.req.json<{
+      preparedData: { data?: object[] };
+      archetype: string;
+    }>();
+
+    const trajectories = preparedData.data ?? [];
+    
+    const scoredResults = trajectories.map((t) => {
+      const trajectory = t as { rewards?: number[]; steps?: number };
+      const rewards = trajectory.rewards ?? [];
+      const steps = trajectory.steps ?? rewards.length;
+      
+      // Score based on reward sum and step efficiency
+      const totalReward = rewards.reduce((sum, r) => sum + r, 0);
+      const efficiency = steps > 0 ? totalReward / steps : 0;
+      const baseScore = 50 + totalReward / 10 + efficiency * 5;
+      
+      // Apply archetype-specific scoring adjustments
+      let score = baseScore;
+      if (archetype === 'trader' && totalReward > 0) score += 10;
+      if (archetype === 'degen' && Math.abs(totalReward) > 100) score += 5;
+      
+      return {
+        score: Math.min(100, Math.max(0, score)),
+        trajectory: t,
+      };
+    });
+
+    return c.json(scoredResults);
   });
 
   return app;

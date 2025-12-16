@@ -1,11 +1,13 @@
 #!/usr/bin/env bun
 /**
+ * @deprecated Use 'jeju deploy contracts-testnet' instead
+ * 
  * Full Testnet Deployment Script
  * 
  * Deploys all contracts to both Sepolia and Base Sepolia for cross-chain OIF testing.
  * 
  * Usage:
- *   PRIVATE_KEY=0x... bun run scripts/deploy-testnet-full.ts
+ *   jeju deploy contracts-testnet
  */
 
 import { execSync } from "child_process";

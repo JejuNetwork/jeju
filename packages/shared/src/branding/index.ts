@@ -40,7 +40,7 @@ export {
  */
 export function getBrandingCssVars(): Record<string, string> {
   // Import dynamically to avoid circular deps
-  const { getVisualBranding, getNetworkName } = require('@jejunetwork/config');
+  const { getVisualBranding } = require('@jejunetwork/config');
   const visual = getVisualBranding();
   
   return {

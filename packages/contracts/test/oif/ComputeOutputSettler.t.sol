@@ -169,13 +169,12 @@ contract ComputeOutputSettlerTest is Test {
         assertTrue(settler.isFilled(orderId));
         assertTrue(rentalId != bytes32(0));
 
-        // Compute fills use computeFillRecords, not base fillRecords
-        (address recordSolver, address recordUser, bytes32 recordRentalId, uint256 recordPayment, uint256 filledBlock, bool isRental) = settler.computeFillRecords(orderId);
-        assertEq(recordSolver, solver);
-        assertEq(recordUser, user);
-        assertEq(recordPayment, payment);
-        assertTrue(filledBlock > 0);
-        assertTrue(isRental);
+        ComputeOutputSettler.ComputeFillRecord memory record = settler.getComputeFillRecord(orderId);
+        assertEq(record.solver, solver);
+        assertEq(record.user, user);
+        assertEq(record.paymentAmount, payment);
+        assertTrue(record.filledBlock > 0);
+        assertTrue(record.isRental);
     }
 
     function test_fillComputeRental_deductsETH() public {
@@ -267,11 +266,10 @@ contract ComputeOutputSettlerTest is Test {
 
         assertTrue(settler.isFilled(orderId));
 
-        // Compute fills use computeFillRecords, not base fillRecords
-        (address recordSolver, address recordUser, , , , bool isRental) = settler.computeFillRecords(orderId);
-        assertEq(recordSolver, solver);
-        assertEq(recordUser, user);
-        assertFalse(isRental);
+        ComputeOutputSettler.ComputeFillRecord memory record = settler.getComputeFillRecord(orderId);
+        assertEq(record.solver, solver);
+        assertEq(record.user, user);
+        assertFalse(record.isRental);
     }
 
     // ============ Standard Token Fill Tests ============

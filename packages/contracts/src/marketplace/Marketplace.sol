@@ -7,6 +7,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IIdentityRegistry} from "../registry/interfaces/IIdentityRegistry.sol";
 import {AssetLib} from "../libraries/AssetLib.sol";
+import {ModerationMixin} from "../moderation/ModerationMixin.sol";
 
 interface IFeeConfigBazaar {
     function getBazaarFee() external view returns (uint16);
@@ -22,6 +23,10 @@ interface IFeeConfigBazaar {
  */
 contract Marketplace is ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;
+    using ModerationMixin for ModerationMixin.Data;
+
+    /// @notice Moderation integration for ban enforcement
+    ModerationMixin.Data public moderation;
 
     // ============ Enums ============
 
@@ -135,6 +140,12 @@ contract Marketplace is ReentrancyGuard, Ownable {
     error InvalidFee();
     error TransferFailed();
     error AlreadyListed();
+    error UserIsBanned();
+
+    modifier notBanned() {
+        if (moderation.isAddressBanned(msg.sender)) revert UserIsBanned();
+        _;
+    }
 
     // ============ Constructor ============
 
@@ -159,7 +170,7 @@ contract Marketplace is ReentrancyGuard, Ownable {
         address customCurrencyAddress,
         uint256 price,
         uint256 duration
-    ) external nonReentrant returns (uint256) {
+    ) external nonReentrant notBanned returns (uint256) {
         if (price == 0) revert InvalidPrice();
         if (amount == 0) revert InvalidAmount();
         if (assetContract == address(0)) revert InvalidAssetContract();
@@ -209,7 +220,7 @@ contract Marketplace is ReentrancyGuard, Ownable {
         return listingId;
     }
 
-    function buyListing(uint256 listingId) external payable nonReentrant {
+    function buyListing(uint256 listingId) external payable nonReentrant notBanned {
         Listing storage listing = listings[listingId];
 
         if (listing.seller == address(0)) revert ListingNotFound();
@@ -299,7 +310,16 @@ contract Marketplace is ReentrancyGuard, Ownable {
     function setIdentityRegistry(address _identityRegistry) external onlyOwner {
         address oldRegistry = address(identityRegistry);
         identityRegistry = IIdentityRegistry(_identityRegistry);
+        moderation.setIdentityRegistry(_identityRegistry);
         emit IdentityRegistryUpdated(oldRegistry, _identityRegistry);
+    }
+
+    function setBanManager(address _banManager) external onlyOwner {
+        moderation.setBanManager(_banManager);
+    }
+
+    function isUserBanned(address user) external view returns (bool) {
+        return moderation.isAddressBanned(user);
     }
 
     // ============ View Functions ============

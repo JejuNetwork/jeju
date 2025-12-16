@@ -16,9 +16,7 @@ interface IFeeConfigSequencer {
 
 /**
  * @title SequencerRegistry
- * @author Jeju Network
  * @notice Decentralized Sequencer registration with staking and revenue sharing
- * @dev V2: Added governance-controlled revenue sharing via FeeConfig
  */
 contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
@@ -44,7 +42,6 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
         uint256 timestamp;
     }
 
-    /// @notice Revenue epoch for tracking sequencer rewards
     struct RevenueEpoch {
         uint256 epochNumber;
         uint256 totalBlocksProduced;
@@ -85,36 +82,15 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
     uint256 public totalStaked;
     SlashingEvent[] public slashingEvents;
 
-    // ============ Revenue Sharing State ============
-
-    /// @notice Fee configuration contract (governance-controlled)
     IFeeConfigSequencer public feeConfig;
-
-    /// @notice Fallback revenue share in basis points
-    uint256 public sequencerRevenueShareBps = 500; // 5% default
-
-    /// @notice Current epoch number
+    uint256 public sequencerRevenueShareBps = 500;
     uint256 public currentEpoch;
-
-    /// @notice Epoch start timestamp
     uint256 public epochStartTime;
-
-    /// @notice Revenue accumulated in current epoch
     uint256 public epochAccumulatedRevenue;
-
-    /// @notice Revenue epochs by number
     mapping(uint256 => RevenueEpoch) public revenueEpochs;
-
-    /// @notice Blocks proposed per sequencer per epoch
     mapping(uint256 => mapping(address => uint256)) public epochBlocksPerSequencer;
-
-    /// @notice Total rewards distributed
     uint256 public totalRewardsDistributed;
-
-    /// @notice Total revenue collected
     uint256 public totalRevenueCollected;
-
-    // ============ Events ============
 
     event SequencerRegistered(address indexed sequencer, uint256 agentId, uint256 stake);
     event SequencerUnregistered(address indexed sequencer);
@@ -250,14 +226,11 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
             return;
         }
 
-        // Advance epoch if needed
         _advanceEpochIfNeeded();
 
         _blockSigners[_blockNumber][_sequencer] = true;
         seq.lastBlockProposed = _blockNumber;
         seq.blocksProposed++;
-
-        // Track blocks per epoch for revenue sharing
         epochBlocksPerSequencer[currentEpoch][_sequencer]++;
 
         emit BlockProposed(_sequencer, _blockNumber);
@@ -273,33 +246,14 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
         emit ReputationUpdated(_sequencer, newReputation);
     }
 
-    /// @notice Slash a sequencer with proof
-    /// @param _sequencer The sequencer to slash
-    /// @param _reason The slashing reason
-    /// @param _proof Proof of misbehavior (signature for double-sign, merkle proof for censorship)
-    /// @dev For DOUBLE_SIGNING: proof contains two conflicting signed blocks
-    /// @dev For CENSORSHIP: proof contains merkle proof of excluded transaction
-    /// @dev For DOWNTIME: handled automatically via checkDowntime()
-    /// @dev For GOVERNANCE_BAN: proof is governance proposal ID
     function slash(address _sequencer, SlashingReason _reason, bytes calldata _proof) external onlyOwner {
-        // Verify proof based on reason
         if (_reason == SlashingReason.DOUBLE_SIGNING) {
-            // Proof should contain two signatures over different data at same height
-            if (_proof.length < 130) revert InvalidSlashProof(); // 65 bytes per sig
+            if (_proof.length < 130) revert InvalidSlashProof();
         } else if (_reason == SlashingReason.CENSORSHIP) {
-            // Proof should contain merkle proof of excluded tx
             if (_proof.length < 32) revert InvalidSlashProof();
         } else if (_reason == SlashingReason.GOVERNANCE_BAN) {
-            // Proof should be governance proposal ID that passed
             if (_proof.length < 32) revert InvalidSlashProof();
         }
-        // DOWNTIME is auto-slashed via checkDowntime, no manual call needed
-        
-        _slash(_sequencer, _reason);
-    }
-    
-    /// @notice Legacy slash without proof - restricted to internal use only
-    function slashInternal(address _sequencer, SlashingReason _reason) internal {
         _slash(_sequencer, _reason);
     }
 
@@ -343,51 +297,27 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
         }
     }
 
-    // ============ Revenue Sharing Functions ============
-
-    /**
-     * @notice Receive revenue for distribution to sequencers
-     * @dev Called by block production revenue router
-     * @dev SECURITY: CEI pattern - state changes before epoch advance to prevent reentrancy
-     */
     receive() external payable {
-        // Effects first (CEI pattern) - prevents reentrancy
         epochAccumulatedRevenue += msg.value;
         totalRevenueCollected += msg.value;
         emit RevenueReceived(msg.value, currentEpoch);
-        
-        // Then internal state transitions (no external calls)
         _advanceEpochIfNeeded();
     }
 
-    /**
-     * @notice Deposit revenue for sequencer rewards
-     * @dev SECURITY: CEI pattern - state changes before epoch advance to prevent reentrancy
-     */
     function depositRevenue() external payable {
-        // Effects first (CEI pattern)
         epochAccumulatedRevenue += msg.value;
         totalRevenueCollected += msg.value;
         emit RevenueReceived(msg.value, currentEpoch);
-        
-        // Then internal state transitions
         _advanceEpochIfNeeded();
     }
 
-    /**
-     * @notice Finalize epoch and distribute rewards
-     * @dev Can be called by anyone after epoch ends
-     */
     function finalizeEpoch(uint256 epochNumber) external nonReentrant {
         require(epochNumber < currentEpoch, "Epoch not ended");
 
         RevenueEpoch storage epoch = revenueEpochs[epochNumber];
         require(!epoch.distributed, "Already distributed");
 
-        // Get revenue share from governance or fallback
         uint256 sharesBps = _getSequencerRevenueShareBps();
-
-        // Calculate shares
         uint256 sequencerShare = (epoch.totalRevenue * sharesBps) / BPS_DENOMINATOR;
         uint256 treasuryShare = epoch.totalRevenue - sequencerShare;
 
@@ -396,7 +326,6 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
         epoch.distributedAt = block.timestamp;
         epoch.distributed = true;
 
-        // Distribute to individual sequencers based on blocks proposed
         if (epoch.totalBlocksProduced > 0 && sequencerShare > 0) {
             for (uint256 i = 0; i < activeSequencers.length; i++) {
                 address sequencer = activeSequencers[i];
@@ -411,7 +340,6 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
 
         totalRewardsDistributed += sequencerShare;
 
-        // Send treasury share
         if (treasuryShare > 0 && treasury != address(0)) {
             (bool success,) = treasury.call{value: treasuryShare}("");
             require(success, "Treasury transfer failed");
@@ -420,9 +348,6 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
         emit EpochFinalized(epochNumber, epoch.totalRevenue, sequencerShare, treasuryShare);
     }
 
-    /**
-     * @notice Claim pending rewards
-     */
     function claimRewards() external nonReentrant {
         Sequencer storage seq = sequencers[msg.sender];
         uint256 pending = seq.pendingRewards;
@@ -436,30 +361,18 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
         emit RewardsClaimed(msg.sender, pending);
     }
 
-    /**
-     * @notice Get pending rewards for a sequencer
-     */
     function getPendingRewards(address sequencer) external view returns (uint256) {
         return sequencers[sequencer].pendingRewards;
     }
 
-    /**
-     * @notice Get revenue epoch details
-     */
     function getEpoch(uint256 epochNumber) external view returns (RevenueEpoch memory) {
         return revenueEpochs[epochNumber];
     }
 
-    /**
-     * @notice Get current effective revenue share rate
-     */
     function getEffectiveRevenueShareBps() external view returns (uint256) {
         return _getSequencerRevenueShareBps();
     }
 
-    /**
-     * @dev Get revenue share from FeeConfig or fallback
-     */
     function _getSequencerRevenueShareBps() internal view returns (uint256) {
         if (address(feeConfig) != address(0)) {
             return feeConfig.getSequencerRevenueShare();
@@ -467,9 +380,6 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
         return sequencerRevenueShareBps;
     }
 
-    /**
-     * @dev Advance to next epoch if needed
-     */
     function _advanceEpochIfNeeded() internal {
         if (epochStartTime == 0) {
             epochStartTime = block.timestamp;
@@ -477,7 +387,6 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
         }
 
         if (block.timestamp >= epochStartTime + EPOCH_DURATION) {
-            // Finalize current epoch
             revenueEpochs[currentEpoch] = RevenueEpoch({
                 epochNumber: currentEpoch,
                 totalBlocksProduced: _countEpochBlocks(currentEpoch),
@@ -488,16 +397,12 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
                 distributed: false
             });
 
-            // Start new epoch
             currentEpoch++;
             epochStartTime = block.timestamp;
             epochAccumulatedRevenue = 0;
         }
     }
 
-    /**
-     * @dev Count total blocks in epoch
-     */
     function _countEpochBlocks(uint256 epochNumber) internal view returns (uint256 total) {
         for (uint256 i = 0; i < activeSequencers.length; i++) {
             total += epochBlocksPerSequencer[epochNumber][activeSequencers[i]];
@@ -561,26 +466,17 @@ contract SequencerRegistry is Ownable, ReentrancyGuard, Pausable {
         treasury = _treasury;
     }
 
-    /**
-     * @notice Set fee configuration contract (governance-controlled)
-     */
     function setFeeConfig(address _feeConfig) external onlyOwner {
         address oldConfig = address(feeConfig);
         feeConfig = IFeeConfigSequencer(_feeConfig);
         emit FeeConfigUpdated(oldConfig, _feeConfig);
     }
 
-    /**
-     * @notice Set sequencer revenue share (fallback if FeeConfig not set)
-     */
     function setSequencerRevenueShare(uint256 newShareBps) external onlyOwner {
-        require(newShareBps <= 5000, "Share too high"); // Max 50%
+        require(newShareBps <= 5000, "Share too high");
         sequencerRevenueShareBps = newShareBps;
     }
 
-    /**
-     * @notice Get revenue sharing statistics
-     */
     function getRevenueStats()
         external
         view
