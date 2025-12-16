@@ -498,6 +498,7 @@ export class TransactionExecutor {
     const frontrunGasPrice = context.gasPrice * 15n / 10n;
 
     const frontrunHash = await walletClient.sendTransaction({
+      chain: walletClient.chain,
       account: this.account,
       to: routerAddress as `0x${string}`,
       data: frontrunData,
@@ -512,6 +513,7 @@ export class TransactionExecutor {
     }
 
     const backrunHash = await walletClient.sendTransaction({
+      chain: walletClient.chain,
       account: this.account,
       to: routerAddress as `0x${string}`,
       data: backrunData,

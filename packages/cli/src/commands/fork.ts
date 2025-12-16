@@ -13,7 +13,7 @@ import { Command } from 'commander';
 import prompts from 'prompts';
 import { existsSync, writeFileSync, mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { privateKeyToAccount } from 'viem/accounts';
+import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 import { logger } from '../lib/logger';
 import { generateForkBranding, getNetworkName, type BrandingConfig } from '@jejunetwork/config';
 

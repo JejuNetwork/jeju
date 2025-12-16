@@ -27,8 +27,6 @@ import {ITrainingCoordinator} from "./interfaces/ITrainingCoordinator.sol";
 contract TrainingRewards is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    // ============ Structs ============
-
     struct RewardPool {
         bytes32 runId;
         address rewardToken;
@@ -53,8 +51,6 @@ contract TrainingRewards is Ownable, ReentrancyGuard {
         bool finalized;
     }
 
-    // ============ State ============
-
     /// @notice Training coordinator contract
     ITrainingCoordinator public coordinator;
 
@@ -75,8 +71,6 @@ contract TrainingRewards is Ownable, ReentrancyGuard {
 
     /// @notice Minimum claim amount (prevents dust claims)
     uint256 public minClaimAmount = 0;
-
-    // ============ Events ============
 
     event RewardPoolCreated(
         bytes32 indexed runId,
@@ -111,8 +105,6 @@ contract TrainingRewards is Ownable, ReentrancyGuard {
 
     event DistributorUpdated(address indexed distributor, bool authorized);
 
-    // ============ Errors ============
-
     error PoolAlreadyExists();
     error PoolNotFound();
     error PoolNotActive();
@@ -125,8 +117,6 @@ contract TrainingRewards is Ownable, ReentrancyGuard {
     error InvalidParticipants();
     error ZeroAddress();
     error TransferFailed();
-
-    // ============ Modifiers ============
 
     modifier poolExists(bytes32 runId) {
         if (rewardPools[runId].depositor == address(0)) revert PoolNotFound();
@@ -145,14 +135,10 @@ contract TrainingRewards is Ownable, ReentrancyGuard {
         _;
     }
 
-    // ============ Constructor ============
-
     constructor(address _coordinator, address initialOwner) Ownable(initialOwner) {
         coordinator = ITrainingCoordinator(_coordinator);
         authorizedDistributors[initialOwner] = true;
     }
-
-    // ============ Pool Management ============
 
     /**
      * @notice Create a reward pool for a training run
@@ -295,8 +281,6 @@ contract TrainingRewards is Ownable, ReentrancyGuard {
         }
     }
 
-    // ============ Claim Functions ============
-
     /**
      * @notice Claim earned rewards from a training run
      * @param runId Training run ID
@@ -353,8 +337,6 @@ contract TrainingRewards is Ownable, ReentrancyGuard {
             }
         }
     }
-
-    // ============ View Functions ============
 
     /**
      * @notice Get claimable reward amount for a participant
@@ -443,8 +425,6 @@ contract TrainingRewards is Ownable, ReentrancyGuard {
         return (reward.pointsDistributed, reward.participantCount, reward.finalized);
     }
 
-    // ============ Internal Functions ============
-
     function _getTotalClaimedPoints(bytes32 runId) internal view returns (uint256 total) {
         // This is an approximation - in production you might want to track this directly
         RewardPool storage pool = rewardPools[runId];
@@ -453,8 +433,6 @@ contract TrainingRewards is Ownable, ReentrancyGuard {
         // Calculate based on claimed amount ratio
         return (pool.totalClaimed * pool.totalPointsDistributed) / pool.totalDeposited;
     }
-
-    // ============ Admin Functions ============
 
     /**
      * @notice Set authorized distributor status

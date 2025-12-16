@@ -378,6 +378,32 @@ function createMCPAPI(bot: UnifiedBot): Hono {
       },
     },
     {
+      name: 'get_yield_opportunities',
+      description: 'Get ranked yield farming opportunities (permissionless strategies only)',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          limit: { type: 'number', description: 'Max number of opportunities' },
+        },
+      },
+    },
+    {
+      name: 'get_yield_stats',
+      description: 'Get yield farming stats summary',
+      inputSchema: { type: 'object', properties: {} },
+    },
+    {
+      name: 'verify_yield',
+      description: 'Verify a yield opportunity with permissionless data sources',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Opportunity id' },
+        },
+        required: ['id'],
+      },
+    },
+    {
       name: 'add_liquidity',
       description: 'Add liquidity to a pool',
       inputSchema: {
@@ -490,6 +516,21 @@ function createMCPAPI(bot: UnifiedBot): Hono {
           params.outputMint,
           params.amount
         );
+        return c.json({ result });
+      }
+
+      case 'get_yield_opportunities': {
+        const limit = typeof params.limit === 'number' ? params.limit : 20;
+        return c.json({ result: bot.getYieldOpportunities(limit) });
+      }
+
+      case 'get_yield_stats':
+        return c.json({ result: bot.getYieldStats() });
+
+      case 'verify_yield': {
+        const id = typeof params.id === 'string' ? params.id : '';
+        if (!id) return c.json({ error: 'Missing id' }, 400);
+        const result = await bot.verifyYield(id);
         return c.json({ result });
       }
 

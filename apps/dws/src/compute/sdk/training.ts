@@ -774,8 +774,6 @@ export class TrainingSDK {
     return this.write(this.addresses.coordinator, coordinatorAbi, 'resumeRun', [runId]);
   }
 
-  // ============ Read Functions ============
-
   async getRunInfo(runId: Hex): Promise<TrainingRunInfo> {
     const result = await this.read<RunResult>(this.addresses.coordinator, coordinatorAbi, 'getRun', [runId]);
     return {
@@ -818,8 +816,6 @@ export class TrainingSDK {
     return this.read<boolean>(this.addresses.coordinator, coordinatorAbi, 'isClientInRun', [runId, client]);
   }
 
-  // ============ Rewards ============
-
   async claim(runId: Hex): Promise<Hash> {
     return this.write(this.addresses.rewards, rewardsAbi, 'claim', [runId]);
   }
@@ -850,8 +846,6 @@ export class TrainingSDK {
       lastClaimTime: result[3],
     };
   }
-
-  // ============ Performance ============
 
   async registerNode(gpuTier: GPUTier, attestationHash: Hex): Promise<Hash> {
     return this.write(this.addresses.performance, performanceAbi, 'registerNode', [gpuTier, attestationHash]);
@@ -889,8 +883,6 @@ export class TrainingSDK {
     return this.read<boolean>(this.addresses.performance, performanceAbi, 'isNodeActive', [node]);
   }
 
-  // ============ Registry ============
-
   async isAuthorizedParticipant(runId: Hex, participant: Address): Promise<boolean> {
     return this.read<boolean>(this.addresses.registry, registryAbi, 'isAuthorizedParticipant', [runId, participant]);
   }
@@ -898,8 +890,6 @@ export class TrainingSDK {
   async getPrivateRunConfig(runId: Hex): Promise<PrivateRunConfig> {
     return this.read<PrivateRunConfig>(this.addresses.registry, registryAbi, 'getPrivateRunConfig', [runId]);
   }
-
-  // ============ Event Watching ============
 
   watchStateTransition(
     runId: Hex | null,
@@ -951,8 +941,6 @@ export class TrainingSDK {
       },
     });
   }
-
-  // ============ Utilities ============
 
   static generateRunId(name: string, creator: Address): Hex {
     return keccak256(

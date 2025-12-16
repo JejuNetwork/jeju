@@ -1,5 +1,7 @@
 #!/usr/bin/env bun
 /**
+ * @internal Used by CLI: `jeju deploy rollback`
+ * 
  * Deployment Rollback Script
  * 
  * Rolls back contract deployments to a previous version by:
@@ -8,13 +10,13 @@
  * 3. Verifying rollback state
  * 
  * Usage:
- *   bun run scripts/rollback-deployment.ts --network=testnet --backup=backup-1234567890
- *   bun run scripts/rollback-deployment.ts --network=mainnet --backup=latest
+ *   jeju deploy rollback --network=testnet --backup=backup-1234567890
+ *   jeju deploy rollback --network=mainnet --backup=latest
  */
 
 import { existsSync, readFileSync, writeFileSync, copyFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { logger } from './shared/logger';
+import { logger } from '../shared/logger';
 
 const ROOT = join(import.meta.dir, '..');
 const DEPLOYMENTS_DIR = join(ROOT, 'packages/contracts/deployments');

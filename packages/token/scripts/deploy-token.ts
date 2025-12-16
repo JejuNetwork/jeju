@@ -1,5 +1,7 @@
 #!/usr/bin/env bun
 /**
+ * @deprecated Use 'jeju token deploy ecosystem' instead
+ * 
  * BBLN Token Deployment Script
  *
  * Deploys the full Babylon token ecosystem:
@@ -17,8 +19,7 @@
  * Cross-chain deployment via Hyperlane warp routes.
  *
  * Usage:
- *   cd packages/experimental-token
- *   bun run scripts/deploy-token.ts localnet|testnet|mainnet
+ *   jeju token deploy ecosystem --network localnet|testnet|mainnet
  *
  * Requires DEPLOYER_PRIVATE_KEY in .env for testnet/mainnet
  */

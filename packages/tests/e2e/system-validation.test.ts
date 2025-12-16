@@ -11,7 +11,9 @@
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
-import { ethers, type Contract, type Wallet } from 'ethers';
+import { createPublicClient, createWalletClient, http, parseAbi, readContract, writeContract, waitForTransactionReceipt, formatEther, parseEther, parseUnits, type Address, type PublicClient, type WalletClient } from 'viem';
+import { privateKeyToAccount, type Account } from 'viem/accounts';
+import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 import { 
   createPaymentRequirement, 
   createPaymentPayload
@@ -55,15 +57,15 @@ const ERC20_ABI = [
 ];
 
 // Test state
-let provider: ethers.JsonRpcProvider;
-let deployer: Wallet;
-let user1: Wallet;
-let user2: Wallet;
-let solver: Wallet;
-
-let staking: Contract;
-let creditManager: Contract;
-let paymentToken: Contract;
+let publicClient: PublicClient;
+let deployerAccount: Account;
+let deployerWalletClient: WalletClient;
+let user1Account: Account;
+let user1WalletClient: WalletClient;
+let user2Account: Account;
+let user2WalletClient: WalletClient;
+let solverAccount: Account;
+let solverWalletClient: WalletClient;
 
 // Validation tracking
 interface ValidationResult {
@@ -91,25 +93,21 @@ function recordValidation(result: ValidationResult) {
 // ============================================================
 
 beforeAll(async () => {
-  provider = new ethers.JsonRpcProvider(TEST_CONFIG.rpcUrl);
+  const chain = inferChainFromRpcUrl(TEST_CONFIG.rpcUrl);
+  publicClient = createPublicClient({ chain, transport: http(TEST_CONFIG.rpcUrl) });
   
   // Use test accounts (anvil defaults)
-  deployer = new ethers.Wallet(
-    '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
-    provider
-  );
-  user1 = new ethers.Wallet(
-    '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d',
-    provider
-  );
-  user2 = new ethers.Wallet(
-    '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a',
-    provider
-  );
-  solver = new ethers.Wallet(
-    '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6',
-    provider
-  );
+  deployerAccount = privateKeyToAccount('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as `0x${string}`);
+  deployerWalletClient = createWalletClient({ chain, transport: http(TEST_CONFIG.rpcUrl), account: deployerAccount });
+  
+  user1Account = privateKeyToAccount('0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as `0x${string}`);
+  user1WalletClient = createWalletClient({ chain, transport: http(TEST_CONFIG.rpcUrl), account: user1Account });
+  
+  user2Account = privateKeyToAccount('0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a' as `0x${string}`);
+  user2WalletClient = createWalletClient({ chain, transport: http(TEST_CONFIG.rpcUrl), account: user2Account });
+  
+  solverAccount = privateKeyToAccount('0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6' as `0x${string}`);
+  solverWalletClient = createWalletClient({ chain, transport: http(TEST_CONFIG.rpcUrl), account: solverAccount });
 });
 
 // ============================================================
@@ -188,16 +186,16 @@ describe('Gas Intent Routing Validation', () => {
   test('router selects optimal token based on balances', () => {
     // Mock user balances
     const mockBalances = {
-      ETH: ethers.parseEther('1.5'),
-      USDC: ethers.parseUnits('500', 6),
-      elizaOS: ethers.parseEther('10000'),
+      ETH: parseEther('1.5'),
+      USDC: parseUnits('500', 6),
+      elizaOS: parseEther('10000'),
     };
 
     // Mock paymaster liquidity
     const mockLiquidity = {
-      ETH: ethers.parseEther('100'),
-      USDC: ethers.parseUnits('50000', 6),
-      elizaOS: ethers.parseEther('1000000'),
+      ETH: parseEther('100'),
+      USDC: parseUnits('50000', 6),
+      elizaOS: parseEther('1000000'),
     };
 
     // Router should prefer token with highest relative availability
@@ -222,7 +220,7 @@ describe('Gas Intent Routing Validation', () => {
   test('router handles zero balance tokens', () => {
     const mockBalances = {
       ETH: 0n,
-      USDC: ethers.parseUnits('100', 6),
+      USDC: parseUnits('100', 6),
     };
 
     const availableTokens = Object.entries(mockBalances)
@@ -248,9 +246,9 @@ describe('Intent Swap Validation', () => {
     const intent = buildSwapIntent({
       inputToken: '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE' as `0x${string}`,
       outputToken: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' as `0x${string}`,
-      inputAmount: ethers.parseEther('1'),
+      inputAmount: parseEther('1'),
       slippageBps: 50, // 0.5% slippage
-      sender: user1.address as `0x${string}`,
+      sender: user1Account.address as `0x${string}`,
       sourceChainId: 1,
       destinationChainId: 1,
     });
@@ -261,20 +259,20 @@ describe('Intent Swap Validation', () => {
     expect(typeof intent.nonce).toBe('bigint');
     expect(intent.createdAt).toBeGreaterThan(0);
     
-    expect(intent.inputAmount).toBe(ethers.parseEther('1'));
-    expect(intent.sender).toBe(user1.address);
-    expect(intent.recipient).toBe(user1.address); // Defaults to sender
+    expect(intent.inputAmount).toBe(parseEther('1'));
+    expect(intent.sender).toBe(user1Account.address);
+    expect(intent.recipient).toBe(user1Account.address); // Defaults to sender
     expect(intent.sourceChainId).toBe(1);
     expect(intent.destinationChainId).toBe(1);
     
     // Check slippage was applied
-    const expectedMinOutput = ethers.parseEther('1') * 9950n / 10000n; // 0.5% slippage
+    const expectedMinOutput = parseEther('1') * 9950n / 10000n; // 0.5% slippage
     expect(intent.minOutputAmount).toBe(expectedMinOutput);
     
     recordValidation({
       test: 'Intent swap structure',
       passed: true,
-      details: `Intent created for ${ethers.formatEther(intent.inputAmount)} ETH`,
+      details: `Intent created for ${formatEther(intent.inputAmount)} ETH`,
     });
   });
 
@@ -295,14 +293,14 @@ describe('Intent Swap Validation', () => {
   });
 
   test('slippage calculation is accurate', () => {
-    const inputAmount = ethers.parseEther('1');
+    const inputAmount = parseEther('1');
     const spotPrice = 3000n; // 1 ETH = 3000 USDC
     const slippageBps = 50n; // 0.5%
     
-    const expectedOutput = inputAmount * spotPrice / ethers.parseEther('1');
+    const expectedOutput = inputAmount * spotPrice / parseEther('1');
     const minOutput = expectedOutput * (10000n - slippageBps) / 10000n;
     
-    expect(minOutput).toBe(ethers.parseUnits('2985', 0)); // 3000 - 0.5%
+    expect(minOutput).toBe(parseUnits('2985', 0)); // 3000 - 0.5%
     
     const actualSlippage = (expectedOutput - minOutput) * 10000n / expectedOutput;
     expect(actualSlippage).toBe(50n);
@@ -322,61 +320,61 @@ describe('Intent Swap Validation', () => {
 describe('Staking Mechanics Validation', () => {
   test('share calculation is proportional', () => {
     // Simulate staking math
-    const totalEth = ethers.parseEther('100');
-    const totalShares = ethers.parseEther('100');
+    const totalEth = parseEther('100');
+    const totalShares = parseEther('100');
     
-    const newStakeEth = ethers.parseEther('10');
+    const newStakeEth = parseEther('10');
     const newShares = totalShares > 0n 
       ? (newStakeEth * totalShares) / totalEth 
       : newStakeEth;
     
-    expect(newShares).toBe(ethers.parseEther('10')); // 10% of pool = 10% of shares
+    expect(newShares).toBe(parseEther('10')); // 10% of pool = 10% of shares
     
     recordValidation({
       test: 'Staking share calculation',
       passed: true,
-      details: `${ethers.formatEther(newStakeEth)} ETH = ${ethers.formatEther(newShares)} shares`,
+      details: `${formatEther(newStakeEth)} ETH = ${formatEther(newShares)} shares`,
     });
   });
 
   test('reward distribution is fair', () => {
     // Simulate reward distribution
-    const totalShares = ethers.parseEther('1000');
-    const totalRewards = ethers.parseEther('10');
+    const totalShares = parseEther('1000');
+    const totalRewards = parseEther('10');
     
-    const user1Shares = ethers.parseEther('100'); // 10%
-    const user2Shares = ethers.parseEther('400'); // 40%
+    const user1Shares = parseEther('100'); // 10%
+    const user2Shares = parseEther('400'); // 40%
     
     const user1Rewards = (totalRewards * user1Shares) / totalShares;
     const user2Rewards = (totalRewards * user2Shares) / totalShares;
     
-    expect(user1Rewards).toBe(ethers.parseEther('1')); // 10% of rewards
-    expect(user2Rewards).toBe(ethers.parseEther('4')); // 40% of rewards
+    expect(user1Rewards).toBe(parseEther('1')); // 10% of rewards
+    expect(user2Rewards).toBe(parseEther('4')); // 40% of rewards
     
     recordValidation({
       test: 'Reward distribution fairness',
       passed: true,
-      details: `User1 (10%): ${ethers.formatEther(user1Rewards)} ETH, User2 (40%): ${ethers.formatEther(user2Rewards)} ETH`,
+      details: `User1 (10%): ${formatEther(user1Rewards)} ETH, User2 (40%): ${formatEther(user2Rewards)} ETH`,
     });
   });
 
   test('unstaking returns proportional assets', () => {
-    const totalEth = ethers.parseEther('100');
-    const totalToken = ethers.parseEther('50000');
-    const totalShares = ethers.parseEther('100');
+    const totalEth = parseEther('100');
+    const totalToken = parseEther('50000');
+    const totalShares = parseEther('100');
     
-    const unstakeShares = ethers.parseEther('25'); // 25%
+    const unstakeShares = parseEther('25'); // 25%
     
     const ethReturned = (totalEth * unstakeShares) / totalShares;
     const tokenReturned = (totalToken * unstakeShares) / totalShares;
     
-    expect(ethReturned).toBe(ethers.parseEther('25'));
-    expect(tokenReturned).toBe(ethers.parseEther('12500'));
+    expect(ethReturned).toBe(parseEther('25'));
+    expect(tokenReturned).toBe(parseEther('12500'));
     
     recordValidation({
       test: 'Unstaking proportionality',
       passed: true,
-      details: `25% shares = ${ethers.formatEther(ethReturned)} ETH + ${ethers.formatEther(tokenReturned)} tokens`,
+      details: `25% shares = ${formatEther(ethReturned)} ETH + ${formatEther(tokenReturned)} tokens`,
     });
   });
 });
@@ -387,22 +385,22 @@ describe('Staking Mechanics Validation', () => {
 
 describe('Fee Distribution Validation', () => {
   test('protocol fee calculation is accurate', () => {
-    const transactionValue = ethers.parseEther('100');
+    const transactionValue = parseEther('100');
     const protocolFeeBps = 30n; // 0.3%
     
     const protocolFee = (transactionValue * protocolFeeBps) / 10000n;
     
-    expect(protocolFee).toBe(ethers.parseEther('0.3'));
+    expect(protocolFee).toBe(parseEther('0.3'));
     
     recordValidation({
       test: 'Protocol fee calculation',
       passed: true,
-      details: `0.3% of 100 ETH = ${ethers.formatEther(protocolFee)} ETH`,
+      details: `0.3% of 100 ETH = ${formatEther(protocolFee)} ETH`,
     });
   });
 
   test('fee split between stakers and treasury', () => {
-    const totalFees = ethers.parseEther('10');
+    const totalFees = parseEther('10');
     const stakerShareBps = 8000n; // 80%
     const treasuryShareBps = 2000n; // 20%
     
@@ -410,22 +408,22 @@ describe('Fee Distribution Validation', () => {
     const treasuryFees = (totalFees * treasuryShareBps) / 10000n;
     
     expect(stakerFees + treasuryFees).toBe(totalFees);
-    expect(stakerFees).toBe(ethers.parseEther('8'));
-    expect(treasuryFees).toBe(ethers.parseEther('2'));
+    expect(stakerFees).toBe(parseEther('8'));
+    expect(treasuryFees).toBe(parseEther('2'));
     
     recordValidation({
       test: 'Fee split accuracy',
       passed: true,
-      details: `Stakers: ${ethers.formatEther(stakerFees)} ETH, Treasury: ${ethers.formatEther(treasuryFees)} ETH`,
+      details: `Stakers: ${formatEther(stakerFees)} ETH, Treasury: ${formatEther(treasuryFees)} ETH`,
     });
   });
 
   test('cumulative fee tracking', () => {
     // Simulate multiple transactions
     const transactions = [
-      { value: ethers.parseEther('50'), feeBps: 30n },
-      { value: ethers.parseEther('100'), feeBps: 30n },
-      { value: ethers.parseEther('25'), feeBps: 30n },
+      { value: parseEther('50'), feeBps: 30n },
+      { value: parseEther('100'), feeBps: 30n },
+      { value: parseEther('25'), feeBps: 30n },
     ];
     
     let totalFees = 0n;
@@ -433,13 +431,13 @@ describe('Fee Distribution Validation', () => {
       totalFees += (tx.value * tx.feeBps) / 10000n;
     }
     
-    const expectedFees = ethers.parseEther('0.525'); // 0.15 + 0.3 + 0.075
+    const expectedFees = parseEther('0.525'); // 0.15 + 0.3 + 0.075
     expect(totalFees).toBe(expectedFees);
     
     recordValidation({
       test: 'Cumulative fee tracking',
       passed: true,
-      details: `Total fees from 3 transactions: ${ethers.formatEther(totalFees)} ETH`,
+      details: `Total fees from 3 transactions: ${formatEther(totalFees)} ETH`,
     });
   });
 });
@@ -450,7 +448,7 @@ describe('Fee Distribution Validation', () => {
 
 describe('EIL Cross-Chain Validation', () => {
   test('voucher amount calculation includes fees', () => {
-    const transferAmount = ethers.parseEther('1');
+    const transferAmount = parseEther('1');
     const bridgeFeeBps = 10n; // 0.1%
     const xlpFeeBps = 5n; // 0.05%
     
@@ -459,45 +457,45 @@ describe('EIL Cross-Chain Validation', () => {
     const totalFees = bridgeFee + xlpFee;
     const receivedAmount = transferAmount - totalFees;
     
-    expect(receivedAmount).toBe(ethers.parseEther('0.9985'));
+    expect(receivedAmount).toBe(parseEther('0.9985'));
     
     recordValidation({
       test: 'EIL fee calculation',
       passed: true,
-      details: `1 ETH transfer: ${ethers.formatEther(receivedAmount)} ETH received after ${ethers.formatEther(totalFees)} fees`,
+      details: `1 ETH transfer: ${formatEther(receivedAmount)} ETH received after ${formatEther(totalFees)} fees`,
     });
   });
 
   test('XLP stake requirement calculation', () => {
-    const maxTransferAmount = ethers.parseEther('100');
+    const maxTransferAmount = parseEther('100');
     const collateralRatio = 150n; // 150%
     
     const requiredStake = (maxTransferAmount * collateralRatio) / 100n;
     
-    expect(requiredStake).toBe(ethers.parseEther('150'));
+    expect(requiredStake).toBe(parseEther('150'));
     
     recordValidation({
       test: 'XLP stake requirement',
       passed: true,
-      details: `100 ETH max transfer requires ${ethers.formatEther(requiredStake)} ETH stake`,
+      details: `100 ETH max transfer requires ${formatEther(requiredStake)} ETH stake`,
     });
   });
 
   test('slashing calculation for failed fulfillment', () => {
-    const xlpStake = ethers.parseEther('150');
-    const failedAmount = ethers.parseEther('80');
+    const xlpStake = parseEther('150');
+    const failedAmount = parseEther('80');
     const slashPercentBps = 500n; // 5%
     
     const slashAmount = (failedAmount * slashPercentBps) / 10000n;
     const remainingStake = xlpStake - slashAmount;
     
-    expect(slashAmount).toBe(ethers.parseEther('4'));
-    expect(remainingStake).toBe(ethers.parseEther('146'));
+    expect(slashAmount).toBe(parseEther('4'));
+    expect(remainingStake).toBe(parseEther('146'));
     
     recordValidation({
       test: 'EIL slashing calculation',
       passed: true,
-      details: `Failed 80 ETH fulfillment: ${ethers.formatEther(slashAmount)} ETH slashed`,
+      details: `Failed 80 ETH fulfillment: ${formatEther(slashAmount)} ETH slashed`,
     });
   });
 });
@@ -509,7 +507,8 @@ describe('EIL Cross-Chain Validation', () => {
 describe('Balance Change Tracking', () => {
   test('can read balance from provider', async () => {
     // Test that we can read balances
-    const balance = await provider.getBalance(user1.address);
+    const { getBalance } = await import('viem');
+    const balance = await getBalance(publicClient, { address: user1Account.address });
     
     expect(balance).toBeGreaterThanOrEqual(0n);
     expect(typeof balance).toBe('bigint');
@@ -517,27 +516,27 @@ describe('Balance Change Tracking', () => {
     recordValidation({
       test: 'ETH balance reading',
       passed: true,
-      details: `User1 balance: ${ethers.formatEther(balance)} ETH`,
+      details: `User1 balance: ${formatEther(balance)} ETH`,
     });
   });
 
   test('balance change calculation logic', () => {
     // Test the change calculation logic
-    const balanceBefore = ethers.parseEther('10');
-    const balanceAfter = ethers.parseEther('9.5');
-    const transferAmount = ethers.parseEther('0.4');
-    const gasUsed = ethers.parseEther('0.1');
+    const balanceBefore = parseEther('10');
+    const balanceAfter = parseEther('9.5');
+    const transferAmount = parseEther('0.4');
+    const gasUsed = parseEther('0.1');
     
     const actualChange = balanceBefore - balanceAfter;
     const expectedChange = transferAmount + gasUsed;
     
-    expect(actualChange).toBe(ethers.parseEther('0.5'));
+    expect(actualChange).toBe(parseEther('0.5'));
     expect(actualChange).toBe(expectedChange);
     
     recordValidation({
       test: 'Balance change calculation',
       passed: true,
-      details: `Change of ${ethers.formatEther(actualChange)} ETH correctly calculated`,
+      details: `Change of ${formatEther(actualChange)} ETH correctly calculated`,
     });
   });
 });

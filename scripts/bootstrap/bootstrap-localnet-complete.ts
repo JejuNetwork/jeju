@@ -1,5 +1,7 @@
 #!/usr/bin/env bun
 /**
+ * @internal Used by CLI: `jeju dev` (automatic bootstrap)
+ * 
  * Complete Localnet Bootstrap
  * 
  * ONE SCRIPT TO RULE THEM ALL

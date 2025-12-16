@@ -1,5 +1,7 @@
 #!/usr/bin/env bun
 /**
+ * @internal Used by CLI: `jeju deploy check`
+ * 
  * Comprehensive Testnet Readiness Check
  * 
  * Validates all components needed for testnet deployment:
@@ -17,8 +19,8 @@
 import { $ } from 'bun';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { createPublicClient, http, getBalance, getCode, formatEther, type Address } from 'viem';
-import { inferChainFromRpcUrl } from './shared/chain-utils';
+import { createPublicClient, http, formatEther, type Address } from 'viem';
+import { inferChainFromRpcUrl } from '../shared/chain-utils';
 
 const ROOT = process.cwd();
 const KEYS_DIR = join(ROOT, 'packages/deployment/.keys');
@@ -165,7 +167,7 @@ async function checkOperatorKeys() {
   for (const key of keys) {
     if (['admin', 'batcher', 'proposer'].includes(key.name)) {
       try {
-        const balance = await getBalance(publicClient, { address: key.address as Address });
+        const balance = await publicClient.getBalance({ address: key.address as Address });
         const ethBalance = parseFloat(formatEther(balance));
         const minBalance = key.name === 'admin' ? 0.3 : 0.05;
         
@@ -251,7 +253,7 @@ async function checkL1Contracts() {
     if (typeof address === 'string' && address.startsWith('0x') && address.length === 42) {
       total++;
       try {
-        const code = await getCode(publicClient, { address: address as Address });
+        const code = await publicClient.getBytecode({ address: address as Address });
         if (code !== '0x') {
           addResult(category, name, 'pass', `${(address as string).slice(0, 10)}...`);
         } else {

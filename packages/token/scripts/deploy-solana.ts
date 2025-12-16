@@ -1,11 +1,15 @@
 #!/usr/bin/env bun
 /**
+ * @deprecated Use 'jeju token deploy solana' instead
+ * 
  * Deploy SPL Token to Solana
  *
  * Deploys an SPL token to Solana devnet/mainnet with Hyperlane warp route setup.
  *
  * Usage:
- *   bun run deploy:solana [--network devnet|mainnet] [--dry-run]
+ *   jeju token deploy solana --network devnet
+ *   jeju token deploy solana --network mainnet
+ *   jeju token deploy solana --network devnet --dry-run
  *
  * Environment:
  *   SOLANA_PRIVATE_KEY - Base58 encoded private key

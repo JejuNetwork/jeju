@@ -65,6 +65,16 @@ export const serviceCommand = new Command('service')
       })
   )
   .addCommand(
+    new Command('zkbridge')
+      .description('ZK bridge orchestrator (EVM-Solana relayer & prover)')
+      .option('--mode <mode>', 'Mode: local, testnet, mainnet', 'local')
+      .option('--relayer-only', 'Start relayer only')
+      .option('--prover-only', 'Start prover only')
+      .action(async (options) => {
+        await startZKBridge(options);
+      })
+  )
+  .addCommand(
     new Command('list')
       .description('List running services')
       .action(() => {
@@ -262,6 +272,44 @@ async function startSequencer(options: { network: string; l1Rpc?: string; blockI
   runningServices.set('sequencer', proc);
   
   logger.success('Consensus coordinator started');
+  logger.info('Press Ctrl+C to stop');
+  
+  process.on('SIGINT', () => {
+    proc.kill();
+    process.exit(0);
+  });
+
+  await proc.exited;
+}
+
+async function startZKBridge(options: { mode: string; relayerOnly?: boolean; proverOnly?: boolean }) {
+  const rootDir = findMonorepoRoot();
+  const scriptPath = join(rootDir, 'packages/bridge/scripts/orchestrator.ts');
+  
+  if (!existsSync(scriptPath)) {
+    logger.error('ZK bridge orchestrator not found');
+    return;
+  }
+
+  logger.header('ZKBRIDGE ORCHESTRATOR');
+  logger.info(`Mode: ${options.mode}`);
+  if (options.relayerOnly) logger.info('Starting relayer only');
+  if (options.proverOnly) logger.info('Starting prover only');
+  logger.newline();
+
+  const args: string[] = ['--mode', options.mode];
+  
+  const proc = spawn({
+    cmd: ['bun', 'run', scriptPath, ...args],
+    cwd: rootDir,
+    env: process.env,
+    stdout: 'inherit',
+    stderr: 'inherit',
+  });
+
+  runningServices.set('zkbridge', proc);
+  
+  logger.success('ZK bridge orchestrator started');
   logger.info('Press Ctrl+C to stop');
   
   process.on('SIGINT', () => {

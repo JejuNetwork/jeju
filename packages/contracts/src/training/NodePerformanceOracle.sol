@@ -26,8 +26,6 @@ import {ComputeRegistry} from "../compute/ComputeRegistry.sol";
  * - 10% Reliability (completion rate)
  */
 contract NodePerformanceOracle is Ownable, ReentrancyGuard {
-    // ============ Enums ============
-
     enum GPUTier {
         Unknown,      // 0
         Consumer,     // 1 - RTX 3090, 4080, etc.
@@ -35,8 +33,6 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
         Datacenter,   // 3 - A100, A10G
         HighEnd       // 4 - H100, H200
     }
-
-    // ============ Structs ============
 
     struct NodeMetrics {
         // Participation metrics
@@ -79,7 +75,7 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
         bytes32 runId;
     }
 
-    // ============ State ============
+
 
     /// @notice Node metrics by address
     mapping(address => NodeMetrics) public nodeMetrics;
@@ -108,7 +104,7 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
     /// @notice GPU tier score multipliers (basis points, 100 = 1x)
     mapping(GPUTier => uint16) public gpuTierMultipliers;
 
-    // ============ Events ============
+
 
     event NodeRegistered(address indexed node, GPUTier gpuTier, bytes32 attestationHash);
     event MetricsUpdated(address indexed node, uint64 latency, uint64 bandwidth, uint64 tps);
@@ -118,7 +114,7 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
     event GPUTierUpdated(address indexed node, GPUTier oldTier, GPUTier newTier);
     event ReporterUpdated(address indexed reporter, bool authorized);
 
-    // ============ Errors ============
+
 
     error NodeNotRegistered();
     error AlreadyRegistered();
@@ -126,7 +122,7 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
     error InvalidMetrics();
     error InvalidGPUTier();
 
-    // ============ Modifiers ============
+
 
     modifier onlyReporter() {
         if (!authorizedReporters[msg.sender] && msg.sender != owner()) {
@@ -140,7 +136,7 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
         _;
     }
 
-    // ============ Constructor ============
+
 
     constructor(
         address _coordinator,
@@ -159,7 +155,7 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
         gpuTierMultipliers[GPUTier.HighEnd] = 100;     // 1.0x
     }
 
-    // ============ Node Registration ============
+
 
     /**
      * @notice Register a node for performance tracking
@@ -195,7 +191,7 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
         emit NodeRegistered(msg.sender, gpuTier, attestationHash);
     }
 
-    // ============ Metric Reporting ============
+
 
     /**
      * @notice Report performance metrics for a node
@@ -326,7 +322,7 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
         emit WitnessRecorded(runId, node, successful);
     }
 
-    // ============ Score Calculation ============
+
 
     /**
      * @notice Get the performance score for a node
@@ -391,7 +387,7 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
         }
     }
 
-    // ============ Node Selection ============
+
 
     /**
      * @notice Get optimal nodes for a training run
@@ -480,7 +476,7 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
         }
     }
 
-    // ============ View Functions ============
+
 
     /**
      * @notice Get full metrics for a node
@@ -534,7 +530,7 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
                block.timestamp - metrics.lastActiveTimestamp < 1 hours;
     }
 
-    // ============ Internal Functions ============
+
 
     function _isEligible(
         address node,
@@ -565,7 +561,7 @@ contract NodePerformanceOracle is Ownable, ReentrancyGuard {
         return uint64((2 * uint256(newValue) + 8 * uint256(current)) / 10);
     }
 
-    // ============ Admin Functions ============
+
 
     /**
      * @notice Update GPU tier for a node (admin or self)

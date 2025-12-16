@@ -27,7 +27,9 @@
  */
 
 import { describe, it, expect, beforeAll } from 'bun:test';
-import { ethers } from 'ethers';
+import { createPublicClient, createWalletClient, http, parseAbi, readContract, writeContract, waitForTransactionReceipt, deployContract, getBlockNumber, getBalance, getChainId, getCode, getBlock, getFeeData, formatEther, parseEther, parseUnits, formatUnits, decodeEventLog, keccak256, stringToBytes, getTransactionReceipt, type Address, type PublicClient, type WalletClient } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 import {
   JEJU_LOCALNET,
   L1_LOCALNET,
@@ -67,8 +69,9 @@ const TEST_CONFIG = {
 // Check if localnet is available
 let localnetAvailable = false;
 try {
-  const provider = new ethers.JsonRpcProvider(TEST_CONFIG.l2RpcUrl);
-  await provider.getBlockNumber();
+  const chain = inferChainFromRpcUrl(TEST_CONFIG.l2RpcUrl);
+  const publicClient = createPublicClient({ chain, transport: http(TEST_CONFIG.l2RpcUrl) });
+  await getBlockNumber(publicClient);
   localnetAvailable = true;
 } catch {
   console.log(`Localnet not available at ${TEST_CONFIG.l2RpcUrl}, skipping full system tests`);
@@ -84,53 +87,59 @@ const deployedContracts: {
 } = {};
 
 describe.skipIf(!localnetAvailable)('Localnet Full System Integration', () => {
-  let l1Provider: ethers.JsonRpcProvider;
-  let l2Provider: ethers.JsonRpcProvider;
-  let deployer: ethers.Wallet;
-  let user1: ethers.Wallet;
+  let l1PublicClient: PublicClient;
+  let l2PublicClient: PublicClient;
+  let deployerAccount: ReturnType<typeof privateKeyToAccount>;
+  let deployerWalletClient: WalletClient;
+  let user1Account: ReturnType<typeof privateKeyToAccount>;
+  let user1WalletClient: WalletClient;
 
   beforeAll(async () => {
     console.log('🚀 Setting up integration test environment...\n');
 
     // Connect to L1 (local Geth)
-    l1Provider = new ethers.JsonRpcProvider(TEST_CONFIG.l1RpcUrl);
+    const l1Chain = inferChainFromRpcUrl(TEST_CONFIG.l1RpcUrl);
+    l1PublicClient = createPublicClient({ chain: l1Chain, transport: http(TEST_CONFIG.l1RpcUrl) });
     console.log(`✅ Connected to L1 RPC at ${TEST_CONFIG.l1RpcUrl}`);
 
     // Connect to L2 (Network localnet)
-    l2Provider = new ethers.JsonRpcProvider(TEST_CONFIG.l2RpcUrl);
+    const l2Chain = inferChainFromRpcUrl(TEST_CONFIG.l2RpcUrl);
+    l2PublicClient = createPublicClient({ chain: l2Chain, transport: http(TEST_CONFIG.l2RpcUrl) });
     console.log(`✅ Connected to L2 RPC at ${TEST_CONFIG.l2RpcUrl}`);
 
     // Create signers using shared test wallets
-    deployer = new ethers.Wallet(TEST_WALLETS.deployer.privateKey, l2Provider);
-    user1 = new ethers.Wallet(TEST_WALLETS.user1.privateKey, l2Provider);
+    deployerAccount = privateKeyToAccount(TEST_WALLETS.deployer.privateKey as `0x${string}`);
+    deployerWalletClient = createWalletClient({ chain: l2Chain, transport: http(TEST_CONFIG.l2RpcUrl), account: deployerAccount });
+    
+    user1Account = privateKeyToAccount(TEST_WALLETS.user1.privateKey as `0x${string}`);
+    user1WalletClient = createWalletClient({ chain: l2Chain, transport: http(TEST_CONFIG.l2RpcUrl), account: user1Account });
     console.log('✅ Created test signers\n');
   });
 
   describe('1. RPC Connectivity', () => {
     it('should connect to L1 RPC and fetch block number', async () => {
-      const blockNumber = await l1Provider.getBlockNumber();
-      expect(blockNumber).toBeGreaterThanOrEqual(0);
+      const blockNumber = await getBlockNumber(l1PublicClient);
+      expect(blockNumber).toBeGreaterThanOrEqual(0n);
       console.log(`   📊 L1 at block ${blockNumber}`);
     });
 
     it('should connect to L2 RPC and fetch block number', async () => {
-      const blockNumber = await l2Provider.getBlockNumber();
-      expect(blockNumber).toBeGreaterThanOrEqual(0);
+      const blockNumber = await getBlockNumber(l2PublicClient);
+      expect(blockNumber).toBeGreaterThanOrEqual(0n);
       console.log(`   📊 L2 at block ${blockNumber}`);
     });
 
     it('should verify L2 chain ID is localnet (1337 or 31337)', async () => {
-      const network = await l2Provider.getNetwork();
-      const chainId = Number(network.chainId);
+      const chainId = await getChainId(l2PublicClient);
       // Accept both 1337 (OP-Stack) and 31337 (Anvil default)
       expect([1337, 31337]).toContain(chainId);
       console.log(`   🔗 Chain ID: ${chainId}`);
     });
 
     it('should have pre-funded test accounts', async () => {
-      const balance = await l2Provider.getBalance(TEST_WALLETS.deployer.address);
-      expect(balance).toBeGreaterThan(ethers.parseEther('100'));
-      console.log(`   💰 Deployer balance: ${ethers.formatEther(balance)} ETH`);
+      const balance = await getBalance(l2PublicClient, { address: TEST_WALLETS.deployer.address as Address });
+      expect(balance).toBeGreaterThan(parseEther('100'));
+      console.log(`   💰 Deployer balance: ${formatEther(balance)} ETH`);
     });
   });
 
@@ -138,7 +147,7 @@ describe.skipIf(!localnetAvailable)('Localnet Full System Integration', () => {
     let isOPStack = false;
 
     it('should check for L2StandardBridge predeploy', async () => {
-      const code = await l2Provider.getCode(OP_PREDEPLOYS.L2StandardBridge);
+      const code = await getCode(l2PublicClient, { address: OP_PREDEPLOYS.L2StandardBridge as Address });
       isOPStack = code !== '0x';
       if (isOPStack) {
         console.log(`   ✅ L2StandardBridge deployed (OP-Stack chain)`);
@@ -150,7 +159,7 @@ describe.skipIf(!localnetAvailable)('Localnet Full System Integration', () => {
     });
 
     it('should check for WETH predeploy', async () => {
-      const code = await l2Provider.getCode(OP_PREDEPLOYS.WETH);
+      const code = await getCode(l2PublicClient, { address: OP_PREDEPLOYS.WETH as Address });
       if (code !== '0x') {
         console.log(`   ✅ WETH deployed`);
       } else {
@@ -160,7 +169,7 @@ describe.skipIf(!localnetAvailable)('Localnet Full System Integration', () => {
     });
 
     it('should check for L2CrossDomainMessenger predeploy', async () => {
-      const code = await l2Provider.getCode(OP_PREDEPLOYS.L2CrossDomainMessenger);
+      const code = await getCode(l2PublicClient, { address: OP_PREDEPLOYS.L2CrossDomainMessenger as Address });
       if (code !== '0x') {
         console.log(`   ✅ L2CrossDomainMessenger deployed`);
       } else {
@@ -172,93 +181,106 @@ describe.skipIf(!localnetAvailable)('Localnet Full System Integration', () => {
 
   describe('3. Contract Deployments', () => {
     it('should deploy elizaOS token and transfer tokens', async () => {
-      // Use NonceManager to handle nonce properly
-      const managedDeployer = new ethers.NonceManager(deployer);
-      
-      // Use real MockERC20 artifact with compiled bytecode
-      const factory = new ethers.ContractFactory(
-        MockERC20Artifact.abi,
-        MockERC20Artifact.bytecode,
-        managedDeployer
-      );
-
       console.log('   🔨 Deploying elizaOS token...');
-      const initialSupply = ethers.parseEther('1000000'); // 1M tokens
-      const token = await factory.deploy('ElizaOS', 'ELIZA', 18, initialSupply);
-      await token.waitForDeployment();
+      const initialSupply = parseEther('1000000'); // 1M tokens
       
-      deployedContracts.elizaOS = await token.getAddress();
+      const hash = await deployContract(deployerWalletClient, {
+        abi: MockERC20Artifact.abi,
+        bytecode: MockERC20Artifact.bytecode as `0x${string}`,
+        args: ['ElizaOS', 'ELIZA', 18, initialSupply],
+      });
+      const receipt = await waitForTransactionReceipt(l2PublicClient, { hash });
+      
+      if (!receipt.contractAddress) throw new Error('Contract deployment failed');
+      deployedContracts.elizaOS = receipt.contractAddress;
       console.log(`   ✅ Token deployed at ${deployedContracts.elizaOS}`);
       
-      // Verify deployment using read-only provider
-      const tokenReadOnly = new ethers.Contract(
-        deployedContracts.elizaOS,
-        MockERC20Artifact.abi,
-        l2Provider
-      );
-      const name = await tokenReadOnly.name();
-      const symbol = await tokenReadOnly.symbol();
-      const totalSupply = await tokenReadOnly.totalSupply();
+      // Verify deployment using read-only client
+      const tokenAbi = parseAbi(MockERC20Artifact.abi);
+      const name = await readContract(l2PublicClient, {
+        address: deployedContracts.elizaOS as Address,
+        abi: tokenAbi,
+        functionName: 'name',
+      }) as string;
+      
+      const symbol = await readContract(l2PublicClient, {
+        address: deployedContracts.elizaOS as Address,
+        abi: tokenAbi,
+        functionName: 'symbol',
+      }) as string;
+      
+      const totalSupply = await readContract(l2PublicClient, {
+        address: deployedContracts.elizaOS as Address,
+        abi: tokenAbi,
+        functionName: 'totalSupply',
+      }) as bigint;
       
       expect(name).toBe('ElizaOS');
       expect(symbol).toBe('ELIZA');
       expect(totalSupply).toBe(initialSupply);
-      console.log(`   📊 Token: ${name} (${symbol}), Supply: ${ethers.formatEther(totalSupply)}`);
+      console.log(`   📊 Token: ${name} (${symbol}), Supply: ${formatEther(totalSupply)}`);
       
       // Verify deployer has token balance
-      const balance = await tokenReadOnly.balanceOf(deployer.address);
+      const balance = await readContract(l2PublicClient, {
+        address: deployedContracts.elizaOS as Address,
+        abi: tokenAbi,
+        functionName: 'balanceOf',
+        args: [deployerAccount.address],
+      }) as bigint;
       expect(balance).toBeGreaterThan(0n);
-      console.log(`   💰 Deployer token balance: ${ethers.formatEther(balance)} ELIZA`);
+      console.log(`   💰 Deployer token balance: ${formatEther(balance)} ELIZA`);
       
-      // Transfer tokens to user1 using managed deployer
-      const tokenWritable = new ethers.Contract(
-        deployedContracts.elizaOS,
-        MockERC20Artifact.abi,
-        managedDeployer
-      );
-      const transferAmount = ethers.parseEther('1000');
-      const tx = await tokenWritable.transfer(user1.address, transferAmount);
-      const receipt = await tx.wait();
+      // Transfer tokens to user1
+      const transferAmount = parseEther('1000');
+      const transferHash = await deployerWalletClient.writeContract({
+        address: deployedContracts.elizaOS as Address,
+        abi: tokenAbi,
+        functionName: 'transfer',
+        args: [user1Account.address, transferAmount],
+      });
+      const transferReceipt = await waitForTransactionReceipt(l2PublicClient, { hash: transferHash });
       
-      expect(receipt?.status).toBe(1);
-      console.log(`   ✅ Transferred ${ethers.formatEther(transferAmount)} ELIZA to user1`);
+      expect(transferReceipt.status).toBe('success');
+      console.log(`   ✅ Transferred ${formatEther(transferAmount)} ELIZA to user1`);
       
       // Verify recipient balance
-      const user1Balance = await tokenReadOnly.balanceOf(user1.address);
+      const user1Balance = await readContract(l2PublicClient, {
+        address: deployedContracts.elizaOS as Address,
+        abi: tokenAbi,
+        functionName: 'balanceOf',
+        args: [user1Account.address],
+      }) as bigint;
       expect(user1Balance).toBe(transferAmount);
-      console.log(`   💰 User1 token balance: ${ethers.formatEther(user1Balance)} ELIZA`);
+      console.log(`   💰 User1 token balance: ${formatEther(user1Balance)} ELIZA`);
     });
   });
 
   describe('4. Transaction Execution', () => {
     it('should send ETH transfer and deploy contract', async () => {
-      // Use NonceManager for user1 to handle nonce properly
-      const managedUser1 = new ethers.NonceManager(user1);
-      
-      const tx = await managedUser1.sendTransaction({
-        to: TEST_WALLETS.user2.address,
-        value: ethers.parseEther('0.1'),
+      const hash = await user1WalletClient.sendTransaction({
+        to: TEST_WALLETS.user2.address as Address,
+        value: parseEther('0.1'),
       });
 
-      const receipt = await tx.wait();
-      expect(receipt?.status).toBe(1);
-      expect(receipt?.blockNumber).toBeGreaterThan(0);
+      const receipt = await waitForTransactionReceipt(l2PublicClient, { hash });
+      expect(receipt.status).toBe('success');
+      expect(receipt.blockNumber).toBeGreaterThan(0n);
       
-      console.log(`   ✅ ETH transfer in block ${receipt?.blockNumber}`);
-      console.log(`   📝 Transaction hash: ${receipt?.hash}`);
+      console.log(`   ✅ ETH transfer in block ${receipt.blockNumber}`);
+      console.log(`   📝 Transaction hash: ${receipt.transactionHash}`);
       
-      // Deploy a simple contract using managed user1 (continuing nonce sequence)
-      const contractCode = '0x608060405234801561001057600080fd5b50';
+      // Deploy a simple contract
+      const contractCode = '0x608060405234801561001057600080fd5b50' as `0x${string}`;
       
-      const deployTx = await managedUser1.sendTransaction({
+      const deployHash = await user1WalletClient.sendTransaction({
         data: contractCode,
       });
 
-      const deployReceipt = await deployTx.wait();
-      expect(deployReceipt?.status).toBe(1);
-      expect(deployReceipt?.contractAddress).toBeTruthy();
+      const deployReceipt = await waitForTransactionReceipt(l2PublicClient, { hash: deployHash });
+      expect(deployReceipt.status).toBe('success');
+      expect(deployReceipt.contractAddress).toBeTruthy();
       
-      console.log(`   ✅ Contract deployed at ${deployReceipt?.contractAddress}`);
+      console.log(`   ✅ Contract deployed at ${deployReceipt.contractAddress}`);
     });
   });
 
@@ -341,69 +363,78 @@ describe.skipIf(!localnetAvailable)('Localnet Full System Integration', () => {
       expect(deployedContracts.elizaOS).toBeTruthy();
       
       // Query historical Transfer events for user1 (from earlier transfer)
-      const tokenContract = new ethers.Contract(
-        deployedContracts.elizaOS!,
-        MockERC20Artifact.abi,
-        l2Provider
-      );
+      const tokenAbi = parseAbi(MockERC20Artifact.abi);
+      const transferEventTopic = keccak256(stringToBytes('Transfer(address,address,uint256)'));
       
-      const filter = tokenContract.filters.Transfer(null, user1.address);
-      const events = await tokenContract.queryFilter(filter);
+      const logs = await l2PublicClient.getLogs({
+        address: deployedContracts.elizaOS as Address,
+        event: {
+          type: 'event',
+          name: 'Transfer',
+          inputs: [
+            { name: 'from', type: 'address', indexed: true },
+            { name: 'to', type: 'address', indexed: true },
+            { name: 'value', type: 'uint256', indexed: false },
+          ],
+        },
+        args: {
+          to: user1Account.address,
+        },
+      });
       
-      expect(events.length).toBeGreaterThan(0);
-      console.log(`   📊 Found ${events.length} Transfer events to user1`);
+      expect(logs.length).toBeGreaterThan(0);
+      console.log(`   📊 Found ${logs.length} Transfer events to user1`);
       
       // Sum up all transfers to user1
       let totalReceived = 0n;
-      for (const event of events) {
-        const args = event.args;
-        if (args) {
-          totalReceived += args[2] as bigint;
+      for (const log of logs) {
+        const decoded = decodeEventLog({ abi: tokenAbi, data: log.data, topics: log.topics });
+        if (decoded.eventName === 'Transfer') {
+          const args = decoded.args as { value: bigint };
+          totalReceived += args.value;
         }
       }
-      console.log(`   💰 Total received by user1: ${ethers.formatEther(totalReceived)} ELIZA`);
+      console.log(`   💰 Total received by user1: ${formatEther(totalReceived)} ELIZA`);
       
       // Decode the latest event
-      const latestEvent = events[events.length - 1];
-      const iface = new ethers.Interface(MockERC20Artifact.abi);
-      const decodedEvent = iface.parseLog({
-        topics: latestEvent.topics as string[],
-        data: latestEvent.data
-      });
+      const latestLog = logs[logs.length - 1];
+      const decodedEvent = decodeEventLog({ abi: tokenAbi, data: latestLog.data, topics: latestLog.topics });
       
-      expect(decodedEvent?.name).toBe('Transfer');
-      console.log(`   📤 From: ${decodedEvent?.args[0]}`);
-      console.log(`   📥 To: ${decodedEvent?.args[1]}`);
-      console.log(`   💰 Amount: ${ethers.formatEther(decodedEvent?.args[2])} ELIZA`);
+      expect(decodedEvent.eventName).toBe('Transfer');
+      const transferArgs = decodedEvent.args as { from: Address; to: Address; value: bigint };
+      console.log(`   📤 From: ${transferArgs.from}`);
+      console.log(`   📥 To: ${transferArgs.to}`);
+      console.log(`   💰 Amount: ${formatEther(transferArgs.value)} ELIZA`);
     });
   });
 
   describe('7. Service Health Checks', () => {
     it('should verify block production by sending transactions', async () => {
-      const blockNum1 = await l2Provider.getBlockNumber();
+      const blockNum1 = await getBlockNumber(l2PublicClient);
       console.log(`   📊 Starting block: ${blockNum1}`);
       
       // Use user2 for this test to avoid nonce conflicts
-      const user2 = new ethers.Wallet(TEST_WALLETS.user2.privateKey, l2Provider);
+      const user2Account = privateKeyToAccount(TEST_WALLETS.user2.privateKey as `0x${string}`);
+      const user2WalletClient = createWalletClient({ chain: l2PublicClient.chain!, transport: http(TEST_CONFIG.l2RpcUrl), account: user2Account });
       
       // Send a transaction to trigger block production (anvil automine mode)
-      const tx = await user2.sendTransaction({
-        to: user1.address,
-        value: ethers.parseEther('0.001'),
+      const hash = await user2WalletClient.sendTransaction({
+        to: user1Account.address,
+        value: parseEther('0.001'),
       });
-      await tx.wait();
+      await waitForTransactionReceipt(l2PublicClient, { hash });
       
-      const blockNum2 = await l2Provider.getBlockNumber();
+      const blockNum2 = await getBlockNumber(l2PublicClient);
       expect(blockNum2).toBeGreaterThanOrEqual(blockNum1);
       
       console.log(`   ✅ Block advanced to ${blockNum2} (triggered by transaction)`);
     });
 
     it('should verify L2 gas price oracle', async () => {
-      const gasPrice = await l2Provider.getFeeData();
-      expect(gasPrice.gasPrice).toBeTruthy();
+      const feeData = await getFeeData(l2PublicClient);
+      expect(feeData.gasPrice).toBeTruthy();
       
-      console.log(`   ⛽ Current gas price: ${ethers.formatUnits(gasPrice.gasPrice!, 'gwei')} gwei`);
+      console.log(`   ⛽ Current gas price: ${formatUnits(feeData.gasPrice!, 'gwei')} gwei`);
     });
   });
 
@@ -411,12 +442,12 @@ describe.skipIf(!localnetAvailable)('Localnet Full System Integration', () => {
     it('should measure transaction confirmation time', async () => {
       const startTime = Date.now();
       
-      const tx = await deployer.sendTransaction({
-        to: user1.address,
-        value: ethers.parseEther('0.001'),
+      const hash = await deployerWalletClient.sendTransaction({
+        to: user1Account.address,
+        value: parseEther('0.001'),
       });
 
-      await tx.wait();
+      await waitForTransactionReceipt(l2PublicClient, { hash });
       
       const confirmationTime = Date.now() - startTime;
       console.log(`   ⏱️  Transaction confirmed in ${confirmationTime}ms`);
@@ -427,7 +458,7 @@ describe.skipIf(!localnetAvailable)('Localnet Full System Integration', () => {
 
     it('should measure RPC response time', async () => {
       const startTime = Date.now();
-      await l2Provider.getBlockNumber();
+      await getBlockNumber(l2PublicClient);
       const responseTime = Date.now() - startTime;
       
       console.log(`   ⏱️  RPC response time: ${responseTime}ms`);
@@ -467,46 +498,50 @@ describe.skipIf(!localnetAvailable)('Localnet Full System Integration', () => {
     });
 
     it('should print system summary', async () => {
-      const l1Block = await l1Provider.getBlockNumber();
-      const l2Block = await l2Provider.getBlockNumber();
-      const l2Network = await l2Provider.getNetwork();
+      const l1Block = await getBlockNumber(l1PublicClient);
+      const l2Block = await getBlockNumber(l2PublicClient);
+      const l2ChainId = await getChainId(l2PublicClient);
       
       console.log('\n📊 System Status Summary:');
       console.log('─────────────────────────────────────────');
       console.log(`L1 Chain ID: 1337 (local)`);
       console.log(`L1 Block Height: ${l1Block}`);
-      console.log(`L2 Chain ID: ${l2Network.chainId}`);
+      console.log(`L2 Chain ID: ${l2ChainId}`);
       console.log(`L2 Block Height: ${l2Block}`);
-      console.log(`Deployer Balance: ${ethers.formatEther(await l2Provider.getBalance(deployer.address))} ETH`);
+      console.log(`Deployer Balance: ${formatEther(await getBalance(l2PublicClient, { address: deployerAccount.address }))} ETH`);
       console.log('─────────────────────────────────────────\n');
     });
   });
 });
 
 describe.skipIf(!localnetAvailable)('Service Interaction Tests', () => {
-  let l2Provider: ethers.JsonRpcProvider;
-  let deployer: ethers.NonceManager;
-  let user1: ethers.Wallet;
+  let l2PublicClient: PublicClient;
+  let deployerAccount: ReturnType<typeof privateKeyToAccount>;
+  let deployerWalletClient: WalletClient;
+  let user1Account: ReturnType<typeof privateKeyToAccount>;
+  let user1WalletClient: WalletClient;
 
   beforeAll(async () => {
-    l2Provider = new ethers.JsonRpcProvider(TEST_CONFIG.l2RpcUrl);
-    const deployerWallet = new ethers.Wallet(TEST_WALLETS.deployer.privateKey, l2Provider);
-    deployer = new ethers.NonceManager(deployerWallet);
-    user1 = new ethers.Wallet(TEST_WALLETS.user1.privateKey, l2Provider);
+    const l2Chain = inferChainFromRpcUrl(TEST_CONFIG.l2RpcUrl);
+    l2PublicClient = createPublicClient({ chain: l2Chain, transport: http(TEST_CONFIG.l2RpcUrl) });
+    deployerAccount = privateKeyToAccount(TEST_WALLETS.deployer.privateKey as `0x${string}`);
+    deployerWalletClient = createWalletClient({ chain: l2Chain, transport: http(TEST_CONFIG.l2RpcUrl), account: deployerAccount });
+    user1Account = privateKeyToAccount(TEST_WALLETS.user1.privateKey as `0x${string}`);
+    user1WalletClient = createWalletClient({ chain: l2Chain, transport: http(TEST_CONFIG.l2RpcUrl), account: user1Account });
   });
 
   describe('RPC → Indexer Flow', () => {
     it('should verify transactions appear in indexer', async () => {
-      const deployerAddress = await deployer.getAddress();
+      const deployerAddress = deployerAccount.address;
       
       // Step 1: Send a transaction on L2
-      const tx = await deployer.sendTransaction({
-        to: user1.address,
-        value: ethers.parseEther('0.01'),
+      const hash = await deployerWalletClient.sendTransaction({
+        to: user1Account.address,
+        value: parseEther('0.01'),
       });
-      const receipt = await tx.wait();
-      expect(receipt?.status).toBe(1);
-      console.log(`   📝 Transaction sent: ${tx.hash}`);
+      const receipt = await waitForTransactionReceipt(l2PublicClient, { hash });
+      expect(receipt.status).toBe('success');
+      console.log(`   📝 Transaction sent: ${hash}`);
       
       // Step 2: Wait for indexer to process (give it a moment)
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -534,9 +569,9 @@ describe.skipIf(!localnetAvailable)('Service Interaction Tests', () => {
           if (data.data?.transactions?.length > 0) {
             const indexedTx = data.data.transactions[0];
             console.log(`   ✅ Transaction indexed: ${indexedTx.hash}`);
-            expect(indexedTx.hash.toLowerCase()).toBe(tx.hash.toLowerCase());
+            expect(indexedTx.hash.toLowerCase()).toBe(hash.toLowerCase());
             expect(indexedTx.from.address.toLowerCase()).toBe(deployerAddress.toLowerCase());
-            expect(indexedTx.to.address.toLowerCase()).toBe(user1.address.toLowerCase());
+            expect(indexedTx.to.address.toLowerCase()).toBe(user1Account.address.toLowerCase());
           } else {
             console.log('   ⏳ Transaction not yet indexed (indexer may need more time)');
           }
@@ -551,33 +586,33 @@ describe.skipIf(!localnetAvailable)('Service Interaction Tests', () => {
 
   describe('Token Transfer Event Indexing', () => {
     it('should index ERC20 transfer events', async () => {
-      // Deploy a token and transfer using managed deployer
-      const factory = new ethers.ContractFactory(
-        MockERC20Artifact.abi,
-        MockERC20Artifact.bytecode,
-        deployer
-      );
-      
-      const token = await factory.deploy('TestToken', 'TEST', 18, ethers.parseEther('10000'));
-      await token.waitForDeployment();
-      const tokenAddress = await token.getAddress();
+      // Deploy a token and transfer
+      const deployHash = await deployContract(deployerWalletClient, {
+        abi: MockERC20Artifact.abi,
+        bytecode: MockERC20Artifact.bytecode as `0x${string}`,
+        args: ['TestToken', 'TEST', 18, parseEther('10000')],
+      });
+      const deployReceipt = await waitForTransactionReceipt(l2PublicClient, { hash: deployHash });
+      if (!deployReceipt.contractAddress) throw new Error('Token deployment failed');
+      const tokenAddress = deployReceipt.contractAddress;
       console.log(`   🪙 Deployed test token at ${tokenAddress}`);
       
-      // Transfer tokens using the same contract instance to maintain nonce
-      const tokenWithSigner = token.connect(deployer);
-      const transferTx = await tokenWithSigner.transfer(user1.address, ethers.parseEther('100'));
-      const receipt = await transferTx.wait();
-      expect(receipt?.status).toBe(1);
+      // Transfer tokens
+      const tokenAbi = parseAbi(MockERC20Artifact.abi);
+      const transferHash = await deployerWalletClient.writeContract({
+        address: tokenAddress,
+        abi: tokenAbi,
+        functionName: 'transfer',
+        args: [user1Account.address, parseEther('100')],
+      });
+      const receipt = await waitForTransactionReceipt(l2PublicClient, { hash: transferHash });
+      expect(receipt.status).toBe('success');
       
       // Verify Transfer event was emitted
-      const transferEvent = receipt?.logs.find(log => {
-        if (log.topics[0] === ethers.id('Transfer(address,address,uint256)')) {
-          return true;
-        }
-        return false;
-      });
+      const transferEventTopic = keccak256(stringToBytes('Transfer(address,address,uint256)'));
+      const transferEvent = receipt.logs.find(log => log.topics[0] === transferEventTopic);
       expect(transferEvent).toBeDefined();
-      console.log(`   ✅ Transfer event emitted in tx ${transferTx.hash}`);
+      console.log(`   ✅ Transfer event emitted in tx ${transferHash}`);
       
       // Query indexer for transfer events (if running)
       try {
@@ -614,15 +649,15 @@ describe.skipIf(!localnetAvailable)('Service Interaction Tests', () => {
 
   describe('Block Production Verification', () => {
     it('should verify consistent block production', async () => {
-      const blocks: number[] = [];
-      const timestamps: number[] = [];
+      const blocks: bigint[] = [];
+      const timestamps: bigint[] = [];
       
       // Sample 5 blocks
       for (let i = 0; i < 5; i++) {
-        const block = await l2Provider.getBlock('latest');
+        const block = await getBlock(l2PublicClient, { blockTag: 'latest' });
         if (block) {
           blocks.push(block.number);
-          timestamps.push(block.timestamp);
+          timestamps.push(BigInt(block.timestamp));
         }
         await new Promise(resolve => setTimeout(resolve, 500));
       }
@@ -636,8 +671,8 @@ describe.skipIf(!localnetAvailable)('Service Interaction Tests', () => {
       
       // Calculate average block time
       if (blocks.length >= 2) {
-        const blockRange = blocks[blocks.length - 1] - blocks[0];
-        const timeRange = timestamps[timestamps.length - 1] - timestamps[0];
+        const blockRange = Number(blocks[blocks.length - 1] - blocks[0]);
+        const timeRange = Number(timestamps[timestamps.length - 1] - timestamps[0]);
         if (blockRange > 0) {
           const avgBlockTime = timeRange / blockRange;
           console.log(`   ⏱️  Average block time: ${avgBlockTime.toFixed(2)}s`);
@@ -654,42 +689,44 @@ describe.skipIf(!localnetAvailable)('End-to-End User Journey', () => {
     console.log('\n🎯 End-to-End User Journey Test\n');
     
     // Use user2 for this test to avoid nonce/balance cache issues
-    const provider = new ethers.JsonRpcProvider(TEST_CONFIG.l2RpcUrl);
-    const user = new ethers.Wallet(TEST_WALLETS.user2.privateKey, provider);
-    const recipient = TEST_WALLETS.deployer.address;
+    const l2Chain = inferChainFromRpcUrl(TEST_CONFIG.l2RpcUrl);
+    const publicClient = createPublicClient({ chain: l2Chain, transport: http(TEST_CONFIG.l2RpcUrl) });
+    const userAccount = privateKeyToAccount(TEST_WALLETS.user2.privateKey as `0x${string}`);
+    const userWalletClient = createWalletClient({ chain: l2Chain, transport: http(TEST_CONFIG.l2RpcUrl), account: userAccount });
+    const recipient = TEST_WALLETS.deployer.address as Address;
     
     // Step 1: User has ETH on L2
-    const userBalance = await provider.getBalance(user.address);
-    expect(userBalance).toBeGreaterThan(0);
-    console.log(`   1️⃣  User has ${ethers.formatEther(userBalance)} ETH on L2`);
+    const userBalance = await getBalance(publicClient, { address: userAccount.address });
+    expect(userBalance).toBeGreaterThan(0n);
+    console.log(`   1️⃣  User has ${formatEther(userBalance)} ETH on L2`);
     
     // Step 2: User sends transaction
-    const sendAmount = ethers.parseEther('0.1');
-    const tx = await user.sendTransaction({
+    const sendAmount = parseEther('0.1');
+    const hash = await userWalletClient.sendTransaction({
       to: recipient,
       value: sendAmount,
     });
-    console.log(`   2️⃣  User sent transaction: ${tx.hash}`);
+    console.log(`   2️⃣  User sent transaction: ${hash}`);
     
     // Step 3: Transaction confirmed
-    const receipt = await tx.wait();
-    expect(receipt?.status).toBe(1);
-    console.log(`   3️⃣  Transaction confirmed in block ${receipt?.blockNumber}`);
+    const receipt = await waitForTransactionReceipt(publicClient, { hash });
+    expect(receipt.status).toBe('success');
+    console.log(`   3️⃣  Transaction confirmed in block ${receipt.blockNumber}`);
     
     // Step 4: Calculate expected balance reduction
-    const gasUsed = receipt?.gasUsed ?? 21000n;
-    const gasPrice = receipt?.gasPrice ?? ethers.parseUnits('1', 'gwei');
+    const gasUsed = receipt.gasUsed ?? 21000n;
+    const gasPrice = receipt.gasPrice ?? parseUnits('1', 'gwei');
     const gasCost = gasUsed * gasPrice;
     const totalCost = sendAmount + gasCost;
     
-    // Fresh provider to avoid cache
-    const freshProvider = new ethers.JsonRpcProvider(TEST_CONFIG.l2RpcUrl);
-    const newBalance = await freshProvider.getBalance(user.address);
+    // Fresh client to avoid cache
+    const freshClient = createPublicClient({ chain: l2Chain, transport: http(TEST_CONFIG.l2RpcUrl) });
+    const newBalance = await getBalance(freshClient, { address: userAccount.address });
     
     // Balance should have decreased by at least the send amount
     expect(newBalance).toBeLessThan(userBalance);
     expect(userBalance - newBalance).toBeGreaterThanOrEqual(sendAmount);
-    console.log(`   4️⃣  User balance updated: ${ethers.formatEther(newBalance)} ETH (spent ${ethers.formatEther(userBalance - newBalance)} ETH)`);
+    console.log(`   4️⃣  User balance updated: ${formatEther(newBalance)} ETH (spent ${formatEther(userBalance - newBalance)} ETH)`);
     
     console.log('\n   ✅ End-to-end flow complete!\n');
   });
@@ -697,11 +734,13 @@ describe.skipIf(!localnetAvailable)('End-to-End User Journey', () => {
 
 describe.skipIf(!localnetAvailable)('Cleanup and Teardown', () => {
   it('should print final system status', async () => {
-    const l1Provider = new ethers.JsonRpcProvider(TEST_CONFIG.l1RpcUrl);
-    const l2Provider = new ethers.JsonRpcProvider(TEST_CONFIG.l2RpcUrl);
+    const l1Chain = inferChainFromRpcUrl(TEST_CONFIG.l1RpcUrl);
+    const l2Chain = inferChainFromRpcUrl(TEST_CONFIG.l2RpcUrl);
+    const l1PublicClient = createPublicClient({ chain: l1Chain, transport: http(TEST_CONFIG.l1RpcUrl) });
+    const l2PublicClient = createPublicClient({ chain: l2Chain, transport: http(TEST_CONFIG.l2RpcUrl) });
     
-    const l1Block = await l1Provider.getBlockNumber();
-    const l2Block = await l2Provider.getBlockNumber();
+    const l1Block = await getBlockNumber(l1PublicClient);
+    const l2Block = await getBlockNumber(l2PublicClient);
     
     console.log('\n✅ ALL INTEGRATION TESTS COMPLETE\n');
     console.log('Final State:');

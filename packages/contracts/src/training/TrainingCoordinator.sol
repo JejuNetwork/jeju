@@ -26,8 +26,6 @@ import {MPCKeyRegistry} from "../kms/MPCKeyRegistry.sol";
  * - Native ERC-20 token support for rewards (via TrainingRewards)
  */
 contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
-    // ============ Constants ============
-
     uint16 public constant MAX_CLIENTS = 256;
     uint8 public constant MAX_WITNESSES = 32;
     uint8 public constant NUM_STORED_ROUNDS = 4;
@@ -35,8 +33,6 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
 
     // Quorum ratios (as percentages)
     uint8 public constant WITNESS_QUORUM_PERCENT = 67; // 2/3 quorum
-
-    // ============ State ============
 
     struct EpochState {
         Round[4] rounds;
@@ -107,8 +103,6 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
     /// @notice Fee to create a training run
     uint256 public runCreationFee = 0;
 
-    // ============ Errors ============
-
     error RunAlreadyExists();
     error RunNotFound();
     error InvalidConfig();
@@ -129,8 +123,6 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
     error MPCKeyRequired();
     error InvalidMPCKey();
 
-    // ============ Modifiers ============
-
     modifier runExists(bytes32 runId) {
         if (runs[runId].stateStartTimestamp == 0) revert RunNotFound();
         _;
@@ -149,8 +141,6 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         _;
     }
 
-    // ============ Constructor ============
-
     constructor(
         address _computeRegistry,
         address _mpcKeyRegistry,
@@ -159,8 +149,6 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         computeRegistry = ComputeRegistry(_computeRegistry);
         mpcKeyRegistry = MPCKeyRegistry(_mpcKeyRegistry);
     }
-
-    // ============ Run Management ============
 
     /**
      * @notice Create a new training run
@@ -273,8 +261,6 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
             _tickCooldown(runId, run, currentTime);
         }
     }
-
-    // ============ State Tick Functions ============
 
     function _tickWaitingForMembers(bytes32 runId, Run storage run, uint64 currentTime) internal {
         Client[] storage pending = pendingClients[runId];
@@ -432,8 +418,6 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         }
     }
 
-    // ============ Witness Functions ============
-
     /**
      * @notice Submit a witness for a training round
      * @param runId Run ID
@@ -534,8 +518,6 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         }
     }
 
-    // ============ Health Check Functions ============
-
     /**
      * @notice Submit a health check for unhealthy clients
      * @param runId Run ID
@@ -569,8 +551,6 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         }
     }
 
-    // ============ Checkpoint Functions ============
-
     /**
      * @notice Submit a model checkpoint
      * @param runId Run ID
@@ -593,8 +573,6 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
 
         emit CheckpointSubmitted(runId, modelHash, hfRepo, msg.sender);
     }
-
-    // ============ Run Control Functions ============
 
     /**
      * @notice Withdraw from a training run
@@ -650,8 +628,6 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         _changeState(runId, run, RunState.WaitingForMembers, uint64(block.timestamp));
         emit RunResumed(runId, msg.sender);
     }
-
-    // ============ View Functions ============
 
     function getRunState(bytes32 runId) external view returns (RunState) {
         return runs[runId].state;
@@ -720,8 +696,6 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
             run.privacyMode
         );
     }
-
-    // ============ Internal Helper Functions ============
 
     function _validateConfig(CoordinatorConfig calldata config) internal pure returns (bool) {
         return config.maxRoundTrainTime > 0 &&
@@ -924,8 +898,6 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         activeRunIds.pop();
         delete activeRunIndex[runId];
     }
-
-    // ============ Admin Functions ============
 
     function setComputeRegistry(address _computeRegistry) external onlyOwner {
         computeRegistry = ComputeRegistry(_computeRegistry);

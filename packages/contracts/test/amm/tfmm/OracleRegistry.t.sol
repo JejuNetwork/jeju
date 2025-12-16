@@ -79,6 +79,7 @@ contract OracleRegistryTest is Test {
     
     address public owner = address(1);
     address public governance = address(2);
+    address public twapOracle = address(3);
     address public weth = address(0x1111);
     address public wbtc = address(0x2222);
     
@@ -86,7 +87,7 @@ contract OracleRegistryTest is Test {
         pyth = new MockPyth();
         
         vm.prank(owner);
-        registry = new OracleRegistry(address(pyth), governance);
+        registry = new OracleRegistry(address(pyth), twapOracle, governance);
         
         // Deploy mock Chainlink feeds
         ethFeed = new MockChainlinkFeed(3000_00000000, 8); // $3000 with 8 decimals

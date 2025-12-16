@@ -36,6 +36,8 @@ import { cleanCommand } from './commands/clean';
 import { cleanupCommand } from './commands/cleanup';
 import { serviceCommand } from './commands/service';
 import { publishCommand } from './commands/publish';
+import { infraCommand } from './commands/infra';
+import { tokenCommand } from './commands/token';
 
 const cli = getCliBranding();
 const networkName = getNetworkName();
@@ -95,6 +97,8 @@ program.addCommand(cleanCommand);
 program.addCommand(cleanupCommand);
 program.addCommand(serviceCommand);
 program.addCommand(publishCommand);
+program.addCommand(infraCommand);
+program.addCommand(tokenCommand);
 
 // Default: show help
 program.action(() => {
@@ -138,7 +142,19 @@ program.action(() => {
   console.log('  ' + chalk.cyan(`${cliName} service bridge`) + '      Forced inclusion monitor');
   console.log('  ' + chalk.cyan(`${cliName} service dispute`) + '     Fraud proof challenger');
   console.log('  ' + chalk.cyan(`${cliName} service sequencer`) + '   Consensus coordinator');
+  console.log('  ' + chalk.cyan(`${cliName} service zkbridge`) + '    ZK bridge orchestrator');
   console.log('  ' + chalk.cyan(`${cliName} service list`) + '        List running services\n');
+  
+  console.log(chalk.bold('Tokens:\n'));
+  console.log('  ' + chalk.cyan(`${cliName} token deploy:jeju`) + '    Deploy JEJU token');
+  console.log('  ' + chalk.cyan(`${cliName} token bridge`) + '         Cross-chain bridging');
+  console.log('  ' + chalk.cyan(`${cliName} token status <token>`) + ' Check deployment status\n');
+  
+  console.log(chalk.bold('Infrastructure:\n'));
+  console.log('  ' + chalk.cyan(`${cliName} infra validate`) + '       Validate configurations');
+  console.log('  ' + chalk.cyan(`${cliName} infra terraform`) + '      Terraform operations');
+  console.log('  ' + chalk.cyan(`${cliName} infra helmfile`) + '       Kubernetes deployments');
+  console.log('  ' + chalk.cyan(`${cliName} infra deploy-full`) + '    Full deployment pipeline\n');
   
   console.log(chalk.bold('Federation:\n'));
   console.log('  ' + chalk.cyan(`${cliName} fork`) + '             Fork your own network');
