@@ -382,7 +382,7 @@ export VITE_JEJU_RPC_URL=https://rpc.testnet.jeju.network
 export VITE_JEJU_GATEWAY_URL=https://compute.testnet.jeju.network
 
 # Deploy testnet
-bun run scripts/setup-testnet.ts
+bun run packages/cli/src/index.ts deploy testnet
 ```
 
 ### Production (Base Mainnet)

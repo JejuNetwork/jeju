@@ -6,7 +6,7 @@
  */
 
 import { describe, test, expect } from 'bun:test';
-import { ethers } from 'ethers';
+import { parseAbi, encodeFunctionData, decodeFunctionData, parseEther, zeroAddress } from 'viem';
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
 
@@ -26,28 +26,39 @@ const SOLVER_REGISTRY_ABI = [
 
 describe('OutputSettler ABI Encoding', () => {
   test('should encode fillDirect() call correctly', () => {
-    const iface = new ethers.Interface(OUTPUT_SETTLER_ABI);
-    const orderId = '0x' + '1'.repeat(64);
-    const token = ethers.ZeroAddress;
-    const amount = ethers.parseEther('1.0');
-    const recipient = '0x' + '2'.repeat(40);
+    const abi = parseAbi(OUTPUT_SETTLER_ABI);
+    const orderId = '0x' + '1'.repeat(64) as `0x${string}`;
+    const token = zeroAddress;
+    const amount = parseEther('1.0');
+    const recipient = '0x' + '2'.repeat(40) as `0x${string}`;
 
     // Note: fillDirect signature is (orderId, token, amount, recipient)
-    const data = iface.encodeFunctionData('fillDirect', [orderId, token, amount, recipient]);
+    const data = encodeFunctionData({
+      abi,
+      functionName: 'fillDirect',
+      args: [orderId, token, amount, recipient],
+    });
 
     expect(data).toMatch(/^0x/);
     expect(data.length).toBeGreaterThan(10);
   });
 
   test('should decode fillDirect() args correctly', () => {
-    const iface = new ethers.Interface(OUTPUT_SETTLER_ABI);
-    const orderId = '0x' + 'ab'.repeat(32);
-    const token = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'; // USDC
+    const abi = parseAbi(OUTPUT_SETTLER_ABI);
+    const orderId = '0x' + 'ab'.repeat(32) as `0x${string}`;
+    const token = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' as `0x${string}`; // USDC
     const amount = 1000000n; // 1 USDC
-    const recipient = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+    const recipient = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as `0x${string}`;
 
-    const data = iface.encodeFunctionData('fillDirect', [orderId, token, amount, recipient]);
-    const decoded = iface.decodeFunctionData('fillDirect', data);
+    const data = encodeFunctionData({
+      abi,
+      functionName: 'fillDirect',
+      args: [orderId, token, amount, recipient],
+    });
+    const decoded = decodeFunctionData({
+      abi,
+      data,
+    });
 
     expect(decoded[0]).toBe(orderId);
     expect(decoded[1].toLowerCase()).toBe(token.toLowerCase());

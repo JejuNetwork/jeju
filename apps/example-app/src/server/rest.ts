@@ -4,7 +4,7 @@
 
 import { Hono } from 'hono';
 import type { Address } from 'viem';
-import { verifyMessage } from 'ethers';
+import { recoverMessageAddress, hashMessage } from 'viem';
 import { getTodoService } from '../services/todo';
 import type { CreateTodoInput, UpdateTodoInput, Todo } from '../types';
 
@@ -43,7 +43,11 @@ export function createRESTRoutes(): Hono<AuthContext> {
     const message = `jeju-dapp:${timestamp}`;
     let recoveredAddress: string;
     try {
-      recoveredAddress = verifyMessage(message, signature);
+      const messageHash = hashMessage({ message });
+      recoveredAddress = await recoverMessageAddress({
+        hash: messageHash,
+        signature: signature as `0x${string}`,
+      });
     } catch {
       return c.json({ error: 'Invalid signature format' }, 401);
     }

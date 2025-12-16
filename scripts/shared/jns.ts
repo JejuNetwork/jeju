@@ -1,4 +1,4 @@
-import { createPublicClient, http, type PublicClient, type Address, type Chain, keccak256, toUtf8Bytes, namehash as viemNamehash, zeroAddress, zeroHash, parseAbi } from 'viem';
+import { createPublicClient, http, type PublicClient, type Address, type Chain, keccak256, stringToBytes, namehash as viemNamehash, zeroAddress, zeroHash, parseAbi } from 'viem';
 import { readContract } from 'viem/actions';
 
 export interface JNSConfig {
@@ -67,7 +67,7 @@ export function computeNamehash(name: string): `0x${string}` {
 }
 
 export function computeLabelhash(label: string): `0x${string}` {
-  return keccak256(toUtf8Bytes(label));
+  return keccak256(stringToBytes(label));
 }
 export function validateName(name: string): { valid: boolean; error?: string } {
   if (name.length < 3) {

@@ -338,7 +338,7 @@ export class SolanaArbStrategy extends EventEmitter {
             : EVM_TOKENS[symbol]?.[chainId] || '',
           symbol,
           decimals: SOLANA_TOKENS[symbol]?.decimals || 18,
-          name: symbol,
+          chainId: solanaToEvm ? SOLANA_CHAIN_ID : chainId,
         };
         
         const opportunity: SolanaArbOpportunity = {

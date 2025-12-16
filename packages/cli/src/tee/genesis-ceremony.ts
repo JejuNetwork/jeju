@@ -16,7 +16,7 @@
 
 import { createHash, randomBytes, createCipheriv, createDecipheriv, scrypt } from 'crypto';
 import { promisify } from 'util';
-import { Wallet } from 'ethers';
+import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 
 const scryptAsync = promisify(scrypt);
 
@@ -144,21 +144,21 @@ export async function runTeeCeremony(
       throw new Error('No key derivation method available');
     }
     
-    // Convert TEE-derived key to Ethereum wallet
-    const wallet = new Wallet('0x' + privateKeyHex);
+    // Convert TEE-derived key to Ethereum account
+    const account = privateKeyToAccount(('0x' + privateKeyHex) as `0x${string}`);
 
     const keyConfig: TeeKeyConfig = {
       name: role.name,
-      address: wallet.address,
-      privateKey: wallet.privateKey,
+      address: account.address,
+      privateKey: account.privateKey,
       role: role.desc,
       derivationPath: keyPath,
     };
 
     keys.push(keyConfig);
-    addresses[role.name.toLowerCase()] = wallet.address;
+    addresses[role.name.toLowerCase()] = account.address;
 
-    console.log(`[TEE] Derived ${role.name}: ${wallet.address}`);
+    console.log(`[TEE] Derived ${role.name}: ${account.address}`);
   }
 
   // Generate attestation quote
@@ -244,17 +244,17 @@ async function runSimulatedCeremony(
   const timestamp = new Date().toISOString();
 
   for (const role of OPERATOR_ROLES) {
-    const wallet = Wallet.createRandom();
+    const account = privateKeyToAccount(generatePrivateKey());
     
     keys.push({
       name: role.name,
-      address: wallet.address,
-      privateKey: wallet.privateKey,
+      address: account.address,
+      privateKey: account.privateKey,
       role: role.desc,
       derivationPath: `${role.path}/${network}`,
     });
     
-    addresses[role.name.toLowerCase()] = wallet.address;
+    addresses[role.name.toLowerCase()] = account.address;
   }
 
   const measurementData = JSON.stringify({ network, timestamp, addresses });

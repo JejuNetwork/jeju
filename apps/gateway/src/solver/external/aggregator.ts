@@ -289,4 +289,3 @@ export class ExternalProtocolAggregator extends EventEmitter {
     }
   }
 }
-

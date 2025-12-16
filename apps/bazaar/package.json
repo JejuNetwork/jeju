@@ -1,7 +1,7 @@
 {
   "name": "bazaar",
   "version": "1.0.0",
-  "description": "Unified DeFi + NFT Marketplace for Jeju - Uniswap V4 Swaps, Liquidity, and NFT Trading",
+  "description": "Unified DeFi + NFT Marketplace - Uniswap V4 Swaps, Liquidity, and NFT Trading",
   "private": true,
   "scripts": {
     "dev": "next dev -p 4006",

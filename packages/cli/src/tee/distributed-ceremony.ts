@@ -16,7 +16,7 @@
  */
 
 import { createHash, randomBytes } from 'crypto';
-import { keccak256, toUtf8Bytes } from 'ethers';
+import { keccak256, stringToBytes } from 'viem';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -561,7 +561,7 @@ function generateThresholdProof(shares: KeyShare[], threshold: number): string {
 function deriveAddressFromPublicKey(publicKey: string): string {
   // In production: proper secp256k1 -> Ethereum address derivation
   // Simulated: hash-based derivation
-  const addressHash = keccak256(toUtf8Bytes(publicKey));
+  const addressHash = keccak256(stringToBytes(publicKey));
   return '0x' + addressHash.slice(-40);
 }
 

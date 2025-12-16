@@ -50,6 +50,7 @@ export {
 // =============================================================================
 
 export {
+	// Router
 	createRouter,
 	CrossChainRouter,
 	type RouterConfig,
@@ -61,6 +62,19 @@ export {
 	BridgeMechanism,
 	SUPPORTED_CHAINS,
 	ASTER_CONTRACTS,
+	// CCIP
+	createCCIPAdapter,
+	CCIPAdapter,
+	type CCIPTransferRequest,
+	type CCIPTransferResult,
+	CCIP_CHAIN_SELECTORS,
+	CCIP_ROUTERS,
+	// Arbitrage
+	createArbitrageDetector,
+	ArbitrageDetector,
+	type ArbOpportunity,
+	type ArbRoute,
+	type PriceQuote,
 } from "./router/index.js";
 
 // =============================================================================

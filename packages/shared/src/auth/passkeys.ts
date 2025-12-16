@@ -6,7 +6,7 @@
  * or security keys (YubiKey, etc).
  */
 
-import { keccak256, toBytes, toHex, type Hex, type Address } from 'viem';
+import { keccak256, toBytes, toHex, type Address } from 'viem';
 import type { PasskeyCredential } from './types';
 
 export interface PasskeyConfig {
@@ -73,7 +73,7 @@ export function createRegistrationOptions(params: {
   const challenge = params.challenge || generateChallenge();
 
   return {
-    challenge,
+    challenge: challenge.buffer as ArrayBuffer,
     rp: {
       name: params.config.rpName,
       id: params.config.rpId,
@@ -97,7 +97,7 @@ export function createRegistrationOptions(params: {
     },
     excludeCredentials: params.excludeCredentials?.map(c => ({
       type: 'public-key' as const,
-      id: base64UrlToBuffer(c.id),
+      id: base64UrlToBuffer(c.id).buffer as ArrayBuffer,
       transports: c.transports,
     })),
   };
@@ -167,13 +167,13 @@ export function createAuthenticationOptions(params: {
   const challenge = params.challenge || generateChallenge();
 
   return {
-    challenge,
+    challenge: challenge.buffer as ArrayBuffer,
     rpId: params.config.rpId,
     timeout: params.config.timeout || 60000,
     userVerification: params.config.userVerification || 'preferred',
     allowCredentials: params.allowCredentials?.map(c => ({
       type: 'public-key' as const,
-      id: base64UrlToBuffer(c.id),
+      id: base64UrlToBuffer(c.id).buffer as ArrayBuffer,
       transports: c.transports,
     })),
   };
@@ -222,12 +222,13 @@ export function deriveAddressFromPasskey(publicKey: Uint8Array): Address {
   // For P-256 keys, the public key is in uncompressed form (65 bytes: 0x04 + x + y)
   // We take the last 20 bytes of keccak256(x || y)
   if (publicKey.length === 65 && publicKey[0] === 0x04) {
-    const hash = keccak256(toBytes(publicKey.slice(1)));
+    const keyBytes = publicKey.slice(1);
+    const hash = keccak256(toHex(keyBytes));
     return `0x${hash.slice(-40)}` as Address;
   }
   
   // For other formats, hash the entire key
-  const hash = keccak256(toBytes(publicKey));
+  const hash = keccak256(toHex(publicKey));
   return `0x${hash.slice(-40)}` as Address;
 }
 

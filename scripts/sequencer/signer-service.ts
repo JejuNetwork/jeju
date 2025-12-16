@@ -133,10 +133,16 @@ class ThresholdSignerService {
       if (err) return c.json(this.errorResponse(body.requestId, err, 400).json, 400);
       this.processedRequests.add(body.requestId);
 
-      const signature = await this.wallet.signTypedData(body.domain, body.types, body.message);
+      const signature = await signTypedData({
+        account: this.account,
+        domain: body.domain,
+        types: body.types,
+        primaryType: Object.keys(body.types)[0],
+        message: body.message,
+      });
       this.stats.signaturesIssued++;
       console.log(`[Signer] Signed typed ${body.requestId.slice(0, 8)}...`);
-      return c.json<SignResponse>({ requestId: body.requestId, signature, signer: this.wallet.address });
+      return c.json<SignResponse>({ requestId: body.requestId, signature, signer: this.account.address });
     });
   }
 

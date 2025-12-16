@@ -14,7 +14,10 @@ export function createOAuth3Router(): Hono {
 
   // Health check
   app.get('/health', async (c) => {
-    const response = await fetch(`${OAUTH3_AGENT_URL}/health`).catch(() => null);
+    const response = await fetch(`${OAUTH3_AGENT_URL}/health`).catch((err: Error) => {
+      console.warn(`[OAuth3] Health check failed: ${err.message}`);
+      return null;
+    });
     if (!response?.ok) {
       return c.json({ status: 'unhealthy', agent: OAUTH3_AGENT_URL }, 503);
     }

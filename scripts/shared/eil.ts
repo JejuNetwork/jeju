@@ -2,7 +2,7 @@
  * EIL (Ethereum Interop Layer) SDK - cross-chain transfers via XLP liquidity providers.
  */
 
-import { createPublicClient, createWalletClient, http, type PublicClient, type WalletClient, type Address, keccak256 as viemKeccak256, toUtf8Bytes, parseEther, formatEther, zeroAddress, encodePacked, type Chain, type TransactionReceipt } from 'viem';
+import { createPublicClient, createWalletClient, http, type PublicClient, type WalletClient, type Address, keccak256 as viemKeccak256, stringToBytes, parseEther, formatEther, zeroAddress, encodePacked, type Chain, type TransactionReceipt } from 'viem';
 import { type PrivateKeyAccount } from 'viem/accounts';
 import { readContract, waitForTransactionReceipt, watchEvent, getBalance } from 'viem/actions';
 import { parseAbi } from 'viem';
@@ -12,7 +12,7 @@ import { inferChainFromRpcUrl } from './chain-utils';
 // Use viem keccak256 that works with buffers
 const keccak256 = (data: Buffer | Uint8Array | string): Buffer => {
   const bytes = typeof data === 'string' 
-    ? toUtf8Bytes(data) 
+    ? stringToBytes(data) 
     : data;
   const hash = viemKeccak256(bytes);
   return Buffer.from(hash.slice(2), 'hex');
@@ -184,13 +184,11 @@ export class EILClient {
 
     const receipt = await waitForTransactionReceipt(this.l2Client, { hash });
     
-    // Parse VoucherRequested event
+    // Parse VoucherRequested event - keccak256 local function handles string encoding
+    const eventSignature = keccak256('VoucherRequested(bytes32,address,address,uint256,uint256,address,uint256,uint256)');
+    const eventSignatureHex = `0x${eventSignature.toString('hex')}`;
     const event = receipt.logs.find((log) => {
-      try {
-        return log.topics[0] === keccak256(toUtf8Bytes('VoucherRequested(bytes32,address,address,uint256,uint256,address,uint256,uint256)'));
-      } catch {
-        return false;
-      }
+      return log.topics[0] === eventSignatureHex;
     });
 
     if (!event || !event.topics[1]) {

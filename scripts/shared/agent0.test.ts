@@ -270,15 +270,12 @@ describe('Agent0 Manifest Loading - Real Apps', () => {
     expect(manifest.agent?.a2aEndpoint).toContain('/a2a');
   });
   
-  // Note: apps/ipfs was removed from the project
-  
-  test('should load compute manifest with agent config', () => {
-    const manifest = loadAppManifest(resolve(appsDir, 'compute'));
+  test('should load dws manifest with agent config', () => {
+    const manifest = loadAppManifest(resolve(appsDir, 'dws'));
     
-    expect(manifest.name).toBe('compute');
+    expect(manifest.name).toBe('dws');
     expect(manifest.agent?.enabled).toBe(true);
     expect(manifest.agent?.tags).toContain('jeju-app');
-    expect(manifest.agent?.tags).toContain('compute');
   });
   
   test('should load monitoring manifest with agent config', () => {

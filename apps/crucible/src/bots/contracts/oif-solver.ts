@@ -93,13 +93,13 @@ export enum IntentStatus {
 
 export interface OIFSolverConfig {
   name: string;
-  chainConfigs: Record<ChainId, {
+  chainConfigs: Partial<Record<ChainId, {
     rpcUrl: string;
     inputSettlerAddress: Address;
     outputSettlerAddress: Address;
     solverRegistryAddress: Address;
     oracleAddress?: Address;
-  }>;
+  }>>;
   privateKey: string;
   minProfitBps: number;
   maxSlippageBps: number;

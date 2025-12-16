@@ -248,13 +248,15 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
         } else {
             // SLOW PATH: Collect payment and credit overpayment
             if (token == ETH_ADDRESS) {
-                // ETH was already sent in UserOp - just transfer to revenue
+                // ETH was already sent in UserOp - transfer actual cost to revenue
                 (bool success,) = revenueWallet.call{value: actualTotalCost}("");
                 require(success, "ETH transfer failed");
 
-                // Note: Overpayment refunds would be handled here
-                // Currently, overpayments are kept as donations to the protocol
-                // Future enhancement: implement refund mechanism via CreditManager
+                // Credit any ETH overpayment to user's CreditManager balance
+                if (overpayment > actualTotalCost) {
+                    uint256 creditAmount = overpayment - actualTotalCost;
+                    creditManager.addCredit{value: creditAmount}(user, ETH_ADDRESS, creditAmount);
+                }
             } else {
                 // Collect tokens using SafeERC20 to handle non-standard tokens
                 IERC20(token).safeTransferFrom(user, revenueWallet, actualTotalCost);

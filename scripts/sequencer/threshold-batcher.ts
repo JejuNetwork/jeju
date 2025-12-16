@@ -22,15 +22,18 @@
  */
 
 import { Hono } from 'hono';
-import { ethers } from 'ethers';
+import { createPublicClient, createWalletClient, http, keccak256, stringToBytes, encodeAbiParameters, concat, getBalance, readContract, writeContract, waitForTransactionReceipt, getChainId, type Address, type PublicClient, type WalletClient } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { parseAbi } from 'viem';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { inferChainFromRpcUrl } from '../shared/chain-utils';
 
 const ROOT = join(import.meta.dir, '../..');
 const DEPLOYMENTS_DIR = join(ROOT, 'packages/contracts/deployments');
 
 // Contract ABI
-const THRESHOLD_BATCH_SUBMITTER_ABI = [
+const THRESHOLD_BATCH_SUBMITTER_ABI = parseAbi([
   'function submitBatch(bytes batchData, bytes[] signatures, address[] signers) external',
   'function nonce() external view returns (uint256)',
   'function threshold() external view returns (uint256)',
@@ -38,7 +41,7 @@ const THRESHOLD_BATCH_SUBMITTER_ABI = [
   'function DOMAIN_SEPARATOR() external view returns (bytes32)',
   'function BATCH_TYPEHASH() external view returns (bytes32)',
   'event BatchSubmitted(bytes32 indexed batchHash, uint256 indexed nonce, address[] signers)',
-];
+]);
 
 interface SignerConfig {
   url: string;
@@ -62,14 +65,14 @@ interface SignResponse {
 
 class ThresholdBatcherProxy {
   private app: Hono;
-  private provider: ethers.JsonRpcProvider;
-  private coordinatorWallet: ethers.Wallet;
-  private contract: ethers.Contract;
+  private publicClient: PublicClient;
+  private walletClient: WalletClient;
+  private contractAddress: Address;
   private signers: SignerConfig[];
   private threshold: number;
   private pendingBatches = new Map<string, BatchRequest>();
   private chainId: bigint = 0n;
-  private domainSeparator: string = '';
+  private domainSeparator: `0x${string}` = '0x' as `0x${string}`;
 
   constructor(
     rpcUrl: string,
@@ -78,9 +81,11 @@ class ThresholdBatcherProxy {
     signers: SignerConfig[],
     threshold: number
   ) {
-    this.provider = new ethers.JsonRpcProvider(rpcUrl);
-    this.coordinatorWallet = new ethers.Wallet(coordinatorKey, this.provider);
-    this.contract = new ethers.Contract(contractAddress, THRESHOLD_BATCH_SUBMITTER_ABI, this.coordinatorWallet);
+    const chain = inferChainFromRpcUrl(rpcUrl);
+    const account = privateKeyToAccount(coordinatorKey as `0x${string}`);
+    this.publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
+    this.walletClient = createWalletClient({ chain, transport: http(rpcUrl), account });
+    this.contractAddress = contractAddress as Address;
     this.signers = signers;
     this.threshold = threshold;
     this.app = new Hono();
@@ -88,20 +93,28 @@ class ThresholdBatcherProxy {
   }
 
   async initialize(): Promise<void> {
-    this.chainId = (await this.provider.getNetwork()).chainId;
-    this.domainSeparator = await this.contract.DOMAIN_SEPARATOR();
+    this.chainId = BigInt(await getChainId(this.publicClient));
+    this.domainSeparator = await readContract(this.publicClient, {
+      address: this.contractAddress,
+      abi: THRESHOLD_BATCH_SUBMITTER_ABI,
+      functionName: 'DOMAIN_SEPARATOR',
+    }) as `0x${string}`;
     
     // Verify threshold matches contract
-    const contractThreshold = await this.contract.threshold();
+    const contractThreshold = await readContract(this.publicClient, {
+      address: this.contractAddress,
+      abi: THRESHOLD_BATCH_SUBMITTER_ABI,
+      functionName: 'threshold',
+    });
     if (Number(contractThreshold) > this.threshold) {
       console.warn(`Warning: Contract threshold (${contractThreshold}) > configured threshold (${this.threshold})`);
     }
     
     console.log(`[ThresholdBatcher] Initialized`);
     console.log(`  Chain ID: ${this.chainId}`);
-    console.log(`  Contract: ${await this.contract.getAddress()}`);
+    console.log(`  Contract: ${this.contractAddress}`);
     console.log(`  Threshold: ${this.threshold}/${this.signers.length}`);
-    console.log(`  Coordinator: ${this.coordinatorWallet.address}`);
+    console.log(`  Coordinator: ${this.walletClient.account.address}`);
   }
 
   private setupRoutes(): void {
@@ -150,11 +163,15 @@ class ThresholdBatcherProxy {
 
     // Get status
     this.app.get('/status', async (c) => {
-      const nonce = await this.contract.nonce();
-      const balance = await this.provider.getBalance(this.coordinatorWallet.address);
+      const nonce = await readContract(this.publicClient, {
+        address: this.contractAddress,
+        abi: THRESHOLD_BATCH_SUBMITTER_ABI,
+        functionName: 'nonce',
+      });
+      const balance = await getBalance(this.publicClient, { address: this.walletClient.account.address });
       return c.json({
         nonce: Number(nonce),
-        coordinatorBalance: ethers.formatEther(balance),
+        coordinatorBalance: (Number(balance) / 1e18).toFixed(6),
         pendingBatches: this.pendingBatches.size,
         threshold: this.threshold,
         signers: this.signers.length,
@@ -163,7 +180,7 @@ class ThresholdBatcherProxy {
   }
 
   async submitBatch(batchData: string): Promise<{ success: boolean; txHash?: string; error?: string }> {
-    const batchHash = ethers.keccak256(batchData);
+    const batchHash = keccak256(batchData as `0x${string}`);
     const batchId = `${batchHash.slice(0, 10)}_${Date.now()}`;
     
     console.log(`\n[ThresholdBatcher] New batch: ${batchId}`);
@@ -181,7 +198,11 @@ class ThresholdBatcherProxy {
     this.pendingBatches.set(batchId, batch);
 
     // Get current nonce
-    const nonce = await this.contract.nonce();
+    const nonce = await readContract(this.publicClient, {
+      address: this.contractAddress,
+      abi: THRESHOLD_BATCH_SUBMITTER_ABI,
+      functionName: 'nonce',
+    });
     
     // Create the digest for signing (EIP-712)
     const digest = this.computeBatchDigest(batchHash, nonce);
@@ -259,20 +280,25 @@ class ThresholdBatcherProxy {
     console.log(`  Submitting to contract...`);
     
     try {
-      const signers = validSignatures.slice(0, this.threshold).map(s => s.signer);
-      const signatures = validSignatures.slice(0, this.threshold).map(s => s.signature);
+      const signers = validSignatures.slice(0, this.threshold).map(s => s.signer as Address);
+      const signatures = validSignatures.slice(0, this.threshold).map(s => s.signature as `0x${string}`);
 
-      const tx = await this.contract.submitBatch(batchData, signatures, signers);
-      console.log(`  TX: ${tx.hash}`);
+      const hash = await this.walletClient.writeContract({
+        address: this.contractAddress,
+        abi: THRESHOLD_BATCH_SUBMITTER_ABI,
+        functionName: 'submitBatch',
+        args: [batchData as `0x${string}`, signatures, signers],
+      });
+      console.log(`  TX: ${hash}`);
       
-      const receipt = await tx.wait();
-      console.log(`  ✅ Confirmed in block ${receipt?.blockNumber}`);
+      const receipt = await waitForTransactionReceipt(this.publicClient, { hash });
+      console.log(`  ✅ Confirmed in block ${receipt.blockNumber}`);
       
       this.pendingBatches.delete(batchId);
       
       return {
         success: true,
-        txHash: tx.hash,
+        txHash: hash,
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -285,22 +311,22 @@ class ThresholdBatcherProxy {
     }
   }
 
-  private computeBatchDigest(batchHash: string, nonce: bigint): string {
+  private computeBatchDigest(batchHash: `0x${string}`, nonce: bigint): `0x${string}` {
     // EIP-712 typed data hash
-    const BATCH_TYPEHASH = ethers.keccak256(
-      ethers.toUtf8Bytes('BatchSubmission(bytes32 batchHash,uint256 nonce,uint256 chainId)')
+    const BATCH_TYPEHASH = keccak256(
+      stringToBytes('BatchSubmission(bytes32 batchHash,uint256 nonce,uint256 chainId)')
     );
 
-    const structHash = ethers.keccak256(
-      ethers.AbiCoder.defaultAbiCoder().encode(
-        ['bytes32', 'bytes32', 'uint256', 'uint256'],
+    const structHash = keccak256(
+      encodeAbiParameters(
+        [{ type: 'bytes32' }, { type: 'bytes32' }, { type: 'uint256' }, { type: 'uint256' }],
         [BATCH_TYPEHASH, batchHash, nonce, this.chainId]
       )
     );
 
-    return ethers.keccak256(
-      ethers.concat([
-        ethers.toUtf8Bytes('\x19\x01'),
+    return keccak256(
+      concat([
+        stringToBytes('\x19\x01'),
         this.domainSeparator,
         structHash,
       ])

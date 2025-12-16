@@ -46,17 +46,83 @@ export function createComputeRouter(): Hono {
   );
 
   app.post('/chat/completions', async (c) => {
-    const { model, messages } = await c.req.json<InferenceRequest>();
-    const content = messages[messages.length - 1]?.content ?? '';
+    const inferenceUrl = process.env.INFERENCE_API_URL;
+    const body = await c.req.json<InferenceRequest>();
+    
+    // If no inference backend, return mock response for dev/testing
+    if (!inferenceUrl) {
+      return c.json({
+        id: `chatcmpl-${Date.now()}`,
+        object: 'chat.completion',
+        created: Math.floor(Date.now() / 1000),
+        model: body.model ?? 'dws-mock',
+        choices: [{
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: 'This is a mock response from DWS compute. Set INFERENCE_API_URL to connect to a real model.',
+          },
+          finish_reason: 'stop',
+        }],
+        usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
+      });
+    }
 
-    return c.json({
-      id: crypto.randomUUID(),
-      object: 'chat.completion',
-      created: Math.floor(Date.now() / 1000),
-      model,
-      choices: [{ index: 0, message: { role: 'assistant', content: `Response to: ${content}` }, finish_reason: 'stop' }],
-      usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
+    // Proxy to actual inference backend
+    const response = await fetch(`${inferenceUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(process.env.INFERENCE_API_KEY ? { 'Authorization': `Bearer ${process.env.INFERENCE_API_KEY}` } : {}),
+      },
+      body: JSON.stringify(body),
     });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return c.json({ error: `Inference backend error: ${errorText}` }, response.status);
+    }
+
+    const result = await response.json();
+    return c.json(result);
+  });
+
+  app.post('/embeddings', async (c) => {
+    const inferenceUrl = process.env.INFERENCE_API_URL;
+    const body = await c.req.json<{ input: string | string[]; model?: string }>();
+    
+    // If no inference backend, return mock embeddings for dev/testing
+    if (!inferenceUrl) {
+      const inputs = Array.isArray(body.input) ? body.input : [body.input];
+      return c.json({
+        object: 'list',
+        data: inputs.map((_, i) => ({
+          object: 'embedding',
+          index: i,
+          embedding: Array.from({ length: 1536 }, () => Math.random() * 2 - 1),
+        })),
+        model: body.model ?? 'text-embedding-mock',
+        usage: { prompt_tokens: 10, total_tokens: 10 },
+      });
+    }
+
+    // Proxy to actual embeddings backend
+    const response = await fetch(`${inferenceUrl}/v1/embeddings`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(process.env.INFERENCE_API_KEY ? { 'Authorization': `Bearer ${process.env.INFERENCE_API_KEY}` } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return c.json({ error: `Embeddings backend error: ${errorText}` }, response.status);
+    }
+
+    const result = await response.json();
+    return c.json(result);
   });
 
   app.post('/jobs', async (c) => {

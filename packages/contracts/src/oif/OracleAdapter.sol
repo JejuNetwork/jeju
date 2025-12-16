@@ -67,6 +67,9 @@ abstract contract OracleAdapter is IOracle, Ownable {
     /// @notice Attestation timestamps: orderId => timestamp
     mapping(bytes32 => uint256) public attestedAt;
 
+    /// @notice Attestation block numbers: orderId => block number
+    mapping(bytes32 => uint256) public attestedAtBlock;
+
     /// @notice Authorized attesters
     mapping(address => bool) public authorizedAttesters;
 
@@ -118,8 +121,15 @@ abstract contract OracleAdapter is IOracle, Ownable {
         attestations[orderId] = true;
         proofs[orderId] = proof;
         attestedAt[orderId] = block.timestamp;
+        attestedAtBlock[orderId] = block.number;
 
         emit AttestationSubmitted(orderId, msg.sender, block.timestamp);
+    }
+
+    /// @inheritdoc IOracle
+    function getAttestationBlock(bytes32 orderId) external view override returns (uint256) {
+        if (!attestations[orderId]) revert NotAttested();
+        return attestedAtBlock[orderId];
     }
 
     /// @notice Verify the attestation proof

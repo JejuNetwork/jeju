@@ -55,8 +55,8 @@ export interface UniswapXOrder {
   orderStatus: 'open' | 'filled' | 'expired' | 'cancelled';
 }
 
-// UniswapX execute function (reserved for batch fills)
-const _EXECUTE_ABI = [{
+// UniswapX execute function
+const EXECUTE_ABI = [{
   type: 'function',
   name: 'execute',
   inputs: [
@@ -97,8 +97,8 @@ const _EXECUTE_ABI = [{
   stateMutability: 'nonpayable',
 }] as const;
 
-// Fill callback interface (reserved for advanced fills)
-const _FILL_CALLBACK_ABI = [{
+// Fill callback interface
+const FILL_CALLBACK_ABI = [{
   type: 'function',
   name: 'reactorCallback',
   inputs: [
@@ -135,8 +135,8 @@ const _FILL_CALLBACK_ABI = [{
 }] as const;
 
 // Reserve ABIs for future batch/callback implementations
-void _EXECUTE_ABI;
-void _FILL_CALLBACK_ABI;
+void EXECUTE_ABI;
+void FILL_CALLBACK_ABI;
 
 export class UniswapXAdapter extends EventEmitter {
   private clients: Map<number, { public: PublicClient; wallet?: WalletClient }>;
@@ -145,15 +145,17 @@ export class UniswapXAdapter extends EventEmitter {
   private running = false;
   private processedOrders = new Set<string>();
   private pendingOrders = new Map<string, UniswapXOrder>();
+  private isTestnet: boolean;
 
   constructor(
     clients: Map<number, { public: PublicClient; wallet?: WalletClient }>,
     supportedChains: number[],
-    _isTestnet = false
+    isTestnet = false
   ) {
     super();
     this.clients = clients;
     this.supportedChains = supportedChains;
+    this.isTestnet = isTestnet;
   }
 
   /**
@@ -417,4 +419,3 @@ export class UniswapXAdapter extends EventEmitter {
     return { profitable: true, expectedProfitBps: profitBps };
   }
 }
-

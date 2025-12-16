@@ -13,7 +13,9 @@ import prompts from 'prompts';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, statSync, cpSync } from 'fs';
 import { join, relative } from 'path';
 import chalk from 'chalk';
+import { execa } from 'execa';
 import { logger } from '../lib/logger';
+import { findMonorepoRoot } from '../lib/system';
 
 interface InitConfig {
   name: string;
@@ -29,8 +31,32 @@ interface InitConfig {
 
 const TEMPLATE_PATH = join(import.meta.dir, '../../../../apps/example-app');
 
+// Vendor manifest subcommand
+const vendorSubcommand = new Command('vendor')
+  .description('Create vendor app manifest')
+  .argument('<app-name>', 'Vendor app name')
+  .action(async (appName) => {
+    await createVendorManifest(appName);
+  });
+
+async function createVendorManifest(appName: string) {
+  const rootDir = findMonorepoRoot();
+  const scriptPath = join(rootDir, 'scripts/vendor/create-vendor-manifest.ts');
+  
+  if (!existsSync(scriptPath)) {
+    logger.error('Vendor manifest script not found');
+    return;
+  }
+
+  await execa('bun', ['run', scriptPath, appName], {
+    cwd: rootDir,
+    stdio: 'inherit',
+  });
+}
+
 export const initCommand = new Command('init')
   .description('Create a new decentralized app from template')
+  .addCommand(vendorSubcommand)
   .argument('[name]', 'App name (e.g., my-app)')
   .option('-d, --dir <directory>', 'Output directory')
   .option('-y, --yes', 'Skip prompts and use defaults')
@@ -41,6 +67,7 @@ Examples:
   ${chalk.cyan('jeju init my-app -d ./projects')}  Create in specific directory
   ${chalk.cyan('jeju init -y')}                    Quick create with defaults
   ${chalk.cyan('jeju init --no-x402')}             Create without x402 payments
+  ${chalk.cyan('jeju init vendor my-app')}          Create vendor app manifest
 `)
   .action(async (nameArg: string | undefined, options: { dir?: string; yes?: boolean; x402?: boolean }) => {
     logger.header('CREATE NEW DAPP');

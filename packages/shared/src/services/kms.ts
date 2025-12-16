@@ -68,8 +68,11 @@ class KMSServiceImpl implements KMSServiceClient {
   }
 
   async verify(message: string, signature: string, expectedAddress: Address): Promise<boolean> {
-    const { verifyMessage } = await import('ethers');
-    const recovered = verifyMessage(message, signature);
+    const { recoverAddress, hashMessage } = await import('viem');
+    const recovered = recoverAddress({
+      hash: hashMessage({ raw: message as `0x${string}` }),
+      signature: signature as `0x${string}`,
+    });
     return recovered.toLowerCase() === expectedAddress.toLowerCase();
   }
 

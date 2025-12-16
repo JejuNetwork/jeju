@@ -122,4 +122,5 @@ docs/
 !.jeju/.gitkeepgetgrass/
 grass/
 .fork/google-cloud-sdk/
-./test-ledger
+test-ledger/
+circuits/

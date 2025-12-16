@@ -16,7 +16,8 @@ import prompts from 'prompts';
 import { mkdirSync, writeFileSync, existsSync, readFileSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { randomBytes, createHash } from 'crypto';
-import { Wallet, keccak256, toUtf8Bytes } from 'ethers';
+import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
+import { keccak256, stringToBytes } from 'viem';
 import { logger } from '../lib/logger';
 import {
   getDevKeys,
@@ -492,7 +493,7 @@ async function runDistributedCeremony(options: DistributedCeremonyOptions) {
     const addresses = Object.fromEntries(
       Object.entries(result.publicKeys).map(([role, pubkey]) => {
         // Derive address from public key
-        const addressHash = keccak256(toUtf8Bytes(pubkey));
+        const addressHash = keccak256(stringToBytes(pubkey));
         return [role, '0x' + addressHash.slice(-40)];
       })
     );
@@ -1000,14 +1001,14 @@ async function importKeys(): Promise<Record<string, KeyConfig> | null> {
     }
 
     if (inputType === 'generate') {
-      const wallet = Wallet.createRandom();
+      const account = privateKeyToAccount(generatePrivateKey());
       keys[role.name] = {
         name: role.name.charAt(0).toUpperCase() + role.name.slice(1),
-        address: wallet.address,
-        privateKey: wallet.privateKey,
+        address: account.address,
+        privateKey: account.privateKey,
         role: role.desc,
       };
-      logger.success('Generated: ' + wallet.address);
+      logger.success('Generated: ' + account.address);
     } else if (inputType === 'privateKey') {
       const { privateKey } = await prompts({
         type: 'password',
@@ -1016,14 +1017,14 @@ async function importKeys(): Promise<Record<string, KeyConfig> | null> {
       });
 
       try {
-        const wallet = new Wallet(privateKey);
+        const account = privateKeyToAccount(privateKey as `0x${string}`);
         keys[role.name] = {
           name: role.name.charAt(0).toUpperCase() + role.name.slice(1),
-          address: wallet.address,
-          privateKey: wallet.privateKey,
+          address: account.address,
+          privateKey: account.privateKey,
           role: role.desc,
         };
-        logger.success('Imported: ' + wallet.address);
+        logger.success('Imported: ' + account.address);
       } catch {
         logger.error('Invalid private key');
         return null;
@@ -1073,7 +1074,7 @@ function generateKeysWithEntropy(entropy: string): Record<string, KeyConfig> {
     const role = roles[i];
     
     // Mix entropy with role-specific data for additional randomness
-    // This supplements the entropy already used by Wallet.createRandom()
+    // This supplements the entropy already used by generatePrivateKey()
     createHash('sha256')
       .update(entropyHash)
       .update(Buffer.from([i]))
@@ -1081,12 +1082,12 @@ function generateKeysWithEntropy(entropy: string): Record<string, KeyConfig> {
       .update(randomBytes(32))
       .digest(); // Side-effect: adds to system entropy pool via timing
 
-    const wallet = Wallet.createRandom();
+    const account = privateKeyToAccount(generatePrivateKey());
     
     keys[role.name] = {
       name: role.name.charAt(0).toUpperCase() + role.name.slice(1),
-      address: wallet.address,
-      privateKey: wallet.privateKey,
+      address: account.address,
+      privateKey: account.privateKey,
       role: role.desc,
     };
   }
@@ -1193,6 +1194,20 @@ async function showKeys(network: NetworkType, showPrivate: boolean) {
       }
       logger.newline();
     }
+    
+    // Show MetaMask wallet config
+    logger.separator();
+    logger.subheader('MetaMask Configuration');
+    logger.newline();
+    logger.info('Network Name:   Network Localnet');
+    logger.info('RPC URL:        http://127.0.0.1:9545');
+    logger.info('Chain ID:       1337');
+    logger.info('Currency:       ETH');
+    logger.newline();
+    logger.info('Pre-funded Test Account:');
+    logger.info('  Private Key:  0xb71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291');
+    logger.info('  Address:      0x71562b71999873DB5b286dF957af199Ec94617F7');
+    logger.info('  In MetaMask: Import Account → Paste private key above');
   } else {
     // Check for addresses file first
     const keysDir = getKeysDir();

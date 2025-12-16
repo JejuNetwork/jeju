@@ -2,15 +2,12 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useAccount, useConnect, useDisconnect } from 'wagmi'
 import { Menu, X, Sun, Moon } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { AuthButton } from './auth/AuthButton'
 
 export function Header() {
   const pathname = usePathname()
-  const { address, isConnected } = useAccount()
-  const { connect, connectors } = useConnect()
-  const { disconnect } = useDisconnect()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isDark, setIsDark] = useState(false)
 
@@ -79,22 +76,7 @@ export function Header() {
               {isDark ? <Sun size={18} /> : <Moon size={18} />}
             </button>
 
-            {isConnected ? (
-              <button
-                onClick={() => disconnect()}
-                className="btn-secondary text-xs py-2 px-3"
-              >
-                <span className="hidden sm:inline">{address?.slice(0, 6)}...</span>
-                <span className="sm:hidden">{address?.slice(0, 4)}...</span>
-              </button>
-            ) : (
-              <button
-                onClick={() => connect({ connector: connectors[0] })}
-                className="btn-primary text-xs py-2 px-3"
-              >
-                Connect
-              </button>
-            )}
+            <AuthButton />
 
             {/* Mobile Menu Toggle */}
             <button

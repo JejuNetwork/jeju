@@ -204,7 +204,10 @@ export function createProviderFromEndpoint(config: {
  * Discover deployed providers from coordinator
  */
 export async function discoverProviders(coordinatorUrl: string): Promise<DeployedCDNProvider[]> {
-  const response = await fetch(`${coordinatorUrl}/providers`).catch(() => null);
+  const response = await fetch(`${coordinatorUrl}/providers`).catch((err: Error) => {
+    console.warn(`[CDN Providers] Failed to discover providers from ${coordinatorUrl}: ${err.message}`);
+    return null;
+  });
   
   if (!response?.ok) {
     return [];

@@ -40,13 +40,13 @@ export interface FeedbackAuthData {
  * @returns Signed authorization bytes for setReputation()
  */
 export async function createSignedFeedbackAuth(
-  signer: ethers.Signer,
+  account: PrivateKeyAccount,
   agentId: bigint,
   clientAddress: string,
   reputationRegistryAddress: string,
   chainId: bigint = 31337n
-): Promise<string> {
-  const signerAddress = await signer.getAddress();
+): Promise<Hex> {
+  const signerAddress = account.address;
   
   // Create auth data structure
   const authData: FeedbackAuthData = {
@@ -60,45 +60,38 @@ export async function createSignedFeedbackAuth(
   };
   
   // Encode struct for hashing
-  const structHash = ethers.keccak256(
-    ethers.AbiCoder.defaultAbiCoder().encode(
-      ['uint256', 'address', 'uint64', 'uint256', 'uint256', 'address', 'address'],
-      [
-        authData.agentId,
-        authData.clientAddress,
-        authData.indexLimit,
-        authData.expiry,
-        authData.chainId,
-        authData.identityRegistry,
-        authData.signerAddress
-      ]
-    )
+  const encoded = encodeAbiParameters(
+    [{ type: 'uint256' }, { type: 'address' }, { type: 'uint64' }, { type: 'uint256' }, { type: 'uint256' }, { type: 'address' }, { type: 'address' }],
+    [
+      authData.agentId,
+      authData.clientAddress as Address,
+      authData.indexLimit,
+      authData.expiry,
+      authData.chainId,
+      authData.identityRegistry as Address,
+      authData.signerAddress as Address
+    ]
   );
+  const structHash = keccak256(encoded);
   
   // Sign the message
-  const signature = await signer.signMessage(ethers.getBytes(structHash));
+  const signature = await signMessage({
+    account,
+    message: { raw: structHash },
+  });
   
-  // Parse signature components
-  const sig = ethers.Signature.from(signature);
+  // Parse signature components (r, s, v from signature)
+  const r = ('0x' + signature.slice(2, 66)) as Hex;
+  const s = ('0x' + signature.slice(66, 130)) as Hex;
+  const v = BigInt('0x' + signature.slice(130, 132));
   
   // Encode as: struct_data + r + s + v
-  const signedAuth = ethers.concat([
-    ethers.AbiCoder.defaultAbiCoder().encode(
-      ['uint256', 'address', 'uint64', 'uint256', 'uint256', 'address', 'address'],
-      [
-        authData.agentId,
-        authData.clientAddress,
-        authData.indexLimit,
-        authData.expiry,
-        authData.chainId,
-        authData.identityRegistry,
-        authData.signerAddress
-      ]
-    ),
-    sig.r,
-    sig.s,
-    ethers.toBeHex(sig.v, 1)
-  ]);
+  const signedAuth = concat([
+    encoded,
+    r,
+    s,
+    toHex(v, { size: 1 }),
+  ]) as Hex;
   
   return signedAuth;
 }

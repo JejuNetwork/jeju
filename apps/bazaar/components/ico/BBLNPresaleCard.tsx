@@ -30,7 +30,7 @@ interface ContributionInfo {
   refunded: boolean
 }
 
-// Canonical Presale ABI from @jejunetwork/contracts
+// Canonical Presale ABI from @jeju/contracts
 const BBLN_PRESALE_ABI = [
   {
     name: 'contributeWithMaxPrice',

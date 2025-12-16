@@ -117,6 +117,11 @@ contract HyperlaneOracle is IOracle, Ownable {
     }
 
     /// @inheritdoc IOracle
+    function getAttestationBlock(bytes32 orderId) external view override returns (uint256) {
+        return attestedBlock[orderId];
+    }
+
+    /// @inheritdoc IOracle
     /// @dev In Hyperlane model, attestations come via handle(), not direct submission
     function submitAttestation(bytes32 orderId, bytes calldata proof) external override {
         // Only owner can submit manual attestations (for testing/emergency)

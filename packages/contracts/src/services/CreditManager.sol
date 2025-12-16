@@ -257,6 +257,27 @@ contract CreditManager is Ownable, Pausable, ReentrancyGuard {
         return (true, balances[user][token]);
     }
 
+    /**
+     * @notice Add credit to a user's balance (for refunds/overpayments)
+     * @param user User address
+     * @param token Token to credit
+     * @param amount Amount to credit
+     * @dev Only callable by authorized services
+     */
+    function addCredit(address user, address token, uint256 amount) external payable whenNotPaused {
+        if (!authorizedServices[msg.sender]) revert UnauthorizedService(msg.sender);
+        if (amount == 0) revert InvalidAmount(amount);
+
+        // For ETH, require the value to be sent
+        if (token == ETH_ADDRESS) {
+            require(msg.value == amount, "ETH amount mismatch");
+        }
+
+        balances[user][token] += amount;
+
+        emit CreditDeposited(user, token, amount, balances[user][token]);
+    }
+
     // ============ Compute Integration ============
 
     /**

@@ -3,9 +3,12 @@
  * Creates a simple ERC20 token that can be used to test complete Gateway lifecycle
  */
 
-import { ethers } from 'ethers';
+import { createPublicClient, createWalletClient, http, formatEther, parseEther, encodeDeployData, getContractAddress, waitForTransactionReceipt, getBalance, getChainId, type Address } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { parseAbi } from 'viem';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 
 // Minimal ERC20 with mint capability for testing
 const ERC20_ABI = [
@@ -30,15 +33,17 @@ const PRIVATE_KEY = process.env.PRIVATE_KEY || '0xac0974bec39a17e36ba4a6b4d238ff
 async function deployTestToken() {
   console.log('Deploying Test Token for Gateway Integration Tests\n');
 
-  const provider = new ethers.JsonRpcProvider(RPC_URL);
-  const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+  const chain = inferChainFromRpcUrl(RPC_URL);
+  const account = privateKeyToAccount(PRIVATE_KEY as `0x${string}`);
+  const publicClient = createPublicClient({ chain, transport: http(RPC_URL) });
+  const walletClient = createWalletClient({ chain, transport: http(RPC_URL), account });
 
-  console.log('Deployer:', wallet.address);
-  const network = await provider.getNetwork();
-  console.log('Network:', network.name, `(chainId: ${network.chainId})`);
+  console.log('Deployer:', account.address);
+  const chainId = await getChainId(publicClient);
+  console.log('Network:', chain.name, `(chainId: ${chainId})`);
 
-  const balance = await provider.getBalance(wallet.address);
-  console.log('Balance:', ethers.formatEther(balance), 'ETH\n');
+  const balance = await getBalance(publicClient, { address: account.address });
+  console.log('Balance:', formatEther(balance), 'ETH\n');
 
   if (balance === 0n) {
     console.error('Error: Deployer has no ETH balance');
@@ -47,24 +52,30 @@ async function deployTestToken() {
 
   // Deploy ERC20 contract
   console.log('Deploying ERC20 token...');
-  const factory = new ethers.ContractFactory(ERC20_ABI, ERC20_BYTECODE, wallet);
+  const abi = parseAbi(ERC20_ABI);
   
   const name = 'Test Token';
   const symbol = 'TEST';
-  const initialSupply = ethers.parseEther('1000000'); // 1M tokens
+  const initialSupply = parseEther('1000000'); // 1M tokens
 
-  const contract = await factory.deploy(name, symbol, initialSupply);
-  console.log('Transaction hash:', contract.deploymentTransaction()?.hash);
+  const deployData = encodeDeployData({
+    abi,
+    bytecode: ERC20_BYTECODE as `0x${string}`,
+    args: [name, symbol, initialSupply],
+  });
   
-  await contract.waitForDeployment();
-  const testTokenAddress = await contract.getAddress();
+  const hash = await walletClient.sendTransaction({ data: deployData });
+  console.log('Transaction hash:', hash);
+  
+  const receipt = await waitForTransactionReceipt(publicClient, { hash });
+  const testTokenAddress = receipt.contractAddress ?? getContractAddress({ from: account.address, nonce: BigInt(0) });
 
   console.log('\nTest Token deployed:');
   console.log('  Address:', testTokenAddress);
   console.log('  Name:', name);
   console.log('  Symbol:', symbol);
   console.log('  Decimals: 18');
-  console.log('  Initial Supply:', ethers.formatEther(initialSupply), symbol);
+  console.log('  Initial Supply:', formatEther(initialSupply), symbol);
 
   // Update .env.local
   const envPath = join(process.cwd(), '.env.local');

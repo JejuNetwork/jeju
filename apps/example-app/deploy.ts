@@ -10,7 +10,9 @@
  * 6. OAuth3 app registration
  */
 
-import { Wallet } from 'ethers';
+import { privateKeyToAccount } from 'viem/accounts';
+import { signMessage } from 'viem/accounts';
+import type { PrivateKeyAccount } from 'viem/accounts';
 import { readFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 import type { Address, Hex } from 'viem';
@@ -28,16 +30,16 @@ interface DeployConfig {
   network: string;
 }
 
-async function getDeployerWallet(): Promise<Wallet> {
+async function getDeployerWallet(): Promise<PrivateKeyAccount> {
   const privateKey = process.env.DEPLOYER_PRIVATE_KEY;
   if (!privateKey) {
     // Use well-known dev key for localnet
     if (NETWORK === 'localnet') {
-      return new Wallet('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80');
+      return privateKeyToAccount('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as `0x${string}`);
     }
     throw new Error('DEPLOYER_PRIVATE_KEY required for non-localnet deployment');
   }
-  return new Wallet(privateKey);
+  return privateKeyToAccount(privateKey as `0x${string}`);
 }
 
 async function deployDatabase(): Promise<string> {
@@ -81,12 +83,12 @@ async function buildFrontend(): Promise<string> {
   return join(import.meta.dir, 'dist/frontend');
 }
 
-async function deployFrontendToIPFS(buildDir: string, wallet: Wallet): Promise<string> {
+async function deployFrontendToIPFS(buildDir: string, account: PrivateKeyAccount): Promise<string> {
   console.log('📤 Uploading frontend to IPFS...');
   
   const timestamp = Date.now().toString();
   const message = `jeju-storage:${timestamp}`;
-  const signature = await wallet.signMessage(message);
+  const signature = await signMessage(account, { message });
   
   // Create directory upload
   const formData = new FormData();
@@ -118,7 +120,7 @@ async function deployFrontendToIPFS(buildDir: string, wallet: Wallet): Promise<s
   const response = await fetch(`${STORAGE_API}/upload-directory`, {
     method: 'POST',
     headers: {
-      'x-jeju-address': wallet.address,
+      'x-jeju-address': account.address,
       'x-jeju-timestamp': timestamp,
       'x-jeju-signature': signature,
     },
@@ -132,7 +134,7 @@ async function deployFrontendToIPFS(buildDir: string, wallet: Wallet): Promise<s
     const singleResponse = await fetch(`${STORAGE_API}/upload`, {
       method: 'POST',
       headers: {
-        'x-jeju-address': wallet.address,
+        'x-jeju-address': account.address,
         'x-jeju-timestamp': timestamp,
         'x-jeju-signature': signature,
       },
@@ -153,7 +155,7 @@ async function deployFrontendToIPFS(buildDir: string, wallet: Wallet): Promise<s
   return data.cid;
 }
 
-async function deployBackendToCompute(wallet: Wallet): Promise<string> {
+async function deployBackendToCompute(account: PrivateKeyAccount): Promise<string> {
   console.log('🚀 Deploying backend to compute network...');
   
   // For now, we'll use the local backend endpoint
@@ -163,13 +165,13 @@ async function deployBackendToCompute(wallet: Wallet): Promise<string> {
   // Register with compute network (if available)
   const timestamp = Date.now().toString();
   const message = `jeju-compute:${timestamp}`;
-  const signature = await wallet.signMessage(message);
-  
+  const signature = await signMessage(account, { message });
+
   const response = await fetch(`${COMPUTE_API}/register-service`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-jeju-address': wallet.address,
+      'x-jeju-address': account.address,
       'x-jeju-timestamp': timestamp,
       'x-jeju-signature': signature,
     },
@@ -191,18 +193,18 @@ async function deployBackendToCompute(wallet: Wallet): Promise<string> {
 }
 
 async function registerJNS(
-  wallet: Wallet,
+  account: PrivateKeyAccount,
   config: { name: string; frontendCid: string; backendUrl: string }
 ): Promise<void> {
   console.log('🌐 Registering JNS name...');
   
   const timestamp = Date.now().toString();
   const message = `jeju-jns:${timestamp}`;
-  const signature = await wallet.signMessage(message);
-  
+  const signature = await signMessage(account, { message });
+
   const headers = {
     'Content-Type': 'application/json',
-    'x-jeju-address': wallet.address,
+    'x-jeju-address': account.address,
     'x-jeju-timestamp': timestamp,
     'x-jeju-signature': signature,
   };
@@ -220,7 +222,7 @@ async function registerJNS(
         headers,
         body: JSON.stringify({
           name: config.name,
-          owner: wallet.address,
+          owner: account.address,
           durationYears: 1,
         }),
       });
@@ -233,7 +235,7 @@ async function registerJNS(
   
   // Set records
   const records = {
-    address: wallet.address,
+    address: account.address,
     contentHash: `ipfs://${config.frontendCid}`,
     a2aEndpoint: `${config.backendUrl}/a2a`,
     mcpEndpoint: `${config.backendUrl}/mcp`,
@@ -254,18 +256,18 @@ async function registerJNS(
   }
 }
 
-async function setupCronTriggers(wallet: Wallet, backendUrl: string): Promise<Hex | null> {
+async function setupCronTriggers(account: PrivateKeyAccount, backendUrl: string): Promise<Hex | null> {
   console.log('⏰ Setting up cron triggers...');
 
   const timestamp = Date.now().toString();
   const message = `jeju-cron:${timestamp}`;
-  const signature = await wallet.signMessage(message);
+  const signature = await signMessage(account, { message });
 
   const response = await fetch(`${COMPUTE_API}/cron/register`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-jeju-address': wallet.address,
+      'x-jeju-address': account.address,
       'x-jeju-timestamp': timestamp,
       'x-jeju-signature': signature,
     },
@@ -315,29 +317,29 @@ async function deploy(): Promise<DeployResult> {
   console.log(`Network: ${NETWORK}`);
   console.log('');
 
-  const wallet = await getDeployerWallet();
-  console.log(`Deployer: ${wallet.address}\n`);
+  const account = await getDeployerWallet();
+  console.log(`Deployer: ${account.address}\n`);
 
   // Deploy database
   const databaseId = await deployDatabase();
 
   // Build and deploy frontend
   const buildDir = await buildFrontend();
-  const frontendCid = await deployFrontendToIPFS(buildDir, wallet);
+  const frontendCid = await deployFrontendToIPFS(buildDir, account);
 
   // Deploy backend
-  const backendEndpoint = await deployBackendToCompute(wallet);
+  const backendEndpoint = await deployBackendToCompute(account);
 
   // Register JNS
   const jnsName = process.env.JNS_NAME || 'template.jeju';
-  await registerJNS(wallet, {
+  await registerJNS(account, {
     name: jnsName,
     frontendCid,
     backendUrl: backendEndpoint,
   });
 
   // Setup cron triggers
-  const triggerId = await setupCronTriggers(wallet, backendEndpoint);
+  const triggerId = await setupCronTriggers(account, backendEndpoint);
 
   // Seed OAuth3 registry (for localnet/testnet)
   if (NETWORK === 'localnet' || NETWORK === 'testnet') {

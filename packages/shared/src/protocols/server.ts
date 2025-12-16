@@ -459,4 +459,3 @@ export function createServerlessHandler(config: UnifiedServerConfig): {
 
 export type { SkillResult, PaymentRequirement, SkillContext };
 export { skillSuccess, skillError, skillRequiresPayment } from './middleware';
-

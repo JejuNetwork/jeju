@@ -425,4 +425,3 @@ export function skillRequiresPayment(
     requiresPayment: createPaymentRequirement(resource, amount, description, asset),
   };
 }
-

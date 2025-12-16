@@ -664,7 +664,7 @@ app.get('/metrics', () => {
 });
 
 app.get('/', (c) => c.json({
-  name: `${getNetworkName()} AI Autocrat`,
+  name: `${getNetworkName()} AI Council`,
   version: '2.1.0',
   description: 'Fully autonomous reputation-based DAO with AI CEO',
   endpoints: {

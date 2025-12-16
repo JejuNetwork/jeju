@@ -119,8 +119,17 @@ class LeaderboardIntegration {
   }
 
   async fetchMappings(): Promise<void> {
-    const response = await fetch(`${GATEWAY_URL}/leaderboard/api/wallet-mappings`).catch(() => null);
-    if (!response?.ok) return;
+    const response = await fetch(`${GATEWAY_URL}/leaderboard/api/wallet-mappings`).catch((err: Error) => {
+      console.warn(`[Git Leaderboard] Failed to fetch wallet mappings: ${err.message}`);
+      return null;
+    });
+    
+    if (!response?.ok) {
+      if (response) {
+        console.warn(`[Git Leaderboard] Wallet mappings returned ${response.status}`);
+      }
+      return;
+    }
 
     const data = (await response.json()) as { mappings: Array<{ walletAddress: string; username: string }> };
     for (const m of data.mappings) {
@@ -156,7 +165,14 @@ class LeaderboardIntegration {
         })),
         timestamp: Date.now(),
       }),
-    }).catch(() => null);
+    }).catch((err: Error) => {
+      console.warn(`[Git Leaderboard] Failed to sync user ${username}: ${err.message}`);
+      return null;
+    });
+
+    if (response && !response.ok) {
+      console.warn(`[Git Leaderboard] Sync for ${username} returned ${response.status}`);
+    }
 
     return response?.ok ?? false;
   }

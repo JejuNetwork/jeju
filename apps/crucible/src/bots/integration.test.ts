@@ -11,6 +11,7 @@
 import { describe, test, expect } from 'bun:test';
 import { DEFAULT_BOTS, getDefaultBotsForNetwork, createTradingBotOptions } from './default-bots';
 import type { DefaultBotConfig } from './default-bots';
+import type { ChainId } from './autocrat-types';
 
 describe('Trading Bot Integration', () => {
   describe('Default Bot Configuration Integration', () => {
@@ -54,7 +55,7 @@ describe('Trading Bot Integration', () => {
     test('should validate chain configurations are accessible', () => {
       const { DEFAULT_CHAINS } = require('./default-bots');
       
-      Object.values(DEFAULT_CHAINS).forEach(chain => {
+      Object.values(DEFAULT_CHAINS).forEach((chain: { rpcUrl: string; blockTime: number; chainId: number }) => {
         expect(chain.rpcUrl).toMatch(/^https?:\/\//);
         expect(chain.blockTime).toBeGreaterThan(0);
         expect(chain.chainId).toBeGreaterThan(0);
@@ -168,8 +169,8 @@ describe('Data Flow Validation', () => {
     expect(options.chains.length).toBeGreaterThan(0);
     
     // Verify chains are properly mapped
-    options.chains.forEach(chain => {
-      expect(botConfig.chains.includes(chain.chainId)).toBe(true);
+    options.chains.forEach((chain: { chainId: number; name: string; rpcUrl: string }) => {
+      expect(botConfig.chains.includes(chain.chainId as ChainId)).toBe(true);
       expect(chain.name).toBeTruthy();
       expect(chain.rpcUrl).toBeTruthy();
     });

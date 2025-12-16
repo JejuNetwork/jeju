@@ -1,6 +1,5 @@
-import { createPublicClient, http, parseEther, zeroHash, type Address, type PublicClient } from 'viem';
+import { createPublicClient, http, parseEther, zeroHash, type Address, type PublicClient, type Abi } from 'viem';
 import { readContract } from 'viem/actions';
-import { parseAbi } from 'viem';
 
 export interface AgentProfile {
   agentId: bigint;
@@ -50,51 +49,135 @@ export interface EligibilityResult {
   reason: string;
 }
 
-const INTEGRATION_ABI = parseAbi([
-  'function getAgentProfile(uint256 agentId) external view returns (tuple(uint256 agentId, address owner, uint8 stakeTier, uint256 stakedAmount, uint256 registeredAt, uint256 lastActivityAt, bool isBanned, uint64 feedbackCount, uint8 averageReputation, uint256 violationCount, uint256 compositeScore, string[] tags, string a2aEndpoint, string mcpEndpoint))',
-  'function getAgentProfiles(uint256[] agentIds) external view returns (tuple(uint256 agentId, address owner, uint8 stakeTier, uint256 stakedAmount, uint256 registeredAt, uint256 lastActivityAt, bool isBanned, uint64 feedbackCount, uint8 averageReputation, uint256 violationCount, uint256 compositeScore, string[] tags, string a2aEndpoint, string mcpEndpoint)[])',
-  'function getVotingPower(address voter, uint256 agentId, uint256 baseVotes) external view returns (tuple(uint256 baseVotes, uint256 reputationMultiplier, uint256 stakeMultiplier, uint256 effectiveVotes))',
-  'function getProviderReputation(address provider) external view returns (tuple(address provider, uint256 providerAgentId, uint256 stakeAmount, uint256 stakeTime, uint8 averageReputation, uint256 violationsReported, uint256 operatorCount, uint256 lastUpdated, uint256 weightedScore))',
-  'function getAllProviderReputations() external view returns (tuple(address provider, uint256 providerAgentId, uint256 stakeAmount, uint256 stakeTime, uint8 averageReputation, uint256 violationsReported, uint256 operatorCount, uint256 lastUpdated, uint256 weightedScore)[])',
-  'function getWeightedAgentReputation(uint256 agentId) external view returns (uint256 weightedReputation, uint256 totalWeight)',
-  'function searchByTag(string tag, uint256 offset, uint256 limit) external view returns (tuple(uint256[] agentIds, uint256 total, uint256 offset, uint256 limit))',
-  'function getAgentsByScore(uint256 minScore, uint256 offset, uint256 limit) external view returns (uint256[] agentIds, uint256[] scores)',
-  'function getTopAgents(uint256 count) external view returns (tuple(uint256 agentId, address owner, uint8 stakeTier, uint256 stakedAmount, uint256 registeredAt, uint256 lastActivityAt, bool isBanned, uint64 feedbackCount, uint8 averageReputation, uint256 violationCount, uint256 compositeScore, string[] tags, string a2aEndpoint, string mcpEndpoint)[])',
-  'function canSubmitProposal(uint256 agentId) external view returns (bool eligible, string reason)',
-  'function canVote(uint256 agentId) external view returns (bool eligible, string reason)',
-  'function canConductResearch(uint256 agentId) external view returns (bool eligible, string reason)',
-  'function minScoreForProposal() external view returns (uint256)',
-  'function minScoreForVoting() external view returns (uint256)',
-  'function minScoreForResearch() external view returns (uint256)',
-]);
+const AgentProfileComponents = [
+  { name: 'agentId', type: 'uint256' },
+  { name: 'owner', type: 'address' },
+  { name: 'stakeTier', type: 'uint8' },
+  { name: 'stakedAmount', type: 'uint256' },
+  { name: 'registeredAt', type: 'uint256' },
+  { name: 'lastActivityAt', type: 'uint256' },
+  { name: 'isBanned', type: 'bool' },
+  { name: 'feedbackCount', type: 'uint64' },
+  { name: 'averageReputation', type: 'uint8' },
+  { name: 'violationCount', type: 'uint256' },
+  { name: 'compositeScore', type: 'uint256' },
+  { name: 'tags', type: 'string[]' },
+  { name: 'a2aEndpoint', type: 'string' },
+  { name: 'mcpEndpoint', type: 'string' },
+] as const;
 
-const IDENTITY_ABI = parseAbi([
-  'function getAgent(uint256 agentId) external view returns (tuple(uint256 agentId, address owner, uint8 tier, address stakedToken, uint256 stakedAmount, uint256 registeredAt, uint256 lastActivityAt, bool isBanned, bool isSlashed))',
-  'function agentExists(uint256 agentId) external view returns (bool)',
-  'function ownerOf(uint256 agentId) external view returns (address)',
-  'function getA2AEndpoint(uint256 agentId) external view returns (string)',
-  'function getMCPEndpoint(uint256 agentId) external view returns (string)',
-  'function getAgentTags(uint256 agentId) external view returns (string[])',
-  'function getAgentsByTag(string tag) external view returns (uint256[])',
-  'function getActiveAgents(uint256 offset, uint256 limit) external view returns (uint256[])',
-  'function totalAgents() external view returns (uint256)',
-  'function getMarketplaceInfo(uint256 agentId) external view returns (string a2aEndpoint, string mcpEndpoint, string serviceType, string category, bool x402Supported, uint8 tier, bool banned)',
-]);
+const ProviderReputationComponents = [
+  { name: 'provider', type: 'address' },
+  { name: 'providerAgentId', type: 'uint256' },
+  { name: 'stakeAmount', type: 'uint256' },
+  { name: 'stakeTime', type: 'uint256' },
+  { name: 'averageReputation', type: 'uint8' },
+  { name: 'violationsReported', type: 'uint256' },
+  { name: 'operatorCount', type: 'uint256' },
+  { name: 'lastUpdated', type: 'uint256' },
+  { name: 'weightedScore', type: 'uint256' },
+] as const;
 
-const REPUTATION_ABI = parseAbi([
-  'function getSummary(uint256 agentId, address[] clients, bytes32 tag1, bytes32 tag2) external view returns (uint64 count, uint8 averageScore)',
-  'function getClients(uint256 agentId) external view returns (address[])',
-]);
+const VotingPowerComponents = [
+  { name: 'baseVotes', type: 'uint256' },
+  { name: 'reputationMultiplier', type: 'uint256' },
+  { name: 'stakeMultiplier', type: 'uint256' },
+  { name: 'effectiveVotes', type: 'uint256' },
+] as const;
 
-const DELEGATION_ABI = parseAbi([
-  'function getDelegate(address addr) external view returns (tuple(address delegate, uint256 agentId, string name, string profileHash, string[] expertise, uint256 totalDelegated, uint256 delegatorCount, uint256 registeredAt, bool isActive, uint256 proposalsVoted, uint256 proposalsCreated))',
-  'function getDelegation(address delegator) external view returns (tuple(address delegator, address delegate, uint256 amount, uint256 delegatedAt, uint256 lockedUntil))',
-  'function getTopDelegates(uint256 limit) external view returns (tuple(address delegate, uint256 agentId, string name, string profileHash, string[] expertise, uint256 totalDelegated, uint256 delegatorCount, uint256 registeredAt, bool isActive, uint256 proposalsVoted, uint256 proposalsCreated)[])',
-  'function getSecurityCouncil() external view returns (address[])',
-  'function getSecurityCouncilDetails() external view returns (tuple(address member, uint256 agentId, uint256 combinedScore, uint256 electedAt)[])',
-  'function getVotingPower(address account) external view returns (uint256)',
-  'function isSecurityCouncilMember(address) external view returns (bool)',
-]);
+const SearchResultComponents = [
+  { name: 'agentIds', type: 'uint256[]' },
+  { name: 'total', type: 'uint256' },
+  { name: 'offset', type: 'uint256' },
+  { name: 'limit', type: 'uint256' },
+] as const;
+
+const INTEGRATION_ABI: Abi = [
+  { type: 'function', name: 'getAgentProfile', stateMutability: 'view', inputs: [{ name: 'agentId', type: 'uint256' }], outputs: [{ name: '', type: 'tuple', components: AgentProfileComponents }] },
+  { type: 'function', name: 'getAgentProfiles', stateMutability: 'view', inputs: [{ name: 'agentIds', type: 'uint256[]' }], outputs: [{ name: '', type: 'tuple[]', components: AgentProfileComponents }] },
+  { type: 'function', name: 'getVotingPower', stateMutability: 'view', inputs: [{ name: 'voter', type: 'address' }, { name: 'agentId', type: 'uint256' }, { name: 'baseVotes', type: 'uint256' }], outputs: [{ name: '', type: 'tuple', components: VotingPowerComponents }] },
+  { type: 'function', name: 'getProviderReputation', stateMutability: 'view', inputs: [{ name: 'provider', type: 'address' }], outputs: [{ name: '', type: 'tuple', components: ProviderReputationComponents }] },
+  { type: 'function', name: 'getAllProviderReputations', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'tuple[]', components: ProviderReputationComponents }] },
+  { type: 'function', name: 'getWeightedAgentReputation', stateMutability: 'view', inputs: [{ name: 'agentId', type: 'uint256' }], outputs: [{ name: 'weightedReputation', type: 'uint256' }, { name: 'totalWeight', type: 'uint256' }] },
+  { type: 'function', name: 'searchByTag', stateMutability: 'view', inputs: [{ name: 'tag', type: 'string' }, { name: 'offset', type: 'uint256' }, { name: 'limit', type: 'uint256' }], outputs: [{ name: '', type: 'tuple', components: SearchResultComponents }] },
+  { type: 'function', name: 'getAgentsByScore', stateMutability: 'view', inputs: [{ name: 'minScore', type: 'uint256' }, { name: 'offset', type: 'uint256' }, { name: 'limit', type: 'uint256' }], outputs: [{ name: 'agentIds', type: 'uint256[]' }, { name: 'scores', type: 'uint256[]' }] },
+  { type: 'function', name: 'getTopAgents', stateMutability: 'view', inputs: [{ name: 'count', type: 'uint256' }], outputs: [{ name: '', type: 'tuple[]', components: AgentProfileComponents }] },
+  { type: 'function', name: 'canSubmitProposal', stateMutability: 'view', inputs: [{ name: 'agentId', type: 'uint256' }], outputs: [{ name: 'eligible', type: 'bool' }, { name: 'reason', type: 'string' }] },
+  { type: 'function', name: 'canVote', stateMutability: 'view', inputs: [{ name: 'agentId', type: 'uint256' }], outputs: [{ name: 'eligible', type: 'bool' }, { name: 'reason', type: 'string' }] },
+  { type: 'function', name: 'canConductResearch', stateMutability: 'view', inputs: [{ name: 'agentId', type: 'uint256' }], outputs: [{ name: 'eligible', type: 'bool' }, { name: 'reason', type: 'string' }] },
+  { type: 'function', name: 'minScoreForProposal', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint256' }] },
+  { type: 'function', name: 'minScoreForVoting', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint256' }] },
+  { type: 'function', name: 'minScoreForResearch', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint256' }] },
+];
+
+const AgentComponents = [
+  { name: 'agentId', type: 'uint256' },
+  { name: 'owner', type: 'address' },
+  { name: 'tier', type: 'uint8' },
+  { name: 'stakedToken', type: 'address' },
+  { name: 'stakedAmount', type: 'uint256' },
+  { name: 'registeredAt', type: 'uint256' },
+  { name: 'lastActivityAt', type: 'uint256' },
+  { name: 'isBanned', type: 'bool' },
+  { name: 'isSlashed', type: 'bool' },
+] as const;
+
+const IDENTITY_ABI: Abi = [
+  { type: 'function', name: 'getAgent', stateMutability: 'view', inputs: [{ name: 'agentId', type: 'uint256' }], outputs: [{ name: '', type: 'tuple', components: AgentComponents }] },
+  { type: 'function', name: 'agentExists', stateMutability: 'view', inputs: [{ name: 'agentId', type: 'uint256' }], outputs: [{ name: '', type: 'bool' }] },
+  { type: 'function', name: 'ownerOf', stateMutability: 'view', inputs: [{ name: 'agentId', type: 'uint256' }], outputs: [{ name: '', type: 'address' }] },
+  { type: 'function', name: 'getA2AEndpoint', stateMutability: 'view', inputs: [{ name: 'agentId', type: 'uint256' }], outputs: [{ name: '', type: 'string' }] },
+  { type: 'function', name: 'getMCPEndpoint', stateMutability: 'view', inputs: [{ name: 'agentId', type: 'uint256' }], outputs: [{ name: '', type: 'string' }] },
+  { type: 'function', name: 'getAgentTags', stateMutability: 'view', inputs: [{ name: 'agentId', type: 'uint256' }], outputs: [{ name: '', type: 'string[]' }] },
+  { type: 'function', name: 'getAgentsByTag', stateMutability: 'view', inputs: [{ name: 'tag', type: 'string' }], outputs: [{ name: '', type: 'uint256[]' }] },
+  { type: 'function', name: 'getActiveAgents', stateMutability: 'view', inputs: [{ name: 'offset', type: 'uint256' }, { name: 'limit', type: 'uint256' }], outputs: [{ name: '', type: 'uint256[]' }] },
+  { type: 'function', name: 'totalAgents', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint256' }] },
+  { type: 'function', name: 'getMarketplaceInfo', stateMutability: 'view', inputs: [{ name: 'agentId', type: 'uint256' }], outputs: [{ name: 'a2aEndpoint', type: 'string' }, { name: 'mcpEndpoint', type: 'string' }, { name: 'serviceType', type: 'string' }, { name: 'category', type: 'string' }, { name: 'x402Supported', type: 'bool' }, { name: 'tier', type: 'uint8' }, { name: 'banned', type: 'bool' }] },
+];
+
+const REPUTATION_ABI: Abi = [
+  { type: 'function', name: 'getSummary', stateMutability: 'view', inputs: [{ name: 'agentId', type: 'uint256' }, { name: 'clients', type: 'address[]' }, { name: 'tag1', type: 'bytes32' }, { name: 'tag2', type: 'bytes32' }], outputs: [{ name: 'count', type: 'uint64' }, { name: 'averageScore', type: 'uint8' }] },
+  { type: 'function', name: 'getClients', stateMutability: 'view', inputs: [{ name: 'agentId', type: 'uint256' }], outputs: [{ name: '', type: 'address[]' }] },
+];
+
+const DelegateComponents = [
+  { name: 'delegate', type: 'address' },
+  { name: 'agentId', type: 'uint256' },
+  { name: 'name', type: 'string' },
+  { name: 'profileHash', type: 'string' },
+  { name: 'expertise', type: 'string[]' },
+  { name: 'totalDelegated', type: 'uint256' },
+  { name: 'delegatorCount', type: 'uint256' },
+  { name: 'registeredAt', type: 'uint256' },
+  { name: 'isActive', type: 'bool' },
+  { name: 'proposalsVoted', type: 'uint256' },
+  { name: 'proposalsCreated', type: 'uint256' },
+] as const;
+
+const DelegationComponents = [
+  { name: 'delegator', type: 'address' },
+  { name: 'delegate', type: 'address' },
+  { name: 'amount', type: 'uint256' },
+  { name: 'delegatedAt', type: 'uint256' },
+  { name: 'lockedUntil', type: 'uint256' },
+] as const;
+
+const SecurityCouncilComponents = [
+  { name: 'member', type: 'address' },
+  { name: 'agentId', type: 'uint256' },
+  { name: 'combinedScore', type: 'uint256' },
+  { name: 'electedAt', type: 'uint256' },
+] as const;
+
+const DELEGATION_ABI: Abi = [
+  { type: 'function', name: 'getDelegate', stateMutability: 'view', inputs: [{ name: 'addr', type: 'address' }], outputs: [{ name: '', type: 'tuple', components: DelegateComponents }] },
+  { type: 'function', name: 'getDelegation', stateMutability: 'view', inputs: [{ name: 'delegator', type: 'address' }], outputs: [{ name: '', type: 'tuple', components: DelegationComponents }] },
+  { type: 'function', name: 'getTopDelegates', stateMutability: 'view', inputs: [{ name: 'limit', type: 'uint256' }], outputs: [{ name: '', type: 'tuple[]', components: DelegateComponents }] },
+  { type: 'function', name: 'getSecurityCouncil', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'address[]' }] },
+  { type: 'function', name: 'getSecurityCouncilDetails', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'tuple[]', components: SecurityCouncilComponents }] },
+  { type: 'function', name: 'getVotingPower', stateMutability: 'view', inputs: [{ name: 'account', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
+  { type: 'function', name: 'isSecurityCouncilMember', stateMutability: 'view', inputs: [{ name: '', type: 'address' }], outputs: [{ name: '', type: 'bool' }] },
+];
 
 export interface RegistryIntegrationConfig {
   rpcUrl: string;

@@ -105,8 +105,7 @@ export function parseSIWEMessage(messageString: string): SIWEMessage {
   
   // Parse key-value pairs
   const message: Partial<SIWEMessage> = { domain, address };
-  let statementLines: string[] = [];
-  let inStatement = false;
+  const statementLines: string[] = [];
   let inResources = false;
   const resources: string[] = [];
 
@@ -114,7 +113,6 @@ export function parseSIWEMessage(messageString: string): SIWEMessage {
     const line = lines[i];
     
     if (line.startsWith('URI: ')) {
-      inStatement = false;
       message.statement = statementLines.join('\n').trim();
       message.uri = line.slice(5);
     } else if (line.startsWith('Version: ')) {
@@ -136,7 +134,6 @@ export function parseSIWEMessage(messageString: string): SIWEMessage {
     } else if (inResources && line.startsWith('- ')) {
       resources.push(line.slice(2));
     } else if (i > 2 && !line.startsWith('URI:')) {
-      inStatement = true;
       statementLines.push(line);
     }
   }

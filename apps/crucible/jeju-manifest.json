@@ -8,13 +8,23 @@
     "api": 4020,
     "executor": 4021
   },
+  "commands": {
+    "dev": "bun run dev",
+    "test": "bun run test",
+    "test:integration": "bun test src/tests/integration.test.ts"
+  },
   "dependencies": {
     "contracts": ["AgentVault", "RoomRegistry", "TriggerRegistry", "ServiceRegistry", "IdentityRegistry"],
     "services": ["dws", "indexer"]
   },
   "environment": {
-    "required": ["PRIVATE_KEY", "RPC_URL"],
-    "optional": ["DWS_URL", "IPFS_GATEWAY"]
+    "required": [],
+    "optional": ["PRIVATE_KEY", "RPC_URL", "DWS_URL", "INDEXER_GRAPHQL_URL"],
+    "defaults": {
+      "RPC_URL": "http://127.0.0.1:8545",
+      "DWS_URL": "http://127.0.0.1:4030",
+      "INDEXER_GRAPHQL_URL": "http://127.0.0.1:4350/graphql"
+    }
   },
   "healthCheck": {
     "endpoint": "/health",
@@ -24,6 +34,11 @@
     "unit": {
       "command": "bun run test",
       "timeout": 120000
+    },
+    "integration": {
+      "command": "bun test src/tests/integration.test.ts",
+      "timeout": 300000,
+      "requiresServices": ["dws", "chain"]
     },
     "e2e": {
       "command": "bunx playwright test tests/synpress",

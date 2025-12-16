@@ -22,9 +22,7 @@ import type {
   OAuth3Session,
   TEEAttestation,
   TEEProvider,
-  MPCSignatureRequest,
   VerifiableCredential,
-  FarcasterIdentity,
 } from '../types.js';
 import {
   OAuth3StorageService,
@@ -36,7 +34,6 @@ import {
 } from '../infrastructure/jns-integration.js';
 import {
   FROSTCoordinator,
-  type FROSTSignature,
 } from '../mpc/frost-signing.js';
 
 const DSTACK_SOCKET = process.env.DSTACK_SOCKET ?? '/var/run/dstack.sock';
@@ -741,8 +738,6 @@ export class DstackAuthAgent {
     message: string;
     appId: Hex;
   }): Promise<OAuth3Session> {
-    const messageHash = keccak256(toBytes(params.message));
-    
     const expectedMessage = `Sign in with Farcaster\n\nFID: ${params.fid}\nApp: ${params.appId}\nTimestamp: `;
     
     if (!params.message.startsWith(expectedMessage)) {
@@ -952,7 +947,7 @@ export class DstackAuthAgent {
       proof: { ...credential.proof, proofValue: undefined },
     };
 
-    const credentialHash = keccak256(toBytes(JSON.stringify(credentialWithoutProof)));
+    const _credentialHash = keccak256(toBytes(JSON.stringify(credentialWithoutProof)));
 
     return true;
   }

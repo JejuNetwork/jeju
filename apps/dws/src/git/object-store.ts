@@ -87,7 +87,10 @@ export class GitObjectStore {
       return null;
     }
 
-    const result = await this.backend.download(stored.cid).catch(() => null);
+    const result = await this.backend.download(stored.cid).catch((err: Error) => {
+      console.error(`[Git ObjectStore] Failed to download object ${oid} from ${stored.cid}: ${err.message}`);
+      return null;
+    });
     if (!result) {
       return null;
     }

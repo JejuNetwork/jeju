@@ -1,7 +1,7 @@
 {
   "name": "@jejunetwork/node",
   "version": "0.1.0",
-  "description": "Jeju Node - Run infrastructure and earn rewards",
+  "description": "Network Node - Run infrastructure and earn rewards",
   "type": "module",
   "bin": {
     "jeju-node": "./src/cli.ts"

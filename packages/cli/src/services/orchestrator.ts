@@ -50,10 +50,10 @@ const DEFAULT_PORTS = {
   oracle: 4301,
   indexer: 4350,
   jns: 4302,
-  storage: 4101,
+  storage: 4030, // DWS main port
   cron: 4102,
   cvm: 4103,
-  computeBridge: 4010,
+  computeBridge: 4031, // DWS compute node port
 };
 
 async function isPortInUse(port: number): Promise<boolean> {
@@ -89,12 +89,12 @@ class ServicesOrchestrator {
       inference: config.inference ?? true,
       cql: config.cql ?? true,
       oracle: config.oracle ?? true,
-      indexer: config.indexer ?? false, // Requires Docker
+      indexer: config.indexer ?? true,
       jns: config.jns ?? true,
-      storage: config.storage ?? false,
+      storage: config.storage ?? true, // DWS storage enabled by default
       cron: config.cron ?? true,
       cvm: config.cvm ?? false,
-      computeBridge: config.computeBridge ?? false, // Disabled - use Docker instead
+      computeBridge: config.computeBridge ?? true, // DWS compute enabled by default
     };
 
     logger.step('Starting development services...');
@@ -108,7 +108,7 @@ class ServicesOrchestrator {
     if (enabledServices.storage) await this.startStorage();
     if (enabledServices.cron) await this.startCron();
     if (enabledServices.cvm) await this.startCVM();
-    // computeBridge disabled - use Docker instead
+    if (enabledServices.computeBridge) await this.startComputeBridge();
 
     // Wait for services to be ready
     await this.waitForServices();
@@ -754,6 +754,20 @@ class ServicesOrchestrator {
   }
 
   private async startStorage(): Promise<void> {
+    const port = DEFAULT_PORTS.storage;
+    
+    if (await isPortInUse(port)) {
+      logger.info(`DWS already running on port ${port}`);
+      this.services.set('storage', {
+        name: 'DWS',
+        type: 'server',
+        port,
+        url: `http://localhost:${port}`,
+        healthCheck: '/health',
+      });
+      return;
+    }
+
     const dwsPath = join(this.rootDir, 'apps/dws');
 
     if (!existsSync(dwsPath)) {
@@ -768,20 +782,22 @@ class ServicesOrchestrator {
       stderr: 'ignore',
       env: {
         ...process.env,
-        DWS_PORT: String(DEFAULT_PORTS.storage),
+        PORT: String(port),
+        DWS_PORT: String(port),
+        RPC_URL: this.rpcUrl,
       },
     });
 
     this.services.set('storage', {
-      name: 'DWS (Storage)',
+      name: 'DWS',
       type: 'process',
-      port: DEFAULT_PORTS.storage,
+      port,
       process: proc,
-      url: `http://localhost:${DEFAULT_PORTS.storage}`,
+      url: `http://localhost:${port}`,
       healthCheck: '/health',
     });
 
-    logger.success(`DWS service starting on port ${DEFAULT_PORTS.storage}`);
+    logger.success(`DWS service starting on port ${port}`);
   }
 
   private async startCron(): Promise<void> {
@@ -965,14 +981,13 @@ class ServicesOrchestrator {
     };
   }
 
-  // @ts-expect-error Reserved for future use
   private async startComputeBridge(): Promise<void> {
     const port = DEFAULT_PORTS.computeBridge;
     
     if (await isPortInUse(port)) {
-      logger.info(`Compute Bridge already running on port ${port}`);
+      logger.info(`DWS Compute Node already running on port ${port}`);
       this.services.set('computeBridge', {
-        name: 'Compute Bridge',
+        name: 'DWS Compute',
         type: 'server',
         port,
         url: `http://localhost:${port}`,
@@ -981,36 +996,109 @@ class ServicesOrchestrator {
       return;
     }
 
-    const dwsPath = join(this.rootDir, 'apps/dws');
-    
-    if (!existsSync(dwsPath)) {
-      logger.warn('DWS app not found, skipping compute');
-      return;
-    }
-
-    const proc = spawn({
-      cmd: ['bun', 'run', 'node'],
-      cwd: dwsPath,
-      stdout: 'ignore',
-      stderr: 'ignore',
-      env: {
-        ...process.env,
-        DWS_NODE_PORT: String(port),
-        JEJU_RPC_URL: this.rpcUrl,
-        NETWORK: 'localnet',
-      },
-    });
-
+    // Create mock compute node for dev
+    const server = await this.createMockCompute();
     this.services.set('computeBridge', {
-      name: 'DWS Node',
-      type: 'process',
+      name: 'DWS Compute',
+      type: 'mock',
       port,
-      process: proc,
+      server,
       url: `http://localhost:${port}`,
       healthCheck: '/health',
     });
+    logger.info(`DWS Compute mock service on port ${port}`);
+  }
 
-    logger.success(`DWS Node starting on port ${port}`);
+  private async createMockCompute(): Promise<MockServer> {
+    const port = DEFAULT_PORTS.computeBridge;
+    const jobs = new Map<string, { id: string; status: string; result?: string }>();
+
+    const server = Bun.serve({
+      port,
+      async fetch(req) {
+        const url = new URL(req.url);
+
+        if (url.pathname === '/health') {
+          return Response.json({ 
+            status: 'healthy', 
+            service: 'dws-compute',
+            mode: 'simulator',
+            providers: 1,
+          });
+        }
+
+        // Inference endpoint
+        if (url.pathname === '/v1/chat/completions' && req.method === 'POST') {
+          const body = await req.json() as { messages?: Array<{ content: string }>; model?: string };
+          return Response.json({
+            id: `chatcmpl-${Date.now()}`,
+            object: 'chat.completion',
+            created: Math.floor(Date.now() / 1000),
+            model: body.model || 'gpt-4',
+            choices: [{
+              index: 0,
+              message: {
+                role: 'assistant',
+                content: 'This is a mock response from DWS compute in dev mode.',
+              },
+              finish_reason: 'stop',
+            }],
+            usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
+          });
+        }
+
+        // Embeddings endpoint
+        if (url.pathname === '/v1/embeddings' && req.method === 'POST') {
+          return Response.json({
+            object: 'list',
+            data: [{
+              object: 'embedding',
+              index: 0,
+              embedding: Array.from({ length: 1536 }, () => Math.random() * 2 - 1),
+            }],
+            model: 'text-embedding-3-small',
+            usage: { prompt_tokens: 10, total_tokens: 10 },
+          });
+        }
+
+        // Job submission
+        if (url.pathname === '/api/v1/jobs' && req.method === 'POST') {
+          const body = await req.json() as { command?: string; image?: string };
+          const jobId = `job-${Date.now()}`;
+          jobs.set(jobId, { id: jobId, status: 'completed', result: 'Mock job completed' });
+          return Response.json({ jobId, status: 'queued' });
+        }
+
+        // Job status
+        if (url.pathname.startsWith('/api/v1/jobs/') && req.method === 'GET') {
+          const jobId = url.pathname.split('/').pop();
+          const job = jobs.get(jobId || '');
+          if (job) {
+            return Response.json(job);
+          }
+          return Response.json({ error: 'Job not found' }, { status: 404 });
+        }
+
+        // Provider listing
+        if (url.pathname === '/api/v1/providers') {
+          return Response.json({
+            providers: [{
+              id: 'local-dev',
+              address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+              available: true,
+              models: ['gpt-5.2', 'gpt-4o-mini', 'claude-opus-4-5-20251101'],
+              pricing: { perToken: '0.0001' },
+            }],
+          });
+        }
+
+        return Response.json({ error: 'Not found' }, { status: 404 });
+      },
+    });
+
+    return {
+      stop: async () => server.stop(),
+    };
   }
 
   private async waitForServices(): Promise<void> {
@@ -1120,6 +1208,9 @@ class ServicesOrchestrator {
     const storage = this.services.get('storage');
     if (storage) {
       env.JEJU_STORAGE_URL = storage.url!;
+      env.DWS_URL = storage.url!;
+      env.STORAGE_API_URL = `${storage.url}/storage`;
+      env.IPFS_GATEWAY = `${storage.url}/cdn`;
     }
 
     const cron = this.services.get('cron');
@@ -1136,6 +1227,7 @@ class ServicesOrchestrator {
     if (computeBridge) {
       env.COMPUTE_BRIDGE_URL = computeBridge.url!;
       env.JEJU_COMPUTE_BRIDGE_URL = computeBridge.url!;
+      env.COMPUTE_MARKETPLACE_URL = computeBridge.url!;
     }
 
     return env;

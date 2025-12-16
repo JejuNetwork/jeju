@@ -1,4 +1,4 @@
-import { ethers } from 'ethers';
+import { keccak256, stringToBytes, encodePacked, hashMessage, recoverAddress, zeroHash, type Address, type PublicClient } from 'viem';
 
 interface Sequencer {
   address: string;
@@ -45,7 +45,9 @@ export class ConsensusAdapter {
   private config: ConsensusConfig;
 
   constructor(
-    private sequencerRegistry: ethers.Contract,
+    private publicClient: PublicClient,
+    private sequencerRegistryAddress: Address,
+    private sequencerRegistryAbi: ReturnType<typeof import('viem').parseAbi>,
     private blockInterval = 2000,
     private requiredVoteRatio = 2 / 3,
     config?: Partial<ConsensusConfig>
@@ -62,10 +64,16 @@ export class ConsensusAdapter {
   }
 
   async loadSequencers(): Promise<void> {
-    const [addresses, weights] = await this.sequencerRegistry.getActiveSequencers();
-    this.sequencers = addresses.map((addr: string, i: number) => ({
+    const result = await this.publicClient.readContract({
+      address: this.sequencerRegistryAddress,
+      abi: this.sequencerRegistryAbi,
+      functionName: 'getActiveSequencers',
+    });
+    const addresses = result[0] as Address[];
+    const weights = result[1] as bigint[];
+    this.sequencers = addresses.map((addr, i) => ({
       address: addr,
-      weight: BigInt(weights[i].toString()),
+      weight: weights[i],
       lastBlock: 0,
       signerUrl: this.config.signerUrls[i] || undefined,
     }));
@@ -84,12 +92,12 @@ export class ConsensusAdapter {
     return this.sequencers[this.round % this.sequencers.length].address;
   }
 
-  async proposeBlock(parentHash: string): Promise<BlockProposal> {
+  async proposeBlock(parentHash: `0x${string}`): Promise<BlockProposal> {
     this.height++;
     this.round = 0;
     this.leader = this.selectNextSequencer();
     
-    const stateRoot = ethers.keccak256(ethers.toUtf8Bytes(`state_${this.height}_${Date.now()}`));
+    const stateRoot = keccak256(stringToBytes(`state_${this.height}_${Date.now()}`));
     
     return {
       blockNumber: this.height,
@@ -108,11 +116,13 @@ export class ConsensusAdapter {
     const requiredVotes = Math.ceil(this.sequencers.length * this.requiredVoteRatio);
     
     // Create the message digest
-    const messageHash = ethers.solidityPackedKeccak256(
-      ['uint256', 'bytes32', 'bytes32', 'uint256'],
-      [proposal.blockNumber, proposal.stateRoot, proposal.parentHash, proposal.timestamp]
+    const messageHash = keccak256(
+      encodePacked(
+        ['uint256', 'bytes32', 'bytes32', 'uint256'],
+        [BigInt(proposal.blockNumber), proposal.stateRoot as `0x${string}`, proposal.parentHash, BigInt(proposal.timestamp)]
+      )
     );
-    const digest = ethers.keccak256(messageHash);
+    const digest = messageHash;
 
     console.log(`[Consensus] Collecting signatures for block ${proposal.blockNumber}...`);
     console.log(`[Consensus] Required: ${requiredVotes}/${this.sequencers.length}`);
@@ -193,9 +203,11 @@ export class ConsensusAdapter {
       return false;
     }
     
-    const messageHash = ethers.solidityPackedKeccak256(
-      ['uint256', 'bytes32', 'bytes32', 'uint256'],
-      [proposal.blockNumber, proposal.stateRoot, proposal.parentHash, proposal.timestamp]
+    const messageHash = keccak256(
+      encodePacked(
+        ['uint256', 'bytes32', 'bytes32', 'uint256'],
+        [BigInt(proposal.blockNumber), proposal.stateRoot as `0x${string}`, proposal.parentHash, BigInt(proposal.timestamp)]
+      )
     );
     
     const validSigners = new Set<string>();
@@ -203,7 +215,10 @@ export class ConsensusAdapter {
     
     for (const vote of votes) {
       try {
-        const recovered = ethers.verifyMessage(ethers.getBytes(messageHash), vote.signature);
+        const recovered = recoverAddress({
+          hash: messageHash,
+          signature: vote.signature as `0x${string}`,
+        });
         const recoveredLower = recovered.toLowerCase();
         
         if (recoveredLower === vote.sequencer.toLowerCase() && sequencerAddrs.has(recoveredLower)) {
@@ -261,7 +276,7 @@ export class ConsensusAdapter {
   }
 
   private async runBlockProduction(): Promise<void> {
-    let parentHash = ethers.ZeroHash;
+    let parentHash = zeroHash;
     let consecutiveFailures = 0;
     const maxConsecutiveFailures = 5;
     
@@ -282,7 +297,7 @@ export class ConsensusAdapter {
       
       if (hasConsensus) {
         const result = await this.finalizeBlock(proposal, votes);
-        parentHash = ethers.keccak256(ethers.toUtf8Bytes(result.stateRoot));
+        parentHash = keccak256(stringToBytes(result.stateRoot));
         consecutiveFailures = 0;
       } else {
         consecutiveFailures++;

@@ -256,6 +256,9 @@ export class AcrossAdapter extends EventEmitter {
       abi: FILL_RELAY_ABI,
       functionName: 'fillV3Relay',
       args: [relayData, BigInt(deposit.originChainId)],
+      value: deposit.outputToken === '0x0000000000000000000000000000000000000000' 
+        ? deposit.outputAmount 
+        : BigInt(0),
     });
 
     const receipt = await client.public.waitForTransactionReceipt({ hash });

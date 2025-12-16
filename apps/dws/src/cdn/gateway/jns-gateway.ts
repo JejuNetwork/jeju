@@ -191,7 +191,10 @@ export class JNSGateway {
       abi: JNS_REGISTRY_ABI,
       functionName: 'resolver',
       args: [node as `0x${string}`],
-    }).catch(() => null as Address | null);
+    }).catch((err: Error) => {
+      console.warn(`[JNS Gateway] Failed to get resolver for ${name}: ${err.message}`);
+      return null as Address | null;
+    });
     
     const resolverAddr = resolverAddress && resolverAddress !== '0x0000000000000000000000000000000000000000'
       ? resolverAddress
@@ -203,7 +206,10 @@ export class JNSGateway {
       abi: JNS_RESOLVER_ABI,
       functionName: 'contenthash',
       args: [node as `0x${string}`],
-    }).catch(() => null as `0x${string}` | null);
+    }).catch((err: Error) => {
+      console.warn(`[JNS Gateway] Failed to get contenthash for ${name}: ${err.message}`);
+      return null as `0x${string}` | null;
+    });
     
     if (!contenthashBytes || contenthashBytes === '0x') {
       return null;

@@ -30,7 +30,7 @@
     "android:build:release": "bun run build && bunx cap sync android && cd android && ./gradlew assembleRelease bundleRelease",
     "android:run": "bunx cap run android",
     "android:open": "bunx cap open android",
-    "android:emulator": "emulator -avd JejuWallet_Pixel6",
+    "android:emulator": "emulator -avd NetworkWallet_Pixel6",
     "android:install": "adb install -r android/app/build/outputs/apk/debug/app-debug.apk",
     "test": "bun test src/",
     "test:watch": "bun test --watch src/",

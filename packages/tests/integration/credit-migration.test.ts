@@ -17,9 +17,9 @@
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
-import { createPublicClient, createWalletClient, http, parseAbi, parseEther, formatUnits, type Address } from 'viem';
+import { createPublicClient, createWalletClient, http, parseAbi, parseEther, formatUnits, decodeEventLog, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { JEJU_LOCALNET } from '../shared/constants';
+import { JEJU_LOCALNET, TEST_WALLETS } from '../shared/constants';
 
 // Check if localnet is available  
 const rpcUrl = JEJU_LOCALNET.rpcUrl;
@@ -40,13 +40,13 @@ const TEST_CONFIG = {
   rpcUrl: JEJU_LOCALNET.rpcUrl,
   chainId: JEJU_LOCALNET.chainId,
   contracts: {
-    ElizaOSToken: process.env.ELIZAOS_TOKEN_ADDRESS as Address
+    ElizaOSToken: (process.env.ELIZAOS_TOKEN_ADDRESS || '0x5FbDB2315678afecb367f032d93F642f64180aa3') as Address
   },
   adminAccount: privateKeyToAccount(
-    (process.env.MIGRATION_ADMIN_PRIVATE_KEY || process.env.DEPLOYER_PRIVATE_KEY || '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80') as `0x${string}`
+    (process.env.MIGRATION_ADMIN_PRIVATE_KEY || TEST_WALLETS.deployer.privateKey) as `0x${string}`
   ),
   userAccount: privateKeyToAccount(
-    (process.env.TEST_PRIVATE_KEY || '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6') as `0x${string}`
+    (process.env.TEST_PRIVATE_KEY || TEST_WALLETS.user1.privateKey) as `0x${string}`
   ),
   // Migration parameters
   exchangeRate: 10n, // 1 credit = 10 elizaOS tokens
@@ -71,31 +71,90 @@ const adminWalletClient = createWalletClient({
   transport: http()
 });
 
+// ABIs for different token types
+const ACCESS_CONTROL_ABI = parseAbi([
+  'function hasRole(bytes32 role, address account) external view returns (bool)',
+  'function MINTER_ROLE() external view returns (bytes32)',
+  'function grantRole(bytes32 role, address account) external',
+  'function DEFAULT_ADMIN_ROLE() external view returns (bytes32)'
+]);
+
+const OWNABLE_ABI = parseAbi([
+  'function owner() external view returns (address)'
+]);
+
+const ERC20_ABI = parseAbi([
+  'function mint(address to, uint256 amount) external',
+  'function balanceOf(address) external view returns (uint256)',
+  'function totalSupply() external view returns (uint256)',
+  'function transfer(address to, uint256 amount) external returns (bool)',
+  'function name() external view returns (string)',
+  'function symbol() external view returns (string)',
+  'event Transfer(address indexed from, address indexed to, uint256 value)'
+]);
+
+// Token access control type
+type TokenAccessType = 'access-control' | 'ownable' | 'open-mint';
+
 describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
   let initialElizaOSBalance: bigint;
   let expectedMintAmount: bigint;
+  let tokenAccessType: TokenAccessType;
 
   beforeAll(async () => {
     // Calculate expected mint amount
     expectedMintAmount = BigInt(TEST_CONFIG.testCreditBalance) * TEST_CONFIG.exchangeRate * parseEther('1');
 
     // Get initial elizaOS balance
-    const erc20Abi = parseAbi(['function balanceOf(address) external view returns (uint256)']);
-
     initialElizaOSBalance = await publicClient.readContract({
       address: TEST_CONFIG.contracts.ElizaOSToken,
-      abi: erc20Abi,
+      abi: ERC20_ABI,
       functionName: 'balanceOf',
       args: [TEST_CONFIG.userAccount.address]
     });
 
+    // Determine token access control type
+    tokenAccessType = await detectTokenAccessType();
+
     console.log(`\nMigration Test Setup:`);
+    console.log(`  Token address: ${TEST_CONFIG.contracts.ElizaOSToken}`);
+    console.log(`  Token access type: ${tokenAccessType}`);
+    console.log(`  Admin address: ${TEST_CONFIG.adminAccount.address}`);
     console.log(`  User address: ${TEST_CONFIG.userAccount.address}`);
     console.log(`  Credits to migrate: ${TEST_CONFIG.testCreditBalance}`);
     console.log(`  Exchange rate: 1 credit = ${TEST_CONFIG.exchangeRate} elizaOS`);
     console.log(`  Expected mint: ${formatUnits(expectedMintAmount, 18)} elizaOS`);
     console.log(`  Initial balance: ${formatUnits(initialElizaOSBalance, 18)} elizaOS\n`);
   });
+
+  async function detectTokenAccessType(): Promise<TokenAccessType> {
+    // Try AccessControl first (OpenZeppelin style)
+    try {
+      await publicClient.readContract({
+        address: TEST_CONFIG.contracts.ElizaOSToken,
+        abi: ACCESS_CONTROL_ABI,
+        functionName: 'MINTER_ROLE'
+      });
+      return 'access-control';
+    } catch {
+      // Not AccessControl
+    }
+
+    // Try Ownable
+    try {
+      await publicClient.readContract({
+        address: TEST_CONFIG.contracts.ElizaOSToken,
+        abi: OWNABLE_ABI,
+        functionName: 'owner'
+      });
+      return 'ownable';
+    } catch {
+      // Not Ownable
+    }
+
+    // Assume open mint (MockERC20 style)
+    return 'open-mint';
+  }
 
   test('Should calculate migration amount correctly', () => {
     const credits = TEST_CONFIG.testCreditBalance;
@@ -106,46 +165,67 @@ describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
     console.log(`Calculated migration amount: ${formatUnits(calculatedAmount, 18)} elizaOS`);
   });
 
-  test('Should check admin has minting permissions', async () => {
-    const erc20Abi = parseAbi([
-      'function hasRole(bytes32 role, address account) external view returns (bool)',
-      'function MINTER_ROLE() external view returns (bytes32)'
-    ]);
-
-    try {
-      // Check if contract uses AccessControl with MINTER_ROLE
+  test('Should verify admin has minting permissions', async () => {
+    if (tokenAccessType === 'access-control') {
+      // Check AccessControl MINTER_ROLE
       const minterRole = await publicClient.readContract({
         address: TEST_CONFIG.contracts.ElizaOSToken,
-        abi: erc20Abi,
+        abi: ACCESS_CONTROL_ABI,
         functionName: 'MINTER_ROLE'
       });
 
       const hasRole = await publicClient.readContract({
         address: TEST_CONFIG.contracts.ElizaOSToken,
-        abi: erc20Abi,
+        abi: ACCESS_CONTROL_ABI,
         functionName: 'hasRole',
         args: [minterRole, TEST_CONFIG.adminAccount.address]
       });
 
       console.log(`Admin has MINTER_ROLE: ${hasRole}`);
-      expect(hasRole).toBe(true);
-    } catch (error) {
-      // If contract is ERC20Mock, it might not have role-based access
-      console.log('Note: Token contract may not use role-based access control');
+      
+      // If admin doesn't have role, grant it (admin should have DEFAULT_ADMIN_ROLE)
+      if (!hasRole) {
+        console.log('Granting MINTER_ROLE to admin...');
+        const grantTx = await adminWalletClient.writeContract({
+          address: TEST_CONFIG.contracts.ElizaOSToken,
+          abi: ACCESS_CONTROL_ABI,
+          functionName: 'grantRole',
+          args: [minterRole, TEST_CONFIG.adminAccount.address]
+        });
+        await publicClient.waitForTransactionReceipt({ hash: grantTx });
+        
+        // Verify role was granted
+        const nowHasRole = await publicClient.readContract({
+          address: TEST_CONFIG.contracts.ElizaOSToken,
+          abi: ACCESS_CONTROL_ABI,
+          functionName: 'hasRole',
+          args: [minterRole, TEST_CONFIG.adminAccount.address]
+        });
+        expect(nowHasRole).toBe(true);
+        console.log('MINTER_ROLE granted successfully');
+      }
+    } else if (tokenAccessType === 'ownable') {
+      // Check if admin is owner
+      const owner = await publicClient.readContract({
+        address: TEST_CONFIG.contracts.ElizaOSToken,
+        abi: OWNABLE_ABI,
+        functionName: 'owner'
+      });
+
+      const isOwner = owner.toLowerCase() === TEST_CONFIG.adminAccount.address.toLowerCase();
+      console.log(`Admin is owner: ${isOwner}`);
+      expect(isOwner).toBe(true);
+    } else {
+      // Open mint - anyone can mint
+      console.log('Token uses open minting (no access control)');
     }
   });
 
   test('Should execute migration by minting tokens', async () => {
-    const erc20Abi = parseAbi([
-      'function mint(address to, uint256 amount) external',
-      'function balanceOf(address) external view returns (uint256)',
-      'event Transfer(address indexed from, address indexed to, uint256 value)'
-    ]);
-
     // Execute migration (mint tokens to user)
     const mintTx = await adminWalletClient.writeContract({
       address: TEST_CONFIG.contracts.ElizaOSToken,
-      abi: erc20Abi,
+      abi: ERC20_ABI,
       functionName: 'mint',
       args: [TEST_CONFIG.userAccount.address, expectedMintAmount]
     });
@@ -158,16 +238,34 @@ describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
     // Verify transaction succeeded
     expect(receipt.status).toBe('success');
 
-    // Verify Transfer event was emitted
-    const transferEvent = receipt.logs.find(log => 
-      log.address.toLowerCase() === TEST_CONFIG.contracts.ElizaOSToken.toLowerCase()
-    );
-    expect(transferEvent).toBeDefined();
+    // Find and decode Transfer event
+    const transferEvents = receipt.logs
+      .filter(log => log.address.toLowerCase() === TEST_CONFIG.contracts.ElizaOSToken.toLowerCase())
+      .map(log => {
+        try {
+          return decodeEventLog({
+            abi: ERC20_ABI,
+            data: log.data,
+            topics: log.topics
+          });
+        } catch {
+          return null;
+        }
+      })
+      .filter((event): event is NonNullable<typeof event> => event !== null && event.eventName === 'Transfer');
+
+    expect(transferEvents.length).toBeGreaterThan(0);
+    
+    // Verify Transfer event details
+    const mintEvent = transferEvents[0];
+    expect(mintEvent.args.to.toLowerCase()).toBe(TEST_CONFIG.userAccount.address.toLowerCase());
+    expect(mintEvent.args.value).toBe(expectedMintAmount);
+    console.log(`Transfer event: ${formatUnits(mintEvent.args.value, 18)} elizaOS to ${mintEvent.args.to}`);
 
     // Verify balance increased
     const newBalance = await publicClient.readContract({
       address: TEST_CONFIG.contracts.ElizaOSToken,
-      abi: erc20Abi,
+      abi: ERC20_ABI,
       functionName: 'balanceOf',
       args: [TEST_CONFIG.userAccount.address]
     });
@@ -178,44 +276,38 @@ describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
   });
 
   test('Should verify total supply increased', async () => {
-    const erc20Abi = parseAbi(['function totalSupply() external view returns (uint256)']);
-
     const totalSupply = await publicClient.readContract({
       address: TEST_CONFIG.contracts.ElizaOSToken,
-      abi: erc20Abi,
+      abi: ERC20_ABI,
       functionName: 'totalSupply'
     });
 
     console.log(`Total elizaOS supply: ${formatUnits(totalSupply, 18)}`);
     expect(totalSupply).toBeGreaterThan(0n);
+    expect(totalSupply).toBeGreaterThanOrEqual(expectedMintAmount);
   });
 
   test('Should verify user can transfer migrated tokens', async () => {
-    const erc20Abi = parseAbi([
-      'function transfer(address to, uint256 amount) external returns (bool)',
-      'function balanceOf(address) external view returns (uint256)'
-    ]);
-
     const userWalletClient = createWalletClient({
       account: TEST_CONFIG.userAccount,
       chain: jejuChain,
       transport: http()
     });
 
-    // Try to transfer a small amount to verify tokens are usable
-    const transferAmount = parseEther('1'); // Transfer 1 elizaOS
-
     const balanceBefore = await publicClient.readContract({
       address: TEST_CONFIG.contracts.ElizaOSToken,
-      abi: erc20Abi,
+      abi: ERC20_ABI,
       functionName: 'balanceOf',
       args: [TEST_CONFIG.userAccount.address]
     });
 
+    // Transfer 1 elizaOS to verify tokens work
+    const transferAmount = parseEther('1');
+    
     if (balanceBefore >= transferAmount) {
       const transferTx = await userWalletClient.writeContract({
         address: TEST_CONFIG.contracts.ElizaOSToken,
-        abi: erc20Abi,
+        abi: ERC20_ABI,
         functionName: 'transfer',
         args: [TEST_CONFIG.adminAccount.address, transferAmount]
       });
@@ -225,7 +317,7 @@ describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
 
       const balanceAfter = await publicClient.readContract({
         address: TEST_CONFIG.contracts.ElizaOSToken,
-        abi: erc20Abi,
+        abi: ERC20_ABI,
         functionName: 'balanceOf',
         args: [TEST_CONFIG.userAccount.address]
       });
@@ -233,7 +325,54 @@ describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
       expect(balanceAfter).toBe(balanceBefore - transferAmount);
       console.log(`Successfully transferred ${formatUnits(transferAmount, 18)} elizaOS`);
     } else {
-      console.log('Insufficient balance to test transfer');
+      // This shouldn't happen after minting, but handle gracefully
+      throw new Error(`Insufficient balance for transfer test: ${formatUnits(balanceBefore, 18)} elizaOS`);
+    }
+  });
+
+  test('Should handle batch migration for multiple users', async () => {
+    // Simulate batch migration for multiple users
+    const users = [
+      TEST_WALLETS.user1.address,
+      TEST_WALLETS.user2.address,
+    ];
+    
+    const creditAmounts = [50, 100]; // Different credit balances
+    
+    console.log('Batch migration simulation:');
+    
+    for (let i = 0; i < users.length; i++) {
+      const userAddress = users[i] as Address;
+      const credits = creditAmounts[i];
+      const mintAmount = BigInt(credits) * TEST_CONFIG.exchangeRate * parseEther('1');
+      
+      // Get balance before
+      const balanceBefore = await publicClient.readContract({
+        address: TEST_CONFIG.contracts.ElizaOSToken,
+        abi: ERC20_ABI,
+        functionName: 'balanceOf',
+        args: [userAddress]
+      });
+      
+      // Mint tokens
+      const tx = await adminWalletClient.writeContract({
+        address: TEST_CONFIG.contracts.ElizaOSToken,
+        abi: ERC20_ABI,
+        functionName: 'mint',
+        args: [userAddress, mintAmount]
+      });
+      await publicClient.waitForTransactionReceipt({ hash: tx });
+      
+      // Verify balance increased
+      const balanceAfter = await publicClient.readContract({
+        address: TEST_CONFIG.contracts.ElizaOSToken,
+        abi: ERC20_ABI,
+        functionName: 'balanceOf',
+        args: [userAddress]
+      });
+      
+      expect(balanceAfter - balanceBefore).toBe(mintAmount);
+      console.log(`  User ${i + 1}: ${credits} credits -> ${formatUnits(mintAmount, 18)} elizaOS`);
     }
   });
 
@@ -243,13 +382,22 @@ describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
       { credits: 1, rate: 10n },
       { credits: 1000, rate: 10n },
       { credits: 50, rate: 5n },
-      { credits: 100, rate: 1n }
+      { credits: 100, rate: 1n },
+      { credits: 0, rate: 10n },  // Zero credits
+      { credits: 1, rate: 1n },   // Minimum case
     ];
 
+    console.log('Exchange rate calculations:');
     for (const { credits, rate } of testCases) {
       const amount = BigInt(credits) * rate * parseEther('1');
-      expect(amount).toBeGreaterThan(0n);
-      console.log(`${credits} credits @ ${rate}x rate = ${formatUnits(amount, 18)} elizaOS`);
+      
+      if (credits === 0) {
+        expect(amount).toBe(0n);
+      } else {
+        expect(amount).toBeGreaterThan(0n);
+      }
+      
+      console.log(`  ${credits} credits @ ${rate}x rate = ${formatUnits(amount, 18)} elizaOS`);
     }
   });
 
@@ -258,7 +406,12 @@ describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
     expect(TEST_CONFIG.testCreditBalance).toBeGreaterThan(0);
     expect(TEST_CONFIG.exchangeRate).toBeGreaterThan(0n);
     expect(expectedMintAmount).toBeGreaterThan(0n);
-    expect(expectedMintAmount).toBeLessThan(parseEther('1000000')); // Sanity check: < 1M tokens
+    expect(expectedMintAmount).toBeLessThan(parseEther('1000000')); // < 1M tokens
+    
+    // Verify no overflow with max values
+    const maxCredits = 1_000_000_000; // 1 billion credits
+    const maxMint = BigInt(maxCredits) * TEST_CONFIG.exchangeRate * parseEther('1');
+    expect(maxMint).toBeGreaterThan(0n); // Should not overflow
   });
 
   test('Should verify admin account has sufficient ETH for gas', async () => {
@@ -267,6 +420,26 @@ describe.skipIf(!localnetAvailable)('Credit Migration Integration', () => {
     });
 
     console.log(`Admin ETH balance: ${formatUnits(balance, 18)} ETH`);
-    expect(balance).toBeGreaterThan(parseEther('0.01')); // At least 0.01 ETH for gas
+    expect(balance).toBeGreaterThan(parseEther('0.01')); // At least 0.01 ETH
+  });
+
+  test('Should verify token metadata', async () => {
+    const name = await publicClient.readContract({
+      address: TEST_CONFIG.contracts.ElizaOSToken,
+      abi: ERC20_ABI,
+      functionName: 'name'
+    });
+
+    const symbol = await publicClient.readContract({
+      address: TEST_CONFIG.contracts.ElizaOSToken,
+      abi: ERC20_ABI,
+      functionName: 'symbol'
+    });
+
+    console.log(`Token: ${name} (${symbol})`);
+    expect(name).toBeDefined();
+    expect(symbol).toBeDefined();
+    expect(name.length).toBeGreaterThan(0);
+    expect(symbol.length).toBeGreaterThan(0);
   });
 });

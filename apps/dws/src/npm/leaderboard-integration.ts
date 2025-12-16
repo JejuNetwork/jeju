@@ -20,7 +20,15 @@ async function postToLeaderboard(endpoint: string, body: Record<string, unknown>
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-jeju-service': 'dws-npm' },
     body: JSON.stringify(body),
-  }).catch(() => null);
+  }).catch((err: Error) => {
+    console.warn(`[NPM Leaderboard] Failed to post to ${endpoint}: ${err.message}`);
+    return null;
+  });
+  
+  if (response && !response.ok) {
+    console.warn(`[NPM Leaderboard] POST to ${endpoint} returned ${response.status}`);
+  }
+  
   return response?.ok ?? false;
 }
 

@@ -11,14 +11,10 @@
  */
 
 import { spawn, type Subprocess } from 'bun';
-import { 
-  Wallet, 
-  JsonRpcProvider, 
-  Contract, 
-  ContractFactory,
-  TypedDataEncoder,
-  NonceManager
-} from 'ethers';
+import { createPublicClient, createWalletClient, http, encodeDeployData, getContractAddress, readContract, writeContract, waitForTransactionReceipt, getChainId, type Address, type PublicClient, type WalletClient } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { parseAbi } from 'viem';
+import { inferChainFromRpcUrl } from '../shared/chain-utils';
 
 const ACCOUNTS = [
   { 
@@ -53,15 +49,18 @@ interface SignResponse {
 }
 
 class P2PSigningTest {
-  private provider: JsonRpcProvider;
-  private deployer: NonceManager;
+  private publicClient: PublicClient;
+  private walletClient: WalletClient;
   private signers: SignerProcess[] = [];
-  private submitterContract?: Contract;
+  private submitterContractAddress?: Address;
+  private submitterAbi: ReturnType<typeof parseAbi>;
 
   constructor() {
-    this.provider = new JsonRpcProvider(RPC_URL);
-    const wallet = new Wallet(ACCOUNTS[0].privateKey, this.provider);
-    this.deployer = new NonceManager(wallet);
+    const chain = inferChainFromRpcUrl(RPC_URL);
+    const account = privateKeyToAccount(ACCOUNTS[0].privateKey as `0x${string}`);
+    this.publicClient = createPublicClient({ chain, transport: http(RPC_URL) });
+    this.walletClient = createWalletClient({ chain, transport: http(RPC_URL), account });
+    this.submitterAbi = parseAbi([]);
   }
 
   async startSigners(): Promise<void> {
@@ -119,25 +118,33 @@ class P2PSigningTest {
     const artifactPath = `${import.meta.dir}/../../packages/contracts/out/ThresholdBatchSubmitter.sol/ThresholdBatchSubmitter.json`;
     const artifact = await Bun.file(artifactPath).json();
 
-    const batchInbox = '0x0000000000000000000000000000000000004200';
-    const owner = ACCOUNTS[0].address;
+    const batchInbox = '0x0000000000000000000000000000000000004200' as Address;
+    const owner = ACCOUNTS[0].address as Address;
     
-    // Use ContractFactory for deployment
-    const factory = new ContractFactory(artifact.abi, artifact.bytecode.object, this.deployer);
+    this.submitterAbi = parseAbi(artifact.abi);
     
-    // Constructor: (address _batchInbox, address _owner, uint256 _threshold)
-    const contract = await factory.deploy(batchInbox, owner, THRESHOLD);
-    await contract.waitForDeployment();
-
-    const contractAddress = await contract.getAddress();
-    this.submitterContract = new Contract(contractAddress, artifact.abi, this.deployer);
+    const deployData = encodeDeployData({
+      abi: this.submitterAbi,
+      bytecode: artifact.bytecode.object as `0x${string}`,
+      args: [batchInbox, owner, BigInt(THRESHOLD)],
+    });
+    
+    const hash = await this.walletClient.sendTransaction({ data: deployData });
+    const receipt = await waitForTransactionReceipt(this.publicClient, { hash });
+    const contractAddress = receipt.contractAddress ?? getContractAddress({ from: this.walletClient.account.address, nonce: BigInt(0) });
+    this.submitterContractAddress = contractAddress;
     console.log(`  Contract deployed at: ${contractAddress}`);
 
     // Register all sequencers
     console.log('  Registering sequencers...');
     for (const account of ACCOUNTS) {
-      const tx = await this.submitterContract.addSequencer(account.address);
-      await tx.wait();
+      const hash = await this.walletClient.writeContract({
+        address: contractAddress,
+        abi: this.submitterAbi,
+        functionName: 'addSequencer',
+        args: [account.address as Address],
+      });
+      await waitForTransactionReceipt(this.publicClient, { hash });
       console.log(`    Added sequencer: ${account.address}`);
     }
     console.log('');
@@ -146,13 +153,22 @@ class P2PSigningTest {
   async testSignatureCollection(): Promise<void> {
     console.log('Testing signature collection...');
 
-    const batchData = '0xdeadbeefcafebabe';
+    const batchData = '0xdeadbeefcafebabe' as `0x${string}`;
     const requestId = `test-${Date.now()}`;
-    const chainId = Number((await this.provider.getNetwork()).chainId);
+    const chainId = await getChainId(this.publicClient);
 
     // Get the digest from the contract (matches the contract's _hashTypedData)
-    const nonce = await this.submitterContract!.getCurrentNonce();
-    const digest = await this.submitterContract!.getBatchDigest(batchData);
+    const nonce = await readContract(this.publicClient, {
+      address: this.submitterContractAddress!,
+      abi: this.submitterAbi,
+      functionName: 'getCurrentNonce',
+    });
+    const digest = await readContract(this.publicClient, {
+      address: this.submitterContractAddress!,
+      abi: this.submitterAbi,
+      functionName: 'getBatchDigest',
+      args: [batchData],
+    }) as `0x${string}`;
     console.log(`  Batch digest from contract: ${digest}`);
 
     const signatures: string[] = [];
@@ -186,16 +202,25 @@ class P2PSigningTest {
     console.log(`  Collected ${signatures.length} signatures\n`);
 
     console.log('Submitting batch...');
-    const tx = await this.submitterContract!.submitBatch(
-      batchData,
-      signatures,
-      signerAddresses
-    );
-    const receipt = await tx.wait();
-    console.log(`  Batch submitted in tx: ${receipt.hash}`);
+    const hash = await this.walletClient.writeContract({
+      address: this.submitterContractAddress!,
+      abi: this.submitterAbi,
+      functionName: 'submitBatch',
+      args: [
+        batchData,
+        signatures as `0x${string}`[],
+        signerAddresses as Address[],
+      ],
+    });
+    const receipt = await waitForTransactionReceipt(this.publicClient, { hash });
+    console.log(`  Batch submitted in tx: ${hash}`);
     console.log(`  Gas used: ${receipt.gasUsed.toString()}\n`);
 
-    const newNonce = await this.submitterContract!.getCurrentNonce();
+    const newNonce = await readContract(this.publicClient, {
+      address: this.submitterContractAddress!,
+      abi: this.submitterAbi,
+      functionName: 'getCurrentNonce',
+    });
     if (newNonce !== nonce + 1n) {
       throw new Error(`Nonce did not increment`);
     }
@@ -216,7 +241,7 @@ class P2PSigningTest {
 
     try {
       try {
-        await this.provider.getBlockNumber();
+        await this.publicClient.getBlockNumber();
       } catch {
         console.error('\nError: Anvil not running. Start it with: anvil\n');
         process.exit(1);

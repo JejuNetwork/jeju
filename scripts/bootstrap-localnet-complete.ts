@@ -27,6 +27,7 @@
 import { execSync } from 'child_process';
 import { writeFileSync, existsSync, readFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { getNetworkName } from '@jejunetwork/config';
 
 interface BootstrapResult {
   network: string;

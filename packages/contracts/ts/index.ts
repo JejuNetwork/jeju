@@ -47,7 +47,10 @@ export {
   ERC20Abi,
   ERC20FactoryAbi,
   BazaarAbi,
+  // ERC-8004 Registry ABIs
   IdentityRegistryAbi,
+  ReputationRegistryAbi,
+  ValidationRegistryAbi,
   ERC20ReadAbi,
   ERC20WriteAbi,
   // Native token ABI
@@ -98,6 +101,8 @@ export {
   ERC20FactoryAbiJson,
   BazaarAbiJson,
   IdentityRegistryAbiJson,
+  ReputationRegistryAbiJson,
+  ValidationRegistryAbiJson,
   InputSettlerAbiJson,
   OutputSettlerAbiJson,
   SolverRegistryAbiJson,

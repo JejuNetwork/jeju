@@ -15,6 +15,8 @@
     "dev": "bun run src/server/index.ts",
     "start": "bun run src/server/index.ts",
     "test": "bun test src/tests src/cdn/tests",
+    "test:integration": "bun test tests/",
+    "test:all": "bun test",
     "typecheck": "tsc --noEmit",
     "cdn:edge": "bun run src/cdn/edge/index.ts",
     "cdn:coordinator": "bun run src/cdn/routing/coordinator.ts",

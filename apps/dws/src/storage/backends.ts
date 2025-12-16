@@ -83,7 +83,10 @@ class IPFSBackend implements StorageBackend {
   }
 
   async healthCheck(): Promise<boolean> {
-    const response = await fetch(`${this.apiUrl}/api/v0/id`, { method: 'POST' }).catch(() => null);
+    const response = await fetch(`${this.apiUrl}/api/v0/id`, { method: 'POST' }).catch((err: Error) => {
+      console.warn(`[IPFS Backend] Health check failed: ${err.message}`);
+      return null;
+    });
     return response?.ok ?? false;
   }
 }
@@ -167,7 +170,10 @@ class BackendManagerImpl implements BackendManager {
     }
 
     for (const [name, backend] of this.backends) {
-      const content = await backend.download(cid).catch(() => null);
+      const content = await backend.download(cid).catch((err: Error) => {
+        console.debug(`[BackendManager] Backend ${name} failed to download ${cid}: ${err.message}`);
+        return null;
+      });
       if (content) {
         this.cidToBackend.set(cid, name);
         return { content, backend: backend.type };
@@ -180,7 +186,10 @@ class BackendManagerImpl implements BackendManager {
   async downloadBatch(cids: string[]): Promise<Map<string, Buffer>> {
     const results = new Map<string, Buffer>();
     for (const cid of cids) {
-      const response = await this.download(cid).catch(() => null);
+      const response = await this.download(cid).catch((err: Error) => {
+        console.warn(`[BackendManager] Batch download failed for ${cid}: ${err.message}`);
+        return null;
+      });
       if (response) {
         results.set(cid, response.content);
       }
@@ -208,7 +217,10 @@ class BackendManagerImpl implements BackendManager {
   async healthCheck(): Promise<Record<string, boolean>> {
     const results: Record<string, boolean> = {};
     for (const [name, backend] of this.backends) {
-      results[name] = await backend.healthCheck().catch(() => false);
+      results[name] = await backend.healthCheck().catch((err: Error) => {
+        console.warn(`[BackendManager] Health check failed for ${name}: ${err.message}`);
+        return false;
+      });
     }
     return results;
   }

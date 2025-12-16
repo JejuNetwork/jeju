@@ -1,4 +1,4 @@
-import { createPublicClient, createWalletClient, http, type PublicClient, type WalletClient, type Address, type Chain, keccak256, toUtf8Bytes, zeroAddress } from 'viem';
+import { createPublicClient, createWalletClient, http, type PublicClient, type WalletClient, type Address, type Chain, keccak256, stringToBytes, zeroAddress } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { readContract, waitForTransactionReceipt } from 'viem/actions';
 import { parseAbi } from 'viem';
@@ -190,18 +190,18 @@ export function createSigner(config: Agent0Config): { client: PublicClient; wall
 // ============ Minimal ABI for IdentityRegistry ============
 
 const IDENTITY_REGISTRY_ABI = parseAbi([
-  'function register(string calldata tokenURI_) external returns (uint256 agentId)',
-  'function register(string calldata tokenURI_, tuple(string key, bytes value)[] calldata metadata) external returns (uint256 agentId)',
-  'function setAgentUri(uint256 agentId, string calldata newTokenURI) external',
-  'function setMetadata(uint256 agentId, string calldata key, bytes calldata value) external',
-  'function getMetadata(uint256 agentId, string calldata key) external view returns (bytes memory)',
-  'function tokenURI(uint256 tokenId) external view returns (string memory)',
+  'function register(string tokenURI_) external returns (uint256 agentId)',
+  'function register(string tokenURI_, (string key, bytes value)[] metadata) external returns (uint256 agentId)',
+  'function setAgentUri(uint256 agentId, string newTokenURI) external',
+  'function setMetadata(uint256 agentId, string key, bytes value) external',
+  'function getMetadata(uint256 agentId, string key) external view returns (bytes)',
+  'function tokenURI(uint256 tokenId) external view returns (string)',
   'function ownerOf(uint256 tokenId) external view returns (address)',
   'function totalAgents() external view returns (uint256)',
   'function agentExists(uint256 agentId) external view returns (bool)',
-  'function updateTags(uint256 agentId, string[] calldata tags_) external',
-  'function getAgentTags(uint256 agentId) external view returns (string[] memory)',
-  'function getAgentsByTag(string calldata tag) external view returns (uint256[] memory)',
+  'function updateTags(uint256 agentId, string[] tags_) external',
+  'function getAgentTags(uint256 agentId) external view returns (string[])',
+  'function getAgentsByTag(string tag) external view returns (uint256[])',
   'event Registered(uint256 indexed agentId, address indexed owner, uint8 tier, uint256 stakedAmount, string tokenURI)',
   'event AgentUriUpdated(uint256 indexed agentId, string newTokenURI)',
 ]);
@@ -321,7 +321,7 @@ export async function registerApp(
   
   // Extract agentId from logs
   const registeredEvent = receipt.logs.find(
-    (log) => log.topics[0] === keccak256(toUtf8Bytes('Registered(uint256,address,uint8,uint256,string)'))
+    (log) => log.topics[0] === keccak256(stringToBytes('Registered(uint256,address,uint8,uint256,string)'))
   );
   
   let agentId: string;
@@ -413,7 +413,7 @@ export async function updateAgentMetadata(
     address: networkConfig.registries.IDENTITY as Address,
     abi: IDENTITY_REGISTRY_ABI,
     functionName: 'setMetadata',
-    args: [BigInt(tokenId), key, toUtf8Bytes(value)],
+    args: [BigInt(tokenId), key, stringToBytes(value)],
     account,
   });
   

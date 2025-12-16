@@ -1,13 +1,15 @@
 /**
  * Registry Integration Tests
  * 
- * Tests for the CouncilRegistryIntegration contract and client
+ * Tests for the CouncilRegistryIntegration contract and client.
+ * Requires local chain running. Set INTEGRATION=true to enable.
  */
 
 import { describe, it, expect, beforeAll } from 'bun:test';
 import { RegistryIntegrationClient, type RegistryIntegrationConfig } from '../src/registry-integration';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+const SKIP_RPC = !process.env.INTEGRATION;
 
 // Test configuration - uses localhost by default
 const testConfig: RegistryIntegrationConfig = {
@@ -18,7 +20,7 @@ const testConfig: RegistryIntegrationConfig = {
   delegationRegistry: process.env.DELEGATION_REGISTRY_ADDRESS,
 };
 
-describe('RegistryIntegrationClient', () => {
+describe.skipIf(SKIP_RPC)('RegistryIntegrationClient', () => {
   let client: RegistryIntegrationClient;
 
   beforeAll(() => {

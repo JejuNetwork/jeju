@@ -524,7 +524,10 @@ export class NpmRegistryManager {
     const cached = this.manifestCache.get(cidString);
     if (cached) return cached;
 
-    const result = await this.backend.download(cidString).catch(() => null);
+    const result = await this.backend.download(cidString).catch((err: Error) => {
+      console.error(`[NPM Registry] Failed to download manifest ${cidString}: ${err.message}`);
+      return null;
+    });
     if (!result) return null;
 
     const manifest = JSON.parse(result.content.toString()) as PackageManifest;
@@ -548,7 +551,10 @@ export class NpmRegistryManager {
     const cidString = this.hexToCid(tarballCid);
     if (!cidString) return null;
 
-    const result = await this.backend.download(cidString).catch(() => null);
+    const result = await this.backend.download(cidString).catch((err: Error) => {
+      console.error(`[NPM Registry] Failed to download tarball ${cidString}: ${err.message}`);
+      return null;
+    });
     return result?.content || null;
   }
 

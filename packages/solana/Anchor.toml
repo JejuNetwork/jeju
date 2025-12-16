@@ -5,14 +5,20 @@ skip-lint = false
 [programs.localnet]
 oif_solver = "GYSFWUUKUFAdtv1TgZ3GkGfdCxPNbyRj1jsW8VRK7hBs"
 jeju_launchpad = "6q2T4SEeE2U4XsFNa5piNy6Vzv2qvdZXmAHhQH7BYVJd"
+evm_light_client = "EVMLightCL1111111111111111111111111111111111"
+token_bridge = "TknBridge1111111111111111111111111111111111"
 
 [programs.devnet]
 oif_solver = "GYSFWUUKUFAdtv1TgZ3GkGfdCxPNbyRj1jsW8VRK7hBs"
 jeju_launchpad = "6q2T4SEeE2U4XsFNa5piNy6Vzv2qvdZXmAHhQH7BYVJd"
+evm_light_client = "EVMLightCL1111111111111111111111111111111111"
+token_bridge = "TknBridge1111111111111111111111111111111111"
 
 [programs.mainnet]
 oif_solver = "GYSFWUUKUFAdtv1TgZ3GkGfdCxPNbyRj1jsW8VRK7hBs"
 jeju_launchpad = "6q2T4SEeE2U4XsFNa5piNy6Vzv2qvdZXmAHhQH7BYVJd"
+evm_light_client = "EVMLightCL1111111111111111111111111111111111"
+token_bridge = "TknBridge1111111111111111111111111111111111"
 
 [registry]
 url = "https://api.apr.dev"

@@ -229,6 +229,7 @@ contract OAuth3Test is Test {
         vm.warp(block.timestamp + 1);
         vm.roll(block.number + 1);
 
+
         bytes32 newClientId = appRegistry.rotateCredentials(appId);
 
         IOAuth3AppRegistry.AppCredentials memory newCreds = appRegistry.getAppCredentials(appId);

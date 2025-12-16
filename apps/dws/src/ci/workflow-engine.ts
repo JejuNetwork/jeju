@@ -479,27 +479,24 @@ export class WorkflowEngine {
     logs.push(`\n=== Step: ${stepRun.name} ===`);
 
     if (stepConfig.uses) {
-      // Execute action
       logs.push(`Using action: ${stepConfig.uses}`);
       await this.executeAction(stepRun, stepConfig, context, logs);
     } else if (stepConfig.run) {
-      // Execute shell command
       const command = this.interpolateVariables(stepConfig.run, context);
       logs.push(`$ ${command}`);
 
-      // In a real implementation, this would execute in a sandbox/container
-      // For now, we simulate execution
-      const result = await this.simulateCommand(command, stepConfig.shell || 'bash');
+      const result = await this.executeCommand(
+        command,
+        stepConfig.shell || 'bash',
+        stepConfig.workingDirectory,
+        { ...context.env, ...stepConfig.env }
+      );
 
       stepRun.output = result.output;
       stepRun.exitCode = result.exitCode;
       logs.push(result.output);
 
-      if (result.exitCode !== 0) {
-        stepRun.conclusion = 'failure';
-      } else {
-        stepRun.conclusion = 'success';
-      }
+      stepRun.conclusion = result.exitCode === 0 ? 'success' : 'failure';
     } else {
       stepRun.conclusion = 'skipped';
     }

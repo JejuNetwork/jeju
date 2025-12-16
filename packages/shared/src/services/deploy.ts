@@ -4,7 +4,7 @@
  * Helpers for deploying dApps to the decentralized network.
  */
 
-import { Wallet } from 'ethers';
+import { privateKeyToAccount } from 'viem/accounts';
 import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 import type { Address, Hex } from 'viem';
@@ -109,16 +109,16 @@ export async function deployApp(config: DeployConfig): Promise<DeployResult> {
   return result;
 }
 
-async function getWallet(config: DeployConfig): Promise<Wallet> {
+async function getWallet(config: DeployConfig): Promise<ReturnType<typeof privateKeyToAccount>> {
   const privateKey = config.privateKey || process.env.DEPLOYER_PRIVATE_KEY;
   
   if (privateKey) {
-    return new Wallet(privateKey);
+    return privateKeyToAccount(privateKey as `0x${string}`);
   }
 
   // Use well-known dev key for localnet
   if (config.network === 'localnet' || !config.network) {
-    return new Wallet('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80');
+    return privateKeyToAccount('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as `0x${string}`);
   }
 
   throw new Error('DEPLOYER_PRIVATE_KEY required');

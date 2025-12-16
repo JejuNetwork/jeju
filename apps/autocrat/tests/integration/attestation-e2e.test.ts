@@ -5,7 +5,7 @@
 import { describe, test, expect, beforeAll } from 'bun:test';
 import { ethers, Contract, Wallet, JsonRpcProvider, solidityPackedKeccak256, getBytes, keccak256, toUtf8Bytes } from 'ethers';
 
-const RPC_URL = process.env.RPC_URL ?? 'http://localhost:9545';
+const RPC_URL = process.env.RPC_URL ?? process.env.L2_RPC_URL ?? 'http://localhost:9545';
 const CHAIN_ID = 31337;
 const DEPLOYER_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
 const USER_KEY = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
@@ -54,6 +54,15 @@ async function checkAnvil(): Promise<boolean> {
   }
 }
 
+async function checkContractsDeployed(provider: JsonRpcProvider, councilAddress: string): Promise<boolean> {
+  try {
+    const code = await provider.getCode(councilAddress);
+    return code !== '0x' && code.length > 2;
+  } catch {
+    return false;
+  }
+}
+
 describe('Attestation End-to-End Tests', () => {
   let provider: JsonRpcProvider;
   let deployer: Wallet;
@@ -61,6 +70,7 @@ describe('Attestation End-to-End Tests', () => {
   let council: Contract;
   let qualityOracle: Contract;
   let anvilRunning: boolean;
+  let contractsDeployed: boolean = false;
 
   beforeAll(async () => {
     anvilRunning = await checkAnvil();
@@ -75,6 +85,14 @@ describe('Attestation End-to-End Tests', () => {
 
     const councilAddress = process.env.COUNCIL_ADDRESS ?? '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9';
     const qualityOracleAddress = process.env.QUALITY_ORACLE_ADDRESS ?? '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707';
+
+    // Check if contracts are deployed
+    contractsDeployed = await checkContractsDeployed(provider, councilAddress);
+    if (!contractsDeployed) {
+      console.log('⚠️  Contracts not deployed - on-chain tests will be skipped');
+      console.log('   Run: jeju dev --bootstrap or scripts/start-council-dev.sh');
+      return;
+    }
 
     council = new Contract(councilAddress, COUNCIL_ABI, deployer);
     qualityOracle = new Contract(qualityOracleAddress, QUALITY_ORACLE_ABI, deployer);
@@ -99,7 +117,7 @@ describe('Attestation End-to-End Tests', () => {
   });
 
   test('verifyScore validates signature on-chain (view call)', async () => {
-    if (!anvilRunning) return;
+    if (!anvilRunning || !contractsDeployed) return;
 
     const contentHash = getContentHash('Verify Test', 'Testing verifyScore', 1);
     const score = 95;
@@ -113,7 +131,7 @@ describe('Attestation End-to-End Tests', () => {
   });
 
   test('submitProposalWithAttestation creates proposal on-chain', async () => {
-    if (!anvilRunning) return;
+    if (!anvilRunning || !contractsDeployed) return;
 
     const title = `E2E Test Proposal ${Date.now()}`;
     const description = 'End-to-end test proposal with attestation';
@@ -147,7 +165,7 @@ describe('Attestation End-to-End Tests', () => {
   });
 
   test('attestation with score below minimum fails', async () => {
-    if (!anvilRunning) return;
+    if (!anvilRunning || !contractsDeployed) return;
 
     const contentHash = getContentHash('Low Score Test', 'Testing low score rejection', 1);
     const score = 50;
@@ -169,7 +187,7 @@ describe('Attestation End-to-End Tests', () => {
   });
 
   test('attestation from non-assessor fails', async () => {
-    if (!anvilRunning) return;
+    if (!anvilRunning || !contractsDeployed) return;
 
     const contentHash = getContentHash('Non-Assessor Test', 'Testing non-assessor rejection', 1);
     const score = 95;
@@ -191,7 +209,7 @@ describe('Attestation End-to-End Tests', () => {
   });
 
   test('expired attestation fails', async () => {
-    if (!anvilRunning) return;
+    if (!anvilRunning || !contractsDeployed) return;
 
     const contentHash = getContentHash('Expired Test', 'Testing expired attestation', 1);
     const score = 95;

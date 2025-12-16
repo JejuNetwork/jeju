@@ -4,7 +4,7 @@
  */
 
 import { describe, test, expect } from 'bun:test';
-import { ethers } from 'ethers';
+import { parseEther, parseUnits, zeroAddress, parseAbi, encodeFunctionData, decodeFunctionData, getFunctionSelector } from 'viem';
 import {
   OUTPUT_SETTLER_ABI,
   INPUT_SETTLER_ABI,
@@ -111,26 +111,30 @@ describe('ABI Definitions', () => {
     expect(ERC20_APPROVE_ABI[0].inputs).toHaveLength(2);
   });
 
-  test('ABIs can be used with ethers.Interface', () => {
-    const outputIface = new ethers.Interface(OUTPUT_SETTLER_ABI);
-    const erc20Iface = new ethers.Interface(ERC20_APPROVE_ABI);
+  test('ABIs can be used with viem parseAbi', () => {
+    const outputAbi = parseAbi(OUTPUT_SETTLER_ABI);
+    const erc20Abi = parseAbi(ERC20_APPROVE_ABI);
 
-    expect(outputIface.getFunction('fillDirect')).toBeDefined();
-    expect(outputIface.getFunction('isFilled')).toBeDefined();
-    expect(erc20Iface.getFunction('approve')).toBeDefined();
+    expect(outputAbi.find(f => f.type === 'function' && f.name === 'fillDirect')).toBeDefined();
+    expect(outputAbi.find(f => f.type === 'function' && f.name === 'isFilled')).toBeDefined();
+    expect(erc20Abi.find(f => f.type === 'function' && f.name === 'approve')).toBeDefined();
   });
 
   test('fillDirect ABI encodes correctly', () => {
-    const iface = new ethers.Interface(OUTPUT_SETTLER_ABI);
-    const data = iface.encodeFunctionData('fillDirect', [
-      '0x' + 'ab'.repeat(32),
-      '0x' + '11'.repeat(20),
-      ethers.parseEther('1.0'),
-      '0x' + '22'.repeat(20),
-    ]);
+    const abi = parseAbi(OUTPUT_SETTLER_ABI);
+    const data = encodeFunctionData({
+      abi,
+      functionName: 'fillDirect',
+      args: [
+        '0x' + 'ab'.repeat(32) as `0x${string}`,
+        '0x' + '11'.repeat(20) as `0x${string}`,
+        parseEther('1.0'),
+        '0x' + '22'.repeat(20) as `0x${string}`,
+      ],
+    });
     
     expect(data.length).toBe(2 + 8 + 4 * 64); // 0x + selector + 4 params
-    expect(data.slice(0, 10)).toBe(iface.getFunction('fillDirect')!.selector);
+    expect(data.slice(0, 10)).toBe(getFunctionSelector('fillDirect(bytes32,address,uint256,address)'));
   });
 });
 
@@ -168,42 +172,54 @@ describe('Edge Cases', () => {
   });
 
   test('fillDirect with zero amount', () => {
-    const iface = new ethers.Interface(OUTPUT_SETTLER_ABI);
-    const data = iface.encodeFunctionData('fillDirect', [
-      '0x' + '00'.repeat(32),
-      ethers.ZeroAddress,
-      0n,
-      ethers.ZeroAddress,
-    ]);
+    const abi = parseAbi(OUTPUT_SETTLER_ABI);
+    const data = encodeFunctionData({
+      abi,
+      functionName: 'fillDirect',
+      args: [
+        '0x' + '00'.repeat(32) as `0x${string}`,
+        zeroAddress,
+        0n,
+        zeroAddress,
+      ],
+    });
     expect(data).toBeDefined();
   });
 
   test('fillDirect with max uint256', () => {
-    const iface = new ethers.Interface(OUTPUT_SETTLER_ABI);
+    const abi = parseAbi(OUTPUT_SETTLER_ABI);
     const maxUint256 = 2n ** 256n - 1n;
-    const data = iface.encodeFunctionData('fillDirect', [
-      '0x' + 'ff'.repeat(32),
-      '0x' + 'ff'.repeat(20),
-      maxUint256,
-      '0x' + 'ff'.repeat(20),
-    ]);
+    const data = encodeFunctionData({
+      abi,
+      functionName: 'fillDirect',
+      args: [
+        '0x' + 'ff'.repeat(32) as `0x${string}`,
+        '0x' + 'ff'.repeat(20) as `0x${string}`,
+        maxUint256,
+        '0x' + 'ff'.repeat(20) as `0x${string}`,
+      ],
+    });
     expect(data).toBeDefined();
 
     // Verify decoding works
-    const decoded = iface.decodeFunctionData('fillDirect', data);
-    expect(decoded[2]).toBe(maxUint256);
+    const decoded = decodeFunctionData({ abi, data });
+    expect(decoded.args[2]).toBe(maxUint256);
   });
 
   test('approve with max uint256 (infinite approval)', () => {
-    const iface = new ethers.Interface(ERC20_APPROVE_ABI);
+    const abi = parseAbi(ERC20_APPROVE_ABI);
     const maxUint256 = 2n ** 256n - 1n;
-    const data = iface.encodeFunctionData('approve', [
-      '0x' + '11'.repeat(20),
-      maxUint256,
-    ]);
+    const data = encodeFunctionData({
+      abi,
+      functionName: 'approve',
+      args: [
+        '0x' + '11'.repeat(20) as `0x${string}`,
+        maxUint256,
+      ],
+    });
     
-    const decoded = iface.decodeFunctionData('approve', data);
-    expect(decoded[1]).toBe(maxUint256);
+    const decoded = decodeFunctionData({ abi, data });
+    expect(decoded.args[1]).toBe(maxUint256);
   });
 });
 
@@ -272,48 +288,48 @@ describe('Boundary Conditions - isNativeToken', () => {
 
 describe('ABI Encoding/Decoding Roundtrip', () => {
   test('fillDirect encodes and decodes identically', () => {
-    const iface = new ethers.Interface(OUTPUT_SETTLER_ABI);
+    const abi = parseAbi(OUTPUT_SETTLER_ABI);
     const params = [
-      '0x' + 'ab'.repeat(32),
-      '0x' + '11'.repeat(20),
-      ethers.parseEther('123.456'),
-      '0x' + '22'.repeat(20),
+      '0x' + 'ab'.repeat(32) as `0x${string}`,
+      '0x' + '11'.repeat(20) as `0x${string}`,
+      parseEther('123.456'),
+      '0x' + '22'.repeat(20) as `0x${string}`,
     ] as const;
     
-    const encoded = iface.encodeFunctionData('fillDirect', params);
-    const decoded = iface.decodeFunctionData('fillDirect', encoded);
+    const encoded = encodeFunctionData({ abi, functionName: 'fillDirect', args: params });
+    const decoded = decodeFunctionData({ abi, data: encoded });
     
-    expect(decoded[0]).toBe(params[0]);
-    expect(decoded[1].toLowerCase()).toBe(params[1]);
-    expect(decoded[2]).toBe(params[2]);
-    expect(decoded[3].toLowerCase()).toBe(params[3]);
+    expect(decoded.args[0]).toBe(params[0]);
+    expect(decoded.args[1].toLowerCase()).toBe(params[1]);
+    expect(decoded.args[2]).toBe(params[2]);
+    expect(decoded.args[3].toLowerCase()).toBe(params[3]);
   });
 
   test('isFilled encodes orderId correctly', () => {
-    const iface = new ethers.Interface(OUTPUT_SETTLER_ABI);
-    const orderId = '0x' + 'deadbeef'.repeat(8);
+    const abi = parseAbi(OUTPUT_SETTLER_ABI);
+    const orderId = '0x' + 'deadbeef'.repeat(8) as `0x${string}`;
     
-    const encoded = iface.encodeFunctionData('isFilled', [orderId]);
-    const decoded = iface.decodeFunctionData('isFilled', encoded);
+    const encoded = encodeFunctionData({ abi, functionName: 'isFilled', args: [orderId] });
+    const decoded = decodeFunctionData({ abi, data: encoded });
     
-    expect(decoded[0]).toBe(orderId);
+    expect(decoded.args[0]).toBe(orderId);
   });
 
   test('approve handles various amounts', () => {
-    const iface = new ethers.Interface(ERC20_APPROVE_ABI);
+    const abi = parseAbi(ERC20_APPROVE_ABI);
     const testAmounts = [
       0n,
       1n,
-      ethers.parseEther('1'),
-      ethers.parseUnits('1000000', 6), // USDC
+      parseEther('1'),
+      parseUnits('1000000', 6), // USDC
       2n ** 128n,
       2n ** 256n - 1n,
     ];
     
     for (const amount of testAmounts) {
-      const encoded = iface.encodeFunctionData('approve', [ethers.ZeroAddress, amount]);
-      const decoded = iface.decodeFunctionData('approve', encoded);
-      expect(decoded[1]).toBe(amount);
+      const encoded = encodeFunctionData({ abi, functionName: 'approve', args: [zeroAddress, amount] });
+      const decoded = decodeFunctionData({ abi, data: encoded });
+      expect(decoded.args[1]).toBe(amount);
     }
   });
 });
@@ -355,16 +371,16 @@ describe('Deployed Contract Verification', () => {
 describe('INPUT_SETTLER_ABI Coverage', () => {
   
   test('settle function exists with correct signature', () => {
-    const iface = new ethers.Interface(INPUT_SETTLER_ABI);
-    const settle = iface.getFunction('settle');
+    const abi = parseAbi(INPUT_SETTLER_ABI);
+    const settle = abi.find(f => f.type === 'function' && f.name === 'settle');
     expect(settle).toBeDefined();
     expect(settle!.inputs.length).toBe(1);
     expect(settle!.inputs[0].type).toBe('bytes32');
   });
 
   test('canSettle function exists with correct signature', () => {
-    const iface = new ethers.Interface(INPUT_SETTLER_ABI);
-    const canSettle = iface.getFunction('canSettle');
+    const abi = parseAbi(INPUT_SETTLER_ABI);
+    const canSettle = abi.find(f => f.type === 'function' && f.name === 'canSettle');
     expect(canSettle).toBeDefined();
     expect(canSettle!.inputs.length).toBe(1);
     expect(canSettle!.outputs?.length).toBe(1);
@@ -372,8 +388,8 @@ describe('INPUT_SETTLER_ABI Coverage', () => {
   });
 
   test('getOrder function returns tuple with expected fields', () => {
-    const iface = new ethers.Interface(INPUT_SETTLER_ABI);
-    const getOrder = iface.getFunction('getOrder');
+    const abi = parseAbi(INPUT_SETTLER_ABI);
+    const getOrder = abi.find(f => f.type === 'function' && f.name === 'getOrder');
     expect(getOrder).toBeDefined();
     expect(getOrder!.outputs?.length).toBe(1);
     expect(getOrder!.outputs?.[0].type).toBe('tuple');
@@ -381,18 +397,17 @@ describe('INPUT_SETTLER_ABI Coverage', () => {
 });
 
 describe('ORACLE_ABI Coverage', () => {
+  const oracleAbi = parseAbi(ORACLE_ABI);
   
   test('hasAttested function exists', () => {
-    const iface = new ethers.Interface(ORACLE_ABI);
-    const fn = iface.getFunction('hasAttested');
+    const fn = oracleAbi.find(f => f.type === 'function' && f.name === 'hasAttested');
     expect(fn).toBeDefined();
     expect(fn!.inputs[0].type).toBe('bytes32');
     expect(fn!.outputs?.[0].type).toBe('bool');
   });
 
   test('submitAttestation function exists', () => {
-    const iface = new ethers.Interface(ORACLE_ABI);
-    const fn = iface.getFunction('submitAttestation');
+    const fn = oracleAbi.find(f => f.type === 'function' && f.name === 'submitAttestation');
     expect(fn).toBeDefined();
     expect(fn!.inputs.length).toBe(2);
     expect(fn!.inputs[0].type).toBe('bytes32');

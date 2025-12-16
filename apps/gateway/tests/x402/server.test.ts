@@ -6,6 +6,7 @@ import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
 import { createServer } from '../../src/x402/server';
 import { resetConfig, config } from '../../src/x402/config';
 import { clearNonceCache } from '../../src/x402/services/nonce-manager';
+import { getServiceName } from '@jejunetwork/shared';
 
 function getNetworkName(): string {
   return config().network.charAt(0).toUpperCase() + config().network.slice(1);
@@ -28,7 +29,7 @@ describe('Health Endpoints', () => {
     expect(res.status).toBe(200);
 
     const body = await res.json();
-    expect(body.service).toContain('x402 Facilitator');
+    expect(body.service).toBe(getServiceName('x402 Facilitator'));
     expect(body.version).toBe('1.0.0');
     expect(body.status).toBeDefined();
     expect(body.endpoints).toBeDefined();
@@ -61,7 +62,7 @@ describe('Supported Schemes Endpoint', () => {
     expect(body.kinds).toBeInstanceOf(Array);
     expect(body.x402Version).toBe(1);
     expect(body.facilitator).toBeDefined();
-    expect(body.facilitator.name).toBe(`${getNetworkName()} x402 Facilitator`);
+    expect(body.facilitator.name).toBe(getServiceName('x402 Facilitator'));
   });
 
   test('GET /supported includes jeju network with both exact and upto schemes', async () => {

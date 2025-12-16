@@ -24,7 +24,7 @@ export interface CDNServiceConfig {
 
 export interface CDNServiceState {
   isRegistered: boolean;
-  nodeId: string;
+  nodeId: `0x${string}`;
   endpoint: string;
   region: CDNRegion;
   stake: bigint;
@@ -70,7 +70,7 @@ export class CDNService {
       abi: CDN_REGISTRY_ABI,
       functionName: 'getOperatorNodes',
       args: [address],
-    }) as string[];
+    }) as readonly `0x${string}`[];
 
     if (nodeIds.length === 0) {
       return null;
@@ -78,41 +78,43 @@ export class CDNService {
 
     // Get first node's details
     const nodeId = nodeIds[0];
-    const node = await this.client.publicClient.readContract({
+    const nodeResult = await this.client.publicClient.readContract({
       address: this.client.addresses.cdnRegistry,
       abi: CDN_REGISTRY_ABI,
       functionName: 'getEdgeNode',
       args: [nodeId],
-    }) as {
-      nodeId: string;
-      operator: Address;
-      endpoint: string;
-      region: number;
-      providerType: number;
-      status: number;
-      stake: bigint;
-      registeredAt: bigint;
-      lastSeen: bigint;
-      agentId: bigint;
+    });
+    const node = {
+      nodeId: nodeResult[0] as `0x${string}`,
+      operator: nodeResult[1] as Address,
+      endpoint: nodeResult[2] as string,
+      region: nodeResult[3] as number,
+      providerType: nodeResult[4] as number,
+      status: nodeResult[5] as number,
+      stake: nodeResult[6] as bigint,
+      registeredAt: nodeResult[7] as bigint,
+      lastSeen: nodeResult[8] as bigint,
+      agentId: nodeResult[9] as bigint,
     };
 
-    const metrics = await this.client.publicClient.readContract({
+    const metricsResult = await this.client.publicClient.readContract({
       address: this.client.addresses.cdnRegistry,
       abi: CDN_REGISTRY_ABI,
       functionName: 'getNodeMetrics',
       args: [nodeId],
-    }) as {
-      currentLoad: bigint;
-      bandwidthUsage: bigint;
-      activeConnections: bigint;
-      requestsPerSecond: bigint;
-      bytesServedTotal: bigint;
-      requestsTotal: bigint;
-      cacheSize: bigint;
-      cacheEntries: bigint;
-      cacheHitRate: bigint;
-      avgResponseTime: bigint;
-      lastUpdated: bigint;
+    });
+    const metrics = {
+      currentLoad: metricsResult[0] as bigint,
+      bandwidthUsage: metricsResult[1] as bigint,
+      activeConnections: metricsResult[2] as bigint,
+      requestsPerSecond: metricsResult[3] as bigint,
+      bytesServedTotal: metricsResult[4] as bigint,
+      requestsTotal: metricsResult[5] as bigint,
+      cacheSize: metricsResult[6] as bigint,
+      cacheEntries: metricsResult[7] as bigint,
+      cacheHitRate: metricsResult[8] as bigint,
+      avgResponseTime: metricsResult[9] as bigint,
+      lastUpdated: metricsResult[10] as bigint,
     };
 
     const regionMap: CDNRegion[] = [
@@ -128,7 +130,7 @@ export class CDNService {
 
     return {
       isRegistered: true,
-      nodeId,
+      nodeId: node.nodeId,
       endpoint: node.endpoint,
       region: regionMap[node.region] ?? 'global',
       stake: node.stake,
@@ -185,7 +187,7 @@ export class CDNService {
 
     // Start edge node as subprocess
     this.edgeNodeProcess = Bun.spawn({
-      cmd: ['bun', 'run', '@jejunetwork/cdn/edge'],
+      cmd: ['bun', 'run', '-w', '@jejunetwork/dws', 'cdn:edge'],
       env: {
         ...process.env,
         CDN_NODE_ID: nodeId,
@@ -221,7 +223,7 @@ export class CDNService {
   }
 
   /**
-   * Get earnings
+   * Get earnings with last settlement time
    */
   async getEarnings(address: Address): Promise<CDNEarnings> {
     const [pending, settled] = await this.client.publicClient.readContract({
@@ -233,11 +235,58 @@ export class CDNService {
       args: [address],
     }) as [bigint, bigint];
 
+    // Get billing records to find the most recent settlement
+    const lastSettlement = await this.getLastSettlementTime(address);
+
     return {
       pending,
       total: settled,
-      lastSettlement: Date.now(), // Would need to track this
+      lastSettlement,
     };
+  }
+
+  /**
+   * Get the timestamp of the provider's last settlement
+   * Queries billing records and finds the most recent one
+   */
+  private async getLastSettlementTime(providerAddress: Address): Promise<number> {
+    // Get provider's billing record IDs
+    const billingRecordIds = await this.client.publicClient.readContract({
+      address: this.client.addresses.cdnBilling,
+      abi: [
+        'function getProviderBillingRecords(address) view returns (bytes32[])',
+      ],
+      functionName: 'getProviderBillingRecords',
+      args: [providerAddress],
+    }) as `0x${string}`[];
+
+    if (billingRecordIds.length === 0) {
+      return 0; // No settlements yet
+    }
+
+    // Get the most recent billing record (last in array is most recent)
+    const latestRecordId = billingRecordIds[billingRecordIds.length - 1];
+    
+    const record = await this.client.publicClient.readContract({
+      address: this.client.addresses.cdnBilling,
+      abi: [
+        'function getBillingRecord(bytes32) view returns ((bytes32 id, address user, address provider, uint256 amount, uint256 timestamp, uint8 status, uint256 periodStart, uint256 periodEnd))',
+      ],
+      functionName: 'getBillingRecord',
+      args: [latestRecordId],
+    }) as {
+      id: `0x${string}`;
+      user: Address;
+      provider: Address;
+      amount: bigint;
+      timestamp: bigint;
+      status: number;
+      periodStart: bigint;
+      periodEnd: bigint;
+    };
+
+    // Return timestamp in milliseconds
+    return Number(record.timestamp) * 1000;
   }
 
   /**
@@ -263,7 +312,7 @@ export class CDNService {
   /**
    * Add stake to node
    */
-  async addStake(nodeId: string, amount: bigint): Promise<string> {
+  async addStake(nodeId: `0x${string}`, amount: bigint): Promise<string> {
     if (!this.client.walletClient?.account) {
       throw new Error('Wallet not connected');
     }
@@ -284,7 +333,7 @@ export class CDNService {
   /**
    * Update node status
    */
-  async updateStatus(nodeId: string, status: CDNServiceState['status']): Promise<string> {
+  async updateStatus(nodeId: `0x${string}`, status: CDNServiceState['status']): Promise<string> {
     if (!this.client.walletClient?.account) {
       throw new Error('Wallet not connected');
     }

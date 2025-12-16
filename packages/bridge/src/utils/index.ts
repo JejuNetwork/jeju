@@ -2,6 +2,7 @@
  * Utility Functions
  */
 
+import { keccak_256 } from "@noble/hashes/sha3";
 import type { Hash32 } from "../types/index.js";
 import { toHash32 } from "../types/index.js";
 
@@ -51,13 +52,17 @@ export function bytes32ToEvmAddress(bytes: Uint8Array): string {
 }
 
 /**
- * Keccak256 hash (using SubtleCrypto for now)
+ * Keccak256 hash using @noble/hashes
  */
-export async function keccak256(data: Uint8Array): Promise<Hash32> {
-	// Note: SubtleCrypto doesn't have keccak256, so we use sha256 for now
-	// In production, use a proper keccak256 implementation
-	const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-	return toHash32(new Uint8Array(hashBuffer));
+export function keccak256(data: Uint8Array): Hash32 {
+	return toHash32(keccak_256(data));
+}
+
+/**
+ * Async keccak256 for compatibility
+ */
+export async function keccak256Async(data: Uint8Array): Promise<Hash32> {
+	return keccak256(data);
 }
 
 /**

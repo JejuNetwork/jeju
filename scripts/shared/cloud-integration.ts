@@ -5,7 +5,7 @@
  * New code should import directly from the vendor package.
  */
 
-import { createPublicClient, createWalletClient, http, type PublicClient, type WalletClient, type Address, type Chain, parseEther, zeroHash, encodeBytes32String, keccak256, toUtf8Bytes, type TransactionReceipt } from 'viem';
+import { createPublicClient, createWalletClient, http, type PublicClient, type WalletClient, type Address, type Chain, parseEther, zeroHash, encodeBytes32String, keccak256, stringToBytes, type TransactionReceipt } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { readContract, waitForTransactionReceipt } from 'viem/actions';
 import { parseAbi } from 'viem';
@@ -134,12 +134,12 @@ export class CloudIntegration {
     
     // Convert metadata to contract format
     const metadataEntries = [
-      { key: 'name', value: toUtf8Bytes(metadata.name) },
-      { key: 'description', value: toUtf8Bytes(metadata.description) },
-      { key: 'endpoint', value: toUtf8Bytes(metadata.endpoint) },
-      { key: 'version', value: toUtf8Bytes(metadata.version) },
-      { key: 'capabilities', value: toUtf8Bytes(JSON.stringify(metadata.capabilities)) },
-      { key: 'type', value: toUtf8Bytes('cloud-service') }
+      { key: 'name', value: stringToBytes(metadata.name) },
+      { key: 'description', value: stringToBytes(metadata.description) },
+      { key: 'endpoint', value: stringToBytes(metadata.endpoint) },
+      { key: 'version', value: stringToBytes(metadata.version) },
+      { key: 'capabilities', value: stringToBytes(JSON.stringify(metadata.capabilities)) },
+      { key: 'type', value: stringToBytes('cloud-service') }
     ];
     
     const hash = await this.walletClient.writeContract({
@@ -153,8 +153,9 @@ export class CloudIntegration {
     const receipt = await waitForTransactionReceipt(this.client, { hash });
     
     // Extract agentId from event
+    const eventSignature = keccak256(stringToBytes('CloudAgentRegistered(uint256)'));
     const event = receipt.logs.find((log) => 
-      log.topics[0] === keccak256(toUtf8Bytes('CloudAgentRegistered(uint256)'))
+      log.topics[0] === eventSignature
     );
     
     if (!event || !event.topics[1]) {
@@ -316,8 +317,9 @@ export class CloudIntegration {
     const receipt = await waitForTransactionReceipt(this.client, { hash });
     
     // Extract proposalId from event
+    const banEventSignature = keccak256(stringToBytes('BanProposalCreated(bytes32,uint256,uint8,address)'));
     const event = receipt.logs.find((log) => 
-      log.topics[0] === keccak256(toUtf8Bytes('BanProposalCreated(bytes32,uint256,uint8,address)'))
+      log.topics[0] === banEventSignature
     );
     
     if (!event || !event.topics[1]) {

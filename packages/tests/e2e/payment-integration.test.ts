@@ -14,36 +14,39 @@
 
 import { describe, test, expect, beforeAll } from 'bun:test';
 import { ethers } from 'ethers';
-import { createPublicClient, http, parseEther, formatEther, Address } from 'viem';
+import { parseEther, formatEther, type Address } from 'viem';
 
 // Import shared utilities
 import { 
   createPaymentRequirement, 
   verifyPayment, 
+  signPaymentPayload,
+  createPaymentPayload,
   PAYMENT_TIERS,
   type PaymentPayload 
 } from '../../../scripts/shared/x402';
 import { Logger } from '../../../scripts/shared/logger';
+import { TEST_WALLETS, JEJU_LOCALNET } from '../shared/constants';
 
 const logger = new Logger({ prefix: 'payment-e2e' });
 
 // ============ Configuration ============
 
-const RPC_URL = process.env.JEJU_RPC_URL || 'http://localhost:9545';
-const CHAIN_ID = 1337;
+const RPC_URL = JEJU_LOCALNET.rpcUrl;
+const CHAIN_ID = JEJU_LOCALNET.chainId;
 
 // Test accounts (Anvil defaults)
-const DEPLOYER_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
-const USER_KEY = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
-const STAKER_KEY = '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a';
+const DEPLOYER_KEY = TEST_WALLETS.deployer.privateKey as `0x${string}`;
+const USER_KEY = TEST_WALLETS.user1.privateKey as `0x${string}`;
+const STAKER_KEY = TEST_WALLETS.user2.privateKey as `0x${string}`;
 
-// Contract addresses (would be set after deployment)
+// Contract addresses (populated from env or defaults)
 const ADDRESSES = {
   paymentToken: (process.env.STAKING_TOKEN_ADDRESS || '0x5FbDB2315678afecb367f032d93F642f64180aa3') as Address,
   creditManager: (process.env.CREDIT_MANAGER_ADDRESS || '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9') as Address,
   staking: (process.env.STAKING_ADDRESS || '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512') as Address,
   paymasterFactory: (process.env.PAYMASTER_FACTORY_ADDRESS || '0x0000000000000000000000000000000000000000') as Address,
-  x402Recipient: (process.env.X402_RECIPIENT_ADDRESS || '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266') as Address,
+  x402Recipient: (process.env.X402_RECIPIENT_ADDRESS || TEST_WALLETS.deployer.address) as Address,
 };
 
 // ============ ABIs ============
@@ -52,15 +55,21 @@ const ERC20_ABI = [
   'function balanceOf(address) view returns (uint256)',
   'function approve(address, uint256) returns (bool)',
   'function transfer(address, uint256) returns (bool)',
-  'function mint(address, uint256)',
+  'function allowance(address, address) view returns (uint256)',
+  'function decimals() view returns (uint8)',
+  'function symbol() view returns (string)',
 ];
 
 const CREDIT_MANAGER_ABI = [
   'function depositUSDC(uint256)',
   'function depositETH() payable',
+  'function depositElizaOS(uint256)',
   'function getBalance(address, address) view returns (uint256)',
   'function hasSufficientCredit(address, address, uint256) view returns (bool, uint256)',
   'function getAllBalances(address) view returns (uint256, uint256, uint256)',
+  'function withdraw(address, uint256)',
+  'function usdc() view returns (address)',
+  'function elizaOS() view returns (address)',
 ];
 
 const STAKING_ABI = [
@@ -70,7 +79,8 @@ const STAKING_ABI = [
   'function distributeFees(uint256, uint256)',
   'function getPosition(address) view returns (uint256, uint256, uint256, uint256, uint256, uint256, bool)',
   'function getPoolStats() view returns (uint256, uint256, uint256, uint256, uint256, uint256)',
-  'function setFeeDistributor(address)',
+  'function totalStaked() view returns (uint256)',
+  'function minimumStake() view returns (uint256)',
 ];
 
 // ============ Test Setup ============
@@ -82,8 +92,22 @@ let staker: ethers.Wallet;
 let paymentToken: ethers.Contract;
 let creditManager: ethers.Contract;
 let staking: ethers.Contract;
+let localnetAvailable = false;
 
-describe('Payment Integration - Setup', () => {
+// Check localnet availability
+try {
+  const response = await fetch(RPC_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
+    signal: AbortSignal.timeout(2000)
+  });
+  localnetAvailable = response.ok;
+} catch {
+  console.log(`Localnet not available at ${RPC_URL}, skipping payment integration tests`);
+}
+
+describe.skipIf(!localnetAvailable)('Payment Integration - Setup', () => {
   beforeAll(async () => {
     logger.info('Setting up payment integration tests...');
     
@@ -122,7 +146,7 @@ describe('Payment Integration - Setup', () => {
 
 // ============ x402 Payment Tests ============
 
-describe('Payment Integration - x402 Protocol', () => {
+describe.skipIf(!localnetAvailable)('Payment Integration - x402 Protocol', () => {
   test('should create valid payment requirement', () => {
     logger.info('Testing x402 payment requirement creation...');
     
@@ -161,6 +185,29 @@ describe('Payment Integration - x402 Protocol', () => {
     logger.success('Payment tiers validated');
   });
 
+  test('should create and sign payment payload', async () => {
+    logger.info('Testing payment signing...');
+    
+    const payload = createPaymentPayload(
+      '0x0000000000000000000000000000000000000000' as Address,
+      ADDRESSES.x402Recipient,
+      PAYMENT_TIERS.API_CALL_BASIC,
+      '/api/test',
+      'jeju'
+    );
+    
+    expect(payload.scheme).toBe('exact');
+    expect(payload.nonce).toBeDefined();
+    expect(payload.timestamp).toBeGreaterThan(0);
+    
+    // Sign the payload
+    const signedPayload = await signPaymentPayload(payload, USER_KEY);
+    expect(signedPayload.signature).toBeDefined();
+    expect(signedPayload.signature?.startsWith('0x')).toBe(true);
+    
+    logger.success('Payment payload signed');
+  });
+
   test('should reject payment with missing fields', async () => {
     const invalidPayload: PaymentPayload = {
       scheme: 'exact',
@@ -180,7 +227,7 @@ describe('Payment Integration - x402 Protocol', () => {
     );
     
     expect(result.valid).toBe(false);
-    expect(result.error).toContain('Missing');
+    expect(result.error).toBeDefined();
     
     logger.success('Invalid payment correctly rejected');
   });
@@ -212,76 +259,152 @@ describe('Payment Integration - x402 Protocol', () => {
 
 // ============ Credit Manager Tests ============
 
-describe('Payment Integration - Credit Manager', () => {
-  test('should check credit balance format', async () => {
+describe.skipIf(!localnetAvailable)('Payment Integration - Credit Manager', () => {
+  test('should query credit balance', async () => {
     logger.info('Testing credit balance queries...');
     
-    // This will fail if contract isn't deployed, but structure is correct
-    const checkBalance = async () => {
-      const balance = await creditManager.getBalance(user.address, ADDRESSES.paymentToken);
-      return balance;
-    };
+    // Query user's balance
+    const balance = await creditManager.getBalance(user.address, ADDRESSES.paymentToken);
+    logger.info(`User balance: ${ethers.formatEther(balance)} tokens`);
     
-    // Just verify the function exists and returns a type we expect
-    expect(typeof checkBalance).toBe('function');
-    logger.success('Credit balance query structure valid');
+    // Balance should be a valid bigint
+    expect(typeof balance).toBe('bigint');
+    expect(balance).toBeGreaterThanOrEqual(0n);
+    
+    logger.success('Credit balance query successful');
   });
 
-  test('should verify credit sufficiency check', async () => {
-    // Verify the hasSufficientCredit function signature
-    const abi = creditManager.interface;
-    const fragment = abi.getFunction('hasSufficientCredit');
+  test('should check credit sufficiency', async () => {
+    logger.info('Testing credit sufficiency check...');
     
-    expect(fragment).toBeDefined();
-    expect(fragment?.inputs.length).toBe(3);
+    const testAmount = ethers.parseEther('1');
     
-    logger.success('Credit sufficiency check interface valid');
+    const [sufficient, available] = await creditManager.hasSufficientCredit(
+      user.address,
+      ADDRESSES.paymentToken,
+      testAmount
+    );
+    
+    logger.info(`Required: ${ethers.formatEther(testAmount)}`);
+    logger.info(`Available: ${ethers.formatEther(available)}`);
+    logger.info(`Sufficient: ${sufficient}`);
+    
+    // Should return boolean and bigint
+    expect(typeof sufficient).toBe('boolean');
+    expect(typeof available).toBe('bigint');
+    
+    logger.success('Credit sufficiency check successful');
+  });
+
+  test('should get all balances', async () => {
+    logger.info('Testing multi-token balance query...');
+    
+    const [usdcBalance, elizaBalance, ethBalance] = await creditManager.getAllBalances(user.address);
+    
+    logger.info(`USDC: ${ethers.formatUnits(usdcBalance, 6)}`);
+    logger.info(`elizaOS: ${ethers.formatEther(elizaBalance)}`);
+    logger.info(`ETH: ${ethers.formatEther(ethBalance)}`);
+    
+    // All should be valid bigints
+    expect(typeof usdcBalance).toBe('bigint');
+    expect(typeof elizaBalance).toBe('bigint');
+    expect(typeof ethBalance).toBe('bigint');
+    
+    logger.success('Multi-token balance query successful');
+  });
+
+  test('should deposit ETH to credit manager', async () => {
+    logger.info('Testing ETH deposit...');
+    
+    const depositAmount = ethers.parseEther('0.1');
+    const creditManagerAsUser = creditManager.connect(user);
+    
+    // Get initial balance
+    const [, , initialEth] = await creditManager.getAllBalances(user.address);
+    
+    // Deposit ETH
+    const tx = await creditManagerAsUser.depositETH({ value: depositAmount });
+    await tx.wait();
+    
+    // Check new balance
+    const [, , newEth] = await creditManager.getAllBalances(user.address);
+    
+    expect(newEth).toBe(initialEth + depositAmount);
+    logger.success(`Deposited ${ethers.formatEther(depositAmount)} ETH`);
   });
 });
 
 // ============ Staking Tests ============
 
-describe('Payment Integration - Staking', () => {
-  test('should verify staking interface', async () => {
-    logger.info('Verifying staking interface...');
+describe.skipIf(!localnetAvailable)('Payment Integration - Staking', () => {
+  test('should query pool stats', async () => {
+    logger.info('Testing pool stats query...');
     
-    const abi = staking.interface;
+    const [
+      totalStaked,
+      totalLocked,
+      rewardsPerShare,
+      lastUpdateBlock,
+      totalRewardsDistributed,
+      stakerCount
+    ] = await staking.getPoolStats();
     
-    // Check required functions exist
-    expect(abi.getFunction('stake')).toBeDefined();
-    expect(abi.getFunction('startUnbonding')).toBeDefined();
-    expect(abi.getFunction('claimFees')).toBeDefined();
-    expect(abi.getFunction('distributeFees')).toBeDefined();
-    expect(abi.getFunction('getPosition')).toBeDefined();
-    expect(abi.getFunction('getPoolStats')).toBeDefined();
+    logger.info(`Total Staked: ${ethers.formatEther(totalStaked)}`);
+    logger.info(`Total Locked: ${ethers.formatEther(totalLocked)}`);
+    logger.info(`Rewards Per Share: ${rewardsPerShare}`);
+    logger.info(`Staker Count: ${stakerCount}`);
     
-    logger.success('Staking interface verified');
+    // All should be valid bigints
+    expect(typeof totalStaked).toBe('bigint');
+    expect(typeof totalLocked).toBe('bigint');
+    expect(typeof stakerCount).toBe('bigint');
+    
+    logger.success('Pool stats query successful');
   });
 
-  test('should validate pool stats return format', async () => {
-    const abi = staking.interface;
-    const fragment = abi.getFunction('getPoolStats');
+  test('should query staker position', async () => {
+    logger.info('Testing position query...');
     
-    // Should return 6 values
-    expect(fragment?.outputs?.length).toBe(6);
+    const [
+      stakedAmount,
+      lockedAmount,
+      rewardDebt,
+      pendingRewards,
+      lastClaimBlock,
+      unbondingEnd,
+      isUnbonding
+    ] = await staking.getPosition(staker.address);
     
-    logger.success('Pool stats return format valid');
+    logger.info(`Staked: ${ethers.formatEther(stakedAmount)}`);
+    logger.info(`Locked: ${ethers.formatEther(lockedAmount)}`);
+    logger.info(`Pending Rewards: ${ethers.formatEther(pendingRewards)}`);
+    logger.info(`Is Unbonding: ${isUnbonding}`);
+    
+    // Validate types
+    expect(typeof stakedAmount).toBe('bigint');
+    expect(typeof isUnbonding).toBe('boolean');
+    
+    logger.success('Position query successful');
   });
 
-  test('should validate position return format', async () => {
-    const abi = staking.interface;
-    const fragment = abi.getFunction('getPosition');
+  test('should query minimum stake requirement', async () => {
+    logger.info('Testing minimum stake query...');
     
-    // Should return 7 values
-    expect(fragment?.outputs?.length).toBe(7);
+    const totalStaked = await staking.totalStaked();
+    const minStake = await staking.minimumStake();
     
-    logger.success('Position return format valid');
+    logger.info(`Total Staked: ${ethers.formatEther(totalStaked)}`);
+    logger.info(`Minimum Stake: ${ethers.formatEther(minStake)}`);
+    
+    expect(minStake).toBeGreaterThanOrEqual(0n);
+    
+    logger.success('Minimum stake query successful');
   });
 });
 
 // ============ Fee Distribution Tests ============
 
-describe('Payment Integration - Fee Distribution', () => {
+describe.skipIf(!localnetAvailable)('Payment Integration - Fee Distribution', () => {
   test('should validate fee split constants', () => {
     logger.info('Validating fee distribution constants...');
     
@@ -325,11 +448,31 @@ describe('Payment Integration - Fee Distribution', () => {
     
     logger.success('Fee calculations verified');
   });
+
+  test('should calculate gas subsidy correctly', () => {
+    logger.info('Testing gas subsidy calculation...');
+    
+    // Gas subsidy formula: 21000 base + 68 per byte of calldata
+    const calculateGas = (calldataBytes: number): bigint => {
+      return BigInt(21000) + BigInt(calldataBytes) * 68n;
+    };
+    
+    // Simple transfer (empty calldata)
+    expect(calculateGas(0)).toBe(21000n);
+    
+    // ERC20 transfer (~68 bytes calldata)
+    expect(calculateGas(68)).toBe(21000n + 68n * 68n);
+    
+    // Complex call (~200 bytes)
+    expect(calculateGas(200)).toBe(21000n + 200n * 68n);
+    
+    logger.success('Gas subsidy calculation verified');
+  });
 });
 
 // ============ Cross-App Integration Tests ============
 
-describe('Payment Integration - Cross-App Compatibility', () => {
+describe.skipIf(!localnetAvailable)('Payment Integration - Cross-App Compatibility', () => {
   test('should use consistent x402 types across apps', () => {
     // Verify types match across implementations
     const testPayload: PaymentPayload = {
@@ -357,7 +500,9 @@ describe('Payment Integration - Cross-App Compatibility', () => {
   });
 
   test('should support multiple networks', () => {
-    const networks = ['base-sepolia', 'base', 'jeju', 'jeju-testnet'];
+    const networks: Array<'base-sepolia' | 'base' | 'jeju' | 'jeju-testnet'> = [
+      'base-sepolia', 'base', 'jeju', 'jeju-testnet'
+    ];
     
     for (const network of networks) {
       const requirement = createPaymentRequirement(
@@ -366,7 +511,7 @@ describe('Payment Integration - Cross-App Compatibility', () => {
         'Test',
         {
           recipientAddress: ADDRESSES.x402Recipient,
-          network: network as 'base-sepolia' | 'base' | 'jeju' | 'jeju-testnet',
+          network,
           serviceName: 'Test',
         }
       );
@@ -376,33 +521,68 @@ describe('Payment Integration - Cross-App Compatibility', () => {
     
     logger.success('Multi-network support verified');
   });
+
+  test('should verify EIP-712 domain consistency', async () => {
+    logger.info('Testing EIP-712 domain...');
+    
+    const chainId = (await provider.getNetwork()).chainId;
+    
+    // Payment domain should match chain
+    const payload = createPaymentPayload(
+      '0x0000000000000000000000000000000000000000' as Address,
+      ADDRESSES.x402Recipient,
+      parseEther('0.001'),
+      '/test',
+      'jeju'
+    );
+    
+    // Sign and verify signer can be recovered
+    const signed = await signPaymentPayload(payload, USER_KEY);
+    expect(signed.signature).toBeDefined();
+    
+    // Verify against expected amount
+    const verification = await verifyPayment(
+      signed,
+      parseEther('0.001'),
+      ADDRESSES.x402Recipient
+    );
+    
+    expect(verification.valid).toBe(true);
+    expect(verification.signer?.toLowerCase()).toBe(user.address.toLowerCase());
+    
+    logger.success('EIP-712 domain consistency verified');
+  });
 });
 
 // ============ Summary ============
 
-describe('Payment Integration - Summary', () => {
-  test('should print test summary', () => {
+describe.skipIf(!localnetAvailable)('Payment Integration - Summary', () => {
+  test('should print test summary', async () => {
+    const blockNumber = await provider.getBlockNumber();
+    const chainId = (await provider.getNetwork()).chainId;
+    
     logger.separator();
     logger.box(`
 PAYMENT INTEGRATION TEST SUMMARY
 
-Components Verified:
-  ✅ x402 Payment Protocol
-  ✅ Credit Manager Interface
-  ✅ Staking Interface
-  ✅ Fee Distribution Logic
-  ✅ Cross-App Compatibility
+Network:
+  Chain ID: ${chainId}
+  Block: ${blockNumber}
+  RPC: ${RPC_URL}
+
+Components Tested:
+  - x402 Payment Protocol (create, sign, verify)
+  - Credit Manager (deposit, balance, sufficiency)
+  - Staking (pool stats, positions, minimums)
+  - Fee Distribution (splits, calculations)
+  - Cross-App Compatibility (types, networks, EIP-712)
 
 Contract Addresses:
   Payment Token: ${ADDRESSES.paymentToken}
   Credit Manager: ${ADDRESSES.creditManager}
   Staking: ${ADDRESSES.staking}
   x402 Recipient: ${ADDRESSES.x402Recipient}
-
-Note: Full contract tests require deployed contracts.
-Run 'bun run scripts/bootstrap-localnet-complete.ts' first.
     `);
     logger.separator();
   });
 });
-

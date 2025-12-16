@@ -4,6 +4,7 @@
 
 import { Command } from 'commander';
 import { execa } from 'execa';
+import { findMonorepoRoot } from '../lib/system';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { logger } from '../lib/logger';
@@ -23,23 +24,37 @@ let isShuttingDown = false;
 let servicesOrchestrator: ServicesOrchestrator | null = null;
 
 export const devCommand = new Command('dev')
-  .description('Start development environment')
+  .description('Start development environment (localnet + apps)')
   .option('--minimal', 'Localnet only (no apps)')
+  .option('--vendor-only', 'Start only vendor apps (requires chain running separately)')
   .option('--only <apps>', 'Start specific apps (comma-separated)')
   .option('--skip <apps>', 'Skip specific apps (comma-separated)')
   .option('--stop', 'Stop the development environment')
   .option('--no-inference', 'Skip starting inference service')
   .option('--no-services', 'Skip all simulated services')
+  .option('--no-apps', 'Skip starting apps (same as --minimal)')
+  .option('--bootstrap', 'Force contract bootstrap even if already deployed')
   .action(async (options) => {
     if (options.stop) {
       await stopDev();
       return;
     }
 
+    // Map --no-apps to --minimal
+    if (options.noApps) {
+      options.minimal = true;
+    }
+
+    // Handle vendor-only mode
+    if (options.vendorOnly) {
+      await startVendorOnly();
+      return;
+    }
+
     await startDev(options);
   });
 
-async function startDev(options: { minimal?: boolean; only?: string; skip?: string; inference?: boolean; services?: boolean }) {
+async function startDev(options: { minimal?: boolean; only?: string; skip?: string; inference?: boolean; services?: boolean; bootstrap?: boolean; noApps?: boolean }) {
   logger.header('JEJU DEV');
 
   const rootDir = process.cwd();
@@ -58,9 +73,20 @@ async function startDev(options: { minimal?: boolean; only?: string; skip?: stri
 
   const l2RpcUrl = `http://127.0.0.1:${DEFAULT_PORTS.l2Rpc}`;
 
-  // Bootstrap contracts
-  logger.step('Bootstrapping contracts...');
-  await bootstrapContracts(rootDir, l2RpcUrl);
+  // Bootstrap contracts (if needed or forced)
+  if (options.bootstrap) {
+    logger.step('Bootstrapping contracts...');
+    await bootstrapContracts(rootDir, l2RpcUrl);
+  } else {
+    // Check if already bootstrapped
+    const bootstrapFile = join(rootDir, 'packages/contracts/deployments/localnet-complete.json');
+    if (!existsSync(bootstrapFile)) {
+      logger.step('Bootstrapping contracts...');
+      await bootstrapContracts(rootDir, l2RpcUrl);
+    } else {
+      logger.debug('Contracts already bootstrapped');
+    }
+  }
 
   // Start development services (inference, storage, etc.)
   if (options.services !== false) {
@@ -223,6 +249,25 @@ async function startApp(rootDir: string, app: AppManifest, rpcUrl: string, servi
   });
 
   proc.catch(() => {});
+}
+
+async function startVendorOnly() {
+  const rootDir = findMonorepoRoot();
+  const scriptPath = join(rootDir, 'scripts/dev-with-vendor.ts');
+  
+  if (!existsSync(scriptPath)) {
+    logger.error('Vendor-only script not found');
+    return;
+  }
+
+  logger.header('STARTING VENDOR APPS ONLY');
+  logger.info('Make sure the chain is running separately');
+  logger.newline();
+
+  await execa('bun', ['run', scriptPath], {
+    cwd: rootDir,
+    stdio: 'inherit',
+  });
 }
 
 function printReady(rpcUrl: string, services: RunningService[], orchestrator: ServicesOrchestrator | null) {

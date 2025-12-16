@@ -1,8 +1,7 @@
 /**
  * Test Orchestrator Tests - CLI parsing, app discovery, execution flow
  *
- * Note: These tests verify exit codes since Bun's test runner has
- * limitations with child process stdout/stderr capture.
+ * Tests verify both exit codes AND output content using Bun's spawn pipes.
  */
 
 import { describe, test, expect } from 'bun:test';
@@ -25,93 +24,140 @@ function findWorkspaceRoot(): string {
 }
 
 const WORKSPACE_ROOT = findWorkspaceRoot();
-const SCRIPT_PATH = join(WORKSPACE_ROOT, 'scripts/test-e2e.ts');
+const CLI_PATH = join(WORKSPACE_ROOT, 'packages/cli/src/index.ts');
 
-// Helper to run script and get exit code
-async function runScript(args: string[]): Promise<number> {
+interface CLIResult {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+}
+
+// Helper to run CLI command and capture exit code + output
+async function runCLI(args: string[]): Promise<CLIResult> {
   const proc = spawn({
-    cmd: ['bun', 'run', SCRIPT_PATH, ...args],
+    cmd: ['bun', 'run', CLI_PATH, ...args],
     cwd: WORKSPACE_ROOT,
     stdout: 'pipe',
     stderr: 'pipe',
   });
 
-  return proc.exited;
+  // Read stdout and stderr streams
+  const stdoutChunks: Uint8Array[] = [];
+  const stderrChunks: Uint8Array[] = [];
+
+  const stdoutReader = proc.stdout.getReader();
+  const stderrReader = proc.stderr.getReader();
+
+  // Read stdout
+  const readStdout = async () => {
+    while (true) {
+      const { done, value } = await stdoutReader.read();
+      if (done) break;
+      stdoutChunks.push(value);
+    }
+  };
+
+  // Read stderr
+  const readStderr = async () => {
+    while (true) {
+      const { done, value } = await stderrReader.read();
+      if (done) break;
+      stderrChunks.push(value);
+    }
+  };
+
+  // Run all reads in parallel with process exit
+  const [exitCode] = await Promise.all([proc.exited, readStdout(), readStderr()]);
+
+  const decoder = new TextDecoder();
+  const stdout = decoder.decode(Buffer.concat(stdoutChunks.map(c => Buffer.from(c))));
+  const stderr = decoder.decode(Buffer.concat(stderrChunks.map(c => Buffer.from(c))));
+
+  return { exitCode, stdout, stderr };
 }
 
-describe('Test Orchestrator - Script Exists', () => {
-  test('should have test-e2e.ts script', () => {
-    expect(existsSync(SCRIPT_PATH)).toBe(true);
+describe('Test Orchestrator - CLI Exists', () => {
+  test('should have CLI test command', () => {
+    expect(existsSync(CLI_PATH)).toBe(true);
   });
 });
 
 describe('Test Orchestrator - Help Command', () => {
-  test('should exit 0 with --help', async () => {
-    const exitCode = await runScript(['--help']);
-    expect(exitCode).toBe(0);
-  });
-
-  test('should exit 0 with -h', async () => {
-    const exitCode = await runScript(['-h']);
-    expect(exitCode).toBe(0);
+  test('should exit 0 with --help and show usage', async () => {
+    const result = await runCLI(['test', '--help']);
+    expect(result.exitCode).toBe(0);
+    // Verify help output contains expected content
+    const output = result.stdout + result.stderr;
+    expect(output.toLowerCase()).toMatch(/usage|test|options|help/i);
   });
 });
 
 describe('Test Orchestrator - List Command', () => {
-  test('should exit 0 with --list', async () => {
-    const exitCode = await runScript(['--list']);
-    expect(exitCode).toBe(0);
+  test('should exit 0 with list subcommand and show apps', async () => {
+    const result = await runCLI(['test', 'list']);
+    expect(result.exitCode).toBe(0);
+    // List command should produce some output about available tests/apps
+    const output = result.stdout + result.stderr;
+    expect(output.length).toBeGreaterThan(0);
   });
 });
 
 describe('Test Orchestrator - Error Handling', () => {
-  test('should exit 1 when app not found', async () => {
-    const exitCode = await runScript([
+  test('should exit 1 when app not found and show error message', async () => {
+    const result = await runCLI([
+      'test',
+      '--mode=e2e',
       '--app=nonexistent-app-xyz',
       '--skip-lock',
       '--skip-preflight',
       '--skip-warmup',
+      '--setup-only',
     ]);
-    expect(exitCode).toBe(1);
+    expect(result.exitCode).toBe(1);
+    // Should have error message in output
+    const output = result.stdout + result.stderr;
+    expect(output.toLowerCase()).toMatch(/not found|error|no.*app|invalid/i);
   });
 });
 
 describe('Test Orchestrator - Skip Flags', () => {
   test('should accept --skip-lock flag', async () => {
-    const exitCode = await runScript(['--skip-lock', '--skip-preflight', '--skip-warmup', '--list']);
-    expect(exitCode).toBe(0);
+    const result = await runCLI(['test', '--skip-lock', '--skip-preflight', '--skip-warmup', 'list']);
+    expect(result.exitCode).toBe(0);
   });
 
   test('should accept --skip-preflight flag', async () => {
-    const exitCode = await runScript(['--skip-preflight', '--skip-lock', '--skip-warmup', '--list']);
-    expect(exitCode).toBe(0);
+    const result = await runCLI(['test', '--skip-preflight', '--skip-lock', '--skip-warmup', 'list']);
+    expect(result.exitCode).toBe(0);
   });
 
   test('should accept --skip-warmup flag', async () => {
-    const exitCode = await runScript(['--skip-warmup', '--skip-lock', '--skip-preflight', '--list']);
-    expect(exitCode).toBe(0);
+    const result = await runCLI(['test', '--skip-warmup', '--skip-lock', '--skip-preflight', 'list']);
+    expect(result.exitCode).toBe(0);
   });
 
   test('should accept multiple skip flags', async () => {
-    const exitCode = await runScript(['--skip-lock', '--skip-preflight', '--skip-warmup', '--list']);
-    expect(exitCode).toBe(0);
+    const result = await runCLI(['test', '--skip-lock', '--skip-preflight', '--skip-warmup', 'list']);
+    expect(result.exitCode).toBe(0);
   });
 
   test('should accept --force flag', async () => {
-    const exitCode = await runScript(['--force', '--skip-preflight', '--skip-warmup', '--list']);
-    expect(exitCode).toBe(0);
+    const result = await runCLI(['test', '--force', '--skip-preflight', '--skip-warmup', 'list']);
+    expect(result.exitCode).toBe(0);
   });
 });
 
 describe('Test Orchestrator - Smoke Mode', () => {
-  test('should exit 0 with --smoke and skips', async () => {
-    const exitCode = await runScript([
-      '--smoke',
+  test('should exit 0 with smoke mode and skips', async () => {
+    const result = await runCLI([
+      'test',
+      '--mode=smoke',
       '--skip-lock',
       '--skip-preflight',
       '--skip-warmup',
+      '--setup-only',
     ]);
-    expect(exitCode).toBe(0);
+    expect(result.exitCode).toBe(0);
   });
 });
 
@@ -119,7 +165,7 @@ describe('Test Orchestrator - Concurrent Access Protection', () => {
   test('should block concurrent runs without --force', async () => {
     // Start first process
     const proc1 = spawn({
-      cmd: ['bun', 'run', SCRIPT_PATH, '--skip-preflight', '--skip-warmup', '--list'],
+      cmd: ['bun', 'run', CLI_PATH, 'test', '--skip-preflight', '--skip-warmup', 'list'],
       stdout: 'pipe',
       stderr: 'pipe',
       cwd: WORKSPACE_ROOT,
@@ -130,7 +176,7 @@ describe('Test Orchestrator - Concurrent Access Protection', () => {
 
     // Start second process
     const proc2 = spawn({
-      cmd: ['bun', 'run', SCRIPT_PATH, '--skip-preflight', '--skip-warmup', '--list'],
+      cmd: ['bun', 'run', CLI_PATH, 'test', '--skip-preflight', '--skip-warmup', 'list'],
       stdout: 'pipe',
       stderr: 'pipe',
       cwd: WORKSPACE_ROOT,
@@ -146,7 +192,7 @@ describe('Test Orchestrator - Concurrent Access Protection', () => {
   test('should allow concurrent with --force', async () => {
     // Start first process
     const proc1 = spawn({
-      cmd: ['bun', 'run', SCRIPT_PATH, '--force', '--skip-preflight', '--skip-warmup', '--list'],
+      cmd: ['bun', 'run', CLI_PATH, 'test', '--force', '--skip-preflight', '--skip-warmup', 'list'],
       stdout: 'pipe',
       stderr: 'pipe',
       cwd: WORKSPACE_ROOT,
@@ -154,7 +200,7 @@ describe('Test Orchestrator - Concurrent Access Protection', () => {
 
     // Start second process immediately with force
     const proc2 = spawn({
-      cmd: ['bun', 'run', SCRIPT_PATH, '--force', '--skip-preflight', '--skip-warmup', '--list'],
+      cmd: ['bun', 'run', CLI_PATH, 'test', '--force', '--skip-preflight', '--skip-warmup', 'list'],
       stdout: 'pipe',
       stderr: 'pipe',
       cwd: WORKSPACE_ROOT,

@@ -357,10 +357,9 @@ export async function canDecrypt(
       method: 'eth_call',
       params: [{ to: councilAddress, data: callData }, 'latest'],
     }),
-  });
+  }).catch(() => null);
 
-  if (!response.ok) {
-    console.error('[canDecrypt] RPC call failed');
+  if (!response?.ok) {
     return false;
   }
 

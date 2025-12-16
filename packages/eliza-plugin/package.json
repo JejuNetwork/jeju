@@ -18,6 +18,8 @@
     "build": "bun build.ts",
     "dev": "bun --watch build.ts",
     "test": "bun test",
+    "test:unit": "bun test test/plugin.test.ts",
+    "test:integration": "JEJU_NETWORK=localnet bun test test/integration",
     "lint": "prettier --write ./src",
     "typecheck": "tsc --noEmit"
   },
@@ -31,7 +33,8 @@
   "devDependencies": {
     "@types/bun": "latest",
     "typescript": "^5.3.3",
-    "prettier": "^3.2.5"
+    "prettier": "^3.2.5",
+    "execa": "^9.5.3"
   },
   "peerDependencies": {
     "zod": "^3.22.4"
