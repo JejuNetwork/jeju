@@ -5,7 +5,7 @@
  * This ensures all apps use consistent, configurable chain names.
  */
 
-import { getBranding, getChainBranding, getUrls, type BrandingConfig } from '@jejunetwork/config';
+import { getBranding, type BrandingConfig } from '@jejunetwork/config';
 import type { Chain } from 'viem';
 
 let brandingCache: BrandingConfig | null = null;

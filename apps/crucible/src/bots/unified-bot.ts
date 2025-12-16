@@ -32,8 +32,8 @@ import { YieldFarmingStrategy, type YieldOpportunity, type YieldFarmingConfig } 
 import { SolanaDexAggregator } from './solana/dex-adapters';
 
 // Engine imports
-import { Collector, type SyncEvent, type SwapEvent } from './engine/collector';
-import { Executor } from './engine/executor';
+import { EventCollector, type SyncEvent, type SwapEvent } from './engine/collector';
+import { TransactionExecutor } from './engine/executor';
 import { RiskManager } from './engine/risk-manager';
 
 // Contract integrations (EIL/XLP/OIF)
@@ -137,8 +137,8 @@ export class UnifiedBot extends EventEmitter {
   private yieldFarming: YieldFarmingStrategy | null = null;
   
   // Engine components
-  private collectors: Map<ChainId, Collector> = new Map();
-  private executor: Executor | null = null;
+  private collectors: Map<ChainId, EventCollector> = new Map();
+  private executor: TransactionExecutor | null = null;
   private riskManager: RiskManager | null = null;
   
   // Cross-chain integrations (EIL/XLP/OIF)
@@ -215,15 +215,17 @@ export class UnifiedBot extends EventEmitter {
   }
 
   private async initializeStrategies(): Promise<void> {
-    const strategyConfig: StrategyConfig = {
+    const baseStrategyConfig = {
+      enabled: true,
       minProfitBps: this.config.minProfitBps,
+      maxGasGwei: this.config.maxGasGwei ?? 100,
       maxSlippageBps: this.config.maxSlippageBps,
     };
 
     // DEX Arbitrage (per chain)
     if (this.config.enableArbitrage) {
       for (const chainId of this.config.evmChains) {
-        const strategy = new DexArbitrageStrategy(chainId, strategyConfig);
+        const strategy = new DexArbitrageStrategy(chainId, { ...baseStrategyConfig, type: 'DEX_ARBITRAGE' });
         this.dexArb.set(chainId, strategy);
       }
       console.log('   ✓ DEX Arbitrage enabled');
@@ -231,13 +233,13 @@ export class UnifiedBot extends EventEmitter {
 
     // Cross-Chain Arbitrage
     if (this.config.enableCrossChain) {
-      this.crossChainArb = new CrossChainArbStrategy(this.config.evmChains, strategyConfig);
+      this.crossChainArb = new CrossChainArbStrategy(this.config.evmChains, { ...baseStrategyConfig, type: 'CROSS_CHAIN_ARBITRAGE' });
       console.log('   ✓ Cross-Chain Arbitrage enabled');
     }
 
     // Solana Arbitrage
     if (this.config.enableSolanaArb && this.solanaConnection) {
-      this.solanaArb = new SolanaArbStrategy(strategyConfig, this.config.evmChains);
+      this.solanaArb = new SolanaArbStrategy({ ...baseStrategyConfig, type: 'CROSS_CHAIN_ARBITRAGE' }, this.config.evmChains);
       await this.solanaArb.initialize(
         this.solanaConnection.rpcEndpoint,
         this.config.solanaPrivateKey

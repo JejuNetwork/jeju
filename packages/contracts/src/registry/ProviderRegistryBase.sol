@@ -64,6 +64,7 @@ abstract contract ProviderRegistryBase is Ownable, Pausable, ReentrancyGuard {
     ) Ownable(_owner) {
         if (_identityRegistry != address(0)) {
             erc8004.setIdentityRegistry(_identityRegistry);
+            moderation.setIdentityRegistry(_identityRegistry);
         }
         if (_banManager != address(0)) {
             moderation.setBanManager(_banManager);

@@ -36,7 +36,7 @@ export default function RepositoriesPage() {
 
   async function fetchRepositories() {
     setLoading(true);
-    const gitServerUrl = process.env.NEXT_PUBLIC_JEJUGIT_URL ?? 'http://localhost:4020';
+    const gitServerUrl = process.env.NEXT_PUBLIC_JEJUGIT_URL ?? 'http://localhost:4030/git';
     const params = new URLSearchParams();
     params.set('sort', sort);
     if (filter !== 'all') params.set('visibility', filter);

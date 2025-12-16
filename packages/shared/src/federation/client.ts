@@ -6,24 +6,15 @@ import {
   type WalletClient,
   type Address,
   type Hex,
-  type Chain,
   keccak256,
   encodePacked,
-  encodeAbiParameters,
-  parseAbiParameters,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import type {
   FederationConfig,
   NetworkInfo,
   NetworkContracts,
-  FederatedAgent,
-  FederatedSolver,
-  NetworkLiquidity,
-  TrustRelation,
-  RouteInfo,
   IdentityVerification,
-  XLP,
 } from './types';
 import { NETWORK_REGISTRY_ABI, FEDERATED_IDENTITY_ABI, FEDERATED_SOLVER_ABI, FEDERATED_LIQUIDITY_ABI } from './abis';
 
@@ -58,6 +49,16 @@ export class FederationClient {
   ): Promise<Hex> {
     if (!this.walletClient) throw new Error('Wallet not configured');
 
+    const contractsTuple = {
+      identityRegistry: contracts.identityRegistry,
+      solverRegistry: contracts.solverRegistry,
+      inputSettler: contracts.inputSettler,
+      outputSettler: contracts.outputSettler,
+      liquidityVault: contracts.liquidityVault,
+      governance: contracts.governance,
+      oracle: contracts.oracle,
+    };
+
     const hash = await this.walletClient.writeContract({
       address: this.config.networkRegistryAddress,
       abi: NETWORK_REGISTRY_ABI,
@@ -68,7 +69,7 @@ export class FederationClient {
         rpcUrl,
         explorerUrl,
         wsUrl,
-        contracts,
+        contractsTuple,
         genesisHash,
       ],
       value: stake,
@@ -100,11 +101,21 @@ export class FederationClient {
   async updateContracts(contracts: NetworkContracts): Promise<Hex> {
     if (!this.walletClient) throw new Error('Wallet not configured');
 
+    const contractsTuple = {
+      identityRegistry: contracts.identityRegistry,
+      solverRegistry: contracts.solverRegistry,
+      inputSettler: contracts.inputSettler,
+      outputSettler: contracts.outputSettler,
+      liquidityVault: contracts.liquidityVault,
+      governance: contracts.governance,
+      oracle: contracts.oracle,
+    };
+
     return this.walletClient.writeContract({
       address: this.config.networkRegistryAddress,
       abi: NETWORK_REGISTRY_ABI,
       functionName: 'updateContracts',
-      args: [BigInt(this.config.localChainId), contracts],
+      args: [BigInt(this.config.localChainId), contractsTuple],
       chain: null,
       account: this.walletClient.account!,
     });
@@ -142,8 +153,8 @@ export class FederationClient {
       abi: NETWORK_REGISTRY_ABI,
       functionName: 'getNetwork',
       args: [BigInt(chainId)],
-    }) as NetworkInfo;
-    return result;
+    });
+    return result as unknown as NetworkInfo;
   }
 
   async getActiveNetworks(): Promise<number[]> {
@@ -226,7 +237,7 @@ export class FederationClient {
         abi: FEDERATED_IDENTITY_ABI,
         functionName: 'getAttestations',
         args: [federatedId],
-      }) as Array<{ targetChainId: bigint }>;
+      }) as unknown as Array<{ targetChainId: bigint }>;
       attestedNetworks = attestations.map(a => Number(a.targetChainId));
     }
 

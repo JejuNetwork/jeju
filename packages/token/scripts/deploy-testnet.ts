@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @deprecated Use 'jeju token deploy testnet' instead
+ * @deprecated Use 'jeju token deploy:testnet' instead
  * 
  * Deploy experimental token contracts to testnet
  * 
@@ -10,8 +10,8 @@
  * - Configures cross-chain warp routes
  * 
  * Usage:
- *   jeju token deploy testnet
- *   jeju token deploy testnet --dry-run
+ *   jeju token deploy:testnet
+ *   jeju token deploy:testnet --dry-run
  */
 
 import { createWalletClient, http, type Hex } from 'viem';
