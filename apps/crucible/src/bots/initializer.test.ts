@@ -18,14 +18,7 @@ import type { AgentSDK } from '../sdk/agent';
 import type { ChainId } from './autocrat-types';
 
 describe('BotInitializer', () => {
-  const mockAgentSdk = {
-    registerAgent: mock(() => Promise.resolve({
-      agentId: 1n,
-      vaultAddress: '0x' + '1'.repeat(40) as `0x${string}`,
-      characterCid: 'QmTest',
-      stateCid: 'QmState',
-    })),
-  } as unknown as AgentSDK;
+  // mockAgentSdk is created fresh in beforeEach
 
   const mockPublicClient = {} as PublicClient;
   const mockWalletClient = {} as WalletClient;
@@ -50,10 +43,19 @@ describe('BotInitializer', () => {
   };
 
   let initializer: BotInitializer;
+  let mockAgentSdk: AgentSDK;
 
   beforeEach(() => {
-    // Clear mock call history by resetting calls array
-    (mockAgentSdk.registerAgent as ReturnType<typeof mock>).mock.calls = [];
+    // Create fresh mock for each test
+    mockAgentSdk = {
+      registerAgent: mock(() => Promise.resolve({
+        agentId: 1n,
+        vaultAddress: '0x' + '1'.repeat(40) as `0x${string}`,
+        characterCid: 'QmTest',
+        stateCid: 'QmState',
+      })),
+    } as unknown as AgentSDK;
+
     initializer = new BotInitializer({
       crucibleConfig: baseConfig,
       agentSdk: mockAgentSdk,
@@ -63,7 +65,9 @@ describe('BotInitializer', () => {
   });
 
   afterEach(async () => {
-    await initializer.stopAll();
+    if (initializer) {
+      await initializer.stopAll();
+    }
   });
 
   describe('getDefaultBotsForNetwork', () => {

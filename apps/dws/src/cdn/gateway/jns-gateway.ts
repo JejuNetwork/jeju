@@ -71,7 +71,7 @@ export class JNSGateway {
   private config: JNSGatewayConfig;
   private cache: EdgeCache;
   private originFetcher: OriginFetcher;
-  private publicClient: Awaited<ReturnType<typeof createPublicClient>>;
+  private publicClient!: ReturnType<typeof createPublicClient>;
   private registryAddress: Address;
   private defaultResolverAddress: Address;
 

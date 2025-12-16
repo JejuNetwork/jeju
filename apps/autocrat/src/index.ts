@@ -28,14 +28,15 @@
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { createCouncilA2AServer } from './a2a-server';
-import { createCouncilMCPServer } from './mcp-server';
+import { getNetworkName } from '@jejunetwork/config';
+import { createAutocratA2AServer } from './a2a-server';
+import { createAutocratMCPServer } from './mcp-server';
 import { getBlockchain } from './blockchain';
-import { createOrchestrator, type CouncilOrchestrator } from './orchestrator';
+import { createOrchestrator, type AutocratOrchestrator } from './orchestrator';
 import { initLocalServices } from './local-services';
 import { getTEEMode } from './tee';
-import { councilAgentRuntime } from './agents';
-import { registerCouncilTriggers, startLocalCron, getComputeTriggerClient, type OrchestratorTriggerResult } from './compute-trigger';
+import { autocratAgentRuntime } from './agents';
+import { registerAutocratTriggers, startLocalCron, getComputeTriggerClient, type OrchestratorTriggerResult } from './compute-trigger';
 import { getProposalAssistant, type ProposalDraft, type QualityAssessment } from './proposal-assistant';
 import { getResearchAgent, type ResearchRequest } from './research-agent';
 import { getERC8004Client, type ERC8004Config } from './erc8004';
@@ -106,8 +107,8 @@ const app = new Hono();
 
 app.use('/*', cors());
 
-const a2aServer = createCouncilA2AServer(config, blockchain);
-const mcpServer = createCouncilMCPServer(config, blockchain);
+const a2aServer = createAutocratA2AServer(config, blockchain);
+const mcpServer = createAutocratMCPServer(config, blockchain);
 app.route('/a2a', a2aServer.getRouter());
 app.route('/mcp', mcpServer.getRouter());
 app.get('/.well-known/agent-card.json', (c) => c.redirect('/a2a/.well-known/agent-card.json'));
@@ -129,7 +130,7 @@ app.get('/api/v1/ceo/decisions', async (c) => {
   return c.json({ decisions });
 });
 
-let orchestrator: CouncilOrchestrator | null = null;
+let orchestrator: AutocratOrchestrator | null = null;
 
 app.post('/api/v1/orchestrator/start', async (c) => {
   if (orchestrator?.getStatus().running) return c.json({ error: 'Already running' }, 400);
@@ -684,14 +685,14 @@ const useCompute = process.env.USE_COMPUTE_TRIGGER !== 'false';
 async function start() {
   await initLocalServices();
   await initModeration();
-  await councilAgentRuntime.initialize();
+  await autocratAgentRuntime.initialize();
 
   const computeClient = getComputeTriggerClient();
   const computeAvailable = await computeClient.isAvailable();
   let triggerMode = 'local';
 
   if (computeAvailable && useCompute) {
-    await registerCouncilTriggers();
+    await registerAutocratTriggers();
     triggerMode = 'compute';
   }
 
@@ -714,14 +715,14 @@ start();
 export default { port, fetch: app.fetch };
 export { app, config };
 export type { CouncilConfig } from './types';
-export { createCouncilA2AServer } from './a2a-server';
-export { createCouncilMCPServer } from './mcp-server';
-export { getBlockchain, CouncilBlockchain } from './blockchain';
-export { createOrchestrator, type CouncilOrchestrator } from './orchestrator';
+export { createAutocratA2AServer } from './a2a-server';
+export { createAutocratMCPServer } from './mcp-server';
+export { getBlockchain, AutocratBlockchain } from './blockchain';
+export { createOrchestrator, type AutocratOrchestrator } from './orchestrator';
 export { initLocalServices, store, retrieve, storeVote, getVotes } from './local-services';
 export { getTEEMode, makeTEEDecision, decryptReasoning } from './tee';
-export { getComputeTriggerClient, registerCouncilTriggers, startLocalCron } from './compute-trigger';
-export { councilAgentRuntime, councilAgentTemplates, getAgentByRole, type AgentVote, type DeliberationRequest, type CEODecisionRequest } from './agents';
+export { getComputeTriggerClient, registerAutocratTriggers, startLocalCron } from './compute-trigger';
+export { autocratAgentRuntime, autocratAgentTemplates, getAgentByRole, type AgentVote, type DeliberationRequest, type CEODecisionRequest } from './agents';
 export { getProposalAssistant, ProposalAssistant, type ProposalDraft, type QualityAssessment, type SimilarProposal } from './proposal-assistant';
 export { getResearchAgent, ResearchAgent, generateResearchReport, quickScreenProposal, type ResearchRequest, type ResearchReport, type ResearchSection } from './research-agent';
 export { getERC8004Client, ERC8004Client, type ERC8004Config, type AgentIdentity, type AgentReputation } from './erc8004';

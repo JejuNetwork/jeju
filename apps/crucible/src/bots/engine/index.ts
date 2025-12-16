@@ -18,3 +18,4 @@ export { RiskManager, DEFAULT_RISK_CONFIG, type RiskConfig } from './risk-manage
 export { EventCollector, type SyncEvent, type SwapEvent, type BlockEvent, type PendingTransaction } from './collector';
 export { TransactionExecutor, type ContractAddresses, type ExecutorConfig } from './executor';
 export { TreasuryManager, type TreasuryConfig } from './treasury';
+export { SolanaMempoolMonitor, createSolanaMempoolMonitor, type PendingSolanaTx, type SolanaArbOpportunity } from './solana-mempool';

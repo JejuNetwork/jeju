@@ -476,11 +476,11 @@ export class YieldFarmingStrategy extends EventEmitter {
           functionName: 'getReserveData',
           args: [market.address as Address],
         });
-        // Aave V3 returns tuple where index 2 is currentLiquidityRate
-        const reserveData = { currentLiquidityRate: (reserveDataRaw as readonly bigint[])[2] };
+        // Index 2 is currentLiquidityRate in ray (27 decimals)
+        const currentLiquidityRate = (reserveDataRaw as readonly bigint[])[2];
 
         // Convert ray (27 decimals) to APR percentage
-        const supplyApr = Number(reserveData.currentLiquidityRate) / 1e27 * 100;
+        const supplyApr = parseFloat(formatUnits(currentLiquidityRate, 27)) * 100;
 
         if (supplyApr > 0) {
           opportunities.push({

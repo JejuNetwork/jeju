@@ -6,7 +6,7 @@
 import { createHash } from 'crypto';
 import { inflate, deflate } from 'zlib';
 import { promisify } from 'util';
-import type { GitObjectType, PackedObject, PackfileHeader } from './types';
+import type { GitObjectType, PackedObject } from './types';
 import { GitObjectStore } from './object-store';
 
 const inflateAsync = promisify(inflate);
@@ -157,7 +157,7 @@ export class PackfileReader {
 
     if (type === PACK_TYPE.OFS_DELTA) {
       // Offset delta - reference by negative offset
-      const baseOffset = this.readVariableOffset();
+      void this.readVariableOffset(); // baseOffset for delta resolution
       const data = await this.readCompressedData();
       return {
         type: 'blob', // Will be resolved later

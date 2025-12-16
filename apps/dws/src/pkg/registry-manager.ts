@@ -26,7 +26,41 @@ import type {
   PkgVersionMetadata,
   PackageManifest,
 } from './types';
-import { encodeCidToBytes32, decodeBytes32ToCidKey, cidToHex } from './cid-utils';
+import { encodeCidToBytes32, decodeBytes32ToCidKey } from './cid-utils';
+
+// Type for package data returned from contract
+interface ContractPackageData {
+  packageId: `0x${string}`;
+  name: string;
+  scope: string;
+  owner: `0x${string}`;
+  agentId: bigint;
+  jnsNode: `0x${string}`;
+  description: string;
+  license: string;
+  homepage: string;
+  repository: string;
+  latestVersion: `0x${string}`;
+  createdAt: bigint;
+  updatedAt: bigint;
+  deprecated: boolean;
+  downloadCount: bigint;
+}
+
+// Type for version data returned from contract
+interface ContractVersionData {
+  versionId: `0x${string}`;
+  packageId: `0x${string}`;
+  version: string;
+  tarballCid: `0x${string}`;
+  integrityHash: `0x${string}`;
+  manifestCid: `0x${string}`;
+  size: bigint;
+  publisher: `0x${string}`;
+  publishedAt: bigint;
+  deprecated: boolean;
+  deprecationMessage: string;
+}
 
 // PackageRegistry ABI (subset for our needs)
 const PACKAGE_REGISTRY_ABI = [
@@ -331,14 +365,14 @@ export class PkgRegistryManager {
    * Get package by ID
    */
   async getPackage(packageId: Hex): Promise<Package | null> {
-    let result;
+    let result: ContractPackageData | null = null;
     try {
       result = await this.publicClient.readContract({
         address: this.packageRegistryAddress,
         abi: PACKAGE_REGISTRY_ABI,
         functionName: 'getPackage',
         args: [packageId],
-      });
+      }) as ContractPackageData;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error(`[Pkg Registry] Failed to read package ${packageId}: ${errorMessage}`);
@@ -358,14 +392,14 @@ export class PkgRegistryManager {
   async getPackageByName(fullName: string): Promise<Package | null> {
     const { name, scope } = this.parsePackageName(fullName);
 
-    let result;
+    let result: ContractPackageData | null = null;
     try {
       result = await this.publicClient.readContract({
         address: this.packageRegistryAddress,
         abi: PACKAGE_REGISTRY_ABI,
         functionName: 'getPackageByName',
         args: [name, scope],
-      });
+      }) as ContractPackageData;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error(`[Pkg Registry] Failed to read package by name ${fullName}: ${errorMessage}`);
@@ -450,9 +484,9 @@ export class PkgRegistryManager {
       abi: PACKAGE_REGISTRY_ABI,
       functionName: 'getVersions',
       args: [packageId],
-    });
+    }) as ContractVersionData[];
 
-    return result.map((v) => this.mapContractVersion(v));
+    return result.map((v: ContractVersionData) => this.mapContractVersion(v));
   }
 
   /**
@@ -464,7 +498,7 @@ export class PkgRegistryManager {
       abi: PACKAGE_REGISTRY_ABI,
       functionName: 'getVersion',
       args: [packageId, version],
-    });
+    }) as ContractVersionData;
 
     if (!result || result.publishedAt === 0n) {
       return null;
@@ -630,7 +664,7 @@ export class PkgRegistryManager {
         abi: PACKAGE_REGISTRY_ABI,
         data: versionPublishedEvent.data,
         topics: versionPublishedEvent.topics,
-      }) as { args: { versionId: Hex } };
+      }) as unknown as { args: { versionId: Hex } };
 
       versionId = decoded.args.versionId;
     } catch (error) {
@@ -649,7 +683,7 @@ export class PkgRegistryManager {
     const cidString = this.cidMap.get(manifestCid);
     if (!cidString) {
       // Fallback: try using the hex directly (for backwards compatibility)
-      const hexKey = decodeBytes32ToCidKey(manifestCid);
+      void decodeBytes32ToCidKey(manifestCid); // For potential future use
       // Try to find CID by iterating through known CIDs
       for (const [hash, cid] of this.cidMap) {
         if (hash === manifestCid) {
@@ -717,6 +751,7 @@ export class PkgRegistryManager {
   async recordDownload(packageId: Hex, versionId: Hex): Promise<void> {
     if (!this.walletClient) return;
 
+    // @ts-expect-error viem ABI type inference
     await this.walletClient.writeContract({
       address: this.packageRegistryAddress,
       abi: PACKAGE_REGISTRY_ABI,
@@ -734,9 +769,9 @@ export class PkgRegistryManager {
       abi: PACKAGE_REGISTRY_ABI,
       functionName: 'getAllPackages',
       args: [BigInt(offset), BigInt(limit * 10)],
-    });
+    }) as ContractPackageData[];
 
-    const packages = allPackages.map((p) => this.mapContractPackage(p));
+    const packages = allPackages.map((p: ContractPackageData) => this.mapContractPackage(p));
 
     // Simple text search
     const queryLower = query.toLowerCase();
@@ -831,6 +866,6 @@ export class PkgRegistryManager {
 }
 
 // Export type alias for backwards compatibility
-export { PkgRegistryManagerConfig as NpmRegistryManagerConfig };
+export type { PkgRegistryManagerConfig as NpmRegistryManagerConfig };
 export { PkgRegistryManager as NpmRegistryManager };
 

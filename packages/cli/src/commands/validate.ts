@@ -1,11 +1,13 @@
 /**
- * Validate all jeju-manifest.json files
- * Ensures CDN, JNS, and decentralization settings are properly configured
+ * Validation commands for manifests, configs, etc.
  */
 
-import { discoverCoreApps, discoverVendorApps, type NetworkApp } from './shared/discover-apps';
-import { readFileSync, existsSync } from 'fs';
+import { Command } from 'commander';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { logger } from '../lib/logger';
+import { findMonorepoRoot } from '../lib/system';
+import { discoverCoreApps, discoverVendorApps } from '../../../../scripts/shared/discover-apps';
 
 interface ValidationResult {
   app: string;
@@ -110,7 +112,9 @@ function validateManifest(appPath: string): ValidationResult {
 }
 
 function printResults(results: ValidationResult[]): void {
-  console.log('\n📋 Manifest Validation Results\n');
+  logger.newline();
+  logger.info('📋 Manifest Validation Results');
+  logger.newline();
   
   const valid = results.filter(r => r.valid);
   const invalid = results.filter(r => !r.valid);
@@ -134,11 +138,13 @@ function printResults(results: ValidationResult[]): void {
 
   // Print errors
   if (invalid.length > 0) {
-    console.log('\n❌ Apps with Errors:\n');
+    logger.newline();
+    logger.error('❌ Apps with Errors:');
+    logger.newline();
     for (const result of invalid) {
-      console.log(`  ${result.app}:`);
+      logger.info(`  ${result.app}:`);
       for (const error of result.errors) {
-        console.log(`    ❌ ${error}`);
+        logger.info(`    ❌ ${error}`);
       }
     }
   }
@@ -146,11 +152,13 @@ function printResults(results: ValidationResult[]): void {
   // Print warnings
   const withWarnings = results.filter(r => r.warnings.length > 0);
   if (withWarnings.length > 0) {
-    console.log('\n⚠️  Warnings:\n');
+    logger.newline();
+    logger.warn('⚠️  Warnings:');
+    logger.newline();
     for (const result of withWarnings) {
-      console.log(`  ${result.app}:`);
+      logger.info(`  ${result.app}:`);
       for (const warning of result.warnings) {
-        console.log(`    ⚠️  ${warning}`);
+        logger.info(`    ⚠️  ${warning}`);
       }
     }
   }
@@ -164,41 +172,54 @@ function printResults(results: ValidationResult[]): void {
     offlineSupport: acc.offlineSupport + (r.features.offlineSupport ? 1 : 0),
   }), { jns: 0, cdn: 0, ipfs: 0, serviceWorker: 0, offlineSupport: 0 });
 
-  console.log('\n📊 Summary:');
-  console.log(`   Total apps: ${results.length}`);
-  console.log(`   Valid: ${valid.length} | Invalid: ${invalid.length}`);
-  console.log(`   JNS configured: ${totalFeatures.jns}/${results.length}`);
-  console.log(`   CDN enabled: ${totalFeatures.cdn}/${results.length}`);
-  console.log(`   IPFS deployment: ${totalFeatures.ipfs}/${results.length}`);
-  console.log(`   Service Workers: ${totalFeatures.serviceWorker}/${results.length}`);
-  console.log(`   Offline Support: ${totalFeatures.offlineSupport}/${results.length}`);
-  console.log('');
+  logger.newline();
+  logger.info('📊 Summary:');
+  logger.info(`   Total apps: ${results.length}`);
+  logger.info(`   Valid: ${valid.length} | Invalid: ${invalid.length}`);
+  logger.info(`   JNS configured: ${totalFeatures.jns}/${results.length}`);
+  logger.info(`   CDN enabled: ${totalFeatures.cdn}/${results.length}`);
+  logger.info(`   IPFS deployment: ${totalFeatures.ipfs}/${results.length}`);
+  logger.info(`   Service Workers: ${totalFeatures.serviceWorker}/${results.length}`);
+  logger.info(`   Offline Support: ${totalFeatures.offlineSupport}/${results.length}`);
+  logger.newline();
 }
 
-async function main(): Promise<void> {
-  const rootDir = process.cwd();
-  
-  // Discover all apps
-  const coreApps = discoverCoreApps(rootDir);
-  const vendorApps = discoverVendorApps(rootDir);
-  const allApps = [...coreApps, ...vendorApps];
+const validateCommand = new Command('validate')
+  .description('Validate manifests, configs, and deployments')
+  .alias('check');
 
-  console.log(`\nDiscovered ${allApps.length} apps (${coreApps.length} core, ${vendorApps.length} vendor)\n`);
+validateCommand
+  .command('manifests')
+  .description('Validate all jeju-manifest.json files')
+  .action(async () => {
+    const rootDir = findMonorepoRoot();
+    
+    logger.header('VALIDATE MANIFESTS');
+    
+    // Discover all apps
+    const coreApps = discoverCoreApps(rootDir);
+    const vendorApps = discoverVendorApps(rootDir);
+    const allApps = [...coreApps, ...vendorApps];
 
-  // Validate each app
-  const results: ValidationResult[] = [];
-  
-  for (const app of allApps) {
-    const result = validateManifest(app.path);
-    results.push(result);
-  }
+    logger.info(`Discovered ${allApps.length} apps (${coreApps.length} core, ${vendorApps.length} vendor)`);
+    logger.newline();
 
-  printResults(results);
+    // Validate each app
+    const results: ValidationResult[] = [];
+    
+    for (const app of allApps) {
+      const result = validateManifest(app.path);
+      results.push(result);
+    }
 
-  // Exit with error if any invalid
-  const hasErrors = results.some(r => !r.valid);
-  process.exit(hasErrors ? 1 : 0);
-}
+    printResults(results);
 
-main().catch(console.error);
+    // Exit with error if any invalid
+    const hasErrors = results.some(r => !r.valid);
+    if (hasErrors) {
+      process.exit(1);
+    }
+  });
+
+export { validateCommand };
 

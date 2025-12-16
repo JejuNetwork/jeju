@@ -38,6 +38,7 @@ import { serviceCommand } from './commands/service';
 import { publishCommand } from './commands/publish';
 import { infraCommand } from './commands/infra';
 import { tokenCommand } from './commands/token';
+import { validateCommand } from './commands/validate';
 
 const cli = getCliBranding();
 const networkName = getNetworkName();
@@ -99,6 +100,7 @@ program.addCommand(serviceCommand);
 program.addCommand(publishCommand);
 program.addCommand(infraCommand);
 program.addCommand(tokenCommand);
+program.addCommand(validateCommand);
 
 // Default: show help
 program.action(() => {

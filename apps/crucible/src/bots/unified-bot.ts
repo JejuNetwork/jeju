@@ -21,7 +21,7 @@ import { EventEmitter } from 'events';
 import { Connection, Keypair } from '@solana/web3.js';
 import { createPublicClient, createWalletClient, http, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import type { ChainId, StrategyConfig, ArbitrageOpportunity, CrossChainArbOpportunity } from './autocrat-types';
+import type { ChainId, StrategyConfig, ArbitrageOpportunity, CrossChainArbOpportunity, StrategyType } from './autocrat-types';
 
 // Strategy imports
 import { DexArbitrageStrategy } from './strategies/dex-arbitrage';
@@ -67,6 +67,7 @@ export interface UnifiedBotConfig {
   maxPositionSize: bigint;
   maxSlippageBps: number;
   maxGasPrice: bigint;
+  maxGasGwei?: number;
   
   // LP parameters
   lpConfig?: Partial<LiquidityManagerConfig>;
@@ -215,17 +216,18 @@ export class UnifiedBot extends EventEmitter {
   }
 
   private async initializeStrategies(): Promise<void> {
-    const baseStrategyConfig = {
+    const baseStrategyConfig = (type: StrategyType): StrategyConfig => ({
+      type,
       enabled: true,
       minProfitBps: this.config.minProfitBps,
-      maxGasGwei: this.config.maxGasGwei ?? 100,
+      maxGasGwei: 100,
       maxSlippageBps: this.config.maxSlippageBps,
-    };
+    });
 
     // DEX Arbitrage (per chain)
     if (this.config.enableArbitrage) {
       for (const chainId of this.config.evmChains) {
-        const strategy = new DexArbitrageStrategy(chainId, { ...baseStrategyConfig, type: 'DEX_ARBITRAGE' });
+        const strategy = new DexArbitrageStrategy(chainId, baseStrategyConfig('DEX_ARBITRAGE'));
         this.dexArb.set(chainId, strategy);
       }
       console.log('   ✓ DEX Arbitrage enabled');
@@ -233,13 +235,13 @@ export class UnifiedBot extends EventEmitter {
 
     // Cross-Chain Arbitrage
     if (this.config.enableCrossChain) {
-      this.crossChainArb = new CrossChainArbStrategy(this.config.evmChains, { ...baseStrategyConfig, type: 'CROSS_CHAIN_ARBITRAGE' });
+      this.crossChainArb = new CrossChainArbStrategy(this.config.evmChains, baseStrategyConfig('CROSS_CHAIN_ARBITRAGE'));
       console.log('   ✓ Cross-Chain Arbitrage enabled');
     }
 
     // Solana Arbitrage
     if (this.config.enableSolanaArb && this.solanaConnection) {
-      this.solanaArb = new SolanaArbStrategy({ ...baseStrategyConfig, type: 'CROSS_CHAIN_ARBITRAGE' }, this.config.evmChains);
+      this.solanaArb = new SolanaArbStrategy(baseStrategyConfig('CROSS_CHAIN_ARBITRAGE'), this.config.evmChains);
       await this.solanaArb.initialize(
         this.solanaConnection.rpcEndpoint,
         this.config.solanaPrivateKey
@@ -250,7 +252,11 @@ export class UnifiedBot extends EventEmitter {
     // Liquidity Management
     if (this.config.enableLiquidity) {
       const lpConfig: LiquidityManagerConfig = {
+        type: 'LIQUIDITY',
+        enabled: true,
         minProfitBps: this.config.minProfitBps,
+        maxGasGwei: this.config.maxGasGwei ?? 100,
+        maxSlippageBps: this.config.maxSlippageBps,
         evmChains: this.config.evmChains,
         solanaNetwork: this.config.solanaNetwork,
         rebalanceThresholdPercent: 5,
@@ -310,7 +316,7 @@ export class UnifiedBot extends EventEmitter {
     if (this.config.enableSolver && this.config.evmPrivateKey) {
       console.log('🔮 Initializing OIF Solver...');
       
-      const chainConfigs: OIFSolverConfig['chainConfigs'] = {};
+      const chainConfigs: Partial<OIFSolverConfig['chainConfigs']> = {};
       
       for (const chainId of this.config.evmChains) {
         const rpcUrl = process.env[`RPC_URL_${chainId}`];
@@ -331,7 +337,7 @@ export class UnifiedBot extends EventEmitter {
       if (Object.keys(chainConfigs).length > 0) {
         this.oifSolver = new OIFSolver({
           name: this.config.oifSolverName ?? 'jeju-unified-bot',
-          chainConfigs,
+          chainConfigs: chainConfigs as OIFSolverConfig['chainConfigs'],
           privateKey: this.config.evmPrivateKey,
           minProfitBps: this.config.minProfitBps,
           maxSlippageBps: this.config.maxSlippageBps,
@@ -352,6 +358,9 @@ export class UnifiedBot extends EventEmitter {
       };
 
       this.yieldFarming = new YieldFarmingStrategy({
+        type: 'YIELD_FARMING',
+        enabled: true,
+        maxGasGwei: 100,
         chains: this.config.evmChains,
         solanaNetwork: this.config.solanaNetwork,
         minApr: this.config.yieldFarmingConfig?.minApr ?? 1,
@@ -383,9 +392,17 @@ export class UnifiedBot extends EventEmitter {
   private async initializeEngine(): Promise<void> {
     // Risk manager
     this.riskManager = new RiskManager({
-      maxPositionSize: this.config.maxPositionSize,
-      maxDailyLoss: BigInt(1e18), // 1 ETH
+      maxPositionSizeWei: this.config.maxPositionSize,
+      maxDailyLossWei: BigInt(1e18), // 1 ETH
+      maxWeeklyLossWei: BigInt(5e18),
+      maxConcurrentExposureWei: BigInt(50e18),
+      minProfitBps: this.config.minProfitBps,
+      minNetProfitWei: 0n,
+      minBuilderInclusionRate: 0.5,
       maxSlippageBps: this.config.maxSlippageBps,
+      reorgRiskMultiplier: 0.9,
+      maxConsecutiveFails: 5,
+      cooldownAfterFailMs: 60_000,
     });
 
     console.log('   ✓ Engine initialized');

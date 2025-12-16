@@ -223,9 +223,6 @@ class LeaderboardIntegration {
     }
   }
 
-  private async syncUser(username: string, contributions: GitContribution[]): Promise<boolean> {
-    return this.syncUserWithRetry(username, contributions, 0);
-  }
 }
 
 export const leaderboardIntegration = new LeaderboardIntegration();

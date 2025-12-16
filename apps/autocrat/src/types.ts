@@ -325,7 +325,6 @@ export interface CouncilConfig {
   parameters: {
     minQualityScore: number;
     councilVotingPeriod: number;
-    autocratVotingPeriod: number;
     gracePeriod: number;
     minBackers: number;
     minStakeForVeto: bigint;
@@ -343,6 +342,3 @@ export interface AgentConfig {
   endpoint: string;
   systemPrompt: string;
 }
-
-// AutocratConfig is an alias for CouncilConfig - they are the same configuration
-export type AutocratConfig = CouncilConfig;

@@ -223,6 +223,7 @@ export class AgentSDK {
   async loadCharacter(agentId: bigint): Promise<AgentCharacter> {
     const agent = await this.getAgent(agentId);
     if (!agent) throw new Error(`Agent not found: ${agentId}`);
+    if (!agent.characterCid) throw new Error(`Agent ${agentId} has no character CID`);
     return this.storage.loadCharacter(agent.characterCid);
   }
 

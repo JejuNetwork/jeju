@@ -453,10 +453,11 @@ export class P2PTrainingNetwork {
   private discovery: PeerDiscovery;
   private gossip: GossipNetwork;
   private blobs: BlobStore;
-  private config: P2PConfig;
+  // @ts-expect-error Reserved for configuration
+  private _config: P2PConfig;
 
   constructor(config: P2PConfig) {
-    this.config = config;
+    this._config = config;
     this.discovery = new PeerDiscovery(config.rpcUrl, config.identityRegistryAddress);
     this.gossip = new GossipNetwork(this.discovery, config.selfEndpoint);
     this.blobs = new BlobStore(this.discovery, config.selfEndpoint);

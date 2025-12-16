@@ -61,8 +61,8 @@ export class EdgeNodeServer {
   private cache: EdgeCache;
   private originFetcher: OriginFetcher;
   private account: PrivateKeyAccount;
-  private publicClient: Awaited<ReturnType<typeof createPublicClient>>;
-  private walletClient: Awaited<ReturnType<typeof createWalletClient>>;
+  private publicClient!: ReturnType<typeof createPublicClient>;
+  private walletClient!: ReturnType<typeof createWalletClient>;
   private registryAddress: Address;
   private nodeIdBytes: string;
 
@@ -101,7 +101,9 @@ export class EdgeNodeServer {
     // Initialize wallet and contract
     this.account = privateKeyToAccount(config.privateKey as `0x${string}`);
     const chain = inferChainFromRpcUrl(config.rpcUrl);
+    // @ts-expect-error viem version type mismatch in monorepo
     this.publicClient = createPublicClient({ chain, transport: http(config.rpcUrl) });
+    // @ts-expect-error viem version type mismatch in monorepo
     this.walletClient = createWalletClient({ account: this.account, chain, transport: http(config.rpcUrl) });
     this.registryAddress = config.registryAddress;
     

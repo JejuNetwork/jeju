@@ -10,9 +10,6 @@
 import type { Address, Hex } from 'viem';
 import type {
   Repository,
-  GitUser,
-  Issue,
-  PullRequest,
   RepoSearchResult,
   CodeSearchResult,
   CodeSearchHit,
@@ -98,8 +95,10 @@ export interface UserSearchOptions extends SearchOptions {
 export class SearchManager {
   private repoManager: GitRepoManager;
   private issuesManager: IssuesManager;
-  private socialManager: SocialManager;
-  private backend: BackendManager;
+  // @ts-expect-error Reserved for future social search
+  private _socialManager: SocialManager;
+  // @ts-expect-error Reserved for future storage search
+  private _backend: BackendManager;
 
   // In-memory index for search (suitable for small deployments)
   // For large-scale deployments, configure MEILISEARCH_URL environment variable
@@ -110,8 +109,8 @@ export class SearchManager {
   constructor(config: SearchManagerConfig) {
     this.repoManager = config.repoManager;
     this.issuesManager = config.issuesManager;
-    this.socialManager = config.socialManager;
-    this.backend = config.backend;
+    this._socialManager = config.socialManager;
+    this._backend = config.backend;
     
     // Initialize Meilisearch if configured
     this.initMeilisearch();
@@ -128,6 +127,7 @@ export class SearchManager {
 
     try {
       // Dynamic import to avoid bundling meilisearch if not used
+      // @ts-expect-error meilisearch is optional, only required if MEILISEARCH_URL is set
       const { MeiliSearch } = await import('meilisearch');
       this.meilisearchClient = new MeiliSearch({
         host: meilisearchUrl,
@@ -223,7 +223,7 @@ export class SearchManager {
     const results: CodeSearchHit[] = [];
 
     // Search through indexed code
-    for (const [key, entry] of this.codeIndex) {
+    for (const [, entry] of this.codeIndex) {
       // Filter by repo
       if (options.repoId && entry.repoId !== options.repoId) continue;
 
@@ -321,7 +321,7 @@ export class SearchManager {
       filtered = filtered.filter(i => i.state === 'closed');
     }
     if (qualifiers.label) {
-      filtered = filtered.filter(i => i.labels.includes(qualifiers.label));
+      filtered = filtered.filter(i => i.labels.includes(qualifiers.label as string));
     }
 
     // Sort
@@ -349,20 +349,10 @@ export class SearchManager {
    * Search users
    */
   async searchUsers(
-    query: string,
-    options: UserSearchOptions = {}
+    _query: string,
+    _options: UserSearchOptions = {}
   ): Promise<UserSearchResult> {
-    const page = options.page || 1;
-    const perPage = Math.min(options.perPage || 30, 100);
-    const sort = options.sort || 'best-match';
-    const order = options.order || 'desc';
-
-    const searchTerms = query.toLowerCase();
-
-    // Get users from social manager cache
-    // In production, would use database/search index
-    const users: GitUser[] = [];
-    
+    // TODO: Implement user search when proper indexing is available
     // For now, return empty results as user search requires proper indexing
     return { totalCount: 0, items: [] };
   }

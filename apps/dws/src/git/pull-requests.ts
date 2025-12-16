@@ -18,7 +18,7 @@ import type {
   ContributionEvent,
 } from './types';
 import type { GitRepoManager } from './repo-manager';
-import type { GitObjectStore } from './object-store';
+import { decodeBytes32ToOid } from './oid-utils';
 
 export interface PRManagerConfig {
   backend: BackendManager;
@@ -422,7 +422,7 @@ export class PullRequestsManager {
     repoId: Hex,
     prNumber: number,
     merger: Address,
-    request: MergePRRequest = {}
+    _request: MergePRRequest = {}
   ): Promise<{ pr: PullRequest; indexCid: string; contributionEvent: ContributionEvent }> {
     const pr = await this.getPR(repoId, prNumber);
     if (!pr) {
