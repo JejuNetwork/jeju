@@ -15,6 +15,7 @@ import { createNamesModule, type NamesModule } from "./names";
 import { createIdentityModule, type IdentityModule } from "./identity";
 import { createValidationModule, type ValidationModule } from "./validation";
 import { createCrossChainModule, type CrossChainModule } from "./crosschain";
+import { createNFTModule, type NFTModule } from "./nfts";
 import { createPaymentsModule, type PaymentsModule } from "./payments";
 import { createA2AModule, type A2AModule } from "./a2a";
 import { getServicesConfig, getChainConfig } from "./config";
@@ -65,6 +66,8 @@ export interface JejuClient {
   readonly validation: ValidationModule;
   /** Cross-chain - EIL + OIF transfers and intents */
   readonly crosschain: CrossChainModule;
+  /** NFTs - Cross-chain NFT bridging via Hyperlane/EIL/OIF */
+  readonly nfts: NFTModule;
   /** Payments - Paymasters, x402, credits */
   readonly payments: PaymentsModule;
   /** A2A - Agent protocol client */
@@ -111,6 +114,7 @@ export async function createJejuClient(
   const identity = createIdentityModule(wallet, network);
   const validation = createValidationModule(wallet, network, wallet.publicClient);
   const crosschain = createCrossChainModule(wallet, network);
+  const nfts = createNFTModule(wallet, network);
   const payments = createPaymentsModule(wallet, network);
   const a2a = createA2AModule(wallet, network, servicesConfig);
 
@@ -129,6 +133,7 @@ export async function createJejuClient(
     identity,
     validation,
     crosschain,
+    nfts,
     payments,
     a2a,
 

@@ -1,80 +1,48 @@
 /**
- * Container Registry Module
+ * Registry Services Index
  * 
- * OCI-compatible container registry with decentralized storage.
+ * Exports all decentralized developer infrastructure services:
+ * - OCI Container Registry (Docker V2 API)
+ * - NPM Package Registry
+ * - Git Repository Registry
+ * - ERC-8004 Reputation Integration
  */
 
-export * from './oci-registry';
-export * from './registry-a2a';
-export * from './registry-mcp';
+// OCI Container Registry
+export {
+  OCIRegistry,
+  createOCIRegistry,
+  createRegistryRouter,
+  type RegistryConfig,
+  type Manifest,
+  type BlobDescriptor,
+  type RegistryAccount,
+  type ImageRecord,
+  type StorageBackend,
+} from './oci-registry';
 
-import { Hono } from 'hono';
-import { createOCIRegistry, type RegistryConfig } from './oci-registry';
-import { createRegistryA2AServer } from './registry-a2a';
-import { createRegistryMCPServer } from './registry-mcp';
+// NPM Package Registry
+export {
+  NPMRegistry,
+  createNPMRegistry,
+  createNPMRegistryRouter,
+  type NPMRegistryConfig,
+  type PackageVersion,
+  type PackageManifest,
+  type PackageRecord,
+  type PublisherAccount,
+} from './npm-registry';
 
-/**
- * Create complete registry app with OCI API, A2A, and MCP
- */
-export function createFullRegistryApp(config?: Partial<RegistryConfig>): Hono {
-  const app = new Hono();
-  const registry = createOCIRegistry(config);
+// Reputation Integration
+export {
+  ReputationIntegration,
+  createReputationIntegration,
+  type ReputationConfig,
+  type ReputationScore,
+  type PackageMetrics,
+  type RepoMetrics,
+} from './reputation-integration';
 
-  // Mount OCI Registry API at /v2
-  app.route('/v2', registry.createRouter());
-
-  // Mount A2A server
-  app.route('/a2a', createRegistryA2AServer(registry));
-
-  // Mount MCP server
-  app.route('/mcp', createRegistryMCPServer(registry));
-
-  // Agent card at well-known location
-  app.get('/.well-known/agent-card.json', async (c) => {
-    const response = await app.request('/a2a/.well-known/agent-card.json');
-    return response;
-  });
-
-  // Health check
-  app.get('/health', async (c) => {
-    const response = await app.request('/v2/_registry/health');
-    const data = await response.json();
-    return c.json({
-      service: 'jeju-container-registry',
-      version: '1.0.0',
-      ...data,
-      endpoints: {
-        oci: '/v2',
-        a2a: '/a2a',
-        mcp: '/mcp',
-      },
-    });
-  });
-
-  // Root info
-  app.get('/', (c) => {
-    return c.json({
-      name: 'Container Registry',
-      version: '1.0.0',
-      description: 'Decentralized OCI-compatible container registry',
-      features: [
-        'Docker Registry V2 API compatible',
-        'IPFS and Arweave storage backends',
-        'x402 micropayments',
-        'Account balance and staking',
-        'A2A and MCP interfaces',
-      ],
-      endpoints: {
-        oci: '/v2',
-        a2a: '/a2a',
-        mcp: '/mcp',
-        health: '/health',
-        agentCard: '/.well-known/agent-card.json',
-      },
-    });
-  });
-
-  return app;
-}
-
-
+// Re-export A2A and MCP servers
+export { createRegistryA2AServer } from './registry-a2a';
+export { createRegistryMCPServer } from './registry-mcp';

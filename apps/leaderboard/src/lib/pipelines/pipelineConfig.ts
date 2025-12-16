@@ -81,6 +81,8 @@ export const RepositoryConfigSchema = z.object({
   owner: z.string(),
   name: z.string(),
   defaultBranch: z.string().default("main"),
+  source: z.enum(["github", "jejugit"]).default("github"),
+  sourceUrl: z.string().optional(),
 });
 
 export const PipelineConfigSchema = z.object({

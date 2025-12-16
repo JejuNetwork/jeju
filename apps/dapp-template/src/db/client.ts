@@ -7,7 +7,7 @@
  * - Strong consistency
  */
 
-import { getCQL, type CQLClient } from '@jeju/cql';
+import { getCQL, type CQLClient } from '@jeju/db';
 import type { Address, Hex } from 'viem';
 import type { Todo, CreateTodoInput, UpdateTodoInput } from '../types';
 
