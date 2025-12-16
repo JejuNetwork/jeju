@@ -1,5 +1,7 @@
 #!/usr/bin/env bun
 /**
+ * @deprecated Use 'jeju token verify' instead
+ * 
  * Testnet Deployment and Verification Script
  *
  * Deploys the complete token infrastructure to:
@@ -8,6 +10,10 @@
  * - Solana Devnet
  *
  * Then verifies cross-chain functionality and measures execution times.
+ *
+ * Usage:
+ *   jeju token verify --network testnet
+ *   jeju token verify --network testnet --dry-run
  *
  * Environment Variables:
  *   PRIVATE_KEY - EVM deployer private key

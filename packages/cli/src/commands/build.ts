@@ -1,103 +1,120 @@
 /**
- * jeju build - Build all components
+ * Build commands for Docker images and other artifacts
  */
 
 import { Command } from 'commander';
-import { $ } from 'bun';
+import { execa } from 'execa';
+import { existsSync } from 'fs';
+import { join } from 'path';
 import { logger } from '../lib/logger';
 import { findMonorepoRoot } from '../lib/system';
 
-export const buildCommand = new Command('build')
+const buildCommand = new Command('build')
   .description('Build all components (contracts, TypeScript, indexer, docs)')
-  .option('--skip-contracts', 'Skip contract build')
-  .option('--skip-types', 'Skip TypeScript type check')
-  .option('--skip-indexer', 'Skip indexer build')
-  .option('--skip-docs', 'Skip documentation build')
+  .option('--contracts-only', 'Build contracts only')
+  .option('--types-only', 'Build TypeScript types only')
+  .option('--skip-docs', 'Skip documentation generation')
   .action(async (options) => {
-    logger.header('BUILD');
-    
     const rootDir = findMonorepoRoot();
-    let failed = false;
     
-    // Step 1: Build Smart Contracts
-    if (!options.skipContracts) {
-      logger.step('Building Smart Contracts (Foundry)...');
-      const contractsResult = await $`cd ${rootDir}/packages/contracts && forge build`.nothrow();
-      
-      if (contractsResult.exitCode !== 0) {
-        logger.error('Contracts build failed');
-        failed = true;
-      } else {
-        logger.success('Contracts built successfully');
-      }
-      logger.newline();
+    if (options.contractsOnly) {
+      logger.step('Building contracts...');
+      await execa('forge', ['build'], {
+        cwd: join(rootDir, 'packages/contracts'),
+        stdio: 'inherit',
+      });
+      logger.success('Contracts built');
+      return;
     }
     
-    // Step 2: TypeScript Type Check
-    if (!options.skipTypes) {
-      logger.step('TypeScript Type Checking...');
-      const typecheckResult = await $`cd ${rootDir} && tsc --noEmit`.nothrow();
-      
-      if (typecheckResult.exitCode !== 0) {
-        logger.error('TypeScript type check failed');
-        failed = true;
-      } else {
-        logger.success('TypeScript type check passed');
-      }
-      logger.newline();
+    if (options.typesOnly) {
+      logger.step('Building types...');
+      await execa('bun', ['run', 'build'], {
+        cwd: join(rootDir, 'packages/types'),
+        stdio: 'inherit',
+      });
+      logger.success('Types built');
+      return;
     }
     
-    // Step 3: Build Indexer
-    if (!options.skipIndexer) {
-      logger.step('Building Indexer (Subsquid)...');
-      const indexerResult = await $`cd ${rootDir}/apps/indexer && npm run build`.nothrow();
-      
-      if (indexerResult.exitCode !== 0) {
-        logger.warn('Indexer build failed (continuing)');
-      } else {
-        logger.success('Indexer built successfully');
-      }
-      logger.newline();
-    }
+    // Build types first
+    logger.step('Building types...');
+    await execa('bun', ['run', 'build'], {
+      cwd: join(rootDir, 'packages/types'),
+      stdio: 'inherit',
+    });
     
-    // Step 4: Build Node Explorer
-    logger.step('Building Node Explorer...');
-    const explorerResult = await $`cd ${rootDir}/apps/node-explorer && bun run build`.nothrow();
+    // Build contracts
+    logger.step('Building contracts...');
+    await execa('forge', ['build'], {
+      cwd: join(rootDir, 'packages/contracts'),
+      stdio: 'inherit',
+    });
     
-    if (explorerResult.exitCode !== 0) {
-      logger.warn('Node Explorer build failed (continuing)');
-    } else {
-      logger.success('Node Explorer built successfully');
-    }
-    logger.newline();
-    
-    // Step 5: Build Documentation
+    // Generate docs if not skipped
     if (!options.skipDocs) {
-      logger.step('Building Documentation (VitePress)...');
-      const docsResult = await $`cd ${rootDir} && vitepress build apps/documentation`.nothrow();
-      
-      if (docsResult.exitCode !== 0) {
-        logger.warn('Documentation build failed (continuing)');
-      } else {
-        logger.success('Documentation built successfully');
-      }
-      logger.newline();
+      logger.step('Generating documentation...');
+      await execa('bun', ['run', 'docs:generate'], {
+        cwd: rootDir,
+        stdio: 'pipe',
+      }).catch(() => {
+        logger.warn('Documentation generation skipped (optional)');
+      });
     }
     
-    logger.separator();
-    
-    if (failed) {
-      logger.error('Build failed');
-      logger.info('Fix errors and run: jeju build');
-      logger.newline();
-      process.exit(1);
-    } else {
-      logger.success('Build complete!');
-      logger.newline();
-      logger.info('Next:');
-      logger.info('  jeju test     # Run all tests');
-      logger.info('  jeju dev      # Start development');
-      logger.newline();
-    }
+    logger.success('Build complete');
   });
 
+buildCommand
+  .command('images')
+  .description('Build Docker images for apps')
+  .option('--network <network>', 'Network: testnet | mainnet', 'testnet')
+  .option('--push', 'Push images to ECR after building')
+  .action(async (options: { network: string; push?: boolean }) => {
+    const rootDir = findMonorepoRoot();
+    const scriptPath = join(rootDir, 'packages/deployment/scripts/build-images.ts');
+    
+    if (!existsSync(scriptPath)) {
+      logger.error('Build images script not found');
+      return;
+    }
+    
+    const args: string[] = [];
+    if (options.push) args.push('--push');
+    
+    await execa('bun', ['run', scriptPath, ...args], {
+      cwd: rootDir,
+      env: { ...process.env, NETWORK: options.network },
+      stdio: 'inherit',
+    });
+  });
+
+buildCommand
+  .command('covenantsql')
+  .description('Build CovenantSQL multi-arch Docker image')
+  .option('--network <network>', 'Network: testnet | mainnet', 'testnet')
+  .option('--push', 'Push image to ECR after building')
+  .option('--arm-only', 'Build ARM64 only')
+  .option('--x86-only', 'Build x86_64 only')
+  .action(async (options: { network: string; push?: boolean; armOnly?: boolean; x86Only?: boolean }) => {
+    const rootDir = findMonorepoRoot();
+    const scriptPath = join(rootDir, 'packages/deployment/scripts/build-covenantsql.ts');
+    
+    if (!existsSync(scriptPath)) {
+      logger.error('Build CovenantSQL script not found');
+      return;
+    }
+    
+    const args: string[] = [];
+    if (options.push) args.push('--push');
+    if (options.armOnly) args.push('--arm-only');
+    if (options.x86Only) args.push('--x86-only');
+    
+    await execa('bun', ['run', scriptPath, ...args], {
+      cwd: rootDir,
+      env: { ...process.env, NETWORK: options.network },
+      stdio: 'inherit',
+    });
+  });
+
+export { buildCommand };

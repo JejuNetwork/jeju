@@ -73,11 +73,12 @@ export function resolvePrivateKey(network: NetworkType): string {
 }
 
 export function generateKey(name: string, role: string): KeyConfig {
-  const account = privateKeyToAccount(generatePrivateKey());
+  const privateKey = generatePrivateKey();
+  const account = privateKeyToAccount(privateKey);
   return {
     name,
     address: account.address,
-    privateKey: account.privateKey,
+    privateKey,
     role,
   };
 }

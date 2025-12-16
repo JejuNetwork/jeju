@@ -1,9 +1,3 @@
-/**
- * @title Distributed Training Client
- * @description Integration layer between DWS compute and distributed training
- * @dev Manages training jobs across decentralized GPU providers using Psyche-style coordination
- */
-
 import type { Address, Hex, PublicClient, WalletClient, Chain } from 'viem';
 import { keccak256, encodeAbiParameters, parseAbiParameters } from 'viem';
 import {
@@ -18,50 +12,33 @@ import {
   type CreateRunOptions,
 } from './training';
 
-// Re-export commonly used types and enums
 export { RunState, PrivacyMode, GPUTier } from './training';
 export type { CoordinatorConfig, ModelConfig, NodeMetrics } from './training';
 
-// ============ Types ============
-
 export interface DistributedTrainingConfig {
-  /** Ethereum public client */
   publicClient: PublicClient;
-  /** Wallet client for transactions */
   walletClient: WalletClient;
-  /** Chain configuration */
   chain: Chain;
-  /** Contract addresses */
   contracts: {
     coordinator: Address;
     rewards: Address;
     performance: Address;
     registry: Address;
   };
-  /** P2P configuration */
   p2p?: {
-    /** Iroh endpoint URL */
     endpointUrl?: string;
-    /** Discovery service URL */
     discoveryUrl?: string;
   };
-  /** Storage configuration */
   storage?: {
-    /** IPFS gateway URL */
     ipfsGateway?: string;
-    /** HuggingFace token for model uploads */
     hfToken?: string;
   };
 }
 
 export interface TrainingJobConfig {
-  /** Unique job name */
   name: string;
-  /** Base model HuggingFace repo */
   baseModel: string;
-  /** Training dataset CID (IPFS) */
   datasetCid: string;
-  /** Training configuration */
   training: {
     totalSteps: number;
     minNodes: number;
@@ -69,13 +46,9 @@ export interface TrainingJobConfig {
     batchSizeEnd: number;
     maxSeqLen: number;
   };
-  /** Privacy mode */
   privacyMode: PrivacyMode;
-  /** MPC key ID for private runs */
   mpcKeyId?: Hex;
-  /** Reward token address */
   rewardToken?: Address;
-  /** Total reward amount */
   rewardAmount?: bigint;
 }
 
@@ -108,8 +81,6 @@ export interface P2PEndpoint {
   addresses: string[];
 }
 
-// ============ Implementation ============
-
 export class DistributedTrainingClient {
   private sdk: TrainingSDK;
   private config: DistributedTrainingConfig;
@@ -127,11 +98,6 @@ export class DistributedTrainingClient {
     });
   }
 
-  // ============ Job Management ============
-
-  /**
-   * Submit a new distributed training job
-   */
   async submitJob(config: TrainingJobConfig): Promise<Hex> {
     const account = this.config.walletClient.account;
     if (!account) throw new Error('Account required for submitting jobs');
@@ -182,9 +148,6 @@ export class DistributedTrainingClient {
     return runId;
   }
 
-  /**
-   * Join an existing training run as a worker node
-   */
   async joinRun(runId: Hex): Promise<void> {
     // Initialize P2P endpoint if needed
     if (!this.p2pEndpoint) {
@@ -194,9 +157,6 @@ export class DistributedTrainingClient {
     await this.sdk.joinRun(runId, this.p2pEndpoint.endpointId);
   }
 
-  /**
-   * Get job status
-   */
   async getJobStatus(runId: Hex): Promise<TrainingJobStatus | null> {
     const cached = this.activeRuns.get(runId);
     if (cached) return cached;
@@ -218,9 +178,6 @@ export class DistributedTrainingClient {
     };
   }
 
-  /**
-   * Pause a training job
-   */
   async pauseJob(runId: Hex): Promise<void> {
     await this.sdk.pauseRun(runId);
     const status = this.activeRuns.get(runId);
@@ -229,27 +186,14 @@ export class DistributedTrainingClient {
     }
   }
 
-  /**
-   * Resume a paused job
-   */
   async resumeJob(runId: Hex): Promise<void> {
     await this.sdk.resumeRun(runId);
   }
 
-  /**
-   * Withdraw from a training run
-   */
   async withdrawFromJob(runId: Hex): Promise<void> {
     await this.sdk.withdrawFromRun(runId);
   }
 
-  // ============ Training Loop ============
-
-  /**
-   * Run the training loop for a joined run
-   * This should be called in a worker node after joining
-   * @throws Error if any callback or contract call fails
-   */
   async runTrainingLoop(
     runId: Hex,
     callbacks: {
@@ -350,22 +294,10 @@ export class DistributedTrainingClient {
     }
   }
 
-  // ============ Node Management ============
-
-  /**
-   * Register as a training node
-   */
   async registerNode(gpuTier: GPUTier, attestationHash: Hex): Promise<void> {
     await this.sdk.registerNode(gpuTier, attestationHash);
   }
 
-  /**
-   * Get optimal nodes for a training run
-   * @param count Number of nodes to select
-   * @param minGpuTier Minimum GPU tier required
-   * @param minScore Minimum performance score (0-100)
-   * @param minBandwidthMbps Minimum bandwidth in Mbps
-   */
   async getOptimalNodes(
     count: number,
     minGpuTier: GPUTier = GPUTier.Datacenter,
@@ -376,9 +308,6 @@ export class DistributedTrainingClient {
     return Promise.all(addresses.map((addr) => this.getNodeInfo(addr)));
   }
 
-  /**
-   * Get node info for an address
-   */
   async getNodeInfo(address: Address): Promise<NodeInfo> {
     const [metrics, isActive, score] = await Promise.all([
       this.sdk.getNodeMetrics(address),
@@ -388,11 +317,6 @@ export class DistributedTrainingClient {
     return { address, metrics, isActive, score };
   }
 
-  // ============ Rewards ============
-
-  /**
-   * Claim rewards from a training run
-   */
   async claimRewards(runId: Hex): Promise<bigint> {
     const account = this.config.walletClient.account;
     if (!account) throw new Error('Account required for claiming rewards');
@@ -407,9 +331,6 @@ export class DistributedTrainingClient {
     return claimable.claimableAmount;
   }
 
-  /**
-   * Claim rewards from all runs
-   */
   async claimAllRewards(runIds: Hex[]): Promise<bigint> {
     const account = this.config.walletClient.account;
     if (!account) throw new Error('Account required for claiming rewards');
@@ -432,17 +353,12 @@ export class DistributedTrainingClient {
     return totalClaimable;
   }
 
-  /**
-   * Get participant rewards info
-   */
   async getParticipantRewards(runId: Hex) {
     const account = this.config.walletClient.account;
     if (!account) throw new Error('Account required');
 
     return this.sdk.getParticipantRewards(runId, account.address);
   }
-
-  // ============ Private Methods ============
 
   private async initializeP2P(): Promise<P2PEndpoint> {
     const account = this.config.walletClient.account;
@@ -502,11 +418,6 @@ export class DistributedTrainingClient {
     this.unwatchFns.push(unwatchState, unwatchEpoch);
   }
 
-  // ============ Cleanup ============
-
-  /**
-   * Remove all event listeners and cleanup
-   */
   cleanup(): void {
     for (const unwatch of this.unwatchFns) {
       unwatch();
@@ -516,9 +427,6 @@ export class DistributedTrainingClient {
   }
 }
 
-/**
- * Create a distributed training client
- */
 export function createDistributedTrainingClient(config: DistributedTrainingConfig): DistributedTrainingClient {
   return new DistributedTrainingClient(config);
 }

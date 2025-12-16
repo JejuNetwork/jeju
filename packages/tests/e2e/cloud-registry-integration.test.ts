@@ -17,18 +17,19 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
-import { ethers } from 'ethers';
+import { createPublicClient, createWalletClient, http, parseAbi, readContract, writeContract, waitForTransactionReceipt, getLogs, decodeEventLog, formatEther, formatUnits, parseEther, keccak256, stringToBytes, privateKeyToAccount, type Address, type PublicClient, type WalletClient, type Account } from 'viem';
 import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { Logger } from '../../scripts/shared/logger';
+import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
+import { Logger } from '../../../scripts/shared/logger';
 import { 
   CloudIntegration, 
   ViolationType,
   defaultCloudServices,
   type CloudConfig,
   type AgentMetadata 
-} from '../../scripts/shared/cloud-integration';
+} from '../../../scripts/shared/cloud-integration';
 
 const logger = new Logger('cloud-e2e-test');
 
@@ -54,14 +55,21 @@ let deploymentAddresses: {
 };
 
 // Test accounts
-let provider: ethers.Provider;
-let deployer: ethers.Signer;
-let cloudOperator: ethers.Signer;
-let user1: ethers.Signer;
-let user2: ethers.Signer;
-let banApprover1: ethers.Signer;
-let banApprover2: ethers.Signer;
-let banApprover3: ethers.Signer;
+let publicClient: PublicClient;
+let deployerAccount: Account;
+let deployerWalletClient: WalletClient;
+let cloudOperatorAccount: Account;
+let cloudOperatorWalletClient: WalletClient;
+let user1Account: Account;
+let user1WalletClient: WalletClient;
+let user2Account: Account;
+let user2WalletClient: WalletClient;
+let banApprover1Account: Account;
+let banApprover1WalletClient: WalletClient;
+let banApprover2Account: Account;
+let banApprover2WalletClient: WalletClient;
+let banApprover3Account: Account;
+let banApprover3WalletClient: WalletClient;
 
 // Cloud integration instance
 let integration: CloudIntegration;
@@ -76,8 +84,9 @@ describe('Cloud Integration E2E - Setup', () => {
   beforeAll(async () => {
     logger.info('🚀 Starting E2E test suite...');
     
-    // Setup provider
-    provider = new ethers.JsonRpcProvider(TEST_CONFIG.rpcUrl);
+    // Setup client
+    const chain = inferChainFromRpcUrl(TEST_CONFIG.rpcUrl);
+    publicClient = createPublicClient({ chain, transport: http(TEST_CONFIG.rpcUrl) });
     
     // Create test accounts
     const privateKeys = [
@@ -88,15 +97,33 @@ describe('Cloud Integration E2E - Setup', () => {
       '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a', // ban approver 1
       '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba', // ban approver 2
       '0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e'  // ban approver 3
-    ];
+    ] as `0x${string}`[];
     
-    [deployer, cloudOperator, user1, user2, banApprover1, banApprover2, banApprover3] = 
-      privateKeys.map(pk => new ethers.Wallet(pk, provider));
+    deployerAccount = privateKeyToAccount(privateKeys[0]);
+    deployerWalletClient = createWalletClient({ chain, transport: http(TEST_CONFIG.rpcUrl), account: deployerAccount });
     
-    logger.info(`Deployer: ${await deployer.getAddress()}`);
-    logger.info(`Cloud Operator: ${await cloudOperator.getAddress()}`);
-    logger.info(`User 1: ${await user1.getAddress()}`);
-    logger.info(`User 2: ${await user2.getAddress()}`);
+    cloudOperatorAccount = privateKeyToAccount(privateKeys[1]);
+    cloudOperatorWalletClient = createWalletClient({ chain, transport: http(TEST_CONFIG.rpcUrl), account: cloudOperatorAccount });
+    
+    user1Account = privateKeyToAccount(privateKeys[2]);
+    user1WalletClient = createWalletClient({ chain, transport: http(TEST_CONFIG.rpcUrl), account: user1Account });
+    
+    user2Account = privateKeyToAccount(privateKeys[3]);
+    user2WalletClient = createWalletClient({ chain, transport: http(TEST_CONFIG.rpcUrl), account: user2Account });
+    
+    banApprover1Account = privateKeyToAccount(privateKeys[4]);
+    banApprover1WalletClient = createWalletClient({ chain, transport: http(TEST_CONFIG.rpcUrl), account: banApprover1Account });
+    
+    banApprover2Account = privateKeyToAccount(privateKeys[5]);
+    banApprover2WalletClient = createWalletClient({ chain, transport: http(TEST_CONFIG.rpcUrl), account: banApprover2Account });
+    
+    banApprover3Account = privateKeyToAccount(privateKeys[6]);
+    banApprover3WalletClient = createWalletClient({ chain, transport: http(TEST_CONFIG.rpcUrl), account: banApprover3Account });
+    
+    logger.info(`Deployer: ${deployerAccount.address}`);
+    logger.info(`Cloud Operator: ${cloudOperatorAccount.address}`);
+    logger.info(`User 1: ${user1Account.address}`);
+    logger.info(`User 2: ${user2Account.address}`);
   }, TEST_CONFIG.deploymentTimeout);
   
   test('should deploy all required contracts', async () => {
@@ -123,7 +150,8 @@ describe('Cloud Integration E2E - Setup', () => {
       cloudReputationProviderAddress: deploymentAddresses.cloudReputationProvider,
       serviceRegistryAddress: deploymentAddresses.serviceRegistry,
       creditManagerAddress: deploymentAddresses.creditManager,
-      provider,
+      rpcUrl: TEST_CONFIG.rpcUrl,
+      chain: publicClient.chain!,
       logger
     };
     
@@ -154,7 +182,7 @@ describe('Cloud Integration E2E - Agent Registration', () => {
     };
     
     cloudAgentId = await integration.registerCloudAgent(
-      cloudOperator,
+      cloudOperatorWalletClient,
       metadata,
       'ipfs://QmTestCloudAgent'
     );
@@ -167,40 +195,49 @@ describe('Cloud Integration E2E - Agent Registration', () => {
     expect(storedAgentId).toBe(cloudAgentId);
     
     // Verify agent exists in IdentityRegistry
-    const identityRegistry = new ethers.Contract(
-      deploymentAddresses.identityRegistry,
-      ['function agentExists(uint256 agentId) external view returns (bool)'],
-      provider
-    );
+    const identityRegistryAbi = parseAbi(['function agentExists(uint256 agentId) external view returns (bool)']);
+    const exists = await readContract(publicClient, {
+      address: deploymentAddresses.identityRegistry as Address,
+      abi: identityRegistryAbi,
+      functionName: 'agentExists',
+      args: [cloudAgentId],
+    }) as boolean;
     
-    const exists = await identityRegistry.agentExists(cloudAgentId);
     expect(exists).toBe(true);
   }, TEST_CONFIG.testTimeout);
   
   test('should register test users as agents', async () => {
     logger.info('👤 Registering test users...');
     
-    const identityRegistry = new ethers.Contract(
-      deploymentAddresses.identityRegistry,
-      ['function register(string calldata tokenURI) external returns (uint256)'],
-      provider
-    );
+    const identityRegistryAbi = parseAbi(['function register(string calldata tokenURI) external returns (uint256)']);
+    const identityRegistryAddress = deploymentAddresses.identityRegistry as Address;
     
     // Register user1
-    const tx1 = await identityRegistry.connect(user1).register('ipfs://QmUser1');
-    const receipt1 = await tx1.wait();
-    const event1 = receipt1.logs.find((log: { topics: string[] }) => 
-      log.topics[0] === ethers.id('Registered(uint256,address,uint8,uint256,string)')
-    );
+    const hash1 = await user1WalletClient.writeContract({
+      address: identityRegistryAddress,
+      abi: identityRegistryAbi,
+      functionName: 'register',
+      args: ['ipfs://QmUser1'],
+    });
+    const receipt1 = await waitForTransactionReceipt(publicClient, { hash: hash1 });
+    
+    const registeredEventTopic = keccak256(stringToBytes('Registered(uint256,address,uint8,uint256,string)'));
+    const event1 = receipt1.logs.find((log) => log.topics[0] === registeredEventTopic);
+    if (!event1) throw new Error('Registered event not found');
     user1AgentId = BigInt(event1.topics[1]);
     logger.info(`✓ User1 registered: ${user1AgentId}`);
     
     // Register user2
-    const tx2 = await identityRegistry.connect(user2).register('ipfs://QmUser2');
-    const receipt2 = await tx2.wait();
-    const event2 = receipt2.logs.find((log: { topics: string[] }) => 
-      log.topics[0] === ethers.id('Registered(uint256,address,uint8,uint256,string)')
-    );
+    const hash2 = await user2WalletClient.writeContract({
+      address: identityRegistryAddress,
+      abi: identityRegistryAbi,
+      functionName: 'register',
+      args: ['ipfs://QmUser2'],
+    });
+    const receipt2 = await waitForTransactionReceipt(publicClient, { hash: hash2 });
+    
+    const event2 = receipt2.logs.find((log) => log.topics[0] === registeredEventTopic);
+    if (!event2) throw new Error('Registered event not found');
     user2AgentId = BigInt(event2.topics[1]);
     logger.info(`✓ User2 registered: ${user2AgentId}`);
     
@@ -214,19 +251,20 @@ describe('Cloud Integration E2E - Service Registration', () => {
   test('should register all cloud services in ServiceRegistry', async () => {
     logger.info('📋 Registering cloud services...');
     
-    await integration.registerServices(cloudOperator, defaultCloudServices);
+    await integration.registerServices(cloudOperatorWalletClient, defaultCloudServices);
     
     logger.success(`✓ Registered ${defaultCloudServices.length} services`);
     
     // Verify each service is registered
+    const serviceRegistryAbi = parseAbi(['function isServiceAvailable(string calldata serviceName) external view returns (bool)']);
     for (const service of defaultCloudServices) {
-      const serviceRegistry = new ethers.Contract(
-        deploymentAddresses.serviceRegistry,
-        ['function isServiceAvailable(string calldata serviceName) external view returns (bool)'],
-        provider
-      );
+      const isAvailable = await readContract(publicClient, {
+        address: deploymentAddresses.serviceRegistry as Address,
+        abi: serviceRegistryAbi,
+        functionName: 'isServiceAvailable',
+        args: [service.name],
+      }) as boolean;
       
-      const isAvailable = await serviceRegistry.isServiceAvailable(service.name);
       expect(isAvailable).toBe(true);
       logger.info(`✓ ${service.name} verified`);
     }
@@ -235,19 +273,25 @@ describe('Cloud Integration E2E - Service Registration', () => {
   test('should get service cost for registered services', async () => {
     logger.info('💰 Checking service costs...');
     
-    const serviceRegistry = new ethers.Contract(
-      deploymentAddresses.serviceRegistry,
-      ['function getServiceCost(string calldata serviceName, address user) external view returns (uint256)'],
-      provider
-    );
+    const serviceRegistryAbi = parseAbi(['function getServiceCost(string calldata serviceName, address user) external view returns (uint256)']);
     
-    const chatCost = await serviceRegistry.getServiceCost('chat-completion', await user1.getAddress());
+    const chatCost = await readContract(publicClient, {
+      address: deploymentAddresses.serviceRegistry as Address,
+      abi: serviceRegistryAbi,
+      functionName: 'getServiceCost',
+      args: ['chat-completion', user1Account.address],
+    }) as bigint;
     expect(chatCost).toBeGreaterThan(0n);
-    logger.info(`✓ Chat completion cost: ${ethers.formatEther(chatCost)} elizaOS`);
+    logger.info(`✓ Chat completion cost: ${formatEther(chatCost)} elizaOS`);
     
-    const imageCost = await serviceRegistry.getServiceCost('image-generation', await user1.getAddress());
+    const imageCost = await readContract(publicClient, {
+      address: deploymentAddresses.serviceRegistry as Address,
+      abi: serviceRegistryAbi,
+      functionName: 'getServiceCost',
+      args: ['image-generation', user1Account.address],
+    }) as bigint;
     expect(imageCost).toBeGreaterThan(0n);
-    logger.info(`✓ Image generation cost: ${ethers.formatEther(imageCost)} elizaOS`);
+    logger.info(`✓ Image generation cost: ${formatEther(imageCost)} elizaOS`);
   }, TEST_CONFIG.testTimeout);
 });
 
@@ -256,7 +300,7 @@ describe('Cloud Integration E2E - Reputation Management', () => {
     logger.info('⭐ Setting positive reputation...');
     
     await integration.setReputation(
-      cloudOperator,
+      cloudOperatorWalletClient,
       user1AgentId,
       95,
       'quality',
@@ -276,7 +320,7 @@ describe('Cloud Integration E2E - Reputation Management', () => {
     logger.info('⚠️  Setting low reputation...');
     
     await integration.setReputation(
-      cloudOperator,
+      cloudOperatorWalletClient,
       user2AgentId,
       15,
       'security',
@@ -301,7 +345,7 @@ describe('Cloud Integration E2E - Reputation Management', () => {
     
     // Add more reputation entries for user1
     await integration.setReputation(
-      cloudOperator,
+      cloudOperatorWalletClient,
       user1AgentId,
       90,
       'quality',
@@ -310,7 +354,7 @@ describe('Cloud Integration E2E - Reputation Management', () => {
     );
     
     await integration.setReputation(
-      cloudOperator,
+      cloudOperatorWalletClient,
       user1AgentId,
       88,
       'reliability',
@@ -334,7 +378,7 @@ describe('Cloud Integration E2E - Violation Tracking', () => {
     logger.info('🚫 Recording API abuse...');
     
     await integration.recordViolation(
-      cloudOperator,
+      cloudOperatorWalletClient,
       user2AgentId,
       ViolationType.API_ABUSE,
       75,
@@ -354,7 +398,7 @@ describe('Cloud Integration E2E - Violation Tracking', () => {
     logger.info('🚫 Recording multiple violations...');
     
     await integration.recordViolation(
-      cloudOperator,
+      cloudOperatorWalletClient,
       user2AgentId,
       ViolationType.RESOURCE_EXPLOITATION,
       80,
@@ -362,7 +406,7 @@ describe('Cloud Integration E2E - Violation Tracking', () => {
     );
     
     await integration.recordViolation(
-      cloudOperator,
+      cloudOperatorWalletClient,
       user2AgentId,
       ViolationType.SPAM,
       60,
@@ -386,20 +430,40 @@ describe('Cloud Integration E2E - Multi-Sig Ban System', () => {
     logger.info('🔐 Setting up multi-sig ban approvers...');
     
     // Add ban approvers to CloudReputationProvider
-    const cloudRepProvider = new ethers.Contract(
-      deploymentAddresses.cloudReputationProvider,
-      [
-        'function addBanApprover(address approver) external',
-        'function getBanApprovers() external view returns (address[])'
-      ],
-      cloudOperator
-    );
+    const cloudRepProviderAbi = parseAbi([
+      'function addBanApprover(address approver) external',
+      'function getBanApprovers() external view returns (address[])'
+    ]);
     
-    await (await cloudRepProvider.addBanApprover(await banApprover1.getAddress())).wait();
-    await (await cloudRepProvider.addBanApprover(await banApprover2.getAddress())).wait();
-    await (await cloudRepProvider.addBanApprover(await banApprover3.getAddress())).wait();
+    const hash1 = await cloudOperatorWalletClient.writeContract({
+      address: deploymentAddresses.cloudReputationProvider as Address,
+      abi: cloudRepProviderAbi,
+      functionName: 'addBanApprover',
+      args: [banApprover1Account.address],
+    });
+    await waitForTransactionReceipt(publicClient, { hash: hash1 });
     
-    const approvers = await cloudRepProvider.getBanApprovers();
+    const hash2 = await cloudOperatorWalletClient.writeContract({
+      address: deploymentAddresses.cloudReputationProvider as Address,
+      abi: cloudRepProviderAbi,
+      functionName: 'addBanApprover',
+      args: [banApprover2Account.address],
+    });
+    await waitForTransactionReceipt(publicClient, { hash: hash2 });
+    
+    const hash3 = await cloudOperatorWalletClient.writeContract({
+      address: deploymentAddresses.cloudReputationProvider as Address,
+      abi: cloudRepProviderAbi,
+      functionName: 'addBanApprover',
+      args: [banApprover3Account.address],
+    });
+    await waitForTransactionReceipt(publicClient, { hash: hash3 });
+    
+    const approvers = await readContract(publicClient, {
+      address: deploymentAddresses.cloudReputationProvider as Address,
+      abi: cloudRepProviderAbi,
+      functionName: 'getBanApprovers',
+    }) as Address[];
     logger.success(`✓ Ban approvers configured: ${approvers.length}`);
   }, TEST_CONFIG.testTimeout);
   
@@ -407,7 +471,7 @@ describe('Cloud Integration E2E - Multi-Sig Ban System', () => {
     logger.info('⚖️  Proposing ban...');
     
     banProposalId = await integration.proposeBan(
-      cloudOperator,
+      cloudOperatorWalletClient,
       user2AgentId,
       ViolationType.HACKING,
       'ipfs://QmHackingEvidence'
@@ -423,16 +487,18 @@ describe('Cloud Integration E2E - Multi-Sig Ban System', () => {
     logger.info('✋ Testing multi-sig approval...');
     
     // Get proposal details
-    const cloudRepProvider = new ethers.Contract(
-      deploymentAddresses.cloudReputationProvider,
-      [
-        'function getBanProposal(bytes32 proposalId) external view returns (uint256,uint8,string,address,uint256,bool,uint256)'
-      ],
-      provider
-    );
+    const cloudRepProviderAbi = parseAbi([
+      'function getBanProposal(bytes32 proposalId) external view returns (uint256,uint8,string,address,uint256,bool,uint256)'
+    ]);
     
-    const [agentId, reason, evidence, proposer, createdAt, executed, approvalCount] = 
-      await cloudRepProvider.getBanProposal(banProposalId);
+    const result = await readContract(publicClient, {
+      address: deploymentAddresses.cloudReputationProvider as Address,
+      abi: cloudRepProviderAbi,
+      functionName: 'getBanProposal',
+      args: [banProposalId as `0x${string}`],
+    }) as [bigint, number, string, Address, bigint, boolean, bigint];
+    
+    const [agentId, reason, evidence, proposer, createdAt, executed, approvalCount] = result;
     
     expect(executed).toBe(false);
     expect(approvalCount).toBe(0n);
@@ -443,15 +509,18 @@ describe('Cloud Integration E2E - Multi-Sig Ban System', () => {
   test('should approve ban with first approver', async () => {
     logger.info('✅ Approver 1 voting...');
     
-    await integration.approveBan(banApprover1, banProposalId);
+    await integration.approveBan(banApprover1WalletClient, banProposalId);
     
-    const cloudRepProvider = new ethers.Contract(
-      deploymentAddresses.cloudReputationProvider,
-      ['function getBanProposal(bytes32 proposalId) external view returns (uint256,uint8,string,address,uint256,bool,uint256)'],
-      provider
-    );
+    const cloudRepProviderAbi = parseAbi(['function getBanProposal(bytes32 proposalId) external view returns (uint256,uint8,string,address,uint256,bool,uint256)']);
     
-    const [,,,,, executed, approvalCount] = await cloudRepProvider.getBanProposal(banProposalId);
+    const result = await readContract(publicClient, {
+      address: deploymentAddresses.cloudReputationProvider as Address,
+      abi: cloudRepProviderAbi,
+      functionName: 'getBanProposal',
+      args: [banProposalId as `0x${string}`],
+    }) as [bigint, number, string, Address, bigint, boolean, bigint];
+    
+    const [,,,,, executed, approvalCount] = result;
     expect(approvalCount).toBe(1n);
     expect(executed).toBe(false); // Not enough approvals yet
     
@@ -461,28 +530,32 @@ describe('Cloud Integration E2E - Multi-Sig Ban System', () => {
   test('should execute ban after threshold approvals', async () => {
     logger.info('✅ Approver 2 voting (threshold reached)...');
     
-    await integration.approveBan(banApprover2, banProposalId);
+    await integration.approveBan(banApprover2WalletClient, banProposalId);
     
-    const cloudRepProvider = new ethers.Contract(
-      deploymentAddresses.cloudReputationProvider,
-      ['function getBanProposal(bytes32 proposalId) external view returns (uint256,uint8,string,address,uint256,bool,uint256)'],
-      provider
-    );
+    const cloudRepProviderAbi = parseAbi(['function getBanProposal(bytes32 proposalId) external view returns (uint256,uint8,string,address,uint256,bool,uint256)']);
     
-    const [,,,,, executed, approvalCount] = await cloudRepProvider.getBanProposal(banProposalId);
+    const result = await readContract(publicClient, {
+      address: deploymentAddresses.cloudReputationProvider as Address,
+      abi: cloudRepProviderAbi,
+      functionName: 'getBanProposal',
+      args: [banProposalId as `0x${string}`],
+    }) as [bigint, number, string, Address, bigint, boolean, bigint];
+    
+    const [,,,,, executed, approvalCount] = result;
     expect(approvalCount).toBe(2n);
     expect(executed).toBe(true); // Should auto-execute at threshold
     
     logger.success(`✓ Ban executed with ${approvalCount} approvals`);
     
     // Verify user2 is actually banned in IdentityRegistry
-    const identityRegistry = new ethers.Contract(
-      deploymentAddresses.identityRegistry,
-      ['function getAgent(uint256 agentId) external view returns (tuple(uint256 agentId, address owner, uint8 tier, address stakedToken, uint256 stakedAmount, uint256 registeredAt, uint256 lastActivityAt, bool isBanned, bool isSlashed))'],
-      provider
-    );
+    const identityRegistryAbi = parseAbi(['function getAgent(uint256 agentId) external view returns (tuple(uint256 agentId, address owner, uint8 tier, address stakedToken, uint256 stakedAmount, uint256 registeredAt, uint256 lastActivityAt, bool isBanned, bool isSlashed))']);
     
-    const agent = await identityRegistry.getAgent(user2AgentId);
+    const agent = await readContract(publicClient, {
+      address: deploymentAddresses.identityRegistry as Address,
+      abi: identityRegistryAbi,
+      functionName: 'getAgent',
+      args: [user2AgentId],
+    }) as { isBanned: boolean };
     expect(agent.isBanned).toBe(true);
     
     logger.success('✓ User2 confirmed banned in IdentityRegistry');
@@ -494,7 +567,7 @@ describe('Cloud Integration E2E - Credit System', () => {
     logger.info('💳 Checking user credit...');
     
     const credit = await integration.checkUserCredit(
-      await user1.getAddress(),
+      user1Account.address,
       'chat-completion',
       deploymentAddresses.usdc
     );
@@ -504,8 +577,8 @@ describe('Cloud Integration E2E - Credit System', () => {
     expect(credit).toHaveProperty('required');
     
     logger.info(`✓ Credit check: ${credit.sufficient ? 'Sufficient' : 'Insufficient'}`);
-    logger.info(`  Required: ${ethers.formatUnits(credit.required, 6)} USDC`);
-    logger.info(`  Available: ${ethers.formatUnits(credit.available, 6)} USDC`);
+    logger.info(`  Required: ${formatUnits(credit.required, 6)} USDC`);
+    logger.info(`  Available: ${formatUnits(credit.available, 6)} USDC`);
   }, TEST_CONFIG.testTimeout);
 });
 
@@ -516,7 +589,7 @@ describe('Cloud Integration E2E - Complete User Journey', () => {
     // Simulate 10 successful API calls
     for (let i = 0; i < 10; i++) {
       await integration.setReputation(
-        cloudOperator,
+        cloudOperatorWalletClient,
         user1AgentId,
         92 + (i % 5), // Vary between 92-96
         'quality',
@@ -540,13 +613,14 @@ describe('Cloud Integration E2E - Complete User Journey', () => {
     expect(violations.length).toBeGreaterThan(0);
     
     // Verify user2 is banned
-    const identityRegistry = new ethers.Contract(
-      deploymentAddresses.identityRegistry,
-      ['function getAgent(uint256 agentId) external view returns (tuple(uint256 agentId, address owner, uint8 tier, address stakedToken, uint256 stakedAmount, uint256 registeredAt, uint256 lastActivityAt, bool isBanned, bool isSlashed))'],
-      provider
-    );
+    const identityRegistryAbi = parseAbi(['function getAgent(uint256 agentId) external view returns (tuple(uint256 agentId, address owner, uint8 tier, address stakedToken, uint256 stakedAmount, uint256 registeredAt, uint256 lastActivityAt, bool isBanned, bool isSlashed))']);
     
-    const agent = await identityRegistry.getAgent(user2AgentId);
+    const agent = await readContract(publicClient, {
+      address: deploymentAddresses.identityRegistry as Address,
+      abi: identityRegistryAbi,
+      functionName: 'getAgent',
+      args: [user2AgentId],
+    }) as { isBanned: boolean };
     expect(agent.isBanned).toBe(true);
     
     logger.success(`✓ Bad user journey: ${violations.length} violations → BANNED`);

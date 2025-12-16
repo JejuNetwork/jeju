@@ -1,4 +1,9 @@
 #!/usr/bin/env bun
+/**
+ * @internal Used by CLI: `jeju deploy app <name>`
+ * 
+ * App Deployment Script
+ */
 import { parseArgs } from 'util';
 import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';

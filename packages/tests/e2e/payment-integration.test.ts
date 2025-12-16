@@ -16,7 +16,6 @@ import { describe, test, expect, beforeAll } from 'bun:test';
 import { createPublicClient, createWalletClient, http, parseAbi, readContract, writeContract, waitForTransactionReceipt, getLogs, decodeEventLog, formatEther, parseEther, formatUnits, getBalance, getChainId, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
-import { parseEther, formatEther, type Address } from 'viem';
 
 // Import shared utilities
 import { 
@@ -311,9 +310,9 @@ describe.skipIf(!localnetAvailable)('Payment Integration - Credit Manager', () =
     
     const [usdcBalance, elizaBalance, ethBalance] = await creditManager.getAllBalances(user.address);
     
-    logger.info(`USDC: ${ethers.formatUnits(usdcBalance, 6)}`);
-    logger.info(`elizaOS: ${ethers.formatEther(elizaBalance)}`);
-    logger.info(`ETH: ${ethers.formatEther(ethBalance)}`);
+    logger.info(`USDC: ${formatUnits(usdcBalance, 6)}`);
+    logger.info(`elizaOS: ${formatEther(elizaBalance)}`);
+    logger.info(`ETH: ${formatEther(ethBalance)}`);
     
     // All should be valid bigints
     expect(typeof usdcBalance).toBe('bigint');
@@ -326,7 +325,7 @@ describe.skipIf(!localnetAvailable)('Payment Integration - Credit Manager', () =
   test('should deposit ETH to credit manager', async () => {
     logger.info('Testing ETH deposit...');
     
-    const depositAmount = ethers.parseEther('0.1');
+    const depositAmount = parseEther('0.1');
     const creditManagerAsUser = creditManager.connect(user);
     
     // Get initial balance
@@ -340,7 +339,7 @@ describe.skipIf(!localnetAvailable)('Payment Integration - Credit Manager', () =
     const [, , newEth] = await creditManager.getAllBalances(user.address);
     
     expect(newEth).toBe(initialEth + depositAmount);
-    logger.success(`Deposited ${ethers.formatEther(depositAmount)} ETH`);
+    logger.success(`Deposited ${formatEther(depositAmount)} ETH`);
   });
 });
 
@@ -359,8 +358,8 @@ describe.skipIf(!localnetAvailable)('Payment Integration - Staking', () => {
       stakerCount
     ] = await staking.getPoolStats();
     
-    logger.info(`Total Staked: ${ethers.formatEther(totalStaked)}`);
-    logger.info(`Total Locked: ${ethers.formatEther(totalLocked)}`);
+    logger.info(`Total Staked: ${formatEther(totalStaked)}`);
+    logger.info(`Total Locked: ${formatEther(totalLocked)}`);
     logger.info(`Rewards Per Share: ${rewardsPerShare}`);
     logger.info(`Staker Count: ${stakerCount}`);
     
@@ -385,9 +384,9 @@ describe.skipIf(!localnetAvailable)('Payment Integration - Staking', () => {
       isUnbonding
     ] = await staking.getPosition(staker.address);
     
-    logger.info(`Staked: ${ethers.formatEther(stakedAmount)}`);
-    logger.info(`Locked: ${ethers.formatEther(lockedAmount)}`);
-    logger.info(`Pending Rewards: ${ethers.formatEther(pendingRewards)}`);
+    logger.info(`Staked: ${formatEther(stakedAmount)}`);
+    logger.info(`Locked: ${formatEther(lockedAmount)}`);
+    logger.info(`Pending Rewards: ${formatEther(pendingRewards)}`);
     logger.info(`Is Unbonding: ${isUnbonding}`);
     
     // Validate types
@@ -403,8 +402,8 @@ describe.skipIf(!localnetAvailable)('Payment Integration - Staking', () => {
     const totalStaked = await staking.totalStaked();
     const minStake = await staking.minimumStake();
     
-    logger.info(`Total Staked: ${ethers.formatEther(totalStaked)}`);
-    logger.info(`Minimum Stake: ${ethers.formatEther(minStake)}`);
+    logger.info(`Total Staked: ${formatEther(totalStaked)}`);
+    logger.info(`Minimum Stake: ${formatEther(minStake)}`);
     
     expect(minStake).toBeGreaterThanOrEqual(0n);
     

@@ -236,7 +236,7 @@ export async function bootstrapContracts(rootDir: string, rpcUrl: string): Promi
 
   logger.step('Bootstrapping contracts...');
   
-  const bootstrapScript = join(rootDir, 'scripts/bootstrap-localnet-complete.ts');
+  const bootstrapScript = join(rootDir, 'scripts/bootstrap/bootstrap-localnet-complete.ts');
   if (!existsSync(bootstrapScript)) {
     logger.warn('Bootstrap script not found, skipping contract deployment');
     return;

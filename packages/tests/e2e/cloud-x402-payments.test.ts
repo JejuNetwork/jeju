@@ -13,19 +13,20 @@
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
-import { ethers } from 'ethers';
+import { createPublicClient, createWalletClient, http, parseAbi, readContract, writeContract, waitForTransactionReceipt, formatEther, formatUnits, parseUnits, decodeEventLog, type Address, type PublicClient, type WalletClient } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 import { Logger } from '../../../scripts/shared/logger';
 import { TEST_WALLETS } from '../shared/constants';
 
 const logger = new Logger('cloud-x402-e2e');
 
 // Test configuration
-let provider: ethers.JsonRpcProvider;
-let deployer: ethers.Wallet;
-let user: ethers.Wallet;
-let usdcContract: ethers.Contract;
-let creditManager: ethers.Contract;
-let serviceRegistry: ethers.Contract;
+let publicClient: PublicClient;
+let deployerAccount: ReturnType<typeof privateKeyToAccount>;
+let deployerWalletClient: WalletClient;
+let userAccount: ReturnType<typeof privateKeyToAccount>;
+let userWalletClient: WalletClient;
 
 const USDC_ADDRESS = process.env.USDC_ADDRESS || '0x0165878A594ca255338adfa4d48449f69242Eb8F';
 const CREDIT_MANAGER_ADDRESS = process.env.CREDIT_MANAGER_ADDRESS || '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9';
@@ -84,27 +85,29 @@ describe.skipIf(!localnetAvailable)('Cloud x402 E2E - Setup', () => {
   beforeAll(async () => {
     logger.info('Setting up x402 payment tests...');
     
-    provider = new ethers.JsonRpcProvider(rpcUrl);
+    const chain = inferChainFromRpcUrl(rpcUrl);
+    publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
     
     // Deployer (owner) for admin operations
-    deployer = new ethers.Wallet(TEST_WALLETS.deployer.privateKey, provider);
+    deployerAccount = privateKeyToAccount(TEST_WALLETS.deployer.privateKey as `0x${string}`);
+    deployerWalletClient = createWalletClient({ chain, transport: http(rpcUrl), account: deployerAccount });
     
     // Regular user for payment operations
-    user = new ethers.Wallet(TEST_WALLETS.user2.privateKey, provider);
-    
-    // Initialize contracts
-    usdcContract = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, user);
-    
-    creditManager = new ethers.Contract(CREDIT_MANAGER_ADDRESS, CREDIT_MANAGER_ABI, user);
-    
-    serviceRegistry = new ethers.Contract(SERVICE_REGISTRY_ADDRESS, SERVICE_REGISTRY_ABI, provider);
+    userAccount = privateKeyToAccount(TEST_WALLETS.user2.privateKey as `0x${string}`);
+    userWalletClient = createWalletClient({ chain, transport: http(rpcUrl), account: userAccount });
     
     logger.success('Contracts initialized');
   });
   
   test('should verify USDC balance', async () => {
-    const balance = await usdcContract.balanceOf(await user.getAddress());
-    logger.info(`USDC Balance: ${ethers.formatUnits(balance, 6)} USDC`);
+    const erc20Abi = parseAbi(ERC20_ABI);
+    const balance = await readContract(publicClient, {
+      address: USDC_ADDRESS as Address,
+      abi: erc20Abi,
+      functionName: 'balanceOf',
+      args: [userAccount.address],
+    }) as bigint;
+    logger.info(`USDC Balance: ${formatUnits(balance, 6)} USDC`);
     
     // User should have some USDC from localnet setup
     expect(balance).toBeGreaterThan(0n);
@@ -115,23 +118,35 @@ describe.skipIf(!localnetAvailable)('Cloud x402 E2E - Credit Deposit', () => {
   test('should deposit USDC to credit manager', async () => {
     logger.info('Depositing USDC...');
     
-    const depositAmount = ethers.parseUnits('10', 6); // $10 USDC
+    const depositAmount = parseUnits('10', 6); // $10 USDC
+    const erc20Abi = parseAbi(ERC20_ABI);
+    const creditManagerAbi = parseAbi(CREDIT_MANAGER_ABI);
     
     // Approve credit manager
     logger.info('  Approving USDC...');
-    const approveTx = await usdcContract.approve(CREDIT_MANAGER_ADDRESS, depositAmount);
-    await approveTx.wait();
+    const approveHash = await userWalletClient.writeContract({
+      address: USDC_ADDRESS as Address,
+      abi: erc20Abi,
+      functionName: 'approve',
+      args: [CREDIT_MANAGER_ADDRESS as Address, depositAmount],
+    });
+    await waitForTransactionReceipt(publicClient, { hash: approveHash });
     
     // Deposit
     logger.info('  Depositing...');
-    const depositTx = await creditManager.depositUSDC(depositAmount);
-    const receipt = await depositTx.wait();
+    const depositHash = await userWalletClient.writeContract({
+      address: CREDIT_MANAGER_ADDRESS as Address,
+      abi: creditManagerAbi,
+      functionName: 'depositUSDC',
+      args: [depositAmount],
+    });
+    const receipt = await waitForTransactionReceipt(publicClient, { hash: depositHash });
     
     // Verify CreditDeposited event
-    const depositEvent = receipt.logs.find((log: ethers.Log) => {
+    const depositEvent = receipt.logs.find((log) => {
       try {
-        const parsed = creditManager.interface.parseLog({ topics: [...log.topics], data: log.data });
-        return parsed?.name === 'CreditDeposited';
+        const decoded = decodeEventLog({ abi: creditManagerAbi, data: log.data, topics: log.topics });
+        return decoded.eventName === 'CreditDeposited';
       } catch {
         return false;
       }
@@ -139,11 +154,16 @@ describe.skipIf(!localnetAvailable)('Cloud x402 E2E - Credit Deposit', () => {
     expect(depositEvent).toBeDefined();
     
     // Verify balance
-    const balance = await creditManager.getBalance(await user.getAddress(), USDC_ADDRESS);
+    const balance = await readContract(publicClient, {
+      address: CREDIT_MANAGER_ADDRESS as Address,
+      abi: creditManagerAbi,
+      functionName: 'getBalance',
+      args: [userAccount.address, USDC_ADDRESS as Address],
+    }) as bigint;
     expect(balance).toBeGreaterThanOrEqual(depositAmount);
     
-    logger.success(`Deposited ${ethers.formatUnits(depositAmount, 6)} USDC`);
-    logger.info(`  New balance: ${ethers.formatUnits(balance, 6)} USDC`);
+    logger.success(`Deposited ${formatUnits(depositAmount, 6)} USDC`);
+    logger.info(`  New balance: ${formatUnits(balance, 6)} USDC`);
   });
 });
 
@@ -151,8 +171,14 @@ describe.skipIf(!localnetAvailable)('Cloud x402 E2E - Service Cost Calculation',
   test('should get cost for chat-completion service', async () => {
     logger.info('Checking service costs...');
     
+    const serviceRegistryAbi = parseAbi(SERVICE_REGISTRY_ABI);
     const serviceName = 'chat-completion';
-    const isAvailable = await serviceRegistry.isServiceAvailable(serviceName);
+    const isAvailable = await readContract(publicClient, {
+      address: SERVICE_REGISTRY_ADDRESS as Address,
+      abi: serviceRegistryAbi,
+      functionName: 'isServiceAvailable',
+      args: [serviceName],
+    }) as boolean;
     
     if (!isAvailable) {
       logger.warn(`Service ${serviceName} not registered - this is expected on fresh localnet`);
@@ -160,15 +186,21 @@ describe.skipIf(!localnetAvailable)('Cloud x402 E2E - Service Cost Calculation',
       return;
     }
     
-    const cost = await serviceRegistry.getServiceCost(serviceName, await user.getAddress());
+    const cost = await readContract(publicClient, {
+      address: SERVICE_REGISTRY_ADDRESS as Address,
+      abi: serviceRegistryAbi,
+      functionName: 'getServiceCost',
+      args: [serviceName, userAccount.address],
+    }) as bigint;
     expect(cost).toBeGreaterThan(0n);
     
-    logger.info(`${serviceName}: ${ethers.formatEther(cost)} elizaOS`);
+    logger.info(`${serviceName}: ${formatEther(cost)} elizaOS`);
   });
   
   test('should get cost for all cloud services', async () => {
     logger.info('Checking all service costs...');
     
+    const serviceRegistryAbi = parseAbi(SERVICE_REGISTRY_ABI);
     const services = [
       'chat-completion',
       'image-generation',
@@ -179,15 +211,25 @@ describe.skipIf(!localnetAvailable)('Cloud x402 E2E - Service Cost Calculation',
     
     let registeredCount = 0;
     for (const serviceName of services) {
-      const isAvailable = await serviceRegistry.isServiceAvailable(serviceName);
+      const isAvailable = await readContract(publicClient, {
+        address: SERVICE_REGISTRY_ADDRESS as Address,
+        abi: serviceRegistryAbi,
+        functionName: 'isServiceAvailable',
+        args: [serviceName],
+      }) as boolean;
       
       if (!isAvailable) {
         logger.warn(`  ${serviceName}: Not registered`);
         continue;
       }
       
-      const cost = await serviceRegistry.getServiceCost(serviceName, await user.getAddress());
-      logger.info(`  ${serviceName}: ${ethers.formatEther(cost)} elizaOS`);
+      const cost = await readContract(publicClient, {
+        address: SERVICE_REGISTRY_ADDRESS as Address,
+        abi: serviceRegistryAbi,
+        functionName: 'getServiceCost',
+        args: [serviceName, userAccount.address],
+      }) as bigint;
+      logger.info(`  ${serviceName}: ${formatEther(cost)} elizaOS`);
       registeredCount++;
     }
     
@@ -199,16 +241,20 @@ describe.skipIf(!localnetAvailable)('Cloud x402 E2E - Credit Check', () => {
   test('should check sufficient credit for service', async () => {
     logger.info('Checking credit sufficiency...');
     
-    const serviceCost = ethers.parseUnits('0.001', 6); // $0.001 USDC
+    const creditManagerAbi = parseAbi(CREDIT_MANAGER_ABI);
+    const serviceCost = parseUnits('0.001', 6); // $0.001 USDC
     
-    const [sufficient, available] = await creditManager.hasSufficientCredit(
-      await user.getAddress(),
-      USDC_ADDRESS,
-      serviceCost
-    );
+    const result = await readContract(publicClient, {
+      address: CREDIT_MANAGER_ADDRESS as Address,
+      abi: creditManagerAbi,
+      functionName: 'hasSufficientCredit',
+      args: [userAccount.address, USDC_ADDRESS as Address, serviceCost],
+    }) as [boolean, bigint];
     
-    logger.info(`  Required: ${ethers.formatUnits(serviceCost, 6)} USDC`);
-    logger.info(`  Available: ${ethers.formatUnits(available, 6)} USDC`);
+    const [sufficient, available] = result;
+    
+    logger.info(`  Required: ${formatUnits(serviceCost, 6)} USDC`);
+    logger.info(`  Available: ${formatUnits(available, 6)} USDC`);
     logger.info(`  Sufficient: ${sufficient}`);
     
     expect(sufficient).toBe(true);
@@ -217,13 +263,17 @@ describe.skipIf(!localnetAvailable)('Cloud x402 E2E - Credit Check', () => {
   test('should detect insufficient credit', async () => {
     logger.info('Testing insufficient credit...');
     
-    const hugeCost = ethers.parseUnits('1000000', 6); // $1M USDC
+    const creditManagerAbi = parseAbi(CREDIT_MANAGER_ABI);
+    const hugeCost = parseUnits('1000000', 6); // $1M USDC
     
-    const [sufficient, available] = await creditManager.hasSufficientCredit(
-      await user.getAddress(),
-      USDC_ADDRESS,
-      hugeCost
-    );
+    const result = await readContract(publicClient, {
+      address: CREDIT_MANAGER_ADDRESS as Address,
+      abi: creditManagerAbi,
+      functionName: 'hasSufficientCredit',
+      args: [userAccount.address, USDC_ADDRESS as Address, hugeCost],
+    }) as [boolean, bigint];
+    
+    const [sufficient] = result;
     
     expect(sufficient).toBe(false);
     logger.success('Correctly detected insufficient credit');
@@ -236,7 +286,7 @@ describe.skipIf(!localnetAvailable)('Cloud x402 E2E - Payment Flow', () => {
     
     // Step 1: Simulate 402 response
     logger.info('  Step 1: Initial request...');
-    const paymentAmount = ethers.parseUnits('0.10', 6); // $0.10 USDC
+    const paymentAmount = parseUnits('0.10', 6); // $0.10 USDC
     
     const initialResponse = {
       status: 402,
@@ -245,7 +295,7 @@ describe.skipIf(!localnetAvailable)('Cloud x402 E2E - Payment Flow', () => {
         'X-Payment-Required': 'true',
         'X-Payment-Amount': paymentAmount.toString(),
         'X-Payment-Token': USDC_ADDRESS,
-        'X-Payment-Recipient': await deployer.getAddress()
+        'X-Payment-Recipient': deployerAccount.address
       }
     };
     
@@ -254,22 +304,27 @@ describe.skipIf(!localnetAvailable)('Cloud x402 E2E - Payment Flow', () => {
     
     // Step 2: Check credit
     logger.info('  Step 2: Checking credit...');
-    const [sufficient, available] = await creditManager.hasSufficientCredit(
-      await user.getAddress(),
-      USDC_ADDRESS,
-      paymentAmount
-    );
+    const creditManagerAbi = parseAbi(CREDIT_MANAGER_ABI);
+    const result = await readContract(publicClient, {
+      address: CREDIT_MANAGER_ADDRESS as Address,
+      abi: creditManagerAbi,
+      functionName: 'hasSufficientCredit',
+      args: [userAccount.address, USDC_ADDRESS as Address, paymentAmount],
+    }) as [boolean, bigint];
+    
+    const [sufficient, available] = result;
     
     expect(sufficient).toBe(true);
-    logger.info(`  Credit sufficient: ${ethers.formatUnits(available, 6)} USDC available`);
+    logger.info(`  Credit sufficient: ${formatUnits(available, 6)} USDC available`);
     
     // Step 3: Create payment authorization with EIP-712 signature
     logger.info('  Step 3: Creating payment auth...');
+    const chainId = publicClient.chain?.id || 31337;
     const domain = {
       name: 'CreditManager',
       version: '1',
-      chainId: (await provider.getNetwork()).chainId,
-      verifyingContract: CREDIT_MANAGER_ADDRESS
+      chainId,
+      verifyingContract: CREDIT_MANAGER_ADDRESS as Address
     };
     
     const types = {
@@ -284,15 +339,20 @@ describe.skipIf(!localnetAvailable)('Cloud x402 E2E - Payment Flow', () => {
     };
     
     const paymentAuth = {
-      from: await user.getAddress(),
-      to: initialResponse.headers['X-Payment-Recipient'],
-      token: USDC_ADDRESS,
+      from: userAccount.address,
+      to: initialResponse.headers['X-Payment-Recipient'] as Address,
+      token: USDC_ADDRESS as Address,
       amount: paymentAmount,
-      nonce: Date.now(),
-      deadline: Math.floor(Date.now() / 1000) + 3600
+      nonce: BigInt(Date.now()),
+      deadline: BigInt(Math.floor(Date.now() / 1000) + 3600)
     };
     
-    const signature = await user.signTypedData(domain, types, paymentAuth);
+    const signature = await userWalletClient.signTypedData({
+      domain,
+      types,
+      primaryType: 'Payment',
+      message: paymentAuth
+    });
     expect(signature).toBeDefined();
     expect(signature.length).toBe(132);
     
@@ -303,33 +363,54 @@ describe.skipIf(!localnetAvailable)('Cloud x402 E2E - Payment Flow', () => {
   test('should handle credit deduction via authorized service', async () => {
     logger.info('Testing credit deduction...');
     
-    const initialBalance = await creditManager.getBalance(await user.getAddress(), USDC_ADDRESS);
-    logger.info(`  Initial balance: ${ethers.formatUnits(initialBalance, 6)} USDC`);
+    const creditManagerAbi = parseAbi(CREDIT_MANAGER_ABI);
+    const initialBalance = await readContract(publicClient, {
+      address: CREDIT_MANAGER_ADDRESS as Address,
+      abi: creditManagerAbi,
+      functionName: 'getBalance',
+      args: [userAccount.address, USDC_ADDRESS as Address],
+    }) as bigint;
+    logger.info(`  Initial balance: ${formatUnits(initialBalance, 6)} USDC`);
     
     // Authorize user as a service (via deployer/owner)
-    const creditManagerAsOwner = creditManager.connect(deployer);
-    const userAddress = await user.getAddress();
+    const userAddress = userAccount.address;
     
     // Check if already authorized
-    const isAuthorized = await creditManager.authorizedServices(userAddress);
+    const isAuthorized = await readContract(publicClient, {
+      address: CREDIT_MANAGER_ADDRESS as Address,
+      abi: creditManagerAbi,
+      functionName: 'authorizedServices',
+      args: [userAddress],
+    }) as boolean;
+    
     if (!isAuthorized) {
       logger.info('  Authorizing test account as service...');
-      const authTx = await creditManagerAsOwner.setServiceAuthorization(userAddress, true);
-      await authTx.wait();
+      const authHash = await deployerWalletClient.writeContract({
+        address: CREDIT_MANAGER_ADDRESS as Address,
+        abi: creditManagerAbi,
+        functionName: 'setServiceAuthorization',
+        args: [userAddress, true],
+      });
+      await waitForTransactionReceipt(publicClient, { hash: authHash });
     }
     
     // Now user can call deductCredit as an "authorized service"
-    const deductAmount = ethers.parseUnits('0.05', 6); // $0.05 USDC
+    const deductAmount = parseUnits('0.05', 6); // $0.05 USDC
     
-    logger.info(`  Deducting ${ethers.formatUnits(deductAmount, 6)} USDC...`);
-    const deductTx = await creditManager.deductCredit(userAddress, USDC_ADDRESS, deductAmount);
-    const receipt = await deductTx.wait();
+    logger.info(`  Deducting ${formatUnits(deductAmount, 6)} USDC...`);
+    const deductHash = await userWalletClient.writeContract({
+      address: CREDIT_MANAGER_ADDRESS as Address,
+      abi: creditManagerAbi,
+      functionName: 'deductCredit',
+      args: [userAddress, USDC_ADDRESS as Address, deductAmount],
+    });
+    const receipt = await waitForTransactionReceipt(publicClient, { hash: deductHash });
     
     // Verify CreditDeducted event
-    const deductEvent = receipt.logs.find((log: ethers.Log) => {
+    const deductEvent = receipt.logs.find((log) => {
       try {
-        const parsed = creditManager.interface.parseLog({ topics: [...log.topics], data: log.data });
-        return parsed?.name === 'CreditDeducted';
+        const decoded = decodeEventLog({ abi: creditManagerAbi, data: log.data, topics: log.topics });
+        return decoded.eventName === 'CreditDeducted';
       } catch {
         return false;
       }
@@ -337,10 +418,15 @@ describe.skipIf(!localnetAvailable)('Cloud x402 E2E - Payment Flow', () => {
     expect(deductEvent).toBeDefined();
     
     // Verify balance decreased
-    const newBalance = await creditManager.getBalance(userAddress, USDC_ADDRESS);
+    const newBalance = await readContract(publicClient, {
+      address: CREDIT_MANAGER_ADDRESS as Address,
+      abi: creditManagerAbi,
+      functionName: 'getBalance',
+      args: [userAddress, USDC_ADDRESS as Address],
+    }) as bigint;
     expect(newBalance).toBe(initialBalance - deductAmount);
     
-    logger.info(`  New balance: ${ethers.formatUnits(newBalance, 6)} USDC`);
+    logger.info(`  New balance: ${formatUnits(newBalance, 6)} USDC`);
     logger.success('Credit deduction verified');
   });
 });
@@ -349,27 +435,35 @@ describe.skipIf(!localnetAvailable)('Cloud x402 E2E - Payment Validation', () =>
   test('should validate payment signature', async () => {
     logger.info('Testing payment signature validation...');
     
+    const { keccak256, encodePacked } = await import('viem');
+    
     const message = {
-      from: await user.getAddress(),
-      to: await deployer.getAddress(),
-      value: ethers.parseUnits('1', 6),
-      validAfter: 0,
-      validBefore: Math.floor(Date.now() / 1000) + 3600
+      from: userAccount.address,
+      to: deployerAccount.address,
+      value: parseUnits('1', 6),
+      validAfter: 0n,
+      validBefore: BigInt(Math.floor(Date.now() / 1000) + 3600)
     };
     
-    const messageHash = ethers.solidityPackedKeccak256(
+    const messageHash = keccak256(encodePacked(
       ['address', 'address', 'uint256', 'uint256', 'uint256'],
       [message.from, message.to, message.value, message.validAfter, message.validBefore]
-    );
+    ));
     
-    const signature = await user.signMessage(ethers.getBytes(messageHash));
+    const signature = await userWalletClient.signMessage({
+      message: { raw: messageHash as `0x${string}` }
+    });
     
     expect(signature).toBeDefined();
     expect(signature.length).toBe(132);
     
     // Verify we can recover the signer
-    const recoveredAddress = ethers.verifyMessage(ethers.getBytes(messageHash), signature);
-    expect(recoveredAddress.toLowerCase()).toBe((await user.getAddress()).toLowerCase());
+    const { recoverMessageAddress } = await import('viem');
+    const recoveredAddress = await recoverMessageAddress({
+      message: { raw: messageHash as `0x${string}` },
+      signature: signature as `0x${string}`
+    });
+    expect(recoveredAddress.toLowerCase()).toBe(userAccount.address.toLowerCase());
     
     logger.success('Payment signature created and validated');
   });
@@ -407,14 +501,23 @@ describe.skipIf(!localnetAvailable)('Cloud x402 E2E - Error Handling', () => {
   test('should handle insufficient balance', async () => {
     logger.info('Testing insufficient balance...');
     
-    const balance = await creditManager.getBalance(await user.getAddress(), USDC_ADDRESS);
-    const excessiveAmount = balance + ethers.parseUnits('1000000', 6);
+    const creditManagerAbi = parseAbi(CREDIT_MANAGER_ABI);
+    const balance = await readContract(publicClient, {
+      address: CREDIT_MANAGER_ADDRESS as Address,
+      abi: creditManagerAbi,
+      functionName: 'getBalance',
+      args: [userAccount.address, USDC_ADDRESS as Address],
+    }) as bigint;
+    const excessiveAmount = balance + parseUnits('1000000', 6);
     
-    const [sufficient] = await creditManager.hasSufficientCredit(
-      await user.getAddress(),
-      USDC_ADDRESS,
-      excessiveAmount
-    );
+    const result = await readContract(publicClient, {
+      address: CREDIT_MANAGER_ADDRESS as Address,
+      abi: creditManagerAbi,
+      functionName: 'hasSufficientCredit',
+      args: [userAccount.address, USDC_ADDRESS as Address, excessiveAmount],
+    }) as [boolean, bigint];
+    
+    const [sufficient] = result;
     
     expect(sufficient).toBe(false);
     logger.success('Insufficient balance handled correctly');
@@ -423,10 +526,16 @@ describe.skipIf(!localnetAvailable)('Cloud x402 E2E - Error Handling', () => {
   test('should handle invalid token address', async () => {
     logger.info('Testing invalid token...');
     
-    const invalidToken = '0x0000000000000000000000000000000000000000';
+    const creditManagerAbi = parseAbi(CREDIT_MANAGER_ABI);
+    const invalidToken = '0x0000000000000000000000000000000000000000' as Address;
     
     // Zero address should return 0 balance
-    const balance = await creditManager.getBalance(await user.getAddress(), invalidToken);
+    const balance = await readContract(publicClient, {
+      address: CREDIT_MANAGER_ADDRESS as Address,
+      abi: creditManagerAbi,
+      functionName: 'getBalance',
+      args: [userAccount.address, invalidToken],
+    }) as bigint;
     expect(balance).toBe(0n);
     
     logger.success('Invalid token returns zero balance');
@@ -437,8 +546,14 @@ describe.skipIf(!localnetAvailable)('Cloud x402 E2E - Volume Discounts', () => {
   test('should calculate cost with volume discount', async () => {
     logger.info('Testing volume discounts...');
     
+    const serviceRegistryAbi = parseAbi(SERVICE_REGISTRY_ABI);
     const serviceName = 'chat-completion';
-    const isAvailable = await serviceRegistry.isServiceAvailable(serviceName);
+    const isAvailable = await readContract(publicClient, {
+      address: SERVICE_REGISTRY_ADDRESS as Address,
+      abi: serviceRegistryAbi,
+      functionName: 'isServiceAvailable',
+      args: [serviceName],
+    }) as boolean;
     
     if (!isAvailable) {
       logger.warn(`Service ${serviceName} not registered, skipping volume discount test`);
@@ -446,21 +561,35 @@ describe.skipIf(!localnetAvailable)('Cloud x402 E2E - Volume Discounts', () => {
     }
     
     // Get base cost
-    const baseCost = await serviceRegistry.getServiceCost(serviceName, await user.getAddress());
-    logger.info(`  Base cost: ${ethers.formatEther(baseCost)} elizaOS`);
+    const baseCost = await readContract(publicClient, {
+      address: SERVICE_REGISTRY_ADDRESS as Address,
+      abi: serviceRegistryAbi,
+      functionName: 'getServiceCost',
+      args: [serviceName, userAccount.address],
+    }) as bigint;
+    logger.info(`  Base cost: ${formatEther(baseCost)} elizaOS`);
     
     // Get current volume discount
-    const discount = await serviceRegistry.getUserVolumeDiscount(await user.getAddress(), serviceName);
+    const discount = await readContract(publicClient, {
+      address: SERVICE_REGISTRY_ADDRESS as Address,
+      abi: serviceRegistryAbi,
+      functionName: 'getUserVolumeDiscount',
+      args: [userAccount.address, serviceName],
+    }) as bigint;
     logger.info(`  Current discount: ${discount} bps (${Number(discount) / 100}%)`);
     
     // Get user usage stats
-    const [totalSpent, requestCount, lastUsedBlock, volumeDiscount] = await serviceRegistry.userUsage(
-      await user.getAddress(),
-      serviceName
-    );
+    const usageResult = await readContract(publicClient, {
+      address: SERVICE_REGISTRY_ADDRESS as Address,
+      abi: serviceRegistryAbi,
+      functionName: 'userUsage',
+      args: [userAccount.address, serviceName],
+    }) as [bigint, bigint, bigint, bigint];
+    
+    const [totalSpent, requestCount, lastUsedBlock, volumeDiscount] = usageResult;
     
     logger.info(`  User stats:`);
-    logger.info(`    Total spent: ${ethers.formatEther(totalSpent)} elizaOS`);
+    logger.info(`    Total spent: ${formatEther(totalSpent)} elizaOS`);
     logger.info(`    Request count: ${requestCount}`);
     logger.info(`    Volume discount: ${volumeDiscount} bps`);
     
@@ -472,7 +601,7 @@ describe.skipIf(!localnetAvailable)('Cloud x402 E2E - Volume Discounts', () => {
     if (discount > 0n && baseCost > 0n) {
       const effectiveCost = baseCost - (baseCost * discount) / 10000n;
       expect(effectiveCost).toBeLessThan(baseCost);
-      logger.info(`  Effective cost with discount: ${ethers.formatEther(effectiveCost)} elizaOS`);
+      logger.info(`  Effective cost with discount: ${formatEther(effectiveCost)} elizaOS`);
     }
     
     logger.success('Volume discount logic verified');
@@ -481,21 +610,34 @@ describe.skipIf(!localnetAvailable)('Cloud x402 E2E - Volume Discounts', () => {
   test('should track usage for volume discounts', async () => {
     logger.info('Testing usage tracking...');
     
-    const userAddress = await user.getAddress();
+    const userAddress = userAccount.address;
     
     // Get initial usage
+    const serviceRegistryAbi = parseAbi(SERVICE_REGISTRY_ABI);
     const serviceName = 'chat-completion';
-    const isAvailable = await serviceRegistry.isServiceAvailable(serviceName);
+    const isAvailable = await readContract(publicClient, {
+      address: SERVICE_REGISTRY_ADDRESS as Address,
+      abi: serviceRegistryAbi,
+      functionName: 'isServiceAvailable',
+      args: [serviceName],
+    }) as boolean;
     
     if (!isAvailable) {
       logger.warn(`Service ${serviceName} not registered, skipping usage tracking test`);
       return;
     }
     
-    const [initialTotalSpent, initialRequestCount] = await serviceRegistry.userUsage(userAddress, serviceName);
+    const usageResult = await readContract(publicClient, {
+      address: SERVICE_REGISTRY_ADDRESS as Address,
+      abi: serviceRegistryAbi,
+      functionName: 'userUsage',
+      args: [userAddress, serviceName],
+    }) as [bigint, bigint, bigint, bigint];
+    
+    const [initialTotalSpent, initialRequestCount] = usageResult;
     
     logger.info(`  Initial usage:`);
-    logger.info(`    Total spent: ${ethers.formatEther(initialTotalSpent)} elizaOS`);
+    logger.info(`    Total spent: ${formatEther(initialTotalSpent)} elizaOS`);
     logger.info(`    Request count: ${initialRequestCount}`);
     
     // Usage tracking is verified - the ServiceRegistry records usage when services are called

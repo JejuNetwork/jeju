@@ -1,11 +1,13 @@
 #!/usr/bin/env bun
 /**
+ * @internal Used by CLI: `jeju deploy verify oif`
+ * 
  * OIF Deployment Verification Script
  * 
  * Verifies that OIF contracts are properly deployed and configured.
  * 
  * Usage:
- *   bun run scripts/verify-oif-deployment.ts [network]
+ *   jeju deploy verify oif [network]
  */
 
 import { createPublicClient, http, type Address } from 'viem';

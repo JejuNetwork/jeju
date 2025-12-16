@@ -13,20 +13,17 @@ import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { compress } from 'hono/compress';
 import { logger } from 'hono/logger';
-import { createPublicClient, createWalletClient, http, readContract, writeContract, signMessage, waitForTransactionReceipt, type Address, type Chain } from 'viem';
+import { createPublicClient, createWalletClient, http, type Address } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { parseAbi } from 'viem';
-import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
+import { base, baseSepolia, localhost } from 'viem/chains';
 import { EdgeCache, getEdgeCache } from '../cache/edge-cache';
 import { OriginFetcher, getOriginFetcher } from '../cache/origin-fetcher';
 import type {
   EdgeNodeConfig,
   IncomingRequest,
-  OutgoingResponse,
   EdgeNodeMetrics,
-  RequestMetrics,
   InvalidationRequest,
-  UsageReport,
 } from '../types';
 import type { CacheStatus, EdgeNodeStatus } from '@jejunetwork/types';
 
@@ -39,6 +36,20 @@ const CDN_REGISTRY_ABI = parseAbi([
   'function reportNodeMetrics(bytes32 nodeId, uint256 currentLoad, uint256 bandwidthUsage, uint256 activeConnections, uint256 requestsPerSecond, uint256 bytesServedTotal, uint256 requestsTotal, uint256 cacheHitRate, uint256 avgResponseTime) external',
   'function reportUsage(bytes32 nodeId, uint256 periodStart, uint256 periodEnd, uint256 bytesEgress, uint256 bytesIngress, uint256 requests, uint256 cacheHits, uint256 cacheMisses, bytes signature) external',
 ]);
+
+// ============================================================================
+// Chain Inference Helper
+// ============================================================================
+
+function inferChainFromRpcUrl(rpcUrl: string) {
+  if (rpcUrl.includes('base-sepolia') || rpcUrl.includes('84532')) {
+    return baseSepolia;
+  }
+  if (rpcUrl.includes('base') && !rpcUrl.includes('localhost')) {
+    return base;
+  }
+  return localhost;
+}
 
 // ============================================================================
 // Edge Node Server
@@ -354,7 +365,7 @@ export class EdgeNodeServer {
    * Build response with CDN headers
    */
   private buildResponse(
-    c: Context,
+    _c: Context,
     body: Buffer,
     headers: Record<string, string>,
     status: number,
@@ -635,7 +646,7 @@ export class EdgeNodeServer {
         args: [
           this.nodeIdBytes as `0x${string}`,
           BigInt(Math.round(metrics.currentLoad)),
-          BigInt(Math.round(metrics.bandwidthUsage)),
+          BigInt(Math.round(metrics.bandwidthMbps * 1000)), // Convert to kbps
           BigInt(metrics.activeConnections),
           BigInt(Math.round(metrics.requestsPerSecond)),
           BigInt(metrics.bytesServedTotal),
@@ -645,7 +656,7 @@ export class EdgeNodeServer {
         ],
         account: this.account,
       });
-      await waitForTransactionReceipt(this.publicClient, { hash }).catch((e: Error) => {
+      await this.publicClient.waitForTransactionReceipt({ hash }).catch((e: Error) => {
         console.error('[EdgeNode] Failed to report metrics:', e.message);
       });
     }, intervalMs);
@@ -662,7 +673,7 @@ export class EdgeNodeServer {
       
       // Create usage signature
       const usageData = `${this.nodeIdBytes}:${this.usagePeriodStart}:${periodEnd}:${this.periodBytesEgress}:${this.periodRequests}`;
-      const signature = await signMessage({
+      const signature = await this.walletClient.signMessage({
         account: this.account,
         message: usageData,
       });
@@ -680,11 +691,11 @@ export class EdgeNodeServer {
           BigInt(this.periodRequests),
           BigInt(this.periodCacheHits),
           BigInt(this.periodCacheMisses),
-          signature as `0x${string}`,
+          signature,
         ],
         account: this.account,
       });
-      await waitForTransactionReceipt(this.publicClient, { hash }).catch((e: Error) => {
+      await this.publicClient.waitForTransactionReceipt({ hash }).catch((e: Error) => {
         console.error('[EdgeNode] Failed to report usage:', e.message);
       });
 

@@ -4,15 +4,23 @@
  * Deploy and manage cross-chain tokens (JEJU, custom tokens)
  *
  * Usage:
- *   jeju token deploy jeju --network testnet
- *   jeju token deploy <symbol> --network testnet --custom
+ *   jeju token deploy:jeju --network testnet
+ *   jeju token deploy:ecosystem --network testnet
+ *   jeju token deploy:testnet --cross-chain
+ *   jeju token deploy:hyperlane --network testnet
+ *   jeju token deploy:solana --network devnet
+ *   jeju token verify --network testnet
  *   jeju token bridge <token> <amount> --from <chain> --to <chain>
  *   jeju token status <token> --network testnet
  */
 
 import { Command } from 'commander';
 import chalk from 'chalk';
+import { join } from 'path';
+import { existsSync } from 'fs';
+import { execa } from 'execa';
 import { logger } from '../lib/logger';
+import { findMonorepoRoot } from '../lib/system';
 
 // Known token configurations
 const KNOWN_TOKENS: Record<string, { name: string; totalSupply: string; homeChain: string }> = {
@@ -23,91 +31,175 @@ export const tokenCommand = new Command('token')
   .description('Deploy and manage cross-chain tokens')
   .addHelpText('after', `
 Examples:
-  ${chalk.cyan('jeju token deploy jeju --network testnet')}    Deploy JEJU to testnet
-  ${chalk.cyan('jeju token status jeju --network testnet')}    Check JEJU deployment
+  ${chalk.cyan('jeju token deploy:jeju --network testnet')}        Deploy JEJU token to testnet
+  ${chalk.cyan('jeju token deploy:ecosystem --network testnet')}    Deploy full token ecosystem
+  ${chalk.cyan('jeju token deploy:testnet --cross-chain')}          Cross-chain testnet deployment
+  ${chalk.cyan('jeju token deploy:hyperlane --network testnet')}    Deploy Hyperlane infrastructure
+  ${chalk.cyan('jeju token deploy:solana --network devnet')}        Deploy SPL token to Solana
+  ${chalk.cyan('jeju token verify --network testnet')}              Verify testnet deployment
+  ${chalk.cyan('jeju token status jeju --network testnet')}         Check JEJU deployment status
   ${chalk.cyan('jeju token bridge jeju 1000 --from jeju --to base')}  Bridge 1000 JEJU
-  ${chalk.cyan('jeju token deploy MYTOKEN --custom --name "My Token" --supply 1000000')}  Deploy custom token
 `);
 
 // ============================================================================
-// Deploy Command
+// Deploy JEJU Command
 // ============================================================================
 
-interface DeployOptions {
-  network: 'localnet' | 'testnet' | 'mainnet';
-  dryRun?: boolean;
-  verify?: boolean;
-  feeConfig?: string;
-  banManager?: string;
-  custom?: boolean;
-  name?: string;
-  supply?: string;
-}
+tokenCommand
+  .command('deploy:jeju')
+  .description('Deploy JEJU token to specified network')
+  .option('-n, --network <network>', 'Target network (localnet|testnet|mainnet)', 'testnet')
+  .option('--dry-run', 'Simulate deployment without executing')
+  .option('--verify', 'Verify contracts on block explorer', true)
+  .option('--step <step>', 'Run specific deployment step')
+  .action(async (options: { network: string; dryRun?: boolean; verify?: boolean; step?: string }) => {
+    const root = findMonorepoRoot();
+    const scriptPath = join(root, 'packages/token/scripts/deploy-jeju.ts');
+    
+    if (!existsSync(scriptPath)) {
+      logger.error(`Script not found: ${scriptPath}`);
+      process.exit(1);
+    }
+
+    logger.info(`Deploying JEJU token to ${options.network}...`);
+
+    const args = ['run', scriptPath];
+    if (options.network) args.push('--network', options.network);
+    if (options.dryRun) args.push('--dry-run');
+    if (options.verify === false) args.push('--no-verify');
+    if (options.step) args.push('--step', options.step);
+
+    await execa('bun', args, { stdio: 'inherit', cwd: root });
+  });
+
+// ============================================================================
+// Deploy Ecosystem Command
+// ============================================================================
 
 tokenCommand
-  .command('deploy <token>')
-  .description('Deploy a token to specified network')
-  .option('-n, --network <network>', 'Target network', 'testnet')
+  .command('deploy:ecosystem')
+  .description('Deploy full token ecosystem (Token, Vesting, Airdrop, FeeDistributor, CCALauncher)')
+  .option('-n, --network <network>', 'Target network (localnet|testnet|mainnet)', 'testnet')
   .option('--dry-run', 'Simulate deployment without executing')
-  .option('--verify', 'Verify contracts on block explorer')
-  .option('--fee-config <address>', 'FeeConfig contract address')
-  .option('--ban-manager <address>', 'BanManager contract address')
-  .option('--custom', 'Deploy a custom token (not JEJU)')
-  .option('--name <name>', 'Token name (for custom tokens)')
-  .option('--supply <supply>', 'Total supply (for custom tokens)')
-  .action(async (token: string, options: DeployOptions) => {
-    const tokenSymbol = token.toUpperCase();
-    logger.info(`Deploying ${tokenSymbol} token to ${options.network}...`);
-
-    if (options.dryRun) {
-      logger.info(chalk.yellow('[DRY RUN] No transactions will be executed'));
-    }
-
-    // Check if known token or custom
-    const isKnown = tokenSymbol in KNOWN_TOKENS;
-    if (!isKnown && !options.custom) {
-      logger.error(`Unknown token: ${token}. Use --custom flag for custom tokens, or deploy JEJU.`);
-      process.exit(1);
-    }
-
-    if (options.custom && (!options.name || !options.supply)) {
-      logger.error('Custom tokens require --name and --supply options');
-      process.exit(1);
-    }
-
-    const networkConfig = getNetworkConfig(options.network, tokenSymbol);
-    logger.info(`Home chain: ${networkConfig.homeChain}`);
-    logger.info(`Synthetic chains: ${networkConfig.syntheticChains.join(', ')}`);
-
-    // Deployment steps
-    const steps = [
-      { name: 'Check deployer balance', status: 'pending' },
-      { name: 'Deploy token contract', status: 'pending' },
-      { name: 'Configure warp routes', status: 'pending' },
-      { name: 'Set fee configuration', status: 'pending' },
-      { name: 'Verify contracts', status: 'pending' },
-    ];
-
-    for (const step of steps) {
-      logger.info(`  ${chalk.dim('○')} ${step.name}...`);
-      
-      if (options.dryRun) {
-        logger.info(`    ${chalk.green('✓')} Would execute: ${step.name}`);
-      } else {
-        await simulateDeploymentStep(step.name);
-        logger.info(`    ${chalk.green('✓')} ${step.name} complete`);
-      }
-    }
-
-    logger.success(`\n${tokenSymbol} deployment ${options.dryRun ? 'simulation' : ''} complete!`);
+  .action(async (options: { network: string; dryRun?: boolean }) => {
+    const root = findMonorepoRoot();
+    const scriptPath = join(root, 'packages/token/scripts/deploy-token.ts');
     
-    if (!options.dryRun) {
-      logger.info('\nDeployed addresses:');
-      logger.info(`  Token: ${chalk.cyan('0x...')}`);
-      logger.info('\nNext steps:');
-      logger.info(`  1. Run: jeju token configure-routes ${token} --network ${options.network}`);
-      logger.info(`  2. Run: jeju token verify ${token} --network ${options.network}`);
+    if (!existsSync(scriptPath)) {
+      logger.error(`Script not found: ${scriptPath}`);
+      process.exit(1);
     }
+
+    logger.info(`Deploying token ecosystem to ${options.network}...`);
+
+    const args = ['run', scriptPath, options.network];
+    if (options.dryRun) args.push('--dry-run');
+
+    await execa('bun', args, { stdio: 'inherit', cwd: root });
+  });
+
+// ============================================================================
+// Deploy Testnet Command
+// ============================================================================
+
+tokenCommand
+  .command('deploy:testnet')
+  .description('Cross-chain token deployment to testnet (Sepolia, Base Sepolia, Arbitrum Sepolia)')
+  .option('--dry-run', 'Simulate deployment without executing')
+  .action(async (options: { dryRun?: boolean }) => {
+    const root = findMonorepoRoot();
+    const scriptPath = join(root, 'packages/token/scripts/deploy-testnet.ts');
+    
+    if (!existsSync(scriptPath)) {
+      logger.error(`Script not found: ${scriptPath}`);
+      process.exit(1);
+    }
+
+    logger.info('Deploying cross-chain token to testnet...');
+
+    const args = ['run', scriptPath];
+    if (options.dryRun) args.push('--dry-run');
+
+    await execa('bun', args, { stdio: 'inherit', cwd: root });
+  });
+
+// ============================================================================
+// Deploy Hyperlane Command
+// ============================================================================
+
+tokenCommand
+  .command('deploy:hyperlane')
+  .description('Deploy Hyperlane infrastructure (Mailbox, IGP, MultisigISM) to Jeju Testnet')
+  .option('-n, --network <network>', 'Target network (testnet)', 'testnet')
+  .option('--dry-run', 'Simulate deployment without executing')
+  .action(async (options: { network: string; dryRun?: boolean }) => {
+    const root = findMonorepoRoot();
+    const scriptPath = join(root, 'packages/token/scripts/deploy-hyperlane-jeju.ts');
+    
+    if (!existsSync(scriptPath)) {
+      logger.error(`Script not found: ${scriptPath}`);
+      process.exit(1);
+    }
+
+    logger.info(`Deploying Hyperlane infrastructure to ${options.network}...`);
+
+    const args = ['run', scriptPath];
+    if (options.dryRun) args.push('--dry-run');
+
+    await execa('bun', args, { stdio: 'inherit', cwd: root });
+  });
+
+// ============================================================================
+// Deploy Solana Command
+// ============================================================================
+
+tokenCommand
+  .command('deploy:solana')
+  .description('Deploy SPL token to Solana')
+  .option('-n, --network <network>', 'Target network (devnet|mainnet)', 'devnet')
+  .option('--dry-run', 'Simulate deployment without executing')
+  .action(async (options: { network: string; dryRun?: boolean }) => {
+    const root = findMonorepoRoot();
+    const scriptPath = join(root, 'packages/token/scripts/deploy-solana.ts');
+    
+    if (!existsSync(scriptPath)) {
+      logger.error(`Script not found: ${scriptPath}`);
+      process.exit(1);
+    }
+
+    logger.info(`Deploying SPL token to Solana ${options.network}...`);
+
+    const args = ['run', scriptPath];
+    if (options.network === 'mainnet') args.push('mainnet');
+    if (options.dryRun) args.push('--dry-run');
+
+    await execa('bun', args, { stdio: 'inherit', cwd: root });
+  });
+
+// ============================================================================
+// Verify Command
+// ============================================================================
+
+tokenCommand
+  .command('verify')
+  .description('Verify token deployment and cross-chain functionality on testnet')
+  .option('-n, --network <network>', 'Target network (testnet)', 'testnet')
+  .option('--dry-run', 'Simulate verification without executing')
+  .action(async (options: { network: string; dryRun?: boolean }) => {
+    const root = findMonorepoRoot();
+    const scriptPath = join(root, 'packages/token/scripts/deploy-and-verify-testnet.ts');
+    
+    if (!existsSync(scriptPath)) {
+      logger.error(`Script not found: ${scriptPath}`);
+      process.exit(1);
+    }
+
+    logger.info(`Verifying token deployment on ${options.network}...`);
+
+    const args = ['run', scriptPath];
+    if (options.dryRun) args.push('--dry-run');
+
+    await execa('bun', args, { stdio: 'inherit', cwd: root });
   });
 
 // ============================================================================
@@ -216,7 +308,7 @@ tokenCommand
       logger.info(`    ${chalk.green('✓')} Router configured`);
     }
 
-    logger.success('\nWarp routes configured successfully!');
+    logger.success('\nWarp routes configured successfully.');
   });
 
 // ============================================================================
@@ -243,7 +335,7 @@ function getNetworkConfig(network: string, tokenSymbol?: string) {
   };
 }
 
-async function simulateDeploymentStep(step: string): Promise<void> {
+async function simulateDeploymentStep(_step: string): Promise<void> {
   await new Promise(resolve => setTimeout(resolve, 500));
 }
 

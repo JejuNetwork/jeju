@@ -118,44 +118,59 @@ describe('Complete User Workflow E2E', () => {
   test('STEP 2: User deposits credits', async () => {
     logger.info('💳 Step 2: Depositing credits...');
     
-    const usdcAddress = '0x0165878A594ca255338adfa4d48449f69242Eb8F';
-    const creditManagerAddress = '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9';
+    const usdcAddress = '0x0165878A594ca255338adfa4d48449f69242Eb8F' as Address;
+    const creditManagerAddress = '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9' as Address;
     
-    const usdc = new ethers.Contract(
-      usdcAddress,
-      [
-        'function approve(address spender, uint256 amount) external returns (bool)',
-        'function balanceOf(address account) external view returns (uint256)'
-      ],
-      testUser
-    );
+    const usdcAbi = parseAbi([
+      'function approve(address spender, uint256 amount) external returns (bool)',
+      'function balanceOf(address account) external view returns (uint256)'
+    ]);
     
-    const creditManager = new ethers.Contract(
-      creditManagerAddress,
-      [
-        'function depositUSDC(uint256 amount) external',
-        'function getBalance(address user, address token) external view returns (uint256)'
-      ],
-      testUser
-    );
+    const creditManagerAbi = parseAbi([
+      'function depositUSDC(uint256 amount) external',
+      'function getBalance(address user, address token) external view returns (uint256)'
+    ]);
     
-    const depositAmount = ethers.parseUnits('100', 6); // $100 USDC
+    const depositAmount = parseUnits('100', 6); // $100 USDC
     
     // Check USDC balance
-    const usdcBalance = await usdc.balanceOf(await testUser.getAddress());
+    const usdcBalance = await readContract(publicClient, {
+      address: usdcAddress,
+      abi: usdcAbi,
+      functionName: 'balanceOf',
+      args: [testUserAccount.address],
+    });
     if (usdcBalance < depositAmount) {
       logger.warn('  Insufficient USDC balance, skipping deposit');
       return;
     }
     
     // Approve and deposit
-    await (await usdc.approve(creditManagerAddress, depositAmount)).wait();
-    await (await creditManager.depositUSDC(depositAmount)).wait();
+    const approveHash = await writeContract(testUser, {
+      address: usdcAddress,
+      abi: usdcAbi,
+      functionName: 'approve',
+      args: [creditManagerAddress, depositAmount],
+    });
+    await waitForTransactionReceipt(publicClient, { hash: approveHash });
     
-    const balance = await creditManager.getBalance(await testUser.getAddress(), usdcAddress);
+    const depositHash = await writeContract(testUser, {
+      address: creditManagerAddress,
+      abi: creditManagerAbi,
+      functionName: 'depositUSDC',
+      args: [depositAmount],
+    });
+    await waitForTransactionReceipt(publicClient, { hash: depositHash });
+    
+    const balance = await readContract(publicClient, {
+      address: creditManagerAddress,
+      abi: creditManagerAbi,
+      functionName: 'getBalance',
+      args: [testUserAccount.address, usdcAddress],
+    });
     expect(balance).toBeGreaterThanOrEqual(depositAmount);
     
-    logger.success(`✓ Deposited ${ethers.formatUnits(depositAmount, 6)} USDC`);
+    logger.success(`✓ Deposited ${formatUnits(depositAmount, 6)} USDC`);
   });
   
   test('STEP 3: User makes 10 successful requests (builds reputation)', async () => {

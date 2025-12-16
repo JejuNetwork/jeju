@@ -626,7 +626,7 @@ deployCommand
     // Import and run the comprehensive check script
     const { $ } = await import('execa');
     const rootDir = findMonorepoRoot();
-    const checkScript = join(rootDir, 'scripts/check-testnet-readiness.ts');
+    const checkScript = join(rootDir, 'scripts/verify/check-testnet-readiness.ts');
     
     if (!existsSync(checkScript)) {
       logger.error('Check script not found');
@@ -650,7 +650,7 @@ deployCommand
     
     if (type === 'oif') {
       const rootDir = findMonorepoRoot();
-      const verifyScript = join(rootDir, 'scripts/verify-oif-deployment.ts');
+      const verifyScript = join(rootDir, 'scripts/verify/verify-oif-deployment.ts');
       
       if (!existsSync(verifyScript)) {
         logger.error('OIF verify script not found');
@@ -819,6 +819,97 @@ deployCommand
   });
 
 deployCommand
+  .command('zkbridge')
+  .description('Deploy ZK bridge for cross-chain EVM-Solana bridging')
+  .option('--network <network>', 'Network: testnet | mainnet', 'testnet')
+  .option('--evm-only', 'Deploy EVM contracts only')
+  .option('--solana-only', 'Deploy Solana programs only')
+  .option('--dry-run', 'Simulate deployment')
+  .action(async (options) => {
+    const rootDir = findMonorepoRoot();
+    const scriptName = options.network === 'mainnet' ? 'deploy-mainnet' : 'deploy-testnet';
+    const scriptPath = join(rootDir, 'packages/bridge/scripts', `${scriptName}.ts`);
+    
+    if (!existsSync(scriptPath)) {
+      logger.error(`ZK bridge deploy script not found: ${scriptPath}`);
+      return;
+    }
+    
+    logger.header(`DEPLOY ZKBRIDGE TO ${options.network.toUpperCase()}`);
+    
+    const args: string[] = [];
+    if (options.evmOnly) args.push('--evm-only');
+    if (options.solanaOnly) args.push('--solana-only');
+    if (options.dryRun) args.push('--dry-run');
+    
+    await execa('bun', ['run', scriptPath, ...args], {
+      cwd: rootDir,
+      stdio: 'inherit',
+    });
+  });
+
+deployCommand
+  .command('zkbridge-setup')
+  .description('Setup ZK bridge infrastructure (SP1, Phala TEE)')
+  .option('--sp1', 'Setup SP1 prover toolchain')
+  .option('--phala', 'Setup Phala TEE endpoint')
+  .option('--all', 'Setup all components', true)
+  .action(async (options) => {
+    const rootDir = findMonorepoRoot();
+    const scriptsDir = join(rootDir, 'packages/bridge/scripts');
+    
+    logger.header('ZKBRIDGE INFRASTRUCTURE SETUP');
+    
+    const setupSp1 = options.sp1 || options.all;
+    const setupPhala = options.phala || options.all;
+    
+    if (setupSp1) {
+      logger.step('Setting up SP1 prover...');
+      const sp1Script = join(scriptsDir, 'setup-sp1.ts');
+      if (existsSync(sp1Script)) {
+        await execa('bun', ['run', sp1Script], { cwd: rootDir, stdio: 'inherit' });
+      } else {
+        logger.warn('SP1 setup script not found');
+      }
+    }
+    
+    if (setupPhala) {
+      logger.step('Setting up Phala TEE...');
+      const phalaScript = join(scriptsDir, 'setup-phala.ts');
+      if (existsSync(phalaScript)) {
+        await execa('bun', ['run', phalaScript], { cwd: rootDir, stdio: 'inherit' });
+      } else {
+        logger.warn('Phala setup script not found');
+      }
+    }
+    
+    logger.success('ZK bridge infrastructure setup complete');
+  });
+
+deployCommand
+  .command('messaging')
+  .description('Deploy messaging contracts (KeyRegistry, MessageNodeRegistry)')
+  .option('--network <network>', 'Network: localnet | testnet | mainnet', 'testnet')
+  .option('--verify', 'Verify contracts on explorer')
+  .action(async (options: { network: string; verify?: boolean }) => {
+    const rootDir = findMonorepoRoot();
+    const scriptPath = join(rootDir, 'packages/deployment/scripts/deploy-messaging-contracts.ts');
+    
+    if (!existsSync(scriptPath)) {
+      logger.error('Messaging contracts deploy script not found');
+      return;
+    }
+    
+    const args: string[] = ['--network', options.network];
+    if (options.verify) args.push('--verify');
+    
+    await execa('bun', ['run', scriptPath, ...args], {
+      cwd: rootDir,
+      stdio: 'inherit',
+    });
+  });
+
+deployCommand
   .command('rollback')
   .description('Rollback deployment to a previous version')
   .option('--network <network>', 'Network: testnet | mainnet', 'testnet')
@@ -861,7 +952,7 @@ deployCommand
   .option('--contracts-only', 'Deploy contracts only (skip infrastructure)')
   .action(async (options) => {
     const rootDir = findMonorepoRoot();
-    const scriptPath = join(rootDir, 'scripts/deploy-testnet-full.ts');
+    const scriptPath = join(rootDir, 'scripts/deploy/testnet-full-crosschain.ts');
     
     if (!existsSync(scriptPath)) {
       logger.error('Testnet full deployment script not found');
@@ -885,6 +976,7 @@ async function runDeployScript(scriptName: string, network: string, options: Rec
   // Check if script is in deploy/ subdirectory or root scripts/
   let scriptPath = join(rootDir, 'scripts/deploy', `${scriptName}.ts`);
   if (!existsSync(scriptPath)) {
+    // Also check root scripts/ for backwards compatibility
     scriptPath = join(rootDir, 'scripts', `${scriptName}.ts`);
   }
   

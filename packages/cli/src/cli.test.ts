@@ -79,38 +79,35 @@ describe('deploy command', () => {
     expect(stdout).toContain('testnet');
     expect(stdout).toContain('mainnet');
     expect(stdout).toContain('--contracts');
-    expect(stdout).toContain('--token');
-    expect(stdout).toContain('--safe');
+    expect(stdout).toContain('--infrastructure');
+    expect(stdout).toContain('--apps');
   });
 
   test('verify subcommand exists', async () => {
     const { stdout, exitCode } = await runCLI(['deploy', 'verify', '--help']);
     expect(exitCode).toBe(0);
-    expect(stdout).toContain('Verify contracts');
-    expect(stdout).toContain('--contract');
+    expect(stdout).toContain('Verify contract deployments');
   });
 
   test('check subcommand exists', async () => {
     const { stdout, exitCode } = await runCLI(['deploy', 'check', '--help']);
     expect(exitCode).toBe(0);
-    expect(stdout).toContain('Verify deployment state');
+    expect(stdout).toContain('readiness check');
   });
 
-  test('configure subcommand exists', async () => {
-    const { stdout, exitCode } = await runCLI(['deploy', 'configure', '--help']);
+  test('token subcommand exists', async () => {
+    const { stdout, exitCode } = await runCLI(['deploy', 'token', '--help']);
     expect(exitCode).toBe(0);
-    expect(stdout).toContain('Post-deployment configuration');
-    expect(stdout).toContain('--ban-exempt');
-    expect(stdout).toContain('--token-registry');
+    expect(stdout).toContain('NetworkToken');
+    expect(stdout).toContain('--safe');
+    expect(stdout).toContain('--network');
   });
 
-  test('emergency subcommand exists', async () => {
-    const { stdout, exitCode } = await runCLI(['deploy', 'emergency', '--help']);
+  test('oif subcommand exists', async () => {
+    const { stdout, exitCode } = await runCLI(['deploy', 'oif', '--help']);
     expect(exitCode).toBe(0);
-    expect(stdout).toContain('Emergency procedures');
-    expect(stdout).toContain('--pause');
-    expect(stdout).toContain('--disable-faucet');
-    expect(stdout).toContain('--disable-ban');
+    expect(stdout).toContain('Open Intents Framework');
+    expect(stdout).toContain('--oracle-type');
   });
 });
 

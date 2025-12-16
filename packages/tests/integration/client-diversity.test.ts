@@ -6,7 +6,8 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
-import { ethers } from 'ethers';
+import { createPublicClient, http, getBlockNumber, getBalance, getTransactionReceipt, getChainId, type PublicClient, type TransactionReceipt } from 'viem';
+import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 
 // ============================================================================
 // Test Configuration
@@ -39,18 +40,17 @@ const CONNECT_TIMEOUT = 5000;
 // Utility Functions
 // ============================================================================
 
-async function createProvider(endpoint: ClientEndpoint): Promise<ethers.JsonRpcProvider> {
-  const provider = new ethers.JsonRpcProvider(endpoint.http);
-  provider.pollingInterval = 1000;
-  return provider;
+async function createProvider(endpoint: ClientEndpoint): Promise<PublicClient> {
+  const chain = inferChainFromRpcUrl(endpoint.http);
+  return createPublicClient({ chain, transport: http(endpoint.http) });
 }
 
 async function isClientHealthy(endpoint: ClientEndpoint): Promise<{ healthy: boolean; blockNumber?: bigint; chainId?: bigint; error?: string }> {
   try {
-    const provider = await createProvider(endpoint);
-    const network = await provider.getNetwork();
-    const blockNumber = await provider.getBlockNumber();
-    return { healthy: true, blockNumber: BigInt(blockNumber), chainId: network.chainId };
+    const publicClient = await createProvider(endpoint);
+    const chainId = await getChainId(publicClient);
+    const blockNumber = await getBlockNumber(publicClient);
+    return { healthy: true, blockNumber: BigInt(blockNumber), chainId: BigInt(chainId) };
   } catch (error) {
     return { healthy: false, error: error instanceof Error ? error.message : String(error) };
   }
@@ -232,8 +232,8 @@ describe('Cross-Client State Consistency', () => {
     const balances: bigint[] = [];
 
     for (const client of availableClients) {
-      const provider = await createProvider(client);
-      const balance = await provider.getBalance(testAddress);
+      const publicClient = await createProvider(client);
+      const balance = await getBalance(publicClient, { address: testAddress as `0x${string}` });
       balances.push(balance);
     }
 
@@ -252,21 +252,25 @@ describe('Cross-Client State Consistency', () => {
     if (availableSequencers.length < 2) return;
 
     // Get a recent block and check if transaction receipts match
-    const provider1 = await createProvider(availableSequencers[0]);
-    const blockNumber = await provider1.getBlockNumber();
+    const publicClient1 = await createProvider(availableSequencers[0]);
+    const blockNumber = await getBlockNumber(publicClient1);
     
-    if (blockNumber === 0) return;
+    if (blockNumber === 0n) return;
 
-    const block1 = await provider1.getBlock(blockNumber);
+    const block1 = await publicClient1.getBlock({ blockNumber });
     if (!block1 || block1.transactions.length === 0) return;
 
-    const txHash = block1.transactions[0];
-    const receipts: (ethers.TransactionReceipt | null)[] = [];
+    const txHash = block1.transactions[0] as `0x${string}`;
+    const receipts: (TransactionReceipt | null)[] = [];
 
     for (const client of availableSequencers) {
-      const provider = await createProvider(client);
-      const receipt = await provider.getTransactionReceipt(txHash as string);
-      receipts.push(receipt);
+      const publicClient = await createProvider(client);
+      try {
+        const receipt = await getTransactionReceipt(publicClient, { hash: txHash });
+        receipts.push(receipt);
+      } catch {
+        receipts.push(null);
+      }
     }
 
     // All receipts should have same status and block number
@@ -297,17 +301,27 @@ describe('Sequencer Registration Validation', () => {
     const health = await isClientHealthy(l1Client);
     if (!health.healthy) return;
 
-    const provider = await createProvider(l1Client);
+    const publicClient = await createProvider(l1Client);
     const registryAbi = [
       'function getActiveSequencers() view returns (address[] addresses, uint256[] weights)',
       'function totalStaked() view returns (uint256)',
-    ];
+    ] as const;
 
-    const registry = new ethers.Contract(SEQUENCER_REGISTRY_ADDRESS, registryAbi, provider);
+    const { readContract } = await import('viem');
     
     try {
-      const [addresses, weights] = await registry.getActiveSequencers();
-      const totalStaked = await registry.totalStaked();
+      const result = await readContract(publicClient, {
+        address: SEQUENCER_REGISTRY_ADDRESS as `0x${string}`,
+        abi: registryAbi,
+        functionName: 'getActiveSequencers',
+      }) as [readonly `0x${string}`[], readonly bigint[]];
+      
+      const [addresses, weights] = result;
+      const totalStaked = await readContract(publicClient, {
+        address: SEQUENCER_REGISTRY_ADDRESS as `0x${string}`,
+        abi: registryAbi,
+        functionName: 'totalStaked',
+      }) as bigint;
 
       expect(Array.isArray(addresses)).toBe(true);
       expect(Array.isArray(weights)).toBe(true);

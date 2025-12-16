@@ -4,12 +4,10 @@
  */
 
 import type { Address, Hex } from 'viem';
-import type { ContributionEvent } from './types';
+import type { ContributionEvent, ContributionType } from './types';
 
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4000';
 const SYNC_INTERVAL = 60000;
-
-type ContributionType = 'commit' | 'branch' | 'merge' | 'pr_open' | 'pr_merge' | 'issue' | 'review';
 
 interface GitContribution {
   username: string;
@@ -48,11 +46,17 @@ function calculateScores(contributions: GitContribution[]): ContributionScores {
         case 'pr_open':
           scores.prs += 0.5;
           break;
-        case 'issue':
+        case 'issue_open':
+        case 'issue_close':
           scores.issues += 1;
           break;
-        case 'review':
+        case 'pr_review':
           scores.reviews += 1;
+          break;
+        case 'branch':
+        case 'star':
+        case 'fork':
+          // These don't directly contribute to the core scores
           break;
       }
       return scores;
@@ -141,7 +145,15 @@ class LeaderboardIntegration {
     if (this.pending.length === 0) return;
 
     const batch = this.pending.splice(0);
-    const byUser = Map.groupBy(batch, (c) => c.username);
+    const byUser = new Map<string, GitContribution[]>();
+    for (const c of batch) {
+      const existing = byUser.get(c.username);
+      if (existing) {
+        existing.push(c);
+      } else {
+        byUser.set(c.username, [c]);
+      }
+    }
 
     for (const [username, contributions] of byUser) {
       const ok = await this.syncUser(username, contributions);
