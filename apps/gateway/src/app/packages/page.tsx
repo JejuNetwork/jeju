@@ -41,7 +41,7 @@ export default function PackagesPage() {
 
   async function searchPackages(query: string) {
     setLoading(true);
-    const registryUrl = process.env.NEXT_PUBLIC_JEJUPKG_URL ?? 'http://localhost:4021';
+    const registryUrl = process.env.NEXT_PUBLIC_JEJUPKG_URL ?? 'http://localhost:4030/pkg';
 
     try {
       const response = await fetch(`${registryUrl}/-/v1/search?text=${encodeURIComponent(query)}&size=50`);
@@ -57,7 +57,7 @@ export default function PackagesPage() {
   }
 
   async function fetchPackageDetails(name: string) {
-    const registryUrl = process.env.NEXT_PUBLIC_JEJUPKG_URL ?? 'http://localhost:4021';
+    const registryUrl = process.env.NEXT_PUBLIC_JEJUPKG_URL ?? 'http://localhost:4030/pkg';
     
     try {
       const response = await fetch(`${registryUrl}/${encodeURIComponent(name)}`);
@@ -135,13 +135,13 @@ export default function PackagesPage() {
             <div>
               <span className="text-gray-400">npm:</span>
               <code className="ml-2 px-2 py-1 bg-gray-900 rounded text-green-400">
-                npm config set registry {process.env.NEXT_PUBLIC_JEJUPKG_URL ?? 'http://localhost:4021'}
+                npm config set registry {process.env.NEXT_PUBLIC_JEJUPKG_URL ?? 'http://localhost:4030/pkg'}
               </code>
             </div>
             <div>
               <span className="text-gray-400">bun:</span>
               <code className="ml-2 px-2 py-1 bg-gray-900 rounded text-green-400">
-                bun config set registry {process.env.NEXT_PUBLIC_JEJUPKG_URL ?? 'http://localhost:4021'}
+                bun config set registry {process.env.NEXT_PUBLIC_JEJUPKG_URL ?? 'http://localhost:4030/pkg'}
               </code>
             </div>
           </div>

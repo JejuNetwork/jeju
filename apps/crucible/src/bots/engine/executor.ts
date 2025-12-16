@@ -201,13 +201,13 @@ export class TransactionExecutor {
   async sendPrivateTransaction(
     chainId: ChainId,
     tx: BundleTransaction,
-    hints?: { logs?: boolean; calldata?: boolean; functionSelector?: boolean }
+    hints?: { logs?: boolean; calldata?: boolean; contractAddress?: boolean; functionSelector?: boolean }
   ): Promise<{ txHash: string; success: boolean; error?: string }> {
     const bundler = this.bundlers.get(chainId);
     if (!bundler) {
       return { txHash: '', success: false, error: 'No bundler for chain' };
     }
-    return bundler.sendPrivateTransaction(tx, hints ? { txHash: '0x' as `0x${string}`, ...hints } : undefined);
+    return bundler.sendPrivateTransaction(tx, hints);
   }
 
   private async executeArbitrage(
@@ -582,6 +582,7 @@ export class TransactionExecutor {
     }
 
     const hash = await walletClient.sendTransaction({
+      chain: walletClient.chain,
       account: this.account,
       to: perpMarketAddress as `0x${string}`,
       data: data as `0x${string}`,

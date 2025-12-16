@@ -19,9 +19,10 @@ import type { Address, Hex } from 'viem';
 import type { DeployResult } from './src/types';
 
 const NETWORK = process.env.NETWORK || 'localnet';
-const GATEWAY_API = process.env.GATEWAY_API || 'http://localhost:4020';
-const STORAGE_API = process.env.STORAGE_API || 'http://localhost:4010';
-const COMPUTE_API = process.env.COMPUTE_API || 'http://localhost:4200';
+const DWS_URL = process.env.DWS_URL || 'http://localhost:4030';
+const GATEWAY_API = process.env.GATEWAY_API || `${DWS_URL}/cdn`;
+const STORAGE_API = process.env.STORAGE_API || `${DWS_URL}/storage`;
+const COMPUTE_API = process.env.COMPUTE_API || `${DWS_URL}/compute`;
 const CQL_ENDPOINT = process.env.CQL_ENDPOINT || 'http://localhost:4300';
 
 interface DeployConfig {

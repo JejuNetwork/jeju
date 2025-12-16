@@ -7,12 +7,18 @@ import {LiquidityPaymaster} from "./LiquidityPaymaster.sol";
 import {LiquidityVault} from "../liquidity/LiquidityVault.sol";
 import {FeeDistributorV2} from "../distributor/FeeDistributor.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
+import {ModerationMixin} from "../moderation/ModerationMixin.sol";
 
 /**
  * @title PaymasterFactory
- * @notice Factory for deploying token-specific paymasters with associated vaults and distributors
+ * @notice Factory for deploying token-specific paymasters
  */
 contract PaymasterFactory is Ownable {
+    using ModerationMixin for ModerationMixin.Data;
+
+    /// @notice Moderation integration for ban enforcement
+    ModerationMixin.Data public moderation;
+
     struct Deployment {
         address paymaster;
         address vault;
@@ -36,6 +42,12 @@ contract PaymasterFactory is Ownable {
     error AlreadyDeployed(address token);
     error InvalidFeeMargin(uint256 margin);
     error InvalidOperator();
+    error UserIsBanned();
+
+    modifier notBanned() {
+        if (moderation.isAddressBanned(msg.sender)) revert UserIsBanned();
+        _;
+    }
 
     event PaymasterDeployed(
         address indexed token,
@@ -62,26 +74,16 @@ contract PaymasterFactory is Ownable {
         oracle = _oracle;
     }
 
-    /**
-     * @notice Deploy a paymaster for a registered token
-     * @param token The ERC20 token address
-     * @param feeMargin Fee margin in basis points (100 = 1%)
-     * @param operator Address that will own the deployed contracts
-     * @return paymaster Address of deployed paymaster
-     * @return vault Address of deployed vault
-     * @return distributor Address of deployed fee distributor
-     */
     function deployPaymaster(
         address token,
         uint256 feeMargin,
         address operator
-    ) external returns (address paymaster, address vault, address distributor) {
+    ) external notBanned returns (address paymaster, address vault, address distributor) {
         if (!registry.isSupported(token)) revert TokenNotRegistered(token);
         if (deployments[token].paymaster != address(0)) revert AlreadyDeployed(token);
-        if (feeMargin > 1000) revert InvalidFeeMargin(feeMargin); // Max 10%
+        if (feeMargin > 1000) revert InvalidFeeMargin(feeMargin);
         if (operator == address(0)) revert InvalidOperator();
 
-        // Deploy with factory as owner so we can configure
         vault = address(new LiquidityVault(token, address(this)));
         distributor = address(new FeeDistributorV2(token, vault, address(this)));
         paymaster = address(new LiquidityPaymaster(
@@ -93,17 +95,13 @@ contract PaymasterFactory is Ownable {
             address(this)
         ));
 
-        // Configure contracts (as owner)
         LiquidityVault(payable(vault)).setPaymaster(paymaster);
         LiquidityVault(payable(vault)).setFeeDistributor(distributor);
         FeeDistributorV2(distributor).setPaymaster(paymaster);
 
-        // Transfer ownership to operator
         LiquidityVault(payable(vault)).transferOwnership(operator);
         FeeDistributorV2(distributor).transferOwnership(operator);
         LiquidityPaymaster(payable(paymaster)).transferOwnership(operator);
-
-        // Store deployment info
         deployments[token] = Deployment({
             paymaster: paymaster,
             vault: vault,
@@ -136,9 +134,6 @@ contract PaymasterFactory is Ownable {
         return deployedTokens;
     }
 
-    function getAllDeployments() external view returns (address[] memory) {
-        return deployedTokens;
-    }
 
     function getDeploymentsByOperator(address operator) external view returns (address[] memory) {
         return operatorDeployments[operator];
@@ -163,6 +158,18 @@ contract PaymasterFactory is Ownable {
 
     function isDeployed(address token) external view returns (bool) {
         return deployments[token].paymaster != address(0);
+    }
+
+    function setBanManager(address _banManager) external onlyOwner {
+        moderation.setBanManager(_banManager);
+    }
+
+    function setIdentityRegistry(address _identityRegistry) external onlyOwner {
+        moderation.setIdentityRegistry(_identityRegistry);
+    }
+
+    function isUserBanned(address user) external view returns (bool) {
+        return moderation.isAddressBanned(user);
     }
 }
 

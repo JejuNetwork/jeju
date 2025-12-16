@@ -7,6 +7,7 @@ import {PackedUserOperation} from "@account-abstraction/contracts/interfaces/Pac
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IPriceOracle} from "../interfaces/IPriceOracle.sol";
+import {ModerationMixin} from "../moderation/ModerationMixin.sol";
 
 /**
  * @title LiquidityPaymaster
@@ -14,6 +15,10 @@ import {IPriceOracle} from "../interfaces/IPriceOracle.sol";
  */
 contract LiquidityPaymaster is BasePaymaster {
     using SafeERC20 for IERC20;
+    using ModerationMixin for ModerationMixin.Data;
+
+    /// @notice Moderation integration for ban enforcement
+    ModerationMixin.Data public moderation;
 
     IERC20 public immutable token;
     address public immutable vault;
@@ -102,6 +107,11 @@ contract LiquidityPaymaster is BasePaymaster {
     ) internal view override returns (bytes memory context, uint256 validationData) {
         address sender = userOp.sender;
         
+        // Check if user is banned - banned users cannot use gas sponsorship
+        if (moderation.isAddressBanned(sender)) {
+            return ("", 1); // Invalid - user is banned
+        }
+        
         // Calculate required token amount
         uint256 tokenAmount = getTokenAmountForEth(maxCost);
         
@@ -141,5 +151,28 @@ contract LiquidityPaymaster is BasePaymaster {
         emit GasSponsored(sender, actualGasCost, tokensToPay);
     }
 
+    /**
+     * @notice Set ban manager for moderation
+     * @param _banManager BanManager contract address
+     */
+    function setBanManager(address _banManager) external onlyOwner {
+        moderation.setBanManager(_banManager);
+    }
+
+    /**
+     * @notice Set identity registry for agent ban checking
+     * @param _identityRegistry IdentityRegistry contract address
+     */
+    function setIdentityRegistry(address _identityRegistry) external onlyOwner {
+        moderation.setIdentityRegistry(_identityRegistry);
+    }
+
+    /**
+     * @notice Check if a user is banned from using this paymaster
+     * @param user Address to check
+     */
+    function isUserBanned(address user) external view returns (bool) {
+        return moderation.isAddressBanned(user);
+    }
 }
 

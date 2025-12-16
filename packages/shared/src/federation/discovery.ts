@@ -80,7 +80,7 @@ export class FederationDiscovery {
 
     if (!result) return null;
 
-    const network = result as NetworkInfo;
+    const network = result as unknown as NetworkInfo;
     this.setCache(cacheKey, network);
     return network;
   }
@@ -173,7 +173,7 @@ export class FederationDiscovery {
         abi: FEDERATED_SOLVER_ABI,
         functionName: 'getSolver',
         args: [solverId],
-      }) as FederatedSolver;
+      }) as unknown as FederatedSolver;
 
       if (solver.isActive) {
         solvers.push(solver);

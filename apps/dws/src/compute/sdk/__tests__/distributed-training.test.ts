@@ -44,10 +44,20 @@ const mockWalletClient = {
 } as unknown as WalletClient;
 
 const testContracts = {
-  coordinator: '0xCoordinator' as Address,
-  rewards: '0xRewards' as Address,
-  performance: '0xPerformance' as Address,
-  registry: '0xRegistry' as Address,
+  coordinator: '0x1234567890123456789012345678901234567890' as Address,
+  rewards: '0x2345678901234567890123456789012345678901' as Address,
+  performance: '0x3456789012345678901234567890123456789012' as Address,
+  registry: '0x4567890123456789012345678901234567890123' as Address,
+  identityRegistry: '0x5678901234567890123456789012345678901234' as Address,
+};
+
+const testConfig = {
+  publicClient: mockPublicClient,
+  walletClient: mockWalletClient,
+  chain: mockChain,
+  contracts: testContracts,
+  rpcUrl: 'http://localhost:8545',
+  selfEndpoint: 'http://localhost:3000',
 };
 
 describe('DistributedTrainingClient', () => {
@@ -59,12 +69,7 @@ describe('DistributedTrainingClient', () => {
     mockWaitForTransactionReceipt.mockReset();
     mockWatchContractEvent.mockReset();
 
-    client = new DistributedTrainingClient({
-      publicClient: mockPublicClient,
-      walletClient: mockWalletClient,
-      chain: mockChain,
-      contracts: testContracts,
-    });
+    client = new DistributedTrainingClient(testConfig);
   });
 
   describe('constructor', () => {
@@ -73,12 +78,7 @@ describe('DistributedTrainingClient', () => {
     });
 
     test('creates client without wallet for read-only', () => {
-      const readOnlyClient = new DistributedTrainingClient({
-        publicClient: mockPublicClient,
-        walletClient: mockWalletClient,
-        chain: mockChain,
-        contracts: testContracts,
-      });
+      const readOnlyClient = new DistributedTrainingClient(testConfig);
       expect(readOnlyClient).toBeDefined();
     });
   });
@@ -275,12 +275,7 @@ describe('DistributedTrainingClient edge cases', () => {
     mockWaitForTransactionReceipt.mockReset();
     mockWatchContractEvent.mockReset();
 
-    client = new DistributedTrainingClient({
-      publicClient: mockPublicClient,
-      walletClient: mockWalletClient,
-      chain: mockChain,
-      contracts: testContracts,
-    });
+    client = new DistributedTrainingClient(testConfig);
   });
 
   describe('submitJob edge cases', () => {
@@ -452,7 +447,7 @@ describe('DistributedTrainingClient edge cases', () => {
       mockWriteContract.mockResolvedValue('0xjoinhash' as Hex);
       mockWaitForTransactionReceipt.mockResolvedValue({ status: 'success' });
 
-      await client.joinRun('0xrunid' as Hex, '0xendpoint' as Hex);
+      await client.joinRun('0xrunid' as Hex);
 
       expect(mockWriteContract).toHaveBeenCalled();
     });

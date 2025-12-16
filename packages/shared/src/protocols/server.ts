@@ -9,7 +9,7 @@
  * Supports both server mode (Bun.serve) and serverless mode (export fetch handler).
  */
 
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { getProviderInfo, getServiceName } from '../chains';
 import {
@@ -20,6 +20,12 @@ import {
   type PaymentRequirement,
 } from './middleware';
 import type { Address } from 'viem';
+
+// Helper to safely get context variables
+function getContextVar<T>(c: Context, key: string): T | undefined {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (c as unknown as { get: (k: string) => T | undefined }).get(key);
+}
 
 // ============================================================================
 // Types
@@ -192,10 +198,10 @@ export function createUnifiedServer(config: UnifiedServerConfig): Hono {
     }
 
     const context: SkillContext = {
-      address: c.get('userAddress') || null,
-      agentInfo: c.get('agentInfo') || null,
+      address: getContextVar<Address>(c, 'userAddress') || null,
+      agentInfo: getContextVar<AgentInfo>(c, 'agentInfo') || null,
       paymentHeader: c.req.header('x-payment') || null,
-      paymentVerified: c.get('paymentVerified') || false,
+      paymentVerified: Boolean(getContextVar(c, 'paymentVerified')),
     };
 
     const result = await config.executeSkill(skillId, dataPart.data, context);
@@ -257,10 +263,10 @@ export function createUnifiedServer(config: UnifiedServerConfig): Hono {
 
     const { uri } = await c.req.json() as { uri: string };
     const context: SkillContext = {
-      address: c.get('userAddress') || null,
-      agentInfo: c.get('agentInfo') || null,
+      address: getContextVar<Address>(c, 'userAddress') || null,
+      agentInfo: getContextVar<AgentInfo>(c, 'agentInfo') || null,
       paymentHeader: c.req.header('x-payment') || null,
-      paymentVerified: c.get('paymentVerified') || false,
+      paymentVerified: Boolean(getContextVar(c, 'paymentVerified')),
     };
 
     const contents = await config.readResource(uri, context);
@@ -289,10 +295,10 @@ export function createUnifiedServer(config: UnifiedServerConfig): Hono {
 
     const { name, arguments: args } = await c.req.json() as { name: string; arguments: Record<string, unknown> };
     const context: SkillContext = {
-      address: c.get('userAddress') || null,
-      agentInfo: c.get('agentInfo') || null,
+      address: getContextVar<Address>(c, 'userAddress') || null,
+      agentInfo: getContextVar<AgentInfo>(c, 'agentInfo') || null,
       paymentHeader: c.req.header('x-payment') || null,
-      paymentVerified: c.get('paymentVerified') || false,
+      paymentVerified: Boolean(getContextVar(c, 'paymentVerified')),
     };
 
     const { result, isError } = await config.callTool(name, args, context);
@@ -315,10 +321,10 @@ export function createUnifiedServer(config: UnifiedServerConfig): Hono {
 
       const { name, arguments: args } = await c.req.json() as { name: string; arguments: Record<string, string> };
       const context: SkillContext = {
-        address: c.get('userAddress') || null,
-        agentInfo: c.get('agentInfo') || null,
+        address: getContextVar<Address>(c, 'userAddress') || null,
+        agentInfo: getContextVar<AgentInfo>(c, 'agentInfo') || null,
         paymentHeader: c.req.header('x-payment') || null,
-        paymentVerified: c.get('paymentVerified') || false,
+        paymentVerified: Boolean(getContextVar(c, 'paymentVerified')),
       };
 
       const result = await config.getPrompt(name, args, context);
@@ -457,5 +463,5 @@ export function createServerlessHandler(config: UnifiedServerConfig): {
 // Re-exports for convenience
 // ============================================================================
 
-export type { SkillResult, PaymentRequirement, SkillContext };
+export type { SkillResult, PaymentRequirement };
 export { skillSuccess, skillError, skillRequiresPayment } from './middleware';

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @deprecated Use 'jeju token deploy ecosystem' instead
+ * @deprecated Use 'jeju token deploy:ecosystem' instead
  * 
  * BBLN Token Deployment Script
  *
@@ -19,7 +19,7 @@
  * Cross-chain deployment via Hyperlane warp routes.
  *
  * Usage:
- *   jeju token deploy ecosystem --network localnet|testnet|mainnet
+ *   jeju token deploy:ecosystem --network localnet|testnet|mainnet
  *
  * Requires DEPLOYER_PRIVATE_KEY in .env for testnet/mainnet
  */
