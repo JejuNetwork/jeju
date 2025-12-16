@@ -14,19 +14,19 @@
   "ports": {
     "main": 4006
   },
-  "dependencies": ["contracts", "config"],
+  "dependencies": ["contracts", "config", "dws"],
   "optional": false,
   "enabled": true,
   "autoStart": true,
   "tags": ["defi", "nft", "marketplace", "uniswap-v4", "launchpad", "multi-chain", "jns", "names", "core"],
-  "healthCheck": {
-    "url": "http://localhost:4006",
-    "interval": 30000
-  },
   "jns": {
     "name": "bazaar.jeju",
     "description": "DeFi + NFT + Names Marketplace",
     "url": "https://bazaar.jeju.network"
+  },
+  "healthCheck": {
+    "url": "http://localhost:4006",
+    "interval": 30000
   },
   "agent": {
     "enabled": true,
@@ -35,11 +35,44 @@
     "tags": ["jeju-app", "defi", "nft", "marketplace", "launchpad", "jns"],
     "metadata": {
       "category": "defi",
-      "provider": "jeju-network"
+      "provider": "jeju-network",
+      "features": ["swap", "liquidity", "nft-trading", "token-launch", "jns-names"]
     },
     "trustModels": ["open"],
     "x402Support": true,
     "jnsName": "bazaar.jeju"
+  },
+  "decentralization": {
+    "cdn": {
+      "enabled": true,
+      "regions": ["global"],
+      "cacheRules": [
+        { "pattern": "/_next/static/**", "ttl": 31536000, "immutable": true },
+        { "pattern": "/api/prices/**", "ttl": 5 },
+        { "pattern": "/api/pools/**", "ttl": 10, "staleWhileRevalidate": 60 },
+        { "pattern": "/api/**", "ttl": 0 },
+        { "pattern": "/**/*.html", "ttl": 60, "staleWhileRevalidate": 3600 }
+      ],
+      "apiCaching": {
+        "enabled": true,
+        "defaultTtl": 10,
+        "varyHeaders": ["x-jeju-address"]
+      },
+      "serviceWorker": true
+    },
+    "frontend": {
+      "ipfs": true,
+      "arweave": true,
+      "jnsName": "bazaar.jeju",
+      "buildDir": ".next",
+      "spa": false
+    },
+    "robustness": {
+      "multiOrigin": true,
+      "offlineSupport": true,
+      "p2pFallback": true,
+      "contentAddressed": true
+    }
   },
   "testing": {
     "unit": {

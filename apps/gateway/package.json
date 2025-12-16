@@ -103,7 +103,6 @@
     "eslint-plugin-react-refresh": "^0.4.0",
     "globals": "^15.0.0",
     "typescript-eslint": "^8.0.0",
-    "ethers": "^6.15.0",
     "playwright-core": "1.48.2",
     "typescript": "^5.5.4",
     "vite": "^7.1.10"

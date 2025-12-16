@@ -9,7 +9,7 @@ export default defineConfig({
   reporter: 'list',
   timeout: 60000,
   use: {
-    baseURL: process.env.AUTOCRAT_URL ?? 'http://localhost:8010',
+    baseURL: process.env.COUNCIL_URL ?? 'http://localhost:8010',
     trace: 'on-first-retry',
   },
   projects: [

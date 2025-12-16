@@ -134,7 +134,7 @@ export async function issueTokenWithWallet(
 
   const headerB64 = base64urlEncode(JSON.stringify({ ...TOKEN_HEADER, alg: 'ES256K' }));
   const payloadB64 = base64urlEncode(JSON.stringify(fullClaims));
-  // Note: signingInput is the data that should have been signed by the wallet
+  // Wallet should have signed the full claims JSON - signature is in authSig
   const signatureB64 = base64urlEncode(authSig.sig);
 
   return {

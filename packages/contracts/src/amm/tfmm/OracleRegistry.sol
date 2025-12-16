@@ -30,6 +30,13 @@ interface IChainlinkFeed {
     function decimals() external view returns (uint8);
 }
 
+// TWAP Oracle interface
+interface ITWAPOracle {
+    function getPrice(address baseToken) external view returns (uint256);
+    function isValidTWAP(address baseToken) external view returns (bool);
+    function getPriceDeviation(address baseToken) external view returns (uint256);
+}
+
 /**
  * @title OracleRegistry
  * @author Jeju Network

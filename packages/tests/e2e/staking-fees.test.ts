@@ -15,7 +15,9 @@
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
-import { ethers } from 'ethers';
+import { createPublicClient, createWalletClient, http, parseAbi, readContract, writeContract, waitForTransactionReceipt, formatEther, parseEther, getBalance, type Address } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 
 // Test configuration
 const RPC_URL = process.env.JEJU_RPC_URL || 'http://localhost:9545';
@@ -55,43 +57,71 @@ const STAKING_ABI = [
   'function setFeeDistributor(address)',
 ];
 
-let provider: ethers.JsonRpcProvider;
-let deployer: ethers.Wallet;
-let staker1: ethers.Wallet;
-let staker2: ethers.Wallet;
-let stakingToken: ethers.Contract;
-let staking: ethers.Contract;
+let publicClient: ReturnType<typeof createPublicClient>;
+let deployerAccount: ReturnType<typeof privateKeyToAccount>;
+let staker1Account: ReturnType<typeof privateKeyToAccount>;
+let staker2Account: ReturnType<typeof privateKeyToAccount>;
+let deployerWalletClient: ReturnType<typeof createWalletClient>;
+let staker1WalletClient: ReturnType<typeof createWalletClient>;
+let staker2WalletClient: ReturnType<typeof createWalletClient>;
 
 describe('Staking - Setup', () => {
   beforeAll(async () => {
     console.log('🚀 Setting up staking tests...\n');
     
-    provider = new ethers.JsonRpcProvider(RPC_URL);
-    deployer = new ethers.Wallet(DEPLOYER_KEY, provider);
-    staker1 = new ethers.Wallet(STAKER1_KEY, provider);
-    staker2 = new ethers.Wallet(STAKER2_KEY, provider);
+    const chain = inferChainFromRpcUrl(RPC_URL);
+    deployerAccount = privateKeyToAccount(DEPLOYER_KEY as `0x${string}`);
+    staker1Account = privateKeyToAccount(STAKER1_KEY as `0x${string}`);
+    staker2Account = privateKeyToAccount(STAKER2_KEY as `0x${string}`);
     
-    stakingToken = new ethers.Contract(STAKING_TOKEN_ADDRESS, STAKING_TOKEN_ABI, deployer);
-    staking = new ethers.Contract(STAKING_ADDRESS, STAKING_ABI, deployer);
+    publicClient = createPublicClient({ chain, transport: http(RPC_URL) });
+    deployerWalletClient = createWalletClient({ chain, transport: http(RPC_URL), account: deployerAccount });
+    staker1WalletClient = createWalletClient({ chain, transport: http(RPC_URL), account: staker1Account });
+    staker2WalletClient = createWalletClient({ chain, transport: http(RPC_URL), account: staker2Account });
+    
+    const stakingAbi = parseAbi(STAKING_ABI);
+    const stakingTokenAbi = parseAbi(STAKING_TOKEN_ABI);
     
     // Setup: Authorize deployer as fee distributor for testing
-    const setDistributorTx = await staking.setFeeDistributor(deployer.address);
-    await setDistributorTx.wait();
+    const setDistributorHash = await deployerWalletClient.writeContract({
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'setFeeDistributor',
+      args: [deployerAccount.address],
+    });
+    await waitForTransactionReceipt(publicClient, { hash: setDistributorHash });
     
     // Mint tokens for stakers
-    const mintAmount = ethers.parseEther('10000');
-    await (await stakingToken.mint(staker1.address, mintAmount)).wait();
-    await (await stakingToken.mint(staker2.address, mintAmount)).wait();
+    const mintAmount = parseEther('10000');
+    const mint1Hash = await deployerWalletClient.writeContract({
+      address: STAKING_TOKEN_ADDRESS as Address,
+      abi: stakingTokenAbi,
+      functionName: 'mint',
+      args: [staker1Account.address, mintAmount],
+    });
+    await waitForTransactionReceipt(publicClient, { hash: mint1Hash });
+    
+    const mint2Hash = await deployerWalletClient.writeContract({
+      address: STAKING_TOKEN_ADDRESS as Address,
+      abi: stakingTokenAbi,
+      functionName: 'mint',
+      args: [staker2Account.address, mintAmount],
+    });
+    await waitForTransactionReceipt(publicClient, { hash: mint2Hash });
     
     console.log('✓ Setup complete\n');
   });
 
   test('should verify initial state', async () => {
-    const stats = await staking.getPoolStats();
+    const stats = await readContract(publicClient, {
+      address: STAKING_ADDRESS as Address,
+      abi: parseAbi(STAKING_ABI),
+      functionName: 'getPoolStats',
+    }) as { totalETH: bigint; totalTokens: bigint };
     
     console.log('Initial Pool Stats:');
-    console.log(`  Total ETH: ${ethers.formatEther(stats.totalETH)} ETH`);
-    console.log(`  Total Tokens: ${ethers.formatEther(stats.totalTokens)} tokens`);
+    console.log(`  Total ETH: ${formatEther(stats.totalETH)} ETH`);
+    console.log(`  Total Tokens: ${formatEther(stats.totalTokens)} tokens`);
     
     expect(stats.totalETH).toBe(0n);
     expect(stats.totalTokens).toBe(0n);
@@ -102,22 +132,40 @@ describe('Staking - Staking Flow', () => {
   test('should allow staking ETH and tokens', async () => {
     console.log('\n📊 Testing staking flow...\n');
     
-    const ethAmount = ethers.parseEther('5');
-    const tokenAmount = ethers.parseEther('1000');
+    const ethAmount = parseEther('5');
+    const tokenAmount = parseEther('1000');
+    
+    const stakingAbi = parseAbi(STAKING_ABI);
+    const stakingTokenAbi = parseAbi(STAKING_TOKEN_ABI);
     
     // Staker1 approves and stakes
-    const staker1Token = stakingToken.connect(staker1);
-    const staker1Staking = staking.connect(staker1);
+    const approveHash = await staker1WalletClient.writeContract({
+      address: STAKING_TOKEN_ADDRESS as Address,
+      abi: stakingTokenAbi,
+      functionName: 'approve',
+      args: [STAKING_ADDRESS as Address, tokenAmount],
+    });
+    await waitForTransactionReceipt(publicClient, { hash: approveHash });
     
-    await (await staker1Token.approve(STAKING_ADDRESS, tokenAmount)).wait();
-    const stakeTx = await staker1Staking.stake(tokenAmount, { value: ethAmount });
-    await stakeTx.wait();
+    const stakeHash = await staker1WalletClient.writeContract({
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'stake',
+      args: [tokenAmount],
+      value: ethAmount,
+    });
+    await waitForTransactionReceipt(publicClient, { hash: stakeHash });
     
-    const position = await staking.getPosition(staker1.address);
+    const position = await readContract(publicClient, {
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'getPosition',
+      args: [staker1Account.address],
+    }) as { ethStaked: bigint; tokensStaked: bigint; isActive: boolean };
     
     console.log('Staker1 Position:');
-    console.log(`  ETH Staked: ${ethers.formatEther(position.ethStaked)} ETH`);
-    console.log(`  Tokens Staked: ${ethers.formatEther(position.tokensStaked)} tokens`);
+    console.log(`  ETH Staked: ${formatEther(position.ethStaked)} ETH`);
+    console.log(`  Tokens Staked: ${formatEther(position.tokensStaked)} tokens`);
     console.log(`  Is Active: ${position.isActive}`);
     
     expect(position.ethStaked).toBe(ethAmount);
@@ -126,37 +174,60 @@ describe('Staking - Staking Flow', () => {
   });
 
   test('should allow second staker with different amounts', async () => {
-    const ethAmount = ethers.parseEther('3');
-    const tokenAmount = ethers.parseEther('500');
+    const ethAmount = parseEther('3');
+    const tokenAmount = parseEther('500');
     
-    const staker2Token = stakingToken.connect(staker2);
-    const staker2Staking = staking.connect(staker2);
+    const stakingAbi = parseAbi(STAKING_ABI);
+    const stakingTokenAbi = parseAbi(STAKING_TOKEN_ABI);
     
-    await (await staker2Token.approve(STAKING_ADDRESS, tokenAmount)).wait();
-    const stakeTx = await staker2Staking.stake(tokenAmount, { value: ethAmount });
-    await stakeTx.wait();
+    const approveHash = await staker2WalletClient.writeContract({
+      address: STAKING_TOKEN_ADDRESS as Address,
+      abi: stakingTokenAbi,
+      functionName: 'approve',
+      args: [STAKING_ADDRESS as Address, tokenAmount],
+    });
+    await waitForTransactionReceipt(publicClient, { hash: approveHash });
     
-    const position = await staking.getPosition(staker2.address);
+    const stakeHash = await staker2WalletClient.writeContract({
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'stake',
+      args: [tokenAmount],
+      value: ethAmount,
+    });
+    await waitForTransactionReceipt(publicClient, { hash: stakeHash });
+    
+    const position = await readContract(publicClient, {
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'getPosition',
+      args: [staker2Account.address],
+    }) as { ethStaked: bigint; tokensStaked: bigint };
     
     console.log('\nStaker2 Position:');
-    console.log(`  ETH Staked: ${ethers.formatEther(position.ethStaked)} ETH`);
-    console.log(`  Tokens Staked: ${ethers.formatEther(position.tokensStaked)} tokens`);
+    console.log(`  ETH Staked: ${formatEther(position.ethStaked)} ETH`);
+    console.log(`  Tokens Staked: ${formatEther(position.tokensStaked)} tokens`);
     
     expect(position.ethStaked).toBe(ethAmount);
     expect(position.tokensStaked).toBe(tokenAmount);
   });
 
   test('should track total pool correctly', async () => {
-    const stats = await staking.getPoolStats();
+    const stakingAbi = parseAbi(STAKING_ABI);
+    const stats = await readContract(publicClient, {
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'getPoolStats',
+    }) as { totalETH: bigint; totalTokens: bigint; availableETH: bigint; availableTokens: bigint };
     
     console.log('\nPool Stats After Stakes:');
-    console.log(`  Total ETH: ${ethers.formatEther(stats.totalETH)} ETH`);
-    console.log(`  Total Tokens: ${ethers.formatEther(stats.totalTokens)} tokens`);
-    console.log(`  Available ETH: ${ethers.formatEther(stats.availableETH)} ETH (80% max)`);
-    console.log(`  Available Tokens: ${ethers.formatEther(stats.availableTokens)} tokens (70% max)`);
+    console.log(`  Total ETH: ${formatEther(stats.totalETH)} ETH`);
+    console.log(`  Total Tokens: ${formatEther(stats.totalTokens)} tokens`);
+    console.log(`  Available ETH: ${formatEther(stats.availableETH)} ETH (80% max)`);
+    console.log(`  Available Tokens: ${formatEther(stats.availableTokens)} tokens (70% max)`);
     
-    const expectedETH = ethers.parseEther('8'); // 5 + 3
-    const expectedTokens = ethers.parseEther('1500'); // 1000 + 500
+    const expectedETH = parseEther('8'); // 5 + 3
+    const expectedTokens = parseEther('1500'); // 1000 + 500
     
     expect(stats.totalETH).toBe(expectedETH);
     expect(stats.totalTokens).toBe(expectedTokens);

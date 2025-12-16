@@ -1,7 +1,7 @@
 {
   "name": "@jejunetwork/oauth3",
   "version": "0.1.0",
-  "description": "Decentralized OAuth3 authentication with TEE-backed key management",
+  "description": "Decentralized OAuth3 authentication with TEE-backed key management, FROST MPC signing, and W3C Verifiable Credentials",
   "license": "MIT",
   "type": "module",
   "main": "dist/index.js",
@@ -26,11 +26,24 @@
     "./credentials": {
       "types": "./dist/credentials/verifiable-credentials.d.ts",
       "import": "./dist/credentials/verifiable-credentials.js"
+    },
+    "./providers/farcaster": {
+      "types": "./dist/providers/farcaster.d.ts",
+      "import": "./dist/providers/farcaster.js"
+    },
+    "./providers/social": {
+      "types": "./dist/providers/social.d.ts",
+      "import": "./dist/providers/social.js"
+    },
+    "./infrastructure": {
+      "types": "./dist/infrastructure/index.d.ts",
+      "import": "./dist/infrastructure/index.js"
     }
   },
   "files": [
     "dist",
-    "src"
+    "README.md",
+    "LICENSE"
   ],
   "sideEffects": false,
   "scripts": {
@@ -39,7 +52,7 @@
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "prepublishOnly": "bun run build",
+    "prepublishOnly": "bun run clean && bun run build",
     "start:agent": "bun run src/tee/dstack-agent.ts",
     "start:demo": "bun run src/demo/server.ts",
     "docker:local": "docker compose -f docker/dstack.compose.yaml --profile local up",
@@ -54,18 +67,35 @@
     "url": "git+https://github.com/elizaos/jeju.git",
     "directory": "packages/oauth3"
   },
+  "bugs": {
+    "url": "https://github.com/elizaos/jeju/issues"
+  },
+  "homepage": "https://github.com/elizaos/jeju/tree/main/packages/oauth3#readme",
+  "author": "Jeju Network <team@jeju.network>",
   "keywords": [
-    "jeju",
     "oauth3",
     "authentication",
     "tee",
     "dstack",
+    "phala",
     "mpc",
     "frost",
+    "threshold-signatures",
     "farcaster",
+    "siwe",
+    "sign-in-with-ethereum",
     "verifiable-credentials",
-    "decentralized"
+    "decentralized",
+    "web3",
+    "ethereum",
+    "smart-accounts",
+    "account-abstraction",
+    "jeju"
   ],
+  "engines": {
+    "node": ">=18.0.0",
+    "bun": ">=1.0.0"
+  },
   "dependencies": {
     "@noble/curves": "^1.4.0",
     "@noble/hashes": "^1.4.0",
@@ -76,7 +106,16 @@
     "@types/bun": "^1.1.0",
     "typescript": "^5.5.0"
   },
+  "peerDependencies": {
+    "viem": "^2.0.0"
+  },
+  "peerDependenciesMeta": {
+    "viem": {
+      "optional": false
+    }
+  },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }

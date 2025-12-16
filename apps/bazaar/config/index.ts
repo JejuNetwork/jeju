@@ -18,16 +18,11 @@ export const NETWORK_NAME = process.env.NEXT_PUBLIC_NETWORK_NAME || 'Jeju';
 export const CHAIN_ID = parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || getDefaultChainId());
 export const RPC_URL = process.env.NEXT_PUBLIC_JEJU_RPC_URL || process.env.NEXT_PUBLIC_RPC_URL || getDefaultRpcUrl();
 
-// DWS - Decentralized Web Services (unified storage, compute, CDN)
-export const DWS_URL = process.env.NEXT_PUBLIC_DWS_URL || getDefaultDwsUrl();
-
-// External services (using DWS for storage/IPFS)
+// External services
 export const INDEXER_URL = process.env.NEXT_PUBLIC_INDEXER_URL || getDefaultIndexerUrl();
 export const EXPLORER_URL = process.env.NEXT_PUBLIC_EXPLORER_URL || getDefaultExplorerUrl();
-export const IPFS_API_URL = process.env.NEXT_PUBLIC_JEJU_IPFS_API || `${DWS_URL}/storage`;
-export const IPFS_GATEWAY_URL = process.env.NEXT_PUBLIC_JEJU_IPFS_GATEWAY || `${DWS_URL}/storage`;
-export const COMPUTE_URL = `${DWS_URL}/compute`;
-export const CDN_URL = `${DWS_URL}/cdn`;
+export const IPFS_API_URL = process.env.NEXT_PUBLIC_JEJU_IPFS_API || getDefaultIpfsApiUrl();
+export const IPFS_GATEWAY_URL = process.env.NEXT_PUBLIC_JEJU_IPFS_GATEWAY || getDefaultIpfsGatewayUrl();
 export const OIF_AGGREGATOR_URL = process.env.NEXT_PUBLIC_OIF_AGGREGATOR_URL || getDefaultOifAggregatorUrl();
 
 // Contract addresses - with NEXT_PUBLIC_ override support
@@ -134,13 +129,5 @@ function getDefaultOifAggregatorUrl(): string {
     case 'mainnet': return 'https://oif.jeju.network';
     case 'testnet': return 'https://testnet-oif.jeju.network';
     default: return 'http://localhost:4010';
-  }
-}
-
-function getDefaultDwsUrl(): string {
-  switch (NETWORK) {
-    case 'mainnet': return 'https://dws.jeju.network';
-    case 'testnet': return 'https://testnet-dws.jeju.network';
-    default: return 'http://localhost:4030';
   }
 }

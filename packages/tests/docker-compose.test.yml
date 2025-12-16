@@ -6,14 +6,14 @@
 #   - services: Chain + databases + IPFS (no build required)
 #   - full: Everything including multi-chain
 #
-# Note: Apps (indexer, gateway, etc.) should be started via `bun run dev`
-# This compose file provides the infrastructure they depend on.
+# Apps (indexer, gateway, etc.) should be started separately via `bun run dev`
+# This compose file provides the infrastructure dependencies.
 #
 # Usage:
 #   jeju test --mode=integration  # Uses 'services' profile
 #   jeju test --mode=full         # Uses 'full' profile
 #
-#   # Manual:
+# Manual:
 #   docker compose -f docker-compose.test.yml --profile chain up -d
 #   docker compose -f docker-compose.test.yml --profile services up -d
 

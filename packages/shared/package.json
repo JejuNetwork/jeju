@@ -43,7 +43,6 @@
     "@jejunetwork/db": "workspace:*",
     "@jejunetwork/kms": "workspace:*",
     "@jejunetwork/config": "workspace:*",
-    "ethers": "^6.13.4",
     "hono": "^4.7.0",
     "viem": "^2.21.0",
     "wagmi": "^2.12.0"

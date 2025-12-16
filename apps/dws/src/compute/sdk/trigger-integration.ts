@@ -3,6 +3,14 @@
  * For vendors to register triggers in the compute marketplace
  */
 
+const DEBUG = process.env.DEBUG === 'true' || process.env.DEBUG === '1';
+
+function log(message: string): void {
+  if (DEBUG) {
+    process.stdout.write(`[DWS Trigger] ${message}\n`);
+  }
+}
+
 export interface TriggerResources {
   cpuCores: number;
   memoryMb: number;
@@ -60,7 +68,7 @@ export type TriggerConfig = CronTrigger | WebhookTrigger | EventTrigger;
 const registeredTriggers = new Map<string, TriggerConfig[]>();
 
 export async function initializeTriggerIntegration(): Promise<void> {
-  console.log('[DWS Trigger Integration] Initialized');
+  log('Initialized');
 }
 
 export async function registerVendorTriggers(
@@ -70,10 +78,9 @@ export async function registerVendorTriggers(
   const existingTriggers = registeredTriggers.get(vendorId) || [];
   registeredTriggers.set(vendorId, [...existingTriggers, ...triggers]);
 
-  console.log(`[DWS Trigger Integration] Registered ${triggers.length} triggers for vendor: ${vendorId}`);
-
+  log(`Registered ${triggers.length} triggers for vendor: ${vendorId}`);
   for (const trigger of triggers) {
-    console.log(`  - ${vendorId}-${trigger.name} (${trigger.type})`);
+    log(`  ${vendorId}-${trigger.name} (${trigger.type})`);
   }
 }
 

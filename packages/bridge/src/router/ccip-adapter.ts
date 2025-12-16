@@ -302,14 +302,105 @@ export class CCIPAdapter {
     remoteChains: number[];
     remotePools: Record<number, Address>;
   }): Promise<Address> {
-    // This would deploy a CCIP TokenPool contract
-    // The actual bytecode and deployment logic depends on the pool type
-    // See: https://docs.chain.link/ccip/tutorials/cross-chain-tokens
+    const walletClient = this.walletClients.get(params.chainId);
+    if (!walletClient) throw new Error(`No wallet client for chain ${params.chainId}`);
+    
+    const publicClient = this.publicClients.get(params.chainId);
+    if (!publicClient) throw new Error(`No public client for chain ${params.chainId}`);
+
+    const router = CCIP_ROUTERS[params.chainId];
+    if (!router) throw new Error(`No CCIP router on chain ${params.chainId}`);
     
     console.log(`Deploying ${params.poolType} pool for ${params.token} on chain ${params.chainId}`);
+
+    // Pool deployment ABI - simplified version of Chainlink's TokenPool
+    const POOL_DEPLOY_ABI = parseAbi([
+      'constructor(address token, address[] allowList, address rmnProxy, address router)',
+      'function applyChainUpdates(uint64[] memory remoteChainSelectorsToRemove, (uint64 remoteChainSelector, bool allowed, bytes remotePoolAddress, bytes remoteTokenAddress, (bool isEnabled, uint128 capacity, uint128 rate) outboundRateLimiterConfig, (bool isEnabled, uint128 capacity, uint128 rate) inboundRateLimiterConfig)[] memory chainsToAdd) external',
+    ]);
+
+    // Convert remote chains to CCIP selectors and pool configs
+    const chainUpdates = params.remoteChains.map(chainId => {
+      const selector = CCIP_CHAIN_SELECTORS[chainId];
+      if (!selector) throw new Error(`No CCIP selector for chain ${chainId}`);
+      
+      const remotePool = params.remotePools[chainId];
+      if (!remotePool) throw new Error(`No remote pool address for chain ${chainId}`);
+
+      return {
+        remoteChainSelector: selector,
+        allowed: true,
+        remotePoolAddress: remotePool as Hex,
+        remoteTokenAddress: params.token as Hex,
+        outboundRateLimiterConfig: { isEnabled: false, capacity: 0n, rate: 0n },
+        inboundRateLimiterConfig: { isEnabled: false, capacity: 0n, rate: 0n },
+      };
+    });
+
+    // Deploy pool contract using CREATE2 for deterministic addresses
+    // The actual bytecode would come from compiled Chainlink pool contracts
+    // For production, use @chainlink/contracts-ccip package
+    const poolBytecodeEnvKey = params.poolType === 'burn_mint' 
+      ? 'CCIP_BURN_MINT_POOL_BYTECODE'
+      : 'CCIP_LOCK_RELEASE_POOL_BYTECODE';
     
-    // Placeholder - actual deployment would use walletClient
-    return '0x0000000000000000000000000000000000000000' as Address;
+    const poolBytecode = process.env[poolBytecodeEnvKey];
+    if (!poolBytecode) {
+      throw new Error(
+        `${poolBytecodeEnvKey} not configured. Deploy using @chainlink/contracts-ccip or ` +
+        `set bytecode from: https://github.com/smartcontractkit/ccip/tree/main/contracts/src/v0.8/ccip/pools`
+      );
+    }
+
+    // RMN proxy address (required by CCIP v1.5+)
+    const rmnProxy = process.env[`CCIP_RMN_PROXY_${params.chainId}`] || '0x0000000000000000000000000000000000000000';
+
+    // Encode constructor arguments
+    const constructorArgs = [
+      params.token,
+      [], // Empty allow list = permissionless
+      rmnProxy,
+      router,
+    ];
+
+    // Deploy the contract
+    const hash = await walletClient.deployContract({
+      abi: POOL_DEPLOY_ABI,
+      bytecode: poolBytecode as Hex,
+      args: constructorArgs,
+    });
+
+    // Wait for deployment
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    const poolAddress = receipt.contractAddress;
+    
+    if (!poolAddress) {
+      throw new Error('Pool deployment failed - no contract address in receipt');
+    }
+
+    console.log(`   Deployed pool at ${poolAddress}`);
+
+    // Configure remote chains
+    if (chainUpdates.length > 0) {
+      const configHash = await walletClient.writeContract({
+        address: poolAddress,
+        abi: POOL_DEPLOY_ABI,
+        functionName: 'applyChainUpdates',
+        args: [[], chainUpdates],
+      });
+      await publicClient.waitForTransactionReceipt({ hash: configHash });
+      console.log(`   Configured ${chainUpdates.length} remote chains`);
+    }
+
+    // Cache the pool
+    this.tokenPools.set(`${params.chainId}-${params.token}`, {
+      address: poolAddress,
+      token: params.token,
+      type: params.poolType,
+      supportedChains: params.remoteChains,
+    });
+
+    return poolAddress;
   }
 
   // ============ Private Methods ============

@@ -56,9 +56,9 @@ describe('Intent Evaluation - Profitable Scenarios', () => {
       sourceChain: 11155111,
       destinationChain: 84532,
       inputToken: '0x0000000000000000000000000000000000000000',
-      inputAmount: ethers.parseEther('1.0').toString(),
+      inputAmount: parseEther('1.0').toString(),
       outputToken: '0x0000000000000000000000000000000000000000',
-      outputAmount: ethers.parseEther('0.95').toString(), // 5% fee
+      outputAmount: parseEther('0.95').toString(), // 5% fee
     });
     
     // If price unavailable, result should be unprofitable with specific reason
@@ -79,9 +79,9 @@ describe('Intent Evaluation - Profitable Scenarios', () => {
       sourceChain: 11155111,
       destinationChain: 84532,
       inputToken: '0x0000000000000000000000000000000000000000',
-      inputAmount: ethers.parseEther('100').toString(),
+      inputAmount: parseEther('100').toString(),
       outputToken: '0x0000000000000000000000000000000000000000',
-      outputAmount: ethers.parseEther('98').toString(),
+      outputAmount: parseEther('98').toString(),
     });
     
     // If price unavailable, skip profit check
@@ -103,9 +103,9 @@ describe('Intent Evaluation - Unprofitable Scenarios', () => {
       sourceChain: 11155111,
       destinationChain: 84532,
       inputToken: '0x0000000000000000000000000000000000000000',
-      inputAmount: ethers.parseEther('1.0').toString(),
+      inputAmount: parseEther('1.0').toString(),
       outputToken: '0x0000000000000000000000000000000000000000',
-      outputAmount: ethers.parseEther('1.1').toString(), // More output than input
+      outputAmount: parseEther('1.1').toString(), // More output than input
     });
     
     expect(result.profitable).toBe(false);
@@ -122,9 +122,9 @@ describe('Intent Evaluation - Unprofitable Scenarios', () => {
       sourceChain: 11155111,
       destinationChain: 84532,
       inputToken: '0x0000000000000000000000000000000000000000',
-      inputAmount: ethers.parseEther('1.0').toString(),
+      inputAmount: parseEther('1.0').toString(),
       outputToken: '0x0000000000000000000000000000000000000000',
-      outputAmount: ethers.parseEther('1.0').toString(),
+      outputAmount: parseEther('1.0').toString(),
     });
     
     expect(result.profitable).toBe(false);
@@ -140,9 +140,9 @@ describe('Intent Evaluation - Unprofitable Scenarios', () => {
       sourceChain: 11155111,
       destinationChain: 84532,
       inputToken: '0x0000000000000000000000000000000000000000',
-      inputAmount: ethers.parseEther('1.0').toString(),
+      inputAmount: parseEther('1.0').toString(),
       outputToken: '0x0000000000000000000000000000000000000000',
-      outputAmount: ethers.parseEther('0.995').toString(), // Only 0.5% fee
+      outputAmount: parseEther('0.995').toString(), // Only 0.5% fee
     });
     
     expect(result.profitable).toBe(false);
@@ -154,7 +154,7 @@ describe('Intent Evaluation - Unprofitable Scenarios', () => {
 
   test('should reject intent exceeding max size', async () => {
     const strategy = createStrategy({
-      maxIntentSize: ethers.parseEther('10').toString(),
+      maxIntentSize: parseEther('10').toString(),
     });
     await waitForPriceFeed(strategy, 3000);
     
@@ -163,9 +163,9 @@ describe('Intent Evaluation - Unprofitable Scenarios', () => {
       sourceChain: 11155111,
       destinationChain: 84532,
       inputToken: '0x0000000000000000000000000000000000000000',
-      inputAmount: ethers.parseEther('100').toString(), // 100 ETH > 10 ETH max
+      inputAmount: parseEther('100').toString(), // 100 ETH > 10 ETH max
       outputToken: '0x0000000000000000000000000000000000000000',
-      outputAmount: ethers.parseEther('95').toString(),
+      outputAmount: parseEther('95').toString(),
     });
     
     expect(result.profitable).toBe(false);
@@ -220,9 +220,9 @@ describe('Intent Evaluation - Edge Cases', () => {
       sourceChain: 11155111,
       destinationChain: 84532,
       inputToken: '0x0000000000000000000000000000000000000000',
-      inputAmount: ethers.parseEther('1.0').toString(),
+      inputAmount: parseEther('1.0').toString(),
       outputToken: '0x0000000000000000000000000000000000000000',
-      outputAmount: ethers.parseEther('0.9').toString(),
+      outputAmount: parseEther('0.9').toString(),
     });
     
     // If price is available, gasEstimate should be present
@@ -288,9 +288,9 @@ describe('Cross-Chain Scenarios', () => {
       sourceChain: 11155111, // Sepolia
       destinationChain: 84532, // Base Sepolia
       inputToken: '0x0000000000000000000000000000000000000000',
-      inputAmount: ethers.parseEther('10').toString(),
+      inputAmount: parseEther('10').toString(),
       outputToken: '0x0000000000000000000000000000000000000000',
-      outputAmount: ethers.parseEther('9.5').toString(), // 5% fee
+      outputAmount: parseEther('9.5').toString(), // 5% fee
     });
     
     expect(result).toBeDefined();
@@ -326,8 +326,8 @@ describe('Cross-Chain Scenarios', () => {
       destinationChain: 84532,
       inputToken: '0x0000000000000000000000000000000000000000', // ETH on source
       outputToken: '0x0000000000000000000000000000000000000000', // ETH on dest
-      inputAmount: ethers.parseEther('1.0').toString(),
-      outputAmount: ethers.parseEther('0.95').toString(),
+      inputAmount: parseEther('1.0').toString(),
+      outputAmount: parseEther('0.95').toString(),
     });
     
     // Should be profitable if price is available

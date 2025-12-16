@@ -1,5 +1,5 @@
 /**
- * Network Autocrat - AI DAO Governance
+ * Network Council - AI DAO Governance
  *
  * PRODUCTION ASSUMPTIONS:
  * 1. Ollama must be running at OLLAMA_URL (default: localhost:11434)
@@ -8,47 +8,47 @@
  *
  * 2. Contract deployment is OPTIONAL:
  *    - ERC8004 registries (identity, reputation, validation) return empty when not deployed
- *    - Futarchy (autocrat, predimarket) returns empty arrays when not deployed
+ *    - Futarchy (council, predimarket) returns empty arrays when not deployed
  *    - Set addresses to 0x0 to explicitly disable
  *
  * 3. Data persistence:
  *    - Moderation flags/trust/stats are IN-MEMORY (lost on restart)
  *    - Research cache is IN-MEMORY with 1000 entry limit
- *    - Vote storage persists to .autocrat-storage/ directory
+ *    - Vote storage persists to .council-storage/ directory
  *
  * 4. Security:
  *    - OPERATOR_KEY or PRIVATE_KEY required for blockchain transactions
  *    - TEE mode determined by environment (disabled/simulation/hardware)
  *
  * 5. Service ports:
- *    - Autocrat API: PORT (default: 8010)
+ *    - Council API: PORT (default: 8010)
  *    - CEO Server: CEO_PORT (default: 8004, separate process)
  *    - Ollama: OLLAMA_URL (default: localhost:11434)
  */
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { createAutocratA2AServer } from './a2a-server';
-import { createAutocratMCPServer } from './mcp-server';
+import { createCouncilA2AServer } from './a2a-server';
+import { createCouncilMCPServer } from './mcp-server';
 import { getBlockchain } from './blockchain';
-import { createOrchestrator, type AutocratOrchestrator } from './orchestrator';
+import { createOrchestrator, type CouncilOrchestrator } from './orchestrator';
 import { initLocalServices } from './local-services';
 import { getTEEMode } from './tee';
-import { autocratAgentRuntime } from './agents';
-import { registerAutocratTriggers, startLocalCron, getComputeTriggerClient, type OrchestratorTriggerResult } from './compute-trigger';
+import { councilAgentRuntime } from './agents';
+import { registerCouncilTriggers, startLocalCron, getComputeTriggerClient, type OrchestratorTriggerResult } from './compute-trigger';
 import { getProposalAssistant, type ProposalDraft, type QualityAssessment } from './proposal-assistant';
 import { getResearchAgent, type ResearchRequest } from './research-agent';
 import { getERC8004Client, type ERC8004Config } from './erc8004';
 import { getFutarchyClient, type FutarchyConfig } from './futarchy';
 import { getModerationSystem, initModeration, FlagType } from './moderation';
 import { getRegistryIntegrationClient, type RegistryIntegrationConfig } from './registry-integration';
-import type { AutocratConfig } from './types';
+import type { CouncilConfig } from './types';
 
 const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as `0x${string}`;
 const addr = (key: string) => (process.env[key] ?? ZERO_ADDR) as `0x${string}`;
 const agent = (id: string, name: string, prompt: string) => ({ id, name, model: 'local', endpoint: 'local', systemPrompt: prompt });
 
-function getConfig(): AutocratConfig {
+function getConfig(): CouncilConfig {
   return {
     rpcUrl: process.env.RPC_URL ?? process.env.JEJU_RPC_URL ?? 'http://localhost:8545',
     contracts: {
@@ -63,17 +63,17 @@ function getConfig(): AutocratConfig {
     agents: {
       ceo: agent('eliza-ceo', 'Eliza', 'AI CEO of Network DAO'),
       council: [
-        agent('autocrat-treasury', 'Treasury', 'Financial review'),
-        agent('autocrat-code', 'Code', 'Technical review'),
-        agent('autocrat-community', 'Community', 'Community impact'),
-        agent('autocrat-security', 'Security', 'Security review'),
+        agent('council-treasury', 'Treasury', 'Financial review'),
+        agent('council-code', 'Code', 'Technical review'),
+        agent('council-community', 'Community', 'Community impact'),
+        agent('council-security', 'Security', 'Security review'),
       ],
       proposalAgent: agent('proposal-agent', 'Proposal Assistant', 'Help craft proposals'),
       researchAgent: agent('research-agent', 'Researcher', 'Deep research'),
     },
     parameters: {
       minQualityScore: 90,
-      autocratVotingPeriod: 3 * 24 * 60 * 60,
+      councilVotingPeriod: 3 * 24 * 60 * 60,
       gracePeriod: 24 * 60 * 60,
       minBackers: 0,
       minStakeForVeto: BigInt('10000000000000000'),
@@ -106,8 +106,8 @@ const app = new Hono();
 
 app.use('/*', cors());
 
-const a2aServer = createAutocratA2AServer(config, blockchain);
-const mcpServer = createAutocratMCPServer(config, blockchain);
+const a2aServer = createCouncilA2AServer(config, blockchain);
+const mcpServer = createCouncilMCPServer(config, blockchain);
 app.route('/a2a', a2aServer.getRouter());
 app.route('/mcp', mcpServer.getRouter());
 app.get('/.well-known/agent-card.json', (c) => c.redirect('/a2a/.well-known/agent-card.json'));
@@ -129,7 +129,7 @@ app.get('/api/v1/ceo/decisions', async (c) => {
   return c.json({ decisions });
 });
 
-let orchestrator: AutocratOrchestrator | null = null;
+let orchestrator: CouncilOrchestrator | null = null;
 
 app.post('/api/v1/orchestrator/start', async (c) => {
   if (orchestrator?.getStatus().running) return c.json({ error: 'Already running' }, 400);
@@ -147,13 +147,7 @@ app.post('/api/v1/orchestrator/stop', async (c) => {
 app.get('/api/v1/orchestrator/status', (c) => c.json(orchestrator?.getStatus() ?? { running: false, cycleCount: 0 }));
 
 app.post('/trigger/orchestrator', async (c) => {
-  let body: Record<string, unknown> = {};
-  try {
-    body = await c.req.json();
-  } catch (e) {
-    // Body is optional for this endpoint, continue with empty object
-    console.debug('No JSON body provided to orchestrator trigger');
-  }
+  await c.req.json().catch(() => ({}));
   const result = await runOrchestratorCycle();
   return c.json({ success: true, executionId: `exec-${Date.now()}`, ...result });
 });
@@ -607,7 +601,7 @@ async function runOrchestratorCycle(): Promise<OrchestratorTriggerResult> {
 
 app.get('/health', (c) => c.json({
   status: 'ok',
-  service: 'jeju-autocrat',
+  service: 'jeju-council',
   version: '2.1.0',
   mode: 'local',
   tee: getTEEMode(),
@@ -637,28 +631,28 @@ app.get('/metrics', () => {
   const orch = orchestrator?.getStatus();
   const activeFlags = moderation.getActiveFlags().length;
   const lines = [
-    '# HELP autocrat_requests_total Total HTTP requests',
-    '# TYPE autocrat_requests_total counter',
-    `autocrat_requests_total ${metricsData.requests}`,
-    '# HELP autocrat_errors_total Total errors',
-    '# TYPE autocrat_errors_total counter',
-    `autocrat_errors_total ${metricsData.errors}`,
-    '# HELP autocrat_uptime_seconds Service uptime',
-    '# TYPE autocrat_uptime_seconds gauge',
-    `autocrat_uptime_seconds ${uptime.toFixed(0)}`,
-    '# HELP autocrat_memory_bytes Memory usage',
-    '# TYPE autocrat_memory_bytes gauge',
-    `autocrat_memory_bytes{type="heap"} ${mem.heapUsed}`,
-    `autocrat_memory_bytes{type="rss"} ${mem.rss}`,
-    '# HELP autocrat_orchestrator_cycles Total orchestrator cycles',
-    '# TYPE autocrat_orchestrator_cycles counter',
-    `autocrat_orchestrator_cycles ${orch?.cycleCount ?? 0}`,
-    '# HELP autocrat_proposals_processed Total proposals processed',
-    '# TYPE autocrat_proposals_processed counter',
-    `autocrat_proposals_processed ${orch?.processedProposals ?? 0}`,
-    '# HELP autocrat_moderation_flags_active Active moderation flags',
-    '# TYPE autocrat_moderation_flags_active gauge',
-    `autocrat_moderation_flags_active ${activeFlags}`,
+    '# HELP council_requests_total Total HTTP requests',
+    '# TYPE council_requests_total counter',
+    `council_requests_total ${metricsData.requests}`,
+    '# HELP council_errors_total Total errors',
+    '# TYPE council_errors_total counter',
+    `council_errors_total ${metricsData.errors}`,
+    '# HELP council_uptime_seconds Service uptime',
+    '# TYPE council_uptime_seconds gauge',
+    `council_uptime_seconds ${uptime.toFixed(0)}`,
+    '# HELP council_memory_bytes Memory usage',
+    '# TYPE council_memory_bytes gauge',
+    `council_memory_bytes{type="heap"} ${mem.heapUsed}`,
+    `council_memory_bytes{type="rss"} ${mem.rss}`,
+    '# HELP council_orchestrator_cycles Total orchestrator cycles',
+    '# TYPE council_orchestrator_cycles counter',
+    `council_orchestrator_cycles ${orch?.cycleCount ?? 0}`,
+    '# HELP council_proposals_processed Total proposals processed',
+    '# TYPE council_proposals_processed counter',
+    `council_proposals_processed ${orch?.processedProposals ?? 0}`,
+    '# HELP council_moderation_flags_active Active moderation flags',
+    '# TYPE council_moderation_flags_active gauge',
+    `council_moderation_flags_active ${activeFlags}`,
   ];
   return new Response(lines.join('\n'), { headers: { 'Content-Type': 'text/plain' } });
 });
@@ -690,19 +684,19 @@ const useCompute = process.env.USE_COMPUTE_TRIGGER !== 'false';
 async function start() {
   await initLocalServices();
   await initModeration();
-  await autocratAgentRuntime.initialize();
+  await councilAgentRuntime.initialize();
 
   const computeClient = getComputeTriggerClient();
   const computeAvailable = await computeClient.isAvailable();
   let triggerMode = 'local';
 
   if (computeAvailable && useCompute) {
-    await registerAutocratTriggers();
+    await registerCouncilTriggers();
     triggerMode = 'compute';
   }
 
   console.log(`
-[Autocrat] Started on port ${port}
+[Council] Started on port ${port}
   TEE: ${getTEEMode()}
   Trigger: ${triggerMode}
   Endpoints: /a2a, /mcp, /api/v1
@@ -719,15 +713,15 @@ start();
 
 export default { port, fetch: app.fetch };
 export { app, config };
-export type { AutocratConfig } from './types';
-export { createAutocratA2AServer } from './a2a-server';
-export { createAutocratMCPServer } from './mcp-server';
-export { getBlockchain, AutocratBlockchain } from './blockchain';
-export { createOrchestrator, type AutocratOrchestrator } from './orchestrator';
+export type { CouncilConfig } from './types';
+export { createCouncilA2AServer } from './a2a-server';
+export { createCouncilMCPServer } from './mcp-server';
+export { getBlockchain, CouncilBlockchain } from './blockchain';
+export { createOrchestrator, type CouncilOrchestrator } from './orchestrator';
 export { initLocalServices, store, retrieve, storeVote, getVotes } from './local-services';
 export { getTEEMode, makeTEEDecision, decryptReasoning } from './tee';
-export { getComputeTriggerClient, registerAutocratTriggers, startLocalCron } from './compute-trigger';
-export { autocratAgentRuntime, autocratAgentTemplates, getAgentByRole, type AgentVote, type DeliberationRequest, type CEODecisionRequest } from './agents';
+export { getComputeTriggerClient, registerCouncilTriggers, startLocalCron } from './compute-trigger';
+export { councilAgentRuntime, councilAgentTemplates, getAgentByRole, type AgentVote, type DeliberationRequest, type CEODecisionRequest } from './agents';
 export { getProposalAssistant, ProposalAssistant, type ProposalDraft, type QualityAssessment, type SimilarProposal } from './proposal-assistant';
 export { getResearchAgent, ResearchAgent, generateResearchReport, quickScreenProposal, type ResearchRequest, type ResearchReport, type ResearchSection } from './research-agent';
 export { getERC8004Client, ERC8004Client, type ERC8004Config, type AgentIdentity, type AgentReputation } from './erc8004';

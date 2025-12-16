@@ -18,7 +18,9 @@
  *   THRESHOLD - Required signatures (default: 3)
  */
 
-import { ethers } from 'ethers';
+import { createPublicClient, createWalletClient, http, parseAbi, readContract, writeContract, waitForTransactionReceipt, encodeFunctionData, getLogs, decodeEventLog, zeroAddress, getChainId, getBytecode, isAddress, keccak256, stringToBytes, getContractAddress, formatEther, type Address } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { inferChainFromRpcUrl } from '../shared/chain-utils';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
@@ -50,27 +52,31 @@ interface SafeConfig {
   saltNonce?: bigint;
 }
 
-async function encodeSafeSetup(config: SafeConfig): Promise<string> {
-  const safeInterface = new ethers.Interface(SAFE_SINGLETON_ABI);
+async function encodeSafeSetup(config: SafeConfig): Promise<`0x${string}`> {
+  const safeAbi = parseAbi(SAFE_SINGLETON_ABI);
   
-  return safeInterface.encodeFunctionData('setup', [
-    config.owners,
-    config.threshold,
-    ethers.ZeroAddress, // to - no delegate call
-    '0x', // data - no delegate call data
-    SAFE_FALLBACK_HANDLER, // fallbackHandler
-    ethers.ZeroAddress, // paymentToken - no payment
-    0, // payment - no payment
-    ethers.ZeroAddress, // paymentReceiver - no payment
-  ]);
+  return encodeFunctionData({
+    abi: safeAbi,
+    functionName: 'setup',
+    args: [
+      config.owners as Address[],
+      config.threshold,
+      zeroAddress, // to - no delegate call
+      '0x' as `0x${string}`, // data - no delegate call data
+      SAFE_FALLBACK_HANDLER as Address, // fallbackHandler
+      zeroAddress, // paymentToken - no payment
+      0n, // payment - no payment
+      zeroAddress, // paymentReceiver - no payment
+    ],
+  });
 }
 
 async function deploySafe(
-  provider: ethers.Provider,
-  deployer: ethers.Wallet,
+  publicClient: ReturnType<typeof createPublicClient>,
+  walletClient: ReturnType<typeof createWalletClient>,
   config: SafeConfig
-): Promise<string> {
-  const proxyFactory = new ethers.Contract(SAFE_PROXY_FACTORY, SAFE_PROXY_FACTORY_ABI, deployer);
+): Promise<Address> {
+  const proxyFactoryAbi = parseAbi(SAFE_PROXY_FACTORY_ABI);
   
   // Encode setup data
   const setupData = await encodeSafeSetup(config);
@@ -79,39 +85,59 @@ async function deploySafe(
   const saltNonce = config.saltNonce ?? BigInt(Date.now());
   
   console.log('Creating Safe proxy...');
-  const tx = await proxyFactory.createProxyWithNonce(SAFE_SINGLETON, setupData, saltNonce);
-  console.log(`  TX: ${tx.hash}`);
+  const hash = await walletClient.writeContract({
+    address: SAFE_PROXY_FACTORY as Address,
+    abi: proxyFactoryAbi,
+    functionName: 'createProxyWithNonce',
+    args: [SAFE_SINGLETON as Address, setupData, saltNonce],
+  });
+  console.log(`  TX: ${hash}`);
   
-  const receipt = await tx.wait();
+  const receipt = await waitForTransactionReceipt(publicClient, { hash });
   
   // Parse ProxyCreation event to get Safe address
-  const event = receipt?.logs.find((log: ethers.Log) => {
-    try {
-      return proxyFactory.interface.parseLog(log)?.name === 'ProxyCreation';
-    } catch {
-      return false;
-    }
+  const logs = await getLogs(publicClient, {
+    address: SAFE_PROXY_FACTORY as Address,
+    abi: proxyFactoryAbi,
+    eventName: 'ProxyCreation',
+    fromBlock: receipt.blockNumber,
+    toBlock: receipt.blockNumber,
   });
   
-  if (!event) {
+  if (logs.length === 0) {
     throw new Error('ProxyCreation event not found');
   }
   
-  const parsed = proxyFactory.interface.parseLog(event);
-  const safeAddress = parsed?.args.proxy;
+  const decoded = decodeEventLog({
+    abi: proxyFactoryAbi,
+    eventName: 'ProxyCreation',
+    topics: logs[0].topics,
+    data: logs[0].data,
+  });
+  const safeAddress = decoded.args.proxy;
   
   return safeAddress;
 }
 
 async function verifySafe(
-  provider: ethers.Provider,
-  safeAddress: string,
+  publicClient: ReturnType<typeof createPublicClient>,
+  safeAddress: Address,
   expectedConfig: SafeConfig
 ): Promise<boolean> {
-  const safe = new ethers.Contract(safeAddress, SAFE_SINGLETON_ABI, provider);
+  const safeAbi = parseAbi(SAFE_SINGLETON_ABI);
   
-  const owners = await safe.getOwners();
-  const threshold = await safe.getThreshold();
+  const [owners, threshold] = await Promise.all([
+    readContract(publicClient, {
+      address: safeAddress,
+      abi: safeAbi,
+      functionName: 'getOwners',
+    }),
+    readContract(publicClient, {
+      address: safeAddress,
+      abi: safeAbi,
+      functionName: 'getThreshold',
+    }),
+  ]);
   
   console.log('Verifying Safe configuration...');
   console.log(`  Owners: ${owners.length}`);
@@ -125,7 +151,7 @@ async function verifySafe(
   
   // Verify owners
   const expectedOwnersLower = expectedConfig.owners.map(o => o.toLowerCase());
-  const actualOwnersLower = owners.map((o: string) => o.toLowerCase());
+  const actualOwnersLower = owners.map((o: Address) => o.toLowerCase());
   
   for (const owner of expectedOwnersLower) {
     if (!actualOwnersLower.includes(owner)) {
@@ -145,8 +171,9 @@ async function main(): Promise<void> {
   const rpcUrl = process.env.RPC_URL || process.env.L1_RPC_URL || 'http://127.0.0.1:8545';
   
   // Check if we're on a testnet/mainnet where Safe is deployed
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
-  const chainId = (await provider.getNetwork()).chainId;
+  const chain = inferChainFromRpcUrl(rpcUrl);
+  const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
+  const chainId = await publicClient.getChainId();
   
   console.log(`Network: ${network} (chainId: ${chainId})`);
   console.log(`RPC: ${rpcUrl}\n`);
@@ -155,7 +182,7 @@ async function main(): Promise<void> {
   const owners: string[] = [];
   for (let i = 1; i <= 10; i++) {
     const owner = process.env[`OWNER_${i}`];
-    if (owner && ethers.isAddress(owner)) {
+    if (owner && isAddress(owner)) {
       owners.push(owner);
     }
   }
@@ -176,10 +203,11 @@ async function main(): Promise<void> {
       }
       
       // Generate deterministic test addresses
+      const { generatePrivateKey } = await import('viem/accounts');
       for (let i = 0; i < 5; i++) {
-        const wallet = ethers.Wallet.createRandom();
-        owners.push(wallet.address);
-        console.log(`  Test Owner ${i + 1}: ${wallet.address}`);
+        const account = privateKeyToAccount(generatePrivateKey());
+        owners.push(account.address);
+        console.log(`  Test Owner ${i + 1}: ${account.address}`);
       }
       console.log('');
     } else {
@@ -206,19 +234,22 @@ async function main(): Promise<void> {
   console.log('');
 
   // Check if Safe Factory is deployed
-  const factoryCode = await provider.getCode(SAFE_PROXY_FACTORY);
-  if (factoryCode === '0x') {
+  const factoryCode = await getBytecode(publicClient, { address: SAFE_PROXY_FACTORY as Address });
+  if (factoryCode === undefined || factoryCode === '0x') {
     console.log('⚠️  Safe Proxy Factory not deployed on this network');
     console.log('   For localnet, Safe deployment is simulated');
     console.log('   For mainnet/testnet, use a network where Safe is deployed');
     console.log('');
     
     // For localnet, just output the intended configuration
-    const simulatedSafe = ethers.getCreate2Address(
-      SAFE_PROXY_FACTORY,
-      ethers.keccak256(ethers.toUtf8Bytes('security_council_safe')),
-      ethers.keccak256('0x')
-    );
+    const salt = keccak256(stringToBytes('security_council_safe'));
+    const initCodeHash = keccak256('0x' as `0x${string}`);
+    const simulatedSafe = getContractAddress({
+      from: SAFE_PROXY_FACTORY as Address,
+      bytecode: initCodeHash,
+      opcode: 'CREATE2',
+      salt,
+    });
     
     console.log('Simulated Safe Address:', simulatedSafe);
     console.log('');
@@ -248,11 +279,12 @@ async function main(): Promise<void> {
     process.exit(1);
   }
   
-  const deployer = new ethers.Wallet(deployerKey, provider);
-  console.log(`Deployer: ${deployer.address}`);
+  const deployerAccount = privateKeyToAccount(deployerKey as `0x${string}`);
+  const walletClient = createWalletClient({ chain, transport: http(rpcUrl), account: deployerAccount });
+  console.log(`Deployer: ${deployerAccount.address}`);
   
-  const balance = await provider.getBalance(deployer.address);
-  console.log(`Balance: ${ethers.formatEther(balance)} ETH\n`);
+  const balance = await publicClient.getBalance({ address: deployerAccount.address });
+  console.log(`Balance: ${formatEther(balance)} ETH\n`);
 
   const config: SafeConfig = {
     owners,
@@ -261,11 +293,11 @@ async function main(): Promise<void> {
   };
 
   try {
-    const safeAddress = await deploySafe(provider, deployer, config);
+    const safeAddress = await deploySafe(publicClient, walletClient, config);
     console.log(`\n✅ Security Council Safe deployed: ${safeAddress}`);
     
     // Verify configuration
-    await verifySafe(provider, safeAddress, config);
+    await verifySafe(publicClient, safeAddress, config);
     
     // Save to deployments
     const deploymentFile = join(DEPLOYMENTS_DIR, `${network}.json`);

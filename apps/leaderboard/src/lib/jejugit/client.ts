@@ -122,7 +122,8 @@ export class JejuGitClient {
 
   async getRepo(owner: string, name: string): Promise<JejuGitRepository | null> {
     try {
-      return await this.fetch<JejuGitRepository>(`/api/v1/repos/${owner}/${name}`);
+      // DWS uses /git/repos endpoint
+      return await this.fetch<JejuGitRepository>(`/git/repos/${owner}/${name}`);
     } catch {
       return null;
     }
@@ -145,8 +146,9 @@ export class JejuGitClient {
     if (options?.perPage) params.set('per_page', options.perPage.toString());
 
     try {
+      // DWS uses /git/:owner/:name/pulls endpoint
       const prs = await this.fetch<JejuGitPullRequest[]>(
-        `/api/v1/repos/${owner}/${name}/pulls?${params}`
+        `/git/${owner}/${name}/pulls?${params}`
       );
 
       // Filter by date range if provided
@@ -182,8 +184,9 @@ export class JejuGitClient {
     if (options?.perPage) params.set('per_page', options.perPage.toString());
 
     try {
+      // DWS uses /git/:owner/:name/issues endpoint
       const issues = await this.fetch<JejuGitIssue[]>(
-        `/api/v1/repos/${owner}/${name}/issues?${params}`
+        `/git/${owner}/${name}/issues?${params}`
       );
 
       // Filter by date range if provided
@@ -219,8 +222,9 @@ export class JejuGitClient {
     if (options?.perPage) params.set('per_page', options.perPage.toString());
 
     try {
+      // DWS uses /git/:owner/:name/commits endpoint
       const commits = await this.fetch<JejuGitCommit[]>(
-        `/api/v1/repos/${owner}/${name}/commits?${params}`
+        `/git/${owner}/${name}/commits?${params}`
       );
 
       // Filter by date range if provided
@@ -241,7 +245,8 @@ export class JejuGitClient {
 
   async getUser(username: string): Promise<JejuGitUser | null> {
     try {
-      return await this.fetch<JejuGitUser>(`/api/v1/users/${username}`);
+      // DWS uses /git/users endpoint
+      return await this.fetch<JejuGitUser>(`/git/users/${username}/repos`);
     } catch {
       return null;
     }
@@ -257,16 +262,18 @@ export class JejuGitClient {
     if (options?.perPage) params.set('per_page', options.perPage.toString());
 
     try {
-      return await this.fetch<{ total_count: number; items: JejuGitRepository[] }>(
-        `/api/v1/search/repositories?${params}`
-      ).then(data => ({ total: data.total_count, items: data.items }));
+      // DWS uses /git/search/repositories endpoint
+      return await this.fetch<{ total: number; items: JejuGitRepository[] }>(
+        `/git/search/repositories?${params}`
+      );
     } catch {
       return { total: 0, items: [] };
     }
   }
 
   async healthCheck(): Promise<{ status: string }> {
-    return this.fetch<{ status: string }>('/api/v1/health');
+    // DWS uses /git/health endpoint
+    return this.fetch<{ status: string }>('/git/health');
   }
 }
 

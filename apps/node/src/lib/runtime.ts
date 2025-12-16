@@ -230,13 +230,84 @@ function createBrowserAPI(): RuntimeAPI {
 
     async getBalance(address: string): Promise<BalanceResult> {
       const client = createNodeClient(config.rpcUrl, config.chainId);
-      const balance = await client.publicClient.getBalance({ address: address as `0x${string}` });
+      const ethBalance = await client.publicClient.getBalance({ address: address as `0x${string}` });
+      
+      // ERC-20 balanceOf ABI
+      const ERC20_ABI = [
+        {
+          name: 'balanceOf',
+          type: 'function',
+          stateMutability: 'view',
+          inputs: [{ name: 'account', type: 'address' }],
+          outputs: [{ name: '', type: 'uint256' }],
+        },
+      ] as const;
+
+      // Read Jeju token balance from environment or deployment
+      const jejuTokenAddress = process.env.JEJU_TOKEN_ADDRESS || config.jejuTokenAddress;
+      const stakingManagerAddress = process.env.NODE_STAKING_MANAGER || config.stakingManagerAddress;
+      
+      let jejuBalance = 0n;
+      let stakedBalance = 0n;
+      let pendingRewards = 0n;
+
+      if (jejuTokenAddress) {
+        try {
+          jejuBalance = await client.publicClient.readContract({
+            address: jejuTokenAddress as `0x${string}`,
+            abi: ERC20_ABI,
+            functionName: 'balanceOf',
+            args: [address as `0x${string}`],
+          });
+        } catch {
+          // Token contract not deployed yet
+        }
+      }
+
+      if (stakingManagerAddress) {
+        try {
+          // NodeStakingManager ABI for staking queries
+          const STAKING_ABI = [
+            {
+              name: 'getStake',
+              type: 'function',
+              stateMutability: 'view',
+              inputs: [{ name: 'staker', type: 'address' }],
+              outputs: [{ name: '', type: 'uint256' }],
+            },
+            {
+              name: 'pendingRewards',
+              type: 'function',
+              stateMutability: 'view',
+              inputs: [{ name: 'staker', type: 'address' }],
+              outputs: [{ name: '', type: 'uint256' }],
+            },
+          ] as const;
+
+          [stakedBalance, pendingRewards] = await Promise.all([
+            client.publicClient.readContract({
+              address: stakingManagerAddress as `0x${string}`,
+              abi: STAKING_ABI,
+              functionName: 'getStake',
+              args: [address as `0x${string}`],
+            }),
+            client.publicClient.readContract({
+              address: stakingManagerAddress as `0x${string}`,
+              abi: STAKING_ABI,
+              functionName: 'pendingRewards',
+              args: [address as `0x${string}`],
+            }),
+          ]);
+        } catch {
+          // Staking manager not deployed yet
+        }
+      }
       
       return {
-        eth: balance,
-        jeju: 0n, // TODO: Read from token contract
-        staked: 0n,
-        pendingRewards: 0n,
+        eth: ethBalance,
+        jeju: jejuBalance,
+        staked: stakedBalance,
+        pendingRewards,
       };
     },
 

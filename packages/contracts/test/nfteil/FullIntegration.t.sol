@@ -156,6 +156,10 @@ contract MockOracle is IOracle {
         return attestations[orderId];
     }
 
+    function getAttestationBlock(bytes32 orderId) external view override returns (uint256) {
+        return attestationBlocks[orderId];
+    }
+
     function getAttestation(bytes32 orderId) external view override returns (bytes memory) {
         return attestationData[orderId];
     }

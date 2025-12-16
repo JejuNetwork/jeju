@@ -11,7 +11,9 @@
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
-import { ethers } from 'ethers';
+import { createPublicClient, createWalletClient, http, parseAbi, readContract, writeContract, waitForTransactionReceipt, getLogs, decodeEventLog, formatEther, parseEther, keccak256, encodePacked, toBytes, signMessage, zeroAddress, getBalance, type Address } from 'viem';
+import { privateKeyToAccount, signMessage as signMsg } from 'viem/accounts';
+import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 
@@ -78,23 +80,27 @@ const PAYMASTER_ABI = [
 ];
 
 describe('EIL Flow Integration Tests', () => {
-  let l1Provider: ethers.JsonRpcProvider;
-  let l2Provider: ethers.JsonRpcProvider;
-  let xlpL1: ethers.Wallet;
-  let xlpL2: ethers.Wallet;
-  let user: ethers.Wallet;
-  let deployer: ethers.Wallet;
+  let l1PublicClient: ReturnType<typeof createPublicClient>;
+  let l2PublicClient: ReturnType<typeof createPublicClient>;
+  let l1WalletClient: ReturnType<typeof createWalletClient>;
+  let l2WalletClient: ReturnType<typeof createWalletClient>;
+  let xlpL1: ReturnType<typeof privateKeyToAccount>;
+  let xlpL2: ReturnType<typeof privateKeyToAccount>;
+  let user: ReturnType<typeof privateKeyToAccount>;
+  let deployer: ReturnType<typeof privateKeyToAccount>;
   let eilConfig: EILConfig;
   let isLocalnetRunning = false;
 
   beforeAll(async () => {
     // Check if localnet is running
-    l1Provider = new ethers.JsonRpcProvider(L1_RPC);
-    l2Provider = new ethers.JsonRpcProvider(L2_RPC);
+    const l1Chain = inferChainFromRpcUrl(L1_RPC);
+    const l2Chain = inferChainFromRpcUrl(L2_RPC);
+    l1PublicClient = createPublicClient({ chain: l1Chain, transport: http(L1_RPC) });
+    l2PublicClient = createPublicClient({ chain: l2Chain, transport: http(L2_RPC) });
     
     try {
-      await l1Provider.getBlockNumber();
-      await l2Provider.getBlockNumber();
+      await l1PublicClient.getBlockNumber();
+      await l2PublicClient.getBlockNumber();
       isLocalnetRunning = true;
     } catch {
       console.warn('Localnet not running, skipping EIL tests');
@@ -110,11 +116,14 @@ describe('EIL Flow Integration Tests', () => {
     
     eilConfig = config;
     
-    // Setup wallets
-    xlpL1 = new ethers.Wallet(ANVIL_KEY_0, l1Provider);
-    xlpL2 = new ethers.Wallet(ANVIL_KEY_0, l2Provider);
-    user = new ethers.Wallet(ANVIL_KEY_1, l2Provider);
-    deployer = new ethers.Wallet(DEPLOYER_KEY, l2Provider);
+    // Setup accounts
+    xlpL1 = privateKeyToAccount(ANVIL_KEY_0 as `0x${string}`);
+    xlpL2 = privateKeyToAccount(ANVIL_KEY_0 as `0x${string}`);
+    user = privateKeyToAccount(ANVIL_KEY_1 as `0x${string}`);
+    deployer = privateKeyToAccount(DEPLOYER_KEY as `0x${string}`);
+    
+    l1WalletClient = createWalletClient({ chain: l1Chain, transport: http(L1_RPC), account: xlpL1 });
+    l2WalletClient = createWalletClient({ chain: l2Chain, transport: http(L2_RPC), account: xlpL2 });
   });
 
   test('should have valid deployment config', async () => {
@@ -127,23 +136,33 @@ describe('EIL Flow Integration Tests', () => {
   test('should register XLP on L1', async () => {
     if (!isLocalnetRunning) return;
     
-    const stakeManager = new ethers.Contract(
-      eilConfig.l1StakeManager,
-      L1_STAKE_MANAGER_ABI,
-      xlpL1
-    );
+    const stakeManagerAbi = parseAbi(L1_STAKE_MANAGER_ABI);
     
     // Check if already registered
-    const isRegistered = await stakeManager.isXLPActive(xlpL1.address);
+    const isRegistered = await readContract(l1PublicClient, {
+      address: eilConfig.l1StakeManager as Address,
+      abi: stakeManagerAbi,
+      functionName: 'isXLPActive',
+      args: [xlpL1.address],
+    });
     
     if (!isRegistered) {
-      const tx = await stakeManager.register([1337, 1], {
-        value: ethers.parseEther('10')
+      const hash = await l1WalletClient.writeContract({
+        address: eilConfig.l1StakeManager as Address,
+        abi: stakeManagerAbi,
+        functionName: 'register',
+        args: [[1337n, 1n]],
+        value: parseEther('10'),
       });
-      await tx.wait();
+      await waitForTransactionReceipt(l1PublicClient, { hash });
     }
     
-    const stake = await stakeManager.getStake(xlpL1.address);
+    const stake = await readContract(l1PublicClient, {
+      address: eilConfig.l1StakeManager as Address,
+      abi: stakeManagerAbi,
+      functionName: 'getStake',
+      args: [xlpL1.address],
+    });
     expect(stake.isActive).toBe(true);
     expect(stake.stakedAmount).toBeGreaterThan(0n);
   });
@@ -151,224 +170,306 @@ describe('EIL Flow Integration Tests', () => {
   test('should update XLP stake on L2 paymaster (simulated cross-chain msg)', async () => {
     if (!isLocalnetRunning) return;
     
-    const paymaster = new ethers.Contract(
-      eilConfig.crossChainPaymaster,
-      PAYMASTER_ABI,
-      deployer
-    );
+    const paymasterAbi = parseAbi(PAYMASTER_ABI);
+    const deployerWalletClient = createWalletClient({ chain: inferChainFromRpcUrl(L2_RPC), transport: http(L2_RPC), account: deployer });
     
     // Update stake (simulates cross-chain message)
-    const tx = await paymaster.updateXLPStake(xlpL2.address, ethers.parseEther('10'));
-    await tx.wait();
+    const hash = await deployerWalletClient.writeContract({
+      address: eilConfig.crossChainPaymaster as Address,
+      abi: paymasterAbi,
+      functionName: 'updateXLPStake',
+      args: [xlpL2.address, parseEther('10')],
+    });
+    await waitForTransactionReceipt(l2PublicClient, { hash });
     
-    const stake = await paymaster.xlpVerifiedStake(xlpL2.address);
-    expect(stake).toBe(ethers.parseEther('10'));
+    const stake = await readContract(l2PublicClient, {
+      address: eilConfig.crossChainPaymaster as Address,
+      abi: paymasterAbi,
+      functionName: 'xlpVerifiedStake',
+      args: [xlpL2.address],
+    });
+    expect(stake).toBe(parseEther('10'));
   });
 
   test('should deposit XLP liquidity on L2', async () => {
     if (!isLocalnetRunning) return;
     
-    const paymaster = new ethers.Contract(
-      eilConfig.crossChainPaymaster,
-      PAYMASTER_ABI,
-      xlpL2
-    );
+    const paymasterAbi = parseAbi(PAYMASTER_ABI);
+    const xlpL2WalletClient = createWalletClient({ chain: inferChainFromRpcUrl(L2_RPC), transport: http(L2_RPC), account: xlpL2 });
     
     // Deposit 10 ETH
-    const tx = await paymaster.depositETH({
-      value: ethers.parseEther('10')
+    const hash = await xlpL2WalletClient.writeContract({
+      address: eilConfig.crossChainPaymaster as Address,
+      abi: paymasterAbi,
+      functionName: 'depositETH',
+      value: parseEther('10'),
     });
-    await tx.wait();
+    await waitForTransactionReceipt(l2PublicClient, { hash });
     
-    const balance = await paymaster.getXLPETH(xlpL2.address);
-    expect(balance).toBeGreaterThanOrEqual(ethers.parseEther('10'));
+    const balance = await readContract(l2PublicClient, {
+      address: eilConfig.crossChainPaymaster as Address,
+      abi: paymasterAbi,
+      functionName: 'getXLPETH',
+      args: [xlpL2.address],
+    });
+    expect(balance).toBeGreaterThanOrEqual(parseEther('10'));
   });
 
   test('should create voucher request', async () => {
     if (!isLocalnetRunning) return;
     
-    const paymaster = new ethers.Contract(
-      eilConfig.crossChainPaymaster,
-      PAYMASTER_ABI,
-      user
-    );
+    const paymasterAbi = parseAbi(PAYMASTER_ABI);
+    const userWalletClient = createWalletClient({ chain: inferChainFromRpcUrl(L2_RPC), transport: http(L2_RPC), account: user });
     
     // Create request for 0.5 ETH transfer to a DIFFERENT chain (1 = Ethereum mainnet)
-    const amount = ethers.parseEther('0.5');
-    const maxFee = ethers.parseEther('0.1');
-    const feeIncrement = ethers.parseEther('0.01');
+    const amount = parseEther('0.5');
+    const maxFee = parseEther('0.1');
+    const feeIncrement = parseEther('0.01');
     const gasOnDestination = 21000n;
     
-    const tx = await paymaster.createVoucherRequest(
-      ethers.ZeroAddress, // ETH
-      amount,
-      ethers.ZeroAddress, // Destination token (ETH)
-      1, // Destination chain (Ethereum mainnet - different from source)
-      user.address, // Recipient
-      gasOnDestination,
-      maxFee,
-      feeIncrement,
-      { value: amount + maxFee }
-    );
+    const hash = await userWalletClient.writeContract({
+      address: eilConfig.crossChainPaymaster as Address,
+      abi: paymasterAbi,
+      functionName: 'createVoucherRequest',
+      args: [
+        zeroAddress, // ETH
+        amount,
+        zeroAddress, // Destination token (ETH)
+        1n, // Destination chain (Ethereum mainnet - different from source)
+        user.address, // Recipient
+        gasOnDestination,
+        maxFee,
+        feeIncrement,
+      ],
+      value: amount + maxFee,
+    });
     
-    const receipt = await tx.wait();
-    expect(receipt?.status).toBe(1);
+    const receipt = await waitForTransactionReceipt(l2PublicClient, { hash });
+    expect(receipt.status).toBe('success');
     
     // Parse request ID from event
-    const iface = new ethers.Interface(PAYMASTER_ABI);
-    const event = receipt?.logs.find(log => {
-      try {
-        const parsed = iface.parseLog({ topics: [...log.topics], data: log.data });
-        return parsed?.name === 'VoucherRequested';
-      } catch { return false; }
+    const logs = await getLogs(l2PublicClient, {
+      address: eilConfig.crossChainPaymaster as Address,
+      abi: paymasterAbi,
+      eventName: 'VoucherRequested',
+      fromBlock: receipt.blockNumber,
+      toBlock: receipt.blockNumber,
     });
-    expect(event).toBeDefined();
+    expect(logs.length).toBeGreaterThan(0);
   });
 
   test('should issue voucher (XLP commits)', async () => {
     if (!isLocalnetRunning) return;
     
-    const paymaster = new ethers.Contract(
-      eilConfig.crossChainPaymaster,
-      PAYMASTER_ABI,
-      user
-    );
+    const paymasterAbi = parseAbi(PAYMASTER_ABI);
+    const userWalletClient = createWalletClient({ chain: inferChainFromRpcUrl(L2_RPC), transport: http(L2_RPC), account: user });
+    const xlpL2WalletClient = createWalletClient({ chain: inferChainFromRpcUrl(L2_RPC), transport: http(L2_RPC), account: xlpL2 });
     
     // Create a new request (to different chain)
-    const amount = ethers.parseEther('0.3');
-    const maxFee = ethers.parseEther('0.05');
-    const feeIncrement = ethers.parseEther('0.001');
-    const destChainId = 1; // Ethereum mainnet
+    const amount = parseEther('0.3');
+    const maxFee = parseEther('0.05');
+    const feeIncrement = parseEther('0.001');
+    const destChainId = 1n; // Ethereum mainnet
     
-    const tx = await paymaster.createVoucherRequest(
-      ethers.ZeroAddress,
-      amount,
-      ethers.ZeroAddress,
-      destChainId,
-      user.address,
-      21000n,
-      maxFee,
-      feeIncrement,
-      { value: amount + maxFee }
-    );
+    const hash = await userWalletClient.writeContract({
+      address: eilConfig.crossChainPaymaster as Address,
+      abi: paymasterAbi,
+      functionName: 'createVoucherRequest',
+      args: [
+        zeroAddress,
+        amount,
+        zeroAddress,
+        destChainId,
+        user.address,
+        21000n,
+        maxFee,
+        feeIncrement,
+      ],
+      value: amount + maxFee,
+    });
     
-    const receipt = await tx.wait();
+    const receipt = await waitForTransactionReceipt(l2PublicClient, { hash });
     
     // Get request ID from event
-    const iface = new ethers.Interface(PAYMASTER_ABI);
-    const event = receipt?.logs.find(log => {
-      try {
-        const parsed = iface.parseLog({ topics: [...log.topics], data: log.data });
-        return parsed?.name === 'VoucherRequested';
-      } catch { return false; }
+    const logs = await getLogs(l2PublicClient, {
+      address: eilConfig.crossChainPaymaster as Address,
+      abi: paymasterAbi,
+      eventName: 'VoucherRequested',
+      fromBlock: receipt.blockNumber,
+      toBlock: receipt.blockNumber,
     });
-    const requestId = event?.topics[1] as string;
+    const decoded = decodeEventLog({
+      abi: paymasterAbi,
+      eventName: 'VoucherRequested',
+      topics: logs[0].topics,
+      data: logs[0].data,
+    });
+    const requestId = decoded.args.requestId;
     
     // Get fee (for next block)
-    const currentFee = await paymaster.getCurrentFee(requestId);
+    const currentFee = await readContract(l2PublicClient, {
+      address: eilConfig.crossChainPaymaster as Address,
+      abi: paymasterAbi,
+      functionName: 'getCurrentFee',
+      args: [requestId],
+    });
     const nextBlockFee = currentFee + feeIncrement;
     
     // Create commitment hash
-    const commitment = ethers.solidityPackedKeccak256(
-      ['bytes32', 'address', 'uint256', 'uint256', 'uint256'],
-      [requestId, xlpL2.address, amount, nextBlockFee, destChainId]
+    const commitment = keccak256(
+      encodePacked(
+        ['bytes32', 'address', 'uint256', 'uint256', 'uint256'],
+        [requestId, xlpL2.address, amount, nextBlockFee, destChainId]
+      )
     );
     
     // Sign with EIP-191 prefix
-    const signature = await xlpL2.signMessage(ethers.getBytes(commitment));
+    const signature = await signMsg(xlpL2, { message: { raw: commitment } });
     
     // XLP issues voucher
-    const xlpPaymaster = paymaster.connect(xlpL2);
-    const issueTx = await xlpPaymaster.issueVoucher(requestId, signature);
-    const issueReceipt = await issueTx.wait();
+    const issueHash = await xlpL2WalletClient.writeContract({
+      address: eilConfig.crossChainPaymaster as Address,
+      abi: paymasterAbi,
+      functionName: 'issueVoucher',
+      args: [requestId, signature],
+    });
+    const issueReceipt = await waitForTransactionReceipt(l2PublicClient, { hash: issueHash });
     
-    expect(issueReceipt?.status).toBe(1);
+    expect(issueReceipt.status).toBe('success');
     
     // Verify request is claimed
-    const request = await paymaster.getRequest(requestId);
+    const request = await readContract(l2PublicClient, {
+      address: eilConfig.crossChainPaymaster as Address,
+      abi: paymasterAbi,
+      functionName: 'getRequest',
+      args: [requestId],
+    });
     expect(request.claimed).toBe(true);
   });
 
   test('should allow XLP to claim source funds after fulfillment', async () => {
     if (!isLocalnetRunning) return;
     
-    const paymaster = new ethers.Contract(
-      eilConfig.crossChainPaymaster,
-      PAYMASTER_ABI,
-      user
-    );
+    const paymasterAbi = parseAbi(PAYMASTER_ABI);
+    const userWalletClient = createWalletClient({ chain: inferChainFromRpcUrl(L2_RPC), transport: http(L2_RPC), account: user });
+    const xlpL2WalletClient = createWalletClient({ chain: inferChainFromRpcUrl(L2_RPC), transport: http(L2_RPC), account: xlpL2 });
+    const deployerWalletClient = createWalletClient({ chain: inferChainFromRpcUrl(L2_RPC), transport: http(L2_RPC), account: deployer });
     
     // Create request (to different chain)
-    const amount = ethers.parseEther('0.2');
-    const maxFee = ethers.parseEther('0.02');
-    const feeIncrement = ethers.parseEther('0.001');
-    const destChainId = 1; // Ethereum mainnet
+    const amount = parseEther('0.2');
+    const maxFee = parseEther('0.02');
+    const feeIncrement = parseEther('0.001');
+    const destChainId = 1n; // Ethereum mainnet
     
-    const tx = await paymaster.createVoucherRequest(
-      ethers.ZeroAddress,
-      amount,
-      ethers.ZeroAddress,
-      destChainId,
-      user.address,
-      21000n,
-      maxFee,
-      feeIncrement,
-      { value: amount + maxFee }
-    );
-    
-    const receipt = await tx.wait();
-    
-    const iface = new ethers.Interface(PAYMASTER_ABI);
-    const event = receipt?.logs.find(log => {
-      try {
-        const parsed = iface.parseLog({ topics: [...log.topics], data: log.data });
-        return parsed?.name === 'VoucherRequested';
-      } catch { return false; }
+    const hash = await userWalletClient.writeContract({
+      address: eilConfig.crossChainPaymaster as Address,
+      abi: paymasterAbi,
+      functionName: 'createVoucherRequest',
+      args: [
+        zeroAddress,
+        amount,
+        zeroAddress,
+        destChainId,
+        user.address,
+        21000n,
+        maxFee,
+        feeIncrement,
+      ],
+      value: amount + maxFee,
     });
-    const requestId = event?.topics[1] as string;
+    
+    const receipt = await waitForTransactionReceipt(l2PublicClient, { hash });
+    
+    const logs = await getLogs(l2PublicClient, {
+      address: eilConfig.crossChainPaymaster as Address,
+      abi: paymasterAbi,
+      eventName: 'VoucherRequested',
+      fromBlock: receipt.blockNumber,
+      toBlock: receipt.blockNumber,
+    });
+    const decoded = decodeEventLog({
+      abi: paymasterAbi,
+      eventName: 'VoucherRequested',
+      topics: logs[0].topics,
+      data: logs[0].data,
+    });
+    const requestId = decoded.args.requestId;
     
     // Get fee
-    const currentFee = await paymaster.getCurrentFee(requestId);
+    const currentFee = await readContract(l2PublicClient, {
+      address: eilConfig.crossChainPaymaster as Address,
+      abi: paymasterAbi,
+      functionName: 'getCurrentFee',
+      args: [requestId],
+    });
     const nextBlockFee = currentFee + feeIncrement;
     
     // Create signature
-    const commitment = ethers.solidityPackedKeccak256(
-      ['bytes32', 'address', 'uint256', 'uint256', 'uint256'],
-      [requestId, xlpL2.address, amount, nextBlockFee, destChainId]
+    const commitment = keccak256(
+      encodePacked(
+        ['bytes32', 'address', 'uint256', 'uint256', 'uint256'],
+        [requestId, xlpL2.address, amount, nextBlockFee, destChainId]
+      )
     );
-    const signature = await xlpL2.signMessage(ethers.getBytes(commitment));
+    const signature = await signMsg(xlpL2, { message: { raw: commitment } });
     
     // Issue voucher
-    const xlpPaymaster = paymaster.connect(xlpL2);
-    const issueTx = await xlpPaymaster.issueVoucher(requestId, signature);
-    const issueReceipt = await issueTx.wait();
+    const issueHash = await xlpL2WalletClient.writeContract({
+      address: eilConfig.crossChainPaymaster as Address,
+      abi: paymasterAbi,
+      functionName: 'issueVoucher',
+      args: [requestId, signature],
+    });
+    const issueReceipt = await waitForTransactionReceipt(l2PublicClient, { hash: issueHash });
     
     // Get voucher ID from event
-    const issueEvent = issueReceipt?.logs.find(log => {
-      try {
-        const parsed = iface.parseLog({ topics: [...log.topics], data: log.data });
-        return parsed?.name === 'VoucherIssued';
-      } catch { return false; }
+    const issueLogs = await getLogs(l2PublicClient, {
+      address: eilConfig.crossChainPaymaster as Address,
+      abi: paymasterAbi,
+      eventName: 'VoucherIssued',
+      fromBlock: issueReceipt.blockNumber,
+      toBlock: issueReceipt.blockNumber,
     });
-    const voucherId = issueEvent?.topics[1] as string;
+    const issueDecoded = decodeEventLog({
+      abi: paymasterAbi,
+      eventName: 'VoucherIssued',
+      topics: issueLogs[0].topics,
+      data: issueLogs[0].data,
+    });
+    const voucherId = issueDecoded.args.voucherId;
     
     // Mark voucher as fulfilled (simulates cross-chain verification)
-    const ownerPaymaster = paymaster.connect(deployer);
-    await (await ownerPaymaster.markVoucherFulfilled(voucherId)).wait();
+    const fulfillHash = await deployerWalletClient.writeContract({
+      address: eilConfig.crossChainPaymaster as Address,
+      abi: paymasterAbi,
+      functionName: 'markVoucherFulfilled',
+      args: [voucherId],
+    });
+    await waitForTransactionReceipt(l2PublicClient, { hash: fulfillHash });
     
     // Advance blocks past claim delay (150 blocks)
     for (let i = 0; i < 151; i++) {
-      await l2Provider.send('evm_mine', []);
+      await l2PublicClient.request({ method: 'evm_mine', params: [] });
     }
     
     // XLP claims source funds
-    const xlpBalanceBefore = await l2Provider.getBalance(xlpL2.address);
-    const claimTx = await xlpPaymaster.claimSourceFunds(voucherId);
-    await claimTx.wait();
-    const xlpBalanceAfter = await l2Provider.getBalance(xlpL2.address);
+    const xlpBalanceBefore = await getBalance(l2PublicClient, { address: xlpL2.address });
+    const claimHash = await xlpL2WalletClient.writeContract({
+      address: eilConfig.crossChainPaymaster as Address,
+      abi: paymasterAbi,
+      functionName: 'claimSourceFunds',
+      args: [voucherId],
+    });
+    await waitForTransactionReceipt(l2PublicClient, { hash: claimHash });
+    const xlpBalanceAfter = await getBalance(l2PublicClient, { address: xlpL2.address });
     
     // Verify voucher is claimed
-    const voucher = await paymaster.vouchers(voucherId);
+    const voucher = await readContract(l2PublicClient, {
+      address: eilConfig.crossChainPaymaster as Address,
+      abi: paymasterAbi,
+      functionName: 'vouchers',
+      args: [voucherId],
+    });
     expect(voucher.claimed).toBe(true);
   });
 });

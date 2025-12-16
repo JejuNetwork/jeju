@@ -65,63 +65,14 @@ resources:
 # MEV + LP Bot configuration
 bot:
   enabled: true
-  # Strategy toggles
   enableArbitrage: true
   enableCrossChain: true
-  enableSolanaArb: false
+  enableSolanaArb: false  # Disabled by default, enable for Solana networks
   enableLiquidity: true
-  enableTFMM: true
-  
-  # Solana configuration
   solanaRpcUrl: ""
   solanaNetwork: "mainnet-beta"
-  
-  # Cross-chain arbitrage
-  crossChain:
-    minProfitBps: 50
-    minProfitUsd: 10
-    maxSlippageBps: 100
-    maxPositionUsd: 50000
-    bridgeTimeoutSeconds: 300
-    enabledChains: "1,8453,42161,10,56"
-    enableExecution: false
-  
-  # TFMM (Temporal Function Market Maker)
-  tfmm:
-    updateIntervalMs: 300000
-    minConfidenceThreshold: 0.3
-    maxGasPriceGwei: 100
-    gasBuffer: 1.2
-    blocksToTarget: 300
-    # Risk parameters
-    minWeightBps: 500
-    maxWeightBps: 9500
-    maxWeightChangeBps: 500
-    minUpdateBlocks: 10
-    oracleStalenessSeconds: 60
-    maxPriceDeviationBps: 500
-  
-  # Strategy weights for composite strategy
-  strategies:
-    momentumWeight: 0.4
-    meanReversionWeight: 0.3
-    volatilityWeight: 0.3
-    enableRegimeDetection: true
-  
-  # Fee configuration (governance-controlled)
-  fees:
-    standard:
-      swapFeeBps: 30
-      protocolFeeBps: 1000
-    stable:
-      swapFeeBps: 5
-      protocolFeeBps: 1000
-    premium:
-      swapFeeBps: 50
-      protocolFeeBps: 1500
-    experimental:
-      swapFeeBps: 100
-      protocolFeeBps: 2000
+  minProfitBps: 50
+  maxSlippageBps: 100
 
 autoscaling:
   enabled: false

@@ -211,7 +211,7 @@ describe('Default Bots Configuration', () => {
     });
 
     test('should map chain IDs to chain configs correctly', () => {
-      const config = { ...testBotConfig, chains: [1, 42161, 10, 8453] };
+      const config = { ...testBotConfig, chains: [1, 42161, 10, 8453] as ChainId[] };
       const options = createTradingBotOptions(
         config,
         1n,

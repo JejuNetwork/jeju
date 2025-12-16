@@ -5,13 +5,16 @@
  * - Run ZKSolBridge relayer
  * - Participate as XLP (Cross-chain Liquidity Provider)
  * - Act as OIF solver
- * - Earn fees from cross-chain transfers
+ * - Detect and execute cross-chain arbitrage
+ * - Capture MEV on Solana via Jito
  * 
  * Revenue streams:
  * - Bridge fees (0.1-0.3% per transfer)
  * - XLP liquidity provision fees
  * - Solver fees for intent fulfillment
- * - MEV/arbitrage opportunities
+ * - Cross-chain arbitrage profits
+ * - Solana MEV (Jito bundles)
+ * - Hyperliquid orderbook arbitrage
  */
 
 import type { Address, Hex } from 'viem';
@@ -42,10 +45,20 @@ export interface BridgeServiceConfig {
   enableXLP: boolean;
   enableSolver: boolean;
   enableMEV: boolean;
+  enableArbitrage: boolean;
   
   // Liquidity settings
   xlpChains?: number[];
   minLiquidity?: bigint;
+  
+  // Arbitrage settings
+  minArbProfitBps?: number;
+  maxArbPositionUsd?: number;
+  arbTokens?: string[];
+  
+  // Solana MEV settings
+  solanaRpcUrl?: string;
+  jitoTipLamports?: bigint;
   
   // Risk settings
   maxTransferSize?: bigint;
@@ -60,6 +73,25 @@ export interface BridgeStats {
   activeChains: number[];
   uptime: number;
   lastTransferAt: number;
+  // Arbitrage stats
+  arbOpportunitiesDetected: number;
+  arbTradesExecuted: number;
+  arbProfitUsd: number;
+  // MEV stats
+  jitoBundlesSubmitted: number;
+  jitoBundlesLanded: number;
+  mevProfitUsd: number;
+}
+
+export interface ArbOpportunity {
+  id: string;
+  type: 'solana_evm' | 'hyperliquid' | 'cross_dex';
+  buyChain: string;
+  sellChain: string;
+  token: string;
+  priceDiffBps: number;
+  netProfitUsd: number;
+  expiresAt: number;
 }
 
 export interface TransferEvent {

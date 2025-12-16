@@ -57,6 +57,7 @@ const HD_PATHS = {
 class KeyringService {
   private accounts: Map<Address, Account> = new Map();
   private encryptedMnemonics: Map<string, string> = new Map(); // walletId -> encrypted mnemonic
+  private hdAccountToWallet: Map<Address, string> = new Map(); // address -> walletId for HD accounts
   private encryptedPrivateKeys: Map<Address, string> = new Map();
   private isLocked = true;
   private sessionKey: CryptoKey | null = null;
@@ -96,6 +97,7 @@ class KeyringService {
     const walletId = crypto.randomUUID();
     const encrypted = await this.encrypt(mnemonic, password);
     this.encryptedMnemonics.set(walletId, encrypted);
+    this.hdAccountToWallet.set(account.address, walletId);
     
     const hdAccount: HDAccount = {
       address: account.address,
@@ -129,6 +131,7 @@ class KeyringService {
     const walletId = crypto.randomUUID();
     const encrypted = await this.encrypt(mnemonic, password);
     this.encryptedMnemonics.set(walletId, encrypted);
+    this.hdAccountToWallet.set(account.address, walletId);
     
     const hdAccount: HDAccount = {
       address: account.address,

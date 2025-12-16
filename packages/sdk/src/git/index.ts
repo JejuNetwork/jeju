@@ -340,15 +340,16 @@ export class JejuGitSDK {
     if (options?.sort) params.set('sort', options.sort);
     if (options?.visibility) params.set('visibility', options.visibility);
 
-    const response = await fetch(`${this.config.gitServerUrl}/api/v1/repos?${params}`);
+    // DWS uses /git/repos endpoint
+    const response = await fetch(`${this.config.gitServerUrl}/git/repos?${params}`);
     if (!response.ok) throw new Error(`Failed to list repositories: ${response.statusText}`);
     
-    const data = await response.json() as { total_count: number; items: Repository[] };
-    return { total: data.total_count, items: data.items };
+    const data = await response.json() as { repositories: Repository[]; total: number };
+    return { total: data.total, items: data.repositories };
   }
 
   async getRepository(owner: string, repo: string): Promise<Repository> {
-    const response = await fetch(`${this.config.gitServerUrl}/api/v1/repos/${owner}/${repo}`);
+    const response = await fetch(`${this.config.gitServerUrl}/git/repos/${owner}/${repo}`);
     if (!response.ok) throw new Error(`Failed to get repository: ${response.statusText}`);
     return response.json() as Promise<Repository>;
   }
@@ -360,11 +361,11 @@ export class JejuGitSDK {
     defaultBranch?: string;
     topics?: string[];
   }, authToken: string): Promise<Repository> {
-    const response = await fetch(`${this.config.gitServerUrl}/api/v1/repos`, {
+    const response = await fetch(`${this.config.gitServerUrl}/git/repos`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`,
+        'x-jeju-address': authToken, // DWS uses x-jeju-address header
       },
       body: JSON.stringify(options),
     });
@@ -643,10 +644,10 @@ export class JejuGitSDK {
 
   // Health check
 
-  async healthCheck(): Promise<{ status: string; storageBackend: string }> {
-    const response = await fetch(`${this.config.gitServerUrl}/api/v1/health`);
+  async healthCheck(): Promise<{ status: string; service: string }> {
+    const response = await fetch(`${this.config.gitServerUrl}/git/health`);
     if (!response.ok) throw new Error(`Health check failed: ${response.statusText}`);
-    return response.json() as Promise<{ status: string; storageBackend: string }>;
+    return response.json() as Promise<{ status: string; service: string }>;
   }
 
   // Clone URL helper

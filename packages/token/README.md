@@ -103,7 +103,7 @@ console.log('Synthetic chains:', config.syntheticChains.map(c => c.name));
 
 ```typescript
 import { HyperlaneAdapter } from '@jejunetwork/token';
-import { MAINNET_CHAINS } from '@jejunetwork/token';
+import { MAINNET_CHAINS } from '@jejunetwork/token/config';
 
 const adapter = new HyperlaneAdapter(MAINNET_CHAINS, {});
 

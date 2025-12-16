@@ -194,6 +194,7 @@ export class HistoricalDataFetcher {
       initialPrices: Record<string, number>;
       volatilities: Record<string, number>;
       correlations?: number[][];
+      trend?: number; // Daily drift (e.g., 0.001 for +0.1% per day)
     }
   ): PriceDataPoint[] {
     const dataPoints: PriceDataPoint[] = [];
@@ -215,7 +216,7 @@ export class HistoricalDataFetcher {
       for (let j = 0; j < tokens.length; j++) {
         const token = tokens[j];
         const dailyVol = (params.volatilities[token.symbol] ?? 0.5) / Math.sqrt(365);
-        const drift = 0; // No drift for simplicity
+        const drift = params.trend ?? 0; // Daily drift from trend parameter
         
         // Geometric Brownian motion
         currentPrices[token.symbol] *= Math.exp(

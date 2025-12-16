@@ -2,51 +2,145 @@
  * Deploy Messaging Contracts to the network Localnet
  * 
  * Usage: bun run scripts/deploy-contracts.ts
+ * 
+ * This script:
+ * 1. Compiles contracts using Foundry
+ * 2. Deploys KeyRegistry contract
+ * 3. Writes deployment addresses to JSON
  */
 
 import {
   createPublicClient,
   createWalletClient,
   http,
-  parseAbi,
   parseEther,
   type Address,
   type Hex,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { foundry } from 'viem/chains';
+import { execSync } from 'child_process';
+import { existsSync, mkdirSync } from 'fs';
+import path from 'path';
 
 // ============ Configuration ============
 
 const RPC_URL = process.env.RPC_URL ?? 'http://127.0.0.1:9545';
 const PRIVATE_KEY = process.env.PRIVATE_KEY ?? '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
 
-// network localnet chain config
+// Use IdentityRegistry address from deployed contracts (required for KeyRegistry)
+const IDENTITY_REGISTRY_ADDRESS = process.env.IDENTITY_REGISTRY_ADDRESS as Address | undefined;
+
+// Network localnet chain config
 const jejuLocalnet = {
-  ...foundry,
   id: 1337,
-  name: getLocalnetChain().name,
+  name: 'Jeju Localnet',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
     default: { http: [RPC_URL] },
   },
 };
 
-// ============ Contract Bytecode (Simplified for Demo) ============
+// Paths
+const CONTRACTS_DIR = path.resolve(import.meta.dir, '../contracts');
+const OUT_DIR = path.resolve(CONTRACTS_DIR, 'out');
+const DEPLOYMENTS_DIR = path.resolve(import.meta.dir, '../deployments');
 
-// For the demo, we'll deploy a minimal KeyRegistry
-// In production, compile with Foundry
+// ============ Contract Artifacts ============
 
-const KEY_REGISTRY_BYTECODE = `0x608060405234801561001057600080fd5b50610b8a806100206000396000f3fe608060405234801561001057600080fd5b50600436106100935760003560e01c806394259c6c1161006657806394259c6c1461011e578063b270f6a81461013e578063c8eb28b31461015e578063d4b839921461017e578063f2fde38b1461019e57600080fd5b80630c68ba21146100985780632986c0e5146100be5780635b9dd82c146100de5780638da5cb5b146100fe575b600080fd5b6100ab6100a63660046109a4565b6101be565b6040519081526020015b60405180910390f35b6100d16100cc3660046109a4565b6101df565b6040516100b591906109c6565b6100f16100ec3660046109a4565b61028e565b6040516100b59190610a34565b610106610335565b6040516001600160a01b0390911681526020016100b5565b61013161012c366004610a96565b610344565b6040516100b59190610ad8565b61015161014c366004610b1a565b610392565b6040516100b59190610b3c565b61017161016c3660046109a4565b6103e0565b6040516100b5919a9190610b4f565b61019161018c3660046109a4565b61049a565b6040516100b59190610b62565b6101b16101ac3660046109a4565b6104f3565b6040516100b5919a9190919293949596979899565b60006101c98261055e565b156101d657506001919050565b50600092915050565b6101e76108f2565b6001600160a01b038216600090815260016020818152604092839020835160e081018552815481526002820154928101929092526003810154928201929092526004820154606082015260058201546080820152600682015460a082015260079091015460ff16151560c0820152905b92915050565b6102966108f2565b6001600160a01b038216600090815260016020818152604092839020835160e0810185528154815260028201549281019290925260038101549282019290925260048201546060820152600582015460808201819052600683015460a08301526007909201549092919060ff16151560c08201529050919050565b6000546001600160a01b031690565b61034c61093c565b6001600160a01b0383166000908152600160205260409020600281015460038201546004830154600584015460068501546007909501549495939492939192909160ff9091169086565b61039a61093c565b6001600160a01b0384166000908152600160205260409020600281015460038201546004830154600584015460068501546007909501549495939492939192909160ff9091169086565b600060606000806000806000806000896001600160a01b0316600090815260016020818152604092839020835160e0810185528154815260028201549281019290925260038101549282019290925260048201546060820152600582015460808201819052600683015460a08301526007909201549092919060ff16151560c082015290506000816000015182602001518360400151846060015185608001518660a001518760c00151909192939495969798999a565b6104a26108f2565b6001600160a01b038216600090815260016020818152604092839020835160e081018552815481526002820154928101929092526003810154928201929092526004820154606082015260058201546080820152600682015460a082015260079091015460ff16151560c0820152610257565b600080600080600080600080896001600160a01b0316600090815260016020818152604092839020835160e0810185528154815260028201549281019290925260038101549282019290925260048201546060820152600582015460808201819052600683015460a08301526007909201549092919060ff16151560c082015290506000816000015182602001518360400151846060015185608001518660a001518760c00151909192939495969798999a565b6001600160a01b038116600090815260016020526040812060070154600160ff909116151503610590575060015b919050565b634e487b7160e01b600052604160045260246000fd5b604051601f8201601f1916810167ffffffffffffffff811182821017156105f9576105f96105b7565b604052919050565b80356001600160a01b038116811461059057600080fd5b600082601f83011261062957600080fd5b813567ffffffffffffffff811115610643576106436105b7565b610656601f8201601f19166020016105cd565b81815284602083860101111561066b57600080fd5b816020850160208301376000918101602001919091529392505050565b600080600080600060a0868803121561069f57600080fd5b6106a886610601565b94506020860135935060408601359250606086013567ffffffffffffffff808211156106d357600080fd5b6106df89838a01610618565b935060808801359150808211156106f557600080fd5b5061070288828901610618565b9150509295509295909350565b60006020828403121561072157600080fd5b61072a82610601565b9392505050565b60005b8381101561074c578181015183820152602001610734565b50506000910152565b6000815180845261076d816020860160208601610731565b601f01601f19169290920160200192915050565b805182526020810151602083015260408101516040830152606081015160608301526080810151608083015260a081015160a083015260c0810151151560c08301525050565b60e0810161025f8284610781565b6000602082840312156107e757600080fd5b5035919050565b602081526000610257602083018461075b565b60008083601f84011261081357600080fd5b50813567ffffffffffffffff81111561082b57600080fd5b6020830191508360208260051b850101111561084657600080fd5b9250929050565b6000806000604084860312156108625760006000fd5b8335925060208401356001600160a01b038116811461088057600080fd5b929590945092505050565b6000806000604084860312156108a057600080fd5b6108a984610601565b9250602084013567ffffffffffffffff8111156108c557600080fd5b6108d186828701610801565b9497909650939450505050565b634e487b7160e01b600052602160045260246000fd5b6040516080810167ffffffffffffffff81118282101715610917576109176105b7565b60405290565b60405160e0810167ffffffffffffffff81118282101715610917576109176105b7565b6040805190810167ffffffffffffffff81118282101715610917576109176105b7565b60006020828403121561097157600080fd5b61072a82610601565b60008151808452610992816020860160208601610731565b601f01601f19169290920160200192915050565b6000602082840312156109b657600080fd5b61072a82610601565b60208152600061072a602083018461097a565b6001600160a01b0391909116815260200190565b600060208284031215610a0257600080fd5b5035919050565b60e0810161025f8284610781565b805182526020810151602083015260408101516040830152606081015160608301525050565b60808101610257828461a00a565b600081518084526020808501945080840160005b83811015610a7b57815187529582019590820190600101610a5f565b509495945050505050565b60208152600061072a6020830184610a4f565b60008060408385031215610aac57600080fd5b610ab583610601565b946020939093013593505050565b60e0810161025f8284610781565b60c0810161025f8284610a17565b60608101610af08284610a17565b92915050565b60008060408385031215610b0957600080fd5b505080516020909101519092909150565b600080600060608486031215610b2f57600080fd5b610b3884610601565b959460200135945050506040013590565b60208152600061072a602083018461097a565b918252602082015260400190565b60c08101610257828461a00a565b602081526000825160e06020840152610b8760006040850182610a4f565b949350505050565b fea264697066735822122012345678901234567890123456789012345678901234567890123456789012345664736f6c63430008140033`;
+interface ContractArtifact {
+  abi: readonly object[];
+  bytecode: { object: Hex };
+}
 
-// Minimal ERC20 for staking token
-const MOCK_TOKEN_BYTECODE = `0x608060405234801561001057600080fd5b50604051610a3a380380610a3a833981016040819052610030916100fc565b8161003b8382610201565b50806100478282610201565b505050506102c0565b634e487b7160e01b600052604160045260246000fd5b600082601f83011261007757600080fd5b81516001600160401b0381111561009057610090610050565b604051601f8201601f19166020018181106001600160401b03821117156100b9576100b9610050565b6040528181528382602001860101111561010257600080fd5b60005b828110156101215760208186018101518583018201520161010b565b506000918101602001919091529392505050565b6000806040838503121561014857600080fd5b82516001600160401b0381111561015e57600080fd5b61016a85828601610066565b602085015190935090506001600160401b0381111561018857600080fd5b61019485828601610066565b9150509250929050565b600181811c908216806101b257607f821691505b6020821081036101d257634e487b7160e01b600052602260045260246000fd5b50919050565b601f82111561022257806000526020600020601f840160051c810160208510156101ff5750805b601f840160051c820191505b8181101561021f576000815560010161020b565b50505b505050565b81516001600160401b0381111561024057610240610050565b6102548161024e845461019e565b846101d8565b6020601f821160018114610288576000831561027057508285015b600019600385901b1c1916600184901b178555610002565b600085815260208120601f198616915b828110156102b757888601518255602094850194600190920191016102985b50848210156102d45786840151600019600387901b60f8161c191681555b50505050600190811b01905550565b61076b806102cf6000396000f3fe`;
+function loadArtifact(contractName: string): ContractArtifact {
+  const artifactPath = path.join(OUT_DIR, `${contractName}.sol`, `${contractName}.json`);
+  
+  if (!existsSync(artifactPath)) {
+    throw new Error(`Contract artifact not found at ${artifactPath}. Run 'forge build' first.`);
+  }
+  
+  const artifact = require(artifactPath);
+  return {
+    abi: artifact.abi,
+    bytecode: { object: `0x${artifact.bytecode.object.replace(/^0x/, '')}` as Hex },
+  };
+}
+
+// ============ Compile Contracts ============
+
+function compileContracts(): void {
+  console.log('📦 Compiling contracts with Foundry...');
+  
+  if (!existsSync(CONTRACTS_DIR)) {
+    throw new Error(`Contracts directory not found at ${CONTRACTS_DIR}`);
+  }
+  
+  try {
+    execSync('forge build', {
+      cwd: CONTRACTS_DIR,
+      stdio: 'inherit',
+    });
+    console.log('   Compilation successful\n');
+  } catch (error) {
+    throw new Error(`Forge build failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+// ============ Deploy Contract ============
+
+async function deployContract(
+  walletClient: ReturnType<typeof createWalletClient>,
+  publicClient: ReturnType<typeof createPublicClient>,
+  artifact: ContractArtifact,
+  constructorArgs: readonly Hex[] = [],
+  contractName: string,
+): Promise<Address> {
+  console.log(`   Deploying ${contractName}...`);
+  
+  // Encode constructor args
+  const { encodeAbiParameters, parseAbiParameters } = await import('viem');
+  
+  let deployData = artifact.bytecode.object;
+  
+  if (constructorArgs.length > 0) {
+    // Get constructor from ABI
+    const constructor = artifact.abi.find((item): item is { type: 'constructor'; inputs: readonly { type: string; name: string }[] } => 
+      'type' in item && item.type === 'constructor'
+    );
+    
+    if (constructor && constructor.inputs.length > 0) {
+      const encodedArgs = encodeAbiParameters(
+        constructor.inputs as readonly { type: string; name: string }[],
+        constructorArgs,
+      );
+      deployData = `${artifact.bytecode.object}${encodedArgs.slice(2)}` as Hex;
+    }
+  }
+  
+  const hash = await walletClient.deployContract({
+    abi: artifact.abi,
+    bytecode: deployData,
+    args: constructorArgs,
+  });
+  
+  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  
+  if (!receipt.contractAddress) {
+    throw new Error(`${contractName} deployment failed: no contract address in receipt`);
+  }
+  
+  console.log(`   Deployed at: ${receipt.contractAddress}`);
+  return receipt.contractAddress;
+}
 
 // ============ Main Deployment ============
 
 async function main() {
-  console.log('🚀 Deploying Network Messaging Contracts\n');
+  console.log('🚀 Deploying Messaging Contracts\n');
   console.log('RPC URL:', RPC_URL);
+  
+  // Compile contracts first
+  compileContracts();
   
   // Create clients
   const account = privateKeyToAccount(PRIVATE_KEY as Hex);
@@ -65,32 +159,60 @@ async function main() {
   
   // Check balance
   const balance = await publicClient.getBalance({ address: account.address });
-  console.log('Balance:', balance / BigInt(1e18), 'ETH\n');
+  console.log('Balance:', Number(balance) / 1e18, 'ETH\n');
   
-  if (balance < parseEther('1')) {
-    console.error('Insufficient balance for deployment');
-    process.exit(1);
+  if (balance < parseEther('0.1')) {
+    throw new Error('Insufficient balance for deployment. Need at least 0.1 ETH.');
   }
   
-  // ============ Deploy Mock Staking Token ============
+  // Get or deploy IdentityRegistry
+  let identityRegistryAddress = IDENTITY_REGISTRY_ADDRESS;
   
-  console.log('📦 Deploying Mock Staking Token (JEJU)...');
-  
-  // For simplicity, we'll use a pre-deployed token or skip
-  // In production, use the actual JEJU token address
-  const stakingTokenAddress = '0x0000000000000000000000000000000000000000'; // Placeholder
-  
-  console.log('   Using native ETH for staking in demo mode');
-  
-  // ============ Deploy KeyRegistry ============
+  if (!identityRegistryAddress) {
+    console.log('📦 IdentityRegistry address not provided.');
+    console.log('   Set IDENTITY_REGISTRY_ADDRESS env var to use existing deployment.');
+    console.log('   Deploying new IdentityRegistry for testing...\n');
+    
+    // Try to load and deploy IdentityRegistry from packages/contracts
+    const contractsOutDir = path.resolve(import.meta.dir, '../../../contracts/out');
+    const identityRegistryPath = path.join(contractsOutDir, 'IdentityRegistry.sol', 'IdentityRegistry.json');
+    
+    if (existsSync(identityRegistryPath)) {
+      const artifact = require(identityRegistryPath);
+      const identityArtifact: ContractArtifact = {
+        abi: artifact.abi,
+        bytecode: { object: `0x${artifact.bytecode.object.replace(/^0x/, '')}` as Hex },
+      };
+      
+      identityRegistryAddress = await deployContract(
+        walletClient,
+        publicClient,
+        identityArtifact,
+        [],
+        'IdentityRegistry',
+      );
+    } else {
+      throw new Error(
+        'IdentityRegistry artifact not found. Either:\n' +
+        '  1. Set IDENTITY_REGISTRY_ADDRESS to use existing deployment\n' +
+        '  2. Run "forge build" in packages/contracts first'
+      );
+    }
+  }
   
   console.log('\n📦 Deploying KeyRegistry...');
   
-  // Note: In production, use Foundry to compile and deploy
-  // For demo, we'll simulate the deployment
+  // Load KeyRegistry artifact
+  const keyRegistryArtifact = loadArtifact('KeyRegistry');
   
-  console.log('   ⚠️  Demo mode: Contracts should be deployed via Foundry');
-  console.log('   Run: cd packages/contracts && forge script script/DeployMessaging.s.sol --rpc-url $RPC_URL --broadcast');
+  // Deploy KeyRegistry with IdentityRegistry address as constructor arg
+  const keyRegistryAddress = await deployContract(
+    walletClient,
+    publicClient,
+    keyRegistryArtifact,
+    [identityRegistryAddress as Hex],
+    'KeyRegistry',
+  );
   
   // ============ Output Addresses ============
   
@@ -103,9 +225,8 @@ async function main() {
     rpcUrl: RPC_URL,
     deployer: account.address,
     contracts: {
-      keyRegistry: '0x... (deploy via Foundry)',
-      messageNodeRegistry: '0x... (deploy via Foundry)',
-      stakingToken: stakingTokenAddress,
+      identityRegistry: identityRegistryAddress,
+      keyRegistry: keyRegistryAddress,
     },
     timestamp: new Date().toISOString(),
   };
@@ -114,23 +235,41 @@ async function main() {
   
   // ============ Write to File ============
   
-  const outputPath = 'deployments/messaging-localnet.json';
+  if (!existsSync(DEPLOYMENTS_DIR)) {
+    mkdirSync(DEPLOYMENTS_DIR, { recursive: true });
+  }
+  
+  const outputPath = path.join(DEPLOYMENTS_DIR, 'messaging-localnet.json');
   await Bun.write(outputPath, JSON.stringify(deploymentInfo, null, 2));
   console.log(`\n✅ Deployment info written to ${outputPath}`);
   
-  // ============ Instructions ============
+  // ============ Verify Deployment ============
   
-  console.log('\n📝 Next Steps:');
-  console.log('1. Deploy contracts via Foundry:');
-  console.log('   cd packages/contracts');
-  console.log('   forge script script/DeployMessaging.s.sol --rpc-url http://127.0.0.1:9545 --broadcast');
-  console.log('\n2. Update deployment addresses in messaging-localnet.json');
-  console.log('\n3. Start relay node:');
-  console.log('   cd packages/messaging');
-  console.log('   bun run node');
-  console.log('\n4. Run demo:');
-  console.log('   bun run demo');
+  console.log('\n🔍 Verifying deployment...');
+  
+  const keyRegistryVersion = await publicClient.readContract({
+    address: keyRegistryAddress,
+    abi: keyRegistryArtifact.abi,
+    functionName: 'version',
+  });
+  
+  console.log(`   KeyRegistry version: ${keyRegistryVersion}`);
+  
+  const registryAddress = await publicClient.readContract({
+    address: keyRegistryAddress,
+    abi: keyRegistryArtifact.abi,
+    functionName: 'identityRegistry',
+  });
+  
+  if (registryAddress !== identityRegistryAddress) {
+    throw new Error('IdentityRegistry address mismatch in KeyRegistry');
+  }
+  
+  console.log(`   IdentityRegistry linked: ${registryAddress}`);
+  console.log('\n✅ Deployment verified successfully');
 }
 
-main().catch(console.error);
-
+main().catch((error) => {
+  console.error('\n❌ Deployment failed:', error.message);
+  process.exit(1);
+});

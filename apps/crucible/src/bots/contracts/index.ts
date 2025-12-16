@@ -26,12 +26,10 @@ export {
   INPUT_SETTLER_ABI,
   OUTPUT_SETTLER_ABI,
   HYPERLANE_ORACLE_ABI,
-  ORACLE_ABI,
   IntentStatus,
   type SolverProfile,
   type OpenIntent,
   type OIFSolverConfig,
 } from './oif-solver';
-
 
 
