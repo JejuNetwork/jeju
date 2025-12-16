@@ -7,47 +7,18 @@ import {ProviderRegistryBase} from "../registry/ProviderRegistryBase.sol";
 import {ERC8004ProviderMixin} from "../registry/ERC8004ProviderMixin.sol";
 import {ModerationMixin} from "../moderation/ModerationMixin.sol";
 
-/**
- * @title RPCProviderRegistry
- * @author Jeju Network
- * @notice Registry for RPC providers with staking and rate limiting
- * @dev Migrated from RPCStakingManager to use ProviderRegistryBase pattern.
- *      Now consistent with ComputeRegistry and StorageProviderRegistry.
- *
- * Features:
- * - Provider registration with stake (ETH or JEJU)
- * - USD-denominated tier system for rate limits
- * - Reputation-based discount on stake requirements
- * - ERC-8004 agent integration
- * - Moderation integration via ProviderRegistryBase
- *
- * Rate Limit Tiers (USD-denominated):
- * - FREE:      $0    → 10 req/min
- * - BASIC:     $10   → 100 req/min
- * - PRO:       $100  → 1,000 req/min
- * - UNLIMITED: $1000 → unlimited
- *
- * @custom:security-contact security@jeju.network
- */
+/// @title RPCProviderRegistry
+/// @notice Registry for RPC providers with staking and rate limiting
 contract RPCProviderRegistry is ProviderRegistryBase {
     using SafeERC20 for IERC20;
     using ERC8004ProviderMixin for ERC8004ProviderMixin.Data;
     using ModerationMixin for ModerationMixin.Data;
 
-    // ============ Enums ============
-
-    enum Tier {
-        FREE,
-        BASIC,
-        PRO,
-        UNLIMITED
-    }
-
-    // ============ Structs ============
+    enum Tier { FREE, BASIC, PRO, UNLIMITED }
 
     struct TierConfig {
-        uint256 minUsdValue; // USD value required (8 decimals)
-        uint256 rateLimit; // Requests per minute (0 = unlimited)
+        uint256 minUsdValue;
+        uint256 rateLimit;
     }
 
     struct RPCProvider {
@@ -74,62 +45,25 @@ contract RPCProviderRegistry is ProviderRegistryBase {
         bool isFrozen;
     }
 
-    // ============ Constants ============
-
     uint256 public constant UNBONDING_PERIOD = 7 days;
     uint256 public constant MAX_REPUTATION_DISCOUNT_BPS = 5000;
     uint256 public constant BPS_DENOMINATOR = 10000;
-    uint256 public constant USD_DECIMALS = 8;
 
-    // ============ State ============
-
-    /// @notice JEJU token for staking
     IERC20 public immutable jejuToken;
-
-    /// @notice RPC providers
     mapping(address => RPCProvider) private _providers;
-
-    /// @notice RPC users (for rate limit tiers)
     mapping(address => RPCUser) public users;
-
-    /// @notice Tier configurations
     mapping(Tier => TierConfig) public tierConfigs;
-
-    /// @notice Whitelisted addresses (unlimited access)
     mapping(address => bool) public whitelisted;
-
-    /// @notice Price oracle for JEJU/USD
     address public priceOracle;
-
-    /// @notice Fallback price when oracle unavailable (8 decimals)
-    uint256 public fallbackPrice = 1e7; // $0.10
-
-    /// @notice Reputation provider for stake discounts
+    uint256 public fallbackPrice = 1e7;
     address public reputationProvider;
-
-    /// @notice Treasury for slashed funds
     address public treasury;
-
-    /// @notice Total JEJU staked by users
     uint256 public totalUserStaked;
-
-    /// @notice Total users
     uint256 public totalUsers;
-
-    /// @notice Users per tier
     mapping(Tier => uint256) public tierCounts;
 
-    // ============ Events ============
-
-    event RPCProviderRegistered(
-        address indexed provider,
-        string endpoint,
-        string region,
-        uint256 stake,
-        uint256 agentId
-    );
+    event RPCProviderRegistered(address indexed provider, string endpoint, string region, uint256 stake, uint256 agentId);
     event RPCProviderUpdated(address indexed provider, string endpoint);
-    event RPCProviderDeactivated(address indexed provider);
     event UserStaked(address indexed user, uint256 amount, Tier tier);
     event UserUnbondingStarted(address indexed user, uint256 amount);
     event UserUnstaked(address indexed user, uint256 amount);
@@ -141,21 +75,15 @@ contract RPCProviderRegistry is ProviderRegistryBase {
     event ReputationProviderUpdated(address indexed provider);
     event AgentLinked(address indexed user, uint256 agentId);
 
-    // ============ Errors ============
-
     error InvalidAmount();
     error InvalidEndpoint();
     error InvalidRegion();
-    error UserIsBanned();
     error UserIsFrozen();
     error UserNotFrozen();
     error AlreadyLinked();
     error AgentNotOwned();
     error NotUnbonding();
     error StillUnbonding();
-    error NotModerator();
-
-    // ============ Constructor ============
 
     constructor(
         address _jejuToken,
@@ -167,24 +95,13 @@ contract RPCProviderRegistry is ProviderRegistryBase {
         jejuToken = IERC20(_jejuToken);
         priceOracle = _priceOracle;
 
-        // USD-denominated tiers (8 decimals: 1e8 = $1)
         tierConfigs[Tier.FREE] = TierConfig({minUsdValue: 0, rateLimit: 10});
         tierConfigs[Tier.BASIC] = TierConfig({minUsdValue: 10e8, rateLimit: 100});
         tierConfigs[Tier.PRO] = TierConfig({minUsdValue: 100e8, rateLimit: 1000});
         tierConfigs[Tier.UNLIMITED] = TierConfig({minUsdValue: 1000e8, rateLimit: 0});
     }
 
-    // ============ Provider Registration ============
-
-    /**
-     * @notice Register as an RPC provider
-     * @param endpoint RPC endpoint URL
-     * @param region Geographic region
-     */
-    function registerProvider(
-        string calldata endpoint,
-        string calldata region
-    ) external payable nonReentrant whenNotPaused {
+    function registerProvider(string calldata endpoint, string calldata region) external payable nonReentrant whenNotPaused {
         if (bytes(endpoint).length == 0) revert InvalidEndpoint();
         if (bytes(region).length == 0) revert InvalidRegion();
 
@@ -192,17 +109,7 @@ contract RPCProviderRegistry is ProviderRegistryBase {
         _storeProviderData(msg.sender, endpoint, region, 0);
     }
 
-    /**
-     * @notice Register as an RPC provider with ERC-8004 agent
-     * @param endpoint RPC endpoint URL
-     * @param region Geographic region
-     * @param agentId ERC-8004 agent ID
-     */
-    function registerProviderWithAgent(
-        string calldata endpoint,
-        string calldata region,
-        uint256 agentId
-    ) external payable nonReentrant whenNotPaused {
+    function registerProviderWithAgent(string calldata endpoint, string calldata region, uint256 agentId) external payable nonReentrant whenNotPaused {
         if (bytes(endpoint).length == 0) revert InvalidEndpoint();
         if (bytes(region).length == 0) revert InvalidRegion();
 
@@ -210,12 +117,7 @@ contract RPCProviderRegistry is ProviderRegistryBase {
         _storeProviderData(msg.sender, endpoint, region, agentId);
     }
 
-    function _storeProviderData(
-        address provider,
-        string calldata endpoint,
-        string calldata region,
-        uint256 agentId
-    ) internal {
+    function _storeProviderData(address provider, string calldata endpoint, string calldata region, uint256 agentId) internal {
         _providers[provider] = RPCProvider({
             operator: provider,
             endpoint: endpoint,
@@ -233,25 +135,12 @@ contract RPCProviderRegistry is ProviderRegistryBase {
         emit RPCProviderRegistered(provider, endpoint, region, msg.value, agentId);
     }
 
-    function _onProviderRegistered(address provider, uint256 agentId, uint256 stake) internal override {
-        // Provider data stored by _storeProviderData
-    }
+    function _onProviderRegistered(address, uint256, uint256) internal override {}
 
-    // ============ User Staking (for rate limits) ============
-
-    /**
-     * @notice Stake JEJU for rate limit tier
-     * @param amount Amount of JEJU to stake
-     */
     function stakeForAccess(uint256 amount) external nonReentrant whenNotPaused {
         _stakeForAccess(msg.sender, amount, 0);
     }
 
-    /**
-     * @notice Stake JEJU with agent link
-     * @param amount Amount of JEJU to stake
-     * @param agentId ERC-8004 agent ID
-     */
     function stakeForAccessWithAgent(uint256 amount, uint256 agentId) external nonReentrant whenNotPaused {
         _stakeForAccess(msg.sender, amount, agentId);
     }
@@ -301,10 +190,6 @@ contract RPCProviderRegistry is ProviderRegistryBase {
         emit AgentLinked(user, agentId);
     }
 
-    /**
-     * @notice Start unbonding user stake
-     * @param amount Amount to unbond
-     */
     function startUnbonding(uint256 amount) external nonReentrant {
         RPCUser storage u = users[msg.sender];
 
@@ -329,9 +214,6 @@ contract RPCProviderRegistry is ProviderRegistryBase {
         }
     }
 
-    /**
-     * @notice Complete unstaking after unbonding period
-     */
     function completeUnstaking() external nonReentrant {
         RPCUser storage u = users[msg.sender];
 
@@ -356,8 +238,6 @@ contract RPCProviderRegistry is ProviderRegistryBase {
         jejuToken.safeTransfer(msg.sender, amount);
         emit UserUnstaked(msg.sender, amount);
     }
-
-    // ============ View Functions ============
 
     function getProvider(address provider) external view returns (RPCProvider memory) {
         return _providers[provider];
@@ -438,17 +318,13 @@ contract RPCProviderRegistry is ProviderRegistryBase {
     function getActiveProviders() external view override returns (address[] memory) {
         uint256 activeCount = 0;
         for (uint256 i = 0; i < providerList.length; i++) {
-            if (_providers[providerList[i]].isActive) {
-                activeCount++;
-            }
+            if (_providers[providerList[i]].isActive) activeCount++;
         }
 
         address[] memory active = new address[](activeCount);
         uint256 j = 0;
         for (uint256 i = 0; i < providerList.length; i++) {
-            if (_providers[providerList[i]].isActive) {
-                active[j++] = providerList[i];
-            }
+            if (_providers[providerList[i]].isActive) active[j++] = providerList[i];
         }
 
         return active;
@@ -462,18 +338,13 @@ contract RPCProviderRegistry is ProviderRegistryBase {
     }
 
     function _updateTierCounts(Tier oldTier, Tier newTier, bool wasActive) internal {
-        if (wasActive && tierCounts[oldTier] > 0) {
-            tierCounts[oldTier]--;
-        }
+        if (wasActive && tierCounts[oldTier] > 0) tierCounts[oldTier]--;
         tierCounts[newTier]++;
     }
-
-    // ============ Moderation ============
 
     function freezeUser(address user, string calldata reason) external onlyOwner {
         RPCUser storage u = users[user];
         if (u.isFrozen) revert UserIsFrozen();
-
         u.isFrozen = true;
         emit UserFrozen(user, reason);
     }
@@ -481,7 +352,6 @@ contract RPCProviderRegistry is ProviderRegistryBase {
     function unfreezeUser(address user) external onlyOwner {
         RPCUser storage u = users[user];
         if (!u.isFrozen) revert UserNotFrozen();
-
         u.isFrozen = false;
         emit UserUnfrozen(user);
     }
@@ -503,13 +373,9 @@ contract RPCProviderRegistry is ProviderRegistryBase {
         }
 
         Tier newTier = getUserTier(user);
-        if (oldTier != newTier) {
-            emit UserTierChanged(user, oldTier, newTier);
-        }
+        if (oldTier != newTier) emit UserTierChanged(user, oldTier, newTier);
         emit UserSlashed(user, toSlash, reportId);
     }
-
-    // ============ Admin ============
 
     function setTierConfig(Tier tier, uint256 minUsdValue, uint256 rateLimit) external onlyOwner {
         tierConfigs[tier] = TierConfig({minUsdValue: minUsdValue, rateLimit: rateLimit});
@@ -553,24 +419,15 @@ contract RPCProviderRegistry is ProviderRegistryBase {
         emit RPCProviderUpdated(msg.sender, endpoint);
     }
 
-    function getStats()
-        external
-        view
-        returns (
-            uint256 _totalUserStaked,
-            uint256 _totalUsers,
-            uint256 freeTierCount,
-            uint256 basicTierCount,
-            uint256 proTierCount,
-            uint256 unlimitedTierCount
-        )
-    {
-        _totalUserStaked = totalUserStaked;
-        _totalUsers = totalUsers;
-        freeTierCount = tierCounts[Tier.FREE];
-        basicTierCount = tierCounts[Tier.BASIC];
-        proTierCount = tierCounts[Tier.PRO];
-        unlimitedTierCount = tierCounts[Tier.UNLIMITED];
+    function getStats() external view returns (
+        uint256 _totalUserStaked,
+        uint256 _totalUsers,
+        uint256 freeTierCount,
+        uint256 basicTierCount,
+        uint256 proTierCount,
+        uint256 unlimitedTierCount
+    ) {
+        return (totalUserStaked, totalUsers, tierCounts[Tier.FREE], tierCounts[Tier.BASIC], tierCounts[Tier.PRO], tierCounts[Tier.UNLIMITED]);
     }
 
     function version() external pure returns (string memory) {

@@ -16,19 +16,13 @@ interface IFeeConfigBazaar {
 
 /**
  * @title Marketplace
- * @author Jeju Network
  * @notice Universal marketplace supporting ERC721, ERC1155, and ERC20 tokens
- * @dev Multi-asset marketplace with multi-currency payment support
- *      Uses AssetLib for unified asset handling
  */
 contract Marketplace is ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;
     using ModerationMixin for ModerationMixin.Data;
 
-    /// @notice Moderation integration for ban enforcement
     ModerationMixin.Data public moderation;
-
-    // ============ Enums ============
 
     enum AssetType {
         ERC721,
@@ -54,7 +48,6 @@ contract Marketplace is ReentrancyGuard, Ownable {
         CANCELLED
     }
 
-    // ============ Structs ============
 
     struct Listing {
         uint256 listingId;
@@ -72,7 +65,6 @@ contract Marketplace is ReentrancyGuard, Ownable {
         uint256 expiresAt;
     }
 
-    // ============ State Variables ============
 
     uint256 public platformFeeBps = 250;
     uint256 public constant MAX_PLATFORM_FEE_BPS = 1000;
@@ -91,7 +83,6 @@ contract Marketplace is ReentrancyGuard, Ownable {
     mapping(uint256 => uint256) public listingAgentId;
     mapping(uint256 => uint256[]) public agentListings;
 
-    // ============ Events ============
 
     event ListingCreated(
         uint256 indexed listingId,
@@ -123,7 +114,6 @@ contract Marketplace is ReentrancyGuard, Ownable {
     event IdentityRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
     event SellerAgentLinked(uint256 indexed listingId, uint256 indexed agentId);
 
-    // ============ Errors ============
 
     error InvalidPrice();
     error InvalidAmount();
@@ -147,7 +137,6 @@ contract Marketplace is ReentrancyGuard, Ownable {
         _;
     }
 
-    // ============ Constructor ============
 
     constructor(address initialOwner, address _gameGold, address _usdc, address _feeRecipient) Ownable(initialOwner) {
         if (_gameGold == address(0) || _usdc == address(0) || _feeRecipient == address(0)) {

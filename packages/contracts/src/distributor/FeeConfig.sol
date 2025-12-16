@@ -6,129 +6,85 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 /**
  * @title FeeConfig
- * @author Jeju Network
  * @notice Central fee configuration for the entire Jeju network
- * @dev All network fees are configured here and read by other contracts.
- *      Fee changes go through governance (Council → CEO → Execution).
- *
- * Architecture:
- * - Single source of truth for all fee parameters
- * - Timelocked fee increases (protect users from sudden changes)
- * - Instant fee decreases allowed (user-friendly)
- * - Council proposes, CEO executes after timelock
- * - Emergency pause by security council
- *
- * Fee Categories:
- * - Distribution: How fees are split (apps, LPs, contributors)
- * - Compute: AI inference and rental fees
- * - Storage: Data storage platform fees
- * - DeFi: AMM, bridge, and cross-chain fees
- * - Infrastructure: Sequencer, oracle, RPC fees
- * - Marketplace: Bazaar, launchpad fees
- *
- * @custom:security-contact security@jeju.network
  */
 contract FeeConfig is Ownable, Pausable {
-    // ============================================================================
-    // Constants
-    // ============================================================================
-
     uint256 public constant BPS_DENOMINATOR = 10000;
-    uint256 public constant MAX_FEE_BPS = 3000; // Max 30% for any single fee
+    uint256 public constant MAX_FEE_BPS = 3000;
     uint256 public constant FEE_INCREASE_TIMELOCK = 3 days;
 
-    // ============================================================================
-    // Structs
-    // ============================================================================
-
-    /// @notice Fee distribution splits (must sum to 10000)
     struct DistributionFees {
         uint16 appShareBps; // App developer share
         uint16 lpShareBps; // Liquidity provider share
         uint16 contributorShareBps; // Contributor pool share
         uint16 ethLpShareBps; // ETH LP portion of LP share
-        uint16 tokenLpShareBps; // Token LP portion of LP share
+        uint16 tokenLpShareBps;
     }
 
-    /// @notice Compute network fees
     struct ComputeFees {
-        uint16 inferencePlatformFeeBps; // Platform cut on inference
-        uint16 rentalPlatformFeeBps; // Platform cut on rentals
-        uint16 triggerPlatformFeeBps; // Platform cut on triggers
+        uint16 inferencePlatformFeeBps;
+        uint16 rentalPlatformFeeBps;
+        uint16 triggerPlatformFeeBps;
     }
 
-    /// @notice Storage network fees
     struct StorageFees {
-        uint16 uploadFeeBps; // Fee on uploads
-        uint16 retrievalFeeBps; // Fee on retrievals
-        uint16 pinningFeeBps; // Fee on pinning services
+        uint16 uploadFeeBps;
+        uint16 retrievalFeeBps;
+        uint16 pinningFeeBps;
     }
 
-    /// @notice DeFi fees
     struct DeFiFees {
-        uint16 swapProtocolFeeBps; // AMM protocol fee
-        uint16 bridgeFeeBps; // Cross-chain bridge fee
-        uint16 crossChainMarginBps; // Cross-chain paymaster margin
+        uint16 swapProtocolFeeBps;
+        uint16 bridgeFeeBps;
+        uint16 crossChainMarginBps;
     }
 
-    /// @notice Infrastructure fees
     struct InfrastructureFees {
-        uint16 sequencerRevenueShareBps; // Sequencer block production share
-        uint16 oracleTreasuryShareBps; // Oracle treasury share
-        uint16 rpcPremiumFeeBps; // RPC premium tier fee
-        uint16 messagingFeeBps; // Cross-chain messaging fee
+        uint16 sequencerRevenueShareBps;
+        uint16 oracleTreasuryShareBps;
+        uint16 rpcPremiumFeeBps;
+        uint16 messagingFeeBps;
     }
 
-    /// @notice Marketplace fees
     struct MarketplaceFees {
-        uint16 bazaarPlatformFeeBps; // NFT/item marketplace fee
-        uint16 launchpadCreatorFeeBps; // Default creator fee
-        uint16 launchpadCommunityFeeBps; // Default community fee
-        uint16 x402ProtocolFeeBps; // HTTP 402 protocol fee
+        uint16 bazaarPlatformFeeBps;
+        uint16 launchpadCreatorFeeBps;
+        uint16 launchpadCommunityFeeBps;
+        uint16 x402ProtocolFeeBps;
     }
 
-    /// @notice Name service fees
     struct NamesFees {
-        uint256 baseRegistrationPrice; // Base price per year (wei)
-        uint16 agentDiscountBps; // Discount for ERC-8004 agents
-        uint16 renewalDiscountBps; // Discount for renewals
+        uint256 baseRegistrationPrice;
+        uint16 agentDiscountBps;
+        uint16 renewalDiscountBps;
     }
 
-    /// @notice Cross-chain token fees (BBLN, JEJU, custom tokens)
-    /// @dev Configurable via governance for XLP incentives, bridge fees, burn rates
     struct TokenFees {
-        uint16 xlpRewardShareBps; // XLP reward share from bridge fees (default 8000 = 80%)
-        uint16 protocolShareBps; // Protocol treasury share (default 1000 = 10%)
-        uint16 burnShareBps; // Deflationary burn share (default 1000 = 10%)
-        uint16 transferFeeBps; // Transfer fee (default 0, can enable for specific tokens)
-        uint16 bridgeFeeMinBps; // Minimum bridge fee floor (default 5 = 0.05%)
-        uint16 bridgeFeeMaxBps; // Maximum bridge fee cap (default 100 = 1%)
-        uint16 xlpMinStakeBps; // Min XLP stake as % of transfer (default 1000 = 10%)
-        uint16 zkProofDiscountBps; // Discount for ZK-verified transfers (default 2000 = 20% off)
+        uint16 xlpRewardShareBps;
+        uint16 protocolShareBps;
+        uint16 burnShareBps;
+        uint16 transferFeeBps;
+        uint16 bridgeFeeMinBps;
+        uint16 bridgeFeeMaxBps;
+        uint16 xlpMinStakeBps;
+        uint16 zkProofDiscountBps;
     }
 
-    /// @notice Per-token fee overrides (address(0) = default)
     struct TokenOverride {
         address token;
         bool hasOverride;
         TokenFees fees;
     }
 
-    /// @notice Pending fee change for timelock
     struct PendingFeeChange {
-        bytes32 feeType; // Which fee category
-        bytes data; // Encoded new values
-        uint256 proposedAt; // When proposed
-        uint256 effectiveAt; // When it takes effect
-        address proposedBy; // Who proposed it
-        bool executed; // Whether executed
+        bytes32 feeType;
+        bytes data;
+        uint256 proposedAt;
+        uint256 effectiveAt;
+        address proposedBy;
+        bool executed;
     }
 
-    // ============================================================================
-    // State Variables
-    // ============================================================================
-
-    /// @notice Current fee configurations
     DistributionFees public distributionFees;
     ComputeFees public computeFees;
     StorageFees public storageFees;
@@ -137,27 +93,14 @@ contract FeeConfig is Ownable, Pausable {
     MarketplaceFees public marketplaceFees;
     NamesFees public namesFees;
     TokenFees public tokenFees;
-
-    /// @notice Per-token fee overrides (for BBLN, JEJU, etc.)
     mapping(address => TokenOverride) public tokenOverrides;
-
-    /// @notice List of tokens with overrides
     address[] public tokensWithOverrides;
-
-    /// @notice Authorized addresses
     address public council;
     address public ceo;
     address public treasury;
 
-    /// @notice Pending fee changes (by proposal ID)
     mapping(bytes32 => PendingFeeChange) public pendingChanges;
-
-    /// @notice Last update timestamps per category
     mapping(bytes32 => uint256) public lastUpdated;
-
-    // ============================================================================
-    // Events
-    // ============================================================================
 
     event DistributionFeesUpdated(uint16 appShareBps, uint16 lpShareBps, uint16 contributorShareBps);
     event ComputeFeesUpdated(uint16 inferencePlatformFeeBps, uint16 rentalPlatformFeeBps, uint16 triggerPlatformFeeBps);
@@ -194,10 +137,6 @@ contract FeeConfig is Ownable, Pausable {
     event CEOUpdated(address indexed oldCeo, address indexed newCeo);
     event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
 
-    // ============================================================================
-    // Errors
-    // ============================================================================
-
     error InvalidFeeSum();
     error FeeTooHigh(uint256 fee, uint256 max);
     error NotAuthorized();
@@ -205,10 +144,6 @@ contract FeeConfig is Ownable, Pausable {
     error ChangeNotFound(bytes32 changeId);
     error AlreadyExecuted();
     error InvalidAddress();
-
-    // ============================================================================
-    // Modifiers
-    // ============================================================================
 
     modifier onlyCouncil() {
         if (msg.sender != council && msg.sender != owner()) revert NotAuthorized();
@@ -227,10 +162,6 @@ contract FeeConfig is Ownable, Pausable {
         _;
     }
 
-    // ============================================================================
-    // Constructor
-    // ============================================================================
-
     constructor(address _council, address _ceo, address _treasury, address initialOwner) Ownable(initialOwner) {
         if (_treasury == address(0)) revert InvalidAddress();
 
@@ -248,20 +179,13 @@ contract FeeConfig is Ownable, Pausable {
             appShareBps: 4500,
             lpShareBps: 4500,
             contributorShareBps: 1000,
-            ethLpShareBps: 7000, // 70% of LP share to ETH LPs
-            tokenLpShareBps: 3000 // 30% of LP share to token LPs
+            ethLpShareBps: 7000,
+            tokenLpShareBps: 3000
         });
 
-        // Compute: 5% inference, 3% rentals, 2% triggers
         computeFees = ComputeFees({inferencePlatformFeeBps: 500, rentalPlatformFeeBps: 300, triggerPlatformFeeBps: 200});
-
-        // Storage: 2% upload, 1% retrieval, 1% pinning
         storageFees = StorageFees({uploadFeeBps: 200, retrievalFeeBps: 100, pinningFeeBps: 100});
-
-        // DeFi: 0.05% swap, 0.1% bridge, 10% cross-chain margin
         defiFees = DeFiFees({swapProtocolFeeBps: 5, bridgeFeeBps: 10, crossChainMarginBps: 1000});
-
-        // Infrastructure: 5% sequencer, 10% oracle, 0% RPC, 0.1% messaging
         infrastructureFees = InfrastructureFees({
             sequencerRevenueShareBps: 500,
             oracleTreasuryShareBps: 1000,
@@ -269,7 +193,6 @@ contract FeeConfig is Ownable, Pausable {
             messagingFeeBps: 10
         });
 
-        // Marketplace: 2.5% bazaar, 80% creator, 20% community, 0.5% x402
         marketplaceFees = MarketplaceFees({
             bazaarPlatformFeeBps: 250,
             launchpadCreatorFeeBps: 8000,
@@ -277,19 +200,16 @@ contract FeeConfig is Ownable, Pausable {
             x402ProtocolFeeBps: 50
         });
 
-        // Names: 0.001 ETH/year base, 5% agent discount, 10% renewal discount
         namesFees = NamesFees({baseRegistrationPrice: 0.001 ether, agentDiscountBps: 500, renewalDiscountBps: 1000});
-
-        // Token: 80% XLP rewards, 10% protocol, 10% burn, 0% transfer, 0.05%-1% bridge
         tokenFees = TokenFees({
-            xlpRewardShareBps: 8000, // 80% to XLP liquidity providers
-            protocolShareBps: 1000, // 10% to protocol treasury
-            burnShareBps: 1000, // 10% deflationary burn
-            transferFeeBps: 0, // No transfer fee by default
-            bridgeFeeMinBps: 5, // 0.05% minimum bridge fee
-            bridgeFeeMaxBps: 100, // 1% maximum bridge fee
-            xlpMinStakeBps: 1000, // XLP must stake 10% of transfer amount
-            zkProofDiscountBps: 2000 // 20% discount for ZK-verified transfers
+            xlpRewardShareBps: 8000,
+            protocolShareBps: 1000,
+            burnShareBps: 1000,
+            transferFeeBps: 0,
+            bridgeFeeMinBps: 5,
+            bridgeFeeMaxBps: 100,
+            xlpMinStakeBps: 1000,
+            zkProofDiscountBps: 2000
         });
 
         lastUpdated[keccak256("distribution")] = block.timestamp;
@@ -302,15 +222,6 @@ contract FeeConfig is Ownable, Pausable {
         lastUpdated[keccak256("token")] = block.timestamp;
     }
 
-    // ============================================================================
-    // Fee Proposal Functions (Council proposes, CEO executes)
-    // ============================================================================
-
-    /**
-     * @notice Propose a fee change (goes through timelock if increase)
-     * @param feeType Category of fee to change
-     * @param newValues Encoded new fee values
-     */
     function proposeFeeChange(bytes32 feeType, bytes calldata newValues)
         external
         onlyCouncil
@@ -334,10 +245,6 @@ contract FeeConfig is Ownable, Pausable {
         emit FeeChangeProposed(changeId, feeType, effectiveAt, msg.sender);
     }
 
-    /**
-     * @notice Execute a pending fee change (CEO only, after timelock)
-     * @param changeId ID of the pending change
-     */
     function executeFeeChange(bytes32 changeId) external onlyCEO {
         PendingFeeChange storage change = pendingChanges[changeId];
 
@@ -348,17 +255,10 @@ contract FeeConfig is Ownable, Pausable {
         }
 
         change.executed = true;
-
-        // Apply the fee change based on type
         _applyFeeChange(change.feeType, change.data);
-
         emit FeeChangeExecuted(changeId);
     }
 
-    /**
-     * @notice Cancel a pending fee change
-     * @param changeId ID of the pending change
-     */
     function cancelFeeChange(bytes32 changeId) external onlyGovernance {
         PendingFeeChange storage change = pendingChanges[changeId];
 
@@ -370,13 +270,6 @@ contract FeeConfig is Ownable, Pausable {
         emit FeeChangeCancelled(changeId);
     }
 
-    // ============================================================================
-    // Direct Fee Updates (Emergency or Owner)
-    // ============================================================================
-
-    /**
-     * @notice Update distribution fees directly (owner only, for emergencies)
-     */
     function setDistributionFees(
         uint16 appShareBps,
         uint16 lpShareBps,

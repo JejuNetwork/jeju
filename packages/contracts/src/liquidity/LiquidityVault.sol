@@ -9,80 +9,27 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 /**
  * @title LiquidityVault
- * @author Jeju Network
  * @notice ETH and token liquidity vault for paymaster gas sponsorship
- * @dev Share-based accounting for proportional rewards distribution
- *
- * Revenue Sources:
- *      - Gas sponsorship fees from paymaster operations
- *      - XLP cross-chain transfer fees
- *
- * @custom:security-contact security@jeju.network
  */
 contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
     using SafeERC20 for IERC20;
 
-    // ============ State Variables ============
-
-    /// @notice Reward token contract (used for fee distribution)
     IERC20 public immutable rewardToken;
-
-    // ============ ETH Liquidity Pool ============
-
-    /// @notice Total ETH liquidity shares issued
     uint256 public totalETHLiquidity;
-
-    /// @notice ETH shares owned by each LP
     mapping(address => uint256) public ethShares;
-
-    // ============ elizaOS Liquidity Pool ============
-
-    /// @notice Total elizaOS liquidity shares issued
     uint256 public totalElizaLiquidity;
-
-    /// @notice elizaOS shares owned by each LP
     mapping(address => uint256) public elizaShares;
-
-    // ============ Fee Tracking (Per-Share Accounting) ============
-
-    /// @notice Accumulated fees per ETH share (scaled by PRECISION)
     uint256 public ethFeesPerShare;
-
-    /// @notice Accumulated fees per elizaOS share (scaled by PRECISION)
     uint256 public elizaFeesPerShare;
-
-    /// @notice Last ethFeesPerShare value when LP last updated fees
     mapping(address => uint256) public ethFeesPerSharePaid;
-
-    /// @notice Last elizaFeesPerShare value when LP last updated fees
     mapping(address => uint256) public elizaFeesPerSharePaid;
-
-    /// @notice Pending fees accumulated for each LP (in elizaOS tokens)
     mapping(address => uint256) public pendingETHFees;
-
-    /// @notice Pending fees accumulated for elizaOS pool LPs
     mapping(address => uint256) public pendingElizaFees;
-
-    // ============ Access Control ============
-
-    /// @notice Paymaster contract authorized to request ETH for gas
     address public paymaster;
-
-    /// @notice Fee distributor contract authorized to distribute fees
     address public feeDistributor;
-
-    // ============ Safety Parameters ============
-
-    /// @notice Maximum percentage of ETH that can be deployed (80%)
     uint256 public constant MAX_UTILIZATION = 80;
-
-    /// @notice Minimum ETH that must remain in vault for withdrawals
     uint256 public minETHLiquidity = 10 ether;
-
-    /// @notice Precision multiplier for per-share calculations
     uint256 private constant PRECISION = 1e18;
-
-    // ============ Events ============
 
     event ETHAdded(address indexed provider, uint256 amount, uint256 shares);
     event ETHRemoved(address indexed provider, uint256 amount, uint256 shares);
@@ -93,7 +40,6 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
     event PaymasterSet(address indexed paymaster);
     event FeeDistributorSet(address indexed feeDistributor);
 
-    // ============ Errors ============
 
     error InsufficientLiquidity();
     error BelowMinimumLiquidity();
@@ -102,14 +48,12 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
     error TransferFailed();
     error InsufficientShares(uint256 actual, uint256 minimum);
 
-    // ============ Constructor ============
 
     constructor(address _rewardToken, address initialOwner) Ownable(initialOwner) {
         require(_rewardToken != address(0), "Invalid reward token address");
         rewardToken = IERC20(_rewardToken);
     }
 
-    // ============ Modifiers ============
 
     modifier onlyPaymaster() {
         if (msg.sender != paymaster) revert OnlyPaymaster();
@@ -126,19 +70,10 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
         _;
     }
 
-    // ============ Liquidity Provision Functions ============
-
-    /**
-     * @notice Deposit ETH to become a liquidity provider and earn fees (backwards compatible)
-     */
     function addETHLiquidity() external payable {
         this.addETHLiquidity{value: msg.value}(0);
     }
 
-    /**
-     * @notice Deposit ETH to become a liquidity provider and earn fees
-     * @param minShares Minimum shares expected (slippage protection, use 0 to skip)
-     */
     function addETHLiquidity(uint256 minShares) public payable nonReentrant whenNotPaused updateFees(msg.sender) {
         if (msg.value == 0) revert InvalidAmount();
 

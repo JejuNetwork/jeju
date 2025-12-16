@@ -6,9 +6,16 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /// @title Prover
-/// @notice Fraud proof verification using validator signatures and merkle proofs.
-/// @dev POC prover uses signatures. For true Decentralized, integrate Cannon MIPS prover.
-///      See eth-optimism/contracts-bedrock for PreimageOracle.sol and MIPS.sol
+/// @notice DEPRECATED: Signature-based fraud "proof" - NOT real fraud proofs.
+/// @dev WARNING: This is a POC/testing prover only. It uses validator signatures,
+///      NOT actual computation verification. A single malicious validator can
+///      create fake "fraud proofs". DO NOT USE IN PRODUCTION.
+///      
+///      For real Stage 2 fraud proofs, use CannonProver with deployed MIPS.sol
+///      from Optimism's contracts-bedrock repository.
+///
+/// @custom:security-contact security@jejunetwork.org
+/// @custom:deprecated Use CannonProver for production deployments
 contract Prover is IProver {
     using ECDSA for bytes32;
     using MessageHashUtils for bytes32;

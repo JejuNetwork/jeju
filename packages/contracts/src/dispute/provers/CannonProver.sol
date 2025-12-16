@@ -6,12 +6,20 @@ import "./IMips.sol";
 
 /**
  * @title CannonProver
- * @notice Fraud proof verification using Optimism's Cannon MIPS VM.
- * @dev This is the REAL Stage 2 prover that executes disputed instructions.
- *      For deployment, requires:
- *      1. MIPS.sol deployed from optimism-bedrock
- *      2. PreimageOracle.sol deployed from optimism-bedrock
- *      3. Genesis MIPS state hash set correctly
+ * @notice Real L2BEAT Stage 2 fraud proof verification using Optimism's Cannon MIPS VM.
+ * @dev This prover executes disputed MIPS instructions to verify state transitions.
+ *      
+ *      PRODUCTION REQUIREMENTS:
+ *      1. Deploy MIPS.sol from github.com/ethereum-optimism/optimism/packages/contracts-bedrock
+ *      2. Deploy PreimageOracle.sol from the same repo
+ *      3. Set ABSOLUTE_PRESTATE to the genesis MIPS state hash
+ *      4. Provide real addresses (not placeholders) to enable fraud proofs
+ *
+ *      Without real MIPS deployment, this contract operates in TEST MODE and
+ *      will revert on all proof verification attempts.
+ *
+ * @custom:security This is the ONLY prover that provides real Stage 2 compliance.
+ *      The legacy Prover.sol is signature-based and NOT suitable for production.
  */
 contract CannonProver is IProver {
     /// @notice The MIPS VM contract

@@ -12,76 +12,27 @@ import {FeeConfig} from "./FeeConfig.sol";
 
 /**
  * @title FeeDistributor
- * @author Jeju Network
- * @notice Distributes transaction fees with CONFIGURABLE splits via FeeConfig
- * @dev Fee splits are governance-controlled via FeeConfig contract.
- *
- * Features:
- * - Fee splits read from FeeConfig contract (governance-controlled)
- * - Dynamic fee adjustments via DAO
- * - Platform fee collection from compute/storage
- *
- * Fee Flow:
- * 1. User pays tokens for gas/services
- * 2. Distributor reads current splits from FeeConfig
- * 3. Splits fees: X% to app, Y% to LPs, Z% to contributor pool
- * 4. LPs split further: A% ETH LPs, B% token LPs
- * 5. Monthly: Oracle submits snapshot with contributor allocations
- * 6. Contributors claim their share from pool
- *
- * @custom:security-contact security@jeju.network
+ * @notice Distributes transaction fees with configurable splits via FeeConfig
  */
 contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
     using SafeERC20 for IERC20;
 
-    // ============ Constants ============
-
     uint256 public constant BPS_DENOMINATOR = 10000;
     uint256 public constant PERIOD_DURATION = 30 days;
 
-    // ============ State Variables ============
-
-    /// @notice Reward token contract (used for fee payments)
     IERC20 public immutable rewardToken;
-
-    /// @notice Liquidity vault that receives LP portion of fees
     ILiquidityVault public immutable liquidityVault;
-
-    /// @notice Fee configuration contract (governance-controlled)
     FeeConfig public feeConfig;
-
-    /// @notice Authorized paymaster contract that triggers distributions
     address public paymaster;
-
-    /// @notice Authorized oracle address that submits contributor snapshots
     address public contributorOracle;
-
-    // ============ App & LP Accounting ============
-
-    /// @notice Claimable earnings for each app address
     mapping(address => uint256) public appEarnings;
-
-    /// @notice Total fees distributed through the system
     uint256 public totalDistributed;
-
-    /// @notice Cumulative earnings allocated to apps
     uint256 public totalAppEarnings;
-
-    /// @notice Cumulative earnings allocated to LPs
     uint256 public totalLPEarnings;
-
-    // ============ Contributor Accounting ============
-
-    /// @notice Current contributor pool balance (accumulated monthly)
     uint256 public contributorPoolBalance;
-
-    /// @notice Total cumulative earnings allocated to contributors
     uint256 public totalContributorEarnings;
-
-    /// @notice Current reward period (increments monthly)
     uint256 public currentPeriod;
 
-    /// @notice Monthly snapshot data
     struct MonthlySnapshot {
         uint256 period;
         uint256 totalPool;
@@ -95,35 +46,14 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
         bool finalized;
     }
 
-    /// @notice Snapshots by period
     mapping(uint256 => MonthlySnapshot) public snapshots;
-
-    /// @notice Period start timestamps
     mapping(uint256 => uint256) public periodStartTime;
-
-    // ============ Platform Fee Collection ============
-
-    /// @notice Platform fees collected from compute services
     uint256 public computeFeesCollected;
-
-    /// @notice Platform fees collected from storage services
     uint256 public storageFeesCollected;
-
-    /// @notice Platform fees collected from other sources
     uint256 public otherFeesCollected;
-
-    // ============ ERC-8004 Integration ============
-
-    /// @notice ERC-8004 Identity Registry for app verification
     IIdentityRegistry public identityRegistry;
-
-    /// @notice Mapping of app address => agent ID (0 if not linked)
     mapping(address => uint256) public appAgentId;
-
-    /// @notice Mapping of agent ID => total earnings
     mapping(uint256 => uint256) public agentTotalEarnings;
-
-    // ============ Events ============
 
     event FeesDistributed(
         address indexed app,
@@ -146,7 +76,6 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
     event IdentityRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
     event AppAgentLinked(address indexed app, uint256 indexed agentId);
 
-    // ============ Errors ============
 
     error OnlyPaymaster();
     error OnlyOracle();

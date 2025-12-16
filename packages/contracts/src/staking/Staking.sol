@@ -9,88 +9,30 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 /**
  * @title Staking
- * @author Jeju Network
  * @notice Staking pool for paymaster gas subsidization and EIL cross-chain liquidity
- * @dev Single pool that provides:
- *      1. ETH liquidity for gas sponsorship (paymaster)
- *      2. Token liquidity for cross-chain transfers (EIL XLP)
- *      3. Fee distribution from both systems
- *
- * Architecture:
- * - Users stake ETH and/or application tokens
- * - Same stake is used for BOTH paymaster gas and EIL cross-chain transfers
- * - Fees from both systems flow back to stakers proportionally
- * - One staking position, double the utility
- *
- * Fee Sources:
- * - Paymaster fees: 50% goes to LPs (split 70/30 ETH/token)
- * - EIL fees: XLP fees from voucher fulfillment
- *
- * @custom:security-contact security@jeju.network
  */
 contract Staking is ReentrancyGuard, Ownable, Pausable {
     using SafeERC20 for IERC20;
 
-    // ============ State Variables ============
-
-    /// @notice Application token for staking (generic, not elizaOS-specific)
     IERC20 public immutable stakingToken;
-
-    /// @notice Total ETH staked in pool
     uint256 public totalETHStaked;
-
-    /// @notice Total tokens staked in pool
     uint256 public totalTokensStaked;
-
-    /// @notice Individual staker positions
     mapping(address => StakerPosition) public positions;
-
-    /// @notice Accumulated fees per ETH share (scaled by 1e18)
     uint256 public ethFeesPerShare;
-
-    /// @notice Accumulated fees per token share (scaled by 1e18)
     uint256 public tokenFeesPerShare;
-
-    /// @notice Last claimed per-share value for each staker (ETH)
     mapping(address => uint256) public ethFeesPerSharePaid;
-
-    /// @notice Last claimed per-share value for each staker (tokens)
     mapping(address => uint256) public tokenFeesPerSharePaid;
-
-    /// @notice Pending fees for each staker (ETH)
     mapping(address => uint256) public pendingETHFees;
-
-    /// @notice Pending fees for each staker (tokens)
     mapping(address => uint256) public pendingTokenFees;
-
-    /// @notice Authorized paymaster that can request ETH for gas
     address public paymaster;
-
-    /// @notice Authorized EIL contract that can request liquidity
     address public eilPaymaster;
-
-    /// @notice Fee distributor for paymaster fees
     address public feeDistributor;
-
-    /// @notice Minimum ETH stake to participate
     uint256 public minETHStake = 0.1 ether;
-
-    /// @notice Minimum token stake to participate
     uint256 public minTokenStake = 100e18;
-
-    /// @notice Maximum utilization of ETH for gas (80%)
     uint256 public constant MAX_ETH_UTILIZATION = 80;
-
-    /// @notice Maximum utilization of tokens for EIL (70%)
     uint256 public constant MAX_TOKEN_UTILIZATION = 70;
-
-    /// @notice Unbonding period (7 days)
     uint256 public constant UNBONDING_PERIOD = 7 days;
-
-    /// @notice Precision for fee calculations
     uint256 private constant PRECISION = 1e18;
-
-    // ============ Structs ============
 
     struct StakerPosition {
         uint256 ethStaked;
@@ -114,7 +56,6 @@ contract Staking is ReentrancyGuard, Ownable, Pausable {
     event PaymasterUpdated(address indexed oldPaymaster, address indexed newPaymaster);
     event EILPaymasterUpdated(address indexed oldPaymaster, address indexed newPaymaster);
 
-    // ============ Errors ============
 
     error InsufficientStake();
     error InsufficientBalance();
@@ -124,14 +65,12 @@ contract Staking is ReentrancyGuard, Ownable, Pausable {
     error TransferFailed();
     error MaxUtilization();
 
-    // ============ Constructor ============
 
     constructor(address _stakingToken, address initialOwner) Ownable(initialOwner) {
         require(_stakingToken != address(0), "Invalid token");
         stakingToken = IERC20(_stakingToken);
     }
 
-    // ============ Modifiers ============
 
     modifier updateFees(address account) {
         _updatePendingFees(account);
