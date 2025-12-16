@@ -327,7 +327,7 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
     }
 
     function depositToEntryPoint() external payable onlyOwner {
-        entryPoint().depositTo{value: msg.value}(address(this));
+        entryPoint.depositTo{value: msg.value}(address(this));
     }
 
     function pause() external onlyOwner {

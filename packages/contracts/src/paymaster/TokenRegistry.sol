@@ -70,6 +70,12 @@ contract TokenRegistry is Ownable {
         emit TokenRemoved(token);
     }
 
+    function deactivateToken(address token) external onlyOwner {
+        if (!tokens[token].supported) revert TokenNotSupported();
+        tokens[token].supported = false;
+        emit TokenRemoved(token);
+    }
+
     function updateToken(address token, uint256 minMargin, uint256 maxMargin) external onlyOwner {
         if (!tokens[token].supported) revert TokenNotSupported();
         tokens[token].minMargin = minMargin;

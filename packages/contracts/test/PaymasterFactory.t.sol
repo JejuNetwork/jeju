@@ -207,10 +207,6 @@ contract PaymasterFactoryTest is Test {
         (address paymaster, address vault, address distributor) =
             factory.deployPaymaster(address(tokenA), 100, projectA);
 
-        // Paymaster uses Ownable2Step, so operator must accept ownership
-        vm.prank(projectA);
-        LiquidityPaymaster(payable(paymaster)).acceptOwnership();
-
         // All contracts should be owned by operator, not factory
         assertEq(LiquidityVault(payable(vault)).owner(), projectA);
         assertEq(FeeDistributor(distributor).owner(), projectA);
@@ -480,10 +476,6 @@ contract PaymasterFactoryTest is Test {
             100, // 1% fee
             projectA
         );
-
-        // 2b. Accept ownership of paymaster (2-step transfer)
-        vm.prank(projectA);
-        LiquidityPaymaster(payable(paymaster)).acceptOwnership();
 
         // 3. ProjectA adds ETH liquidity (for gas sponsorship - needs > 10 ETH minimum)
         vm.prank(projectA);

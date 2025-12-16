@@ -141,12 +141,14 @@ contract MockIGP {
 contract MockOracle is IOracle {
     mapping(bytes32 => bool) public attestations;
     mapping(bytes32 => bytes) public attestationData;
+    mapping(bytes32 => uint256) public attestationBlocks;
     
     event Attested(bytes32 indexed orderId, bytes proof);
 
     function attest(bytes32 orderId, bytes calldata proof) external {
         attestations[orderId] = true;
         attestationData[orderId] = proof;
+        attestationBlocks[orderId] = block.number;
         emit Attested(orderId, proof);
     }
 
@@ -158,9 +160,14 @@ contract MockOracle is IOracle {
         return attestationData[orderId];
     }
 
+    function getAttestationBlock(bytes32 orderId) external view override returns (uint256) {
+        return attestationBlocks[orderId];
+    }
+
     function submitAttestation(bytes32 orderId, bytes calldata proof) external override {
         attestations[orderId] = true;
         attestationData[orderId] = proof;
+        attestationBlocks[orderId] = block.number;
         emit Attested(orderId, proof);
     }
 }
