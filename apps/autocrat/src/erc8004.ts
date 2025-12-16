@@ -301,3 +301,8 @@ export class ERC8004Client {
     }) as bigint);
   }
 }
+
+// Factory function for easier instantiation
+export function getERC8004Client(config: ERC8004Config): ERC8004Client {
+  return new ERC8004Client(config);
+}

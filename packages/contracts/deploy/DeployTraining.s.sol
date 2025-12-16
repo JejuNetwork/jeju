@@ -66,7 +66,7 @@ contract DeployTraining is Script {
             mpcKeyRegistry = MPCKeyRegistry(existingMPC);
             console.log("Using existing MPCKeyRegistry:", existingMPC);
         } else {
-            mpcKeyRegistry = new MPCKeyRegistry(deployer);
+            mpcKeyRegistry = new MPCKeyRegistry(0.01 ether); // minPartyStake
             console.log("Deployed MPCKeyRegistry:", address(mpcKeyRegistry));
         }
 
@@ -83,11 +83,19 @@ contract DeployTraining is Script {
         console.log("Deployed TrainingRewards:", address(rewards));
 
         // Deploy TrainingRegistry
-        registry = new TrainingRegistry(address(coordinator), deployer);
+        registry = new TrainingRegistry(
+            address(coordinator),
+            address(mpcKeyRegistry),
+            deployer
+        );
         console.log("Deployed TrainingRegistry:", address(registry));
 
         // Deploy NodePerformanceOracle
-        oracle = new NodePerformanceOracle(address(coordinator), deployer);
+        oracle = new NodePerformanceOracle(
+            address(coordinator),
+            address(computeRegistry),
+            deployer
+        );
         console.log("Deployed NodePerformanceOracle:", address(oracle));
 
         vm.stopBroadcast();

@@ -4,36 +4,32 @@
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
-import { createPublicClient, http, parseAbi, readContract, keccak256, stringToBytes, type Address, type PublicClient } from 'viem';
-import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
+import { ethers } from 'ethers';
 
 describe('Moderation Load Tests', () => {
-  let publicClient: PublicClient;
-  let banManagerAddress: Address;
-  let labelManagerAddress: Address;
+  let provider: ethers.JsonRpcProvider;
+  let banManagerAddress: string;
+  let labelManagerAddress: string;
 
   beforeAll(() => {
-    const rpcUrl = process.env.RPC_URL || 'http://localhost:8545';
-    const chain = inferChainFromRpcUrl(rpcUrl);
-    publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
-    banManagerAddress = (process.env.BAN_MANAGER_ADDRESS || '') as Address;
-    labelManagerAddress = (process.env.LABEL_MANAGER_ADDRESS || '') as Address;
+    provider = new ethers.JsonRpcProvider(process.env.RPC_URL || 'http://localhost:8545');
+    banManagerAddress = process.env.BAN_MANAGER_ADDRESS || '';
+    labelManagerAddress = process.env.LABEL_MANAGER_ADDRESS || '';
   });
 
   test('1000 concurrent ban checks complete in <1s', async () => {
-    const banManagerAbi = parseAbi(['function isAccessAllowed(uint256 agentId, bytes32 appId) view returns (bool)']);
+    const banManager = new ethers.Contract(
+      banManagerAddress,
+      ['function isAccessAllowed(uint256 agentId, bytes32 appId) view returns (bool)'],
+      provider
+    );
 
-    const appId = keccak256(stringToBytes('testapp'));
+    const appId = ethers.keccak256(ethers.toUtf8Bytes('testapp'));
     const startTime = Date.now();
 
     // 1000 concurrent checks
     const promises = Array.from({ length: 1000 }, (_, i) =>
-      readContract(publicClient, {
-        address: banManagerAddress,
-        abi: banManagerAbi,
-        functionName: 'isAccessAllowed',
-        args: [BigInt(i + 1), appId],
-      })
+      banManager.isAccessAllowed(i + 1, appId)
     );
 
     await Promise.all(promises);

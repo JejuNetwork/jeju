@@ -825,27 +825,11 @@ deployCommand
   .option('--evm-only', 'Deploy EVM contracts only')
   .option('--solana-only', 'Deploy Solana programs only')
   .option('--dry-run', 'Simulate deployment')
-  .action(async (options) => {
-    const rootDir = findMonorepoRoot();
-    const scriptName = options.network === 'mainnet' ? 'deploy-mainnet' : 'deploy-testnet';
-    const scriptPath = join(rootDir, 'packages/bridge/scripts', `${scriptName}.ts`);
-    
-    if (!existsSync(scriptPath)) {
-      logger.error(`ZK bridge deploy script not found: ${scriptPath}`);
-      return;
-    }
-    
-    logger.header(`DEPLOY ZKBRIDGE TO ${options.network.toUpperCase()}`);
-    
-    const args: string[] = [];
-    if (options.evmOnly) args.push('--evm-only');
-    if (options.solanaOnly) args.push('--solana-only');
-    if (options.dryRun) args.push('--dry-run');
-    
-    await execa('bun', ['run', scriptPath, ...args], {
-      cwd: rootDir,
-      stdio: 'inherit',
-    });
+  .action(async (_options) => {
+    logger.error('ZK bridge deployment has been removed.');
+    logger.info('Bridge deployment scripts have been deleted.');
+    logger.info('Use packages/bridge/scripts/orchestrator.ts directly if needed.');
+    process.exit(1);
   });
 
 deployCommand
@@ -854,36 +838,11 @@ deployCommand
   .option('--sp1', 'Setup SP1 prover toolchain')
   .option('--phala', 'Setup Phala TEE endpoint')
   .option('--all', 'Setup all components', true)
-  .action(async (options) => {
-    const rootDir = findMonorepoRoot();
-    const scriptsDir = join(rootDir, 'packages/bridge/scripts');
-    
-    logger.header('ZKBRIDGE INFRASTRUCTURE SETUP');
-    
-    const setupSp1 = options.sp1 || options.all;
-    const setupPhala = options.phala || options.all;
-    
-    if (setupSp1) {
-      logger.step('Setting up SP1 prover...');
-      const sp1Script = join(scriptsDir, 'setup-sp1.ts');
-      if (existsSync(sp1Script)) {
-        await execa('bun', ['run', sp1Script], { cwd: rootDir, stdio: 'inherit' });
-      } else {
-        logger.warn('SP1 setup script not found');
-      }
-    }
-    
-    if (setupPhala) {
-      logger.step('Setting up Phala TEE...');
-      const phalaScript = join(scriptsDir, 'setup-phala.ts');
-      if (existsSync(phalaScript)) {
-        await execa('bun', ['run', phalaScript], { cwd: rootDir, stdio: 'inherit' });
-      } else {
-        logger.warn('Phala setup script not found');
-      }
-    }
-    
-    logger.success('ZK bridge infrastructure setup complete');
+  .action(async (_options) => {
+    logger.error('ZK bridge setup has been removed.');
+    logger.info('Setup scripts have been deleted.');
+    logger.info('Refer to packages/bridge/README.md for manual setup instructions.');
+    process.exit(1);
   });
 
 deployCommand
@@ -974,40 +933,22 @@ deployCommand
   .command('contracts-testnet')
   .description('Deploy all contracts to testnet (Sepolia and Base Sepolia)')
   .action(async () => {
-    const rootDir = findMonorepoRoot();
-    const scriptPath = join(rootDir, 'packages/contracts/scripts/deploy-testnet-full.ts');
-    
-    if (!existsSync(scriptPath)) {
-      logger.error('Contracts testnet deployment script not found');
-      return;
-    }
-    
-    logger.header('DEPLOY CONTRACTS TO TESTNET');
-    await execa('bun', ['run', scriptPath], {
-      cwd: rootDir,
-      stdio: 'inherit',
-    });
+    logger.error('Contracts testnet deployment has been removed.');
+    logger.info('Use individual deploy commands instead:');
+    logger.info('  jeju deploy token --network testnet');
+    logger.info('  jeju deploy oif --network testnet');
+    logger.info('  jeju deploy jns --network testnet');
+    process.exit(1);
   });
 
 deployCommand
   .command('sync-configs')
   .description('Sync contract addresses across config files')
   .option('--network <network>', 'Network to sync', 'base-sepolia')
-  .action(async (options: { network: string }) => {
-    const rootDir = findMonorepoRoot();
-    const scriptPath = join(rootDir, 'packages/contracts/scripts/sync-configs.ts');
-    
-    if (!existsSync(scriptPath)) {
-      logger.error('Sync configs script not found');
-      return;
-    }
-    
-    logger.step('Syncing contract addresses...');
-    await execa('bun', ['run', scriptPath, '--network', options.network], {
-      cwd: rootDir,
-      stdio: 'inherit',
-    });
-    logger.success('Configs synced');
+  .action(async (_options: { network: string }) => {
+    logger.error('Sync configs functionality has been removed.');
+    logger.info('Update config files manually after deployment.');
+    process.exit(1);
   });
 
 // Helper function to run deploy scripts

@@ -52,24 +52,11 @@ tokenCommand
   .option('--dry-run', 'Simulate deployment without executing')
   .option('--verify', 'Verify contracts on block explorer', true)
   .option('--step <step>', 'Run specific deployment step')
-  .action(async (options: { network: string; dryRun?: boolean; verify?: boolean; step?: string }) => {
-    const root = findMonorepoRoot();
-    const scriptPath = join(root, 'packages/token/scripts/deploy-jeju.ts');
-    
-    if (!existsSync(scriptPath)) {
-      logger.error(`Script not found: ${scriptPath}`);
-      process.exit(1);
-    }
-
-    logger.info(`Deploying JEJU token to ${options.network}...`);
-
-    const args = ['run', scriptPath];
-    if (options.network) args.push('--network', options.network);
-    if (options.dryRun) args.push('--dry-run');
-    if (options.verify === false) args.push('--no-verify');
-    if (options.step) args.push('--step', options.step);
-
-    await execa('bun', args, { stdio: 'inherit', cwd: root });
+  .action(async (_options: { network: string; dryRun?: boolean; verify?: boolean; step?: string }) => {
+    logger.error('JEJU token deployment has been removed.');
+    logger.info('Token deployment scripts have been deleted.');
+    logger.info('Refer to packages/token/README.md for deployment instructions.');
+    process.exit(1);
   });
 
 // ============================================================================
@@ -81,21 +68,11 @@ tokenCommand
   .description('Deploy full token ecosystem (Token, Vesting, Airdrop, FeeDistributor, CCALauncher)')
   .option('-n, --network <network>', 'Target network (localnet|testnet|mainnet)', 'testnet')
   .option('--dry-run', 'Simulate deployment without executing')
-  .action(async (options: { network: string; dryRun?: boolean }) => {
-    const root = findMonorepoRoot();
-    const scriptPath = join(root, 'packages/token/scripts/deploy-token.ts');
-    
-    if (!existsSync(scriptPath)) {
-      logger.error(`Script not found: ${scriptPath}`);
-      process.exit(1);
-    }
-
-    logger.info(`Deploying token ecosystem to ${options.network}...`);
-
-    const args = ['run', scriptPath, options.network];
-    if (options.dryRun) args.push('--dry-run');
-
-    await execa('bun', args, { stdio: 'inherit', cwd: root });
+  .action(async (_options: { network: string; dryRun?: boolean }) => {
+    logger.error('Token ecosystem deployment has been removed.');
+    logger.info('Token deployment scripts have been deleted.');
+    logger.info('Refer to packages/token/README.md for deployment instructions.');
+    process.exit(1);
   });
 
 // ============================================================================
@@ -106,21 +83,11 @@ tokenCommand
   .command('deploy:testnet')
   .description('Cross-chain token deployment to testnet (Sepolia, Base Sepolia, Arbitrum Sepolia)')
   .option('--dry-run', 'Simulate deployment without executing')
-  .action(async (options: { dryRun?: boolean }) => {
-    const root = findMonorepoRoot();
-    const scriptPath = join(root, 'packages/token/scripts/deploy-testnet.ts');
-    
-    if (!existsSync(scriptPath)) {
-      logger.error(`Script not found: ${scriptPath}`);
-      process.exit(1);
-    }
-
-    logger.info('Deploying cross-chain token to testnet...');
-
-    const args = ['run', scriptPath];
-    if (options.dryRun) args.push('--dry-run');
-
-    await execa('bun', args, { stdio: 'inherit', cwd: root });
+  .action(async (_options: { dryRun?: boolean }) => {
+    logger.error('Cross-chain testnet deployment has been removed.');
+    logger.info('Token deployment scripts have been deleted.');
+    logger.info('Refer to packages/token/README.md for deployment instructions.');
+    process.exit(1);
   });
 
 // ============================================================================
@@ -132,21 +99,11 @@ tokenCommand
   .description('Deploy Hyperlane infrastructure (Mailbox, IGP, MultisigISM) to Jeju Testnet')
   .option('-n, --network <network>', 'Target network (testnet)', 'testnet')
   .option('--dry-run', 'Simulate deployment without executing')
-  .action(async (options: { network: string; dryRun?: boolean }) => {
-    const root = findMonorepoRoot();
-    const scriptPath = join(root, 'packages/token/scripts/deploy-hyperlane-jeju.ts');
-    
-    if (!existsSync(scriptPath)) {
-      logger.error(`Script not found: ${scriptPath}`);
-      process.exit(1);
-    }
-
-    logger.info(`Deploying Hyperlane infrastructure to ${options.network}...`);
-
-    const args = ['run', scriptPath];
-    if (options.dryRun) args.push('--dry-run');
-
-    await execa('bun', args, { stdio: 'inherit', cwd: root });
+  .action(async (_options: { network: string; dryRun?: boolean }) => {
+    logger.error('Hyperlane deployment has been removed.');
+    logger.info('Token deployment scripts have been deleted.');
+    logger.info('Refer to packages/token/README.md for deployment instructions.');
+    process.exit(1);
   });
 
 // ============================================================================
@@ -158,22 +115,11 @@ tokenCommand
   .description('Deploy SPL token to Solana')
   .option('-n, --network <network>', 'Target network (devnet|mainnet)', 'devnet')
   .option('--dry-run', 'Simulate deployment without executing')
-  .action(async (options: { network: string; dryRun?: boolean }) => {
-    const root = findMonorepoRoot();
-    const scriptPath = join(root, 'packages/token/scripts/deploy-solana.ts');
-    
-    if (!existsSync(scriptPath)) {
-      logger.error(`Script not found: ${scriptPath}`);
-      process.exit(1);
-    }
-
-    logger.info(`Deploying SPL token to Solana ${options.network}...`);
-
-    const args = ['run', scriptPath];
-    if (options.network === 'mainnet') args.push('mainnet');
-    if (options.dryRun) args.push('--dry-run');
-
-    await execa('bun', args, { stdio: 'inherit', cwd: root });
+  .action(async (_options: { network: string; dryRun?: boolean }) => {
+    logger.error('Solana token deployment has been removed.');
+    logger.info('Token deployment scripts have been deleted.');
+    logger.info('Refer to packages/token/README.md for deployment instructions.');
+    process.exit(1);
   });
 
 // ============================================================================
@@ -185,21 +131,11 @@ tokenCommand
   .description('Verify token deployment and cross-chain functionality on testnet')
   .option('-n, --network <network>', 'Target network (testnet)', 'testnet')
   .option('--dry-run', 'Simulate verification without executing')
-  .action(async (options: { network: string; dryRun?: boolean }) => {
-    const root = findMonorepoRoot();
-    const scriptPath = join(root, 'packages/token/scripts/deploy-and-verify-testnet.ts');
-    
-    if (!existsSync(scriptPath)) {
-      logger.error(`Script not found: ${scriptPath}`);
-      process.exit(1);
-    }
-
-    logger.info(`Verifying token deployment on ${options.network}...`);
-
-    const args = ['run', scriptPath];
-    if (options.dryRun) args.push('--dry-run');
-
-    await execa('bun', args, { stdio: 'inherit', cwd: root });
+  .action(async (_options: { network: string; dryRun?: boolean }) => {
+    logger.error('Token verification has been removed.');
+    logger.info('Token deployment scripts have been deleted.');
+    logger.info('Refer to packages/token/README.md for verification instructions.');
+    process.exit(1);
   });
 
 // ============================================================================

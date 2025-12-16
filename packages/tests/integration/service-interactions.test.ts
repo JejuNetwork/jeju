@@ -29,9 +29,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'bun:test';
-import { createPublicClient, createWalletClient, http, parseEther, waitForTransactionReceipt, getBlockNumber, keccak256, stringToHex, type Address, type PublicClient, type WalletClient } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
+import { ethers } from 'ethers';
 import {
   JEJU_LOCALNET,
   TEST_WALLETS,
@@ -97,23 +95,13 @@ async function waitForIndexer(txHash: string, maxAttempts = 10): Promise<boolean
 }
 
 describe('Service Interaction Tests', () => {
-  let publicClient: PublicClient;
-  let walletClient: WalletClient;
-  let deployerAccount: ReturnType<typeof privateKeyToAccount>;
+  let provider: ethers.JsonRpcProvider;
+  let wallet: ethers.Wallet;
   let indexerAvailable: boolean = false;
 
   beforeAll(async () => {
-    const chain = inferChainFromRpcUrl(RPC_URL);
-    publicClient = createPublicClient({
-      chain,
-      transport: http(RPC_URL),
-    });
-    deployerAccount = privateKeyToAccount(TEST_WALLETS.deployer.privateKey as `0x${string}`);
-    walletClient = createWalletClient({
-      account: deployerAccount,
-      chain,
-      transport: http(RPC_URL),
-    });
+    provider = new ethers.JsonRpcProvider(RPC_URL);
+    wallet = new ethers.Wallet(TEST_WALLETS.deployer.privateKey, provider);
 
     // Check if indexer is available
     try {
@@ -135,25 +123,25 @@ describe('Service Interaction Tests', () => {
 
       // 1. Send transaction on RPC
       console.log('   1️⃣  Sending transaction via RPC...');
-      const hash = await walletClient.sendTransaction({
-        to: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as Address,
-        value: parseEther('0.01'),
+      const tx = await wallet.sendTransaction({
+        to: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+        value: ethers.parseEther('0.01'),
       });
 
-      const receipt = await waitForTransactionReceipt(publicClient, { hash });
-      expect(receipt.status).toBe('success');
-      console.log(`   ✅ Transaction mined: ${hash.slice(0, 10)}...`);
+      const receipt = await tx.wait();
+      expect(receipt?.status).toBe(1);
+      console.log(`   ✅ Transaction mined: ${tx.hash.slice(0, 10)}...`);
 
       // 2. Wait for indexer to process
       console.log('   2️⃣  Waiting for indexer to sync...');
-      const indexed = await waitForIndexer(hash);
+      const indexed = await waitForIndexer(tx.hash);
       expect(indexed).toBe(true);
       console.log('   ✅ Transaction appears in indexer');
 
       // 3. Verify indexed data matches RPC data
       console.log('   3️⃣  Verifying indexed data...');
       const data = await queryGraphQL(`{
-        transactions(where: { hash_eq: "${hash}" }) {
+        transactions(where: { hash_eq: "${tx.hash}" }) {
           hash
           from { address }
           to { address }
@@ -163,8 +151,8 @@ describe('Service Interaction Tests', () => {
       }`);
 
       const indexedTx = data.transactions[0];
-      expect(indexedTx.hash).toBe(hash);
-      expect(indexedTx.from.address.toLowerCase()).toBe(deployerAccount.address.toLowerCase());
+      expect(indexedTx.hash).toBe(tx.hash);
+      expect(indexedTx.from.address.toLowerCase()).toBe(wallet.address.toLowerCase());
       expect(indexedTx.status).toBe('SUCCESS');
       console.log('   ✅ Indexed data matches RPC data');
     });
@@ -287,13 +275,9 @@ describe('System Health and Monitoring', () => {
     };
 
     // Check L2 RPC
-    const chain = inferChainFromRpcUrl(RPC_URL);
-    const provider = createPublicClient({
-      chain,
-      transport: http(RPC_URL),
-    });
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
     try {
-      await getBlockNumber(provider);
+      await provider.getBlockNumber();
       healthChecks.l2RPC = true;
     } catch {
       console.log('   ⏭️  L2 RPC not available - skipping health verification');

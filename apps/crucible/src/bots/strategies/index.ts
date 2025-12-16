@@ -9,6 +9,8 @@
  * - Liquidation: Undercollateralized position liquidation
  * - Solver: OIF intent filling
  * - Oracle Keeper: Price oracle maintenance rewards
+ * - Funding Arb: Hyperliquid/perp funding rate arbitrage
+ * - DEX Aggregator Arb: Cross-aggregator price arbitrage
  */
 
 export { DexArbitrageStrategy } from './dex-arbitrage';
@@ -27,3 +29,5 @@ export {
   type YieldSource,
   type RiskLevel,
 } from './yield-farming';
+export { FundingArbStrategy, createFundingArbStrategy } from './funding-arb';
+export { DexAggregatorArbStrategy, createDexAggregatorArbStrategy } from './dex-aggregator-arb';

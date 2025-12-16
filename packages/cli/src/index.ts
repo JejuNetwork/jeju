@@ -41,6 +41,7 @@ import { tokenCommand } from './commands/token';
 import { federationCommand } from './commands/federation';
 import { superchainCommand } from './commands/superchain';
 import { dwsCommand } from './commands/dws';
+import { validateCommand } from './commands/validate';
 
 const cli = getCliBranding();
 const networkName = getNetworkName();
@@ -105,6 +106,7 @@ program.addCommand(publishCommand);
 program.addCommand(infraCommand);
 program.addCommand(tokenCommand);
 program.addCommand(dwsCommand);
+program.addCommand(validateCommand);
 
 // Default: show help
 program.action(() => {

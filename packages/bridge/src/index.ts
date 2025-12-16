@@ -144,6 +144,20 @@ export {
 } from "./relayer/index.js";
 
 // =============================================================================
+// XLP (Cross-chain Liquidity Provider) EXPORTS
+// =============================================================================
+
+export {
+	createXLPService,
+	XLPService,
+	type XLPConfig,
+	type LiquidityPosition,
+	type FillRequest,
+	type RouteStats,
+	type XLPStats,
+} from "./xlp/index.js";
+
+// =============================================================================
 // MONITORING EXPORTS
 // =============================================================================
 

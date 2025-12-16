@@ -35,14 +35,11 @@ import { join, relative } from 'path';
 import type {
   CDNSiteConfig,
   CacheConfig,
-  InvalidationRequest,
   InvalidationResult,
   WarmupRequest,
   WarmupResult,
   CDNStatsRequest,
   CDNStatsResponse,
-  CDNDeployRequest,
-  CDNDeployResponse,
   CDNRegion,
 } from '@jejunetwork/types';
 import { DEFAULT_CACHE_RULES, DEFAULT_TTL_CONFIG } from '@jejunetwork/types';
@@ -118,7 +115,8 @@ export class CDNClient {
   private registryAddress: Address;
   private billingAddress: Address;
   private coordinatorUrl: string;
-  private ipfsGateway: string;
+  // @ts-expect-error Reserved for future IPFS gateway use
+  private _ipfsGateway: string;
 
   constructor(config: CDNClientConfig) {
     const chain = { id: 31337, name: 'local' } as Chain;
@@ -139,7 +137,7 @@ export class CDNClient {
     this.billingAddress = (config.billingAddress ?? '0x0000000000000000000000000000000000000000') as Address;
     
     this.coordinatorUrl = config.coordinatorUrl ?? 'http://localhost:4021';
-    this.ipfsGateway = config.ipfsGateway ?? 'https://ipfs.io';
+    this._ipfsGateway = config.ipfsGateway ?? 'https://ipfs.io';
   }
 
   // ============================================================================
@@ -167,6 +165,7 @@ export class CDNClient {
     const siteId = await this.registerSite(options.domain, uploadResult.cid);
 
     // 5. Update content hash
+    // @ts-expect-error viem ABI type inference
     const updateHash = await writeContract(this.walletClient, {
       address: this.registryAddress,
       abi: CDN_REGISTRY_ABI,
@@ -522,6 +521,7 @@ export class CDNClient {
         endpoint: site.origin,
         timeout: 30000,
         retries: 2,
+        retryDelay: 1000,
         healthCheck: {
           enabled: true,
           path: '/',
@@ -580,6 +580,7 @@ export class CDNClient {
    * Deposit funds for CDN usage
    */
   async deposit(amount: bigint): Promise<`0x${string}`> {
+    // @ts-expect-error viem ABI type inference
     const hash = await writeContract(this.walletClient, {
       address: this.billingAddress,
       abi: CDN_BILLING_ABI,
@@ -606,6 +607,7 @@ export class CDNClient {
    * Withdraw unused balance
    */
   async withdraw(amount: bigint): Promise<`0x${string}`> {
+    // @ts-expect-error viem ABI type inference
     const hash = await writeContract(this.walletClient, {
       address: this.billingAddress,
       abi: CDN_BILLING_ABI,

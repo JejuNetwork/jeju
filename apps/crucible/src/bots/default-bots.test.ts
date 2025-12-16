@@ -253,7 +253,7 @@ describe('Default Bots Configuration', () => {
         name: 'Custom Bot',
         description: 'Custom',
         strategies: [{ type: 'DEX_ARBITRAGE', enabled: true, minProfitBps: 10, maxGasGwei: 100, maxSlippageBps: 50 }],
-        chains: [999999], // Invalid chain
+        chains: [999999 as unknown as ChainId], // Invalid chain
         initialFunding: '0.1',
       };
       

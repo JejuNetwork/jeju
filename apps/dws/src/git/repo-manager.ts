@@ -11,16 +11,41 @@ import { GitObjectStore } from './object-store';
 import type {
   Repository,
   Branch,
-  Collaborator,
-  GitCommit,
-  GitTree,
-  GitBlob,
   GitRef,
   CreateRepoRequest,
   CreateRepoResponse,
   ContributionEvent,
 } from './types';
 import { encodeOidToBytes32, decodeBytes32ToOid } from './oid-utils';
+
+// Type for repository data returned from contract
+interface ContractRepoData {
+  repoId: Hex;
+  owner: Address;
+  agentId: bigint;
+  name: string;
+  description: string;
+  jnsNode: Hex;
+  headCommitCid: Hex;
+  metadataCid: Hex;
+  createdAt: bigint;
+  updatedAt: bigint;
+  visibility: number;
+  archived: boolean;
+  starCount: bigint;
+  forkCount: bigint;
+  forkedFrom: Hex;
+}
+
+// Type for branch data returned from contract
+interface ContractBranchData {
+  repoId: Hex;
+  name: string;
+  tipCommitCid: Hex;
+  lastPusher: Address;
+  updatedAt: bigint;
+  protected_: boolean;
+}
 
 // RepoRegistry ABI (subset for our needs)
 const REPO_REGISTRY_ABI = [
@@ -350,7 +375,7 @@ export class GitRepoManager {
         abi: REPO_REGISTRY_ABI,
         data: repositoryCreatedEvent.data,
         topics: repositoryCreatedEvent.topics,
-      }) as { args: { repoId: Hex } };
+      }) as unknown as { args: { repoId: Hex } };
 
       repoId = decoded.args.repoId;
     } catch (error) {
@@ -371,14 +396,14 @@ export class GitRepoManager {
    * Get repository by ID
    */
   async getRepository(repoId: Hex): Promise<Repository | null> {
-    let result;
+    let result: ContractRepoData | null = null;
     try {
       result = await this.publicClient.readContract({
         address: this.repoRegistryAddress,
         abi: REPO_REGISTRY_ABI,
         functionName: 'getRepository',
         args: [repoId],
-      });
+      }) as ContractRepoData;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error(`[Git Registry] Failed to read repository ${repoId}: ${errorMessage}`);
@@ -396,14 +421,14 @@ export class GitRepoManager {
    * Get repository by owner and name
    */
   async getRepositoryByName(owner: Address, name: string): Promise<Repository | null> {
-    let result;
+    let result: ContractRepoData | null = null;
     try {
       result = await this.publicClient.readContract({
         address: this.repoRegistryAddress,
         abi: REPO_REGISTRY_ABI,
         functionName: 'getRepositoryByName',
         args: [owner, name],
-      });
+      }) as ContractRepoData;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error(`[Git Registry] Failed to read repository ${owner}/${name}: ${errorMessage}`);
@@ -426,7 +451,7 @@ export class GitRepoManager {
       abi: REPO_REGISTRY_ABI,
       functionName: 'getBranches',
       args: [repoId],
-    });
+    }) as ContractBranchData[];
 
     return result.map((b) => ({
       repoId: b.repoId,
@@ -447,7 +472,7 @@ export class GitRepoManager {
       abi: REPO_REGISTRY_ABI,
       functionName: 'getBranch',
       args: [repoId, branchName],
-    });
+    }) as ContractBranchData;
 
     if (!result || result.updatedAt === 0n) {
       return null;
@@ -472,7 +497,7 @@ export class GitRepoManager {
       abi: REPO_REGISTRY_ABI,
       functionName: 'hasWriteAccess',
       args: [repoId, user],
-    });
+    }) as Promise<boolean>;
   }
 
   /**
@@ -484,7 +509,7 @@ export class GitRepoManager {
       abi: REPO_REGISTRY_ABI,
       functionName: 'hasReadAccess',
       args: [repoId, user],
-    });
+    }) as Promise<boolean>;
   }
 
   /**
@@ -496,7 +521,7 @@ export class GitRepoManager {
       abi: REPO_REGISTRY_ABI,
       functionName: 'getUserRepositories',
       args: [user],
-    });
+    }) as Hex[];
 
     const repos: Repository[] = [];
     for (const repoId of repoIds) {
@@ -518,9 +543,9 @@ export class GitRepoManager {
       abi: REPO_REGISTRY_ABI,
       functionName: 'getAllRepositories',
       args: [BigInt(offset), BigInt(limit)],
-    });
+    }) as ContractRepoData[];
 
-    return result.map((r) => this.mapContractRepo(r));
+    return result.map((r: ContractRepoData) => this.mapContractRepo(r));
   }
 
   /**

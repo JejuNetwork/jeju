@@ -11,7 +11,7 @@
 import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
-import { createPublicClient, createWalletClient, http, type Address } from 'viem';
+import { createPublicClient, createWalletClient, http, type Address, type PublicClient, type WalletClient } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { parseAbi } from 'viem';
 import { base, baseSepolia, localhost } from 'viem/chains';
@@ -33,7 +33,6 @@ import type {
   InvalidationRequest,
   InvalidationProgress,
   RouteRequest,
-  RoutingDecision,
 } from '../types';
 import type { CDNRegion } from '@jejunetwork/types';
 
@@ -47,9 +46,10 @@ const CDN_REGISTRY_ABI = parseAbi([
   'function completeInvalidation(bytes32 requestId, uint256 nodesProcessed) external',
 ]);
 
-const CDN_BILLING_ABI = parseAbi([
-  'function recordUsage(address user, address provider, uint256 bytesEgress, uint256 requests, uint256 storageBytes, tuple(uint256 pricePerGBEgress, uint256 pricePerMillionRequests, uint256 pricePerGBStorage) rates) external',
-]);
+// Billing ABI reserved for future usage reporting
+// const CDN_BILLING_ABI = parseAbi([
+//   'function recordUsage(address user, address provider, uint256 bytesEgress, uint256 requests, uint256 storageBytes, tuple(uint256 pricePerGBEgress, uint256 pricePerMillionRequests, uint256 pricePerGBStorage) rates) external',
+// ]);
 
 // ============================================================================
 // Coordinator Server
@@ -60,13 +60,9 @@ export class CDNCoordinator {
   private config: CoordinatorConfig;
   private router: GeoRouter;
   private account: PrivateKeyAccount;
-  private publicClient: ReturnType<typeof createPublicClient>;
-  private walletClient: ReturnType<typeof createWalletClient>;
+  private publicClient!: PublicClient;
+  private walletClient!: WalletClient;
   private registryAddress: Address;
-  private billingAddress: Address;
-
-  // Connected nodes via WebSocket
-  private connectedNodes: Map<string, { ws: WebSocket; node: ConnectedEdgeNode }> = new Map();
   
   // Pending invalidations
   private invalidations: Map<string, InvalidationProgress> = new Map();
@@ -87,10 +83,10 @@ export class CDNCoordinator {
     if (!privateKey) throw new Error('PRIVATE_KEY required');
     this.account = privateKeyToAccount(privateKey as `0x${string}`);
     const chain = inferChainFromRpcUrl(config.rpcUrl);
+    // @ts-expect-error viem version type mismatch in monorepo
     this.publicClient = createPublicClient({ chain, transport: http(config.rpcUrl) });
     this.walletClient = createWalletClient({ account: this.account, chain, transport: http(config.rpcUrl) });
     this.registryAddress = config.registryAddress;
-    this.billingAddress = config.billingAddress;
 
     this.setupRoutes();
     this.startHealthChecker();
@@ -176,7 +172,7 @@ export class CDNCoordinator {
     });
 
     // Prometheus metrics
-    this.app.get('/metrics/prometheus', (c) => {
+    this.app.get('/metrics/prometheus', () => {
       const stats = this.router.getRegionStats();
       const lines: string[] = [
         '# HELP cdn_coordinator_nodes_total Total connected nodes',
@@ -347,7 +343,7 @@ export class CDNCoordinator {
     nodes: ConnectedEdgeNode[],
     progress: InvalidationProgress
   ): Promise<void> {
-    const results = await Promise.allSettled(
+    await Promise.allSettled(
       nodes.map(async (node) => {
         try {
           const response = await fetch(`${node.endpoint}/invalidate`, {
@@ -383,6 +379,7 @@ export class CDNCoordinator {
         ? request.requestId
         : `0x${request.requestId.padStart(64, '0')}`;
       
+      // @ts-expect-error viem ABI type inference
       await this.walletClient.writeContract({
         address: this.registryAddress,
         abi: CDN_REGISTRY_ABI,

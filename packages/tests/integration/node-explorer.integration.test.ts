@@ -1,7 +1,5 @@
 import { describe, test, expect, beforeAll } from "bun:test";
-import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
-import { createWalletClient, http, type WalletClient } from 'viem';
-import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
+import { ethers } from 'ethers';
 
 /**
  * Integration tests for Node Explorer
@@ -25,16 +23,13 @@ try {
 }
 
 describe.skipIf(!apiAvailable)("Node Explorer Integration Tests", () => {
-  let testWalletClient: WalletClient;
+  let testWallet: ethers.HDNodeWallet;
   let testNodeId: string;
   
   beforeAll(async () => {
     // Create test wallet
-    const chain = inferChainFromRpcUrl('http://localhost:8545');
-    const privateKey = generatePrivateKey();
-    const account = privateKeyToAccount(privateKey);
-    testWalletClient = createWalletClient({ chain, transport: http('http://localhost:8545'), account });
-    console.log(`Test wallet: ${account.address}`);
+    testWallet = ethers.Wallet.createRandom();
+    console.log(`Test wallet: ${testWallet.address}`);
   });
   
   describe("API Health", () => {
@@ -52,13 +47,13 @@ describe.skipIf(!apiAvailable)("Node Explorer Integration Tests", () => {
     test("should register a new node with valid signature", async () => {
       const rpcUrl = "https://test-node.example.com:8545";
       const message = `Register node: ${rpcUrl}`;
-      const signature = await testWalletClient.signMessage({ message });
+      const signature = await testWallet.signMessage(message);
       
       const response = await fetch(`${API_URL}/nodes/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          operator_address: testWalletClient.account.address,
+          operator_address: testWallet.address,
           rpc_url: rpcUrl,
           ws_url: "wss://test-node.example.com:8546",
           location: "Test Region",
@@ -84,7 +79,7 @@ describe.skipIf(!apiAvailable)("Node Explorer Integration Tests", () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          operator_address: testWalletClient.account.address,
+          operator_address: testWallet.address,
           rpc_url: "https://test2.example.com:8545",
           signature: "0xinvalid",
         }),
@@ -103,7 +98,7 @@ describe.skipIf(!apiAvailable)("Node Explorer Integration Tests", () => {
       }
       
       const message = `Heartbeat: ${testNodeId}:${Date.now()}`;
-      const signature = await testWalletClient.signMessage({ message });
+      const signature = await testWallet.signMessage(message);
       
       const response = await fetch(`${API_URL}/nodes/heartbeat`, {
         method: 'POST',

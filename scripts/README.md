@@ -171,6 +171,11 @@ These scripts are organized by category and called internally by CLI commands:
 - `deploy.ts` → `jeju deploy`
 - `bootstrap-localnet.ts` → Integrated into `jeju dev`
 - `deploy-dao-full.ts` → `jeju deploy dao-full`
+- `validate-manifests.ts` → `jeju validate manifests`
+- All `deploy/*.ts` scripts → `jeju deploy <subcommand>`
+- All `packages/bridge/scripts/*.ts` → `jeju deploy zkbridge` / `jeju deploy zkbridge-setup`
+- All `packages/contracts/scripts/*.ts` → `jeju build abis` / `jeju deploy contracts-testnet` / `jeju deploy sync-configs`
+- All `packages/token/scripts/*.ts` → `jeju token deploy:*`
 
 ✅ **Organized into Folders:**
 - Bootstrap scripts → `bootstrap/`

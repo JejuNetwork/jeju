@@ -47,12 +47,10 @@
   "scripts": {
     "build": "node ../../node_modules/typescript/bin/tsc",
     "build:contracts": "forge build",
-    "build:abis": "forge build && jeju build abis",
+    "build:abis": "forge build",
     "test": "forge test",
     "test:registry": "forge test --match-contract '.*Registry.*'",
     "test:oif": "forge test --match-path 'test/OIF*.sol'",
-    "deploy:testnet-full": "jeju deploy contracts-testnet",
-    "sync-configs": "jeju deploy sync-configs",
     "slither": "slither . --config-file slither.config.json",
     "slither:report": "slither . --config-file slither.config.json --json slither-report.json",
     "clean": "rm -rf dist out cache",

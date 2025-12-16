@@ -46,6 +46,13 @@ export const HYPERLANE_ORACLE_ABI = parseAbi([
   'function getLatestMessage(uint256 originDomain) view returns ((bytes32 messageId, uint256 timestamp, bytes32 sender, bytes body))',
 ]);
 
+export const ORACLE_ADAPTER_ABI = parseAbi([
+  'function hasAttested(bytes32 orderId) view returns (bool)',
+  'function getAttestation(bytes32 orderId) view returns (bytes)',
+  'function getAttestationBlock(bytes32 orderId) view returns (uint256)',
+  'function submitAttestation(bytes32 orderId, bytes proof) external',
+]);
+
 // ============ Types ============
 
 export interface SolverProfile {
@@ -357,29 +364,44 @@ export class OIFSolver {
 
     if (claimableOrders.length === 0) return null;
 
-    // Get attestations from oracle if configured
-    const attestations: `0x${string}`[] = [];
+    // Fetch attestations from oracle for each claimable order
     const oracleAddress = chainConfig.oracleAddress;
-    
+    if (!oracleAddress) {
+      throw new Error(`No oracle address configured for chain ${chainId}`);
+    }
+
+    const attestations: `0x${string}`[] = [];
+    const validOrders: `0x${string}`[] = [];
+
     for (const orderId of claimableOrders) {
-      if (oracleAddress) {
-        // Fetch attestation from the oracle
-        // The attestation is typically a signature proving the fill was verified
-        const attestation = await clients.public.readContract({
-          address: oracleAddress,
-          abi: HYPERLANE_ORACLE_ABI,
-          functionName: 'getLatestMessage',
-          args: [BigInt(chainId)],
-        }).then(msg => {
-          // Extract the attestation proof from the oracle message
-          const { messageId } = msg as { messageId: `0x${string}` };
-          return messageId; // Simplified - actual would extract full proof
-        }).catch(() => orderId); // Fallback to orderId if oracle unavailable
-        attestations.push(attestation as `0x${string}`);
-      } else {
-        // No oracle configured - use empty attestation (for testing/localnet)
-        attestations.push('0x' as `0x${string}`);
+      // Check if order has been attested
+      const isAttested = await clients.public.readContract({
+        address: oracleAddress,
+        abi: ORACLE_ADAPTER_ABI,
+        functionName: 'hasAttested',
+        args: [orderId],
+      }) as boolean;
+
+      if (!isAttested) {
+        console.log(`[OIF] Order ${orderId} not yet attested, skipping`);
+        continue;
       }
+
+      // Get the attestation proof
+      const attestation = await clients.public.readContract({
+        address: oracleAddress,
+        abi: ORACLE_ADAPTER_ABI,
+        functionName: 'getAttestation',
+        args: [orderId],
+      }) as `0x${string}`;
+
+      validOrders.push(orderId);
+      attestations.push(attestation);
+    }
+
+    if (validOrders.length === 0) {
+      console.log('[OIF] No attested orders to claim');
+      return null;
     }
 
     const chain: Chain = {
@@ -389,15 +411,18 @@ export class OIFSolver {
       rpcUrls: { default: { http: [chainConfig.rpcUrl] } },
     };
 
+    console.log(`[OIF] Claiming ${validOrders.length} orders on chain ${chainId}`);
+
     const hash = await clients.wallet.writeContract({
       address: chainConfig.outputSettlerAddress,
       abi: OUTPUT_SETTLER_ABI,
       functionName: 'claim',
-      args: [claimableOrders, attestations],
+      args: [validOrders, attestations],
       chain,
       account: this.account,
     });
 
+    console.log(`[OIF] Claim tx: ${hash}`);
     return hash;
   }
 

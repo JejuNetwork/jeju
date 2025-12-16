@@ -25,7 +25,7 @@ app.get('*', async (c) => {
     const cached = cache.get(cacheKey);
 
     if (cached && cached.expiresAt > Date.now()) {
-      return new Response(cached.content, { headers: { 'Content-Type': cached.type, 'X-Cache': 'HIT', 'X-JNS-Name': jnsName } });
+      return new Response(new Uint8Array(cached.content), { headers: { 'Content-Type': cached.type, 'X-Cache': 'HIT', 'X-JNS-Name': jnsName } });
     }
 
     return c.json({ error: 'JNS resolution not configured', jnsName, path }, 502);
@@ -38,7 +38,7 @@ app.get('*', async (c) => {
     const cached = cache.get(cacheKey);
 
     if (cached && cached.expiresAt > Date.now()) {
-      return new Response(cached.content, { headers: { 'Content-Type': cached.type, 'X-Cache': 'HIT' } });
+      return new Response(new Uint8Array(cached.content), { headers: { 'Content-Type': cached.type, 'X-Cache': 'HIT' } });
     }
 
     const ipfsGateway = process.env.IPFS_GATEWAY_URL || 'https://ipfs.io';

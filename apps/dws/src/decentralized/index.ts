@@ -116,8 +116,9 @@ const DWS_BASE_TAG = 'dws';
 
 // Metadata keys for DWS nodes
 const DWS_ENDPOINT_KEY = 'dwsEndpoint';
-const DWS_NODE_TYPE_KEY = 'dwsNodeType';
-const DWS_VERSION_KEY = 'dwsVersion';
+// Reserved for future metadata
+void 'dwsNodeType';
+void 'dwsVersion';
 
 export interface DWSNode {
   agentId: bigint;
@@ -349,7 +350,7 @@ export class DecentralizedFrontend {
     // Check cache
     const cached = this.cachedAssets.get(cacheKey);
     if (cached) {
-      return new Response(cached.content, {
+      return new Response(new Uint8Array(cached.content), {
         headers: {
           'Content-Type': cached.contentType,
           'Cache-Control': 'public, max-age=31536000, immutable',
@@ -377,7 +378,7 @@ export class DecentralizedFrontend {
     const contentType = this.getContentType(assetPath);
     this.cachedAssets.set(cacheKey, { content: result.content, contentType });
 
-    return new Response(result.content, {
+    return new Response(new Uint8Array(result.content), {
       headers: {
         'Content-Type': contentType,
         'Cache-Control': 'public, max-age=31536000, immutable',

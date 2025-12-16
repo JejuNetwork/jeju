@@ -5,9 +5,16 @@
  * This allows DWS to serve as a unified API gateway.
  */
 
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
+import type { StatusCode } from 'hono/utils/http-status';
 
 const OAUTH3_AGENT_URL = process.env.OAUTH3_AGENT_URL || 'http://localhost:4200';
+
+// Helper to proxy response with proper typing
+async function proxyJsonResponse(c: Context, response: Response): Promise<Response> {
+  const data = await response.json();
+  return c.json(data, response.status as StatusCode);
+}
 
 export function createOAuth3Router(): Hono {
   const app = new Hono();
@@ -29,7 +36,7 @@ export function createOAuth3Router(): Hono {
   app.get('/attestation', async (c) => {
     const response = await fetch(`${OAUTH3_AGENT_URL}/attestation`);
     if (!response.ok) {
-      return c.json({ error: 'Failed to get attestation' }, response.status);
+      return c.json({ error: 'Failed to get attestation' }, response.status as StatusCode);
     }
     return c.json(await response.json());
   });
@@ -42,7 +49,7 @@ export function createOAuth3Router(): Hono {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    return c.json(await response.json(), response.status);
+    return proxyJsonResponse(c, response);
   });
 
   // OAuth callback
@@ -53,7 +60,7 @@ export function createOAuth3Router(): Hono {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    return c.json(await response.json(), response.status);
+    return proxyJsonResponse(c, response);
   });
 
   // Wallet auth
@@ -64,7 +71,7 @@ export function createOAuth3Router(): Hono {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    return c.json(await response.json(), response.status);
+    return proxyJsonResponse(c, response);
   });
 
   // Farcaster auth
@@ -75,14 +82,14 @@ export function createOAuth3Router(): Hono {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    return c.json(await response.json(), response.status);
+    return proxyJsonResponse(c, response);
   });
 
   // Get session
   app.get('/session/:sessionId', async (c) => {
     const sessionId = c.req.param('sessionId');
     const response = await fetch(`${OAUTH3_AGENT_URL}/session/${sessionId}`);
-    return c.json(await response.json(), response.status);
+    return proxyJsonResponse(c, response);
   });
 
   // Refresh session
@@ -91,7 +98,7 @@ export function createOAuth3Router(): Hono {
     const response = await fetch(`${OAUTH3_AGENT_URL}/session/${sessionId}/refresh`, {
       method: 'POST',
     });
-    return c.json(await response.json(), response.status);
+    return proxyJsonResponse(c, response);
   });
 
   // Delete session (logout)
@@ -100,7 +107,7 @@ export function createOAuth3Router(): Hono {
     const response = await fetch(`${OAUTH3_AGENT_URL}/session/${sessionId}`, {
       method: 'DELETE',
     });
-    return c.json(await response.json(), response.status);
+    return proxyJsonResponse(c, response);
   });
 
   // Sign message
@@ -111,7 +118,7 @@ export function createOAuth3Router(): Hono {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    return c.json(await response.json(), response.status);
+    return proxyJsonResponse(c, response);
   });
 
   // Issue credential
@@ -122,7 +129,7 @@ export function createOAuth3Router(): Hono {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    return c.json(await response.json(), response.status);
+    return proxyJsonResponse(c, response);
   });
 
   // Verify credential
@@ -133,7 +140,7 @@ export function createOAuth3Router(): Hono {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    return c.json(await response.json(), response.status);
+    return proxyJsonResponse(c, response);
   });
 
   // Infrastructure health

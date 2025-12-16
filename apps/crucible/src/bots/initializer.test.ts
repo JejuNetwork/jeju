@@ -18,14 +18,7 @@ import type { AgentSDK } from '../sdk/agent';
 import type { ChainId } from './autocrat-types';
 
 describe('BotInitializer', () => {
-  const mockAgentSdk = {
-    registerAgent: mock(() => Promise.resolve({
-      agentId: 1n,
-      vaultAddress: '0x' + '1'.repeat(40) as `0x${string}`,
-      characterCid: 'QmTest',
-      stateCid: 'QmState',
-    })),
-  } as unknown as AgentSDK;
+  // mockAgentSdk is created fresh in beforeEach
 
   const mockPublicClient = {} as PublicClient;
   const mockWalletClient = {} as WalletClient;
@@ -50,10 +43,18 @@ describe('BotInitializer', () => {
   };
 
   let initializer: BotInitializer;
+  let mockAgentSdk: AgentSDK;
 
   beforeEach(() => {
-    // Use mockClear to reset mock call history
-    (mockAgentSdk.registerAgent as ReturnType<typeof mock>).mockClear();
+    mockAgentSdk = {
+      registerAgent: mock(() => Promise.resolve({
+        agentId: 1n,
+        vaultAddress: '0x' + '1'.repeat(40) as `0x${string}`,
+        characterCid: 'QmTest',
+        stateCid: 'QmState',
+      })),
+    } as unknown as AgentSDK;
+
     initializer = new BotInitializer({
       crucibleConfig: baseConfig,
       agentSdk: mockAgentSdk,

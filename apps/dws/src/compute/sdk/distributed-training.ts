@@ -9,9 +9,8 @@ import {
   type ModelConfig,
   type WitnessSubmission,
   type NodeMetrics,
-  type CreateRunOptions,
 } from './training';
-import { P2PTrainingNetwork, createP2PNetwork, type P2PConfig, type BlobReference } from './p2p';
+import { P2PTrainingNetwork, createP2PNetwork } from './p2p';
 
 export { RunState, PrivacyMode, GPUTier } from './training';
 export type { CoordinatorConfig, ModelConfig, NodeMetrics } from './training';

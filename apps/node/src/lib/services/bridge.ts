@@ -18,6 +18,7 @@
  */
 
 import type { Address, Hex } from 'viem';
+import { ArbitrageExecutor, createArbitrageExecutor } from './arbitrage-executor';
 
 // ============ Types ============
 
@@ -177,9 +178,26 @@ class BridgeServiceImpl implements BridgeService {
   // Jito settings
   private jitoBlockEngineUrl = 'https://mainnet.block-engine.jito.wtf';
 
+  // Arbitrage executor
+  private arbExecutor: ArbitrageExecutor | null = null;
+
   constructor(config: BridgeServiceConfig) {
     this.config = config;
     this.arbEnabled = config.enableArbitrage ?? false;
+
+    // Initialize arbitrage executor if we have a private key
+    if (config.privateKey && config.enableArbitrage) {
+      this.arbExecutor = createArbitrageExecutor({
+        evmPrivateKey: config.privateKey,
+        solanaPrivateKey: process.env.SOLANA_PRIVATE_KEY,
+        evmRpcUrls: config.evmRpcUrls,
+        solanaRpcUrl: config.solanaRpcUrl,
+        zkBridgeEndpoint: process.env.ZK_BRIDGE_ENDPOINT,
+        oneInchApiKey: process.env.ONEINCH_API_KEY,
+        maxSlippageBps: 50,
+        jitoTipLamports: config.jitoTipLamports ?? BigInt(10000),
+      });
+    }
   }
 
   async start(): Promise<void> {
@@ -725,51 +743,60 @@ class BridgeServiceImpl implements BridgeService {
   }
 
   private async executeSolanaEvmArb(opportunity: ArbOpportunity): Promise<{ success: boolean; txHash?: string; profit?: number }> {
-    // Execute Solana <-> EVM arbitrage
-    // 1. Buy on cheaper chain
-    // 2. Bridge via ZKSolBridge
-    // 3. Sell on more expensive chain
-    
+    if (!this.arbExecutor) {
+      console.error('[Bridge] Arbitrage executor not initialized');
+      return { success: false };
+    }
+
     console.log(`[Bridge] Executing Solana-EVM arb for ${opportunity.token}`);
     
-    // This would integrate with the actual bridge and DEX swap logic
-    this.stats.arbTradesExecuted++;
-    this.stats.arbProfitUsd += opportunity.netProfitUsd;
+    const result = await this.arbExecutor.executeSolanaEvmArb(opportunity);
     
-    this.arbOpportunities.delete(opportunity.id);
+    if (result.success) {
+      this.stats.arbTradesExecuted++;
+      this.stats.arbProfitUsd += result.profit || opportunity.netProfitUsd;
+      this.arbOpportunities.delete(opportunity.id);
+    }
     
-    return { 
-      success: true, 
-      profit: opportunity.netProfitUsd 
-    };
+    return result;
   }
 
   private async executeHyperliquidArb(opportunity: ArbOpportunity): Promise<{ success: boolean; txHash?: string; profit?: number }> {
+    if (!this.arbExecutor) {
+      console.error('[Bridge] Arbitrage executor not initialized');
+      return { success: false };
+    }
+
     console.log(`[Bridge] Executing Hyperliquid arb for ${opportunity.token}`);
     
-    this.stats.arbTradesExecuted++;
-    this.stats.arbProfitUsd += opportunity.netProfitUsd;
+    const result = await this.arbExecutor.executeHyperliquidArb(opportunity);
     
-    this.arbOpportunities.delete(opportunity.id);
+    if (result.success) {
+      this.stats.arbTradesExecuted++;
+      this.stats.arbProfitUsd += result.profit || opportunity.netProfitUsd;
+      this.arbOpportunities.delete(opportunity.id);
+    }
     
-    return { 
-      success: true, 
-      profit: opportunity.netProfitUsd 
-    };
+    return result;
   }
 
   private async executeCrossDevArb(opportunity: ArbOpportunity): Promise<{ success: boolean; txHash?: string; profit?: number }> {
+    if (!this.arbExecutor) {
+      console.error('[Bridge] Arbitrage executor not initialized');
+      return { success: false };
+    }
+
     console.log(`[Bridge] Executing cross-DEX arb for ${opportunity.token}`);
     
-    this.stats.arbTradesExecuted++;
-    this.stats.arbProfitUsd += opportunity.netProfitUsd;
+    const result = await this.arbExecutor.executeCrossDexArb(opportunity);
     
-    this.arbOpportunities.delete(opportunity.id);
+    if (result.success) {
+      this.stats.arbTradesExecuted++;
+      this.stats.arbProfitUsd += result.profit || opportunity.netProfitUsd;
+      this.arbOpportunities.delete(opportunity.id);
+    }
     
-    return { 
-      success: true, 
-      profit: opportunity.netProfitUsd 
-    };
+    return result;
   }
 
   private async checkJitoBundleStatus(bundleId: string): Promise<boolean> {

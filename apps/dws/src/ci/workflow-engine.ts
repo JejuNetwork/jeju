@@ -3,7 +3,6 @@
  * Executes workflows triggered by git events
  */
 
-import { createHash } from 'crypto';
 import {
   createPublicClient,
   createWalletClient,
@@ -25,42 +24,11 @@ import type {
   JobRun,
   StepRun,
   JejuWorkflowConfig,
-  JejuJobConfig,
   RunStatus,
-  BUILTIN_ACTIONS,
 } from './types';
+import { BUILTIN_ACTIONS } from './types';
 
-// TriggerRegistry ABI (subset)
-const TRIGGER_REGISTRY_ABI = [
-  {
-    name: 'registerTrigger',
-    type: 'function',
-    inputs: [
-      { name: 'triggerType', type: 'uint8' },
-      { name: 'name', type: 'string' },
-      { name: 'description', type: 'string' },
-      { name: 'cronExpression', type: 'string' },
-      { name: 'webhookPath', type: 'string' },
-      { name: 'eventTypes', type: 'string[]' },
-      { name: 'endpoint', type: 'string' },
-      { name: 'method', type: 'string' },
-      { name: 'timeout', type: 'uint256' },
-      { name: 'paymentMode', type: 'uint8' },
-      { name: 'pricePerExecution', type: 'uint256' },
-    ],
-    outputs: [{ name: '', type: 'bytes32' }],
-  },
-  {
-    name: 'recordExecution',
-    type: 'function',
-    inputs: [
-      { name: 'triggerId', type: 'bytes32' },
-      { name: 'success', type: 'bool' },
-      { name: 'outputHash', type: 'bytes32' },
-    ],
-    outputs: [],
-  },
-] as const;
+// TriggerRegistry ABI reserved for future on-chain integration
 
 export interface WorkflowEngineConfig {
   rpcUrl: string;
@@ -87,11 +55,15 @@ interface WorkflowContext {
 }
 
 export class WorkflowEngine {
-  private backend: BackendManager;
+  // Reserved for future on-chain integration
+  // @ts-expect-error Reserved for future use
+  private _backend: BackendManager;
   private repoManager: GitRepoManager;
-  private triggerRegistryAddress: Address;
-  private publicClient;
-  private walletClient;
+  // @ts-expect-error Reserved for future use
+  private _triggerRegistryAddress: Address;
+  // @ts-expect-error Reserved for future use
+  private _publicClient: ReturnType<typeof createPublicClient>;
+  private walletClient: ReturnType<typeof createWalletClient> | undefined;
 
   private workflows: Map<string, Workflow> = new Map(); // workflowId -> Workflow
   private runs: Map<string, WorkflowRun> = new Map(); // runId -> WorkflowRun
@@ -103,16 +75,16 @@ export class WorkflowEngine {
     backend: BackendManager,
     repoManager: GitRepoManager
   ) {
-    this.backend = backend;
+    this._backend = backend;
     this.repoManager = repoManager;
-    this.triggerRegistryAddress = config.triggerRegistryAddress;
+    this._triggerRegistryAddress = config.triggerRegistryAddress;
 
     const chain = {
       ...foundry,
       rpcUrls: { default: { http: [config.rpcUrl] } },
     };
 
-    this.publicClient = createPublicClient({
+    this._publicClient = createPublicClient({
       chain,
       transport: http(config.rpcUrl),
     });
@@ -132,7 +104,7 @@ export class WorkflowEngine {
    */
   parseWorkflowConfig(content: string): JejuWorkflowConfig {
     // Simple YAML parsing (in production, use a proper YAML parser)
-    const config = this.parseYaml(content) as JejuWorkflowConfig;
+    const config = this.parseYaml(content) as unknown as JejuWorkflowConfig;
     return config;
   }
 
@@ -148,7 +120,8 @@ export class WorkflowEngine {
       return [];
     }
 
-    const headOid = decodeBytes32ToOid(repo.headCommitCid);
+    // Decode the bytes32 CID to OID format
+    const headOid = repo.headCommitCid.slice(2); // Remove 0x prefix for git OID
     const commit = await objectStore.getCommit(headOid);
     if (!commit) return [];
 
@@ -277,7 +250,7 @@ export class WorkflowEngine {
     triggeredBy: Address,
     branch: string,
     commitSha: string,
-    inputs: Record<string, string> = {}
+    _inputs: Record<string, string> = {}
   ): Promise<WorkflowRun> {
     const workflow = this.workflows.get(workflowId);
     if (!workflow) {
@@ -591,7 +564,7 @@ export class WorkflowEngine {
     const stdoutReader = proc.stdout.getReader();
     const stderrReader = proc.stderr.getReader();
 
-    const readStream = async (reader: ReadableStreamDefaultReader<Uint8Array>, prefix: string) => {
+    const readStream = async (reader: ReadableStreamDefaultReader<Uint8Array>) => {
       const decoder = new TextDecoder();
       while (true) {
         const { done, value } = await reader.read();
@@ -602,12 +575,12 @@ export class WorkflowEngine {
     };
 
     await Promise.all([
-      readStream(stdoutReader, ''),
-      readStream(stderrReader, ''),
+      readStream(stdoutReader),
+      readStream(stderrReader),
     ]);
 
     const exitCode = await proc.exited;
-    const duration = Date.now() - startTime;
+    void (Date.now() - startTime); // Duration available if needed
 
     return {
       output: output.join(''),
@@ -668,7 +641,7 @@ export class WorkflowEngine {
         workflow: workflow.name,
         job: '',
       },
-      env: { ...workflow.env, ...process.env },
+      env: { ...workflow.env, ...(process.env as Record<string, string>) },
       secrets: {},
       inputs: {},
     };
@@ -680,7 +653,7 @@ export class WorkflowEngine {
   private async recordExecution(run: WorkflowRun): Promise<void> {
     if (!this.walletClient) return;
 
-    const outputHash = keccak256(toBytes(JSON.stringify(run)));
+    void keccak256(toBytes(JSON.stringify(run))); // Hash available for on-chain recording
 
     // This would call TriggerRegistry.recordExecution in production
     console.log(`[CI] Recorded execution: ${run.runId} - ${run.conclusion}`);

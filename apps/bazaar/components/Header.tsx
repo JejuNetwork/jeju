@@ -20,6 +20,7 @@ export function Header() {
     { href: '/coins', label: 'Coins', icon: '🪙' },
     { href: '/swap', label: 'Swap', icon: '🔄' },
     { href: '/pools', label: 'Pools', icon: '💧' },
+    { href: '/tfmm', label: 'TFMM', icon: '📈' },
     { href: '/markets', label: 'Markets', icon: '📊' },
     { href: '/items', label: 'Items', icon: '🖼️' },
     { href: '/names', label: 'Names', icon: '🏷️' },
