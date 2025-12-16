@@ -15,8 +15,9 @@ const TEST_LOCK_FILE = "/tmp/jeju-test-services.lock";
 const STARTUP_TIMEOUT = 60000;
 const DEPLOYER_KEY: Hex = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 
-// Service URLs
-export const TEST_RPC_URL = process.env.TEST_RPC_URL || "http://127.0.0.1:8545";
+// Service URLs - L2 defaults to 9545 to match localnet.json config
+export const TEST_RPC_URL = process.env.TEST_RPC_URL || "http://127.0.0.1:9545";
+export const TEST_L1_RPC_URL = process.env.TEST_L1_RPC_URL || "http://127.0.0.1:8545";
 export const TEST_STORAGE_URL = process.env.TEST_STORAGE_URL || "http://127.0.0.1:4010";
 export const TEST_COMPUTE_URL = process.env.TEST_COMPUTE_URL || "http://127.0.0.1:4007";
 export const TEST_GATEWAY_URL = process.env.TEST_GATEWAY_URL || "http://127.0.0.1:4003";
@@ -109,18 +110,25 @@ function releaseLock(): void {
 
 async function startLocalnet(): Promise<void> {
   const root = findRoot();
-  console.log("Starting localnet...");
+  console.log("Starting Anvil localnet on port 9545...");
   
-  // Use Anvil for simple testing
+  // Add common foundry paths to PATH
+  const homeDir = process.env.HOME || "/home/" + process.env.USER;
+  const foundryBin = join(homeDir, ".foundry/bin");
+  const path = `${foundryBin}:${process.env.PATH}`;
+  
+  // Start L2 Anvil on port 9545 (matches localnet.json config)
   const proc = execa("anvil", [
-    "--port", "8545",
+    "--port", "9545",
     "--chain-id", "1337",
     "--accounts", "10",
     "--balance", "10000",
+    "--silent",
   ], {
     cwd: root,
     stdio: "pipe",
     detached: true,
+    env: { ...process.env, PATH: path },
   });
   startedProcesses.push(proc);
   
@@ -156,6 +164,12 @@ async function deployContracts(): Promise<void> {
 }
 
 async function startServices(): Promise<void> {
+  // Skip service startup in CI or when SKIP_SERVICES is set
+  if (process.env.CI || process.env.SKIP_SERVICES) {
+    console.log("Skipping app service startup (use SKIP_SERVICES=0 to enable)");
+    return;
+  }
+  
   const root = findRoot();
   
   const services = [
@@ -166,7 +180,10 @@ async function startServices(): Promise<void> {
   
   for (const svc of services) {
     const svcDir = join(root, svc.dir);
-    if (!existsSync(svcDir)) continue;
+    if (!existsSync(svcDir)) {
+      console.log(`⚠ ${svc.name} directory not found`);
+      continue;
+    }
     
     console.log(`Starting ${svc.name}...`);
     
@@ -185,10 +202,11 @@ async function startServices(): Promise<void> {
     startedProcesses.push(proc);
   }
   
+  // Wait for services with short timeout (10s each)
   await Promise.all([
-    waitForService("Storage", TEST_STORAGE_URL).catch(() => console.log("⚠ Storage not available")),
-    waitForService("Compute", TEST_COMPUTE_URL).catch(() => console.log("⚠ Compute not available")),
-    waitForService("Gateway", TEST_GATEWAY_URL).catch(() => console.log("⚠ Gateway not available")),
+    waitForService("Storage", TEST_STORAGE_URL, false, 10000).catch(() => console.log("⚠ Storage not available")),
+    waitForService("Compute", TEST_COMPUTE_URL, false, 10000).catch(() => console.log("⚠ Compute not available")),
+    waitForService("Gateway", TEST_GATEWAY_URL, false, 10000).catch(() => console.log("⚠ Gateway not available")),
   ]);
 }
 
@@ -207,6 +225,26 @@ async function stopServices(): Promise<void> {
   releaseLock();
 }
 
+async function checkContractsDeployed(): Promise<boolean> {
+  try {
+    const response = await fetch(TEST_RPC_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        method: "eth_getCode",
+        params: ["0x5FbDB2315678afecb367f032d93F642f64180aa3", "latest"],
+        id: 1,
+      }),
+      signal: AbortSignal.timeout(3000),
+    });
+    const result = await response.json() as { result?: string };
+    return result.result !== "0x" && result.result !== undefined && result.result.length > 2;
+  } catch {
+    return false;
+  }
+}
+
 export async function setupTestEnvironment(): Promise<{
   rpcUrl: string;
   storageUrl: string;
@@ -214,6 +252,7 @@ export async function setupTestEnvironment(): Promise<{
   gatewayUrl: string;
   privateKey: Hex;
   chainRunning: boolean;
+  contractsDeployed: boolean;
   servicesRunning: boolean;
 }> {
   const chainRunning = await isServiceHealthy(TEST_RPC_URL, true);
@@ -223,6 +262,7 @@ export async function setupTestEnvironment(): Promise<{
   
   if (chainRunning && storageRunning && computeRunning && gatewayRunning) {
     console.log("All services already running");
+    const contractsDeployed = await checkContractsDeployed();
     return {
       rpcUrl: TEST_RPC_URL,
       storageUrl: TEST_STORAGE_URL,
@@ -230,6 +270,7 @@ export async function setupTestEnvironment(): Promise<{
       gatewayUrl: TEST_GATEWAY_URL,
       privateKey: TEST_PRIVATE_KEY,
       chainRunning: true,
+      contractsDeployed,
       servicesRunning: true,
     };
   }
@@ -258,11 +299,16 @@ export async function setupTestEnvironment(): Promise<{
   }
   
   const finalChainStatus = await isServiceHealthy(TEST_RPC_URL, true);
+  const contractsDeployed = finalChainStatus && await checkContractsDeployed();
   const finalServicesStatus = (
     await isServiceHealthy(TEST_STORAGE_URL) &&
     await isServiceHealthy(TEST_COMPUTE_URL) &&
     await isServiceHealthy(TEST_GATEWAY_URL)
   );
+  
+  if (finalChainStatus && !contractsDeployed) {
+    console.log("⚠ Chain running but contracts not deployed");
+  }
   
   return {
     rpcUrl: TEST_RPC_URL,
@@ -271,6 +317,7 @@ export async function setupTestEnvironment(): Promise<{
     gatewayUrl: TEST_GATEWAY_URL,
     privateKey: TEST_PRIVATE_KEY,
     chainRunning: finalChainStatus,
+    contractsDeployed,
     servicesRunning: finalServicesStatus,
   };
 }

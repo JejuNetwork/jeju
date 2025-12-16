@@ -156,8 +156,21 @@ export const repositories = sqliteTable(
     lastUpdated: text("last_updated")
       .notNull()
       .default(sql`CURRENT_TIMESTAMP`),
+    // JejuGit support
+    source: text("source", { enum: ["github", "jejugit"] as const }).default("github"),
+    sourceUrl: text("source_url"),
+    headCid: text("head_cid"),
+    packCid: text("pack_cid"),
+    storageBackend: text("storage_backend", { enum: ["github", "ipfs", "arweave", "hybrid"] as const }).default("github"),
+    reputationScore: real("reputation_score").default(0),
+    councilProposalId: text("council_proposal_id"),
+    verified: integer("verified").default(0),
   },
-  (table) => [unique("unq_repo_owner_name").on(table.owner, table.name)],
+  (table) => [
+    unique("unq_repo_owner_name").on(table.owner, table.name),
+    index("idx_repositories_source").on(table.source),
+    index("idx_repositories_verified").on(table.verified),
+  ],
 );
 
 // Raw GitHub data tables

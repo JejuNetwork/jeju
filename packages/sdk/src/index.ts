@@ -37,8 +37,13 @@ export * from "./names";
 export * from "./identity";
 export * from "./validation";
 export * from "./crosschain";
+export * from "./nfts";
 export * from "./payments";
 export * from "./a2a";
+
+// Developer tools
+export * from "./git";
+export * from "./packages";
 
 // Wallet utilities
 export * from "./wallet";

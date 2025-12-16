@@ -4,7 +4,7 @@
   "displayName": "Decentralized App Template",
   "version": "1.0.0",
   "type": "app",
-  "description": "A production-ready template for building fully decentralized applications on Jeju Network. Includes: CQL database, IPFS storage, KMS encryption, Cron triggers, JNS naming, REST API, A2A protocol, MCP tools, and x402 payments.",
+  "description": "A production-ready template for building fully decentralized applications on the Network. Includes: CQL database, IPFS storage, KMS encryption, Cron triggers, JNS naming, REST API, A2A protocol, MCP tools, and x402 payments.",
   "commands": {
     "dev": "bun run src/server/index.ts",
     "dev:frontend": "bun run --hot src/frontend/dev.ts",

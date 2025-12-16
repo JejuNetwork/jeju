@@ -23,26 +23,26 @@ describe("Compute Integration Tests", () => {
       network: "localnet",
       rpcUrl: env.rpcUrl,
     });
-  });
+  }, 90000); // 90 second timeout for service startup
 
   afterAll(async () => {
     await teardownTestEnvironment();
-  });
+  }, 10000);
 
   test("client created successfully", () => {
     expect(client).toBeDefined();
     expect(client.compute).toBeDefined();
   });
 
-  test("listProviders returns array", async () => {
-    if (!env.chainRunning) return;
+  test("listProviders returns array (requires contracts)", async () => {
+    if (!env.contractsDeployed) return;
 
     const providers = await client.compute.listProviders();
     expect(Array.isArray(providers)).toBe(true);
   });
 
-  test("listProviders filters by GPU type", async () => {
-    if (!env.chainRunning) return;
+  test("listProviders filters by GPU type (requires contracts)", async () => {
+    if (!env.contractsDeployed) return;
 
     const providers = await client.compute.listProviders({ gpuType: "NVIDIA_H100" });
     expect(Array.isArray(providers)).toBe(true);
@@ -54,36 +54,36 @@ describe("Compute Integration Tests", () => {
     }
   });
 
-  test("listModels returns available AI models", async () => {
-    if (!env.chainRunning) return;
+  test("listModels returns available AI models (requires contracts)", async () => {
+    if (!env.contractsDeployed) return;
 
     const models = await client.compute.listModels();
     expect(Array.isArray(models)).toBe(true);
   });
 
-  test("listMyRentals returns user rentals", async () => {
-    if (!env.chainRunning) return;
+  test("listMyRentals returns user rentals (requires contracts)", async () => {
+    if (!env.contractsDeployed) return;
 
     const rentals = await client.compute.listMyRentals();
     expect(Array.isArray(rentals)).toBe(true);
   });
 
-  test("listTriggers returns trigger list", async () => {
-    if (!env.chainRunning) return;
+  test("listTriggers returns trigger list (requires contracts)", async () => {
+    if (!env.contractsDeployed) return;
 
     const triggers = await client.compute.listTriggers();
     expect(Array.isArray(triggers)).toBe(true);
   });
 
-  test("getPrepaidBalance returns bigint", async () => {
-    if (!env.chainRunning) return;
+  test("getPrepaidBalance returns bigint (requires contracts)", async () => {
+    if (!env.contractsDeployed) return;
 
     const balance = await client.compute.getPrepaidBalance();
     expect(typeof balance).toBe("bigint");
   });
 
-  test("getQuote returns price estimate", async () => {
-    if (!env.chainRunning) return;
+  test("getQuote returns price estimate (requires contracts)", async () => {
+    if (!env.contractsDeployed) return;
 
     const providers = await client.compute.listProviders();
     if (providers.length === 0) return;

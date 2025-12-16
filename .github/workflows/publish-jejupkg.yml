@@ -1,0 +1,111 @@
+name: Publish to JejuPkg
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 0.1.1)'
+        required: true
+      dry_run:
+        description: 'Dry run (do not actually publish)'
+        type: boolean
+        default: true
+
+env:
+  JEJUPKG_URL: ${{ secrets.JEJUPKG_URL || 'https://pkg.jeju.network' }}
+
+jobs:
+  publish-to-jejupkg:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Extract version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      # Build packages
+      - name: Build @jejunetwork/types
+        working-directory: packages/types
+        run: bun run build
+
+      - name: Build contracts
+        working-directory: packages/contracts
+        run: |
+          forge build
+          bun run build
+
+      # Update versions
+      - name: Update package versions
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          cd packages/types && jq ".version = \"$VERSION\"" package.json > tmp.json && mv tmp.json package.json
+          cd ../contracts && jq ".version = \"$VERSION\"" package.json > tmp.json && mv tmp.json package.json
+
+      # Configure JejuPkg registry
+      - name: Configure JejuPkg registry
+        run: |
+          echo "registry=${{ env.JEJUPKG_URL }}" > ~/.npmrc
+          echo "//${{ env.JEJUPKG_URL }}/:_authToken=${{ secrets.JEJUPKG_TOKEN }}" >> ~/.npmrc
+
+      # Publish to JejuPkg
+      - name: Publish @jejunetwork/types to JejuPkg
+        working-directory: packages/types
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            echo "DRY RUN: Would publish @jejunetwork/types to JejuPkg"
+            npm pack --dry-run
+          else
+            npm publish --registry ${{ env.JEJUPKG_URL }}
+            echo "Published @jejunetwork/types@${{ steps.version.outputs.version }} to JejuPkg"
+          fi
+
+      - name: Publish @jejunetwork/contracts to JejuPkg
+        working-directory: packages/contracts
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            echo "DRY RUN: Would publish @jejunetwork/contracts to JejuPkg"
+            npm pack --dry-run
+          else
+            npm publish --registry ${{ env.JEJUPKG_URL }}
+            echo "Published @jejunetwork/contracts@${{ steps.version.outputs.version }} to JejuPkg"
+          fi
+
+      # Also publish to regular npm (mirroring)
+      - name: Configure npmjs registry
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+
+      - name: Publish to npmjs (mirror)
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          cd packages/types && npm publish --access public --provenance || true
+          cd ../contracts && npm publish --access public --provenance || true
