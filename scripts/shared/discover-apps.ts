@@ -10,28 +10,109 @@ import { z } from 'zod';
 
 // Schema for jeju manifest validation
 const AppManifestSchema = z.object({
+  $schema: z.string().optional(),
   name: z.string().regex(/^[a-z0-9-]+$/),
   displayName: z.string().optional(),
   version: z.string().regex(/^\d+\.\d+\.\d+(-[a-z0-9.]+)?$/),
-  type: z.enum(['core', 'vendor']),
+  type: z.enum(['core', 'service', 'vendor', 'app', 'utility']).optional().default('core'),
   description: z.string().optional(),
+  category: z.string().optional(),
   commands: z.object({
     dev: z.string().optional(),
     build: z.string().optional(),
     test: z.string().optional(),
     start: z.string().optional(),
-  }).optional(),
+  }).passthrough().optional(),
   ports: z.record(z.number()).optional(),
-  dependencies: z.array(z.enum(['contracts', 'config', 'shared', 'scripts', 'indexer', 'localnet', 'compute', 'bazaar'])).optional(),
+  dependencies: z.union([
+    z.array(z.string()),
+    z.record(z.union([z.array(z.string()), z.string()])),
+  ]).optional(),
   optional: z.boolean().default(true),
   enabled: z.boolean().default(true),
   autoStart: z.boolean().default(true),
   tags: z.array(z.string()).optional(),
   healthCheck: z.object({
     url: z.string().optional(),
+    endpoint: z.string().optional(),
     interval: z.number().optional(),
   }).optional(),
-});
+  jns: z.object({
+    name: z.string().optional(),
+    description: z.string().optional(),
+    url: z.string().optional(),
+  }).optional(),
+  agent: z.object({
+    enabled: z.boolean().optional(),
+    a2aEndpoint: z.string().optional(),
+    mcpEndpoint: z.string().optional(),
+    tags: z.array(z.string()).optional(),
+    metadata: z.record(z.unknown()).optional(),
+    trustModels: z.array(z.string()).optional(),
+    x402Support: z.boolean().optional(),
+    multiTokenPayments: z.boolean().optional(),
+    jnsName: z.string().optional(),
+  }).optional(),
+  decentralization: z.object({
+    cdn: z.object({
+      enabled: z.boolean().optional(),
+      regions: z.array(z.string()).optional(),
+      cacheRules: z.array(z.object({
+        pattern: z.string(),
+        ttl: z.number(),
+        staleWhileRevalidate: z.number().optional(),
+        immutable: z.boolean().optional(),
+      })).optional(),
+      apiCaching: z.object({
+        enabled: z.boolean().optional(),
+        defaultTtl: z.number().optional(),
+        varyHeaders: z.array(z.string()).optional(),
+      }).optional(),
+      serviceWorker: z.boolean().optional(),
+    }).optional(),
+    frontend: z.object({
+      ipfs: z.boolean().optional(),
+      arweave: z.boolean().optional(),
+      jnsName: z.string().optional(),
+      buildDir: z.string().optional(),
+      spa: z.boolean().optional(),
+      fallbackOrigins: z.array(z.string()).optional(),
+    }).optional(),
+    robustness: z.object({
+      multiOrigin: z.boolean().optional(),
+      offlineSupport: z.boolean().optional(),
+      p2pFallback: z.boolean().optional(),
+      contentAddressed: z.boolean().optional(),
+    }).optional(),
+  }).optional(),
+  testing: z.object({
+    unit: z.object({
+      command: z.string().optional(),
+      timeout: z.number().optional(),
+    }).optional(),
+    integration: z.object({
+      command: z.string().optional(),
+      timeout: z.number().optional(),
+      requiresChain: z.boolean().optional(),
+      requiresServices: z.union([z.boolean(), z.array(z.string())]).optional(),
+    }).optional(),
+    e2e: z.object({
+      command: z.string().optional(),
+      config: z.string().optional(),
+      timeout: z.number().optional(),
+      requiresChain: z.boolean().optional(),
+      requiresWallet: z.boolean().optional(),
+    }).optional(),
+    wallet: z.object({
+      command: z.string().optional(),
+      timeout: z.number().optional(),
+      requiresChain: z.boolean().optional(),
+      requiresWallet: z.boolean().optional(),
+    }).optional(),
+    services: z.array(z.string()).optional(),
+    dependencies: z.array(z.string()).optional(),
+  }).passthrough().optional(),
+}).passthrough();
 
 export type AppManifest = z.infer<typeof AppManifestSchema>;
 

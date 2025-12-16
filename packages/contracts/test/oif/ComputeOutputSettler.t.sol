@@ -169,10 +169,10 @@ contract ComputeOutputSettlerTest is Test {
         assertTrue(settler.isFilled(orderId));
         assertTrue(rentalId != bytes32(0));
 
-        BaseOutputSettler.FillRecord memory record = settler.getFillRecord(orderId);
+        ComputeOutputSettler.ComputeFillRecord memory record = settler.getComputeFillRecord(orderId);
         assertEq(record.solver, solver);
-        assertEq(record.recipient, user);
-        assertEq(record.amount, payment);
+        assertEq(record.user, user);
+        assertEq(record.paymentAmount, payment);
         assertTrue(record.filledBlock > 0);
     }
 
@@ -265,9 +265,9 @@ contract ComputeOutputSettlerTest is Test {
 
         assertTrue(settler.isFilled(orderId));
 
-        BaseOutputSettler.FillRecord memory record = settler.getFillRecord(orderId);
+        ComputeOutputSettler.ComputeFillRecord memory record = settler.getComputeFillRecord(orderId);
         assertEq(record.solver, solver);
-        assertEq(record.recipient, user);
+        assertEq(record.user, user);
     }
 
     // ============ Standard Token Fill Tests ============
@@ -315,7 +315,7 @@ contract ComputeOutputSettlerTest is Test {
     // ============ View Tests ============
 
     function test_version() public view {
-        assertEq(settler.version(), "1.0.0");
+        assertEq(settler.version(), "2.0.0");
     }
 
     function test_chainId() public view {

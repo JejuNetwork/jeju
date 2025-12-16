@@ -41,7 +41,6 @@ describe('BotInitializer', () => {
       serviceRegistry: '0x' + '5'.repeat(40) as `0x${string}`,
     },
     services: {
-      dwsUrl: 'http://localhost:4001',
       computeMarketplace: 'http://localhost:4007',
       storageApi: 'http://localhost:3100',
       ipfsGateway: 'http://localhost:3100',

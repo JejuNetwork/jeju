@@ -39,13 +39,25 @@ bun run build
 bun test
 
 # Deploy JEJU to testnet
-bun run scripts/deploy-jeju.ts --network testnet
+jeju token deploy:jeju --network testnet
 
-# Deploy JEJU to localnet (Anvil)
-bun run scripts/deploy-jeju.ts --network localnet
+# Deploy JEJU to localnet
+jeju token deploy:jeju --network localnet
 
 # Dry run (no transactions)
-bun run scripts/deploy-jeju.ts --network testnet --dry-run
+jeju token deploy:jeju --network testnet --dry-run
+
+# Deploy full token ecosystem
+jeju token deploy:ecosystem --network testnet
+
+# Deploy Hyperlane infrastructure
+jeju token deploy:hyperlane --network testnet
+
+# Deploy to Solana
+jeju token deploy:solana --network devnet
+
+# Verify deployment
+jeju token verify --network testnet
 ```
 
 ## Token Architecture
@@ -178,12 +190,12 @@ packages/token/
 To deploy your own cross-chain token:
 
 ```bash
-# Using CLI
-jeju token deploy MYTOKEN --custom --name "My Token" --supply 1000000000 --network testnet
+# Using CLI (recommended)
+jeju token deploy:jeju --network testnet
+# Then modify token config in packages/token/src/config/
 
-# Using deployment script directly
-bun run scripts/deploy-jeju.ts --network testnet
-# Then modify for your token
+# Or deploy full ecosystem
+jeju token deploy:ecosystem --network testnet
 ```
 
 ## Related Packages

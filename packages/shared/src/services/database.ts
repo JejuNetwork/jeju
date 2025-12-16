@@ -5,7 +5,7 @@
  */
 
 import { getCQL, type CQLClient } from '@jejunetwork/db';
-import type { Address, Hex } from 'viem';
+import type { Hex } from 'viem';
 
 export interface DatabaseConfig {
   databaseId: string;

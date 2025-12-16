@@ -1,6 +1,8 @@
 #!/usr/bin/env bun
 
 /**
+ * @deprecated Use 'jeju deploy zkbridge --network mainnet' instead
+ * 
  * ZKSolBridge Mainnet Deployment
  *
  * Deploys ZK light client bridge infrastructure to mainnets:
@@ -12,6 +14,10 @@
  * - Solana Mainnet
  *
  * PRODUCTION DEPLOYMENT - USE WITH CAUTION
+ * 
+ * Usage:
+ *   jeju deploy zkbridge --network mainnet
+ *   jeju deploy zkbridge --network mainnet --dry-run
  */
 
 import { Connection, Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js';

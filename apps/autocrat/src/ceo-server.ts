@@ -568,7 +568,7 @@ async function start() {
   await initializeCEORuntime();
 
   const teeMode = getTEEMode();
-  const teeLabel = teeMode === 'hardware' ? 'Hardware TEE' : 'Simulated';
+  const teeLabel = teeMode === 'remote' ? 'Remote TEE' : 'Local Simulated';
 
   console.log(`
 ╔═══════════════════════════════════════════════════════════════╗

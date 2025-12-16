@@ -1,6 +1,8 @@
 #!/usr/bin/env bun
 
 /**
+ * @deprecated Use 'jeju deploy zkbridge --network testnet' instead
+ * 
  * ZKSolBridge Testnet Deployment
  *
  * Deploys ZK light client bridge infrastructure to testnets:
@@ -8,6 +10,11 @@
  * - Solana Devnet
  *
  * Integrates with Jeju Autocrat Council for governance.
+ * 
+ * Usage:
+ *   jeju deploy zkbridge --network testnet
+ *   jeju deploy zkbridge --network testnet --evm-only
+ *   jeju deploy zkbridge --network testnet --solana-only
  */
 
 import { Connection, Keypair, PublicKey } from '@solana/web3.js';

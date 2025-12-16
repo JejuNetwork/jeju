@@ -37,7 +37,9 @@
     "./protocols/server": "./src/protocols/server.ts",
     "./protocols/a2a": "./src/protocols/a2a.ts",
     "./protocols/mcp": "./src/protocols/mcp.ts",
-    "./protocols/middleware": "./src/protocols/middleware.ts"
+    "./protocols/middleware": "./src/protocols/middleware.ts",
+    "./service-worker": "./src/service-worker/index.ts",
+    "./service-worker/sw": "./src/service-worker/sw.ts"
   },
   "dependencies": {
     "@jejunetwork/db": "workspace:*",

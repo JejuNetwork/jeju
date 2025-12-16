@@ -1,9 +1,11 @@
 #!/usr/bin/env bun
 /**
+ * @deprecated Use 'jeju deploy sync-configs' instead
+ * 
  * Sync Contract Addresses Across Configs
  * 
  * After deploying new contracts, run this to update all config files:
- *   bun run scripts/sync-configs.ts --network base-sepolia
+ *   jeju deploy sync-configs --network base-sepolia
  * 
  * This reads from deployments/addresses.json and updates:
  *   - vendor/cloud/config/x402.json

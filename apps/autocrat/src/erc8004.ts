@@ -1,10 +1,20 @@
 /** ERC-8004 Agent Identity & Reputation */
 
-import { createPublicClient, createWalletClient, http, keccak256, stringToHex, zeroAddress, zeroHash, type Address, type Chain, type PublicClient, type WalletClient } from 'viem';
+import { createPublicClient, createWalletClient, http, keccak256, stringToHex, zeroAddress, zeroHash, type Address, type PublicClient, type WalletClient } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { readContract, waitForTransactionReceipt } from 'viem/actions';
 import { parseAbi } from 'viem';
-import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
+import { base, baseSepolia, localhost } from 'viem/chains';
+
+function inferChainFromRpcUrl(rpcUrl: string) {
+  if (rpcUrl.includes('base-sepolia') || rpcUrl.includes('84532')) {
+    return baseSepolia;
+  }
+  if (rpcUrl.includes('base') && !rpcUrl.includes('localhost')) {
+    return base;
+  }
+  return localhost;
+}
 
 const ZERO = zeroAddress;
 const ZERO32 = zeroHash;

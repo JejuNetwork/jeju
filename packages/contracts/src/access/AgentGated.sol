@@ -229,7 +229,7 @@ abstract contract AgentGated is Ownable {
      * @notice Set the identity registry
      * @param _identityRegistry New registry address
      */
-    function setIdentityRegistry(address _identityRegistry) external onlyOwner {
+    function setIdentityRegistry(address _identityRegistry) external virtual onlyOwner {
         address oldRegistry = address(identityRegistry);
         identityRegistry = IIdentityRegistry(_identityRegistry);
         emit IdentityRegistrySet(oldRegistry, _identityRegistry);

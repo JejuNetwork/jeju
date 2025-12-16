@@ -1,5 +1,7 @@
 #!/usr/bin/env bun
 /**
+ * @deprecated Use 'jeju deploy zkbridge-setup --sp1' instead
+ * 
  * SP1 Toolchain Setup Script
  *
  * Installs the SP1 proving toolkit and sets up the development environment
@@ -7,6 +9,9 @@
  *
  * SP1 is Succinct's open-source RISC-V zkVM that allows proving arbitrary Rust programs.
  * See: https://docs.succinct.xyz/
+ * 
+ * Usage:
+ *   jeju deploy zkbridge-setup --sp1
  */
 
 import { spawn } from 'bun';
