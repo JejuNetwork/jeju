@@ -174,6 +174,7 @@ contract ComputeOutputSettlerTest is Test {
         assertEq(record.user, user);
         assertEq(record.paymentAmount, payment);
         assertTrue(record.filledBlock > 0);
+        assertTrue(record.isRental);
     }
 
     function test_fillComputeRental_deductsETH() public {
@@ -268,6 +269,7 @@ contract ComputeOutputSettlerTest is Test {
         ComputeOutputSettler.ComputeFillRecord memory record = settler.getComputeFillRecord(orderId);
         assertEq(record.solver, solver);
         assertEq(record.user, user);
+        assertFalse(record.isRental);
     }
 
     // ============ Standard Token Fill Tests ============

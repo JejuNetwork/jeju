@@ -56,7 +56,7 @@ abstract contract AgentGated is Ownable {
 
     // ============ Constructor ============
 
-    constructor(address _identityRegistry) {
+    constructor(address _identityRegistry, address _owner) Ownable(_owner) {
         if (_identityRegistry != address(0)) {
             identityRegistry = IIdentityRegistry(_identityRegistry);
         }

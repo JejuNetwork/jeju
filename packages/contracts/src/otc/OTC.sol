@@ -11,6 +11,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {IAggregatorV3} from "./interfaces/IAggregatorV3.sol";
 import {IOTC} from "./interfaces/IOTC.sol";
 import {OracleLib} from "../libraries/OracleLib.sol";
+import {ModerationMixin} from "../moderation/ModerationMixin.sol";
 
 /// @title OTC-like Token Sale Desk - Multi-Token Support
 /// @notice Permissionless consignment creation, approver-gated approvals, price snapshot on creation using Chainlink.
@@ -18,6 +19,10 @@ import {OracleLib} from "../libraries/OracleLib.sol";
 contract OTC is IOTC, Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using Math for uint256;
+    using ModerationMixin for ModerationMixin.Data;
+
+    /// @notice Moderation integration for ban enforcement
+    ModerationMixin.Data public moderation;
 
     enum PaymentCurrency {
         ETH,
@@ -163,6 +168,11 @@ contract OTC is IOTC, Ownable, Pausable, ReentrancyGuard {
         _;
     }
 
+    modifier notBanned() {
+        require(!moderation.isAddressBanned(msg.sender), "User is banned");
+        _;
+    }
+
     constructor(address owner_, IERC20 usdc_, IAggregatorV3 ethUsdFeed_, address agent_) Ownable(owner_) {
         require(address(usdc_) != address(0), "bad usdc");
         require(agent_ != address(0), "bad agent");
@@ -275,7 +285,7 @@ contract OTC is IOTC, Ownable, Pausable, ReentrancyGuard {
         uint256 minDealAmount,
         uint256 maxDealAmount,
         uint16 maxPriceVolatilityBps
-    ) external payable nonReentrant whenNotPaused returns (uint256) {
+    ) external payable nonReentrant whenNotPaused notBanned returns (uint256) {
         RegisteredToken memory tkn = tokens[tokenId];
         require(tkn.isActive, "token not active");
         require(amount > 0, "zero amount");
@@ -407,7 +417,7 @@ contract OTC is IOTC, Ownable, Pausable, ReentrancyGuard {
         uint256 discountBps,
         PaymentCurrency currency,
         uint256 lockupSeconds
-    ) external nonReentrant whenNotPaused returns (uint256) {
+    ) external nonReentrant whenNotPaused notBanned returns (uint256) {
         Consignment storage c = consignments[consignmentId];
         require(c.isActive, "consignment not active");
         require(tokenAmount >= c.minDealAmount && tokenAmount <= c.maxDealAmount, "amount out of range");
@@ -526,7 +536,7 @@ contract OTC is IOTC, Ownable, Pausable, ReentrancyGuard {
         return totalUsd;
     }
 
-    function fulfillOffer(uint256 offerId) external payable nonReentrant whenNotPaused {
+    function fulfillOffer(uint256 offerId) external payable nonReentrant whenNotPaused notBanned {
         Offer storage o = offers[offerId];
         require(o.beneficiary != address(0), "no offer");
         require(o.approved, "not appr");
@@ -859,6 +869,18 @@ contract OTC is IOTC, Ownable, Pausable, ReentrancyGuard {
         if (cleaned > 0) {
             _cleanupOldOffers();
         }
+    }
+
+    function setBanManager(address _banManager) external onlyOwner {
+        moderation.setBanManager(_banManager);
+    }
+
+    function setIdentityRegistry(address _identityRegistry) external onlyOwner {
+        moderation.setIdentityRegistry(_identityRegistry);
+    }
+
+    function isUserBanned(address user) external view returns (bool) {
+        return moderation.isAddressBanned(user);
     }
 
     receive() external payable {}

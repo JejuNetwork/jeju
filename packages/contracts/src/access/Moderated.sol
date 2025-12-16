@@ -48,8 +48,7 @@ abstract contract Moderated is AgentGated {
         address _identityRegistry,
         address _banManager,
         address _owner
-    ) AgentGated(_identityRegistry) {
-        _transferOwnership(_owner);
+    ) AgentGated(_identityRegistry, _owner) {
         if (_banManager != address(0)) {
             moderation.setBanManager(_banManager);
         }
