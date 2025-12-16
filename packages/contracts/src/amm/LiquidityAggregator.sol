@@ -291,8 +291,8 @@ contract LiquidityAggregator is Ownable, ReentrancyGuard {
         view
         returns (PoolType poolType, address pool, uint256 expectedOut)
     {
-        Quote memory quote = this.getBestQuote(tokenIn, tokenOut, amountIn);
-        return (quote.poolType, quote.pool, quote.amountOut);
+        Quote memory bestQuote = this.getBestQuote(tokenIn, tokenOut, amountIn);
+        return (bestQuote.poolType, bestQuote.pool, bestQuote.amountOut);
     }
 
     /// @notice Check if router can execute a swap
@@ -307,12 +307,12 @@ contract LiquidityAggregator is Ownable, ReentrancyGuard {
         view
         returns (bool canSwap, string memory reason)
     {
-        Quote memory quote = this.getBestQuote(tokenIn, tokenOut, amountIn);
+        Quote memory bestQuote = this.getBestQuote(tokenIn, tokenOut, amountIn);
 
-        if (quote.pool == address(0)) {
+        if (bestQuote.pool == address(0)) {
             return (false, "No liquidity");
         }
-        if (quote.amountOut < minAmountOut) {
+        if (bestQuote.amountOut < minAmountOut) {
             return (false, "Insufficient output");
         }
         return (true, "");

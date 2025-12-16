@@ -477,11 +477,22 @@ contract RPCStakingManager is IRPCStakingManager, Ownable, Pausable, ReentrancyG
     function getStats()
         external
         view
-        returns (uint256 _totalStaked, uint256 _totalStakers, uint256, uint256, uint256, uint256)
+        returns (
+            uint256 _totalStaked,
+            uint256 _totalStakers,
+            uint256 tierCount1,
+            uint256 tierCount2,
+            uint256 tierCount3,
+            uint256 tierCount4
+        )
     {
         _totalStaked = totalStaked;
         _totalStakers = totalStakers;
         // Note: tier counts would require enumeration, returns 0 for now
+        tierCount1 = 0;
+        tierCount2 = 0;
+        tierCount3 = 0;
+        tierCount4 = 0;
     }
 
     function version() external pure returns (string memory) {

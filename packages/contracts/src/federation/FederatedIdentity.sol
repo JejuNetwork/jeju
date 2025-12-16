@@ -183,7 +183,7 @@ contract FederatedIdentity is ReentrancyGuard {
     function attestCrossNetwork(
         bytes32 federatedId,
         uint256 targetChainId,
-        bytes calldata proof
+        bytes calldata /* proof */
     ) external onlyAuthorizedAttester {
         FederatedAgent storage agent = federatedAgents[federatedId];
         if (agent.federatedAt == 0) revert NotFederated();

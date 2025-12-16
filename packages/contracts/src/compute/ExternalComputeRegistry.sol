@@ -337,12 +337,11 @@ contract ExternalComputeRegistry is Ownable, Pausable, ReentrancyGuard {
      * @notice Request a deployment from a bridge node
      * @param bridgeNode Address of bridge node to use
      * @param providerType External provider type
-     * @param durationHours Deployment duration in hours
      */
     function requestDeployment(
         address bridgeNode,
         ProviderType providerType,
-        uint256 durationHours
+        uint256 /* durationHours - reserved for future use */
     ) external payable nonReentrant whenNotPaused returns (bytes32) {
         BridgeNode storage node = bridgeNodes[bridgeNode];
         if (node.registeredAt == 0) revert BridgeNodeNotRegistered();

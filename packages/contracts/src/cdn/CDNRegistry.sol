@@ -207,33 +207,7 @@ contract CDNRegistry is ICDNTypes, Ownable, ReentrancyGuard {
         Region region,
         ProviderType providerType
     ) external payable nonReentrant returns (bytes32 nodeId) {
-        if (bytes(endpoint).length == 0) revert InvalidEndpoint();
-        if (msg.value < minNodeStake) revert InsufficientStake(msg.value, minNodeStake);
-
-        // Generate node ID
-        nodeId = keccak256(abi.encodePacked(msg.sender, endpoint, block.timestamp, block.number));
-
-        _edgeNodes[nodeId] = EdgeNode({
-            nodeId: nodeId,
-            operator: msg.sender,
-            endpoint: endpoint,
-            region: region,
-            providerType: providerType,
-            status: NodeStatus.HEALTHY,
-            stake: msg.value,
-            registeredAt: block.timestamp,
-            lastSeen: block.timestamp,
-            agentId: 0
-        });
-
-        _operatorNodes[msg.sender].push(nodeId);
-        _regionNodes[region].push(nodeId);
-        _nodeList.push(nodeId);
-        nodeCount++;
-
-        emit EdgeNodeRegistered(nodeId, msg.sender, region, providerType, msg.value);
-
-        return nodeId;
+        return _registerEdgeNodeInternal(endpoint, region, providerType, 0);
     }
 
     /**
@@ -249,8 +223,39 @@ contract CDNRegistry is ICDNTypes, Ownable, ReentrancyGuard {
         if (!identityRegistry.agentExists(agentId)) revert InvalidAgentId();
         if (identityRegistry.ownerOf(agentId) != msg.sender) revert NotAgentOwner();
 
-        nodeId = registerEdgeNode(endpoint, region, providerType);
-        _edgeNodes[nodeId].agentId = agentId;
+        return _registerEdgeNodeInternal(endpoint, region, providerType, agentId);
+    }
+
+    function _registerEdgeNodeInternal(
+        string calldata endpoint,
+        Region region,
+        ProviderType providerType,
+        uint256 agentId
+    ) internal returns (bytes32 nodeId) {
+        if (bytes(endpoint).length == 0) revert InvalidEndpoint();
+        if (msg.value < minNodeStake) revert InsufficientStake(msg.value, minNodeStake);
+
+        nodeId = keccak256(abi.encodePacked(msg.sender, endpoint, block.timestamp, block.number));
+
+        _edgeNodes[nodeId] = EdgeNode({
+            nodeId: nodeId,
+            operator: msg.sender,
+            endpoint: endpoint,
+            region: region,
+            providerType: providerType,
+            status: NodeStatus.HEALTHY,
+            stake: msg.value,
+            registeredAt: block.timestamp,
+            lastSeen: block.timestamp,
+            agentId: agentId
+        });
+
+        _operatorNodes[msg.sender].push(nodeId);
+        _regionNodes[region].push(nodeId);
+        _nodeList.push(nodeId);
+        nodeCount++;
+
+        emit EdgeNodeRegistered(nodeId, msg.sender, region, providerType, msg.value);
 
         return nodeId;
     }

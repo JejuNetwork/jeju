@@ -449,6 +449,35 @@ services:
       - challenger-key
     restart: unless-stopped
 
+  # Forced Inclusion Monitor - Ensures censorship resistance
+  forced-inclusion-monitor:
+    image: oven/bun:1
+    container_name: jeju-decentralized-forced-inclusion
+    working_dir: /app
+    volumes:
+      - ./scripts/sequencer:/app
+      - ./packages/contracts/deployments:/app/deployments:ro
+    environment:
+      - L1_RPC_URL=http://geth-l1:8545
+      - FORCED_INCLUSION_ADDRESS=${FORCED_INCLUSION_ADDRESS}
+      # Optional: set FORCER_PRIVATE_KEY to auto-force-include and earn rewards
+      - FORCER_PRIVATE_KEY=${FORCER_PRIVATE_KEY:-}
+      - ALERT_THRESHOLD=10
+      - CHECK_INTERVAL=12000
+    command: >
+      sh -c "
+        echo 'Waiting for contracts...' &&
+        sleep 45 &&
+        echo 'Starting forced inclusion monitor...' &&
+        bun run forced-inclusion-monitor.ts
+      "
+    depends_on:
+      contract-deployer:
+        condition: service_completed_successfully
+    networks:
+      - jeju-decentralized
+    restart: unless-stopped
+
   # ============================================================================
   # P2P THRESHOLD SIGNERS - One per sequencer operator
   # Each signer holds ONLY its own private key
