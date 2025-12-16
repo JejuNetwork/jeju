@@ -66,7 +66,7 @@ forge script script/DeployTestnet.s.sol \
   --broadcast --verify
 
 # 4. Verify
-bun run scripts/check-testnet-deployment.ts
+jeju deploy check testnet
 ```
 
 ## Deploy Contracts Only

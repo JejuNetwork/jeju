@@ -1,5 +1,5 @@
 {
-  "name": "@jeju/db",
+  "name": "@jejunetwork/db",
   "version": "0.1.0",
   "description": "Database Integration for Jeju Network - Powered by CovenantSQL",
   "license": "MIT",

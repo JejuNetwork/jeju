@@ -1,4 +1,4 @@
-import type { Solver, SolverLeaderboardEntry, SolverLiquidity, SupportedChainId } from '@jejunetwork/types/oif';
+import type { Solver, SolverLeaderboardEntry, SolverLiquidity, SupportedChainId } from '@jejunetwork/types';
 import * as chainService from './chain-service';
 import { ZERO_ADDRESS } from '../lib/contracts.js';
 

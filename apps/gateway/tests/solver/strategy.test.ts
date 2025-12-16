@@ -5,7 +5,7 @@
 
 import { describe, test, expect } from 'bun:test';
 import { StrategyEngine } from '../../src/solver/strategy';
-import { ethers } from 'ethers';
+import { parseEther, parseUnits } from 'viem';
 
 // Create strategy with test config
 function createStrategy(overrides: Partial<{
@@ -15,8 +15,8 @@ function createStrategy(overrides: Partial<{
 }> = {}): StrategyEngine {
   return new StrategyEngine({
     minProfitBps: overrides.minProfitBps ?? 10, // 0.1%
-    maxGasPrice: overrides.maxGasPrice ?? ethers.parseUnits('100', 'gwei'),
-    maxIntentSize: overrides.maxIntentSize ?? ethers.parseEther('1000').toString(),
+    maxGasPrice: overrides.maxGasPrice ?? parseUnits('100', 9),
+    maxIntentSize: overrides.maxIntentSize ?? parseEther('1000').toString(),
   });
 }
 
@@ -39,8 +39,8 @@ describe('StrategyEngine Construction', () => {
   test('should create with custom config', () => {
     const strategy = createStrategy({
       minProfitBps: 50,
-      maxGasPrice: ethers.parseUnits('200', 'gwei'),
-      maxIntentSize: ethers.parseEther('500').toString(),
+      maxGasPrice: parseUnits('200', 9),
+      maxIntentSize: parseEther('500').toString(),
     });
     expect(strategy).toBeDefined();
   });

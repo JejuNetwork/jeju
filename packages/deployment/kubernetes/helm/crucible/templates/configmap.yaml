@@ -12,9 +12,22 @@ data:
   TRIGGER_REGISTRY_ADDRESS: {{ .Values.config.contracts.triggerRegistry | quote }}
   IDENTITY_REGISTRY_ADDRESS: {{ .Values.config.contracts.identityRegistry | quote }}
   SERVICE_REGISTRY_ADDRESS: {{ .Values.config.contracts.serviceRegistry | quote }}
+  AUTOCRAT_TREASURY_ADDRESS: {{ .Values.config.contracts.autocratTreasury | quote }}
   COMPUTE_MARKETPLACE_URL: {{ .Values.config.services.computeMarketplace | quote }}
   STORAGE_API_URL: {{ .Values.config.services.storageApi | quote }}
   IPFS_GATEWAY: {{ .Values.config.services.ipfsGateway | quote }}
   INDEXER_GRAPHQL_URL: {{ .Values.config.services.indexerGraphql | quote }}
+  DEX_CACHE_URL: {{ .Values.config.services.dexCacheUrl | quote }}
   LOG_LEVEL: {{ .Values.config.logLevel | default "info" | quote }}
   LOG_FORMAT: {{ .Values.config.logFormat | default "json" | quote }}
+  {{- if .Values.bot.enabled }}
+  # Bot Configuration
+  BOT_MIN_PROFIT_BPS: {{ .Values.bot.minProfitBps | default 50 | quote }}
+  BOT_MAX_SLIPPAGE_BPS: {{ .Values.bot.maxSlippageBps | default 100 | quote }}
+  {{- if .Values.bot.solanaRpcUrl }}
+  SOLANA_RPC_URL: {{ .Values.bot.solanaRpcUrl | quote }}
+  {{- end }}
+  {{- if .Values.bot.solanaNetwork }}
+  SOLANA_NETWORK: {{ .Values.bot.solanaNetwork | quote }}
+  {{- end }}
+  {{- end }}

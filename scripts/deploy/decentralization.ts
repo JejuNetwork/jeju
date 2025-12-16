@@ -11,7 +11,11 @@
 import { execSync } from 'child_process';
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { ethers } from 'ethers';
+import { createPublicClient, http, formatEther, parseEther, getBalance, getCode, getBlockNumber, type Address } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { readContract } from 'viem/actions';
+import { parseAbi } from 'viem';
+import { inferChainFromRpcUrl } from '../shared/chain-utils';
 
 const ROOT = join(import.meta.dir, '../..');
 const CONTRACTS_DIR = join(ROOT, 'packages/contracts');
@@ -52,14 +56,19 @@ async function main() {
   console.log('');
 
   // Check L1 connection
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
-  const blockNumber = await provider.getBlockNumber();
+  const chain = inferChainFromRpcUrl(rpcUrl);
+  const account = privateKeyToAccount(deployerKey as `0x${string}`);
+  const publicClient = createPublicClient({
+    chain,
+    transport: http(rpcUrl),
+  });
+
+  const blockNumber = await getBlockNumber(publicClient);
   console.log(`✅ L1 connected at block ${blockNumber}`);
 
-  const wallet = new ethers.Wallet(deployerKey, provider);
-  const balance = await provider.getBalance(wallet.address);
-  console.log(`✅ Deployer: ${wallet.address}`);
-  console.log(`   Balance: ${ethers.formatEther(balance)} ETH`);
+  const balance = await getBalance(publicClient, { address: account.address });
+  console.log(`✅ Deployer: ${account.address}`);
+  console.log(`   Balance: ${formatEther(balance)} ETH`);
 
   if (balance === 0n) {
     console.error('❌ Deployer has no ETH. Fund the account first.');
@@ -78,7 +87,7 @@ async function main() {
     const output = execSync(forgeCmd, { encoding: 'utf-8', maxBuffer: 100 * 1024 * 1024 });
     
     // Parse deployed addresses from output
-    const deployment = parseDeploymentOutput(output, wallet.address, network);
+    const deployment = parseDeploymentOutput(output, account.address, network);
     
     if (!deployment.sequencerRegistry) {
       console.error('❌ Failed to parse deployment addresses from output');
@@ -114,7 +123,7 @@ async function main() {
     console.log('');
 
     // Verify deployment
-    await verifyDeployment(provider, deployment);
+    await verifyDeployment(publicClient, deployment);
 
   } catch (error) {
     console.error('❌ Deployment failed:', error);
@@ -122,7 +131,7 @@ async function main() {
   }
 }
 
-function parseDeploymentOutput(output: string, deployer: string, network: string): Deployment {
+function parseDeploymentOutput(output: string, deployer: Address, network: string): Deployment {
   const deployment: Deployment = {
     jejuToken: '',
     identityRegistry: '',
@@ -163,56 +172,63 @@ function parseDeploymentOutput(output: string, deployer: string, network: string
   return deployment;
 }
 
-async function verifyDeployment(provider: ethers.Provider, deployment: Deployment): Promise<void> {
+async function verifyDeployment(publicClient: ReturnType<typeof createPublicClient>, deployment: Deployment): Promise<void> {
   console.log('🔍 Verifying deployment...');
   console.log('');
 
   // Verify DisputeGameFactory
-  const factoryCode = await provider.getCode(deployment.disputeGameFactory);
+  const factoryCode = await getCode(publicClient, { address: deployment.disputeGameFactory as Address });
   if (factoryCode === '0x') {
     console.error('❌ DisputeGameFactory has no code');
     process.exit(1);
   }
 
-  const factory = new ethers.Contract(
-    deployment.disputeGameFactory,
-    ['function MIN_BOND() view returns (uint256)', 'function proverEnabled(uint8) view returns (bool)'],
-    provider
-  );
+  const FACTORY_ABI = parseAbi(['function MIN_BOND() view returns (uint256)', 'function proverEnabled(uint8) view returns (bool)']);
 
-  const minBond = await factory.MIN_BOND();
-  const proverEnabled = await factory.proverEnabled(0);
+  const [minBond, proverEnabled] = await Promise.all([
+    readContract(publicClient, {
+      address: deployment.disputeGameFactory as Address,
+      abi: FACTORY_ABI,
+      functionName: 'MIN_BOND',
+    }),
+    readContract(publicClient, {
+      address: deployment.disputeGameFactory as Address,
+      abi: FACTORY_ABI,
+      functionName: 'proverEnabled',
+      args: [0],
+    }),
+  ]);
   
   console.log(`✅ DisputeGameFactory verified`);
-  console.log(`   MIN_BOND: ${ethers.formatEther(minBond)} ETH`);
+  console.log(`   MIN_BOND: ${formatEther(minBond)} ETH`);
   console.log(`   Prover enabled: ${proverEnabled}`);
 
   // Verify Prover
-  const prover = new ethers.Contract(
-    deployment.prover,
-    ['function proverType() view returns (string)'],
-    provider
-  );
-  const proverType = await prover.proverType();
+  const PROVER_ABI = parseAbi(['function proverType() view returns (string)']);
+  const proverType = await readContract(publicClient, {
+    address: deployment.prover as Address,
+    abi: PROVER_ABI,
+    functionName: 'proverType',
+  });
   console.log(`✅ Prover verified: ${proverType}`);
 
   // Verify SequencerRegistry
-  const registry = new ethers.Contract(
-    deployment.sequencerRegistry,
-    ['function MIN_STAKE() view returns (uint256)'],
-    provider
-  );
-  const minStake = await registry.MIN_STAKE();
+  const REGISTRY_ABI = parseAbi(['function MIN_STAKE() view returns (uint256)']);
+  const minStake = await readContract(publicClient, {
+    address: deployment.sequencerRegistry as Address,
+    abi: REGISTRY_ABI,
+    functionName: 'MIN_STAKE',
+  });
   console.log(`✅ SequencerRegistry verified`);
-  console.log(`   MIN_STAKE: ${ethers.formatEther(minStake)} JEJU`);
+  console.log(`   MIN_STAKE: ${formatEther(minStake)} JEJU`);
 
   // Verify GovernanceTimelock
-  const timelock = new ethers.Contract(
-    deployment.governanceTimelock,
-    ['function timelockDelay() view returns (uint256)'],
-    provider
-  );
-  const delay = await timelock.timelockDelay();
+  const TIMELOCK_ABI = parseAbi(['function timelockDelay() view returns (uint256)']);
+  const delay = await readContract(publicClient, {
+    address: deployment.governanceTimelock as Address,
+    abi: TIMELOCK_ABI,
+    functionName: 'timelockDelay',
+  });
   console.log(`✅ GovernanceTimelock verified`);
   console.log(`   Delay: ${Number(delay) / 86400} days`);
 

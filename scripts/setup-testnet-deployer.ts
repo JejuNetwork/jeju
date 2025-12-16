@@ -13,9 +13,12 @@
  *   bun run scripts/setup-testnet-deployer.ts
  */
 
-import { Wallet, JsonRpcProvider, parseEther, formatEther } from 'ethers';
+import { createPublicClient, createWalletClient, http, parseEther, formatEther, getBalance, sendTransaction, waitForTransactionReceipt, readContract, type Address } from 'viem';
+import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
+import { parseAbi } from 'viem';
 import { writeFileSync, existsSync, mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { inferChainFromRpcUrl } from './shared/chain-utils';
 
 const ROOT = join(import.meta.dir, '..');
 const KEYS_DIR = join(ROOT, 'packages/deployment/.keys');
@@ -102,10 +105,11 @@ interface BalanceResult {
 }
 
 function generateDeployerKey(): DeployerConfig {
-  const wallet = Wallet.createRandom();
+  const privateKey = generatePrivateKey();
+  const account = privateKeyToAccount(privateKey);
   return {
-    address: wallet.address,
-    privateKey: wallet.privateKey,
+    address: account.address,
+    privateKey,
     createdAt: new Date().toISOString(),
   };
 }
@@ -128,11 +132,12 @@ function saveDeployerKey(config: DeployerConfig): void {
   console.log(`\n✅ Deployer key saved to: ${keyFile}`);
 }
 
-async function checkBalance(network: TestnetKey, address: string): Promise<BalanceResult> {
+async function checkBalance(network: TestnetKey, address: Address): Promise<BalanceResult> {
   const config = TESTNETS[network];
-  const provider = new JsonRpcProvider(config.rpcUrl);
+  const chain = inferChainFromRpcUrl(config.rpcUrl);
+  const publicClient = createPublicClient({ chain, transport: http(config.rpcUrl) });
   
-  const balance = await provider.getBalance(address);
+  const balance = await getBalance(publicClient, { address });
   const balanceEth = formatEther(balance);
   
   return {
@@ -143,7 +148,7 @@ async function checkBalance(network: TestnetKey, address: string): Promise<Balan
   };
 }
 
-async function checkAllBalances(address: string): Promise<BalanceResult[]> {
+async function checkAllBalances(address: Address): Promise<BalanceResult[]> {
   const results: BalanceResult[] = [];
   
   console.log('\n📊 Checking balances on all testnets...\n');
@@ -159,7 +164,7 @@ async function checkAllBalances(address: string): Promise<BalanceResult[]> {
 }
 
 async function bridgeToL2(
-  privateKey: string,
+  privateKey: `0x${string}`,
   targetNetwork: 'arbitrumSepolia' | 'optimismSepolia' | 'baseSepolia',
   amount: string
 ): Promise<string | null> {
@@ -169,10 +174,12 @@ async function bridgeToL2(
   if (!bridge) return null;
   
   const sourceConfig = TESTNETS[bridge.from as TestnetKey];
-  const provider = new JsonRpcProvider(sourceConfig.rpcUrl);
-  const wallet = new Wallet(privateKey, provider);
+  const chain = inferChainFromRpcUrl(sourceConfig.rpcUrl);
+  const account = privateKeyToAccount(privateKey);
+  const publicClient = createPublicClient({ chain, transport: http(sourceConfig.rpcUrl) });
+  const walletClient = createWalletClient({ chain, transport: http(sourceConfig.rpcUrl), account });
   
-  const balance = await provider.getBalance(wallet.address);
+  const balance = await getBalance(publicClient, { address: account.address });
   const amountWei = parseEther(amount);
   
   if (balance < amountWei + parseEther('0.01')) {
@@ -182,36 +189,40 @@ async function bridgeToL2(
   
   console.log(`\n🌉 Bridging ${amount} ETH to ${config.name}...`);
   
-  let tx;
+  let hash: `0x${string}`;
   if (bridge.method === 'depositETH') {
-    // OP Stack bridge - call depositETH with gas limit
-    const bridgeAbi = [
+    // OP Stack bridge - call depositTransaction with gas limit
+    const bridgeAbi = parseAbi([
       'function depositTransaction(address _to, uint256 _value, uint64 _gasLimit, bool _isCreation, bytes _data) payable',
-    ];
-    const bridgeContract = new (await import('ethers')).Contract(bridge.contract, bridgeAbi, wallet);
-    tx = await bridgeContract.depositTransaction(
-      wallet.address,
-      amountWei,
-      100000n, // gas limit for L2
-      false,
-      '0x',
-      { value: amountWei }
-    );
+    ]);
+    hash = await walletClient.writeContract({
+      address: bridge.contract as Address,
+      abi: bridgeAbi,
+      functionName: 'depositTransaction',
+      args: [
+        account.address,
+        amountWei,
+        100000n, // gas limit for L2
+        false,
+        '0x' as `0x${string}`,
+      ],
+      value: amountWei,
+    });
   } else {
     // Arbitrum - direct value transfer to inbox
-    tx = await wallet.sendTransaction({
-      to: bridge.contract,
+    hash = await sendTransaction(walletClient, {
+      to: bridge.contract as Address,
       value: amountWei,
     });
   }
   
-  console.log(`  Transaction: ${sourceConfig.explorer}/tx/${tx.hash}`);
+  console.log(`  Transaction: ${sourceConfig.explorer}/tx/${hash}`);
   console.log('  Waiting for confirmation...');
   
-  await tx.wait();
+  await waitForTransactionReceipt(publicClient, { hash });
   console.log(`✅ Bridge transaction confirmed. Funds will arrive on ${config.name} in ~10-15 minutes.`);
   
-  return tx.hash;
+  return hash;
 }
 
 function printFaucetInstructions(address: string): void {
@@ -298,7 +309,7 @@ async function main() {
   }
 
   // Check balances on all networks
-  const balances = await checkAllBalances(deployerConfig.address);
+  const balances = await checkAllBalances(deployerConfig.address as Address);
   
   // Summary
   const funded = balances.filter(b => b.hasFunds);
@@ -345,7 +356,7 @@ async function main() {
     // Auto-bridge if flag is set
     if (process.argv.includes('--bridge')) {
       for (const network of l2sNeedingFunds) {
-        await bridgeToL2(deployerConfig.privateKey, network, '0.02');
+        await bridgeToL2(deployerConfig.privateKey as `0x${string}`, network, '0.02');
       }
     }
   } else {

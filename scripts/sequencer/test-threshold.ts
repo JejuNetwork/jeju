@@ -5,9 +5,11 @@
  * Comprehensive tests for all decentralization contracts.
  */
 
-import { ethers } from 'ethers';
+import { createPublicClient, http, formatEther, readContract, type Address } from 'viem';
+import { parseAbi } from 'viem';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { inferChainFromRpcUrl } from '../shared/chain-utils';
 
 const ROOT = join(import.meta.dir, '../..');
 const DEPLOYMENTS_DIR = join(ROOT, 'packages/contracts/deployments');
@@ -28,44 +30,43 @@ async function main() {
   }
 
   const deployment = JSON.parse(readFileSync(deploymentFile, 'utf-8'));
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
+  const chain = inferChainFromRpcUrl(rpcUrl);
+  const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
 
   // Test SequencerRegistry
-  await testSequencerRegistry(provider, deployment.sequencerRegistry);
+  await testSequencerRegistry(publicClient, deployment.sequencerRegistry);
 
   // Test GovernanceTimelock
-  await testGovernanceTimelock(provider, deployment.governanceTimelock);
+  await testGovernanceTimelock(publicClient, deployment.governanceTimelock);
 
   // Test DisputeGameFactory
-  await testDisputeGameFactory(provider, deployment.disputeGameFactory);
+  await testDisputeGameFactory(publicClient, deployment.disputeGameFactory);
 
   console.log('='.repeat(70));
   console.log('✅ All Tests Passed!');
   console.log('='.repeat(70));
 }
 
-async function testSequencerRegistry(provider: ethers.Provider, address: string) {
+async function testSequencerRegistry(publicClient: ReturnType<typeof createPublicClient>, address: string) {
   console.log('📋 Testing SequencerRegistry...');
   
-  // Load ABI (simplified - in production would load from artifacts)
-  const abi = [
+  const abi = parseAbi([
     'function getActiveSequencers() view returns (address[] memory, uint256[] memory)',
     'function totalStaked() view returns (uint256)',
     'function MIN_STAKE() view returns (uint256)',
     'function MAX_STAKE() view returns (uint256)'
-  ];
-
-  const contract = new ethers.Contract(address, abi, provider);
+  ]);
 
   try {
-    const minStake = await contract.MIN_STAKE();
-    const maxStake = await contract.MAX_STAKE();
-    const totalStaked = await contract.totalStaked();
-    const [addresses] = await contract.getActiveSequencers();
+    const minStake = await readContract(publicClient, { address: address as Address, abi, functionName: 'MIN_STAKE' });
+    const maxStake = await readContract(publicClient, { address: address as Address, abi, functionName: 'MAX_STAKE' });
+    const totalStaked = await readContract(publicClient, { address: address as Address, abi, functionName: 'totalStaked' });
+    const result = await readContract(publicClient, { address: address as Address, abi, functionName: 'getActiveSequencers' });
+    const addresses = result[0] as Address[];
 
-    console.log(`  ✅ MIN_STAKE: ${ethers.formatEther(minStake)} JEJU`);
-    console.log(`  ✅ MAX_STAKE: ${ethers.formatEther(maxStake)} JEJU`);
-    console.log(`  ✅ Total Staked: ${ethers.formatEther(totalStaked)} JEJU`);
+    console.log(`  ✅ MIN_STAKE: ${formatEther(minStake)} JEJU`);
+    console.log(`  ✅ MAX_STAKE: ${formatEther(maxStake)} JEJU`);
+    console.log(`  ✅ Total Staked: ${formatEther(totalStaked)} JEJU`);
     console.log(`  ✅ Active Sequencers: ${addresses.length}`);
     console.log('');
   } catch (error) {
@@ -74,19 +75,17 @@ async function testSequencerRegistry(provider: ethers.Provider, address: string)
   }
 }
 
-async function testGovernanceTimelock(provider: ethers.Provider, address: string) {
+async function testGovernanceTimelock(publicClient: ReturnType<typeof createPublicClient>, address: string) {
   console.log('⏰ Testing GovernanceTimelock...');
 
-  const abi = [
+  const abi = parseAbi([
     'function timelockDelay() view returns (uint256)',
     'function getAllProposalIds() view returns (bytes32[] memory)'
-  ];
-
-  const contract = new ethers.Contract(address, abi, provider);
+  ]);
 
   try {
-    const delay = await contract.timelockDelay();
-    const proposals = await contract.getAllProposalIds();
+    const delay = await readContract(publicClient, { address: address as Address, abi, functionName: 'timelockDelay' });
+    const proposals = await readContract(publicClient, { address: address as Address, abi, functionName: 'getAllProposalIds' }) as `0x${string}`[];
 
     console.log(`  ✅ Timelock Delay: ${delay.toString()}s (${Number(delay) / 60} minutes)`);
     console.log(`  ✅ Proposals: ${proposals.length}`);
@@ -97,27 +96,25 @@ async function testGovernanceTimelock(provider: ethers.Provider, address: string
   }
 }
 
-async function testDisputeGameFactory(provider: ethers.Provider, address: string) {
+async function testDisputeGameFactory(publicClient: ReturnType<typeof createPublicClient>, address: string) {
   console.log('⚔️  Testing DisputeGameFactory...');
 
-  const abi = [
+  const abi = parseAbi([
     'function MIN_BOND() view returns (uint256)',
     'function MAX_BOND() view returns (uint256)',
     'function totalBondsLocked() view returns (uint256)',
     'function getActiveGames() view returns (bytes32[] memory)'
-  ];
-
-  const contract = new ethers.Contract(address, abi, provider);
+  ]);
 
   try {
-    const minBond = await contract.MIN_BOND();
-    const maxBond = await contract.MAX_BOND();
-    const totalLocked = await contract.totalBondsLocked();
-    const activeGames = await contract.getActiveGames();
+    const minBond = await readContract(publicClient, { address: address as Address, abi, functionName: 'MIN_BOND' });
+    const maxBond = await readContract(publicClient, { address: address as Address, abi, functionName: 'MAX_BOND' });
+    const totalLocked = await readContract(publicClient, { address: address as Address, abi, functionName: 'totalBondsLocked' });
+    const activeGames = await readContract(publicClient, { address: address as Address, abi, functionName: 'getActiveGames' }) as `0x${string}`[];
 
-    console.log(`  ✅ MIN_BOND: ${ethers.formatEther(minBond)} ETH`);
-    console.log(`  ✅ MAX_BOND: ${ethers.formatEther(maxBond)} ETH`);
-    console.log(`  ✅ Total Bonds Locked: ${ethers.formatEther(totalLocked)} ETH`);
+    console.log(`  ✅ MIN_BOND: ${formatEther(minBond)} ETH`);
+    console.log(`  ✅ MAX_BOND: ${formatEther(maxBond)} ETH`);
+    console.log(`  ✅ Total Bonds Locked: ${formatEther(totalLocked)} ETH`);
     console.log(`  ✅ Active Games: ${activeGames.length}`);
     console.log('');
   } catch (error) {

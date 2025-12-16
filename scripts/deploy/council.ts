@@ -12,7 +12,9 @@
  * Networks: localnet, testnet, mainnet
  */
 
-import { ethers, ContractFactory, Wallet, JsonRpcProvider, parseEther } from 'ethers';
+import { createPublicClient, createWalletClient, http, parseEther, encodeDeployData, getContractAddress, formatEther, type Address, type Chain, type Hex } from 'viem';
+import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
+import { waitForTransactionReceipt } from 'viem/actions';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { $ } from 'bun';
@@ -32,7 +34,7 @@ interface NetworkConfig {
 
 const NETWORKS: Record<string, NetworkConfig> = {
   localnet: {
-    name: getLocalnetChain().name,
+    name: 'Localnet',
     chainId: 8545,
     rpcUrl: process.env.RPC_URL ?? 'http://localhost:9545',
     governanceToken: process.env.GOVERNANCE_TOKEN ?? '0x0000000000000000000000000000000000000000',
@@ -84,21 +86,58 @@ function loadContractArtifact(contractName: string): { abi: unknown[]; bytecode:
 }
 
 async function deployContract(
-  wallet: Wallet,
+  publicClient: ReturnType<typeof createPublicClient>,
+  walletClient: ReturnType<typeof createWalletClient>,
+  account: PrivateKeyAccount,
   contractName: string,
   constructorArgs: unknown[]
-): Promise<string> {
+): Promise<Address> {
   log(`Deploying ${contractName}...`);
   
   const { abi, bytecode } = loadContractArtifact(contractName);
-  const factory = new ContractFactory(abi, bytecode, wallet);
   
-  const contract = await factory.deploy(...constructorArgs);
-  await contract.waitForDeployment();
+  const deployData = encodeDeployData({
+    abi,
+    bytecode: bytecode as Hex,
+    args: constructorArgs,
+  });
   
-  const address = await contract.getAddress();
+  const nonce = await publicClient.getTransactionCount({
+    address: account.address,
+  });
+  
+  const txHash = await walletClient.sendTransaction({
+    data: deployData,
+    account,
+  });
+  
+  const receipt = await waitForTransactionReceipt(publicClient, {
+    hash: txHash,
+    timeout: 120_000,
+  });
+  
+  if (receipt.status !== 'success') {
+    throw new Error(`Deployment failed: ${contractName} (tx: ${txHash})`);
+  }
+  
+  let address: Address;
+  if (receipt.contractAddress) {
+    address = receipt.contractAddress;
+  } else {
+    address = getContractAddress({
+      from: account.address,
+      nonce: BigInt(nonce),
+    });
+  }
+  
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+  
+  const code = await publicClient.getCode({ address });
+  if (!code || code === '0x') {
+    throw new Error(`Contract not found at expected address: ${address} (tx: ${txHash})`);
+  }
+  
   success(`${contractName} deployed at: ${address}`);
-  
   return address;
 }
 
@@ -107,7 +146,6 @@ async function main() {
   console.log('║     JEJU AI COUNCIL CONTRACT DEPLOYMENT   ║');
   console.log('╚══════════════════════════════════════════╝\n');
 
-  // Parse arguments
   const network = process.argv[2] ?? 'localnet';
   const config = NETWORKS[network];
   
@@ -117,7 +155,6 @@ async function main() {
     process.exit(1);
   }
 
-  // Check for deployer key
   const deployerKey = process.env.DEPLOYER_KEY;
   if (!deployerKey) {
     error('DEPLOYER_KEY environment variable not set');
@@ -128,7 +165,6 @@ async function main() {
   log(`Network: ${config.name} (Chain ID: ${config.chainId})`);
   log(`RPC: ${config.rpcUrl}`);
 
-  // Compile contracts first
   log('Compiling contracts...');
   const compileResult = await $`cd ${CONTRACTS_DIR} && forge build --contracts src/council/ 2>&1`.text();
   if (compileResult.includes('Error')) {
@@ -137,70 +173,74 @@ async function main() {
     process.exit(1);
   }
   success('Contracts compiled');
-
-  // Setup provider and wallet
-  const provider = new JsonRpcProvider(config.rpcUrl);
-  const wallet = new Wallet(deployerKey, provider);
-  const deployerAddress = await wallet.getAddress();
+  const chain = { id: config.chainId, name: config.name } as Chain;
+  const publicClient = createPublicClient({
+    chain,
+    transport: http(config.rpcUrl),
+  });
+  const account = privateKeyToAccount(deployerKey as `0x${string}`);
+  const walletClient = createWalletClient({
+    account,
+    chain,
+    transport: http(config.rpcUrl),
+  });
   
-  log(`Deployer: ${deployerAddress}`);
+  log(`Deployer: ${account.address}`);
   
-  const balance = await provider.getBalance(deployerAddress);
-  log(`Balance: ${ethers.formatEther(balance)} ETH`);
+  const balance = await publicClient.getBalance({ address: account.address });
+  log(`Balance: ${formatEther(balance)} ETH`);
 
   if (balance < parseEther('0.01')) {
     error('Insufficient balance for deployment');
     process.exit(1);
   }
 
-  // For localnet, use deployer address as placeholders for required contracts
-  // In production, these would be actual deployed contract addresses
   let governanceToken = config.governanceToken;
   let identityRegistry = config.identityRegistry;
   let reputationRegistry = config.reputationRegistry;
 
   if (network === 'localnet') {
-    // Use deployer address as mock addresses since they just need to be non-zero
     if (governanceToken === '0x0000000000000000000000000000000000000000') {
-      governanceToken = deployerAddress;
+      governanceToken = account.address;
       log(`Using deployer as mock governance token: ${governanceToken}`);
     }
     if (identityRegistry === '0x0000000000000000000000000000000000000000') {
-      identityRegistry = deployerAddress;
+      identityRegistry = account.address;
       log(`Using deployer as mock identity registry: ${identityRegistry}`);
     }
     if (reputationRegistry === '0x0000000000000000000000000000000000000000') {
-      reputationRegistry = deployerAddress;
+      reputationRegistry = account.address;
       log(`Using deployer as mock reputation registry: ${reputationRegistry}`);
     }
   }
 
-  // Deploy Council
-  const councilAddress = await deployContract(wallet, 'Council', [
+  const councilAddress = await deployContract(publicClient, walletClient, account, 'Council', [
     governanceToken,
     identityRegistry,
     reputationRegistry,
-    deployerAddress // initialOwner
+    account.address
   ]);
 
-  // Deploy CEOAgent
-  const ceoAgentAddress = await deployContract(wallet, 'CEOAgent', [
+  const ceoAgentAddress = await deployContract(publicClient, walletClient, account, 'CEOAgent', [
     governanceToken,
     councilAddress,
-    'claude-opus-4-5-20250514', // initialModelId
-    deployerAddress // initialOwner
+    'claude-opus-4-5-20250514',
+    account.address
   ]);
 
-  // Configure Council with CEO
   log('Configuring Council with CEO agent...');
   const councilArtifact = loadContractArtifact('Council');
-  const council = new ethers.Contract(councilAddress, councilArtifact.abi, wallet);
+  const { abi } = councilArtifact;
   
-  const tx = await council.setCEOAgent(ceoAgentAddress, 1);
-  await tx.wait();
+  const hash = await walletClient.writeContract({
+    address: councilAddress,
+    abi,
+    functionName: 'setCEOAgent',
+    args: [ceoAgentAddress, 1],
+    account,
+  });
+  await waitForTransactionReceipt(publicClient, { hash });
   success('CEO agent configured');
-
-  // Save deployment info
   const deployment = {
     network,
     chainId: config.chainId,
@@ -217,7 +257,7 @@ async function main() {
     }
   };
 
-  const deploymentPath = join(import.meta.dir, `../apps/council/deployment-${network}.json`);
+  const deploymentPath = join(import.meta.dir, `../apps/autocrat/deployment-${network}.json`);
   writeFileSync(deploymentPath, JSON.stringify(deployment, null, 2));
   success(`Deployment info saved to ${deploymentPath}`);
 
@@ -232,8 +272,8 @@ async function main() {
   console.log('\nNext steps:');
   console.log('1. Set council agent addresses using council.setCouncilAgent()');
   console.log('2. Configure research operators using council.setResearchOperator()');
-  console.log('3. Update apps/council/.env with contract addresses');
-  console.log(`\nEnvironment variables for apps/council:
+  console.log('3. Update apps/autocrat/.env with contract addresses');
+  console.log(`\nEnvironment variables for apps/autocrat:
 COUNCIL_ADDRESS=${councilAddress}
 CEO_AGENT_ADDRESS=${ceoAgentAddress}
 `);

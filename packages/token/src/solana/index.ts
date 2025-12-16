@@ -6,9 +6,8 @@
  * - Token account operations
  * - Metadata handling
  * 
- * For Solana DEX operations, use @jeju/solana-dex
- * For Solana launchpad, use @jeju/solana-launchpad-client
- * For EVM↔Solana bridging, use @jeju/zksolbridge
+ * For Solana DEX operations and launchpad, use @jejunetwork/solana package.
+ * For EVM↔Solana bridging, use @jejunetwork/zksolbridge
  */
 
 import {

@@ -85,7 +85,7 @@ export class ExternalProtocolAggregator extends EventEmitter {
 
     // Initialize enabled adapters
     if (this.config.enableAcross !== false) {
-      this.across = new AcrossAdapter(this.clients, this.config.isTestnet);
+      this.across = new AcrossAdapter(this.clients, chainIds, this.config.isTestnet);
       this.across.on('deposit', (d: AcrossDeposit) => this.handleAcrossDeposit(d));
       await this.across.start();
     }
@@ -289,4 +289,3 @@ export class ExternalProtocolAggregator extends EventEmitter {
     }
   }
 }
-

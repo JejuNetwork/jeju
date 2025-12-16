@@ -14,7 +14,8 @@
  *   bun run scripts/deploy/oif-multichain.ts [--chain <chainId>] [--all] [--verify]
  */
 
-import { ethers } from 'ethers';
+import { createPublicClient, http, parseEther, formatEther, getChainId, getBalance, type Chain, type Address } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 import { Logger } from '../shared/logger';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
@@ -87,9 +88,10 @@ interface DeploymentResult {
 
 async function checkChainConnectivity(chain: ChainConfig): Promise<boolean> {
   try {
-    const provider = new ethers.JsonRpcProvider(chain.rpcUrl);
-    const network = await provider.getNetwork();
-    return Number(network.chainId) === chain.chainId;
+    const chainConfig: Chain = { id: chain.chainId, name: chain.name, nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [chain.rpcUrl] } } };
+    const publicClient = createPublicClient({ chain: chainConfig, transport: http(chain.rpcUrl) });
+    const chainId = await getChainId(publicClient);
+    return chainId === chain.chainId;
   } catch {
     return false;
   }
@@ -99,10 +101,11 @@ async function checkDeployerBalance(chain: ChainConfig, minBalance = 0.05): Prom
   const pk = process.env.DEPLOYER_PRIVATE_KEY || process.env.PRIVATE_KEY;
   if (!pk) return { hasBalance: false, balance: '0' };
   
-  const provider = new ethers.JsonRpcProvider(chain.rpcUrl);
-  const wallet = new ethers.Wallet(pk);
-  const balance = await provider.getBalance(wallet.address);
-  const ethBalance = Number(ethers.formatEther(balance));
+  const account = privateKeyToAccount(pk as `0x${string}`);
+  const chainConfig: Chain = { id: chain.chainId, name: chain.name, nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [chain.rpcUrl] } } };
+  const publicClient = createPublicClient({ chain: chainConfig, transport: http(chain.rpcUrl) });
+  const balance = await getBalance(publicClient, { address: account.address });
+  const ethBalance = Number(formatEther(balance));
   
   return {
     hasBalance: ethBalance >= minBalance,
@@ -244,8 +247,8 @@ async function main() {
     process.exit(1);
   }
   
-  const wallet = new ethers.Wallet(pk);
-  logger.info(`Deployer: ${wallet.address}\n`);
+  const account = privateKeyToAccount(pk as `0x${string}`);
+  logger.info(`Deployer: ${account.address}\n`);
   
   // Check chain connectivity and balances
   console.log('Checking chains...\n');

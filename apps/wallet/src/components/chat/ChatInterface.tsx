@@ -249,7 +249,7 @@ export function ChatInterface({ onActionConfirmed, onActionRejected, onActionCom
 The inference server is not responding. To enable AI chat:
 
 1. Set an API key: OPENAI_API_KEY, ANTHROPIC_API_KEY, or GROQ_API_KEY
-2. Start the inference server: \`bun run scripts/start-inference.ts\`
+2. Start the inference server: \`jeju compute start\`
 
 **You can still use the wallet directly:**
 Use the sidebar navigation to access Portfolio, Pools, Perps, Launchpad, Names, and Security features.

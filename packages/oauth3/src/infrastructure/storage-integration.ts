@@ -196,7 +196,8 @@ export class OAuth3StorageService {
     const formData = new FormData();
     formData.append('file', new Blob([new Uint8Array(data).buffer]), name);
     
-    const response = await fetch(`${this.ipfsApi}/add?pin=true`, { method: 'POST', body: formData });
+    const response = await fetch(`${this.ipfsApi}/add?pin=true`, { method: 'POST', body: formData })
+      .catch((e: Error) => { throw new Error(`IPFS upload failed: ${e.message}`); });
     if (!response.ok) throw new Error(`IPFS upload failed: ${response.status}`);
 
     const result = await response.json() as { Hash: string; Size: string };

@@ -21,7 +21,8 @@
 import { $ } from 'bun';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { ethers } from 'ethers';
+import { createPublicClient, http, parseEther, formatEther, getBalance, type Chain } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 
 const ROOT = join(import.meta.dir, '../..');
 const KEYS_DIR = join(ROOT, 'packages/deployment/.keys');
@@ -130,32 +131,33 @@ async function checkWalletFunding() {
   const batcherKey = keys.find((k: {name: string}) => k.name === 'batcher');
   const proposerKey = keys.find((k: {name: string}) => k.name === 'proposer');
 
-  const provider = new ethers.JsonRpcProvider('https://ethereum-sepolia-rpc.publicnode.com');
+  const sepoliaChain: Chain = { id: 11155111, name: 'Sepolia', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://ethereum-sepolia-rpc.publicnode.com'] } } };
+  const publicClient = createPublicClient({ chain: sepoliaChain, transport: http('https://ethereum-sepolia-rpc.publicnode.com') });
 
-  const adminBalance = await provider.getBalance(adminKey.address);
-  const batcherBalance = await provider.getBalance(batcherKey.address);
-  const proposerBalance = await provider.getBalance(proposerKey.address);
+  const adminBalance = await getBalance(publicClient, { address: adminKey.address as `0x${string}` });
+  const batcherBalance = await getBalance(publicClient, { address: batcherKey.address as `0x${string}` });
+  const proposerBalance = await getBalance(publicClient, { address: proposerKey.address as `0x${string}` });
 
-  const minAdminBalance = ethers.parseEther('0.3');
-  const minOperatorBalance = ethers.parseEther('0.05');
+  const minAdminBalance = parseEther('0.3');
+  const minOperatorBalance = parseEther('0.05');
 
   const issues: string[] = [];
 
   if (adminBalance < minAdminBalance) {
-    issues.push(`Admin needs ${ethers.formatEther(minAdminBalance - adminBalance)} more ETH`);
+    issues.push(`Admin needs ${formatEther(minAdminBalance - adminBalance)} more ETH`);
   }
   if (batcherBalance < minOperatorBalance) {
-    issues.push(`Batcher needs ${ethers.formatEther(minOperatorBalance - batcherBalance)} more ETH`);
+    issues.push(`Batcher needs ${formatEther(minOperatorBalance - batcherBalance)} more ETH`);
   }
   if (proposerBalance < minOperatorBalance) {
-    issues.push(`Proposer needs ${ethers.formatEther(minOperatorBalance - proposerBalance)} more ETH`);
+    issues.push(`Proposer needs ${formatEther(minOperatorBalance - proposerBalance)} more ETH`);
   }
 
   if (issues.length > 0) {
     throw new Error(`Insufficient funds:\n${issues.join('\n')}\n\nFund these addresses on Sepolia and retry.`);
   }
 
-  steps[3].message = `Admin: ${ethers.formatEther(adminBalance)} ETH`;
+  steps[3].message = `Admin: ${formatEther(adminBalance)} ETH`;
 }
 
 async function deployL1Contracts() {

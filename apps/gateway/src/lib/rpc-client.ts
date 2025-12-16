@@ -3,7 +3,7 @@
  * Client library for accessing Network RPC Gateway
  */
 
-import { ethers } from 'ethers';
+import { createPublicClient, http, type PublicClient, type Chain } from 'viem';
 
 export interface RPCClientConfig {
   gatewayUrl?: string;
@@ -173,9 +173,13 @@ export class RPCClient {
     return response.json() as Promise<RateLimitInfo>;
   }
 
-  createProvider(chainId: number): ethers.JsonRpcProvider {
+  createClient(chainId: number): PublicClient {
     const url = `${this.config.gatewayUrl}/v1/rpc/${chainId}`;
-    return new ethers.JsonRpcProvider(url, chainId, { staticNetwork: true, batchMaxCount: 10 });
+    const chain = { id: chainId, name: 'custom' } as Chain;
+    return createPublicClient({
+      chain,
+      transport: http(url),
+    });
   }
 }
 
@@ -183,8 +187,8 @@ export function createRPCClient(config?: RPCClientConfig): RPCClient {
   return new RPCClient(config);
 }
 
-export function createGatewayProvider(chainId: number, config?: RPCClientConfig): ethers.JsonRpcProvider {
-  return createRPCClient(config).createProvider(chainId);
+export function createGatewayClient(chainId: number, config?: RPCClientConfig): PublicClient {
+  return createRPCClient(config).createClient(chainId);
 }
 
 export function getInternalRPCClient(): RPCClient {

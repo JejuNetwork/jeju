@@ -29,7 +29,7 @@ const initWalletAgent = async ({ runtime }: { runtime: IAgentRuntime }) => {
  * Can be imported and used in other ElizaOS projects:
  * 
  * ```typescript
- * import { walletAgent } from '@jeju/wallet/agent';
+ * import { walletAgent } from '@jejunetwork/wallet';
  * 
  * const project: Project = {
  *   agents: [walletAgent, ...otherAgents],

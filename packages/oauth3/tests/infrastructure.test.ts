@@ -415,7 +415,8 @@ describe('OAuth3 Decentralized Storage', () => {
       const cid = 'QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG';
       const url = storage.getGatewayUrl(cid);
       expect(url).toContain(cid);
-      expect(url).toContain('localhost:8080');
+      // DWS storage gateway at localhost:4030/storage/ipfs
+      expect(url).toContain('localhost:4030/storage/ipfs');
     });
 
     it('should handle CIDv1', () => {

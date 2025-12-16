@@ -18,13 +18,17 @@
  *   anvil --port 9545
  */
 
-import { ethers, ContractFactory, Wallet, JsonRpcProvider, parseEther, formatEther } from 'ethers';
+import { createPublicClient, createWalletClient, http, parseEther, formatEther, encodeDeployData, getContractAddress, zeroAddress, keccak256, getBalance, readContract, writeContract, waitForTransactionReceipt, getLogs, decodeEventLog, deployContract, type Address, type Hex } from 'viem';
+import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
+import { parseAbi } from 'viem';
+import { inferChainFromRpcUrl } from './shared/chain-utils';
+import { getLocalnetChain } from '@jejunetwork/shared';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
 const CONTRACTS_DIR = join(import.meta.dir, '../packages/contracts');
 const OUT_DIR = join(CONTRACTS_DIR, 'out');
-const COUNCIL_DIR = join(import.meta.dir, '../apps/council');
+const AUTOCRAT_DIR = join(import.meta.dir, '../apps/autocrat');
 
 // Anvil default accounts (first 5)
 const ANVIL_ACCOUNTS = [
@@ -67,18 +71,27 @@ function loadArtifact(name: string): { abi: unknown[]; bytecode: string } {
 }
 
 async function deploy(
-  wallet: Wallet,
+  walletClient: ReturnType<typeof createWalletClient>,
+  account: PrivateKeyAccount,
+  publicClient: ReturnType<typeof createPublicClient>,
   name: string,
   args: unknown[]
-): Promise<{ address: string; contract: ethers.Contract }> {
+): Promise<{ address: Address; abi: unknown[] }> {
   log(`Deploying ${name}...`);
   const { abi, bytecode } = loadArtifact(name);
-  const factory = new ContractFactory(abi, bytecode, wallet);
-  const contract = await factory.deploy(...args);
-  await contract.waitForDeployment();
-  const address = await contract.getAddress();
+  const hash = await deployContract(walletClient, {
+    abi,
+    bytecode: bytecode as `0x${string}`,
+    args,
+    account,
+  });
+  const receipt = await waitForTransactionReceipt(publicClient, { hash });
+  const address = receipt.contractAddress;
+  if (!address) {
+    throw new Error(`Failed to deploy ${name}`);
+  }
   success(`${name} deployed at: ${address}`);
-  return { address, contract: new ethers.Contract(address, abi, wallet) };
+  return { address, abi };
 }
 
 async function main() {
@@ -108,56 +121,58 @@ async function main() {
     process.exit(1);
   }
 
-  const provider = new JsonRpcProvider(config.rpcUrl);
+  const chainObj = inferChainFromRpcUrl(config.rpcUrl);
+  const publicClient = createPublicClient({ chain: chainObj, transport: http(config.rpcUrl) });
   
   try {
-    await provider.getBlockNumber();
+    await publicClient.getBlockNumber();
   } catch {
     fail(`Cannot connect to RPC at ${config.rpcUrl}`);
     if (network === 'localnet') console.log('\nStart anvil: anvil --port 9545');
     process.exit(1);
   }
 
-  const deployer = new Wallet(deployerKey, provider);
-  const deployerAddress = await deployer.getAddress();
+  const deployerAccount = privateKeyToAccount(deployerKey as `0x${string}`);
+  const walletClient = createWalletClient({ account: deployerAccount, chain: chainObj, transport: http(config.rpcUrl) });
+  const deployerAddress = deployerAccount.address;
   
   log(`Deployer: ${deployerAddress}`);
-  log(`Balance: ${formatEther(await provider.getBalance(deployerAddress))} ETH`);
+  log(`Balance: ${formatEther(await getBalance(publicClient, { address: deployerAddress }))} ETH`);
 
-  // Setup council agent wallets for localnet
-  const agentWallets = network === 'localnet'
-    ? ANVIL_ACCOUNTS.slice(1, 5).map(a => ({ wallet: new Wallet(a.key, provider), name: a.name }))
+  // Setup council agent accounts for localnet
+  const agentAccounts = network === 'localnet'
+    ? ANVIL_ACCOUNTS.slice(1, 5).map(a => ({ account: privateKeyToAccount(a.key as `0x${string}`), name: a.name }))
     : [];
 
   console.log('\n--- Phase 1: Deploy Core Infrastructure ---\n');
 
   // 1. Deploy Governance Token
-  const { address: tokenAddress, contract: token } = await deploy(deployer, 'TestERC20', [
+  const { address: tokenAddress, abi: tokenAbi } = await deploy(walletClient, deployerAccount, publicClient, 'TestERC20', [
     'Network Governance', 'JEJU', parseEther('1000000000')
   ]);
 
   // 2. Deploy IdentityRegistry
-  const { address: identityAddress, contract: identity } = await deploy(deployer, 'IdentityRegistry', []);
+  const { address: identityAddress, abi: identityAbi } = await deploy(walletClient, deployerAccount, publicClient, 'IdentityRegistry', []);
 
   // 3. Deploy ReputationRegistry
-  const { address: reputationAddress } = await deploy(deployer, 'ReputationRegistry', [identityAddress]);
+  const { address: reputationAddress } = await deploy(walletClient, deployerAccount, publicClient, 'ReputationRegistry', [identityAddress]);
 
   console.log('\n--- Phase 2: Deploy Council System ---\n');
 
   // 4. Deploy Council
-  const { address: councilAddress, contract: council } = await deploy(deployer, 'Council', [
+  const { address: councilAddress, abi: councilAbi } = await deploy(walletClient, deployerAccount, publicClient, 'Council', [
     tokenAddress, identityAddress, reputationAddress, deployerAddress
   ]);
 
   // 5. Deploy CEOAgent
-  const { address: ceoAgentAddress } = await deploy(deployer, 'CEOAgent', [
+  const { address: ceoAgentAddress } = await deploy(walletClient, deployerAccount, publicClient, 'CEOAgent', [
     tokenAddress, councilAddress, 'claude-opus-4-5-20250514', deployerAddress
   ]);
 
   // 6. Try to deploy Predimarket
-  let predimarketAddress = ethers.ZeroAddress;
+  let predimarketAddress = zeroAddress;
   try {
-    const { address } = await deploy(deployer, 'Predimarket', [deployerAddress]);
+    const { address } = await deploy(walletClient, deployerAccount, publicClient, 'Predimarket', [deployerAddress]);
     predimarketAddress = address;
   } catch {
     warn('Predimarket not available, skipping futarchy');
@@ -167,15 +182,27 @@ async function main() {
 
   // Set CEO Agent
   log('Setting CEO agent...');
-  let tx = await council.setCEOAgent(ceoAgentAddress, 1);
-  await tx.wait();
+  let hash = await walletClient.writeContract({
+    address: councilAddress,
+    abi: councilAbi,
+    functionName: 'setCEOAgent',
+    args: [ceoAgentAddress, 1],
+    account: deployerAccount,
+  });
+  await waitForTransactionReceipt(publicClient, { hash });
   success('CEO agent configured');
 
   // Set Predimarket if available
-  if (predimarketAddress !== ethers.ZeroAddress) {
+  if (predimarketAddress !== zeroAddress) {
     log('Setting Predimarket...');
-    tx = await council.setPredimarket(predimarketAddress);
-    await tx.wait();
+    hash = await walletClient.writeContract({
+      address: councilAddress,
+      abi: councilAbi,
+      functionName: 'setPredimarket',
+      args: [predimarketAddress],
+      account: deployerAccount,
+    });
+    await waitForTransactionReceipt(publicClient, { hash });
     success('Predimarket configured');
   }
 
@@ -192,35 +219,53 @@ async function main() {
 
   for (let i = 0; i < roles.length; i++) {
     const { name, role, weight } = roles[i];
-    const agentWallet = agentWallets[i]?.wallet ?? deployer;
-    const agentAddress = await agentWallet.getAddress();
+    const agentAccount = agentAccounts[i]?.account ?? deployerAccount;
+    const agentAddress = agentAccount.address;
     
     log(`Registering ${name} agent...`);
     
     // Register agent in IdentityRegistry
-    const identityWithSigner = identity.connect(agentWallet) as ethers.Contract;
-    const registerTx = await identityWithSigner.register(`ipfs://council-agent-${name.toLowerCase()}`);
-    const receipt = await registerTx.wait();
+    const agentWalletClient = createWalletClient({ account: agentAccount, chain: chainObj, transport: http(config.rpcUrl) });
+    const registerHash = await agentWalletClient.writeContract({
+      address: identityAddress,
+      abi: identityAbi,
+      functionName: 'register',
+      args: [`ipfs://council-agent-${name.toLowerCase()}`],
+      account: agentAccount,
+    });
+    const receipt = await waitForTransactionReceipt(publicClient, { hash: registerHash });
     
     // Get agent ID from Transfer event
-    const transferSig = ethers.id('Transfer(address,address,uint256)');
+    const transferSig = keccak256('Transfer(address,address,uint256)' as `0x${string}`);
     const transferEvent = receipt.logs.find((l: { topics: string[] }) => l.topics[0] === transferSig);
-    const agentId = transferEvent ? parseInt(transferEvent.topics[3], 16) : i + 1;
+    const agentId = transferEvent ? parseInt(transferEvent.topics[3] as string, 16) : i + 1;
     
     agentIds[name] = agentId;
     agentAddresses[name] = agentAddress;
     
     // Set council agent
-    tx = await council.setCouncilAgent(role, agentAddress, agentId, weight);
-    await tx.wait();
+    hash = await walletClient.writeContract({
+      address: councilAddress,
+      abi: councilAbi,
+      functionName: 'setCouncilAgent',
+      args: [role, agentAddress, agentId, weight],
+      account: deployerAccount,
+    });
+    await waitForTransactionReceipt(publicClient, { hash });
     
     success(`${name} agent: ID=${agentId}, ${agentAddress.slice(0, 10)}...`);
   }
 
   // Set Research Operator
   log('Setting research operator...');
-  tx = await council.setResearchOperator(deployerAddress, true);
-  await tx.wait();
+  hash = await walletClient.writeContract({
+    address: councilAddress,
+    abi: councilAbi,
+    functionName: 'setResearchOperator',
+    args: [deployerAddress, true],
+    account: deployerAccount,
+  });
+  await waitForTransactionReceipt(publicClient, { hash });
   success('Research operator configured');
 
   // Distribute tokens
@@ -228,8 +273,14 @@ async function main() {
     log('Distributing tokens...');
     for (const addr of Object.values(agentAddresses)) {
       if (addr !== deployerAddress) {
-        tx = await token.transfer(addr, parseEther('10000'));
-        await tx.wait();
+        hash = await walletClient.writeContract({
+          address: tokenAddress,
+          abi: tokenAbi,
+          functionName: 'transfer',
+          args: [addr as Address, parseEther('10000')],
+          account: deployerAccount,
+        });
+        await waitForTransactionReceipt(publicClient, { hash });
       }
     }
     success('Tokens distributed');
@@ -262,15 +313,15 @@ async function main() {
 
   const deploymentJson = JSON.stringify(deployment, null, 2);
   
-  // Save to council app
-  writeFileSync(join(COUNCIL_DIR, `deployment-${network}.json`), deploymentJson);
-  success(`Saved: apps/council/deployment-${network}.json`);
+  // Save to autocrat app
+  writeFileSync(join(AUTOCRAT_DIR, `deployment-${network}.json`), deploymentJson);
+  success(`Saved: apps/autocrat/deployment-${network}.json`);
 
   // Save to contracts deployments
   const contractsDeploymentsDir = join(CONTRACTS_DIR, 'deployments');
   if (!existsSync(contractsDeploymentsDir)) mkdirSync(contractsDeploymentsDir, { recursive: true });
-  writeFileSync(join(contractsDeploymentsDir, `council-${network}.json`), deploymentJson);
-  success(`Saved: packages/contracts/deployments/council-${network}.json`);
+  writeFileSync(join(contractsDeploymentsDir, `autocrat-${network}.json`), deploymentJson);
+  success(`Saved: packages/contracts/deployments/autocrat-${network}.json`);
 
   // Generate .env file
   const envContent = `# Auto-generated by deploy-dao-full.ts (${new Date().toISOString()})
@@ -299,8 +350,8 @@ COMMUNITY_AGENT_KEY=${ANVIL_ACCOUNTS[3].key}
 SECURITY_AGENT_KEY=${ANVIL_ACCOUNTS[4].key}
 ` : ''}`;
 
-  writeFileSync(join(COUNCIL_DIR, `.env.${network}`), envContent);
-  success(`Saved: apps/council/.env.${network}`);
+  writeFileSync(join(AUTOCRAT_DIR, `.env.${network}`), envContent);
+  success(`Saved: apps/autocrat/.env.${network}`);
 
   console.log('\n╔═══════════════════════════════════════════════════════════╗');
   console.log('║                  DEPLOYMENT COMPLETE                      ║');
@@ -312,7 +363,7 @@ SECURITY_AGENT_KEY=${ANVIL_ACCOUNTS[4].key}
   console.log(`  ReputationRegistry: ${reputationAddress}`);
   console.log(`  Council:            ${councilAddress}`);
   console.log(`  CEOAgent:           ${ceoAgentAddress}`);
-  if (predimarketAddress !== ethers.ZeroAddress) {
+    if (predimarketAddress !== zeroAddress) {
     console.log(`  Predimarket:        ${predimarketAddress}`);
   }
 
@@ -322,9 +373,9 @@ SECURITY_AGENT_KEY=${ANVIL_ACCOUNTS[4].key}
   }
 
   console.log('\nNext Steps:');
-  console.log(`1. cp apps/council/.env.${network} apps/council/.env`);
-  console.log('2. cd apps/council && bun run dev');
-  console.log('3. cd apps/council/app && bun run dev');
+  console.log(`1. cp apps/autocrat/.env.${network} apps/autocrat/.env`);
+  console.log('2. cd apps/autocrat && bun run dev');
+  console.log('3. cd apps/autocrat/app && bun run dev');
 }
 
 main().catch((err) => {

@@ -157,7 +157,7 @@ export class RelayerService {
       keypair,
       bridgeProgramId: new PublicKey(this.config.solanaConfig.bridgeProgramId),
       evmLightClientProgramId: new PublicKey(
-        this.config.solanaConfig.evmLightClientProgramId
+        this.config.solanaConfig.evmLightClientProgramId,
       ),
     });
     console.log('[Relayer] Solana client ready');
@@ -243,7 +243,7 @@ export class RelayerService {
   }
 
   private async handleSolanaConsensus(
-    snapshot: ConsensusSnapshot
+    snapshot: ConsensusSnapshot,
   ): Promise<void> {
     console.log(`[Relayer] Received Solana consensus at slot ${snapshot.slot}`);
 
@@ -255,8 +255,8 @@ export class RelayerService {
     const commitment: SolanaStateCommitment = {
       slot: snapshot.slot,
       bankHash: toHash32(new Uint8Array(snapshot.bankHash)),
-      epochStakes: toHash32(new Uint8Array(32)), // Would extract from snapshot
-      proof: null as unknown as SP1Proof, // Will be generated
+      epochStakes: toHash32(new Uint8Array(32)),
+      proof: null,
       provenAt: BigInt(0),
     };
 
@@ -279,7 +279,7 @@ export class RelayerService {
       slot: update.slot,
       beaconBlockRoot: toHash32(new Uint8Array(update.blockRoot)),
       executionStateRoot: toHash32(new Uint8Array(update.executionStateRoot)),
-      proof: null as unknown as SP1Proof,
+      proof: null,
       provenAt: BigInt(0),
     };
 
@@ -292,7 +292,7 @@ export class RelayerService {
 
   private async handleIncomingTransfer(
     transfer: CrossChainTransfer,
-    source: 'evm' | 'solana'
+    source: 'evm' | 'solana',
   ): Promise<void> {
     const transferId = this.hashToHex(transfer.transferId);
     console.log(`[Relayer] Received transfer ${transferId} from ${source}`);
@@ -326,7 +326,7 @@ export class RelayerService {
   }
 
   private async updateEVMLightClients(
-    snapshot: ConsensusSnapshot
+    snapshot: ConsensusSnapshot,
   ): Promise<void> {
     // Generate proof for this consensus
     const proof = await this.generateSolanaConsensusProof(snapshot);
@@ -348,20 +348,18 @@ export class RelayerService {
           publicInputs: [],
         });
         console.log(
-          `[Relayer] Updated light client on chain ${chainId}: ${txHash}`
+          `[Relayer] Updated light client on chain ${chainId}: ${txHash}`,
         );
       } catch (error) {
         console.error(
           `[Relayer] Failed to update light client on chain ${chainId}:`,
-          error
+          error,
         );
       }
     }
   }
 
-  private async updateSolanaLightClient(
-    update: EthereumUpdate
-  ): Promise<void> {
+  private async updateSolanaLightClient(update: EthereumUpdate): Promise<void> {
     if (!this.solanaClient) {
       console.error('[Relayer] Solana client not initialized');
       return;
@@ -382,12 +380,12 @@ export class RelayerService {
       const instruction = this.buildEvmLightClientUpdateInstruction(
         update,
         proof,
-        publicInputs
+        publicInputs,
       );
 
       // Submit to Solana
       const payer = this.solanaClient.getPublicKey();
-      
+
       if (!payer) {
         console.error('[Relayer] No keypair configured for Solana');
         return;
@@ -399,28 +397,34 @@ export class RelayerService {
       console.log(`  Slot: ${update.slot}`);
       console.log(`  Block: ${update.executionBlockNumber}`);
       console.log(`  Transaction: ${tx.serialize().length} bytes`);
-      
+
       this.stats.lightClientUpdates++;
     } catch (error) {
-      console.error('[Relayer] Failed to update Solana EVM light client:', error);
+      console.error(
+        '[Relayer] Failed to update Solana EVM light client:',
+        error,
+      );
     }
   }
 
   private async generateSP1ProofForEthereumUpdate(
-    update: EthereumUpdate
+    update: EthereumUpdate,
   ): Promise<SP1Proof | null> {
     try {
-      const response = await fetch(`${this.config.proverEndpoint}/prove/ethereum`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          slot: update.slot.toString(),
-          blockRoot: Array.from(update.blockRoot),
-          stateRoot: Array.from(update.stateRoot),
-          executionBlockNumber: update.executionBlockNumber.toString(),
-          executionBlockHash: Array.from(update.executionBlockHash),
-        }),
-      });
+      const response = await fetch(
+        `${this.config.proverEndpoint}/prove/ethereum`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            slot: update.slot.toString(),
+            blockRoot: Array.from(update.blockRoot),
+            stateRoot: Array.from(update.stateRoot),
+            executionBlockNumber: update.executionBlockNumber.toString(),
+            executionBlockHash: Array.from(update.executionBlockHash),
+          }),
+        },
+      );
 
       if (!response.ok) {
         console.error('[Relayer] Prover returned error:', response.status);
@@ -431,7 +435,10 @@ export class RelayerService {
       this.stats.proofsGenerated++;
       return result;
     } catch (error) {
-      console.error('[Relayer] Failed to generate Ethereum consensus proof:', error);
+      console.error(
+        '[Relayer] Failed to generate Ethereum consensus proof:',
+        error,
+      );
       return null;
     }
   }
@@ -439,34 +446,36 @@ export class RelayerService {
   private encodeEthereumUpdateInputs(update: EthereumUpdate): Uint8Array {
     const buffer = new Uint8Array(80);
     const view = new DataView(buffer.buffer);
-    
+
     view.setBigUint64(0, update.slot, true);
     buffer.set(update.blockRoot, 8);
     buffer.set(update.stateRoot, 40);
     view.setBigUint64(72, update.executionBlockNumber, true);
-    
+
     return buffer;
   }
 
   private buildEvmLightClientUpdateInstruction(
     update: EthereumUpdate,
     proof: SP1Proof,
-    publicInputs: Uint8Array
+    publicInputs: Uint8Array,
   ): TransactionInstruction {
-    const discriminator = Buffer.from([0x1a, 0x3b, 0x5c, 0x7d, 0x9e, 0xaf, 0xc0, 0xd1]);
-    
+    const discriminator = Buffer.from([
+      0x1a, 0x3b, 0x5c, 0x7d, 0x9e, 0xaf, 0xc0, 0xd1,
+    ]);
+
     const slotBuffer = Buffer.alloc(8);
     slotBuffer.writeBigUInt64LE(update.slot);
-    
+
     const blockBuffer = Buffer.alloc(8);
     blockBuffer.writeBigUInt64LE(update.executionBlockNumber);
-    
+
     const proofLenBuffer = Buffer.alloc(4);
     proofLenBuffer.writeUInt32LE(proof.proof.length);
-    
+
     const inputsLenBuffer = Buffer.alloc(4);
     inputsLenBuffer.writeUInt32LE(publicInputs.length);
-    
+
     const data = Buffer.concat([
       discriminator,
       slotBuffer,
@@ -479,24 +488,35 @@ export class RelayerService {
       Buffer.from(publicInputs),
     ]);
 
-    const evmLightClientProgramId = new PublicKey(this.config.solanaConfig.evmLightClientProgramId);
+    const evmLightClientProgramId = new PublicKey(
+      this.config.solanaConfig.evmLightClientProgramId,
+    );
     const [lightClientState] = PublicKey.findProgramAddressSync(
       [Buffer.from('light_client_state')],
-      evmLightClientProgramId
+      evmLightClientProgramId,
     );
+
+    const payerPubkey = this.solanaClient?.getPublicKey();
+    if (!payerPubkey) {
+      throw new Error('Solana client not initialized or no keypair');
+    }
 
     return new TransactionInstruction({
       programId: evmLightClientProgramId,
       keys: [
         { pubkey: lightClientState, isSigner: false, isWritable: true },
-        { pubkey: this.solanaClient!.getPublicKey()!, isSigner: true, isWritable: true },
+        {
+          pubkey: payerPubkey,
+          isSigner: true,
+          isWritable: true,
+        },
       ],
       data,
     });
   }
 
   private async generateSolanaConsensusProof(
-    _snapshot: ConsensusSnapshot
+    _snapshot: ConsensusSnapshot,
   ): Promise<number[] | null> {
     try {
       // Call prover service
@@ -517,7 +537,10 @@ export class RelayerService {
       this.stats.proofsGenerated++;
       return result.proof;
     } catch (error) {
-      console.error('[Relayer] Solana consensus proof generation failed:', error);
+      console.error(
+        '[Relayer] Solana consensus proof generation failed:',
+        error,
+      );
       return null;
     }
   }
@@ -564,7 +587,7 @@ export class RelayerService {
     }
 
     console.log(
-      `[Relayer] Processing batch with ${batch.transfers.length} transfers`
+      `[Relayer] Processing batch with ${batch.transfers.length} transfers`,
     );
 
     // Generate batch proof
@@ -577,7 +600,7 @@ export class RelayerService {
     // Mark batch as proven
     const proofBatch = this.batcher.markBatchProven(
       this.hashToHex(batch.id),
-      proof
+      proof,
     );
 
     // Complete transfers on destination chains
@@ -587,7 +610,7 @@ export class RelayerService {
   }
 
   private async generateBatchProof(
-    transfers: { transfer: CrossChainTransfer }[]
+    transfers: { transfer: CrossChainTransfer }[],
   ): Promise<SP1Proof | null> {
     try {
       const response = await fetch(
@@ -599,7 +622,7 @@ export class RelayerService {
             type: 'batch_transfer',
             transfers: transfers.map((t) => t.transfer),
           }),
-        }
+        },
       );
 
       if (!response.ok) {
@@ -617,7 +640,7 @@ export class RelayerService {
 
   private async completeTransferOnDestination(
     transfer: CrossChainTransfer,
-    proof: SP1Proof
+    proof: SP1Proof,
   ): Promise<void> {
     const txId = this.hashToHex(transfer.transferId);
     const pending = this.pendingTransfers.get(txId);
@@ -638,32 +661,38 @@ export class RelayerService {
       if (!client) {
         throw new Error(`No EVM client for chain ${transfer.destChain}`);
       }
-      
-      const sourceSlot = pending.sourceCommitment && 'slot' in pending.sourceCommitment 
-        ? BigInt(pending.sourceCommitment.slot)
-        : BigInt(0);
-      
-      console.log(`[Relayer] Completing transfer ${txId} on EVM chain ${transfer.destChain}`);
+
+      const sourceSlot =
+        pending.sourceCommitment && 'slot' in pending.sourceCommitment
+          ? BigInt(pending.sourceCommitment.slot)
+          : BigInt(0);
+
+      console.log(
+        `[Relayer] Completing transfer ${txId} on EVM chain ${transfer.destChain}`,
+      );
       const txHash = await client.completeTransfer({
         transferId: transfer.transferId,
-        token: `0x${Buffer.from(transfer.token).toString('hex').slice(-40)}` as `0x${string}`,
+        token:
+          `0x${Buffer.from(transfer.token).toString('hex').slice(-40)}` as `0x${string}`,
         sender: transfer.sender,
-        recipient: `0x${Buffer.from(transfer.recipient).toString('hex').slice(-40)}` as `0x${string}`,
+        recipient:
+          `0x${Buffer.from(transfer.recipient).toString('hex').slice(-40)}` as `0x${string}`,
         amount: transfer.amount,
         slot: sourceSlot,
-        proof: Array.from(proof.proof).map(b => BigInt(b)),
-        publicInputs: Array.from(proof.publicInputs).map(b => BigInt(b)),
+        proof: Array.from(proof.proof).map((b) => BigInt(b)),
+        publicInputs: Array.from(proof.publicInputs).map((b) => BigInt(b)),
       });
       console.log(`[Relayer] EVM transfer completed: ${txHash}`);
-      
+
       pending.status = TransferStatus.COMPLETED;
       this.stats.transfersProcessed++;
     } else if (this.solanaClient) {
       console.log(`[Relayer] Completing transfer ${txId} on Solana`);
-      const sourceSlot = pending.sourceCommitment && 'slot' in pending.sourceCommitment 
-        ? BigInt(pending.sourceCommitment.slot)
-        : BigInt(0);
-        
+      const sourceSlot =
+        pending.sourceCommitment && 'slot' in pending.sourceCommitment
+          ? BigInt(pending.sourceCommitment.slot)
+          : BigInt(0);
+
       const signature = await this.solanaClient.completeTransfer({
         transferId: transfer.transferId,
         mint: new PublicKey(transfer.token),
@@ -675,11 +704,13 @@ export class RelayerService {
         publicInputs: proof.publicInputs,
       });
       console.log(`[Relayer] Solana transfer completed: ${signature}`);
-      
+
       pending.status = TransferStatus.COMPLETED;
       this.stats.transfersProcessed++;
     } else {
-      throw new Error(`No client available for destination chain ${transfer.destChain}`);
+      throw new Error(
+        `No client available for destination chain ${transfer.destChain}`,
+      );
     }
   }
 
@@ -711,23 +742,26 @@ export class RelayerService {
   private async loadSolanaKeypair(): Promise<Keypair> {
     const keypairPath = this.config.solanaConfig.keypairPath.replace(
       '~',
-      process.env.HOME ?? ''
+      process.env.HOME ?? '',
     );
-    
+
     try {
       const keypairData = await Bun.file(keypairPath).json();
       return Keypair.fromSecretKey(new Uint8Array(keypairData));
     } catch (error) {
       // Only allow ephemeral keypair in local development
-      if (process.env.NODE_ENV === 'development' || keypairPath.includes('localnet')) {
+      if (
+        process.env.NODE_ENV === 'development' ||
+        keypairPath.includes('localnet')
+      ) {
         console.warn(
-          `[Relayer] Could not load keypair from ${keypairPath}, using ephemeral keypair for local dev`
+          `[Relayer] Could not load keypair from ${keypairPath}, using ephemeral keypair for local dev`,
         );
         return Keypair.generate();
       }
       throw new Error(
         `Failed to load Solana keypair from ${keypairPath}: ${error}. ` +
-        `Ensure the keypair file exists and is valid JSON.`
+          `Ensure the keypair file exists and is valid JSON.`,
       );
     }
   }
@@ -766,7 +800,7 @@ export function createRelayerService(config: RelayerConfig): RelayerService {
 
 if (import.meta.main) {
   const config: RelayerConfig = {
-    port: parseInt(process.env.RELAYER_PORT ?? '8081'),
+    port: parseInt(process.env.RELAYER_PORT ?? '8081', 10),
     evmChains: [
       {
         chainId: 31337 as ChainId,

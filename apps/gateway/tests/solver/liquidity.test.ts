@@ -56,7 +56,7 @@ describe('Balance Tracking', () => {
   });
 
   test('should fetch initial balances on initialize', async () => {
-    const mockClient = createMockClient(ethers.parseEther('5.0'));
+    const mockClient = createMockClient(parseEther('5.0'));
     const clients = new Map([[11155111, mockClient]]);
     
     manager = new LiquidityManager({
@@ -70,8 +70,8 @@ describe('Balance Tracking', () => {
   });
 
   test('should track balance per chain', async () => {
-    const client1 = createMockClient(ethers.parseEther('1.0'));
-    const client2 = createMockClient(ethers.parseEther('2.0'));
+    const client1 = createMockClient(parseEther('1.0'));
+    const client2 = createMockClient(parseEther('2.0'));
     const clients = new Map([
       [11155111, client1],
       [84532, client2],
@@ -87,8 +87,8 @@ describe('Balance Tracking', () => {
     
     await manager.initialize(clients as unknown as Map<number, { public: PublicClient; wallet?: WalletClient }>);
     
-    expect(manager.getBalance(11155111, '0x0000000000000000000000000000000000000000')).toBe(ethers.parseEther('1.0'));
-    expect(manager.getBalance(84532, '0x0000000000000000000000000000000000000000')).toBe(ethers.parseEther('2.0'));
+    expect(manager.getBalance(11155111, '0x0000000000000000000000000000000000000000')).toBe(parseEther('1.0'));
+    expect(manager.getBalance(84532, '0x0000000000000000000000000000000000000000')).toBe(parseEther('2.0'));
   });
 
   test('should return 0 for unknown chain', async () => {
@@ -99,7 +99,7 @@ describe('Balance Tracking', () => {
   });
 
   test('should return 0 for unknown token', async () => {
-    const mockClient = createMockClient(ethers.parseEther('1.0'));
+    const mockClient = createMockClient(parseEther('1.0'));
     const clients = new Map([[11155111, mockClient]]);
     
     manager = new LiquidityManager({
@@ -122,7 +122,7 @@ describe('hasLiquidity', () => {
   });
 
   test('should return true when balance exceeds required', async () => {
-    const mockClient = createMockClient(ethers.parseEther('5.0'));
+    const mockClient = createMockClient(parseEther('5.0'));
     const clients = new Map([[11155111, mockClient]]);
     
     manager = new LiquidityManager({
@@ -137,7 +137,7 @@ describe('hasLiquidity', () => {
   });
 
   test('should return false when balance is insufficient', async () => {
-    const mockClient = createMockClient(ethers.parseEther('0.5'));
+    const mockClient = createMockClient(parseEther('0.5'));
     const clients = new Map([[11155111, mockClient]]);
     
     manager = new LiquidityManager({
@@ -152,7 +152,7 @@ describe('hasLiquidity', () => {
   });
 
   test('should return true for exact balance match', async () => {
-    const exactAmount = ethers.parseEther('1.0');
+    const exactAmount = parseEther('1.0');
     const mockClient = createMockClient(exactAmount);
     const clients = new Map([[11155111, mockClient]]);
     
@@ -200,7 +200,7 @@ describe('recordFill', () => {
 
   test('should deduct fill amount from balance (before async refresh)', async () => {
     // Mock that tracks balance changes
-    let mockBalance = ethers.parseEther('10.0');
+    let mockBalance = parseEther('10.0');
     const mockClient = {
       public: {
         getBalance: async () => mockBalance,
@@ -219,19 +219,19 @@ describe('recordFill', () => {
     await manager.initialize(clients as unknown as Map<number, { public: PublicClient; wallet?: WalletClient }>);
     
     const beforeBalance = manager.getBalance(11155111, '0x0000000000000000000000000000000000000000');
-    expect(beforeBalance).toBe(ethers.parseEther('10.0'));
+    expect(beforeBalance).toBe(parseEther('10.0'));
     
     // Update mock to return reduced balance (simulating on-chain spend)
-    mockBalance = ethers.parseEther('7.0');
+    mockBalance = parseEther('7.0');
     
     // recordFill deducts locally, then triggers async refresh
-    await manager.recordFill(11155111, '0x0000000000000000000000000000000000000000', ethers.parseEther('3.0').toString());
+    await manager.recordFill(11155111, '0x0000000000000000000000000000000000000000', parseEther('3.0').toString());
     
     // Give async refresh time to complete
     await new Promise(resolve => setTimeout(resolve, 50));
     
     const afterBalance = manager.getBalance(11155111, '0x0000000000000000000000000000000000000000');
-    expect(afterBalance).toBe(ethers.parseEther('7.0'));
+    expect(afterBalance).toBe(parseEther('7.0'));
   });
 
   test('should track cumulative fills before refresh', async () => {
@@ -242,7 +242,7 @@ describe('recordFill', () => {
         getBalance: async () => {
           refreshCount++;
           // Return original balance on refresh - testing in-memory deduction
-          return ethers.parseEther('10.0');
+          return parseEther('10.0');
         },
       } as unknown as PublicClient,
       wallet: {
@@ -276,7 +276,7 @@ describe('recordFill', () => {
       public: {
         getBalance: async () => {
           queriedBalance = true;
-          return ethers.parseEther('10.0');
+          return parseEther('10.0');
         },
       } as unknown as PublicClient,
       wallet: {
@@ -294,7 +294,7 @@ describe('recordFill', () => {
     
     // recordFill triggers refreshChain which queries balance
     queriedBalance = false;
-    await manager.recordFill(11155111, '0x0000000000000000000000000000000000000000', ethers.parseEther('1.0').toString());
+    await manager.recordFill(11155111, '0x0000000000000000000000000000000000000000', parseEther('1.0').toString());
     
     // Give async refresh time
     await new Promise(resolve => setTimeout(resolve, 50));
@@ -350,6 +350,6 @@ describe('Stop/Cleanup', () => {
   });
 });
 
-// Import ethers for test helpers
-import { ethers } from 'ethers';
+// Import viem for test helpers
+import { parseEther, parseUnits } from 'viem';
 

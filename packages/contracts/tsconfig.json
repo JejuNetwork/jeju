@@ -15,7 +15,7 @@
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
     "noEmit": false,
-    "types": []
+    "types": ["node"]
   },
   "include": ["ts/**/*.ts"],
   "exclude": ["node_modules", "dist", "lib", "out", "cache", "broadcast"]

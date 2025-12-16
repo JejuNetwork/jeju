@@ -4,7 +4,7 @@ import type {
   IntentQuote,
   OIFStats,
   SupportedChainId
-} from '@jejunetwork/types/oif';
+} from '@jejunetwork/types';
 import * as chainService from './chain-service';
 import { quoteService } from './quote-service.js';
 import { ZERO_ADDRESS } from '../lib/contracts.js';

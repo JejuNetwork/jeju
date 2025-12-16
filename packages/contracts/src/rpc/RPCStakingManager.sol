@@ -53,6 +53,9 @@ contract RPCStakingManager is IRPCStakingManager, Ownable, Pausable, ReentrancyG
     uint256 public totalStaked;
     uint256 public totalStakers;
 
+    /// @notice Count of stakers in each tier
+    mapping(Tier => uint256) public tierCounts;
+
     constructor(address _jejuToken, address _identityRegistry, address _priceOracle, address initialOwner)
         Ownable(initialOwner)
     {
@@ -96,6 +99,7 @@ contract RPCStakingManager is IRPCStakingManager, Ownable, Pausable, ReentrancyG
 
         StakePosition storage pos = positions[user];
         Tier oldTier = getTier(user);
+        bool wasActive = pos.isActive;
 
         jejuToken.safeTransferFrom(user, address(this), amount);
 
@@ -114,7 +118,11 @@ contract RPCStakingManager is IRPCStakingManager, Ownable, Pausable, ReentrancyG
         Tier newTier = getTier(user);
         emit Staked(user, amount, newTier);
         if (oldTier != newTier) {
+            _updateTierCounts(oldTier, newTier, wasActive);
             emit TierChanged(user, oldTier, newTier);
+        } else if (!wasActive) {
+            // New staker, add to their tier count
+            tierCounts[newTier]++;
         }
     }
 
@@ -162,6 +170,7 @@ contract RPCStakingManager is IRPCStakingManager, Ownable, Pausable, ReentrancyG
 
         emit UnbondingStarted(msg.sender, amount);
         if (oldTier != newTier) {
+            _updateTierCounts(oldTier, newTier, true);
             emit TierChanged(msg.sender, oldTier, newTier);
         }
     }
@@ -177,12 +186,18 @@ contract RPCStakingManager is IRPCStakingManager, Ownable, Pausable, ReentrancyG
         if (block.timestamp < pos.unbondingStartTime + UNBONDING_PERIOD) revert StillUnbonding();
 
         uint256 amount = pos.unbondingAmount;
+        Tier currentTier = getTier(msg.sender);
+        
         pos.unbondingAmount = 0;
         pos.unbondingStartTime = 0;
 
         if (pos.stakedAmount == 0) {
             pos.isActive = false;
             totalStakers--;
+            // Remove from tier count since they're no longer active
+            if (tierCounts[currentTier] > 0) {
+                tierCounts[currentTier]--;
+            }
         }
 
         jejuToken.safeTransfer(msg.sender, amount);
@@ -317,6 +332,19 @@ contract RPCStakingManager is IRPCStakingManager, Ownable, Pausable, ReentrancyG
         if (usdValue >= tierConfigs[Tier.PRO].minUsdValue) return Tier.PRO;
         if (usdValue >= tierConfigs[Tier.BASIC].minUsdValue) return Tier.BASIC;
         return Tier.FREE;
+    }
+
+    /**
+     * @notice Update tier counts when a user's tier changes
+     * @param oldTier Previous tier
+     * @param newTier New tier
+     * @param wasActive Whether the user was previously an active staker
+     */
+    function _updateTierCounts(Tier oldTier, Tier newTier, bool wasActive) internal {
+        if (wasActive && tierCounts[oldTier] > 0) {
+            tierCounts[oldTier]--;
+        }
+        tierCounts[newTier]++;
     }
 
     // ============ Moderation Functions ============
@@ -473,6 +501,12 @@ contract RPCStakingManager is IRPCStakingManager, Ownable, Pausable, ReentrancyG
 
     /**
      * @notice Get global staking statistics
+     * @return _totalStaked Total JEJU tokens staked
+     * @return _totalStakers Total number of active stakers
+     * @return freeTierCount Number of stakers in FREE tier
+     * @return basicTierCount Number of stakers in BASIC tier
+     * @return proTierCount Number of stakers in PRO tier
+     * @return unlimitedTierCount Number of stakers in UNLIMITED tier
      */
     function getStats()
         external
@@ -480,19 +514,27 @@ contract RPCStakingManager is IRPCStakingManager, Ownable, Pausable, ReentrancyG
         returns (
             uint256 _totalStaked,
             uint256 _totalStakers,
-            uint256 tierCount1,
-            uint256 tierCount2,
-            uint256 tierCount3,
-            uint256 tierCount4
+            uint256 freeTierCount,
+            uint256 basicTierCount,
+            uint256 proTierCount,
+            uint256 unlimitedTierCount
         )
     {
         _totalStaked = totalStaked;
         _totalStakers = totalStakers;
-        // Note: tier counts would require enumeration, returns 0 for now
-        tierCount1 = 0;
-        tierCount2 = 0;
-        tierCount3 = 0;
-        tierCount4 = 0;
+        freeTierCount = tierCounts[Tier.FREE];
+        basicTierCount = tierCounts[Tier.BASIC];
+        proTierCount = tierCounts[Tier.PRO];
+        unlimitedTierCount = tierCounts[Tier.UNLIMITED];
+    }
+
+    /**
+     * @notice Get count of stakers in a specific tier
+     * @param tier The tier to query
+     * @return count Number of stakers in that tier
+     */
+    function getTierCount(Tier tier) external view returns (uint256 count) {
+        return tierCounts[tier];
     }
 
     function version() external pure returns (string memory) {

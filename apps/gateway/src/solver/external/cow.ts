@@ -29,14 +29,8 @@ import {
   type WalletClient, 
   type Address,
   keccak256,
-  encodeAbiParameters,
-  parseAbiParameters,
   toHex,
-  concat,
-  pad,
-  numberToHex,
   hexToBytes,
-  bytesToHex,
 } from 'viem';
 import { EventEmitter } from 'events';
 
@@ -67,10 +61,11 @@ const COW_DOMAIN = {
   version: 'v2',
 } as const;
 
-// Order types for EIP-712 signing
-const ORDER_TYPE_HASH = keccak256(
+// Order types for EIP-712 signing (used in order hash computation)
+const _ORDER_TYPE_HASH = keccak256(
   toHex('Order(address sellToken,address buyToken,address receiver,uint256 sellAmount,uint256 buyAmount,uint32 validTo,bytes32 appData,uint256 feeAmount,string kind,bool partiallyFillable,string sellTokenBalance,string buyTokenBalance)')
 );
+void _ORDER_TYPE_HASH; // Reserved for future EIP-712 signing
 
 export interface CowOrder {
   uid: `0x${string}`;
@@ -428,6 +423,8 @@ export class CowProtocolSolver extends EventEmitter {
     }
 
     const hash = await client.wallet.writeContract({
+      chain: client.wallet.chain,
+      account: client.wallet.account!,
       address: token,
       abi: [{
         type: 'function',
@@ -438,7 +435,7 @@ export class CowProtocolSolver extends EventEmitter {
         ],
         outputs: [{ type: 'bool' }],
         stateMutability: 'nonpayable',
-      }],
+      }] as const,
       functionName: 'approve',
       args: [vaultRelayer, amount],
     });

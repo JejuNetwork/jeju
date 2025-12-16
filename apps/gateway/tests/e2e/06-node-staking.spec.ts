@@ -5,7 +5,7 @@
 
 import { testWithWallet as test, expect } from '../fixtures/wallet';
 
-import { connectWallet } from '@jejunetwork/tests/helpers/contracts';
+import { connectWallet } from '@jejunetwork/tests';
 
 test.describe('Node Staking Flow', () => {
   test.beforeEach(async ({ page, wallet }) => {

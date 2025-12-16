@@ -17,12 +17,12 @@ import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll } from
 
 describe('CovenantSQL Client - Boundary Conditions', () => {
   beforeEach(async () => {
-    const { resetCovenantSQLClient } = await import('@jeju/shared/db');
+    const { resetCovenantSQLClient } = await import('@jejunetwork/shared');
     resetCovenantSQLClient();
   });
 
   it('should reject empty nodes array', async () => {
-    const { createCovenantSQLClient } = await import('@jeju/shared/db');
+    const { createCovenantSQLClient } = await import('@jejunetwork/shared');
     
     const client = createCovenantSQLClient({
       nodes: [],
@@ -36,7 +36,7 @@ describe('CovenantSQL Client - Boundary Conditions', () => {
   });
 
   it('should handle single node configuration', async () => {
-    const { createCovenantSQLClient } = await import('@jeju/shared/db');
+    const { createCovenantSQLClient } = await import('@jejunetwork/shared');
     
     const client = createCovenantSQLClient({
       nodes: ['http://localhost:4661'],
@@ -50,7 +50,7 @@ describe('CovenantSQL Client - Boundary Conditions', () => {
   });
 
   it('should handle maximum pool size', async () => {
-    const { createCovenantSQLClient } = await import('@jeju/shared/db');
+    const { createCovenantSQLClient } = await import('@jejunetwork/shared');
     
     const client = createCovenantSQLClient({
       nodes: ['http://localhost:4661'],
@@ -63,7 +63,7 @@ describe('CovenantSQL Client - Boundary Conditions', () => {
   });
 
   it('should handle zero query timeout', async () => {
-    const { createCovenantSQLClient } = await import('@jeju/shared/db');
+    const { createCovenantSQLClient } = await import('@jejunetwork/shared');
     
     const client = createCovenantSQLClient({
       nodes: ['http://localhost:4661'],
@@ -76,7 +76,7 @@ describe('CovenantSQL Client - Boundary Conditions', () => {
   });
 
   it('should handle zero retry attempts', async () => {
-    const { createCovenantSQLClient } = await import('@jeju/shared/db');
+    const { createCovenantSQLClient } = await import('@jejunetwork/shared');
     
     const client = createCovenantSQLClient({
       nodes: ['http://localhost:4661'],
@@ -89,7 +89,7 @@ describe('CovenantSQL Client - Boundary Conditions', () => {
   });
 
   it('should use default consistency when not specified', async () => {
-    const { createCovenantSQLClient } = await import('@jeju/shared/db');
+    const { createCovenantSQLClient } = await import('@jejunetwork/shared');
     
     const client = createCovenantSQLClient({
       nodes: ['http://localhost:4661'],
@@ -103,12 +103,12 @@ describe('CovenantSQL Client - Boundary Conditions', () => {
 
 describe('CovenantSQL Client - Error Handling', () => {
   beforeEach(async () => {
-    const { resetCovenantSQLClient } = await import('@jeju/shared/db');
+    const { resetCovenantSQLClient } = await import('@jejunetwork/shared');
     resetCovenantSQLClient();
   });
 
   it('should throw on missing databaseId from env', async () => {
-    const { getCovenantSQLClient, resetCovenantSQLClient } = await import('@jeju/shared/db');
+    const { getCovenantSQLClient, resetCovenantSQLClient } = await import('@jejunetwork/shared');
     
     resetCovenantSQLClient();
     const originalDbId = process.env.COVENANTSQL_DATABASE_ID;
@@ -125,7 +125,7 @@ describe('CovenantSQL Client - Error Handling', () => {
   });
 
   it('should handle malformed node URLs gracefully', async () => {
-    const { createCovenantSQLClient } = await import('@jeju/shared/db');
+    const { createCovenantSQLClient } = await import('@jejunetwork/shared');
     
     const client = createCovenantSQLClient({
       nodes: ['not-a-valid-url', ':::invalid:::'],
@@ -138,7 +138,7 @@ describe('CovenantSQL Client - Error Handling', () => {
   });
 
   it('should close connections cleanly', async () => {
-    const { createCovenantSQLClient } = await import('@jeju/shared/db');
+    const { createCovenantSQLClient } = await import('@jejunetwork/shared');
     
     const client = createCovenantSQLClient({
       nodes: ['http://localhost:4661'],
@@ -154,12 +154,12 @@ describe('CovenantSQL Client - Error Handling', () => {
 
 describe('CovenantSQL Client - SQL Operations', () => {
   beforeEach(async () => {
-    const { resetCovenantSQLClient } = await import('@jeju/shared/db');
+    const { resetCovenantSQLClient } = await import('@jejunetwork/shared');
     resetCovenantSQLClient();
   });
 
   it('should build correct INSERT SQL for single row', async () => {
-    const { createCovenantSQLClient } = await import('@jeju/shared/db');
+    const { createCovenantSQLClient } = await import('@jejunetwork/shared');
     
     const client = createCovenantSQLClient({
       nodes: ['http://localhost:4661'],
@@ -173,7 +173,7 @@ describe('CovenantSQL Client - SQL Operations', () => {
   });
 
   it('should build correct INSERT SQL for multiple rows', async () => {
-    const { createCovenantSQLClient } = await import('@jeju/shared/db');
+    const { createCovenantSQLClient } = await import('@jejunetwork/shared');
     
     const client = createCovenantSQLClient({
       nodes: ['http://localhost:4661'],
@@ -192,7 +192,7 @@ describe('CovenantSQL Client - SQL Operations', () => {
   });
 
   it('should handle empty insert data', async () => {
-    const { createCovenantSQLClient } = await import('@jeju/shared/db');
+    const { createCovenantSQLClient } = await import('@jejunetwork/shared');
     
     const client = createCovenantSQLClient({
       nodes: ['http://localhost:4661'],
@@ -213,12 +213,12 @@ describe('CovenantSQL Client - SQL Operations', () => {
 
 describe('MPC Custody - Configuration Validation', () => {
   beforeEach(async () => {
-    const { resetMPCCoordinator } = await import('@jeju/kms');
+    const { resetMPCCoordinator } = await import('@jejunetwork/kms');
     resetMPCCoordinator();
   });
 
   it('should reject threshold greater than total parties in generateKey', async () => {
-    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jeju/kms');
+    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jejunetwork/kms');
     
     resetMPCCoordinator();
     const manager = getMPCCoordinator();
@@ -246,7 +246,7 @@ describe('MPC Custody - Configuration Validation', () => {
   });
 
   it('should reject threshold less than 2 in generateKey', async () => {
-    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jeju/kms');
+    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jejunetwork/kms');
     
     resetMPCCoordinator();
     const manager = getMPCCoordinator();
@@ -274,7 +274,7 @@ describe('MPC Custody - Configuration Validation', () => {
   });
 
   it('should accept valid configuration', async () => {
-    const { MPCCoordinator } = await import('@jeju/kms');
+    const { MPCCoordinator } = await import('@jejunetwork/kms');
     
     const manager = new MPCCoordinator({
       totalParties: 5,
@@ -288,7 +288,7 @@ describe('MPC Custody - Configuration Validation', () => {
   });
 
   it('should default to localnet network', async () => {
-    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jeju/kms');
+    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jejunetwork/kms');
     
     resetMPCCoordinator();
     const manager = getMPCCoordinator();
@@ -297,7 +297,7 @@ describe('MPC Custody - Configuration Validation', () => {
   });
 
   it('should use network presets correctly', async () => {
-    const { getMPCConfig } = await import('@jeju/kms');
+    const { getMPCConfig } = await import('@jejunetwork/kms');
     
     const testnet = getMPCConfig('testnet');
     expect(testnet.threshold).toBe(2);
@@ -311,12 +311,12 @@ describe('MPC Custody - Configuration Validation', () => {
 
 describe('MPC Custody - Party Management', () => {
   beforeEach(async () => {
-    const { resetMPCCoordinator } = await import('@jeju/kms');
+    const { resetMPCCoordinator } = await import('@jejunetwork/kms');
     resetMPCCoordinator();
   });
 
   it('should register parties', async () => {
-    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jeju/kms');
+    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jejunetwork/kms');
     
     resetMPCCoordinator();
     const manager = getMPCCoordinator();
@@ -337,7 +337,7 @@ describe('MPC Custody - Party Management', () => {
   });
 
   it('should track active parties', async () => {
-    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jeju/kms');
+    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jejunetwork/kms');
     
     resetMPCCoordinator();
     const manager = getMPCCoordinator();
@@ -359,7 +359,7 @@ describe('MPC Custody - Party Management', () => {
   });
 
   it('should update party heartbeat', async () => {
-    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jeju/kms');
+    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jejunetwork/kms');
     
     resetMPCCoordinator();
     const manager = getMPCCoordinator();
@@ -385,12 +385,12 @@ describe('MPC Custody - Party Management', () => {
 
 describe('MPC Custody - Key Generation', () => {
   beforeEach(async () => {
-    const { resetMPCCoordinator } = await import('@jeju/kms');
+    const { resetMPCCoordinator } = await import('@jejunetwork/kms');
     resetMPCCoordinator();
   });
 
   it('should generate distributed key', async () => {
-    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jeju/kms');
+    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jejunetwork/kms');
     
     resetMPCCoordinator();
     const manager = getMPCCoordinator();
@@ -426,7 +426,7 @@ describe('MPC Custody - Key Generation', () => {
   });
 
   it('should reject unregistered parties', async () => {
-    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jeju/kms');
+    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jejunetwork/kms');
     
     resetMPCCoordinator();
     const manager = getMPCCoordinator();
@@ -451,7 +451,7 @@ describe('MPC Custody - Key Generation', () => {
   });
 
   it('should return null for non-existent key', async () => {
-    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jeju/kms');
+    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jejunetwork/kms');
     
     resetMPCCoordinator();
     const manager = getMPCCoordinator();
@@ -461,7 +461,7 @@ describe('MPC Custody - Key Generation', () => {
   });
 
   it('should list all keys', async () => {
-    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jeju/kms');
+    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jejunetwork/kms');
     
     resetMPCCoordinator();
     const manager = getMPCCoordinator();
@@ -501,12 +501,12 @@ describe('MPC Custody - Key Generation', () => {
 
 describe('MPC Custody - Threshold Signing', () => {
   beforeEach(async () => {
-    const { resetMPCCoordinator } = await import('@jeju/kms');
+    const { resetMPCCoordinator } = await import('@jejunetwork/kms');
     resetMPCCoordinator();
   });
 
   it('should sign with threshold parties', async () => {
-    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jeju/kms');
+    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jejunetwork/kms');
     const { keccak256, toBytes } = await import('viem');
     
     resetMPCCoordinator();
@@ -580,7 +580,7 @@ describe('MPC Custody - Threshold Signing', () => {
   });
 
   it('should reject signing with insufficient parties', async () => {
-    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jeju/kms');
+    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jejunetwork/kms');
     const { keccak256, toBytes } = await import('viem');
     
     resetMPCCoordinator();
@@ -613,7 +613,7 @@ describe('MPC Custody - Threshold Signing', () => {
   });
 
   it('should produce cryptographically valid signatures', async () => {
-    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jeju/kms');
+    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jejunetwork/kms');
     const { verifyMessage, keccak256, toBytes } = await import('viem');
     
     resetMPCCoordinator();
@@ -692,12 +692,12 @@ describe('MPC Custody - Threshold Signing', () => {
 
 describe('MPC Custody - Key Rotation', () => {
   beforeEach(async () => {
-    const { resetMPCCoordinator } = await import('@jeju/kms');
+    const { resetMPCCoordinator } = await import('@jejunetwork/kms');
     resetMPCCoordinator();
   });
 
   it('should rotate key while preserving address', async () => {
-    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jeju/kms');
+    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jejunetwork/kms');
     
     resetMPCCoordinator();
     const manager = getMPCCoordinator();
@@ -733,7 +733,7 @@ describe('MPC Custody - Key Rotation', () => {
   });
 
   it('should track key versions', async () => {
-    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jeju/kms');
+    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jejunetwork/kms');
     
     resetMPCCoordinator();
     const manager = getMPCCoordinator();
@@ -771,12 +771,12 @@ describe('MPC Custody - Key Rotation', () => {
 
 describe('MPC Custody - Rate Limiting', () => {
   beforeEach(async () => {
-    const { resetMPCCoordinator } = await import('@jeju/kms');
+    const { resetMPCCoordinator } = await import('@jejunetwork/kms');
     resetMPCCoordinator();
   });
 
   it('should enforce max concurrent sessions limit', async () => {
-    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jeju/kms');
+    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jejunetwork/kms');
     const { keccak256, toBytes } = await import('viem');
     
     resetMPCCoordinator();
@@ -836,12 +836,12 @@ describe('MPC Custody - Rate Limiting', () => {
 
 describe('HSM Client - Connection States', () => {
   beforeEach(async () => {
-    const { resetHSMClient } = await import('@jeju/shared/crypto');
+    const { resetHSMClient } = await import('@jejunetwork/shared');
     resetHSMClient();
   });
 
   it('should require connection before operations', async () => {
-    const { HSMClient } = await import('@jeju/shared/crypto');
+    const { HSMClient } = await import('@jejunetwork/shared');
     
     const client = new HSMClient({
       provider: 'local-dev',
@@ -855,7 +855,7 @@ describe('HSM Client - Connection States', () => {
   });
 
   it('should allow multiple connect calls', async () => {
-    const { getHSMClient, resetHSMClient } = await import('@jeju/shared/crypto');
+    const { getHSMClient, resetHSMClient } = await import('@jejunetwork/shared');
     
     resetHSMClient();
     const client = getHSMClient({
@@ -873,7 +873,7 @@ describe('HSM Client - Connection States', () => {
   });
 
   it('should clear state on disconnect', async () => {
-    const { getHSMClient, resetHSMClient } = await import('@jeju/shared/crypto');
+    const { getHSMClient, resetHSMClient } = await import('@jejunetwork/shared');
     
     resetHSMClient();
     const client = getHSMClient({
@@ -895,12 +895,12 @@ describe('HSM Client - Connection States', () => {
 
 describe('HSM Client - Key Generation', () => {
   beforeEach(async () => {
-    const { resetHSMClient } = await import('@jeju/shared/crypto');
+    const { resetHSMClient } = await import('@jejunetwork/shared');
     resetHSMClient();
   });
 
   it('should generate EC secp256k1 keys', async () => {
-    const { getHSMClient, resetHSMClient } = await import('@jeju/shared/crypto');
+    const { getHSMClient, resetHSMClient } = await import('@jejunetwork/shared');
     
     resetHSMClient();
     const client = getHSMClient({
@@ -921,7 +921,7 @@ describe('HSM Client - Key Generation', () => {
   });
 
   it('should generate AES-256 keys', async () => {
-    const { getHSMClient, resetHSMClient } = await import('@jeju/shared/crypto');
+    const { getHSMClient, resetHSMClient } = await import('@jejunetwork/shared');
     
     resetHSMClient();
     const client = getHSMClient({
@@ -941,7 +941,7 @@ describe('HSM Client - Key Generation', () => {
   });
 
   it('should respect custom attributes', async () => {
-    const { getHSMClient, resetHSMClient } = await import('@jeju/shared/crypto');
+    const { getHSMClient, resetHSMClient } = await import('@jejunetwork/shared');
     
     resetHSMClient();
     const client = getHSMClient({
@@ -962,7 +962,7 @@ describe('HSM Client - Key Generation', () => {
   });
 
   it('should generate unique key IDs', async () => {
-    const { getHSMClient, resetHSMClient } = await import('@jeju/shared/crypto');
+    const { getHSMClient, resetHSMClient } = await import('@jejunetwork/shared');
     
     resetHSMClient();
     const client = getHSMClient({
@@ -982,12 +982,12 @@ describe('HSM Client - Key Generation', () => {
 
 describe('HSM Client - Cryptographic Operations', () => {
   beforeEach(async () => {
-    const { resetHSMClient } = await import('@jeju/shared/crypto');
+    const { resetHSMClient } = await import('@jejunetwork/shared');
     resetHSMClient();
   });
 
   it('should sign with EC key', async () => {
-    const { getHSMClient, resetHSMClient } = await import('@jeju/shared/crypto');
+    const { getHSMClient, resetHSMClient } = await import('@jejunetwork/shared');
     
     resetHSMClient();
     const client = getHSMClient({
@@ -1013,7 +1013,7 @@ describe('HSM Client - Cryptographic Operations', () => {
   });
 
   it('should reject signing with non-existent key', async () => {
-    const { getHSMClient, resetHSMClient } = await import('@jeju/shared/crypto');
+    const { getHSMClient, resetHSMClient } = await import('@jejunetwork/shared');
     
     resetHSMClient();
     const client = getHSMClient({
@@ -1033,7 +1033,7 @@ describe('HSM Client - Cryptographic Operations', () => {
   });
 
   it('should reject signing with non-signing key', async () => {
-    const { getHSMClient, resetHSMClient } = await import('@jeju/shared/crypto');
+    const { getHSMClient, resetHSMClient } = await import('@jejunetwork/shared');
     
     resetHSMClient();
     const client = getHSMClient({
@@ -1054,7 +1054,7 @@ describe('HSM Client - Cryptographic Operations', () => {
   });
 
   it('should encrypt and decrypt with AES key - verify roundtrip', async () => {
-    const { getHSMClient, resetHSMClient } = await import('@jeju/shared/crypto');
+    const { getHSMClient, resetHSMClient } = await import('@jejunetwork/shared');
     
     resetHSMClient();
     const client = getHSMClient({
@@ -1080,7 +1080,7 @@ describe('HSM Client - Cryptographic Operations', () => {
   });
 
   it('should reject encryption with non-encrypting key', async () => {
-    const { getHSMClient, resetHSMClient } = await import('@jeju/shared/crypto');
+    const { getHSMClient, resetHSMClient } = await import('@jejunetwork/shared');
     
     resetHSMClient();
     const client = getHSMClient({
@@ -1098,7 +1098,7 @@ describe('HSM Client - Cryptographic Operations', () => {
   });
 
   it('should produce verifiable EC signatures', async () => {
-    const { getHSMClient, resetHSMClient } = await import('@jeju/shared/crypto');
+    const { getHSMClient, resetHSMClient } = await import('@jejunetwork/shared');
     
     resetHSMClient();
     const client = getHSMClient({
@@ -1126,12 +1126,12 @@ describe('HSM Client - Cryptographic Operations', () => {
 
 describe('HSM Client - Key Lifecycle', () => {
   beforeEach(async () => {
-    const { resetHSMClient } = await import('@jeju/shared/crypto');
+    const { resetHSMClient } = await import('@jejunetwork/shared');
     resetHSMClient();
   });
 
   it('should delete keys', async () => {
-    const { getHSMClient, resetHSMClient } = await import('@jeju/shared/crypto');
+    const { getHSMClient, resetHSMClient } = await import('@jejunetwork/shared');
     
     resetHSMClient();
     const client = getHSMClient({
@@ -1154,7 +1154,7 @@ describe('HSM Client - Key Lifecycle', () => {
   });
 
   it('should reject deleting non-existent key', async () => {
-    const { getHSMClient, resetHSMClient } = await import('@jeju/shared/crypto');
+    const { getHSMClient, resetHSMClient } = await import('@jejunetwork/shared');
     
     resetHSMClient();
     const client = getHSMClient({
@@ -1171,7 +1171,7 @@ describe('HSM Client - Key Lifecycle', () => {
   });
 
   it('should rotate keys', async () => {
-    const { getHSMClient, resetHSMClient } = await import('@jeju/shared/crypto');
+    const { getHSMClient, resetHSMClient } = await import('@jejunetwork/shared');
     
     resetHSMClient();
     const client = getHSMClient({
@@ -1195,7 +1195,7 @@ describe('HSM Client - Key Lifecycle', () => {
   });
 
   it('should rotate keys while keeping old', async () => {
-    const { getHSMClient, resetHSMClient } = await import('@jeju/shared/crypto');
+    const { getHSMClient, resetHSMClient } = await import('@jejunetwork/shared');
     
     resetHSMClient();
     const client = getHSMClient({
@@ -1219,7 +1219,7 @@ describe('HSM Client - Key Lifecycle', () => {
   });
 
   it('should update lastUsed on sign', async () => {
-    const { getHSMClient, resetHSMClient } = await import('@jeju/shared/crypto');
+    const { getHSMClient, resetHSMClient } = await import('@jejunetwork/shared');
     
     resetHSMClient();
     const client = getHSMClient({
@@ -1607,7 +1607,7 @@ describe('CQL Adapter - In-Memory Mode', () => {
 
 describe('Concurrent Operations', () => {
   it('should handle concurrent MPC key generation', async () => {
-    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jeju/kms');
+    const { getMPCCoordinator, resetMPCCoordinator } = await import('@jejunetwork/kms');
     
     resetMPCCoordinator();
     const manager = getMPCCoordinator();
@@ -1646,7 +1646,7 @@ describe('Concurrent Operations', () => {
   });
 
   it('should handle concurrent HSM operations', async () => {
-    const { getHSMClient, resetHSMClient } = await import('@jeju/shared/crypto');
+    const { getHSMClient, resetHSMClient } = await import('@jejunetwork/shared');
     
     resetHSMClient();
     const client = getHSMClient({
@@ -1716,7 +1716,7 @@ describe('Concurrent Operations', () => {
 
 describe('Module Export Verification', () => {
   it('should export all CovenantSQL components', async () => {
-    const dbModule = await import('@jeju/shared/db');
+    const dbModule = await import('@jejunetwork/shared');
     
     expect(typeof dbModule.CovenantSQLClient).toBe('function');
     expect(typeof dbModule.createCovenantSQLClient).toBe('function');
@@ -1727,8 +1727,8 @@ describe('Module Export Verification', () => {
   });
 
   it('should export all crypto components', async () => {
-    const cryptoModule = await import('@jeju/shared/crypto');
-    const kmsModule = await import('@jeju/kms');
+    const cryptoModule = await import('@jejunetwork/shared');
+    const kmsModule = await import('@jejunetwork/kms');
     
     // Check re-exports from shared/crypto
     expect(typeof cryptoModule.HSMClient).toBe('function');

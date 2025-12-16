@@ -7,6 +7,7 @@ import {
   parseAbi,
   type WalletClient,
 } from 'viem';
+import { Keypair } from '@solana/web3.js';
 import { getChainConfig, getHomeChain } from '../config/chains';
 import type {
   ChainConfig,
@@ -16,6 +17,8 @@ import type {
   DeploymentResult,
 } from '../types';
 import { type ContractName, deployContractCreate2 } from './contract-deployer';
+import { deploySolanaChain } from './solana-deployer';
+import { deployLiquidity } from './liquidity-deployer';
 
 export interface DeploymentStep {
   name: string;
@@ -367,40 +370,43 @@ export class MultiChainLauncher {
 
   /**
    * Deploy token on Solana chain
-   * Creates SPL token - warp route setup requires Hyperlane CLI/SDK
+   * Creates SPL token via @solana/spl-token
+   * Warp route is configured via Hyperlane mailbox
    */
   private async deploySolanaChainInternal(
     chain: ChainConfig,
     _homeTokenAddress: Address
   ): Promise<ChainDeployment> {
-    // For production, this would:
-    // 1. Use the Solana keypair from environment
-    // 2. Create SPL token via @solana/spl-token
-    // 3. Set up Hyperlane warp route via their CLI
+    // Get Solana keypair from environment
+    const solanaPrivateKey = process.env.SOLANA_PRIVATE_KEY;
+    if (!solanaPrivateKey) {
+      throw new Error(
+        'SOLANA_PRIVATE_KEY environment variable required for Solana deployment. ' +
+        'Set it to a base58-encoded Solana private key or a JSON array of bytes.'
+      );
+    }
 
-    // For now, return a placeholder indicating Solana needs manual setup
-    // Solana deployment requires different tooling (Anchor, Solana CLI)
+    // Parse the private key (supports both base58 and JSON array formats)
+    let payer: Keypair;
+    if (solanaPrivateKey.startsWith('[')) {
+      // JSON array format: [1,2,3,...]
+      const secretKey = new Uint8Array(JSON.parse(solanaPrivateKey));
+      payer = Keypair.fromSecretKey(secretKey);
+    } else {
+      // Base58 format - decode from base58
+      const bs58 = await import('bs58');
+      const secretKey = bs58.default.decode(solanaPrivateKey);
+      payer = Keypair.fromSecretKey(secretKey);
+    }
 
-    const isMainnet = chain.chainId === 'solana-mainnet';
-    const message = isMainnet
-      ? 'Solana mainnet requires manual SPL token creation'
-      : 'Solana devnet token - use CLI for deployment';
-
-    console.log(`[Solana] ${message}`);
-    console.log(`[Solana] Use 'spl-token create-token' to create the token`);
-    console.log(`[Solana] Then run Hyperlane CLI to set up warp route`);
-
-    // Return placeholder - actual deployment done via CLI
-    return {
-      chainId: chain.chainId,
-      token: 'PENDING_SOLANA_TOKEN_MINT',
-      vesting: '',
-      feeDistributor: '',
-      warpRoute: chain.hyperlaneMailbox,
-      ism: chain.hyperlaneMailbox,
-      deploymentTxHashes: [],
-      deployedAtBlock: 0n,
-    };
+    console.log(`[Solana] Deploying with payer: ${payer.publicKey.toBase58()}`);
+    
+    // Use the existing deploySolanaChain function which handles:
+    // - SPL token creation via @solana/spl-token
+    // - Warp route configuration with Hyperlane mailbox
+    const deployment = await deploySolanaChain(chain, this.config, payer);
+    
+    return deployment;
   }
 
   private async configureHyperlaneRoutes(
@@ -451,12 +457,12 @@ export class MultiChainLauncher {
 
   /**
    * Deploy liquidity to a DEX
-   * Note: This requires the deployer to have ETH for the pair
+   * Requires the deployer to have ETH for the pair
    */
   private async deployLiquidityInternal(
-    _walletClient: WalletClient,
+    walletClient: WalletClient,
     chainId: ChainId,
-    _deployment: ChainDeployment
+    deployment: ChainDeployment
   ): Promise<void> {
     const allocation = this.config.liquidity.allocations.find(
       (a) => a.chainId === chainId
@@ -465,31 +471,56 @@ export class MultiChainLauncher {
 
     const chain = getChainConfig(chainId);
     if (!chain.dexRouter) {
-      console.log(`[Liquidity] No DEX router configured for chain ${chainId}`);
+      console.log(`[Liquidity] No DEX router configured for chain ${chainId}, skipping`);
       return;
     }
 
     const publicClient = this.clients.get(chainId);
     if (!publicClient) {
-      console.log(`[Liquidity] No public client for chain ${chainId}`);
+      throw new Error(`[Liquidity] No public client for chain ${chainId}`);
+    }
+
+    const account = walletClient.account;
+    if (!account) {
+      throw new Error('[Liquidity] Wallet client must have an account');
+    }
+
+    // Check deployer ETH balance for liquidity pair
+    const ethBalance = await publicClient.getBalance({ address: account.address });
+    
+    // Calculate how much ETH to use for liquidity (based on allocation and pool ratio)
+    // Default to using 50% of available ETH for liquidity, capped at 10 ETH
+    const maxEthForLiquidity = 10n * 10n ** 18n; // 10 ETH max
+    const ethForLiquidity = ethBalance / 2n > maxEthForLiquidity 
+      ? maxEthForLiquidity 
+      : ethBalance / 2n;
+
+    if (ethForLiquidity < 10n ** 16n) { // Minimum 0.01 ETH
+      console.log(`[Liquidity] Insufficient ETH balance for liquidity on chain ${chainId}`);
+      console.log(`  Balance: ${ethBalance} wei`);
+      console.log(`  Minimum required: 0.01 ETH`);
       return;
     }
 
-    const liquidityTokens =
-      (((this.config.token.totalSupply *
-        BigInt(this.config.token.allocation.liquidity)) /
-        100n) *
-        BigInt(allocation.percentage)) /
-      100n;
-
-    // For production, this would add liquidity
-    // Currently logs the intended action
-    console.log(`[Liquidity] Chain ${chainId}:`);
-    console.log(`  Tokens: ${liquidityTokens}`);
+    console.log(`[Liquidity] Deploying liquidity on chain ${chainId}:`);
     console.log(`  DEX: ${allocation.dex}`);
     console.log(`  Router: ${chain.dexRouter}`);
-    console.log('  Note: Liquidity deployment requires ETH in deployer wallet');
-    console.log('  Use the liquidity-deployer module for manual deployment');
+    console.log(`  ETH amount: ${ethForLiquidity / 10n ** 18n} ETH`);
+
+    const txHash = await deployLiquidity(
+      publicClient,
+      walletClient,
+      deployment,
+      allocation,
+      chain.dexRouter as Address,
+      ethForLiquidity
+    );
+
+    if (txHash) {
+      console.log(`[Liquidity] Deployed successfully: ${txHash}`);
+    } else {
+      console.log(`[Liquidity] No tokens available for liquidity on chain ${chainId}`);
+    }
   }
 
   /**

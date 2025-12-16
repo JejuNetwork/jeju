@@ -92,6 +92,11 @@ interface IOracle {
     /// @return attested Whether the output has been attested
     function hasAttested(bytes32 orderId) external view returns (bool);
 
+    /// @notice Gets the block number when attestation was received
+    /// @param orderId The order ID to check
+    /// @return attestationBlock The block number when attested (0 if not attested)
+    function getAttestationBlock(bytes32 orderId) external view returns (uint256);
+
     /// @notice Gets the attestation data for an order
     /// @param orderId The order ID to get attestation for
     /// @return attestation The attestation proof data

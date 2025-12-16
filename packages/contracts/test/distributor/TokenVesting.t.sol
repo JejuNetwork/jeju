@@ -3,11 +3,11 @@ pragma solidity ^0.8.26;
 
 import {Test, console2} from "forge-std/Test.sol";
 import {TokenVesting} from "../../src/distributor/TokenVesting.sol";
-import {BabylonToken} from "../../src/tokens/BabylonToken.sol";
+import {Token} from "../../src/tokens/Token.sol";
 
 contract TokenVestingTest is Test {
     TokenVesting public vesting;
-    BabylonToken public token;
+    Token public token;
 
     address public owner = address(0x1);
     address public beneficiary1 = address(0x2);
@@ -25,7 +25,7 @@ contract TokenVestingTest is Test {
         vm.startPrank(owner);
 
         // Deploy token (home chain)
-        token = new BabylonToken("Babylon", "BBY", INITIAL_SUPPLY, owner, true);
+        token = new Token("Test Token", "TEST", INITIAL_SUPPLY, owner, INITIAL_SUPPLY, true);
 
         // Deploy vesting
         vesting = new TokenVesting(token, owner);
@@ -51,7 +51,7 @@ contract TokenVestingTest is Test {
     function test_Deploy_RevertsZeroToken() public {
         vm.prank(owner);
         vm.expectRevert(TokenVesting.ZeroAddress.selector);
-        new TokenVesting(BabylonToken(address(0)), owner);
+        new TokenVesting(Token(address(0)), owner);
     }
 
     function test_Deploy_RevertsZeroOwner() public {
@@ -527,4 +527,6 @@ contract TokenVestingTest is Test {
         assertEq(schedules.length, 2);
     }
 }
+
+
 

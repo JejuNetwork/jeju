@@ -2,11 +2,11 @@
  * Integration Tests - Runs against localnet with deployed contracts.
  * 
  * Prerequisites:
- * - Local anvil/hardhat node running on 8545
- * - Contracts deployed to localnet
- * - IPFS/storage API running
+ * - Run `jeju dev` to start all services (chain, DWS, indexer)
+ * - Or manually start services and set environment variables
  * 
- * Run with: INTEGRATION=true bun test src/tests/integration.test.ts
+ * Run with: bun test src/tests/integration.test.ts
+ * (No INTEGRATION flag needed when jeju dev is running)
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
@@ -21,10 +21,10 @@ import { createLogger } from '../sdk/logger';
 import { getCharacter } from '../characters';
 import type { CrucibleConfig } from '../types';
 
-// Skip integration tests unless explicitly enabled
-const SKIP = !process.env.INTEGRATION;
-
 const TEST_PRIVATE_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'; // anvil default
+
+// DWS provides storage, compute, and CDN from a single endpoint
+const DWS_URL = process.env.DWS_URL ?? 'http://127.0.0.1:4030';
 
 // Read contract addresses from env or use defaults
 const config: CrucibleConfig = {
@@ -38,13 +38,31 @@ const config: CrucibleConfig = {
     serviceRegistry: (process.env.SERVICE_REGISTRY_ADDRESS ?? '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9') as `0x${string}`,
   },
   services: {
-    computeMarketplace: process.env.COMPUTE_MARKETPLACE_URL ?? 'http://127.0.0.1:4007',
-    storageApi: process.env.STORAGE_API_URL ?? 'http://127.0.0.1:3100',
-    ipfsGateway: process.env.IPFS_GATEWAY ?? 'http://127.0.0.1:3100',
+    dwsUrl: DWS_URL,
+    computeMarketplace: process.env.COMPUTE_MARKETPLACE_URL ?? `${DWS_URL}/compute`,
+    storageApi: process.env.STORAGE_API_URL ?? `${DWS_URL}/storage`,
+    ipfsGateway: process.env.IPFS_GATEWAY ?? `${DWS_URL}/cdn`,
     indexerGraphql: process.env.INDEXER_GRAPHQL_URL ?? 'http://127.0.0.1:4350/graphql',
   },
   network: 'localnet',
 };
+
+// Check if infrastructure is available (runs once before tests)
+const checkInfrastructure = async (): Promise<boolean> => {
+  const checks = await Promise.all([
+    fetch('http://127.0.0.1:8545', { 
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
+      signal: AbortSignal.timeout(2000),
+    }).then(r => r.ok).catch(() => false),
+    fetch(`${DWS_URL}/health`, { signal: AbortSignal.timeout(2000) }).then(r => r.ok).catch(() => false),
+  ]);
+  return checks.every(r => r);
+};
+
+// Skip if infrastructure not available (unless INTEGRATION=true forces it)
+const SKIP = process.env.INTEGRATION !== 'true';
 
 const log = createLogger('IntegrationTest', { level: 'debug' });
 
@@ -59,6 +77,13 @@ describe.skipIf(SKIP)('Integration Tests', () => {
   let roomSdk: ReturnType<typeof createRoomSDK>;
 
   beforeAll(async () => {
+    // Verify infrastructure is available
+    const available = await checkInfrastructure();
+    if (!available) {
+      log.warn('Infrastructure not fully available - some tests may fail');
+      log.info('Run `jeju dev` to start all services');
+    }
+
     log.info('Setting up integration test environment', {
       rpcUrl: config.rpcUrl,
       account: account.address,

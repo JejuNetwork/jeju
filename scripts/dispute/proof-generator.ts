@@ -12,7 +12,9 @@
  * 4. Creates Cannon-compatible proof data
  */
 
-import { ethers } from 'ethers';
+import { createPublicClient, http, keccak256, stringToBytes, encodeAbiParameters, decodeAbiParameters, encodePacked, concat, zeroPadValue, signMessage, recoverAddress, hashMessage, type Address, type PublicClient } from 'viem';
+import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
+import { inferChainFromRpcUrl } from '../shared/chain-utils';
 
 // ============ Types ============
 
@@ -67,26 +69,32 @@ const CANNON_OPCODES = {
 // ============ Proof Generator ============
 
 export class FraudProofGenerator {
-  private l1Provider: ethers.Provider;
-  private l2Provider: ethers.Provider | null;
+  private l1PublicClient: PublicClient;
+  private l2PublicClient: PublicClient | null;
   
   constructor(
     l1RpcUrl: string,
     l2RpcUrl?: string
   ) {
-    this.l1Provider = new ethers.JsonRpcProvider(l1RpcUrl);
-    this.l2Provider = l2RpcUrl ? new ethers.JsonRpcProvider(l2RpcUrl) : null;
+    const l1Chain = inferChainFromRpcUrl(l1RpcUrl);
+    this.l1PublicClient = createPublicClient({ chain: l1Chain, transport: http(l1RpcUrl) });
+    if (l2RpcUrl) {
+      const l2Chain = inferChainFromRpcUrl(l2RpcUrl);
+      this.l2PublicClient = createPublicClient({ chain: l2Chain, transport: http(l2RpcUrl) });
+    } else {
+      this.l2PublicClient = null;
+    }
   }
 
   /**
    * Generate a fraud proof for an invalid state transition
    */
   async generateFraudProof(
-    preStateRoot: string,
-    claimedPostStateRoot: string,
-    correctPostStateRoot: string,
+    preStateRoot: `0x${string}`,
+    claimedPostStateRoot: `0x${string}`,
+    correctPostStateRoot: `0x${string}`,
     blockNumber: bigint,
-    challenger: ethers.Wallet
+    challenger: PrivateKeyAccount
   ): Promise<CannonProof> {
     console.log('[ProofGen] Generating fraud proof...');
     console.log(`[ProofGen]   Pre-state: ${preStateRoot.slice(0, 20)}...`);
@@ -122,7 +130,7 @@ export class FraudProofGenerator {
       proofType: 0, // CANNON
       preStateRoot,
       postStateRoot: correctPostStateRoot,
-      blockHash: ethers.keccak256(ethers.toUtf8Bytes(`block_${blockNumber}`)),
+      blockHash: keccak256(stringToBytes(`block_${blockNumber}`)),
       blockNumber,
       outputRoot: this.computeOutputRoot(correctPostStateRoot, blockNumber),
       signers: [challenger.address],
@@ -131,7 +139,10 @@ export class FraudProofGenerator {
     
     // Sign the proof
     const proofHash = this.hashProofData(proofData);
-    const signature = await challenger.signMessage(ethers.getBytes(proofHash));
+    const signature = await signMessage({
+      account: challenger,
+      message: { raw: proofHash },
+    });
     proofData.signatures = [signature];
     
     // Encode to bytes
@@ -152,10 +163,10 @@ export class FraudProofGenerator {
    * Generate a defense proof (proposer's proof that their state is correct)
    */
   async generateDefenseProof(
-    preStateRoot: string,
-    postStateRoot: string,
+    preStateRoot: `0x${string}`,
+    postStateRoot: `0x${string}`,
     blockNumber: bigint,
-    proposer: ethers.Wallet
+    proposer: PrivateKeyAccount
   ): Promise<CannonProof> {
     console.log('[ProofGen] Generating defense proof...');
     
@@ -169,7 +180,7 @@ export class FraudProofGenerator {
       proofType: 1, // DEFENSE
       preStateRoot,
       postStateRoot,
-      blockHash: ethers.keccak256(ethers.toUtf8Bytes(`block_${blockNumber}`)),
+      blockHash: keccak256(stringToBytes(`block_${blockNumber}`)),
       blockNumber,
       outputRoot: this.computeOutputRoot(postStateRoot, blockNumber),
       signers: [proposer.address],
@@ -177,7 +188,10 @@ export class FraudProofGenerator {
     };
     
     const proofHash = this.hashProofData(proofData);
-    const signature = await proposer.signMessage(ethers.getBytes(proofHash));
+    const signature = await signMessage({
+      account: proposer,
+      message: { raw: proofHash },
+    });
     proofData.signatures = [signature];
     
     const encoded = this.encodeProof(proofData, cannonTrace, inclusionProofs, stateDiff);
@@ -201,7 +215,10 @@ export class FraudProofGenerator {
       
       // Verify signature
       const proofHash = this.hashProofData(decoded);
-      const recovered = ethers.verifyMessage(ethers.getBytes(proofHash), decoded.signatures[0]);
+      const recovered = recoverAddress({
+        hash: proofHash,
+        signature: decoded.signatures[0] as `0x${string}`,
+      });
       
       if (recovered.toLowerCase() !== decoded.signers[0].toLowerCase()) {
         console.log('[ProofGen] Invalid signature');
@@ -224,37 +241,39 @@ export class FraudProofGenerator {
 
   // ============ Internal Methods ============
 
-  private computeStateDiff(preState: string, postState: string): string {
+  private computeStateDiff(preState: `0x${string}`, postState: `0x${string}`): `0x${string}` {
     // In a real implementation, this would compute the actual state diff
     // by iterating through storage slots and identifying changes
-    const diffData = ethers.AbiCoder.defaultAbiCoder().encode(
-      ['bytes32', 'bytes32', 'uint256'],
-      [preState, postState, Date.now()]
+    const diffData = encodeAbiParameters(
+      [{ type: 'bytes32' }, { type: 'bytes32' }, { type: 'uint256' }],
+      [preState, postState, BigInt(Date.now())]
     );
-    return ethers.keccak256(diffData);
+    return keccak256(diffData);
   }
 
   private findDivergenceStep(
-    preState: string,
-    claimedPost: string,
-    correctPost: string
+    preState: `0x${string}`,
+    claimedPost: `0x${string}`,
+    correctPost: `0x${string}`
   ): bigint {
     // In a real implementation, this would binary search through
     // the execution trace to find where claimed != correct
     // For now, we use a deterministic hash-based calculation
-    const combined = ethers.solidityPackedKeccak256(
-      ['bytes32', 'bytes32', 'bytes32'],
-      [preState, claimedPost, correctPost]
+    const combined = keccak256(
+      encodePacked(
+        ['bytes32', 'bytes32', 'bytes32'],
+        [preState, claimedPost, correctPost]
+      )
     );
     const step = BigInt(combined) % 1000000n;
     return step;
   }
 
   private generateCannonTrace(
-    preState: string,
+    preState: `0x${string}`,
     step: bigint,
     blockNumber: bigint
-  ): string {
+  ): `0x${string}` {
     // Generate a Cannon MIPS execution trace
     // This is the actual instruction sequence that proves the state transition
     
@@ -285,45 +304,45 @@ export class FraudProofGenerator {
     instructions.push(0x00);
     
     // Encode with metadata
-    const trace = ethers.AbiCoder.defaultAbiCoder().encode(
-      ['bytes32', 'uint256', 'uint256', 'bytes'],
-      [preState, step, blockNumber, new Uint8Array(instructions)]
+    const trace = encodeAbiParameters(
+      [{ type: 'bytes32' }, { type: 'uint256' }, { type: 'uint256' }, { type: 'bytes' }],
+      [preState, step, blockNumber, new Uint8Array(instructions) as `0x${string}`]
     );
     
     return trace;
   }
 
   private async generateInclusionProofs(
-    stateRoot: string,
+    stateRoot: `0x${string}`,
     blockNumber: bigint
-  ): Promise<string[]> {
-    const proofs: string[] = [];
+  ): Promise<`0x${string}`[]> {
+    const proofs: `0x${string}`[] = [];
     
     // Generate Merkle inclusion proofs for key state data
     // In production, this would query the actual state trie
     
     // Proof 1: Block header inclusion
-    const blockProof = ethers.keccak256(
-      ethers.AbiCoder.defaultAbiCoder().encode(
-        ['bytes32', 'uint256', 'string'],
+    const blockProof = keccak256(
+      encodeAbiParameters(
+        [{ type: 'bytes32' }, { type: 'uint256' }, { type: 'string' }],
         [stateRoot, blockNumber, 'block_header']
       )
     );
     proofs.push(blockProof);
     
     // Proof 2: State root inclusion
-    const stateProof = ethers.keccak256(
-      ethers.AbiCoder.defaultAbiCoder().encode(
-        ['bytes32', 'uint256', 'string'],
+    const stateProof = keccak256(
+      encodeAbiParameters(
+        [{ type: 'bytes32' }, { type: 'uint256' }, { type: 'string' }],
         [stateRoot, blockNumber, 'state_root']
       )
     );
     proofs.push(stateProof);
     
     // Proof 3: Transaction root inclusion
-    const txProof = ethers.keccak256(
-      ethers.AbiCoder.defaultAbiCoder().encode(
-        ['bytes32', 'uint256', 'string'],
+    const txProof = keccak256(
+      encodeAbiParameters(
+        [{ type: 'bytes32' }, { type: 'uint256' }, { type: 'string' }],
         [stateRoot, blockNumber, 'tx_root']
       )
     );
@@ -332,22 +351,22 @@ export class FraudProofGenerator {
     return proofs;
   }
 
-  private computeOutputRoot(stateRoot: string, blockNumber: bigint): string {
+  private computeOutputRoot(stateRoot: `0x${string}`, blockNumber: bigint): `0x${string}` {
     // Compute L2 output root as per OP Stack spec:
     // keccak256(version ++ stateRoot ++ messagePasserStorageRoot ++ latestBlockhash)
-    const version = ethers.zeroPadValue('0x00', 32);
-    const messagePasserRoot = ethers.keccak256(ethers.toUtf8Bytes(`mpr_${blockNumber}`));
-    const blockHash = ethers.keccak256(ethers.toUtf8Bytes(`block_${blockNumber}`));
+    const version = zeroPadValue('0x00', 32);
+    const messagePasserRoot = keccak256(stringToBytes(`mpr_${blockNumber}`));
+    const blockHash = keccak256(stringToBytes(`block_${blockNumber}`));
     
-    return ethers.keccak256(
-      ethers.concat([version, stateRoot, messagePasserRoot, blockHash])
+    return keccak256(
+      concat([version, stateRoot, messagePasserRoot, blockHash])
     );
   }
 
-  private hashProofData(data: ProofData): string {
-    return ethers.keccak256(
-      ethers.AbiCoder.defaultAbiCoder().encode(
-        ['uint8', 'uint8', 'bytes32', 'bytes32', 'bytes32', 'uint256', 'bytes32'],
+  private hashProofData(data: ProofData): `0x${string}` {
+    return keccak256(
+      encodeAbiParameters(
+        [{ type: 'uint8' }, { type: 'uint8' }, { type: 'bytes32' }, { type: 'bytes32' }, { type: 'bytes32' }, { type: 'uint256' }, { type: 'bytes32' }],
         [
           data.version,
           data.proofType,
@@ -363,17 +382,27 @@ export class FraudProofGenerator {
 
   private encodeProof(
     data: ProofData,
-    cannonTrace: string,
-    inclusionProofs: string[],
-    stateDiff: string
-  ): string {
+    cannonTrace: `0x${string}`,
+    inclusionProofs: `0x${string}`[],
+    stateDiff: `0x${string}`
+  ): `0x${string}` {
     // Encode in ABI format for contract consumption
-    return ethers.AbiCoder.defaultAbiCoder().encode(
+    return encodeAbiParameters(
       [
-        'tuple(uint8 version, uint8 proofType, bytes32 preStateRoot, bytes32 postStateRoot, bytes32 blockHash, uint256 blockNumber, bytes32 outputRoot, address[] signers, bytes[] signatures)',
-        'bytes',
-        'bytes32[]',
-        'bytes32',
+        { type: 'tuple', components: [
+          { type: 'uint8', name: 'version' },
+          { type: 'uint8', name: 'proofType' },
+          { type: 'bytes32', name: 'preStateRoot' },
+          { type: 'bytes32', name: 'postStateRoot' },
+          { type: 'bytes32', name: 'blockHash' },
+          { type: 'uint256', name: 'blockNumber' },
+          { type: 'bytes32', name: 'outputRoot' },
+          { type: 'address[]', name: 'signers' },
+          { type: 'bytes[]', name: 'signatures' },
+        ] },
+        { type: 'bytes' },
+        { type: 'bytes32[]' },
+        { type: 'bytes32' },
       ],
       [
         {
@@ -384,8 +413,8 @@ export class FraudProofGenerator {
           blockHash: data.blockHash,
           blockNumber: data.blockNumber,
           outputRoot: data.outputRoot,
-          signers: data.signers,
-          signatures: data.signatures,
+          signers: data.signers as Address[],
+          signatures: data.signatures as `0x${string}`[],
         },
         cannonTrace,
         inclusionProofs,
@@ -394,9 +423,19 @@ export class FraudProofGenerator {
     );
   }
 
-  private decodeProof(encoded: string): ProofData {
-    const [data] = ethers.AbiCoder.defaultAbiCoder().decode(
-      ['tuple(uint8 version, uint8 proofType, bytes32 preStateRoot, bytes32 postStateRoot, bytes32 blockHash, uint256 blockNumber, bytes32 outputRoot, address[] signers, bytes[] signatures)'],
+  private decodeProof(encoded: `0x${string}`): ProofData {
+    const [data] = decodeAbiParameters(
+      [{ type: 'tuple', components: [
+        { type: 'uint8', name: 'version' },
+        { type: 'uint8', name: 'proofType' },
+        { type: 'bytes32', name: 'preStateRoot' },
+        { type: 'bytes32', name: 'postStateRoot' },
+        { type: 'bytes32', name: 'blockHash' },
+        { type: 'uint256', name: 'blockNumber' },
+        { type: 'bytes32', name: 'outputRoot' },
+        { type: 'address[]', name: 'signers' },
+        { type: 'bytes[]', name: 'signatures' },
+      ] }],
       encoded
     );
     
@@ -408,8 +447,8 @@ export class FraudProofGenerator {
       blockHash: data.blockHash,
       blockNumber: data.blockNumber,
       outputRoot: data.outputRoot,
-      signers: data.signers,
-      signatures: data.signatures,
+      signers: data.signers as Address[],
+      signatures: data.signatures as string[],
     };
   }
 }
@@ -425,15 +464,14 @@ async function main(): Promise<void> {
   const privateKey = process.env.CHALLENGER_PRIVATE_KEY || '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
 
   const generator = new FraudProofGenerator(l1Rpc, l2Rpc);
-  const provider = new ethers.JsonRpcProvider(l1Rpc);
-  const wallet = new ethers.Wallet(privateKey, provider);
+  const account = privateKeyToAccount(privateKey as `0x${string}`);
 
-  console.log(`\nChallenger: ${wallet.address}`);
+  console.log(`\nChallenger: ${account.address}`);
 
   // Demo: Generate a fraud proof
-  const preState = ethers.keccak256(ethers.toUtf8Bytes('pre_state'));
-  const claimedPost = ethers.keccak256(ethers.toUtf8Bytes('claimed_wrong'));
-  const correctPost = ethers.keccak256(ethers.toUtf8Bytes('correct_state'));
+  const preState = keccak256(stringToBytes('pre_state'));
+  const claimedPost = keccak256(stringToBytes('claimed_wrong'));
+  const correctPost = keccak256(stringToBytes('correct_state'));
 
   console.log('\n--- Generating Fraud Proof ---');
   const fraudProof = await generator.generateFraudProof(
@@ -441,7 +479,7 @@ async function main(): Promise<void> {
     claimedPost,
     correctPost,
     100n,
-    wallet
+    account
   );
 
   console.log(`\nFraud Proof:`);
@@ -459,7 +497,7 @@ async function main(): Promise<void> {
     preState,
     correctPost,
     100n,
-    wallet
+    account
   );
   console.log(`Defense proof length: ${defenseProof.encoded.length / 2 - 1} bytes`);
 

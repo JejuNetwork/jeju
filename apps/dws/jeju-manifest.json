@@ -1,0 +1,67 @@
+{
+  "$schema": "../../packages/config/jeju-manifest.schema.json",
+  "name": "dws",
+  "displayName": "Decentralized Web Services (storage + compute + cdn)",
+  "version": "1.0.0",
+  "type": "core",
+  "description": "Unified storage, compute, and CDN with hybrid decentralized + cloud edge, JNS gateway, and Vercel-style caching.",
+  "commands": {
+    "dev": "bun run dev",
+    "cdn:edge": "bun run cdn:edge",
+    "cdn:coordinator": "bun run cdn:coordinator",
+    "cdn:gateway": "bun run cdn:gateway",
+    "test": "bun run test"
+  },
+  "ports": {
+    "main": 4030,
+    "cdnEdge": 4020,
+    "cdnCoordinator": 4021,
+    "cdnJnsGateway": 4022
+  },
+  "dependencies": ["contracts", "config"],
+  "optional": false,
+  "enabled": true,
+  "autoStart": true,
+  "tags": [
+    "dws",
+    "storage",
+    "compute",
+    "cdn",
+    "edge",
+    "jns",
+    "cache",
+    "ipfs",
+    "arweave",
+    "cloud"
+  ],
+  "jns": {
+    "name": "dws.jeju",
+    "description": "Decentralized Web Services",
+    "url": "https://dws.jeju.network"
+  },
+  "healthCheck": {
+    "url": "http://localhost:4030/health",
+    "interval": 30000
+  },
+  "agent": {
+    "enabled": true,
+    "a2aEndpoint": "/a2a",
+    "mcpEndpoint": "/mcp",
+    "tags": ["jeju-app", "storage", "compute", "cdn", "edge", "gateway"],
+    "metadata": {
+      "category": "dws",
+      "provider": "jeju-network",
+      "features": ["storage", "compute", "cdn", "jns", "edge-routing"]
+    },
+    "trustModels": ["open", "staked"],
+    "x402Support": true,
+    "multiTokenPayments": true,
+    "jnsName": "dws.jeju"
+  },
+  "testing": {
+    "unit": {
+      "command": "bun run test",
+      "timeout": 180000
+    }
+  }
+}

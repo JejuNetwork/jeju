@@ -3,13 +3,12 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useAccount, useConnect, useDisconnect } from 'wagmi'
-import { injected } from 'wagmi/connectors'
+import { useAccount, useDisconnect } from 'wagmi'
+import { AuthButton } from './auth/AuthButton'
 
 export function Header() {
   const pathname = usePathname()
   const { address, isConnected } = useAccount()
-  const { connect } = useConnect()
   const { disconnect } = useDisconnect()
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [showPortfolioDropdown, setShowPortfolioDropdown] = useState(false)
@@ -110,15 +109,10 @@ export function Header() {
                 {isDark ? '☀️' : '🌙'}
               </button>
 
-              {/* Wallet / Portfolio - Desktop */}
+              {/* Auth Button - Desktop */}
               <div className="relative hidden md:block">
                 {!isConnected ? (
-                  <button
-                    onClick={() => connect({ connector: injected() })}
-                    className="btn-primary px-4 md:px-6"
-                  >
-                    Connect Wallet
-                  </button>
+                  <AuthButton className="px-4 md:px-6" />
                 ) : (
                   <>
                     <button
@@ -247,15 +241,7 @@ export function Header() {
           {/* Mobile Wallet Section */}
           <div className="p-4 border-t" style={{ borderColor: 'var(--border)' }}>
             {!isConnected ? (
-              <button
-                onClick={() => {
-                  connect({ connector: injected() })
-                  setShowMobileMenu(false)
-                }}
-                className="btn-primary w-full"
-              >
-                Connect Wallet
-              </button>
+              <AuthButton className="w-full" />
             ) : (
               <div className="space-y-3">
                 <div 

@@ -11,31 +11,31 @@ import {
   OIFChainStats, OIFSlashEvent, OIFAttestation,
   OIFIntentStatus, OIFSettlementStatus, OIFOracleType
 } from './model'
-import { ethers } from 'ethers'
+import { keccak256, stringToHex } from 'viem'
 import { createAccountFactory, BlockHeader, LogData } from './lib/entities'
 
 // Event signatures for InputSettler
-const ORDER_OPENED = ethers.id('Open(bytes32,(address,uint256,uint32,uint32,bytes32,(bytes32,uint256,bytes32,uint256)[],(bytes32,uint256,bytes32,uint256)[],(uint64,bytes32,bytes)[]))')
-const ORDER_CREATED = ethers.id('OrderCreated(bytes32,address,address,uint256,uint256,address,uint32)')
-const ORDER_CLAIMED = ethers.id('OrderClaimed(bytes32,address,uint256)')
-const ORDER_SETTLED = ethers.id('OrderSettled(bytes32,address,uint256,uint256)')
-const ORDER_REFUNDED = ethers.id('OrderRefunded(bytes32,address,uint256)')
+const ORDER_OPENED = keccak256(stringToHex('Open(bytes32,(address,uint256,uint32,uint32,bytes32,(bytes32,uint256,bytes32,uint256)[],(bytes32,uint256,bytes32,uint256)[],(uint64,bytes32,bytes)[]))'))
+const ORDER_CREATED = keccak256(stringToHex('OrderCreated(bytes32,address,address,uint256,uint256,address,uint32)'))
+const ORDER_CLAIMED = keccak256(stringToHex('OrderClaimed(bytes32,address,uint256)'))
+const ORDER_SETTLED = keccak256(stringToHex('OrderSettled(bytes32,address,uint256,uint256)'))
+const ORDER_REFUNDED = keccak256(stringToHex('OrderRefunded(bytes32,address,uint256)'))
 
 // Event signatures for OutputSettler
-const FILL_EVENT = ethers.id('Fill(bytes32,bytes32,bytes)')
-const ORDER_FILLED = ethers.id('OrderFilled(bytes32,address,address,address,uint256)')
-const LIQUIDITY_DEPOSITED = ethers.id('LiquidityDeposited(address,address,uint256)')
-const LIQUIDITY_WITHDRAWN = ethers.id('LiquidityWithdrawn(address,address,uint256)')
+const FILL_EVENT = keccak256(stringToHex('Fill(bytes32,bytes32,bytes)'))
+const ORDER_FILLED = keccak256(stringToHex('OrderFilled(bytes32,address,address,address,uint256)'))
+const LIQUIDITY_DEPOSITED = keccak256(stringToHex('LiquidityDeposited(address,address,uint256)'))
+const LIQUIDITY_WITHDRAWN = keccak256(stringToHex('LiquidityWithdrawn(address,address,uint256)'))
 
 // Event signatures for SolverRegistry
-const SOLVER_REGISTERED = ethers.id('SolverRegistered(address,uint256,uint256[])')
-const SOLVER_STAKE_DEPOSITED = ethers.id('SolverStakeDeposited(address,uint256,uint256)')
-const SOLVER_SLASHED = ethers.id('SolverSlashed(address,bytes32,uint256)')
-const SOLVER_WITHDRAWN = ethers.id('SolverWithdrawn(address,uint256)')
-const FILL_RECORDED = ethers.id('FillRecorded(address,bytes32,bool)')
+const SOLVER_REGISTERED = keccak256(stringToHex('SolverRegistered(address,uint256,uint256[])'))
+const SOLVER_STAKE_DEPOSITED = keccak256(stringToHex('SolverStakeDeposited(address,uint256,uint256)'))
+const SOLVER_SLASHED = keccak256(stringToHex('SolverSlashed(address,bytes32,uint256)'))
+const SOLVER_WITHDRAWN = keccak256(stringToHex('SolverWithdrawn(address,uint256)'))
+const FILL_RECORDED = keccak256(stringToHex('FillRecorded(address,bytes32,bool)'))
 
 // Event signatures for Oracle
-const ATTESTATION_SUBMITTED = ethers.id('AttestationSubmitted(bytes32,address,uint256)')
+const ATTESTATION_SUBMITTED = keccak256(stringToHex('AttestationSubmitted(bytes32,address,uint256)'))
 
 const OIF_EVENT_SIGNATURES = new Set([
   ORDER_OPENED, ORDER_CREATED, ORDER_CLAIMED, ORDER_SETTLED, ORDER_REFUNDED,
@@ -146,9 +146,9 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
         // data = (inputToken, inputAmount, destinationChainId, recipient, fillDeadline)
         const orderId = log.topics[1]
         const userAddr = '0x' + log.topics[2].slice(26)
-        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-          ['address', 'uint256', 'uint256', 'address', 'uint32'],
-          log.data
+        const decoded = decodeAbiParameters(
+          [{ type: 'address' }, { type: 'uint256' }, { type: 'uint256' }, { type: 'address' }, { type: 'uint32' }],
+          log.data as `0x${string}`
         )
 
         const user = accountFactory.getOrCreate(userAddr, header.height, blockTimestamp)
@@ -202,9 +202,9 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
         // data = (token, amount)
         const orderId = log.topics[1]
         const solverAddr = '0x' + log.topics[2].slice(26)
-        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-          ['address', 'uint256'],
-          log.data
+        const decoded = decodeAbiParameters(
+          [{ type: 'address' }, { type: 'uint256' }],
+          log.data as `0x${string}`
         )
 
         let intent = intents.get(orderId) || await ctx.store.get(OIFIntent, orderId)
@@ -296,9 +296,9 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
 
       if (eventSig === SOLVER_REGISTERED) {
         const solverAddr = '0x' + log.topics[1].slice(26)
-        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-          ['uint256', 'uint256[]'],
-          log.data
+        const decoded = decodeAbiParameters(
+          [{ type: 'uint256' }, { type: 'uint256[]' }],
+          log.data as `0x${string}`
         )
 
         const solver = await getOrCreateSolver(solverAddr, blockTimestamp)
@@ -313,9 +313,9 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
 
       if (eventSig === SOLVER_STAKE_DEPOSITED) {
         const solverAddr = '0x' + log.topics[1].slice(26)
-        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-          ['uint256', 'uint256'],
-          log.data
+        const decoded = decodeAbiParameters(
+          [{ type: 'uint256' }, { type: 'uint256' }],
+          log.data as `0x${string}`
         )
 
         const solver = await getOrCreateSolver(solverAddr, blockTimestamp)
@@ -373,7 +373,7 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
         // topics[0] = sig, topics[1] = solver, topics[2] = orderId
         // data = (success)
         const solverAddr = '0x' + log.topics[1].slice(26)
-        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(['bool'], log.data)
+        const decoded = decodeAbiParameters([{ type: 'bool' }], log.data as `0x${string}`)
 
         const success = decoded[0]
         const solver = await getOrCreateSolver(solverAddr, blockTimestamp)
@@ -401,7 +401,7 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
         // data = (timestamp)
         const orderId = log.topics[1]
         const attesterAddr = '0x' + log.topics[2].slice(26)
-        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(['uint256'], log.data)
+        const decoded = decodeAbiParameters([{ type: 'uint256' }], log.data as `0x${string}`)
 
         const attestationId = `${orderId}-${txHash}`
         const intent = intents.get(orderId) || await ctx.store.get(OIFIntent, orderId)

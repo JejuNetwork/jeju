@@ -1,0 +1,78 @@
+name: Leaderboard Pipeline
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      command:
+        description: 'Pipeline command (ingest, process, export, summarize, all)'
+        required: true
+        default: 'all'
+      days:
+        description: 'Number of days to process'
+        required: false
+        default: '7'
+      repository:
+        description: 'Specific repository (owner/name) or leave empty for all'
+        required: false
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run Leaderboard Pipeline
+        working-directory: apps/gateway
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          CQL_BLOCK_PRODUCER_ENDPOINT: ${{ secrets.CQL_BLOCK_PRODUCER_ENDPOINT }}
+          LEADERBOARD_CQL_DATABASE_ID: ${{ secrets.LEADERBOARD_CQL_DATABASE_ID || 'leaderboard' }}
+        run: |
+          COMMAND="${{ github.event.inputs.command || 'all' }}"
+          DAYS="${{ github.event.inputs.days || '7' }}"
+          REPO="${{ github.event.inputs.repository }}"
+          
+          ARGS="--days $DAYS"
+          if [ -n "$REPO" ]; then
+            ARGS="$ARGS --repository $REPO"
+          fi
+          
+          echo "Running leaderboard:$COMMAND $ARGS"
+          bun run leaderboard:$COMMAND $ARGS
+
+      - name: Upload export artifacts
+        if: ${{ github.event.inputs.command == 'export' || github.event.inputs.command == 'all' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: leaderboard-export-${{ github.run_number }}
+          path: apps/gateway/data/leaderboard/*.json
+          retention-days: 30
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: pipeline
+    if: failure()
+    steps:
+      - name: Notify failure
+        run: |
+          echo "Leaderboard pipeline failed. Check workflow logs for details."
+          # Add Slack/Discord notification here if needed
+
+
+

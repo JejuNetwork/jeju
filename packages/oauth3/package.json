@@ -1,5 +1,5 @@
 {
-  "name": "@jeju/oauth3",
+  "name": "@jejunetwork/oauth3",
   "version": "0.1.0",
   "description": "Decentralized OAuth3 authentication with TEE-backed key management",
   "license": "MIT",
@@ -43,7 +43,11 @@
     "start:agent": "bun run src/tee/dstack-agent.ts",
     "start:demo": "bun run src/demo/server.ts",
     "docker:local": "docker compose -f docker/dstack.compose.yaml --profile local up",
-    "docker:testnet": "docker compose -f docker/dstack.compose.yaml --profile testnet up"
+    "docker:testnet:dstack": "docker compose -f docker/dstack.compose.yaml --profile testnet up",
+    "docker:testnet:phala": "docker compose -f docker/phala.compose.yaml --profile testnet up",
+    "docker:mainnet:phala": "docker compose -f docker/phala.compose.yaml --profile mainnet up",
+    "docker:build": "docker build -t ghcr.io/jeju-network/oauth3-agent:latest -f docker/Dockerfile .",
+    "docker:push": "docker push ghcr.io/jeju-network/oauth3-agent:latest"
   },
   "repository": {
     "type": "git",

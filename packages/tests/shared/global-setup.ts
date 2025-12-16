@@ -5,6 +5,12 @@
  * 1. Checks if localnet is running
  * 2. Waits for chain to be ready
  * 3. Sets up test environment
+ * 
+ * NOTE: When run via `jeju test`, environment variables are automatically
+ * provided by the CLI orchestrator. Tests should use:
+ * - process.env.L2_RPC_URL or process.env.JEJU_RPC_URL
+ * - process.env.CHAIN_ID
+ * - Other service URLs from CLI orchestrator
  */
 
 import { type FullConfig } from '@playwright/test';

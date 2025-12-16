@@ -117,7 +117,7 @@ export async function getPrivateKeyFromKMS(): Promise<`0x${string}` | null> {
     throw new Error(`Invalid FACILITATOR_SERVICE_ADDRESS: ${serviceAddress}`);
   }
 
-  const { getSecretVault } = await import('@jeju/kms');
+  const { getSecretVault } = await import('@jejunetwork/kms');
   const vault = getSecretVault();
   
   if (!kmsInitialized) {
@@ -140,7 +140,7 @@ export async function isKMSAvailable(): Promise<boolean> {
   if (!cfg.kmsEnabled || !cfg.kmsSecretId) return false;
 
   try {
-    const { getSecretVault } = await import('@jeju/kms');
+    const { getSecretVault } = await import('@jejunetwork/kms');
     await getSecretVault().initialize();
     return true;
   } catch {

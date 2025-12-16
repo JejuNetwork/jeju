@@ -1,6 +1,6 @@
 /**
  * @fileoverview Network Wallet SDK - Unified cross-chain wallet interface
- * @module @jeju/wallet/sdk
+ * @module @jejunetwork/wallet/sdk
  *
  * Provides seamless cross-chain UX through:
  * - EIL (Ethereum Interop Layer) for trustless cross-chain transfers

@@ -1,15 +1,22 @@
 {
-  "name": "@jeju/shared",
+  "name": "@jejunetwork/shared",
   "version": "1.0.0",
-  "description": "Shared hooks, components, APIs, database layer, and cryptography for Jeju apps",
+  "description": "Shared hooks, components, APIs, services, protocols, database layer, auth, and cryptography for Jeju apps",
+  "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./auth": "./src/auth/index.ts",
+    "./auth/siwe": "./src/auth/siwe.ts",
+    "./auth/siwf": "./src/auth/siwf.ts",
+    "./auth/passkeys": "./src/auth/passkeys.ts",
+    "./auth/provider": "./src/auth/provider.tsx",
+    "./auth/hooks": "./src/auth/hooks.ts",
     "./hooks/useBanStatus": "./src/hooks/useBanStatus.ts",
     "./components/BanBanner": "./src/components/BanBanner.tsx",
     "./api/moderation": "./src/api/moderation.ts",
-"./health-middleware": "./src/health-middleware.ts",
+    "./health-middleware": "./src/health-middleware.ts",
     "./db": "./src/db/index.ts",
     "./db/covenant-sql": "./src/db/covenant-sql.ts",
     "./db/migration": "./src/db/migration.ts",
@@ -17,18 +24,37 @@
     "./crypto": "./src/crypto/index.ts",
     "./crypto/mpc-custody": "./src/crypto/mpc-custody.ts",
     "./crypto/hsm-integration": "./src/crypto/hsm-integration.ts",
-    "./chains": "./src/chains/index.ts"
+    "./chains": "./src/chains/index.ts",
+    "./services": "./src/services/index.ts",
+    "./services/database": "./src/services/database.ts",
+    "./services/cache": "./src/services/cache.ts",
+    "./services/storage": "./src/services/storage.ts",
+    "./services/kms": "./src/services/kms.ts",
+    "./services/cron": "./src/services/cron.ts",
+    "./services/jns": "./src/services/jns.ts",
+    "./services/deploy": "./src/services/deploy.ts",
+    "./protocols": "./src/protocols/index.ts",
+    "./protocols/server": "./src/protocols/server.ts",
+    "./protocols/a2a": "./src/protocols/a2a.ts",
+    "./protocols/mcp": "./src/protocols/mcp.ts",
+    "./protocols/middleware": "./src/protocols/middleware.ts"
   },
   "dependencies": {
-    "viem": "^2.0.0"
+    "@jejunetwork/db": "workspace:*",
+    "@jejunetwork/kms": "workspace:*",
+    "@jejunetwork/config": "workspace:*",
+    "ethers": "^6.13.4",
+    "hono": "^4.7.0",
+    "viem": "^2.21.0",
+    "wagmi": "^2.12.0"
   },
   "peerDependencies": {
-    "react": "^18.0.0",
-    "hono": "^4.0.0"
+    "react": "^18.0.0 || ^19.0.0"
   },
   "devDependencies": {
-    "@types/react": "^18.2.0",
-    "hono": "4.6.20",
-    "typescript": "^5.0.0"
+    "@types/bun": "latest",
+    "@types/node": "^25.0.2",
+    "@types/react": "^18.2.0 || ^19.0.0",
+    "typescript": "^5.7.0"
   }
 }

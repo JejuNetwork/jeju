@@ -4,7 +4,9 @@
  * @notice Sends regular heartbeats to node explorer
  */
 
-import { ethers } from 'ethers';
+import { createPublicClient, http, getBlockNumber, signMessage, type Address } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 
 const CONFIG = {
   NODE_ID: process.env.NODE_ID || '',
@@ -16,21 +18,25 @@ const CONFIG = {
 
 async function sendHeartbeat() {
   try {
-    const provider = new ethers.JsonRpcProvider(CONFIG.RPC_URL);
-    const wallet = new ethers.Wallet(CONFIG.OPERATOR_PRIVATE_KEY);
+    const chain = inferChainFromRpcUrl(CONFIG.RPC_URL);
+    const publicClient = createPublicClient({ chain, transport: http(CONFIG.RPC_URL) });
+    const account = privateKeyToAccount(CONFIG.OPERATOR_PRIVATE_KEY as `0x${string}`);
     
     // Get node stats
-    const blockNumber = await provider.getBlockNumber();
-    const peerCount = await provider.send('net_peerCount', []);
-    const isSyncing = await provider.send('eth_syncing', []);
+    const blockNumber = await getBlockNumber(publicClient);
+    const peerCount = await publicClient.request({ method: 'net_peerCount' }) as string;
+    const isSyncing = await publicClient.request({ method: 'eth_syncing' }) as boolean | object;
     
     const startTime = Date.now();
-    await provider.getBlockNumber(); // Test response time
+    await getBlockNumber(publicClient); // Test response time
     const responseTime = Date.now() - startTime;
     
     // Sign heartbeat
     const message = `Heartbeat: ${CONFIG.NODE_ID}:${Date.now()}`;
-    const signature = await wallet.signMessage(message);
+    const signature = await signMessage({
+      account,
+      message,
+    });
     
     // Send to explorer
     const response = await fetch(`${CONFIG.NODE_EXPLORER_API}/nodes/heartbeat`, {

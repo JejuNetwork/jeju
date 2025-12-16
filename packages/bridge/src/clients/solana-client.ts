@@ -2,35 +2,35 @@
  * Solana Client for Cross-Chain Bridge
  */
 
+import { keccak_256 } from '@noble/hashes/sha3';
 import {
   type Commitment,
   Connection,
-  Keypair,
+  type Keypair,
   PublicKey,
   SystemProgram,
   sendAndConfirmTransaction,
   Transaction,
   TransactionInstruction,
 } from '@solana/web3.js';
-import { keccak_256 } from '@noble/hashes/sha3';
 import type { ChainId, Hash32 } from '../types/index.js';
 import { TransferStatus, toHash32 } from '../types/index.js';
 
 // SPL Token constants (avoiding dependency on @solana/spl-token)
 const TOKEN_PROGRAM_ID = new PublicKey(
-  'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
+  'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
 );
 const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey(
-  'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'
+  'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',
 );
 
 async function getAssociatedTokenAddress(
   mint: PublicKey,
-  owner: PublicKey
+  owner: PublicKey,
 ): Promise<PublicKey> {
   const [address] = PublicKey.findProgramAddressSync(
     [owner.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()],
-    ASSOCIATED_TOKEN_PROGRAM_ID
+    ASSOCIATED_TOKEN_PROGRAM_ID,
   );
   return address;
 }
@@ -39,7 +39,7 @@ function createAssociatedTokenAccountInstruction(
   payer: PublicKey,
   associatedToken: PublicKey,
   owner: PublicKey,
-  mint: PublicKey
+  mint: PublicKey,
 ): TransactionInstruction {
   return new TransactionInstruction({
     programId: ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -61,7 +61,7 @@ interface TokenAccountInfo {
 
 async function getAccount(
   connection: Connection,
-  address: PublicKey
+  address: PublicKey,
 ): Promise<TokenAccountInfo> {
   const info = await connection.getAccountInfo(address);
   if (!info) {
@@ -121,18 +121,18 @@ export class SolanaClient {
     // Get token accounts
     const sourceTokenAccount = await getAssociatedTokenAddress(
       params.mint,
-      this.keypair.publicKey
+      this.keypair.publicKey,
     );
 
     // Derive bridge accounts
     const [bridgeState] = PublicKey.findProgramAddressSync(
       [Buffer.from('bridge_state')],
-      this.config.bridgeProgramId
+      this.config.bridgeProgramId,
     );
 
     const [bridgeTokenAccount] = PublicKey.findProgramAddressSync(
       [Buffer.from('bridge_token'), params.mint.toBuffer()],
-      this.config.bridgeProgramId
+      this.config.bridgeProgramId,
     );
 
     // Generate transfer ID
@@ -140,12 +140,12 @@ export class SolanaClient {
       this.keypair.publicKey,
       params.recipient,
       params.amount,
-      params.destChainId
+      params.destChainId,
     );
 
     const [transferState] = PublicKey.findProgramAddressSync(
       [Buffer.from('transfer'), transferId],
-      this.config.bridgeProgramId
+      this.config.bridgeProgramId,
     );
 
     // Build instruction data
@@ -177,7 +177,7 @@ export class SolanaClient {
     const signature = await sendAndConfirmTransaction(
       this.connection,
       transaction,
-      [this.keypair]
+      [this.keypair],
     );
 
     return {
@@ -207,7 +207,7 @@ export class SolanaClient {
     // Get token accounts
     const destTokenAccount = await getAssociatedTokenAddress(
       params.mint,
-      params.recipient
+      params.recipient,
     );
 
     // Check if ATA exists, create if not
@@ -218,7 +218,7 @@ export class SolanaClient {
         this.keypair.publicKey,
         destTokenAccount,
         params.recipient,
-        params.mint
+        params.mint,
       );
       const tx = new Transaction().add(createATAIx);
       await sendAndConfirmTransaction(this.connection, tx, [this.keypair]);
@@ -227,22 +227,22 @@ export class SolanaClient {
     // Derive accounts
     const [bridgeState] = PublicKey.findProgramAddressSync(
       [Buffer.from('bridge_state')],
-      this.config.bridgeProgramId
+      this.config.bridgeProgramId,
     );
 
     const [bridgeTokenAccount] = PublicKey.findProgramAddressSync(
       [Buffer.from('bridge_token'), params.mint.toBuffer()],
-      this.config.bridgeProgramId
+      this.config.bridgeProgramId,
     );
 
     const [evmLightClientState] = PublicKey.findProgramAddressSync(
       [Buffer.from('evm_light_client')],
-      this.config.evmLightClientProgramId
+      this.config.evmLightClientProgramId,
     );
 
     const [transferState] = PublicKey.findProgramAddressSync(
       [Buffer.from('transfer'), params.transferId],
-      this.config.bridgeProgramId
+      this.config.bridgeProgramId,
     );
 
     // Build instruction data
@@ -281,7 +281,7 @@ export class SolanaClient {
     const signature = await sendAndConfirmTransaction(
       this.connection,
       transaction,
-      [this.keypair]
+      [this.keypair],
     );
 
     return signature;
@@ -338,7 +338,7 @@ export class SolanaClient {
   }> {
     const [evmLightClientState] = PublicKey.findProgramAddressSync(
       [Buffer.from('evm_light_client')],
-      this.config.evmLightClientProgramId
+      this.config.evmLightClientProgramId,
     );
 
     const accountInfo =
@@ -369,7 +369,7 @@ export class SolanaClient {
     sender: PublicKey,
     recipient: Uint8Array,
     amount: bigint,
-    destChainId: ChainId
+    destChainId: ChainId,
   ): Uint8Array {
     const data = Buffer.concat([
       sender.toBuffer(),
@@ -467,7 +467,7 @@ export class SolanaClient {
     const signature = await sendAndConfirmTransaction(
       this.connection,
       transaction,
-      [this.keypair]
+      [this.keypair],
     );
 
     return signature;

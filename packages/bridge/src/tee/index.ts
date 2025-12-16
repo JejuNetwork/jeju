@@ -12,46 +12,46 @@
 
 // AWS Nitro provider
 export {
-  AWSNitroProvider,
-  createAWSNitroProvider,
-} from './aws-nitro-provider.js';
+	AWSNitroProvider,
+	createAWSNitroProvider,
+} from "./aws-nitro-provider.js";
 // Core batcher
-export { createTEEBatcher, TEEBatcher } from './batcher.js';
+export { createTEEBatcher, TEEBatcher } from "./batcher.js";
 // GCP Confidential provider
 export {
-  createGCPConfidentialProvider,
-  GCPConfidentialProvider,
-} from './gcp-confidential-provider.js';
+	createGCPConfidentialProvider,
+	GCPConfidentialProvider,
+} from "./gcp-confidential-provider.js";
 // Mock provider (for local dev)
-export { createMockProvider, MockTEEProvider } from './mock-provider.js';
+export { createMockProvider, MockTEEProvider } from "./mock-provider.js";
 // Phala provider (optional)
 export {
-  createPhalaClient,
-  type PhalaAttestationRequest,
-  type PhalaAttestationResponse,
-  type PhalaBatchAttestation,
-  PhalaClient,
-  type PhalaConfig,
-} from './phala-client.js';
+	createPhalaClient,
+	type PhalaAttestationRequest,
+	type PhalaAttestationResponse,
+	type PhalaBatchAttestation,
+	PhalaClient,
+	type PhalaConfig,
+} from "./phala-client.js";
 // TEE Manager (unified interface)
 export {
-  createTEEManager,
-  getTEEManager,
-  resetTEEManager,
-  TEEManager,
-} from './tee-manager.js';
+	createTEEManager,
+	getTEEManager,
+	resetTEEManager,
+	TEEManager,
+} from "./tee-manager.js";
 // Types
 export type {
-  AttestationRequest,
-  AttestationResponse,
-  AttestationVerification,
-  AWSNitroConfig,
-  GCPAttestationToken,
-  GCPConfidentialConfig,
-  ITEEProvider,
-  NitroAttestationDocument,
-  TEECapability,
-  TEEEnvironment,
-  TEEProvider,
-  TEEProviderConfig,
-} from './types.js';
+	AttestationRequest,
+	AttestationResponse,
+	AttestationVerification,
+	AWSNitroConfig,
+	GCPAttestationToken,
+	GCPConfidentialConfig,
+	ITEEProvider,
+	NitroAttestationDocument,
+	TEECapability,
+	TEEEnvironment,
+	TEEProvider,
+	TEEProviderConfig,
+} from "./types.js";

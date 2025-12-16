@@ -13,7 +13,7 @@
  *   bun run scripts/deploy/generate-operator-keys.ts
  */
 
-import { Wallet } from 'ethers';
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
@@ -28,12 +28,13 @@ interface OperatorKey {
 }
 
 function generateKey(name: string, role: string): OperatorKey {
-  const wallet = Wallet.createRandom();
+  const privateKey = generatePrivateKey();
+  const account = privateKeyToAccount(privateKey);
   return {
     name,
     role,
-    address: wallet.address,
-    privateKey: wallet.privateKey,
+    address: account.address,
+    privateKey,
   };
 }
 

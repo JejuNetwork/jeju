@@ -8,7 +8,7 @@
  */
 
 import { testWithWallet as test, expect } from '../fixtures/wallet';
-import { connectWallet } from '@jejunetwork/tests/helpers/contracts';
+import { connectWallet } from '@jejunetwork/tests';
 import { assertAllProtocolTokens } from '../helpers/assertions';
 
 test.describe('Multi-Token Equality Tests', () => {

@@ -1,4 +1,5 @@
-import { ethers } from 'ethers';
+import { keccak256, encodePacked, signMessage, recoverAddress, type Address } from 'viem';
+import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 
 interface SignatureShare {
   sequencer: string;
@@ -55,18 +56,23 @@ export class ThresholdSigner {
     this.signatureShares.set(batch.batchNumber, []);
   }
 
-  getBatchHash(batch: BatchData): string {
-    return ethers.solidityPackedKeccak256(
-      ['uint256', 'bytes32', 'bytes32', 'uint256'],
-      [batch.batchNumber, batch.stateRoot, batch.parentHash, batch.timestamp]
+  getBatchHash(batch: BatchData): `0x${string}` {
+    return keccak256(
+      encodePacked(
+        ['uint256', 'bytes32', 'bytes32', 'uint256'],
+        [BigInt(batch.batchNumber), batch.stateRoot as `0x${string}`, batch.parentHash as `0x${string}`, BigInt(batch.timestamp)]
+      )
     );
   }
 
-  async signBatch(batch: BatchData, wallet: ethers.Wallet): Promise<SignatureShare> {
+  async signBatch(batch: BatchData, account: PrivateKeyAccount): Promise<SignatureShare> {
     const hash = this.getBatchHash(batch);
-    const signature = await wallet.signMessage(ethers.getBytes(hash));
+    const signature = await signMessage({
+      account,
+      message: { raw: hash },
+    });
     return {
-      sequencer: wallet.address,
+      sequencer: account.address,
       signature,
       timestamp: Date.now()
     };
@@ -126,7 +132,7 @@ export class ThresholdSigner {
   verifyAggregatedSignature(batch: BatchData, agg: AggregatedSignature): boolean {
     if (agg.signers.length < this.threshold) return false;
 
-    const hash = ethers.getBytes(this.getBatchHash(batch));
+    const hash = this.getBatchHash(batch);
     const seenSigners = new Set<string>();
 
     for (let i = 0; i < agg.signers.length; i++) {
@@ -140,9 +146,17 @@ export class ThresholdSigner {
       seenSigners.add(signer);
       
       // Verify signature
-      const recovered = ethers.verifyMessage(hash, agg.signatures[i]).toLowerCase();
-      if (recovered !== signer) {
-        console.log(`Invalid signature from ${signer}, recovered ${recovered}`);
+      try {
+        const recovered = recoverAddress({
+          hash,
+          signature: agg.signatures[i] as `0x${string}`,
+        }).toLowerCase();
+        if (recovered !== signer) {
+          console.log(`Invalid signature from ${signer}, recovered ${recovered}`);
+          return false;
+        }
+      } catch {
+        console.log(`Signature verification failed for ${signer}`);
         return false;
       }
       
@@ -162,11 +176,11 @@ export class ThresholdSigner {
   }
 
   // Convenience method for testing: sign and combine in one step
-  async signAndCombine(batch: BatchData, wallets: ethers.Wallet[]): Promise<AggregatedSignature> {
+  async signAndCombine(batch: BatchData, accounts: PrivateKeyAccount[]): Promise<AggregatedSignature> {
     this.addBatch(batch);
     
-    for (const wallet of wallets) {
-      const share = await this.signBatch(batch, wallet);
+    for (const account of accounts) {
+      const share = await this.signBatch(batch, account);
       this.addSignatureShare(batch.batchNumber, share);
     }
     

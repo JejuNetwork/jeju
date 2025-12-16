@@ -15,11 +15,28 @@ export {
   GLOBAL_SETUP_PATH, GLOBAL_TEARDOWN_PATH,
 } from './synpress.config.base';
 
+// Playwright config
+export {
+  createAppConfig,
+  createPlaywrightConfig,
+  getTestEnv,
+  TEST_ACCOUNTS,
+  type AppConfigOptions,
+} from './playwright.config.base';
+
 // Test infrastructure
 export { LockManager, withTestLock, type LockMetadata, type LockManagerOptions } from './lock-manager';
 export { runPreflightChecks, quickHealthCheck, waitForChain, type PreflightConfig, type PreflightResult, type PreflightCheck } from './preflight';
 export { warmupApps, quickWarmup, discoverAppsForWarmup, type AppConfig, type WarmupOptions, type WarmupResult, type AppWarmupResult } from './warmup';
-export { default as globalSetup, globalTeardown, setupTestEnvironment } from './global-setup';
+export { default as globalSetup, setupTestEnvironment } from './global-setup';
+
+// Bun test infrastructure
+export {
+  setup as bunSetup,
+  teardown as bunTeardown,
+  getStatus as getBunStatus,
+  isReady as isBunReady,
+} from './bun-global-setup';
 
 // Helpers
 export * from './fixtures/wallet';

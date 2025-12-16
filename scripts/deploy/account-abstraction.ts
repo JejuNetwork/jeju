@@ -98,7 +98,7 @@ async function main() {
   // Create clients
   const chain = {
     id: config.chainId,
-    name: getNetworkName() ${config.network}`,
+    name: `${getNetworkName()} ${config.network}`,
     nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
     rpcUrls: { default: { http: [config.rpcUrl] } },
   };

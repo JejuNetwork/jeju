@@ -10,3 +10,8 @@ export {
 export {
   generateSigningKey, generateEncryptionKey, sign, personalSign, signTypedData, thresholdSign, thresholdSignTransaction, getKey, revokeKey,
 } from './sign.js';
+
+export {
+  issueToken, issueTokenWithWallet, verifyToken, decodeToken, isTokenExpired, refreshToken,
+  type TokenClaims, type SignedToken, type TokenVerifyResult,
+} from './tokens.js';

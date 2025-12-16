@@ -1,5 +1,5 @@
 /**
- * @jeju/messaging
+ * @jejunetwork/messaging
  * 
  * Decentralized private messaging protocol for Network L2
  * 
@@ -12,7 +12,7 @@
  * 
  * @example
  * ```typescript
- * import { createMessagingClient } from '@jeju/messaging';
+ * import { createMessagingClient } from '@jejunetwork/messaging';
  * 
  * const client = createMessagingClient({
  *   rpcUrl: 'http://localhost:9545',
@@ -38,11 +38,11 @@
  * });
  * ```
  * 
- * For relay node functionality, import from '@jeju/messaging/node' (Node.js only)
+ * For relay node functionality, import from '@jejunetwork/messaging/node' (Node.js only)
  */
 
 // Re-export SDK (browser-compatible)
 export * from './sdk';
 
-// Note: Node-only exports (relay server) available via '@jeju/messaging/node'
+// Note: Node-only exports (relay server) available via '@jejunetwork/messaging/node'
 
