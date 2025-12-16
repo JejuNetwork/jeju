@@ -11,5 +11,6 @@ export * from './health';
 export * from './infrastructure';
 export * from './moderation';
 export * from './names';
+export * from './nft-eil';
 export * from './oif';
 export * from './oracle';

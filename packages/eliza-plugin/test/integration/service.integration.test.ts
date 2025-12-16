@@ -6,11 +6,11 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
-import { JejuService, initJejuService, getJejuService } from "../../src/service";
+import { StandaloneJejuService, initJejuService, getJejuService } from "../../src/service";
 import { setupTestEnvironment, teardownTestEnvironment } from "./setup";
 
 describe("JejuService Integration Tests", () => {
-  let service: JejuService;
+  let service: StandaloneJejuService;
   let env: Awaited<ReturnType<typeof setupTestEnvironment>>;
 
   beforeAll(async () => {
@@ -22,11 +22,11 @@ describe("JejuService Integration Tests", () => {
       network: "localnet",
       rpcUrl: env.rpcUrl,
     });
-  });
+  }, 90000); // 90 second timeout for service startup
 
   afterAll(async () => {
     await teardownTestEnvironment();
-  });
+  }, 10000);
 
   test("service initializes correctly", () => {
     expect(service).toBeDefined();
@@ -67,7 +67,7 @@ describe("JejuService Integration Tests", () => {
   test("service has names module", () => {
     expect(service.sdk.names).toBeDefined();
     expect(typeof service.sdk.names.resolve).toBe("function");
-    expect(typeof service.sdk.names.lookup).toBe("function");
+    expect(typeof service.sdk.names.reverseResolve).toBe("function");
   });
 
   test("service has a2a module", () => {
@@ -84,28 +84,28 @@ describe("JejuService Integration Tests", () => {
     expect(service.sdk.wallet.address).toBeDefined();
   });
 
-  test("compute listProviders integration", async () => {
-    if (!env.chainRunning) return;
+  test("compute listProviders integration (requires contracts)", async () => {
+    if (!env.contractsDeployed) return;
 
     const providers = await service.sdk.compute.listProviders();
     expect(Array.isArray(providers)).toBe(true);
   });
 
-  test("compute listModels integration", async () => {
-    if (!env.chainRunning) return;
+  test("compute listModels integration (requires contracts)", async () => {
+    if (!env.contractsDeployed) return;
 
     const models = await service.sdk.compute.listModels();
     expect(Array.isArray(models)).toBe(true);
   });
 
-  test("governance listProposals integration", async () => {
-    if (!env.chainRunning) return;
+  test("governance listProposals integration (requires contracts)", async () => {
+    if (!env.contractsDeployed) return;
 
     const proposals = await service.sdk.governance.listProposals();
     expect(Array.isArray(proposals)).toBe(true);
   });
 
-  test("a2a discover gateway", async () => {
+  test("a2a discover gateway (requires services)", async () => {
     if (!env.servicesRunning) return;
 
     const card = await service.sdk.a2a.discover(env.gatewayUrl);

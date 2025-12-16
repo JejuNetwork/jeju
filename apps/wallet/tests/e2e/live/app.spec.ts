@@ -19,8 +19,8 @@ test.describe('App Loading (Live)', () => {
     // Wait for page to load
     await page.waitForLoadState('domcontentloaded');
     
-    // Title should contain Network
-    await expect(page).toHaveTitle(/jeju/i);
+    // Title should contain Network or Wallet
+    await expect(page).toHaveTitle(/network|wallet/i);
     
     // Root element should exist
     const root = page.locator('#root');

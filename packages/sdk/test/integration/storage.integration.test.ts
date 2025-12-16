@@ -24,7 +24,7 @@ describe("Storage Integration Tests", () => {
       network: "localnet",
       rpcUrl: env.rpcUrl,
     });
-  });
+  }, 90000); // 90 second timeout for service startup
 
   afterAll(async () => {
     // Cleanup: unpin uploaded file
@@ -36,7 +36,7 @@ describe("Storage Integration Tests", () => {
       }
     }
     await teardownTestEnvironment();
-  });
+  }, 10000);
 
   test("client created successfully", () => {
     expect(client).toBeDefined();

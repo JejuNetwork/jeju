@@ -23,11 +23,11 @@ describe("A2A Integration Tests", () => {
       network: "localnet",
       rpcUrl: env.rpcUrl,
     });
-  });
+  }, 90000); // 90 second timeout for service startup
 
   afterAll(async () => {
     await teardownTestEnvironment();
-  });
+  }, 10000);
 
   test("client created successfully", () => {
     expect(client).toBeDefined();

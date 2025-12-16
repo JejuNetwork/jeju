@@ -139,3 +139,58 @@ export class JejuService extends Service {
     return cached;
   }
 }
+
+// ============================================================
+// Standalone service for testing (without Eliza runtime)
+// ============================================================
+
+let standaloneService: StandaloneJejuService | null = null;
+
+export interface StandaloneConfig {
+  privateKey: Hex;
+  mnemonic?: string;
+  network: NetworkType;
+  rpcUrl?: string;
+  smartAccount?: boolean;
+}
+
+export class StandaloneJejuService {
+  public readonly sdk: JejuClient;
+  public readonly config: StandaloneConfig;
+
+  constructor(sdk: JejuClient, config: StandaloneConfig) {
+    this.sdk = sdk;
+    this.config = config;
+  }
+
+  async refreshWalletData(): Promise<void> {
+    await this.sdk.getBalance();
+  }
+}
+
+/**
+ * Initialize standalone service for testing
+ * (Does not require Eliza runtime)
+ */
+export async function initJejuService(config: StandaloneConfig): Promise<StandaloneJejuService> {
+  const sdk = await createJejuClient({
+    network: config.network,
+    privateKey: config.privateKey,
+    mnemonic: config.mnemonic,
+    rpcUrl: config.rpcUrl,
+    smartAccount: config.smartAccount ?? true,
+  });
+
+  standaloneService = new StandaloneJejuService(sdk, config);
+  return standaloneService;
+}
+
+/**
+ * Get the standalone service instance
+ */
+export function getJejuService(): StandaloneJejuService {
+  if (!standaloneService) {
+    throw new Error("Jeju service not initialized. Call initJejuService() first.");
+  }
+  return standaloneService;
+}
