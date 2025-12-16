@@ -5,6 +5,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IStorageTypes} from "./IStorageTypes.sol";
 import {IIdentityRegistry} from "../registry/interfaces/IIdentityRegistry.sol";
+import {ModerationMixin} from "../moderation/ModerationMixin.sol";
 
 /**
  * @title StorageProviderRegistry
@@ -19,7 +20,12 @@ import {IIdentityRegistry} from "../registry/interfaces/IIdentityRegistry.sol";
  * - Agent reputation feeds into provider trust scores
  */
 contract StorageProviderRegistry is IStorageTypes, Ownable, ReentrancyGuard {
+    using ModerationMixin for ModerationMixin.Data;
+
     // ============ State ============
+
+    /// @notice Moderation integration for ban checking
+    ModerationMixin.Data public moderation;
 
     mapping(address => Provider) private _providers;
     mapping(address => ProviderCapacity) private _capacities;
@@ -48,6 +54,7 @@ contract StorageProviderRegistry is IStorageTypes, Ownable, ReentrancyGuard {
     error NotAgentOwner();
     error AgentAlreadyLinked();
     error AgentRequired();
+    error UserIsBanned();
 
     // ============ Events ============
 
@@ -127,6 +134,10 @@ contract StorageProviderRegistry is IStorageTypes, Ownable, ReentrancyGuard {
         bytes32 attestationHash,
         uint256 agentId
     ) internal {
+        // Check ban status
+        if (moderation.isAddressBanned(msg.sender)) revert UserIsBanned();
+        if (agentId > 0 && moderation.isAgentBanned(agentId)) revert UserIsBanned();
+
         require(msg.value >= minProviderStake, "Insufficient stake");
         require(_providers[msg.sender].registeredAt == 0, "Already registered");
         require(bytes(name).length > 0, "Name required");
@@ -331,7 +342,16 @@ contract StorageProviderRegistry is IStorageTypes, Ownable, ReentrancyGuard {
     function setIdentityRegistry(address _identityRegistry) external onlyOwner {
         address oldRegistry = address(identityRegistry);
         identityRegistry = IIdentityRegistry(_identityRegistry);
+        moderation.setIdentityRegistry(_identityRegistry);
         emit IdentityRegistryUpdated(oldRegistry, _identityRegistry);
+    }
+
+    /**
+     * @notice Set the BanManager contract address
+     * @param _banManager New BanManager address
+     */
+    function setBanManager(address _banManager) external onlyOwner {
+        moderation.setBanManager(_banManager);
     }
 
     /**
@@ -340,6 +360,15 @@ contract StorageProviderRegistry is IStorageTypes, Ownable, ReentrancyGuard {
      */
     function setRequireAgentRegistration(bool required) external onlyOwner {
         requireAgentRegistration = required;
+    }
+
+    /**
+     * @notice Check if a provider is banned
+     * @param account Address to check
+     * @return banned True if banned
+     */
+    function isBanned(address account) external view returns (bool banned) {
+        return moderation.isAddressBanned(account);
     }
 
     /**
