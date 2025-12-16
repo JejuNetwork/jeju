@@ -145,7 +145,7 @@ export async function proxyRequest(
   const startTime = Date.now();
 
   // 1. Get listing
-  const listing = getListing(request.listingId);
+  const listing = await getListing(request.listingId);
   if (!listing) {
     return createErrorResponse(404, 'Listing not found', requestId, startTime);
   }
@@ -175,7 +175,7 @@ export async function proxyRequest(
   }
 
   // 4. Check payment
-  if (!canAfford(options.userAddress, listing.pricePerRequest)) {
+  if (!(await canAfford(options.userAddress, listing.pricePerRequest))) {
     return createErrorResponse(
       402,
       `Insufficient balance. Required: ${listing.pricePerRequest} wei`,
@@ -255,13 +255,13 @@ export async function proxyRequest(
     const sanitized = sanitizeResponse(responseBody, responseHeaders, sanitizationConfig);
 
     // 12. Charge user and record request
-    const charged = chargeUser(options.userAddress, listing.pricePerRequest);
+    const charged = await chargeUser(options.userAddress, listing.pricePerRequest);
     if (!charged) {
       // Shouldn't happen since we checked earlier, but handle gracefully
       console.error('[Proxy] Failed to charge user after request');
     }
 
-    recordRequest(listing.id, listing.pricePerRequest);
+    await recordRequest(listing.id, listing.pricePerRequest);
     incrementRateLimit(options.userAddress, listing.id);
 
     return {
@@ -372,7 +372,7 @@ export async function* proxyStreamingRequest(
   const requestId = crypto.randomUUID();
 
   // Same validation as regular proxy...
-  const listing = getListing(request.listingId);
+  const listing = await getListing(request.listingId);
   if (!listing) {
     yield { chunk: JSON.stringify({ error: 'Listing not found' }), done: true };
     return;
@@ -395,7 +395,7 @@ export async function* proxyStreamingRequest(
     return;
   }
 
-  if (!canAfford(options.userAddress, listing.pricePerRequest)) {
+  if (!(await canAfford(options.userAddress, listing.pricePerRequest))) {
     yield { chunk: JSON.stringify({ error: 'Insufficient balance' }), done: true };
     return;
   }
@@ -436,8 +436,8 @@ export async function* proxyStreamingRequest(
     }
 
     // Charge after successful connection
-    chargeUser(options.userAddress, listing.pricePerRequest);
-    recordRequest(listing.id, listing.pricePerRequest);
+    await chargeUser(options.userAddress, listing.pricePerRequest);
+    await recordRequest(listing.id, listing.pricePerRequest);
     incrementRateLimit(options.userAddress, listing.id);
 
     const reader = response.body.getReader();

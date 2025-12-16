@@ -786,6 +786,9 @@ export const apiUserAccountState = {
     const addr = address.toLowerCase();
     const now = Date.now();
     
+    // Ensure account exists first
+    await this.getOrCreate(address);
+    
     const client = await getCQLClient();
     if (client) {
       await client.exec(

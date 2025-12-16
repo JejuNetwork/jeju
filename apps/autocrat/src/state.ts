@@ -118,6 +118,28 @@ async function ensureTablesExist(): Promise<void> {
       reason TEXT,
       created_at INTEGER NOT NULL
     )`,
+    `CREATE TABLE IF NOT EXISTS autocrat_votes (
+      id TEXT PRIMARY KEY,
+      proposal_id TEXT NOT NULL,
+      role TEXT NOT NULL,
+      vote TEXT NOT NULL,
+      reasoning TEXT,
+      confidence INTEGER DEFAULT 0,
+      created_at INTEGER NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS proposal_content_index (
+      content_hash TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      description TEXT,
+      proposal_type INTEGER DEFAULT 0,
+      created_at INTEGER NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS storage_objects (
+      hash TEXT PRIMARY KEY,
+      content TEXT NOT NULL,
+      object_type TEXT,
+      created_at INTEGER NOT NULL
+    )`,
   ];
 
   const indexes = [
@@ -125,6 +147,8 @@ async function ensureTablesExist(): Promise<void> {
     `CREATE INDEX IF NOT EXISTS idx_proposals_status ON proposals(status)`,
     `CREATE INDEX IF NOT EXISTS idx_research_proposal ON research_results(proposal_id)`,
     `CREATE INDEX IF NOT EXISTS idx_flags_target ON moderation_flags(target_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_autocrat_votes_proposal ON autocrat_votes(proposal_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_storage_type ON storage_objects(object_type)`,
   ];
 
   for (const ddl of tables) {
@@ -342,6 +366,158 @@ export const moderationState = {
       reporterId: row.reporter_id as string,
       createdAt: row.created_at as number,
     }));
+  },
+};
+
+// Autocrat vote operations (individual council member votes on proposals)
+export interface AutocratVote {
+  role: string;
+  vote: string;
+  reasoning: string;
+  confidence: number;
+  timestamp: number;
+}
+
+export const autocratVoteState = {
+  async save(proposalId: string, vote: AutocratVote): Promise<void> {
+    const client = await getCQLClient();
+    const id = `${proposalId}-${vote.role}-${vote.timestamp}`;
+    await client.exec(
+      `INSERT INTO autocrat_votes (id, proposal_id, role, vote, reasoning, confidence, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [id, proposalId, vote.role, vote.vote, vote.reasoning, vote.confidence, vote.timestamp],
+      CQL_DATABASE_ID
+    );
+  },
+
+  async getByProposal(proposalId: string): Promise<AutocratVote[]> {
+    const client = await getCQLClient();
+    const result = await client.query<Record<string, unknown>>(
+      `SELECT * FROM autocrat_votes WHERE proposal_id = ? ORDER BY created_at ASC`,
+      [proposalId],
+      CQL_DATABASE_ID
+    );
+    return result.rows.map((row) => ({
+      role: row.role as string,
+      vote: row.vote as string,
+      reasoning: row.reasoning as string,
+      confidence: row.confidence as number,
+      timestamp: row.created_at as number,
+    }));
+  },
+};
+
+// Proposal content index for duplicate detection
+export interface ProposalContent {
+  title: string;
+  description: string;
+  proposalType: number;
+  createdAt: number;
+  contentHash: string;
+}
+
+export const proposalIndexState = {
+  async index(contentHash: string, title: string, description: string, proposalType: number): Promise<void> {
+    const client = await getCQLClient();
+    await client.exec(
+      `INSERT INTO proposal_content_index (content_hash, title, description, proposal_type, created_at)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(content_hash) DO NOTHING`,
+      [contentHash, title, description, proposalType, Date.now()],
+      CQL_DATABASE_ID
+    );
+  },
+
+  async findSimilar(title: string, threshold = 30): Promise<Array<{ contentHash: string; title: string; similarity: number }>> {
+    const client = await getCQLClient();
+    const result = await client.query<Record<string, unknown>>(
+      `SELECT content_hash, title FROM proposal_content_index`,
+      [],
+      CQL_DATABASE_ID
+    );
+
+    const words = new Set(title.toLowerCase().split(/\s+/).filter(w => w.length > 3));
+    if (words.size === 0) return [];
+
+    const results: Array<{ contentHash: string; title: string; similarity: number }> = [];
+    for (const row of result.rows) {
+      const pTitle = row.title as string;
+      const pWords = new Set(pTitle.toLowerCase().split(/\s+/).filter(w => w.length > 3));
+      const matches = [...words].filter(w => pWords.has(w)).length;
+      const similarity = Math.round((matches / Math.max(words.size, 1)) * 100);
+      if (similarity >= threshold) {
+        results.push({ contentHash: row.content_hash as string, title: pTitle, similarity });
+      }
+    }
+    return results.sort((a, b) => b.similarity - a.similarity).slice(0, 5);
+  },
+
+  async getAll(): Promise<Map<string, ProposalContent>> {
+    const client = await getCQLClient();
+    const result = await client.query<Record<string, unknown>>(
+      `SELECT * FROM proposal_content_index`,
+      [],
+      CQL_DATABASE_ID
+    );
+    const map = new Map<string, ProposalContent>();
+    for (const row of result.rows) {
+      map.set(row.content_hash as string, {
+        contentHash: row.content_hash as string,
+        title: row.title as string,
+        description: row.description as string,
+        proposalType: row.proposal_type as number,
+        createdAt: row.created_at as number,
+      });
+    }
+    return map;
+  },
+};
+
+// Generic object storage (replaces local file storage)
+export const storageState = {
+  async store(data: unknown): Promise<string> {
+    const content = JSON.stringify(data);
+    const { keccak256, stringToHex } = await import('viem');
+    const hash = keccak256(stringToHex(content)).slice(2, 50);
+    
+    const client = await getCQLClient();
+    const objectType = typeof data === 'object' && data !== null && 'type' in data 
+      ? (data as { type: string }).type 
+      : 'unknown';
+    
+    await client.exec(
+      `INSERT INTO storage_objects (hash, content, object_type, created_at)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(hash) DO NOTHING`,
+      [hash, content, objectType, Date.now()],
+      CQL_DATABASE_ID
+    );
+    
+    // Also cache for fast retrieval
+    await getCache().set(`storage:${hash}`, content, 3600);
+    
+    return hash;
+  },
+
+  async retrieve<T>(hash: string): Promise<T | null> {
+    // Check cache first
+    const cache = getCache();
+    const cached = await cache.get(`storage:${hash}`).catch(() => null);
+    if (cached) return JSON.parse(cached) as T;
+
+    const client = await getCQLClient();
+    const result = await client.query<{ content: string }>(
+      `SELECT content FROM storage_objects WHERE hash = ?`,
+      [hash],
+      CQL_DATABASE_ID
+    );
+    
+    if (result.rows[0]) {
+      const content = result.rows[0].content;
+      await cache.set(`storage:${hash}`, content, 3600);
+      return JSON.parse(content) as T;
+    }
+    return null;
   },
 };
 

@@ -1,37 +1,36 @@
 /**
- * Local Services - storage and inference for council
- * Uses DWS (Decentralized Web Services) for storage and compute
+ * Decentralized Services - storage and inference for council
+ * Uses CovenantSQL for storage and DWS for compute
  */
 
-import { keccak256, stringToHex } from 'viem';
-import { mkdir, writeFile, readFile } from 'fs/promises';
-import { existsSync } from 'fs';
-import { join } from 'path';
+import {
+  initializeState,
+  storageState,
+  autocratVoteState,
+  proposalIndexState,
+  type AutocratVote,
+} from './state.js';
 
-const storageDir = join(process.cwd(), '.autocrat-storage');
-
-// DWS endpoints for decentralized storage and compute
+// DWS endpoints for decentralized compute
 const DWS_URL = process.env.DWS_URL ?? 'http://localhost:4030';
-const DWS_STORAGE = `${DWS_URL}/storage`;
 const DWS_COMPUTE = `${DWS_URL}/compute`;
-
-// Bounded caches to prevent memory exhaustion
-const CACHE_MAX = 1000;
-const evict = <K, V>(m: Map<K, V>) => { if (m.size >= CACHE_MAX) { const first = m.keys().next().value; if (first !== undefined) m.delete(first); } };
-const storageCache = new Map<string, unknown>();
 
 // Fallback to local Ollama if DWS compute unavailable
 const OLLAMA_URL = process.env.OLLAMA_URL ?? 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? 'llama3.2:3b';
 
+// Bounded in-memory caches for performance (CQL is source of truth)
+const CACHE_MAX = 1000;
+const evict = <K, V>(m: Map<K, V>) => { if (m.size >= CACHE_MAX) { const first = m.keys().next().value; if (first !== undefined) m.delete(first); } };
+const storageCache = new Map<string, unknown>();
+const researchCache = new Map<string, { report: string; model: string; completedAt: number }>();
+
 export async function initStorage(): Promise<void> {
-  if (!existsSync(storageDir)) await mkdir(storageDir, { recursive: true });
+  await initializeState();
 }
 
 export async function store(data: unknown): Promise<string> {
-  const content = JSON.stringify(data);
-  const hash = keccak256(stringToHex(content)).slice(2, 50);
-  await writeFile(join(storageDir, `${hash}.json`), content, 'utf-8');
+  const hash = await storageState.store(data);
   evict(storageCache);
   storageCache.set(hash, data);
   return hash;
@@ -39,10 +38,11 @@ export async function store(data: unknown): Promise<string> {
 
 export async function retrieve<T>(hash: string): Promise<T | null> {
   if (storageCache.has(hash)) return storageCache.get(hash) as T;
-  const path = join(storageDir, `${hash}.json`);
-  if (!existsSync(path)) return null;
-  const data = JSON.parse(await readFile(path, 'utf-8')) as T;
-  storageCache.set(hash, data);
+  const data = await storageState.retrieve<T>(hash);
+  if (data) {
+    evict(storageCache);
+    storageCache.set(hash, data);
+  }
   return data;
 }
 
@@ -109,55 +109,20 @@ export async function inference(request: InferenceRequest): Promise<string> {
   return ollamaGenerate(prompt, system);
 }
 
-// Vote storage (bounded)
-const voteStore = new Map<string, Array<{ role: string; vote: string; reasoning: string; confidence: number; timestamp: number }>>();
-const pendingPersistence = new Map<string, { data: unknown; retries: number; lastAttempt: number }>();
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 1000;
-
-async function persistWithRetry(key: string, data: unknown): Promise<void> {
-  let retries = 0;
-  while (retries < MAX_RETRIES) {
-    try {
-      await store(data);
-      pendingPersistence.delete(key);
-      return;
-    } catch (err) {
-      retries++;
-      console.error(`[Vote] Persistence failed (attempt ${retries}/${MAX_RETRIES}):`, (err as Error).message);
-      if (retries < MAX_RETRIES) {
-        await new Promise(r => setTimeout(r, RETRY_DELAY_MS * retries));
-      }
-    }
-  }
-  // Store for later retry
-  pendingPersistence.set(key, { data, retries: MAX_RETRIES, lastAttempt: Date.now() });
-  console.error(`[Vote] Persistence exhausted retries for ${key}, queued for later`);
-}
-
-export function storeVote(proposalId: string, vote: { role: string; vote: string; reasoning: string; confidence: number }): void {
-  const votes = voteStore.get(proposalId) ?? [];
-  const voteWithTime = { ...vote, timestamp: Date.now() };
-  votes.push(voteWithTime);
-  evict(voteStore);
-  voteStore.set(proposalId, votes);
+// Vote storage - persisted to CQL
+export async function storeVote(proposalId: string, vote: { role: string; vote: string; reasoning: string; confidence: number }): Promise<void> {
+  const voteWithTime: AutocratVote = { ...vote, timestamp: Date.now() };
+  await autocratVoteState.save(proposalId, voteWithTime);
   
-  // Persist to disk with retry
-  const persistKey = `vote-${proposalId}-${voteWithTime.timestamp}`;
-  persistWithRetry(persistKey, { type: 'vote', proposalId, ...voteWithTime });
+  // Also store as generic object for audit trail
+  await store({ type: 'vote', proposalId, ...voteWithTime });
 }
 
-export function getPendingPersistence(): number {
-  return pendingPersistence.size;
+export async function getVotes(proposalId: string): Promise<AutocratVote[]> {
+  return autocratVoteState.getByProposal(proposalId);
 }
 
-export function getVotes(proposalId: string): Array<{ role: string; vote: string; reasoning: string; confidence: number; timestamp: number }> {
-  return voteStore.get(proposalId) ?? [];
-}
-
-// Research storage (bounded)
-const researchStore = new Map<string, { report: string; model: string; completedAt: number }>();
-
+// Research storage - persisted to CQL
 export async function generateResearch(proposalId: string, description: string): Promise<{ report: string; model: string }> {
   const prompt = `Analyze this DAO proposal and provide a research report:
 
@@ -179,8 +144,8 @@ Be specific and actionable.`;
   if (dwsAvailable) {
     const report = await dwsGenerate(prompt, system);
     const result = { report, model: 'dws-compute', completedAt: Date.now() };
-    evict(researchStore);
-    researchStore.set(proposalId, result);
+    evict(researchCache);
+    researchCache.set(proposalId, result);
     await store({ type: 'research', proposalId, ...result });
     return result;
   }
@@ -193,51 +158,23 @@ Be specific and actionable.`;
 
   const report = await ollamaGenerate(prompt, system);
   const result = { report, model: OLLAMA_MODEL, completedAt: Date.now() };
-  evict(researchStore);
-  researchStore.set(proposalId, result);
+  evict(researchCache);
+  researchCache.set(proposalId, result);
   await store({ type: 'research', proposalId, ...result });
   return result;
 }
 
 export function getResearch(proposalId: string): { report: string; model: string; completedAt: number } | null {
-  return researchStore.get(proposalId) ?? null;
+  return researchCache.get(proposalId) ?? null;
 }
 
-// Proposal content index for duplicate detection (persisted to disk)
-interface ProposalContent { title: string; description: string; proposalType: number; createdAt: number; contentHash: string }
-const proposalIndex = new Map<string, ProposalContent>();
-const PROPOSAL_INDEX_FILE = 'proposal-index.json';
-
-async function indexProposal(contentHash: string, title: string, description: string, proposalType: number): Promise<void> {
-  evict(proposalIndex);
-  proposalIndex.set(contentHash, { title, description, proposalType, createdAt: Date.now(), contentHash });
-  await saveProposalIndex();
+// Proposal content index for duplicate detection - persisted to CQL
+export async function indexProposal(contentHash: string, title: string, description: string, proposalType: number): Promise<void> {
+  await proposalIndexState.index(contentHash, title, description, proposalType);
 }
 
-function findSimilarProposals(title: string, threshold = 30): Array<{ contentHash: string; title: string; similarity: number }> {
-  const words = new Set(title.toLowerCase().split(/\s+/).filter(w => w.length > 3));
-  if (words.size === 0) return [];
-
-  const results: Array<{ contentHash: string; title: string; similarity: number }> = [];
-  for (const [hash, p] of proposalIndex) {
-    const pWords = new Set(p.title.toLowerCase().split(/\s+/).filter(w => w.length > 3));
-    const matches = [...words].filter(w => pWords.has(w)).length;
-    const similarity = Math.round((matches / Math.max(words.size, 1)) * 100);
-    if (similarity >= threshold) results.push({ contentHash: hash, title: p.title, similarity });
-  }
-  return results.sort((a, b) => b.similarity - a.similarity).slice(0, 5);
-}
-
-async function saveProposalIndex(): Promise<void> {
-  const data = Object.fromEntries(proposalIndex);
-  await writeFile(join(storageDir, PROPOSAL_INDEX_FILE), JSON.stringify(data), 'utf-8');
-}
-
-async function loadProposalIndex(): Promise<void> {
-  const path = join(storageDir, PROPOSAL_INDEX_FILE);
-  if (!existsSync(path)) return;
-  const data = JSON.parse(await readFile(path, 'utf-8')) as Record<string, ProposalContent>;
-  for (const [k, v] of Object.entries(data)) proposalIndex.set(k, v);
+export async function findSimilarProposals(title: string, threshold = 30): Promise<Array<{ contentHash: string; title: string; similarity: number }>> {
+  return proposalIndexState.findSimilar(title, threshold);
 }
 
 let initialized = false;
@@ -245,11 +182,13 @@ let initialized = false;
 export async function initLocalServices(): Promise<void> {
   if (initialized) return;
   await initStorage();
-  await loadProposalIndex();
+  const dwsUp = await checkDWSCompute();
   const ollamaUp = await checkOllama();
-  console.log(`[Services] Storage: ${storageDir}`);
+  const proposalIndex = await proposalIndexState.getAll();
+  console.log(`[Services] Storage: CovenantSQL (decentralized)`);
   console.log(`[Services] Proposal index: ${proposalIndex.size} entries`);
-  console.log(`[Services] Ollama: ${ollamaUp ? `ready (${OLLAMA_MODEL})` : 'NOT AVAILABLE'}`);
+  console.log(`[Services] DWS Compute: ${dwsUp ? 'ready' : 'NOT AVAILABLE'}`);
+  console.log(`[Services] Ollama fallback: ${ollamaUp ? `ready (${OLLAMA_MODEL})` : 'NOT AVAILABLE'}`);
   initialized = true;
 }
 
@@ -257,4 +196,4 @@ export function isInitialized(): boolean {
   return initialized;
 }
 
-export { checkOllama, ollamaGenerate, OLLAMA_URL, OLLAMA_MODEL, indexProposal, findSimilarProposals };
+export { checkOllama, ollamaGenerate, OLLAMA_URL, OLLAMA_MODEL };

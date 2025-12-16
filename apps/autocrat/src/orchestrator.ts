@@ -184,7 +184,7 @@ export class AutocratOrchestrator {
         console.log(`[${shortId}] ${vote.role}: ${vote.vote} (${vote.confidence}%)`);
         
         // Actually store the vote
-        storeVote(proposalId, { role: vote.role, vote: vote.vote, reasoning: vote.reasoning, confidence: vote.confidence });
+        await storeVote(proposalId, { role: vote.role, vote: vote.vote, reasoning: vote.reasoning, confidence: vote.confidence });
 
         if (this.account) {
           const reasoningHash = await store({ proposalId, agent: vote.agentId, role: vote.role, vote: vote.vote, reasoning: vote.reasoning, confidence: vote.confidence });

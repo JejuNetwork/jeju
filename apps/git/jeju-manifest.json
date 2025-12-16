@@ -1,0 +1,30 @@
+{
+  "name": "git",
+  "version": "0.1.0",
+  "description": "JejuGit - Decentralized Git Server with IPFS/Arweave storage",
+  "runtime": "bun",
+  "entry": "src/index.ts",
+  "services": {
+    "git-server": {
+      "port": 4020,
+      "protocol": "http",
+      "health": "/api/v1/health"
+    }
+  },
+  "dependencies": {
+    "ipfs": true,
+    "arweave": true,
+    "storage": true
+  },
+  "resources": {
+    "cpu": "0.5",
+    "memory": "512Mi",
+    "storage": "10Gi"
+  },
+  "env": {
+    "IPFS_API_URL": "http://localhost:5001",
+    "ARWEAVE_GATEWAY": "https://arweave.net",
+    "GIT_PORT": "4020"
+  }
+}
+

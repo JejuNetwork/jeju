@@ -2660,3 +2660,169 @@ type RegistrySearchQuery @entity {
   executionTime: Int! # milliseconds
   queriedAt: DateTime! @index
 }
+
+# ============ Federation Entities ============
+
+enum FederationTrustTier {
+  UNSTAKED
+  STAKED
+  VERIFIED
+}
+
+enum FederationChainType {
+  EVM
+  SOLANA
+  COSMOS
+  OTHER
+}
+
+enum FederationRegistryType {
+  IDENTITY
+  COMPUTE
+  STORAGE
+  SOLVER
+  PACKAGE
+  CONTAINER
+  MODEL
+  NAME_SERVICE
+  REPUTATION
+  OTHER
+}
+
+type FederatedNetwork @entity {
+  id: ID! # chainId
+  chainId: BigInt! @unique @index
+  name: String! @index
+  rpcUrl: String!
+  explorerUrl: String
+  wsUrl: String
+  operator: String! @index
+  genesisHash: String
+  stake: BigInt!
+  trustTier: FederationTrustTier!
+  isActive: Boolean! @index
+  isVerified: Boolean!
+  isSuperchain: Boolean!
+  registeredAt: DateTime! @index
+  registeredBlock: Int!
+  registeredTx: String!
+  contracts: FederatedNetworkContracts
+  registries: [FederatedRegistry!]! @derivedFrom(field: "network")
+}
+
+type FederatedNetworkContracts @entity {
+  id: ID! # chainId
+  network: FederatedNetwork!
+  identityRegistry: String
+  solverRegistry: String
+  inputSettler: String
+  outputSettler: String
+  liquidityVault: String
+  governance: String
+  oracle: String
+  registryHub: String
+}
+
+type FederatedRegistry @entity {
+  id: ID! # registryId
+  registryId: String! @unique @index
+  network: FederatedNetwork!
+  chainType: FederationChainType!
+  registryType: FederationRegistryType! @index
+  contractAddress: String! @index
+  name: String!
+  version: String
+  metadataUri: String
+  entryCount: BigInt!
+  lastSyncBlock: BigInt!
+  isActive: Boolean!
+  registeredAt: DateTime!
+  registeredBlock: Int!
+  entries: [FederatedEntry!]! @derivedFrom(field: "registry")
+}
+
+type FederatedEntry @entity {
+  id: ID! # entryId
+  entryId: String! @unique @index
+  registry: FederatedRegistry!
+  originId: String! @index
+  name: String!
+  metadataUri: String
+  originChainId: BigInt! @index
+  syncedAt: DateTime!
+  syncedBlock: Int!
+  isActive: Boolean!
+}
+
+type FederatedIdentity @entity {
+  id: ID! # federatedId
+  federatedId: String! @unique @index
+  originChainId: BigInt! @index
+  originAgentId: BigInt! @index
+  originOwner: String! @index
+  originRegistryHash: String!
+  federatedAt: DateTime!
+  isActive: Boolean!
+  reputationScore: Int!
+  attestations: [CrossNetworkAttestation!]! @derivedFrom(field: "federatedIdentity")
+}
+
+type CrossNetworkAttestation @entity {
+  id: ID! # federatedId-targetChainId
+  federatedIdentity: FederatedIdentity!
+  targetChainId: BigInt! @index
+  attestedAt: DateTime!
+  attester: String!
+  attestationHash: String!
+}
+
+type FederatedSolver @entity {
+  id: ID! # solver-chainId
+  solver: String! @index
+  chainId: BigInt! @index
+  isActive: Boolean!
+  totalFills: BigInt!
+  totalVolume: BigInt!
+  registeredAt: DateTime!
+}
+
+type SolanaVerifiedEntry @entity {
+  id: ID! # mint pubkey
+  mint: String! @unique @index
+  authority: String
+  name: String
+  symbol: String
+  uri: String
+  programType: String!
+  supply: BigInt
+  decimals: Int
+  verified: Boolean!
+  verifiedAt: DateTime!
+  wormholeSequence: BigInt
+}
+
+type RegistrySyncEvent @entity {
+  id: ID! # updateId
+  updateId: String! @unique @index
+  sourceChainId: BigInt! @index
+  registryType: FederationRegistryType!
+  registryAddress: String!
+  entryCount: BigInt!
+  merkleRoot: String
+  blockNumber: BigInt!
+  timestamp: DateTime!
+}
+
+type FederationStats @entity {
+  id: ID! # "global" or date
+  date: DateTime @index
+  totalNetworks: Int!
+  activeNetworks: Int!
+  stakedNetworks: Int!
+  verifiedNetworks: Int!
+  totalRegistries: Int!
+  totalEntries: BigInt!
+  totalStaked: BigInt!
+  solanaEntries: Int!
+  lastUpdated: DateTime!
+}

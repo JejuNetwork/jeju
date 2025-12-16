@@ -45,6 +45,7 @@ export * from "./a2a";
 export * from "./games";
 export * from "./containers";
 export * from "./launchpad";
+export * from "./federation";
 
 // Developer tools
 export * from "./git";

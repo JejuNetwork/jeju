@@ -27,6 +27,11 @@ import {processStorageEvents} from './storage-processor'
 import {processCrossServiceEvents} from './cross-service-processor'
 import {processOracleEvents} from './oracle-processor'
 import {
+    processNetworkRegistryEvent,
+    processRegistryHubEvent,
+    processEntryFederatedEvent
+} from './federation-processor'
+import {
     getEventCategory, getEventName,
     ERC20_TRANSFER, ERC1155_TRANSFER_SINGLE, ERC1155_TRANSFER_BATCH
 } from './contract-events'

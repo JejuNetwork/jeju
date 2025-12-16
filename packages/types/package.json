@@ -38,6 +38,10 @@
     "./infrastructure": {
       "import": "./dist/infrastructure.js",
       "types": "./dist/infrastructure.d.ts"
+    },
+    "./torrent": {
+      "import": "./dist/torrent.js",
+      "types": "./dist/torrent.d.ts"
     }
   },
   "files": [

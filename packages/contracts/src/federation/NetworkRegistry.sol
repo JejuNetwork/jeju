@@ -30,6 +30,13 @@ contract NetworkRegistry is Ownable, ReentrancyGuard {
     uint256 public constant MIN_STAKE = 1 ether;
     uint256 public constant VERIFICATION_STAKE = 10 ether;
 
+    /// @notice Trust tiers determine what a network can participate in
+    enum TrustTier {
+        UNSTAKED,   // Auto-joined, no stake - listed only, no consensus participation
+        STAKED,     // 1+ ETH stake - can participate in federation consensus
+        VERIFIED    // 10+ ETH + governance approval - full trust, sequencer eligible
+    }
+
     struct NetworkContracts {
         address identityRegistry;
         address solverRegistry;
@@ -38,6 +45,7 @@ contract NetworkRegistry is Ownable, ReentrancyGuard {
         address liquidityVault;
         address governance;
         address oracle;
+        address registryHub;  // Link to RegistryHub for this network
     }
 
     struct NetworkInfo {
@@ -51,8 +59,10 @@ contract NetworkRegistry is Ownable, ReentrancyGuard {
         bytes32 genesisHash;
         uint256 registeredAt;
         uint256 stake;
+        TrustTier trustTier;
         bool isActive;
         bool isVerified;
+        bool isSuperchain;  // Part of OP Superchain
     }
 
     struct TrustRelation {
@@ -72,11 +82,17 @@ contract NetworkRegistry is Ownable, ReentrancyGuard {
     mapping(uint256 => address) public networkOperators;
 
     address public verificationAuthority;
+    address public federationGovernance; // AI DAO governance contract
     uint256 public totalNetworks;
     uint256 public activeNetworks;
     uint256 public verifiedNetworks;
 
+    // Pending governance approval for VERIFIED status
+    mapping(uint256 => bool) public pendingVerification;
+
     event NetworkRegistered(uint256 indexed chainId, string name, address indexed operator, uint256 stake);
+    event VerificationPending(uint256 indexed chainId, address indexed operator, uint256 stake);
+    event VerificationRevoked(uint256 indexed chainId, string reason);
     event NetworkUpdated(uint256 indexed chainId, string name, address indexed operator);
     event NetworkDeactivated(uint256 indexed chainId, address indexed operator);
     event NetworkVerified(uint256 indexed chainId, address indexed verifier);
@@ -96,11 +112,37 @@ contract NetworkRegistry is Ownable, ReentrancyGuard {
     error NotVerificationAuthority();
     error StillActive();
     error InvalidChainId();
+    error NotGovernance();
+    error AlreadyPendingVerification();
+    error NotPendingVerification();
+
+    modifier onlyGovernance() {
+        if (msg.sender != federationGovernance) revert NotGovernance();
+        _;
+    }
 
     constructor(address _verificationAuthority) Ownable(msg.sender) {
         verificationAuthority = _verificationAuthority;
     }
 
+    /**
+     * @notice Set the federation governance contract
+     * @dev Only owner can set, should point to FederationGovernance
+     */
+    function setFederationGovernance(address _governance) external onlyOwner {
+        federationGovernance = _governance;
+    }
+
+    /**
+     * @notice Register a new network in the Jeju Federation
+     * @dev Auto-join with 0 stake is allowed but has UNSTAKED trust tier
+     *      - UNSTAKED (0 ETH): Listed only, cannot participate in consensus
+     *      - STAKED (1+ ETH): Can participate in federation consensus
+     *      - VERIFIED (10+ ETH + governance): Full trust, sequencer eligible
+     *
+     * IMPORTANT: VERIFIED status requires governance approval even with 10+ ETH stake.
+     * This prevents Sybil attacks on the sequencer set.
+     */
     function registerNetwork(
         uint256 chainId,
         string calldata name,
@@ -112,7 +154,18 @@ contract NetworkRegistry is Ownable, ReentrancyGuard {
     ) external payable nonReentrant {
         if (chainId == 0) revert InvalidChainId();
         if (networks[chainId].registeredAt != 0) revert NetworkExists();
-        if (msg.value < MIN_STAKE) revert InsufficientStake();
+
+        // Determine trust tier based on stake
+        // NOTE: Even with 10+ ETH, tier is STAKED until governance approves VERIFIED
+        TrustTier tier = TrustTier.UNSTAKED;
+        bool triggerGovernance = false;
+
+        if (msg.value >= VERIFICATION_STAKE) {
+            tier = TrustTier.STAKED; // Start at STAKED, VERIFIED requires governance
+            triggerGovernance = true;
+        } else if (msg.value >= MIN_STAKE) {
+            tier = TrustTier.STAKED;
+        }
 
         networks[chainId] = NetworkInfo({
             chainId: chainId,
@@ -125,8 +178,10 @@ contract NetworkRegistry is Ownable, ReentrancyGuard {
             genesisHash: genesisHash,
             registeredAt: block.timestamp,
             stake: msg.value,
+            trustTier: tier,
             isActive: true,
-            isVerified: false
+            isVerified: false, // Never auto-verified
+            isSuperchain: false
         });
 
         networkIds.push(chainId);
@@ -137,6 +192,177 @@ contract NetworkRegistry is Ownable, ReentrancyGuard {
         activeNetworks++;
 
         emit NetworkRegistered(chainId, name, msg.sender, msg.value);
+
+        // If staked enough for VERIFIED, trigger governance proposal
+        if (triggerGovernance) {
+            pendingVerification[chainId] = true;
+            emit VerificationPending(chainId, msg.sender, msg.value);
+
+            if (federationGovernance != address(0)) {
+                (bool success,) = federationGovernance.call(
+                    abi.encodeWithSignature(
+                        "createNetworkProposal(uint256,address,uint256)",
+                        chainId,
+                        msg.sender,
+                        msg.value
+                    )
+                );
+                // Governance proposal creation is best-effort
+                // Can be manually created if this fails
+                if (success) {
+                    // Proposal created successfully
+                }
+            }
+        }
+    }
+
+    /**
+     * @notice Add stake to upgrade trust tier
+     * @dev When hitting VERIFICATION_STAKE, triggers governance proposal for AI DAO review
+     *      VERIFIED status is NOT auto-granted - must go through FederationGovernance
+     */
+    function addStake(uint256 chainId) external payable nonReentrant {
+        NetworkInfo storage network = networks[chainId];
+        if (network.registeredAt == 0) revert NetworkNotFound();
+        if (network.operator != msg.sender) revert NotOperator();
+
+        uint256 previousStake = network.stake;
+        network.stake += msg.value;
+
+        // If crossing VERIFICATION_STAKE threshold, trigger governance proposal
+        if (previousStake < VERIFICATION_STAKE && network.stake >= VERIFICATION_STAKE) {
+            if (pendingVerification[chainId]) revert AlreadyPendingVerification();
+            pendingVerification[chainId] = true;
+
+            // Upgrade to STAKED tier (not VERIFIED yet - needs governance approval)
+            if (network.trustTier == TrustTier.UNSTAKED) {
+                network.trustTier = TrustTier.STAKED;
+            }
+
+            emit VerificationPending(chainId, msg.sender, network.stake);
+
+            // Notify FederationGovernance to create proposal
+            if (federationGovernance != address(0)) {
+                // Interface call to create governance proposal
+                (bool success,) = federationGovernance.call(
+                    abi.encodeWithSignature(
+                        "createNetworkProposal(uint256,address,uint256)",
+                        chainId,
+                        msg.sender,
+                        network.stake
+                    )
+                );
+                // Don't revert if governance call fails - stake is still added
+                // Governance can manually pick up pending verifications
+                if (!success) {
+                    // Emit event for manual handling
+                    emit VerificationPending(chainId, msg.sender, network.stake);
+                }
+            }
+        } else if (network.stake >= MIN_STAKE && network.trustTier == TrustTier.UNSTAKED) {
+            // Upgrade to STAKED tier
+            network.trustTier = TrustTier.STAKED;
+        }
+
+        emit NetworkUpdated(chainId, network.name, msg.sender);
+    }
+
+    /**
+     * @notice Set VERIFIED status after governance approval
+     * @dev Only callable by FederationGovernance after AI DAO approves
+     */
+    function setVerifiedByGovernance(uint256 chainId) external onlyGovernance {
+        NetworkInfo storage network = networks[chainId];
+        if (network.registeredAt == 0) revert NetworkNotFound();
+        if (!pendingVerification[chainId]) revert NotPendingVerification();
+
+        pendingVerification[chainId] = false;
+        network.trustTier = TrustTier.VERIFIED;
+        network.isVerified = true;
+        verifiedNetworks++;
+
+        emit NetworkVerified(chainId, msg.sender);
+    }
+
+    /**
+     * @notice Revoke VERIFIED status (e.g., after successful challenge)
+     * @dev Only callable by FederationGovernance
+     */
+    function revokeVerifiedStatus(uint256 chainId) external onlyGovernance {
+        NetworkInfo storage network = networks[chainId];
+        if (network.registeredAt == 0) revert NetworkNotFound();
+        if (!network.isVerified) return; // Already not verified
+
+        network.isVerified = false;
+        network.trustTier = TrustTier.STAKED; // Downgrade to STAKED
+        if (verifiedNetworks > 0) verifiedNetworks--;
+
+        emit VerificationRevoked(chainId, "Governance revocation");
+    }
+
+    /**
+     * @notice Slash network stake (e.g., after malicious behavior)
+     * @dev Only callable by FederationGovernance
+     * @param chainId Network to slash
+     * @param percentageBps Percentage to slash in basis points (10000 = 100%)
+     * @param recipient Where to send slashed funds
+     */
+    function slashStake(
+        uint256 chainId,
+        uint256 percentageBps,
+        address recipient
+    ) external onlyGovernance nonReentrant {
+        NetworkInfo storage network = networks[chainId];
+        if (network.registeredAt == 0) revert NetworkNotFound();
+        require(percentageBps <= 10000, "Invalid percentage");
+
+        uint256 slashAmount = (network.stake * percentageBps) / 10000;
+        network.stake -= slashAmount;
+
+        // Downgrade tier if below threshold
+        if (network.stake < VERIFICATION_STAKE && network.isVerified) {
+            network.isVerified = false;
+            network.trustTier = TrustTier.STAKED;
+            if (verifiedNetworks > 0) verifiedNetworks--;
+        }
+        if (network.stake < MIN_STAKE) {
+            network.trustTier = TrustTier.UNSTAKED;
+        }
+
+        (bool success,) = recipient.call{value: slashAmount}("");
+        require(success, "Slash transfer failed");
+
+        emit VerificationRevoked(chainId, "Stake slashed");
+    }
+
+    /**
+     * @notice Mark network as Superchain member
+     */
+    function setSuperchainStatus(uint256 chainId, bool isSuperchain) external {
+        if (msg.sender != verificationAuthority && msg.sender != owner()) {
+            revert NotVerificationAuthority();
+        }
+        NetworkInfo storage network = networks[chainId];
+        if (network.registeredAt == 0) revert NetworkNotFound();
+        
+        network.isSuperchain = isSuperchain;
+        emit NetworkUpdated(chainId, network.name, network.operator);
+    }
+
+    /**
+     * @notice Check if network can participate in federation consensus
+     */
+    function canParticipateInConsensus(uint256 chainId) external view returns (bool) {
+        NetworkInfo storage network = networks[chainId];
+        return network.isActive && network.trustTier >= TrustTier.STAKED;
+    }
+
+    /**
+     * @notice Check if network is eligible for sequencer duties
+     */
+    function isSequencerEligible(uint256 chainId) external view returns (bool) {
+        NetworkInfo storage network = networks[chainId];
+        return network.isActive && network.trustTier == TrustTier.VERIFIED;
     }
 
     function updateNetwork(

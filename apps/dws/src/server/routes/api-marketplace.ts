@@ -138,17 +138,17 @@ export function createAPIMarketplaceRouter(): Hono {
   // Listings
   // ============================================================================
 
-  app.get('/listings', (c) => {
+  app.get('/listings', async (c) => {
     const providerId = c.req.query('provider');
     const seller = c.req.query('seller') as Address | undefined;
     const activeOnly = c.req.query('active') !== 'false';
 
-    let listings = getAllListings();
+    let listings = await getAllListings();
 
     if (providerId) {
-      listings = getListingsByProvider(providerId);
+      listings = await getListingsByProvider(providerId);
     } else if (seller) {
-      listings = getListingsBySeller(seller);
+      listings = await getListingsBySeller(seller);
     }
 
     if (activeOnly) {
@@ -166,8 +166,8 @@ export function createAPIMarketplaceRouter(): Hono {
     });
   });
 
-  app.get('/listings/:id', (c) => {
-    const listing = getListing(c.req.param('id'));
+  app.get('/listings/:id', async (c) => {
+    const listing = await getListing(c.req.param('id'));
     if (!listing) {
       return c.json({ error: 'Listing not found' }, 404);
     }
@@ -219,7 +219,7 @@ export function createAPIMarketplaceRouter(): Hono {
     const vaultKey = storeKey(body.providerId, userAddress, body.apiKey);
 
     // Create listing
-    const listing = createListing({
+    const listing = await createListing({
       providerId: body.providerId,
       seller: userAddress,
       keyVaultId: vaultKey.id,
@@ -248,7 +248,7 @@ export function createAPIMarketplaceRouter(): Hono {
       return c.json({ error: 'Missing x-jeju-address header' }, 401);
     }
 
-    const listing = getListing(c.req.param('id'));
+    const listing = await getListing(c.req.param('id'));
     if (!listing) {
       return c.json({ error: 'Listing not found' }, 404);
     }
@@ -265,7 +265,7 @@ export function createAPIMarketplaceRouter(): Hono {
       active?: boolean;
     }>();
 
-    const updated = updateListing(listing.id, {
+    const updated = await updateListing(listing.id, {
       pricePerRequest: body.pricePerRequest ? BigInt(body.pricePerRequest) : undefined,
       limits: body.limits,
       accessControl: body.accessControl,
@@ -280,8 +280,8 @@ export function createAPIMarketplaceRouter(): Hono {
     });
   });
 
-  app.get('/listings/cheapest/:providerId', (c) => {
-    const listing = findCheapestListing(c.req.param('providerId'));
+  app.get('/listings/cheapest/:providerId', async (c) => {
+    const listing = await findCheapestListing(c.req.param('providerId'));
     if (!listing) {
       return c.json({ error: 'No active listings for this provider' }, 404);
     }
@@ -332,7 +332,7 @@ export function createAPIMarketplaceRouter(): Hono {
     }
 
     const providerId = c.req.param('providerId');
-    const listing = findCheapestListing(providerId);
+    const listing = await findCheapestListing(providerId);
     if (!listing) {
       return c.json({ error: `No active listings for provider: ${providerId}` }, 404);
     }

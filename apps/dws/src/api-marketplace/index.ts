@@ -125,14 +125,14 @@ export {
 /**
  * Initialize the API marketplace
  */
-export function initializeMarketplace(): void {
+export async function initializeMarketplace(): Promise<void> {
   // Load system keys from environment
   const { loadSystemKeys } = require('./key-vault');
   loadSystemKeys();
 
   // Create system listings for configured providers
   const { initializeSystemListings } = require('./registry');
-  initializeSystemListings();
+  await initializeSystemListings();
 
   console.log('[API Marketplace] Initialized');
 }

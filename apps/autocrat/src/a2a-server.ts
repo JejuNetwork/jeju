@@ -278,7 +278,7 @@ Return ONLY JSON:
     }
 
     // Actually store the vote
-    storeVote(proposalId, { role: agentId.toUpperCase(), vote, reasoning: reasoning || 'No reasoning', confidence: confidence || 75 });
+    await storeVote(proposalId, { role: agentId.toUpperCase(), vote, reasoning: reasoning || 'No reasoning', confidence: confidence || 75 });
 
     return {
       message: `Vote stored: ${vote}`,
@@ -308,7 +308,7 @@ Return ONLY JSON:
     
     // Store all votes
     for (const v of votes) {
-      storeVote(proposalId, { role: v.role, vote: v.vote, reasoning: v.reasoning, confidence: v.confidence });
+      await storeVote(proposalId, { role: v.role, vote: v.vote, reasoning: v.reasoning, confidence: v.confidence });
     }
 
     const approves = votes.filter(v => v.vote === 'APPROVE').length;

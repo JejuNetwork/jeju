@@ -1,0 +1,24 @@
+{
+  "name": "@jejunetwork/storage-api",
+  "version": "0.1.0",
+  "description": "Decentralized storage API with BitTorrent, IPFS, and content moderation",
+  "type": "module",
+  "main": "./src/server.ts",
+  "scripts": {
+    "dev": "bun run src/server.ts",
+    "start": "bun run src/server.ts",
+    "oracle": "bun run src/oracle/seeding-oracle.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ethers": "^6.13.4",
+    "hono": "^4.6.0",
+    "webtorrent": "^2.5.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/webtorrent": "^0.109.5",
+    "typescript": "^5.3.3"
+  }
+}

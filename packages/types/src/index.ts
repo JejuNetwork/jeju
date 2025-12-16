@@ -14,3 +14,4 @@ export * from './names';
 export * from './nft-eil';
 export * from './oif';
 export * from './oracle';
+export * from './torrent';

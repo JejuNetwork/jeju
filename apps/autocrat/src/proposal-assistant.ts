@@ -173,7 +173,7 @@ Return: {"clarity":N,"completeness":N,"feasibility":N,"alignment":N,"impact":N,"
     await indexProposal(hash, draft.title, draft.description, draft.proposalType);
 
     // Find similar proposals in the index
-    const similar = findSimilarProposals(draft.title);
+    const similar = await findSimilarProposals(draft.title);
     return similar
       .filter(s => s.contentHash !== hash) // Exclude self
       .map(s => ({ proposalId: s.contentHash, title: s.title, similarity: s.similarity, status: 'indexed' }));

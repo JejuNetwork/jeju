@@ -1,7 +1,83 @@
 /**
  * External service integrations (GitHub, Linear, npm)
- * Provides web2 integration layer for Factory
+ * Uses MPC KMS for decentralized secrets management
  */
+
+// ============ MPC KMS Secret Management ============
+
+const KMS_ENDPOINT = process.env.NEXT_PUBLIC_KMS_ENDPOINT || 'http://localhost:4035';
+
+interface KMSSecret {
+  keyId: string;
+  value: string;
+  metadata: {
+    service: string;
+    createdAt: number;
+    rotatedAt?: number;
+  };
+}
+
+/**
+ * Fetch decrypted secret from MPC KMS
+ * Secrets are stored encrypted on-chain, decryption requires threshold signatures
+ */
+async function getSecret(keyId: string, userAddress: string, signature: string): Promise<string> {
+  const response = await fetch(`${KMS_ENDPOINT}/api/secrets/${keyId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-jeju-address': userAddress,
+      'x-jeju-signature': signature,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch secret: ${response.statusText}`);
+  }
+
+  const data = await response.json() as { decrypted: string };
+  return data.decrypted;
+}
+
+/**
+ * Store encrypted secret in MPC KMS
+ * Secret is split via Shamir's Secret Sharing and distributed to MPC parties
+ */
+async function storeSecret(
+  service: string,
+  value: string,
+  userAddress: string,
+  signature: string
+): Promise<string> {
+  const response = await fetch(`${KMS_ENDPOINT}/api/secrets`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-jeju-address': userAddress,
+      'x-jeju-signature': signature,
+    },
+    body: JSON.stringify({
+      service,
+      value,
+      policy: {
+        accessType: 'OWNER_ONLY',
+        allowRotation: true,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to store secret: ${response.statusText}`);
+  }
+
+  const data = await response.json() as { keyId: string };
+  return data.keyId;
+}
+
+export const kmsService = {
+  getSecret,
+  storeSecret,
+};
 
 // ============ GitHub Integration ============
 
@@ -47,10 +123,35 @@ export interface GitHubPR {
 }
 
 export class GitHubService {
-  private token: string | null = null;
+  private tokenKeyId: string | null = null;
+  private cachedToken: string | null = null;
+  private userAddress: string | null = null;
 
+  /**
+   * Initialize with MPC KMS key ID (token stored encrypted)
+   */
+  async initialize(tokenKeyId: string, userAddress: string, signature: string): Promise<void> {
+    this.tokenKeyId = tokenKeyId;
+    this.userAddress = userAddress;
+    this.cachedToken = await getSecret(tokenKeyId, userAddress, signature);
+  }
+
+  /**
+   * Store a new GitHub token in MPC KMS
+   */
+  async storeToken(token: string, userAddress: string, signature: string): Promise<string> {
+    const keyId = await storeSecret('github', token, userAddress, signature);
+    this.tokenKeyId = keyId;
+    this.cachedToken = token;
+    this.userAddress = userAddress;
+    return keyId;
+  }
+
+  /**
+   * Legacy: set token directly (for testing only)
+   */
   setToken(token: string) {
-    this.token = token;
+    this.cachedToken = token;
   }
 
   private async fetch(path: string, options: RequestInit = {}): Promise<Response> {
@@ -59,8 +160,8 @@ export class GitHubService {
       ...options.headers as Record<string, string>,
     };
     
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
+    if (this.cachedToken) {
+      headers['Authorization'] = `Bearer ${this.cachedToken}`;
     }
 
     return fetch(`${GITHUB_API}${path}`, { ...options, headers });
@@ -104,10 +205,8 @@ export class GitHubService {
   }
 
   async syncRepoToJeju(owner: string, repo: string): Promise<{ success: boolean; jejuRepoId?: string }> {
-    // This would call DWS to create a mirrored repo
     const repoData = await this.getRepo(owner, repo);
     
-    // Import to Jeju Git
     const response = await fetch(`${process.env.NEXT_PUBLIC_DWS_URL}/api/git/import`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -124,7 +223,7 @@ export class GitHubService {
       return { success: false };
     }
 
-    const result = await response.json();
+    const result = await response.json() as { id: string };
     return { success: true, jejuRepoId: result.id };
   }
 }
@@ -157,20 +256,42 @@ export interface LinearProject {
 }
 
 export class LinearService {
-  private apiKey: string | null = null;
+  private apiKeyId: string | null = null;
+  private cachedApiKey: string | null = null;
+  private userAddress: string | null = null;
+
+  /**
+   * Initialize with MPC KMS key ID
+   */
+  async initialize(keyId: string, userAddress: string, signature: string): Promise<void> {
+    this.apiKeyId = keyId;
+    this.userAddress = userAddress;
+    this.cachedApiKey = await getSecret(keyId, userAddress, signature);
+  }
+
+  /**
+   * Store Linear API key in MPC KMS
+   */
+  async storeApiKey(apiKey: string, userAddress: string, signature: string): Promise<string> {
+    const keyId = await storeSecret('linear', apiKey, userAddress, signature);
+    this.apiKeyId = keyId;
+    this.cachedApiKey = apiKey;
+    this.userAddress = userAddress;
+    return keyId;
+  }
 
   setApiKey(apiKey: string) {
-    this.apiKey = apiKey;
+    this.cachedApiKey = apiKey;
   }
 
   private async query(query: string, variables?: Record<string, unknown>): Promise<unknown> {
-    if (!this.apiKey) throw new Error('Linear API key not set');
+    if (!this.cachedApiKey) throw new Error('Linear API key not set');
 
     const response = await fetch(LINEAR_API, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': this.apiKey,
+        'Authorization': this.cachedApiKey,
       },
       body: JSON.stringify({ query, variables }),
     });
@@ -255,7 +376,6 @@ export class LinearService {
     const issue = issues.find(i => i.id === issueId);
     if (!issue) return { success: false };
 
-    // Create task in Jeju ProjectBoard
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/projects/tasks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -272,7 +392,7 @@ export class LinearService {
       return { success: false };
     }
 
-    const result = await response.json();
+    const result = await response.json() as { id: string };
     return { success: true, jejuTaskId: result.id };
   }
 }
@@ -310,6 +430,17 @@ export interface NpmSearchResult {
 }
 
 export class NpmService {
+  private authTokenKeyId: string | null = null;
+  private cachedAuthToken: string | null = null;
+
+  /**
+   * Initialize with MPC KMS for npm auth token (for publishing)
+   */
+  async initialize(keyId: string, userAddress: string, signature: string): Promise<void> {
+    this.authTokenKeyId = keyId;
+    this.cachedAuthToken = await getSecret(keyId, userAddress, signature);
+  }
+
   async getPackage(name: string): Promise<NpmPackage> {
     const response = await fetch(`${NPM_REGISTRY}/${encodeURIComponent(name)}`);
     if (!response.ok) throw new Error('Package not found');
@@ -330,7 +461,6 @@ export class NpmService {
     const versionInfo = pkg.versions[version];
     if (!versionInfo) throw new Error('Version not found');
 
-    // Get tarball URL from version info
     const tarballUrl = `${NPM_REGISTRY}/${encodeURIComponent(name)}/-/${name.split('/').pop()}-${version}.tgz`;
     const response = await fetch(tarballUrl);
     if (!response.ok) throw new Error('Failed to fetch tarball');
@@ -342,7 +472,6 @@ export class NpmService {
     const targetVersion = version || pkg['dist-tags'].latest;
     const tarball = await this.getPackageTarball(name, targetVersion);
 
-    // Upload to Jeju package registry
     const formData = new FormData();
     formData.append('tarball', tarball, `${name.replace('/', '-')}-${targetVersion}.tgz`);
     formData.append('metadata', JSON.stringify({
@@ -362,7 +491,7 @@ export class NpmService {
       return { success: false };
     }
 
-    const result = await response.json();
+    const result = await response.json() as { id: string };
     return { success: true, jejuPackageId: result.id };
   }
 }

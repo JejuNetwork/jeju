@@ -38,6 +38,8 @@ import { serviceCommand } from './commands/service';
 import { publishCommand } from './commands/publish';
 import { infraCommand } from './commands/infra';
 import { tokenCommand } from './commands/token';
+import { federationCommand } from './commands/federation';
+import { superchainCommand } from './commands/superchain';
 import { dwsCommand } from './commands/dws';
 
 const cli = getCliBranding();
@@ -89,6 +91,8 @@ program.addCommand(keysCommand);
 program.addCommand(statusCommand);
 program.addCommand(fundCommand);
 program.addCommand(forkCommand);
+program.addCommand(federationCommand);
+program.addCommand(superchainCommand);
 program.addCommand(computeCommand);
 program.addCommand(initCommand);
 program.addCommand(appsCommand);
@@ -159,8 +163,16 @@ program.action(() => {
   console.log('  ' + chalk.cyan(`${cliName} infra deploy-full`) + '    Full deployment pipeline\n');
   
   console.log(chalk.bold('Federation:\n'));
-  console.log('  ' + chalk.cyan(`${cliName} fork`) + '             Fork your own network');
-  console.log('  ' + chalk.cyan(`${cliName} fork list`) + '        List existing forks\n');
+  console.log('  ' + chalk.cyan(`${cliName} fork`) + '               Fork your own network');
+  console.log('  ' + chalk.cyan(`${cliName} federation join`) + '    Join the Jeju Federation');
+  console.log('  ' + chalk.cyan(`${cliName} federation status`) + '  Check federation membership');
+  console.log('  ' + chalk.cyan(`${cliName} federation list`) + '    List all federated networks');
+  console.log('  ' + chalk.cyan(`${cliName} federation add-stake`) + ' Upgrade trust tier\n');
+  
+  console.log(chalk.bold('Superchain:\n'));
+  console.log('  ' + chalk.cyan(`${cliName} superchain check`) + '   Check Superchain compatibility');
+  console.log('  ' + chalk.cyan(`${cliName} superchain status`) + '  Show integration status');
+  console.log('  ' + chalk.cyan(`${cliName} superchain register`) + ' Prepare registry submission\n');
   
   console.log(chalk.bold('DWS (Decentralized Web Services):\n'));
   console.log('  ' + chalk.cyan(`${cliName} dws status`) + '        Check all DWS services');

@@ -1,5 +1,6 @@
 import type { Address } from 'viem';
-import { recoverAddress } from 'viem';
+import { recoverAddress, hashMessage } from 'viem';
+import { x402State, initializeState } from '../../services/state.js';
 
 export type X402Network = 'sepolia' | 'base' | 'base-sepolia' | 'ethereum' | 'jeju' | 'jeju-testnet';
 
@@ -42,8 +43,8 @@ const X402_ENABLED = process.env.X402_ENABLED !== 'false';
 
 export const RPC_PRICING = { standard: 100n, archive: 500n, trace: 1000n } as const;
 
-const userCredits = new Map<string, bigint>();
-const usedNonces = new Set<string>();
+// Initialize state on module load
+initializeState().catch(console.error);
 
 export const isX402Enabled = () => X402_ENABLED && PAYMENT_RECIPIENT !== ZERO_ADDRESS;
 
@@ -73,18 +74,18 @@ export function parseX402Header(header: string): X402PaymentHeader | null {
   return amount ? { scheme, network, payload, asset, amount } : null;
 }
 
-export function verifyX402Payment(
+export async function verifyX402Payment(
   payment: X402PaymentHeader,
   expectedAmount: bigint,
   userAddress?: string
-): { valid: boolean; error?: string } {
+): Promise<{ valid: boolean; error?: string }> {
   if (BigInt(payment.amount) < expectedAmount) return { valid: false, error: 'Insufficient payment' };
 
   const proof = JSON.parse(payment.payload) as X402PaymentProof;
   const nonceKey = `${userAddress}:${proof.nonce}`;
 
   if (proof.payTo.toLowerCase() !== PAYMENT_RECIPIENT.toLowerCase()) return { valid: false, error: 'Wrong recipient' };
-  if (usedNonces.has(nonceKey)) return { valid: false, error: 'Nonce reused' };
+  if (await x402State.isNonceUsed(nonceKey)) return { valid: false, error: 'Nonce reused' };
   if (Date.now() / 1000 - proof.timestamp > 300) return { valid: false, error: 'Expired' };
 
   const message = `x402:rpc:${proof.network}:${proof.payTo}:${proof.amount}:${proof.nonce}:${proof.timestamp}`;
@@ -95,41 +96,40 @@ export function verifyX402Payment(
 
   if (userAddress && recovered.toLowerCase() !== userAddress.toLowerCase()) return { valid: false, error: 'Invalid signature' };
 
-  usedNonces.add(nonceKey);
+  await x402State.markNonceUsed(nonceKey);
   return { valid: true };
 }
 
-export function getCredits(addr: string): bigint {
-  return userCredits.get(addr.toLowerCase()) ?? 0n;
+export async function getCredits(addr: string): Promise<bigint> {
+  return x402State.getCredits(addr);
 }
 
-export function addCredits(addr: string, amount: bigint): bigint {
-  const balance = getCredits(addr) + amount;
-  userCredits.set(addr.toLowerCase(), balance);
-  return balance;
+export async function addCredits(addr: string, amount: bigint): Promise<bigint> {
+  await x402State.addCredits(addr, amount);
+  return x402State.getCredits(addr);
 }
 
-export function deductCredits(addr: string, amount: bigint): boolean {
-  const current = getCredits(addr);
-  if (current < amount) return false;
-  userCredits.set(addr.toLowerCase(), current - amount);
-  return true;
+export async function deductCredits(addr: string, amount: bigint): Promise<boolean> {
+  return x402State.deductCredits(addr, amount);
 }
 
-export function processPayment(
+export async function processPayment(
   paymentHeader: string | undefined,
   chainId: number,
   method: string,
   userAddress?: string
-): { allowed: boolean; requirement?: X402PaymentRequirement; error?: string } {
+): Promise<{ allowed: boolean; requirement?: X402PaymentRequirement; error?: string }> {
   if (!isX402Enabled()) return { allowed: true };
 
   const price = getMethodPrice(method);
   const deny = (error?: string) => ({ allowed: false, requirement: generatePaymentRequirement(chainId, method), error });
 
-  if (userAddress && getCredits(userAddress) >= price) {
-    deductCredits(userAddress, price);
-    return { allowed: true };
+  if (userAddress) {
+    const credits = await getCredits(userAddress);
+    if (credits >= price) {
+      await deductCredits(userAddress, price);
+      return { allowed: true };
+    }
   }
 
   if (!paymentHeader) return deny();
@@ -137,7 +137,7 @@ export function processPayment(
   const payment = parseX402Header(paymentHeader);
   if (!payment) return deny('Invalid header');
 
-  const result = verifyX402Payment(payment, price, userAddress);
+  const result = await verifyX402Payment(payment, price, userAddress);
   return result.valid ? { allowed: true } : deny(result.error);
 }
 
@@ -145,6 +145,7 @@ export function getPaymentInfo() {
   return { enabled: isX402Enabled(), recipient: PAYMENT_RECIPIENT, pricing: RPC_PRICING, acceptedAssets: ['ETH', 'JEJU'] };
 }
 
-export function purchaseCredits(addr: string, _txHash: string, amount: bigint) {
-  return { success: true, newBalance: addCredits(addr, amount) };
+export async function purchaseCredits(addr: string, _txHash: string, amount: bigint) {
+  const newBalance = await addCredits(addr, amount);
+  return { success: true, newBalance };
 }

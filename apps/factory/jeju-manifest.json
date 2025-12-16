@@ -1,20 +1,184 @@
 {
+  "$schema": "../../packages/config/jeju-manifest.schema.json",
   "name": "factory",
+  "displayName": "Factory",
   "version": "1.0.0",
   "description": "Developer coordination hub - bounties, jobs, git, packages, containers, models, project management",
   "type": "app",
-  "port": 4009,
-  "dependencies": {
-    "contracts": ["BountyRegistry", "GuardianRegistry", "ContainerRegistry", "ModelRegistry", "ProjectBoard", "IdentityRegistry", "ReputationRegistry", "RepoRegistry", "PackageRegistry", "ModerationMarketplace"],
-    "services": ["indexer", "dws", "messaging"]
+  "maintainer": "jeju-network",
+  "repository": "https://github.com/jejunetwork/jeju",
+  "commands": {
+    "dev": "bun run dev",
+    "build": "bun run build",
+    "start": "bun run start",
+    "test": "bun run test:e2e",
+    "deploy": "bun run scripts/deploy-cdn.ts"
   },
-  "healthcheck": {
-    "endpoint": "/api/health",
-    "interval": 30
+  "ports": {
+    "main": 4009
+  },
+  "dependencies": ["contracts", "dws", "messaging", "indexer", "crucible", "autocrat"],
+  "optional": false,
+  "enabled": true,
+  "autoStart": true,
+  "tags": [
+    "factory",
+    "bounties",
+    "jobs",
+    "git",
+    "packages",
+    "containers",
+    "models",
+    "projects",
+    "collaboration",
+    "agents",
+    "decentralized"
+  ],
+  "jns": {
+    "name": "factory.jeju",
+    "description": "Developer coordination and collaboration hub",
+    "url": "https://factory.jeju.network"
+  },
+  "healthCheck": {
+    "url": "http://localhost:4009/api/health",
+    "interval": 30000
+  },
+  "agent": {
+    "enabled": true,
+    "a2aEndpoint": "/api/a2a",
+    "mcpEndpoint": "/api/mcp",
+    "tags": ["jeju-app", "factory", "bounties", "jobs", "collaboration"],
+    "metadata": {
+      "category": "developer-tools",
+      "provider": "jeju-network",
+      "features": [
+        "bounties",
+        "jobs",
+        "git",
+        "packages",
+        "containers",
+        "models",
+        "projects",
+        "collaboration",
+        "agent-hiring",
+        "guardian-validation"
+      ]
+    },
+    "trustModels": ["open", "staked"],
+    "x402Support": true,
+    "multiTokenPayments": true,
+    "jnsName": "factory.jeju"
+  },
+  "contracts": {
+    "BountyRegistry": "0x0000000000000000000000000000000000000000",
+    "GuardianRegistry": "0x0000000000000000000000000000000000000000",
+    "ContainerRegistry": "0x0000000000000000000000000000000000000000",
+    "ModelRegistry": "0x0000000000000000000000000000000000000000",
+    "ProjectBoard": "0x0000000000000000000000000000000000000000",
+    "IdentityRegistry": "0x0000000000000000000000000000000000000000",
+    "ReputationRegistry": "0x0000000000000000000000000000000000000000",
+    "RepoRegistry": "0x0000000000000000000000000000000000000000",
+    "PackageRegistry": "0x0000000000000000000000000000000000000000",
+    "ModerationMarketplace": "0x0000000000000000000000000000000000000000"
+  },
+  "capabilities": {
+    "bounties": true,
+    "jobs": true,
+    "git": true,
+    "packages": true,
+    "containers": true,
+    "models": true,
+    "projects": true,
+    "feed": true,
+    "messaging": true,
+    "agentCollaboration": true,
+    "guardianValidation": true,
+    "aiGovernance": true
+  },
+  "integrations": {
+    "crucible": {
+      "enabled": true,
+      "features": ["agent-hiring", "pr-review", "bounty-validation", "code-audit"]
+    },
+    "autocrat": {
+      "enabled": true,
+      "features": ["governance-proposals", "ceo-feedback", "reputation", "disputes"]
+    },
+    "farcaster": {
+      "enabled": true,
+      "channel": "factory",
+      "features": ["feed", "comments", "messaging"]
+    },
+    "dws": {
+      "enabled": true,
+      "features": ["git", "packages", "containers", "compute", "storage", "cdn", "ci"]
+    },
+    "kms": {
+      "enabled": true,
+      "provider": "mpc",
+      "features": ["secret-management", "threshold-signing"]
+    }
+  },
+  "decentralization": {
+    "level": "full",
+    "frontend": {
+      "hosting": "ipfs",
+      "gateway": "jns",
+      "caching": "dws-cdn",
+      "buildOutput": ".next",
+      "staticExport": true
+    },
+    "backend": {
+      "compute": "dws-compute",
+      "storage": "ipfs",
+      "database": "covenantSQL"
+    },
+    "nodeDiscovery": {
+      "method": "on-chain",
+      "registry": "IdentityRegistry",
+      "tag": "dws",
+      "fallbackUrl": "http://localhost:4030"
+    },
+    "authentication": {
+      "method": "wallet-signature",
+      "header": "x-jeju-signature"
+    },
+    "secrets": {
+      "provider": "mpc-kms",
+      "threshold": 2,
+      "totalParties": 3
+    },
+    "cdn": {
+      "enabled": true,
+      "regions": ["global"],
+      "cacheRules": [
+        { "pattern": "/_next/static/**", "ttl": 31536000, "immutable": true },
+        { "pattern": "/images/**", "ttl": 86400 },
+        { "pattern": "/api/**", "ttl": 0 }
+      ],
+      "invalidateOnDeploy": true
+    },
+    "robustness": {
+      "multiOrigin": true,
+      "automaticFailover": true,
+      "p2pFallback": true,
+      "contentAddressed": true
+    }
   },
   "env": {
-    "required": ["NEXT_PUBLIC_CHAIN_ID", "NEXT_PUBLIC_RPC_URL"],
-    "optional": ["GITHUB_TOKEN", "LINEAR_API_KEY", "NPM_TOKEN", "NEYNAR_API_KEY", "FARCASTER_CHANNEL_ID"]
+    "required": [
+      "NEXT_PUBLIC_CHAIN_ID",
+      "NEXT_PUBLIC_RPC_URL"
+    ],
+    "optional": [
+      "NEXT_PUBLIC_DWS_URL",
+      "NEXT_PUBLIC_IDENTITY_REGISTRY_ADDRESS",
+      "NEXT_PUBLIC_CRUCIBLE_URL",
+      "NEXT_PUBLIC_AUTOCRAT_URL",
+      "NEXT_PUBLIC_KMS_ENDPOINT",
+      "NEXT_PUBLIC_MESSAGING_URL",
+      "NEYNAR_API_KEY",
+      "FARCASTER_CHANNEL_ID"
+    ]
   }
 }
-

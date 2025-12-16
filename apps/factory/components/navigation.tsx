@@ -21,6 +21,8 @@ import {
   Bell,
   User,
   Sparkles,
+  Bot,
+  Users,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -54,7 +56,15 @@ const navigation = [
       { name: 'Training', href: '/training', icon: Sparkles },
     ]
   },
-  { name: 'Guardians', href: '/guardians', icon: Shield },
+  { 
+    name: 'Collaboration', 
+    icon: Users,
+    children: [
+      { name: 'Agents', href: '/agents', icon: Bot },
+      { name: 'Guardians', href: '/guardians', icon: Shield },
+      { name: 'Teams', href: '/teams', icon: Users },
+    ]
+  },
 ];
 
 const bottomNav = [

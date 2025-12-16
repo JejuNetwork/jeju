@@ -153,7 +153,7 @@ export async function processDeposit(
   }
 
   // Credit account
-  const account = deposit(request.payer, request.amount);
+  const account = await deposit(request.payer, request.amount);
 
   return { success: true, newBalance: account.balance };
 }
@@ -171,7 +171,7 @@ export async function processWithdraw(
   }
 
   try {
-    const account = withdraw(request.recipient, request.amount);
+    const account = await withdraw(request.recipient, request.amount);
     return { success: true, remainingBalance: account.balance };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Withdrawal failed';
@@ -182,20 +182,20 @@ export async function processWithdraw(
 /**
  * Get account balance
  */
-export function getBalance(address: Address): bigint {
-  const account = getAccount(address);
+export async function getBalance(address: Address): Promise<bigint> {
+  const account = await getAccount(address);
   return account?.balance ?? 0n;
 }
 
 /**
  * Get full account info
  */
-export function getAccountInfo(address: Address): {
+export async function getAccountInfo(address: Address): Promise<{
   balance: bigint;
   totalSpent: bigint;
   totalRequests: bigint;
-} {
-  const account = getOrCreateAccount(address);
+}> {
+  const account = await getOrCreateAccount(address);
   return {
     balance: account.balance,
     totalSpent: account.totalSpent,

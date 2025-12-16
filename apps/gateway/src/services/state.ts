@@ -128,6 +128,26 @@ async function ensureTablesExist(): Promise<void> {
       last_claim INTEGER NOT NULL,
       total_claims INTEGER DEFAULT 1
     )`,
+    `CREATE TABLE IF NOT EXISTS x402_credits (
+      address TEXT PRIMARY KEY,
+      balance TEXT NOT NULL DEFAULT '0',
+      updated_at INTEGER NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS x402_nonces (
+      nonce TEXT PRIMARY KEY,
+      used_at INTEGER NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS api_keys (
+      id TEXT PRIMARY KEY,
+      key_hash TEXT NOT NULL UNIQUE,
+      address TEXT NOT NULL,
+      name TEXT NOT NULL,
+      tier TEXT NOT NULL DEFAULT 'FREE',
+      created_at INTEGER NOT NULL,
+      last_used_at INTEGER DEFAULT 0,
+      request_count INTEGER DEFAULT 0,
+      is_active INTEGER DEFAULT 1
+    )`,
   ];
   
   const indexes = [
@@ -138,6 +158,8 @@ async function ensureTablesExist(): Promise<void> {
     'CREATE INDEX IF NOT EXISTS idx_solvers_status ON solvers(status)',
     'CREATE INDEX IF NOT EXISTS idx_route_stats_chains ON route_stats(source_chain_id, destination_chain_id)',
     'CREATE INDEX IF NOT EXISTS idx_intent_events_intent ON intent_events(intent_id)',
+    'CREATE INDEX IF NOT EXISTS idx_api_keys_address ON api_keys(address)',
+    'CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash)',
   ];
   
   for (const ddl of tables) {
@@ -665,6 +687,237 @@ export const routeState = {
         row.last_updated = Date.now();
       }
     }
+  },
+};
+
+// X402 Payment State Operations
+const memoryUserCredits = new Map<string, string>();
+const memoryUsedNonces = new Set<string>();
+
+export const x402State = {
+  async getCredits(address: string): Promise<bigint> {
+    const addr = address.toLowerCase();
+    const cache = getCache();
+    const cached = await cache.get(`credits:${addr}`).catch(() => null);
+    if (cached) return BigInt(cached);
+    
+    const client = await getCQLClient();
+    if (client) {
+      const result = await client.query<{ address: string; balance: string }>(
+        'SELECT balance FROM x402_credits WHERE address = ?',
+        [addr],
+        CQL_DATABASE_ID
+      );
+      const balance = result.rows[0]?.balance ?? '0';
+      await cache.set(`credits:${addr}`, balance, 300);
+      return BigInt(balance);
+    }
+    
+    return BigInt(memoryUserCredits.get(addr) ?? '0');
+  },
+  
+  async addCredits(address: string, amount: bigint): Promise<void> {
+    const addr = address.toLowerCase();
+    const cache = getCache();
+    
+    const client = await getCQLClient();
+    if (client) {
+      await client.exec(
+        `INSERT INTO x402_credits (address, balance, updated_at)
+         VALUES (?, ?, ?)
+         ON CONFLICT(address) DO UPDATE SET 
+         balance = CAST(CAST(balance AS INTEGER) + ? AS TEXT), updated_at = ?`,
+        [addr, amount.toString(), Date.now(), amount.toString(), Date.now()],
+        CQL_DATABASE_ID
+      );
+    } else {
+      const current = BigInt(memoryUserCredits.get(addr) ?? '0');
+      memoryUserCredits.set(addr, (current + amount).toString());
+    }
+    
+    await cache.delete(`credits:${addr}`);
+  },
+  
+  async deductCredits(address: string, amount: bigint): Promise<boolean> {
+    const addr = address.toLowerCase();
+    const current = await this.getCredits(addr);
+    if (current < amount) return false;
+    
+    const cache = getCache();
+    const client = await getCQLClient();
+    if (client) {
+      await client.exec(
+        `UPDATE x402_credits SET balance = CAST(CAST(balance AS INTEGER) - ? AS TEXT), updated_at = ?
+         WHERE address = ?`,
+        [amount.toString(), Date.now(), addr],
+        CQL_DATABASE_ID
+      );
+    } else {
+      memoryUserCredits.set(addr, (current - amount).toString());
+    }
+    
+    await cache.delete(`credits:${addr}`);
+    return true;
+  },
+  
+  async isNonceUsed(nonce: string): Promise<boolean> {
+    const client = await getCQLClient();
+    if (client) {
+      const result = await client.query<{ nonce: string }>(
+        'SELECT nonce FROM x402_nonces WHERE nonce = ?',
+        [nonce],
+        CQL_DATABASE_ID
+      );
+      return result.rows.length > 0;
+    }
+    return memoryUsedNonces.has(nonce);
+  },
+  
+  async markNonceUsed(nonce: string): Promise<void> {
+    const client = await getCQLClient();
+    if (client) {
+      await client.exec(
+        'INSERT INTO x402_nonces (nonce, used_at) VALUES (?, ?) ON CONFLICT DO NOTHING',
+        [nonce, Date.now()],
+        CQL_DATABASE_ID
+      );
+    } else {
+      memoryUsedNonces.add(nonce);
+    }
+  },
+};
+
+// API Key State Operations
+const memoryApiKeys = new Map<string, ApiKeyRow>();
+const memoryKeyHashToId = new Map<string, string>();
+
+interface ApiKeyRow {
+  id: string;
+  key_hash: string;
+  address: string;
+  name: string;
+  tier: string;
+  created_at: number;
+  last_used_at: number;
+  request_count: number;
+  is_active: number;
+}
+
+export const apiKeyState = {
+  async save(key: {
+    id: string;
+    keyHash: string;
+    address: string;
+    name: string;
+    tier: string;
+    createdAt: number;
+  }): Promise<void> {
+    const row: ApiKeyRow = {
+      id: key.id,
+      key_hash: key.keyHash,
+      address: key.address.toLowerCase(),
+      name: key.name,
+      tier: key.tier,
+      created_at: key.createdAt,
+      last_used_at: 0,
+      request_count: 0,
+      is_active: 1,
+    };
+    
+    const client = await getCQLClient();
+    if (client) {
+      await client.exec(
+        `INSERT INTO api_keys (id, key_hash, address, name, tier, created_at, last_used_at, request_count, is_active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [row.id, row.key_hash, row.address, row.name, row.tier, row.created_at, row.last_used_at, row.request_count, row.is_active],
+        CQL_DATABASE_ID
+      );
+    } else {
+      memoryApiKeys.set(row.id, row);
+      memoryKeyHashToId.set(row.key_hash, row.id);
+    }
+  },
+  
+  async getByHash(keyHash: string): Promise<ApiKeyRow | null> {
+    const client = await getCQLClient();
+    if (client) {
+      const result = await client.query<ApiKeyRow>(
+        'SELECT * FROM api_keys WHERE key_hash = ? AND is_active = 1',
+        [keyHash],
+        CQL_DATABASE_ID
+      );
+      return result.rows[0] ?? null;
+    }
+    
+    const id = memoryKeyHashToId.get(keyHash);
+    if (!id) return null;
+    const row = memoryApiKeys.get(id);
+    return row?.is_active ? row : null;
+  },
+  
+  async getById(id: string): Promise<ApiKeyRow | null> {
+    const client = await getCQLClient();
+    if (client) {
+      const result = await client.query<ApiKeyRow>(
+        'SELECT * FROM api_keys WHERE id = ?',
+        [id],
+        CQL_DATABASE_ID
+      );
+      return result.rows[0] ?? null;
+    }
+    return memoryApiKeys.get(id) ?? null;
+  },
+  
+  async listByAddress(address: string): Promise<ApiKeyRow[]> {
+    const addr = address.toLowerCase();
+    const client = await getCQLClient();
+    if (client) {
+      const result = await client.query<ApiKeyRow>(
+        'SELECT * FROM api_keys WHERE address = ? ORDER BY created_at DESC',
+        [addr],
+        CQL_DATABASE_ID
+      );
+      return result.rows;
+    }
+    return Array.from(memoryApiKeys.values()).filter(k => k.address === addr);
+  },
+  
+  async recordUsage(keyHash: string): Promise<void> {
+    const client = await getCQLClient();
+    if (client) {
+      await client.exec(
+        'UPDATE api_keys SET last_used_at = ?, request_count = request_count + 1 WHERE key_hash = ?',
+        [Date.now(), keyHash],
+        CQL_DATABASE_ID
+      );
+    } else {
+      const id = memoryKeyHashToId.get(keyHash);
+      if (id) {
+        const row = memoryApiKeys.get(id);
+        if (row) {
+          row.last_used_at = Date.now();
+          row.request_count++;
+        }
+      }
+    }
+  },
+  
+  async revoke(id: string): Promise<boolean> {
+    const client = await getCQLClient();
+    if (client) {
+      const result = await client.exec(
+        'UPDATE api_keys SET is_active = 0 WHERE id = ?',
+        [id],
+        CQL_DATABASE_ID
+      );
+      return result.rowsAffected > 0;
+    }
+    const row = memoryApiKeys.get(id);
+    if (row) {
+      row.is_active = 0;
+      return true;
+    }
+    return false;
   },
 };
 

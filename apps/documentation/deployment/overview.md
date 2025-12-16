@@ -4,7 +4,7 @@ Deploy Jeju infrastructure and contracts across environments.
 
 ## Environments
 
-[Localnet](/deployment/localnet) is for development and takes about 5 minutes to deploy. [Testnet](/deployment/testnet) is for staging and testing, taking 2-4 hours. [Mainnet](/deployment/mainnet) is for production and takes 1-2 days.
+[Localnet](/deployment/localnet) is for development and takes about 5 minutes to deploy. [Testnet](/deployment/testnet) is for staging and testing, taking 2-4 hours. [Mainnet](/deployment/mainnet) is for production and takes 1-2 days. [Superchain](/deployment/superchain) covers integrating with OP Superchain and Jeju Federation.
 
 ## What Gets Deployed
 

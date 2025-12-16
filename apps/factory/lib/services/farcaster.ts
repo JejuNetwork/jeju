@@ -225,3 +225,174 @@ class FarcasterClient {
 
 export const farcasterClient = new FarcasterClient();
 
+// ============ Private Messaging Integration ============
+
+const MESSAGING_API = process.env.NEXT_PUBLIC_MESSAGING_URL || 'http://localhost:4050';
+
+export interface DirectMessage {
+  id: string;
+  from: string; // FID or address
+  to: string;
+  content: string;
+  encrypted: boolean;
+  timestamp: number;
+  read: boolean;
+  threadId?: string;
+}
+
+export interface MessageThread {
+  threadId: string;
+  participants: string[];
+  lastMessage: DirectMessage;
+  unreadCount: number;
+  createdAt: number;
+}
+
+class MessagingClient {
+  private headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  setAuth(address: string, signature: string, timestamp: string) {
+    this.headers['x-jeju-address'] = address;
+    this.headers['x-jeju-signature'] = signature;
+    this.headers['x-jeju-timestamp'] = timestamp;
+  }
+
+  /**
+   * Get all message threads for the user
+   */
+  async getThreads(): Promise<MessageThread[]> {
+    const response = await fetch(`${MESSAGING_API}/api/threads`, {
+      headers: this.headers,
+    });
+    if (!response.ok) throw new Error('Failed to fetch threads');
+    const data = await response.json() as { threads: MessageThread[] };
+    return data.threads;
+  }
+
+  /**
+   * Get messages in a thread
+   */
+  async getMessages(threadId: string, cursor?: string): Promise<{
+    messages: DirectMessage[];
+    cursor?: string;
+  }> {
+    const params = cursor ? `?cursor=${cursor}` : '';
+    const response = await fetch(`${MESSAGING_API}/api/threads/${threadId}/messages${params}`, {
+      headers: this.headers,
+    });
+    if (!response.ok) throw new Error('Failed to fetch messages');
+    return response.json();
+  }
+
+  /**
+   * Send a direct message
+   */
+  async sendMessage(params: {
+    to: string;
+    content: string;
+    threadId?: string;
+    encrypt?: boolean;
+  }): Promise<DirectMessage> {
+    const response = await fetch(`${MESSAGING_API}/api/messages`, {
+      method: 'POST',
+      headers: this.headers,
+      body: JSON.stringify(params),
+    });
+    if (!response.ok) throw new Error('Failed to send message');
+    return response.json();
+  }
+
+  /**
+   * Start a new conversation thread
+   */
+  async startThread(participant: string): Promise<MessageThread> {
+    const response = await fetch(`${MESSAGING_API}/api/threads`, {
+      method: 'POST',
+      headers: this.headers,
+      body: JSON.stringify({ participant }),
+    });
+    if (!response.ok) throw new Error('Failed to start thread');
+    return response.json();
+  }
+
+  /**
+   * Mark messages as read
+   */
+  async markRead(threadId: string): Promise<void> {
+    await fetch(`${MESSAGING_API}/api/threads/${threadId}/read`, {
+      method: 'POST',
+      headers: this.headers,
+    });
+  }
+
+  /**
+   * Get unread count
+   */
+  async getUnreadCount(): Promise<number> {
+    const response = await fetch(`${MESSAGING_API}/api/messages/unread`, {
+      headers: this.headers,
+    });
+    if (!response.ok) return 0;
+    const data = await response.json() as { count: number };
+    return data.count;
+  }
+
+  /**
+   * Subscribe to new messages via WebSocket
+   */
+  subscribeToMessages(onMessage: (msg: DirectMessage) => void): WebSocket {
+    const ws = new WebSocket(`${MESSAGING_API.replace('http', 'ws')}/ws/messages`);
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      if (msg.type === 'message') {
+        onMessage(msg.data);
+      }
+    };
+    return ws;
+  }
+}
+
+export const messagingClient = new MessagingClient();
+
+// ============ Factory-specific Messaging ============
+
+/**
+ * Send bounty-related message to worker/creator
+ */
+export async function sendBountyMessage(params: {
+  bountyId: string;
+  recipientAddress: string;
+  messageType: 'application' | 'acceptance' | 'rejection' | 'submission' | 'feedback';
+  content: string;
+}): Promise<DirectMessage> {
+  return messagingClient.sendMessage({
+    to: params.recipientAddress,
+    content: `[Bounty ${params.bountyId}] ${params.messageType.toUpperCase()}\n\n${params.content}`,
+    encrypt: true,
+  });
+}
+
+/**
+ * Send collaboration request to another user/agent
+ */
+export async function sendCollaborationRequest(params: {
+  to: string;
+  projectId?: string;
+  bountyId?: string;
+  role: string;
+  message: string;
+}): Promise<DirectMessage> {
+  const context = params.projectId 
+    ? `Project: ${params.projectId}` 
+    : params.bountyId 
+      ? `Bounty: ${params.bountyId}` 
+      : 'General';
+      
+  return messagingClient.sendMessage({
+    to: params.to,
+    content: `[Collaboration Request - ${context}]\nRole: ${params.role}\n\n${params.message}`,
+    encrypt: true,
+  });
+}

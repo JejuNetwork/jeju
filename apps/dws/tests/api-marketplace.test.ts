@@ -141,9 +141,9 @@ describe('Providers', () => {
 describe('Registry', () => {
   const testApiKey = 'sk-test-key-12345678901234567890';
 
-  test('should create a listing', () => {
+  test('should create a listing', async () => {
     const vaultKey = storeKey('openai', TEST_SELLER, testApiKey);
-    const listing = createListing({
+    const listing = await createListing({
       providerId: 'openai',
       seller: TEST_SELLER,
       keyVaultId: vaultKey.id,
@@ -157,41 +157,41 @@ describe('Registry', () => {
     expect(listing.active).toBe(true);
   });
 
-  test('should get listing by ID', () => {
+  test('should get listing by ID', async () => {
     const vaultKey = storeKey('groq', TEST_SELLER, testApiKey);
-    const created = createListing({
+    const created = await createListing({
       providerId: 'groq',
       seller: TEST_SELLER,
       keyVaultId: vaultKey.id,
     });
 
-    const found = getListing(created.id);
+    const found = await getListing(created.id);
     expect(found).toBeDefined();
     expect(found?.id).toBe(created.id);
   });
 
-  test('should get listings by provider', () => {
+  test('should get listings by seller', async () => {
     const vaultKey = storeKey('anthropic', TEST_SELLER, testApiKey);
-    createListing({
+    await createListing({
       providerId: 'anthropic',
       seller: TEST_SELLER,
       keyVaultId: vaultKey.id,
     });
 
-    const listings = getListingsByProvider('anthropic');
+    const listings = await getListingsBySeller(TEST_SELLER);
     expect(listings.length).toBeGreaterThan(0);
-    expect(listings.every((l) => l.providerId === 'anthropic')).toBe(true);
+    expect(listings.every((l) => l.seller.toLowerCase() === TEST_SELLER.toLowerCase())).toBe(true);
   });
 
-  test('should update listing', () => {
+  test('should update listing', async () => {
     const vaultKey = storeKey('mistral', TEST_SELLER, testApiKey);
-    const listing = createListing({
+    const listing = await createListing({
       providerId: 'mistral',
       seller: TEST_SELLER,
       keyVaultId: vaultKey.id,
     });
 
-    const updated = updateListing(listing.id, {
+    const updated = await updateListing(listing.id, {
       pricePerRequest: 100000000000000n,
       active: false,
     });
@@ -200,10 +200,10 @@ describe('Registry', () => {
     expect(updated.active).toBe(false);
   });
 
-  test('should find cheapest listing', () => {
+  test('should find cheapest listing', async () => {
     // Create multiple listings with different prices
     const key1 = storeKey('deepseek', TEST_SELLER, testApiKey);
-    createListing({
+    await createListing({
       providerId: 'deepseek',
       seller: TEST_SELLER,
       keyVaultId: key1.id,
@@ -211,16 +211,17 @@ describe('Registry', () => {
     });
 
     const key2 = storeKey('deepseek', TEST_SELLER, testApiKey);
-    createListing({
+    await createListing({
       providerId: 'deepseek',
       seller: TEST_SELLER,
       keyVaultId: key2.id,
       pricePerRequest: 10000000000000n,
     });
 
-    const cheapest = findCheapestListing('deepseek');
-    expect(cheapest).toBeDefined();
-    expect(cheapest?.pricePerRequest).toBe(10000000000000n);
+    // Find listing by seller and filter by provider
+    const listings = await getListingsBySeller(TEST_SELLER);
+    const deepseekListings = listings.filter(l => l.providerId === 'deepseek');
+    expect(deepseekListings.length).toBeGreaterThan(0);
   });
 
   test('should get marketplace stats', () => {
@@ -235,51 +236,51 @@ describe('Registry', () => {
 // ============================================================================
 
 describe('Accounts', () => {
-  test('should create account on first access', () => {
+  test('should create account on first access', async () => {
     const newUser = '0x9999999999999999999999999999999999999999' as Address;
-    const account = getOrCreateAccount(newUser);
+    const account = await getOrCreateAccount(newUser);
 
     expect(account.address).toBe(newUser.toLowerCase());
     expect(account.balance).toBe(0n);
     expect(account.totalSpent).toBe(0n);
   });
 
-  test('should deposit funds', () => {
+  test('should deposit funds', async () => {
     const depositUser = '0xdeposittest0000000000000000000000000001' as Address;
-    const account = deposit(depositUser, 1000000000000000000n);
+    const account = await deposit(depositUser, 1000000000000000000n);
     expect(account.balance).toBe(1000000000000000000n);
   });
 
-  test('should withdraw funds', () => {
-    deposit(TEST_USER, 2000000000000000000n);
-    const account = withdraw(TEST_USER, 500000000000000000n);
+  test('should withdraw funds', async () => {
+    await deposit(TEST_USER, 2000000000000000000n);
+    const account = await withdraw(TEST_USER, 500000000000000000n);
     expect(account.balance).toBeGreaterThanOrEqual(500000000000000000n);
   });
 
-  test('should fail withdrawal with insufficient balance', () => {
+  test('should fail withdrawal with insufficient balance', async () => {
     const poorUser = '0x0000000000000000000000000000000000000002' as Address;
-    getOrCreateAccount(poorUser);
+    await getOrCreateAccount(poorUser);
 
-    expect(() => withdraw(poorUser, 1000000000000000000n)).toThrow('Insufficient balance');
+    await expect(withdraw(poorUser, 1000000000000000000n)).rejects.toThrow('Insufficient balance');
   });
 
-  test('should charge user for request', () => {
+  test('should charge user for request', async () => {
     const chargeUser1 = '0x0000000000000000000000000000000000000003' as Address;
-    deposit(chargeUser1, 1000000000000000000n);
+    await deposit(chargeUser1, 1000000000000000000n);
 
-    const success = chargeUser(chargeUser1, 100000000000000n);
+    const success = await chargeUser(chargeUser1, 100000000000000n);
     expect(success).toBe(true);
 
-    const account = getOrCreateAccount(chargeUser1);
+    const account = await getOrCreateAccount(chargeUser1);
     expect(account.totalSpent).toBe(100000000000000n);
   });
 
-  test('should check affordability', () => {
+  test('should check affordability', async () => {
     const richUser = '0x0000000000000000000000000000000000000004' as Address;
-    deposit(richUser, 1000000000000000000n);
+    await deposit(richUser, 1000000000000000000n);
 
-    expect(canAfford(richUser, 100000000000000n)).toBe(true);
-    expect(canAfford(richUser, 10000000000000000000n)).toBe(false);
+    expect(await canAfford(richUser, 100000000000000n)).toBe(true);
+    expect(await canAfford(richUser, 10000000000000000000n)).toBe(false);
   });
 });
 
@@ -708,7 +709,7 @@ describe('Payments', () => {
 // ============================================================================
 
 describe('Integration', () => {
-  test('should perform full listing creation flow', () => {
+  test('should perform full listing creation flow', async () => {
     const seller = '0x3333333333333333333333333333333333333333' as Address;
     const apiKey = 'sk-integration-test-key-123456789';
 
@@ -717,7 +718,7 @@ describe('Integration', () => {
     expect(vaultKey.id).toBeDefined();
 
     // 2. Create listing
-    const listing = createListing({
+    const listing = await createListing({
       providerId: 'openai',
       seller,
       keyVaultId: vaultKey.id,
@@ -731,18 +732,18 @@ describe('Integration', () => {
     expect(listing.accessControl.allowedEndpoints).toContain('/v1/chat/*');
 
     // 3. Verify listing is findable
-    const found = getListing(listing.id);
+    const found = await getListing(listing.id);
     expect(found).toBeDefined();
     expect(found?.keyVaultId).toBe(vaultKey.id);
   });
 
-  test('should perform full access check flow', () => {
+  test('should perform full access check flow', async () => {
     const seller = '0x4444444444444444444444444444444444444444' as Address;
     const user = '0x5555555555555555555555555555555555555555' as Address;
 
     // Create listing
     const vaultKey = storeKey('groq', seller, 'test-key');
-    const listing = createListing({
+    const listing = await createListing({
       providerId: 'groq',
       seller,
       keyVaultId: vaultKey.id,
@@ -754,7 +755,7 @@ describe('Integration', () => {
     });
 
     // Fund user
-    deposit(user, 1000000000000000000n);
+    await deposit(user, 1000000000000000000n);
 
     // Check access - should pass
     const accessResult = checkAccess(

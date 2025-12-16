@@ -89,4 +89,11 @@ test.describe('Factory App', () => {
     await page.getByRole('navigation').getByRole('link', { name: /packages/i }).click();
     await expect(page).toHaveURL('/packages');
   });
+
+  test('should navigate to agents page', async ({ page }) => {
+    await page.goto('/agents');
+    
+    // Check for agents marketplace heading
+    await expect(page.getByRole('main').getByRole('heading', { name: /agent/i })).toBeVisible();
+  });
 });

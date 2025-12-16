@@ -136,7 +136,7 @@ rpcApp.post('/v1/rpc/:chainId', async (c) => {
     
     // Check x402 payment for batch (use first method as reference)
     const firstMethod = (body[0] as { method?: string })?.method || 'eth_call';
-    const paymentResult = processPayment(paymentHeader, chainId, firstMethod, userAddress);
+    const paymentResult = await processPayment(paymentHeader, chainId, firstMethod, userAddress);
     if (!paymentResult.allowed) {
       c.header('X-Payment-Required', 'true');
       return c.json({ jsonrpc: '2.0', id: null, error: { code: 402, message: 'Payment required', data: paymentResult.requirement } }, 402);
@@ -153,7 +153,7 @@ rpcApp.post('/v1/rpc/:chainId', async (c) => {
   const rpcBody = body as { jsonrpc: string; id: number | string; method: string; params?: unknown[] };
   
   // Check x402 payment for single request
-  const paymentResult = processPayment(paymentHeader, chainId, rpcBody.method, userAddress);
+  const paymentResult = await processPayment(paymentHeader, chainId, rpcBody.method, userAddress);
   if (!paymentResult.allowed) {
     c.header('X-Payment-Required', 'true');
     return c.json({ jsonrpc: '2.0', id: rpcBody.id, error: { code: 402, message: 'Payment required', data: paymentResult.requirement } }, 402);
@@ -171,7 +171,7 @@ rpcApp.get('/v1/keys', async (c) => {
   const address = getValidatedAddress(c);
   if (!address) return c.json({ error: 'Valid X-Wallet-Address header required' }, 401);
 
-  const keys = getApiKeysForAddress(address);
+  const keys = await getApiKeysForAddress(address);
   return c.json({
     keys: keys.map(k => ({
       id: k.id,
@@ -189,7 +189,7 @@ rpcApp.post('/v1/keys', async (c) => {
   const address = getValidatedAddress(c);
   if (!address) return c.json({ error: 'Valid X-Wallet-Address header required' }, 401);
 
-  const existingKeys = getApiKeysForAddress(address);
+  const existingKeys = await getApiKeysForAddress(address);
   if (existingKeys.filter(k => k.isActive).length >= MAX_API_KEYS_PER_ADDRESS) {
     return c.json({ error: `Maximum API keys reached (${MAX_API_KEYS_PER_ADDRESS}). Revoke an existing key first.` }, 400);
   }
@@ -202,7 +202,7 @@ rpcApp.post('/v1/keys', async (c) => {
     console.debug('No JSON body provided to RPC endpoint');
   }
   const name = (body.name || 'Default').slice(0, 100);
-  const { key, record } = createApiKey(address, name);
+  const { key, record } = await createApiKey(address, name);
 
   return c.json({
     message: 'API key created. Store this key securely - it cannot be retrieved again.',
@@ -220,7 +220,7 @@ rpcApp.delete('/v1/keys/:keyId', async (c) => {
   if (!address) return c.json({ error: 'Valid X-Wallet-Address header required' }, 401);
   if (!keyId || keyId.length !== 32) return c.json({ error: 'Invalid key ID format' }, 400);
 
-  const success = revokeApiKeyById(keyId, address);
+  const success = await revokeApiKeyById(keyId, address);
   if (!success) return c.json({ error: 'Key not found or not owned by this address' }, 404);
 
   return c.json({ message: 'API key revoked', id: keyId });
@@ -282,7 +282,7 @@ rpcApp.get('/v1/payments', (c) => {
 rpcApp.get('/v1/payments/credits', (c) => {
   const address = getValidatedAddress(c);
   if (!address) return c.json({ error: 'Valid X-Wallet-Address header required' }, 401);
-  const balance = getCredits(address);
+  const balance = await getCredits(address);
   return c.json({ address, credits: balance.toString(), creditsFormatted: `${Number(balance) / 1e18} JEJU` });
 });
 
@@ -296,7 +296,7 @@ rpcApp.post('/v1/payments/credits', async (c) => {
   const { txHash, amount } = body;
   if (!txHash || !amount) return c.json({ error: 'txHash and amount required' }, 400);
 
-  const result = purchaseCredits(address, txHash, BigInt(amount));
+  const result = await purchaseCredits(address, txHash, BigInt(amount));
   return c.json({ success: result.success, newBalance: result.newBalance.toString(), message: 'Credits added to your account' });
 });
 
@@ -385,24 +385,24 @@ rpcApp.post('/mcp/tools/call', async (c) => {
     case 'create_api_key': {
       const address = args.address as string;
       if (!address || !isAddress(address)) { result = { error: 'Invalid address' }; isError = true; break; }
-      const existingKeys = getApiKeysForAddress(address as Address);
+      const existingKeys = await getApiKeysForAddress(address as Address);
       if (existingKeys.filter(k => k.isActive).length >= MAX_API_KEYS_PER_ADDRESS) { result = { error: `Maximum API keys reached (${MAX_API_KEYS_PER_ADDRESS})` }; isError = true; break; }
       const keyName = ((args.name as string) || 'MCP Generated').slice(0, 100);
-      const { key, record } = createApiKey(address as Address, keyName);
+      const { key, record } = await createApiKey(address as Address, keyName);
       result = { key, id: record.id, tier: record.tier };
       break;
     }
     case 'check_rate_limit': {
       const address = args.address as string;
       if (!address || !isAddress(address)) { result = { error: 'Invalid address' }; isError = true; break; }
-      const keys = getApiKeysForAddress(address as Address);
+      const keys = await getApiKeysForAddress(address as Address);
       result = { address, apiKeys: keys.length, tiers: RATE_LIMITS };
       break;
     }
     case 'get_usage': {
       const address = args.address as string;
       if (!address || !isAddress(address)) { result = { error: 'Invalid address' }; isError = true; break; }
-      const keys = getApiKeysForAddress(address as Address);
+      const keys = await getApiKeysForAddress(address as Address);
       result = { address, apiKeys: keys.length, totalRequests: keys.reduce((sum, k) => sum + k.requestCount, 0) };
       break;
     }
