@@ -234,7 +234,7 @@ contract PackageRegistry is IPackageRegistry, Ownable, Pausable, ReentrancyGuard
     /**
      * @notice Publish a new version
      * @param packageId Package ID
-     * @param version Semver string (e.g., "1.0.0")
+     * @param versionStr Semver string (e.g., "1.0.0")
      * @param tarballCid IPFS CID of the tarball
      * @param integrityHash SHA-512 integrity hash
      * @param manifestCid IPFS CID of package.json
@@ -243,17 +243,17 @@ contract PackageRegistry is IPackageRegistry, Ownable, Pausable, ReentrancyGuard
      */
     function publishVersion(
         bytes32 packageId,
-        string calldata version,
+        string calldata versionStr,
         bytes32 tarballCid,
         bytes32 integrityHash,
         bytes32 manifestCid,
         uint256 size
     ) external requirePackageExists(packageId) canPublishPackage(packageId) whenNotPaused returns (bytes32 versionId) {
-        if (bytes(version).length == 0 || bytes(version).length > 256) revert InvalidVersion();
-        if (!_isValidVersion(version)) revert InvalidVersion();
+        if (bytes(versionStr).length == 0 || bytes(versionStr).length > 256) revert InvalidVersion();
+        if (!_isValidVersion(versionStr)) revert InvalidVersion();
         if (tarballCid == bytes32(0)) revert InvalidCid();
 
-        bytes32 versionHash = keccak256(bytes(version));
+        bytes32 versionHash = keccak256(bytes(versionStr));
 
         // Check for duplicate version
         if (_versionStringToId[packageId][versionHash] != bytes32(0)) revert VersionAlreadyExists();
@@ -265,7 +265,7 @@ contract PackageRegistry is IPackageRegistry, Ownable, Pausable, ReentrancyGuard
         _versions[packageId][versionId] = Version({
             versionId: versionId,
             packageId: packageId,
-            version: version,
+            version: versionStr,
             tarballCid: tarballCid,
             integrityHash: integrityHash,
             manifestCid: manifestCid,
@@ -284,7 +284,7 @@ contract PackageRegistry is IPackageRegistry, Ownable, Pausable, ReentrancyGuard
         pkg.latestVersion = versionId;
         pkg.updatedAt = block.timestamp;
 
-        emit VersionPublished(packageId, versionId, version, tarballCid, msg.sender);
+        emit VersionPublished(packageId, versionId, versionStr, tarballCid, msg.sender);
     }
 
     /**
@@ -292,10 +292,10 @@ contract PackageRegistry is IPackageRegistry, Ownable, Pausable, ReentrancyGuard
      */
     function deprecateVersion(
         bytes32 packageId,
-        string calldata version,
+        string calldata versionStr,
         string calldata message
     ) external requirePackageExists(packageId) canManagePackage(packageId) {
-        bytes32 versionHash = keccak256(bytes(version));
+        bytes32 versionHash = keccak256(bytes(versionStr));
         bytes32 versionId = _versionStringToId[packageId][versionHash];
 
         if (versionId == bytes32(0)) revert VersionNotFound();
@@ -304,7 +304,7 @@ contract PackageRegistry is IPackageRegistry, Ownable, Pausable, ReentrancyGuard
         ver.deprecated = true;
         ver.deprecationMessage = message;
 
-        emit VersionDeprecated(packageId, version, message);
+        emit VersionDeprecated(packageId, versionStr, message);
     }
 
     /**
@@ -312,9 +312,9 @@ contract PackageRegistry is IPackageRegistry, Ownable, Pausable, ReentrancyGuard
      */
     function setLatestVersion(
         bytes32 packageId,
-        string calldata version
+        string calldata versionStr
     ) external requirePackageExists(packageId) canManagePackage(packageId) {
-        bytes32 versionHash = keccak256(bytes(version));
+        bytes32 versionHash = keccak256(bytes(versionStr));
         bytes32 versionId = _versionStringToId[packageId][versionHash];
 
         if (versionId == bytes32(0)) revert VersionNotFound();
@@ -411,9 +411,9 @@ contract PackageRegistry is IPackageRegistry, Ownable, Pausable, ReentrancyGuard
 
     function getVersion(
         bytes32 packageId,
-        string calldata version
+        string calldata versionStr
     ) external view returns (Version memory) {
-        bytes32 versionHash = keccak256(bytes(version));
+        bytes32 versionHash = keccak256(bytes(versionStr));
         bytes32 versionId = _versionStringToId[packageId][versionHash];
         return _versions[packageId][versionId];
     }
@@ -471,8 +471,8 @@ contract PackageRegistry is IPackageRegistry, Ownable, Pausable, ReentrancyGuard
         return _packages[packageId].createdAt != 0;
     }
 
-    function versionExists(bytes32 packageId, string calldata version) external view returns (bool) {
-        bytes32 versionHash = keccak256(bytes(version));
+    function versionExists(bytes32 packageId, string calldata versionStr) external view returns (bool) {
+        bytes32 versionHash = keccak256(bytes(versionStr));
         return _versionStringToId[packageId][versionHash] != bytes32(0);
     }
 
@@ -561,8 +561,8 @@ contract PackageRegistry is IPackageRegistry, Ownable, Pausable, ReentrancyGuard
         return true;
     }
 
-    function _isValidVersion(string calldata version) internal pure returns (bool) {
-        bytes memory versionBytes = bytes(version);
+    function _isValidVersion(string calldata versionStr) internal pure returns (bool) {
+        bytes memory versionBytes = bytes(versionStr);
         if (versionBytes.length == 0) return false;
 
         // Basic semver check - allows x.y.z, x.y.z-pre, x.y.z+build, etc.

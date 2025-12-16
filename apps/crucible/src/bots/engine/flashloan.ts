@@ -213,7 +213,7 @@ export class FlashLoanExecutor {
       case 'balancer':
         return this.executeBalancerFlashLoan(opportunity, swapCalldata);
       default:
-        return { success: false, error: `Provider ${provider} not implemented` };
+        return { success: false, error: `Unknown flash loan provider: ${provider}` };
     }
   }
 

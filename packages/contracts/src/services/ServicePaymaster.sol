@@ -118,7 +118,8 @@ contract CloudPaymaster is BasePaymaster, Pausable {
         address _priceOracle,
         address _revenueWallet,
         address _owner
-    ) BasePaymaster(_entryPoint, _owner) {
+    ) BasePaymaster(_entryPoint) {
+        if (_owner != msg.sender) _transferOwnership(_owner);
         require(_elizaOS != address(0), "Invalid elizaOS");
         require(_usdc != address(0), "Invalid USDC");
         require(_serviceRegistry != address(0), "Invalid registry");
@@ -352,7 +353,7 @@ contract CloudPaymaster is BasePaymaster, Pausable {
      * @notice Deposits ETH into EntryPoint for gas sponsorship
      */
     function depositToEntryPoint() external payable onlyOwner {
-        entryPoint().depositTo{value: msg.value}(address(this));
+        entryPoint.depositTo{value: msg.value}(address(this));
         emit EntryPointFunded(msg.value);
     }
 
@@ -362,7 +363,7 @@ contract CloudPaymaster is BasePaymaster, Pausable {
      * @param amount Amount to withdraw
      */
     function withdrawFromEntryPoint(address payable to, uint256 amount) external onlyOwner {
-        entryPoint().withdrawTo(to, amount);
+        entryPoint.withdrawTo(to, amount);
     }
 
     /**

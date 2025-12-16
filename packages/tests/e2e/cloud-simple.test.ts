@@ -8,7 +8,9 @@
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
-import { ethers } from 'ethers';
+import { createPublicClient, createWalletClient, http, parseAbi, readContract, writeContract, waitForTransactionReceipt, getBytecode, isAddress, formatEther, formatUnits, type Address } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 
@@ -44,15 +46,16 @@ function loadDeployedAddresses(): Record<string, string> {
 }
 
 let ADDRESSES: Record<string, string> = {};
-let provider: ethers.JsonRpcProvider;
-let deployer: ethers.Wallet;
+let publicClient: ReturnType<typeof createPublicClient>;
+let deployer: ReturnType<typeof privateKeyToAccount>;
 
 let localnetAvailable = false;
 
 beforeAll(async () => {
   ADDRESSES = loadDeployedAddresses();
-  provider = new ethers.JsonRpcProvider('http://localhost:8545');
-  deployer = new ethers.Wallet('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80', provider);
+  const chain = inferChainFromRpcUrl('http://localhost:8545');
+  deployer = privateKeyToAccount('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as `0x${string}`);
+  publicClient = createPublicClient({ chain, transport: http('http://localhost:8545') });
   
   if (Object.keys(ADDRESSES).length === 0) {
     console.warn('⚠️ No deployment addresses found. Tests may be skipped.');
@@ -60,7 +63,7 @@ beforeAll(async () => {
   
   // Check if localnet is actually running
   try {
-    await provider.getBlockNumber();
+    await publicClient.getBlockNumber();
     localnetAvailable = true;
   } catch {
     console.warn('⚠️ Localnet not available at http://localhost:8545. Tests will be skipped.');
@@ -90,11 +93,11 @@ describe('Cloud Contracts Deployment', () => {
     
     let deployedCount = 0;
     for (const [name, address] of Object.entries(ADDRESSES)) {
-      if (!ethers.isAddress(address)) {
+      if (!isAddress(address)) {
         console.log(`⏭️ Skipping ${name}: invalid address format`);
         continue;
       }
-      const code = await provider.getCode(address);
+      const code = await getBytecode(publicClient, { address: address as Address });
       if (code === '0x') {
         console.log(`⚠️ ${name}: no code at ${address} (not deployed)`);
       } else {
@@ -120,19 +123,17 @@ describe('Cloud Contracts Deployment', () => {
     const registryAddr = ADDRESSES.identityRegistry || ADDRESSES.IdentityRegistry;
     
     // Check if contract is deployed
-    const code = await provider.getCode(registryAddr);
-    if (code === '0x') {
+    const code = await getBytecode(publicClient, { address: registryAddr as Address });
+    if (code === undefined || code === '0x') {
       console.log('⏭️ Skipping: IdentityRegistry not deployed');
       return;
     }
     
-    const identityRegistry = new ethers.Contract(
-      registryAddr,
-      ['function totalAgents() external view returns (uint256)'],
-      provider
-    );
-    
-    const totalAgents = await identityRegistry.totalAgents();
+    const totalAgents = await readContract(publicClient, {
+      address: registryAddr as Address,
+      abi: parseAbi(['function totalAgents() external view returns (uint256)']),
+      functionName: 'totalAgents',
+    });
     console.log(`✓ IdentityRegistry has ${totalAgents} registered agents`);
     expect(totalAgents).toBeGreaterThanOrEqual(0n);
   });
@@ -151,19 +152,17 @@ describe('Cloud Contracts Deployment', () => {
     const registryAddr = ADDRESSES.serviceRegistry || ADDRESSES.ServiceRegistry;
     
     // Check if contract is deployed
-    const code = await provider.getCode(registryAddr);
-    if (code === '0x') {
+    const code = await getBytecode(publicClient, { address: registryAddr as Address });
+    if (code === undefined || code === '0x') {
       console.log('⏭️ Skipping: ServiceRegistry not deployed');
       return;
     }
     
-    const serviceRegistry = new ethers.Contract(
-      registryAddr,
-      ['function getAllServiceNames() external view returns (string[] memory)'],
-      provider
-    );
-    
-    const services = await serviceRegistry.getAllServiceNames();
+    const services = await readContract(publicClient, {
+      address: registryAddr as Address,
+      abi: parseAbi(['function getAllServiceNames() external view returns (string[] memory)']),
+      functionName: 'getAllServiceNames',
+    });
     console.log(`✓ ServiceRegistry has ${services.length} registered services`);
     expect(services).toBeDefined();
   });
@@ -182,22 +181,20 @@ describe('Cloud Contracts Deployment', () => {
     const providerAddr = ADDRESSES.cloudReputationProvider || ADDRESSES.CloudReputationProvider;
     
     // Check if contract is deployed
-    const code = await provider.getCode(providerAddr);
-    if (code === '0x') {
+    const code = await getBytecode(publicClient, { address: providerAddr as Address });
+    if (code === undefined || code === '0x') {
       console.log('⏭️ Skipping: CloudReputationProvider not deployed');
       return;
     }
     
-    const cloudRep = new ethers.Contract(
-      providerAddr,
-      ['function owner() external view returns (address)'],
-      provider
-    );
-    
-    const owner = await cloudRep.owner();
+    const owner = await readContract(publicClient, {
+      address: providerAddr as Address,
+      abi: parseAbi(['function owner() external view returns (address)']),
+      functionName: 'owner',
+    });
     console.log(`✓ CloudReputationProvider owner: ${owner}`);
     expect(owner).toBeDefined();
-    expect(ethers.isAddress(owner)).toBe(true);
+    expect(isAddress(owner)).toBe(true);
   });
 });
 
@@ -216,37 +213,36 @@ describe('Cloud Service Costs', () => {
     const registryAddr = ADDRESSES.serviceRegistry || ADDRESSES.ServiceRegistry;
     
     // Check if contract is deployed
-    const code = await provider.getCode(registryAddr);
-    if (code === '0x') {
+    const code = await getBytecode(publicClient, { address: registryAddr as Address });
+    if (code === undefined || code === '0x') {
       console.log('⏭️ Skipping: ServiceRegistry not deployed');
       return;
     }
     
-    const serviceRegistry = new ethers.Contract(
-      registryAddr,
-      ['function getServiceCost(string,address) external view returns (uint256)'],
-      provider
-    );
+    const registryAbi = parseAbi([
+      'function getServiceCost(string,address) external view returns (uint256)',
+      'function getAllServiceNames() external view returns (string[] memory)',
+    ]);
     
     // First check if service exists
-    const servicesContract = new ethers.Contract(
-      registryAddr,
-      ['function getAllServiceNames() external view returns (string[] memory)'],
-      provider
-    );
-    
-    const services = await servicesContract.getAllServiceNames() as string[];
+    const services = await readContract(publicClient, {
+      address: registryAddr as Address,
+      abi: registryAbi,
+      functionName: 'getAllServiceNames',
+    }) as string[];
     if (services.length === 0) {
       console.log('⏭️ Skipping: No services registered');
       return;
     }
     
-    const cost = await serviceRegistry.getServiceCost(
-      services[0],
-      await deployer.getAddress()
-    );
+    const cost = await readContract(publicClient, {
+      address: registryAddr as Address,
+      abi: registryAbi,
+      functionName: 'getServiceCost',
+      args: [services[0], deployer.address],
+    });
     
-    console.log(`✓ ${services[0]} cost: ${ethers.formatEther(cost)} tokens`);
+    console.log(`✓ ${services[0]} cost: ${formatEther(cost)} tokens`);
     expect(cost).toBeGreaterThanOrEqual(0n);
   });
 });
@@ -272,24 +268,20 @@ describe('Cloud Credit System', () => {
     }
     
     // Check if contract is deployed
-    const code = await provider.getCode(creditAddr);
-    if (code === '0x') {
+    const code = await getBytecode(publicClient, { address: creditAddr as Address });
+    if (code === undefined || code === '0x') {
       console.log('⏭️ Skipping: CreditManager not deployed');
       return;
     }
     
-    const creditManager = new ethers.Contract(
-      creditAddr,
-      ['function getBalance(address,address) external view returns (uint256)'],
-      provider
-    );
+    const balance = await readContract(publicClient, {
+      address: creditAddr as Address,
+      abi: parseAbi(['function getBalance(address,address) external view returns (uint256)']),
+      functionName: 'getBalance',
+      args: [deployer.address, usdcAddr as Address],
+    });
     
-    const balance = await creditManager.getBalance(
-      await deployer.getAddress(),
-      usdcAddr
-    );
-    
-    console.log(`✓ User USDC balance in credit manager: ${ethers.formatUnits(balance, 6)} USDC`);
+    console.log(`✓ User USDC balance in credit manager: ${formatUnits(balance, 6)} USDC`);
     expect(balance).toBeGreaterThanOrEqual(0n);
   });
 });

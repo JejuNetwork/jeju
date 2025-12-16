@@ -6,7 +6,7 @@
  */
 
 import { describe, test, expect } from 'bun:test';
-import { parseAbi, encodeFunctionData, decodeFunctionData, parseEther, zeroAddress } from 'viem';
+import { parseAbi, encodeFunctionData, decodeFunctionData, parseEther, zeroAddress, keccak256, encodePacked } from 'viem';
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
 
@@ -67,64 +67,94 @@ describe('OutputSettler ABI Encoding', () => {
   });
 
   test('should handle zero amount edge case', () => {
-    const iface = new ethers.Interface(OUTPUT_SETTLER_ABI);
-    const orderId = '0x' + '0'.repeat(64);
-    const token = ethers.ZeroAddress;
+    const abi = parseAbi(OUTPUT_SETTLER_ABI);
+    const orderId = '0x' + '0'.repeat(64) as `0x${string}`;
+    const token = zeroAddress;
     const amount = 0n;
-    const recipient = ethers.ZeroAddress;
+    const recipient = zeroAddress;
 
-    const data = iface.encodeFunctionData('fillDirect', [orderId, token, amount, recipient]);
+    const data = encodeFunctionData({
+      abi,
+      functionName: 'fillDirect',
+      args: [orderId, token, amount, recipient],
+    });
     expect(data).toBeDefined();
   });
 
   test('should handle max uint256 amount', () => {
-    const iface = new ethers.Interface(OUTPUT_SETTLER_ABI);
-    const orderId = '0x' + 'ff'.repeat(32);
-    const token = ethers.ZeroAddress;
+    const abi = parseAbi(OUTPUT_SETTLER_ABI);
+    const orderId = '0x' + 'ff'.repeat(32) as `0x${string}`;
+    const token = zeroAddress;
     const amount = 2n ** 256n - 1n;
-    const recipient = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+    const recipient = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as `0x${string}`;
 
-    const data = iface.encodeFunctionData('fillDirect', [orderId, token, amount, recipient]);
-    const decoded = iface.decodeFunctionData('fillDirect', data);
+    const data = encodeFunctionData({
+      abi,
+      functionName: 'fillDirect',
+      args: [orderId, token, amount, recipient],
+    });
+    const decoded = decodeFunctionData({
+      abi,
+      data,
+    });
 
-    expect(decoded[2]).toBe(amount);
+    expect(decoded.args[2]).toBe(amount);
   });
 
   test('should encode isFilled() correctly', () => {
-    const iface = new ethers.Interface(OUTPUT_SETTLER_ABI);
-    const orderId = '0x' + 'ab'.repeat(32);
+    const abi = parseAbi(OUTPUT_SETTLER_ABI);
+    const orderId = '0x' + 'ab'.repeat(32) as `0x${string}`;
 
-    const data = iface.encodeFunctionData('isFilled', [orderId]);
+    const data = encodeFunctionData({
+      abi,
+      functionName: 'isFilled',
+      args: [orderId],
+    });
     expect(data).toMatch(/^0x/);
   });
 });
 
 describe('SolverRegistry ABI Encoding', () => {
   test('should encode register() with multiple chains', () => {
-    const iface = new ethers.Interface(SOLVER_REGISTRY_ABI);
+    const abi = parseAbi(SOLVER_REGISTRY_ABI);
     const chains = [11155111, 84532, 421614, 11155420, 420690];
 
-    const data = iface.encodeFunctionData('register', [chains]);
+    const data = encodeFunctionData({
+      abi,
+      functionName: 'register',
+      args: [chains],
+    });
 
     expect(data).toMatch(/^0x/);
   });
 
   test('should encode register() with empty chains array', () => {
-    const iface = new ethers.Interface(SOLVER_REGISTRY_ABI);
+    const abi = parseAbi(SOLVER_REGISTRY_ABI);
 
     // Empty array should still be valid ABI encoding
-    const data = iface.encodeFunctionData('register', [[]]);
+    const data = encodeFunctionData({
+      abi,
+      functionName: 'register',
+      args: [[]],
+    });
     expect(data).toBeDefined();
   });
 
   test('should encode register() with single chain', () => {
-    const iface = new ethers.Interface(SOLVER_REGISTRY_ABI);
+    const abi = parseAbi(SOLVER_REGISTRY_ABI);
     
-    const data = iface.encodeFunctionData('register', [[84532]]);
-    const decoded = iface.decodeFunctionData('register', data);
+    const data = encodeFunctionData({
+      abi,
+      functionName: 'register',
+      args: [[84532]],
+    });
+    const decoded = decodeFunctionData({
+      abi,
+      data,
+    });
     
-    expect(decoded[0]).toHaveLength(1);
-    expect(Number(decoded[0][0])).toBe(84532);
+    expect(decoded.args[0]).toHaveLength(1);
+    expect(Number(decoded.args[0][0])).toBe(84532);
   });
 });
 

@@ -12,7 +12,8 @@
     "./cdn/sdk": "./src/cdn/sdk/index.ts"
   },
   "scripts": {
-    "dev": "bun run src/server/index.ts",
+    "dev": "bun run scripts/dev.ts",
+    "dev:server": "bun run src/server/index.ts",
     "start": "bun run src/server/index.ts",
     "test": "bun test src/tests src/cdn/tests",
     "test:integration": "bun test tests/",
@@ -28,7 +29,6 @@
   },
   "dependencies": {
     "@jejunetwork/types": "workspace:*",
-    "ethers": "^6.13.4",
     "hono": "^4.6.12",
     "lru-cache": "^11.2.4",
     "viem": "2.41.2"

@@ -132,8 +132,8 @@ rateLimit:
   burstSize: 200
   # Connection limits
   maxConnectionsPerIp: 10
-  # Note: Method-specific limits are not currently implemented in nginx config
-  # Consider using a more sophisticated API gateway (Kong, Tyk) for method-level rate limiting
+  # Method-specific rate limiting requires nginx Lua module or a different gateway (Kong, Tyk)
+  # Standard nginx only supports IP-based limiting, not JSON-RPC method inspection
 
 # Logging
 logging:

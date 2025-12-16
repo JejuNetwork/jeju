@@ -161,11 +161,15 @@ function createRestAPI(bot: UnifiedBot): Hono {
     return c.json(result);
   });
 
-  // Remove liquidity (simplified - would need position ID and percent)
+  // Remove liquidity from a position
   app.post('/liquidity/remove', async (c) => {
     const body = await c.req.json();
-    // This would call liquidityManager.removeLiquidity
-    return c.json({ success: false, error: 'Not implemented' });
+    const result = await bot.removeLiquidity({
+      positionId: body.positionId,
+      chain: body.chain,
+      percent: body.percent ?? 100, // Default to 100% if not specified
+    });
+    return c.json(result);
   });
 
   // Get Solana swap quotes

@@ -15,7 +15,20 @@
 
 import { EventEmitter } from 'events';
 import { Connection, Keypair, PublicKey } from '@solana/web3.js';
-import { createPublicClient, http, type PublicClient, type Address, parseAbi } from 'viem';
+import { 
+  createPublicClient, 
+  createWalletClient,
+  http, 
+  type PublicClient, 
+  type WalletClient,
+  type Address, 
+  type Hex,
+  type Chain,
+  parseAbi,
+  maxUint128,
+} from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { mainnet, sepolia, arbitrum, optimism, base, baseSepolia, bsc, bscTestnet, localhost } from 'viem/chains';
 import type { ChainId, Token, StrategyConfig } from '../autocrat-types';
 import { 
   SolanaDexAggregator, 
@@ -23,6 +36,21 @@ import {
   type LiquidityPosition as SolanaPosition,
   type DexSource 
 } from '../solana/dex-adapters';
+
+// Map chain IDs to viem chain objects
+const CHAIN_MAP: Record<number, Chain> = {
+  1: mainnet,
+  11155111: sepolia,
+  42161: arbitrum,
+  10: optimism,
+  8453: base,
+  84532: baseSepolia,
+  56: bsc,
+  97: bscTestnet,
+  1337: localhost,
+  420691: { ...localhost, id: 420691, name: 'Jeju' },
+  420690: { ...localhost, id: 420690, name: 'Jeju Testnet' },
+};
 
 // ============ Types ============
 
@@ -121,9 +149,21 @@ const UNISWAP_V3_FACTORY: Record<number, Address> = {
 };
 
 const POSITION_NFT_ABI = parseAbi([
+  // Read functions
   'function positions(uint256 tokenId) view returns (uint96 nonce, address operator, address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint128 liquidity, uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128, uint128 tokensOwed0, uint128 tokensOwed1)',
   'function balanceOf(address owner) view returns (uint256)',
   'function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)',
+  // Write functions for liquidity management
+  'function mint((address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min, address recipient, uint256 deadline)) returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)',
+  'function increaseLiquidity((uint256 tokenId, uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min, uint256 deadline)) returns (uint128 liquidity, uint256 amount0, uint256 amount1)',
+  'function decreaseLiquidity((uint256 tokenId, uint128 liquidity, uint256 amount0Min, uint256 amount1Min, uint256 deadline)) returns (uint256 amount0, uint256 amount1)',
+  'function collect((uint256 tokenId, address recipient, uint128 amount0Max, uint128 amount1Max)) returns (uint256 amount0, uint256 amount1)',
+  'function burn(uint256 tokenId)',
+]);
+
+const ERC20_ABI = parseAbi([
+  'function approve(address spender, uint256 amount) returns (bool)',
+  'function allowance(address owner, address spender) view returns (uint256)',
 ]);
 
 // ============ Liquidity Manager ============
@@ -131,6 +171,9 @@ const POSITION_NFT_ABI = parseAbi([
 export class LiquidityManager extends EventEmitter {
   private config: LiquidityManagerConfig;
   private evmClients: Map<ChainId, PublicClient> = new Map();
+  private evmWalletClients: Map<ChainId, WalletClient> = new Map();
+  private evmChains: Map<ChainId, Chain> = new Map();
+  private evmWalletAddress: Address | null = null;
   private solanaConnection: Connection | null = null;
   private solanaDex: SolanaDexAggregator | null = null;
   private solanaKeypair: Keypair | null = null;
@@ -160,6 +203,7 @@ export class LiquidityManager extends EventEmitter {
     solanaRpcUrl?: string;
     solanaPrivateKey?: string;
     evmWalletAddress?: Address;
+    evmPrivateKey?: Hex;
   }): Promise<void> {
     console.log('🌊 Initializing Cross-Chain Liquidity Manager...');
 
@@ -178,9 +222,32 @@ export class LiquidityManager extends EventEmitter {
       console.log(`   Connected to Solana at slot ${slot}`);
     }
 
+    // Initialize EVM wallet clients for transactions
+    if (params.evmPrivateKey) {
+      const account = privateKeyToAccount(params.evmPrivateKey);
+      this.evmWalletAddress = account.address;
+      
+      for (const chainId of this.config.evmChains) {
+        const rpcUrl = this.getRpcUrl(chainId);
+        const chain = CHAIN_MAP[chainId];
+        if (rpcUrl && chain) {
+          const walletClient = createWalletClient({
+            account,
+            chain,
+            transport: http(rpcUrl),
+          });
+          this.evmWalletClients.set(chainId, walletClient);
+          this.evmChains.set(chainId, chain);
+        }
+      }
+      console.log(`   EVM wallet: ${this.evmWalletAddress}`);
+    } else if (params.evmWalletAddress) {
+      this.evmWalletAddress = params.evmWalletAddress;
+    }
+
     // Load initial positions
-    if (params.evmWalletAddress) {
-      await this.loadEVMPositions(params.evmWalletAddress);
+    if (this.evmWalletAddress) {
+      await this.loadEVMPositions(this.evmWalletAddress);
     }
     
     if (this.solanaKeypair) {
@@ -348,6 +415,9 @@ export class LiquidityManager extends EventEmitter {
     amountB: bigint;
     tickLower?: number;
     tickUpper?: number;
+    tokenA?: Address;
+    tokenB?: Address;
+    fee?: number;
   }): Promise<{ success: boolean; txHash?: string; positionId?: string; error?: string }> {
     console.log(`➕ Adding liquidity to ${params.dex} on ${params.chain}`);
 
@@ -371,8 +441,149 @@ export class LiquidityManager extends EventEmitter {
       return { success: true, txHash };
     }
 
-    // EVM implementation would go here
-    return { success: false, error: 'EVM liquidity not implemented yet' };
+    // EVM: Uniswap V3 NonfungiblePositionManager
+    return this.addEVMLiquidity(params);
+  }
+
+  /**
+   * Add liquidity on EVM via Uniswap V3 NonfungiblePositionManager
+   */
+  private async addEVMLiquidity(params: {
+    chainId?: ChainId;
+    poolId: string;
+    amountA: bigint;
+    amountB: bigint;
+    tickLower?: number;
+    tickUpper?: number;
+    tokenA?: Address;
+    tokenB?: Address;
+    fee?: number;
+  }): Promise<{ success: boolean; txHash?: string; positionId?: string; error?: string }> {
+    const chainId = params.chainId ?? this.config.evmChains[0];
+    if (!chainId) {
+      return { success: false, error: 'No EVM chain configured' };
+    }
+
+    const walletClient = this.evmWalletClients.get(chainId);
+    const publicClient = this.evmClients.get(chainId);
+    const chain = this.evmChains.get(chainId);
+    if (!walletClient || !publicClient || !chain) {
+      return { success: false, error: `No wallet client for chain ${chainId}. Provide evmPrivateKey during initialization.` };
+    }
+
+    const nftAddress = UNISWAP_V3_POSITIONS_NFT[chainId];
+    if (!nftAddress) {
+      return { success: false, error: `Uniswap V3 not supported on chain ${chainId}` };
+    }
+
+    // Require token addresses and fee tier
+    if (!params.tokenA || !params.tokenB) {
+      return { success: false, error: 'tokenA and tokenB addresses required for EVM liquidity' };
+    }
+
+    // Sort tokens (Uniswap requires token0 < token1)
+    const [token0, token1] = params.tokenA.toLowerCase() < params.tokenB.toLowerCase()
+      ? [params.tokenA, params.tokenB]
+      : [params.tokenB, params.tokenA];
+    const [amount0, amount1] = params.tokenA.toLowerCase() < params.tokenB.toLowerCase()
+      ? [params.amountA, params.amountB]
+      : [params.amountB, params.amountA];
+
+    const fee = params.fee ?? 3000; // Default to 0.3% fee tier
+    const tickLower = params.tickLower ?? -887220; // Full range
+    const tickUpper = params.tickUpper ?? 887220;  // Full range
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200); // 20 minutes
+
+    // Approve tokens
+    await this.approveTokenIfNeeded(chainId, token0, nftAddress, amount0);
+    await this.approveTokenIfNeeded(chainId, token1, nftAddress, amount1);
+
+    const mintParams = {
+      token0,
+      token1,
+      fee,
+      tickLower,
+      tickUpper,
+      amount0Desired: amount0,
+      amount1Desired: amount1,
+      amount0Min: 0n, // Accept any slippage (should be improved for production)
+      amount1Min: 0n,
+      recipient: this.evmWalletAddress!,
+      deadline,
+    };
+
+    console.log(`   Minting position: ${token0}/${token1} fee=${fee}`);
+
+    const hash = await walletClient.writeContract({
+      chain,
+      address: nftAddress,
+      abi: POSITION_NFT_ABI,
+      functionName: 'mint',
+      args: [mintParams],
+      account: walletClient.account,
+    } as Parameters<typeof walletClient.writeContract>[0]);
+
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    
+    if (receipt.status === 'reverted') {
+      return { success: false, error: 'Mint transaction reverted' };
+    }
+
+    // Parse logs to get tokenId
+    // The Transfer event contains the new token ID
+    let positionId: string | undefined;
+    for (const log of receipt.logs) {
+      // Transfer event topic
+      if (log.topics[0] === '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef') {
+        const tokenId = BigInt(log.topics[3] ?? '0');
+        positionId = tokenId.toString();
+        break;
+      }
+    }
+
+    console.log(`   ✅ Minted position #${positionId}`);
+
+    // Reload positions
+    if (this.evmWalletAddress) {
+      await this.loadEVMPositions(this.evmWalletAddress);
+    }
+
+    return { success: true, txHash: hash, positionId };
+  }
+
+  /**
+   * Approve token spending if needed
+   */
+  private async approveTokenIfNeeded(
+    chainId: ChainId,
+    token: Address,
+    spender: Address,
+    amount: bigint
+  ): Promise<void> {
+    const publicClient = this.evmClients.get(chainId);
+    const walletClient = this.evmWalletClients.get(chainId);
+    const chain = this.evmChains.get(chainId);
+    if (!publicClient || !walletClient || !chain || !this.evmWalletAddress) return;
+
+    const allowance = await publicClient.readContract({
+      address: token,
+      abi: ERC20_ABI,
+      functionName: 'allowance',
+      args: [this.evmWalletAddress, spender],
+    });
+
+    if (allowance < amount) {
+      console.log(`   Approving ${token} for ${spender}...`);
+      const hash = await walletClient.writeContract({
+        chain,
+        address: token,
+        abi: ERC20_ABI,
+        functionName: 'approve',
+        args: [spender, maxUint128],
+        account: walletClient.account,
+      } as Parameters<typeof walletClient.writeContract>[0]);
+      await publicClient.waitForTransactionReceipt({ hash });
+    }
   }
 
   /**
@@ -382,6 +593,7 @@ export class LiquidityManager extends EventEmitter {
     positionId: string;
     chain: 'evm' | 'solana';
     percent: number; // 0-100
+    chainId?: ChainId;
   }): Promise<{ success: boolean; txHash?: string; error?: string }> {
     console.log(`➖ Removing ${params.percent}% liquidity from ${params.positionId}`);
 
@@ -410,7 +622,113 @@ export class LiquidityManager extends EventEmitter {
       return { success: true, txHash };
     }
 
-    return { success: false, error: 'EVM removal not implemented yet' };
+    // EVM: Uniswap V3 NonfungiblePositionManager
+    return this.removeEVMLiquidity(params);
+  }
+
+  /**
+   * Remove liquidity from EVM position via Uniswap V3 NonfungiblePositionManager
+   */
+  private async removeEVMLiquidity(params: {
+    positionId: string;
+    percent: number;
+    chainId?: ChainId;
+  }): Promise<{ success: boolean; txHash?: string; error?: string }> {
+    const position = this.evmPositions.get(params.positionId);
+    if (!position) {
+      return { success: false, error: 'EVM position not found' };
+    }
+
+    const chainId = params.chainId ?? position.chainId;
+    const walletClient = this.evmWalletClients.get(chainId);
+    const publicClient = this.evmClients.get(chainId);
+    const chain = this.evmChains.get(chainId);
+    if (!walletClient || !publicClient || !chain) {
+      return { success: false, error: `No wallet client for chain ${chainId}. Provide evmPrivateKey during initialization.` };
+    }
+
+    const nftAddress = UNISWAP_V3_POSITIONS_NFT[chainId];
+    if (!nftAddress) {
+      return { success: false, error: `Uniswap V3 not supported on chain ${chainId}` };
+    }
+
+    if (!position.nftId || !position.liquidity) {
+      return { success: false, error: 'Position has no NFT ID or liquidity' };
+    }
+
+    const liquidityToRemove = (position.liquidity * BigInt(params.percent)) / 100n;
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200); // 20 minutes
+
+    console.log(`   Decreasing liquidity for NFT #${position.nftId}...`);
+
+    // Step 1: Decrease liquidity
+    const decreaseParams = {
+      tokenId: position.nftId,
+      liquidity: liquidityToRemove as unknown as bigint,
+      amount0Min: 0n,
+      amount1Min: 0n,
+      deadline,
+    };
+
+    const decreaseHash = await walletClient.writeContract({
+      chain,
+      address: nftAddress,
+      abi: POSITION_NFT_ABI,
+      functionName: 'decreaseLiquidity',
+      args: [decreaseParams],
+      account: walletClient.account,
+    } as Parameters<typeof walletClient.writeContract>[0]);
+
+    const decreaseReceipt = await publicClient.waitForTransactionReceipt({ hash: decreaseHash });
+    if (decreaseReceipt.status === 'reverted') {
+      return { success: false, error: 'decreaseLiquidity transaction reverted' };
+    }
+
+    // Step 2: Collect the tokens
+    console.log(`   Collecting tokens...`);
+    const collectParams = {
+      tokenId: position.nftId,
+      recipient: this.evmWalletAddress!,
+      amount0Max: maxUint128,
+      amount1Max: maxUint128,
+    };
+
+    const collectHash = await walletClient.writeContract({
+      chain,
+      address: nftAddress,
+      abi: POSITION_NFT_ABI,
+      functionName: 'collect',
+      args: [collectParams],
+      account: walletClient.account,
+    } as Parameters<typeof walletClient.writeContract>[0]);
+
+    const collectReceipt = await publicClient.waitForTransactionReceipt({ hash: collectHash });
+    if (collectReceipt.status === 'reverted') {
+      return { success: false, error: 'collect transaction reverted' };
+    }
+
+    // Step 3: Burn NFT if 100% removed
+    if (params.percent === 100) {
+      console.log(`   Burning NFT #${position.nftId}...`);
+      const burnHash = await walletClient.writeContract({
+        chain,
+        address: nftAddress,
+        abi: POSITION_NFT_ABI,
+        functionName: 'burn',
+        args: [position.nftId],
+        account: walletClient.account,
+      } as Parameters<typeof walletClient.writeContract>[0]);
+      await publicClient.waitForTransactionReceipt({ hash: burnHash });
+    }
+
+    console.log(`   ✅ Removed ${params.percent}% liquidity`);
+
+    // Reload positions
+    if (this.evmWalletAddress) {
+      await this.loadEVMPositions(this.evmWalletAddress);
+    }
+
+    return { success: true, txHash: decreaseHash };
   }
 
   // ============ Private Methods ============
@@ -532,16 +850,114 @@ export class LiquidityManager extends EventEmitter {
         return { success: true, txHash };
 
       case 'RERANGE':
-        // Would need to remove and re-add with new ticks
-        return { success: false, error: 'Rerange not yet implemented' };
+        // Rerange requires: 1) remove position, 2) calculate new ticks, 3) re-add
+        return { success: false, error: 'Rerange requires position close and re-open with new ticks' };
 
       default:
         return { success: false, error: `Unknown action type: ${action.type}` };
     }
   }
 
-  private async executeEVMAction(_action: RebalanceAction): Promise<{ success: boolean; txHash?: string; error?: string }> {
-    return { success: false, error: 'EVM actions not yet implemented' };
+  private async executeEVMAction(action: RebalanceAction): Promise<{ success: boolean; txHash?: string; error?: string }> {
+    const position = this.evmPositions.get(action.positionId);
+    if (!position) {
+      return { success: false, error: `EVM position ${action.positionId} not found` };
+    }
+
+    switch (action.type) {
+      case 'REMOVE':
+        return this.removeEVMLiquidity({
+          positionId: action.positionId,
+          percent: 100,
+          chainId: position.chainId,
+        });
+
+      case 'HARVEST':
+      case 'COMPOUND':
+        return this.collectEVMFees(action.positionId, position.chainId);
+
+      case 'ADD':
+        // ADD requires amounts to be specified in action
+        return { success: false, error: 'ADD action requires amounts - use addLiquidity() directly' };
+
+      case 'RERANGE':
+        // Rerange: close position and reopen with new ticks
+        // This is complex and requires: 1) Get current amounts 2) Remove 3) Calculate new ticks 4) Re-add
+        const removeResult = await this.removeEVMLiquidity({
+          positionId: action.positionId,
+          percent: 100,
+          chainId: position.chainId,
+        });
+        if (!removeResult.success) {
+          return removeResult;
+        }
+        // After removal, user must manually re-add with new tick range
+        return { 
+          success: true, 
+          txHash: removeResult.txHash,
+          error: 'Position closed. Re-add liquidity with desired tick range using addLiquidity().'
+        };
+
+      default:
+        return { success: false, error: `Unknown action type: ${action.type}` };
+    }
+  }
+
+  /**
+   * Collect accumulated fees from an EVM position
+   */
+  private async collectEVMFees(
+    positionId: string,
+    chainId: ChainId
+  ): Promise<{ success: boolean; txHash?: string; error?: string }> {
+    const position = this.evmPositions.get(positionId);
+    if (!position || !position.nftId) {
+      return { success: false, error: 'Position not found or has no NFT ID' };
+    }
+
+    const walletClient = this.evmWalletClients.get(chainId);
+    const publicClient = this.evmClients.get(chainId);
+    const chain = this.evmChains.get(chainId);
+    if (!walletClient || !publicClient || !chain || !this.evmWalletAddress) {
+      return { success: false, error: `No wallet client for chain ${chainId}` };
+    }
+
+    const nftAddress = UNISWAP_V3_POSITIONS_NFT[chainId];
+    if (!nftAddress) {
+      return { success: false, error: `Uniswap V3 not supported on chain ${chainId}` };
+    }
+
+    console.log(`   Collecting fees for NFT #${position.nftId}...`);
+
+    const collectParams = {
+      tokenId: position.nftId,
+      recipient: this.evmWalletAddress,
+      amount0Max: maxUint128,
+      amount1Max: maxUint128,
+    };
+
+    const hash = await walletClient.writeContract({
+      chain,
+      address: nftAddress,
+      abi: POSITION_NFT_ABI,
+      functionName: 'collect',
+      args: [collectParams],
+      account: walletClient.account,
+    } as Parameters<typeof walletClient.writeContract>[0]);
+
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    if (receipt.status === 'reverted') {
+      return { success: false, error: 'collect transaction reverted' };
+    }
+
+    console.log(`   ✅ Fees collected`);
+
+    // Reload to update fee amounts
+    if (this.evmWalletAddress) {
+      await this.loadEVMPositions(this.evmWalletAddress);
+    }
+
+    return { success: true, txHash: hash };
   }
 
   private toUnifiedPosition(pos: EVMPosition | SolanaPosition, chain: 'evm' | 'solana'): UnifiedPosition {

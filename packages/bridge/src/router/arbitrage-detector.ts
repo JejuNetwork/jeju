@@ -404,21 +404,159 @@ export class ArbitrageDetector {
   }
 
   private async getEvmPrice(token: string, chainId: number): Promise<PriceQuote | null> {
-    // Would use actual DEX aggregator (1inch, 0x, Uniswap Quoter)
-    // For now, return mock price with slight variance
-    const basePrice = token === 'USDC' ? 1e6 : token === 'WETH' ? 3500e6 : 1e6;
-    const variance = (Math.random() - 0.5) * 0.04 * basePrice;
+    // Use 1inch API for EVM price quotes
+    const ONE_INCH_API = `https://api.1inch.dev/swap/v6.0/${chainId}/quote`;
     
-    return {
-      chain: `evm:${chainId}`,
-      dex: 'aggregator',
-      tokenIn: token,
-      tokenOut: 'USDC',
-      amountIn: BigInt(1e18),
-      amountOut: BigInt(Math.floor(basePrice + variance)),
-      priceImpactBps: 10,
-      timestamp: Date.now(),
+    // Token addresses by chain
+    const TOKEN_ADDRESSES: Record<string, Record<number, string>> = {
+      WETH: {
+        1: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+        42161: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
+        10: '0x4200000000000000000000000000000000000006',
+        8453: '0x4200000000000000000000000000000000000006',
+      },
+      USDC: {
+        1: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+        42161: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+        10: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85',
+        8453: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+      },
     };
+
+    const tokenAddress = TOKEN_ADDRESSES[token]?.[chainId];
+    const usdcAddress = TOKEN_ADDRESSES.USDC[chainId];
+    
+    if (!tokenAddress || !usdcAddress) {
+      return null;
+    }
+
+    try {
+      const apiKey = process.env.ONEINCH_API_KEY;
+      if (!apiKey) {
+        // Fallback to Uniswap V3 quoter if no 1inch API key
+        return this.getUniswapQuote(token, chainId, tokenAddress, usdcAddress);
+      }
+
+      const amount = token === 'USDC' ? '1000000' : '1000000000000000000'; // 1 token
+      const response = await fetch(
+        `${ONE_INCH_API}?src=${tokenAddress}&dst=${usdcAddress}&amount=${amount}`,
+        {
+          headers: { 
+            'Authorization': `Bearer ${apiKey}`,
+            'Accept': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`1inch API error: ${response.status}`);
+      }
+
+      const data = await response.json() as { dstAmount: string };
+      
+      return {
+        chain: `evm:${chainId}`,
+        dex: '1inch',
+        tokenIn: token,
+        tokenOut: 'USDC',
+        amountIn: BigInt(amount),
+        amountOut: BigInt(data.dstAmount),
+        priceImpactBps: 10,
+        timestamp: Date.now(),
+      };
+    } catch (error) {
+      console.error(`Failed to get EVM price for ${token} on chain ${chainId}:`, error);
+      return null;
+    }
+  }
+
+  private async getUniswapQuote(
+    token: string,
+    chainId: number,
+    tokenAddress: string,
+    usdcAddress: string
+  ): Promise<PriceQuote | null> {
+    // Uniswap V3 Quoter addresses
+    const QUOTER_V2: Record<number, string> = {
+      1: '0x61fFE014bA17989E743c5F6cB21bF9697530B21e',
+      42161: '0x61fFE014bA17989E743c5F6cB21bF9697530B21e',
+      10: '0x61fFE014bA17989E743c5F6cB21bF9697530B21e',
+      8453: '0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a',
+    };
+
+    const quoterAddress = QUOTER_V2[chainId];
+    if (!quoterAddress) return null;
+
+    try {
+      const { createPublicClient, http, encodeFunctionData } = await import('viem');
+      const { mainnet, arbitrum, optimism, base } = await import('viem/chains');
+      
+      const chains: Record<number, typeof mainnet> = {
+        1: mainnet, 42161: arbitrum, 10: optimism, 8453: base,
+      };
+
+      const client = createPublicClient({
+        chain: chains[chainId],
+        transport: http(),
+      });
+
+      const amount = token === 'USDC' ? BigInt(1e6) : BigInt(1e18);
+      
+      // QuoterV2 quoteExactInputSingle
+      const QUOTER_ABI = [
+        {
+          name: 'quoteExactInputSingle',
+          type: 'function',
+          stateMutability: 'nonpayable',
+          inputs: [
+            {
+              name: 'params',
+              type: 'tuple',
+              components: [
+                { name: 'tokenIn', type: 'address' },
+                { name: 'tokenOut', type: 'address' },
+                { name: 'amountIn', type: 'uint256' },
+                { name: 'fee', type: 'uint24' },
+                { name: 'sqrtPriceLimitX96', type: 'uint160' },
+              ],
+            },
+          ],
+          outputs: [
+            { name: 'amountOut', type: 'uint256' },
+            { name: 'sqrtPriceX96After', type: 'uint160' },
+            { name: 'initializedTicksCrossed', type: 'uint32' },
+            { name: 'gasEstimate', type: 'uint256' },
+          ],
+        },
+      ] as const;
+
+      const result = await client.simulateContract({
+        address: quoterAddress as `0x${string}`,
+        abi: QUOTER_ABI,
+        functionName: 'quoteExactInputSingle',
+        args: [{
+          tokenIn: tokenAddress as `0x${string}`,
+          tokenOut: usdcAddress as `0x${string}`,
+          amountIn: amount,
+          fee: 3000, // 0.3% pool
+          sqrtPriceLimitX96: 0n,
+        }],
+      });
+
+      return {
+        chain: `evm:${chainId}`,
+        dex: 'uniswap_v3',
+        tokenIn: token,
+        tokenOut: 'USDC',
+        amountIn: amount,
+        amountOut: result.result[0],
+        priceImpactBps: 10,
+        timestamp: Date.now(),
+      };
+    } catch (error) {
+      console.error(`Failed to get Uniswap quote for ${token}:`, error);
+      return null;
+    }
   }
 
   private async getHyperliquidPrice(pair: string): Promise<number | null> {

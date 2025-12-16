@@ -5,7 +5,7 @@
  * - Payment payload creation and signing
  * - Facilitator discovery via ERC-8004
  * - On-chain settlement
- * - Wallet integration (viem/ethers)
+ * - Wallet integration (viem)
  * 
  * @example
  * ```typescript

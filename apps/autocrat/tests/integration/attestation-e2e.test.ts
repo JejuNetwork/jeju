@@ -3,99 +3,99 @@
  * Requires: Anvil on port 9545, contracts deployed (run scripts/start-council-dev.sh)
  */
 import { describe, test, expect, beforeAll } from 'bun:test';
-import { ethers, Contract, Wallet, JsonRpcProvider, solidityPackedKeccak256, getBytes, keccak256, toUtf8Bytes } from 'ethers';
+import { createPublicClient, createWalletClient, http, parseAbi, readContract, writeContract, waitForTransactionReceipt, keccak256, encodePacked, stringToBytes, stringToHex, zeroAddress, type Address, type PublicClient, type WalletClient } from 'viem';
+import { privateKeyToAccount, signMessage, type PrivateKeyAccount } from 'viem/accounts';
+import { foundry } from 'viem/chains';
 
 const RPC_URL = process.env.RPC_URL ?? process.env.L2_RPC_URL ?? 'http://localhost:9545';
 const CHAIN_ID = 31337;
-const DEPLOYER_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
-const USER_KEY = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
+const DEPLOYER_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as const;
+const USER_KEY = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as const;
 
-const COUNCIL_ABI = [
+const COUNCIL_ABI = parseAbi([
   'function submitProposalWithAttestation(uint8 proposalType, uint8 qualityScore, bytes32 contentHash, address targetContract, bytes calldata callData, uint256 value, uint256 attestationTimestamp, bytes calldata attestationSignature) external payable returns (bytes32)',
   'function proposalBond() external view returns (uint256)',
-];
+]);
 
-const QUALITY_ORACLE_ABI = [
+const QUALITY_ORACLE_ABI = parseAbi([
   'function verifyScore(bytes32 contentHash, uint256 qualityScore, uint256 attestationTimestamp, address proposer, bytes attestationSignature) external view',
   'function isAssessor(address) external view returns (bool)',
   'function minScore() external view returns (uint256)',
-];
+]);
 
-function signAttestation(
-  contentHash: string,
+async function signAttestation(
+  contentHash: `0x${string}`,
   score: number,
   timestamp: number,
-  proposerAddress: string,
-  assessorKey: string,
+  proposerAddress: Address,
+  assessorKey: `0x${string}`,
   chainId: number
-): { signature: string; assessor: string } {
-  const messageHash = solidityPackedKeccak256(
-    ['string', 'bytes32', 'uint256', 'uint256', 'address', 'uint256'],
-    ['QualityAttestation', contentHash, score, timestamp, proposerAddress, chainId]
+): Promise<{ signature: `0x${string}`; assessor: Address }> {
+  const messageHash = keccak256(
+    encodePacked(
+      ['string', 'bytes32', 'uint256', 'uint256', 'address', 'uint256'],
+      ['QualityAttestation', contentHash, BigInt(score), BigInt(timestamp), proposerAddress, BigInt(chainId)]
+    )
   );
   
-  const wallet = new Wallet(assessorKey);
-  const signature = wallet.signMessageSync(getBytes(messageHash));
+  const account = privateKeyToAccount(assessorKey);
+  const signature = await signMessage({ account, message: { raw: messageHash } });
   
-  return { signature, assessor: wallet.address };
+  return { signature, assessor: account.address };
 }
 
-function getContentHash(title: string, description: string, proposalType: number): string {
-  return keccak256(toUtf8Bytes(JSON.stringify({ title, description, proposalType })));
+function getContentHash(title: string, description: string, proposalType: number): `0x${string}` {
+  return keccak256(stringToBytes(JSON.stringify({ title, description, proposalType })));
 }
 
-async function checkAnvil(): Promise<boolean> {
+async function checkAnvil(publicClient: PublicClient): Promise<boolean> {
   try {
-    const provider = new JsonRpcProvider(RPC_URL);
-    await provider.getBlockNumber();
+    await publicClient.getBlockNumber();
     return true;
   } catch {
     return false;
   }
 }
 
-async function checkContractsDeployed(provider: JsonRpcProvider, councilAddress: string): Promise<boolean> {
+async function checkContractsDeployed(publicClient: PublicClient, councilAddress: Address): Promise<boolean> {
   try {
-    const code = await provider.getCode(councilAddress);
-    return code !== '0x' && code.length > 2;
+    const code = await publicClient.getBytecode({ address: councilAddress });
+    return code !== undefined && code !== '0x' && code.length > 2;
   } catch {
     return false;
   }
 }
 
 describe('Attestation End-to-End Tests', () => {
-  let provider: JsonRpcProvider;
-  let deployer: Wallet;
-  let user: Wallet;
-  let council: Contract;
-  let qualityOracle: Contract;
-  let anvilRunning: boolean;
+  let publicClient: PublicClient;
+  let deployer: PrivateKeyAccount;
+  let user: PrivateKeyAccount;
+  let councilAddress: Address;
+  let qualityOracleAddress: Address;
+  let anvilRunning: boolean = false;
   let contractsDeployed: boolean = false;
 
   beforeAll(async () => {
-    anvilRunning = await checkAnvil();
+    deployer = privateKeyToAccount(DEPLOYER_KEY);
+    user = privateKeyToAccount(USER_KEY);
+    publicClient = createPublicClient({ chain: foundry, transport: http(RPC_URL) });
+
+    anvilRunning = await checkAnvil(publicClient);
     if (!anvilRunning) {
       console.log('⚠️  Anvil not running. Run: scripts/start-council-dev.sh');
       return;
     }
 
-    provider = new JsonRpcProvider(RPC_URL);
-    deployer = new Wallet(DEPLOYER_KEY, provider);
-    user = new Wallet(USER_KEY, provider);
-
-    const councilAddress = process.env.COUNCIL_ADDRESS ?? '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9';
-    const qualityOracleAddress = process.env.QUALITY_ORACLE_ADDRESS ?? '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707';
+    councilAddress = (process.env.COUNCIL_ADDRESS ?? '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9') as Address;
+    qualityOracleAddress = (process.env.QUALITY_ORACLE_ADDRESS ?? '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707') as Address;
 
     // Check if contracts are deployed
-    contractsDeployed = await checkContractsDeployed(provider, councilAddress);
+    contractsDeployed = await checkContractsDeployed(publicClient, councilAddress);
     if (!contractsDeployed) {
       console.log('⚠️  Contracts not deployed - on-chain tests will be skipped');
       console.log('   Run: jeju dev --bootstrap or scripts/start-council-dev.sh');
       return;
     }
-
-    council = new Contract(councilAddress, COUNCIL_ABI, deployer);
-    qualityOracle = new Contract(qualityOracleAddress, QUALITY_ORACLE_ABI, deployer);
 
     console.log('✅ Connected to Anvil');
     console.log(`   Council: ${councilAddress}`);
@@ -109,7 +109,7 @@ describe('Attestation End-to-End Tests', () => {
     const score = 95;
     const timestamp = Math.floor(Date.now() / 1000);
 
-    const { signature, assessor } = signAttestation(contentHash, score, timestamp, user.address, DEPLOYER_KEY, CHAIN_ID);
+    const { signature, assessor } = await signAttestation(contentHash, score, timestamp, user.address, DEPLOYER_KEY, CHAIN_ID);
 
     expect(signature).toMatch(/^0x[a-fA-F0-9]{130}$/);
     expect(assessor).toBe(deployer.address);
@@ -123,10 +123,15 @@ describe('Attestation End-to-End Tests', () => {
     const score = 95;
     const timestamp = Math.floor(Date.now() / 1000);
 
-    const { signature } = signAttestation(contentHash, score, timestamp, user.address, DEPLOYER_KEY, CHAIN_ID);
+    const { signature } = await signAttestation(contentHash, score, timestamp, user.address, DEPLOYER_KEY, CHAIN_ID);
 
     // Should not revert (valid attestation)
-    await qualityOracle.verifyScore(contentHash, score, timestamp, user.address, signature);
+    await readContract(publicClient, {
+      address: qualityOracleAddress,
+      abi: QUALITY_ORACLE_ABI,
+      functionName: 'verifyScore',
+      args: [contentHash, BigInt(score), BigInt(timestamp), user.address, signature],
+    });
     console.log('✅ On-chain attestation verification passed');
   });
 
@@ -140,22 +145,29 @@ describe('Attestation End-to-End Tests', () => {
     const score = 95;
     const timestamp = Math.floor(Date.now() / 1000);
 
-    const { signature } = signAttestation(contentHash, score, timestamp, user.address, DEPLOYER_KEY, CHAIN_ID);
-    const proposalBond = await council.proposalBond();
-    console.log(`   Proposal bond: ${ethers.formatEther(proposalBond)} ETH`);
+    const { signature } = await signAttestation(contentHash, score, timestamp, user.address, DEPLOYER_KEY, CHAIN_ID);
+    const proposalBond = await readContract(publicClient, {
+      address: councilAddress,
+      abi: parseAbi(COUNCIL_ABI),
+      functionName: 'proposalBond',
+    });
+    console.log(`   Proposal bond: ${proposalBond.toString()} wei`);
 
-    const councilAsUser = council.connect(user) as Contract;
-    const tx = await councilAsUser.submitProposalWithAttestation(
-      proposalType, score, contentHash, ethers.ZeroAddress, '0x', 0, timestamp, signature,
-      { value: proposalBond }
-    );
+    const userWalletClient = createWalletClient({ chain: foundry, transport: http(RPC_URL), account: user });
+    const hash = await userWalletClient.writeContract({
+      address: councilAddress,
+      abi: parseAbi(COUNCIL_ABI),
+      functionName: 'submitProposalWithAttestation',
+      args: [proposalType, score, contentHash, zeroAddress, '0x', 0n, BigInt(timestamp), signature],
+      value: proposalBond,
+    });
 
-    const receipt = await tx.wait();
-    expect(receipt.status).toBe(1);
-    console.log(`✅ Proposal submitted, tx: ${receipt.hash}`);
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    expect(receipt.status).toBe('success');
+    console.log(`✅ Proposal submitted, tx: ${receipt.transactionHash}`);
 
-    const proposalSubmittedTopic = ethers.id('ProposalSubmitted(bytes32,address,uint256,uint8,uint8,bytes32)');
-    const submittedLog = receipt.logs.find((log: ethers.Log) => log.topics[0] === proposalSubmittedTopic);
+    const proposalSubmittedTopic = keccak256(stringToHex('ProposalSubmitted(bytes32,address,uint256,uint8,uint8,bytes32)'));
+    const submittedLog = receipt.logs.find((log) => log.topics[0] === proposalSubmittedTopic);
     expect(submittedLog).toBeDefined();
 
     const proposalId = submittedLog!.topics[1];
@@ -171,16 +183,23 @@ describe('Attestation End-to-End Tests', () => {
     const score = 50;
     const timestamp = Math.floor(Date.now() / 1000);
 
-    const { signature } = signAttestation(contentHash, score, timestamp, user.address, DEPLOYER_KEY, CHAIN_ID);
+    const { signature } = await signAttestation(contentHash, score, timestamp, user.address, DEPLOYER_KEY, CHAIN_ID);
 
-    const proposalBond = await council.proposalBond();
-    const councilAsUser = council.connect(user) as Contract;
+    const proposalBond = await readContract(publicClient, {
+      address: councilAddress,
+      abi: parseAbi(COUNCIL_ABI),
+      functionName: 'proposalBond',
+    });
+    const userWalletClient = createWalletClient({ chain: foundry, transport: http(RPC_URL), account: user });
 
     await expect(
-      councilAsUser.submitProposalWithAttestation(
-        1, score, contentHash, ethers.ZeroAddress, '0x', 0, timestamp, signature,
-        { value: proposalBond }
-      )
+      userWalletClient.writeContract({
+        address: councilAddress,
+        abi: parseAbi(COUNCIL_ABI),
+        functionName: 'submitProposalWithAttestation',
+        args: [1, score, contentHash, zeroAddress, '0x', 0n, BigInt(timestamp), signature],
+        value: proposalBond,
+      })
     ).rejects.toThrow();
     
     console.log('✅ Low score correctly rejected');
@@ -193,16 +212,23 @@ describe('Attestation End-to-End Tests', () => {
     const score = 95;
     const timestamp = Math.floor(Date.now() / 1000);
 
-    const { signature } = signAttestation(contentHash, score, timestamp, user.address, USER_KEY, CHAIN_ID);
+    const { signature } = await signAttestation(contentHash, score, timestamp, user.address, USER_KEY, CHAIN_ID);
 
-    const proposalBond = await council.proposalBond();
-    const councilAsUser = council.connect(user) as Contract;
+    const proposalBond = await readContract(publicClient, {
+      address: councilAddress,
+      abi: parseAbi(COUNCIL_ABI),
+      functionName: 'proposalBond',
+    });
+    const userWalletClient = createWalletClient({ chain: foundry, transport: http(RPC_URL), account: user });
 
     await expect(
-      councilAsUser.submitProposalWithAttestation(
-        1, score, contentHash, ethers.ZeroAddress, '0x', 0, timestamp, signature,
-        { value: proposalBond }
-      )
+      userWalletClient.writeContract({
+        address: councilAddress,
+        abi: parseAbi(COUNCIL_ABI),
+        functionName: 'submitProposalWithAttestation',
+        args: [1, score, contentHash, zeroAddress, '0x', 0n, BigInt(timestamp), signature],
+        value: proposalBond,
+      })
     ).rejects.toThrow();
     
     console.log('✅ Non-assessor correctly rejected');
@@ -215,16 +241,23 @@ describe('Attestation End-to-End Tests', () => {
     const score = 95;
     const timestamp = Math.floor(Date.now() / 1000) - 7200;
 
-    const { signature } = signAttestation(contentHash, score, timestamp, user.address, DEPLOYER_KEY, CHAIN_ID);
+    const { signature } = await signAttestation(contentHash, score, timestamp, user.address, DEPLOYER_KEY, CHAIN_ID);
 
-    const proposalBond = await council.proposalBond();
-    const councilAsUser = council.connect(user) as Contract;
+    const proposalBond = await readContract(publicClient, {
+      address: councilAddress,
+      abi: parseAbi(COUNCIL_ABI),
+      functionName: 'proposalBond',
+    });
+    const userWalletClient = createWalletClient({ chain: foundry, transport: http(RPC_URL), account: user });
 
     await expect(
-      councilAsUser.submitProposalWithAttestation(
-        1, score, contentHash, ethers.ZeroAddress, '0x', 0, timestamp, signature,
-        { value: proposalBond }
-      )
+      userWalletClient.writeContract({
+        address: councilAddress,
+        abi: parseAbi(COUNCIL_ABI),
+        functionName: 'submitProposalWithAttestation',
+        args: [1, score, contentHash, zeroAddress, '0x', 0n, BigInt(timestamp), signature],
+        value: proposalBond,
+      })
     ).rejects.toThrow();
     
     console.log('✅ Expired attestation correctly rejected');

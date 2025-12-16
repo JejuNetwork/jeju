@@ -8,7 +8,7 @@
  * - Self-hosting of DWS code through DWS
  * 
  * DWS nodes register as agents in the IdentityRegistry with:
- * - Tags: "dws", "dws-storage", "dws-compute", "dws-cdn", "dws-git", "dws-npm"
+ * - Tags: "dws", "dws-storage", "dws-compute", "dws-cdn", "dws-git", "dws-pkg"
  * - Metadata: "dwsEndpoint" = node HTTP endpoint
  * - A2A Endpoint: same as dwsEndpoint
  */
@@ -108,7 +108,7 @@ const IDENTITY_REGISTRY_ABI = [
 // ============================================================================
 
 // DWS node types - correspond to tags in IdentityRegistry
-export type DWSNodeType = 'storage' | 'compute' | 'cdn' | 'git' | 'npm' | 'full';
+export type DWSNodeType = 'storage' | 'compute' | 'cdn' | 'git' | 'pkg' | 'full';
 
 // DWS-specific tag prefix
 const DWS_TAG_PREFIX = 'dws-';
@@ -248,7 +248,7 @@ export class NodeDiscovery {
         nodeTypes.push('full');
       } else if (tag.startsWith(DWS_TAG_PREFIX)) {
         const type = tag.slice(DWS_TAG_PREFIX.length) as DWSNodeType;
-        if (['storage', 'compute', 'cdn', 'git', 'npm'].includes(type)) {
+        if (['storage', 'compute', 'cdn', 'git', 'pkg'].includes(type)) {
           nodeTypes.push(type);
         }
       }

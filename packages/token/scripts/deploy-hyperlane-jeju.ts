@@ -95,7 +95,6 @@ async function main() {
   console.log('Loading contract artifacts...');
   await preloadAllArtifacts();
   
-  // Note: We need to build the Hyperlane contracts first
   console.log('Building Hyperlane contracts...');
   const { execSync } = await import('child_process');
   execSync('forge build --root contracts', { 

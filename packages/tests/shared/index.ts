@@ -38,6 +38,9 @@ export {
   isReady as isBunReady,
 } from './bun-global-setup';
 
+// Dev startup
+export { ensureInfra, cleanup as devCleanup } from './dev-startup';
+
 // Helpers
 export * from './fixtures/wallet';
 export * from './helpers/contracts';

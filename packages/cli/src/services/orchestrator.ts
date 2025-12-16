@@ -1119,40 +1119,27 @@ class ServicesOrchestrator {
         type: 'server',
         port,
         url: `http://localhost:${port}`,
-        healthCheck: '/api/v1/health',
+        healthCheck: '/git/health',
       });
       return;
     }
 
-    const gitPath = join(this.rootDir, 'apps/git');
-    
-    if (existsSync(gitPath)) {
-      const proc = spawn({
-        cmd: ['bun', 'run', 'dev'],
-        cwd: gitPath,
-        stdout: 'ignore',
-        stderr: 'ignore',
-        env: {
-          ...process.env,
-          GIT_PORT: String(port),
-          JEJU_RPC_URL: this.rpcUrl,
-        },
-      });
-
+    // Git is now part of DWS - check if DWS is running
+    const dwsPort = DEFAULT_PORTS.storage;
+    if (await isPortInUse(dwsPort)) {
+      // DWS is running, Git is available at /git routes
       this.services.set('git', {
-        name: 'JejuGit',
-        type: 'process',
-        port,
-        process: proc,
-        url: `http://localhost:${port}`,
-        healthCheck: '/api/v1/health',
+        name: 'JejuGit (via DWS)',
+        type: 'server',
+        port: dwsPort,
+        url: `http://localhost:${dwsPort}/git`,
+        healthCheck: '/git/health',
       });
-
-      logger.success(`JejuGit starting on port ${port}`);
+      logger.info(`JejuGit available via DWS on port ${dwsPort}`);
       return;
     }
 
-    // Create mock git server
+    // Create mock git server for standalone testing
     const server = await this.createMockGit();
     this.services.set('git', {
       name: 'JejuGit (Mock)',
@@ -1268,43 +1255,27 @@ class ServicesOrchestrator {
         type: 'server',
         port,
         url: `http://localhost:${port}`,
-        healthCheck: '/-/registry/health',
+        healthCheck: '/npm/health',
       });
       return;
     }
 
-    const storagePath = join(this.rootDir, 'apps/storage/pinning-api');
-    
-    if (existsSync(storagePath)) {
-      // The npm registry is part of the storage/pinning-api service
-      // We'll start the pinning-api with NPM registry enabled
-      const proc = spawn({
-        cmd: ['bun', 'run', 'dev'],
-        cwd: storagePath,
-        stdout: 'ignore',
-        stderr: 'ignore',
-        env: {
-          ...process.env,
-          NPM_PORT: String(port),
-          JEJU_RPC_URL: this.rpcUrl,
-          ENABLE_NPM_REGISTRY: 'true',
-        },
-      });
-
+    // NPM is now part of DWS - check if DWS is running
+    const dwsPort = DEFAULT_PORTS.storage;
+    if (await isPortInUse(dwsPort)) {
+      // DWS is running, NPM is available at /npm routes
       this.services.set('npm', {
-        name: 'JejuPkg',
-        type: 'process',
-        port,
-        process: proc,
-        url: `http://localhost:${port}`,
-        healthCheck: '/-/registry/health',
+        name: 'JejuPkg (via DWS)',
+        type: 'server',
+        port: dwsPort,
+        url: `http://localhost:${dwsPort}/npm`,
+        healthCheck: '/npm/health',
       });
-
-      logger.success(`JejuPkg starting on port ${port}`);
+      logger.info(`JejuPkg available via DWS on port ${dwsPort}`);
       return;
     }
 
-    // Create mock npm registry
+    // Create mock npm registry for standalone testing
     const server = await this.createMockNpm();
     this.services.set('npm', {
       name: 'JejuPkg (Mock)',
@@ -1525,16 +1496,25 @@ class ServicesOrchestrator {
 
     const git = this.services.get('git');
     if (git) {
+      // Git is part of DWS, but expose both URLs for compatibility
       env.JEJUGIT_URL = git.url!;
       env.NEXT_PUBLIC_JEJUGIT_URL = git.url!;
     }
 
     const npm = this.services.get('npm');
     if (npm) {
+      // NPM is part of DWS, but expose both URLs for compatibility
       env.JEJUPKG_URL = npm.url!;
       env.NEXT_PUBLIC_JEJUPKG_URL = npm.url!;
       // For npm CLI configuration
       env.npm_config_registry = npm.url!;
+    }
+
+    // DWS provides both Git and NPM - expose unified URL
+    const storage = this.services.get('storage');
+    if (storage) {
+      env.DWS_GIT_URL = `${storage.url}/git`;
+      env.DWS_NPM_URL = `${storage.url}/npm`;
     }
 
     return env;

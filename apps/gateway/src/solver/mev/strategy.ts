@@ -471,12 +471,34 @@ export class ExternalChainMevEngine extends EventEmitter {
   // ==========================================================================
   
   private calculateSlippage(swap: SwapIntent): number {
-    // Calculate slippage from amountIn vs amountOutMin
-    if (swap.amountIn && swap.amountOutMin && swap.amountOutMin > 0n) {
-      // Simple slippage estimate based on min output
-      return 100; // Default 1% - would need price oracle for accurate calculation
+    // Calculate slippage from amountIn vs amountOutMin using pool state
+    if (!swap.pool || !swap.amountIn || swap.amountIn === 0n) {
+      return 100; // Default 1% assumption
     }
-    return 100; // Default 1% assumption
+
+    const poolState = this.poolStates.get(swap.pool);
+    if (!poolState) {
+      return 100; // Default without pool data
+    }
+
+    // Calculate expected output using constant product formula
+    const amountIn = swap.amountIn;
+    const [reserveIn, reserveOut] = swap.tokenIn === poolState.token0
+      ? [poolState.reserve0, poolState.reserve1]
+      : [poolState.reserve1, poolState.reserve0];
+
+    // Expected output = (amountIn * reserveOut) / (reserveIn + amountIn)
+    // With fee: (amountIn * 997 * reserveOut) / (reserveIn * 1000 + amountIn * 997)
+    const amountInWithFee = amountIn * BigInt(10000 - poolState.fee);
+    const expectedOut = (amountInWithFee * reserveOut) / (reserveIn * 10000n + amountInWithFee);
+
+    // Slippage = (expected - minOut) / expected * 10000 (bps)
+    if (swap.amountOutMin && swap.amountOutMin > 0n && expectedOut > 0n) {
+      const slippageBps = Number(((expectedOut - swap.amountOutMin) * 10000n) / expectedOut);
+      return Math.max(slippageBps, 10); // Minimum 10 bps
+    }
+
+    return 100; // Default 1%
   }
 
   private calculateSandwichProfit(
@@ -510,25 +532,222 @@ export class ExternalChainMevEngine extends EventEmitter {
     return (amount * BigInt(impactBps)) / 20000n; // ~50% of impact recoverable
   }
 
-  private async buildSandwichBundle(_swap: SwapIntent): Promise<Hex[]> {
-    // TODO: Build frontrun + backrun transactions
-    // Real implementation would encode actual swap calls based on the victim's swap
-    return ['0x' as Hex, '0x' as Hex];
+  private async buildSandwichBundle(swap: SwapIntent): Promise<Hex[]> {
+    const { encodeFunctionData } = await import('viem');
+    
+    if (!swap.pool || !swap.tokenIn || !swap.tokenOut) {
+      throw new Error('Swap intent missing required fields for sandwich');
+    }
+
+    const poolState = this.poolStates.get(swap.pool);
+    if (!poolState) {
+      throw new Error(`No pool state for ${swap.pool}`);
+    }
+
+    // Calculate optimal frontrun amount (typically 10-30% of victim's trade)
+    const victimAmount = swap.amountIn || 0n;
+    const frontrunAmount = (victimAmount * 20n) / 100n; // 20% of victim's trade
+
+    // UniswapV2 Router02 ABI for swaps
+    const SWAP_ABI = [
+      {
+        name: 'swapExactTokensForTokens',
+        type: 'function',
+        stateMutability: 'nonpayable',
+        inputs: [
+          { name: 'amountIn', type: 'uint256' },
+          { name: 'amountOutMin', type: 'uint256' },
+          { name: 'path', type: 'address[]' },
+          { name: 'to', type: 'address' },
+          { name: 'deadline', type: 'uint256' },
+        ],
+        outputs: [{ name: 'amounts', type: 'uint256[]' }],
+      },
+    ] as const;
+
+    // Get router address for the chain
+    const router = this.getRouterAddress(swap.chainId);
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 300); // 5 min deadline
+
+    // Frontrun: Buy the token the victim wants to buy (drives price up)
+    const frontrunData = encodeFunctionData({
+      abi: SWAP_ABI,
+      functionName: 'swapExactTokensForTokens',
+      args: [
+        frontrunAmount,
+        0n, // No slippage protection for MEV
+        [swap.tokenIn, swap.tokenOut],
+        this.account.address,
+        deadline,
+      ],
+    });
+
+    // Backrun: Sell after victim's swap (captures price difference)
+    // The output from frontrun becomes input for backrun
+    const expectedFrontrunOutput = this.calculateAmountOut(
+      frontrunAmount,
+      poolState.reserve0,
+      poolState.reserve1,
+      poolState.fee
+    );
+
+    const backrunData = encodeFunctionData({
+      abi: SWAP_ABI,
+      functionName: 'swapExactTokensForTokens',
+      args: [
+        expectedFrontrunOutput,
+        0n,
+        [swap.tokenOut, swap.tokenIn], // Reverse path
+        this.account.address,
+        deadline,
+      ],
+    });
+
+    return [
+      this.buildTx(router, frontrunData),
+      this.buildTx(router, backrunData),
+    ];
   }
 
-  private async buildBackrunTx(_swap: SwapIntent): Promise<Hex> {
-    // TODO: Build backrun arbitrage transaction
-    return '0x' as Hex;
+  private async buildBackrunTx(swap: SwapIntent): Promise<Hex> {
+    const { encodeFunctionData } = await import('viem');
+    
+    if (!swap.pool || !swap.tokenIn || !swap.tokenOut) {
+      throw new Error('Swap intent missing required fields for backrun');
+    }
+
+    const poolState = this.poolStates.get(swap.pool);
+    if (!poolState) {
+      throw new Error(`No pool state for ${swap.pool}`);
+    }
+
+    // Backrun arbitrage: capture price impact from victim's swap
+    const impactBps = this.estimatePriceImpact(swap);
+    const arbAmount = (swap.amountIn || 0n) * BigInt(impactBps) / 10000n;
+
+    const SWAP_ABI = [
+      {
+        name: 'swapExactTokensForTokens',
+        type: 'function',
+        stateMutability: 'nonpayable',
+        inputs: [
+          { name: 'amountIn', type: 'uint256' },
+          { name: 'amountOutMin', type: 'uint256' },
+          { name: 'path', type: 'address[]' },
+          { name: 'to', type: 'address' },
+          { name: 'deadline', type: 'uint256' },
+        ],
+        outputs: [{ name: 'amounts', type: 'uint256[]' }],
+      },
+    ] as const;
+
+    const router = this.getRouterAddress(swap.chainId);
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 300);
+
+    // Reverse direction from victim to capture arbitrage
+    const data = encodeFunctionData({
+      abi: SWAP_ABI,
+      functionName: 'swapExactTokensForTokens',
+      args: [
+        arbAmount,
+        0n,
+        [swap.tokenOut, swap.tokenIn],
+        this.account.address,
+        deadline,
+      ],
+    });
+
+    return this.buildTx(router, data);
   }
 
   private async buildArbitrageTx(
-    _chainId: number,
-    _path: Address[],
-    _amountIn: bigint
+    chainId: number,
+    path: Address[],
+    amountIn: bigint
   ): Promise<Hex> {
-    // TODO: Build arbitrage transaction with actual DEX calls
-    // This would encode a swap through the path using the given chain's router
-    return '0x' as Hex;
+    const { encodeFunctionData } = await import('viem');
+    
+    if (path.length < 2) {
+      throw new Error('Path must have at least 2 tokens');
+    }
+
+    const SWAP_ABI = [
+      {
+        name: 'swapExactTokensForTokens',
+        type: 'function',
+        stateMutability: 'nonpayable',
+        inputs: [
+          { name: 'amountIn', type: 'uint256' },
+          { name: 'amountOutMin', type: 'uint256' },
+          { name: 'path', type: 'address[]' },
+          { name: 'to', type: 'address' },
+          { name: 'deadline', type: 'uint256' },
+        ],
+        outputs: [{ name: 'amounts', type: 'uint256[]' }],
+      },
+    ] as const;
+
+    const router = this.getRouterAddress(chainId);
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 300);
+
+    const data = encodeFunctionData({
+      abi: SWAP_ABI,
+      functionName: 'swapExactTokensForTokens',
+      args: [
+        amountIn,
+        0n, // No slippage for MEV - we simulate before submitting
+        path,
+        this.account.address,
+        deadline,
+      ],
+    });
+
+    return this.buildTx(router, data);
+  }
+
+  private buildTx(to: Address, data: Hex): Hex {
+    // Encode transaction as RLP for bundle submission
+    // This is a simplified version - real impl uses proper RLP encoding
+    const { encodeAbiParameters } = require('viem');
+    return encodeAbiParameters(
+      [{ type: 'address' }, { type: 'bytes' }],
+      [to, data]
+    ) as Hex;
+  }
+
+  private getRouterAddress(chainId: number): Address {
+    // UniswapV2 and compatible routers
+    const routers: Record<number, Address> = {
+      1: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D',      // Ethereum Uniswap V2
+      42161: '0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506',  // Arbitrum SushiSwap
+      10: '0x9c12939390052919aF3155f41Bf4160Fd3666A6f',     // Optimism Velodrome
+      8453: '0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24',   // Base Aerodrome
+    };
+    return routers[chainId] || routers[1];
+  }
+
+  private calculateAmountOut(
+    amountIn: bigint,
+    reserveIn: bigint,
+    reserveOut: bigint,
+    feeBps: number
+  ): bigint {
+    const feeMultiplier = 10000n - BigInt(feeBps);
+    const amountInWithFee = amountIn * feeMultiplier;
+    const numerator = amountInWithFee * reserveOut;
+    const denominator = reserveIn * 10000n + amountInWithFee;
+    return numerator / denominator;
+  }
+
+  private estimatePriceImpact(swap: SwapIntent): number {
+    if (!swap.pool) return 0;
+    const poolState = this.poolStates.get(swap.pool);
+    if (!poolState) return 0;
+
+    const amountIn = swap.amountIn || 0n;
+    // Simplified price impact calculation
+    const impactBps = Number((amountIn * 10000n) / poolState.reserve0);
+    return Math.min(impactBps, 500); // Cap at 5%
   }
 
   private getPublicClient(chainId: number) {

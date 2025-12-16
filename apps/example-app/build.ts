@@ -22,7 +22,7 @@ const serverResult = await Bun.build({
   outdir: join(distDir, 'server'),
   target: 'bun',
   minify: true,
-  external: ['@jejunetwork/*', 'viem', 'ethers', 'hono'],
+    external: ['@jejunetwork/*', 'viem', 'hono'],
 });
 
 if (!serverResult.success) {
