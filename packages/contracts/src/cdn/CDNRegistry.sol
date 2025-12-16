@@ -5,6 +5,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {ICDNTypes} from "./ICDNTypes.sol";
 import {IIdentityRegistry} from "../registry/interfaces/IIdentityRegistry.sol";
+import {ModerationMixin} from "../moderation/ModerationMixin.sol";
 
 /**
  * @title CDNRegistry
@@ -22,7 +23,12 @@ import {IIdentityRegistry} from "../registry/interfaces/IIdentityRegistry.sol";
  * - Integration with reputation system
  */
 contract CDNRegistry is ICDNTypes, Ownable, ReentrancyGuard {
+    using ModerationMixin for ModerationMixin.Data;
+
     // ============ State ============
+
+    /// @notice Moderation integration for ban checking
+    ModerationMixin.Data public moderation;
 
     /// @notice Minimum stake required to register as provider
     uint256 public minProviderStake = 0.01 ether;
@@ -112,6 +118,7 @@ contract CDNRegistry is ICDNTypes, Ownable, ReentrancyGuard {
     error InvalidEndpoint();
     error InvalidRegion();
     error TransferFailed();
+    error UserIsBanned();
 
     // ============ Constructor ============
 
@@ -171,6 +178,10 @@ contract CDNRegistry is ICDNTypes, Ownable, ReentrancyGuard {
         bytes32 attestationHash,
         uint256 agentId
     ) internal {
+        // Check ban status
+        if (moderation.isAddressBanned(msg.sender)) revert UserIsBanned();
+        if (agentId > 0 && moderation.isAgentBanned(agentId)) revert UserIsBanned();
+
         if (_providers[msg.sender].registeredAt != 0) revert ProviderAlreadyRegistered();
         if (bytes(endpoint).length == 0) revert InvalidEndpoint();
         if (msg.value < minProviderStake) revert InsufficientStake(msg.value, minProviderStake);
@@ -232,6 +243,10 @@ contract CDNRegistry is ICDNTypes, Ownable, ReentrancyGuard {
         ProviderType providerType,
         uint256 agentId
     ) internal returns (bytes32 nodeId) {
+        // Check ban status
+        if (moderation.isAddressBanned(msg.sender)) revert UserIsBanned();
+        if (agentId > 0 && moderation.isAgentBanned(agentId)) revert UserIsBanned();
+
         if (bytes(endpoint).length == 0) revert InvalidEndpoint();
         if (msg.value < minNodeStake) revert InsufficientStake(msg.value, minNodeStake);
 
@@ -588,10 +603,24 @@ contract CDNRegistry is ICDNTypes, Ownable, ReentrancyGuard {
 
     function setIdentityRegistry(address _identityRegistry) external onlyOwner {
         identityRegistry = IIdentityRegistry(_identityRegistry);
+        moderation.setIdentityRegistry(_identityRegistry);
+    }
+
+    function setBanManager(address _banManager) external onlyOwner {
+        moderation.setBanManager(_banManager);
     }
 
     function setRequireAgentRegistration(bool required) external onlyOwner {
         requireAgentRegistration = required;
+    }
+
+    /**
+     * @notice Check if a provider/node operator is banned
+     * @param account Address to check
+     * @return banned True if banned
+     */
+    function isBanned(address account) external view returns (bool banned) {
+        return moderation.isAddressBanned(account);
     }
 
     function verifyProvider(address provider) external onlyOwner {

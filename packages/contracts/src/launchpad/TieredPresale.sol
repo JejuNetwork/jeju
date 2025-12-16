@@ -15,18 +15,23 @@ interface AggregatorV3Interface {
 }
 
 /**
- * @title Presale
+ * @title TieredPresale
  * @notice Multi-tier presale contract with whitelist support and soft/hard caps
  * @dev Supports multiple payment tokens (ETH, USDC, etc.) with configurable tiers
+ *      and Chainlink price feeds for USD-denominated caps
  *
  * Features:
  * - Multiple tiers with different discounts and limits
  * - Merkle proof whitelist verification
  * - Soft cap (minimum to proceed) and hard cap (maximum raise)
+ * - Multi-token support with Chainlink USD pricing
  * - Refunds if soft cap not met
  * - Vesting integration for purchased tokens
+ *
+ * For ETH-only presales with fixed price or CCA auction,
+ * see tokens/Presale.sol instead.
  */
-contract Presale is Ownable2Step, ReentrancyGuard {
+contract TieredPresale is Ownable2Step, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     // =============================================================================
@@ -556,6 +561,3 @@ contract Presale is Ownable2Step, ReentrancyGuard {
 
     receive() external payable {}
 }
-
-
-
