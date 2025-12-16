@@ -25,11 +25,8 @@ skip = [
     "src/marketplace/**",
     "src/prediction-markets/**",
     
-    # Paymaster requires full ERC-4337 integration
-    "src/paymaster/**",
+    # Multi-token paymaster needs more work
     "src/services/MultiTokenPaymaster.sol",
-    "src/services/ServicePaymaster.sol",
-    "test/PaymasterFactory.t.sol",
     
     # Deploy scripts for disabled features
     "script/DeployCompute.s.sol",
@@ -44,7 +41,10 @@ skip = [
     "script/DeployPerps.s.sol",
     "script/DeployJejuMarket.s.sol",
     "script/DeployJejuToken.s.sol",
-    "script/otc/**"
+    "script/otc/**",
+    
+    # Tests for incomplete features
+    "test/PaymasterFactory.t.sol"
 ]
 
 # Test settings

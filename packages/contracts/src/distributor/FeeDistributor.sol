@@ -609,3 +609,76 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
         return "2.0.0";
     }
 }
+
+/**
+ * @title FeeDistributorV2
+ * @notice Simplified fee distributor for paymaster integration
+ * @dev Designed for PaymasterFactory deployment - receives fees and manages distribution
+ */
+contract FeeDistributorV2 is ReentrancyGuard, Ownable {
+    using SafeERC20 for IERC20;
+
+    IERC20 public immutable token;
+    address public immutable vault;
+    address public paymaster;
+    
+    uint256 public totalCollected;
+    uint256 public totalDistributed;
+
+    error InvalidAddress();
+    error OnlyPaymaster();
+
+    event FeesCollected(uint256 amount, uint256 timestamp);
+    event FeesDistributed(address indexed recipient, uint256 amount);
+    event PaymasterSet(address indexed paymaster);
+
+    constructor(address _token, address _vault, address _owner) Ownable(_owner) {
+        if (_token == address(0)) revert InvalidAddress();
+        if (_vault == address(0)) revert InvalidAddress();
+        
+        token = IERC20(_token);
+        vault = _vault;
+    }
+
+    function setPaymaster(address _paymaster) external onlyOwner {
+        if (_paymaster == address(0)) revert InvalidAddress();
+        paymaster = _paymaster;
+        emit PaymasterSet(_paymaster);
+    }
+
+    /**
+     * @notice Collect fees from paymaster operations
+     * @param amount Amount of tokens collected
+     */
+    function collectFees(uint256 amount) external {
+        if (msg.sender != paymaster) revert OnlyPaymaster();
+        
+        token.safeTransferFrom(msg.sender, address(this), amount);
+        totalCollected += amount;
+        
+        emit FeesCollected(amount, block.timestamp);
+    }
+
+    /**
+     * @notice Distribute accumulated fees to vault
+     */
+    function distributeFees() external nonReentrant {
+        uint256 balance = token.balanceOf(address(this));
+        if (balance == 0) return;
+        
+        token.safeTransfer(vault, balance);
+        totalDistributed += balance;
+        
+        emit FeesDistributed(vault, balance);
+    }
+
+    /**
+     * @notice Emergency token recovery
+     * @param _token Token to recover
+     * @param to Recipient address
+     */
+    function recoverTokens(address _token, address to) external onlyOwner {
+        uint256 balance = IERC20(_token).balanceOf(address(this));
+        IERC20(_token).safeTransfer(to, balance);
+    }
+}
