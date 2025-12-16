@@ -4,9 +4,13 @@
 
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
 import { createServer } from '../../src/x402/server';
-import { resetConfig } from '../../src/x402/config';
+import { resetConfig, config } from '../../src/x402/config';
 import { clearNonceCache } from '../../src/x402/services/nonce-manager';
 import { getServiceName } from '@jejunetwork/shared';
+
+function getNetworkName(): string {
+  return config().network.charAt(0).toUpperCase() + config().network.slice(1);
+}
 
 const app = createServer();
 

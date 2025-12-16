@@ -85,8 +85,8 @@ export interface SolanaStateCommitment {
   slot: Slot;
   bankHash: Hash32;
   epochStakes: Hash32;
-  /** ZK proof of supermajority consensus */
-  proof: SP1Proof;
+  /** ZK proof of supermajority consensus (null until generated) */
+  proof: SP1Proof | null;
   /** Timestamp of proof generation */
   provenAt: bigint;
 }
@@ -130,8 +130,8 @@ export interface EthereumStateCommitment {
   slot: bigint;
   beaconBlockRoot: Hash32;
   executionStateRoot: Hash32;
-  /** ZK proof of sync committee consensus */
-  proof: SP1Proof;
+  /** ZK proof of sync committee consensus (null until generated) */
+  proof: SP1Proof | null;
   provenAt: bigint;
 }
 

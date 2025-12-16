@@ -47,7 +47,6 @@
     "mud/**/*",
     "**/*.test.ts",
     "packages/tests/**/*",
-    "scripts/deploy-cloud-integration.ts",
     "scripts/test-cloud-integration.ts",
     "scripts/setup-localnet-cloud.ts",
     "scripts/monitor-cloud-integration.ts"

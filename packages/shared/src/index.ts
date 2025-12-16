@@ -1,6 +1,6 @@
 /**
  * Network Shared Package
- * Common hooks, components, APIs, and utilities used across all network apps
+ * Common hooks, components, APIs, services, protocols and utilities used across all network apps
  */
 
 // Hooks
@@ -88,3 +88,159 @@ export {
   type LiquidityRequest,
   type CrossNetworkAttestation,
 } from './federation';
+
+// Decentralized Services
+export {
+  // Database
+  createDatabaseService,
+  resetDatabaseService,
+  type DatabaseConfig,
+  type DatabaseService,
+  type QueryParam,
+  type QueryResult,
+  type ExecResult,
+  type TransactionClient,
+  // Cache
+  createCacheService,
+  resetCacheService,
+  cacheKeys,
+  type CacheConfig,
+  type CacheService,
+  // Storage
+  createStorageService,
+  resetStorageService,
+  type StorageConfig,
+  type StorageService,
+  type StorageTier,
+  type UploadOptions,
+  type UploadResult,
+  type PinOptions,
+  // KMS
+  createKMSService,
+  resetKMSService,
+  type KMSConfig,
+  type KMSServiceClient,
+  type EncryptionPolicy,
+  // Cron
+  createCronService,
+  resetCronService,
+  type CronConfig,
+  type CronService,
+  type CronJob,
+  type CronJobConfig,
+  // JNS
+  createJNSService,
+  resetJNSService,
+  setupDAppJNS,
+  type JNSConfig,
+  type JNSService,
+  type JNSRecords,
+  // Deploy
+  deployApp,
+  generateMigrationSQL,
+  type DeployConfig,
+  type DeployResult,
+  type MigrationConfig,
+  // Types
+  type ServiceHealth,
+  type AppManifest,
+  type DatabaseServiceConfig,
+  type CacheServiceConfig,
+  type StorageServiceConfig,
+  type SecretsServiceConfig,
+  type TriggersServiceConfig,
+  type AuthHeaders,
+} from './services';
+
+// Cache Client
+export {
+  getCacheClient,
+  resetCacheClients,
+  getCacheRentalClient,
+  resetCacheRentalClient,
+  type CacheClient,
+  type CacheClientConfig,
+  type CacheStats,
+  type CacheInstance,
+} from './cache';
+
+// Database (CovenantSQL)
+export {
+  CovenantSQLClient,
+  createCovenantSQLClient,
+  getCovenantSQLClient,
+  resetCovenantSQLClient,
+  MigrationManager,
+  createTableMigration,
+  migrateData,
+  type CovenantSQLConfig,
+  type ConsistencyLevel,
+  type QueryOptions,
+  type QueryResult,
+  type TransactionContext,
+  type TableSchema,
+  type ColumnDefinition,
+  type IndexDefinition,
+  type Migration,
+  type MigrationRecord,
+  type MigrationResult,
+} from './db';
+
+// Crypto (HSM)
+export {
+  HSMClient,
+  getHSMClient,
+  resetHSMClient,
+  type HSMProvider,
+  type HSMConfig,
+  type HSMCredentials,
+  type HSMKey,
+  type KeyAttributes,
+  type SignatureRequest,
+  type SignatureResult,
+  type EncryptionResult,
+} from './crypto';
+
+// Protocol Servers
+export {
+  // Unified Server
+  createUnifiedServer,
+  startServer,
+  createServerlessHandler,
+  skillSuccess,
+  skillError,
+  skillRequiresPayment,
+  type UnifiedServerConfig,
+  type A2ASkill,
+  type MCPResource,
+  type MCPTool,
+  type MCPPrompt,
+  type SkillContext,
+  type SkillResult,
+  type PaymentRequirement,
+  type ServerInstance,
+  // Legacy A2A
+  createA2AServer,
+  type A2AConfig,
+  type A2AResult,
+  type AgentCard,
+  // Legacy MCP
+  createMCPServer,
+  type MCPConfig,
+  type MCPPromptResult,
+  // Middleware
+  configureERC8004,
+  configureX402,
+  configureProtocolMiddleware,
+  erc8004Middleware,
+  x402Middleware,
+  getAgentInfo,
+  createPaymentRequirement,
+  verifyX402Payment,
+  parseX402Header,
+  type ERC8004Config,
+  type X402Config,
+  type ProtocolMiddlewareConfig,
+  type AgentInfo,
+  type X402PaymentPayload,
+} from './protocols';

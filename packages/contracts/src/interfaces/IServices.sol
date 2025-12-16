@@ -29,6 +29,7 @@ interface ICreditManager {
     function tryDeductCredit(address user, address token, uint256 amount)
         external
         returns (bool success, uint256 remaining);
+    function addCredit(address user, address token, uint256 amount) external payable;
     function balances(address user, address token) external view returns (uint256);
     function hasSufficientCredit(address user, address token, uint256 amount) external view returns (bool, uint256);
 }

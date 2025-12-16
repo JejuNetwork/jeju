@@ -13,7 +13,7 @@ import { Command } from 'commander';
 import prompts from 'prompts';
 import { existsSync, writeFileSync, mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { Wallet } from 'ethers';
+import { privateKeyToAccount } from 'viem/accounts';
 import { logger } from '../lib/logger';
 import { generateForkBranding, getNetworkName, type BrandingConfig } from '@jejunetwork/config';
 
@@ -318,8 +318,8 @@ async function generateOperatorKeys(outputDir: string): Promise<Record<string, {
   const keys: Record<string, { address: string; privateKey: string }> = {};
 
   for (const role of roles) {
-    const wallet = Wallet.createRandom();
-    keys[role] = { address: wallet.address, privateKey: wallet.privateKey };
+    const account = privateKeyToAccount(generatePrivateKey());
+    keys[role] = { address: account.address, privateKey: account.privateKey };
   }
 
   writeFileSync(join(outputDir, 'keys.json'), JSON.stringify(keys, null, 2));
@@ -434,20 +434,23 @@ async function generateDeployScripts(outputDir: string, config: ForkConfig, _bra
 /**
  * Deploy L1 contracts for ${config.displayName}
  */
-import { Wallet, JsonRpcProvider } from 'ethers';
+import { createPublicClient, createWalletClient, http, getBalance, type Address } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { inferChainFromRpcUrl } from '../../../../scripts/shared/chain-utils';
 
 const keys = JSON.parse(readFileSync(join(import.meta.dir, 'keys.json'), 'utf-8'));
 const chainConfig = JSON.parse(readFileSync(join(import.meta.dir, 'chain.json'), 'utf-8'));
 
 async function main() {
-  const provider = new JsonRpcProvider(chainConfig.l1RpcUrl);
-  const deployer = new Wallet(keys.deployer.privateKey, provider);
+  const chain = inferChainFromRpcUrl(chainConfig.l1RpcUrl);
+  const account = privateKeyToAccount(keys.deployer.privateKey as \`0x\${string}\`);
+  const publicClient = createPublicClient({ chain, transport: http(chainConfig.l1RpcUrl) });
 
   console.log('Deploying L1 contracts for ${config.displayName}...');
-  console.log('Deployer:', deployer.address);
-  console.log('Balance:', (await provider.getBalance(deployer.address)).toString());
+  console.log('Deployer:', account.address);
+  console.log('Balance:', (await getBalance(publicClient, { address: account.address })).toString());
 
   // TODO: Deploy L1 contracts
   console.log('L1 deployment complete');
@@ -460,19 +463,21 @@ main().catch(console.error);
 /**
  * Deploy L2 contracts for ${config.displayName}
  */
-import { Wallet, JsonRpcProvider } from 'ethers';
+import { createPublicClient, createWalletClient, http, type Address } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { inferChainFromRpcUrl } from '../../../../scripts/shared/chain-utils';
 
 const keys = JSON.parse(readFileSync(join(import.meta.dir, 'keys.json'), 'utf-8'));
 const chainConfig = JSON.parse(readFileSync(join(import.meta.dir, 'chain.json'), 'utf-8'));
 
 async function main() {
-  const provider = new JsonRpcProvider(chainConfig.rpcUrl);
-  const deployer = new Wallet(keys.deployer.privateKey, provider);
+  const chain = inferChainFromRpcUrl(chainConfig.rpcUrl);
+  const account = privateKeyToAccount(keys.deployer.privateKey as \`0x\${string}\`);
 
   console.log('Deploying L2 contracts for ${config.displayName}...');
-  console.log('Deployer:', deployer.address);
+  console.log('Deployer:', account.address);
 
   const contracts = {
     identityRegistry: '',
@@ -495,38 +500,48 @@ main().catch(console.error);
 /**
  * Register ${config.displayName} with the Federation
  */
-import { Wallet, JsonRpcProvider, Contract, parseEther } from 'ethers';
+import { createPublicClient, createWalletClient, http, parseEther, readContract, writeContract, type Address } from 'viem';
+import { waitForTransactionReceipt } from 'viem/actions';
+import { privateKeyToAccount } from 'viem/accounts';
+import { parseAbi } from 'viem';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { inferChainFromRpcUrl } from '../../../../scripts/shared/chain-utils';
 
 const keys = JSON.parse(readFileSync(join(import.meta.dir, 'keys.json'), 'utf-8'));
 const chainConfig = JSON.parse(readFileSync(join(import.meta.dir, 'chain.json'), 'utf-8'));
 const federationConfig = JSON.parse(readFileSync(join(import.meta.dir, 'federation.json'), 'utf-8'));
 const contracts = JSON.parse(readFileSync(join(import.meta.dir, 'contracts.json'), 'utf-8'));
 
-const NETWORK_REGISTRY_ABI = [
+const NETWORK_REGISTRY_ABI = parseAbi([
   'function registerNetwork(uint256 chainId, string name, string rpcUrl, string explorerUrl, string wsUrl, tuple(address identityRegistry, address solverRegistry, address inputSettler, address outputSettler, address liquidityVault, address governance, address oracle) contracts, bytes32 genesisHash) payable',
   'function establishTrust(uint256 sourceChainId, uint256 targetChainId)',
-];
+]);
 
 async function main() {
-  const provider = new JsonRpcProvider(federationConfig.hub.rpcUrl);
-  const deployer = new Wallet(keys.deployer.privateKey, provider);
+  const chain = inferChainFromRpcUrl(federationConfig.hub.rpcUrl);
+  const account = privateKeyToAccount(keys.deployer.privateKey as \`0x\${string}\`);
+  const publicClient = createPublicClient({ chain, transport: http(federationConfig.hub.rpcUrl) });
+  const walletClient = createWalletClient({ chain, transport: http(federationConfig.hub.rpcUrl), account });
 
   console.log('Registering ${config.displayName} with Federation...');
 
-  const registry = new Contract(federationConfig.hub.registryAddress, NETWORK_REGISTRY_ABI, deployer);
-  const genesisHash = '0x' + '0'.repeat(64);
+  const registryAddress = federationConfig.hub.registryAddress as Address;
+  const genesisHash = '0x' + '0'.repeat(64) as \`0x\${string}\`;
 
-  const tx = await registry.registerNetwork(
-    chainConfig.chainId,
-    chainConfig.name,
-    chainConfig.rpcUrl,
-    chainConfig.explorerUrl,
-    chainConfig.wsUrl,
-    {
-      identityRegistry: contracts.identityRegistry,
-      solverRegistry: contracts.solverRegistry,
+  const hash = await walletClient.writeContract({
+    address: registryAddress,
+    abi: NETWORK_REGISTRY_ABI,
+    functionName: 'registerNetwork',
+    args: [
+      BigInt(chainConfig.chainId),
+      chainConfig.name,
+      chainConfig.rpcUrl,
+      chainConfig.explorerUrl,
+      chainConfig.wsUrl,
+      {
+        identityRegistry: contracts.identityRegistry as Address,
+        solverRegistry: contracts.solverRegistry as Address,
       inputSettler: contracts.inputSettler,
       outputSettler: contracts.outputSettler,
       liquidityVault: contracts.liquidityVault,
@@ -534,11 +549,11 @@ async function main() {
       oracle: contracts.oracle,
     },
     genesisHash,
-    { value: parseEther('${config.stake}') }
-  );
+    value: parseEther('${config.stake}'),
+  });
 
-  console.log('TX:', tx.hash);
-  await tx.wait();
+  console.log('TX:', hash);
+  await waitForTransactionReceipt(publicClient, { hash });
   console.log('Federation registration complete');
 }
 

@@ -3,7 +3,7 @@
  *
  * @example
  * ```ts
- * import { createJejuClient } from '@jeju/sdk';
+ * import { createJejuClient } from '@jejunetwork/sdk';
  *
  * const jeju = await createJejuClient({
  *   network: 'testnet',

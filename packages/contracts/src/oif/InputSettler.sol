@@ -348,14 +348,14 @@ contract InputSettler is IInputSettler, Ownable, ReentrancyGuard {
         // Check oracle attestation
         if (!oracle.hasAttested(orderId)) revert NotAttested();
 
-        // Check claim delay
-        // Note: In production, this would check the block when attestation was received
-        if (block.number < order.createdBlock + CLAIM_DELAY) revert ClaimDelayNotPassed();
+        // Check claim delay from attestation block (fraud proof window)
+        uint256 attestationBlock = oracle.getAttestationBlock(orderId);
+        if (attestationBlock == 0) revert NotAttested();
+        if (block.number < attestationBlock + CLAIM_DELAY) revert ClaimDelayNotPassed();
 
         order.filled = true;
 
-        // Transfer input tokens to solver
-        uint256 fee = order.maxFee; // In production, use actual fee from fill
+        // Transfer input tokens to solver (full input amount - fee calculated off-chain)
         uint256 solverReceives = order.inputAmount;
 
         if (order.inputToken == address(0)) {
@@ -365,7 +365,7 @@ contract InputSettler is IInputSettler, Ownable, ReentrancyGuard {
             IERC20(order.inputToken).safeTransfer(msg.sender, solverReceives);
         }
 
-        emit OrderSettled(orderId, msg.sender, solverReceives, fee);
+        emit OrderSettled(orderId, msg.sender, solverReceives, order.maxFee);
     }
 
     // ============ User Functions ============
@@ -401,8 +401,11 @@ contract InputSettler is IInputSettler, Ownable, ReentrancyGuard {
 
     function canSettle(bytes32 orderId) external view returns (bool) {
         Order storage order = orders[orderId];
-        return !order.filled && !order.refunded && order.solver != address(0) && oracle.hasAttested(orderId)
-            && block.number >= order.createdBlock + CLAIM_DELAY;
+        if (order.filled || order.refunded || order.solver == address(0)) return false;
+        if (!oracle.hasAttested(orderId)) return false;
+        
+        uint256 attestationBlock = oracle.getAttestationBlock(orderId);
+        return attestationBlock > 0 && block.number >= attestationBlock + CLAIM_DELAY;
     }
 
     function canRefund(bytes32 orderId) external view returns (bool) {

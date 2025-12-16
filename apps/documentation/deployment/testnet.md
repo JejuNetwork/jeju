@@ -75,7 +75,7 @@ forge script script/DeployTestnet.s.sol \
   --verify
 
 # 4. Verify deployment
-bun run scripts/check-testnet-deployment.ts
+jeju deploy check testnet
 ```
 
 ## Infrastructure
@@ -179,7 +179,7 @@ After deployment, update `packages/config/contracts.json`:
 ### Preflight Check
 
 ```bash
-bun run scripts/preflight-testnet.ts
+jeju deploy preflight testnet
 ```
 
 Checks:

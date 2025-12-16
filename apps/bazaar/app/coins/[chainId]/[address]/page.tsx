@@ -336,7 +336,7 @@ function PresalePanel({ presaleAddress, tokenAddress }: { presaleAddress: Addres
       </div>
 
       {/* User Contribution */}
-      {contribution && contribution.ethAmount > 0n && (
+      {contribution !== undefined && contribution.ethAmount > 0n ? (
         <div className="p-4 rounded-xl bg-bazaar-primary/10 border border-bazaar-primary/30 mb-4">
           <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
             Your Contribution
@@ -350,7 +350,7 @@ function PresalePanel({ presaleAddress, tokenAddress }: { presaleAddress: Addres
             </p>
           )}
         </div>
-      )}
+      ) : null}
 
       {/* Actions */}
       {status.isActive && (
@@ -418,13 +418,14 @@ export default function TokenDetailPage({ params }: PageProps) {
 
   // Check if token was launched via launchpad
   const launchpadContracts = getLaunchpadContracts(chainId)
-  const { data: launchId } = useReadContract({
+  const { data: rawLaunchId } = useReadContract({
     address: launchpadContracts?.tokenLaunchpad,
     abi: TokenLaunchpadAbi,
     functionName: 'tokenToLaunchId',
     args: [tokenAddress],
     query: { enabled: !!launchpadContracts?.tokenLaunchpad && hasLaunchpad(chainId) },
   })
+  const launchId = rawLaunchId as bigint | undefined
 
   // Get launch info if exists
   const { data: launchInfo } = useReadContract({

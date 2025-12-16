@@ -91,7 +91,7 @@ jobs:
     needs: validate-prerequisites
     strategy:
       matrix:
-        app: [bazaar, gateway, leaderboard, documentation, indexer, compute, monitoring, storage]
+        app: [bazaar, gateway, documentation, indexer, compute, monitoring, storage]
     steps:
       - uses: actions/checkout@v4
 

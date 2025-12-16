@@ -172,7 +172,7 @@ describe('L2 Sequencer Client Diversity', () => {
   it('should have at least one L2 sequencer available', () => {
     // In local dev without docker-compose, no L2 is expected
     if (availableSequencers.length === 0) {
-      console.warn('WARNING: No L2 sequencers available. Run docker-compose.decentralized.yml for full testing.');
+      console.warn('WARNING: No L2 sequencers available. Run docker-compose up for full testing.');
     }
     // This is a warning, not a failure for local dev
     expect(true).toBe(true);

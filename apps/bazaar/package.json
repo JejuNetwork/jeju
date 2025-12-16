@@ -26,9 +26,12 @@
     "test:localnet:full": "bun run scripts/run-localnet-simulations.ts"
   },
   "dependencies": {
-    "@jeju/shared": "workspace:*",
+    "@babylon/shared": "workspace:vendor/babylon/packages/shared",
+    "@jejunetwork/oauth3": "workspace:*",
+    "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/contracts": "workspace:*",
+    "@jejunetwork/dws": "workspace:*",
     "next": "^14.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

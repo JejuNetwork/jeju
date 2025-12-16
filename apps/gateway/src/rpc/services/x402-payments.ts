@@ -1,5 +1,5 @@
 import type { Address } from 'viem';
-import { verifyMessage } from 'ethers';
+import { recoverAddress } from 'viem';
 
 export type X402Network = 'sepolia' | 'base' | 'base-sepolia' | 'ethereum' | 'jeju' | 'jeju-testnet';
 
@@ -88,7 +88,10 @@ export function verifyX402Payment(
   if (Date.now() / 1000 - proof.timestamp > 300) return { valid: false, error: 'Expired' };
 
   const message = `x402:rpc:${proof.network}:${proof.payTo}:${proof.amount}:${proof.nonce}:${proof.timestamp}`;
-  const recovered = verifyMessage(message, proof.signature);
+  const recovered = recoverAddress({
+    hash: hashMessage({ raw: message as `0x${string}` }),
+    signature: proof.signature as `0x${string}`,
+  });
 
   if (userAddress && recovered.toLowerCase() !== userAddress.toLowerCase()) return { valid: false, error: 'Invalid signature' };
 

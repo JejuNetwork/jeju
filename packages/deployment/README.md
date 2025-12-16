@@ -63,7 +63,7 @@ For more control over individual services:
 
 ```bash
 # Full Stage 2 stack with multi-client diversity
-docker-compose -f docker-compose.decentralized.yml up
+docker compose up
 
 # Decentralized messaging stack
 docker compose up

@@ -11,7 +11,10 @@
  *   bun run scripts/fund-testnet-deployer.ts [--bridge]
  */
 
-import { Wallet, JsonRpcProvider, parseEther, formatEther, Contract } from 'ethers';
+import { createPublicClient, createWalletClient, http, parseEther, formatEther, getBalance, readContract, writeContract, waitForTransactionReceipt, sendTransaction, type Address } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { parseAbi } from 'viem';
+import { inferChainFromRpcUrl } from './shared/chain-utils';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
@@ -95,10 +98,11 @@ function loadDeployerKey(): DeployerConfig {
   return JSON.parse(readFileSync(keyFile, 'utf-8'));
 }
 
-async function checkBalance(network: TestnetKey, address: string): Promise<BalanceInfo> {
+async function checkBalance(network: TestnetKey, address: Address): Promise<BalanceInfo> {
   const config = TESTNETS[network];
-  const provider = new JsonRpcProvider(config.rpcUrl);
-  const balance = await provider.getBalance(address);
+  const chainObj = inferChainFromRpcUrl(config.rpcUrl);
+  const publicClient = createPublicClient({ chain: chainObj, transport: http(config.rpcUrl) });
+  const balance = await getBalance(publicClient, { address });
   
   return {
     network,
@@ -136,59 +140,80 @@ const ARBITRUM_INBOX_ABI = [
 ];
 
 async function bridgeToOptimismStack(
-  wallet: Wallet,
+  account: ReturnType<typeof privateKeyToAccount>,
   targetNetwork: 'optimismSepolia' | 'baseSepolia',
   amountEth: string
 ): Promise<string> {
   const config = TESTNETS[targetNetwork];
   const bridge = config.bridge;
+  const sepoliaConfig = TESTNETS.sepolia;
+  const chainObj = inferChainFromRpcUrl(sepoliaConfig.rpcUrl);
+  const publicClient = createPublicClient({ chain: chainObj, transport: http(sepoliaConfig.rpcUrl) });
+  const walletClient = createWalletClient({ account, chain: chainObj, transport: http(sepoliaConfig.rpcUrl) });
   
-  const portal = new Contract(bridge.contract, OPTIMISM_PORTAL_ABI, wallet);
+  const OPTIMISM_PORTAL_ABI_PARSED = parseAbi(OPTIMISM_PORTAL_ABI);
   const amount = parseEther(amountEth);
   
   console.log(`   Depositing ${amountEth} ETH to ${config.name}...`);
   
-  const tx = await portal.depositTransaction(
-    wallet.address, // _to: recipient on L2
-    amount,         // _value: amount to deposit
-    100000n,        // _gasLimit: L2 gas
-    false,          // _isCreation: not creating contract
-    '0x',           // _data: empty
-    { value: amount, gasLimit: 200000n }
-  );
+  const hash = await walletClient.writeContract({
+    address: bridge.contract as Address,
+    abi: OPTIMISM_PORTAL_ABI_PARSED,
+    functionName: 'depositTransaction',
+    args: [
+      account.address, // _to: recipient on L2
+      amount,         // _value: amount to deposit
+      100000n,        // _gasLimit: L2 gas
+      false,          // _isCreation: not creating contract
+      '0x' as `0x${string}`,           // _data: empty
+    ],
+    value: amount,
+    account,
+  });
   
-  console.log(`   Tx: ${TESTNETS.sepolia.explorer}/tx/${tx.hash}`);
-  await tx.wait();
+  console.log(`   Tx: ${sepoliaConfig.explorer}/tx/${hash}`);
+  await waitForTransactionReceipt(publicClient, { hash });
   
-  return tx.hash;
+  return hash;
 }
 
 async function bridgeToArbitrum(
-  wallet: Wallet,
+  account: ReturnType<typeof privateKeyToAccount>,
   amountEth: string
 ): Promise<string> {
   const config = TESTNETS.arbitrumSepolia;
   const bridge = config.bridge;
+  const sepoliaConfig = TESTNETS.sepolia;
+  const chainObj = inferChainFromRpcUrl(sepoliaConfig.rpcUrl);
+  const publicClient = createPublicClient({ chain: chainObj, transport: http(sepoliaConfig.rpcUrl) });
+  const walletClient = createWalletClient({ account, chain: chainObj, transport: http(sepoliaConfig.rpcUrl) });
   
+  const ARBITRUM_INBOX_ABI_PARSED = parseAbi(ARBITRUM_INBOX_ABI);
   const amount = parseEther(amountEth);
   
   console.log(`   Depositing ${amountEth} ETH to ${config.name}...`);
   
-  // Arbitrum uses depositEth function on the inbox
-  const inbox = new Contract(bridge.contract, ARBITRUM_INBOX_ABI, wallet);
-  const tx = await inbox.depositEth({ value: amount, gasLimit: 200000n });
+  const hash = await walletClient.writeContract({
+    address: bridge.contract as Address,
+    abi: ARBITRUM_INBOX_ABI_PARSED,
+    functionName: 'depositEth',
+    value: amount,
+    account,
+  });
   
-  console.log(`   Tx: ${TESTNETS.sepolia.explorer}/tx/${tx.hash}`);
-  await tx.wait();
+  console.log(`   Tx: ${sepoliaConfig.explorer}/tx/${hash}`);
+  await waitForTransactionReceipt(publicClient, { hash });
   
-  return tx.hash;
+  return hash;
 }
 
-async function bridgeToL2s(privateKey: string, amountPerChain: string) {
-  const sepoliaProvider = new JsonRpcProvider(TESTNETS.sepolia.rpcUrl);
-  const wallet = new Wallet(privateKey, sepoliaProvider);
+async function bridgeToL2s(privateKey: `0x${string}`, amountPerChain: string) {
+  const sepoliaConfig = TESTNETS.sepolia;
+  const chainObj = inferChainFromRpcUrl(sepoliaConfig.rpcUrl);
+  const publicClient = createPublicClient({ chain: chainObj, transport: http(sepoliaConfig.rpcUrl) });
+  const account = privateKeyToAccount(privateKey);
   
-  const sepoliaBalance = await sepoliaProvider.getBalance(wallet.address);
+  const sepoliaBalance = await getBalance(publicClient, { address: account.address });
   const requiredAmount = parseEther(amountPerChain) * 3n + parseEther('0.05'); // 3 chains + gas
   
   if (sepoliaBalance < requiredAmount) {
@@ -202,9 +227,9 @@ async function bridgeToL2s(privateKey: string, amountPerChain: string) {
   
   // Check which L2s need funds
   const balances = await Promise.all([
-    checkBalance('arbitrumSepolia', wallet.address),
-    checkBalance('optimismSepolia', wallet.address),
-    checkBalance('baseSepolia', wallet.address),
+    checkBalance('arbitrumSepolia', account.address),
+    checkBalance('optimismSepolia', account.address),
+    checkBalance('baseSepolia', account.address),
   ]);
   
   for (const bal of balances) {
@@ -216,9 +241,9 @@ async function bridgeToL2s(privateKey: string, amountPerChain: string) {
     console.log(`\n   🔄 ${bal.name}`);
     
     if (bal.network === 'arbitrumSepolia') {
-      await bridgeToArbitrum(wallet, amountPerChain);
+      await bridgeToArbitrum(account, amountPerChain);
     } else if (bal.network === 'optimismSepolia' || bal.network === 'baseSepolia') {
-      await bridgeToOptimismStack(wallet, bal.network, amountPerChain);
+      await bridgeToOptimismStack(account, bal.network, amountPerChain);
     }
     
     console.log(`   ✅ Bridge initiated. Funds arrive in ~10-15 minutes.`);
@@ -310,7 +335,7 @@ async function main() {
   const deployer = loadDeployerKey();
   console.log(`📍 Deployer Address: ${deployer.address}`);
   
-  const balances = await checkAllBalances(deployer.address);
+  const balances = await checkAllBalances(deployer.address as Address);
   
   const funded = balances.filter(b => b.hasFunds);
   const unfunded = balances.filter(b => !b.hasFunds);
@@ -328,7 +353,7 @@ async function main() {
   
   if (process.argv.includes('--bridge')) {
     if (sepoliaBalance && sepoliaBalance.balance > parseEther('0.1')) {
-      await bridgeToL2s(deployer.privateKey, '0.02');
+      await bridgeToL2s(deployer.privateKey as `0x${string}`, '0.02');
       
       console.log('\n⏳ Waiting 30 seconds for bridges to process...');
       await new Promise(resolve => setTimeout(resolve, 30000));

@@ -6,56 +6,56 @@
  */
 
 import { describe, test, expect, beforeEach } from 'bun:test';
-import { ethers } from 'ethers';
+import { keccak256, stringToHex, parseAbi } from 'viem';
 
 // Event signatures from oracle-processor.ts
 const EVENTS = {
-  FEED_CREATED: ethers.id('FeedCreated(bytes32,string,address,address,address)'),
-  FEED_ACTIVATED: ethers.id('FeedActivated(bytes32)'),
-  FEED_DEACTIVATED: ethers.id('FeedDeactivated(bytes32)'),
-  OPERATOR_REGISTERED: ethers.id('OperatorRegistered(bytes32,bytes32,uint256,address)'),
-  OPERATOR_DEACTIVATED: ethers.id('OperatorDeactivated(bytes32,string)'),
-  PERFORMANCE_RECORDED: ethers.id('PerformanceRecorded(bytes32,uint256,uint256,uint256)'),
-  COMMITTEE_FORMED: ethers.id('CommitteeFormed(bytes32,uint256,address[],address,uint256)'),
-  MEMBER_ADDED: ethers.id('MemberAdded(bytes32,uint256,address)'),
-  MEMBER_REMOVED: ethers.id('MemberRemoved(bytes32,uint256,address,string)'),
-  REPORT_SUBMITTED: ethers.id('ReportSubmitted(bytes32,bytes32,uint256,uint256,uint256,uint256)'),
-  REPORT_REJECTED: ethers.id('ReportRejected(bytes32,bytes32,string)'),
-  DISPUTE_OPENED: ethers.id('DisputeOpened(bytes32,bytes32,bytes32,address,uint256,uint8)'),
-  DISPUTE_CHALLENGED: ethers.id('DisputeChallenged(bytes32,address,uint256)'),
-  DISPUTE_RESOLVED: ethers.id('DisputeResolved(bytes32,uint8,uint256,uint256)'),
-  SUBSCRIPTION_CREATED: ethers.id('SubscriptionCreated(bytes32,address,bytes32[],uint256,uint256)'),
-  SUBSCRIPTION_CANCELLED: ethers.id('SubscriptionCancelled(bytes32,uint256)'),
-  REWARDS_CLAIMED: ethers.id('RewardsClaimed(bytes32,address,uint256)'),
+  FEED_CREATED: keccak256(stringToHex('FeedCreated(bytes32,string,address,address,address)')),
+  FEED_ACTIVATED: keccak256(stringToHex('FeedActivated(bytes32)')),
+  FEED_DEACTIVATED: keccak256(stringToHex('FeedDeactivated(bytes32)')),
+  OPERATOR_REGISTERED: keccak256(stringToHex('OperatorRegistered(bytes32,bytes32,uint256,address)')),
+  OPERATOR_DEACTIVATED: keccak256(stringToHex('OperatorDeactivated(bytes32,string)')),
+  PERFORMANCE_RECORDED: keccak256(stringToHex('PerformanceRecorded(bytes32,uint256,uint256,uint256)')),
+  COMMITTEE_FORMED: keccak256(stringToHex('CommitteeFormed(bytes32,uint256,address[],address,uint256)')),
+  MEMBER_ADDED: keccak256(stringToHex('MemberAdded(bytes32,uint256,address)')),
+  MEMBER_REMOVED: keccak256(stringToHex('MemberRemoved(bytes32,uint256,address,string)')),
+  REPORT_SUBMITTED: keccak256(stringToHex('ReportSubmitted(bytes32,bytes32,uint256,uint256,uint256,uint256)')),
+  REPORT_REJECTED: keccak256(stringToHex('ReportRejected(bytes32,bytes32,string)')),
+  DISPUTE_OPENED: keccak256(stringToHex('DisputeOpened(bytes32,bytes32,bytes32,address,uint256,uint8)')),
+  DISPUTE_CHALLENGED: keccak256(stringToHex('DisputeChallenged(bytes32,address,uint256)')),
+  DISPUTE_RESOLVED: keccak256(stringToHex('DisputeResolved(bytes32,uint8,uint256,uint256)')),
+  SUBSCRIPTION_CREATED: keccak256(stringToHex('SubscriptionCreated(bytes32,address,bytes32[],uint256,uint256)')),
+  SUBSCRIPTION_CANCELLED: keccak256(stringToHex('SubscriptionCancelled(bytes32,uint256)')),
+  REWARDS_CLAIMED: keccak256(stringToHex('RewardsClaimed(bytes32,address,uint256)')),
 } as const;
 
 // ABIs for encoding test data
 const INTERFACES = {
-  registry: new ethers.Interface([
+  registry: parseAbi([
     'event FeedCreated(bytes32 indexed feedId, string symbol, address baseToken, address quoteToken, address creator)',
     'event FeedActivated(bytes32 indexed feedId)',
     'event FeedDeactivated(bytes32 indexed feedId)',
   ]),
-  connector: new ethers.Interface([
+  connector: parseAbi([
     'event OperatorRegistered(bytes32 indexed operatorId, bytes32 indexed stakingOracleId, uint256 agentId, address workerKey)',
     'event OperatorDeactivated(bytes32 indexed operatorId, string reason)',
     'event PerformanceRecorded(bytes32 indexed operatorId, uint256 indexed epoch, uint256 reportsSubmitted, uint256 reportsAccepted)',
   ]),
-  committee: new ethers.Interface([
+  committee: parseAbi([
     'event CommitteeFormed(bytes32 indexed feedId, uint256 indexed round, address[] members, address leader, uint256 activeUntil)',
     'event MemberAdded(bytes32 indexed feedId, uint256 indexed round, address indexed member)',
     'event MemberRemoved(bytes32 indexed feedId, uint256 indexed round, address indexed member, string reason)',
   ]),
-  reporting: new ethers.Interface([
+  reporting: parseAbi([
     'event ReportSubmitted(bytes32 indexed feedId, bytes32 reportHash, uint256 price, uint256 confidence, uint256 round, uint256 signatureCount)',
     'event ReportRejected(bytes32 indexed feedId, bytes32 indexed reportHash, string reason)',
   ]),
-  dispute: new ethers.Interface([
+  dispute: parseAbi([
     'event DisputeOpened(bytes32 indexed disputeId, bytes32 reportHash, bytes32 feedId, address disputer, uint256 bond, uint8 reason)',
     'event DisputeChallenged(bytes32 indexed disputeId, address challenger, uint256 additionalBond)',
     'event DisputeResolved(bytes32 indexed disputeId, uint8 outcome, uint256 slashedAmount, uint256 reward)',
   ]),
-  subscription: new ethers.Interface([
+  subscription: parseAbi([
     'event SubscriptionCreated(bytes32 indexed subscriptionId, address indexed subscriber, bytes32[] feedIds, uint256 duration, uint256 amountPaid)',
     'event SubscriptionCancelled(bytes32 indexed subscriptionId, uint256 refundAmount)',
     'event RewardsClaimed(bytes32 indexed operatorId, address indexed recipient, uint256 amount)',

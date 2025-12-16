@@ -749,6 +749,8 @@ output "testnet_urls" {
     relay         = module.messaging.relay_endpoint
     kms           = module.messaging.kms_endpoint
     covenantsql   = module.covenantsql.http_endpoint
+    solana_rpc    = module.solana.rpc_endpoint
+    solana_ws     = module.solana.ws_endpoint
   }
 }
 
@@ -817,6 +819,36 @@ module "messaging" {
   depends_on = [module.eks, module.covenantsql, module.kms, module.route53]
 }
 
+# ============================================================
+# Module: Solana RPC Nodes (Cross-chain Bridge Infrastructure)
+# Required for EVM <-> Solana arbitrage, LP management, and OIF
+# ============================================================
+module "solana" {
+  source = "../../modules/solana"
+
+  environment    = local.environment
+  vpc_id         = module.network.vpc_id
+  subnet_ids     = module.network.public_subnet_ids
+  solana_network = "devnet"  # Use devnet for testnet
+  node_count     = 2
+  instance_type  = "r6i.2xlarge"  # Solana needs significant resources
+  disk_size_gb   = 500            # Smaller for devnet
+  key_name       = "jeju-testnet"
+  tags           = local.common_tags
+
+  depends_on = [module.network]
+}
+
+output "solana_rpc_endpoint" {
+  description = "Solana RPC endpoint for cross-chain operations"
+  value       = module.solana.rpc_endpoint
+}
+
+output "solana_ws_endpoint" {
+  description = "Solana WebSocket endpoint"
+  value       = module.solana.ws_endpoint
+}
+
 output "deployment_summary" {
   description = "Complete deployment summary"
   value = {
@@ -830,6 +862,7 @@ output "deployment_summary" {
     route53_zone_id     = module.route53.zone_id
     acm_certificate_arn = module.acm.certificate_arn
     alb_controller_role = aws_iam_role.alb_controller.arn
+    solana_rpc          = module.solana.rpc_endpoint
   }
 }
 

@@ -2,13 +2,13 @@
  * Market Processor - Indexes NetworkMarket and PredictionOracle events
  */
 
-import { ethers } from 'ethers';
+import { keccak256, stringToHex, parseAbi } from 'viem';
 import { Store } from '@subsquid/typeorm-store';
 import { ProcessorContext } from './processor';
 import { Account, PredictionMarket, MarketTrade, MarketPosition, OracleGame } from './model';
 import { createAccountFactory } from './lib/entities';
 
-const marketInterface = new ethers.Interface([
+const marketInterface = parseAbi([
     'event MarketCreated(bytes32 indexed sessionId, string question, uint256 liquidity)',
     'event SharesPurchased(bytes32 indexed sessionId, address indexed trader, bool outcome, uint256 shares, uint256 cost)',
     'event SharesSold(bytes32 indexed sessionId, address indexed trader, bool outcome, uint256 shares, uint256 payout)',
@@ -18,13 +18,13 @@ const marketInterface = new ethers.Interface([
     'event GameRevealed(bytes32 indexed sessionId, bool outcome, uint256 endTime, bytes teeQuote, uint256 winnersCount)'
 ]);
 
-const MARKET_CREATED = ethers.id('MarketCreated(bytes32,string,uint256)');
-const SHARES_PURCHASED = ethers.id('SharesPurchased(bytes32,address,bool,uint256,uint256)');
-const SHARES_SOLD = ethers.id('SharesSold(bytes32,address,bool,uint256,uint256)');
-const MARKET_RESOLVED = ethers.id('MarketResolved(bytes32,bool)');
-const PAYOUT_CLAIMED = ethers.id('PayoutClaimed(bytes32,address,uint256)');
-const GAME_COMMITTED = ethers.id('GameCommitted(bytes32,string,bytes32,uint256)');
-const GAME_REVEALED = ethers.id('GameRevealed(bytes32,bool,uint256,bytes,uint256)');
+const MARKET_CREATED = keccak256(stringToHex('MarketCreated(bytes32,string,uint256)'));
+const SHARES_PURCHASED = keccak256(stringToHex('SharesPurchased(bytes32,address,bool,uint256,uint256)'));
+const SHARES_SOLD = keccak256(stringToHex('SharesSold(bytes32,address,bool,uint256,uint256)'));
+const MARKET_RESOLVED = keccak256(stringToHex('MarketResolved(bytes32,bool)'));
+const PAYOUT_CLAIMED = keccak256(stringToHex('PayoutClaimed(bytes32,address,uint256)'));
+const GAME_COMMITTED = keccak256(stringToHex('GameCommitted(bytes32,string,bytes32,uint256)'));
+const GAME_REVEALED = keccak256(stringToHex('GameRevealed(bytes32,bool,uint256,bytes,uint256)'));
 
 export async function processMarketEvents(ctx: ProcessorContext<Store>): Promise<void> {
     const markets = new Map<string, PredictionMarket>();

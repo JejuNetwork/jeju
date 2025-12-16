@@ -1,10 +1,16 @@
 /**
  * Shared configuration for OAuth3 infrastructure
+ * 
+ * Environments:
+ * - localnet: Local development with anvil (chain 420691)
+ * - testnet: Jeju Testnet for staging (chain 420690)
+ * - mainnet: Jeju Mainnet for production (chain 420692)
  */
 
 import type { Address } from 'viem';
 
 export type NetworkType = 'localnet' | 'testnet' | 'mainnet';
+export type TEEMode = 'dstack' | 'phala' | 'simulated' | 'auto';
 
 export const CHAIN_IDS = {
   localnet: 420691,
@@ -12,9 +18,39 @@ export const CHAIN_IDS = {
   mainnet: 420692,
 } as const;
 
-export const DEFAULT_RPC = 'http://localhost:9545';
-export const DEFAULT_IPFS_API = 'http://localhost:5001/api/v0';
-export const DEFAULT_IPFS_GATEWAY = 'http://localhost:8080/ipfs';
+export const RPC_URLS: Record<NetworkType, string> = {
+  localnet: 'http://localhost:9545',
+  testnet: 'https://testnet.jeju.network',
+  mainnet: 'https://mainnet.jeju.network',
+} as const;
+
+export const DEFAULT_RPC = process.env.JEJU_RPC_URL || RPC_URLS.localnet;
+
+// DWS Storage endpoints - all environments use DWS for storage
+// DWS exposes IPFS-compatible API at /storage/api/v0/* and /storage/ipfs/*
+export const DWS_ENDPOINTS: Record<NetworkType, { base: string; api: string; gateway: string }> = {
+  localnet: {
+    base: 'http://localhost:4030',
+    api: 'http://localhost:4030/storage/api/v0',
+    gateway: 'http://localhost:4030/storage/ipfs',
+  },
+  testnet: {
+    base: 'https://dws.testnet.jeju.network',
+    api: 'https://dws.testnet.jeju.network/storage/api/v0',
+    gateway: 'https://dws.testnet.jeju.network/storage/ipfs',
+  },
+  mainnet: {
+    base: 'https://dws.jeju.network',
+    api: 'https://dws.jeju.network/storage/api/v0',
+    gateway: 'https://dws.jeju.network/storage/ipfs',
+  },
+} as const;
+
+// Alias for backwards compatibility
+export const IPFS_ENDPOINTS = DWS_ENDPOINTS;
+
+export const DEFAULT_IPFS_API = process.env.IPFS_API_ENDPOINT || IPFS_ENDPOINTS.localnet.api;
+export const DEFAULT_IPFS_GATEWAY = process.env.IPFS_GATEWAY_ENDPOINT || IPFS_ENDPOINTS.localnet.gateway;
 
 // Localnet addresses (from local anvil deployment)
 const LOCALNET_CONTRACTS = {
@@ -25,7 +61,7 @@ const LOCALNET_CONTRACTS = {
   teeVerifier: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9' as Address,
 } as const;
 
-// Testnet addresses (Base Sepolia deployment)
+// Testnet addresses (Jeju Testnet deployment)
 const TESTNET_CONTRACTS = {
   jnsRegistry: '0x4B0897b0513fdC7C541B6d9D7E929C4e5364D2dB' as Address,
   jnsResolver: '0x14dc79964da2C08b23698B3D3cc7Ca32193d9955' as Address,
@@ -34,7 +70,7 @@ const TESTNET_CONTRACTS = {
   teeVerifier: '0xBcd4042DE499D14e55001CcbB24a551F3b954096' as Address,
 } as const;
 
-// Mainnet addresses (Base mainnet deployment - NOT YET DEPLOYED)
+// Mainnet addresses (Jeju Mainnet - PENDING DEPLOYMENT)
 const MAINNET_CONTRACTS = {
   jnsRegistry: '0x0000000000000000000000000000000000000000' as Address,
   jnsResolver: '0x0000000000000000000000000000000000000000' as Address,
@@ -70,4 +106,65 @@ export function getContracts(chainId: number) {
   }
   
   return contracts;
+}
+
+export function getRpcUrl(chainId: number): string {
+  const network = getNetworkType(chainId);
+  return process.env.JEJU_RPC_URL || RPC_URLS[network];
+}
+
+export function getIPFSEndpoints(chainId: number) {
+  const network = getNetworkType(chainId);
+  return {
+    api: process.env.IPFS_API_ENDPOINT || IPFS_ENDPOINTS[network].api,
+    gateway: process.env.IPFS_GATEWAY_ENDPOINT || IPFS_ENDPOINTS[network].gateway,
+  };
+}
+
+export function getEnvironmentConfig(chainId?: number) {
+  const cid = chainId || Number(process.env.CHAIN_ID) || CHAIN_IDS.localnet;
+  const network = getNetworkType(cid);
+  const contracts = getContracts(cid);
+  const ipfs = getIPFSEndpoints(cid);
+  
+  return {
+    chainId: cid,
+    network,
+    rpcUrl: getRpcUrl(cid),
+    contracts,
+    ipfs,
+    teeMode: (process.env.TEE_MODE || 'simulated') as TEEMode,
+  };
+}
+
+// MPC Configuration
+export const MPC_DEFAULTS = {
+  threshold: 2,
+  totalParties: 3,
+  sessionTimeout: 60000, // 1 minute
+} as const;
+
+// OAuth3 Agent Configuration
+export interface OAuth3AgentConfig {
+  nodeId: string;
+  clusterId: string;
+  port: number;
+  chainId: number;
+  teeMode: TEEMode;
+  mpcEnabled: boolean;
+  mpcThreshold: number;
+  mpcTotalParties: number;
+}
+
+export function getAgentConfig(): OAuth3AgentConfig {
+  return {
+    nodeId: process.env.OAUTH3_NODE_ID || `oauth3-${Date.now()}`,
+    clusterId: process.env.OAUTH3_CLUSTER_ID || 'oauth3-local-cluster',
+    port: Number(process.env.OAUTH3_PORT) || 4200,
+    chainId: Number(process.env.CHAIN_ID) || CHAIN_IDS.localnet,
+    teeMode: (process.env.TEE_MODE || 'simulated') as TEEMode,
+    mpcEnabled: process.env.MPC_ENABLED === 'true',
+    mpcThreshold: Number(process.env.MPC_THRESHOLD) || MPC_DEFAULTS.threshold,
+    mpcTotalParties: Number(process.env.MPC_TOTAL_PARTIES) || MPC_DEFAULTS.totalParties,
+  };
 }

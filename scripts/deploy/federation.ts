@@ -14,9 +14,12 @@
  */
 
 import { $ } from 'bun';
-import { Wallet, JsonRpcProvider, ContractFactory, parseEther } from 'ethers';
+import { createPublicClient, createWalletClient, http, parseEther, formatEther, encodeDeployData, getContractAddress, type Address, type Chain } from 'viem';
+import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
+import { waitForTransactionReceipt, getBalance } from 'viem/actions';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { inferChainFromRpcUrl } from '../shared/chain-utils';
 
 const ROOT = join(import.meta.dir, '../..');
 const CONTRACTS_DIR = join(ROOT, 'packages/contracts');
@@ -73,11 +76,12 @@ async function getPrivateKey(): Promise<string> {
 }
 
 async function deployContract(
-  provider: JsonRpcProvider,
-  wallet: Wallet,
+  publicClient: ReturnType<typeof createPublicClient>,
+  walletClient: ReturnType<typeof createWalletClient>,
+  account: PrivateKeyAccount,
   name: string,
-  args: (string | number | bigint)[] = []
-): Promise<string> {
+  args: unknown[] = []
+): Promise<Address> {
   const abiPath = join(CONTRACTS_DIR, `out/${name}.sol/${name}.json`);
   
   if (!existsSync(abiPath)) {
@@ -86,15 +90,32 @@ async function deployContract(
   }
 
   const artifact = JSON.parse(readFileSync(abiPath, 'utf-8'));
-  const factory = new ContractFactory(artifact.abi, artifact.bytecode.object, wallet);
+  
+  const deployData = encodeDeployData({
+    abi: artifact.abi,
+    bytecode: artifact.bytecode.object as `0x${string}`,
+    args,
+  });
 
-  console.log(`Deploying ${name}...`);
-  const contract = await factory.deploy(...args);
-  await contract.waitForDeployment();
+  const nonce = await publicClient.getTransactionCount({ address: account.address });
+  
+  const hash = await walletClient.sendTransaction({
+    data: deployData,
+    account,
+  });
 
-  const address = await contract.getAddress();
+  const receipt = await waitForTransactionReceipt(publicClient, { hash });
+  
+  if (receipt.status !== 'success') {
+    throw new Error(`Deployment failed: ${name} (tx: ${hash})`);
+  }
+
+  const address = receipt.contractAddress || getContractAddress({
+    from: account.address,
+    nonce: BigInt(nonce),
+  });
+
   console.log(`  ${name}: ${address}`);
-
   return address;
 }
 
@@ -105,22 +126,25 @@ async function main() {
 
   const config = CHAIN_CONFIGS[NETWORK];
   const privateKey = await getPrivateKey();
+  const account = privateKeyToAccount(privateKey as `0x${string}`);
 
-  const hubProvider = new JsonRpcProvider(config.hub.rpcUrl);
-  const localProvider = new JsonRpcProvider(config.local.rpcUrl);
+  const hubChain: Chain = { id: config.hub.chainId, name: 'Hub', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [config.hub.rpcUrl] } } };
+  const localChain: Chain = { id: config.local.chainId, name: 'Local', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [config.local.rpcUrl] } } };
 
-  const hubWallet = new Wallet(privateKey, hubProvider);
-  const localWallet = new Wallet(privateKey, localProvider);
+  const hubPublicClient = createPublicClient({ chain: hubChain, transport: http(config.hub.rpcUrl) });
+  const hubWalletClient = createWalletClient({ account, chain: hubChain, transport: http(config.hub.rpcUrl) });
+  const localPublicClient = createPublicClient({ chain: localChain, transport: http(config.local.rpcUrl) });
+  const localWalletClient = createWalletClient({ account, chain: localChain, transport: http(config.local.rpcUrl) });
 
-  console.log(`Deployer: ${hubWallet.address}`);
+  console.log(`Deployer: ${account.address}`);
   console.log(`Hub Chain: ${config.hub.chainId}`);
   console.log(`Local Chain: ${config.local.chainId}\n`);
 
-  const hubBalance = await hubProvider.getBalance(hubWallet.address);
-  const localBalance = await localProvider.getBalance(localWallet.address);
+  const hubBalance = await getBalance(hubPublicClient, { address: account.address });
+  const localBalance = await getBalance(localPublicClient, { address: account.address });
 
-  console.log(`Hub Balance: ${(Number(hubBalance) / 1e18).toFixed(4)} ETH`);
-  console.log(`Local Balance: ${(Number(localBalance) / 1e18).toFixed(4)} ETH\n`);
+  console.log(`Hub Balance: ${formatEther(hubBalance)} ETH`);
+  console.log(`Local Balance: ${formatEther(localBalance)} ETH\n`);
 
   if (hubBalance < parseEther('0.1')) {
     throw new Error('Insufficient hub chain balance');
@@ -133,50 +157,54 @@ async function main() {
   console.log('Deploying Hub Contracts...\n');
 
   const networkRegistry = await deployContract(
-    hubProvider,
-    hubWallet,
+    hubPublicClient,
+    hubWalletClient,
+    account,
     'NetworkRegistry',
-    [hubWallet.address]
+    [account.address]
   );
 
   console.log('\nDeploying Local Contracts...\n');
 
   const federatedIdentity = await deployContract(
-    localProvider,
-    localWallet,
+    localPublicClient,
+    localWalletClient,
+    account,
     'FederatedIdentity',
     [
-      config.local.chainId,
-      localWallet.address,
-      localWallet.address,
+      BigInt(config.local.chainId),
+      account.address,
+      account.address,
       networkRegistry,
-      '0x0000000000000000000000000000000000000000',
+      '0x0000000000000000000000000000000000000000' as Address,
     ]
   );
 
   const federatedSolver = await deployContract(
-    localProvider,
-    localWallet,
+    localPublicClient,
+    localWalletClient,
+    account,
     'FederatedSolver',
     [
-      config.local.chainId,
-      localWallet.address,
-      localWallet.address,
+      BigInt(config.local.chainId),
+      account.address,
+      account.address,
       networkRegistry,
-      '0x0000000000000000000000000000000000000000',
+      '0x0000000000000000000000000000000000000000' as Address,
     ]
   );
 
   const federatedLiquidity = await deployContract(
-    localProvider,
-    localWallet,
+    localPublicClient,
+    localWalletClient,
+    account,
     'FederatedLiquidity',
     [
-      config.local.chainId,
-      localWallet.address,
-      localWallet.address,
+      BigInt(config.local.chainId),
+      account.address,
+      account.address,
       networkRegistry,
-      '0x0000000000000000000000000000000000000000',
+      '0x0000000000000000000000000000000000000000' as Address,
     ]
   );
 

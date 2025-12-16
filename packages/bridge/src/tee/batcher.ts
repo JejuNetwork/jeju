@@ -118,7 +118,7 @@ export class TEEBatcher {
       teeAttestation: this.attestation,
       totalFees: batch.transfers.reduce(
         (sum, e) => sum + e.estimatedCost,
-        BigInt(0)
+        BigInt(0),
       ),
       proofCost: batch.estimatedTotalCost,
       createdAt: batch.createdAt,
@@ -186,7 +186,7 @@ export class TEEBatcher {
     this.pendingBatches.set(batchId, this.currentBatch);
 
     console.log(
-      `[TEE] Batch ${batchId.slice(0, 8)} ready with ${this.currentBatch.transfers.length} transfers`
+      `[TEE] Batch ${batchId.slice(0, 8)} ready with ${this.currentBatch.transfers.length} transfers`,
     );
 
     // Clear current
@@ -228,7 +228,7 @@ export class TEEBatcher {
   }
 
   private async computePartialState(
-    transfer: CrossChainTransfer
+    transfer: CrossChainTransfer,
   ): Promise<Uint8Array> {
     const encoder = new TextEncoder();
     const data = JSON.stringify({

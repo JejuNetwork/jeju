@@ -1,0 +1,359 @@
+# Phala CVM OAuth3 Auth Agent Deployment
+#
+# Phala Network provides TEE (Trusted Execution Environment) via
+# Secure Enclaves without requiring specialized hardware like Intel TDX.
+# This makes it suitable for deployment on standard cloud infrastructure.
+#
+# For testnet deployment (Phala Testnet):
+#   docker compose -f phala.compose.yaml --profile testnet up
+#
+# For mainnet/production (Phala Mainnet):
+#   docker compose -f phala.compose.yaml --profile mainnet up
+
+services:
+  # ============================================
+  # Testnet Deployment (Phala Testnet)
+  # ============================================
+  oauth3-phala-1:
+    image: ghcr.io/jeju-network/oauth3-agent:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    profiles: [testnet]
+    environment:
+      # Node Configuration
+      - OAUTH3_NODE_ID=oauth3-phala-1
+      - OAUTH3_CLUSTER_ID=oauth3-phala-cluster
+      - OAUTH3_PORT=4200
+      # MPC Configuration
+      - MPC_ENABLED=true
+      - MPC_THRESHOLD=2
+      - MPC_TOTAL_PARTIES=3
+      - MPC_ENDPOINT=http://oauth3-phala-2:4100
+      # Chain Configuration
+      - JEJU_RPC_URL=${JEJU_TESTNET_RPC_URL:-https://testnet.jeju.network}
+      - CHAIN_ID=420690
+      # TEE Configuration
+      - TEE_MODE=phala
+      - PHALA_CLUSTER_ID=${PHALA_CLUSTER_ID}
+      - PHALA_WORKER_PUBKEY=${PHALA_WORKER_PUBKEY_1}
+      # Infrastructure (DWS Storage)
+      - DWS_URL=${DWS_URL:-https://dws.testnet.jeju.network}
+      - IPFS_API_ENDPOINT=${IPFS_API_ENDPOINT:-https://dws.testnet.jeju.network/storage/api/v0}
+      - IPFS_GATEWAY_ENDPOINT=${IPFS_GATEWAY_ENDPOINT:-https://dws.testnet.jeju.network/storage/ipfs}
+      - JNS_GATEWAY=${JNS_GATEWAY:-https://jns.testnet.jeju.network}
+      # Logging
+      - LOG_LEVEL=info
+      # OAuth Provider Credentials
+      - OAUTH_GOOGLE_CLIENT_ID=${OAUTH_GOOGLE_CLIENT_ID}
+      - OAUTH_GOOGLE_CLIENT_SECRET=${OAUTH_GOOGLE_CLIENT_SECRET}
+      - OAUTH_GITHUB_CLIENT_ID=${OAUTH_GITHUB_CLIENT_ID}
+      - OAUTH_GITHUB_CLIENT_SECRET=${OAUTH_GITHUB_CLIENT_SECRET}
+      - OAUTH_TWITTER_CLIENT_ID=${OAUTH_TWITTER_CLIENT_ID}
+      - OAUTH_TWITTER_CLIENT_SECRET=${OAUTH_TWITTER_CLIENT_SECRET}
+      - OAUTH_DISCORD_CLIENT_ID=${OAUTH_DISCORD_CLIENT_ID}
+      - OAUTH_DISCORD_CLIENT_SECRET=${OAUTH_DISCORD_CLIENT_SECRET}
+      # Farcaster Integration
+      - NEYNAR_API_KEY=${NEYNAR_API_KEY}
+      - FARCASTER_HUB_URL=${FARCASTER_HUB_URL:-https://hub.pinata.cloud}
+    volumes:
+      - oauth3-phala-data-1:/data
+    ports:
+      - "4200:4200"
+    networks:
+      - oauth3-phala-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4200/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  oauth3-phala-2:
+    image: ghcr.io/jeju-network/oauth3-agent:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    profiles: [testnet]
+    environment:
+      - OAUTH3_NODE_ID=oauth3-phala-2
+      - OAUTH3_CLUSTER_ID=oauth3-phala-cluster
+      - OAUTH3_PORT=4201
+      - MPC_ENABLED=true
+      - MPC_THRESHOLD=2
+      - MPC_TOTAL_PARTIES=3
+      - MPC_ENDPOINT=http://oauth3-phala-1:4100
+      - JEJU_RPC_URL=${JEJU_TESTNET_RPC_URL:-https://testnet.jeju.network}
+      - CHAIN_ID=420690
+      - TEE_MODE=phala
+      - PHALA_CLUSTER_ID=${PHALA_CLUSTER_ID}
+      - PHALA_WORKER_PUBKEY=${PHALA_WORKER_PUBKEY_2}
+      - DWS_URL=${DWS_URL:-https://dws.testnet.jeju.network}
+      - IPFS_API_ENDPOINT=${IPFS_API_ENDPOINT:-https://dws.testnet.jeju.network/storage/api/v0}
+      - IPFS_GATEWAY_ENDPOINT=${IPFS_GATEWAY_ENDPOINT:-https://dws.testnet.jeju.network/storage/ipfs}
+      - JNS_GATEWAY=${JNS_GATEWAY:-https://jns.testnet.jeju.network}
+      - LOG_LEVEL=info
+      - OAUTH_GOOGLE_CLIENT_ID=${OAUTH_GOOGLE_CLIENT_ID}
+      - OAUTH_GOOGLE_CLIENT_SECRET=${OAUTH_GOOGLE_CLIENT_SECRET}
+      - OAUTH_GITHUB_CLIENT_ID=${OAUTH_GITHUB_CLIENT_ID}
+      - OAUTH_GITHUB_CLIENT_SECRET=${OAUTH_GITHUB_CLIENT_SECRET}
+      - OAUTH_TWITTER_CLIENT_ID=${OAUTH_TWITTER_CLIENT_ID}
+      - OAUTH_TWITTER_CLIENT_SECRET=${OAUTH_TWITTER_CLIENT_SECRET}
+      - OAUTH_DISCORD_CLIENT_ID=${OAUTH_DISCORD_CLIENT_ID}
+      - OAUTH_DISCORD_CLIENT_SECRET=${OAUTH_DISCORD_CLIENT_SECRET}
+      - NEYNAR_API_KEY=${NEYNAR_API_KEY}
+      - FARCASTER_HUB_URL=${FARCASTER_HUB_URL:-https://hub.pinata.cloud}
+    volumes:
+      - oauth3-phala-data-2:/data
+    ports:
+      - "4201:4201"
+    networks:
+      - oauth3-phala-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4201/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  oauth3-phala-3:
+    image: ghcr.io/jeju-network/oauth3-agent:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    profiles: [testnet]
+    environment:
+      - OAUTH3_NODE_ID=oauth3-phala-3
+      - OAUTH3_CLUSTER_ID=oauth3-phala-cluster
+      - OAUTH3_PORT=4202
+      - MPC_ENABLED=true
+      - MPC_THRESHOLD=2
+      - MPC_TOTAL_PARTIES=3
+      - MPC_ENDPOINT=http://oauth3-phala-1:4100
+      - JEJU_RPC_URL=${JEJU_TESTNET_RPC_URL:-https://testnet.jeju.network}
+      - CHAIN_ID=420690
+      - TEE_MODE=phala
+      - PHALA_CLUSTER_ID=${PHALA_CLUSTER_ID}
+      - PHALA_WORKER_PUBKEY=${PHALA_WORKER_PUBKEY_3}
+      - DWS_URL=${DWS_URL:-https://dws.testnet.jeju.network}
+      - IPFS_API_ENDPOINT=${IPFS_API_ENDPOINT:-https://dws.testnet.jeju.network/storage/api/v0}
+      - IPFS_GATEWAY_ENDPOINT=${IPFS_GATEWAY_ENDPOINT:-https://dws.testnet.jeju.network/storage/ipfs}
+      - JNS_GATEWAY=${JNS_GATEWAY:-https://jns.testnet.jeju.network}
+      - LOG_LEVEL=info
+      - OAUTH_GOOGLE_CLIENT_ID=${OAUTH_GOOGLE_CLIENT_ID}
+      - OAUTH_GOOGLE_CLIENT_SECRET=${OAUTH_GOOGLE_CLIENT_SECRET}
+      - OAUTH_GITHUB_CLIENT_ID=${OAUTH_GITHUB_CLIENT_ID}
+      - OAUTH_GITHUB_CLIENT_SECRET=${OAUTH_GITHUB_CLIENT_SECRET}
+      - OAUTH_TWITTER_CLIENT_ID=${OAUTH_TWITTER_CLIENT_ID}
+      - OAUTH_TWITTER_CLIENT_SECRET=${OAUTH_TWITTER_CLIENT_SECRET}
+      - OAUTH_DISCORD_CLIENT_ID=${OAUTH_DISCORD_CLIENT_ID}
+      - OAUTH_DISCORD_CLIENT_SECRET=${OAUTH_DISCORD_CLIENT_SECRET}
+      - NEYNAR_API_KEY=${NEYNAR_API_KEY}
+      - FARCASTER_HUB_URL=${FARCASTER_HUB_URL:-https://hub.pinata.cloud}
+    volumes:
+      - oauth3-phala-data-3:/data
+    ports:
+      - "4202:4202"
+    networks:
+      - oauth3-phala-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4202/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Load balancer for Phala cluster
+  oauth3-phala-lb:
+    image: nginx:alpine
+    profiles: [testnet, mainnet]
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "4210:80"
+    networks:
+      - oauth3-phala-network
+    depends_on:
+      - oauth3-phala-1
+      - oauth3-phala-2
+      - oauth3-phala-3
+
+  # ============================================
+  # Mainnet/Production Deployment
+  # ============================================
+  oauth3-phala-prod-1:
+    image: ghcr.io/jeju-network/oauth3-agent:latest
+    profiles: [mainnet]
+    environment:
+      - OAUTH3_NODE_ID=oauth3-mainnet-1
+      - OAUTH3_CLUSTER_ID=oauth3-mainnet-cluster
+      - OAUTH3_PORT=4200
+      - MPC_ENABLED=true
+      - MPC_THRESHOLD=2
+      - MPC_TOTAL_PARTIES=3
+      - MPC_ENDPOINT=http://oauth3-phala-prod-2:4100
+      - JEJU_RPC_URL=${JEJU_MAINNET_RPC_URL:-https://mainnet.jeju.network}
+      - CHAIN_ID=420692
+      - TEE_MODE=phala
+      - PHALA_CLUSTER_ID=${PHALA_MAINNET_CLUSTER_ID}
+      - PHALA_WORKER_PUBKEY=${PHALA_MAINNET_WORKER_PUBKEY_1}
+      - DWS_URL=${DWS_MAINNET_URL:-https://dws.jeju.network}
+      - IPFS_API_ENDPOINT=${IPFS_MAINNET_ENDPOINT:-https://dws.jeju.network/storage/api/v0}
+      - IPFS_GATEWAY_ENDPOINT=${IPFS_MAINNET_GATEWAY:-https://dws.jeju.network/storage/ipfs}
+      - JNS_GATEWAY=${JNS_MAINNET_GATEWAY:-https://jns.jeju.network}
+      - LOG_LEVEL=warn
+      - OAUTH_GOOGLE_CLIENT_ID=${OAUTH_GOOGLE_CLIENT_ID}
+      - OAUTH_GOOGLE_CLIENT_SECRET=${OAUTH_GOOGLE_CLIENT_SECRET}
+      - OAUTH_GITHUB_CLIENT_ID=${OAUTH_GITHUB_CLIENT_ID}
+      - OAUTH_GITHUB_CLIENT_SECRET=${OAUTH_GITHUB_CLIENT_SECRET}
+      - OAUTH_TWITTER_CLIENT_ID=${OAUTH_TWITTER_CLIENT_ID}
+      - OAUTH_TWITTER_CLIENT_SECRET=${OAUTH_TWITTER_CLIENT_SECRET}
+      - OAUTH_DISCORD_CLIENT_ID=${OAUTH_DISCORD_CLIENT_ID}
+      - OAUTH_DISCORD_CLIENT_SECRET=${OAUTH_DISCORD_CLIENT_SECRET}
+      - NEYNAR_API_KEY=${NEYNAR_API_KEY}
+      - FARCASTER_HUB_URL=${FARCASTER_HUB_URL:-https://hub.pinata.cloud}
+    volumes:
+      - oauth3-phala-prod-data-1:/data
+    networks:
+      - oauth3-phala-network
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2'
+        reservations:
+          memory: 2G
+          cpus: '1'
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4200/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  oauth3-phala-prod-2:
+    image: ghcr.io/jeju-network/oauth3-agent:latest
+    profiles: [mainnet]
+    environment:
+      - OAUTH3_NODE_ID=oauth3-mainnet-2
+      - OAUTH3_CLUSTER_ID=oauth3-mainnet-cluster
+      - OAUTH3_PORT=4201
+      - MPC_ENABLED=true
+      - MPC_THRESHOLD=2
+      - MPC_TOTAL_PARTIES=3
+      - MPC_ENDPOINT=http://oauth3-phala-prod-1:4100
+      - JEJU_RPC_URL=${JEJU_MAINNET_RPC_URL:-https://mainnet.jeju.network}
+      - CHAIN_ID=420692
+      - TEE_MODE=phala
+      - PHALA_CLUSTER_ID=${PHALA_MAINNET_CLUSTER_ID}
+      - PHALA_WORKER_PUBKEY=${PHALA_MAINNET_WORKER_PUBKEY_2}
+      - DWS_URL=${DWS_MAINNET_URL:-https://dws.jeju.network}
+      - IPFS_API_ENDPOINT=${IPFS_MAINNET_ENDPOINT:-https://dws.jeju.network/storage/api/v0}
+      - IPFS_GATEWAY_ENDPOINT=${IPFS_MAINNET_GATEWAY:-https://dws.jeju.network/storage/ipfs}
+      - JNS_GATEWAY=${JNS_MAINNET_GATEWAY:-https://jns.jeju.network}
+      - LOG_LEVEL=warn
+      - OAUTH_GOOGLE_CLIENT_ID=${OAUTH_GOOGLE_CLIENT_ID}
+      - OAUTH_GOOGLE_CLIENT_SECRET=${OAUTH_GOOGLE_CLIENT_SECRET}
+      - OAUTH_GITHUB_CLIENT_ID=${OAUTH_GITHUB_CLIENT_ID}
+      - OAUTH_GITHUB_CLIENT_SECRET=${OAUTH_GITHUB_CLIENT_SECRET}
+      - OAUTH_TWITTER_CLIENT_ID=${OAUTH_TWITTER_CLIENT_ID}
+      - OAUTH_TWITTER_CLIENT_SECRET=${OAUTH_TWITTER_CLIENT_SECRET}
+      - OAUTH_DISCORD_CLIENT_ID=${OAUTH_DISCORD_CLIENT_ID}
+      - OAUTH_DISCORD_CLIENT_SECRET=${OAUTH_DISCORD_CLIENT_SECRET}
+      - NEYNAR_API_KEY=${NEYNAR_API_KEY}
+      - FARCASTER_HUB_URL=${FARCASTER_HUB_URL:-https://hub.pinata.cloud}
+    volumes:
+      - oauth3-phala-prod-data-2:/data
+    networks:
+      - oauth3-phala-network
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2'
+        reservations:
+          memory: 2G
+          cpus: '1'
+
+  oauth3-phala-prod-3:
+    image: ghcr.io/jeju-network/oauth3-agent:latest
+    profiles: [mainnet]
+    environment:
+      - OAUTH3_NODE_ID=oauth3-mainnet-3
+      - OAUTH3_CLUSTER_ID=oauth3-mainnet-cluster
+      - OAUTH3_PORT=4202
+      - MPC_ENABLED=true
+      - MPC_THRESHOLD=2
+      - MPC_TOTAL_PARTIES=3
+      - MPC_ENDPOINT=http://oauth3-phala-prod-1:4100
+      - JEJU_RPC_URL=${JEJU_MAINNET_RPC_URL:-https://mainnet.jeju.network}
+      - CHAIN_ID=420692
+      - TEE_MODE=phala
+      - PHALA_CLUSTER_ID=${PHALA_MAINNET_CLUSTER_ID}
+      - PHALA_WORKER_PUBKEY=${PHALA_MAINNET_WORKER_PUBKEY_3}
+      - DWS_URL=${DWS_MAINNET_URL:-https://dws.jeju.network}
+      - IPFS_API_ENDPOINT=${IPFS_MAINNET_ENDPOINT:-https://dws.jeju.network/storage/api/v0}
+      - IPFS_GATEWAY_ENDPOINT=${IPFS_MAINNET_GATEWAY:-https://dws.jeju.network/storage/ipfs}
+      - JNS_GATEWAY=${JNS_MAINNET_GATEWAY:-https://jns.jeju.network}
+      - LOG_LEVEL=warn
+      - OAUTH_GOOGLE_CLIENT_ID=${OAUTH_GOOGLE_CLIENT_ID}
+      - OAUTH_GOOGLE_CLIENT_SECRET=${OAUTH_GOOGLE_CLIENT_SECRET}
+      - OAUTH_GITHUB_CLIENT_ID=${OAUTH_GITHUB_CLIENT_ID}
+      - OAUTH_GITHUB_CLIENT_SECRET=${OAUTH_GITHUB_CLIENT_SECRET}
+      - OAUTH_TWITTER_CLIENT_ID=${OAUTH_TWITTER_CLIENT_ID}
+      - OAUTH_TWITTER_CLIENT_SECRET=${OAUTH_TWITTER_CLIENT_SECRET}
+      - OAUTH_DISCORD_CLIENT_ID=${OAUTH_DISCORD_CLIENT_ID}
+      - OAUTH_DISCORD_CLIENT_SECRET=${OAUTH_DISCORD_CLIENT_SECRET}
+      - NEYNAR_API_KEY=${NEYNAR_API_KEY}
+      - FARCASTER_HUB_URL=${FARCASTER_HUB_URL:-https://hub.pinata.cloud}
+    volumes:
+      - oauth3-phala-prod-data-3:/data
+    networks:
+      - oauth3-phala-network
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2'
+        reservations:
+          memory: 2G
+          cpus: '1'
+
+networks:
+  oauth3-phala-network:
+    driver: bridge
+
+volumes:
+  oauth3-phala-data-1:
+  oauth3-phala-data-2:
+  oauth3-phala-data-3:
+  oauth3-phala-prod-data-1:
+  oauth3-phala-prod-data-2:
+  oauth3-phala-prod-data-3:

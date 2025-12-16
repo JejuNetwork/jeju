@@ -3,7 +3,7 @@
  * Re-exports from centralized @jejunetwork/tests package
  */
 
-import { createWalletSetup } from '@jejunetwork/tests/synpress.config.base';
+import { createWalletSetup } from '@jejunetwork/tests';
 
 export {
   test,
@@ -20,7 +20,7 @@ export {
   rejectTransaction,
   switchNetwork,
   getWalletAddress,
-} from '@jejunetwork/tests/fixtures/synpress-wallet';
+} from '@jejunetwork/tests';
 
 export {
   SEED_PHRASE,
@@ -29,7 +29,7 @@ export {
   JEJU_CHAIN_ID,
   JEJU_RPC_URL,
   createWalletSetup,
-} from '@jejunetwork/tests/synpress.config.base';
+} from '@jejunetwork/tests';
 
 // Re-export MetaMask class for use in tests
 export { MetaMask } from '@synthetixio/synpress/playwright';

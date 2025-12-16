@@ -115,7 +115,13 @@ export async function mintInitialSupply(
 
 /**
  * Deploy Solana chain - creates SPL token
- * Note: Hyperlane warp route on Solana requires their SDK/CLI
+ * Hyperlane warp route uses the mailbox program from chain config
+ * 
+ * Solana architecture notes:
+ * - Vesting on Solana requires a separate Anchor program (not SPL token feature)
+ *   Use @jejunetwork/solana vesting program for cross-chain vesting
+ * - Fee distribution uses Token-2022 transfer fee extension or separate program
+ *   Standard SPL tokens don't have built-in transfer fees
  */
 export async function deploySolanaChain(
   chain: ChainConfig,
@@ -149,8 +155,7 @@ export async function deploySolanaChain(
 
   txSignatures.push(...result.txSignatures);
 
-  // For Hyperlane warp route on Solana, we need to use their program
-  // The warp route program ID is in the chain config
+  // Hyperlane warp route program ID from chain config
   const warpRouteProgram = new PublicKey(chain.hyperlaneMailbox);
 
   console.log(`Solana token deployed:`);
@@ -158,11 +163,15 @@ export async function deploySolanaChain(
   console.log(`  Mint Authority: ${result.mintAuthority.toBase58()}`);
   console.log(`  Warp Route Program: ${warpRouteProgram.toBase58()}`);
 
+  // Solana uses different programs for vesting/fees:
+  // - Vesting: Requires separate Anchor program deployment
+  // - Fee Distribution: Use Token-2022 extensions or custom program
+  // These are left empty as they require separate Solana program deployments
   return {
     chainId: chain.chainId,
     token: result.mint.toBase58(),
-    vesting: '', // No vesting on Solana in MVP
-    feeDistributor: '', // No fee distributor on Solana in MVP
+    vesting: '', // Solana vesting requires separate Anchor program
+    feeDistributor: '', // Solana fees use Token-2022 extensions or custom program
     warpRoute: warpRouteProgram.toBase58(),
     ism: warpRouteProgram.toBase58(),
     deploymentTxHashes: txSignatures as `0x${string}`[],

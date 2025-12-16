@@ -19,7 +19,7 @@
 import { $ } from "bun";
 import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
-import { loadChainConfig, getDeployerConfig } from "@jejunetwork/config/network";
+import { loadChainConfig, getDeployerConfig } from "@jejunetwork/config";
 import { checkNetworkOrSkip } from "../shared/network-check";
 
 const NETWORK = "mainnet";

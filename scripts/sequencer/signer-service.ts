@@ -8,7 +8,8 @@
  */
 
 import { Hono } from 'hono';
-import { Wallet, Signature } from 'ethers';
+import { signMessage, signTypedData, type Address } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 import { createHash, randomBytes } from 'crypto';
 
 // ============ Types ============
@@ -43,7 +44,7 @@ const MAX_PROCESSED_REQUESTS = 10_000;
 // ============ Service ============
 
 class ThresholdSignerService {
-  private wallet: Wallet;
+  private account: ReturnType<typeof privateKeyToAccount>;
   private app: Hono;
   private apiKeyHash: string;
   private allowedOrigins: Set<string>;
@@ -52,7 +53,7 @@ class ThresholdSignerService {
   private stats = { requestsReceived: 0, signaturesIssued: 0, startTime: Date.now() };
 
   constructor(privateKey: string, apiKey: string, allowedOrigins: string[] = []) {
-    this.wallet = new Wallet(privateKey);
+    this.account = privateKeyToAccount(privateKey as `0x${string}`);
     this.app = new Hono();
     this.apiKeyHash = createHash('sha256').update(apiKey).digest('hex');
     this.allowedOrigins = new Set(allowedOrigins);
@@ -90,7 +91,7 @@ class ThresholdSignerService {
   }
 
   private errorResponse(requestId: string, error: string, status: number) {
-    return { json: { requestId, signature: '', signer: this.wallet.address, error } as SignResponse, status };
+    return { json: { requestId, signature: '', signer: this.account.address, error } as SignResponse, status };
   }
 
   private setupRoutes(): void {
@@ -104,8 +105,8 @@ class ThresholdSignerService {
       return next();
     });
 
-    this.app.get('/health', (c) => c.json({ status: 'ok', address: this.wallet.address, uptime: Date.now() - this.stats.startTime }));
-    this.app.get('/info', (c) => c.json({ address: this.wallet.address, signaturesIssued: this.stats.signaturesIssued, uptime: Date.now() - this.stats.startTime }));
+    this.app.get('/health', (c) => c.json({ status: 'ok', address: this.account.address, uptime: Date.now() - this.stats.startTime }));
+    this.app.get('/info', (c) => c.json({ address: this.account.address, signaturesIssued: this.stats.signaturesIssued, uptime: Date.now() - this.stats.startTime }));
     this.app.get('/stats', (c) => c.json({ signaturesIssued: this.stats.signaturesIssued, uptime: Date.now() - this.stats.startTime }));
 
     this.app.post('/sign-digest', async (c) => {
@@ -115,11 +116,13 @@ class ThresholdSignerService {
       if (err) return c.json(this.errorResponse(body.requestId || '', err, 400).json, 400);
       this.processedRequests.add(body.requestId);
 
-      const sig = this.wallet.signingKey.sign(body.digest);
-      const signature = Signature.from({ r: sig.r, s: sig.s, v: sig.v }).serialized;
+      const signature = await signMessage({
+        account: this.account,
+        message: { raw: body.digest as `0x${string}` },
+      });
       this.stats.signaturesIssued++;
       console.log(`[Signer] Signed ${body.requestId.slice(0, 8)}...`);
-      return c.json<SignResponse>({ requestId: body.requestId, signature, signer: this.wallet.address });
+      return c.json<SignResponse>({ requestId: body.requestId, signature, signer: this.account.address });
     });
 
     this.app.post('/sign-typed', async (c) => {
@@ -130,10 +133,16 @@ class ThresholdSignerService {
       if (err) return c.json(this.errorResponse(body.requestId, err, 400).json, 400);
       this.processedRequests.add(body.requestId);
 
-      const signature = await this.wallet.signTypedData(body.domain, body.types, body.message);
+      const signature = await signTypedData({
+        account: this.account,
+        domain: body.domain,
+        types: body.types,
+        primaryType: Object.keys(body.types)[0],
+        message: body.message,
+      });
       this.stats.signaturesIssued++;
       console.log(`[Signer] Signed typed ${body.requestId.slice(0, 8)}...`);
-      return c.json<SignResponse>({ requestId: body.requestId, signature, signer: this.wallet.address });
+      return c.json<SignResponse>({ requestId: body.requestId, signature, signer: this.account.address });
     });
   }
 

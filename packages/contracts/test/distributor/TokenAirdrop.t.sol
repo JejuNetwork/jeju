@@ -3,11 +3,11 @@ pragma solidity ^0.8.26;
 
 import {Test, console2} from "forge-std/Test.sol";
 import {TokenAirdrop} from "../../src/distributor/TokenAirdrop.sol";
-import {BabylonToken} from "../../src/tokens/BabylonToken.sol";
+import {Token} from "../../src/tokens/Token.sol";
 
 contract TokenAirdropTest is Test {
     TokenAirdrop public airdrop;
-    BabylonToken public token;
+    Token public token;
 
     address public owner = address(1);
     address public user1 = address(2);
@@ -27,11 +27,12 @@ contract TokenAirdropTest is Test {
         vm.startPrank(owner);
 
         // Deploy token
-        token = new BabylonToken(
-            "Babylon",
-            "BBLN",
+        token = new Token(
+            "Test Token",
+            "TEST",
             TOTAL_SUPPLY,
             owner,
+            TOTAL_SUPPLY, // maxSupply
             true // isHomeChain
         );
 
@@ -179,4 +180,6 @@ contract TokenAirdropTest is Test {
         assertEq(uint256(airdrop.TOTAL_DRIP_DAYS()) * uint256(airdrop.DRIP_PERCENT_BPS()), 10000);
     }
 }
+
+
 

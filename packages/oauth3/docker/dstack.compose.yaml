@@ -26,6 +26,10 @@ services:
       - JEJU_RPC_URL=http://host.docker.internal:9545
       - CHAIN_ID=420691
       - TEE_MODE=simulated
+      # DWS Storage (IPFS-compatible API)
+      - DWS_URL=http://host.docker.internal:4030
+      - IPFS_API_ENDPOINT=http://host.docker.internal:4030/storage/api/v0
+      - IPFS_GATEWAY_ENDPOINT=http://host.docker.internal:4030/storage/ipfs
       - LOG_LEVEL=debug
     ports:
       - "4200:4200"
@@ -66,14 +70,24 @@ services:
       - OAUTH3_PORT=4200
       - MPC_ENDPOINT=http://oauth3-agent-2:4100
       - JEJU_RPC_URL=${JEJU_TESTNET_RPC_URL:-https://testnet.jeju.network}
-      - CHAIN_ID=420691
+      - CHAIN_ID=420690
       - TEE_MODE=dstack
+      - MPC_ENABLED=true
+      - MPC_THRESHOLD=2
+      - MPC_TOTAL_PARTIES=3
+      - DWS_URL=${DWS_URL:-https://dws.testnet.jeju.network}
+      - IPFS_API_ENDPOINT=${IPFS_API_ENDPOINT:-https://dws.testnet.jeju.network/storage/api/v0}
+      - IPFS_GATEWAY_ENDPOINT=${IPFS_GATEWAY_ENDPOINT:-https://dws.testnet.jeju.network/storage/ipfs}
       - LOG_LEVEL=info
       # OAuth Provider Credentials (encrypted in TEE)
       - OAUTH_GOOGLE_CLIENT_ID=${OAUTH_GOOGLE_CLIENT_ID}
+      - OAUTH_GOOGLE_CLIENT_SECRET=${OAUTH_GOOGLE_CLIENT_SECRET}
       - OAUTH_GITHUB_CLIENT_ID=${OAUTH_GITHUB_CLIENT_ID}
+      - OAUTH_GITHUB_CLIENT_SECRET=${OAUTH_GITHUB_CLIENT_SECRET}
       - OAUTH_TWITTER_CLIENT_ID=${OAUTH_TWITTER_CLIENT_ID}
+      - OAUTH_TWITTER_CLIENT_SECRET=${OAUTH_TWITTER_CLIENT_SECRET}
       - OAUTH_DISCORD_CLIENT_ID=${OAUTH_DISCORD_CLIENT_ID}
+      - OAUTH_DISCORD_CLIENT_SECRET=${OAUTH_DISCORD_CLIENT_SECRET}
       # Farcaster Integration
       - NEYNAR_API_KEY=${NEYNAR_API_KEY}
       - FARCASTER_HUB_URL=${FARCASTER_HUB_URL:-https://hub.pinata.cloud}
@@ -103,13 +117,23 @@ services:
       - OAUTH3_PORT=4201
       - MPC_ENDPOINT=http://oauth3-agent-1:4100
       - JEJU_RPC_URL=${JEJU_TESTNET_RPC_URL:-https://testnet.jeju.network}
-      - CHAIN_ID=420691
+      - CHAIN_ID=420690
       - TEE_MODE=dstack
+      - MPC_ENABLED=true
+      - MPC_THRESHOLD=2
+      - MPC_TOTAL_PARTIES=3
+      - DWS_URL=${DWS_URL:-https://dws.testnet.jeju.network}
+      - IPFS_API_ENDPOINT=${IPFS_API_ENDPOINT:-https://dws.testnet.jeju.network/storage/api/v0}
+      - IPFS_GATEWAY_ENDPOINT=${IPFS_GATEWAY_ENDPOINT:-https://dws.testnet.jeju.network/storage/ipfs}
       - LOG_LEVEL=info
       - OAUTH_GOOGLE_CLIENT_ID=${OAUTH_GOOGLE_CLIENT_ID}
+      - OAUTH_GOOGLE_CLIENT_SECRET=${OAUTH_GOOGLE_CLIENT_SECRET}
       - OAUTH_GITHUB_CLIENT_ID=${OAUTH_GITHUB_CLIENT_ID}
+      - OAUTH_GITHUB_CLIENT_SECRET=${OAUTH_GITHUB_CLIENT_SECRET}
       - OAUTH_TWITTER_CLIENT_ID=${OAUTH_TWITTER_CLIENT_ID}
+      - OAUTH_TWITTER_CLIENT_SECRET=${OAUTH_TWITTER_CLIENT_SECRET}
       - OAUTH_DISCORD_CLIENT_ID=${OAUTH_DISCORD_CLIENT_ID}
+      - OAUTH_DISCORD_CLIENT_SECRET=${OAUTH_DISCORD_CLIENT_SECRET}
       - NEYNAR_API_KEY=${NEYNAR_API_KEY}
       - FARCASTER_HUB_URL=${FARCASTER_HUB_URL:-https://hub.pinata.cloud}
     volumes:
@@ -138,13 +162,23 @@ services:
       - OAUTH3_PORT=4202
       - MPC_ENDPOINT=http://oauth3-agent-1:4100
       - JEJU_RPC_URL=${JEJU_TESTNET_RPC_URL:-https://testnet.jeju.network}
-      - CHAIN_ID=420691
+      - CHAIN_ID=420690
       - TEE_MODE=dstack
+      - MPC_ENABLED=true
+      - MPC_THRESHOLD=2
+      - MPC_TOTAL_PARTIES=3
+      - DWS_URL=${DWS_URL:-https://dws.testnet.jeju.network}
+      - IPFS_API_ENDPOINT=${IPFS_API_ENDPOINT:-https://dws.testnet.jeju.network/storage/api/v0}
+      - IPFS_GATEWAY_ENDPOINT=${IPFS_GATEWAY_ENDPOINT:-https://dws.testnet.jeju.network/storage/ipfs}
       - LOG_LEVEL=info
       - OAUTH_GOOGLE_CLIENT_ID=${OAUTH_GOOGLE_CLIENT_ID}
+      - OAUTH_GOOGLE_CLIENT_SECRET=${OAUTH_GOOGLE_CLIENT_SECRET}
       - OAUTH_GITHUB_CLIENT_ID=${OAUTH_GITHUB_CLIENT_ID}
+      - OAUTH_GITHUB_CLIENT_SECRET=${OAUTH_GITHUB_CLIENT_SECRET}
       - OAUTH_TWITTER_CLIENT_ID=${OAUTH_TWITTER_CLIENT_ID}
+      - OAUTH_TWITTER_CLIENT_SECRET=${OAUTH_TWITTER_CLIENT_SECRET}
       - OAUTH_DISCORD_CLIENT_ID=${OAUTH_DISCORD_CLIENT_ID}
+      - OAUTH_DISCORD_CLIENT_SECRET=${OAUTH_DISCORD_CLIENT_SECRET}
       - NEYNAR_API_KEY=${NEYNAR_API_KEY}
       - FARCASTER_HUB_URL=${FARCASTER_HUB_URL:-https://hub.pinata.cloud}
     volumes:

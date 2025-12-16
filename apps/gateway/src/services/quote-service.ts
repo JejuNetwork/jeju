@@ -3,7 +3,7 @@ import { getChain } from '../lib/chains.js';
 import { getRpcUrl, IS_TESTNET } from '../config/networks.js';
 import { SOLVER_REGISTRY_ADDRESS } from '../config/contracts.js';
 import { ZERO_ADDRESS } from '../lib/contracts.js';
-import type { IntentQuote, SupportedChainId } from '@jejunetwork/types/oif';
+import type { IntentQuote, SupportedChainId } from '@jejunetwork/types';
 import { keccak256, encodePacked } from 'viem';
 
 const SOLVER_REGISTRY_ABI = [

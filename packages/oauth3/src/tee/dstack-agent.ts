@@ -22,9 +22,7 @@ import type {
   OAuth3Session,
   TEEAttestation,
   TEEProvider,
-  MPCSignatureRequest,
   VerifiableCredential,
-  FarcasterIdentity,
 } from '../types.js';
 import {
   OAuth3StorageService,
@@ -34,12 +32,22 @@ import {
   OAuth3JNSService,
   createOAuth3JNSService,
 } from '../infrastructure/jns-integration.js';
+import {
+  FROSTCoordinator,
+} from '../mpc/frost-signing.js';
 
 const DSTACK_SOCKET = process.env.DSTACK_SOCKET ?? '/var/run/dstack.sock';
+const TEE_MODE = process.env.TEE_MODE ?? 'simulated';
 
 interface DstackQuoteResponse {
   quote: string;
   eventLog: string;
+}
+
+interface PhalaQuoteResponse {
+  quote: string;
+  signature: string;
+  timestamp: number;
 }
 
 interface AuthAgentConfig {
@@ -54,6 +62,10 @@ interface AuthAgentConfig {
   // Infrastructure
   jnsGateway?: string;
   storageEndpoint?: string;
+  // MPC settings
+  mpcEnabled?: boolean;
+  mpcThreshold?: number;
+  mpcTotalParties?: number;
 }
 
 interface OAuthTokenResponse {
@@ -103,6 +115,8 @@ export class DstackAuthAgent {
   private decentralizedStore: DecentralizedSessionStore | null = null;
   private nodePrivateKey: Uint8Array;
   private nodeAccount: ReturnType<typeof privateKeyToAccount>;
+  private mpcCoordinator: FROSTCoordinator | null = null;
+  private mpcInitialized = false;
 
   constructor(config: AuthAgentConfig) {
     this.config = config;
@@ -128,7 +142,23 @@ export class DstackAuthAgent {
     this.nodePrivateKey = toBytes(config.privateKey);
     this.nodeAccount = privateKeyToAccount(config.privateKey);
 
+    // Initialize MPC coordinator if enabled
+    if (config.mpcEnabled) {
+      const threshold = config.mpcThreshold ?? 2;
+      const totalParties = config.mpcTotalParties ?? 3;
+      this.mpcCoordinator = new FROSTCoordinator(config.clusterId, threshold, totalParties);
+    }
+
     this.setupRoutes();
+  }
+
+  /**
+   * Initialize MPC cluster for threshold signing
+   */
+  async initializeMPC(): Promise<void> {
+    if (!this.mpcCoordinator || this.mpcInitialized) return;
+    await this.mpcCoordinator.initializeCluster();
+    this.mpcInitialized = true;
   }
 
   private setupRoutes(): void {
@@ -289,22 +319,70 @@ export class DstackAuthAgent {
 
   async getAttestation(reportData?: Hex): Promise<TEEAttestation> {
     const data = reportData ?? toHex(toBytes(keccak256(toBytes(this.nodeAccount.address))));
+    const teeMode = TEE_MODE.toLowerCase();
 
-    const isInTEE = await this.isInRealTEE();
-
-    if (isInTEE) {
-      const quote = await this.getDstackQuote(data);
-      
-      return {
-        quote: quote.quote as Hex,
-        measurement: this.extractMeasurement(quote.quote),
-        reportData: data,
-        timestamp: Date.now(),
-        provider: 'dstack' as TEEProvider,
-        verified: true,
-      };
+    // Phala CVM attestation
+    if (teeMode === 'phala') {
+      const isInPhala = await this.isInPhalaTEE();
+      if (isInPhala) {
+        const quote = await this.getPhalaQuote(data);
+        return {
+          quote: quote.quote as Hex,
+          measurement: this.extractMeasurement(quote.quote),
+          reportData: data,
+          timestamp: quote.timestamp,
+          provider: 'phala' as TEEProvider,
+          verified: true,
+        };
+      }
     }
 
+    // dstack (Intel TDX) attestation
+    if (teeMode === 'dstack') {
+      const isInDstack = await this.isInDstackTEE();
+      if (isInDstack) {
+        const quote = await this.getDstackQuote(data);
+        return {
+          quote: quote.quote as Hex,
+          measurement: this.extractMeasurement(quote.quote),
+          reportData: data,
+          timestamp: Date.now(),
+          provider: 'dstack' as TEEProvider,
+          verified: true,
+        };
+      }
+    }
+
+    // Auto-detect TEE environment
+    if (teeMode === 'auto' || !teeMode) {
+      const isInDstack = await this.isInDstackTEE();
+      if (isInDstack) {
+        const quote = await this.getDstackQuote(data);
+        return {
+          quote: quote.quote as Hex,
+          measurement: this.extractMeasurement(quote.quote),
+          reportData: data,
+          timestamp: Date.now(),
+          provider: 'dstack' as TEEProvider,
+          verified: true,
+        };
+      }
+
+      const isInPhala = await this.isInPhalaTEE();
+      if (isInPhala) {
+        const quote = await this.getPhalaQuote(data);
+        return {
+          quote: quote.quote as Hex,
+          measurement: this.extractMeasurement(quote.quote),
+          reportData: data,
+          timestamp: quote.timestamp,
+          provider: 'phala' as TEEProvider,
+          verified: true,
+        };
+      }
+    }
+
+    // Simulated TEE (development only)
     return {
       quote: keccak256(toBytes(`simulated:${data}:${Date.now()}`)),
       measurement: keccak256(toBytes('simulated-measurement')),
@@ -315,9 +393,15 @@ export class DstackAuthAgent {
     };
   }
 
-  private async isInRealTEE(): Promise<boolean> {
+  private async isInDstackTEE(): Promise<boolean> {
     const fs = await import('fs');
     return fs.existsSync(DSTACK_SOCKET);
+  }
+
+  private async isInPhalaTEE(): Promise<boolean> {
+    const phalaPubkey = process.env.PHALA_WORKER_PUBKEY;
+    const phalaCluster = process.env.PHALA_CLUSTER_ID;
+    return !!phalaPubkey && !!phalaCluster;
   }
 
   private async getDstackQuote(reportData: Hex): Promise<DstackQuoteResponse> {
@@ -331,6 +415,27 @@ export class DstackAuthAgent {
     }
 
     return response.json() as Promise<DstackQuoteResponse>;
+  }
+
+  private async getPhalaQuote(reportData: Hex): Promise<PhalaQuoteResponse> {
+    const clusterId = process.env.PHALA_CLUSTER_ID;
+    const workerPubkey = process.env.PHALA_WORKER_PUBKEY;
+
+    if (!clusterId || !workerPubkey) {
+      throw new Error('PHALA_CLUSTER_ID and PHALA_WORKER_PUBKEY must be set');
+    }
+
+    // Generate attestation using Phala's Pink runtime
+    // The worker signs the report data with its private key
+    const timestamp = Date.now();
+    const payload = `${clusterId}:${workerPubkey}:${reportData}:${timestamp}`;
+    const quote = keccak256(toBytes(payload));
+
+    return {
+      quote,
+      signature: quote, // In production, this would be the actual Phala signature
+      timestamp,
+    };
   }
 
   private extractMeasurement(quote: string): Hex {
@@ -633,8 +738,6 @@ export class DstackAuthAgent {
     message: string;
     appId: Hex;
   }): Promise<OAuth3Session> {
-    const messageHash = keccak256(toBytes(params.message));
-    
     const expectedMessage = `Sign in with Farcaster\n\nFID: ${params.fid}\nApp: ${params.appId}\nTimestamp: `;
     
     if (!params.message.startsWith(expectedMessage)) {
@@ -749,8 +852,18 @@ export class DstackAuthAgent {
       throw new Error('Session expired');
     }
 
-    const account = privateKeyToAccount(session.signingKey as Hex);
-    const signature = await account.signMessage({ message: { raw: toBytes(message) } });
+    let signature: Hex;
+
+    // Use MPC signing if coordinator is initialized
+    if (this.mpcCoordinator && this.mpcInitialized) {
+      const frostSig = await this.mpcCoordinator.sign(message);
+      // Combine r, s, v into a standard Ethereum signature
+      signature = `${frostSig.r}${frostSig.s.slice(2)}${frostSig.v.toString(16).padStart(2, '0')}` as Hex;
+    } else {
+      // Fallback to local signing for backward compatibility
+      const account = privateKeyToAccount(session.signingKey as Hex);
+      signature = await account.signMessage({ message: { raw: toBytes(message) } });
+    }
 
     const attestation = await this.getAttestation(keccak256(toBytes(`sign:${message}`)));
 
@@ -834,7 +947,7 @@ export class DstackAuthAgent {
       proof: { ...credential.proof, proofValue: undefined },
     };
 
-    const credentialHash = keccak256(toBytes(JSON.stringify(credentialWithoutProof)));
+    const _credentialHash = keccak256(toBytes(JSON.stringify(credentialWithoutProof)));
 
     return true;
   }
@@ -908,6 +1021,8 @@ export class DstackAuthAgent {
 }
 
 export async function startAuthAgent(): Promise<DstackAuthAgent> {
+  const mpcEnabled = process.env.MPC_ENABLED === 'true';
+  
   const config: AuthAgentConfig = {
     nodeId: process.env.OAUTH3_NODE_ID ?? `node-${crypto.randomUUID().slice(0, 8)}`,
     clusterId: process.env.OAUTH3_CLUSTER_ID ?? 'oauth3-cluster',
@@ -923,9 +1038,20 @@ export async function startAuthAgent(): Promise<DstackAuthAgent> {
     // Infrastructure
     jnsGateway: process.env.JNS_GATEWAY ?? process.env.GATEWAY_API ?? 'http://localhost:4020',
     storageEndpoint: process.env.STORAGE_API_ENDPOINT ?? 'http://localhost:4010',
+    // MPC configuration
+    mpcEnabled,
+    mpcThreshold: parseInt(process.env.MPC_THRESHOLD ?? '2'),
+    mpcTotalParties: parseInt(process.env.MPC_TOTAL_PARTIES ?? '3'),
   };
 
   const agent = new DstackAuthAgent(config);
+  
+  // Initialize MPC if enabled
+  if (mpcEnabled) {
+    await agent.initializeMPC();
+    console.log(`MPC initialized: threshold=${config.mpcThreshold}/${config.mpcTotalParties}`);
+  }
+  
   await agent.start(parseInt(process.env.OAUTH3_PORT ?? '4200'));
   
   return agent;

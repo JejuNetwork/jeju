@@ -54,7 +54,7 @@ curl -X POST http://localhost:4020/api/v1/agents \
 ### Via SDK
 
 ```typescript
-import { CrucibleClient } from '@jeju/crucible-sdk';
+import { CrucibleClient } from '@jejunetwork/crucible-sdk';
 
 const crucible = new CrucibleClient({
   endpoint: 'https://crucible.jeju.network',

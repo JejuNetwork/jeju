@@ -5,7 +5,8 @@
 
 import { describe, it, expect } from 'bun:test';
 import { FailoverProvider, checkRPC, getNetworkInfo } from './rpc';
-import { ethers } from 'ethers';
+import { createPublicClient, http, formatUnits } from 'viem';
+import { inferChainFromRpcUrl } from './chain-utils';
 
 describe('RPC Utilities', () => {
   const LOCALNET_RPC = process.env.RPC_ETH_HTTP || 'http://127.0.0.1:9545';
@@ -90,8 +91,9 @@ describe('RPC Utilities', () => {
   describe('getNetworkInfo', () => {
     it('should get network information', async () => {
       try {
-        const provider = new ethers.JsonRpcProvider(LOCALNET_RPC);
-        const info = await getNetworkInfo(provider);
+        const chain = inferChainFromRpcUrl(LOCALNET_RPC);
+        const publicClient = createPublicClient({ chain, transport: http(LOCALNET_RPC) });
+        const info = await getNetworkInfo(publicClient);
         
         expect(info.chainId).toBeTruthy();
         expect(info.blockNumber).toBeGreaterThanOrEqual(0);
@@ -100,7 +102,7 @@ describe('RPC Utilities', () => {
         console.log(`   ✅ Network Info:`);
         console.log(`      Chain ID: ${info.chainId}`);
         console.log(`      Block: ${info.blockNumber}`);
-        console.log(`      Gas Price: ${ethers.formatUnits(info.gasPrice, 'gwei')} gwei`);
+        console.log(`      Gas Price: ${formatUnits(info.gasPrice, 'gwei')} gwei`);
       } catch (error) {
         console.log('   ⚠️  Cannot get network info (RPC not available)');
       }

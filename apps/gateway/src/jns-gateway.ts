@@ -201,7 +201,7 @@ export class JNSGateway {
   private localCache: Map<string, { content: ResolvedContent; expiry: number }> =
     new Map();
   private readonly CACHE_TTL = 300_000; // 5 minutes
-  private decentralizedCache: import('@jeju/shared/cache').CacheClient | null = null;
+  private decentralizedCache: import('@jejunetwork/shared').CacheClient | null = null;
 
   constructor(config: JNSGatewayConfig) {
     this.config = config;
@@ -283,7 +283,7 @@ export class JNSGateway {
     if (this.decentralizedCache) return;
     
     try {
-      const { getCacheClient } = await import('@jeju/shared/cache');
+      const { getCacheClient } = await import('@jejunetwork/shared');
       this.decentralizedCache = getCacheClient('jns-gateway');
       console.log('[JNS Gateway] Decentralized cache initialized');
     } catch {
@@ -318,11 +318,16 @@ export class JNSGateway {
   private async setToCache(name: string, content: ResolvedContent): Promise<void> {
     // Set in decentralized cache
     if (this.decentralizedCache) {
-      await this.decentralizedCache.set(
-        `jns:${name}`,
-        JSON.stringify(content),
-        Math.floor(this.CACHE_TTL / 1000)
-      ).catch(() => {});
+      try {
+        await this.decentralizedCache.set(
+          `jns:${name}`,
+          JSON.stringify(content),
+          Math.floor(this.CACHE_TTL / 1000)
+        );
+      } catch (e) {
+        // Cache write failure is non-critical, continue with local cache only
+        console.debug(`Failed to write to decentralized cache for ${name}:`, e);
+      }
     }
     
     // Set in local cache

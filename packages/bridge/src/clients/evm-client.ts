@@ -58,6 +58,13 @@ export class EVMClient {
   private walletClient: WalletClient | null = null;
   private account: PrivateKeyAccount | null = null;
 
+  private requireAccount(): PrivateKeyAccount {
+    if (!this.account) {
+      throw new Error('No account configured - provide privateKey in config');
+    }
+    return this.account;
+  }
+
   constructor(config: EVMClientConfig) {
     this.config = config;
 
@@ -120,7 +127,7 @@ export class EVMClient {
       console.log('Approving token transfer...');
       const approveTxHash = await this.walletClient.writeContract({
         chain: this.chain,
-        account: this.account!,
+        account: this.requireAccount(),
         address: params.token,
         abi: TOKEN_ABI,
         functionName: 'approve',
@@ -148,7 +155,7 @@ export class EVMClient {
 
     const txHash = await this.walletClient.writeContract({
       chain: this.chain,
-      account: this.account!,
+      account: this.requireAccount(),
       address: this.config.bridgeAddress,
       abi: BRIDGE_ABI,
       functionName: 'initiateTransfer',
@@ -236,7 +243,7 @@ export class EVMClient {
 
     const txHash = await this.walletClient.writeContract({
       chain: this.chain,
-      account: this.account!,
+      account: this.requireAccount(),
       address: this.config.bridgeAddress,
       abi: BRIDGE_ABI,
       functionName: 'completeTransfer',
@@ -263,7 +270,7 @@ export class EVMClient {
    * Get transfer status
    */
   async getTransferStatus(
-    transferId: Hash32
+    transferId: Hash32,
   ): Promise<(typeof TransferStatus)[keyof typeof TransferStatus]> {
     const transferIdHex = `0x${Buffer.from(transferId).toString('hex')}` as Hex;
 
@@ -295,7 +302,7 @@ export class EVMClient {
    */
   async getTransferFee(
     destChainId: ChainId,
-    payloadLength = 0
+    payloadLength = 0,
   ): Promise<bigint> {
     return await this.publicClient.readContract({
       address: this.config.bridgeAddress,
@@ -400,7 +407,7 @@ export class EVMClient {
 
     const txHash = await this.walletClient.writeContract({
       chain: this.chain,
-      account: this.account!,
+      account: this.requireAccount(),
       address: this.config.lightClientAddress,
       abi: LIGHT_CLIENT_ABI,
       functionName: 'updateState',

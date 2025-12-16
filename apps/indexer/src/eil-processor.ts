@@ -11,25 +11,25 @@ import {
     EILTransfer, XLPSlashEvent, EILStats, EILChainStats,
     VoucherRequestStatus, VoucherStatus, TransferStatus, Account
 } from './model'
-import { ethers } from 'ethers'
+import { keccak256, stringToHex, decodeAbiParameters } from 'viem'
 import { BlockHeader, LogData } from './lib/entities'
 
 // Event signatures for CrossChainPaymaster
-const VOUCHER_REQUESTED = ethers.id('VoucherRequested(bytes32,address,address,uint256,uint256,address,uint256,uint256)')
-const VOUCHER_ISSUED = ethers.id('VoucherIssued(bytes32,bytes32,address,uint256)')
-const VOUCHER_FULFILLED = ethers.id('VoucherFulfilled(bytes32,address,uint256)')
-const VOUCHER_EXPIRED = ethers.id('VoucherExpired(bytes32,address)')
-const FUNDS_REFUNDED = ethers.id('FundsRefunded(bytes32,address,uint256)')
-const XLP_DEPOSIT = ethers.id('XLPDeposit(address,address,uint256)')
-const XLP_WITHDRAW = ethers.id('XLPWithdraw(address,address,uint256)')
-const SOURCE_FUNDS_CLAIMED = ethers.id('SourceFundsClaimed(bytes32,address,uint256,uint256)')
+const VOUCHER_REQUESTED = keccak256(stringToHex('VoucherRequested(bytes32,address,address,uint256,uint256,address,uint256,uint256)'))
+const VOUCHER_ISSUED = keccak256(stringToHex('VoucherIssued(bytes32,bytes32,address,uint256)'))
+const VOUCHER_FULFILLED = keccak256(stringToHex('VoucherFulfilled(bytes32,address,uint256)'))
+const VOUCHER_EXPIRED = keccak256(stringToHex('VoucherExpired(bytes32,address)'))
+const FUNDS_REFUNDED = keccak256(stringToHex('FundsRefunded(bytes32,address,uint256)'))
+const XLP_DEPOSIT = keccak256(stringToHex('XLPDeposit(address,address,uint256)'))
+const XLP_WITHDRAW = keccak256(stringToHex('XLPWithdraw(address,address,uint256)'))
+const SOURCE_FUNDS_CLAIMED = keccak256(stringToHex('SourceFundsClaimed(bytes32,address,uint256,uint256)'))
 
 // Event signatures for L1StakeManager  
-const XLP_REGISTERED = ethers.id('XLPRegistered(address,uint256,uint256[])')
-const STAKE_DEPOSITED = ethers.id('StakeDeposited(address,uint256,uint256)')
-const UNBONDING_STARTED = ethers.id('UnbondingStarted(address,uint256,uint256)')
-const STAKE_WITHDRAWN = ethers.id('StakeWithdrawn(address,uint256)')
-const XLP_SLASHED = ethers.id('XLPSlashed(address,bytes32,uint256,address)')
+const XLP_REGISTERED = keccak256(stringToHex('XLPRegistered(address,uint256,uint256[])'))
+const STAKE_DEPOSITED = keccak256(stringToHex('StakeDeposited(address,uint256,uint256)'))
+const UNBONDING_STARTED = keccak256(stringToHex('UnbondingStarted(address,uint256,uint256)'))
+const STAKE_WITHDRAWN = keccak256(stringToHex('StakeWithdrawn(address,uint256)'))
+const XLP_SLASHED = keccak256(stringToHex('XLPSlashed(address,bytes32,uint256,address)'))
 
 const EIL_EVENT_SIGNATURES = new Set([
     VOUCHER_REQUESTED, VOUCHER_ISSUED, VOUCHER_FULFILLED, VOUCHER_EXPIRED,
@@ -145,9 +145,16 @@ async function processVoucherRequested(
     const requesterAddr = '0x' + log.topics[2].slice(26)
 
     // Decode data: token, amount, destinationChainId, recipient, maxFee, deadline
-    const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-        ['address', 'uint256', 'uint256', 'address', 'uint256', 'uint256'],
-        log.data
+    const decoded = decodeAbiParameters(
+        [
+            { type: 'address' },
+            { type: 'uint256' },
+            { type: 'uint256' },
+            { type: 'address' },
+            { type: 'uint256' },
+            { type: 'uint256' },
+        ],
+        log.data as `0x${string}`
     )
 
     const requester = await getOrCreateAccount(ctx, requesterAddr, header.height, timestamp)
@@ -411,7 +418,10 @@ async function processSourceFundsClaimed(
     const xlpAddr = '0x' + log.topics[2].slice(26)
     
     // Decode amount and fee from data
-    const decoded = ethers.AbiCoder.defaultAbiCoder().decode(['uint256', 'uint256'], log.data)
+    const decoded = decodeAbiParameters(
+        [{ type: 'uint256' }, { type: 'uint256' }],
+        log.data as `0x${string}`
+    )
     const amount = decoded[0]
     const fee = decoded[1]
 
@@ -433,7 +443,10 @@ async function processXLPRegistered(
     const xlpAddr = '0x' + log.topics[1].slice(26)
     
     // Decode stakedAmount and chains from data
-    const decoded = ethers.AbiCoder.defaultAbiCoder().decode(['uint256', 'uint256[]'], log.data)
+    const decoded = decodeAbiParameters(
+        [{ type: 'uint256' }, { type: 'uint256[]' }],
+        log.data as `0x${string}`
+    )
     const stakedAmount = decoded[0]
     const chains = decoded[1].map((c: bigint) => Number(c))
 
@@ -452,7 +465,10 @@ async function processStakeDeposited(
     const xlpAddr = '0x' + log.topics[1].slice(26)
     
     // Decode amount and totalStake
-    const decoded = ethers.AbiCoder.defaultAbiCoder().decode(['uint256', 'uint256'], log.data)
+    const decoded = decodeAbiParameters(
+        [{ type: 'uint256' }, { type: 'uint256' }],
+        log.data as `0x${string}`
+    )
     const totalStake = decoded[1]
 
     const xlp = xlps.get(xlpAddr.toLowerCase())
@@ -471,7 +487,10 @@ async function processUnbondingStarted(
     const xlpAddr = '0x' + log.topics[1].slice(26)
     
     // Decode amount and unbondingComplete
-    const decoded = ethers.AbiCoder.defaultAbiCoder().decode(['uint256', 'uint256'], log.data)
+    const decoded = decodeAbiParameters(
+        [{ type: 'uint256' }, { type: 'uint256' }],
+        log.data as `0x${string}`
+    )
     const amount = decoded[0]
     const unbondingComplete = decoded[1]
 
@@ -513,7 +532,10 @@ async function processXLPSlashed(
     const voucherId = log.topics[2]
     
     // Decode amount and victim
-    const decoded = ethers.AbiCoder.defaultAbiCoder().decode(['uint256', 'address'], log.data)
+    const decoded = decodeAbiParameters(
+        [{ type: 'uint256' }, { type: 'address' }],
+        log.data as `0x${string}`
+    )
     const amount = decoded[0]
     const victim = decoded[1]
 

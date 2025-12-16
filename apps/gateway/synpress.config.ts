@@ -1,4 +1,4 @@
-import { createSynpressConfig, createWalletSetup, PASSWORD, SEED_PHRASE } from '@jejunetwork/tests/synpress.config.base';
+import { createSynpressConfig, createWalletSetup, PASSWORD, SEED_PHRASE } from '@jejunetwork/tests';
 
 const GATEWAY_PORT = parseInt(process.env.GATEWAY_PORT || '4001');
 

@@ -60,9 +60,10 @@ describe('Logger Utility', () => {
         testLogger.info('test');
         
         const output = consoleSpy.mock.calls[consoleSpy.mock.calls.length - 1][0];
-        // When timestamp is false, should not have ISO timestamp format
-        // Note: The actual implementation may still include timestamp - test the actual behavior
+        // When timestamp is false, should not have ISO timestamp format in brackets
         expect(output).toBeDefined();
+        // Verify no ISO timestamp pattern [YYYY-MM-DD...] when timestamp is false
+        expect(output).not.toMatch(/\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
       });
     });
 

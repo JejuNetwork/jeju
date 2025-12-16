@@ -1,6 +1,6 @@
 import { Star, Activity, Clock, TrendingUp, Shield } from 'lucide-react';
 import { useSolvers, useSolverLeaderboard } from '../../hooks/useIntentAPI';
-import type { Solver } from '@jejunetwork/types/oif';
+import type { Solver } from '@jejunetwork/types';
 
 export function SolversView() {
   const { data: solvers, isLoading } = useSolvers({ active: true });

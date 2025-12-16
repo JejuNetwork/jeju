@@ -26,7 +26,7 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry, baseSepolia } from 'viem/chains';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
-import path from 'path';
+import * as path from 'path';
 
 // Default anvil private key
 const DEPLOYER_KEY =
@@ -196,6 +196,8 @@ async function main() {
     abi: lpLockerArtifact.abi,
     bytecode: lpLockerArtifact.bytecode,
     args: [account.address], // owner
+    chain: network.chain,
+    account,
   });
 
   const lpLockerReceipt = await publicClient.waitForTransactionReceipt({
@@ -213,12 +215,14 @@ async function main() {
     abi: tokenLaunchpadArtifact.abi,
     bytecode: tokenLaunchpadArtifact.bytecode,
     args: [
-      xlpV2Factory || '0x0000000000000000000000000000000000000000', // xlpV2Factory
+      xlpV2Factory || ('0x0000000000000000000000000000000000000000' as Address), // xlpV2Factory
       network.weth, // weth
       lpLockerAddress, // lpLockerTemplate
       communityVault, // defaultCommunityVault
       account.address, // owner
     ],
+    chain: network.chain,
+    account,
   });
 
   const tokenLaunchpadReceipt = await publicClient.waitForTransactionReceipt({

@@ -10,7 +10,7 @@
  * - NFTProvenance: Provenance tracking for minted items
  */
 
-import { ethers } from 'ethers';
+import { keccak256, stringToHex, parseAbi, decodeEventLog, formatEther } from 'viem';
 import { Store } from '@subsquid/typeorm-store';
 import { ProcessorContext } from './processor';
 import { TokenTransfer, TokenBalance, Contract } from './model';
@@ -19,26 +19,26 @@ import { ContractType } from './model/generated/_contractType';
 import { createAccountFactory } from './lib/entities';
 
 // Event signatures
-const GOLD_CLAIMED = ethers.id('GoldClaimed(address,uint256,uint256)');
-const GOLD_BURNED = ethers.id('GoldBurned(address,uint256)');
-const ITEM_MINTED = ethers.id('ItemMinted(address,uint256,uint256,bytes32,bool,uint8)');
-const ITEM_BURNED = ethers.id('ItemBurned(address,uint256,uint256)');
-const ITEM_TYPE_CREATED = ethers.id('ItemTypeCreated(uint256,string,bool,uint8)');
-const NFT_PROVENANCE = ethers.id('NFTProvenance(address,uint256,bytes32,uint256)');
-const GAME_SIGNER_UPDATED = ethers.id('GameSignerUpdated(address,address)');
+const GOLD_CLAIMED = keccak256(stringToHex('GoldClaimed(address,uint256,uint256)'));
+const GOLD_BURNED = keccak256(stringToHex('GoldBurned(address,uint256)'));
+const ITEM_MINTED = keccak256(stringToHex('ItemMinted(address,uint256,uint256,bytes32,bool,uint8)'));
+const ITEM_BURNED = keccak256(stringToHex('ItemBurned(address,uint256,uint256)'));
+const ITEM_TYPE_CREATED = keccak256(stringToHex('ItemTypeCreated(uint256,string,bool,uint8)'));
+const NFT_PROVENANCE = keccak256(stringToHex('NFTProvenance(address,uint256,bytes32,uint256)'));
+const GAME_SIGNER_UPDATED = keccak256(stringToHex('GameSignerUpdated(address,address)'));
 
 // ERC-1155 standard events (for tracking transfers)
-const TRANSFER_SINGLE = ethers.id('TransferSingle(address,address,address,uint256,uint256)');
-const TRANSFER_BATCH = ethers.id('TransferBatch(address,address,address,uint256[],uint256[])');
+const TRANSFER_SINGLE = keccak256(stringToHex('TransferSingle(address,address,address,uint256,uint256)'));
+const TRANSFER_BATCH = keccak256(stringToHex('TransferBatch(address,address,address,uint256[],uint256[])'));
 
 // ABIs for decoding
-const goldInterface = new ethers.Interface([
+const goldInterface = parseAbi([
     'event GoldClaimed(address indexed player, uint256 amount, uint256 nonce)',
     'event GoldBurned(address indexed player, uint256 amount)',
     'event GameSignerUpdated(address indexed oldSigner, address indexed newSigner)',
 ]);
 
-const itemsInterface = new ethers.Interface([
+const itemsInterface = parseAbi([
     'event ItemMinted(address indexed minter, uint256 indexed itemId, uint256 amount, bytes32 instanceId, bool stackable, uint8 rarity)',
     'event ItemBurned(address indexed player, uint256 indexed itemId, uint256 amount)',
     'event ItemTypeCreated(uint256 indexed itemId, string name, bool stackable, uint8 rarity)',
@@ -112,8 +112,11 @@ export async function processGameTokenEvents(ctx: ProcessorContext<Store>): Prom
             // ============ Gold.sol Events ============
 
             if (eventSig === GOLD_CLAIMED) {
-                const decoded = goldInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const decoded = decodeEventLog({
+                  abi: goldInterface,
+                  topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+                  data: log.data as `0x${string}`,
+                });
 
                 const player = decoded.args.player.toLowerCase();
                 const amount = BigInt(decoded.args.amount.toString());
@@ -147,11 +150,14 @@ export async function processGameTokenEvents(ctx: ProcessorContext<Store>): Prom
                     blockNumber: block.header.height
                 });
 
-                ctx.log.info(`Gold claimed: ${player} claimed ${ethers.formatEther(amount)} gold (nonce: ${nonce})`);
+                ctx.log.info(`Gold claimed: ${player} claimed ${formatEther(amount)} gold (nonce: ${nonce})`);
             }
             else if (eventSig === GOLD_BURNED) {
-                const decoded = goldInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const decoded = decodeEventLog({
+                  abi: goldInterface,
+                  topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+                  data: log.data as `0x${string}`,
+                });
 
                 const player = decoded.args.player.toLowerCase();
                 const amount = BigInt(decoded.args.amount.toString());
@@ -174,14 +180,17 @@ export async function processGameTokenEvents(ctx: ProcessorContext<Store>): Prom
                     timestamp: blockTimestamp
                 }));
 
-                ctx.log.info(`Gold burned: ${player} burned ${ethers.formatEther(amount)} gold`);
+                ctx.log.info(`Gold burned: ${player} burned ${formatEther(amount)} gold`);
             }
 
             // ============ Items.sol Events ============
 
             else if (eventSig === ITEM_MINTED) {
-                const decoded = itemsInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const decoded = decodeEventLog({
+                  abi: itemsInterface,
+                  topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+                  data: log.data as `0x${string}`,
+                });
 
                 const minter = decoded.args.minter.toLowerCase();
                 const itemId = BigInt(decoded.args.itemId.toString());
@@ -226,8 +235,11 @@ export async function processGameTokenEvents(ctx: ProcessorContext<Store>): Prom
                 ctx.log.info(`Item minted: ${minter} minted ${amount}x item #${itemId} (${rarityNames[rarity] || 'Unknown'}, ${stackable ? 'stackable' : 'unique'})`);
             }
             else if (eventSig === ITEM_BURNED) {
-                const decoded = itemsInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const decoded = decodeEventLog({
+                  abi: itemsInterface,
+                  topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+                  data: log.data as `0x${string}`,
+                });
 
                 const player = decoded.args.player.toLowerCase();
                 const itemId = BigInt(decoded.args.itemId.toString());
@@ -255,8 +267,11 @@ export async function processGameTokenEvents(ctx: ProcessorContext<Store>): Prom
                 ctx.log.info(`Item burned: ${player} burned ${amount}x item #${itemId}`);
             }
             else if (eventSig === ITEM_TYPE_CREATED) {
-                const decoded = itemsInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const decoded = decodeEventLog({
+                  abi: itemsInterface,
+                  topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+                  data: log.data as `0x${string}`,
+                });
 
                 const itemId = BigInt(decoded.args.itemId.toString());
                 const name = decoded.args.name;
@@ -266,8 +281,11 @@ export async function processGameTokenEvents(ctx: ProcessorContext<Store>): Prom
                 ctx.log.info(`Item type created: #${itemId} "${name}" (${stackable ? 'stackable' : 'unique'}, rarity: ${rarity})`);
             }
             else if (eventSig === NFT_PROVENANCE) {
-                const decoded = itemsInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const decoded = decodeEventLog({
+                  abi: itemsInterface,
+                  topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+                  data: log.data as `0x${string}`,
+                });
 
                 const originalMinter = decoded.args.originalMinter.toLowerCase();
                 const itemId = BigInt(decoded.args.itemId.toString());
@@ -280,8 +298,11 @@ export async function processGameTokenEvents(ctx: ProcessorContext<Store>): Prom
             // ============ ERC-1155 Transfer Events ============
 
             else if (eventSig === TRANSFER_SINGLE) {
-                const decoded = itemsInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const decoded = decodeEventLog({
+                  abi: itemsInterface,
+                  topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+                  data: log.data as `0x${string}`,
+                });
 
                 const from = decoded.args.from.toLowerCase();
                 const to = decoded.args.to.toLowerCase();

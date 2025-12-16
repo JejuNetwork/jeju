@@ -18,7 +18,6 @@ const PROJECT_ROOT = join(import.meta.dir, "../../..");
 const APPS: Record<string, { dockerfile: string; context: string }> = {
   bazaar: { dockerfile: "apps/bazaar/Dockerfile", context: "apps/bazaar" },
   gateway: { dockerfile: "apps/gateway/Dockerfile", context: "apps/gateway" },
-  leaderboard: { dockerfile: "apps/leaderboard/Dockerfile", context: "apps/leaderboard" },
   ipfs: { dockerfile: "apps/ipfs/Dockerfile", context: "apps/ipfs" },
   documentation: { dockerfile: "apps/documentation/Dockerfile", context: "." },
   indexer: { dockerfile: "apps/indexer/Dockerfile.k8s", context: "apps/indexer" }

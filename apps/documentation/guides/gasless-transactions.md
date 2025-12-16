@@ -106,7 +106,7 @@ await gameContract.playGame({ value: 0n });
 For pay-per-request APIs:
 
 ```typescript
-import { X402Client } from '@jeju/x402-client';
+import { X402Client } from '@jejunetwork/x402-client';
 
 const client = new X402Client({ wallet });
 
@@ -166,7 +166,7 @@ const hash = await client.sendTransaction({
 ### Bazaar Hook
 
 ```typescript
-import { useGasless } from '@jeju/bazaar/hooks';
+import { useGasless } from '@jejunetwork/bazaar';
 
 function TradeButton() {
   const { execute, isLoading, paymentToken, setPaymentToken } = useGasless();

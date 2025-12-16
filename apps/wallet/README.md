@@ -72,7 +72,7 @@ VITE_ELIZA_API_URL=http://your-eliza-server:3000 bun run dev
 The wallet plugin exports actions compatible with ElizaOS:
 
 ```typescript
-import { jejuWalletPlugin } from '@jeju/wallet/plugin';
+import { jejuWalletPlugin } from '@jejunetwork/wallet';
 
 // Use in ElizaOS character
 export const character = {
@@ -382,7 +382,7 @@ export VITE_JEJU_RPC_URL=https://rpc.testnet.jeju.network
 export VITE_JEJU_GATEWAY_URL=https://compute.testnet.jeju.network
 
 # Deploy testnet
-bun run scripts/setup-testnet.ts
+bun run packages/cli/src/index.ts deploy testnet
 ```
 
 ### Production (Base Mainnet)

@@ -1,0 +1,185 @@
+# ============================================================================
+# Jeju Private Solver - Production Configuration
+# 
+# MEV-protected intent solving with:
+# - Flashbots bundle submission
+# - MEV-Share private transactions
+# - Multi-builder redundancy
+# - Real-time mempool streaming
+# - CoW Protocol integration
+# ============================================================================
+
+replicaCount: 3
+
+image:
+  repository: ""
+  pullPolicy: IfNotPresent
+  tag: ""
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Graceful shutdown for pending bundles
+terminationGracePeriodSeconds: 60
+
+service:
+  type: ClusterIP
+  port: 3000
+  targetPort: 3000
+  # Internal service - not exposed publicly
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+
+# No public ingress - internal cluster service only
+ingress:
+  enabled: false
+
+# Resource allocation for high-performance solving
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+  requests:
+    cpu: 1000m
+    memory: 2Gi
+
+# Autoscaling for intent volume spikes
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 60
+
+# Pod Disruption Budget for high availability
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+# Node affinity for consistent performance
+nodeSelector:
+  node-type: compute
+
+tolerations: []
+
+# Anti-affinity to spread across nodes
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+            - key: app.kubernetes.io/name
+              operator: In
+              values:
+                - solver
+        topologyKey: kubernetes.io/hostname
+
+# ============================================================================
+# Solver Configuration
+# ============================================================================
+
+env:
+  - name: NODE_ENV
+    value: "production"
+  
+  # Solver identity
+  - name: SOLVER_NAME
+    value: "jeju-solver"
+  
+  # Profitability thresholds
+  - name: MIN_PROFIT_BPS
+    value: "10"
+  - name: MAX_GAS_PRICE_GWEI
+    value: "100"
+  - name: MAX_INTENT_SIZE_ETH
+    value: "5"
+  
+  # Enable all permissionless protocols
+  - name: ENABLE_ACROSS
+    value: "true"
+  - name: ENABLE_UNISWAPX
+    value: "true"
+  - name: ENABLE_COW
+    value: "true"
+  
+  # MEV protection
+  - name: ENABLE_MEV_PROTECTION
+    value: "true"
+  - name: USE_FLASHBOTS
+    value: "true"
+  - name: USE_MEV_SHARE
+    value: "true"
+  - name: MULTI_BUILDER_SUBMISSION
+    value: "true"
+  
+  # External integrations
+  - name: ENABLE_CHAINLINK_ORACLE
+    value: "true"
+  - name: ENABLE_DEX_AGGREGATOR
+    value: "true"
+  - name: ENABLE_JIT_LIQUIDITY
+    value: "true"
+  
+  # Performance tuning
+  - name: MEMPOOL_STREAMING
+    value: "true"
+  - name: BUNDLE_SIMULATION
+    value: "true"
+  - name: GAS_ESCALATION
+    value: "true"
+
+envFrom:
+  - secretRef:
+      name: solver-secrets
+  - configMapRef:
+      name: solver-config
+
+# Health checks
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 3000
+  initialDelaySeconds: 30
+  periodSeconds: 30
+  timeoutSeconds: 10
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 3000
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# ============================================================================
+# Secrets (create separately or use external-secrets)
+# ============================================================================
+# Required secrets in solver-secrets:
+#   SOLVER_PRIVATE_KEY - Solver EOA private key
+#   ALCHEMY_API_KEY - For mempool streaming
+#   RPC_URL_ETHEREUM - Ethereum RPC
+#   RPC_URL_ARBITRUM - Arbitrum RPC
+#   RPC_URL_BASE - Base RPC
+#   RPC_URL_OPTIMISM - Optimism RPC
+
+# ============================================================================
+# ConfigMap for chain configuration
+# ============================================================================
+configMap:
+  enabled: true
+  data:
+    SUPPORTED_CHAINS: "1,42161,8453,10,420691"
+    ETHEREUM_CHAIN_ID: "1"
+    ARBITRUM_CHAIN_ID: "42161"
+    BASE_CHAIN_ID: "8453"
+    OPTIMISM_CHAIN_ID: "10"
+    JEJU_CHAIN_ID: "420691"
+
+
+

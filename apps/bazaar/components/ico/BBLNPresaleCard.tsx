@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { formatEther, parseEther } from 'viem'
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { toast } from 'sonner'
+import { BBLN_TOKEN, BBLN_ADDRESSES, BBLN_PRESALE_ABI as BBLN_PRESALE_ABI_IMPORT } from '@/lib/stubs/bbln'
 
 // Phase enum from canonical Presale.sol
 type PresalePhase = 'NOT_STARTED' | 'WHITELIST' | 'PUBLIC' | 'ENDED' | 'CLEARING' | 'DISTRIBUTION' | 'FAILED'

@@ -1,0 +1,257 @@
+#!/usr/bin/env bun
+/**
+ * Deployment Rollback Script
+ * 
+ * Rolls back contract deployments to a previous version by:
+ * 1. Loading previous deployment state from backup
+ * 2. Updating environment variables
+ * 3. Verifying rollback state
+ * 
+ * Usage:
+ *   bun run scripts/rollback-deployment.ts --network=testnet --backup=backup-1234567890
+ *   bun run scripts/rollback-deployment.ts --network=mainnet --backup=latest
+ */
+
+import { existsSync, readFileSync, writeFileSync, copyFileSync, mkdirSync } from 'fs';
+import { join } from 'path';
+import { logger } from './shared/logger';
+
+const ROOT = join(import.meta.dir, '..');
+const DEPLOYMENTS_DIR = join(ROOT, 'packages/contracts/deployments');
+const BACKUPS_DIR = join(ROOT, 'packages/contracts/deployments/backups');
+
+interface DeploymentState {
+  network: string;
+  chainId: number;
+  timestamp: number;
+  deployer: string;
+  [key: string]: string | number;
+}
+
+function parseArgs(): { network: string; backup: string } {
+  const networkArg = process.argv.find(arg => arg.startsWith('--network='));
+  const backupArg = process.argv.find(arg => arg.startsWith('--backup='));
+  
+  const network = networkArg ? networkArg.split('=')[1] : 'testnet';
+  const backup = backupArg ? backupArg.split('=')[1] : 'latest';
+  
+  if (!['testnet', 'mainnet', 'localnet'].includes(network)) {
+    throw new Error(`Invalid network: ${network}. Must be testnet, mainnet, or localnet`);
+  }
+  
+  return { network, backup };
+}
+
+function listBackups(network: string): string[] {
+  const networkBackupsDir = join(BACKUPS_DIR, network);
+  if (!existsSync(networkBackupsDir)) {
+    return [];
+  }
+  
+  // List backup directories, sorted by timestamp (newest first)
+  const backups: string[] = [];
+  try {
+    const entries = Bun.readdirSync(networkBackupsDir);
+    for (const entry of entries) {
+      const backupPath = join(networkBackupsDir, entry);
+      if (Bun.statSync(backupPath).isDirectory()) {
+        backups.push(entry);
+      }
+    }
+  } catch {
+    // Directory doesn't exist or can't be read
+  }
+  
+  return backups.sort().reverse();
+}
+
+function findBackup(network: string, backupName: string): string {
+  const networkBackupsDir = join(BACKUPS_DIR, network);
+  
+  if (backupName === 'latest') {
+    const backups = listBackups(network);
+    if (backups.length === 0) {
+      throw new Error(`No backups found for network ${network}`);
+    }
+    return join(networkBackupsDir, backups[0]);
+  }
+  
+  const backupPath = join(networkBackupsDir, backupName);
+  if (!existsSync(backupPath)) {
+    const available = listBackups(network);
+    throw new Error(`Backup ${backupName} not found. Available backups: ${available.join(', ') || 'none'}`);
+  }
+  
+  return backupPath;
+}
+
+function loadDeploymentState(backupPath: string): DeploymentState {
+  const deploymentFile = join(backupPath, 'deployment.json');
+  if (!existsSync(deploymentFile)) {
+    throw new Error(`Deployment file not found in backup: ${deploymentFile}`);
+  }
+  
+  try {
+    const content = readFileSync(deploymentFile, 'utf-8');
+    return JSON.parse(content) as DeploymentState;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to parse deployment file: ${errorMessage}`);
+  }
+}
+
+function updateEnvFile(network: string, state: DeploymentState): void {
+  const envPath = join(ROOT, '.env');
+  const envBackupPath = join(ROOT, `.env.backup.${Date.now()}`);
+  
+  // Backup current .env if it exists
+  if (existsSync(envPath)) {
+    copyFileSync(envPath, envBackupPath);
+    logger.debug(`Backed up .env to ${envBackupPath}`);
+  }
+  
+  // Read existing .env or create new
+  let envContent = '';
+  if (existsSync(envPath)) {
+    envContent = readFileSync(envPath, 'utf-8');
+  }
+  
+  // Update contract addresses
+  const updates: Record<string, string> = {
+    SEQUENCER_REGISTRY_ADDRESS: state.sequencerRegistry as string || '',
+    THRESHOLD_BATCH_SUBMITTER_ADDRESS: state.thresholdBatchSubmitter as string || '',
+    DISPUTE_GAME_FACTORY_ADDRESS: state.disputeGameFactory as string || '',
+    PROVER_ADDRESS: state.prover as string || '',
+    PROXY_REGISTRY_ADDRESS: state.proxyRegistry as string || '',
+    PROXY_PAYMENT_ADDRESS: state.proxyPayment as string || '',
+  };
+  
+  // Update or add each address
+  for (const [key, value] of Object.entries(updates)) {
+    const regex = new RegExp(`^${key}=.*$`, 'm');
+    if (regex.test(envContent)) {
+      envContent = envContent.replace(regex, `${key}=${value}`);
+    } else {
+      envContent += `\n${key}=${value}`;
+    }
+  }
+  
+  writeFileSync(envPath, envContent);
+  logger.success(`Updated .env file with rollback addresses`);
+}
+
+async function verifyRollback(network: string, state: DeploymentState): Promise<boolean> {
+  logger.info('Verifying rollback state...');
+  
+  // Check that deployment file exists
+  const deploymentFile = join(DEPLOYMENTS_DIR, `${network}.json`);
+  if (!existsSync(deploymentFile)) {
+    logger.warn(`Deployment file not found: ${deploymentFile}`);
+    return false;
+  }
+  
+  const currentState = JSON.parse(readFileSync(deploymentFile, 'utf-8')) as DeploymentState;
+  
+  // Verify key addresses match
+  const keyFields = ['sequencerRegistry', 'disputeGameFactory', 'prover'];
+  let allMatch = true;
+  
+  for (const field of keyFields) {
+    const current = currentState[field] as string;
+    const expected = state[field] as string;
+    
+    if (current !== expected) {
+      logger.warn(`Mismatch in ${field}: current=${current}, expected=${expected}`);
+      allMatch = false;
+    } else {
+      logger.debug(`✓ ${field} matches: ${current}`);
+    }
+  }
+  
+  if (allMatch) {
+    logger.success('Rollback verification passed - all addresses match');
+  } else {
+    logger.warn('Rollback verification found mismatches - manual review recommended');
+  }
+  
+  return allMatch;
+}
+
+async function rollbackDeployment(network: string, backupName: string): Promise<void> {
+  logger.info(`Rolling back ${network} deployment to backup: ${backupName}`);
+  
+  // Find backup
+  const backupPath = findBackup(network, backupName);
+  logger.info(`Using backup from: ${backupPath}`);
+  
+  // Load deployment state
+  const state = loadDeploymentState(backupPath);
+  logger.info(`Loaded deployment state from timestamp: ${new Date(state.timestamp).toISOString()}`);
+  
+  // Backup current deployment
+  const currentDeploymentFile = join(DEPLOYMENTS_DIR, `${network}.json`);
+  if (existsSync(currentDeploymentFile)) {
+    const currentBackupDir = join(BACKUPS_DIR, network, `pre-rollback-${Date.now()}`);
+    mkdirSync(currentBackupDir, { recursive: true });
+    copyFileSync(currentDeploymentFile, join(currentBackupDir, 'deployment.json'));
+    logger.info(`Backed up current deployment to ${currentBackupDir}`);
+  }
+  
+  // Restore deployment file
+  const backupDeploymentFile = join(backupPath, 'deployment.json');
+  copyFileSync(backupDeploymentFile, currentDeploymentFile);
+  logger.success(`Restored deployment file: ${currentDeploymentFile}`);
+  
+  // Update .env file
+  updateEnvFile(network, state);
+  
+  // Verify rollback
+  const verified = await verifyRollback(network, state);
+  
+  if (verified) {
+    logger.success(`Rollback complete for ${network}`);
+    logger.info(`Deployment state restored to timestamp: ${new Date(state.timestamp).toISOString()}`);
+  } else {
+    logger.warn(`Rollback completed but verification found issues - manual review required`);
+  }
+}
+
+async function main(): Promise<void> {
+  try {
+    const { network, backup } = parseArgs();
+    
+    logger.box(`
+Deployment Rollback
+Network: ${network.toUpperCase()}
+Backup: ${backup}
+    `);
+    
+    if (network === 'mainnet') {
+      logger.warn('MAINNET ROLLBACK - This will affect production!');
+      logger.warn('Press Ctrl+C within 10 seconds to cancel...');
+      await Bun.sleep(10000);
+    }
+    
+    await rollbackDeployment(network, backup);
+    
+    logger.box(`
+Rollback Complete
+Network: ${network.toUpperCase()}
+Next steps:
+  1. Verify contract addresses in .env file
+  2. Restart services: bun run scripts/start.ts
+  3. Run health checks: bun run scripts/start.ts --status
+    `);
+  } catch (error) {
+    logger.error(`Rollback failed: ${error instanceof Error ? error.message : String(error)}`);
+    if (error instanceof Error && error.stack) {
+      logger.debug(`Stack trace: ${error.stack}`);
+    }
+    process.exit(1);
+  }
+}
+
+if (import.meta.main) {
+  main();
+}
+

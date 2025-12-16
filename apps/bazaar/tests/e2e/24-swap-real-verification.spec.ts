@@ -4,7 +4,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { assertNoPageErrors } from '@jejunetwork/tests/helpers/error-detection';
+import { assertNoPageErrors } from '@jejunetwork/tests';
 
 test.describe('Swap - REAL Functionality Verification', () => {
   test('should verify selecting different tokens changes UI state', async ({ page }) => {

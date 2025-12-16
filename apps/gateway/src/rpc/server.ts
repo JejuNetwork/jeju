@@ -194,8 +194,13 @@ rpcApp.post('/v1/keys', async (c) => {
     return c.json({ error: `Maximum API keys reached (${MAX_API_KEYS_PER_ADDRESS}). Revoke an existing key first.` }, 400);
   }
 
-  let body: { name?: string };
-  try { body = await c.req.json(); } catch { body = {}; }
+  let body: { name?: string } = {};
+  try {
+    body = await c.req.json();
+  } catch (e) {
+    // Body is optional for this endpoint, continue with empty object
+    console.debug('No JSON body provided to RPC endpoint');
+  }
   const name = (body.name || 'Default').slice(0, 100);
   const { key, record } = createApiKey(address, name);
 

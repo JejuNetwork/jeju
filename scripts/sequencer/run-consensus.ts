@@ -6,10 +6,12 @@
  * This is the decentralized sequencer selection and block finalization service.
  */
 
-import { ethers } from 'ethers';
+import { createPublicClient, http, getBlockNumber, readContract, type Address } from 'viem';
+import { parseAbi } from 'viem';
 import { ConsensusAdapter } from './integration/consensus-adapter';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { inferChainFromRpcUrl } from '../shared/chain-utils';
 
 const ROOT = join(import.meta.dir, '../..');
 const DEPLOYMENTS_DIR = join(ROOT, 'packages/contracts/deployments');
@@ -47,25 +49,25 @@ async function main() {
   const deployment = JSON.parse(readFileSync(deploymentFile, 'utf-8'));
   console.log(`SequencerRegistry: ${deployment.sequencerRegistry}\n`);
 
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
+  const chain = inferChainFromRpcUrl(rpcUrl);
+  const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
 
-  const blockNumber = await provider.getBlockNumber();
+  const blockNumber = await getBlockNumber(publicClient);
   console.log(`✅ Connected to L1 at block ${blockNumber}`);
 
-  const sequencerRegistry = new ethers.Contract(
-    deployment.sequencerRegistry,
-    [
-      'function getActiveSequencers() view returns (address[], uint256[])',
-      'function recordBlockProposed(address, uint256)',
-      'function getSelectionWeight(address) view returns (uint256)',
-      'function isActiveSequencer(address) view returns (bool)'
-    ],
-    provider
-  );
+  const sequencerRegistryAddress = deployment.sequencerRegistry as Address;
+  const sequencerRegistryAbi = parseAbi([
+    'function getActiveSequencers() view returns (address[], uint256[])',
+    'function recordBlockProposed(address, uint256)',
+    'function getSelectionWeight(address) view returns (uint256)',
+    'function isActiveSequencer(address) view returns (bool)'
+  ]);
 
   // Create adapter with P2P configuration
   const adapter = new ConsensusAdapter(
-    sequencerRegistry,
+    publicClient,
+    sequencerRegistryAddress,
+    sequencerRegistryAbi,
     blockInterval,
     voteRatio,
     {

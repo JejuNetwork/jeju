@@ -37,13 +37,12 @@ function ensureWorkspaceSymlinks(): void {
     kms: 'packages/kms',
     db: 'packages/db',
     // apps/*
-    compute: 'apps/compute',
+    dws: 'apps/dws',
     gateway: 'apps/gateway',
     crucible: 'apps/crucible',
     documentation: 'apps/documentation',
     monitoring: 'apps/monitoring',
     org: 'apps/org',
-    storage: 'apps/storage',
   };
   
   let linkedCount = 0;

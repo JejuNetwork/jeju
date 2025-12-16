@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { captureScreenshot, captureUserFlow } from '@jejunetwork/tests/helpers/screenshots'
+import { captureScreenshot, captureUserFlow } from '@jejunetwork/tests'
 
 test.describe('Bazaar Homepage', () => {
   test('should display homepage with all features', async ({ page }) => {

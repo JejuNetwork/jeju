@@ -1,4 +1,4 @@
-import { ethers } from 'ethers';
+import { keccak256, stringToHex, parseAbi, decodeEventLog, formatEther } from 'viem';
 import { Store } from '@subsquid/typeorm-store';
 import { ProcessorContext } from './processor';
 import {
@@ -15,22 +15,22 @@ import {
 import { createAccountFactory, BlockHeader, LogData } from './lib/entities';
 
 const EVENTS = {
-  KEEPALIVE_REGISTERED: ethers.id('KeepaliveRegistered(bytes32,address,bytes32,uint256)'),
-  KEEPALIVE_UPDATED: ethers.id('KeepaliveUpdated(bytes32)'),
-  RESOURCE_ADDED: ethers.id('ResourceAdded(bytes32,uint8,string)'),
-  RESOURCE_REMOVED: ethers.id('ResourceRemoved(bytes32,uint256)'),
-  HEALTH_CHECKED: ethers.id('HealthChecked(bytes32,uint8,uint256,uint8,uint8)'),
-  AUTO_FUNDED: ethers.id('AutoFunded(bytes32,uint256,address)'),
-  STATUS_CHANGED: ethers.id('StatusChanged(bytes32,uint8,uint8)'),
-  MIRROR_REGISTERED: ethers.id('MirrorRegistered(bytes32,bytes32,bytes32,address)'),
-  MIRROR_SYNCED: ethers.id('MirrorSynced(bytes32,bytes32,uint256)'),
-  SYNC_FAILED: ethers.id('SyncFailed(bytes32,string)'),
+  KEEPALIVE_REGISTERED: keccak256(stringToHex('KeepaliveRegistered(bytes32,address,bytes32,uint256)')),
+  KEEPALIVE_UPDATED: keccak256(stringToHex('KeepaliveUpdated(bytes32)')),
+  RESOURCE_ADDED: keccak256(stringToHex('ResourceAdded(bytes32,uint8,string)')),
+  RESOURCE_REMOVED: keccak256(stringToHex('ResourceRemoved(bytes32,uint256)')),
+  HEALTH_CHECKED: keccak256(stringToHex('HealthChecked(bytes32,uint8,uint256,uint8,uint8)')),
+  AUTO_FUNDED: keccak256(stringToHex('AutoFunded(bytes32,uint256,address)')),
+  STATUS_CHANGED: keccak256(stringToHex('StatusChanged(bytes32,uint8,uint8)')),
+  MIRROR_REGISTERED: keccak256(stringToHex('MirrorRegistered(bytes32,bytes32,bytes32,address)')),
+  MIRROR_SYNCED: keccak256(stringToHex('MirrorSynced(bytes32,bytes32,uint256)')),
+  SYNC_FAILED: keccak256(stringToHex('SyncFailed(bytes32,string)')),
 } as const;
 
 const KEEPALIVE_EVENT_SET = new Set(Object.values(EVENTS));
 
 const ABI = {
-  keepalive: new ethers.Interface([
+  keepalive: parseAbi([
     'event KeepaliveRegistered(bytes32 indexed keepaliveId, address indexed owner, bytes32 indexed jnsNode, uint256 agentId)',
     'event KeepaliveUpdated(bytes32 indexed keepaliveId)',
     'event ResourceAdded(bytes32 indexed keepaliveId, uint8 resourceType, string identifier)',
@@ -39,7 +39,7 @@ const ABI = {
     'event AutoFunded(bytes32 indexed keepaliveId, uint256 amount, address vault)',
     'event StatusChanged(bytes32 indexed keepaliveId, uint8 oldStatus, uint8 newStatus)',
   ]),
-  mirror: new ethers.Interface([
+  mirror: parseAbi([
     'event MirrorRegistered(bytes32 indexed mirrorId, bytes32 indexed ensNode, bytes32 indexed jnsNode, address owner)',
     'event MirrorSynced(bytes32 indexed mirrorId, bytes32 indexed ensNode, uint256 blockNumber)',
     'event SyncFailed(bytes32 indexed mirrorId, string reason)',
@@ -97,8 +97,11 @@ export async function processKeepaliveEvents(ctx: ProcessorContext<Store>): Prom
 
       switch (eventSig) {
         case EVENTS.KEEPALIVE_REGISTERED: {
-          const decoded = ABI.keepalive.parseLog({ topics: log.topics, data: log.data });
-          if (!decoded) break;
+          const decoded = decodeEventLog({
+            abi: ABI.keepalive,
+            topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+            data: log.data as `0x${string}`,
+          });
 
           const keepaliveId = decoded.args[0] as string;
           const ownerAddr = decoded.args[1] as string;
@@ -130,8 +133,11 @@ export async function processKeepaliveEvents(ctx: ProcessorContext<Store>): Prom
         }
 
         case EVENTS.RESOURCE_ADDED: {
-          const decoded = ABI.keepalive.parseLog({ topics: log.topics, data: log.data });
-          if (!decoded) break;
+          const decoded = decodeEventLog({
+            abi: ABI.keepalive,
+            topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+            data: log.data as `0x${string}`,
+          });
 
           const keepaliveId = decoded.args[0] as string;
           const resourceType = Number(decoded.args[1]);
@@ -165,8 +171,11 @@ export async function processKeepaliveEvents(ctx: ProcessorContext<Store>): Prom
         }
 
         case EVENTS.HEALTH_CHECKED: {
-          const decoded = ABI.keepalive.parseLog({ topics: log.topics, data: log.data });
-          if (!decoded) break;
+          const decoded = decodeEventLog({
+            abi: ABI.keepalive,
+            topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+            data: log.data as `0x${string}`,
+          });
 
           const keepaliveId = decoded.args[0] as string;
           const status = Number(decoded.args[1]);
@@ -202,14 +211,17 @@ export async function processKeepaliveEvents(ctx: ProcessorContext<Store>): Prom
 
           ctx.log.info(
             `Health check: ${keepaliveId.slice(0, 10)}... status=${status} ` +
-            `balance=${ethers.formatEther(balance)} ETH resources=${healthyResources}/${totalResources}`
+            `balance=${formatEther(balance)} ETH resources=${healthyResources}/${totalResources}`
           );
           break;
         }
 
         case EVENTS.STATUS_CHANGED: {
-          const decoded = ABI.keepalive.parseLog({ topics: log.topics, data: log.data });
-          if (!decoded) break;
+          const decoded = decodeEventLog({
+            abi: ABI.keepalive,
+            topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+            data: log.data as `0x${string}`,
+          });
 
           const keepaliveId = decoded.args[0] as string;
           const newStatus = Number(decoded.args[2]);
@@ -222,8 +234,11 @@ export async function processKeepaliveEvents(ctx: ProcessorContext<Store>): Prom
         }
 
         case EVENTS.AUTO_FUNDED: {
-          const decoded = ABI.keepalive.parseLog({ topics: log.topics, data: log.data });
-          if (!decoded) break;
+          const decoded = decodeEventLog({
+            abi: ABI.keepalive,
+            topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+            data: log.data as `0x${string}`,
+          });
 
           const keepaliveId = decoded.args[0] as string;
           const amount = decoded.args[1] as bigint;
@@ -248,14 +263,17 @@ export async function processKeepaliveEvents(ctx: ProcessorContext<Store>): Prom
           autoFunds.push(autoFund);
 
           ctx.log.info(
-            `Auto-funded: ${keepaliveId.slice(0, 10)}... amount=${ethers.formatEther(amount)} ETH`
+            `Auto-funded: ${keepaliveId.slice(0, 10)}... amount=${formatEther(amount)} ETH`
           );
           break;
         }
 
         case EVENTS.MIRROR_REGISTERED: {
-          const decoded = ABI.mirror.parseLog({ topics: log.topics, data: log.data });
-          if (!decoded) break;
+          const decoded = decodeEventLog({
+            abi: ABI.mirror,
+            topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+            data: log.data as `0x${string}`,
+          });
 
           const mirrorId = decoded.args[0] as string;
           const ensNode = decoded.args[1] as string;
@@ -284,8 +302,11 @@ export async function processKeepaliveEvents(ctx: ProcessorContext<Store>): Prom
         }
 
         case EVENTS.MIRROR_SYNCED: {
-          const decoded = ABI.mirror.parseLog({ topics: log.topics, data: log.data });
-          if (!decoded) break;
+          const decoded = decodeEventLog({
+            abi: ABI.mirror,
+            topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+            data: log.data as `0x${string}`,
+          });
 
           const mirrorId = decoded.args[0] as string;
           const ethBlockNumber = decoded.args[2] as bigint;
@@ -313,8 +334,11 @@ export async function processKeepaliveEvents(ctx: ProcessorContext<Store>): Prom
         }
 
         case EVENTS.SYNC_FAILED: {
-          const decoded = ABI.mirror.parseLog({ topics: log.topics, data: log.data });
-          if (!decoded) break;
+          const decoded = decodeEventLog({
+            abi: ABI.mirror,
+            topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+            data: log.data as `0x${string}`,
+          });
 
           const mirrorId = decoded.args[0] as string;
           const reason = decoded.args[1] as string;

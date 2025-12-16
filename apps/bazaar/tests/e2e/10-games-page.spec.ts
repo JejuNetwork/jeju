@@ -4,7 +4,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { captureScreenshot, captureUserFlow } from '@jejunetwork/tests/helpers/screenshots';
+import { captureScreenshot, captureUserFlow } from '@jejunetwork/tests';
 
 test.describe('Games Page', () => {
   test.beforeEach(async ({ page }) => {

@@ -1,5 +1,5 @@
 /**
- * @jeju/db - Database Types (CovenantSQL)
+ * @jejunetwork/db - Database Types (CovenantSQL)
  *
  * Types for decentralized SQL database integration.
  * CovenantSQL provides:

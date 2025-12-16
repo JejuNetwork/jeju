@@ -1,18 +1,5 @@
-/**
- * JNS (Network Name Service) Shared Client Utilities
- * 
- * Provides:
- * - Name resolution (name → address)
- * - Reverse resolution (address → name)
- * - App record lookup
- * - Name availability checking
- * - Registration helpers
- */
-
-import { ethers } from 'ethers';
-import type { Address } from 'viem';
-
-// ============ Types ============
+import { createPublicClient, http, type PublicClient, type Address, type Chain, keccak256, stringToBytes, namehash as viemNamehash, zeroAddress, zeroHash, parseAbi } from 'viem';
+import { readContract } from 'viem/actions';
 
 export interface JNSConfig {
   registry: Address;
@@ -20,6 +7,7 @@ export interface JNSConfig {
   registrar: Address;
   reverseRegistrar: Address;
   rpcUrl: string;
+  chain?: Chain;
 }
 
 export interface JNSResolvedRecord {
@@ -46,57 +34,41 @@ export interface JNSNameInfo {
   inGracePeriod: boolean;
 }
 
-// ============ Constants ============
+const GRACE_PERIOD = 90 * 24 * 60 * 60;
 
-const GRACE_PERIOD = 90 * 24 * 60 * 60; // 90 days in seconds
-
-// ============ ABIs ============
-
-const JNS_REGISTRY_ABI = [
+const JNS_REGISTRY_ABI = parseAbi([
   'function owner(bytes32 node) view returns (address)',
   'function resolver(bytes32 node) view returns (address)',
   'function recordExists(bytes32 node) view returns (bool)',
-];
+]);
 
-const JNS_RESOLVER_ABI = [
+const JNS_RESOLVER_ABI = parseAbi([
   'function addr(bytes32 node) view returns (address)',
   'function text(bytes32 node, string key) view returns (string)',
   'function contenthash(bytes32 node) view returns (bytes)',
   'function getAppInfo(bytes32 node) view returns (address appContract, bytes32 appId, uint256 agentId, string endpoint, string a2aEndpoint, bytes contenthash_)',
   'function name(bytes32 node) view returns (string)',
-];
+]);
 
-const JNS_REGISTRAR_ABI = [
+const JNS_REGISTRAR_ABI = parseAbi([
   'function available(string name) view returns (bool)',
   'function nameExpires(string name) view returns (uint256)',
   'function ownerOf(string name) view returns (address)',
   'function rentPrice(string name, uint256 duration) view returns (uint256)',
-];
+]);
 
-const JNS_REVERSE_REGISTRAR_ABI = [
+const JNS_REVERSE_REGISTRAR_ABI = parseAbi([
   'function nameOf(address addr) view returns (string)',
   'function node(address addr) view returns (bytes32)',
-];
+]);
 
-// ============ Core Functions ============
-
-/**
- * Compute the namehash for a JNS name
- */
-export function computeNamehash(name: string): string {
-  return ethers.namehash(name);
+export function computeNamehash(name: string): `0x${string}` {
+  return viemNamehash(name);
 }
 
-/**
- * Compute the labelhash for a label
- */
-export function computeLabelhash(label: string): string {
-  return ethers.keccak256(ethers.toUtf8Bytes(label));
+export function computeLabelhash(label: string): `0x${string}` {
+  return keccak256(stringToBytes(label));
 }
-
-/**
- * Validate a JNS name
- */
 export function validateName(name: string): { valid: boolean; error?: string } {
   if (name.length < 3) {
     return { valid: false, error: 'Name must be at least 3 characters' };
@@ -131,16 +103,19 @@ export function parseJNSName(name: string): string {
 // ============ Client Class ============
 
 export class JNSClient {
-  private provider: ethers.JsonRpcProvider;
-  private registry: ethers.Contract;
-  private registrar: ethers.Contract;
-  private reverseRegistrar: ethers.Contract;
+  private client: PublicClient;
+  private registry: Address;
+  private registrar: Address;
+  private reverseRegistrar: Address;
 
   constructor(config: JNSConfig) {
-    this.provider = new ethers.JsonRpcProvider(config.rpcUrl);
-    this.registry = new ethers.Contract(config.registry, JNS_REGISTRY_ABI, this.provider);
-    this.registrar = new ethers.Contract(config.registrar, JNS_REGISTRAR_ABI, this.provider);
-    this.reverseRegistrar = new ethers.Contract(config.reverseRegistrar, JNS_REVERSE_REGISTRAR_ABI, this.provider);
+    this.client = createPublicClient({
+      chain: config.chain,
+      transport: http(config.rpcUrl),
+    });
+    this.registry = config.registry;
+    this.registrar = config.registrar;
+    this.reverseRegistrar = config.reverseRegistrar;
   }
 
   /**
@@ -151,20 +126,43 @@ export class JNSClient {
     const node = computeNamehash(fullName);
 
     // Check if record exists
-    const exists = await this.registry.recordExists(node);
+    const exists = await readContract(this.client, {
+      address: this.registry,
+      abi: JNS_REGISTRY_ABI,
+      functionName: 'recordExists',
+      args: [node],
+    }).catch(() => false);
     if (!exists) return null;
 
     // Get resolver address
-    const resolverAddr = await this.registry.resolver(node);
-    if (resolverAddr === ethers.ZeroAddress) return null;
-
-    const resolver = new ethers.Contract(resolverAddr, JNS_RESOLVER_ABI, this.provider);
+    const resolverAddr = await readContract(this.client, {
+      address: this.registry,
+      abi: JNS_REGISTRY_ABI,
+      functionName: 'resolver',
+      args: [node],
+    }).catch(() => zeroAddress);
+    if (resolverAddr === zeroAddress) return null;
 
     // Fetch all records
     const [address, contenthash, appInfo] = await Promise.all([
-      resolver.addr(node).catch(() => null),
-      resolver.contenthash(node).catch(() => null),
-      resolver.getAppInfo(node).catch(() => [null, null, 0n, null, null, null]),
+      readContract(this.client, {
+        address: resolverAddr,
+        abi: JNS_RESOLVER_ABI,
+        functionName: 'addr',
+        args: [node],
+      }).catch(() => null),
+      readContract(this.client, {
+        address: resolverAddr,
+        abi: JNS_RESOLVER_ABI,
+        functionName: 'contenthash',
+        args: [node],
+      }).catch(() => null),
+      readContract(this.client, {
+        address: resolverAddr,
+        abi: JNS_RESOLVER_ABI,
+        functionName: 'getAppInfo',
+        args: [node],
+      }).catch(() => [null, null, 0n, null, null, null] as [Address | null, `0x${string}` | null, bigint, string | null, string | null, `0x${string}` | null]),
     ]);
 
     // Fetch common text records
@@ -172,19 +170,24 @@ export class JNSClient {
     const texts: Record<string, string> = {};
     
     for (const key of textKeys) {
-      const value = await resolver.text(node, key).catch(() => '');
+      const value = await readContract(this.client, {
+        address: resolverAddr,
+        abi: JNS_RESOLVER_ABI,
+        functionName: 'text',
+        args: [node, key],
+      }).catch(() => '');
       if (value) texts[key] = value;
     }
 
     return {
       name: fullName,
       node,
-      address: address && address !== ethers.ZeroAddress ? address : null,
+      address: address && address !== zeroAddress ? address : null,
       contenthash: contenthash && contenthash !== '0x' ? contenthash : null,
       texts,
       app: {
-        contract: appInfo[0] && appInfo[0] !== ethers.ZeroAddress ? appInfo[0] : null,
-        appId: appInfo[1] && appInfo[1] !== ethers.ZeroHash ? appInfo[1] : null,
+        contract: appInfo[0] && appInfo[0] !== zeroAddress ? appInfo[0] : null,
+        appId: appInfo[1] && appInfo[1] !== zeroHash ? appInfo[1] : null,
         agentId: appInfo[2],
         endpoint: appInfo[3] || null,
         a2aEndpoint: appInfo[4] || null,
@@ -196,7 +199,12 @@ export class JNSClient {
    * Resolve an address to its primary name (reverse lookup)
    */
   async reverseLookup(address: Address): Promise<string | null> {
-    const name = await this.reverseRegistrar.nameOf(address).catch(() => '');
+    const name = await readContract(this.client, {
+      address: this.reverseRegistrar,
+      abi: JNS_REVERSE_REGISTRAR_ABI,
+      functionName: 'nameOf',
+      args: [address],
+    }).catch(() => '');
     return name || null;
   }
 
@@ -205,7 +213,12 @@ export class JNSClient {
    */
   async isAvailable(name: string): Promise<boolean> {
     const label = parseJNSName(name);
-    return await this.registrar.available(label);
+    return await readContract(this.client, {
+      address: this.registrar,
+      abi: JNS_REGISTRAR_ABI,
+      functionName: 'available',
+      args: [label],
+    });
   }
 
   /**
@@ -217,13 +230,33 @@ export class JNSClient {
     const node = computeNamehash(fullName);
 
     const [available, owner, expires, resolverAddr] = await Promise.all([
-      this.registrar.available(label),
-      this.registrar.ownerOf(label).catch(() => ethers.ZeroAddress),
-      this.registrar.nameExpires(label),
-      this.registry.resolver(node).catch(() => ethers.ZeroAddress),
+      readContract(this.client, {
+        address: this.registrar,
+        abi: JNS_REGISTRAR_ABI,
+        functionName: 'available',
+        args: [label],
+      }),
+      readContract(this.client, {
+        address: this.registrar,
+        abi: JNS_REGISTRAR_ABI,
+        functionName: 'ownerOf',
+        args: [label],
+      }).catch(() => zeroAddress),
+      readContract(this.client, {
+        address: this.registrar,
+        abi: JNS_REGISTRAR_ABI,
+        functionName: 'nameExpires',
+        args: [label],
+      }),
+      readContract(this.client, {
+        address: this.registry,
+        abi: JNS_REGISTRY_ABI,
+        functionName: 'resolver',
+        args: [node],
+      }).catch(() => zeroAddress),
     ]);
 
-    if (owner === ethers.ZeroAddress && available) {
+    if (owner === zeroAddress && available) {
       return null; // Name has never been registered
     }
 
@@ -248,7 +281,12 @@ export class JNSClient {
   async getPrice(name: string, durationYears: number = 1): Promise<bigint> {
     const label = parseJNSName(name);
     const duration = BigInt(durationYears * 365 * 24 * 60 * 60);
-    return await this.registrar.rentPrice(label, duration);
+    return await readContract(this.client, {
+      address: this.registrar,
+      abi: JNS_REGISTRAR_ABI,
+      functionName: 'rentPrice',
+      args: [label, duration],
+    });
   }
 
   /**

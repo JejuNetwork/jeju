@@ -17,7 +17,8 @@
 import { $ } from 'bun';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { ethers } from 'ethers';
+import { createPublicClient, http, getBalance, getCode, formatEther, type Address } from 'viem';
+import { inferChainFromRpcUrl } from './shared/chain-utils';
 
 const ROOT = process.cwd();
 const KEYS_DIR = join(ROOT, 'packages/deployment/.keys');
@@ -157,13 +158,15 @@ async function checkOperatorKeys() {
   addResult(category, 'Keys File', 'pass', `${keys.length} keys generated`);
   
   // Check funding on Sepolia
-  const provider = new ethers.JsonRpcProvider('https://ethereum-sepolia-rpc.publicnode.com');
+  const sepoliaRpc = 'https://ethereum-sepolia-rpc.publicnode.com';
+  const chainObj = inferChainFromRpcUrl(sepoliaRpc);
+  const publicClient = createPublicClient({ chain: chainObj, transport: http(sepoliaRpc) });
   
   for (const key of keys) {
     if (['admin', 'batcher', 'proposer'].includes(key.name)) {
       try {
-        const balance = await provider.getBalance(key.address);
-        const ethBalance = parseFloat(ethers.formatEther(balance));
+        const balance = await getBalance(publicClient, { address: key.address as Address });
+        const ethBalance = parseFloat(formatEther(balance));
         const minBalance = key.name === 'admin' ? 0.3 : 0.05;
         
         if (ethBalance >= minBalance) {
@@ -238,7 +241,9 @@ async function checkL1Contracts() {
   const l1Deployment = JSON.parse(readFileSync(l1DeployFile, 'utf-8'));
   const contracts = l1Deployment.contracts || l1Deployment;
   
-  const provider = new ethers.JsonRpcProvider('https://ethereum-sepolia-rpc.publicnode.com');
+  const sepoliaRpc = 'https://ethereum-sepolia-rpc.publicnode.com';
+  const chainObj = inferChainFromRpcUrl(sepoliaRpc);
+  const publicClient = createPublicClient({ chain: chainObj, transport: http(sepoliaRpc) });
   
   let total = 0;
   
@@ -246,7 +251,7 @@ async function checkL1Contracts() {
     if (typeof address === 'string' && address.startsWith('0x') && address.length === 42) {
       total++;
       try {
-        const code = await provider.getCode(address);
+        const code = await getCode(publicClient, { address: address as Address });
         if (code !== '0x') {
           addResult(category, name, 'pass', `${(address as string).slice(0, 10)}...`);
         } else {

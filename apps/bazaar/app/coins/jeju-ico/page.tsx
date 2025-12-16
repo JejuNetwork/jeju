@@ -1,9 +1,15 @@
 'use client'
 
 import Link from 'next/link'
+import { formatEther } from 'viem'
 import { NetworkPresaleCard, NetworkTokenomics, NetworkUtility } from '@/components/ico'
+import { JEJU_TOKENOMICS } from '@/config/jeju-tokenomics'
 
 export default function JejuICOPage() {
+  // Calculate price in USD (assuming ~$3000/ETH for display)
+  const priceInEth = Number(formatEther(JEJU_TOKENOMICS.presale.tokenPrice))
+  const estimatedUsdPrice = (priceInEth * 3000).toFixed(4)
+  
   return (
     <div className="max-w-6xl mx-auto">
       {/* Hero */}
@@ -17,7 +23,7 @@ export default function JejuICOPage() {
         </div>
         
         <h1 className="text-4xl md:text-5xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
-          <span className="text-bazaar-primary">Network</span> Token
+          <span className="text-bazaar-primary">{JEJU_TOKENOMICS.name}</span> Token
         </h1>
         
         <p className="text-lg max-w-2xl mx-auto mb-8" style={{ color: 'var(--text-secondary)' }}>
@@ -32,9 +38,9 @@ export default function JejuICOPage() {
         </div>
         
         <div className="flex flex-wrap justify-center gap-6 text-sm" style={{ color: 'var(--text-tertiary)' }}>
-          <Stat label="Max Supply" value="10B JEJU" />
-          <Stat label="Presale Allocation" value="10%" />
-          <Stat label="Initial Price" value="~$0.009" />
+          <Stat label="Max Supply" value={`${(Number(JEJU_TOKENOMICS.maxSupply) / 1e27).toFixed(0)}B ${JEJU_TOKENOMICS.symbol}`} />
+          <Stat label="Presale Allocation" value={`${JEJU_TOKENOMICS.allocation.presale.percent}%`} />
+          <Stat label="Initial Price" value={`~$${estimatedUsdPrice}`} />
         </div>
       </section>
       

@@ -6,7 +6,7 @@
  *
  * @example
  * ```typescript
- * import { drizzle } from '@jeju/db/adapters';
+ * import { drizzle } from '@jejunetwork/db';
  * import { users, posts } from './schema';
  *
  * const db = drizzle(cqlClient, databaseId);

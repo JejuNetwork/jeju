@@ -7,7 +7,7 @@
  * - Memory clearing after use
  */
 
-import { Wallet } from 'ethers';
+import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 import { existsSync, mkdirSync, writeFileSync, readFileSync, chmodSync } from 'fs';
 import { join } from 'path';
 import { createCipheriv, createDecipheriv, randomBytes, scrypt } from 'crypto';
@@ -73,11 +73,11 @@ export function resolvePrivateKey(network: NetworkType): string {
 }
 
 export function generateKey(name: string, role: string): KeyConfig {
-  const wallet = Wallet.createRandom();
+  const account = privateKeyToAccount(generatePrivateKey());
   return {
     name,
-    address: wallet.address,
-    privateKey: wallet.privateKey,
+    address: account.address,
+    privateKey: account.privateKey,
     role,
   };
 }

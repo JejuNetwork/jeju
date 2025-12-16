@@ -26,6 +26,7 @@ import { cors } from 'hono/cors';
 import { serve } from '@hono/node-server';
 import { UnifiedBot, type UnifiedBotConfig, type TradeResult } from './unified-bot';
 import type { RebalanceAction, UnifiedPosition, PoolAnalysis } from './strategies/liquidity-manager';
+import type { ChainId } from './autocrat-types';
 
 // ============ Types ============
 
@@ -122,6 +123,28 @@ function createRestAPI(bot: UnifiedBot): Hono {
     }
 
     const result = await bot.executeRebalance(action);
+    return c.json(result);
+  });
+
+  // ============ Yield Farming Endpoints ============
+
+  // Yield farming opportunities (ranked by risk-adjusted return)
+  app.get('/yield', (c) => {
+    const limit = c.req.query('limit') ? parseInt(c.req.query('limit')!) : 20;
+    const opportunities = bot.getYieldOpportunities(limit);
+    return c.json(opportunities);
+  });
+
+  // Yield farming stats
+  app.get('/yield/stats', (c) => {
+    const stats = bot.getYieldStats();
+    return c.json(stats ?? { error: 'Yield farming not enabled' });
+  });
+
+  // Verify yield for an opportunity (on-chain verification)
+  app.get('/yield/verify/:id', async (c) => {
+    const { id } = c.req.param();
+    const result = await bot.verifyYield(id);
     return c.json(result);
   });
 
@@ -548,7 +571,7 @@ export async function startBotAPIServer(config: APIConfig): Promise<void> {
 
 export async function main(): Promise<void> {
   const botConfig: UnifiedBotConfig = {
-    evmChains: [1, 42161, 10, 8453] as any[], // Ethereum, Arbitrum, Optimism, Base
+    evmChains: [1, 42161, 10, 8453] as ChainId[], // Ethereum, Arbitrum, Optimism, Base
     solanaNetwork: (process.env.SOLANA_NETWORK as 'mainnet-beta' | 'devnet' | 'localnet') ?? 'mainnet-beta',
     evmPrivateKey: process.env.EVM_PRIVATE_KEY,
     solanaPrivateKey: process.env.SOLANA_PRIVATE_KEY,
@@ -559,6 +582,8 @@ export async function main(): Promise<void> {
     enableSandwich: false, // Disabled by default
     enableLiquidation: false,
     enableSolver: false,
+    enableXLP: false, // Enable for XLP (Cross-chain Liquidity Provider) mode
+    enableYieldFarming: true, // Enable cross-chain yield optimization
     minProfitBps: 50, // 0.5%
     maxPositionSize: BigInt(10e18), // 10 ETH
     maxSlippageBps: 100, // 1%

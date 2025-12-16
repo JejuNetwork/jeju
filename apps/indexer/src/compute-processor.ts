@@ -5,7 +5,7 @@
  * IMPORTANT: Event signatures must match EXACTLY what's in the Solidity contracts
  */
 
-import { ethers } from 'ethers';
+import { keccak256, stringToHex, parseAbi, decodeEventLog, decodeAbiParameters } from 'viem';
 import { Store } from '@subsquid/typeorm-store';
 import { ProcessorContext } from './processor';
 import { 
@@ -23,43 +23,43 @@ import { createAccountFactory, BlockHeader, LogData } from './lib/entities';
 // ============ CORRECT Event Signatures from contracts/src/compute/*.sol ============
 
 // ComputeRegistry.sol events
-const PROVIDER_REGISTERED = ethers.id('ProviderRegistered(address,string,string,bytes32,uint256,uint256)');
-const PROVIDER_UPDATED = ethers.id('ProviderUpdated(address,string,bytes32)');
-const PROVIDER_DEACTIVATED = ethers.id('ProviderDeactivated(address)');
-const PROVIDER_REACTIVATED = ethers.id('ProviderReactivated(address)');
-const STAKE_ADDED = ethers.id('StakeAdded(address,uint256,uint256)');
-const STAKE_WITHDRAWN = ethers.id('StakeWithdrawn(address,uint256)');
-const CAPABILITY_ADDED = ethers.id('CapabilityAdded(address,string,uint256,uint256,uint256)');
-const CAPABILITY_UPDATED = ethers.id('CapabilityUpdated(address,uint256,bool)');
+const PROVIDER_REGISTERED = keccak256(stringToHex('ProviderRegistered(address,string,string,bytes32,uint256,uint256)'));
+const PROVIDER_UPDATED = keccak256(stringToHex('ProviderUpdated(address,string,bytes32)'));
+const PROVIDER_DEACTIVATED = keccak256(stringToHex('ProviderDeactivated(address)'));
+const PROVIDER_REACTIVATED = keccak256(stringToHex('ProviderReactivated(address)'));
+const STAKE_ADDED = keccak256(stringToHex('StakeAdded(address,uint256,uint256)'));
+const STAKE_WITHDRAWN = keccak256(stringToHex('StakeWithdrawn(address,uint256)'));
+const CAPABILITY_ADDED = keccak256(stringToHex('CapabilityAdded(address,string,uint256,uint256,uint256)'));
+const CAPABILITY_UPDATED = keccak256(stringToHex('CapabilityUpdated(address,uint256,bool)'));
 
 // ComputeRental.sol events
-const RENTAL_CREATED = ethers.id('RentalCreated(bytes32,address,address,uint256,uint256)');
-const RENTAL_STARTED = ethers.id('RentalStarted(bytes32,string,uint16,string)');
-const RENTAL_COMPLETED = ethers.id('RentalCompleted(bytes32,uint256,uint256)');
-const RENTAL_CANCELLED = ethers.id('RentalCancelled(bytes32,uint256)');
-const RENTAL_EXTENDED = ethers.id('RentalExtended(bytes32,uint256,uint256)');
-const RENTAL_RATED = ethers.id('RentalRated(bytes32,address,uint8,string)');
-const USER_BANNED = ethers.id('UserBanned(address,string,uint256)');
-const PROVIDER_BANNED = ethers.id('ProviderBanned(address,string)');
-const DISPUTE_CREATED = ethers.id('DisputeCreated(bytes32,bytes32,address,uint8,string)');
-const DISPUTE_RESOLVED = ethers.id('DisputeResolved(bytes32,bool,uint256)');
+const RENTAL_CREATED = keccak256(stringToHex('RentalCreated(bytes32,address,address,uint256,uint256)'));
+const RENTAL_STARTED = keccak256(stringToHex('RentalStarted(bytes32,string,uint16,string)'));
+const RENTAL_COMPLETED = keccak256(stringToHex('RentalCompleted(bytes32,uint256,uint256)'));
+const RENTAL_CANCELLED = keccak256(stringToHex('RentalCancelled(bytes32,uint256)'));
+const RENTAL_EXTENDED = keccak256(stringToHex('RentalExtended(bytes32,uint256,uint256)'));
+const RENTAL_RATED = keccak256(stringToHex('RentalRated(bytes32,address,uint8,string)'));
+const USER_BANNED = keccak256(stringToHex('UserBanned(address,string,uint256)'));
+const PROVIDER_BANNED = keccak256(stringToHex('ProviderBanned(address,string)'));
+const DISPUTE_CREATED = keccak256(stringToHex('DisputeCreated(bytes32,bytes32,address,uint8,string)'));
+const DISPUTE_RESOLVED = keccak256(stringToHex('DisputeResolved(bytes32,bool,uint256)'));
 
 // InferenceServing.sol events
-const SERVICE_REGISTERED = ethers.id('ServiceRegistered(address,uint256,string,string,uint256,uint256)');
-const SERVICE_DEACTIVATED = ethers.id('ServiceDeactivated(address,uint256)');
-const SETTLED = ethers.id('Settled(address,address,bytes32,uint256,uint256,uint256,uint256)');
-const AGENT_SETTLED = ethers.id('AgentSettled(uint256,address,uint256,uint256,uint256)');
+const SERVICE_REGISTERED = keccak256(stringToHex('ServiceRegistered(address,uint256,string,string,uint256,uint256)'));
+const SERVICE_DEACTIVATED = keccak256(stringToHex('ServiceDeactivated(address,uint256)'));
+const SETTLED = keccak256(stringToHex('Settled(address,address,bytes32,uint256,uint256,uint256,uint256)'));
+const AGENT_SETTLED = keccak256(stringToHex('AgentSettled(uint256,address,uint256,uint256,uint256)'));
 
 // ComputeStaking.sol events
-const STAKED_AS_USER = ethers.id('StakedAsUser(address,uint256)');
-const STAKED_AS_PROVIDER = ethers.id('StakedAsProvider(address,uint256)');
-const STAKED_AS_GUARDIAN = ethers.id('StakedAsGuardian(address,uint256)');
-const STAKE_ADDED_STAKING = ethers.id('StakeAdded(address,uint256,uint256)');
-const UNSTAKED = ethers.id('Unstaked(address,uint256)');
-const SLASHED = ethers.id('Slashed(address,uint256,string)');
+const STAKED_AS_USER = keccak256(stringToHex('StakedAsUser(address,uint256)'));
+const STAKED_AS_PROVIDER = keccak256(stringToHex('StakedAsProvider(address,uint256)'));
+const STAKED_AS_GUARDIAN = keccak256(stringToHex('StakedAsGuardian(address,uint256)'));
+const STAKE_ADDED_STAKING = keccak256(stringToHex('StakeAdded(address,uint256,uint256)'));
+const UNSTAKED = keccak256(stringToHex('Unstaked(address,uint256)'));
+const SLASHED = keccak256(stringToHex('Slashed(address,uint256,string)'));
 
 // Correct ABI interfaces matching the actual contracts
-const computeRegistryInterface = new ethers.Interface([
+const computeRegistryInterface = parseAbi([
   // ProviderRegistered(address indexed provider, string name, string endpoint, bytes32 attestationHash, uint256 stake, uint256 agentId)
   'event ProviderRegistered(address indexed provider, string name, string endpoint, bytes32 attestationHash, uint256 stake, uint256 agentId)',
   'event ProviderUpdated(address indexed provider, string endpoint, bytes32 attestationHash)',
@@ -71,7 +71,7 @@ const computeRegistryInterface = new ethers.Interface([
   'event CapabilityUpdated(address indexed provider, uint256 index, bool active)',
 ]);
 
-const computeRentalInterface = new ethers.Interface([
+const computeRentalInterface = parseAbi([
   // RentalCreated(bytes32 indexed rentalId, address indexed user, address indexed provider, uint256 durationHours, uint256 totalCost)
   'event RentalCreated(bytes32 indexed rentalId, address indexed user, address indexed provider, uint256 durationHours, uint256 totalCost)',
   'event RentalStarted(bytes32 indexed rentalId, string sshHost, uint16 sshPort, string containerId)',
@@ -85,7 +85,7 @@ const computeRentalInterface = new ethers.Interface([
   'event ProviderBanned(address indexed provider, string reason)',
 ]);
 
-const inferenceServingInterface = new ethers.Interface([
+const inferenceServingInterface = parseAbi([
   // ServiceRegistered(address indexed provider, uint256 serviceIndex, string model, string endpoint, uint256 pricePerInputToken, uint256 pricePerOutputToken)
   'event ServiceRegistered(address indexed provider, uint256 serviceIndex, string model, string endpoint, uint256 pricePerInputToken, uint256 pricePerOutputToken)',
   'event ServiceDeactivated(address indexed provider, uint256 serviceIndex)',
@@ -94,10 +94,14 @@ const inferenceServingInterface = new ethers.Interface([
   'event AgentSettled(uint256 indexed agentId, address indexed user, uint256 inputTokens, uint256 outputTokens, uint256 fee)',
 ]);
 
-const computeStakingInterface = new ethers.Interface([
+const computeStakingInterface = parseAbi([
   'event StakedAsUser(address indexed account, uint256 amount)',
   'event StakedAsProvider(address indexed account, uint256 amount)',
   'event StakedAsGuardian(address indexed account, uint256 amount)',
+  'event StakeAdded(address indexed account, uint256 amount, uint256 newTotal)',
+  'event Unstaked(address indexed account, uint256 amount)',
+  'event Slashed(address indexed account, uint256 amount, string reason)',
+]);
   'event StakeAdded(address indexed account, uint256 amount, uint256 newTotal)',
   'event Unstaked(address indexed account, uint256 amount)',
   'event Slashed(address indexed account, uint256 amount, string reason)',
@@ -171,9 +175,9 @@ export async function processComputeEvents(ctx: ProcessorContext<Store>): Promis
         // topics[0] = event sig, topics[1] = indexed provider
         // data = (name, endpoint, attestationHash, stake, agentId)
         const providerAddr = '0x' + log.topics[1].slice(26);
-        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-          ['string', 'string', 'bytes32', 'uint256', 'uint256'],
-          log.data
+        const decoded = decodeAbiParameters(
+          [{ type: 'string' }, { type: 'string' }, { type: 'bytes32' }, { type: 'uint256' }, { type: 'uint256' }],
+          log.data as `0x${string}`
         );
         
         const id = providerAddr.toLowerCase();
@@ -201,9 +205,9 @@ export async function processComputeEvents(ctx: ProcessorContext<Store>): Promis
       if (eventSig === PROVIDER_UPDATED) {
         // ProviderUpdated(address indexed provider, string endpoint, bytes32 attestationHash)
         const providerAddr = '0x' + log.topics[1].slice(26);
-        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-          ['string', 'bytes32'],
-          log.data
+        const decoded = decodeAbiParameters(
+          [{ type: 'string' }, { type: 'bytes32' }],
+          log.data as `0x${string}`
         );
 
         const provider = await getOrCreateProvider(providerAddr, blockTimestamp);
@@ -231,9 +235,9 @@ export async function processComputeEvents(ctx: ProcessorContext<Store>): Promis
       if (eventSig === STAKE_ADDED) {
         // StakeAdded(address indexed provider, uint256 amount, uint256 newTotal)
         const providerAddr = '0x' + log.topics[1].slice(26);
-        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-          ['uint256', 'uint256'],
-          log.data
+        const decoded = decodeAbiParameters(
+          [{ type: 'uint256' }, { type: 'uint256' }],
+          log.data as `0x${string}`
         );
 
         const provider = await getOrCreateProvider(providerAddr, blockTimestamp);
@@ -244,9 +248,9 @@ export async function processComputeEvents(ctx: ProcessorContext<Store>): Promis
       if (eventSig === STAKE_WITHDRAWN) {
         // StakeWithdrawn(address indexed provider, uint256 amount)
         const providerAddr = '0x' + log.topics[1].slice(26);
-        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-          ['uint256'],
-          log.data
+        const decoded = decodeAbiParameters(
+          [{ type: 'uint256' }],
+          log.data as `0x${string}`
         );
 
         const provider = await getOrCreateProvider(providerAddr, blockTimestamp);
@@ -258,9 +262,9 @@ export async function processComputeEvents(ctx: ProcessorContext<Store>): Promis
       if (eventSig === CAPABILITY_ADDED) {
         // CapabilityAdded(address indexed provider, string model, uint256 pricePerInputToken, uint256 pricePerOutputToken, uint256 maxContextLength)
         const providerAddr = '0x' + log.topics[1].slice(26);
-        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-          ['string', 'uint256', 'uint256', 'uint256'],
-          log.data
+        const decoded = decodeAbiParameters(
+          [{ type: 'string' }, { type: 'uint256' }, { type: 'uint256' }, { type: 'uint256' }],
+          log.data as `0x${string}`
         );
         
         const id = `${providerAddr.toLowerCase()}-${decoded[0]}`;
@@ -288,9 +292,9 @@ export async function processComputeEvents(ctx: ProcessorContext<Store>): Promis
         const rentalId = log.topics[1];
         const userAddr = '0x' + log.topics[2].slice(26);
         const providerAddr = '0x' + log.topics[3].slice(26);
-        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-          ['uint256', 'uint256'],
-          log.data
+        const decoded = decodeAbiParameters(
+          [{ type: 'uint256' }, { type: 'uint256' }],
+          log.data as `0x${string}`
         );
 
         const renter = accountFactory.getOrCreate(userAddr, header.height, blockTimestamp);
@@ -359,9 +363,9 @@ export async function processComputeEvents(ctx: ProcessorContext<Store>): Promis
       if (eventSig === RENTAL_EXTENDED) {
         // RentalExtended(bytes32 indexed rentalId, uint256 additionalHours, uint256 additionalCost)
         const rentalId = log.topics[1];
-        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-          ['uint256', 'uint256'],
-          log.data
+        const decoded = decodeAbiParameters(
+          [{ type: 'uint256' }, { type: 'uint256' }],
+          log.data as `0x${string}`
         );
 
         let rental = rentals.get(rentalId) || await ctx.store.get(ComputeRental, rentalId);
@@ -379,9 +383,9 @@ export async function processComputeEvents(ctx: ProcessorContext<Store>): Promis
         // data = (requestHash, inputTokens, outputTokens, fee, nonce)
         const userAddr = '0x' + log.topics[1].slice(26);
         const providerAddr = '0x' + log.topics[2].slice(26);
-        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-          ['bytes32', 'uint256', 'uint256', 'uint256', 'uint256'],
-          log.data
+        const decoded = decodeAbiParameters(
+          [{ type: 'bytes32' }, { type: 'uint256' }, { type: 'uint256' }, { type: 'uint256' }, { type: 'uint256' }],
+          log.data as `0x${string}`
         );
 
         const requestId = decoded[0];
@@ -419,7 +423,7 @@ export async function processComputeEvents(ctx: ProcessorContext<Store>): Promis
       if (eventSig === STAKED_AS_PROVIDER) {
         // StakedAsProvider(address indexed account, uint256 amount)
         const providerAddr = '0x' + log.topics[1].slice(26);
-        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(['uint256'], log.data);
+        const decoded = decodeAbiParameters([{ type: 'uint256' }], log.data as `0x${string}`);
         
         const provider = await getOrCreateProvider(providerAddr, blockTimestamp);
         provider.stakeAmount += BigInt(decoded[0].toString());
@@ -429,9 +433,9 @@ export async function processComputeEvents(ctx: ProcessorContext<Store>): Promis
       if (eventSig === SLASHED) {
         // Slashed(address indexed account, uint256 amount, string reason)
         const providerAddr = '0x' + log.topics[1].slice(26);
-        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-          ['uint256', 'string'],
-          log.data
+        const decoded = decodeAbiParameters(
+          [{ type: 'uint256' }, { type: 'string' }],
+          log.data as `0x${string}`
         );
 
         const provider = await getOrCreateProvider(providerAddr, blockTimestamp);

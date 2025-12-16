@@ -1,4 +1,4 @@
-# @jeju/messaging
+# @jejunetwork/messaging
 
 Decentralized private messaging protocol for Jeju L2.
 
@@ -15,13 +15,13 @@ Decentralized private messaging protocol for Jeju L2.
 ### Install
 
 ```bash
-bun add @jeju/messaging
+bun add @jejunetwork/messaging
 ```
 
 ### Usage
 
 ```typescript
-import { createMessagingClient } from '@jeju/messaging';
+import { createMessagingClient } from '@jejunetwork/messaging';
 
 // Create client
 const client = createMessagingClient({

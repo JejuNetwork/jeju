@@ -9,7 +9,7 @@ import { CHAIN_ID, RPC_URL, WALLETCONNECT_PROJECT_ID, NETWORK } from './config';
 // network chain config from centralized config
 const jejuChain = {
   id: CHAIN_ID,
-  name: NETWORK === 'mainnet' ? 'Network' : NETWORK === 'testnet' ? 'Testnet' : getLocalnetChain().name,
+  name: NETWORK === 'mainnet' ? 'Jeju Network' : NETWORK === 'testnet' ? 'Jeju Testnet' : 'Jeju Localnet',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
     default: { http: [RPC_URL] },

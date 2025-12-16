@@ -1,5 +1,5 @@
 /**
- * @jeju/kms - Key Management System
+ * @jejunetwork/kms - Key Management System
  *
  * Unified interface for key management:
  * - MPC: Threshold key sharing (Shamir's Secret Sharing)
@@ -10,7 +10,7 @@
  *
  * @example
  * ```typescript
- * import { getKMS } from '@jeju/kms';
+ * import { getKMS } from '@jejunetwork/kms';
  *
  * const kms = getKMS();
  * await kms.initialize();

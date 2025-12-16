@@ -1,6 +1,7 @@
-import { ethers } from 'ethers';
+import { createPublicClient, http, readContract, parseAbi, isAddress, type Address } from 'viem';
 import type { Request, Response, NextFunction } from 'express';
 import { loadNetworkConfig } from '../network-config';
+import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 
 export const RATE_LIMITS = { BANNED: 0, FREE: 100, BASIC: 1000, PRO: 10000, UNLIMITED: 0 } as const;
 export type RateTier = keyof typeof RATE_LIMITS;
@@ -13,33 +14,34 @@ const ETH_USD_PRICE = Number(process.env.ETH_USD_PRICE) || 2000;
 const rateLimitStore = new Map<string, { count: number; resetAt: number; tier: RateTier }>();
 const stakeCache = new Map<string, { tier: RateTier; expiresAt: number }>();
 
-const IDENTITY_ABI = ['function getAgentId(address) view returns (uint256)'] as const;
-const BAN_ABI = ['function isBanned(uint256) view returns (bool)'] as const;
-const STAKING_ABI = [
+const IDENTITY_ABI = parseAbi(['function getAgentId(address) view returns (uint256)']);
+const BAN_ABI = parseAbi(['function isBanned(uint256) view returns (bool)']);
+const STAKING_ABI = parseAbi([
   'function getStake(address) view returns (uint256)',
   'function positions(address) view returns (uint256,uint256,uint256)',
-] as const;
+]);
 
 let contracts: {
-  provider: ethers.JsonRpcProvider;
-  identity: ethers.Contract | null;
-  ban: ethers.Contract | null;
-  staking: ethers.Contract | null;
+  publicClient: ReturnType<typeof createPublicClient>;
+  identityAddress: Address | null;
+  banAddress: Address | null;
+  stakingAddress: Address | null;
 } | null = null;
 
 function getContracts() {
   if (contracts) return contracts;
   
   const config = loadNetworkConfig();
-  const provider = new ethers.JsonRpcProvider(config.rpcUrl);
+  const chain = inferChainFromRpcUrl(config.rpcUrl);
+  const publicClient = createPublicClient({ chain, transport: http(config.rpcUrl) });
   const { identityRegistry, banManager, nodeStakingManager } = config.contracts;
   const stakingAddr = process.env.INDEXER_STAKING_ADDRESS || nodeStakingManager;
   
   contracts = {
-    provider,
-    identity: identityRegistry ? new ethers.Contract(identityRegistry, IDENTITY_ABI, provider) : null,
-    ban: banManager ? new ethers.Contract(banManager, BAN_ABI, provider) : null,
-    staking: stakingAddr ? new ethers.Contract(stakingAddr, STAKING_ABI, provider) : null,
+    publicClient,
+    identityAddress: identityRegistry ? (identityRegistry as Address) : null,
+    banAddress: banManager ? (banManager as Address) : null,
+    stakingAddress: stakingAddr ? (stakingAddr as Address) : null,
   };
   return contracts;
 }
@@ -49,13 +51,24 @@ async function getStakeTier(address: string): Promise<RateTier> {
   const cached = stakeCache.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached.tier;
 
-  const { identity, ban, staking } = getContracts();
+  const { publicClient, identityAddress, banAddress, stakingAddress } = getContracts();
   let tier: RateTier = 'FREE';
 
-  if (identity && ban) {
-    const agentId = await identity.getAgentId(address);
+  if (identityAddress && banAddress) {
+    const agentId = await readContract(publicClient, {
+      address: identityAddress,
+      abi: IDENTITY_ABI,
+      functionName: 'getAgentId',
+      args: [address as Address],
+    });
     if (agentId > 0n) {
-      if (await ban.isBanned(agentId)) {
+      const isBanned = await readContract(publicClient, {
+        address: banAddress,
+        abi: BAN_ABI,
+        functionName: 'isBanned',
+        args: [agentId],
+      });
+      if (isBanned) {
         tier = 'BANNED';
         stakeCache.set(key, { tier, expiresAt: Date.now() + CACHE_TTL });
         return tier;
@@ -63,8 +76,13 @@ async function getStakeTier(address: string): Promise<RateTier> {
     }
   }
 
-  if (staking) {
-    const stakeWei = await staking.getStake(address);
+  if (stakingAddress) {
+    const stakeWei = await readContract(publicClient, {
+      address: stakingAddress,
+      abi: STAKING_ABI,
+      functionName: 'getStake',
+      args: [address as Address],
+    });
     const stakeUsd = (Number(stakeWei) / 1e18) * ETH_USD_PRICE;
     tier = stakeUsd >= TIER_THRESHOLDS.UNLIMITED ? 'UNLIMITED'
          : stakeUsd >= TIER_THRESHOLDS.PRO ? 'PRO'
@@ -81,7 +99,7 @@ function getClientKey(req: Request): { key: string; address: string | null } {
   if (apiKey) return { key: `apikey:${apiKey}`, address: null };
 
   const walletAddr = req.headers['x-wallet-address'] as string | undefined;
-  if (walletAddr && ethers.isAddress(walletAddr)) {
+  if (walletAddr && isAddress(walletAddr)) {
     return { key: `addr:${walletAddr.toLowerCase()}`, address: walletAddr };
   }
 

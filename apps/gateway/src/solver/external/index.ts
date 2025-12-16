@@ -11,7 +11,39 @@ export { AcrossAdapter, type AcrossDeposit } from './across';
 export { UniswapXAdapter, type UniswapXOrder } from './uniswapx';
 export { CowProtocolSolver, COW_SETTLEMENT, COW_VAULT_RELAYER, type CowAuction, type CowOrder, type CowQuote, type CowOrderParams, type CowSolution } from './cow';
 export { CowSolverValidator, printSolverReport, printComparisonReport, type SolverMetrics, type CompetitionResult } from './cow-validator';
-export { ExternalProtocolAggregator } from './aggregator';
+export { CowSolverOptimizer, printOptimizationReport, type LiquidityPool, type PriceFeed, type OptimizedSolution } from './cow-optimizer';
+export { ExternalProtocolAggregator, type ExternalOpportunity, type ExternalOpportunityType, type AggregatorConfig } from './aggregator';
+
+// Price Oracle (Chainlink integration)
+export { 
+  PriceOracle, 
+  CHAINLINK_FEEDS, 
+  TOKEN_TO_FEED,
+  type PriceData,
+  type TokenPrice,
+} from './price-oracle';
+
+// DEX Aggregator (Uniswap V2/V3, Balancer routing)
+export {
+  DexAggregator,
+  UNISWAP_V3_QUOTER,
+  UNISWAP_V2_ROUTER,
+  BALANCER_VAULT,
+  INTERMEDIATE_TOKENS,
+  type DexQuote,
+  type AggregatedQuote,
+} from './dex-aggregator';
+
+// JIT Liquidity Provider
+export {
+  JITLiquidityProvider,
+  POSITION_MANAGER,
+  priceToTick,
+  tickToPrice,
+  type JITPosition,
+  type JITOpportunity,
+  type JITConfig,
+} from './jit-liquidity';
 
 // Chain configurations for external protocols
 export const SUPPORTED_CHAINS = {
@@ -25,4 +57,3 @@ export const SUPPORTED_CHAINS = {
 } as const;
 
 export type SupportedChain = keyof typeof SUPPORTED_CHAINS;
-

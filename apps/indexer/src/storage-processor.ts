@@ -6,7 +6,7 @@
  */
 
 import { Store } from '@subsquid/typeorm-store';
-import { ethers } from 'ethers';
+import { keccak256, stringToHex, parseAbi, decodeEventLog } from 'viem';
 import { 
   StorageProvider,
   StorageDeal, 
@@ -22,37 +22,37 @@ import { ProcessorContext } from './processor';
 // Event signatures for storage contracts
 const EVENT_SIGNATURES = {
   // StorageProviderRegistry events
-  ProviderRegistered: ethers.id('ProviderRegistered(address,string,string,uint8,uint256)'),
-  ProviderUpdated: ethers.id('ProviderUpdated(address)'),
-  ProviderDeactivated: ethers.id('ProviderDeactivated(address)'),
-  ProviderReactivated: ethers.id('ProviderReactivated(address)'),
-  StakeAdded: ethers.id('StakeAdded(address,uint256)'),
-  StakeWithdrawn: ethers.id('StakeWithdrawn(address,uint256)'),
-  AgentLinked: ethers.id('AgentLinked(address,uint256)'),
+  ProviderRegistered: keccak256(stringToHex('ProviderRegistered(address,string,string,uint8,uint256)')),
+  ProviderUpdated: keccak256(stringToHex('ProviderUpdated(address)')),
+  ProviderDeactivated: keccak256(stringToHex('ProviderDeactivated(address)')),
+  ProviderReactivated: keccak256(stringToHex('ProviderReactivated(address)')),
+  StakeAdded: keccak256(stringToHex('StakeAdded(address,uint256)')),
+  StakeWithdrawn: keccak256(stringToHex('StakeWithdrawn(address,uint256)')),
+  AgentLinked: keccak256(stringToHex('AgentLinked(address,uint256)')),
   
   // StorageMarket events
-  DealCreated: ethers.id('DealCreated(bytes32,address,address,string,uint256)'),
-  DealConfirmed: ethers.id('DealConfirmed(bytes32)'),
-  DealCompleted: ethers.id('DealCompleted(bytes32)'),
-  DealTerminated: ethers.id('DealTerminated(bytes32,uint256)'),
-  DealFailed: ethers.id('DealFailed(bytes32,string)'),
-  DealExtended: ethers.id('DealExtended(bytes32,uint256,uint256)'),
-  DealRated: ethers.id('DealRated(bytes32,uint8)'),
+  DealCreated: keccak256(stringToHex('DealCreated(bytes32,address,address,string,uint256)')),
+  DealConfirmed: keccak256(stringToHex('DealConfirmed(bytes32)')),
+  DealCompleted: keccak256(stringToHex('DealCompleted(bytes32)')),
+  DealTerminated: keccak256(stringToHex('DealTerminated(bytes32,uint256)')),
+  DealFailed: keccak256(stringToHex('DealFailed(bytes32,string)')),
+  DealExtended: keccak256(stringToHex('DealExtended(bytes32,uint256,uint256)')),
+  DealRated: keccak256(stringToHex('DealRated(bytes32,uint8)')),
   
   // StorageLedgerManager events  
-  LedgerCreated: ethers.id('LedgerCreated(address)'),
-  DepositMade: ethers.id('DepositMade(address,uint256)'),
-  TransferToProvider: ethers.id('TransferToProvider(address,address,uint256)'),
+  LedgerCreated: keccak256(stringToHex('LedgerCreated(address)')),
+  DepositMade: keccak256(stringToHex('DepositMade(address,uint256)')),
+  TransferToProvider: keccak256(stringToHex('TransferToProvider(address,address,uint256)')),
 };
 
 const STORAGE_TOPIC_SET = new Set(Object.values(EVENT_SIGNATURES));
 
 // ABI interfaces - created once at module level
 const ABI = {
-  providerRegistered: new ethers.Interface([
+  providerRegistered: parseAbi([
     'event ProviderRegistered(address indexed provider, string name, string endpoint, uint8 providerType, uint256 agentId)'
   ]),
-  dealCreated: new ethers.Interface([
+  dealCreated: parseAbi([
     'event DealCreated(bytes32 indexed dealId, address indexed user, address indexed provider, string cid, uint256 cost)'
   ]),
 };
@@ -157,8 +157,11 @@ export async function processStorageEvents(ctx: ProcessorContext<Store>): Promis
       
       if (topic0 === EVENT_SIGNATURES.ProviderRegistered) {
         const providerAddr = '0x' + topics[1].slice(26);
-        const decoded = ABI.providerRegistered.parseLog({ topics, data: log.data });
-        if (!decoded) continue;
+        const decoded = decodeEventLog({
+          abi: ABI.providerRegistered,
+          topics: topics as [`0x${string}`, ...`0x${string}`[]],
+          data: log.data as `0x${string}`,
+        });
         
         const provider = await getOrCreateProvider(providerAddr, timestamp);
         provider.name = decoded.args.name;
@@ -218,8 +221,11 @@ export async function processStorageEvents(ctx: ProcessorContext<Store>): Promis
         const dealId = topics[1];
         const userAddr = '0x' + topics[2].slice(26);
         const providerAddr = '0x' + topics[3].slice(26);
-        const decoded = ABI.dealCreated.parseLog({ topics, data: log.data });
-        if (!decoded) continue;
+        const decoded = decodeEventLog({
+          abi: ABI.dealCreated,
+          topics: topics as [`0x${string}`, ...`0x${string}`[]],
+          data: log.data as `0x${string}`,
+        });
         
         const user = accountFactory.getOrCreate(userAddr, header.height, timestamp);
         const provider = await getOrCreateProvider(providerAddr, timestamp);

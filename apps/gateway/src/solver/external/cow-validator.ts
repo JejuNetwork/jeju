@@ -11,7 +11,7 @@
  * - CoW matching: Orders we can match internally (best)
  */
 
-import { type Address, formatEther, formatUnits } from 'viem';
+import { type Address, formatEther } from 'viem';
 import { CowProtocolSolver, type CowAuction, type CowOrder, type CowSolution } from './cow';
 
 // CoW API for historical data
@@ -489,4 +489,3 @@ export function printComparisonReport(result: CompetitionResult): void {
   console.log(`\n   Would Win: ${result.comparison.wouldWin ? '✅ YES' : '❌ NO'}`);
   console.log('='.repeat(60));
 }
-

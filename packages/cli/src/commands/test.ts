@@ -7,8 +7,10 @@
  * - e2e: Full stack with UI testing (Playwright/Synpress)
  * - full: Everything including multi-chain (Solana, Arbitrum, Base)
  * - infra: Infrastructure and deployment tests
+ * - smoke: Quick health checks
  * 
  * All modes use REAL services - no mocks.
+ * CLI handles all setup/teardown automatically.
  */
 
 import { Command } from 'commander';
@@ -16,10 +18,20 @@ import { execa, type ExecaError } from 'execa';
 import { existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { logger } from '../lib/logger';
-import { createDockerOrchestrator, DockerOrchestrator, type TestProfile } from '../services/docker-orchestrator';
+import { createTestOrchestrator, TestOrchestrator } from '../services/test-orchestrator';
+import { createDockerOrchestrator, type TestProfile } from '../services/docker-orchestrator';
 import { discoverApps } from '../lib/testing';
 
-type TestMode = 'unit' | 'integration' | 'e2e' | 'full' | 'infra';
+const MODE_TO_PROFILE: Record<TestMode, TestProfile> = {
+  unit: 'chain',
+  integration: 'services',
+  e2e: 'apps',
+  full: 'full',
+  infra: 'services',
+  smoke: 'chain',
+};
+
+export type TestMode = 'unit' | 'integration' | 'e2e' | 'full' | 'infra' | 'smoke';
 
 interface TestResult {
   name: string;
@@ -45,17 +57,9 @@ interface ManifestTesting {
   dependencies?: string[];
 }
 
-const MODE_TO_PROFILE: Record<TestMode, TestProfile> = {
-  unit: 'chain',
-  integration: 'services',
-  e2e: 'apps',
-  full: 'full',
-  infra: 'services',
-};
-
 export const testCommand = new Command('test')
-  .description('Run tests (unit, integration, e2e, full, infra)')
-  .option('-m, --mode <mode>', 'Test mode: unit, integration, e2e, full, infra', 'unit')
+  .description('Run tests with automatic setup/teardown (unit, integration, e2e, full, infra, smoke)')
+  .option('-m, --mode <mode>', 'Test mode: unit, integration, e2e, full, infra, smoke', 'unit')
   .option('-a, --app <app>', 'Test specific app')
   .option('--package <pkg>', 'Test specific package')
   .option('--ci', 'CI mode (fail fast, coverage)')
@@ -64,6 +68,13 @@ export const testCommand = new Command('test')
   .option('--watch', 'Watch mode')
   .option('-v, --verbose', 'Verbose output')
   .option('--keep-services', 'Keep services running after tests')
+  .option('--skip-lock', 'Skip test lock acquisition')
+  .option('--skip-preflight', 'Skip preflight checks')
+  .option('--skip-warmup', 'Skip app warmup')
+  .option('--skip-bootstrap', 'Skip contract bootstrap')
+  .option('--setup-only', 'Only run setup, don\'t run tests')
+  .option('--teardown-only', 'Only run teardown')
+  .option('--force', 'Force override existing test lock')
   .option('--forge-opts <opts>', 'Pass options to forge test')
   .action(async (options) => {
     const mode = options.mode as TestMode;
@@ -73,18 +84,27 @@ export const testCommand = new Command('test')
     logger.header(`JEJU TEST - ${mode.toUpperCase()}`);
 
     // Validate mode
-    if (!['unit', 'integration', 'e2e', 'full', 'infra'].includes(mode)) {
-      logger.error(`Invalid mode: ${mode}. Use: unit, integration, e2e, full, infra`);
+    if (!['unit', 'integration', 'e2e', 'full', 'infra', 'smoke'].includes(mode)) {
+      logger.error(`Invalid mode: ${mode}. Use: unit, integration, e2e, full, infra, smoke`);
       process.exit(1);
     }
 
-    // Unit tests don't need services
-    const needsServices = mode !== 'unit';
-    let orchestrator: DockerOrchestrator | null = null;
-    
+    // Create test orchestrator
+    const testOrchestrator = createTestOrchestrator({
+      mode,
+      app: options.app,
+      skipLock: options.skipLock,
+      skipPreflight: options.skipPreflight,
+      skipWarmup: options.skipWarmup,
+      skipBootstrap: options.skipBootstrap,
+      keepServices: options.keepServices,
+      force: options.force,
+      rootDir,
+    });
+
     const cleanup = async () => {
-      if (orchestrator && !options.keepServices) {
-        await orchestrator.stop();
+      if (!options.keepServices) {
+        await testOrchestrator.teardown();
       }
     };
 
@@ -93,19 +113,20 @@ export const testCommand = new Command('test')
       process.exit(130);
     });
 
+    process.on('SIGTERM', async () => {
+      await cleanup();
+      process.exit(143);
+    });
+
     try {
-      // Start services if needed
-      if (needsServices) {
-        const profile = MODE_TO_PROFILE[mode];
-        orchestrator = createDockerOrchestrator(rootDir, profile);
-        await orchestrator.start();
-        
-        const statuses = await orchestrator.status();
-        orchestrator.printStatus(statuses);
+      // Setup phase
+      if (!options.teardownOnly) {
+        await testOrchestrator.setup();
       }
 
-      const serviceEnv = orchestrator?.getEnvVars() || {};
-      const testEnv = { ...serviceEnv, CI: options.ci ? 'true' : '', NODE_ENV: 'test' };
+      // Test execution phase
+      if (!options.setupOnly && !options.teardownOnly) {
+        const testEnv = { ...testOrchestrator.getEnvVars(), CI: options.ci ? 'true' : '', NODE_ENV: 'test' };
 
       // Route to appropriate test runner
       if (options.app) {
@@ -138,11 +159,14 @@ export const testCommand = new Command('test')
             results.push(await runWalletTests(rootDir, options, testEnv));
             results.push(await runCrossChainTests(rootDir, options, testEnv));
             break;
-          case 'infra':
-            results.push(await runInfraTests(rootDir, options, testEnv));
-            break;
+            case 'infra':
+              results.push(await runInfraTests(rootDir, options, testEnv));
+              break;
+            case 'smoke':
+              results.push(await runSmokeTests(rootDir, options, testEnv));
+              break;
+          }
         }
-      }
 
       // Coverage and dead code detection
       if (options.coverage || options.deadCode || options.ci) {
@@ -150,13 +174,32 @@ export const testCommand = new Command('test')
         printCoverageReport(coverage);
       }
 
-      printSummary(results);
-      await cleanup();
+        printSummary(results);
 
-      const failed = results.filter(r => !r.passed && !r.skipped).length;
-      if (failed > 0) process.exit(1);
+        // Coverage and dead code detection
+        if (options.coverage || options.deadCode || options.ci) {
+          const coverage = await generateCoverageReport(rootDir, results, options.deadCode);
+          printCoverageReport(coverage);
+        }
+
+        const failed = results.filter(r => !r.passed && !r.skipped).length;
+        if (failed > 0) {
+          await cleanup();
+          process.exit(1);
+        }
+      }
+
+      // Teardown phase
+      if (options.teardownOnly || (!options.keepServices && !options.setupOnly)) {
+        await cleanup();
+      }
+
+      if (options.setupOnly) {
+        logger.success('Setup complete. Services are running.');
+        logger.info('Run with --teardown-only to stop services.');
+      }
     } catch (error) {
-      logger.error(`Test failed: ${error}`);
+      logger.error(`Test failed: ${error instanceof Error ? error.message : String(error)}`);
       await cleanup();
       process.exit(1);
     }
@@ -176,6 +219,7 @@ testCommand
     console.log('  e2e           Full stack with UI (Playwright)');
     console.log('  full          Everything including multi-chain');
     console.log('  infra         Infrastructure and deployment');
+    console.log('  smoke         Quick health checks');
 
     logger.subheader('Apps');
     const apps = discoverApps(rootDir);
@@ -208,14 +252,21 @@ testCommand
 
     logger.header('TESTING ALL APPS');
 
-    let orchestrator: ReturnType<typeof createDockerOrchestrator> | null = null;
+    const testOrchestrator = createTestOrchestrator({
+      mode,
+      skipLock: true,
+      skipPreflight: true,
+      skipWarmup: true,
+      keepServices: true,
+      rootDir,
+    });
+
     let testEnv: Record<string, string> = { NODE_ENV: 'test' };
 
     // Only start Docker if not disabled and mode requires it
     if (options.docker && mode !== 'unit') {
-      orchestrator = createDockerOrchestrator(rootDir, MODE_TO_PROFILE[mode]);
-      await orchestrator.start();
-      testEnv = { ...orchestrator.getEnvVars(), NODE_ENV: 'test' };
+      await testOrchestrator.setup();
+      testEnv = { ...testOrchestrator.getEnvVars(), NODE_ENV: 'test' };
     }
 
     const apps = discoverApps(rootDir);
@@ -230,9 +281,7 @@ testCommand
       }
     }
 
-    if (orchestrator) {
-      await orchestrator.stop();
-    }
+    await testOrchestrator.teardown();
     printSummary(results);
 
     const failed = results.filter(r => !r.passed && !r.skipped).length;
@@ -513,6 +562,33 @@ async function runCrossChainTests(
   } catch (error) {
     const err = error as ExecaError;
     return { name: 'cross-chain', passed: false, duration: Date.now() - start, output: String(err.stderr || '') };
+  }
+}
+
+async function runSmokeTests(
+  rootDir: string,
+  _options: Record<string, unknown>,
+  env: Record<string, string>
+): Promise<TestResult> {
+  const start = Date.now();
+  logger.step('Running smoke tests...');
+
+  const testsPath = join(rootDir, 'packages', 'tests', 'smoke');
+  if (!existsSync(testsPath)) {
+    return { name: 'smoke', passed: true, duration: 0, skipped: true };
+  }
+
+  try {
+    await execa('bunx', ['playwright', 'test', '--config', 'smoke/playwright.config.ts'], {
+      cwd: join(rootDir, 'packages', 'tests'),
+      stdio: 'inherit',
+      env: { ...process.env, ...env },
+    });
+
+    return { name: 'smoke', passed: true, duration: Date.now() - start };
+  } catch (error) {
+    const err = error as ExecaError;
+    return { name: 'smoke', passed: false, duration: Date.now() - start, output: String(err.stderr || '') };
   }
 }
 

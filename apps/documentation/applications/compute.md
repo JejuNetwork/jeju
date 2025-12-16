@@ -96,7 +96,7 @@ This returns available providers with their hardware specs (GPUs, CPU, memory, s
 ### Creating a Rental Session
 
 ```typescript
-import { ComputeClient } from '@jeju/compute-sdk';
+import { ComputeClient } from '@jejunetwork/compute-sdk';
 
 const compute = new ComputeClient({
   endpoint: 'https://compute.jeju.network',

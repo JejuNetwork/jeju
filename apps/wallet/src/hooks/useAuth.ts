@@ -1,18 +1,23 @@
 /**
  * useAuth - OAuth3 Authentication Hook
  * 
- * Supports:
+ * Uses the @jejunetwork/oauth3 SDK for decentralized authentication:
  * - Wallet (MetaMask, WalletConnect, etc.)
  * - Social (Google, Apple, Twitter, GitHub, Discord)
  * - Farcaster
  * - Auto-generated wallets for social logins
- * - Social recovery for existing wallets
+ * - TEE-backed key management with MPC threshold signing
  */
 
-import { useState, useEffect, useCallback } from 'react';
-import { createPublicClient, http, type Address, type Hex } from 'viem';
-import { base, baseSepolia } from 'viem/chains';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import type { Address, Hex } from 'viem';
 import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
+import {
+  createOAuth3Client,
+  AuthProvider as OAuth3AuthProvider,
+  type OAuth3Client,
+  type OAuth3Session,
+} from '@jejunetwork/oauth3';
 
 export type AuthProvider = 
   | 'wallet'
@@ -43,10 +48,11 @@ export interface LinkedProvider {
 }
 
 export interface UseAuthOptions {
-  appId?: Hex;
+  appId?: Hex | string;
   teeAgentUrl?: string;
   rpcUrl?: string;
   autoConnect?: boolean;
+  decentralized?: boolean;
 }
 
 export interface UseAuthReturn {
@@ -55,6 +61,7 @@ export interface UseAuthReturn {
   isLoading: boolean;
   isAuthenticated: boolean;
   error: string | null;
+  isInitialized: boolean;
 
   // Actions
   login: (provider: AuthProvider) => Promise<void>;
@@ -66,331 +73,196 @@ export interface UseAuthReturn {
   generateWallet: () => Promise<{ address: Address; privateKey: Hex }>;
   importWallet: (privateKey: Hex) => Promise<Address>;
   signMessage: (message: string) => Promise<Hex>;
+  
+  // Infrastructure
+  checkHealth: () => Promise<{ jns: boolean; storage: boolean; teeNode: boolean }>;
 }
 
 const OAUTH3_TEE_URL = import.meta.env.VITE_OAUTH3_TEE_URL ?? 'http://localhost:4010';
-const OAUTH3_APP_ID = (import.meta.env.VITE_OAUTH3_APP_ID ?? '0x0000000000000000000000000000000000000001') as Hex;
-const RPC_URL = import.meta.env.VITE_RPC_URL ?? 'https://sepolia.base.org';
+const OAUTH3_APP_ID = (import.meta.env.VITE_OAUTH3_APP_ID ?? 'wallet.apps.jeju');
+const RPC_URL = import.meta.env.VITE_RPC_URL ?? 'http://localhost:9545';
+const CHAIN_ID = parseInt(import.meta.env.VITE_CHAIN_ID ?? '420691', 10);
 
-const SOCIAL_PROVIDERS: AuthProvider[] = ['google', 'apple', 'twitter', 'github', 'discord'];
+function mapAuthProvider(provider: AuthProvider): OAuth3AuthProvider {
+  const mapping: Record<AuthProvider, OAuth3AuthProvider> = {
+    wallet: OAuth3AuthProvider.WALLET,
+    google: OAuth3AuthProvider.GOOGLE,
+    apple: OAuth3AuthProvider.APPLE,
+    twitter: OAuth3AuthProvider.TWITTER,
+    github: OAuth3AuthProvider.GITHUB,
+    discord: OAuth3AuthProvider.DISCORD,
+    farcaster: OAuth3AuthProvider.FARCASTER,
+  };
+  return mapping[provider];
+}
+
+function oauth3SessionToAuthSession(session: OAuth3Session, provider: AuthProvider): AuthSession {
+  return {
+    sessionId: session.sessionId,
+    identityId: session.identityId,
+    address: session.smartAccount,
+    provider,
+    linkedProviders: [], // Loaded separately from identity
+    expiresAt: session.expiresAt,
+    isSmartAccount: true,
+  };
+}
 
 export function useAuth(options: UseAuthOptions = {}): UseAuthReturn {
   const {
     appId = OAUTH3_APP_ID,
     teeAgentUrl = OAUTH3_TEE_URL,
     autoConnect = true,
+    decentralized = true,
   } = options;
 
   const [session, setSession] = useState<AuthSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [currentProvider, setCurrentProvider] = useState<AuthProvider | null>(null);
 
   const isAuthenticated = session !== null && session.expiresAt > Date.now();
 
-  // Load session from storage on mount
+  // Create OAuth3 client
+  const client: OAuth3Client = useMemo(() => {
+    const redirectUri = typeof window !== 'undefined' 
+      ? `${window.location.origin}/auth/callback` 
+      : 'http://localhost:4015/auth/callback';
+    
+    return createOAuth3Client({
+      appId: appId as Hex,
+      redirectUri,
+      teeAgentUrl: decentralized ? undefined : teeAgentUrl,
+      rpcUrl: RPC_URL,
+      chainId: CHAIN_ID,
+      decentralized,
+    });
+  }, [appId, teeAgentUrl, decentralized]);
+
+  // Initialize OAuth3 client on mount
   useEffect(() => {
-    if (autoConnect) {
-      loadSession();
-    } else {
-      setIsLoading(false);
-    }
-  }, [autoConnect]);
+    const init = async () => {
+      if (decentralized) {
+        // Try to initialize discovery, fallback to configured TEE URL on failure
+        await client.initialize().catch(() => {});
+      }
+      setIsInitialized(true);
+      
+      if (autoConnect) {
+        await loadSession();
+      } else {
+        setIsLoading(false);
+      }
+    };
+
+    init();
+  }, [decentralized, autoConnect]);
 
   const loadSession = useCallback(async () => {
-    try {
-      const stored = localStorage.getItem('jeju_auth_session');
-      if (!stored) {
-        setIsLoading(false);
-        return;
-      }
-
-      const parsed = JSON.parse(stored) as AuthSession;
-      
-      if (parsed.expiresAt > Date.now()) {
-        // Verify session is still valid with TEE agent
-        const response = await fetch(`${teeAgentUrl}/session/${parsed.sessionId}/verify`);
-        if (response.ok) {
-          setSession(parsed);
-        } else {
-          localStorage.removeItem('jeju_auth_session');
-        }
-      } else {
-        localStorage.removeItem('jeju_auth_session');
-      }
-    } catch {
-      localStorage.removeItem('jeju_auth_session');
-    } finally {
-      setIsLoading(false);
+    setIsLoading(true);
+    const oauth3Session = client.getSession();
+    
+    if (oauth3Session && oauth3Session.expiresAt > Date.now()) {
+      const stored = localStorage.getItem('jeju_auth_provider');
+      const provider = (stored as AuthProvider) || 'wallet';
+      setSession(oauth3SessionToAuthSession(oauth3Session, provider));
+      setCurrentProvider(provider);
     }
-  }, [teeAgentUrl]);
+    
+    setIsLoading(false);
+  }, [client]);
 
-  const saveSession = useCallback((newSession: AuthSession) => {
+  const saveSession = useCallback((newSession: AuthSession, provider: AuthProvider) => {
     setSession(newSession);
-    localStorage.setItem('jeju_auth_session', JSON.stringify(newSession));
+    setCurrentProvider(provider);
+    localStorage.setItem('jeju_auth_provider', provider);
   }, []);
 
   const clearSession = useCallback(() => {
     setSession(null);
-    localStorage.removeItem('jeju_auth_session');
+    setCurrentProvider(null);
+    localStorage.removeItem('jeju_auth_provider');
     localStorage.removeItem('jeju_private_key');
   }, []);
 
-  // Login with any provider
+  // Login with any provider using OAuth3 SDK
   const login = useCallback(async (provider: AuthProvider) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      if (provider === 'wallet') {
-        await loginWithWallet();
-      } else if (provider === 'farcaster') {
-        await loginWithFarcaster();
-      } else if (SOCIAL_PROVIDERS.includes(provider)) {
-        await loginWithSocial(provider);
-      } else {
-        throw new Error(`Unknown provider: ${provider}`);
-      }
+      const oauth3Provider = mapAuthProvider(provider);
+      const oauth3Session = await client.login({ provider: oauth3Provider });
+      const authSession = oauth3SessionToAuthSession(oauth3Session, provider);
+      saveSession(authSession, provider);
+    } catch (err) {
+      const message = (err as Error).message;
+      setError(message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [client, saveSession]);
+
+  // Logout using OAuth3 SDK
+  const logout = useCallback(async () => {
+    try {
+      await client.logout();
+    } catch {
+      // Session may already be invalidated
+    }
+    clearSession();
+  }, [client, clearSession]);
+
+  // Link additional provider
+  const linkProvider = useCallback(async (provider: AuthProvider) => {
+    if (!session) throw new Error('Not authenticated');
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const oauth3Provider = mapAuthProvider(provider);
+      await client.linkProvider({ provider: oauth3Provider });
+      
+      // Refresh session to get updated linked providers
+      const refreshed = await client.refreshSession();
+      const updatedSession = oauth3SessionToAuthSession(refreshed, currentProvider || 'wallet');
+      setSession(updatedSession);
     } catch (err) {
       setError((err as Error).message);
       throw err;
     } finally {
       setIsLoading(false);
     }
-  }, [appId, teeAgentUrl]);
+  }, [client, session, currentProvider]);
 
-  // Wallet login (MetaMask, etc.)
-  const loginWithWallet = async () => {
-    if (typeof window === 'undefined' || !window.ethereum) {
-      throw new Error('No wallet found. Please install MetaMask or another wallet.');
-    }
-
-    const accounts = await window.ethereum.request({
-      method: 'eth_requestAccounts',
-    }) as string[];
-
-    const address = accounts[0] as Address;
-    const nonce = crypto.randomUUID();
-    
-    const message = createSignInMessage(address, nonce);
-    
-    const signature = await window.ethereum.request({
-      method: 'personal_sign',
-      params: [message, address],
-    }) as Hex;
-
-    const response = await fetch(`${teeAgentUrl}/auth/wallet`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address, signature, message, appId }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Wallet login failed: ${response.status}`);
-    }
-
-    const sessionData = await response.json() as AuthSession;
-    sessionData.provider = 'wallet';
-    saveSession(sessionData);
-  };
-
-  // Social OAuth login (generates wallet automatically)
-  const loginWithSocial = async (provider: AuthProvider) => {
-    // Start OAuth flow
-    const initResponse = await fetch(`${teeAgentUrl}/auth/init`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        provider,
-        appId,
-        redirectUri: window.location.origin + '/auth/callback',
-      }),
-    });
-
-    if (!initResponse.ok) {
-      throw new Error(`Failed to start ${provider} login`);
-    }
-
-    const { authUrl, state, sessionId } = await initResponse.json() as {
-      authUrl: string;
-      state: string;
-      sessionId: Hex;
-    };
-
-    // Store state for callback verification
-    sessionStorage.setItem('oauth_state', state);
-    sessionStorage.setItem('oauth_session_id', sessionId);
-    sessionStorage.setItem('oauth_provider', provider);
-
-    // Open OAuth popup
-    const popup = openPopup(authUrl, 'oauth_popup');
-    
-    // Wait for callback
-    return new Promise<void>((resolve, reject) => {
-      const handleMessage = async (event: MessageEvent) => {
-        if (event.origin !== window.location.origin) return;
-
-        const { code, state: returnedState, error: oauthError } = event.data as {
-          code?: string;
-          state?: string;
-          error?: string;
-        };
-
-        if (oauthError) {
-          window.removeEventListener('message', handleMessage);
-          popup?.close();
-          reject(new Error(oauthError));
-          return;
-        }
-
-        if (!code || returnedState !== state) return;
-
-        window.removeEventListener('message', handleMessage);
-        popup?.close();
-
-        // Exchange code for session
-        const callbackResponse = await fetch(`${teeAgentUrl}/auth/callback`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ state, code }),
-        });
-
-        if (!callbackResponse.ok) {
-          reject(new Error(`OAuth callback failed: ${callbackResponse.status}`));
-          return;
-        }
-
-        const sessionData = await callbackResponse.json() as AuthSession;
-        sessionData.provider = provider;
-        saveSession(sessionData);
-        resolve();
-      };
-
-      window.addEventListener('message', handleMessage);
-
-      // Check if popup was closed without completing auth
-      const checkClosed = setInterval(() => {
-        if (popup?.closed) {
-          clearInterval(checkClosed);
-          window.removeEventListener('message', handleMessage);
-          reject(new Error('Login cancelled'));
-        }
-      }, 1000);
-    });
-  };
-
-  // Farcaster login
-  const loginWithFarcaster = async () => {
-    // Start SIWF (Sign In With Farcaster) flow
-    const initResponse = await fetch(`${teeAgentUrl}/auth/farcaster/init`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        appId,
-        domain: window.location.hostname,
-        nonce: crypto.randomUUID(),
-      }),
-    });
-
-    if (!initResponse.ok) {
-      throw new Error('Failed to start Farcaster login');
-    }
-
-    const { channelToken, url } = await initResponse.json() as {
-      channelToken: string;
-      url: string;
-    };
-
-    // Open Warpcast sign-in
-    openPopup(url, 'farcaster_popup');
-
-    // Poll for completion
-    const maxAttempts = 60;
-    for (let i = 0; i < maxAttempts; i++) {
-      await new Promise(r => setTimeout(r, 2000));
-
-      const statusResponse = await fetch(`${teeAgentUrl}/auth/farcaster/status?channel=${channelToken}`);
-      if (!statusResponse.ok) continue;
-
-      const result = await statusResponse.json() as { 
-        complete: boolean; 
-        session?: AuthSession; 
-        error?: string;
-      };
-
-      if (result.error) {
-        throw new Error(result.error);
-      }
-
-      if (result.complete && result.session) {
-        result.session.provider = 'farcaster';
-        saveSession(result.session);
-        return;
-      }
-    }
-
-    throw new Error('Farcaster login timed out');
-  };
-
-  // Logout
-  const logout = useCallback(async () => {
-    if (session?.sessionId) {
-      await fetch(`${teeAgentUrl}/session/${session.sessionId}`, {
-        method: 'DELETE',
-      }).catch(() => {});
-    }
-    clearSession();
-  }, [session, teeAgentUrl, clearSession]);
-
-  // Link additional provider to existing identity
-  const linkProvider = useCallback(async (provider: AuthProvider) => {
-    if (!session) throw new Error('Not authenticated');
-
-    const response = await fetch(`${teeAgentUrl}/identity/${session.identityId}/link`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.sessionId}`,
-      },
-      body: JSON.stringify({ provider, appId }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to link ${provider}`);
-    }
-
-    // Update session with new linked provider
-    const updatedSession = await response.json() as AuthSession;
-    saveSession({ ...session, linkedProviders: updatedSession.linkedProviders });
-  }, [session, appId, teeAgentUrl, saveSession]);
-
-  // Unlink provider from identity
+  // Unlink provider
   const unlinkProvider = useCallback(async (provider: AuthProvider) => {
     if (!session) throw new Error('Not authenticated');
 
-    const response = await fetch(`${teeAgentUrl}/identity/${session.identityId}/unlink`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.sessionId}`,
-      },
-      body: JSON.stringify({ provider }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to unlink ${provider}`);
+    try {
+      const oauth3Provider = mapAuthProvider(provider);
+      await client.unlinkProvider(oauth3Provider);
+      
+      // Update session locally
+      setSession(prev => prev ? {
+        ...prev,
+        linkedProviders: prev.linkedProviders.filter(lp => lp.provider !== provider),
+      } : null);
+    } catch (err) {
+      setError((err as Error).message);
+      throw err;
     }
-
-    // Update session with provider removed
-    const updatedSession = await response.json() as AuthSession;
-    saveSession({ ...session, linkedProviders: updatedSession.linkedProviders });
-  }, [session, teeAgentUrl, saveSession]);
+  }, [client, session]);
 
   // Generate new wallet (for offline-first or local use)
   const generateWallet = useCallback(async () => {
     const privateKey = generatePrivateKey();
     const account = privateKeyToAccount(privateKey);
     
-    // Store encrypted in local storage (for this session)
+    // Store encrypted in local storage
     localStorage.setItem('jeju_private_key', privateKey);
 
     return { address: account.address, privateKey };
@@ -403,40 +275,34 @@ export function useAuth(options: UseAuthOptions = {}): UseAuthReturn {
     return account.address;
   }, []);
 
-  // Sign message with current session
+  // Sign message using OAuth3 SDK (MPC/TEE backed)
   const signMessage = useCallback(async (message: string): Promise<Hex> => {
     if (!session) throw new Error('Not authenticated');
 
-    // First try TEE agent signing
-    const response = await fetch(`${teeAgentUrl}/sign`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.sessionId}`,
-      },
-      body: JSON.stringify({ message }),
-    });
-
-    if (response.ok) {
-      const { signature } = await response.json() as { signature: Hex };
-      return signature;
+    try {
+      return await client.signMessage({ message });
+    } catch {
+      // Fall back to local key if available
+      const storedKey = localStorage.getItem('jeju_private_key');
+      if (storedKey) {
+        const account = privateKeyToAccount(storedKey as Hex);
+        return account.signMessage({ message });
+      }
+      throw new Error('Unable to sign message');
     }
+  }, [client, session]);
 
-    // Fall back to local key if available
-    const storedKey = localStorage.getItem('jeju_private_key');
-    if (storedKey) {
-      const account = privateKeyToAccount(storedKey as Hex);
-      return account.signMessage({ message });
-    }
-
-    throw new Error('Unable to sign message');
-  }, [session, teeAgentUrl]);
+  // Check infrastructure health
+  const checkHealth = useCallback(async () => {
+    return client.checkInfrastructureHealth();
+  }, [client]);
 
   return {
     session,
     isLoading,
     isAuthenticated,
     error,
+    isInitialized,
     login,
     logout,
     linkProvider,
@@ -444,47 +310,6 @@ export function useAuth(options: UseAuthOptions = {}): UseAuthReturn {
     generateWallet,
     importWallet,
     signMessage,
+    checkHealth,
   };
 }
-
-// Helper: Create SIWE-style message
-function createSignInMessage(address: Address, nonce: string): string {
-  const domain = window.location.hostname;
-  const uri = window.location.origin;
-  return `${domain} wants you to sign in with your Ethereum account:
-${address}
-
-Sign in to Jeju Wallet
-
-URI: ${uri}
-Version: 1
-Chain ID: 8453
-Nonce: ${nonce}
-Issued At: ${new Date().toISOString()}`;
-}
-
-// Helper: Open popup window
-function openPopup(url: string, name: string): Window | null {
-  const width = 500;
-  const height = 700;
-  const left = window.screenX + (window.outerWidth - width) / 2;
-  const top = window.screenY + (window.outerHeight - height) / 2;
-
-  return window.open(
-    url,
-    name,
-    `width=${width},height=${height},left=${left},top=${top},popup=1`
-  );
-}
-
-// Global type declarations
-declare global {
-  interface Window {
-    ethereum?: {
-      request: <T = unknown>(args: { method: string; params?: unknown[] }) => Promise<T>;
-      on: (event: string, callback: (...args: unknown[]) => void) => void;
-      removeListener: (event: string, callback: (...args: unknown[]) => void) => void;
-    };
-  }
-}
-

@@ -11,7 +11,10 @@
  *   network: localnet | testnet | mainnet
  */
 
-import { ethers } from 'ethers';
+import { createPublicClient, createWalletClient, http, parseEther, formatEther, type Address, type Chain } from 'viem';
+import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
+import { waitForTransactionReceipt, getBalance, readContract } from 'viem/actions';
+import { parseAbi } from 'viem';
 import { Logger } from '../shared/logger';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { resolve } from 'path';
@@ -134,21 +137,24 @@ async function deployEIL(network: string): Promise<DeploymentResult> {
   logger.info(`L2: ${config.l2RpcUrl} (chain ${config.l2ChainId})`);
   
   // Check deployer balance
-  const l1Provider = new ethers.JsonRpcProvider(config.l1RpcUrl);
-  const l2Provider = new ethers.JsonRpcProvider(config.l2RpcUrl);
-  const deployer = new ethers.Wallet(privateKey);
+  const account = privateKeyToAccount(privateKey as `0x${string}`);
+  const l1Chain: Chain = { id: config.l1ChainId, name: 'L1', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [config.l1RpcUrl] } } };
+  const l2Chain: Chain = { id: config.l2ChainId, name: 'L2', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [config.l2RpcUrl] } } };
   
-  const l1Balance = await l1Provider.getBalance(deployer.address);
-  const l2Balance = await l2Provider.getBalance(deployer.address);
+  const l1Client = createPublicClient({ chain: l1Chain, transport: http(config.l1RpcUrl) });
+  const l2Client = createPublicClient({ chain: l2Chain, transport: http(config.l2RpcUrl) });
   
-  logger.info(`Deployer: ${deployer.address}`);
-  logger.info(`L1 Balance: ${ethers.formatEther(l1Balance)} ETH`);
-  logger.info(`L2 Balance: ${ethers.formatEther(l2Balance)} ETH`);
+  const l1Balance = await getBalance(l1Client, { address: account.address });
+  const l2Balance = await getBalance(l2Client, { address: account.address });
   
-  if (l1Balance < ethers.parseEther('0.01')) {
+  logger.info(`Deployer: ${account.address}`);
+  logger.info(`L1 Balance: ${formatEther(l1Balance)} ETH`);
+  logger.info(`L2 Balance: ${formatEther(l2Balance)} ETH`);
+  
+  if (l1Balance < parseEther('0.01')) {
     throw new Error('Insufficient L1 balance for deployment');
   }
-  if (l2Balance < ethers.parseEther('0.01')) {
+  if (l2Balance < parseEther('0.01')) {
     throw new Error('Insufficient L2 balance for deployment');
   }
   
@@ -187,43 +193,59 @@ async function deployEIL(network: string): Promise<DeploymentResult> {
   
   // Configure L1StakeManager with L2 paymaster
   logger.info('\n=== Configuring L1StakeManager ===');
-  const l1Signer = new ethers.Wallet(privateKey, l1Provider);
-  const stakeManagerAbi = [
-    'function registerL2Paymaster(uint256 chainId, address paymaster) external',
-    'function setMessenger(address _messenger) external',
-  ];
-  const stakeManager = new ethers.Contract(l1StakeManager, stakeManagerAbi, l1Signer);
+  const l1WalletClient = createWalletClient({ account, chain: l1Chain, transport: http(config.l1RpcUrl) });
+  const STAKE_MANAGER_ABI = parseAbi(['function registerL2Paymaster(uint256 chainId, address paymaster) external', 'function setMessenger(address _messenger) external']);
   
   // Register L2 paymaster
-  const tx1 = await stakeManager.registerL2Paymaster(config.l2ChainId, crossChainPaymaster);
-  await tx1.wait();
+  const registerHash = await l1WalletClient.writeContract({
+    address: l1StakeManager as Address,
+    abi: STAKE_MANAGER_ABI,
+    functionName: 'registerL2Paymaster',
+    args: [BigInt(config.l2ChainId), crossChainPaymaster as Address],
+    account,
+  });
+  await waitForTransactionReceipt(l1Client, { hash: registerHash });
   logger.success(`Registered L2 paymaster for chain ${config.l2ChainId}`);
   
   // Set messenger if configured
   if (config.l1CrossDomainMessenger !== '0x0000000000000000000000000000000000000000') {
-    const tx2 = await stakeManager.setMessenger(config.l1CrossDomainMessenger);
-    await tx2.wait();
+    const setMessengerHash = await l1WalletClient.writeContract({
+      address: l1StakeManager as Address,
+      abi: STAKE_MANAGER_ABI,
+      functionName: 'setMessenger',
+      args: [config.l1CrossDomainMessenger as Address],
+      account,
+    });
+    await waitForTransactionReceipt(l1Client, { hash: setMessengerHash });
     logger.success(`Set L1 messenger: ${config.l1CrossDomainMessenger}`);
   }
   
   // Configure CrossChainPaymaster
   logger.info('\n=== Configuring CrossChainPaymaster ===');
-  const l2Signer = new ethers.Wallet(privateKey, l2Provider);
-  const paymasterAbi = [
-    'function setTokenSupport(address token, bool supported) external',
-    'function setMessenger(address _messenger) external',
-  ];
-  const paymaster = new ethers.Contract(crossChainPaymaster, paymasterAbi, l2Signer);
+  const l2WalletClient = createWalletClient({ account, chain: l2Chain, transport: http(config.l2RpcUrl) });
+  const PAYMASTER_ABI = parseAbi(['function setTokenSupport(address token, bool supported) external', 'function setMessenger(address _messenger) external']);
   
   // Enable native ETH support
-  const tx3 = await paymaster.setTokenSupport('0x0000000000000000000000000000000000000000', true);
-  await tx3.wait();
+  const setTokenHash = await l2WalletClient.writeContract({
+    address: crossChainPaymaster as Address,
+    abi: PAYMASTER_ABI,
+    functionName: 'setTokenSupport',
+    args: ['0x0000000000000000000000000000000000000000' as Address, true],
+    account,
+  });
+  await waitForTransactionReceipt(l2Client, { hash: setTokenHash });
   logger.success('Enabled native ETH support');
   
   // Set messenger
   if (config.l2CrossDomainMessenger !== '0x0000000000000000000000000000000000000000') {
-    const tx4 = await paymaster.setMessenger(config.l2CrossDomainMessenger);
-    await tx4.wait();
+    const setMessengerHash2 = await l2WalletClient.writeContract({
+      address: crossChainPaymaster as Address,
+      abi: PAYMASTER_ABI,
+      functionName: 'setMessenger',
+      args: [config.l2CrossDomainMessenger as Address],
+      account,
+    });
+    await waitForTransactionReceipt(l2Client, { hash: setMessengerHash2 });
     logger.success(`Set L2 messenger: ${config.l2CrossDomainMessenger}`);
   }
   
