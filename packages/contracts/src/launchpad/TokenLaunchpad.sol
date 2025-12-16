@@ -5,6 +5,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ModerationMixin} from "../moderation/ModerationMixin.sol";
 
 import "./LaunchpadToken.sol";
 import "./BondingCurve.sol";
@@ -16,6 +17,10 @@ import "./LPLocker.sol";
 /// @dev 100% of fees go to creator + community (no platform cut)
 contract TokenLaunchpad is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
+    using ModerationMixin for ModerationMixin.Data;
+
+    /// @notice Moderation integration for ban enforcement
+    ModerationMixin.Data public moderation;
 
     enum LaunchType {
         BONDING_CURVE,
@@ -86,6 +91,12 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
     error LaunchNotFound();
     error AlreadyGraduated();
     error NotGraduated();
+    error UserIsBanned();
+
+    modifier notBanned() {
+        if (moderation.isAddressBanned(msg.sender)) revert UserIsBanned();
+        _;
+    }
 
     constructor(
         address _xlpV2Factory,
@@ -107,7 +118,7 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
         uint16 creatorFeeBps,
         address communityVault,
         BondingCurveConfig calldata curveConfig
-    ) external nonReentrant returns (uint256 launchId, address tokenAddress) {
+    ) external nonReentrant notBanned returns (uint256 launchId, address tokenAddress) {
         if (creatorFeeBps > 10000) revert InvalidFeeConfig();
         uint16 communityFeeBps = 10000 - creatorFeeBps;
 
@@ -158,7 +169,7 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
         uint16 creatorFeeBps,
         address communityVault,
         ICOConfig calldata icoConfig
-    ) external nonReentrant returns (uint256 launchId, address tokenAddress) {
+    ) external nonReentrant notBanned returns (uint256 launchId, address tokenAddress) {
         if (creatorFeeBps > 10000) revert InvalidFeeConfig();
         uint16 communityFeeBps = 10000 - creatorFeeBps;
         if (icoConfig.presaleAllocationBps > 5000) revert InvalidConfig();
@@ -242,5 +253,17 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
 
     function setLPLockerTemplate(address template) external onlyOwner {
         lpLockerTemplate = template;
+    }
+
+    function setBanManager(address _banManager) external onlyOwner {
+        moderation.setBanManager(_banManager);
+    }
+
+    function setIdentityRegistry(address _identityRegistry) external onlyOwner {
+        moderation.setIdentityRegistry(_identityRegistry);
+    }
+
+    function isUserBanned(address user) external view returns (bool) {
+        return moderation.isAddressBanned(user);
     }
 }

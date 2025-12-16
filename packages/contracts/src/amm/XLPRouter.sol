@@ -5,6 +5,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ModerationMixin} from "../moderation/ModerationMixin.sol";
 import "./interfaces/IXLPV2Pair.sol";
 import "./interfaces/IXLPV2Factory.sol";
 import "./interfaces/IXLPV3Pool.sol";
@@ -46,12 +47,16 @@ interface IRouterIntegration {
 ///      Supports Permit2 for gasless approvals and external router integration
 contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterIntegration {
     using SafeERC20 for IERC20;
+    using ModerationMixin for ModerationMixin.Data;
 
     // ============ State ============
 
     address public immutable v2Factory;
     address public immutable v3Factory;
     address public immutable WETH;
+
+    /// @notice Moderation integration for ban enforcement
+    ModerationMixin.Data public moderation;
 
     /// @notice Permit2 contract address
     address public permit2;
@@ -127,6 +132,7 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
     error InsufficientLiquidity();
     error NotApprovedRouter();
     error InvalidPermit();
+    error UserIsBanned();
 
     // ============ Constructor ============
 
@@ -141,6 +147,11 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
 
     modifier ensure(uint256 deadline) {
         if (deadline < block.timestamp) revert ExpiredDeadline();
+        _;
+    }
+
+    modifier notBanned() {
+        if (moderation.isAddressBanned(msg.sender)) revert UserIsBanned();
         _;
     }
 
@@ -159,7 +170,7 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
         address[] calldata path,
         address to,
         uint256 deadline
-    ) external ensure(deadline) nonReentrant returns (uint256[] memory amounts) {
+    ) external ensure(deadline) nonReentrant notBanned returns (uint256[] memory amounts) {
         amounts = _getAmountsOutV2(amountIn, path);
         if (amounts[amounts.length - 1] < amountOutMin) revert InsufficientOutputAmount();
 
@@ -182,7 +193,7 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
         address[] calldata path,
         address to,
         uint256 deadline
-    ) external ensure(deadline) nonReentrant returns (uint256[] memory amounts) {
+    ) external ensure(deadline) nonReentrant notBanned returns (uint256[] memory amounts) {
         amounts = _getAmountsInV2(amountOut, path);
         if (amounts[0] > amountInMax) revert ExcessiveInputAmount();
 
@@ -198,6 +209,7 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
         payable
         ensure(deadline)
         nonReentrant
+        notBanned
         returns (uint256[] memory amounts)
     {
         if (path[0] != WETH) revert InvalidPath();
@@ -218,7 +230,7 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
         address[] calldata path,
         address to,
         uint256 deadline
-    ) external ensure(deadline) nonReentrant returns (uint256[] memory amounts) {
+    ) external ensure(deadline) nonReentrant notBanned returns (uint256[] memory amounts) {
         if (path[path.length - 1] != WETH) revert InvalidPath();
         amounts = _getAmountsOutV2(amountIn, path);
         if (amounts[amounts.length - 1] < amountOutMin) revert InsufficientOutputAmount();
@@ -252,7 +264,7 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
         uint256 amountIn,
         uint256 amountOutMinimum,
         uint160 sqrtPriceLimitX96
-    ) external ensure(deadline) nonReentrant returns (uint256 amountOut) {
+    ) external ensure(deadline) nonReentrant notBanned returns (uint256 amountOut) {
         // Transfer tokens to this contract
         IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
 
@@ -301,7 +313,7 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
         uint256 amountOut,
         uint256 amountInMaximum,
         uint160 sqrtPriceLimitX96
-    ) external ensure(deadline) nonReentrant returns (uint256 amountIn) {
+    ) external ensure(deadline) nonReentrant notBanned returns (uint256 amountIn) {
         // Get pool
         address pool = _getV3Pool(tokenIn, tokenOut, fee);
         if (pool == address(0)) revert InvalidPool();
@@ -372,6 +384,7 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
         external
         ensure(params.deadline)
         nonReentrant
+        notBanned
         returns (uint256 amountOut)
     {
         // Decode first token from path (first 20 bytes)
@@ -445,6 +458,18 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
         emit RouterApproved(router, approved);
     }
 
+    function setBanManager(address _banManager) external onlyOwner {
+        moderation.setBanManager(_banManager);
+    }
+
+    function setIdentityRegistry(address _identityRegistry) external onlyOwner {
+        moderation.setIdentityRegistry(_identityRegistry);
+    }
+
+    function isUserBanned(address user) external view returns (bool) {
+        return moderation.isAddressBanned(user);
+    }
+
     // ============ Permit2 Swap Functions ============
 
     /// @notice Swap using Permit2 signature (gasless approval)
@@ -465,7 +490,7 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
         uint256 deadline,
         IPermit2.PermitTransferFrom calldata permit,
         bytes calldata signature
-    ) external ensure(deadline) nonReentrant returns (uint256 amountOut) {
+    ) external ensure(deadline) nonReentrant notBanned returns (uint256 amountOut) {
         if (permit2 == address(0)) revert InvalidPermit();
 
         // Transfer tokens via Permit2
@@ -513,7 +538,7 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
         uint160 sqrtPriceLimitX96,
         IPermit2.PermitTransferFrom calldata permit,
         bytes calldata signature
-    ) external ensure(deadline) nonReentrant returns (uint256 amountOut) {
+    ) external ensure(deadline) nonReentrant notBanned returns (uint256 amountOut) {
         if (permit2 == address(0)) revert InvalidPermit();
 
         // Transfer tokens via Permit2 to this contract
