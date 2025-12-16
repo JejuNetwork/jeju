@@ -9,8 +9,7 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
-import { createPublicClient, http, parseAbi, readContract, toUtf8String, keccak256, stringToBytes, zeroHash, type Address } from 'viem';
-import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
+import { ethers } from 'ethers';
 import { Logger } from '../../scripts/shared/logger';
 
 const logger = new Logger('cloud-a2a-e2e');
@@ -68,64 +67,46 @@ describe('Cloud A2A E2E - Agent Discovery', () => {
     logger.info('🔍 Discovering cloud agent...');
     
     // Query IdentityRegistry for cloud agent
-    const chain = inferChainFromRpcUrl('http://localhost:8545');
-    const publicClient = createPublicClient({ chain, transport: http('http://localhost:8545') });
-    const identityRegistryAbi = parseAbi([
-      'function totalAgents() external view returns (uint256)',
-      'function getAgent(uint256 agentId) external view returns (tuple(uint256 agentId, address owner, uint8 tier, address stakedToken, uint256 stakedAmount, uint256 registeredAt, uint256 lastActivityAt, bool isBanned, bool isSlashed))',
-      'function getMetadata(uint256 agentId, string calldata key) external view returns (bytes memory)'
-    ]);
-    const identityRegistryAddress = '0x5FbDB2315678afecb367f032d93F642f64180aa3' as Address;
+    const provider = new ethers.JsonRpcProvider('http://localhost:8545');
+    const identityRegistry = new ethers.Contract(
+      '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+      [
+        'function totalAgents() external view returns (uint256)',
+        'function getAgent(uint256 agentId) external view returns (tuple(uint256 agentId, address owner, uint8 tier, address stakedToken, uint256 stakedAmount, uint256 registeredAt, uint256 lastActivityAt, bool isBanned, bool isSlashed))',
+        'function getMetadata(uint256 agentId, string calldata key) external view returns (bytes memory)'
+      ],
+      provider
+    );
     
-    const totalAgents = await readContract(publicClient, {
-      address: identityRegistryAddress,
-      abi: identityRegistryAbi,
-      functionName: 'totalAgents',
-    });
+    const totalAgents = await identityRegistry.totalAgents();
     expect(totalAgents).toBeGreaterThan(0n);
     
     logger.info(`✓ Found ${totalAgents} agents in registry`);
     
     // Find cloud agent by checking metadata
     for (let i = 1; i <= Number(totalAgents); i++) {
-      const agent = await readContract(publicClient, {
-        address: identityRegistryAddress,
-        abi: identityRegistryAbi,
-        functionName: 'getAgent',
-        args: [BigInt(i)],
-      }) as { isBanned: boolean };
+      const agent = await identityRegistry.getAgent(i);
       if (agent.isBanned) continue;
       
-      const typeBytes = await readContract(publicClient, {
-        address: identityRegistryAddress,
-        abi: identityRegistryAbi,
-        functionName: 'getMetadata',
-        args: [BigInt(i), 'type'],
-      }) as `0x${string}`;
-      const type = toUtf8String(typeBytes);
-      
-      if (type === 'cloud-service') {
-        logger.success(`✓ Found cloud agent at ID: ${i}`);
+      try {
+        const typeBytes = await identityRegistry.getMetadata(i, 'type');
+        const type = ethers.toUtf8String(typeBytes);
         
-        const nameBytes = await readContract(publicClient, {
-          address: identityRegistryAddress,
-          abi: identityRegistryAbi,
-          functionName: 'getMetadata',
-          args: [BigInt(i), 'name'],
-        }) as `0x${string}`;
-        const name = toUtf8String(nameBytes);
-        logger.info(`  Name: ${name}`);
-        
-        const endpointBytes = await readContract(publicClient, {
-          address: identityRegistryAddress,
-          abi: identityRegistryAbi,
-          functionName: 'getMetadata',
-          args: [BigInt(i), 'endpoint'],
-        }) as `0x${string}`;
-        const endpoint = toUtf8String(endpointBytes);
-        logger.info(`  A2A Endpoint: ${endpoint}`);
-        
-        return;
+        if (type === 'cloud-service') {
+          logger.success(`✓ Found cloud agent at ID: ${i}`);
+          
+          const nameBytes = await identityRegistry.getMetadata(i, 'name');
+          const name = ethers.toUtf8String(nameBytes);
+          logger.info(`  Name: ${name}`);
+          
+          const endpointBytes = await identityRegistry.getMetadata(i, 'endpoint');
+          const endpoint = ethers.toUtf8String(endpointBytes);
+          logger.info(`  A2A Endpoint: ${endpoint}`);
+          
+          return;
+        }
+      } catch (e) {
+        // No metadata, skip
       }
     }
     
@@ -269,12 +250,14 @@ describe('Cloud A2A E2E - Reputation Integration', () => {
   test('should update reputation after successful A2A request', async () => {
     logger.info('⭐ Testing reputation update...');
     
-    const chain = inferChainFromRpcUrl('http://localhost:8545');
-    const publicClient = createPublicClient({ chain, transport: http('http://localhost:8545') });
-    const reputationRegistryAbi = parseAbi([
-      'function getSummary(uint256 agentId, address[] calldata clientAddresses, bytes32 tag1, bytes32 tag2) external view returns (uint64 count, uint8 averageScore)'
-    ]);
-    const reputationRegistryAddress = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512' as Address;
+    const provider = new ethers.JsonRpcProvider('http://localhost:8545');
+    const reputationRegistry = new ethers.Contract(
+      '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
+      [
+        'function getSummary(uint256 agentId, address[] calldata clientAddresses, bytes32 tag1, bytes32 tag2) external view returns (uint64 count, uint8 averageScore)'
+      ],
+      provider
+    );
     
     // Send A2A request
     const a2aRequest = {
@@ -313,8 +296,8 @@ describe('Cloud A2A E2E - Reputation Integration', () => {
       const [count, score] = await reputationRegistry.getSummary(
         1, // agent ID
         [],
-        zeroHash,
-        zeroHash
+        ethers.ZeroHash,
+        ethers.ZeroHash
       );
       
       if (count > 0n) {

@@ -4,7 +4,7 @@
  * Provides cross-chain messaging and token bridging via Hyperlane.
  * This adapter is for EVM↔EVM bridging only.
  * 
- * For Solana bridging, use @jeju/zksolbridge package instead.
+ * For Solana bridging, use @jejunetwork/zksolbridge package instead.
  */
 
 import {

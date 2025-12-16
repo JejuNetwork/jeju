@@ -6,7 +6,7 @@
  */
 
 import { describe, test, expect } from 'bun:test';
-import { parseAbi, encodeFunctionData, decodeFunctionData, parseEther, zeroAddress, keccak256, encodePacked } from 'viem';
+import { parseAbi, encodeFunctionData, decodeFunctionData, parseEther, zeroAddress, keccak256, encodePacked, stringToBytes } from 'viem';
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
 
@@ -161,19 +161,23 @@ describe('SolverRegistry ABI Encoding', () => {
 describe('Intent Event Parsing', () => {
   const OPEN_EVENT_ABI = [
     'event Open(bytes32 indexed orderId, (address user, uint256 originChainId, uint32 openDeadline, uint32 fillDeadline, bytes32 orderId, (bytes32 token, uint256 amount, bytes32 recipient, uint256 chainId)[] maxSpent, (bytes32 token, uint256 amount, bytes32 recipient, uint256 chainId)[] minReceived, (uint64 destinationChainId, bytes32 destinationSettler, bytes originData)[] fillInstructions) order)',
-  ];
+  ] as const;
 
   test('should have valid Open event signature', () => {
-    const iface = new ethers.Interface(OPEN_EVENT_ABI);
-    const event = iface.getEvent('Open');
+    const abi = parseAbi(OPEN_EVENT_ABI);
+    const event = abi.find(item => item.type === 'event' && item.name === 'Open');
     
     expect(event).toBeDefined();
-    expect(event!.name).toBe('Open');
+    expect(event?.name).toBe('Open');
   });
 
   test('should compute correct event topic', () => {
-    const iface = new ethers.Interface(OPEN_EVENT_ABI);
-    const topic = iface.getEvent('Open')!.topicHash;
+    const abi = parseAbi(OPEN_EVENT_ABI);
+    const event = abi.find(item => item.type === 'event' && item.name === 'Open');
+    
+    // Compute topic hash manually
+    const eventSignature = 'Open(bytes32,tuple)';
+    const topic = keccak256(stringToBytes(eventSignature));
     
     expect(topic).toMatch(/^0x[a-f0-9]{64}$/);
   });
@@ -221,9 +225,9 @@ describe('Profit Calculation', () => {
   }
 
   test('should calculate positive profit', () => {
-    const input = ethers.parseEther('1.0');
-    const output = ethers.parseEther('0.98');
-    const gas = ethers.parseEther('0.001');
+    const input = parseEther('1.0');
+    const output = parseEther('0.98');
+    const gas = parseEther('0.001');
     
     const result = calculateProfit(input, output, gas, 10); // 0.1% fee
     
@@ -232,9 +236,9 @@ describe('Profit Calculation', () => {
   });
 
   test('should detect unprofitable trade', () => {
-    const input = ethers.parseEther('1.0');
-    const output = ethers.parseEther('1.1'); // Output more than input
-    const gas = ethers.parseEther('0.001');
+    const input = parseEther('1.0');
+    const output = parseEther('1.1'); // Output more than input
+    const gas = parseEther('0.001');
     
     const result = calculateProfit(input, output, gas, 10);
     
@@ -243,9 +247,9 @@ describe('Profit Calculation', () => {
   });
 
   test('should handle edge case: exact break-even', () => {
-    const input = ethers.parseEther('1.0');
-    const output = ethers.parseEther('0.989'); // Exactly covers gas + fee
-    const gas = ethers.parseEther('0.01');
+    const input = parseEther('1.0');
+    const output = parseEther('0.989'); // Exactly covers gas + fee
+    const gas = parseEther('0.01');
     
     const result = calculateProfit(input, output, gas, 10);
     
@@ -259,9 +263,9 @@ describe('Profit Calculation', () => {
   });
 
   test('should handle high gas scenarios', () => {
-    const input = ethers.parseEther('0.01');
-    const output = ethers.parseEther('0.009');
-    const gas = ethers.parseEther('0.005'); // Gas is 50% of input
+    const input = parseEther('0.01');
+    const output = parseEther('0.009');
+    const gas = parseEther('0.005'); // Gas is 50% of input
     
     const result = calculateProfit(input, output, gas, 0);
     
@@ -308,19 +312,21 @@ describe('Chain Validation', () => {
 
 describe('Order ID Generation', () => {
   function generateOrderId(
-    user: string,
+    user: `0x${string}`,
     nonce: bigint,
     timestamp: number,
     sourceChain: number
-  ): string {
-    return ethers.solidityPackedKeccak256(
-      ['address', 'uint256', 'uint256', 'uint256'],
-      [user, nonce, timestamp, sourceChain]
+  ): `0x${string}` {
+    return keccak256(
+      encodePacked(
+        ['address', 'uint256', 'uint256', 'uint256'],
+        [user, nonce, BigInt(timestamp), BigInt(sourceChain)]
+      )
     );
   }
 
   test('should generate deterministic order IDs', () => {
-    const user = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+    const user = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as `0x${string}`;
     const nonce = 1n;
     const timestamp = 1700000000;
     const chain = 84532;
@@ -332,7 +338,7 @@ describe('Order ID Generation', () => {
   });
 
   test('should produce different IDs for different nonces', () => {
-    const user = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+    const user = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as `0x${string}`;
     const timestamp = 1700000000;
     const chain = 84532;
 
@@ -344,7 +350,7 @@ describe('Order ID Generation', () => {
 
   test('should produce valid bytes32 format', () => {
     const id = generateOrderId(
-      '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+      '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as `0x${string}`,
       1n,
       1700000000,
       84532

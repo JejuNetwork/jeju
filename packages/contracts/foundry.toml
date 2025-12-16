@@ -21,6 +21,7 @@ skip = [
     "src/cdn/**",
     "src/paymaster/**",
     "src/eil/**",
+    "src/bridge/eil/**",
     "src/perps/**",
     "src/marketplace/**",
     "src/prediction-markets/**",

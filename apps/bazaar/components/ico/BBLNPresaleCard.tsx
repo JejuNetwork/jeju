@@ -30,7 +30,7 @@ interface ContributionInfo {
   refunded: boolean
 }
 
-// Canonical Presale ABI from @jeju/contracts
+// Canonical Presale ABI from @jejunetwork/contracts
 const BBLN_PRESALE_ABI = [
   {
     name: 'contributeWithMaxPrice',
@@ -120,27 +120,6 @@ const BBLN_PRESALE_ABI = [
 
 const PHASES: PresalePhase[] = ['NOT_STARTED', 'WHITELIST', 'PUBLIC', 'ENDED', 'CLEARING', 'DISTRIBUTION', 'FAILED']
 
-// BBLN Tokenomics (from packages/token/src/config/tokenomics.ts)
-const BBLN_TOKENOMICS = {
-  name: 'Babylon',
-  symbol: 'BBLN',
-  totalSupply: 1_000_000_000n,
-  publicSaleTokens: 100_000_000n, // 10% of total
-  elizaBonusMultiplier: 150, // 1.5x
-}
-
-// Contract addresses - to be updated after deployment
-const BBLN_CONTRACTS = {
-  sepolia: {
-    token: '0x0000000000000000000000000000000000000000',
-    presale: '0x0000000000000000000000000000000000000000',
-  },
-  mainnet: {
-    token: '0x0000000000000000000000000000000000000000',
-    presale: '0x0000000000000000000000000000000000000000',
-  },
-}
-
 export function BBLNPresaleCard() {
   const { address, isConnected, chain } = useAccount()
   const [amount, setAmount] = useState('')
@@ -149,8 +128,8 @@ export function BBLNPresaleCard() {
   
   const isMainnet = chain?.id === 1
   const presaleAddress = isMainnet 
-    ? BBLN_CONTRACTS.mainnet.presale 
-    : BBLN_CONTRACTS.sepolia.presale
+    ? BBLN_ADDRESSES.mainnet.presale 
+    : BBLN_ADDRESSES.sepolia.presale
   
   const isDeployed = presaleAddress !== '0x0000000000000000000000000000000000000000'
   

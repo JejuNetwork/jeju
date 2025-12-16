@@ -5,6 +5,41 @@
 import { createPublicClient, createWalletClient, http, type Address, type Chain, type PublicClient, type WalletClient } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { getLocalnetChain, getTestnetChain, getMainnetChain } from '@jejunetwork/shared';
+import { existsSync, readFileSync } from 'fs';
+import { join } from 'path';
+
+// Load addresses from deployment files
+function loadAddressesFromDeployment(network: 'testnet' | 'mainnet'): ContractAddresses | null {
+  try {
+    const deploymentPath = join(process.cwd(), 'packages', 'contracts', 'deployments', network, 'addresses.json');
+    if (!existsSync(deploymentPath)) {
+      return null;
+    }
+    const data = JSON.parse(readFileSync(deploymentPath, 'utf-8')) as Record<string, string>;
+    return {
+      identityRegistry: (data.IdentityRegistry || data.identityRegistry || '0x0000000000000000000000000000000000000000') as Address,
+      nodeStakingManager: (data.NodeStakingManager || data.nodeStakingManager || '0x0000000000000000000000000000000000000000') as Address,
+      computeRegistry: (data.ComputeRegistry || data.computeRegistry || '0x0000000000000000000000000000000000000000') as Address,
+      computeStaking: (data.ComputeStaking || data.computeStaking || '0x0000000000000000000000000000000000000000') as Address,
+      inferenceServing: (data.InferenceServing || data.inferenceServing || '0x0000000000000000000000000000000000000000') as Address,
+      triggerRegistry: (data.TriggerRegistry || data.triggerRegistry || '0x0000000000000000000000000000000000000000') as Address,
+      storageMarket: (data.StorageMarket || data.storageMarket || '0x0000000000000000000000000000000000000000') as Address,
+      oracleStakingManager: (data.OracleStakingManager || data.oracleStakingManager || '0x0000000000000000000000000000000000000000') as Address,
+      feedRegistry: (data.FeedRegistry || data.feedRegistry || '0x0000000000000000000000000000000000000000') as Address,
+      reportVerifier: (data.ReportVerifier || data.reportVerifier || '0x0000000000000000000000000000000000000000') as Address,
+      proxyRegistry: (data.ProxyRegistry || data.proxyRegistry || '0x0000000000000000000000000000000000000000') as Address,
+      sequencerRegistry: (data.SequencerRegistry || data.sequencerRegistry || '0x0000000000000000000000000000000000000000') as Address,
+      liquidityAggregator: (data.LiquidityAggregator || data.liquidityAggregator || '0x0000000000000000000000000000000000000000') as Address,
+      solverRegistry: (data.SolverRegistry || data.solverRegistry || '0x0000000000000000000000000000000000000000') as Address,
+      feeDistributor: (data.FeeDistributor || data.feeDistributor || '0x0000000000000000000000000000000000000000') as Address,
+      banManager: (data.BanManager || data.banManager || '0x0000000000000000000000000000000000000000') as Address,
+      cdnRegistry: (data.CDNRegistry || data.cdnRegistry || '0x0000000000000000000000000000000000000000') as Address,
+      cdnBilling: (data.CDNBilling || data.cdnBilling || '0x0000000000000000000000000000000000000000') as Address,
+    };
+  } catch {
+    return null;
+  }
+}
 
 // Chain definitions from shared config
 export const networkMainnet: Chain = getMainnetChain();

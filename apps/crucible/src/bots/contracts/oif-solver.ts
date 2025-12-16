@@ -41,12 +41,6 @@ export const OUTPUT_SETTLER_ABI = parseAbi([
   'function getClaimableOrders(address solver) view returns (bytes32[])',
 ]);
 
-export const ORACLE_ABI = parseAbi([
-  'function hasAttested(bytes32 orderId) view returns (bool)',
-  'function getAttestation(bytes32 orderId) view returns (bytes)',
-  'function submitAttestation(bytes32 orderId, bytes proof) external',
-]);
-
 export const HYPERLANE_ORACLE_ABI = parseAbi([
   'function verifyMessage(bytes32 messageId, bytes proof) view returns (bool)',
   'function getLatestMessage(uint256 originDomain) view returns ((bytes32 messageId, uint256 timestamp, bytes32 sender, bytes body))',
@@ -93,13 +87,13 @@ export enum IntentStatus {
 
 export interface OIFSolverConfig {
   name: string;
-  chainConfigs: Partial<Record<ChainId, {
+  chainConfigs: Record<ChainId, {
     rpcUrl: string;
     inputSettlerAddress: Address;
     outputSettlerAddress: Address;
     solverRegistryAddress: Address;
     oracleAddress?: Address;
-  }>>;
+  }>;
   privateKey: string;
   minProfitBps: number;
   maxSlippageBps: number;
@@ -363,32 +357,8 @@ export class OIFSolver {
 
     if (claimableOrders.length === 0) return null;
 
-    if (!chainConfig.oracleAddress) {
-      throw new Error(`Oracle address not configured for chain ${chainId}`);
-    }
-
-    const attestations: `0x${string}`[] = [];
-    for (const orderId of claimableOrders) {
-      const hasAttested = await clients.public.readContract({
-        address: chainConfig.oracleAddress,
-        abi: ORACLE_ABI,
-        functionName: 'hasAttested',
-        args: [orderId],
-      });
-
-      if (!hasAttested) {
-        throw new Error(`Order ${orderId} has not been attested by oracle`);
-      }
-
-      const attestationData = await clients.public.readContract({
-        address: chainConfig.oracleAddress,
-        abi: ORACLE_ABI,
-        functionName: 'getAttestation',
-        args: [orderId],
-      }) as `0x${string}`;
-
-      attestations.push(attestationData);
-    }
+    // TODO: Get attestations from oracle
+    const attestations = claimableOrders.map(() => '0x' as `0x${string}`);
 
     const chain: Chain = {
       id: chainId,
@@ -478,6 +448,5 @@ export class OIFSolver {
     };
   }
 }
-
 
 

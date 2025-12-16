@@ -1,5 +1,5 @@
 /**
- * Autocrat DAO Types
+ * Council DAO Types
  */
 
 import type { Address } from 'viem';
@@ -8,9 +8,9 @@ export enum ProposalStatus {
   DRAFT = 0,
   PENDING_QUALITY = 1,
   SUBMITTED = 2,
-  AUTOCRAT_REVIEW = 3,
+  COUNCIL_REVIEW = 3,
   RESEARCH = 4,
-  AUTOCRAT_FINAL = 5,
+  COUNCIL_FINAL = 5,
   CEO_QUEUE = 6,
   APPROVED = 7,
   EXECUTING = 8,
@@ -46,8 +46,8 @@ export interface Proposal {
   qualityScore: number;
   createdAt: number;
   submittedAt: number;
-  autocratVoteStart: number;
-  autocratVoteEnd: number;
+  councilVoteStart: number;
+  councilVoteEnd: number;
   ceoDecisionAt: number;
   gracePeriodEnd: number;
   executedAt: number;
@@ -60,7 +60,7 @@ export interface Proposal {
   backerReputations: Map<Address, number>;
   totalStaked: bigint;
   totalReputation: number;
-  autocratVotes: AutocratVote[];
+  councilVotes: CouncilVote[];
   researchReport: ResearchReport | null;
   ceoDecision: CEODecision | null;
   vetoVotes: VetoVote[];
@@ -97,18 +97,18 @@ export interface QualityAssessment {
   readyToSubmit: boolean;
 }
 
-export enum AutocratRole {
+export enum CouncilRole {
   TREASURY = 0,
   CODE = 1,
   COMMUNITY = 2,
   SECURITY = 3,
 }
 
-export interface AutocratAgent {
+export interface CouncilAgent {
   id: string;
   address: Address;
   agentId: bigint;
-  role: AutocratRole;
+  role: CouncilRole;
   name: string;
   description: string;
   votingWeight: number;
@@ -125,10 +125,10 @@ export enum VoteType {
   REQUEST_CHANGES = 3,
 }
 
-export interface AutocratVote {
+export interface CouncilVote {
   proposalId: string;
-  autocratAgentId: string;
-  role: AutocratRole;
+  councilAgentId: string;
+  role: CouncilRole;
   vote: VoteType;
   reasoning: string;
   concerns: string[];
@@ -137,12 +137,12 @@ export interface AutocratVote {
   weight: number;
 }
 
-export interface AutocratDeliberation {
+export interface CouncilDeliberation {
   proposalId: string;
   round: number;
   startedAt: number;
   endedAt: number;
-  votes: AutocratVote[];
+  votes: CouncilVote[];
   outcome: 'approve' | 'reject' | 'request_changes' | 'pending';
   summary: string;
   requiredChanges: string[];
@@ -305,7 +305,7 @@ export interface A2AResponse {
   error: string | null;
 }
 
-export interface AutocratConfig {
+export interface CouncilConfig {
   rpcUrl: string;
   contracts: {
     council: Address;
@@ -318,13 +318,13 @@ export interface AutocratConfig {
   };
   agents: {
     ceo: AgentConfig;
-    autocrat: AgentConfig[];
+    council: AgentConfig[];
     proposalAgent: AgentConfig;
     researchAgent: AgentConfig;
   };
   parameters: {
     minQualityScore: number;
-    autocratVotingPeriod: number;
+    councilVotingPeriod: number;
     gracePeriod: number;
     minBackers: number;
     minStakeForVeto: bigint;

@@ -1,13 +1,5 @@
-/**
- * @title Training SDK
- * @description TypeScript SDK for interacting with Jeju's decentralized training infrastructure
- * @dev Provides client-side integration with TrainingCoordinator, TrainingRewards, and P2P network
- */
-
-import type { Address, Hex, PublicClient, WalletClient, Chain, Account } from 'viem';
+import type { Address, Hex, PublicClient, WalletClient, Chain, Account, Hash } from 'viem';
 import { keccak256, encodeAbiParameters, parseAbiParameters, zeroHash } from 'viem';
-
-// ============ Types ============
 
 export enum RunState {
   Uninitialized = 0,

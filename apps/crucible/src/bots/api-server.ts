@@ -26,7 +26,6 @@ import { cors } from 'hono/cors';
 import { serve } from '@hono/node-server';
 import { UnifiedBot, type UnifiedBotConfig, type TradeResult } from './unified-bot';
 import type { RebalanceAction, UnifiedPosition, PoolAnalysis } from './strategies/liquidity-manager';
-import type { ChainId } from './autocrat-types';
 
 // ============ Types ============
 
@@ -161,15 +160,11 @@ function createRestAPI(bot: UnifiedBot): Hono {
     return c.json(result);
   });
 
-  // Remove liquidity from a position
+  // Remove liquidity (simplified - would need position ID and percent)
   app.post('/liquidity/remove', async (c) => {
     const body = await c.req.json();
-    const result = await bot.removeLiquidity({
-      positionId: body.positionId,
-      chain: body.chain,
-      percent: body.percent ?? 100, // Default to 100% if not specified
-    });
-    return c.json(result);
+    // This would call liquidityManager.removeLiquidity
+    return c.json({ success: false, error: 'Not implemented' });
   });
 
   // Get Solana swap quotes
@@ -575,7 +570,7 @@ export async function startBotAPIServer(config: APIConfig): Promise<void> {
 
 export async function main(): Promise<void> {
   const botConfig: UnifiedBotConfig = {
-    evmChains: [1, 42161, 10, 8453] as ChainId[], // Ethereum, Arbitrum, Optimism, Base
+    evmChains: [1, 42161, 10, 8453] as any[], // Ethereum, Arbitrum, Optimism, Base
     solanaNetwork: (process.env.SOLANA_NETWORK as 'mainnet-beta' | 'devnet' | 'localnet') ?? 'mainnet-beta',
     evmPrivateKey: process.env.EVM_PRIVATE_KEY,
     solanaPrivateKey: process.env.SOLANA_PRIVATE_KEY,

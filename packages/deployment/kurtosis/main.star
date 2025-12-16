@@ -60,7 +60,7 @@ def run(plan, args={}):
                 "--ws.port=8546",
                 "--ws.api=eth,net,web3",
                 "--ws.origins=*",
-                # Geth --dev mode uses chain ID 1337 internally, cannot be overridden
+                # Note: --dev mode uses its own network ID, can't override
                 "--nodiscover",
             ]
         )

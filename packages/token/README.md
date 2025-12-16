@@ -1,4 +1,4 @@
-# @jeju/token
+# @jejunetwork/token
 
 Cross-chain token deployment and Hyperlane Warp Routes for EVM chains.
 
@@ -13,7 +13,7 @@ Cross-chain token deployment and Hyperlane Warp Routes for EVM chains.
 │       Fast (3-5 min)                                         │
 │       Validator security                                     │
 │                                                              │
-│  EVM ←──────────────→ Solana       @jeju/zksolbridge (ZK)   │
+│  EVM ←──────────────→ Solana       @jejunetwork/zksolbridge (ZK)   │
 │       Trustless (10-15 min)                                  │
 │       Cryptographic proofs                                   │
 │                                                              │
@@ -92,7 +92,7 @@ import {
   JEJU_TESTNET_CONFIG,
   JEJU_TOKEN_METADATA,
   getJEJUDeploymentConfig,
-} from '@jeju/token';
+} from '@jejunetwork/token';
 
 const config = getJEJUDeploymentConfig('testnet');
 console.log('Home chain:', config.homeChain.name);
@@ -102,8 +102,8 @@ console.log('Synthetic chains:', config.syntheticChains.map(c => c.name));
 ### Use Hyperlane Adapter
 
 ```typescript
-import { HyperlaneAdapter } from '@jeju/token';
-import { MAINNET_CHAINS } from '@jeju/token/config';
+import { HyperlaneAdapter } from '@jejunetwork/token';
+import { MAINNET_CHAINS } from '@jejunetwork/token/config';
 
 const adapter = new HyperlaneAdapter(MAINNET_CHAINS, {});
 
@@ -121,7 +121,7 @@ const warpConfig = adapter.generateWarpRouteConfig(
 ### Use Solana Adapter
 
 ```typescript
-import { SolanaAdapter } from '@jeju/token';
+import { SolanaAdapter } from '@jejunetwork/token';
 
 const adapter = new SolanaAdapter('https://api.devnet.solana.com', false);
 
@@ -188,7 +188,7 @@ bun run scripts/deploy-jeju.ts --network testnet
 
 ## Related Packages
 
-- `@jeju/zksolbridge` - Trustless ZK bridge for Solana↔EVM (use this for Solana)
+- `@jejunetwork/zksolbridge` - Trustless ZK bridge for Solana↔EVM (use this for Solana)
 - `packages/contracts/src/tokens/` - Token smart contracts
 - `packages/contracts/src/hyperlane/` - Hyperlane infrastructure contracts
 - `apps/bazaar/` - Token trading UI

@@ -13,8 +13,6 @@ import {
 
 describe('Yield Farming Strategy', () => {
   const defaultConfig: YieldFarmingConfig = {
-    type: 'SOLVER', // Using SOLVER as base strategy type
-    enabled: true,
     chains: [1, 42161, 10, 8453],
     solanaNetwork: 'mainnet-beta',
     minApr: 1,
@@ -28,7 +26,6 @@ describe('Yield Farming Strategy', () => {
     maxProtocolExposure: 30,
     maxChainExposure: 50,
     minProfitBps: 50,
-    maxGasGwei: 100,
     maxSlippageBps: 100,
   };
 
@@ -137,8 +134,8 @@ describe('Yield Farming Strategy', () => {
       const lowRiskScore = 100 * (1 - 15 / 100);
       const highRiskScore = 100 * (1 - 80 / 100);
 
-      expect(lowRiskScore).toBeCloseTo(85, 5);
-      expect(highRiskScore).toBeCloseTo(20, 5);
+      expect(lowRiskScore).toBe(85);
+      expect(highRiskScore).toBe(20);
       expect(lowRiskScore).toBeGreaterThan(highRiskScore);
     });
   });
@@ -426,6 +423,5 @@ describe('APR Calculations', () => {
     expect(apr).toBeCloseTo(36.4, 1);
   });
 });
-
 
 

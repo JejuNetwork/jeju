@@ -32,8 +32,8 @@ import { YieldFarmingStrategy, type YieldOpportunity, type YieldFarmingConfig } 
 import { SolanaDexAggregator } from './solana/dex-adapters';
 
 // Engine imports
-import { EventCollector as Collector, type SyncEvent, type SwapEvent } from './engine/collector';
-import { TransactionExecutor as Executor } from './engine/executor';
+import { Collector, type SyncEvent, type SwapEvent } from './engine/collector';
+import { Executor } from './engine/executor';
 import { RiskManager } from './engine/risk-manager';
 
 // Contract integrations (EIL/XLP/OIF)
@@ -216,10 +216,7 @@ export class UnifiedBot extends EventEmitter {
 
   private async initializeStrategies(): Promise<void> {
     const strategyConfig: StrategyConfig = {
-      type: 'DEX_ARBITRAGE',
-      enabled: true,
       minProfitBps: this.config.minProfitBps,
-      maxGasGwei: Number(this.config.maxGasPrice / 1_000_000_000n),
       maxSlippageBps: this.config.maxSlippageBps,
     };
 
@@ -251,11 +248,7 @@ export class UnifiedBot extends EventEmitter {
     // Liquidity Management
     if (this.config.enableLiquidity) {
       const lpConfig: LiquidityManagerConfig = {
-        type: 'SOLVER',
-        enabled: true,
         minProfitBps: this.config.minProfitBps,
-        maxGasGwei: Number(this.config.maxGasPrice / 1_000_000_000n),
-        maxSlippageBps: this.config.maxSlippageBps,
         evmChains: this.config.evmChains,
         solanaNetwork: this.config.solanaNetwork,
         rebalanceThresholdPercent: 5,
@@ -357,8 +350,6 @@ export class UnifiedBot extends EventEmitter {
       };
 
       this.yieldFarming = new YieldFarmingStrategy({
-        type: 'SOLVER',
-        enabled: true,
         chains: this.config.evmChains,
         solanaNetwork: this.config.solanaNetwork,
         minApr: this.config.yieldFarmingConfig?.minApr ?? 1,
@@ -372,7 +363,6 @@ export class UnifiedBot extends EventEmitter {
         maxProtocolExposure: this.config.yieldFarmingConfig?.maxProtocolExposure ?? 30,
         maxChainExposure: this.config.yieldFarmingConfig?.maxChainExposure ?? 50,
         minProfitBps: this.config.minProfitBps,
-        maxGasGwei: Number(this.config.maxGasPrice / 1_000_000_000n),
         maxSlippageBps: this.config.maxSlippageBps,
       });
 
@@ -391,8 +381,8 @@ export class UnifiedBot extends EventEmitter {
   private async initializeEngine(): Promise<void> {
     // Risk manager
     this.riskManager = new RiskManager({
-      maxPositionSizeWei: this.config.maxPositionSize,
-      maxDailyLossWei: BigInt(1e18), // 1 ETH
+      maxPositionSize: this.config.maxPositionSize,
+      maxDailyLoss: BigInt(1e18), // 1 ETH
       maxSlippageBps: this.config.maxSlippageBps,
     });
 
@@ -667,25 +657,6 @@ export class UnifiedBot extends EventEmitter {
   }
 
   /**
-   * Remove liquidity from a position
-   */
-  async removeLiquidity(params: {
-    positionId: string;
-    chain: 'evm' | 'solana';
-    percent: number;
-  }) {
-    if (!this.liquidityManager) {
-      return { success: false, error: 'Liquidity manager not initialized' };
-    }
-
-    return this.liquidityManager.removeLiquidity({
-      positionId: params.positionId,
-      chain: params.chain,
-      percent: params.percent,
-    });
-  }
-
-  /**
    * Get trade history
    */
   getTradeHistory(limit = 100): TradeResult[] {
@@ -762,3 +733,4 @@ export class UnifiedBot extends EventEmitter {
     }
   }
 }
+

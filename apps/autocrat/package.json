@@ -5,8 +5,7 @@
   "main": "src/index.ts",
   "type": "module",
   "scripts": {
-    "dev": "bun run scripts/dev.ts",
-    "dev:server": "bun run src/index.ts",
+    "dev": "bun run src/index.ts",
     "dev:ceo": "bun run src/ceo-server.ts",
     "dev:all": "bun run src/index.ts & bun run src/ceo-server.ts",
     "build": "bun build src/index.ts --outdir dist --target node",
@@ -20,8 +19,6 @@
   "dependencies": {
     "@elizaos/core": "^1.6.4",
     "@anthropic-ai/sdk": "^0.30.0",
-    "@jejunetwork/oauth3": "workspace:*",
-    "@jejunetwork/dws": "workspace:*",
     "ai": "^5.0.52",
     "hono": "^4.6.5",
     "viem": "^2.21.0",

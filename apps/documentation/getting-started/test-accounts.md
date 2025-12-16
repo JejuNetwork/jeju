@@ -26,17 +26,23 @@ Additional accounts 5-9 follow the same derivation pattern from the mnemonic.
 ## Using in Scripts
 
 ```typescript
-import { ethers } from 'ethers';
+import { createWalletClient, http, parseEther } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { jeju } from './chains';
 
 const TEST_PRIVATE_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
-const provider = new ethers.JsonRpcProvider('http://127.0.0.1:9545');
-const wallet = new ethers.Wallet(TEST_PRIVATE_KEY, provider);
+const account = privateKeyToAccount(TEST_PRIVATE_KEY);
 
-const tx = await wallet.sendTransaction({
-  to: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
-  value: ethers.parseEther('1.0')
+const client = createWalletClient({
+  account,
+  chain: jeju,
+  transport: http('http://127.0.0.1:9545'),
 });
-await tx.wait();
+
+const hash = await client.sendTransaction({
+  to: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+  value: parseEther('1.0'),
+});
 ```
 
 ## Using with Cast

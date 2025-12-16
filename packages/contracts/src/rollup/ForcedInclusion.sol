@@ -4,6 +4,11 @@ pragma solidity ^0.8.26;
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
+interface ISequencerRegistrySlash {
+    function getCurrentSequencer() external view returns (address);
+    function slash(address sequencer, uint8 reason, bytes calldata proof) external;
+}
+
 /**
  * @title ForcedInclusion
  * @notice Allows users to force transaction inclusion when sequencers censor.
@@ -138,8 +143,16 @@ contract ForcedInclusion is ReentrancyGuard, Pausable {
 
         emit TxForced(txId, msg.sender, reward);
 
-        // TODO: Slash sequencer via SequencerRegistry
-        // ISequencerRegistry(sequencerRegistry).slashForCensorship(currentSequencer);
+        // Slash sequencer for censorship if registry is set
+        if (sequencerRegistry != address(0)) {
+            ISequencerRegistrySlash registry = ISequencerRegistrySlash(sequencerRegistry);
+            address currentSequencer = registry.getCurrentSequencer();
+            if (currentSequencer != address(0)) {
+                // Build proof: txId that was forced (demonstrates censorship)
+                bytes memory proof = abi.encodePacked(txId);
+                registry.slash(currentSequencer, 1, proof); // SlashingReason.CENSORSHIP = 1
+            }
+        }
     }
 
     /**

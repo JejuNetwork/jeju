@@ -125,15 +125,14 @@ export class DexArbitrageStrategy {
   }
 
   /**
-   * Handle swap event - triggers arbitrage check
-   * Reserves are updated by Sync events; swap events just trigger rechecks
+   * Handle swap event
    */
   onSwap(event: SwapEvent): void {
     const poolState = this.pools.get(event.poolAddress.toLowerCase());
     if (!poolState) return;
 
-    // Swap events trigger immediate arbitrage detection
-    // Actual reserve updates come from Sync events (onSync handler)
+    // Update reserves based on swap
+    // Note: Real implementation would calculate exact reserve changes
     this.checkAllArbitrageForPool(poolState);
   }
 

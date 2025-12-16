@@ -1,10 +1,10 @@
 {
   "$schema": "../../packages/config/jeju-manifest.schema.json",
   "name": "dws",
-  "displayName": "Decentralized Web Services (storage + compute + cdn)",
+  "displayName": "Decentralized Web Services",
   "version": "1.0.0",
   "type": "core",
-  "description": "Unified storage, compute, and CDN with hybrid decentralized + cloud edge, JNS gateway, and Vercel-style caching.",
+  "description": "Decentralized storage, compute, CDN, Git hosting (JejuGit), and package registry (JejuPkg) with hybrid cloud edge, JNS gateway, and Vercel-style caching.",
   "commands": {
     "dev": "bun run dev",
     "cdn:edge": "bun run cdn:edge",
@@ -27,6 +27,8 @@
     "storage",
     "compute",
     "cdn",
+    "git",
+    "pkg",
     "edge",
     "jns",
     "cache",
@@ -47,11 +49,11 @@
     "enabled": true,
     "a2aEndpoint": "/a2a",
     "mcpEndpoint": "/mcp",
-    "tags": ["jeju-app", "storage", "compute", "cdn", "edge", "gateway"],
+    "tags": ["jeju-app", "storage", "compute", "cdn", "git", "pkg", "edge", "gateway"],
     "metadata": {
       "category": "dws",
       "provider": "jeju-network",
-      "features": ["storage", "compute", "cdn", "jns", "edge-routing"]
+      "features": ["storage", "compute", "cdn", "git", "pkg", "jns", "edge-routing", "federation"]
     },
     "trustModels": ["open", "staked"],
     "x402Support": true,

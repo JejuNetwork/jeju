@@ -14,16 +14,20 @@
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
-import { ethers } from 'ethers';
+import { createPublicClient, createWalletClient, http, parseAbi, readContract, writeContract, waitForTransactionReceipt, getLogs, decodeEventLog, parseUnits, formatUnits, parseEther, formatEther, keccak256, stringToHex, generatePrivateKey, privateKeyToAccount, type Address, type PublicClient, type WalletClient, type Account } from 'viem';
+import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 import { Logger } from '../../scripts/shared/logger';
 import { CloudIntegration, ViolationType, type CloudConfig } from '../../scripts/shared/cloud-integration';
 
 const logger = new Logger('cloud-complete-workflow');
 
-let provider: ethers.Provider;
-let cloudOperator: ethers.Signer;
-let cloudAgentSigner: ethers.Signer;
-let testUser: ethers.Signer;
+let publicClient: PublicClient;
+let cloudOperator: WalletClient;
+let cloudOperatorAccount: Account;
+let cloudAgentSigner: WalletClient;
+let cloudAgentAccount: Account;
+let testUser: WalletClient;
+let testUserAccount: Account;
 let integration: CloudIntegration;
 let userAgentId: bigint;
 

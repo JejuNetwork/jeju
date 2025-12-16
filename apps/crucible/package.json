@@ -8,8 +8,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "dev": "bun run scripts/dev.ts",
-    "dev:server": "bun run src/server.ts",
+    "dev": "bun run src/server.ts",
     "dev:test": "PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 bun run src/server.ts",
     "executor": "bun run src/executor/index.ts",
     "bot": "bun run src/bots/api-server.ts",
@@ -29,9 +28,8 @@
   "dependencies": {
     "@hono/node-server": "^1.19.7",
     "@jejunetwork/db": "workspace:*",
-    "@jejunetwork/oauth3": "workspace:*",
-    "@jejunetwork/dws": "workspace:*",
     "@solana/web3.js": "^1.98.0",
+    "ethers": "6.16.0",
     "hono": "4.10.8",
     "viem": "2.41.2",
     "zod": "3.25.76"

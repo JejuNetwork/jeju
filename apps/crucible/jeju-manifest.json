@@ -1,34 +1,70 @@
 {
   "$schema": "../../packages/config/jeju-manifest.schema.json",
   "name": "crucible",
+  "displayName": "Crucible",
   "version": "1.0.0",
+  "type": "core",
   "description": "Decentralized agent orchestration platform for autonomous AI agents",
-  "category": "core",
+  "commands": {
+    "dev": "bun run dev",
+    "build": "bun run build",
+    "start": "bun run start",
+    "test": "bun run test"
+  },
   "ports": {
     "api": 4020,
     "executor": 4021
   },
-  "commands": {
-    "dev": "bun run dev",
-    "test": "bun run test",
-    "test:integration": "bun test src/tests/integration.test.ts"
-  },
-  "dependencies": {
-    "contracts": ["AgentVault", "RoomRegistry", "TriggerRegistry", "ServiceRegistry", "IdentityRegistry"],
-    "services": ["dws", "indexer"]
-  },
-  "environment": {
-    "required": [],
-    "optional": ["PRIVATE_KEY", "RPC_URL", "DWS_URL", "INDEXER_GRAPHQL_URL"],
-    "defaults": {
-      "RPC_URL": "http://127.0.0.1:8545",
-      "DWS_URL": "http://127.0.0.1:4030",
-      "INDEXER_GRAPHQL_URL": "http://127.0.0.1:4350/graphql"
-    }
+  "dependencies": ["contracts", "config", "dws"],
+  "optional": false,
+  "enabled": true,
+  "autoStart": true,
+  "tags": ["agents", "orchestration", "ai", "automation", "triggers", "rooms"],
+  "jns": {
+    "name": "crucible.jeju",
+    "description": "Agent Orchestration Platform",
+    "url": "https://crucible.jeju.network"
   },
   "healthCheck": {
-    "endpoint": "/health",
-    "interval": 30
+    "url": "http://localhost:4020/health",
+    "interval": 30000
+  },
+  "agent": {
+    "enabled": true,
+    "a2aEndpoint": "/a2a",
+    "mcpEndpoint": "/mcp",
+    "tags": ["jeju-app", "agents", "orchestration", "automation"],
+    "metadata": {
+      "category": "infrastructure",
+      "provider": "jeju-network",
+      "features": ["agent-rooms", "triggers", "vault", "identity"]
+    },
+    "trustModels": ["open", "staked"],
+    "x402Support": true,
+    "jnsName": "crucible.jeju"
+  },
+  "decentralization": {
+    "cdn": {
+      "enabled": true,
+      "regions": ["global"],
+      "cacheRules": [
+        { "pattern": "/static/**", "ttl": 31536000, "immutable": true },
+        { "pattern": "/api/**", "ttl": 0 }
+      ],
+      "serviceWorker": false
+    },
+    "frontend": {
+      "ipfs": true,
+      "jnsName": "crucible.jeju",
+      "buildDir": "dist",
+      "spa": true
+    },
+    "robustness": {
+      "multiOrigin": true,
+      "offlineSupport": false,
+      "p2pFallback": true,
+      "contentAddressed": true
+    }
   },
   "testing": {
     "unit": {
@@ -38,7 +74,7 @@
     "integration": {
       "command": "bun test src/tests/integration.test.ts",
       "timeout": 300000,
-      "requiresServices": ["dws", "chain"]
+      "requiresServices": true
     },
     "e2e": {
       "command": "bunx playwright test tests/synpress",

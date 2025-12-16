@@ -74,15 +74,6 @@ const balance = await client.getBalance({
 });
 ```
 
-### ethers
-
-```typescript
-import { ethers } from 'ethers';
-
-const provider = new ethers.JsonRpcProvider('https://rpc.jeju.network');
-const balance = await provider.getBalance('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266');
-```
-
 ### cast (Foundry)
 
 ```bash
