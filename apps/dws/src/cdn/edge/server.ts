@@ -176,7 +176,7 @@ export class EdgeNodeServer {
     });
 
     // Prometheus metrics
-    this.app.get('/metrics/prometheus', (c) => {
+    this.app.get('/metrics/prometheus', () => {
       const metrics = this.getMetrics();
       const lines = [
         '# HELP cdn_requests_total Total requests served',
@@ -393,7 +393,7 @@ export class EdgeNodeServer {
       responseHeaders['Cache-Control'] = 'public, max-age=31536000, immutable';
     }
 
-    return new Response(status === 304 ? null : body, {
+    return new Response(status === 304 ? null : new Uint8Array(body), {
       status,
       headers: responseHeaders,
     });
