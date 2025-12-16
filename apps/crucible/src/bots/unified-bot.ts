@@ -667,6 +667,25 @@ export class UnifiedBot extends EventEmitter {
   }
 
   /**
+   * Remove liquidity from a position
+   */
+  async removeLiquidity(params: {
+    positionId: string;
+    chain: 'evm' | 'solana';
+    percent: number;
+  }) {
+    if (!this.liquidityManager) {
+      return { success: false, error: 'Liquidity manager not initialized' };
+    }
+
+    return this.liquidityManager.removeLiquidity({
+      positionId: params.positionId,
+      chain: params.chain,
+      percent: params.percent,
+    });
+  }
+
+  /**
    * Get trade history
    */
   getTradeHistory(limit = 100): TradeResult[] {

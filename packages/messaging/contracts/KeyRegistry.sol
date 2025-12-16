@@ -4,6 +4,15 @@ pragma solidity ^0.8.26;
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
+ * @title IIdentityRegistry
+ * @notice Interface for ERC-8004 IdentityRegistry ownership check
+ */
+interface IIdentityRegistry {
+    function ownerOf(uint256 agentId) external view returns (address);
+    function exists(uint256 agentId) external view returns (bool);
+}
+
+/**
  * @title KeyRegistry
  * @notice On-chain registry for public encryption keys
  * @dev Users register their X25519 public keys for encrypted messaging
@@ -12,7 +21,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
  * - Permissionless key registration
  * - Key rotation support with history
  * - Pre-key bundles for offline messaging
- * - ERC-8004 integration for agent keys
+ * - ERC-8004 integration for agent keys with on-chain ownership verification
  *
  * Encryption scheme:
  * - X25519 for key exchange (Curve25519)
@@ -55,9 +64,23 @@ contract KeyRegistry is ReentrancyGuard {
     // ERC-8004 agent keys
     mapping(uint256 => PublicKeyBundle) public agentKeyBundles;
     
+    // ERC-8004 Identity Registry for agent ownership verification
+    IIdentityRegistry public immutable identityRegistry;
+    
     // Configuration
     uint256 public constant MAX_ONE_TIME_KEYS = 100;
     uint256 public constant PRE_KEY_ROTATION_PERIOD = 7 days;
+    
+    // ============ Constructor ============
+    
+    /**
+     * @notice Initialize KeyRegistry with IdentityRegistry address
+     * @param _identityRegistry Address of ERC-8004 IdentityRegistry contract
+     */
+    constructor(address _identityRegistry) {
+        if (_identityRegistry == address(0)) revert ZeroAddress();
+        identityRegistry = IIdentityRegistry(_identityRegistry);
+    }
 
     // ============ Events ============
 
@@ -100,6 +123,9 @@ contract KeyRegistry is ReentrancyGuard {
     error NoPreKeysAvailable();
     error PreKeyAlreadyUsed();
     error KeyBundleInactive();
+    error ZeroAddress();
+    error NotAgentOwner();
+    error AgentNotFound();
 
     // ============ Key Registration ============
 
@@ -269,7 +295,7 @@ contract KeyRegistry is ReentrancyGuard {
      * @param identityKey X25519 public identity key
      * @param signedPreKey X25519 signed pre-key
      * @param preKeySignature Signature of pre-key
-     * @dev Caller must be agent owner (verified off-chain)
+     * @dev Caller must be agent owner (verified on-chain via IdentityRegistry)
      */
     function registerAgentKey(
         uint256 agentId,
@@ -277,8 +303,12 @@ contract KeyRegistry is ReentrancyGuard {
         bytes32 signedPreKey,
         bytes32 preKeySignature
     ) external {
-        // Note: Agent ownership verification should be done via signature
-        // For MVP, we trust the caller
+        // Verify agent exists in IdentityRegistry
+        if (!identityRegistry.exists(agentId)) revert AgentNotFound();
+        
+        // Verify caller is the agent owner (on-chain ownership verification)
+        if (identityRegistry.ownerOf(agentId) != msg.sender) revert NotAgentOwner();
+        
         if (agentKeyBundles[agentId].isActive) revert KeyAlreadyRegistered();
         if (identityKey == bytes32(0)) revert InvalidKeyLength();
 
@@ -293,6 +323,62 @@ contract KeyRegistry is ReentrancyGuard {
         });
 
         emit AgentKeyRegistered(agentId, identityKey, block.timestamp);
+    }
+
+    /**
+     * @notice Update key bundle for an ERC-8004 agent
+     * @param agentId Agent token ID
+     * @param newIdentityKey New X25519 public identity key
+     * @param signedPreKey X25519 signed pre-key
+     * @param preKeySignature Signature of pre-key
+     * @dev Caller must be agent owner
+     */
+    function updateAgentKey(
+        uint256 agentId,
+        bytes32 newIdentityKey,
+        bytes32 signedPreKey,
+        bytes32 preKeySignature
+    ) external {
+        // Verify agent exists
+        if (!identityRegistry.exists(agentId)) revert AgentNotFound();
+        
+        // Verify caller is the agent owner
+        if (identityRegistry.ownerOf(agentId) != msg.sender) revert NotAgentOwner();
+        
+        if (!agentKeyBundles[agentId].isActive) revert KeyNotRegistered();
+        if (newIdentityKey == bytes32(0)) revert InvalidKeyLength();
+
+        agentKeyBundles[agentId] = PublicKeyBundle({
+            identityKey: newIdentityKey,
+            signedPreKey: signedPreKey,
+            preKeySignature: preKeySignature,
+            preKeyTimestamp: block.timestamp,
+            registeredAt: agentKeyBundles[agentId].registeredAt,
+            lastUpdated: block.timestamp,
+            isActive: true
+        });
+
+        emit AgentKeyRegistered(agentId, newIdentityKey, block.timestamp);
+    }
+
+    /**
+     * @notice Revoke key bundle for an ERC-8004 agent
+     * @param agentId Agent token ID
+     * @dev Caller must be agent owner
+     */
+    function revokeAgentKey(uint256 agentId) external {
+        // Verify agent exists
+        if (!identityRegistry.exists(agentId)) revert AgentNotFound();
+        
+        // Verify caller is the agent owner
+        if (identityRegistry.ownerOf(agentId) != msg.sender) revert NotAgentOwner();
+        
+        if (!agentKeyBundles[agentId].isActive) revert KeyNotRegistered();
+
+        agentKeyBundles[agentId].isActive = false;
+        agentKeyBundles[agentId].lastUpdated = block.timestamp;
+
+        emit KeyBundleRevoked(msg.sender, block.timestamp);
     }
 
     // ============ View Functions ============
@@ -380,7 +466,7 @@ contract KeyRegistry is ReentrancyGuard {
      * @notice Contract version
      */
     function version() external pure returns (string memory) {
-        return "1.0.0";
+        return "2.0.0";
     }
 }
 

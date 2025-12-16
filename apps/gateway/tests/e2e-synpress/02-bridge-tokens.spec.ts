@@ -112,9 +112,8 @@ test.describe('Bridge from Ethereum Flow', () => {
     console.log('✅ Optional recipient works');
   });
 
-  test.skip('should execute bridge transaction', async ({ page, metamask }) => {
-    // Skip in CI - requires real tokens and Base connection
-    
+  // This test requires real tokens on Base network - skip in CI
+  test.skip(!!process.env.CI, 'should execute bridge transaction', async ({ page, metamask }) => {
     // Select token
     await page.locator('.input').first().click();
     await page.getByText('CLANKERMON').click();

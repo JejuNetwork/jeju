@@ -625,7 +625,7 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
     await ctx.store.insert(slashEvents);
     await ctx.store.insert(stakeEvents);
     await ctx.store.insert(feedbackEntries);
-    // Note: feedbackResponses require the feedback to exist first
-    // In production, we'd need to handle this with proper ordering
+    // Insert feedback responses after feedback entries (responses reference feedbacks)
+    await ctx.store.insert(feedbackResponses);
     await ctx.store.insert(validations);
 }

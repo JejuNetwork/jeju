@@ -97,7 +97,7 @@ describe('MPC Coordinator Edge Cases', () => {
       // Wait and check - parties should be active initially
       expect(coordinator.getActiveParties().length).toBe(3);
       
-      // Note: In real scenario, parties would become stale after 5 minutes without heartbeat
+      // Parties become stale after 5 minutes without heartbeat in production
     });
 
     it('should handle party re-registration', () => {

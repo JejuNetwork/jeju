@@ -263,9 +263,7 @@ async function main() {
 
   console.log('\n📝 Next Steps:');
   console.log('1. Update bazaar config with TokenLaunchpad address');
-  console.log(
-    '2. Test launching a token: bun run test:launchpad (TODO: create test)'
-  );
+  console.log('2. Test launching a token via the bazaar UI or API');
 }
 
 main().catch((error) => {

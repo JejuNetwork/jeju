@@ -1,5 +1,7 @@
 import { describe, test, expect, beforeAll } from 'bun:test';
-import { ethers } from 'ethers';
+import { createPublicClient, createWalletClient, http, parseAbi, readContract, writeContract, waitForTransactionReceipt, getLogs, decodeEventLog, keccak256, stringToBytes, type Address } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 import { 
   CloudIntegration, 
   ViolationType,
@@ -14,8 +16,9 @@ import { L1_LOCALNET, TEST_WALLETS } from '../shared/constants';
 const rpcUrl = process.env.RPC_URL || L1_LOCALNET.rpcUrl;
 let localnetAvailable = false;
 try {
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
-  await provider.getBlockNumber();
+  const chain = inferChainFromRpcUrl(rpcUrl);
+  const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
+  await publicClient.getBlockNumber();
   localnetAvailable = true;
 } catch {
   console.log(`Localnet not available at ${rpcUrl}, skipping cloud integration tests`);
@@ -23,18 +26,17 @@ try {
 
 describe.skipIf(!localnetAvailable)('Cloud Integration', () => {
   let integration: CloudIntegration;
-  let provider: ethers.Provider;
-  let signer: ethers.Signer;
+  let publicClient: ReturnType<typeof createPublicClient>;
+  let walletClient: ReturnType<typeof createWalletClient>;
   let cloudAgentId: bigint;
   let testAgentId: bigint;
   
   beforeAll(async () => {
     // Setup test environment
-    provider = new ethers.JsonRpcProvider(rpcUrl);
-    signer = new ethers.Wallet(
-      process.env.PRIVATE_KEY || TEST_WALLETS.deployer.privateKey,
-      provider
-    );
+    const chain = inferChainFromRpcUrl(rpcUrl);
+    const account = privateKeyToAccount((process.env.PRIVATE_KEY || TEST_WALLETS.deployer.privateKey) as `0x${string}`);
+    publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
+    walletClient = createWalletClient({ chain, transport: http(rpcUrl), account });
     
     // Load deployment addresses
     const addresses = {
@@ -47,7 +49,8 @@ describe.skipIf(!localnetAvailable)('Cloud Integration', () => {
     
     const config: CloudConfig = {
       ...addresses,
-      provider,
+      rpcUrl,
+      chain,
       logger: new Logger('cloud-integration-test')
     };
     
@@ -64,7 +67,7 @@ describe.skipIf(!localnetAvailable)('Cloud Integration', () => {
     };
     
     cloudAgentId = await integration.registerCloudAgent(
-      signer,
+      walletClient.account,
       metadata,
       'ipfs://QmTestCloudAgent'
     );
@@ -76,7 +79,7 @@ describe.skipIf(!localnetAvailable)('Cloud Integration', () => {
   });
   
   test('should register cloud services', async () => {
-    await integration.registerServices(signer, defaultCloudServices);
+    await integration.registerServices(walletClient.account, defaultCloudServices);
     
     // Verify services are registered (check one)
     // This would require exposing the service registry contract
@@ -85,24 +88,30 @@ describe.skipIf(!localnetAvailable)('Cloud Integration', () => {
   
   test('should set positive reputation', async () => {
     // Create a test agent first
-    const identityRegistry = new ethers.Contract(
-      await integration['identityRegistry'].getAddress(),
-      ['function register() external returns (uint256)'],
-      signer
-    );
+    const identityRegistryAbi = parseAbi(['function register() external returns (uint256)', 'event Registered(uint256 indexed agentId, string name, address owner)']);
+    const identityRegistryAddress = (await integration['identityRegistryAddress']) as Address;
     
-    const tx = await identityRegistry.register();
-    const receipt = await tx.wait();
+    const hash = await walletClient.writeContract({
+      address: identityRegistryAddress,
+      abi: identityRegistryAbi,
+      functionName: 'register',
+    });
+    const receipt = await waitForTransactionReceipt(publicClient, { hash });
     
     // Extract agentId from event
-    const event = receipt.logs.find((log: { topics: string[] }) => 
-      log.topics[0] === ethers.id('Registered(uint256,string,address)')
-    );
-    testAgentId = BigInt(event.topics[1]);
+    const logs = await getLogs(publicClient, {
+      address: identityRegistryAddress,
+      abi: identityRegistryAbi,
+      eventName: 'Registered',
+      fromBlock: receipt.blockNumber,
+      toBlock: receipt.blockNumber,
+    });
+    const decoded = decodeEventLog({ abi: identityRegistryAbi, ...logs[0] });
+    testAgentId = decoded.args.agentId;
     
     // Set reputation
     await integration.setReputation(
-      signer,
+      walletClient.account,
       testAgentId,
       95,
       'quality',
@@ -162,7 +171,7 @@ describe.skipIf(!localnetAvailable)('Cloud Integration', () => {
   });
   
   test('should check user credit', async () => {
-    const userAddress = await signer.getAddress();
+    const userAddress = walletClient.account.address;
     const usdcAddress = process.env.USDC_ADDRESS || '0x0000000000000000000000000000000000000000';
     
     const credit = await integration.checkUserCredit(
@@ -179,7 +188,7 @@ describe.skipIf(!localnetAvailable)('Cloud Integration', () => {
   test('should get agent reputation with multiple entries', async () => {
     // Add another reputation entry
     await integration.setReputation(
-      signer,
+      walletClient.account,
       testAgentId,
       85,
       'quality',
@@ -214,12 +223,13 @@ describe.skipIf(!localnetAvailable)('Cloud Integration', () => {
 describe('Cloud Integration - Security', () => {
   test('should reject unauthorized reputation updates', async () => {
     // Create unauthorized signer
-    const unauthorizedWallet = ethers.Wallet.createRandom();
+    const { generatePrivateKey } = await import('viem/accounts');
+    const unauthorizedAccount = privateKeyToAccount(generatePrivateKey());
     
     // This should fail (not authorized operator)
     try {
       await integration.setReputation(
-        unauthorizedWallet,
+        unauthorizedAccount,
         1n,
         50,
         'quality',
@@ -235,7 +245,7 @@ describe('Cloud Integration - Security', () => {
   test('should reject invalid reputation scores', async () => {
     try {
       await integration.setReputation(
-        signer,
+        walletClient.account,
         1n,
         150, // Invalid score > 100
         'quality',
@@ -256,7 +266,7 @@ describe.skipIf(!localnetAvailable)('Cloud Integration - Performance', () => {
     
     for (let i = 0; i < updates; i++) {
       await integration.setReputation(
-        signer,
+        walletClient.account,
         testAgentId,
         80 + i,
         'quality',

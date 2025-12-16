@@ -143,11 +143,17 @@ test.describe('IPFS Content Serving', () => {
     }
   });
 
-  test.skip('should serve SPA with fallback routing', async ({ page }) => {
-    // This test requires a registered JNS name with a React/Vue SPA
+  // Requires TEST_JNS_SPA_NAME env var pointing to a registered JNS name with an SPA
+  test('should serve SPA with fallback routing', async ({ page }) => {
+    const testSpaName = process.env.TEST_JNS_SPA_NAME;
+    if (!testSpaName) {
+      console.log('⏭️ Skipping SPA test - set TEST_JNS_SPA_NAME to a JNS name with an SPA');
+      test.skip();
+      return;
+    }
 
     // Navigate to a deep route that doesn't exist as a file
-    await page.goto(`${JNS_GATEWAY_URL}/myapp.jeju/dashboard/settings`);
+    await page.goto(`${JNS_GATEWAY_URL}/${testSpaName}/dashboard/settings`);
     await page.waitForLoadState('networkidle');
 
     // SPA should fall back to index.html

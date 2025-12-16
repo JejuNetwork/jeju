@@ -137,9 +137,8 @@ test.describe('Swap - REAL Functionality Verification', () => {
     
     console.log('Same token test:', inputValue, outputValue);
     
-    // Note: Current UI allows same token (no validation)
-    // Real app should prevent this or show warning
-    // This test documents current behavior
+    // UI allows selecting same token in dropdowns, but swap button shows error toast
+    // The page.tsx has validation: if (inputToken === outputToken && !isCrossChain) { toast.error('Same token') }
   });
 });
 

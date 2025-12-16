@@ -5,7 +5,8 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "jeju": "./bin/jeju.js"
+    "jeju": "./bin/jeju.js",
+    "git-remote-jeju": "./bin/git-remote-jeju.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -25,6 +26,9 @@
     },
     "./types": {
       "import": "./dist/types.js"
+    },
+    "./git-remote": {
+      "import": "./dist/commands/git-remote.js"
     }
   },
   "files": [
@@ -33,7 +37,7 @@
     "templates"
   ],
   "scripts": {
-    "build": "bun build src/index.ts --outdir dist --target bun",
+    "build": "bun build src/index.ts src/commands/git-remote.ts --outdir dist --target bun --external electron --external playwright-core",
     "dev": "bun run src/index.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
@@ -44,7 +48,6 @@
   "dependencies": {
     "chalk": "^5.3.0",
     "commander": "^12.0.0",
-    "ethers": "^6.11.1",
     "execa": "^9.0.0",
     "fs-extra": "^11.2.0",
     "hono": "^4.6.10",

@@ -814,8 +814,7 @@ export function createNFTModule(
     operator: Address,
     tokenId?: bigint
   ): Promise<boolean> {
-    // This would need to be implemented with actual contract calls
-    // For now, call the API
+    // Check approval via aggregator API (more reliable than on-chain for cross-chain state)
     const response = await fetch(
       `${services.oif.aggregator}/nft/approved?collection=${collection}&operator=${operator}&owner=${wallet.address}${tokenId ? `&tokenId=${tokenId}` : ""}`
     );

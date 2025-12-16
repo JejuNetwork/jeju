@@ -1,6 +1,11 @@
 #!/usr/bin/env bun
 /**
- * Starts only vendor apps (requires chain running separately)
+ * @deprecated Use CLI instead: `jeju dev --vendor-only`
+ * 
+ * This script has been migrated to CLI. Use:
+ *   jeju dev --vendor-only
+ * 
+ * This file is kept temporarily for backwards compatibility.
  */
 
 import { spawn, type Subprocess } from 'bun';

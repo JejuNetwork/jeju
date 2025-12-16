@@ -3,42 +3,41 @@
   "version": "1.0.0",
   "type": "module",
   "description": "MEV, arbitrage, liquidity management, and TFMM bots for Jeju Network",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "import": "./src/index.ts",
+      "types": "./src/index.ts"
     },
     "./strategies": {
-      "import": "./dist/strategies/index.js",
-      "types": "./dist/strategies/index.d.ts"
+      "import": "./src/strategies/index.ts",
+      "types": "./src/strategies/index.ts"
     },
     "./engine": {
-      "import": "./dist/engine/index.js",
-      "types": "./dist/engine/index.d.ts"
+      "import": "./src/engine/index.ts",
+      "types": "./src/engine/index.ts"
     },
     "./simulation": {
-      "import": "./dist/simulation/index.js",
-      "types": "./dist/simulation/index.d.ts"
+      "import": "./src/simulation/index.ts",
+      "types": "./src/simulation/index.ts"
     }
   },
   "scripts": {
-    "build": "tsc",
     "dev": "bun run src/cli.ts",
     "test": "bun test src/",
     "test:watch": "bun test --watch src/",
     "test:simulation": "bun test src/simulation/",
-    "backtest": "bun run src/simulation/backtest-cli.ts",
-    "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "backtest": "bun run src/cli.ts backtest",
+    "simulate": "bun run src/cli.ts simulate",
+    "analyze": "bun run src/analyze.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/contracts": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "@solana/web3.js": "^1.98.0",
-    "ethers": "6.16.0",
     "viem": "2.41.2"
   },
   "devDependencies": {

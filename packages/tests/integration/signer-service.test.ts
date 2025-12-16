@@ -5,7 +5,8 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
-import { Wallet, keccak256, toUtf8Bytes } from 'ethers';
+import { keccak256, stringToBytes, stringToHex } from 'viem';
+import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 
 const TEST_PORT = 4199;
 const TEST_API_KEY = 'test-api-key-12345';
@@ -85,7 +86,7 @@ describe('Signer Service Integration', () => {
   });
 
   test('sign-digest returns valid signature', async () => {
-    const digest = keccak256(toUtf8Bytes('test message'));
+    const digest = keccak256(stringToBytes('test message'));
     const requestId = `req-${Date.now()}`;
     
     const res = await signRequest(digest, requestId);
@@ -94,7 +95,7 @@ describe('Signer Service Integration', () => {
     const data = await res.json();
     expect(data.signature).toBeDefined();
     expect(data.signature.length).toBe(132); // 65 bytes hex = 130 + 0x
-    expect(data.signer).toBe(new Wallet(TEST_PRIVATE_KEY).address);
+    expect(data.signer).toBe(privateKeyToAccount(TEST_PRIVATE_KEY as `0x${string}`).address);
     expect(data.error).toBeUndefined();
   });
 
@@ -118,7 +119,7 @@ describe('Signer Service Integration', () => {
   });
 
   test('sign-digest rejects expired requests', async () => {
-    const digest = keccak256(toUtf8Bytes('expired'));
+    const digest = keccak256(stringToBytes('expired'));
     
     const res = await fetch(`${BASE_URL}/sign-digest`, {
       method: 'POST',
@@ -139,7 +140,7 @@ describe('Signer Service Integration', () => {
   });
 
   test('sign-digest prevents replay attacks', async () => {
-    const digest = keccak256(toUtf8Bytes('replay test'));
+    const digest = keccak256(stringToBytes('replay test'));
     const requestId = `replay-${Date.now()}`;
     
     // First request succeeds
@@ -158,7 +159,7 @@ describe('Signer Service Integration', () => {
     
     // Only 3 concurrent requests to stay under rate limit
     const requests = Array.from({ length: 3 }, (_, i) => {
-      const digest = keccak256(toUtf8Bytes(`concurrent-${i}-${Date.now()}`));
+      const digest = keccak256(stringToBytes(`concurrent-${i}-${Date.now()}`));
       const requestId = `concurrent-${i}-${Date.now()}`;
       return signRequest(digest, requestId);
     });
@@ -176,8 +177,8 @@ describe('Signer Service Integration', () => {
   test('different digests produce different signatures', async () => {
     await new Promise(r => setTimeout(r, 1100)); // Wait for rate limit reset
     
-    const digest1 = keccak256(toUtf8Bytes('unique-message-1'));
-    const digest2 = keccak256(toUtf8Bytes('unique-message-2'));
+    const digest1 = keccak256(stringToBytes('unique-message-1'));
+    const digest2 = keccak256(stringToBytes('unique-message-2'));
     
     const res1 = await signRequest(digest1, `diff1-${Date.now()}`);
     await new Promise(r => setTimeout(r, 150)); // Small delay
@@ -199,7 +200,7 @@ describe('Signer Service Integration', () => {
         'Authorization': 'Bearer wrong-key',
       },
       body: JSON.stringify({
-        digest: keccak256(toUtf8Bytes('test')),
+        digest: keccak256(stringToBytes('test')),
         requestId: 'wrong-key-req',
         timestamp: Date.now(),
       }),
@@ -218,7 +219,7 @@ describe('Signer Service Integration', () => {
         'Authorization': `Bearer ${TEST_API_KEY}`,
       },
       body: JSON.stringify({
-        digest: keccak256(toUtf8Bytes('missing-req-test')),
+        digest: keccak256(stringToBytes('missing-req-test')),
         timestamp: Date.now(),
       }),
     });

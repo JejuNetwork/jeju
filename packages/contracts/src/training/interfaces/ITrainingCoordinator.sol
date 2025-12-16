@@ -157,7 +157,7 @@ interface ITrainingCoordinator {
         ModelConfig calldata model,
         PrivacyMode privacyMode,
         bytes32 mpcKeyId
-    ) external;
+    ) external payable;
 
     function joinRun(bytes32 runId, bytes32 p2pEndpointId) external;
 

@@ -64,24 +64,24 @@ export function getContractAddresses(chainId: number): ContractAddresses {
     };
   }
 
-  // Testnet addresses
+  // Testnet addresses - loaded from deployment files or environment
   if (chainId === 420691) {
-    return {
-      identityRegistry: '0x0000000000000000000000000000000000000000' as Address, // TODO: Deploy
-      nodeStakingManager: '0x0000000000000000000000000000000000000000' as Address,
-      computeRegistry: '0x0000000000000000000000000000000000000000' as Address,
-      computeStaking: '0x0000000000000000000000000000000000000000' as Address,
-      inferenceServing: '0x0000000000000000000000000000000000000000' as Address,
-      triggerRegistry: '0x0000000000000000000000000000000000000000' as Address,
-      storageMarket: '0x0000000000000000000000000000000000000000' as Address,
-      oracleStakingManager: '0x0000000000000000000000000000000000000000' as Address,
-      feedRegistry: '0x0000000000000000000000000000000000000000' as Address,
-      reportVerifier: '0x0000000000000000000000000000000000000000' as Address,
-      proxyRegistry: '0x0000000000000000000000000000000000000000' as Address,
-      sequencerRegistry: '0x0000000000000000000000000000000000000000' as Address,
-      liquidityAggregator: '0x0000000000000000000000000000000000000000' as Address,
-      solverRegistry: '0x0000000000000000000000000000000000000000' as Address,
-      feeDistributor: '0x0000000000000000000000000000000000000000' as Address,
+    return loadAddressesFromDeployment('testnet') || {
+      identityRegistry: (process.env.IDENTITY_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
+      nodeStakingManager: (process.env.NODE_STAKING_MANAGER || '0x0000000000000000000000000000000000000000') as Address,
+      computeRegistry: (process.env.COMPUTE_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
+      computeStaking: (process.env.COMPUTE_STAKING || '0x0000000000000000000000000000000000000000') as Address,
+      inferenceServing: (process.env.INFERENCE_SERVING || '0x0000000000000000000000000000000000000000') as Address,
+      triggerRegistry: (process.env.TRIGGER_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
+      storageMarket: (process.env.STORAGE_MARKET || '0x0000000000000000000000000000000000000000') as Address,
+      oracleStakingManager: (process.env.ORACLE_STAKING_MANAGER || '0x0000000000000000000000000000000000000000') as Address,
+      feedRegistry: (process.env.FEED_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
+      reportVerifier: (process.env.REPORT_VERIFIER || '0x0000000000000000000000000000000000000000') as Address,
+      proxyRegistry: (process.env.PROXY_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
+      sequencerRegistry: (process.env.SEQUENCER_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
+      liquidityAggregator: (process.env.LIQUIDITY_AGGREGATOR || '0x0000000000000000000000000000000000000000') as Address,
+      solverRegistry: (process.env.SOLVER_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
+      feeDistributor: (process.env.FEE_DISTRIBUTOR || '0x0000000000000000000000000000000000000000') as Address,
       banManager: '0x0000000000000000000000000000000000000000' as Address,
       cdnRegistry: '0x0000000000000000000000000000000000000000' as Address,
       cdnBilling: '0x0000000000000000000000000000000000000000' as Address,

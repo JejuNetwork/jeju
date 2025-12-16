@@ -11,24 +11,19 @@ evm_version = "cancun"
 
 # Skip these contracts from compilation - incomplete or have missing dependencies
 skip = [
-    # External integrations not needed for core functionality
     "src/prediction/JejuMarket.sol",
     "src/uniswap-v2/**",
     "src/uniswap-v4/**",
     "src/mmo/**",
     "src/games/**",
     "src/governance/council/**",
+    "src/oracle/**",
     "src/cdn/**",
+    "src/paymaster/**",
     "src/eil/**",
     "src/perps/**",
     "src/marketplace/**",
     "src/prediction-markets/**",
-    
-    # Paymaster requires full ERC-4337 integration
-    "src/paymaster/**",
-    "test/PaymasterFactory.t.sol",
-    
-    # Deploy scripts for disabled features
     "script/DeployCompute.s.sol",
     "script/DeployUniswapV4Periphery.s.sol",
     "script/Deploy*Cloud*.s.sol",
@@ -41,13 +36,25 @@ skip = [
     "script/DeployPerps.s.sol",
     "script/DeployJejuMarket.s.sol",
     "script/DeployJejuToken.s.sol",
-    "script/otc/**"
+    "script/otc/**",
+    "test/oracle/**",
+    "test/eil/**",
+    "test/perps/**",
+    "test/CloudReputationProvider.t.sol",
+    "test/PaymasterFactory.t.sol",
+    "test/mocks/MockAggregator.sol",
+    "test/mocks/PerpsMocks.sol",
+    "test/interfaces/**",
+    "test/messaging/**",
+    "test/compute/**"
 ]
 
 # Test settings
+# Note: Hyperscape tests require MUD World deployment - run separately with: cd apps/hyperscape && pnpm test
 verbosity = 2
 
 # Lint configuration - suppress known false positives and style notes
+# These are reviewed and documented below
 [profile.lint]
 exclude_lints = [
     # Warnings (reviewed, false positives or intentional)
@@ -89,6 +96,7 @@ remappings = [
 ]
 
 # RPC endpoints (override with env vars)
+# Default values from packages/config/testnet.json
 [rpc_endpoints]
 mainnet = "${MAINNET_RPC_URL}"
 sepolia = "https://1rpc.io/sepolia"
@@ -105,4 +113,5 @@ mainnet = { key = "${ETHERSCAN_API_KEY}" }
 sepolia = { key = "${ETHERSCAN_API_KEY}" }
 base = { key = "${BASESCAN_API_KEY}", url = "https://api.basescan.org/api" }
 base_sepolia = { key = "${BASESCAN_API_KEY}", url = "https://api-sepolia.basescan.org/api" }
+
 

@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "allowSyntheticDefaultImports": true,
+    "jsx": "react-jsx",
+    "types": ["bun"],
+    "paths": {
+      "@/*": ["./*"],
+      "@types/*": ["./types/*"],
+      "@scripts/*": ["./scripts/*"],
+      "@contracts/*": ["./packages/contracts/*"],
+      "@config/*": ["./packages/config/*"],
+      "@tests/*": ["./packages/tests/*"],
+      "@indexer/*": ["./apps/indexer/*"]
+    }
+  }
+}
+

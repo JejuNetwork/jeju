@@ -92,9 +92,9 @@ export class Backtester {
     for (let i = 0; i < config.priceData.length; i++) {
       const dataPoint = config.priceData[i];
 
-      // Update strategy price history
+      // Update strategy price history (use address as key for consistency)
       const prices = config.tokens.map(t => ({
-        token: t.symbol,
+        token: t.address, // Use address to match strategy lookups
         price: BigInt(Math.floor(dataPoint.prices[t.symbol] * 1e8)),
         decimals: 8,
         timestamp: dataPoint.timestamp,

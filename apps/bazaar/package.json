@@ -1,7 +1,7 @@
 {
   "name": "bazaar",
   "version": "1.0.0",
-  "description": "Unified DeFi + NFT Marketplace - Uniswap V4 Swaps, Liquidity, and NFT Trading",
+  "description": "Unified DeFi + NFT Marketplace for Jeju - Uniswap V4 Swaps, Liquidity, and NFT Trading",
   "private": true,
   "scripts": {
     "dev": "next dev -p 4006",
@@ -27,11 +27,9 @@
   },
   "dependencies": {
     "@babylon/shared": "workspace:vendor/babylon/packages/shared",
-    "@jejunetwork/oauth3": "workspace:*",
-    "@jejunetwork/shared": "workspace:*",
+    "@jeju/shared": "workspace:*",
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/contracts": "workspace:*",
-    "@jejunetwork/dws": "workspace:*",
     "next": "^14.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

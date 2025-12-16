@@ -7,8 +7,12 @@
  * - Wallet address extraction
  * - Farcaster integration
  *
- * Note: These tests require PRIVY_APP_ID and PRIVY_APP_SECRET to be set.
- * They test the server-side Privy SDK integration.
+ * Requirements:
+ * - PRIVY_APP_ID: Your Privy application ID
+ * - PRIVY_APP_SECRET: Your Privy application secret
+ *
+ * Without credentials, tests use mock client for unit testing.
+ * With credentials, tests verify real Privy SDK integration.
  */
 
 import { describe, it, expect, beforeAll } from "bun:test";

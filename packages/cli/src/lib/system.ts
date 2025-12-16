@@ -269,3 +269,14 @@ export async function killPort(port: number): Promise<void> {
   }
 }
 
+export function findMonorepoRoot(): string {
+  let dir = process.cwd();
+  while (dir !== '/') {
+    if (existsSync(join(dir, 'bun.lock')) && existsSync(join(dir, 'packages'))) {
+      return dir;
+    }
+    dir = join(dir, '..');
+  }
+  return process.cwd();
+}
+

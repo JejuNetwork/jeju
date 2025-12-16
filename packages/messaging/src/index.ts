@@ -44,5 +44,5 @@
 // Re-export SDK (browser-compatible)
 export * from './sdk';
 
-// Note: Node-only exports (relay server) available via '@jejunetwork/messaging/node'
+// Node-only exports (relay server) available via '@jejunetwork/messaging/node'
 

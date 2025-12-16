@@ -13,10 +13,11 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
-import { Wallet } from 'ethers';
+import { privateKeyToAccount, generatePrivateKey, signMessage } from 'viem/accounts';
+import type { PrivateKeyAccount } from 'viem/accounts';
 
 const API_URL = process.env.API_URL || 'http://localhost:4500';
-const TEST_WALLET = Wallet.createRandom();
+const TEST_WALLET = privateKeyToAccount(generatePrivateKey());
 
 // Check if server is running before running tests
 let serverRunning = false;
@@ -35,7 +36,7 @@ async function checkServer(): Promise<boolean> {
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const timestamp = Date.now().toString();
   const message = 'jeju-dapp:' + timestamp;
-  const signature = await TEST_WALLET.signMessage(message);
+  const signature = await signMessage(TEST_WALLET, { message });
 
   return {
     'Content-Type': 'application/json',

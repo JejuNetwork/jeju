@@ -451,12 +451,13 @@ export class JejuPkgSDK {
 
   // Health check
 
-  async healthCheck(): Promise<{ status: string; storageBackend: string }> {
-    const response = await fetch(`${this.config.registryUrl}/-/registry/health`);
+  async healthCheck(): Promise<{ status: string; service: string }> {
+    // DWS NPM uses /npm/health endpoint
+    const response = await fetch(`${this.config.registryUrl}/npm/health`);
     if (!response.ok) {
       throw new Error(`Health check failed: ${response.statusText}`);
     }
-    return response.json() as Promise<{ status: string; storageBackend: string }>;
+    return response.json() as Promise<{ status: string; service: string }>;
   }
 
   // Registry URL helper for npm config

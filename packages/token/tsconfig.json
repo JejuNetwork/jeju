@@ -30,7 +30,6 @@
     "src/bridge/warp-route-deployer.ts",
     "src/solana",
     "src/deployer/liquidity-deployer.ts",
-"src/tests",
-    "src/config/bbln-deployment.ts"
+    "src/tests"
   ]
 }

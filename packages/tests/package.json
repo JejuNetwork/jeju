@@ -25,7 +25,8 @@
     "./preflight": "./shared/preflight.ts",
     "./warmup": "./shared/warmup.ts",
     "./global-setup": "./shared/global-setup.ts",
-    "./bun-global-setup": "./shared/bun-global-setup.ts"
+    "./bun-global-setup": "./shared/bun-global-setup.ts",
+    "./dev-startup": "./shared/dev-startup.ts"
   },
   "files": [
     "shared",
