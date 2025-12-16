@@ -312,7 +312,7 @@ export class OriginFetcher {
     const response = await fetch(url, {
       method: options.method ?? 'GET',
       headers: fetchHeaders,
-      body: options.body,
+      body: options.body ? new Uint8Array(options.body) : undefined,
       signal: controller.signal,
       redirect: options.followRedirects !== false ? 'follow' : 'manual',
     }).catch((e: Error) => {

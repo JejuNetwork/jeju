@@ -1,5 +1,7 @@
 #!/usr/bin/env bun
 /**
+ * @internal Used by CLI: `jeju keys setup-testnet`
+ * 
  * Setup Testnet Deployer
  * 
  * Generates a deployer key and funds it on all testnets:
@@ -18,7 +20,7 @@ import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 import { parseAbi } from 'viem';
 import { writeFileSync, existsSync, mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { inferChainFromRpcUrl } from './shared/chain-utils';
+import { inferChainFromRpcUrl } from '../shared/chain-utils';
 
 const ROOT = join(import.meta.dir, '..');
 const KEYS_DIR = join(ROOT, 'packages/deployment/.keys');

@@ -246,23 +246,48 @@ describe('Staking - Fee Distribution', () => {
     console.log('\n💰 Testing fee distribution...\n');
     
     // Distribute 100 tokens as fees (70 to ETH stakers, 30 to token stakers)
-    const ethPoolFees = ethers.parseEther('70');
-    const tokenPoolFees = ethers.parseEther('30');
+    const ethPoolFees = parseEther('70');
+    const tokenPoolFees = parseEther('30');
+    
+    const stakingAbi = parseAbi(STAKING_ABI);
+    const stakingTokenAbi = parseAbi(STAKING_TOKEN_ABI);
     
     // Approve staking contract to pull fees
-    await (await stakingToken.approve(STAKING_ADDRESS, ethPoolFees + tokenPoolFees)).wait();
+    const approveHash = await deployerWalletClient.writeContract({
+      address: STAKING_TOKEN_ADDRESS as Address,
+      abi: stakingTokenAbi,
+      functionName: 'approve',
+      args: [STAKING_ADDRESS as Address, ethPoolFees + tokenPoolFees],
+    });
+    await waitForTransactionReceipt(publicClient, { hash: approveHash });
     
     // Distribute fees
-    const distributeTx = await staking.distributeFees(ethPoolFees, tokenPoolFees);
-    await distributeTx.wait();
+    const distributeHash = await deployerWalletClient.writeContract({
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'distributeFees',
+      args: [ethPoolFees, tokenPoolFees],
+    });
+    await waitForTransactionReceipt(publicClient, { hash: distributeHash });
     
     // Check pending fees for both stakers
-    const position1 = await staking.getPosition(staker1.address);
-    const position2 = await staking.getPosition(staker2.address);
+    const position1 = await readContract(publicClient, {
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'getPosition',
+      args: [staker1Account.address],
+    }) as { pendingFees: bigint };
+    
+    const position2 = await readContract(publicClient, {
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'getPosition',
+      args: [staker2Account.address],
+    }) as { pendingFees: bigint };
     
     console.log('Pending Fees After Distribution:');
-    console.log(`  Staker1: ${ethers.formatEther(position1.pendingFees)} tokens`);
-    console.log(`  Staker2: ${ethers.formatEther(position2.pendingFees)} tokens`);
+    console.log(`  Staker1: ${formatEther(position1.pendingFees)} tokens`);
+    console.log(`  Staker2: ${formatEther(position2.pendingFees)} tokens`);
     
     // Staker1 has 5/8 of ETH (62.5%) and 1000/1500 of tokens (66.67%)
     // ETH fees: 70 * 5/8 = 43.75
@@ -278,7 +303,7 @@ describe('Staking - Fee Distribution', () => {
     const expectedTotal = ethPoolFees + tokenPoolFees;
     
     // Allow small rounding difference
-    expect(totalFees).toBeGreaterThan(expectedTotal - ethers.parseEther('0.01'));
+    expect(totalFees).toBeGreaterThan(expectedTotal - parseEther('0.01'));
     expect(totalFees).toBeLessThanOrEqual(expectedTotal);
     
     // Staker1 should have more fees (larger stake)
@@ -286,32 +311,78 @@ describe('Staking - Fee Distribution', () => {
   });
 
   test('should allow stakers to claim fees', async () => {
-    const staker1Staking = staking.connect(staker1);
-    const staker2Staking = staking.connect(staker2);
+    const stakingAbi = parseAbi(STAKING_ABI);
+    const stakingTokenAbi = parseAbi(STAKING_TOKEN_ABI);
     
-    const balanceBefore1 = await stakingToken.balanceOf(staker1.address);
-    const balanceBefore2 = await stakingToken.balanceOf(staker2.address);
+    const balanceBefore1 = await readContract(publicClient, {
+      address: STAKING_TOKEN_ADDRESS as Address,
+      abi: stakingTokenAbi,
+      functionName: 'balanceOf',
+      args: [staker1Account.address],
+    }) as bigint;
+    
+    const balanceBefore2 = await readContract(publicClient, {
+      address: STAKING_TOKEN_ADDRESS as Address,
+      abi: stakingTokenAbi,
+      functionName: 'balanceOf',
+      args: [staker2Account.address],
+    }) as bigint;
     
     // Claim fees
-    await (await staker1Staking.claimFees()).wait();
-    await (await staker2Staking.claimFees()).wait();
+    const claim1Hash = await staker1WalletClient.writeContract({
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'claimFees',
+      args: [],
+    });
+    await waitForTransactionReceipt(publicClient, { hash: claim1Hash });
     
-    const balanceAfter1 = await stakingToken.balanceOf(staker1.address);
-    const balanceAfter2 = await stakingToken.balanceOf(staker2.address);
+    const claim2Hash = await staker2WalletClient.writeContract({
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'claimFees',
+      args: [],
+    });
+    await waitForTransactionReceipt(publicClient, { hash: claim2Hash });
+    
+    const balanceAfter1 = await readContract(publicClient, {
+      address: STAKING_TOKEN_ADDRESS as Address,
+      abi: stakingTokenAbi,
+      functionName: 'balanceOf',
+      args: [staker1Account.address],
+    }) as bigint;
+    
+    const balanceAfter2 = await readContract(publicClient, {
+      address: STAKING_TOKEN_ADDRESS as Address,
+      abi: stakingTokenAbi,
+      functionName: 'balanceOf',
+      args: [staker2Account.address],
+    }) as bigint;
     
     const claimed1 = balanceAfter1 - balanceBefore1;
     const claimed2 = balanceAfter2 - balanceBefore2;
     
     console.log('\nFees Claimed:');
-    console.log(`  Staker1: ${ethers.formatEther(claimed1)} tokens`);
-    console.log(`  Staker2: ${ethers.formatEther(claimed2)} tokens`);
+    console.log(`  Staker1: ${formatEther(claimed1)} tokens`);
+    console.log(`  Staker2: ${formatEther(claimed2)} tokens`);
     
     expect(claimed1).toBeGreaterThan(0n);
     expect(claimed2).toBeGreaterThan(0n);
     
     // Verify pending fees are now 0
-    const position1 = await staking.getPosition(staker1.address);
-    const position2 = await staking.getPosition(staker2.address);
+    const position1 = await readContract(publicClient, {
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'getPosition',
+      args: [staker1Account.address],
+    }) as { pendingFees: bigint };
+    
+    const position2 = await readContract(publicClient, {
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'getPosition',
+      args: [staker2Account.address],
+    }) as { pendingFees: bigint };
     
     expect(position1.pendingFees).toBe(0n);
     expect(position2.pendingFees).toBe(0n);
@@ -323,23 +394,50 @@ describe('Staking - Multiple Fee Distributions', () => {
     console.log('\n📈 Testing multiple fee distributions...\n');
     
     // Distribute fees 3 times
-    const feeAmount = ethers.parseEther('10');
+    const feeAmount = parseEther('10');
+    
+    const stakingAbi = parseAbi(STAKING_ABI);
+    const stakingTokenAbi = parseAbi(STAKING_TOKEN_ABI);
     
     for (let i = 0; i < 3; i++) {
-      await (await stakingToken.approve(STAKING_ADDRESS, feeAmount * 2n)).wait();
-      await (await staking.distributeFees(feeAmount, feeAmount)).wait();
+      const approveHash = await deployerWalletClient.writeContract({
+        address: STAKING_TOKEN_ADDRESS as Address,
+        abi: stakingTokenAbi,
+        functionName: 'approve',
+        args: [STAKING_ADDRESS as Address, feeAmount * 2n],
+      });
+      await waitForTransactionReceipt(publicClient, { hash: approveHash });
+      
+      const distributeHash = await deployerWalletClient.writeContract({
+        address: STAKING_ADDRESS as Address,
+        abi: stakingAbi,
+        functionName: 'distributeFees',
+        args: [feeAmount, feeAmount],
+      });
+      await waitForTransactionReceipt(publicClient, { hash: distributeHash });
     }
     
-    const position1 = await staking.getPosition(staker1.address);
-    const position2 = await staking.getPosition(staker2.address);
+    const position1 = await readContract(publicClient, {
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'getPosition',
+      args: [staker1Account.address],
+    }) as { pendingFees: bigint };
+    
+    const position2 = await readContract(publicClient, {
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'getPosition',
+      args: [staker2Account.address],
+    }) as { pendingFees: bigint };
     
     console.log('Accumulated Fees (3 distributions):');
-    console.log(`  Staker1: ${ethers.formatEther(position1.pendingFees)} tokens`);
-    console.log(`  Staker2: ${ethers.formatEther(position2.pendingFees)} tokens`);
+    console.log(`  Staker1: ${formatEther(position1.pendingFees)} tokens`);
+    console.log(`  Staker2: ${formatEther(position2.pendingFees)} tokens`);
     
     // Should have accumulated ~60 tokens total (3 * 20)
     const totalPending = position1.pendingFees + position2.pendingFees;
-    const expectedMinimum = ethers.parseEther('59'); // Allow for rounding
+    const expectedMinimum = parseEther('59'); // Allow for rounding
     
     expect(totalPending).toBeGreaterThan(expectedMinimum);
   });
@@ -349,39 +447,60 @@ describe('Staking - Unbonding Flow', () => {
   test('should allow starting unbonding', async () => {
     console.log('\n⏳ Testing unbonding flow...\n');
     
-    const staker1Staking = staking.connect(staker1);
+    const stakingAbi = parseAbi(STAKING_ABI);
     
     // Claim any pending fees first
-    await (await staker1Staking.claimFees()).wait();
+    const claimHash = await staker1WalletClient.writeContract({
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'claimFees',
+      args: [],
+    });
+    await waitForTransactionReceipt(publicClient, { hash: claimHash });
     
     // Start unbonding half the stake
-    const ethToUnbond = ethers.parseEther('2.5');
-    const tokensToUnbond = ethers.parseEther('500');
+    const ethToUnbond = parseEther('2.5');
+    const tokensToUnbond = parseEther('500');
     
-    const unbondTx = await staker1Staking.startUnbonding(ethToUnbond, tokensToUnbond);
-    await unbondTx.wait();
+    const unbondHash = await staker1WalletClient.writeContract({
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'startUnbonding',
+      args: [ethToUnbond, tokensToUnbond],
+    });
+    await waitForTransactionReceipt(publicClient, { hash: unbondHash });
     
-    const position = await staking.getPosition(staker1.address);
+    const position = await readContract(publicClient, {
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'getPosition',
+      args: [staker1Account.address],
+    }) as { ethStaked: bigint; tokensStaked: bigint; unbondingETH: bigint; unbondingTokens: bigint; unbondingCompleteTime: bigint };
     
     console.log('Staker1 After Unbonding Started:');
-    console.log(`  ETH Still Staked: ${ethers.formatEther(position.ethStaked)} ETH`);
-    console.log(`  Tokens Still Staked: ${ethers.formatEther(position.tokensStaked)} tokens`);
-    console.log(`  ETH Unbonding: ${ethers.formatEther(position.unbondingETH)} ETH`);
-    console.log(`  Tokens Unbonding: ${ethers.formatEther(position.unbondingTokens)} tokens`);
+    console.log(`  ETH Still Staked: ${formatEther(position.ethStaked)} ETH`);
+    console.log(`  Tokens Still Staked: ${formatEther(position.tokensStaked)} tokens`);
+    console.log(`  ETH Unbonding: ${formatEther(position.unbondingETH)} ETH`);
+    console.log(`  Tokens Unbonding: ${formatEther(position.unbondingTokens)} tokens`);
     console.log(`  Unbonding Complete At: ${new Date(Number(position.unbondingCompleteTime) * 1000).toISOString()}`);
     
-    expect(position.ethStaked).toBe(ethers.parseEther('2.5'));
-    expect(position.tokensStaked).toBe(ethers.parseEther('500'));
+    expect(position.ethStaked).toBe(parseEther('2.5'));
+    expect(position.tokensStaked).toBe(parseEther('500'));
     expect(position.unbondingETH).toBe(ethToUnbond);
     expect(position.unbondingTokens).toBe(tokensToUnbond);
   });
 
   test('should reject early unstaking', async () => {
-    const staker1Staking = staking.connect(staker1);
+    const stakingAbi = parseAbi(STAKING_ABI);
     
     let reverted = false;
     try {
-      await staker1Staking.completeUnstaking();
+      await staker1WalletClient.writeContract({
+        address: STAKING_ADDRESS as Address,
+        abi: stakingAbi,
+        functionName: 'completeUnstaking',
+        args: [],
+      });
     } catch (e) {
       reverted = true;
     }
@@ -391,17 +510,22 @@ describe('Staking - Unbonding Flow', () => {
   });
 
   test('should reflect reduced staking in pool stats', async () => {
-    const stats = await staking.getPoolStats();
+    const stakingAbi = parseAbi(STAKING_ABI);
+    const stats = await readContract(publicClient, {
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'getPoolStats',
+    }) as { totalETH: bigint; totalTokens: bigint };
     
     console.log('\nPool Stats After Unbonding Started:');
-    console.log(`  Total ETH: ${ethers.formatEther(stats.totalETH)} ETH`);
-    console.log(`  Total Tokens: ${ethers.formatEther(stats.totalTokens)} tokens`);
+    console.log(`  Total ETH: ${formatEther(stats.totalETH)} ETH`);
+    console.log(`  Total Tokens: ${formatEther(stats.totalTokens)} tokens`);
     
     // Should be reduced by unbonding amounts
     // Original: 8 ETH, 1500 tokens
     // After unbonding: 5.5 ETH (8 - 2.5), 1000 tokens (1500 - 500)
-    expect(stats.totalETH).toBe(ethers.parseEther('5.5'));
-    expect(stats.totalTokens).toBe(ethers.parseEther('1000'));
+    expect(stats.totalETH).toBe(parseEther('5.5'));
+    expect(stats.totalTokens).toBe(parseEther('1000'));
   });
 });
 
@@ -409,12 +533,22 @@ describe('Staking - Fee Share Calculation Verification', () => {
   test('should verify fee per share calculations', async () => {
     console.log('\n🔢 Verifying fee per share calculations...\n');
     
-    const ethFeesPerShare = await staking.ethFeesPerShare();
-    const tokenFeesPerShare = await staking.tokenFeesPerShare();
+    const stakingAbi = parseAbi(STAKING_ABI);
+    const ethFeesPerShare = await readContract(publicClient, {
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'ethFeesPerShare',
+    }) as bigint;
+    
+    const tokenFeesPerShare = await readContract(publicClient, {
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'tokenFeesPerShare',
+    }) as bigint;
     
     console.log('Per-Share Accumulators:');
-    console.log(`  ETH Fees Per Share: ${ethers.formatEther(ethFeesPerShare)}`);
-    console.log(`  Token Fees Per Share: ${ethers.formatEther(tokenFeesPerShare)}`);
+    console.log(`  ETH Fees Per Share: ${formatEther(ethFeesPerShare)}`);
+    console.log(`  Token Fees Per Share: ${formatEther(tokenFeesPerShare)}`);
     
     // These should be non-zero after distributions
     expect(ethFeesPerShare).toBeGreaterThan(0n);
@@ -425,19 +559,40 @@ describe('Staking - Fee Share Calculation Verification', () => {
     // Formula: userFees = userShares * (currentFeesPerShare - lastPaidFeesPerShare) / PRECISION
     // This is verified by checking the actual fee accumulation matches expected
     
-    const totalETH = await staking.totalETHStaked();
-    const totalTokens = await staking.totalTokensStaked();
+    const stakingAbi = parseAbi(STAKING_ABI);
+    const totalETH = await readContract(publicClient, {
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'totalETHStaked',
+    }) as bigint;
+    
+    const totalTokens = await readContract(publicClient, {
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'totalTokensStaked',
+    }) as bigint;
     
     console.log('\nTotal Stakes for Verification:');
-    console.log(`  Total ETH: ${ethers.formatEther(totalETH)} ETH`);
-    console.log(`  Total Tokens: ${ethers.formatEther(totalTokens)} tokens`);
+    console.log(`  Total ETH: ${formatEther(totalETH)} ETH`);
+    console.log(`  Total Tokens: ${formatEther(totalTokens)} tokens`);
     
     // The fee distribution should be:
     // - For ETH stakers: proportional to ethStaked / totalETHStaked
     // - For Token stakers: proportional to tokensStaked / totalTokensStaked
     
-    const position1 = await staking.getPosition(staker1.address);
-    const position2 = await staking.getPosition(staker2.address);
+    const position1 = await readContract(publicClient, {
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'getPosition',
+      args: [staker1Account.address],
+    }) as { ethStaked: bigint };
+    
+    const position2 = await readContract(publicClient, {
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'getPosition',
+      args: [staker2Account.address],
+    }) as { ethStaked: bigint };
     
     // Calculate expected ratios
     const staker1EthRatio = Number(position1.ethStaked) / Number(totalETH);
@@ -454,9 +609,15 @@ describe('Staking - Fee Share Calculation Verification', () => {
 
 describe('Staking - Edge Cases', () => {
   test('should handle zero fee distribution gracefully', async () => {
+    const stakingAbi = parseAbi(STAKING_ABI);
     let reverted = false;
     try {
-      await staking.distributeFees(0n, 0n);
+      await deployerWalletClient.writeContract({
+        address: STAKING_ADDRESS as Address,
+        abi: stakingAbi,
+        functionName: 'distributeFees',
+        args: [0n, 0n],
+      });
     } catch (e) {
       reverted = true;
     }
@@ -466,8 +627,20 @@ describe('Staking - Edge Cases', () => {
   });
 
   test('should track active stakers correctly', async () => {
-    const position1 = await staking.getPosition(staker1.address);
-    const position2 = await staking.getPosition(staker2.address);
+    const stakingAbi = parseAbi(STAKING_ABI);
+    const position1 = await readContract(publicClient, {
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'getPosition',
+      args: [staker1Account.address],
+    }) as { isActive: boolean };
+    
+    const position2 = await readContract(publicClient, {
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'getPosition',
+      args: [staker2Account.address],
+    }) as { isActive: boolean };
     
     expect(position1.isActive).toBe(true);
     expect(position2.isActive).toBe(true);
@@ -481,23 +654,40 @@ describe('Staking - Summary', () => {
     console.log('\n📋 FINAL STATE SUMMARY\n');
     console.log('='.repeat(50));
     
-    const stats = await staking.getPoolStats();
-    const position1 = await staking.getPosition(staker1.address);
-    const position2 = await staking.getPosition(staker2.address);
+    const stakingAbi = parseAbi(STAKING_ABI);
+    const stats = await readContract(publicClient, {
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'getPoolStats',
+    }) as { totalETH: bigint; totalTokens: bigint; availableETH: bigint; availableTokens: bigint };
+    
+    const position1 = await readContract(publicClient, {
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'getPosition',
+      args: [staker1Account.address],
+    }) as { ethStaked: bigint; tokensStaked: bigint; pendingFees: bigint };
+    
+    const position2 = await readContract(publicClient, {
+      address: STAKING_ADDRESS as Address,
+      abi: stakingAbi,
+      functionName: 'getPosition',
+      args: [staker2Account.address],
+    }) as { ethStaked: bigint; tokensStaked: bigint; pendingFees: bigint };
     
     console.log('\nPool Statistics:');
-    console.log(`  Total ETH Staked: ${ethers.formatEther(stats.totalETH)} ETH`);
-    console.log(`  Total Tokens Staked: ${ethers.formatEther(stats.totalTokens)} tokens`);
-    console.log(`  Available ETH (80% max): ${ethers.formatEther(stats.availableETH)} ETH`);
-    console.log(`  Available Tokens (70% max): ${ethers.formatEther(stats.availableTokens)} tokens`);
+    console.log(`  Total ETH Staked: ${formatEther(stats.totalETH)} ETH`);
+    console.log(`  Total Tokens Staked: ${formatEther(stats.totalTokens)} tokens`);
+    console.log(`  Available ETH (80% max): ${formatEther(stats.availableETH)} ETH`);
+    console.log(`  Available Tokens (70% max): ${formatEther(stats.availableTokens)} tokens`);
     
     console.log('\nStaker Positions:');
-    console.log(`  Staker1: ${ethers.formatEther(position1.ethStaked)} ETH, ${ethers.formatEther(position1.tokensStaked)} tokens`);
-    console.log(`  Staker2: ${ethers.formatEther(position2.ethStaked)} ETH, ${ethers.formatEther(position2.tokensStaked)} tokens`);
+    console.log(`  Staker1: ${formatEther(position1.ethStaked)} ETH, ${formatEther(position1.tokensStaked)} tokens`);
+    console.log(`  Staker2: ${formatEther(position2.ethStaked)} ETH, ${formatEther(position2.tokensStaked)} tokens`);
     
     console.log('\nPending Fees:');
-    console.log(`  Staker1: ${ethers.formatEther(position1.pendingFees)} tokens`);
-    console.log(`  Staker2: ${ethers.formatEther(position2.pendingFees)} tokens`);
+    console.log(`  Staker1: ${formatEther(position1.pendingFees)} tokens`);
+    console.log(`  Staker2: ${formatEther(position2.pendingFees)} tokens`);
     
     console.log('\n' + '='.repeat(50));
     console.log('✅ All staking tests passed!');

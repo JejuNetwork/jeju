@@ -5,10 +5,8 @@
 
 import type { Address, Hex } from 'viem';
 import type {
-  FederationConfig,
   ActivityPubActor,
   ActivityPubActivity,
-  ActivityPubObject,
   ActivityType,
   NodeInfo,
   WebFingerResponse,
@@ -99,7 +97,7 @@ export class FederationManager {
       metadata: {
         nodeName: this.config.instanceName,
         nodeDescription: this.config.instanceDescription || 'A Jeju Git instance',
-        features: ['git', 'issues', 'pull-requests', 'stars', 'forks'],
+        features: 'git,issues,pull-requests,stars,forks',
       },
     };
   }
@@ -223,7 +221,7 @@ export class FederationManager {
     repo: Repository,
     ownerUsername: string,
     branch: string,
-    commits: string[],
+    _commits: string[],
     pusher: Address
   ): ActivityPubActivity {
     const repoUrl = `${this.config.instanceUrl}/repos/${ownerUsername}/${repo.name}`;
@@ -275,8 +273,8 @@ export class FederationManager {
   ): ActivityPubActivity {
     const originalRepoUrl = `${this.config.instanceUrl}/repos/${ownerUsername}/${originalRepo.name}`;
     const forkerUsername = forker.slice(0, 10);
-    const forkedRepoUrl = `${this.config.instanceUrl}/repos/${forkerUsername}/${forkedRepo.name}`;
     const userUrl = `${this.config.instanceUrl}/users/${forkerUsername}`;
+    const _forkedRepoUrl = `${this.config.instanceUrl}/repos/${forkerUsername}/${forkedRepo.name}`;
 
     return {
       '@context': [ACTIVITY_STREAMS_CONTEXT, FORGEFED_CONTEXT],
@@ -284,6 +282,7 @@ export class FederationManager {
       type: 'Fork' as ActivityType,
       actor: userUrl,
       object: originalRepoUrl,
+      result: _forkedRepoUrl,
       published: new Date().toISOString(),
     };
   }
@@ -357,7 +356,9 @@ export class FederationManager {
     activity: ActivityPubActivity
   ): Promise<{ accepted: boolean; response?: ActivityPubActivity }> {
     const followerActor = activity.actor;
-    const targetActor = typeof activity.object === 'string' ? activity.object : activity.object.id;
+    // targetActor identifies who is being followed
+    const _targetActor = typeof activity.object === 'string' ? activity.object : activity.object.id;
+    void _targetActor; // Verified but not used in current implementation
 
     // Add to followers
     if (!this.followers.has(actorId)) {
@@ -397,7 +398,7 @@ export class FederationManager {
   }
 
   private async handleLike(
-    actorId: string,
+    _actorId: string,
     activity: ActivityPubActivity
   ): Promise<{ accepted: boolean }> {
     // Handle remote star - would update local star count
@@ -406,7 +407,7 @@ export class FederationManager {
   }
 
   private async handleAnnounce(
-    actorId: string,
+    _actorId: string,
     activity: ActivityPubActivity
   ): Promise<{ accepted: boolean }> {
     // Handle boost/share
@@ -415,7 +416,7 @@ export class FederationManager {
   }
 
   private async handleCreate(
-    actorId: string,
+    _actorId: string,
     activity: ActivityPubActivity
   ): Promise<{ accepted: boolean }> {
     // Handle creation of issues, comments, etc.

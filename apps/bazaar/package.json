@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@babylon/shared": "workspace:vendor/babylon/packages/shared",
+    "@jejunetwork/oauth3": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/contracts": "workspace:*",

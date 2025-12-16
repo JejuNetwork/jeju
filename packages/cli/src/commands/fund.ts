@@ -5,8 +5,12 @@
 import { Command } from 'commander';
 import { createPublicClient, createWalletClient, http, parseEther, formatEther } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
+import { execa } from 'execa';
+import { existsSync } from 'fs';
+import { join } from 'path';
 import { logger } from '../lib/logger';
 import { checkRpcHealth } from '../lib/chain';
+import { findMonorepoRoot } from '../lib/system';
 import { DEFAULT_PORTS, WELL_KNOWN_KEYS } from '../types';
 
 const localnetChain = {
@@ -17,11 +21,18 @@ const localnetChain = {
 } as const;
 
 export const fundCommand = new Command('fund')
-  .description('Fund accounts (localnet faucet)')
+  .description('Fund accounts (localnet faucet or testnet deployer)')
   .argument('[address]', 'Address to fund')
   .option('-a, --amount <eth>', 'Amount in ETH', '10')
   .option('--all', 'Fund all dev accounts')
+  .option('--testnet', 'Fund testnet deployer across all testnets')
+  .option('--bridge', 'Bridge ETH to L2s (use with --testnet)')
   .action(async (address, options) => {
+    // Handle testnet deployer funding
+    if (options.testnet) {
+      await fundTestnetDeployer(options.bridge);
+      return;
+    }
     const rpcUrl = `http://127.0.0.1:${DEFAULT_PORTS.l2Rpc}`;
 
     const isHealthy = await checkRpcHealth(rpcUrl, 3000);
@@ -170,4 +181,22 @@ async function showBalances(rpcUrl: string): Promise<void> {
   logger.newline();
   logger.info('Fund address:  jeju fund 0x...');
   logger.info('Fund all:      jeju fund --all');
+}
+
+async function fundTestnetDeployer(bridge: boolean): Promise<void> {
+  const rootDir = findMonorepoRoot();
+  const scriptPath = join(rootDir, 'scripts/keys/fund-testnet-deployer.ts');
+  
+  if (!existsSync(scriptPath)) {
+    logger.error('Fund testnet deployer script not found');
+    return;
+  }
+
+  const args: string[] = [];
+  if (bridge) args.push('--bridge');
+
+  await execa('bun', ['run', scriptPath, ...args], {
+    cwd: rootDir,
+    stdio: 'inherit',
+  });
 }

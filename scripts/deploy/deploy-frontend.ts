@@ -1,11 +1,13 @@
 #!/usr/bin/env bun
 /**
+ * @internal Used by CLI: `jeju deploy frontend <name>`
+ * 
  * Deploy Frontend to IPFS + JNS
  * 
  * Builds a frontend app, uploads to IPFS, and updates the JNS contenthash.
  * 
  * Usage:
- *   bun scripts/deploy-frontend.ts <app-name> [--network localnet|testnet|mainnet]
+ *   jeju deploy frontend <app-name> [--network localnet|testnet|mainnet]
  * 
  * Examples:
  *   bun scripts/deploy-frontend.ts leaderboard

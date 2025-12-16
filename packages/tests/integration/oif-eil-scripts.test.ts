@@ -6,7 +6,8 @@
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
-import { ethers } from 'ethers';
+import { createPublicClient, http, parseAbi, readContract, getCode, getChainId, getBlockNumber, formatEther, parseEther, zeroAddress, getAddress, type Address, type PublicClient } from 'viem';
+import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
 
@@ -62,17 +63,17 @@ describe('RPC Connectivity', () => {
   const testnetChains = getChainIds('testnet');
 
   test.each(testnetChains.filter(id => id !== 420690))('should connect to chain %i', async (chainId) => {
-    const provider = new ethers.JsonRpcProvider(rpcUrl(chainId), undefined, { staticNetwork: true });
-    const network = await provider.getNetwork();
-    expect(Number(network.chainId)).toBe(chainId);
+    const chain = inferChainFromRpcUrl(rpcUrl(chainId));
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl(chainId)) });
+    const actualChainId = await getChainId(publicClient);
+    expect(actualChainId).toBe(chainId);
   });
 
   test('should timeout gracefully on unreachable RPC', async () => {
-    const provider = new ethers.JsonRpcProvider('https://nonexistent.invalid', undefined, {
-      staticNetwork: true,
-    });
+    const chain = inferChainFromRpcUrl('https://nonexistent.invalid');
+    const publicClient = createPublicClient({ chain, transport: http('https://nonexistent.invalid') });
     
-    await expect(provider.getBlockNumber()).rejects.toThrow();
+    await expect(getBlockNumber(publicClient)).rejects.toThrow();
   });
 });
 
@@ -87,16 +88,24 @@ describe('OIF Contract Verification', () => {
   });
 
   test.each(deployedChains)('chain $chainId: SolverRegistry has code', async ({ chainId, contracts }) => {
-    const provider = new ethers.JsonRpcProvider(rpcUrl(chainId), undefined, { staticNetwork: true });
-    const code = await provider.getCode(contracts.solverRegistry);
+    const chain = inferChainFromRpcUrl(rpcUrl(chainId));
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl(chainId)) });
+    const code = await getCode(publicClient, { address: contracts.solverRegistry as Address });
     expect(code.length).toBeGreaterThan(2);
   });
 
   test.each(deployedChains)('chain $chainId: SolverRegistry.getStats() returns valid data', async ({ chainId, contracts }) => {
-    const provider = new ethers.JsonRpcProvider(rpcUrl(chainId), undefined, { staticNetwork: true });
-    const registry = new ethers.Contract(contracts.solverRegistry, SOLVER_REGISTRY_ABI, provider);
+    const chain = inferChainFromRpcUrl(rpcUrl(chainId));
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl(chainId)) });
+    const registryAbi = parseAbi(SOLVER_REGISTRY_ABI);
     
-    const [totalStaked, totalSlashed, activeSolvers] = await registry.getStats();
+    const result = await readContract(publicClient, {
+      address: contracts.solverRegistry as Address,
+      abi: registryAbi,
+      functionName: 'getStats',
+    }) as [bigint, bigint, bigint];
+    
+    const [totalStaked, totalSlashed, activeSolvers] = result;
     
     expect(typeof totalStaked).toBe('bigint');
     expect(typeof totalSlashed).toBe('bigint');
@@ -108,34 +117,47 @@ describe('OIF Contract Verification', () => {
   });
 
   test.each(deployedChains)('chain $chainId: MIN_STAKE is reasonable', async ({ chainId, contracts }) => {
-    const provider = new ethers.JsonRpcProvider(rpcUrl(chainId), undefined, { staticNetwork: true });
-    const registry = new ethers.Contract(contracts.solverRegistry, SOLVER_REGISTRY_ABI, provider);
+    const chain = inferChainFromRpcUrl(rpcUrl(chainId));
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl(chainId)) });
+    const registryAbi = parseAbi(SOLVER_REGISTRY_ABI);
     
-    const minStake = await registry.MIN_STAKE();
+    const minStake = await readContract(publicClient, {
+      address: contracts.solverRegistry as Address,
+      abi: registryAbi,
+      functionName: 'MIN_STAKE',
+    }) as bigint;
     
     expect(minStake).toBeGreaterThan(0n);
-    expect(minStake).toBeLessThanOrEqual(ethers.parseEther('100')); // Sanity check
+    expect(minStake).toBeLessThanOrEqual(parseEther('100')); // Sanity check
   });
 
   test.each(deployedChains)('chain $chainId: isSolverActive returns bool for zero address', async ({ chainId, contracts }) => {
-    const provider = new ethers.JsonRpcProvider(rpcUrl(chainId), undefined, { staticNetwork: true });
-    const registry = new ethers.Contract(contracts.solverRegistry, SOLVER_REGISTRY_ABI, provider);
+    const chain = inferChainFromRpcUrl(rpcUrl(chainId));
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl(chainId)) });
+    const registryAbi = parseAbi(SOLVER_REGISTRY_ABI);
     
-    const isActive = await registry.isSolverActive(ethers.ZeroAddress);
+    const isActive = await readContract(publicClient, {
+      address: contracts.solverRegistry as Address,
+      abi: registryAbi,
+      functionName: 'isSolverActive',
+      args: [zeroAddress],
+    }) as boolean;
     
     expect(typeof isActive).toBe('boolean');
     expect(isActive).toBe(false); // Zero address should never be active
   });
 
   test.each(deployedChains)('chain $chainId: InputSettler has code', async ({ chainId, contracts }) => {
-    const provider = new ethers.JsonRpcProvider(rpcUrl(chainId), undefined, { staticNetwork: true });
-    const code = await provider.getCode(contracts.inputSettler);
+    const chain = inferChainFromRpcUrl(rpcUrl(chainId));
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl(chainId)) });
+    const code = await getCode(publicClient, { address: contracts.inputSettler as Address });
     expect(code.length).toBeGreaterThan(2);
   });
 
   test.each(deployedChains)('chain $chainId: OutputSettler has code', async ({ chainId, contracts }) => {
-    const provider = new ethers.JsonRpcProvider(rpcUrl(chainId), undefined, { staticNetwork: true });
-    const code = await provider.getCode(contracts.outputSettler);
+    const chain = inferChainFromRpcUrl(rpcUrl(chainId));
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl(chainId)) });
+    const code = await getCode(publicClient, { address: contracts.outputSettler as Address });
     expect(code.length).toBeGreaterThan(2);
   });
 });
@@ -154,8 +176,9 @@ describe('EIL Contract Verification', () => {
     }
 
     const hubChainId = eilConfig.hub.chainId;
-    const provider = new ethers.JsonRpcProvider(rpcUrl(hubChainId), undefined, { staticNetwork: true });
-    const code = await provider.getCode(eilConfig.hub.l1StakeManager);
+    const chain = inferChainFromRpcUrl(rpcUrl(hubChainId));
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl(hubChainId)) });
+    const code = await getCode(publicClient, { address: eilConfig.hub.l1StakeManager as Address });
     
     expect(code.length).toBeGreaterThan(2);
   });
@@ -163,10 +186,17 @@ describe('EIL Contract Verification', () => {
   test('L1StakeManager.getProtocolStats() returns valid data', async () => {
     if (!eilConfig?.hub?.l1StakeManager) return;
 
-    const provider = new ethers.JsonRpcProvider(rpcUrl(eilConfig.hub.chainId), undefined, { staticNetwork: true });
-    const manager = new ethers.Contract(eilConfig.hub.l1StakeManager, L1_STAKE_MANAGER_ABI, provider);
+    const chain = inferChainFromRpcUrl(rpcUrl(eilConfig.hub.chainId));
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl(eilConfig.hub.chainId)) });
+    const managerAbi = parseAbi(L1_STAKE_MANAGER_ABI);
     
-    const [totalStaked, totalSlashed, activeXLPs] = await manager.getProtocolStats();
+    const result = await readContract(publicClient, {
+      address: eilConfig.hub.l1StakeManager as Address,
+      abi: managerAbi,
+      functionName: 'getProtocolStats',
+    }) as [bigint, bigint, bigint];
+    
+    const [totalStaked, totalSlashed, activeXLPs] = result;
     
     expect(typeof totalStaked).toBe('bigint');
     expect(typeof totalSlashed).toBe('bigint');
@@ -176,23 +206,34 @@ describe('EIL Contract Verification', () => {
   test('L1StakeManager.MIN_STAKE is reasonable', async () => {
     if (!eilConfig?.hub?.l1StakeManager) return;
 
-    const provider = new ethers.JsonRpcProvider(rpcUrl(eilConfig.hub.chainId), undefined, { staticNetwork: true });
-    const manager = new ethers.Contract(eilConfig.hub.l1StakeManager, L1_STAKE_MANAGER_ABI, provider);
+    const chain = inferChainFromRpcUrl(rpcUrl(eilConfig.hub.chainId));
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl(eilConfig.hub.chainId)) });
+    const managerAbi = parseAbi(L1_STAKE_MANAGER_ABI);
     
-    const minStake = await manager.MIN_STAKE();
+    const minStake = await readContract(publicClient, {
+      address: eilConfig.hub.l1StakeManager as Address,
+      abi: managerAbi,
+      functionName: 'MIN_STAKE',
+    }) as bigint;
     
     expect(minStake).toBeGreaterThan(0n);
-    expect(minStake).toBeLessThanOrEqual(ethers.parseEther('100'));
+    expect(minStake).toBeLessThanOrEqual(parseEther('100'));
   });
 
   test('L1StakeManager.l2Paymasters() returns address (may be zero)', async () => {
     if (!eilConfig?.hub?.l1StakeManager) return;
 
-    const provider = new ethers.JsonRpcProvider(rpcUrl(eilConfig.hub.chainId), undefined, { staticNetwork: true });
-    const manager = new ethers.Contract(eilConfig.hub.l1StakeManager, L1_STAKE_MANAGER_ABI, provider);
+    const chain = inferChainFromRpcUrl(rpcUrl(eilConfig.hub.chainId));
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl(eilConfig.hub.chainId)) });
+    const managerAbi = parseAbi(L1_STAKE_MANAGER_ABI);
     
     // Check for Base Sepolia
-    const paymaster = await manager.l2Paymasters(84532);
+    const paymaster = await readContract(publicClient, {
+      address: eilConfig.hub.l1StakeManager as Address,
+      abi: managerAbi,
+      functionName: 'l2Paymasters',
+      args: [84532],
+    }) as Address;
     
     expect(typeof paymaster).toBe('string');
     expect(paymaster).toMatch(/^0x[a-fA-F0-9]{40}$/);
@@ -201,10 +242,16 @@ describe('EIL Contract Verification', () => {
   test('L1StakeManager.isXLPActive returns false for zero address', async () => {
     if (!eilConfig?.hub?.l1StakeManager) return;
 
-    const provider = new ethers.JsonRpcProvider(rpcUrl(eilConfig.hub.chainId), undefined, { staticNetwork: true });
-    const manager = new ethers.Contract(eilConfig.hub.l1StakeManager, L1_STAKE_MANAGER_ABI, provider);
+    const chain = inferChainFromRpcUrl(rpcUrl(eilConfig.hub.chainId));
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl(eilConfig.hub.chainId)) });
+    const managerAbi = parseAbi(L1_STAKE_MANAGER_ABI);
     
-    const isActive = await manager.isXLPActive(ethers.ZeroAddress);
+    const isActive = await readContract(publicClient, {
+      address: eilConfig.hub.l1StakeManager as Address,
+      abi: managerAbi,
+      functionName: 'isXLPActive',
+      args: [zeroAddress],
+    }) as boolean;
     
     expect(isActive).toBe(false);
   });
@@ -245,7 +292,7 @@ describe('Config File Consistency', () => {
       for (const [name, address] of Object.entries(data.contracts)) {
         // Skip non-address values (e.g., "oracleType": "simple")
         if (!address || typeof address !== 'string' || !address.startsWith('0x') || address.length !== 42) continue;
-        const checksummed = ethers.getAddress(address);
+        const checksummed = getAddress(address);
         expect(address).toBe(checksummed);
       }
     }
@@ -300,16 +347,22 @@ describe('Cross-Chain Route Validation', () => {
 
 describe('Error Handling', () => {
   test('should handle invalid contract address gracefully', async () => {
-    const provider = new ethers.JsonRpcProvider(rpcUrl(11155111), undefined, { staticNetwork: true });
-    const registry = new ethers.Contract('0x0000000000000000000000000000000000000001', SOLVER_REGISTRY_ABI, provider);
+    const chain = inferChainFromRpcUrl(rpcUrl(11155111));
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl(11155111)) });
+    const registryAbi = parseAbi(SOLVER_REGISTRY_ABI);
     
     // This should fail because there's no contract at this address
-    await expect(registry.getStats()).rejects.toThrow();
+    await expect(readContract(publicClient, {
+      address: '0x0000000000000000000000000000000000000001' as Address,
+      abi: registryAbi,
+      functionName: 'getStats',
+    })).rejects.toThrow();
   });
 
   test('should detect when contract has no code', async () => {
-    const provider = new ethers.JsonRpcProvider(rpcUrl(11155111), undefined, { staticNetwork: true });
-    const code = await provider.getCode('0x0000000000000000000000000000000000000001');
+    const chain = inferChainFromRpcUrl(rpcUrl(11155111));
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl(11155111)) });
+    const code = await getCode(publicClient, { address: '0x0000000000000000000000000000000000000001' as Address });
     
     expect(code).toBe('0x');
   });
@@ -326,15 +379,16 @@ describe('Concurrent Operations', () => {
     
     const results = await Promise.all(
       chainIds.map(async (chainId) => {
-        const provider = new ethers.JsonRpcProvider(rpcUrl(chainId), undefined, { staticNetwork: true });
-        const blockNumber = await provider.getBlockNumber();
+        const chain = inferChainFromRpcUrl(rpcUrl(chainId));
+        const publicClient = createPublicClient({ chain, transport: http(rpcUrl(chainId)) });
+        const blockNumber = await getBlockNumber(publicClient);
         return { chainId, blockNumber };
       })
     );
     
     expect(results).toHaveLength(2);
     for (const result of results) {
-      expect(result.blockNumber).toBeGreaterThan(0);
+      expect(result.blockNumber).toBeGreaterThan(0n);
     }
   });
 
@@ -347,9 +401,14 @@ describe('Concurrent Operations', () => {
     const results = await Promise.all(
       deployed.map(async ([chainIdStr, data]) => {
         const chainId = Number(chainIdStr);
-        const provider = new ethers.JsonRpcProvider(rpcUrl(chainId), undefined, { staticNetwork: true });
-        const registry = new ethers.Contract(data.contracts!.solverRegistry, SOLVER_REGISTRY_ABI, provider);
-        const stats = await registry.getStats();
+        const chain = inferChainFromRpcUrl(rpcUrl(chainId));
+        const publicClient = createPublicClient({ chain, transport: http(rpcUrl(chainId)) });
+        const registryAbi = parseAbi(SOLVER_REGISTRY_ABI);
+        const stats = await readContract(publicClient, {
+          address: data.contracts!.solverRegistry as Address,
+          abi: registryAbi,
+          functionName: 'getStats',
+        }) as [bigint, bigint, bigint];
         return { chainId, stats };
       })
     );

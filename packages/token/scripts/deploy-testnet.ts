@@ -1,5 +1,7 @@
 #!/usr/bin/env bun
 /**
+ * @deprecated Use 'jeju token deploy testnet' instead
+ * 
  * Deploy experimental token contracts to testnet
  * 
  * This script integrates with Jeju's deployment infrastructure:
@@ -8,11 +10,8 @@
  * - Configures cross-chain warp routes
  * 
  * Usage:
- *   cd packages/token
- *   bun run scripts/deploy-testnet.ts
- * 
- * Or from Jeju root:
- *   bun run packages/token/scripts/deploy-testnet.ts
+ *   jeju token deploy testnet
+ *   jeju token deploy testnet --dry-run
  */
 
 import { createWalletClient, http, type Hex } from 'viem';

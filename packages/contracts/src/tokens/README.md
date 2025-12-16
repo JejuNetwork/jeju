@@ -2,6 +2,16 @@
 
 Canonical, consolidated token contracts for Jeju Network.
 
+## Contract Overview
+
+| Contract | Purpose |
+|----------|---------|
+| `Token.sol` | Full-featured ERC20 with fees, cross-chain, moderation |
+| `Presale.sol` | Fixed price or CCA auction presale with vesting |
+| `EIP3009Token.sol` | Lightweight ERC20 with gasless transfers |
+| `TokenFactory.sol` | Factory for deploying simple tokens |
+| `Faucet.sol` | Standalone testnet faucet |
+
 ## Contracts
 
 ### Token.sol

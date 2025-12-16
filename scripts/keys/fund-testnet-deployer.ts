@@ -1,5 +1,7 @@
 #!/usr/bin/env bun
 /**
+ * @internal Used by CLI: `jeju fund --testnet`
+ * 
  * Fund Testnet Deployer
  * 
  * Automated funding helper that:
@@ -14,7 +16,7 @@
 import { createPublicClient, createWalletClient, http, parseEther, formatEther, getBalance, readContract, writeContract, waitForTransactionReceipt, sendTransaction, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { parseAbi } from 'viem';
-import { inferChainFromRpcUrl } from './shared/chain-utils';
+import { inferChainFromRpcUrl } from '../shared/chain-utils';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 

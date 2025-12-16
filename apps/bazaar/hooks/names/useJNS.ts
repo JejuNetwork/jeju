@@ -312,35 +312,75 @@ export function useJNSListings() {
     setLoading(true);
     setError(null);
 
-    // In production, this would query the indexer or events
-    // For now, return mock data to demonstrate the UI
-    const mockListings: JNSNameListing[] = [
-      {
-        listingId: 1n,
-        name: 'premium',
-        labelhash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-        seller: '0x742d35Cc6634C0532925a3b844Bc9e7595f9E1Db' as Address,
-        price: parseEther('0.5'),
-        currency: 'ETH',
-        expiresAt: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
-        nameExpiresAt: Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60,
-        status: 'active',
-      },
-      {
-        listingId: 2n,
-        name: 'defi',
-        labelhash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
-        seller: '0x8Ba1f109551bD432803012645Hac136c52f4c7e4' as Address,
-        price: parseEther('0.25'),
-        currency: 'ETH',
-        expiresAt: Math.floor(Date.now() / 1000) + 14 * 24 * 60 * 60,
-        nameExpiresAt: Math.floor(Date.now() / 1000) + 180 * 24 * 60 * 60,
-        status: 'active',
-      },
-    ];
+    try {
+      // Query the indexer GraphQL API for active JNS listings
+      const indexerUrl = process.env.NEXT_PUBLIC_INDEXER_URL || 'http://localhost:4350/graphql';
+      
+      const query = `
+        query GetActiveJNSListings {
+          jnsListings(where: { status_eq: ACTIVE }, orderBy: createdAt_DESC, limit: 50) {
+            id
+            price
+            currency
+            status
+            expiresAt
+            name {
+              id
+              name
+              labelhash
+              expiresAt
+            }
+            seller {
+              id
+            }
+          }
+        }
+      `;
 
-    setListings(mockListings);
-    setLoading(false);
+      const response = await fetch(indexerUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Indexer error: ${response.status}`);
+      }
+
+      const { data } = await response.json() as {
+        data: {
+          jnsListings: Array<{
+            id: string;
+            price: string;
+            currency: string;
+            status: string;
+            expiresAt: string;
+            name: { id: string; name: string; labelhash: string; expiresAt: string };
+            seller: { id: string };
+          }>;
+        };
+      };
+
+      const fetchedListings: JNSNameListing[] = data.jnsListings.map((listing, index) => ({
+        listingId: BigInt(index + 1),
+        name: listing.name.name,
+        labelhash: listing.name.labelhash as `0x${string}`,
+        seller: listing.seller.id as Address,
+        price: BigInt(listing.price),
+        currency: listing.currency as 'ETH' | 'USDC',
+        expiresAt: Math.floor(new Date(listing.expiresAt).getTime() / 1000),
+        nameExpiresAt: Math.floor(new Date(listing.name.expiresAt).getTime() / 1000),
+        status: listing.status.toLowerCase() as 'active' | 'sold' | 'cancelled',
+      }));
+
+      setListings(fetchedListings);
+    } catch (err) {
+      console.error('Failed to fetch JNS listings:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch listings');
+      setListings([]);
+    } finally {
+      setLoading(false);
+    }
   }, [publicClient]);
 
   useEffect(() => {

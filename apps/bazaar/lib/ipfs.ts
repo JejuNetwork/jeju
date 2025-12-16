@@ -2,10 +2,10 @@
  * Storage Client for Bazaar
  * Uses DWS (Decentralized Web Services) for all storage operations
  */
-import { DWS_URL, IPFS_GATEWAY_URL } from '../config';
+import { IPFS_API_URL, IPFS_GATEWAY_URL } from '../config';
 
 // DWS storage endpoint
-const DWS_STORAGE = `${DWS_URL}/storage`;
+const DWS_STORAGE = IPFS_API_URL;
 const JEJU_IPFS_GATEWAY = IPFS_GATEWAY_URL;
 
 /**

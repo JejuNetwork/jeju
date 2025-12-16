@@ -246,53 +246,176 @@ class BridgeServiceImpl implements BridgeService {
   }
 
   async depositLiquidity(chainId: number, token: Address, amount: bigint): Promise<Hex> {
+    const rpcUrl = this.config.evmRpcUrls[chainId];
+    if (!rpcUrl) throw new Error(`No RPC URL configured for chain ${chainId}`);
     if (!this.config.contracts.federatedLiquidity) {
       throw new Error('FederatedLiquidity contract not configured');
+    }
+    if (!this.config.privateKey) {
+      throw new Error('Private key required for transactions');
     }
     
     console.log(`[Bridge] Depositing ${amount} of ${token} to chain ${chainId}`);
     
-    // Call FederatedLiquidity.depositLiquidity()
-    // This is a placeholder - actual implementation would use viem
-    return '0x' as Hex;
+    const { createWalletClient, createPublicClient, http, encodeFunctionData } = await import('viem');
+    const { privateKeyToAccount } = await import('viem/accounts');
+    
+    const account = privateKeyToAccount(this.config.privateKey);
+    const publicClient = createPublicClient({ transport: http(rpcUrl) });
+    const walletClient = createWalletClient({ account, transport: http(rpcUrl) });
+    
+    // First approve the token
+    const approveData = encodeFunctionData({
+      abi: [{ name: 'approve', type: 'function', inputs: [{ type: 'address' }, { type: 'uint256' }], outputs: [{ type: 'bool' }] }],
+      functionName: 'approve',
+      args: [this.config.contracts.federatedLiquidity, amount]
+    });
+    
+    const approveHash = await walletClient.sendTransaction({
+      to: token,
+      data: approveData,
+    });
+    await publicClient.waitForTransactionReceipt({ hash: approveHash });
+    
+    // Then deposit
+    const depositData = encodeFunctionData({
+      abi: [{ name: 'depositLiquidity', type: 'function', inputs: [{ type: 'address' }, { type: 'uint256' }], outputs: [] }],
+      functionName: 'depositLiquidity',
+      args: [token, amount]
+    });
+    
+    const hash = await walletClient.sendTransaction({
+      to: this.config.contracts.federatedLiquidity,
+      data: depositData,
+    });
+    
+    console.log(`[Bridge] Deposit tx: ${hash}`);
+    return hash;
   }
 
   async withdrawLiquidity(chainId: number, token: Address, amount: bigint): Promise<Hex> {
+    const rpcUrl = this.config.evmRpcUrls[chainId];
+    if (!rpcUrl) throw new Error(`No RPC URL configured for chain ${chainId}`);
     if (!this.config.contracts.federatedLiquidity) {
       throw new Error('FederatedLiquidity contract not configured');
+    }
+    if (!this.config.privateKey) {
+      throw new Error('Private key required for transactions');
     }
     
     console.log(`[Bridge] Withdrawing ${amount} of ${token} from chain ${chainId}`);
     
-    // Call FederatedLiquidity.withdrawLiquidity()
-    return '0x' as Hex;
+    const { createWalletClient, http, encodeFunctionData } = await import('viem');
+    const { privateKeyToAccount } = await import('viem/accounts');
+    
+    const account = privateKeyToAccount(this.config.privateKey);
+    const walletClient = createWalletClient({ account, transport: http(rpcUrl) });
+    
+    const data = encodeFunctionData({
+      abi: [{ name: 'withdrawLiquidity', type: 'function', inputs: [{ type: 'address' }, { type: 'uint256' }], outputs: [] }],
+      functionName: 'withdrawLiquidity',
+      args: [token, amount]
+    });
+    
+    const hash = await walletClient.sendTransaction({
+      to: this.config.contracts.federatedLiquidity,
+      data,
+    });
+    
+    console.log(`[Bridge] Withdraw tx: ${hash}`);
+    return hash;
   }
 
-  async getLiquidityBalance(chainId: number, _token?: Address): Promise<bigint> {
+  async getLiquidityBalance(chainId: number, token?: Address): Promise<bigint> {
+    const rpcUrl = this.config.evmRpcUrls[chainId];
+    if (!rpcUrl) throw new Error(`No RPC URL configured for chain ${chainId}`);
+    if (!this.config.contracts.federatedLiquidity) {
+      throw new Error('FederatedLiquidity contract not configured');
+    }
+    
     console.log(`[Bridge] Getting liquidity balance for chain ${chainId}`);
-    return 0n;
+    
+    const { createPublicClient, http } = await import('viem');
+    const publicClient = createPublicClient({ transport: http(rpcUrl) });
+    
+    const balance = await publicClient.readContract({
+      address: this.config.contracts.federatedLiquidity,
+      abi: [{ name: 'xlpDeposits', type: 'function', inputs: [{ type: 'address' }, { type: 'address' }], outputs: [{ type: 'uint256' }] }],
+      functionName: 'xlpDeposits',
+      args: [this.config.operatorAddress, token || '0x0000000000000000000000000000000000000000']
+    }) as bigint;
+    
+    return balance;
   }
 
   async registerAsSolver(name: string, supportedChains: number[]): Promise<Hex> {
     if (!this.config.contracts.solverRegistry) {
       throw new Error('SolverRegistry contract not configured');
     }
+    if (!this.config.privateKey) {
+      throw new Error('Private key required for transactions');
+    }
     
     console.log(`[Bridge] Registering as solver: ${name} for chains ${supportedChains}`);
     
-    // Call SolverRegistry.registerSolver()
-    return '0x' as Hex;
+    const chainId = Object.keys(this.config.evmRpcUrls)[0];
+    const rpcUrl = this.config.evmRpcUrls[Number(chainId)];
+    if (!rpcUrl) throw new Error('No RPC URL configured');
+    
+    const { createWalletClient, http, encodeFunctionData } = await import('viem');
+    const { privateKeyToAccount } = await import('viem/accounts');
+    
+    const account = privateKeyToAccount(this.config.privateKey);
+    const walletClient = createWalletClient({ account, transport: http(rpcUrl) });
+    
+    const data = encodeFunctionData({
+      abi: [{ name: 'registerSolver', type: 'function', inputs: [{ type: 'string' }, { type: 'uint256[]' }], outputs: [] }],
+      functionName: 'registerSolver',
+      args: [name, supportedChains.map(c => BigInt(c))]
+    });
+    
+    const hash = await walletClient.sendTransaction({
+      to: this.config.contracts.solverRegistry,
+      data,
+    });
+    
+    console.log(`[Bridge] Register solver tx: ${hash}`);
+    return hash;
   }
 
   async deactivateSolver(): Promise<Hex> {
     if (!this.config.contracts.solverRegistry) {
       throw new Error('SolverRegistry contract not configured');
     }
+    if (!this.config.privateKey) {
+      throw new Error('Private key required for transactions');
+    }
     
     console.log('[Bridge] Deactivating solver');
     
-    // Call SolverRegistry.deactivateSolver()
-    return '0x' as Hex;
+    const chainId = Object.keys(this.config.evmRpcUrls)[0];
+    const rpcUrl = this.config.evmRpcUrls[Number(chainId)];
+    if (!rpcUrl) throw new Error('No RPC URL configured');
+    
+    const { createWalletClient, http, encodeFunctionData } = await import('viem');
+    const { privateKeyToAccount } = await import('viem/accounts');
+    
+    const account = privateKeyToAccount(this.config.privateKey);
+    const walletClient = createWalletClient({ account, transport: http(rpcUrl) });
+    
+    const data = encodeFunctionData({
+      abi: [{ name: 'deactivateSolver', type: 'function', inputs: [], outputs: [] }],
+      functionName: 'deactivateSolver',
+      args: []
+    });
+    
+    const hash = await walletClient.sendTransaction({
+      to: this.config.contracts.solverRegistry,
+      data,
+    });
+    
+    console.log(`[Bridge] Deactivate solver tx: ${hash}`);
+    return hash;
   }
 
   async getSolverStats(): Promise<{

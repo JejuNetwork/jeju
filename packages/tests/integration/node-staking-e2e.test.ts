@@ -16,7 +16,9 @@
 
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
 import { $ } from 'bun';
-import { ethers } from 'ethers';
+import { createPublicClient, createWalletClient, http, parseAbi, readContract, writeContract, waitForTransactionReceipt, formatEther, parseEther, getBalance, type Address, type PublicClient, type WalletClient } from 'viem';
+import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
+import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 
 // This E2E test starts a full localnet - only run manually with RUN_E2E_TESTS=1
 // Check if explicitly enabled and if Kurtosis is installed
@@ -34,24 +36,24 @@ if (runE2ETests) {
 }
 
 describe.skipIf(!runE2ETests || !kurtosisAvailable)('Node Staking System E2E (Multi-Token)', () => {
-  let provider: ethers.Provider;
-  let deployer: ethers.Wallet;
-  let operator1: ethers.Wallet;
-  let operator2: ethers.Wallet;
-  let oracle: ethers.Wallet;
+  let publicClient: PublicClient;
+  let deployerAccount: ReturnType<typeof privateKeyToAccount>;
+  let deployerWalletClient: WalletClient;
+  let operator1Account: ReturnType<typeof privateKeyToAccount>;
+  let operator1WalletClient: WalletClient;
+  let operator2Account: ReturnType<typeof privateKeyToAccount>;
+  let operator2WalletClient: WalletClient;
+  let oracleAccount: ReturnType<typeof privateKeyToAccount>;
+  let oracleWalletClient: WalletClient;
   
-  let elizaToken: ethers.Contract;
-  let usdcToken: ethers.Contract;
-  let stakingManager: ethers.Contract;
-  let tokenRegistry: ethers.Contract;
-  let paymasterFactory: ethers.Contract;
-  let priceOracle: ethers.Contract;
+  let rewardTokenAddress: Address;
+  let rewardsContractAddress: Address;
   
-  let node1Id: string;
-  let node2Id: string;
+  let node1Id: `0x${string}`;
+  let node2Id: `0x${string}`;
   
-  const INITIAL_BALANCE = ethers.parseEther('10000'); // 10k tokens per operator
-  const STAKE_AMOUNT = ethers.parseEther('1000'); // 1k tokens stake
+  const INITIAL_BALANCE = parseEther('10000'); // 10k tokens per operator
+  const STAKE_AMOUNT = parseEther('1000'); // 1k tokens stake
   
   beforeAll(async () => {
     console.log('\n🚀 Setting up E2E test environment...\n');
@@ -64,36 +66,46 @@ describe.skipIf(!runE2ETests || !kurtosisAvailable)('Node Staking System E2E (Mu
     const l2Port = await $`kurtosis port print jeju-localnet op-geth rpc`.text();
     const rpcUrl = `http://${l2Port.trim()}`;
     
-    provider = new ethers.JsonRpcProvider(rpcUrl);
+    const chain = inferChainFromRpcUrl(rpcUrl);
+    publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
     
     // Create wallets
-    deployer = new ethers.Wallet(
-      '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
-      provider
-    );
-    operator1 = new ethers.Wallet(ethers.Wallet.createRandom().privateKey, provider);
-    operator2 = new ethers.Wallet(ethers.Wallet.createRandom().privateKey, provider);
-    oracle = new ethers.Wallet(ethers.Wallet.createRandom().privateKey, provider);
+    deployerAccount = privateKeyToAccount('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as `0x${string}`);
+    deployerWalletClient = createWalletClient({ chain, transport: http(rpcUrl), account: deployerAccount });
     
-    console.log(`   Deployer: ${deployer.address}`);
-    console.log(`   Operator 1: ${operator1.address}`);
-    console.log(`   Operator 2: ${operator2.address}`);
-    console.log(`   Oracle: ${oracle.address}\n`);
+    operator1Account = privateKeyToAccount(generatePrivateKey());
+    operator1WalletClient = createWalletClient({ chain, transport: http(rpcUrl), account: operator1Account });
+    
+    operator2Account = privateKeyToAccount(generatePrivateKey());
+    operator2WalletClient = createWalletClient({ chain, transport: http(rpcUrl), account: operator2Account });
+    
+    oracleAccount = privateKeyToAccount(generatePrivateKey());
+    oracleWalletClient = createWalletClient({ chain, transport: http(rpcUrl), account: oracleAccount });
+    
+    console.log(`   Deployer: ${deployerAccount.address}`);
+    console.log(`   Operator 1: ${operator1Account.address}`);
+    console.log(`   Operator 2: ${operator2Account.address}`);
+    console.log(`   Oracle: ${oracleAccount.address}\n`);
     
     // Fund wallets
     console.log('💰 Funding test wallets...');
-    await deployer.sendTransaction({
-      to: operator1.address,
-      value: ethers.parseEther('1'),
+    const hash1 = await deployerWalletClient.sendTransaction({
+      to: operator1Account.address,
+      value: parseEther('1'),
     });
-    await deployer.sendTransaction({
-      to: operator2.address,
-      value: ethers.parseEther('1'),
+    await waitForTransactionReceipt(publicClient, { hash: hash1 });
+    
+    const hash2 = await deployerWalletClient.sendTransaction({
+      to: operator2Account.address,
+      value: parseEther('1'),
     });
-    await deployer.sendTransaction({
-      to: oracle.address,
-      value: ethers.parseEther('0.1'),
+    await waitForTransactionReceipt(publicClient, { hash: hash2 });
+    
+    const hash3 = await deployerWalletClient.sendTransaction({
+      to: oracleAccount.address,
+      value: parseEther('0.1'),
     });
+    await waitForTransactionReceipt(publicClient, { hash: hash3 });
     
     console.log('✅ Wallets funded\n');
   });
@@ -106,29 +118,18 @@ describe.skipIf(!runE2ETests || !kurtosisAvailable)('Node Staking System E2E (Mu
   test('Deploy reward token and rewards contract', async () => {
     console.log('\n📝 Test: Deploy contracts\n');
     
-    // Deploy mock ERC20 token
-    const tokenFactory = new ethers.ContractFactory(
-      ['function mint(address to, uint256 amount) external'],
-      '0x', // Bytecode placeholder - use actual token deployment
-      deployer
-    );
-    
     // For now, use existing deployment
     const deploymentFile = await Bun.file('packages/contracts/deployments/rewards-localnet.json').json();
     
-    rewardToken = new ethers.Contract(
-      deploymentFile.rewardToken,
-      ['function balanceOf(address) external view returns (uint256)', 'function transfer(address, uint256) external returns (bool)', 'function approve(address, uint256) external returns (bool)', 'function transferFrom(address, address, uint256) external returns (bool)'],
-      deployer
-    );
+    rewardTokenAddress = deploymentFile.rewardToken as Address;
+    rewardsContractAddress = deploymentFile.nodeOperatorRewards as Address;
     
-    rewardsContract = new ethers.Contract(
-      deploymentFile.nodeOperatorRewards,
-      ['function registerNode(string calldata rpcUrl, uint8 geographicRegion, uint256 stakeAmount) external returns (bytes32)', 'function getPerformanceOracles() external view returns (address[])', 'function totalActiveNodes() external view returns (uint256)'],
-      deployer
-    );
-    
-    const oracles = await rewardsContract.getPerformanceOracles();
+    const rewardsAbi = parseAbi(['function getPerformanceOracles() external view returns (address[])']);
+    const oracles = await readContract(publicClient, {
+      address: rewardsContractAddress,
+      abi: rewardsAbi,
+      functionName: 'getPerformanceOracles',
+    }) as readonly Address[];
     
     expect(oracles.length).toBeGreaterThan(0);
     console.log(`✅ ${oracles.length} oracle(s) registered\n`);
@@ -137,58 +138,103 @@ describe.skipIf(!runE2ETests || !kurtosisAvailable)('Node Staking System E2E (Mu
   test('Fund operators with reward tokens', async () => {
     console.log('\n📝 Test: Fund operators\n');
     
-    // Transfer tokens to operators
-    await rewardToken.transfer(operator1.address, INITIAL_BALANCE);
-    await rewardToken.transfer(operator2.address, INITIAL_BALANCE);
+    const erc20Abi = parseAbi(['function transfer(address, uint256) external returns (bool)', 'function balanceOf(address) external view returns (uint256)']);
     
-    const balance1 = await rewardToken.balanceOf(operator1.address);
-    const balance2 = await rewardToken.balanceOf(operator2.address);
+    // Transfer tokens to operators
+    const hash1 = await deployerWalletClient.writeContract({
+      address: rewardTokenAddress,
+      abi: erc20Abi,
+      functionName: 'transfer',
+      args: [operator1Account.address, INITIAL_BALANCE],
+    });
+    await waitForTransactionReceipt(publicClient, { hash: hash1 });
+    
+    const hash2 = await deployerWalletClient.writeContract({
+      address: rewardTokenAddress,
+      abi: erc20Abi,
+      functionName: 'transfer',
+      args: [operator2Account.address, INITIAL_BALANCE],
+    });
+    await waitForTransactionReceipt(publicClient, { hash: hash2 });
+    
+    const balance1 = await readContract(publicClient, {
+      address: rewardTokenAddress,
+      abi: erc20Abi,
+      functionName: 'balanceOf',
+      args: [operator1Account.address],
+    }) as bigint;
+    
+    const balance2 = await readContract(publicClient, {
+      address: rewardTokenAddress,
+      abi: erc20Abi,
+      functionName: 'balanceOf',
+      args: [operator2Account.address],
+    }) as bigint;
     
     expect(balance1).toBe(INITIAL_BALANCE);
     expect(balance2).toBe(INITIAL_BALANCE);
     
-    console.log(`✅ Operators funded: ${ethers.formatEther(INITIAL_BALANCE)} tokens each\n`);
+    console.log(`✅ Operators funded: ${formatEther(INITIAL_BALANCE)} tokens each\n`);
   });
   
   test('Register nodes and stake tokens', async () => {
     console.log('\n📝 Test: Register nodes\n');
     
-    // Operator 1 approves and registers
-    const token1 = rewardToken.connect(operator1);
-    await token1.approve(rewardsContract.target, STAKE_AMOUNT);
+    const erc20Abi = parseAbi(['function approve(address, uint256) external returns (bool)']);
+    const rewardsAbi = parseAbi([
+      'function registerNode(string calldata rpcUrl, uint8 geographicRegion, uint256 stakeAmount) external returns (bytes32)',
+      'function totalActiveNodes() external view returns (uint256)'
+    ]);
     
-    const rewards1 = rewardsContract.connect(operator1);
-    const tx1 = await rewards1.registerNode(
-      'https://rpc1.example.com',
-      3, // Region.Asia
-      STAKE_AMOUNT
-    );
-    const receipt1 = await tx1.wait();
+    // Operator 1 approves and registers
+    const approveHash1 = await operator1WalletClient.writeContract({
+      address: rewardTokenAddress,
+      abi: erc20Abi,
+      functionName: 'approve',
+      args: [rewardsContractAddress, STAKE_AMOUNT],
+    });
+    await waitForTransactionReceipt(publicClient, { hash: approveHash1 });
+    
+    const registerHash1 = await operator1WalletClient.writeContract({
+      address: rewardsContractAddress,
+      abi: rewardsAbi,
+      functionName: 'registerNode',
+      args: ['https://rpc1.example.com', 3, STAKE_AMOUNT],
+    });
+    const receipt1 = await waitForTransactionReceipt(publicClient, { hash: registerHash1 });
     
     // Extract nodeId from events
-    // This is simplified - in real test, parse the NodeRegistered event
-    node1Id = receipt1.logs[0].topics[1]; // Assume first indexed param is nodeId
+    node1Id = receipt1.logs[0].topics[1] as `0x${string}`;
     
     console.log(`✅ Node 1 registered: ${node1Id.slice(0, 10)}...\n`);
     
     // Operator 2 approves and registers  
-    const token2 = rewardToken.connect(operator2);
-    await token2.approve(rewardsContract.target, STAKE_AMOUNT);
+    const approveHash2 = await operator2WalletClient.writeContract({
+      address: rewardTokenAddress,
+      abi: erc20Abi,
+      functionName: 'approve',
+      args: [rewardsContractAddress, STAKE_AMOUNT],
+    });
+    await waitForTransactionReceipt(publicClient, { hash: approveHash2 });
     
-    const rewards2 = rewardsContract.connect(operator2);
-    const tx2 = await rewards2.registerNode(
-      'https://rpc2.example.com',
-      2, // Region.Europe
-      STAKE_AMOUNT
-    );
-    const receipt2 = await tx2.wait();
+    const registerHash2 = await operator2WalletClient.writeContract({
+      address: rewardsContractAddress,
+      abi: rewardsAbi,
+      functionName: 'registerNode',
+      args: ['https://rpc2.example.com', 2, STAKE_AMOUNT],
+    });
+    const receipt2 = await waitForTransactionReceipt(publicClient, { hash: registerHash2 });
     
-    node2Id = receipt2.logs[0].topics[1];
+    node2Id = receipt2.logs[0].topics[1] as `0x${string}`;
     
     console.log(`✅ Node 2 registered: ${node2Id.slice(0, 10)}...\n`);
     
     // Verify total active nodes
-    const activeNodes = await rewardsContract.totalActiveNodes();
+    const activeNodes = await readContract(publicClient, {
+      address: rewardsContractAddress,
+      abi: rewardsAbi,
+      functionName: 'totalActiveNodes',
+    }) as bigint;
     expect(activeNodes).toBe(2n);
     
     console.log(`✅ Total active nodes: ${activeNodes}\n`);
@@ -197,25 +243,27 @@ describe.skipIf(!runE2ETests || !kurtosisAvailable)('Node Staking System E2E (Mu
   test('Oracle updates performance data', async () => {
     console.log('\n📝 Test: Oracle updates\n');
     
-    const rewardsWithOracle = rewardsContract.connect(oracle);
+    const rewardsAbi = parseAbi(['function updatePerformance(bytes32, uint256, uint256, uint256) external']);
     
     // Update performance for node 1
-    await rewardsWithOracle.updatePerformance(
-      node1Id,
-      9950, // 99.50% uptime
-      500000, // 500k requests
-      50 // 50ms avg response
-    );
+    const hash1 = await oracleWalletClient.writeContract({
+      address: rewardsContractAddress,
+      abi: rewardsAbi,
+      functionName: 'updatePerformance',
+      args: [node1Id, 9950n, 500000n, 50n],
+    });
+    await waitForTransactionReceipt(publicClient, { hash: hash1 });
     
     console.log(`✅ Node 1 performance updated\n`);
     
     // Update performance for node 2
-    await rewardsWithOracle.updatePerformance(
-      node2Id,
-      9800, // 98.00% uptime
-      250000, // 250k requests
-      75 // 75ms avg response
-    );
+    const hash2 = await oracleWalletClient.writeContract({
+      address: rewardsContractAddress,
+      abi: rewardsAbi,
+      functionName: 'updatePerformance',
+      args: [node2Id, 9800n, 250000n, 75n],
+    });
+    await waitForTransactionReceipt(publicClient, { hash: hash2 });
     
     console.log(`✅ Node 2 performance updated\n`);
   });
@@ -224,23 +272,27 @@ describe.skipIf(!runE2ETests || !kurtosisAvailable)('Node Staking System E2E (Mu
     console.log('\n📝 Test: Calculate rewards\n');
     
     // Fast forward time 30 days
-    await provider.send('evm_increaseTime', [30 * 24 * 60 * 60]);
-    await provider.send('evm_mine', []);
+    await publicClient.request({ method: 'evm_increaseTime', params: [30 * 24 * 60 * 60] } as never);
+    await publicClient.request({ method: 'evm_mine', params: [] } as never);
     
-    const rewardsABI = [
-      'function calculateRewards(bytes32) external view returns (uint256)',
-    ];
-    const rewardsView = new ethers.Contract(
-      rewardsContract.target,
-      rewardsABI,
-      provider
-    );
+    const rewardsAbi = parseAbi(['function calculateRewards(bytes32) external view returns (uint256)']);
     
-    const rewards1 = await rewardsView.calculateRewards(node1Id);
-    const rewards2 = await rewardsView.calculateRewards(node2Id);
+    const rewards1 = await readContract(publicClient, {
+      address: rewardsContractAddress,
+      abi: rewardsAbi,
+      functionName: 'calculateRewards',
+      args: [node1Id],
+    }) as bigint;
     
-    console.log(`   Node 1 rewards: ${ethers.formatEther(rewards1)} JEJU`);
-    console.log(`   Node 2 rewards: ${ethers.formatEther(rewards2)} JEJU\n`);
+    const rewards2 = await readContract(publicClient, {
+      address: rewardsContractAddress,
+      abi: rewardsAbi,
+      functionName: 'calculateRewards',
+      args: [node2Id],
+    }) as bigint;
+    
+    console.log(`   Node 1 rewards: ${formatEther(rewards1)} JEJU`);
+    console.log(`   Node 2 rewards: ${formatEther(rewards2)} JEJU\n`);
     
     expect(rewards1).toBeGreaterThan(0n);
     expect(rewards2).toBeGreaterThan(0n);
@@ -254,15 +306,33 @@ describe.skipIf(!runE2ETests || !kurtosisAvailable)('Node Staking System E2E (Mu
   test('Claim rewards', async () => {
     console.log('\n📝 Test: Claim rewards\n');
     
-    const balanceBefore1 = await rewardToken.balanceOf(operator1.address);
+    const erc20Abi = parseAbi(['function balanceOf(address) external view returns (uint256)']);
+    const rewardsAbi = parseAbi(['function claimRewards(bytes32) external']);
     
-    const rewards1WithOperator = rewardsContract.connect(operator1);
-    await rewards1WithOperator.claimRewards(node1Id);
+    const balanceBefore1 = await readContract(publicClient, {
+      address: rewardTokenAddress,
+      abi: erc20Abi,
+      functionName: 'balanceOf',
+      args: [operator1Account.address],
+    }) as bigint;
     
-    const balanceAfter1 = await rewardToken.balanceOf(operator1.address);
+    const hash = await operator1WalletClient.writeContract({
+      address: rewardsContractAddress,
+      abi: rewardsAbi,
+      functionName: 'claimRewards',
+      args: [node1Id],
+    });
+    await waitForTransactionReceipt(publicClient, { hash });
+    
+    const balanceAfter1 = await readContract(publicClient, {
+      address: rewardTokenAddress,
+      abi: erc20Abi,
+      functionName: 'balanceOf',
+      args: [operator1Account.address],
+    }) as bigint;
     const claimed = balanceAfter1 - balanceBefore1;
     
-    console.log(`   Claimed: ${ethers.formatEther(claimed)} JEJU`);
+    console.log(`   Claimed: ${formatEther(claimed)} JEJU`);
     
     expect(claimed).toBeGreaterThan(0n);
     
@@ -272,13 +342,15 @@ describe.skipIf(!runE2ETests || !kurtosisAvailable)('Node Staking System E2E (Mu
   test('Update node metadata', async () => {
     console.log('\n📝 Test: Update metadata\n');
     
-    const rewards1 = rewardsContract.connect(operator1);
+    const rewardsAbi = parseAbi(['function updateNodeMetadata(bytes32, string, uint8) external']);
     
-    await rewards1.updateNodeMetadata(
-      node1Id,
-      'https://new-rpc1.example.com',
-      2 // Move to Europe
-    );
+    const hash = await operator1WalletClient.writeContract({
+      address: rewardsContractAddress,
+      abi: rewardsAbi,
+      functionName: 'updateNodeMetadata',
+      args: [node1Id, 'https://new-rpc1.example.com', 2],
+    });
+    await waitForTransactionReceipt(publicClient, { hash });
     
     console.log(`✅ Node metadata updated\n`);
   });
@@ -286,17 +358,28 @@ describe.skipIf(!runE2ETests || !kurtosisAvailable)('Node Staking System E2E (Mu
   test('Slash misbehaving node', async () => {
     console.log('\n📝 Test: Slash node\n');
     
+    const rewardsAbi = parseAbi([
+      'function slashNode(bytes32, uint256, string) external',
+      'function totalActiveNodes() external view returns (uint256)'
+    ]);
+    
     // Owner slashes node 2 for 50%
-    await rewardsContract.slashNode(
-      node2Id,
-      5000, // 50%
-      'Extended downtime'
-    );
+    const hash = await deployerWalletClient.writeContract({
+      address: rewardsContractAddress,
+      abi: rewardsAbi,
+      functionName: 'slashNode',
+      args: [node2Id, 5000n, 'Extended downtime'],
+    });
+    await waitForTransactionReceipt(publicClient, { hash });
     
     console.log(`✅ Node 2 slashed (50%)\n`);
     
     // Verify total active nodes decreased
-    const activeNodes = await rewardsContract.totalActiveNodes();
+    const activeNodes = await readContract(publicClient, {
+      address: rewardsContractAddress,
+      abi: rewardsAbi,
+      functionName: 'totalActiveNodes',
+    }) as bigint;
     expect(activeNodes).toBe(1n); // Only node 1 is active
     
     console.log(`✅ Active nodes: ${activeNodes}\n`);
@@ -305,15 +388,33 @@ describe.skipIf(!runE2ETests || !kurtosisAvailable)('Node Staking System E2E (Mu
   test('Slashed node can deregister and recover remaining stake', async () => {
     console.log('\n📝 Test: Deregister slashed node\n');
     
-    const balanceBefore = await rewardToken.balanceOf(operator2.address);
+    const erc20Abi = parseAbi(['function balanceOf(address) external view returns (uint256)']);
+    const rewardsAbi = parseAbi(['function deregisterNode(bytes32) external']);
     
-    const rewards2 = rewardsContract.connect(operator2);
-    await rewards2.deregisterNode(node2Id);
+    const balanceBefore = await readContract(publicClient, {
+      address: rewardTokenAddress,
+      abi: erc20Abi,
+      functionName: 'balanceOf',
+      args: [operator2Account.address],
+    }) as bigint;
     
-    const balanceAfter = await rewardToken.balanceOf(operator2.address);
+    const hash = await operator2WalletClient.writeContract({
+      address: rewardsContractAddress,
+      abi: rewardsAbi,
+      functionName: 'deregisterNode',
+      args: [node2Id],
+    });
+    await waitForTransactionReceipt(publicClient, { hash });
+    
+    const balanceAfter = await readContract(publicClient, {
+      address: rewardTokenAddress,
+      abi: erc20Abi,
+      functionName: 'balanceOf',
+      args: [operator2Account.address],
+    }) as bigint;
     const recovered = balanceAfter - balanceBefore;
     
-    console.log(`   Recovered: ${ethers.formatEther(recovered)} JEJU`);
+    console.log(`   Recovered: ${formatEther(recovered)} JEJU`);
     
     // Should get back 50% of stake (other 50% was slashed)
     const expectedRecovery = STAKE_AMOUNT / 2n;
@@ -325,17 +426,25 @@ describe.skipIf(!runE2ETests || !kurtosisAvailable)('Node Staking System E2E (Mu
   test('Verify gas costs are reasonable', async () => {
     console.log('\n📝 Test: Gas costs\n');
     
-    // Re-register node 2 to test gas
-    const token2 = rewardToken.connect(operator2);
-    await token2.approve(rewardsContract.target, STAKE_AMOUNT);
+    const erc20Abi = parseAbi(['function approve(address, uint256) external returns (bool)']);
+    const rewardsAbi = parseAbi(['function registerNode(string calldata rpcUrl, uint8 geographicRegion, uint256 stakeAmount) external returns (bytes32)']);
     
-    const rewards2 = rewardsContract.connect(operator2);
-    const tx = await rewards2.registerNode(
-      'https://rpc3.example.com',
-      1, // Region.SouthAmerica
-      STAKE_AMOUNT
-    );
-    const receipt = await tx.wait();
+    // Re-register node 2 to test gas
+    const approveHash = await operator2WalletClient.writeContract({
+      address: rewardTokenAddress,
+      abi: erc20Abi,
+      functionName: 'approve',
+      args: [rewardsContractAddress, STAKE_AMOUNT],
+    });
+    await waitForTransactionReceipt(publicClient, { hash: approveHash });
+    
+    const registerHash = await operator2WalletClient.writeContract({
+      address: rewardsContractAddress,
+      abi: rewardsAbi,
+      functionName: 'registerNode',
+      args: ['https://rpc3.example.com', 1, STAKE_AMOUNT],
+    });
+    const receipt = await waitForTransactionReceipt(publicClient, { hash: registerHash });
     
     const gasUsed = Number(receipt.gasUsed);
     

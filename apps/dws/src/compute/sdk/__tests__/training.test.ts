@@ -522,11 +522,13 @@ describe('TrainingSDK edge cases', () => {
       expect(id2).not.toBe(id3);
     });
 
-    test('generateRunId produces same ID for same inputs (deterministic)', () => {
+    test('generateRunId produces unique IDs with timestamp', async () => {
       const id1 = TrainingSDK.generateRunId('my-run', mockAccount.address);
+      await new Promise((r) => setTimeout(r, 2));
       const id2 = TrainingSDK.generateRunId('my-run', mockAccount.address);
 
-      expect(id1).toBe(id2);
+      // IDs should differ because timestamp component changes
+      expect(id1).not.toBe(id2);
     });
 
     test('getDefaultLLMConfig handles minimum values', () => {

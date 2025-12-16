@@ -1,5 +1,7 @@
 #!/usr/bin/env bun
 /**
+ * @internal Used by CLI: `jeju deploy testnet-full`
+ * 
  * Full Testnet Deployment Script
  * 
  * Deploys and configures:
@@ -19,7 +21,7 @@
 import { createPublicClient, createWalletClient, http, parseEther, formatEther, getBalance, readContract, writeContract, waitForTransactionReceipt, zeroAddress, sendTransaction, type Address } from 'viem';
 import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 import { parseAbi } from 'viem';
-import { inferChainFromRpcUrl } from './scripts/shared/chain-utils';
+import { inferChainFromRpcUrl } from '../shared/chain-utils';
 import { writeFileSync } from 'fs';
 
 // ============ Configuration ============

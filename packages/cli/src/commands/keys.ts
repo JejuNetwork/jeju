@@ -18,6 +18,7 @@ import { join } from 'path';
 import { randomBytes, createHash } from 'crypto';
 import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 import { keccak256, stringToBytes } from 'viem';
+import { execa } from 'execa';
 import { logger } from '../lib/logger';
 import {
   getDevKeys,
@@ -26,7 +27,7 @@ import {
   validatePassword,
   type OperatorKeySet,
 } from '../lib/keys';
-import { getKeysDir } from '../lib/system';
+import { getKeysDir, findMonorepoRoot } from '../lib/system';
 import { type NetworkType, type KeyConfig, type KeySet } from '../types';
 
 export const keysCommand = new Command('keys')
@@ -96,6 +97,30 @@ const distributedSubcommand = new Command('distributed')
   });
 
 keysCommand.addCommand(distributedSubcommand);
+
+// Setup testnet deployer subcommand
+const setupTestnetSubcommand = new Command('setup-testnet')
+  .description('Setup testnet deployer wallet across all testnets')
+  .option('--bridge', 'Automatically bridge ETH to L2s if Sepolia is funded')
+  .action(async (options) => {
+    const rootDir = findMonorepoRoot();
+    const scriptPath = join(rootDir, 'scripts/keys/setup-testnet-deployer.ts');
+    
+    if (!existsSync(scriptPath)) {
+      logger.error('Setup testnet deployer script not found');
+      return;
+    }
+
+    const args: string[] = [];
+    if (options.bridge) args.push('--bridge');
+
+    await execa('bun', ['run', scriptPath, ...args], {
+      cwd: rootDir,
+      stdio: 'inherit',
+    });
+  });
+
+keysCommand.addCommand(setupTestnetSubcommand);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TEE CEREMONY FUNCTIONS

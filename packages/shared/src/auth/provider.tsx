@@ -284,19 +284,25 @@ export function AuthProvider({ children, config, wallet, onSessionChange }: Auth
 
     if (provider === 'farcaster') {
       // Use SIWF flow for Farcaster
-      const channelResponse = await createAuthChannel();
+      const nonce = Math.random().toString(36).slice(2);
+      const channelResponse = await createAuthChannel({
+        domain: window.location.host,
+        siweUri: window.location.origin,
+        nonce,
+      });
       window.open(channelResponse.url, '_blank', 'width=500,height=600');
       
-      const response = await pollAuthChannel(channelResponse.channelToken);
-      if (!response.signature) {
-        throw new Error('Farcaster linking cancelled');
+      const response = await pollAuthChannel({ channelToken: channelResponse.channelToken });
+      if (!response) {
+        throw new Error('Farcaster linking cancelled or timed out');
       }
 
       const linkedProvider: LinkedProvider = {
         provider: 'farcaster',
-        providerId: response.fid?.toString() || '',
-        handle: response.username || '',
+        providerId: response.fid.toString(),
+        handle: response.username || `fid:${response.fid}`,
         linkedAt: Date.now(),
+        verified: true,
       };
 
       // Update session with new linked provider
@@ -310,11 +316,11 @@ export function AuthProvider({ children, config, wallet, onSessionChange }: Auth
     }
 
     // OAuth flow for other social providers
-    const oauth3ServerUrl = config.oauth3ServerUrl || process.env.NEXT_PUBLIC_OAUTH3_SERVER_URL || 'http://localhost:4100';
+    const oauth3AgentUrl = config.oauth3AgentUrl || 'http://localhost:4200';
     const callbackUrl = `${window.location.origin}/auth/callback`;
     
     // Initiate OAuth flow
-    const authUrl = `${oauth3ServerUrl}/oauth/${provider}/authorize?` + 
+    const authUrl = `${oauth3AgentUrl}/oauth/${provider}/authorize?` + 
       `redirect_uri=${encodeURIComponent(callbackUrl)}&` +
       `state=${encodeURIComponent(JSON.stringify({ action: 'link', address: state.session.address }))}`;
     
