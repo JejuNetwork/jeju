@@ -8,31 +8,7 @@ import {IIdentityRegistry} from "../registry/interfaces/IIdentityRegistry.sol";
 
 /**
  * @title ServiceRegistry
- * @author Jeju Network
  * @notice Generic registry for service pricing, usage tracking, and volume discounts
- * @dev Manages pricing for ANY type of service with dynamic pricing and volume discounts.
- *      Integrates with ERC-8004 IdentityRegistry for provider identity verification.
- *
- * Supports Multiple Service Categories:
- * - AI Services: chat-completion, image-generation, video-generation, embeddings
- * - Compute: container hosting, serverless functions, GPU compute
- * - Storage: file storage, IPFS pinning, database hosting
- * - Game Services: game servers, matchmaking, leaderboards
- * - API Services: custom APIs, webhooks, data feeds
- *
- * Pricing Model:
- * - Base price per service (in payment token, typically 18 decimals)
- * - Volume discounts for high-usage users
- * - Demand multipliers during peak usage
- * - Multi-currency support (not hardcoded to elizaOS)
- *
- * Generic Design:
- * - No hardcoded service types - services are registered dynamically
- * - No hardcoded payment token - works with any ERC-20
- * - Category-based organization for discovery
- * - Extensible for future service types
- *
- * @custom:security-contact security@jeju.network
  */
 contract ServiceRegistry is Ownable, Pausable, ReentrancyGuard {
     // ============ Structs ============
@@ -52,10 +28,10 @@ contract ServiceRegistry is Ownable, Pausable, ReentrancyGuard {
     }
 
     struct UserUsage {
-        uint256 totalSpent; // Total tokens spent by user
-        uint256 requestCount; // Total requests made
-        uint256 lastUsedBlock; // Last block user used service
-        uint256 volumeDiscount; // User's volume discount (basis points)
+        uint256 totalSpent;
+        uint256 requestCount;
+        uint256 lastUsedBlock;
+        uint256 volumeDiscount;
     }
 
     struct UsageRecord {
@@ -67,60 +43,19 @@ contract ServiceRegistry is Ownable, Pausable, ReentrancyGuard {
         uint256 blockNumber;
     }
 
-    // ============ State Variables ============
-
-    /// @notice Mapping of service name => service configuration
     mapping(string => ServiceConfig) public services;
-
-    /// @notice Mapping of user => service => usage stats
     mapping(address => mapping(string => UserUsage)) public userUsage;
-
-    /// @notice Mapping of session ID => usage record for audit trail
     mapping(bytes32 => UsageRecord) public usageRecords;
-
-    /// @notice List of all registered service names
     string[] public serviceNames;
-
-    /// @notice Mapping of category => list of services
     mapping(string => string[]) public servicesByCategory;
-
-    /// @notice Basis points denominator (10000 = 100%)
     uint256 public constant BASIS_POINTS = 10000;
-
-    /// @notice Volume discount tiers (spending thresholds in tokens)
-    uint256[] public volumeTiers = [
-        0, // 0%    - 0 spent
-        1000 * 1e18, // 5%    - 1,000 tokens
-        5000 * 1e18, // 10%   - 5,000 tokens
-        10000 * 1e18, // 15%   - 10,000 tokens
-        50000 * 1e18 // 20%   - 50,000 tokens
-    ];
-
-    /// @notice Volume discount rates (basis points)
-    uint256[] public volumeDiscounts = [
-        0, // 0% discount
-        500, // 5% discount
-        1000, // 10% discount
-        1500, // 15% discount
-        2000 // 20% discount
-    ];
-
-    /// @notice Treasury address for revenue collection
+    uint256[] public volumeTiers = [0, 1000 * 1e18, 5000 * 1e18, 10000 * 1e18, 50000 * 1e18];
+    uint256[] public volumeDiscounts = [0, 500, 1000, 1500, 2000];
     address public treasury;
-
-    /// @notice ERC-8004 Identity Registry for provider verification (optional)
     IIdentityRegistry public identityRegistry;
-
-    /// @notice Whether to require ERC-8004 agent registration for providers
     bool public requireAgentRegistration;
-
-    /// @notice Mapping of agent ID => list of services they provide
     mapping(uint256 => string[]) public agentServices;
-
-    /// @notice Authorized callers (paymasters) that can record usage
     mapping(address => bool) public authorizedCallers;
-
-    // ============ Events ============
 
     event ServiceRegistered(
         string indexed serviceName,
@@ -145,7 +80,6 @@ contract ServiceRegistry is Ownable, Pausable, ReentrancyGuard {
     event IdentityRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
     event AgentRegistrationRequirementUpdated(bool required);
 
-    // ============ Errors ============
 
     error ServiceNotFound(string serviceName);
     error ServiceAlreadyExists(string serviceName);

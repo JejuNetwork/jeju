@@ -134,7 +134,6 @@ contract PaymasterFactory is Ownable {
         return deployedTokens;
     }
 
-
     function getDeploymentsByOperator(address operator) external view returns (address[] memory) {
         return operatorDeployments[operator];
     }

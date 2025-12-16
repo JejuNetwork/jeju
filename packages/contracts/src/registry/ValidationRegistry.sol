@@ -92,16 +92,6 @@ contract ValidationRegistry is IValidationRegistry {
         emit ValidationRequest(validatorAddress, agentId, requestUri, finalRequestHash);
     }
 
-    /**
-     * @notice Provide a validation response
-     * @dev Must be called by the validator address specified in the request
-     * @dev Can be called multiple times for progressive validation states
-     * @param requestHash The hash of the validation request
-     * @param response The validation result (0-100)
-     * @param responseUri URI pointing to validation evidence (optional)
-     * @param responseHash KECCAK-256 hash of response data (optional for IPFS)
-     * @param tag Custom tag for categorization (optional)
-     */
     function validationResponse(
         bytes32 requestHash,
         uint8 response,

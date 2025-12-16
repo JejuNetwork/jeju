@@ -126,10 +126,6 @@ contract BanManager is Ownable, Pausable {
         emit AppBanApplied(agentId, appId, reason, proposalId, block.timestamp);
     }
 
-    /**
-     * @notice Remove network-wide ban (via appeal)
-     * @param agentId Agent ID to unban
-     */
     function unbanFromNetwork(uint256 agentId) external onlyGovernance {
         if (!networkBans[agentId].isBanned) revert NotBanned();
 
@@ -138,17 +134,11 @@ contract BanManager is Ownable, Pausable {
         emit NetworkBanRemoved(agentId, block.timestamp);
     }
 
-    /**
-     * @notice Remove app-specific ban
-     * @param agentId Agent ID to unban
-     * @param appId App identifier
-     */
     function unbanFromApp(uint256 agentId, bytes32 appId) external onlyGovernance {
         if (!appBans[agentId][appId].isBanned) revert NotBanned();
 
         delete appBans[agentId][appId];
 
-        // Remove from tracking array
         bytes32[] storage bans = _agentAppBans[agentId];
         for (uint256 i = 0; i < bans.length; i++) {
             if (bans[i] == appId) {
@@ -161,107 +151,42 @@ contract BanManager is Ownable, Pausable {
         emit AppBanRemoved(agentId, appId, block.timestamp);
     }
 
-    // ============ Access Control Checks ============
-
-    /**
-     * @notice Check if agent has access to specific app
-     * @param agentId Agent ID to check
-     * @param appId App identifier
-     * @return allowed True if access allowed, false if banned
-     * @dev This is the main function apps call to check access
-     */
-    function isAccessAllowed(uint256 agentId, bytes32 appId) external view returns (bool allowed) {
-        // Network ban denies access to ALL apps
-        if (networkBans[agentId].isBanned) {
-            return false;
-        }
-
-        // App-specific ban
-        if (appBans[agentId][appId].isBanned) {
-            return false;
-        }
-
+    function isAccessAllowed(uint256 agentId, bytes32 appId) external view returns (bool) {
+        if (networkBans[agentId].isBanned) return false;
+        if (appBans[agentId][appId].isBanned) return false;
         return true;
     }
 
-    /**
-     * @notice Check if agent is network banned
-     * @param agentId Agent ID to check
-     * @return True if network banned
-     */
     function isNetworkBanned(uint256 agentId) external view returns (bool) {
         return networkBans[agentId].isBanned;
     }
 
-    /**
-     * @notice Check if agent is banned from specific app
-     * @param agentId Agent ID to check
-     * @param appId App identifier
-     * @return True if banned from app
-     */
     function isAppBanned(uint256 agentId, bytes32 appId) external view returns (bool) {
         return appBans[agentId][appId].isBanned;
     }
 
-    // ============ Query Functions ============
-
-    /**
-     * @notice Get list of apps agent is banned from
-     * @param agentId Agent ID
-     * @return Array of app IDs
-     */
     function getAppBans(uint256 agentId) external view returns (bytes32[] memory) {
         return _agentAppBans[agentId];
     }
 
-    /**
-     * @notice Get network ban details
-     * @param agentId Agent ID
-     * @return ban Full ban record
-     */
-    function getNetworkBan(uint256 agentId) external view returns (BanRecord memory ban) {
+    function getNetworkBan(uint256 agentId) external view returns (BanRecord memory) {
         return networkBans[agentId];
     }
 
-    /**
-     * @notice Get app ban details
-     * @param agentId Agent ID
-     * @param appId App identifier
-     * @return ban Full ban record
-     */
-    function getAppBan(uint256 agentId, bytes32 appId) external view returns (BanRecord memory ban) {
+    function getAppBan(uint256 agentId, bytes32 appId) external view returns (BanRecord memory) {
         return appBans[agentId][appId];
     }
 
-    /**
-     * @notice Get ban reason for agent (network or app)
-     * @param agentId Agent ID
-     * @param appId App identifier (bytes32(0) for network ban)
-     * @return reason Ban reason string
-     */
-    function getBanReason(uint256 agentId, bytes32 appId) external view returns (string memory reason) {
-        // Check network ban first
+    function getBanReason(uint256 agentId, bytes32 appId) external view returns (string memory) {
         if (networkBans[agentId].isBanned) {
             return networkBans[agentId].reason;
         }
-
-        // Check app-specific ban
         if (appId != bytes32(0) && appBans[agentId][appId].isBanned) {
             return appBans[agentId][appId].reason;
         }
-
         return "";
     }
 
-    // ============ Address-Based Ban Functions (ModerationMarketplace) ============
-
-    /**
-     * @notice Place an address on notice (immediate ban pending market)
-     * @param target Address to ban
-     * @param reporter Address of the staked reporter
-     * @param caseId ModerationMarketplace case ID
-     * @param reason Ban reason
-     */
     function placeOnNotice(address target, address reporter, bytes32 caseId, string calldata reason)
         external
         onlyModerator
@@ -286,11 +211,6 @@ contract BanManager is Ownable, Pausable {
         emit OnNoticeBanApplied(target, reporter, caseId, reason);
     }
 
-    /**
-     * @notice Update ban status (e.g., from ON_NOTICE to CHALLENGED or PERMANENT)
-     * @param target Address to update
-     * @param newType New ban type
-     */
     function updateBanStatus(address target, BanType newType) external onlyModerator {
         ExtendedBanRecord storage ban = addressBans[target];
         if (!ban.isBanned) revert NotBanned();
@@ -305,12 +225,6 @@ contract BanManager is Ownable, Pausable {
         emit AddressBanUpdated(target, oldType, newType);
     }
 
-    /**
-     * @notice Apply permanent address ban (after market resolution)
-     * @param target Address to ban
-     * @param caseId Case ID
-     * @param reason Ban reason
-     */
     function applyAddressBan(address target, bytes32 caseId, string calldata reason)
         external
         onlyModerator
@@ -328,10 +242,6 @@ contract BanManager is Ownable, Pausable {
         emit AddressBanApplied(target, BanType.PERMANENT, caseId, reason);
     }
 
-    /**
-     * @notice Remove address ban (after successful appeal)
-     * @param target Address to unban
-     */
     function removeAddressBan(address target) external onlyModerator {
         if (!addressBans[target].isBanned) revert NotBanned();
 
@@ -412,10 +322,6 @@ contract BanManager is Ownable, Pausable {
         emit ModeratorUpdated(moderator, authorized);
     }
 
-    /**
-     * @notice Update governance contract address
-     * @param newGovernance New governance contract
-     */
     function setGovernance(address newGovernance) external onlyOwner {
         require(newGovernance != address(0), "Invalid governance");
         address oldGovernance = governance;
@@ -423,23 +329,14 @@ contract BanManager is Ownable, Pausable {
         emit GovernanceUpdated(oldGovernance, newGovernance);
     }
 
-    /**
-     * @notice Pause contract in emergency
-     */
     function pause() external onlyOwner {
         _pause();
     }
 
-    /**
-     * @notice Unpause contract
-     */
     function unpause() external onlyOwner {
         _unpause();
     }
 
-    /**
-     * @notice Get contract version
-     */
     function version() external pure returns (string memory) {
         return "2.0.0";
     }

@@ -11,7 +11,7 @@ import {ModerationMixin} from "../moderation/ModerationMixin.sol";
 
 /**
  * @title LiquidityPaymaster
- * @notice ERC-4337 paymaster that accepts ERC20 tokens for gas sponsorship
+ * @notice ERC-4337 paymaster accepting ERC20 tokens for gas sponsorship
  */
 contract LiquidityPaymaster is BasePaymaster {
     using SafeERC20 for IERC20;
@@ -57,49 +57,30 @@ contract LiquidityPaymaster is BasePaymaster {
         _transferOwnership(_owner);
     }
 
-    /**
-     * @notice Update fee margin
-     * @param _feeMargin New fee margin in basis points
-     */
     function setFeeMargin(uint256 _feeMargin) external onlyOwner {
         if (_feeMargin > MAX_FEE_MARGIN) revert InvalidFeeMargin();
         emit FeeMarginUpdated(feeMargin, _feeMargin);
         feeMargin = _feeMargin;
     }
 
-    /**
-     * @notice Update oracle address
-     * @param _oracle New oracle address
-     */
     function setOracle(address _oracle) external onlyOwner {
         require(_oracle != address(0), "Invalid oracle");
         emit OracleUpdated(address(oracle), _oracle);
         oracle = IPriceOracle(_oracle);
     }
 
-    /**
-     * @notice Calculate token amount for given ETH cost
-     * @param ethCost Cost in ETH (wei)
-     * @return Token amount including fee margin
-     */
     function getTokenAmountForEth(uint256 ethCost) public view returns (uint256) {
-        (uint256 ethPrice, uint256 ethDecimals) = oracle.getPrice(address(0)); // ETH price in USD
-        (uint256 tokenPrice, uint256 tokenDecimals) = oracle.getPrice(address(token)); // Token price in USD
+        (uint256 ethPrice, uint256 ethDecimals) = oracle.getPrice(address(0));
+        (uint256 tokenPrice, uint256 tokenDecimals) = oracle.getPrice(address(token));
         
         if (ethPrice == 0 || tokenPrice == 0) revert PriceNotAvailable();
         
-        // Normalize decimals and calculate base token amount
         uint256 tokenAmount = (ethCost * ethPrice * (10 ** tokenDecimals)) / (tokenPrice * (10 ** ethDecimals));
-        
-        // Add fee margin
         tokenAmount = tokenAmount + (tokenAmount * feeMargin) / 10000;
         
         return tokenAmount;
     }
 
-    /**
-     * @dev Validate paymaster willingness to pay for user operation
-     */
     function _validatePaymasterUserOp(
         PackedUserOperation calldata userOp,
         bytes32,
@@ -139,13 +120,9 @@ contract LiquidityPaymaster is BasePaymaster {
     ) internal override {
         (address sender,, uint256 maxTokenAmount) = abi.decode(context, (address, uint256, uint256));
         
-        // Calculate actual token cost
         uint256 actualTokenCost = getTokenAmountForEth(actualGasCost);
-        
-        // Use the lesser of actual cost or max amount
         uint256 tokensToPay = actualTokenCost < maxTokenAmount ? actualTokenCost : maxTokenAmount;
         
-        // Transfer tokens from user to vault
         token.safeTransferFrom(sender, vault, tokensToPay);
         
         emit GasSponsored(sender, actualGasCost, tokensToPay);
